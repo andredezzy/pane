@@ -1,0 +1,23 @@
+{
+	"$schema": "https://v2-8-12.turborepo.dev/schema.json",
+	"concurrency": "20",
+	"tasks": {
+		"dev": {
+			"dependsOn": ["^build"],
+			"persistent": true,
+			"cache": false
+		},
+		"build": {
+			"dependsOn": ["^build"],
+			"inputs": ["$TURBO_DEFAULT$", ".env*"],
+			"outputs": ["dist/**", "out/**"]
+		},
+		"typecheck": {
+			"dependsOn": ["^build"],
+			"inputs": ["$TURBO_DEFAULT$", ".env*"]
+		},
+		"test": {
+			"dependsOn": ["^build"]
+		}
+	}
+}

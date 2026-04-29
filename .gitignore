@@ -1,0 +1,55 @@
+# Dependencies
+node_modules
+/node_modules
+dist
+/dist
+
+# Testing
+coverage
+/coverage
+/.nyc_output
+
+# Environment Variables
+.env*.local*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+*.pem
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Build
+.turbo
+*.tsbuildinfo
+
+# Electron
+out/
+release/
+
+# Playwright MCP
+.playwright-mcp
+
+# Cache
+.cache

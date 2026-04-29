@@ -1,0 +1,33 @@
+{
+	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"ignoreExportsUsedInFile": true,
+	"workspaces": {
+		".": {},
+		"apps/desktop": {
+			"entry": [
+				"src/main/index.ts",
+				"src/preload/index.ts",
+				"src/renderer/main.tsx",
+				"electron-vite.config.ts"
+			]
+		},
+		"packages/core": {},
+		"packages/ui": {},
+		"packages/config-typescript": {},
+		"packages/config-tsdown": {},
+		"packages/config-test": {
+			"ignoreDependencies": ["@pane/config-tsdown"]
+		}
+	},
+	"ignore": [
+		"**/dist/**",
+		"**/out/**",
+		"**/release/**",
+		"**/.turbo/**",
+		"**/coverage/**",
+		"**/node_modules/**",
+		"**/styles/**",
+		".claude/**",
+		".cursor/**"
+	]
+}
