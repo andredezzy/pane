@@ -294,7 +294,12 @@ export class BrowserActionAPI {
     return action
   }
 
-  // TODO: Make private for v4 major release.
+  setPopupUrl(extensionId: string, popup: string) {
+    const action = this.getAction(extensionId)
+    action.popup = popup
+    this.onUpdate()
+  }
+
   removeActions(extensionId: string) {
     if (this.actionMap.has(extensionId)) {
       this.actionMap.delete(extensionId)
@@ -400,21 +405,23 @@ export class BrowserActionAPI {
 
     const tab =
       tabId >= 0 ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabOfCurrentWindow()
-    console.log('[BrowserAction] activateClick tabId:', tabId, 'tab:', !!tab,
-      'tabs:', this.ctx.store.tabs.size,
-      'windows:', this.ctx.store.windows.size,
-      'lastFocused:', (this.ctx.store as any).lastFocusedWindowId,
-      'windowToActiveTab size:', (this.ctx.store as any).windowToActiveTab?.size)
-    if (!tab) {
-      throw new Error(`Unable to get active tab`)
+
+    const popupUrl = tab
+      ? this.getPopupUrl(extensionId, tab.id)
+      : this.getPopupUrl(extensionId, -1)
+
+    if (!tab && !popupUrl) {
+      this.ctx.emit('browser-action-clicked', extensionId, undefined)
+      return
     }
 
-    const popupUrl = this.getPopupUrl(extensionId, tab.id)
-
     if (popupUrl) {
-      const win = this.ctx.store.tabToWindow.get(tab)
+      const win = tab
+        ? this.ctx.store.tabToWindow.get(tab)
+        : this.ctx.store.getLastFocusedWindow()
       if (!win) {
-        throw new Error('Unable to get BrowserWindow from active tab')
+        this.ctx.emit('browser-action-clicked', extensionId, undefined)
+        return
       }
 
       this.popup = new PopupView({
@@ -432,8 +439,9 @@ export class BrowserActionAPI {
     } else {
       d(`dispatching onClicked for ${extensionId}`)
 
-      const tabDetails = this.ctx.store.tabDetailsCache.get(tab.id)
+      const tabDetails = tab ? this.ctx.store.tabDetailsCache.get(tab.id) : undefined
       this.ctx.router.sendEvent(extensionId, 'browserAction.onClicked', tabDetails)
+      this.ctx.emit('browser-action-clicked', extensionId, tabDetails)
     }
   }
 

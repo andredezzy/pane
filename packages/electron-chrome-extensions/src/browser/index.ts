@@ -234,6 +234,11 @@ export class ElectronChromeExtensions extends EventEmitter {
     this.ctx.store.removeTab(tab)
   }
 
+  /** Set the popup URL for an extension's browser action. */
+  setPopup(extensionId: string, popup: string) {
+    this.api.browserAction.setPopupUrl(extensionId, popup)
+  }
+
   /** Notify extension system that the active tab has changed. */
   selectTab(tab: Electron.WebContents) {
     this.checkWebContentsArgument(tab)

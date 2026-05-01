@@ -85,21 +85,10 @@ export class PopupView extends EventEmitter {
     untypedWebContents.on('preferred-size-changed', this.updatePreferredSize)
 
     this.browserWindow.webContents.on('devtools-closed', this.maybeClose)
-    // Blur close disabled for debugging
-    // this.browserWindow.on('blur', this.maybeClose)
+    this.browserWindow.on('blur', this.maybeClose)
     this.browserWindow.on('closed', this.destroy)
     this.parent.once('closed', this.destroy)
 
-    console.log('[Popup] created, loading:', opts.url)
-    this.browserWindow.webContents.on('render-process-gone', (_e: any, details: any) => {
-      console.log('[Popup] render-process-gone:', details.reason)
-    })
-    this.browserWindow.webContents.on('did-fail-load', (_e: any, code: any, desc: any) => {
-      console.log('[Popup] did-fail-load:', code, desc)
-    })
-    this.browserWindow.webContents.on('crashed', () => {
-      console.log('[Popup] crashed!')
-    })
     this.readyPromise = this.load(opts.url)
   }
 
@@ -125,7 +114,6 @@ export class PopupView extends EventEmitter {
   }
 
   destroy = () => {
-    console.log('[Popup] destroy called, stack:', new Error().stack?.split('\n').slice(1,4).join(' <- '))
     if (this.destroyed) return
 
     this.destroyed = true
