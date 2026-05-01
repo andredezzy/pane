@@ -192,10 +192,9 @@ export class ElectronChromeExtensions extends EventEmitter {
         type: 'frame',
         filePath: preloadPath,
       })
-      // Skip service-worker preload — the chrome Proxy in SW contexts has
-      // non-configurable properties that trigger invariant violations when
-      // any preload touches globalThis.chrome. Native chrome APIs work fine
-      // without preload injection in SW contexts.
+      // SW preload disabled — chrome.action and other missing APIs are
+      // injected via on-disk patching of extension background scripts.
+      // ECE's preload in SW context corrupts the native chrome Proxy.
     } else {
       // @ts-expect-error Deprecated electron@<35
       session.setPreloads([...session.getPreloads(), preloadPath])

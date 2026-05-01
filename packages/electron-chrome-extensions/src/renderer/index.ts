@@ -642,39 +642,32 @@ export const injectExtensionAPIs = () => {
       },
     }
 
-    // Initialize APIs — try defineProperty first, fall back to assignment
+    // Initialize APIs
     Object.keys(apiDefinitions).forEach((key: any) => {
       const apiName: keyof typeof chrome = key
+      const baseApi = chrome[apiName] as any
       const api = apiDefinitions[apiName]!
 
+      // Allow APIs to opt-out of being available in this context.
       if (api.shouldInject && !api.shouldInject()) return
 
-      try {
-        const baseApi = chrome[apiName] as any
-        Object.defineProperty(chrome, apiName, {
-          value: api.factory(baseApi),
-          enumerable: true,
-          configurable: true,
-        })
-      } catch {
-        // defineProperty failed — chrome might be a native Proxy.
-        // Try simple assignment for APIs that don't exist yet.
-        try {
-          ;(chrome as any)[apiName] = api.factory(undefined)
-        } catch {}
-      }
+      Object.defineProperty(chrome, apiName, {
+        value: api.factory(baseApi),
+        enumerable: true,
+        configurable: true,
+      })
     })
 
     // Remove access to internals
     delete (globalThis as any).electron
 
-    try { Object.freeze(chrome) } catch {}
+    Object.freeze(chrome)
 
     void 0 // no return
   }
 
   if (!process.contextIsolated) {
-    // Service worker preload: skip entirely to avoid Proxy invariant errors
+    mainWorldScript()
     return
   }
 
