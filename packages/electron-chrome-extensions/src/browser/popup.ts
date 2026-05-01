@@ -61,7 +61,7 @@ export class PopupView extends EventEmitter {
     this.browserWindow = new BrowserWindow({
       show: false,
       frame: false,
-      parent: opts.parent,
+      // parent: opts.parent,  // Disabled — BaseWindow as parent causes popup to close
       movable: false,
       maximizable: false,
       minimizable: false,
@@ -85,10 +85,21 @@ export class PopupView extends EventEmitter {
     untypedWebContents.on('preferred-size-changed', this.updatePreferredSize)
 
     this.browserWindow.webContents.on('devtools-closed', this.maybeClose)
-    this.browserWindow.on('blur', this.maybeClose)
+    // Blur close disabled for debugging
+    // this.browserWindow.on('blur', this.maybeClose)
     this.browserWindow.on('closed', this.destroy)
     this.parent.once('closed', this.destroy)
 
+    console.log('[Popup] created, loading:', opts.url)
+    this.browserWindow.webContents.on('render-process-gone', (_e: any, details: any) => {
+      console.log('[Popup] render-process-gone:', details.reason)
+    })
+    this.browserWindow.webContents.on('did-fail-load', (_e: any, code: any, desc: any) => {
+      console.log('[Popup] did-fail-load:', code, desc)
+    })
+    this.browserWindow.webContents.on('crashed', () => {
+      console.log('[Popup] crashed!')
+    })
     this.readyPromise = this.load(opts.url)
   }
 
@@ -103,30 +114,18 @@ export class PopupView extends EventEmitter {
     try {
       await win.webContents.loadURL(url)
     } catch (e) {
-      console.error(e)
+      console.error('[Popup] loadURL error:', e)
     }
 
     if (this.destroyed) return
 
-    if (this.usingPreferredSize) {
-      // Set small initial size so the preferred size grows to what's needed
-      this.setSize({ width: PopupView.BOUNDS.minWidth, height: PopupView.BOUNDS.minHeight })
-    } else {
-      // Set large initial size to avoid overflow
-      this.setSize({ width: PopupView.BOUNDS.maxWidth, height: PopupView.BOUNDS.maxHeight })
-
-      // Wait for content and layout to load
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      if (this.destroyed) return
-
-      await this.queryPreferredSize()
-      if (this.destroyed) return
-
-      this.show()
-    }
+    // Force a fixed size and show immediately
+    this.setSize({ width: 400, height: 600 })
+    this.show()
   }
 
   destroy = () => {
+    console.log('[Popup] destroy called, stack:', new Error().stack?.split('\n').slice(1,4).join(' <- '))
     if (this.destroyed) return
 
     this.destroyed = true
@@ -190,21 +189,17 @@ export class PopupView extends EventEmitter {
   }
 
   private maybeClose = () => {
-    // Keep open if webContents is being inspected
+    // Keep open for debugging — don't auto-close on blur
     if (!this.browserWindow?.isDestroyed() && this.browserWindow?.webContents.isDevToolsOpened()) {
-      d('preventing close due to DevTools being open')
       return
     }
-
-    // For extension popups with a login form, the user may need to access a
-    // program outside of the app. Closing the popup would then add
-    // inconvenience.
-    if (!getAllWindows().some((win) => win.isFocused())) {
-      d('preventing close due to focus residing outside of the app')
-      return
-    }
-
-    this.destroy()
+    // Delay close to allow content to load and gain focus
+    setTimeout(() => {
+      if (this.destroyed) return
+      if (!this.browserWindow?.isDestroyed() && this.browserWindow?.isFocused()) return
+      if (!getAllWindows().some((win) => win.isFocused())) return
+      this.destroy()
+    }, 500)
   }
 
   private updatePosition() {

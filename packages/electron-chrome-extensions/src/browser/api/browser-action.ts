@@ -400,6 +400,11 @@ export class BrowserActionAPI {
 
     const tab =
       tabId >= 0 ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabOfCurrentWindow()
+    console.log('[BrowserAction] activateClick tabId:', tabId, 'tab:', !!tab,
+      'tabs:', this.ctx.store.tabs.size,
+      'windows:', this.ctx.store.windows.size,
+      'lastFocused:', (this.ctx.store as any).lastFocusedWindowId,
+      'windowToActiveTab size:', (this.ctx.store as any).windowToActiveTab?.size)
     if (!tab) {
       throw new Error(`Unable to get active tab`)
     }

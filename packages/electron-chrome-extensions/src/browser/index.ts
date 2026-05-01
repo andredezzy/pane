@@ -187,14 +187,18 @@ export class ElectronChromeExtensions extends EventEmitter {
     const preloadPath = resolvePreloadPath(modulePath)
 
     if ('registerPreloadScript' in session) {
-      session.registerPreloadScript({
-        id: 'crx-mv2-preload',
-        type: 'frame',
-        filePath: preloadPath,
-      })
-      // SW preload disabled — chrome.action and other missing APIs are
-      // injected via on-disk patching of extension background scripts.
-      // ECE's preload in SW context corrupts the native chrome Proxy.
+      // Both frame and SW preloads disabled for the extension session.
+      // ECE's preload uses Object.defineProperty on the chrome Proxy,
+      // which corrupts the Proxy's internal state (the defineProperty
+      // trap modifies the target, but the get trap returns stale values
+      // → invariant violation). Extensions that access chrome.runtime
+      // after ECE's preload runs get TypeError crashes.
+      //
+      // Instead:
+      // - SW: on-disk patching with globalThis.browser wrapper
+      // - Frames: native chrome APIs are sufficient for popups
+      // - UI view: <browser-action-list> uses a separate session
+      //   (the renderer's default session), not the extension session
     } else {
       // @ts-expect-error Deprecated electron@<35
       session.setPreloads([...session.getPreloads(), preloadPath])

@@ -642,26 +642,35 @@ export const injectExtensionAPIs = () => {
       },
     }
 
-    // Initialize APIs
+    // APIs provided natively by Electron — never touch these on the chrome
+    // Proxy or the Proxy's internal state gets corrupted (defineProperty
+    // silently breaks the get trap's invariant check).
+    const nativeApis = new Set([
+      'runtime', 'storage', 'tabs', 'scripting', 'management',
+      'extension', 'webRequest', 'devtools',
+    ])
+
     Object.keys(apiDefinitions).forEach((key: any) => {
       const apiName: keyof typeof chrome = key
-      const baseApi = chrome[apiName] as any
       const api = apiDefinitions[apiName]!
 
-      // Allow APIs to opt-out of being available in this context.
       if (api.shouldInject && !api.shouldInject()) return
 
-      Object.defineProperty(chrome, apiName, {
-        value: api.factory(baseApi),
-        enumerable: true,
-        configurable: true,
-      })
+      if (nativeApis.has(apiName)) return
+
+      try {
+        const baseApi = chrome[apiName] as any
+        Object.defineProperty(chrome, apiName, {
+          value: api.factory(baseApi),
+          enumerable: true,
+          configurable: true,
+        })
+      } catch {}
     })
 
-    // Remove access to internals
     delete (globalThis as any).electron
 
-    Object.freeze(chrome)
+    try { Object.freeze(chrome) } catch {}
 
     void 0 // no return
   }
