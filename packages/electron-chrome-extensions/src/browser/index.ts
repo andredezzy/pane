@@ -203,24 +203,33 @@ export class ElectronChromeExtensions extends EventEmitter {
     const sessionExtensions = this.ctx.session.extensions || this.ctx.session
     sessionExtensions.addListener('extension-loaded', (_event, extension) => {
       readLoadedExtensionManifest(this.ctx, extension)
-
-      if (!extension.manifest.action?.default_popup) {
-        const popup = ['index.html', 'popup.html'].find(
-          (name) => existsSync(path.join(extension.path, name)),
-        )
-        if (popup) {
-          this.api.browserAction.setPopupUrl(
-            extension.id,
-            `chrome-extension://${extension.id}/${popup}`,
-          )
-        }
-      }
     })
+  }
+
+  private static resolvePreloadsDir(): string {
+    const candidates = [
+      // When not bundled: __dirname is dist/cjs/, preloads at dist/preloads/
+      path.join(__dirname, '..', 'preloads'),
+      // When bundled by electron-vite: try locating the package via node resolution
+      ...(() => {
+        try {
+          const mod = createRequire(process.cwd() + '/').resolve('@pane/electron-chrome-extensions')
+          // dist/cjs/index.js → dist/preloads/
+          return [path.join(path.dirname(mod), '..', 'preloads')]
+        } catch { return [] }
+      })(),
+      // Fallback: preloads copied alongside the app's output
+      path.join(__dirname, 'preloads'),
+    ]
+    for (const dir of candidates) {
+      if (existsSync(path.join(dir, 'sw.js'))) return dir
+    }
+    return candidates[0]
   }
 
   private prependPreload() {
     const { session } = this.ctx
-    const preloadsDir = path.join(__dirname, '..', 'preloads')
+    const preloadsDir = ElectronChromeExtensions.resolvePreloadsDir()
 
     if ('registerPreloadScript' in session) {
       session.registerPreloadScript({
