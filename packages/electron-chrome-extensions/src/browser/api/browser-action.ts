@@ -294,6 +294,18 @@ export class BrowserActionAPI {
     return action
   }
 
+  /**
+   * Sets the popup URL for an extension programmatically from the main process.
+   *
+   * This is called by the ECE IPC handler when an extension's service worker
+   * invokes `chrome.action.setPopup` (or `browser.action.setPopup`). The native
+   * Electron handler doesn't persist the URL in our `actionMap`, so this method
+   * bridges that gap by writing it directly into the action store so that
+   * `activateClick` can find it when the toolbar icon is clicked.
+   *
+   * @param extensionId - The ID of the extension whose popup URL is being set.
+   * @param popup       - Relative or absolute popup URL (e.g. `"popup.html"`).
+   */
   setPopupUrl(extensionId: string, popup: string) {
     const action = this.getAction(extensionId)
     action.popup = popup
@@ -403,23 +415,35 @@ export class BrowserActionAPI {
       }
     }
 
+    // Resolve the active tab. tabId < 0 means "use the current window's active tab".
     const tab =
       tabId >= 0 ? this.ctx.store.getTabById(tabId) : this.ctx.store.getActiveTabOfCurrentWindow()
 
+    // Resolve the popup URL. If no tab is active (e.g. the extension's own popup
+    // triggered the click before any browser tab was focused), fall back to the
+    // global action popup URL by passing -1 as the tab ID.
     const popupUrl = tab
       ? this.getPopupUrl(extensionId, tab.id)
       : this.getPopupUrl(extensionId, -1)
 
+    // Skip-tab-requirement fix: upstream ECE required an active tab to proceed.
+    // We relax that: if there is no tab BUT there is a popup URL we can still
+    // open the popup. If there is neither, emit `browser-action-clicked` so the
+    // host app can handle the click (e.g. show a prompt to open a browser tab).
     if (!tab && !popupUrl) {
       this.ctx.emit('browser-action-clicked', extensionId, undefined)
       return
     }
 
     if (popupUrl) {
+      // When a tab exists, anchor the popup to its window. When no tab is
+      // active (tab-less click), fall back to the last focused window so the
+      // popup appears in a sensible location without requiring an active tab.
       const win = tab
         ? this.ctx.store.tabToWindow.get(tab)
         : this.ctx.store.getLastFocusedWindow()
       if (!win) {
+        // No window to parent the popup to — signal the host to handle it.
         this.ctx.emit('browser-action-clicked', extensionId, undefined)
         return
       }
@@ -437,6 +461,9 @@ export class BrowserActionAPI {
 
       this.ctx.emit('browser-action-popup-created', this.popup)
     } else {
+      // No popup URL configured — dispatch `onClicked` to the extension SW and
+      // emit `browser-action-clicked` so the host app can react (e.g. open a
+      // side panel or perform an action on the active tab).
       d(`dispatching onClicked for ${extensionId}`)
 
       const tabDetails = tab ? this.ctx.store.tabDetailsCache.get(tab.id) : undefined

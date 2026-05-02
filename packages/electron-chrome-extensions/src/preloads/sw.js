@@ -312,17 +312,38 @@ if ("executeInMainWorld" in contextBridge) {
       // -----------------------------------------------------------------------
       // Intercept native chrome.action.setPopup
       // -----------------------------------------------------------------------
-      // MV3 extensions may call chrome.action.setPopup directly (bypassing our
-      // browser Proxy) because Electron exposes chrome.action as a native API.
-      // The native implementation doesn't relay to ECE's BrowserActionAPI, so
-      // the popup URL is lost. We wrap the native method to also call through
-      // our IPC bridge.
+      // WHY this is needed:
+      //   Some MV3 extensions (e.g. NordPass) guard their setPopup call with
+      //   `if (globalThis.chrome?.action?.setPopup)` and then call the native
+      //   API directly — they never touch `globalThis.browser` or our Proxy.
+      //   Electron's native chrome.action.setPopup registers the popup URL with
+      //   the renderer-side action API, but does NOT notify ECE's main-process
+      //   BrowserActionAPI, so the URL is unknown when the toolbar icon is clicked.
+      //
+      // WHY we can safely patch chrome.action properties:
+      //   `globalThis.browser` is our Proxy, which guards chrome (the Proxy
+      //   target) via invariant traps. However, `chrome.action` is a plain
+      //   sub-object returned by that Proxy — it is NOT itself a Proxy. We can
+      //   freely reassign properties on it (e.g. nativeAction.setPopup = ...)
+      //   without triggering any Proxy invariant violation.
+      //
+      // HOW the relay works:
+      //   1. Save the original native setPopup (bound to keep its `this`).
+      //   2. Replace chrome.action.setPopup with our wrapper.
+      //   3. The wrapper first notifies ECE's BrowserActionAPI via IPC so the
+      //      popup URL is stored in `actionMap` (enabling activateClick to open
+      //      the popup when the icon is clicked).
+      //   4. Then it calls the original native implementation to preserve any
+      //      renderer-side behaviour the native API provides.
       try {
         var nativeAction = oc.action;
         if (nativeAction && typeof nativeAction.setPopup === "function") {
           var origSetPopup = nativeAction.setPopup.bind(nativeAction);
           nativeAction.setPopup = function (details) {
+            // Relay to ECE's main-process BrowserActionAPI so the popup URL
+            // survives into activateClick, even when called via native chrome.
             if (ipc) ipc.invoke("action", "setPopup", details);
+            // Also invoke the original so Electron's native handler still runs.
             return origSetPopup(details);
           };
         }
