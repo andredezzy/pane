@@ -1,4 +1,6 @@
 const esbuild = require('esbuild')
+const fs = require('fs')
+const path = require('path')
 
 const external = ['electron', 'electron-chrome-extensions/preload']
 
@@ -49,5 +51,17 @@ const configs = [
 ]
 
 Promise.all(configs.map(c => esbuild.build(c)))
-  .then(() => console.log('electron-chrome-extensions built successfully'))
+  .then(() => {
+    const preloadsDir = path.join(__dirname, 'dist', 'preloads')
+    fs.mkdirSync(preloadsDir, { recursive: true })
+    fs.copyFileSync(
+      path.join(__dirname, 'src', 'preloads', 'sw.js'),
+      path.join(preloadsDir, 'sw.js')
+    )
+    fs.copyFileSync(
+      path.join(__dirname, 'src', 'preloads', 'frame.js'),
+      path.join(preloadsDir, 'frame.js')
+    )
+    console.log('electron-chrome-extensions built successfully')
+  })
   .catch(e => { console.error(e); process.exit(1) })
