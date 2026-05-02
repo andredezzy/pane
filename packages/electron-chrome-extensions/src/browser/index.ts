@@ -179,10 +179,28 @@ export class ElectronChromeExtensions extends EventEmitter {
     registerShimHandler(this.ctx)
     registerShimHandlerForSession(this.ctx)
 
+    /**
+     * `set-popup` — emitted by the host app to imperatively override the popup URL
+     * for a specific extension's browser action (e.g. to swap UIs based on auth state).
+     * Delegates directly to `BrowserActionAPI.setPopupUrl`.
+     */
     this.on('set-popup', (extensionId: string, popup: string) => {
       this.api.browserAction.setPopupUrl(extensionId, popup)
     })
 
+    /**
+     * `browser-action-clicked` — emitted when the user clicks an extension's toolbar
+     * button and no popup URL is currently set for that extension.
+     *
+     * The handler resolves the best available HTML entry point from the extension
+     * manifest (`options_ui.page` → `options_page` → `action.default_popup`) and
+     * falls back to `findExtensionPage()` for extensions that ship a top-level HTML
+     * file without explicitly declaring it.
+     *
+     * Opens the extension's full-page UI as a tab. This handles extensions that have
+     * no popup UI for certain states (e.g. NordPass when unauthenticated delegates
+     * login to app.html).
+     */
     this.on('browser-action-clicked', (extensionId: string) => {
       const ext = session.extensions.getExtension(extensionId)
       if (!ext) return
@@ -199,6 +217,13 @@ export class ElectronChromeExtensions extends EventEmitter {
     })
   }
 
+  /**
+   * Subscribes to the session's `extension-loaded` event so that each newly loaded
+   * extension has its manifest read and registered with the ECE store.
+   *
+   * This covers both extensions loaded before and after this instance is constructed —
+   * Electron replays the event for already-loaded extensions when a listener is added.
+   */
   private listenForExtensions() {
     const sessionExtensions = this.ctx.session.extensions || this.ctx.session
     sessionExtensions.addListener('extension-loaded', (_event, extension) => {
@@ -206,6 +231,23 @@ export class ElectronChromeExtensions extends EventEmitter {
     })
   }
 
+  /**
+   * Resolves the directory that contains the compiled preload scripts (`frame.js`, `sw.js`).
+   *
+   * The path cannot be derived from `__dirname` alone because bundlers (e.g. electron-vite)
+   * may inline this package's CJS entry point into the app's own output bundle, making
+   * `__dirname` point to the app's output directory rather than the package's `dist/` tree.
+   *
+   * Resolution order:
+   * 1. `__dirname/../preloads/` — standard non-bundled layout where `__dirname` is `dist/cjs/`.
+   * 2. `createRequire` from the app's working directory — resolves the package entry via Node's
+   *    module resolution and derives the preloads directory from there.  Used when the main
+   *    process is bundled but the package is still installed in `node_modules`.
+   * 3. `__dirname/preloads/` — final fallback for layouts where the preloads are copied
+   *    alongside the app's own output files.
+   *
+   * The first candidate directory that contains `sw.js` wins.
+   */
   private static resolvePreloadsDir(): string {
     const candidates = [
       // When not bundled: __dirname is dist/cjs/, preloads at dist/preloads/
@@ -227,6 +269,18 @@ export class ElectronChromeExtensions extends EventEmitter {
     return candidates[0]
   }
 
+  /**
+   * Registers the ECE preload scripts on the session so that Chrome extension APIs
+   * are available in every context that needs them.
+   *
+   * Two scripts are registered:
+   * - **`frame.js`** (`type: 'frame'`) — injected into every renderer frame, including
+   *   extension popup and options pages.
+   * - **`sw.js`** (`type: 'service-worker'`) — injected into extension service-worker
+   *   contexts so background scripts can call `chrome.*` APIs.
+   *
+   * Both are prepended via `session.registerPreloadScript`, which requires Electron ≥ 35.
+   */
   private prependPreload() {
     const { session } = this.ctx
     const preloadsDir = ElectronChromeExtensions.resolvePreloadsDir()
@@ -245,6 +299,16 @@ export class ElectronChromeExtensions extends EventEmitter {
     }
   }
 
+  /**
+   * Searches an extension's root directory for a conventional HTML entry point.
+   *
+   * The candidates are checked in priority order: `app.html`, `popup.html`,
+   * `main.html`, `index.html`.  The first file that exists on disk is returned as
+   * a relative path suitable for constructing a `chrome-extension://` URL.
+   * Returns `null` if none of the candidates exist.
+   *
+   * @param extPath Absolute path to the unpacked extension directory.
+   */
   private findExtensionPage(extPath: string): string | null {
     for (const name of ['app.html', 'popup.html', 'main.html', 'index.html']) {
       if (existsSync(path.join(extPath, name))) return name
@@ -260,6 +324,17 @@ export class ElectronChromeExtensions extends EventEmitter {
     }
   }
 
+  /**
+   * Tears down all resources owned by this ECE instance.
+   *
+   * - Cancels any pending `chrome.alarms` timers for the session.
+   * - Clears any `chrome.idle` polling intervals for the session.
+   * - Removes the session entry from the `sessionMap` weak-map so the instance
+   *   can be garbage-collected and a new one can be created for the same session
+   *   if needed.
+   *
+   * Call this when the associated browser profile is destroyed.
+   */
   destroy() {
     destroyAlarms(this.ctx.session)
     destroyIdle(this.ctx.session)
