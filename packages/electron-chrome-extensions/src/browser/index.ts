@@ -21,6 +21,9 @@ import { checkLicense, License } from './license'
 import { readLoadedExtensionManifest } from './manifest'
 import { PermissionsAPI } from './api/permissions'
 import { resolvePartition } from './partition'
+import { registerShimHandler, registerShimHandlerForSession } from './shims/handler'
+import { destroyAlarms } from './shims/alarms'
+import { destroyIdle } from './shims/idle'
 
 function checkVersion() {
   const electronVersion = process.versions.electron
@@ -171,47 +174,73 @@ export class ElectronChromeExtensions extends EventEmitter {
     }
 
     this.listenForExtensions()
-    this.prependPreload(opts.modulePath)
+    this.prependPreload()
+
+    registerShimHandler(this.ctx)
+    registerShimHandlerForSession(this.ctx)
+
+    this.on('set-popup', (extensionId: string, popup: string) => {
+      this.api.browserAction.setPopupUrl(extensionId, popup)
+    })
+
+    this.on('browser-action-clicked', (extensionId: string) => {
+      const ext = session.extensions.getExtension(extensionId)
+      if (!ext) return
+
+      const page =
+        ext.manifest.options_ui?.page ||
+        ext.manifest.options_page ||
+        ext.manifest.action?.default_popup ||
+        this.findExtensionPage(ext.path)
+      if (!page) return
+
+      const url = `chrome-extension://${extensionId}/${page}`
+      this.ctx.store.createTab({ url }).catch(() => {})
+    })
   }
 
   private listenForExtensions() {
     const sessionExtensions = this.ctx.session.extensions || this.ctx.session
     sessionExtensions.addListener('extension-loaded', (_event, extension) => {
       readLoadedExtensionManifest(this.ctx, extension)
+
+      if (!extension.manifest.action?.default_popup) {
+        const popup = ['index.html', 'popup.html'].find(
+          (name) => existsSync(path.join(extension.path, name)),
+        )
+        if (popup) {
+          this.api.browserAction.setPopupUrl(
+            extension.id,
+            `chrome-extension://${extension.id}/${popup}`,
+          )
+        }
+      }
     })
   }
 
-  private async prependPreload(modulePath?: string) {
+  private prependPreload() {
     const { session } = this.ctx
-
-    const preloadPath = resolvePreloadPath(modulePath)
+    const preloadsDir = path.join(__dirname, '..', 'preloads')
 
     if ('registerPreloadScript' in session) {
-      // Both frame and SW preloads disabled for the extension session.
-      // ECE's preload uses Object.defineProperty on the chrome Proxy,
-      // which corrupts the Proxy's internal state (the defineProperty
-      // trap modifies the target, but the get trap returns stale values
-      // → invariant violation). Extensions that access chrome.runtime
-      // after ECE's preload runs get TypeError crashes.
-      //
-      // Instead:
-      // - SW: on-disk patching with globalThis.browser wrapper
-      // - Frames: native chrome APIs are sufficient for popups
-      // - UI view: <browser-action-list> uses a separate session
-      //   (the renderer's default session), not the extension session
-    } else {
-      // @ts-expect-error Deprecated electron@<35
-      session.setPreloads([...session.getPreloads(), preloadPath])
+      session.registerPreloadScript({
+        id: 'crx-frame',
+        type: 'frame',
+        filePath: path.join(preloadsDir, 'frame.js'),
+      })
+      session.registerPreloadScript({
+        id: 'crx-sw',
+        type: 'service-worker',
+        filePath: path.join(preloadsDir, 'sw.js'),
+      })
     }
+  }
 
-    if (!existsSync(preloadPath)) {
-      console.error(
-        new Error(
-          `electron-chrome-extensions: Preload file not found at "${preloadPath}". ` +
-            'See "Packaging the preload script" in the readme.',
-        ),
-      )
+  private findExtensionPage(extPath: string): string | null {
+    for (const name of ['app.html', 'popup.html', 'main.html', 'index.html']) {
+      if (existsSync(path.join(extPath, name))) return name
     }
+    return null
   }
 
   private checkWebContentsArgument(wc: Electron.WebContents) {
@@ -220,6 +249,12 @@ export class ElectronChromeExtensions extends EventEmitter {
         'Invalid WebContents argument. Its session must match the session provided to ElectronChromeExtensions constructor options.',
       )
     }
+  }
+
+  destroy() {
+    destroyAlarms(this.ctx.session)
+    destroyIdle(this.ctx.session)
+    sessionMap.delete(this.ctx.session)
   }
 
   /** Add webContents to be tracked as a tab. */
