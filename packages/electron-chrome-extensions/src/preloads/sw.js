@@ -308,6 +308,25 @@ if ("executeInMainWorld" in contextBridge) {
           catch (e) { return Object.keys(extras); }
         },
       });
+
+      // -----------------------------------------------------------------------
+      // Intercept native chrome.action.setPopup
+      // -----------------------------------------------------------------------
+      // MV3 extensions may call chrome.action.setPopup directly (bypassing our
+      // browser Proxy) because Electron exposes chrome.action as a native API.
+      // The native implementation doesn't relay to ECE's BrowserActionAPI, so
+      // the popup URL is lost. We wrap the native method to also call through
+      // our IPC bridge.
+      try {
+        var nativeAction = oc.action;
+        if (nativeAction && typeof nativeAction.setPopup === "function") {
+          var origSetPopup = nativeAction.setPopup.bind(nativeAction);
+          nativeAction.setPopup = function (details) {
+            if (ipc) ipc.invoke("action", "setPopup", details);
+            return origSetPopup(details);
+          };
+        }
+      } catch (e) {}
     },
   });
 }
