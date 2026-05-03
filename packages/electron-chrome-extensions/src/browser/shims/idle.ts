@@ -29,12 +29,12 @@ const POLL_INTERVAL_MS = 15_000;
 
 /** Per-session idle detection state. */
 interface IdleSessionState {
-  /** Seconds of inactivity before the system is considered idle. Defaults to 60. */
-  detectionInterval: number;
-  /** The last computed idle state; used to detect transitions and avoid redundant events. */
-  lastState: IdleState;
-  /** Handle for the active polling interval, or `null` if polling hasn't started. */
-  pollTimer: ReturnType<typeof setInterval> | null;
+	/** Seconds of inactivity before the system is considered idle. Defaults to 60. */
+	detectionInterval: number;
+	/** The last computed idle state; used to detect transitions and avoid redundant events. */
+	lastState: IdleState;
+	/** Handle for the active polling interval, or `null` if polling hasn't started. */
+	pollTimer: ReturnType<typeof setInterval> | null;
 }
 
 /**
@@ -49,12 +49,14 @@ const sessionState = new Map<Session, IdleSessionState>();
  * @param ses - The Electron session owning the idle state.
  */
 function getState(ses: Session): IdleSessionState {
-  let state = sessionState.get(ses);
-  if (!state) {
-    state = { detectionInterval: 60, lastState: "active", pollTimer: null };
-    sessionState.set(ses, state);
-  }
-  return state;
+	let state = sessionState.get(ses);
+
+	if (!state) {
+		state = { detectionInterval: 60, lastState: "active", pollTimer: null };
+		sessionState.set(ses, state);
+	}
+
+	return state;
 }
 
 /**
@@ -67,7 +69,9 @@ function getState(ses: Session): IdleSessionState {
  * @param detectionInterval - Seconds of inactivity that count as idle.
  */
 function getCurrentState(detectionInterval: number): IdleState {
-  return powerMonitor.getSystemIdleTime() >= detectionInterval ? "idle" : "active";
+	return powerMonitor.getSystemIdleTime() >= detectionInterval
+		? "idle"
+		: "active";
 }
 
 /**
@@ -82,25 +86,31 @@ function getCurrentState(detectionInterval: number): IdleState {
  * @param ses - The Electron session to start polling for.
  */
 function startPolling(ses: Session) {
-  const state = getState(ses);
-  if (state.pollTimer) return; // Already polling — nothing to do.
+	const state = getState(ses);
 
-  state.pollTimer = setInterval(() => {
-    const newState = getCurrentState(state.detectionInterval);
+	if (state.pollTimer) {
+		return; // Already polling — nothing to do.
+	}
 
-    // Only emit an event when the state actually changes to avoid flooding
-    // extensions with redundant notifications.
-    if (newState !== state.lastState) {
-      state.lastState = newState;
-      for (const ext of ses.extensions.getAllExtensions()) {
-        const scope = `chrome-extension://${ext.id}/`;
-        ses.serviceWorkers
-          .startWorkerForScope(scope)
-          .then((sw) => sw.send("crx-shim-event", "idle", "onStateChanged", newState))
-          .catch(() => {});
-      }
-    }
-  }, POLL_INTERVAL_MS);
+	state.pollTimer = setInterval(() => {
+		const newState = getCurrentState(state.detectionInterval);
+
+		// Only emit an event when the state actually changes to avoid flooding
+		// extensions with redundant notifications.
+		if (newState !== state.lastState) {
+			state.lastState = newState;
+			for (const ext of ses.extensions.getAllExtensions()) {
+				const scope = `chrome-extension://${ext.id}/`;
+
+				ses.serviceWorkers
+					.startWorkerForScope(scope)
+					.then((sw) =>
+						sw.send("crx-shim-event", "idle", "onStateChanged", newState),
+					)
+					.catch(() => {});
+			}
+		}
+	}, POLL_INTERVAL_MS);
 }
 
 /**
@@ -115,28 +125,34 @@ function startPolling(ses: Session) {
  * @param args   - Method arguments forwarded verbatim from the SW preload.
  * @returns      The return value to send back to the extension, or `undefined`.
  */
-export function handleIdle(ses: Session, method: string, ...args: unknown[]): unknown {
-  const state = getState(ses);
+export function handleIdle(
+	ses: Session,
+	method: string,
+	...args: unknown[]
+): unknown {
+	const state = getState(ses);
 
-  switch (method) {
-    case "setDetectionInterval": {
-      const [intervalSec] = args as [number];
-      state.detectionInterval = intervalSec;
-      // Ensure polling is running so future state changes are observed.
-      startPolling(ses);
-      return undefined;
-    }
+	switch (method) {
+		case "setDetectionInterval": {
+			const [intervalSec] = args as [number];
+			state.detectionInterval = intervalSec;
+			// Ensure polling is running so future state changes are observed.
+			startPolling(ses);
 
-    case "queryState": {
-      // `queryState` uses its own threshold argument, independent of the
-      // session-level `detectionInterval` set by `setDetectionInterval`.
-      const [detectionIntervalSec] = args as [number];
-      return getCurrentState(detectionIntervalSec);
-    }
+			return undefined;
+		}
 
-    default:
-      return undefined;
-  }
+		case "queryState": {
+			// `queryState` uses its own threshold argument, independent of the
+			// session-level `detectionInterval` set by `setDetectionInterval`.
+			const [detectionIntervalSec] = args as [number];
+
+			return getCurrentState(detectionIntervalSec);
+		}
+
+		default:
+			return undefined;
+	}
 }
 
 /**
@@ -146,7 +162,11 @@ export function handleIdle(ses: Session, method: string, ...args: unknown[]): un
  * @param ses - The Electron session whose idle state should be destroyed.
  */
 export function destroyIdle(ses: Session) {
-  const state = sessionState.get(ses);
-  if (state?.pollTimer) clearInterval(state.pollTimer);
-  sessionState.delete(ses);
+	const state = sessionState.get(ses);
+
+	if (state?.pollTimer) {
+		clearInterval(state.pollTimer);
+	}
+
+	sessionState.delete(ses);
 }

@@ -1,209 +1,246 @@
-import { BrowserWindow, webContents } from 'electron'
-import { EventEmitter } from 'node:events'
-import { ContextMenuType } from './api/common'
-import { ChromeExtensionImpl } from './impl'
-import { ExtensionEvent } from './router'
+import { EventEmitter } from "node:events";
+import { BrowserWindow, webContents } from "electron";
+import { ContextMenuType } from "./api/common";
+import { ChromeExtensionImpl } from "./impl";
+import { ExtensionEvent } from "./router";
 
 export class ExtensionStore extends EventEmitter {
-  /** Tabs observed by the extensions system. */
-  tabs = new Set<Electron.WebContents>()
+	/** Tabs observed by the extensions system. */
+	tabs = new Set<Electron.WebContents>();
 
-  /** Windows observed by the extensions system. */
-  windows = new Set<Electron.BaseWindow>()
+	/** Windows observed by the extensions system. */
+	windows = new Set<Electron.BaseWindow>();
 
-  lastFocusedWindowId?: number
+	lastFocusedWindowId?: number;
 
-  /**
-   * Map of tabs to their parent window.
-   *
-   * It's not possible to access the parent of a BrowserView so we must manage
-   * this ourselves.
-   */
-  tabToWindow = new WeakMap<Electron.WebContents, Electron.BaseWindow>()
+	/**
+	 * Map of tabs to their parent window.
+	 *
+	 * It's not possible to access the parent of a BrowserView so we must manage
+	 * this ourselves.
+	 */
+	tabToWindow = new WeakMap<Electron.WebContents, Electron.BaseWindow>();
 
-  /** Map of windows to their active tab. */
-  private windowToActiveTab = new WeakMap<Electron.BaseWindow, Electron.WebContents>()
+	/** Map of windows to their active tab. */
+	private windowToActiveTab = new WeakMap<
+		Electron.BaseWindow,
+		Electron.WebContents
+	>();
 
-  tabDetailsCache = new Map<number, Partial<chrome.tabs.Tab>>()
-  windowDetailsCache = new Map<number, Partial<chrome.windows.Window>>()
+	tabDetailsCache = new Map<number, Partial<chrome.tabs.Tab>>();
+	windowDetailsCache = new Map<number, Partial<chrome.windows.Window>>();
 
-  urlOverrides: Record<string, string> = {}
+	urlOverrides: Record<string, string> = {};
 
-  constructor(public impl: ChromeExtensionImpl) {
-    super()
-  }
+	constructor(public impl: ChromeExtensionImpl) {
+		super();
+	}
 
-  getWindowById(windowId: number) {
-    return Array.from(this.windows).find(
-      (window) => !window.isDestroyed() && window.id === windowId,
-    )
-  }
+	getWindowById(windowId: number) {
+		return Array.from(this.windows).find(
+			(window) => !window.isDestroyed() && window.id === windowId,
+		);
+	}
 
-  getLastFocusedWindow() {
-    return this.lastFocusedWindowId ? this.getWindowById(this.lastFocusedWindowId) : null
-  }
+	getLastFocusedWindow() {
+		return this.lastFocusedWindowId
+			? this.getWindowById(this.lastFocusedWindowId)
+			: null;
+	}
 
-  getCurrentWindow() {
-    return this.getLastFocusedWindow()
-  }
+	getCurrentWindow() {
+		return this.getLastFocusedWindow();
+	}
 
-  addWindow(window: Electron.BaseWindow) {
-    if (this.windows.has(window)) return
+	addWindow(window: Electron.BaseWindow) {
+		if (this.windows.has(window)) {
+			return;
+		}
 
-    this.windows.add(window)
+		this.windows.add(window);
 
-    if (typeof this.lastFocusedWindowId !== 'number') {
-      this.lastFocusedWindowId = window.id
-    }
+		if (typeof this.lastFocusedWindowId !== "number") {
+			this.lastFocusedWindowId = window.id;
+		}
 
-    this.emit('window-added', window)
-  }
+		this.emit("window-added", window);
+	}
 
-  async createWindow(event: ExtensionEvent, details: chrome.windows.CreateData) {
-    if (typeof this.impl.createWindow !== 'function') {
-      throw new Error('createWindow is not implemented')
-    }
+	async createWindow(
+		_event: ExtensionEvent,
+		details: chrome.windows.CreateData,
+	) {
+		if (typeof this.impl.createWindow !== "function") {
+			throw new Error("createWindow is not implemented");
+		}
 
-    const win = await this.impl.createWindow(details)
+		const win = await this.impl.createWindow(details);
 
-    this.addWindow(win)
+		this.addWindow(win);
 
-    return win
-  }
+		return win;
+	}
 
-  async removeWindow(window: Electron.BaseWindow) {
-    if (!this.windows.has(window)) return
+	async removeWindow(window: Electron.BaseWindow) {
+		if (!this.windows.has(window)) {
+			return;
+		}
 
-    this.windows.delete(window)
+		this.windows.delete(window);
 
-    if (typeof this.impl.removeWindow === 'function') {
-      await this.impl.removeWindow(window)
-    } else {
-      window.destroy()
-    }
-  }
+		if (typeof this.impl.removeWindow === "function") {
+			await this.impl.removeWindow(window);
+		} else {
+			window.destroy();
+		}
+	}
 
-  getTabById(tabId: number) {
-    return Array.from(this.tabs).find((tab) => !tab.isDestroyed() && tab.id === tabId)
-  }
+	getTabById(tabId: number) {
+		return Array.from(this.tabs).find(
+			(tab) => !tab.isDestroyed() && tab.id === tabId,
+		);
+	}
 
-  addTab(tab: Electron.WebContents, window: Electron.BaseWindow) {
-    if (this.tabs.has(tab)) return
+	addTab(tab: Electron.WebContents, window: Electron.BaseWindow) {
+		if (this.tabs.has(tab)) {
+			return;
+		}
 
-    this.tabs.add(tab)
-    this.tabToWindow.set(tab, window)
-    this.addWindow(window)
+		this.tabs.add(tab);
+		this.tabToWindow.set(tab, window);
+		this.addWindow(window);
 
-    const activeTab = this.getActiveTabFromWebContents(tab)
-    if (!activeTab) {
-      this.setActiveTab(tab)
-    }
+		const activeTab = this.getActiveTabFromWebContents(tab);
 
-    this.emit('tab-added', tab)
-  }
+		if (!activeTab) {
+			this.setActiveTab(tab);
+		}
 
-  removeTab(tab: Electron.WebContents) {
-    if (!this.tabs.has(tab)) return
+		this.emit("tab-added", tab);
+	}
 
-    const tabId = tab.id
-    const win = this.tabToWindow.get(tab)!
+	removeTab(tab: Electron.WebContents) {
+		if (!this.tabs.has(tab)) {
+			return;
+		}
 
-    this.tabs.delete(tab)
-    this.tabToWindow.delete(tab)
+		const tabId = tab.id;
+		const win = this.tabToWindow.get(tab)!;
 
-    // TODO: clear active tab
+		this.tabs.delete(tab);
+		this.tabToWindow.delete(tab);
 
-    // Clear window if it has no remaining tabs
-    const windowHasTabs = Array.from(this.tabs).find((tab) => this.tabToWindow.get(tab) === win)
-    if (!windowHasTabs) {
-      this.windows.delete(win)
-    }
+		// TODO: clear active tab
 
-    if (typeof this.impl.removeTab === 'function') {
-      this.impl.removeTab(tab, win)
-    }
+		// Clear window if it has no remaining tabs
+		const windowHasTabs = Array.from(this.tabs).find(
+			(tab) => this.tabToWindow.get(tab) === win,
+		);
 
-    this.emit('tab-removed', tabId)
-  }
+		if (!windowHasTabs) {
+			this.windows.delete(win);
+		}
 
-  async createTab(details: chrome.tabs.CreateProperties) {
-    if (typeof this.impl.createTab !== 'function') {
-      throw new Error('createTab is not implemented')
-    }
+		if (typeof this.impl.removeTab === "function") {
+			this.impl.removeTab(tab, win);
+		}
 
-    // Fallback to current window
-    if (!details.windowId) {
-      details.windowId = this.lastFocusedWindowId
-    }
+		this.emit("tab-removed", tabId);
+	}
 
-    const result = await this.impl.createTab(details)
+	async createTab(details: chrome.tabs.CreateProperties) {
+		if (typeof this.impl.createTab !== "function") {
+			throw new Error("createTab is not implemented");
+		}
 
-    if (!Array.isArray(result)) {
-      throw new Error('createTab must return an array of [tab, window]')
-    }
+		// Fallback to current window
+		if (!details.windowId) {
+			details.windowId = this.lastFocusedWindowId;
+		}
 
-    const [tab, window] = result
+		const result = await this.impl.createTab(details);
 
-    if (typeof tab !== 'object' || !webContents.fromId(tab.id)) {
-      throw new Error('createTab must return a WebContents')
-    } else if (typeof window !== 'object') {
-      throw new Error('createTab must return a BrowserWindow')
-    }
+		if (!Array.isArray(result)) {
+			throw new Error("createTab must return an array of [tab, window]");
+		}
 
-    this.addTab(tab, window)
+		const [tab, window] = result;
 
-    return tab
-  }
+		if (typeof tab !== "object" || !webContents.fromId(tab.id)) {
+			throw new Error("createTab must return a WebContents");
+		} else if (typeof window !== "object") {
+			throw new Error("createTab must return a BrowserWindow");
+		}
 
-  getActiveTabFromWindow(win: Electron.BaseWindow) {
-    const activeTab = win && !win.isDestroyed() && this.windowToActiveTab.get(win)
-    return (activeTab && !activeTab.isDestroyed() && activeTab) || undefined
-  }
+		this.addTab(tab, window);
 
-  getActiveTabFromWebContents(wc: Electron.WebContents): Electron.WebContents | undefined {
-    const win = this.tabToWindow.get(wc) || BrowserWindow.fromWebContents(wc)
-    const activeTab = win ? this.getActiveTabFromWindow(win) : undefined
-    return activeTab
-  }
+		return tab;
+	}
 
-  getActiveTabOfCurrentWindow() {
-    const win = this.getCurrentWindow()
-    return win ? this.getActiveTabFromWindow(win) : undefined
-  }
+	getActiveTabFromWindow(win: Electron.BaseWindow) {
+		const activeTab =
+			win && !win.isDestroyed() && this.windowToActiveTab.get(win);
 
-  setActiveTab(tab: Electron.WebContents) {
-    const win = this.tabToWindow.get(tab)
-    if (!win) {
-      throw new Error('Active tab has no parent window')
-    }
+		return (activeTab && !activeTab.isDestroyed() && activeTab) || undefined;
+	}
 
-    const prevActiveTab = this.getActiveTabFromWebContents(tab)
+	getActiveTabFromWebContents(
+		wc: Electron.WebContents,
+	): Electron.WebContents | undefined {
+		const win = this.tabToWindow.get(wc) || BrowserWindow.fromWebContents(wc);
+		const activeTab = win ? this.getActiveTabFromWindow(win) : undefined;
 
-    this.windowToActiveTab.set(win, tab)
+		return activeTab;
+	}
 
-    if (tab.id !== prevActiveTab?.id) {
-      this.emit('active-tab-changed', tab, win)
+	getActiveTabOfCurrentWindow() {
+		const win = this.getCurrentWindow();
 
-      if (typeof this.impl.selectTab === 'function') {
-        this.impl.selectTab(tab, win)
-      }
-    }
-  }
+		return win ? this.getActiveTabFromWindow(win) : undefined;
+	}
 
-  buildMenuItems(extensionId: string, menuType: ContextMenuType): Electron.MenuItem[] {
-    // This function is overwritten by ContextMenusAPI
-    return []
-  }
+	setActiveTab(tab: Electron.WebContents) {
+		const win = this.tabToWindow.get(tab);
 
-  async requestPermissions(
-    extension: Electron.Extension,
-    permissions: chrome.permissions.Permissions,
-  ) {
-    if (typeof this.impl.requestPermissions !== 'function') {
-      // Default to allowed.
-      return true
-    }
-    const result: unknown = await this.impl.requestPermissions(extension, permissions)
-    return typeof result === 'boolean' ? result : false
-  }
+		if (!win) {
+			throw new Error("Active tab has no parent window");
+		}
+
+		const prevActiveTab = this.getActiveTabFromWebContents(tab);
+
+		this.windowToActiveTab.set(win, tab);
+
+		if (tab.id !== prevActiveTab?.id) {
+			this.emit("active-tab-changed", tab, win);
+
+			if (typeof this.impl.selectTab === "function") {
+				this.impl.selectTab(tab, win);
+			}
+		}
+	}
+
+	buildMenuItems(
+		_extensionId: string,
+		_menuType: ContextMenuType,
+	): Electron.MenuItem[] {
+		// This function is overwritten by ContextMenusAPI
+		return [];
+	}
+
+	async requestPermissions(
+		extension: Electron.Extension,
+		permissions: chrome.permissions.Permissions,
+	) {
+		if (typeof this.impl.requestPermissions !== "function") {
+			// Default to allowed.
+			return true;
+		}
+
+		const result: unknown = await this.impl.requestPermissions(
+			extension,
+			permissions,
+		);
+
+		return typeof result === "boolean" ? result : false;
+	}
 }

@@ -34,10 +34,17 @@ import type { ExtensionContext } from "../context";
  * @returns    The resolved absolute URL.
  */
 function resolveExtensionUrl(ses: Session, url: string): string {
-  if (url.startsWith("chrome-extension://") || url.startsWith("http")) return url;
-  const ext = ses.extensions.getAllExtensions()[0];
-  if (!ext) return url;
-  return `chrome-extension://${ext.id}/${url.replace(/^\//, "")}`;
+	if (url.startsWith("chrome-extension://") || url.startsWith("http")) {
+		return url;
+	}
+
+	const ext = ses.extensions.getAllExtensions()[0];
+
+	if (!ext) {
+		return url;
+	}
+
+	return `chrome-extension://${ext.id}/${url.replace(/^\//, "")}`;
 }
 
 /**
@@ -54,19 +61,19 @@ function resolveExtensionUrl(ses: Session, url: string): string {
  * @returns      A plain object conforming to the `chrome.Tab` shape.
  */
 function makeTabObject(
-  tabId: number,
-  url: string,
-  active: boolean,
+	tabId: number,
+	url: string,
+	active: boolean,
 ): Record<string, unknown> {
-  return {
-    id: tabId,
-    index: 0,
-    windowId: 1,
-    active,
-    url,
-    title: "",
-    status: "complete",
-  };
+	return {
+		id: tabId,
+		index: 0,
+		windowId: 1,
+		active,
+		url,
+		title: "",
+		status: "complete",
+	};
 }
 
 /**
@@ -85,42 +92,48 @@ function makeTabObject(
  * @returns      The return value to send back to the extension, or `undefined`.
  */
 export function handleTabs(
-  ctx: ExtensionContext,
-  method: string,
-  ...args: unknown[]
+	ctx: ExtensionContext,
+	method: string,
+	...args: unknown[]
 ): unknown {
-  switch (method) {
-    case "create": {
-      const [opts] = args as [{ url?: string; active?: boolean }];
-      const url = opts?.url
-        ? resolveExtensionUrl(ctx.session, opts.url)
-        : "about:blank";
-      // Delegate tab creation to the host application. The result is intentionally
-      // not awaited — the extension receives a synthetic tab object immediately,
-      // matching Chrome's non-blocking behaviour.
-      ctx.store
-        .createTab({ url })
-        .catch(() => {});
-      // Tab ID 0 is a placeholder; a real implementation would return the actual
-      // new tab's ID once the store resolves.
-      return makeTabObject(0, url, true);
-    }
-    case "get": {
-      const [tabId] = args as [number];
-      // No live tab model — return a stub so callers don't receive null/undefined.
-      return makeTabObject(tabId, "", false);
-    }
-    case "query": {
-      const activeTab = ctx.store.getActiveTabOfCurrentWindow();
-      if (!activeTab) return [];
-      return [makeTabObject(activeTab.id, activeTab.getURL(), true)];
-    }
-    case "update":
-      // Acknowledged but not implemented; return a stub to avoid extension errors.
-      return makeTabObject(0, "", false);
-    case "remove":
-      return undefined;
-    default:
-      return undefined;
-  }
+	switch (method) {
+		case "create": {
+			const [opts] = args as [{ url?: string; active?: boolean }];
+
+			const url = opts?.url
+				? resolveExtensionUrl(ctx.session, opts.url)
+				: "about:blank";
+
+			// Delegate tab creation to the host application. The result is intentionally
+			// not awaited — the extension receives a synthetic tab object immediately,
+			// matching Chrome's non-blocking behaviour.
+			ctx.store.createTab({ url }).catch(() => {});
+
+			// Tab ID 0 is a placeholder; a real implementation would return the actual
+			// new tab's ID once the store resolves.
+			return makeTabObject(0, url, true);
+		}
+		case "get": {
+			const [tabId] = args as [number];
+
+			// No live tab model — return a stub so callers don't receive null/undefined.
+			return makeTabObject(tabId, "", false);
+		}
+		case "query": {
+			const activeTab = ctx.store.getActiveTabOfCurrentWindow();
+
+			if (!activeTab) {
+				return [];
+			}
+
+			return [makeTabObject(activeTab.id, activeTab.getURL(), true)];
+		}
+		case "update":
+			// Acknowledged but not implemented; return a stub to avoid extension errors.
+			return makeTabObject(0, "", false);
+		case "remove":
+			return undefined;
+		default:
+			return undefined;
+	}
 }

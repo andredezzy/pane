@@ -77,6 +77,32 @@
 			"linter": { "enabled": false },
 			"formatter": { "enabled": false },
 			"assist": { "enabled": false }
+		},
+		{
+			"includes": ["packages/electron-chrome-extensions/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off",
+						"noAssignInExpressions": "off",
+						"noImplicitAnyLet": "off",
+						"useAdjacentOverloadSignatures": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off",
+						"noParameterAssign": "off",
+						"noNestedTernary": "off"
+					},
+					"correctness": {
+						"noUnusedFunctionParameters": "off",
+						"noUnusedVariables": "off",
+						"noInnerDeclarations": "off"
+					},
+					"complexity": {
+						"noBannedTypes": "off"
+					}
+				}
+			}
 		}
 	],
 	"javascript": {

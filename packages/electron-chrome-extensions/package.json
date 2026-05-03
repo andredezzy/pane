@@ -1,32 +1,32 @@
 {
-  "name": "@pane/electron-chrome-extensions",
-  "version": "4.9.1",
-  "private": true,
-  "description": "Chrome extension support for Electron (Pane fork with Electron 41+ fixes)",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.mjs",
-  "types": "./dist/types/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.mjs",
-      "require": "./dist/cjs/index.js"
-    },
-    "./browser-action": {
-      "types": "./dist/types/browser-action.d.ts",
-      "import": "./dist/esm/browser-action.mjs",
-      "require": "./dist/cjs/browser-action.js"
-    },
-    "./preload": "./dist/chrome-extension-api.preload.js"
-  },
-  "scripts": {
-    "build": "node esbuild.config.cjs"
-  },
-  "dependencies": {
-    "debug": "^4.3.1"
-  },
-  "devDependencies": {
-    "@types/chrome": "^0.0.300",
-    "esbuild": "^0.24.2"
-  }
+	"name": "@pane/electron-chrome-extensions",
+	"version": "4.9.1",
+	"private": true,
+	"description": "Chrome extension support for Electron (Pane fork with Electron 41+ fixes)",
+	"main": "./dist/cjs/index.js",
+	"module": "./dist/esm/index.mjs",
+	"types": "./dist/types/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/esm/index.mjs",
+			"require": "./dist/cjs/index.js"
+		},
+		"./browser-action": {
+			"types": "./dist/types/browser-action.d.ts",
+			"import": "./dist/esm/browser-action.mjs",
+			"require": "./dist/cjs/browser-action.js"
+		},
+		"./preload": "./dist/chrome-extension-api.preload.js"
+	},
+	"scripts": {
+		"build": "node esbuild.config.cjs"
+	},
+	"dependencies": {
+		"debug": "^4.3.1"
+	},
+	"devDependencies": {
+		"@types/chrome": "^0.0.300",
+		"esbuild": "^0.24.2"
+	}
 }

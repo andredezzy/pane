@@ -1,176 +1,207 @@
-import { app, Extension, Notification } from 'electron'
-import { ExtensionContext } from '../context'
-import { ExtensionEvent } from '../router'
-import { validateExtensionResource } from './common'
+import { app, Extension, Notification } from "electron";
+import { ExtensionContext } from "../context";
+import { ExtensionEvent } from "../router";
+import { validateExtensionResource } from "./common";
 
 enum TemplateType {
-  Basic = 'basic',
-  Image = 'image',
-  List = 'list',
-  Progress = 'progress',
+	Basic = "basic",
+	Image = "image",
+	List = "list",
+	Progress = "progress",
 }
 
 const getBody = (opts: chrome.notifications.NotificationOptions) => {
-  const { type = TemplateType.Basic } = opts
+	const { type = TemplateType.Basic } = opts;
 
-  switch (type) {
-    case TemplateType.List: {
-      if (!Array.isArray(opts.items)) {
-        throw new Error('List items must be provided for list type')
-      }
-      return opts.items.map((item) => `${item.title} - ${item.message}`).join('\n')
-    }
-    default:
-      return opts.message || ''
-  }
-}
+	switch (type) {
+		case TemplateType.List: {
+			if (!Array.isArray(opts.items)) {
+				throw new Error("List items must be provided for list type");
+			}
+
+			return opts.items
+				.map((item) => `${item.title} - ${item.message}`)
+				.join("\n");
+		}
+		default:
+			return opts.message || "";
+	}
+};
 
 const getUrgency = (
-  priority?: number,
-): Required<Electron.NotificationConstructorOptions>['urgency'] => {
-  if (typeof priority !== 'number') {
-    return 'normal'
-  } else if (priority >= 2) {
-    return 'critical'
-  } else if (priority < 0) {
-    return 'low'
-  } else {
-    return 'normal'
-  }
-}
+	priority?: number,
+): Required<Electron.NotificationConstructorOptions>["urgency"] => {
+	if (typeof priority !== "number") {
+		return "normal";
+	} else if (priority >= 2) {
+		return "critical";
+	} else if (priority < 0) {
+		return "low";
+	} else {
+		return "normal";
+	}
+};
 
-const createScopedIdentifier = (extension: Extension, id: string) => `${extension.id}-${id}`
+const createScopedIdentifier = (extension: Extension, id: string) =>
+	`${extension.id}-${id}`;
+
 const stripScopeFromIdentifier = (id: string) => {
-  const index = id.indexOf('-')
-  return id.substr(index + 1)
-}
+	const index = id.indexOf("-");
+
+	return id.substr(index + 1);
+};
 
 export class NotificationsAPI {
-  private registry = new Map<string, Notification>()
+	private registry = new Map<string, Notification>();
 
-  constructor(private ctx: ExtensionContext) {
-    const handle = this.ctx.router.apiHandler()
-    handle('notifications.clear', this.clear)
-    handle('notifications.create', this.create)
-    handle('notifications.getAll', this.getAll)
-    handle('notifications.getPermissionLevel', this.getPermissionLevel)
-    handle('notifications.update', this.update)
+	constructor(private ctx: ExtensionContext) {
+		const handle = this.ctx.router.apiHandler();
+		handle("notifications.clear", this.clear);
+		handle("notifications.create", this.create);
+		handle("notifications.getAll", this.getAll);
+		handle("notifications.getPermissionLevel", this.getPermissionLevel);
+		handle("notifications.update", this.update);
 
-    const sessionExtensions = ctx.session.extensions || ctx.session
-    sessionExtensions.on('extension-unloaded', (event, extension) => {
-      for (const [key, notification] of this.registry) {
-        if (key.startsWith(extension.id)) {
-          notification.close()
-        }
-      }
-    })
-  }
+		const sessionExtensions = ctx.session.extensions || ctx.session;
 
-  private clear = ({ extension }: ExtensionEvent, id: string) => {
-    const notificationId = createScopedIdentifier(extension, id)
-    if (this.registry.has(notificationId)) {
-      this.registry.get(notificationId)?.close()
-    }
-  }
+		sessionExtensions.on("extension-unloaded", (_event, extension) => {
+			for (const [key, notification] of this.registry) {
+				if (key.startsWith(extension.id)) {
+					notification.close();
+				}
+			}
+		});
+	}
 
-  private create = async ({ extension }: ExtensionEvent, arg1: unknown, arg2?: unknown) => {
-    let id: string
-    let opts: chrome.notifications.NotificationOptions
+	private clear = ({ extension }: ExtensionEvent, id: string) => {
+		const notificationId = createScopedIdentifier(extension, id);
 
-    if (typeof arg1 === 'object') {
-      id = 'guid' // TODO: generate uuid
-      opts = arg1 as chrome.notifications.NotificationOptions
-    } else if (typeof arg1 === 'string') {
-      id = arg1
-      opts = arg2 as chrome.notifications.NotificationOptions
-    } else {
-      throw new Error('Invalid arguments')
-    }
+		if (this.registry.has(notificationId)) {
+			this.registry.get(notificationId)?.close();
+		}
+	};
 
-    if (typeof opts !== 'object' || !opts.type || !opts.iconUrl || !opts.title || !opts.message) {
-      throw new Error('Missing required notification options')
-    }
+	private create = async (
+		{ extension }: ExtensionEvent,
+		arg1: unknown,
+		arg2?: unknown,
+	) => {
+		let id: string;
+		let opts: chrome.notifications.NotificationOptions;
 
-    const notificationId = createScopedIdentifier(extension, id)
+		if (typeof arg1 === "object") {
+			id = "guid"; // TODO: generate uuid
+			opts = arg1 as chrome.notifications.NotificationOptions;
+		} else if (typeof arg1 === "string") {
+			id = arg1;
+			opts = arg2 as chrome.notifications.NotificationOptions;
+		} else {
+			throw new Error("Invalid arguments");
+		}
 
-    if (this.registry.has(notificationId)) {
-      this.registry.get(notificationId)?.close()
-    }
+		if (
+			typeof opts !== "object" ||
+			!opts.type ||
+			!opts.iconUrl ||
+			!opts.title ||
+			!opts.message
+		) {
+			throw new Error("Missing required notification options");
+		}
 
-    let icon
+		const notificationId = createScopedIdentifier(extension, id);
 
-    if (opts.iconUrl) {
-      let url
-      try {
-        url = new URL(opts.iconUrl)
-      } catch {}
+		if (this.registry.has(notificationId)) {
+			this.registry.get(notificationId)?.close();
+		}
 
-      if (url?.protocol === 'data:') {
-        icon = opts.iconUrl
-      } else {
-        icon = await validateExtensionResource(extension, opts.iconUrl)
-      }
+		let icon;
 
-      if (!icon) {
-        throw new Error('Invalid iconUrl')
-      }
-    }
+		if (opts.iconUrl) {
+			let url;
 
-    // TODO: buttons, template types
+			try {
+				url = new URL(opts.iconUrl);
+			} catch {}
 
-    const notification = new Notification({
-      title: opts.title,
-      subtitle: app.name,
-      body: getBody(opts),
-      silent: opts.silent,
-      icon,
-      urgency: getUrgency(opts.priority),
-      timeoutType: opts.requireInteraction ? 'never' : 'default',
-    })
+			if (url?.protocol === "data:") {
+				icon = opts.iconUrl;
+			} else {
+				icon = await validateExtensionResource(extension, opts.iconUrl);
+			}
 
-    this.registry.set(notificationId, notification)
+			if (!icon) {
+				throw new Error("Invalid iconUrl");
+			}
+		}
 
-    notification.on('click', () => {
-      this.ctx.router.sendEvent(extension.id, 'notifications.onClicked', id)
-    })
+		// TODO: buttons, template types
 
-    notification.once('close', () => {
-      const byUser = true // TODO
-      this.ctx.router.sendEvent(extension.id, 'notifications.onClosed', id, byUser)
-      this.registry.delete(notificationId)
-    })
+		const notification = new Notification({
+			title: opts.title,
+			subtitle: app.name,
+			body: getBody(opts),
+			silent: opts.silent,
+			icon,
+			urgency: getUrgency(opts.priority),
+			timeoutType: opts.requireInteraction ? "never" : "default",
+		});
 
-    notification.show()
+		this.registry.set(notificationId, notification);
 
-    return id
-  }
+		notification.on("click", () => {
+			this.ctx.router.sendEvent(extension.id, "notifications.onClicked", id);
+		});
 
-  private getAll = ({ extension }: ExtensionEvent) => {
-    return Array.from(this.registry.keys())
-      .filter((key) => key.startsWith(extension.id))
-      .map(stripScopeFromIdentifier)
-  }
+		notification.once("close", () => {
+			const byUser = true; // TODO
 
-  private getPermissionLevel = (event: ExtensionEvent) => {
-    return Notification.isSupported() ? 'granted' : 'denied'
-  }
+			this.ctx.router.sendEvent(
+				extension.id,
+				"notifications.onClosed",
+				id,
+				byUser,
+			);
 
-  private update = (
-    { extension }: ExtensionEvent,
-    id: string,
-    opts: chrome.notifications.NotificationOptions,
-  ) => {
-    const notificationId = createScopedIdentifier(extension, id)
+			this.registry.delete(notificationId);
+		});
 
-    const notification = this.registry.get(notificationId)
+		notification.show();
 
-    if (!notification) {
-      return false
-    }
+		return id;
+	};
 
-    // TODO: remaining opts
+	private getAll = ({ extension }: ExtensionEvent) => {
+		return Array.from(this.registry.keys())
+			.filter((key) => key.startsWith(extension.id))
+			.map(stripScopeFromIdentifier);
+	};
 
-    if (opts.priority) notification.urgency = getUrgency(opts.priority)
-    if (opts.silent) notification.silent = opts.silent
-  }
+	private getPermissionLevel = (_event: ExtensionEvent) => {
+		return Notification.isSupported() ? "granted" : "denied";
+	};
+
+	private update = (
+		{ extension }: ExtensionEvent,
+		id: string,
+		opts: chrome.notifications.NotificationOptions,
+	) => {
+		const notificationId = createScopedIdentifier(extension, id);
+
+		const notification = this.registry.get(notificationId);
+
+		if (!notification) {
+			return false;
+		}
+
+		// TODO: remaining opts
+
+		if (opts.priority) {
+			notification.urgency = getUrgency(opts.priority);
+		}
+
+		if (opts.silent) {
+			notification.silent = opts.silent;
+		}
+	};
 }

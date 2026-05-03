@@ -1,39 +1,48 @@
-import { ipcRenderer } from 'electron'
+import { ipcRenderer } from "electron";
 
-const formatIpcName = (name: string) => `crx-${name}`
+const formatIpcName = (name: string) => `crx-${name}`;
 
-const listenerMap = new Map<string, number>()
+const listenerMap = new Map<string, number>();
 
-export const addExtensionListener = (extensionId: string, name: string, callback: Function) => {
-  const listenerCount = listenerMap.get(name) || 0
+export const addExtensionListener = (
+	extensionId: string,
+	name: string,
+	callback: Function,
+) => {
+	const listenerCount = listenerMap.get(name) || 0;
 
-  if (listenerCount === 0) {
-    // TODO: should these IPCs be batched in a microtask?
-    ipcRenderer.send('crx-add-listener', extensionId, name)
-  }
+	if (listenerCount === 0) {
+		// TODO: should these IPCs be batched in a microtask?
+		ipcRenderer.send("crx-add-listener", extensionId, name);
+	}
 
-  listenerMap.set(name, listenerCount + 1)
+	listenerMap.set(name, listenerCount + 1);
 
-  ipcRenderer.addListener(formatIpcName(name), function (event, ...args) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(name, '(result)', ...args)
-    }
-    callback(...args)
-  })
-}
+	ipcRenderer.addListener(formatIpcName(name), (_event, ...args) => {
+		if (process.env.NODE_ENV === "development") {
+			console.log(name, "(result)", ...args);
+		}
 
-export const removeExtensionListener = (extensionId: string, name: string, callback: any) => {
-  if (listenerMap.has(name)) {
-    const listenerCount = listenerMap.get(name) || 0
+		callback(...args);
+	});
+};
 
-    if (listenerCount <= 1) {
-      listenerMap.delete(name)
+export const removeExtensionListener = (
+	extensionId: string,
+	name: string,
+	callback: any,
+) => {
+	if (listenerMap.has(name)) {
+		const listenerCount = listenerMap.get(name) || 0;
 
-      ipcRenderer.send('crx-remove-listener', extensionId, name)
-    } else {
-      listenerMap.set(name, listenerCount - 1)
-    }
-  }
+		if (listenerCount <= 1) {
+			listenerMap.delete(name);
 
-  ipcRenderer.removeListener(formatIpcName(name), callback)
-}
+			ipcRenderer.send("crx-remove-listener", extensionId, name);
+		} else {
+			listenerMap.set(name, listenerCount - 1);
+		}
+	}
+
+	ipcRenderer.removeListener(formatIpcName(name), callback);
+};

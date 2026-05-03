@@ -1,7 +1,7 @@
 import type { UserConfig } from "tsdown";
 
-import { baseConfig, TEST_EXCLUSIONS } from "./base.js";
-import { mergeConfig } from "./merge.js";
+import { baseConfig, TEST_EXCLUSIONS } from "./base";
+import { mergeConfig } from "./merge";
 
 const libraryDefaults: UserConfig = {
 	entry: ["src/**/*.ts", ...TEST_EXCLUSIONS],

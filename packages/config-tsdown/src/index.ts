@@ -1,4 +1,4 @@
-export { baseConfig, TEST_EXCLUSIONS } from "./base.js";
-export { library } from "./library.js";
-export { mergeConfig } from "./merge.js";
-export { react } from "./react.js";
+export { baseConfig, TEST_EXCLUSIONS } from "./base";
+export { library } from "./library";
+export { mergeConfig } from "./merge";
+export { react } from "./react";

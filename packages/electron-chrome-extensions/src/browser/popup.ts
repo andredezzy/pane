@@ -1,45 +1,49 @@
-import { EventEmitter } from 'node:events'
-import { BrowserWindow, Session } from 'electron'
-import { getAllWindows } from './api/common'
-import debug from 'debug'
+import { EventEmitter } from "node:events";
+import debug from "debug";
+import { BrowserWindow, Session } from "electron";
+import { getAllWindows } from "./api/common";
 
-const d = debug('electron-chrome-extensions:popup')
+const d = debug("electron-chrome-extensions:popup");
 
 export interface PopupAnchorRect {
-  x: number
-  y: number
-  width: number
-  height: number
+	x: number;
+	y: number;
+	width: number;
+	height: number;
 }
 
 interface PopupViewOptions {
-  extensionId: string
-  session: Session
-  parent: Electron.BaseWindow
-  url: string
-  anchorRect: PopupAnchorRect
-  alignment?: string
+	extensionId: string;
+	session: Session;
+	parent: Electron.BaseWindow;
+	url: string;
+	anchorRect: PopupAnchorRect;
+	alignment?: string;
 }
 
 const supportsPreferredSize = () => {
-  const major = parseInt(process.versions.electron.split('.').shift() || '', 10)
-  return major >= 12
-}
+	const major = parseInt(
+		process.versions.electron.split(".").shift() || "",
+		10,
+	);
+
+	return major >= 12;
+};
 
 // Matches the Pane sidebar background (#0A0A0B) for a seamless edge
 const POPUP_CSS = [
-  'html { margin: 0 !important; padding: 0 !important; }',
-  'html::after {',
-  '  content: "" !important;',
-  '  position: fixed !important;',
-  '  inset: 0 !important;',
-  '  border: 1px solid #0A0A0B !important;',
-  '  border-radius: 16px !important;',
-  '  pointer-events: none !important;',
-  '  z-index: 2147483647 !important;',
-  '}',
-  'body { margin: 0 !important; border-color: transparent !important; }',
-].join(' ')
+	"html { margin: 0 !important; padding: 0 !important; }",
+	"html::after {",
+	'  content: "" !important;',
+	"  position: fixed !important;",
+	"  inset: 0 !important;",
+	"  border: 1px solid #0A0A0B !important;",
+	"  border-radius: 16px !important;",
+	"  pointer-events: none !important;",
+	"  z-index: 2147483647 !important;",
+	"}",
+	"body { margin: 0 !important; border-color: transparent !important; }",
+].join(" ");
 
 /**
  * Walks the DOM tree to find the first element with a non-transparent
@@ -59,235 +63,261 @@ const DETECT_BG_SCRIPT = `(function() {
   }
   var color = findBgColor(document.documentElement) || '#ffffff';
   document.documentElement.style.setProperty('background', color, 'important');
-})()`
+})()`;
 
 export class PopupView extends EventEmitter {
-  static POSITION_PADDING = 5
+	static POSITION_PADDING = 5;
 
-  static BOUNDS = {
-    minWidth: 25,
-    minHeight: 25,
-    maxWidth: 800,
-    maxHeight: 600,
-  }
+	static BOUNDS = {
+		minWidth: 25,
+		minHeight: 25,
+		maxWidth: 800,
+		maxHeight: 600,
+	};
 
-  browserWindow?: BrowserWindow
-  parent?: Electron.BaseWindow
-  extensionId: string
+	browserWindow?: BrowserWindow;
+	parent?: Electron.BaseWindow;
+	extensionId: string;
 
-  private anchorRect: PopupAnchorRect
-  private destroyed: boolean = false
-  private hidden: boolean = true
-  private alignment?: string
+	private anchorRect: PopupAnchorRect;
+	private destroyed: boolean = false;
+	private hidden: boolean = true;
+	private alignment?: string;
 
-  /** Preferred size changes are only received in Electron v12+ */
-  private usingPreferredSize = supportsPreferredSize()
+	private readyPromise: Promise<void>;
 
-  private readyPromise: Promise<void>
+	constructor(opts: PopupViewOptions) {
+		super();
 
-  constructor(opts: PopupViewOptions) {
-    super()
+		this.parent = opts.parent;
+		this.extensionId = opts.extensionId;
+		this.anchorRect = opts.anchorRect;
+		this.alignment = opts.alignment;
 
-    this.parent = opts.parent
-    this.extensionId = opts.extensionId
-    this.anchorRect = opts.anchorRect
-    this.alignment = opts.alignment
+		this.browserWindow = new BrowserWindow({
+			show: false,
+			frame: false,
+			movable: false,
+			maximizable: false,
+			minimizable: false,
+			fullscreenable: false,
+			resizable: false,
+			skipTaskbar: true,
+			transparent: true,
+			hasShadow: false,
+			roundedCorners: true,
+			webPreferences: {
+				session: opts.session,
+				sandbox: true,
+				nodeIntegration: false,
+				nodeIntegrationInWorker: false,
+				contextIsolation: true,
+				enablePreferredSizeMode: true,
+			},
+		});
 
-    this.browserWindow = new BrowserWindow({
-      show: false,
-      frame: false,
-      movable: false,
-      maximizable: false,
-      minimizable: false,
-      fullscreenable: false,
-      resizable: false,
-      skipTaskbar: true,
-      transparent: true,
-      hasShadow: false,
-      roundedCorners: true,
-      webPreferences: {
-        session: opts.session,
-        sandbox: true,
-        nodeIntegration: false,
-        nodeIntegrationInWorker: false,
-        contextIsolation: true,
-        enablePreferredSizeMode: true,
-      },
-    })
+		const untypedWebContents = this.browserWindow.webContents as any;
+		untypedWebContents.on("preferred-size-changed", this.updatePreferredSize);
 
-    const untypedWebContents = this.browserWindow.webContents as any
-    untypedWebContents.on('preferred-size-changed', this.updatePreferredSize)
+		this.browserWindow.webContents.on("devtools-closed", this.maybeClose);
+		this.browserWindow.on("blur", this.maybeClose);
+		this.browserWindow.on("closed", this.destroy);
+		this.parent.once("closed", this.destroy);
 
-    this.browserWindow.webContents.on('devtools-closed', this.maybeClose)
-    this.browserWindow.on('blur', this.maybeClose)
-    this.browserWindow.on('closed', this.destroy)
-    this.parent.once('closed', this.destroy)
+		this.readyPromise = this.load(opts.url);
+	}
 
-    this.readyPromise = this.load(opts.url)
-  }
+	private show() {
+		this.hidden = false;
+		this.browserWindow?.show();
+	}
 
-  private show() {
-    this.hidden = false
-    this.browserWindow?.show()
-  }
+	private async load(url: string): Promise<void> {
+		const win = this.browserWindow!;
 
-  private async load(url: string): Promise<void> {
-    const win = this.browserWindow!
+		try {
+			await win.webContents.loadURL(url);
+		} catch (e) {
+			console.error("[Popup] loadURL error:", e);
+		}
 
-    try {
-      await win.webContents.loadURL(url)
-    } catch (e) {
-      console.error('[Popup] loadURL error:', e)
-    }
+		if (this.destroyed) {
+			return;
+		}
 
-    if (this.destroyed) return
+		await win.webContents.insertCSS(POPUP_CSS);
+		await win.webContents.executeJavaScript(DETECT_BG_SCRIPT);
 
-    await win.webContents.insertCSS(POPUP_CSS)
-    await win.webContents.executeJavaScript(DETECT_BG_SCRIPT)
+		this.setSize({ width: 400, height: 600 });
+		this.updatePosition();
+		this.show();
+	}
 
-    this.setSize({ width: 400, height: 600 })
-    this.updatePosition()
-    this.show()
-  }
+	destroy = () => {
+		if (this.destroyed) {
+			return;
+		}
 
-  destroy = () => {
-    if (this.destroyed) return
+		this.destroyed = true;
 
-    this.destroyed = true
+		d(`destroying ${this.extensionId}`);
 
-    d(`destroying ${this.extensionId}`)
+		if (this.parent) {
+			if (!this.parent.isDestroyed()) {
+				this.parent.off("closed", this.destroy);
+			}
 
-    if (this.parent) {
-      if (!this.parent.isDestroyed()) {
-        this.parent.off('closed', this.destroy)
-      }
-      this.parent = undefined
-    }
+			this.parent = undefined;
+		}
 
-    if (this.browserWindow) {
-      if (!this.browserWindow.isDestroyed()) {
-        const { webContents } = this.browserWindow
+		if (this.browserWindow) {
+			if (!this.browserWindow.isDestroyed()) {
+				const { webContents } = this.browserWindow;
 
-        if (!webContents.isDestroyed() && webContents.isDevToolsOpened()) {
-          webContents.closeDevTools()
-        }
+				if (!webContents.isDestroyed() && webContents.isDevToolsOpened()) {
+					webContents.closeDevTools();
+				}
 
-        this.browserWindow.off('closed', this.destroy)
-        this.browserWindow.destroy()
-      }
+				this.browserWindow.off("closed", this.destroy);
+				this.browserWindow.destroy();
+			}
 
-      this.browserWindow = undefined
-    }
-  }
+			this.browserWindow = undefined;
+		}
+	};
 
-  isDestroyed() {
-    return this.destroyed
-  }
+	isDestroyed() {
+		return this.destroyed;
+	}
 
-  whenReady() {
-    return this.readyPromise
-  }
+	whenReady() {
+		return this.readyPromise;
+	}
 
-  setSize(rect: Partial<Electron.Rectangle>) {
-    if (!this.browserWindow || !this.parent) return
+	setSize(rect: Partial<Electron.Rectangle>) {
+		if (!this.browserWindow || !this.parent) {
+			return;
+		}
 
-    const width = Math.floor(
-      Math.min(PopupView.BOUNDS.maxWidth, Math.max(rect.width || 0, PopupView.BOUNDS.minWidth)),
-    )
+		const width = Math.floor(
+			Math.min(
+				PopupView.BOUNDS.maxWidth,
+				Math.max(rect.width || 0, PopupView.BOUNDS.minWidth),
+			),
+		);
 
-    const height = Math.floor(
-      Math.min(PopupView.BOUNDS.maxHeight, Math.max(rect.height || 0, PopupView.BOUNDS.minHeight)),
-    )
+		const height = Math.floor(
+			Math.min(
+				PopupView.BOUNDS.maxHeight,
+				Math.max(rect.height || 0, PopupView.BOUNDS.minHeight),
+			),
+		);
 
-    const size = { width, height }
-    d(`setSize`, size)
+		const size = { width, height };
+		d(`setSize`, size);
 
-    this.emit('will-resize', size)
+		this.emit("will-resize", size);
 
-    this.browserWindow?.setBounds({
-      ...this.browserWindow.getBounds(),
-      ...size,
-    })
+		this.browserWindow?.setBounds({
+			...this.browserWindow.getBounds(),
+			...size,
+		});
 
-    this.emit('resized')
-  }
+		this.emit("resized");
+	}
 
-  private maybeClose = () => {
-    if (!this.browserWindow?.isDestroyed() && this.browserWindow?.webContents.isDevToolsOpened()) {
-      return
-    }
-    setTimeout(() => {
-      if (this.destroyed) return
-      if (!this.browserWindow?.isDestroyed() && this.browserWindow?.isFocused()) return
-      if (!getAllWindows().some((win) => win.isFocused())) return
-      this.destroy()
-    }, 500)
-  }
+	private maybeClose = () => {
+		if (
+			!this.browserWindow?.isDestroyed() &&
+			this.browserWindow?.webContents.isDevToolsOpened()
+		) {
+			return;
+		}
 
-  private updatePosition() {
-    if (!this.browserWindow || !this.parent) return
+		setTimeout(() => {
+			if (this.destroyed) {
+				return;
+			}
 
-    const winBounds = this.parent.getBounds()
-    const winContentBounds = this.parent.getContentBounds()
-    const nativeTitlebarHeight = winBounds.height - winContentBounds.height
+			if (
+				!this.browserWindow?.isDestroyed() &&
+				this.browserWindow?.isFocused()
+			) {
+				return;
+			}
 
-    const viewBounds = this.browserWindow.getBounds()
+			if (!getAllWindows().some((win) => win.isFocused())) {
+				return;
+			}
 
-    let x = winBounds.x + this.anchorRect.x + this.anchorRect.width - viewBounds.width
-    let y =
-      winBounds.y +
-      nativeTitlebarHeight +
-      this.anchorRect.y +
-      this.anchorRect.height +
-      PopupView.POSITION_PADDING
+			this.destroy();
+		}, 500);
+	};
 
-    if (this.alignment?.includes('right')) x = winBounds.x + this.anchorRect.x
-    if (this.alignment?.includes('top'))
-      y =
-        winBounds.y +
-        nativeTitlebarHeight -
-        viewBounds.height +
-        this.anchorRect.y -
-        PopupView.POSITION_PADDING
+	private updatePosition() {
+		if (!this.browserWindow || !this.parent) {
+			return;
+		}
 
-    x = Math.floor(x)
-    y = Math.floor(y)
+		const winBounds = this.parent.getBounds();
+		const winContentBounds = this.parent.getContentBounds();
+		const nativeTitlebarHeight = winBounds.height - winContentBounds.height;
 
-    const position = { x, y }
-    d(`updatePosition`, position)
+		const viewBounds = this.browserWindow.getBounds();
 
-    this.emit('will-move', position)
+		let x =
+			winBounds.x +
+			this.anchorRect.x +
+			this.anchorRect.width -
+			viewBounds.width;
 
-    this.browserWindow.setBounds({
-      ...this.browserWindow.getBounds(),
-      ...position,
-    })
+		let y =
+			winBounds.y +
+			nativeTitlebarHeight +
+			this.anchorRect.y +
+			this.anchorRect.height +
+			PopupView.POSITION_PADDING;
 
-    this.emit('moved')
-  }
+		if (this.alignment?.includes("right")) {
+			x = winBounds.x + this.anchorRect.x;
+		}
 
-  private async queryPreferredSize() {
-    if (this.usingPreferredSize || this.destroyed) return
+		if (this.alignment?.includes("top")) {
+			y =
+				winBounds.y +
+				nativeTitlebarHeight -
+				viewBounds.height +
+				this.anchorRect.y -
+				PopupView.POSITION_PADDING;
+		}
 
-    const rect = await this.browserWindow!.webContents.executeJavaScript(
-      `((${() => {
-        const rect = document.body.getBoundingClientRect()
-        return { width: rect.width, height: rect.height }
-      }})())`,
-    )
+		x = Math.floor(x);
+		y = Math.floor(y);
 
-    if (this.destroyed) return
+		const position = { x, y };
+		d(`updatePosition`, position);
 
-    this.setSize({ width: rect.width, height: rect.height })
-    this.updatePosition()
-  }
+		this.emit("will-move", position);
 
-  private updatePreferredSize = (event: Electron.Event, size: Electron.Size) => {
-    d('updatePreferredSize', size)
-    this.usingPreferredSize = true
-    this.setSize(size)
-    this.updatePosition()
+		this.browserWindow.setBounds({
+			...this.browserWindow.getBounds(),
+			...position,
+		});
 
-    if (this.hidden) this.show()
-  }
+		this.emit("moved");
+	}
+
+	private updatePreferredSize = (
+		_event: Electron.Event,
+		size: Electron.Size,
+	) => {
+		d("updatePreferredSize", size);
+		this.usingPreferredSize = true;
+		this.setSize(size);
+		this.updatePosition();
+
+		if (this.hidden) {
+			this.show();
+		}
+	};
 }

@@ -53,8 +53,8 @@ import { ipcMain, type Session } from "electron";
 import type { ExtensionContext } from "../context";
 import { handleAlarms } from "./alarms";
 import { handleIdle } from "./idle";
-import { handleWindows } from "./windows";
 import { handleTabs } from "./tabs";
+import { handleWindows } from "./windows";
 
 /**
  * Guards against registering the global `ipcMain.handle("crx-shim")`
@@ -77,15 +77,18 @@ let globalRegistered = false;
  * @param ctx - The active extension context, passed through to dispatch.
  */
 export function registerShimHandler(ctx: ExtensionContext) {
-  if (globalRegistered) return;
-  globalRegistered = true;
+	if (globalRegistered) {
+		return;
+	}
 
-  ipcMain.handle(
-    "crx-shim",
-    (_event, namespace: string, method: string, ...args: unknown[]) => {
-      return dispatch(ctx, undefined, namespace, method, ...args);
-    },
-  );
+	globalRegistered = true;
+
+	ipcMain.handle(
+		"crx-shim",
+		(_event, namespace: string, method: string, ...args: unknown[]) => {
+			return dispatch(ctx, undefined, namespace, method, ...args);
+		},
+	);
 }
 
 /**
@@ -121,43 +124,62 @@ const registeredSessions = new WeakSet<Session>();
  * @param ctx - The active extension context, providing session access.
  */
 export function registerShimHandlerForSession(ctx: ExtensionContext) {
-  const ses = ctx.session;
-  if (registeredSessions.has(ses)) return;
-  registeredSessions.add(ses);
+	const ses = ctx.session;
 
-  // Tracks worker instances that have already received the IPC handler
-  // so we don't register it twice if the event fires multiple times for
-  // the same versionId.
-  const workers = new WeakSet();
+	if (registeredSessions.has(ses)) {
+		return;
+	}
 
-  ses.serviceWorkers.on("running-status-changed", ({
-    runningStatus,
-    versionId,
-  }: Electron.Event<Electron.ServiceWorkersRunningStatusChangedEventParams>) => {
-    // Only register when the worker is starting. The handler registered
-    // here stays active until the worker stops, so we must not re-register
-    // on "running" or "stopped".
-    if (runningStatus !== "starting") return;
+	registeredSessions.add(ses);
 
-    // `getWorkerFromVersionID` is not yet part of Electron's public types.
-    const sw = (ses as any).serviceWorkers.getWorkerFromVersionID(versionId);
-    if (!sw || workers.has(sw)) return;
+	// Tracks worker instances that have already received the IPC handler
+	// so we don't register it twice if the event fires multiple times for
+	// the same versionId.
+	const workers = new WeakSet();
 
-    // Only shim extension SWs — ignore non-extension workers (e.g. web SWs).
-    if (!sw.scope?.startsWith("chrome-extension://")) return;
+	ses.serviceWorkers.on(
+		"running-status-changed",
+		({
+			runningStatus,
+			versionId,
+		}: Electron.Event<Electron.ServiceWorkersRunningStatusChangedEventParams>) => {
+			// Only register when the worker is starting. The handler registered
+			// here stays active until the worker stops, so we must not re-register
+			// on "running" or "stopped".
+			if (runningStatus !== "starting") {
+				return;
+			}
 
-    workers.add(sw);
+			// `getWorkerFromVersionID` is not yet part of Electron's public types.
+			const sw = (ses as any).serviceWorkers.getWorkerFromVersionID(versionId);
 
-    // Extract extension ID from scope: "chrome-extension://<id>/" → "<id>"
-    const extensionId = sw.scope.match(/^chrome-extension:\/\/([^/]+)/)?.[1];
+			if (!sw || workers.has(sw)) {
+				return;
+			}
 
-    sw.ipc.handle(
-      "crx-shim",
-      (_event: unknown, namespace: string, method: string, ...args: unknown[]) => {
-        return dispatch(ctx, extensionId, namespace, method, ...args);
-      },
-    );
-  });
+			// Only shim extension SWs — ignore non-extension workers (e.g. web SWs).
+			if (!sw.scope?.startsWith("chrome-extension://")) {
+				return;
+			}
+
+			workers.add(sw);
+
+			// Extract extension ID from scope: "chrome-extension://<id>/" → "<id>"
+			const extensionId = sw.scope.match(/^chrome-extension:\/\/([^/]+)/)?.[1];
+
+			sw.ipc.handle(
+				"crx-shim",
+				(
+					_event: unknown,
+					namespace: string,
+					method: string,
+					...args: unknown[]
+				) => {
+					return dispatch(ctx, extensionId, namespace, method, ...args);
+				},
+			);
+		},
+	);
 }
 
 /**
@@ -185,43 +207,48 @@ export function registerShimHandlerForSession(ctx: ExtensionContext) {
  * @returns           The value to serialize back to the caller.
  */
 function dispatch(
-  ctx: ExtensionContext,
-  extensionId: string | undefined,
-  namespace: string,
-  method: string,
-  ...args: unknown[]
+	ctx: ExtensionContext,
+	extensionId: string | undefined,
+	namespace: string,
+	method: string,
+	...args: unknown[]
 ) {
-  switch (namespace) {
-    case "alarms":
-      return handleAlarms(ctx.session, method, ...args);
-    case "idle":
-      return handleIdle(ctx.session, method, ...args);
-    case "windows":
-      return handleWindows(ctx, method, ...args);
-    case "tabs":
-      return handleTabs(ctx, method, ...args);
-    case "action": {
-      // `chrome.action.setPopup` lets an extension dynamically change
-      // the URL of its browser-action popup (e.g. NordPass sets it to
-      // "index.html" after authentication). We propagate this via the
-      // context event bus so BrowserActionAPI registers the URL.
-      //
-      // `extensionId` is preferred (accurate, from SW scope). Falls back
-      // to `getAllExtensions()[0]` for frame contexts where the SW scope
-      // is unavailable.
-      if (method === "setPopup") {
-        const [details] = args as [{ popup?: string }];
-        const extId = extensionId ?? ctx.session.extensions.getAllExtensions()[0]?.id;
-        if (extId && details?.popup) {
-          ctx.emit("set-popup", extId, details.popup);
-        }
-      }
-      return undefined;
-    }
-    case "__log":
-      console.log(`[SW]`, method, ...args);
-      return undefined;
-    default:
-      return undefined;
-  }
+	switch (namespace) {
+		case "alarms":
+			return handleAlarms(ctx.session, method, ...args);
+		case "idle":
+			return handleIdle(ctx.session, method, ...args);
+		case "windows":
+			return handleWindows(ctx, method, ...args);
+		case "tabs":
+			return handleTabs(ctx, method, ...args);
+		case "action": {
+			// `chrome.action.setPopup` lets an extension dynamically change
+			// the URL of its browser-action popup (e.g. NordPass sets it to
+			// "index.html" after authentication). We propagate this via the
+			// context event bus so BrowserActionAPI registers the URL.
+			//
+			// `extensionId` is preferred (accurate, from SW scope). Falls back
+			// to `getAllExtensions()[0]` for frame contexts where the SW scope
+			// is unavailable.
+			if (method === "setPopup") {
+				const [details] = args as [{ popup?: string }];
+
+				const extId =
+					extensionId ?? ctx.session.extensions.getAllExtensions()[0]?.id;
+
+				if (extId && details?.popup) {
+					ctx.emit("set-popup", extId, details.popup);
+				}
+			}
+
+			return undefined;
+		}
+		case "__log":
+			console.log(`[SW]`, method, ...args);
+
+			return undefined;
+		default:
+			return undefined;
+	}
 }

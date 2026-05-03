@@ -1,321 +1,355 @@
-import { ipcRenderer, contextBridge, webFrame } from 'electron'
+import { contextBridge, ipcRenderer, webFrame } from "electron";
 
 /**
  * Injects `<browser-action>` custom element into the current webpage.
  */
 export const injectBrowserAction = () => {
-  const actionMap = new Map<string, any>()
-  const observerCounts = new Map<string, number>()
+	const actionMap = new Map<string, any>();
+	const observerCounts = new Map<string, number>();
 
-  // Reuse `process` to avoid bundling custom EventEmitter
-  const internalEmitter = process as NodeJS.EventEmitter
+	// Reuse `process` to avoid bundling custom EventEmitter
+	const internalEmitter = process as NodeJS.EventEmitter;
 
-  const invoke = <T>(name: string, partition: string, ...args: any[]): Promise<T> => {
-    return ipcRenderer.invoke('crx-msg-remote', partition, name, ...args)
-  }
+	const invoke = <T>(
+		name: string,
+		partition: string,
+		...args: any[]
+	): Promise<T> => {
+		return ipcRenderer.invoke("crx-msg-remote", partition, name, ...args);
+	};
 
-  interface ActivateDetails {
-    eventType: string
-    extensionId: string
-    tabId: number
-    anchorRect: { x: number; y: number; width: number; height: number }
-    alignment?: string
-  }
+	interface ActivateDetails {
+		eventType: string;
+		extensionId: string;
+		tabId: number;
+		anchorRect: { x: number; y: number; width: number; height: number };
+		alignment?: string;
+	}
 
-  const __browserAction__ = {
-    addEventListener(name: string, listener: (...args: any[]) => void) {
-      internalEmitter.addListener(`-actions-${name}`, listener)
-    },
-    removeEventListener(name: string, listener: (...args: any[]) => void) {
-      internalEmitter.removeListener(`-actions-${name}`, listener)
-    },
+	const __browserAction__ = {
+		addEventListener(name: string, listener: (...args: any[]) => void) {
+			internalEmitter.addListener(`-actions-${name}`, listener);
+		},
+		removeEventListener(name: string, listener: (...args: any[]) => void) {
+			internalEmitter.removeListener(`-actions-${name}`, listener);
+		},
 
-    getAction(extensionId: string) {
-      return actionMap.get(extensionId)
-    },
-    async getState(partition: string): Promise<{ activeTabId?: number; actions: any[] }> {
-      const state = await invoke<any>('browserAction.getState', partition)
-      for (const action of state.actions) {
-        actionMap.set(action.id, action)
-      }
-      queueMicrotask(() => internalEmitter.emit('-actions-update', state))
-      return state
-    },
+		getAction(extensionId: string) {
+			return actionMap.get(extensionId);
+		},
+		async getState(
+			partition: string,
+		): Promise<{ activeTabId?: number; actions: any[] }> {
+			const state = await invoke<any>("browserAction.getState", partition);
+			for (const action of state.actions) {
+				actionMap.set(action.id, action);
+			}
+			queueMicrotask(() => internalEmitter.emit("-actions-update", state));
 
-    activate: (partition: string, details: ActivateDetails) => {
-      return invoke('browserAction.activate', partition, details)
-    },
+			return state;
+		},
 
-    addObserver(partition: string) {
-      let count = observerCounts.has(partition) ? observerCounts.get(partition)! : 0
-      count = count + 1
-      observerCounts.set(partition, count)
+		activate: (partition: string, details: ActivateDetails) => {
+			return invoke("browserAction.activate", partition, details);
+		},
 
-      if (count === 1) {
-        invoke('browserAction.addObserver', partition)
-      }
-    },
-    removeObserver(partition: string) {
-      let count = observerCounts.has(partition) ? observerCounts.get(partition)! : 0
-      count = Math.max(count - 1, 0)
-      observerCounts.set(partition, count)
+		addObserver(partition: string) {
+			let count = observerCounts.has(partition)
+				? observerCounts.get(partition)!
+				: 0;
 
-      if (count === 0) {
-        invoke('browserAction.removeObserver', partition)
-        observerCounts.delete(partition)
-      }
-    },
-  }
+			count = count + 1;
+			observerCounts.set(partition, count);
 
-  ipcRenderer.on('browserAction.update', () => {
-    for (const partition of observerCounts.keys()) {
-      __browserAction__.getState(partition)
-    }
-  })
+			if (count === 1) {
+				invoke("browserAction.addObserver", partition);
+			}
+		},
+		removeObserver(partition: string) {
+			let count = observerCounts.has(partition)
+				? observerCounts.get(partition)!
+				: 0;
 
-  // Function body to run in the main world.
-  // IMPORTANT: This must be self-contained, no closure variables can be used!
-  function mainWorldScript() {
-    const DEFAULT_PARTITION = '_self'
+			count = Math.max(count - 1, 0);
+			observerCounts.set(partition, count);
 
-    // Access from globalThis to prevent accessing incorrect minified variable.
-    // Fallback to `__browserAction__` when context isolation is disabled.
-    const browserAction: typeof __browserAction__ =
-      (globalThis as any).browserAction || __browserAction__
+			if (count === 0) {
+				invoke("browserAction.removeObserver", partition);
+				observerCounts.delete(partition);
+			}
+		},
+	};
 
-    class BrowserActionElement extends HTMLButtonElement {
-      private updateId?: number
-      private badge?: HTMLDivElement
-      private pendingIcon?: HTMLImageElement
+	ipcRenderer.on("browserAction.update", () => {
+		for (const partition of observerCounts.keys()) {
+			__browserAction__.getState(partition);
+		}
+	});
 
-      get id(): string {
-        return this.getAttribute('id') || ''
-      }
+	// Function body to run in the main world.
+	// IMPORTANT: This must be self-contained, no closure variables can be used!
+	function mainWorldScript() {
+		const DEFAULT_PARTITION = "_self";
 
-      set id(id: string) {
-        this.setAttribute('id', id)
-      }
+		// Access from globalThis to prevent accessing incorrect minified variable.
+		// Fallback to `__browserAction__` when context isolation is disabled.
+		const browserAction: typeof __browserAction__ =
+			(globalThis as any).browserAction || __browserAction__;
 
-      get tab(): number {
-        const tabId = parseInt(this.getAttribute('tab') || '', 10)
-        return typeof tabId === 'number' && !isNaN(tabId) ? tabId : -1
-      }
+		class BrowserActionElement extends HTMLButtonElement {
+			private updateId?: number;
+			private badge?: HTMLDivElement;
+			private pendingIcon?: HTMLImageElement;
 
-      set tab(tab: number) {
-        this.setAttribute('tab', `${tab}`)
-      }
+			get id(): string {
+				return this.getAttribute("id") || "";
+			}
 
-      get partition(): string | null {
-        return this.getAttribute('partition')
-      }
+			set id(id: string) {
+				this.setAttribute("id", id);
+			}
 
-      set partition(partition: string | null) {
-        if (partition) {
-          this.setAttribute('partition', partition)
-        } else {
-          this.removeAttribute('partition')
-        }
-      }
+			get tab(): number {
+				const tabId = parseInt(this.getAttribute("tab") || "", 10);
 
-      get alignment(): string {
-        return this.getAttribute('alignment') || ''
-      }
+				return typeof tabId === "number" && !Number.isNaN(tabId) ? tabId : -1;
+			}
 
-      set alignment(alignment: string) {
-        this.setAttribute('alignment', alignment)
-      }
+			set tab(tab: number) {
+				this.setAttribute("tab", `${tab}`);
+			}
 
-      static get observedAttributes() {
-        return ['id', 'tab', 'partition', 'alignment']
-      }
+			get partition(): string | null {
+				return this.getAttribute("partition");
+			}
 
-      constructor() {
-        super()
+			set partition(partition: string | null) {
+				if (partition) {
+					this.setAttribute("partition", partition);
+				} else {
+					this.removeAttribute("partition");
+				}
+			}
 
-        // TODO: event delegation
-        this.addEventListener('click', this.onClick.bind(this))
-        this.addEventListener('contextmenu', this.onContextMenu.bind(this))
-      }
+			get alignment(): string {
+				return this.getAttribute("alignment") || "";
+			}
 
-      connectedCallback() {
-        if (this.isConnected) {
-          this.update()
-        }
-      }
+			set alignment(alignment: string) {
+				this.setAttribute("alignment", alignment);
+			}
 
-      disconnectedCallback() {
-        if (this.updateId) {
-          cancelAnimationFrame(this.updateId)
-          this.updateId = undefined
-        }
-        if (this.pendingIcon) {
-          this.pendingIcon = undefined
-        }
-      }
+			static get observedAttributes() {
+				return ["id", "tab", "partition", "alignment"];
+			}
 
-      attributeChangedCallback() {
-        if (this.isConnected) {
-          this.update()
-        }
-      }
+			constructor() {
+				super();
 
-      private activate(event: Event) {
-        const rect = this.getBoundingClientRect()
+				// TODO: event delegation
+				this.addEventListener("click", this.onClick.bind(this));
+				this.addEventListener("contextmenu", this.onContextMenu.bind(this));
+			}
 
-        browserAction.activate(this.partition || DEFAULT_PARTITION, {
-          eventType: event.type,
-          extensionId: this.id,
-          tabId: this.tab,
-          alignment: this.alignment,
-          anchorRect: {
-            x: rect.left,
-            y: rect.top,
-            width: rect.width,
-            height: rect.height,
-          },
-        })
-      }
+			connectedCallback() {
+				if (this.isConnected) {
+					this.update();
+				}
+			}
 
-      private onClick(event: MouseEvent) {
-        this.activate(event)
-      }
+			disconnectedCallback() {
+				if (this.updateId) {
+					cancelAnimationFrame(this.updateId);
+					this.updateId = undefined;
+				}
 
-      private onContextMenu(event: MouseEvent) {
-        event.stopImmediatePropagation()
-        event.preventDefault()
+				if (this.pendingIcon) {
+					this.pendingIcon = undefined;
+				}
+			}
 
-        this.activate(event)
-      }
+			attributeChangedCallback() {
+				if (this.isConnected) {
+					this.update();
+				}
+			}
 
-      private getBadge() {
-        let badge = this.badge
-        if (!badge) {
-          this.badge = badge = document.createElement('div')
-          badge.className = 'badge'
-          ;(badge as any).part = 'badge'
-          this.appendChild(badge)
-        }
-        return badge
-      }
+			private activate(event: Event) {
+				const rect = this.getBoundingClientRect();
 
-      private update() {
-        if (this.updateId) return
-        this.updateId = requestAnimationFrame(this.updateCallback.bind(this))
-      }
+				browserAction.activate(this.partition || DEFAULT_PARTITION, {
+					eventType: event.type,
+					extensionId: this.id,
+					tabId: this.tab,
+					alignment: this.alignment,
+					anchorRect: {
+						x: rect.left,
+						y: rect.top,
+						width: rect.width,
+						height: rect.height,
+					},
+				});
+			}
 
-      private updateIcon(info: any) {
-        const iconSize = 32
-        const resizeType = 2
-        const searchParams = new URLSearchParams({
-          tabId: `${this.tab}`,
-          partition: `${this.partition || DEFAULT_PARTITION}`,
-        })
-        if (info.iconModified) {
-          searchParams.append('t', info.iconModified)
-        }
-        const iconUrl = `crx://extension-icon/${this.id}/${iconSize}/${resizeType}?${searchParams.toString()}`
-        const bgImage = `url(${iconUrl})`
+			private onClick(event: MouseEvent) {
+				this.activate(event);
+			}
 
-        if (this.pendingIcon) {
-          this.pendingIcon.onload = this.pendingIcon.onerror = () => {}
-          this.pendingIcon = undefined
-        }
+			private onContextMenu(event: MouseEvent) {
+				event.stopImmediatePropagation();
+				event.preventDefault();
 
-        // Preload icon to prevent it from blinking
-        const img = (this.pendingIcon = new Image())
-        img.onerror = () => {
-          if (this.isConnected) {
-            this.classList.toggle('no-icon', true)
-            if (this.title) {
-              this.dataset.letter = this.title.charAt(0)
-            }
-            this.pendingIcon = undefined
-          }
-        }
-        img.onload = () => {
-          if (this.isConnected) {
-            this.classList.toggle('no-icon', false)
-            this.style.backgroundImage = bgImage
-            this.pendingIcon = undefined
-          }
-        }
-        img.src = iconUrl
-      }
+				this.activate(event);
+			}
 
-      private updateCallback() {
-        this.updateId = undefined
+			private getBadge() {
+				let badge = this.badge;
 
-        const action = browserAction.getAction(this.id)
+				if (!badge) {
+					this.badge = badge = document.createElement("div");
 
-        const activeTabId = this.tab
-        const tabInfo = activeTabId > -1 ? action.tabs[activeTabId] : {}
-        const info = { ...tabInfo, ...action }
+					badge.className = "badge";
 
-        this.title = typeof info.title === 'string' ? info.title : ''
+					(badge as any).part = "badge";
+					this.appendChild(badge);
+				}
 
-        this.updateIcon(info)
+				return badge;
+			}
 
-        if (info.text) {
-          const badge = this.getBadge()
-          badge.textContent = info.text
-          badge.style.color = '#fff' // TODO: determine bg lightness?
-          badge.style.backgroundColor = info.color
-        } else if (this.badge) {
-          this.badge.remove()
-          this.badge = undefined
-        }
-      }
-    }
+			private update() {
+				if (this.updateId) {
+					return;
+				}
 
-    customElements.define('browser-action', BrowserActionElement, { extends: 'button' })
+				this.updateId = requestAnimationFrame(this.updateCallback.bind(this));
+			}
 
-    class BrowserActionListElement extends HTMLElement {
-      private observing: boolean = false
+			private updateIcon(info: any) {
+				const iconSize = 32;
+				const resizeType = 2;
 
-      get tab(): number | null {
-        const tabId = parseInt(this.getAttribute('tab') || '', 10)
-        return typeof tabId === 'number' && !isNaN(tabId) ? tabId : null
-      }
+				const searchParams = new URLSearchParams({
+					tabId: `${this.tab}`,
+					partition: `${this.partition || DEFAULT_PARTITION}`,
+				});
 
-      set tab(tab: number | null) {
-        if (typeof tab === 'number') {
-          this.setAttribute('tab', `${tab}`)
-        } else {
-          this.removeAttribute('tab')
-        }
-      }
+				if (info.iconModified) {
+					searchParams.append("t", info.iconModified);
+				}
 
-      get partition(): string | null {
-        return this.getAttribute('partition')
-      }
+				const iconUrl = `crx://extension-icon/${this.id}/${iconSize}/${resizeType}?${searchParams.toString()}`;
+				const bgImage = `url(${iconUrl})`;
 
-      set partition(partition: string | null) {
-        if (partition) {
-          this.setAttribute('partition', partition)
-        } else {
-          this.removeAttribute('partition')
-        }
-      }
+				if (this.pendingIcon) {
+					this.pendingIcon.onload = this.pendingIcon.onerror = () => {};
+					this.pendingIcon = undefined;
+				}
 
-      get alignment(): string {
-        return this.getAttribute('alignment') || ''
-      }
+				// Preload icon to prevent it from blinking
+				const img = (this.pendingIcon = new Image());
 
-      set alignment(alignment: string) {
-        this.setAttribute('alignment', alignment)
-      }
+				img.onerror = () => {
+					if (this.isConnected) {
+						this.classList.toggle("no-icon", true);
 
-      static get observedAttributes() {
-        return ['tab', 'partition', 'alignment']
-      }
+						if (this.title) {
+							this.dataset.letter = this.title.charAt(0);
+						}
 
-      constructor() {
-        super()
+						this.pendingIcon = undefined;
+					}
+				};
 
-        const shadowRoot = this.attachShadow({ mode: 'open' })
+				img.onload = () => {
+					if (this.isConnected) {
+						this.classList.toggle("no-icon", false);
+						this.style.backgroundImage = bgImage;
+						this.pendingIcon = undefined;
+					}
+				};
 
-        const style = document.createElement('style')
-        style.textContent = `
+				img.src = iconUrl;
+			}
+
+			private updateCallback() {
+				this.updateId = undefined;
+
+				const action = browserAction.getAction(this.id);
+
+				const activeTabId = this.tab;
+				const tabInfo = activeTabId > -1 ? action.tabs[activeTabId] : {};
+				const info = { ...tabInfo, ...action };
+
+				this.title = typeof info.title === "string" ? info.title : "";
+
+				this.updateIcon(info);
+
+				if (info.text) {
+					const badge = this.getBadge();
+					badge.textContent = info.text;
+					badge.style.color = "#fff"; // TODO: determine bg lightness?
+					badge.style.backgroundColor = info.color;
+				} else if (this.badge) {
+					this.badge.remove();
+					this.badge = undefined;
+				}
+			}
+		}
+
+		customElements.define("browser-action", BrowserActionElement, {
+			extends: "button",
+		});
+
+		class BrowserActionListElement extends HTMLElement {
+			private observing: boolean = false;
+
+			get tab(): number | null {
+				const tabId = parseInt(this.getAttribute("tab") || "", 10);
+
+				return typeof tabId === "number" && !Number.isNaN(tabId) ? tabId : null;
+			}
+
+			set tab(tab: number | null) {
+				if (typeof tab === "number") {
+					this.setAttribute("tab", `${tab}`);
+				} else {
+					this.removeAttribute("tab");
+				}
+			}
+
+			get partition(): string | null {
+				return this.getAttribute("partition");
+			}
+
+			set partition(partition: string | null) {
+				if (partition) {
+					this.setAttribute("partition", partition);
+				} else {
+					this.removeAttribute("partition");
+				}
+			}
+
+			get alignment(): string {
+				return this.getAttribute("alignment") || "";
+			}
+
+			set alignment(alignment: string) {
+				this.setAttribute("alignment", alignment);
+			}
+
+			static get observedAttributes() {
+				return ["tab", "partition", "alignment"];
+			}
+
+			constructor() {
+				super();
+
+				const shadowRoot = this.attachShadow({ mode: "open" });
+
+				const style = document.createElement("style");
+
+				style.textContent = `
 :host {
   display: flex;
   flex-direction: row;
@@ -375,111 +409,135 @@ export const injectBrowserAction = () => {
   font-weight: 400;
   overflow: hidden;
   white-space: nowrap;
-}`
-        shadowRoot.appendChild(style)
-      }
+}`;
 
-      connectedCallback() {
-        if (this.isConnected) {
-          this.startObserving()
-          this.fetchState()
-        }
-      }
+				shadowRoot.appendChild(style);
+			}
 
-      disconnectedCallback() {
-        this.stopObserving()
-      }
+			connectedCallback() {
+				if (this.isConnected) {
+					this.startObserving();
+					this.fetchState();
+				}
+			}
 
-      attributeChangedCallback(name: string, oldValue: any, newValue: any) {
-        if (oldValue === newValue) return
+			disconnectedCallback() {
+				this.stopObserving();
+			}
 
-        if (this.isConnected) {
-          this.fetchState()
-        }
-      }
+			attributeChangedCallback(_name: string, oldValue: any, newValue: any) {
+				if (oldValue === newValue) {
+					return;
+				}
 
-      private startObserving() {
-        if (this.observing) return
-        browserAction.addEventListener('update', this.update)
-        browserAction.addObserver(this.partition || DEFAULT_PARTITION)
-        this.observing = true
-      }
+				if (this.isConnected) {
+					this.fetchState();
+				}
+			}
 
-      private stopObserving() {
-        if (!this.observing) return
-        browserAction.removeEventListener('update', this.update)
-        browserAction.removeObserver(this.partition || DEFAULT_PARTITION)
-        this.observing = false
-      }
+			private startObserving() {
+				if (this.observing) {
+					return;
+				}
 
-      private fetchState = async () => {
-        try {
-          await browserAction.getState(this.partition || DEFAULT_PARTITION)
-        } catch {
-          console.error(
-            `browser-action-list failed to update [tab: ${this.tab}, partition: '${this.partition}']`,
-          )
-        }
-      }
+				browserAction.addEventListener("update", this.update);
+				browserAction.addObserver(this.partition || DEFAULT_PARTITION);
+				this.observing = true;
+			}
 
-      private update = (state: any) => {
-        const tabId =
-          typeof this.tab === 'number' && this.tab >= 0 ? this.tab : state.activeTabId || -1
+			private stopObserving() {
+				if (!this.observing) {
+					return;
+				}
 
-        // Create or update action buttons
-        for (const action of state.actions) {
-          let browserActionNode = this.shadowRoot?.querySelector(
-            `[id=${action.id}]`,
-          ) as BrowserActionElement
+				browserAction.removeEventListener("update", this.update);
+				browserAction.removeObserver(this.partition || DEFAULT_PARTITION);
+				this.observing = false;
+			}
 
-          if (!browserActionNode) {
-            const node = document.createElement('button', {
-              is: 'browser-action',
-            }) as BrowserActionElement
-            node.id = action.id
-            node.className = 'action'
-            ;(node as any).alignment = this.alignment
-            ;(node as any).part = 'action'
-            browserActionNode = node
-            this.shadowRoot?.appendChild(browserActionNode)
-          }
+			private fetchState = async () => {
+				try {
+					await browserAction.getState(this.partition || DEFAULT_PARTITION);
+				} catch {
+					console.error(
+						`browser-action-list failed to update [tab: ${this.tab}, partition: '${this.partition}']`,
+					);
+				}
+			};
 
-          if (this.partition) browserActionNode.partition = this.partition
-          if (this.alignment) browserActionNode.alignment = this.alignment
-          browserActionNode.tab = tabId
-        }
+			private update = (state: any) => {
+				const tabId =
+					typeof this.tab === "number" && this.tab >= 0
+						? this.tab
+						: state.activeTabId || -1;
 
-        // Remove any actions no longer in use
-        const actionNodes = Array.from(
-          this.shadowRoot?.querySelectorAll('.action') as any,
-        ) as BrowserActionElement[]
-        for (const actionNode of actionNodes) {
-          if (!state.actions.some((action: any) => action.id === actionNode.id)) {
-            actionNode.remove()
-          }
-        }
-      }
-    }
+				// Create or update action buttons
+				for (const action of state.actions) {
+					let browserActionNode = this.shadowRoot?.querySelector(
+						`[id=${action.id}]`,
+					) as BrowserActionElement;
 
-    customElements.define('browser-action-list', BrowserActionListElement)
-  }
+					if (!browserActionNode) {
+						const node = document.createElement("button", {
+							is: "browser-action",
+						}) as BrowserActionElement;
 
-  if (process.contextIsolated) {
-    contextBridge.exposeInMainWorld('browserAction', __browserAction__)
+						node.id = action.id;
 
-    // Must execute script in main world to modify custom component registry.
-    if ('executeInMainWorld' in contextBridge) {
-      contextBridge.executeInMainWorld({
-        func: mainWorldScript,
-      })
-    } else {
-      // Deprecated electron@<35
-      webFrame.executeJavaScript(`(${mainWorldScript}());`)
-    }
-  } else {
-    // When contextIsolation is disabled, contextBridge will throw an error.
-    // If that's the case, we're in the main world so we can just execute our
-    // function.
-    mainWorldScript()
-  }
-}
+						node.className = "action";
+
+						(node as any).alignment = this.alignment;
+
+						(node as any).part = "action";
+						browserActionNode = node;
+						this.shadowRoot?.appendChild(browserActionNode);
+					}
+
+					if (this.partition) {
+						browserActionNode.partition = this.partition;
+					}
+
+					if (this.alignment) {
+						browserActionNode.alignment = this.alignment;
+					}
+
+					browserActionNode.tab = tabId;
+				}
+
+				// Remove any actions no longer in use
+				const actionNodes = Array.from(
+					this.shadowRoot?.querySelectorAll(".action") as any,
+				) as BrowserActionElement[];
+
+				for (const actionNode of actionNodes) {
+					if (
+						!state.actions.some((action: any) => action.id === actionNode.id)
+					) {
+						actionNode.remove();
+					}
+				}
+			};
+		}
+
+		customElements.define("browser-action-list", BrowserActionListElement);
+	}
+
+	if (process.contextIsolated) {
+		contextBridge.exposeInMainWorld("browserAction", __browserAction__);
+
+		// Must execute script in main world to modify custom component registry.
+		if ("executeInMainWorld" in contextBridge) {
+			contextBridge.executeInMainWorld({
+				func: mainWorldScript,
+			});
+		} else {
+			// Deprecated electron@<35
+			webFrame.executeJavaScript(`(${mainWorldScript}());`);
+		}
+	} else {
+		// When contextIsolation is disabled, contextBridge will throw an error.
+		// If that's the case, we're in the main world so we can just execute our
+		// function.
+		mainWorldScript();
+	}
+};

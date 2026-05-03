@@ -11,7 +11,6 @@
 				"electron-vite.config.ts"
 			]
 		},
-		"packages/core": {},
 		"packages/ui": {},
 		"packages/config-typescript": {},
 		"packages/config-tsdown": {},
@@ -27,6 +26,7 @@
 		"**/coverage/**",
 		"**/node_modules/**",
 		"**/styles/**",
+		"packages/electron-chrome-extensions/**",
 		".claude/**",
 		".cursor/**"
 	]

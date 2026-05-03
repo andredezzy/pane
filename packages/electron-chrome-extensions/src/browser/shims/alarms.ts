@@ -20,18 +20,18 @@ import type { Session } from "electron";
 
 /** A single scheduled alarm, including its backing Node timer handle. */
 interface AlarmEntry {
-  name: string;
-  /** Node timer handle returned by `setTimeout`. */
-  timer: ReturnType<typeof setTimeout>;
-  /** Unix timestamp (ms) of the next scheduled fire. */
-  scheduledTime: number;
-  /** If set, the alarm repeats every this many minutes. */
-  periodInMinutes?: number;
+	name: string;
+	/** Node timer handle returned by `setTimeout`. */
+	timer: ReturnType<typeof setTimeout>;
+	/** Unix timestamp (ms) of the next scheduled fire. */
+	scheduledTime: number;
+	/** If set, the alarm repeats every this many minutes. */
+	periodInMinutes?: number;
 }
 
 /** Per-session alarm registry. */
 interface AlarmsState {
-  alarms: Map<string, AlarmEntry>;
+	alarms: Map<string, AlarmEntry>;
 }
 
 /**
@@ -47,12 +47,14 @@ const sessionState = new Map<Session, AlarmsState>();
  * @param ses - The Electron session owning the alarm registry.
  */
 function getState(ses: Session): AlarmsState {
-  let state = sessionState.get(ses);
-  if (!state) {
-    state = { alarms: new Map() };
-    sessionState.set(ses, state);
-  }
-  return state;
+	let state = sessionState.get(ses);
+
+	if (!state) {
+		state = { alarms: new Map() };
+		sessionState.set(ses, state);
+	}
+
+	return state;
 }
 
 /**
@@ -67,30 +69,34 @@ function getState(ses: Session): AlarmsState {
  * @param name - The name of the alarm to fire.
  */
 function fireAlarm(ses: Session, name: string) {
-  const state = getState(ses);
-  const entry = state.alarms.get(name);
-  if (!entry) return;
+	const state = getState(ses);
+	const entry = state.alarms.get(name);
 
-  const detail = { name, scheduledTime: entry.scheduledTime };
+	if (!entry) {
+		return;
+	}
 
-  // Wake every extension's SW and push the onAlarm event.
-  for (const ext of ses.extensions.getAllExtensions()) {
-    const scope = `chrome-extension://${ext.id}/`;
-    ses.serviceWorkers
-      .startWorkerForScope(scope)
-      .then((sw) => sw.send("crx-shim-event", "alarms", "onAlarm", detail))
-      .catch(() => {});
-  }
+	const detail = { name, scheduledTime: entry.scheduledTime };
 
-  if (entry.periodInMinutes) {
-    // Repeating alarm: reschedule relative to now to avoid drift accumulation.
-    const delayMs = entry.periodInMinutes * 60_000;
-    entry.scheduledTime = Date.now() + delayMs;
-    entry.timer = setTimeout(() => fireAlarm(ses, name), delayMs);
-  } else {
-    // One-shot alarm: remove it so `getAll` no longer returns it.
-    state.alarms.delete(name);
-  }
+	// Wake every extension's SW and push the onAlarm event.
+	for (const ext of ses.extensions.getAllExtensions()) {
+		const scope = `chrome-extension://${ext.id}/`;
+
+		ses.serviceWorkers
+			.startWorkerForScope(scope)
+			.then((sw) => sw.send("crx-shim-event", "alarms", "onAlarm", detail))
+			.catch(() => {});
+	}
+
+	if (entry.periodInMinutes) {
+		// Repeating alarm: reschedule relative to now to avoid drift accumulation.
+		const delayMs = entry.periodInMinutes * 60_000;
+		entry.scheduledTime = Date.now() + delayMs;
+		entry.timer = setTimeout(() => fireAlarm(ses, name), delayMs);
+	} else {
+		// One-shot alarm: remove it so `getAll` no longer returns it.
+		state.alarms.delete(name);
+	}
 }
 
 /**
@@ -108,76 +114,104 @@ function fireAlarm(ses: Session, name: string) {
  * @param args   - Method arguments forwarded verbatim from the SW preload.
  * @returns      The return value to send back to the extension, or `undefined`.
  */
-export function handleAlarms(ses: Session, method: string, ...args: unknown[]): unknown {
-  const state = getState(ses);
+export function handleAlarms(
+	ses: Session,
+	method: string,
+	...args: unknown[]
+): unknown {
+	const state = getState(ses);
 
-  switch (method) {
-    case "create": {
-      const [name, info] = args as [string, { delayInMinutes?: number; periodInMinutes?: number; when?: number }];
+	switch (method) {
+		case "create": {
+			const [name, info] = args as [
+				string,
+				{ delayInMinutes?: number; periodInMinutes?: number; when?: number },
+			];
 
-      // Clear any existing alarm with the same name before creating a new one,
-      // matching Chrome's behaviour (create overwrites).
-      const existing = state.alarms.get(name);
-      if (existing) clearTimeout(existing.timer);
+			// Clear any existing alarm with the same name before creating a new one,
+			// matching Chrome's behaviour (create overwrites).
+			const existing = state.alarms.get(name);
 
-      // Resolve the initial delay: `when` is an absolute epoch ms, while
-      // `delayInMinutes` and `periodInMinutes` are relative. For repeating
-      // alarms with no explicit initial delay, fire after one period.
-      let delayMs: number;
-      if (info.when) {
-        delayMs = Math.max(0, info.when - Date.now());
-      } else if (info.delayInMinutes) {
-        delayMs = info.delayInMinutes * 60_000;
-      } else if (info.periodInMinutes) {
-        delayMs = info.periodInMinutes * 60_000;
-      } else {
-        delayMs = 0;
-      }
+			if (existing) {
+				clearTimeout(existing.timer);
+			}
 
-      const entry: AlarmEntry = {
-        name,
-        scheduledTime: Date.now() + delayMs,
-        periodInMinutes: info.periodInMinutes,
-        timer: setTimeout(() => fireAlarm(ses, name), delayMs),
-      };
-      state.alarms.set(name, entry);
-      return undefined;
-    }
+			// Resolve the initial delay: `when` is an absolute epoch ms, while
+			// `delayInMinutes` and `periodInMinutes` are relative. For repeating
+			// alarms with no explicit initial delay, fire after one period.
+			let delayMs: number;
 
-    case "get": {
-      const [name] = args as [string];
-      const entry = state.alarms.get(name);
-      if (!entry) return undefined;
-      // Return a plain object matching the chrome.Alarm shape (no timer handle).
-      return { name: entry.name, scheduledTime: entry.scheduledTime, periodInMinutes: entry.periodInMinutes };
-    }
+			if (info.when) {
+				delayMs = Math.max(0, info.when - Date.now());
+			} else if (info.delayInMinutes) {
+				delayMs = info.delayInMinutes * 60_000;
+			} else if (info.periodInMinutes) {
+				delayMs = info.periodInMinutes * 60_000;
+			} else {
+				delayMs = 0;
+			}
 
-    case "getAll": {
-      return [...state.alarms.values()].map((e) => ({
-        name: e.name, scheduledTime: e.scheduledTime, periodInMinutes: e.periodInMinutes,
-      }));
-    }
+			const entry: AlarmEntry = {
+				name,
+				scheduledTime: Date.now() + delayMs,
+				periodInMinutes: info.periodInMinutes,
+				timer: setTimeout(() => fireAlarm(ses, name), delayMs),
+			};
 
-    case "clear": {
-      const [name] = args as [string];
-      const entry = state.alarms.get(name);
-      if (entry) {
-        clearTimeout(entry.timer);
-        state.alarms.delete(name);
-      }
-      // Chrome always returns true from clear(), even if the alarm didn't exist.
-      return true;
-    }
+			state.alarms.set(name, entry);
 
-    case "clearAll": {
-      for (const entry of state.alarms.values()) clearTimeout(entry.timer);
-      state.alarms.clear();
-      return true;
-    }
+			return undefined;
+		}
 
-    default:
-      return undefined;
-  }
+		case "get": {
+			const [name] = args as [string];
+			const entry = state.alarms.get(name);
+
+			if (!entry) {
+				return undefined;
+			}
+
+			// Return a plain object matching the chrome.Alarm shape (no timer handle).
+			return {
+				name: entry.name,
+				scheduledTime: entry.scheduledTime,
+				periodInMinutes: entry.periodInMinutes,
+			};
+		}
+
+		case "getAll": {
+			return [...state.alarms.values()].map((e) => ({
+				name: e.name,
+				scheduledTime: e.scheduledTime,
+				periodInMinutes: e.periodInMinutes,
+			}));
+		}
+
+		case "clear": {
+			const [name] = args as [string];
+			const entry = state.alarms.get(name);
+
+			if (entry) {
+				clearTimeout(entry.timer);
+				state.alarms.delete(name);
+			}
+
+			// Chrome always returns true from clear(), even if the alarm didn't exist.
+			return true;
+		}
+
+		case "clearAll": {
+			for (const entry of state.alarms.values()) {
+				clearTimeout(entry.timer);
+			}
+			state.alarms.clear();
+
+			return true;
+		}
+
+		default:
+			return undefined;
+	}
 }
 
 /**
@@ -187,8 +221,14 @@ export function handleAlarms(ses: Session, method: string, ...args: unknown[]): 
  * @param ses - The Electron session whose alarm state should be destroyed.
  */
 export function destroyAlarms(ses: Session) {
-  const state = sessionState.get(ses);
-  if (!state) return;
-  for (const entry of state.alarms.values()) clearTimeout(entry.timer);
-  sessionState.delete(ses);
+	const state = sessionState.get(ses);
+
+	if (!state) {
+		return;
+	}
+
+	for (const entry of state.alarms.values()) {
+		clearTimeout(entry.timer);
+	}
+	sessionState.delete(ses);
 }
