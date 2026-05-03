@@ -640,23 +640,14 @@ export const injectExtensionAPIs = () => {
           }
         },
       },
-    }
 
-    // APIs provided natively by Electron — never touch these on the chrome
-    // Proxy or the Proxy's internal state gets corrupted (defineProperty
-    // silently breaks the get trap's invariant check).
-    const nativeApis = new Set([
-      'runtime', 'storage', 'tabs', 'scripting', 'management',
-      'extension', 'webRequest', 'devtools',
-    ])
+    }
 
     Object.keys(apiDefinitions).forEach((key: any) => {
       const apiName: keyof typeof chrome = key
       const api = apiDefinitions[apiName]!
 
       if (api.shouldInject && !api.shouldInject()) return
-
-      if (nativeApis.has(apiName)) return
 
       try {
         const baseApi = chrome[apiName] as any

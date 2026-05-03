@@ -157,41 +157,34 @@ if ("executeInMainWorld" in contextBridge) {
   // Blank popup fallback — open full extension page if popup renders nothing
   // ===========================================================================
   //
-  // Some extensions show a loading spinner in their popup while the SW wakes
-  // up, but never render actual content in the constrained popup viewport.
-  // We detect this by counting DOM elements after a 1.5 s settle window.
+  // Some extensions (e.g. NordPass when unauthenticated) render a completely
+  // blank popup because their SW hasn't set a popup URL. For those cases, we
+  // detect the blank state and open the extension's full-page view instead.
   //
-  // Why element count?
-  //   A truly blank popup has only the minimal HTML skeleton: <html>, <head>,
-  //   <body>, and perhaps one wrapper div — typically ≤ 3 elements inside
-  //   #app or body. A real popup with rendered content will have many more.
-  //   The threshold of 3 is intentionally conservative to avoid false positives
-  //   on popups that render a single spinner or loading indicator.
-  //
-  // Why 1.5 s?
-  //   Long enough for the SW to wake, fetch data, and render the first frame;
-  //   short enough that users don't wait noticeably before the fallback opens.
-  //
-  // The fallback opens the extension's app.html (full-page view) in a new
-  // window via ipcRenderer directly — bypassing the window.close() stub above
-  // and the __crxIpc wrapper — because by this point the isolated-world relay
-  // is the authoritative channel for creating windows.
+  // Guard: only trigger this for popups (small viewport), not for full-page
+  // extension tabs. Also skip if the extension declared a default_popup in
+  // its manifest — that means it intentionally shows a popup and any loading
+  // state is transient, not a blank fallback signal.
   setTimeout(() => {
-    // executeInMainWorld returns the value from the func synchronously (in
-    // this Electron version). We read element count from the main world
-    // because document is not accessible from the isolated world.
-    const elCount = contextBridge.executeInMainWorld({
+    const shouldFallback = contextBridge.executeInMainWorld({
       func: function () {
-        // Prefer #app as the extension's root mount point (React/Vue apps);
-        // fall back to body. If neither exists return a high sentinel so we
-        // don't incorrectly trigger the fallback on unusual page structures.
+        // Skip if this is a full-page extension tab (not a popup).
+        if (window.innerWidth > 500 || window.innerHeight > 600) return false;
+        // Skip if the extension declares a default_popup in its manifest —
+        // it intentionally shows a popup UI, even if it's still loading.
+        try {
+          var m = globalThis.chrome?.runtime?.getManifest?.();
+          if (m) {
+            var popup = (m.action && m.action.default_popup) || (m.browser_action && m.browser_action.default_popup);
+            if (popup) return false;
+          }
+        } catch (e) {}
         var app = document.getElementById("app") || document.body;
-        return app ? app.querySelectorAll("*").length : 999;
+        return app ? app.querySelectorAll("*").length <= 3 : false;
       },
     });
 
-    if (elCount <= 3) {
-      // Popup is blank — resolve the extension's full-page URL and open it.
+    if (shouldFallback) {
       const extUrl = contextBridge.executeInMainWorld({
         func: function () {
           try { return globalThis.chrome?.runtime?.getURL?.("app.html"); } catch (e) { return null; }
@@ -199,8 +192,6 @@ if ("executeInMainWorld" in contextBridge) {
       });
 
       if (extUrl) {
-        // Use ipcRenderer directly (not __crxIpc) to avoid any wrapping that
-        // might be intercepted by the now-blocked window.close or other stubs.
         ipcRenderer.invoke("crx-shim", "windows", "create", { url: extUrl });
       }
     }

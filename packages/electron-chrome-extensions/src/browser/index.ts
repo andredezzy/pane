@@ -286,6 +286,19 @@ export class ElectronChromeExtensions extends EventEmitter {
     const preloadsDir = ElectronChromeExtensions.resolvePreloadsDir()
 
     if ('registerPreloadScript' in session) {
+      const apiPreload = path.join(preloadsDir, '..', 'chrome-extension-api.preload.js')
+      console.log(`[ECE] frame.js: ${path.join(preloadsDir, 'frame.js')} (exists: ${existsSync(path.join(preloadsDir, 'frame.js'))})`)
+      console.log(`[ECE] sw.js: ${path.join(preloadsDir, 'sw.js')} (exists: ${existsSync(path.join(preloadsDir, 'sw.js'))})`)
+      session.registerPreloadScript({
+        id: 'crx-api-frame',
+        type: 'frame',
+        filePath: apiPreload,
+      })
+      session.registerPreloadScript({
+        id: 'crx-api-sw',
+        type: 'service-worker',
+        filePath: apiPreload,
+      })
       session.registerPreloadScript({
         id: 'crx-frame',
         type: 'frame',
