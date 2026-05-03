@@ -26,6 +26,40 @@ const supportsPreferredSize = () => {
   return major >= 12
 }
 
+const POPUP_CSS = [
+  'html { margin: 0 !important; padding: 0 !important; }',
+  'html::after {',
+  '  content: "" !important;',
+  '  position: fixed !important;',
+  '  inset: 0 !important;',
+  '  border: 1px solid #0A0A0B !important;',
+  '  border-radius: 16px !important;',
+  '  pointer-events: none !important;',
+  '  z-index: 2147483647 !important;',
+  '}',
+  'body { margin: 0 !important; border-color: transparent !important; }',
+].join(' ')
+
+/**
+ * Walks the DOM tree to find the first element with a non-transparent
+ * background color, then sets it on <html> so the Chromium compositor
+ * edge (between the viewport and the window frame) blends seamlessly
+ * with the extension's visual background.
+ */
+const DETECT_BG_SCRIPT = `(function() {
+  function findBgColor(el) {
+    var bg = getComputedStyle(el).backgroundColor;
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+    for (var i = 0; i < el.children.length; i++) {
+      var c = findBgColor(el.children[i]);
+      if (c) return c;
+    }
+    return null;
+  }
+  var color = findBgColor(document.documentElement) || '#ffffff';
+  document.documentElement.style.setProperty('background', color, 'important');
+})()`
+
 export class PopupView extends EventEmitter {
   static POSITION_PADDING = 5
 
@@ -61,16 +95,15 @@ export class PopupView extends EventEmitter {
     this.browserWindow = new BrowserWindow({
       show: false,
       frame: false,
-      // parent: opts.parent,  // Disabled — BaseWindow as parent causes popup to close
       movable: false,
       maximizable: false,
       minimizable: false,
-      // https://github.com/electron/electron/issues/47579
       fullscreenable: false,
       resizable: false,
       skipTaskbar: true,
-      backgroundColor: '#ffffff',
-      roundedCorners: false,
+      transparent: true,
+      hasShadow: false,
+      roundedCorners: true,
       webPreferences: {
         session: opts.session,
         sandbox: true,
@@ -108,7 +141,9 @@ export class PopupView extends EventEmitter {
 
     if (this.destroyed) return
 
-    // Force a fixed size and show immediately
+    await win.webContents.insertCSS(POPUP_CSS)
+    await win.webContents.executeJavaScript(DETECT_BG_SCRIPT)
+
     this.setSize({ width: 400, height: 600 })
     this.show()
   }
@@ -147,7 +182,6 @@ export class PopupView extends EventEmitter {
     return this.destroyed
   }
 
-  /** Resolves when the popup finishes loading. */
   whenReady() {
     return this.readyPromise
   }
@@ -177,11 +211,9 @@ export class PopupView extends EventEmitter {
   }
 
   private maybeClose = () => {
-    // Keep open for debugging — don't auto-close on blur
     if (!this.browserWindow?.isDestroyed() && this.browserWindow?.webContents.isDevToolsOpened()) {
       return
     }
-    // Delay close to allow content to load and gain focus
     setTimeout(() => {
       if (this.destroyed) return
       if (!this.browserWindow?.isDestroyed() && this.browserWindow?.isFocused()) return
@@ -207,7 +239,6 @@ export class PopupView extends EventEmitter {
       this.anchorRect.height +
       PopupView.POSITION_PADDING
 
-    // If aligned to a differently then we need to offset the popup position
     if (this.alignment?.includes('right')) x = winBounds.x + this.anchorRect.x
     if (this.alignment?.includes('top'))
       y =
@@ -217,7 +248,6 @@ export class PopupView extends EventEmitter {
         this.anchorRect.y -
         PopupView.POSITION_PADDING
 
-    // Convert to ints
     x = Math.floor(x)
     y = Math.floor(y)
 
@@ -234,7 +264,6 @@ export class PopupView extends EventEmitter {
     this.emit('moved')
   }
 
-  /** Backwards compat for Electron <12 */
   private async queryPreferredSize() {
     if (this.usingPreferredSize || this.destroyed) return
 
@@ -257,7 +286,6 @@ export class PopupView extends EventEmitter {
     this.setSize(size)
     this.updatePosition()
 
-    // Wait to reveal popup until it's sized and positioned correctly
     if (this.hidden) this.show()
   }
 }
