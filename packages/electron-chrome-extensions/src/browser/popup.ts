@@ -26,6 +26,7 @@ const supportsPreferredSize = () => {
   return major >= 12
 }
 
+// Matches the Pane sidebar background (#0A0A0B) for a seamless edge
 const POPUP_CSS = [
   'html { margin: 0 !important; padding: 0 !important; }',
   'html::after {',
