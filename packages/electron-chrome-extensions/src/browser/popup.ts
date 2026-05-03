@@ -145,6 +145,7 @@ export class PopupView extends EventEmitter {
     await win.webContents.executeJavaScript(DETECT_BG_SCRIPT)
 
     this.setSize({ width: 400, height: 600 })
+    this.updatePosition()
     this.show()
   }
 
