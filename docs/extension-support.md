@@ -300,14 +300,68 @@ The old fork had a `nativeApis` set that skipped `Object.defineProperty` for `ru
 
 **Current state:** SW boots (no more Status 15), app.html renders loading spinner. The synco-redux port connection works (React mounts). Full initialization stalls — likely waiting for native messaging (desktop app) or an API that returns unexpected data from our stubs.
 
-**Login flow (when working):**
-1. Click NordPass icon → no `default_popup` → `browser-action-clicked` → opens `app.html` as tab
-2. `app.html` connects to SW via `chrome.runtime.connect({name: "synco-redux"})`
-3. SW sends Redux state → app.html router navigates to `#/login`
-4. User enters email → OAuth via nordaccount.com
-5. After auth → SW sets `authState: "authenticated"`, calls `action.setPopup({popup: 'index.html'})`
+**Previous working state (commit 84a78cc, before Dark Reader/1Password fixes):** NordPass was fully working with the old Proxy-based `sw.js` that used `new Proxy(oc, ...)` wrapping chrome directly + `globalThis.chrome = globalThis.browser` for ALL extensions + `nativeApis` guard in renderer + NO `injectExtensionAPIs` for frames. The popup showed blank → blank popup detection opened `app.html` → login form rendered → OAuth flow completed. That architecture broke Dark Reader (popup infinite loading) and 1Password (Status 15) because the chrome replacement killed native `chrome.runtime` messaging.
 
-**Synco-redux state sync:** Port-based Redux sync between SW and popup/pages. Port name `"synco-redux"`. Three message types: `PATCH_STATE`, `SYNC_GLOBAL`, `DISPATCH_ACTION`.
+#### NordPass SW initialization (from working version analysis)
+
+NordPass's SW (`background.js`) is ~4MB minified. It:
+
+1. Uses `globalThis.browser || globalThis.chrome` to get the chrome API object — our `globalThis.browser` Proxy is picked up automatically
+2. Initializes a Redux store with slices for auth, vault, settings, route, etc.
+3. `bgAppState` transitions from `"LOADING"` to `"READY"` when two internal initialization flags are both true
+4. Communicates with the popup via a custom **synco-redux** port-based state sync system
+
+#### Synco-redux state sync
+
+NordPass uses a custom Redux sync system between SW and popup:
+
+- **Port name:** `"synco-redux"`
+- **Three message types:** `PATCH_STATE` (incremental), `SYNC_GLOBAL` (full state), `DISPATCH_ACTION`
+- Popup connects → sends `SYNC_GLOBAL` → SW responds with full Redux state → popup's `isStateSynced` becomes `true` → React renders
+
+We verified this works via `executeJavaScript` probing: the popup's Redux store shows `{ isStateSynced: true, bgAppState: "READY", authState: "unauthenticated" }`. The synco-redux port system works through native `chrome.runtime.connect` which Electron provides.
+
+#### Popup routing
+
+NordPass's popup (`index.html`) uses a `HashRouter` that defaults ALL routes to `/validate-master-password` via a catch-all `path: "*"` redirect. The `validate-master-password` route component renders blank when `authState !== "master_validate"`.
+
+The route guard that should redirect `unauthenticated → /login` is in the `Kf` component. For `authState === "unauthenticated"`, `Kf` passes through to children, but the children's route component (for `validate-master-password`) renders nothing — so the popup is blank.
+
+**Key insight: The popup has NO login UI.** NordPass delegates login to a separate window (`app.html`). This is why the blank popup detection + fallback to `app.html` is essential.
+
+#### Login flow (when working)
+
+1. Click NordPass icon → no `default_popup` → blank popup detected → `browser-action-clicked` → opens `app.html` as tab
+2. `app.html` connects to SW via `chrome.runtime.connect({name: "synco-redux"})`
+3. SW sends Redux state → app.html React renders
+4. app.html router navigates to `#/login` (based on `authState: "unauthenticated"`)
+5. User enters email → clicks Continue → navigates to `nordaccount.com` for OAuth
+6. After OAuth, NordPass SW sets `authState: "authenticated"` and calls `action.setPopup({popup: 'index.html'})`
+7. Next icon click opens the popup with the vault UI
+
+#### Translation loading
+
+NordPass loads translations via `fetch(chrome.runtime.getURL('assets/lang/${locale}.json'))`. These JSON files are bundled in the extension directory. The `fetch` works correctly in Electron extension contexts via the CRX protocol handler registered by `ElectronChromeExtensions.handleCRXProtocol(session)`.
+
+#### Process global
+
+NordPass's `background.js` at line ~5170 has `process.getBuiltinModule?.("node:os")` — a bare `process` reference that would throw `ReferenceError` in a service worker. Our preload sets `globalThis.process = { env: { NODE_ENV: "production" }, platform: "darwin", version: "" }` before the SW script runs, which satisfies this check (the optional chaining on `getBuiltinModule` handles the missing method).
+
+#### What changed between working and current state
+
+| Aspect | Old (NordPass working) | Current (NordPass spinner) |
+|--------|----------------------|---------------------------|
+| SW preload | Full Proxy `new Proxy(oc, ...)` wrapping chrome | Empty-target `new Proxy({}, ...)` with cached natives |
+| `globalThis.chrome` | Replaced for ALL extensions | Replaced for NordPass ONLY |
+| `injectExtensionAPIs` in SW | Not registered | Registered (crx-api-sw) — corrupts chrome |
+| `injectExtensionAPIs` in frame | Not registered | Registered (crx-api-frame) — installs APIs |
+| `nativeApis` guard | Active (skipped runtime, tabs, etc.) | Removed |
+| `Object.freeze(chrome)` | Active | Removed |
+| `oc.action.setPopup` patch | Active (relayed to ECE) | Removed (triggered Proxy corruption) |
+| `__crxIpc` + event relay | Active for ALL SWs | Active for NordPass SW only |
+| Dark Reader | Broken (infinite loading) | Working |
+| 1Password | Broken (Status 15) | Working |
+| NordPass | Working (login flow complete) | SW boots, app.html shows spinner |
 
 ## Approaches That Failed
 
