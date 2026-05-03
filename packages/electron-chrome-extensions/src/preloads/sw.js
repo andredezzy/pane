@@ -357,7 +357,6 @@ if ("executeInMainWorld" in contextBridge) {
 				"runtime",
 				"storage",
 				"tabs",
-				"scripting",
 				"management",
 				"extension",
 				"webRequest",
@@ -590,6 +589,21 @@ if ("executeInMainWorld" in contextBridge) {
 					createDocument: () => Promise.resolve(),
 					closeDocument: () => Promise.resolve(),
 					hasDocument: () => Promise.resolve(false),
+				},
+
+				// --- scripting ---
+				// No-op stubs. chrome.scripting is not implemented in Electron
+				// (issue #37876). MV3 extensions that call executeScript/insertCSS
+				// at startup would otherwise throw. All methods resolve with empty
+				// arrays so callers that inspect results don't break.
+				scripting: {
+					executeScript: async () => [],
+					insertCSS: async () => [],
+					removeCSS: async () => [],
+					registerContentScripts: async () => [],
+					unregisterContentScripts: async () => [],
+					getRegisteredContentScripts: async () => [],
+					updateContentScripts: async () => [],
 				},
 			};
 
