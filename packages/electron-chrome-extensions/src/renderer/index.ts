@@ -661,7 +661,10 @@ export const injectExtensionAPIs = () => {
 
     delete (globalThis as any).electron
 
-    try { Object.freeze(chrome) } catch {}
+    // Do NOT freeze chrome — in the SW context, chrome may be our Proxy
+    // with an empty target. Freezing it makes the target non-extensible,
+    // causing V8 to enforce that the get trap returns undefined for
+    // properties not on the target, breaking our extras.
 
     void 0 // no return
   }

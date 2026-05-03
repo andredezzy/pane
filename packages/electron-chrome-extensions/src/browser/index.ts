@@ -287,27 +287,28 @@ export class ElectronChromeExtensions extends EventEmitter {
 
     if ('registerPreloadScript' in session) {
       const apiPreload = path.join(preloadsDir, '..', 'chrome-extension-api.preload.js')
-      console.log(`[ECE] frame.js: ${path.join(preloadsDir, 'frame.js')} (exists: ${existsSync(path.join(preloadsDir, 'frame.js'))})`)
-      console.log(`[ECE] sw.js: ${path.join(preloadsDir, 'sw.js')} (exists: ${existsSync(path.join(preloadsDir, 'sw.js'))})`)
+      // SW: sw.js MUST run before crx-api-sw so it can cache uncorrupted
+      // native chrome APIs before injectExtensionAPIs corrupts the V8 Proxy.
       session.registerPreloadScript({
-        id: 'crx-api-frame',
-        type: 'frame',
-        filePath: apiPreload,
+        id: 'crx-sw',
+        type: 'service-worker',
+        filePath: path.join(preloadsDir, 'sw.js'),
       })
       session.registerPreloadScript({
         id: 'crx-api-sw',
         type: 'service-worker',
         filePath: apiPreload,
       })
+      // Frame: order doesn't matter (chrome is a regular object, not a V8 Proxy)
+      session.registerPreloadScript({
+        id: 'crx-api-frame',
+        type: 'frame',
+        filePath: apiPreload,
+      })
       session.registerPreloadScript({
         id: 'crx-frame',
         type: 'frame',
         filePath: path.join(preloadsDir, 'frame.js'),
-      })
-      session.registerPreloadScript({
-        id: 'crx-sw',
-        type: 'service-worker',
-        filePath: path.join(preloadsDir, 'sw.js'),
       })
     }
   }

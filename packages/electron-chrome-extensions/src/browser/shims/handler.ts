@@ -160,6 +160,9 @@ function dispatch(
       }
       return undefined;
     }
+    case "__log":
+      console.log(`[SW]`, method, ...args);
+      return undefined;
     default:
       return undefined;
   }
