@@ -4,8 +4,8 @@
 
 	"compilerOptions": {
 		"target": "ES2022",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
 		"moduleDetection": "force",
 
 		"lib": ["DOM", "DOM.Iterable", "ES2022"],
