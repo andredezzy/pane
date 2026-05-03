@@ -2,28 +2,51 @@
  * @file handler.ts
  *
  * Entry point for the Chrome API shim layer. Registers IPC handlers that
- * receive `chrome.*` method calls forwarded from the SW preload script and
- * routes them to the appropriate shim implementation.
+ * receive `chrome.*` method calls forwarded from the SW and frame preload
+ * scripts (`sw.js`, `frame.js`) and routes them to the appropriate shim
+ * implementation.
  *
- * ## Why two registration paths?
+ * ## IPC Channel
  *
- * Electron 41 introduced per-worker IPC channels for service workers — a SW
- * does NOT go through the global `ipcMain` channel. However, non-SW extension
- * pages (popup pages, options pages, etc.) still use the standard
- * `ipcMain.handle` path. This file therefore maintains **two** registration
- * points:
+ * All communication uses the `crx-shim` IPC channel. The preload scripts
+ * call `ipcRenderer.invoke("crx-shim", namespace, method, ...args)` and
+ * this file dispatches those calls to the correct handler module.
  *
- * 1. **Global** — `ipcMain.handle("crx-shim")` covers frame contexts (popup
- *    pages, options pages, sidepanels, etc.) that communicate over the
- *    standard IPC channel.
+ * ## Why Two Registration Paths?
  *
- * 2. **Per-SW** — `serviceWorker.ipc.handle("crx-shim")` is registered for
- *    each new extension service worker instance on `running-status-changed`.
- *    Each SW instance gets its own IPC object that must be registered
- *    independently and exactly once per worker lifetime.
+ * Electron 41 introduced per-worker IPC channels for service workers — a
+ * SW does NOT go through the global `ipcMain` channel. However, non-SW
+ * extension pages (popup pages, options pages, etc.) still use the
+ * standard `ipcMain.handle` path.
  *
- * Both paths converge in the shared {@link dispatch} function, which routes
- * the call to the correct namespace handler.
+ * This file therefore maintains **two** registration points:
+ *
+ * 1. **Global** (`ipcMain.handle("crx-shim")`) — covers frame contexts
+ *    (popup pages, options pages, sidepanels, etc.) that communicate
+ *    over the standard IPC channel. The extension ID is unknown in this
+ *    path because frame contexts don't carry SW scope information.
+ *
+ * 2. **Per-SW** (`serviceWorker.ipc.handle("crx-shim")`) — registered
+ *    for each new extension SW instance on `running-status-changed`.
+ *    Each SW has its own IPC object that must be registered independently
+ *    and exactly once per worker lifetime. The extension ID is extracted
+ *    from the SW's `scope` URL (`chrome-extension://<id>/`) so that
+ *    namespace handlers can attribute calls to the correct extension.
+ *
+ * Both paths converge in the shared {@link dispatch} function.
+ *
+ * ## Extension ID Extraction
+ *
+ * When a SW calls `chrome.action.setPopup({popup: "index.html"})`, the
+ * shim must know WHICH extension is calling so it can register the popup
+ * URL with the correct `BrowserActionAPI` entry. Without the extension ID,
+ * `getAllExtensions()[0]` would be used, which returns the wrong extension
+ * when multiple extensions are loaded in the same session.
+ *
+ * The per-SW handler extracts the extension ID from `sw.scope` (which is
+ * always `chrome-extension://<extension-id>/`) at registration time and
+ * captures it in a closure so it's available for every subsequent call
+ * from that specific worker.
  */
 
 import { ipcMain, type Session } from "electron";
@@ -34,10 +57,10 @@ import { handleWindows } from "./windows";
 import { handleTabs } from "./tabs";
 
 /**
- * Guards against registering the global `ipcMain.handle("crx-shim")` handler
- * more than once. Because `registerShimHandler` may be called for each new
- * `ExtensionContext`, the guard ensures only the first call installs the
- * handler.
+ * Guards against registering the global `ipcMain.handle("crx-shim")`
+ * handler more than once. Because `registerShimHandler` may be called for
+ * each new `ExtensionContext` (one per profile session), the guard ensures
+ * only the first call installs the handler.
  */
 let globalRegistered = false;
 
@@ -45,7 +68,13 @@ let globalRegistered = false;
  * Registers the global IPC handler for frame contexts (popup pages, options
  * pages, sidepanels). Only installed once per process lifetime.
  *
- * @param ctx - The active extension context, passed through to {@link dispatch}.
+ * Frame contexts don't have a SW scope, so the extension ID is passed as
+ * `undefined` to {@link dispatch}. Namespace handlers that need the
+ * extension ID (e.g. `action.setPopup`) fall back to
+ * `getAllExtensions()[0]`, which works in the frame path because the popup
+ * is always associated with the extension that opened it.
+ *
+ * @param ctx - The active extension context, passed through to dispatch.
  */
 export function registerShimHandler(ctx: ExtensionContext) {
   if (globalRegistered) return;
@@ -53,8 +82,8 @@ export function registerShimHandler(ctx: ExtensionContext) {
 
   ipcMain.handle(
     "crx-shim",
-    (event, namespace: string, method: string, ...args: unknown[]) => {
-      return dispatch(ctx, namespace, method, ...args);
+    (_event, namespace: string, method: string, ...args: unknown[]) => {
+      return dispatch(ctx, undefined, namespace, method, ...args);
     },
   );
 }
@@ -75,9 +104,19 @@ const registeredSessions = new WeakSet<Session>();
  * ### Why listen to `running-status-changed` instead of registering once?
  *
  * In Electron 41+, each SW instance has its own IPC channel object that is
- * only valid for the lifetime of that worker. There is no way to pre-register
- * a handler that covers all future instances, so we hook into the lifecycle
- * event and register the handler the moment a new worker starts.
+ * only valid for the lifetime of that worker. There is no way to
+ * pre-register a handler that covers all future instances, so we hook into
+ * the lifecycle event and register the handler the moment a new worker
+ * starts.
+ *
+ * ### Extension ID extraction
+ *
+ * Each extension SW has a `scope` property of the form
+ * `chrome-extension://<extension-id>/`. We extract the extension ID from
+ * this URL at registration time and capture it in the handler closure.
+ * This allows {@link dispatch} to attribute calls (especially
+ * `action.setPopup`) to the correct extension without relying on
+ * `getAllExtensions()[0]`.
  *
  * @param ctx - The active extension context, providing session access.
  */
@@ -86,22 +125,21 @@ export function registerShimHandlerForSession(ctx: ExtensionContext) {
   if (registeredSessions.has(ses)) return;
   registeredSessions.add(ses);
 
-  // Tracks worker instances that have already received the IPC handler so we
-  // don't register it twice if the event fires multiple times for the same
-  // versionId.
+  // Tracks worker instances that have already received the IPC handler
+  // so we don't register it twice if the event fires multiple times for
+  // the same versionId.
   const workers = new WeakSet();
 
   ses.serviceWorkers.on("running-status-changed", ({
     runningStatus,
     versionId,
   }: Electron.Event<Electron.ServiceWorkersRunningStatusChangedEventParams>) => {
-    // Only register when the worker is starting. The handler registered here
-    // stays active until the worker stops, so we must not re-register on
-    // "running" or "stopped".
+    // Only register when the worker is starting. The handler registered
+    // here stays active until the worker stops, so we must not re-register
+    // on "running" or "stopped".
     if (runningStatus !== "starting") return;
 
-    // `getWorkerFromVersionID` is not yet part of Electron's public types,
-    // hence the `as any` cast.
+    // `getWorkerFromVersionID` is not yet part of Electron's public types.
     const sw = (ses as any).serviceWorkers.getWorkerFromVersionID(versionId);
     if (!sw || workers.has(sw)) return;
 
@@ -109,31 +147,46 @@ export function registerShimHandlerForSession(ctx: ExtensionContext) {
     if (!sw.scope?.startsWith("chrome-extension://")) return;
 
     workers.add(sw);
+
+    // Extract extension ID from scope: "chrome-extension://<id>/" → "<id>"
+    const extensionId = sw.scope.match(/^chrome-extension:\/\/([^/]+)/)?.[1];
+
     sw.ipc.handle(
       "crx-shim",
       (_event: unknown, namespace: string, method: string, ...args: unknown[]) => {
-        return dispatch(ctx, namespace, method, ...args);
+        return dispatch(ctx, extensionId, namespace, method, ...args);
       },
     );
   });
 }
 
 /**
- * Routes an incoming `crx-shim` IPC call to the appropriate namespace handler.
+ * Routes an incoming `crx-shim` IPC call to the appropriate namespace
+ * handler.
  *
- * Each `namespace` maps to a dedicated shim module (`alarms`, `idle`,
- * `windows`, `tabs`, `action`). Unknown namespaces return `undefined` so that
- * callers receive a resolved (but empty) response instead of a rejected
- * promise.
+ * Each `namespace` maps to a dedicated shim module:
+ *   - `"alarms"` → alarms.ts (setTimeout-based alarm scheduling)
+ *   - `"idle"`    → idle.ts (powerMonitor-based idle detection)
+ *   - `"windows"` → windows.ts (BrowserWindow management)
+ *   - `"tabs"`    → tabs.ts (tab creation/query)
+ *   - `"action"`  → inline handler (popup URL registration)
+ *   - `"__log"`   → inline handler (SW debug logging)
  *
- * @param ctx       - The active extension context.
- * @param namespace - The Chrome API namespace (e.g. `"alarms"`, `"tabs"`).
- * @param method    - The method name within the namespace (e.g. `"create"`).
- * @param args      - Forwarded method arguments from the SW preload.
- * @returns         The value to serialize back to the extension's SW.
+ * Unknown namespaces return `undefined` so callers receive a resolved
+ * (but empty) response instead of a rejected promise.
+ *
+ * @param ctx         - The active extension context.
+ * @param extensionId - The calling extension's ID, extracted from the SW
+ *                      scope URL. `undefined` for frame contexts where the
+ *                      SW scope is not available.
+ * @param namespace   - The Chrome API namespace (e.g. `"alarms"`).
+ * @param method      - The method name within the namespace (e.g. `"create"`).
+ * @param args        - Forwarded method arguments from the preload.
+ * @returns           The value to serialize back to the caller.
  */
 function dispatch(
   ctx: ExtensionContext,
+  extensionId: string | undefined,
   namespace: string,
   method: string,
   ...args: unknown[]
@@ -148,14 +201,19 @@ function dispatch(
     case "tabs":
       return handleTabs(ctx, method, ...args);
     case "action": {
-      // `chrome.action.setPopup` lets an extension dynamically change the URL
-      // of its browser-action popup. We propagate this via the context event
-      // bus so the host application can update its UI accordingly.
+      // `chrome.action.setPopup` lets an extension dynamically change
+      // the URL of its browser-action popup (e.g. NordPass sets it to
+      // "index.html" after authentication). We propagate this via the
+      // context event bus so BrowserActionAPI registers the URL.
+      //
+      // `extensionId` is preferred (accurate, from SW scope). Falls back
+      // to `getAllExtensions()[0]` for frame contexts where the SW scope
+      // is unavailable.
       if (method === "setPopup") {
         const [details] = args as [{ popup?: string }];
-        const ext = ctx.session.extensions.getAllExtensions()[0];
-        if (ext && details?.popup) {
-          ctx.emit("set-popup", ext.id, details.popup);
+        const extId = extensionId ?? ctx.session.extensions.getAllExtensions()[0]?.id;
+        if (extId && details?.popup) {
+          ctx.emit("set-popup", extId, details.popup);
         }
       }
       return undefined;

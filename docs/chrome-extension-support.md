@@ -10,7 +10,7 @@ Pane supports Chrome MV3 extensions via a forked `electron-chrome-extensions` (E
 |-----------|--------|-------|
 | Dark Reader | Popup fully functional | Uses `chrome.*` directly |
 | 1Password | Popup fully functional | Uses `globalThis.browser \|\| globalThis.chrome`; exports `browser` wholesale if `.runtime.id` is truthy |
-| NordPass | SW boots, app.html renders spinner | Uses `globalThis.browser \|\| globalThis.chrome`; accesses `chrome.action.onClicked` at module level |
+| NordPass | Fully working (login + vault popup) | Uses `globalThis.browser \|\| globalThis.chrome`; accesses `chrome.action.onClicked` at module level |
 | uBlock Origin | Untested | Likely needs `webRequest` + `declarativeNetRequest` |
 
 ## The V8 Chrome Proxy Problem
@@ -298,9 +298,9 @@ The old fork had a `nativeApis` set that skipped `Object.defineProperty` for `ru
 3. V8 Proxy rejects all modifications to chrome
 4. Only way to provide `chrome.action.onClicked`: replace `globalThis.chrome` with our Proxy
 
-**Current state:** SW boots (no more Status 15), app.html renders loading spinner. The synco-redux port connection works (React mounts). Full initialization stalls — likely waiting for native messaging (desktop app) or an API that returns unexpected data from our stubs.
+**Current state:** Fully working. SW boots, app.html navigates to `#/login`, OAuth flow completes, popup shows vault after auth.
 
-**Previous working state (commit 84a78cc, before Dark Reader/1Password fixes):** NordPass was fully working with the old Proxy-based `sw.js` that used `new Proxy(oc, ...)` wrapping chrome directly + `globalThis.chrome = globalThis.browser` for ALL extensions + `nativeApis` guard in renderer + NO `injectExtensionAPIs` for frames. The popup showed blank → blank popup detection opened `app.html` → login form rendered → OAuth flow completed. That architecture broke Dark Reader (popup infinite loading) and 1Password (Status 15) because the chrome replacement killed native `chrome.runtime` messaging.
+**What fixed it:** The NordPass Proxy's extras (alarms, windows, action.setPopup) were calling `__crxIpc.invoke(...)` but `__crxIpc` was never exposed to the main world — `contextBridge.exposeInMainWorld("__crxIpc", ...)` was missing from sw.js. All IPC-backed API calls silently returned nothing, preventing NordPass's SW from completing initialization (it needs working `alarms.create` for keepalive timers). Additionally, the `crx-shim-event` relay was missing, so events from the main process (alarms.onAlarm, idle.onStateChanged) never reached the SW. Finally, `handler.ts` used `getAllExtensions()[0]` to identify the calling extension for `action.setPopup`, which returned the wrong extension when multiple extensions were loaded — fixed by extracting the extension ID from the SW's scope URL.
 
 #### NordPass SW initialization (from working version analysis)
 
@@ -349,19 +349,17 @@ NordPass's `background.js` at line ~5170 has `process.getBuiltinModule?.("node:o
 
 #### What changed between working and current state
 
-| Aspect | Old (NordPass working) | Current (NordPass spinner) |
+| Aspect | Old (NordPass working, DR/1PW broken) | Current (all three working) |
 |--------|----------------------|---------------------------|
-| SW preload | Full Proxy `new Proxy(oc, ...)` wrapping chrome | Empty-target `new Proxy({}, ...)` with cached natives |
+| SW preload | Full Proxy `new Proxy(oc, ...)` wrapping chrome | Empty-target `new Proxy({}, ...)` with cached natives (NordPass only) |
 | `globalThis.chrome` | Replaced for ALL extensions | Replaced for NordPass ONLY |
-| `injectExtensionAPIs` in SW | Not registered | Registered (crx-api-sw) — corrupts chrome |
+| `injectExtensionAPIs` in SW | Not registered | Registered (crx-api-sw) — corrupts chrome but side effect needed |
 | `injectExtensionAPIs` in frame | Not registered | Registered (crx-api-frame) — installs APIs |
-| `nativeApis` guard | Active (skipped runtime, tabs, etc.) | Removed |
-| `Object.freeze(chrome)` | Active | Removed |
-| `oc.action.setPopup` patch | Active (relayed to ECE) | Removed (triggered Proxy corruption) |
-| `__crxIpc` + event relay | Active for ALL SWs | Active for NordPass SW only |
+| `__crxIpc` + event relay | Active for ALL SWs | Active for ALL SWs |
+| `action.setPopup` IPC | via `oc.action.setPopup` intercept | via Proxy extras + `crx-shim` dispatch with per-SW extension ID |
 | Dark Reader | Broken (infinite loading) | Working |
 | 1Password | Broken (Status 15) | Working |
-| NordPass | Working (login flow complete) | SW boots, app.html shows spinner |
+| NordPass | Working (login flow complete) | Working (login + vault popup) |
 
 ## Approaches That Failed
 
@@ -502,15 +500,6 @@ This is configured in `apps/desktop/src/main/pane.ts` in the `restore()` method.
 9. **Extension files are NOT modified on disk.** Everything is via preloads. Essential for CWS auto-updates.
 
 ## Remaining Work
-
-### NordPass full initialization
-
-NordPass's SW boots and the synco-redux port connects, but app.html shows a loading spinner instead of the login form. The SW likely stalls during initialization because:
-- Native messaging (desktop app integration) fails in Electron
-- An API stub returns unexpected data
-- `bgAppState` never transitions from `"LOADING"` to `"READY"`
-
-Investigation needed: trace NordPass's SW initialization to find which API call stalls or returns unexpected results.
 
 ### General extension compatibility
 
