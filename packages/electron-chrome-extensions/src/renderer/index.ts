@@ -591,6 +591,30 @@ export const injectExtensionAPIs = () => {
 				factory: (base) => {
 					return {
 						...base,
+						sendMessage: (...args: any[]) => {
+							const native = base.sendMessage as Function;
+							if (!native) {
+								return;
+							}
+							const last = args[args.length - 1];
+							if (typeof last === "function") {
+								args[args.length - 1] = (...a: any[]) => {
+									void chrome.runtime.lastError;
+									return last(...a);
+								};
+								return native.apply(base, args);
+							}
+							try {
+								const r = native.apply(base, args);
+								return (
+									r?.catch?.((e: any) =>
+										e?.message?.includes("Could not establish connection")
+											? undefined
+											: Promise.reject(e),
+									) ?? r
+								);
+							} catch {}
+						},
 						connectNative: (application: string) => {
 							const port = new NativePort();
 							const receive = port._receive.bind(port);
@@ -633,6 +657,30 @@ export const injectExtensionAPIs = () => {
 				factory: (base) => {
 					const api = {
 						...base,
+						sendMessage: (...args: any[]) => {
+							const native = base.sendMessage as Function;
+							if (!native) {
+								return;
+							}
+							const last = args[args.length - 1];
+							if (typeof last === "function") {
+								args[args.length - 1] = (...a: any[]) => {
+									void chrome.runtime.lastError;
+									return last(...a);
+								};
+								return native.apply(base, args);
+							}
+							try {
+								const r = native.apply(base, args);
+								return (
+									r?.catch?.((e: any) =>
+										e?.message?.includes("Could not establish connection")
+											? undefined
+											: Promise.reject(e),
+									) ?? r
+								);
+							} catch {}
+						},
 						create: invokeExtension("tabs.create"),
 						executeScript: async (
 							arg1: unknown,

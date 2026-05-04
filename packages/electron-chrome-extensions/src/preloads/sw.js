@@ -191,6 +191,24 @@ if ("executeInMainWorld" in contextBridge) {
 				};
 			}
 
+			// -------------------------------------------------------------------
+			// Global rejection handler
+			// -------------------------------------------------------------------
+			// Extensions throw benign unhandled rejections at startup:
+			//   - "Could not establish connection" — messaging before content scripts exist
+			//   - "Cannot read properties of null" — querying active tab before any tab exists
+			// Handling them here prevents Chromium's extension error handler
+			// (extensions_browser_client.cc) from logging them as [ERROR].
+			globalThis.addEventListener("unhandledrejection", (event) => {
+				var msg = event.reason?.message || "";
+				if (
+					msg.indexOf("Could not establish connection") !== -1 ||
+					msg.indexOf("Cannot read properties of null") !== -1
+				) {
+					event.preventDefault();
+				}
+			});
+
 			var oc = globalThis.chrome;
 
 			if (!oc) {

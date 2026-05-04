@@ -1,9 +1,8 @@
 import { EventEmitter } from "node:events";
-import { existsSync } from "node:fs";
+import fs, { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { session as electronSession } from "electron";
-
 import { BrowserActionAPI } from "./api/browser-action";
 import { CommandsAPI } from "./api/commands";
 import { ContextMenusAPI } from "./api/context-menus";
@@ -20,6 +19,7 @@ import { checkLicense, License } from "./license";
 import { readLoadedExtensionManifest } from "./manifest";
 import { resolvePartition } from "./partition";
 import { ExtensionRouter } from "./router";
+import { sanitizeExtensionManifests } from "./sanitize-manifests";
 import { destroyAlarms } from "./shims/alarms";
 import {
 	registerShimHandler,
@@ -96,6 +96,51 @@ export class ElectronChromeExtensions extends EventEmitter {
 	/** Retrieve an instance of this class associated with the given session. */
 	static fromSession(session: Electron.Session) {
 		return sessionMap.get(session);
+	}
+
+	/**
+	 * Sanitizes extension manifests on disk and clears Chromium's cached
+	 * extension data (Preferences + Service Worker dirs) when manifests changed.
+	 *
+	 * Call once at process startup, before any session is created.
+	 */
+	static prepareUserData(userDataPath: string): void {
+		try {
+			const extensionsPath = path.join(userDataPath, "Extensions");
+			const manifestsChanged = sanitizeExtensionManifests(extensionsPath);
+
+			if (manifestsChanged) {
+				ElectronChromeExtensions.clearExtensionCache(userDataPath);
+			}
+		} catch {}
+	}
+
+	private static clearExtensionCache(userDataPath: string): void {
+		const dirs: string[] = [userDataPath];
+		const partitionsDir = path.join(userDataPath, "Partitions");
+		if (fs.existsSync(partitionsDir)) {
+			for (const name of fs.readdirSync(partitionsDir)) {
+				dirs.push(path.join(partitionsDir, name));
+			}
+		}
+
+		for (const dir of dirs) {
+			const prefsPath = path.join(dir, "Preferences");
+			if (fs.existsSync(prefsPath)) {
+				try {
+					const prefs = JSON.parse(fs.readFileSync(prefsPath, "utf-8"));
+					if (prefs.extensions) {
+						delete prefs.extensions;
+						fs.writeFileSync(prefsPath, JSON.stringify(prefs));
+					}
+				} catch {}
+			}
+
+			const swDir = path.join(dir, "Service Worker");
+			if (fs.existsSync(swDir)) {
+				fs.rmSync(swDir, { recursive: true, force: true });
+			}
+		}
 	}
 
 	/**

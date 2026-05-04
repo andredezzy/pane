@@ -2,7 +2,11 @@ const esbuild = require("esbuild");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const external = ["electron", "electron-chrome-extensions/preload"];
+const external = [
+	"electron",
+	"electron-chrome-extensions/preload",
+	"electron-chrome-web-store",
+];
 
 const configs = [
 	{
