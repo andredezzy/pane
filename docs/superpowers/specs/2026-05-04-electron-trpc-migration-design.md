@@ -44,7 +44,7 @@ Note: We do NOT use `trpc-electron`'s `createIPCHandler` because it only accepts
 |---|---|
 | `src/main/trpc/trpc.ts` | tRPC instance, context type, exports `router` and `procedure` |
 | `src/main/trpc/router.ts` | Root router composition, exports `AppRouter` type |
-| `src/main/trpc/ipc-handler.ts` | Local `createIPCHandler` that accepts `WebContents` instead of `BrowserWindow` |
+| `src/main/trpc/ipc.ts` | Local `createIPCHandler` that accepts `WebContents` instead of `BrowserWindow` |
 | `src/main/trpc/routers/tabs.ts` | 9 tab procedures (open, close, switch, navigate, goBack, goForward, reload, hideAll, showActive) |
 | `src/main/trpc/routers/profiles.ts` | 1 procedure (activate) |
 | `src/main/trpc/routers/settings.ts` | 1 procedure (detectBrowser) |
@@ -106,10 +106,10 @@ export type { Context, StoreName };
 `trpc-electron`'s `createIPCHandler` only accepts `BrowserWindow`. Our app uses `BaseWindow` + `WebContentsView`. We write a local handler that accepts `WebContents` directly, compatible with `trpc-electron`'s preload/renderer protocol.
 
 ```ts
-// src/main/trpc/ipc-handler.ts
+// src/main/trpc/ipc.ts
 import { ipcMain, type WebContents } from "electron";
 import { callTRPCProcedure, type AnyTRPCRouter } from "@trpc/server";
-import { type TRPCResponseMessage } from "@trpc/server/rpc";
+import { ELECTRON_TRPC_CHANNEL } from "trpc-electron/main";
 
 interface IPCHandlerOptions<TRouter extends AnyTRPCRouter> {
   router: TRouter;
@@ -122,20 +122,31 @@ export function createIPCHandler<TRouter extends AnyTRPCRouter>({
   webContents,
   createContext,
 }: IPCHandlerOptions<TRouter>) {
-  // Listen for tRPC requests from renderer via electronTRPC channel
-  // Route to tRPC procedures, handle subscriptions with abort controllers
+  // Listen on ELECTRON_TRPC_CHANNEL ("trpc-electron") for requests from renderer
+  // Route to callTRPCProcedure (internal tRPC API, same as trpc-electron uses)
+  // Handle subscriptions with abort controllers
   // Clean up subscriptions on webContents destroyed / did-start-navigation
   // Message protocol must match trpc-electron's exposeElectronTRPC format
 }
 ```
 
+`callTRPCProcedure` is a low-level internal tRPC API — but `trpc-electron` itself uses it for the same purpose, so it's the correct approach for a custom transport handler.
+
 Implementation references `trpc-electron`'s `IPCHandler` class (~80 lines). Key responsibilities:
-- Listen on the `electronTRPC` IPC channel (same channel `exposeElectronTRPC` uses)
+- Listen on `ELECTRON_TRPC_CHANNEL` (`"trpc-electron"`) — same channel `exposeElectronTRPC` uses
 - Parse incoming messages, route to `callTRPCProcedure`
 - For subscriptions: iterate async generators, send each yield back via `webContents.send`
 - Track active subscriptions with `AbortController` per subscription
 - On `webContents` `destroyed` event: abort all subscriptions
 - On `did-start-navigation` (non-same-document): abort all subscriptions
+
+Message protocol (must match `trpc-electron`'s preload/renderer):
+- **Renderer → Main** (`ipcRenderer.send("trpc-electron", message)`):
+  - `{ method: "request", operation: Operation }` — query/mutation/subscription start
+  - `{ method: "subscription.stop", id: number }` — subscription teardown
+- **Main → Renderer** (`event.sender.send("trpc-electron", response)`):
+  - `TRPCResponseMessage` from `@trpc/server/rpc` after `transformTRPCResponse()`
+- **Preload global**: `window.electronTRPC: { sendMessage(msg): void, onMessage(cb): void }`
 
 ## Root Router
 
@@ -310,13 +321,16 @@ export function sync<TState>(
     import("../../renderer/trpc").then((mod) => {
       trpc = mod.trpc;
 
-      (async () => {
-        for await (const serialized of trpc!.stores.sync.subscribe({ name })) {
-          applyingRemote = true;
-          set((state) => ({ ...state, ...JSON.parse(serialized as string) }));
-          applyingRemote = false;
-        }
-      })();
+      trpc!.stores.sync.subscribe(
+        { name },
+        {
+          onData(serialized: string) {
+            applyingRemote = true;
+            set((state) => ({ ...state, ...JSON.parse(serialized) }));
+            applyingRemote = false;
+          },
+        },
+      );
     });
 
     const syncedSet: typeof set = (updater, replace) => {
@@ -331,6 +345,8 @@ export function sync<TState>(
 ```
 
 The dynamic import resolves the tRPC client internally — no globals, no setters. The `isRenderer()` guard ensures the import never executes in main. The client type is inferred via `Awaited<typeof import(...)>["trpc"]` — full type safety without manual type declarations. There is a ~1 microtask timing gap before `trpc` resolves; `syncedSet` skips push during that window, and the subscription's initial yield reconciles immediately after.
+
+Note: The vanilla tRPC client's `.subscribe()` returns an Observable, consumed via `{ onData }` callback — not an `AsyncIterable`. The server-side subscription still uses `async function*`, but the client transport layer wraps it in an Observable.
 
 Store files remain unchanged — they still wrap with `sync(creator, { name })`.
 
@@ -386,7 +402,7 @@ All `window.pane?.x.y(args)` calls become `trpc.x.y.mutate(args)`:
 
 ```ts
 // src/main/index.ts changes
-import { createIPCHandler } from "./trpc/ipc-handler";
+import { createIPCHandler } from "./trpc/ipc";
 import { appRouter } from "./trpc/router";
 
 // Replace IpcRouter + StoreSync with:
@@ -410,9 +426,9 @@ createIPCHandler({
 
 1. **Subscription startup race**: The renderer might call `syncedSet` (which calls `push.mutate`) before the `sync` subscription has yielded initial state. This is safe — mutations and subscriptions are independent channels. The initial state from the subscription will arrive and overwrite any stale renderer state.
 
-2. **Subscription cleanup on window close**: The async generator's `finally` block unsubscribes from zustand. electron-trpc must tear down the subscription when the IPC channel disconnects. Verify this during implementation by checking electron-trpc source.
+2. **Subscription cleanup on window close**: The async generator's `finally` block unsubscribes from zustand. Our local IPC handler must abort subscriptions on `webContents` `destroyed` and `did-start-navigation` events — triggering the generator's `finally` block. Reference `trpc-electron`'s cleanup logic.
 
-3. **Double serialization**: `serializeState` returns a JSON string. tRPC also serializes its transport payload as JSON. The `sync` subscription yields a string, and `push` receives a string — so the state travels as a JSON string inside the tRPC JSON envelope. On the renderer side, `JSON.parse(serialized)` recovers the object. No double-encoding issue since the string is an opaque payload to tRPC.
+3. **Double serialization**: `serializeState` returns a JSON string. tRPC also serializes its transport payload as JSON. The `sync` subscription yields a string, and `push` receives a string — so the state travels as a JSON string inside the tRPC JSON envelope. The `onData` callback receives the string as-is (tRPC deserializes the envelope, the string payload comes through intact). On the renderer side, `JSON.parse(serialized)` recovers the object.
 
 4. **Import graph: sync middleware in shared context**: The sync middleware uses a dynamic `import("../../renderer/trpc")` guarded by `isRenderer()`. In the renderer Vite build, this resolves within the same module graph. In the main esbuild, the import is never executed. Verify the main build doesn't warn about the unresolved dynamic import — if it does, add a `/* @vite-ignore */` comment.
 
