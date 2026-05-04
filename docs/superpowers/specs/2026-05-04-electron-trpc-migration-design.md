@@ -1,6 +1,6 @@
-# electron-trpc Migration
+# tRPC IPC Migration
 
-Replace raw `contextBridge`/`window.pane` IPC with electron-trpc for end-to-end type-safe communication between renderer and main process. Also replace the custom store sync system (`window.electronSync`) with tRPC subscriptions.
+Replace raw `contextBridge`/`window.pane` IPC with tRPC for end-to-end type-safe communication between renderer and main process. Also replace the custom store sync system (`window.electronSync`) with tRPC subscriptions.
 
 ## Decisions
 
@@ -8,6 +8,8 @@ Replace raw `contextBridge`/`window.pane` IPC with electron-trpc for end-to-end 
 - Extension package (`@pane/electron-chrome-extensions`) IPC is untouched — separate concern, separate package
 - Vanilla tRPC client (no React Query) — app uses zustand for state, no second state layer needed
 - Router per domain — each domain gets its own router file, composed at root
+- **tRPC v11** with `trpc-electron` (mat-sz fork) — supports async generator subscriptions
+- **Local `createIPCHandler` wrapper** — `trpc-electron` only accepts `BrowserWindow`, but our app uses `BaseWindow` + `WebContentsView`. The wrapper accepts `WebContents` directly. Preload (`exposeElectronTRPC`) and renderer (`ipcLink`) are used from the package unchanged.
 
 ## Architecture
 
@@ -28,11 +30,13 @@ trpc client  ──ipcRenderer──  exposeElectronTRPC  ──ipcMain──  t
 ## Dependencies
 
 New packages to install in `apps/desktop`:
-- `@trpc/server` — main process router
-- `@trpc/client` — renderer client
-- `electron-trpc` — IPC transport (exposeElectronTRPC, ipcLink, createIPCHandler)
+- `@trpc/server@^11` — main process router
+- `@trpc/client@^11` — renderer client
+- `trpc-electron` (mat-sz fork) — IPC transport (`exposeElectronTRPC` for preload, `ipcLink` for renderer)
 
 Already present: `zod` (v4), used for input validation schemas.
+
+Note: We do NOT use `trpc-electron`'s `createIPCHandler` because it only accepts `BrowserWindow`. We write a local wrapper (~80 lines) that accepts `WebContents` directly.
 
 ## Files Created
 
@@ -40,6 +44,7 @@ Already present: `zod` (v4), used for input validation schemas.
 |---|---|
 | `src/main/trpc/trpc.ts` | tRPC instance, context type, exports `router` and `procedure` |
 | `src/main/trpc/router.ts` | Root router composition, exports `AppRouter` type |
+| `src/main/trpc/ipc-handler.ts` | Local `createIPCHandler` that accepts `WebContents` instead of `BrowserWindow` |
 | `src/main/trpc/routers/tabs.ts` | 9 tab procedures (open, close, switch, navigate, goBack, goForward, reload, hideAll, showActive) |
 | `src/main/trpc/routers/profiles.ts` | 1 procedure (activate) |
 | `src/main/trpc/routers/settings.ts` | 1 procedure (detectBrowser) |
@@ -95,6 +100,42 @@ export type { Context, StoreName };
 ```
 
 `Pane` and `stores` are injected as context — every procedure accesses them via `ctx`. No globals, no hidden dependencies.
+
+## Local IPC Handler
+
+`trpc-electron`'s `createIPCHandler` only accepts `BrowserWindow`. Our app uses `BaseWindow` + `WebContentsView`. We write a local handler that accepts `WebContents` directly, compatible with `trpc-electron`'s preload/renderer protocol.
+
+```ts
+// src/main/trpc/ipc-handler.ts
+import { ipcMain, type WebContents } from "electron";
+import { callTRPCProcedure, type AnyTRPCRouter } from "@trpc/server";
+import { type TRPCResponseMessage } from "@trpc/server/rpc";
+
+interface IPCHandlerOptions<TRouter extends AnyTRPCRouter> {
+  router: TRouter;
+  webContents: WebContents;
+  createContext: () => any;
+}
+
+export function createIPCHandler<TRouter extends AnyTRPCRouter>({
+  router,
+  webContents,
+  createContext,
+}: IPCHandlerOptions<TRouter>) {
+  // Listen for tRPC requests from renderer via electronTRPC channel
+  // Route to tRPC procedures, handle subscriptions with abort controllers
+  // Clean up subscriptions on webContents destroyed / did-start-navigation
+  // Message protocol must match trpc-electron's exposeElectronTRPC format
+}
+```
+
+Implementation references `trpc-electron`'s `IPCHandler` class (~80 lines). Key responsibilities:
+- Listen on the `electronTRPC` IPC channel (same channel `exposeElectronTRPC` uses)
+- Parse incoming messages, route to `callTRPCProcedure`
+- For subscriptions: iterate async generators, send each yield back via `webContents.send`
+- Track active subscriptions with `AbortController` per subscription
+- On `webContents` `destroyed` event: abort all subscriptions
+- On `did-start-navigation` (non-same-document): abort all subscriptions
 
 ## Root Router
 
@@ -248,19 +289,6 @@ The `finally` block ensures the zustand subscription is cleaned up when the tRPC
 import type { StateCreator } from "zustand/vanilla";
 import { serializeState } from "./serialize";
 
-type TrpcClient = {
-  stores: {
-    push: { mutate: (input: { name: string; state: string }) => Promise<void> };
-    sync: { subscribe: (input: { name: string }) => AsyncIterable<string> };
-  };
-};
-
-let trpcClient: TrpcClient | null = null;
-
-export function setTrpcClient(client: TrpcClient) {
-  trpcClient = client;
-}
-
 function isRenderer(): boolean {
   return typeof window !== "undefined";
 }
@@ -277,40 +305,41 @@ export function sync<TState>(
     }
 
     let applyingRemote = false;
+    let trpc: Awaited<typeof import("../../renderer/trpc")>["trpc"] | null = null;
 
-    const syncedSet: typeof set = (updater, replace) => {
-      set(updater, replace as never);
-      if (applyingRemote) return;
-      trpcClient?.stores.push.mutate({ name, state: serializeState(get()) });
-    };
+    import("../../renderer/trpc").then((mod) => {
+      trpc = mod.trpc;
 
-    // Subscribe to main process state changes
-    if (trpcClient) {
       (async () => {
-        for await (const serialized of trpcClient.stores.sync.subscribe({ name })) {
-          const partial = JSON.parse(serialized as string);
+        for await (const serialized of trpc!.stores.sync.subscribe({ name })) {
           applyingRemote = true;
-          set((state) => ({ ...state, ...partial }));
+          set((state) => ({ ...state, ...JSON.parse(serialized as string) }));
           applyingRemote = false;
         }
       })();
-    }
+    });
+
+    const syncedSet: typeof set = (updater, replace) => {
+      set(updater, replace as never);
+      if (applyingRemote || !trpc) return;
+      trpc.stores.push.mutate({ name, state: serializeState(get()) });
+    };
 
     return storeCreator(syncedSet, get, api);
   };
 }
 ```
 
-Note: The sync middleware cannot import `trpc` directly from `renderer/trpc.ts` because the store modules are shared between main and renderer (same files, different runtime contexts). The `isRenderer()` guard prevents main process from running sync logic. The renderer initializes the client reference via `setTrpcClient` at app startup before stores are created.
+The dynamic import resolves the tRPC client internally — no globals, no setters. The `isRenderer()` guard ensures the import never executes in main. The client type is inferred via `Awaited<typeof import(...)>["trpc"]` — full type safety without manual type declarations. There is a ~1 microtask timing gap before `trpc` resolves; `syncedSet` skips push during that window, and the subscription's initial yield reconciles immediately after.
 
-**Alternative**: If the import graph can be structured so that `renderer/trpc.ts` is only ever bundled for renderer, a direct import works and `setTrpcClient` is unnecessary. This depends on the electron-vite build configuration — verify during implementation.
+Store files remain unchanged — they still wrap with `sync(creator, { name })`.
 
 ## Preload
 
 ```ts
 // src/preload/index.ts
 import { injectBrowserAction } from "@pane/electron-chrome-extensions/browser-action";
-import { exposeElectronTRPC } from "electron-trpc/main";
+import { exposeElectronTRPC } from "trpc-electron/main";
 
 injectBrowserAction();
 exposeElectronTRPC();
@@ -323,7 +352,7 @@ No more `contextBridge.exposeInMainWorld("pane", ...)` or `electronSync`. The `E
 ```ts
 // src/renderer/trpc.ts
 import { createTRPCClient } from "@trpc/client";
-import { ipcLink } from "electron-trpc/renderer";
+import { ipcLink } from "trpc-electron/renderer";
 import type { AppRouter } from "../main/trpc/router";
 
 export const trpc = createTRPCClient<AppRouter>({
@@ -357,13 +386,13 @@ All `window.pane?.x.y(args)` calls become `trpc.x.y.mutate(args)`:
 
 ```ts
 // src/main/index.ts changes
-import { createIPCHandler } from "electron-trpc/main";
+import { createIPCHandler } from "./trpc/ipc-handler";
 import { appRouter } from "./trpc/router";
 
 // Replace IpcRouter + StoreSync with:
 createIPCHandler({
   router: appRouter,
-  windows: [win.mainWindow],
+  webContents: win.uiView.webContents,
   createContext: () => ({
     pane,
     stores: {
@@ -385,8 +414,8 @@ createIPCHandler({
 
 3. **Double serialization**: `serializeState` returns a JSON string. tRPC also serializes its transport payload as JSON. The `sync` subscription yields a string, and `push` receives a string — so the state travels as a JSON string inside the tRPC JSON envelope. On the renderer side, `JSON.parse(serialized)` recovers the object. No double-encoding issue since the string is an opaque payload to tRPC.
 
-4. **Import graph: sync middleware in shared context**: The sync middleware (`stores/middlewares/sync.ts`) is imported by store files that run in both main and renderer. It cannot directly import `renderer/trpc.ts`. The `isRenderer()` guard prevents main from running sync logic. For the renderer, either use `setTrpcClient` initialization or verify that electron-vite tree-shakes the renderer import correctly.
+4. **Import graph: sync middleware in shared context**: The sync middleware uses a dynamic `import("../../renderer/trpc")` guarded by `isRenderer()`. In the renderer Vite build, this resolves within the same module graph. In the main esbuild, the import is never executed. Verify the main build doesn't warn about the unresolved dynamic import — if it does, add a `/* @vite-ignore */` comment.
 
-5. **electron-trpc + BaseWindow**: The current app uses `BaseWindow` + `WebContentsView`, not `BrowserWindow`. Verify that `createIPCHandler({ windows: [...] })` supports `BaseWindow`, or if we need to pass the `WebContentsView`'s webContents directly. Check electron-trpc API.
+5. **Local `createIPCHandler` for BaseWindow**: `trpc-electron`'s `createIPCHandler` only accepts `BrowserWindow`. Our local wrapper accepts `WebContents` directly. It must handle: IPC message routing to tRPC, subscription lifecycle (setup/teardown), cleanup on `webContents.on("destroyed")` and `did-start-navigation`. Reference `trpc-electron`'s `IPCHandler` source for the message protocol — our wrapper must be compatible with the same preload/renderer code.
 
 6. **`findProfileForActiveTab` pattern**: Several tab procedures (`goBack`, `goForward`, `reload`, `showActive`) need to find the active tab's profile. The current `IpcRouter` uses a private helper that reads `tabStore`. The tRPC context includes `stores` — the router can read `tabStore` state the same way. Extract a shared helper function used by these procedures.
