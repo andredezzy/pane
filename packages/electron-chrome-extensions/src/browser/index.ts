@@ -118,6 +118,7 @@ export class ElectronChromeExtensions extends EventEmitter {
 	private static clearExtensionCache(userDataPath: string): void {
 		const dirs: string[] = [userDataPath];
 		const partitionsDir = path.join(userDataPath, "Partitions");
+
 		if (fs.existsSync(partitionsDir)) {
 			for (const name of fs.readdirSync(partitionsDir)) {
 				dirs.push(path.join(partitionsDir, name));
@@ -126,9 +127,11 @@ export class ElectronChromeExtensions extends EventEmitter {
 
 		for (const dir of dirs) {
 			const prefsPath = path.join(dir, "Preferences");
+
 			if (fs.existsSync(prefsPath)) {
 				try {
 					const prefs = JSON.parse(fs.readFileSync(prefsPath, "utf-8"));
+
 					if (prefs.extensions) {
 						delete prefs.extensions;
 						fs.writeFileSync(prefsPath, JSON.stringify(prefs));
@@ -137,6 +140,7 @@ export class ElectronChromeExtensions extends EventEmitter {
 			}
 
 			const swDir = path.join(dir, "Service Worker");
+
 			if (fs.existsSync(swDir)) {
 				fs.rmSync(swDir, { recursive: true, force: true });
 			}

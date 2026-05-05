@@ -201,6 +201,7 @@ if ("executeInMainWorld" in contextBridge) {
 			// (extensions_browser_client.cc) from logging them as [ERROR].
 			globalThis.addEventListener("unhandledrejection", (event) => {
 				var msg = event.reason?.message || "";
+
 				if (
 					msg.indexOf("Could not establish connection") !== -1 ||
 					msg.indexOf("Cannot read properties of null") !== -1

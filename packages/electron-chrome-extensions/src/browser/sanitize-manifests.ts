@@ -23,6 +23,7 @@ export function sanitizeExtensionManifests(extensionsPath: string): boolean {
 	if (!fs.existsSync(extensionsPath)) {
 		return false;
 	}
+
 	let anyModified = false;
 
 	for (const extId of fs.readdirSync(extensionsPath)) {

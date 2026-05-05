@@ -41,6 +41,7 @@ export class ExtensionRuntime {
 		// Electron persist sessions auto-restore extensions using cached (unsanitized)
 		// manifests. Remove them so they get re-loaded from sanitized manifests on disk.
 		const cached = opts.session.extensions.getAllExtensions();
+
 		if (cached.length > 0) {
 			sanitizeExtensionManifests(opts.extensionsPath);
 			for (const ext of cached) {

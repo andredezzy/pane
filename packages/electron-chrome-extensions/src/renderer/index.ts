@@ -593,19 +593,26 @@ export const injectExtensionAPIs = () => {
 						...base,
 						sendMessage: (...args: any[]) => {
 							const native = base.sendMessage as Function;
+
 							if (!native) {
 								return;
 							}
+
 							const last = args[args.length - 1];
+
 							if (typeof last === "function") {
 								args[args.length - 1] = (...a: any[]) => {
 									void chrome.runtime.lastError;
+
 									return last(...a);
 								};
+
 								return native.apply(base, args);
 							}
+
 							try {
 								const r = native.apply(base, args);
+
 								return (
 									r?.catch?.((e: any) =>
 										e?.message?.includes("Could not establish connection")
@@ -659,19 +666,26 @@ export const injectExtensionAPIs = () => {
 						...base,
 						sendMessage: (...args: any[]) => {
 							const native = base.sendMessage as Function;
+
 							if (!native) {
 								return;
 							}
+
 							const last = args[args.length - 1];
+
 							if (typeof last === "function") {
 								args[args.length - 1] = (...a: any[]) => {
 									void chrome.runtime.lastError;
+
 									return last(...a);
 								};
+
 								return native.apply(base, args);
 							}
+
 							try {
 								const r = native.apply(base, args);
+
 								return (
 									r?.catch?.((e: any) =>
 										e?.message?.includes("Could not establish connection")
