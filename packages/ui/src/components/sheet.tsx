@@ -1,5 +1,6 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import type {
+	CSSProperties,
 	ComponentPropsWithoutRef,
 	ElementRef,
 	HTMLAttributes,
@@ -23,6 +24,7 @@ const SheetOverlay = forwardRef<
 			"data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/40 data-[state=closed]:animate-out data-[state=open]:animate-in",
 			className,
 		)}
+		style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 		{...props}
 	/>
 ));
@@ -38,7 +40,7 @@ const SheetContent = forwardRef<
 		<SheetPrimitive.Content
 			ref={ref}
 			className={cn(
-				"data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right fixed top-2 right-2 bottom-2 z-50 flex w-[360px] flex-col rounded-[10px] bg-card shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_40px_rgba(0,0,0,0.6)] duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in",
+				"data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right fixed top-2 right-2 bottom-2 z-50 flex w-[360px] flex-col rounded-[10px] bg-card duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in",
 				className,
 			)}
 			{...props}
