@@ -1,7 +1,7 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import type {
-	CSSProperties,
 	ComponentPropsWithoutRef,
+	CSSProperties,
 	ElementRef,
 	HTMLAttributes,
 } from "react";
