@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@source "../../../../../packages/ui/src/**/*.{ts,tsx}";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+	--color-background: #0a0a0c;
+	--color-foreground: #fafafa;
+	--color-card: #1c1c1f;
+	--color-card-foreground: #fafafa;
+	--color-popover: #1c1c1f;
+	--color-popover-foreground: #fafafa;
+	--color-primary: #fafafa;
+	--color-primary-foreground: #18181b;
+	--color-secondary: #232326;
+	--color-secondary-foreground: #fafafa;
+	--color-muted: #232326;
+	--color-muted-foreground: #71717a;
+	--color-accent: #232326;
+	--color-accent-foreground: #e4e4e7;
+	--color-destructive: #7f1d1d;
+	--color-destructive-foreground: #fafafa;
+	--color-border: rgba(255, 255, 255, 0.06);
+	--color-input: rgba(255, 255, 255, 0.06);
+	--color-ring: #52525b;
+	--radius: 0.5rem;
+}
+
+@keyframes shake {
+	0%, 100% { transform: translateX(0); }
+	20% { transform: translateX(-8px); }
+	40% { transform: translateX(8px); }
+	60% { transform: translateX(-6px); }
+	80% { transform: translateX(6px); }
+}
+
+.animate-shake {
+	animation: shake 0.4s ease-in-out;
+}
+
+@keyframes slide-up {
+	0% { transform: translateY(100%); }
+	100% { transform: translateY(0); }
+}
+
+@keyframes slide-down {
+	0% { transform: translateY(0); }
+	100% { transform: translateY(100%); }
+}
+
+.animate-slide-up {
+	animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-slide-down {
+	animation: slide-down 0.35s ease-in forwards;
+}
+
+button,
+input,
+select,
+textarea,
+a,
+[role="button"] {
+	-webkit-app-region: no-drag;
+}
+
+html,
+body {
+	@apply bg-background text-foreground antialiased;
+	margin: 0;
+	overflow: hidden;
+	user-select: none;
+	font-family:
+		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+		Arial, sans-serif;
+}
