@@ -3,13 +3,14 @@
 	"ignoreExportsUsedInFile": true,
 	"workspaces": {
 		".": {},
-		"apps/desktop": {
+		"apps/veil": {
 			"entry": [
 				"src/main/index.ts",
 				"src/preload/index.ts",
 				"src/renderer/main.tsx",
-				"electron-vite.config.ts"
-			]
+				"electron.vite.config.ts"
+			],
+			"ignoreDependencies": ["@types/bcryptjs"]
 		},
 		"packages/ui": {},
 		"packages/config-typescript": {},

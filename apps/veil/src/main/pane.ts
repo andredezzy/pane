@@ -20,20 +20,25 @@ export class Pane {
 		this.extensionsPath = path.join(app.getPath("userData"), "Extensions");
 		this.extensions = new ExtensionInstaller(this, this.extensionsPath);
 
-		this.unsubscribeNavigation = navigationStore.subscribe(
-			(state) => state.page,
-			(page) => {
-				if (page === Page.BROWSER) {
-					const { activeProfileId } = tabStore.getState();
+		let previousPage = navigationStore.getState().page;
 
-					if (activeProfileId) {
-						this.getProfile(activeProfileId)?.tabs.showActive();
-					}
-				} else {
-					this.hideAllTabs();
+		this.unsubscribeNavigation = navigationStore.subscribe((state) => {
+			if (state.page === previousPage) {
+				return;
+			}
+
+			previousPage = state.page;
+
+			if (state.page === Page.BROWSER) {
+				const { activeProfileId } = tabStore.getState();
+
+				if (activeProfileId) {
+					this.getProfile(activeProfileId)?.tabs.showActive();
 				}
-			},
-		);
+			} else {
+				this.hideAllTabs();
+			}
+		});
 	}
 
 	destroy(): void {
@@ -126,6 +131,7 @@ export class Pane {
 				const installedIds = new Set(
 					installed.map((extension) => extension.id),
 				);
+
 				for (const id of devExtensions) {
 					if (!installedIds.has(id)) {
 						this.extensions

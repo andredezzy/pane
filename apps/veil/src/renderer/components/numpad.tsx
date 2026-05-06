@@ -27,6 +27,8 @@ function BackspaceIcon() {
 			strokeWidth={1.2}
 			strokeLinecap="round"
 			strokeLinejoin="round"
+			role="img"
+			aria-label="Backspace"
 		>
 			<path d="M9 2H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9l-7-8 7-8z" />
 			<line x1="16" y1="7" x2="12" y2="13" />
@@ -46,12 +48,13 @@ export function NumpadDots({
 }) {
 	return (
 		<div className={cn("flex gap-3.5", shake && "animate-shake")}>
-			{Array.from({ length }, (_, i) => (
+			{Array.from({ length }, (_, index) => (
 				<div
-					key={i}
+					// biome-ignore lint/suspicious/noArrayIndexKey: static dot count, never reorders
+					key={index}
 					className={cn(
 						"h-[13px] w-[13px] rounded-full transition-all duration-150",
-						i < filled ? "bg-white" : "border-[1.5px] border-white/25",
+						index < filled ? "bg-white" : "border-[1.5px] border-white/25",
 					)}
 				/>
 			))}
@@ -94,15 +97,15 @@ export function Numpad({
 
 	return (
 		<div className="grid grid-cols-3 gap-3.5">
-			{DIGITS.map((key, i) => {
+			{DIGITS.map((key) => {
 				if (key === "") {
-					return <div key={i} className="h-16 w-16" />;
+					return <div key="empty" className="h-16 w-16" />;
 				}
 
 				if (key === "backspace") {
 					return (
 						<button
-							key={i}
+							key="backspace"
 							type="button"
 							className={cn(
 								"flex h-16 w-16 items-center justify-center rounded-full text-white/35 transition-colors hover:text-white/60 active:text-white/80",
@@ -117,10 +120,10 @@ export function Numpad({
 
 				return (
 					<button
-						key={i}
+						key={key}
 						type="button"
 						className={cn(
-							"flex h-16 w-16 items-center justify-center rounded-full border border-white/12 text-[26px] font-extralight text-white/85 transition-colors hover:border-white/20 hover:text-white active:bg-white/10",
+							"flex h-16 w-16 items-center justify-center rounded-full border border-white/12 font-extralight text-[26px] text-white/85 transition-colors hover:border-white/20 hover:text-white active:bg-white/10",
 							pressedKey === key && "border-white/20 bg-white/10 text-white",
 						)}
 						onClick={() => onDigit(key)}

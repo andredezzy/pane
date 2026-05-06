@@ -217,10 +217,12 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 		showPinScreen ? PinScreenPhase.ANIMATING_IN : PinScreenPhase.HIDDEN,
 	);
 
-	const lastModeRef = useRef<PinScreenMode | null>(null);
+	const lastModeRef = useRef(PinScreenMode.UNLOCK);
 
 	if (showPinScreen) {
-		lastModeRef.current = isLocked ? PinScreenMode.UNLOCK : pinScreenMode!;
+		lastModeRef.current = isLocked
+			? PinScreenMode.UNLOCK
+			: (pinScreenMode ?? PinScreenMode.UNLOCK);
 	}
 
 	useEffect(() => {
@@ -291,7 +293,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 							}
 						}}
 					>
-						<PinScreen mode={lastModeRef.current!} />
+						<PinScreen mode={lastModeRef.current} />
 					</ContentPanel>
 				</div>
 			)}

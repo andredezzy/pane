@@ -90,19 +90,21 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 		return () => window.removeEventListener("keydown", handle);
 	}, [isDismissable, dismiss]);
 
-	const dotLength =
-		step === Step.ENTER
-			? Math.max(entered.length, 4)
-			: step === Step.CONFIRM
-				? firstPin.length
-				: pinLength;
+	let dotLength = pinLength;
 
-	const autoSubmitLength =
-		step === Step.ENTER
-			? null
-			: step === Step.CONFIRM
-				? firstPin.length
-				: pinLength;
+	if (step === Step.ENTER) {
+		dotLength = Math.max(entered.length, 4);
+	} else if (step === Step.CONFIRM) {
+		dotLength = firstPin.length;
+	}
+
+	let autoSubmitLength: number | null = pinLength;
+
+	if (step === Step.ENTER) {
+		autoSubmitLength = null;
+	} else if (step === Step.CONFIRM) {
+		autoSubmitLength = firstPin.length;
+	}
 
 	const shakeAndClear = useCallback((errorMsg?: string) => {
 		if (errorMsg) {
@@ -237,7 +239,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				style={noDrag}
 			>
 				{title && (
-					<p className="text-[13px] font-light text-white/50">{title}</p>
+					<p className="font-light text-[13px] text-white/50">{title}</p>
 				)}
 
 				<NumpadDots length={dotLength} filled={entered.length} shake={shake} />
@@ -247,7 +249,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				{step === Step.ENTER && entered.length >= 4 && (
 					<button
 						type="button"
-						className="text-[13px] font-light text-white/60 hover:text-white/80"
+						className="font-light text-[13px] text-white/60 hover:text-white/80"
 						onClick={handleContinue}
 					>
 						Continue with {entered.length}-digit PIN
@@ -255,21 +257,21 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				)}
 
 				{step === Step.ENTER && entered.length < 4 && (
-					<p className="text-[13px] font-light text-white/30">
+					<p className="font-light text-[13px] text-white/30">
 						Enter at least 4 digits
 					</p>
 				)}
 
 				{error && (
-					<p className="text-[13px] font-light text-red-500">{error}</p>
+					<p className="font-light text-[13px] text-red-500">{error}</p>
 				)}
 
 				{mode === PinScreenMode.UNLOCK && failedAttempts > 0 && (
 					<p
 						className={
 							remaining === 1
-								? "text-[13px] font-light text-red-500"
-								: "text-[13px] font-light text-white/30"
+								? "font-light text-[13px] text-red-500"
+								: "font-light text-[13px] text-white/30"
 						}
 					>
 						{remaining === 1
