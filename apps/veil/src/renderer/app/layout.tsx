@@ -56,6 +56,7 @@ const SENSORS = [
 		activationConstraints: [
 			new PointerActivationConstraints.Distance({ value: 5 }),
 		],
+		preventActivation: () => false,
 	}),
 ];
 
