@@ -40,7 +40,7 @@ const SheetContent = forwardRef<
 		<SheetPrimitive.Content
 			ref={ref}
 			className={cn(
-				"data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right fixed top-2 right-2 bottom-2 z-50 flex w-[360px] flex-col rounded-[10px] bg-card duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in",
+				"data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right fixed top-2 right-2 bottom-2 z-50 flex w-[360px] flex-col rounded-[10px] bg-card shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_40px_rgba(0,0,0,0.5)] duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in",
 				className,
 			)}
 			{...props}
