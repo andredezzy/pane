@@ -1,14 +1,16 @@
 import { cn } from "@pane/ui/cn";
 import { Globe } from "lucide-react";
 import type { HTMLAttributes, ImgHTMLAttributes } from "react";
+import type React from "react";
 
-interface TabItemProps extends HTMLAttributes<HTMLButtonElement> {
+interface TabItemProps extends React.ComponentPropsWithRef<"button"> {
 	active?: boolean;
 }
 
-export function TabItem({ className, active, ...props }: TabItemProps) {
+export function TabItem({ className, active, ref, ...props }: TabItemProps) {
 	return (
 		<button
+			ref={ref}
 			type="button"
 			className={cn(
 				"group flex w-full items-center gap-1.5 rounded-[5px] px-2 py-1 text-[11px] transition-colors",

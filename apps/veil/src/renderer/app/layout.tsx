@@ -20,7 +20,7 @@ import { useShallow } from "zustand/react/shallow";
 import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
 
 import { navigationStore, Page } from "../../stores/navigation-store";
-import { profileStore } from "../../stores/profile-store";
+import { profileStore, type Tab } from "../../stores/profile-store";
 import { PinScreenMode, securityStore } from "../../stores/security-store";
 import { tabStore } from "../../stores/tab-store";
 
@@ -115,9 +115,6 @@ function SidebarProfileItem({
 		state.profiles.find((profile) => profile.id === id),
 	);
 
-	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
-	const page = useStore(navigationStore, (state) => state.page);
-
 	const { ref, handleRef, isDragSource } = useSortable({ id, index });
 
 	const handleToggle = useCallback(() => {
@@ -161,36 +158,116 @@ function SidebarProfileItem({
 			</ProfileHeader>
 
 			{expanded ? (
-				<ProfileTabs>
-					{profile.tabs.map((tab) => (
-						<TabItem
-							key={tab.id}
-							active={activeTabId === tab.id && page === Page.BROWSER}
+				<DragDropProvider
+					sensors={SENSORS}
+					modifiers={[RestrictToVerticalAxis]}
+					onDragEnd={(event) => {
+						if (event.canceled) return;
+
+						const { source } = event.operation;
+
+						if (isSortable(source)) {
+							if (source.initialIndex !== source.index) {
+								profileStore
+									.getState()
+									.reorderTabs(
+										profile.id,
+										source.initialIndex,
+										source.index,
+									);
+							}
+						}
+					}}
+				>
+					<ProfileTabs>
+						{profile.tabs.map((tab, index) => (
+							<SortableTab
+								key={tab.id}
+								tab={tab}
+								profileId={profile.id}
+								index={index}
+							/>
+						))}
+						<TabNew
 							onClick={() => {
 								navigationStore.getState().navigate(Page.BROWSER);
-								trpc.tabs.switch.mutate({ tabId: tab.id });
+								trpc.tabs.open.mutate({ profileId: profile.id });
 							}}
-						>
-							<TabFavicon src={tab.favicon || undefined} />
-							<TabTitle>{tab.title || "Loading..."}</TabTitle>
-							<X
-								className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-								onClick={(event) => {
-									event.stopPropagation();
-									trpc.tabs.close.mutate({ tabId: tab.id });
-								}}
+						/>
+					</ProfileTabs>
+
+					<DragOverlay>
+						{(source) => (
+							<TabDragOverlay
+								tabId={String(source.id)}
+								profileId={profile.id}
 							/>
-						</TabItem>
-					))}
-					<TabNew
-						onClick={() => {
-							navigationStore.getState().navigate(Page.BROWSER);
-							trpc.tabs.open.mutate({ profileId: profile.id });
-						}}
-					/>
-				</ProfileTabs>
+						)}
+					</DragOverlay>
+				</DragDropProvider>
 			) : null}
 		</ProfileItem>
+	);
+}
+
+function SortableTab({
+	tab,
+	profileId,
+	index,
+}: {
+	tab: Tab;
+	profileId: string;
+	index: number;
+}) {
+	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
+	const page = useStore(navigationStore, (state) => state.page);
+	const { ref, isDragSource } = useSortable({ id: tab.id, index });
+
+	return (
+		<TabItem
+			ref={ref}
+			className="cursor-grab"
+			active={activeTabId === tab.id && page === Page.BROWSER}
+			style={{ opacity: isDragSource ? 0.4 : 1 }}
+			onClick={() => {
+				navigationStore.getState().navigate(Page.BROWSER);
+				trpc.tabs.switch.mutate({ tabId: tab.id });
+			}}
+		>
+			<TabFavicon src={tab.favicon || undefined} />
+			<TabTitle>{tab.title || "Loading..."}</TabTitle>
+			<X
+				className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+				onClick={(event) => {
+					event.stopPropagation();
+					trpc.tabs.close.mutate({ tabId: tab.id });
+				}}
+			/>
+		</TabItem>
+	);
+}
+
+function TabDragOverlay({
+	tabId,
+	profileId,
+}: {
+	tabId: string;
+	profileId: string;
+}) {
+	const tab = useStore(profileStore, (state) => {
+		const profile = state.profiles.find((p) => p.id === profileId);
+		return profile?.tabs.find((t) => t.id === tabId);
+	});
+
+	if (!tab) return null;
+
+	return (
+		<div className="w-[200px] scale-[1.02] cursor-grabbing">
+			<div className="flex w-full items-center gap-1.5 rounded-[5px] bg-[rgba(255,255,255,0.05)] px-2 py-1 text-[11px] text-[#e4e4e7] shadow-lg">
+				<TabFavicon src={tab.favicon || undefined} />
+				<TabTitle>{tab.title || "Loading..."}</TabTitle>
+			</div>
+		</div>
 	);
 }
 
