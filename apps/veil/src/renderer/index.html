@@ -3,7 +3,9 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
 		<title>Pane</title>
+
 		<style>
 			#splash {
 				position: fixed;
@@ -15,15 +17,18 @@
 				z-index: 9999;
 				transition: opacity 0.4s ease-out;
 			}
+
 			#splash.fade-out {
 				opacity: 0;
 				pointer-events: none;
 			}
+
 			#splash svg {
 				width: 32px;
 				height: 32px;
 				animation: pulse 1.8s ease-in-out infinite;
 			}
+
 			@keyframes pulse {
 				0%, 100% { opacity: 0.3; }
 				50% { opacity: 1; }
@@ -37,7 +42,9 @@
 				<line x1="12" y1="3" x2="12" y2="21" stroke="#fafafa" stroke-width="1.5"/>
 			</svg>
 		</div>
+
 		<div id="root"></div>
+
 		<script type="module" src="./main.tsx"></script>
 	</body>
 </html>
