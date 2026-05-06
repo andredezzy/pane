@@ -100,6 +100,7 @@ export function flushKey(name: string): void {
 
 	clearTimeout(pending.timer);
 	pendingWrites.delete(name);
+
 	writeToDisk(name, pending.value);
 }
 
@@ -108,5 +109,6 @@ export function flushPendingWrites(): void {
 		clearTimeout(timer);
 		writeToDisk(name, value);
 	}
+
 	pendingWrites.clear();
 }

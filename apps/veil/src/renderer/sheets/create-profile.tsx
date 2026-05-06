@@ -31,7 +31,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod/v4";
 import { ProfileColor } from "../../constants/profile-colors";
-import { profileStore } from "../../stores/profile-store";
+import { Platform, ProxyType, profileStore } from "../../stores/profile-store";
 import { ColorPicker } from "../components/color-picker";
 import { DEFAULT_FINGERPRINTS } from "../components/default-fingerprints";
 import { SHEET_ANIMATION_MS } from "../constants";
@@ -40,11 +40,11 @@ const formSchema = z.object({
 	name: z.string().min(1, "Profile name is required"),
 	group: z.string().optional(),
 	color: z.nativeEnum(ProfileColor),
-	platform: z.enum(["windows", "macos", "linux"]),
+	platform: z.nativeEnum(Platform),
 	proxyEnabled: z.boolean(),
 	proxy: z
 		.object({
-			proxyType: z.enum(["http", "https", "socks4", "socks5"]),
+			proxyType: z.nativeEnum(ProxyType),
 			host: z.string(),
 			port: z.number().int().min(1).max(65535),
 			username: z.string().optional(),
@@ -55,14 +55,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-function detectPlatform(): "windows" | "macos" | "linux" {
-	const ua = navigator.userAgent.toLowerCase();
+function detectPlatform(): Platform {
+	const userAgent = navigator.userAgent.toLowerCase();
 
-	if (ua.includes("mac")) {
-		return "macos";
+	if (userAgent.includes("mac")) {
+		return Platform.MACOS;
 	}
 
-	return ua.includes("linux") ? "linux" : "windows";
+	return userAgent.includes("linux") ? Platform.LINUX : Platform.WINDOWS;
 }
 
 interface Props {
@@ -90,7 +90,7 @@ export function CreateProfileSheet({ onClose }: Props) {
 			platform: detectPlatform(),
 			proxyEnabled: false,
 			proxy: {
-				proxyType: "http",
+				proxyType: ProxyType.HTTP,
 				host: "",
 				port: 8080,
 				username: "",
@@ -126,7 +126,7 @@ export function CreateProfileSheet({ onClose }: Props) {
 	};
 
 	return (
-		<Sheet open={open} onOpenChange={(v) => !v && close()}>
+		<Sheet open={open} onOpenChange={(open) => !open && close()}>
 			<SheetContent>
 				<SheetHeader>
 					<SheetTitle>New profile</SheetTitle>
@@ -197,15 +197,15 @@ export function CreateProfileSheet({ onClose }: Props) {
 									<FormItem>
 										<FormLabel className="text-[11px]">Platform</FormLabel>
 										<div className="flex gap-1">
-											{(["windows", "macos", "linux"] as const).map((p) => (
+											{([Platform.WINDOWS, Platform.MACOS, Platform.LINUX] as const).map((platform) => (
 												<Button
-													key={p}
+													key={platform}
 													type="button"
-													variant={field.value === p ? "default" : "outline"}
+													variant={field.value === platform ? "default" : "outline"}
 													className="h-8 flex-1 text-[11px] capitalize"
-													onClick={() => field.onChange(p)}
+													onClick={() => field.onChange(platform)}
 												>
-													{p}
+													{platform.toLowerCase()}
 												</Button>
 											))}
 										</div>
@@ -246,10 +246,10 @@ export function CreateProfileSheet({ onClose }: Props) {
 															</SelectTrigger>
 														</FormControl>
 														<SelectContent>
-															<SelectItem value="http">HTTP</SelectItem>
-															<SelectItem value="https">HTTPS</SelectItem>
-															<SelectItem value="socks4">SOCKS4</SelectItem>
-															<SelectItem value="socks5">SOCKS5</SelectItem>
+															<SelectItem value={ProxyType.HTTP}>HTTP</SelectItem>
+															<SelectItem value={ProxyType.HTTPS}>HTTPS</SelectItem>
+															<SelectItem value={ProxyType.SOCKS4}>SOCKS4</SelectItem>
+															<SelectItem value={ProxyType.SOCKS5}>SOCKS5</SelectItem>
 														</SelectContent>
 													</Select>
 												</FormItem>

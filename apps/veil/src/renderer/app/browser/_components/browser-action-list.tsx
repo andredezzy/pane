@@ -18,13 +18,13 @@ export function BrowserActionList({ partition }: { partition: string }) {
 	const ref = useRef<HTMLElement>(null);
 
 	useEffect(() => {
-		const el = ref.current;
+		const element = ref.current;
 
-		if (!el) {
+		if (!element) {
 			return;
 		}
 
-		el.setAttribute("partition", partition);
+		element.setAttribute("partition", partition);
 	}, [partition]);
 
 	return <browser-action-list ref={ref} />;

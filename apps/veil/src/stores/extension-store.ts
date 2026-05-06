@@ -22,26 +22,26 @@ export const extensionStore = createStore<ExtensionState>()(
 			extensions: {},
 
 			addExtension: (profileId, ext) =>
-				set((s) => ({
+				set((state) => ({
 					extensions: {
-						...s.extensions,
-						[profileId]: [...(s.extensions[profileId] ?? []), ext],
+						...state.extensions,
+						[profileId]: [...(state.extensions[profileId] ?? []), ext],
 					},
 				})),
 
 			removeExtension: (profileId, extensionId) =>
-				set((s) => ({
+				set((state) => ({
 					extensions: {
-						...s.extensions,
-						[profileId]: (s.extensions[profileId] ?? []).filter(
-							(e) => e.id !== extensionId,
+						...state.extensions,
+						[profileId]: (state.extensions[profileId] ?? []).filter(
+							(extension) => extension.id !== extensionId,
 						),
 					},
 				})),
 
 			clearProfile: (profileId) =>
-				set((s) => {
-					const { [profileId]: _, ...rest } = s.extensions;
+				set((state) => {
+					const { [profileId]: _, ...rest } = state.extensions;
 
 					return { extensions: rest };
 				}),

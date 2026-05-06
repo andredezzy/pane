@@ -5,7 +5,7 @@ import {
 	SIDEBAR_WIDTH,
 	TOOLBAR_HEIGHT,
 } from "../../constants/layout";
-import { type BrowserProfile, profileStore } from "../../stores/profile-store";
+import { type BrowserProfile, Platform, profileStore } from "../../stores/profile-store";
 import { tabStore } from "../../stores/tab-store";
 
 export interface TabHost {
@@ -59,8 +59,10 @@ export class ProfileTabs {
 		this.profile.ece.removeTab(view.webContents);
 		this.mainWindow.contentView.removeChildView(view);
 		view.webContents.close();
+
 		this.views.delete(tabId);
 		tabStore.getState().setLoading(tabId, false);
+
 		this.profile.onTabClosed(tabId);
 		profileStore.getState().closeTab(this.profile.id, tabId);
 
@@ -80,7 +82,7 @@ export class ProfileTabs {
 		let view = this.views.get(tabId);
 
 		if (!view) {
-			const tab = this.profile.data.tabs.find((t) => t.id === tabId);
+			const tab = this.profile.data.tabs.find((tab) => tab.id === tabId);
 
 			if (tab) {
 				view = this.createView(tabId);
@@ -117,6 +119,7 @@ export class ProfileTabs {
 				view.webContents.close();
 			} catch {}
 		}
+
 		this.views.clear();
 	}
 
@@ -164,7 +167,7 @@ export class ProfileTabs {
 	has(tabId: string): boolean {
 		return (
 			this.views.has(tabId) ||
-			this.profile.data.tabs.some((t) => t.id === tabId)
+			this.profile.data.tabs.some((tab) => tab.id === tabId)
 		);
 	}
 
@@ -200,7 +203,9 @@ export class ProfileTabs {
 		view.webContents.loadURL(url);
 
 		this.profile.ece.addTab(view.webContents, this.mainWindow);
+
 		profileStore.getState().openTab(this.profile.id, tabId, url);
+
 		this.activate(tabId);
 
 		return view;
@@ -212,21 +217,21 @@ export class ProfileTabs {
 		return activeTabId ? this.views.get(activeTabId) : undefined;
 	}
 
-	private static readonly FIREFOX_UA: Record<string, string> = {
-		windows:
+	private static readonly FIREFOX_UA: Record<Platform, string> = {
+		[Platform.WINDOWS]:
 			"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
-		macos:
+		[Platform.MACOS]:
 			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
-		linux:
+		[Platform.LINUX]:
 			"Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0",
 	};
 
 	private applyFingerprint(
 		webContents: WebContents,
-		fp: BrowserProfile["fingerprint"],
+		fingerprint: BrowserProfile["fingerprint"],
 	): void {
 		webContents.setUserAgent(
-			ProfileTabs.FIREFOX_UA[fp.platform] ?? ProfileTabs.FIREFOX_UA.macos,
+			ProfileTabs.FIREFOX_UA[fingerprint.platform] ?? ProfileTabs.FIREFOX_UA[Platform.MACOS],
 		);
 
 		webContents.on("dom-ready", () => {

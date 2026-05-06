@@ -30,8 +30,8 @@ export function sync<TState>(
 		let trpc: Awaited<typeof import("../../renderer/trpc")>["trpc"] | null =
 			null;
 
-		import("../../renderer/trpc").then((mod) => {
-			trpc = mod.trpc;
+		import("../../renderer/trpc").then((module) => {
+			trpc = module.trpc;
 
 			trpc?.stores.sync.subscribe(
 				{ name },
@@ -41,8 +41,8 @@ export function sync<TState>(
 						set((state) => ({ ...state, ...JSON.parse(serialized) }));
 						applyingRemote = false;
 					},
-					onError(err) {
-						console.error(`[sync] subscription error for ${name}:`, err);
+					onError(error) {
+						console.error(`[sync] subscription error for ${name}:`, error);
 					},
 				},
 			);
@@ -57,8 +57,8 @@ export function sync<TState>(
 
 			trpc.stores.push
 				.mutate({ name, state: serializeState(get()) })
-				.catch((err) => {
-					console.error(`[sync] push error for ${name}:`, err);
+				.catch((error) => {
+					console.error(`[sync] push error for ${name}:`, error);
 				});
 		};
 

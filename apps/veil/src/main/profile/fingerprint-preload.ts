@@ -7,7 +7,7 @@ const PRELOAD_TEMPLATE = `
 (function() {
 	const fp = __PANE_FP_CONFIG__;
 
-	const platformMap = { windows: "Win32", macos: "MacIntel", linux: "Linux x86_64" };
+	const platformMap = { WINDOWS: "Win32", MACOS: "MacIntel", LINUX: "Linux x86_64" };
 	const navPlatform = platformMap[fp.platform] || fp.platform;
 
 	Object.defineProperty(navigator, "platform", { get: () => navPlatform });

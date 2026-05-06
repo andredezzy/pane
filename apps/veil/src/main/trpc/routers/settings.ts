@@ -1,16 +1,11 @@
 import type { SettingsState } from "../../../stores/settings-store";
-import { detectBrowserPath } from "../../detect-browser";
+import { autoDetectBrowser } from "../../detect-browser";
 import { procedure, router } from "../trpc";
 
 export const settingsRouter = router({
 	detectBrowser: procedure.mutation(({ ctx }) => {
-		const detected = detectBrowserPath();
+		const settings = ctx.stores["settings-store"].getState() as SettingsState;
 
-		if (detected) {
-			const settings = ctx.stores["settings-store"].getState() as SettingsState;
-			settings.save({ chromiumPath: detected });
-		}
-
-		return detected ?? null;
+		return autoDetectBrowser(settings.update) ?? null;
 	}),
 });

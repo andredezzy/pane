@@ -11,8 +11,8 @@ const modules = (
 ).glob(["../**/*.tsx"], { eager: true });
 
 const registry = new Map<string, AnyComponent>();
-for (const mod of Object.values(modules)) {
-	for (const value of Object.values(mod)) {
+for (const module of Object.values(modules)) {
+	for (const value of Object.values(module)) {
 		if (typeof value === "function" && value.name) {
 			registry.set(value.name, value as AnyComponent);
 		}

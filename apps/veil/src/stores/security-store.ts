@@ -15,6 +15,7 @@ export enum PinScreenMode {
 	SETUP = "SETUP",
 	CHANGE = "CHANGE",
 	REMOVE = "REMOVE",
+	UNLOCK = "UNLOCK",
 }
 
 export interface SecurityState {

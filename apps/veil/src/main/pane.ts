@@ -1,8 +1,11 @@
 import path from "node:path";
 import { app, type BaseWindow, type WebContents } from "electron";
 
+import { navigationStore, Page } from "../stores/navigation-store";
 import { profileStore } from "../stores/profile-store";
+import { settingsStore } from "../stores/settings-store";
 import { tabStore } from "../stores/tab-store";
+import { autoDetectBrowser } from "./detect-browser";
 import { ExtensionInstaller } from "./extension-installer";
 import { Profile } from "./profile/profile";
 
@@ -11,10 +14,34 @@ export class Pane {
 	readonly profiles = new Map<string, Profile>();
 	private readonly extensionsPath: string;
 	private readonly tabIndex = new Map<string, string>();
+	private readonly unsubscribeNavigation: () => void;
 
 	constructor(private readonly mainWindow: BaseWindow) {
 		this.extensionsPath = path.join(app.getPath("userData"), "Extensions");
 		this.extensions = new ExtensionInstaller(this, this.extensionsPath);
+
+		this.unsubscribeNavigation = navigationStore.subscribe(
+			(state) => state.page,
+			(page) => {
+				if (page === Page.BROWSER) {
+					const { activeProfileId } = tabStore.getState();
+
+					if (activeProfileId) {
+						this.getProfile(activeProfileId)?.tabs.showActive();
+					}
+				} else {
+					this.hideAllTabs();
+				}
+			},
+		);
+	}
+
+	destroy(): void {
+		this.unsubscribeNavigation();
+
+		for (const profile of this.profiles.values()) {
+			profile.tabs.destroyAll();
+		}
 	}
 
 	createProfile(
@@ -22,7 +49,7 @@ export class Pane {
 	): Profile {
 		const id = profileStore.getState().create(input);
 
-		return this.initProfile(id);
+		return this.addProfile(id);
 	}
 
 	getProfile(id: string): Profile | undefined {
@@ -30,10 +57,10 @@ export class Pane {
 	}
 
 	getOrCreateProfile(id: string): Profile {
-		return this.profiles.get(id) ?? this.initProfile(id);
+		return this.profiles.get(id) ?? this.addProfile(id);
 	}
 
-	private initProfile(id: string): Profile {
+	private addProfile(id: string): Profile {
 		const profile = new Profile(
 			id,
 			this.mainWindow,
@@ -64,7 +91,7 @@ export class Pane {
 
 		const profileData = profileStore
 			.getState()
-			.profiles.find((p) => p.tabs.some((t) => t.id === tabId));
+			.profiles.find((profile) => profile.tabs.some((tab) => tab.id === tabId));
 
 		return profileData ? this.profiles.get(profileData.id) : undefined;
 	}
@@ -76,12 +103,16 @@ export class Pane {
 	}
 
 	restore(): void {
-		for (const data of profileStore.getState().profiles) {
-			this.initProfile(data.id);
+		if (!settingsStore.getState().settings.chromiumPath) {
+			autoDetectBrowser(settingsStore.getState().update);
 		}
 
-		this.extensions.checkForUpdates().catch((err) => {
-			console.error("[CWS] Update check failed:", err);
+		for (const data of profileStore.getState().profiles) {
+			this.addProfile(data.id);
+		}
+
+		this.extensions.checkForUpdates().catch((error) => {
+			console.error("[CWS] Update check failed:", error);
 		});
 
 		if (process.env.PANE_DEV_EXTENSIONS === "1") {
@@ -92,14 +123,14 @@ export class Pane {
 			];
 
 			this.extensions.getInstalled().then((installed) => {
-				const installedIds = new Set(installed.map((e) => e.id));
+				const installedIds = new Set(installed.map((extension) => extension.id));
 				for (const id of devExtensions) {
 					if (!installedIds.has(id)) {
 						this.extensions
 							.install(id)
 							.then(() => console.log(`[DEV] Auto-installed extension ${id}`))
-							.catch((err) =>
-								console.error(`[DEV] Failed to auto-install ${id}:`, err),
+							.catch((error) =>
+								console.error(`[DEV] Failed to auto-install ${id}:`, error),
 							);
 					}
 				}

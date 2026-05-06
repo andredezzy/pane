@@ -11,7 +11,6 @@ import {
 } from "react";
 import { useStore } from "zustand/react";
 import { useShallow } from "zustand/react/shallow";
-import { createStore } from "zustand/vanilla";
 
 import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore } from "../../stores/profile-store";
@@ -49,25 +48,6 @@ import { BrowserPage } from "./browser/page";
 import { PinScreen } from "./lock-screen/page";
 import { SettingsPage } from "./settings/page";
 
-const expandedStore = createStore<{
-	expanded: Set<string>;
-	toggle: (id: string) => void;
-}>()((set) => ({
-	expanded: new Set<string>(),
-	toggle: (id) =>
-		set((s) => {
-			const next = new Set(s.expanded);
-
-			if (next.has(id)) {
-				next.delete(id);
-			} else {
-				next.add(id);
-			}
-
-			return { expanded: next };
-		}),
-}));
-
 export class ErrorBoundary extends Component<
 	{ children: ReactNode },
 	{ error: Error | null }
@@ -104,22 +84,29 @@ export class ErrorBoundary extends Component<
 	}
 }
 
-function SidebarProfileItem({ id }: { id: string }) {
-	const profile = useStore(profileStore, (s) =>
-		s.profiles.find((p) => p.id === id),
+function SidebarProfileItem({
+	id,
+	expanded,
+	onToggle,
+}: {
+	id: string;
+	expanded: boolean;
+	onToggle: (id: string) => void;
+}) {
+	const profile = useStore(profileStore, (state) =>
+		state.profiles.find((profile) => profile.id === id),
 	);
 
-	const isExpanded = useStore(expandedStore, (s) => s.expanded.has(id));
-	const activeTabId = useStore(tabStore, (s) => s.activeTabId);
-	const page = useStore(navigationStore, (s) => s.page);
+	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
+	const page = useStore(navigationStore, (state) => state.page);
 
 	const handleToggle = useCallback(() => {
-		expandedStore.getState().toggle(id);
+		onToggle(id);
 
-		if (!isExpanded) {
+		if (!expanded) {
 			trpc.profiles.load.mutate({ profileId: id });
 		}
-	}, [id, isExpanded]);
+	}, [id, expanded, onToggle]);
 
 	if (!profile) {
 		return null;
@@ -136,22 +123,22 @@ function SidebarProfileItem({ id }: { id: string }) {
 			>
         <ProfileName>{profile.name}</ProfileName>
 
-				{!isExpanded && isRunning ? (
+				{!expanded && isRunning ? (
 					<ProfileBadge>{profile.tabs.length}</ProfileBadge>
         ) : null}
 
 				<div className="w-0 shrink-0 transition-[width] duration-150 group-hover:w-3">
 					<Trash2
 						className="h-3 w-3 translate-x-2 text-muted-foreground opacity-0 transition-[transform,opacity] duration-150 group-hover:translate-x-0 group-hover:opacity-100"
-						onClick={(e) => {
-							e.stopPropagation();
+						onClick={(event) => {
+							event.stopPropagation();
 							trpc.profiles.remove.mutate({ profileId: profile.id });
 						}}
 					/>
 				</div>
 			</ProfileHeader>
 
-			{isExpanded ? (
+			{expanded ? (
 				<ProfileTabs>
 					{profile.tabs.map((tab) => (
 						<TabItem
@@ -166,8 +153,8 @@ function SidebarProfileItem({ id }: { id: string }) {
 							<TabTitle>{tab.title || "Loading..."}</TabTitle>
 							<X
 								className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-								onClick={(e) => {
-									e.stopPropagation();
+								onClick={(event) => {
+									event.stopPropagation();
 									trpc.tabs.close.mutate({ tabId: tab.id });
 								}}
 							/>
@@ -185,37 +172,58 @@ function SidebarProfileItem({ id }: { id: string }) {
 	);
 }
 
+enum PinScreenPhase {
+	HIDDEN = "HIDDEN",
+	ANIMATING_IN = "ANIMATING_IN",
+	VISIBLE = "VISIBLE",
+	ANIMATING_OUT = "ANIMATING_OUT",
+}
+
 export function Layout({ onReady }: { onReady?: () => void }) {
 	const profileIds = useStore(
 		profileStore,
-		useShallow((s) => s.profiles.map((p) => p.id)),
+		useShallow((state) => state.profiles.map((profile) => profile.id)),
 	);
 
-	const page = useStore(navigationStore, (s) => s.page);
+	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+	const toggleExpanded = useCallback((id: string) => {
+		setExpanded((prev) => {
+			const next = new Set(prev);
+
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+
+			return next;
+		});
+	}, []);
+
+	const page = useStore(navigationStore, (state) => state.page);
 	const { isLocked, pinScreenMode } = useStore(
 		securityStore,
-		useShallow((s) => ({ isLocked: s.isLocked, pinScreenMode: s.pinScreenMode })),
+		useShallow((state) => ({ isLocked: state.isLocked, pinScreenMode: state.pinScreenMode })),
 	);
 
 	const showPinScreen = isLocked || pinScreenMode !== null;
-	const [pinScreenActive, setPinScreenActive] = useState(showPinScreen);
-	const [animatingOut, setAnimatingOut] = useState(false);
-	const [animatingIn, setAnimatingIn] = useState(showPinScreen);
-	const lastModeRef = useRef<"UNLOCK" | PinScreenMode | null>(null);
+	const [pinPhase, setPinPhase] = useState(
+		showPinScreen ? PinScreenPhase.ANIMATING_IN : PinScreenPhase.HIDDEN,
+	);
+	const lastModeRef = useRef<PinScreenMode | null>(null);
 
 	if (showPinScreen) {
-		lastModeRef.current = isLocked ? "UNLOCK" : pinScreenMode!;
+		lastModeRef.current = isLocked ? PinScreenMode.UNLOCK : pinScreenMode!;
 	}
 
 	useEffect(() => {
-		if (showPinScreen && !pinScreenActive) {
-			setPinScreenActive(true);
-			setAnimatingIn(true);
-			setAnimatingOut(false);
-		} else if (!showPinScreen && pinScreenActive && !animatingOut) {
-			setAnimatingOut(true);
+		if (showPinScreen && pinPhase === PinScreenPhase.HIDDEN) {
+			setPinPhase(PinScreenPhase.ANIMATING_IN);
+		} else if (!showPinScreen && pinPhase === PinScreenPhase.VISIBLE) {
+			setPinPhase(PinScreenPhase.ANIMATING_OUT);
 		}
-	}, [showPinScreen, pinScreenActive, animatingOut]);
+	}, [showPinScreen, pinPhase]);
 
 	useEffect(() => {
 		onReady?.();
@@ -233,7 +241,12 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 
 				<SidebarContent>
 					{profileIds.map((id) => (
-						<SidebarProfileItem key={id} id={id} />
+						<SidebarProfileItem
+							key={id}
+							id={id}
+							expanded={expanded.has(id)}
+							onToggle={toggleExpanded}
+						/>
 					))}
 				</SidebarContent>
 
@@ -255,21 +268,20 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 				{page === Page.SETTINGS ? <SettingsPage /> : null}
 			</ContentPanel>
 
-			{pinScreenActive && (
+			{pinPhase !== PinScreenPhase.HIDDEN && (
 				<div className="absolute inset-0 z-50">
 					<ContentPanel
+						style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
 						className={cn(
 							"relative m-2 flex h-[calc(100%-16px)] items-center justify-center overflow-hidden",
-							animatingIn && "animate-slide-up",
-							animatingOut && "animate-slide-down",
+							pinPhase === PinScreenPhase.ANIMATING_IN && "animate-slide-up",
+							pinPhase === PinScreenPhase.ANIMATING_OUT && "animate-slide-down",
 						)}
 						onAnimationEnd={() => {
-							if (animatingIn) {
-								setAnimatingIn(false);
-							}
-							if (animatingOut) {
-								setPinScreenActive(false);
-								setAnimatingOut(false);
+							if (pinPhase === PinScreenPhase.ANIMATING_IN) {
+								setPinPhase(PinScreenPhase.VISIBLE);
+							} else if (pinPhase === PinScreenPhase.ANIMATING_OUT) {
+								setPinPhase(PinScreenPhase.HIDDEN);
 							}
 						}}
 					>

@@ -36,3 +36,15 @@ export function detectBrowserPath(): string | null {
 
 	return null;
 }
+
+export function autoDetectBrowser(
+	update: (settings: { chromiumPath: string }) => void,
+): string | null {
+	const detected = detectBrowserPath();
+
+	if (detected) {
+		update({ chromiumPath: detected });
+	}
+
+	return detected;
+}

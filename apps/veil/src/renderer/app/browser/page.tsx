@@ -26,19 +26,19 @@ import {
 function BrowserToolbar() {
 	const { activeTabId, activeProfileId } = useStore(
 		tabStore,
-		useShallow((s) => ({
-			activeTabId: s.activeTabId,
-			activeProfileId: s.activeProfileId,
+		useShallow((state) => ({
+			activeTabId: state.activeTabId,
+			activeProfileId: state.activeProfileId,
 		})),
 	);
 
-	const loadingTabIds = useStore(tabStore, (s) => s.loadingTabIds);
+	const loadingTabIds = useStore(tabStore, (state) => state.loadingTabIds);
 
-	const profiles = useStore(profileStore, (s) => s.profiles);
-	const extensions = useStore(extensionStore, (s) => s.extensions);
+	const profiles = useStore(profileStore, (state) => state.profiles);
+	const extensions = useStore(extensionStore, (state) => state.extensions);
 
-	const activeProfile = profiles.find((p) => p.id === activeProfileId);
-	const activeTab = activeProfile?.tabs.find((t) => t.id === activeTabId);
+	const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
+	const activeTab = activeProfile?.tabs.find((tab) => tab.id === activeTabId);
 
 	const activeUrl = activeTab?.url ?? "";
 	const profileName = activeProfile?.name ?? "";
@@ -113,7 +113,7 @@ function BrowserToolbar() {
 }
 
 export function BrowserPage() {
-	const activeTabId = useStore(tabStore, (s) => s.activeTabId);
+	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
 
 	return (
 		<>

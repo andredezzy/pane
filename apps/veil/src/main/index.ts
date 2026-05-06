@@ -25,7 +25,6 @@ import { profileStore } from "../stores/profile-store";
 import { securityStore } from "../stores/security-store";
 import { settingsStore } from "../stores/settings-store";
 import { tabStore } from "../stores/tab-store";
-import { detectBrowserPath } from "./detect-browser";
 import { ExtensionInstaller } from "./extension-installer";
 import { Pane } from "./pane";
 import { createIPCHandler } from "./trpc/ipc";
@@ -37,20 +36,20 @@ if (!app.requestSingleInstanceLock()) {
 	app.quit();
 }
 
-let win: AppWindow | null = null;
+let appWindow: AppWindow | null = null;
 let pane: Pane | null = null;
 
 function setup() {
-	win = createAppWindow();
+	appWindow = createAppWindow();
 
-	const currentPane = new Pane(win.mainWindow);
+	const currentPane = new Pane(appWindow.mainWindow);
 	pane = currentPane;
 
-	createMenu(win.chrome, () => currentPane.getActiveTabContents());
+	createMenu(appWindow.chrome, () => currentPane.getActiveTabContents());
 
 	const createContext = () => ({
 		pane: currentPane,
-		surface: win?.surface as BrowserWindow,
+		surface: appWindow?.surface as BrowserWindow,
 		stores: {
 			"profile-store": profileStore,
 			"tab-store": tabStore,
@@ -63,46 +62,45 @@ function setup() {
 
 	const cleanupChromeIPC = createIPCHandler({
 		router: appRouter,
-		webContents: win.chrome.webContents,
+		webContents: appWindow.chrome.webContents,
 		createContext,
 	});
 
 	const cleanupSurfaceIPC = createIPCHandler({
 		router: appRouter,
-		webContents: win.surface.webContents,
+		webContents: appWindow.surface.webContents,
 		createContext,
 	});
 
 	function syncBounds() {
-		const [w, h] = win?.mainWindow.getContentSize() ?? [0, 0];
-		const bounds = win?.mainWindow.getBounds();
-		win?.chrome.setBounds({ x: 0, y: 0, width: w, height: h });
+		const [width, height] = appWindow?.mainWindow.getContentSize() ?? [0, 0];
+		const bounds = appWindow?.mainWindow.getBounds();
+
+		appWindow?.chrome.setBounds({ x: 0, y: 0, width, height });
 
 		if (bounds) {
-			win?.surface.setBounds(bounds);
+			appWindow?.surface.setBounds(bounds);
 		}
 
 		pane?.resizeAllTabs();
 	}
 
-	win.mainWindow.on("resized", syncBounds);
-	win.mainWindow.on("moved", syncBounds);
-	win.mainWindow.on("maximize", syncBounds);
-	win.mainWindow.on("unmaximize", syncBounds);
-	win.mainWindow.on("enter-full-screen", syncBounds);
-	win.mainWindow.on("leave-full-screen", syncBounds);
+	appWindow.mainWindow.on("resized", syncBounds);
+	appWindow.mainWindow.on("moved", syncBounds);
+	appWindow.mainWindow.on("maximize", syncBounds);
+	appWindow.mainWindow.on("unmaximize", syncBounds);
+	appWindow.mainWindow.on("enter-full-screen", syncBounds);
+	appWindow.mainWindow.on("leave-full-screen", syncBounds);
 
-	win.mainWindow.on("closed", () => {
-		if (pane) {
-			for (const profile of pane.profiles.values()) {
-				profile.tabs.destroyAll();
-			}
-		}
+	appWindow.mainWindow.on("closed", () => {
+		pane?.destroy();
 
-		win?.surface.destroy();
+		appWindow?.surface.destroy();
+
 		cleanupChromeIPC();
 		cleanupSurfaceIPC();
-		win = null;
+
+		appWindow = null;
 		pane = null;
 	});
 
@@ -110,12 +108,12 @@ function setup() {
 }
 
 app.on("second-instance", () => {
-	if (win) {
-		if (win.mainWindow.isMinimized()) {
-			win.mainWindow.restore();
+	if (appWindow) {
+		if (appWindow.mainWindow.isMinimized()) {
+			appWindow.mainWindow.restore();
 		}
 
-		win.mainWindow.focus();
+		appWindow.mainWindow.focus();
 	}
 });
 
@@ -128,14 +126,6 @@ app.whenReady().then(() => {
 		securityStore.getState().lock();
 	}
 
-	if (!settingsStore.getState().settings.chromiumPath) {
-		const detected = detectBrowserPath();
-
-		if (detected) {
-			settingsStore.getState().save({ chromiumPath: detected });
-		}
-	}
-
 	ExtensionInstaller.registerProtocol(
 		path.join(app.getPath("userData"), "Extensions"),
 	);
@@ -143,7 +133,7 @@ app.whenReady().then(() => {
 	setup();
 
 	app.on("activate", () => {
-		if (!win) {
+		if (!appWindow) {
 			setup();
 		}
 	});

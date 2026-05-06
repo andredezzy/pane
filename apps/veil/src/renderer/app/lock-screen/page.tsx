@@ -10,15 +10,17 @@ import {
 import { Numpad, NumpadDots } from "../../components/numpad";
 import { trpc } from "../../trpc";
 
+const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
+
 enum Step {
 	VERIFY = "VERIFY",
 	ENTER = "ENTER",
 	CONFIRM = "CONFIRM",
 }
 
-function getInitialStep(mode: PinScreenMode | "UNLOCK"): Step {
+function getInitialStep(mode: PinScreenMode): Step {
 	switch (mode) {
-		case "UNLOCK":
+		case PinScreenMode.UNLOCK:
 		case PinScreenMode.REMOVE:
 		case PinScreenMode.CHANGE:
 			return Step.VERIFY;
@@ -27,8 +29,8 @@ function getInitialStep(mode: PinScreenMode | "UNLOCK"): Step {
 	}
 }
 
-function getTitle(mode: PinScreenMode | "UNLOCK", step: Step): string | null {
-	if (mode === "UNLOCK") {
+function getTitle(mode: PinScreenMode, step: Step): string | null {
+	if (mode === PinScreenMode.UNLOCK) {
 		return null;
 	}
 
@@ -42,7 +44,7 @@ function getTitle(mode: PinScreenMode | "UNLOCK", step: Step): string | null {
 	}
 }
 
-export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
+export function PinScreen({ mode }: { mode: PinScreenMode }) {
 	const pinLength = useStore(securityStore, (s) => s.pin?.length ?? 0);
 	const failedAttempts = useStore(securityStore, (s) => s.failedAttempts);
 
@@ -65,7 +67,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
 	}, []);
 
 	const remaining = MAX_ATTEMPTS - failedAttempts;
-	const isDismissable = mode !== "UNLOCK";
+	const isDismissable = mode !== PinScreenMode.UNLOCK;
 	const title = getTitle(mode, step);
 
 	const dismiss = useCallback(() => {
@@ -118,7 +120,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
 			const result = await trpc.security.verify.mutate({ pin });
 
 			if (!result.success) {
-				if (mode === "UNLOCK" && result.remaining <= 0) {
+				if (mode === PinScreenMode.UNLOCK && result.remaining <= 0) {
 					await trpc.security.wipe.mutate();
 
 					return;
@@ -129,7 +131,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
 				return;
 			}
 
-			if (mode === "UNLOCK") {
+			if (mode === PinScreenMode.UNLOCK) {
 				securityStore.getState().unlock();
 
 				return;
@@ -138,6 +140,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
 			if (mode === PinScreenMode.CHANGE) {
 				setEntered("");
 				setStep(Step.ENTER);
+
 				setChecking(false);
 				setError(null);
 
@@ -205,7 +208,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
 
 	return (
 		<div className="grid h-full w-full grid-cols-[auto_1fr_auto]">
-			<div className="flex items-center pl-14">
+			<div className="flex items-center pl-14" style={noDrag}>
 				{isDismissable && (
 					<button
 						type="button"
@@ -217,7 +220,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
 				)}
 			</div>
 
-			<div className="flex flex-col items-center justify-center gap-7">
+			<div className="flex flex-col items-center justify-center gap-7" style={noDrag}>
 				{title && (
 					<p className="text-[13px] font-light text-white/50">{title}</p>
 				)}
@@ -246,7 +249,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode | "UNLOCK" }) {
 					<p className="text-[13px] font-light text-red-500">{error}</p>
 				)}
 
-				{mode === "UNLOCK" && failedAttempts > 0 && (
+				{mode === PinScreenMode.UNLOCK && failedAttempts > 0 && (
 					<p
 						className={
 							remaining === 1

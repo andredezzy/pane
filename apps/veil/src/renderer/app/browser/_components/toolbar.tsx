@@ -34,7 +34,7 @@ export function ToolbarNavigation({
 	return <div className={cn("flex gap-0.5", className)} {...props} />;
 }
 
-const navBtnClass =
+const navigationButtonClassName =
 	"flex h-[26px] w-[26px] items-center justify-center rounded text-[#71717a] transition-colors hover:bg-accent hover:text-accent-foreground";
 
 export function ToolbarNavigationBack({
@@ -42,7 +42,7 @@ export function ToolbarNavigationBack({
 	...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
 	return (
-		<button type="button" className={cn(navBtnClass, className)} {...props}>
+		<button type="button" className={cn(navigationButtonClassName, className)} {...props}>
 			<ArrowLeft className="h-3.5 w-3.5" />
 		</button>
 	);
@@ -53,7 +53,7 @@ export function ToolbarNavigationForward({
 	...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
 	return (
-		<button type="button" className={cn(navBtnClass, className)} {...props}>
+		<button type="button" className={cn(navigationButtonClassName, className)} {...props}>
 			<ArrowRight className="h-3.5 w-3.5" />
 		</button>
 	);
@@ -65,20 +65,25 @@ export function ToolbarNavigationReload({
 	...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { isLoading?: boolean }) {
 	return (
-		<button type="button" className={cn(navBtnClass, className)} {...props}>
+		<button type="button" className={cn(navigationButtonClassName, className)} {...props}>
 			{isLoading ? <X className="h-3 w-3" /> : <RotateCw className="h-3 w-3" />}
 		</button>
 	);
 }
 
-type ProgressPhase = "idle" | "starting" | "growing" | "completing";
+enum ProgressPhase {
+	IDLE = "IDLE",
+	STARTING = "STARTING",
+	GROWING = "GROWING",
+	COMPLETING = "COMPLETING",
+}
 
 function getProgressWidth(phase: ProgressPhase): string {
-	if (phase === "starting") {
+	if (phase === ProgressPhase.STARTING) {
 		return "0%";
 	}
 
-	if (phase === "growing") {
+	if (phase === ProgressPhase.GROWING) {
 		return "90%";
 	}
 
@@ -86,11 +91,11 @@ function getProgressWidth(phase: ProgressPhase): string {
 }
 
 function getProgressTransition(phase: ProgressPhase): string {
-	if (phase === "growing") {
+	if (phase === ProgressPhase.GROWING) {
 		return "width 8s cubic-bezier(0.1, 0.05, 0, 1)";
 	}
 
-	if (phase === "completing") {
+	if (phase === ProgressPhase.COMPLETING) {
 		return "width 200ms ease-out, opacity 200ms ease-out 200ms";
 	}
 
@@ -98,21 +103,21 @@ function getProgressTransition(phase: ProgressPhase): string {
 }
 
 function ToolbarAddressProgress({ isLoading }: { isLoading: boolean }) {
-	const [phase, setPhase] = useState<ProgressPhase>("idle");
+	const [phase, setPhase] = useState<ProgressPhase>(ProgressPhase.IDLE);
 
 	useEffect(() => {
-		if (isLoading && phase === "idle") {
-			setPhase("starting");
-		} else if (!isLoading && (phase === "growing" || phase === "starting")) {
-			setPhase("completing");
+		if (isLoading && phase === ProgressPhase.IDLE) {
+			setPhase(ProgressPhase.STARTING);
+		} else if (!isLoading && (phase === ProgressPhase.GROWING || phase === ProgressPhase.STARTING)) {
+			setPhase(ProgressPhase.COMPLETING);
 		}
 	}, [isLoading, phase]);
 
 	useEffect(() => {
-		if (phase === "starting") {
+		if (phase === ProgressPhase.STARTING) {
 			const frame = requestAnimationFrame(() => {
 				requestAnimationFrame(() => {
-					setPhase("growing");
+					setPhase(ProgressPhase.GROWING);
 				});
 			});
 
@@ -120,7 +125,7 @@ function ToolbarAddressProgress({ isLoading }: { isLoading: boolean }) {
 		}
 	}, [phase]);
 
-	if (phase === "idle") {
+	if (phase === ProgressPhase.IDLE) {
 		return null;
 	}
 
@@ -129,12 +134,12 @@ function ToolbarAddressProgress({ isLoading }: { isLoading: boolean }) {
 			className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-blue-500 to-blue-400"
 			style={{
 				width: getProgressWidth(phase),
-				opacity: phase === "completing" ? 0 : 1,
+				opacity: phase === ProgressPhase.COMPLETING ? 0 : 1,
 				transition: getProgressTransition(phase),
 			}}
 			onTransitionEnd={(e) => {
-				if (e.propertyName === "opacity" && phase === "completing") {
-					setPhase("idle");
+				if (e.propertyName === "opacity" && phase === ProgressPhase.COMPLETING) {
+					setPhase(ProgressPhase.IDLE);
 				}
 			}}
 		/>

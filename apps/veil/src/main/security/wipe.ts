@@ -63,14 +63,14 @@ export function executeWipe(): void {
 	overwriteAndDelete(path.join(userData, "security.json"));
 	overwriteAndDelete(path.join(userData, "settings.json"));
 
-	const fpDir = path.join(tempDir, "pane-fingerprints");
+	const fingerprintDirectory = path.join(tempDir, "pane-fingerprints");
 
 	try {
-		const fpFiles = fs.readdirSync(fpDir);
+		const fingerprintFiles = fs.readdirSync(fingerprintDirectory);
 
-		for (const file of fpFiles) {
+		for (const file of fingerprintFiles) {
 			if (file.startsWith("fp-") && file.endsWith(".js")) {
-				overwriteAndDelete(path.join(fpDir, file));
+				overwriteAndDelete(path.join(fingerprintDirectory, file));
 			}
 		}
 	} catch {}

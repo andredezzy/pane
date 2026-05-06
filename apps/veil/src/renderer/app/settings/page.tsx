@@ -32,8 +32,8 @@ const settingsSchema = z.object({
 type SettingsValues = z.infer<typeof settingsSchema>;
 
 export function SettingsPage() {
-	const settings = useStore(settingsStore, (s) => s.settings);
-	const pin = useStore(securityStore, (s) => s.pin);
+	const settings = useStore(settingsStore, (state) => state.settings);
+	const pin = useStore(securityStore, (state) => state.pin);
 
 	const form = useForm<SettingsValues>({
 		resolver: zodResolver(settingsSchema),
@@ -45,7 +45,7 @@ export function SettingsPage() {
 	}, [settings.chromiumPath, form]);
 
 	const onSubmit = (data: SettingsValues) => {
-		settingsStore.getState().save({ chromiumPath: data.chromiumPath });
+		settingsStore.getState().update({ chromiumPath: data.chromiumPath });
 	};
 
 	const [extensions, setExtensions] = useState<InstalledExtension[]>([]);
@@ -88,7 +88,7 @@ export function SettingsPage() {
 		try {
 			await trpc.cws.uninstall.mutate({ extensionId: uninstallTarget.id });
 
-			setExtensions((prev) => prev.filter((e) => e.id !== uninstallTarget.id));
+			setExtensions((prev) => prev.filter((extension) => extension.id !== uninstallTarget.id));
 
 			setUninstallTarget(null);
 		} catch {}

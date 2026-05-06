@@ -11,7 +11,7 @@ export interface AppSettings {
 export interface SettingsState {
 	settings: AppSettings;
 
-	save: (settings: AppSettings) => void;
+	update: (settings: AppSettings) => void;
 }
 
 export const settingsStore = createStore<SettingsState>()(
@@ -20,7 +20,7 @@ export const settingsStore = createStore<SettingsState>()(
 			(set) => ({
 				settings: { chromiumPath: "" },
 
-				save: (settings) => set({ settings }),
+				update: (settings) => set({ settings }),
 			}),
 			{ name: "settings-store" },
 		),

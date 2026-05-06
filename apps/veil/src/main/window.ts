@@ -49,21 +49,21 @@ export function createAppWindow(): AppWindow {
 	};
 
 	const loadRenderer = (
-		wc: Electron.WebContents,
+		webContents: Electron.WebContents,
 		params?: Record<string, string>,
 	) => {
 		if (process.env.ELECTRON_RENDERER_URL) {
 			const url = new URL(process.env.ELECTRON_RENDERER_URL);
 
 			if (params) {
-				for (const [k, v] of Object.entries(params)) {
-					url.searchParams.set(k, v);
+				for (const [key, value] of Object.entries(params)) {
+					url.searchParams.set(key, value);
 				}
 			}
 
-			wc.loadURL(url.toString());
+			webContents.loadURL(url.toString());
 		} else {
-			wc.loadFile(path.join(__dirname, "../renderer/index.html"), {
+			webContents.loadFile(path.join(__dirname, "../renderer/index.html"), {
 				query: params,
 			});
 		}

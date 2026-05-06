@@ -41,10 +41,10 @@ export class ExtensionInstaller {
 			}
 
 			const sorted = [...versions].sort((a, b) => {
-				const pa = a.split(".").map(Number);
-				const pb = b.split(".").map(Number);
-				for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-					const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+				const partsA = a.split(".").map(Number);
+				const partsB = b.split(".").map(Number);
+				for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+					const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
 
 					if (diff !== 0) {
 						return diff;
@@ -108,8 +108,8 @@ export class ExtensionInstaller {
 			}
 
 			return ext;
-		} catch (err) {
-			console.error(`[CWS] Failed to install ${extensionId}:`, err);
+		} catch (error) {
+			console.error(`[CWS] Failed to install ${extensionId}:`, error);
 
 			return null;
 		}
@@ -149,7 +149,7 @@ export class ExtensionInstaller {
 					let name: string = manifest.name ?? extId;
 
 					if (name.startsWith("__MSG_") && name.endsWith("__")) {
-						const msgKey = name.slice(6, -2);
+						const messageKey = name.slice(6, -2);
 
 						try {
 							const messagesPath = path.join(
@@ -164,14 +164,14 @@ export class ExtensionInstaller {
 								await fs.readFile(messagesPath, "utf-8"),
 							);
 
-							name = messages[msgKey]?.message ?? name;
+							name = messages[messageKey]?.message ?? name;
 						} catch {}
 					}
 
 					let description: string = manifest.description ?? "";
 
 					if (description.startsWith("__MSG_") && description.endsWith("__")) {
-						const msgKey = description.slice(6, -2);
+						const messageKey = description.slice(6, -2);
 
 						try {
 							const messagesPath = path.join(
@@ -186,7 +186,7 @@ export class ExtensionInstaller {
 								await fs.readFile(messagesPath, "utf-8"),
 							);
 
-							description = messages[msgKey]?.message ?? description;
+							description = messages[messageKey]?.message ?? description;
 						} catch {}
 					}
 
@@ -210,8 +210,8 @@ export class ExtensionInstaller {
 						description,
 						icon,
 					});
-				} catch (err) {
-					console.warn(`[CWS] Skipping extension ${extId}/${version}:`, err);
+				} catch (error) {
+					console.warn(`[CWS] Skipping extension ${extId}/${version}:`, error);
 				}
 			}
 		}
@@ -223,8 +223,8 @@ export class ExtensionInstaller {
 		try {
 			const updateSession = session.fromPartition("persist:pane-internal");
 			await updateExtensions(updateSession);
-		} catch (err) {
-			console.error("[CWS] Update check failed:", err);
+		} catch (error) {
+			console.error("[CWS] Update check failed:", error);
 		}
 	}
 }

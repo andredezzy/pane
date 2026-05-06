@@ -35,7 +35,7 @@ export class Profile implements TabHost {
 
 		const profileData = profileStore
 			.getState()
-			.profiles.find((p) => p.id === id);
+			.profiles.find((profile) => profile.id === id);
 
 		this.session.webRequest.onBeforeSendHeaders((details, callback) => {
 			const headers = { ...details.requestHeaders };
@@ -52,7 +52,7 @@ export class Profile implements TabHost {
 		ElectronChromeExtensions.handleCRXProtocol(this.session);
 
 		if (profileData?.fingerprint) {
-			const fpPreloadPath = generateFingerprintPreload(
+			const fingerprintPreloadPath = generateFingerprintPreload(
 				id,
 				profileData.fingerprint,
 			);
@@ -66,7 +66,7 @@ export class Profile implements TabHost {
 				}
 			).registerPreloadScript({
 				type: "frame",
-				filePath: fpPreloadPath,
+				filePath: fingerprintPreloadPath,
 			});
 		}
 
@@ -74,9 +74,9 @@ export class Profile implements TabHost {
 			const p = profileData.proxy;
 
 			this.session
-				.setProxy({ proxyRules: `${p.proxyType}://${p.host}:${p.port}` })
-				.catch((err) => {
-					console.error(`[Profile ${id}] Proxy failed to apply:`, err);
+				.setProxy({ proxyRules: `${p.proxyType.toLowerCase()}://${p.host}:${p.port}` })
+				.catch((error) => {
+					console.error(`[Profile ${id}] Proxy failed to apply:`, error);
 				});
 		}
 
@@ -97,8 +97,8 @@ export class Profile implements TabHost {
 
 				return [view.webContents, this.mainWindow];
 			},
-			selectTab: (wc) => this.tabs.activateByWebContents(wc),
-			removeTab: (wc) => this.tabs.destroyByWebContents(wc),
+			selectTab: (webContents) => this.tabs.activateByWebContents(webContents),
+			removeTab: (webContents) => this.tabs.destroyByWebContents(webContents),
 		});
 
 		this.tabs = new ProfileTabs(this, mainWindow);
@@ -107,7 +107,7 @@ export class Profile implements TabHost {
 	get data(): BrowserProfile {
 		const profile = profileStore
 			.getState()
-			.profiles.find((p) => p.id === this.id);
+			.profiles.find((profile) => profile.id === this.id);
 
 		if (!profile) {
 			throw new Error(`Profile ${this.id} not found in store`);
@@ -126,8 +126,10 @@ export class Profile implements TabHost {
 
 	destroy(): void {
 		cleanupFingerprintPreload(this.id);
+
 		this.tabs.closeAll();
 		this.ece.destroy();
+
 		extensionStore.getState().clearProfile(this.id);
 	}
 }

@@ -4,9 +4,22 @@ import { ProfileColor } from "../constants/profile-colors";
 import { fsStorage } from "./middlewares/fs-storage";
 import { sync } from "./middlewares/sync";
 
+export enum Platform {
+	WINDOWS = "WINDOWS",
+	MACOS = "MACOS",
+	LINUX = "LINUX",
+}
+
+export enum ProxyType {
+	HTTP = "HTTP",
+	HTTPS = "HTTPS",
+	SOCKS4 = "SOCKS4",
+	SOCKS5 = "SOCKS5",
+}
+
 export interface Fingerprint {
 	userAgent: string;
-	platform: "windows" | "macos" | "linux";
+	platform: Platform;
 	screen: { width: number; height: number; colorDepth: number };
 	language: string;
 	languages: string[];
@@ -20,7 +33,7 @@ export interface Fingerprint {
 }
 
 export interface ProxyConfig {
-	proxyType: "http" | "https" | "socks4" | "socks5";
+	proxyType: ProxyType;
 	host: string;
 	port: number;
 	username: string | null;
@@ -74,9 +87,9 @@ export const profileStore = createStore<ProfileState>()(
 					const id = crypto.randomUUID();
 					const now = new Date().toISOString();
 
-					set((s) => ({
+					set((state) => ({
 						profiles: [
-							...s.profiles,
+							...state.profiles,
 							{
 								...input,
 								id,
@@ -91,54 +104,54 @@ export const profileStore = createStore<ProfileState>()(
 				},
 
 				remove: (id) => {
-					set((s) => ({
-						profiles: s.profiles.filter((p) => p.id !== id),
+					set((state) => ({
+						profiles: state.profiles.filter((profile) => profile.id !== id),
 					}));
 				},
 
 				openTab: (profileId, tabId, url) => {
-					set((s) => ({
-						profiles: s.profiles.map((p) =>
-							p.id === profileId
+					set((state) => ({
+						profiles: state.profiles.map((profile) =>
+							profile.id === profileId
 								? {
-										...p,
+										...profile,
 										tabs: [
-											...p.tabs,
+											...profile.tabs,
 											{
 												id: tabId,
 												url,
-												title: "New Tab",
+												title: "New tab",
 												favicon: "",
 												isLoaded: true,
 											},
 										],
 									}
-								: p,
+								: profile,
 						),
 					}));
 				},
 
 				closeTab: (profileId, tabId) => {
-					set((s) => ({
-						profiles: s.profiles.map((p) =>
-							p.id === profileId
-								? { ...p, tabs: p.tabs.filter((t) => t.id !== tabId) }
-								: p,
+					set((state) => ({
+						profiles: state.profiles.map((profile) =>
+							profile.id === profileId
+								? { ...profile, tabs: profile.tabs.filter((tab) => tab.id !== tabId) }
+								: profile,
 						),
 					}));
 				},
 
 				updateTab: (profileId, tabId, partial) => {
-					set((s) => ({
-						profiles: s.profiles.map((p) =>
-							p.id === profileId
+					set((state) => ({
+						profiles: state.profiles.map((profile) =>
+							profile.id === profileId
 								? {
-										...p,
-										tabs: p.tabs.map((t) =>
-											t.id === tabId ? { ...t, ...partial } : t,
+										...profile,
+										tabs: profile.tabs.map((tab) =>
+											tab.id === tabId ? { ...tab, ...partial } : tab,
 										),
 									}
-								: p,
+								: profile,
 						),
 					}));
 				},
@@ -169,25 +182,25 @@ export const profileStore = createStore<ProfileState>()(
 					...current,
 					...(persisted as Partial<ProfileState>),
 					profiles: ((persisted as Partial<ProfileState>)?.profiles ?? []).map(
-						(p) => {
-							const fp = p.fingerprint as PersistedFingerprint;
+						(profile) => {
+							const fingerprint = profile.fingerprint as PersistedFingerprint;
 
 							return {
-								...p,
-								color: p.color ?? ProfileColor.BLUE,
-								tabs: p.tabs.map((t) => ({
-									...t,
-									favicon: t.favicon ?? "",
+								...profile,
+								color: profile.color ?? ProfileColor.BLUE,
+								tabs: profile.tabs.map((tab) => ({
+									...tab,
+									favicon: tab.favicon ?? "",
 									isLoaded: false,
 								})),
 								fingerprint: {
-									...fp,
+									...fingerprint,
 									screen: {
-										...fp.screen,
-										colorDepth: fp.screen.colorDepth ?? 24,
+										...fingerprint.screen,
+										colorDepth: fingerprint.screen.colorDepth ?? 24,
 									},
-									canvas: fp.canvas ?? { noise: true },
-									audio: fp.audio ?? { noise: true },
+									canvas: fingerprint.canvas ?? { noise: true },
+									audio: fingerprint.audio ?? { noise: true },
 								},
 							};
 						},
