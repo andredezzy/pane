@@ -31,7 +31,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod/v4";
 import { ProfileColor } from "../../constants/profile-colors";
-import { Platform, ProxyType, profileStore } from "../../stores/profile-store";
+import {
+	type BrowserProfile,
+	Platform,
+	ProxyType,
+	profileStore,
+} from "../../stores/profile-store";
 import { ColorPicker } from "../components/color-picker";
 import { DEFAULT_FINGERPRINTS } from "../components/default-fingerprints";
 import { SHEET_ANIMATION_MS } from "../constants";
@@ -65,12 +70,80 @@ function detectPlatform(): Platform {
 	return userAgent.includes("linux") ? Platform.LINUX : Platform.WINDOWS;
 }
 
-interface Props {
-	onClose: () => void;
+function buildDefaults(profile?: BrowserProfile): FormValues {
+	if (profile) {
+		return {
+			name: profile.name,
+			group: profile.group ?? "",
+			color: profile.color,
+			platform: profile.fingerprint.platform,
+			proxyEnabled: profile.proxy !== null,
+			proxy: profile.proxy
+				? {
+						proxyType: profile.proxy.proxyType,
+						host: profile.proxy.host,
+						port: profile.proxy.port,
+						username: profile.proxy.username ?? "",
+						password: profile.proxy.password ?? "",
+					}
+				: {
+						proxyType: ProxyType.HTTP,
+						host: "",
+						port: 8080,
+						username: "",
+						password: "",
+					},
+		};
+	}
+
+	return {
+		name: "",
+		group: "",
+		color: ProfileColor.BLUE,
+		platform: detectPlatform(),
+		proxyEnabled: false,
+		proxy: {
+			proxyType: ProxyType.HTTP,
+			host: "",
+			port: 8080,
+			username: "",
+			password: "",
+		},
+	};
 }
 
-export function CreateProfileSheet({ onClose }: Props) {
+function buildCreateInput(data: FormValues) {
+	return {
+		name: data.name,
+		color: data.color,
+		group: data.group || null,
+		fingerprint: DEFAULT_FINGERPRINTS[data.platform],
+		proxy:
+			data.proxyEnabled && data.proxy?.host
+				? {
+						proxyType: data.proxy.proxyType,
+						host: data.proxy.host,
+						port: data.proxy.port,
+						username: data.proxy.username || null,
+						password: data.proxy.password || null,
+					}
+				: null,
+	};
+}
+
+interface Props {
+	onClose: () => void;
+	profileId?: string;
+}
+
+export function ProfileSheet({ onClose, profileId }: Props) {
 	const [open, setOpen] = useState(false);
+
+	const profile = profileId
+		? profileStore.getState().profiles.find((p) => p.id === profileId)
+		: undefined;
+
+	const isEditing = Boolean(profileId && profile);
 
 	useEffect(() => {
 		requestAnimationFrame(() => setOpen(true));
@@ -83,41 +156,17 @@ export function CreateProfileSheet({ onClose }: Props) {
 
 	const form = useForm<FormValues>({
 		resolver: zodResolver(formSchema),
-		defaultValues: {
-			name: "",
-			group: "",
-			color: ProfileColor.BLUE,
-			platform: detectPlatform(),
-			proxyEnabled: false,
-			proxy: {
-				proxyType: ProxyType.HTTP,
-				host: "",
-				port: 8080,
-				username: "",
-				password: "",
-			},
-		},
+		defaultValues: buildDefaults(profile),
 	});
 
 	const proxyEnabled = form.watch("proxyEnabled");
 
 	const onSubmit = (data: FormValues) => {
-		profileStore.getState().create({
-			name: data.name,
-			color: data.color,
-			group: data.group || null,
-			fingerprint: DEFAULT_FINGERPRINTS[data.platform],
-			proxy:
-				data.proxyEnabled && data.proxy?.host
-					? {
-							proxyType: data.proxy.proxyType,
-							host: data.proxy.host,
-							port: data.proxy.port,
-							username: data.proxy.username || null,
-							password: data.proxy.password || null,
-						}
-					: null,
-		});
+		if (isEditing && profileId) {
+			profileStore.getState().update(profileId, buildCreateInput(data));
+		} else {
+			profileStore.getState().create(buildCreateInput(data));
+		}
 
 		form.reset();
 		close();
@@ -127,7 +176,9 @@ export function CreateProfileSheet({ onClose }: Props) {
 		<Sheet open={open} onOpenChange={(open) => !open && close()}>
 			<SheetContent>
 				<SheetHeader>
-					<SheetTitle>New profile</SheetTitle>
+					<SheetTitle>
+						{isEditing ? "Edit profile" : "New profile"}
+					</SheetTitle>
 					<button
 						type="button"
 						onClick={close}
@@ -345,7 +396,9 @@ export function CreateProfileSheet({ onClose }: Props) {
 							>
 								Cancel
 							</Button>
-							<Button type="submit">Create</Button>
+							<Button type="submit">
+								{isEditing ? "Save" : "Create"}
+							</Button>
 						</SheetFooter>
 					</form>
 				</Form>
