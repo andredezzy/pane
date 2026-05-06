@@ -18,6 +18,16 @@
 		},
 		"test": {
 			"dependsOn": ["^build"]
+		},
+		"dist": {
+			"dependsOn": ["build"],
+			"outputs": ["release/**"],
+			"cache": false
+		},
+		"pack": {
+			"dependsOn": ["build"],
+			"outputs": ["release/**"],
+			"cache": false
 		}
 	}
 }
