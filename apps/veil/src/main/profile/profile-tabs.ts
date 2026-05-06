@@ -62,7 +62,7 @@ export class ProfileTabs {
 
 		const tabData = this.profile.data.tabs.find((tab) => tab.id === tabId);
 
-		if (tabData && tabData.url) {
+		if (tabData?.url) {
 			tabStore.getState().pushClosedTab({
 				url: tabData.url,
 				profileId: this.profile.id,

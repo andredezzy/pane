@@ -55,10 +55,7 @@ export const tabStore = createStore<TabState>()(
 
 			pushMru: (tabId) =>
 				set((state) => ({
-					mruHistory: [
-						tabId,
-						...state.mruHistory.filter((id) => id !== tabId),
-					],
+					mruHistory: [tabId, ...state.mruHistory.filter((id) => id !== tabId)],
 				})),
 
 			removeMru: (tabId) =>

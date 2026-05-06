@@ -28,7 +28,11 @@ export const hotkeysRouter = router({
 				}
 
 				while (queue.length > 0) {
-					yield queue.shift()!;
+					const event = queue.shift();
+
+					if (event) {
+						yield event;
+					}
 				}
 			}
 		} finally {
