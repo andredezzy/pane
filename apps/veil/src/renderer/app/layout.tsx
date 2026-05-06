@@ -131,9 +131,22 @@ function SidebarProfileItem({
 		<ProfileItem
 			ref={ref}
 			style={{ opacity: isDragSource ? 0.4 : 1 }}
-			onContextMenu={(event) => {
+			onContextMenu={async (event) => {
 				event.preventDefault();
-				trpc.ui.profileContextMenu.mutate({ profileId: profile.id });
+
+				const selected = await trpc.ui.menu.mutate({
+					items: [
+						{ id: "edit", label: "Edit profile" },
+						{ type: "separator" },
+						{ id: "delete", label: "Delete profile" },
+					],
+				});
+
+				if (selected === "edit") {
+					surface.open(ProfileSheet, { profileId: profile.id });
+				} else if (selected === "delete") {
+					trpc.profiles.remove.mutate({ profileId: profile.id });
+				}
 			}}
 		>
 			<ProfileHeader

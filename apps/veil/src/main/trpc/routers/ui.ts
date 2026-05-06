@@ -2,17 +2,14 @@ import { Menu } from "electron";
 import { z } from "zod/v4";
 import { procedure, router } from "../trpc";
 
-function presentSurface(
-	ctx: { surface: Electron.BrowserWindow },
-	name: string,
-	props?: Record<string, unknown>,
-) {
-	ctx.surface.show();
-
-	ctx.surface.webContents.executeJavaScript(
-		`window.postMessage(${JSON.stringify({ name, props })})`,
-	);
-}
+const menuItemSchema = z.union([
+	z.object({
+		id: z.string(),
+		label: z.string(),
+		enabled: z.boolean().optional(),
+	}),
+	z.object({ type: z.literal("separator") }),
+]);
 
 export const uiRouter = router({
 	present: procedure
@@ -23,31 +20,40 @@ export const uiRouter = router({
 			}),
 		)
 		.mutation(({ input, ctx }) => {
-			presentSurface(ctx, input.name, input.props);
+			ctx.surface.show();
+
+			ctx.surface.webContents.executeJavaScript(
+				`window.postMessage(${JSON.stringify({ name: input.name, props: input.props })})`,
+			);
 		}),
 
 	dismiss: procedure.mutation(({ ctx }) => {
 		ctx.surface.hide();
 	}),
 
-	profileContextMenu: procedure
-		.input(z.object({ profileId: z.string() }))
-		.mutation(({ input, ctx }) => {
-			const menu = Menu.buildFromTemplate([
-				{
-					label: "Edit profile",
-					click: () =>
-						presentSurface(ctx, "ProfileSheet", {
-							profileId: input.profileId,
-						}),
-				},
-				{ type: "separator" },
-				{
-					label: "Delete profile",
-					click: () => ctx.pane.removeProfile(input.profileId),
-				},
-			]);
+	menu: procedure
+		.input(z.object({ items: z.array(menuItemSchema) }))
+		.mutation(({ input }) => {
+			return new Promise<string | null>((resolve) => {
+				let selected: string | null = null;
 
-			menu.popup();
+				const template = input.items.map((item) => {
+					if ("type" in item) {
+						return { type: "separator" as const };
+					}
+
+					return {
+						label: item.label,
+						enabled: item.enabled ?? true,
+						click: () => {
+							selected = item.id;
+						},
+					};
+				});
+
+				const menu = Menu.buildFromTemplate(template);
+
+				menu.popup({ callback: () => resolve(selected) });
+			});
 		}),
 });
