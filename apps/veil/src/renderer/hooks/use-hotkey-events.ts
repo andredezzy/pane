@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { HotkeyEvent } from "../../main/hotkey-emitter";
+import { HotkeyEvent } from "../../constants/hotkey-event";
 import { trpc } from "../trpc";
 
 export { HotkeyEvent };

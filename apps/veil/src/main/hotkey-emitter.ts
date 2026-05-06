@@ -1,10 +1,8 @@
 import { EventEmitter } from "node:events";
 
-export enum HotkeyEvent {
-	FOCUS_ADDRESS_BAR = "FOCUS_ADDRESS_BAR",
-	TAB_SWITCHER_FORWARD = "TAB_SWITCHER_FORWARD",
-	TAB_SWITCHER_BACKWARD = "TAB_SWITCHER_BACKWARD",
-}
+import { HotkeyEvent } from "../constants/hotkey-event";
+
+export { HotkeyEvent };
 
 const CHANNEL = "hotkey";
 
