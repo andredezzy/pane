@@ -44,6 +44,7 @@ function setup() {
 	appWindow = createAppWindow();
 
 	const currentPane = new Pane(appWindow.mainWindow);
+	currentPane.chromeView = appWindow.chrome;
 	pane = currentPane;
 
 	ElectronChromeExtensions.handleCRXProtocol(session.defaultSession);

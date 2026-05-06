@@ -217,14 +217,18 @@ export function createMenu(
 				{
 					label: "Next tab (MRU)",
 					accelerator: "Control+Tab",
-					click: () =>
-						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_FORWARD),
+					click: () => {
+						pane.enterSurfaceMode();
+						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_FORWARD);
+					},
 				},
 				{
 					label: "Previous tab (MRU)",
 					accelerator: "Control+Shift+Tab",
-					click: () =>
-						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_BACKWARD),
+					click: () => {
+						pane.enterSurfaceMode();
+						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_BACKWARD);
+					},
 				},
 				{ type: "separator" },
 				...Array.from({ length: 9 }, (_, index) => ({

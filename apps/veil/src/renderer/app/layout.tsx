@@ -254,10 +254,6 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 					}
 
 					case HotkeyEvent.TAB_SWITCHER_FORWARD: {
-						if (!tabSwitcherVisible) {
-							trpc.tabs.hideAll.mutate();
-						}
-
 						setTabSwitcherVisible(true);
 						setTabSwitcherStep((prev) => prev + 1);
 
@@ -265,10 +261,6 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 					}
 
 					case HotkeyEvent.TAB_SWITCHER_BACKWARD: {
-						if (!tabSwitcherVisible) {
-							trpc.tabs.hideAll.mutate();
-						}
-
 						setTabSwitcherVisible(true);
 						setTabSwitcherStep((prev) => prev - 1);
 
@@ -276,7 +268,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 					}
 				}
 			},
-			[page, tabSwitcherVisible],
+			[page],
 		),
 	);
 
@@ -284,6 +276,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 		setTabSwitcherVisible(false);
 		setTabSwitcherStep(0);
 
+		trpc.ui.exitSurfaceMode.mutate();
 		navigationStore.getState().navigate(Page.BROWSER);
 		trpc.tabs.switch.mutate({ tabId });
 	}, []);
@@ -292,7 +285,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 		setTabSwitcherVisible(false);
 		setTabSwitcherStep(0);
 
-		trpc.tabs.showActive.mutate();
+		trpc.ui.exitSurfaceMode.mutate();
 	}, []);
 
 	useEffect(() => {
@@ -301,7 +294,10 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 
 	return (
 		<div
-			className="relative flex h-screen bg-background text-foreground"
+			className={cn(
+				"relative flex h-screen text-foreground",
+				!tabSwitcherVisible && "bg-background",
+			)}
 			style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
 		>
 			<Sidebar>
@@ -333,7 +329,9 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 				</SidebarFooter>
 			</Sidebar>
 
-			<ContentPanel>
+			<ContentPanel
+				className={tabSwitcherVisible ? "bg-transparent shadow-none" : undefined}
+			>
 				{page === Page.BROWSER ? (
 					<BrowserPage addressBarRef={addressBarRef} />
 				) : null}
