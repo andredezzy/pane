@@ -116,6 +116,7 @@ function openTabSwitcher(
 ): void {
 	if (!surface.isVisible()) {
 		surface.show();
+
 		surface.webContents.executeJavaScript(
 			`window.postMessage(${JSON.stringify({ name: "TabSwitcher" })})`,
 		);
@@ -167,15 +168,17 @@ export function createMenu(
 
 						if (closedTab) {
 							pane.hideAllTabs();
+
 							pane
 								.getOrCreateProfile(closedTab.profileId)
 								.tabs.open(closedTab.url);
+
 							pane.navigateToBrowser();
 						}
 					},
 				},
 				{ type: "separator" },
-				{ role: "close" },
+				{ role: "close", registerAccelerator: false },
 			],
 		},
 		{ role: "editMenu" },

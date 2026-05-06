@@ -340,20 +340,20 @@ export class ElectronChromeExtensions extends EventEmitter {
 			...(() => {
 				try {
 					const appRoot = app.getAppPath();
+
 					const mod = createRequire(`${appRoot}/`).resolve(
 						"@pane/electron-chrome-extensions",
 					);
+
 					const preloads = path.join(path.dirname(mod), "..", "preloads");
 
 					// For ASAR: also try the unpacked sibling where asarUnpack extracts files
 					const unpacked = preloads.replace(
-						/app\.asar([\/\\])/,
+						/app\.asar([/\\])/,
 						"app.asar.unpacked$1",
 					);
 
-					return unpacked !== preloads
-						? [unpacked, preloads]
-						: [preloads];
+					return unpacked !== preloads ? [unpacked, preloads] : [preloads];
 				} catch {
 					return [];
 				}

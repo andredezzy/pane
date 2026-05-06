@@ -51,6 +51,7 @@ function resolveMruTabs(): MruTab[] {
 
 export function TabSwitcher({ onClose }: { onClose: () => void }) {
 	const [tabs] = useState(resolveMruTabs);
+
 	const [selectedIndex, setSelectedIndex] = useState(
 		Math.min(1, tabs.length - 1),
 	);
