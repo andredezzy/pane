@@ -1,4 +1,4 @@
-import { Menu } from "electron";
+import { Menu, nativeImage } from "electron";
 import { z } from "zod/v4";
 import { procedure, router } from "../trpc";
 
@@ -6,6 +6,7 @@ const menuItemSchema = z.union([
 	z.object({
 		id: z.string(),
 		label: z.string(),
+		icon: z.string().optional(),
 		enabled: z.boolean().optional(),
 	}),
 	z.object({ type: z.literal("separator") }),
@@ -42,8 +43,15 @@ export const uiRouter = router({
 						return { type: "separator" as const };
 					}
 
+					const icon = item.icon
+						? nativeImage
+								.createFromDataURL(item.icon)
+								.resize({ width: 16, height: 16 })
+						: undefined;
+
 					return {
 						label: item.label,
+						icon,
 						enabled: item.enabled ?? true,
 						click: () => {
 							selected = item.id;

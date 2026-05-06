@@ -43,6 +43,7 @@ import {
 	TabTitle,
 } from "../components/sidebar/tab-item";
 import { HotkeyEvent, useHotkeyEvents } from "../hooks/use-hotkey-events";
+import { icons, menuIcon } from "../menu-icon";
 import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
 import { ProfileSheet } from "../sheets/profile-sheet";
 import { surface } from "../surface";
@@ -134,11 +135,16 @@ function SidebarProfileItem({
 			onContextMenu={async (event) => {
 				event.preventDefault();
 
+				const [editIcon, deleteIcon] = await Promise.all([
+					menuIcon(icons.pencil),
+					menuIcon(icons.trash),
+				]);
+
 				const selected = await trpc.ui.menu.mutate({
 					items: [
-						{ id: "edit", label: "Edit profile" },
+						{ id: "edit", label: "Edit profile", icon: editIcon },
 						{ type: "separator" },
-						{ id: "delete", label: "Delete profile" },
+						{ id: "delete", label: "Delete profile", icon: deleteIcon },
 					],
 				});
 
