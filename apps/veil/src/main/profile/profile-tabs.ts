@@ -60,12 +60,24 @@ export class ProfileTabs {
 			return;
 		}
 
+		const tabData = this.profile.data.tabs.find((tab) => tab.id === tabId);
+
+		if (tabData && tabData.url) {
+			tabStore.getState().pushClosedTab({
+				url: tabData.url,
+				profileId: this.profile.id,
+				title: tabData.title || undefined,
+				favicon: tabData.favicon || undefined,
+			});
+		}
+
 		this.profile.ece.removeTab(view.webContents);
 		this.mainWindow.contentView.removeChildView(view);
 		view.webContents.close();
 
 		this.views.delete(tabId);
 		tabStore.getState().setLoading(tabId, false);
+		tabStore.getState().removeMru(tabId);
 
 		this.profile.onTabClosed(tabId);
 		profileStore.getState().closeTab(this.profile.id, tabId);
@@ -108,6 +120,7 @@ export class ProfileTabs {
 		}
 
 		tabStore.getState().setActiveTab(tabId, this.profile.id);
+		tabStore.getState().pushMru(tabId);
 	}
 
 	closeAll(): void {
