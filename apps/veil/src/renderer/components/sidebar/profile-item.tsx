@@ -1,5 +1,6 @@
 import { cn } from "@pane/ui/cn";
-import type { HTMLAttributes } from "react";
+import type React from "react";
+import type { CSSProperties, HTMLAttributes } from "react";
 import {
 	PROFILE_COLOR_HEX,
 	type ProfileColor,
@@ -7,12 +8,21 @@ import {
 
 export function ProfileItem({
 	className,
+	ref,
+	style,
 	...props
-}: HTMLAttributes<HTMLDivElement>) {
-	return <div className={cn("mb-1.5", className)} {...props} />;
+}: React.ComponentPropsWithRef<"div">) {
+	return (
+		<div
+			ref={ref}
+			className={cn("mb-1.5", className)}
+			style={{ WebkitAppRegion: "no-drag", ...style } as CSSProperties}
+			{...props}
+		/>
+	);
 }
 
-interface ProfileHeaderProps extends HTMLAttributes<HTMLButtonElement> {
+interface ProfileHeaderProps extends React.ComponentPropsWithRef<"button"> {
 	color: ProfileColor;
 	active?: boolean;
 }
@@ -22,12 +32,14 @@ export function ProfileHeader({
 	color,
 	active,
 	children,
+	ref,
 	...props
 }: ProfileHeaderProps) {
 	const hex = PROFILE_COLOR_HEX[color];
 
 	return (
 		<button
+			ref={ref}
 			type="button"
 			className={cn(
 				"group flex w-full items-center gap-1.5 overflow-hidden rounded-md px-2 py-1.5 text-xs transition-colors",

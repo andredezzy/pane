@@ -1,4 +1,10 @@
 import { cn } from "@pane/ui/cn";
+import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import { useSortable, isSortable } from "@dnd-kit/react/sortable";
+import {
+	PointerSensor,
+	PointerActivationConstraints,
+} from "@dnd-kit/dom";
 import { Settings, Trash2, X } from "lucide-react";
 import {
 	Component,
@@ -11,6 +17,7 @@ import {
 } from "react";
 import { useStore } from "zustand/react";
 import { useShallow } from "zustand/react/shallow";
+import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
 
 import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore } from "../../stores/profile-store";
@@ -48,6 +55,14 @@ import { trpc } from "../trpc";
 import { BrowserPage } from "./browser/page";
 import { PinScreen } from "./lock-screen/page";
 import { SettingsPage } from "./settings/page";
+
+const SENSORS = [
+	PointerSensor.configure({
+		activationConstraints: [
+			new PointerActivationConstraints.Distance({ value: 5 }),
+		],
+	}),
+];
 
 export class ErrorBoundary extends Component<
 	{ children: ReactNode },
@@ -87,10 +102,12 @@ export class ErrorBoundary extends Component<
 
 function SidebarProfileItem({
 	id,
+	index,
 	expanded,
 	onToggle,
 }: {
 	id: string;
+	index: number;
 	expanded: boolean;
 	onToggle: (id: string) => void;
 }) {
@@ -100,6 +117,8 @@ function SidebarProfileItem({
 
 	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
 	const page = useStore(navigationStore, (state) => state.page);
+
+	const { ref, handleRef, isDragSource } = useSortable({ id, index });
 
 	const handleToggle = useCallback(() => {
 		onToggle(id);
@@ -116,8 +135,10 @@ function SidebarProfileItem({
 	const isRunning = profile.tabs.length > 0;
 
 	return (
-		<ProfileItem>
+		<ProfileItem ref={ref} style={{ opacity: isDragSource ? 0.4 : 1 }}>
 			<ProfileHeader
+				ref={handleRef}
+				className="cursor-grab"
 				color={profile.color}
 				active={isRunning}
 				onClick={handleToggle}
@@ -170,6 +191,26 @@ function SidebarProfileItem({
 				</ProfileTabs>
 			) : null}
 		</ProfileItem>
+	);
+}
+
+function ProfileDragOverlay({ profileId }: { profileId: string }) {
+	const profile = useStore(profileStore, (state) =>
+		state.profiles.find((p) => p.id === profileId),
+	);
+
+	if (!profile) return null;
+
+	return (
+		<div className="w-[200px] scale-[1.02] cursor-grabbing">
+			<ProfileHeader
+				className="shadow-lg"
+				color={profile.color}
+				active={profile.tabs.length > 0}
+			>
+				<ProfileName>{profile.name}</ProfileName>
+			</ProfileHeader>
+		</div>
 	);
 }
 
@@ -263,14 +304,39 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 				</SidebarHeader>
 
 				<SidebarContent>
-					{profileIds.map((id) => (
-						<SidebarProfileItem
-							key={id}
-							id={id}
-							expanded={expanded.has(id)}
-							onToggle={toggleExpanded}
-						/>
-					))}
+					<DragDropProvider
+						sensors={SENSORS}
+						modifiers={[RestrictToVerticalAxis]}
+						onDragEnd={(event) => {
+							if (event.canceled) return;
+
+							const { source } = event.operation;
+
+							if (isSortable(source)) {
+								if (source.initialIndex !== source.index) {
+									profileStore
+										.getState()
+										.reorderProfiles(source.initialIndex, source.index);
+								}
+							}
+						}}
+					>
+						{profileIds.map((id, index) => (
+							<SidebarProfileItem
+								key={id}
+								id={id}
+								index={index}
+								expanded={expanded.has(id)}
+								onToggle={toggleExpanded}
+							/>
+						))}
+
+						<DragOverlay>
+							{(source) => (
+								<ProfileDragOverlay profileId={String(source.id)} />
+							)}
+						</DragOverlay>
+					</DragDropProvider>
 				</SidebarContent>
 
 				<SidebarFooter>
