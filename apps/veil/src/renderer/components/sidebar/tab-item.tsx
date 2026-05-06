@@ -1,7 +1,7 @@
 import { cn } from "@pane/ui/cn";
 import { Globe } from "lucide-react";
-import type { HTMLAttributes, ImgHTMLAttributes } from "react";
 import type React from "react";
+import type { HTMLAttributes, ImgHTMLAttributes } from "react";
 
 interface TabItemProps extends React.ComponentPropsWithRef<"button"> {
 	active?: boolean;
