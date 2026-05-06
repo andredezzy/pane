@@ -1,4 +1,4 @@
-import { Menu, nativeImage, screen } from "electron";
+import { dialog, Menu, nativeImage, screen } from "electron";
 import { z } from "zod/v4";
 import { procedure, router } from "../trpc";
 
@@ -73,5 +73,30 @@ export const uiRouter = router({
 
 				menu.popup({ callback: () => resolve(selected) });
 			});
+		}),
+
+	confirm: procedure
+		.input(
+			z.object({
+				message: z.string(),
+				detail: z.string().optional(),
+				confirmLabel: z.string().optional(),
+				cancelLabel: z.string().optional(),
+			}),
+		)
+		.mutation(async ({ input }) => {
+			const { response } = await dialog.showMessageBox({
+				type: "warning",
+				message: input.message,
+				detail: input.detail,
+				buttons: [
+					input.cancelLabel ?? "Cancel",
+					input.confirmLabel ?? "Confirm",
+				],
+				defaultId: 1,
+				cancelId: 0,
+			});
+
+			return response === 1;
 		}),
 });

@@ -151,7 +151,15 @@ function SidebarProfileItem({
 				if (selected === "edit") {
 					surface.open(ProfileSheet, { profileId: profile.id });
 				} else if (selected === "delete") {
-					trpc.profiles.remove.mutate({ profileId: profile.id });
+					const confirmed = await trpc.ui.confirm.mutate({
+						message: `Delete "${profile.name}"?`,
+						detail: "This action cannot be undone.",
+						confirmLabel: "Delete",
+					});
+
+					if (confirmed) {
+						trpc.profiles.remove.mutate({ profileId: profile.id });
+					}
 				}
 			}}
 		>
