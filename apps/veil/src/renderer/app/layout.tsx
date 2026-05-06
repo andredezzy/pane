@@ -2,7 +2,7 @@ import { PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@pane/ui/cn";
-import { Settings, X } from "lucide-react";
+import { Pencil, Settings, Trash2, X } from "lucide-react";
 import {
 	Component,
 	type ErrorInfo,
@@ -43,7 +43,7 @@ import {
 	TabTitle,
 } from "../components/sidebar/tab-item";
 import { HotkeyEvent, useHotkeyEvents } from "../hooks/use-hotkey-events";
-import { icons, menuIcon } from "../menu/icons";
+import { menuIcon } from "../menu/icons";
 import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
 import { ProfileSheet } from "../sheets/profile-sheet";
 import { surface } from "../surface";
@@ -136,8 +136,8 @@ function SidebarProfileItem({
 				event.preventDefault();
 
 				const [editIcon, deleteIcon] = await Promise.all([
-					menuIcon(icons.pencil),
-					menuIcon(icons.trash),
+					menuIcon(Pencil),
+					menuIcon(Trash2),
 				]);
 
 				const selected = await trpc.ui.menu.mutate({
