@@ -46,9 +46,7 @@ export const uiRouter = router({
 					let icon: Electron.NativeImage | undefined;
 
 					if (item.icon) {
-						icon = nativeImage
-							.createFromDataURL(item.icon)
-							.resize({ width: 16, height: 16 });
+						icon = nativeImage.createFromDataURL(item.icon);
 
 						if (process.platform === "darwin") {
 							icon.setTemplateImage(true);

@@ -7,6 +7,8 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 
 const ICON_SIZE = 16;
+const PIXEL_RATIO = window.devicePixelRatio || 1;
+const RENDER_SIZE = ICON_SIZE * PIXEL_RATIO;
 const cache = new Map<string, Promise<string>>();
 
 function renderToPng(svgMarkup: string): Promise<string> {
@@ -17,11 +19,11 @@ function renderToPng(svgMarkup: string): Promise<string> {
 
 		image.onload = () => {
 			const canvas = document.createElement("canvas");
-			canvas.width = ICON_SIZE;
-			canvas.height = ICON_SIZE;
+			canvas.width = RENDER_SIZE;
+			canvas.height = RENDER_SIZE;
 
 			const context = canvas.getContext("2d") as CanvasRenderingContext2D;
-			context.drawImage(image, 0, 0, ICON_SIZE, ICON_SIZE);
+			context.drawImage(image, 0, 0, RENDER_SIZE, RENDER_SIZE);
 
 			URL.revokeObjectURL(url);
 			resolve(canvas.toDataURL("image/png"));
