@@ -254,6 +254,10 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 					}
 
 					case HotkeyEvent.TAB_SWITCHER_FORWARD: {
+						if (!tabSwitcherVisible) {
+							trpc.tabs.hideAll.mutate();
+						}
+
 						setTabSwitcherVisible(true);
 						setTabSwitcherStep((prev) => prev + 1);
 
@@ -261,6 +265,10 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 					}
 
 					case HotkeyEvent.TAB_SWITCHER_BACKWARD: {
+						if (!tabSwitcherVisible) {
+							trpc.tabs.hideAll.mutate();
+						}
+
 						setTabSwitcherVisible(true);
 						setTabSwitcherStep((prev) => prev - 1);
 
@@ -268,7 +276,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 					}
 				}
 			},
-			[page],
+			[page, tabSwitcherVisible],
 		),
 	);
 
@@ -283,6 +291,8 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 	const handleTabSwitcherCancel = useCallback(() => {
 		setTabSwitcherVisible(false);
 		setTabSwitcherStep(0);
+
+		trpc.tabs.showActive.mutate();
 	}, []);
 
 	useEffect(() => {
