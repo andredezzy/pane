@@ -167,7 +167,7 @@ function ToolbarAddressProgress({ isLoading }: { isLoading: boolean }) {
 export const ToolbarAddress = forwardRef<
 	HTMLInputElement,
 	InputHTMLAttributes<HTMLInputElement> & { isLoading?: boolean }
->(({ className, isLoading, onFocus, ...props }, ref) => (
+>(({ className, isLoading, onFocus, onBlur, ...props }, ref) => (
 	<div className="relative flex flex-1 overflow-hidden rounded-[5px]">
 		<input
 			ref={ref}
@@ -179,6 +179,10 @@ export const ToolbarAddress = forwardRef<
 			onFocus={(e) => {
 				e.currentTarget.select();
 				onFocus?.(e);
+			}}
+			onBlur={(e) => {
+				window.getSelection()?.removeAllRanges();
+				onBlur?.(e);
 			}}
 			{...props}
 		/>
