@@ -2,14 +2,7 @@ import { PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@pane/ui/cn";
-import {
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuSeparator,
-	ContextMenuTrigger,
-} from "@pane/ui/components/context-menu";
-import { Pencil, Settings, Trash2, X } from "lucide-react";
+import { Settings, X } from "lucide-react";
 import {
 	Component,
 	type ErrorInfo,
@@ -135,90 +128,70 @@ function SidebarProfileItem({
 	const isRunning = profile.tabs.length > 0;
 
 	return (
-		<ContextMenu>
-			<ContextMenuTrigger asChild>
-				<ProfileItem ref={ref} style={{ opacity: isDragSource ? 0.4 : 1 }}>
-					<ProfileHeader
-						ref={handleRef}
-						color={profile.color}
-						active={isRunning}
-						onClick={handleToggle}
-					>
-						<ProfileName>{profile.name}</ProfileName>
+		<ProfileItem
+			ref={ref}
+			style={{ opacity: isDragSource ? 0.4 : 1 }}
+			onContextMenu={(event) => {
+				event.preventDefault();
+				trpc.ui.profileContextMenu.mutate({ profileId: profile.id });
+			}}
+		>
+			<ProfileHeader
+				ref={handleRef}
+				color={profile.color}
+				active={isRunning}
+				onClick={handleToggle}
+			>
+				<ProfileName>{profile.name}</ProfileName>
 
-						{!expanded && isRunning ? (
-							<ProfileBadge>{profile.tabs.length}</ProfileBadge>
-						) : null}
-					</ProfileHeader>
+				{!expanded && isRunning ? (
+					<ProfileBadge>{profile.tabs.length}</ProfileBadge>
+				) : null}
+			</ProfileHeader>
 
-					{expanded ? (
-						<DragDropProvider
-							sensors={SENSORS}
-							modifiers={[RestrictToVerticalAxis]}
-							onDragEnd={(event) => {
-								if (event.canceled) {
-									return;
-								}
+			{expanded ? (
+				<DragDropProvider
+					sensors={SENSORS}
+					modifiers={[RestrictToVerticalAxis]}
+					onDragEnd={(event) => {
+						if (event.canceled) {
+							return;
+						}
 
-								const { source } = event.operation;
+						const { source } = event.operation;
 
-								if (isSortable(source)) {
-									if (source.initialIndex !== source.index) {
-										profileStore
-											.getState()
-											.reorderTabs(
-												profile.id,
-												source.initialIndex,
-												source.index,
-											);
-									}
-								}
+						if (isSortable(source)) {
+							if (source.initialIndex !== source.index) {
+								profileStore
+									.getState()
+									.reorderTabs(profile.id, source.initialIndex, source.index);
+							}
+						}
+					}}
+				>
+					<ProfileTabs>
+						{profile.tabs.map((tab, index) => (
+							<SortableTab key={tab.id} tab={tab} index={index} />
+						))}
+						<TabNew
+							onClick={() => {
+								navigationStore.getState().navigate(Page.BROWSER);
+								trpc.tabs.open.mutate({ profileId: profile.id });
 							}}
-						>
-							<ProfileTabs>
-								{profile.tabs.map((tab, index) => (
-									<SortableTab key={tab.id} tab={tab} index={index} />
-								))}
-								<TabNew
-									onClick={() => {
-										navigationStore.getState().navigate(Page.BROWSER);
-										trpc.tabs.open.mutate({ profileId: profile.id });
-									}}
-								/>
-							</ProfileTabs>
+						/>
+					</ProfileTabs>
 
-							<DragOverlay>
-								{(source) => (
-									<TabDragOverlay
-										tabId={String(source.id)}
-										profileId={profile.id}
-									/>
-								)}
-							</DragOverlay>
-						</DragDropProvider>
-					) : null}
-				</ProfileItem>
-			</ContextMenuTrigger>
-
-			<ContextMenuContent>
-				<ContextMenuItem
-					onClick={() => surface.open(ProfileSheet, { profileId: profile.id })}
-				>
-					<Pencil className="mr-2 h-3.5 w-3.5" />
-					Edit profile
-				</ContextMenuItem>
-
-				<ContextMenuSeparator />
-
-				<ContextMenuItem
-					className="text-red-400 focus:text-red-400"
-					onClick={() => trpc.profiles.remove.mutate({ profileId: profile.id })}
-				>
-					<Trash2 className="mr-2 h-3.5 w-3.5" />
-					Delete profile
-				</ContextMenuItem>
-			</ContextMenuContent>
-		</ContextMenu>
+					<DragOverlay>
+						{(source) => (
+							<TabDragOverlay
+								tabId={String(source.id)}
+								profileId={profile.id}
+							/>
+						)}
+					</DragOverlay>
+				</DragDropProvider>
+			) : null}
+		</ProfileItem>
 	);
 }
 
