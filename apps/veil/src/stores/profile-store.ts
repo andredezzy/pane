@@ -75,6 +75,8 @@ interface ProfileState {
 	openTab: (profileId: string, tabId: string, url: string) => void;
 	closeTab: (profileId: string, tabId: string) => void;
 	updateTab: (profileId: string, tabId: string, partial: Partial<Tab>) => void;
+	reorderProfiles: (fromIndex: number, toIndex: number) => void;
+	reorderTabs: (profileId: string, fromIndex: number, toIndex: number) => void;
 }
 
 export const profileStore = createStore<ProfileState>()(
@@ -156,6 +158,30 @@ export const profileStore = createStore<ProfileState>()(
 									}
 								: profile,
 						),
+					}));
+				},
+
+				reorderProfiles: (fromIndex, toIndex) => {
+					set((state) => {
+						const profiles = [...state.profiles];
+						const [moved] = profiles.splice(fromIndex, 1);
+						profiles.splice(toIndex, 0, moved);
+
+						return { profiles };
+					});
+				},
+
+				reorderTabs: (profileId, fromIndex, toIndex) => {
+					set((state) => ({
+						profiles: state.profiles.map((profile) => {
+							if (profile.id !== profileId) return profile;
+
+							const tabs = [...profile.tabs];
+							const [moved] = tabs.splice(fromIndex, 1);
+							tabs.splice(toIndex, 0, moved);
+
+							return { ...profile, tabs };
+						}),
 					}));
 				},
 			}),
