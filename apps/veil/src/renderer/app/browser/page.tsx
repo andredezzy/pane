@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useStore } from "zustand/react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -23,7 +23,11 @@ import {
 	ToolbarProfile,
 } from "./_components/toolbar";
 
-function BrowserToolbar() {
+function BrowserToolbar({
+	addressBarRef,
+}: {
+	addressBarRef: React.RefObject<HTMLInputElement | null>;
+}) {
 	const { activeTabId, activeProfileId } = useStore(
 		tabStore,
 		useShallow((state) => ({
@@ -65,9 +69,18 @@ function BrowserToolbar() {
 
 		if (inputValue.trim()) {
 			trpc.tabs.navigate.mutate({ url: inputValue.trim() });
-			(document.activeElement as HTMLElement)?.blur();
+			addressBarRef.current?.blur();
 		}
 	};
+
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent<HTMLInputElement>) => {
+			if (e.key === "Escape") {
+				addressBarRef.current?.blur();
+			}
+		},
+		[addressBarRef],
+	);
 
 	if (!activeTabId) {
 		return null;
@@ -90,6 +103,7 @@ function BrowserToolbar() {
 
 			<form onSubmit={handleSubmit} className="flex flex-1">
 				<ToolbarAddress
+					ref={addressBarRef}
 					isLoading={isLoading}
 					value={displayUrl}
 					onChange={(e) => setInputValue(e.target.value)}
@@ -98,6 +112,7 @@ function BrowserToolbar() {
 						setIsFocused(true);
 					}}
 					onBlur={() => setIsFocused(false)}
+					onKeyDown={handleKeyDown}
 					placeholder="Search or enter URL"
 				/>
 			</form>
@@ -115,12 +130,16 @@ function BrowserToolbar() {
 	);
 }
 
-export function BrowserPage() {
+export function BrowserPage({
+	addressBarRef,
+}: {
+	addressBarRef: React.RefObject<HTMLInputElement | null>;
+}) {
 	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
 
 	return (
 		<>
-			{activeTabId ? <BrowserToolbar /> : null}
+			{activeTabId ? <BrowserToolbar addressBarRef={addressBarRef} /> : null}
 			{!activeTabId ? <EmptyState /> : null}
 		</>
 	);
