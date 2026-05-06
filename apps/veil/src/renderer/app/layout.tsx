@@ -131,7 +131,6 @@ function SidebarProfileItem({
 		<ProfileItem ref={ref} style={{ opacity: isDragSource ? 0.4 : 1 }}>
 			<ProfileHeader
 				ref={handleRef}
-				className="cursor-grab"
 				color={profile.color}
 				active={isRunning}
 				onClick={handleToggle}
@@ -207,7 +206,6 @@ function SortableTab({ tab, index }: { tab: Tab; index: number }) {
 	return (
 		<TabItem
 			ref={ref}
-			className="cursor-grab"
 			active={activeTabId === tab.id && page === Page.BROWSER}
 			style={{ opacity: isDragSource ? 0.4 : 1 }}
 			onClick={() => {
