@@ -39,7 +39,8 @@ import {
 } from "../../stores/profile-store";
 import { ColorPicker } from "../components/color-picker";
 import { DEFAULT_FINGERPRINTS } from "../components/default-fingerprints";
-import { SHEET_ANIMATION_MS } from "../constants";
+
+const SHEET_ANIMATION_MS = 200;
 
 const formSchema = z.object({
 	name: z.string().min(1, "Profile name is required"),
