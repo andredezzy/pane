@@ -26,6 +26,7 @@ import { securityStore } from "../stores/security-store";
 import { settingsStore } from "../stores/settings-store";
 import { tabStore } from "../stores/tab-store";
 import { ExtensionInstaller } from "./extension-installer";
+import { HotkeyEmitter } from "./hotkey-emitter";
 import { Pane } from "./pane";
 import { createIPCHandler } from "./trpc/ipc";
 import { appRouter } from "./trpc/router";
@@ -47,11 +48,14 @@ function setup() {
 
 	ElectronChromeExtensions.handleCRXProtocol(session.defaultSession);
 
-	createMenu(appWindow.chrome, () => currentPane.getActiveTabContents());
+	const hotkeyEmitter = new HotkeyEmitter();
+
+	createMenu(appWindow.chrome, currentPane, hotkeyEmitter);
 
 	const createContext = () => ({
 		pane: currentPane,
 		surface: appWindow?.surface as BrowserWindow,
+		hotkeyEmitter,
 		stores: {
 			"profile-store": profileStore,
 			"tab-store": tabStore,

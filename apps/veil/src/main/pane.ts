@@ -12,6 +12,7 @@ import { Profile } from "./profile/profile";
 export class Pane {
 	readonly extensions: ExtensionInstaller;
 	readonly profiles = new Map<string, Profile>();
+	readonly tabStore = tabStore;
 	private readonly extensionsPath: string;
 	private readonly tabIndex = new Map<string, string>();
 	private readonly unsubscribeNavigation: () => void;
@@ -166,5 +167,35 @@ export class Pane {
 		for (const profile of this.profiles.values()) {
 			profile.tabs.resizeAll();
 		}
+	}
+
+	navigateToBrowser(): void {
+		navigationStore.getState().navigate(Page.BROWSER);
+	}
+
+	switchToTabByIndex(index: number): void {
+		const { activeProfileId } = tabStore.getState();
+
+		if (!activeProfileId) {
+			return;
+		}
+
+		const profile = profileStore
+			.getState()
+			.profiles.find((profile) => profile.id === activeProfileId);
+
+		if (!profile) {
+			return;
+		}
+
+		const tab = profile.tabs[index];
+
+		if (!tab) {
+			return;
+		}
+
+		this.hideAllTabs();
+		this.getOrCreateProfile(activeProfileId).tabs.activate(tab.id);
+		this.navigateToBrowser();
 	}
 }
