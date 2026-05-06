@@ -354,7 +354,11 @@ export class ProfileTabs {
 			profileStore.getState().updateTab(profileId, tabId, { url });
 		});
 
-		view.webContents.on("did-navigate-in-page", (_e, url) => {
+		view.webContents.on("did-navigate-in-page", (_e, url, isMainFrame) => {
+			if (!isMainFrame) {
+				return;
+			}
+
 			if (this.retryGoogleLogin(view, url, googleRetries)) {
 				return;
 			}
