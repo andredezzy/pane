@@ -7,6 +7,9 @@ import {
 	nativeImage,
 	WebContentsView,
 } from "electron";
+import type { HotkeyEmitter } from "./hotkey-emitter";
+import { HotkeyEvent } from "./hotkey-emitter";
+import type { Pane } from "./pane";
 
 export interface AppWindow {
 	mainWindow: BaseWindow;
@@ -107,15 +110,67 @@ export function createAppWindow(): AppWindow {
 
 export function createMenu(
 	chrome: WebContentsView,
-	getActiveTabContents?: () => Electron.WebContents | undefined,
+	pane: Pane,
+	hotkeyEmitter: HotkeyEmitter,
 ): void {
 	const menu = Menu.buildFromTemplate([
 		{ role: "appMenu" },
-		{ role: "fileMenu" },
+		{
+			label: "File",
+			submenu: [
+				{
+					label: "New tab",
+					accelerator: "CommandOrControl+T",
+					click: () => {
+						const { activeProfileId } = pane.tabStore.getState();
+
+						if (activeProfileId) {
+							pane.hideAllTabs();
+							pane.getOrCreateProfile(activeProfileId).tabs.open();
+							pane.navigateToBrowser();
+						}
+					},
+				},
+				{
+					label: "Close tab",
+					accelerator: "CommandOrControl+W",
+					click: () => {
+						const { activeTabId } = pane.tabStore.getState();
+
+						if (activeTabId) {
+							pane.getProfileForTab(activeTabId)?.tabs.close(activeTabId);
+						}
+					},
+				},
+				{
+					label: "Reopen closed tab",
+					accelerator: "CommandOrControl+Shift+T",
+					click: () => {
+						const closedTab = pane.tabStore.getState().popClosedTab();
+
+						if (closedTab) {
+							pane.hideAllTabs();
+							pane
+								.getOrCreateProfile(closedTab.profileId)
+								.tabs.open(closedTab.url);
+							pane.navigateToBrowser();
+						}
+					},
+				},
+				{ type: "separator" },
+				{ role: "close" },
+			],
+		},
 		{ role: "editMenu" },
 		{
 			label: "View",
 			submenu: [
+				{
+					label: "Reload tab",
+					accelerator: "CommandOrControl+R",
+					click: () => pane.getActiveTabContents()?.reload(),
+				},
+				{ type: "separator" },
 				{
 					label: "Toggle developer tools",
 					accelerator: "CommandOrControl+Option+I",
@@ -125,15 +180,58 @@ export function createMenu(
 					label: "Toggle page developer tools",
 					accelerator: "CommandOrControl+Shift+I",
 					click: () =>
-						getActiveTabContents?.()?.openDevTools({ mode: "detach" }),
+						pane.getActiveTabContents()?.openDevTools({ mode: "detach" }),
 				},
-				{ role: "reload", click: () => chrome.webContents.reload() },
 				{ type: "separator" },
 				{ role: "resetZoom" },
 				{ role: "zoomIn" },
 				{ role: "zoomOut" },
 				{ type: "separator" },
 				{ role: "togglefullscreen" },
+			],
+		},
+		{
+			label: "Navigate",
+			submenu: [
+				{
+					label: "Back",
+					accelerator: "CommandOrControl+[",
+					click: () => pane.getActiveTabContents()?.goBack(),
+				},
+				{
+					label: "Forward",
+					accelerator: "CommandOrControl+]",
+					click: () => pane.getActiveTabContents()?.goForward(),
+				},
+				{ type: "separator" },
+				{
+					label: "Focus address bar",
+					accelerator: "CommandOrControl+L",
+					click: () => hotkeyEmitter.emitHotkey(HotkeyEvent.FOCUS_ADDRESS_BAR),
+				},
+			],
+		},
+		{
+			label: "Tab",
+			submenu: [
+				{
+					label: "Next tab (MRU)",
+					accelerator: "Control+Tab",
+					click: () =>
+						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_FORWARD),
+				},
+				{
+					label: "Previous tab (MRU)",
+					accelerator: "Control+Shift+Tab",
+					click: () =>
+						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_BACKWARD),
+				},
+				{ type: "separator" },
+				...Array.from({ length: 9 }, (_, index) => ({
+					label: `Tab ${index + 1}`,
+					accelerator: `CommandOrControl+${index + 1}`,
+					click: () => pane.switchToTabByIndex(index),
+				})),
 			],
 		},
 		{ role: "windowMenu" },
