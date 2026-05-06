@@ -84,12 +84,16 @@ export function createAppWindow(): AppWindow {
 		chrome.webContents.focus();
 	});
 
+	const bounds = mainWindow.getBounds();
+
 	const surface = new BrowserWindow({
 		parent: mainWindow,
 		frame: false,
 		transparent: true,
 		hasShadow: false,
 		show: false,
+		x: bounds.x,
+		y: bounds.y,
 		width,
 		height,
 		backgroundColor: "#00000000",

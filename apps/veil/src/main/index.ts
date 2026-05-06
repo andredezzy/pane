@@ -75,12 +75,18 @@ function setup() {
 
 	function syncBounds() {
 		const [w, h] = win?.mainWindow.getContentSize() ?? [0, 0];
+		const bounds = win?.mainWindow.getBounds();
 		win?.chrome.setBounds({ x: 0, y: 0, width: w, height: h });
-		win?.surface.setSize(w, h);
+
+		if (bounds) {
+			win?.surface.setBounds(bounds);
+		}
+
 		pane?.resizeAllTabs();
 	}
 
 	win.mainWindow.on("resized", syncBounds);
+	win.mainWindow.on("moved", syncBounds);
 	win.mainWindow.on("maximize", syncBounds);
 	win.mainWindow.on("unmaximize", syncBounds);
 	win.mainWindow.on("enter-full-screen", syncBounds);
