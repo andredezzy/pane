@@ -98,7 +98,11 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				: pinLength;
 
 	const autoSubmitLength =
-		step === Step.ENTER ? null : step === Step.CONFIRM ? firstPin.length : pinLength;
+		step === Step.ENTER
+			? null
+			: step === Step.CONFIRM
+				? firstPin.length
+				: pinLength;
 
 	const shakeAndClear = useCallback((errorMsg?: string) => {
 		if (errorMsg) {
@@ -106,6 +110,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 		}
 
 		setShake(true);
+
 		shakeTimerRef.current = setTimeout(() => {
 			setShake(false);
 			setEntered("");
@@ -194,7 +199,14 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				}
 			}
 		},
-		[entered, checking, autoSubmitLength, step, handleVerifyResult, handleConfirmResult],
+		[
+			entered,
+			checking,
+			autoSubmitLength,
+			step,
+			handleVerifyResult,
+			handleConfirmResult,
+		],
 	);
 
 	const handleBackspace = useCallback(() => {
@@ -220,7 +232,10 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				)}
 			</div>
 
-			<div className="flex flex-col items-center justify-center gap-7" style={noDrag}>
+			<div
+				className="flex flex-col items-center justify-center gap-7"
+				style={noDrag}
+			>
 				{title && (
 					<p className="text-[13px] font-light text-white/50">{title}</p>
 				)}

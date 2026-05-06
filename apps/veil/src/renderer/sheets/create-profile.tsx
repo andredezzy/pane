@@ -197,11 +197,19 @@ export function CreateProfileSheet({ onClose }: Props) {
 									<FormItem>
 										<FormLabel className="text-[11px]">Platform</FormLabel>
 										<div className="flex gap-1">
-											{([Platform.WINDOWS, Platform.MACOS, Platform.LINUX] as const).map((platform) => (
+											{(
+												[
+													Platform.WINDOWS,
+													Platform.MACOS,
+													Platform.LINUX,
+												] as const
+											).map((platform) => (
 												<Button
 													key={platform}
 													type="button"
-													variant={field.value === platform ? "default" : "outline"}
+													variant={
+														field.value === platform ? "default" : "outline"
+													}
 													className="h-8 flex-1 text-[11px] capitalize"
 													onClick={() => field.onChange(platform)}
 												>
@@ -246,10 +254,18 @@ export function CreateProfileSheet({ onClose }: Props) {
 															</SelectTrigger>
 														</FormControl>
 														<SelectContent>
-															<SelectItem value={ProxyType.HTTP}>HTTP</SelectItem>
-															<SelectItem value={ProxyType.HTTPS}>HTTPS</SelectItem>
-															<SelectItem value={ProxyType.SOCKS4}>SOCKS4</SelectItem>
-															<SelectItem value={ProxyType.SOCKS5}>SOCKS5</SelectItem>
+															<SelectItem value={ProxyType.HTTP}>
+																HTTP
+															</SelectItem>
+															<SelectItem value={ProxyType.HTTPS}>
+																HTTPS
+															</SelectItem>
+															<SelectItem value={ProxyType.SOCKS4}>
+																SOCKS4
+															</SelectItem>
+															<SelectItem value={ProxyType.SOCKS5}>
+																SOCKS5
+															</SelectItem>
 														</SelectContent>
 													</Select>
 												</FormItem>

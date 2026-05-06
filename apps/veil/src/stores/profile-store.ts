@@ -135,7 +135,10 @@ export const profileStore = createStore<ProfileState>()(
 					set((state) => ({
 						profiles: state.profiles.map((profile) =>
 							profile.id === profileId
-								? { ...profile, tabs: profile.tabs.filter((tab) => tab.id !== tabId) }
+								? {
+										...profile,
+										tabs: profile.tabs.filter((tab) => tab.id !== tabId),
+									}
 								: profile,
 						),
 					}));

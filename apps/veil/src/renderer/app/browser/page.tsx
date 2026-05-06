@@ -37,7 +37,9 @@ function BrowserToolbar() {
 	const profiles = useStore(profileStore, (state) => state.profiles);
 	const extensions = useStore(extensionStore, (state) => state.extensions);
 
-	const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
+	const activeProfile = profiles.find(
+		(profile) => profile.id === activeProfileId,
+	);
 	const activeTab = activeProfile?.tabs.find((tab) => tab.id === activeTabId);
 
 	const activeUrl = activeTab?.url ?? "";

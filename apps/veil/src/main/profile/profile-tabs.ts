@@ -5,7 +5,11 @@ import {
 	SIDEBAR_WIDTH,
 	TOOLBAR_HEIGHT,
 } from "../../constants/layout";
-import { type BrowserProfile, Platform, profileStore } from "../../stores/profile-store";
+import {
+	type BrowserProfile,
+	Platform,
+	profileStore,
+} from "../../stores/profile-store";
 import { tabStore } from "../../stores/tab-store";
 
 export interface TabHost {
@@ -231,7 +235,8 @@ export class ProfileTabs {
 		fingerprint: BrowserProfile["fingerprint"],
 	): void {
 		webContents.setUserAgent(
-			ProfileTabs.FIREFOX_UA[fingerprint.platform] ?? ProfileTabs.FIREFOX_UA[Platform.MACOS],
+			ProfileTabs.FIREFOX_UA[fingerprint.platform] ??
+				ProfileTabs.FIREFOX_UA[Platform.MACOS],
 		);
 
 		webContents.on("dom-ready", () => {
@@ -241,7 +246,10 @@ export class ProfileTabs {
 
 			const pageUrl = webContents.getURL();
 
-			if (pageUrl.startsWith("chrome-extension:") || pageUrl.startsWith("chrome:")) {
+			if (
+				pageUrl.startsWith("chrome-extension:") ||
+				pageUrl.startsWith("chrome:")
+			) {
 				return;
 			}
 

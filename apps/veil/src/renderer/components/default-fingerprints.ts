@@ -1,4 +1,4 @@
-import { Platform, type Fingerprint } from "../../stores/profile-store";
+import { type Fingerprint, Platform } from "../../stores/profile-store";
 
 export const DEFAULT_FINGERPRINTS: Record<Platform, Fingerprint> = {
 	[Platform.WINDOWS]: {

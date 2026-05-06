@@ -74,7 +74,9 @@ export class Profile implements TabHost {
 			const p = profileData.proxy;
 
 			this.session
-				.setProxy({ proxyRules: `${p.proxyType.toLowerCase()}://${p.host}:${p.port}` })
+				.setProxy({
+					proxyRules: `${p.proxyType.toLowerCase()}://${p.host}:${p.port}`,
+				})
 				.catch((error) => {
 					console.error(`[Profile ${id}] Proxy failed to apply:`, error);
 				});

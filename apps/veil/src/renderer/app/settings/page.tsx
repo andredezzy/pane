@@ -88,7 +88,9 @@ export function SettingsPage() {
 		try {
 			await trpc.cws.uninstall.mutate({ extensionId: uninstallTarget.id });
 
-			setExtensions((prev) => prev.filter((extension) => extension.id !== uninstallTarget.id));
+			setExtensions((prev) =>
+				prev.filter((extension) => extension.id !== uninstallTarget.id),
+			);
 
 			setUninstallTarget(null);
 		} catch {}

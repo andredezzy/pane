@@ -1,7 +1,20 @@
 import { cn } from "@pane/ui/cn";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "backspace"] as const;
+const DIGITS = [
+	"1",
+	"2",
+	"3",
+	"4",
+	"5",
+	"6",
+	"7",
+	"8",
+	"9",
+	"",
+	"0",
+	"backspace",
+] as const;
 
 function BackspaceIcon() {
 	return (
@@ -32,17 +45,13 @@ export function NumpadDots({
 	shake: boolean;
 }) {
 	return (
-		<div
-			className={cn("flex gap-3.5", shake && "animate-shake")}
-		>
+		<div className={cn("flex gap-3.5", shake && "animate-shake")}>
 			{Array.from({ length }, (_, i) => (
 				<div
 					key={i}
 					className={cn(
 						"h-[13px] w-[13px] rounded-full transition-all duration-150",
-						i < filled
-							? "bg-white"
-							: "border-[1.5px] border-white/25",
+						i < filled ? "bg-white" : "border-[1.5px] border-white/25",
 					)}
 				/>
 			))}

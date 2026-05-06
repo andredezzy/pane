@@ -42,7 +42,11 @@ export function ToolbarNavigationBack({
 	...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
 	return (
-		<button type="button" className={cn(navigationButtonClassName, className)} {...props}>
+		<button
+			type="button"
+			className={cn(navigationButtonClassName, className)}
+			{...props}
+		>
 			<ArrowLeft className="h-3.5 w-3.5" />
 		</button>
 	);
@@ -53,7 +57,11 @@ export function ToolbarNavigationForward({
 	...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
 	return (
-		<button type="button" className={cn(navigationButtonClassName, className)} {...props}>
+		<button
+			type="button"
+			className={cn(navigationButtonClassName, className)}
+			{...props}
+		>
 			<ArrowRight className="h-3.5 w-3.5" />
 		</button>
 	);
@@ -65,7 +73,11 @@ export function ToolbarNavigationReload({
 	...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { isLoading?: boolean }) {
 	return (
-		<button type="button" className={cn(navigationButtonClassName, className)} {...props}>
+		<button
+			type="button"
+			className={cn(navigationButtonClassName, className)}
+			{...props}
+		>
 			{isLoading ? <X className="h-3 w-3" /> : <RotateCw className="h-3 w-3" />}
 		</button>
 	);
@@ -108,7 +120,10 @@ function ToolbarAddressProgress({ isLoading }: { isLoading: boolean }) {
 	useEffect(() => {
 		if (isLoading && phase === ProgressPhase.IDLE) {
 			setPhase(ProgressPhase.STARTING);
-		} else if (!isLoading && (phase === ProgressPhase.GROWING || phase === ProgressPhase.STARTING)) {
+		} else if (
+			!isLoading &&
+			(phase === ProgressPhase.GROWING || phase === ProgressPhase.STARTING)
+		) {
 			setPhase(ProgressPhase.COMPLETING);
 		}
 	}, [isLoading, phase]);
@@ -138,7 +153,10 @@ function ToolbarAddressProgress({ isLoading }: { isLoading: boolean }) {
 				transition: getProgressTransition(phase),
 			}}
 			onTransitionEnd={(e) => {
-				if (e.propertyName === "opacity" && phase === ProgressPhase.COMPLETING) {
+				if (
+					e.propertyName === "opacity" &&
+					phase === ProgressPhase.COMPLETING
+				) {
 					setPhase(ProgressPhase.IDLE);
 				}
 			}}

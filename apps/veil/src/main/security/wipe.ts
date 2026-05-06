@@ -52,6 +52,7 @@ export function executeWipe(): void {
 			"Partitions",
 			`persist_profile-${profile.id}`,
 		);
+
 		overwriteDirectory(partitionPath);
 
 		try {

@@ -121,11 +121,11 @@ function SidebarProfileItem({
 				active={isRunning}
 				onClick={handleToggle}
 			>
-        <ProfileName>{profile.name}</ProfileName>
+				<ProfileName>{profile.name}</ProfileName>
 
 				{!expanded && isRunning ? (
 					<ProfileBadge>{profile.tabs.length}</ProfileBadge>
-        ) : null}
+				) : null}
 
 				<div className="w-0 shrink-0 transition-[width] duration-150 group-hover:w-3">
 					<Trash2
@@ -202,15 +202,21 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 	}, []);
 
 	const page = useStore(navigationStore, (state) => state.page);
+
 	const { isLocked, pinScreenMode } = useStore(
 		securityStore,
-		useShallow((state) => ({ isLocked: state.isLocked, pinScreenMode: state.pinScreenMode })),
+		useShallow((state) => ({
+			isLocked: state.isLocked,
+			pinScreenMode: state.pinScreenMode,
+		})),
 	);
 
 	const showPinScreen = isLocked || pinScreenMode !== null;
+
 	const [pinPhase, setPinPhase] = useState(
 		showPinScreen ? PinScreenPhase.ANIMATING_IN : PinScreenPhase.HIDDEN,
 	);
+
 	const lastModeRef = useRef<PinScreenMode | null>(null);
 
 	if (showPinScreen) {

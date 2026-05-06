@@ -3,6 +3,7 @@ import type { StateStorage } from "zustand/middleware";
 const isMain = typeof window === "undefined";
 
 type Fs = typeof import("node:fs");
+
 type Path = typeof import("node:path");
 
 let _fs: Fs | undefined;

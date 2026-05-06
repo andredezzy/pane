@@ -123,7 +123,9 @@ export class Pane {
 			];
 
 			this.extensions.getInstalled().then((installed) => {
-				const installedIds = new Set(installed.map((extension) => extension.id));
+				const installedIds = new Set(
+					installed.map((extension) => extension.id),
+				);
 				for (const id of devExtensions) {
 					if (!installedIds.has(id)) {
 						this.extensions

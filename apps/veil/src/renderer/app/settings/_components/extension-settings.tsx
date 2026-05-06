@@ -51,7 +51,8 @@ const installSchema = z.object({
 		.string()
 		.min(1, "Enter a Chrome Web Store URL or extension ID")
 		.refine(
-			(value) => EXTENSION_ID_PATTERN.test(value) || CWS_URL_PATTERN.test(value),
+			(value) =>
+				EXTENSION_ID_PATTERN.test(value) || CWS_URL_PATTERN.test(value),
 			"Enter a valid Chrome Web Store URL or extension ID",
 		),
 });
