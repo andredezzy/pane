@@ -69,6 +69,7 @@ interface ProfileState {
 	profiles: BrowserProfile[];
 
 	create: (input: CreateInput) => string;
+	update: (id: string, input: Partial<CreateInput>) => void;
 	remove: (id: string) => void;
 	openTab: (profileId: string, tabId: string, url: string) => void;
 	closeTab: (profileId: string, tabId: string) => void;
@@ -101,6 +102,20 @@ export const profileStore = createStore<ProfileState>()(
 					}));
 
 					return id;
+				},
+
+				update: (id, input) => {
+					set((state) => ({
+						profiles: state.profiles.map((profile) =>
+							profile.id === id
+								? {
+										...profile,
+										...input,
+										updatedAt: new Date().toISOString(),
+									}
+								: profile,
+						),
+					}));
 				},
 
 				remove: (id) => {
