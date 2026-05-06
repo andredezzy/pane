@@ -171,7 +171,7 @@ const ContextMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => (
 	<span
 		className={cn(
-			"ml-auto text-xs tracking-widest text-muted-foreground",
+			"ml-auto text-muted-foreground text-xs tracking-widest",
 			className,
 		)}
 		{...props}

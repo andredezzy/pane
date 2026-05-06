@@ -2,6 +2,13 @@ import { PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@pane/ui/cn";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuSeparator,
+	ContextMenuTrigger,
+} from "@pane/ui/components/context-menu";
 import { Pencil, Settings, Trash2, X } from "lucide-react";
 import {
 	Component,
@@ -44,13 +51,6 @@ import {
 } from "../components/sidebar/tab-item";
 import { HotkeyEvent, useHotkeyEvents } from "../hooks/use-hotkey-events";
 import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
-import {
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuSeparator,
-	ContextMenuTrigger,
-} from "@pane/ui/components/context-menu";
 import { ProfileSheet } from "../sheets/profile-sheet";
 import { surface } from "../surface";
 import { trpc } from "../trpc";
@@ -166,7 +166,11 @@ function SidebarProfileItem({
 									if (source.initialIndex !== source.index) {
 										profileStore
 											.getState()
-											.reorderTabs(profile.id, source.initialIndex, source.index);
+											.reorderTabs(
+												profile.id,
+												source.initialIndex,
+												source.index,
+											);
 									}
 								}
 							}}
@@ -208,9 +212,7 @@ function SidebarProfileItem({
 
 				<ContextMenuItem
 					className="text-red-400 focus:text-red-400"
-					onClick={() =>
-						trpc.profiles.remove.mutate({ profileId: profile.id })
-					}
+					onClick={() => trpc.profiles.remove.mutate({ profileId: profile.id })}
 				>
 					<Trash2 className="mr-2 h-3.5 w-3.5" />
 					Delete profile

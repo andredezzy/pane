@@ -176,9 +176,7 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 		<Sheet open={open} onOpenChange={(open) => !open && close()}>
 			<SheetContent>
 				<SheetHeader>
-					<SheetTitle>
-						{isEditing ? "Edit profile" : "New profile"}
-					</SheetTitle>
+					<SheetTitle>{isEditing ? "Edit profile" : "New profile"}</SheetTitle>
 					<button
 						type="button"
 						onClick={close}
@@ -396,9 +394,7 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 							>
 								Cancel
 							</Button>
-							<Button type="submit">
-								{isEditing ? "Save" : "Create"}
-							</Button>
+							<Button type="submit">{isEditing ? "Save" : "Create"}</Button>
 						</SheetFooter>
 					</form>
 				</Form>

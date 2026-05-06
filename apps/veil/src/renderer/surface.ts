@@ -1,11 +1,13 @@
 import type { ComponentProps, ComponentType } from "react";
 import { trpc } from "./trpc";
 
+// biome-ignore lint/suspicious/noExplicitAny: generic component constraint
 type SurfaceProps<C extends ComponentType<any>> = Omit<
 	ComponentProps<C>,
 	"onClose"
 >;
 
+// biome-ignore lint/suspicious/noExplicitAny: generic component constraint
 type SurfaceArgs<C extends ComponentType<any>> =
 	keyof SurfaceProps<C> extends never
 		? []
