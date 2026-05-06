@@ -1,5 +1,6 @@
 import { cwsRouter } from "./routers/cws";
 import { extensionsRouter } from "./routers/extensions";
+import { hotkeysRouter } from "./routers/hotkeys";
 import { profilesRouter } from "./routers/profiles";
 import { securityRouter } from "./routers/security";
 import { settingsRouter } from "./routers/settings";
@@ -17,6 +18,7 @@ export const appRouter = router({
 	cws: cwsRouter,
 	stores: storesRouter,
 	ui: uiRouter,
+	hotkeys: hotkeysRouter,
 });
 
 export type AppRouter = typeof appRouter;
