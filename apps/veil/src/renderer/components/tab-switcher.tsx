@@ -123,7 +123,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 			{/* biome-ignore lint/a11y: backdrop dismiss, Escape handled via keydown listener */}
 			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-			<div className="relative w-[320px] rounded-xl border border-white/10 bg-[#1a1a1e] p-1.5 shadow-2xl">
+			<div className="relative w-[320px] space-y-1 rounded-xl border border-white/10 bg-[#1a1a1e] p-1.5 shadow-2xl">
 				{tabs.map((tab, index) => (
 					<button
 						type="button"
@@ -132,7 +132,8 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 							"flex w-full items-center gap-2.5 rounded-lg px-3 py-2 transition-colors hover:bg-white/5",
 							index === selectedIndex && "bg-white/10",
 						)}
-						onClick={() => confirm(index)}
+						onMouseDown={() => confirm(index)}
+						onMouseEnter={() => setSelectedIndex(index)}
 					>
 						<div
 							className="h-2 w-2 shrink-0 rounded-full"
