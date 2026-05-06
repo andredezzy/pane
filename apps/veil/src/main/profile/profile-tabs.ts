@@ -129,6 +129,20 @@ export class ProfileTabs {
 		}
 	}
 
+	unloadAll(): void {
+		const views = [...this.views.entries()];
+		this.views.clear();
+
+		for (const [tabId, view] of views) {
+			tabStore.getState().setLoading(tabId, false);
+
+			try {
+				this.mainWindow.contentView.removeChildView(view);
+				view.webContents.close();
+			} catch {}
+		}
+	}
+
 	destroyAll(): void {
 		for (const view of this.views.values()) {
 			try {

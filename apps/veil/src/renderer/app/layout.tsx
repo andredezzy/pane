@@ -112,12 +112,19 @@ function SidebarProfileItem({
 		state.profiles.find((profile) => profile.id === id),
 	);
 
+	const isActiveProfile = useStore(
+		tabStore,
+		(state) => state.activeProfileId === id,
+	);
+
 	const { ref, handleRef, isDragSource } = useSortable({ id, index });
 
 	const handleToggle = useCallback(() => {
 		onToggle(id);
 
-		if (!expanded) {
+		if (expanded) {
+			trpc.profiles.unload.mutate({ profileId: id });
+		} else {
 			trpc.profiles.load.mutate({ profileId: id });
 		}
 	}, [id, expanded, onToggle]);
@@ -125,8 +132,6 @@ function SidebarProfileItem({
 	if (!profile) {
 		return null;
 	}
-
-	const isRunning = profile.tabs.length > 0;
 
 	return (
 		<ProfileItem
@@ -166,12 +171,12 @@ function SidebarProfileItem({
 			<ProfileHeader
 				ref={handleRef}
 				color={profile.color}
-				active={isRunning}
+				active={isActiveProfile}
 				onClick={handleToggle}
 			>
 				<ProfileName>{profile.name}</ProfileName>
 
-				{!expanded && isRunning ? (
+				{!expanded && profile.tabs.length > 0 ? (
 					<ProfileBadge>{profile.tabs.length}</ProfileBadge>
 				) : null}
 			</ProfileHeader>
@@ -282,6 +287,11 @@ function ProfileDragOverlay({ profileId }: { profileId: string }) {
 		state.profiles.find((p) => p.id === profileId),
 	);
 
+	const isActiveProfile = useStore(
+		tabStore,
+		(state) => state.activeProfileId === profileId,
+	);
+
 	if (!profile) {
 		return null;
 	}
@@ -291,7 +301,7 @@ function ProfileDragOverlay({ profileId }: { profileId: string }) {
 			<ProfileHeader
 				className="shadow-lg"
 				color={profile.color}
-				active={profile.tabs.length > 0}
+				active={isActiveProfile}
 			>
 				<ProfileName>{profile.name}</ProfileName>
 			</ProfileHeader>

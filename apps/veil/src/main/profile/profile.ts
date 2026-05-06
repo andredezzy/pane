@@ -16,6 +16,7 @@ export class Profile implements TabHost {
 	readonly ece: ElectronChromeExtensions;
 	readonly tabs: ProfileTabs;
 	readonly extensions: ExtensionRuntime;
+
 	constructor(
 		readonly id: string,
 		private readonly mainWindow: BaseWindow,

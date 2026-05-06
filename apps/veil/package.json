@@ -8,8 +8,8 @@
 		"dev": "electron-vite dev",
 		"build": "electron-vite build",
 		"typecheck": "tsc --noEmit",
-		"pack": "electron-builder --dir",
-		"dist": "electron-builder"
+		"pack": "rm -rf release && electron-builder --dir",
+		"dist": "rm -rf release && electron-builder"
 	},
 	"dependencies": {
 		"@dnd-kit/abstract": "0.4.0",
