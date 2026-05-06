@@ -1,10 +1,7 @@
-import { cn } from "@pane/ui/cn";
+import { PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
-import { useSortable, isSortable } from "@dnd-kit/react/sortable";
-import {
-	PointerSensor,
-	PointerActivationConstraints,
-} from "@dnd-kit/dom";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
+import { cn } from "@pane/ui/cn";
 import { Settings, Trash2, X } from "lucide-react";
 import {
 	Component,
@@ -17,13 +14,10 @@ import {
 } from "react";
 import { useStore } from "zustand/react";
 import { useShallow } from "zustand/react/shallow";
-import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
-
 import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore, type Tab } from "../../stores/profile-store";
 import { PinScreenMode, securityStore } from "../../stores/security-store";
 import { tabStore } from "../../stores/tab-store";
-
 import { ContentPanel } from "../components/content-panel";
 import {
 	ProfileBadge,
@@ -49,6 +43,7 @@ import {
 	TabTitle,
 } from "../components/sidebar/tab-item";
 import { HotkeyEvent, useHotkeyEvents } from "../hooks/use-hotkey-events";
+import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
 import { CreateProfileSheet } from "../sheets/create-profile";
 import { surface } from "../surface";
 import { trpc } from "../trpc";
@@ -162,7 +157,9 @@ function SidebarProfileItem({
 					sensors={SENSORS}
 					modifiers={[RestrictToVerticalAxis]}
 					onDragEnd={(event) => {
-						if (event.canceled) return;
+						if (event.canceled) {
+							return;
+						}
 
 						const { source } = event.operation;
 
@@ -170,23 +167,14 @@ function SidebarProfileItem({
 							if (source.initialIndex !== source.index) {
 								profileStore
 									.getState()
-									.reorderTabs(
-										profile.id,
-										source.initialIndex,
-										source.index,
-									);
+									.reorderTabs(profile.id, source.initialIndex, source.index);
 							}
 						}
 					}}
 				>
 					<ProfileTabs>
 						{profile.tabs.map((tab, index) => (
-							<SortableTab
-								key={tab.id}
-								tab={tab}
-								profileId={profile.id}
-								index={index}
-							/>
+							<SortableTab key={tab.id} tab={tab} index={index} />
 						))}
 						<TabNew
 							onClick={() => {
@@ -210,15 +198,7 @@ function SidebarProfileItem({
 	);
 }
 
-function SortableTab({
-	tab,
-	profileId,
-	index,
-}: {
-	tab: Tab;
-	profileId: string;
-	index: number;
-}) {
+function SortableTab({ tab, index }: { tab: Tab; index: number }) {
 	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
 	const page = useStore(navigationStore, (state) => state.page);
 	const { ref, isDragSource } = useSortable({ id: tab.id, index });
@@ -256,14 +236,17 @@ function TabDragOverlay({
 }) {
 	const tab = useStore(profileStore, (state) => {
 		const profile = state.profiles.find((p) => p.id === profileId);
+
 		return profile?.tabs.find((t) => t.id === tabId);
 	});
 
-	if (!tab) return null;
+	if (!tab) {
+		return null;
+	}
 
 	return (
 		<div className="w-[200px] scale-[1.02] cursor-grabbing">
-			<div className="flex w-full items-center gap-1.5 rounded-[5px] bg-[rgba(255,255,255,0.05)] px-2 py-1 text-[11px] text-[#e4e4e7] shadow-lg">
+			<div className="flex w-full items-center gap-1.5 rounded-[5px] bg-[rgba(255,255,255,0.05)] px-2 py-1 text-[#e4e4e7] text-[11px] shadow-lg">
 				<TabFavicon src={tab.favicon || undefined} />
 				<TabTitle>{tab.title || "Loading..."}</TabTitle>
 			</div>
@@ -276,7 +259,9 @@ function ProfileDragOverlay({ profileId }: { profileId: string }) {
 		state.profiles.find((p) => p.id === profileId),
 	);
 
-	if (!profile) return null;
+	if (!profile) {
+		return null;
+	}
 
 	return (
 		<div className="w-[200px] scale-[1.02] cursor-grabbing">
@@ -385,7 +370,9 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 						sensors={SENSORS}
 						modifiers={[RestrictToVerticalAxis]}
 						onDragEnd={(event) => {
-							if (event.canceled) return;
+							if (event.canceled) {
+								return;
+							}
 
 							const { source } = event.operation;
 
@@ -409,9 +396,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 						))}
 
 						<DragOverlay>
-							{(source) => (
-								<ProfileDragOverlay profileId={String(source.id)} />
-							)}
+							{(source) => <ProfileDragOverlay profileId={String(source.id)} />}
 						</DragOverlay>
 					</DragDropProvider>
 				</SidebarContent>

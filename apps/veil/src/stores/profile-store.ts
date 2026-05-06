@@ -174,7 +174,9 @@ export const profileStore = createStore<ProfileState>()(
 				reorderTabs: (profileId, fromIndex, toIndex) => {
 					set((state) => ({
 						profiles: state.profiles.map((profile) => {
-							if (profile.id !== profileId) return profile;
+							if (profile.id !== profileId) {
+								return profile;
+							}
 
 							const tabs = [...profile.tabs];
 							const [moved] = tabs.splice(fromIndex, 1);

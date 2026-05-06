@@ -4,10 +4,6 @@
   "workspaces": {
     "": {
       "name": "pane",
-      "dependencies": {
-        "@dnd-kit/helpers": "0.4.0",
-        "@dnd-kit/react": "0.4.0",
-      },
       "devDependencies": {
         "@biomejs/biome": "2.1.2",
         "@stylistic/eslint-plugin": "5.9.0",
