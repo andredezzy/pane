@@ -1,4 +1,4 @@
-import { Menu, nativeImage } from "electron";
+import { Menu, nativeImage, screen } from "electron";
 import { z } from "zod/v4";
 import { procedure, router } from "../trpc";
 
@@ -46,7 +46,13 @@ export const uiRouter = router({
 					let icon: Electron.NativeImage | undefined;
 
 					if (item.icon) {
-						icon = nativeImage.createFromDataURL(item.icon);
+						const scaleFactor = screen.getPrimaryDisplay().scaleFactor;
+						const base64 = item.icon.split(",")[1] ?? "";
+						const buffer = Buffer.from(base64, "base64");
+
+						icon = nativeImage.createFromBuffer(buffer, {
+							scaleFactor,
+						});
 
 						if (process.platform === "darwin") {
 							icon.setTemplateImage(true);
