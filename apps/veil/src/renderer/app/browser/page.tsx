@@ -40,6 +40,7 @@ function BrowserToolbar() {
 	const activeProfile = profiles.find(
 		(profile) => profile.id === activeProfileId,
 	);
+
 	const activeTab = activeProfile?.tabs.find((tab) => tab.id === activeTabId);
 
 	const activeUrl = activeTab?.url ?? "";

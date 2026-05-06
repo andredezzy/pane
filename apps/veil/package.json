@@ -59,6 +59,10 @@
 		"files": [
 			"out/**/*"
 		],
+		"asarUnpack": [
+			"node_modules/@pane/electron-chrome-extensions/dist/preloads/**",
+			"node_modules/@pane/electron-chrome-extensions/dist/chrome-extension-api.preload.js"
+		],
 		"extraResources": [
 			{
 				"from": "extensions",

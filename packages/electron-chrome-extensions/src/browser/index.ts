@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import fs, { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { session as electronSession } from "electron";
+import { app, session as electronSession } from "electron";
 import { BrowserActionAPI } from "./api/browser-action";
 import { CommandsAPI } from "./api/commands";
 import { ContextMenusAPI } from "./api/context-menus";
@@ -330,19 +330,35 @@ export class ElectronChromeExtensions extends EventEmitter {
 		const candidates = [
 			// When not bundled: __dirname is dist/cjs/, preloads at dist/preloads/
 			path.join(__dirname, "..", "preloads"),
-			// When bundled by electron-vite: try locating the package via node resolution
+
+			// When bundled by electron-vite: resolve via the app root.
+			// In dev, app.getAppPath() is the project root (e.g. apps/veil/).
+			// In production, it returns the ASAR path (e.g. .../app.asar).
+			// For packaged apps, preloads must be asarUnpack'd — the real files
+			// live at app.asar.unpacked/... so we try both the ASAR path and
+			// its .unpacked sibling.
 			...(() => {
 				try {
-					const mod = createRequire(`${process.cwd()}/`).resolve(
+					const appRoot = app.getAppPath();
+					const mod = createRequire(`${appRoot}/`).resolve(
 						"@pane/electron-chrome-extensions",
 					);
+					const preloads = path.join(path.dirname(mod), "..", "preloads");
 
-					// dist/cjs/index.js → dist/preloads/
-					return [path.join(path.dirname(mod), "..", "preloads")];
+					// For ASAR: also try the unpacked sibling where asarUnpack extracts files
+					const unpacked = preloads.replace(
+						/app\.asar([\/\\])/,
+						"app.asar.unpacked$1",
+					);
+
+					return unpacked !== preloads
+						? [unpacked, preloads]
+						: [preloads];
 				} catch {
 					return [];
 				}
 			})(),
+
 			// Fallback: preloads copied alongside the app's output
 			path.join(__dirname, "preloads"),
 		];
