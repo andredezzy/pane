@@ -173,7 +173,7 @@ export const ToolbarAddress = forwardRef<
 			ref={ref}
 			type="text"
 			className={cn(
-				"h-[30px] flex-1 rounded-[5px] bg-[rgba(255,255,255,0.03)] px-2.5 text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
+				"h-[30px] flex-1 rounded-[5px] px-2.5 text-foreground text-xs transition-colors placeholder:text-muted-foreground hover:bg-[rgba(255,255,255,0.03)] focus:outline-none focus:ring-1 focus:ring-ring",
 				className,
 			)}
 			{...props}

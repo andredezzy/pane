@@ -14,8 +14,4 @@ export const uiRouter = router({
 	dismiss: procedure.mutation(({ ctx }) => {
 		ctx.surface.hide();
 	}),
-
-	exitSurfaceMode: procedure.mutation(({ ctx }) => {
-		ctx.pane.exitSurfaceMode();
-	}),
 });

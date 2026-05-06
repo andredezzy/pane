@@ -1,10 +1,5 @@
 import path from "node:path";
-import {
-	app,
-	type BaseWindow,
-	type WebContents,
-	type WebContentsView,
-} from "electron";
+import { app, type BaseWindow, type WebContents } from "electron";
 
 import { navigationStore, Page } from "../stores/navigation-store";
 import { profileStore } from "../stores/profile-store";
@@ -18,7 +13,6 @@ export class Pane {
 	readonly extensions: ExtensionInstaller;
 	readonly profiles = new Map<string, Profile>();
 	readonly tabStore = tabStore;
-	chromeView: WebContentsView | null = null;
 	private readonly extensionsPath: string;
 	private readonly tabIndex = new Map<string, string>();
 	private readonly unsubscribeNavigation: () => void;
@@ -203,25 +197,5 @@ export class Pane {
 		this.hideAllTabs();
 		this.getOrCreateProfile(activeProfileId).tabs.activate(tab.id);
 		this.navigateToBrowser();
-	}
-
-	enterSurfaceMode(): void {
-		if (!this.chromeView) {
-			return;
-		}
-
-		this.chromeView.setBackgroundColor("#00000000");
-		this.mainWindow.contentView.removeChildView(this.chromeView);
-		this.mainWindow.contentView.addChildView(this.chromeView);
-	}
-
-	exitSurfaceMode(): void {
-		if (!this.chromeView) {
-			return;
-		}
-
-		this.chromeView.setBackgroundColor("#0a0a0c");
-		this.mainWindow.contentView.removeChildView(this.chromeView);
-		this.mainWindow.contentView.addChildView(this.chromeView, 0);
 	}
 }

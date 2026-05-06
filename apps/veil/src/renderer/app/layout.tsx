@@ -41,7 +41,6 @@ import {
 	TabNew,
 	TabTitle,
 } from "../components/sidebar/tab-item";
-import { TabSwitcher } from "../components/tab-switcher";
 import { HotkeyEvent, useHotkeyEvents } from "../hooks/use-hotkey-events";
 import { CreateProfileSheet } from "../sheets/create-profile";
 import { surface } from "../surface";
@@ -237,56 +236,17 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 
 	const addressBarRef = useRef<HTMLInputElement>(null);
 
-	const [tabSwitcherVisible, setTabSwitcherVisible] = useState(false);
-	const [tabSwitcherStep, setTabSwitcherStep] = useState(0);
-
 	useHotkeyEvents(
 		useCallback(
 			(event: HotkeyEvent) => {
-				switch (event) {
-					case HotkeyEvent.FOCUS_ADDRESS_BAR: {
-						if (page === Page.BROWSER) {
-							addressBarRef.current?.focus();
-							addressBarRef.current?.select();
-						}
-
-						break;
-					}
-
-					case HotkeyEvent.TAB_SWITCHER_FORWARD: {
-						setTabSwitcherVisible(true);
-						setTabSwitcherStep((prev) => prev + 1);
-
-						break;
-					}
-
-					case HotkeyEvent.TAB_SWITCHER_BACKWARD: {
-						setTabSwitcherVisible(true);
-						setTabSwitcherStep((prev) => prev - 1);
-
-						break;
-					}
+				if (event === HotkeyEvent.FOCUS_ADDRESS_BAR && page === Page.BROWSER) {
+					addressBarRef.current?.focus();
+					addressBarRef.current?.select();
 				}
 			},
 			[page],
 		),
 	);
-
-	const handleTabSwitcherConfirm = useCallback((tabId: string) => {
-		setTabSwitcherVisible(false);
-		setTabSwitcherStep(0);
-
-		trpc.ui.exitSurfaceMode.mutate();
-		navigationStore.getState().navigate(Page.BROWSER);
-		trpc.tabs.switch.mutate({ tabId });
-	}, []);
-
-	const handleTabSwitcherCancel = useCallback(() => {
-		setTabSwitcherVisible(false);
-		setTabSwitcherStep(0);
-
-		trpc.ui.exitSurfaceMode.mutate();
-	}, []);
 
 	useEffect(() => {
 		onReady?.();
@@ -294,10 +254,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 
 	return (
 		<div
-			className={cn(
-				"relative flex h-screen text-foreground",
-				!tabSwitcherVisible && "bg-background",
-			)}
+			className="relative flex h-screen bg-background text-foreground"
 			style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
 		>
 			<Sidebar>
@@ -329,23 +286,12 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 				</SidebarFooter>
 			</Sidebar>
 
-			<ContentPanel
-				className={tabSwitcherVisible ? "bg-transparent shadow-none" : undefined}
-			>
+			<ContentPanel>
 				{page === Page.BROWSER ? (
 					<BrowserPage addressBarRef={addressBarRef} />
 				) : null}
 				{page === Page.SETTINGS ? <SettingsPage /> : null}
 			</ContentPanel>
-
-			{tabSwitcherVisible && (
-				<TabSwitcher
-					visible={tabSwitcherVisible}
-					stepCounter={tabSwitcherStep}
-					onConfirm={handleTabSwitcherConfirm}
-					onCancel={handleTabSwitcherCancel}
-				/>
-			)}
 
 			{pinPhase !== PinScreenPhase.HIDDEN && (
 				<div className="absolute inset-0 z-50">

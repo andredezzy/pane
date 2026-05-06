@@ -44,14 +44,13 @@ function setup() {
 	appWindow = createAppWindow();
 
 	const currentPane = new Pane(appWindow.mainWindow);
-	currentPane.chromeView = appWindow.chrome;
 	pane = currentPane;
 
 	ElectronChromeExtensions.handleCRXProtocol(session.defaultSession);
 
 	const hotkeyEmitter = new HotkeyEmitter();
 
-	createMenu(appWindow.chrome, currentPane, hotkeyEmitter);
+	createMenu(appWindow.chrome, currentPane, hotkeyEmitter, appWindow.surface);
 
 	const createContext = () => ({
 		pane: currentPane,

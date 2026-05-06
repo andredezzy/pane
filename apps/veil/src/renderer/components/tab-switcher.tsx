@@ -1,13 +1,15 @@
 import { cn } from "@pane/ui/cn";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore } from "zustand/react";
 
+import { HotkeyEvent } from "../../constants/hotkey-event";
 import {
 	PROFILE_COLOR_HEX,
 	type ProfileColor,
 } from "../../constants/profile-colors";
+import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore } from "../../stores/profile-store";
 import { tabStore } from "../../stores/tab-store";
+import { trpc } from "../trpc";
 
 const MAX_VISIBLE_TABS = 8;
 
@@ -15,12 +17,11 @@ interface MruTab {
 	id: string;
 	title: string;
 	favicon: string;
-	profileId: string;
-	profileName: string;
 	profileColor: ProfileColor;
 }
 
-function resolveMruTabs(mruHistory: string[]): MruTab[] {
+function resolveMruTabs(): MruTab[] {
+	const { mruHistory } = tabStore.getState();
 	const profiles = profileStore.getState().profiles;
 	const tabs: MruTab[] = [];
 
@@ -37,8 +38,6 @@ function resolveMruTabs(mruHistory: string[]): MruTab[] {
 					id: tab.id,
 					title: tab.title || "Loading...",
 					favicon: tab.favicon || "",
-					profileId: profile.id,
-					profileName: profile.name,
 					profileColor: profile.color,
 				});
 
@@ -50,74 +49,59 @@ function resolveMruTabs(mruHistory: string[]): MruTab[] {
 	return tabs;
 }
 
-export function TabSwitcher({
-	visible,
-	stepCounter,
-	onConfirm,
-	onCancel,
-}: {
-	visible: boolean;
-	stepCounter: number;
-	onConfirm: (tabId: string) => void;
-	onCancel: () => void;
-}) {
-	const mruHistory = useStore(tabStore, (state) => state.mruHistory);
-	const [selectedIndex, setSelectedIndex] = useState(1);
-	const [tabs, setTabs] = useState<MruTab[]>([]);
-	const lastStepRef = useRef(stepCounter);
+export function TabSwitcher({ onClose }: { onClose: () => void }) {
+	const [tabs] = useState(resolveMruTabs);
+	const [selectedIndex, setSelectedIndex] = useState(
+		Math.min(1, tabs.length - 1),
+	);
+
+	const tabsRef = useRef(tabs);
+	const selectedIndexRef = useRef(selectedIndex);
+	selectedIndexRef.current = selectedIndex;
+
+	const confirm = useCallback(
+		(index: number) => {
+			const tab = tabsRef.current[index];
+
+			if (tab) {
+				navigationStore.getState().navigate(Page.BROWSER);
+				trpc.tabs.switch.mutate({ tabId: tab.id });
+			}
+
+			onClose();
+		},
+		[onClose],
+	);
 
 	useEffect(() => {
-		if (visible) {
-			const resolved = resolveMruTabs(mruHistory);
-			setTabs(resolved);
-			setSelectedIndex(Math.min(1, resolved.length - 1));
-			lastStepRef.current = stepCounter;
-		}
-	}, [visible, mruHistory, stepCounter]);
-
-	useEffect(() => {
-		if (!visible || tabs.length === 0 || stepCounter === lastStepRef.current) {
-			return;
-		}
-
-		const delta = stepCounter - lastStepRef.current;
-		lastStepRef.current = stepCounter;
-
-		if (delta > 0) {
-			setSelectedIndex((prev) => (prev + 1) % tabs.length);
-		} else {
-			setSelectedIndex((prev) => (prev - 1 + tabs.length) % tabs.length);
-		}
-	}, [stepCounter, visible, tabs.length]);
-
-	const handleKeyUp = useCallback(
-		(e: KeyboardEvent) => {
-			if (e.key === "Control") {
-				const tab = tabs[selectedIndex];
-
-				if (tab) {
-					onConfirm(tab.id);
-				} else {
-					onCancel();
+		const subscription = trpc.hotkeys.events.subscribe(undefined, {
+			onData(event: string) {
+				if (event === HotkeyEvent.TAB_SWITCHER_FORWARD) {
+					setSelectedIndex((prev) => (prev + 1) % tabsRef.current.length);
+				} else if (event === HotkeyEvent.TAB_SWITCHER_BACKWARD) {
+					setSelectedIndex(
+						(prev) =>
+							(prev - 1 + tabsRef.current.length) % tabsRef.current.length,
+					);
 				}
-			}
-		},
-		[tabs, selectedIndex, onConfirm, onCancel],
-	);
+			},
+		});
 
-	const handleKeyDown = useCallback(
-		(e: KeyboardEvent) => {
-			if (e.key === "Escape") {
-				onCancel();
-			}
-		},
-		[onCancel],
-	);
+		return () => subscription.unsubscribe();
+	}, []);
 
 	useEffect(() => {
-		if (!visible) {
-			return;
-		}
+		const handleKeyUp = (event: KeyboardEvent) => {
+			if (event.key === "Control") {
+				confirm(selectedIndexRef.current);
+			}
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				onClose();
+			}
+		};
 
 		window.addEventListener("keyup", handleKeyUp);
 		window.addEventListener("keydown", handleKeyDown);
@@ -126,14 +110,16 @@ export function TabSwitcher({
 			window.removeEventListener("keyup", handleKeyUp);
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [visible, handleKeyUp, handleKeyDown]);
+	}, [confirm, onClose]);
 
-	if (!visible || tabs.length === 0) {
+	if (tabs.length === 0) {
+		onClose();
+
 		return null;
 	}
 
 	return (
-		<div className="absolute inset-0 z-[60] flex items-center justify-center">
+		<div className="flex h-full items-center justify-center">
 			<div className="absolute inset-0 bg-black/40" />
 
 			<div className="relative w-[320px] rounded-xl border border-white/10 bg-[#1a1a1e] p-1.5 shadow-2xl">

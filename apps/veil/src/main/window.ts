@@ -7,6 +7,7 @@ import {
 	nativeImage,
 	WebContentsView,
 } from "electron";
+
 import type { HotkeyEmitter } from "./hotkey-emitter";
 import { HotkeyEvent } from "./hotkey-emitter";
 import type { Pane } from "./pane";
@@ -108,10 +109,26 @@ export function createAppWindow(): AppWindow {
 	return { mainWindow, chrome, surface };
 }
 
+function openTabSwitcher(
+	surface: BrowserWindow,
+	hotkeyEmitter: HotkeyEmitter,
+	direction: HotkeyEvent,
+): void {
+	if (!surface.isVisible()) {
+		surface.show();
+		surface.webContents.executeJavaScript(
+			`window.postMessage(${JSON.stringify({ name: "TabSwitcher" })})`,
+		);
+	}
+
+	hotkeyEmitter.emitHotkey(direction);
+}
+
 export function createMenu(
 	chrome: WebContentsView,
 	pane: Pane,
 	hotkeyEmitter: HotkeyEmitter,
+	surface: BrowserWindow,
 ): void {
 	const menu = Menu.buildFromTemplate([
 		{ role: "appMenu" },
@@ -217,18 +234,22 @@ export function createMenu(
 				{
 					label: "Next tab (MRU)",
 					accelerator: "Control+Tab",
-					click: () => {
-						pane.enterSurfaceMode();
-						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_FORWARD);
-					},
+					click: () =>
+						openTabSwitcher(
+							surface,
+							hotkeyEmitter,
+							HotkeyEvent.TAB_SWITCHER_FORWARD,
+						),
 				},
 				{
 					label: "Previous tab (MRU)",
 					accelerator: "Control+Shift+Tab",
-					click: () => {
-						pane.enterSurfaceMode();
-						hotkeyEmitter.emitHotkey(HotkeyEvent.TAB_SWITCHER_BACKWARD);
-					},
+					click: () =>
+						openTabSwitcher(
+							surface,
+							hotkeyEmitter,
+							HotkeyEvent.TAB_SWITCHER_BACKWARD,
+						),
 				},
 				{ type: "separator" },
 				...Array.from({ length: 9 }, (_, index) => ({
