@@ -43,7 +43,7 @@ import {
 	TabTitle,
 } from "../components/sidebar/tab-item";
 import { HotkeyEvent, useHotkeyEvents } from "../hooks/use-hotkey-events";
-import { icons, menuIcon } from "../menu-icon";
+import { icons, menuIcon } from "../menu/icons";
 import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
 import { ProfileSheet } from "../sheets/profile-sheet";
 import { surface } from "../surface";

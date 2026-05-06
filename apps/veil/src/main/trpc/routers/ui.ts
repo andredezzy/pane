@@ -43,11 +43,17 @@ export const uiRouter = router({
 						return { type: "separator" as const };
 					}
 
-					const icon = item.icon
-						? nativeImage
-								.createFromDataURL(item.icon)
-								.resize({ width: 16, height: 16 })
-						: undefined;
+					let icon: Electron.NativeImage | undefined;
+
+					if (item.icon) {
+						icon = nativeImage
+							.createFromDataURL(item.icon)
+							.resize({ width: 16, height: 16 });
+
+						if (process.platform === "darwin") {
+							icon.setTemplateImage(true);
+						}
+					}
 
 					return {
 						label: item.label,

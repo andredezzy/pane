@@ -26,7 +26,7 @@ function renderToPng(svgMarkup: string): Promise<string> {
 }
 
 function buildSvg(content: string, color: string): string {
-	return `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${content}</svg>`;
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${content}</svg>`;
 }
 
 function iconNodeToSvgContent(iconNode: IconNode): string {
@@ -44,7 +44,7 @@ function iconNodeToSvgContent(iconNode: IconNode): string {
 
 export function menuIcon(
 	iconNode: IconNode,
-	color = "#ffffff",
+	color = "#000000",
 ): Promise<string> {
 	const svgContent = iconNodeToSvgContent(iconNode);
 	const cacheKey = `${svgContent}:${color}`;
