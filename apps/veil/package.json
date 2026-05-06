@@ -12,6 +12,8 @@
 		"dist": "electron-builder"
 	},
 	"dependencies": {
+		"@dnd-kit/helpers": "0.4.0",
+		"@dnd-kit/react": "0.4.0",
 		"@hookform/resolvers": "5.2.2",
 		"@pane/electron-chrome-extensions": "workspace:*",
 		"@pane/ui": "workspace:*",
