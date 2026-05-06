@@ -1,6 +1,6 @@
 import path from "node:path";
 import { ElectronChromeExtensions } from "@pane/electron-chrome-extensions";
-import { app, type BrowserWindow } from "electron";
+import { app, type BrowserWindow, session } from "electron";
 
 app.commandLine.appendSwitch("log-level", "3");
 
@@ -44,6 +44,8 @@ function setup() {
 
 	const currentPane = new Pane(appWindow.mainWindow);
 	pane = currentPane;
+
+	ElectronChromeExtensions.handleCRXProtocol(session.defaultSession);
 
 	createMenu(appWindow.chrome, () => currentPane.getActiveTabContents());
 
