@@ -22,6 +22,7 @@ for (const module of Object.values(modules)) {
 interface ActiveSurface {
 	name: string;
 	key: number;
+	props?: Record<string, unknown>;
 }
 
 export function SurfaceLayout() {
@@ -32,7 +33,12 @@ export function SurfaceLayout() {
 		const handle = (e: MessageEvent) => {
 			if (typeof e.data?.name === "string" && registry.has(e.data.name)) {
 				keyRef.current++;
-				setActive({ name: e.data.name, key: keyRef.current });
+
+				setActive({
+					name: e.data.name,
+					key: keyRef.current,
+					props: e.data.props,
+				});
 			}
 		};
 
@@ -51,5 +57,7 @@ export function SurfaceLayout() {
 		return null;
 	}
 
-	return <Component key={active.key} onClose={surface.close} />;
+	return (
+		<Component key={active.key} {...active.props} onClose={surface.close} />
+	);
 }
