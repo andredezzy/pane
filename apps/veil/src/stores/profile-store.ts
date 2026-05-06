@@ -53,10 +53,8 @@ export interface BrowserProfile {
 	name: string;
 	color: ProfileColor;
 	group: string | null;
-	notes: string | null;
 	fingerprint: Fingerprint;
 	proxy: ProxyConfig | null;
-	tags: string[];
 	tabs: Tab[];
 	createdAt: string;
 	updatedAt: string;

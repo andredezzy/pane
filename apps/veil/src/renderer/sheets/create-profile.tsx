@@ -106,7 +106,6 @@ export function CreateProfileSheet({ onClose }: Props) {
 			name: data.name,
 			color: data.color,
 			group: data.group || null,
-			notes: null,
 			fingerprint: DEFAULT_FINGERPRINTS[data.platform],
 			proxy:
 				data.proxyEnabled && data.proxy?.host
@@ -118,7 +117,6 @@ export function CreateProfileSheet({ onClose }: Props) {
 							password: data.proxy.password || null,
 						}
 					: null,
-			tags: [],
 		});
 
 		form.reset();
