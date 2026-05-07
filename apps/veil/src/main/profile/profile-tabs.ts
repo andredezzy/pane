@@ -1,3 +1,4 @@
+import { buildChromeContextMenu } from "@pane/electron-chrome-context-menu";
 import { type BaseWindow, type WebContents, WebContentsView } from "electron";
 import {
 	PANEL_MARGIN_BOTTOM,
@@ -402,6 +403,20 @@ export class ProfileTabs {
 				activeMatchOrdinal: result.activeMatchOrdinal,
 				matches: result.matches,
 			});
+		});
+
+		view.webContents.on("context-menu", (_event, params) => {
+			const menu = buildChromeContextMenu({
+				params,
+				webContents: view.webContents,
+				openLink: (url) => this.open(url),
+				extensionMenuItems: this.profile.ece.getContextMenuItems(
+					view.webContents,
+					params,
+				),
+			});
+
+			menu.popup();
 		});
 
 		view.webContents.setWindowOpenHandler(({ url }) => {

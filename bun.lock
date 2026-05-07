@@ -26,6 +26,7 @@
         "@dnd-kit/dom": "0.4.0",
         "@dnd-kit/react": "0.4.0",
         "@hookform/resolvers": "5.2.2",
+        "@pane/electron-chrome-context-menu": "workspace:*",
         "@pane/electron-chrome-extensions": "workspace:*",
         "@pane/ui": "workspace:*",
         "@trpc/client": "^11",
@@ -89,6 +90,16 @@
     "packages/config-typescript": {
       "name": "@pane/typescript-config",
       "version": "0.0.0",
+    },
+    "packages/electron-chrome-context-menu": {
+      "name": "@pane/electron-chrome-context-menu",
+      "version": "1.0.0",
+      "devDependencies": {
+        "esbuild": "^0.24.2",
+      },
+      "peerDependencies": {
+        "electron": ">=35.0.0",
+      },
     },
     "packages/electron-chrome-extensions": {
       "name": "@pane/electron-chrome-extensions",
@@ -396,6 +407,8 @@
     "@pane/config-test": ["@pane/config-test@workspace:packages/config-test"],
 
     "@pane/config-tsdown": ["@pane/config-tsdown@workspace:packages/config-tsdown"],
+
+    "@pane/electron-chrome-context-menu": ["@pane/electron-chrome-context-menu@workspace:packages/electron-chrome-context-menu"],
 
     "@pane/electron-chrome-extensions": ["@pane/electron-chrome-extensions@workspace:packages/electron-chrome-extensions"],
 

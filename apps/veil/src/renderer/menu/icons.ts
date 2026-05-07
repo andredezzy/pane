@@ -48,6 +48,7 @@ export function menuIcon(icon: IconComponent | ReactElement): Promise<string> {
 	const svgMarkup = renderToStaticMarkup(element);
 
 	const cached = cache.get(svgMarkup);
+
 	if (cached) {
 		return cached;
 	}
