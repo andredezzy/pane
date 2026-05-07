@@ -6,8 +6,11 @@ app.commandLine.appendSwitch("log-level", "3");
 
 app.commandLine.appendSwitch(
 	"disable-features",
-	"UserAgentClientHint,ClientHintThirdPartyDelegation",
+	"UserAgentClientHint,ClientHintThirdPartyDelegation,CalculateNativeWinOcclusion",
 );
+
+app.commandLine.appendSwitch("disable-renderer-backgrounding");
+app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
 
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
 
@@ -25,8 +28,9 @@ import { profileStore } from "../stores/profile-store";
 import { securityStore } from "../stores/security-store";
 import { settingsStore } from "../stores/settings-store";
 import { tabStore } from "../stores/tab-store";
-import { ExtensionInstaller } from "./extension-installer";
-import { HotkeyEmitter } from "./hotkey-emitter";
+import { FindEmitter } from "./emitters/find-emitter";
+import { HotkeyEmitter } from "./emitters/hotkey-emitter";
+import { ExtensionInstaller } from "./extensions";
 import { Pane } from "./pane";
 import { createIPCHandler } from "./trpc/ipc";
 import { appRouter } from "./trpc/router";
@@ -43,12 +47,13 @@ let pane: Pane | null = null;
 function setup() {
 	appWindow = createAppWindow();
 
-	const currentPane = new Pane(appWindow.mainWindow);
+	const findEmitter = new FindEmitter();
+	const hotkeyEmitter = new HotkeyEmitter();
+
+	const currentPane = new Pane(appWindow.mainWindow, findEmitter);
 	pane = currentPane;
 
 	ElectronChromeExtensions.handleCRXProtocol(session.defaultSession);
-
-	const hotkeyEmitter = new HotkeyEmitter();
 
 	createMenu(appWindow.chrome, currentPane, hotkeyEmitter, appWindow.surface);
 
@@ -56,6 +61,7 @@ function setup() {
 		pane: currentPane,
 		surface: appWindow?.surface as BrowserWindow,
 		hotkeyEmitter,
+		findEmitter,
 		stores: {
 			"profile-store": profileStore,
 			"tab-store": tabStore,

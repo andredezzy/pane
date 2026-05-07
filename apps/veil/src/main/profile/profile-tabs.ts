@@ -11,6 +11,7 @@ import {
 	profileStore,
 } from "../../stores/profile-store";
 import { tabStore } from "../../stores/tab-store";
+import type { FindEmitter } from "../emitters/find-emitter";
 
 export interface TabHost {
 	readonly id: string;
@@ -28,6 +29,7 @@ export class ProfileTabs {
 	constructor(
 		private readonly profile: TabHost,
 		private readonly mainWindow: BaseWindow,
+		private readonly findEmitter: FindEmitter,
 	) {}
 
 	open(url?: string, tabId?: string): WebContentsView {
@@ -179,6 +181,17 @@ export class ProfileTabs {
 
 	stop(): void {
 		this.activeView()?.webContents.stop();
+	}
+
+	find(
+		text: string,
+		options?: { forward?: boolean; findNext?: boolean },
+	): void {
+		this.activeView()?.webContents.findInPage(text, options);
+	}
+
+	stopFind(): void {
+		this.activeView()?.webContents.stopFindInPage("clearSelection");
 	}
 
 	hideAll(): void {
@@ -382,6 +395,13 @@ export class ProfileTabs {
 
 		view.webContents.on("did-stop-loading", () => {
 			tabStore.getState().setLoading(tabId, false);
+		});
+
+		view.webContents.on("found-in-page", (_e, result) => {
+			this.findEmitter.emitResult({
+				activeMatchOrdinal: result.activeMatchOrdinal,
+				matches: result.matches,
+			});
 		});
 
 		view.webContents.setWindowOpenHandler(({ url }) => {

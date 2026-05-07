@@ -3,7 +3,8 @@ import type { BrowserWindow } from "electron";
 import type { StoreApi } from "zustand/vanilla";
 
 import type { StoreName } from "../../stores/middlewares/sync";
-import type { HotkeyEmitter } from "../hotkey-emitter";
+import type { FindEmitter } from "../emitters/find-emitter";
+import type { HotkeyEmitter } from "../emitters/hotkey-emitter";
 import type { Pane } from "../pane";
 
 export type { StoreName };
@@ -13,6 +14,7 @@ export interface Context {
 	stores: Record<StoreName, StoreApi<object>>;
 	surface: BrowserWindow;
 	hotkeyEmitter: HotkeyEmitter;
+	findEmitter: FindEmitter;
 }
 
 const t = initTRPC.context<Context>().create({ isServer: true });

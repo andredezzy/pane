@@ -8,8 +8,8 @@ import {
 	WebContentsView,
 } from "electron";
 
-import type { HotkeyEmitter } from "./hotkey-emitter";
-import { HotkeyEvent } from "./hotkey-emitter";
+import type { HotkeyEmitter } from "./emitters/hotkey-emitter";
+import { HotkeyEvent } from "./emitters/hotkey-emitter";
 import type { Pane } from "./pane";
 
 export interface AppWindow {
@@ -185,6 +185,12 @@ export function createMenu(
 		{
 			label: "View",
 			submenu: [
+				{
+					label: "Find in page",
+					accelerator: "CommandOrControl+F",
+					click: () => hotkeyEmitter.emitHotkey(HotkeyEvent.FIND_IN_PAGE),
+				},
+				{ type: "separator" },
 				{
 					label: "Reload tab",
 					accelerator: "CommandOrControl+R",

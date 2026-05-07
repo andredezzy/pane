@@ -1,4 +1,4 @@
-import { HotkeyEvent } from "../../hotkey-emitter";
+import { HotkeyEvent } from "../../emitters/hotkey-emitter";
 import { procedure, router } from "../trpc";
 
 export { HotkeyEvent };

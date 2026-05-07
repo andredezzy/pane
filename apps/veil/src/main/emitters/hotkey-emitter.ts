@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import { HotkeyEvent } from "../constants/hotkey-event";
+import { HotkeyEvent } from "../../constants/hotkey-event";
 
 export { HotkeyEvent };
 

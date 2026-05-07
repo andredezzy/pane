@@ -9,9 +9,12 @@ import {
 import { extensionStore } from "../../../stores/extension-store";
 import { profileStore } from "../../../stores/profile-store";
 import { tabStore } from "../../../stores/tab-store";
+import { HotkeyEvent, useHotkeyEvents } from "../../hooks/use-hotkey-events";
+import { surface } from "../../surface";
 import { trpc } from "../../trpc";
 import { BrowserActionList } from "./_components/browser-action-list";
 import { EmptyState } from "./_components/empty-state";
+import { FindBar } from "./_components/find-bar";
 import {
 	Toolbar,
 	ToolbarAddress,
@@ -136,6 +139,14 @@ export function BrowserPage({
 	addressBarRef: React.RefObject<HTMLInputElement | null>;
 }) {
 	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
+
+	useHotkeyEvents(
+		useCallback((event: HotkeyEvent) => {
+			if (event === HotkeyEvent.FIND_IN_PAGE) {
+				surface.open(FindBar);
+			}
+		}, []),
+	);
 
 	return (
 		<>

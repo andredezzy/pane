@@ -6,7 +6,8 @@ import { profileStore } from "../stores/profile-store";
 import { settingsStore } from "../stores/settings-store";
 import { tabStore } from "../stores/tab-store";
 import { autoDetectBrowser } from "./detect-browser";
-import { ExtensionInstaller } from "./extension-installer";
+import type { FindEmitter } from "./emitters/find-emitter";
+import { ExtensionInstaller } from "./extensions";
 import { Profile } from "./profile/profile";
 
 export class Pane {
@@ -17,7 +18,10 @@ export class Pane {
 	private readonly tabIndex = new Map<string, string>();
 	private readonly unsubscribeNavigation: () => void;
 
-	constructor(private readonly mainWindow: BaseWindow) {
+	constructor(
+		private readonly mainWindow: BaseWindow,
+		private readonly findEmitter: FindEmitter,
+	) {
 		this.extensionsPath = path.join(app.getPath("userData"), "Extensions");
 		this.extensions = new ExtensionInstaller(this, this.extensionsPath);
 
@@ -71,6 +75,7 @@ export class Pane {
 			id,
 			this.mainWindow,
 			this.extensionsPath,
+			this.findEmitter,
 			(tabId, profileId) => this.tabIndex.set(tabId, profileId),
 			(tabId) => this.tabIndex.delete(tabId),
 		);
@@ -147,14 +152,14 @@ export class Pane {
 		}
 	}
 
-	getActiveTabContents(): WebContents | undefined {
+	private getActiveProfile(): Profile | undefined {
 		const { activeProfileId } = tabStore.getState();
 
-		if (!activeProfileId) {
-			return undefined;
-		}
+		return activeProfileId ? this.profiles.get(activeProfileId) : undefined;
+	}
 
-		return this.profiles.get(activeProfileId)?.tabs.getActiveWebContents();
+	getActiveTabContents(): WebContents | undefined {
+		return this.getActiveProfile()?.tabs.getActiveWebContents();
 	}
 
 	hideAllTabs(): void {

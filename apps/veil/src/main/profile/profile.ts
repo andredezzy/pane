@@ -5,6 +5,7 @@ import {
 import { type BaseWindow, session } from "electron";
 import { extensionStore } from "../../stores/extension-store";
 import { type BrowserProfile, profileStore } from "../../stores/profile-store";
+import type { FindEmitter } from "../emitters/find-emitter";
 import {
 	cleanupFingerprintPreload,
 	generateFingerprintPreload,
@@ -21,6 +22,7 @@ export class Profile implements TabHost {
 		readonly id: string,
 		private readonly mainWindow: BaseWindow,
 		extensionsPath: string,
+		private readonly findEmitter: FindEmitter,
 		private readonly tabRegistered?: (tabId: string, profileId: string) => void,
 		private readonly tabUnregistered?: (tabId: string) => void,
 	) {
@@ -104,7 +106,7 @@ export class Profile implements TabHost {
 			removeTab: (webContents) => this.tabs.destroyByWebContents(webContents),
 		});
 
-		this.tabs = new ProfileTabs(this, mainWindow);
+		this.tabs = new ProfileTabs(this, mainWindow, this.findEmitter);
 	}
 
 	get data(): BrowserProfile {
