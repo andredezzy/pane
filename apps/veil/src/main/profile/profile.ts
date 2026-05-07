@@ -2,7 +2,7 @@ import {
 	ElectronChromeExtensions,
 	ExtensionRuntime,
 } from "@pane/electron-chrome-extensions";
-import { type BaseWindow, session } from "electron";
+import { type BaseWindow, app, session } from "electron";
 import { extensionStore } from "../../stores/extension-store";
 import { type BrowserProfile, profileStore } from "../../stores/profile-store";
 import type { FindEmitter } from "../emitters/find-emitter";
@@ -17,6 +17,7 @@ export class Profile implements TabHost {
 	readonly ece: ElectronChromeExtensions;
 	readonly tabs: ProfileTabs;
 	readonly extensions: ExtensionRuntime;
+	private proxyLoginHandler?: (...args: any[]) => void;
 
 	constructor(
 		readonly id: string,
@@ -83,6 +84,17 @@ export class Profile implements TabHost {
 				.catch((error) => {
 					console.error(`[Profile ${id}] Proxy failed to apply:`, error);
 				});
+
+			if (p.username) {
+				this.proxyLoginHandler = (event, webContents, _details, authInfo, callback) => {
+					if (authInfo.isProxy && webContents?.session === this.session) {
+						event.preventDefault();
+						callback(p.username!, p.password ?? "");
+					}
+				};
+
+				app.on("login", this.proxyLoginHandler);
+			}
 		}
 
 		this.extensions = new ExtensionRuntime({
@@ -131,6 +143,10 @@ export class Profile implements TabHost {
 
 	destroy(): void {
 		cleanupFingerprintPreload(this.id);
+
+		if (this.proxyLoginHandler) {
+			app.removeListener("login", this.proxyLoginHandler);
+		}
 
 		this.tabs.closeAll();
 		this.ece.destroy();

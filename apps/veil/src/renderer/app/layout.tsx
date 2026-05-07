@@ -16,6 +16,10 @@ import { useStore } from "zustand/react";
 import { useShallow } from "zustand/react/shallow";
 import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore, type Tab } from "../../stores/profile-store";
+import {
+	ProxyStatus,
+	proxyStatusStore,
+} from "../../stores/proxy-status-store";
 import { PinScreenMode, securityStore } from "../../stores/security-store";
 import { tabStore } from "../../stores/tab-store";
 import { ContentPanel } from "../components/content-panel";
@@ -24,6 +28,7 @@ import {
 	ProfileHeader,
 	ProfileItem,
 	ProfileName,
+	ProfileProxyDot,
 	ProfileTabs,
 } from "../components/sidebar/profile-item";
 import {
@@ -117,7 +122,37 @@ function SidebarProfileItem({
 		(state) => state.activeProfileId === id,
 	);
 
+	const proxyStatus = useStore(
+		proxyStatusStore,
+		(state) => profile?.proxy ? state.statuses[id] : undefined,
+	);
+
 	const { ref, handleRef, isDragSource } = useSortable({ id, index });
+
+	useEffect(() => {
+		if (!profile?.proxy) {
+			return;
+		}
+
+		const { set } = proxyStatusStore.getState();
+
+		set(id, ProxyStatus.TESTING);
+
+		trpc.profiles.testProxy
+			.mutate({
+				proxyType: profile.proxy.proxyType,
+				host: profile.proxy.host,
+				port: profile.proxy.port,
+				username: profile.proxy.username ?? undefined,
+				password: profile.proxy.password ?? undefined,
+			})
+			.then((result) => {
+				set(id, result.success ? ProxyStatus.CONNECTED : ProxyStatus.FAILED);
+			})
+			.catch(() => {
+				set(id, ProxyStatus.FAILED);
+			});
+	}, [id, profile?.proxy]);
 
 	const handleToggle = useCallback(() => {
 		onToggle(id);
@@ -175,6 +210,10 @@ function SidebarProfileItem({
 				onClick={handleToggle}
 			>
 				<ProfileName>{profile.name}</ProfileName>
+
+				{proxyStatus !== undefined ? (
+					<ProfileProxyDot status={proxyStatus} />
+				) : null}
 
 				{!expanded && profile.tabs.length > 0 ? (
 					<ProfileBadge>{profile.tabs.length}</ProfileBadge>

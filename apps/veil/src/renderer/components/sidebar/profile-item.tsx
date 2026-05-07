@@ -5,6 +5,7 @@ import {
 	PROFILE_COLOR_HEX,
 	type ProfileColor,
 } from "../../../constants/profile-colors";
+import { ProxyStatus } from "../../../stores/proxy-status-store";
 
 export function ProfileItem({
 	className,
@@ -73,6 +74,20 @@ export function ProfileName({
 		<span
 			className={cn("flex-1 truncate text-left font-medium text-xs", className)}
 			{...props}
+		/>
+	);
+}
+
+const PROXY_STATUS_COLOR: Record<ProxyStatus, string> = {
+	[ProxyStatus.TESTING]: "bg-yellow-500",
+	[ProxyStatus.CONNECTED]: "bg-emerald-500",
+	[ProxyStatus.FAILED]: "bg-red-500",
+};
+
+export function ProfileProxyDot({ status }: { status: ProxyStatus }) {
+	return (
+		<span
+			className={`h-1.5 w-1.5 shrink-0 rounded-full ${PROXY_STATUS_COLOR[status]}`}
 		/>
 	);
 }
