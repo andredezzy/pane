@@ -8,7 +8,6 @@ import {
 } from "../../constants/layout";
 import {
 	type BrowserProfile,
-	Platform,
 	profileStore,
 } from "../../stores/profile-store";
 import { tabStore } from "../../stores/tab-store";
@@ -19,6 +18,7 @@ export interface TabHost {
 	readonly session: Electron.Session;
 	readonly ece: import("@pane/electron-chrome-extensions").ElectronChromeExtensions;
 	readonly extensions: { ensureLoaded(): Promise<void> };
+	readonly proxyReady: Promise<boolean>;
 	get data(): BrowserProfile;
 	onTabOpened(tabId: string): void;
 	onTabClosed(tabId: string): void;
@@ -33,9 +33,9 @@ export class ProfileTabs {
 		private readonly findEmitter: FindEmitter,
 	) {}
 
-	open(url?: string, tabId?: string): WebContentsView {
+	open(url?: string | null, tabId?: string): WebContentsView {
 		const id = tabId ?? crypto.randomUUID();
-		const targetUrl = url || "https://www.google.com";
+		const targetUrl = url === null ? null : (url || "https://www.google.com");
 		const view = this.createView(id);
 
 		this.hideAll();
@@ -44,13 +44,14 @@ export class ProfileTabs {
 		this.profile.onTabOpened(id);
 		this.mainWindow.contentView.addChildView(view);
 
-		this.applyFingerprint(view.webContents, this.profile.data.fingerprint);
-		view.webContents.loadURL(targetUrl);
+		if (targetUrl) {
+			this.safeLoadURL(view.webContents, targetUrl);
+		}
 
 		this.profile.extensions.ensureLoaded();
 		this.profile.ece.addTab(view.webContents, this.mainWindow);
 
-		profileStore.getState().openTab(this.profile.id, id, targetUrl);
+		profileStore.getState().openTab(this.profile.id, id, targetUrl ?? "");
 		this.activate(id);
 
 		return view;
@@ -106,8 +107,8 @@ export class ProfileTabs {
 			if (tab) {
 				view = this.createView(tabId);
 				this.views.set(tabId, view);
-				this.applyFingerprint(view.webContents, this.profile.data.fingerprint);
-				view.webContents.loadURL(tab.url);
+
+				this.safeLoadURL(view.webContents, tab.url);
 			}
 		}
 
@@ -165,7 +166,11 @@ export class ProfileTabs {
 	}
 
 	navigate(url: string): void {
-		this.activeView()?.webContents.loadURL(normalizeUrl(url));
+		const webContents = this.activeView()?.webContents;
+
+		if (webContents) {
+			this.safeLoadURL(webContents, normalizeUrl(url));
+		}
 	}
 
 	goBack(): void {
@@ -244,8 +249,7 @@ export class ProfileTabs {
 		this.profile.onTabOpened(tabId);
 		this.mainWindow.contentView.addChildView(view);
 
-		this.applyFingerprint(view.webContents, this.profile.data.fingerprint);
-		view.webContents.loadURL(url);
+		this.safeLoadURL(view.webContents, url);
 
 		this.profile.ece.addTab(view.webContents, this.mainWindow);
 
@@ -256,58 +260,21 @@ export class ProfileTabs {
 		return view;
 	}
 
+	private safeLoadURL(webContents: WebContents, url: string): void {
+		this.profile.proxyReady.then((ready) => {
+			if (!ready || webContents.isDestroyed()) {
+				return;
+			}
+
+			webContents.loadURL(url);
+		});
+	}
+
 	private activeView(): WebContentsView | undefined {
 		const { activeTabId } = tabStore.getState();
 
 		return activeTabId ? this.views.get(activeTabId) : undefined;
 	}
-
-	private static readonly FIREFOX_UA: Record<Platform, string> = {
-		[Platform.WINDOWS]:
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
-		[Platform.MACOS]:
-			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
-		[Platform.LINUX]:
-			"Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0",
-	};
-
-	private applyFingerprint(
-		webContents: WebContents,
-		fingerprint: BrowserProfile["fingerprint"],
-	): void {
-		webContents.setUserAgent(
-			ProfileTabs.FIREFOX_UA[fingerprint.platform] ??
-				ProfileTabs.FIREFOX_UA[Platform.MACOS],
-		);
-
-		webContents.on("dom-ready", () => {
-			if (webContents.isDestroyed()) {
-				return;
-			}
-
-			const pageUrl = webContents.getURL();
-
-			if (
-				pageUrl.startsWith("chrome-extension:") ||
-				pageUrl.startsWith("chrome:")
-			) {
-				return;
-			}
-
-			webContents
-				.executeJavaScript(ProfileTabs.FIREFOX_SPOOF_SCRIPT)
-				.catch(() => {});
-		});
-	}
-
-	private static readonly FIREFOX_SPOOF_SCRIPT = `(function(){
-		try{Object.defineProperty(Navigator.prototype,'vendor',{get:function(){return''},configurable:true})}catch(e){}
-		try{Object.defineProperty(Navigator.prototype,'productSub',{get:function(){return'20100101'},configurable:true})}catch(e){}
-		try{Object.defineProperty(Navigator.prototype,'userAgentData',{get:function(){return undefined},configurable:true})}catch(e){}
-		try{delete Navigator.prototype.getBattery}catch(e){}
-		try{delete window.chrome;Object.defineProperty(window,'chrome',{get:function(){return undefined},configurable:true})}catch(e){}
-		try{var o=CSS.supports.bind(CSS);CSS.supports=function(a,b){if(arguments.length===1){if(a&&a.indexOf('-moz-')!==-1)return true;if(a&&a.indexOf('-webkit-app-region')!==-1)return false;return o(a)}if(a&&a.indexOf&&a.indexOf('-moz-')!==-1)return true;if(a==='-webkit-app-region'||a==='-webkit-tap-highlight-color')return false;return o(a,b)}}catch(e){}
-	})()`;
 
 	private retryGoogleLogin(
 		view: WebContentsView,

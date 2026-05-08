@@ -11,12 +11,14 @@ import {
 	generateFingerprintPreload,
 } from "./fingerprint-preload";
 import { ProfileTabs, type TabHost } from "./profile-tabs";
+import { testProxyConnection } from "./proxy-test";
 
 export class Profile implements TabHost {
 	readonly session: Electron.Session;
 	readonly ece: ElectronChromeExtensions;
 	readonly tabs: ProfileTabs;
 	readonly extensions: ExtensionRuntime;
+	readonly proxyReady: Promise<boolean>;
 	private proxyLoginHandler?: (...args: any[]) => void;
 
 	constructor(
@@ -45,8 +47,14 @@ export class Profile implements TabHost {
 			const headers = { ...details.requestHeaders };
 
 			for (const key of Object.keys(headers)) {
-				if (key.toLowerCase().startsWith("sec-ch-ua")) {
-					delete headers[key];
+				const lower = key.toLowerCase();
+
+				if (lower.startsWith("sec-ch-ua") && typeof headers[key] === "string") {
+					headers[key] = (headers[key] as string)
+						.split(",")
+						.filter((brand) => !/electron|pane/i.test(brand))
+						.join(",")
+						.trim();
 				}
 			}
 
@@ -77,14 +85,6 @@ export class Profile implements TabHost {
 		if (profileData?.proxy) {
 			const p = profileData.proxy;
 
-			this.session
-				.setProxy({
-					proxyRules: `${p.proxyType.toLowerCase()}://${p.host}:${p.port}`,
-				})
-				.catch((error) => {
-					console.error(`[Profile ${id}] Proxy failed to apply:`, error);
-				});
-
 			if (p.username) {
 				this.proxyLoginHandler = (event, webContents, _details, authInfo, callback) => {
 					if (authInfo.isProxy && webContents?.session === this.session) {
@@ -95,6 +95,32 @@ export class Profile implements TabHost {
 
 				app.on("login", this.proxyLoginHandler);
 			}
+
+			this.proxyReady = this.session
+				.setProxy({
+					proxyRules: `${p.proxyType.toLowerCase()}://${p.host}:${p.port}`,
+				})
+				.then(() =>
+					testProxyConnection(
+						this.session,
+						p.username
+							? { username: p.username, password: p.password ?? "" }
+							: undefined,
+					),
+				)
+				.then((result) => {
+					if (!result.success) {
+						console.error(`[Profile ${id}] Proxy test failed:`, result.error);
+					}
+
+					return result.success;
+				})
+				.catch((error) => {
+					console.error(`[Profile ${id}] Proxy failed:`, error);
+					return false;
+				});
+		} else {
+			this.proxyReady = Promise.resolve(true);
 		}
 
 		this.extensions = new ExtensionRuntime({
