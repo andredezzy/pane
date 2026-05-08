@@ -107,11 +107,13 @@ function SidebarProfileItem({
 	index,
 	expanded,
 	onToggle,
+	onNewTab,
 }: {
 	id: string;
 	index: number;
 	expanded: boolean;
 	onToggle: (id: string) => void;
+	onNewTab: (profileId: string) => void;
 }) {
 	const profile = useStore(profileStore, (state) =>
 		state.profiles.find((profile) => profile.id === id),
@@ -128,6 +130,9 @@ function SidebarProfileItem({
 	);
 
 	const { ref, handleRef, isDragSource } = useSortable({ id, index });
+
+	const proxyHost = profile?.proxy?.host;
+	const proxyPort = profile?.proxy?.port;
 
 	useEffect(() => {
 		if (!profile?.proxy) {
@@ -152,7 +157,7 @@ function SidebarProfileItem({
 			.catch(() => {
 				set(id, ProxyStatus.FAILED);
 			});
-	}, [id, profile?.proxy]);
+	}, [id, proxyHost, proxyPort]);
 
 	const handleToggle = useCallback(() => {
 		onToggle(id);
@@ -244,12 +249,7 @@ function SidebarProfileItem({
 						{profile.tabs.map((tab, index) => (
 							<SortableTab key={tab.id} tab={tab} index={index} />
 						))}
-						<TabNew
-							onClick={() => {
-								navigationStore.getState().navigate(Page.BROWSER);
-								trpc.tabs.open.mutate({ profileId: profile.id });
-							}}
-						/>
+						<TabNew onClick={() => onNewTab(profile.id)} />
 					</ProfileTabs>
 
 					<DragOverlay>
@@ -414,14 +414,44 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 	useHotkeyEvents(
 		useCallback(
 			(event: HotkeyEvent) => {
-				if (event === HotkeyEvent.FOCUS_ADDRESS_BAR && page === Page.BROWSER) {
-					addressBarRef.current?.focus();
-					addressBarRef.current?.select();
+				if (event !== HotkeyEvent.FOCUS_ADDRESS_BAR || page !== Page.BROWSER) {
+					return;
 				}
+
+				const tryFocus = (remaining: number) => {
+					const input = addressBarRef.current;
+
+					if (input) {
+						input.focus();
+						input.select();
+					} else if (remaining > 0) {
+						requestAnimationFrame(() => tryFocus(remaining - 1));
+					}
+				};
+
+				tryFocus(30);
 			},
 			[page],
 		),
 	);
+
+	const handleNewTab = useCallback(async (profileId: string) => {
+		navigationStore.getState().navigate(Page.BROWSER);
+		await trpc.tabs.open.mutate({ profileId, focusAddressBar: true });
+
+		const tryFocus = (remaining: number) => {
+			const input = addressBarRef.current;
+
+			if (input) {
+				input.focus();
+				input.select();
+			} else if (remaining > 0) {
+				requestAnimationFrame(() => tryFocus(remaining - 1));
+			}
+		};
+
+		tryFocus(30);
+	}, []);
 
 	useEffect(() => {
 		onReady?.();
@@ -464,6 +494,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 								index={index}
 								expanded={expanded.has(id)}
 								onToggle={toggleExpanded}
+								onNewTab={handleNewTab}
 							/>
 						))}
 

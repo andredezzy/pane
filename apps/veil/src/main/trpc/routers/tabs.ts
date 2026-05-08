@@ -12,10 +12,22 @@ function findActiveProfile(ctx: Context) {
 
 export const tabsRouter = router({
 	open: procedure
-		.input(z.object({ profileId: z.string(), url: z.string().optional() }))
+		.input(
+			z.object({
+				profileId: z.string(),
+				url: z.string().optional(),
+				focusAddressBar: z.boolean().optional(),
+			}),
+		)
 		.mutation(({ input, ctx }) => {
 			ctx.pane.hideAllTabs();
-			ctx.pane.getOrCreateProfile(input.profileId).tabs.open(input.url);
+
+			const url = input.focusAddressBar ? null : input.url;
+			ctx.pane.getOrCreateProfile(input.profileId).tabs.open(url);
+
+			if (input.focusAddressBar) {
+				ctx.chrome.webContents.focus();
+			}
 		}),
 
 	close: procedure

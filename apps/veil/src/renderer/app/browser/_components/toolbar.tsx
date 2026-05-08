@@ -171,6 +171,7 @@ export const ToolbarAddress = forwardRef<
 	<div className="relative flex flex-1 overflow-hidden rounded-[5px]">
 		<input
 			ref={ref}
+			data-address-bar
 			type="text"
 			className={cn(
 				"h-[30px] flex-1 rounded-[5px] px-2.5 text-foreground text-xs transition-colors placeholder:text-muted-foreground hover:bg-[rgba(255,255,255,0.03)] focus:outline-none focus:ring-1 focus:ring-ring",

@@ -144,8 +144,10 @@ export function createMenu(
 
 						if (activeProfileId) {
 							pane.hideAllTabs();
-							pane.getOrCreateProfile(activeProfileId).tabs.open();
+							pane.getOrCreateProfile(activeProfileId).tabs.open(null);
 							pane.navigateToBrowser();
+							chrome.webContents.focus();
+							setTimeout(() => hotkeyEmitter.emitHotkey(HotkeyEvent.FOCUS_ADDRESS_BAR), 100);
 						}
 					},
 				},
