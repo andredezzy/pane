@@ -1,5 +1,5 @@
 import { initTRPC } from "@trpc/server";
-import type { BrowserWindow } from "electron";
+import type { BrowserWindow, WebContentsView } from "electron";
 import type { StoreApi } from "zustand/vanilla";
 
 import type { StoreName } from "../../stores/middlewares/sync";
@@ -11,6 +11,7 @@ export type { StoreName };
 
 export interface Context {
 	pane: Pane;
+	chrome: WebContentsView;
 	stores: Record<StoreName, StoreApi<object>>;
 	surface: BrowserWindow;
 	hotkeyEmitter: HotkeyEmitter;

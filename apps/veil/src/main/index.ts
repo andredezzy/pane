@@ -1,12 +1,12 @@
 import path from "node:path";
 import { ElectronChromeExtensions } from "@pane/electron-chrome-extensions";
-import { app, type BrowserWindow, session } from "electron";
+import { app, type BrowserWindow, type WebContentsView, session } from "electron";
 
 app.commandLine.appendSwitch("log-level", "3");
 
 app.commandLine.appendSwitch(
 	"disable-features",
-	"UserAgentClientHint,ClientHintThirdPartyDelegation,CalculateNativeWinOcclusion",
+	"CalculateNativeWinOcclusion",
 );
 
 app.commandLine.appendSwitch("disable-renderer-backgrounding");
@@ -59,6 +59,7 @@ function setup() {
 
 	const createContext = () => ({
 		pane: currentPane,
+		chrome: appWindow?.chrome as WebContentsView,
 		surface: appWindow?.surface as BrowserWindow,
 		hotkeyEmitter,
 		findEmitter,
