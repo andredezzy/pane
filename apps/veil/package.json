@@ -27,6 +27,7 @@
 		"react": "^19",
 		"react-dom": "^19",
 		"react-hook-form": "7.74.0",
+		"socks": "2.8.9",
 		"trpc-electron": "0.1.2",
 		"zod": "4.3.6",
 		"zustand": "^5.0.8"
@@ -83,9 +84,22 @@
 		},
 		"dmg": {
 			"contents": [
-				{ "x": 130, "y": 150 },
-				{ "x": 410, "y": 150, "type": "link", "path": "/Applications" },
-				{ "x": 270, "y": 300, "type": "file", "path": "resources/Install Pane.command" }
+				{
+					"x": 130,
+					"y": 150
+				},
+				{
+					"x": 410,
+					"y": 150,
+					"type": "link",
+					"path": "/Applications"
+				},
+				{
+					"x": 270,
+					"y": 300,
+					"type": "file",
+					"path": "resources/Install Pane.command"
+				}
 			]
 		},
 		"win": {

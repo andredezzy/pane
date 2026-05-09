@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 
 import { ProxyType } from "../../../stores/profile-store";
 import { type TabState } from "../../../stores/tab-store";
+import { ProxyRelay } from "../../profile/proxy-relay";
 import { testProxyConnection } from "../../profile/proxy-test";
 import { procedure, router } from "../trpc";
 
@@ -21,21 +22,34 @@ export const profilesRouter = router({
 			const partition = `temp:proxy-test-${Date.now()}`;
 			const testSession = session.fromPartition(partition, { cache: false });
 
-			const proxyUrl = `${input.proxyType.toLowerCase()}://${input.host}:${input.port}`;
+			const relay = new ProxyRelay({
+				proxyType: input.proxyType,
+				host: input.host,
+				port: input.port,
+				username: input.username ?? null,
+				password: input.password ?? null,
+			});
 
 			try {
-				await testSession.setProxy({ proxyRules: proxyUrl });
+				await relay.start();
+				await testSession.setProxy({ proxyRules: relay.proxyUrl });
 
-				return await testProxyConnection(
+				const result = await testProxyConnection(
 					testSession,
-					input.username
+					input.username && !relay.needsRelay
 						? {
 								username: input.username,
 								password: input.password ?? "",
 							}
 						: undefined,
 				);
+
+				relay.stop();
+
+				return result;
 			} catch (error) {
+				relay.stop();
+
 				const message =
 					error instanceof Error ? error.message : "Connection failed";
 

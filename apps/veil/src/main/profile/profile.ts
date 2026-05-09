@@ -11,6 +11,7 @@ import {
 	generateFingerprintPreload,
 } from "./fingerprint-preload";
 import { ProfileTabs, type TabHost } from "./profile-tabs";
+import { ProxyRelay } from "./proxy-relay";
 import { testProxyConnection } from "./proxy-test";
 
 export class Profile implements TabHost {
@@ -20,6 +21,7 @@ export class Profile implements TabHost {
 	readonly extensions: ExtensionRuntime;
 	readonly proxyReady: Promise<boolean>;
 	private proxyLoginHandler?: (...args: any[]) => void;
+	private proxyRelay?: ProxyRelay;
 
 	constructor(
 		readonly id: string,
@@ -84,8 +86,10 @@ export class Profile implements TabHost {
 
 		if (profileData?.proxy) {
 			const p = profileData.proxy;
+			const relay = new ProxyRelay(p);
+			this.proxyRelay = relay;
 
-			if (p.username) {
+			if (p.username && !relay.needsRelay) {
 				this.proxyLoginHandler = (event, webContents, _details, authInfo, callback) => {
 					if (authInfo.isProxy && webContents?.session === this.session) {
 						event.preventDefault();
@@ -96,14 +100,15 @@ export class Profile implements TabHost {
 				app.on("login", this.proxyLoginHandler);
 			}
 
-			this.proxyReady = this.session
-				.setProxy({
-					proxyRules: `${p.proxyType.toLowerCase()}://${p.host}:${p.port}`,
-				})
+			this.proxyReady = relay
+				.start()
+				.then(() =>
+					this.session.setProxy({ proxyRules: relay.proxyUrl }),
+				)
 				.then(() =>
 					testProxyConnection(
 						this.session,
-						p.username
+						p.username && !relay.needsRelay
 							? { username: p.username, password: p.password ?? "" }
 							: undefined,
 					),
@@ -173,6 +178,8 @@ export class Profile implements TabHost {
 		if (this.proxyLoginHandler) {
 			app.removeListener("login", this.proxyLoginHandler);
 		}
+
+		this.proxyRelay?.stop();
 
 		this.tabs.closeAll();
 		this.ece.destroy();
