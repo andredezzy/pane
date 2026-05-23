@@ -10,8 +10,7 @@ const CHROME_PATHS = [
 	"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
 ];
 
-let activeTempDir: string | null = null;
-let activeChromeProcess: import("node:child_process").ChildProcess | null = null;
+const CDP_PORT = 19222;
 
 interface CdpCookie {
 	name: string;
@@ -24,14 +23,29 @@ interface CdpCookie {
 	sameSite: string;
 }
 
+let activeTempDir: string | null = null;
+let activeChromePid: number | null = null;
+
 function findChrome(): string | null {
-	for (const chromePath of CHROME_PATHS) {
-		if (fs.existsSync(chromePath)) {
-			return chromePath;
+	for (const p of CHROME_PATHS) {
+		if (fs.existsSync(p)) {
+			return p;
 		}
 	}
 
 	return null;
+}
+
+function killActiveChrome(): void {
+	if (!activeChromePid) {
+		return;
+	}
+
+	try {
+		process.kill(activeChromePid, "SIGTERM");
+	} catch {}
+
+	activeChromePid = null;
 }
 
 export function launchChromeForGoogleAuth(continueUrl: string): boolean {
@@ -41,6 +55,8 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 		return false;
 	}
 
+	killActiveChrome();
+
 	const tempDir = path.join(os.tmpdir(), `pane-google-auth-${Date.now()}`);
 	fs.mkdirSync(tempDir, { recursive: true });
 
@@ -48,9 +64,9 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 
 	const loginUrl = `https://accounts.google.com/ServiceLogin?continue=${encodeURIComponent(continueUrl)}`;
 
-	activeChromeProcess = spawn(chromePath, [
+	const child = spawn(chromePath, [
 		`--user-data-dir=${tempDir}`,
-		"--remote-debugging-port=0",
+		`--remote-debugging-port=${CDP_PORT}`,
 		"--no-first-run",
 		"--no-default-browser-check",
 		loginUrl,
@@ -59,34 +75,10 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 		stdio: "ignore",
 	});
 
-	activeChromeProcess.unref();
+	activeChromePid = child.pid ?? null;
+	child.unref();
 
 	return true;
-}
-
-export function cleanupAuthChrome(): void {
-	if (activeChromeProcess?.pid) {
-		try {
-			process.kill(-activeChromeProcess.pid, "SIGTERM");
-		} catch {
-			try {
-				activeChromeProcess.kill("SIGTERM");
-			} catch {}
-		}
-
-		activeChromeProcess = null;
-	}
-
-	if (activeTempDir) {
-		const dir = activeTempDir;
-		activeTempDir = null;
-
-		setTimeout(() => {
-			try {
-				fs.rmSync(dir, { recursive: true, force: true });
-			} catch {}
-		}, 2000);
-	}
 }
 
 export async function importCookiesViaCdp(
@@ -137,30 +129,36 @@ export async function importCookiesViaCdp(
 	return count;
 }
 
-async function getPageWebSocketUrl(): Promise<string | null> {
+export function cleanupAuthChrome(): void {
+	killActiveChrome();
+
 	if (!activeTempDir) {
-		return null;
+		return;
 	}
 
-	const portFile = path.join(activeTempDir, "DevToolsActivePort");
+	const dir = activeTempDir;
+	activeTempDir = null;
 
+	setTimeout(() => {
+		try {
+			fs.rmSync(dir, { recursive: true, force: true });
+		} catch {}
+	}, 2000);
+}
+
+async function getPageWebSocketUrl(): Promise<string | null> {
 	for (let attempt = 0; attempt < 10; attempt++) {
 		try {
-			if (fs.existsSync(portFile)) {
-				const content = fs.readFileSync(portFile, "utf-8").trim();
-				const port = content.split("\n")[0];
+			const data = await httpGet(`http://127.0.0.1:${CDP_PORT}/json/list`);
+			const targets = JSON.parse(data);
+			const page = targets.find((t: any) => t.type === "page");
 
-				const data = await httpGet(`http://127.0.0.1:${port}/json/list`);
-				const targets = JSON.parse(data);
-				const page = targets.find((t: any) => t.type === "page");
-
-				if (page?.webSocketDebuggerUrl) {
-					return page.webSocketDebuggerUrl;
-				}
+			if (page?.webSocketDebuggerUrl) {
+				return page.webSocketDebuggerUrl;
 			}
 		} catch {}
 
-		await new Promise((r) => setTimeout(r, 1000));
+		await new Promise((r) => setTimeout(r, 500));
 	}
 
 	return null;
