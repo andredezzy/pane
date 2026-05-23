@@ -3,7 +3,7 @@ import { type Fingerprint, Platform } from "../../stores/profile-store";
 export const DEFAULT_FINGERPRINTS: Record<Platform, Fingerprint> = {
 	[Platform.WINDOWS]: {
 		userAgent:
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
 		platform: Platform.WINDOWS,
 		screen: { width: 1920, height: 1080, colorDepth: 24 },
 		language: "en-US",
@@ -22,7 +22,7 @@ export const DEFAULT_FINGERPRINTS: Record<Platform, Fingerprint> = {
 	},
 	[Platform.MACOS]: {
 		userAgent:
-			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
 		platform: Platform.MACOS,
 		screen: { width: 1440, height: 900, colorDepth: 30 },
 		language: "en-US",
@@ -40,7 +40,7 @@ export const DEFAULT_FINGERPRINTS: Record<Platform, Fingerprint> = {
 	},
 	[Platform.LINUX]: {
 		userAgent:
-			"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+			"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
 		platform: Platform.LINUX,
 		screen: { width: 1920, height: 1080, colorDepth: 24 },
 		language: "en-US",

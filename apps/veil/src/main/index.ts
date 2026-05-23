@@ -6,7 +6,7 @@ app.commandLine.appendSwitch("log-level", "3");
 
 app.commandLine.appendSwitch(
 	"disable-features",
-	"CalculateNativeWinOcclusion",
+	"UserAgentClientHint,ClientHintThirdPartyDelegation,CalculateNativeWinOcclusion",
 );
 
 app.commandLine.appendSwitch("disable-renderer-backgrounding");

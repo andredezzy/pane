@@ -33,6 +33,10 @@ export class Profile implements TabHost {
 	) {
 		this.session = session.fromPartition(`persist:profile-${id}`);
 
+		const profileData = profileStore
+			.getState()
+			.profiles.find((profile) => profile.id === id);
+
 		this.session.setUserAgent(
 			this.session
 				.getUserAgent()
@@ -41,17 +45,15 @@ export class Profile implements TabHost {
 				.replace(/\s{2,}/g, " "),
 		);
 
-		const profileData = profileStore
-			.getState()
-			.profiles.find((profile) => profile.id === id);
-
 		this.session.webRequest.onBeforeSendHeaders((details, callback) => {
 			const headers = { ...details.requestHeaders };
 
 			for (const key of Object.keys(headers)) {
-				const lower = key.toLowerCase();
-
-				if (lower.startsWith("sec-ch-ua") && typeof headers[key] === "string") {
+				if (
+					key.toLowerCase().startsWith("sec-ch-ua") &&
+					typeof headers[key] === "string" &&
+					/electron|pane/i.test(headers[key] as string)
+				) {
 					headers[key] = (headers[key] as string)
 						.split(",")
 						.filter((brand) => !/electron|pane/i.test(brand))
@@ -186,4 +188,9 @@ export class Profile implements TabHost {
 
 		extensionStore.getState().clearProfile(this.id);
 	}
+}
+
+function extractChromeVersion(userAgent: string): string {
+	const match = userAgent.match(/Chrome\/([\d.]+)/);
+	return match?.[1] ?? "130.0.0.0";
 }
