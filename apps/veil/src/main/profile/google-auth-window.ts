@@ -10,7 +10,8 @@ const CHROME_PATHS = [
 	"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
 ];
 
-const CDP_PORT = 19222;
+let activeTempDir: string | null = null;
+let activeChromeProcess: import("node:child_process").ChildProcess | null = null;
 
 interface CdpCookie {
 	name: string;
@@ -43,11 +44,13 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 	const tempDir = path.join(os.tmpdir(), `pane-google-auth-${Date.now()}`);
 	fs.mkdirSync(tempDir, { recursive: true });
 
+	activeTempDir = tempDir;
+
 	const loginUrl = `https://accounts.google.com/ServiceLogin?continue=${encodeURIComponent(continueUrl)}`;
 
-	const child = spawn(chromePath, [
+	activeChromeProcess = spawn(chromePath, [
 		`--user-data-dir=${tempDir}`,
-		`--remote-debugging-port=${CDP_PORT}`,
+		"--remote-debugging-port=0",
 		"--no-first-run",
 		"--no-default-browser-check",
 		loginUrl,
@@ -56,9 +59,34 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 		stdio: "ignore",
 	});
 
-	child.unref();
+	activeChromeProcess.unref();
 
 	return true;
+}
+
+export function cleanupAuthChrome(): void {
+	if (activeChromeProcess?.pid) {
+		try {
+			process.kill(-activeChromeProcess.pid, "SIGTERM");
+		} catch {
+			try {
+				activeChromeProcess.kill("SIGTERM");
+			} catch {}
+		}
+
+		activeChromeProcess = null;
+	}
+
+	if (activeTempDir) {
+		const dir = activeTempDir;
+		activeTempDir = null;
+
+		setTimeout(() => {
+			try {
+				fs.rmSync(dir, { recursive: true, force: true });
+			} catch {}
+		}, 2000);
+	}
 }
 
 export async function importCookiesViaCdp(
@@ -110,14 +138,25 @@ export async function importCookiesViaCdp(
 }
 
 async function getPageWebSocketUrl(): Promise<string | null> {
-	for (let attempt = 0; attempt < 5; attempt++) {
-		try {
-			const data = await httpGet(`http://127.0.0.1:${CDP_PORT}/json/list`);
-			const targets = JSON.parse(data);
-			const page = targets.find((t: any) => t.type === "page");
+	if (!activeTempDir) {
+		return null;
+	}
 
-			if (page?.webSocketDebuggerUrl) {
-				return page.webSocketDebuggerUrl;
+	const portFile = path.join(activeTempDir, "DevToolsActivePort");
+
+	for (let attempt = 0; attempt < 10; attempt++) {
+		try {
+			if (fs.existsSync(portFile)) {
+				const content = fs.readFileSync(portFile, "utf-8").trim();
+				const port = content.split("\n")[0];
+
+				const data = await httpGet(`http://127.0.0.1:${port}/json/list`);
+				const targets = JSON.parse(data);
+				const page = targets.find((t: any) => t.type === "page");
+
+				if (page?.webSocketDebuggerUrl) {
+					return page.webSocketDebuggerUrl;
+				}
 			}
 		} catch {}
 

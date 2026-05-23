@@ -1,6 +1,7 @@
 import { buildChromeContextMenu } from "@pane/electron-chrome-context-menu";
 import { type BaseWindow, type WebContents, WebContentsView } from "electron";
 import {
+	cleanupAuthChrome,
 	importCookiesViaCdp,
 	launchChromeForGoogleAuth,
 } from "./google-auth-window";
@@ -386,6 +387,7 @@ export class ProfileTabs {
 		importCookiesViaCdp(this.profile.session)
 			.then((count) => {
 				state.pending = false;
+				cleanupAuthChrome();
 
 				if (count === 0) {
 					this.showAuthError(
