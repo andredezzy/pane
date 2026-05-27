@@ -174,7 +174,7 @@ export class Profile implements TabHost {
 		this.tabUnregistered?.(tabId);
 	}
 
-	destroy(): void {
+	shutdown(): void {
 		cleanupFingerprintPreload(this.id);
 
 		if (this.proxyLoginHandler) {
@@ -182,9 +182,12 @@ export class Profile implements TabHost {
 		}
 
 		this.proxyRelay?.stop();
-
-		this.tabs.closeAll();
+		this.tabs.destroyAll();
 		this.ece.destroy();
+	}
+
+	destroy(): void {
+		this.shutdown();
 
 		extensionStore.getState().clearProfile(this.id);
 	}

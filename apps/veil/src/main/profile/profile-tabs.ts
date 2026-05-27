@@ -368,13 +368,20 @@ export class ProfileTabs {
 			view.webContents.loadURL(GOOGLE_AUTH_PAGE);
 		}
 
-		view.webContents.on("console-message", (_e, _level, message) => {
+		const onConsoleMessage = (
+			_e: Electron.Event,
+			_level: number,
+			message: string,
+		) => {
 			if (message !== "__PANE_TRANSFER__") {
 				return;
 			}
 
+			view.webContents.removeListener("console-message", onConsoleMessage);
 			this.transferGoogleSession(view, continueUrl, state);
-		});
+		};
+
+		view.webContents.on("console-message", onConsoleMessage);
 
 		return true;
 	}

@@ -50,8 +50,10 @@ export class Pane {
 		this.unsubscribeNavigation();
 
 		for (const profile of this.profiles.values()) {
-			profile.tabs.destroyAll();
+			profile.shutdown();
 		}
+
+		this.profiles.clear();
 	}
 
 	createProfile(

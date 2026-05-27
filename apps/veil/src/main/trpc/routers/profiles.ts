@@ -7,6 +7,9 @@ import { ProxyRelay } from "../../profile/proxy-relay";
 import { testProxyConnection } from "../../profile/proxy-test";
 import { procedure, router } from "../trpc";
 
+const PROXY_TEST_POOL_SIZE = 4;
+let proxyTestIndex = 0;
+
 export const profilesRouter = router({
 	testProxy: procedure
 		.input(
@@ -19,8 +22,10 @@ export const profilesRouter = router({
 			}),
 		)
 		.mutation(async ({ input }) => {
-			const partition = `temp:proxy-test-${Date.now()}`;
-			const testSession = session.fromPartition(partition, { cache: false });
+			const testSession = session.fromPartition(
+				`temp:proxy-test-${proxyTestIndex++ % PROXY_TEST_POOL_SIZE}`,
+				{ cache: false },
+			);
 
 			const relay = new ProxyRelay({
 				proxyType: input.proxyType,
