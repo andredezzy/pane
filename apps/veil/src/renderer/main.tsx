@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import "./sync-transport";
 import { ErrorBoundary, Layout } from "./app/layout";
 import { SurfaceLayout } from "./app/surface";
 import "./styles/globals.css";

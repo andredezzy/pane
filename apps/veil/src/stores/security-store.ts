@@ -56,11 +56,25 @@ export const securityStore = createStore<SecurityState>()(
 					return next;
 				},
 
-				resetAttempts: () => set({ failedAttempts: 0 }),
+				resetAttempts: () => {
+					set({ failedAttempts: 0 });
+					flushKey("security");
+				},
 				showPinScreen: (mode) => set({ pinScreenMode: mode }),
 				dismissPinScreen: () => set({ pinScreenMode: null }),
 			}),
-			{ name: "security-store" },
+			{
+				name: "security-store",
+				// `pin` and `failedAttempts` are owned exclusively by the main
+				// process (mutated only through the security tRPC router). The
+				// renderer just drives the lock-screen UI, so it pushes back only
+				// those fields — pushing a stale `failedAttempts` would clobber the
+				// reset main applies on a successful unlock.
+				pushPartialize: (state) => ({
+					isLocked: state.isLocked,
+					pinScreenMode: state.pinScreenMode,
+				}),
+			},
 		),
 		{
 			name: "security",
