@@ -3,6 +3,12 @@
 	"version": "4.9.1",
 	"private": true,
 	"description": "Chrome extension support for Electron (Pane fork with Electron 41+ fixes)",
+	"license": "GPL-3.0-only",
+	"author": "Samuel Maddock <sam@samuelmaddock.com>",
+	"contributors": [
+		"André Victor <contact@andredezzy.com>"
+	],
+	"repository": "https://github.com/samuelmaddock/electron-browser-shell",
 	"main": "./dist/cjs/index.js",
 	"module": "./dist/esm/index.mjs",
 	"types": "./dist/types/index.d.ts",

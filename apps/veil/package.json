@@ -3,7 +3,7 @@
 	"version": "0.1.1",
 	"description": "Multi-profile desktop browser with per-profile proxies and Chrome extension support.",
 	"author": "André Victor <contact@andredezzy.com>",
-	"license": "MIT",
+	"license": "GPL-3.0-only",
 	"private": true,
 	"type": "commonjs",
 	"main": "out/main/index.js",

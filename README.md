@@ -91,4 +91,6 @@ Output lands in `apps/veil/release/`.
 
 Report vulnerabilities to contact@andredezzy.com.
 
-[MIT](LICENSE) © [André Victor](https://github.com/andredezzy)
+[GPL-3.0](LICENSE) © [André Victor](https://github.com/andredezzy)
+
+Pane bundles a fork of [electron-chrome-extensions](https://github.com/samuelmaddock/electron-browser-shell) by Samuel Maddock (GPL-3.0), so Pane is distributed under GPL-3.0.

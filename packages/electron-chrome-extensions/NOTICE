@@ -1,0 +1,10 @@
+@pane/electron-chrome-extensions
+
+This package is a fork of "electron-chrome-extensions" by Samuel Maddock
+<sam@samuelmaddock.com>, from https://github.com/samuelmaddock/electron-browser-shell
+
+Original work Copyright (C) Samuel Maddock and contributors.
+Modifications Copyright (C) 2026 André Victor.
+
+Licensed under the GNU General Public License v3.0 (see LICENSE).
+Modified for the Pane browser and updated for Electron 41+.
