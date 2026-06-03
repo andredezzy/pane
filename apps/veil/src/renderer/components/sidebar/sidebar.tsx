@@ -31,7 +31,7 @@ export function SidebarTitle({
 }: HTMLAttributes<HTMLSpanElement>) {
 	return (
 		<span
-			className={cn("font-semibold text-[#71717a] text-[11px]", className)}
+			className={cn("font-semibold text-[#71717a] text-xs", className)}
 			{...props}
 		/>
 	);
