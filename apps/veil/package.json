@@ -2,7 +2,7 @@
 	"name": "@pane/veil",
 	"version": "0.1.1",
 	"description": "Multi-profile desktop browser with per-profile proxies and Chrome extension support.",
-	"author": "André \"Dezzy\" Victor <contact@andredezzy.com>",
+	"author": "André Victor <contact@andredezzy.com>",
 	"license": "MIT",
 	"private": true,
 	"type": "commonjs",
