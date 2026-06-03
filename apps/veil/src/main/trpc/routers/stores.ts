@@ -13,12 +13,28 @@ const StoreNameSchema = z.enum([
 	"security-store",
 ]);
 
+type StoreNameType = z.infer<typeof StoreNameSchema>;
+
+// Fields the renderer is NOT allowed to write back to the main process — they
+// are owned authoritatively by the main process. The renderer only mirrors them
+// (received via broadcast) and must never push them, or it could e.g. forge the
+// failed-attempt counter to trigger a wipe, or clear the PIN.
+const BACKEND_OWNED_FIELDS: Partial<Record<StoreNameType, readonly string[]>> =
+	{
+		"security-store": ["pin", "failedAttempts"],
+	};
+
 export const storesRouter = router({
 	push: procedure
 		.input(z.object({ name: StoreNameSchema, state: z.string() }))
 		.mutation(({ input, ctx }) => {
 			const store = ctx.stores[input.name];
-			const partial = JSON.parse(input.state);
+			const partial = JSON.parse(input.state) as Record<string, unknown>;
+
+			for (const field of BACKEND_OWNED_FIELDS[input.name] ?? []) {
+				delete partial[field];
+			}
+
 			store.setState((prev) => ({ ...prev, ...partial }));
 		}),
 

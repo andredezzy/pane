@@ -82,7 +82,17 @@ export const securityRouter = router({
 			return { success: true };
 		}),
 
-	wipe: procedure.mutation(() => {
+	wipe: procedure.mutation(({ ctx }) => {
+		const state = getSecurityState(ctx);
+
+		// Wipe only when the main-process attempt counter is genuinely exhausted.
+		// recordFailedAttempt (main) is the only writer of failedAttempts, and the
+		// renderer cannot push it (see stores.push), so this cannot be forged from
+		// the renderer to trigger a wipe out of the lock flow.
+		if (!state.pin || state.failedAttempts < MAX_ATTEMPTS) {
+			return;
+		}
+
 		executeWipe();
 	}),
 });
