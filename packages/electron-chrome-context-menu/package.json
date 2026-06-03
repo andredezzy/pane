@@ -1,6 +1,7 @@
 {
 	"name": "@pane/electron-chrome-context-menu",
 	"version": "1.0.0",
+	"license": "MIT",
 	"private": true,
 	"description": "Chrome-like context menu builder for Electron browser tabs (Pane fork)",
 	"main": "./dist/cjs/index.js",
