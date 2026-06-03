@@ -91,4 +91,4 @@ Output lands in `apps/veil/release/`.
 
 Report vulnerabilities to contact@andredezzy.com.
 
-Not yet licensed — all rights reserved until a LICENSE file is added.
+[MIT](LICENSE) © [André Victor](https://github.com/andredezzy)
