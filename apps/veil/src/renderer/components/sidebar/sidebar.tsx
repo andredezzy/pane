@@ -1,5 +1,5 @@
 import { cn } from "@pane/ui/cn";
-import type { HTMLAttributes } from "react";
+import type { CSSProperties, HTMLAttributes } from "react";
 
 export function Sidebar({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	return (
@@ -39,11 +39,16 @@ export function SidebarTitle({
 
 export function SidebarContent({
 	className,
+	style,
 	...props
 }: HTMLAttributes<HTMLDivElement>) {
 	return (
 		<div
 			className={cn("flex-1 overflow-y-auto px-2.5 py-1", className)}
+			// Opt the scroll area out of the window-drag region — otherwise macOS
+			// treats the gaps between items as a title-bar and swallows the wheel
+			// events, so scrolling only works while hovering an item.
+			style={{ WebkitAppRegion: "no-drag", ...style } as CSSProperties}
 			{...props}
 		/>
 	);
