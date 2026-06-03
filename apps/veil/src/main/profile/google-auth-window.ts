@@ -1,16 +1,14 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 
 const CHROME_PATHS = [
 	"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 	"/Applications/Chromium.app/Contents/MacOS/Chromium",
 	"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
 ];
-
-const CDP_PORT = 19222;
 
 interface CdpCookie {
 	name: string;
@@ -64,16 +62,23 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 
 	const loginUrl = `https://accounts.google.com/ServiceLogin?continue=${encodeURIComponent(continueUrl)}`;
 
-	const child = spawn(chromePath, [
-		`--user-data-dir=${tempDir}`,
-		`--remote-debugging-port=${CDP_PORT}`,
-		"--no-first-run",
-		"--no-default-browser-check",
-		loginUrl,
-	], {
-		detached: true,
-		stdio: "ignore",
-	});
+	const child = spawn(
+		chromePath,
+		[
+			`--user-data-dir=${tempDir}`,
+			// Ephemeral port: Chrome picks a free port and writes it to its own
+			// DevToolsActivePort file inside tempDir. A fixed port could be pre-bound
+			// by another local process to serve forged cookies over CDP.
+			"--remote-debugging-port=0",
+			"--no-first-run",
+			"--no-default-browser-check",
+			loginUrl,
+		],
+		{
+			detached: true,
+			stdio: "ignore",
+		},
+	);
 
 	activeChromePid = child.pid ?? null;
 	child.unref();
@@ -87,18 +92,21 @@ export async function importCookiesViaCdp(
 	const wsUrl = await getPageWebSocketUrl();
 
 	if (!wsUrl) {
-		throw new Error("Could not connect to Chrome. Is the Chrome window still open?");
+		throw new Error(
+			"Could not connect to Chrome. Is the Chrome window still open?",
+		);
 	}
 
 	const allCookies = await fetchCookiesViaCdp(wsUrl);
 
 	const googleCookies = allCookies.filter(
-		(c) =>
-			c.domain.includes("google.com") ||
-			c.domain.includes("youtube.com"),
+		(c) => c.domain.includes("google.com") || c.domain.includes("youtube.com"),
 	);
 
-	const sameSiteMap: Record<string, "unspecified" | "no_restriction" | "lax" | "strict"> = {
+	const sameSiteMap: Record<
+		string,
+		"unspecified" | "no_restriction" | "lax" | "strict"
+	> = {
 		None: "no_restriction",
 		Lax: "lax",
 		Strict: "strict",
@@ -146,17 +154,51 @@ export function cleanupAuthChrome(): void {
 	}, 2000);
 }
 
-async function getPageWebSocketUrl(): Promise<string | null> {
-	for (let attempt = 0; attempt < 10; attempt++) {
-		try {
-			const data = await httpGet(`http://127.0.0.1:${CDP_PORT}/json/list`);
-			const targets = JSON.parse(data);
-			const page = targets.find((t: any) => t.type === "page");
+function readDevToolsPort(): number | null {
+	if (!activeTempDir) {
+		return null;
+	}
 
-			if (page?.webSocketDebuggerUrl) {
-				return page.webSocketDebuggerUrl;
-			}
-		} catch {}
+	try {
+		const content = fs.readFileSync(
+			path.join(activeTempDir, "DevToolsActivePort"),
+			"utf-8",
+		);
+
+		const port = Number.parseInt(content.split("\n")[0] ?? "", 10);
+
+		return Number.isInteger(port) && port > 0 ? port : null;
+	} catch {
+		return null;
+	}
+}
+
+async function getPageWebSocketUrl(): Promise<string | null> {
+	for (let attempt = 0; attempt < 20; attempt++) {
+		const port = readDevToolsPort();
+
+		if (port) {
+			try {
+				const data = await httpGet(`http://127.0.0.1:${port}/json/list`);
+
+				const targets = JSON.parse(data) as Array<{
+					type?: string;
+					webSocketDebuggerUrl?: string;
+				}>;
+
+				const page = targets.find((t) => t.type === "page");
+				const wsUrl: unknown = page?.webSocketDebuggerUrl;
+
+				// Defense in depth: only trust a loopback socket on the port Chrome
+				// itself reported via DevToolsActivePort.
+				if (
+					typeof wsUrl === "string" &&
+					wsUrl.startsWith(`ws://127.0.0.1:${port}/`)
+				) {
+					return wsUrl;
+				}
+			} catch {}
+		}
 
 		await new Promise((r) => setTimeout(r, 500));
 	}
@@ -166,17 +208,23 @@ async function getPageWebSocketUrl(): Promise<string | null> {
 
 function httpGet(url: string): Promise<string> {
 	return new Promise((resolve, reject) => {
-		http.get(url, (res) => {
-			let data = "";
+		http
+			.get(url, (res) => {
+				let data = "";
 
-			res.on("data", (chunk) => (data += chunk));
-			res.on("end", () => resolve(data));
-		}).on("error", reject);
+				res.on("data", (chunk) => {
+					data += chunk;
+				});
+
+				res.on("end", () => resolve(data));
+			})
+			.on("error", reject);
 	});
 }
 
 function fetchCookiesViaCdp(wsUrl: string): Promise<CdpCookie[]> {
 	return new Promise((resolve, reject) => {
+		// biome-ignore lint/suspicious/noExplicitAny: CommonJS interop for `ws`
 		const WS = (require("ws") as any).default ?? require("ws");
 		const ws = new WS(wsUrl);
 
@@ -196,7 +244,10 @@ function fetchCookiesViaCdp(wsUrl: string): Promise<CdpCookie[]> {
 				const msg = JSON.parse(data.toString());
 
 				if (msg.id === 1 && !msg.error) {
-					ws.send(JSON.stringify({ id: nextId++, method: "Network.getAllCookies" }));
+					ws.send(
+						JSON.stringify({ id: nextId++, method: "Network.getAllCookies" }),
+					);
+
 					return;
 				}
 
@@ -204,6 +255,7 @@ function fetchCookiesViaCdp(wsUrl: string): Promise<CdpCookie[]> {
 					clearTimeout(timeout);
 					ws.close();
 					resolve(msg.result.cookies);
+
 					return;
 				}
 
