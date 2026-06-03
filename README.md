@@ -20,7 +20,7 @@
 
 </div>
 
-Pane is a multi-profile desktop browser built on Electron that gives each profile its own isolated session, proxy, and Chrome extension environment.
+Pane is an Arc-inspired desktop browser built on Electron — a sidebar-first browser where every profile is a fully isolated identity with its own session, proxy, fingerprint, and Chrome extensions.
 
 ## Features
 
