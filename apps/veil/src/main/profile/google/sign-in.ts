@@ -116,10 +116,40 @@ export class GoogleSignIn {
 	}
 
 	private transfer(continueUrl: string, handle: AuthChromeHandle): void {
+		// importCookiesViaCdp polls Chrome for up to ~10s. stopListening() already
+		// removed the intercept-level destroyed handler, so if the tab is destroyed or
+		// the app quits during that window the .then/.catch never run — guard the
+		// destroyed event here so the detached Chrome + temp dir are still cleaned up.
+		let cleaned = false;
+		const cleanup = () => {
+			if (cleaned) {
+				return;
+			}
+
+			cleaned = true;
+			cleanupAuthChrome(handle);
+		};
+
+		const onDestroyed = () => {
+			this.pending = false;
+			cleanup();
+		};
+
+		const stopGuard = () => {
+			if (!this.view.webContents.isDestroyed()) {
+				this.view.webContents.removeListener("destroyed", onDestroyed);
+			}
+		};
+
+		if (!this.view.webContents.isDestroyed()) {
+			this.view.webContents.once("destroyed", onDestroyed);
+		}
+
 		importCookiesViaCdp(this.session, handle)
 			.then((count) => {
+				stopGuard();
 				this.pending = false;
-				cleanupAuthChrome(handle);
+				cleanup();
 
 				if (count === 0) {
 					this.showError(
@@ -133,8 +163,9 @@ export class GoogleSignIn {
 				}
 			})
 			.catch((error: Error) => {
+				stopGuard();
 				this.pending = false;
-				cleanupAuthChrome(handle);
+				cleanup();
 				this.showError(error.message);
 			});
 	}
