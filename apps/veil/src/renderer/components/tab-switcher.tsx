@@ -26,6 +26,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 		initialSelectedIndex(flattened, tabStore.getState().mruHistory[1]),
 	);
 
+	// Refs give the empty-dep hotkey subscription current values without stale closures.
 	const flattenedRef = useRef(flattened);
 	flattenedRef.current = flattened;
 

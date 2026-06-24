@@ -6,13 +6,6 @@ export interface SwitcherTab {
 	favicon: string;
 }
 
-export interface GroupingProfile {
-	id: string;
-	name: string;
-	color: ProfileColor;
-	tabs: SwitcherTab[];
-}
-
 export interface ProfileGroup {
 	id: string;
 	name: string;
@@ -22,7 +15,7 @@ export interface ProfileGroup {
 
 export function groupMruTabs(
 	mruHistory: string[],
-	profiles: GroupingProfile[],
+	profiles: ProfileGroup[],
 	maxTabs: number,
 ): ProfileGroup[] {
 	const groups: ProfileGroup[] = [];

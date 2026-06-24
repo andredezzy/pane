@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ProfileColor } from "../../constants/profile-colors";
 import {
-	type GroupingProfile,
+	type ProfileGroup,
 	groupMruTabs,
 	initialSelectedIndex,
 } from "./tab-switcher-grouping";
@@ -11,7 +11,7 @@ function makeTab(id: string, title = id, favicon = "") {
 	return { id, title, favicon };
 }
 
-const profiles: GroupingProfile[] = [
+const profiles: ProfileGroup[] = [
 	{
 		id: "work",
 		name: "Work",
@@ -52,7 +52,7 @@ describe("groupMruTabs", () => {
 	});
 
 	it("falls back to a loading title and empty favicon", () => {
-		const sparse: GroupingProfile[] = [
+		const sparse: ProfileGroup[] = [
 			{
 				id: "x",
 				name: "X",
@@ -65,6 +65,13 @@ describe("groupMruTabs", () => {
 
 		expect(groups[0].tabs[0].title).toBe("Loading...");
 		expect(groups[0].tabs[0].favicon).toBe("");
+	});
+
+	it("returns a single group when all tabs belong to one profile", () => {
+		const groups = groupMruTabs(["w2", "w1"], profiles, 8);
+
+		expect(groups.map((group) => group.id)).toEqual(["work"]);
+		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w2", "w1"]);
 	});
 });
 
