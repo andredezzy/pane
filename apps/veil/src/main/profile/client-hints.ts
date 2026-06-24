@@ -56,13 +56,15 @@ export function deriveClientHints(fingerprint: Fingerprint): ClientHints {
 	const fullMatch = fingerprint.userAgent.match(/Chrome\/(\d+\.\d+\.\d+\.\d+)/);
 	const majorMatch = fingerprint.userAgent.match(/Chrome\/(\d+)/);
 	const chromeMajor = majorMatch?.[1] ?? "136";
+	const major = Number(chromeMajor);
 	const uaFullVersion = fullMatch?.[1] ?? `${chromeMajor}.0.0.0`;
 
-	const grease = greasedBrand(Number(chromeMajor));
+	const grease = greasedBrand(major);
 
-	// Chromium shuffles the grease entry's position by version; mirror that so the
-	// list isn't a fixed "grease always last" signature.
-	const greaseIndex = Number(chromeMajor) % 3;
+	// Chromium shuffles the grease entry's position by version; mirror that (mod the
+	// final 3-brand list length) so the list isn't a fixed "grease always last"
+	// signature.
+	const greaseIndex = major % 3;
 
 	const brands: UABrand[] = [
 		{ brand: "Chromium", version: chromeMajor },

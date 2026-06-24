@@ -53,12 +53,17 @@ function __paneApplyFingerprint(fp) {
 		const wrapper = asNative(makeWrapper(descriptor.value), prop);
 		Object.defineProperty(obj, prop, Object.assign({}, descriptor, { value: wrapper }));
 	};
+	// Replace a native method outright (no delegation to the original).
+	const replaceMethod = (obj, prop, fn) => patchMethod(obj, prop, () => fn);
 
 	const navProto = Object.getPrototypeOf(navigator);
 	defineGetter(navProto, "platform", () => fp._navPlatform);
 	defineGetter(navProto, "hardwareConcurrency", () => fp.hardwareConcurrency);
 	defineGetter(navProto, "deviceMemory", () => fp.deviceMemory);
-	defineGetter(navProto, "maxTouchPoints", () => fp.maxTouchPoints);
+	// maxTouchPoints is a Navigator property only — a real WorkerNavigator lacks it.
+	if ("maxTouchPoints" in navigator) {
+		defineGetter(navProto, "maxTouchPoints", () => fp.maxTouchPoints);
+	}
 	defineGetter(navProto, "language", () => fp.language);
 	defineGetter(navProto, "languages", () => Object.freeze(fp.languages.slice()));
 
@@ -93,16 +98,19 @@ function __paneApplyFingerprint(fp) {
 		wow64: false,
 	};
 	function getHighEntropyValues(hints) {
-		const result = { brands: ch.brands, mobile: ch.mobile, platform: ch.platform };
+		const result = { brands: ch.brands.slice(), mobile: ch.mobile, platform: ch.platform };
 		if (Array.isArray(hints)) {
 			for (const hint of hints) {
-				if (hint in highEntropy) result[hint] = highEntropy[hint];
+				if (hint in highEntropy) {
+					const value = highEntropy[hint];
+					result[hint] = Array.isArray(value) ? value.slice() : value;
+				}
 			}
 		}
 		return Promise.resolve(result);
 	}
 	function toJSON() {
-		return { brands: ch.brands, mobile: ch.mobile, platform: ch.platform };
+		return { brands: ch.brands.slice(), mobile: ch.mobile, platform: ch.platform };
 	}
 
 	if (typeof NavigatorUAData !== "undefined" && navigator.userAgentData) {
@@ -110,8 +118,8 @@ function __paneApplyFingerprint(fp) {
 		defineGetter(uaProto, "brands", () => ch.brands);
 		defineGetter(uaProto, "mobile", () => ch.mobile);
 		defineGetter(uaProto, "platform", () => ch.platform);
-		patchMethod(uaProto, "getHighEntropyValues", () => getHighEntropyValues);
-		patchMethod(uaProto, "toJSON", () => toJSON);
+		replaceMethod(uaProto, "getHighEntropyValues", getHighEntropyValues);
+		replaceMethod(uaProto, "toJSON", toJSON);
 	} else {
 		const base = typeof NavigatorUAData !== "undefined" ? NavigatorUAData.prototype : Object.prototype;
 		const uaProto = Object.create(base);
@@ -126,7 +134,9 @@ function __paneApplyFingerprint(fp) {
 			value: asNative(toJSON, "toJSON"),
 			writable: true, enumerable: false, configurable: true,
 		});
-		defineGetter(navProto, "userAgentData", () => Object.create(uaProto));
+		// Cache the instance so navigator.userAgentData has a stable identity.
+		const uaInstance = Object.create(uaProto);
+		defineGetter(navProto, "userAgentData", () => uaInstance);
 	}
 
 	if (fp.webgl) {
@@ -148,13 +158,15 @@ function __paneApplyFingerprint(fp) {
 	// Canvas noise: a position-keyed PRNG (not a sequential walk) so a direct
 	// getImageData read of any sub-region produces the SAME ±1 per channel as the
 	// full-canvas noise used by toDataURL/toBlob — otherwise the two surfaces
-	// disagree and lie-detectors (creepjs) flag the canvas.
+	// disagree and lie-detectors (creepjs) flag the canvas. Only fully opaque pixels
+	// are touched so the toDataURL putImageData round-trip (which premultiplies
+	// alpha) can't diverge from the in-memory getImageData path.
 	if (fp.canvas && fp.canvas.noise && typeof CanvasRenderingContext2D !== "undefined") {
 		const seed = (fp._profileHash || 0) >>> 0;
 		const deltaAt = (index) => {
 			let h = (seed ^ index) >>> 0;
-			h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
-			h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+			h = Math.imul(h ^ (h >>> 16), 0x45d9f3b3);
+			h = Math.imul(h ^ (h >>> 16), 0x45d9f3b3);
 			h = (h ^ (h >>> 16)) >>> 0;
 			return h / 4294967296 < 0.5 ? -1 : 1;
 		};
@@ -162,31 +174,48 @@ function __paneApplyFingerprint(fp) {
 			const data = imageData.data;
 			for (let row = 0; row < imageData.height; row++) {
 				for (let col = 0; col < imageData.width; col++) {
-					const absolute = ((originY + row) * fullWidth + (originX + col)) * 3;
 					const di = (row * imageData.width + col) * 4;
+					if (data[di + 3] !== 255) continue;
+					const absolute = ((originY + row) * fullWidth + (originX + col)) * 3;
 					data[di] = data[di] + deltaAt(absolute);
 					data[di + 1] = data[di + 1] + deltaAt(absolute + 1);
 					data[di + 2] = data[di + 2] + deltaAt(absolute + 2);
 				}
 			}
 		};
-		const rawGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+
+		const ctx2dProto = CanvasRenderingContext2D.prototype;
+		const offscreenProto = typeof OffscreenCanvasRenderingContext2D !== "undefined" ? OffscreenCanvasRenderingContext2D.prototype : null;
+		const rawCtxGet = ctx2dProto.getImageData;
+		const rawOffscreenGet = offscreenProto ? offscreenProto.getImageData : null;
+		const rawReaderFor = (context) =>
+			rawOffscreenGet && offscreenProto && context instanceof OffscreenCanvasRenderingContext2D
+				? rawOffscreenGet
+				: rawCtxGet;
+
 		const applyNoise = (canvas) => {
 			const context = canvas.getContext && canvas.getContext("2d");
 			if (!context || !canvas.width || !canvas.height) return null;
-			const original = rawGetImageData.call(context, 0, 0, canvas.width, canvas.height);
-			const noised = rawGetImageData.call(context, 0, 0, canvas.width, canvas.height);
+			const read = rawReaderFor(context);
+			const original = read.call(context, 0, 0, canvas.width, canvas.height);
+			const noised = read.call(context, 0, 0, canvas.width, canvas.height);
 			noiseRegion(noised, 0, 0, canvas.width);
 			context.putImageData(noised, 0, 0);
 			return () => context.putImageData(original, 0, 0);
 		};
-		// Direct pixel reads are noised in place (using the raw reader to avoid double
+
+		// Direct pixel reads are noised in place (using a raw reader to avoid double
 		// application) so they match what toDataURL/toBlob encode.
-		patchMethod(CanvasRenderingContext2D.prototype, "getImageData", (original) => function getImageData(sx, sy, sw, sh) {
-			const imageData = original.call(this, sx, sy, sw, sh);
+		const makeGetImageData = (original) => function getImageData(sx, sy, sw, sh, settings) {
+			const imageData = original.call(this, sx, sy, sw, sh, settings);
 			noiseRegion(imageData, sx, sy, this.canvas.width);
 			return imageData;
-		});
+		};
+		patchMethod(ctx2dProto, "getImageData", makeGetImageData);
+		if (offscreenProto) {
+			patchMethod(offscreenProto, "getImageData", makeGetImageData);
+		}
+
 		if (typeof HTMLCanvasElement !== "undefined") {
 			patchMethod(HTMLCanvasElement.prototype, "toDataURL", (original) => function toDataURL(...args) {
 				const restore = applyNoise(this);
@@ -232,14 +261,20 @@ function __paneApplyFingerprint(fp) {
 		});
 	}
 
-	// Timezone: report fp.timezone from Intl AND the Date string/offset methods
-	// (which read ICU directly and bypass the Intl.DateTimeFormat constructor).
+	// Timezone: report fp.timezone from Intl AND every host-timezone-dependent Date
+	// method (string, offset, and local numeric getters), which read ICU directly and
+	// bypass the Intl.DateTimeFormat constructor.
 	if (fp.timezone && typeof Intl !== "undefined") {
 		const OriginalDTF = Intl.DateTimeFormat;
 		const partsFormat = new OriginalDTF("en-US", {
 			timeZone: fp.timezone, hourCycle: "h23",
 			weekday: "short", year: "numeric", month: "short", day: "2-digit",
 			hour: "2-digit", minute: "2-digit", second: "2-digit",
+		});
+		const numericFormat = new OriginalDTF("en-US", {
+			timeZone: fp.timezone, hourCycle: "h23",
+			weekday: "short", year: "numeric", month: "numeric", day: "numeric",
+			hour: "numeric", minute: "numeric", second: "numeric",
 		});
 		const offsetFormat = new OriginalDTF("en-US", { timeZone: fp.timezone, timeZoneName: "longOffset" });
 		const longNameFormat = new OriginalDTF("en-US", { timeZone: fp.timezone, timeZoneName: "long" });
@@ -253,6 +288,9 @@ function __paneApplyFingerprint(fp) {
 			return /^GMT[+-]\\d{4}$/.test(raw) ? raw : "GMT+0000";
 		};
 		const nameOf = (date) => partsOf(date, longNameFormat).timeZoneName || "";
+		const padYear = (year) => (year.length < 4 ? year.padStart(4, "0") : year);
+		const WEEKDAY = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+		const COMPONENT_KEYS = ["weekday", "era", "year", "month", "day", "hour", "minute", "second", "dayPeriod", "dateStyle", "timeStyle", "fractionalSecondDigits"];
 
 		const dtfProxy = new Proxy(OriginalDTF, {
 			construct(target, args) {
@@ -270,29 +308,44 @@ function __paneApplyFingerprint(fp) {
 		labels.set(dtfProxy, "DateTimeFormat");
 		Intl.DateTimeFormat = dtfProxy;
 
-		patchMethod(Date.prototype, "getTimezoneOffset", () => function getTimezoneOffset() {
+		replaceMethod(Date.prototype, "getTimezoneOffset", function getTimezoneOffset() {
+			if (Number.isNaN(this.getTime())) return Number.NaN;
 			const match = gmtOf(this).match(/GMT([+-])(\\d{2})(\\d{2})/);
 			if (!match) return 0;
 			return ((match[1] === "-" ? 1 : -1) * (parseInt(match[2], 10) * 60 + parseInt(match[3], 10))) || 0;
 		});
-		patchMethod(Date.prototype, "toString", () => function toString() {
+		replaceMethod(Date.prototype, "toString", function toString() {
 			if (Number.isNaN(this.getTime())) return "Invalid Date";
 			const p = partsOf(this, partsFormat);
-			return p.weekday + " " + p.month + " " + p.day + " " + p.year + " " + p.hour + ":" + p.minute + ":" + p.second + " " + gmtOf(this) + " (" + nameOf(this) + ")";
+			return p.weekday + " " + p.month + " " + p.day + " " + padYear(p.year) + " " + p.hour + ":" + p.minute + ":" + p.second + " " + gmtOf(this) + " (" + nameOf(this) + ")";
 		});
-		patchMethod(Date.prototype, "toDateString", () => function toDateString() {
+		replaceMethod(Date.prototype, "toDateString", function toDateString() {
 			if (Number.isNaN(this.getTime())) return "Invalid Date";
 			const p = partsOf(this, partsFormat);
-			return p.weekday + " " + p.month + " " + p.day + " " + p.year;
+			return p.weekday + " " + p.month + " " + p.day + " " + padYear(p.year);
 		});
-		patchMethod(Date.prototype, "toTimeString", () => function toTimeString() {
+		replaceMethod(Date.prototype, "toTimeString", function toTimeString() {
 			if (Number.isNaN(this.getTime())) return "Invalid Date";
 			const p = partsOf(this, partsFormat);
 			return p.hour + ":" + p.minute + ":" + p.second + " " + gmtOf(this) + " (" + nameOf(this) + ")";
 		});
-		const patchLocale = (method, defaults) => patchMethod(Date.prototype, method, () => function (locales, options) {
+
+		// Local numeric getters in the spoofed zone (else getHours()-getUTCHours()
+		// recovers the real host offset despite the patched getTimezoneOffset).
+		const numeric = (date, part) => parseInt(partsOf(date, numericFormat)[part], 10);
+		replaceMethod(Date.prototype, "getFullYear", function getFullYear() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "year"); });
+		replaceMethod(Date.prototype, "getMonth", function getMonth() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "month") - 1; });
+		replaceMethod(Date.prototype, "getDate", function getDate() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "day"); });
+		replaceMethod(Date.prototype, "getDay", function getDay() { return Number.isNaN(this.getTime()) ? Number.NaN : (WEEKDAY[partsOf(this, numericFormat).weekday] ?? 0); });
+		replaceMethod(Date.prototype, "getHours", function getHours() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "hour") % 24; });
+		replaceMethod(Date.prototype, "getMinutes", function getMinutes() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "minute"); });
+		replaceMethod(Date.prototype, "getSeconds", function getSeconds() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "second"); });
+		replaceMethod(Date.prototype, "getYear", function getYear() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "year") - 1900; });
+
+		const patchLocale = (method, defaults) => replaceMethod(Date.prototype, method, function (locales, options) {
 			if (Number.isNaN(this.getTime())) return "Invalid Date";
-			const opts = options ? Object.assign({}, options) : Object.assign({}, defaults);
+			const opts = Object.assign({}, options);
+			if (!COMPONENT_KEYS.some((key) => key in opts)) Object.assign(opts, defaults);
 			if (!opts.timeZone) opts.timeZone = fp.timezone;
 			return new OriginalDTF(locales, opts).format(this);
 		});
@@ -310,9 +363,13 @@ try {
 }
 
 if (__paneBridge && typeof __paneBridge.executeInMainWorld === "function") {
-	__paneBridge.executeInMainWorld({ func: __paneApplyFingerprint, args: [__PANE_FP__] });
+	try {
+		__paneBridge.executeInMainWorld({ func: __paneApplyFingerprint, args: [__PANE_FP__] });
+	} catch (_error) {
+		__paneApplyFingerprint(__PANE_FP__);
+	}
 } else {
-	// Service-worker / no-bridge context: run directly in this global scope.
+	// No bridge (older Electron / certain worker contexts): run in this scope.
 	__paneApplyFingerprint(__PANE_FP__);
 }
 `;

@@ -28,6 +28,7 @@ export class Profile implements TabHost {
 	readonly proxyReady: Promise<boolean>;
 	private proxyLoginHandler?: (...args: any[]) => void;
 	private proxyRelay?: ProxyRelay;
+	private readonly fingerprintPreloadIds: string[] = [];
 
 	constructor(
 		readonly id: string,
@@ -102,8 +103,12 @@ export class Profile implements TabHost {
 
 			// One preload for both worlds: a frame runs it in the isolated world (it
 			// bridges into the page's main world); a service worker runs it directly.
+			// Track the ids so shutdown can unregister them — the persistent session
+			// outlives this Profile, so re-registering on reload would double-run it.
 			for (const type of ["frame", "service-worker"] as const) {
-				this.session.registerPreloadScript({ type, filePath });
+				this.fingerprintPreloadIds.push(
+					this.session.registerPreloadScript({ type, filePath }),
+				);
 			}
 		}
 
@@ -209,6 +214,10 @@ export class Profile implements TabHost {
 
 	shutdown(): void {
 		cleanupFingerprintPreload(this.id);
+
+		for (const scriptId of this.fingerprintPreloadIds) {
+			this.session.unregisterPreloadScript(scriptId);
+		}
 
 		if (this.proxyLoginHandler) {
 			app.removeListener("login", this.proxyLoginHandler);
