@@ -188,18 +188,26 @@ function __paneApplyFingerprint(fp) {
 		}
 
 		// chrome.app is exposed on every plain page (web-available extension binding),
-		// reporting "not an installed app" — isInstalled false, getDetails null,
-		// runningState "cannot_run". Added only when absent so an extension context's
-		// real chrome.app is never clobbered.
+		// reporting "not an installed app". Shape mirrors real Chrome / the
+		// puppeteer-stealth baseline: isInstalled is a native accessor (assignment is a
+		// no-op, unlike a data property), the InstallState/RunningState enum objects are
+		// present, plus getDetails/getIsInstalled/runningState. There is deliberately NO
+		// installState() — real Chrome only wires it in extension contexts, so exposing
+		// it on a plain page would itself be a tell. Added only when absent so an
+		// extension context's real chrome.app is never clobbered.
 		if (chromeGlobal && !chromeGlobal.app) {
-			chromeGlobal.app = {
-				isInstalled: false,
-				InstallState: { DISABLED: "disabled", INSTALLED: "installed", NOT_INSTALLED: "not_installed" },
-				RunningState: { CANNOT_RUN: "cannot_run", READY_TO_RUN: "ready_to_run", RUNNING: "running" },
-				getDetails: asNative(function getDetails() { return null; }, "getDetails"),
-				getIsInstalled: asNative(function getIsInstalled() { return false; }, "getIsInstalled"),
-				runningState: asNative(function runningState() { return "cannot_run"; }, "runningState"),
-			};
+			const app = {};
+			Object.defineProperty(app, "isInstalled", {
+				get: asNative(function () { return false; }, "get isInstalled"),
+				enumerable: true,
+				configurable: true,
+			});
+			app.InstallState = { DISABLED: "disabled", INSTALLED: "installed", NOT_INSTALLED: "not_installed" };
+			app.RunningState = { CANNOT_RUN: "cannot_run", READY_TO_RUN: "ready_to_run", RUNNING: "running" };
+			app.getDetails = asNative(function getDetails() { return null; }, "getDetails");
+			app.getIsInstalled = asNative(function getIsInstalled() { return false; }, "getIsInstalled");
+			app.runningState = asNative(function runningState() { return "cannot_run"; }, "runningState");
+			chromeGlobal.app = app;
 		}
 	}
 
