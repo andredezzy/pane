@@ -60,17 +60,27 @@ export function deriveClientHints(fingerprint: Fingerprint): ClientHints {
 
 	const grease = greasedBrand(Number(chromeMajor));
 
+	// Chromium shuffles the grease entry's position by version; mirror that so the
+	// list isn't a fixed "grease always last" signature.
+	const greaseIndex = Number(chromeMajor) % 3;
+
 	const brands: UABrand[] = [
 		{ brand: "Chromium", version: chromeMajor },
 		{ brand: "Google Chrome", version: chromeMajor },
-		{ brand: grease.brand, version: grease.version },
 	];
+	brands.splice(greaseIndex, 0, {
+		brand: grease.brand,
+		version: grease.version,
+	});
 
 	const fullVersionList: UABrand[] = [
 		{ brand: "Chromium", version: uaFullVersion },
 		{ brand: "Google Chrome", version: uaFullVersion },
-		{ brand: grease.brand, version: `${grease.version}.0.0.0` },
 	];
+	fullVersionList.splice(greaseIndex, 0, {
+		brand: grease.brand,
+		version: `${grease.version}.0.0.0`,
+	});
 
 	return {
 		platform: UA_PLATFORM[fingerprint.platform],

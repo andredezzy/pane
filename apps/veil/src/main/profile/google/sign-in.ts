@@ -62,11 +62,18 @@ export class GoogleSignIn {
 				return;
 			}
 
-			teardown();
+			// Stop listening (the import owns Chrome cleanup from here); transfer.
+			stopListening();
 			this.transfer(continueUrl);
 		};
 
-		const teardown = () => {
+		const onDestroyed = () => {
+			clearTimeout(timer);
+			cleanupAuthChrome();
+			this.pending = false;
+		};
+
+		const stopListening = () => {
 			clearTimeout(timer);
 
 			if (!this.view.webContents.isDestroyed()) {
@@ -74,17 +81,20 @@ export class GoogleSignIn {
 					"console-message",
 					onConsoleMessage,
 				);
+				this.view.webContents.removeListener("destroyed", onDestroyed);
 			}
 		};
 
 		// Bound the listener's lifetime: if the user never completes the transfer,
-		// stop listening and let them retry rather than leaving the hook armed.
+		// stop listening, kill the spawned Chrome, and let them retry.
 		const timer = setTimeout(() => {
-			teardown();
+			stopListening();
+			cleanupAuthChrome();
 			this.pending = false;
 		}, TRANSFER_TIMEOUT_MS);
 
 		this.view.webContents.on("console-message", onConsoleMessage);
+		this.view.webContents.once("destroyed", onDestroyed);
 
 		return true;
 	}
@@ -108,6 +118,7 @@ export class GoogleSignIn {
 			})
 			.catch((error: Error) => {
 				this.pending = false;
+				cleanupAuthChrome();
 				this.showError(error.message);
 			});
 	}

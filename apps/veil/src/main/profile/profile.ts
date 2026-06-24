@@ -10,7 +10,6 @@ import { clientHintHeaders, deriveClientHints } from "./client-hints";
 import {
 	cleanupFingerprintPreload,
 	generateFingerprintPreload,
-	generateWorkerFingerprintPreload,
 } from "./fingerprint-preload";
 import { clearGoogleSession } from "./google/sign-out";
 import { ProfileTabs, type TabHost } from "./profile-tabs";
@@ -99,24 +98,13 @@ export class Profile implements TabHost {
 		ElectronChromeExtensions.handleCRXProtocol(this.session);
 
 		if (fingerprint) {
-			const fingerprintSession = this.session as Electron.Session & {
-				registerPreloadScript: (script: {
-					type: string;
-					filePath: string;
-				}) => void;
-			};
+			const filePath = generateFingerprintPreload(id, fingerprint);
 
-			fingerprintSession.registerPreloadScript({
-				type: "frame",
-				filePath: generateFingerprintPreload(id, fingerprint),
-			});
-
-			// Service workers run outside the page's main world, so the frame preload
-			// can't reach them — give them their own WorkerNavigator spoof.
-			fingerprintSession.registerPreloadScript({
-				type: "service-worker",
-				filePath: generateWorkerFingerprintPreload(id, fingerprint),
-			});
+			// One preload for both worlds: a frame runs it in the isolated world (it
+			// bridges into the page's main world); a service worker runs it directly.
+			for (const type of ["frame", "service-worker"] as const) {
+				this.session.registerPreloadScript({ type, filePath });
+			}
 		}
 
 		if (profileData?.proxy) {
