@@ -161,7 +161,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 										}}
 										aria-current={index === selectedIndex ? "true" : undefined}
 										className={cn(
-											"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 outline-none transition-colors",
+											"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 outline-none transition",
 											index === selectedIndex &&
 												"bg-white/10 ring-1 ring-white/25",
 										)}
