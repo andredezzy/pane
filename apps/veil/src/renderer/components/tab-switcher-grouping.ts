@@ -82,3 +82,28 @@ export function initialSelectedIndex(
 
 	return index >= 0 ? index : Math.min(1, flattened.length - 1);
 }
+
+export function computeGroupOffsets(groups: ProfileGroup[]): number[] {
+	const offsets: number[] = [];
+
+	let running = 0;
+
+	for (const group of groups) {
+		offsets.push(running);
+		running += group.tabs.length;
+	}
+
+	return offsets;
+}
+
+export function cycleIndex(
+	current: number,
+	delta: number,
+	length: number,
+): number {
+	if (length === 0) {
+		return 0;
+	}
+
+	return (current + delta + length) % length;
+}

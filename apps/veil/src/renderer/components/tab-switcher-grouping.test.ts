@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { ProfileColor } from "../../constants/profile-colors";
 import {
+	computeGroupOffsets,
+	cycleIndex,
 	groupMruTabs,
 	initialSelectedIndex,
 	type ProfileSource,
@@ -69,6 +71,21 @@ describe("groupMruTabs", () => {
 		expect(groups[0].tabs[0].favicon).toBe("");
 	});
 
+	it("preserves a non-empty favicon unchanged", () => {
+		const withIcon: ProfileSource[] = [
+			{
+				id: "y",
+				name: "Y",
+				color: ProfileColor.AMBER,
+				tabs: [makeTab("y1", "Tab", "https://example.com/favicon.ico")],
+			},
+		];
+
+		const groups = groupMruTabs(["y1"], withIcon, 8);
+
+		expect(groups[0].tabs[0].favicon).toBe("https://example.com/favicon.ico");
+	});
+
 	it("returns a single group when all tabs belong to one profile", () => {
 		const groups = groupMruTabs(["w2", "w1"], profiles, 8);
 
@@ -94,5 +111,36 @@ describe("initialSelectedIndex", () => {
 
 	it("returns 0 for an empty list", () => {
 		expect(initialSelectedIndex([], undefined)).toBe(0);
+	});
+});
+
+describe("computeGroupOffsets", () => {
+	it("returns the running tab-count offset for each group", () => {
+		const groups = groupMruTabs(["w1", "w2", "p1"], profiles, 8);
+
+		expect(groups.map((group) => group.tabs.length)).toEqual([2, 1]);
+		expect(computeGroupOffsets(groups)).toEqual([0, 2]);
+	});
+
+	it("returns an empty array for no groups", () => {
+		expect(computeGroupOffsets([])).toEqual([]);
+	});
+});
+
+describe("cycleIndex", () => {
+	it("advances within range", () => {
+		expect(cycleIndex(0, 1, 3)).toBe(1);
+	});
+
+	it("wraps forward past the last index", () => {
+		expect(cycleIndex(2, 1, 3)).toBe(0);
+	});
+
+	it("wraps backward past the first index", () => {
+		expect(cycleIndex(0, -1, 3)).toBe(2);
+	});
+
+	it("returns 0 for an empty list", () => {
+		expect(cycleIndex(0, 1, 0)).toBe(0);
 	});
 });

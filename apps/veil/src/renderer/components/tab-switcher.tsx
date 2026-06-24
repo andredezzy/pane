@@ -7,7 +7,12 @@ import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore } from "../../stores/profile-store";
 import { tabStore } from "../../stores/tab-store";
 import { trpc } from "../trpc";
-import { groupMruTabs, initialSelectedIndex } from "./tab-switcher-grouping";
+import {
+	computeGroupOffsets,
+	cycleIndex,
+	groupMruTabs,
+	initialSelectedIndex,
+} from "./tab-switcher-grouping";
 
 const MAX_VISIBLE_TABS = 8;
 
@@ -31,6 +36,8 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 	const selectedIndexRef = useRef(selectedIndex);
 	selectedIndexRef.current = selectedIndex;
 
+	const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
 	const confirm = useCallback(
 		(index: number) => {
 			const tab = flattened[index];
@@ -53,11 +60,9 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 		const subscription = trpc.hotkeys.events.subscribe(undefined, {
 			onData(event: string) {
 				if (event === HotkeyEvent.TAB_SWITCHER_FORWARD) {
-					setSelectedIndex((prev) => (prev + 1) % flattened.length);
+					setSelectedIndex((prev) => cycleIndex(prev, 1, flattened.length));
 				} else if (event === HotkeyEvent.TAB_SWITCHER_BACKWARD) {
-					setSelectedIndex(
-						(prev) => (prev - 1 + flattened.length) % flattened.length,
-					);
+					setSelectedIndex((prev) => cycleIndex(prev, -1, flattened.length));
 				}
 			},
 		});
@@ -66,6 +71,10 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 	}, [flattened]);
 
 	useEffect(() => {
+		if (flattened.length === 0) {
+			return;
+		}
+
 		const handleKeyUp = (event: KeyboardEvent) => {
 			if (event.key === "Control") {
 				confirm(selectedIndexRef.current);
@@ -85,7 +94,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 			window.removeEventListener("keyup", handleKeyUp);
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [confirm, onClose]);
+	}, [confirm, flattened, onClose]);
 
 	useEffect(() => {
 		if (flattened.length === 0) {
@@ -93,27 +102,27 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 		}
 	}, [flattened, onClose]);
 
+	// Move DOM focus onto the highlighted row so the focus ring shows and assistive
+	// tech follows the selection while the overlay (a modal dialog) is open.
+	useEffect(() => {
+		buttonRefs.current[selectedIndex]?.focus({ preventScroll: true });
+	}, [selectedIndex]);
+
 	if (flattened.length === 0) {
 		return null;
 	}
 
-	const groupOffsets: number[] = [];
-
-	let running = 0;
-
-	for (const group of groups) {
-		groupOffsets.push(running);
-		running += group.tabs.length;
-	}
+	const groupOffsets = computeGroupOffsets(groups);
 
 	return (
 		<div className="fixed inset-0 flex items-center justify-center">
-			{/* biome-ignore lint/a11y: backdrop dismiss, Escape handled via keydown listener */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop is a click-to-dismiss scrim; Escape is handled by the window keydown listener */}
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop is a click-to-dismiss scrim; Escape is handled by the window keydown listener */}
 			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-			{/* biome-ignore lint/a11y/useSemanticElements: ARIA grouping for a transient keyboard overlay; <fieldset> is form-specific and inappropriate here */}
 			<div
-				role="group"
+				role="dialog"
+				aria-modal="true"
 				aria-label="Tab switcher"
 				className="relative w-[320px] space-y-2 rounded-xl border border-white/10 bg-[#1a1a1e] p-1.5 shadow-2xl"
 			>
@@ -146,6 +155,9 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 									<button
 										type="button"
 										key={tab.id}
+										ref={(element) => {
+											buttonRefs.current[index] = element;
+										}}
 										aria-current={index === selectedIndex ? "true" : undefined}
 										className={cn(
 											"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
