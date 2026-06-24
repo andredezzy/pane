@@ -1,4 +1,5 @@
 import type { ProfileColor } from "../../constants/profile-colors";
+import type { BrowserProfile } from "../../stores/profile-store";
 
 export interface SwitcherTab {
 	id: string;
@@ -13,9 +14,14 @@ export interface ProfileGroup {
 	tabs: SwitcherTab[];
 }
 
+export type ProfileSource = Pick<
+	BrowserProfile,
+	"id" | "name" | "color" | "tabs"
+>;
+
 export function groupMruTabs(
 	mruHistory: string[],
-	profiles: ProfileGroup[],
+	profiles: ProfileSource[],
 	maxTabs: number,
 ): ProfileGroup[] {
 	const groups: ProfileGroup[] = [];
@@ -52,7 +58,7 @@ export function groupMruTabs(
 			group.tabs.push({
 				id: tab.id,
 				title: tab.title || "Loading...",
-				favicon: tab.favicon || "",
+				favicon: tab.favicon,
 			});
 
 			count++;
@@ -68,6 +74,10 @@ export function initialSelectedIndex(
 	flattened: SwitcherTab[],
 	previousTabId: string | undefined,
 ): number {
+	if (flattened.length === 0) {
+		return 0;
+	}
+
 	const index = flattened.findIndex((tab) => tab.id === previousTabId);
 
 	return index >= 0 ? index : Math.min(1, flattened.length - 1);

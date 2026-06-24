@@ -12,30 +12,28 @@ import { groupMruTabs, initialSelectedIndex } from "./tab-switcher-grouping";
 const MAX_VISIBLE_TABS = 8;
 
 export function TabSwitcher({ onClose }: { onClose: () => void }) {
-	const [groups] = useState(() =>
-		groupMruTabs(
+	const [{ groups, flattened }] = useState(() => {
+		const groups = groupMruTabs(
 			tabStore.getState().mruHistory,
 			profileStore.getState().profiles,
 			MAX_VISIBLE_TABS,
-		),
-	);
+		);
 
-	const flattened = groups.flatMap((group) => group.tabs);
+		return { groups, flattened: groups.flatMap((group) => group.tabs) };
+	});
 
 	const [selectedIndex, setSelectedIndex] = useState(() =>
 		initialSelectedIndex(flattened, tabStore.getState().mruHistory[1]),
 	);
 
-	// Refs give the empty-dep hotkey subscription current values without stale closures.
-	const flattenedRef = useRef(flattened);
-	flattenedRef.current = flattened;
-
+	// selectedIndex changes are read by the Control-release handler, whose effect
+	// is not re-run on every selection; the ref keeps it from going stale.
 	const selectedIndexRef = useRef(selectedIndex);
 	selectedIndexRef.current = selectedIndex;
 
 	const confirm = useCallback(
 		(index: number) => {
-			const tab = flattenedRef.current[index];
+			const tab = flattened[index];
 
 			if (tab) {
 				navigationStore.getState().navigate(Page.BROWSER);
@@ -44,26 +42,28 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 
 			onClose();
 		},
-		[onClose],
+		[flattened, onClose],
 	);
 
 	useEffect(() => {
+		if (flattened.length === 0) {
+			return;
+		}
+
 		const subscription = trpc.hotkeys.events.subscribe(undefined, {
 			onData(event: string) {
 				if (event === HotkeyEvent.TAB_SWITCHER_FORWARD) {
-					setSelectedIndex((prev) => (prev + 1) % flattenedRef.current.length);
+					setSelectedIndex((prev) => (prev + 1) % flattened.length);
 				} else if (event === HotkeyEvent.TAB_SWITCHER_BACKWARD) {
 					setSelectedIndex(
-						(prev) =>
-							(prev - 1 + flattenedRef.current.length) %
-							flattenedRef.current.length,
+						(prev) => (prev - 1 + flattened.length) % flattened.length,
 					);
 				}
 			},
 		});
 
 		return () => subscription.unsubscribe();
-	}, []);
+	}, [flattened]);
 
 	useEffect(() => {
 		const handleKeyUp = (event: KeyboardEvent) => {
@@ -87,9 +87,13 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 		};
 	}, [confirm, onClose]);
 
-	if (flattened.length === 0) {
-		onClose();
+	useEffect(() => {
+		if (flattened.length === 0) {
+			onClose();
+		}
+	}, [flattened, onClose]);
 
+	if (flattened.length === 0) {
 		return null;
 	}
 
@@ -107,53 +111,67 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 			{/* biome-ignore lint/a11y: backdrop dismiss, Escape handled via keydown listener */}
 			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-			<div className="relative w-[320px] space-y-2 rounded-xl border border-white/10 bg-[#1a1a1e] p-1.5 shadow-2xl">
-				{groups.map((group, groupIndex) => (
-					<div key={group.id}>
-						<div className="flex items-center gap-2 px-3 pt-1.5 pb-1">
-							<div
-								className="h-2 w-2 shrink-0 rounded-full"
-								style={{
-									backgroundColor: PROFILE_COLOR_HEX[group.color],
-								}}
-							/>
+			{/* biome-ignore lint/a11y/useSemanticElements: ARIA grouping for a transient keyboard overlay; <fieldset> is form-specific and inappropriate here */}
+			<div
+				role="group"
+				aria-label="Tab switcher"
+				className="relative w-[320px] space-y-2 rounded-xl border border-white/10 bg-[#1a1a1e] p-1.5 shadow-2xl"
+			>
+				{groups.map((group, groupIndex) => {
+					const headerId = `tab-switcher-group-${group.id}`;
 
-							<span className="truncate font-medium text-[11px] text-white/40">
-								{group.name}
-							</span>
-						</div>
+					return (
+						// biome-ignore lint/a11y/useSemanticElements: groups a profile's tabs for assistive tech; <fieldset> is form-specific and wrong here
+						<div key={group.id} role="group" aria-labelledby={headerId}>
+							<div className="flex items-center gap-2 px-3 pt-1.5 pb-1">
+								<div
+									className="h-2 w-2 shrink-0 rounded-full"
+									style={{
+										backgroundColor: PROFILE_COLOR_HEX[group.color],
+									}}
+								/>
 
-						{group.tabs.map((tab, tabIndex) => {
-							const index = groupOffsets[groupIndex] + tabIndex;
-
-							return (
-								<button
-									type="button"
-									key={tab.id}
-									className={cn(
-										"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 transition-colors",
-										index === selectedIndex && "bg-white/10",
-									)}
-									onMouseDown={() => confirm(index)}
+								<span
+									id={headerId}
+									className="truncate font-medium text-[11px] text-white/40"
 								>
-									{tab.favicon ? (
-										<img
-											src={tab.favicon}
-											alt=""
-											className="h-4 w-4 shrink-0 rounded-sm"
-										/>
-									) : (
-										<div className="h-4 w-4 shrink-0 rounded-sm bg-white/10" />
-									)}
+									{group.name}
+								</span>
+							</div>
 
-									<span className="truncate text-sm text-white/80">
-										{tab.title}
-									</span>
-								</button>
-							);
-						})}
-					</div>
-				))}
+							{group.tabs.map((tab, tabIndex) => {
+								const index = groupOffsets[groupIndex] + tabIndex;
+
+								return (
+									<button
+										type="button"
+										key={tab.id}
+										aria-current={index === selectedIndex ? "true" : undefined}
+										className={cn(
+											"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+											index === selectedIndex && "bg-white/10",
+										)}
+										onMouseDown={() => confirm(index)}
+									>
+										{tab.favicon ? (
+											<img
+												src={tab.favicon}
+												alt=""
+												className="h-4 w-4 shrink-0 rounded-sm"
+											/>
+										) : (
+											<div className="h-4 w-4 shrink-0 rounded-sm bg-white/10" />
+										)}
+
+										<span className="truncate text-sm text-white/80">
+											{tab.title}
+										</span>
+									</button>
+								);
+							})}
+						</div>
+					);
+				})}
 			</div>
 		</div>
 	);

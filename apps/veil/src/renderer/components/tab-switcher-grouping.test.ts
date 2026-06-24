@@ -2,16 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { ProfileColor } from "../../constants/profile-colors";
 import {
-	type ProfileGroup,
 	groupMruTabs,
 	initialSelectedIndex,
+	type ProfileSource,
 } from "./tab-switcher-grouping";
 
 function makeTab(id: string, title = id, favicon = "") {
-	return { id, title, favicon };
+	return { id, url: "", title, favicon, isLoaded: true };
 }
 
-const profiles: ProfileGroup[] = [
+const profiles: ProfileSource[] = [
 	{
 		id: "work",
 		name: "Work",
@@ -42,6 +42,8 @@ describe("groupMruTabs", () => {
 
 		expect(total).toBe(2);
 		expect(groups.map((group) => group.id)).toEqual(["work", "personal"]);
+		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w1"]);
+		expect(groups[1].tabs.map((tab) => tab.id)).toEqual(["p1"]);
 	});
 
 	it("skips tab ids that no profile owns", () => {
@@ -51,13 +53,13 @@ describe("groupMruTabs", () => {
 		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w1"]);
 	});
 
-	it("falls back to a loading title and empty favicon", () => {
-		const sparse: ProfileGroup[] = [
+	it("falls back to a loading title and keeps an empty favicon", () => {
+		const sparse: ProfileSource[] = [
 			{
 				id: "x",
 				name: "X",
 				color: ProfileColor.TEAL,
-				tabs: [{ id: "x1", title: "", favicon: "" }],
+				tabs: [makeTab("x1", "")],
 			},
 		];
 
@@ -88,5 +90,9 @@ describe("initialSelectedIndex", () => {
 
 	it("falls back to 0 when only one tab is present", () => {
 		expect(initialSelectedIndex([makeTab("only")], undefined)).toBe(0);
+	});
+
+	it("returns 0 for an empty list", () => {
+		expect(initialSelectedIndex([], undefined)).toBe(0);
 	});
 });
