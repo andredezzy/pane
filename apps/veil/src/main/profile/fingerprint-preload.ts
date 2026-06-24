@@ -93,11 +93,17 @@ function __paneApplyFingerprint(fp) {
 		replaceMethod(SpeechSynthesis.prototype, "getVoices", function getVoices() { return []; });
 	}
 
-	// navigator.storage.estimate().quota is derived from the host disk size — report
-	// a fixed, ample budget instead of leaking it (estimate is advisory).
+	// navigator.storage.estimate().quota can leak the host disk size for origins that
+	// hold the unlimited-storage permission. Chrome 133+ otherwise reports a fixed
+	// usage + 10 GiB for ordinary origins (deliberately identical in regular and
+	// incognito mode). Mirror that exactly: forward the real usage/usageDetails so a
+	// write-then-estimate probe still sees usage move, and pin quota to usage + 10 GiB
+	// so the value matches real Chrome and never exposes the disk.
 	if (typeof StorageManager !== "undefined") {
-		replaceMethod(StorageManager.prototype, "estimate", function estimate() {
-			return Promise.resolve({ quota: 137438953472, usage: 0, usageDetails: {} });
+		patchMethod(StorageManager.prototype, "estimate", (original) => function estimate() {
+			return original.call(this).then((real) =>
+				Object.assign({}, real, { quota: (real.usage || 0) + 10 * 1024 * 1024 * 1024 }),
+			);
 		});
 	}
 
@@ -429,7 +435,7 @@ function __paneApplyFingerprint(fp) {
 			labels.set(proxy, label);
 			return proxy;
 		};
-		for (const name of ["NumberFormat", "Collator", "PluralRules", "RelativeTimeFormat", "ListFormat"]) {
+		for (const name of ["NumberFormat", "Collator", "PluralRules", "RelativeTimeFormat", "ListFormat", "Segmenter", "DisplayNames", "DurationFormat"]) {
 			if (typeof Intl[name] === "function") Intl[name] = localeProxy(Intl[name], name);
 		}
 	}
