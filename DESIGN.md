@@ -4,13 +4,14 @@ Interaction and visual principles for Pane. Keep entries short and prescriptive.
 
 ## Motion
 
-### Keyboard-driven changes animate; pointer-driven changes are instant
+### Selection is instant; hover and enter/exit animate
 
-Any state change caused by **keyboard input** must animate with a transition, so the eye can follow a change it did not physically point at. This covers keyboard navigation and selection — cycling the Ctrl+Tab switcher, arrow-key menus, focus moving between controls, and similar.
+Moving a **selection or highlight** applies instantly, with no transition — whether driven by a pointer (clicking a sidebar tab) or by rapid keyboard input (cycling the Ctrl+Tab switcher). A per-step transition lags behind fast input and makes the selection feel sluggish, so the highlight jumps straight to its target.
 
-Direct **pointer** actions (click/tap) apply instantly. The user already knows what they touched, so a fade only adds latency. For example: clicking a tab in the sidebar switches its selected background with no transition, while cycling tabs with Ctrl+Tab animates the moving highlight.
+Reserve transitions for **hover feedback and enter/exit** — smooth, non-repeated changes where motion aids the eye without fighting input speed. For example, an inactive sidebar tab fades its background on hover, but the active (selected) tab switches instantly.
 
 Implementation notes:
 
-- Use the default `transition` utility for selection highlights, not `transition-colors` — rings are `box-shadow`, which `transition-colors` does not cover, so the fill and the ring must animate together.
+- Selection highlights (active/selected backgrounds and rings) carry no `transition` utility.
+- Scope `transition-colors` to hover states only — e.g. the inactive branch of a tab's className, never the active/selected branch.
 - Always honor `prefers-reduced-motion`.
