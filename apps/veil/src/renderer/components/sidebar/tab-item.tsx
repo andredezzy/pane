@@ -13,7 +13,7 @@ export function TabItem({ className, active, ref, ...props }: TabItemProps) {
 			ref={ref}
 			type="button"
 			className={cn(
-				"group flex w-full items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors",
+				"group flex w-full items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs",
 				active
 					? "bg-[rgba(255,255,255,0.05)] text-[#e4e4e7]"
 					: "text-[#71717a] hover:bg-accent hover:text-accent-foreground",
