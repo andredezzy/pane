@@ -181,7 +181,11 @@ function SidebarProfileItem({
 						menuIcon(Pencil),
 						menuIcon(LogOut),
 						menuIcon(Trash2),
-						trpc.profiles.google.signedIn.query({ profileId: profile.id }),
+						// Degrade to hiding the sign-out item on IPC error, so a failed
+						// query can't reject Promise.all and swallow the whole menu.
+						trpc.profiles.google.signedIn
+							.query({ profileId: profile.id })
+							.catch(() => false),
 					]);
 
 				const selected = await trpc.ui.menu.mutate({
