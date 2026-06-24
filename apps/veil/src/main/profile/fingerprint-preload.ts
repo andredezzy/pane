@@ -148,6 +148,9 @@ function __paneApplyFingerprint(fp) {
 			defineGetter(screenProto, "colorDepth", fp.screen.colorDepth);
 			defineGetter(screenProto, "pixelDepth", fp.screen.colorDepth);
 		}
+		// The spoofed fingerprint always implies a single screen, so isExtended must be
+		// false — a multi-monitor dev host would otherwise leak true and contradict it.
+		if ("isExtended" in screen) defineGetter(screenProto, "isExtended", false);
 	}
 
 	// devicePixelRatio: a Retina host reports 2 while a spoofed 1080p Windows display

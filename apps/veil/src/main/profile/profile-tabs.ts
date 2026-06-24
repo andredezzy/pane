@@ -63,6 +63,13 @@ export class ProfileTabs {
 			return;
 		}
 
+		// Delete the entry FIRST: ece.removeTab() synchronously re-enters close() via
+		// the ECE impl.removeTab -> destroyByWebContents callback. With the tab already
+		// gone from the map, that reentrant call hits the `!view` guard and no-ops —
+		// otherwise the body runs twice (duplicate pushClosedTab + a second
+		// webContents.close() on the already-destroyed contents, which throws).
+		this.views.delete(tabId);
+
 		const tabData = this.profile.data.tabs.find((tab) => tab.id === tabId);
 
 		if (tabData?.url) {
@@ -78,7 +85,6 @@ export class ProfileTabs {
 		this.mainWindow.contentView.removeChildView(view);
 		view.webContents.close();
 
-		this.views.delete(tabId);
 		tabStore.getState().setLoading(tabId, false);
 		tabStore.getState().removeMru(tabId);
 
