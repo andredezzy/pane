@@ -27,8 +27,14 @@ interface CdpTarget {
 	webSocketDebuggerUrl?: string;
 }
 
-let activeTempDir: string | null = null;
-let activeChromePid: number | null = null;
+// Each sign-in flow owns its own Chrome process + temp dir. Threading this handle
+// (rather than module-level singletons) keeps two profiles signing in concurrently
+// fully isolated — otherwise a second launch would overwrite the shared temp dir and
+// a transfer could import the OTHER profile's Google cookies into this session.
+export interface AuthChromeHandle {
+	tempDir: string;
+	pid: number | null;
+}
 
 function findChrome(): string | null {
 	for (const p of CHROME_PATHS) {
@@ -40,34 +46,16 @@ function findChrome(): string | null {
 	return null;
 }
 
-function killActiveChrome(): void {
-	if (!activeChromePid) {
-		return;
-	}
-
-	try {
-		process.kill(activeChromePid, "SIGTERM");
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
-			console.warn("[Auth] Failed to terminate Chrome:", error);
-		}
-	}
-
-	activeChromePid = null;
-}
-
-export function launchChromeForGoogleAuth(continueUrl: string): boolean {
+export function launchChromeForGoogleAuth(
+	continueUrl: string,
+): AuthChromeHandle | null {
 	const chromePath = findChrome();
 
 	if (!chromePath) {
-		return false;
+		return null;
 	}
 
-	killActiveChrome();
-
 	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pane-google-auth-"));
-
-	activeTempDir = tempDir;
 
 	const loginUrl = `https://accounts.google.com/ServiceLogin?continue=${encodeURIComponent(continueUrl)}`;
 
@@ -89,18 +77,18 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 		},
 	);
 
-	activeChromePid = child.pid ?? null;
 	child.unref();
 
-	return true;
+	return { tempDir, pid: child.pid ?? null };
 }
 
 type ElectronSameSite = "unspecified" | "no_restriction" | "lax" | "strict";
 
 export async function importCookiesViaCdp(
 	targetSession: Electron.Session,
+	handle: AuthChromeHandle,
 ): Promise<number> {
-	const wsUrl = await getPageWebSocketUrl();
+	const wsUrl = await getPageWebSocketUrl(handle.tempDir);
 
 	if (!wsUrl) {
 		throw new Error(
@@ -147,15 +135,22 @@ export async function importCookiesViaCdp(
 	return count;
 }
 
-export function cleanupAuthChrome(): void {
-	killActiveChrome();
-
-	if (!activeTempDir) {
+export function cleanupAuthChrome(handle: AuthChromeHandle | null): void {
+	if (!handle) {
 		return;
 	}
 
-	const dir = activeTempDir;
-	activeTempDir = null;
+	if (handle.pid) {
+		try {
+			process.kill(handle.pid, "SIGTERM");
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+				console.warn("[Auth] Failed to terminate Chrome:", error);
+			}
+		}
+	}
+
+	const dir = handle.tempDir;
 
 	setTimeout(() => {
 		try {
@@ -166,14 +161,10 @@ export function cleanupAuthChrome(): void {
 	}, 2000);
 }
 
-function readDevToolsPort(): number | null {
-	if (!activeTempDir) {
-		return null;
-	}
-
+function readDevToolsPort(tempDir: string): number | null {
 	try {
 		const content = fs.readFileSync(
-			path.join(activeTempDir, "DevToolsActivePort"),
+			path.join(tempDir, "DevToolsActivePort"),
 			"utf-8",
 		);
 
@@ -185,9 +176,9 @@ function readDevToolsPort(): number | null {
 	}
 }
 
-async function getPageWebSocketUrl(): Promise<string | null> {
+async function getPageWebSocketUrl(tempDir: string): Promise<string | null> {
 	for (let attempt = 0; attempt < 20; attempt++) {
-		const port = readDevToolsPort();
+		const port = readDevToolsPort(tempDir);
 
 		if (port) {
 			try {

@@ -1,6 +1,7 @@
 import type { Session, WebContentsView } from "electron";
 import { GOOGLE_AUTH_PAGE } from "./auth-page";
 import {
+	type AuthChromeHandle,
 	cleanupAuthChrome,
 	importCookiesViaCdp,
 	launchChromeForGoogleAuth,
@@ -52,7 +53,9 @@ export class GoogleSignIn {
 				? rawContinue
 				: "https://www.google.com/";
 
-		if (!launchChromeForGoogleAuth(continueUrl)) {
+		const handle = launchChromeForGoogleAuth(continueUrl);
+
+		if (!handle) {
 			this.pending = false;
 			return false;
 		}
@@ -77,12 +80,12 @@ export class GoogleSignIn {
 
 			// Stop listening (the import owns Chrome cleanup from here); transfer.
 			stopListening();
-			this.transfer(continueUrl);
+			this.transfer(continueUrl, handle);
 		};
 
 		const onDestroyed = () => {
 			clearTimeout(timer);
-			cleanupAuthChrome();
+			cleanupAuthChrome(handle);
 			this.pending = false;
 		};
 
@@ -102,7 +105,7 @@ export class GoogleSignIn {
 		// stop listening, kill the spawned Chrome, and let them retry.
 		const timer = setTimeout(() => {
 			stopListening();
-			cleanupAuthChrome();
+			cleanupAuthChrome(handle);
 			this.pending = false;
 		}, TRANSFER_TIMEOUT_MS);
 
@@ -112,11 +115,11 @@ export class GoogleSignIn {
 		return true;
 	}
 
-	private transfer(continueUrl: string): void {
-		importCookiesViaCdp(this.session)
+	private transfer(continueUrl: string, handle: AuthChromeHandle): void {
+		importCookiesViaCdp(this.session, handle)
 			.then((count) => {
 				this.pending = false;
-				cleanupAuthChrome();
+				cleanupAuthChrome(handle);
 
 				if (count === 0) {
 					this.showError(
@@ -131,7 +134,7 @@ export class GoogleSignIn {
 			})
 			.catch((error: Error) => {
 				this.pending = false;
-				cleanupAuthChrome();
+				cleanupAuthChrome(handle);
 				this.showError(error.message);
 			});
 	}
