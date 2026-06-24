@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
-import type { Fingerprint } from "../../stores/profile-store";
+import { type Fingerprint, Platform } from "../../stores/profile-store";
 import { type ClientHints, deriveClientHints } from "./client-hints";
 
 // In a frame this preload runs in the ISOLATED world, so it hands the spoof to
@@ -42,14 +42,18 @@ function __paneApplyFingerprint(fp) {
 	const defineGetter = (proto, prop, value) => {
 		const original = Object.getOwnPropertyDescriptor(proto, prop);
 		const originalGet = original && original.get;
-		Object.defineProperty(proto, prop, {
+		const descriptor = {
 			get: asNative(function () {
 				if (originalGet) originalGet.call(this);
 				return value;
 			}, "get " + prop),
 			configurable: true,
-			enumerable: false,
-		});
+			enumerable: original ? original.enumerable : false,
+		};
+		// Preserve a [Replaceable] setter (e.g. window.devicePixelRatio) so the
+		// descriptor still has a setter and "x.prop = v" keeps native semantics.
+		if (original && original.set) descriptor.set = original.set;
+		Object.defineProperty(proto, prop, descriptor);
 	};
 
 	// Replace a native method, preserving its descriptor flags AND its arity (.length)
@@ -87,6 +91,14 @@ function __paneApplyFingerprint(fp) {
 	// loaded) rather than the host set.
 	if (typeof SpeechSynthesis !== "undefined" && typeof speechSynthesis !== "undefined") {
 		replaceMethod(SpeechSynthesis.prototype, "getVoices", function getVoices() { return []; });
+	}
+
+	// navigator.storage.estimate().quota is derived from the host disk size — report
+	// a fixed, ample budget instead of leaking it (estimate is advisory).
+	if (typeof StorageManager !== "undefined") {
+		replaceMethod(StorageManager.prototype, "estimate", function estimate() {
+			return Promise.resolve({ quota: 137438953472, usage: 0, usageDetails: {} });
+		});
 	}
 
 	if (fp.screen && typeof screen !== "undefined") {
@@ -330,13 +342,13 @@ function __paneApplyFingerprint(fp) {
 		// agrees with navigator.language instead of leaking the host locale.
 		const dtfProxy = new Proxy(OriginalDTF, {
 			construct(target, args) {
-				const locales = args[0] == null ? fp.language : args[0];
+				const locales = args[0] === undefined ? fp.language : args[0];
 				const options = Object.assign({}, args[1]);
 				if (!options.timeZone) options.timeZone = fp.timezone;
 				return Reflect.construct(target, [locales, options]);
 			},
 			apply(target, thisArg, args) {
-				const locales = args[0] == null ? fp.language : args[0];
+				const locales = args[0] === undefined ? fp.language : args[0];
 				const options = Object.assign({}, args[1]);
 				if (!options.timeZone) options.timeZone = fp.timezone;
 				return Reflect.apply(target, thisArg, [locales, options]);
@@ -386,7 +398,7 @@ function __paneApplyFingerprint(fp) {
 		replaceMethod(Date.prototype, "getYear", function getYear() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "year") - 1900; });
 
 		const patchLocale = (method, defaults) => replaceMethod(Date.prototype, method, function () {
-			const locales = arguments[0] == null ? fp.language : arguments[0];
+			const locales = arguments[0] === undefined ? fp.language : arguments[0];
 			const options = arguments[1];
 			if (Number.isNaN(this.getTime())) return "Invalid Date";
 			const opts = Object.assign({}, options);
@@ -397,6 +409,29 @@ function __paneApplyFingerprint(fp) {
 		patchLocale("toLocaleString", { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
 		patchLocale("toLocaleDateString", { year: "numeric", month: "numeric", day: "numeric" });
 		patchLocale("toLocaleTimeString", { hour: "numeric", minute: "numeric", second: "numeric" });
+	}
+
+	// The other locale-sensitive Intl constructors leak the host locale via
+	// resolvedOptions().locale; default their locale to the spoofed language too.
+	if (typeof Intl !== "undefined" && fp.language) {
+		const localeProxy = (Original, label) => {
+			const proxy = new Proxy(Original, {
+				construct(target, args) {
+					const locales = args[0] === undefined ? fp.language : args[0];
+					return Reflect.construct(target, [locales, ...args.slice(1)]);
+				},
+				apply(target, thisArg, args) {
+					const locales = args[0] === undefined ? fp.language : args[0];
+					return Reflect.apply(target, thisArg, [locales, ...args.slice(1)]);
+				},
+			});
+			Original.prototype.constructor = proxy;
+			labels.set(proxy, label);
+			return proxy;
+		};
+		for (const name of ["NumberFormat", "Collator", "PluralRules", "RelativeTimeFormat", "ListFormat"]) {
+			if (typeof Intl[name] === "function") Intl[name] = localeProxy(Intl[name], name);
+		}
 	}
 
 	// Dedicated workers spawned from page JS bypass the preload (Electron has no
@@ -416,9 +451,11 @@ function __paneApplyFingerprint(fp) {
 					if (!classic || !reachable) return Reflect.construct(target, args);
 					const wrapped = spoofSource + "importScripts(" + JSON.stringify(url.href) + ");";
 					const blobUrl = URL.createObjectURL(new Blob([wrapped], { type: "text/javascript" }));
-					const worker = Reflect.construct(target, [blobUrl, args[1]]);
-					URL.revokeObjectURL(blobUrl);
-					return worker;
+					try {
+						return Reflect.construct(target, [blobUrl, args[1]]);
+					} finally {
+						URL.revokeObjectURL(blobUrl);
+					}
 				} catch (_error) {
 					return Reflect.construct(target, args);
 				}
@@ -453,10 +490,10 @@ if (__paneBridge && typeof __paneBridge.executeInMainWorld === "function") {
 }
 `;
 
-const NAV_PLATFORM: Record<string, string> = {
-	WINDOWS: "Win32",
-	MACOS: "MacIntel",
-	LINUX: "Linux x86_64",
+const NAV_PLATFORM: Record<Platform, string> = {
+	[Platform.WINDOWS]: "Win32",
+	[Platform.MACOS]: "MacIntel",
+	[Platform.LINUX]: "Linux x86_64",
 };
 
 interface FingerprintConfig extends Fingerprint {
