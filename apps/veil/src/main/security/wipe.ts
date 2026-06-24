@@ -3,8 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 
-import { profileStore } from "../../stores/profile-store";
-
 function overwriteAndDelete(filePath: string, passes = 3): void {
 	try {
 		const stat = fs.statSync(filePath);
@@ -54,18 +52,12 @@ export function executeWipe(): void {
 	const userData = app.getPath("userData");
 	const tempDir = app.getPath("temp");
 
-	const partitionsDir = path.join(userData, "Partitions");
-	const profiles = profileStore.getState().profiles;
-
-	// Electron stores a "persist:NAME" partition under Partitions/NAME — the persist:
-	// prefix is dropped — so the on-disk dirs are profile-<id>, NOT persist_profile-<id>.
-	for (const profile of profiles) {
-		wipeDirectory(path.join(partitionsDir, `profile-${profile.id}`));
-	}
-
-	// The extension / CWS update session (persist:pane-internal) is persistent app
-	// data too — a panic wipe must not leave its cookies or state recoverable.
-	wipeDirectory(path.join(partitionsDir, "pane-internal"));
+	// Wipe the whole Partitions/ tree in one shot. This covers current profiles, the
+	// orphaned partitions of already-deleted profiles (Electron never removes a
+	// persist: partition dir, so its cookies/storage outlive the profile and the
+	// store entry), pane-internal (the CWS session), and any future partition —
+	// without depending on the live profile store.
+	wipeDirectory(path.join(userData, "Partitions"));
 
 	overwriteAndDelete(path.join(userData, "profiles.json"));
 	overwriteAndDelete(path.join(userData, "security.json"));
@@ -82,6 +74,19 @@ export function executeWipe(): void {
 			}
 		}
 	} catch {}
+
+	// An in-flight Google sign-in leaves a pane-google-auth-<random> Chrome user-data
+	// dir under tempDir holding live Google cookies. The detached Chrome is untracked
+	// here, but removing its data dir destroys the at-rest credentials.
+	try {
+		for (const entry of fs.readdirSync(tempDir)) {
+			if (entry.startsWith("pane-google-auth-")) {
+				wipeDirectory(path.join(tempDir, entry));
+			}
+		}
+	} catch (error) {
+		console.warn("[Wipe] Failed to scan temp for auth dirs:", error);
+	}
 
 	app.relaunch();
 	app.exit(0);
