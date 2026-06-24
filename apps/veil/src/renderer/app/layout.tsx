@@ -18,6 +18,7 @@ import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore, type Tab } from "../../stores/profile-store";
 import { ProxyStatus, proxyStatusStore } from "../../stores/proxy-status-store";
 import { PinScreenMode, securityStore } from "../../stores/security-store";
+import { sidebarStore } from "../../stores/sidebar-store";
 import { tabStore } from "../../stores/tab-store";
 import { ContentPanel } from "../components/content-panel";
 import {
@@ -389,21 +390,12 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 		useShallow((state) => state.profiles.map((profile) => profile.id)),
 	);
 
-	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+	const expandedProfileIds = useStore(
+		sidebarStore,
+		useShallow((state) => state.expandedProfileIds),
+	);
 
-	const toggleExpanded = useCallback((id: string) => {
-		setExpanded((prev) => {
-			const next = new Set(prev);
-
-			if (next.has(id)) {
-				next.delete(id);
-			} else {
-				next.add(id);
-			}
-
-			return next;
-		});
-	}, []);
+	const toggleExpanded = useStore(sidebarStore, (state) => state.toggleProfile);
 
 	const page = useStore(navigationStore, (state) => state.page);
 
@@ -520,7 +512,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 								key={id}
 								id={id}
 								index={index}
-								expanded={expanded.has(id)}
+								expanded={expandedProfileIds.includes(id)}
 								onToggle={toggleExpanded}
 								onNewTab={handleNewTab}
 							/>

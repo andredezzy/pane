@@ -4,6 +4,7 @@ import { HotkeyEvent } from "../../constants/hotkey-event";
 import { PROFILE_COLOR_HEX } from "../../constants/profile-colors";
 import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore } from "../../stores/profile-store";
+import { sidebarStore } from "../../stores/sidebar-store";
 import { tabStore } from "../../stores/tab-store";
 import { trpc } from "../trpc";
 import {
@@ -21,9 +22,17 @@ const SELECTED_RING_ALPHA = "66"; // ~40%
 
 export function TabSwitcher({ onClose }: { onClose: () => void }) {
 	const [{ groups, flattened }] = useState(() => {
+		// Only surface tabs from profiles currently expanded (open) in the sidebar;
+		// collapsed profiles are unloaded and must not appear in the switcher.
+		const { expandedProfileIds } = sidebarStore.getState();
+
+		const openProfiles = profileStore
+			.getState()
+			.profiles.filter((profile) => expandedProfileIds.includes(profile.id));
+
 		const groups = groupMruTabs(
 			tabStore.getState().mruHistory,
-			profileStore.getState().profiles,
+			openProfiles,
 			MAX_VISIBLE_TABS,
 		);
 
