@@ -102,8 +102,9 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 		}
 	}, [flattened, onClose]);
 
-	// Move DOM focus onto the highlighted row so the focus ring shows and assistive
-	// tech follows the selection while the overlay (a modal dialog) is open.
+	// Move DOM focus onto the highlighted row so assistive tech follows the
+	// selection while the overlay (a modal dialog) is open. The selection ring is
+	// state-driven (below), so it shows regardless of :focus-visible heuristics.
 	useEffect(() => {
 		buttonRefs.current[selectedIndex]?.focus({ preventScroll: true });
 	}, [selectedIndex]);
@@ -160,8 +161,9 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 										}}
 										aria-current={index === selectedIndex ? "true" : undefined}
 										className={cn(
-											"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-											index === selectedIndex && "bg-white/10",
+											"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 outline-none transition-colors",
+											index === selectedIndex &&
+												"bg-white/10 ring-1 ring-white/25",
 										)}
 										onMouseDown={() => confirm(index)}
 									>

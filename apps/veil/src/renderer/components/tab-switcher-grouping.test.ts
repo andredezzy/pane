@@ -71,7 +71,10 @@ describe("groupMruTabs", () => {
 		expect(groups[0].tabs[0].favicon).toBe("");
 	});
 
-	it("preserves a non-empty favicon unchanged", () => {
+	// A truthy favicon short-circuits the old `favicon || ""` form identically, so
+	// this is a pass-through sanity check, not a regression guard — TypeScript's
+	// `favicon: string` type is what actually prevents reintroducing `|| ""`.
+	it("passes a non-empty favicon through unchanged", () => {
 		const withIcon: ProfileSource[] = [
 			{
 				id: "y",
