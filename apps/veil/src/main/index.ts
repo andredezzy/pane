@@ -34,6 +34,7 @@ import { navigationStore } from "../stores/navigation-store";
 import { profileStore } from "../stores/profile-store";
 import { securityStore } from "../stores/security-store";
 import { settingsStore } from "../stores/settings-store";
+import { sidebarStore } from "../stores/sidebar-store";
 import { tabStore } from "../stores/tab-store";
 import { FindEmitter } from "./emitters/find-emitter";
 import { HotkeyEmitter } from "./emitters/hotkey-emitter";
@@ -77,6 +78,7 @@ function setup() {
 			"settings-store": settingsStore,
 			"extension-store": extensionStore,
 			"security-store": securityStore,
+			"sidebar-store": sidebarStore,
 		},
 	});
 

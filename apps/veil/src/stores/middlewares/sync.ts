@@ -8,7 +8,8 @@ export type StoreName =
 	| "navigation-store"
 	| "settings-store"
 	| "extension-store"
-	| "security-store";
+	| "security-store"
+	| "sidebar-store";
 
 export interface SyncTransportHandlers {
 	onData: (serialized: string) => void;

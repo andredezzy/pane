@@ -11,6 +11,7 @@ const StoreNameSchema = z.enum([
 	"settings-store",
 	"extension-store",
 	"security-store",
+	"sidebar-store",
 ]);
 
 type StoreNameType = z.infer<typeof StoreNameSchema>;
