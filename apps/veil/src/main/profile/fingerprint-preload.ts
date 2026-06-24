@@ -133,16 +133,19 @@ function __paneApplyFingerprint(fp) {
 		defineGetter(Object.getPrototypeOf(window), "devicePixelRatio", dpr);
 	}
 
-	// chrome.loadTimes() and chrome.csi() are deprecated but still injected into
-	// every page by Chrome's renderer (loadtimes_extension_bindings.cc). Electron's
-	// renderer client omits them, so their absence on window.chrome is a well-known
-	// "not real Chrome" tell. Provide native-looking stubs backed by real timing.
+	// window.chrome.app / loadTimes() / csi() are injected into every page by Chrome's
+	// renderer (loadtimes_extension_bindings.cc + the web-available extension bindings).
+	// Electron's renderer client omits them, so their absence is a well-known "not real
+	// Chrome" tell. Provide native-looking stubs. chrome.runtime is deliberately NOT
+	// added: real Chrome leaves it undefined on a plain page with no connectable extension.
 	if (typeof window !== "undefined" && typeof performance !== "undefined") {
 		let chromeGlobal = window.chrome;
 		if (!chromeGlobal) {
 			try {
 				window.chrome = {};
-			} catch (_error) {}
+			} catch (_error) {
+				console.warn("[fp] window.chrome is non-writable; chrome.* stubs skipped.");
+			}
 			chromeGlobal = window.chrome;
 		}
 
@@ -165,7 +168,7 @@ function __paneApplyFingerprint(fp) {
 				const navEntry = performance.getEntriesByType("navigation")[0] || {};
 				const paintEntry = performance.getEntriesByType("paint").find((entry) => entry.name === "first-paint");
 				const protocol = navEntry.nextHopProtocol || "h2";
-				const negotiated = protocol === "h2" || protocol === "hq";
+				const negotiated = protocol === "h2" || protocol === "h3" || protocol === "hq";
 				return {
 					requestTime: timing.navigationStart / 1000,
 					startLoadTime: timing.navigationStart / 1000,
@@ -182,6 +185,21 @@ function __paneApplyFingerprint(fp) {
 					connectionInfo: protocol,
 				};
 			}, "loadTimes");
+		}
+
+		// chrome.app is exposed on every plain page (web-available extension binding),
+		// reporting "not an installed app" — isInstalled false, getDetails null,
+		// runningState "cannot_run". Added only when absent so an extension context's
+		// real chrome.app is never clobbered.
+		if (chromeGlobal && !chromeGlobal.app) {
+			chromeGlobal.app = {
+				isInstalled: false,
+				InstallState: { DISABLED: "disabled", INSTALLED: "installed", NOT_INSTALLED: "not_installed" },
+				RunningState: { CANNOT_RUN: "cannot_run", READY_TO_RUN: "ready_to_run", RUNNING: "running" },
+				getDetails: asNative(function getDetails() { return null; }, "getDetails"),
+				getIsInstalled: asNative(function getIsInstalled() { return false; }, "getIsInstalled"),
+				runningState: asNative(function runningState() { return "cannot_run"; }, "runningState"),
+			};
 		}
 	}
 
