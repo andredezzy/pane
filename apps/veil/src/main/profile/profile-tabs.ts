@@ -11,6 +11,7 @@ import { tabStore } from "../../stores/tab-store";
 import type { FindEmitter } from "../emitters/find-emitter";
 import { isGoogleUrl } from "./google/domains";
 import { GoogleSignIn } from "./google/sign-in";
+import { mostRecentTab } from "./mru";
 
 export interface TabHost {
 	readonly id: string;
@@ -92,8 +93,12 @@ export class ProfileTabs {
 		profileStore.getState().closeTab(this.profile.id, tabId);
 
 		if (tabStore.getState().activeTabId === tabId) {
-			const remainingTabs = this.profile.data.tabs;
-			const nextTab = remainingTabs[remainingTabs.length - 1];
+			// Closing the active tab lands on the most recently used remaining tab in
+			// this profile (the global MRU history naturally skips other profiles).
+			const nextTab = mostRecentTab(
+				this.profile.data.tabs,
+				tabStore.getState().mruHistory,
+			);
 
 			if (nextTab) {
 				this.activate(nextTab.id);
