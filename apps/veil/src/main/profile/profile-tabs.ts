@@ -367,7 +367,11 @@ export class ProfileTabs {
 			const menu = buildChromeContextMenu({
 				params,
 				webContents: view.webContents,
-				openLink: (url) => this.open(url),
+				openLink: (url) => {
+					if (isWebUrl(url)) {
+						this.open(url);
+					}
+				},
 				extensionMenuItems: this.profile.ece.getContextMenuItems(
 					view.webContents,
 					params,
@@ -377,8 +381,14 @@ export class ProfileTabs {
 			menu.popup();
 		});
 
+		// A renderer can pass any scheme here (window.open) or via a crafted link's
+		// href (context-menu "open in new tab"). open() -> loadURL() runs in the main
+		// process and is NOT subject to the renderer's file:// navigation block, so an
+		// unguarded open() would read local files; restrict both paths to web URLs.
 		view.webContents.setWindowOpenHandler(({ url }) => {
-			this.open(url);
+			if (isWebUrl(url)) {
+				this.open(url);
+			}
 
 			return { action: "deny" };
 		});
@@ -402,8 +412,12 @@ export class ProfileTabs {
 	}
 }
 
+function isWebUrl(url: string): boolean {
+	return url.startsWith("http://") || url.startsWith("https://");
+}
+
 function normalizeUrl(url: string): string {
-	if (url.startsWith("http://") || url.startsWith("https://")) {
+	if (isWebUrl(url)) {
 		return url;
 	}
 
