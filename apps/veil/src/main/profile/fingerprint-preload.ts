@@ -16,12 +16,18 @@ const { contextBridge } = require("electron");
 const __PANE_FP__ = __PANE_FP_CONFIG__;
 
 function __paneApplyFingerprint(fp) {
-	// Camouflage: make every getter/method we patch report "[native code]" from
-	// toString(), routed through one Proxy on Function.prototype.toString so the
-	// proxy itself also reads as native.
+	const ch = fp._clientHints;
+
+	// Camouflage: patched getters/methods report "[native code]" from toString()
+	// (and carry the right .name), routed through one Proxy on
+	// Function.prototype.toString so the proxy itself also reads as native.
 	const nativeToString = Function.prototype.toString;
 	const labels = new WeakMap();
-	const asNative = (fn, label) => { labels.set(fn, label); return fn; };
+	const asNative = (fn, label) => {
+		Object.defineProperty(fn, "name", { value: label, configurable: true });
+		labels.set(fn, label);
+		return fn;
+	};
 	const toStringProxy = new Proxy(nativeToString, {
 		apply(target, thisArg, args) {
 			const label = labels.get(thisArg);
@@ -32,9 +38,7 @@ function __paneApplyFingerprint(fp) {
 	labels.set(toStringProxy, "toString");
 	Function.prototype.toString = toStringProxy;
 
-	// Define on the prototype (where native getters live) and non-enumerable (as
-	// native interface attributes are) so descriptor/hasOwnProperty/for-in probes
-	// match a real browser.
+	// Native DOM attributes live on the prototype, non-enumerable.
 	const defineGetter = (proto, prop, getter) => {
 		Object.defineProperty(proto, prop, {
 			get: asNative(getter, "get " + prop),
@@ -43,12 +47,20 @@ function __paneApplyFingerprint(fp) {
 		});
 	};
 
+	// Replace a native method while preserving its descriptor flags; makeWrapper
+	// receives the original so it can delegate the non-spoofed path.
+	const patchMethod = (obj, prop, makeWrapper) => {
+		const descriptor = Object.getOwnPropertyDescriptor(obj, prop);
+		if (!descriptor || typeof descriptor.value !== "function") return;
+		const wrapper = asNative(makeWrapper(descriptor.value), prop);
+		Object.defineProperty(obj, prop, Object.assign({}, descriptor, { value: wrapper }));
+	};
+
 	const platformMap = { WINDOWS: "Win32", MACOS: "MacIntel", LINUX: "Linux x86_64" };
-	const navPlatform = platformMap[fp.platform] || fp.platform;
 	const navProto = Object.getPrototypeOf(navigator);
 	const screenProto = Object.getPrototypeOf(screen);
 
-	defineGetter(navProto, "platform", () => navPlatform);
+	defineGetter(navProto, "platform", () => platformMap[fp.platform] || fp.platform);
 	defineGetter(navProto, "hardwareConcurrency", () => fp.hardwareConcurrency);
 	defineGetter(navProto, "deviceMemory", () => fp.deviceMemory);
 	defineGetter(navProto, "maxTouchPoints", () => fp.maxTouchPoints);
@@ -56,20 +68,24 @@ function __paneApplyFingerprint(fp) {
 	defineGetter(navProto, "languages", () => Object.freeze(fp.languages.slice()));
 
 	if (fp.screen) {
+		// availWidth/availHeight leave room for the OS chrome (taskbar / menu bar);
+		// reporting the full screen size is a tell.
+		const inset = { WINDOWS: 48, MACOS: 25, LINUX: 27 }[fp.platform] || 0;
 		defineGetter(screenProto, "width", () => fp.screen.width);
 		defineGetter(screenProto, "height", () => fp.screen.height);
 		defineGetter(screenProto, "availWidth", () => fp.screen.width);
-		defineGetter(screenProto, "availHeight", () => fp.screen.height);
+		defineGetter(screenProto, "availHeight", () => fp.screen.height - inset);
 		if (fp.screen.colorDepth) {
 			defineGetter(screenProto, "colorDepth", () => fp.screen.colorDepth);
 			defineGetter(screenProto, "pixelDepth", () => fp.screen.colorDepth);
 		}
 	}
 
-	// userAgentData consistent with the spoofed platform + UA. The values are shared
-	// with the Sec-CH-UA-* header rewrite (client-hints.ts) so the JS and HTTP
-	// surfaces can't be cross-checked against each other or against navigator.platform.
-	const ch = fp._clientHints;
+	// navigator.userAgentData — kept consistent with the Sec-CH-UA-* header rewrite
+	// (both derive from client-hints.ts). When the real NavigatorUAData exists we
+	// override its prototype so navigator.userAgentData stays a genuine instance
+	// (passing instanceof / getPrototypeOf / hasOwnProperty probes); otherwise we
+	// synthesise a plausible object.
 	const highEntropy = {
 		architecture: ch.architecture,
 		bitness: ch.bitness,
@@ -82,103 +98,182 @@ function __paneApplyFingerprint(fp) {
 		uaFullVersion: ch.uaFullVersion,
 		wow64: false,
 	};
-	const uaData = {
-		brands: ch.brands,
-		mobile: ch.mobile,
-		platform: ch.platform,
-		getHighEntropyValues: asNative(function getHighEntropyValues(hints) {
-			const result = { brands: ch.brands, mobile: ch.mobile, platform: ch.platform };
-			if (Array.isArray(hints)) {
-				for (const hint of hints) {
-					if (hint in highEntropy) result[hint] = highEntropy[hint];
-				}
+	const makeHighEntropy = () => function getHighEntropyValues(hints) {
+		const result = { brands: ch.brands, mobile: ch.mobile, platform: ch.platform };
+		if (Array.isArray(hints)) {
+			for (const hint of hints) {
+				if (hint in highEntropy) result[hint] = highEntropy[hint];
 			}
-			return Promise.resolve(result);
-		}, "getHighEntropyValues"),
-		toJSON: asNative(function toJSON() {
-			return { brands: ch.brands, mobile: ch.mobile, platform: ch.platform };
-		}, "toJSON"),
+		}
+		return Promise.resolve(result);
 	};
-	if (typeof NavigatorUAData !== "undefined") {
-		Object.setPrototypeOf(uaData, NavigatorUAData.prototype);
+	const makeToJSON = () => function toJSON() {
+		return { brands: ch.brands, mobile: ch.mobile, platform: ch.platform };
+	};
+
+	if (typeof NavigatorUAData !== "undefined" && navigator.userAgentData) {
+		const uaProto = NavigatorUAData.prototype;
+		defineGetter(uaProto, "brands", () => ch.brands);
+		defineGetter(uaProto, "mobile", () => ch.mobile);
+		defineGetter(uaProto, "platform", () => ch.platform);
+		patchMethod(uaProto, "getHighEntropyValues", makeHighEntropy);
+		patchMethod(uaProto, "toJSON", makeToJSON);
+	} else {
+		const uaData = Object.create(
+			typeof NavigatorUAData !== "undefined" ? NavigatorUAData.prototype : Object.prototype,
+		);
+		defineGetter(uaData, "brands", () => ch.brands);
+		defineGetter(uaData, "mobile", () => ch.mobile);
+		defineGetter(uaData, "platform", () => ch.platform);
+		Object.defineProperty(uaData, "getHighEntropyValues", {
+			value: asNative(makeHighEntropy(), "getHighEntropyValues"),
+			writable: true, enumerable: false, configurable: true,
+		});
+		Object.defineProperty(uaData, "toJSON", {
+			value: asNative(makeToJSON(), "toJSON"),
+			writable: true, enumerable: false, configurable: true,
+		});
+		defineGetter(navProto, "userAgentData", () => uaData);
 	}
-	defineGetter(navProto, "userAgentData", () => uaData);
 
 	if (fp.webgl) {
 		const UNMASKED_VENDOR = 0x9245;
 		const UNMASKED_RENDERER = 0x9246;
-		const patchGetParameter = (proto) => {
-			const original = proto.getParameter;
-			proto.getParameter = asNative(function getParameter(param) {
-				if (param === UNMASKED_VENDOR) return fp.webgl.vendor;
-				if (param === UNMASKED_RENDERER) return fp.webgl.renderer;
-				return original.call(this, param);
-			}, "getParameter");
+		const makeGetParameter = (original) => function getParameter(param) {
+			if (param === UNMASKED_VENDOR) return fp.webgl.vendor;
+			if (param === UNMASKED_RENDERER) return fp.webgl.renderer;
+			return original.call(this, param);
 		};
 		if (typeof WebGLRenderingContext !== "undefined") {
-			patchGetParameter(WebGLRenderingContext.prototype);
+			patchMethod(WebGLRenderingContext.prototype, "getParameter", makeGetParameter);
 		}
 		if (typeof WebGL2RenderingContext !== "undefined") {
-			patchGetParameter(WebGL2RenderingContext.prototype);
+			patchMethod(WebGL2RenderingContext.prototype, "getParameter", makeGetParameter);
 		}
 	}
 
+	// Canvas noise: seeded ±1 per RGB channel, applied to a temporary copy and then
+	// restored, so toDataURL/toBlob stay idempotent and non-destructive (a real
+	// browser never mutates the canvas on read, and returns identical bytes twice).
 	if (fp.canvas && fp.canvas.noise && typeof HTMLCanvasElement !== "undefined") {
-		const seed = fp._profileHash || 0;
-		const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-		HTMLCanvasElement.prototype.toDataURL = asNative(function toDataURL(...args) {
-			const context = this.getContext("2d");
-			if (context) {
-				const imageData = context.getImageData(0, 0, this.width, this.height);
-				let state = seed;
-				for (let i = 0; i < imageData.data.length; i += 4) {
+		const applyNoise = (canvas) => {
+			const context = canvas.getContext && canvas.getContext("2d");
+			if (!context || !canvas.width || !canvas.height) return null;
+			const original = context.getImageData(0, 0, canvas.width, canvas.height);
+			const noised = context.getImageData(0, 0, canvas.width, canvas.height);
+			let state = fp._profileHash || 0;
+			const data = noised.data;
+			for (let i = 0; i < data.length; i += 4) {
+				for (let c = 0; c < 3; c++) {
 					state = (state * 1664525 + 1013904223) & 0xffffffff;
-					const delta = (state >>> 16) / 65536 < 0.5 ? -1 : 1;
-					imageData.data[i] = (imageData.data[i] + delta) & 0xff;
+					data[i + c] = data[i + c] + ((state >>> 16) / 65536 < 0.5 ? -1 : 1);
 				}
-				context.putImageData(imageData, 0, 0);
 			}
-			return originalToDataURL.apply(this, args);
-		}, "toDataURL");
+			context.putImageData(noised, 0, 0);
+			return () => context.putImageData(original, 0, 0);
+		};
+		patchMethod(HTMLCanvasElement.prototype, "toDataURL", (original) => function toDataURL(...args) {
+			const restore = applyNoise(this);
+			const result = original.apply(this, args);
+			if (restore) restore();
+			return result;
+		});
+		patchMethod(HTMLCanvasElement.prototype, "toBlob", (original) => function toBlob(callback, ...args) {
+			const restore = applyNoise(this);
+			const wrapped = restore && typeof callback === "function"
+				? function (blob) { restore(); callback(blob); }
+				: callback;
+			return original.call(this, wrapped, ...args);
+		});
 	}
 
+	// Audio noise: seeded per-sample ±tiny delta (deterministic per profile, unlike
+	// Math.random which would diverge across renders of identical audio).
 	if (fp.audio && fp.audio.noise && typeof OfflineAudioContext !== "undefined") {
-		const originalStartRendering = OfflineAudioContext.prototype.startRendering;
-		OfflineAudioContext.prototype.startRendering = asNative(function startRendering() {
-			return originalStartRendering.call(this).then(function (buffer) {
+		patchMethod(OfflineAudioContext.prototype, "startRendering", (original) => function startRendering() {
+			return original.call(this).then(function (buffer) {
 				const channel = buffer.getChannelData(0);
+				let state = (fp._profileHash ^ 0x5bd1e995) >>> 0;
 				for (let i = 0; i < channel.length; i++) {
-					channel[i] += (Math.random() - 0.5) * 0.0001;
+					state = (state * 1664525 + 1013904223) & 0xffffffff;
+					channel[i] += ((state >>> 16) / 65536 - 0.5) * 0.0001;
 				}
 				return buffer;
 			});
-		}, "startRendering");
+		});
+	}
+
+	// Timezone: report fp.timezone from Intl and Date so it can't be cross-checked
+	// against the spoofed locale / platform / proxy IP.
+	if (fp.timezone) {
+		const OriginalDTF = Intl.DateTimeFormat;
+		const offsetFormat = new OriginalDTF("en-US", {
+			timeZone: fp.timezone,
+			timeZoneName: "longOffset",
+		});
+		const dtfProxy = new Proxy(OriginalDTF, {
+			construct(target, args) {
+				const options = Object.assign({}, args[1]);
+				if (!options.timeZone) options.timeZone = fp.timezone;
+				return Reflect.construct(target, [args[0], options]);
+			},
+			apply(target, thisArg, args) {
+				const options = Object.assign({}, args[1]);
+				if (!options.timeZone) options.timeZone = fp.timezone;
+				return Reflect.apply(target, thisArg, [args[0], options]);
+			},
+		});
+		labels.set(dtfProxy, "DateTimeFormat");
+		Intl.DateTimeFormat = dtfProxy;
+		patchMethod(Date.prototype, "getTimezoneOffset", () => function getTimezoneOffset() {
+			const parts = offsetFormat.formatToParts(this);
+			let name = "GMT+00:00";
+			for (const part of parts) {
+				if (part.type === "timeZoneName") name = part.value;
+			}
+			const match = name.match(/GMT([+-])(\\d{2}):?(\\d{2})?/);
+			if (!match) return 0;
+			return (match[1] === "-" ? 1 : -1) * (parseInt(match[2], 10) * 60 + parseInt(match[3] || "0", 10));
+		});
 	}
 }
 
-try {
-	contextBridge.executeInMainWorld({
-		func: __paneApplyFingerprint,
-		args: [__PANE_FP__],
-	});
-} catch (_error) {
-	// executeInMainWorld unavailable (older Electron / no context isolation):
-	// run in the current world. It can't reach the page, but it never throws.
+if (typeof contextBridge !== "undefined" && typeof contextBridge.executeInMainWorld === "function") {
+	contextBridge.executeInMainWorld({ func: __paneApplyFingerprint, args: [__PANE_FP__] });
+} else {
+	// No main-world bridge (older Electron / no context isolation): apply directly.
+	// It can't reach the page in that mode, but it never throws.
 	__paneApplyFingerprint(__PANE_FP__);
 }
 `;
 
-export function generateFingerprintPreload(
-	profileId: string,
-	fingerprint: Fingerprint,
-): string {
-	const config = {
+// Service-worker context spoof: workers have no DOM / executeInMainWorld, so this
+// patches WorkerNavigator.prototype directly in the worker's own global scope.
+const WORKER_TEMPLATE = `
+const fp = __PANE_FP_CONFIG__;
+
+const platformMap = { WINDOWS: "Win32", MACOS: "MacIntel", LINUX: "Linux x86_64" };
+const proto = Object.getPrototypeOf(navigator);
+const define = (prop, value) =>
+	Object.defineProperty(proto, prop, { get: () => value, configurable: true, enumerable: false });
+
+define("platform", platformMap[fp.platform] || fp.platform);
+define("hardwareConcurrency", fp.hardwareConcurrency);
+define("deviceMemory", fp.deviceMemory);
+define("language", fp.language);
+define("languages", Object.freeze(fp.languages.slice()));
+`;
+
+function buildConfig(profileId: string, fingerprint: Fingerprint) {
+	return {
 		...fingerprint,
 		_profileHash: hashCode(profileId),
 		_clientHints: deriveClientHints(fingerprint),
 	};
+}
 
-	const content = PRELOAD_TEMPLATE.replace("__PANE_FP_CONFIG__", () =>
+function writePreload(name: string, template: string, config: object): string {
+	const content = template.replace("__PANE_FP_CONFIG__", () =>
 		JSON.stringify(config),
 	);
 
@@ -188,22 +283,40 @@ export function generateFingerprintPreload(
 		fs.mkdirSync(tmpDir, { recursive: true });
 	}
 
-	const filePath = path.join(tmpDir, `fp-${profileId}.js`);
+	const filePath = path.join(tmpDir, name);
 	fs.writeFileSync(filePath, content, "utf-8");
 
 	return filePath;
 }
 
-export function cleanupFingerprintPreload(profileId: string): void {
-	const filePath = path.join(
-		app.getPath("temp"),
-		"pane-fingerprints",
+export function generateFingerprintPreload(
+	profileId: string,
+	fingerprint: Fingerprint,
+): string {
+	return writePreload(
 		`fp-${profileId}.js`,
+		PRELOAD_TEMPLATE,
+		buildConfig(profileId, fingerprint),
 	);
+}
 
-	try {
-		fs.unlinkSync(filePath);
-	} catch {}
+export function generateWorkerFingerprintPreload(
+	profileId: string,
+	fingerprint: Fingerprint,
+): string {
+	return writePreload(
+		`fp-worker-${profileId}.js`,
+		WORKER_TEMPLATE,
+		buildConfig(profileId, fingerprint),
+	);
+}
+
+export function cleanupFingerprintPreload(profileId: string): void {
+	for (const name of [`fp-${profileId}.js`, `fp-worker-${profileId}.js`]) {
+		try {
+			fs.unlinkSync(path.join(app.getPath("temp"), "pane-fingerprints", name));
+		} catch {}
+	}
 }
 
 function hashCode(str: string): number {

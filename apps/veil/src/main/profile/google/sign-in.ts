@@ -5,6 +5,9 @@ import {
 	importCookiesViaCdp,
 	launchChromeForGoogleAuth,
 } from "./auth-window";
+import { isGoogleUrl } from "./domains";
+
+const TRANSFER_TIMEOUT_MS = 5 * 60 * 1000;
 
 export class GoogleSignIn {
 	private pending = false;
@@ -28,8 +31,13 @@ export class GoogleSignIn {
 
 		this.pending = true;
 
+		// `continue` is an attacker-influenceable query param that we later load with
+		// the freshly imported Google cookies — only honour a real Google https URL.
+		const rawContinue = new URL(url).searchParams.get("continue") ?? "";
 		const continueUrl =
-			new URL(url).searchParams.get("continue") || "https://www.google.com/";
+			rawContinue.startsWith("https://") && isGoogleUrl(rawContinue)
+				? rawContinue
+				: "https://www.google.com/";
 
 		if (!launchChromeForGoogleAuth(continueUrl)) {
 			this.pending = false;
@@ -45,13 +53,36 @@ export class GoogleSignIn {
 			_level: number,
 			message: string,
 		) => {
-			if (message !== "__PANE_TRANSFER__") {
+			// Only the transfer page (a data: URL) may trigger the import — otherwise
+			// any later page that logs the sentinel could drive a CDP cookie pull.
+			if (
+				message !== "__PANE_TRANSFER__" ||
+				!this.view.webContents.getURL().startsWith("data:text/html")
+			) {
 				return;
 			}
 
-			this.view.webContents.removeListener("console-message", onConsoleMessage);
+			teardown();
 			this.transfer(continueUrl);
 		};
+
+		const teardown = () => {
+			clearTimeout(timer);
+
+			if (!this.view.webContents.isDestroyed()) {
+				this.view.webContents.removeListener(
+					"console-message",
+					onConsoleMessage,
+				);
+			}
+		};
+
+		// Bound the listener's lifetime: if the user never completes the transfer,
+		// stop listening and let them retry rather than leaving the hook armed.
+		const timer = setTimeout(() => {
+			teardown();
+			this.pending = false;
+		}, TRANSFER_TIMEOUT_MS);
 
 		this.view.webContents.on("console-message", onConsoleMessage);
 
@@ -76,6 +107,7 @@ export class GoogleSignIn {
 				}
 			})
 			.catch((error: Error) => {
+				this.pending = false;
 				this.showError(error.message);
 			});
 	}
@@ -91,8 +123,10 @@ export class GoogleSignIn {
 			document.getElementById("btn").textContent = "Transfer session to Pane";
 			var err = document.getElementById("err");
 			err.style.display = "block";
-			err.textContent = "${message.replace(/"/g, '\\"')}";
+			err.textContent = ${JSON.stringify(message)};
 		`)
-			.catch(() => {});
+			.catch((error: Error) => {
+				console.warn("[SignIn] Failed to show auth error:", error.message);
+			});
 	}
 }

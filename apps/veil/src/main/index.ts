@@ -1,13 +1,20 @@
 import path from "node:path";
 import { ElectronChromeExtensions } from "@pane/electron-chrome-extensions";
-import { app, type BrowserWindow, type WebContentsView, session } from "electron";
+import {
+	app,
+	type BrowserWindow,
+	session,
+	type WebContentsView,
+} from "electron";
 
 app.commandLine.appendSwitch("log-level", "3");
 
-app.commandLine.appendSwitch(
-	"disable-features",
-	"UserAgentClientHint,ClientHintThirdPartyDelegation,CalculateNativeWinOcclusion",
-);
+// UA Client Hints stay ENABLED so Chromium emits Sec-CH-UA-* headers; each
+// profile's onBeforeSendHeaders rewrites them to match its fingerprint (keeping the
+// HTTP surface consistent with the spoofed navigator.userAgentData). Disabling them
+// would leave a Chrome that exposes userAgentData in JS but sends no hints — itself
+// a tell.
+app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
 
 app.commandLine.appendSwitch("disable-renderer-backgrounding");
 app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");

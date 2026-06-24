@@ -42,7 +42,11 @@ function killActiveChrome(): void {
 
 	try {
 		process.kill(activeChromePid, "SIGTERM");
-	} catch {}
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+			console.warn("[Auth] Failed to terminate Chrome:", error);
+		}
+	}
 
 	activeChromePid = null;
 }
@@ -87,6 +91,8 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 	return true;
 }
 
+type ElectronSameSite = "unspecified" | "no_restriction" | "lax" | "strict";
+
 export async function importCookiesViaCdp(
 	targetSession: Electron.Session,
 ): Promise<number> {
@@ -104,10 +110,7 @@ export async function importCookiesViaCdp(
 		isGoogleCookieDomain(c.domain),
 	);
 
-	const sameSiteMap: Record<
-		string,
-		"unspecified" | "no_restriction" | "lax" | "strict"
-	> = {
+	const sameSiteMap: Record<string, ElectronSameSite> = {
 		None: "no_restriction",
 		Lax: "lax",
 		Strict: "strict",
@@ -132,7 +135,9 @@ export async function importCookiesViaCdp(
 			});
 
 			count++;
-		} catch {}
+		} catch (error) {
+			console.warn(`[Auth] Failed to import cookie ${cookie.name}:`, error);
+		}
 	}
 
 	return count;
@@ -151,7 +156,9 @@ export function cleanupAuthChrome(): void {
 	setTimeout(() => {
 		try {
 			fs.rmSync(dir, { recursive: true, force: true });
-		} catch {}
+		} catch (error) {
+			console.warn("[Auth] Failed to remove temp auth dir:", error);
+		}
 	}, 2000);
 }
 
@@ -198,7 +205,9 @@ async function getPageWebSocketUrl(): Promise<string | null> {
 				) {
 					return wsUrl;
 				}
-			} catch {}
+			} catch {
+				// DevTools endpoint not up yet; fall through and retry.
+			}
 		}
 
 		await new Promise((r) => setTimeout(r, 500));
@@ -265,7 +274,9 @@ function fetchCookiesViaCdp(wsUrl: string): Promise<CdpCookie[]> {
 					ws.close();
 					reject(new Error(msg.error.message));
 				}
-			} catch {}
+			} catch {
+				// Ignore non-JSON CDP frames.
+			}
 		});
 
 		ws.on("error", (error: Error) => {

@@ -29,20 +29,15 @@ export async function clearGoogleSession(
 ): Promise<number> {
 	const cookies = await targetSession.cookies.get({});
 
-	const googleCookies = cookies.filter((cookie) =>
-		isGoogleCookieDomain(cookie.domain),
+	const googleCookies = cookies.filter(
+		(cookie): cookie is Electron.Cookie & { domain: string } =>
+			isGoogleCookieDomain(cookie.domain),
 	);
 
 	let count = 0;
 
 	for (const cookie of googleCookies) {
-		const domain = cookie.domain;
-
-		if (!domain) {
-			continue;
-		}
-
-		const url = `http${cookie.secure ? "s" : ""}://${domain.replace(/^\./, "")}${cookie.path ?? "/"}`;
+		const url = `http${cookie.secure ? "s" : ""}://${cookie.domain.replace(/^\./, "")}${cookie.path ?? "/"}`;
 
 		try {
 			await targetSession.cookies.remove(url, cookie.name);
