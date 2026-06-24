@@ -267,9 +267,14 @@ function __paneApplyFingerprint(fp) {
 		return { brands: ch.brands.slice(), mobile: ch.mobile, platform: ch.platform };
 	}
 
+	// navigator.userAgentData.brands is a FrozenArray in WebIDL (Object.isFrozen is
+	// true in real Chrome), like navigator.languages. getHighEntropyValues/toJSON
+	// return plain sequence<T> and stay unfrozen to match Chrome.
+	const frozenBrands = Object.freeze(ch.brands.slice());
+
 	if (typeof NavigatorUAData !== "undefined" && navigator.userAgentData) {
 		const uaProto = NavigatorUAData.prototype;
-		defineGetter(uaProto, "brands", ch.brands);
+		defineGetter(uaProto, "brands", frozenBrands);
 		defineGetter(uaProto, "mobile", ch.mobile);
 		defineGetter(uaProto, "platform", ch.platform);
 		replaceMethod(uaProto, "getHighEntropyValues", getHighEntropyValues);
@@ -277,7 +282,7 @@ function __paneApplyFingerprint(fp) {
 	} else {
 		const base = typeof NavigatorUAData !== "undefined" ? NavigatorUAData.prototype : Object.prototype;
 		const uaProto = Object.create(base);
-		defineGetter(uaProto, "brands", ch.brands);
+		defineGetter(uaProto, "brands", frozenBrands);
 		defineGetter(uaProto, "mobile", ch.mobile);
 		defineGetter(uaProto, "platform", ch.platform);
 		Object.defineProperty(uaProto, "getHighEntropyValues", {

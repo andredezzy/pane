@@ -256,6 +256,8 @@ export class ProfileTabs {
 		const tabId = crypto.randomUUID();
 		const view = this.createView(tabId);
 
+		this.hideAll();
+
 		this.views.set(tabId, view);
 		this.profile.onTabOpened(tabId);
 		this.mainWindow.contentView.addChildView(view);

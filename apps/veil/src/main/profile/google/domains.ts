@@ -13,8 +13,11 @@ export function isGoogleCookieDomain(domain: string | undefined): boolean {
 
 // Matches a Google/YouTube page URL on any subdomain (and ccTLD), used to reload a
 // profile's open Google tabs after a sign-out so they reflect the signed-out state.
+// The subdomain class excludes / ? # so a URL delimiter can't smuggle a foreign host
+// into the subdomain slot: https://evil.com#.google.com parses to host evil.com but
+// would match a bare [^/]* — and this gates the post-auth continue= redirect.
 const GOOGLE_URL_PATTERN =
-	/^https?:\/\/(?:[^/]*\.)?(?:google|youtube)\.[a-z]{2,3}(?:\.[a-z]{2,3})?(?::\d+)?(?:[/?#]|$)/i;
+	/^https?:\/\/(?:[^/?#]*\.)?(?:google|youtube)\.[a-z]{2,3}(?:\.[a-z]{2,3})?(?::\d+)?(?:[/?#]|$)/i;
 
 export function isGoogleUrl(url: string): boolean {
 	return GOOGLE_URL_PATTERN.test(url);
