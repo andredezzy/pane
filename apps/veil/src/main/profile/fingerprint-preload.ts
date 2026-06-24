@@ -133,6 +133,58 @@ function __paneApplyFingerprint(fp) {
 		defineGetter(Object.getPrototypeOf(window), "devicePixelRatio", dpr);
 	}
 
+	// chrome.loadTimes() and chrome.csi() are deprecated but still injected into
+	// every page by Chrome's renderer (loadtimes_extension_bindings.cc). Electron's
+	// renderer client omits them, so their absence on window.chrome is a well-known
+	// "not real Chrome" tell. Provide native-looking stubs backed by real timing.
+	if (typeof window !== "undefined" && typeof performance !== "undefined") {
+		let chromeGlobal = window.chrome;
+		if (!chromeGlobal) {
+			try {
+				window.chrome = {};
+			} catch (_error) {}
+			chromeGlobal = window.chrome;
+		}
+
+		if (chromeGlobal && typeof chromeGlobal.csi !== "function") {
+			chromeGlobal.csi = asNative(function csi() {
+				const timing = performance.timing;
+				return {
+					onloadT: timing.domContentLoadedEventEnd,
+					startE: timing.navigationStart,
+					pageT: Date.now() - timing.navigationStart,
+					tran: 15,
+				};
+			}, "csi");
+		}
+
+		if (chromeGlobal && typeof chromeGlobal.loadTimes !== "function") {
+			const navigationTypeName = { reload: "Reload", back_forward: "BackForward" };
+			chromeGlobal.loadTimes = asNative(function loadTimes() {
+				const timing = performance.timing;
+				const navEntry = performance.getEntriesByType("navigation")[0] || {};
+				const paintEntry = performance.getEntriesByType("paint").find((entry) => entry.name === "first-paint");
+				const protocol = navEntry.nextHopProtocol || "h2";
+				const negotiated = protocol === "h2" || protocol === "hq";
+				return {
+					requestTime: timing.navigationStart / 1000,
+					startLoadTime: timing.navigationStart / 1000,
+					commitLoadTime: timing.responseStart / 1000,
+					finishDocumentLoadTime: timing.domContentLoadedEventEnd / 1000,
+					finishLoadTime: timing.loadEventEnd / 1000,
+					firstPaintTime: paintEntry ? (timing.navigationStart + paintEntry.startTime) / 1000 : timing.loadEventEnd / 1000,
+					firstPaintAfterLoadTime: 0,
+					navigationType: navigationTypeName[navEntry.type] || "Other",
+					wasFetchedViaSpdy: negotiated,
+					wasNpnNegotiated: negotiated,
+					npnNegotiatedProtocol: negotiated ? protocol : "unknown",
+					wasAlternateProtocolAvailable: false,
+					connectionInfo: protocol,
+				};
+			}, "loadTimes");
+		}
+	}
+
 	// navigator.userAgentData — consistent with the Sec-CH-UA-* header rewrite (both
 	// from client-hints.ts). Override the real NavigatorUAData prototype when present
 	// so navigator.userAgentData stays a genuine instance; else synthesise one.
