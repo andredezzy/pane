@@ -163,7 +163,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 											buttonRefs.current[index] = element;
 										}}
 										aria-current={isSelected ? "true" : undefined}
-										className="flex w-full items-center gap-2.5 rounded-lg py-2.5 pr-3 pl-7 outline-none transition"
+										className="flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 outline-none transition"
 										style={
 											isSelected
 												? {
