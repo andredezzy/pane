@@ -40,25 +40,32 @@ function overwriteDirectory(dirPath: string, passes = 3): void {
 	} catch {}
 }
 
+function wipeDirectory(dirPath: string): void {
+	overwriteDirectory(dirPath);
+
+	try {
+		fs.rmSync(dirPath, { recursive: true, force: true });
+	} catch (error) {
+		console.warn("[Wipe] Failed to remove directory:", dirPath, error);
+	}
+}
+
 export function executeWipe(): void {
 	const userData = app.getPath("userData");
 	const tempDir = app.getPath("temp");
 
+	const partitionsDir = path.join(userData, "Partitions");
 	const profiles = profileStore.getState().profiles;
 
+	// Electron stores a "persist:NAME" partition under Partitions/NAME — the persist:
+	// prefix is dropped — so the on-disk dirs are profile-<id>, NOT persist_profile-<id>.
 	for (const profile of profiles) {
-		const partitionPath = path.join(
-			userData,
-			"Partitions",
-			`persist_profile-${profile.id}`,
-		);
-
-		overwriteDirectory(partitionPath);
-
-		try {
-			fs.rmSync(partitionPath, { recursive: true, force: true });
-		} catch {}
+		wipeDirectory(path.join(partitionsDir, `profile-${profile.id}`));
 	}
+
+	// The extension / CWS update session (persist:pane-internal) is persistent app
+	// data too — a panic wipe must not leave its cookies or state recoverable.
+	wipeDirectory(path.join(partitionsDir, "pane-internal"));
 
 	overwriteAndDelete(path.join(userData, "profiles.json"));
 	overwriteAndDelete(path.join(userData, "security.json"));
