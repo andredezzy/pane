@@ -87,10 +87,34 @@ function __paneApplyFingerprint(fp) {
 	// Chromium's own PDF-viewer support.
 
 	// speechSynthesis.getVoices() exposes the host OS's TTS voices (Apple vs
-	// Microsoft), contradicting the platform spoof. Report none (as if not yet
-	// loaded) rather than the host set.
+	// Microsoft), contradicting the platform spoof — report none. Chromium still fires
+	// "voiceschanged" from the browser process once host voices load; a page that
+	// observes that event and then sees an empty list catches a state real Win/macOS
+	// Chrome never reaches (their voices are always present after the event). Drop the
+	// signal on both delivery paths so the empty list stays self-consistent. (A
+	// faithful per-OS voice list would be the richer fix but is out of scope here.)
 	if (typeof SpeechSynthesis !== "undefined" && typeof speechSynthesis !== "undefined") {
 		replaceMethod(SpeechSynthesis.prototype, "getVoices", function getVoices() { return []; });
+
+		if (typeof EventTarget !== "undefined") {
+			patchMethod(EventTarget.prototype, "addEventListener", (original) => function addEventListener(type, listener, options) {
+				if (this === speechSynthesis && type === "voiceschanged") return undefined;
+				return original.call(this, type, listener, options);
+			});
+		}
+
+		// Shadow onvoiceschanged: store/return the assigned handler (so a write-then-read
+		// probe still sees it) but never let it register with the native event, so the
+		// browser-fired voiceschanged can't invoke it.
+		let onVoicesChanged = null;
+		Object.defineProperty(SpeechSynthesis.prototype, "onvoiceschanged", {
+			get: asNative(function () { return onVoicesChanged; }, "get onvoiceschanged"),
+			set: asNative(function (value) {
+				onVoicesChanged = typeof value === "function" ? value : null;
+			}, "set onvoiceschanged"),
+			configurable: true,
+			enumerable: true,
+		});
 	}
 
 	// navigator.storage.estimate().quota can leak the host disk size for origins that

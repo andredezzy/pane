@@ -64,7 +64,12 @@ export function createIPCHandler<TRouter extends AnyTRPCRouter>({
 	const webContentsId = webContents.id;
 
 	function cleanUpSubscriptions(frameRoutingId?: number) {
-		const prefix = `${webContentsId}-${frameRoutingId ?? ""}`;
+		// Keys are `${id}-${routingId}:${messageId}` — a per-frame prefix MUST end in
+		// the ":" separator, else frame 5 ("1-5") also matches frame 52 ("1-52:..").
+		const prefix =
+			frameRoutingId !== undefined
+				? `${webContentsId}-${frameRoutingId}:`
+				: `${webContentsId}-`;
 		for (const [key, sub] of subscriptions.entries()) {
 			if (key.startsWith(prefix)) {
 				sub.abort();
