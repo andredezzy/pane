@@ -22,6 +22,11 @@ interface CdpCookie {
 	sameSite: string;
 }
 
+interface CdpTarget {
+	type?: string;
+	webSocketDebuggerUrl?: string;
+}
+
 let activeTempDir: string | null = null;
 let activeChromePid: number | null = null;
 
@@ -60,8 +65,7 @@ export function launchChromeForGoogleAuth(continueUrl: string): boolean {
 
 	killActiveChrome();
 
-	const tempDir = path.join(os.tmpdir(), `pane-google-auth-${Date.now()}`);
-	fs.mkdirSync(tempDir, { recursive: true });
+	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pane-google-auth-"));
 
 	activeTempDir = tempDir;
 
@@ -189,10 +193,7 @@ async function getPageWebSocketUrl(): Promise<string | null> {
 			try {
 				const data = await httpGet(`http://127.0.0.1:${port}/json/list`);
 
-				const targets = JSON.parse(data) as Array<{
-					type?: string;
-					webSocketDebuggerUrl?: string;
-				}>;
+				const targets = JSON.parse(data) as CdpTarget[];
 
 				const page = targets.find((t) => t.type === "page");
 				const wsUrl: unknown = page?.webSocketDebuggerUrl;

@@ -36,50 +36,121 @@ function __paneApplyFingerprint(fp) {
 	labels.set(toStringProxy, "toString");
 	Function.prototype.toString = toStringProxy;
 
-	// Native DOM attributes live on the prototype, non-enumerable.
-	const defineGetter = (proto, prop, getter) => {
+	// Define a spoofed prototype attribute. The original getter is called first for
+	// its native brand check, so accessing the property on a wrong receiver still
+	// throws "Illegal invocation" exactly like native (creepjs probes this).
+	const defineGetter = (proto, prop, value) => {
+		const original = Object.getOwnPropertyDescriptor(proto, prop);
+		const originalGet = original && original.get;
 		Object.defineProperty(proto, prop, {
-			get: asNative(getter, "get " + prop),
+			get: asNative(function () {
+				if (originalGet) originalGet.call(this);
+				return value;
+			}, "get " + prop),
 			configurable: true,
 			enumerable: false,
 		});
 	};
 
-	// Replace a native method, preserving its descriptor flags; makeWrapper gets the
-	// original so it can delegate the non-spoofed path.
+	// Replace a native method, preserving its descriptor flags AND its arity (.length)
+	// so a wrapper with a different parameter count can't be spotted; makeWrapper gets
+	// the original so it can delegate the non-spoofed path.
 	const patchMethod = (obj, prop, makeWrapper) => {
 		const descriptor = Object.getOwnPropertyDescriptor(obj, prop);
 		if (!descriptor || typeof descriptor.value !== "function") return;
 		const wrapper = asNative(makeWrapper(descriptor.value), prop);
+		Object.defineProperty(wrapper, "length", { value: descriptor.value.length, configurable: true });
 		Object.defineProperty(obj, prop, Object.assign({}, descriptor, { value: wrapper }));
 	};
 	// Replace a native method outright (no delegation to the original).
 	const replaceMethod = (obj, prop, fn) => patchMethod(obj, prop, () => fn);
 
 	const navProto = Object.getPrototypeOf(navigator);
-	defineGetter(navProto, "platform", () => fp._navPlatform);
-	defineGetter(navProto, "hardwareConcurrency", () => fp.hardwareConcurrency);
-	defineGetter(navProto, "deviceMemory", () => fp.deviceMemory);
+	defineGetter(navProto, "platform", fp._navPlatform);
+	defineGetter(navProto, "hardwareConcurrency", fp.hardwareConcurrency);
+	defineGetter(navProto, "deviceMemory", fp.deviceMemory);
 	// maxTouchPoints is a Navigator property only — a real WorkerNavigator lacks it.
 	if ("maxTouchPoints" in navigator) {
-		defineGetter(navProto, "maxTouchPoints", () => fp.maxTouchPoints);
+		defineGetter(navProto, "maxTouchPoints", fp.maxTouchPoints);
 	}
-	defineGetter(navProto, "language", () => fp.language);
-	defineGetter(navProto, "languages", () => Object.freeze(fp.languages.slice()));
+	defineGetter(navProto, "language", fp.language);
+	defineGetter(navProto, "languages", Object.freeze(fp.languages.slice()));
+
+	// Chrome 130+ ships the internal PDF viewer: pdfViewerEnabled is true and
+	// navigator.plugins lists five frozen PDF entries. Electron lacks them, so an
+	// empty plugin list contradicts the Chrome UA.
+	if ("pdfViewerEnabled" in navigator) {
+		defineGetter(navProto, "pdfViewerEnabled", true);
+	}
+	if (typeof Plugin !== "undefined" && typeof PluginArray !== "undefined" && navigator.plugins) {
+		const PDF_NAMES = ["PDF Viewer", "Chrome PDF Viewer", "Chromium PDF Viewer", "Microsoft Edge PDF Viewer", "WebKit built-in PDF"];
+		const mime = (type, plugin) => {
+			const m = Object.create(MimeType.prototype);
+			Object.defineProperties(m, {
+				type: { value: type, enumerable: true },
+				suffixes: { value: "pdf", enumerable: true },
+				description: { value: "Portable Document Format", enumerable: true },
+				enabledPlugin: { value: plugin, enumerable: true },
+			});
+			return m;
+		};
+		const plugins = PDF_NAMES.map((name) => {
+			const p = Object.create(Plugin.prototype);
+			const types = [mime("application/pdf", p), mime("text/pdf", p)];
+			Object.defineProperties(p, {
+				name: { value: name, enumerable: true },
+				description: { value: "Portable Document Format", enumerable: true },
+				filename: { value: "internal-pdf-viewer", enumerable: true },
+				length: { value: types.length, enumerable: true },
+				0: { value: types[0], enumerable: true },
+				1: { value: types[1], enumerable: true },
+			});
+			p.item = asNative(function item(i) { return types[i] || null; }, "item");
+			p.namedItem = asNative(function namedItem(t) { return types.find((x) => x.type === t) || null; }, "namedItem");
+			return p;
+		});
+		const pluginArray = Object.create(PluginArray.prototype);
+		plugins.forEach((p, i) => Object.defineProperty(pluginArray, i, { value: p, enumerable: true }));
+		Object.defineProperty(pluginArray, "length", { value: plugins.length, enumerable: true });
+		pluginArray.item = asNative(function item(i) { return plugins[i] || null; }, "item");
+		pluginArray.namedItem = asNative(function namedItem(n) { return plugins.find((p) => p.name === n) || null; }, "namedItem");
+		pluginArray.refresh = asNative(function refresh() {}, "refresh");
+		defineGetter(navProto, "plugins", pluginArray);
+	}
+
+	// speechSynthesis.getVoices() exposes the host OS's TTS voices (Apple vs
+	// Microsoft), contradicting the platform spoof. Report none (as if not yet
+	// loaded) rather than the host set.
+	if (typeof SpeechSynthesis !== "undefined" && typeof speechSynthesis !== "undefined") {
+		replaceMethod(SpeechSynthesis.prototype, "getVoices", function getVoices() { return []; });
+	}
 
 	if (fp.screen && typeof screen !== "undefined") {
-		// availWidth/availHeight leave room for the OS chrome (taskbar / menu bar);
-		// reporting the full screen size is a tell.
+		// availWidth/availHeight/availTop leave room for the OS chrome; reporting the
+		// full screen (or the host's menu-bar inset) is a tell.
 		const inset = { WINDOWS: 48, MACOS: 25, LINUX: 27 }[fp.platform] || 0;
+		const availTop = fp.platform === "MACOS" ? 25 : 0;
 		const screenProto = Object.getPrototypeOf(screen);
-		defineGetter(screenProto, "width", () => fp.screen.width);
-		defineGetter(screenProto, "height", () => fp.screen.height);
-		defineGetter(screenProto, "availWidth", () => fp.screen.width);
-		defineGetter(screenProto, "availHeight", () => fp.screen.height - inset);
+		defineGetter(screenProto, "width", fp.screen.width);
+		defineGetter(screenProto, "height", fp.screen.height);
+		defineGetter(screenProto, "availWidth", fp.screen.width);
+		defineGetter(screenProto, "availHeight", fp.screen.height - inset);
+		if ("availTop" in screen) defineGetter(screenProto, "availTop", availTop);
+		if ("availLeft" in screen) defineGetter(screenProto, "availLeft", 0);
 		if (fp.screen.colorDepth) {
-			defineGetter(screenProto, "colorDepth", () => fp.screen.colorDepth);
-			defineGetter(screenProto, "pixelDepth", () => fp.screen.colorDepth);
+			defineGetter(screenProto, "colorDepth", fp.screen.colorDepth);
+			defineGetter(screenProto, "pixelDepth", fp.screen.colorDepth);
 		}
+	}
+
+	// devicePixelRatio: a Retina host reports 2 while a spoofed 1080p Windows display
+	// is almost always 1. Derive from the claimed platform.
+	if (typeof window !== "undefined") {
+		const dpr = fp.platform === "MACOS" ? 2 : 1;
+		Object.defineProperty(window, "devicePixelRatio", {
+			get: asNative(() => dpr, "get devicePixelRatio"),
+			configurable: true,
+		});
 	}
 
 	// navigator.userAgentData — consistent with the Sec-CH-UA-* header rewrite (both
@@ -115,17 +186,17 @@ function __paneApplyFingerprint(fp) {
 
 	if (typeof NavigatorUAData !== "undefined" && navigator.userAgentData) {
 		const uaProto = NavigatorUAData.prototype;
-		defineGetter(uaProto, "brands", () => ch.brands);
-		defineGetter(uaProto, "mobile", () => ch.mobile);
-		defineGetter(uaProto, "platform", () => ch.platform);
+		defineGetter(uaProto, "brands", ch.brands);
+		defineGetter(uaProto, "mobile", ch.mobile);
+		defineGetter(uaProto, "platform", ch.platform);
 		replaceMethod(uaProto, "getHighEntropyValues", getHighEntropyValues);
 		replaceMethod(uaProto, "toJSON", toJSON);
 	} else {
 		const base = typeof NavigatorUAData !== "undefined" ? NavigatorUAData.prototype : Object.prototype;
 		const uaProto = Object.create(base);
-		defineGetter(uaProto, "brands", () => ch.brands);
-		defineGetter(uaProto, "mobile", () => ch.mobile);
-		defineGetter(uaProto, "platform", () => ch.platform);
+		defineGetter(uaProto, "brands", ch.brands);
+		defineGetter(uaProto, "mobile", ch.mobile);
+		defineGetter(uaProto, "platform", ch.platform);
 		Object.defineProperty(uaProto, "getHighEntropyValues", {
 			value: asNative(getHighEntropyValues, "getHighEntropyValues"),
 			writable: true, enumerable: false, configurable: true,
@@ -134,9 +205,10 @@ function __paneApplyFingerprint(fp) {
 			value: asNative(toJSON, "toJSON"),
 			writable: true, enumerable: false, configurable: true,
 		});
+
 		// Cache the instance so navigator.userAgentData has a stable identity.
 		const uaInstance = Object.create(uaProto);
-		defineGetter(navProto, "userAgentData", () => uaInstance);
+		defineGetter(navProto, "userAgentData", uaInstance);
 	}
 
 	if (fp.webgl) {
@@ -261,9 +333,9 @@ function __paneApplyFingerprint(fp) {
 		});
 	}
 
-	// Timezone: report fp.timezone from Intl AND every host-timezone-dependent Date
-	// method (string, offset, and local numeric getters), which read ICU directly and
-	// bypass the Intl.DateTimeFormat constructor.
+	// Timezone: report fp.timezone from Intl, Temporal, AND every host-timezone-
+	// dependent Date method (string, offset, and local numeric getters), which read
+	// ICU directly and bypass the Intl.DateTimeFormat constructor.
 	if (fp.timezone && typeof Intl !== "undefined") {
 		const OriginalDTF = Intl.DateTimeFormat;
 		const partsFormat = new OriginalDTF("en-US", {
@@ -278,6 +350,7 @@ function __paneApplyFingerprint(fp) {
 		});
 		const offsetFormat = new OriginalDTF("en-US", { timeZone: fp.timezone, timeZoneName: "longOffset" });
 		const longNameFormat = new OriginalDTF("en-US", { timeZone: fp.timezone, timeZoneName: "long" });
+
 		const partsOf = (date, format) => {
 			const out = {};
 			for (const part of format.formatToParts(date)) out[part.type] = part.value;
@@ -307,6 +380,11 @@ function __paneApplyFingerprint(fp) {
 		OriginalDTF.prototype.constructor = dtfProxy;
 		labels.set(dtfProxy, "DateTimeFormat");
 		Intl.DateTimeFormat = dtfProxy;
+
+		// TC39 Temporal (stable in recent Chromium) reads the host zone from ICU too.
+		if (typeof Temporal !== "undefined" && Temporal.Now && typeof Temporal.Now.timeZoneId === "function") {
+			replaceMethod(Temporal.Now, "timeZoneId", function timeZoneId() { return fp.timezone; });
+		}
 
 		replaceMethod(Date.prototype, "getTimezoneOffset", function getTimezoneOffset() {
 			if (Number.isNaN(this.getTime())) return Number.NaN;
@@ -342,7 +420,9 @@ function __paneApplyFingerprint(fp) {
 		replaceMethod(Date.prototype, "getSeconds", function getSeconds() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "second"); });
 		replaceMethod(Date.prototype, "getYear", function getYear() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "year") - 1900; });
 
-		const patchLocale = (method, defaults) => replaceMethod(Date.prototype, method, function (locales, options) {
+		const patchLocale = (method, defaults) => replaceMethod(Date.prototype, method, function () {
+			const locales = arguments[0];
+			const options = arguments[1];
 			if (Number.isNaN(this.getTime())) return "Invalid Date";
 			const opts = Object.assign({}, options);
 			if (!COMPONENT_KEYS.some((key) => key in opts)) Object.assign(opts, defaults);
@@ -352,6 +432,33 @@ function __paneApplyFingerprint(fp) {
 		patchLocale("toLocaleString", { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
 		patchLocale("toLocaleDateString", { year: "numeric", month: "numeric", day: "numeric" });
 		patchLocale("toLocaleTimeString", { hour: "numeric", minute: "numeric", second: "numeric" });
+	}
+
+	// Dedicated workers spawned from page JS bypass the preload (Electron has no
+	// dedicated-worker preload type). Wrap classic same-origin/blob workers so they
+	// inherit the spoof; fall back to the native Worker for module/cross-origin (and
+	// on any error) so this can never break a page.
+	if (typeof Worker !== "undefined" && typeof Blob !== "undefined" && typeof URL !== "undefined" && typeof location !== "undefined") {
+		const spoofSource = "self.__PANE_FP__=" + JSON.stringify(fp) + ";(" + __paneApplyFingerprint.toString() + ")(self.__PANE_FP__);";
+		const WorkerProxy = new Proxy(Worker, {
+			construct(target, args) {
+				try {
+					const url = new URL(String(args[0]), location.href);
+					const classic = !(args[1] && args[1].type === "module");
+					const reachable = url.protocol === "blob:" || url.origin === location.origin;
+					if (!classic || !reachable) return Reflect.construct(target, args);
+					const wrapped = spoofSource + "importScripts(" + JSON.stringify(url.href) + ");";
+					const blobUrl = URL.createObjectURL(new Blob([wrapped], { type: "text/javascript" }));
+					return Reflect.construct(target, [blobUrl, args[1]]);
+				} catch (_error) {
+					return Reflect.construct(target, args);
+				}
+			},
+		});
+		labels.set(WorkerProxy, "Worker");
+		try {
+			Object.defineProperty(globalThis, "Worker", { value: WorkerProxy, writable: true, configurable: true });
+		} catch (_error) {}
 	}
 }
 

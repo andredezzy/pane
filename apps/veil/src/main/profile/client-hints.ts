@@ -35,12 +35,12 @@ const PLATFORM_VERSION: Record<Platform, string> = {
 const GREASE_CHARS = [" ", "(", ":", "-", ".", "/", ")", ";", "=", "?", "_"];
 const GREASE_VERSIONS = ["8", "99", "24"];
 
-function greasedBrand(major: number): UABrand {
+function greasedBrand(major: number, versionIndex: number): UABrand {
 	const brand = `Not${GREASE_CHARS[major % GREASE_CHARS.length]}A${
 		GREASE_CHARS[(major + 1) % GREASE_CHARS.length]
 	}Brand`;
 
-	return { brand, version: GREASE_VERSIONS[major % GREASE_VERSIONS.length] };
+	return { brand, version: GREASE_VERSIONS[versionIndex] };
 }
 
 function isAppleSilicon(fingerprint: Fingerprint): boolean {
@@ -59,12 +59,11 @@ export function deriveClientHints(fingerprint: Fingerprint): ClientHints {
 	const major = Number(chromeMajor);
 	const uaFullVersion = fullMatch?.[1] ?? `${chromeMajor}.0.0.0`;
 
-	const grease = greasedBrand(major);
-
-	// Chromium shuffles the grease entry's position by version; mirror that (mod the
-	// final 3-brand list length) so the list isn't a fixed "grease always last"
-	// signature.
-	const greaseIndex = major % 3;
+	// Chromium seeds both the grease version AND its position in the list from
+	// (floor(major/10) + major) % 3 (user_agent_utils.cc), not major % 3 — those
+	// diverge for Chrome 130+.
+	const greaseIndex = (Math.floor(major / 10) + major) % 3;
+	const grease = greasedBrand(major, greaseIndex);
 
 	const brands: UABrand[] = [
 		{ brand: "Chromium", version: chromeMajor },

@@ -299,6 +299,15 @@ export class ProfileTabs {
 		const profileId = this.profile.id;
 		const googleSignIn = new GoogleSignIn(view, this.profile.session);
 
+		// WebRTC ICE candidates leak the real LAN IP / mDNS hostname past the proxy
+		// (its rules only govern TCP). Hide private interfaces; a proxied profile
+		// forces all UDP through the proxy so nothing escapes around it.
+		view.webContents.setWebRTCIPHandlingPolicy(
+			this.profile.data.proxy
+				? "disable_non_proxied_udp"
+				: "default_public_interface_only",
+		);
+
 		view.webContents.on("did-navigate", (_e, url) => {
 			if (googleSignIn.intercept(url)) {
 				return;
