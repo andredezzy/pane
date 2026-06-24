@@ -1,0 +1,81 @@
+import { type Fingerprint, Platform } from "../../stores/profile-store";
+
+export interface UABrand {
+	brand: string;
+	version: string;
+}
+
+export interface ClientHints {
+	platform: string;
+	platformVersion: string;
+	architecture: string;
+	bitness: string;
+	mobile: boolean;
+	brands: UABrand[];
+	fullVersionList: UABrand[];
+	uaFullVersion: string;
+}
+
+const UA_PLATFORM: Record<Platform, string> = {
+	[Platform.WINDOWS]: "Windows",
+	[Platform.MACOS]: "macOS",
+	[Platform.LINUX]: "Linux",
+};
+
+const PLATFORM_VERSION: Record<Platform, string> = {
+	[Platform.WINDOWS]: "15.0.0",
+	[Platform.MACOS]: "14.6.1",
+	[Platform.LINUX]: "6.5.0",
+};
+
+// Single source of truth for a fingerprint's UA Client Hints, consumed by BOTH
+// the main-world navigator.userAgentData spoof (fingerprint-preload) and the
+// Sec-CH-UA-* request-header rewrite (profile). Deriving them once keeps the JS
+// surface and the HTTP surface from drifting apart — a drift would re-introduce
+// the very platform contradiction this spoof exists to remove.
+export function deriveClientHints(fingerprint: Fingerprint): ClientHints {
+	const chromeMajor =
+		fingerprint.userAgent.match(/Chrome\/(\d+)/)?.[1] ?? "136";
+	const uaFullVersion = `${chromeMajor}.0.0.0`;
+
+	const brands: UABrand[] = [
+		{ brand: "Chromium", version: chromeMajor },
+		{ brand: "Google Chrome", version: chromeMajor },
+		{ brand: "Not.A/Brand", version: "99" },
+	];
+
+	const fullVersionList: UABrand[] = brands.map((entry) => ({
+		brand: entry.brand,
+		version: entry.brand === "Not.A/Brand" ? "99.0.0.0" : uaFullVersion,
+	}));
+
+	return {
+		platform: UA_PLATFORM[fingerprint.platform],
+		platformVersion: PLATFORM_VERSION[fingerprint.platform],
+		architecture: "x86",
+		bitness: "64",
+		mobile: false,
+		brands,
+		fullVersionList,
+		uaFullVersion,
+	};
+}
+
+// The Sec-CH-UA-* header values (lowercase keys) a fingerprinted profile should
+// present. Applied only to headers Chromium already emits — never added — so a
+// profile can't leak a client hint the browser had suppressed.
+export function clientHintHeaders(hints: ClientHints): Record<string, string> {
+	const serializeBrands = (list: UABrand[]) =>
+		list.map((entry) => `"${entry.brand}";v="${entry.version}"`).join(", ");
+
+	return {
+		"sec-ch-ua": serializeBrands(hints.brands),
+		"sec-ch-ua-full-version-list": serializeBrands(hints.fullVersionList),
+		"sec-ch-ua-full-version": `"${hints.uaFullVersion}"`,
+		"sec-ch-ua-platform": `"${hints.platform}"`,
+		"sec-ch-ua-platform-version": `"${hints.platformVersion}"`,
+		"sec-ch-ua-arch": `"${hints.architecture}"`,
+		"sec-ch-ua-bitness": `"${hints.bitness}"`,
+		"sec-ch-ua-mobile": hints.mobile ? "?1" : "?0",
+	};
+}

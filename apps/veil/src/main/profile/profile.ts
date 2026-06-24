@@ -2,17 +2,23 @@ import {
 	ElectronChromeExtensions,
 	ExtensionRuntime,
 } from "@pane/electron-chrome-extensions";
-import { type BaseWindow, app, session } from "electron";
+import { app, type BaseWindow, session } from "electron";
 import { extensionStore } from "../../stores/extension-store";
 import { type BrowserProfile, profileStore } from "../../stores/profile-store";
 import type { FindEmitter } from "../emitters/find-emitter";
+import { clientHintHeaders, deriveClientHints } from "./client-hints";
 import {
 	cleanupFingerprintPreload,
 	generateFingerprintPreload,
 } from "./fingerprint-preload";
+import { clearGoogleSession } from "./google/sign-out";
 import { ProfileTabs, type TabHost } from "./profile-tabs";
 import { ProxyRelay } from "./proxy-relay";
 import { testProxyConnection } from "./proxy-test";
+
+export function profileSession(id: string): Electron.Session {
+	return session.fromPartition(`persist:profile-${id}`);
+}
 
 export class Profile implements TabHost {
 	readonly session: Electron.Session;
@@ -31,30 +37,54 @@ export class Profile implements TabHost {
 		private readonly tabRegistered?: (tabId: string, profileId: string) => void,
 		private readonly tabUnregistered?: (tabId: string) => void,
 	) {
-		this.session = session.fromPartition(`persist:profile-${id}`);
+		this.session = profileSession(id);
 
 		const profileData = profileStore
 			.getState()
 			.profiles.find((profile) => profile.id === id);
 
-		this.session.setUserAgent(
+		const fingerprint = profileData?.fingerprint;
+
+		// Present the profile's claimed identity as the single source of truth.
+		// Using the fingerprint's User-Agent (and matching Accept-Language) keeps
+		// the HTTP UA consistent with the spoofed navigator.platform / languages —
+		// a mismatch (e.g. a macOS UA over a Win32 platform) is exactly what trips
+		// Google's abuse checks on accounts.google.com (error #2014).
+		const userAgent =
+			fingerprint?.userAgent ??
 			this.session
 				.getUserAgent()
 				.replace(/\s*Electron\/\S+/g, "")
 				.replace(/\s*@?pane\/\S+/gi, "")
-				.replace(/\s{2,}/g, " "),
-		);
+				.replace(/\s{2,}/g, " ");
+
+		this.session.setUserAgent(userAgent, fingerprint?.languages.join(","));
+
+		// Align the Sec-CH-UA-* client-hint headers with the fingerprint (the same
+		// source of truth as the navigator.userAgentData spoof). Computed once and
+		// applied only to hints Chromium actually sends — never added — so no hint
+		// the browser suppressed can leak.
+		const clientHintOverrides = fingerprint
+			? clientHintHeaders(deriveClientHints(fingerprint))
+			: null;
 
 		this.session.webRequest.onBeforeSendHeaders((details, callback) => {
 			const headers = { ...details.requestHeaders };
 
 			for (const key of Object.keys(headers)) {
-				if (
-					key.toLowerCase().startsWith("sec-ch-ua") &&
-					typeof headers[key] === "string" &&
-					/electron|pane/i.test(headers[key] as string)
-				) {
-					headers[key] = (headers[key] as string)
+				const lowerKey = key.toLowerCase();
+				const value = headers[key];
+
+				if (typeof value !== "string" || !lowerKey.startsWith("sec-ch-ua")) {
+					continue;
+				}
+
+				const override = clientHintOverrides?.[lowerKey];
+
+				if (override !== undefined) {
+					headers[key] = override;
+				} else if (/electron|pane/i.test(value)) {
+					headers[key] = value
 						.split(",")
 						.filter((brand) => !/electron|pane/i.test(brand))
 						.join(",")
@@ -67,10 +97,10 @@ export class Profile implements TabHost {
 
 		ElectronChromeExtensions.handleCRXProtocol(this.session);
 
-		if (profileData?.fingerprint) {
+		if (fingerprint) {
 			const fingerprintPreloadPath = generateFingerprintPreload(
 				id,
-				profileData.fingerprint,
+				fingerprint,
 			);
 
 			(
@@ -92,7 +122,13 @@ export class Profile implements TabHost {
 			this.proxyRelay = relay;
 
 			if (p.username && !relay.needsRelay) {
-				this.proxyLoginHandler = (event, webContents, _details, authInfo, callback) => {
+				this.proxyLoginHandler = (
+					event,
+					webContents,
+					_details,
+					authInfo,
+					callback,
+				) => {
 					if (authInfo.isProxy && webContents?.session === this.session) {
 						event.preventDefault();
 						callback(p.username!, p.password ?? "");
@@ -104,9 +140,7 @@ export class Profile implements TabHost {
 
 			this.proxyReady = relay
 				.start()
-				.then(() =>
-					this.session.setProxy({ proxyRules: relay.proxyUrl }),
-				)
+				.then(() => this.session.setProxy({ proxyRules: relay.proxyUrl }))
 				.then(() =>
 					testProxyConnection(
 						this.session,
@@ -166,6 +200,14 @@ export class Profile implements TabHost {
 		return profile;
 	}
 
+	async signOutGoogle(): Promise<number> {
+		const count = await clearGoogleSession(this.session);
+
+		this.tabs.reloadGoogleTabs();
+
+		return count;
+	}
+
 	onTabOpened(tabId: string): void {
 		this.tabRegistered?.(tabId, this.id);
 	}
@@ -191,9 +233,4 @@ export class Profile implements TabHost {
 
 		extensionStore.getState().clearProfile(this.id);
 	}
-}
-
-function extractChromeVersion(userAgent: string): string {
-	const match = userAgent.match(/Chrome\/([\d.]+)/);
-	return match?.[1] ?? "130.0.0.0";
 }

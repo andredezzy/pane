@@ -3,6 +3,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import { isGoogleCookieDomain } from "./domains";
 
 const CHROME_PATHS = [
 	"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -99,8 +100,8 @@ export async function importCookiesViaCdp(
 
 	const allCookies = await fetchCookiesViaCdp(wsUrl);
 
-	const googleCookies = allCookies.filter(
-		(c) => c.domain.includes("google.com") || c.domain.includes("youtube.com"),
+	const googleCookies = allCookies.filter((c) =>
+		isGoogleCookieDomain(c.domain),
 	);
 
 	const sameSiteMap: Record<

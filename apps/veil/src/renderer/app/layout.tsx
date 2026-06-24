@@ -2,7 +2,7 @@ import { PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@pane/ui/cn";
-import { Pencil, Settings, Trash2, X } from "lucide-react";
+import { LogOut, Pencil, Settings, Trash2, X } from "lucide-react";
 import {
 	Component,
 	type ErrorInfo,
@@ -16,10 +16,7 @@ import { useStore } from "zustand/react";
 import { useShallow } from "zustand/react/shallow";
 import { navigationStore, Page } from "../../stores/navigation-store";
 import { profileStore, type Tab } from "../../stores/profile-store";
-import {
-	ProxyStatus,
-	proxyStatusStore,
-} from "../../stores/proxy-status-store";
+import { ProxyStatus, proxyStatusStore } from "../../stores/proxy-status-store";
 import { PinScreenMode, securityStore } from "../../stores/security-store";
 import { tabStore } from "../../stores/tab-store";
 import { ContentPanel } from "../components/content-panel";
@@ -124,9 +121,8 @@ function SidebarProfileItem({
 		(state) => state.activeProfileId === id,
 	);
 
-	const proxyStatus = useStore(
-		proxyStatusStore,
-		(state) => profile?.proxy ? state.statuses[id] : undefined,
+	const proxyStatus = useStore(proxyStatusStore, (state) =>
+		profile?.proxy ? state.statuses[id] : undefined,
 	);
 
 	const { ref, handleRef, isDragSource } = useSortable({ id, index });
@@ -180,14 +176,16 @@ function SidebarProfileItem({
 			onContextMenu={async (event) => {
 				event.preventDefault();
 
-				const [editIcon, deleteIcon] = await Promise.all([
+				const [editIcon, signOutIcon, deleteIcon] = await Promise.all([
 					menuIcon(Pencil),
+					menuIcon(LogOut),
 					menuIcon(Trash2),
 				]);
 
 				const selected = await trpc.ui.menu.mutate({
 					items: [
 						{ id: "edit", label: "Edit profile", icon: editIcon },
+						{ id: "signout", label: "Sign out of Google", icon: signOutIcon },
 						{ type: "separator" },
 						{ id: "delete", label: "Delete profile", icon: deleteIcon },
 					],
@@ -195,6 +193,21 @@ function SidebarProfileItem({
 
 				if (selected === "edit") {
 					surface.open(ProfileSheet, { profileId: profile.id });
+				} else if (selected === "signout") {
+					const confirmed = await trpc.ui.confirm.mutate({
+						message: `Sign out of Google in "${profile.name}"?`,
+						detail:
+							"This clears Google cookies and site data (Gmail, YouTube, Drive) for this profile. You'll need to sign in again.",
+						confirmLabel: "Sign out",
+					});
+
+					if (confirmed) {
+						await trpc.profiles.signOutGoogle
+							.mutate({ profileId: profile.id })
+							.catch((error) => {
+								console.error("[SignOut] Failed:", error);
+							});
+					}
 				} else if (selected === "delete") {
 					const confirmed = await trpc.ui.confirm.mutate({
 						message: `Delete "${profile.name}"?`,

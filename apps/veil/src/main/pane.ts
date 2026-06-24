@@ -8,11 +8,13 @@ import { tabStore } from "../stores/tab-store";
 import { autoDetectBrowser } from "./detect-browser";
 import type { FindEmitter } from "./emitters/find-emitter";
 import { ExtensionInstaller } from "./extensions";
+import { GoogleSessions } from "./profile/google/sessions";
 import { Profile } from "./profile/profile";
 
 export class Pane {
 	readonly extensions: ExtensionInstaller;
 	readonly profiles = new Map<string, Profile>();
+	readonly google = new GoogleSessions((id) => this.profiles.get(id));
 	readonly tabStore = tabStore;
 	private readonly extensionsPath: string;
 	private readonly tabIndex = new Map<string, string>();
