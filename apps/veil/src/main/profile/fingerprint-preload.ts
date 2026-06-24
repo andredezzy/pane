@@ -76,47 +76,11 @@ function __paneApplyFingerprint(fp) {
 	defineGetter(navProto, "language", fp.language);
 	defineGetter(navProto, "languages", Object.freeze(fp.languages.slice()));
 
-	// Chrome 130+ ships the internal PDF viewer: pdfViewerEnabled is true and
-	// navigator.plugins lists five frozen PDF entries. Electron lacks them, so an
-	// empty plugin list contradicts the Chrome UA.
-	if ("pdfViewerEnabled" in navigator) {
-		defineGetter(navProto, "pdfViewerEnabled", true);
-	}
-	if (typeof Plugin !== "undefined" && typeof PluginArray !== "undefined" && navigator.plugins) {
-		const PDF_NAMES = ["PDF Viewer", "Chrome PDF Viewer", "Chromium PDF Viewer", "Microsoft Edge PDF Viewer", "WebKit built-in PDF"];
-		const mime = (type, plugin) => {
-			const m = Object.create(MimeType.prototype);
-			Object.defineProperties(m, {
-				type: { value: type, enumerable: true },
-				suffixes: { value: "pdf", enumerable: true },
-				description: { value: "Portable Document Format", enumerable: true },
-				enabledPlugin: { value: plugin, enumerable: true },
-			});
-			return m;
-		};
-		const plugins = PDF_NAMES.map((name) => {
-			const p = Object.create(Plugin.prototype);
-			const types = [mime("application/pdf", p), mime("text/pdf", p)];
-			Object.defineProperties(p, {
-				name: { value: name, enumerable: true },
-				description: { value: "Portable Document Format", enumerable: true },
-				filename: { value: "internal-pdf-viewer", enumerable: true },
-				length: { value: types.length, enumerable: true },
-				0: { value: types[0], enumerable: true },
-				1: { value: types[1], enumerable: true },
-			});
-			p.item = asNative(function item(i) { return types[i] || null; }, "item");
-			p.namedItem = asNative(function namedItem(t) { return types.find((x) => x.type === t) || null; }, "namedItem");
-			return p;
-		});
-		const pluginArray = Object.create(PluginArray.prototype);
-		plugins.forEach((p, i) => Object.defineProperty(pluginArray, i, { value: p, enumerable: true }));
-		Object.defineProperty(pluginArray, "length", { value: plugins.length, enumerable: true });
-		pluginArray.item = asNative(function item(i) { return plugins[i] || null; }, "item");
-		pluginArray.namedItem = asNative(function namedItem(n) { return plugins.find((p) => p.name === n) || null; }, "namedItem");
-		pluginArray.refresh = asNative(function refresh() {}, "refresh");
-		defineGetter(navProto, "plugins", pluginArray);
-	}
+	// navigator.plugins / mimeTypes / pdfViewerEnabled are intentionally NOT spoofed:
+	// a JS-built PluginArray (Object.create(PluginArray.prototype)) can't reproduce
+	// the native named-getter / internal-slot / plugins<->mimeTypes linkage, so a
+	// mock is more detectable than the real (native or empty) collection. Left to
+	// Chromium's own PDF-viewer support.
 
 	// speechSynthesis.getVoices() exposes the host OS's TTS voices (Apple vs
 	// Microsoft), contradicting the platform spoof. Report none (as if not yet
@@ -147,10 +111,7 @@ function __paneApplyFingerprint(fp) {
 	// is almost always 1. Derive from the claimed platform.
 	if (typeof window !== "undefined") {
 		const dpr = fp.platform === "MACOS" ? 2 : 1;
-		Object.defineProperty(window, "devicePixelRatio", {
-			get: asNative(() => dpr, "get devicePixelRatio"),
-			configurable: true,
-		});
+		defineGetter(Object.getPrototypeOf(window), "devicePixelRatio", dpr);
 	}
 
 	// navigator.userAgentData — consistent with the Sec-CH-UA-* header rewrite (both
@@ -365,16 +326,20 @@ function __paneApplyFingerprint(fp) {
 		const WEEKDAY = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 		const COMPONENT_KEYS = ["weekday", "era", "year", "month", "day", "hour", "minute", "second", "dayPeriod", "dateStyle", "timeStyle", "fractionalSecondDigits"];
 
+		// Default the locale to the spoofed language too, so resolvedOptions().locale
+		// agrees with navigator.language instead of leaking the host locale.
 		const dtfProxy = new Proxy(OriginalDTF, {
 			construct(target, args) {
+				const locales = args[0] == null ? fp.language : args[0];
 				const options = Object.assign({}, args[1]);
 				if (!options.timeZone) options.timeZone = fp.timezone;
-				return Reflect.construct(target, [args[0], options]);
+				return Reflect.construct(target, [locales, options]);
 			},
 			apply(target, thisArg, args) {
+				const locales = args[0] == null ? fp.language : args[0];
 				const options = Object.assign({}, args[1]);
 				if (!options.timeZone) options.timeZone = fp.timezone;
-				return Reflect.apply(target, thisArg, [args[0], options]);
+				return Reflect.apply(target, thisArg, [locales, options]);
 			},
 		});
 		OriginalDTF.prototype.constructor = dtfProxy;
@@ -421,7 +386,7 @@ function __paneApplyFingerprint(fp) {
 		replaceMethod(Date.prototype, "getYear", function getYear() { return Number.isNaN(this.getTime()) ? Number.NaN : numeric(this, "year") - 1900; });
 
 		const patchLocale = (method, defaults) => replaceMethod(Date.prototype, method, function () {
-			const locales = arguments[0];
+			const locales = arguments[0] == null ? fp.language : arguments[0];
 			const options = arguments[1];
 			if (Number.isNaN(this.getTime())) return "Invalid Date";
 			const opts = Object.assign({}, options);
@@ -439,7 +404,9 @@ function __paneApplyFingerprint(fp) {
 	// inherit the spoof; fall back to the native Worker for module/cross-origin (and
 	// on any error) so this can never break a page.
 	if (typeof Worker !== "undefined" && typeof Blob !== "undefined" && typeof URL !== "undefined" && typeof location !== "undefined") {
-		const spoofSource = "self.__PANE_FP__=" + JSON.stringify(fp) + ";(" + __paneApplyFingerprint.toString() + ")(self.__PANE_FP__);";
+		// Pass the config as the IIFE argument (no self.__PANE_FP__ left lying around
+		// in the worker scope).
+		const spoofSource = "(" + __paneApplyFingerprint.toString() + ")(" + JSON.stringify(fp) + ");";
 		const WorkerProxy = new Proxy(Worker, {
 			construct(target, args) {
 				try {
@@ -449,7 +416,9 @@ function __paneApplyFingerprint(fp) {
 					if (!classic || !reachable) return Reflect.construct(target, args);
 					const wrapped = spoofSource + "importScripts(" + JSON.stringify(url.href) + ");";
 					const blobUrl = URL.createObjectURL(new Blob([wrapped], { type: "text/javascript" }));
-					return Reflect.construct(target, [blobUrl, args[1]]);
+					const worker = Reflect.construct(target, [blobUrl, args[1]]);
+					URL.revokeObjectURL(blobUrl);
+					return worker;
 				} catch (_error) {
 					return Reflect.construct(target, args);
 				}
@@ -458,7 +427,10 @@ function __paneApplyFingerprint(fp) {
 		labels.set(WorkerProxy, "Worker");
 		try {
 			Object.defineProperty(globalThis, "Worker", { value: WorkerProxy, writable: true, configurable: true });
-		} catch (_error) {}
+			Object.defineProperty(Worker.prototype, "constructor", { value: WorkerProxy, writable: true, configurable: true });
+		} catch (error) {
+			console.warn("[fp] Worker spoof install failed:", error);
+		}
 	}
 }
 

@@ -59,11 +59,10 @@ export function deriveClientHints(fingerprint: Fingerprint): ClientHints {
 	const major = Number(chromeMajor);
 	const uaFullVersion = fullMatch?.[1] ?? `${chromeMajor}.0.0.0`;
 
-	// Chromium seeds both the grease version AND its position in the list from
-	// (floor(major/10) + major) % 3 (user_agent_utils.cc), not major % 3 — those
-	// diverge for Chrome 130+.
+	// Chromium picks the grease VERSION by major % 3 but seeds its POSITION in the
+	// list from (floor(major/10) + major) % 3 — they diverge for Chrome 130+.
 	const greaseIndex = (Math.floor(major / 10) + major) % 3;
-	const grease = greasedBrand(major, greaseIndex);
+	const grease = greasedBrand(major, major % 3);
 
 	const brands: UABrand[] = [
 		{ brand: "Chromium", version: chromeMajor },

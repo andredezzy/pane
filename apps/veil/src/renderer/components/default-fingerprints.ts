@@ -15,7 +15,7 @@ export const DEFAULT_FINGERPRINTS: Record<Platform, Fingerprint> = {
 				"ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)",
 		},
 		hardwareConcurrency: 8,
-		deviceMemory: 16,
+		deviceMemory: 8,
 		maxTouchPoints: 0,
 		canvas: { noise: true },
 		audio: { noise: true },
