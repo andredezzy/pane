@@ -100,19 +100,21 @@ export class ErrorBoundary extends Component<
 	}
 }
 
+interface SidebarProfileItemProps {
+	id: string;
+	index: number;
+	expanded: boolean;
+	onToggle: (id: string) => void;
+	onNewTab: (profileId: string) => void;
+}
+
 function SidebarProfileItem({
 	id,
 	index,
 	expanded,
 	onToggle,
 	onNewTab,
-}: {
-	id: string;
-	index: number;
-	expanded: boolean;
-	onToggle: (id: string) => void;
-	onNewTab: (profileId: string) => void;
-}) {
+}: SidebarProfileItemProps) {
 	const profile = useStore(profileStore, (state) =>
 		state.profiles.find((profile) => profile.id === id),
 	);
@@ -295,7 +297,12 @@ function SidebarProfileItem({
 	);
 }
 
-function SortableTab({ tab, index }: { tab: Tab; index: number }) {
+interface SortableTabProps {
+	tab: Tab;
+	index: number;
+}
+
+function SortableTab({ tab, index }: SortableTabProps) {
 	const activeTabId = useStore(tabStore, (state) => state.activeTabId);
 	const page = useStore(navigationStore, (state) => state.page);
 	const { ref, isDragSource } = useSortable({ id: tab.id, index });
@@ -323,13 +330,12 @@ function SortableTab({ tab, index }: { tab: Tab; index: number }) {
 	);
 }
 
-function TabDragOverlay({
-	tabId,
-	profileId,
-}: {
+interface TabDragOverlayProps {
 	tabId: string;
 	profileId: string;
-}) {
+}
+
+function TabDragOverlay({ tabId, profileId }: TabDragOverlayProps) {
 	const tab = useStore(profileStore, (state) => {
 		const profile = state.profiles.find((p) => p.id === profileId);
 

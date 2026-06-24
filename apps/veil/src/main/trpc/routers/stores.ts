@@ -2,28 +2,18 @@ import { z } from "zod/v4";
 import type { StoreApi } from "zustand/vanilla";
 
 import { serializeState } from "../../../stores/middlewares/serialize";
+import { STORE_NAMES, type StoreName } from "../../../stores/middlewares/sync";
 import { procedure, router } from "../trpc";
 
-const StoreNameSchema = z.enum([
-	"profile-store",
-	"tab-store",
-	"navigation-store",
-	"settings-store",
-	"extension-store",
-	"security-store",
-	"sidebar-store",
-]);
-
-type StoreNameType = z.infer<typeof StoreNameSchema>;
+const StoreNameSchema = z.enum(STORE_NAMES);
 
 // Fields the renderer is NOT allowed to write back to the main process — they
 // are owned authoritatively by the main process. The renderer only mirrors them
 // (received via broadcast) and must never push them, or it could e.g. forge the
 // failed-attempt counter to trigger a wipe, or clear the PIN.
-const BACKEND_OWNED_FIELDS: Partial<Record<StoreNameType, readonly string[]>> =
-	{
-		"security-store": ["pin", "failedAttempts"],
-	};
+const BACKEND_OWNED_FIELDS: Partial<Record<StoreName, readonly string[]>> = {
+	"security-store": ["pin", "failedAttempts"],
+};
 
 export const storesRouter = router({
 	push: procedure

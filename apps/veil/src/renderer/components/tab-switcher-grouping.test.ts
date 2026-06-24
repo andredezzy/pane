@@ -57,7 +57,7 @@ describe("groupMruTabs", () => {
 		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w1"]);
 	});
 
-	it("falls back to a loading title and keeps an empty favicon", () => {
+	it("falls back to a loading title and leaves an absent favicon undefined", () => {
 		const sparse: ProfileSource[] = [
 			{
 				id: "x",
@@ -70,25 +70,7 @@ describe("groupMruTabs", () => {
 		const groups = groupMruTabs(["x1"], sparse, 8);
 
 		expect(groups[0].tabs[0].title).toBe("Loading...");
-		expect(groups[0].tabs[0].favicon).toBe("");
-	});
-
-	// A truthy favicon short-circuits the old `favicon || ""` form identically, so
-	// this is a pass-through sanity check, not a regression guard — TypeScript's
-	// `favicon: string` type is what actually prevents reintroducing `|| ""`.
-	it("passes a non-empty favicon through unchanged", () => {
-		const withIcon: ProfileSource[] = [
-			{
-				id: "y",
-				name: "Y",
-				color: ProfileColor.AMBER,
-				tabs: [makeTab("y1", "Tab", "https://example.com/favicon.ico")],
-			},
-		];
-
-		const groups = groupMruTabs(["y1"], withIcon, 8);
-
-		expect(groups[0].tabs[0].favicon).toBe("https://example.com/favicon.ico");
+		expect(groups[0].tabs[0].favicon).toBeUndefined();
 	});
 
 	it("returns a single group with tabs in natural order, not recency", () => {

@@ -24,6 +24,11 @@ export interface TabHost {
 	onTabClosed(tabId: string): void;
 }
 
+interface FindOptions {
+	forward?: boolean;
+	findNext?: boolean;
+}
+
 export class ProfileTabs {
 	private readonly views = new Map<string, WebContentsView>();
 
@@ -211,10 +216,7 @@ export class ProfileTabs {
 		this.activeView()?.webContents.stop();
 	}
 
-	find(
-		text: string,
-		options?: { forward?: boolean; findNext?: boolean },
-	): void {
+	find(text: string, options?: FindOptions): void {
 		this.activeView()?.webContents.findInPage(text, options);
 	}
 

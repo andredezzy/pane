@@ -2,16 +2,16 @@ import { createStore } from "zustand/vanilla";
 
 import { sync } from "./middlewares/sync";
 
-// Which profiles are expanded (open) in the sidebar. Synced across processes so
-// the Ctrl+Tab switcher — which renders in the separate surface window, a
-// different renderer than the sidebar — can show tabs only from open profiles.
-// Not persisted: profiles are collapsed-by-default on every launch.
 interface SidebarState {
 	expandedProfileIds: string[];
 
 	toggleProfile: (profileId: string) => void;
 }
 
+// Which profiles are expanded (open) in the sidebar. Synced across processes so
+// the Ctrl+Tab switcher — which renders in the separate surface window, a
+// different renderer than the sidebar — can show tabs only from open profiles.
+// Not persisted: profiles are collapsed-by-default on every launch.
 export const sidebarStore = createStore<SidebarState>()(
 	sync(
 		(set) => ({

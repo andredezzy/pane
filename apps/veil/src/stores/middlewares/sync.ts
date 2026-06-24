@@ -2,14 +2,20 @@ import type { StateCreator } from "zustand/vanilla";
 
 import { serializeState } from "./serialize";
 
-export type StoreName =
-	| "profile-store"
-	| "tab-store"
-	| "navigation-store"
-	| "settings-store"
-	| "extension-store"
-	| "security-store"
-	| "sidebar-store";
+// Single source of truth for synced store names. The Zod schema in the stores
+// tRPC router derives from this, so adding a store is one edit here (plus the
+// one-line registration in main/index.ts the Context type already enforces).
+export const STORE_NAMES = [
+	"profile-store",
+	"tab-store",
+	"navigation-store",
+	"settings-store",
+	"extension-store",
+	"security-store",
+	"sidebar-store",
+] as const;
+
+export type StoreName = (typeof STORE_NAMES)[number];
 
 export interface SyncTransportHandlers {
 	onData: (serialized: string) => void;
@@ -21,8 +27,13 @@ export interface SyncTransportHandlers {
  * backed by tRPC over IPC (see `renderer/sync-transport.ts`); the main process
  * never registers one, so its stores stay local and authoritative.
  */
+export interface StorePush {
+	name: StoreName;
+	state: string;
+}
+
 export interface SyncTransport {
-	push: (input: { name: StoreName; state: string }) => Promise<unknown>;
+	push: (input: StorePush) => Promise<unknown>;
 	subscribe: (
 		input: { name: StoreName },
 		handlers: SyncTransportHandlers,

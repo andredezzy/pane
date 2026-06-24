@@ -4,7 +4,7 @@ import type { BrowserProfile } from "../../stores/profile-store";
 export interface SwitcherTab {
 	id: string;
 	title: string;
-	favicon: string;
+	favicon?: string;
 }
 
 export interface ProfileGroup {
@@ -71,7 +71,7 @@ export function groupMruTabs(
 			.map((tab) => ({
 				id: tab.id,
 				title: tab.title || "Loading...",
-				favicon: tab.favicon,
+				favicon: tab.favicon || undefined,
 			}));
 
 		return {
