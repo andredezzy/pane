@@ -29,14 +29,14 @@ const profiles: ProfileSource[] = [
 ];
 
 describe("groupMruTabs", () => {
-	it("groups by profile in sidebar order, tabs in natural order", () => {
-		// mru leads with p1, but the display order is stable: profiles in array
-		// (sidebar) order, tabs in each profile's own order — not recency.
+	it("orders profiles by most-recently-used tab, tabs in natural order", () => {
+		// mru leads with p1, so personal comes first; within a profile tabs stay
+		// in natural (sidebar) order, not recency.
 		const groups = groupMruTabs(["p1", "w1", "p2"], profiles, 8);
 
-		expect(groups.map((group) => group.id)).toEqual(["work", "personal"]);
-		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w1"]);
-		expect(groups[1].tabs.map((tab) => tab.id)).toEqual(["p1", "p2"]);
+		expect(groups.map((group) => group.id)).toEqual(["personal", "work"]);
+		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["p1", "p2"]);
+		expect(groups[1].tabs.map((tab) => tab.id)).toEqual(["w1"]);
 	});
 
 	it("caps the total number of tabs across groups", () => {

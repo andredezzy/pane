@@ -24,8 +24,15 @@ export function groupMruTabs(
 	profiles: ProfileSource[],
 	maxTabs: number,
 ): ProfileGroup[] {
-	// Recency decides WHICH tabs appear (the most-recently-used, capped) so the
-	// switcher stays a recent-tabs list...
+	const profileByTabId = new Map<string, ProfileSource>();
+
+	for (const profile of profiles) {
+		for (const tab of profile.tabs) {
+			profileByTabId.set(tab.id, profile);
+		}
+	}
+
+	// Recency decides WHICH tabs appear (the most-recently-used, capped).
 	const recentIds = new Set<string>();
 
 	for (const tabId of mruHistory) {
@@ -33,44 +40,47 @@ export function groupMruTabs(
 			break;
 		}
 
-		const owned = profiles.some((profile) =>
-			profile.tabs.some((tab) => tab.id === tabId),
-		);
-
-		if (owned) {
+		if (profileByTabId.has(tabId)) {
 			recentIds.add(tabId);
 		}
 	}
 
-	// ...but they are presented in stable display order — profiles in sidebar
-	// order, tabs in each profile's own order — so Ctrl+Tab walks the list
-	// linearly top to bottom instead of hopping around by recency.
-	const groups: ProfileGroup[] = [];
+	// Profiles are ordered by their most-recently-used tab — the first profile
+	// seen while walking the recency history comes first.
+	const orderedProfiles: ProfileSource[] = [];
+	const seen = new Set<string>();
 
-	for (const profile of profiles) {
-		const tabs: SwitcherTab[] = [];
-
-		for (const tab of profile.tabs) {
-			if (recentIds.has(tab.id)) {
-				tabs.push({
-					id: tab.id,
-					title: tab.title || "Loading...",
-					favicon: tab.favicon,
-				});
-			}
+	for (const tabId of mruHistory) {
+		if (!recentIds.has(tabId)) {
+			continue;
 		}
 
-		if (tabs.length > 0) {
-			groups.push({
-				id: profile.id,
-				name: profile.name,
-				color: profile.color,
-				tabs,
-			});
+		const profile = profileByTabId.get(tabId);
+
+		if (profile && !seen.has(profile.id)) {
+			seen.add(profile.id);
+			orderedProfiles.push(profile);
 		}
 	}
 
-	return groups;
+	// Within a profile, tabs keep their natural order so Ctrl+Tab walks each
+	// profile's tabs linearly top to bottom.
+	return orderedProfiles.map((profile) => {
+		const tabs = profile.tabs
+			.filter((tab) => recentIds.has(tab.id))
+			.map((tab) => ({
+				id: tab.id,
+				title: tab.title || "Loading...",
+				favicon: tab.favicon,
+			}));
+
+		return {
+			id: profile.id,
+			name: profile.name,
+			color: profile.color,
+			tabs,
+		};
+	});
 }
 
 export function initialSelectedIndex(
