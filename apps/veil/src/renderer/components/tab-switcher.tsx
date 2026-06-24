@@ -1,4 +1,3 @@
-import { cn } from "@pane/ui/cn";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { HotkeyEvent } from "../../constants/hotkey-event";
@@ -15,6 +14,10 @@ import {
 } from "./tab-switcher-grouping";
 
 const MAX_VISIBLE_TABS = 8;
+
+// Hex alpha suffixes that tint the profile color for the selected row.
+const SELECTED_BG_ALPHA = "24"; // ~14%
+const SELECTED_RING_ALPHA = "66"; // ~40%
 
 export function TabSwitcher({ onClose }: { onClose: () => void }) {
 	const [{ groups, flattened }] = useState(() => {
@@ -129,6 +132,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 			>
 				{groups.map((group, groupIndex) => {
 					const headerId = `tab-switcher-group-${group.id}`;
+					const color = PROFILE_COLOR_HEX[group.color];
 
 					return (
 						// biome-ignore lint/a11y/useSemanticElements: groups a profile's tabs for assistive tech; <fieldset> is form-specific and wrong here
@@ -136,9 +140,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 							<div className="flex items-center gap-2 px-3 pt-1.5 pb-1">
 								<div
 									className="h-2 w-2 shrink-0 rounded-full"
-									style={{
-										backgroundColor: PROFILE_COLOR_HEX[group.color],
-									}}
+									style={{ backgroundColor: color }}
 								/>
 
 								<span
@@ -151,6 +153,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 
 							{group.tabs.map((tab, tabIndex) => {
 								const index = groupOffsets[groupIndex] + tabIndex;
+								const isSelected = index === selectedIndex;
 
 								return (
 									<button
@@ -159,12 +162,16 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 										ref={(element) => {
 											buttonRefs.current[index] = element;
 										}}
-										aria-current={index === selectedIndex ? "true" : undefined}
-										className={cn(
-											"flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 outline-none transition",
-											index === selectedIndex &&
-												"bg-white/10 ring-1 ring-white/25",
-										)}
+										aria-current={isSelected ? "true" : undefined}
+										className="flex w-full items-center gap-2.5 rounded-lg py-2 pr-3 pl-7 outline-none transition"
+										style={
+											isSelected
+												? {
+														backgroundColor: `${color}${SELECTED_BG_ALPHA}`,
+														boxShadow: `0 0 0 1px ${color}${SELECTED_RING_ALPHA}`,
+													}
+												: undefined
+										}
 										onMouseDown={() => confirm(index)}
 									>
 										{tab.favicon ? (
