@@ -24,46 +24,49 @@ export function groupMruTabs(
 	profiles: ProfileSource[],
 	maxTabs: number,
 ): ProfileGroup[] {
-	const groups: ProfileGroup[] = [];
-	const groupsByProfileId = new Map<string, ProfileGroup>();
-
-	let count = 0;
+	// Recency decides WHICH tabs appear (the most-recently-used, capped) so the
+	// switcher stays a recent-tabs list...
+	const recentIds = new Set<string>();
 
 	for (const tabId of mruHistory) {
-		if (count >= maxTabs) {
+		if (recentIds.size >= maxTabs) {
 			break;
 		}
 
-		for (const profile of profiles) {
-			const tab = profile.tabs.find((tab) => tab.id === tabId);
+		const owned = profiles.some((profile) =>
+			profile.tabs.some((tab) => tab.id === tabId),
+		);
 
-			if (!tab) {
-				continue;
+		if (owned) {
+			recentIds.add(tabId);
+		}
+	}
+
+	// ...but they are presented in stable display order — profiles in sidebar
+	// order, tabs in each profile's own order — so Ctrl+Tab walks the list
+	// linearly top to bottom instead of hopping around by recency.
+	const groups: ProfileGroup[] = [];
+
+	for (const profile of profiles) {
+		const tabs: SwitcherTab[] = [];
+
+		for (const tab of profile.tabs) {
+			if (recentIds.has(tab.id)) {
+				tabs.push({
+					id: tab.id,
+					title: tab.title || "Loading...",
+					favicon: tab.favicon,
+				});
 			}
+		}
 
-			let group = groupsByProfileId.get(profile.id);
-
-			if (!group) {
-				group = {
-					id: profile.id,
-					name: profile.name,
-					color: profile.color,
-					tabs: [],
-				};
-
-				groupsByProfileId.set(profile.id, group);
-				groups.push(group);
-			}
-
-			group.tabs.push({
-				id: tab.id,
-				title: tab.title || "Loading...",
-				favicon: tab.favicon,
+		if (tabs.length > 0) {
+			groups.push({
+				id: profile.id,
+				name: profile.name,
+				color: profile.color,
+				tabs,
 			});
-
-			count++;
-
-			break;
 		}
 	}
 

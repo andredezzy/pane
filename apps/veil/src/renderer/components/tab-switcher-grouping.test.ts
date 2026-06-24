@@ -29,12 +29,14 @@ const profiles: ProfileSource[] = [
 ];
 
 describe("groupMruTabs", () => {
-	it("groups tabs by profile in first-seen (recency) order", () => {
+	it("groups by profile in sidebar order, tabs in natural order", () => {
+		// mru leads with p1, but the display order is stable: profiles in array
+		// (sidebar) order, tabs in each profile's own order — not recency.
 		const groups = groupMruTabs(["p1", "w1", "p2"], profiles, 8);
 
-		expect(groups.map((group) => group.id)).toEqual(["personal", "work"]);
-		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["p1", "p2"]);
-		expect(groups[1].tabs.map((tab) => tab.id)).toEqual(["w1"]);
+		expect(groups.map((group) => group.id)).toEqual(["work", "personal"]);
+		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w1"]);
+		expect(groups[1].tabs.map((tab) => tab.id)).toEqual(["p1", "p2"]);
 	});
 
 	it("caps the total number of tabs across groups", () => {
@@ -89,11 +91,12 @@ describe("groupMruTabs", () => {
 		expect(groups[0].tabs[0].favicon).toBe("https://example.com/favicon.ico");
 	});
 
-	it("returns a single group when all tabs belong to one profile", () => {
+	it("returns a single group with tabs in natural order, not recency", () => {
+		// Used w2 then w1, but the group lists them in tab order [w1, w2].
 		const groups = groupMruTabs(["w2", "w1"], profiles, 8);
 
 		expect(groups.map((group) => group.id)).toEqual(["work"]);
-		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w2", "w1"]);
+		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w1", "w2"]);
 	});
 });
 
