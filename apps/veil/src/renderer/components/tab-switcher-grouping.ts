@@ -32,55 +32,55 @@ export function groupMruTabs(
 		}
 	}
 
-	// Recency decides WHICH tabs appear (the most-recently-used, capped).
-	const recentIds = new Set<string>();
+	// Walk the recency history once: both the profile (group) order and the tab
+	// order within each group follow most-recently-used first. Capped to keep the
+	// switcher a recent-tabs list.
+	const groups: ProfileGroup[] = [];
+	const groupByProfileId = new Map<string, ProfileGroup>();
+
+	let count = 0;
 
 	for (const tabId of mruHistory) {
-		if (recentIds.size >= maxTabs) {
+		if (count >= maxTabs) {
 			break;
-		}
-
-		if (profileByTabId.has(tabId)) {
-			recentIds.add(tabId);
-		}
-	}
-
-	// Profiles are ordered by their most-recently-used tab — the first profile
-	// seen while walking the recency history comes first.
-	const orderedProfiles: ProfileSource[] = [];
-	const seen = new Set<string>();
-
-	for (const tabId of mruHistory) {
-		if (!recentIds.has(tabId)) {
-			continue;
 		}
 
 		const profile = profileByTabId.get(tabId);
 
-		if (profile && !seen.has(profile.id)) {
-			seen.add(profile.id);
-			orderedProfiles.push(profile);
+		if (!profile) {
+			continue;
 		}
+
+		const tab = profile.tabs.find((candidate) => candidate.id === tabId);
+
+		if (!tab) {
+			continue;
+		}
+
+		let group = groupByProfileId.get(profile.id);
+
+		if (!group) {
+			group = {
+				id: profile.id,
+				name: profile.name,
+				color: profile.color,
+				tabs: [],
+			};
+
+			groupByProfileId.set(profile.id, group);
+			groups.push(group);
+		}
+
+		group.tabs.push({
+			id: tab.id,
+			title: tab.title || "Loading...",
+			favicon: tab.favicon || undefined,
+		});
+
+		count++;
 	}
 
-	// Within a profile, tabs keep their natural order so Ctrl+Tab walks each
-	// profile's tabs linearly top to bottom.
-	return orderedProfiles.map((profile) => {
-		const tabs = profile.tabs
-			.filter((tab) => recentIds.has(tab.id))
-			.map((tab) => ({
-				id: tab.id,
-				title: tab.title || "Loading...",
-				favicon: tab.favicon || undefined,
-			}));
-
-		return {
-			id: profile.id,
-			name: profile.name,
-			color: profile.color,
-			tabs,
-		};
-	});
+	return groups;
 }
 
 export function initialSelectedIndex(

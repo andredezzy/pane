@@ -29,13 +29,13 @@ const profiles: ProfileSource[] = [
 ];
 
 describe("groupMruTabs", () => {
-	it("orders profiles by most-recently-used tab, tabs in natural order", () => {
-		// mru leads with p1, so personal comes first; within a profile tabs stay
-		// in natural (sidebar) order, not recency.
-		const groups = groupMruTabs(["p1", "w1", "p2"], profiles, 8);
+	it("orders profiles and their tabs by most-recently-used", () => {
+		// personal's p2 is most recent → personal first; within personal, p2 then p1
+		// (most-recent-first, which differs from the natural [p1, p2] order).
+		const groups = groupMruTabs(["p2", "w1", "p1"], profiles, 8);
 
 		expect(groups.map((group) => group.id)).toEqual(["personal", "work"]);
-		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["p1", "p2"]);
+		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["p2", "p1"]);
 		expect(groups[1].tabs.map((tab) => tab.id)).toEqual(["w1"]);
 	});
 
@@ -73,12 +73,12 @@ describe("groupMruTabs", () => {
 		expect(groups[0].tabs[0].favicon).toBeUndefined();
 	});
 
-	it("returns a single group with tabs in natural order, not recency", () => {
-		// Used w2 then w1, but the group lists them in tab order [w1, w2].
+	it("orders tabs within a profile by most-recently-used", () => {
+		// Used w2 then w1 → the group lists them most-recent-first [w2, w1].
 		const groups = groupMruTabs(["w2", "w1"], profiles, 8);
 
 		expect(groups.map((group) => group.id)).toEqual(["work"]);
-		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w1", "w2"]);
+		expect(groups[0].tabs.map((tab) => tab.id)).toEqual(["w2", "w1"]);
 	});
 });
 
