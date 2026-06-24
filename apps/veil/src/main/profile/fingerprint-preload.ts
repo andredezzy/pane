@@ -140,6 +140,7 @@ function __paneApplyFingerprint(fp) {
 		architecture: ch.architecture,
 		bitness: ch.bitness,
 		brands: ch.brands,
+		formFactors: ["Desktop"],
 		fullVersionList: ch.fullVersionList,
 		mobile: ch.mobile,
 		model: "",
@@ -213,7 +214,7 @@ function __paneApplyFingerprint(fp) {
 	// disagree and lie-detectors (creepjs) flag the canvas. Only fully opaque pixels
 	// are touched so the toDataURL putImageData round-trip (which premultiplies
 	// alpha) can't diverge from the in-memory getImageData path.
-	if (fp.canvas && fp.canvas.noise && typeof CanvasRenderingContext2D !== "undefined") {
+	if (fp.canvas && fp.canvas.noise) {
 		const seed = (fp._profileHash || 0) >>> 0;
 		const deltaAt = (index) => {
 			let h = (seed ^ index) >>> 0;
@@ -236,12 +237,15 @@ function __paneApplyFingerprint(fp) {
 			}
 		};
 
-		const ctx2dProto = CanvasRenderingContext2D.prototype;
+		// A service worker exposes OffscreenCanvas* but not the window-only
+		// CanvasRenderingContext2D, so resolve whichever prototypes this realm has and
+		// noise each independently — the OffscreenCanvas path must still run in the SW.
+		const ctx2dProto = typeof CanvasRenderingContext2D !== "undefined" ? CanvasRenderingContext2D.prototype : null;
 		const offscreenProto = typeof OffscreenCanvasRenderingContext2D !== "undefined" ? OffscreenCanvasRenderingContext2D.prototype : null;
-		const rawCtxGet = ctx2dProto.getImageData;
+		const rawCtxGet = ctx2dProto ? ctx2dProto.getImageData : null;
 		const rawOffscreenGet = offscreenProto ? offscreenProto.getImageData : null;
 		const rawReaderFor = (context) =>
-			rawOffscreenGet && offscreenProto && context instanceof OffscreenCanvasRenderingContext2D
+			offscreenProto && context instanceof OffscreenCanvasRenderingContext2D
 				? rawOffscreenGet
 				: rawCtxGet;
 
@@ -249,6 +253,7 @@ function __paneApplyFingerprint(fp) {
 			const context = canvas.getContext && canvas.getContext("2d");
 			if (!context || !canvas.width || !canvas.height) return null;
 			const read = rawReaderFor(context);
+			if (!read) return null;
 			const original = read.call(context, 0, 0, canvas.width, canvas.height);
 			const noised = read.call(context, 0, 0, canvas.width, canvas.height);
 			noiseRegion(noised, 0, 0, canvas.width);
@@ -263,7 +268,9 @@ function __paneApplyFingerprint(fp) {
 			noiseRegion(imageData, sx, sy, this.canvas.width);
 			return imageData;
 		};
-		patchMethod(ctx2dProto, "getImageData", makeGetImageData);
+		if (ctx2dProto) {
+			patchMethod(ctx2dProto, "getImageData", makeGetImageData);
+		}
 		if (offscreenProto) {
 			patchMethod(offscreenProto, "getImageData", makeGetImageData);
 		}
@@ -366,8 +373,21 @@ function __paneApplyFingerprint(fp) {
 		Intl.DateTimeFormat = dtfProxy;
 
 		// TC39 Temporal (stable in recent Chromium) reads the host zone from ICU too.
-		if (typeof Temporal !== "undefined" && Temporal.Now && typeof Temporal.Now.timeZoneId === "function") {
-			replaceMethod(Temporal.Now, "timeZoneId", function timeZoneId() { return fp.timezone; });
+		// timeZoneId() is one entry point; plainDateTimeISO/plainDateISO/plainTimeISO/
+		// zonedDateTimeISO each hit ICU's default zone directly (they do NOT route
+		// through timeZoneId), so a no-arg call leaks the host zone and contradicts
+		// the spoof. Inject fp.timezone as the default zone, preserving any explicit arg.
+		if (typeof Temporal !== "undefined" && Temporal.Now) {
+			if (typeof Temporal.Now.timeZoneId === "function") {
+				replaceMethod(Temporal.Now, "timeZoneId", function timeZoneId() { return fp.timezone; });
+			}
+			for (const method of ["plainDateTimeISO", "plainDateISO", "plainTimeISO", "zonedDateTimeISO"]) {
+				if (typeof Temporal.Now[method] === "function") {
+					patchMethod(Temporal.Now, method, (original) => function (timeZone) {
+						return original.call(this, timeZone !== undefined ? timeZone : fp.timezone);
+					});
+				}
+			}
 		}
 
 		replaceMethod(Date.prototype, "getTimezoneOffset", function getTimezoneOffset() {
@@ -549,8 +569,8 @@ export function cleanupFingerprintPreload(profileId: string): void {
 function hashCode(str: string): number {
 	let hash = 0;
 
-	for (let i = 0; i < str.length; i++) {
-		hash = (hash * 31 + str.charCodeAt(i)) | 0;
+	for (let index = 0; index < str.length; index++) {
+		hash = (hash * 31 + str.charCodeAt(index)) | 0;
 	}
 
 	return Math.abs(hash);

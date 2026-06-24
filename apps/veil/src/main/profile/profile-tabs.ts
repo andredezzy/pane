@@ -277,7 +277,17 @@ export class ProfileTabs {
 				return;
 			}
 
-			webContents.loadURL(url);
+			// loadURL rejects on any non-aborted navigation failure (DNS, network,
+			// cert, proxy). ERR_ABORTED is the normal "superseded by a newer load"
+			// case; surface the rest instead of leaking an unhandled rejection.
+			webContents.loadURL(url).catch((error: Error) => {
+				if (!error.message.includes("ERR_ABORTED")) {
+					console.warn(
+						`[Profile ${this.profile.id}] Navigation failed:`,
+						error.message,
+					);
+				}
+			});
 		});
 	}
 

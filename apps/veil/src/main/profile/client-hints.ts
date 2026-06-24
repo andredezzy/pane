@@ -22,10 +22,13 @@ const UA_PLATFORM: Record<Platform, string> = {
 	[Platform.LINUX]: "Linux",
 };
 
+// Real Chrome reports an empty Sec-CH-UA-Platform-Version on Linux
+// (user_agent_utils.cc returns std::string() for IS_LINUX); any non-empty value
+// paired with platform "Linux" is a tell. Windows/macOS report the OS version.
 const PLATFORM_VERSION: Record<Platform, string> = {
 	[Platform.WINDOWS]: "15.0.0",
 	[Platform.MACOS]: "14.6.1",
-	[Platform.LINUX]: "6.5.0",
+	[Platform.LINUX]: "",
 };
 
 // Chromium's GREASE algorithm (user_agent_utils.cc): the fake brand is built from
