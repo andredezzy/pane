@@ -92,7 +92,13 @@ export const profilesRouter = router({
 			ctx.pane.removeProfile(input.profileId);
 		}),
 
-	signOutGoogle: procedure
-		.input(z.object({ profileId: z.string() }))
-		.mutation(({ input, ctx }) => ctx.pane.google.signOut(input.profileId)),
+	google: router({
+		signOut: procedure
+			.input(z.object({ profileId: z.string() }))
+			.mutation(({ input, ctx }) => ctx.pane.google.signOut(input.profileId)),
+
+		signedIn: procedure
+			.input(z.object({ profileId: z.string() }))
+			.query(({ input, ctx }) => ctx.pane.google.isSignedIn(input.profileId)),
+	}),
 });

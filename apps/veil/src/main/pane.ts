@@ -8,7 +8,7 @@ import { tabStore } from "../stores/tab-store";
 import { autoDetectBrowser } from "./detect-browser";
 import type { FindEmitter } from "./emitters/find-emitter";
 import { ExtensionInstaller } from "./extensions";
-import { googleSignOut } from "./profile/google/sessions";
+import { googleIsSignedIn, googleSignOut } from "./profile/google/sessions";
 import { Profile } from "./profile/profile";
 
 export class Pane {
@@ -17,6 +17,7 @@ export class Pane {
 	readonly google = {
 		signOut: (id: string): Promise<number> =>
 			googleSignOut((profileId) => this.profiles.get(profileId), id),
+		isSignedIn: googleIsSignedIn,
 	};
 	readonly tabStore = tabStore;
 	private readonly extensionsPath: string;

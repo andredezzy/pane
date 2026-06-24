@@ -176,16 +176,27 @@ function SidebarProfileItem({
 			onContextMenu={async (event) => {
 				event.preventDefault();
 
-				const [editIcon, signOutIcon, deleteIcon] = await Promise.all([
-					menuIcon(Pencil),
-					menuIcon(LogOut),
-					menuIcon(Trash2),
-				]);
+				const [editIcon, signOutIcon, deleteIcon, googleSignedIn] =
+					await Promise.all([
+						menuIcon(Pencil),
+						menuIcon(LogOut),
+						menuIcon(Trash2),
+						trpc.profiles.google.signedIn.query({ profileId: profile.id }),
+					]);
 
 				const selected = await trpc.ui.menu.mutate({
 					items: [
 						{ id: "edit", label: "Edit profile", icon: editIcon },
-						{ id: "signout", label: "Sign out of Google", icon: signOutIcon },
+						// Only offer sign-out when the profile actually has a Google session.
+						...(googleSignedIn
+							? [
+									{
+										id: "signout",
+										label: "Sign out of Google",
+										icon: signOutIcon,
+									},
+								]
+							: []),
 						{ type: "separator" },
 						{ id: "delete", label: "Delete profile", icon: deleteIcon },
 					],
@@ -202,7 +213,7 @@ function SidebarProfileItem({
 					});
 
 					if (confirmed) {
-						await trpc.profiles.signOutGoogle
+						await trpc.profiles.google.signOut
 							.mutate({ profileId: profile.id })
 							.catch((error) => {
 								console.error("[SignOut] Failed:", error);
