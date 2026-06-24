@@ -21,10 +21,23 @@ export class GoogleSignIn {
 	// Chrome to sign in, shows the transfer page, then pulls the resulting session
 	// back into this tab. Returns true when it handled `url` (caller should stop).
 	intercept(url: string): boolean {
+		if (this.pending) {
+			return false;
+		}
+
+		let parsed: URL;
+		try {
+			parsed = new URL(url);
+		} catch {
+			return false;
+		}
+
+		// Hostname-anchored: a bare substring match would let evil.com/accounts.google.
+		// com/rejected — or a same-page history.pushState to that path — spawn Chrome
+		// and take over the tab. Only the real rejection endpoint qualifies.
 		if (
-			this.pending ||
-			!url.includes("accounts.google.com") ||
-			!url.includes("/rejected")
+			parsed.hostname !== "accounts.google.com" ||
+			!parsed.pathname.includes("/rejected")
 		) {
 			return false;
 		}
@@ -33,7 +46,7 @@ export class GoogleSignIn {
 
 		// `continue` is an attacker-influenceable query param that we later load with
 		// the freshly imported Google cookies — only honour a real Google https URL.
-		const rawContinue = new URL(url).searchParams.get("continue") ?? "";
+		const rawContinue = parsed.searchParams.get("continue") ?? "";
 		const continueUrl =
 			rawContinue.startsWith("https://") && isGoogleUrl(rawContinue)
 				? rawContinue

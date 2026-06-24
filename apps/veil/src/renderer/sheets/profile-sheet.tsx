@@ -138,6 +138,15 @@ interface Props {
 	profileId?: string;
 }
 
+type ProxyTestResult =
+	| { success: true; ip: string }
+	| { success: false; error: string };
+
+interface ProxyTestState {
+	loading: boolean;
+	result?: ProxyTestResult;
+}
+
 export function ProfileSheet({ onClose, profileId }: Props) {
 	const [open, setOpen] = useState(false);
 
@@ -163,10 +172,9 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 
 	const proxyEnabled = form.watch("proxyEnabled");
 
-	const [proxyTest, setProxyTest] = useState<{
-		loading: boolean;
-		result?: { success: true; ip: string } | { success: false; error: string };
-	}>({ loading: false });
+	const [proxyTest, setProxyTest] = useState<ProxyTestState>({
+		loading: false,
+	});
 
 	const parseProxyString = (raw: string) => {
 		const parts = raw.trim().split(":");

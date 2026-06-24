@@ -41,20 +41,35 @@ export class ProxyRelay {
 
 		const socksType = SOCKS_TYPE_MAP[this.config.proxyType as ProxyType.SOCKS4 | ProxyType.SOCKS5];
 
-		this.server = net.createServer((clientSocket) => {
+		const server = net.createServer((clientSocket) => {
 			clientSocket.once("data", (firstChunk) => {
 				this.handleSocks5Handshake(clientSocket, firstChunk, socksType);
 			});
 
 			clientSocket.on("error", () => clientSocket.destroy());
 		});
+		this.server = server;
 
-		this.server.on("error", () => {});
+		// A listen failure (EADDRINUSE, etc.) surfaces as an "error" event rather than
+		// the listen callback — reject so proxyReady settles instead of hanging every
+		// navigation forever. A post-listen error is logged, not swallowed, and must
+		// not crash the process (the handler stays attached).
+		await new Promise<void>((resolve, reject) => {
+			let listening = false;
 
-		await new Promise<void>((resolve) => {
-			this.server!.listen(0, "127.0.0.1", () => {
-				const address = this.server!.address() as net.AddressInfo;
-				this.localPort = address.port;
+			server.on("error", (error) => {
+				if (listening) {
+					console.error("[ProxyRelay] server error after listen:", error);
+					return;
+				}
+
+				this.server = null;
+				reject(error);
+			});
+
+			server.listen(0, "127.0.0.1", () => {
+				listening = true;
+				this.localPort = (server.address() as net.AddressInfo).port;
 				resolve();
 			});
 		});

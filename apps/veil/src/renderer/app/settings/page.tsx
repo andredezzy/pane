@@ -74,7 +74,8 @@ export function SettingsPage() {
 				const updated = await trpc.cws.installed.query();
 				setExtensions(updated);
 			}
-		} catch {
+		} catch (error) {
+			console.error("[CWS] Install failed:", error);
 		} finally {
 			setIsInstalling(false);
 		}
@@ -93,7 +94,10 @@ export function SettingsPage() {
 			);
 
 			setUninstallTarget(null);
-		} catch {}
+		} catch (error) {
+			console.error("[CWS] Uninstall failed:", error);
+			setUninstallTarget(null);
+		}
 	}, [uninstallTarget]);
 
 	return (
