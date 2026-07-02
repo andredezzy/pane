@@ -17,7 +17,7 @@ export function SidebarHeader({
 	return (
 		<div
 			className={cn(
-				"flex h-[39px] items-center gap-2 pr-3.5 pl-[82px]",
+				"flex h-[39px] items-center gap-2 pr-2.5 pl-[82px]",
 				className,
 			)}
 			{...props}

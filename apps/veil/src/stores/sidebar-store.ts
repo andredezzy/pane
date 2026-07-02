@@ -6,6 +6,7 @@ interface SidebarState {
 	expandedProfileIds: string[];
 
 	toggleProfile: (profileId: string) => void;
+	collapseAll: () => void;
 }
 
 // Which profiles are expanded (open) in the sidebar. Synced across processes so
@@ -23,6 +24,8 @@ export const sidebarStore = createStore<SidebarState>()(
 						? state.expandedProfileIds.filter((id) => id !== profileId)
 						: [...state.expandedProfileIds, profileId],
 				})),
+
+			collapseAll: () => set({ expandedProfileIds: [] }),
 		}),
 		{ name: "sidebar-store" },
 	),

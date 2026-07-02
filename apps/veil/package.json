@@ -1,6 +1,6 @@
 {
 	"name": "@pane/veil",
-	"version": "0.2.24",
+	"version": "0.2.27",
 	"description": "Multi-profile desktop browser with per-profile proxies and Chrome extension support.",
 	"author": "André Victor <contact@andredezzy.com>",
 	"license": "GPL-3.0-only",

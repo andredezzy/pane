@@ -2,7 +2,14 @@ import { PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@pane/ui/cn";
-import { LogOut, Pencil, Settings, Trash2, X } from "lucide-react";
+import {
+	ChevronsDownUp,
+	LogOut,
+	Pencil,
+	Settings,
+	Trash2,
+	X,
+} from "lucide-react";
 import {
 	Component,
 	type ErrorInfo,
@@ -402,6 +409,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 	);
 
 	const toggleExpanded = useStore(sidebarStore, (state) => state.toggleProfile);
+	const collapseAll = useStore(sidebarStore, (state) => state.collapseAll);
 
 	const page = useStore(navigationStore, (state) => state.page);
 
@@ -491,6 +499,27 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 			<Sidebar>
 				<SidebarHeader>
 					<SidebarTitle>Pane</SidebarTitle>
+
+					<button
+						type="button"
+						onClick={() => {
+							// Match collapsing a profile by clicking it: unload each open
+							// profile (closes its tabs, clears the active tab) before
+							// collapsing the sidebar state.
+							for (const profileId of expandedProfileIds) {
+								trpc.profiles.unload.mutate({ profileId });
+							}
+
+							collapseAll();
+						}}
+						disabled={expandedProfileIds.length === 0}
+						title="Collapse all profiles"
+						aria-label="Collapse all profiles"
+						className="ml-auto flex h-6 w-6 items-center justify-center rounded text-[#71717a] transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+						style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+					>
+						<ChevronsDownUp className="h-3.5 w-3.5" />
+					</button>
 				</SidebarHeader>
 
 				<SidebarContent>
