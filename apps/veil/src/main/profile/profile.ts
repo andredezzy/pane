@@ -6,7 +6,11 @@ import { app, type BaseWindow, session } from "electron";
 import { extensionStore } from "../../stores/extension-store";
 import { type BrowserProfile, profileStore } from "../../stores/profile-store";
 import type { FindEmitter } from "../emitters/find-emitter";
-import { clientHintHeaders, deriveClientHints } from "./client-hints";
+import {
+	clientHintHeaders,
+	deriveClientHints,
+	reconcileChromeVersion,
+} from "./client-hints";
 import {
 	cleanupFingerprintPreload,
 	generateFingerprintPreload,
@@ -51,13 +55,28 @@ export class Profile implements TabHost {
 		// the HTTP UA consistent with the spoofed navigator.platform / languages —
 		// a mismatch (e.g. a macOS UA over a Win32 platform) is exactly what trips
 		// Google's abuse checks on accounts.google.com (error #2014).
-		const userAgent =
-			fingerprint?.userAgent ??
-			this.session
-				.getUserAgent()
-				.replace(/\s*Electron\/\S+/g, "")
-				.replace(/\s*@?pane\/\S+/gi, "")
-				.replace(/\s{2,}/g, " ");
+		//
+		// The real engine UA is the source of truth for the Chrome VERSION: a stored
+		// fingerprint pins the version at creation time, so it goes stale on every
+		// Electron/Chromium bump, and a stale claim (Chrome 136 on a Chromium 146
+		// engine) is a contradiction Cloudflare Turnstile detects by feature-probing
+		// the runtime. Reconcile the claimed UA against the live engine, then feed
+		// the one reconciled fingerprint to the UA, the client-hint headers, AND the
+		// preload's navigator.userAgentData spoof so all three surfaces agree.
+		const realUserAgent = this.session
+			.getUserAgent()
+			.replace(/\s*Electron\/\S+/g, "")
+			.replace(/\s*@?pane\/\S+/gi, "")
+			.replace(/\s{2,}/g, " ");
+
+		const userAgent = reconcileChromeVersion(
+			fingerprint?.userAgent ?? realUserAgent,
+			realUserAgent,
+		);
+
+		const reconciledFingerprint = fingerprint
+			? { ...fingerprint, userAgent }
+			: undefined;
 
 		this.session.setUserAgent(userAgent, fingerprint?.languages.join(","));
 
@@ -65,8 +84,8 @@ export class Profile implements TabHost {
 		// source of truth as the navigator.userAgentData spoof). Computed once and
 		// applied only to hints Chromium actually sends — never added — so no hint
 		// the browser suppressed can leak.
-		const clientHintOverrides = fingerprint
-			? clientHintHeaders(deriveClientHints(fingerprint))
+		const clientHintOverrides = reconciledFingerprint
+			? clientHintHeaders(deriveClientHints(reconciledFingerprint))
 			: null;
 
 		this.session.webRequest.onBeforeSendHeaders((details, callback) => {
@@ -98,8 +117,8 @@ export class Profile implements TabHost {
 
 		ElectronChromeExtensions.handleCRXProtocol(this.session);
 
-		if (fingerprint) {
-			const filePath = generateFingerprintPreload(id, fingerprint);
+		if (reconciledFingerprint) {
+			const filePath = generateFingerprintPreload(id, reconciledFingerprint);
 
 			// One preload for both worlds: a frame runs it in the isolated world (it
 			// bridges into the page's main world); a service worker runs it directly.
@@ -154,6 +173,7 @@ export class Profile implements TabHost {
 				})
 				.catch((error) => {
 					console.error(`[Profile ${id}] Proxy failed:`, error);
+
 					return false;
 				});
 		} else {

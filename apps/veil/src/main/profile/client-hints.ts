@@ -50,6 +50,28 @@ function isAppleSilicon(fingerprint: Fingerprint): boolean {
 	return /apple|\bm[1-4]\b|arm/i.test(fingerprint.webgl?.renderer ?? "");
 }
 
+// Rewrite the Chrome version in a claimed User-Agent to the real engine's, so a
+// stored fingerprint can never advertise a Chrome build the underlying Chromium
+// isn't. A stale claim (e.g. "Chrome/136" on a Chromium 146 engine) is a
+// contradiction Cloudflare Turnstile detects by feature-probing the runtime, which
+// is enough for it to withhold a clearance token and loop the challenge. Derived
+// from the live UA at session setup, so it stays correct across every Electron bump.
+export function reconcileChromeVersion(
+	claimedUA: string,
+	realUA: string,
+): string {
+	const realVersion = realUA.match(/Chrome\/(\d+\.\d+\.\d+\.\d+)/)?.[1];
+
+	if (!realVersion) {
+		return claimedUA;
+	}
+
+	// Replace ANY Chrome version form in the claim (e.g. "136.0.0.0" or a bare
+	// "136"), not only 4-segment, so a non-standard stored fingerprint can't keep a
+	// stale version.
+	return claimedUA.replace(/(Chrome\/)[\d.]+/, `$1${realVersion}`);
+}
+
 // Single source of truth for a fingerprint's UA Client Hints, consumed by BOTH the
 // main-world navigator.userAgentData spoof (fingerprint-preload) and the Sec-CH-UA-*
 // request-header rewrite (profile). Deriving them once keeps the JS surface and the
@@ -71,6 +93,7 @@ export function deriveClientHints(fingerprint: Fingerprint): ClientHints {
 		{ brand: "Chromium", version: chromeMajor },
 		{ brand: "Google Chrome", version: chromeMajor },
 	];
+
 	brands.splice(greaseIndex, 0, {
 		brand: grease.brand,
 		version: grease.version,
@@ -80,6 +103,7 @@ export function deriveClientHints(fingerprint: Fingerprint): ClientHints {
 		{ brand: "Chromium", version: uaFullVersion },
 		{ brand: "Google Chrome", version: uaFullVersion },
 	];
+
 	fullVersionList.splice(greaseIndex, 0, {
 		brand: grease.brand,
 		version: `${grease.version}.0.0.0`,

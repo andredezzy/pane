@@ -30,16 +30,18 @@ import { Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod/v4";
-import { trpc } from "../trpc";
 import { ProfileColor } from "../../constants/profile-colors";
 import {
 	type BrowserProfile,
+	type Fingerprint,
 	Platform,
 	ProxyType,
 	profileStore,
 } from "../../stores/profile-store";
 import { ColorPicker } from "../components/color-picker";
 import { DEFAULT_FINGERPRINTS } from "../components/default-fingerprints";
+import { readHostWebgl } from "../components/host-webgl";
+import { trpc } from "../trpc";
 
 const SHEET_ANIMATION_MS = 200;
 
@@ -47,6 +49,7 @@ const formSchema = z.object({
 	name: z.string().min(1, "Profile name is required"),
 	group: z.string().optional(),
 	color: z.nativeEnum(ProfileColor),
+	spoofingEnabled: z.boolean(),
 	platform: z.nativeEnum(Platform),
 	proxyEnabled: z.boolean(),
 	proxy: z
@@ -78,7 +81,8 @@ function buildDefaults(profile?: BrowserProfile): FormValues {
 			name: profile.name,
 			group: profile.group ?? "",
 			color: profile.color,
-			platform: profile.fingerprint.platform,
+			spoofingEnabled: profile.fingerprint !== null,
+			platform: profile.fingerprint?.platform ?? detectPlatform(),
 			proxyEnabled: profile.proxy !== null,
 			proxy: profile.proxy
 				? {
@@ -102,6 +106,7 @@ function buildDefaults(profile?: BrowserProfile): FormValues {
 		name: "",
 		group: "",
 		color: ProfileColor.BLUE,
+		spoofingEnabled: true,
 		platform: detectPlatform(),
 		proxyEnabled: false,
 		proxy: {
@@ -114,12 +119,28 @@ function buildDefaults(profile?: BrowserProfile): FormValues {
 	};
 }
 
+// A profile targeting the host's own OS gets the machine's real GPU strings, so its
+// WebGL claim matches the hardware that actually renders it. A cross-OS profile
+// (e.g. a Windows fingerprint on a Mac) keeps the canned string — its WebGL can't be
+// made consistent from JS anyway, an inherent limit of cross-OS spoofing.
+function fingerprintFor(platform: Platform): Fingerprint {
+	const base = DEFAULT_FINGERPRINTS[platform];
+
+	if (platform !== detectPlatform()) {
+		return base;
+	}
+
+	const hostWebgl = readHostWebgl();
+
+	return hostWebgl ? { ...base, webgl: hostWebgl } : base;
+}
+
 function buildCreateInput(data: FormValues) {
 	return {
 		name: data.name,
 		color: data.color,
 		group: data.group || null,
-		fingerprint: DEFAULT_FINGERPRINTS[data.platform],
+		fingerprint: data.spoofingEnabled ? fingerprintFor(data.platform) : null,
 		proxy:
 			data.proxyEnabled && data.proxy?.host
 				? {
@@ -170,6 +191,7 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 		defaultValues: buildDefaults(profile),
 	});
 
+	const spoofingEnabled = form.watch("spoofingEnabled");
 	const proxyEnabled = form.watch("proxyEnabled");
 
 	const [proxyTest, setProxyTest] = useState<ProxyTestState>({
@@ -232,10 +254,22 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 	};
 
 	const onSubmit = (data: FormValues) => {
+		const input = buildCreateInput(data);
+
 		if (isEditing && profileId) {
-			profileStore.getState().update(profileId, buildCreateInput(data));
+			// Preserve the stored fingerprint across unrelated edits (rename, proxy).
+			// Rebuilding it would silently re-pin webgl to the CURRENT host and pick up
+			// DEFAULT_FINGERPRINTS drift, changing the profile's site-visible identity.
+			// Only rebuild when the user changed what generates it: platform or spoofing.
+			const stored = profile?.fingerprint ?? null;
+			const platformChanged = stored?.platform !== data.platform;
+			const spoofingChanged = (stored !== null) !== data.spoofingEnabled;
+			const fingerprint =
+				platformChanged || spoofingChanged ? input.fingerprint : stored;
+
+			profileStore.getState().update(profileId, { ...input, fingerprint });
 		} else {
-			profileStore.getState().create(buildCreateInput(data));
+			profileStore.getState().create(input);
 		}
 
 		form.reset();
@@ -309,34 +343,60 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 							/>
 							<FormField
 								control={form.control}
-								name="platform"
+								name="spoofingEnabled"
 								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="text-[11px]">Platform</FormLabel>
-										<div className="flex gap-1">
-											{(
-												[
-													Platform.WINDOWS,
-													Platform.MACOS,
-													Platform.LINUX,
-												] as const
-											).map((platform) => (
-												<Button
-													key={platform}
-													type="button"
-													variant={
-														field.value === platform ? "default" : "outline"
-													}
-													className="h-8 flex-1 text-[11px] capitalize"
-													onClick={() => field.onChange(platform)}
-												>
-													{platform.toLowerCase()}
-												</Button>
-											))}
-										</div>
+									<FormItem className="flex flex-row items-center justify-between">
+										<FormLabel className="text-[11px]">
+											Spoof fingerprint
+										</FormLabel>
+										<FormControl>
+											<Switch
+												checked={field.value}
+												onCheckedChange={field.onChange}
+											/>
+										</FormControl>
 									</FormItem>
 								)}
 							/>
+							{spoofingEnabled ? (
+								<FormField
+									control={form.control}
+									name="platform"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="text-[11px]">Platform</FormLabel>
+											<div className="flex gap-1">
+												{(
+													[
+														Platform.WINDOWS,
+														Platform.MACOS,
+														Platform.LINUX,
+													] as const
+												).map((platform) => (
+													<Button
+														key={platform}
+														type="button"
+														variant={
+															field.value === platform ? "default" : "outline"
+														}
+														className="h-8 flex-1 text-[11px] capitalize"
+														onClick={() => field.onChange(platform)}
+													>
+														{platform.toLowerCase()}
+													</Button>
+												))}
+											</div>
+											{field.value !== detectPlatform() ? (
+												<p className="text-[#71717a] text-[10px]">
+													Cross-OS spoofing can't fool strict WebGL checks — use{" "}
+													{detectPlatform().toLowerCase()} or turn spoofing off
+													for Cloudflare-protected sites.
+												</p>
+											) : null}
+										</FormItem>
+									)}
+								/>
+							) : null}
 							<Separator />
 							<FormField
 								control={form.control}

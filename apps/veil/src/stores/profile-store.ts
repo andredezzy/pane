@@ -53,7 +53,10 @@ export interface BrowserProfile {
 	name: string;
 	color: ProfileColor;
 	group: string | null;
-	fingerprint: Fingerprint;
+	// null = spoofing disabled: the profile presents the real (Electron/pane-stripped)
+	// Chrome surface untouched. Heavy JS spoofing is itself detectable, so a clean real
+	// fingerprint is often the better choice against strict bot checks (Cloudflare).
+	fingerprint: Fingerprint | null;
 	proxy: ProxyConfig | null;
 	tabs: Tab[];
 	createdAt: string;
@@ -227,7 +230,8 @@ export const profileStore = createStore<ProfileState>()(
 					...(persisted as Partial<ProfileState>),
 					profiles: ((persisted as Partial<ProfileState>)?.profiles ?? []).map(
 						(profile) => {
-							const fingerprint = profile.fingerprint as PersistedFingerprint;
+							const fingerprint =
+								profile.fingerprint as PersistedFingerprint | null;
 
 							return {
 								...profile,
@@ -237,15 +241,17 @@ export const profileStore = createStore<ProfileState>()(
 									favicon: tab.favicon ?? "",
 									isLoaded: false,
 								})),
-								fingerprint: {
-									...fingerprint,
-									screen: {
-										...fingerprint.screen,
-										colorDepth: fingerprint.screen.colorDepth ?? 24,
-									},
-									canvas: fingerprint.canvas ?? { noise: true },
-									audio: fingerprint.audio ?? { noise: true },
-								},
+								fingerprint: fingerprint
+									? {
+											...fingerprint,
+											screen: {
+												...fingerprint.screen,
+												colorDepth: fingerprint.screen.colorDepth ?? 24,
+											},
+											canvas: fingerprint.canvas ?? { noise: true },
+											audio: fingerprint.audio ?? { noise: true },
+										}
+									: null,
 							};
 						},
 					),

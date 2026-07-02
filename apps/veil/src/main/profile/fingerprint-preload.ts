@@ -586,14 +586,36 @@ function __paneApplyFingerprint(fp) {
 					const classic = !(args[1] && args[1].type === "module");
 					const reachable = url.protocol === "blob:" || url.origin === location.origin;
 					if (!classic || !reachable) return Reflect.construct(target, args);
-					const wrapped = spoofSource + "importScripts(" + JSON.stringify(url.href) + ");";
+
+					// Read the worker's own source NOW, while args[0] is still live. A page
+					// routinely revokes a blob: URL the instant Worker() returns, so a
+					// deferred importScripts(url) inside the wrapper would race the revoke and
+					// fail — which silently breaks any challenge worker the wrapper touched
+					// (e.g. Cloudflare Turnstile's proof-of-work worker, leaving the page
+					// spinning forever). A same-origin http(s) URL is never revoked, so
+					// importScripts it off the main thread instead.
+					let source;
+					if (url.protocol === "blob:") {
+						const request = new XMLHttpRequest();
+						request.open("GET", url.href, false);
+						request.send();
+						source = request.responseText;
+					} else {
+						source = "importScripts(" + JSON.stringify(url.href) + ");";
+					}
+					if (!source) return Reflect.construct(target, args);
+
+					// Guard the spoof so a throw inside it can never stop the worker's own
+					// code from running — an unspoofed worker beats a broken page.
+					const wrapped = "try{" + spoofSource + "}catch(__e){console.warn('[fp] worker spoof threw:',__e);}" + source;
 					const blobUrl = URL.createObjectURL(new Blob([wrapped], { type: "text/javascript" }));
 					try {
 						return Reflect.construct(target, [blobUrl, args[1]]);
 					} finally {
 						URL.revokeObjectURL(blobUrl);
 					}
-				} catch (_error) {
+				} catch (error) {
+					console.warn("[fp] Worker wrap failed; using native worker:", error);
 					return Reflect.construct(target, args);
 				}
 			},
