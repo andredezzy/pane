@@ -42,25 +42,19 @@ export function SidebarContent({
 	style,
 	...props
 }: HTMLAttributes<HTMLDivElement>) {
-	// Fade the content in/out at the top and bottom edges so items scroll away
-	// smoothly instead of clipping hard against the header and footer.
-	const edgeFade =
-		"linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)";
-
 	return (
 		<div
-			className={cn("flex-1 overflow-y-auto px-2.5 py-1", className)}
+			// scroll-fade-y fades the top/bottom edges as content scrolls under the
+			// header/footer — and only toward content that exists (no fade at the very
+			// top or bottom, none when everything fits). See globals.css.
+			className={cn(
+				"scroll-fade-y flex-1 overflow-y-auto px-2.5 py-1",
+				className,
+			)}
 			// Opt the scroll area out of the window-drag region — otherwise macOS
 			// treats the gaps between items as a title-bar and swallows the wheel
 			// events, so scrolling only works while hovering an item.
-			style={
-				{
-					WebkitAppRegion: "no-drag",
-					maskImage: edgeFade,
-					WebkitMaskImage: edgeFade,
-					...style,
-				} as CSSProperties
-			}
+			style={{ WebkitAppRegion: "no-drag", ...style } as CSSProperties}
 			{...props}
 		/>
 	);

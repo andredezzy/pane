@@ -77,6 +77,57 @@
 	animation: slide-down 0.35s ease-in forwards;
 }
 
+/* Scroll-driven edge fade. The mask's fade sizes are two registered length
+   custom properties driven by the element's own scroll timeline: the top fade
+   grows from 0 over the first 24px scrolled, the bottom fade shrinks to 0 over
+   the last 24px — so no fade shows at the very top or bottom. `fill: both`
+   holds each fade at full size outside its range, and an inactive timeline
+   (content that fits, so there's nothing to scroll) leaves both at 0 → no fade. */
+@property --scroll-fade-top {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
+@property --scroll-fade-bottom {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
+@keyframes scroll-fade-top {
+	from {
+		--scroll-fade-top: 0px;
+	}
+	to {
+		--scroll-fade-top: 24px;
+	}
+}
+
+@keyframes scroll-fade-bottom {
+	from {
+		--scroll-fade-bottom: 24px;
+	}
+	to {
+		--scroll-fade-bottom: 0px;
+	}
+}
+
+@utility scroll-fade-y {
+	--mask: linear-gradient(
+		to bottom,
+		transparent 0,
+		#000 var(--scroll-fade-top),
+		#000 calc(100% - var(--scroll-fade-bottom)),
+		transparent 100%
+	);
+	-webkit-mask-image: var(--mask);
+	mask-image: var(--mask);
+	animation: scroll-fade-top linear both, scroll-fade-bottom linear both;
+	animation-timeline: scroll(self block), scroll(self block);
+	animation-range: 0 24px, calc(100% - 24px) 100%;
+}
+
 button,
 input,
 select,
