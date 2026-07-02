@@ -19,6 +19,10 @@ interface PopupViewOptions {
 	url: string;
 	anchorRect: PopupAnchorRect;
 	alignment?: string;
+	// Route window.open() / target=_blank from inside the popup (e.g. a password
+	// manager's "Full screen" link) to a host tab. Without this the popup's
+	// webContents has no window-open handler and the request is dropped.
+	openTab?: (url: string) => void;
 }
 
 const supportsPreferredSize = () => {
@@ -115,6 +119,16 @@ export class PopupView extends EventEmitter {
 				enablePreferredSizeMode: true,
 			},
 		});
+
+		if (opts.openTab) {
+			const openTab = opts.openTab;
+
+			this.browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+				openTab(url);
+
+				return { action: "deny" };
+			});
+		}
 
 		const untypedWebContents = this.browserWindow.webContents as any;
 		untypedWebContents.on("preferred-size-changed", this.updatePreferredSize);

@@ -389,6 +389,36 @@ if ("executeInMainWorld" in contextBridge) {
 				} catch (e) {}
 			}
 
+			// Bridge two popup→SW messages Electron can't fulfil natively: clipboard
+			// writes (a service worker has no clipboard) and NordPass's "Full screen"
+			// (DESKTOP/OPEN focuses its app tab by an internal id that doesn't map to a
+			// host tab). Handle both by delegating to the main process.
+			try {
+				if (
+					ipc &&
+					cached.runtime &&
+					cached.runtime.onMessage &&
+					cached.runtime.onMessage.addListener
+				) {
+					cached.runtime.onMessage.addListener(function (msg) {
+						if (!msg) {
+							return;
+						}
+
+						try {
+							if (
+								msg.type === "COPY_TO_CLIPBOARD_EXT" &&
+								typeof msg.clipboardValue === "string"
+							) {
+								ipc.invoke("__clipboard", "writeText", msg.clipboardValue);
+							} else if (msg.type === "DESKTOP/OPEN") {
+								ipc.invoke("tabs", "openExtensionApp");
+							}
+						} catch (e) {}
+					});
+				}
+			} catch (e) {}
+
 			// -------------------------------------------------------------------
 			// Extras: APIs absent from or broken in Electron's SW chrome
 			// -------------------------------------------------------------------
@@ -623,6 +653,23 @@ if ("executeInMainWorld" in contextBridge) {
 					unregisterContentScripts: async () => [],
 					getRegisteredContentScripts: async () => [],
 					updateContentScripts: async () => [],
+				},
+
+				// --- permissions ---
+				// Electron's SW chrome has no `permissions` namespace, so
+				// `chrome.permissions.request(...)` throws "Cannot read properties of
+				// undefined (reading 'request')" — which is exactly what aborts
+				// NordPass's copy flow (it requests clipboardRead/clipboardWrite before
+				// copying). Optional permissions are granted at install time here, so
+				// resolve everything as already-granted.
+				permissions: {
+					request: () => Promise.resolve(true),
+					contains: () => Promise.resolve(true),
+					getAll: () =>
+						Promise.resolve({ permissions: [], origins: [] }),
+					remove: () => Promise.resolve(false),
+					onAdded: noopEvent(),
+					onRemoved: noopEvent(),
 				},
 			};
 

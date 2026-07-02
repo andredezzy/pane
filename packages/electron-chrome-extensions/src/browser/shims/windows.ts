@@ -60,7 +60,9 @@ function resolveExtensionUrl(ses: Session, url: string): string {
  * @param ctx - The extension context, providing access to `ctx.store`.
  * @returns    A plain object conforming to the `chrome.Window` shape.
  */
-function makeWindowObject(ctx: ExtensionContext): Record<string, unknown> {
+export function makeWindowObject(
+	ctx: ExtensionContext,
+): Record<string, unknown> {
 	const win = ctx.store.getLastFocusedWindow();
 
 	return {

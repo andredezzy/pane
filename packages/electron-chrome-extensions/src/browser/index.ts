@@ -226,6 +226,7 @@ export class ElectronChromeExtensions extends EventEmitter {
 
 		this.ctx = {
 			emit: this.emit.bind(this),
+			on: this.on.bind(this),
 			router,
 			session,
 			store,

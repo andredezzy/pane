@@ -44,6 +44,16 @@ export class Profile implements TabHost {
 	) {
 		this.session = profileSession(id);
 
+		// navigator.clipboard.writeText() is gated by a synchronous "clipboard-
+		// sanitized-write" permission check that Electron denies by default, which
+		// silently breaks copy buttons — including inside an extension's popup (it
+		// runs on this same profile session). Approve ONLY clipboard WRITE checks;
+		// everything else (clipboard-read, hid, serial, usb, midi, …) stays denied so
+		// a page can't silently read the clipboard or reach a device without a prompt.
+		this.session.setPermissionCheckHandler(
+			(_webContents, permission) => permission === "clipboard-sanitized-write",
+		);
+
 		const profileData = profileStore
 			.getState()
 			.profiles.find((profile) => profile.id === id);
@@ -199,6 +209,13 @@ export class Profile implements TabHost {
 			},
 			selectTab: (webContents) => this.tabs.activateByWebContents(webContents),
 			removeTab: (webContents) => this.tabs.destroyByWebContents(webContents),
+			// chrome.windows.create opens a TAB on this tabbed host, so chrome.windows
+			// .remove must not fall through to destroying the real BrowserWindow (which
+			// would close the user's entire window). No-op: the tab is closed like any
+			// other tab, never via the window API.
+			removeWindow: () => {
+				// Intentionally does nothing — see comment above.
+			},
 		});
 
 		this.tabs = new ProfileTabs(this, mainWindow, this.findEmitter);

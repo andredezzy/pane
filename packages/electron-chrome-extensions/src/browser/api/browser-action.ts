@@ -209,6 +209,12 @@ export class BrowserActionAPI {
 			this.onUpdate();
 		});
 
+		// Dismiss the popup when an extension opens its full-screen app (e.g. NordPass
+		// "Full screen"), so it doesn't linger over the newly-focused tab.
+		this.ctx.on("close-popup", () => {
+			this.popup?.destroy();
+		});
+
 		// Clear out tab details when removed
 		this.ctx.store.on("tab-removed", (tabId: number) => {
 			for (const [, actionDetails] of this.actionMap) {
@@ -528,6 +534,11 @@ export class BrowserActionAPI {
 				url: popupUrl,
 				anchorRect,
 				alignment,
+				openTab: (url) => {
+					this.ctx.store.createTab({ url }).catch((error) => {
+						d("popup openTab failed for %s: %o", url, error);
+					});
+				},
 			});
 
 			d(`opened popup: ${popupUrl}`);

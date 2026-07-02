@@ -11,7 +11,10 @@ import { WindowsAPI } from "./windows";
 
 const d = debug("electron-chrome-extensions:tabs");
 
-const validateExtensionUrl = (url: string, extension: Electron.Extension) => {
+export const validateExtensionUrl = (
+	url: string,
+	extension: Electron.Extension,
+) => {
 	// Convert relative URLs to absolute if needed
 	try {
 		url = new URL(url, extension.url).href;

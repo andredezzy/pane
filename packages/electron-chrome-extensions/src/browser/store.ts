@@ -66,6 +66,13 @@ export class ExtensionStore extends EventEmitter {
 		this.emit("window-added", window);
 	}
 
+	/** Whether the host models real (multi-)windows, vs. a tabbed host that only
+	 * implements createTab. WindowsAPI.create uses this to decide whether to open a
+	 * tab instead of a window. */
+	get supportsWindows() {
+		return typeof this.impl.createWindow === "function";
+	}
+
 	async createWindow(
 		_event: ExtensionEvent,
 		details: chrome.windows.CreateData,

@@ -1,6 +1,8 @@
 import debug from "debug";
 import { ExtensionContext } from "../context";
 import { ExtensionEvent } from "../router";
+import { makeWindowObject } from "../shims/windows";
+import { validateExtensionUrl } from "./tabs";
 
 const d = debug("electron-chrome-extensions:windows");
 
@@ -139,6 +141,29 @@ export class WindowsAPI {
 		event: ExtensionEvent,
 		details: chrome.windows.CreateData,
 	) {
+		// A tabbed host (like Pane) implements createTab but not createWindow. Chrome
+		// opens chrome.windows.create URLs as tabs on such a host; mirror the
+		// service-worker windows shim — resolve the URL (rejecting chrome:/javascript:
+		// exactly like tabs.create via validateExtensionUrl), open a tab, and return a
+		// SYNTHETIC window rather than the host's real window (whose id an extension
+		// could later pass to windows.remove and destroy the user's actual window).
+		if (!this.ctx.store.supportsWindows) {
+			const urls =
+				typeof details.url === "string" ? [details.url] : (details.url ?? []);
+
+			if (urls.length === 0) {
+				await this.ctx.store.createTab({ url: "about:blank" });
+			} else {
+				for (const rawUrl of urls) {
+					await this.ctx.store.createTab({
+						url: validateExtensionUrl(rawUrl, event.extension),
+					});
+				}
+			}
+
+			return makeWindowObject(this.ctx);
+		}
+
 		const win = await this.ctx.store.createWindow(event, details);
 
 		return this.getWindowDetails(win);

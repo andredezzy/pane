@@ -49,7 +49,7 @@
  * from that specific worker.
  */
 
-import { ipcMain, type Session } from "electron";
+import { clipboard, ipcMain, type Session } from "electron";
 import type { ExtensionContext } from "../context";
 import { handleAlarms } from "./alarms";
 import { handleIdle } from "./idle";
@@ -192,6 +192,7 @@ export function registerShimHandlerForSession(ctx: ExtensionContext) {
  *   - `"windows"` → windows.ts (BrowserWindow management)
  *   - `"tabs"`    → tabs.ts (tab creation/query)
  *   - `"action"`  → inline handler (popup URL registration)
+ *   - `"__clipboard"` → inline handler (SW clipboard writes via Electron)
  *   - `"__log"`   → inline handler (SW debug logging)
  *
  * Unknown namespaces return `undefined` so callers receive a resolved
@@ -244,6 +245,15 @@ function dispatch(
 
 			return undefined;
 		}
+		case "__clipboard":
+			// A service worker can't access the clipboard. Extensions (NordPass)
+			// delegate the write to us; use Electron's clipboard, which needs no focus
+			// or permission.
+			if (method === "writeText") {
+				clipboard.writeText(String(args[0] ?? ""));
+			}
+
+			return undefined;
 		case "__log":
 			console.log(`[SW]`, method, ...args);
 
