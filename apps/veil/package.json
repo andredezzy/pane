@@ -33,6 +33,7 @@
 		"react-dom": "^19",
 		"react-hook-form": "7.74.0",
 		"socks": "2.8.9",
+		"torph": "0.0.9",
 		"trpc-electron": "0.1.2",
 		"ws": "8.21.0",
 		"zod": "4.3.6",

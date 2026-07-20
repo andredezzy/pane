@@ -11,7 +11,6 @@ const RELEASES_URL =
 const USER_AGENT = "Pane-Updater";
 const DMG_ASSET_SUFFIX = "-arm64.dmg";
 
-const INITIAL_CHECK_DELAY_MS = 10_000;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 interface GitHubReleaseAsset {
@@ -87,12 +86,48 @@ export function downloadUpdate(store: StoreApi<UpdateState>): void {
 		const savePath = path.join(app.getPath("downloads"), item.getFilename());
 		item.setSavePath(savePath);
 
+		// Exponential moving average keeps the ETA from whipsawing with the
+		// CDN's burst-and-stall delivery pattern.
+		let lastReceivedBytes = 0;
+		let lastUpdatedAt = Date.now();
+		let bytesPerSecond = 0;
+
+		item.on("updated", () => {
+			const total = item.getTotalBytes();
+			const received = item.getReceivedBytes();
+			const now = Date.now();
+			const elapsedSeconds = (now - lastUpdatedAt) / 1000;
+
+			if (elapsedSeconds > 0) {
+				const instantRate = (received - lastReceivedBytes) / elapsedSeconds;
+
+				bytesPerSecond =
+					bytesPerSecond === 0
+						? instantRate
+						: bytesPerSecond * 0.7 + instantRate * 0.3;
+
+				lastReceivedBytes = received;
+				lastUpdatedAt = now;
+			}
+
+			if (total > 0) {
+				store.getState().setDownloadProgress({
+					progress: received / total,
+					etaSeconds:
+						bytesPerSecond > 0
+							? Math.max(0, Math.round((total - received) / bytesPerSecond))
+							: null,
+				});
+			}
+		});
+
 		item.once("done", (_doneEvent, state) => {
 			if (state === "completed") {
 				shell.openPath(savePath);
+				store.getState().finishDownloading();
+			} else {
+				store.getState().downloadFailed();
 			}
-
-			store.getState().finishDownloading();
 		});
 	});
 
@@ -100,9 +135,7 @@ export function downloadUpdate(store: StoreApi<UpdateState>): void {
 }
 
 export function scheduleUpdateChecks(store: StoreApi<UpdateState>): void {
-	setTimeout(() => {
-		void checkForUpdate(store);
-	}, INITIAL_CHECK_DELAY_MS);
+	void checkForUpdate(store);
 
 	setInterval(() => {
 		void checkForUpdate(store);

@@ -1,6 +1,6 @@
 import { cn } from "@pane/ui/cn";
 import { X } from "lucide-react";
-import type { CSSProperties, HTMLAttributes } from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 
 export function Sidebar({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	return (
@@ -97,39 +97,48 @@ export function SidebarNewButton({
 }
 
 interface SidebarUpdatePillProps {
-	onOpen: () => void;
+	onClick: () => void;
 	onDismiss: () => void;
+	pulsing?: boolean;
 	className?: string;
+	children: ReactNode;
 }
 
 // Quiet by design: no color beyond a single status dot, no motion beyond a
 // soft entrance — this announces an update, it never demands attention.
 export function SidebarUpdatePill({
 	className,
-	onOpen,
+	onClick,
 	onDismiss,
+	pulsing,
+	children,
 }: SidebarUpdatePillProps) {
 	return (
 		<div
 			className={cn(
-				"group fade-in-0 slide-in-from-bottom-1 relative mb-1.5 flex animate-in items-center gap-1.5 rounded-md bg-[rgba(255,255,255,0.05)] py-1.5 pr-6 pl-2 duration-300",
+				"group fade-in-0 slide-in-from-bottom-1 relative mb-1.5 flex animate-in items-center gap-1.5 rounded-md bg-foreground/5 py-1.5 pr-6 pl-2 duration-300",
 				className,
 			)}
 		>
 			<button
 				type="button"
-				onClick={onOpen}
-				className="flex flex-1 items-center gap-1.5 overflow-hidden text-left text-[#d4d4d8] text-xs"
+				onClick={onClick}
+				className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left text-accent-foreground text-xs"
 			>
-				<span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-				<span className="truncate">Update available</span>
+				<span
+					className={cn(
+						"h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500",
+						pulsing && "motion-safe:animate-pulse",
+					)}
+				/>
+				{children}
 			</button>
 
 			<button
 				type="button"
 				onClick={onDismiss}
 				aria-label="Dismiss"
-				className="-translate-y-1/2 absolute top-1/2 right-1.5 flex h-4 w-4 items-center justify-center rounded text-[#71717a] opacity-0 transition-opacity hover:text-accent-foreground group-hover:opacity-100"
+				className="-translate-y-1/2 absolute top-1/2 right-1.5 flex h-4 w-4 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-accent-foreground group-hover:opacity-100"
 			>
 				<X className="h-3 w-3" />
 			</button>

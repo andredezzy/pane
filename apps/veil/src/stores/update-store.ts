@@ -7,6 +7,7 @@ export enum UpdateStatus {
 	CHECKING = "CHECKING",
 	AVAILABLE = "AVAILABLE",
 	DOWNLOADING = "DOWNLOADING",
+	DOWNLOADED = "DOWNLOADED",
 }
 
 export interface AvailableUpdate {
@@ -19,6 +20,10 @@ export interface UpdateState {
 	status: UpdateStatus;
 	available: AvailableUpdate | null;
 	lastCheckedAt: string | null;
+	/** 0–1 while a download runs, null otherwise. */
+	downloadProgress: number | null;
+	/** Whole seconds left at the current rate, null until the rate settles. */
+	downloadEtaSeconds: number | null;
 
 	startChecking: () => void;
 	finishChecking: (result: {
@@ -27,7 +32,12 @@ export interface UpdateState {
 	}) => void;
 	checkFailed: () => void;
 	startDownloading: () => void;
+	setDownloadProgress: (update: {
+		progress: number;
+		etaSeconds: number | null;
+	}) => void;
 	finishDownloading: () => void;
+	downloadFailed: () => void;
 }
 
 // Update status is entirely main-process-owned (the main process polls GitHub
@@ -40,6 +50,8 @@ export const updateStore = createStore<UpdateState>()(
 			status: UpdateStatus.IDLE,
 			available: null,
 			lastCheckedAt: null,
+			downloadProgress: null,
+			downloadEtaSeconds: null,
 
 			startChecking: () => set({ status: UpdateStatus.CHECKING }),
 
@@ -52,9 +64,29 @@ export const updateStore = createStore<UpdateState>()(
 
 			checkFailed: () => set({ status: UpdateStatus.IDLE }),
 
-			startDownloading: () => set({ status: UpdateStatus.DOWNLOADING }),
+			startDownloading: () =>
+				set({
+					status: UpdateStatus.DOWNLOADING,
+					downloadProgress: 0,
+					downloadEtaSeconds: null,
+				}),
 
-			finishDownloading: () => set({ status: UpdateStatus.AVAILABLE }),
+			setDownloadProgress: ({ progress, etaSeconds }) =>
+				set({ downloadProgress: progress, downloadEtaSeconds: etaSeconds }),
+
+			finishDownloading: () =>
+				set({
+					status: UpdateStatus.DOWNLOADED,
+					downloadProgress: null,
+					downloadEtaSeconds: null,
+				}),
+
+			downloadFailed: () =>
+				set({
+					status: UpdateStatus.AVAILABLE,
+					downloadProgress: null,
+					downloadEtaSeconds: null,
+				}),
 		}),
 		{ name: "update-store", pushPartialize: () => ({}) },
 	),

@@ -54,6 +54,7 @@ import {
 	TabNew,
 	TabTitle,
 } from "../components/sidebar/tab-item";
+import { UpdateStatusLabel } from "../components/update-status-label";
 import { HotkeyEvent, useHotkeyEvents } from "../hooks/use-hotkey-events";
 import { menuIcon } from "../menu/icons";
 import { RestrictToVerticalAxis } from "../modifiers/restrict-to-vertical-axis";
@@ -415,9 +416,18 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 
 	const page = useStore(navigationStore, (state) => state.page);
 
-	const availableUpdate = useStore(updateStore, (state) =>
-		state.status === UpdateStatus.AVAILABLE ? state.available : null,
+	const updateStatus = useStore(updateStore, (state) => state.status);
+	const availableUpdate = useStore(updateStore, (state) => state.available);
+
+	const updateDownloadProgress = useStore(
+		updateStore,
+		(state) => state.downloadProgress,
 	);
+
+	const showUpdatePill =
+		updateStatus === UpdateStatus.AVAILABLE ||
+		updateStatus === UpdateStatus.DOWNLOADING ||
+		updateStatus === UpdateStatus.DOWNLOADED;
 
 	const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<
 		string | null
@@ -570,20 +580,42 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 				</SidebarContent>
 
 				<SidebarFooter>
-					{availableUpdate &&
+					{showUpdatePill &&
+					availableUpdate &&
 					availableUpdate.version !== dismissedUpdateVersion ? (
 						<SidebarUpdatePill
-							onOpen={() => navigationStore.getState().navigate(Page.SETTINGS)}
+							pulsing={updateStatus === UpdateStatus.DOWNLOADING}
+							onClick={() => {
+								if (updateStatus === UpdateStatus.AVAILABLE) {
+									trpc.updates.download.mutate();
+								}
+							}}
 							onDismiss={() =>
 								setDismissedUpdateVersion(availableUpdate.version)
 							}
-						/>
+						>
+							<UpdateStatusLabel status={updateStatus} />
+							{updateStatus === UpdateStatus.DOWNLOADING && (
+								<span className="ml-1 h-1 min-w-6 flex-1 overflow-hidden rounded-full bg-foreground/10">
+									<span
+										className="block h-full rounded-full bg-emerald-500 transition-[width] duration-200"
+										style={{
+											width: `${Math.round((updateDownloadProgress ?? 0) * 100)}%`,
+										}}
+									/>
+								</span>
+							)}
+						</SidebarUpdatePill>
 					) : null}
 					<SidebarNewButton onClick={() => surface.open(ProfileSheet)} />
 					<SidebarSeparator />
 					<SidebarSettingsButton
 						active={page === Page.SETTINGS}
-						onClick={() => navigationStore.getState().navigate(Page.SETTINGS)}
+						onClick={() =>
+							navigationStore
+								.getState()
+								.navigate(page === Page.SETTINGS ? Page.BROWSER : Page.SETTINGS)
+						}
 					>
 						<Settings className="h-3.5 w-3.5" />
 						Settings

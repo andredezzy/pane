@@ -18,6 +18,7 @@ import { PinScreenMode, securityStore } from "../../../stores/security-store";
 import { settingsStore } from "../../../stores/settings-store";
 import { UpdateStatus, updateStore } from "../../../stores/update-store";
 import { trpc } from "../../trpc";
+import { formatEtaSeconds } from "../../utils/format-eta";
 import {
 	ExtensionInstallForm,
 	ExtensionItem,
@@ -68,6 +69,17 @@ export function SettingsPage() {
 
 	const updateStatus = useStore(updateStore, (state) => state.status);
 	const availableUpdate = useStore(updateStore, (state) => state.available);
+
+	const downloadProgress = useStore(
+		updateStore,
+		(state) => state.downloadProgress,
+	);
+
+	const downloadEtaSeconds = useStore(
+		updateStore,
+		(state) => state.downloadEtaSeconds,
+	);
+
 	const isCheckingUpdate = updateStatus === UpdateStatus.CHECKING;
 	const isDownloadingUpdate = updateStatus === UpdateStatus.DOWNLOADING;
 
@@ -114,7 +126,7 @@ export function SettingsPage() {
 	}, [uninstallTarget]);
 
 	return (
-		<div className="flex-1 overflow-auto px-10 py-8">
+		<div className="flex flex-1 flex-col overflow-auto px-10 py-8">
 			<div className="max-w-[480px] space-y-6">
 				<div>
 					<h1 className="font-medium text-accent-foreground text-sm">
@@ -261,7 +273,7 @@ export function SettingsPage() {
 					</div>
 				</div>
 
-				<div className="h-px bg-[rgba(255,255,255,0.05)]" />
+				<Separator />
 
 				<div>
 					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
@@ -269,35 +281,49 @@ export function SettingsPage() {
 					</span>
 
 					<div className="mt-3 space-y-3">
-						<p className="text-[12px] text-muted-foreground">
-							Version {appVersion ?? "…"}
-						</p>
-
-						<Button
-							variant="outline"
-							disabled={isCheckingUpdate || isDownloadingUpdate}
-							onClick={() => trpc.updates.check.mutate()}
-						>
-							{isCheckingUpdate ? "Checking…" : "Check for updates"}
-						</Button>
+						{!availableUpdate && (
+							<Button
+								variant="outline"
+								disabled={isCheckingUpdate}
+								onClick={() => trpc.updates.check.mutate()}
+							>
+								{isCheckingUpdate ? "Checking…" : "Check for updates"}
+							</Button>
+						)}
 
 						{availableUpdate ? (
 							<div className="space-y-2">
 								<p className="text-[12px] text-muted-foreground">
 									Version {availableUpdate.version} is available
 								</p>
-								<Button
-									variant="outline"
-									disabled={isDownloadingUpdate}
-									onClick={() => trpc.updates.download.mutate()}
-								>
-									{isDownloadingUpdate ? "Downloading…" : "Download update"}
-								</Button>
+								{updateStatus === UpdateStatus.DOWNLOADED ? (
+									<p className="text-[12px] text-muted-foreground">
+										Downloaded, quit to install
+									</p>
+								) : (
+									<Button
+										variant="outline"
+										disabled={isDownloadingUpdate}
+										onClick={() => trpc.updates.download.mutate()}
+									>
+										{isDownloadingUpdate
+											? `Downloading… ${Math.round((downloadProgress ?? 0) * 100)}%${
+													downloadEtaSeconds !== null
+														? ` · ${formatEtaSeconds(downloadEtaSeconds)}`
+														: ""
+												}`
+											: "Download update"}
+									</Button>
+								)}
 							</div>
 						) : null}
 					</div>
 				</div>
 			</div>
+
+			<p className="mt-auto pt-8 text-right text-[11px] text-muted-foreground tabular-nums">
+				Version {appVersion ?? "…"}
+			</p>
 
 			<UninstallDialog
 				extension={uninstallTarget}

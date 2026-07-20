@@ -1,14 +1,16 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "zustand/react";
-
 import {
 	MAX_ATTEMPTS,
 	PinScreenMode,
 	securityStore,
 } from "../../../stores/security-store";
+import { UpdateStatus, updateStore } from "../../../stores/update-store";
 import { Numpad, NumpadDots } from "../../components/numpad";
+import { UpdateStatusLabel } from "../../components/update-status-label";
 import { trpc } from "../../trpc";
+import { formatEtaSeconds } from "../../utils/format-eta";
 
 const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
 
@@ -47,6 +49,9 @@ function getTitle(mode: PinScreenMode, step: Step): string | null {
 export function PinScreen({ mode }: { mode: PinScreenMode }) {
 	const pinLength = useStore(securityStore, (s) => s.pin?.length ?? 0);
 	const failedAttempts = useStore(securityStore, (s) => s.failedAttempts);
+	const updateStatus = useStore(updateStore, (s) => s.status);
+	const downloadProgress = useStore(updateStore, (s) => s.downloadProgress);
+	const downloadEtaSeconds = useStore(updateStore, (s) => s.downloadEtaSeconds);
 
 	const [step, setStep] = useState(() => getInitialStep(mode));
 	const [entered, setEntered] = useState("");
@@ -221,8 +226,8 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 	}, [checking]);
 
 	return (
-		<div className="grid h-full w-full grid-cols-[auto_1fr_auto]">
-			<div className="flex items-center pl-14" style={noDrag}>
+		<div className="relative grid h-full w-full grid-cols-[5rem_1fr_5rem]">
+			<div className="flex items-center justify-center" style={noDrag}>
 				{isDismissable && (
 					<button
 						type="button"
@@ -282,6 +287,51 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 			</div>
 
 			<div />
+
+			{mode === PinScreenMode.UNLOCK &&
+				(updateStatus === UpdateStatus.AVAILABLE ||
+					updateStatus === UpdateStatus.DOWNLOADING ||
+					updateStatus === UpdateStatus.DOWNLOADED) && (
+					<div
+						className="group fade-in-0 slide-in-from-bottom-1 -translate-x-1/2 absolute bottom-6 left-1/2 flex animate-in items-center gap-1.5 text-accent-foreground text-xs duration-300"
+						style={noDrag}
+					>
+						<span
+							className={
+								updateStatus === UpdateStatus.DOWNLOADING
+									? "h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 motion-safe:animate-pulse"
+									: "h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+							}
+						/>
+						<UpdateStatusLabel status={updateStatus} />
+						{updateStatus === UpdateStatus.DOWNLOADING && (
+							<>
+								<span className="ml-2 h-1 w-16 overflow-hidden rounded-full bg-foreground/10">
+									<span
+										className="block h-full rounded-full bg-emerald-500 transition-[width] duration-200"
+										style={{
+											width: `${Math.round((downloadProgress ?? 0) * 100)}%`,
+										}}
+									/>
+								</span>
+								{downloadEtaSeconds !== null && (
+									<span className="ml-2 min-w-14 whitespace-nowrap text-left text-muted-foreground tabular-nums">
+										{formatEtaSeconds(downloadEtaSeconds)}
+									</span>
+								)}
+							</>
+						)}
+						{updateStatus === UpdateStatus.AVAILABLE && (
+							<button
+								type="button"
+								onClick={() => trpc.updates.download.mutate()}
+								className="-ml-1.5 max-w-0 overflow-hidden whitespace-nowrap font-medium text-muted-foreground opacity-0 transition-all duration-200 hover:text-accent-foreground group-hover:ml-0 group-hover:max-w-[7rem] group-hover:opacity-100"
+							>
+								Download
+							</button>
+						)}
+					</div>
+				)}
 		</div>
 	);
 }
