@@ -12,6 +12,7 @@
 		"build": "electron-vite build",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
+		"measure-memory": "bun scripts/measure-memory.ts",
 		"pack": "rm -rf release && electron-builder --dir",
 		"dist": "rm -rf release && electron-builder"
 	},
