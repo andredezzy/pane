@@ -13,6 +13,7 @@ const DMG_ASSET_SUFFIX = "-arm64.dmg";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const ETA_INCREASE_HOLD_MS = 5_000;
+const MIN_CHECKING_MS = 800;
 const RETRY_DELAYS_MS = [5 * 60_000, 15 * 60_000, 60 * 60_000];
 
 interface GitHubReleaseAsset {
@@ -35,6 +36,13 @@ export async function checkForUpdate(
 ): Promise<boolean> {
 	store.getState().startChecking();
 
+	// The API usually answers faster than a state flip can be perceived; hold
+	// the CHECKING state long enough that clicking the button visibly does
+	// something even when the answer is "already up to date".
+	const settle = new Promise<void>((resolve) =>
+		setTimeout(resolve, MIN_CHECKING_MS),
+	);
+
 	try {
 		const response = await net.fetch(RELEASES_URL, {
 			headers: { "User-Agent": USER_AGENT },
@@ -51,6 +59,8 @@ export async function checkForUpdate(
 		const asset = release.assets.find((candidate) =>
 			candidate.name.endsWith(DMG_ASSET_SUFFIX),
 		);
+
+		await settle;
 
 		if (!asset || !isNewerVersion(version, app.getVersion())) {
 			store.getState().finishChecking({ available: null, checkedAt });
@@ -70,6 +80,8 @@ export async function checkForUpdate(
 		return true;
 	} catch (error) {
 		console.error("[updater] check for update failed:", error);
+
+		await settle;
 		store.getState().checkFailed();
 
 		return false;
