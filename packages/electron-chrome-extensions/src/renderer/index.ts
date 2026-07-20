@@ -269,9 +269,13 @@ export const injectExtensionAPIs = () => {
 			onDisconnect: chrome.runtime.PortDisconnectEvent = new Event() as any;
 		}
 
-		type DeepPartial<T> = {
-			[P in keyof T]?: DeepPartial<T[P]>;
-		};
+		// Mapping over a function type would strip its call signature, so functions
+		// pass through intact — the injected APIs are objects of functions.
+		type DeepPartial<T> = T extends (...args: any[]) => any
+			? T
+			: {
+					[P in keyof T]?: DeepPartial<T[P]>;
+				};
 
 		type APIFactoryMap = {
 			[apiName in keyof typeof chrome]: {
@@ -816,8 +820,8 @@ export const injectExtensionAPIs = () => {
 			},
 		};
 
-		Object.keys(apiDefinitions).forEach((key: any) => {
-			const apiName: keyof typeof chrome = key;
+		Object.keys(apiDefinitions).forEach((key) => {
+			const apiName = key as string & keyof typeof chrome;
 			const api = apiDefinitions[apiName]!;
 
 			if (api.shouldInject && !api.shouldInject()) {

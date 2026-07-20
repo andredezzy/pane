@@ -189,7 +189,7 @@ export class TabsAPI {
 			return browserWindow.id === windowId;
 		});
 
-		return tabs.map(this.getTabDetails.bind(this));
+		return tabs.map((tab) => this.getTabDetails(tab));
 	}
 
 	private getCurrent(_event: ExtensionEvent) {
@@ -237,7 +237,7 @@ export class TabsAPI {
 		const isSet = (value: any) => typeof value !== "undefined";
 
 		const filteredTabs = Array.from(this.ctx.store.tabs)
-			.map(this.getTabDetails.bind(this))
+			.map((tab) => this.getTabDetails(tab))
 			.filter((tab) => {
 				if (!tab) {
 					return false;

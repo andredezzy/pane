@@ -134,6 +134,7 @@ export function handleTabs(
 				number,
 				{ active?: boolean; highlighted?: boolean; url?: string } | undefined,
 			];
+
 			const tab = ctx.store.getTabById(tabId);
 
 			if (!tab) {

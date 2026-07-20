@@ -326,7 +326,6 @@ export class PopupView extends EventEmitter {
 		size: Electron.Size,
 	) => {
 		d("updatePreferredSize", size);
-		this.usingPreferredSize = true;
 		this.setSize(size);
 		this.updatePosition();
 
