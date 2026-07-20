@@ -5,6 +5,7 @@ import {
 	BrowserWindow,
 	Menu,
 	nativeImage,
+	nativeTheme,
 	WebContentsView,
 } from "electron";
 import type { StoreApi } from "zustand/vanilla";
@@ -78,7 +79,13 @@ export function createAppWindow(): AppWindow {
 
 	const chrome = new WebContentsView({ webPreferences });
 
-	chrome.setBackgroundColor("#0a0a0c");
+	// Pre-paint placeholder until the renderer's CSS lands — must mirror the
+	// --color-background pair in globals.css. themeSource is applied before any
+	// window exists (see index.ts), so this already reflects the user's theme.
+	chrome.setBackgroundColor(
+		nativeTheme.shouldUseDarkColors ? "#0a0a0c" : "#fafafa",
+	);
+
 	mainWindow.contentView.addChildView(chrome);
 
 	const [width, height] = mainWindow.getContentSize();

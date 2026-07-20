@@ -28,6 +28,9 @@
 	--color-input: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.06));
 	--color-ring: light-dark(#a1a1aa, #52525b);
 	--radius: 0.5rem;
+	--shadow-panel:
+		0 0 0 1px var(--color-border), 0 4px 24px
+		light-dark(rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.4));
 }
 
 @keyframes shake {
