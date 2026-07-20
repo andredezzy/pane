@@ -27,6 +27,7 @@ export class GoogleSignIn {
 		}
 
 		let parsed: URL;
+
 		try {
 			parsed = new URL(url);
 		} catch {
@@ -48,6 +49,7 @@ export class GoogleSignIn {
 		// `continue` is an attacker-influenceable query param that we later load with
 		// the freshly imported Google cookies — only honour a real Google https URL.
 		const rawContinue = parsed.searchParams.get("continue") ?? "";
+
 		const continueUrl =
 			rawContinue.startsWith("https://") && isGoogleUrl(rawContinue)
 				? rawContinue
@@ -57,6 +59,7 @@ export class GoogleSignIn {
 
 		if (!handle) {
 			this.pending = false;
+
 			return false;
 		}
 
@@ -97,6 +100,7 @@ export class GoogleSignIn {
 					"console-message",
 					onConsoleMessage,
 				);
+
 				this.view.webContents.removeListener("destroyed", onDestroyed);
 			}
 		};
@@ -121,6 +125,7 @@ export class GoogleSignIn {
 		// the app quits during that window the .then/.catch never run — guard the
 		// destroyed event here so the detached Chrome + temp dir are still cleaned up.
 		let cleaned = false;
+
 		const cleanup = () => {
 			if (cleaned) {
 				return;
@@ -155,6 +160,7 @@ export class GoogleSignIn {
 					this.showError(
 						"No Google cookies found. Make sure you completed sign-in in the Chrome window.",
 					);
+
 					return;
 				}
 

@@ -37,6 +37,7 @@ export function testProxyConnection(
 
 				if (response.statusCode !== 200) {
 					resolve({ success: false, error: `HTTP ${response.statusCode}` });
+
 					return;
 				}
 

@@ -25,6 +25,7 @@ export const proxyStatusStore = createStore<ProxyStatusState>((set) => ({
 	remove: (profileId) => {
 		set((state) => {
 			const { [profileId]: _, ...rest } = state.statuses;
+
 			return { statuses: rest };
 		});
 	},

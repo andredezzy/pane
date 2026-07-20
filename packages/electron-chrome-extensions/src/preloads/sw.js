@@ -400,7 +400,7 @@ if ("executeInMainWorld" in contextBridge) {
 					cached.runtime.onMessage &&
 					cached.runtime.onMessage.addListener
 				) {
-					cached.runtime.onMessage.addListener(function (msg) {
+					cached.runtime.onMessage.addListener((msg) => {
 						if (!msg) {
 							return;
 						}
@@ -665,8 +665,7 @@ if ("executeInMainWorld" in contextBridge) {
 				permissions: {
 					request: () => Promise.resolve(true),
 					contains: () => Promise.resolve(true),
-					getAll: () =>
-						Promise.resolve({ permissions: [], origins: [] }),
+					getAll: () => Promise.resolve({ permissions: [], origins: [] }),
 					remove: () => Promise.resolve(false),
 					onAdded: noopEvent(),
 					onRemoved: noopEvent(),
