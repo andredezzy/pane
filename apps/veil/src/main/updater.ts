@@ -13,6 +13,7 @@ const DMG_ASSET_SUFFIX = "-arm64.dmg";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const ETA_INCREASE_HOLD_MS = 5_000;
+const RETRY_DELAYS_MS = [5 * 60_000, 15 * 60_000, 60 * 60_000];
 
 interface GitHubReleaseAsset {
 	name: string;
@@ -27,10 +28,11 @@ interface GitHubRelease {
 
 // Never throws: a stale rate limit, a flaky connection, or the user being
 // offline should never crash the app or nag them — the store just falls back
-// to IDLE and the next scheduled check tries again.
+// to IDLE. Returns whether the check completed so the scheduler can retry
+// failures with backoff instead of waiting a full day.
 export async function checkForUpdate(
 	store: StoreApi<UpdateState>,
-): Promise<void> {
+): Promise<boolean> {
 	store.getState().startChecking();
 
 	try {
@@ -53,7 +55,7 @@ export async function checkForUpdate(
 		if (!asset || !isNewerVersion(version, app.getVersion())) {
 			store.getState().finishChecking({ available: null, checkedAt });
 
-			return;
+			return true;
 		}
 
 		store.getState().finishChecking({
@@ -64,9 +66,13 @@ export async function checkForUpdate(
 			},
 			checkedAt,
 		});
+
+		return true;
 	} catch (error) {
 		console.error("[updater] check for update failed:", error);
 		store.getState().checkFailed();
+
+		return false;
 	}
 }
 
@@ -148,10 +154,26 @@ export function downloadUpdate(store: StoreApi<UpdateState>): void {
 	session.defaultSession.downloadURL(available.dmgUrl);
 }
 
+// A failed check (offline at launch, rate-limited) retries with backoff
+// instead of leaving the user unaware of an update for a whole day; a
+// completed check returns to the daily cadence.
 export function scheduleUpdateChecks(store: StoreApi<UpdateState>): void {
-	void checkForUpdate(store);
+	let retryIndex = 0;
 
-	setInterval(() => {
-		void checkForUpdate(store);
-	}, CHECK_INTERVAL_MS);
+	const run = async () => {
+		const completed = await checkForUpdate(store);
+
+		if (completed) {
+			retryIndex = 0;
+			setTimeout(run, CHECK_INTERVAL_MS);
+		} else {
+			const delay =
+				RETRY_DELAYS_MS[Math.min(retryIndex, RETRY_DELAYS_MS.length - 1)];
+
+			retryIndex += 1;
+			setTimeout(run, delay);
+		}
+	};
+
+	void run();
 }
