@@ -27,6 +27,7 @@ import { ProxyStatus, proxyStatusStore } from "../../stores/proxy-status-store";
 import { PinScreenMode, securityStore } from "../../stores/security-store";
 import { sidebarStore } from "../../stores/sidebar-store";
 import { tabStore } from "../../stores/tab-store";
+import { UpdateStatus, updateStore } from "../../stores/update-store";
 import { ContentPanel } from "../components/content-panel";
 import {
 	ProfileBadge,
@@ -45,6 +46,7 @@ import {
 	SidebarSeparator,
 	SidebarSettingsButton,
 	SidebarTitle,
+	SidebarUpdatePill,
 } from "../components/sidebar/sidebar";
 import {
 	TabFavicon,
@@ -413,6 +415,14 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 
 	const page = useStore(navigationStore, (state) => state.page);
 
+	const availableUpdate = useStore(updateStore, (state) =>
+		state.status === UpdateStatus.AVAILABLE ? state.available : null,
+	);
+
+	const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<
+		string | null
+	>(null);
+
 	const { isLocked, pinScreenMode } = useStore(
 		securityStore,
 		useShallow((state) => ({
@@ -560,6 +570,15 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 				</SidebarContent>
 
 				<SidebarFooter>
+					{availableUpdate &&
+					availableUpdate.version !== dismissedUpdateVersion ? (
+						<SidebarUpdatePill
+							onOpen={() => navigationStore.getState().navigate(Page.SETTINGS)}
+							onDismiss={() =>
+								setDismissedUpdateVersion(availableUpdate.version)
+							}
+						/>
+					) : null}
 					<SidebarNewButton onClick={() => surface.open(ProfileSheet)} />
 					<SidebarSeparator />
 					<SidebarSettingsButton

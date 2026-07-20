@@ -15,3 +15,16 @@ Implementation notes:
 - Selection highlights (active/selected backgrounds and rings) carry no `transition` utility.
 - Scope `transition-colors` to hover states only — e.g. the inactive branch of a tab's className, never the active/selected branch.
 - Always honor `prefers-reduced-motion`.
+
+## Updates
+
+### Updates surface quietly; installs stay manual
+
+Availability is announced, never enforced: a quiet pill in the sidebar footer and an "Updates" section in Settings — never a modal, never a forced restart, never applied automatically. The pill is dismissible per launch per version, and reappears if a newer version ships later.
+
+The app is ad-hoc signed, not notarized, so it can't safely replace itself in place. Downloading fetches the dmg and opens it so Finder mounts it — installing is always the user dragging Pane to /Applications themselves.
+
+Implementation notes:
+
+- The pill and the Settings section both read the shared `update-store` status (`CHECKING`, `AVAILABLE`, `DOWNLOADING`) — never introduce a second source of truth for update state.
+- Dismissing the pill is in-memory only (no persistence); it resets on relaunch.
