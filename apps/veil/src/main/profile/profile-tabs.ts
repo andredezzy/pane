@@ -9,6 +9,7 @@ import {
 import { type BrowserProfile, profileStore } from "../../stores/profile-store";
 import { tabStore } from "../../stores/tab-store";
 import type { FindEmitter } from "../emitters/find-emitter";
+import { fetchFaviconAsDataUrl } from "./favicon";
 import { isGoogleUrl } from "./google/domains";
 import { GoogleSignIn } from "./google/sign-in";
 import { mostRecentTab } from "./mru";
@@ -358,9 +359,31 @@ export class ProfileTabs {
 		});
 
 		view.webContents.on("page-favicon-updated", (_e, favicons) => {
+			const faviconUrl = favicons[0] ?? "";
+
+			// Show the remote reference immediately, then replace it with an inline
+			// data URL fetched through THIS profile's session — the request rides the
+			// profile's proxy/fingerprint, and the sidebar renders instantly from the
+			// store afterwards instead of re-fetching on every profile expand.
 			profileStore.getState().updateTab(profileId, tabId, {
-				favicon: favicons[0] ?? "",
+				favicon: faviconUrl,
 			});
+
+			if (!faviconUrl || faviconUrl.startsWith("data:")) {
+				return;
+			}
+
+			fetchFaviconAsDataUrl(view.webContents.session, faviconUrl)
+				.then((dataUrl) => {
+					if (dataUrl) {
+						profileStore.getState().updateTab(profileId, tabId, {
+							favicon: dataUrl,
+						});
+					}
+				})
+				.catch(() => {
+					// The remote URL already in the store remains the fallback.
+				});
 		});
 
 		view.webContents.on("did-start-loading", () => {

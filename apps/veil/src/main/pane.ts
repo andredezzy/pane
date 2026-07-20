@@ -8,6 +8,7 @@ import { tabStore } from "../stores/tab-store";
 import { autoDetectBrowser } from "./detect-browser";
 import type { FindEmitter } from "./emitters/find-emitter";
 import { ExtensionInstaller } from "./extensions";
+import { inlineProfileFavicons } from "./profile/favicon";
 import { googleIsSignedIn, googleSignOut } from "./profile/google/sessions";
 import { Profile } from "./profile/profile";
 
@@ -87,6 +88,8 @@ export class Pane {
 			(tabId, profileId) => this.tabIndex.set(tabId, profileId),
 			(tabId) => this.tabIndex.delete(tabId),
 		);
+
+		inlineProfileFavicons(profile);
 
 		this.profiles.set(id, profile);
 
