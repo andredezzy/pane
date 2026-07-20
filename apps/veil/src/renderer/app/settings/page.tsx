@@ -80,6 +80,8 @@ export function SettingsPage() {
 		(state) => state.downloadEtaSeconds,
 	);
 
+	const lastCheckedAt = useStore(updateStore, (state) => state.lastCheckedAt);
+
 	const isCheckingUpdate = updateStatus === UpdateStatus.CHECKING;
 	const isDownloadingUpdate = updateStatus === UpdateStatus.DOWNLOADING;
 	const isUpdateDownloaded = updateStatus === UpdateStatus.DOWNLOADED;
@@ -295,13 +297,25 @@ export function SettingsPage() {
 
 					<div className="mt-3 space-y-3">
 						{!availableUpdate && (
-							<Button
-								variant="outline"
-								disabled={isCheckingUpdate}
-								onClick={() => trpc.updates.check.mutate()}
-							>
-								{isCheckingUpdate ? "Checking…" : "Check for updates"}
-							</Button>
+							<>
+								<Button
+									variant="outline"
+									disabled={isCheckingUpdate}
+									onClick={() => trpc.updates.check.mutate()}
+								>
+									{isCheckingUpdate ? "Checking…" : "Check for updates"}
+								</Button>
+
+								{lastCheckedAt !== null && (
+									<p className="text-[12px] text-muted-foreground">
+										Pane is up to date · checked at{" "}
+										{new Date(lastCheckedAt).toLocaleTimeString([], {
+											hour: "2-digit",
+											minute: "2-digit",
+										})}
+									</p>
+								)}
+							</>
 						)}
 
 						{availableUpdate ? (
