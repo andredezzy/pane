@@ -111,7 +111,10 @@ export function createAppWindow(): AppWindow {
 		width,
 		height,
 		backgroundColor: "#00000000",
-		webPreferences,
+		// Fully transparent windows draw no opaque pixels, so Chromium can treat
+		// the surface as occluded and throttle its rAF/timers even while shown —
+		// which freezes overlay animations. Tab renderers keep default throttling.
+		webPreferences: { ...webPreferences, backgroundThrottling: false },
 	});
 
 	loadRenderer(surface.webContents, { surface: "true" });
