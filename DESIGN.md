@@ -2,6 +2,12 @@
 
 Interaction and visual principles for Pane. Keep entries short and prescriptive.
 
+## Theme
+
+### One knob, everything follows, instantly
+
+The theme (`system` / `light` / `dark`) drives `nativeTheme.themeSource`: Pane chrome, native menus, and web content flip together (see docs/adr/0001). Switches apply instantly — no cross-fade. Dialog and sheet scrims stay black-alpha in both themes; colors on fixed-color surfaces (profile swatches, status buttons) don't follow the theme.
+
 ## Motion
 
 ### Selection is instant; hover and enter/exit animate

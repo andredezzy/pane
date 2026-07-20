@@ -9,6 +9,7 @@ import {
 	FormMessage,
 } from "@pane/ui/components/form";
 import { Input } from "@pane/ui/components/input";
+import { Separator } from "@pane/ui/components/separator";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod/v4";
@@ -119,12 +120,34 @@ export function SettingsPage() {
 					<h1 className="font-medium text-accent-foreground text-sm">
 						Settings
 					</h1>
-					<p className="text-[#71717a] text-xs">
+					<p className="text-muted-foreground text-xs">
 						Manage your application preferences.
 					</p>
 				</div>
 
-				<div className="h-px bg-[rgba(255,255,255,0.05)]" />
+				<Separator />
+
+				<div>
+					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
+						Appearance
+					</span>
+
+					<div className="mt-3 flex gap-1">
+						{(["system", "light", "dark"] as const).map((theme) => (
+							<Button
+								key={theme}
+								type="button"
+								variant={settings.theme === theme ? "default" : "outline"}
+								className="h-8 flex-1 text-[11px] capitalize"
+								onClick={() => settingsStore.getState().update({ theme })}
+							>
+								{theme}
+							</Button>
+						))}
+					</div>
+				</div>
+
+				<Separator />
 
 				<div>
 					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
@@ -169,7 +192,7 @@ export function SettingsPage() {
 					</Form>
 				</div>
 
-				<div className="h-px bg-[rgba(255,255,255,0.05)]" />
+				<Separator />
 
 				<div>
 					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
@@ -198,7 +221,7 @@ export function SettingsPage() {
 					)}
 				</div>
 
-				<div className="h-px bg-[rgba(255,255,255,0.05)]" />
+				<Separator />
 
 				<div>
 					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">

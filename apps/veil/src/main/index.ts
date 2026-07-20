@@ -3,6 +3,7 @@ import { ElectronChromeExtensions } from "@pane/electron-chrome-extensions";
 import {
 	app,
 	type BrowserWindow,
+	nativeTheme,
 	session,
 	type WebContentsView,
 } from "electron";
@@ -152,6 +153,16 @@ app.whenReady().then(() => {
 	profileStore.persist.rehydrate();
 	settingsStore.persist.rehydrate();
 	securityStore.persist.rehydrate();
+
+	// Applied before any window exists so the first paint — and every web
+	// contents' prefers-color-scheme — already matches the persisted theme.
+	nativeTheme.themeSource = settingsStore.getState().settings.theme;
+
+	settingsStore.subscribe((state, previous) => {
+		if (state.settings.theme !== previous.settings.theme) {
+			nativeTheme.themeSource = state.settings.theme;
+		}
+	});
 
 	if (securityStore.getState().pin !== null) {
 		securityStore.getState().lock();

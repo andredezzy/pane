@@ -29,7 +29,7 @@ export function EmptyState() {
 						strokeWidth="1.5"
 					/>
 				</svg>
-				<p className="text-[#71717a] text-xs">
+				<p className="text-muted-foreground text-xs">
 					Open a profile to start browsing
 				</p>
 			</div>

@@ -285,7 +285,7 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 					<button
 						type="button"
 						onClick={close}
-						className="flex h-6 w-6 items-center justify-center rounded text-[#71717a] transition-colors hover:text-foreground"
+						className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
 					>
 						<X className="h-4 w-4" />
 					</button>
@@ -319,7 +319,8 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel className="text-[11px]">
-											Group <span className="text-[#71717a]">(optional)</span>
+											Group{" "}
+											<span className="text-muted-foreground">(optional)</span>
 										</FormLabel>
 										<FormControl>
 											<Input placeholder="Enter group name" {...field} />
@@ -388,7 +389,7 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 												))}
 											</div>
 											{field.value !== detectPlatform() ? (
-												<p className="text-[#71717a] text-[10px]">
+												<p className="text-[10px] text-muted-foreground">
 													Cross-OS spoofing can't fool strict WebGL checks — use{" "}
 													{detectPlatform().toLowerCase()} or turn spoofing off
 													for Cloudflare-protected sites.

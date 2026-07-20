@@ -32,7 +32,7 @@ export function SidebarTitle({
 }: HTMLAttributes<HTMLSpanElement>) {
 	return (
 		<span
-			className={cn("font-semibold text-[#71717a] text-xs", className)}
+			className={cn("font-semibold text-muted-foreground text-xs", className)}
 			{...props}
 		/>
 	);
@@ -73,10 +73,7 @@ export function SidebarSeparator({
 	...props
 }: HTMLAttributes<HTMLDivElement>) {
 	return (
-		<div
-			className={cn("my-1.5 h-px bg-[rgba(255,255,255,0.04)]", className)}
-			{...props}
-		/>
+		<div className={cn("my-1.5 h-px bg-foreground/4", className)} {...props} />
 	);
 }
 
@@ -88,7 +85,7 @@ export function SidebarNewButton({
 		<button
 			type="button"
 			className={cn(
-				"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[#71717a] text-xs transition-colors hover:bg-accent",
+				"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-accent",
 				className,
 			)}
 			{...props}
@@ -151,8 +148,8 @@ export function SidebarSettingsButton({
 			className={cn(
 				"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors",
 				active
-					? "bg-[rgba(255,255,255,0.05)] text-accent-foreground"
-					: "text-[#71717a] hover:bg-accent hover:text-accent-foreground",
+					? "bg-foreground/5 text-accent-foreground"
+					: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 				className,
 			)}
 			{...props}

@@ -44,7 +44,9 @@ export function ProfileHeader({
 			type="button"
 			className={cn(
 				"group flex w-full items-center gap-1.5 overflow-hidden rounded-md px-2 py-1.5 text-xs transition-colors",
-				active ? "text-[#d4d4d8]" : "text-[#71717a] hover:bg-accent",
+				active
+					? "text-accent-foreground"
+					: "text-muted-foreground hover:bg-accent",
 				className,
 			)}
 			style={
@@ -97,7 +99,10 @@ export function ProfileBadge({
 	...props
 }: HTMLAttributes<HTMLSpanElement>) {
 	return (
-		<span className={cn("text-[#71717a] text-[10px]", className)} {...props} />
+		<span
+			className={cn("text-[10px] text-muted-foreground", className)}
+			{...props}
+		/>
 	);
 }
 

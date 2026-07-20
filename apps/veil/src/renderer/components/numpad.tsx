@@ -54,7 +54,9 @@ export function NumpadDots({
 					key={index}
 					className={cn(
 						"h-[13px] w-[13px] rounded-full transition-all duration-150",
-						index < filled ? "bg-white" : "border-[1.5px] border-white/25",
+						index < filled
+							? "bg-foreground"
+							: "border-[1.5px] border-foreground/25",
 					)}
 				/>
 			))}
@@ -108,8 +110,8 @@ export function Numpad({
 							key="backspace"
 							type="button"
 							className={cn(
-								"flex h-16 w-16 items-center justify-center rounded-full text-white/35 transition-colors hover:text-white/60 active:text-white/80",
-								pressedKey === "backspace" && "text-white/80",
+								"flex h-16 w-16 items-center justify-center rounded-full text-foreground/35 transition-colors hover:text-foreground/60 active:text-foreground/80",
+								pressedKey === "backspace" && "text-foreground/80",
 							)}
 							onClick={onBackspace}
 						>
@@ -123,8 +125,9 @@ export function Numpad({
 						key={key}
 						type="button"
 						className={cn(
-							"flex h-16 w-16 items-center justify-center rounded-full border border-white/12 font-extralight text-[26px] text-white/85 transition-colors hover:border-white/20 hover:text-white active:bg-white/10",
-							pressedKey === key && "border-white/20 bg-white/10 text-white",
+							"flex h-16 w-16 items-center justify-center rounded-full border border-foreground/12 font-extralight text-[26px] text-foreground/85 transition-colors hover:border-foreground/20 hover:text-foreground active:bg-foreground/10",
+							pressedKey === key &&
+								"border-foreground/20 bg-foreground/10 text-foreground",
 						)}
 						onClick={() => onDigit(key)}
 					>

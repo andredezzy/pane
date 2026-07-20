@@ -15,8 +15,8 @@ export function TabItem({ className, active, ref, ...props }: TabItemProps) {
 			className={cn(
 				"group flex w-full items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs",
 				active
-					? "bg-[rgba(255,255,255,0.05)] text-[#e4e4e7]"
-					: "text-[#71717a] transition-colors hover:bg-accent hover:text-accent-foreground",
+					? "bg-foreground/5 text-accent-foreground"
+					: "text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
 				className,
 			)}
 			{...props}
@@ -60,7 +60,7 @@ export function TabNew({
 		<button
 			type="button"
 			className={cn(
-				"mt-1 flex w-full items-center gap-1.5 rounded-[5px] px-2 py-1 text-[#71717a] text-xs transition-colors hover:bg-accent hover:text-accent-foreground",
+				"mt-1 flex w-full items-center gap-1.5 rounded-[5px] px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-accent-foreground",
 				className,
 			)}
 			{...props}

@@ -3,28 +3,30 @@
 
 @source "../../../../../packages/ui/src/**/*.{ts,tsx}";
 
-@custom-variant dark (&:is(.dark *));
-
+/* Each token is a light-dark() pair resolved by the used color scheme, which
+   follows prefers-color-scheme — driven app-wide by nativeTheme.themeSource
+   (see main/index.ts). The dark values are the original Pane palette; the light
+   values are its tuned zinc-light mirror. */
 @theme {
-	--color-background: #0a0a0c;
-	--color-foreground: #fafafa;
-	--color-card: #1c1c1f;
-	--color-card-foreground: #fafafa;
-	--color-popover: #1c1c1f;
-	--color-popover-foreground: #fafafa;
-	--color-primary: #fafafa;
-	--color-primary-foreground: #18181b;
-	--color-secondary: #232326;
-	--color-secondary-foreground: #fafafa;
-	--color-muted: #232326;
+	--color-background: light-dark(#fafafa, #0a0a0c);
+	--color-foreground: light-dark(#18181b, #fafafa);
+	--color-card: light-dark(#ffffff, #1c1c1f);
+	--color-card-foreground: light-dark(#18181b, #fafafa);
+	--color-popover: light-dark(#ffffff, #1c1c1f);
+	--color-popover-foreground: light-dark(#18181b, #fafafa);
+	--color-primary: light-dark(#18181b, #fafafa);
+	--color-primary-foreground: light-dark(#fafafa, #18181b);
+	--color-secondary: light-dark(#e9e9eb, #232326);
+	--color-secondary-foreground: light-dark(#18181b, #fafafa);
+	--color-muted: light-dark(#e9e9eb, #232326);
 	--color-muted-foreground: #71717a;
-	--color-accent: #232326;
-	--color-accent-foreground: #e4e4e7;
-	--color-destructive: #ef4444;
+	--color-accent: light-dark(#e9e9eb, #232326);
+	--color-accent-foreground: light-dark(#27272a, #e4e4e7);
+	--color-destructive: light-dark(#dc2626, #ef4444);
 	--color-destructive-foreground: #fafafa;
-	--color-border: rgba(255, 255, 255, 0.06);
-	--color-input: rgba(255, 255, 255, 0.06);
-	--color-ring: #52525b;
+	--color-border: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.06));
+	--color-input: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.06));
+	--color-ring: light-dark(#a1a1aa, #52525b);
 	--radius: 0.5rem;
 }
 
@@ -144,6 +146,9 @@ a,
 html,
 body {
 	@apply bg-background text-foreground antialiased;
+	/* Opt into both schemes so light-dark() resolves against the theme Chromium
+	   was told to use, and native scrollbars/controls follow along. */
+	color-scheme: light dark;
 	margin: 0;
 	overflow: hidden;
 	user-select: none;
@@ -165,7 +170,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-	background-color: rgba(255, 255, 255, 0.1);
+	background-color: light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.1));
 	background-clip: padding-box;
 	border: 4px solid transparent;
 	border-radius: 9999px;
@@ -173,11 +178,11 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-	background-color: rgba(255, 255, 255, 0.22);
+	background-color: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.22));
 }
 
 ::-webkit-scrollbar-thumb:active {
-	background-color: rgba(255, 255, 255, 0.3);
+	background-color: light-dark(rgba(0, 0, 0, 0.38), rgba(255, 255, 255, 0.3));
 }
 
 ::-webkit-scrollbar-corner {

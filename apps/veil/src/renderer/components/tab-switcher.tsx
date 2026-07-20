@@ -137,7 +137,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 				role="dialog"
 				aria-modal="true"
 				aria-label="Tab switcher"
-				className="relative w-[320px] space-y-2 rounded-xl border border-white/10 bg-[#1a1a1e] p-2.5 shadow-2xl"
+				className="relative w-[320px] space-y-2 rounded-xl border border-foreground/10 bg-popover p-2.5 shadow-2xl"
 			>
 				{groups.map((group, groupIndex) => {
 					const headerId = `tab-switcher-group-${group.id}`;
@@ -154,7 +154,7 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 
 								<span
 									id={headerId}
-									className="truncate font-medium text-[11px] text-white/40"
+									className="truncate font-medium text-[11px] text-muted-foreground"
 								>
 									{group.name}
 								</span>
@@ -190,10 +190,10 @@ export function TabSwitcher({ onClose }: { onClose: () => void }) {
 												className="h-4 w-4 shrink-0 rounded-sm"
 											/>
 										) : (
-											<div className="h-4 w-4 shrink-0 rounded-sm bg-white/10" />
+											<div className="h-4 w-4 shrink-0 rounded-sm bg-foreground/10" />
 										)}
 
-										<span className="truncate text-sm text-white/80">
+										<span className="truncate text-popover-foreground/80 text-sm">
 											{tab.title}
 										</span>
 									</button>

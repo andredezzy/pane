@@ -226,7 +226,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				{isDismissable && (
 					<button
 						type="button"
-						className="text-white/30 transition-colors hover:text-white/60"
+						className="text-foreground/30 transition-colors hover:text-foreground/60"
 						onClick={dismiss}
 					>
 						<ArrowLeft className="h-5 w-5" />
@@ -239,7 +239,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				style={noDrag}
 			>
 				{title && (
-					<p className="font-light text-[13px] text-white/50">{title}</p>
+					<p className="font-light text-[13px] text-foreground/50">{title}</p>
 				)}
 
 				<NumpadDots length={dotLength} filled={entered.length} shake={shake} />
@@ -249,7 +249,7 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				{step === Step.ENTER && entered.length >= 4 && (
 					<button
 						type="button"
-						className="font-light text-[13px] text-white/60 hover:text-white/80"
+						className="font-light text-[13px] text-foreground/60 hover:text-foreground/80"
 						onClick={handleContinue}
 					>
 						Continue with {entered.length}-digit PIN
@@ -257,21 +257,21 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 				)}
 
 				{step === Step.ENTER && entered.length < 4 && (
-					<p className="font-light text-[13px] text-white/30">
+					<p className="font-light text-[13px] text-foreground/30">
 						Enter at least 4 digits
 					</p>
 				)}
 
 				{error && (
-					<p className="font-light text-[13px] text-red-500">{error}</p>
+					<p className="font-light text-[13px] text-destructive">{error}</p>
 				)}
 
 				{mode === PinScreenMode.UNLOCK && failedAttempts > 0 && (
 					<p
 						className={
 							remaining === 1
-								? "font-light text-[13px] text-red-500"
-								: "font-light text-[13px] text-white/30"
+								? "font-light text-[13px] text-destructive"
+								: "font-light text-[13px] text-foreground/30"
 						}
 					>
 						{remaining === 1

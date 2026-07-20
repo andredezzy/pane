@@ -357,7 +357,7 @@ function TabDragOverlay({ tabId, profileId }: TabDragOverlayProps) {
 
 	return (
 		<div className="w-[200px] scale-[1.02] cursor-grabbing">
-			<div className="flex w-full items-center gap-1.5 rounded-[5px] bg-[rgba(255,255,255,0.05)] px-2 py-1 text-[#e4e4e7] text-[11px] shadow-lg">
+			<div className="flex w-full items-center gap-1.5 rounded-[5px] bg-foreground/5 px-2 py-1 text-[11px] text-accent-foreground shadow-lg">
 				<TabFavicon src={tab.favicon || undefined} />
 				<TabTitle>{tab.title || "Loading..."}</TabTitle>
 			</div>
@@ -525,7 +525,7 @@ export function Layout({ onReady }: { onReady?: () => void }) {
 						disabled={expandedProfileIds.length === 0}
 						title="Collapse all profiles"
 						aria-label="Collapse all profiles"
-						className="ml-auto flex h-6 w-6 items-center justify-center rounded text-[#71717a] transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+						className="ml-auto flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
 						style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
 					>
 						<ChevronsDownUp className="h-3.5 w-3.5" />
