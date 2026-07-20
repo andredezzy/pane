@@ -39,6 +39,7 @@ import { FindEmitter } from "./emitters/find-emitter";
 import { HotkeyEmitter } from "./emitters/hotkey-emitter";
 import { ExtensionInstaller } from "./extensions";
 import { Pane } from "./pane";
+import { SleepScheduler } from "./sleep-scheduler";
 import { createIPCHandler } from "./trpc/ipc";
 import { appRouter } from "./trpc/router";
 import { scheduleUpdateChecks } from "./updater";
@@ -60,6 +61,8 @@ function setup() {
 
 	const currentPane = new Pane(appWindow.mainWindow, findEmitter);
 	pane = currentPane;
+
+	const sleepScheduler = new SleepScheduler(currentPane);
 
 	ElectronChromeExtensions.handleCRXProtocol(session.defaultSession);
 
@@ -122,6 +125,7 @@ function setup() {
 	appWindow.mainWindow.on("leave-full-screen", syncBounds);
 
 	appWindow.mainWindow.on("closed", () => {
+		sleepScheduler.dispose();
 		pane?.destroy();
 
 		appWindow?.surface.destroy();

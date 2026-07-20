@@ -125,6 +125,10 @@ export class ProfileTabs {
 				this.views.set(tabId, view);
 
 				this.safeLoadURL(view.webContents, tab.url);
+
+				profileStore.getState().updateTab(this.profile.id, tabId, {
+					isLoaded: true,
+				});
 			}
 		}
 
@@ -149,18 +153,48 @@ export class ProfileTabs {
 		}
 	}
 
-	unloadAll(): void {
-		const views = [...this.views.entries()];
-		this.views.clear();
+	// Releases the tab's page while keeping its sidebar entry; activate()
+	// restores it by re-navigation (CONTEXT.md: Sleep).
+	sleep(tabId: string): void {
+		const view = this.views.get(tabId);
 
-		for (const [tabId, view] of views) {
-			tabStore.getState().setLoading(tabId, false);
-
-			try {
-				this.mainWindow.contentView.removeChildView(view);
-				view.webContents.close();
-			} catch {}
+		if (!view) {
+			return;
 		}
+
+		this.views.delete(tabId);
+		tabStore.getState().setLoading(tabId, false);
+
+		profileStore.getState().updateTab(this.profile.id, tabId, {
+			isLoaded: false,
+		});
+
+		try {
+			this.mainWindow.contentView.removeChildView(view);
+			view.webContents.close();
+		} catch {}
+	}
+
+	unloadAll(): void {
+		for (const tabId of [...this.views.keys()]) {
+			this.sleep(tabId);
+		}
+	}
+
+	loadedTabIds(): string[] {
+		return [...this.views.keys()];
+	}
+
+	// Audio and DevTools are the never-sleep protections observable from the
+	// main process (CONTEXT.md: Sleep).
+	isProtected(tabId: string): boolean {
+		const contents = this.views.get(tabId)?.webContents;
+
+		return (
+			contents !== undefined &&
+			!contents.isDestroyed() &&
+			(contents.isCurrentlyAudible() || contents.isDevToolsOpened())
+		);
 	}
 
 	destroyAll(): void {

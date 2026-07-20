@@ -5,8 +5,10 @@ import { cn } from "@pane/ui/cn";
 import {
 	ChevronsDownUp,
 	LogOut,
+	Moon,
 	Pencil,
 	Settings,
+	TimerOff,
 	Trash2,
 	X,
 } from "lucide-react";
@@ -178,9 +180,23 @@ function SidebarProfileItem({
 		}
 	}, [id, expanded, onToggle]);
 
+	const hasLoadedTabs = profile?.tabs.some((tab) => tab.isLoaded) ?? false;
+
+	// The moon marks an unload that happened — a profile never loaded this
+	// session was never unloaded, so a cold start shows no markers.
+	const [wasLoaded, setWasLoaded] = useState(false);
+
+	useEffect(() => {
+		if (hasLoadedTabs) {
+			setWasLoaded(true);
+		}
+	}, [hasLoadedTabs]);
+
 	if (!profile) {
 		return null;
 	}
+
+	const isUnloaded = wasLoaded && !hasLoadedTabs && profile.tabs.length > 0;
 
 	return (
 		<ProfileItem
@@ -189,21 +205,33 @@ function SidebarProfileItem({
 			onContextMenu={async (event) => {
 				event.preventDefault();
 
-				const [editIcon, signOutIcon, deleteIcon, googleSignedIn] =
-					await Promise.all([
-						menuIcon(Pencil),
-						menuIcon(LogOut),
-						menuIcon(Trash2),
-						// Degrade to hiding the sign-out item on IPC error, so a failed
-						// query can't reject Promise.all and swallow the whole menu.
-						trpc.profiles.google.signedIn
-							.query({ profileId: profile.id })
-							.catch(() => false),
-					]);
+				const [
+					editIcon,
+					keepLoadedIcon,
+					signOutIcon,
+					deleteIcon,
+					googleSignedIn,
+				] = await Promise.all([
+					menuIcon(Pencil),
+					menuIcon(TimerOff),
+					menuIcon(LogOut),
+					menuIcon(Trash2),
+					// Degrade to hiding the sign-out item on IPC error, so a failed
+					// query can't reject Promise.all and swallow the whole menu.
+					trpc.profiles.google.signedIn
+						.query({ profileId: profile.id })
+						.catch(() => false),
+				]);
 
 				const selected = await trpc.ui.menu.mutate({
 					items: [
 						{ id: "edit", label: "Edit profile", icon: editIcon },
+						{
+							id: "keep-loaded",
+							label: "Keep loaded",
+							icon: keepLoadedIcon,
+							checked: profile.keepLoaded,
+						},
 						// Only offer sign-out when the profile actually has a Google session.
 						...(googleSignedIn
 							? [
@@ -221,6 +249,10 @@ function SidebarProfileItem({
 
 				if (selected === "edit") {
 					surface.open(ProfileSheet, { profileId: profile.id });
+				} else if (selected === "keep-loaded") {
+					profileStore
+						.getState()
+						.update(profile.id, { keepLoaded: !profile.keepLoaded });
 				} else if (selected === "signout") {
 					const confirmed = await trpc.ui.confirm.mutate({
 						message: `Sign out of Google in "${profile.name}"?`,
@@ -256,6 +288,10 @@ function SidebarProfileItem({
 				onClick={handleToggle}
 			>
 				<ProfileName>{profile.name}</ProfileName>
+
+				{isUnloaded ? (
+					<Moon className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+				) : null}
 
 				{proxyStatus !== undefined ? (
 					<ProfileProxyDot status={proxyStatus} />
@@ -321,6 +357,7 @@ function SortableTab({ tab, index }: SortableTabProps) {
 		<TabItem
 			ref={ref}
 			active={activeTabId === tab.id && page === Page.BROWSER}
+			className={cn(!tab.isLoaded && "opacity-60")}
 			style={{ opacity: isDragSource ? 0.4 : 1 }}
 			onClick={() => {
 				navigationStore.getState().navigate(Page.BROWSER);

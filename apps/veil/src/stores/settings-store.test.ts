@@ -37,6 +37,8 @@ describe("settings persistence", () => {
 		expect(settingsStore.getState().settings).toEqual({
 			chromiumPath: "/Applications/Chromium.app",
 			theme: "system",
+			tabSleepAfterMinutes: 15,
+			profileUnloadAfterMinutes: 30,
 		});
 	});
 

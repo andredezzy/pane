@@ -8,6 +8,8 @@ const menuItemSchema = z.union([
 		label: z.string(),
 		icon: z.string().optional(),
 		enabled: z.boolean().optional(),
+		// Present = render as a checkbox item with the native checkmark.
+		checked: z.boolean().optional(),
 	}),
 	z.object({ type: z.literal("separator") }),
 ]);
@@ -61,6 +63,9 @@ export const uiRouter = router({
 
 					return {
 						label: item.label,
+						...(item.checked !== undefined
+							? { type: "checkbox" as const, checked: item.checked }
+							: {}),
 						icon,
 						enabled: item.enabled ?? true,
 						click: () => {

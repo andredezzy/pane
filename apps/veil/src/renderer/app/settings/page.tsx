@@ -27,6 +27,11 @@ import {
 	parseExtensionId,
 	UninstallDialog,
 } from "./_components/extension-settings";
+import {
+	PROFILE_UNLOAD_OPTIONS,
+	SleepTimerRow,
+	TAB_SLEEP_OPTIONS,
+} from "./_components/memory-settings";
 
 const settingsSchema = z.object({
 	chromiumPath: z.string().min(1, "Browser path is required"),
@@ -217,6 +222,38 @@ export function SettingsPage() {
 							<Button type="submit">Save</Button>
 						</form>
 					</Form>
+				</div>
+
+				<Separator />
+
+				<div>
+					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
+						Memory
+					</span>
+
+					<div className="mt-3 space-y-4">
+						<SleepTimerRow
+							label="Sleep background tabs after"
+							options={TAB_SLEEP_OPTIONS}
+							value={settings.tabSleepAfterMinutes}
+							onChange={(minutes) =>
+								settingsStore
+									.getState()
+									.update({ tabSleepAfterMinutes: minutes })
+							}
+						/>
+
+						<SleepTimerRow
+							label="Unload hidden profiles after"
+							options={PROFILE_UNLOAD_OPTIONS}
+							value={settings.profileUnloadAfterMinutes}
+							onChange={(minutes) =>
+								settingsStore
+									.getState()
+									.update({ profileUnloadAfterMinutes: minutes })
+							}
+						/>
+					</div>
 				</div>
 
 				<Separator />

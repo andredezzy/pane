@@ -58,6 +58,8 @@ export interface BrowserProfile {
 	// fingerprint is often the better choice against strict bot checks (Cloudflare).
 	fingerprint: Fingerprint | null;
 	proxy: ProxyConfig | null;
+	// Exempts the profile from automatic sleep/unload (CONTEXT.md: Keep loaded).
+	keepLoaded: boolean;
 	tabs: Tab[];
 	createdAt: string;
 	updatedAt: string;
@@ -65,8 +67,8 @@ export interface BrowserProfile {
 
 type CreateInput = Omit<
 	BrowserProfile,
-	"id" | "createdAt" | "updatedAt" | "tabs"
->;
+	"id" | "createdAt" | "updatedAt" | "tabs" | "keepLoaded"
+> & { keepLoaded?: boolean };
 
 interface ProfileState {
 	profiles: BrowserProfile[];
@@ -97,6 +99,7 @@ export const profileStore = createStore<ProfileState>()(
 							{
 								...input,
 								id,
+								keepLoaded: input.keepLoaded ?? false,
 								tabs: [],
 								createdAt: now,
 								updatedAt: now,
@@ -236,6 +239,7 @@ export const profileStore = createStore<ProfileState>()(
 							return {
 								...profile,
 								color: profile.color ?? ProfileColor.BLUE,
+								keepLoaded: profile.keepLoaded ?? false,
 								tabs: profile.tabs.map((tab) => ({
 									...tab,
 									favicon: tab.favicon ?? "",

@@ -11,6 +11,10 @@ export type Theme = "system" | "light" | "dark";
 export interface AppSettings {
 	chromiumPath: string;
 	theme: Theme;
+	// Minutes a background tab stays loaded before it sleeps; null = off.
+	tabSleepAfterMinutes: number | null;
+	// Minutes a hidden profile stays loaded before automatic unload; null = off.
+	profileUnloadAfterMinutes: number | null;
 }
 
 export interface SettingsState {
@@ -23,7 +27,12 @@ export const settingsStore = createStore<SettingsState>()(
 	persist(
 		sync(
 			(set) => ({
-				settings: { chromiumPath: "", theme: "system" },
+				settings: {
+					chromiumPath: "",
+					theme: "system",
+					tabSleepAfterMinutes: 15,
+					profileUnloadAfterMinutes: 30,
+				},
 
 				update: (settings) =>
 					set((state) => ({ settings: { ...state.settings, ...settings } })),
