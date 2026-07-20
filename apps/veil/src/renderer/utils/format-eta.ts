@@ -1,9 +1,10 @@
-// Quantized to 5s steps so the label changes a few times a minute, not on
-// every progress tick.
+// A handful of coarse buckets instead of a live countdown: an erratic CDN
+// swings any precise estimate constantly, but "~3min" can only ever step to
+// "~2min" — jumps are structurally impossible, not merely dampened.
 export function formatEtaSeconds(etaSeconds: number): string {
-	const quantized = Math.max(5, Math.round(etaSeconds / 5) * 5);
-	const minutes = Math.floor(quantized / 60);
-	const seconds = quantized % 60;
+	if (etaSeconds < 45) {
+		return "<1min";
+	}
 
-	return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+	return `~${Math.max(1, Math.round(etaSeconds / 60))}min`;
 }

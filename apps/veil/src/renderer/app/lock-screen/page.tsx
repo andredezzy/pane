@@ -314,11 +314,17 @@ export function PinScreen({ mode }: { mode: PinScreenMode }) {
 										}}
 									/>
 								</span>
-								{downloadEtaSeconds !== null && (
-									<span className="ml-2 min-w-14 whitespace-nowrap text-left text-muted-foreground tabular-nums">
-										{formatEtaSeconds(downloadEtaSeconds)}
-									</span>
-								)}
+								<span
+									className={
+										downloadEtaSeconds !== null
+											? "ml-2 min-w-14 whitespace-nowrap text-left text-muted-foreground tabular-nums opacity-100 transition-opacity duration-200"
+											: "ml-2 min-w-14 whitespace-nowrap text-left text-muted-foreground tabular-nums opacity-0 transition-opacity duration-200"
+									}
+								>
+									{downloadEtaSeconds !== null
+										? formatEtaSeconds(downloadEtaSeconds)
+										: ""}
+								</span>
 							</>
 						)}
 						{updateStatus === UpdateStatus.AVAILABLE && (

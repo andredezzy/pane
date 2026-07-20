@@ -12,6 +12,7 @@ const USER_AGENT = "Pane-Updater";
 const DMG_ASSET_SUFFIX = "-arm64.dmg";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const ETA_INCREASE_HOLD_MS = 5_000;
 
 interface GitHubReleaseAsset {
 	name: string;
@@ -86,39 +87,52 @@ export function downloadUpdate(store: StoreApi<UpdateState>): void {
 		const savePath = path.join(app.getPath("downloads"), item.getFilename());
 		item.setSavePath(savePath);
 
-		// Exponential moving average keeps the ETA from whipsawing with the
-		// CDN's burst-and-stall delivery pattern.
-		let lastReceivedBytes = 0;
-		let lastUpdatedAt = Date.now();
-		let bytesPerSecond = 0;
+		// Whole-transfer average (curl's approach): received / elapsed has a
+		// monotone denominator, so burst-and-stall delivery can't spike it, and
+		// it grows more accurate as the download proceeds.
+		const downloadStartedAt = Date.now();
+		let publishedEtaSeconds: number | null = null;
+		let etaIncreaseCandidateAt: number | null = null;
 
 		item.on("updated", () => {
 			const total = item.getTotalBytes();
 			const received = item.getReceivedBytes();
+
+			if (total <= 0) {
+				return;
+			}
+
 			const now = Date.now();
-			const elapsedSeconds = (now - lastUpdatedAt) / 1000;
+			const elapsedSeconds = (now - downloadStartedAt) / 1000;
+			const bytesPerSecond = elapsedSeconds > 0 ? received / elapsedSeconds : 0;
 
-			if (elapsedSeconds > 0) {
-				const instantRate = (received - lastReceivedBytes) / elapsedSeconds;
+			const rawEtaSeconds =
+				bytesPerSecond > 0
+					? Math.max(0, Math.round((total - received) / bytesPerSecond))
+					: null;
 
-				bytesPerSecond =
-					bytesPerSecond === 0
-						? instantRate
-						: bytesPerSecond * 0.7 + instantRate * 0.3;
-
-				lastReceivedBytes = received;
-				lastUpdatedAt = now;
+			// Hysteresis on top: decreases publish immediately (a countdown), but
+			// an increase must persist for a while before it may move the number
+			// up — a transient slowdown never drags the estimate backwards.
+			if (rawEtaSeconds !== null) {
+				if (
+					publishedEtaSeconds === null ||
+					rawEtaSeconds <= publishedEtaSeconds
+				) {
+					publishedEtaSeconds = rawEtaSeconds;
+					etaIncreaseCandidateAt = null;
+				} else if (etaIncreaseCandidateAt === null) {
+					etaIncreaseCandidateAt = now;
+				} else if (now - etaIncreaseCandidateAt > ETA_INCREASE_HOLD_MS) {
+					publishedEtaSeconds = rawEtaSeconds;
+					etaIncreaseCandidateAt = null;
+				}
 			}
 
-			if (total > 0) {
-				store.getState().setDownloadProgress({
-					progress: received / total,
-					etaSeconds:
-						bytesPerSecond > 0
-							? Math.max(0, Math.round((total - received) / bytesPerSecond))
-							: null,
-				});
-			}
+			store.getState().setDownloadProgress({
+				progress: received / total,
+				etaSeconds: publishedEtaSeconds,
+			});
 		});
 
 		item.once("done", (_doneEvent, state) => {

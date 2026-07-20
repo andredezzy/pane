@@ -82,6 +82,19 @@ export function SettingsPage() {
 
 	const isCheckingUpdate = updateStatus === UpdateStatus.CHECKING;
 	const isDownloadingUpdate = updateStatus === UpdateStatus.DOWNLOADING;
+	const isUpdateDownloaded = updateStatus === UpdateStatus.DOWNLOADED;
+
+	let downloadLabel = "Download update";
+
+	if (isDownloadingUpdate) {
+		downloadLabel = `Downloading… ${Math.round((downloadProgress ?? 0) * 100)}%${
+			downloadEtaSeconds !== null
+				? ` · ${formatEtaSeconds(downloadEtaSeconds)}`
+				: ""
+		}`;
+	} else if (isUpdateDownloaded) {
+		downloadLabel = "Downloaded, quit to install";
+	}
 
 	const handleInstall = useCallback(async (value: string) => {
 		const id = parseExtensionId(value);
@@ -296,25 +309,13 @@ export function SettingsPage() {
 								<p className="text-[12px] text-muted-foreground">
 									Version {availableUpdate.version} is available
 								</p>
-								{updateStatus === UpdateStatus.DOWNLOADED ? (
-									<p className="text-[12px] text-muted-foreground">
-										Downloaded, quit to install
-									</p>
-								) : (
-									<Button
-										variant="outline"
-										disabled={isDownloadingUpdate}
-										onClick={() => trpc.updates.download.mutate()}
-									>
-										{isDownloadingUpdate
-											? `Downloading… ${Math.round((downloadProgress ?? 0) * 100)}%${
-													downloadEtaSeconds !== null
-														? ` · ${formatEtaSeconds(downloadEtaSeconds)}`
-														: ""
-												}`
-											: "Download update"}
-									</Button>
-								)}
+								<Button
+									variant="outline"
+									disabled={isDownloadingUpdate || isUpdateDownloaded}
+									onClick={() => trpc.updates.download.mutate()}
+								>
+									{downloadLabel}
+								</Button>
 							</div>
 						) : null}
 					</div>
