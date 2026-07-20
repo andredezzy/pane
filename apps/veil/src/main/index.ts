@@ -36,12 +36,14 @@ import { securityStore } from "../stores/security-store";
 import { settingsStore } from "../stores/settings-store";
 import { sidebarStore } from "../stores/sidebar-store";
 import { tabStore } from "../stores/tab-store";
+import { updateStore } from "../stores/update-store";
 import { FindEmitter } from "./emitters/find-emitter";
 import { HotkeyEmitter } from "./emitters/hotkey-emitter";
 import { ExtensionInstaller } from "./extensions";
 import { Pane } from "./pane";
 import { createIPCHandler } from "./trpc/ipc";
 import { appRouter } from "./trpc/router";
+import { scheduleUpdateChecks } from "./updater";
 import type { AppWindow } from "./window";
 import { createAppWindow, createMenu } from "./window";
 
@@ -63,7 +65,13 @@ function setup() {
 
 	ElectronChromeExtensions.handleCRXProtocol(session.defaultSession);
 
-	createMenu(appWindow.chrome, currentPane, hotkeyEmitter, appWindow.surface);
+	createMenu(
+		appWindow.chrome,
+		currentPane,
+		hotkeyEmitter,
+		appWindow.surface,
+		updateStore,
+	);
 
 	const createContext = () => ({
 		pane: currentPane,
@@ -79,6 +87,7 @@ function setup() {
 			"extension-store": extensionStore,
 			"security-store": securityStore,
 			"sidebar-store": sidebarStore,
+			"update-store": updateStore,
 		},
 	});
 
@@ -151,6 +160,8 @@ app.whenReady().then(() => {
 	ExtensionInstaller.registerProtocol(
 		path.join(app.getPath("userData"), "Extensions"),
 	);
+
+	scheduleUpdateChecks(updateStore);
 
 	setup();
 
