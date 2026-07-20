@@ -19,7 +19,10 @@ export class ProxyRelay {
 	}
 
 	get proxyUrl(): string {
-		const scheme = this.needsRelay ? "socks5" : this.config.proxyType.toLowerCase();
+		const scheme = this.needsRelay
+			? "socks5"
+			: this.config.proxyType.toLowerCase();
+
 		const host = this.needsRelay ? "127.0.0.1" : this.config.host;
 		const port = this.needsRelay ? this.localPort : this.config.port;
 
@@ -39,7 +42,10 @@ export class ProxyRelay {
 			return;
 		}
 
-		const socksType = SOCKS_TYPE_MAP[this.config.proxyType as ProxyType.SOCKS4 | ProxyType.SOCKS5];
+		const socksType =
+			SOCKS_TYPE_MAP[
+				this.config.proxyType as ProxyType.SOCKS4 | ProxyType.SOCKS5
+			];
 
 		const server = net.createServer((clientSocket) => {
 			clientSocket.once("data", (firstChunk) => {
@@ -48,6 +54,7 @@ export class ProxyRelay {
 
 			clientSocket.on("error", () => clientSocket.destroy());
 		});
+
 		this.server = server;
 
 		// A listen failure (EADDRINUSE, etc.) surfaces as an "error" event rather than
@@ -60,6 +67,7 @@ export class ProxyRelay {
 			server.on("error", (error) => {
 				if (listening) {
 					console.error("[ProxyRelay] server error after listen:", error);
+
 					return;
 				}
 
@@ -87,6 +95,7 @@ export class ProxyRelay {
 	): void {
 		if (firstChunk[0] !== 0x05) {
 			clientSocket.destroy();
+
 			return;
 		}
 
@@ -106,6 +115,7 @@ export class ProxyRelay {
 
 		if (!parsed) {
 			clientSocket.destroy();
+
 			return;
 		}
 
@@ -123,9 +133,7 @@ export class ProxyRelay {
 		})
 			.then(({ socket: remoteSocket }) => {
 				const reply = Buffer.from([
-					0x05, 0x00, 0x00, 0x01,
-					0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00,
+					0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 				]);
 
 				clientSocket.write(reply);
@@ -141,9 +149,7 @@ export class ProxyRelay {
 			})
 			.catch(() => {
 				const errorReply = Buffer.from([
-					0x05, 0x01, 0x00, 0x01,
-					0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00,
+					0x05, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 				]);
 
 				clientSocket.write(errorReply);
@@ -165,15 +171,19 @@ function parseSocks5Request(
 
 	if (addressType === 0x01) {
 		if (data.length < 10) return null;
+
 		host = `${data[4]}.${data[5]}.${data[6]}.${data[7]}`;
 		portOffset = 8;
 	} else if (addressType === 0x03) {
 		const hostnameLength = data[4];
+
 		if (data.length < 5 + hostnameLength + 2) return null;
+
 		host = data.subarray(5, 5 + hostnameLength).toString("ascii");
 		portOffset = 5 + hostnameLength;
 	} else if (addressType === 0x04) {
 		if (data.length < 22) return null;
+
 		const parts: string[] = [];
 		for (let i = 0; i < 16; i += 2) {
 			parts.push(data.readUInt16BE(4 + i).toString(16));

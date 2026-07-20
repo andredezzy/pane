@@ -264,6 +264,7 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 			const stored = profile?.fingerprint ?? null;
 			const platformChanged = stored?.platform !== data.platform;
 			const spoofingChanged = (stored !== null) !== data.spoofingEnabled;
+
 			const fingerprint =
 				platformChanged || spoofingChanged ? input.fingerprint : stored;
 

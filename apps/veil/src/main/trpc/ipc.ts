@@ -70,6 +70,7 @@ export function createIPCHandler<TRouter extends AnyTRPCRouter>({
 			frameRoutingId !== undefined
 				? `${webContentsId}-${frameRoutingId}:`
 				: `${webContentsId}-`;
+
 		for (const [key, sub] of subscriptions.entries()) {
 			if (key.startsWith(prefix)) {
 				sub.abort();

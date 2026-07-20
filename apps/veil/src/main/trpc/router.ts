@@ -7,6 +7,7 @@ import { settingsRouter } from "./routers/settings";
 import { storesRouter } from "./routers/stores";
 import { tabsRouter } from "./routers/tabs";
 import { uiRouter } from "./routers/ui";
+import { updatesRouter } from "./routers/updates";
 import { router } from "./trpc";
 
 export const appRouter = router({
@@ -19,6 +20,7 @@ export const appRouter = router({
 	stores: storesRouter,
 	ui: uiRouter,
 	hotkeys: hotkeysRouter,
+	updates: updatesRouter,
 });
 
 export type AppRouter = typeof appRouter;

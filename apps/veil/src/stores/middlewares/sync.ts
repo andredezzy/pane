@@ -13,6 +13,7 @@ export const STORE_NAMES = [
 	"extension-store",
 	"security-store",
 	"sidebar-store",
+	"update-store",
 ] as const;
 
 export type StoreName = (typeof STORE_NAMES)[number];

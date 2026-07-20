@@ -123,9 +123,13 @@
 	);
 	-webkit-mask-image: var(--mask);
 	mask-image: var(--mask);
-	animation: scroll-fade-top linear both, scroll-fade-bottom linear both;
+	animation:
+		scroll-fade-top linear both,
+		scroll-fade-bottom linear both;
 	animation-timeline: scroll(self block), scroll(self block);
-	animation-range: 0 24px, calc(100% - 24px) 100%;
+	animation-range:
+		0 24px,
+		calc(100% - 24px) 100%;
 }
 
 button,

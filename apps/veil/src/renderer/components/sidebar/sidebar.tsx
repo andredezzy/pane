@@ -1,4 +1,5 @@
 import { cn } from "@pane/ui/cn";
+import { X } from "lucide-react";
 import type { CSSProperties, HTMLAttributes } from "react";
 
 export function Sidebar({ className, ...props }: HTMLAttributes<HTMLElement>) {
@@ -95,6 +96,47 @@ export function SidebarNewButton({
 			<span className="font-light text-sm">+</span>
 			<span>New</span>
 		</button>
+	);
+}
+
+interface SidebarUpdatePillProps {
+	onOpen: () => void;
+	onDismiss: () => void;
+	className?: string;
+}
+
+// Quiet by design: no color beyond a single status dot, no motion beyond a
+// soft entrance — this announces an update, it never demands attention.
+export function SidebarUpdatePill({
+	className,
+	onOpen,
+	onDismiss,
+}: SidebarUpdatePillProps) {
+	return (
+		<div
+			className={cn(
+				"group fade-in-0 slide-in-from-bottom-1 relative mb-1.5 flex animate-in items-center gap-1.5 rounded-md bg-[rgba(255,255,255,0.05)] py-1.5 pr-6 pl-2 duration-300",
+				className,
+			)}
+		>
+			<button
+				type="button"
+				onClick={onOpen}
+				className="flex flex-1 items-center gap-1.5 overflow-hidden text-left text-[#d4d4d8] text-xs"
+			>
+				<span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+				<span className="truncate">Update available</span>
+			</button>
+
+			<button
+				type="button"
+				onClick={onDismiss}
+				aria-label="Dismiss"
+				className="-translate-y-1/2 absolute top-1/2 right-1.5 flex h-4 w-4 items-center justify-center rounded text-[#71717a] opacity-0 transition-opacity hover:text-accent-foreground group-hover:opacity-100"
+			>
+				<X className="h-3 w-3" />
+			</button>
+		</div>
 	);
 }
 

@@ -7,10 +7,13 @@ import {
 	nativeImage,
 	WebContentsView,
 } from "electron";
+import type { StoreApi } from "zustand/vanilla";
 
+import type { UpdateState } from "../stores/update-store";
 import type { HotkeyEmitter } from "./emitters/hotkey-emitter";
 import { HotkeyEvent } from "./emitters/hotkey-emitter";
 import type { Pane } from "./pane";
+import { checkForUpdate } from "./updater";
 
 export interface AppWindow {
 	mainWindow: BaseWindow;
@@ -130,9 +133,30 @@ export function createMenu(
 	pane: Pane,
 	hotkeyEmitter: HotkeyEmitter,
 	surface: BrowserWindow,
+	updateStore: StoreApi<UpdateState>,
 ): void {
 	const menu = Menu.buildFromTemplate([
-		{ role: "appMenu" },
+		{
+			label: app.name,
+			submenu: [
+				{ role: "about" },
+				{ type: "separator" },
+				{
+					label: "Check for Updates…",
+					click: () => {
+						void checkForUpdate(updateStore);
+					},
+				},
+				{ type: "separator" },
+				{ role: "services" },
+				{ type: "separator" },
+				{ role: "hide" },
+				{ role: "hideOthers" },
+				{ role: "unhide" },
+				{ type: "separator" },
+				{ role: "quit" },
+			],
+		},
 		{
 			label: "File",
 			submenu: [
@@ -147,7 +171,11 @@ export function createMenu(
 							pane.getOrCreateProfile(activeProfileId).tabs.open(null);
 							pane.navigateToBrowser();
 							chrome.webContents.focus();
-							setTimeout(() => hotkeyEmitter.emitHotkey(HotkeyEvent.FOCUS_ADDRESS_BAR), 100);
+
+							setTimeout(
+								() => hotkeyEmitter.emitHotkey(HotkeyEvent.FOCUS_ADDRESS_BAR),
+								100,
+							);
 						}
 					},
 				},

@@ -15,6 +15,7 @@ import { z } from "zod/v4";
 import { useStore } from "zustand/react";
 import { PinScreenMode, securityStore } from "../../../stores/security-store";
 import { settingsStore } from "../../../stores/settings-store";
+import { UpdateStatus, updateStore } from "../../../stores/update-store";
 import { trpc } from "../../trpc";
 import {
 	ExtensionInstallForm,
@@ -57,6 +58,17 @@ export function SettingsPage() {
 	useEffect(() => {
 		trpc.cws.installed.query().then(setExtensions);
 	}, []);
+
+	const [appVersion, setAppVersion] = useState<string | null>(null);
+
+	useEffect(() => {
+		trpc.updates.currentVersion.query().then(setAppVersion);
+	}, []);
+
+	const updateStatus = useStore(updateStore, (state) => state.status);
+	const availableUpdate = useStore(updateStore, (state) => state.available);
+	const isCheckingUpdate = updateStatus === UpdateStatus.CHECKING;
+	const isDownloadingUpdate = updateStatus === UpdateStatus.DOWNLOADING;
 
 	const handleInstall = useCallback(async (value: string) => {
 		const id = parseExtensionId(value);
@@ -226,17 +238,54 @@ export function SettingsPage() {
 					</div>
 				</div>
 
-				<UninstallDialog
-					extension={uninstallTarget}
-					open={uninstallTarget !== null}
-					onOpenChange={(open) => {
-						if (!open) {
-							setUninstallTarget(null);
-						}
-					}}
-					onConfirm={handleUninstall}
-				/>
+				<div className="h-px bg-[rgba(255,255,255,0.05)]" />
+
+				<div>
+					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
+						Updates
+					</span>
+
+					<div className="mt-3 space-y-3">
+						<p className="text-[12px] text-muted-foreground">
+							Version {appVersion ?? "…"}
+						</p>
+
+						<Button
+							variant="outline"
+							disabled={isCheckingUpdate || isDownloadingUpdate}
+							onClick={() => trpc.updates.check.mutate()}
+						>
+							{isCheckingUpdate ? "Checking…" : "Check for updates"}
+						</Button>
+
+						{availableUpdate ? (
+							<div className="space-y-2">
+								<p className="text-[12px] text-muted-foreground">
+									Version {availableUpdate.version} is available
+								</p>
+								<Button
+									variant="outline"
+									disabled={isDownloadingUpdate}
+									onClick={() => trpc.updates.download.mutate()}
+								>
+									{isDownloadingUpdate ? "Downloading…" : "Download update"}
+								</Button>
+							</div>
+						) : null}
+					</div>
+				</div>
 			</div>
+
+			<UninstallDialog
+				extension={uninstallTarget}
+				open={uninstallTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setUninstallTarget(null);
+					}
+				}}
+				onConfirm={handleUninstall}
+			/>
 		</div>
 	);
 }
