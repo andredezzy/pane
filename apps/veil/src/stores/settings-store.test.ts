@@ -39,6 +39,7 @@ describe("settings persistence", () => {
 			theme: "system",
 			tabSleepAfterMinutes: 15,
 			profileUnloadAfterMinutes: 30,
+			cacheBudgetMB: 300,
 		});
 	});
 

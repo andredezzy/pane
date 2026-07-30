@@ -15,6 +15,9 @@ export interface AppSettings {
 	tabSleepAfterMinutes: number | null;
 	// Minutes a hidden profile stays loaded before automatic unload; null = off.
 	profileUnloadAfterMinutes: number | null;
+	// Megabytes of cache a profile may hold before an unload trims it; null = off.
+	// Budget, not quota: nothing enforces it, the scheduler checks it on unload.
+	cacheBudgetMB: number | null;
 }
 
 export interface SettingsState {
@@ -32,6 +35,7 @@ export const settingsStore = createStore<SettingsState>()(
 					theme: "system",
 					tabSleepAfterMinutes: 15,
 					profileUnloadAfterMinutes: 30,
+					cacheBudgetMB: 300,
 				},
 
 				update: (settings) =>

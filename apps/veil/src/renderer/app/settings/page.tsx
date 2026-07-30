@@ -28,10 +28,11 @@ import {
 	UninstallDialog,
 } from "./_components/extension-settings";
 import {
+	CACHE_BUDGET_OPTIONS,
 	PROFILE_UNLOAD_OPTIONS,
-	SleepTimerRow,
+	PresetRow,
 	TAB_SLEEP_OPTIONS,
-} from "./_components/memory-settings";
+} from "./_components/resource-settings";
 
 const settingsSchema = z.object({
 	chromiumPath: z.string().min(1, "Browser path is required"),
@@ -228,11 +229,11 @@ export function SettingsPage() {
 
 				<div>
 					<span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
-						Memory
+						Memory & disk
 					</span>
 
 					<div className="mt-3 space-y-4">
-						<SleepTimerRow
+						<PresetRow
 							label="Sleep background tabs after"
 							options={TAB_SLEEP_OPTIONS}
 							value={settings.tabSleepAfterMinutes}
@@ -243,7 +244,7 @@ export function SettingsPage() {
 							}
 						/>
 
-						<SleepTimerRow
+						<PresetRow
 							label="Unload hidden profiles after"
 							options={PROFILE_UNLOAD_OPTIONS}
 							value={settings.profileUnloadAfterMinutes}
@@ -251,6 +252,15 @@ export function SettingsPage() {
 								settingsStore
 									.getState()
 									.update({ profileUnloadAfterMinutes: minutes })
+							}
+						/>
+
+						<PresetRow
+							label="Trim cache over"
+							options={CACHE_BUDGET_OPTIONS}
+							value={settings.cacheBudgetMB}
+							onChange={(megabytes) =>
+								settingsStore.getState().update({ cacheBudgetMB: megabytes })
 							}
 						/>
 					</div>

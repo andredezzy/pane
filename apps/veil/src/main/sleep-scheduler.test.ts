@@ -35,6 +35,13 @@ function fakeTabs(tabIds: string[] = ["tab-1"]) {
 	};
 }
 
+function fakeCache(sizeMB = 0) {
+	return {
+		size: vi.fn<() => Promise<number>>(async () => sizeMB * 1024 * 1024),
+		trim: vi.fn<() => Promise<void>>(async () => {}),
+	};
+}
+
 function createProfile(input?: { keepLoaded?: boolean }): string {
 	return profileStore.getState().create({
 		name: "profile",
@@ -60,6 +67,7 @@ describe("SleepScheduler", () => {
 		settingsStore.getState().update({
 			tabSleepAfterMinutes: 15,
 			profileUnloadAfterMinutes: 30,
+			cacheBudgetMB: 300,
 		});
 	});
 
@@ -75,7 +83,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs();
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[hiddenId, { tabs }]]),
+				profiles: new Map([[hiddenId, { tabs, cache: fakeCache() }]]),
 			});
 
 			vi.advanceTimersByTime(THIRTY_ONE_MINUTES);
@@ -89,7 +97,7 @@ describe("SleepScheduler", () => {
 			tabStore.getState().setActiveTab("tab-1", activeId);
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[activeId, { tabs }]]),
+				profiles: new Map([[activeId, { tabs, cache: fakeCache() }]]),
 			});
 
 			vi.advanceTimersByTime(THIRTY_ONE_MINUTES);
@@ -102,7 +110,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs();
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[keptId, { tabs }]]),
+				profiles: new Map([[keptId, { tabs, cache: fakeCache() }]]),
 			});
 
 			vi.advanceTimersByTime(THIRTY_ONE_MINUTES);
@@ -117,7 +125,7 @@ describe("SleepScheduler", () => {
 			tabs.isProtected.mockReturnValue(true);
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[hiddenId, { tabs }]]),
+				profiles: new Map([[hiddenId, { tabs, cache: fakeCache() }]]),
 			});
 
 			vi.advanceTimersByTime(THIRTY_ONE_MINUTES);
@@ -130,7 +138,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs([]);
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[hiddenId, { tabs }]]),
+				profiles: new Map([[hiddenId, { tabs, cache: fakeCache() }]]),
 			});
 
 			vi.advanceTimersByTime(THIRTY_ONE_MINUTES);
@@ -144,7 +152,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs();
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[hiddenId, { tabs }]]),
+				profiles: new Map([[hiddenId, { tabs, cache: fakeCache() }]]),
 			});
 
 			vi.advanceTimersByTime(THIRTY_ONE_MINUTES);
@@ -158,7 +166,10 @@ describe("SleepScheduler", () => {
 			settingsStore.getState().update({ tabSleepAfterMinutes: null });
 			const id = createProfile();
 			const tabs = fakeTabs();
-			scheduler = new SleepScheduler({ profiles: new Map([[id, { tabs }]]) });
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[id, { tabs, cache: fakeCache() }]]),
+			});
 
 			// 20 minutes hidden, then a visit resets the clock; 20 more minutes
 			// after switching away must NOT reach the 30-minute deadline.
@@ -181,7 +192,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs(["tab-1", "tab-2"]);
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[activeId, { tabs }]]),
+				profiles: new Map([[activeId, { tabs, cache: fakeCache() }]]),
 			});
 
 			// tab-1 goes to the background when tab-2 takes over.
@@ -197,7 +208,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs(["tab-1"]);
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[activeId, { tabs }]]),
+				profiles: new Map([[activeId, { tabs, cache: fakeCache() }]]),
 			});
 
 			tabStore.getState().setActiveTab("tab-1", activeId);
@@ -212,7 +223,7 @@ describe("SleepScheduler", () => {
 			tabs.isProtected.mockImplementation((tabId) => tabId === "tab-1");
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[activeId, { tabs }]]),
+				profiles: new Map([[activeId, { tabs, cache: fakeCache() }]]),
 			});
 
 			tabStore.getState().setActiveTab("tab-1", activeId);
@@ -228,7 +239,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs(["tab-1", "tab-2"]);
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[activeId, { tabs }]]),
+				profiles: new Map([[activeId, { tabs, cache: fakeCache() }]]),
 			});
 
 			tabStore.getState().setActiveTab("tab-1", activeId);
@@ -243,7 +254,7 @@ describe("SleepScheduler", () => {
 			const tabs = fakeTabs(["tab-1", "tab-2"]);
 
 			scheduler = new SleepScheduler({
-				profiles: new Map([[activeId, { tabs }]]),
+				profiles: new Map([[activeId, { tabs, cache: fakeCache() }]]),
 			});
 
 			tabStore.getState().setActiveTab("tab-1", activeId);
@@ -258,6 +269,136 @@ describe("SleepScheduler", () => {
 			vi.advanceTimersByTime(6 * 60_000);
 
 			expect(tabs.sleep).toHaveBeenCalledExactlyOnceWith("tab-1");
+		});
+	});
+
+	// The trim hangs off the unload, so every case advances past the 30-minute
+	// unload deadline. Async advance, because the trim resolves on microtasks a
+	// synchronous advance would never flush.
+	describe("cache trim", () => {
+		it("trims a profile that unloads over budget", async () => {
+			const hiddenId = createProfile();
+			const tabs = fakeTabs();
+			const cache = fakeCache(400);
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[hiddenId, { tabs, cache }]]),
+			});
+
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(cache.trim).toHaveBeenCalledOnce();
+		});
+
+		it("leaves a profile that unloads under budget", async () => {
+			const hiddenId = createProfile();
+			const tabs = fakeTabs();
+			const cache = fakeCache(50);
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[hiddenId, { tabs, cache }]]),
+			});
+
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(cache.trim).not.toHaveBeenCalled();
+		});
+
+		it("never measures the cache when the budget setting is off", async () => {
+			settingsStore.getState().update({ cacheBudgetMB: null });
+			const hiddenId = createProfile();
+			const tabs = fakeTabs();
+			const cache = fakeCache(4000);
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[hiddenId, { tabs, cache }]]),
+			});
+
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(cache.size).not.toHaveBeenCalled();
+			expect(cache.trim).not.toHaveBeenCalled();
+		});
+
+		it("never trims a Keep loaded profile, however large", async () => {
+			const keptId = createProfile({ keepLoaded: true });
+			const tabs = fakeTabs();
+			const cache = fakeCache(4000);
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[keptId, { tabs, cache }]]),
+			});
+
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(cache.trim).not.toHaveBeenCalled();
+		});
+
+		it("never trims on the tab-sleep path", async () => {
+			settingsStore.getState().update({ profileUnloadAfterMinutes: null });
+			const activeId = createProfile();
+			const tabs = fakeTabs(["tab-1", "tab-2"]);
+			const cache = fakeCache(4000);
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[activeId, { tabs, cache }]]),
+			});
+
+			tabStore.getState().setActiveTab("tab-1", activeId);
+			tabStore.getState().setActiveTab("tab-2", activeId);
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(tabs.sleep).toHaveBeenCalled();
+			expect(cache.trim).not.toHaveBeenCalled();
+		});
+
+		it("does not stack a second trim while one is in flight", async () => {
+			const hiddenId = createProfile();
+			const tabs = fakeTabs();
+			const cache = fakeCache(400);
+
+			// Never resolves: the first trim stays in flight across later ticks.
+			cache.trim.mockReturnValue(new Promise<void>(() => {}));
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[hiddenId, { tabs, cache }]]),
+			});
+
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			// Re-hide so the unload branch is reachable again on a later tick.
+			tabStore.getState().setActiveTab("tab-1", hiddenId);
+			tabStore.getState().setActiveTab(null, null);
+			tabs.loadedTabIds.mockReturnValue(["tab-1"]);
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(cache.trim).toHaveBeenCalledOnce();
+		});
+
+		it("keeps ticking after a trim rejects", async () => {
+			const hiddenId = createProfile();
+			const tabs = fakeTabs();
+			const cache = fakeCache(400);
+			cache.trim.mockRejectedValue(new Error("disk busy"));
+			const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+			scheduler = new SleepScheduler({
+				profiles: new Map([[hiddenId, { tabs, cache }]]),
+			});
+
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(warn).toHaveBeenCalled();
+
+			// The in-flight guard released, so a later unload can trim again.
+			tabStore.getState().setActiveTab("tab-1", hiddenId);
+			tabStore.getState().setActiveTab(null, null);
+			tabs.loadedTabIds.mockReturnValue(["tab-1"]);
+			await vi.advanceTimersByTimeAsync(THIRTY_ONE_MINUTES);
+
+			expect(cache.trim).toHaveBeenCalledTimes(2);
+
+			warn.mockRestore();
 		});
 	});
 });

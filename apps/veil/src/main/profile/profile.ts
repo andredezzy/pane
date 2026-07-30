@@ -6,6 +6,7 @@ import { app, type BaseWindow, session } from "electron";
 import { extensionStore } from "../../stores/extension-store";
 import { type BrowserProfile, profileStore } from "../../stores/profile-store";
 import type { FindEmitter } from "../emitters/find-emitter";
+import type { TrimmableCache } from "../sleep-scheduler";
 import {
 	clientHintHeaders,
 	deriveClientHints,
@@ -41,6 +42,16 @@ export class Profile implements TabHost {
 	readonly tabs: ProfileTabs;
 	readonly extensions: ExtensionRuntime;
 	readonly proxyReady: Promise<boolean>;
+
+	// The scheduler's disk seam (CONTEXT.md: Trim). Cookies, local storage, and
+	// IndexedDB are deliberately absent from the clear — a trimmed profile keeps
+	// its identity and stays signed in.
+	readonly cache: TrimmableCache = {
+		size: () => this.session.getCacheSize(),
+		trim: () =>
+			this.session.clearData({ dataTypes: ["cache", "serviceWorkers"] }),
+	};
+
 	private proxyLoginHandler?: ProxyLoginHandler;
 	private proxyRelay?: ProxyRelay;
 	private readonly fingerprintPreloadIds: string[] = [];
