@@ -170,19 +170,25 @@ function parseSocks5Request(
 	let portOffset: number;
 
 	if (addressType === 0x01) {
-		if (data.length < 10) return null;
+		if (data.length < 10) {
+			return null;
+		}
 
 		host = `${data[4]}.${data[5]}.${data[6]}.${data[7]}`;
 		portOffset = 8;
 	} else if (addressType === 0x03) {
 		const hostnameLength = data[4];
 
-		if (data.length < 5 + hostnameLength + 2) return null;
+		if (data.length < 5 + hostnameLength + 2) {
+			return null;
+		}
 
 		host = data.subarray(5, 5 + hostnameLength).toString("ascii");
 		portOffset = 5 + hostnameLength;
 	} else if (addressType === 0x04) {
-		if (data.length < 22) return null;
+		if (data.length < 22) {
+			return null;
+		}
 
 		const parts: string[] = [];
 		for (let i = 0; i < 16; i += 2) {

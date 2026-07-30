@@ -142,11 +142,21 @@ function SidebarProfileItem({
 
 	const { ref, handleRef, isDragSource } = useSortable({ id, index });
 
+	const proxyType = profile?.proxy?.proxyType;
 	const proxyHost = profile?.proxy?.host;
 	const proxyPort = profile?.proxy?.port;
+	const proxyUsername = profile?.proxy?.username;
+	const proxyPassword = profile?.proxy?.password;
 
+	// Depends on the proxy's primitives, never the profile object: a re-test must
+	// follow a change to the connection target, not every unrelated store update
+	// that hands back a new profile identity.
 	useEffect(() => {
-		if (!profile?.proxy) {
+		if (
+			proxyType === undefined ||
+			proxyHost === undefined ||
+			proxyPort === undefined
+		) {
 			return;
 		}
 
@@ -156,11 +166,11 @@ function SidebarProfileItem({
 
 		trpc.profiles.testProxy
 			.mutate({
-				proxyType: profile.proxy.proxyType,
-				host: profile.proxy.host,
-				port: profile.proxy.port,
-				username: profile.proxy.username ?? undefined,
-				password: profile.proxy.password ?? undefined,
+				proxyType,
+				host: proxyHost,
+				port: proxyPort,
+				username: proxyUsername ?? undefined,
+				password: proxyPassword ?? undefined,
 			})
 			.then((result) => {
 				set(id, result.success ? ProxyStatus.CONNECTED : ProxyStatus.FAILED);
@@ -168,7 +178,7 @@ function SidebarProfileItem({
 			.catch(() => {
 				set(id, ProxyStatus.FAILED);
 			});
-	}, [id, proxyHost, proxyPort]);
+	}, [id, proxyType, proxyHost, proxyPort, proxyUsername, proxyPassword]);
 
 	const handleToggle = useCallback(() => {
 		onToggle(id);

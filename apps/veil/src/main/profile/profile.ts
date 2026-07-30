@@ -24,13 +24,24 @@ export function profileSession(id: string): Electron.Session {
 	return session.fromPartition(`persist:profile-${id}`);
 }
 
+// Electron names no type for its app "login" listener, so this mirrors the
+// signature in its typings (electron.d.ts, the app `on(event: 'login', …)`
+// overload). Spelled out rather than `any[]`, which loses every argument.
+type ProxyLoginHandler = (
+	event: Electron.Event,
+	webContents: Electron.WebContents,
+	details: Electron.AuthenticationResponseDetails,
+	authInfo: Electron.AuthInfo,
+	callback: (username?: string, password?: string) => void,
+) => void;
+
 export class Profile implements TabHost {
 	readonly session: Electron.Session;
 	readonly ece: ElectronChromeExtensions;
 	readonly tabs: ProfileTabs;
 	readonly extensions: ExtensionRuntime;
 	readonly proxyReady: Promise<boolean>;
-	private proxyLoginHandler?: (...args: any[]) => void;
+	private proxyLoginHandler?: ProxyLoginHandler;
 	private proxyRelay?: ProxyRelay;
 	private readonly fingerprintPreloadIds: string[] = [];
 
@@ -146,7 +157,11 @@ export class Profile implements TabHost {
 			const relay = new ProxyRelay(p);
 			this.proxyRelay = relay;
 
-			if (p.username && !relay.needsRelay) {
+			// Narrowed into a const, not asserted: TypeScript drops the narrowing of
+			// a property read across a closure, but keeps it for a const binding.
+			const { username } = p;
+
+			if (username && !relay.needsRelay) {
 				this.proxyLoginHandler = (
 					event,
 					webContents,
@@ -156,7 +171,7 @@ export class Profile implements TabHost {
 				) => {
 					if (authInfo.isProxy && webContents?.session === this.session) {
 						event.preventDefault();
-						callback(p.username!, p.password ?? "");
+						callback(username, p.password ?? "");
 					}
 				};
 

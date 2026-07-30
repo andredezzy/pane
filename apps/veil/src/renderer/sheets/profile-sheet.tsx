@@ -198,6 +198,23 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 		loading: false,
 	});
 
+	// Untested, passed, failed — three states, so an if-else ladder rather than
+	// ternaries nested inside the markup.
+	const proxyTestResult = proxyTest.result;
+
+	let proxyTestClassName = "";
+	let proxyTestLabel = "Test proxy";
+
+	if (proxyTestResult?.success) {
+		proxyTestClassName =
+			"border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white";
+
+		proxyTestLabel = proxyTestResult.ip;
+	} else if (proxyTestResult) {
+		proxyTestClassName = "border-destructive text-destructive";
+		proxyTestLabel = proxyTestResult.error;
+	}
+
 	const parseProxyString = (raw: string) => {
 		const parts = raw.trim().split(":");
 
@@ -523,24 +540,14 @@ export function ProfileSheet({ onClose, profileId }: Props) {
 										type="button"
 										variant="outline"
 										size="sm"
-										className={`h-8 w-full text-[11px] ${
-											proxyTest.result?.success
-												? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white"
-												: proxyTest.result && !proxyTest.result.success
-													? "border-destructive text-destructive"
-													: ""
-										}`}
+										className={`h-8 w-full text-[11px] ${proxyTestClassName}`}
 										disabled={proxyTest.loading || !form.watch("proxy.host")}
 										onClick={testProxy}
 									>
 										{proxyTest.loading ? (
 											<Loader2 className="h-3 w-3 animate-spin" />
 										) : null}
-										{proxyTest.result
-											? proxyTest.result.success
-												? proxyTest.result.ip
-												: proxyTest.result.error
-											: "Test proxy"}
+										{proxyTestLabel}
 									</Button>
 								</div>
 							) : null}
