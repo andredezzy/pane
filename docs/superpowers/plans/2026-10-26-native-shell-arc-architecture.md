@@ -113,23 +113,23 @@ docs/native/parity.md
 
 ## Phase 0 — Foundations
 
-- [ ] **0.1 [HUMAN]** Install full Xcode (only the Command Line Tools are present today), accept its license, and point `xcode-select` at it. Verify with `xcodebuild -version`.
-- [ ] **0.2** Write `docs/adr/0004-native-shell-on-own-chromium-framework.md`.
+- [x] **0.1 [HUMAN]** Install full Xcode (only the Command Line Tools are present today), accept its license, and point `xcode-select` at it. Verify with `xcodebuild -version`.
+- [x] **0.2** Write `docs/adr/0004-native-shell-on-own-chromium-framework.md`.
   - It records Decisions 1–7, the reasons (from this plan's references), and the native app's data root.
   - The data root must not collide with any directory the Electron app uses: check `@pane/veil`, `@pane/desktop`, and `Pane`.
   - Mark ADR 0003 as superseded by 0004.
-- [ ] **0.3** Create the `native/` layout.
+- [x] **0.3** Create the `native/` layout.
   - Add `native/evidence/` and the generated `*.xcodeproj` to `.gitignore`.
   - Add a `native/README.md` that says how to sync, build, and run.
-- [ ] **0.4** Set up the checkout.
+- [x] **0.4** Set up the checkout.
   - Install depot_tools in `~/chromium/depot_tools`.
   - Pin the newest Chrome stable for Mac in `native/engine/CHROMIUM_VERSION`. Prefer the `156.0.8078.x` line while it is current, because Ardia's patches target `156.0.8078.47`.
   - `scripts/sync.sh` fetches with `--no-history`, checks out the tag, runs `gclient sync`, and creates the `//pane` symlink. It must be idempotent.
-- [ ] **0.5** Write `args/release.gn`: `is_debug=false`, `dcheck_always_on=false`, `symbol_level=1`, `target_cpu="arm64"`, `proprietary_codecs=true`, `ffmpeg_branding="Chrome"`, `enable_nacl=false`, `is_component_build=false`. Then `scripts/build.sh` builds the stock `chrome` target.
-- [ ] **0.6** Write the scenario runner skeleton (`tests/run.ts`) and `tools/windows.swift`.
+- [x] **0.5** Write `args/release.gn`: `is_debug=false`, `dcheck_always_on=false`, `symbol_level=1`, `target_cpu="arm64"`, `proprietary_codecs=true`, `ffmpeg_branding="Chrome"`, `enable_nacl=false`, `is_component_build=false`. Then `scripts/build.sh` builds the stock `chrome` target.
+- [x] **0.6** Write the scenario runner skeleton (`tests/run.ts`) and `tools/windows.swift`.
   - The runner launches a binary with `--remote-debugging-port`, serves fixtures, drives pages over CDP, and writes a JSON report.
   - `windows.swift` counts the on-screen windows owned by a PID via `CGWindowListCopyWindowInfo`.
-- [ ] **0.7** Check that CUA is ready: `cua-driver status` and `cua-driver permissions status`. Accessibility and Screen Recording must be granted; a missing grant goes to `HUMAN-CHECKLIST.md` (see the Autonomy policy).
+- [x] **0.7** Check that CUA is ready: `cua-driver status` and `cua-driver permissions status`. Accessibility and Screen Recording must be granted; a missing grant goes to `HUMAN-CHECKLIST.md` (see the Autonomy policy).
 
 **Acceptance**
 - `xcodebuild -version` reports an Xcode whose SDK satisfies `build/config/mac/mac_sdk.gni` → `xcode.txt`
