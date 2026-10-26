@@ -94,3 +94,36 @@ Dated record of choices made while building the native shell — what was decide
 
 - **5.1 Per-profile proxy**: the engine sets Chrome's own per-profile prefs, `proxy` (fixed servers) and `webrtc.ip_handling_policy` (`PaneBrowserContext.proxyRules`, `webRTCIPHandlingPolicy`); a profile's pages open only after both are applied. A SOCKS proxy with credentials goes through the app's relay (`Network/SocksRelay.swift`, ported from `proxy-relay.ts` onto Network.framework, SOCKS5 with RFC 1929 or SOCKS4a upstream), since Chromium cannot authenticate to SOCKS. An HTTP or HTTPS proxy's challenge is answered with the profile's credentials through the Phase 3 hook, without a prompt; asked again within five seconds (wrong credentials), the user gets the sheet instead of a loop. The connection test (`Network/ProxyTest.swift`) fetches the same IP echo as `proxy-test.ts` through the proxy with URLSession's proxy configurations, SOCKS through the relay (URLSession has no SOCKS4), and feeds the sidebar's dot. Chrome names a proxy challenger with its scheme (`http://host:port`), which `PaneDialogs.h` now says.
 - **Observed**: Chrome's own background requests (`accounts.google.com`, `www.google.com`) go out per profile, through its proxy. The Electron app makes none; whether to turn them off belongs with the fingerprint work (5.2), which owns what a profile reveals.
+- **5.2 The fingerprint lives in Blink and the browser, not in script** (patch `0006-pane-fingerprint`). The app builds each profile's `EngineFingerprint` (PaneKit) and hands it to the engine before the profile opens (`-[PaneBrowserApplication setFingerprint:forContextIdentifier:]`).
+  - **Browser side**: content gets per-context hooks, `GetUserAgentForBrowserContext` and `GetUserAgentMetadataForBrowserContext`. Every place that asked for the global User-Agent now uses them:
+    - renderer init;
+    - navigations, redirects included;
+    - service and shared workers;
+    - the per-profile Client Hints delegate;
+    - the profile's network context, for prefetches and the browser's own requests.
+  - **Languages** use Chrome's own prefs: `intl.selected_languages`, from which `LanguagePrefs` derives `intl.accept_languages`. Setting the derived pref alone was reverted at once.
+  - **Renderer side**: each renderer of the profile gets the renderer half of the fingerprint as `--pane-fingerprint`. A renderer never serves two profiles. Blink's `PaneFingerprint` reads it once and reports:
+    - navigator.platform, hardwareConcurrency, deviceMemory, and maxTouchPoints;
+    - the screen rectangles, colorDepth, and isExtended, plus devicePixelRatio;
+    - WebGL's unmasked vendor and renderer;
+    - canvas noise on getImageData, toDataURL, toBlob, and convertToBlob, the same noise on every path;
+    - audio noise on an OfflineAudioContext's rendered buffer, before `oncomplete`;
+    - the speech voices.
+  - **Time zone**: the fingerprint's zone becomes the renderer's host time zone. The system's changes no longer replace it, and DevTools' override still works on top.
+  - **Locale**: it becomes the embedder locale of `LocaleController`, so it is the default locale of Intl. The renderer's `--lang` is unchanged, because a locale without a resource pak would crash it.
+  - Every surface is a native function, in every frame and worker, from the page's first script.
+- **Where 5.2 differs from the Electron spoof, on purpose**:
+  - **GREASE brand order**: it is Chromium's current one, a permutation seeded by the major version (`GetRandomOrder`). The Electron port's insertion index matches older Chrome only; it agrees for 136 and 156 by chance and not for 157. PaneKit checks the derivation against the `Sec-CH-UA` that Google Chrome 120, 124, 131, and 136 sent. The scenario checks that the GREASE brand equals the engine's own.
+  - **Full version list**: it carries the engine's full version. The native User-Agent is reduced (`Chrome/156.0.0.0`), while the Electron one was full.
+  - **Device memory**: it is reported in Chrome's buckets, a power of two from 0.25 to 8.
+  - **Speech voices**: they are hidden only when the claimed platform is not macOS, since the host's voices are a Mac's. The Electron app always hid them.
+  - **No script stubs**: chrome.app, loadTimes, csi, plugins, and storage estimates are Chrome's own, so they need no stubs.
+  - **No Worker wrapper**: every worker reads Blink directly, including the module and cross-origin workers that Electron's wrapper skipped.
+  - **The noise seed and algorithms are the Electron app's**, so a migrated profile draws the same canvases.
+- **A changed fingerprint reaches navigations and new renderers at once**; an open page keeps its renderer's values until it reloads in a new process. Reopening the profile's tabs on a change is part of the profile sheet's fingerprint editor (5.6).
+- **Known gaps, as in the Electron app**:
+  - WebGPU's adapter info;
+  - the CSS `device-width` and `resolution` media features;
+  - `window.outerWidth` against a smaller claimed screen;
+  - the `Sec-CH-Device-Memory` header.
+- **Service workers' own fetches** carry no UA Client Hints in Chrome; an unfingerprinted profile's carry none either. They carry only the User-Agent, which is the profile's.

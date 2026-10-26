@@ -80,6 +80,26 @@ NS_SWIFT_UI_ACTOR
 // Starts an orderly engine shutdown, as Quit does.
 - (void)terminate;
 
+// MARK: Fingerprints
+
+// What a profile without a fingerprint presents: the engine's User-Agent
+// ("… Chrome/156.0.0.0 …") and its full version ("156.0.8078.48").
+@property(readonly, copy) NSString* userAgent;
+@property(readonly, copy) NSString* chromiumVersion;
+
+// Makes the profile named `identifier` present a fingerprint instead of
+// Chrome's own values, or Chrome's own again for nil. `json` is PaneKit's
+// EngineFingerprint: the User-Agent and its Client Hints, the languages, and
+// what Blink reports in every frame and worker (navigator, screen, WebGL,
+// canvas and audio noise, time zone, locale). Set it before the profile
+// opens: its network context takes the User-Agent as it is created, and each
+// renderer takes the rest as it starts. Navigations and new renderers follow
+// a change at once. NO, with `error`, for JSON that is not a fingerprint.
+- (BOOL)setFingerprint:(nullable NSString*)json
+    forContextIdentifier:(NSString*)identifier
+                   error:(NSError**)error
+    NS_SWIFT_NAME(setFingerprint(_:forContextIdentifier:));
+
 @end
 
 NS_ASSUME_NONNULL_END

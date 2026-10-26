@@ -37,6 +37,6 @@
 		"packages/electron-chrome-extensions/**",
 		".claude/**",
 		".cursor/**",
-		"native/engine/tests/pages/extensions/**"
+		"native/engine/tests/pages/**"
 	]
 }

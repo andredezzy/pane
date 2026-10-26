@@ -51,6 +51,9 @@ final class BrowserController: NSObject {
 		model.proxyDidChange = { [weak self] profileID in
 			self?.proxyDidChange(profileID)
 		}
+		model.fingerprintDidChange = { [weak self] profileID in
+			self?.applyFingerprint(profileID)
+		}
 
 		// The sidebar shows each proxy's state from launch, as the Electron
 		// app tested them.
@@ -67,6 +70,27 @@ final class BrowserController: NSObject {
 		network.test(profileID)
 	}
 
+	// The profile's fingerprint, or Chrome's own values without one. It goes
+	// to the engine before the profile's context opens, since its network
+	// context takes the User-Agent as it is created. A change reaches
+	// navigations and new renderers at once; open pages keep their renderer's.
+	private func applyFingerprint(_ profileID: String) {
+		do {
+			let json = try model.profile(profileID)?.fingerprint.map { fingerprint in
+				try EngineFingerprint(
+					fingerprint: fingerprint,
+					profileID: profileID,
+					engineUserAgent: application.userAgent,
+					engineVersion: application.chromiumVersion
+				).json()
+			}
+
+			try application.setFingerprint(json, forContextIdentifier: profileID)
+		} catch {
+			NSLog("Pane: could not apply the fingerprint of profile %@: %@", profileID, String(describing: error))
+		}
+	}
+
 	// MARK: Contexts
 
 	private func withContext(_ profileID: String, _ body: @escaping (BrowserContext) -> Void) {
@@ -81,6 +105,7 @@ final class BrowserController: NSObject {
 		}
 
 		contextWaiters[profileID] = [body]
+		applyFingerprint(profileID)
 		application.openContext(identifier: profileID) { [weak self] context, error in
 			guard let self else {
 				return

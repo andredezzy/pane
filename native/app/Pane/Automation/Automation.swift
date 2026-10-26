@@ -343,6 +343,18 @@ final class Automation {
 
 			model.updateProfile(profileID) { $0.proxy = proxy }
 
+		case "setProfileFingerprint":
+			// { profile, fingerprint: Fingerprint (profiles.json's) | null }
+			let profileID = try string("profile")
+			var fingerprint: Fingerprint?
+
+			if let fields = command["fingerprint"] as? [String: Any] {
+				let data = try JSONSerialization.data(withJSONObject: fields)
+				fingerprint = try JSONDecoder().decode(Fingerprint.self, from: data)
+			}
+
+			model.updateProfile(profileID) { $0.fingerprint = fingerprint }
+
 		case "installExtension":
 			controller.installExtension(try string("id"), inProfile: try string("profile"))
 

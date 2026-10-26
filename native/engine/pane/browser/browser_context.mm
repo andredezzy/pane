@@ -12,7 +12,10 @@
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "base/strings/string_util.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/language/core/browser/language_prefs.h"
+#include "components/language/core/browser/pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_dictionary.h"
@@ -32,6 +35,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/uninstall_reason.h"
 #include "pane/browser/downloads.h"
+#include "pane/browser/fingerprints.h"
 #include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extensions_bridge.h"
 #include "pane/browser/ui/window_host.h"
@@ -72,8 +76,33 @@
                       false);
     prefs->SetBoolean(autofill::prefs::kAutofillProfileEnabled, false);
     prefs->SetBoolean(autofill::prefs::kAutofillCreditCardEnabled, false);
+    [self applyFingerprint];
   }
   return self;
+}
+
+- (void)applyFingerprint {
+  if (!_profile) {
+    return;
+  }
+
+  // Chrome derives the Accept-Language list from the user's selected
+  // languages (LanguagePrefs), so both are set.
+  PrefService* prefs = _profile->GetPrefs();
+  const pane::Fingerprint* fingerprint =
+      pane::Fingerprints::Get().For(_profile);
+  if (fingerprint && !fingerprint->languages.empty()) {
+    const std::string languages = base::JoinString(fingerprint->languages, ",");
+    prefs->SetString(language::prefs::kSelectedLanguages, languages);
+    prefs->SetString(language::prefs::kAcceptLanguages, languages);
+  } else {
+    language::ResetLanguagePrefs(prefs);
+  }
+  pane::Trace("engine", "PaneBrowserContext.applyFingerprint",
+              base::DictValue()
+                  .Set("identifier", base::SysNSStringToUTF8(_identifier))
+                  .Set("acceptLanguages",
+                       prefs->GetString(language::prefs::kAcceptLanguages)));
 }
 
 - (NSString*)identifier {

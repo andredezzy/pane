@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<script>
+			// The first script of the page: the fingerprint is already in place.
+			window.early = {
+				userAgent: navigator.userAgent,
+				platform: navigator.platform,
+				hardwareConcurrency: navigator.hardwareConcurrency,
+				timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+				screenWidth: screen.width,
+			};
+		</script>
+		<title>Fingerprint</title>
+		<script src="fingerprint.js"></script>
+	</head>
+	<body>
+		<h1>Fingerprint</h1>
+		<iframe id="frame" src="fingerprint-frame.html"></iframe>
+		<iframe id="navigation" src="headers?from=navigation&amp;format=html"></iframe>
+		<script>
+			const loaded = new Promise((done) => {
+				if (document.readyState === "complete") {
+					done();
+				} else {
+					window.addEventListener("load", done);
+				}
+			});
+
+			function ask(port, message) {
+				return new Promise((done) => {
+					port.onmessage = (event) => done(event.data);
+					port.postMessage(message);
+				});
+			}
+
+			async function fromServiceWorker() {
+				await navigator.serviceWorker.register("fingerprint-sw.js");
+				const registration = await navigator.serviceWorker.ready;
+				const channel = new MessageChannel();
+				const answer = new Promise((done) => {
+					channel.port1.onmessage = (event) => done(event.data);
+				});
+				registration.active.postMessage("collect", [channel.port2]);
+				return answer;
+			}
+
+			// Everything the scenario compares, from every kind of context.
+			async function collectAll() {
+				await loaded;
+				const shared = new SharedWorker("fingerprint-shared.js");
+				shared.port.start();
+				const service = await fromServiceWorker();
+				const navigation = document.getElementById("navigation");
+
+				return {
+					early: window.early,
+					frame: await collectFingerprint(),
+					iframe: await document.getElementById("frame").contentWindow.collectFingerprint(),
+					dedicated: await ask(new Worker("fingerprint-worker.js"), "collect"),
+					shared: await ask(shared.port, "collect"),
+					service: service.fingerprint,
+					headers: {
+						fetch: await (await fetch("headers?from=fetch", { cache: "no-store" })).json(),
+						navigation: navigation.contentWindow.headers,
+						serviceWorker: service.headers,
+					},
+				};
+			}
+		</script>
+	</body>
+</html>

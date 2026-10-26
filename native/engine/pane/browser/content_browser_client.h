@@ -4,6 +4,7 @@
 #define PANE_BROWSER_CONTENT_BROWSER_CLIENT_H_
 
 #include <memory>
+#include <string>
 
 #include "chrome/browser/chrome_content_browser_client.h"
 
@@ -21,6 +22,12 @@ class ContentBrowserClient : public ChromeContentBrowserClient {
   // ChromeContentBrowserClient:
   std::unique_ptr<content::BrowserMainParts> CreateBrowserMainParts(
       bool is_integration_test) override;
+  void AppendExtraCommandLineSwitches(base::CommandLine* command_line,
+                                      int child_process_id) override;
+  std::string GetUserAgentForBrowserContext(
+      content::BrowserContext* browser_context) override;
+  blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
+      content::BrowserContext* browser_context) override;
 };
 
 }  // namespace pane

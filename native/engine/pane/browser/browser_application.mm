@@ -15,6 +15,9 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_metrics.h"
+#include "components/embedder_support/user_agent_utils.h"
+#include "base/version_info/version_info.h"
+#include "pane/browser/fingerprints.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/window_host.h"
 #include "pane/common/host.h"
@@ -283,6 +286,42 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 - (void)terminate {
   pane::Trace("call", "PaneBrowserApplication.terminate");
   chrome::AttemptExit();
+}
+
+- (NSString*)userAgent {
+  return base::SysUTF8ToNSString(embedder_support::GetUserAgent());
+}
+
+- (NSString*)chromiumVersion {
+  return base::SysUTF8ToNSString(
+      std::string(version_info::GetVersionNumber()));
+}
+
+- (BOOL)setFingerprint:(NSString*)json
+    forContextIdentifier:(NSString*)identifier
+                   error:(NSError**)error {
+  pane::Trace("call", "PaneBrowserApplication.setFingerprint",
+              base::DictValue()
+                  .Set("identifier", base::SysNSStringToUTF8(identifier))
+                  .Set("set", json != nil));
+
+  std::string message;
+  if (!pane::Fingerprints::Get().Set(base::SysNSStringToUTF8(identifier),
+                                     json ? base::SysNSStringToUTF8(json) : "",
+                                     &message)) {
+    if (error) {
+      *error = [NSError
+          errorWithDomain:kErrorDomain
+                     code:3
+                 userInfo:@{
+                   NSLocalizedDescriptionKey : base::SysUTF8ToNSString(message)
+                 }];
+    }
+    return NO;
+  }
+
+  [_contexts[identifier] applyFingerprint];
+  return YES;
 }
 
 - (void)engineDidStart {

@@ -273,7 +273,7 @@ docs/native/parity.md
   - The SOCKS5-with-auth relay from `proxy-relay.ts` is ported (Chromium has no SOCKS5 auth).
   - The connection test from `proxy-test.ts` and the proxy status (`proxy-status-store.ts`).
   - The per-profile WebRTC IP handling policy.
-- [ ] **5.2** Per-profile fingerprint inside the engine.
+- [x] **5.2** Per-profile fingerprint inside the engine.
   - It covers every `Fingerprint` field: userAgent, platform, screen, language(s), timezone, WebGL vendor and renderer, hardwareConcurrency, deviceMemory, maxTouchPoints, canvas noise, audio noise.
   - It includes the Client Hints derivation from `client-hints.ts`, with its tests ported to `PaneKit`.
   - It applies before page scripts in main frames, in iframes, in dedicated, shared, and service workers. Patched functions report native `toString`.
@@ -292,7 +292,7 @@ docs/native/parity.md
   - The panic wipe as in `security/wipe.ts`.
 - [ ] **5.6** The remaining surfaces.
   - Settings: theme, sleep and unload minutes, cache budget, Chrome detection for the sign-in fallback.
-  - The profile sheet: name, color, group, the fingerprint editor with `default-fingerprints.ts` presets and `host-webgl.ts` detection, the proxy editor with its test, keep loaded.
+  - The profile sheet: name, color, group, the fingerprint editor with `default-fingerprints.ts` presets and `host-webgl.ts` detection, the proxy editor with its test, keep loaded; a fingerprint change reopens the profile's open tabs in new renderers (5.2 applies it to new renderers only).
   - The update check through the GitHub Releases API (ADR 0002), with the quiet sidebar pill from `DESIGN.md`.
 - [ ] **5.7** Migration from the Electron app on first launch, always from a copy of the Electron data directory, never in place.
   - It imports `profiles.json`, `settings.json`, `security.json`, and each `Partitions/profile-<id>`.

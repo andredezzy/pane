@@ -1,0 +1,961 @@
+diff --git a/chrome/browser/net/profile_network_context_service.cc b/chrome/browser/net/profile_network_context_service.cc
+index 028fe9924c..2d6f1e5296 100644
+--- a/chrome/browser/net/profile_network_context_service.cc
++++ b/chrome/browser/net/profile_network_context_service.cc
+@@ -76,6 +76,7 @@
+ #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
+ #include "content/public/browser/browser_context.h"
+ #include "content/public/browser/browser_thread.h"
++#include "content/public/browser/content_browser_client.h"
+ #include "content/public/browser/network_service_instance.h"
+ #include "content/public/browser/reduce_accept_language_utils.h"
+ #include "content/public/browser/shared_cors_origin_access_list.h"
+@@ -1344,6 +1345,9 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
+   g_browser_process->system_network_context_manager()
+       ->ConfigureDefaultNetworkContextParams(network_context_params);
+ 
++  // Pane: the profile's own User-Agent, for a profile with a fingerprint.
++  network_context_params->user_agent =
++      content::GetUserAgentForBrowserContext(profile_);
+   network_context_params->accept_language = ComputeAcceptLanguage();
+   network_context_params->enable_referrers = enable_referrers_.GetValue();
+ 
+diff --git a/components/client_hints/browser/client_hints.cc b/components/client_hints/browser/client_hints.cc
+index f6509a9755..4a5728df8e 100644
+--- a/components/client_hints/browser/client_hints.cc
++++ b/components/client_hints/browser/client_hints.cc
+@@ -20,6 +20,7 @@
+ #include "components/content_settings/core/common/content_settings_utils.h"
+ #include "components/embedder_support/user_agent_utils.h"
+ #include "content/public/browser/browser_thread.h"
++#include "content/public/browser/content_browser_client.h"
+ #include "content/public/browser/render_frame_host.h"
+ #include "content/public/browser/render_process_host.h"
+ #include "services/network/public/cpp/client_hints.h"
+@@ -147,7 +148,8 @@ bool ClientHints::IsJavaScriptAllowed(const GURL& url,
+ }
+ 
+ blink::UserAgentMetadata ClientHints::GetUserAgentMetadata() {
+-  return embedder_support::GetUserAgentMetadata();
++  // Pane: the profile's own, for a profile with a fingerprint.
++  return content::GetUserAgentMetadataForBrowserContext(context_);
+ }
+ 
+ void ClientHints::PersistClientHints(
+diff --git a/content/browser/renderer_host/navigation_request.cc b/content/browser/renderer_host/navigation_request.cc
+index 6baf465bd2..9c1b63811f 100644
+--- a/content/browser/renderer_host/navigation_request.cc
++++ b/content/browser/renderer_host/navigation_request.cc
+@@ -367,8 +367,9 @@ bool NeedsHTTPOrigin(const std::string& method) {
+ 
+ // Computes the value that should be set for the User-Agent header, if
+ // `user_agent_override` is non-empty, `user_agent_override` is returned as the
+-// header value.
+-std::string ComputeUserAgentValue(const std::string& user_agent_override) {
++// header value. Otherwise it is `browser_context`'s (Pane).
++std::string ComputeUserAgentValue(const std::string& user_agent_override,
++                                  BrowserContext* browser_context) {
+   if (!user_agent_override.empty()) {
+     base::UmaHistogramEnumeration("Navigation.UserAgentStringType",
+                                   UserAgentStringType::kOverriden);
+@@ -382,7 +383,8 @@ std::string ComputeUserAgentValue(const std::string& user_agent_override) {
+           ? UserAgentStringType::kReducedVersion
+           : UserAgentStringType::kFullVersion);
+ 
+-  return GetContentClient()->browser()->GetUserAgent();
++  return GetContentClient()->browser()->GetUserAgentForBrowserContext(
++      browser_context);
+ }
+ 
+ void AddAdditionalRequestHeaders(
+@@ -417,7 +419,7 @@ void AddAdditionalRequestHeaders(
+ 
+   headers->SetHeaderIfMissing(
+       net::HttpRequestHeaders::kUserAgent,
+-      ComputeUserAgentValue(user_agent_override));
++      ComputeUserAgentValue(user_agent_override, browser_context));
+ 
+   if (!render_prefs.enable_referrers) {
+     *referrer =
+@@ -6497,7 +6499,7 @@ void NavigationRequest::OnRedirectChecksComplete(
+     if (!devtools_user_agent_override_) {
+       headers_update_params.modified_headers.SetHeader(
+           net::HttpRequestHeaders::kUserAgent,
+-          ComputeUserAgentValue(GetUserAgentOverride()));
++          ComputeUserAgentValue(GetUserAgentOverride(), browser_context));
+     }
+   }
+ 
+@@ -10942,7 +10944,8 @@ void NavigationRequest::SetIsOverridingUserAgent(bool override_ua) {
+         common_params_->url);
+   }
+   headers.SetHeader(net::HttpRequestHeaders::kUserAgent,
+-                    ComputeUserAgentValue(GetUserAgentOverride()));
++                    ComputeUserAgentValue(GetUserAgentOverride(),
++                                          browser_context));
+   begin_params_->headers = headers.ToString();
+   // |request_headers_| comes from |begin_params_|. Clear |request_headers_| now
+   // so that if |request_headers_| are needed, they will be updated.
+diff --git a/content/browser/renderer_host/render_process_host_impl.cc b/content/browser/renderer_host/render_process_host_impl.cc
+index 22bf8ff115..f4cf333d8d 100644
+--- a/content/browser/renderer_host/render_process_host_impl.cc
++++ b/content/browser/renderer_host/render_process_host_impl.cc
+@@ -2048,8 +2048,10 @@ bool RenderProcessHostImpl::Init() {
+   TRACE_EVENT("navigation", "RenderProcessHostImpl::Init",
+               perfetto::Flow::Global(trace_id));
+   GetRendererInterface()->InitializeRenderer(
+-      GetContentClient()->browser()->GetUserAgent(),
+-      GetContentClient()->browser()->GetUserAgentMetadata(),
++      GetContentClient()->browser()->GetUserAgentForBrowserContext(
++          GetBrowserContext()),
++      GetContentClient()->browser()->GetUserAgentMetadataForBrowserContext(
++          GetBrowserContext()),
+       storage_partition_impl_->cors_exempt_header_list(),
+       GetContentClient()->browser()->GetOriginTrialsSettings(), cpu_tier,
+       trace_id);
+diff --git a/content/browser/service_worker/service_worker_version.cc b/content/browser/service_worker/service_worker_version.cc
+index f1305b444c..acd0d27264 100644
+--- a/content/browser/service_worker/service_worker_version.cc
++++ b/content/browser/service_worker/service_worker_version.cc
+@@ -2792,8 +2792,12 @@ void ServiceWorkerVersion::StartWorkerInternal() {
+       outside_fetch_client_settings_object_.Clone();
+ 
+   ContentBrowserClient* browser_client = GetContentClient()->browser();
+-  params->user_agent = browser_client->GetUserAgent();
+-  params->ua_metadata = browser_client->GetUserAgentMetadata();
++  BrowserContext* browser_context =
++      context() ? context()->wrapper()->browser_context() : nullptr;
++  params->user_agent =
++      browser_client->GetUserAgentForBrowserContext(browser_context);
++  params->ua_metadata =
++      browser_client->GetUserAgentMetadataForBrowserContext(browser_context);
+   params->is_installed = IsInstalled(status_);
+   params->script_url_to_skip_throttling = updated_script_url_;
+   params->main_script_load_params = std::move(main_script_load_params_);
+diff --git a/content/browser/worker_host/shared_worker_host.cc b/content/browser/worker_host/shared_worker_host.cc
+index 4d2e7f749e..d50853c283 100644
+--- a/content/browser/worker_host/shared_worker_host.cc
++++ b/content/browser/worker_host/shared_worker_host.cc
+@@ -489,8 +489,10 @@ void SharedWorkerHost::Start(
+       instance_.worker_storage_key().origin(),
+       creator_policy_container_host_ &&
+           creator_policy_container_host_->policies().is_web_secure_context,
+-      GetContentClient()->browser()->GetUserAgent(),
+-      GetContentClient()->browser()->GetUserAgentMetadata(),
++      GetContentClient()->browser()->GetUserAgentForBrowserContext(
++          GetProcessHost()->GetBrowserContext()),
++      GetContentClient()->browser()->GetUserAgentMetadataForBrowserContext(
++          GetProcessHost()->GetBrowserContext()),
+       devtools_handle_->pause_on_start(), devtools_handle_->dev_tools_token(),
+       std::move(renderer_preferences), std::move(preference_watcher_receiver),
+       std::move(content_settings), std::move(container_info),
+diff --git a/content/public/browser/content_browser_client.cc b/content/public/browser/content_browser_client.cc
+index 9fdb8a4b7b..7e34aaafa2 100644
+--- a/content/public/browser/content_browser_client.cc
++++ b/content/public/browser/content_browser_client.cc
+@@ -61,6 +61,7 @@
+ #include "content/public/browser/webid/identity_request_dialog_controller.h"
+ #include "content/public/browser/webid/native_idp_fetcher.h"
+ #include "content/public/common/alternative_error_page_override_info.mojom.h"
++#include "content/public/common/content_client.h"
+ #include "content/public/common/content_features.h"
+ #include "content/public/common/url_utils.h"
+ #include "media/audio/audio_manager.h"
+@@ -1426,6 +1427,17 @@ blink::UserAgentMetadata ContentBrowserClient::GetUserAgentMetadata() {
+   return blink::UserAgentMetadata();
+ }
+ 
++std::string ContentBrowserClient::GetUserAgentForBrowserContext(
++    BrowserContext* browser_context) {
++  return GetUserAgent();
++}
++
++blink::UserAgentMetadata
++ContentBrowserClient::GetUserAgentMetadataForBrowserContext(
++    BrowserContext* browser_context) {
++  return GetUserAgentMetadata();
++}
++
+ std::optional<gfx::ImageSkia> ContentBrowserClient::GetProductLogo() {
+   return std::nullopt;
+ }
+@@ -2071,4 +2083,15 @@ bool ContentBrowserClient::ShouldAllowSystemUiPopups(
+ }
+ #endif
+ 
++std::string GetUserAgentForBrowserContext(BrowserContext* browser_context) {
++  return GetContentClient()->browser()->GetUserAgentForBrowserContext(
++      browser_context);
++}
++
++blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
++    BrowserContext* browser_context) {
++  return GetContentClient()->browser()->GetUserAgentMetadataForBrowserContext(
++      browser_context);
++}
++
+ }  // namespace content
+diff --git a/content/public/browser/content_browser_client.h b/content/public/browser/content_browser_client.h
+index 6e730455c6..1cdb76f6b4 100644
+--- a/content/public/browser/content_browser_client.h
++++ b/content/public/browser/content_browser_client.h
+@@ -2495,6 +2495,15 @@ class CONTENT_EXPORT ContentBrowserClient {
+   // Returns user agent metadata. Content may cache this value.
+   virtual blink::UserAgentMetadata GetUserAgentMetadata();
+ 
++  // Pane: the user agent and its metadata for one browser context, which
++  // its renderers, workers, navigations, and network context present. A Pane
++  // profile with a fingerprint presents its own; the default is
++  // GetUserAgent() and GetUserAgentMetadata().
++  virtual std::string GetUserAgentForBrowserContext(
++      BrowserContext* browser_context);
++  virtual blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
++      BrowserContext* browser_context);
++
+   // Returns a 256x256 transparent background image of the product logo, i.e.
+   // the browser icon, if available.
+   virtual std::optional<gfx::ImageSkia> GetProductLogo();
+@@ -3384,6 +3393,13 @@ class CONTENT_EXPORT ContentBrowserClient {
+       const url::Origin& origin);
+ };
+ 
++// Pane: the embedder's GetUserAgentForBrowserContext() and
++// GetUserAgentMetadataForBrowserContext(), for code outside content.
++CONTENT_EXPORT std::string GetUserAgentForBrowserContext(
++    BrowserContext* browser_context);
++CONTENT_EXPORT blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
++    BrowserContext* browser_context);
++
+ }  // namespace content
+ 
+ #endif  // CONTENT_PUBLIC_BROWSER_CONTENT_BROWSER_CLIENT_H_
+diff --git a/third_party/blink/renderer/core/core_initializer.cc b/third_party/blink/renderer/core/core_initializer.cc
+index 2e293d4b49..daf7836be3 100644
+--- a/third_party/blink/renderer/core/core_initializer.cc
++++ b/third_party/blink/renderer/core/core_initializer.cc
+@@ -48,6 +48,7 @@
+ #include "third_party/blink/renderer/core/html_names.h"
+ #include "third_party/blink/renderer/core/html_tokenizer_names.h"
+ #include "third_party/blink/renderer/core/input_type_names.h"
++#include "third_party/blink/renderer/core/inspector/locale_controller.h"
+ #include "third_party/blink/renderer/core/keywords.h"
+ #include "third_party/blink/renderer/core/lcp_critical_path_predictor/element_locator.h"
+ #include "third_party/blink/renderer/core/mathml_names.h"
+@@ -172,6 +173,9 @@ void CoreInitializer::Initialize() {
+ 
+   TimeZoneController::Init();
+ 
++  // Pane: applies the profile's fingerprint locale before any script runs.
++  LocaleController::instance();
++
+   FontGlobalContext::Init();
+ 
+   CSSDefaultStyleSheets::Init();
+diff --git a/third_party/blink/renderer/core/events/navigator_events.cc b/third_party/blink/renderer/core/events/navigator_events.cc
+index a57561775c..babef6d2ca 100644
+--- a/third_party/blink/renderer/core/events/navigator_events.cc
++++ b/third_party/blink/renderer/core/events/navigator_events.cc
+@@ -34,10 +34,15 @@
+ #include "third_party/blink/renderer/core/frame/local_frame.h"
+ #include "third_party/blink/renderer/core/frame/navigator.h"
+ #include "third_party/blink/renderer/core/frame/settings.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ 
+ namespace blink {
+ 
+ int32_t NavigatorEvents::maxTouchPoints(Navigator& navigator) {
++  // Pane: the profile's fingerprint.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get()) {
++    return fingerprint->max_touch_points;
++  }
+   LocalDOMWindow* window = navigator.DomWindow();
+   return window ? window->GetFrame()->GetSettings()->GetMaxTouchPoints() : 0;
+ }
+diff --git a/third_party/blink/renderer/core/execution_context/navigator_base.cc b/third_party/blink/renderer/core/execution_context/navigator_base.cc
+index 83f427c5ec..6a05770132 100644
+--- a/third_party/blink/renderer/core/execution_context/navigator_base.cc
++++ b/third_party/blink/renderer/core/execution_context/navigator_base.cc
+@@ -10,6 +10,7 @@
+ #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+ #include "third_party/blink/renderer/core/frame/navigator_concurrent_hardware.h"
+ #include "third_party/blink/renderer/core/probe/core_probes.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+ #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+ 
+@@ -67,6 +68,11 @@ String NavigatorBase::userAgent() const {
+ }
+ 
+ String NavigatorBase::platform() const {
++  // Pane: the profile's fingerprint.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && !fingerprint->platform.empty()) {
++    return String::FromUtf8(fingerprint->platform);
++  }
+ #if BUILDFLAG(IS_ANDROID)
+   // We need to check the ReduceUserAgentMinorVersion feature flag for
+   // Android WebView, which does not currently ship a reduced User-Agent.
+diff --git a/third_party/blink/renderer/core/frame/local_dom_window.cc b/third_party/blink/renderer/core/frame/local_dom_window.cc
+index 8285e37689..3850b97525 100644
+--- a/third_party/blink/renderer/core/frame/local_dom_window.cc
++++ b/third_party/blink/renderer/core/frame/local_dom_window.cc
+@@ -98,6 +98,7 @@
+ #include "third_party/blink/renderer/core/frame/local_frame.h"
+ #include "third_party/blink/renderer/core/frame/local_frame_client.h"
+ #include "third_party/blink/renderer/core/frame/local_frame_view.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/core/frame/navigator.h"
+ #include "third_party/blink/renderer/core/frame/permissions_policy_violation_report_body.h"
+ #include "third_party/blink/renderer/core/frame/report.h"
+@@ -1943,6 +1944,10 @@ double LocalDOMWindow::devicePixelRatio() const {
+   if (!GetFrame()) {
+     return 0.0;
+   }
++  // Pane: the profile's fingerprint.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get()) {
++    return fingerprint->device_pixel_ratio;
++  }
+ 
+   return GetFrame()->DevicePixelRatio();
+ }
+diff --git a/third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc b/third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc
+index f5c0db2d1b..103089fb2f 100644
+--- a/third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc
++++ b/third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc
+@@ -5,10 +5,15 @@
+ #include "third_party/blink/renderer/core/frame/navigator_concurrent_hardware.h"
+ 
+ #include "base/system/sys_info.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ 
+ namespace blink {
+ 
+ unsigned NavigatorConcurrentHardware::hardwareConcurrency() const {
++  // Pane: the profile's fingerprint.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get()) {
++    return fingerprint->hardware_concurrency;
++  }
+   return static_cast<unsigned>(base::SysInfo::NumberOfProcessors());
+ }
+ 
+diff --git a/third_party/blink/renderer/core/frame/navigator_device_memory.cc b/third_party/blink/renderer/core/frame/navigator_device_memory.cc
+index 05fa33e456..835b1fd31f 100644
+--- a/third_party/blink/renderer/core/frame/navigator_device_memory.cc
++++ b/third_party/blink/renderer/core/frame/navigator_device_memory.cc
+@@ -8,10 +8,15 @@
+ #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
+ #include "third_party/blink/renderer/core/dom/document.h"
+ #include "third_party/blink/renderer/core/frame/local_dom_window.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ 
+ namespace blink {
+ 
+ float NavigatorDeviceMemory::deviceMemory() const {
++  // Pane: the profile's fingerprint.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get()) {
++    return fingerprint->device_memory;
++  }
+   return ApproximatedDeviceMemory::GetApproximatedDeviceMemory();
+ }
+ 
+diff --git a/third_party/blink/renderer/core/frame/screen.cc b/third_party/blink/renderer/core/frame/screen.cc
+index ed5028943e..db3d828e91 100644
+--- a/third_party/blink/renderer/core/frame/screen.cc
++++ b/third_party/blink/renderer/core/frame/screen.cc
+@@ -36,6 +36,7 @@
+ #include "third_party/blink/renderer/core/frame/local_frame.h"
+ #include "third_party/blink/renderer/core/frame/settings.h"
+ #include "third_party/blink/renderer/core/page/chrome_client.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "ui/display/screen_info.h"
+ #include "ui/display/screen_infos.h"
+ 
+@@ -109,6 +110,11 @@ unsigned Screen::colorDepth() const {
+   if (!DomWindow()) {
+     return unknown_color_depth;
+   }
++  // Pane: the profile's fingerprint.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && fingerprint->screen.width > 0) {
++    return base::saturated_cast<unsigned>(fingerprint->screen.color_depth);
++  }
+   return GetScreenInfo().depth == 0
+              ? unknown_color_depth
+              : base::saturated_cast<unsigned>(GetScreenInfo().depth);
+@@ -160,6 +166,11 @@ bool Screen::isExtended() const {
+   if (!DomWindow()) {
+     return false;
+   }
++  // Pane: a fingerprint claims one screen.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && fingerprint->screen.width > 0) {
++    return false;
++  }
+   auto* context = GetExecutionContext();
+   if (!context->IsFeatureEnabled(
+           network::mojom::PermissionsPolicyFeature::kWindowManagement)) {
+@@ -172,6 +183,14 @@ bool Screen::isExtended() const {
+ gfx::Rect Screen::GetRect(bool available) const {
+   if (!DomWindow())
+     return gfx::Rect();
++  // Pane: the profile's fingerprint.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && fingerprint->screen.width > 0) {
++    const PaneFingerprint::Screen& screen = fingerprint->screen;
++    return available ? gfx::Rect(screen.avail_left, screen.avail_top,
++                                 screen.avail_width, screen.avail_height)
++                     : gfx::Rect(0, 0, screen.width, screen.height);
++  }
+   LocalFrame* frame = DomWindow()->GetFrame();
+   const display::ScreenInfo& screen_info = GetScreenInfo();
+   gfx::Rect rect = available ? screen_info.available_rect : screen_info.rect;
+diff --git a/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc b/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
+index 2a5404e4cf..909c7d8f82 100644
+--- a/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
++++ b/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
+@@ -114,6 +114,7 @@
+ #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+ #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
+ #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
+ #include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
+ #include "third_party/blink/renderer/platform/graphics/exported_canvas_resource.h"
+@@ -1458,6 +1459,11 @@ String HTMLCanvasElement::ToDataURLInternal(
+       ImageEncoderUtils::ToEncodingMimeType(mime_type);
+ 
+   scoped_refptr<StaticBitmapImage> image_bitmap = Snapshot(source_buffer);
++  // Pane: the profile's canvas noise, the same getImageData() reads.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && IsRenderingContext2D()) {
++    image_bitmap = fingerprint->NoiseCanvasImage(std::move(image_bitmap));
++  }
+   if (image_bitmap) {
+     std::unique_ptr<ImageDataBuffer> data_buffer =
+         ImageDataBuffer::Create(image_bitmap);
+@@ -1562,6 +1568,11 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
+ 
+   CanvasAsyncBlobCreator* async_creator = nullptr;
+   scoped_refptr<StaticBitmapImage> image_bitmap = Snapshot(kBackBuffer);
++  // Pane: the profile's canvas noise, the same getImageData() reads.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && IsRenderingContext2D()) {
++    image_bitmap = fingerprint->NoiseCanvasImage(std::move(image_bitmap));
++  }
+   if (image_bitmap) {
+     auto* options = ImageEncodeOptions::Create();
+     options->setType(ImageEncoderUtils::MimeTypeName(encoding_mime_type));
+diff --git a/third_party/blink/renderer/core/inspector/locale_controller.cc b/third_party/blink/renderer/core/inspector/locale_controller.cc
+index 5aab8bc930..f3203e7862 100644
+--- a/third_party/blink/renderer/core/inspector/locale_controller.cc
++++ b/third_party/blink/renderer/core/inspector/locale_controller.cc
+@@ -8,6 +8,7 @@
+ #include "base/i18n/tag_converters.h"
+ #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
+ #include "third_party/blink/renderer/core/workers/worker_thread.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
+ #include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
+ #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+@@ -39,7 +40,17 @@ void NotifyLocaleChangeOnWorkerThread(WorkerThread* worker_thread) {
+ }  // namespace
+ 
+ LocaleController::LocaleController()
+-    : embedder_locale_(base::i18n::GetDefaultIcuLocale()) {}
++    : embedder_locale_(base::i18n::GetDefaultIcuLocale()) {
++  // Pane: the profile's fingerprint locale is the renderer's own.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && !fingerprint->locale.empty()) {
++    if (std::optional<base::i18n::LanguageTag> locale =
++            base::i18n::GetLanguageTagFromString(fingerprint->locale)) {
++      embedder_locale_ = *locale;
++      UpdateLocale(embedder_locale_);
++    }
++  }
++}
+ 
+ String LocaleController::SetLocaleOverride(const String& locale,
+                                            bool is_claiming_override) {
+diff --git a/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc b/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc
+index 2a49497287..0d0bca6e10 100644
+--- a/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc
++++ b/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc
+@@ -49,6 +49,7 @@
+ #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+ #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
+ #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
+ #include "third_party/blink/renderer/platform/graphics/exported_canvas_resource.h"
+ #include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
+@@ -585,6 +586,11 @@ ScriptPromise<Blob> OffscreenCanvas::convertToBlob(
+ 
+   base::TimeTicks start_time = base::TimeTicks::Now();
+   scoped_refptr<StaticBitmapImage> image_bitmap = context_->GetImage();
++  // Pane: the profile's canvas noise, the same getImageData() reads.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && context_->IsRenderingContext2D()) {
++    image_bitmap = fingerprint->NoiseCanvasImage(std::move(image_bitmap));
++  }
+   if (image_bitmap) {
+     auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<Blob>>(
+         script_state, exception_state.GetContext());
+diff --git a/third_party/blink/renderer/core/timezone/timezone_controller.cc b/third_party/blink/renderer/core/timezone/timezone_controller.cc
+index 270c78bfd0..40838e8165 100644
+--- a/third_party/blink/renderer/core/timezone/timezone_controller.cc
++++ b/third_party/blink/renderer/core/timezone/timezone_controller.cc
+@@ -22,6 +22,7 @@
+ #include "third_party/blink/renderer/core/workers/worker_backing_thread.h"
+ #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
+ #include "third_party/blink/renderer/core/workers/worker_thread.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+ #include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
+ #include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
+@@ -105,6 +106,20 @@ TimeZoneController::~TimeZoneController() = default;
+ 
+ // static
+ void TimeZoneController::Init() {
++  // Pane: the profile's fingerprint time zone, before any script runs.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && !fingerprint->timezone.empty()) {
++    const String timezone_id = String::FromUtf8(fingerprint->timezone);
++    base::AutoLock locker(instance().lock_);
++    if (SetIcuTimeZoneAndNotifyV8(timezone_id)) {
++      instance().host_timezone_id_ = timezone_id;
++      instance().fingerprint_timezone_ = true;
++    } else {
++      LOG(ERROR) << "Pane: unknown fingerprint time zone "
++                 << fingerprint->timezone;
++    }
++  }
++
+   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+           blink::switches::kTopChromeWebUI) &&
+       base::FeatureList::IsEnabled(features::kWebUIBypassMojoConnections)) {
+@@ -253,6 +268,10 @@ void TimeZoneController::OnTimeZoneChange(const String& timezone_id) {
+ 
+   base::AutoLock locker(instance().lock_);
+ 
++  if (instance().fingerprint_timezone_) {
++    return;
++  }
++
+   // Remember requested timezone id so we can set it when timezone
+   // override is removed.
+   instance().host_timezone_id_ = timezone_id;
+diff --git a/third_party/blink/renderer/core/timezone/timezone_controller.h b/third_party/blink/renderer/core/timezone/timezone_controller.h
+index 3a64ead085..f4df397ede 100644
+--- a/third_party/blink/renderer/core/timezone/timezone_controller.h
++++ b/third_party/blink/renderer/core/timezone/timezone_controller.h
+@@ -100,6 +100,9 @@ class CORE_EXPORT TimeZoneController final
+ 
+   String host_timezone_id_ GUARDED_BY(lock_);
+   String override_timezone_id_ GUARDED_BY(lock_);
++  // Pane: the host time zone is the profile's fingerprint's, which the
++  // system's changes do not replace.
++  bool fingerprint_timezone_ GUARDED_BY(lock_) = false;
+ };
+ 
+ }  // namespace blink
+diff --git a/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc b/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
+index e014baae31..9c2ec2a54f 100644
+--- a/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
++++ b/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
+@@ -74,6 +74,7 @@
+ #include "third_party/blink/renderer/platform/bindings/exception_code.h"
+ #include "third_party/blink/renderer/platform/fonts/font.h"
+ #include "third_party/blink/renderer/platform/fonts/font_selection_types.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/fonts/font_selector.h"
+ #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
+ #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
+@@ -560,6 +561,10 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
+       SkIRect bounds =
+           snapshot->PaintImageForCurrentFrame().GetSkImageInfo().bounds();
+       DCHECK(!bounds.intersect(SkIRect::MakeXYWH(sx, sy, sw, sh)));
++    } else if (const PaneFingerprint* fingerprint = PaneFingerprint::Get()) {
++      // Pane: the profile's canvas noise, the same the exports carry.
++      fingerprint->NoiseCanvasPixels(image_data_pixmap, sx, sy,
++                                     snapshot->Size().width());
+     }
+   }
+ 
+diff --git a/third_party/blink/renderer/modules/speech/speech_synthesis.cc b/third_party/blink/renderer/modules/speech/speech_synthesis.cc
+index 891a81543b..09fad35738 100644
+--- a/third_party/blink/renderer/modules/speech/speech_synthesis.cc
++++ b/third_party/blink/renderer/modules/speech/speech_synthesis.cc
+@@ -44,6 +44,7 @@
+ #include "third_party/blink/renderer/modules/speech/speech_synthesis_event.h"
+ #include "third_party/blink/renderer/modules/speech/speech_synthesis_voice.h"
+ #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ 
+ namespace blink {
+ 
+@@ -85,6 +86,13 @@ SpeechSynthesis::SpeechSynthesis(LocalDOMWindow& window)
+ void SpeechSynthesis::OnSetVoiceList(
+     Vector<mojom::blink::SpeechSynthesisVoicePtr> mojom_voices) {
+   voice_list_.clear();
++  // Pane: the host's voices would contradict the profile's platform. No
++  // voiceschanged either: an event followed by no voices is a state real
++  // Chrome never reaches.
++  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++      fingerprint && fingerprint->hide_speech_voices) {
++    return;
++  }
+   for (auto& mojom_voice : mojom_voices) {
+     voice_list_.push_back(
+         MakeGarbageCollected<SpeechSynthesisVoice>(std::move(mojom_voice)));
+diff --git a/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc b/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
+index 0ff28ef1b7..bd770d21a3 100644
+--- a/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
++++ b/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
+@@ -43,6 +43,7 @@
+ #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
+ #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
+ #include "third_party/blink/renderer/platform/bindings/exception_state.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/bindings/script_state.h"
+ #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+ #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+@@ -442,6 +443,15 @@ void OfflineAudioContext::FireCompletionEvent() {
+       return;
+     }
+ 
++    // Pane: the profile's audio noise, before anything reads the buffer.
++    if (const PaneFingerprint* fingerprint = PaneFingerprint::Get()) {
++      for (unsigned channel = 0; channel < rendered_buffer->numberOfChannels();
++           ++channel) {
++        fingerprint->NoiseAudioChannel(
++            rendered_buffer->getChannelData(channel)->AsSpan(), channel);
++      }
++    }
++
+     // Call the offline rendering completion event listener and resolve the
+     // promise too.
+     DispatchEvent(*OfflineAudioCompletionEvent::Create(rendered_buffer));
+diff --git a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
+index b17f336f90..73d415f263 100644
+--- a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
++++ b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
+@@ -139,6 +139,7 @@
+ #include "third_party/blink/renderer/modules/xr/xr_system.h"
+ #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+ #include "third_party/blink/renderer/platform/bindings/script_state.h"
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
+ #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
+ #include "third_party/blink/renderer/platform/graphics/canvas_2d_resource_provider.h"
+ #include "third_party/blink/renderer/platform/graphics/canvas_non_2d_resource_provider.h"
+@@ -4216,6 +4217,12 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
+       return ScriptValue::CreateNull(script_state->GetIsolate());
+     case WebGLDebugRendererInfo::kUnmaskedRendererWebgl:
+       if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
++        // Pane: the profile's fingerprint.
++        if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++            fingerprint && fingerprint->webgl_renderer) {
++          return WebGLAny(script_state,
++                          String::FromUtf8(*fingerprint->webgl_renderer));
++        }
+         return WebGLAny(script_state,
+                         String(ContextGL()->GetString(GL_RENDERER)));
+       }
+@@ -4225,6 +4232,12 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
+       return ScriptValue::CreateNull(script_state->GetIsolate());
+     case WebGLDebugRendererInfo::kUnmaskedVendorWebgl:
+       if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
++        // Pane: the profile's fingerprint.
++        if (const PaneFingerprint* fingerprint = PaneFingerprint::Get();
++            fingerprint && fingerprint->webgl_vendor) {
++          return WebGLAny(script_state,
++                          String::FromUtf8(*fingerprint->webgl_vendor));
++        }
+         return WebGLAny(script_state,
+                         String(ContextGL()->GetString(GL_VENDOR)));
+       }
+diff --git a/third_party/blink/renderer/platform/BUILD.gn b/third_party/blink/renderer/platform/BUILD.gn
+index 6101076273..ebfac95c48 100644
+--- a/third_party/blink/renderer/platform/BUILD.gn
++++ b/third_party/blink/renderer/platform/BUILD.gn
+@@ -1405,6 +1405,8 @@ component("platform") {
+     "p2p/socket_client_impl.h",
+     "p2p/socket_dispatcher.cc",
+     "p2p/socket_dispatcher.h",
++    "pane/pane_fingerprint.cc",
++    "pane/pane_fingerprint.h",
+     "peerconnection/audio_codec_factory.cc",
+     "peerconnection/audio_codec_factory.h",
+     "peerconnection/gpu_codec_support_waiter.cc",
+diff --git a/third_party/blink/renderer/platform/pane/pane_fingerprint.cc b/third_party/blink/renderer/platform/pane/pane_fingerprint.cc
+new file mode 100644
+index 0000000000..7bbdf18906
+--- /dev/null
++++ b/third_party/blink/renderer/platform/pane/pane_fingerprint.cc
+@@ -0,0 +1,183 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#include "third_party/blink/renderer/platform/pane/pane_fingerprint.h"
++
++#include <algorithm>
++#include <utility>
++
++#include "base/command_line.h"
++#include "base/compiler_specific.h"
++#include "base/json/json_reader.h"
++#include "base/logging.h"
++#include "base/no_destructor.h"
++#include "base/values.h"
++#include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
++#include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
++#include "third_party/skia/include/core/SkBitmap.h"
++#include "third_party/skia/include/core/SkImage.h"
++#include "third_party/skia/include/core/SkPixmap.h"
++
++namespace blink {
++
++namespace {
++
++constexpr char kFingerprintSwitch[] = "pane-fingerprint";
++
++// The renderer half of the fingerprint the app builds (PaneKit's
++// EngineFingerprint.Renderer).
++std::optional<PaneFingerprint> Parse(const std::string& json) {
++  std::optional<base::DictValue> root =
++      base::JSONReader::ReadDict(json, base::JSON_PARSE_RFC);
++  if (!root) {
++    LOG(ERROR) << "Pane: --" << kFingerprintSwitch << " is not a JSON object.";
++    return std::nullopt;
++  }
++
++  PaneFingerprint fingerprint;
++  if (const std::string* platform = root->FindString("platform")) {
++    fingerprint.platform = *platform;
++  }
++  fingerprint.hardware_concurrency =
++      std::max(1, root->FindInt("hardwareConcurrency").value_or(1));
++  fingerprint.device_memory = root->FindDouble("deviceMemory").value_or(8);
++  fingerprint.max_touch_points = root->FindInt("maxTouchPoints").value_or(0);
++  if (const base::DictValue* screen = root->FindDict("screen")) {
++    fingerprint.screen.width = screen->FindInt("width").value_or(0);
++    fingerprint.screen.height = screen->FindInt("height").value_or(0);
++    fingerprint.screen.avail_width = screen->FindInt("availWidth").value_or(0);
++    fingerprint.screen.avail_height =
++        screen->FindInt("availHeight").value_or(0);
++    fingerprint.screen.avail_left = screen->FindInt("availLeft").value_or(0);
++    fingerprint.screen.avail_top = screen->FindInt("availTop").value_or(0);
++    fingerprint.screen.color_depth = screen->FindInt("colorDepth").value_or(24);
++  }
++  fingerprint.device_pixel_ratio =
++      root->FindDouble("devicePixelRatio").value_or(1);
++  if (const std::string* vendor = root->FindString("webglVendor")) {
++    fingerprint.webgl_vendor = *vendor;
++  }
++  if (const std::string* renderer = root->FindString("webglRenderer")) {
++    fingerprint.webgl_renderer = *renderer;
++  }
++  fingerprint.canvas_noise = root->FindBool("canvasNoise").value_or(false);
++  fingerprint.audio_noise = root->FindBool("audioNoise").value_or(false);
++  fingerprint.noise_seed = static_cast<uint32_t>(
++      root->FindDouble("noiseSeed").value_or(0));
++  if (const std::string* timezone = root->FindString("timezone")) {
++    fingerprint.timezone = *timezone;
++  }
++  if (const std::string* locale = root->FindString("locale")) {
++    fingerprint.locale = *locale;
++  }
++  fingerprint.hide_speech_voices =
++      root->FindBool("hideSpeechVoices").value_or(false);
++  return fingerprint;
++}
++
++// The Electron app's canvas noise (fingerprint-preload.ts deltaAt): a hash
++// of the seed and the channel's position, so a migrated profile draws the
++// same canvases.
++int CanvasDelta(uint32_t seed, uint32_t index) {
++  uint32_t hash = seed ^ index;
++  hash = (hash ^ (hash >> 16)) * 0x45d9f3b3u;
++  hash = (hash ^ (hash >> 16)) * 0x45d9f3b3u;
++  hash ^= hash >> 16;
++  return (hash & 0x80000000u) ? 1 : -1;
++}
++
++}  // namespace
++
++// static
++const PaneFingerprint* PaneFingerprint::Get() {
++  static const base::NoDestructor<std::optional<PaneFingerprint>> fingerprint(
++      []() -> std::optional<PaneFingerprint> {
++        const base::CommandLine& command_line =
++            *base::CommandLine::ForCurrentProcess();
++        if (!command_line.HasSwitch(kFingerprintSwitch)) {
++          return std::nullopt;
++        }
++        return Parse(command_line.GetSwitchValueASCII(kFingerprintSwitch));
++      }());
++  return fingerprint->has_value() ? &fingerprint->value() : nullptr;
++}
++
++void PaneFingerprint::NoiseCanvasPixels(const SkPixmap& pixmap,
++                                        int x,
++                                        int y,
++                                        int canvas_width) const {
++  if (!canvas_noise || pixmap.colorType() != kRGBA_8888_SkColorType ||
++      !pixmap.writable_addr()) {
++    return;
++  }
++
++  // SAFETY: an SkPixmap's pixels span computeByteSize() bytes.
++  base::span<uint8_t> pixels = UNSAFE_BUFFERS(
++      base::span(static_cast<uint8_t*>(pixmap.writable_addr()),
++                 pixmap.computeByteSize()));
++  const size_t row_bytes = pixmap.rowBytes();
++  const size_t width = static_cast<size_t>(pixmap.width());
++
++  for (int row = 0; row < pixmap.height(); ++row) {
++    base::span<uint8_t> line =
++        pixels.subspan(static_cast<size_t>(row) * row_bytes, width * 4);
++    for (size_t column = 0; column < width; ++column) {
++      base::span<uint8_t> pixel = line.subspan(column * 4, 4u);
++      // Only opaque pixels: their premultiplied and unpremultiplied values
++      // agree, so every read path sees the same noise.
++      if (pixel[3] != 255) {
++        continue;
++      }
++      const uint32_t index = static_cast<uint32_t>(
++          ((y + row) * canvas_width + (x + static_cast<int>(column))) * 3);
++      for (uint32_t channel = 0; channel < 3; ++channel) {
++        const int value =
++            pixel[channel] + CanvasDelta(noise_seed, index + channel);
++        pixel[channel] = static_cast<uint8_t>(std::clamp(value, 0, 255));
++      }
++    }
++  }
++}
++
++scoped_refptr<StaticBitmapImage> PaneFingerprint::NoiseCanvasImage(
++    scoped_refptr<StaticBitmapImage> image) const {
++  if (!canvas_noise || !image) {
++    return image;
++  }
++
++  sk_sp<SkImage> source = image->PaintImageForCurrentFrame().GetSwSkImage();
++  if (!source) {
++    return image;
++  }
++
++  SkBitmap bitmap;
++  if (!bitmap.tryAllocPixels(SkImageInfo::Make(
++          source->width(), source->height(), kRGBA_8888_SkColorType,
++          kUnpremul_SkAlphaType, source->refColorSpace())) ||
++      !source->readPixels(bitmap.pixmap(), 0, 0)) {
++    return image;
++  }
++
++  NoiseCanvasPixels(bitmap.pixmap(), 0, 0, source->width());
++  bitmap.setImmutable();
++  return UnacceleratedStaticBitmapImage::Create(bitmap.asImage(),
++                                                image->Orientation());
++}
++
++void PaneFingerprint::NoiseAudioChannel(base::span<float> samples,
++                                        unsigned channel) const {
++  if (!audio_noise) {
++    return;
++  }
++
++  // The Electron app's audio noise: a seeded linear congruential sequence,
++  // one step per sample.
++  uint32_t state = (noise_seed ^ 0x5bd1e995u) + channel * 0x9e3779b9u;
++  for (float& sample : samples) {
++    state = state * 1664525u + 1013904223u;
++    sample = static_cast<float>(
++        static_cast<double>(sample) +
++        (static_cast<double>(state >> 16) / 65536.0 - 0.5) * 0.0001);
++  }
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/platform/pane/pane_fingerprint.h b/third_party/blink/renderer/platform/pane/pane_fingerprint.h
+new file mode 100644
+index 0000000000..d9a679c205
+--- /dev/null
++++ b/third_party/blink/renderer/platform/pane/pane_fingerprint.h
+@@ -0,0 +1,78 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_PANE_PANE_FINGERPRINT_H_
++#define THIRD_PARTY_BLINK_RENDERER_PLATFORM_PANE_PANE_FINGERPRINT_H_
++
++#include <stdint.h>
++
++#include <optional>
++#include <string>
++
++#include "base/containers/span.h"
++#include "base/memory/scoped_refptr.h"
++#include "third_party/blink/renderer/platform/platform_export.h"
++
++class SkPixmap;
++
++namespace blink {
++
++class StaticBitmapImage;
++
++// Pane: the fingerprint of the profile this renderer serves. The browser
++// passes it in --pane-fingerprint (pane/browser/fingerprints.h); a renderer
++// never serves two profiles, so there is one per process. Blink reports
++// these values natively, in every frame and worker, instead of Chrome's own.
++class PLATFORM_EXPORT PaneFingerprint {
++ public:
++  struct Screen {
++    int width = 0;
++    int height = 0;
++    int avail_width = 0;
++    int avail_height = 0;
++    int avail_left = 0;
++    int avail_top = 0;
++    int color_depth = 24;
++  };
++
++  // Null when the profile presents Chrome's own values. Any thread.
++  static const PaneFingerprint* Get();
++
++  // navigator.platform.
++  std::string platform;
++  unsigned hardware_concurrency = 0;
++  float device_memory = 0;
++  int max_touch_points = 0;
++  Screen screen;
++  double device_pixel_ratio = 1;
++  // WEBGL_debug_renderer_info's unmasked vendor and renderer.
++  std::optional<std::string> webgl_vendor;
++  std::optional<std::string> webgl_renderer;
++  bool canvas_noise = false;
++  bool audio_noise = false;
++  uint32_t noise_seed = 0;
++  // An IANA time zone, or empty for the system's.
++  std::string timezone;
++  // Intl's default locale.
++  std::string locale;
++  bool hide_speech_voices = false;
++
++  // Adds the canvas noise to `pixmap`, unpremultiplied RGBA read at (`x`, `y`)
++  // of a canvas `canvas_width` wide: ±1 on each color channel of each opaque
++  // pixel, keyed by its position in the canvas, so any read of a pixel gets
++  // the same noise. A no-op without canvas noise or for another format.
++  void NoiseCanvasPixels(const SkPixmap& pixmap, int x, int y,
++                         int canvas_width) const;
++
++  // `image` with the canvas noise, for the canvas exports (toDataURL, toBlob,
++  // convertToBlob); `image` itself without canvas noise.
++  scoped_refptr<StaticBitmapImage> NoiseCanvasImage(
++      scoped_refptr<StaticBitmapImage> image) const;
++
++  // Adds the audio noise to channel `channel` of an OfflineAudioContext's
++  // rendered buffer. A no-op without audio noise.
++  void NoiseAudioChannel(base::span<float> samples, unsigned channel) const;
++};
++
++}  // namespace blink
++
++#endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_PANE_PANE_FINGERPRINT_H_

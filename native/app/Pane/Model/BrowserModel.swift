@@ -39,6 +39,7 @@ final class BrowserModel {
 	var proxyStatus: [String: ProxyStatus] = [:]
 	// Called when a profile's proxy changes, to apply it to the engine.
 	@ObservationIgnored var proxyDidChange: ((String) -> Void)?
+	@ObservationIgnored var fingerprintDidChange: ((String) -> Void)?
 
 	enum ProxyStatus: String {
 		case testing
@@ -120,12 +121,17 @@ final class BrowserModel {
 		}
 
 		let proxy = profiles[index].proxy
+		let fingerprint = profiles[index].fingerprint
 		change(&profiles[index])
 		profiles[index].updatedAt = Self.timestamp()
 		scheduleSave()
 
 		if profiles[index].proxy != proxy {
 			proxyDidChange?(id)
+		}
+
+		if profiles[index].fingerprint != fingerprint {
+			fingerprintDidChange?(id)
 		}
 	}
 

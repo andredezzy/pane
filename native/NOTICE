@@ -18,3 +18,7 @@ Lucide (https://lucide.dev), ISC License, with portions from Feather (MIT)
 (native/third_party/lucide/LICENSE): the app's icons
 (native/app/Pane/Views/Theme.swift) are Lucide's SVG paths, as the Electron
 app uses them through lucide-react.
+
+Patch 0006-pane-fingerprint.patch is Pane's own and borrows no other
+project's patch. Its canvas and audio noise are the Electron app's own
+algorithms (apps/veil profile/fingerprint-preload.ts).

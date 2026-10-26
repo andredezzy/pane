@@ -16,6 +16,10 @@ class Profile;
 // Nil after -shutDown.
 @property(readonly) Profile* profile;
 
+// Applies the profile's fingerprint (pane/browser/fingerprints.h) to its
+// prefs: the Accept-Language list and navigator.languages.
+- (void)applyFingerprint;
+
 // Releases the profile (its keep-alive and download reporting). Called at
 // engine shutdown and before the profile is deleted.
 - (void)shutDown;
