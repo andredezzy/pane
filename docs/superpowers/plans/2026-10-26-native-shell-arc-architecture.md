@@ -151,7 +151,7 @@ docs/native/parity.md
   - Starting points: `chrome/browser/app_controller_mac.mm`, `chrome/browser/chrome_browser_main_mac.mm`, `chrome/browser/ui/startup/startup_browser_creator.cc`.
 - [ ] **1.3** Write API v0 in `//pane/public`.
   - `PaneBrowserApplication`: start with a delegate, get a ready callback.
-  - `PaneBrowserContext`: open a profile by id at `<data root>/Profiles/<id>`.
+  - `PaneBrowserContext`: open a profile by id at `<data root>/Engine/<id>` (Chrome only accepts profile dirs directly under the user data dir).
   - `PaneWebContents`: create it in a context, call `loadURL`, get `nativeView`, receive delegate callbacks for title, URL, loading progress, and favicon.
 - [ ] **1.4** Add the engine trace.
   - When `PANE_ENGINE_TRACE=<file>` is set, the engine writes one JSONL line per API call and per delegate callback: name, arguments, result.
