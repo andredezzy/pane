@@ -2,7 +2,12 @@
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"ignoreExportsUsedInFile": true,
 	"workspaces": {
-		".": {},
+		".": {
+			"entry": [
+				"native/engine/tests/run.ts",
+				"native/engine/tests/scenarios/*.ts"
+			]
+		},
 		"apps/veil": {
 			"entry": [
 				"src/main/index.ts",

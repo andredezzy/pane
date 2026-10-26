@@ -1,0 +1,10 @@
+# Release build of the engine. Kept identical between the stock build and the
+# PaneCore build so the two only differ by the patch series and //pane.
+is_debug = false
+dcheck_always_on = false
+symbol_level = 1
+target_cpu = "arm64"
+proprietary_codecs = true
+ffmpeg_branding = "Chrome"
+enable_nacl = false
+is_component_build = false

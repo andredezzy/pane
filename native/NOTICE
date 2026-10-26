@@ -1,0 +1,10 @@
+Pane native — third-party notices
+
+PaneCore.framework is built from the Chromium project (BSD-3-Clause and the
+licenses of its third-party components, see chrome://credits in the built app).
+
+Patches in native/engine/patches that originate in other projects are listed
+below with their origin and license. Patches not listed are Pane's own
+(GPL-3.0-only, like the rest of this repository).
+
+_No third-party patches yet._
