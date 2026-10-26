@@ -91,3 +91,40 @@ extension BrowserController {
 		state.switcher.visible ? cycleSwitcher(backward: true) : openSwitcher(backward: true)
 	}
 }
+
+// MARK: - Google
+
+extension BrowserController {
+	// Signs the profile out of Google, then reloads its open Google pages so
+	// they show it (the profile menu's "Sign out of Google").
+	func signOutOfGoogle(_ profileID: String) {
+		guard let context = context(for: profileID) else {
+			return
+		}
+
+		Task {
+			await GoogleSession.signOut(context)
+
+			for tab in model.profile(profileID)?.tabs ?? [] where GoogleAccounts.isGoogleURL(tab.url) {
+				page(for: tab.id)?.reload()
+			}
+
+			refreshGoogleSession(profileID)
+		}
+	}
+
+	// Checks again whether the open profile is signed in to Google.
+	func refreshGoogleSession(_ profileID: String) {
+		guard let context = context(for: profileID) else {
+			return
+		}
+
+		Task {
+			if await GoogleSession.isSignedIn(context) {
+				model.googleSignedIn.insert(profileID)
+			} else {
+				model.googleSignedIn.remove(profileID)
+			}
+		}
+	}
+}

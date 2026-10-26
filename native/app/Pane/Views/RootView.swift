@@ -92,6 +92,8 @@ struct RootView: View {
 					EmptyStateView()
 				} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
 					SadTabView { controller.reloadCrashed(tabID) }
+				} else if let tabID = model.activeTabID, let signIn = model.googleSignIns[tabID] {
+					GoogleAuthView(state: signIn) { controller.google.transfer(tabID) }
 				}
 			}
 		}

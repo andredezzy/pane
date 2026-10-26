@@ -279,7 +279,7 @@ docs/native/parity.md
   - It applies before page scripts in main frames, in iframes, in dedicated, shared, and service workers. Patched functions report native `toString`.
   - The config reaches each renderer process through its profile, since a renderer never serves two profiles.
   - Prefer Blink-level patches over script injection wherever the surface allows (UA/Client Hints, timezone, hardwareConcurrency, deviceMemory, screen). Record each borrowed patch in `native/NOTICE`.
-- [ ] **5.3** Google sign-in.
+- [x] **5.3** Google sign-in.
   - Port the `/rejected` interception and its fallback from `google/auth-window.ts` and `google/sign-in.ts` (a real Chrome plus cookie import through the engine cookie API) in all cases. It only triggers when Google rejects the engine, so it costs nothing when the engine is accepted.
   - Port `signOut`/`signedIn` (`sign-out.ts`, `sessions.ts`).
   - Automated check: `accounts.google.com` loads its identifier page in a profile without redirecting to `/rejected`.
@@ -294,6 +294,7 @@ docs/native/parity.md
   - Settings: theme, sleep and unload minutes, cache budget, Chrome detection for the sign-in fallback.
   - The profile sheet: name, color, group, the fingerprint editor with `default-fingerprints.ts` presets and `host-webgl.ts` detection, the proxy editor with its test, keep loaded; a fingerprint change reopens the profile's open tabs in new renderers (5.2 applies it to new renderers only).
   - The update check through the GitHub Releases API (ADR 0002), with the quiet sidebar pill from `DESIGN.md`.
+  - Chrome's own background requests to Google (seen in 5.1: `accounts.google.com`, `www.google.com`): find their sources, and turn off those the Electron app never made.
 - [ ] **5.7** Migration from the Electron app on first launch, always from a copy of the Electron data directory, never in place.
   - It imports `profiles.json`, `settings.json`, `security.json`, and each `Partitions/profile-<id>`.
   - Cookies must stay decryptable: match the os_crypt Keychain service name (see Ardia's `chromium-safe-storage-name`) or re-encrypt them.

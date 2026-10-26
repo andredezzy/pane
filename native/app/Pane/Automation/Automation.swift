@@ -14,6 +14,9 @@ final class Automation {
 	private let controller: BrowserController
 	private var timer: Timer?
 	private var downloads: [String: [String: Any]] = [:]
+	// Each profile's cookies (names, domains, and paths; never values), as
+	// last read with readCookies.
+	private var cookies: [String: [[String: Any]]] = [:]
 	private var observer: NSObjectProtocol?
 
 	init(directory: URL, controller: BrowserController) {
@@ -355,6 +358,34 @@ final class Automation {
 
 			model.updateProfile(profileID) { $0.fingerprint = fingerprint }
 
+		case "setChromiumPath":
+			// The Chrome the Google sign-in fallback opens.
+			model.settings.chromiumPath = try string("path")
+
+		case "googleTransfer":
+			// The transfer page's button.
+			controller.google.transfer(try string("tab"))
+
+		case "googleSignOut":
+			// The profile menu's Sign out of Google, once confirmed.
+			controller.signOutOfGoogle(try string("profile"))
+
+		case "readCookies":
+			// { profile }: read in the background; the snapshot's
+			// profiles[].cookies has them once read.
+			let profileID = try string("profile")
+
+			guard let context = controller.context(for: profileID) else {
+				throw AutomationError("profile \(profileID) is not open")
+			}
+
+			cookies[profileID] = nil
+
+			Task { [weak self] in
+				let all = await context.cookies()
+				self?.cookies[profileID] = all.map { ["name": $0.name, "domain": $0.domain, "path": $0.path] }
+			}
+
 		case "installExtension":
 			controller.installExtension(try string("id"), inProfile: try string("profile"))
 
@@ -666,6 +697,8 @@ final class Automation {
 					"color": profile.color.rawValue,
 					"expanded": model.expandedProfileIDs.contains(profile.id),
 					"proxyStatus": model.proxyStatus[profile.id]?.rawValue ?? NSNull(),
+					"googleSignedIn": model.googleSignedIn.contains(profile.id),
+					"cookies": cookies[profile.id] ?? NSNull(),
 					// What the engine applied to the open profile.
 					"network": controller.context(for: profile.id).map { context in
 						[
@@ -683,6 +716,14 @@ final class Automation {
 							"loading": model.loadingProgress[tab.id] != nil,
 							"canGoBack": model.navigation[tab.id]?.canGoBack ?? false,
 							"canGoForward": model.navigation[tab.id]?.canGoForward ?? false,
+							// The transfer page, while a real Chrome signs in.
+							"googleSignIn": model.googleSignIns[tab.id].map { signIn in
+								[
+									"transferring": signIn.transferring,
+									"error": signIn.error ?? NSNull(),
+									"chromeProfile": controller.google.chromeProfile(of: tab.id)?.path ?? NSNull(),
+								] as [String: Any]
+							} ?? NSNull(),
 						] as [String: Any]
 					},
 				] as [String: Any]

@@ -154,6 +154,7 @@ private struct ProfileSection: View {
 	let onEdit: () -> Void
 
 	@State private var confirmingDelete = false
+	@State private var confirmingSignOut = false
 	// The moon marks an unload that happened this session: a profile never
 	// loaded shows none.
 	@State private var wasLoaded = false
@@ -191,6 +192,12 @@ private struct ProfileSection: View {
 			Button("Cancel", role: .cancel) {}
 		} message: {
 			Text("This action cannot be undone.")
+		}
+		.alert("Sign out of Google in \u{201C}\(profile.name)\u{201D}?", isPresented: $confirmingSignOut) {
+			Button("Sign out") { controller.signOutOfGoogle(profile.id) }
+			Button("Cancel", role: .cancel) {}
+		} message: {
+			Text("This clears Google cookies and site data (Gmail, YouTube, Drive) for this profile. You\u{2019}ll need to sign in again.")
 		}
 	}
 
@@ -244,6 +251,10 @@ private struct ProfileSection: View {
 				get: { profile.keepLoaded },
 				set: { value in model.updateProfile(profile.id) { $0.keepLoaded = value } }
 			))
+			// Only for a profile with a Google session.
+			if model.googleSignedIn.contains(profile.id) {
+				Button("Sign out of Google") { confirmingSignOut = true }
+			}
 			Divider()
 			Button("Delete profile", role: .destructive) { confirmingDelete = true }
 		}
