@@ -24,3 +24,21 @@ export async function windowsOf(...pids: number[]): Promise<WindowList> {
 
 	return JSON.parse(await Bun.$`${BINARY} ${pids.map(String)}`.text());
 }
+
+// The windows once their count reaches `expected`, or the last list seen
+// after `timeoutMs`: a window can be on screen briefly while another opens.
+export async function settledWindowsOf(
+	pid: number,
+	expected: number,
+	timeoutMs = 5_000,
+): Promise<WindowList> {
+	const deadline = Date.now() + timeoutMs;
+	let list = await windowsOf(pid);
+
+	while (list.count !== expected && Date.now() < deadline) {
+		await Bun.sleep(250);
+		list = await windowsOf(pid);
+	}
+
+	return list;
+}

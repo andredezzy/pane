@@ -29,6 +29,11 @@ NS_SWIFT_UI_ACTOR
 // created. Called once, on the main thread.
 - (void)browserApplicationDidStart:(PaneBrowserApplication*)application;
 
+@optional
+// The engine is shutting down: every window has closed and profiles are about
+// to be released. The last moment to save the app's state.
+- (void)browserApplicationWillShutDown:(PaneBrowserApplication*)application;
+
 @end
 
 // The engine hosted by the Pane app. The app's `main` calls

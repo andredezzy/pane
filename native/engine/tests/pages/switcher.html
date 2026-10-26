@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Switcher</title>
+	</head>
+	<body>
+		<h1>Switcher fixture</h1>
+		<script>
+			document.title = new URLSearchParams(location.search).get("name") ?? "Switcher";
+		</script>
+	</body>
+</html>

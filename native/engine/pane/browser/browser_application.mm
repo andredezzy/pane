@@ -7,11 +7,13 @@
 
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/scoped_observation.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/window_host.h"
@@ -53,6 +55,37 @@ bool IsValidIdentifier(NSString* identifier) {
   return [identifier rangeOfString:@"/"].location == NSNotFound &&
          [identifier rangeOfString:@":"].location == NSNotFound;
 }
+
+// Calls back once Chrome has marked a profile for permanent deletion: its
+// browsing data is being removed, and its directory goes when the profile is
+// destroyed or, at the latest, at the next start. Deletes itself.
+class ProfileDeletionWaiter : public ProfileManagerObserver {
+ public:
+  ProfileDeletionWaiter(base::FilePath path, base::OnceCallback<void(bool)> done)
+      : path_(std::move(path)), done_(std::move(done)) {
+    observation_.Observe(g_browser_process->profile_manager());
+  }
+
+  void OnProfileMarkedForPermanentDeletion(Profile* profile) override {
+    if (profile->GetPath() == path_) {
+      Finish(true);
+    }
+  }
+
+  void OnProfileManagerDestroying() override { Finish(false); }
+
+ private:
+  void Finish(bool deleted) {
+    observation_.Reset();
+    std::move(done_).Run(deleted);
+    delete this;
+  }
+
+  const base::FilePath path_;
+  base::OnceCallback<void(bool)> done_;
+  base::ScopedObservation<ProfileManager, ProfileManagerObserver> observation_{
+      this};
+};
 
 }  // namespace
 
@@ -203,14 +236,26 @@ bool IsValidIdentifier(NSString* identifier) {
   const base::FilePath path = profile->GetPath();
   [_contexts removeObjectForKey:context.identifier];
   [context shutDown];
-  // Chrome closes the profile's Browsers (Pane's included), then removes its
-  // data; the directory itself goes at the next start, once nothing holds it.
+  // Chrome closes the profile's Browsers (Pane's included), then marks the
+  // profile for deletion and removes its data; the directory goes once nothing
+  // holds the profile, or at the next start.
+  new ProfileDeletionWaiter(
+      path, base::BindOnce(
+                [](void (^completion)(BOOL), NSString* identifier,
+                   bool deleted) {
+                  pane::Trace("callback", "PaneBrowserApplication.didDeleteContext",
+                              base::DictValue()
+                                  .Set("identifier",
+                                       base::SysNSStringToUTF8(identifier))
+                                  .Set("deleted", deleted));
+                  completion(deleted);
+                },
+                completion, context.identifier));
   g_browser_process->profile_manager()
       ->GetDeleteProfileHelper()
       .MaybeScheduleProfileForDeletion(
           path, base::DoNothing(),
           ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
-  completion(YES);
 }
 
 - (void)terminate {
@@ -225,6 +270,10 @@ bool IsValidIdentifier(NSString* identifier) {
 
 - (void)engineWillShutDown {
   pane::Trace("callback", "PaneBrowserApplication.willShutDown");
+  if ([_delegate respondsToSelector:@selector
+                 (browserApplicationWillShutDown:)]) {
+    [_delegate browserApplicationWillShutDown:self];
+  }
   for (PaneBrowserContext* context in _contexts.allValues) {
     [context shutDown];
   }

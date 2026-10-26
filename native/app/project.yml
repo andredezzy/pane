@@ -14,12 +14,17 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     ARCHS: arm64
     PANE_ENGINE_OUT: $(HOME)/chromium/src/out/Release
+packages:
+  PaneKit:
+    path: PaneKit
 targets:
   Pane:
     type: application
     platform: macOS
     sources:
       - path: Pane
+    dependencies:
+      - package: PaneKit
     settings:
       base:
         PRODUCT_NAME: Pane

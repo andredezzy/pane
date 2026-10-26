@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Popup opener</title>
+	</head>
+	<body>
+		<a id="blank" href="popup-target.html?via=link" target="_blank">New tab link</a>
+		<script>
+			function openPopup() {
+				return Boolean(window.open("popup-target.html?via=open", "pane-popup", "popup,width=400,height=300"));
+			}
+		</script>
+	</body>
+</html>

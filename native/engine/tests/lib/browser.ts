@@ -69,6 +69,11 @@ export async function launch(
 
 	const fixedPort = userDataDir ? null : freePort();
 
+	// A reused directory still holds the last run's port.
+	if (userDataDir) {
+		rmSync(join(userDataDir, "DevToolsActivePort"), { force: true });
+	}
+
 	const args = [
 		`--remote-debugging-port=${fixedPort ?? 0}`,
 		"--no-first-run",
@@ -77,10 +82,13 @@ export async function launch(
 		...(options.args ?? []),
 	];
 
+	// PANE_SCENARIO_STDERR=1 shows the binary's log, for debugging a scenario.
+	const output = process.env.PANE_SCENARIO_STDERR ? "inherit" : "ignore";
+
 	const child = Bun.spawn([binary, ...args], {
 		env: { ...process.env, ...options.env },
-		stdout: "ignore",
-		stderr: "ignore",
+		stdout: output,
+		stderr: output,
 	});
 
 	const port = await waitForPort(userDataDir, fixedPort);

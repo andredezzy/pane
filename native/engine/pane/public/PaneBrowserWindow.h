@@ -26,7 +26,8 @@ NS_SWIFT_UI_ACTOR
                opener:(nullable PaneWebContents*)opener
            foreground:(BOOL)foreground;
 
-// A tab left the window: it closed, or the page closed itself.
+// A tab left the window: it closed, or the page closed itself. Not sent for
+// the tabs of a closing window or a quitting engine, which stay the app's.
 - (void)browserWindow:(PaneBrowserWindow*)window
          didRemoveTab:(PaneWebContents*)tab;
 

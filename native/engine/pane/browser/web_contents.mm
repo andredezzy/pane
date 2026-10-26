@@ -14,8 +14,11 @@
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
 #include "components/zoom/page_zoom.h"
+#include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/host_zoom_map.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/common/page_zoom.h"
 #include "net/base/apple/url_conversions.h"
 #include "pane/browser/engine_trace.h"
@@ -221,21 +224,38 @@
 }
 
 - (void)zoomIn {
-  if (_contents) {
-    zoom::PageZoom::Zoom(_contents.get(), content::PAGE_ZOOM_IN);
-  }
+  [self zoom:content::PAGE_ZOOM_IN name:"PaneWebContents.zoomIn"];
 }
 
 - (void)zoomOut {
-  if (_contents) {
-    zoom::PageZoom::Zoom(_contents.get(), content::PAGE_ZOOM_OUT);
-  }
+  [self zoom:content::PAGE_ZOOM_OUT name:"PaneWebContents.zoomOut"];
 }
 
 - (void)resetZoom {
-  if (_contents) {
-    zoom::PageZoom::Zoom(_contents.get(), content::PAGE_ZOOM_RESET);
+  [self zoom:content::PAGE_ZOOM_RESET name:"PaneWebContents.resetZoom"];
+}
+
+- (void)zoom:(content::PageZoom)zoom name:(std::string_view)name {
+  if (!_contents) {
+    return;
   }
+  auto* controller = zoom::ZoomController::FromWebContents(_contents.get());
+  const double before = controller ? controller->GetZoomLevel() : 0;
+  zoom::PageZoom::Zoom(_contents.get(), zoom);
+  [self traceCall:name
+             args:base::DictValue()
+                      .Set("before", before)
+                      .Set("after", controller ? controller->GetZoomLevel() : 0)
+                      .Set("default",
+                           controller ? controller->GetDefaultZoomLevel() : 0)
+                      .Set("host",
+                           content::HostZoomMap::GetZoomLevel(_contents.get()))
+                      .Set("temporary",
+                           content::HostZoomMap::GetForWebContents(
+                               _contents.get())
+                               ->UsesTemporaryZoomLevel(
+                                   _contents->GetPrimaryMainFrame()
+                                       ->GetGlobalId()))];
 }
 
 - (void)focus {

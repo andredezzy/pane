@@ -57,18 +57,31 @@ export class Cdp {
 		});
 	}
 
+	// Rejects after `timeoutMs`: a target whose renderer died never answers.
 	send<T = Record<string, unknown>>(
 		method: string,
 		params: Record<string, unknown> = {},
 		sessionId?: string,
+		timeoutMs = 15_000,
 	): Promise<T> {
 		const id = nextMessageId++;
 		this.socket.send(JSON.stringify({ id, method, params, sessionId }));
 
 		return new Promise((resolve, reject) => {
+			const timer = setTimeout(() => {
+				this.pending.delete(id);
+				reject(new Error(`${method} timed out after ${timeoutMs} ms`));
+			}, timeoutMs);
+
 			this.pending.set(id, {
-				resolve: (value) => resolve(value as T),
-				reject,
+				resolve: (value) => {
+					clearTimeout(timer);
+					resolve(value as T);
+				},
+				reject: (error) => {
+					clearTimeout(timer);
+					reject(error);
+				},
 			});
 		});
 	}

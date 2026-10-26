@@ -172,7 +172,7 @@ docs/native/parity.md
 
 ## Phase 2 — Browser core
 
-- [ ] **2.1** Write the parity matrix `docs/native/parity.md`, derived from `apps/veil`. Columns: feature · Electron source · native phase · status · evidence path. It must include:
+- [x] **2.1** Write the parity matrix `docs/native/parity.md`, derived from `apps/veil`. Columns: feature · Electron source · native phase · status · evidence path. It must include:
   - **every tRPC procedure:**
     - `cws`: install, uninstall, installed
     - `extensions`: list
@@ -194,11 +194,11 @@ docs/native/parity.md
   - every hotkey in `hotkey-emitter.ts`;
   - every setting (`theme`, `tabSleepAfterMinutes`, `profileUnloadAfterMinutes`, `cacheBudgetMB`, `chromiumPath`);
   - every persisted store.
-- [ ] **2.2** Write the `PaneKit` package.
+- [x] **2.2** Write the `PaneKit` package.
   - Domain models mirror `profile-store.ts`: `BrowserProfile`, `Tab`, `Fingerprint`, `ProxyConfig`, colors, group, keep loaded.
   - It persists JSON under the data root.
   - It holds the pure logic from `mru.ts`, `tab-switcher-grouping.ts`, and `compare-versions.ts`, with their vitest cases ported to Swift Testing.
-- [ ] **2.3** Engine API:
+- [x] **2.3** Engine API:
   - several contexts at once, with tabs per context;
   - navigation (back, forward, reload, stop, `canGoBack`/`canGoForward`);
   - new-window and popup requests sent to the delegate;
@@ -206,11 +206,11 @@ docs/native/parity.md
   - downloads (destination, progress, completion);
   - favicon and loading progress;
   - renderer crash callback.
-- [ ] **2.4** Add the hidden Chrome `Browser` for each (window, profile) pair.
+- [x] **2.4** Add the hidden Chrome `Browser` for each (window, profile) pair.
   - It is backed by Pane's implementation of the `BrowserWindow` interface, with no Views UI.
   - Starting points: `chrome/browser/ui/browser_window.h`, `Browser::CreateParams` in `browser.h`.
   - Evaluate Ardia's `chromium-ardia-layer` and `chromium-hosted-browsers-no-session-service`.
-- [ ] **2.5** Build the Swift UI.
+- [x] **2.5** Build the Swift UI.
   - A main window with the sidebar (profiles with color and tabs; drag to reorder profiles and tabs), the content area, and a toolbar (back, forward, reload, address).
   - The find bar, the Ctrl+Tab switcher grouped by profile, and the hotkeys.
   - It follows `DESIGN.md`: selection is instant, hover and enter/exit animate, `prefers-reduced-motion` is honored.

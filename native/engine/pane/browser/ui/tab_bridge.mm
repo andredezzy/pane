@@ -8,7 +8,9 @@
 
 #include <utility>
 
+#include "base/functional/bind.h"
 #include "base/process/kill.h"
+#include "base/task/single_thread_task_runner.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
@@ -26,23 +28,28 @@ TabBridge::TabBridge(content::WebContents* contents)
       content::WebContentsUserData<TabBridge>(*contents),
       tab_([[PaneWebContents alloc] initWithContents:contents]) {}
 
-// Runs while the WebContents is being destroyed, after its observers heard
-// WebContentsDestroyed (so web_contents() is null): GetWebContents() is still
-// valid here.
 TabBridge::~TabBridge() {
+  [tab_ contentsDestroyed];
+}
+
+// The bridge stops observing the tab's helpers here, while they can still be
+// looked up: by the time user data (the bridge included) is destroyed, the
+// WebContents has already emptied its user data map.
+void TabBridge::WebContentsDestroyed() {
   if (observing_favicon_) {
     if (auto* driver =
-            favicon::ContentFaviconDriver::FromWebContents(&GetWebContents())) {
+            favicon::ContentFaviconDriver::FromWebContents(web_contents())) {
       driver->RemoveObserver(this);
     }
+    observing_favicon_ = false;
   }
   if (observing_find_) {
     if (auto* finder =
-            find_in_page::FindTabHelper::FromWebContents(&GetWebContents())) {
+            find_in_page::FindTabHelper::FromWebContents(web_contents())) {
       finder->RemoveObserver(this);
     }
+    observing_find_ = false;
   }
-  [tab_ contentsDestroyed];
 }
 
 TabBridge* TabBridge::GetOrCreate(content::WebContents* contents) {
@@ -142,7 +149,19 @@ void TabBridge::PrimaryMainFrameRenderProcessGone(
     default:
       break;
   }
-  [tab_ bridgeRendererDidTerminate:termination];
+  // The app hears of it once the process's other observers have: an app that
+  // reloads right away would otherwise relaunch the renderer mid-notification,
+  // before extensions forgot the old process.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<TabBridge> bridge,
+             PaneRendererTermination termination) {
+            if (bridge) {
+              [bridge->tab_ bridgeRendererDidTerminate:termination];
+            }
+          },
+          weak_factory_.GetWeakPtr(), termination));
 }
 
 void TabBridge::OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,

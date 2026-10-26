@@ -66,6 +66,7 @@ class TabBridge : public content::WebContentsObserver,
   void LoadProgressChanged(double progress) override;
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
+  void WebContentsDestroyed() override;
 
   // favicon::FaviconDriverObserver:
   void OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
@@ -89,6 +90,7 @@ class TabBridge : public content::WebContentsObserver,
   base::WeakPtr<content::WebContents> open_source_;
   bool observing_favicon_ = false;
   bool observing_find_ = false;
+  base::WeakPtrFactory<TabBridge> weak_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

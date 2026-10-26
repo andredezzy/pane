@@ -1,7 +1,8 @@
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { hotkey, isScreenLocked, mainWindowOf, windowState } from "../lib/cua";
-import { windowsOf } from "../lib/windows";
+import { launchPane } from "../lib/pane";
+import { settledWindowsOf } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
 type Target = { type: string; url: string; title: string };
@@ -42,17 +43,19 @@ async function helperCount(pid: number): Promise<number> {
 // page reported as a DevTools page, the app↔engine traffic in the trace, and
 // — with an unlocked screen — the page visible in that window and Cmd+Q
 // shutting every helper down.
-const hosted: Scenario = async ({ launch, out }) => {
-	const trace = join(out, "trace.jsonl");
+const hosted: Scenario = async (context) => {
+	const trace = join(context.out, "trace.jsonl");
 	rmSync(trace, { force: true });
 
-	const browser = await launch({
+	const { browser } = await launchPane(context, {
 		args: [URL],
 		env: { PANE_ENGINE_TRACE: trace },
 	});
 
+	const { out } = context;
+
 	const page = await waitForPage(browser.port);
-	const windows = await windowsOf(browser.pid);
+	const windows = await settledWindowsOf(browser.pid, 1);
 
 	expect(windows.count === 1, `expected 1 window, got ${windows.count}`);
 

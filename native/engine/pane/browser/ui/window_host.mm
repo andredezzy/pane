@@ -511,6 +511,12 @@ void WindowHost::OnTabStripModelChanged(
       }
     }
   } else if (change.type() == TabStripModelChange::kRemoved) {
+    // Tabs of a closing window or a quitting engine are not closing: the app
+    // keeps them, to restore at the next launch.
+    if (tab_strip_model->closing_all() || closing() ||
+        browser_shutdown::IsTryingToQuit()) {
+      return;
+    }
     for (const auto& removed : change.GetRemove()->contents) {
       TabBridge* bridge =
           removed.contents ? TabBridge::FromWebContents(removed.contents)

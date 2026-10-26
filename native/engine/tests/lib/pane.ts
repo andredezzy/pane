@@ -1,0 +1,241 @@
+// Launches the Pane app with its data in a throwaway (or given) directory and
+// drives it through the automation channel (PANE_AUTOMATION_DIR, see
+// native/app/Pane/Automation/Automation.swift).
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { ScenarioContext } from "../run";
+import type { Browser } from "./browser";
+import { openPage, type Page } from "./cdp";
+
+export type TabState = {
+	id: string;
+	url: string;
+	title: string;
+	hasFavicon: boolean;
+	loaded: boolean;
+	loading: boolean;
+	canGoBack: boolean;
+	canGoForward: boolean;
+};
+
+export type ProfileState = {
+	id: string;
+	name: string;
+	color: string;
+	expanded: boolean;
+	tabs: TabState[];
+};
+
+export type DownloadState = {
+	id: string;
+	url: string;
+	path: string | null;
+	receivedBytes: number;
+	totalBytes: number;
+	state: "inProgress" | "complete" | "cancelled" | "interrupted";
+};
+
+export type AppState = {
+	profiles: ProfileState[];
+	activeTabID: string | null;
+	activeProfileID: string | null;
+	page: "browser" | "settings";
+	theme: string;
+	appearance: string;
+	find: {
+		visible: boolean;
+		text: string;
+		matches: number;
+		activeMatch: number;
+	};
+	switcher: {
+		visible: boolean;
+		selectedIndex: number;
+		groups: { profileID: string; name: string; tabs: string[] }[];
+	};
+	downloads: DownloadState[];
+	window: {
+		title: string;
+		visible: boolean;
+		fullScreen: boolean;
+		frame: string;
+	};
+	closedTabs: number;
+	pendingProfileDeletions: number;
+	focus: string;
+};
+
+type Reply = { ok: boolean; result?: unknown; error?: string; state: AppState };
+
+let nextCommand = 0;
+
+export class PaneApp {
+	constructor(
+		readonly browser: Browser,
+		readonly dataDir: string,
+		private readonly automationDir: string,
+	) {}
+
+	async send<T = unknown>(
+		command: string,
+		args: Record<string, unknown> = {},
+	): Promise<{ result: T; state: AppState }> {
+		const name = `${String(Date.now()).padStart(15, "0")}-${String(nextCommand++).padStart(6, "0")}.json`;
+		const inbox = join(this.automationDir, "in");
+		const reply = join(this.automationDir, "out", name);
+		const temporary = join(this.automationDir, `${name}.tmp`);
+
+		writeFileSync(temporary, JSON.stringify({ command, ...args }));
+		renameSync(temporary, join(inbox, name));
+
+		const deadline = Date.now() + 15_000;
+
+		while (Date.now() < deadline) {
+			if (existsSync(reply)) {
+				const parsed = JSON.parse(readFileSync(reply, "utf8")) as Reply;
+				rmSync(reply, { force: true });
+
+				if (!parsed.ok) {
+					throw new Error(`${command}: ${parsed.error}`);
+				}
+
+				return { result: parsed.result as T, state: parsed.state };
+			}
+
+			await Bun.sleep(50);
+		}
+
+		// A stuck app: record where its main thread is before failing.
+		const sampleFile = join(tmpdir(), `pane-hang-${command}-${Date.now()}.txt`);
+
+		await Bun.$`sample ${this.browser.pid} 2 -file ${sampleFile}`
+			.quiet()
+			.nothrow();
+
+		throw new Error(
+			`${command}: no reply from the app (sample: ${sampleFile})`,
+		);
+	}
+
+	async state(): Promise<AppState> {
+		return (await this.send("state")).state;
+	}
+
+	// Polls the app's state until `predicate` holds.
+	async waitFor(
+		description: string,
+		predicate: (state: AppState) => boolean,
+		timeoutMs = 20_000,
+	): Promise<AppState> {
+		const deadline = Date.now() + timeoutMs;
+		let state = await this.state();
+
+		while (!predicate(state)) {
+			if (Date.now() > deadline) {
+				throw new Error(
+					`timed out waiting for ${description}; state: ${JSON.stringify(state)}`,
+				);
+			}
+
+			await Bun.sleep(150);
+			state = await this.state();
+		}
+
+		return state;
+	}
+
+	async createProfile(name: string, color = "BLUE"): Promise<string> {
+		return (await this.send<string>("createProfile", { name, color })).result;
+	}
+
+	async openTab(profile: string, url?: string): Promise<string> {
+		return (await this.send<string>("openTab", { profile, url })).result;
+	}
+
+	// Waits for the tab to finish loading `url` and attaches CDP to its page.
+	// Scenarios give every tab a distinct URL, so the URL names the target.
+	async page(tabID: string, url: string): Promise<Page> {
+		await this.waitFor(
+			`tab ${tabID} at ${url}`,
+			(state) =>
+				tabOf(state, tabID)?.url === url &&
+				tabOf(state, tabID)?.loading === false,
+		);
+
+		const deadline = Date.now() + 15_000;
+
+		while (Date.now() < deadline) {
+			const { targetInfos } = await this.browser.cdp.send<{
+				targetInfos: { targetId: string; type: string; url: string }[];
+			}>("Target.getTargets");
+
+			const matching = targetInfos.filter(
+				(target) => target.type === "page" && target.url === url,
+			);
+
+			if (matching.length > 1) {
+				throw new Error(`several page targets at ${url}`);
+			}
+
+			if (matching[0]) {
+				return openPage(this.browser.cdp, "about:blank", matching[0].targetId);
+			}
+
+			await Bun.sleep(250);
+		}
+
+		throw new Error(`no page target for tab ${tabID} at ${url}`);
+	}
+
+	async quit(): Promise<void> {
+		await this.send("quit").catch(() => {});
+	}
+}
+
+export function tabOf(state: AppState, tabID: string): TabState | undefined {
+	return state.profiles
+		.flatMap((profile) => profile.tabs)
+		.find((tab) => tab.id === tabID);
+}
+
+export type PaneLaunch = {
+	// Reuse a data directory (for relaunch checks); a throwaway one otherwise.
+	dataDir?: string;
+	args?: string[];
+	env?: Record<string, string>;
+};
+
+export async function launchPane(
+	context: ScenarioContext,
+	options: PaneLaunch = {},
+): Promise<PaneApp> {
+	const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "pane-data-"));
+	const automationDir = join(dataDir, "automation");
+	rmSync(automationDir, { recursive: true, force: true });
+	mkdirSync(join(automationDir, "in"), { recursive: true });
+	mkdirSync(join(automationDir, "out"), { recursive: true });
+
+	const browser = await context.launch({
+		userDataDir: join(dataDir, "Engine"),
+		args: options.args,
+		env: {
+			PANE_DATA_DIR: dataDir,
+			PANE_AUTOMATION_DIR: automationDir,
+			...options.env,
+		},
+	});
+
+	const app = new PaneApp(browser, dataDir, automationDir);
+	await app.waitFor("the window", (state) => state.window.visible);
+
+	return app;
+}

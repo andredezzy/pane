@@ -26,7 +26,7 @@ index 199142d671..cc0dc365f3 100644
        {.exe_entry_point_ticks = base::TimeTicks::Now()});
  #endif
 diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
-index ead883ef95..71a1e9d238 100644
+index ead883ef95..93260adec1 100644
 --- a/chrome/browser/app_controller_mac.mm
 +++ b/chrome/browser/app_controller_mac.mm
 @@ -139,6 +139,7 @@
@@ -55,6 +55,19 @@ index ead883ef95..71a1e9d238 100644
    // If the browser is currently trying to quit, don't do anything and return NO
    // to prevent AppKit from doing anything.
    if (browser_shutdown::IsTryingToQuit())
+@@ -2298,6 +2310,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+   if (_lastProfile == nullptr)
+     return;
+ 
++  // Pane: the hosting app owns the menu bar. Chrome built no menus (and no
++  // menu command state) to keep in sync with the profile.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    return;
++  }
++
+   auto& entry = _profileBookmarkMenuBridgeMap[profile->GetPath()];
+   if (!entry || !entry->GetProfile()) {
+     // This creates a deep copy, but only the first 3 items in the root menu
 diff --git a/chrome/browser/chrome_browser_main_mac.mm b/chrome/browser/chrome_browser_main_mac.mm
 index b269f1610a..7f4ec26920 100644
 --- a/chrome/browser/chrome_browser_main_mac.mm

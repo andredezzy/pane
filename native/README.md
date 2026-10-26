@@ -39,4 +39,13 @@ Edit files in `~/chromium/src`, list each touched file in `patches/MANIFEST` wit
 bun native/engine/tests/run.ts --binary <path to browser executable> --out <dir> <scenario>...
 ```
 
-The runner serves `tests/pages` on 127.0.0.1, launches the binary with remote debugging, runs each scenario, and writes `<scenario>.json` plus `report.json` into `--out`.
+The runner serves `tests/pages` on 127.0.0.1, launches the binary with remote debugging, runs each scenario, and writes `<scenario>.json` plus `report.json` into `--out`. `PANE_SCENARIO_STDERR=1` shows the binary's log.
+
+Scenarios for the Pane app (`lib/pane.ts`) give it throwaway data (`PANE_DATA_DIR`) and drive it through its automation channel (`PANE_AUTOMATION_DIR`, `app/Pane/Automation/`): JSON commands that call the same controller methods the UI does, key presses posted as real `NSEvent`s, and a state snapshot with every reply. CDP reads pages; `lib/cua.ts` covers what only the screen shows, and needs an unlocked session.
+
+## App
+
+```bash
+native/engine/scripts/package.sh   # app/build/Pane.app: the engine bundle with the Swift app inside, signed
+(cd native/app/PaneKit && swift test)
+```

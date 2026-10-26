@@ -13,8 +13,15 @@ export function serveFixtures(): Fixtures {
 	const server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
+		// `?delay=<ms>` holds the response back (a slow load to stop);
+		// `?download=1` serves the file as an attachment.
 		async fetch(request) {
-			const { pathname } = new URL(request.url);
+			const { pathname, searchParams } = new URL(request.url);
+			const delay = Number(searchParams.get("delay") ?? 0);
+
+			if (delay > 0) {
+				await Bun.sleep(delay);
+			}
 
 			const relative = normalize(decodeURIComponent(pathname)).replace(
 				/^(\.\.(\/|$))+/,
@@ -25,9 +32,17 @@ export function serveFixtures(): Fixtures {
 				join(PAGES_DIR, relative === "/" ? "index.html" : relative),
 			);
 
-			return (await file.exists())
-				? new Response(file)
-				: new Response("not found", { status: 404 });
+			if (!(await file.exists())) {
+				return new Response("not found", { status: 404 });
+			}
+
+			return searchParams.has("download")
+				? new Response(file, {
+						headers: {
+							"Content-Disposition": `attachment; filename="${relative.split("/").pop()}"`,
+						},
+					})
+				: new Response(file);
 		},
 	});
 
