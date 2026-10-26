@@ -12,7 +12,7 @@ struct ExtensionActionsView: View {
 	}
 
 	var body: some View {
-		HStack(spacing: 2) {
+		HStack(spacing: 5) {
 			ForEach(extensions.filter(\.pinned)) { item in
 				ActionButton(item: item) { controller.runExtensionAction(item.id) }
 					.anchorPreference(item.id)
@@ -38,13 +38,12 @@ struct ExtensionActionsView: View {
 
 					Button("Manage Extensions…") { controller.model.page = .settings }
 				} label: {
-					Image(systemName: "puzzlepiece.extension")
-						.font(.system(size: 12, weight: .medium))
+					LucideIcon(.puzzle, size: 14)
 				}
 				.menuStyle(.borderlessButton)
 				.menuIndicator(.hidden)
-				.frame(width: 26, height: 26)
-				.foregroundStyle(.secondary)
+				.frame(width: 28, height: 28)
+				.foregroundStyle(Palette.mutedForeground)
 				.help("Extensions")
 				.accessibilityLabel("Extensions")
 				.accessibilityIdentifier("pane.extensions")
@@ -57,9 +56,14 @@ struct ExtensionActionsView: View {
 	}
 }
 
+// The Electron app's action button (electron-chrome-extensions): 28px,
+// rounded 4, the icon at 70%, a faint white wash on hover; no icon shows the
+// name's first letter on gray. The badge is 12px, 9px text, bottom right.
 private struct ActionButton: View {
 	let item: ExtensionInfo
 	let action: () -> Void
+
+	@State private var isHovered = false
 
 	var body: some View {
 		Button(action: action) {
@@ -68,29 +72,37 @@ private struct ActionButton: View {
 					Image(nsImage: icon)
 						.resizable()
 						.interpolation(.high)
+						.frame(width: 19.6, height: 19.6)
 				} else {
-					Image(systemName: "puzzlepiece.extension")
-						.font(.system(size: 12, weight: .medium))
-						.foregroundStyle(.secondary)
+					Text(item.name.prefix(1).uppercased())
+						.font(.system(size: 11.2))
+						.foregroundStyle(.white)
+						.frame(width: 22.4, height: 22.4)
+						.background(Color(rgb: 0x757575), in: RoundedRectangle(cornerRadius: 4, style: .circular))
 				}
 			}
-			.frame(width: 16, height: 16)
-			.frame(width: 26, height: 26)
+			.frame(width: 28, height: 28)
+			.background(isHovered ? Color.white.opacity(0.3) : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
 			.overlay(alignment: .bottomTrailing) {
 				if !item.badgeText.isEmpty {
 					Text(item.badgeText)
-						.font(.system(size: 8, weight: .bold))
+						.font(.system(size: 9))
+						.lineLimit(1)
 						.foregroundStyle(Color(nsColor: item.badgeTextColor ?? .white))
 						.padding(.horizontal, 2)
-						.background(Color(nsColor: item.badgeBackground ?? .systemRed), in: RoundedRectangle(cornerRadius: 3))
-						.offset(x: 1, y: 1)
+						.frame(height: 12)
+						.background(Color(nsColor: item.badgeBackground ?? .systemRed), in: RoundedRectangle(cornerRadius: 2, style: .circular))
+						.overlay {
+							RoundedRectangle(cornerRadius: 2, style: .circular).stroke(Color(rgb: 0x444444), lineWidth: 1)
+						}
+						.padding(.bottom, 1)
 				}
 			}
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
 		.opacity(item.actionEnabled ? 1 : 0.4)
-		.hoverBackground(isSelected: false, cornerRadius: 6)
+		.onHover { isHovered = $0 }
 		.help(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityLabel(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityIdentifier("pane.extension.\(item.id)")

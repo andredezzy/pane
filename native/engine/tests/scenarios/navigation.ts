@@ -118,7 +118,7 @@ const navigation: Scenario = async (context) => {
 
 	await app.waitFor(
 		"the address field focused",
-		(state) => state.focus === "field: Search or enter address",
+		(state) => state.focus === "field: Search or enter URL",
 	);
 
 	const other = await app.createProfile("Other");

@@ -1,3 +1,10 @@
+import { join } from "node:path";
+import {
+	isScreenLocked,
+	mainWindowOf,
+	sheetFieldWidths,
+	windowState,
+} from "../lib/cua";
 import { tabOf } from "../lib/pane";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
@@ -23,6 +30,27 @@ const httpAuth: Scenario = async (context) => {
 
 	await app.send("reload");
 	await waitForSheet(app, "authentication");
+
+	// On screen: both fields at their full width, and a picture of the sheet.
+	let fields: number[] | "locked" = "locked";
+
+	if (!(await isScreenLocked())) {
+		const window = await mainWindowOf(app.browser.pid);
+		await Bun.sleep(500);
+		fields = await sheetFieldWidths(app.browser.pid, window);
+
+		await windowState(
+			app.browser.pid,
+			window,
+			join(context.out, "http-auth-sheet.png"),
+		);
+
+		expect(
+			fields.length === 2 && fields.every((width) => width >= 200),
+			`the sheet's fields are ${JSON.stringify(fields)} wide`,
+		);
+	}
+
 	const signIn = await answerSheet(app, "Sign In", ["pane", "secret"]);
 
 	const signedIn = await app.waitFor(
@@ -56,6 +84,7 @@ const httpAuth: Scenario = async (context) => {
 	return {
 		sheet,
 		answers: [cancel, signIn],
+		fieldWidths: fields,
 		refusedTitle: tabOf(refused, tab)?.title,
 		signedIn: tabOf(signedIn, tab),
 		windows,

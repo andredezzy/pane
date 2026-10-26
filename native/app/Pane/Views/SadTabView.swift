@@ -1,25 +1,29 @@
 import SwiftUI
 
-// A page that keeps crashing: Chrome's sad tab, drawn by the app.
+// A page that keeps crashing: Chrome's sad tab, drawn by the app in the
+// content panel's style (the page title size and muted line of the empty
+// state, an outline button).
 struct SadTabView: View {
 	let reload: () -> Void
 
 	var body: some View {
 		VStack(spacing: 12) {
-			Image(systemName: "exclamationmark.triangle")
-				.font(.system(size: 30, weight: .light))
-				.foregroundStyle(.secondary)
-			Text("This page crashed")
-				.font(.system(size: 15, weight: .semibold))
-			Text("Something went wrong while displaying this page.")
-				.font(.system(size: 12))
-				.foregroundStyle(.secondary)
+			VStack(spacing: 4) {
+				Text("This page crashed")
+					.font(.system(size: 14, weight: .medium))
+					.foregroundStyle(Palette.accentForeground)
+				Text("Something went wrong while displaying this page.")
+					.font(.system(size: 12))
+					.foregroundStyle(Palette.mutedForeground)
+			}
+
 			Button("Reload", action: reload)
+				.buttonStyle(.pane(.outline))
 				.keyboardShortcut(.defaultAction)
 				.accessibilityIdentifier("pane.sadTab.reload")
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
-		.background(Color(nsColor: .windowBackgroundColor))
+		.background(Palette.card)
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.sadTab")
 	}

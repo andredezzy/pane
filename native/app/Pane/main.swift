@@ -13,6 +13,9 @@ let dataDirectory = ProcessInfo.processInfo.environment["PANE_DATA_DIR"].map { U
 // restoration stays off, along with its "reopen windows?" alert after a crash.
 UserDefaults.standard.register(defaults: [
 	"ApplePersistenceIgnoreState": true,
+	// The app's text as the Electron app draws its UI (CSS
+	// -webkit-font-smoothing: antialiased): no font smoothing.
+	"AppleFontSmoothing": 0,
 	"NSQuitAlwaysKeepsWindows": false,
 ])
 

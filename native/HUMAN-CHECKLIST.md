@@ -4,8 +4,6 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 ## Open
 
-- **Paper · Give the agent read access to the Pane project.** The UI must match the existing app's design and the Pane project in Paper, but no Paper session is reachable from this machine's tools: there is no Paper app or Paper MCP server, and no Aside browser profile is signed in to Paper (signing in to your account is yours to do). Any one of these unblocks it: sign in to Paper in Aside (profile "Profile 0"), or install the Paper desktop app with its MCP server, or export the Pane project's frames as PNGs into `native/design/paper/`. The agent then compares each screen and records it in `native/evidence/design/`.
-
 - **Phase 2 · Pointer gestures on screen — run when you are away from the Mac.** Dragging profiles and tabs in the sidebar, the profile and tab context menus, the delete-profile confirmation, the profile sheet, and ⌃⌘F full screen need the real pointer (CUA moves the mouse for drags), which would fight you while you work. The rendered rows and the page in its card are now proven on screen (`native/evidence/phase-2/unlocked/`). Nothing to do but leave the Mac unlocked and idle; the agent runs them then.
 
 - **Phase 3 · Mail — look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in `native/DECISIONS.md` (Phase 3, Incident).
@@ -19,6 +17,8 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 - **Phase 2 · parity.md — review the Electron-only rows marked ⛔.** They are internals of the Electron architecture with no user-facing equivalent to port: `stores.push`/`stores.sync` (cross-process state sync), `tabs.hideAll`/`showActive` and `ui.present`/`dismiss` (an overlay window above page views; native sheets draw above pages), and the app-UI DevTools shortcut (⌥⌘I; the app UI is native). Nothing to do unless one of them should stay; the justification is in each row of `docs/native/parity.md`.
 
 ## Done
+
+- **Design · Paper access** (2026-10-26). The Paper app was installed but closed; opened in the background, its local MCP server gave read access to the Pane file, and the native UI was matched to it and to the Electron app (`native/evidence/design/`, DECISIONS: Design fidelity).
 
 - **Phase 1 · Acceptance on screen** (2026-10-26). The Mac was unlocked: `hosted` passed with a real window screenshot, the accessibility read, and Quit Pane from the menu bar (`native/evidence/phase-1/unlocked/`).
 - **Phase 2 · On-screen checks** (2026-10-26). `switcher` with a real screenshot of the switcher (`switcher-screen.png`) and `shortcuts` with the page visible at each zoom step (`native/evidence/phase-2/unlocked/`). Pointer gestures remain (Open).

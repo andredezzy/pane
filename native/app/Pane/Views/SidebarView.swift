@@ -38,47 +38,50 @@ struct SidebarView: View {
 		.accessibilityIdentifier("pane.sidebar")
 	}
 
+	// 39px, after the traffic lights (82px in): the title and Collapse all.
 	private var header: some View {
 		HStack(spacing: 8) {
 			Text("Pane")
 				.font(.system(size: 12, weight: .semibold))
-				.foregroundStyle(.secondary)
+				.foregroundStyle(Palette.mutedForeground)
 
 			Spacer()
 
-			Button {
+			CollapseAllButton(isEnabled: !model.expandedProfileIDs.isEmpty) {
 				for id in model.expandedProfileIDs {
 					controller.unloadProfile(id)
 				}
 				model.expandedProfileIDs.removeAll()
-			} label: {
-				Image(systemName: "rectangle.compress.vertical")
-					.font(.system(size: 11))
-					.frame(width: 24, height: 24)
 			}
-			.buttonStyle(.plain)
-			.foregroundStyle(.secondary)
-			.disabled(model.expandedProfileIDs.isEmpty)
-			.help("Collapse all profiles")
-			.accessibilityLabel("Collapse all profiles")
 		}
 		.padding(.leading, 82)
 		.padding(.trailing, 10)
 		.frame(height: 39)
 	}
 
+	// px-2.5 pb-2: New, a hairline, Settings.
 	private var footer: some View {
 		VStack(alignment: .leading, spacing: 6) {
-			SidebarButton(title: "New", systemImage: "plus", isSelected: false, action: onNewProfile)
-				.accessibilityIdentifier("pane.sidebar.new")
+			// The 14px plus makes this row 32px; the others are 28.
+			SidebarButton(isSelected: false, tintsOnHover: false, height: 32, action: onNewProfile) {
+				Text("+")
+					.font(.system(size: 14, weight: .light))
+				Text("New")
+			}
+			.accessibilityLabel("New")
+			.accessibilityIdentifier("pane.sidebar.new")
 
 			Rectangle()
-				.fill(Color.primary.opacity(0.04))
+				.fill(Palette.foreground.opacity(0.04))
 				.frame(height: 1)
 
-			SidebarButton(title: "Settings", systemImage: "gearshape", isSelected: model.page == .settings) {
+			SidebarButton(isSelected: model.page == .settings) {
 				model.page = model.page == .settings ? .browser : .settings
+			} label: {
+				LucideIcon(.settings, size: 14)
+				Text("Settings")
 			}
+			.accessibilityLabel("Settings")
 			.accessibilityIdentifier("pane.sidebar.settings")
 		}
 		.padding(.horizontal, 10)
@@ -86,44 +89,84 @@ struct SidebarView: View {
 	}
 }
 
-private struct SidebarButton: View {
-	let title: String
-	let systemImage: String
-	let isSelected: Bool
+// 24px, rounded 4, muted; hover fills with the accent color.
+private struct CollapseAllButton: View {
+	let isEnabled: Bool
 	let action: () -> Void
+
+	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+	var body: some View {
+		Button(action: action) {
+			LucideIcon(.chevronsDownUp, size: 14)
+				.frame(width: 24, height: 24)
+				.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
+		.background(isHovered ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+		.opacity(isEnabled ? 1 : 0.4)
+		.disabled(!isEnabled)
+		.onHover { hovering in
+			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering && isEnabled }
+		}
+		.help("Collapse all profiles")
+		.accessibilityLabel("Collapse all profiles")
+	}
+}
+
+// px-2 py-1.5, rounded-md, 12px. Selected (Settings, while shown) is
+// foreground/5; hover is the accent color.
+private struct SidebarButton<Label: View>: View {
+	let isSelected: Bool
+	// New keeps its muted text on hover; Settings darkens.
+	var tintsOnHover = true
+	var height: CGFloat = 28
+	let action: () -> Void
+	@ViewBuilder let label: Label
+
+	@State private var isHovered = false
 
 	var body: some View {
 		Button(action: action) {
 			HStack(spacing: 6) {
-				Image(systemName: systemImage)
-					.font(.system(size: 11))
-				Text(title)
-					.font(.system(size: 12))
-				Spacer()
+				label
+				Spacer(minLength: 0)
 			}
+			.font(.system(size: 12))
 			.padding(.horizontal, 8)
-			.padding(.vertical, 6)
+			.frame(height: height)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
-		.foregroundStyle(isSelected ? .primary : .secondary)
+		.foregroundStyle(isSelected || (tintsOnHover && isHovered) ? Palette.accentForeground : Palette.mutedForeground)
 		.hoverBackground(isSelected: isSelected, cornerRadius: 6)
+		.onHover { isHovered = $0 }
 	}
 }
 
+// A profile row (30px: py-1.5 and a 1px border) and, expanded, its tabs
+// (24px, 4px apart) and New tab. Profiles are 6px apart.
 private struct ProfileSection: View {
 	let controller: BrowserController
 	let profile: BrowserProfile
 	let onEdit: () -> Void
 
 	@State private var confirmingDelete = false
+	// The moon marks an unload that happened this session: a profile never
+	// loaded shows none.
+	@State private var wasLoaded = false
+	@State private var isHovered = false
 
 	private var model: BrowserModel { controller.model }
 	private var isExpanded: Bool { model.expandedProfileIDs.contains(profile.id) }
 	private var isActive: Bool { model.activeProfileID == profile.id }
+	private var hasLoadedTabs: Bool { profile.tabs.contains { model.loadedTabIDs.contains($0.id) } }
+	private var isUnloaded: Bool { wasLoaded && !hasLoadedTabs && !profile.tabs.isEmpty }
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 4) {
+		VStack(alignment: .leading, spacing: 6) {
 			header
 
 			if isExpanded {
@@ -132,8 +175,15 @@ private struct ProfileSection: View {
 						TabRow(controller: controller, tab: tab, profileID: profile.id)
 					}
 
+					// mt-1 against the last tab's 4px margin: CSS collapses
+					// them to one 4px gap.
 					NewTabRow { controller.openTab(inProfile: profile.id) }
 				}
+			}
+		}
+		.onChange(of: hasLoadedTabs, initial: true) { _, loaded in
+			if loaded {
+				wasLoaded = true
 			}
 		}
 		.alert("Delete \u{201C}\(profile.name)\u{201D}?", isPresented: $confirmingDelete) {
@@ -145,10 +195,12 @@ private struct ProfileSection: View {
 	}
 
 	private var header: some View {
-		Button(action: toggle) {
+		let color = profile.color.color
+
+		return Button(action: toggle) {
 			HStack(spacing: 6) {
-				RoundedRectangle(cornerRadius: 2)
-					.fill(profile.color.color)
+				RoundedRectangle(cornerRadius: 2, style: .circular)
+					.fill(color)
 					.frame(width: 4, height: 14)
 
 				Text(profile.name)
@@ -157,22 +209,29 @@ private struct ProfileSection: View {
 					.truncationMode(.tail)
 					.frame(maxWidth: .infinity, alignment: .leading)
 
+				if isUnloaded {
+					LucideIcon(.moon, size: 12)
+						.foregroundStyle(Palette.mutedForeground.opacity(0.5))
+						.accessibilityLabel("Unloaded")
+				}
+
 				if !isExpanded && !profile.tabs.isEmpty {
 					Text("\(profile.tabs.count)")
 						.font(.system(size: 10))
-						.foregroundStyle(.secondary)
+						.foregroundStyle(Palette.mutedForeground)
 				}
 			}
-			.padding(.horizontal, 8)
-			.padding(.vertical, 6)
+			// px-2 inside a 1px border (transparent unless active).
+			.padding(.horizontal, 9)
+			.frame(height: 30)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
-		.foregroundStyle(isActive ? .primary : .secondary)
+		.foregroundStyle(isActive ? Palette.accentForeground : Palette.mutedForeground)
 		.background {
-			RoundedRectangle(cornerRadius: 6, style: .continuous)
-				.fill(isActive ? profile.color.color.opacity(0.04) : .clear)
-				.strokeBorder(isActive ? profile.color.color.opacity(0.4) : .clear, lineWidth: 1)
+			RoundedRectangle(cornerRadius: 6, style: .circular)
+				.fill(isActive ? color.opacity(0.04) : .clear)
+				.strokeBorder(isActive ? color.opacity(0.4) : .clear, lineWidth: 1)
 		}
 		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: 6)
 		.contextMenu {
@@ -212,6 +271,8 @@ private struct ProfileSection: View {
 	}
 }
 
+// px-2 py-1, rounded 5, 12px: the favicon (or a globe), the title, and a
+// close X on hover. Selected is foreground/5; unloaded tabs are at 60%.
 private struct TabRow: View {
 	let controller: BrowserController
 	let tab: PaneKit.Tab
@@ -226,13 +287,7 @@ private struct TabRow: View {
 	var body: some View {
 		Button { controller.select(tabID: tab.id) } label: {
 			HStack(spacing: 6) {
-				if model.loadingProgress[tab.id] != nil {
-					ProgressView()
-						.controlSize(.mini)
-						.frame(width: 12, height: 12)
-				} else {
-					FaviconView(dataURL: tab.favicon)
-				}
+				FaviconView(dataURL: tab.favicon)
 
 				Text(tab.title.isEmpty ? "Loading..." : tab.title)
 					.font(.system(size: 12))
@@ -241,20 +296,18 @@ private struct TabRow: View {
 					.frame(maxWidth: .infinity, alignment: .leading)
 
 				Button { controller.closeTab(tab.id) } label: {
-					Image(systemName: "xmark")
-						.font(.system(size: 9, weight: .semibold))
-						.frame(width: 12, height: 12)
+					LucideIcon(.x, size: 12)
 				}
 				.buttonStyle(.plain)
 				.opacity(isHovered ? 1 : 0)
 				.accessibilityLabel("Close tab")
 			}
 			.padding(.horizontal, 8)
-			.padding(.vertical, 4)
+			.frame(height: 24)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
-		.foregroundStyle(isActive ? .primary : .secondary)
+		.foregroundStyle(isActive || isHovered ? Palette.accentForeground : Palette.mutedForeground)
 		.opacity(isLoaded || isActive ? 1 : 0.6)
 		.hoverBackground(isSelected: isActive)
 		.onHover { isHovered = $0 }
@@ -283,26 +336,29 @@ private struct TabRow: View {
 	}
 }
 
+// "+ New tab": a 10px plus, px-2 py-1, muted until hovered.
 private struct NewTabRow: View {
 	let action: () -> Void
+
+	@State private var isHovered = false
 
 	var body: some View {
 		Button(action: action) {
 			HStack(spacing: 6) {
 				Text("+")
 					.font(.system(size: 10))
-					.frame(width: 12)
 				Text("New tab")
 					.font(.system(size: 12))
-				Spacer()
+				Spacer(minLength: 0)
 			}
 			.padding(.horizontal, 8)
-			.padding(.vertical, 4)
+			.frame(height: 24)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
-		.foregroundStyle(.secondary)
+		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
 		.hoverBackground(isSelected: false)
+		.onHover { isHovered = $0 }
 	}
 }
 

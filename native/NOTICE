@@ -13,3 +13,8 @@ window layer adapts files of Ardia's engine layer, and patch
 0003-pane-hosted-browsers.patch follows the shape of its hooks. Each adapted
 file names its Ardia source and what changed; native/third_party/ardia/README.md
 lists them.
+
+Lucide (https://lucide.dev), ISC License, with portions from Feather (MIT)
+(native/third_party/lucide/LICENSE): the app's icons
+(native/app/Pane/Views/Theme.swift) are Lucide's SVG paths, as the Electron
+app uses them through lucide-react.

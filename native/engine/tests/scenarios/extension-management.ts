@@ -1,9 +1,11 @@
+import { join } from "node:path";
 import {
 	clickButton,
 	clickControl,
 	isScreenLocked,
 	mainWindowOf,
 	typeIntoField,
+	windowState,
 } from "../lib/cua";
 import type { AppState, ExtensionState } from "../lib/pane";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
@@ -100,6 +102,17 @@ const extensionManagement: Scenario = async (context) => {
 		);
 	};
 
+	// The extension's card, for the design record.
+	if (!locked) {
+		await Bun.sleep(500);
+
+		await windowState(
+			pid,
+			await mainWindowOf(pid),
+			join(context.out, "extension-settings.png"),
+		);
+	}
+
 	const disabled = await toggle("Enabled", "setExtensionEnabled", false);
 	const enabled = await toggle("Enabled", "setExtensionEnabled", true);
 	const pinned = await toggle("Pinned", "setExtensionPinned", true);
@@ -109,20 +122,28 @@ const extensionManagement: Scenario = async (context) => {
 	if (locked) {
 		await app.send("updateExtensions", { profile });
 	} else {
-		await clickButton(pid, await mainWindowOf(pid), "Update All");
+		await clickButton(pid, await mainWindowOf(pid), "Update all");
 	}
 
 	await app.waitFor("the update check", () =>
 		has("PaneBrowserContext.updateExtensions"),
 	);
 
-	// Remove asks first.
+	// Uninstall asks first, in the app's dialog.
 	if (locked) {
 		await app.send("uninstallExtension", { id: DARK_READER, profile });
 	} else {
 		const window = await mainWindowOf(pid);
-		await clickButton(pid, window, "Remove");
-		await clickControl(pid, window, { title: "Remove", inSheet: true });
+		await clickButton(pid, window, "Uninstall");
+		await Bun.sleep(500);
+
+		await windowState(
+			pid,
+			window,
+			join(context.out, "extension-uninstall.png"),
+		);
+
+		await clickButton(pid, window, "Uninstall", "pane.dialog.confirm");
 	}
 
 	const removed = await app.waitFor(

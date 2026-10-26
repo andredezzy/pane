@@ -91,7 +91,7 @@ const sadTab: Scenario = async (context) => {
 			app.browser.pid,
 			await mainWindowOf(app.browser.pid),
 			"Reload",
-			"arrow.clockwise",
+			"pane.toolbar.reload",
 		);
 	}
 

@@ -23,8 +23,19 @@ final class WindowState {
 		}
 	}
 
+	// A confirmation shown over the whole window, as the Electron app's
+	// Dialog: title, message, and a destructive confirm button.
+	struct ConfirmDialog: Identifiable {
+		let id = UUID()
+		let title: String
+		let message: String
+		let confirmTitle: String
+		let confirm: @MainActor () -> Void
+	}
+
 	var find = Find()
 	var switcher = Switcher()
+	var dialog: ConfirmDialog?
 	// The address field's text: the selected tab's address, or what the user
 	// types over it.
 	var address = ""

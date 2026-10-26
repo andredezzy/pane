@@ -26,6 +26,10 @@ if [ -d "$SWIFT_APP/Contents/Resources" ]; then
 	ditto "$SWIFT_APP/Contents/Resources" "$OUT/Contents/Resources"
 fi
 
+# Pane's own version (the Info.plist's versions are Chromium's), for Settings.
+PANE_VERSION="$(sed -n 's/^[[:space:]]*"version": "\(.*\)",$/\1/p' "$NATIVE_DIR/../apps/veil/package.json" | head -1)"
+plutil -replace PaneVersion -string "$PANE_VERSION" "$OUT/Contents/Info.plist"
+
 echo "== sign"
 sign() {
 	codesign --force --sign - --timestamp=none "$1"

@@ -1,84 +1,125 @@
 import PaneKit
 import SwiftUI
 
-// The whole window: sidebar, then the toolbar and the selected tab in a
-// rounded card (or settings), with the find bar and switcher above.
+// The whole window, as the Electron app lays it out: the 220px sidebar, then
+// the content panel (8px gutters, flush to the sidebar) holding the toolbar
+// and the selected tab, or settings. Sheets, dialogs, the switcher, and find
+// float over the whole window.
 struct RootView: View {
 	let controller: BrowserController
 
-	@State private var editingProfileID: String?
-	@State private var creatingProfile = false
+	@State private var profileSheet: ProfileSheetTarget?
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	private var model: BrowserModel { controller.model }
 	private var state: WindowState { controller.state }
 
-	// A page in fullscreen fills the window, without the card around it.
+	// A page in fullscreen fills the window, without the panel around it.
 	private var fullscreen: Bool { state.pageFullscreen && model.page == .browser }
+	private var showsToolbar: Bool { !fullscreen && model.page == .browser && model.activeTabID != nil }
 
 	var body: some View {
-		HStack(spacing: 0) {
-			if !fullscreen {
-				SidebarView(
-					controller: controller,
-					onNewProfile: { creatingProfile = true },
-					onEditProfile: { editingProfileID = $0 }
-				)
-				.frame(width: 220)
+		ZStack {
+			HStack(spacing: 0) {
+				if !fullscreen {
+					SidebarView(
+						controller: controller,
+						onNewProfile: { present(.new) },
+						onEditProfile: { present(.edit($0)) }
+					)
+					.frame(width: 220)
+				}
+
+				content
 			}
 
-			VStack(spacing: 0) {
-				if fullscreen {
-					EmptyView()
-				} else if model.page == .browser {
-					ToolbarView(controller: controller)
-				} else {
-					Color.clear.frame(height: 39)
+			if state.find.visible && model.page == .browser {
+				FindOverlay(controller: controller)
+			}
+
+			if state.switcher.visible {
+				Palette.sheetScrim
+					.allowsHitTesting(false)
+
+				TabSwitcherView(switcher: state.switcher, profiles: model.profiles)
+			}
+
+			if let target = profileSheet {
+				Palette.sheetScrim
+					.contentShape(Rectangle())
+					.onTapGesture { present(nil) }
+					.transition(.opacity)
+
+				HStack {
+					Spacer(minLength: 0)
+					ProfileSheet(controller: controller, profileID: target.profileID) { present(nil) }
+						.frame(width: 360)
+						.padding(8)
 				}
+				.transition(.move(edge: .trailing).combined(with: .opacity))
+			}
 
-				ZStack(alignment: .topTrailing) {
-					PageHostRepresentable(host: controller.pageHost)
+			if let dialog = state.dialog {
+				Palette.dialogScrim
+					.contentShape(Rectangle())
+					.onTapGesture { state.dialog = nil }
 
-					if model.page == .settings {
-						SettingsView(controller: controller)
-					} else if model.activeTabID == nil {
-						EmptyStateView(hasProfiles: !model.profiles.isEmpty)
-					} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
-						SadTabView { controller.reloadCrashed(tabID) }
-					}
-
-					if state.find.visible && model.page == .browser {
-						FindBar(controller: controller)
-					}
-				}
-				.clipShape(RoundedRectangle(cornerRadius: fullscreen ? 0 : 10, style: .continuous))
-				.shadow(color: .black.opacity(fullscreen ? 0 : 0.08), radius: 3, y: 1)
-				.padding([.trailing, .bottom], fullscreen ? 0 : 8)
+				ConfirmDialogView(dialog: dialog) { state.dialog = nil }
 			}
 		}
+		.background(Palette.background)
+		.ignoresSafeArea()
 		.overlay(alignment: .top) {
 			if let hint = state.exclusiveAccessHint {
 				ExclusiveAccessHint(text: hint)
 			}
 		}
-		.overlay {
-			if state.switcher.visible {
-				TabSwitcherView(switcher: state.switcher, profiles: model.profiles)
+	}
+
+	// The content panel: m-2 ml-0, rounded 10, the panel shadow.
+	private var content: some View {
+		VStack(spacing: 0) {
+			if showsToolbar {
+				ToolbarView(controller: controller)
+			}
+
+			ZStack {
+				PageHostRepresentable(host: controller.pageHost)
+
+				if model.page == .settings {
+					SettingsView(controller: controller)
+				} else if model.activeTabID == nil {
+					EmptyStateView()
+				} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
+					SadTabView { controller.reloadCrashed(tabID) }
+				}
 			}
 		}
-		.sheet(isPresented: $creatingProfile) {
-			ProfileSheet(controller: controller, profileID: nil) { creatingProfile = false }
-		}
-		.sheet(item: Binding(
-			get: { editingProfileID.map(EditedProfile.init) },
-			set: { editingProfileID = $0?.id }
-		)) { edited in
-			ProfileSheet(controller: controller, profileID: edited.id) { editingProfileID = nil }
+		.clipShape(RoundedRectangle(cornerRadius: fullscreen ? 0 : 10, style: .circular))
+		.surfaceBackground(cornerRadius: fullscreen ? 0 : 10, ring: fullscreen ? .clear : Palette.border, shadow: fullscreen ? .clear : PanelShadow.color)
+		.padding([.top, .trailing, .bottom], fullscreen ? 0 : 8)
+	}
+
+	// Sheets slide in from the right; their scrim fades (DESIGN.md: enter and
+	// exit animate).
+	private func present(_ target: ProfileSheetTarget?) {
+		withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+			profileSheet = target
 		}
 	}
 }
 
-private struct EditedProfile: Identifiable {
-	let id: String
+private enum ProfileSheetTarget: Equatable {
+	case new
+	case edit(String)
+
+	var profileID: String? {
+		if case let .edit(id) = self {
+			return id
+		}
+
+		return nil
+	}
 }
 
 // The engine's page view lives in an AppKit host the controller fills.

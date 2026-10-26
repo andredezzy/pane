@@ -235,8 +235,11 @@ final class DialogPresenter {
 			fields.orientation = .vertical
 			fields.spacing = 8
 			fields.frame = NSRect(x: 0, y: 0, width: 260, height: 54)
-			username.frame.size.width = 260
-			password.frame.size.width = 260
+			// The alert lays its accessory out with constraints: without
+			// them a stack sizes each empty field to its content.
+			for field in [username, password] {
+				field.widthAnchor.constraint(equalToConstant: 260).isActive = true
+			}
 
 			alert.messageText = "Sign in"
 			alert.informativeText = challenge.isForProxy
@@ -313,6 +316,7 @@ final class DialogPresenter {
 		case .prompt:
 			let input = NSTextField(string: dialog.defaultPromptText)
 			input.frame = NSRect(x: 0, y: 0, width: 260, height: 24)
+			input.widthAnchor.constraint(equalToConstant: 260).isActive = true
 			field = input
 			alert.messageText = origin
 			alert.informativeText = dialog.message

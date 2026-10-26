@@ -29,6 +29,14 @@ const fullscreen: Scenario = async (context) => {
 
 	await watcher.sample("fullscreen");
 
+	// Esc once the window is in full screen: a key posted during the move to
+	// its own Space can be lost.
+	await app.waitFor(
+		"the window in full screen",
+		(state) => state.window.fullScreen,
+	);
+
+	await Bun.sleep(1_000);
 	await app.send("key", { key: "\u001b" });
 
 	const left = await app.waitFor(

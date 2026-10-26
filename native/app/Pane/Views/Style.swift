@@ -34,11 +34,11 @@ struct HoverBackground: ViewModifier {
 		content
 			.background {
 				ZStack {
-					RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+					RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
 						.fill(hoverFill)
 						.opacity(!isSelected && isHovered ? 1 : 0)
-						.animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovered)
-					RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+						.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
+					RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
 						.fill(selectedFill)
 						.opacity(isSelected ? 1 : 0)
 				}
@@ -48,12 +48,13 @@ struct HoverBackground: ViewModifier {
 }
 
 extension View {
-	func hoverBackground(isSelected: Bool, selectedFill: Color = Color.primary.opacity(0.06), hoverFill: Color = Color.primary.opacity(0.06), cornerRadius: CGFloat = 5) -> some View {
+	// Selected rows are foreground/5; hover is the accent color.
+	func hoverBackground(isSelected: Bool, selectedFill: Color = Palette.foreground.opacity(0.05), hoverFill: Color = Palette.accent, cornerRadius: CGFloat = 5) -> some View {
 		modifier(HoverBackground(isSelected: isSelected, selectedFill: selectedFill, hoverFill: hoverFill, cornerRadius: cornerRadius))
 	}
 }
 
-// A favicon from the data: URL tabs store, or a globe.
+// A favicon from the data: URL tabs store (12px, rounded-sm), or a globe.
 struct FaviconView: View {
 	let dataURL: String
 
@@ -63,17 +64,15 @@ struct FaviconView: View {
 				.resizable()
 				.interpolation(.high)
 				.frame(width: 12, height: 12)
-				.clipShape(RoundedRectangle(cornerRadius: 2))
+				.clipShape(RoundedRectangle(cornerRadius: 2, style: .circular))
 		} else {
-			Image(systemName: "globe")
-				.font(.system(size: 10))
-				.frame(width: 12, height: 12)
+			LucideIcon(.globe, size: 12)
 		}
 	}
 
 	private static var cache: [String: NSImage] = [:]
 
-	private static func image(from dataURL: String) -> NSImage? {
+	static func image(from dataURL: String) -> NSImage? {
 		guard !dataURL.isEmpty else {
 			return nil
 		}

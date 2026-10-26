@@ -1,19 +1,37 @@
 import SwiftUI
 
-// What the content area shows with no tab selected.
+// What the content panel shows with no tab selected, as in the Electron app:
+// the Pane mark above one muted line. The mark is drawn in white, so it shows
+// on the dark panel only, as the Electron app's does.
 struct EmptyStateView: View {
-	let hasProfiles: Bool
-
 	var body: some View {
-		VStack(spacing: 6) {
-			Text(hasProfiles ? "No tab open" : "No profiles yet")
-				.font(.system(size: 13, weight: .medium))
-			Text(hasProfiles ? "Pick a tab in the sidebar, or press ⌘T for a new one." : "Create a profile with New in the sidebar.")
+		VStack(spacing: 12) {
+			PaneMark()
+				.stroke(.white, lineWidth: 1.5 * 40 / 24)
+				.frame(width: 40, height: 40)
+				.accessibilityLabel("Pane")
+
+			Text("Open a profile to start browsing")
 				.font(.system(size: 12))
-				.foregroundStyle(.secondary)
+				.foregroundStyle(Palette.mutedForeground)
+				.lineBox(16)
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
-		.background(Color(nsColor: .textBackgroundColor))
+		.background(Palette.card)
+		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.empty")
+	}
+}
+
+// A rounded square split down the middle (the 24-unit icon: an 18-unit
+// square at 3, radius 4, and the line at 12).
+private struct PaneMark: Shape {
+	func path(in rect: CGRect) -> Path {
+		let unit = rect.width / 24
+		var path = Path(roundedRect: CGRect(x: 3 * unit, y: 3 * unit, width: 18 * unit, height: 18 * unit), cornerRadius: 4 * unit)
+		path.move(to: CGPoint(x: 12 * unit, y: 3 * unit))
+		path.addLine(to: CGPoint(x: 12 * unit, y: 21 * unit))
+
+		return path
 	}
 }

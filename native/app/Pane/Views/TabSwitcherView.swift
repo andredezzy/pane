@@ -1,8 +1,10 @@
 import PaneKit
 import SwiftUI
 
-// The Ctrl+Tab switcher: recently used tabs grouped under their profile. The
-// highlight jumps straight to the selection (DESIGN.md: selection is instant).
+// The Ctrl+Tab switcher, as the Electron app's: recently used tabs grouped
+// under their profile, in a 320px panel over a black 40% scrim. The selected
+// row takes 14% of the profile's color with a 40% ring, and jumps straight to
+// the selection (DESIGN.md: selection is instant).
 struct TabSwitcherView: View {
 	let switcher: WindowState.Switcher
 	let profiles: [BrowserProfile]
@@ -10,45 +12,81 @@ struct TabSwitcherView: View {
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			ForEach(Array(switcher.groups.enumerated()), id: \.element.id) { groupIndex, group in
-				VStack(alignment: .leading, spacing: 2) {
-					HStack(spacing: 6) {
-						Circle().fill(group.color.color).frame(width: 6, height: 6)
+				let color = group.color.color
+
+				VStack(alignment: .leading, spacing: 0) {
+					HStack(spacing: 8) {
+						Circle().fill(color).frame(width: 8, height: 8)
 						Text(group.name)
-							.font(.system(size: 11, weight: .semibold))
-							.foregroundStyle(.secondary)
+							.font(.system(size: 11, weight: .medium))
+							.foregroundStyle(Palette.mutedForeground)
+							.lineLimit(1)
+							.lineBox(16.5)
 					}
-					.padding(.horizontal, 8)
-					.padding(.bottom, 2)
+					.padding(.horizontal, 12)
+					.padding(.top, 6)
+					.padding(.bottom, 4)
 
 					ForEach(Array(group.tabs.enumerated()), id: \.element.id) { tabIndex, tab in
 						let index = TabSwitcher.groupOffsets(switcher.groups)[groupIndex] + tabIndex
-						HStack(spacing: 8) {
-							FaviconView(dataURL: tab.favicon ?? "")
+						let isSelected = index == switcher.selectedIndex
+
+						HStack(spacing: 10) {
+							SwitcherFavicon(dataURL: tab.favicon ?? "")
 							Text(tab.title)
-								.font(.system(size: 12))
+								.font(.system(size: 14))
+								.foregroundStyle(Palette.foreground.opacity(0.8))
 								.lineLimit(1)
 								.truncationMode(.tail)
+								.lineBox(20)
 							Spacer(minLength: 0)
 						}
-						.padding(.horizontal, 8)
-						.padding(.vertical, 5)
-						.padding(.leading, 12)
-						.background(
-							RoundedRectangle(cornerRadius: 6, style: .continuous)
-								.fill(index == switcher.selectedIndex ? Color.accentColor.opacity(0.18) : .clear)
-						)
+						.padding(.leading, 28)
+						.padding(.trailing, 12)
+						.padding(.vertical, 10)
+						.background {
+							if isSelected {
+								RoundedRectangle(cornerRadius: 8, style: .circular)
+									.fill(color.opacity(0x24 / 255))
+									.strokeBorder(color.opacity(0x66 / 255), lineWidth: 1)
+							}
+						}
 						.accessibilityIdentifier("pane.switcher.tab.\(tab.id)")
-						.accessibilityAddTraits(index == switcher.selectedIndex ? .isSelected : [])
+						.accessibilityAddTraits(isSelected ? .isSelected : [])
 					}
 				}
 			}
 		}
 		.padding(10)
-		.frame(width: 360)
-		.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-		.shadow(color: .black.opacity(0.2), radius: 18, y: 6)
+		.frame(width: 320)
+		.background(Palette.popover, in: RoundedRectangle(cornerRadius: 12, style: .circular))
+		.overlay {
+			RoundedRectangle(cornerRadius: 12, style: .circular)
+				.strokeBorder(Palette.foreground.opacity(0.1), lineWidth: 1)
+		}
+		// shadow-2xl: 0 25px 50px -12px black 25%.
+		.shadow(color: .black.opacity(0.25), radius: 25, y: 25)
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel("Tab switcher")
 		.accessibilityIdentifier("pane.switcher")
+	}
+}
+
+// 16px, rounded-sm; without a favicon, a foreground/10 square.
+private struct SwitcherFavicon: View {
+	let dataURL: String
+
+	var body: some View {
+		if let image = FaviconView.image(from: dataURL) {
+			Image(nsImage: image)
+				.resizable()
+				.interpolation(.high)
+				.frame(width: 16, height: 16)
+				.clipShape(RoundedRectangle(cornerRadius: 2, style: .circular))
+		} else {
+			RoundedRectangle(cornerRadius: 2, style: .circular)
+				.fill(Palette.foreground.opacity(0.1))
+				.frame(width: 16, height: 16)
+		}
 	}
 }

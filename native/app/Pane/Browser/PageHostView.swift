@@ -19,7 +19,7 @@ final class PageHostView: NSView {
 		super.init(frame: frame)
 		wantsLayer = true
 		layer?.cornerRadius = 10
-		layer?.cornerCurve = .continuous
+		layer?.cornerCurve = .circular
 		layer?.masksToBounds = true
 		setAccessibilityIdentifier("pane.content")
 		setAccessibilityElement(true)

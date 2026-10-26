@@ -227,6 +227,33 @@ final class Automation {
 				}
 			}
 
+		case "clickWindow":
+			// A real click at a point of the window (top-left origin), posted
+			// like the trackpad's: it goes through the window's hit testing,
+			// title bar included.
+			guard let x = command["x"] as? Double, let y = command["y"] as? Double else {
+				throw AutomationError("clickWindow needs x and y")
+			}
+
+			let window = controller.browserWindow.window
+			let point = NSPoint(x: x, y: window.frame.height - y)
+
+			for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+				if let event = NSEvent.mouseEvent(
+					with: type,
+					location: point,
+					modifierFlags: [],
+					timestamp: ProcessInfo.processInfo.systemUptime,
+					windowNumber: window.windowNumber,
+					context: nil,
+					eventNumber: 0,
+					clickCount: 1,
+					pressure: type == .leftMouseDown ? 1 : 0
+				) {
+					NSApp.postEvent(event, atStart: false)
+				}
+			}
+
 		case "typeInPage":
 			// A key typed into the selected page: the page takes focus and the
 			// window delivers the key to it, as when the user types. (Key events
@@ -430,8 +457,9 @@ final class Automation {
 				"devtools"
 			} else if let popover = controller.extensionPopover.window, window === popover {
 				"popover"
-			} else if String(describing: type(of: window)).hasPrefix("_NSFullScreenTransition") {
-				// AppKit's own, while the window animates into full screen.
+			} else if ["_NSFullScreenTransition", "NSToolbarFullScreenWindow"].contains(where: String(describing: type(of: window)).hasPrefix) {
+				// AppKit's own: the full screen animation, and the title bar
+				// it reveals at the top of a full screen window.
 				"system"
 			} else {
 				"other"
@@ -571,7 +599,8 @@ final class Automation {
 		let responder = controller.browserWindow.window.firstResponder
 
 		if let editor = responder as? NSTextView, let field = editor.delegate as? NSTextField {
-			return "field: \(field.placeholderString ?? "")"
+			// SwiftUI gives a prompt as an attributed placeholder.
+			return "field: \(field.placeholderString ?? field.placeholderAttributedString?.string ?? "")"
 		}
 
 		if let view = responder as? NSView, !view.accessibilityIdentifier().isEmpty {
