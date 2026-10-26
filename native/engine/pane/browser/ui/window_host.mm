@@ -34,8 +34,12 @@
 #import "components/remote_cocoa/app_shim/bridged_content_view.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
+#include "base/strings/string_util.h"
+#include "base/strings/sys_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/browser_window.h"
+#include "pane/browser/ui/devtools_window_host.h"
 #include "pane/browser/ui/hooks.h"
 #include "pane/browser/ui/modal_dialog_host.h"
 #include "pane/browser/ui/tab_bridge.h"
@@ -222,6 +226,11 @@ Browser* WindowHost::BrowserFor(Profile* profile) {
   return browser;
 }
 
+void WindowHost::AdoptBrowser(Browser* browser, bool close_when_empty) {
+  close_when_empty_ = close_when_empty;
+  AddBrowser(browser);
+}
+
 void WindowHost::AddBrowser(Browser* browser) {
   browsers_[browser->GetProfile()] = browser;
   if (auto* elements = BrowserElements::From(browser)) {
@@ -374,11 +383,7 @@ void WindowHost::CancelClose() {
 
 void WindowHost::CommitClose() {
   close_state_ = CloseState::kClosing;
-  PaneBrowserWindow* owner = owner_;
-  id<PaneBrowserWindowDelegate> delegate = owner.delegate;
-  if ([delegate respondsToSelector:@selector(browserWindowWillClose:)]) {
-    [delegate browserWindowWillClose:owner];
-  }
+  NotifyWillClose();
   if (browsers_.empty()) {
     CloseWidget();
     return;
@@ -388,9 +393,26 @@ void WindowHost::CommitClose() {
   }
 }
 
+void WindowHost::NotifyWillClose() {
+  if (notified_will_close_) {
+    return;
+  }
+  notified_will_close_ = true;
+  PaneBrowserWindow* owner = owner_;
+  id<PaneBrowserWindowDelegate> delegate = owner.delegate;
+  if ([delegate respondsToSelector:@selector(browserWindowWillClose:)]) {
+    [delegate browserWindowWillClose:owner];
+  }
+}
+
 void WindowHost::CloseWidget() {
   if (widget_close_allowed_) {
     return;
+  }
+  // A window that closes because its last Browser went (undocked DevTools)
+  // was not asked first; its delegate still hears it go.
+  if (close_when_empty_) {
+    NotifyWillClose();
   }
   widget_close_allowed_ = true;
   if (widget_) {
@@ -455,7 +477,7 @@ void WindowHost::BrowserWindowDestroyed(HostedBrowserWindow* window) {
     }
   }
   if (browsers_.empty() &&
-      (closing() || browser_shutdown::IsTryingToQuit())) {
+      (closing() || close_when_empty_ || browser_shutdown::IsTryingToQuit())) {
     close_state_ = CloseState::kClosing;
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&WindowHost::CloseWidget, GetWeakPtr()));
@@ -530,6 +552,22 @@ void WindowHost::OnTabStripModelChanged(
         [delegate browserWindow:owner didRemoveTab:bridge->tab()];
       }
     }
+  }
+}
+
+void WindowHost::ShowExclusiveAccessHint(const std::u16string& marked_hint) {
+  // Chrome marks the key to style it ("press |Esc|"); the app gets plain text.
+  std::u16string hint;
+  base::RemoveChars(marked_hint, u"|", &hint);
+  PaneBrowserWindow* owner = owner_;
+  id<PaneBrowserWindowDelegate> delegate = owner.delegate;
+  Trace("callback", "PaneBrowserWindowDelegate.showExclusiveAccessHint",
+        base::DictValue().Set("hint", base::UTF16ToUTF8(hint)));
+  if ([delegate respondsToSelector:@selector(browserWindow:
+                                       showExclusiveAccessHint:)]) {
+    [delegate browserWindow:owner
+        showExclusiveAccessHint:hint.empty() ? nil
+                                             : base::SysUTF16ToNSString(hint)];
   }
 }
 
@@ -634,12 +672,20 @@ void WindowHost::ScheduleDialogPositionUpdate() {
 namespace {
 
 BrowserWindow* HostChromeBrowser(Browser* browser) {
-  // Browsers Chrome makes itself (extension windows, popups it opens without a
-  // tab) keep Chrome's own window for now (plan, Phase 4).
+  // Undocked DevTools get a window of Pane's (devtools_window_host.mm).
+  if (browser->GetType() == BrowserWindowInterface::TYPE_DEVTOOLS) {
+    return CreateDevToolsWindow(browser);
+  }
+  // Other Browsers Chrome makes itself (extension windows, popups it opens
+  // without a tab) keep Chrome's own window for now (plan, Phase 4).
   return nullptr;
 }
 
 bool KeepsWindowWithoutTabs(const BrowserWindowInterface* browser) {
+  // A DevTools Browser closes with its page, as in Chrome.
+  if (browser->GetType() == BrowserWindowInterface::TYPE_DEVTOOLS) {
+    return false;
+  }
   WindowHost* host = WindowHost::ForBrowser(browser);
   return host && !host->closing();
 }

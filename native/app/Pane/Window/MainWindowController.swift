@@ -17,6 +17,7 @@ final class MainWindowController {
 		window.styleMask.insert(.fullSizeContentView)
 		window.contentMinSize = NSSize(width: 800, height: 500)
 		window.setFrameAutosaveName("PaneMainWindow")
+		window.isRestorable = false
 
 		let hostView = controller.browserWindow.hostView
 		let root = NSHostingView(rootView: RootView(controller: controller))

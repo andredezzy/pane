@@ -15,6 +15,7 @@ import { join } from "node:path";
 import type { ScenarioContext } from "../run";
 import type { Browser } from "./browser";
 import { openPage, type Page } from "./cdp";
+import { isScreenLocked } from "./cua";
 
 export type TabState = {
 	id: string;
@@ -72,6 +73,30 @@ export type AppState = {
 	closedTabs: number;
 	pendingProfileDeletions: number;
 	focus: string;
+	sheet: {
+		kind: string;
+		tabID?: string | null;
+		title?: string;
+		message?: string;
+		buttons?: string[];
+		fields?: string[];
+		panel?: "open" | "save";
+	} | null;
+	pendingRequests: number;
+	contextMenu: { title: string; enabled: boolean }[] | null;
+	modal: { title: string; buttons: string[] } | null;
+	nativeWindows: {
+		role: string;
+		class: string;
+		title: string;
+		frame: string;
+	}[];
+	pageFullscreen: boolean;
+	exclusiveAccessHint: string | null;
+	crashedTabs: string[];
+	pictureInPictureTabs: string[];
+	devToolsTabs: string[];
+	printRequests: number;
 };
 
 type Reply = { ok: boolean; result?: unknown; error?: string; state: AppState };
@@ -224,9 +249,17 @@ export async function launchPane(
 	mkdirSync(join(automationDir, "in"), { recursive: true });
 	mkdirSync(join(automationDir, "out"), { recursive: true });
 
+	// macOS reports the window occluded while the screen is locked, and
+	// Chromium then hides its pages: no visual updates, no hang monitor.
+	// Chromium's own switch for this keeps pages visible.
+	const locked = await isScreenLocked();
+
 	const browser = await context.launch({
 		userDataDir: join(dataDir, "Engine"),
-		args: options.args,
+		args: [
+			...(locked ? ["--disable-backgrounding-occluded-windows"] : []),
+			...(options.args ?? []),
+		],
 		env: {
 			PANE_DATA_DIR: dataDir,
 			PANE_AUTOMATION_DIR: automationDir,

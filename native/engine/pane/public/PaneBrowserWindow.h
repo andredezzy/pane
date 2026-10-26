@@ -9,6 +9,7 @@
 
 @class PaneBrowserContext;
 @class PaneBrowserWindow;
+@class PaneFileChooser;
 @class PaneWebContents;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -52,6 +53,18 @@ NS_SWIFT_UI_ACTOR
 // A key press the page did not handle; YES consumes it.
 - (BOOL)browserWindow:(PaneBrowserWindow*)window
        handleKeyEvent:(NSEvent*)event;
+
+// A file dialog for this window (PaneDialogs.h). Not implemented: cancelled.
+- (void)browserWindow:(PaneBrowserWindow*)window
+       runFileChooser:(PaneFileChooser*)chooser;
+// The page that asked went away before the app answered.
+- (void)browserWindow:(PaneBrowserWindow*)window
+    didDismissFileChooser:(PaneFileChooser*)chooser;
+
+// While a page has fullscreen, or locks the pointer or keyboard, what to tell
+// the user ("Press Esc to exit full screen"); nil when it ends.
+- (void)browserWindow:(PaneBrowserWindow*)window
+    showExclusiveAccessHint:(nullable NSString*)hint;
 
 @end
 

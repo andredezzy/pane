@@ -12,6 +12,8 @@
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "components/autofill/core/common/autofill_prefs.h"
+#include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "pane/browser/downloads.h"
 #include "pane/browser/engine_trace.h"
@@ -36,8 +38,17 @@
     _keepAlive = std::make_unique<ScopedProfileKeepAlive>(
         profile, ProfileKeepAliveOrigin::kBrowserWindow);
     _downloads = std::make_unique<pane::DownloadsBridge>(self, profile);
+    PrefService* prefs = profile->GetPrefs();
     // Downloads go straight to the download directory, never to a dialog.
-    profile->GetPrefs()->SetBoolean(prefs::kPromptForDownload, false);
+    prefs->SetBoolean(prefs::kPromptForDownload, false);
+    // Chrome's password manager and autofill stay off: Pane relies on
+    // extension password managers, so their bubbles never appear.
+    prefs->SetBoolean(password_manager::prefs::kCredentialsEnableService,
+                      false);
+    prefs->SetBoolean(password_manager::prefs::kCredentialsEnableAutosignin,
+                      false);
+    prefs->SetBoolean(autofill::prefs::kAutofillProfileEnabled, false);
+    prefs->SetBoolean(autofill::prefs::kAutofillCreditCardEnabled, false);
   }
   return self;
 }

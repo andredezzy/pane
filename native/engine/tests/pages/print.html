@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Print</title>
+	</head>
+	<body>
+		<h1>Print fixture</h1>
+		<script>
+			window.printed = { before: false, after: false };
+			window.addEventListener("beforeprint", () => { window.printed.before = true; });
+			window.addEventListener("afterprint", () => { window.printed.after = true; });
+			function startPrint() {
+				setTimeout(() => window.print(), 50);
+			}
+		</script>
+	</body>
+</html>

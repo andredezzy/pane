@@ -24,10 +24,16 @@ git -C "$CHROMIUM_ROOT/src" diff "refs/tags/$VERSION" -- "${files[@]}" > "$ENGIN
 git -C "$CHROMIUM_ROOT/src" reset -q -- "${files[@]}"
 echo "wrote patches/$NAME (${#files[@]} files)"
 
-# The applied copy must match, or the next apply-patches.sh would reverse a
-# patch that is no longer what the tree contains.
-if [ -f "$CHROMIUM_ROOT/.applied/$NAME" ]; then
-	cp "$ENGINE_DIR/patches/$NAME" "$CHROMIUM_ROOT/.applied/$NAME"
-	sum="$(shasum -a 256 "$ENGINE_DIR/patches/$NAME" | cut -d' ' -f1)"
-	sed -i '' "s/^[0-9a-f]* $NAME\$/$sum $NAME/" "$CHROMIUM_ROOT/.applied/state"
-fi
+# The tree now contains this patch, so the applied copy and its hash must say
+# so (a new patch made in-tree included), or the next apply-patches.sh would
+# reverse or re-apply the wrong thing. The state lists applied patches in
+# series order, as apply-patches.sh writes it.
+APPLIED="$CHROMIUM_ROOT/.applied"
+mkdir -p "$APPLIED"
+cp "$ENGINE_DIR/patches/$NAME" "$APPLIED/$NAME"
+grep -v '^\s*\(#\|$\)' "$ENGINE_DIR/patches/series" | while read -r name; do
+	if [ -f "$APPLIED/$name" ]; then
+		printf '%s %s\n' "$(shasum -a 256 "$APPLIED/$name" | cut -d' ' -f1)" "$name"
+	fi
+done > "$APPLIED/state.new"
+mv "$APPLIED/state.new" "$APPLIED/state"

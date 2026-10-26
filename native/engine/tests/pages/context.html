@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Context menu</title>
+		<style>
+			body { font: 16px/1.4 -apple-system, sans-serif; margin: 20px; }
+			#link { display: block; width: 300px; height: 40px; }
+			#text { width: 300px; min-height: 40px; margin-top: 20px; font-size: 18px; border: 1px solid #999; }
+			#plain { margin-top: 20px; height: 40px; }
+		</style>
+	</head>
+	<body>
+		<a id="link" href="nav-b.html?from=context">A link</a>
+		<div id="text" contenteditable="true" spellcheck="true">Pane <span id="miss">helo</span></div>
+		<p id="plain">Plain text</p>
+		<script>
+			function centerOf(id) {
+				const box = document.getElementById(id).getBoundingClientRect();
+				return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+			}
+			// The middle of the misspelled word.
+			function misspelledPoint() {
+				return centerOf("miss");
+			}
+		</script>
+	</body>
+</html>

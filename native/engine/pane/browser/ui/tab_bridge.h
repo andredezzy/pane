@@ -17,8 +17,10 @@
 #include "components/find_in_page/find_result_observer.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/base/window_open_disposition.h"
 
+@class PaneUnresponsivePage;
 @class PaneWebContents;
 
 namespace pane {
@@ -51,6 +53,25 @@ class TabBridge : public content::WebContentsObserver,
 
   // Chrome's tab id: stable for the tab's life, and the id extensions see.
   int tab_id() const;
+
+  // The unresponsive-page request the app holds, if any.
+  PaneUnresponsivePage* unresponsive_page() const {
+    return unresponsive_page_;
+  }
+  void set_unresponsive_page(PaneUnresponsivePage* page) {
+    unresponsive_page_ = page;
+  }
+
+  // DevTools docked to this tab, and where the page sits over them, as last
+  // told to the app.
+  PaneWebContents* devtools() const { return devtools_; }
+  const gfx::Rect& devtools_page_bounds() const {
+    return devtools_page_bounds_;
+  }
+  void set_devtools(PaneWebContents* devtools, const gfx::Rect& page_bounds) {
+    devtools_ = devtools;
+    devtools_page_bounds_ = page_bounds;
+  }
   void TraceCallback(std::string_view name, base::DictValue args = {});
 
   // content::WebContentsObserver:
@@ -67,6 +88,7 @@ class TabBridge : public content::WebContentsObserver,
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
   void WebContentsDestroyed() override;
+  void MediaPictureInPictureChanged(bool is_picture_in_picture) override;
 
   // favicon::FaviconDriverObserver:
   void OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
@@ -86,6 +108,9 @@ class TabBridge : public content::WebContentsObserver,
   void NavigationStateChanged();
 
   PaneWebContents* __strong tab_;
+  PaneWebContents* __weak devtools_;
+  gfx::Rect devtools_page_bounds_;
+  PaneUnresponsivePage* __strong unresponsive_page_;
   std::optional<WindowOpenDisposition> open_disposition_;
   base::WeakPtr<content::WebContents> open_source_;
   bool observing_favicon_ = false;

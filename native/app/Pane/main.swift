@@ -9,6 +9,13 @@ let dataDirectory = ProcessInfo.processInfo.environment["PANE_DATA_DIR"].map { U
 	.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
 	.appendingPathComponent("com.pane.desktop", isDirectory: true)
 
+// Pane restores its own session (profiles.json), so AppKit's window
+// restoration stays off, along with its "reopen windows?" alert after a crash.
+UserDefaults.standard.register(defaults: [
+	"ApplePersistenceIgnoreState": true,
+	"NSQuitAlwaysKeepsWindows": false,
+])
+
 let appDelegate = AppDelegate(dataDirectory: dataDirectory)
 
 exit(BrowserApplication.run(delegate: appDelegate, dataDirectory: dataDirectory))

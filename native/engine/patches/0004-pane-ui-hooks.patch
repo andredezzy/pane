@@ -1,0 +1,239 @@
+diff --git a/chrome/browser/devtools/devtools_window.cc b/chrome/browser/devtools/devtools_window.cc
+index 7613579e79..4c7964af17 100644
+--- a/chrome/browser/devtools/devtools_window.cc
++++ b/chrome/browser/devtools/devtools_window.cc
+@@ -131,12 +131,19 @@
+ #include "components/keep_alive_registry/scoped_keep_alive.h"
+ #endif
+ 
++#include "pane/browser/ui/ui_hooks.h"  // nogncheck
++
+ using blink::WebInputEvent;
+ using content::BrowserThread;
+ using content::DevToolsAgentHost;
+ using content::GlobalRenderFrameHostId;
+ using content::WebContents;
+ 
++// Pane: see pane/browser/ui/ui_hooks.h.
++bool (*g_pane_hosts_devtools)(BrowserWindowInterface* browser) = nullptr;
++void (*g_pane_update_devtools)(BrowserWindowInterface* browser,
++                               content::WebContents* inspected) = nullptr;
++
+ namespace {
+ 
+ typedef std::vector<DevToolsWindow*> DevToolsWindows;
+@@ -1075,8 +1082,11 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
+         FROM_HERE, base::BindOnce(&DevToolsWindow::ActivateInspectedTab,
+                                   weak_factory_.GetWeakPtr()));
+ 
+-    if (auto* devtools_ui_controller =
+-            DevtoolsUIController::From(inspected_browser)) {
++    // Pane: the app docks DevTools beside the tabs of its windows.
++    if (g_pane_hosts_devtools && g_pane_hosts_devtools(inspected_browser)) {
++      g_pane_update_devtools(inspected_browser, inspected_web_contents);
++    } else if (auto* devtools_ui_controller =
++                   DevtoolsUIController::From(inspected_browser)) {
+       devtools_ui_controller->UpdateDevtools(inspected_web_contents);
+     }
+     main_web_contents_->SetInitialFocus();
+@@ -1402,7 +1412,10 @@ DevToolsWindow* DevToolsWindow::Create(
+ #endif  // BUILDFLAG(IS_MAC)
+     DevtoolsUIController* devtools_ui_controller =
+         browser ? DevtoolsUIController::From(browser) : nullptr;
+-    if (!devtools_ui_controller || !devtools_ui_controller->CanDockDevtools()) {
++    const bool pane_docks =
++        browser && g_pane_hosts_devtools && g_pane_hosts_devtools(browser);
++    if (!pane_docks && (!devtools_ui_controller ||
++                        !devtools_ui_controller->CanDockDevtools())) {
+       can_dock = false;
+     }
+   }
+diff --git a/chrome/browser/devtools/devtools_window_views.cc b/chrome/browser/devtools/devtools_window_views.cc
+index 9331bad3ad..926b9440a2 100644
+--- a/chrome/browser/devtools/devtools_window_views.cc
++++ b/chrome/browser/devtools/devtools_window_views.cc
+@@ -20,6 +20,8 @@
+ #include "chrome/browser/printing/print_preview_dialog_controller.h"
+ #endif
+ 
++#include "pane/browser/ui/ui_hooks.h"  // nogncheck
++
+ using content::WebContents;
+ 
+ // static
+@@ -135,8 +137,11 @@ void DevToolsWindow::UpdateBrowserWindow() {
+   if (!inspected_browser) {
+     return;
+   }
+-  if (auto* devtools_ui_controller =
+-          DevtoolsUIController::From(inspected_browser)) {
++  // Pane: the app docks DevTools beside the tabs of its windows.
++  if (g_pane_hosts_devtools && g_pane_hosts_devtools(inspected_browser)) {
++    g_pane_update_devtools(inspected_browser, inspected_web_contents);
++  } else if (auto* devtools_ui_controller =
++                 DevtoolsUIController::From(inspected_browser)) {
+     devtools_ui_controller->UpdateDevtools(inspected_web_contents);
+   }
+ }
+diff --git a/chrome/browser/printing/print_view_manager_base.cc b/chrome/browser/printing/print_view_manager_base.cc
+index b673362fe8..4afc5ef427 100644
+--- a/chrome/browser/printing/print_view_manager_base.cc
++++ b/chrome/browser/printing/print_view_manager_base.cc
+@@ -68,6 +68,11 @@
+ #include "chrome/browser/enterprise/data_protection/print_utils.h"
+ #endif
+ 
++#include "pane/browser/ui/ui_hooks.h"  // nogncheck
++
++// Pane: see pane/browser/ui/ui_hooks.h.
++void (*g_pane_will_print)(content::WebContents* web_contents) = nullptr;
++
+ namespace printing {
+ 
+ namespace {
+@@ -629,6 +634,10 @@ void PrintViewManagerBase::ScriptedPrint(mojom::ScriptedPrintParamsPtr params,
+     return;
+   }
+ 
++  if (g_pane_will_print) {
++    g_pane_will_print(web_contents());
++  }
++
+ #if BUILDFLAG(ENABLE_OOP_PRINTING)
+   if (ShouldPrintJobOop() && !query_with_ui_client_id().has_value()) {
+     // Renderer process has requested settings outside of the expected setup.
+diff --git a/chrome/browser/ui/views/external_protocol_dialog.cc b/chrome/browser/ui/views/external_protocol_dialog.cc
+index 6e5a662267..fe2e322d1d 100644
+--- a/chrome/browser/ui/views/external_protocol_dialog.cc
++++ b/chrome/browser/ui/views/external_protocol_dialog.cc
+@@ -35,9 +35,18 @@
+ #include "ui/views/layout/fill_layout.h"
+ #include "ui/views/widget/widget.h"
+ #include "ui/views/window/dialog_client_view.h"
++#include "pane/browser/ui/ui_hooks.h"  // nogncheck
+ 
+ using content::WebContents;
+ 
++// Pane: see pane/browser/ui/ui_hooks.h.
++bool (*g_pane_external_protocol_dialog)(
++    const GURL& url,
++    content::WebContents* web_contents,
++    const std::optional<url::Origin>& initiating_origin,
++    content::WeakDocumentPtr initiator_document,
++    const std::u16string& program_name) = nullptr;
++
+ namespace {
+ 
+ std::u16string GetMessageTextForOrigin(
+@@ -108,6 +117,13 @@ void ExternalProtocolHandler::RunExternalProtocolDialog(
+     return;
+   }
+ 
++  // Pane: one of its tabs asks the app.
++  if (g_pane_external_protocol_dialog &&
++      g_pane_external_protocol_dialog(url, web_contents, initiating_origin,
++                                      initiator_document, program_name)) {
++    return;
++  }
++
+   // Windowing system takes ownership.
+   new ExternalProtocolDialog(web_contents, url, program_name, initiating_origin,
+                              std::move(initiator_document));
+diff --git a/chrome/browser/ui/views/login_handler_views.cc b/chrome/browser/ui/views/login_handler_views.cc
+index 14a99f40f3..f7f3153cbc 100644
+--- a/chrome/browser/ui/views/login_handler_views.cc
++++ b/chrome/browser/ui/views/login_handler_views.cc
+@@ -21,6 +21,7 @@
+ #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+ #include "ui/views/widget/widget.h"
+ #include "ui/views/window/dialog_delegate.h"
++#include "pane/browser/ui/ui_hooks.h"  // nogncheck
+ 
+ class LoginHandlerViewsDialog;
+ 
+@@ -227,10 +228,23 @@ LoginHandlerViewsDialog::~LoginHandlerViewsDialog() {
+ }
+ 
+ // static
++// Pane: see pane/browser/ui/ui_hooks.h.
++std::unique_ptr<LoginHandler> (*g_pane_create_login_handler)(
++    const net::AuthChallengeInfo& auth_info,
++    content::WebContents* web_contents,
++    content::LoginDelegate::LoginAuthRequiredCallback& callback) = nullptr;
++
+ std::unique_ptr<LoginHandler> LoginHandler::Create(
+     const net::AuthChallengeInfo& auth_info,
+     content::WebContents* web_contents,
+     content::LoginDelegate::LoginAuthRequiredCallback auth_required_callback) {
++  // Pane: one of its tabs asks the app for credentials.
++  if (g_pane_create_login_handler) {
++    if (auto handler = g_pane_create_login_handler(auth_info, web_contents,
++                                                   auth_required_callback)) {
++      return handler;
++    }
++  }
+   return std::make_unique<LoginHandlerViews>(auth_info, web_contents,
+                                              std::move(auth_required_callback));
+ }
+diff --git a/chrome/browser/ui/views/permissions/chooser_bubble_ui.cc b/chrome/browser/ui/views/permissions/chooser_bubble_ui.cc
+index 6f672ac21a..7f095bee54 100644
+--- a/chrome/browser/ui/views/permissions/chooser_bubble_ui.cc
++++ b/chrome/browser/ui/views/permissions/chooser_bubble_ui.cc
+@@ -46,6 +46,13 @@
+ #include "extensions/common/extension.h"
+ #endif
+ 
++#include "pane/browser/ui/ui_hooks.h"  // nogncheck
++
++// Pane: see pane/browser/ui/ui_hooks.h.
++bool (*g_pane_device_chooser)(
++    content::RenderFrameHost* owner,
++    std::unique_ptr<permissions::ChooserController>& controller) = nullptr;
++
+ using bubble_anchor_util::AnchorConfiguration;
+ 
+ namespace {
+@@ -329,6 +336,10 @@ base::OnceClosure ShowDeviceChooserDialogForExtension(
+ base::OnceClosure ShowDeviceChooserDialog(
+     content::RenderFrameHost* owner,
+     std::unique_ptr<permissions::ChooserController> controller) {
++  // Pane: its tabs' device requests are answered without this bubble.
++  if (g_pane_device_chooser && g_pane_device_chooser(owner, controller)) {
++    return base::DoNothing();
++  }
+   content::WeakDocumentPtr weak_document = owner->GetWeakDocumentPtr();
+   auto* contents = content::WebContents::FromRenderFrameHost(owner);
+ 
+diff --git a/chrome/browser/ui/views/permissions/permission_prompt_factory.cc b/chrome/browser/ui/views/permissions/permission_prompt_factory.cc
+index 12bb0ac5fb..5d075f430d 100644
+--- a/chrome/browser/ui/views/permissions/permission_prompt_factory.cc
++++ b/chrome/browser/ui/views/permissions/permission_prompt_factory.cc
+@@ -44,6 +44,14 @@
+ #include "chrome/browser/web_applications/os_integration/mac/web_app_shortcut_mac.h"
+ #endif
+ 
++#include "pane/browser/ui/ui_hooks.h"  // nogncheck
++
++// Pane: see pane/browser/ui/ui_hooks.h.
++std::unique_ptr<permissions::PermissionPrompt> (
++    *g_pane_create_permission_prompt)(
++    content::WebContents* web_contents,
++    permissions::PermissionPrompt::Delegate* delegate) = nullptr;
++
+ namespace {
+ 
+ BrowserWindowInterface* GetBrowser(content::WebContents* web_contents) {
+@@ -301,6 +309,13 @@ std::unique_ptr<permissions::PermissionPrompt> CreatePermissionPrompt(
+     return nullptr;
+   }
+ 
++  // Pane: a request of one of its tabs is asked by the app.
++  if (g_pane_create_permission_prompt) {
++    if (auto prompt = g_pane_create_permission_prompt(web_contents, delegate)) {
++      return prompt;
++    }
++  }
++
+ #if BUILDFLAG(IS_MAC)
+   // If this is a notification permission request coming from a PWA (or a PWA
+   // associated tab), and this is the first time we show a permission prompt for

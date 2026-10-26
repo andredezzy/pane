@@ -57,10 +57,10 @@ index 37c881f5d2..fa344c6c5d 100644
 +_OBJC_METACLASS_$_Pane*
 +_Pane*
 diff --git a/chrome/app/framework.order b/chrome/app/framework.order
-index 6dbc3aeff3..d4b6f3f891 100644
+index 6dbc3aeff3..758071e7e3 100644
 --- a/chrome/app/framework.order
 +++ b/chrome/app/framework.order
-@@ -31,3 +31,19 @@ _ChromeWebAppShortcutCopierMain
+@@ -31,3 +31,33 @@ _ChromeWebAppShortcutCopierMain
  
  # _ChromeMain must be listed last.  That's the whole point of this file.
  _ChromeMain
@@ -80,6 +80,20 @@ index 6dbc3aeff3..d4b6f3f891 100644
 +_OBJC_METACLASS_$_PaneBrowserWindow
 +_OBJC_CLASS_$_PaneDownload
 +_OBJC_METACLASS_$_PaneDownload
++_OBJC_CLASS_$_PaneJavaScriptDialog
++_OBJC_METACLASS_$_PaneJavaScriptDialog
++_OBJC_CLASS_$_PanePermissionRequest
++_OBJC_METACLASS_$_PanePermissionRequest
++_OBJC_CLASS_$_PaneAuthenticationChallenge
++_OBJC_METACLASS_$_PaneAuthenticationChallenge
++_OBJC_CLASS_$_PaneContextMenu
++_OBJC_METACLASS_$_PaneContextMenu
++_OBJC_CLASS_$_PaneFileChooser
++_OBJC_METACLASS_$_PaneFileChooser
++_OBJC_CLASS_$_PaneExternalProtocolRequest
++_OBJC_METACLASS_$_PaneExternalProtocolRequest
++_OBJC_CLASS_$_PaneUnresponsivePage
++_OBJC_METACLASS_$_PaneUnresponsivePage
 diff --git a/chrome/app/theme/chromium/BRANDING b/chrome/app/theme/chromium/BRANDING
 index f8363d5b29..0debf509c1 100644
 --- a/chrome/app/theme/chromium/BRANDING

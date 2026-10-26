@@ -25,6 +25,12 @@ final class WindowState {
 
 	var find = Find()
 	var switcher = Switcher()
+	// A page is in fullscreen: the window shows only the page.
+	var pageFullscreen = false
+	// "Press Esc to exit full screen", while a page has fullscreen or a lock.
+	var exclusiveAccessHint: String?
+	// Pages that started printing, for scenarios.
+	var printRequests = 0
 	// Bumped to move focus into the address field.
 	private(set) var addressFocusRequest = 0
 	// Bumped to move focus into the find field.

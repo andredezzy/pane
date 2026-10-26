@@ -28,6 +28,10 @@ final class BrowserModel {
 	private(set) var loadedTabIDs: Set<String> = []
 	private(set) var loadingProgress: [String: Double] = [:]
 	private(set) var navigation: [String: NavigationState] = [:]
+	// Tabs whose page crashed and waits for Reload (the sad tab).
+	private(set) var crashedTabIDs: Set<String> = []
+	private(set) var pictureInPictureTabIDs: Set<String> = []
+	private(set) var devToolsTabIDs: Set<String> = []
 
 	struct NavigationState: Equatable {
 		var canGoBack = false
@@ -222,6 +226,9 @@ final class BrowserModel {
 			loadedTabIDs.remove(tabID)
 			loadingProgress[tabID] = nil
 			navigation[tabID] = nil
+			crashedTabIDs.remove(tabID)
+			pictureInPictureTabIDs.remove(tabID)
+			devToolsTabIDs.remove(tabID)
 		}
 	}
 
@@ -231,6 +238,30 @@ final class BrowserModel {
 
 	func setNavigation(_ tabID: String, _ state: NavigationState) {
 		navigation[tabID] = state
+	}
+
+	func setCrashed(_ tabID: String, _ crashed: Bool) {
+		if crashed {
+			crashedTabIDs.insert(tabID)
+		} else {
+			crashedTabIDs.remove(tabID)
+		}
+	}
+
+	func setPictureInPicture(_ tabID: String, _ active: Bool) {
+		if active {
+			pictureInPictureTabIDs.insert(tabID)
+		} else {
+			pictureInPictureTabIDs.remove(tabID)
+		}
+	}
+
+	func setDevToolsOpen(_ tabID: String, _ open: Bool) {
+		if open {
+			devToolsTabIDs.insert(tabID)
+		} else {
+			devToolsTabIDs.remove(tabID)
+		}
 	}
 
 	private func forgetTab(_ id: String) {

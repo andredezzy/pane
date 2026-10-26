@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Files</title>
+	</head>
+	<body>
+		<input id="file" type="file" accept=".txt">
+		<script>
+			window.result = undefined;
+			document.getElementById("file").addEventListener("change", async (event) => {
+				const file = event.target.files[0];
+				window.result = file ? { name: file.name, text: await file.text() } : null;
+			});
+			document.getElementById("file").addEventListener("cancel", () => {
+				window.result = "cancelled";
+			});
+			async function saveFile() {
+				window.result = undefined;
+				try {
+					const handle = await showSaveFilePicker({ suggestedName: "pane-saved.txt" });
+					const writable = await handle.createWritable();
+					await writable.write("Saved by the Pane file chooser scenario\n");
+					await writable.close();
+					window.result = { saved: handle.name };
+				} catch (error) {
+					window.result = { error: error.name };
+				}
+			}
+		</script>
+	</body>
+</html>

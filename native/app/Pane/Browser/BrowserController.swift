@@ -17,6 +17,18 @@ final class BrowserController: NSObject {
 	private var contexts: [String: BrowserContext] = [:]
 	private var contextWaiters: [String: [(BrowserContext) -> Void]] = [:]
 	private var pages: [String: WebContents] = [:]
+	// DevTools docked to a tab, by tab id.
+	private var devTools: [String: WebContents] = [:]
+	// When each tab's renderer last died, to tell a crash loop from a crash.
+	private var lastCrash: [String: Date] = [:]
+	// Built on first use: it needs the window.
+	private(set) lazy var dialogs = DialogPresenter(window: browserWindow.window) { [weak self] in
+		self?.model.activeTabID
+	}
+	// The page context menu last built, kept for scenarios, and whether it is
+	// on screen.
+	private(set) var lastContextMenu: NSMenu?
+	private(set) var contextMenuOpen = false
 	private var tabIDs: [ObjectIdentifier: String] = [:]
 	// The tab id the engine's next inserted tab gets (a tab the app opens).
 	private var pendingTabID: String?
@@ -90,6 +102,7 @@ final class BrowserController: NSObject {
 
 		if previous != tabID, let previous, let page = pages[previous] {
 			page.isVisible = false
+			devTools[previous]?.isVisible = false
 		}
 
 		if let page = pages[tabID] {
@@ -130,17 +143,17 @@ final class BrowserController: NSObject {
 		openTab(inProfile: profileID)
 	}
 
+	// A loaded tab goes once its page agrees to close (beforeunload may keep
+	// it); the engine's didRemoveTab then takes it out. An unloaded tab goes
+	// at once.
 	func closeTab(_ tabID: String) {
-		let page = pages.removeValue(forKey: tabID)
-		let wasActive = model.activeTabID == tabID
-		let profileID = model.profileID(ofTab: tabID)
-
-		if let page {
-			tabIDs[ObjectIdentifier(page)] = nil
-			page.nativeView.removeFromSuperview()
+		if let page = pages[tabID] {
 			page.close()
+			return
 		}
 
+		let wasActive = model.activeTabID == tabID
+		let profileID = model.profileID(ofTab: tabID)
 		model.removeTab(tabID)
 
 		if wasActive {
@@ -212,7 +225,8 @@ final class BrowserController: NSObject {
 
 		tabIDs[ObjectIdentifier(page)] = nil
 		page.nativeView.removeFromSuperview()
-		page.close()
+		page.closeImmediately()
+		devTools[tabID] = nil
 		model.setLoaded(tabID, false)
 	}
 
@@ -267,8 +281,11 @@ final class BrowserController: NSObject {
 		}
 
 		browserWindow.activateTab(page)
-		pageHost.show(page)
+		let docked = model.activeTabID.flatMap { devTools[$0] }
+		pageHost.show(page, devTools: docked)
 		page.isVisible = true
+		docked?.isVisible = true
+		dialogs.selectionChanged()
 		browserWindow.window.title = page.title.isEmpty ? "Pane" : page.title
 	}
 
@@ -384,10 +401,12 @@ extension BrowserController: BrowserWindowDelegate {
 			return
 		}
 
-		// Still mapped, so the page closed itself (window.close()): its tab goes
-		// too. Pages the app closes or releases are unmapped first.
+		// The page closed: the app closed it (once beforeunload agreed), or it
+		// closed itself (window.close()). Either way its tab goes too. Pages
+		// the app releases are unmapped first.
 		tabIDs[ObjectIdentifier(tab)] = nil
 		pages[tabID] = nil
+		devTools[tabID] = nil
 		tab.nativeView.removeFromSuperview()
 
 		let wasActive = model.activeTabID == tabID
@@ -399,12 +418,28 @@ extension BrowserController: BrowserWindowDelegate {
 		}
 	}
 
+	// A page's fullscreen fills the window: the sidebar and toolbar step aside,
+	// and the window enters full screen as Chrome's does.
 	func browserWindow(_ window: BrowserWindow, tab: WebContents, didChangeFullscreen fullscreen: Bool) {
+		state.pageFullscreen = fullscreen
+
 		let isFullScreen = window.window.styleMask.contains(.fullScreen)
 
 		if fullscreen != isFullScreen {
 			window.window.toggleFullScreen(nil)
 		}
+	}
+
+	func browserWindow(_ window: BrowserWindow, run chooser: FileChooser) {
+		dialogs.enqueue(.fileChooser(chooser), tabID: nil)
+	}
+
+	func browserWindow(_ window: BrowserWindow, didDismiss chooser: FileChooser) {
+		dialogs.withdraw(chooser)
+	}
+
+	func browserWindow(_ window: BrowserWindow, showExclusiveAccessHint hint: String?) {
+		state.exclusiveAccessHint = hint
 	}
 }
 
@@ -469,11 +504,135 @@ extension BrowserController: WebContentsDelegate {
 			return
 		}
 
-		// The page is gone; reloading recreates it (CONTEXT.md: like a slept tab).
 		model.setLoading(tabID, progress: nil)
-		if model.activeTabID == tabID {
+
+		// The first crash reloads the page, as a slept tab wakes. A page that
+		// dies again within a minute shows the sad tab instead of looping.
+		let now = Date()
+		let looping = lastCrash[tabID].map { now.timeIntervalSince($0) < 60 } ?? false
+		lastCrash[tabID] = now
+
+		if looping {
+			model.setCrashed(tabID, true)
+		} else if model.activeTabID == tabID {
 			webContents.reload()
+		} else {
+			model.setCrashed(tabID, true)
 		}
+	}
+
+	// MARK: Chrome's dialogs and menus (PaneDialogs.h)
+
+	func webContents(_ webContents: WebContents, run dialog: JavaScriptDialog) {
+		dialogs.enqueue(.javaScript(dialog), tabID: tabID(of: webContents))
+	}
+
+	func webContents(_ webContents: WebContents, requestPermission request: PermissionRequest) {
+		dialogs.enqueue(.permission(request), tabID: tabID(of: webContents))
+	}
+
+	func webContents(_ webContents: WebContents, authenticate challenge: AuthenticationChallenge) {
+		dialogs.enqueue(.authentication(challenge), tabID: tabID(of: webContents))
+	}
+
+	func webContents(_ webContents: WebContents, openExternalProtocol request: ExternalProtocolRequest) {
+		dialogs.enqueue(.externalProtocol(request), tabID: tabID(of: webContents))
+	}
+
+	func webContents(_ webContents: WebContents, becameUnresponsive page: UnresponsivePage) {
+		dialogs.enqueue(.unresponsive(page), tabID: tabID(of: webContents))
+	}
+
+	func webContents(_ webContents: WebContents, didDismissRequest request: Any) {
+		dialogs.withdraw(request as AnyObject)
+	}
+
+	func webContents(_ webContents: WebContents, show context: ContextMenu) {
+		guard tabID(of: webContents) == model.activeTabID else {
+			return
+		}
+
+		let menu = PageContextMenu.build(context, page: webContents, controller: self)
+		lastContextMenu = menu
+		let view = webContents.nativeView
+		let point = NSPoint(
+			x: context.location.x,
+			y: view.isFlipped ? context.location.y : view.bounds.height - context.location.y
+		)
+
+		// Shown once the engine's task returns: the menu runs its own loop.
+		DispatchQueue.main.async { [weak self] in
+			self?.contextMenuOpen = true
+			menu.popUp(positioning: nil, at: point, in: view)
+			self?.contextMenuOpen = false
+		}
+	}
+
+	func webContentsWillPrint(_ webContents: WebContents) {
+		state.printRequests += 1
+	}
+
+	func webContents(_ webContents: WebContents, didChangePictureInPicture active: Bool) {
+		guard let tabID = tabID(of: webContents) else {
+			return
+		}
+
+		model.setPictureInPicture(tabID, active)
+	}
+
+	func webContents(_ webContents: WebContents, didChangeDevTools tools: WebContents?) {
+		guard let tabID = tabID(of: webContents) else {
+			return
+		}
+
+		if let previous = devTools[tabID], previous !== tools {
+			previous.isVisible = false
+		}
+
+		devTools[tabID] = tools
+		model.setDevToolsOpen(tabID, tools != nil)
+
+		if model.activeTabID == tabID {
+			pageHost.show(webContents, devTools: tools)
+			tools?.isVisible = true
+		}
+	}
+}
+
+// MARK: - Actions behind Chrome's dialogs and menus
+
+extension BrowserController {
+	// "Open Link in New Tab": a background tab after the page's, in its profile.
+	func openInNewTab(_ url: URL, besides page: WebContents) {
+		guard let sourceID = tabID(of: page), let profileID = model.profileID(ofTab: sourceID) else {
+			return
+		}
+
+		let tab = Tab(id: UUID().uuidString.lowercased(), url: url.absoluteString)
+		model.insertTab(tab, inProfile: profileID, after: sourceID)
+
+		withContext(profileID) { [weak self] context in
+			self?.openPage(tabID: tab.id, url: url, context: context, foreground: false)
+		}
+	}
+
+	func toggleDevTools() {
+		guard let page = activePage else {
+			return
+		}
+
+		page.isDevToolsOpen ? page.closeDevTools() : page.showDevTools()
+	}
+
+	func printPage() {
+		activePage?.printPage()
+	}
+
+	// The sad tab's Reload.
+	func reloadCrashed(_ tabID: String) {
+		model.setCrashed(tabID, false)
+		lastCrash[tabID] = nil
+		pages[tabID]?.reload()
 	}
 }
 

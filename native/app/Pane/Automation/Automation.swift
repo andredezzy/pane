@@ -196,8 +196,113 @@ final class Automation {
 			// event monitors, then the menu's key equivalents, then the window.
 			try postKey(try string("key"), modifiers: command["modifiers"] as? [String] ?? [])
 
+		case "clickPage":
+			// A real click on the selected page, at a point in its view (top-left
+			// origin), posted to the window like the trackpad's.
+			guard
+				let page = controller.activePage,
+				let x = command["x"] as? Double,
+				let y = command["y"] as? Double
+			else {
+				throw AutomationError("clickPage needs a page, x and y")
+			}
+
+			let view = page.nativeView
+			let point = view.convert(NSPoint(x: x, y: view.isFlipped ? y : view.bounds.height - y), to: nil)
+			let window = controller.browserWindow.window
+
+			for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+				if let event = NSEvent.mouseEvent(
+					with: type,
+					location: point,
+					modifierFlags: [],
+					timestamp: ProcessInfo.processInfo.systemUptime,
+					windowNumber: window.windowNumber,
+					context: nil,
+					eventNumber: 0,
+					clickCount: 1,
+					pressure: type == .leftMouseDown ? 1 : 0
+				) {
+					NSApp.postEvent(event, atStart: false)
+				}
+			}
+
+		case "typeInPage":
+			// A key typed into the selected page: the page takes focus and the
+			// window delivers the key to it, as when the user types. (Key events
+			// are the input Chromium waits on; a hung page leaves them unanswered.)
+			guard let page = controller.activePage else {
+				throw AutomationError("no page")
+			}
+
+			let key = try string("key")
+			let window = controller.browserWindow.window
+			page.focus()
+
+			for type in [NSEvent.EventType.keyDown, .keyUp] {
+				if let event = NSEvent.keyEvent(
+					with: type,
+					location: .zero,
+					modifierFlags: [],
+					timestamp: ProcessInfo.processInfo.systemUptime,
+					windowNumber: window.windowNumber,
+					context: nil,
+					characters: key,
+					charactersIgnoringModifiers: key,
+					isARepeat: false,
+					keyCode: Self.keyCodes[key] ?? 0
+				) {
+					window.sendEvent(event)
+				}
+			}
+
 		case "releaseModifiers":
 			post(flagsChanged: [])
+
+		case "clickSheetButton":
+			try clickSheetButton(try string("title"), texts: command["texts"] as? [String] ?? [])
+
+		case "answerFileChooser":
+			try answerFileChooser(paths: command["paths"] as? [String], cancel: command["cancel"] as? Bool ?? false)
+
+		case "chooseContextMenuItem":
+			let title = try string("title")
+
+			guard
+				let menu = controller.lastContextMenu,
+				let index = menu.items.firstIndex(where: { $0.title == title })
+			else {
+				throw AutomationError("no context menu item \(title)")
+			}
+
+			menu.cancelTracking()
+			menu.performActionForItem(at: index)
+
+		case "clickModalButton":
+			let title = try string("title")
+
+			guard let modal = NSApp.modalWindow ?? controller.browserWindow.window.attachedSheet else {
+				throw AutomationError("no modal window")
+			}
+
+			guard let button = Self.buttons(in: modal.contentView).first(where: { $0.title == title }) else {
+				throw AutomationError("no button \(title) in the modal window")
+			}
+
+			button.performClick(nil)
+
+		case "toggleDevTools":
+			controller.toggleDevTools()
+
+		case "print":
+			controller.printPage()
+
+		case "reloadCrashed":
+			controller.reloadCrashed(try string("tab"))
+
+		case "unlearnWord":
+			// Undoes a scenario's Add to Dictionary in the system dictionary.
+			NSSpellChecker.shared.unlearnWord(try string("word"))
 
 		case "render":
 			// Draws the window's app UI (not the pages, which the GPU process
@@ -218,8 +323,129 @@ final class Automation {
 		return nil
 	}
 
+	private func clickSheetButton(_ title: String, texts: [String]) throws {
+		guard let alert = controller.dialogs.presented?.alert else {
+			throw AutomationError("no sheet")
+		}
+
+		guard let button = alert.buttons.first(where: { $0.title == title }) else {
+			throw AutomationError("no button \(title); buttons: \(alert.buttons.map(\.title))")
+		}
+
+		for (field, text) in zip(Self.textFields(in: alert.accessoryView), texts) {
+			field.stringValue = text
+		}
+
+		button.performClick(nil)
+	}
+
+	private func answerFileChooser(paths: [String]?, cancel: Bool) throws {
+		let urls = cancel ? nil : (paths ?? []).map { URL(fileURLWithPath: $0) }
+
+		if !controller.dialogs.answerPanel(with: urls) {
+			throw AutomationError("no file chooser")
+		}
+	}
+
+	// What a view shows, for telling windows apart: its tooltips, labels,
+	// and button titles.
+	private static func contents(of view: NSView?) -> [String] {
+		guard let view else {
+			return []
+		}
+
+		var parts: [String] = []
+
+		if let tip = view.toolTip, !tip.isEmpty {
+			parts.append("tooltip: \(tip)")
+		}
+
+		if let label = view.accessibilityLabel(), !label.isEmpty {
+			parts.append("label: \(label)")
+		}
+
+		if let button = view as? NSButton, !button.title.isEmpty {
+			parts.append("button: \(button.title)")
+		}
+
+		return parts + view.subviews.flatMap { contents(of: $0) }
+	}
+
+	private static func buttons(in view: NSView?) -> [NSButton] {
+		guard let view else {
+			return []
+		}
+
+		return ((view as? NSButton).map { [$0] } ?? []) + view.subviews.flatMap { buttons(in: $0) }
+	}
+
+	private static func textFields(in view: NSView?) -> [NSTextField] {
+		guard let view else {
+			return []
+		}
+
+		if let field = view as? NSTextField, field.isEditable {
+			return [field]
+		}
+
+		return view.subviews.flatMap { textFields(in: $0) }
+	}
+
+	// Every visible window of the process, by what it is to the app: its
+	// window, the sheet on it, an app-modal panel, or other (Chrome's own).
+	private func nativeWindows() -> [[String: Any]] {
+		let main = controller.browserWindow.window
+
+		return NSApp.windows.filter(\.isVisible).map { window in
+			let role = if window === main {
+				"main"
+			} else if window === main.attachedSheet {
+				"sheet"
+			} else if window === NSApp.modalWindow {
+				"modal"
+			} else if controller.contextMenuOpen, String(describing: type(of: window)).contains("Menu") {
+				"menu"
+			} else if window.identifier?.rawValue == "pane.devtools" {
+				"devtools"
+			} else {
+				"other"
+			}
+
+			return [
+				"role": role,
+				"class": String(describing: type(of: window)),
+				"title": window.title,
+				"frame": NSStringFromRect(window.frame),
+				"shows": Self.contents(of: window.contentView),
+			]
+		}
+	}
+
+	private func sheetSnapshot() -> Any {
+		guard let presented = controller.dialogs.presented else {
+			return NSNull()
+		}
+
+		if let alert = presented.alert {
+			return [
+				"kind": presented.pending.request.kind,
+				"tabID": presented.pending.tabID ?? NSNull(),
+				"title": alert.messageText,
+				"message": alert.informativeText,
+				"buttons": alert.buttons.map(\.title),
+				"fields": Self.textFields(in: alert.accessoryView).map(\.stringValue),
+			] as [String: Any]
+		}
+
+		return [
+			"kind": presented.pending.request.kind,
+			"panel": presented.panel is NSOpenPanel ? "open" : "save",
+			"message": presented.panel?.message ?? "",
+		] as [String: Any]
+	}
+
 	private static let keyCodes: [String: UInt16] = [
-		"a": 0, "f": 3, "r": 15, "t": 17, "w": 13, "l": 37,
+		"a": 0, "f": 3, "i": 34, "p": 35, "r": 15, "t": 17, "w": 13, "l": 37,
 		"1": 18, "2": 19, "3": 20, "0": 29, "=": 24, "-": 27,
 		"[": 33, "]": 30, ",": 43, "\t": 48, "\u{1b}": 53,
 	]
@@ -379,6 +605,21 @@ final class Automation {
 			] as [String: Any],
 			"closedTabs": model.history.closed.count,
 			"pendingProfileDeletions": controller.pendingDeletions.count,
+			"sheet": sheetSnapshot(),
+			"pendingRequests": controller.dialogs.pendingCount,
+			"contextMenu": controller.lastContextMenu.map { menu in
+				menu.items.filter { !$0.isSeparatorItem }.map { ["title": $0.title, "enabled": $0.isEnabled] as [String: Any] }
+			} ?? NSNull(),
+			"modal": (NSApp.modalWindow).map { modal in
+				["title": modal.title, "buttons": Self.buttons(in: modal.contentView).map(\.title)] as [String: Any]
+			} ?? NSNull(),
+			"nativeWindows": nativeWindows(),
+			"pageFullscreen": controller.state.pageFullscreen,
+			"exclusiveAccessHint": controller.state.exclusiveAccessHint ?? NSNull(),
+			"crashedTabs": Array(model.crashedTabIDs),
+			"pictureInPictureTabs": Array(model.pictureInPictureTabIDs),
+			"devToolsTabs": Array(model.devToolsTabIDs),
+			"printRequests": controller.state.printRequests,
 			"focus": focus,
 		]
 	}

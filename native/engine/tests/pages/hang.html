@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Hang</title>
+	</head>
+	<body>
+		<h1>Hung renderer fixture</h1>
+		<script>
+			function hang() {
+				setTimeout(() => {
+					for (;;) {}
+				}, 50);
+			}
+			// ?auto: hang on its own, so no debugger needs to attach (Chromium
+			// ignores unresponsive pages while one is).
+			if (location.search.includes("auto")) {
+				setTimeout(hang, 1000);
+			}
+		</script>
+	</body>
+</html>

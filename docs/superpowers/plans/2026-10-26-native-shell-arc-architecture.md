@@ -227,7 +227,7 @@ docs/native/parity.md
 
 ## Phase 3 — Chrome UI hooks
 
-- [ ] **3.1** Route every Chrome-owned UI surface to the app delegate, and implement each one natively:
+- [x] **3.1** Route every Chrome-owned UI surface to the app delegate, and implement each one natively:
   - JavaScript dialogs: alert, confirm, prompt, beforeunload (`components/javascript_dialogs`).
   - Permission prompts, keeping today's policy: `clipboard-sanitized-write` is allowed, everything else is prompted or denied as in `profile.ts` (`components/permissions`).
   - HTTP and proxy authentication (`LoginHandler` / `LoginTabHelper`).
@@ -236,7 +236,7 @@ docs/native/parity.md
   - External protocols, hung renderer, sad tab, certificate interstitials, HTML5 fullscreen inside the window, picture-in-picture, print.
   - DevTools: open, close, inspect element. The sleep logic exempts tabs with DevTools open, so it needs that signal.
   - Autofill and password bubbles: Chrome's password manager and autofill prompts are disabled by default (Pane relies on extension password managers). Record that decision in `parity.md`.
-- [ ] **3.2** Evaluate and adapt Ardia's hook patches: `chromium-password-bubble-hook`, `chromium-autofill-address-bubble-window`, `chromium-device-chooser-hook`, `chromium-cast-dialog-hook`, `chromium-side-panel-hook`, `chromium-devtools-*`.
+- [x] **3.2** Evaluate and adapt Ardia's hook patches: `chromium-password-bubble-hook`, `chromium-autofill-address-bubble-window`, `chromium-device-chooser-hook`, `chromium-cast-dialog-hook`, `chromium-side-panel-hook`, `chromium-devtools-*`.
 
 **Acceptance**
 - There is one fixture and one scenario per surface, and all pass. For each, the trace shows the delegate callback, the native dialog is answered through `cua-driver` (by clicking its real button), and that answer reaches the page (for example, `confirm()` returns the chosen value) → `report.json`

@@ -20,3 +20,10 @@ chrome/browser/ui/toasts/toast_controller.cc	0003-pane-hosted-browsers.patch
 chrome/browser/ui/unload_controller.cc	0003-pane-hosted-browsers.patch
 components/remote_cocoa/app_shim/bridged_content_view.h	0003-pane-hosted-browsers.patch
 components/remote_cocoa/app_shim/bridged_content_view.mm	0003-pane-hosted-browsers.patch
+chrome/browser/ui/views/permissions/permission_prompt_factory.cc	0004-pane-ui-hooks.patch
+chrome/browser/ui/views/login_handler_views.cc	0004-pane-ui-hooks.patch
+chrome/browser/ui/views/external_protocol_dialog.cc	0004-pane-ui-hooks.patch
+chrome/browser/devtools/devtools_window.cc	0004-pane-ui-hooks.patch
+chrome/browser/devtools/devtools_window_views.cc	0004-pane-ui-hooks.patch
+chrome/browser/printing/print_view_manager_base.cc	0004-pane-ui-hooks.patch
+chrome/browser/ui/views/permissions/chooser_bubble_ui.cc	0004-pane-ui-hooks.patch

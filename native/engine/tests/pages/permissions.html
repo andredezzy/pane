@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Permissions</title>
+	</head>
+	<body>
+		<h1>Permissions fixture</h1>
+		<script>
+			window.result = undefined;
+			// Notifications: the prompt's answer as Notification.permission.
+			async function askNotifications() {
+				window.result = undefined;
+				window.result = await Notification.requestPermission();
+			}
+			// Window management: allowed resolves with the screens.
+			async function askWindowManagement() {
+				window.result = undefined;
+				try {
+					const details = await window.getScreenDetails();
+					window.result = `granted ${details.screens.length}`;
+				} catch (error) {
+					window.result = `denied ${error.name}`;
+				}
+			}
+			async function stateOf(name) {
+				return (await navigator.permissions.query({ name })).state;
+			}
+		</script>
+	</body>
+</html>

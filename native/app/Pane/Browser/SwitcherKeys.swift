@@ -1,8 +1,9 @@
 import AppKit
 
 // Ctrl+Tab and Ctrl+Shift+Tab step through the switcher while Control is
-// held; releasing Control picks the highlighted tab, Escape cancels. A local
-// event monitor sees the keys before any view, a page included.
+// held; releasing Control picks the highlighted tab, Escape cancels. Escape
+// also leaves a page's fullscreen. A local event monitor sees the keys before
+// any view, a page included.
 @MainActor
 final class SwitcherKeys {
 	private let controller: BrowserController
@@ -37,6 +38,12 @@ final class SwitcherKeys {
 
 		case .keyDown where event.keyCode == 53 && state.switcher.visible:
 			controller.cancelSwitcher()
+
+			return true
+
+		// Esc leaves a page's fullscreen wherever focus is, as in Chrome.
+		case .keyDown where event.keyCode == 53 && state.pageFullscreen:
+			controller.activePage?.exitFullscreen()
 
 			return true
 

@@ -589,6 +589,11 @@ NSEvent* UnhandledKeyDown(const input::NativeWebKeyboardEvent& event) {
 
 content::KeyboardEventProcessingResult HostedBrowserWindow::PreHandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
+  // Esc leaves fullscreen and pointer or keyboard lock, as in Chrome.
+  if (ExclusiveAccessManager* manager = GetExclusiveAccessManager();
+      manager && manager->HandleUserKeyEvent(event)) {
+    return content::KeyboardEventProcessingResult::HANDLED;
+  }
   NSEvent* ns_event = event.os_event.Get();
   if (!ns_event || ns_event.type != NSEventTypeKeyDown || !host_) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
@@ -725,6 +730,8 @@ void HostedBrowserWindow::PostWindowFullscreenStateChanged() {
                      weak_factory_.GetWeakPtr()));
 }
 
+// The "Press Esc to exit full screen" hint is the app's to show
+// (browserWindow:showExclusiveAccessHint:), not Chrome's Views bubble.
 void HostedBrowserWindow::UpdateExclusiveAccessBubble(
     const ExclusiveAccessBubbleParams& params,
     ExclusiveAccessBubbleHideCallback first_hide_callback) {
@@ -733,39 +740,19 @@ void HostedBrowserWindow::UpdateExclusiveAccessBubble(
   if (!self) {
     return;
   }
-  const bool can_show = host_ && host_->widget() && browser_ &&
-                        GetExclusiveAccessManager();
-  const bool should_close_bubble =
-      !can_show ||
-      (!params.has_download && params.type == EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE);
-  if (should_close_bubble) {
-    if (first_hide_callback) {
-      std::move(first_hide_callback)
-          .Run(ExclusiveAccessBubbleHideReason::kNotShown);
-    }
-    if (!exclusive_access_bubble_ ||
-        exclusive_access_bubble_destruction_task_id_) {
-      return;
-    }
-    exclusive_access_bubble_->HideImmediately();
-    exclusive_access_bubble_destruction_task_id_ =
-        exclusive_access_bubble_task_tracker_.PostTask(
-            base::SingleThreadTaskRunner::GetCurrentDefault().get(), FROM_HERE,
-            base::BindOnce(&HostedBrowserWindow::DestroyAnyExclusiveAccessBubble,
-                           weak_factory_.GetWeakPtr()));
-    return;
+  std::u16string hint;
+  if (params.has_download || params.type != EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE) {
+    hint = exclusive_access_bubble::GetInstructionTextForType(
+        params.type, u"Esc", std::nullopt, params.has_download,
+        /*notify_overridden=*/false);
   }
-  if (exclusive_access_bubble_) {
-    if (exclusive_access_bubble_destruction_task_id_) {
-      exclusive_access_bubble_task_tracker_.TryCancel(
-          *exclusive_access_bubble_destruction_task_id_);
-      exclusive_access_bubble_destruction_task_id_.reset();
-    }
-    exclusive_access_bubble_->Update(params, std::move(first_hide_callback));
-    return;
+  if (host_) {
+    host_->ShowExclusiveAccessHint(hint);
   }
-  exclusive_access_bubble_ = std::make_unique<ExclusiveAccessBubbleViews>(
-      this, params, std::move(first_hide_callback));
+  if (first_hide_callback) {
+    std::move(first_hide_callback)
+        .Run(ExclusiveAccessBubbleHideReason::kNotShown);
+  }
 }
 
 void HostedBrowserWindow::OnExclusiveAccessUserInput() {

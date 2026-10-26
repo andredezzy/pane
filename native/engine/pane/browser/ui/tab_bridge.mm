@@ -164,6 +164,10 @@ void TabBridge::PrimaryMainFrameRenderProcessGone(
           weak_factory_.GetWeakPtr(), termination));
 }
 
+void TabBridge::MediaPictureInPictureChanged(bool is_picture_in_picture) {
+  [tab_ bridgeDidChangePictureInPicture:is_picture_in_picture];
+}
+
 void TabBridge::OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
                                  NotificationIconType notification_icon_type,
                                  const GURL& icon_url,

@@ -39,6 +39,8 @@ enum MainMenu {
 		// An uppercase key implies Shift, as Interface Builder stores ⇧⌘T: a
 		// typed ⇧⌘T arrives as "T".
 		menu.addItem(item("Reopen Closed Tab", #selector(BrowserController.reopenLastClosedTab(_:)), "T", target: controller))
+		menu.addItem(.separator())
+		menu.addItem(item("Print…", #selector(BrowserController.printActivePage(_:)), "p", target: controller))
 
 		return menu
 	}
@@ -68,6 +70,8 @@ enum MainMenu {
 		menu.addItem(item("Zoom Out", #selector(BrowserController.zoomOutPage(_:)), "-", target: controller))
 		menu.addItem(.separator())
 		menu.addItem(item("Enter Full Screen", #selector(BrowserController.toggleFullScreenWindow(_:)), "f", [.command, .control], target: controller))
+		menu.addItem(.separator())
+		menu.addItem(item("Developer Tools", #selector(BrowserController.toggleDeveloperTools(_:)), "I", target: controller))
 
 		return menu
 	}

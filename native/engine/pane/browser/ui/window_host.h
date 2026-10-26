@@ -76,11 +76,20 @@ class WindowHost : public TabStripModelObserver,
   views::Widget* widget() const { return widget_.get(); }
   PaneBrowserWindow* owner() const { return owner_; }
 
+  // Tells the app what to say while a page has fullscreen or a lock (empty:
+  // nothing).
+  void ShowExclusiveAccessHint(const std::u16string& hint);
+
   // The profile's Browser in this window, made on first use; nullptr while the
   // window or the profile is going away.
   Browser* BrowserFor(Profile* profile);
   Browser* ExistingBrowserFor(Profile* profile) const;
   std::vector<Browser*> browsers() const;
+
+  // Hosts a Browser Chrome made itself (undocked DevTools): as BrowserFor's,
+  // once it is fully built. With `close_when_empty`, the window goes when its
+  // last Browser does.
+  void AdoptBrowser(Browser* browser, bool close_when_empty);
 
   // The profile the app shows: its Browser is the window's active one.
   void SetActiveProfile(Profile* profile);
@@ -140,6 +149,7 @@ class WindowHost : public TabStripModelObserver,
   void CancelClose();
   void CommitClose();
   void CloseWidget();
+  void NotifyWillClose();
   int DownloadsCancelledByClose() const;
 
   __weak PaneBrowserWindow* owner_;
@@ -154,6 +164,8 @@ class WindowHost : public TabStripModelObserver,
   raw_ptr<Browser> asking_ = nullptr;
   int close_attempt_ = 0;
   bool widget_close_allowed_ = false;
+  bool close_when_empty_ = false;
+  bool notified_will_close_ = false;
   PendingOpen pending_open_;
   base::ObserverList<web_modal::ModalDialogHostObserver> modal_observers_;
   bool dialog_position_update_scheduled_ = false;
@@ -167,6 +179,10 @@ bool IsNotifyingTabStrip();
 // Sets the hooks of pane/browser/ui/hooks.h. Called once, before the first
 // Browser exists.
 void InstallBrowserHooks();
+
+// Routes Chrome's dialogs and bubbles for Pane's tabs to the app
+// (ui_hooks.mm). Runs as the browser starts, before any tab exists.
+void InstallUIHooks();
 
 }  // namespace pane
 

@@ -7,3 +7,7 @@ target_cpu = "arm64"
 proprietary_codecs = true
 ffmpeg_branding = "Chrome"
 is_component_build = false
+# Chromium's testing field trials (testing/variations) stay off: they switch on
+# experimental features (Omnibox Everywhere's menu bar item, among others), and
+# Pane ships Chromium's defaults, as official builds do.
+disable_fieldtrial_testing_config = true

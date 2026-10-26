@@ -72,3 +72,64 @@ export function hotkey(
 		delivery_mode: "foreground",
 	});
 }
+
+// Clicks the button titled `title` in the window, by its accessibility
+// element (a real click, as a user's). Rows of the tree read
+// `[N] <role> "<title>"`; row N's token is `<snapshot_id>:N`.
+export async function clickButton(
+	pid: number,
+	windowId: number,
+	title: string,
+): Promise<void> {
+	const state = await call<{ snapshot_id: string; tree_markdown: string }>(
+		"get_window_state",
+		{ pid, window_id: windowId, query: title, max_elements: 60 },
+	);
+
+	const row = state.tree_markdown
+		.split("\n")
+		.find((line) => /button/i.test(line) && line.includes(`"${title}"`));
+
+	const index = row?.match(/\[(\d+)\]/)?.[1];
+
+	if (!index) {
+		throw new Error(`no button "${title}" in window ${windowId}`);
+	}
+
+	await call("click", {
+		pid,
+		window_id: windowId,
+		element_token: `${state.snapshot_id}:${index}`,
+	});
+}
+
+// Types into the window's text fields, in order.
+export async function fillFields(
+	pid: number,
+	windowId: number,
+	texts: string[],
+): Promise<void> {
+	const state = await call<{ snapshot_id: string; tree_markdown: string }>(
+		"get_window_state",
+		{ pid, window_id: windowId, max_elements: 80 },
+	);
+
+	const fields = state.tree_markdown
+		.split("\n")
+		.filter((line) => /textfield|secure/i.test(line))
+		.map((line) => line.match(/\[(\d+)\]/)?.[1])
+		.filter(Boolean);
+
+	for (const [position, text] of texts.entries()) {
+		const index = fields[position];
+
+		if (index) {
+			await call("set_value", {
+				pid,
+				window_id: windowId,
+				element_token: `${state.snapshot_id}:${index}`,
+				value: text,
+			});
+		}
+	}
+}

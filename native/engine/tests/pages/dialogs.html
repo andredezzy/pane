@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Dialogs</title>
+	</head>
+	<body>
+		<h1>JavaScript dialogs fixture</h1>
+		<script>
+			// Each runs a moment later, so the caller's evaluate returns before
+			// the dialog blocks the page; the answer lands in window.result.
+			window.result = undefined;
+			function later(run) {
+				window.result = undefined;
+				setTimeout(() => {
+					window.result = { value: run() };
+				}, 50);
+			}
+			function runAlert() { later(() => { alert("Pane alert"); return "returned"; }); }
+			function runConfirm() { later(() => confirm("Pane confirm?")); }
+			function runPrompt() { later(() => prompt("Pane prompt", "default text")); }
+			function armBeforeUnload() {
+				window.addEventListener("beforeunload", (event) => {
+					event.preventDefault();
+					event.returnValue = "";
+				});
+				document.title = "Dialogs (armed)";
+			}
+		</script>
+	</body>
+</html>

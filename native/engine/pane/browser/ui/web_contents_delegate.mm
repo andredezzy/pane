@@ -9,11 +9,24 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/functional/bind.h"
+#include "base/strings/utf_string_conversions.h"
+#include "content/public/browser/context_menu_params.h"
+#include "content/public/browser/media_stream_request.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/result_codes.h"
 #include "pane/browser/ui/browser_window.h"
+#include "pane/browser/ui/javascript_dialog_manager.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
+#include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
+
+#import "pane/browser/ui/dialogs_internal.h"
+#import "pane/public/PaneWebContents.h"
 
 namespace pane {
 
@@ -100,6 +113,107 @@ content::WebContents* HostedWebContentsDelegate::AddNewContents(
   return BrowserWebContentsDelegate::AddNewContents(
       source, std::move(new_contents), target_url, disposition,
       window_features, user_gesture, was_blocked);
+}
+
+content::JavaScriptDialogManager*
+HostedWebContentsDelegate::GetJavaScriptDialogManager(
+    content::WebContents* source) {
+  return JavaScriptDialogManager::GetInstance();
+}
+
+void HostedWebContentsDelegate::ShowRepostFormWarningDialog(
+    content::WebContents* source) {
+  JavaScriptDialogManager::GetInstance()->RunFormResubmissionDialog(source);
+}
+
+bool HostedWebContentsDelegate::HandleContextMenu(
+    content::RenderFrameHost& render_frame_host,
+    const content::ContextMenuParams& params) {
+  content::WebContents* contents =
+      content::WebContents::FromRenderFrameHost(&render_frame_host);
+  TabBridge* bridge = TabBridge::FromWebContents(contents);
+  PaneWebContents* tab = bridge ? bridge->tab() : nil;
+  id<PaneWebContentsDelegate> delegate = tab.delegate;
+  if (![delegate respondsToSelector:@selector(webContents:showContextMenu:)]) {
+    return false;
+  }
+  PaneContextMenu* menu =
+      [[PaneContextMenu alloc] initWithParams:params frame:render_frame_host];
+  bridge->TraceCallback(
+      "PaneWebContentsDelegate.showContextMenu",
+      base::DictValue()
+          .Set("x", params.x)
+          .Set("y", params.y)
+          .Set("link", params.link_url.spec())
+          .Set("editable", params.is_editable)
+          .Set("misspelled", base::UTF16ToUTF8(params.misspelled_word))
+          .Set("spellcheck", params.spellcheck_enabled)
+          .Set("suggestions",
+               static_cast<int>(params.dictionary_suggestions.size())));
+  [delegate webContents:tab showContextMenu:menu];
+  return true;
+}
+
+void HostedWebContentsDelegate::RendererUnresponsive(
+    content::WebContents* source,
+    content::RenderWidgetHost* render_widget_host,
+    base::RepeatingClosure hang_monitor_restarter) {
+  TabBridge* bridge = TabBridge::FromWebContents(source);
+  PaneWebContents* tab = bridge ? bridge->tab() : nil;
+  id<PaneWebContentsDelegate> delegate = tab.delegate;
+  if (![delegate respondsToSelector:@selector(webContents:
+                                       becameUnresponsive:)]) {
+    // Nobody to ask: keep waiting, as Chrome does until the user decides.
+    return;
+  }
+  if (bridge->unresponsive_page() && !bridge->unresponsive_page().answered) {
+    return;
+  }
+  PaneUnresponsivePage* page = [[PaneUnresponsivePage alloc]
+      initWithTab:tab
+           answer:base::BindOnce(
+                      [](content::ChildProcessId process,
+                         base::RepeatingClosure restart_hang_monitor,
+                         bool terminate) {
+                        if (!terminate) {
+                          restart_hang_monitor.Run();
+                        } else if (content::RenderProcessHost* host =
+                                       content::RenderProcessHost::FromID(
+                                           process)) {
+                          host->Shutdown(content::RESULT_CODE_HUNG);
+                        }
+                      },
+                      render_widget_host->GetProcess()->GetID(),
+                      std::move(hang_monitor_restarter))];
+  bridge->set_unresponsive_page(page);
+  bridge->TraceCallback("PaneWebContentsDelegate.becameUnresponsive");
+  [delegate webContents:tab becameUnresponsive:page];
+}
+
+void HostedWebContentsDelegate::RendererResponsive(
+    content::WebContents* source,
+    content::RenderWidgetHost* render_widget_host) {
+  if (TabBridge* bridge = TabBridge::FromWebContents(source)) {
+    [bridge->unresponsive_page() withdraw];
+    bridge->set_unresponsive_page(nil);
+  }
+}
+
+void HostedWebContentsDelegate::RequestMediaAccessPermission(
+    content::WebContents* web_contents,
+    const content::MediaStreamRequest& request,
+    content::MediaResponseCallback callback) {
+  if (blink::IsScreenCaptureMediaType(request.video_type)) {
+    if (TabBridge* bridge = TabBridge::FromWebContents(web_contents)) {
+      bridge->TraceCallback("policy.screenCaptureDeclined");
+    }
+    std::move(callback).Run(blink::mojom::StreamDevicesSet(),
+                            blink::mojom::MediaStreamRequestResult::NOT_SUPPORTED,
+                            nullptr);
+    return;
+  }
+  BrowserWebContentsDelegate::RequestMediaAccessPermission(
+      web_contents, request, std::move(callback));
 }
 
 }  // namespace pane

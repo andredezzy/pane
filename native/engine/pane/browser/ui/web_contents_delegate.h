@@ -54,6 +54,26 @@ class HostedWebContentsDelegate : public BrowserWebContentsDelegate {
       bool user_gesture,
       bool* was_blocked) override;
 
+  // Chrome's dialogs and menus for the tab, shown by the app (PaneDialogs.h).
+  content::JavaScriptDialogManager* GetJavaScriptDialogManager(
+      content::WebContents* source) override;
+  void ShowRepostFormWarningDialog(content::WebContents* source) override;
+  bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
+                         const content::ContextMenuParams& params) override;
+  void RendererUnresponsive(
+      content::WebContents* source,
+      content::RenderWidgetHost* render_widget_host,
+      base::RepeatingClosure hang_monitor_restarter) override;
+  void RendererResponsive(
+      content::WebContents* source,
+      content::RenderWidgetHost* render_widget_host) override;
+  // Screen capture (getDisplayMedia) is declined without Chrome's picker,
+  // as in the Electron app; camera and microphone go to the permission prompt.
+  void RequestMediaAccessPermission(
+      content::WebContents* web_contents,
+      const content::MediaStreamRequest& request,
+      content::MediaResponseCallback callback) override;
+
  private:
   base::WeakPtr<WindowHost> host_;
   // The Browser this delegate serves, forgotten as Pane's when it goes

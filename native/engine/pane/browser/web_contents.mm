@@ -13,6 +13,8 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
+#include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/printing/print_view_manager_common.h"
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_controller.h"
@@ -264,6 +266,56 @@
   }
 }
 
+- (void)exitFullscreen {
+  [self traceCall:"PaneWebContents.exitFullscreen" args:base::DictValue()];
+  if (_contents && _contents->IsFullscreen()) {
+    _contents->ExitFullscreen(/*will_cause_resize=*/true);
+  }
+}
+
+- (void)print {
+  [self traceCall:"PaneWebContents.print" args:base::DictValue()];
+  if (_contents) {
+    printing::StartPrint(_contents.get(), /*print_preview_disabled=*/true,
+                         /*has_selection=*/false);
+  }
+}
+
+- (BOOL)isDevToolsOpen {
+  return _contents &&
+         DevToolsWindow::GetInstanceForInspectedWebContents(_contents.get());
+}
+
+- (NSRect)devToolsPageBounds {
+  pane::TabBridge* bridge =
+      _contents ? pane::TabBridge::FromWebContents(_contents.get()) : nullptr;
+  if (!bridge) {
+    return NSZeroRect;
+  }
+  const gfx::Rect& bounds = bridge->devtools_page_bounds();
+  return NSMakeRect(bounds.x(), bounds.y(), bounds.width(), bounds.height());
+}
+
+- (void)showDevTools {
+  [self traceCall:"PaneWebContents.showDevTools" args:base::DictValue()];
+  if (_contents) {
+    DevToolsWindow::OpenDevToolsWindow(
+        _contents.get(), DevToolsToggleAction::Show(),
+        DevToolsOpenedByAction::kMainMenuOrMainShortcut);
+  }
+}
+
+- (void)closeDevTools {
+  [self traceCall:"PaneWebContents.closeDevTools" args:base::DictValue()];
+  // Closes the DevTools page as its own close button does.
+  content::WebContents* devtools =
+      _contents ? DevToolsWindow::GetInTabWebContents(_contents.get(), nullptr)
+                : nullptr;
+  if (devtools) {
+    devtools->ClosePage();
+  }
+}
+
 - (void)close {
   [self traceCall:"PaneWebContents.close" args:base::DictValue()];
   if (!_contents) {
@@ -281,6 +333,24 @@
     model->CloseWebContentsAt(
         index, TabCloseTypes::CLOSE_USER_GESTURE |
                    TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+  }
+}
+
+- (void)closeImmediately {
+  [self traceCall:"PaneWebContents.closeImmediately" args:base::DictValue()];
+  if (!_contents) {
+    return;
+  }
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          _contents.get());
+  if (!browser) {
+    return;
+  }
+  TabStripModel* model = browser->GetTabStripModel();
+  const int index = model->GetIndexOfWebContents(_contents.get());
+  if (index != TabStripModel::kNoTab) {
+    model->DetachAndDeleteWebContentsAt(index);
   }
 }
 
@@ -354,6 +424,15 @@
             didFindMatches:count
                activeMatch:activeMatch
                      final:final];
+  }
+}
+
+- (void)bridgeDidChangePictureInPicture:(BOOL)active {
+  [self trace:"PaneWebContentsDelegate.didChangePictureInPicture"
+         args:base::DictValue().Set("active", static_cast<bool>(active))];
+  if ([_delegate respondsToSelector:@selector(webContents:
+                                         didChangePictureInPicture:)]) {
+    [_delegate webContents:self didChangePictureInPicture:active];
   }
 }
 

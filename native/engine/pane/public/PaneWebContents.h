@@ -7,7 +7,13 @@
 
 #import "PaneExport.h"
 
+@class PaneAuthenticationChallenge;
 @class PaneBrowserContext;
+@class PaneContextMenu;
+@class PaneExternalProtocolRequest;
+@class PaneJavaScriptDialog;
+@class PanePermissionRequest;
+@class PaneUnresponsivePage;
 @class PaneWebContents;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -49,6 +55,43 @@ NS_SWIFT_UI_ACTOR
 // The page's renderer is gone; the page shows nothing until reloaded.
 - (void)webContents:(PaneWebContents*)webContents
     rendererDidTerminate:(PaneRendererTermination)termination;
+
+// What Chrome would show in its own dialogs and bubbles (PaneDialogs.h).
+// Each is answered through the request; one the delegate does not take is
+// cancelled (dialogs, authentication, external protocols), dismissed
+// (permissions), or waited on (an unresponsive page).
+- (void)webContents:(PaneWebContents*)webContents
+    runJavaScriptDialog:(PaneJavaScriptDialog*)dialog;
+- (void)webContents:(PaneWebContents*)webContents
+    requestPermission:(PanePermissionRequest*)request;
+- (void)webContents:(PaneWebContents*)webContents
+       authenticate:(PaneAuthenticationChallenge*)challenge;
+- (void)webContents:(PaneWebContents*)webContents
+    openExternalProtocol:(PaneExternalProtocolRequest*)request;
+- (void)webContents:(PaneWebContents*)webContents
+    becameUnresponsive:(PaneUnresponsivePage*)page;
+// The engine withdrew a request the app had not answered: the page
+// navigated, recovered, or closed. The app takes down its UI for it.
+- (void)webContents:(PaneWebContents*)webContents
+    didDismissRequest:(id)request;
+
+// A right-click in the page. Not implemented: Chrome's own menu.
+- (void)webContents:(PaneWebContents*)webContents
+    showContextMenu:(PaneContextMenu*)menu;
+
+// The page started printing (window.print() or -print); the system print
+// panel follows.
+- (void)webContentsWillPrint:(PaneWebContents*)webContents;
+
+// Video picture-in-picture started or ended. The floating player is
+// Chromium's own window.
+- (void)webContents:(PaneWebContents*)webContents
+    didChangePictureInPicture:(BOOL)active;
+
+// DevTools docked to this tab appeared (`devTools` is its page, to show
+// with this one at devToolsPageBounds over it), moved, or went away (nil).
+- (void)webContents:(PaneWebContents*)webContents
+    didChangeDevTools:(nullable PaneWebContents*)devTools;
 
 @end
 
@@ -104,8 +147,28 @@ NS_SWIFT_UI_ACTOR
 // Gives the page keyboard focus.
 - (void)focus;
 
-// Closes the tab, running the page's beforeunload first.
+// Leaves the page's fullscreen (the app's Esc).
+- (void)exitFullscreen;
+
+// Prints with the system print panel.
+- (void)print NS_SWIFT_NAME(printPage());
+
+// DevTools for this tab, docked beside it (see the delegate).
+@property(readonly, getter=isDevToolsOpen) BOOL devToolsOpen;
+// While DevTools are docked, where this page sits over the DevTools page, in
+// its coordinates (origin at the top left); empty while DevTools cover it.
+// The delegate hears didChangeDevTools: whenever it moves.
+@property(readonly) NSRect devToolsPageBounds;
+- (void)showDevTools;
+- (void)closeDevTools;
+
+// Closes the tab, running the page's beforeunload first: the page may ask to
+// stay (a JavaScript dialog). The delegate hears didRemoveTab when it goes.
 - (void)close;
+
+// Closes the tab at once, without beforeunload: for unloading a profile or a
+// tab the app keeps, whose page should simply go.
+- (void)closeImmediately;
 
 @end
 

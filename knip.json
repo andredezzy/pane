@@ -1,12 +1,13 @@
 {
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"ignoreExportsUsedInFile": true,
-	"ignoreBinaries": ["defaults", "ioreg"],
+	"ignoreBinaries": ["defaults", "ioreg", "openssl"],
 	"workspaces": {
 		".": {
 			"entry": [
 				"native/engine/tests/run.ts",
-				"native/engine/tests/scenarios/*.ts"
+				"native/engine/tests/scenarios/*.ts",
+				"native/engine/tests/tools/*.ts"
 			]
 		},
 		"apps/veil": {

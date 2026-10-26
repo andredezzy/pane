@@ -45,6 +45,21 @@ bool HasSwitch(const std::vector<std::string>& args, std::string_view name) {
   return false;
 }
 
+// Adds `value` to a comma-separated switch (--disable-features=…), keeping
+// whatever the command line already lists there.
+void AddToSwitchList(std::vector<std::string>& args,
+                     std::string_view name,
+                     std::string_view value) {
+  const std::string prefix = "--" + std::string(name) + "=";
+  for (std::string& arg : args) {
+    if (arg.starts_with(prefix)) {
+      arg += "," + std::string(value);
+      return;
+    }
+  }
+  args.push_back(prefix + std::string(value));
+}
+
 // A profile identifier becomes a directory name under the engine's user data
 // dir, so it may not name anything else.
 bool IsValidIdentifier(NSString* identifier) {
@@ -118,6 +133,12 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   args.push_back("--no-startup-window");
   args.push_back("--no-first-run");
   args.push_back("--no-default-browser-check");
+  // Printing goes straight to the system print panel, not Chrome's preview.
+  args.push_back("--disable-print-preview");
+  // Features that put Chrome's own UI outside the app's window: Glic (Gemini
+  // in Chrome) adds a menu bar item, the Media Router a Cast dialog (the
+  // Electron app had no casting).
+  AddToSwitchList(args, "disable-features", "Glic,MediaRouter");
 
   // An explicit --user-data-dir (scenarios use throwaway ones) wins.
   if (!HasSwitch(args, "user-data-dir")) {

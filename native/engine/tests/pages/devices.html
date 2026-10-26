@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Devices</title>
+	</head>
+	<body>
+		<h1>Device and capture fixture</h1>
+		<script>
+			window.result = undefined;
+			async function settle(name, run) {
+				window.result = undefined;
+				try {
+					await run();
+					window.result = `${name}: granted`;
+				} catch (error) {
+					window.result = `${name}: ${error.name}`;
+				}
+			}
+			const askUsb = () => settle("usb", () => navigator.usb.requestDevice({ filters: [] }));
+			// HID resolves with the devices chosen; none is a decline.
+			async function askHid() {
+				window.result = undefined;
+				const devices = await navigator.hid.requestDevice({ filters: [] });
+				window.result = `hid: ${devices.length} devices`;
+			}
+			const askSerial = () => settle("serial", () => navigator.serial.requestPort());
+			const askScreen = () => settle("screen", () => navigator.mediaDevices.getDisplayMedia({ video: true }));
+			const askCast = () => settle("cast", () => new PresentationRequest(["https://example.invalid/receiver"]).start());
+		</script>
+	</body>
+</html>

@@ -28,6 +28,7 @@ class WebContents;
                  activeMatch:(NSInteger)activeMatch
                        final:(BOOL)final;
 - (void)bridgeRendererDidTerminate:(PaneRendererTermination)termination;
+- (void)bridgeDidChangePictureInPicture:(BOOL)active;
 
 @end
 

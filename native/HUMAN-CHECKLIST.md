@@ -18,6 +18,16 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
   The agent also drives these with CUA once unlocked, since they are gestures or windows only the screen shows (parity rows marked 🟡): dragging profiles and tabs in the sidebar, the profile and tab context menus, the delete-profile confirmation, the profile sheet, ⌃⌘F full screen, the rendered tab rows and the page inside its card. Nothing to do but unlock.
 
+- **Phase 3 · Mail — look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in `native/DECISIONS.md` (Phase 3, Incident).
+
+- **Phase 3 · On-screen checks — unlock the Mac.** While locked, each sheet was answered through the automation channel (`performClick` on the sheet's own button) instead of a CUA click, file panels were answered beside the panel, and spelling suggestions could not be checked (macOS flags no misspelling in a locked session; stock Chrome for Testing neither). The agent re-runs the suite as soon as the session is unlocked, and the sheets are then clicked with CUA:
+  ```bash
+  bun native/engine/tests/run.ts --binary native/app/build/Pane.app/Contents/MacOS/Pane --out native/evidence/phase-3/unlocked dialog-alert dialog-confirm dialog-prompt dialog-beforeunload dialog-form-resubmission permission-prompt http-auth proxy-auth context-menu external-protocol hung-renderer sad-tab print
+  ```
+  Expected: each `answers`/`answer` entry with `"via": "cua"`, and `context-menu.json` with spelling suggestions replacing the word. By hand, also pick a file in a page's file input once, through the open panel.
+
+- **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in `native/DECISIONS.md`.
+
 - **Phase 2 · parity.md — review the Electron-only rows marked ⛔.** They are internals of the Electron architecture with no user-facing equivalent to port: `stores.push`/`stores.sync` (cross-process state sync), `tabs.hideAll`/`showActive` and `ui.present`/`dismiss` (an overlay window above page views; native sheets draw above pages), and the app-UI DevTools shortcut (⌥⌘I; the app UI is native). Nothing to do unless one of them should stay; the justification is in each row of `docs/native/parity.md`.
 
 ## Done

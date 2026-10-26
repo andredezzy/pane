@@ -72,6 +72,8 @@ extension BrowserController {
 	@objc func goForwardPage(_ sender: Any?) { goForward() }
 	@objc func focusAddressBar(_ sender: Any?) { state.focusAddressField() }
 	@objc func showSettings(_ sender: Any?) { model.page = .settings }
+	@objc func printActivePage(_ sender: Any?) { printPage() }
+	@objc func toggleDeveloperTools(_ sender: Any?) { toggleDevTools() }
 
 	@objc func selectTabByNumber(_ sender: NSMenuItem) {
 		selectTab(atIndex: sender.tag - 1)

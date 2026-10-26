@@ -72,7 +72,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Reopen closed tab (last 20, across profiles) | ⇧⌘T | 2 | ✅ | `phase-2/shortcuts.json` |
 | Find in page | ⌘F | 2 | ✅ | `phase-2/shortcuts.json` |
 | Reload | ⌘R | 2 | ✅ | `phase-2/shortcuts.json` |
-| Page DevTools | ⇧⌘I | 3 | — | |
+| Page DevTools | ⇧⌘I | 3 | ✅ | `phase-3/devtools.json` — docked beside the tab in the app's window; `phase-3/context-menu.json` (Inspect) |
 | App DevTools | ⌥⌘I | — | ⛔ | Electron-only: the app UI is native, so there is no app web UI to inspect. |
 | Zoom in / out / reset | ⌘+ / ⌘− / ⌘0 | 2 | ✅ | `phase-2/shortcuts.json` (engine zoom level; the page's own ratio re-checks on an unlocked screen) |
 | Toggle full screen | ⌃⌘F | 2 | 🟡 | Built (View menu); full screen needs an unlocked screen |
@@ -102,14 +102,38 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Update status (checking, available, downloading) | `update-store.ts` | 5 | — | |
 | Migration of all of the above from the Electron app | (new) | 5 | — | |
 
+## Chrome's own UI (Phase 3)
+
+Surfaces Chrome would show in its own dialogs, bubbles, and windows. Each is the app's now, or off. `phase-3/hooks-check.txt` finds the code for every one; `phase-3/windows-per-scenario.json` shows no Chrome window or bubble in any scenario.
+
+| Feature | Chrome source | Phase | Status | Evidence |
+|---|---|---|---|---|
+| JavaScript dialogs: alert, confirm, prompt | `components/javascript_dialogs` | 3 | ✅ | `phase-3/dialog-alert.json`, `dialog-confirm.json`, `dialog-prompt.json` |
+| beforeunload ("Leave site?") | `components/javascript_dialogs` | 3 | ✅ | `phase-3/dialog-beforeunload.json` — Cancel keeps the tab |
+| Form resubmission warning | `BrowserWebContentsDelegate::ShowRepostFormWarningDialog` | 3 | ✅ | `phase-3/dialog-form-resubmission.json` |
+| Permission prompts | `components/permissions` | 3 | ✅ | `phase-3/permission-prompt.json` |
+| HTTP authentication | `LoginHandler` | 3 | ✅ | `phase-3/http-auth.json` |
+| Proxy authentication | `LoginHandler` | 3 | ✅ | `phase-3/proxy-auth.json` |
+| File choosers (inputs, File System Access, Save As) | `ui::SelectFileDialog` | 3 | ✅ | `phase-3/file-chooser.json` |
+| External protocols | `ExternalProtocolHandler` | 3 | ✅ | `phase-3/external-protocol.json` — `mailto:` opens directly, as in Chrome |
+| Hung renderer | `HungRendererDialogView` | 3 | ✅ | `phase-3/hung-renderer.json` |
+| Sad tab | `SadTabView` | 3 | ✅ | `phase-3/sad-tab.json` — a crash loop shows the app's sad tab |
+| Certificate interstitials | `SSLBlockingPage` (web content) | 3 | ✅ | `phase-3/certificate-interstitial.json` |
+| HTML5 fullscreen inside the window, Esc hint | `ExclusiveAccessBubbleViews` | 3 | ✅ | `phase-3/fullscreen.json` |
+| Picture-in-picture | `VideoOverlayWindowViews` | 3 | ✅ | `phase-3/picture-in-picture.json` — Chromium's floating player kept by decision (DECISIONS.md) |
+| Print | Print preview (WebUI) | 3 | ✅ | `phase-3/print.json` — the system print panel, ⌘P and window.print() |
+| Device choosers (USB, HID, serial, Bluetooth) | `ChooserBubbleUi` | 3 | ✅ | `phase-3/device-chooser.json` — declined, as in the Electron app |
+| Screen capture picker, Cast dialog | `DesktopMediaPickerViews`, `CastDialogView` | 3 | ✅ | `phase-3/screen-capture.json` — declined, as in the Electron app |
+| Undocked DevTools window | `DevToolsWindow` (its own Browser) | 3 | ✅ | `phase-3/devtools-undocked.json` — a window of Pane's showing only DevTools |
+
 ## Engine behavior
 
 | Feature | Electron source | Phase | Status | Evidence |
 |---|---|---|---|---|
 | Per-profile isolation (cookies, storage, cache) | `profile/profile.ts` (`persist:profile-<id>`) | 2 | ✅ | `phase-2/profiles-isolation.json` |
-| Permission policy: clipboard writes allowed, the rest denied or prompted | `profile/profile.ts` | 3 | — | |
-| Spellcheck suggestions and add to dictionary | `packages/electron-chrome-context-menu` | 3 | — | |
-| Page context menu (copy, paste, image, links, inspect) | `packages/electron-chrome-context-menu` | 3 | — | |
+| Permission policy: clipboard writes allowed, the rest denied or prompted | `profile/profile.ts` | 3 | ✅ | `phase-3/permission-prompt.json` — clipboard-write granted without a prompt; other requests in the app's sheet |
+| Spellcheck suggestions and add to dictionary | `packages/electron-chrome-context-menu` | 3 | 🟡 | Built (`phase-3/context-menu.json`); macOS flags no misspelling while the screen is locked (stock Chrome for Testing neither), so suggestions re-check on an unlocked screen. Add to Dictionary writes the system dictionary, so scenarios list it but do not click it |
+| Page context menu (copy, paste, image, links, inspect) | `packages/electron-chrome-context-menu` | 3 | ✅ | `phase-3/context-menu.json` — the app's NSMenu, in the Electron app's order |
 | Downloads | `profile/profile-tabs.ts` | 2 | ✅ | `phase-2/downloads.json` |
 | Popups and `window.open` open as tabs | `profile/profile-tabs.ts` | 2 | ✅ | `phase-2/popup-new-tab.json` |
 | Renderer crash recovery | (new) | 2 | ✅ | `phase-2/crash-recovery.json` |
@@ -119,4 +143,4 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Google sign-in fallback (real Chrome + cookie import) | `profile/google/*` | 5 | — | |
 | Sleep, Unload, Keep loaded, Trim | `sleep-scheduler.ts`, CONTEXT.md | 5 | — | |
 | Chrome extensions (actions, popups, tabs/windows APIs) | `packages/electron-chrome-extensions` | 4 | — | |
-| Chrome password manager and autofill prompts | — | 3 | — | Decision in Phase 3: off by default (Pane relies on extension password managers). |
+| Chrome password manager and autofill prompts | — | 3 | ✅ | Off by default (Pane relies on extension password managers): `phase-3/password-manager-off.json`, `phase-3/hooks-check.txt` |

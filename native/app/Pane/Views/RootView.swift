@@ -12,17 +12,24 @@ struct RootView: View {
 	private var model: BrowserModel { controller.model }
 	private var state: WindowState { controller.state }
 
+	// A page in fullscreen fills the window, without the card around it.
+	private var fullscreen: Bool { state.pageFullscreen && model.page == .browser }
+
 	var body: some View {
 		HStack(spacing: 0) {
-			SidebarView(
-				controller: controller,
-				onNewProfile: { creatingProfile = true },
-				onEditProfile: { editingProfileID = $0 }
-			)
-			.frame(width: 220)
+			if !fullscreen {
+				SidebarView(
+					controller: controller,
+					onNewProfile: { creatingProfile = true },
+					onEditProfile: { editingProfileID = $0 }
+				)
+				.frame(width: 220)
+			}
 
 			VStack(spacing: 0) {
-				if model.page == .browser {
+				if fullscreen {
+					EmptyView()
+				} else if model.page == .browser {
 					ToolbarView(controller: controller)
 				} else {
 					Color.clear.frame(height: 39)
@@ -35,15 +42,22 @@ struct RootView: View {
 						SettingsView(controller: controller)
 					} else if model.activeTabID == nil {
 						EmptyStateView(hasProfiles: !model.profiles.isEmpty)
+					} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
+						SadTabView { controller.reloadCrashed(tabID) }
 					}
 
 					if state.find.visible && model.page == .browser {
 						FindBar(controller: controller)
 					}
 				}
-				.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-				.shadow(color: .black.opacity(0.08), radius: 3, y: 1)
-				.padding([.trailing, .bottom], 8)
+				.clipShape(RoundedRectangle(cornerRadius: fullscreen ? 0 : 10, style: .continuous))
+				.shadow(color: .black.opacity(fullscreen ? 0 : 0.08), radius: 3, y: 1)
+				.padding([.trailing, .bottom], fullscreen ? 0 : 8)
+			}
+		}
+		.overlay(alignment: .top) {
+			if let hint = state.exclusiveAccessHint {
+				ExclusiveAccessHint(text: hint)
 			}
 		}
 		.overlay {
