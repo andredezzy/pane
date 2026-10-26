@@ -169,6 +169,7 @@ const google: Scenario = async (context) => {
 	// Google accepts the engine: its identifier page, no /rejected.
 	const plain = await app.createProfile("Google", "BLUE");
 	const windows = await app.createProfile("Google Windows", "EMERALD");
+
 	await app.send("setProfileFingerprint", {
 		profile: windows,
 		fingerprint: WINDOWS,
@@ -220,6 +221,7 @@ const google: Scenario = async (context) => {
 		const { targetInfos } = await chrome.send<{
 			targetInfos: { type: string; url: string }[];
 		}>("Target.getTargets");
+
 		chromePage = targetInfos.find((info) => info.type === "page")?.url ?? "";
 		await Bun.sleep(250);
 	}
@@ -297,6 +299,7 @@ const google: Scenario = async (context) => {
 
 	const cookies =
 		imported.profiles.find((entry) => entry.id === profile)?.cookies ?? [];
+
 	const fromChrome = cookies.filter((cookie) => cookie.path === COOKIE_PATH);
 
 	expect(
@@ -312,6 +315,7 @@ const google: Scenario = async (context) => {
 	);
 
 	expect(chromeQuit, "Chrome still runs after the transfer");
+
 	expect(
 		!existsSync(chromeProfile),
 		`Chrome's profile ${chromeProfile} is still there`,
@@ -380,6 +384,7 @@ const google: Scenario = async (context) => {
 	// The sign-out reloaded the Google page; its storage is gone.
 	await Bun.sleep(2_000);
 	const reloaded = await pageAt(app, "https://www.google.com/");
+
 	const storage = await reloaded.evaluate<string | null>(
 		`localStorage.getItem("pane-scenario")`,
 	);
@@ -400,6 +405,7 @@ const google: Scenario = async (context) => {
 
 	const secondProfile =
 		signInOf(await app.state(), second)?.chromeProfile ?? "";
+
 	await app.send("select", { tab: second });
 	await app.send("navigate", { input: context.fixtures.url("smoke.html") });
 

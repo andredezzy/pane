@@ -72,6 +72,16 @@ NS_SWIFT_NAME(Cookie)
                      completion:(void (^)(void))completion
     NS_SWIFT_NAME(clearSiteData(origins:completion:));
 
+// The bytes the profile's HTTP cache holds on disk.
+- (void)getCacheSizeWithCompletion:(void (^)(int64_t bytes))completion
+    NS_SWIFT_NAME(cacheSize(completion:));
+
+// Drops the profile's cached bytes (CONTEXT.md: Trim): the HTTP cache, Cache
+// Storage, and service workers, every site's. Cookies, local storage, and
+// IndexedDB stay, so the profile stays signed in.
+- (void)trimCacheWithCompletion:(void (^)(void))completion
+    NS_SWIFT_NAME(trimCache(completion:));
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -21,6 +21,7 @@
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/site_data.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -270,6 +271,38 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
       content::BrowsingDataRemover::DATA_TYPE_CACHE |
           content::BrowsingDataRemover::DATA_TYPE_DOM_STORAGE,
       filter, base::BindOnce(^{
+        completion();
+      }));
+}
+
+- (void)getCacheSizeWithCompletion:(void (^)(int64_t))completion {
+  if (!self.profile) {
+    completion(0);
+    return;
+  }
+
+  self.profile->GetDefaultStoragePartition()
+      ->GetNetworkContext()
+      ->ComputeHttpCacheSize(
+          base::Time(), base::Time::Max(),
+          base::BindOnce(^(bool is_upper_bound, int64_t size_or_error) {
+            completion(size_or_error < 0 ? 0 : size_or_error);
+          }));
+}
+
+- (void)trimCacheWithCompletion:(void (^)(void))completion {
+  pane::Trace("call", "PaneBrowserContext.trimCache");
+  if (!self.profile) {
+    completion();
+    return;
+  }
+
+  pane::RemoveSiteData(
+      self.profile,
+      content::BrowsingDataRemover::DATA_TYPE_CACHE |
+          content::BrowsingDataRemover::DATA_TYPE_CACHE_STORAGE |
+          content::BrowsingDataRemover::DATA_TYPE_SERVICE_WORKERS,
+      {}, base::BindOnce(^{
         completion();
       }));
 }

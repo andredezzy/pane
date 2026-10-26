@@ -48,6 +48,51 @@ async function route(
 		return Response.json({ origin: "203.0.113.7" });
 	}
 
+	// A sign-in for the sleep scenario's Trim. The first visit sets a session
+	// cookie, local storage, a Cache Storage entry, and cacheable bytes; a
+	// later one (the tab waking) sets nothing, so it shows what survived.
+	if (pathname === "/sign-in") {
+		const returning = (request.headers.get("Cookie") ?? "").includes(
+			"pane_session=",
+		);
+
+		return new Response(
+			`<!doctype html><title>Signed in</title><h1>Signed in</h1><script>
+			window.ready = (async () => {
+				if (localStorage.getItem("pane-session")) {
+					return false;
+				}
+				localStorage.setItem("pane-session", "kept");
+				await fetch("cacheable?n=1");
+				await fetch("cacheable?n=2");
+				const cache = await caches.open("pane-trim");
+				await cache.put("cacheable?n=3", new Response("x".repeat(65536)));
+				return true;
+			})();
+			</script>`,
+			{
+				headers: {
+					"Content-Type": "text/html; charset=utf-8",
+					...(returning
+						? {}
+						: {
+								"Set-Cookie": "pane_session=signed-in; Path=/; Max-Age=86400",
+							}),
+				},
+			},
+		);
+	}
+
+	// 256 KB the HTTP cache keeps for an hour.
+	if (pathname === "/cacheable") {
+		return new Response("p".repeat(256 * 1024), {
+			headers: {
+				"Content-Type": "text/plain",
+				"Cache-Control": "public, max-age=3600",
+			},
+		});
+	}
+
 	// Stand-ins for Google's accounts pages, for the sign-in fallback
 	// (PANE_GOOGLE_ACCOUNTS_ORIGIN points the app here): the rejection that
 	// starts it, and the sign-in page the real Chrome opens.

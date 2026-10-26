@@ -122,6 +122,10 @@
   return _contents && _contents->IsLoading();
 }
 
+- (BOOL)isAudible {
+  return _contents && _contents->IsCurrentlyAudible();
+}
+
 - (double)loadProgress {
   return _contents ? _contents->GetLoadProgress() : 0;
 }

@@ -283,7 +283,7 @@ docs/native/parity.md
   - Port the `/rejected` interception and its fallback from `google/auth-window.ts` and `google/sign-in.ts` (a real Chrome plus cookie import through the engine cookie API) in all cases. It only triggers when Google rejects the engine, so it costs nothing when the engine is accepted.
   - Port `signOut`/`signedIn` (`sign-out.ts`, `sessions.ts`).
   - Automated check: `accounts.google.com` loads its identifier page in a profile without redirecting to `/rejected`.
-- [ ] **5.4** Sleep, Unload, Keep loaded, and Trim, exactly as `CONTEXT.md` defines them.
+- [x] **5.4** Sleep, Unload, Keep loaded, and Trim, exactly as `CONTEXT.md` defines them.
   - Port the policy in `sleep-scheduler.ts` and all of `sleep-scheduler.test.ts` to `PaneKit`.
   - The engine exposes: discard (release the page, keep the tab entry), freeze, the audible/DevTools/recent-interaction signals, cache size, and trim. Trim clears the HTTP cache and service worker caches only, never cookies, local storage, or IndexedDB.
 - [ ] **5.5** Security.

@@ -120,6 +120,8 @@ NS_SWIFT_UI_ACTOR
 @property(readonly, copy) NSString* title;
 @property(readonly, copy, nullable) NSURL* URL;
 @property(readonly, getter=isLoading) BOOL loading;
+// The page is playing sound now (Chrome's audio indicator).
+@property(readonly, getter=isAudible) BOOL audible;
 @property(readonly) double loadProgress;
 @property(readonly, nullable) NSImage* favicon;
 @property(readonly) BOOL canGoBack;

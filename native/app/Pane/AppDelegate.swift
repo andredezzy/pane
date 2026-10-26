@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	private var windowController: MainWindowController?
 	private var switcherKeys: SwitcherKeys?
 	private var automation: Automation?
+	private var sleep: SleepController?
 	private var observers: [NSObjectProtocol] = []
 
 	init(dataDirectory: URL) {
@@ -25,6 +26,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		NSApp.mainMenu = MainMenu.build(target: controller)
 		windowController = MainWindowController(controller: controller)
 		switcherKeys = SwitcherKeys(controller: controller)
+		sleep = SleepController(controller: controller)
 
 		if let directory = ProcessInfo.processInfo.environment["PANE_AUTOMATION_DIR"] {
 			automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller)

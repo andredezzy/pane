@@ -18,8 +18,14 @@ final class BrowserModel {
 	}
 
 	private(set) var history = TabHistory()
-	private(set) var activeTabID: String?
-	private(set) var activeProfileID: String?
+	private(set) var activeTabID: String? {
+		didSet { selectionDidChange?() }
+	}
+	private(set) var activeProfileID: String? {
+		didSet { selectionDidChange?() }
+	}
+	// Called when the selected tab or profile changes, for the sleep clocks.
+	@ObservationIgnored var selectionDidChange: (() -> Void)?
 	// Profiles open in the sidebar. Not persisted: collapsed on every launch.
 	var expandedProfileIDs: Set<String> = []
 	var page: Page = .browser

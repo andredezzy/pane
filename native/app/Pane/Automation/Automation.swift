@@ -17,6 +17,9 @@ final class Automation {
 	// Each profile's cookies (names, domains, and paths; never values), as
 	// last read with readCookies.
 	private var cookies: [String: [[String: Any]]] = [:]
+	// Each profile's HTTP cache size in bytes, as last read with
+	// readCacheSize.
+	private var cacheSizes: [String: Int64] = [:]
 	private var observer: NSObjectProtocol?
 
 	init(directory: URL, controller: BrowserController) {
@@ -358,6 +361,31 @@ final class Automation {
 
 			model.updateProfile(profileID) { $0.fingerprint = fingerprint }
 
+		case "setSleepSettings":
+			// { tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB },
+			// each a number or null (off).
+			model.settings.tabSleepAfterMinutes = command["tabSleepAfterMinutes"] as? Int
+			model.settings.profileUnloadAfterMinutes = command["profileUnloadAfterMinutes"] as? Int
+			model.settings.cacheBudgetMB = command["cacheBudgetMB"] as? Int
+
+		case "setKeepLoaded":
+			let keepLoaded = command["keepLoaded"] as? Bool ?? true
+			model.updateProfile(try string("profile")) { $0.keepLoaded = keepLoaded }
+
+		case "readCacheSize":
+			// { profile }: the snapshot's profiles[].cacheSize has it once read.
+			let profileID = try string("profile")
+
+			guard let context = controller.context(for: profileID) else {
+				throw AutomationError("profile \(profileID) is not open")
+			}
+
+			cacheSizes[profileID] = nil
+
+			Task { [weak self] in
+				self?.cacheSizes[profileID] = await context.cacheSize()
+			}
+
 		case "setChromiumPath":
 			// The Chrome the Google sign-in fallback opens.
 			model.settings.chromiumPath = try string("path")
@@ -698,6 +726,8 @@ final class Automation {
 					"expanded": model.expandedProfileIDs.contains(profile.id),
 					"proxyStatus": model.proxyStatus[profile.id]?.rawValue ?? NSNull(),
 					"googleSignedIn": model.googleSignedIn.contains(profile.id),
+					"keepLoaded": profile.keepLoaded,
+					"cacheSize": cacheSizes[profile.id].map { $0 as Any } ?? NSNull(),
 					"cookies": cookies[profile.id] ?? NSNull(),
 					// What the engine applied to the open profile.
 					"network": controller.context(for: profile.id).map { context in
