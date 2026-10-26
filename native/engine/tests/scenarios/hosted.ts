@@ -38,10 +38,11 @@ async function waitForPage(port: number): Promise<Target> {
 	throw new Error(`no page target ${URL} titled ${TITLE}`);
 }
 
-async function helperCount(pid: number): Promise<number> {
+// The app's helper processes: its children.
+async function helpersOf(pid: number): Promise<number[]> {
 	const output = await Bun.$`pgrep -P ${pid}`.quiet().nothrow().text();
 
-	return output.split("\n").filter(Boolean).length;
+	return output.split("\n").filter(Boolean).map(Number);
 }
 
 // Phase 1: the Pane app hosts the engine. One window of the app's own, the
@@ -134,7 +135,7 @@ const hosted: Scenario = async (context) => {
 		`the page area is blank (luminance deviation ${detail.deviation})`,
 	);
 
-	const helpersBefore = await helperCount(browser.pid);
+	const helpersBefore = await helpersOf(browser.pid);
 	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility.
 	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
 	await Bun.sleep(5_000);
@@ -142,17 +143,21 @@ const hosted: Scenario = async (context) => {
 	const exited =
 		(await Bun.$`kill -0 ${browser.pid}`.quiet().nothrow()).exitCode !== 0;
 
-	const helpersAfter =
-		await Bun.$`pgrep -f ${"Pane.app/Contents/Frameworks/PaneCore.framework"}`
-			.quiet()
-			.nothrow()
-			.text();
+	// This app's helpers only: other scenarios' may still be exiting.
+	const helpersAfter: number[] = [];
+
+	for (const helper of helpersBefore) {
+		if ((await Bun.$`kill -0 ${helper}`.quiet().nothrow()).exitCode === 0) {
+			helpersAfter.push(helper);
+		}
+	}
 
 	expect(exited, "the app still runs 5 s after Quit");
+	expect(helpersBefore.length > 0, "the app had no helper processes");
 
 	expect(
-		helpersAfter.trim() === "",
-		`helpers still running after Quit:\n${helpersAfter}`,
+		helpersAfter.length === 0,
+		`helpers still running after Quit: ${helpersAfter.join(", ")}`,
 	);
 
 	return {
@@ -163,7 +168,7 @@ const hosted: Scenario = async (context) => {
 		windowTitle: state.window_title,
 		pageDetail: detail,
 		accessibility: tree,
-		quit: { helpersBefore, exited, helpersAfter: 0 },
+		quit: { helpersBefore: helpersBefore.length, exited, helpersAfter: 0 },
 	};
 };
 
