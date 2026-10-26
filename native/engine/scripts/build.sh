@@ -3,8 +3,9 @@
 # Usage: build.sh [config=release] [targets...=chrome]
 #
 # Runs at most PANE_BUILD_JOBS compile jobs (default: two thirds of the cores)
-# at utility QoS. Full parallelism starved watchdogd and kernel-panicked this
-# Mac once (see native/DECISIONS.md), so the system always keeps headroom.
+# under nice. Full parallelism while Spotlight indexed the checkout starved
+# watchdogd and kernel-panicked this Mac once (see native/DECISIONS.md), so
+# the system always keeps headroom.
 set -euo pipefail
 
 ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,4 +28,4 @@ if ! cmp -s "$ENGINE_DIR/args/$CONFIG.gn" "$OUT_DIR/args.gn"; then
 	gn gen "$OUT_DIR"
 fi
 
-taskpolicy -c utility nice -n 10 autoninja -j "$JOBS" -C "$OUT_DIR" "${TARGETS[@]}"
+nice -n 10 autoninja -j "$JOBS" -C "$OUT_DIR" "${TARGETS[@]}"
