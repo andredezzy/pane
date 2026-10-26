@@ -1,3 +1,4 @@
 # One patch file name per line, applied in order.
 0001-pane-framework.patch
 0002-pane-host-mode.patch
+0003-pane-hosted-browsers.patch

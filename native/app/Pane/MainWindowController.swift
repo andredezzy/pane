@@ -2,85 +2,77 @@ import AppKit
 import PaneCore
 import SwiftUI
 
-// The browser window: the sidebar on the left, the active page on the right.
-final class MainWindowController: NSWindowController, NSWindowDelegate, WebContentsDelegate {
+// The browser window: the engine's window, with the app's UI in its host view
+// — the sidebar on the left, the selected tab on the right.
+@MainActor
+final class MainWindowController: NSObject, BrowserWindowDelegate, WebContentsDelegate {
+	let browserWindow: BrowserWindow
 	private let context: BrowserContext
-	private let webContents: WebContents
 	private let contentView = NSView()
+	private var tab: WebContents?
 
 	init(context: BrowserContext) {
 		self.context = context
-		webContents = context.createWebContents()
+		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820))
+		super.init()
 
-		let window = NSWindow(
-			contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
-			styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-			backing: .buffered,
-			defer: false
-		)
+		browserWindow.delegate = self
+		browserWindow.activeContext = context
+
+		let window = browserWindow.window
 		window.title = "Pane"
 		window.titlebarAppearsTransparent = true
+		window.styleMask.insert(.fullSizeContentView)
 		window.contentMinSize = NSSize(width: 800, height: 500)
-
-		super.init(window: window)
-
-		window.delegate = self
-		webContents.delegate = self
-
-		// A content view controller resizes the window to its fitting size,
-		// which is tiny for a split view, so the size is set after it. The
-		// saved frame (if any) is restored last.
-		window.contentViewController = makeSplitViewController()
-		window.contentView?.wantsLayer = true
-		window.setContentSize(NSSize(width: 1280, height: 820))
 		window.center()
-		window.setFrameAutosaveName("PaneMainWindow")
+
+		install(in: browserWindow.hostView)
 	}
 
-	@available(*, unavailable)
-	required init?(coder: NSCoder) {
-		fatalError("init(coder:) is not supported")
+	func showWindow() {
+		browserWindow.window.makeKeyAndOrderFront(nil)
 	}
 
 	func load(_ url: URL) {
-		webContents.load(url)
+		tab = browserWindow.openTab(url: url, context: context, foreground: true)
+		tab?.delegate = self
+		show(tab)
 	}
 
-	private func makeSplitViewController() -> NSSplitViewController {
-		let sidebar = NSHostingController(rootView: SidebarView())
-		sidebar.view.setAccessibilityIdentifier("pane.sidebar")
+	private func install(in hostView: NSView) {
+		let split = NSSplitView(frame: hostView.bounds)
+		split.isVertical = true
+		split.dividerStyle = .thin
+		split.autoresizingMask = [.width, .height]
 
-		// Chromium draws pages into CALayers, so the views around them must be
-		// layer-backed, as they are in Chrome's own windows.
+		let sidebar = NSHostingView(rootView: SidebarView())
+		sidebar.setAccessibilityIdentifier("pane.sidebar")
+		sidebar.frame = NSRect(x: 0, y: 0, width: 220, height: hostView.bounds.height)
+
 		contentView.wantsLayer = true
-
-		let page = NSViewController()
-		page.view = contentView
 		contentView.setAccessibilityIdentifier("pane.content")
 		contentView.setAccessibilityElement(true)
 		contentView.setAccessibilityRole(.group)
 		contentView.setAccessibilityLabel("Web content")
 
-		let pageView = webContents.nativeView
+		split.addArrangedSubview(sidebar)
+		split.addArrangedSubview(contentView)
+		hostView.addSubview(split)
+		split.setPosition(220, ofDividerAt: 0)
+	}
+
+	private func show(_ tab: WebContents?) {
+		guard let tab else { return }
+		let pageView = tab.nativeView
 		pageView.frame = contentView.bounds
 		pageView.autoresizingMask = [.width, .height]
 		contentView.addSubview(pageView)
-		webContents.isVisible = true
-
-		let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
-		sidebarItem.minimumThickness = 220
-		sidebarItem.maximumThickness = 360
-
-		let split = NSSplitViewController()
-		split.addSplitViewItem(sidebarItem)
-		split.addSplitViewItem(NSSplitViewItem(viewController: page))
-
-		return split
+		tab.isVisible = true
 	}
 
 	// MARK: WebContentsDelegate
 
 	func webContents(_ webContents: WebContents, didChangeTitle title: String) {
-		window?.title = title.isEmpty ? "Pane" : title
+		browserWindow.window.title = title.isEmpty ? "Pane" : title
 	}
 }

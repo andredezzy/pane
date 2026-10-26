@@ -12,6 +12,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Why a page's renderer went away.
+typedef NS_ENUM(NSInteger, PaneRendererTermination) {
+  PaneRendererTerminationCrashed,
+  PaneRendererTerminationKilled,
+  PaneRendererTerminationOutOfMemory,
+  PaneRendererTerminationOther,
+} NS_SWIFT_NAME(RendererTermination);
+
 NS_SWIFT_NAME(WebContentsDelegate)
 NS_SWIFT_UI_ACTOR
 @protocol PaneWebContentsDelegate <NSObject>
@@ -29,15 +37,31 @@ NS_SWIFT_UI_ACTOR
 - (void)webContents:(PaneWebContents*)webContents
     didUpdateFavicon:(NSImage*)favicon;
 
+// canGoBack / canGoForward may have changed.
+- (void)webContentsDidChangeNavigationState:(PaneWebContents*)webContents;
+
+// Find in page results; `final` is the last update for the current search.
+- (void)webContents:(PaneWebContents*)webContents
+     didFindMatches:(NSInteger)count
+        activeMatch:(NSInteger)activeMatch
+              final:(BOOL)final;
+
+// The page's renderer is gone; the page shows nothing until reloaded.
+- (void)webContents:(PaneWebContents*)webContents
+    rendererDidTerminate:(PaneRendererTermination)termination;
+
 @end
 
-// A page: Chromium's WebContents, shown through `nativeView`.
+// A tab: a page in one of a window's profiles. Tabs live in Chrome's tab
+// model (pages, popups and extensions see real tabs); the app shows them
+// through `nativeView`.
 PANE_EXPORT
 NS_SWIFT_NAME(WebContents)
 NS_SWIFT_UI_ACTOR
 @interface PaneWebContents : NSObject
 
-@property(readonly) PaneBrowserContext* context;
+// Nil once the tab closed.
+@property(readonly, nullable) PaneBrowserContext* context;
 @property(nullable, weak) id<PaneWebContentsDelegate> delegate;
 
 // The page's view. Add it to a window; it sizes with its superview through
@@ -53,12 +77,34 @@ NS_SWIFT_UI_ACTOR
 @property(readonly, copy) NSString* title;
 @property(readonly, copy, nullable) NSURL* URL;
 @property(readonly, getter=isLoading) BOOL loading;
+@property(readonly) double loadProgress;
+@property(readonly, nullable) NSImage* favicon;
+@property(readonly) BOOL canGoBack;
+@property(readonly) BOOL canGoForward;
+// Whether the tab still exists in Chrome's tab model.
+@property(readonly, getter=isOpen) BOOL open;
 
 - (instancetype)init NS_UNAVAILABLE;
 
 - (void)loadURL:(NSURL*)URL NS_SWIFT_NAME(load(_:));
+- (void)goBack;
+- (void)goForward;
+- (void)reload;
+- (void)stopLoading;
 
-// Destroys the page. The object stays valid but inert afterwards.
+// Finds `text`, moving to the next (or previous) match on repeated calls
+// with the same text. Results arrive through the delegate.
+- (void)findText:(NSString*)text forward:(BOOL)forward;
+- (void)stopFinding;
+
+- (void)zoomIn;
+- (void)zoomOut;
+- (void)resetZoom;
+
+// Gives the page keyboard focus.
+- (void)focus;
+
+// Closes the tab, running the page's beforeunload first.
 - (void)close;
 
 @end

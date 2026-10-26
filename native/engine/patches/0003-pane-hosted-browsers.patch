@@ -1,0 +1,327 @@
+diff --git a/chrome/browser/ui/browser.cc b/chrome/browser/ui/browser.cc
+index 07de580deb..de993320ee 100644
+--- a/chrome/browser/ui/browser.cc
++++ b/chrome/browser/ui/browser.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/browser.h"
++#include "pane/browser/ui/hooks.h"  // nogncheck
+ 
+ #include <stddef.h>
+ 
+@@ -264,6 +265,12 @@ std::unique_ptr<Browser> Browser::DeprecatedCreateOwnedForTesting(
+   return browser;
+ }
+ 
++// Pane: the window of a Browser Pane hosts (pane/browser/ui/hooks.h).
++BrowserWindow* (*g_pane_browser_window_factory)(Browser*) = nullptr;
++// Pane: Pane's windows stay open without tabs (pane/browser/ui/hooks.h).
++bool (*g_pane_keeps_window_without_tabs)(const BrowserWindowInterface*) =
++    nullptr;
++
+ Browser::Browser(BrowserWindowCreateParams params)
+     : type_(params.type),
+       profile_(&*params.profile),
+@@ -306,12 +313,19 @@ Browser::Browser(BrowserWindowCreateParams params)
+   features_ = std::make_unique<BrowserWindowFeatures>();
+   features_->Init(this);
+ 
+-  if (custom_window) {
++  // Pane: Pane passes its own window for the Browsers it hosts.
++  if (custom_window && !g_pane_browser_window_factory) {
+     CHECK_IS_TEST() << "BrowserWindowCreateParams::window is a test-only param";
+   }
++  // Pane: Pane may host a Browser Chrome makes itself.
++  BrowserWindow* const hosted_window =
++      !custom_window && g_pane_browser_window_factory
++          ? g_pane_browser_window_factory(this)
++          : nullptr;
+   window_ =
+-      custom_window
+-          ? std::unique_ptr<BrowserWindow, BrowserWindowDeleter>(custom_window)
++      custom_window || hosted_window
++          ? std::unique_ptr<BrowserWindow, BrowserWindowDeleter>(
++                custom_window ? custom_window : hosted_window)
+           : BrowserWindow::CreateBrowserWindow(this, user_gesture,
+                                                in_tab_dragging);
+ 
+@@ -615,6 +629,13 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
+ }
+ 
+ void Browser::TabStripEmpty() {
++  // Pane: a window Pane shows its own UI in stays open without tabs, unless
++  // it is closing.
++  if (g_pane_keeps_window_without_tabs &&
++      g_pane_keeps_window_without_tabs(this) &&
++      !UnloadController::From(this)->is_attempting_to_close_browser()) {
++    return;
++  }
+   // A touch tab drag session may still be delivering OS touch events to this
+   // window's native widget. Destroying it mid-gesture would strand the drag, so
+   // let TabDragController take ownership of closing this browser once the drag
+diff --git a/chrome/browser/ui/browser_commands.cc b/chrome/browser/ui/browser_commands.cc
+index 14f5a7598d..2a5d1017b4 100644
+--- a/chrome/browser/ui/browser_commands.cc
++++ b/chrome/browser/ui/browser_commands.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/browser_commands.h"
++#include "pane/browser/ui/hooks.h"  // nogncheck
+ 
+ #include <algorithm>
+ #include <memory>
+@@ -1493,7 +1494,9 @@ void CloseTab(BrowserWindowInterface* browser) {
+ #endif
+ 
+   ToastController* toast_controller = ToastController::From(browser);
+-  if (!toast_controller) {
++  // Pane: Pane's Browsers have no BrowserView, so no pinned tab toast.
++  if (!toast_controller || (g_pane_viewless_browsers &&
++                            !BrowserView::GetBrowserViewForBrowser(browser))) {
+     CloseSelectedTabAndRecordTabCountMetric(browser);
+     return;
+   }
+diff --git a/chrome/browser/ui/browser_window/internal/browser_window_features.cc b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
+index f51b071375..ea7e729181 100644
+--- a/chrome/browser/ui/browser_window/internal/browser_window_features.cc
++++ b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
++#include "pane/browser/ui/hooks.h"  // nogncheck
+ 
+ #include <memory>
+ 
+@@ -243,6 +244,18 @@
+ #include "chrome/browser/ui/overscroll_pref_manager.h"
+ #endif  // defined(USE_AURA)
+ 
++// Pane: the WebContentsDelegate of Pane's Browsers (pane/browser/ui/hooks.h).
++std::unique_ptr<BrowserWebContentsDelegate> (
++    *g_pane_create_web_contents_delegate)(
++    BrowserWindowInterface* browser,
++    ExclusiveAccessManager& exclusive_access_manager,
++    chrome::BrowserCommandController& command_controller,
++    UnloadController& unload_controller,
++    web_app::AppBrowserController* app_browser_controller,
++    BrowserWindow& window,
++    DesktopBrowserWindowCapabilities& capabilities,
++    BrowserUiController& browser_ui_controller) = nullptr;
++
+ BrowserWindowFeatures::BrowserWindowFeatures() = default;
+ BrowserWindowFeatures::~BrowserWindowFeatures() = default;
+ 
+@@ -812,11 +825,22 @@ void BrowserWindowFeatures::InitPostWindowConstruction(
+ 
+   // Must be after exclusive_access_manager_,
+   // desktop_browser_window_capabilities_, and browser_ui_controller_.
+-  browser_web_contents_delegate_ = std::make_unique<BrowserWebContentsDelegate>(
+-      browser, *exclusive_access_manager_, *browser_command_controller_,
+-      *unload_controller_, app_browser_controller_.get(),
+-      *BrowserWindow::FromBrowser(browser),
+-      *desktop_browser_window_capabilities_, *browser_ui_controller_);
++  // Pane: Pane's delegate for the Browsers it hosts.
++  if (g_pane_create_web_contents_delegate) {
++    browser_web_contents_delegate_ = g_pane_create_web_contents_delegate(
++        browser, *exclusive_access_manager_, *browser_command_controller_,
++        *unload_controller_, app_browser_controller_.get(),
++        *BrowserWindow::FromBrowser(browser),
++        *desktop_browser_window_capabilities_, *browser_ui_controller_);
++  }
++  if (!browser_web_contents_delegate_) {
++    browser_web_contents_delegate_ =
++        std::make_unique<BrowserWebContentsDelegate>(
++            browser, *exclusive_access_manager_, *browser_command_controller_,
++            *unload_controller_, app_browser_controller_.get(),
++            *BrowserWindow::FromBrowser(browser),
++            *desktop_browser_window_capabilities_, *browser_ui_controller_);
++  }
+ 
+   // Must be after exclusive_access_manager_.
+ #if !BUILDFLAG(IS_CHROMEOS)
+diff --git a/chrome/browser/ui/read_anything/read_anything_side_panel_controller.cc b/chrome/browser/ui/read_anything/read_anything_side_panel_controller.cc
+index d22035c5d8..438756c020 100644
+--- a/chrome/browser/ui/read_anything/read_anything_side_panel_controller.cc
++++ b/chrome/browser/ui/read_anything/read_anything_side_panel_controller.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/read_anything/read_anything_side_panel_controller.h"
++#include "pane/browser/ui/hooks.h"  // nogncheck
+ 
+ #include <memory>
+ #include <optional>
+@@ -243,7 +244,8 @@ void ReadAnythingSidePanelController::TabWillDetach(
+   if (!side_panel_ui) {
+     // TODO(webium): create a SidePanelCoordinator for WebUIBrowser.
+     // This is a temporary solution to avoid a crash.
+-    if (!webui_browser::IsWebUIBrowserEnabled()) {
++    // Pane: Pane's Browsers have no BrowserView, so no side panel UI.
++    if (!webui_browser::IsWebUIBrowserEnabled() && !g_pane_viewless_browsers) {
+       CHECK_IS_TEST();
+     }
+     return;  // IN-TEST
+diff --git a/chrome/browser/ui/sad_tab_controller.cc b/chrome/browser/ui/sad_tab_controller.cc
+index 804a89c558..9a3b673fb0 100644
+--- a/chrome/browser/ui/sad_tab_controller.cc
++++ b/chrome/browser/ui/sad_tab_controller.cc
+@@ -29,7 +29,10 @@ ContentsWebView* FindContentsWebView(content::WebContents* web_contents) {
+     return nullptr;
+   }
+   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+-  DCHECK(browser_view);
++  // Pane: Pane's Browsers have no BrowserView; the app shows the crash.
++  if (!browser_view) {
++    return nullptr;
++  }
+ 
+   for (auto* contents_view : browser_view->GetAllVisibleContentsWebViews()) {
+     if (contents_view->web_contents() == web_contents) {
+diff --git a/chrome/browser/ui/toasts/toast_controller.cc b/chrome/browser/ui/toasts/toast_controller.cc
+index 4b17a93554..0aa54f85bf 100644
+--- a/chrome/browser/ui/toasts/toast_controller.cc
++++ b/chrome/browser/ui/toasts/toast_controller.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/toasts/toast_controller.h"
++#include "pane/browser/ui/hooks.h"  // nogncheck
+ 
+ #include <memory>
+ #include <optional>
+@@ -137,7 +138,20 @@ std::optional<ToastId> ToastController::GetCurrentToastId() const {
+   return currently_showing_toast_id_;
+ }
+ 
++// Pane: this process hosts Browsers without a BrowserView
++// (pane/browser/ui/hooks.h).
++bool g_pane_viewless_browsers = false;
++
+ bool ToastController::MaybeShowToast(ToastParams params) {
++  // Pane: no toast without an anchor, before any state is set.
++  if (browser_window_interface_ && g_pane_viewless_browsers) {
++    const ToastSpecification* spec =
++        toast_registry_->GetToastSpecification(params.toast_id);
++    if (!spec || !GetAnchorView(spec->is_global_scope())) {
++      RecordToastFailedToShow(params.toast_id);
++      return false;
++    }
++  }
+   if (!CanShowToast(params.toast_id)) {
+     RecordToastFailedToShow(params.toast_id);
+     return false;
+@@ -323,7 +337,9 @@ void ToastController::CreateToast(ToastParams params,
+   if (!anchor_view) {
+     // Don't actually create the toast in unit tests
+     // TODO(webium): show toast in webui browser.
+-    if (!webui_browser::IsWebUIBrowserEnabled()) {
++    // Pane: Pane's Browsers have no BrowserView to anchor a toast to.
++    if (!webui_browser::IsWebUIBrowserEnabled() &&
++        !(browser_window_interface_ && g_pane_viewless_browsers)) {
+       CHECK_IS_TEST();
+     }
+     return;
+diff --git a/chrome/browser/ui/unload_controller.cc b/chrome/browser/ui/unload_controller.cc
+index fb499c2360..e6e597f130 100644
+--- a/chrome/browser/ui/unload_controller.cc
++++ b/chrome/browser/ui/unload_controller.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/unload_controller.h"
++#include "pane/browser/ui/hooks.h"  // nogncheck
+ 
+ #include <algorithm>
+ 
+@@ -628,6 +629,11 @@ void UnloadController::OnTabStripModelChanged(
+ }
+ 
+ void UnloadController::TabStripEmpty() {
++  // Pane: see Browser::TabStripEmpty. The window stays open for new tabs.
++  if (!is_attempting_to_close_browser() && g_pane_keeps_window_without_tabs &&
++      g_pane_keeps_window_without_tabs(browser_.get())) {
++    return;
++  }
+   // Set state_ here, so that extensions, etc, do not attempt to add tabs to the
+   // browser before it closes.
+   if (state_ == State::kIdle) {
+diff --git a/components/remote_cocoa/app_shim/bridged_content_view.h b/components/remote_cocoa/app_shim/bridged_content_view.h
+index 71fb8f6def..4cf0758a22 100644
+--- a/components/remote_cocoa/app_shim/bridged_content_view.h
++++ b/components/remote_cocoa/app_shim/bridged_content_view.h
+@@ -57,6 +57,12 @@ REMOTE_COCOA_APP_SHIM_EXPORT
+ @property(assign, nonatomic) BOOL drawMenuBackgroundForBlur;
+ @property(strong, nonatomic) NSEvent* keyDownEventForTesting;
+ 
++// Pane: a subview the embedding app added to show its own UI over the
++// widget's views (Pane's windows, //pane). Hit testing and accessibility ask
++// it first, so the points it covers reach its views and assistive
++// technologies see its tree rather than the widget's views underneath.
++@property(weak, nonatomic) NSView* paneEmbeddedView;
++
+ // Initialize the NSView -> views::View bridge. |viewToHost| must be non-NULL.
+ - (instancetype)initWithBridge:(remote_cocoa::NativeWidgetNSWindowBridge*)bridge
+                         bounds:(gfx::Rect)rect;
+diff --git a/components/remote_cocoa/app_shim/bridged_content_view.mm b/components/remote_cocoa/app_shim/bridged_content_view.mm
+index 58c8f6da2e..901571405e 100644
+--- a/components/remote_cocoa/app_shim/bridged_content_view.mm
++++ b/components/remote_cocoa/app_shim/bridged_content_view.mm
+@@ -199,6 +199,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+ @synthesize bridge = _bridge;
+ @synthesize drawMenuBackgroundForBlur = _drawMenuBackgroundForBlur;
+ @synthesize keyDownEventForTesting = _keyDownEvent;
++@synthesize paneEmbeddedView = _paneEmbeddedView;
+ 
+ - (instancetype)initWithBridge:(remote_cocoa::NativeWidgetNSWindowBridge*)bridge
+                         bounds:(gfx::Rect)bounds {
+@@ -292,6 +293,13 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+   // This is important when the window has a native titlebar, in which case the
+   // superview is taller than the contentView.
+   NSPoint pointInView = [self convertPoint:point fromView:self.superview];
++
++  // Pane: the embedding app's views come first.
++  if (NSView* embedded = [self paneEmbeddedSubview]) {
++    if (NSView* hit = [embedded hitTest:pointInView]) {
++      return hit;
++    }
++  }
+   gfx::Point flippedPoint(point.x, NSHeight(self.frame) - pointInView.y);
+   remote_cocoa::mojom::HitTestResult hitTestResult;
+   _bridge->host()->GetHitTestResult(flippedPoint, &hitTestResult);
+@@ -1722,6 +1730,10 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+ // NSAccessibility formal protocol implementation:
+ 
+ - (NSArray*)accessibilityChildren {
++  // Pane: the embedding app's views cover the widget's.
++  if (NSView* embedded = [self paneEmbeddedSubview]) {
++    return NSAccessibilityUnignoredChildren(@[ embedded ]);
++  }
+   if (id accessible = _bridge->host_helper()->GetNativeViewAccessible())
+     return @[ accessible ];
+   return [super accessibilityChildren];
+@@ -1730,10 +1742,22 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+ // NSAccessibility informal protocol implementation:
+ 
+ - (id)accessibilityHitTest:(NSPoint)point {
++  if (NSView* embedded = [self paneEmbeddedSubview]) {
++    if (id hit = [embedded accessibilityHitTest:point]) {
++      return hit;
++    }
++  }
+   return [_bridge->host_helper()->GetNativeViewAccessible()
+       accessibilityHitTest:point];
+ }
+ 
++// Pane: paneEmbeddedView while it is a visible subview of this view.
++- (NSView*)paneEmbeddedSubview {
++  NSView* embedded = self.paneEmbeddedView;
++  return embedded && embedded.superview == self && !embedded.hidden ? embedded
++                                                                     : nil;
++}
++
+ - (id)accessibilityFocusedUIElement {
+   // This function should almost-never be called because when |self| is the
+   // first responder for the key NSWindow, NativeWidgetMacNSWindowHost's

@@ -7,4 +7,9 @@ Patches in native/engine/patches that originate in other projects are listed
 below with their origin and license. Patches not listed are Pane's own
 (GPL-3.0-only, like the rest of this repository).
 
-_No third-party patches yet._
+Ardia (https://github.com/mantrakp04/ardia), Copyright 2026 Mantra Patel,
+Apache License 2.0 (native/third_party/ardia/LICENSE.Apache-2.0): Pane's
+window layer adapts files of Ardia's engine layer, and patch
+0003-pane-hosted-browsers.patch follows the shape of its hooks. Each adapted
+file names its Ardia source and what changed; native/third_party/ardia/README.md
+lists them.

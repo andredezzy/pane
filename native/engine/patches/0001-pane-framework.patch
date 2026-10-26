@@ -57,16 +57,17 @@ index 37c881f5d2..fa344c6c5d 100644
 +_OBJC_METACLASS_$_Pane*
 +_Pane*
 diff --git a/chrome/app/framework.order b/chrome/app/framework.order
-index 6dbc3aeff3..891f04c4a7 100644
+index 6dbc3aeff3..d4b6f3f891 100644
 --- a/chrome/app/framework.order
 +++ b/chrome/app/framework.order
-@@ -31,3 +31,14 @@ _ChromeWebAppShortcutCopierMain
+@@ -31,3 +31,19 @@ _ChromeWebAppShortcutCopierMain
  
  # _ChromeMain must be listed last.  That's the whole point of this file.
  _ChromeMain
 +
-+# Pane: the embedding API the Pane app links against. Every symbol
-+# framework.exports lets through must be listed here, in this order.
++# Pane: the embedding API the Pane app links against.
++# Every symbol framework.exports lets through must be listed here, in the
++# order the linker lays them out (native/engine/scripts/update-exports.sh).
 +_PaneBrowserApplicationShouldReopenNotification
 +_PaneReopenHasVisibleWindowsKey
 +_OBJC_CLASS_$_PaneBrowserApplication
@@ -75,6 +76,10 @@ index 6dbc3aeff3..891f04c4a7 100644
 +_OBJC_METACLASS_$_PaneBrowserContext
 +_OBJC_CLASS_$_PaneWebContents
 +_OBJC_METACLASS_$_PaneWebContents
++_OBJC_CLASS_$_PaneBrowserWindow
++_OBJC_METACLASS_$_PaneBrowserWindow
++_OBJC_CLASS_$_PaneDownload
++_OBJC_METACLASS_$_PaneDownload
 diff --git a/chrome/app/theme/chromium/BRANDING b/chrome/app/theme/chromium/BRANDING
 index f8363d5b29..0debf509c1 100644
 --- a/chrome/app/theme/chromium/BRANDING

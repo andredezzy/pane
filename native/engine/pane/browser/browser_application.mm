@@ -10,8 +10,11 @@
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_metrics.h"
 #include "pane/browser/engine_trace.h"
+#include "pane/browser/ui/window_host.h"
 #include "pane/common/host.h"
 
 #import "pane/browser/browser_application_internal.h"
@@ -95,6 +98,9 @@ bool IsValidIdentifier(NSString* identifier) {
     argv.push_back(arg.c_str());
   }
 
+  // Before the first Browser exists: Pane's windows host Chrome's Browsers.
+  pane::InstallBrowserHooks();
+
   pane::Trace("call", "PaneBrowserApplication.run",
               base::DictValue().Set("dataDirectory",
                                     base::SysNSStringToUTF8(dataDirectory.path)));
@@ -173,6 +179,38 @@ bool IsValidIdentifier(NSString* identifier) {
                                       base::SysNSStringToUTF8(key)));
     completion(context, nil);
   }));
+}
+
+- (PaneBrowserContext*)contextForProfile:(Profile*)profile {
+  for (PaneBrowserContext* context in _contexts.allValues) {
+    if (context.profile == profile) {
+      return context;
+    }
+  }
+  return nil;
+}
+
+- (void)deleteContext:(PaneBrowserContext*)context
+           completion:(void (^)(BOOL deleted))completion {
+  pane::Trace("call", "PaneBrowserApplication.deleteContext",
+              base::DictValue().Set("identifier",
+                                    base::SysNSStringToUTF8(context.identifier)));
+  Profile* profile = context.profile;
+  if (!profile || _contexts[context.identifier] != context) {
+    completion(NO);
+    return;
+  }
+  const base::FilePath path = profile->GetPath();
+  [_contexts removeObjectForKey:context.identifier];
+  [context shutDown];
+  // Chrome closes the profile's Browsers (Pane's included), then removes its
+  // data; the directory itself goes at the next start, once nothing holds it.
+  g_browser_process->profile_manager()
+      ->GetDeleteProfileHelper()
+      .MaybeScheduleProfileForDeletion(
+          path, base::DoNothing(),
+          ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
+  completion(YES);
 }
 
 - (void)terminate {

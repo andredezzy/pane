@@ -13,10 +13,11 @@ class Profile;
 - (instancetype)initWithProfile:(Profile*)profile
                      identifier:(NSString*)identifier;
 
+// Nil after -shutDown.
 @property(readonly) Profile* profile;
 
-// Closes this context's pages and releases its profile. Called at engine
-// shutdown, before Chrome destroys profiles.
+// Releases the profile (its keep-alive and download reporting). Called at
+// engine shutdown and before the profile is deleted.
 - (void)shutDown;
 
 @end

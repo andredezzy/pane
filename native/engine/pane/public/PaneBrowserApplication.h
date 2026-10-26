@@ -65,6 +65,13 @@ NS_SWIFT_UI_ACTOR
                                      NSError* _Nullable error))completion
     NS_SWIFT_NAME(openContext(identifier:completion:));
 
+// Deletes the profile: closes its tabs in every window, then removes its
+// data (cookies, storage, cache, extensions) from disk. `completion` gets
+// NO when the profile is unknown or already being deleted.
+- (void)deleteContext:(PaneBrowserContext*)context
+           completion:(void (^)(BOOL deleted))completion
+    NS_SWIFT_NAME(deleteContext(_:completion:));
+
 // Starts an orderly engine shutdown, as Quit does.
 - (void)terminate;
 

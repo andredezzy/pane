@@ -37,6 +37,7 @@ export async function mainWindowOf(pid: number): Promise<number> {
 	const { windows } = await call<{
 		windows: { window_id: number; bounds: { height: number } }[];
 	}>("list_windows", { pid });
+
 	const [main] = windows.filter((window) => window.bounds.height > 200);
 
 	if (!main) {

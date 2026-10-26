@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 			queue: .main
 		) { [weak self] _ in
 			MainActor.assumeIsolated {
-				self?.windowController?.showWindow(nil)
+				self?.windowController?.showWindow()
 			}
 		}
 
@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 
 			let controller = MainWindowController(context: context)
 			self.windowController = controller
-			controller.showWindow(nil)
+			controller.showWindow()
 			controller.load(Self.initialURL())
 		}
 	}

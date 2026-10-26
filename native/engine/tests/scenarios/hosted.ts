@@ -16,6 +16,7 @@ async function waitForPage(port: number): Promise<Target> {
 		const targets = (await (
 			await fetch(`http://127.0.0.1:${port}/json/list`)
 		).json()) as Target[];
+
 		const page = targets.find(
 			(target) =>
 				target.type === "page" && target.url === URL && target.title === TITLE,
@@ -49,6 +50,7 @@ const hosted: Scenario = async ({ launch, out }) => {
 		args: [URL],
 		env: { PANE_ENGINE_TRACE: trace },
 	});
+
 	const page = await waitForPage(browser.port);
 	const windows = await windowsOf(browser.pid);
 
@@ -68,10 +70,7 @@ const hosted: Scenario = async ({ launch, out }) => {
 
 	const names = new Set(calls.map((entry) => entry.name));
 
-	for (const name of [
-		"PaneBrowserContext.createWebContents",
-		"PaneWebContents.loadURL",
-	]) {
+	for (const name of ["PaneBrowserWindow.openTab"]) {
 		expect(names.has(name), `trace lacks ${name}`);
 	}
 
@@ -94,19 +93,23 @@ const hosted: Scenario = async ({ launch, out }) => {
 	}
 
 	const windowId = await mainWindowOf(browser.pid);
+
 	const state = await windowState(
 		browser.pid,
 		windowId,
 		join(out, "window.png"),
 	);
+
 	const tree = state.tree_markdown;
 
 	expect(!state.degraded, `window state degraded: ${state.degraded_reason}`);
 	expect(/Sidebar/.test(tree), "accessibility tree lacks the sidebar");
+
 	expect(
 		/Web content/.test(tree),
 		"accessibility tree lacks the web content area",
 	);
+
 	expect(
 		/documentation examples/.test(tree),
 		"accessibility tree lacks the page text",
@@ -115,8 +118,10 @@ const hosted: Scenario = async ({ launch, out }) => {
 	const helpersBefore = await helperCount(browser.pid);
 	await hotkey(browser.pid, windowId, ["cmd", "q"]);
 	await Bun.sleep(5_000);
+
 	const exited =
 		(await Bun.$`kill -0 ${browser.pid}`.quiet().nothrow()).exitCode !== 0;
+
 	const helpersAfter =
 		await Bun.$`pgrep -f ${"Pane.app/Contents/Frameworks/PaneCore.framework"}`
 			.quiet()
@@ -124,6 +129,7 @@ const hosted: Scenario = async ({ launch, out }) => {
 			.text();
 
 	expect(exited, "the app still runs 5 s after Cmd+Q");
+
 	expect(
 		helpersAfter.trim() === "",
 		`helpers still running after Cmd+Q:\n${helpersAfter}`,

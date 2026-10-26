@@ -5,9 +5,29 @@
 
 #import "pane/public/PaneWebContents.h"
 
+namespace content {
+class WebContents;
+}
+
 @interface PaneWebContents ()
 
-- (instancetype)initWithContext:(PaneBrowserContext*)context;
+// Made by the tab's TabBridge, which outlives no WebContents.
+- (instancetype)initWithContents:(content::WebContents*)contents;
+
+// Nil once the tab is gone.
+@property(readonly) content::WebContents* contents;
+
+// From the TabBridge.
+- (void)contentsDestroyed;
+- (void)bridgeDidChangeTitle;
+- (void)bridgeDidChangeURL;
+- (void)bridgeDidChangeNavigationState;
+- (void)bridgeDidChangeLoading:(BOOL)isLoading progress:(double)progress;
+- (void)bridgeDidUpdateFavicon:(NSImage*)favicon;
+- (void)bridgeDidFindMatches:(NSInteger)count
+                 activeMatch:(NSInteger)activeMatch
+                       final:(BOOL)final;
+- (void)bridgeRendererDidTerminate:(PaneRendererTermination)termination;
 
 @end
 

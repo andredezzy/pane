@@ -4,5 +4,6 @@
 
 #import "PaneBrowserApplication.h"
 #import "PaneBrowserContext.h"
+#import "PaneBrowserWindow.h"
 #import "PaneExport.h"
 #import "PaneWebContents.h"
