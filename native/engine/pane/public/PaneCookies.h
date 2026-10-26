@@ -22,15 +22,6 @@ PANE_EXPORT
 NS_SWIFT_NAME(Cookie)
 @interface PaneCookie : NSObject
 
-- (instancetype)initWithName:(NSString*)name
-                       value:(NSString*)value
-                      domain:(NSString*)domain
-                        path:(NSString*)path
-                      secure:(BOOL)secure
-                    httpOnly:(BOOL)httpOnly
-              expirationDate:(nullable NSDate*)expirationDate
-                    sameSite:(PaneCookieSameSite)sameSite
-    NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
 @property(readonly, copy) NSString* name;
@@ -46,31 +37,13 @@ NS_SWIFT_NAME(Cookie)
 
 @end
 
-// A profile's cookies and site data. Completions run on the main thread.
+// A profile's cookies and cache. Completions run on the main thread.
 @interface PaneBrowserContext (PaneCookies)
 
 // Every cookie of the profile.
 - (void)getCookiesWithCompletion:
     (void (^)(NSArray<PaneCookie*>* cookies))completion
     NS_SWIFT_NAME(cookies(completion:));
-
-// Stores `cookie`, as a response from its domain would. NO when Chrome
-// refuses it (a domain it cannot be set on, say).
-- (void)setCookie:(PaneCookie*)cookie
-       completion:(void (^)(BOOL stored))completion
-    NS_SWIFT_NAME(setCookie(_:completion:));
-
-// Deletes the cookie with `cookie`'s name, domain, and path.
-- (void)deleteCookie:(PaneCookie*)cookie
-          completion:(void (^)(BOOL deleted))completion
-    NS_SWIFT_NAME(deleteCookie(_:completion:));
-
-// Clears what `origins` stored besides cookies: their cache, local storage,
-// IndexedDB, service workers, Cache Storage, background fetches, and file
-// systems.
-- (void)clearSiteDataForOrigins:(NSArray<NSURL*>*)origins
-                     completion:(void (^)(void))completion
-    NS_SWIFT_NAME(clearSiteData(origins:completion:));
 
 // The bytes the profile's HTTP cache holds on disk.
 - (void)getCacheSizeWithCompletion:(void (^)(int64_t bytes))completion

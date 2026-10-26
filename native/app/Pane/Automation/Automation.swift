@@ -386,18 +386,6 @@ final class Automation {
 				self?.cacheSizes[profileID] = await context.cacheSize()
 			}
 
-		case "setChromiumPath":
-			// The Chrome the Google sign-in fallback opens.
-			model.settings.chromiumPath = try string("path")
-
-		case "googleTransfer":
-			// The transfer page's button.
-			controller.google.transfer(try string("tab"))
-
-		case "googleSignOut":
-			// The profile menu's Sign out of Google, once confirmed.
-			controller.signOutOfGoogle(try string("profile"))
-
 		case "readCookies":
 			// { profile }: read in the background; the snapshot's
 			// profiles[].cookies has them once read.
@@ -725,7 +713,6 @@ final class Automation {
 					"color": profile.color.rawValue,
 					"expanded": model.expandedProfileIDs.contains(profile.id),
 					"proxyStatus": model.proxyStatus[profile.id]?.rawValue ?? NSNull(),
-					"googleSignedIn": model.googleSignedIn.contains(profile.id),
 					"keepLoaded": profile.keepLoaded,
 					"cacheSize": cacheSizes[profile.id].map { $0 as Any } ?? NSNull(),
 					"cookies": cookies[profile.id] ?? NSNull(),
@@ -746,14 +733,6 @@ final class Automation {
 							"loading": model.loadingProgress[tab.id] != nil,
 							"canGoBack": model.navigation[tab.id]?.canGoBack ?? false,
 							"canGoForward": model.navigation[tab.id]?.canGoForward ?? false,
-							// The transfer page, while a real Chrome signs in.
-							"googleSignIn": model.googleSignIns[tab.id].map { signIn in
-								[
-									"transferring": signIn.transferring,
-									"error": signIn.error ?? NSNull(),
-									"chromeProfile": controller.google.chromeProfile(of: tab.id)?.path ?? NSNull(),
-								] as [String: Any]
-							} ?? NSNull(),
 						] as [String: Any]
 					},
 				] as [String: Any]

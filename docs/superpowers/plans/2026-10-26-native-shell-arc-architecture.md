@@ -280,9 +280,8 @@ docs/native/parity.md
   - The config reaches each renderer process through its profile, since a renderer never serves two profiles.
   - Prefer Blink-level patches over script injection wherever the surface allows (UA/Client Hints, timezone, hardwareConcurrency, deviceMemory, screen). Record each borrowed patch in `native/NOTICE`.
 - [x] **5.3** Google sign-in.
-  - Port the `/rejected` interception and its fallback from `google/auth-window.ts` and `google/sign-in.ts` (a real Chrome plus cookie import through the engine cookie API) in all cases. It only triggers when Google rejects the engine, so it costs nothing when the engine is accepted.
-  - Port `signOut`/`signedIn` (`sign-out.ts`, `sessions.ts`).
-  - Automated check: `accounts.google.com` loads its identifier page in a profile without redirecting to `/rejected`.
+  - Automated check: `accounts.google.com` loads its identifier page in a profile without redirecting to `/rejected`, with and without a fingerprint.
+  - Dropped by the user's decision (2026-10-26): the `/rejected` fallback (`google/auth-window.ts`, `google/sign-in.ts`: a real Chrome plus a cookie transfer) and Sign out of Google (`sign-out.ts`, `sessions.ts`). Both were workarounds for Google rejecting the Electron engine; a browser has neither, and Google accepts the native engine.
 - [x] **5.4** Sleep, Unload, Keep loaded, and Trim, exactly as `CONTEXT.md` defines them.
   - Port the policy in `sleep-scheduler.ts` and all of `sleep-scheduler.test.ts` to `PaneKit`.
   - The engine exposes: discard (release the page, keep the tab entry), freeze, the audible/DevTools/recent-interaction signals, cache size, and trim. Trim clears the HTTP cache and service worker caches only, never cookies, local storage, or IndexedDB.
@@ -291,7 +290,7 @@ docs/native/parity.md
   - Existing bcrypt hashes from `security.json` are verified with a vetted bcrypt implementation; no homemade crypto.
   - The panic wipe as in `security/wipe.ts`.
 - [ ] **5.6** The remaining surfaces.
-  - Settings: theme, sleep and unload minutes, cache budget, Chrome detection for the sign-in fallback.
+  - Settings: theme, sleep and unload minutes, cache budget.
   - The profile sheet: name, color, group, the fingerprint editor with `default-fingerprints.ts` presets and `host-webgl.ts` detection, the proxy editor with its test, keep loaded; a fingerprint change reopens the profile's open tabs in new renderers (5.2 applies it to new renderers only).
   - The update check through the GitHub Releases API (ADR 0002), with the quiet sidebar pill from `DESIGN.md`.
   - Chrome's own background requests to Google (seen in 5.1: `accounts.google.com`, `www.google.com`): find their sources, and turn off those the Electron app never made.
@@ -303,7 +302,7 @@ docs/native/parity.md
 **Acceptance**
 - Against local test proxies started by the runner (HTTP with auth, SOCKS5 with auth), profile A's requests go through A's proxy (proxy logs) while profile B connects directly, and the WebRTC fixture shows no local IP leak in A → `proxy.json`
 - For two profiles with different configs, the fingerprint fixture reports exactly each profile's configured values in a main frame, an iframe, a dedicated worker, and a service worker. `toString` checks pass, and the `Sec-CH-UA*` headers a local echo server receives match `navigator.userAgentData` → `fingerprint.json`
-- The Google identifier page loads with no `/rejected` redirect, and the fallback's interception is covered by a scenario that serves a fake `/rejected` URL → `google.json`. **[HUMAN]** (deferred to the checklist): sign in to a real Google account
+- The Google identifier page loads with no `/rejected` redirect, with and without a fingerprint → `google.json`. **[HUMAN]** (deferred to the checklist): sign in to a real Google account
 - `PaneKit` tests include every case ported from `sleep-scheduler.test.ts` and `client-hints.test.ts`, and all pass → `swift-test.txt`
 - Scenario `sleep` (debug time scale): a tab sleeps after the configured minutes, a Keep-loaded profile never sleeps, and a trimmed profile keeps its login cookie → `sleep.json`
 - Scenario `migration` on a copied data directory: profiles, tabs, settings, and PIN migrate, and a cookie set in the Electron app exists in the native profile → `migration.json`

@@ -46,8 +46,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 
 	func browserApplicationWillShutDown(_ application: BrowserApplication) {
 		controller?.model.saveNow()
-		// Any Chrome still open to sign in to Google quits with Pane.
-		controller?.google.cancelAll()
 	}
 
 	// `Pane https://…` opens the URL as a new tab, in the first profile (made

@@ -12,13 +12,15 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 - **Phase 4 · Sign in to 1Password and NordPass, and autofill a login form.** Both install from the Web Store and their toolbar buttons open their own pages (`native/evidence/phase-4/1password.png`, `nordpass.png`; until you sign in, each opens its welcome page in a tab, as in Chrome). Signing in uses your accounts, so it is yours: in a Pane profile, sign in from each manager's button, then open `native/engine/tests/pages/password.html` (served by any scenario run, or open the file) and check each one offers to fill the form.
 
-- **Phase 5 · Sign in to a real Google account.** Signing in uses your account, so it is yours. In a Pane profile, open `https://accounts.google.com` and sign in. Google accepted the engine in every run so far (`native/evidence/phase-5/google.json`); if it shows "This browser or app may not be secure" instead, Pane opens Chrome on Google's sign-in: sign in there, come back, and press Transfer session to Pane. Then check Gmail opens signed in, right-click the profile for Sign out of Google, and check Gmail asks you to sign in again.
+- **Phase 5 · Sign in to a real Google account.** Signing in uses your account, so it is yours. In a Pane profile, open `https://accounts.google.com`, sign in, and check Gmail opens signed in. Google accepted the engine in every run so far (`native/evidence/phase-5/google.json`). If it ever shows "This browser or app may not be secure", note it here: Pane no longer has a workaround for it.
 
 - **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in `native/DECISIONS.md`.
 
 - **Phase 2 · parity.md — review the Electron-only rows marked ⛔.** They are internals of the Electron architecture with no user-facing equivalent to port: `stores.push`/`stores.sync` (cross-process state sync), `tabs.hideAll`/`showActive` and `ui.present`/`dismiss` (an overlay window above page views; native sheets draw above pages), and the app-UI DevTools shortcut (⌥⌘I; the app UI is native). Nothing to do unless one of them should stay; the justification is in each row of `docs/native/parity.md`.
 
 ## Done
+
+- **Phase 5 · Google sign-in fallback and Sign out of Google dropped** (2026-10-26, your decision). Both were workarounds for Google rejecting the Electron engine, which a browser does not have; Google accepts the native engine (`native/evidence/phase-5/google.json`). The rows in `docs/native/parity.md` are marked dropped.
 
 - **Design · Paper access** (2026-10-26). The Paper app was installed but closed; opened in the background, its local MCP server gave read access to the Pane file, and the native UI was matched to it and to the Electron app (`native/evidence/design/`, DECISIONS: Design fidelity).
 

@@ -26,13 +26,6 @@ export type TabState = {
 	loading: boolean;
 	canGoBack: boolean;
 	canGoForward: boolean;
-	// The transfer page, while a real Chrome signs in to Google: its
-	// temporary profile holds the DevToolsActivePort.
-	googleSignIn: {
-		transferring: boolean;
-		error: string | null;
-		chromeProfile: string | null;
-	} | null;
 };
 
 export type ProfileState = {
@@ -44,9 +37,11 @@ export type ProfileState = {
 	proxyStatus: "testing" | "connected" | "failed" | null;
 	// What the engine applied, once the profile is open.
 	network: { proxyRules: string | null; webRTCIPHandlingPolicy: string } | null;
-	googleSignedIn: boolean;
+	keepLoaded: boolean;
 	// Names, domains, and paths, once read with readCookies.
 	cookies: { name: string; domain: string; path: string }[] | null;
+	// The HTTP cache's bytes, once read with readCacheSize.
+	cacheSize: number | null;
 	tabs: TabState[];
 };
 

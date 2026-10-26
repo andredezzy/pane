@@ -55,19 +55,25 @@ const sleep: Scenario = async (context) => {
 
 	// A: a background tab, one with DevTools, and the selected one.
 	const a = await app.createProfile("Active", "BLUE");
+
 	const a1 = await app.openTab(
 		a,
 		context.fixtures.url("nav-a.html?background"),
 	);
+
 	const a3 = await app.openTab(a, context.fixtures.url("nav-a.html?devtools"));
+
 	await app.waitFor(
 		"a3 loaded",
 		(state) => loaded(state, a3) && !tabOf(state, a3)?.loading,
 	);
+
 	await app.send("toggleDevTools");
+
 	await app.waitFor("DevTools on a3", (state) =>
 		state.devToolsTabs.includes(a3),
 	);
+
 	const a2 = await app.openTab(a, context.fixtures.url("nav-a.html?selected"));
 	const backgrounded = Date.now();
 
@@ -76,6 +82,7 @@ const sleep: Scenario = async (context) => {
 		(state) => !loaded(state, a1),
 		15_000,
 	);
+
 	const sleptAfter = (Date.now() - backgrounded) / 1000;
 
 	// Two scaled minutes, plus up to a tick.
@@ -105,6 +112,7 @@ const sleep: Scenario = async (context) => {
 	expect(loaded(settled, a2), "the selected tab slept");
 	expect(loaded(settled, a3), "the tab with DevTools open slept");
 	expect(loaded(settled, k1), "a Keep loaded profile's tab slept");
+
 	expect(
 		!loaded(settled, a1) && !loaded(settled, b1),
 		"a sleeping tab woke by itself",
@@ -160,10 +168,12 @@ const sleep: Scenario = async (context) => {
 		identity.cookie.includes("pane_session=signed-in"),
 		`the woken page's cookies: ${identity.cookie}`,
 	);
+
 	expect(
 		identity.storage === "kept",
 		`the woken page's local storage: ${identity.storage}`,
 	);
+
 	expect(
 		!identity.caches.includes("pane-trim") && !entry,
 		`Cache Storage survived the trim: ${JSON.stringify(identity.caches)}`,

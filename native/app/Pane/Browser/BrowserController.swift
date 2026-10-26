@@ -40,13 +40,6 @@ final class BrowserController: NSObject {
 	private(set) var pendingDeletions: Set<String> = []
 	// Each profile's proxy and WebRTC policy.
 	let network: ProfileNetwork
-	// Google sign-in through a real Chrome, when Google rejects the engine.
-	private(set) lazy var google = GoogleSignIn(
-		model: model,
-		context: { [weak self] in self?.contexts[$0] },
-		load: { [weak self] tabID, url in self?.pages[tabID]?.load(url) },
-		sessionDidChange: { [weak self] in self?.refreshGoogleSession($0) }
-	)
 
 	init(model: BrowserModel, application: BrowserApplication) {
 		self.model = model
@@ -136,7 +129,6 @@ final class BrowserController: NSObject {
 				let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
 				contexts[profileID] = context
 				refreshExtensions(profileID)
-				refreshGoogleSession(profileID)
 				waiters.forEach { $0(context) }
 			}
 		}
@@ -294,7 +286,6 @@ final class BrowserController: NSObject {
 		page.nativeView.removeFromSuperview()
 		page.closeImmediately()
 		devTools[tabID] = nil
-		google.cancel(tabID)
 		model.setLoaded(tabID, false)
 	}
 
@@ -484,7 +475,6 @@ extension BrowserController: BrowserWindowDelegate {
 		tabIDs[ObjectIdentifier(tab)] = nil
 		pages[tabID] = nil
 		devTools[tabID] = nil
-		google.cancel(tabID)
 		tab.nativeView.removeFromSuperview()
 
 		let wasActive = model.activeTabID == tabID
@@ -566,12 +556,6 @@ extension BrowserController: WebContentsDelegate {
 			return
 		}
 
-		// Google's rejection shows the transfer page and stays out of the
-		// tab's history.
-		if let profileID = model.profileID(ofTab: tabID), google.handle(url, tabID: tabID, profileID: profileID) {
-			return
-		}
-
 		model.updateTab(tabID) { $0.url = url.absoluteString }
 	}
 
@@ -581,13 +565,6 @@ extension BrowserController: WebContentsDelegate {
 		}
 
 		model.setLoading(tabID, progress: isLoading ? progress : nil)
-
-		// A Google page may have signed the profile in or out.
-		if !isLoading, let url = webContents.url, GoogleAccounts.isGoogleURL(url.absoluteString),
-		   let profileID = model.profileID(ofTab: tabID)
-		{
-			refreshGoogleSession(profileID)
-		}
 	}
 
 	func webContents(_ webContents: WebContents, didUpdateFavicon favicon: NSImage) {

@@ -27,7 +27,7 @@ const html = (title: string, body: string) =>
 
 // Pages that are not files: HTTP authentication (user "pane", password
 // "secret"), a POST echo for form resubmission, an IP echo, a request header
-// echo, and Google's accounts pages.
+// echo, and a sign-in for the sleep scenario.
 async function route(
 	request: Request,
 	pathname: string,
@@ -91,23 +91,6 @@ async function route(
 				"Cache-Control": "public, max-age=3600",
 			},
 		});
-	}
-
-	// Stand-ins for Google's accounts pages, for the sign-in fallback
-	// (PANE_GOOGLE_ACCOUNTS_ORIGIN points the app here): the rejection that
-	// starts it, and the sign-in page the real Chrome opens.
-	if (pathname.endsWith("/rejected")) {
-		return html(
-			"Couldn’t sign you in",
-			"<h1>Couldn’t sign you in</h1><p>This browser or app may not be secure.</p>",
-		);
-	}
-
-	if (pathname === "/ServiceLogin") {
-		return html(
-			"Sign in",
-			"<h1>Sign in</h1><p>A stand-in for Google's sign-in.</p>",
-		);
 	}
 
 	// The fingerprint page asks for every UA Client Hint, so the requests

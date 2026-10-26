@@ -43,12 +43,6 @@ final class BrowserModel {
 	// Each proxied profile's last connection test (the Electron app's
 	// proxy-status-store), for the sidebar's dot.
 	var proxyStatus: [String: ProxyStatus] = [:]
-	// Tabs on Google's rejection, signing in through a real Chrome (the
-	// transfer page).
-	var googleSignIns: [String: GoogleSignIn.State] = [:]
-	// Open profiles signed in to Google, as last checked: the sidebar offers
-	// "Sign out of Google" for them.
-	var googleSignedIn: Set<String> = []
 	// Called when a profile's proxy changes, to apply it to the engine.
 	@ObservationIgnored var proxyDidChange: ((String) -> Void)?
 	@ObservationIgnored var fingerprintDidChange: ((String) -> Void)?
