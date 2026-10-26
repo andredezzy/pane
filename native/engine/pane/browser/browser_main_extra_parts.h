@@ -3,6 +3,7 @@
 #ifndef PANE_BROWSER_BROWSER_MAIN_EXTRA_PARTS_H_
 #define PANE_BROWSER_BROWSER_MAIN_EXTRA_PARTS_H_
 
+#include "base/callback_list.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -36,6 +37,7 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
  private:
   base::ScopedObservation<ProfileManager, ProfileManagerObserver>
       profile_manager_observation_{this};
+  base::CallbackListSubscription app_terminating_subscription_;
 };
 
 }  // namespace pane

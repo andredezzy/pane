@@ -671,14 +671,76 @@ void WindowHost::ScheduleDialogPositionUpdate() {
 
 namespace {
 
-BrowserWindow* HostChromeBrowser(Browser* browser) {
-  // Undocked DevTools get a window of Pane's (devtools_window_host.mm).
-  if (browser->GetType() == BrowserWindowInterface::TYPE_DEVTOOLS) {
-    return CreateDevToolsWindow(browser);
+// The Pane window that shows `profile`'s tabs: the one with its Browser, else
+// the first of the app's windows (not a DevTools window).
+WindowHost* PaneWindowFor(Profile* profile) {
+  WindowHost* first = nullptr;
+  for (WindowHost* host : WindowHost::All()) {
+    if (host->closing() || [host->ns_window().identifier
+                               isEqualToString:@"pane.devtools"]) {
+      continue;
+    }
+    if (host->ExistingBrowserFor(profile)) {
+      return host;
+    }
+    first = first ? first : host;
   }
-  // Other Browsers Chrome makes itself (extension windows, popups it opens
-  // without a tab) keep Chrome's own window for now (plan, Phase 4).
-  return nullptr;
+  return first;
+}
+
+// A window Chrome opens itself (an extension's chrome.windows.create, a
+// window.open Chrome keeps as a window) becomes tabs of the profile in the
+// Pane window, as in the Electron app: its tabs move into the profile's
+// Browser there, and the emptied Browser closes. Chrome builds the Browser
+// before it can be emptied, so the move waits a task.
+BrowserWindow* ForwardToPaneWindow(Browser* browser) {
+  WindowHost* host = PaneWindowFor(browser->GetProfile());
+  if (!host) {
+    return nullptr;
+  }
+  Trace("call", "WindowHost.forwardWindow",
+        base::DictValue().Set("type", static_cast<int>(browser->GetType())));
+  auto* window = new HostedBrowserWindow(host->GetWeakPtr());
+  window->AttachBrowser(browser);
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<WindowHost> host,
+             base::WeakPtr<BrowserWindowInterface> alive, Browser* forwarded) {
+            if (!alive) {
+              return;
+            }
+            Browser* destination =
+                host ? host->BrowserFor(forwarded->GetProfile()) : nullptr;
+            TabStripModel* from = forwarded->GetTabStripModel();
+            while (destination && !from->empty()) {
+              const bool active = from->active_index() == 0;
+              destination->GetTabStripModel()->AppendWebContents(
+                  from->DetachWebContentsAtForInsertion(0), active);
+            }
+            if (alive) {
+              forwarded->GetWindow()->Close();
+            }
+          },
+          host->GetWeakPtr(), browser->GetWeakPtr(), browser));
+  return window;
+}
+
+BrowserWindow* HostChromeBrowser(Browser* browser) {
+  switch (browser->GetType()) {
+    // Undocked DevTools get a window of Pane's (devtools_window_host.mm).
+    case BrowserWindowInterface::TYPE_DEVTOOLS:
+      return CreateDevToolsWindow(browser);
+    case BrowserWindowInterface::TYPE_NORMAL:
+    case BrowserWindowInterface::TYPE_POPUP:
+    case BrowserWindowInterface::TYPE_APP:
+    case BrowserWindowInterface::TYPE_APP_POPUP:
+      return ForwardToPaneWindow(browser);
+    default:
+      // Document picture-in-picture keeps Chromium's floating window, as video
+      // picture-in-picture does (native/DECISIONS.md).
+      return nullptr;
+  }
 }
 
 bool KeepsWindowWithoutTabs(const BrowserWindowInterface* browser) {
@@ -686,8 +748,17 @@ bool KeepsWindowWithoutTabs(const BrowserWindowInterface* browser) {
   if (browser->GetType() == BrowserWindowInterface::TYPE_DEVTOOLS) {
     return false;
   }
+  // Only the window's own Browsers stay; a forwarded one closes once emptied.
   WindowHost* host = WindowHost::ForBrowser(browser);
-  return host && !host->closing();
+  if (!host || host->closing()) {
+    return false;
+  }
+  for (Browser* own : host->browsers()) {
+    if (own == browser) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::unique_ptr<BrowserWebContentsDelegate> CreateWebContentsDelegate(

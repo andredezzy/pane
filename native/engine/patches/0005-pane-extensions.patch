@@ -1,0 +1,105 @@
+diff --git a/chrome/browser/extensions/api/extension_action/extension_action_api.cc b/chrome/browser/extensions/api/extension_action/extension_action_api.cc
+index 35e0c913d6..52613433cc 100644
+--- a/chrome/browser/extensions/api/extension_action/extension_action_api.cc
++++ b/chrome/browser/extensions/api/extension_action/extension_action_api.cc
+@@ -57,9 +57,18 @@
+ #include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
+ #endif  // !BUILDFLAG(IS_ANDROID)
+ 
++#include "pane/browser/extensions/extension_hooks.h"  // nogncheck
++
+ using content::WebContents;
+ using extensions::browser_window_util::GetLastActiveBrowserWithProfile;
+ 
++// Pane: see pane/browser/extensions/extension_hooks.h.
++std::optional<bool> (*g_pane_open_action_popup)(
++    BrowserWindowInterface& browser,
++    const extensions::Extension& extension,
++    ShowPopupCallback& callback,
++    std::string* error) = nullptr;
++
+ namespace extensions {
+ 
+ namespace {
+@@ -140,6 +149,13 @@ bool OpenPopupInBrowser(BrowserWindowInterface& browser,
+                         const Extension& extension,
+                         std::string* error,
+                         ShowPopupCallback callback) {
++  // Pane: its windows show action popups themselves.
++  if (g_pane_open_action_popup) {
++    if (std::optional<bool> shown =
++            g_pane_open_action_popup(browser, extension, callback, error)) {
++      return *shown;
++    }
++  }
+ #if !BUILDFLAG(IS_ANDROID)
+   // On Android, the extension toolbar exists if and only if ExtensionsContainer
+   // exists, so the check below is sufficient.
+diff --git a/chrome/browser/ui/extensions/extension_install_ui_desktop.cc b/chrome/browser/ui/extensions/extension_install_ui_desktop.cc
+index c9e2a59c3e..80a4bf3854 100644
+--- a/chrome/browser/ui/extensions/extension_install_ui_desktop.cc
++++ b/chrome/browser/ui/extensions/extension_install_ui_desktop.cc
+@@ -63,6 +63,14 @@
+ #include "chrome/common/url_constants.h"
+ #endif
+ 
++#include "pane/browser/extensions/extension_hooks.h"  // nogncheck
++
++// Pane: see pane/browser/extensions/extension_hooks.h.
++bool (*g_pane_extension_installed)(
++    Profile* profile,
++    scoped_refptr<const extensions::Extension> extension,
++    const SkBitmap* icon) = nullptr;
++
+ using content::BrowserThread;
+ using content::WebContents;
+ using extensions::Extension;
+@@ -130,6 +138,12 @@ void ExtensionInstallUIDesktop::OnInstallSuccess(
+     return;
+   }
+ 
++  // Pane: the app hears of the install, for the profiles it has open.
++  if (g_pane_extension_installed &&
++      g_pane_extension_installed(profile(), extension, icon)) {
++    return;
++  }
++
+   // Extensions aren't enabled by default in incognito so we confirm
+   // the install in a normal window.
+   Profile* current_profile = profile()->GetOriginalProfile();
+diff --git a/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc b/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc
+index 83ce5b59c1..f4c85ce3bc 100644
+--- a/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc
++++ b/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc
+@@ -60,10 +60,18 @@
+ #include "ui/views/widget/widget_delegate.h"
+ #include "ui/views/window/dialog_delegate.h"
+ 
++#include "pane/browser/extensions/extension_hooks.h"  // nogncheck
++
+ using content::OpenURLParams;
+ using content::Referrer;
+ using extensions::InstallPromptData;
+ 
++// Pane: see pane/browser/extensions/extension_hooks.h.
++bool (*g_pane_extension_install_dialog)(
++    std::unique_ptr<ExtensionInstallPromptShowParams>& show_params,
++    ExtensionInstallPrompt::DoneCallback& done_callback,
++    std::unique_ptr<extensions::InstallPromptData>& prompt) = nullptr;
++
+ namespace {
+ 
+ // Time delay before the install button is enabled after initial display.
+@@ -88,6 +96,12 @@ void ShowExtensionInstallDialogImpl(
+     std::unique_ptr<InstallPromptData> prompt) {
+   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+ 
++  // Pane: the app asks, for the profiles it has open.
++  if (g_pane_extension_install_dialog &&
++      g_pane_extension_install_dialog(show_params, done_callback, prompt)) {
++    return;
++  }
++
+   // If the dialog has to be parented to WebContents, force activate the
+   // contents. See crbug.com/40059470.
+   content::WebContents* web_contents = show_params->GetParentWebContents();

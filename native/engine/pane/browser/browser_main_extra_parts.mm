@@ -2,7 +2,10 @@
 
 #include "pane/browser/browser_main_extra_parts.h"
 
+#include "base/functional/bind.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/devtools/chrome_devtools_manager_delegate.h"
+#include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "pane/browser/ui/window_host.h"
@@ -37,6 +40,19 @@ void BrowserMainExtraParts::OnProfileManagerDestroying() {
 
 void BrowserMainExtraParts::PostBrowserStart() {
   InstallUIHooks();
+  // Contexts let go of their profiles as quitting starts, while the message
+  // loop still runs, as Chrome's windows do when they close: profiles then
+  // unload with their processes. Released after the loop, a profile could be
+  // left for teardown with a live service worker process.
+  //
+  // Quitting also outranks a remote debugging client: Chrome started without
+  // a window stays up for one until it closes the browser itself, but Pane's
+  // windows are the app's, and Quit is the user's call.
+  app_terminating_subscription_ =
+      browser_shutdown::AddAppTerminatingCallback(base::BindOnce([] {
+    ChromeDevToolsManagerDelegate::AllowBrowserToClose();
+    [PaneBrowserApplication.sharedApplication engineWillShutDown];
+  }));
   [PaneBrowserApplication.sharedApplication engineDidStart];
 }
 

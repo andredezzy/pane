@@ -76,6 +76,9 @@ for (const name of positionals) {
 			ok: false,
 			ms: Date.now() - startedAt,
 			error: String(error),
+			...(error instanceof ScenarioFailure || !(error instanceof Error)
+				? {}
+				: { stack: error.stack }),
 		};
 	} finally {
 		await Promise.all(browsers.map((browser) => browser.close()));

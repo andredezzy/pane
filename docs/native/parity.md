@@ -8,10 +8,10 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 
 | Feature | Electron source | Phase | Status | Evidence |
 |---|---|---|---|---|
-| `cws.install` — install an extension from the Chrome Web Store | `routers/cws.ts`, `main/extensions.ts` | 4 | — | |
-| `cws.uninstall` — remove an extension | `routers/cws.ts` | 4 | — | |
-| `cws.installed` — list installed Web Store extensions | `routers/cws.ts` | 4 | — | |
-| `extensions.list` — extensions loaded in a profile | `routers/extensions.ts` | 4 | — | |
+| `cws.install` — install an extension from the Chrome Web Store | `routers/cws.ts`, `main/extensions.ts` | 4 | ✅ | The Web Store page's own Add to Chrome, then Pane's install sheet (Chrome's `ExtensionInstallPrompt`, hooked): `phase-4/dark-reader.json`, `phase-4/ubol.json`, `phase-4/password-managers.json`; by ID in Settings: `phase-4/extension-management.json` |
+| `cws.uninstall` — remove an extension | `routers/cws.ts` | 4 | ✅ | Settings › Extensions › Remove, after a confirmation: `phase-4/extension-management.json` |
+| `cws.installed` — list installed Web Store extensions | `routers/cws.ts` | 4 | ✅ | `PaneBrowserContext.extensions`: `phase-4/extension-management.json` |
+| `extensions.list` — extensions loaded in a profile | `routers/extensions.ts` | 4 | ✅ | Per profile, Dark Reader in A only: `phase-4/dark-reader.json` |
 | `hotkeys.events` — app shortcuts reach the UI | `routers/hotkeys.ts`, `emitters/hotkey-emitter.ts` | 2 | ✅ | `phase-2/shortcuts.json` — the app's own menu and key monitor; no IPC |
 | `profiles.testProxy` — test a proxy before saving | `routers/profiles.ts`, `profile/proxy-test.ts` | 5 | — | |
 | `profiles.load` — load a profile's session | `routers/profiles.ts`, `pane.ts` | 2 | ✅ | `phase-2/profiles-isolation.json`, `phase-2/profile-lifecycle.json` |
@@ -44,7 +44,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Sidebar: drag to reorder profiles and tabs | `docs/superpowers/plans/2026-05-06-sidebar-reordering.md` | 2 | 🟡 | Reorder model proven (`phase-2/restore.json`); the drag gesture waits for an unlocked screen |
 | Profile context menu: Edit, Keep loaded, Sign out of Google, Delete | `app/layout.tsx` | 2 (5 for sign-out) | 🟡 | Edit, Keep loaded, Delete built; on-screen check waits for an unlocked screen (sign-out: Phase 5) |
 | Tab context menu | `components/sidebar/tab-item.tsx` | 2 | 🟡 | Built; on-screen check waits for an unlocked screen |
-| Toolbar: back, forward, reload/stop, address field, extension actions | `app/browser/_components/toolbar.tsx`, `browser-action-list.tsx` | 2 (4 for actions) | 🟡 | Back, forward, reload/stop, address: `phase-2/navigation.json`, `phase-2/shortcuts.json`, `phase-2/switcher.png`; extension actions: Phase 4 |
+| Toolbar: back, forward, reload/stop, address field, extension actions | `app/browser/_components/toolbar.tsx`, `browser-action-list.tsx` | 2 (4 for actions) | ✅ | Back, forward, reload/stop, address (following the selected tab): `phase-2/navigation.json`, `phase-2/shortcuts.json`, `phase-2/switcher.png`, `phase-4/regression/navigation.json`; pinned actions with icon and badge, the extensions menu, popups in a popover sized to the page, clicked with CUA: `phase-4/dark-reader.json`, `phase-4/dark-reader-popup.png`, `phase-4/password-managers.json` |
 | Page framed in a rounded, inset card with a soft shadow | `components/content-panel.tsx` | 2 | 🟡 | Card visible in `phase-2/switcher.png`; page pixels inside it wait for an unlocked screen |
 | Empty state (no profile or tab) | `app/browser/_components/empty-state.tsx` | 2 | ✅ | `phase-2/empty-state.png`, `phase-2/profile-lifecycle.json` |
 | Find bar (count, next, previous, Escape) | `app/browser/_components/find-bar.tsx` | 2 | ✅ | `phase-2/find.json`, `phase-2/shortcuts.json` (⌘F focus, Escape) |
@@ -57,7 +57,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Settings: Appearance (theme) | `app/settings/page.tsx` | 2 | ✅ | `phase-2/theme.json`, `phase-2/shortcuts.json` (⌘,) |
 | Settings: Browser (Chrome path, auto-detect) | `app/settings/page.tsx` | 5 | — | |
 | Settings: Resources (sleep after, unload after, trim cache over) | `app/settings/_components/resource-settings.tsx` | 5 | — | |
-| Settings: Extensions (install from Web Store URL/ID, list, uninstall) | `app/settings/_components/extension-settings.tsx` | 4 | — | |
+| Settings: Extensions (install from Web Store URL/ID, list, uninstall) | `app/settings/_components/extension-settings.tsx` | 4 | ✅ | Install by ID, disable, enable, pin, unpin, update, remove, each clicked with CUA: `phase-4/extension-management.json` |
 | Settings: Security (set up, change, remove PIN) | `app/settings/page.tsx` | 5 | — | |
 | Settings: Updates (check, download) | `app/settings/page.tsx`, `components/update-status-label.tsx` | 5 | — | |
 | Lock screen with PIN numpad | `app/lock-screen/page.tsx`, `components/numpad.tsx` | 5 | — | |
@@ -97,7 +97,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Expanded profiles (not persisted) | `sidebar-store.ts` | 2 | ✅ | `phase-2/restore.json` |
 | Current page: browser or settings | `navigation-store.ts` | 2 | ✅ | `phase-2/shortcuts.json` (⌘,) |
 | PIN hash (bcrypt) and lock state | `security-store.ts` (`security.json`) | 5 | — | |
-| Installed extensions per profile | `extension-store.ts` | 4 | — | |
+| Installed extensions per profile | `extension-store.ts` | 4 | ✅ | Chrome's extension system, one per profile (the store is gone): `phase-4/dark-reader.json` |
 | Proxy status per profile | `proxy-status-store.ts` | 5 | — | |
 | Update status (checking, available, downloading) | `update-store.ts` | 5 | — | |
 | Migration of all of the above from the Electron app | (new) | 5 | — | |
@@ -142,5 +142,5 @@ Surfaces Chrome would show in its own dialogs, bubbles, and windows. Each is the
 | Per-profile fingerprint and Client Hints | `profile/fingerprint-preload.ts`, `client-hints.ts` | 5 | — | |
 | Google sign-in fallback (real Chrome + cookie import) | `profile/google/*` | 5 | — | |
 | Sleep, Unload, Keep loaded, Trim | `sleep-scheduler.ts`, CONTEXT.md | 5 | — | |
-| Chrome extensions (actions, popups, tabs/windows APIs) | `packages/electron-chrome-extensions` | 4 | — | |
+| Chrome extensions (actions, popups, tabs/windows APIs) | `packages/electron-chrome-extensions` | 4 | ✅ | Chrome's own, in hidden Browsers: `tabs.query({active, currentWindow})` from a popup and a worker, `tabs.create`, `tabs.update({active})`: `phase-4/tabs-api.json`; `windows.create` opens a tab in the extension's profile, as the Electron app did (Pane has one window per profile set, no popup windows): `phase-4/tabs-api.json`; blocking rules (uBlock Origin Lite): `phase-4/ubol.json`; password managers: `phase-4/password-managers.json` |
 | Chrome password manager and autofill prompts | — | 3 | ✅ | Off by default (Pane relies on extension password managers): `phase-3/password-manager-off.json`, `phase-3/hooks-check.txt` |

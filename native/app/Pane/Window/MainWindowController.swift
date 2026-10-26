@@ -24,6 +24,7 @@ final class MainWindowController {
 		root.frame = hostView.bounds
 		root.autoresizingMask = [.width, .height]
 		hostView.addSubview(root)
+		controller.hostingView = root
 	}
 
 	func showWindow() {

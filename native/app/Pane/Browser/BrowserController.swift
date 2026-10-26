@@ -29,6 +29,10 @@ final class BrowserController: NSObject {
 	// on screen.
 	private(set) var lastContextMenu: NSMenu?
 	private(set) var contextMenuOpen = false
+	// Shows extension action popups.
+	let extensionPopover = ExtensionPopover()
+	// The window's SwiftUI root, where toolbar buttons anchor popups.
+	weak var hostingView: NSView?
 	private var tabIDs: [ObjectIdentifier: String] = [:]
 	// The tab id the engine's next inserted tab gets (a tab the app opens).
 	private var pendingTabID: String?
@@ -71,6 +75,7 @@ final class BrowserController: NSObject {
 
 			context.delegate = self
 			contexts[profileID] = context
+			refreshExtensions(profileID)
 			waiters.forEach { $0(context) }
 		}
 	}
@@ -286,6 +291,8 @@ final class BrowserController: NSObject {
 		page.isVisible = true
 		docked?.isVisible = true
 		dialogs.selectionChanged()
+		// Actions show their state for the selected tab.
+		refreshExtensions(profileID)
 		browserWindow.window.title = page.title.isEmpty ? "Pane" : page.title
 	}
 
@@ -320,6 +327,11 @@ final class BrowserController: NSObject {
 	}
 
 	func reload() {
+		if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
+			reloadCrashed(tabID)
+			return
+		}
+
 		guard let page = activePage else {
 			model.activeTabID.map(select)
 			return
@@ -415,6 +427,31 @@ extension BrowserController: BrowserWindowDelegate {
 
 		if wasActive {
 			selectAfterClosing(inProfile: profileID)
+		}
+	}
+
+	// Chrome made another tab active: an extension's tabs.update or
+	// tabs.highlight, say. The app selects it too, unless the selected tab
+	// just closed: then the app picks the next one itself (selectAfterClosing),
+	// and Chrome's pick, which comes first, is dropped.
+	func browserWindow(_ window: BrowserWindow, didActivateTab tab: WebContents) {
+		guard let tabID = tabID(of: tab), model.activeTabID != tabID else {
+			return
+		}
+
+		let previous = model.activeTabID
+
+		DispatchQueue.main.async { [weak self] in
+			guard
+				let self,
+				model.activeTabID == previous,
+				previous.map({ model.profileID(ofTab: $0) != nil }) ?? true,
+				pages[tabID] != nil
+			else {
+				return
+			}
+
+			select(tabID: tabID)
 		}
 	}
 
@@ -628,7 +665,7 @@ extension BrowserController {
 		activePage?.printPage()
 	}
 
-	// The sad tab's Reload.
+	// The sad tab's Reload, or any reload of a crashed tab.
 	func reloadCrashed(_ tabID: String) {
 		model.setCrashed(tabID, false)
 		lastCrash[tabID] = nil
@@ -641,6 +678,88 @@ extension BrowserController {
 extension BrowserController: BrowserContextDelegate {
 	func browserContext(_ context: BrowserContext, didUpdate download: Download) {
 		NotificationCenter.default.post(name: .paneDownloadDidUpdate, object: download)
+	}
+
+	func browserContextDidChangeExtensions(_ context: BrowserContext) {
+		refreshExtensions(context.identifier)
+	}
+
+	func browserContext(_ context: BrowserContext, confirmExtensionInstall request: ExtensionInstallRequest) {
+		dialogs.enqueue(.extensionInstall(request), tabID: nil)
+	}
+
+	func browserContext(_ context: BrowserContext, didInstall installed: Extension) {
+		state.installedExtension = installed.name
+		refreshExtensions(context.identifier)
+	}
+
+	func browserContext(_ context: BrowserContext, show popup: ExtensionPopup, in window: BrowserWindow) {
+		guard let hostingView else {
+			popup.close()
+			return
+		}
+
+		let anchor = state.actionAnchors[popup.extensionIdentifier]
+			?? state.actionAnchors[WindowState.extensionsMenuAnchor]
+			?? NSRect(x: hostingView.bounds.maxX - 48, y: 8, width: 26, height: 26)
+		extensionPopover.show(popup, relativeTo: anchor, of: hostingView)
+	}
+}
+
+// MARK: - Extensions
+
+extension BrowserController {
+	// Opens the profile's engine context if it is not open yet, so its
+	// extensions can be listed and managed.
+	func openContextIfNeeded(profileID: String) {
+		withContext(profileID) { [weak self] _ in
+			self?.refreshExtensions(profileID)
+		}
+	}
+
+	func refreshExtensions(_ profileID: String) {
+		guard let context = context(for: profileID) else {
+			return
+		}
+
+		model.setExtensions(profileID, context.extensions.map(ExtensionInfo.init))
+	}
+
+	// The extension's toolbar action in the active profile: its popup, or
+	// chrome.action.onClicked.
+	func runExtensionAction(_ extensionID: String) {
+		guard let profileID = model.activeProfileID, let context = context(for: profileID) else {
+			return
+		}
+
+		context.runAction(ofExtension: extensionID, in: browserWindow)
+	}
+
+	// Installs from the Web Store into a profile; the engine asks first.
+	func installExtension(_ identifier: String, inProfile profileID: String) {
+		withContext(profileID) { [weak self] context in
+			guard let self else {
+				return
+			}
+
+			context.installExtension(identifier: identifier, window: browserWindow)
+		}
+	}
+
+	func setExtension(_ extensionID: String, enabled: Bool, inProfile profileID: String) {
+		context(for: profileID)?.setEnabled(enabled, forExtension: extensionID)
+	}
+
+	func setExtension(_ extensionID: String, pinned: Bool, inProfile profileID: String) {
+		context(for: profileID)?.setPinned(pinned, forExtension: extensionID)
+	}
+
+	func uninstallExtension(_ extensionID: String, inProfile profileID: String) {
+		context(for: profileID)?.uninstallExtension(extensionID)
+	}
+
+	func updateExtensions(inProfile profileID: String) {
+		context(for: profileID)?.updateExtensions()
 	}
 }
 

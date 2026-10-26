@@ -8,6 +8,10 @@
 #import "PaneExport.h"
 
 @class PaneBrowserContext;
+@class PaneBrowserWindow;
+@class PaneExtension;
+@class PaneExtensionInstallRequest;
+@class PaneExtensionPopup;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -45,6 +49,26 @@ NS_SWIFT_UI_ACTOR
 - (void)browserContext:(PaneBrowserContext*)context
      didUpdateDownload:(PaneDownload*)download;
 
+// Extensions (PaneExtensions.h) changed: installed, removed, enabled,
+// disabled, pinned, or an action's title, badge, or icon.
+- (void)browserContextDidChangeExtensions:(PaneBrowserContext*)context;
+
+// "Add <extension>?": Chrome asks before an install (the Web Store's "Add to
+// Chrome", or -installExtensionWithIdentifier:) or for new permissions. Not
+// implemented: Chrome's own dialog.
+- (void)browserContext:(PaneBrowserContext*)context
+    confirmExtensionInstall:(PaneExtensionInstallRequest*)request;
+
+// An extension was installed, where Chrome would show its "added" bubble.
+- (void)browserContext:(PaneBrowserContext*)context
+    didInstallExtension:(PaneExtension*)extension;
+
+// An action's popup is ready to show: the user ran the action, or the
+// extension called chrome.action.openPopup().
+- (void)browserContext:(PaneBrowserContext*)context
+    showExtensionPopup:(PaneExtensionPopup*)popup
+              inWindow:(PaneBrowserWindow*)window;
+
 @end
 
 // One Pane profile: its own cookies, storage, cache, and extensions, backed by
@@ -59,6 +83,29 @@ NS_SWIFT_UI_ACTOR
 
 // Where downloads go, without asking. Chrome's default is ~/Downloads.
 @property(copy) NSURL* downloadDirectory;
+
+// MARK: Extensions
+
+// Every extension installed in this profile, actions as for its active tab.
+@property(readonly) NSArray<PaneExtension*>* extensions;
+
+// Installs from the Chrome Web Store, asking first
+// (browserContext:confirmExtensionInstall:).
+- (void)installExtensionWithIdentifier:(NSString*)identifier
+                                window:(PaneBrowserWindow*)window
+    NS_SWIFT_NAME(installExtension(identifier:window:));
+- (void)setEnabled:(BOOL)enabled forExtension:(NSString*)identifier
+    NS_SWIFT_NAME(setEnabled(_:forExtension:));
+- (void)setPinned:(BOOL)pinned forExtension:(NSString*)identifier
+    NS_SWIFT_NAME(setPinned(_:forExtension:));
+- (void)uninstallExtension:(NSString*)identifier;
+// Checks the Web Store for updates now.
+- (void)updateExtensions;
+// A click on the extension's action in `window`: opens its popup
+// (browserContext:showExtensionPopup:inWindow:) or fires onClicked.
+- (void)runActionOfExtension:(NSString*)identifier
+                    inWindow:(PaneBrowserWindow*)window
+    NS_SWIFT_NAME(runAction(ofExtension:in:));
 
 - (instancetype)init NS_UNAVAILABLE;
 

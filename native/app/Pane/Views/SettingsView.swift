@@ -25,6 +25,10 @@ struct SettingsView: View {
 					.frame(maxWidth: 280)
 					.accessibilityIdentifier("pane.settings.theme")
 				}
+
+				SettingsSection(title: "Extensions") {
+					ExtensionSettings(controller: controller)
+				}
 			}
 			.padding(28)
 			.frame(maxWidth: .infinity, alignment: .leading)

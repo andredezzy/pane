@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Light page</title>
+		<style>html, body { background: #ffffff; color: #111111; } body { font: 16px -apple-system, sans-serif; margin: 40px; }</style>
+	</head>
+	<body>
+		<h1>A light page</h1>
+		<p>Dark Reader, where installed, darkens this page.</p>
+		<script>
+			// The page's background, as rendered (0 black … 1 white).
+			function luminance() {
+				const read = (element) => getComputedStyle(element).backgroundColor.match(/[\d.]+/g)?.map(Number) ?? [255, 255, 255];
+				const [r, g, b, a = 1] = read(document.body)[3] === 0 ? read(document.documentElement) : read(document.body);
+				return a === 0 ? 1 : (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+			}
+		</script>
+	</body>
+</html>

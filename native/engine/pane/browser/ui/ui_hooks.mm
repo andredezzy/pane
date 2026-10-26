@@ -11,6 +11,7 @@
 #include "components/permissions/chooser_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "pane/browser/extensions/extension_ui.h"
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/login_handler.h"
 #include "pane/browser/ui/permission_prompt.h"
@@ -148,6 +149,7 @@ void InstallUIHooks() {
   g_pane_update_devtools = &UpdateDevTools;
   g_pane_will_print = &WillPrint;
   g_pane_device_chooser = &DeclineDeviceChooser;
+  InstallExtensionHooks();
   InstallSelectFileDialogFactory();
 }
 

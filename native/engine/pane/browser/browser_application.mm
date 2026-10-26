@@ -106,6 +106,7 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 
 @implementation PaneBrowserApplication {
   __weak id<PaneBrowserApplicationDelegate> _delegate;
+  BOOL _shutDown;
   NSURL* _dataDirectory;
   NSMutableDictionary<NSString*, PaneBrowserContext*>* _contexts;
 }
@@ -289,7 +290,13 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   [_delegate browserApplicationDidStart:self];
 }
 
+// Runs as quitting starts, and again after the message loop as a backstop;
+// only the first call does anything.
 - (void)engineWillShutDown {
+  if (_shutDown) {
+    return;
+  }
+  _shutDown = YES;
   pane::Trace("callback", "PaneBrowserApplication.willShutDown");
   if ([_delegate respondsToSelector:@selector
                  (browserApplicationWillShutDown:)]) {

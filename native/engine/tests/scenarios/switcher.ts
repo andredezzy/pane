@@ -74,7 +74,7 @@ const switcher: Scenario = async (context) => {
 
 	expect(
 		committed.activeTabID === tabs.Docs,
-		"commit did not select the highlighted tab",
+		`commit selected ${Object.entries(tabs).find(([, id]) => id === committed.activeTabID)?.[0] ?? committed.activeTabID}, not Docs`,
 	);
 
 	return {

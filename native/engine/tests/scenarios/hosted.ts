@@ -1,8 +1,13 @@
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { hotkey, isScreenLocked, mainWindowOf, windowState } from "../lib/cua";
+import {
+	invokeMenu,
+	isScreenLocked,
+	mainWindowOf,
+	windowState,
+} from "../lib/cua";
 import { launchPane } from "../lib/pane";
-import { settledWindowsOf } from "../lib/windows";
+import { imageDetail, settledWindowsOf } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
 type Target = { type: string; url: string; title: string };
@@ -106,20 +111,32 @@ const hosted: Scenario = async (context) => {
 	const tree = state.tree_markdown;
 
 	expect(!state.degraded, `window state degraded: ${state.degraded_reason}`);
-	expect(/Sidebar/.test(tree), "accessibility tree lacks the sidebar");
 
+	// The app's own controls, by their accessibility identifiers.
 	expect(
-		/Web content/.test(tree),
-		"accessibility tree lacks the web content area",
+		/id=pane\.sidebar\./.test(tree),
+		`accessibility tree lacks the sidebar:\n${tree}`,
 	);
 
 	expect(
-		/documentation examples/.test(tree),
-		"accessibility tree lacks the page text",
+		new RegExp(`AXTextField = "${URL.replace(/[./]/g, "\\$&")}"`).test(tree),
+		"the address field does not show the page",
+	);
+
+	// The page drawn in the window: its content area is not a flat color.
+	const detail = await imageDetail(
+		join(out, "window.png"),
+		[0.3, 0.2, 0.95, 0.8],
+	);
+
+	expect(
+		detail.deviation > 0.05,
+		`the page area is blank (luminance deviation ${detail.deviation})`,
 	);
 
 	const helpersBefore = await helperCount(browser.pid);
-	await hotkey(browser.pid, windowId, ["cmd", "q"]);
+	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility.
+	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
 	await Bun.sleep(5_000);
 
 	const exited =
@@ -131,11 +148,11 @@ const hosted: Scenario = async (context) => {
 			.nothrow()
 			.text();
 
-	expect(exited, "the app still runs 5 s after Cmd+Q");
+	expect(exited, "the app still runs 5 s after Quit");
 
 	expect(
 		helpersAfter.trim() === "",
-		`helpers still running after Cmd+Q:\n${helpersAfter}`,
+		`helpers still running after Quit:\n${helpersAfter}`,
 	);
 
 	return {
@@ -144,6 +161,7 @@ const hosted: Scenario = async (context) => {
 		traceEntries: calls.length,
 		visual: "verified",
 		windowTitle: state.window_title,
+		pageDetail: detail,
 		accessibility: tree,
 		quit: { helpersBefore, exited, helpersAfter: 0 },
 	};

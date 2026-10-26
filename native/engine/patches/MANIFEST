@@ -27,3 +27,6 @@ chrome/browser/devtools/devtools_window.cc	0004-pane-ui-hooks.patch
 chrome/browser/devtools/devtools_window_views.cc	0004-pane-ui-hooks.patch
 chrome/browser/printing/print_view_manager_base.cc	0004-pane-ui-hooks.patch
 chrome/browser/ui/views/permissions/chooser_bubble_ui.cc	0004-pane-ui-hooks.patch
+chrome/browser/ui/views/extensions/extension_install_dialog_view.cc	0005-pane-extensions.patch
+chrome/browser/ui/extensions/extension_install_ui_desktop.cc	0005-pane-extensions.patch
+chrome/browser/extensions/api/extension_action/extension_action_api.cc	0005-pane-extensions.patch

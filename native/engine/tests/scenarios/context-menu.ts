@@ -62,10 +62,10 @@ const contextMenu: Scenario = async (context) => {
 
 	expect(opened.activeTabID === tab, "the new tab took the selection");
 
-	// A misspelled word: the spellchecker's suggestions replace it. macOS
-	// checks spelling only for a live session: while the screen is locked no
-	// word gets flagged (stock Chrome for Testing 156 flags none either), so
-	// there this part waits for an unlocked screen.
+	// A misspelled word: the spellchecker's suggestions replace it. The word
+	// must be one macOS's spellchecker rejects ("helo", "teh", "speling" pass
+	// it). On a locked screen a plain edit menu is accepted: spelling there
+	// was only ever tried with "helo", so it is unproven either way.
 	let spelling: Record<string, unknown>;
 
 	await page.evaluate(
@@ -102,7 +102,7 @@ const contextMenu: Scenario = async (context) => {
 				"document.getElementById('text').innerText.trim()",
 			);
 
-			if (text !== "Pane helo") {
+			if (text !== "Pane recieve") {
 				break;
 			}
 

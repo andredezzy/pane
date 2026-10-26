@@ -42,3 +42,28 @@ export async function settledWindowsOf(
 
 	return list;
 }
+
+const DETAIL_SOURCE = join(
+	import.meta.dir,
+	"..",
+	"tools",
+	"image-detail.swift",
+);
+
+const DETAIL_BINARY = join(tmpdir(), "pane-tests", "image-detail");
+
+// How much detail a region of a PNG has (fractions of its size): the
+// luminance's standard deviation, 0 for a flat color.
+export async function imageDetail(
+	file: string,
+	region: [number, number, number, number],
+): Promise<{ mean: number; deviation: number }> {
+	if (!existsSync(DETAIL_BINARY)) {
+		mkdirSync(join(tmpdir(), "pane-tests"), { recursive: true });
+		await Bun.$`swiftc -O ${DETAIL_SOURCE} -o ${DETAIL_BINARY}`.quiet();
+	}
+
+	return JSON.parse(
+		await Bun.$`${DETAIL_BINARY} ${file} ${region.map(String)}`.text(),
+	);
+}

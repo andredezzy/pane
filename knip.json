@@ -1,7 +1,7 @@
 {
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"ignoreExportsUsedInFile": true,
-	"ignoreBinaries": ["defaults", "ioreg", "openssl"],
+	"ignoreBinaries": ["defaults", "ioreg", "openssl", "swiftc"],
 	"workspaces": {
 		".": {
 			"entry": [
@@ -36,6 +36,7 @@
 		"**/styles/**",
 		"packages/electron-chrome-extensions/**",
 		".claude/**",
-		".cursor/**"
+		".cursor/**",
+		"native/engine/tests/pages/extensions/**"
 	]
 }

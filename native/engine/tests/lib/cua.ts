@@ -1,5 +1,8 @@
 // Thin wrapper over the cua-driver CLI for checks only the native UI can
 // prove: window screenshots, the accessibility tree, real keystrokes.
+import { existsSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { $ } from "bun";
 
 const SESSION = "pane-scenarios";
@@ -17,12 +20,31 @@ async function call<T>(
 	tool: string,
 	args: Record<string, unknown>,
 ): Promise<T> {
-	const output =
-		await $`cua-driver ${tool} ${JSON.stringify({ session: SESSION, ...args })}`
+	const run = () =>
+		$`cua-driver ${tool} ${JSON.stringify({ session: SESSION, ...args })}`
 			.quiet()
 			.nothrow();
 
-	return JSON.parse(output.stdout.toString()) as T;
+	let output = await run();
+
+	// The driver ends idle sessions, and only start_session revives a name.
+	if (output.stderr.toString().includes("session has ended")) {
+		await $`cua-driver start_session ${JSON.stringify({ session: SESSION })}`
+			.quiet()
+			.nothrow();
+
+		output = await run();
+	}
+
+	const text = output.stdout.toString();
+
+	try {
+		return JSON.parse(text) as T;
+	} catch {
+		throw new Error(
+			`cua-driver ${tool}: ${text.trim() || output.stderr.toString().trim()}`,
+		);
+	}
 }
 
 // macOS hides every window from accessibility and stops delivering input while
@@ -33,18 +55,16 @@ export async function isScreenLocked(): Promise<boolean> {
 	return /<key>CGSSessionScreenIsLocked<\/key>\s*<true\/>/.test(output);
 }
 
+// The app's largest window. A sheet is a window of its own, and the windows
+// come in no fixed order; only the main window holds the sheet's controls.
 export async function mainWindowOf(pid: number): Promise<number> {
-	const { windows } = await call<{
-		windows: { window_id: number; bounds: { height: number } }[];
-	}>("list_windows", { pid });
+	const [main] = await windowsOf(pid);
 
-	const [main] = windows.filter((window) => window.bounds.height > 200);
-
-	if (!main) {
+	if (main === undefined) {
 		throw new Error(`no main window for pid ${pid}`);
 	}
 
-	return main.window_id;
+	return main;
 }
 
 export function windowState(
@@ -60,41 +80,154 @@ export function windowState(
 	});
 }
 
-export function hotkey(
-	pid: number,
-	windowId: number,
-	keys: string[],
-): Promise<unknown> {
-	return call("hotkey", {
-		pid,
-		window_id: windowId,
-		keys,
-		delivery_mode: "foreground",
-	});
+// What to click: a control by its title, of `role` (buttons, links, and
+// menu items by default); `id` picks one of several with the same title, and
+// `inSheet` one in the window's sheet.
+export type Control = {
+	title: string;
+	role?: RegExp;
+	id?: string;
+	inSheet?: boolean;
+};
+
+// A row of cua-driver's tree: `- [N] AXRole (Label) [attributes]`, or
+// `- [N] AXRole "Title"`; its element token is `<snapshot_id>:N`.
+function findRow(tree: string, control: Control): string | undefined {
+	const { title, id } = control;
+	const role = control.role ?? /AX(Button|Link|MenuItem)/;
+	const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const label = new RegExp(`(\\(${escaped}(,[^)]*)?\\)|"${escaped}")`);
+	const lines = tree.split("\n");
+
+	const from = control.inSheet
+		? lines.findIndex((line) => /AXSheet\b/.test(line))
+		: 0;
+
+	if (from === -1) {
+		return undefined;
+	}
+
+	return lines
+		.slice(from)
+		.find(
+			(line) =>
+				role.test(line) &&
+				label.test(line) &&
+				(!id || line.includes(`id=${id} `) || line.includes(`id=${id}]`)),
+		);
 }
 
-// Clicks the button titled `title` in the window, by its accessibility
-// element (a real click, as a user's). Rows of the tree read
-// `[N] <role> "<title>"`; row N's token is `<snapshot_id>:N`.
-export async function clickButton(
-	pid: number,
-	windowId: number,
-	title: string,
-): Promise<void> {
-	const state = await call<{ snapshot_id: string; tree_markdown: string }>(
-		"get_window_state",
-		{ pid, window_id: windowId, query: title, max_elements: 60 },
+type Snapshot = { snapshot_id: string; tree_markdown: string };
+
+type ListedWindow = {
+	window_id: number;
+	bounds: { x: number; y: number; height: number; width: number };
+};
+
+// The app's windows, largest first.
+async function windowList(pid: number): Promise<ListedWindow[]> {
+	const { windows } = await call<{ windows: ListedWindow[] }>("list_windows", {
+		pid,
+	});
+
+	const area = (window: ListedWindow) =>
+		window.bounds.width * window.bounds.height;
+
+	return windows.sort((a, b) => area(b) - area(a));
+}
+
+async function windowsOf(pid: number): Promise<number[]> {
+	return (await windowList(pid)).map((window) => window.window_id);
+}
+
+// A tree without the menu bar, which lists the user's recent items and
+// other apps: failures quote the window, never that.
+function withoutMenuBar(tree: string): string {
+	const lines = tree.split("\n");
+
+	const start = lines.findIndex((line) =>
+		/^\s*- (\[\d+\] )?AXMenuBar\b/.test(line),
 	);
 
-	const row = state.tree_markdown
-		.split("\n")
-		.find((line) => /button/i.test(line) && line.includes(`"${title}"`));
-
-	const index = row?.match(/\[(\d+)\]/)?.[1];
-
-	if (!index) {
-		throw new Error(`no button "${title}" in window ${windowId}`);
+	if (start === -1) {
+		return tree;
 	}
+
+	const indent = (line: string) => line.search(/\S/);
+	const level = indent(lines[start] ?? "");
+	let end = start + 1;
+
+	while (end < lines.length && indent(lines[end] ?? "") > level) {
+		end++;
+	}
+
+	return [...lines.slice(0, start), ...lines.slice(end)].join("\n");
+}
+
+// Reads the window (or each of the app's windows) until `found` picks
+// something out of it: a sheet is in the app's state a moment before its
+// controls reach accessibility.
+async function readUntil<T>(
+	pid: number,
+	window: number | "any",
+	args: Record<string, unknown>,
+	found: (tree: string) => T | undefined,
+	what: string,
+): Promise<{ state: Snapshot; value: T; windowId: number }> {
+	const deadline = Date.now() + 5_000;
+
+	for (;;) {
+		const windowIds = window === "any" ? await windowsOf(pid) : [window];
+		const trees: string[] = [];
+
+		for (const windowId of windowIds) {
+			const state = await call<Snapshot>("get_window_state", {
+				pid,
+				window_id: windowId,
+				...args,
+			});
+
+			const value = found(state.tree_markdown);
+
+			if (value !== undefined) {
+				return { state, value, windowId };
+			}
+
+			trees.push(`window ${windowId}:\n${withoutMenuBar(state.tree_markdown)}`);
+		}
+
+		if (Date.now() > deadline) {
+			throw new Error(`no ${what}; ${trees.join("\n")}`);
+		}
+
+		await Bun.sleep(200);
+	}
+}
+
+// Clicks a control in the window, or in whichever of the app's windows has
+// it (an app-modal panel is a window of its own), by its accessibility
+// element: a real press, as a user's.
+export async function clickControl(
+	pid: number,
+	window: number | "any",
+	control: Control,
+): Promise<void> {
+	const {
+		state,
+		value: index,
+		windowId,
+	} = await readUntil(
+		pid,
+		window,
+		{ query: control.title, max_elements: 500 },
+		// Only a row that can be pressed: a web button lists no press until
+		// Chrome's full accessibility is on, and pressing it then does nothing.
+		(tree) =>
+			findRow(tree, control)?.match(
+				/\[(\d+)\].*actions=\[[^\]]*\bpress\b/,
+			)?.[1],
+		`control "${control.title}"`,
+	);
 
 	await call("click", {
 		pid,
@@ -103,33 +236,100 @@ export async function clickButton(
 	});
 }
 
+// Clicks the button titled `title`; `id` picks one of several.
+export function clickButton(
+	pid: number,
+	window: number | "any",
+	title: string,
+	id?: string,
+): Promise<void> {
+	return clickControl(pid, window, { title, id });
+}
+
 // Types into the window's text fields, in order.
 export async function fillFields(
 	pid: number,
 	windowId: number,
 	texts: string[],
 ): Promise<void> {
-	const state = await call<{ snapshot_id: string; tree_markdown: string }>(
-		"get_window_state",
-		{ pid, window_id: windowId, max_elements: 80 },
+	const { state, value: fields } = await readUntil(
+		pid,
+		windowId,
+		{ max_elements: 120 },
+		(tree) => {
+			const indices = tree
+				.split("\n")
+				.filter(
+					(line) =>
+						/AX(Secure)?TextField/.test(line) && !/pane\.address/.test(line),
+				)
+				.flatMap((line) => line.match(/\[(\d+)\]/)?.[1] ?? []);
+
+			return indices.length >= texts.length ? indices : undefined;
+		},
+		`${texts.length} text fields`,
 	);
 
-	const fields = state.tree_markdown
-		.split("\n")
-		.filter((line) => /textfield|secure/i.test(line))
-		.map((line) => line.match(/\[(\d+)\]/)?.[1])
-		.filter(Boolean);
-
 	for (const [position, text] of texts.entries()) {
-		const index = fields[position];
-
-		if (index) {
-			await call("set_value", {
-				pid,
-				window_id: windowId,
-				element_token: `${state.snapshot_id}:${index}`,
-				value: text,
-			});
-		}
+		await call("set_value", {
+			pid,
+			window_id: windowId,
+			element_token: `${state.snapshot_id}:${fields[position]}`,
+			value: text,
+		});
 	}
+}
+
+const ACTIVATE_SOURCE = join(
+	import.meta.dir,
+	"..",
+	"tools",
+	"ax-activate.swift",
+);
+
+const ACTIVATE_BINARY = join(tmpdir(), "pane-tests", "ax-activate");
+
+// Turns on the app's full accessibility, as VoiceOver does, then waits a
+// moment for Chrome to build its pages' trees.
+export async function activateWebAccessibility(pid: number): Promise<void> {
+	if (!existsSync(ACTIVATE_BINARY)) {
+		mkdirSync(join(tmpdir(), "pane-tests"), { recursive: true });
+		await $`swiftc -O ${ACTIVATE_SOURCE} -o ${ACTIVATE_BINARY}`.quiet();
+	}
+
+	await $`${ACTIVATE_BINARY} ${pid}`.quiet();
+	await Bun.sleep(1_000);
+}
+
+// Types `text` into the text field with identifier `id`, as typing does (a
+// SwiftUI field takes typed text, not a value set from outside).
+export async function typeIntoField(
+	pid: number,
+	windowId: number,
+	id: string,
+	text: string,
+): Promise<void> {
+	const { state, value: index } = await readUntil(
+		pid,
+		windowId,
+		{ max_elements: 500 },
+		(tree) =>
+			tree
+				.split("\n")
+				.find((line) => /AXTextField/.test(line) && line.includes(`id=${id} `))
+				?.match(/\[(\d+)\]/)?.[1],
+		`field ${id}`,
+	);
+
+	await call("type_text", {
+		pid,
+		window_id: windowId,
+		element_token: `${state.snapshot_id}:${index}`,
+		text,
+	});
+}
+
+// Runs an item of the app's menu bar through accessibility (as choosing it).
+export function invokeMenu(pid: number, path: string[]): Promise<unknown> {
+	return call("invoke_menu", { pid, path });
 }

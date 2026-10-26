@@ -304,6 +304,27 @@ final class Automation {
 			// Undoes a scenario's Add to Dictionary in the system dictionary.
 			NSSpellChecker.shared.unlearnWord(try string("word"))
 
+		case "installExtension":
+			controller.installExtension(try string("id"), inProfile: try string("profile"))
+
+		case "runExtensionAction":
+			controller.runExtensionAction(try string("id"))
+
+		case "setExtensionEnabled":
+			controller.setExtension(try string("id"), enabled: command["enabled"] as? Bool ?? true, inProfile: try string("profile"))
+
+		case "setExtensionPinned":
+			controller.setExtension(try string("id"), pinned: command["pinned"] as? Bool ?? true, inProfile: try string("profile"))
+
+		case "uninstallExtension":
+			controller.uninstallExtension(try string("id"), inProfile: try string("profile"))
+
+		case "updateExtensions":
+			controller.updateExtensions(inProfile: try string("profile"))
+
+		case "closeExtensionPopup":
+			controller.extensionPopover.close()
+
 		case "render":
 			// Draws the window's app UI (not the pages, which the GPU process
 			// composites) into a PNG, for checks while the screen is locked.
@@ -407,6 +428,11 @@ final class Automation {
 				"menu"
 			} else if window.identifier?.rawValue == "pane.devtools" {
 				"devtools"
+			} else if let popover = controller.extensionPopover.window, window === popover {
+				"popover"
+			} else if String(describing: type(of: window)).hasPrefix("_NSFullScreenTransition") {
+				// AppKit's own, while the window animates into full screen.
+				"system"
 			} else {
 				"other"
 			}
@@ -459,6 +485,29 @@ final class Automation {
 			case "option": flags.insert(.option)
 			default: break
 			}
+		}
+	}
+
+	// Whether an image draws anything: an icon can be there and blank.
+	private static func hasVisiblePixels(_ image: NSImage) -> Bool {
+		guard
+			let bitmap = NSBitmapImageRep(
+				bitmapDataPlanes: nil, pixelsWide: 16, pixelsHigh: 16, bitsPerSample: 8,
+				samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+				bytesPerRow: 0, bitsPerPixel: 0
+			),
+			let context = NSGraphicsContext(bitmapImageRep: bitmap)
+		else {
+			return false
+		}
+
+		NSGraphicsContext.saveGraphicsState()
+		NSGraphicsContext.current = context
+		image.draw(in: NSRect(x: 0, y: 0, width: 16, height: 16))
+		NSGraphicsContext.restoreGraphicsState()
+
+		return (0..<16).contains { x in
+			(0..<16).contains { y in (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.3 }
 		}
 	}
 
@@ -596,6 +645,7 @@ final class Automation {
 				},
 			] as [String: Any],
 			"downloads": Array(downloads.values),
+			"address": controller.state.address,
 			"window": [
 				"title": window.title,
 				"key": window.isKeyWindow,
@@ -614,6 +664,32 @@ final class Automation {
 				["title": modal.title, "buttons": Self.buttons(in: modal.contentView).map(\.title)] as [String: Any]
 			} ?? NSNull(),
 			"nativeWindows": nativeWindows(),
+			"extensions": model.extensions.mapValues { list in
+				list.map { item in
+					[
+						"id": item.id,
+						"name": item.name,
+						"version": item.version,
+						"enabled": item.enabled,
+						"pinned": item.pinned,
+						"hasAction": item.hasAction,
+						"hasPopup": item.hasPopup,
+						"actionTitle": item.actionTitle,
+						"badgeText": item.badgeText,
+						"hasIcon": item.icon != nil,
+						"iconVisible": item.icon.map(Self.hasVisiblePixels) ?? false,
+					] as [String: Any]
+				}
+			},
+			"extensionPopup": controller.extensionPopover.popup.map { popup in
+				[
+					"extension": popup.extensionIdentifier,
+					"open": popup.isOpen,
+					"width": popup.preferredSize.width,
+					"height": popup.preferredSize.height,
+				] as [String: Any]
+			} ?? NSNull(),
+			"installedExtension": controller.state.installedExtension ?? NSNull(),
 			"pageFullscreen": controller.state.pageFullscreen,
 			"exclusiveAccessHint": controller.state.exclusiveAccessHint ?? NSNull(),
 			"crashedTabs": Array(model.crashedTabIDs),

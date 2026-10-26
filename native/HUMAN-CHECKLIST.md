@@ -4,32 +4,24 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 ## Open
 
-- **Phase 1 · Acceptance (window screenshot, accessibility read, Cmd+Q) — unlock the Mac.** The screen has been locked since ~04:20 on 2026-10-26, and macOS hides windows from accessibility and refuses input while locked, so these three checks could not run. Nothing to do but unlock: the agent re-runs the check as soon as it sees the session unlocked. To run it by hand:
-  ```bash
-  bun native/engine/tests/run.ts --binary native/app/build/Pane.app/Contents/MacOS/Pane --out native/evidence/phase-1/scenario hosted
-  ```
-  Expected: `native/evidence/phase-1/scenario/hosted.json` with `"visual": "verified"`, plus `window.png` showing example.com inside the Pane window.
+- **Paper · Give the agent read access to the Pane project.** The UI must match the existing app's design and the Pane project in Paper, but no Paper session is reachable from this machine's tools: there is no Paper app or Paper MCP server, and no Aside browser profile is signed in to Paper (signing in to your account is yours to do). Any one of these unblocks it: sign in to Paper in Aside (profile "Profile 0"), or install the Paper desktop app with its MCP server, or export the Pane project's frames as PNGs into `native/design/paper/`. The agent then compares each screen and records it in `native/evidence/design/`.
 
-- **Phase 2 · On-screen checks — unlock the Mac.** Same cause as above. While locked, the switcher was proven from the app's state and an offscreen render of its views (`native/evidence/phase-2/switcher.png`), and zoom from the engine's zoom level (the page is occluded, so its `devicePixelRatio` lags). The agent re-runs these as soon as the session is unlocked; by hand:
-  ```bash
-  bun native/engine/tests/run.ts --binary native/app/build/Pane.app/Contents/MacOS/Pane --out native/evidence/phase-2/unlocked switcher shortcuts hosted
-  ```
-  Expected: `switcher.json` with `"screenshot": "switcher-screen.png"` (a real screenshot of the switcher over the window), and `shortcuts.json` with `"pageVisible": true` in each zoom step.
-
-  The agent also drives these with CUA once unlocked, since they are gestures or windows only the screen shows (parity rows marked 🟡): dragging profiles and tabs in the sidebar, the profile and tab context menus, the delete-profile confirmation, the profile sheet, ⌃⌘F full screen, the rendered tab rows and the page inside its card. Nothing to do but unlock.
+- **Phase 2 · Pointer gestures on screen — run when you are away from the Mac.** Dragging profiles and tabs in the sidebar, the profile and tab context menus, the delete-profile confirmation, the profile sheet, and ⌃⌘F full screen need the real pointer (CUA moves the mouse for drags), which would fight you while you work. The rendered rows and the page in its card are now proven on screen (`native/evidence/phase-2/unlocked/`). Nothing to do but leave the Mac unlocked and idle; the agent runs them then.
 
 - **Phase 3 · Mail — look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in `native/DECISIONS.md` (Phase 3, Incident).
 
-- **Phase 3 · On-screen checks — unlock the Mac.** While locked, each sheet was answered through the automation channel (`performClick` on the sheet's own button) instead of a CUA click, file panels were answered beside the panel, and spelling suggestions could not be checked (macOS flags no misspelling in a locked session; stock Chrome for Testing neither). The agent re-runs the suite as soon as the session is unlocked, and the sheets are then clicked with CUA:
-  ```bash
-  bun native/engine/tests/run.ts --binary native/app/build/Pane.app/Contents/MacOS/Pane --out native/evidence/phase-3/unlocked dialog-alert dialog-confirm dialog-prompt dialog-beforeunload dialog-form-resubmission permission-prompt http-auth proxy-auth context-menu external-protocol hung-renderer sad-tab print
-  ```
-  Expected: each `answers`/`answer` entry with `"via": "cua"`, and `context-menu.json` with spelling suggestions replacing the word. By hand, also pick a file in a page's file input once, through the open panel.
+- **Phase 3 · Pick a file through the open panel, by hand.** macOS 27 runs open and save panels out of process, and the scenarios answer them beside the panel. Once: open a page with `<input type=file>` in Pane (any upload form), choose a file in the panel, and check the page shows its name.
+
+- **Phase 4 · Sign in to 1Password and NordPass, and autofill a login form.** Both install from the Web Store and their toolbar buttons open their own pages (`native/evidence/phase-4/1password.png`, `nordpass.png`; until you sign in, each opens its welcome page in a tab, as in Chrome). Signing in uses your accounts, so it is yours: in a Pane profile, sign in from each manager's button, then open `native/engine/tests/pages/password.html` (served by any scenario run, or open the file) and check each one offers to fill the form.
 
 - **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in `native/DECISIONS.md`.
 
 - **Phase 2 · parity.md — review the Electron-only rows marked ⛔.** They are internals of the Electron architecture with no user-facing equivalent to port: `stores.push`/`stores.sync` (cross-process state sync), `tabs.hideAll`/`showActive` and `ui.present`/`dismiss` (an overlay window above page views; native sheets draw above pages), and the app-UI DevTools shortcut (⌥⌘I; the app UI is native). Nothing to do unless one of them should stay; the justification is in each row of `docs/native/parity.md`.
 
 ## Done
+
+- **Phase 1 · Acceptance on screen** (2026-10-26). The Mac was unlocked: `hosted` passed with a real window screenshot, the accessibility read, and Quit Pane from the menu bar (`native/evidence/phase-1/unlocked/`).
+- **Phase 2 · On-screen checks** (2026-10-26). `switcher` with a real screenshot of the switcher (`switcher-screen.png`) and `shortcuts` with the page visible at each zoom step (`native/evidence/phase-2/unlocked/`). Pointer gestures remain (Open).
+- **Phase 3 · On-screen checks** (2026-10-26). Every sheet and panel answered with a CUA click, spelling suggestions replacing a misspelled word (`native/evidence/phase-3/unlocked/`).
 
 - **Phase 0 · 0.1 — Install full Xcode and select it** (2026-10-26). Xcode 27.1 installed and selected with `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.

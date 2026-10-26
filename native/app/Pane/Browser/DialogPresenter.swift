@@ -16,6 +16,7 @@ final class DialogPresenter {
 		case externalProtocol(ExternalProtocolRequest)
 		case unresponsive(UnresponsivePage)
 		case fileChooser(FileChooser)
+		case extensionInstall(ExtensionInstallRequest)
 
 		var object: AnyObject {
 			switch self {
@@ -25,6 +26,7 @@ final class DialogPresenter {
 			case let .externalProtocol(request): request
 			case let .unresponsive(request): request
 			case let .fileChooser(request): request
+			case let .extensionInstall(request): request
 			}
 		}
 
@@ -36,6 +38,7 @@ final class DialogPresenter {
 			case let .externalProtocol(request): request.isAnswered
 			case let .unresponsive(request): request.isAnswered
 			case let .fileChooser(request): request.isAnswered
+			case let .extensionInstall(request): request.isAnswered
 			}
 		}
 
@@ -47,6 +50,7 @@ final class DialogPresenter {
 			case .externalProtocol: "externalProtocol"
 			case .unresponsive: "unresponsive"
 			case .fileChooser: "fileChooser"
+			case .extensionInstall: "extensionInstall"
 			}
 		}
 	}
@@ -270,6 +274,19 @@ final class DialogPresenter {
 
 			return (alert, { response in
 				response == second ? page.terminate() : page.wait()
+			})
+
+		case let .extensionInstall(request):
+			alert.messageText = request.title
+			alert.informativeText = request.permissions.isEmpty
+				? ""
+				: ([request.permissionsHeading] + request.permissions.map { "• \($0)" }).joined(separator: "\n")
+			alert.icon = request.icon
+			alert.addButton(withTitle: request.acceptTitle)
+			alert.addButton(withTitle: request.cancelTitle)
+
+			return (alert, { response in
+				response == first ? request.accept() : request.cancel()
 			})
 
 		case .fileChooser:

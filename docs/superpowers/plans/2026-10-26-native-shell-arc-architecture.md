@@ -245,18 +245,18 @@ docs/native/parity.md
 
 ## Phase 4 — Extensions
 
-- [ ] **4.1** Run the extension system per profile.
+- [x] **4.1** Run the extension system per profile.
   - The Chrome Web Store install flow works inside Pane tabs.
   - The install prompt is native (hook `ExtensionInstallPrompt`; evaluate Ardia's `chromium-extension-install-prompt-hook`).
-- [ ] **4.2** Make `chrome.tabs` and `chrome.windows` resolve to Pane tabs and windows.
+- [x] **4.2** Make `chrome.tabs` and `chrome.windows` resolve to Pane tabs and windows.
   - "Current window" works from popups and from service workers (evaluate `chromium-hidden-window-current-window` and `chromium-extension-window-hidden`).
   - `tabs.create` opens a Pane tab in the same profile.
   - `windows.create` follows the decision recorded in `parity.md`.
-- [ ] **4.3** Build the toolbar actions API and its native toolbar.
+- [x] **4.3** Build the toolbar actions API and its native toolbar.
   - Each action exposes icon, title, badge text and color, enabled state, and popup URL.
   - Popups are hosted in an `NSPopover` sized to their content.
   - Clicking an action without a popup fires `onClicked`.
-- [ ] **4.4** Build per-profile extension management: list, enable, disable, remove, pin, update. It replaces `extension-settings.tsx` and the `cws`/`extensions` routers.
+- [x] **4.4** Build per-profile extension management: list, enable, disable, remove, pin, update. It replaces `extension-settings.tsx` and the `cws`/`extensions` routers.
 
 **Acceptance** (the tested set in `docs/chrome-extension-support.md`; install clicks, toolbar clicks, and popup screenshots go through `cua-driver`)
 - Dark Reader, installed from the CWS in profile A only, darkens a fixture's computed background in A but not in B, and its popup opens → `dark-reader.json`, `dark-reader-popup.png`

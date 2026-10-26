@@ -49,8 +49,7 @@ export async function answerModal(
 	button: string,
 ): Promise<Answer> {
 	if (!(await isScreenLocked())) {
-		const windowId = await mainWindowOf(app.browser.pid);
-		await clickButton(app.browser.pid, windowId, button);
+		await clickButton(app.browser.pid, "any", button);
 
 		return { button, via: "cua" };
 	}

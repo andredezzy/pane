@@ -78,6 +78,10 @@ export async function launch(
 		`--remote-debugging-port=${fixedPort ?? 0}`,
 		"--no-first-run",
 		"--no-default-browser-check",
+		// Scenarios never touch the user's login keychain (Chromium's
+		// "Safe Storage" item would prompt for the password on every launch
+		// of a freshly signed build).
+		"--use-mock-keychain",
 		...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
 		...(options.args ?? []),
 	];

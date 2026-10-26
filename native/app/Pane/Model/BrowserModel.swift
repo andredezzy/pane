@@ -32,6 +32,8 @@ final class BrowserModel {
 	private(set) var crashedTabIDs: Set<String> = []
 	private(set) var pictureInPictureTabIDs: Set<String> = []
 	private(set) var devToolsTabIDs: Set<String> = []
+	// Each open profile's extensions, as the engine last reported them.
+	private(set) var extensions: [String: [ExtensionInfo]] = [:]
 
 	struct NavigationState: Equatable {
 		var canGoBack = false
@@ -238,6 +240,10 @@ final class BrowserModel {
 
 	func setNavigation(_ tabID: String, _ state: NavigationState) {
 		navigation[tabID] = state
+	}
+
+	func setExtensions(_ profileID: String, _ list: [ExtensionInfo]) {
+		extensions[profileID] = list
 	}
 
 	func setCrashed(_ tabID: String, _ crashed: Bool) {

@@ -64,6 +64,8 @@ export type AppState = {
 		groups: { profileID: string; name: string; tabs: string[] }[];
 	};
 	downloads: DownloadState[];
+	// The address field's text.
+	address: string;
 	window: {
 		title: string;
 		visible: boolean;
@@ -97,6 +99,28 @@ export type AppState = {
 	pictureInPictureTabs: string[];
 	devToolsTabs: string[];
 	printRequests: number;
+	extensions: Record<string, ExtensionState[]>;
+	extensionPopup: {
+		extension: string;
+		open: boolean;
+		width: number;
+		height: number;
+	} | null;
+};
+
+export type ExtensionState = {
+	id: string;
+	name: string;
+	version: string;
+	enabled: boolean;
+	pinned: boolean;
+	hasAction: boolean;
+	hasPopup: boolean;
+	actionTitle: string;
+	badgeText: string;
+	hasIcon: boolean;
+	// The icon draws something (it can be there and blank).
+	iconVisible: boolean;
 };
 
 type Reply = { ok: boolean; result?: unknown; error?: string; state: AppState };
@@ -196,7 +220,7 @@ export class PaneApp {
 				tabOf(state, tabID)?.loading === false,
 		);
 
-		const deadline = Date.now() + 15_000;
+		const deadline = Date.now() + 30_000;
 
 		while (Date.now() < deadline) {
 			const { targetInfos } = await this.browser.cdp.send<{
@@ -212,7 +236,27 @@ export class PaneApp {
 			}
 
 			if (matching[0]) {
-				return openPage(this.browser.cdp, "about:blank", matching[0].targetId);
+				// The target shows a pending URL before the page commits; wait
+				// for the page itself to be there.
+				const page = await openPage(
+					this.browser.cdp,
+					"about:blank",
+					matching[0].targetId,
+				);
+
+				while (Date.now() < deadline) {
+					const href = await page
+						.evaluate<string>("location.href")
+						.catch(() => "");
+
+					if (href === url) {
+						return page;
+					}
+
+					await Bun.sleep(150);
+				}
+
+				throw new Error(`the page at ${url} never committed`);
 			}
 
 			await Bun.sleep(250);

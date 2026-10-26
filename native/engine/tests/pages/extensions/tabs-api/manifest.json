@@ -1,0 +1,12 @@
+{
+	"manifest_version": 3,
+	"name": "Pane tabs API probe",
+	"version": "1.0",
+	"description": "Answers chrome.tabs and chrome.windows questions for Pane's scenarios.",
+	"action": {
+		"default_popup": "popup.html",
+		"default_title": "Tabs API probe"
+	},
+	"background": { "service_worker": "worker.js" },
+	"permissions": ["tabs"]
+}

@@ -5,7 +5,8 @@ import SwiftUI
 struct ToolbarView: View {
 	let controller: BrowserController
 
-	@State private var address = ""
+	// The address last put in the field, to tell the user's typing from it.
+	@State private var shownAddress = ""
 	@FocusState private var addressFocused: Bool
 
 	private var model: BrowserModel { controller.model }
@@ -28,7 +29,7 @@ struct ToolbarView: View {
 			)
 			.disabled(tabID == nil)
 
-			TextField("Search or enter address", text: $address)
+			TextField("Search or enter address", text: Bindable(controller.state).address)
 				.textFieldStyle(.plain)
 				.font(.system(size: 12))
 				.padding(.horizontal, 10)
@@ -36,15 +37,17 @@ struct ToolbarView: View {
 				.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
 				.focused($addressFocused)
 				.onSubmit {
-					controller.navigate(to: address)
+					controller.navigate(to: controller.state.address)
 					addressFocused = false
 				}
 				.onExitCommand {
-					address = model.activeTab?.url ?? ""
+					showAddress(model.activeTab?.url)
 					addressFocused = false
 					controller.activePage?.focus()
 				}
 				.accessibilityIdentifier("pane.address")
+
+			ExtensionActionsView(controller: controller)
 		}
 		.padding(.horizontal, 8)
 		.frame(height: 39)
@@ -58,14 +61,26 @@ struct ToolbarView: View {
 				.frame(height: 2)
 			}
 		}
+		// Another tab shows its own address. The same tab's new address
+		// replaces the text unless the user is typing over it.
+		.onChange(of: tabID) {
+			showAddress(model.activeTab?.url)
+		}
 		.onChange(of: model.activeTab?.url, initial: true) { _, url in
-			if !addressFocused {
-				address = url ?? ""
+			if !addressFocused || controller.state.address == shownAddress {
+				showAddress(url)
 			}
 		}
 		.onChange(of: controller.state.addressFocusRequest) {
 			addressFocused = true
 		}
+	}
+}
+
+extension ToolbarView {
+	private func showAddress(_ url: String?) {
+		controller.state.address = url ?? ""
+		shownAddress = controller.state.address
 	}
 }
 

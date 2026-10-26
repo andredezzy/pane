@@ -112,6 +112,32 @@ const navigation: Scenario = async (context) => {
 		`after stop the tab is at ${tabOf(stopped, tab)?.url}`,
 	);
 
+	// The address field follows the selected tab, across profiles too, even
+	// while it has focus (⌘L) with nothing typed.
+	await app.send("key", { key: "l", modifiers: ["command"] });
+
+	await app.waitFor(
+		"the address field focused",
+		(state) => state.focus === "field: Search or enter address",
+	);
+
+	const other = await app.createProfile("Other");
+	const c = context.fixtures.url("nav-b.html?other");
+	const otherTab = await app.openTab(other, c);
+	await app.page(otherTab, c);
+
+	const showsOther = await app.waitFor(
+		"the other tab's address",
+		(state) => state.address === c,
+	);
+
+	await app.send("select", { tab });
+
+	const showsFirst = await app.waitFor(
+		"the first tab's address again",
+		(state) => state.address === tabOf(state, tab)?.url,
+	);
+
 	void pageA;
 
 	return {
@@ -119,6 +145,7 @@ const navigation: Scenario = async (context) => {
 		back: tabOf(back, tab),
 		reloads: { before: loadsBefore, after: loadsAfter },
 		slowLoad: { loading: tabOf(loading, tab), stopped: tabOf(stopped, tab) },
+		address: { other: showsOther.address, first: showsFirst.address },
 	};
 };
 
