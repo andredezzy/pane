@@ -1,0 +1,4 @@
+module PaneCore {
+  umbrella header "PaneCore.h"
+  export *
+}

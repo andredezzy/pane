@@ -1,0 +1,145 @@
+diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
+index d98c86e5da..d08a5d2c33 100644
+--- a/chrome/BUILD.gn
++++ b/chrome/BUILD.gn
+@@ -486,7 +486,8 @@ if (is_win) {
+   }
+ } else if (is_mac) {
+   chrome_helper_name = chrome_product_full_name + " Helper"
+-  chrome_framework_name = chrome_product_full_name + " Framework"
++  # Pane: the engine framework is PaneCore.framework, linked by the Pane app.
++  chrome_framework_name = "PaneCore"
+   chrome_framework_version = chrome_version_full
+ 
+   verify_dynamic_libraries = !is_component_build && !is_asan && !is_ubsan_any
+@@ -1340,6 +1341,7 @@ if (is_win) {
+       "//components/policy:generated",
+       "//components/webapps/isolated_web_apps:scheme",
+       "//content/public/app",
++      "//pane",
+       "//third_party/cld_3/src/src:cld_3",
+     ]
+ 
+diff --git a/chrome/app/chrome_exe_main_mac.cc b/chrome/app/chrome_exe_main_mac.cc
+index 1b47647161..a98d53a5dc 100644
+--- a/chrome/app/chrome_exe_main_mac.cc
++++ b/chrome/app/chrome_exe_main_mac.cc
+@@ -182,14 +182,12 @@ __attribute__((visibility("default"))) int main(int argc, char* argv[]) {
+   // The helper lives within the versioned framework directory, so simply
+   // go up to find the main dylib.
+   static constexpr char entry_symbol[] = "ChromeMain";
+-  static constexpr char rel_path[] =
+-      "../../../../" PRODUCT_FULLNAME_STRING " Framework";
++  static constexpr char rel_path[] = "../../../../PaneCore";
+ #else                             // defined(HELPER_EXECUTABLE)
+   static constexpr char entry_symbol[] = "ChromeMain";
+   static constexpr char rel_path[] =
+-      "../Frameworks/" PRODUCT_FULLNAME_STRING
+-      " Framework.framework/Versions/" CHROME_VERSION_STRING
+-      "/" PRODUCT_FULLNAME_STRING " Framework";
++      "../Frameworks/PaneCore.framework/Versions/" CHROME_VERSION_STRING
++      "/PaneCore";
+ #endif                            // defined(RENDERER_HELPER_EXECUTABLE)
+ 
+   // Slice off the last part of the main executable path, and append the
+diff --git a/chrome/app/framework.exports b/chrome/app/framework.exports
+index 37c881f5d2..fa344c6c5d 100644
+--- a/chrome/app/framework.exports
++++ b/chrome/app/framework.exports
+@@ -19,3 +19,9 @@
+ _ChromeAppModeStart_v8
+ _ChromeMain
+ _ChromeWebAppShortcutCopierMain
++
++# Pane: the embedding API (Objective-C classes and C symbols) that the Pane app
++# links against.
++_OBJC_CLASS_$_Pane*
++_OBJC_METACLASS_$_Pane*
++_Pane*
+diff --git a/chrome/app/framework.order b/chrome/app/framework.order
+index 6dbc3aeff3..891f04c4a7 100644
+--- a/chrome/app/framework.order
++++ b/chrome/app/framework.order
+@@ -31,3 +31,14 @@ _ChromeWebAppShortcutCopierMain
+ 
+ # _ChromeMain must be listed last.  That's the whole point of this file.
+ _ChromeMain
++
++# Pane: the embedding API the Pane app links against. Every symbol
++# framework.exports lets through must be listed here, in this order.
++_PaneBrowserApplicationShouldReopenNotification
++_PaneReopenHasVisibleWindowsKey
++_OBJC_CLASS_$_PaneBrowserApplication
++_OBJC_METACLASS_$_PaneBrowserApplication
++_OBJC_CLASS_$_PaneBrowserContext
++_OBJC_METACLASS_$_PaneBrowserContext
++_OBJC_CLASS_$_PaneWebContents
++_OBJC_METACLASS_$_PaneWebContents
+diff --git a/chrome/app/theme/chromium/BRANDING b/chrome/app/theme/chromium/BRANDING
+index f8363d5b29..0debf509c1 100644
+--- a/chrome/app/theme/chromium/BRANDING
++++ b/chrome/app/theme/chromium/BRANDING
+@@ -1,10 +1,10 @@
+-COMPANY_FULLNAME=The Chromium Authors
+-COMPANY_SHORTNAME=The Chromium Authors
+-PRODUCT_FULLNAME=Chromium
+-PRODUCT_SHORTNAME=Chromium
+-PRODUCT_INSTALLER_FULLNAME=Chromium Installer
+-PRODUCT_INSTALLER_SHORTNAME=Chromium Installer
+-COPYRIGHT=Copyright @LASTCHANGE_YEAR@ The Chromium Authors. All rights reserved.
+-MAC_BUNDLE_ID=org.chromium.Chromium
+-MAC_CREATOR_CODE=Cr24
++COMPANY_FULLNAME=Pane
++COMPANY_SHORTNAME=Pane
++PRODUCT_FULLNAME=Pane
++PRODUCT_SHORTNAME=Pane
++PRODUCT_INSTALLER_FULLNAME=Pane Installer
++PRODUCT_INSTALLER_SHORTNAME=Pane Installer
++COPYRIGHT=Copyright @LASTCHANGE_YEAR@ Pane and The Chromium Authors. All rights reserved.
++MAC_BUNDLE_ID=com.pane.desktop
++MAC_CREATOR_CODE=Pane
+ MAC_TEAM_ID=
+diff --git a/chrome/browser/web_applications/os_integration/mac/BUILD.gn b/chrome/browser/web_applications/os_integration/mac/BUILD.gn
+index 16a0aeeaa6..d94e427e8c 100644
+--- a/chrome/browser/web_applications/os_integration/mac/BUILD.gn
++++ b/chrome/browser/web_applications/os_integration/mac/BUILD.gn
+@@ -42,7 +42,8 @@ executable("web_app_shortcut_copier") {
+       # The helper is a standalone tool rather than a bundled app so the
+       # framework's install name does not work as-is. Rewrite it so the
+       # relative path is correct given the executable's location.
+-      "-Wcrl,installnametool,-change,@executable_path/../Frameworks/${chrome_product_full_name} Framework.framework/Versions/${chrome_version_full}/${chrome_product_full_name} Framework,@executable_path/../${chrome_product_full_name} Framework",
++      # Pane: the framework is PaneCore.framework (see chrome_framework_name).
++      "-Wcrl,installnametool,-change,@executable_path/../Frameworks/PaneCore.framework/Versions/${chrome_version_full}/PaneCore,@executable_path/../PaneCore",
+     ]
+ 
+     if (is_asan || is_ubsan_any) {
+diff --git a/chrome/common/chrome_constants.cc b/chrome/common/chrome_constants.cc
+index 1a6b899b4b..528a41ea37 100644
+--- a/chrome/common/chrome_constants.cc
++++ b/chrome/common/chrome_constants.cc
+@@ -81,9 +81,9 @@ const base::FilePath::CharType kHelperProcessExecutablePath[] = FPL("chrome");
+ 
+ #if BUILDFLAG(IS_MAC)
+ const base::FilePath::CharType kFrameworkName[] =
+-    FPL(PRODUCT_FULLNAME_STRING " Framework.framework");
++    FPL("PaneCore.framework");
+ const base::FilePath::CharType kFrameworkExecutableName[] =
+-    FPL(PRODUCT_FULLNAME_STRING " Framework");
++    FPL("PaneCore");
+ const char kMacHelperSuffixAlerts[] = " (Alerts)";
+ #endif  // BUILDFLAG(IS_MAC)
+ 
+diff --git a/content/public/app/BUILD.gn b/content/public/app/BUILD.gn
+index 02d8aacfe0..107af975ce 100644
+--- a/content/public/app/BUILD.gn
++++ b/content/public/app/BUILD.gn
+@@ -123,7 +123,8 @@ if (is_mac) {
+         "-Wl,-rpath,@loader_path/../../../../../../..",
+       ]
+     } else {
+-      ldflags += [ "-Wl,-install_name,@executable_path/../Frameworks/$chrome_product_full_name Framework.framework/Versions/$chrome_version_full/Libraries/libaperitif.dylib" ]
++      # Pane: the framework is PaneCore.framework (see chrome_framework_name).
++      ldflags += [ "-Wl,-install_name,@executable_path/../Frameworks/PaneCore.framework/Versions/$chrome_version_full/Libraries/libaperitif.dylib" ]
+     }
+ 
+     allow_circular_includes_from = [

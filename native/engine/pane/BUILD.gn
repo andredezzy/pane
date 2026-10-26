@@ -1,0 +1,58 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# The //pane tree: Pane's embedding layer over Chromium's chrome/ layer. It is
+# linked into PaneCore.framework through //chrome:chrome_dll, and its public/
+# headers are the Objective-C API the Pane app builds against.
+
+assert(is_mac, "PaneCore is macOS only.")
+
+source_set("pane") {
+  visibility = [ "//chrome:chrome_dll" ]
+
+  sources = [
+    "app/pane_main_delegate.cc",
+    "app/pane_main_delegate.h",
+    "browser/browser_application.mm",
+    "browser/browser_application_internal.h",
+    "browser/browser_context.mm",
+    "browser/browser_context_internal.h",
+    "browser/browser_main_extra_parts.h",
+    "browser/browser_main_extra_parts.mm",
+    "browser/content_browser_client.cc",
+    "browser/content_browser_client.h",
+    "browser/engine_trace.cc",
+    "browser/engine_trace.h",
+    "browser/web_contents.mm",
+    "browser/web_contents_internal.h",
+    "common/host.cc",
+    "common/host.h",
+    "public/PaneBrowserApplication.h",
+    "public/PaneBrowserContext.h",
+    "public/PaneCore.h",
+    "public/PaneExport.h",
+    "public/PaneWebContents.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser",
+    "//chrome/browser:chrome_content_browser_client",
+    "//chrome/browser/favicon",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles/keep_alive",
+    "//chrome/browser/ui",
+    "//chrome/common/profiler",
+    "//components/favicon/content",
+    "//components/favicon/core",
+    "//content/public/browser",
+    "//net",
+    "//ui/base",
+    "//ui/gfx",
+    "//url",
+  ]
+
+  frameworks = [
+    "AppKit.framework",
+    "Foundation.framework",
+  ]
+}

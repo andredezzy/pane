@@ -142,24 +142,24 @@ docs/native/parity.md
 
 ## Phase 1 — `PaneCore.framework` in host mode
 
-- [ ] **1.1** Patch: framework layout and branding.
+- [x] **1.1** Patch: framework layout and branding.
   - Produce `PaneCore.framework` (bundle id `com.pane.desktop.framework`) with helpers `Pane Helper (Renderer|GPU|Plugin|Alerts).app`, exporting `ChromeMain`.
   - Starting points: the `chrome_framework` and helper targets in `chrome/BUILD.gn`, and `chrome/app/theme/chromium/BRANDING`.
-- [ ] **1.2** Patch: host mode.
+- [x] **1.2** Patch: host mode.
   - When the Pane app launches the engine, Chrome creates no windows, menus, Dock behavior, first-run UI, default-browser prompt, or session restore of its own.
   - It is gated so stock Chromium behaves as before.
   - Starting points: `chrome/browser/app_controller_mac.mm`, `chrome/browser/chrome_browser_main_mac.mm`, `chrome/browser/ui/startup/startup_browser_creator.cc`.
-- [ ] **1.3** Write API v0 in `//pane/public`.
+- [x] **1.3** Write API v0 in `//pane/public`.
   - `PaneBrowserApplication`: start with a delegate, get a ready callback.
   - `PaneBrowserContext`: open a profile by id at `<data root>/Engine/<id>` (Chrome only accepts profile dirs directly under the user data dir).
   - `PaneWebContents`: create it in a context, call `loadURL`, get `nativeView`, receive delegate callbacks for title, URL, loading progress, and favicon.
-- [ ] **1.4** Add the engine trace.
+- [x] **1.4** Add the engine trace.
   - When `PANE_ENGINE_TRACE=<file>` is set, the engine writes one JSONL line per API call and per delegate callback: name, arguments, result.
   - Every later scenario asserts against this trace.
-- [ ] **1.5** Build the Swift app.
+- [x] **1.5** Build the Swift app.
   - XcodeGen project; `NSPrincipalClass` set to the NSApplication subclass Chromium requires (verify in the checkout); `main.swift` calls `ChromeMain`.
   - One `NSWindow`: a SwiftUI sidebar placeholder plus a content view hosting one `PaneWebContents`.
-- [ ] **1.6** Write `scripts/package.sh`. It embeds the framework in `Pane.app` and ad-hoc signs the nested code inside-out.
+- [x] **1.6** Write `scripts/package.sh`. It embeds the framework in `Pane.app` and ad-hoc signs the nested code inside-out.
 
 **Acceptance**
 - The engine build, app build, and package all exit 0 → `build-engine.log`, `build-app.log`, `package.log`

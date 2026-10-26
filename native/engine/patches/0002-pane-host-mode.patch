@@ -1,0 +1,114 @@
+diff --git a/chrome/app/chrome_main.cc b/chrome/app/chrome_main.cc
+index 199142d671..cc0dc365f3 100644
+--- a/chrome/app/chrome_main.cc
++++ b/chrome/app/chrome_main.cc
+@@ -34,6 +34,7 @@
+ #if BUILDFLAG(IS_MAC)
+ #include "chrome/app/chrome_main_mac.h"
+ #include "chrome/common/mac/detect_inappropriate_exit.h"
++#include "pane/app/pane_main_delegate.h"
+ #endif
+ 
+ #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+@@ -130,7 +131,13 @@ int ChromeMain(int argc, const char** argv) {
+       base::TimeTicks::FromInternalValue(preread_begin_ticks),
+       base::TimeTicks::FromInternalValue(preread_end_ticks)};
+   ChromeMainDelegate chrome_main_delegate(timestamps);
+-#else  // BUILDFLAG(IS_WIN)
++#elif BUILDFLAG(IS_MAC)
++  // Pane: //pane supplies the main delegate, a ChromeMainDelegate subclass.
++  std::unique_ptr<ChromeMainDelegate> pane_main_delegate =
++      pane::CreateMainDelegate(
++          {.exe_entry_point_ticks = base::TimeTicks::Now()});
++  ChromeMainDelegate& chrome_main_delegate = *pane_main_delegate;
++#else
+   ChromeMainDelegate chrome_main_delegate(
+       {.exe_entry_point_ticks = base::TimeTicks::Now()});
+ #endif
+diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
+index ead883ef95..71a1e9d238 100644
+--- a/chrome/browser/app_controller_mac.mm
++++ b/chrome/browser/app_controller_mac.mm
+@@ -139,6 +139,7 @@
+ #include "extensions/buildflags/buildflags.h"
+ #include "net/base/apple/url_conversions.h"
+ #include "net/base/filename_util.h"
++#include "pane/common/host.h"  // nogncheck: header-only constants
+ #include "ui/base/base_window.h"
+ #import "ui/base/cocoa/nsmenu_additions.h"
+ #import "ui/base/cocoa/nsmenuitem_additions.h"
+@@ -1852,6 +1853,17 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+ // browser windows.
+ - (BOOL)applicationShouldHandleReopen:(NSApplication*)theApplication
+                     hasVisibleWindows:(BOOL)hasVisibleWindows {
++  // Pane: an app hosting the engine reopens its own windows.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    [NSNotificationCenter.defaultCenter
++        postNotificationName:@PANE_SHOULD_REOPEN_NOTIFICATION
++                      object:nil
++                    userInfo:@{
++                      @PANE_REOPEN_HAS_VISIBLE_WINDOWS_KEY : @(hasVisibleWindows)
++                    }];
++    return NO;
++  }
++
+   // If the browser is currently trying to quit, don't do anything and return NO
+   // to prevent AppKit from doing anything.
+   if (browser_shutdown::IsTryingToQuit())
+diff --git a/chrome/browser/chrome_browser_main_mac.mm b/chrome/browser/chrome_browser_main_mac.mm
+index b269f1610a..7f4ec26920 100644
+--- a/chrome/browser/chrome_browser_main_mac.mm
++++ b/chrome/browser/chrome_browser_main_mac.mm
+@@ -43,6 +43,7 @@
+ #include "content/public/common/main_function_params.h"
+ #include "content/public/common/result_codes.h"
+ #include "net/cert/internal/system_trust_store.h"
++#include "pane/common/host.h"  // nogncheck: header-only constants
+ #include "ui/base/cocoa/permissions_utils.h"
+ #include "ui/base/l10n/l10n_util.h"
+ #include "ui/base/resource/resource_bundle.h"
+@@ -159,11 +160,14 @@ int ChromeBrowserMainPartsMac::PreCreateThreads() {
+   AppController* app_controller = AppController.sharedController;
+   CHECK_NE(nil, NSApp.delegate);
+ 
+-  chrome::BuildMainMenu(NSApp, app_controller,
+-                        l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
+-                        /*is_pwa=*/false,
+-                        /*is_rtl=*/base::i18n::IsRTL());
+-  [app_controller mainMenuCreated];
++  // Pane: an app hosting the engine owns the menu bar.
++  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    chrome::BuildMainMenu(NSApp, app_controller,
++                          l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
++                          /*is_pwa=*/false,
++                          /*is_rtl=*/base::i18n::IsRTL());
++    [app_controller mainMenuCreated];
++  }
+ 
+   return content::RESULT_CODE_NORMAL_EXIT;
+ }
+diff --git a/chrome/browser/devtools/chrome_devtools_manager_delegate.cc b/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
+index 37a83372ce..6ef2ed31aa 100644
+--- a/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
++++ b/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
+@@ -68,6 +68,7 @@
+ #include "ui/base/window_open_disposition.h"
+ #include "ui/gfx/switches.h"
+ #include "ui/views/controls/webview/webview.h"
++#include "pane/common/host.h"  // nogncheck: header-only constants
+ 
+ #if BUILDFLAG(IS_CHROMEOS)
+ #include "ash/constants/ash_switches.h"
+@@ -326,6 +327,12 @@ std::string ChromeDevToolsManagerDelegate::GetTargetType(
+     return DevToolsAgentHost::kTypePage;
+   }
+ 
++  // Pane: in a hosted engine the app shows pages in its own views, so a
++  // WebContents that is nothing above is one of the app's pages.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    return DevToolsAgentHost::kTypePage;
++  }
++
+   return DevToolsAgentHost::kTypeOther;
+ }
+ 
