@@ -267,7 +267,7 @@ docs/native/parity.md
 
 ## Phase 5 — Pane features
 
-- [ ] **5.1** Per-profile proxy.
+- [x] **5.1** Per-profile proxy.
   - HTTP, HTTPS, SOCKS4, and SOCKS5 through each profile's proxy pref.
   - Proxy credentials go through the Phase 3 auth hook.
   - The SOCKS5-with-auth relay from `proxy-relay.ts` is ported (Chromium has no SOCKS5 auth).

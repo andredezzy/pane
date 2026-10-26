@@ -87,7 +87,7 @@ NS_SWIFT_NAME(AuthenticationChallenge)
 NS_SWIFT_UI_ACTOR
 @interface PaneAuthenticationChallenge : NSObject
 
-// The server (or proxy), as "host:port".
+// The server (or proxy), as "scheme://host:port".
 @property(readonly, copy) NSString* host;
 @property(readonly, copy) NSString* realm;
 // "basic", "digest", …

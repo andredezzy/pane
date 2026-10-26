@@ -13,7 +13,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | `cws.installed` — list installed Web Store extensions | `routers/cws.ts` | 4 | ✅ | `PaneBrowserContext.extensions`: `phase-4/extension-management.json` |
 | `extensions.list` — extensions loaded in a profile | `routers/extensions.ts` | 4 | ✅ | Per profile, Dark Reader in A only: `phase-4/dark-reader.json` |
 | `hotkeys.events` — app shortcuts reach the UI | `routers/hotkeys.ts`, `emitters/hotkey-emitter.ts` | 2 | ✅ | `phase-2/shortcuts.json` — the app's own menu and key monitor; no IPC |
-| `profiles.testProxy` — test a proxy before saving | `routers/profiles.ts`, `profile/proxy-test.ts` | 5 | — | |
+| `profiles.testProxy` — test a proxy before saving | `routers/profiles.ts`, `profile/proxy-test.ts` | 5 | ✅ | `ProxyTest`: the same IP echo through the proxy, SOCKS through the relay: `phase-5/proxy.json` (status connected for HTTP with auth and SOCKS5 with auth) |
 | `profiles.load` — load a profile's session | `routers/profiles.ts`, `pane.ts` | 2 | ✅ | `phase-2/profiles-isolation.json`, `phase-2/profile-lifecycle.json` |
 | `profiles.unload` — release a hidden profile (Unload) | `routers/profiles.ts`, `sleep-scheduler.ts` | 5 | — | |
 | `profiles.remove` — delete a profile and its data | `routers/profiles.ts` | 2 | ✅ | `phase-2/profile-lifecycle.json` — profile, tabs, pages and engine directory gone |
@@ -98,7 +98,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Current page: browser or settings | `navigation-store.ts` | 2 | ✅ | `phase-2/shortcuts.json` (⌘,) |
 | PIN hash (bcrypt) and lock state | `security-store.ts` (`security.json`) | 5 | — | |
 | Installed extensions per profile | `extension-store.ts` | 4 | ✅ | Chrome's extension system, one per profile (the store is gone): `phase-4/dark-reader.json` |
-| Proxy status per profile | `proxy-status-store.ts` | 5 | — | |
+| Proxy status per profile | `proxy-status-store.ts` | 5 | ✅ | Tested at launch and on every proxy change; the sidebar's dot: `phase-5/proxy.json` |
 | Update status (checking, available, downloading) | `update-store.ts` | 5 | — | |
 | Migration of all of the above from the Electron app | (new) | 5 | — | |
 
@@ -138,7 +138,7 @@ Surfaces Chrome would show in its own dialogs, bubbles, and windows. Each is the
 | Popups and `window.open` open as tabs | `profile/profile-tabs.ts` | 2 | ✅ | `phase-2/popup-new-tab.json` |
 | Renderer crash recovery | (new) | 2 | ✅ | `phase-2/crash-recovery.json` |
 | Favicons | `profile/favicon.ts` | 2 | ✅ | `phase-2/navigation.json` |
-| Per-profile proxy, SOCKS5 with auth relay, WebRTC IP policy | `profile/proxy-relay.ts`, `profile.ts` | 5 | — | |
+| Per-profile proxy, SOCKS5 with auth relay, WebRTC IP policy | `profile/proxy-relay.ts`, `profile.ts` | 5 | ✅ | Chrome's per-profile proxy pref and `webrtc.ip_handling_policy`; the relay in Swift (SOCKS4/5 upstream with credentials); credentials answer the proxy's challenge without a prompt: `phase-5/proxy.json` |
 | Per-profile fingerprint and Client Hints | `profile/fingerprint-preload.ts`, `client-hints.ts` | 5 | — | |
 | Google sign-in fallback (real Chrome + cookie import) | `profile/google/*` | 5 | — | |
 | Sleep, Unload, Keep loaded, Trim | `sleep-scheduler.ts`, CONTEXT.md | 5 | — | |

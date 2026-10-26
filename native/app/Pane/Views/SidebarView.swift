@@ -215,6 +215,10 @@ private struct ProfileSection: View {
 						.accessibilityLabel("Unloaded")
 				}
 
+				if let status = model.proxyStatus[profile.id] {
+					ProxyDot(status: status)
+				}
+
 				if !isExpanded && !profile.tabs.isEmpty {
 					Text("\(profile.tabs.count)")
 						.font(.system(size: 10))
@@ -267,6 +271,27 @@ private struct ProfileSection: View {
 			controller.unloadProfile(profile.id)
 		} else {
 			model.expandedProfileIDs.insert(profile.id)
+		}
+	}
+}
+
+// The proxy's last test: yellow while testing, emerald when connected, red
+// when it failed (6px).
+private struct ProxyDot: View {
+	let status: BrowserModel.ProxyStatus
+
+	var body: some View {
+		Circle()
+			.fill(color)
+			.frame(width: 6, height: 6)
+			.accessibilityLabel("Proxy \(status.rawValue)")
+	}
+
+	private var color: Color {
+		switch status {
+		case .testing: Color(rgb: 0xEAB308)
+		case .connected: Color(rgb: 0x10B981)
+		case .failed: Color(rgb: 0xEF4444)
 		}
 	}
 }

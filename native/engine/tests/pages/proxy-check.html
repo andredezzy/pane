@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Proxy check</title>
+	</head>
+	<body>
+		<h1>Proxy check</h1>
+		<script>
+			// The ICE candidates WebRTC gathers here: host candidates carry the
+			// machine's own addresses, which a proxied profile must not expose.
+			async function gatherCandidates() {
+				const connection = new RTCPeerConnection({ iceServers: [] });
+				const found = [];
+				connection.onicecandidate = (event) => {
+					if (event.candidate?.candidate) {
+						found.push(event.candidate.candidate);
+					}
+				};
+				connection.createDataChannel("probe");
+				await connection.setLocalDescription(await connection.createOffer());
+				await new Promise((done) => {
+					connection.onicegatheringstatechange = () => {
+						if (connection.iceGatheringState === "complete") {
+							done();
+						}
+					};
+					setTimeout(done, 3000);
+				});
+				connection.close();
+				return found;
+			}
+		</script>
+	</body>
+</html>

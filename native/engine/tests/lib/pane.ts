@@ -33,6 +33,10 @@ export type ProfileState = {
 	name: string;
 	color: string;
 	expanded: boolean;
+	// The proxy's last connection test, for a proxied profile.
+	proxyStatus: "testing" | "connected" | "failed" | null;
+	// What the engine applied, once the profile is open.
+	network: { proxyRules: string | null; webRTCIPHandlingPolicy: string } | null;
 	tabs: TabState[];
 };
 

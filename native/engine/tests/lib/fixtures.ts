@@ -15,7 +15,7 @@ const html = (title: string, body: string) =>
 	);
 
 // Pages that are not files: HTTP authentication (user "pane", password
-// "secret") and a POST echo for form resubmission.
+// "secret"), a POST echo for form resubmission, and an IP echo.
 async function route(
 	request: Request,
 	pathname: string,
@@ -29,6 +29,11 @@ async function route(
 					status: 401,
 					headers: { "WWW-Authenticate": 'Basic realm="Pane fixtures"' },
 				});
+	}
+
+	// The proxy test's IP echo, in httpbin's shape.
+	if (pathname === "/ip") {
+		return Response.json({ origin: "203.0.113.7" });
 	}
 
 	if (pathname === "/echo" && request.method === "POST") {

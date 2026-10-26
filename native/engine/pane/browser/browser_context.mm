@@ -15,6 +15,9 @@
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/proxy_config/proxy_config_dictionary.h"
+#include "components/proxy_config/proxy_config_pref_names.h"
+#include "components/proxy_config/proxy_prefs.h"
 #include "base/functional/bind.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
@@ -106,6 +109,57 @@
   if (_profile) {
     DownloadPrefs::FromBrowserContext(_profile)->SetDownloadPath(
         base::FilePath(base::SysNSStringToUTF8(downloadDirectory.path)));
+  }
+}
+
+// MARK: Network
+
+- (NSString*)proxyRules {
+  if (!_profile) {
+    return nil;
+  }
+  ProxyConfigDictionary config(
+      _profile->GetPrefs()->GetDict(proxy_config::prefs::kProxy).Clone());
+  std::string server;
+  ProxyPrefs::ProxyMode mode;
+  if (!config.GetMode(&mode) || mode != ProxyPrefs::MODE_FIXED_SERVERS ||
+      !config.GetProxyServer(&server)) {
+    return nil;
+  }
+  return base::SysUTF8ToNSString(server);
+}
+
+- (void)setProxyRules:(NSString*)proxyRules {
+  pane::Trace("call", "PaneBrowserContext.setProxyRules",
+              base::DictValue().Set(
+                  "rules", proxyRules ? base::SysNSStringToUTF8(proxyRules)
+                                      : std::string()));
+  if (!_profile) {
+    return;
+  }
+  PrefService* prefs = _profile->GetPrefs();
+  if (proxyRules.length) {
+    prefs->SetDict(proxy_config::prefs::kProxy,
+                   ProxyConfigDictionary::CreateFixedServers(
+                       base::SysNSStringToUTF8(proxyRules), std::string()));
+  } else {
+    prefs->ClearPref(proxy_config::prefs::kProxy);
+  }
+}
+
+- (NSString*)webRTCIPHandlingPolicy {
+  return _profile ? base::SysUTF8ToNSString(_profile->GetPrefs()->GetString(
+                        prefs::kWebRTCIPHandlingPolicy))
+                  : @"default";
+}
+
+- (void)setWebRTCIPHandlingPolicy:(NSString*)policy {
+  pane::Trace("call", "PaneBrowserContext.setWebRTCIPHandlingPolicy",
+              base::DictValue().Set("policy",
+                                    base::SysNSStringToUTF8(policy)));
+  if (_profile) {
+    _profile->GetPrefs()->SetString(prefs::kWebRTCIPHandlingPolicy,
+                                    base::SysNSStringToUTF8(policy));
   }
 }
 

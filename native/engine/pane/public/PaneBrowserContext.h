@@ -84,6 +84,20 @@ NS_SWIFT_UI_ACTOR
 // Where downloads go, without asking. Chrome's default is ~/Downloads.
 @property(copy) NSURL* downloadDirectory;
 
+// MARK: Network
+
+// The profile's proxy, as Chrome's fixed proxy rules: "http://host:port",
+// "https://…", "socks4://…", "socks5://…" (Chrome's "proxy" pref, fixed
+// servers). nil uses the system's settings. Loopback is never proxied.
+// A proxy asking for credentials reaches the tab's delegate
+// (webContents:authenticate: with a proxy challenge).
+@property(nullable, copy) NSString* proxyRules;
+
+// How WebRTC may use the network (Chrome's webrtc.ip_handling_policy):
+// "default", "default_public_interface_only",
+// "default_public_and_private_interfaces", or "disable_non_proxied_udp".
+@property(copy) NSString* webRTCIPHandlingPolicy;
+
 // MARK: Extensions
 
 // Every extension installed in this profile, actions as for its active tab.

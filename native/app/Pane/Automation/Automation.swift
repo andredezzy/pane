@@ -331,6 +331,18 @@ final class Automation {
 			// Undoes a scenario's Add to Dictionary in the system dictionary.
 			NSSpellChecker.shared.unlearnWord(try string("word"))
 
+		case "setProfileProxy":
+			// { profile, proxy: { proxyType, host, port, username?, password? } | null }
+			let profileID = try string("profile")
+			var proxy: ProxyConfig?
+
+			if let fields = command["proxy"] as? [String: Any] {
+				let data = try JSONSerialization.data(withJSONObject: fields)
+				proxy = try JSONDecoder().decode(ProxyConfig.self, from: data)
+			}
+
+			model.updateProfile(profileID) { $0.proxy = proxy }
+
 		case "installExtension":
 			controller.installExtension(try string("id"), inProfile: try string("profile"))
 
@@ -641,6 +653,14 @@ final class Automation {
 					"name": profile.name,
 					"color": profile.color.rawValue,
 					"expanded": model.expandedProfileIDs.contains(profile.id),
+					"proxyStatus": model.proxyStatus[profile.id]?.rawValue ?? NSNull(),
+					// What the engine applied to the open profile.
+					"network": controller.context(for: profile.id).map { context in
+						[
+							"proxyRules": context.proxyRules ?? NSNull(),
+							"webRTCIPHandlingPolicy": context.webRTCIPHandlingPolicy,
+						] as [String: Any]
+					} ?? NSNull(),
 					"tabs": profile.tabs.map { tab in
 						[
 							"id": tab.id,

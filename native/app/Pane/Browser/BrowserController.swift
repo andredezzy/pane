@@ -38,13 +38,33 @@ final class BrowserController: NSObject {
 	private var pendingTabID: String?
 	// Profiles whose engine data is still being deleted.
 	private(set) var pendingDeletions: Set<String> = []
+	// Each profile's proxy and WebRTC policy.
+	let network: ProfileNetwork
 
 	init(model: BrowserModel, application: BrowserApplication) {
 		self.model = model
 		self.application = application
-		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820))
+		network = ProfileNetwork(model: model)
+		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()
 		browserWindow.delegate = self
+		model.proxyDidChange = { [weak self] profileID in
+			self?.proxyDidChange(profileID)
+		}
+
+		// The sidebar shows each proxy's state from launch, as the Electron
+		// app tested them.
+		for profile in model.profiles where profile.proxy != nil {
+			network.test(profile.id)
+		}
+	}
+
+	private func proxyDidChange(_ profileID: String) {
+		if let context = contexts[profileID] {
+			Task { await network.apply(to: context) }
+		}
+
+		network.test(profileID)
 	}
 
 	// MARK: Contexts
@@ -66,17 +86,26 @@ final class BrowserController: NSObject {
 				return
 			}
 
-			let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
-
 			guard let context else {
+				contextWaiters[profileID] = nil
 				NSLog("Pane: could not open profile %@: %@", profileID, String(describing: error))
 				return
 			}
 
 			context.delegate = self
-			contexts[profileID] = context
-			refreshExtensions(profileID)
-			waiters.forEach { $0(context) }
+
+			// The proxy goes on before any page of the profile loads.
+			Task { [weak self] in
+				guard let self else {
+					return
+				}
+
+				await network.apply(to: context)
+				let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
+				contexts[profileID] = context
+				refreshExtensions(profileID)
+				waiters.forEach { $0(context) }
+			}
 		}
 	}
 
@@ -242,6 +271,8 @@ final class BrowserController: NSObject {
 		unloadProfile(profileID)
 		model.removeProfile(profileID)
 		pendingDeletions.insert(profileID)
+		network.stop(profileID)
+		model.proxyStatus[profileID] = nil
 
 		withContext(profileID) { [weak self] context in
 			guard let self else {
@@ -568,7 +599,15 @@ extension BrowserController: WebContentsDelegate {
 		dialogs.enqueue(.permission(request), tabID: tabID(of: webContents))
 	}
 
+	// The profile's proxy signs in with its stored credentials; anything
+	// else (a site, or a proxy refusing them) asks the user.
 	func webContents(_ webContents: WebContents, authenticate challenge: AuthenticationChallenge) {
+		if let profileID = webContents.context?.identifier,
+		   let credentials = network.credentials(for: challenge, profileID: profileID) {
+			challenge.provide(username: credentials.username, password: credentials.password)
+			return
+		}
+
 		dialogs.enqueue(.authentication(challenge), tabID: tabID(of: webContents))
 	}
 

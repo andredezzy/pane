@@ -34,6 +34,17 @@ final class BrowserModel {
 	private(set) var devToolsTabIDs: Set<String> = []
 	// Each open profile's extensions, as the engine last reported them.
 	private(set) var extensions: [String: [ExtensionInfo]] = [:]
+	// Each proxied profile's last connection test (the Electron app's
+	// proxy-status-store), for the sidebar's dot.
+	var proxyStatus: [String: ProxyStatus] = [:]
+	// Called when a profile's proxy changes, to apply it to the engine.
+	@ObservationIgnored var proxyDidChange: ((String) -> Void)?
+
+	enum ProxyStatus: String {
+		case testing
+		case connected
+		case failed
+	}
 
 	struct NavigationState: Equatable {
 		var canGoBack = false
@@ -108,9 +119,14 @@ final class BrowserModel {
 			return
 		}
 
+		let proxy = profiles[index].proxy
 		change(&profiles[index])
 		profiles[index].updatedAt = Self.timestamp()
 		scheduleSave()
+
+		if profiles[index].proxy != proxy {
+			proxyDidChange?(id)
+		}
 	}
 
 	func removeProfile(_ id: String) {

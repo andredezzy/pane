@@ -95,6 +95,7 @@ source_set("pane") {
     "//components/password_manager/core/common",
     "//components/permissions",
     "//components/prefs",
+    "//components/proxy_config",
     "//components/remote_cocoa/app_shim",
     "//components/sessions",
     "//components/spellcheck:buildflags",
