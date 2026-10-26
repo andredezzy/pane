@@ -285,7 +285,7 @@ docs/native/parity.md
 - [x] **5.4** Sleep, Unload, Keep loaded, and Trim, exactly as `CONTEXT.md` defines them.
   - Port the policy in `sleep-scheduler.ts` and all of `sleep-scheduler.test.ts` to `PaneKit`.
   - The engine exposes: discard (release the page, keep the tab entry), freeze, the audible/DevTools/recent-interaction signals, cache size, and trim. Trim clears the HTTP cache and service worker caches only, never cookies, local storage, or IndexedDB.
-- [ ] **5.5** Security.
+- [x] **5.5** Security.
   - The lock screen with the PIN numpad, plus set, change, and remove PIN.
   - Existing bcrypt hashes from `security.json` are verified with a vetted bcrypt implementation; no homemade crypto.
   - The panic wipe as in `security/wipe.ts`.

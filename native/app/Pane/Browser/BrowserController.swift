@@ -40,10 +40,13 @@ final class BrowserController: NSObject {
 	private(set) var pendingDeletions: Set<String> = []
 	// Each profile's proxy and WebRTC policy.
 	let network: ProfileNetwork
+	// The PIN lock.
+	let lock: AppLock
 
-	init(model: BrowserModel, application: BrowserApplication) {
+	init(model: BrowserModel, application: BrowserApplication, lock: AppLock) {
 		self.model = model
 		self.application = application
+		self.lock = lock
 		network = ProfileNetwork(model: model)
 		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()

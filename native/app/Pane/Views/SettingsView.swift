@@ -47,6 +47,25 @@ struct SettingsView: View {
 						SettingsSection(title: "Extensions") {
 							ExtensionSettings(controller: controller)
 						}
+
+						PaneSeparator()
+
+						SettingsSection(title: "Security") {
+							if controller.lock.state.pin == nil {
+								Button("Set up PIN") { controller.lock.show(.setup) }
+									.buttonStyle(.pane(.outline))
+									.accessibilityIdentifier("pane.settings.setUpPIN")
+							} else {
+								HStack(spacing: 8) {
+									Button("Change PIN") { controller.lock.show(.change) }
+										.buttonStyle(.pane(.outline))
+										.accessibilityIdentifier("pane.settings.changePIN")
+									Button("Remove PIN") { controller.lock.show(.remove) }
+										.buttonStyle(.pane(.outline))
+										.accessibilityIdentifier("pane.settings.removePIN")
+								}
+							}
+						}
 					}
 					.frame(maxWidth: 480, alignment: .leading)
 

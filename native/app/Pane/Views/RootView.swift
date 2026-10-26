@@ -66,7 +66,17 @@ struct RootView: View {
 
 				ConfirmDialogView(dialog: dialog) { state.dialog = nil }
 			}
+
+			// The PIN screen, over everything; it slides up and back down.
+			if let entry = controller.lock.entry {
+				LockScreenView(lock: controller.lock, entry: entry)
+					.transition(.asymmetric(
+						insertion: .move(edge: .bottom).animation(reduceMotion ? nil : .timingCurve(0.16, 1, 0.3, 1, duration: 0.4)),
+						removal: .move(edge: .bottom).animation(reduceMotion ? nil : .easeIn(duration: 0.35))
+					))
+			}
 		}
+		.animation(reduceMotion ? nil : .default, value: controller.lock.entry == nil)
 		.background(Palette.background)
 		.ignoresSafeArea()
 		.overlay(alignment: .top) {

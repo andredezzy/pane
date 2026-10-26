@@ -361,6 +361,27 @@ final class Automation {
 
 			model.updateProfile(profileID) { $0.fingerprint = fingerprint }
 
+		case "showPinScreen":
+			// Settings' Set up, Change, or Remove PIN.
+			switch try string("mode") {
+			case "setup": controller.lock.show(.setup)
+			case "change": controller.lock.show(.change)
+			case "remove": controller.lock.show(.remove)
+			default: throw AutomationError("unknown PIN screen mode")
+			}
+
+		case "pinKeys":
+			// { keys: "1234" }: the numpad's digits; "<" is Delete, ">" is
+			// Continue, "^" is the back arrow.
+			for key in try string("keys") {
+				switch key {
+				case "<": controller.lock.backspace()
+				case ">": controller.lock.continueWithPin()
+				case "^": controller.lock.dismiss()
+				default: controller.lock.digit(key)
+				}
+			}
+
 		case "setSleepSettings":
 			// { tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB },
 			// each a number or null (off).
@@ -737,6 +758,22 @@ final class Automation {
 					},
 				] as [String: Any]
 			},
+			"security": [
+				"pinLength": controller.lock.state.pin?.length ?? NSNull(),
+				"failedAttempts": controller.lock.state.failedAttempts,
+				"locked": controller.lock.isLocked,
+				"screen": controller.lock.entry.map { entry in
+					[
+						"mode": "\(entry.mode)",
+						"step": "\(entry.step)",
+						"title": entry.title ?? NSNull(),
+						"dots": entry.dots,
+						"entered": entry.entered.count,
+						"busy": entry.busy,
+						"error": entry.error ?? NSNull(),
+					] as [String: Any]
+				} ?? NSNull(),
+			] as [String: Any],
 			"activeTabID": model.activeTabID ?? NSNull(),
 			"activeProfileID": model.activeProfileID ?? NSNull(),
 			"page": model.page == .browser ? "browser" : "settings",

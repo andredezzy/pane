@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 
 	func browserApplicationDidStart(_ application: BrowserApplication) {
 		let model = BrowserModel(dataDirectory: dataDirectory)
-		let controller = BrowserController(model: model, application: application)
+		let controller = BrowserController(model: model, application: application, lock: AppLock(dataDirectory: dataDirectory))
 		self.controller = controller
 
 		controller.applyTheme()

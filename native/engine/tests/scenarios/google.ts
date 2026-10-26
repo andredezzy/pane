@@ -94,6 +94,7 @@ const google: Scenario = async (context) => {
 	const { app } = await launchTraced(context, "google");
 	const plain = await app.createProfile("Google", "BLUE");
 	const windows = await app.createProfile("Google Windows", "EMERALD");
+
 	await app.send("setProfileFingerprint", {
 		profile: windows,
 		fingerprint: WINDOWS,

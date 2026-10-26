@@ -54,7 +54,24 @@ export type DownloadState = {
 	state: "inProgress" | "complete" | "cancelled" | "interrupted";
 };
 
+export type SecurityState = {
+	pinLength: number | null;
+	failedAttempts: number;
+	locked: boolean;
+	// The PIN screen, while it shows.
+	screen: {
+		mode: "setup" | "change" | "remove" | "unlock";
+		step: "verify" | "enter" | "confirm";
+		title: string | null;
+		dots: number;
+		entered: number;
+		busy: boolean;
+		error: string | null;
+	} | null;
+};
+
 export type AppState = {
+	security: SecurityState;
 	profiles: ProfileState[];
 	activeTabID: string | null;
 	activeProfileID: string | null;

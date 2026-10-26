@@ -22,3 +22,7 @@ app uses them through lucide-react.
 Patch 0006-pane-fingerprint.patch is Pane's own and borrows no other
 project's patch. Its canvas and audio noise are the Electron app's own
 algorithms (apps/veil profile/fingerprint-preload.ts).
+
+OpenBSD bcrypt (lib/libc/crypt/bcrypt.c, blowfish.c, include/blf.h), ISC and
+BSD-3-Clause (native/third_party/openbsd-bcrypt/LICENSE): vendored unmodified
+in native/app/PaneKit/Sources/CBcrypt for the app lock's PIN hashes.

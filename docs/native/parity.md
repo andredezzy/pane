@@ -19,9 +19,9 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | `profiles.remove` — delete a profile and its data | `routers/profiles.ts` | 2 | ✅ | `phase-2/profile-lifecycle.json` — profile, tabs, pages and engine directory gone |
 | `profiles.signOut` — sign out of Google in a profile | `routers/profiles.ts`, `profile/google/sign-out.ts` | 5 | dropped | The user's decision (2026-10-26): a workaround for Google rejecting the Electron engine, which no browser has; Google accepts the native engine (`phase-5/google.json`). `HUMAN-CHECKLIST.md` (Done) |
 | `profiles.signedIn` — whether a profile has a Google session | `routers/profiles.ts`, `profile/google/sessions.ts` | 5 | dropped | Only fed Sign out of Google, dropped with it (the user's decision, 2026-10-26) |
-| `security.verify` — check the PIN | `routers/security.ts` | 5 | — | |
-| `security.setPin` / `changePin` / `removePin` | `routers/security.ts`, `stores/security-store.ts` | 5 | — | |
-| `security.wipe` — panic wipe | `routers/security.ts`, `security/wipe.ts` | 5 | — | |
+| `security.verify` — check the PIN | `routers/security.ts` | 5 | ✅ | OpenBSD's bcrypt verifies the Electron app's bcryptjs hash; a wrong PIN counts on disk at once: `phase-5/security.json`, `phase-5/swift-test.txt` |
+| `security.setPin` / `changePin` / `removePin` | `routers/security.ts`, `stores/security-store.ts` | 5 | ✅ | Through the PIN screen, `$2b$` at cost 10 as the Electron app: `phase-5/security.json` |
+| `security.wipe` — panic wipe | `routers/security.ts`, `security/wipe.ts` | 5 | ✅ | Only after the fifth wrong PIN at the lock: the engine data (every profile) and caches, and the app's files, overwritten three times then deleted; Pane starts again fresh: `phase-5/security.json` |
 | `settings.detectBrowser` — find Chrome for the Google sign-in fallback | `routers/settings.ts`, `detect-browser.ts` | 5 | dropped | Only served the Google sign-in fallback, dropped (the user's decision, 2026-10-26) |
 | `stores.push` / `stores.sync` — state sync between processes | `routers/stores.ts`, `stores/middlewares/sync.ts` | — | ⛔ | Not a capability: the native app is one process with one state, so nothing syncs. |
 | `tabs.open` / `close` / `switch` | `routers/tabs.ts`, `profile/profile-tabs.ts` | 2 | ✅ | `phase-2/shortcuts.json`, `phase-2/popup-new-tab.json`, `phase-2/switcher.json` |
@@ -58,9 +58,9 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Settings: Browser (Chrome path, auto-detect) | `app/settings/page.tsx` | 5 | — | |
 | Settings: Resources (sleep after, unload after, trim cache over) | `app/settings/_components/resource-settings.tsx` | 5 | — | |
 | Settings: Extensions (install from Web Store URL/ID, list, uninstall) | `app/settings/_components/extension-settings.tsx` | 4 | ✅ | Install by ID, disable, enable, pin, unpin, update, remove, each clicked with CUA: `phase-4/extension-management.json` |
-| Settings: Security (set up, change, remove PIN) | `app/settings/page.tsx` | 5 | — | |
+| Settings: Security (set up, change, remove PIN) | `app/settings/page.tsx` | 5 | ✅ | Set up PIN, or Change and Remove PIN, after Extensions as in the Electron app; each opens the PIN screen: `phase-5/security.json` |
 | Settings: Updates (check, download) | `app/settings/page.tsx`, `components/update-status-label.tsx` | 5 | — | |
-| Lock screen with PIN numpad | `app/lock-screen/page.tsx`, `components/numpad.tsx` | 5 | — | |
+| Lock screen with PIN numpad | `app/lock-screen/page.tsx`, `components/numpad.tsx` | 5 | ✅ | The panel over the whole window, dots, numpad, hints, shake, slide in and out; keys typed go to it alone: `phase-5/security-lock.png`, `phase-5/security-last-attempt.png`. The update pill on it waits for the update check (5.6) |
 | Update pill in the sidebar footer (dismissible per launch) | `components/sidebar/sidebar.tsx`, DESIGN.md | 5 | — | |
 
 ## Shortcuts (`apps/veil/src/main/window.ts`)
@@ -96,7 +96,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Active tab and profile, MRU history, closed-tab stack | `tab-store.ts` | 2 | ✅ | `phase-2/shortcuts.json`, `phase-2/switcher.json`, `phase-2/swift-test.txt` |
 | Expanded profiles (not persisted) | `sidebar-store.ts` | 2 | ✅ | `phase-2/restore.json` |
 | Current page: browser or settings | `navigation-store.ts` | 2 | ✅ | `phase-2/shortcuts.json` (⌘,) |
-| PIN hash (bcrypt) and lock state | `security-store.ts` (`security.json`) | 5 | — | |
+| PIN hash (bcrypt) and lock state | `security-store.ts` (`security.json`) | 5 | ✅ | `security.json` reads and writes in the Electron app's format; a PIN means Pane starts locked: `phase-5/security.json`, `phase-5/swift-test.txt` |
 | Installed extensions per profile | `extension-store.ts` | 4 | ✅ | Chrome's extension system, one per profile (the store is gone): `phase-4/dark-reader.json` |
 | Proxy status per profile | `proxy-status-store.ts` | 5 | ✅ | Tested at launch and on every proxy change; the sidebar's dot: `phase-5/proxy.json` |
 | Update status (checking, available, downloading) | `update-store.ts` | 5 | — | |
