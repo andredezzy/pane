@@ -2,11 +2,13 @@ import AppKit
 import PaneCore
 
 // Shows an extension action's popup page in a popover under its toolbar
-// button, sized to the page; closing either one closes the other.
+// button, sized to the page; closing either one closes the other. Observed:
+// the button stays lit while its popup shows.
 @MainActor
+@Observable
 final class ExtensionPopover: NSObject, NSPopoverDelegate, ExtensionPopupDelegate {
 	private(set) var popup: ExtensionPopup?
-	private var popover: NSPopover?
+	@ObservationIgnored private var popover: NSPopover?
 
 	// The popover's own window, while it shows.
 	var window: NSWindow? {

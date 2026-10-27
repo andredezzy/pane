@@ -259,3 +259,15 @@ Dated record of choices made while building the native shell — what was decide
 - **The `extensions-menu` scenario reopens the more menu before pressing a row.** It had failed twice when the window gave up key status during the run (an extension's tab or popup taking it while the app is not frontmost), which closes the menu, as it should. It passed three runs in a row after.
 - **The puzzle's stroke is the toolbar's** (the user's report: too heavy). The toolbar puzzle drew 2 of 24 at 20 points, 1.67 points. It now draws 1.4 of 24, 1.17 points, as the navigation icons' 2 of 24 at 14. Rendered side by side at 2×, the puzzle's edge carries 2.34 pixels of ink and the back arrow's shaft 2.32. In menus it takes the other menu icons' 1.75 of 24 at 16. Paper follows: 50 toolbar puzzles and 7 menu ones.
 - **Pinned extension icons are 16 points** (the user's report: too large). They were the Electron app's 70% of the 28-point button, 19.6 points. Chrome and Aside draw action icons at 16, and so does Pane now. Rendered, Dark Reader's icon is 15 by 14 points of ink beside the puzzle. The letter shown for an extension without an icon is a 16-point tile with a 9-point letter. Paper follows in all 15 toolbars that show pinned actions.
+- **Pinned actions sit in a capsule, as Aside's** (the user's request, with Aside and Dia as the models; designed in Paper first: 02.9's toolbar states, and the six browsing states with pinned actions, light and dark). Measured at 2× from the user's Aside screenshot: its actions are 32-point circles 4 apart, flush inside a capsule with a 1-point border, and the puzzle stands outside it. Dia draws the same 16-point icons with no group.
+  - **Pane's** are 28-point circles, the toolbar's control size, in a capsule as tall as the address field and the profile chip (30), 6 points from the puzzle.
+  - **An action's circle fills with the accent** on hover and while its popup shows, as Aside's 1Password button does; `ExtensionPopover` is observed for it. The pointer stays on the button while its right-click menu is open, so the circle stays filled then too. The white 30% wash it had on hover did not show on the white toolbar.
+  - **Rendered** (light and dark, two actions pinned): the capsule spans the address field's 30 points, top to bottom, and is 62 wide; the lit circle is 28.
+  - **Paper catches up on the puzzle's stroke**: four paths the earlier pass missed, in 02.9's toolbar states and icon row, drew it at 2 of 24. They now take 1.4 in the toolbar and 1.75 in menus.
+- **Paper draws the right-click menu as macOS does** (the user's word: it must be the Mac's own menu). The app's always was: SwiftUI's `.contextMenu` is an `NSMenu`. 03.13 drew a flat card. It now copies the `NSMenu` in the user's Aside screenshot, measured at 2×:
+  - 286 points wide, radius 13, with 5 points above and below.
+  - 24-point rows, the text 16 points in.
+  - 11-point separators, their line 16 points in from each side.
+  - A half-point outline with a 1-point light rim inside it, and glass (a blur) over the page.
+
+  SF Pro is not available to Paper, so the text stays Inter.

@@ -1,8 +1,9 @@
 import SwiftUI
 
 // The active profile's extension actions in the toolbar: the pinned ones as
-// buttons with their badge, then the puzzle, which opens the extensions menu
-// (ExtensionsMenu) and shows whether or not any are installed.
+// buttons with their badge, in a capsule as Aside groups them, then the
+// puzzle, which opens the extensions menu (ExtensionsMenu) and shows whether
+// or not any are installed.
 struct ExtensionActionsView: View {
 	let controller: BrowserController
 
@@ -12,11 +13,19 @@ struct ExtensionActionsView: View {
 	}
 
 	var body: some View {
-		HStack(spacing: 5) {
-			ForEach(pinned) { item in
-				ActionButton(item: item) { controller.runExtensionAction(item.id) }
-					.contextMenu { ActionContextMenu(controller: controller, item: item) }
-					.anchorPreference(item.id)
+		HStack(spacing: 6) {
+			if !pinned.isEmpty {
+				HStack(spacing: 4) {
+					ForEach(pinned) { item in
+						ActionButton(item: item, isOpen: controller.extensionPopover.popup?.extensionIdentifier == item.id) {
+							controller.runExtensionAction(item.id)
+						}
+						.contextMenu { ActionContextMenu(controller: controller, item: item) }
+						.anchorPreference(item.id)
+					}
+				}
+				.padding(1)
+				.overlay { Capsule().strokeBorder(Palette.border, lineWidth: 1) }
 			}
 
 			if model.activeProfileID != nil {
@@ -88,12 +97,14 @@ private struct ExtensionsButton: View {
 	}
 }
 
-// An extension's toolbar button: 28 points, rounded 7, a faint white wash on
-// hover, the icon at 16 points, as Chrome and Aside draw action icons (the
-// Electron app's 70% of the button was 19.6); no icon shows the name's first
-// letter on gray. The badge is 12px, 9px text, bottom right.
+// An extension's toolbar button, as Aside's: a 28-point circle, filled on
+// hover and while its popup shows (and, the pointer still on it, while its
+// right-click menu does); the icon at 16 points, as Chrome and Aside draw
+// action icons; no icon shows the name's first letter on gray. The badge is
+// 12px, 9px text, bottom right.
 private struct ActionButton: View {
 	let item: ExtensionInfo
+	let isOpen: Bool
 	let action: () -> Void
 
 	@State private var isHovered = false
@@ -115,7 +126,7 @@ private struct ActionButton: View {
 				}
 			}
 			.frame(width: 28, height: 28)
-			.background(isHovered ? Color.white.opacity(0.3) : .clear, in: Squircle(cornerRadius: 7))
+			.background(isOpen || isHovered ? Palette.accent : .clear, in: Circle())
 			.overlay(alignment: .bottomTrailing) {
 				if !item.badgeText.isEmpty {
 					Text(item.badgeText)
@@ -131,13 +142,14 @@ private struct ActionButton: View {
 						.padding(.bottom, 1)
 				}
 			}
-			.contentShape(Rectangle())
+			.contentShape(Circle())
 		}
 		.buttonStyle(.plain)
 		.opacity(item.actionEnabled ? 1 : 0.4)
 		.onHover { isHovered = $0 }
 		.help(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityLabel(item.actionTitle.isEmpty ? item.name : item.actionTitle)
+		.accessibilityAddTraits(isOpen ? .isSelected : [])
 		.accessibilityIdentifier("pane.extension.\(item.id)")
 	}
 }
