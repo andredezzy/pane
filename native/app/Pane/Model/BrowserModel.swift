@@ -10,6 +10,7 @@ final class BrowserModel {
 	enum Page {
 		case browser
 		case settings
+		case extensions
 	}
 
 	private(set) var profiles: [BrowserProfile]

@@ -95,7 +95,7 @@ export type AppState = {
 	profiles: ProfileState[];
 	activeTabID: string | null;
 	activeProfileID: string | null;
-	page: "browser" | "settings";
+	page: "browser" | "settings" | "extensions";
 	theme: string;
 	appearance: string;
 	find: {

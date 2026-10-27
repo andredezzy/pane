@@ -16,12 +16,12 @@ struct ExtensionsMenu: View {
 	var body: some View {
 		VStack(spacing: 0) {
 			VStack(spacing: 0) {
-				MenuRow(identifier: "pane.extensionsMenu.manage", action: { controller.showExtensionSettings() }) {
+				MenuRow(identifier: "pane.extensionsMenu.manage", action: { controller.showExtensions() }) {
 					RowIcon(image: Glyph.puzzle.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Manage all extensions")
 				}
 
-				MenuRow(identifier: "pane.extensionsMenu.webStore", action: controller.visitWebStore) {
+				MenuRow(identifier: "pane.extensionsMenu.webStore", action: { controller.visitWebStore() }) {
 					RowIcon(image: Glyph.download.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Visit Chrome Web Store")
 				}
@@ -116,7 +116,7 @@ struct ExtensionMoreMenu: View {
 			MenuSeparator()
 
 			VStack(spacing: 0) {
-				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showExtensionSettings(extensionID: item.id) }) {
+				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showExtensions(extensionID: item.id) }) {
 					RowIcon(image: Lucide.settings.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Manage Extension")
 				}
@@ -184,7 +184,7 @@ private struct ExtensionRow: View {
 				} content: {
 					Image(nsImage: (item.pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
 						.renderingMode(.template)
-						.foregroundStyle(item.pinned ? Self.pinnedColor : Palette.mutedForeground)
+						.foregroundStyle(item.pinned ? Palette.pinned : Palette.mutedForeground)
 				}
 				.accessibilityAddTraits(item.pinned ? .isSelected : [])
 				.accessibilityIdentifier("pane.extensionsMenu.pin.\(item.id)")
@@ -206,10 +206,6 @@ private struct ExtensionRow: View {
 		}
 	}
 
-	// Aside's pinned blue: the progress blue, lighter on dark.
-	private static let pinnedColor = Color(nsColor: NSColor(name: nil) { appearance in
-		NSColor(rgb: Palette.isDark(appearance) ? 0x60A5FA : 0x3B82F6)
-	})
 }
 
 // A 32-point row: a button from its leading edge to its trailing buttons,

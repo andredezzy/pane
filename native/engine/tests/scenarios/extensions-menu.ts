@@ -12,7 +12,7 @@ import { expect, type Scenario } from "../run";
 const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
 // The toolbar's puzzle opens the extensions menu, as Aside's (Paper: 02.9
-// Browser · Extensions): Manage all extensions opens Settings at Extensions,
+// Browser · Extensions): Manage all extensions opens the Extensions page,
 // Visit Chrome Web Store opens it in a new tab, and each extension's row runs
 // its action, its pin pins and unpins it with the menu still open, and its
 // more menu manages or removes it. Esc and a click outside close the menu.
@@ -182,14 +182,14 @@ const extensionsMenu: Scenario = async (context) => {
 			),
 	);
 
-	// Manage all extensions: Settings.
+	// Manage all extensions: the Extensions page.
 	await app.send("select", { tab });
 	await openMenu(app, locked);
 	await press(app, locked, manage);
 
 	await app.waitFor(
-		"Settings",
-		(state) => state.page === "settings" && !state.extensionsMenu,
+		"the Extensions page",
+		(state) => state.page === "extensions" && !state.extensionsMenu,
 	);
 
 	// Dark Reader, installed by its Web Store ID: pinned, as Chrome pins a new
@@ -276,7 +276,8 @@ const extensionsMenu: Scenario = async (context) => {
 
 	await Bun.sleep(500);
 
-	// More: Pane's own menu beside the row; Manage extension opens Settings.
+	// More: Pane's own menu beside the row; Manage Extension opens the
+	// Extensions page.
 	await openMenu(app, locked);
 	await press(app, locked, more);
 
@@ -295,9 +296,9 @@ const extensionsMenu: Scenario = async (context) => {
 	);
 
 	await app.waitFor(
-		"Settings again",
+		"the Extensions page again",
 		(state) =>
-			state.page === "settings" &&
+			state.page === "extensions" &&
 			!state.extensionsMenu &&
 			state.extensionMoreMenu === null,
 	);

@@ -557,7 +557,7 @@ final class Automation {
 			}
 
 			if control == "manage" {
-				controller.showExtensionSettings()
+				controller.showExtensions()
 				break
 			}
 
@@ -582,7 +582,7 @@ final class Automation {
 			// The more menu's rows.
 			case "storePage": controller.openExtensionStorePage(id)
 			case "remove": controller.confirmUninstall(item, inProfile: profileID)
-			case "manageExtension": controller.showExtensionSettings(extensionID: id)
+			case "manageExtension": controller.showExtensions(extensionID: id)
 			default: throw AutomationError("unknown extensions menu control \(control)")
 			}
 
@@ -966,7 +966,7 @@ final class Automation {
 			] as [String: Any],
 			"activeTabID": model.activeTabID ?? NSNull(),
 			"activeProfileID": model.activeProfileID ?? NSNull(),
-			"page": model.page == .browser ? "browser" : "settings",
+			"page": String(describing: model.page),
 			"theme": model.settings.theme.rawValue,
 			"appearance": NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])?.rawValue ?? "",
 			"find": [

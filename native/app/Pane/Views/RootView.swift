@@ -184,6 +184,8 @@ struct RootView: View {
 
 				if model.page == .settings {
 					SettingsView(controller: controller)
+				} else if model.page == .extensions {
+					ExtensionsPage(controller: controller)
 				} else if model.activeTabID == nil {
 					EmptyStateView()
 				} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {

@@ -12,7 +12,7 @@ enum MainMenu {
 		menu.addItem(submenu: viewMenu(controller))
 		menu.addItem(submenu: navigateMenu(controller))
 		menu.addItem(submenu: tabMenu(controller))
-		menu.addItem(submenu: windowMenu())
+		menu.addItem(submenu: windowMenu(controller))
 
 		return menu
 	}
@@ -104,10 +104,14 @@ enum MainMenu {
 		return menu
 	}
 
-	private static func windowMenu() -> NSMenu {
+	private static func windowMenu(_ controller: BrowserController) -> NSMenu {
 		let menu = NSMenu(title: "Window")
 		menu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
 		menu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+		menu.addItem(.separator())
+		// As Chrome's Window › Extensions. No key: pages use ⇧⌘E (Docs centers
+		// text with it), and a menu's key would take it from them.
+		menu.addItem(item("Extensions", #selector(BrowserController.showExtensionsPage(_:)), "", target: controller))
 		NSApp.windowsMenu = menu
 
 		return menu

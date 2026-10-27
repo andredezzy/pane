@@ -72,7 +72,7 @@ private struct ActionContextMenu: View {
 
 		Divider()
 
-		Button("Manage Extension") { controller.showExtensionSettings(extensionID: item.id) }
+		Button("Manage Extension") { controller.showExtensions(extensionID: item.id) }
 	}
 }
 

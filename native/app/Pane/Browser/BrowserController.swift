@@ -994,19 +994,19 @@ extension BrowserController {
 		state.extensionMoreMenu = state.extensionMoreMenu?.extensionID == extensionID ? nil : (extensionID, row)
 	}
 
-	// Settings, scrolled to Extensions, or to one extension's card there.
-	func showExtensionSettings(extensionID: String? = nil) {
+	// The Extensions page, at one extension's card if given.
+	func showExtensions(extensionID: String? = nil) {
 		closeExtensionsMenu()
-		state.settingsAnchor = extensionID.map { "pane.settings.extension.\($0)" } ?? "pane.settings.extensions"
-		model.page = .settings
+		state.extensionsAnchor = extensionID.map { "pane.extensions.extension.\($0)" }
+		model.page = .extensions
 	}
 
-	// The Chrome Web Store in a new tab of the active profile: its Add to
-	// Chrome installs into that profile.
-	func visitWebStore() {
+	// The Chrome Web Store in a new tab of the profile (the active one by
+	// default): its Add to Chrome installs into that profile.
+	func visitWebStore(inProfile profileID: String? = nil) {
 		closeExtensionsMenu()
 
-		if let profileID = model.activeProfileID {
+		if let profileID = profileID ?? model.activeProfileID {
 			openTab(inProfile: profileID, url: Self.webStoreURL)
 		}
 	}
@@ -1020,10 +1020,10 @@ extension BrowserController {
 		}
 	}
 
-	func openExtensionOptions(_ item: ExtensionInfo) {
+	func openExtensionOptions(_ item: ExtensionInfo, inProfile profileID: String? = nil) {
 		closeExtensionsMenu()
 
-		if let profileID = model.activeProfileID, let url = item.optionsURL {
+		if let profileID = profileID ?? model.activeProfileID, let url = item.optionsURL {
 			openTab(inProfile: profileID, url: url)
 		}
 	}

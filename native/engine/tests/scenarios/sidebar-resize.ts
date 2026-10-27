@@ -55,10 +55,12 @@ const sidebarResize: Scenario = async (context) => {
 		first.send<Drag>("dragWindow", { from: [from, y], to: [to, y], steps: 30 });
 
 	const wider = await drag(258, 318);
+
 	expect(
 		wider.state.sidebarWidth === 320,
 		`dragged 60 wider: ${wider.state.sidebarWidth}`,
 	);
+
 	// The panel follows: the window less the sidebar and the 8-point gutter.
 	const window = Number(
 		wider.state.window.frame.match(/\{([\d.]+), [\d.]+\}\}$/)?.[1],
@@ -70,12 +72,14 @@ const sidebarResize: Scenario = async (context) => {
 	);
 
 	const widest = await drag(318, 700);
+
 	expect(
 		widest.state.sidebarWidth === 400,
 		`past the widest: ${widest.state.sidebarWidth}`,
 	);
 
 	const narrowest = await drag(398, 40);
+
 	expect(
 		narrowest.state.sidebarWidth === 200,
 		`past the narrowest: ${narrowest.state.sidebarWidth}`,
@@ -83,6 +87,7 @@ const sidebarResize: Scenario = async (context) => {
 
 	// A double-click on the edge: the standard width.
 	await first.send("clickWindow", { x: 198, y, clicks: 2 });
+
 	const reset = await first.waitFor(
 		"260 again",
 		(state) => state.sidebarWidth === 260,
@@ -90,10 +95,12 @@ const sidebarResize: Scenario = async (context) => {
 
 	// Kept across launches.
 	const kept = await drag(258, 298);
+
 	expect(
 		kept.state.sidebarWidth === 300,
 		`dragged 40 wider: ${kept.state.sidebarWidth}`,
 	);
+
 	await first.send("save");
 	await first.browser.close();
 

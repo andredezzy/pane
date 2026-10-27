@@ -23,6 +23,10 @@ enum Palette {
 		isDark(appearance) ? NSColor(white: 1, alpha: 0.06) : NSColor(white: 0, alpha: 0.08)
 	})
 
+	// Aside's pinned blue, for an extension's pin: the progress blue,
+	// lighter on dark.
+	static let pinned = pair(0x3B82F6, 0x60A5FA)
+
 	// Scrims stay black in both themes (DESIGN.md: Theme).
 	static let sheetScrim = Color.black.opacity(0.4)
 

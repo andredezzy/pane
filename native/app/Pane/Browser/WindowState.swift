@@ -88,9 +88,9 @@ final class WindowState {
 		let answer: @MainActor (_ accepted: Bool, _ reportAbuse: Bool) -> Void
 	}
 
-	// Where Settings scrolls as it opens: the Extensions section, or one
-	// extension's card in it (their accessibility identifiers).
-	var settingsAnchor: String?
+	// Where the Extensions page scrolls as it opens: one extension's card
+	// (its accessibility identifier).
+	var extensionsAnchor: String?
 	// The extension just installed, for the confirmation the app shows.
 	var installedExtension: String?
 	// Bumped to move focus into the address field.

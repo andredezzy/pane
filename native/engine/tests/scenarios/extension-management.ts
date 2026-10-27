@@ -14,7 +14,7 @@ import { expect, type Scenario } from "../run";
 
 const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
-// Settings › Extensions manages a profile's extensions: install by Web Store
+// The Extensions page manages a profile's extensions: install by Web Store
 // ID (pinned to the toolbar), disable and enable, unpin and pin, update, and
 // remove after asking.
 // On an unlocked screen each control is clicked with CUA; else the same
@@ -33,16 +33,20 @@ const extensionManagement: Scenario = async (context) => {
 	const item = (state: AppState): ExtensionState | undefined =>
 		(state.extensions[profile] ?? []).find((each) => each.id === DARK_READER);
 
-	// Settings (⌘,), where Extensions is a section.
-	const showSettings = async () => {
-		if ((await app.state()).page !== "settings") {
-			await app.send("key", { key: ",", modifiers: ["command"] });
+	// The Extensions page, as the extensions menu's Manage all extensions
+	// opens it (the extensions-menu scenario clicks that).
+	const showExtensions = async () => {
+		if ((await app.state()).page !== "extensions") {
+			await app.send("extensionsMenu", { control: "manage" });
 		}
 
-		await app.waitFor("Settings", (state) => state.page === "settings");
+		await app.waitFor(
+			"the Extensions page",
+			(state) => state.page === "extensions",
+		);
 	};
 
-	await showSettings();
+	await showExtensions();
 
 	// Install by its Web Store ID, then accept the app's install sheet.
 	if (locked) {
@@ -50,12 +54,7 @@ const extensionManagement: Scenario = async (context) => {
 	} else {
 		const window = await mainWindowOf(pid);
 
-		await typeIntoField(
-			pid,
-			window,
-			"pane.settings.extensions.input",
-			DARK_READER,
-		);
+		await typeIntoField(pid, window, "pane.extensions.input", DARK_READER);
 
 		await clickButton(pid, window, "Install");
 	}
@@ -80,11 +79,11 @@ const extensionManagement: Scenario = async (context) => {
 		`installed unpinned: ${JSON.stringify(item(installed))}`,
 	);
 
-	// Its welcome tab took the window; back to Settings.
+	// Its welcome tab took the window; back to the Extensions page.
 	await Bun.sleep(1_000);
-	await showSettings();
+	await showExtensions();
 
-	// Each switch: a CUA click in the extension's row, or the same call.
+	// Its switch and its pin: a CUA click on its card, or the same call.
 	const toggle = async (
 		title: "Enabled" | "Pinned",
 		command: string,
@@ -96,11 +95,18 @@ const extensionManagement: Scenario = async (context) => {
 				profile,
 				[title === "Enabled" ? "enabled" : "pinned"]: value,
 			});
-		} else {
+		} else if (title === "Enabled") {
 			await clickControl(pid, await mainWindowOf(pid), {
 				title,
 				role: /AX(CheckBox|Switch)/,
 			});
+		} else {
+			await clickButton(
+				pid,
+				await mainWindowOf(pid),
+				value ? "Pin to toolbar" : "Unpin from toolbar",
+				`pane.extensions.pin.${DARK_READER}`,
+			);
 		}
 
 		return app.waitFor(`${title} ${value}`, (state) =>
@@ -117,7 +123,7 @@ const extensionManagement: Scenario = async (context) => {
 		await windowState(
 			pid,
 			await mainWindowOf(pid),
-			join(context.out, "extension-settings.png"),
+			join(context.out, "extensions-page.png"),
 		);
 	}
 
@@ -137,12 +143,17 @@ const extensionManagement: Scenario = async (context) => {
 		has("PaneBrowserContext.updateExtensions"),
 	);
 
-	// Uninstall asks first, in the extension's removal popup.
+	// Remove asks first, in the extension's removal popup.
 	if (locked) {
 		await app.send("uninstallExtension", { id: DARK_READER, profile });
 	} else {
 		const window = await mainWindowOf(pid);
-		await clickButton(pid, window, "Uninstall");
+		await clickButton(
+			pid,
+			window,
+			"Remove",
+			`pane.extensions.remove.${DARK_READER}`,
+		);
 		await waitForSheet(app, "extensionRemove");
 		await Bun.sleep(500);
 
@@ -152,7 +163,19 @@ const extensionManagement: Scenario = async (context) => {
 			join(context.out, "extension-uninstall.png"),
 		);
 
-		await clickButton(pid, window, "Remove", "pane.extensionPopup.accept");
+		// The press removes it, and its uninstall page opens in a new tab
+		// before the press returns: accessibility can give up waiting
+		// (-25204) though the press took. The removal below is the check.
+		await clickButton(
+			pid,
+			window,
+			"Remove",
+			"pane.extensionPopup.accept",
+		).catch((error: unknown) => {
+			if (!String(error).includes("-25204")) {
+				throw error;
+			}
+		});
 	}
 
 	const removed = await app.waitFor(
