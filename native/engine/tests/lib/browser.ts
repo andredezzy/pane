@@ -53,6 +53,10 @@ function freePort(): number {
 	const { port } = server;
 	server.stop(true);
 
+	if (port === undefined) {
+		throw new Error("no free port");
+	}
+
 	return port;
 }
 
@@ -109,7 +113,7 @@ export async function launch(
 		stderr: output,
 	});
 
-	const port = await waitForPort(userDataDir, fixedPort);
+	const port = await waitForPort(userDataDir ?? null, fixedPort);
 
 	const version = (await (
 		await fetch(`http://127.0.0.1:${port}/json/version`)

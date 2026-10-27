@@ -335,7 +335,7 @@ docs/native/parity.md
 ## Phase 7 — Cutover (on the `native-shell` branch)
 
 - [x] **7.1** Write `docs/native/cutover-report.md`: the parity summary, every dropped item with its justification, and every open `HUMAN-CHECKLIST.md` entry.
-- [ ] **7.2** On the branch:
+- [x] **7.2** On the branch:
   - Remove `apps/veil` and the Electron-only packages (`electron-chrome-extensions`, `electron-chrome-context-menu`, and `ui` if unused).
   - Update `AGENTS.md`, `README`, and `.github/workflows/release.yml` for the native app.
   - `main` keeps the Electron app until the user merges.

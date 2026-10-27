@@ -42,12 +42,7 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 # Build
-.turbo
 *.tsbuildinfo
-
-# Electron
-out/
-release/
 
 # Playwright MCP
 .playwright-mcp

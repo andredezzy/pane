@@ -53,6 +53,7 @@ These are not missing features. Each is recorded in `native/DECISIONS.md`.
 - **Chrome makes no requests of its own**: no component updater, network time, AI Mode eligibility, Translate ranker, or Google account list. The `quiet` scenario sees nothing leave but the pages' own traffic.
 - **Chrome 157's own changes**: a new extension is pinned to the toolbar, as every extension's button showed in the Electron app. A page goes fullscreen only from a focused view.
 - **One version source**: `native/app/VERSION`. The bundle's version keys, Settings, the update check, and the dmg's name all come from it. The bundle carries Pane's icon.
+- **Apple Silicon Macs only.** The Electron app's Windows, Linux, and Intel Mac builds end with it (plan Decision 4). Its update check already offered only the arm64 dmg.
 - **The release is the Electron app's**, on the same update contract: `Pane-<version>-arm64.dmg`, laid out by the same dmgbuild and settings, ad-hoc signed until a Developer ID exists. The update check reads the same GitHub releases.
 
 ## Maintenance

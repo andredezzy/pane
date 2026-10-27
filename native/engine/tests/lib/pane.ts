@@ -111,6 +111,7 @@ export type AppState = {
 		visible: boolean;
 		fullScreen: boolean;
 		frame: string;
+		key: boolean;
 	};
 	closedTabs: number;
 	pendingProfileDeletions: number;

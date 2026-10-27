@@ -1,40 +1,23 @@
 {
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"ignoreExportsUsedInFile": true,
-	"ignoreBinaries": ["defaults", "ioreg", "openssl", "swiftc"],
+	"ignoreBinaries": ["defaults", "ioreg", "openssl", "swift", "swiftc"],
 	"workspaces": {
 		".": {
 			"entry": [
 				"native/engine/tests/run.ts",
 				"native/engine/tests/scenarios/*.ts",
 				"native/engine/tests/tools/*.ts"
-			]
-		},
-		"apps/veil": {
-			"entry": [
-				"src/main/index.ts",
-				"src/preload/index.ts",
-				"src/renderer/main.tsx",
-				"electron.vite.config.ts"
 			],
-			"ignoreDependencies": ["@types/bcryptjs"]
-		},
-		"packages/ui": {},
-		"packages/config-typescript": {},
-		"packages/config-tsdown": {},
-		"packages/config-test": {
-			"ignoreDependencies": ["@pane/config-tsdown"]
+			"ignoreDependencies": ["electron"]
 		}
 	},
 	"ignore": [
 		"**/dist/**",
 		"**/out/**",
 		"**/release/**",
-		"**/.turbo/**",
 		"**/coverage/**",
 		"**/node_modules/**",
-		"**/styles/**",
-		"packages/electron-chrome-extensions/**",
 		".claude/**",
 		".cursor/**",
 		"native/engine/tests/pages/**"

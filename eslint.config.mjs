@@ -7,7 +7,6 @@ export default defineConfig([
 	{
 		ignores: [
 			"**/node_modules/**",
-			"**/.turbo/**",
 			"**/dist/**",
 			"**/coverage/**",
 			"**/out/**",

@@ -20,11 +20,19 @@
 		"rules": {
 			"recommended": true,
 			"correctness": {
-				"noUnusedImports": { "level": "error", "fix": "safe" },
-				"noUnusedVariables": { "level": "error", "fix": "none" },
+				"noUnusedImports": {
+					"level": "error",
+					"fix": "safe"
+				},
+				"noUnusedVariables": {
+					"level": "error",
+					"fix": "none"
+				},
 				"noUnknownTypeSelector": "off"
 			},
-			"a11y": { "useValidAnchor": "off" },
+			"a11y": {
+				"useValidAnchor": "off"
+			},
 			"complexity": {
 				"noStaticOnlyClass": "off",
 				"noUselessConstructor": "off"
@@ -34,7 +42,9 @@
 				"noExplicitAny": "error",
 				"noConsole": {
 					"level": "warn",
-					"options": { "allow": ["log", "error", "warn", "info", "debug"] }
+					"options": {
+						"allow": ["log", "error", "warn", "info", "debug"]
+					}
 				}
 			},
 			"style": {
@@ -54,66 +64,42 @@
 				"useSortedClasses": {
 					"level": "error",
 					"fix": "unsafe",
-					"options": { "functions": ["cn", "clsx", "cva", "tw"] }
+					"options": {
+						"functions": ["cn", "clsx", "cva", "tw"]
+					}
 				}
 			}
 		}
 	},
 	"overrides": [
 		{
-			"includes": [
-				"packages/*/src/index.ts",
-				"packages/*/src/client.ts",
-				"**/vitest.config.ts"
-			],
-			"linter": {
-				"rules": {
-					"performance": { "noBarrelFile": "off", "noReExportAll": "off" }
-				}
-			}
-		},
-		{
 			"includes": ["**/generated/**", "**/*.generated.*"],
-			"linter": { "enabled": false },
-			"formatter": { "enabled": false },
-			"assist": { "enabled": false }
-		},
-		{
-			"includes": ["packages/electron-chrome-extensions/**"],
 			"linter": {
-				"rules": {
-					"suspicious": {
-						"noExplicitAny": "off",
-						"noAssignInExpressions": "off",
-						"noImplicitAnyLet": "off",
-						"useAdjacentOverloadSignatures": "off"
-					},
-					"style": {
-						"noNonNullAssertion": "off",
-						"noParameterAssign": "off",
-						"noNestedTernary": "off"
-					},
-					"correctness": {
-						"noUnusedFunctionParameters": "off",
-						"noUnusedVariables": "off",
-						"noInnerDeclarations": "off"
-					},
-					"complexity": {
-						"noBannedTypes": "off"
-					}
-				}
+				"enabled": false
+			},
+			"formatter": {
+				"enabled": false
+			},
+			"assist": {
+				"enabled": false
 			}
 		}
 	],
 	"javascript": {
-		"formatter": { "quoteStyle": "double" },
-		"parser": { "unsafeParameterDecoratorsEnabled": true }
+		"formatter": {
+			"quoteStyle": "double"
+		},
+		"parser": {
+			"unsafeParameterDecoratorsEnabled": true
+		}
 	},
 	"assist": {
 		"enabled": true,
 		"includes": ["**/*"],
 		"actions": {
-			"source": { "organizeImports": "on" }
+			"source": {
+				"organizeImports": "on"
+			}
 		}
 	}
 }

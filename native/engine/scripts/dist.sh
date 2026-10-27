@@ -46,9 +46,9 @@ mkdir -p "$RELEASE"
 rm -f "$DMG"
 settings="$work/settings.json"
 
-# electron-builder's settings for apps/veil's dmg config: the window is the
-# background's size, 400 points from the left and centered on a 1440-point
-# screen height.
+# The settings electron-builder derived from the Electron app's dmg config
+# (apps/veil package.json, build.dmg): the window is the background's size,
+# 400 points from the left and centered on a 1440-point screen height.
 background="$APP_DIR/dmg/background.tiff"
 read -r width height < <(sips -g pixelWidth -g pixelHeight "$background" | awk '/pixelWidth/ { w = $2 } /pixelHeight/ { h = $2 } END { print w, h }')
 

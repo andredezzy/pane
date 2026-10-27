@@ -13,18 +13,19 @@ import { join, relative } from "node:path";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
-// The first launch after the Electron app. Electron itself (the version the
-// app ships) writes a profile's site data, a cookie and local storage, into a
-// throwaway data directory beside the app's JSON files (two profiles, their
-// tabs, settings, a PIN) and an installed extension. Pane's first launch on
-// it migrates everything, from a copy: it starts locked behind the same PIN,
-// the profiles, tabs, and settings are there, the profile's pages see the
+// The first launch after the Electron app. Electron itself (41.4.0, the
+// version the Electron app shipped, kept as a dev dependency for this) writes
+// a profile's site data, a cookie and local storage, into a throwaway data
+// directory beside the app's JSON files (two profiles, their tabs, settings,
+// a PIN) and an installed extension. Pane's first launch on it migrates
+// everything, from a copy: it starts locked behind the same PIN, the
+// profiles, tabs, and settings are there, the profile's pages see the
 // Electron app's cookie and storage, and the extension reinstalls from the
 // Web Store. The Electron data is byte for byte as it was.
 
 const ELECTRON = join(
 	import.meta.dir,
-	"../../../../node_modules/.bun/electron@41.4.0/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+	"../../../../node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
 );
 
 const WORK = "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f01";
@@ -291,12 +292,14 @@ const migration: Scenario = async (context) => {
 
 	// migration.json: no longer pending in Work; still in Personal, which
 	// has not opened.
-	type Record = { state: { pendingExtensions: Record<string, string[]> } };
+	type MigrationRecord = {
+		state: { pendingExtensions: Record<string, string[]> };
+	};
 
 	const readRecord = () =>
 		JSON.parse(
 			readFileSync(join(app.dataDir, "migration.json"), "utf8"),
-		) as Record;
+		) as MigrationRecord;
 
 	const deadline = Date.now() + 10_000;
 	let record = readRecord();
