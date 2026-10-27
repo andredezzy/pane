@@ -59,13 +59,17 @@ struct TabSwitcherView: View {
 		}
 		.padding(10)
 		.frame(width: 320)
-		.background(Palette.popover, in: RoundedRectangle(cornerRadius: 12, style: .circular))
+		// shadow-2xl (0 25px 50px -12px black 25%), on the surface alone: on
+		// the whole view, SwiftUI shadows each row, text, and fill inside it.
+		.background {
+			RoundedRectangle(cornerRadius: 12, style: .circular)
+				.fill(Palette.popover)
+				.shadow(color: .black.opacity(0.25), radius: 25, y: 25)
+		}
 		.overlay {
 			RoundedRectangle(cornerRadius: 12, style: .circular)
 				.strokeBorder(Palette.foreground.opacity(0.1), lineWidth: 1)
 		}
-		// shadow-2xl: 0 25px 50px -12px black 25%.
-		.shadow(color: .black.opacity(0.25), radius: 25, y: 25)
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel("Tab switcher")
 		.accessibilityIdentifier("pane.switcher")
