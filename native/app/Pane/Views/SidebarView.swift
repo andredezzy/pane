@@ -44,6 +44,8 @@ struct SidebarView: View {
 			Text("Pane")
 				.font(.system(size: 12, weight: .semibold))
 				.foregroundStyle(Palette.mutedForeground)
+				// The title moves the window, as the rest of the header does.
+				.allowsHitTesting(false)
 
 			Spacer()
 

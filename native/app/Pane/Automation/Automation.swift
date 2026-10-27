@@ -240,6 +240,18 @@ final class Automation {
 				}
 			}
 
+		case "hitTest":
+			// The class of the view a click at a point of the window
+			// (top-left origin) lands on, title bar included.
+			guard let x = command["x"] as? Double, let y = command["y"] as? Double else {
+				throw AutomationError("hitTest needs x and y")
+			}
+
+			let window = controller.browserWindow.window
+			let view = window.contentView?.superview?.hitTest(NSPoint(x: x, y: window.frame.height - y))
+
+			return view.map { String(describing: type(of: $0)) } ?? NSNull()
+
 		case "clickWindow":
 			// A real click at a point of the window (top-left origin), posted
 			// like the trackpad's: it goes through the window's hit testing,

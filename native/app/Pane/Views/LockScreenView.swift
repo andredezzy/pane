@@ -47,7 +47,13 @@ struct LockScreenView: View {
 					.transition(.opacity.combined(with: .offset(y: 4)))
 			}
 		}
-		.background(Palette.card)
+		.background {
+			// The panel moves the window around its controls.
+			ZStack {
+				Palette.card
+				WindowDragArea()
+			}
+		}
 		.clipShape(RoundedRectangle(cornerRadius: 10, style: .circular))
 		.surfaceBackground(cornerRadius: 10, ring: Palette.border, shadow: PanelShadow.color)
 		.padding(8)

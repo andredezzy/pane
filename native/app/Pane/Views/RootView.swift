@@ -19,6 +19,9 @@ struct RootView: View {
 
 	var body: some View {
 		ZStack {
+			// Under everything: the window moves wherever no control is.
+			WindowDragArea()
+
 			HStack(spacing: 0) {
 				if !fullscreen {
 					SidebarView(

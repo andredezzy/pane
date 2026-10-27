@@ -12,7 +12,8 @@ NATIVE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$NATIVE_DIR/app"
 ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
 SWIFT_APP="$APP_DIR/build/DerivedData/Build/Products/Release/Pane.app"
-OUT="$APP_DIR/build/Pane.app"
+# PANE_APP_OUT puts it elsewhere, beside a build that is running.
+OUT="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
 
 echo "== swift app"
 (cd "$APP_DIR" && xcodegen generate --quiet)
