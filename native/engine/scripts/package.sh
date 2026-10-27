@@ -47,6 +47,14 @@ rm -f "$OUT/Contents/Resources/app.icns"
 FRAMEWORK="$OUT/Contents/Frameworks/PaneCore.framework"
 VERSION_DIR="$FRAMEWORK/Versions/Current"
 
+# The notification helpers post Pane's notifications under their own icon:
+# Pane's too.
+for helper in "$VERSION_DIR"/Helpers/*Alerts*.app; do
+	cp "$OUT/Contents/Resources/Assets.car" "$OUT/Contents/Resources/AppIcon.icns" "$helper/Contents/Resources/"
+	plutil -replace CFBundleIconFile -string AppIcon "$helper/Contents/Info.plist"
+	rm -f "$helper/Contents/Resources/app.icns"
+done
+
 # A release (dist.sh) drops the engine's local symbols, as Chrome's official
 # builds do: PaneCore shrinks from ~480 MB to ~270 MB, with its exports, which
 # the app links, unchanged. Development builds keep them for stack traces.
@@ -92,6 +100,13 @@ done
 sign "$FRAMEWORK"
 sign "$OUT" restrict,library,runtime,kill app.entitlements
 codesign --verify --deep --strict "$OUT"
+
+# ditto kept the engine bundle's dates, and macOS caches an app's icon by its
+# path and date: without a new date the Dock and notifications kept showing
+# the icon a bundle at this path had before (Chromium's). The build's date,
+# and LaunchServices told at once.
+find "$OUT" -name "*.app" -exec touch {} +
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$OUT"
 
 echo "packaged $OUT"
 
