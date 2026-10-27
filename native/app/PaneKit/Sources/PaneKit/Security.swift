@@ -65,7 +65,7 @@ public enum PinHash {
 			return nil
 		}
 
-		return String(cString: hash)
+		return String(decoding: hash.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
 	}
 
 	public static func verify(_ pin: String, against hash: String) -> Bool {
