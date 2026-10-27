@@ -214,8 +214,9 @@ private struct SearchField: View {
 	}
 }
 
-// A select trigger (32 points, a 1px border and no fill, as the outline
-// buttons beside it): the profile whose extensions show, with its color.
+// A select trigger (32 points, no fill, as the outline buttons beside it):
+// the profile whose extensions show, its border in the profile's color at
+// 40%, as the active profile's row in the sidebar.
 private struct ProfileSelect: View {
 	let profiles: [BrowserProfile]
 	let selection: BrowserProfile?
@@ -228,11 +229,6 @@ private struct ProfileSelect: View {
 			}
 		} label: {
 			HStack(spacing: 6) {
-				if let selection {
-					Capsule(style: .circular)
-						.fill(selection.color.color)
-						.frame(width: 4, height: 14)
-				}
 				Text(selection?.name ?? "Profile")
 					.font(.system(size: 13))
 					.foregroundStyle(Palette.foreground)
@@ -245,7 +241,7 @@ private struct ProfileSelect: View {
 			.contentShape(Squircle(cornerRadius: 11))
 			.overlay {
 				Squircle(cornerRadius: 11)
-					.strokeBorder(Palette.border, lineWidth: 1)
+					.strokeBorder(selection.map { $0.color.color.opacity(0.4) } ?? Palette.border, lineWidth: 1)
 			}
 		}
 		.menuStyle(.button)
