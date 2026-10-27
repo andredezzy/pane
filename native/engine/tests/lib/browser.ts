@@ -67,6 +67,13 @@ export async function launch(
 		? mkdtempSync(join(tmpdir(), "pane-profile-"))
 		: options.userDataDir;
 
+	// The Pane app keeps its own data (PANE_DATA_DIR) and migrates the
+	// Electron app's on a first launch: unless a scenario names them, both
+	// are throwaway, never the user's at their default paths.
+	const appDataDir = options.env?.PANE_DATA_DIR
+		? null
+		: mkdtempSync(join(tmpdir(), "pane-data-"));
+
 	const fixedPort = userDataDir ? null : freePort();
 
 	// A reused directory still holds the last run's port.
@@ -90,7 +97,14 @@ export async function launch(
 	const output = process.env.PANE_SCENARIO_STDERR ? "inherit" : "ignore";
 
 	const child = Bun.spawn([binary, ...args], {
-		env: { ...process.env, ...options.env },
+		env: {
+			...process.env,
+			...(appDataDir && {
+				PANE_DATA_DIR: appDataDir,
+				PANE_ELECTRON_DATA_DIR: join(appDataDir, "no-electron-app"),
+			}),
+			...options.env,
+		},
 		stdout: output,
 		stderr: output,
 	});
@@ -124,6 +138,10 @@ export async function launch(
 
 			if (throwaway && userDataDir) {
 				rmSync(userDataDir, { recursive: true, force: true });
+			}
+
+			if (appDataDir) {
+				rmSync(appDataDir, { recursive: true, force: true });
 			}
 		},
 	};

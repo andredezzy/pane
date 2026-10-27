@@ -33,10 +33,44 @@ public enum ElectronMigration {
 		case migrated(profiles: Int, extensions: Int)
 	}
 
-	// The packaged Electron app's data: ~/Library/Application Support/<its
-	// product name>.
-	public static func defaultSource(applicationSupport: URL) -> URL {
-		applicationSupport.appending(path: "Pane", directoryHint: .isDirectory)
+	// Where the Electron app keeps its data, and the name it runs under.
+	public struct Source: Equatable, Sendable {
+		public var directory: URL
+		// Names the Electron app's Keychain item; nil for a folder named by
+		// hand (PANE_ELECTRON_DATA_DIR).
+		public var appName: String?
+
+		public init(directory: URL, appName: String? = nil) {
+			self.directory = directory
+			self.appName = appName
+		}
+
+		// The item whose key encrypts the Electron app's cookies:
+		// "<app name> Safe Storage", with the app name as its account.
+		public var keychainService: String? {
+			appName.map { "\($0) Safe Storage" }
+		}
+	}
+
+	// The names the packaged Electron app ran under. apps/veil has no
+	// productName, so Electron names its data folder and its Keychain item
+	// after the package: @pane/veil, and @pane/desktop before the package's
+	// rename (2026-05-05).
+	public static let appNames = ["@pane/veil", "@pane/desktop"]
+
+	// The Electron app's data: of its folders, the one used last.
+	public static func defaultSource(applicationSupport: URL) -> Source {
+		let sources = appNames.map {
+			Source(directory: applicationSupport.appending(path: $0, directoryHint: .isDirectory), appName: $0)
+		}
+
+		return sources.max { lastUsed($0.directory) < lastUsed($1.directory) } ?? sources[0]
+	}
+
+	static func lastUsed(_ directory: URL) -> Date {
+		let profiles = directory.appending(path: "profiles.json")
+
+		return (try? profiles.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
 	}
 
 	public static let recordName = "migration"

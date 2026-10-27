@@ -97,6 +97,32 @@ struct ElectronMigrationTests {
 		#expect(try ElectronMigration.run(from: source.appending(path: "missing"), into: data) == .noSource)
 	}
 
+	@Test("reads the Electron app's folder used last, named after its package")
+	func defaultSource() throws {
+		let support = fileManager.temporaryDirectory.appending(path: "pane-support-\(UUID().uuidString)")
+		defer { try? fileManager.removeItem(at: support) }
+
+		// Neither folder: the current package's.
+		var source = ElectronMigration.defaultSource(applicationSupport: support)
+		#expect(source.directory.lastPathComponent == "veil")
+		#expect(source.keychainService == "@pane/veil Safe Storage")
+
+		for (name, date) in [("@pane/veil", "2026-05-01T00:00:00Z"), ("@pane/desktop", "2026-05-05T00:00:00Z")] {
+			let profiles = support.appending(path: "\(name)/profiles.json")
+			try fileManager.createDirectory(at: profiles.deletingLastPathComponent(), withIntermediateDirectories: true)
+			try Data("{}".utf8).write(to: profiles)
+			try fileManager.setAttributes([.modificationDate: try Date(date, strategy: .iso8601)], ofItemAtPath: profiles.path)
+		}
+
+		// A build from before the rename, used last.
+		source = ElectronMigration.defaultSource(applicationSupport: support)
+		#expect(source.appName == "@pane/desktop")
+		#expect(source.directory == support.appending(path: "@pane/desktop", directoryHint: .isDirectory))
+		#expect(source.keychainService == "@pane/desktop Safe Storage")
+
+		#expect(ElectronMigration.Source(directory: support).keychainService == nil)
+	}
+
 	@Test("the native app's own data is never replaced")
 	func existingData() throws {
 		let source = try electronData()

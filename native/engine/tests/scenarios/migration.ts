@@ -36,7 +36,7 @@ const EXTENSION = "ddkjiahejlhfcafbddmgiahcphecmpfh";
 // profile's partition, and local storage from a page of it.
 const SEED = `
 const { app, session, BrowserWindow } = require("electron");
-app.setName("Pane");
+app.setName("@pane/veil");
 app.setPath("userData", process.env.SEED_DIR);
 app.whenReady().then(async () => {
 	const partition = "persist:profile-" + process.env.SEED_PROFILE;
@@ -79,10 +79,12 @@ const migration: Scenario = async (context) => {
 
 	// The Electron app's data.
 	const source = mkdtempSync(join(tmpdir(), "pane-electron-"));
+
 	const seed = join(
 		mkdtempSync(join(tmpdir(), "pane-electron-seed-")),
 		"main.js",
 	);
+
 	writeFileSync(seed, SEED);
 
 	const seeding = Bun.spawn([ELECTRON, seed, "--use-mock-keychain"], {
@@ -181,6 +183,7 @@ const migration: Scenario = async (context) => {
 			},
 		}),
 	);
+
 	// bcryptjs 3.0.3, hashSync("1234", 10).
 	writeFileSync(
 		join(source, "security.json"),
@@ -192,15 +195,18 @@ const migration: Scenario = async (context) => {
 			failedAttempts: 0,
 		}),
 	);
+
 	mkdirSync(join(source, "Extensions", EXTENSION, "2025.1.1_0"), {
 		recursive: true,
 	});
+
 	writeFileSync(
 		join(source, "Extensions", EXTENSION, "2025.1.1_0", "manifest.json"),
 		"{}",
 	);
 
 	const before = snapshot(source);
+
 	const partition = Object.keys(before).filter((path) =>
 		path.startsWith(`Partitions/profile-${WORK}/`),
 	);
@@ -214,6 +220,7 @@ const migration: Scenario = async (context) => {
 	const app = await launchPane(context, {
 		env: { PANE_ELECTRON_DATA_DIR: source },
 	});
+
 	const launched = await app.state();
 
 	expect(
@@ -222,6 +229,7 @@ const migration: Scenario = async (context) => {
 	);
 
 	await app.send("pinKeys", { keys: "1234" });
+
 	const unlocked = await app.waitFor(
 		"unlocked",
 		(state) => !state.security.locked,
@@ -265,7 +273,9 @@ const migration: Scenario = async (context) => {
 		seen.cookie.includes("pane_session=electron-signed-in"),
 		`the page's cookies: ${seen.cookie}`,
 	);
+
 	expect(seen.storage === "kept", `the page's local storage: ${seen.storage}`);
+
 	expect(
 		seen.platform === "Win32",
 		`the migrated fingerprint: ${seen.platform}`,
@@ -287,6 +297,7 @@ const migration: Scenario = async (context) => {
 		JSON.parse(
 			readFileSync(join(app.dataDir, "migration.json"), "utf8"),
 		) as Record;
+
 	const deadline = Date.now() + 10_000;
 	let record = readRecord();
 
