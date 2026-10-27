@@ -157,9 +157,9 @@ private struct SidebarButton<Label: View>: View {
 	}
 }
 
-// A profile row (36 points, inside a 1-point border) and, expanded, its tabs
-// and New tab, 32 points each and 4 apart: Aside's 36-point rows. Profiles
-// are 4 apart.
+// A profile row (36 points; the active one tinted with its color) and,
+// expanded, its tabs and New tab, 32 points each and 4 apart: Aside's
+// 36-point rows. Profiles are 4 apart.
 private struct ProfileSection: View {
 	let controller: BrowserController
 	let profile: BrowserProfile
@@ -211,9 +211,17 @@ private struct ProfileSection: View {
 
 		return Button(action: toggle) {
 			HStack(spacing: 8) {
-				Capsule(style: .circular)
-					.fill(color)
-					.frame(width: 4, height: 16)
+				// The active profile's bar grows to a 16-point square, the
+				// favicons' size. A selection, so it does not animate.
+				if isActive {
+					Squircle(cornerRadius: 4)
+						.fill(color)
+						.frame(width: 16, height: 16)
+				} else {
+					Capsule(style: .circular)
+						.fill(color)
+						.frame(width: 4, height: 16)
+				}
 
 				Text(profile.name)
 					.font(.system(size: 12, weight: .medium))
@@ -237,7 +245,6 @@ private struct ProfileSection: View {
 						.foregroundStyle(Palette.mutedForeground)
 				}
 			}
-			// 7 in, inside a 1-point border (transparent unless active).
 			.padding(.horizontal, 8)
 			.frame(height: 36)
 			.contentShape(Rectangle())
@@ -247,7 +254,6 @@ private struct ProfileSection: View {
 		.background {
 			Squircle(cornerRadius: SidebarRow.cornerRadius)
 				.fill(isActive ? color.opacity(0.04) : .clear)
-				.strokeBorder(isActive ? color.opacity(0.4) : .clear, lineWidth: 1)
 		}
 		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: SidebarRow.cornerRadius)
 		// The Electron app's menu, with its lucide icons.
