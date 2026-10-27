@@ -1,5 +1,6 @@
 import AppKit
 import PaneCore
+import PaneKit
 
 // Chromium owns the process from here: `run` starts the engine on the main
 // thread and returns only at shutdown. Nothing may touch NSApplication before
@@ -31,6 +32,17 @@ if let argument = CommandLine.arguments.first(where: { $0.hasPrefix(AppLock.wipe
 	}
 
 	AppLock.erase(dataDirectory)
+}
+
+// The first launch after the Electron app brings its data over, from a copy
+// (PaneKit ElectronMigration), before anything here reads the data directory.
+let electronData = ProcessInfo.processInfo.environment["PANE_ELECTRON_DATA_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+	?? ElectronMigration.defaultSource(applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
+
+do {
+	NSLog("Pane: migration from the Electron app: %@", String(describing: try ElectronMigration.run(from: electronData, into: dataDirectory)))
+} catch {
+	NSLog("Pane: the migration from the Electron app failed: %@", String(describing: error))
 }
 
 let appDelegate = AppDelegate(dataDirectory: dataDirectory)

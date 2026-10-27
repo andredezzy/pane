@@ -350,6 +350,10 @@ export async function launchPane(
 			// Every launch checks for updates: against the fixtures, never
 			// GitHub.
 			PANE_UPDATE_URL: context.fixtures.url("releases/latest"),
+			// A first launch migrates the Electron app's data: never the
+			// user's, which lives at the default path. The migration scenario
+			// names its own.
+			PANE_ELECTRON_DATA_DIR: join(dataDir, "no-electron-app"),
 			...options.env,
 		},
 	});

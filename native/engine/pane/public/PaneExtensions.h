@@ -53,6 +53,8 @@ NS_SWIFT_UI_ACTOR
 @interface PaneExtensionInstallRequest : NSObject
 
 @property(readonly, copy) NSString* title;
+// The extension's Web Store id, or empty when Chrome gave none.
+@property(readonly, copy) NSString* extensionIdentifier;
 @property(readonly, copy) NSString* extensionName;
 @property(readonly, nullable) NSImage* icon;
 @property(readonly, copy) NSString* permissionsHeading;

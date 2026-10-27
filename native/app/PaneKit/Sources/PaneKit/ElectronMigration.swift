@@ -1,0 +1,172 @@
+import Foundation
+
+// The first launch after the Electron app: its profiles, tabs, settings, PIN,
+// and each profile's site data (cookies, storage) move into the native app,
+// and its extensions reinstall from the Web Store per profile. It always reads
+// a copy of the Electron app's data, never the data itself, and never writes
+// there.
+public enum ElectronMigration {
+	// What a migration did, kept in the data directory as migration.json so it
+	// runs once; the extensions still to reinstall stay listed until they are.
+	public struct Record: Codable, Hashable, Sendable {
+		public var source: String
+		public var migratedAt: String
+		public var profiles: [String]
+		// By profile id: the Web Store ids it still has to reinstall.
+		public var pendingExtensions: [String: [String]]
+
+		public init(source: String, migratedAt: String, profiles: [String], pendingExtensions: [String: [String]]) {
+			self.source = source
+			self.migratedAt = migratedAt
+			self.profiles = profiles
+			self.pendingExtensions = pendingExtensions
+		}
+	}
+
+	public enum Outcome: Equatable, Sendable {
+		// The native app has data, or migrated before.
+		case notNeeded
+		// No Electron app data where it lives.
+		case noSource
+		// The Electron app is running: its files may be mid-write.
+		case sourceInUse
+		case migrated(profiles: Int, extensions: Int)
+	}
+
+	// The packaged Electron app's data: ~/Library/Application Support/<its
+	// product name>.
+	public static func defaultSource(applicationSupport: URL) -> URL {
+		applicationSupport.appending(path: "Pane", directoryHint: .isDirectory)
+	}
+
+	public static let recordName = "migration"
+
+	// What a profile's partition holds that a browser cache can rebuild: not
+	// worth copying.
+	static let caches: Set<String> = [
+		"Cache", "Code Cache", "GPUCache", "DawnGraphiteCache", "DawnWebGPUCache",
+		"GrShaderCache", "ShaderCache", "Crashpad",
+	]
+
+	// Files that belong to the Electron session, not to the profile's data.
+	static let sessionFiles: Set<String> = ["Preferences", "LOCK", "lockfile"]
+
+	public static func run(from source: URL, into data: URL, now: Date = Date()) throws -> Outcome {
+		let fileManager = FileManager.default
+
+		guard
+			!fileManager.fileExists(atPath: data.appending(path: "profiles.json").path),
+			!fileManager.fileExists(atPath: data.appending(path: "\(recordName).json").path)
+		else {
+			return .notNeeded
+		}
+
+		guard fileManager.fileExists(atPath: source.appending(path: "profiles.json").path) else {
+			return .noSource
+		}
+
+		guard !isRunning(source) else {
+			return .sourceInUse
+		}
+
+		// 1. The copy.
+		let staging = data.appending(path: "Migration", directoryHint: .isDirectory)
+		try? fileManager.removeItem(at: staging)
+		try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+		defer { try? fileManager.removeItem(at: staging) }
+
+		for name in ["profiles", "settings", "security"] {
+			let file = source.appending(path: "\(name).json")
+
+			if fileManager.fileExists(atPath: file.path) {
+				try fileManager.copyItem(at: file, to: staging.appending(path: "\(name).json"))
+			}
+		}
+
+		guard let profiles = try PersistedFile<ProfilesState>(directory: staging, name: "profiles").load()?.profiles else {
+			return .noSource
+		}
+
+		for profile in profiles {
+			// Electron names a partition directory in lowercase.
+			let partition = source.appending(path: "Partitions/profile-\(profile.id.lowercased())", directoryHint: .isDirectory)
+
+			if fileManager.fileExists(atPath: partition.path) {
+				try copyData(of: partition, to: staging.appending(path: "Partitions/\(profile.id)", directoryHint: .isDirectory))
+			}
+		}
+
+		let extensions = installedExtensions(in: source.appending(path: "Extensions", directoryHint: .isDirectory))
+
+		// 2. The import, from the copy only.
+		try fileManager.createDirectory(at: data.appending(path: "Engine", directoryHint: .isDirectory), withIntermediateDirectories: true)
+
+		for profile in profiles {
+			let copied = staging.appending(path: "Partitions/\(profile.id)", directoryHint: .isDirectory)
+
+			if fileManager.fileExists(atPath: copied.path) {
+				// A migration cut short left it there; profiles.json, written
+				// last, was not.
+				let destination = data.appending(path: "Engine/\(profile.id)", directoryHint: .isDirectory)
+				try? fileManager.removeItem(at: destination)
+				try fileManager.moveItem(at: copied, to: destination)
+			}
+		}
+
+		for name in ["settings", "security", "profiles"] {
+			let file = staging.appending(path: "\(name).json")
+
+			if fileManager.fileExists(atPath: file.path) {
+				try fileManager.moveItem(at: file, to: data.appending(path: "\(name).json"))
+			}
+		}
+
+		let record = Record(
+			source: source.path,
+			migratedAt: ISO8601DateFormatter().string(from: now),
+			profiles: profiles.map(\.id),
+			pendingExtensions: extensions.isEmpty ? [:] : Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, extensions) })
+		)
+		try PersistedFile<Record>(directory: data, name: recordName).save(record)
+
+		return .migrated(profiles: profiles.count, extensions: extensions.count)
+	}
+
+	// Copies a partition's data, leaving out caches and the Electron
+	// session's own files.
+	static func copyData(of partition: URL, to destination: URL) throws {
+		let fileManager = FileManager.default
+		try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
+
+		for entry in try fileManager.contentsOfDirectory(at: partition, includingPropertiesForKeys: nil) {
+			let name = entry.lastPathComponent
+
+			guard !caches.contains(name), !sessionFiles.contains(name) else {
+				continue
+			}
+
+			try fileManager.copyItem(at: entry, to: destination.appending(path: name))
+		}
+	}
+
+	// The Web Store ids the Electron app installed (Extensions/<id>/<version>),
+	// which it loaded into every profile.
+	static func installedExtensions(in directory: URL) -> [String] {
+		let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+
+		return names.filter { $0.wholeMatch(of: /[a-p]{32}/) != nil }.sorted()
+	}
+
+	// Chromium marks a running instance with a SingletonLock link to
+	// "<host>-<pid>"; a live pid means the Electron app runs.
+	static func isRunning(_ source: URL) -> Bool {
+		guard
+			let target = try? FileManager.default.destinationOfSymbolicLink(atPath: source.appending(path: "SingletonLock").path),
+			let pid = target.split(separator: "-").last.flatMap({ Int32($0) })
+		else {
+			return false
+		}
+
+		return kill(pid, 0) == 0
+	}
+}

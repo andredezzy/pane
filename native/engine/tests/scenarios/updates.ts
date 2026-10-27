@@ -34,6 +34,7 @@ const updates: Scenario = async (context) => {
 		offered.update.available === VERSION,
 		`offered ${offered.update.available}`,
 	);
+
 	await app.send("render", { path: join(context.out, "update-pill.png") });
 
 	await app.send("downloadUpdate");
@@ -74,6 +75,7 @@ const updates: Scenario = async (context) => {
 		existsSync(dmg) && statSync(dmg).size === 4 * 1024 * 1024,
 		`downloaded ${JSON.stringify(files)}`,
 	);
+
 	expect(downloaded.update.pill, "the pill went away while it still has news");
 
 	await app.send("dismissUpdate");
@@ -100,11 +102,13 @@ const updates: Scenario = async (context) => {
 	// The app menu's Check for Updates… checks again (the checking state
 	// holds 0.8s at least).
 	await invokeMenu(current.browser.pid, ["Pane", "Check for Updates\u2026"]);
+
 	const rechecking = await current.waitFor(
 		"checking from the menu",
 		(state) => state.update.status === "checking",
 		5_000,
 	);
+
 	await current.waitFor(
 		"the menu's check done",
 		(state) => state.update.status === "idle",
@@ -113,6 +117,7 @@ const updates: Scenario = async (context) => {
 
 	await current.send("showPage", { page: "settings" });
 	await Bun.sleep(300);
+
 	await current.send("render", {
 		path: join(context.out, "update-settings.png"),
 	});

@@ -44,12 +44,15 @@ final class BrowserController: NSObject {
 	let lock: AppLock
 	// The update check and download.
 	let updater: Updater
+	// The Electron app's extensions, still to reinstall.
+	private let migratedExtensions: MigratedExtensions
 
-	init(model: BrowserModel, application: BrowserApplication, lock: AppLock, updater: Updater) {
+	init(model: BrowserModel, application: BrowserApplication, lock: AppLock, updater: Updater, dataDirectory: URL) {
 		self.model = model
 		self.application = application
 		self.lock = lock
 		self.updater = updater
+		migratedExtensions = MigratedExtensions(dataDirectory: dataDirectory)
 		network = ProfileNetwork(model: model)
 		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()
@@ -164,6 +167,7 @@ final class BrowserController: NSObject {
 				let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
 				contexts[profileID] = context
 				refreshExtensions(profileID)
+				reinstallMigratedExtensions(context)
 				waiters.forEach { $0(context) }
 			}
 		}
@@ -781,15 +785,47 @@ extension BrowserController: BrowserContextDelegate {
 
 	func browserContextDidChangeExtensions(_ context: BrowserContext) {
 		refreshExtensions(context.identifier)
+		settleMigratedExtensions(context)
 	}
 
 	func browserContext(_ context: BrowserContext, confirmExtensionInstall request: ExtensionInstallRequest) {
+		// The Electron app had it installed: no prompt again.
+		if migratedExtensions.isPending(request.extensionIdentifier, in: context.identifier) {
+			request.accept()
+			return
+		}
+
 		dialogs.enqueue(.extensionInstall(request), tabID: nil)
 	}
 
 	func browserContext(_ context: BrowserContext, didInstall installed: Extension) {
+		// A migrated extension comes back quietly, without the "added" note.
+		if migratedExtensions.isPending(installed.identifier, in: context.identifier) {
+			settleMigratedExtensions(context)
+			return
+		}
+
 		state.installedExtension = installed.name
 		refreshExtensions(context.identifier)
+	}
+
+	// The Electron app's extensions install from the Web Store as their
+	// profile opens.
+	private func reinstallMigratedExtensions(_ context: BrowserContext) {
+		settleMigratedExtensions(context)
+
+		for extensionID in migratedExtensions.pending(in: context.identifier) {
+			context.installExtension(identifier: extensionID, window: browserWindow)
+		}
+	}
+
+	// Migrated extensions the profile has now are no longer pending.
+	private func settleMigratedExtensions(_ context: BrowserContext) {
+		let installed = Set(context.extensions.map(\.identifier))
+
+		for extensionID in migratedExtensions.pending(in: context.identifier) where installed.contains(extensionID) {
+			migratedExtensions.installed(extensionID, in: context.identifier)
+		}
 	}
 
 	func browserContext(_ context: BrowserContext, show popup: ExtensionPopup, in window: BrowserWindow) {

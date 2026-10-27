@@ -24,7 +24,8 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 			model: model,
 			application: application,
 			lock: AppLock(dataDirectory: dataDirectory),
-			updater: updater
+			updater: updater,
+			dataDirectory: dataDirectory
 		)
 		updater.schedule()
 		self.controller = controller

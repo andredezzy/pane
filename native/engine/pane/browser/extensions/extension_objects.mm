@@ -92,6 +92,7 @@
 }
 
 @synthesize title = _title;
+@synthesize extensionIdentifier = _extensionIdentifier;
 @synthesize extensionName = _extensionName;
 @synthesize icon = _icon;
 @synthesize permissionsHeading = _permissionsHeading;
@@ -104,6 +105,9 @@
                         answer:(base::OnceCallback<void(bool)>)answer {
   if ((self = [super init])) {
     _title = base::SysUTF16ToNSString(prompt.GetDialogTitle());
+    _extensionIdentifier = prompt.extension()
+                               ? base::SysUTF8ToNSString(prompt.extension()->id())
+                               : @"";
     _extensionName = prompt.extension()
                          ? base::SysUTF8ToNSString(prompt.extension()->name())
                          : @"";

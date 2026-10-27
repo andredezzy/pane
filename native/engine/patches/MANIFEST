@@ -59,3 +59,4 @@ third_party/blink/renderer/modules/webaudio/offline_audio_context.cc	0006-pane-f
 third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc	0006-pane-fingerprint.patch
 chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc	0007-pane-quiet.patch
 components/signin/internal/identity_manager/gaia_cookie_manager_service.cc	0007-pane-quiet.patch
+components/os_crypt/common/keychain_password_mac.mm	0001-pane-framework.patch

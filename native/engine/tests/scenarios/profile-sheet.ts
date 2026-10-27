@@ -40,6 +40,7 @@ const CREDENTIALS = { username: "pane", password: "proxy-secret" };
 
 async function saved(app: PaneApp, id: string): Promise<Saved | undefined> {
 	await app.send("save");
+
 	const file = JSON.parse(
 		readFileSync(join(app.dataDir, "profiles.json"), "utf8"),
 	) as { state: { profiles: Saved[] } };
@@ -66,6 +67,7 @@ const profileSheet: Scenario = async (context) => {
 		// What WebGL reports on this Mac, in a profile without a fingerprint.
 		const plain = await app.createProfile("Plain", "ZINC");
 		const plainURL = context.fixtures.url("nav-a.html?plain");
+
 		const plainPage = await app.page(
 			await app.openTab(plain, plainURL),
 			plainURL,
@@ -89,20 +91,25 @@ const profileSheet: Scenario = async (context) => {
 		// New profile: spoofing on, the Mac's platform, by default.
 		let known = (await app.state()).profiles.map((profile) => profile.id);
 		await clickButton(pid, window, "New");
+
 		await app.waitFor(
 			"the new profile sheet",
 			(state) => state.profileSheet === "new",
 		);
+
 		await typeIntoField(pid, window, "pane.profile.name", "Mac claim");
+
 		await app.send("render", {
 			path: join(context.out, "profile-sheet-new.png"),
 		});
+
 		await clickButton(pid, window, "Create");
 
 		const created = await app.waitFor(
 			"the profile created",
 			(state) => !!newProfile(state, known) && state.profileSheet === null,
 		);
+
 		const mac = newProfile(created, known) ?? "";
 		const macSaved = await saved(app, mac);
 
@@ -116,6 +123,7 @@ const profileSheet: Scenario = async (context) => {
 		// A page of it, to see the fingerprint change reach it.
 		const fingerprintURL = context.fixtures.url("fingerprint-frame.html?sheet");
 		const macTab = await app.openTab(mac, fingerprintURL);
+
 		const before = await (
 			await app.page(macTab, fingerprintURL)
 		).evaluate<string>("navigator.platform");
@@ -126,10 +134,12 @@ const profileSheet: Scenario = async (context) => {
 		// The field selects its text as it takes focus: typing replaces it.
 		await typeIntoField(pid, window, "pane.profile.name", "Mac claim renamed");
 		await clickButton(pid, window, "Save");
+
 		await app.waitFor(
 			"the sheet closed",
 			(state) => state.profileSheet === null,
 		);
+
 		const renamed = await saved(app, mac);
 
 		expect(
@@ -144,14 +154,18 @@ const profileSheet: Scenario = async (context) => {
 		await app.waitFor("the edit sheet", (state) => state.profileSheet === mac);
 		await clickButton(pid, window, "Windows");
 		await Bun.sleep(300);
+
 		await app.send("render", {
 			path: join(context.out, "profile-sheet-cross-os.png"),
 		});
+
 		await clickButton(pid, window, "Save");
+
 		await app.waitFor(
 			"the sheet closed",
 			(state) => state.profileSheet === null,
 		);
+
 		const windows = await saved(app, mac);
 
 		expect(
@@ -161,11 +175,13 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		await app.send("select", { tab: macTab });
+
 		await app.waitFor(
 			"the tab back",
 			(state) =>
 				!!tabOf(state, macTab)?.loaded && !tabOf(state, macTab)?.loading,
 		);
+
 		const after = await (
 			await app.page(macTab, fingerprintURL)
 		).evaluate<string>("navigator.platform");
@@ -178,32 +194,40 @@ const profileSheet: Scenario = async (context) => {
 		// The proxy: the shortcut, its test, and Create.
 		known = (await app.state()).profiles.map((profile) => profile.id);
 		await clickButton(pid, window, "New");
+
 		await app.waitFor(
 			"the new profile sheet",
 			(state) => state.profileSheet === "new",
 		);
+
 		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
+
 		await clickControl(pid, window, {
 			title: "Enable proxy",
 			role: /AX(CheckBox|Switch)/,
 		});
+
 		await typeIntoField(
 			pid,
 			window,
 			"pane.profile.proxyShortcut",
 			`127.0.0.1:${proxy.port}:${CREDENTIALS.username}:${CREDENTIALS.password}`,
 		);
+
 		await clickButton(pid, window, "Test proxy");
 		await clickControl(pid, window, { title: "203.0.113.7" }).catch(() => {});
+
 		await app.send("render", {
 			path: join(context.out, "profile-sheet-proxy.png"),
 		});
+
 		await clickButton(pid, window, "Create");
 
 		const proxied = await app.waitFor(
 			"the proxied profile",
 			(state) => !!newProfile(state, known) && state.profileSheet === null,
 		);
+
 		const proxiedID = newProfile(proxied, known) ?? "";
 		const proxiedSaved = await saved(app, proxiedID);
 
@@ -229,19 +253,24 @@ const profileSheet: Scenario = async (context) => {
 
 		// Spoofing off.
 		await app.send("openProfileSheet", { profile: proxiedID });
+
 		await app.waitFor(
 			"the edit sheet",
 			(state) => state.profileSheet === proxiedID,
 		);
+
 		await clickControl(pid, window, {
 			title: "Spoof fingerprint",
 			role: /AX(CheckBox|Switch)/,
 		});
+
 		await clickButton(pid, window, "Save");
+
 		await app.waitFor(
 			"the sheet closed",
 			(state) => state.profileSheet === null,
 		);
+
 		const unspoofed = await saved(app, proxiedID);
 
 		expect(

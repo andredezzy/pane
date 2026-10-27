@@ -294,7 +294,7 @@ docs/native/parity.md
   - The profile sheet: name, color, group, the fingerprint editor with `default-fingerprints.ts` presets and `host-webgl.ts` detection, the proxy editor with its test, keep loaded; a fingerprint change reopens the profile's open tabs in new renderers (5.2 applies it to new renderers only).
   - The update check through the GitHub Releases API (ADR 0002), with the quiet sidebar pill from `DESIGN.md`.
   - Chrome's own background requests to Google (seen in 5.1: `accounts.google.com`, `www.google.com`): find their sources, and turn off those the Electron app never made.
-- [ ] **5.7** Migration from the Electron app on first launch, always from a copy of the Electron data directory, never in place.
+- [x] **5.7** Migration from the Electron app on first launch, always from a copy of the Electron data directory, never in place.
   - It imports `profiles.json`, `settings.json`, `security.json`, and each `Partitions/profile-<id>`.
   - Cookies must stay decryptable: match the os_crypt Keychain service name (see Ardia's `chromium-safe-storage-name`) or re-encrypt them.
   - It reinstalls or migrates each profile's extensions.

@@ -15,7 +15,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | `hotkeys.events` — app shortcuts reach the UI | `routers/hotkeys.ts`, `emitters/hotkey-emitter.ts` | 2 | ✅ | `phase-2/shortcuts.json` — the app's own menu and key monitor; no IPC |
 | `profiles.testProxy` — test a proxy before saving | `routers/profiles.ts`, `profile/proxy-test.ts` | 5 | ✅ | `ProxyTest`: the same IP echo through the proxy, SOCKS through the relay: `phase-5/proxy.json` (status connected for HTTP with auth and SOCKS5 with auth) |
 | `profiles.load` — load a profile's session | `routers/profiles.ts`, `pane.ts` | 2 | ✅ | `phase-2/profiles-isolation.json`, `phase-2/profile-lifecycle.json` |
-| `profiles.unload` — release a hidden profile (Unload) | `routers/profiles.ts`, `sleep-scheduler.ts` | 5 | — | |
+| `profiles.unload` — release a hidden profile (Unload) | `routers/profiles.ts`, `sleep-scheduler.ts` | 5 | ✅ | Collapsing a profile unloads it, as in the Electron app, and so does Collapse all: `phase-2/profile-lifecycle.json`; the scheduler's automatic Unload: `phase-5/sleep.json` |
 | `profiles.remove` — delete a profile and its data | `routers/profiles.ts` | 2 | ✅ | `phase-2/profile-lifecycle.json` — profile, tabs, pages and engine directory gone |
 | `profiles.signOut` — sign out of Google in a profile | `routers/profiles.ts`, `profile/google/sign-out.ts` | 5 | dropped | The user's decision (2026-10-26): a workaround for Google rejecting the Electron engine, which no browser has; Google accepts the native engine (`phase-5/google.json`). `HUMAN-CHECKLIST.md` (Done) |
 | `profiles.signedIn` — whether a profile has a Google session | `routers/profiles.ts`, `profile/google/sessions.ts` | 5 | dropped | Only fed Sign out of Google, dropped with it (the user's decision, 2026-10-26) |
@@ -100,7 +100,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Installed extensions per profile | `extension-store.ts` | 4 | ✅ | Chrome's extension system, one per profile (the store is gone): `phase-4/dark-reader.json` |
 | Proxy status per profile | `proxy-status-store.ts` | 5 | ✅ | Tested at launch and on every proxy change; the sidebar's dot: `phase-5/proxy.json` |
 | Update status (checking, available, downloading) | `update-store.ts` | 5 | ✅ | One source for the pill, Settings, and the lock screen (`Updater`); not persisted, as in the Electron app: `phase-5/updates.json` |
-| Migration of all of the above from the Electron app | (new) | 5 | — | |
+| Migration of all of the above from the Electron app | (new) | 5 | ✅ | First launch, from a copy, never in place: profiles, tabs, settings, the PIN, each profile's site data (Electron's own cookie and local storage reach the profile's pages), extensions reinstalled from the Web Store as each profile opens; the source is byte for byte unchanged: `phase-5/migration.json`, `phase-5/swift-test.txt`. **[HUMAN]** the real Keychain approval: `HUMAN-CHECKLIST.md` |
 
 ## Chrome's own UI (Phase 3)
 

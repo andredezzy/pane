@@ -33,9 +33,11 @@ const quiet: Scenario = async (context) => {
 	await app.browser.close();
 
 	const log = JSON.parse(readFileSync(netLog, "utf8")) as NetLog;
+
 	const types = Object.fromEntries(
 		Object.entries(log.constants.logEventTypes).map(([name, id]) => [id, name]),
 	);
+
 	const requests = new Map<number, { url?: string; annotation?: unknown }>();
 
 	for (const event of log.events) {
