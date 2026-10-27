@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/devtools/devtools_window.cc b/chrome/browser/devtools/devtools_window.cc
-index 7613579e79..4c7964af17 100644
+index e9803277ee..e1d41affcf 100644
 --- a/chrome/browser/devtools/devtools_window.cc
 +++ b/chrome/browser/devtools/devtools_window.cc
 @@ -131,12 +131,19 @@
@@ -36,7 +36,7 @@ index 7613579e79..4c7964af17 100644
        devtools_ui_controller->UpdateDevtools(inspected_web_contents);
      }
      main_web_contents_->SetInitialFocus();
-@@ -1402,7 +1412,10 @@ DevToolsWindow* DevToolsWindow::Create(
+@@ -1415,7 +1425,10 @@ DevToolsWindow* DevToolsWindow::Create(
  #endif  // BUILDFLAG(IS_MAC)
      DevtoolsUIController* devtools_ui_controller =
          browser ? DevtoolsUIController::From(browser) : nullptr;
@@ -49,7 +49,7 @@ index 7613579e79..4c7964af17 100644
      }
    }
 diff --git a/chrome/browser/devtools/devtools_window_views.cc b/chrome/browser/devtools/devtools_window_views.cc
-index 9331bad3ad..926b9440a2 100644
+index 937debfe3f..4465efe169 100644
 --- a/chrome/browser/devtools/devtools_window_views.cc
 +++ b/chrome/browser/devtools/devtools_window_views.cc
 @@ -20,6 +20,8 @@
@@ -61,7 +61,7 @@ index 9331bad3ad..926b9440a2 100644
  using content::WebContents;
  
  // static
-@@ -135,8 +137,11 @@ void DevToolsWindow::UpdateBrowserWindow() {
+@@ -137,8 +139,11 @@ void DevToolsWindow::UpdateBrowserWindow() {
    if (!inspected_browser) {
      return;
    }

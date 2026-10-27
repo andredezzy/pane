@@ -3,7 +3,8 @@
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
 // engine/ardiacore/src/ardia/core/ac_browser_window.h, Copyright 2026 Mantra Patel,
 // licensed under the Apache License 2.0 (native/third_party/ardia). Changed
-// for Pane: names and namespace, and without Ardia's extension shortcuts.
+// for Pane: names and namespace, without Ardia's extension shortcuts, and
+// Chromium 157's BrowserWindow (no profile IPH methods).
 
 #ifndef PANE_BROWSER_UI_BROWSER_WINDOW_H_
 #define PANE_BROWSER_UI_BROWSER_WINDOW_H_
@@ -314,8 +315,6 @@ class HostedBrowserWindow : public BrowserWindow,
   web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHostFor(
       content::WebContents* web_contents) override;
   void ShowAvatarBubbleFromAvatarButton(bool is_source_accelerator) override {}
-  void MaybeShowProfileSwitchIPH() override {}
-  void MaybeShowSupervisedUserProfileSignInIPH() override {}
   void ShowHatsDialog(
       const std::string& site_id,
       const std::optional<std::string>& hats_histogram_name,

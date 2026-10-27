@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc b/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc
-index 6ff5dd326e..7c5cda6533 100644
+index ee59bb3290..7050ec926c 100644
 --- a/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc
 +++ b/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc
 @@ -15,6 +15,7 @@
@@ -8,9 +8,9 @@ index 6ff5dd326e..7c5cda6533 100644
  #include "base/byte_size.h"
 +#include "base/command_line.h"
  #include "base/callback_list.h"
+ #include "base/command_line.h"
  #include "base/containers/span.h"
- #include "base/feature_list.h"
-@@ -36,6 +37,7 @@
+@@ -38,6 +39,7 @@
  #include "base/version.h"
  #include "build/branding_buildflags.h"
  #include "chrome/browser/browser_process.h"
@@ -18,7 +18,7 @@ index 6ff5dd326e..7c5cda6533 100644
  #include "components/component_updater/component_installer.h"
  #include "components/component_updater/component_updater_paths.h"
  #include "components/component_updater/component_updater_service.h"
-@@ -458,6 +460,11 @@ class ManifestAssetManagerDelegateImpl final
+@@ -536,6 +538,11 @@ class ManifestAssetManagerDelegateImpl final
      if (!g_browser_process) {
        return;
      }
@@ -31,7 +31,7 @@ index 6ff5dd326e..7c5cda6533 100644
      ComponentUpdateService* cus = g_browser_process->component_updater();
      if (!cus) {
 diff --git a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc b/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
-index db2e0266aa..10fa1ecdaa 100644
+index 92b4854771..bfe96dc029 100644
 --- a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
 +++ b/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
 @@ -14,6 +14,7 @@
@@ -42,7 +42,7 @@ index db2e0266aa..10fa1ecdaa 100644
  #include "base/feature_list.h"
  #include "base/functional/bind.h"
  #include "base/functional/callback.h"
-@@ -54,6 +55,7 @@
+@@ -56,6 +57,7 @@
  #include "services/network/public/cpp/simple_url_loader.h"
  #include "services/network/public/mojom/url_response_head.mojom.h"
  #include "url/url_util.h"
@@ -50,7 +50,7 @@ index db2e0266aa..10fa1ecdaa 100644
  
  namespace {
  
-@@ -525,6 +527,13 @@ GaiaCookieManagerService::GetCachedListAccounts() {
+@@ -527,6 +529,13 @@ GaiaCookieManagerService::GetCachedListAccounts() {
  }
  
  void GaiaCookieManagerService::TriggerListAccounts() {

@@ -27,7 +27,7 @@ native/engine/scripts/apply-patches.sh   # apply patches/series (no-op when unch
 native/engine/scripts/build.sh           # out/Release, target `chrome` (args/release.gn)
 ```
 
-Every script is safe to re-run. The first sync and the first build take hours; later builds are incremental.
+Every script is safe to re-run. The first sync and the first build take hours; later builds are incremental. Moving to a newer Chromium is a routine: `engine/UPGRADING.md`.
 
 ## Patches
 

@@ -101,10 +101,10 @@ index b269f1610a..7f4ec26920 100644
    return content::RESULT_CODE_NORMAL_EXIT;
  }
 diff --git a/chrome/browser/devtools/chrome_devtools_manager_delegate.cc b/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
-index 37a83372ce..6ef2ed31aa 100644
+index 34e568267b..e3e53e8294 100644
 --- a/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
 +++ b/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
-@@ -68,6 +68,7 @@
+@@ -71,6 +71,7 @@
  #include "ui/base/window_open_disposition.h"
  #include "ui/gfx/switches.h"
  #include "ui/views/controls/webview/webview.h"
@@ -112,7 +112,7 @@ index 37a83372ce..6ef2ed31aa 100644
  
  #if BUILDFLAG(IS_CHROMEOS)
  #include "ash/constants/ash_switches.h"
-@@ -326,6 +327,12 @@ std::string ChromeDevToolsManagerDelegate::GetTargetType(
+@@ -329,6 +330,12 @@ std::string ChromeDevToolsManagerDelegate::GetTargetType(
      return DevToolsAgentHost::kTypePage;
    }
  

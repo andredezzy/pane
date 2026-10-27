@@ -202,6 +202,13 @@ final class Automation {
 			// event monitors, then the menu's key equivalents, then the window.
 			try postKey(try string("key"), modifiers: command["modifiers"] as? [String] ?? [])
 
+		case "activate":
+			// What a click on the window does first: the app comes forward and
+			// its window becomes key. A click activates the app at once; the
+			// cooperative activate() would wait for the frontmost app to yield.
+			NSApp.activate(ignoringOtherApps: true)
+			controller.browserWindow.window.makeKeyAndOrderFront(nil)
+
 		case "clickPage":
 			// A real click on the selected page, at a point in its view (top-left
 			// origin), posted to the window like the trackpad's.

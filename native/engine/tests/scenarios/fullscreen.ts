@@ -12,6 +12,17 @@ const fullscreen: Scenario = async (context) => {
 	const tab = await app.openTab(profile, url);
 	const page = await app.page(tab, url);
 
+	// Since Chromium 157 a page goes fullscreen only from a focused view, in
+	// the key window: the user clicks the page first.
+	await app.send("activate");
+	await app.waitFor("the key window", (state) => state.window.key, 10_000);
+	await app.send("clickPage", { x: 20, y: 20 });
+
+	await app.waitFor(
+		"the page focused",
+		(state) => state.focus === "RenderWidgetHostViewCocoa",
+	);
+
 	await page.send("Runtime.evaluate", {
 		expression: "document.documentElement.requestFullscreen()",
 		userGesture: true,

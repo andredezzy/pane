@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser.cc b/chrome/browser/ui/browser.cc
-index 07de580deb..de993320ee 100644
+index 99041fad5c..42b7892e4d 100644
 --- a/chrome/browser/ui/browser.cc
 +++ b/chrome/browser/ui/browser.cc
 @@ -3,6 +3,7 @@
@@ -10,7 +10,7 @@ index 07de580deb..de993320ee 100644
  
  #include <stddef.h>
  
-@@ -264,6 +265,12 @@ std::unique_ptr<Browser> Browser::DeprecatedCreateOwnedForTesting(
+@@ -263,6 +264,12 @@ std::unique_ptr<Browser> Browser::DeprecatedCreateOwnedForTesting(
    return browser;
  }
  
@@ -23,7 +23,7 @@ index 07de580deb..de993320ee 100644
  Browser::Browser(BrowserWindowCreateParams params)
      : type_(params.type),
        profile_(&*params.profile),
-@@ -306,12 +313,19 @@ Browser::Browser(BrowserWindowCreateParams params)
+@@ -305,12 +312,19 @@ Browser::Browser(BrowserWindowCreateParams params)
    features_ = std::make_unique<BrowserWindowFeatures>();
    features_->Init(this);
  
@@ -46,7 +46,7 @@ index 07de580deb..de993320ee 100644
            : BrowserWindow::CreateBrowserWindow(this, user_gesture,
                                                 in_tab_dragging);
  
-@@ -615,6 +629,13 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
+@@ -614,6 +628,13 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
  }
  
  void Browser::TabStripEmpty() {
@@ -61,7 +61,7 @@ index 07de580deb..de993320ee 100644
    // window's native widget. Destroying it mid-gesture would strand the drag, so
    // let TabDragController take ownership of closing this browser once the drag
 diff --git a/chrome/browser/ui/browser_commands.cc b/chrome/browser/ui/browser_commands.cc
-index 14f5a7598d..2a5d1017b4 100644
+index 365dcd789d..186b7bb8ea 100644
 --- a/chrome/browser/ui/browser_commands.cc
 +++ b/chrome/browser/ui/browser_commands.cc
 @@ -3,6 +3,7 @@
@@ -72,7 +72,7 @@ index 14f5a7598d..2a5d1017b4 100644
  
  #include <algorithm>
  #include <memory>
-@@ -1493,7 +1494,9 @@ void CloseTab(BrowserWindowInterface* browser) {
+@@ -1498,7 +1499,9 @@ void CloseTab(BrowserWindowInterface* browser) {
  #endif
  
    ToastController* toast_controller = ToastController::From(browser);
@@ -84,7 +84,7 @@ index 14f5a7598d..2a5d1017b4 100644
      return;
    }
 diff --git a/chrome/browser/ui/browser_window/internal/browser_window_features.cc b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
-index f51b071375..ea7e729181 100644
+index 6c1c78d434..b262202ecd 100644
 --- a/chrome/browser/ui/browser_window/internal/browser_window_features.cc
 +++ b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
 @@ -3,6 +3,7 @@
@@ -95,7 +95,7 @@ index f51b071375..ea7e729181 100644
  
  #include <memory>
  
-@@ -243,6 +244,18 @@
+@@ -244,6 +245,18 @@
  #include "chrome/browser/ui/overscroll_pref_manager.h"
  #endif  // defined(USE_AURA)
  
@@ -114,7 +114,7 @@ index f51b071375..ea7e729181 100644
  BrowserWindowFeatures::BrowserWindowFeatures() = default;
  BrowserWindowFeatures::~BrowserWindowFeatures() = default;
  
-@@ -812,11 +825,22 @@ void BrowserWindowFeatures::InitPostWindowConstruction(
+@@ -811,11 +824,22 @@ void BrowserWindowFeatures::InitPostWindowConstruction(
  
    // Must be after exclusive_access_manager_,
    // desktop_browser_window_capabilities_, and browser_ui_controller_.
@@ -181,7 +181,7 @@ index 804a89c558..9a3b673fb0 100644
    for (auto* contents_view : browser_view->GetAllVisibleContentsWebViews()) {
      if (contents_view->web_contents() == web_contents) {
 diff --git a/chrome/browser/ui/toasts/toast_controller.cc b/chrome/browser/ui/toasts/toast_controller.cc
-index 4b17a93554..0aa54f85bf 100644
+index 77b520e599..0e82316db5 100644
 --- a/chrome/browser/ui/toasts/toast_controller.cc
 +++ b/chrome/browser/ui/toasts/toast_controller.cc
 @@ -3,6 +3,7 @@
@@ -192,7 +192,7 @@ index 4b17a93554..0aa54f85bf 100644
  
  #include <memory>
  #include <optional>
-@@ -137,7 +138,20 @@ std::optional<ToastId> ToastController::GetCurrentToastId() const {
+@@ -138,7 +139,20 @@ std::optional<ToastId> ToastController::GetCurrentToastId() const {
    return currently_showing_toast_id_;
  }
  
@@ -213,7 +213,7 @@ index 4b17a93554..0aa54f85bf 100644
    if (!CanShowToast(params.toast_id)) {
      RecordToastFailedToShow(params.toast_id);
      return false;
-@@ -323,7 +337,9 @@ void ToastController::CreateToast(ToastParams params,
+@@ -336,7 +350,9 @@ void ToastController::CreateToast(ToastParams params,
    if (!anchor_view) {
      // Don't actually create the toast in unit tests
      // TODO(webium): show toast in webui browser.
@@ -225,7 +225,7 @@ index 4b17a93554..0aa54f85bf 100644
      }
      return;
 diff --git a/chrome/browser/ui/unload_controller.cc b/chrome/browser/ui/unload_controller.cc
-index fb499c2360..e6e597f130 100644
+index 02ae74168c..f5362e0881 100644
 --- a/chrome/browser/ui/unload_controller.cc
 +++ b/chrome/browser/ui/unload_controller.cc
 @@ -3,6 +3,7 @@
@@ -236,7 +236,7 @@ index fb499c2360..e6e597f130 100644
  
  #include <algorithm>
  
-@@ -628,6 +629,11 @@ void UnloadController::OnTabStripModelChanged(
+@@ -635,6 +636,11 @@ void UnloadController::OnTabStripModelChanged(
  }
  
  void UnloadController::TabStripEmpty() {
@@ -266,10 +266,10 @@ index 71fb8f6def..4cf0758a22 100644
  - (instancetype)initWithBridge:(remote_cocoa::NativeWidgetNSWindowBridge*)bridge
                          bounds:(gfx::Rect)rect;
 diff --git a/components/remote_cocoa/app_shim/bridged_content_view.mm b/components/remote_cocoa/app_shim/bridged_content_view.mm
-index 58c8f6da2e..901571405e 100644
+index 06f9415fc3..c2a4e5a71d 100644
 --- a/components/remote_cocoa/app_shim/bridged_content_view.mm
 +++ b/components/remote_cocoa/app_shim/bridged_content_view.mm
-@@ -199,6 +199,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+@@ -200,6 +200,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
  @synthesize bridge = _bridge;
  @synthesize drawMenuBackgroundForBlur = _drawMenuBackgroundForBlur;
  @synthesize keyDownEventForTesting = _keyDownEvent;
@@ -277,7 +277,7 @@ index 58c8f6da2e..901571405e 100644
  
  - (instancetype)initWithBridge:(remote_cocoa::NativeWidgetNSWindowBridge*)bridge
                          bounds:(gfx::Rect)bounds {
-@@ -292,6 +293,13 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+@@ -300,6 +301,13 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
    // This is important when the window has a native titlebar, in which case the
    // superview is taller than the contentView.
    NSPoint pointInView = [self convertPoint:point fromView:self.superview];
@@ -291,7 +291,7 @@ index 58c8f6da2e..901571405e 100644
    gfx::Point flippedPoint(point.x, NSHeight(self.frame) - pointInView.y);
    remote_cocoa::mojom::HitTestResult hitTestResult;
    _bridge->host()->GetHitTestResult(flippedPoint, &hitTestResult);
-@@ -1722,6 +1730,10 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+@@ -1730,6 +1738,10 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
  // NSAccessibility formal protocol implementation:
  
  - (NSArray*)accessibilityChildren {
@@ -302,7 +302,7 @@ index 58c8f6da2e..901571405e 100644
    if (id accessible = _bridge->host_helper()->GetNativeViewAccessible())
      return @[ accessible ];
    return [super accessibilityChildren];
-@@ -1730,10 +1742,22 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
+@@ -1738,10 +1750,22 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
  // NSAccessibility informal protocol implementation:
  
  - (id)accessibilityHitTest:(NSPoint)point {

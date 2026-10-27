@@ -15,7 +15,8 @@ import { expect, type Scenario } from "../run";
 const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
 // Settings › Extensions manages a profile's extensions: install by Web Store
-// ID, disable and enable, pin and unpin, update, and remove after asking.
+// ID (pinned to the toolbar), disable and enable, unpin and pin, update, and
+// remove after asking.
 // On an unlocked screen each control is clicked with CUA; else the same
 // controller calls run through the automation channel.
 const extensionManagement: Scenario = async (context) => {
@@ -72,6 +73,13 @@ const extensionManagement: Scenario = async (context) => {
 		120_000,
 	);
 
+	// A new extension is pinned (Chromium's default since 157), so its button
+	// shows in the toolbar as every extension's did in the Electron app.
+	expect(
+		item(installed)?.pinned === true,
+		`installed unpinned: ${JSON.stringify(item(installed))}`,
+	);
+
 	// Its welcome tab took the window; back to Settings.
 	await Bun.sleep(1_000);
 	await showSettings();
@@ -115,8 +123,8 @@ const extensionManagement: Scenario = async (context) => {
 
 	const disabled = await toggle("Enabled", "setExtensionEnabled", false);
 	const enabled = await toggle("Enabled", "setExtensionEnabled", true);
-	const pinned = await toggle("Pinned", "setExtensionPinned", true);
 	const unpinned = await toggle("Pinned", "setExtensionPinned", false);
+	const pinned = await toggle("Pinned", "setExtensionPinned", true);
 
 	// Update All asks the Web Store for newer versions.
 	if (locked) {
@@ -174,8 +182,8 @@ const extensionManagement: Scenario = async (context) => {
 		accepted,
 		disabled: item(disabled)?.enabled,
 		enabled: item(enabled)?.enabled,
-		pinned: item(pinned)?.pinned,
 		unpinned: item(unpinned)?.pinned,
+		pinned: item(pinned)?.pinned,
 		removed: (removed.extensions[profile] ?? []).map((each) => each.id),
 		windows,
 	};

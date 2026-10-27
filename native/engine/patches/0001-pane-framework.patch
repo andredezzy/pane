@@ -1,8 +1,8 @@
 diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
-index d98c86e5da..d08a5d2c33 100644
+index f1d133b6cd..b6590fee79 100644
 --- a/chrome/BUILD.gn
 +++ b/chrome/BUILD.gn
-@@ -486,7 +486,8 @@ if (is_win) {
+@@ -491,7 +491,8 @@ if (is_win) {
    }
  } else if (is_mac) {
    chrome_helper_name = chrome_product_full_name + " Helper"
@@ -12,7 +12,7 @@ index d98c86e5da..d08a5d2c33 100644
    chrome_framework_version = chrome_version_full
  
    verify_dynamic_libraries = !is_component_build && !is_asan && !is_ubsan_any
-@@ -1340,6 +1341,7 @@ if (is_win) {
+@@ -1341,6 +1342,7 @@ if (is_win) {
        "//components/policy:generated",
        "//components/webapps/isolated_web_apps:scheme",
        "//content/public/app",
@@ -21,10 +21,10 @@ index d98c86e5da..d08a5d2c33 100644
      ]
  
 diff --git a/chrome/app/chrome_exe_main_mac.cc b/chrome/app/chrome_exe_main_mac.cc
-index 1b47647161..a98d53a5dc 100644
+index f812b05fd7..4f49bef01a 100644
 --- a/chrome/app/chrome_exe_main_mac.cc
 +++ b/chrome/app/chrome_exe_main_mac.cc
-@@ -182,14 +182,12 @@ __attribute__((visibility("default"))) int main(int argc, char* argv[]) {
+@@ -183,14 +183,12 @@ __attribute__((visibility("default"))) int main(int argc, char* argv[]) {
    // The helper lives within the versioned framework directory, so simply
    // go up to find the main dylib.
    static constexpr char entry_symbol[] = "ChromeMain";
@@ -127,7 +127,7 @@ index f8363d5b29..0debf509c1 100644
 +MAC_CREATOR_CODE=Pane
  MAC_TEAM_ID=
 diff --git a/chrome/browser/web_applications/os_integration/mac/BUILD.gn b/chrome/browser/web_applications/os_integration/mac/BUILD.gn
-index 16a0aeeaa6..d94e427e8c 100644
+index 7f1b9cfd15..ff66f1a48d 100644
 --- a/chrome/browser/web_applications/os_integration/mac/BUILD.gn
 +++ b/chrome/browser/web_applications/os_integration/mac/BUILD.gn
 @@ -42,7 +42,8 @@ executable("web_app_shortcut_copier") {

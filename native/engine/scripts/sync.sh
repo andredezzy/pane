@@ -41,6 +41,13 @@ fi
 current="$(git -C src describe --tags --exact-match HEAD 2>/dev/null || true)"
 
 if [ "$current" != "$VERSION" ]; then
+	# Moving to another tag under applied patches would strand them: their
+	# record in .applied would no longer describe the tree.
+	if [ -s "$CHROMIUM_ROOT/.applied/state" ]; then
+		echo "error: Pane's patches are applied to src; take them out first (apply-patches.sh --reverse)" >&2
+		exit 1
+	fi
+
 	git -C src fetch --depth 1 origin "refs/tags/$VERSION:refs/tags/$VERSION"
 	git -C src -c advice.detachedHead=false checkout --force "refs/tags/$VERSION"
 	rm -f "$CHROMIUM_ROOT"/.synced-* "$CHROMIUM_ROOT"/.hooks-*

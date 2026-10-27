@@ -317,7 +317,7 @@ docs/native/parity.md
 - [x] **6.3** Prebuilt engine.
   - `package.sh` emits a versioned PaneCore zip with a checksum.
   - The app builds against a prebuilt engine without a Chromium checkout (Ardia's `prebuilt-engines.tsv` model).
-- [ ] **6.4** Upgrade runbook.
+- [x] **6.4** Upgrade runbook.
   - Write `native/engine/UPGRADING.md`.
   - Perform one real upgrade to a newer stable tag: re-apply the patches, rebuild, and get every scenario green.
 - [ ] **6.5** CI.
