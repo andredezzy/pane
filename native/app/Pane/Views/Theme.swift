@@ -147,14 +147,14 @@ struct Squircle: InsettableShape {
 extension View {
 	// A surface's fill with the design's ring and drop shadow, both outside
 	// it as CSS box-shadows are: the content panel's (`shadow-panel`, a
-	// 1px border ring and 0 4px 24px black 16%, 40% on dark) by default.
+	// 1px border ring and 0 2px 8px black 8%, 25% on dark) by default.
 	func surfaceBackground(
 		_ fill: Color = Palette.card,
 		cornerRadius: CGFloat,
 		ring: Color = Palette.border,
 		shadow: Color = PanelShadow.color,
-		blur: CGFloat = 24,
-		y: CGFloat = 4
+		blur: CGFloat = 8,
+		y: CGFloat = 2
 	) -> some View {
 		background {
 			Squircle(cornerRadius: cornerRadius)
@@ -168,15 +168,15 @@ extension View {
 		}
 	}
 
-	// A popover surface with a foreground/10 ring, over shadow-2xl (0 25px 50px
-	// -12px black 25%): the tab switcher, the extensions menus, and their
-	// popups. The shadow is the surface's alone: on the whole view, SwiftUI
-	// shadows each row, text, and fill inside it.
+	// A popover surface with a foreground/10 ring, over a soft shadow (0 6px
+	// 20px black 14%, as macOS's menus): the tab switcher, the extensions
+	// menus, and their popups. The shadow is the surface's alone: on the
+	// whole view, SwiftUI shadows each row, text, and fill inside it.
 	func popoverSurface(cornerRadius: CGFloat) -> some View {
 		background {
 			Squircle(cornerRadius: cornerRadius)
 				.fill(Palette.popover)
-				.shadow(color: .black.opacity(0.25), radius: 25, y: 25)
+				.shadow(color: .black.opacity(0.14), radius: 10, y: 6)
 		}
 		.overlay {
 			Squircle(cornerRadius: cornerRadius)
@@ -193,7 +193,7 @@ extension View {
 
 enum PanelShadow {
 	static let color = Color(nsColor: NSColor(name: nil) { appearance in
-		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.4 : 0.16)
+		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.25 : 0.08)
 	})
 }
 
@@ -205,6 +205,8 @@ enum Lucide: String {
 	case arrowRight
 	case arrowUp
 	case chevronDown
+	case chevronLeft
+	case chevronRight
 	case chevronsDownUp
 	case circleDashedX
 	case globe
@@ -230,6 +232,10 @@ enum Lucide: String {
 			#"<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>"#
 		case .chevronDown:
 			#"<path d="m6 9 6 6 6-6"/>"#
+		case .chevronLeft:
+			#"<path d="m15 18-6-6 6-6"/>"#
+		case .chevronRight:
+			#"<path d="m9 18 6-6-6-6"/>"#
 		case .circleDashedX:
 			#"<circle cx="12" cy="12" r="9" stroke-dasharray="2.6 2.6"/><path d="M9.5 9.5l5 5"/><path d="M14.5 9.5l-5 5"/>"#
 		case .chevronsDownUp:
@@ -255,11 +261,6 @@ enum Lucide: String {
 		case .x:
 			#"<path d="M18 6 6 18"/><path d="m6 6 12 12"/>"#
 		}
-	}
-
-	@MainActor
-	var image: NSImage {
-		image(strokeWidth: 2, size: 24)
 	}
 
 	// A menu item's icon, as the Electron app drew them (menu/icons.ts):
@@ -336,14 +337,17 @@ private enum TemplateIcon {
 struct LucideIcon: View {
 	let icon: Lucide
 	let size: CGFloat
+	// Of the 24-unit grid: 2 is Lucide's own.
+	let strokeWidth: Double
 
-	init(_ icon: Lucide, size: CGFloat) {
+	init(_ icon: Lucide, size: CGFloat, strokeWidth: Double = 2) {
 		self.icon = icon
 		self.size = size
+		self.strokeWidth = strokeWidth
 	}
 
 	var body: some View {
-		Image(nsImage: icon.image)
+		Image(nsImage: icon.image(strokeWidth: strokeWidth, size: 24))
 			.renderingMode(.template)
 			.resizable()
 			.interpolation(.high)

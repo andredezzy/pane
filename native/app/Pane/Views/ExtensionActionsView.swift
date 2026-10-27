@@ -1,11 +1,14 @@
 import SwiftUI
 
 // The active profile's extension actions in the toolbar: the pinned ones as
-// buttons with their badge, in a capsule as Aside groups them, then the
-// puzzle, which opens the extensions menu (ExtensionsMenu) and shows whether
-// or not any are installed.
+// buttons with their badge, then the puzzle, which opens the extensions menu
+// (ExtensionsMenu) and shows whether or not any are installed. As Aside's,
+// the pinned ones sit in a capsule that shows while the pointer is over them
+// or one's popup is open.
 struct ExtensionActionsView: View {
 	let controller: BrowserController
+
+	@State private var isHovered = false
 
 	private var model: BrowserModel { controller.model }
 	private var pinned: [ExtensionInfo] {
@@ -13,11 +16,13 @@ struct ExtensionActionsView: View {
 	}
 
 	var body: some View {
-		HStack(spacing: 6) {
+		HStack(spacing: 4) {
 			if !pinned.isEmpty {
+				let openID = controller.extensionPopover.popup?.extensionIdentifier
+
 				HStack(spacing: 4) {
 					ForEach(pinned) { item in
-						ActionButton(item: item, isOpen: controller.extensionPopover.popup?.extensionIdentifier == item.id) {
+						ActionButton(item: item, isOpen: openID == item.id) {
 							controller.runExtensionAction(item.id)
 						}
 						.contextMenu { ActionContextMenu(controller: controller, item: item) }
@@ -25,7 +30,12 @@ struct ExtensionActionsView: View {
 					}
 				}
 				.padding(1)
-				.overlay { Capsule().strokeBorder(Palette.border, lineWidth: 1) }
+				.overlay {
+					Capsule(style: .circular)
+						.strokeBorder(Palette.border, lineWidth: 1)
+						.opacity(isHovered || pinned.contains { $0.id == openID } ? 1 : 0)
+				}
+				.onHover { isHovered = $0 }
 			}
 
 			if model.activeProfileID != nil {
@@ -66,8 +76,8 @@ private struct ActionContextMenu: View {
 	}
 }
 
-// The puzzle, as Aside's toolbar draws it, at the action buttons' size:
-// muted; the accent fill on hover, and while its menu is open.
+// The puzzle, as Aside's toolbar draws it, a 32-point circle as the action
+// buttons: muted; the accent fill on hover, and while its menu is open.
 private struct ExtensionsButton: View {
 	let isOpen: Bool
 	let action: () -> Void
@@ -81,12 +91,12 @@ private struct ExtensionsButton: View {
 			// buttons' 2 of 24 at 14 (1.17 points).
 			Image(nsImage: Glyph.puzzle.image(strokeWidth: 1.4, size: 20))
 				.renderingMode(.template)
-				.frame(width: 28, height: 28)
-				.contentShape(Rectangle())
+				.frame(width: 32, height: 32)
+				.contentShape(Circle())
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isOpen ? Palette.foreground : isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isOpen || isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
+		.background(isOpen || isHovered ? Palette.accent : .clear, in: Circle())
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
@@ -97,7 +107,7 @@ private struct ExtensionsButton: View {
 	}
 }
 
-// An extension's toolbar button, as Aside's: a 28-point circle, filled on
+// An extension's toolbar button, as Aside's: a 32-point circle, filled on
 // hover and while its popup shows (and, the pointer still on it, while its
 // right-click menu does); the icon at 16 points, as Chrome and Aside draw
 // action icons; no icon shows the name's first letter on gray. The badge is
@@ -125,7 +135,7 @@ private struct ActionButton: View {
 						.background(Color(rgb: 0x757575), in: Squircle(cornerRadius: 5))
 				}
 			}
-			.frame(width: 28, height: 28)
+			.frame(width: 32, height: 32)
 			.background(isOpen || isHovered ? Palette.accent : .clear, in: Circle())
 			.overlay(alignment: .bottomTrailing) {
 				if !item.badgeText.isEmpty {

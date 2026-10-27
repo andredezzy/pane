@@ -16,7 +16,7 @@ struct SidebarView: View {
 			header
 
 			ScrollView {
-				VStack(alignment: .leading, spacing: 6) {
+				VStack(alignment: .leading, spacing: 4) {
 					ForEach(model.profiles) { profile in
 						ProfileSection(
 							controller: controller,
@@ -25,7 +25,7 @@ struct SidebarView: View {
 						)
 					}
 				}
-				.padding(.horizontal, 10)
+				.padding(.horizontal, 8)
 				.padding(.vertical, 4)
 			}
 			.accessibilityIdentifier("pane.sidebar.profiles")
@@ -42,7 +42,7 @@ struct SidebarView: View {
 	private var header: some View {
 		HStack(spacing: 8) {
 			Text("Pane")
-				.font(.system(size: 12, weight: .semibold))
+				.font(.system(size: 13, weight: .semibold))
 				.foregroundStyle(Palette.mutedForeground)
 				// The title moves the window, as the rest of the header does.
 				.allowsHitTesting(false)
@@ -64,7 +64,7 @@ struct SidebarView: View {
 		.frame(height: 39)
 	}
 
-	// px-2.5 pb-2: New, a hairline, Settings.
+	// px-2 pb-2: New, a hairline, Settings.
 	private var footer: some View {
 		VStack(alignment: .leading, spacing: 6) {
 			if controller.updater.showsPill {
@@ -72,10 +72,8 @@ struct SidebarView: View {
 					.transition(.opacity.combined(with: .offset(y: 4)))
 			}
 
-			// The 14px plus makes this row 32px; the others are 28.
-			SidebarButton(isSelected: false, tintsOnHover: false, height: 32, action: onNewProfile) {
-				Text("+")
-					.font(.system(size: 14, weight: .light))
+			SidebarButton(isSelected: false, tintsOnHover: false, action: onNewProfile) {
+				PlusMark()
 				Text("New")
 			}
 			.accessibilityLabel("New")
@@ -88,19 +86,19 @@ struct SidebarView: View {
 			SidebarButton(isSelected: model.page == .settings) {
 				model.page = model.page == .settings ? .browser : .settings
 			} label: {
-				LucideIcon(.settings, size: 14)
+				LucideIcon(.settings, size: 16)
 				Text("Settings")
 			}
 			.accessibilityLabel("Settings")
 			.accessibilityIdentifier("pane.sidebar.settings")
 		}
-		.padding(.horizontal, 10)
+		.padding(.horizontal, 8)
 		.padding(.bottom, 8)
 		.animation(.easeOut(duration: 0.3), value: controller.updater.showsPill)
 	}
 }
 
-// 24px, rounded 7, muted; hover fills with the accent color.
+// A 28-point circle, muted; hover fills with the accent color.
 private struct CollapseAllButton: View {
 	let isEnabled: Bool
 	let action: () -> Void
@@ -110,13 +108,13 @@ private struct CollapseAllButton: View {
 
 	var body: some View {
 		Button(action: action) {
-			LucideIcon(.chevronsDownUp, size: 14)
-				.frame(width: 24, height: 24)
-				.contentShape(Rectangle())
+			LucideIcon(.chevronsDownUp, size: 16)
+				.frame(width: 28, height: 28)
+				.contentShape(Circle())
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
+		.background(isHovered ? Palette.accent : .clear, in: Circle())
 		.opacity(isEnabled ? 1 : 0.4)
 		.disabled(!isEnabled)
 		.onHover { hovering in
@@ -127,13 +125,13 @@ private struct CollapseAllButton: View {
 	}
 }
 
-// px-2 py-1.5, rounded-md, 12px. Selected (Settings, while shown) is
-// foreground/5; hover is the accent color.
+// A 32-point row at 14, as Aside's sidebar rows: the icon 7 in, the title
+// 10 after it. Selected (Settings, while shown) is foreground/5; hover is the
+// accent color.
 private struct SidebarButton<Label: View>: View {
 	let isSelected: Bool
 	// New keeps its muted text on hover; Settings darkens.
 	var tintsOnHover = true
-	var height: CGFloat = 28
 	let action: () -> Void
 	@ViewBuilder let label: Label
 
@@ -141,24 +139,26 @@ private struct SidebarButton<Label: View>: View {
 
 	var body: some View {
 		Button(action: action) {
-			HStack(spacing: 6) {
+			HStack(spacing: 10) {
 				label
 				Spacer(minLength: 0)
 			}
-			.font(.system(size: 12))
-			.padding(.horizontal, 8)
-			.frame(height: height)
+			.font(.system(size: 14))
+			.padding(.leading, 7)
+			.padding(.trailing, 8)
+			.frame(height: SidebarRow.height)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isSelected || (tintsOnHover && isHovered) ? Palette.accentForeground : Palette.mutedForeground)
-		.hoverBackground(isSelected: isSelected, cornerRadius: 11)
+		.hoverBackground(isSelected: isSelected, cornerRadius: SidebarRow.cornerRadius)
 		.onHover { isHovered = $0 }
 	}
 }
 
-// A profile row (30px: py-1.5 and a 1px border) and, expanded, its tabs
-// (24px, 4px apart) and New tab. Profiles are 6px apart.
+// A profile row (36 points, inside a 1-point border) and, expanded, its tabs
+// and New tab, 32 points each and 4 apart: Aside's 36-point rows. Profiles
+// are 4 apart.
 private struct ProfileSection: View {
 	let controller: BrowserController
 	let profile: BrowserProfile
@@ -177,7 +177,7 @@ private struct ProfileSection: View {
 	private var isUnloaded: Bool { wasLoaded && !hasLoadedTabs && !profile.tabs.isEmpty }
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 6) {
+		VStack(alignment: .leading, spacing: 4) {
 			header
 
 			if isExpanded {
@@ -209,19 +209,19 @@ private struct ProfileSection: View {
 		let color = profile.color.color
 
 		return Button(action: toggle) {
-			HStack(spacing: 6) {
-				Capsule()
+			HStack(spacing: 8) {
+				Capsule(style: .circular)
 					.fill(color)
-					.frame(width: 4, height: 14)
+					.frame(width: 4, height: 16)
 
 				Text(profile.name)
-					.font(.system(size: 12, weight: .medium))
+					.font(.system(size: 14, weight: .medium))
 					.lineLimit(1)
 					.truncationMode(.tail)
 					.frame(maxWidth: .infinity, alignment: .leading)
 
 				if isUnloaded {
-					LucideIcon(.moon, size: 12)
+					LucideIcon(.moon, size: 14)
 						.foregroundStyle(Palette.mutedForeground.opacity(0.5))
 						.accessibilityLabel("Unloaded")
 				}
@@ -232,23 +232,23 @@ private struct ProfileSection: View {
 
 				if !isExpanded && !profile.tabs.isEmpty {
 					Text("\(profile.tabs.count)")
-						.font(.system(size: 10))
+						.font(.system(size: 12))
 						.foregroundStyle(Palette.mutedForeground)
 				}
 			}
-			// px-2 inside a 1px border (transparent unless active).
-			.padding(.horizontal, 9)
-			.frame(height: 30)
+			// 7 in, inside a 1-point border (transparent unless active).
+			.padding(.horizontal, 8)
+			.frame(height: 36)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isActive ? Palette.accentForeground : Palette.mutedForeground)
 		.background {
-			Squircle(cornerRadius: 11)
+			Squircle(cornerRadius: SidebarRow.cornerRadius)
 				.fill(isActive ? color.opacity(0.04) : .clear)
 				.strokeBorder(isActive ? color.opacity(0.4) : .clear, lineWidth: 1)
 		}
-		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: 11)
+		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: SidebarRow.cornerRadius)
 		// The Electron app's menu, with its lucide icons.
 		.contextMenu {
 			Button(action: onEdit) {
@@ -314,8 +314,9 @@ private struct ProxyDot: View {
 	}
 }
 
-// px-2 py-1, rounded 9, 12px: the favicon (or a globe), the title, and a
-// close X on hover. Selected is foreground/5; unloaded tabs are at 60%.
+// A 32-point row at 14, as Aside's tabs: the 16-point favicon (or a globe) 7
+// in, the title 10 after it, and a close X on hover. Selected is
+// foreground/5; unloaded tabs are at 60%.
 private struct TabRow: View {
 	let controller: BrowserController
 	let tab: PaneKit.Tab
@@ -329,30 +330,31 @@ private struct TabRow: View {
 
 	var body: some View {
 		Button { controller.select(tabID: tab.id) } label: {
-			HStack(spacing: 6) {
+			HStack(spacing: 10) {
 				FaviconView(dataURL: tab.favicon)
 
 				Text(tab.title.isEmpty ? "Loading..." : tab.title)
-					.font(.system(size: 12))
+					.font(.system(size: 14))
 					.lineLimit(1)
 					.truncationMode(.tail)
 					.frame(maxWidth: .infinity, alignment: .leading)
 
 				Button { controller.closeTab(tab.id) } label: {
-					LucideIcon(.x, size: 12)
+					LucideIcon(.x, size: 14)
 				}
 				.buttonStyle(.plain)
 				.opacity(isHovered ? 1 : 0)
 				.accessibilityLabel("Close tab")
 			}
-			.padding(.horizontal, 8)
-			.frame(height: 24)
+			.padding(.leading, 7)
+			.padding(.trailing, 8)
+			.frame(height: SidebarRow.height)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isActive || isHovered ? Palette.accentForeground : Palette.mutedForeground)
 		.opacity(isLoaded || isActive ? 1 : 0.6)
-		.hoverBackground(isSelected: isActive)
+		.hoverBackground(isSelected: isActive, cornerRadius: SidebarRow.cornerRadius)
 		.onHover { isHovered = $0 }
 		.contextMenu {
 			Button("Close tab") { controller.closeTab(tab.id) }
@@ -379,7 +381,7 @@ private struct TabRow: View {
 	}
 }
 
-// "+ New tab": a 10px plus, px-2 py-1, muted until hovered.
+// "+ New tab", a tab row's size, muted until hovered.
 private struct NewTabRow: View {
 	let action: () -> Void
 
@@ -387,21 +389,36 @@ private struct NewTabRow: View {
 
 	var body: some View {
 		Button(action: action) {
-			HStack(spacing: 6) {
-				Text("+")
-					.font(.system(size: 10))
+			HStack(spacing: 10) {
+				PlusMark()
 				Text("New tab")
-					.font(.system(size: 12))
+					.font(.system(size: 14))
 				Spacer(minLength: 0)
 			}
-			.padding(.horizontal, 8)
-			.frame(height: 24)
+			.padding(.leading, 7)
+			.padding(.trailing, 8)
+			.frame(height: SidebarRow.height)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.hoverBackground(isSelected: false)
+		.hoverBackground(isSelected: false, cornerRadius: SidebarRow.cornerRadius)
 		.onHover { isHovered = $0 }
+	}
+}
+
+// The sidebar's rows, as Aside's: 32 points, rounded 15.
+private enum SidebarRow {
+	static let height: CGFloat = 32
+	static let cornerRadius: CGFloat = 15
+}
+
+// New's and New tab's plus, in the favicon's 16-point slot.
+private struct PlusMark: View {
+	var body: some View {
+		Text("+")
+			.font(.system(size: 18, weight: .light))
+			.frame(width: 16, height: 16)
 	}
 }
 

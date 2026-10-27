@@ -14,7 +14,7 @@ struct ExclusiveAccessHint: View {
 			.foregroundStyle(.white)
 			.padding(.horizontal, 16)
 			.padding(.vertical, 9)
-			.background(.black.opacity(0.75), in: Capsule())
+			.background(.black.opacity(0.75), in: Capsule(style: .circular))
 			.padding(.top, 24)
 			.opacity(shown ? 1 : 0)
 			.allowsHitTesting(false)

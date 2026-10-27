@@ -231,7 +231,7 @@ private struct PaneSwitch: View {
 		HStack(spacing: 8) {
 			configuration.label
 
-			Capsule()
+			Capsule(style: .circular)
 				.fill(configuration.isOn ? Palette.primary : Palette.border)
 				.frame(width: 36, height: 20)
 				.overlay(alignment: configuration.isOn ? .trailing : .leading) {
@@ -241,7 +241,7 @@ private struct PaneSwitch: View {
 						.shadow(color: .black.opacity(0.15), radius: 4, y: 2)
 						.padding(2)
 				}
-				.contentShape(Capsule())
+				.contentShape(Capsule(style: .circular))
 				.onTapGesture {
 					withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
 						configuration.isOn.toggle()

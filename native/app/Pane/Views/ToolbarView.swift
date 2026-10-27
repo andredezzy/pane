@@ -1,9 +1,10 @@
 import PaneKit
 import SwiftUI
 
-// The selected tab's toolbar at the top of the content panel, as in the
-// Electron app: back, forward, and reload or stop (26px), the address (30px,
-// with the loading bar under it), extension actions, and the profile's chip.
+// The selected tab's toolbar at the top of the content panel, at Aside's
+// sizes: back, forward, and reload or stop (32-point circles), the address
+// (the domain and the title at 14, the URL while editing, with the loading
+// bar under it), extension actions, and the profile's chip.
 struct ToolbarView: View {
 	let controller: BrowserController
 
@@ -17,13 +18,16 @@ struct ToolbarView: View {
 	private var profile: BrowserProfile? { model.activeProfileID.flatMap(model.profile) }
 
 	var body: some View {
-		HStack(spacing: 6) {
+		HStack(spacing: 4) {
 			HStack(spacing: 2) {
-				NavigationButton(icon: .arrowLeft, size: 14, label: "Back", action: controller.goBack)
-				NavigationButton(icon: .arrowRight, size: 14, label: "Forward", action: controller.goForward)
+				// Aside's chevrons: 1.5 points of stroke at 24.
+				NavigationButton(icon: .chevronLeft, size: 24, strokeWidth: 1.5, label: "Back", action: controller.goBack)
+				NavigationButton(icon: .chevronRight, size: 24, strokeWidth: 1.5, label: "Forward", action: controller.goForward)
+				// Its reload at 17, with the same 1.5 points.
 				NavigationButton(
 					icon: isLoading ? .x : .rotateCw,
-					size: 12,
+					size: 17,
+					strokeWidth: 2.1,
 					label: isLoading ? "Stop" : "Reload",
 					action: isLoading ? controller.stop : controller.reload
 				)
@@ -32,6 +36,7 @@ struct ToolbarView: View {
 
 			AddressField(
 				text: Bindable(controller.state).address,
+				title: model.activeTab?.title ?? "",
 				focused: $addressFocused,
 				isLoading: isLoading,
 				onSubmit: {
@@ -51,7 +56,9 @@ struct ToolbarView: View {
 				ProfileChip(profile: profile)
 			}
 		}
-		.padding(6)
+		.padding(.leading, 5)
+		.padding(.trailing, 6)
+		.frame(height: 42)
 		// The page starts 43px down the panel (TOOLBAR_HEIGHT 51 less the 8px
 		// gutter), a pixel under the toolbar.
 		.padding(.bottom, 1)
@@ -76,10 +83,11 @@ struct ToolbarView: View {
 	}
 }
 
-// 26 × 26, rounded 7, muted; hover fills with the accent color.
+// A 32-point circle, muted; hover fills with the accent color.
 private struct NavigationButton: View {
 	let icon: Lucide
 	let size: CGFloat
+	let strokeWidth: Double
 	let label: String
 	let action: () -> Void
 
@@ -88,13 +96,13 @@ private struct NavigationButton: View {
 
 	var body: some View {
 		Button(action: action) {
-			LucideIcon(icon, size: size)
-				.frame(width: 26, height: 26)
-				.contentShape(Rectangle())
+			LucideIcon(icon, size: size, strokeWidth: strokeWidth)
+				.frame(width: 32, height: 32)
+				.contentShape(Circle())
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
+		.background(isHovered ? Palette.accent : .clear, in: Circle())
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
@@ -103,10 +111,12 @@ private struct NavigationButton: View {
 	}
 }
 
-// 30px, rounded 9, px-2.5 text-xs, no fill until hovered (foreground 3%); a
-// 1px ring when focused, which selects the whole address.
+// 32 points, rounded 9, no fill until hovered (foreground 3%). At rest it
+// shows the page as Aside does: the domain, a divider, and the title, at 14.
+// A click edits the URL, with a 1px ring, and selects all of it.
 private struct AddressField: View {
 	@Binding var text: String
+	let title: String
 	var focused: FocusState<Bool>.Binding
 	let isLoading: Bool
 	let onSubmit: () -> Void
@@ -122,8 +132,10 @@ private struct AddressField: View {
 			prompt: Text("Search or enter URL").foregroundStyle(Palette.mutedForeground)
 		)
 		.textFieldStyle(.plain)
-		.font(.system(size: 12))
-		.foregroundStyle(Palette.foreground)
+		.font(.system(size: 14))
+		// At rest the label shows instead of the URL; the field stays
+		// under it, to take the click and be read.
+		.foregroundStyle(focused.wrappedValue || label == nil ? Palette.foreground : .clear)
 		.focused(focused)
 		.onSubmit(onSubmit)
 		.onExitCommand(perform: onExit)
@@ -136,7 +148,15 @@ private struct AddressField: View {
 			}
 		}
 		.padding(.horizontal, 10)
-		.frame(height: 30)
+		.overlay(alignment: .leading) {
+			if !focused.wrappedValue, let label {
+				AddressLabel(domain: label.domain, title: label.title)
+					.padding(.leading, 14)
+					.padding(.trailing, 10)
+					.allowsHitTesting(false)
+			}
+		}
+		.frame(height: 32)
 		.background(
 			isHovered ? Palette.foreground.opacity(0.03) : .clear,
 			in: Squircle(cornerRadius: 9)
@@ -155,6 +175,51 @@ private struct AddressField: View {
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
 		.accessibilityIdentifier("pane.address")
+	}
+
+	// The domain (without www.) and the page's title, for a web address;
+	// any other text shows as it is.
+	private var label: (domain: String, title: String)? {
+		guard let url = URL(string: text), ["http", "https"].contains(url.scheme), var host = url.host(), !host.isEmpty else {
+			return nil
+		}
+
+		if host.hasPrefix("www.") {
+			host.removeFirst(4)
+		}
+
+		let title = self.title.trimmingCharacters(in: .whitespaces)
+
+		return (host, title == text ? "" : title)
+	}
+}
+
+// Aside's address at rest: the domain in the text color, a divider, and the
+// title muted, all at 14.
+private struct AddressLabel: View {
+	let domain: String
+	let title: String
+
+	var body: some View {
+		HStack(spacing: 12) {
+			Text(domain)
+				.foregroundStyle(Palette.foreground)
+				.fixedSize()
+
+			if !title.isEmpty {
+				Rectangle()
+					.fill(Palette.mutedForeground.opacity(0.8))
+					.frame(width: 0.5, height: 18)
+
+				Text(title)
+					.foregroundStyle(Palette.mutedForeground)
+					.truncationMode(.tail)
+			}
+
+			Spacer(minLength: 0)
+		}
+		.font(.system(size: 14))
+		.lineLimit(1)
 	}
 }
 
@@ -214,8 +279,8 @@ private struct LoadingBar: View {
 	}
 }
 
-// The profile's name in its color: h-30, px-2.5, 11px medium, an 8% fill and
-// a 30% border of the color.
+// The profile's name in its color: a 28-point capsule at 14 medium, as
+// Aside's toolbar button, with an 8% fill and a 30% border of the color.
 private struct ProfileChip: View {
 	let profile: BrowserProfile
 
@@ -223,15 +288,14 @@ private struct ProfileChip: View {
 		let color = profile.color.color
 
 		Text(profile.name)
-			.font(.system(size: 11, weight: .medium))
+			.font(.system(size: 14, weight: .medium))
 			.foregroundStyle(color)
 			.lineLimit(1)
-			// px-2.5 inside the 1px border.
 			.padding(.horizontal, 11)
-			.frame(height: 30)
-			.background(color.opacity(0.08), in: Squircle(cornerRadius: 9))
-			.overlay {
-				Squircle(cornerRadius: 9)
+			.frame(height: 28)
+			.background {
+				Capsule(style: .circular)
+					.fill(color.opacity(0.08))
 					.strokeBorder(color.opacity(0.3), lineWidth: 1)
 			}
 			.accessibilityIdentifier("pane.toolbar.profile")

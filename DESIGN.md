@@ -17,6 +17,7 @@ Every rounded corner is a superellipse: `corner-shape: superellipse(2)` in Paper
 Implementation notes:
 
 - A view takes `Squircle(cornerRadius:)`, never a circular `RoundedRectangle`.
+- A capsule takes `Capsule(style: .circular)`. The default style drew a flat stretch at each end of the 28-point profile chip.
 - A layer, which draws only circular or continuous corners (the page view), takes 0.57 of the radius as a circle: it follows the superellipse within a fifth of a pixel, with no mask to composite.
 
 ## Motion

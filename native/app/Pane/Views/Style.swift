@@ -54,7 +54,7 @@ extension View {
 	}
 }
 
-// A favicon from the data: URL tabs store (12px, rounded-sm), or a globe.
+// A favicon from the data: URL tabs store (16 points, as Aside's), or a globe.
 struct FaviconView: View {
 	let dataURL: String
 
@@ -63,10 +63,10 @@ struct FaviconView: View {
 			Image(nsImage: image)
 				.resizable()
 				.interpolation(.high)
-				.frame(width: 12, height: 12)
+				.frame(width: 16, height: 16)
 				.clipShape(Squircle(cornerRadius: 4))
 		} else {
-			LucideIcon(.globe, size: 12)
+			LucideIcon(.globe, size: 16)
 		}
 	}
 

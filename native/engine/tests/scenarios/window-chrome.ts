@@ -20,8 +20,9 @@ const windowChrome: Scenario = async (context) => {
 		(state) => tabOf(state, tab)?.url === b && !tabOf(state, tab)?.loading,
 	);
 
-	// Back: 26px at (226, 16) in the window.
-	await app.send("clickWindow", { x: 239, y: 29 });
+	// Back: a 32-point circle at (265, 13) in the window, past the 260-point
+	// sidebar.
+	await app.send("clickWindow", { x: 281, y: 29 });
 
 	const back = await app.waitFor(
 		"back to A",
@@ -36,8 +37,8 @@ const windowChrome: Scenario = async (context) => {
 		(state) => state.focus === "field: Search or enter URL",
 	);
 
-	// Collapse all, in the sidebar's header beside the traffic lights.
-	await app.send("clickWindow", { x: 198, y: 19.5 });
+	// Collapse all, a 28-point circle at the end of the sidebar's header.
+	await app.send("clickWindow", { x: 236, y: 19.5 });
 
 	const collapsed = await app.waitFor(
 		"profiles collapsed",

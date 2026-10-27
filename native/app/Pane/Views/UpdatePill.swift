@@ -15,11 +15,11 @@ struct UpdatePill: View {
 			Button {
 				updater.downloadUpdate()
 			} label: {
-				HStack(spacing: 6) {
+				HStack(spacing: 10) {
 					UpdateDot(pulsing: updater.status == .downloading)
 
 					Text(updater.label)
-						.font(.system(size: 12))
+						.font(.system(size: 13))
 						.lineLimit(1)
 						.contentTransition(.opacity)
 
@@ -40,10 +40,10 @@ struct UpdatePill: View {
 				.opacity(isHovered ? 1 : 0)
 				.padding(.trailing, 6)
 		}
-		.padding(.vertical, 6)
-		.padding(.leading, 8)
+		.frame(height: 32)
+		.padding(.leading, 7)
 		.padding(.trailing, 24)
-		.background(Palette.foreground.opacity(0.05), in: Squircle(cornerRadius: 11))
+		.background(Palette.foreground.opacity(0.05), in: Squircle(cornerRadius: 15))
 		.onHover { isHovered = $0 }
 		.animation(.easeOut(duration: 0.15), value: isHovered)
 		.animation(.easeInOut(duration: 0.2), value: updater.status)
@@ -87,10 +87,10 @@ struct UpdateProgressBar: View {
 
 	var body: some View {
 		GeometryReader { geometry in
-			Capsule()
+			Capsule(style: .circular)
 				.fill(Palette.foreground.opacity(0.1))
 				.overlay(alignment: .leading) {
-					Capsule()
+					Capsule(style: .circular)
 						.fill(Color(rgb: 0x10B981))
 						.frame(width: geometry.size.width * min(max(progress, 0), 1))
 						.animation(.linear(duration: 0.2), value: progress)

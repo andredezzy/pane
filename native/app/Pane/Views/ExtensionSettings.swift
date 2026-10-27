@@ -132,7 +132,7 @@ private struct ProfileSelect: View {
 		} label: {
 			HStack(spacing: 6) {
 				if let selection {
-					Capsule()
+					Capsule(style: .circular)
 						.fill(selection.color.color)
 						.frame(width: 4, height: 14)
 				}

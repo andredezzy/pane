@@ -1,10 +1,10 @@
 import PaneKit
 import SwiftUI
 
-// The whole window, as the Electron app lays it out: the 220px sidebar, then
-// the content panel (8px gutters, flush to the sidebar) holding the toolbar
-// and the selected tab, or settings. Sheets, dialogs, the switcher, and find
-// float over the whole window.
+// The whole window, as the Electron app lays it out: the sidebar (260 points,
+// as Aside's), then the content panel (8px gutters, flush to the sidebar)
+// holding the toolbar and the selected tab, or settings. Sheets, dialogs, the
+// switcher, and find float over the whole window.
 struct RootView: View {
 	let controller: BrowserController
 
@@ -29,7 +29,7 @@ struct RootView: View {
 						onNewProfile: { present(.new) },
 						onEditProfile: { present(.edit($0)) }
 					)
-					.frame(width: 220)
+					.frame(width: 260)
 				}
 
 				content
