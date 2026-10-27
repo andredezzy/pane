@@ -320,7 +320,7 @@ docs/native/parity.md
 - [x] **6.4** Upgrade runbook.
   - Write `native/engine/UPGRADING.md`.
   - Perform one real upgrade to a newer stable tag: re-apply the patches, rebuild, and get every scenario green.
-- [ ] **6.5** CI.
+- [x] **6.5** CI.
   - A GitHub workflow builds the app against the prebuilt engine and runs the `PaneKit` tests on macOS runners.
   - Validate it locally: lint the YAML, and run its build and test commands on this Mac.
   - Engine builds stay local or self-hosted. Provisioning a runner and the first real CI run (which needs a push) go to the checklist.

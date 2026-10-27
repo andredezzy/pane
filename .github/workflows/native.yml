@@ -1,0 +1,61 @@
+name: Native
+
+# The native app on the prebuilt engine its engine sources name
+# (native/engine/prebuilt-engines.tsv): CI never builds Chromium, which takes
+# hours and ~100 GB. Engine builds stay on a developer's Mac, and their
+# archives are published as engine-<key> prereleases.
+
+on:
+  push:
+    branches:
+      - main
+      - native-shell
+    paths:
+      - "native/**"
+      - ".github/workflows/native.yml"
+  pull_request:
+    paths:
+      - "native/**"
+      - ".github/workflows/native.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: App and PaneKit
+    # macOS 27 with Xcode 27 on Apple Silicon: the toolchain the app is
+    # developed with.
+    runs-on: xcode-27
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: PaneKit tests
+        working-directory: native/app/PaneKit
+        run: swift test
+
+      - name: Engine key
+        id: engine
+        run: echo "key=$(native/engine/scripts/engine-key.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the prebuilt engine
+        uses: actions/cache@v4
+        with:
+          path: native/app/build/engines
+          key: pane-engine-${{ steps.engine.outputs.key }}
+
+      - name: Fetch the prebuilt engine
+        run: echo "PANE_ENGINE_OUT=$(native/engine/scripts/fetch-engine.sh)" >> "$GITHUB_ENV"
+
+      - name: Build and package the app
+        run: native/engine/scripts/package.sh
