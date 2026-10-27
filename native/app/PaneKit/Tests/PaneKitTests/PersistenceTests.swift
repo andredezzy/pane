@@ -52,6 +52,22 @@ struct SettingsPersistenceTests {
 		#expect(settings?.tabSleepAfterMinutes == nil)
 		#expect(settings?.profileUnloadAfterMinutes == 30)
 	}
+
+	@Test("keeps the sidebar's width, within its range")
+	func sidebarWidth() throws {
+		let directory = try temporaryDirectory()
+		let file = PersistedFile<SettingsState>(directory: directory, name: "settings")
+
+		#expect(AppSettings.defaults.sidebarWidth == 260)
+
+		try file.save(SettingsState(settings: AppSettings(sidebarWidth: 312)))
+		#expect(try file.load()?.settings.sidebarWidth == 312)
+
+		try #"{"state":{"settings":{"sidebarWidth":900}},"version":0}"#
+			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
+		#expect(try file.load()?.settings.sidebarWidth == 400)
+		#expect(SidebarWidth.clamped(120) == 200)
+	}
 }
 
 @Suite("profiles persistence")

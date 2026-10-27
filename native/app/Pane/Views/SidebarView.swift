@@ -15,7 +15,8 @@ struct SidebarView: View {
 		VStack(spacing: 0) {
 			header
 
-			ScrollView {
+			// Fading at its edges as it scrolls, as the Electron app's list.
+			FadingScrollView {
 				VStack(alignment: .leading, spacing: 4) {
 					ForEach(model.profiles) { profile in
 						ProfileSection(

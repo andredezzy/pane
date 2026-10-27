@@ -262,22 +262,83 @@ final class Automation {
 
 			let window = controller.browserWindow.window
 			let point = NSPoint(x: x, y: window.frame.height - y)
+			// A double-click is a second click with a count of 2.
+			let clicks = command["clicks"] as? Int ?? 1
 
-			for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-				if let event = NSEvent.mouseEvent(
-					with: type,
-					location: point,
-					modifierFlags: [],
-					timestamp: ProcessInfo.processInfo.systemUptime,
-					windowNumber: window.windowNumber,
-					context: nil,
-					eventNumber: 0,
-					clickCount: 1,
-					pressure: type == .leftMouseDown ? 1 : 0
-				) {
-					NSApp.postEvent(event, atStart: false)
+			for count in 1 ... max(clicks, 1) {
+				for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+					if let event = Self.mouseEvent(type, at: point, in: window, clickCount: count) {
+						NSApp.postEvent(event, atStart: false)
+					}
 				}
 			}
+
+		case "scrollWindow":
+			// A trackpad scroll at a point of the window (top-left origin), by
+			// `dy` points (negative moves the content up, as a swipe up does),
+			// dispatched through the window to the view under the point.
+			guard let x = command["x"] as? Double, let y = command["y"] as? Double, let dy = command["dy"] as? Double else {
+				throw AutomationError("scrollWindow needs x, y, and dy")
+			}
+
+			let window = controller.browserWindow.window
+			let onScreen = window.convertPoint(toScreen: NSPoint(x: x, y: window.frame.height - y))
+			let top = NSScreen.screens.first?.frame.maxY ?? 0
+
+			guard let scroll = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(dy), wheel2: 0, wheel3: 0) else {
+				throw AutomationError("could not make the scroll")
+			}
+
+			scroll.location = CGPoint(x: onScreen.x, y: top - onScreen.y)
+
+			guard let event = NSEvent(cgEvent: scroll) else {
+				throw AutomationError("could not make the scroll")
+			}
+
+			window.sendEvent(event)
+
+		case "dragWindow":
+			// A real drag from one point of the window to another (top-left
+			// origin), in `steps` moves, dispatched through the window as the
+			// trackpad's are. Each move is timed from its dispatch to the
+			// window's layout at the result, the work before the next frame.
+			guard
+				let from = command["from"] as? [Double], from.count == 2,
+				let to = command["to"] as? [Double], to.count == 2
+			else {
+				throw AutomationError("dragWindow needs from and to")
+			}
+
+			let window = controller.browserWindow.window
+			let steps = max(command["steps"] as? Int ?? 10, 1)
+			let point = { (x: Double, y: Double) in NSPoint(x: x, y: window.frame.height - y) }
+			var times: [Double] = []
+
+			if let down = Self.mouseEvent(.leftMouseDown, at: point(from[0], from[1]), in: window) {
+				window.sendEvent(down)
+			}
+
+			for step in 1 ... steps {
+				let fraction = Double(step) / Double(steps)
+				let at = point(from[0] + (to[0] - from[0]) * fraction, from[1] + (to[1] - from[1]) * fraction)
+				let started = CACurrentMediaTime()
+
+				if let move = Self.mouseEvent(.leftMouseDragged, at: at, in: window) {
+					window.sendEvent(move)
+				}
+
+				controller.hostingView?.layoutSubtreeIfNeeded()
+				times.append((CACurrentMediaTime() - started) * 1000)
+			}
+
+			if let up = Self.mouseEvent(.leftMouseUp, at: point(to[0], to[1]), in: window) {
+				window.sendEvent(up)
+			}
+
+			return [
+				"stepMs": times,
+				"pageWidth": controller.pageHost.frame.width,
+			]
 
 		case "typeInPage":
 			// A key typed into the selected page: the page takes focus and the
@@ -542,6 +603,20 @@ final class Automation {
 		}
 
 		return nil
+	}
+
+	private static func mouseEvent(_ type: NSEvent.EventType, at point: NSPoint, in window: NSWindow, clickCount: Int = 1) -> NSEvent? {
+		NSEvent.mouseEvent(
+			with: type,
+			location: point,
+			modifierFlags: [],
+			timestamp: ProcessInfo.processInfo.systemUptime,
+			windowNumber: window.windowNumber,
+			context: nil,
+			eventNumber: 0,
+			clickCount: clickCount,
+			pressure: type == .leftMouseUp ? 0 : 1
+		)
 	}
 
 	private func clickSheetButton(_ title: String, texts: [String]) throws {
@@ -953,6 +1028,7 @@ final class Automation {
 				] as [String: Any]
 			} ?? NSNull(),
 			"extensionsMenu": controller.state.extensionsMenuOpen,
+			"sidebarWidth": controller.state.sidebarWidth,
 			"extensionMoreMenu": controller.state.extensionMoreMenu?.extensionID ?? NSNull(),
 			"installedExtension": controller.state.installedExtension ?? NSNull(),
 			"pageFullscreen": controller.state.pageFullscreen,

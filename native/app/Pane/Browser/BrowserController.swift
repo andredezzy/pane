@@ -62,6 +62,7 @@ final class BrowserController: NSObject {
 		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()
 		browserWindow.delegate = self
+		state.sidebarWidth = CGFloat(model.settings.sidebarWidth)
 		model.proxyDidChange = { [weak self] profileID in
 			self?.proxyDidChange(profileID)
 		}
@@ -1118,5 +1119,25 @@ extension NSImage {
 		}
 
 		return "data:image/png;base64,\(png.base64EncodedString())"
+	}
+}
+
+// MARK: - Sidebar width
+
+extension BrowserController {
+	// Each step of a drag of the sidebar's edge: the window lays out at the
+	// new width, and settings.json waits for the drag to end.
+	func resizeSidebar(to width: CGFloat) {
+		state.sidebarWidth = CGFloat(SidebarWidth.clamped(Double(width)))
+	}
+
+	func endSidebarResize() {
+		model.settings.sidebarWidth = Double(state.sidebarWidth)
+	}
+
+	// A double-click on the edge.
+	func resetSidebarWidth() {
+		state.sidebarWidth = CGFloat(SidebarWidth.standard)
+		endSidebarResize()
 	}
 }

@@ -8,6 +8,17 @@ public enum Theme: String, Codable, CaseIterable, Sendable {
 	case dark
 }
 
+// The sidebar's width, which its edge resizes: 260 points by default (Aside's),
+// between 200 and 400.
+public enum SidebarWidth {
+	public static let standard = 260.0
+	public static let range = 200.0...400.0
+
+	public static func clamped(_ width: Double) -> Double {
+		min(max(width, range.lowerBound), range.upperBound)
+	}
+}
+
 // Settings persisted in settings.json. A file written before a field existed
 // keeps that field's default, while an explicit null still means "off".
 public struct AppSettings: Codable, Hashable, Sendable {
@@ -21,9 +32,11 @@ public struct AppSettings: Codable, Hashable, Sendable {
 	public var profileUnloadAfterMinutes: Int?
 	// Megabytes of cache a profile may hold before an unload trims it; nil = off.
 	public var cacheBudgetMB: Int?
+	// Points, within SidebarWidth.range.
+	public var sidebarWidth: Double
 
 	private enum CodingKeys: String, CodingKey {
-		case chromiumPath, theme, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB
+		case chromiumPath, theme, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB, sidebarWidth
 	}
 
 	public init(
@@ -31,13 +44,15 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		theme: Theme = .system,
 		tabSleepAfterMinutes: Int? = 15,
 		profileUnloadAfterMinutes: Int? = 30,
-		cacheBudgetMB: Int? = 300
+		cacheBudgetMB: Int? = 300,
+		sidebarWidth: Double = SidebarWidth.standard
 	) {
 		self.chromiumPath = chromiumPath
 		self.theme = theme
 		self.tabSleepAfterMinutes = tabSleepAfterMinutes
 		self.profileUnloadAfterMinutes = profileUnloadAfterMinutes
 		self.cacheBudgetMB = cacheBudgetMB
+		self.sidebarWidth = SidebarWidth.clamped(sidebarWidth)
 	}
 
 	public init(from decoder: Decoder) throws {
@@ -57,6 +72,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		tabSleepAfterMinutes = try minutes(.tabSleepAfterMinutes, default: defaults.tabSleepAfterMinutes)
 		profileUnloadAfterMinutes = try minutes(.profileUnloadAfterMinutes, default: defaults.profileUnloadAfterMinutes)
 		cacheBudgetMB = try minutes(.cacheBudgetMB, default: defaults.cacheBudgetMB)
+		sidebarWidth = SidebarWidth.clamped(try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? defaults.sidebarWidth)
 	}
 
 	public func encode(to encoder: Encoder) throws {
@@ -66,5 +82,6 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		try container.encode(tabSleepAfterMinutes, forKey: .tabSleepAfterMinutes)
 		try container.encode(profileUnloadAfterMinutes, forKey: .profileUnloadAfterMinutes)
 		try container.encode(cacheBudgetMB, forKey: .cacheBudgetMB)
+		try container.encode(sidebarWidth, forKey: .sidebarWidth)
 	}
 }

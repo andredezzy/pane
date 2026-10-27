@@ -1,10 +1,11 @@
 import PaneKit
 import SwiftUI
 
-// The whole window, as the Electron app lays it out: the sidebar (260 points,
-// as Aside's), then the content panel (8px gutters, flush to the sidebar)
-// holding the toolbar and the selected tab, or settings. Sheets, dialogs, the
-// switcher, and find float over the whole window.
+// The whole window, as the Electron app lays it out: the sidebar (260 points
+// by default, as Aside's, and resizable from its edge), then the content
+// panel (8px gutters, flush to the sidebar) holding the toolbar and the
+// selected tab, or settings. Sheets, dialogs, the switcher, and find float
+// over the whole window.
 struct RootView: View {
 	let controller: BrowserController
 
@@ -29,10 +30,24 @@ struct RootView: View {
 						onNewProfile: { present(.new) },
 						onEditProfile: { present(.edit($0)) }
 					)
-					.frame(width: 260)
+					.frame(width: state.sidebarWidth)
 				}
 
 				content
+			}
+
+			// The sidebar's edge: 8 points, 5 over the sidebar and 3 over the
+			// panel, under every overlay.
+			if !fullscreen {
+				SidebarResizeHandle(
+					width: state.sidebarWidth,
+					resize: controller.resizeSidebar(to:),
+					end: controller.endSidebarResize,
+					reset: controller.resetSidebarWidth
+				)
+				.frame(width: 8)
+				.padding(.leading, state.sidebarWidth - 5)
+				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 			}
 
 			if state.find.visible && model.page == .browser {

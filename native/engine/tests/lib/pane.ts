@@ -85,6 +85,7 @@ export type AppState = {
 	quitConfirmation: boolean;
 	// The toolbar puzzle's menu is open.
 	extensionsMenu: boolean;
+	sidebarWidth: number;
 	// The extension whose more menu is open beside it.
 	extensionMoreMenu: string | null;
 	// The Mac's WebGL strings, from Chrome's GPU info.

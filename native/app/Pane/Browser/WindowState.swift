@@ -45,6 +45,9 @@ final class WindowState {
 	// The address field's text: the selected tab's address, or what the user
 	// types over it.
 	var address = ""
+	// The sidebar's width: its edge's drag changes it at each step, and the
+	// settings keep it once the drag ends (SidebarResizeHandle).
+	var sidebarWidth = CGFloat(SidebarWidth.standard)
 	// A page is in fullscreen: the window shows only the page.
 	var pageFullscreen = false
 	// "Press Esc to exit full screen", while a page has fullscreen or a lock.
