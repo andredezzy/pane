@@ -4,15 +4,13 @@ import SwiftUI
 // The Extensions page (Paper: 08 · Extensions), Pane's chrome://extensions,
 // as Chrome and Aside have theirs: a profile's extensions as cards, two to a
 // row, found by name or description, each with its options, removal, pin,
-// and switch. Installing by Web Store URL or ID follows the cards.
+// and switch. Extensions come from the Chrome Web Store's own Add to Chrome.
 // Extensions are per profile, so a profile select leads, on the active one.
 struct ExtensionsPage: View {
 	let controller: BrowserController
 
 	@State private var profileID: String?
 	@State private var query = ""
-	@State private var input = ""
-	@State private var inputError: String?
 
 	private var model: BrowserModel { controller.model }
 	private var selectedProfileID: String? { profileID ?? model.activeProfileID ?? model.profiles.first?.id }
@@ -59,10 +57,6 @@ struct ExtensionsPage: View {
 								cards
 							}
 						}
-
-						PaneSeparator()
-
-						installSection
 					}
 				}
 				.padding(.horizontal, 40)
@@ -91,7 +85,6 @@ struct ExtensionsPage: View {
 				controller.openContextIfNeeded(profileID: id)
 			}
 		}
-		.onChange(of: input) { inputError = nil }
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.extensions")
 	}
@@ -174,7 +167,7 @@ struct ExtensionsPage: View {
 			Text("No extensions in \(selectedProfile?.name ?? "this profile")")
 				.font(.system(size: 13, weight: .medium))
 				.foregroundStyle(Palette.accentForeground)
-			Text("Add them from the Chrome Web Store, or by their URL or ID below.")
+			Text("Add them from the Chrome Web Store.")
 				.font(.system(size: 12))
 				.foregroundStyle(Palette.mutedForeground)
 			Button("Visit Chrome Web Store") { controller.visitWebStore(inProfile: selectedProfileID) }
@@ -187,51 +180,6 @@ struct ExtensionsPage: View {
 			Squircle(cornerRadius: 15)
 				.strokeBorder(Palette.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
 		}
-	}
-
-	private var installSection: some View {
-		VStack(alignment: .leading, spacing: 8) {
-			FormLabel(title: "Install from Chrome Web Store")
-
-			HStack(spacing: 8) {
-				PaneTextField(placeholder: "Paste extension URL or ID", text: $input, onSubmit: install)
-					.accessibilityIdentifier("pane.extensions.input")
-				Button("Install", action: install)
-					.buttonStyle(.pane(.primary))
-			}
-
-			if let inputError {
-				Text(inputError)
-					.font(.system(size: 12.8, weight: .medium))
-					.foregroundStyle(Palette.destructive)
-			}
-
-			HStack(spacing: 4) {
-				Text("Or find one on the")
-					.foregroundStyle(Palette.mutedForeground)
-				Button("Chrome Web Store \u{2197}") { controller.visitWebStore(inProfile: selectedProfileID) }
-					.buttonStyle(.plain)
-					.foregroundStyle(Color(nsColor: .linkColor))
-			}
-			.font(.system(size: 12))
-		}
-		.frame(maxWidth: 560, alignment: .leading)
-	}
-
-	private func install() {
-		guard let id = ExtensionInfo.webStoreID(from: input.trimmingCharacters(in: .whitespaces)) else {
-			inputError = input.isEmpty
-				? "Enter a Chrome Web Store URL or extension ID"
-				: "Enter a valid Chrome Web Store URL or extension ID"
-			return
-		}
-
-		guard let profileID = selectedProfileID else {
-			return
-		}
-
-		controller.installExtension(id, inProfile: profileID)
-		input = ""
 	}
 }
 

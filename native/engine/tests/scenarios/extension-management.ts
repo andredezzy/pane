@@ -4,7 +4,6 @@ import {
 	clickControl,
 	isScreenLocked,
 	mainWindowOf,
-	typeIntoField,
 	windowState,
 } from "../lib/cua";
 import type { AppState, ExtensionState } from "../lib/pane";
@@ -48,16 +47,10 @@ const extensionManagement: Scenario = async (context) => {
 
 	await showExtensions();
 
-	// Install by its Web Store ID, then accept the app's install sheet.
-	if (locked) {
-		await app.send("installExtension", { id: DARK_READER, profile });
-	} else {
-		const window = await mainWindowOf(pid);
-
-		await typeIntoField(pid, window, "pane.extensions.input", DARK_READER);
-
-		await clickButton(pid, window, "Install");
-	}
+	// Install by its Web Store ID, as the Web Store's Add to Chrome does (the
+	// page has no field for it; dark-reader presses the store's own button),
+	// then accept the app's install sheet.
+	await app.send("installExtension", { id: DARK_READER, profile });
 
 	const sheet = await waitForSheet(app, "extensionInstall", 60_000);
 

@@ -37,13 +37,4 @@ struct ExtensionInfo: Identifiable {
 		actionEnabled = source.isActionEnabled
 		hasPopup = source.hasPopup
 	}
-
-	// A Web Store item ID, or the ID at the end of a Web Store URL.
-	static func webStoreID(from input: String) -> String? {
-		let candidates = input.split(separator: "/").map(String.init) + [input]
-
-		return candidates.reversed().first { candidate in
-			candidate.count == 32 && candidate.allSatisfy { ("a" ... "p").contains($0) }
-		}
-	}
 }
