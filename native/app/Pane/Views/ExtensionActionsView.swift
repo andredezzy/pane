@@ -88,9 +88,10 @@ private struct ExtensionsButton: View {
 	}
 }
 
-// The Electron app's action button (electron-chrome-extensions): 28px,
-// rounded 7, the icon at 70%, a faint white wash on hover; no icon shows the
-// name's first letter on gray. The badge is 12px, 9px text, bottom right.
+// An extension's toolbar button: 28 points, rounded 7, a faint white wash on
+// hover, the icon at 16 points, as Chrome and Aside draw action icons (the
+// Electron app's 70% of the button was 19.6); no icon shows the name's first
+// letter on gray. The badge is 12px, 9px text, bottom right.
 private struct ActionButton: View {
 	let item: ExtensionInfo
 	let action: () -> Void
@@ -104,13 +105,13 @@ private struct ActionButton: View {
 					Image(nsImage: icon)
 						.resizable()
 						.interpolation(.high)
-						.frame(width: 19.6, height: 19.6)
+						.frame(width: 16, height: 16)
 				} else {
 					Text(item.name.prefix(1).uppercased())
-						.font(.system(size: 11.2))
+						.font(.system(size: 9, weight: .medium))
 						.foregroundStyle(.white)
-						.frame(width: 22.4, height: 22.4)
-						.background(Color(rgb: 0x757575), in: Squircle(cornerRadius: 7))
+						.frame(width: 16, height: 16)
+						.background(Color(rgb: 0x757575), in: Squircle(cornerRadius: 5))
 				}
 			}
 			.frame(width: 28, height: 28)
