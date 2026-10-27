@@ -68,7 +68,9 @@ private struct ExtensionsButton: View {
 
 	var body: some View {
 		Button(action: action) {
-			Image(nsImage: Glyph.puzzle.image(strokeWidth: 2, size: 20))
+			// The toolbar's stroke: 1.4 of 24 at 20 points is the navigation
+			// buttons' 2 of 24 at 14 (1.17 points).
+			Image(nsImage: Glyph.puzzle.image(strokeWidth: 1.4, size: 20))
 				.renderingMode(.template)
 				.frame(width: 28, height: 28)
 				.contentShape(Rectangle())

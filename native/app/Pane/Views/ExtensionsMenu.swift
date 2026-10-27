@@ -17,7 +17,7 @@ struct ExtensionsMenu: View {
 		VStack(spacing: 0) {
 			VStack(spacing: 0) {
 				MenuRow(identifier: "pane.extensionsMenu.manage", action: { controller.showExtensionSettings() }) {
-					RowIcon(image: Glyph.puzzle.image(strokeWidth: 2, size: 16))
+					RowIcon(image: Glyph.puzzle.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Manage all extensions")
 				}
 
