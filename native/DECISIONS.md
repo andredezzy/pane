@@ -248,3 +248,12 @@ Dated record of choices made while building the native shell — what was decide
   - **Drawn by macOS**: the sheets and native menus. A real `NSAlert` sheet was captured for them (a test app's own window): 260 points wide, the title in bold, and capsule buttons with Cancel at #DADADA and the default at #3478F6.
   - **Left out**: the file chooser, the system's own panel.
 - **The confirm dialog is gone**: since the removal popup, nothing showed `ConfirmDialogView`, so it goes, with `WindowState.dialog` and its scrim.
+- **Adding an extension asks in Dia's dialog** (the user's model; designed in Paper first: 02.10, and 03.10 Install extension). Dia's dialog was measured at 2× from the user's screenshot. Pane's (`ExtensionInstallDialog`) is centered on Quit Pane?'s scrim, 424 points wide:
+  - Pane's icon, an arrow, and the extension's, at 32 points.
+  - "Add “Name” to Pane?" at 20 points, semibold.
+  - What the extension can do, on a panel of the foreground at 4%.
+  - Cancel with Esc and Add to Pane with ↩, on Quit Pane?'s keyed buttons (`KeyedButtonStyle` gains a primary role).
+
+  Chrome's other prompts (new permissions, re-enabling) keep their own titles. Removing still asks in Aside's popup, under the extension's button.
+- **A pinned action's right-click menu follows Aside's**: native and without icons, in Title Case. It has the name (the Web Store page), Remove from Pane and Unpin, then Manage Extension; the more menu says Manage Extension too. Aside's also lists the extension's own action items (`chrome.contextMenus` in the action's context), This Can Read and Change Site Data, and View Web Permissions. Paper draws them, but they need the engine to expose the action's menu items and site access, so the app does not show them yet. Options, which Aside leaves out of this menu, stays in the more menu.
+- **The `extensions-menu` scenario reopens the more menu before pressing a row.** It had failed twice when the window gave up key status during the run (an extension's tab or popup taking it while the app is not frontmost), which closes the menu, as it should. It passed three runs in a row after.

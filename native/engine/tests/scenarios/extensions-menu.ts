@@ -113,6 +113,42 @@ async function openMenu(app: PaneApp, locked: boolean): Promise<AppState> {
 	return app.waitFor("the extensions menu", (state) => state.extensionsMenu);
 }
 
+// A row of the more menu, the menu reopened first if it closed: the window
+// giving up key status (an extension's popup or tab taking it while the app
+// is not frontmost) closes it, as leaving the window does.
+async function pressInMoreMenu(
+	app: PaneApp,
+	locked: boolean,
+	control: Control,
+): Promise<void> {
+	for (let attempt = 1; ; attempt++) {
+		if ((await app.state()).extensionMoreMenu !== DARK_READER) {
+			if (!(await app.state()).extensionsMenu) {
+				await openMenu(app, locked);
+			}
+
+			await press(app, locked, more);
+
+			await app.waitFor(
+				"the more menu",
+				(state) => state.extensionMoreMenu === DARK_READER,
+			);
+		}
+
+		try {
+			await press(app, locked, control);
+
+			return;
+		} catch (error) {
+			const closed = (await app.state()).extensionMoreMenu !== DARK_READER;
+
+			if (attempt === 3 || !closed) {
+				throw error;
+			}
+		}
+	}
+}
+
 const extensionsMenu: Scenario = async (context) => {
 	const locked = await isScreenLocked();
 	const app = await launchPane(context);
@@ -252,10 +288,10 @@ const extensionsMenu: Scenario = async (context) => {
 	await Bun.sleep(300);
 	await app.send("render", { path: join(context.out, "more-menu.png") });
 
-	await press(
+	await pressInMoreMenu(
 		app,
 		locked,
-		moreItem("manageExtension", "Manage extension", "manage"),
+		moreItem("manageExtension", "Manage Extension", "manage"),
 	);
 
 	await app.waitFor(
@@ -310,7 +346,11 @@ const extensionsMenu: Scenario = async (context) => {
 		(state) => state.extensionMoreMenu === DARK_READER,
 	);
 
-	await press(app, locked, moreItem("remove", "Remove from Pane", "remove"));
+	await pressInMoreMenu(
+		app,
+		locked,
+		moreItem("remove", "Remove from Pane", "remove"),
+	);
 
 	const removing = await waitForSheet(app, "extensionRemove");
 	await Bun.sleep(300);

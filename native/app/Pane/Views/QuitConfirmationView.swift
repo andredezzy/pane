@@ -13,7 +13,8 @@ struct QuitConfirmationView: View {
 		Palette.isDark(appearance) ? NSColor(rgb: 0x232326) : NSColor(rgb: 0xE9E9EB).withAlphaComponent(0.7)
 	})
 
-	private static let shadow = Color(nsColor: NSColor(name: nil) { appearance in
+	// The dialogs' shadow: this one's and the extension install dialog's.
+	static let shadow = Color(nsColor: NSColor(name: nil) { appearance in
 		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.5 : 0.16)
 	})
 
@@ -65,8 +66,9 @@ struct QuitConfirmationView: View {
 	}
 }
 
-// A button's title and the key that presses it, on a chip.
-private struct KeyedLabel: View {
+// A button's title and the key that presses it, on a chip: Quit Pane? and the
+// extension install dialog.
+struct KeyedLabel: View {
 	let title: String
 	let key: String
 	let role: KeyedButtonStyle.Role
@@ -79,28 +81,52 @@ private struct KeyedLabel: View {
 		HStack(spacing: 8) {
 			Text(title)
 				.font(.system(size: 14, weight: .medium))
-				.foregroundStyle(role == .cancel ? Palette.foreground : Palette.destructiveForeground)
+				.foregroundStyle(titleColor)
 
 			Text(key)
 				.font(.system(size: 12, weight: .medium))
-				.foregroundStyle(role == .cancel ? Self.cancelKey : Color.white.opacity(0.85))
+				.foregroundStyle(keyColor)
 				.padding(.horizontal, 6)
 				.frame(height: 20)
-				.background(
-					role == .cancel ? Palette.secondary : Color.white.opacity(0.18),
-					in: Squircle(cornerRadius: 9)
-				)
+				.background(chipColor, in: Squircle(cornerRadius: 9))
 				.accessibilityHidden(true)
+		}
+	}
+
+	private var titleColor: Color {
+		switch role {
+		case .cancel: Palette.foreground
+		case .destructive: Palette.destructiveForeground
+		case .primary: Palette.primaryForeground
+		}
+	}
+
+	// On a filled button, the key's chip is the button's text color, faint.
+	private var keyColor: Color {
+		switch role {
+		case .cancel: Self.cancelKey
+		case .destructive: Color.white.opacity(0.85)
+		case .primary: Palette.primaryForeground.opacity(0.85)
+		}
+	}
+
+	private var chipColor: Color {
+		switch role {
+		case .cancel: Palette.secondary
+		case .destructive: Color.white.opacity(0.18)
+		case .primary: Palette.primaryForeground.opacity(0.18)
 		}
 	}
 }
 
 // h-9 rounded-lg, the key on a chip at its trailing end: Cancel on the card
-// with a hairline, Quit in the destructive color. Hover changes color only.
-private struct KeyedButtonStyle: ButtonStyle {
+// with a hairline, Quit in the destructive color, Add to Pane in the primary
+// one. Hover changes color only.
+struct KeyedButtonStyle: ButtonStyle {
 	enum Role {
 		case cancel
 		case destructive
+		case primary
 	}
 
 	let role: Role
@@ -149,6 +175,8 @@ private struct KeyedButton: View {
 			isHovered ? Palette.accent : Palette.card
 		case .destructive:
 			Palette.destructive.opacity(isHovered ? 0.9 : 1)
+		case .primary:
+			Palette.primary.opacity(isHovered ? 0.9 : 1)
 		}
 	}
 }

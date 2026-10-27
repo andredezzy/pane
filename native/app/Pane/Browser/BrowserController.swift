@@ -805,11 +805,11 @@ extension BrowserController: BrowserContextDelegate {
 		presentExtensionPrompt(WindowState.ExtensionPrompt(
 			kind: .install,
 			extensionID: request.extensionIdentifier,
-			title: Self.curlyQuoted(request.title),
+			title: Self.installTitle(request),
 			icon: request.icon,
 			permissionsHeading: request.permissionsHeading,
 			permissions: request.permissions,
-			acceptTitle: request.acceptTitle,
+			acceptTitle: request.acceptTitle == "Add extension" ? "Add to Pane" : request.acceptTitle,
 			cancelTitle: request.cancelTitle,
 			answer: { accepted, _ in accepted ? request.accept() : request.cancel() }
 		))
@@ -912,6 +912,14 @@ extension BrowserController {
 
 	func updateExtensions(inProfile profileID: String) {
 		context(for: profileID)?.updateExtensions()
+	}
+
+	// Adding names Pane, as Dia's dialog names Dia; Chrome's other prompts
+	// (new permissions, re-enabling) keep their titles.
+	static func installTitle(_ request: ExtensionInstallRequest) -> String {
+		request.acceptTitle == "Add extension"
+			? "Add \u{201C}\(request.extensionName)\u{201D} to Pane?"
+			: curlyQuoted(request.title)
 	}
 
 	// Chrome's prompt titles quote the name straight (Add "Dark Reader"?);

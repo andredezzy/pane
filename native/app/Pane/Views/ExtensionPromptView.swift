@@ -127,3 +127,101 @@ private struct PopupButton: View {
 		isPrimary ? Palette.primary.opacity(isHovered ? 0.9 : 1) : Palette.secondary.opacity(isHovered ? 0.8 : 1)
 	}
 }
+
+// Adding an extension, asked as Dia asks (Paper: 02.10 Browser · Extension
+// popups, 03.10 Install extension): centered over the window on Quit Pane?'s
+// scrim. Pane's icon takes the extension's, then the title, what it can do on
+// a tinted panel, and Cancel (Esc) beside Add to Pane (Return). It shows in
+// the next frame, as the popups do.
+struct ExtensionInstallDialog: View {
+	let controller: BrowserController
+	let prompt: WindowState.ExtensionPrompt
+
+	// The foreground at 4%, 5% on dark: a panel on the dialog's surface.
+	private static let panel = Color(nsColor: NSColor(name: nil) { appearance in
+		Palette.isDark(appearance) ? NSColor(white: 0.98, alpha: 0.05) : NSColor(rgb: 0x18181B, alpha: 0.04)
+	})
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 0) {
+			HStack(spacing: 8) {
+				Image(nsImage: NSApp.applicationIconImage)
+					.resizable()
+					.interpolation(.high)
+					.frame(width: 32, height: 32)
+
+				LucideIcon(.arrowLeft, size: 16)
+					.foregroundStyle(Palette.mutedForeground)
+
+				Group {
+					if let icon = prompt.icon {
+						Image(nsImage: icon)
+							.resizable()
+							.interpolation(.high)
+					} else {
+						Palette.secondary
+							.clipShape(Squircle(cornerRadius: 15))
+					}
+				}
+				.frame(width: 32, height: 32)
+			}
+			.frame(height: 32)
+			.accessibilityHidden(true)
+
+			Text(prompt.title)
+				.font(.system(size: 20, weight: .semibold))
+				.tracking(-0.2)
+				.foregroundStyle(Palette.foreground)
+				.fixedSize(horizontal: false, vertical: true)
+				.padding(.top, 14)
+
+			if !prompt.permissions.isEmpty {
+				VStack(alignment: .leading, spacing: 2) {
+					Text(prompt.permissionsHeading)
+
+					ForEach(prompt.permissions, id: \.self) { permission in
+						HStack(alignment: .firstTextBaseline, spacing: 8) {
+							Text("•")
+							Text(permission)
+								.fixedSize(horizontal: false, vertical: true)
+						}
+						.padding(.leading, 8)
+					}
+				}
+				.font(.system(size: 14))
+				// 20-point lines.
+				.lineSpacing(3)
+				.foregroundStyle(Palette.accentForeground)
+				.padding(.vertical, 12)
+				.padding(.horizontal, 14)
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.background(Self.panel, in: Squircle(cornerRadius: 15))
+				.padding(.top, 12)
+			}
+
+			HStack(spacing: 8) {
+				Spacer(minLength: 0)
+
+				Button { controller.answerExtensionPrompt(accepted: false) } label: {
+					KeyedLabel(title: prompt.cancelTitle, key: "Esc", role: .cancel)
+				}
+				.buttonStyle(KeyedButtonStyle(role: .cancel))
+				.accessibilityIdentifier("pane.extensionPopup.cancel")
+
+				Button { controller.answerExtensionPrompt(accepted: true) } label: {
+					KeyedLabel(title: prompt.acceptTitle, key: "↩", role: .primary)
+				}
+				.buttonStyle(KeyedButtonStyle(role: .primary))
+				.accessibilityIdentifier("pane.extensionPopup.accept")
+			}
+			.padding(.top, 24)
+		}
+		.padding(24)
+		.frame(width: 424, alignment: .leading)
+		.surfaceBackground(cornerRadius: 29, shadow: QuitConfirmationView.shadow, blur: 64, y: 24)
+		.accessibilityElement(children: .contain)
+		.accessibilityAddTraits(.isModal)
+		.accessibilityLabel(prompt.title)
+		.accessibilityIdentifier("pane.extensionInstall")
+	}
+}

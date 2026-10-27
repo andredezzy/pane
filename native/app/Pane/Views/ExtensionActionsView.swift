@@ -30,62 +30,30 @@ struct ExtensionActionsView: View {
 	}
 }
 
-// A pinned action's right-click menu, native as Aside's: its Web Store
-// page, Remove and Unpin, then Manage extension and its Options.
+// A pinned action's right-click menu, native and plain as Aside's: its name
+// (its Web Store page), Remove from Pane and Unpin, then Manage Extension.
+// Aside also lists the extension's own action items and its site access,
+// which need the engine.
 private struct ActionContextMenu: View {
 	let controller: BrowserController
 	let item: ExtensionInfo
 
 	var body: some View {
-		Button { controller.openExtensionStorePage(item.id) } label: {
-			MenuItemLabel(item.name, image: Lucide.squareArrowOutUpRight.menuImage)
-		}
+		Button(item.name) { controller.openExtensionStorePage(item.id) }
 
 		Divider()
 
-		Button {
+		Button("Remove from Pane") {
 			controller.model.activeProfileID.map { controller.confirmUninstall(item, inProfile: $0) }
-		} label: {
-			MenuItemLabel("Remove from Pane", image: Lucide.trash2.menuImage)
 		}
 
-		Button {
+		Button("Unpin") {
 			controller.model.activeProfileID.map { controller.setExtension(item.id, pinned: false, inProfile: $0) }
-		} label: {
-			MenuItemLabel("Unpin", image: Glyph.pinOff.image(strokeWidth: 1.5, size: 16))
 		}
 
 		Divider()
 
-		Button { controller.showExtensionSettings(extensionID: item.id) } label: {
-			MenuItemLabel("Manage extension", image: Lucide.settings.menuImage)
-		}
-
-		if item.optionsURL != nil {
-			Button { controller.openExtensionOptions(item) } label: {
-				MenuItemLabel("Options", image: Lucide.settings.menuImage)
-			}
-		}
-	}
-}
-
-private struct MenuItemLabel: View {
-	let title: String
-	let image: NSImage
-
-	init(_ title: String, image: NSImage) {
-		self.title = title
-		self.image = image
-	}
-
-	var body: some View {
-		Label {
-			Text(title)
-		} icon: {
-			Image(nsImage: image)
-		}
-		// Menus show only a label's title unless asked for both.
-		.labelStyle(.titleAndIcon)
+		Button("Manage Extension") { controller.showExtensionSettings(extensionID: item.id) }
 	}
 }
 
