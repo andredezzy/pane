@@ -11,6 +11,13 @@ final class MainWindowController {
 
 	private static let trafficLightOrigin = NSPoint(x: 12, y: 12)
 	private var observers: [NSObjectProtocol] = []
+	// The title bar's views whose frames are watched (watchTitleBar).
+	private var watchedViews: Set<ObjectIdentifier> = []
+	// While the buttons are being placed: the frame changes this makes are
+	// its own, not AppKit's.
+	private var placing = false
+	// AppKit's distance between the buttons, read once, before any moves.
+	private var buttonSpacing: CGFloat?
 	// From entering full screen until it is over, the title bar is AppKit's.
 	private var inFullScreen = false
 
@@ -58,11 +65,42 @@ final class MainWindowController {
 			NSWindow.didResignKeyNotification,
 		] {
 			observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
-				MainActor.assumeIsolated { self?.placeTrafficLights() }
+				MainActor.assumeIsolated {
+					self?.watchTitleBar()
+					self?.placeTrafficLights()
+				}
 			})
 		}
 
+		watchTitleBar()
 		placeTrafficLights()
+	}
+
+	// AppKit also lays the title bar out for a new title (the page's), with
+	// no notification of its own, and the buttons showed at its spot until
+	// the next resize or key change. Each button and their container report
+	// their frames changing, synchronously (no queue), so the buttons go back
+	// within the same layout pass, before it is drawn. Full screen can
+	// rebuild the title bar, so the views are looked up again after it.
+	private func watchTitleBar() {
+		let window = controller.browserWindow.window
+
+		guard
+			let close = window.standardWindowButton(.closeButton),
+			let miniaturize = window.standardWindowButton(.miniaturizeButton),
+			let zoom = window.standardWindowButton(.zoomButton),
+			let container = close.superview?.superview
+		else {
+			return
+		}
+
+		for view in [close, miniaturize, zoom, container] where !watchedViews.contains(ObjectIdentifier(view)) {
+			watchedViews.insert(ObjectIdentifier(view))
+			view.postsFrameChangedNotifications = true
+			observers.append(NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: view, queue: nil) { [weak self] _ in
+				MainActor.assumeIsolated { self?.placeTrafficLights() }
+			})
+		}
 	}
 
 	func showWindow() {
@@ -87,11 +125,17 @@ final class MainWindowController {
 			let close = window.standardWindowButton(.closeButton),
 			let miniaturize = window.standardWindowButton(.miniaturizeButton),
 			let zoom = window.standardWindowButton(.zoomButton),
-			let container = close.superview?.superview
+			let container = close.superview?.superview,
+			!placing
 		else {
 			return
 		}
 
+		placing = true
+		defer { placing = false }
+
+		let spacing = buttonSpacing ?? miniaturize.frame.minX - close.frame.minX
+		buttonSpacing = spacing
 		let origin = Self.trafficLightOrigin
 		let height = close.frame.height + origin.y * 2
 		var frame = container.frame
@@ -101,8 +145,6 @@ final class MainWindowController {
 		if container.frame != frame {
 			container.frame = frame
 		}
-
-		let spacing = miniaturize.frame.minX - close.frame.minX
 
 		for (index, button) in [close, miniaturize, zoom].enumerated() {
 			let point = NSPoint(x: origin.x + CGFloat(index) * spacing, y: (height - button.frame.height) / 2)

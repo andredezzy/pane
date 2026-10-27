@@ -118,6 +118,7 @@ export type AppState = {
 		fullScreen: boolean;
 		frame: string;
 		key: boolean;
+		trafficLights: number[];
 	};
 	closedTabs: number;
 	pendingProfileDeletions: number;

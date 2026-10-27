@@ -148,12 +148,14 @@ const extensionManagement: Scenario = async (context) => {
 		await app.send("uninstallExtension", { id: DARK_READER, profile });
 	} else {
 		const window = await mainWindowOf(pid);
+
 		await clickButton(
 			pid,
 			window,
 			"Remove",
 			`pane.extensions.remove.${DARK_READER}`,
 		);
+
 		await waitForSheet(app, "extensionRemove");
 		await Bun.sleep(500);
 

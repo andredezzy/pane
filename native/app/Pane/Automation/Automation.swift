@@ -990,6 +990,11 @@ final class Automation {
 				"visible": window.isVisible,
 				"fullScreen": window.styleMask.contains(.fullScreen),
 				"frame": NSStringFromRect(window.frame),
+				// The close button's origin from the window's top left.
+				"trafficLights": window.standardWindowButton(.closeButton).map { button -> [Double] in
+					let frame = button.convert(button.bounds, to: nil)
+					return [frame.minX, window.frame.height - frame.maxY]
+				} ?? [],
 			] as [String: Any],
 			"closedTabs": model.history.closed.count,
 			"pendingProfileDeletions": controller.pendingDeletions.count,

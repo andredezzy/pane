@@ -1,5 +1,5 @@
 import { launchPane, tabOf } from "../lib/pane";
-import { type Scenario } from "../run";
+import { expect, type Scenario } from "../run";
 
 // The window's chrome as the Electron app lays it out: the traffic lights sit
 // in the sidebar's header and the title bar spans the top 40px, over the
@@ -15,9 +15,17 @@ const windowChrome: Scenario = async (context) => {
 
 	await app.send("navigate", { input: b });
 
-	await app.waitFor(
+	const loadedB = await app.waitFor(
 		"B loaded",
 		(state) => tabOf(state, tab)?.url === b && !tabOf(state, tab)?.loading,
+	);
+
+	// The window's title follows the page's, and AppKit lays the title bar
+	// out again for it: the traffic lights stay at (12, 12) through it.
+	const lights = loadedB.window.trafficLights.join(", ");
+	expect(
+		lights === "12, 12",
+		`the traffic lights moved to (${lights}) with the title`,
 	);
 
 	// Back: a 32-point circle at (265, 13) in the window, past the 260-point
