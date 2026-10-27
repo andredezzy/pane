@@ -2,7 +2,8 @@
 # Assembles native/app/build/Pane.app: the engine's bundle (PaneCore.framework,
 # helpers, resources, Info.plist) with the Swift app's executable in place of
 # Chrome's launcher, then ad-hoc signs the nested code inside-out.
-# Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir)
+# Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir;
+# PANE_STRIP=1 strips the engine's local symbols, as dist.sh does)
 set -euo pipefail
 
 NATIVE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -26,17 +27,36 @@ if [ -d "$SWIFT_APP/Contents/Resources" ]; then
 	ditto "$SWIFT_APP/Contents/Resources" "$OUT/Contents/Resources"
 fi
 
-# Pane's own version (the Info.plist's versions are Chromium's), for Settings.
-PANE_VERSION="$(sed -n 's/^[[:space:]]*"version": "\(.*\)",$/\1/p' "$NATIVE_DIR/../apps/veil/package.json" | head -1)"
-plutil -replace PaneVersion -string "$PANE_VERSION" "$OUT/Contents/Info.plist"
+# Pane's identity over Chromium's: its version (app/VERSION, the one version
+# source), which Finder, the About panel, Settings, and the update check
+# show, and its icon (the Swift app's asset catalog, which replaced
+# Chromium's Assets.car above).
+PANE_VERSION="$(tr -d '[:space:]' < "$APP_DIR/VERSION")"
+PLIST="$OUT/Contents/Info.plist"
+
+for key in PaneVersion CFBundleShortVersionString CFBundleVersion; do
+	plutil -replace "$key" -string "$PANE_VERSION" "$PLIST"
+done
+
+plutil -replace CFBundleIconFile -string AppIcon "$PLIST"
+rm -f "$OUT/Contents/Resources/app.icns"
+
+FRAMEWORK="$OUT/Contents/Frameworks/PaneCore.framework"
+VERSION_DIR="$FRAMEWORK/Versions/Current"
+
+# A release (dist.sh) drops the engine's local symbols, as Chrome's official
+# builds do: PaneCore shrinks from ~480 MB to ~270 MB, with its exports, which
+# the app links, unchanged. Development builds keep them for stack traces.
+if [ "${PANE_STRIP:-}" = 1 ]; then
+	echo "== strip"
+	# strip warns that the old signatures no longer hold; they are redone below.
+	strip -x "$VERSION_DIR/PaneCore" "$VERSION_DIR"/Libraries/*.dylib 2>/dev/null
+fi
 
 echo "== sign"
 sign() {
 	codesign --force --sign - --timestamp=none "$1"
 }
-
-FRAMEWORK="$OUT/Contents/Frameworks/PaneCore.framework"
-VERSION_DIR="$FRAMEWORK/Versions/Current"
 
 for helper in "$VERSION_DIR"/Helpers/*; do
 	sign "$helper"

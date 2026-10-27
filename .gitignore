@@ -59,6 +59,7 @@ release/
 # Native shell
 native/evidence/
 native/app/build/
+native/app/release/
 native/app/*.xcodeproj
 native/app/DerivedData/
 native/app/PaneKit/.build/

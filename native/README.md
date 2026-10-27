@@ -9,9 +9,9 @@ The native macOS Pane: a Swift app (AppKit + SwiftUI) on Pane's own Chromium bui
   - `args/` — gn args per build config
   - `patches/` — `series` (apply order), `MANIFEST` (each touched Chromium file → its owning patch), the patches
   - `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`
-  - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`
+  - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `package.sh`, `dist.sh`
   - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios
-- `app/` — the Swift app and the `PaneKit` package
+- `app/` — the Swift app, the `PaneKit` package, `VERSION`, and the dmg's resources (`dmg/`)
 - `evidence/` — gitignored output of acceptance checks, per phase
 - `DECISIONS.md` — dated engineering log of choices made during the build
 - `HUMAN-CHECKLIST.md` — what only a person can do or verify
@@ -47,5 +47,8 @@ Scenarios for the Pane app (`lib/pane.ts`) give it throwaway data (`PANE_DATA_DI
 
 ```bash
 native/engine/scripts/package.sh   # app/build/Pane.app: the engine bundle with the Swift app inside, signed
+native/engine/scripts/dist.sh      # app/release/Pane-<version>-arm64.dmg: package.sh (stripped), then the dmg
 (cd native/app/PaneKit && swift test)
 ```
+
+The app's version lives in `app/VERSION`, its only source: the bundle's version keys, Settings, the update check, and the dmg's name all come from it.
