@@ -13,6 +13,8 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/spare_render_process_host_manager.h"
+#include "content/public/common/result_codes.h"
 #include "content/public/common/content_switches.h"
 #include "pane/browser/engine_trace.h"
 
@@ -87,6 +89,21 @@ std::string IdentifierOf(content::BrowserContext* browser_context) {
   return browser_context->GetPath().BaseName().AsUTF8Unsafe();
 }
 
+// Shuts down the profile's spare renderers: they started with its previous
+// fingerprint, and the next page would take one.
+void DropSpares(const std::string& identifier) {
+  std::vector<content::RenderProcessHost*> spares;
+  for (content::RenderProcessHost* spare :
+       content::SpareRenderProcessHostManager::Get().GetSpares()) {
+    if (IdentifierOf(spare->GetBrowserContext()) == identifier) {
+      spares.push_back(spare);
+    }
+  }
+  for (content::RenderProcessHost* spare : spares) {
+    spare->Shutdown(content::RESULT_CODE_NORMAL_EXIT);
+  }
+}
+
 }  // namespace
 
 Fingerprint::Fingerprint() = default;
@@ -110,6 +127,7 @@ bool Fingerprints::Set(const std::string& identifier,
 
   if (json.empty()) {
     fingerprints_.erase(identifier);
+    DropSpares(identifier);
     Trace("engine", "Fingerprints.set",
           base::DictValue().Set("identifier", identifier).Set("set", false));
     return true;
@@ -139,6 +157,7 @@ bool Fingerprints::Set(const std::string& identifier,
   }
   fingerprint.renderer = base::WriteJson(*renderer).value_or("{}");
   fingerprints_[identifier] = std::move(fingerprint);
+  DropSpares(identifier);
 
   Trace("engine", "Fingerprints.set",
         base::DictValue()

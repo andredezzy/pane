@@ -31,6 +31,9 @@ struct PaneButtonStyle: ButtonStyle {
 	var fontSize: CGFloat?
 	var fillsWidth = false
 	var foreground: Color?
+	// A state's own colors over the variant's (className overrides).
+	var fill: Color?
+	var border: Color?
 
 	func makeBody(configuration: Configuration) -> some View {
 		PaneButtonBody(configuration: configuration, style: self)
@@ -59,7 +62,7 @@ private struct PaneButtonBody: View {
 			.overlay {
 				if style.variant == .outline {
 					RoundedRectangle(cornerRadius: 6, style: .circular)
-						.strokeBorder(Palette.border, lineWidth: 1)
+						.strokeBorder(style.border ?? Palette.border, lineWidth: 1)
 				}
 			}
 			.contentShape(Rectangle())
@@ -89,6 +92,10 @@ private struct PaneButtonBody: View {
 	}
 
 	private var background: Color {
+		if let fill = style.fill {
+			return fill
+		}
+
 		switch style.variant {
 		case .primary:
 			return Palette.primary.opacity(isHovered ? 0.9 : 1)
@@ -110,9 +117,11 @@ extension ButtonStyle where Self == PaneButtonStyle {
 		size: ButtonSize = .regular,
 		fontSize: CGFloat? = nil,
 		fillsWidth: Bool = false,
-		foreground: Color? = nil
+		foreground: Color? = nil,
+		fill: Color? = nil,
+		border: Color? = nil
 	) -> PaneButtonStyle {
-		PaneButtonStyle(variant: variant, size: size, fontSize: fontSize, fillsWidth: fillsWidth, foreground: foreground)
+		PaneButtonStyle(variant: variant, size: size, fontSize: fontSize, fillsWidth: fillsWidth, foreground: foreground, fill: fill, border: border)
 	}
 }
 
@@ -122,6 +131,8 @@ struct PaneTextField: View {
 	let placeholder: String
 	@Binding var text: String
 	var monospaced = false
+	// type="password": the text shows as dots.
+	var secure = false
 	// autoFocus: the field takes focus as it appears.
 	var focusesOnAppear = false
 	var onSubmit: () -> Void = {}
@@ -130,11 +141,7 @@ struct PaneTextField: View {
 	@Environment(\.isEnabled) private var isEnabled
 
 	var body: some View {
-		TextField(
-			"",
-			text: $text,
-			prompt: Text(placeholder).foregroundStyle(Palette.mutedForeground)
-		)
+		field
 		.textFieldStyle(.plain)
 		.font(monospaced ? .system(size: 11, design: .monospaced) : .system(size: 14))
 		.foregroundStyle(Palette.foreground)
@@ -154,6 +161,55 @@ struct PaneTextField: View {
 				// the window yet. One turn of the main loop later it is.
 				DispatchQueue.main.async { focused = true }
 			}
+		}
+	}
+}
+
+extension PaneTextField {
+	@ViewBuilder
+	fileprivate var field: some View {
+		let prompt = Text(placeholder).foregroundStyle(Palette.mutedForeground)
+
+		if secure {
+			SecureField("", text: $text, prompt: prompt)
+		} else {
+			TextField("", text: $text, prompt: prompt)
+		}
+	}
+}
+
+// Select (packages/ui select.tsx): an input-like trigger, h-9 rounded-md
+// with a 1px border, the value in text-sm and a chevron at 50%; its menu is
+// the system's.
+struct PaneSelect<Option: Hashable>: View {
+	let options: [Option]
+	@Binding var selection: Option
+	let title: (Option) -> String
+
+	var body: some View {
+		Menu {
+			ForEach(options, id: \.self) { option in
+				Button(title(option)) { selection = option }
+			}
+		} label: {
+			HStack(spacing: 8) {
+				Text(title(selection))
+					.font(.system(size: 14))
+					.foregroundStyle(Palette.foreground)
+				Spacer(minLength: 0)
+				LucideIcon(.chevronDown, size: 16)
+					.foregroundStyle(Palette.foreground.opacity(0.5))
+			}
+			.padding(.horizontal, 12)
+			.frame(height: 36)
+			.contentShape(Rectangle())
+		}
+		.menuStyle(.button)
+		.buttonStyle(.plain)
+		.menuIndicator(.hidden)
+		.overlay {
+			RoundedRectangle(cornerRadius: 6, style: .circular)
+				.strokeBorder(Palette.border, lineWidth: 1)
 		}
 	}
 }

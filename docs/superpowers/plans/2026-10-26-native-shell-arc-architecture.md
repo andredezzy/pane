@@ -289,7 +289,7 @@ docs/native/parity.md
   - The lock screen with the PIN numpad, plus set, change, and remove PIN.
   - Existing bcrypt hashes from `security.json` are verified with a vetted bcrypt implementation; no homemade crypto.
   - The panic wipe as in `security/wipe.ts`.
-- [ ] **5.6** The remaining surfaces.
+- [x] **5.6** The remaining surfaces.
   - Settings: theme, sleep and unload minutes, cache budget.
   - The profile sheet: name, color, group, the fingerprint editor with `default-fingerprints.ts` presets and `host-webgl.ts` detection, the proxy editor with its test, keep loaded; a fingerprint change reopens the profile's open tabs in new renderers (5.2 applies it to new renderers only).
   - The update check through the GitHub Releases API (ADR 0002), with the quiet sidebar pill from `DESIGN.md`.

@@ -16,6 +16,8 @@
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "components/embedder_support/user_agent_utils.h"
+#include "content/public/browser/gpu_data_manager.h"
+#include "gpu/config/gpu_info.h"
 #include "base/version_info/version_info.h"
 #include "pane/browser/fingerprints.h"
 #include "pane/browser/engine_trace.h"
@@ -143,6 +145,20 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   // in Chrome) adds a menu bar item, the Media Router a Cast dialog (the
   // Electron app had no casting).
   AddToSwitchList(args, "disable-features", "Glic,MediaRouter");
+  // Requests to Google that Chrome makes on its own and the Electron app
+  // never did (found by their traffic annotations in a net log): the
+  // component updater, the network time check, and the on-device AI model
+  // go out from the browser itself, past every profile's proxy; AI Mode's
+  // eligibility check carries a profile's Google cookies and country; the
+  // Translate ranker fetches its model.
+  args.push_back("--disable-component-update");
+  AddToSwitchList(args, "disable-features",
+                  "NetworkTimeServiceQuerying,"
+                  "AimEnabled,AimServerEligibilityEnabled,"
+                  "AimServerRequestOnStartupEnabled,"
+                  "OptimizationGuideModelExecution,"
+                  "OnDeviceModelBackgroundDownload,OptimizationHints,"
+                  "TranslateRankerQuery,TranslateRankerEnforcement");
 
   // An explicit --user-data-dir (scenarios use throwaway ones) wins.
   if (!HasSwitch(args, "user-data-dir")) {
@@ -290,6 +306,29 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 
 - (NSString*)userAgent {
   return base::SysUTF8ToNSString(embedder_support::GetUserAgent());
+}
+
+- (NSString*)hostWebGLVendor {
+  const std::string vendor =
+      content::GpuDataManager::GetInstance()->GetGPUInfo().gl_vendor;
+  return vendor.empty() ? nil : base::SysUTF8ToNSString(vendor);
+}
+
+// ANGLE names its renderer "ANGLE (vendor, device, version)" and gives WebGL
+// "Unspecified Version" instead of the OS version Chrome's GPU info has
+// (DisplayMtl::getVersionString), so the version is swapped the same way.
+- (NSString*)hostWebGLRenderer {
+  std::string renderer =
+      content::GpuDataManager::GetInstance()->GetGPUInfo().gl_renderer;
+  if (renderer.empty()) {
+    return nil;
+  }
+  const size_t version = renderer.rfind(", ");
+  if (renderer.starts_with("ANGLE (") && renderer.ends_with(")") &&
+      version != std::string::npos) {
+    renderer = renderer.substr(0, version) + ", Unspecified Version)";
+  }
+  return base::SysUTF8ToNSString(renderer);
 }
 
 - (NSString*)chromiumVersion {

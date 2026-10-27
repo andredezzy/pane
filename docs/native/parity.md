@@ -31,7 +31,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | `ui.present` / `dismiss` — overlay surface for sheets | `routers/ui.ts`, `renderer/app/surface.tsx` | — | ⛔ | Electron-only overlay window; replaced by native sheets/popovers (each listed below as its own surface). |
 | `ui.menu` — native context menus (profile, tab) | `routers/ui.ts`, `renderer/app/layout.tsx` | 2 | 🟡 | Built (SwiftUI context menus on profile and tab rows); on-screen check waits for an unlocked screen |
 | `ui.confirm` — confirmation dialogs | `routers/ui.ts` | 2 | 🟡 | Built (delete-profile alert); on-screen check waits for an unlocked screen |
-| `updates.currentVersion` / `check` / `download` | `routers/updates.ts`, `updater.ts` | 5 | — | |
+| `updates.currentVersion` / `check` / `download` | `routers/updates.ts`, `updater.ts` | 5 | ✅ | The latest GitHub Release at launch and daily, retries after a failure; the arm64 dmg downloaded to Downloads with progress, then opened: `phase-5/updates.json` (against a stand-in release; nothing reaches GitHub in scenarios) |
 
 ## Screens and surfaces (`apps/veil/src/renderer/`)
 
@@ -51,17 +51,17 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Tab loading progress | `docs/superpowers/plans/` (tab-loading-progress) | 2 | ✅ | `phase-2/navigation.json` (slow load reports loading, stop ends it) |
 | Ctrl+Tab switcher, MRU, grouped by profile | `components/tab-switcher.tsx`, `tab-switcher-grouping.ts` | 2 | ✅ | `phase-2/switcher.json`, `phase-2/switcher.png`, `phase-2/shortcuts.json` |
 | Profile sheet: name, color, group | `sheets/profile-sheet.tsx`, `components/color-picker.tsx` | 2 | 🟡 | Built; on-screen check waits for an unlocked screen |
-| Profile sheet: fingerprint (platform, presets, spoof toggle) | `sheets/profile-sheet.tsx`, `components/default-fingerprints.ts`, `host-webgl.ts` | 5 | — | |
-| Profile sheet: proxy (type, host, port, user, password, paste `host:port:user:pass`, test) | `sheets/profile-sheet.tsx` | 5 | — | |
-| Profile sheet: Keep loaded | `sheets/profile-sheet.tsx` | 5 | — | |
+| Profile sheet: fingerprint (platform, presets, spoof toggle) | `sheets/profile-sheet.tsx`, `components/default-fingerprints.ts`, `host-webgl.ts` | 5 | ✅ | Filled with CUA: the Mac's platform claims the Mac's GPU (Chrome's GPU info, the very strings WebGL reports), a rename keeps the fingerprint, another platform gets its preset and the cross-OS note, spoofing off clears it; a change reaches the profile's open tabs: `phase-5/profile-sheet.json`, `phase-5/profile-sheet-cross-os.png` |
+| Profile sheet: proxy (type, host, port, user, password, paste `host:port:user:pass`, test) | `sheets/profile-sheet.tsx` | 5 | ✅ | The paste shortcut fills the fields; the test answers through the proxy (its IP on the green button); the proxy saves: `phase-5/profile-sheet.json`, `phase-5/profile-sheet-proxy.png` |
+| Profile sheet: Keep loaded | `sheets/profile-sheet.tsx` | 5 | ✅ | In the profile menu, where the Electron app has it (its sheet has no Keep loaded field); followed by the scheduler: `phase-5/sleep.json` |
 | Settings: Appearance (theme) | `app/settings/page.tsx` | 2 | ✅ | `phase-2/theme.json`, `phase-2/shortcuts.json` (⌘,) |
-| Settings: Browser (Chrome path, auto-detect) | `app/settings/page.tsx` | 5 | — | |
-| Settings: Resources (sleep after, unload after, trim cache over) | `app/settings/_components/resource-settings.tsx` | 5 | — | |
+| Settings: Browser (Chrome path, auto-detect) | `app/settings/page.tsx` | 5 | dropped | Only served the Google sign-in fallback, dropped by the user's decision (2026-10-26) |
+| Settings: Resources (sleep after, unload after, trim cache over) | `app/settings/_components/resource-settings.tsx` | 5 | ✅ | Memory & disk with the Electron presets, after Appearance: `phase-5/update-settings.png`; followed by the scheduler: `phase-5/sleep.json` |
 | Settings: Extensions (install from Web Store URL/ID, list, uninstall) | `app/settings/_components/extension-settings.tsx` | 4 | ✅ | Install by ID, disable, enable, pin, unpin, update, remove, each clicked with CUA: `phase-4/extension-management.json` |
 | Settings: Security (set up, change, remove PIN) | `app/settings/page.tsx` | 5 | ✅ | Set up PIN, or Change and Remove PIN, after Extensions as in the Electron app; each opens the PIN screen: `phase-5/security.json` |
-| Settings: Updates (check, download) | `app/settings/page.tsx`, `components/update-status-label.tsx` | 5 | — | |
+| Settings: Updates (check, download) | `app/settings/page.tsx`, `components/update-status-label.tsx` | 5 | ✅ | Check for updates and when it last checked, or the version and Download update with its progress and time left: `phase-5/updates.json`, `phase-5/update-settings.png` |
 | Lock screen with PIN numpad | `app/lock-screen/page.tsx`, `components/numpad.tsx` | 5 | ✅ | The panel over the whole window, dots, numpad, hints, shake, slide in and out; keys typed go to it alone: `phase-5/security-lock.png`, `phase-5/security-last-attempt.png`. The update pill on it waits for the update check (5.6) |
-| Update pill in the sidebar footer (dismissible per launch) | `components/sidebar/sidebar.tsx`, DESIGN.md | 5 | — | |
+| Update pill in the sidebar footer (dismissible per launch) | `components/sidebar/sidebar.tsx`, DESIGN.md | 5 | ✅ | Its click downloads, the dot pulses and the bar fills meanwhile, dismissing hides it for this version until relaunch; the lock screen shows the same status: `phase-5/updates.json`, `phase-5/update-pill.png` |
 
 ## Shortcuts (`apps/veil/src/main/window.ts`)
 
@@ -80,7 +80,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Focus address field | ⌘L | 2 | ✅ | `phase-2/shortcuts.json` |
 | Tab switcher forward / backward (MRU) | ⌃⇥ / ⌃⇧⇥ | 2 | ✅ | `phase-2/shortcuts.json` |
 | Go to tab 1–9 | ⌘1 … ⌘9 | 2 | ✅ | `phase-2/shortcuts.json` (⌘1, ⌘2) |
-| Check for updates (app menu) | — | 5 | — | |
+| Check for updates (app menu) | — | 5 | ✅ | Pane › Check for Updates…, chosen through accessibility: `phase-5/updates.json` |
 | Edit menu (undo, redo, cut, copy, paste, select all) | standard | 2 | 🟡 | Built (standard responder actions); not exercised, to keep the user's clipboard untouched; on-screen check |
 
 ## Settings and persisted state (`apps/veil/src/stores/`)
@@ -88,9 +88,9 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Feature | Electron source | Phase | Status | Evidence |
 |---|---|---|---|---|
 | `theme`: system / light / dark — chrome, menus, and `prefers-color-scheme` follow (ADR 0001) | `settings-store.ts` | 2 | ✅ | `phase-2/theme.json` |
-| `tabSleepAfterMinutes` | `settings-store.ts` | 5 | 🟡 | Persisted and followed by the scheduler (`phase-5/sleep.json`); its Settings field is task 5.6 |
-| `profileUnloadAfterMinutes` | `settings-store.ts` | 5 | 🟡 | Persisted and followed by the scheduler (`phase-5/sleep.json`); its Settings field is task 5.6 |
-| `cacheBudgetMB` | `settings-store.ts` | 5 | 🟡 | Persisted and followed by the scheduler (`phase-5/sleep.json`); its Settings field is task 5.6 |
+| `tabSleepAfterMinutes` | `settings-store.ts` | 5 | ✅ | Settings › Memory & disk, followed by the scheduler: `phase-5/sleep.json` |
+| `profileUnloadAfterMinutes` | `settings-store.ts` | 5 | ✅ | Settings › Memory & disk, followed by the scheduler: `phase-5/sleep.json` |
+| `cacheBudgetMB` | `settings-store.ts` | 5 | ✅ | Settings › Memory & disk, followed by the scheduler: `phase-5/sleep.json` |
 | `chromiumPath` (Google sign-in fallback) | `settings-store.ts` | 5 | dropped | Only served the Google sign-in fallback, dropped (the user's decision, 2026-10-26); the field still round-trips in `settings.json` |
 | Profiles: id, name, color, group, fingerprint, proxy, keepLoaded, tabs (id, url, title, favicon, isLoaded), timestamps — persisted | `profile-store.ts` (`profiles.json`) | 2 (5 for fingerprint/proxy) | ✅ | `phase-2/restore-before.json`, `phase-2/restore-after.json`, `phase-2/swift-test.txt` (fingerprint/proxy: Phase 5) |
 | Active tab and profile, MRU history, closed-tab stack | `tab-store.ts` | 2 | ✅ | `phase-2/shortcuts.json`, `phase-2/switcher.json`, `phase-2/swift-test.txt` |
@@ -99,7 +99,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | PIN hash (bcrypt) and lock state | `security-store.ts` (`security.json`) | 5 | ✅ | `security.json` reads and writes in the Electron app's format; a PIN means Pane starts locked: `phase-5/security.json`, `phase-5/swift-test.txt` |
 | Installed extensions per profile | `extension-store.ts` | 4 | ✅ | Chrome's extension system, one per profile (the store is gone): `phase-4/dark-reader.json` |
 | Proxy status per profile | `proxy-status-store.ts` | 5 | ✅ | Tested at launch and on every proxy change; the sidebar's dot: `phase-5/proxy.json` |
-| Update status (checking, available, downloading) | `update-store.ts` | 5 | — | |
+| Update status (checking, available, downloading) | `update-store.ts` | 5 | ✅ | One source for the pill, Settings, and the lock screen (`Updater`); not persisted, as in the Electron app: `phase-5/updates.json` |
 | Migration of all of the above from the Electron app | (new) | 5 | — | |
 
 ## Chrome's own UI (Phase 3)

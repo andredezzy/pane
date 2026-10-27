@@ -7,6 +7,7 @@ import SwiftUI
 struct LockScreenView: View {
 	let lock: AppLock
 	let entry: PinEntry
+	let updater: Updater
 
 	var body: some View {
 		HStack(spacing: 0) {
@@ -35,6 +36,16 @@ struct LockScreenView: View {
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
 
 			Color.clear.frame(width: 80)
+		}
+		.overlay(alignment: .bottom) {
+			// An update on offer shows while locked too, 24px from the bottom.
+			if entry.mode == .unlock, updater.available != nil,
+			   [.available, .downloading, .downloaded].contains(updater.status)
+			{
+				LockUpdateStatus(updater: updater)
+					.padding(.bottom, 24)
+					.transition(.opacity.combined(with: .offset(y: 4)))
+			}
 		}
 		.background(Palette.card)
 		.clipShape(RoundedRectangle(cornerRadius: 10, style: .circular))
@@ -72,6 +83,51 @@ struct LockScreenView: View {
 				.foregroundStyle(remaining == 1 ? Palette.destructive : Palette.foreground.opacity(0.3))
 				.accessibilityIdentifier("pane.lockScreen.attempts")
 		}
+	}
+}
+
+// The dot, the status, the download's bar and time left, and Download, shown
+// on hover while the update waits.
+private struct LockUpdateStatus: View {
+	let updater: Updater
+
+	@State private var isHovered = false
+
+	var body: some View {
+		HStack(spacing: 6) {
+			UpdateDot(pulsing: updater.status == .downloading)
+
+			Text(updater.label)
+				.font(.system(size: 12))
+				.foregroundStyle(Palette.accentForeground)
+
+			if updater.status == .downloading {
+				UpdateProgressBar(progress: updater.downloadProgress ?? 0)
+					.frame(width: 64)
+					.padding(.leading, 2)
+
+				Text(updater.downloadETA.map { Updates.formatETA(seconds: $0) } ?? "")
+					.font(.system(size: 12).monospacedDigit())
+					.foregroundStyle(Palette.mutedForeground)
+					.frame(minWidth: 56, alignment: .leading)
+					.padding(.leading, 2)
+			}
+
+			if updater.status == .available {
+				Button("Download") { updater.downloadUpdate() }
+					.buttonStyle(.plain)
+					.font(.system(size: 12, weight: .medium))
+					.foregroundStyle(Palette.mutedForeground)
+					.opacity(isHovered ? 1 : 0)
+					.frame(maxWidth: isHovered ? 112 : 0, alignment: .leading)
+					.clipped()
+					.accessibilityIdentifier("pane.lockScreen.downloadUpdate")
+			}
+		}
+		.onHover { isHovered = $0 }
+		.animation(.easeOut(duration: 0.2), value: isHovered)
+		.accessibilityElement(children: .contain)
+		.accessibilityIdentifier("pane.lockScreen.update")
 	}
 }
 

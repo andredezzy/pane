@@ -361,6 +361,28 @@ final class Automation {
 
 			model.updateProfile(profileID) { $0.fingerprint = fingerprint }
 
+		case "openProfileSheet":
+			// { profile? }: Edit profile for one, else New.
+			if let profileID = command["profile"] as? String {
+				controller.state.profileSheet = .edit(profileID)
+			} else {
+				controller.state.profileSheet = .new
+			}
+
+		case "showPage":
+			// { page: "browser" | "settings" }: the sidebar's Settings button.
+			model.page = try string("page") == "settings" ? .settings : .browser
+
+		case "checkUpdates":
+			Task { await controller.updater.check() }
+
+		case "downloadUpdate":
+			// The pill's click.
+			controller.updater.downloadUpdate()
+
+		case "dismissUpdate":
+			controller.updater.dismissedVersion = controller.updater.available?.version
+
 		case "showPinScreen":
 			// Settings' Set up, Change, or Remove PIN.
 			switch try string("mode") {
@@ -758,6 +780,18 @@ final class Automation {
 					},
 				] as [String: Any]
 			},
+			"update": [
+				"status": controller.updater.status.rawValue,
+				"available": controller.updater.available?.version ?? NSNull(),
+				"progress": controller.updater.downloadProgress ?? NSNull(),
+				"eta": controller.updater.downloadETA ?? NSNull(),
+				"pill": controller.updater.showsPill,
+				"checked": controller.updater.lastCheckedAt != nil,
+			] as [String: Any],
+			"profileSheet": controller.state.profileSheet.map { target in
+				target.profileID ?? "new"
+			} ?? NSNull(),
+			"hostWebGL": controller.hostWebGL.map { ["vendor": $0.vendor, "renderer": $0.renderer] } ?? NSNull(),
 			"security": [
 				"pinLength": controller.lock.state.pin?.length ?? NSNull(),
 				"failedAttempts": controller.lock.state.failedAttempts,

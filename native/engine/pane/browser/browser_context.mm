@@ -15,6 +15,8 @@
 #include "base/strings/string_util.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/language/core/browser/language_prefs.h"
+#include "components/signin/public/base/signin_pref_names.h"
+#include "components/translate/core/browser/translate_pref_names.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -76,6 +78,12 @@
                       false);
     prefs->SetBoolean(autofill::prefs::kAutofillProfileEnabled, false);
     prefs->SetBoolean(autofill::prefs::kAutofillCreditCardEnabled, false);
+    // No browser sign-in (its account list goes to accounts.google.com with
+    // the profile's cookies) and no Translate (its ranker model downloads
+    // from gstatic): Pane has neither, as the Electron app had neither.
+    // Signing in to Google's websites is unaffected.
+    prefs->SetBoolean(prefs::kSigninAllowed, false);
+    prefs->SetBoolean(translate::prefs::kOfferTranslateEnabled, false);
     [self applyFingerprint];
   }
   return self;

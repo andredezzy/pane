@@ -19,7 +19,14 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 
 	func browserApplicationDidStart(_ application: BrowserApplication) {
 		let model = BrowserModel(dataDirectory: dataDirectory)
-		let controller = BrowserController(model: model, application: application, lock: AppLock(dataDirectory: dataDirectory))
+		let updater = Updater(currentVersion: Bundle.main.object(forInfoDictionaryKey: "PaneVersion") as? String ?? "0.0.0")
+		let controller = BrowserController(
+			model: model,
+			application: application,
+			lock: AppLock(dataDirectory: dataDirectory),
+			updater: updater
+		)
+		updater.schedule()
 		self.controller = controller
 
 		controller.applyTheme()

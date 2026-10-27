@@ -8,7 +8,6 @@ import SwiftUI
 struct RootView: View {
 	let controller: BrowserController
 
-	@State private var profileSheet: ProfileSheetTarget?
 	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	private var model: BrowserModel { controller.model }
@@ -44,7 +43,7 @@ struct RootView: View {
 				TabSwitcherView(switcher: state.switcher, profiles: model.profiles)
 			}
 
-			if let target = profileSheet {
+			if let target = state.profileSheet {
 				Palette.sheetScrim
 					.contentShape(Rectangle())
 					.onTapGesture { present(nil) }
@@ -69,7 +68,7 @@ struct RootView: View {
 
 			// The PIN screen, over everything; it slides up and back down.
 			if let entry = controller.lock.entry {
-				LockScreenView(lock: controller.lock, entry: entry)
+				LockScreenView(lock: controller.lock, entry: entry, updater: controller.updater)
 					.transition(.asymmetric(
 						insertion: .move(edge: .bottom).animation(reduceMotion ? nil : .timingCurve(0.16, 1, 0.3, 1, duration: 0.4)),
 						removal: .move(edge: .bottom).animation(reduceMotion ? nil : .easeIn(duration: 0.35))
@@ -112,23 +111,10 @@ struct RootView: View {
 
 	// Sheets slide in from the right; their scrim fades (DESIGN.md: enter and
 	// exit animate).
-	private func present(_ target: ProfileSheetTarget?) {
+	private func present(_ target: WindowState.ProfileSheetTarget?) {
 		withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-			profileSheet = target
+			state.profileSheet = target
 		}
-	}
-}
-
-private enum ProfileSheetTarget: Equatable {
-	case new
-	case edit(String)
-
-	var profileID: String? {
-		if case let .edit(id) = self {
-			return id
-		}
-
-		return nil
 	}
 }
 

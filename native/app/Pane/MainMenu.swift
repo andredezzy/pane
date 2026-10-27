@@ -21,6 +21,8 @@ enum MainMenu {
 		let menu = NSMenu(title: "Pane")
 		menu.addItem(withTitle: "About Pane", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
 		menu.addItem(.separator())
+		menu.addItem(item("Check for Updates\u{2026}", #selector(BrowserController.checkForUpdates(_:)), "", target: controller))
+		menu.addItem(.separator())
 		menu.addItem(item("Settings…", #selector(BrowserController.showSettings(_:)), ",", target: controller))
 		menu.addItem(.separator())
 		menu.addItem(withTitle: "Hide Pane", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")

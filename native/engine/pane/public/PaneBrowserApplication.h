@@ -87,6 +87,12 @@ NS_SWIFT_UI_ACTOR
 @property(readonly, copy) NSString* userAgent;
 @property(readonly, copy) NSString* chromiumVersion;
 
+// What WebGL reports as its unmasked vendor and renderer on this Mac, for a
+// profile without a fingerprint (Chrome's GPU info), or nil before the GPU
+// process reported them.
+@property(readonly, copy, nullable) NSString* hostWebGLVendor;
+@property(readonly, copy, nullable) NSString* hostWebGLRenderer;
+
 // Makes the profile named `identifier` present a fingerprint instead of
 // Chrome's own values, or Chrome's own again for nil. `json` is PaneKit's
 // EngineFingerprint: the User-Agent and its Client Hints, the languages, and

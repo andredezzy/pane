@@ -1,0 +1,66 @@
+diff --git a/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc b/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc
+index 6ff5dd326e..7c5cda6533 100644
+--- a/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc
++++ b/chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc
+@@ -15,6 +15,7 @@
+ #include <vector>
+ 
+ #include "base/byte_size.h"
++#include "base/command_line.h"
+ #include "base/callback_list.h"
+ #include "base/containers/span.h"
+ #include "base/feature_list.h"
+@@ -36,6 +37,7 @@
+ #include "base/version.h"
+ #include "build/branding_buildflags.h"
+ #include "chrome/browser/browser_process.h"
++#include "chrome/common/chrome_switches.h"
+ #include "components/component_updater/component_installer.h"
+ #include "components/component_updater/component_updater_paths.h"
+ #include "components/component_updater/component_updater_service.h"
+@@ -458,6 +460,11 @@ class ManifestAssetManagerDelegateImpl final
+     if (!g_browser_process) {
+       return;
+     }
++    // Pane: on-demand components honor --disable-component-update too.
++    if (base::CommandLine::ForCurrentProcess()->HasSwitch(
++            switches::kDisableComponentUpdate)) {
++      return;
++    }
+ 
+     ComponentUpdateService* cus = g_browser_process->component_updater();
+     if (!cus) {
+diff --git a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc b/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
+index db2e0266aa..10fa1ecdaa 100644
+--- a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
++++ b/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
+@@ -14,6 +14,7 @@
+ #include <utility>
+ #include <vector>
+ 
++#include "base/command_line.h"
+ #include "base/feature_list.h"
+ #include "base/functional/bind.h"
+ #include "base/functional/callback.h"
+@@ -54,6 +55,7 @@
+ #include "services/network/public/cpp/simple_url_loader.h"
+ #include "services/network/public/mojom/url_response_head.mojom.h"
+ #include "url/url_util.h"
++#include "pane/common/host.h"  // nogncheck: header-only constants
+ 
+ namespace {
+ 
+@@ -525,6 +527,13 @@ GaiaCookieManagerService::GetCachedListAccounts() {
+ }
+ 
+ void GaiaCookieManagerService::TriggerListAccounts() {
++  // Pane: no browser sign-in, so no account list from Gaia: the request would
++  // send the profile's Google cookies to accounts.google.com on every launch
++  // and cookie change. Callers see an empty cookie jar.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    return;
++  }
++
+   // Callers suspect that a check to Gaia needs to be done, don't rely on the
+   // in progress request, conditions might have changed while the request is
+   // in-flight.

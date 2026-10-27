@@ -36,6 +36,21 @@ final class WindowState {
 	var find = Find()
 	var switcher = Switcher()
 	var dialog: ConfirmDialog?
+	// The profile sheet: a new profile, or one being edited.
+	var profileSheet: ProfileSheetTarget?
+
+	enum ProfileSheetTarget: Equatable {
+		case new
+		case edit(String)
+
+		var profileID: String? {
+			if case let .edit(id) = self {
+				return id
+			}
+
+			return nil
+		}
+	}
 	// The address field's text: the selected tab's address, or what the user
 	// types over it.
 	var address = ""

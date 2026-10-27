@@ -70,7 +70,21 @@ export type SecurityState = {
 	} | null;
 };
 
+export type UpdateState = {
+	status: "idle" | "checking" | "available" | "downloading" | "downloaded";
+	available: string | null;
+	progress: number | null;
+	eta: number | null;
+	pill: boolean;
+	checked: boolean;
+};
+
 export type AppState = {
+	// The profile sheet: "new", or the edited profile's id.
+	profileSheet: string | null;
+	// The Mac's WebGL strings, from Chrome's GPU info.
+	hostWebGL: { vendor: string; renderer: string } | null;
+	update: UpdateState;
 	security: SecurityState;
 	profiles: ProfileState[];
 	activeTabID: string | null;
@@ -333,6 +347,9 @@ export async function launchPane(
 		env: {
 			PANE_DATA_DIR: dataDir,
 			PANE_AUTOMATION_DIR: automationDir,
+			// Every launch checks for updates: against the fixtures, never
+			// GitHub.
+			PANE_UPDATE_URL: context.fixtures.url("releases/latest"),
 			...options.env,
 		},
 	});

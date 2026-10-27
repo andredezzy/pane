@@ -62,6 +62,11 @@ struct SidebarView: View {
 	// px-2.5 pb-2: New, a hairline, Settings.
 	private var footer: some View {
 		VStack(alignment: .leading, spacing: 6) {
+			if controller.updater.showsPill {
+				UpdatePill(updater: controller.updater)
+					.transition(.opacity.combined(with: .offset(y: 4)))
+			}
+
 			// The 14px plus makes this row 32px; the others are 28.
 			SidebarButton(isSelected: false, tintsOnHover: false, height: 32, action: onNewProfile) {
 				Text("+")
@@ -86,6 +91,7 @@ struct SidebarView: View {
 		}
 		.padding(.horizontal, 10)
 		.padding(.bottom, 8)
+		.animation(.easeOut(duration: 0.3), value: controller.updater.showsPill)
 	}
 }
 

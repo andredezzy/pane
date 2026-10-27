@@ -42,11 +42,14 @@ final class BrowserController: NSObject {
 	let network: ProfileNetwork
 	// The PIN lock.
 	let lock: AppLock
+	// The update check and download.
+	let updater: Updater
 
-	init(model: BrowserModel, application: BrowserApplication, lock: AppLock) {
+	init(model: BrowserModel, application: BrowserApplication, lock: AppLock, updater: Updater) {
 		self.model = model
 		self.application = application
 		self.lock = lock
+		self.updater = updater
 		network = ProfileNetwork(model: model)
 		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()
@@ -55,7 +58,7 @@ final class BrowserController: NSObject {
 			self?.proxyDidChange(profileID)
 		}
 		model.fingerprintDidChange = { [weak self] profileID in
-			self?.applyFingerprint(profileID)
+			self?.fingerprintDidChange(profileID)
 		}
 
 		// The sidebar shows each proxy's state from launch, as the Electron
@@ -77,6 +80,35 @@ final class BrowserController: NSObject {
 	// to the engine before the profile's context opens, since its network
 	// context takes the User-Agent as it is created. A change reaches
 	// navigations and new renderers at once; open pages keep their renderer's.
+	// The Mac's own WebGL strings, for a fingerprint on its platform.
+	var hostWebGL: Fingerprint.WebGL? {
+		guard let vendor = application.hostWebGLVendor, let renderer = application.hostWebGLRenderer else {
+			return nil
+		}
+
+		return Fingerprint.WebGL(vendor: vendor, renderer: renderer)
+	}
+
+	// A changed fingerprint: the profile's open pages start again in new
+	// renderers, which take it; the selected tab loads again.
+	private func fingerprintDidChange(_ profileID: String) {
+		applyFingerprint(profileID)
+
+		guard contexts[profileID] != nil, let profile = model.profile(profileID) else {
+			return
+		}
+
+		let selected = model.activeTabID
+
+		for tab in profile.tabs {
+			release(tabID: tab.id)
+		}
+
+		if let selected, profile.tabs.contains(where: { $0.id == selected }) {
+			select(tabID: selected)
+		}
+	}
+
 	private func applyFingerprint(_ profileID: String) {
 		do {
 			let json = try model.profile(profileID)?.fingerprint.map { fingerprint in

@@ -57,3 +57,5 @@ third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc	
 third_party/blink/renderer/modules/speech/speech_synthesis.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/modules/webaudio/offline_audio_context.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc	0006-pane-fingerprint.patch
+chrome/browser/component_updater/optimization_guide_on_device_model_installer.cc	0007-pane-quiet.patch
+components/signin/internal/identity_manager/gaia_cookie_manager_service.cc	0007-pane-quiet.patch

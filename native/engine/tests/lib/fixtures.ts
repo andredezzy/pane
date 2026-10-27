@@ -1,3 +1,4 @@
+import * as net from "node:net";
 import { join, normalize } from "node:path";
 
 const PAGES_DIR = join(import.meta.dir, "..", "pages");
@@ -46,6 +47,25 @@ async function route(
 	// The proxy test's IP echo, in httpbin's shape.
 	if (pathname === "/ip") {
 		return Response.json({ origin: "203.0.113.7" });
+	}
+
+	// A stand-in for GitHub's latest release (every launch checks it):
+	// `?tag=v99.0.0` offers that version, else an old one.
+	if (pathname === "/releases/latest") {
+		const tag = new URL(request.url).searchParams.get("tag") ?? "v0.0.1";
+		const version = tag.replace(/^v/, "");
+		const downloads = await slowDownloads();
+
+		return Response.json({
+			tag_name: tag,
+			published_at: "2026-10-26T12:00:00Z",
+			assets: [`Pane-${version}-x64.dmg`, `Pane-${version}-arm64.dmg`].map(
+				(name) => ({
+					name,
+					browser_download_url: `${downloads}/releases/download/${tag}/${name}`,
+				}),
+			),
+		});
 	}
 
 	// A sign-in for the sleep scenario's Trim. The first visit sets a session
@@ -132,6 +152,43 @@ async function route(
 	}
 
 	return null;
+}
+
+// A release's dmg: 4 MB, slowly, with its Content-Length, as GitHub serves
+// it (Bun.serve drops the length from a streamed body, and a download's
+// progress needs it). Started on first use; one for the whole run.
+let downloadsOrigin: Promise<string> | null = null;
+
+function slowDownloads(): Promise<string> {
+	downloadsOrigin ??= new Promise((ready) => {
+		const chunk = Buffer.alloc(256 * 1024, 0x50);
+		const size = 16 * chunk.length;
+
+		const server = net.createServer((socket) => {
+			socket.on("error", () => socket.destroy());
+
+			socket.once("data", async () => {
+				socket.write(
+					`HTTP/1.1 200 OK\r\nContent-Type: application/x-apple-diskimage\r\nContent-Length: ${size}\r\nConnection: close\r\n\r\n`,
+				);
+
+				for (let index = 0; index < 16 && !socket.destroyed; index++) {
+					socket.write(chunk);
+					await Bun.sleep(250);
+				}
+
+				socket.end();
+			});
+		});
+
+		server.unref();
+
+		server.listen(0, "127.0.0.1", () => {
+			ready(`http://127.0.0.1:${(server.address() as net.AddressInfo).port}`);
+		});
+	});
+
+	return downloadsOrigin;
 }
 
 // Serves tests/pages on 127.0.0.1 so every behavior check runs offline.

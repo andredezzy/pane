@@ -60,6 +60,12 @@ extension BrowserController {
 
 	// MARK: Menu actions
 
+	// The app menu's Check for Updates…: the pill and Settings show the
+	// answer.
+	@objc func checkForUpdates(_: Any?) {
+		Task { await updater.check() }
+	}
+
 	@objc func newTab(_ sender: Any?) { newTabInActiveProfile() }
 	@objc func closeSelectedTab(_ sender: Any?) { closeActiveTab() }
 	@objc func reopenLastClosedTab(_ sender: Any?) { reopenClosedTab() }

@@ -64,6 +64,7 @@ async function type(
 const security: Scenario = async (context) => {
 	const dataDir = mkdtempSync(join(tmpdir(), "pane-security-"));
 	mkdirSync(dataDir, { recursive: true });
+
 	writeFileSync(
 		join(dataDir, "security.json"),
 		JSON.stringify(ELECTRON_SECURITY),
@@ -93,11 +94,14 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(wrong.security.locked, "a wrong PIN unlocked Pane");
+
 	expect(
 		saved(dataDir)?.state.failedAttempts === 1,
 		"the failed attempt is not on disk",
 	);
+
 	await Bun.sleep(500);
+
 	await app.send("render", {
 		path: join(context.out, "security-wrong-pin.png"),
 	});
@@ -120,24 +124,28 @@ const security: Scenario = async (context) => {
 
 	// Change: the current PIN, then a new one twice.
 	await app.send("showPinScreen", { mode: "change" });
+
 	await type(
 		app,
 		"1234",
 		"the new PIN asked",
 		(state) => screen(state)?.step === "enter",
 	);
+
 	await type(
 		app,
 		"567890>",
 		"the new PIN confirmed",
 		(state) => screen(state)?.step === "confirm",
 	);
+
 	const changed = await type(
 		app,
 		"567890",
 		"the PIN changed",
 		(state) => screen(state) === null && state.security.pinLength === 6,
 	);
+
 	const changedHash = saved(dataDir)?.state.pin?.hash ?? "";
 
 	expect(
@@ -148,6 +156,7 @@ const security: Scenario = async (context) => {
 
 	// Remove: the current PIN.
 	await app.send("showPinScreen", { mode: "remove" });
+
 	const removed = await type(
 		app,
 		"567890",
@@ -159,22 +168,26 @@ const security: Scenario = async (context) => {
 
 	// Set up: two PINs that differ, then the same twice.
 	await app.send("showPinScreen", { mode: "setup" });
+
 	await type(
 		app,
 		"2468>",
 		"confirming",
 		(state) => screen(state)?.step === "confirm",
 	);
+
 	const mismatch = await type(
 		app,
 		"2469",
 		"the mismatch",
 		(state) => screen(state)?.error === "PINs don't match",
 	);
+
 	await app.waitFor(
 		"the mismatch cleared",
 		(state) => screen(state)?.entered === 0 && !screen(state)?.busy,
 	);
+
 	const setUp = await type(
 		app,
 		"2468",
@@ -184,6 +197,7 @@ const security: Scenario = async (context) => {
 
 	// Back leaves the screen without changing anything.
 	await app.send("showPinScreen", { mode: "change" });
+
 	const back = await type(
 		app,
 		"^",
@@ -221,11 +235,13 @@ const security: Scenario = async (context) => {
 
 	// Past the dots' fade.
 	await Bun.sleep(500);
+
 	await relaunched.send("render", {
 		path: join(context.out, "security-last-attempt.png"),
 	});
 
 	const profileDir = join(dataDir, "Engine", profile);
+
 	const before = {
 		profiles: existsSync(join(dataDir, "profiles.json")),
 		profileData: existsSync(profileDir),
@@ -267,7 +283,9 @@ const security: Scenario = async (context) => {
 		before.profiles && before.profileData,
 		`nothing to wipe: ${JSON.stringify(before)}`,
 	);
+
 	expect(!after.profileData, "the profile's engine data survived the wipe");
+
 	expect(
 		!after.locked &&
 			after.pinLength === null &&
