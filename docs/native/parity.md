@@ -37,20 +37,20 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 
 | Feature | Electron source | Phase | Status | Evidence |
 |---|---|---|---|---|
-| Hosted engine: the app's window shows a page | (new) | 1 | 🟡 | `phase-1/`, `phase-2/hosted.json` — all but the visual check, which waits for an unlocked screen |
+| Hosted engine: the app's window shows a page | (new) | 1 | ✅ | The window shows the page, unlocked and on screen: `phase-1/unlocked/window.png`, `phase-1/unlocked/hosted.json`, `phase-2/unlocked/window.png` |
 | Sidebar: profiles (name, color, group) with their tabs | `components/sidebar/sidebar.tsx`, `profile-item.tsx` | 2 | ✅ | `phase-2/switcher.png`, `phase-2/restore-after.json` |
 | Sidebar: profile expand/collapse (collapsed on launch) | `stores/sidebar-store.ts` | 2 | ✅ | `phase-2/restore.json` (collapsed on launch), `phase-2/profile-lifecycle.json` (collapse unloads) |
-| Sidebar: tab rows (favicon, title, loading, sleeping dimmed) | `components/sidebar/tab-item.tsx` | 2 | 🟡 | Title, favicon, loading and dimmed state are in the model (`phase-2/navigation.json`, `phase-2/profile-lifecycle.json`); the rendered row waits for an unlocked screen |
+| Sidebar: tab rows (favicon, title, loading, sleeping dimmed) | `components/sidebar/tab-item.tsx` | 2 | ✅ | Rendered on screen: `phase-2/unlocked/window.png`; title, favicon, loading and dimmed state in the model: `phase-2/navigation.json`, `phase-2/profile-lifecycle.json` |
 | Sidebar: drag to reorder profiles and tabs | `docs/superpowers/plans/2026-05-06-sidebar-reordering.md` | 2 | 🟡 | Reorder model proven (`phase-2/restore.json`); the drag gesture waits for an unlocked screen |
 | Profile context menu: Edit, Keep loaded, Delete (Sign out of Google dropped) | `app/layout.tsx` | 2 | 🟡 | Built; the on-screen menu check waits for an unlocked, idle screen. Sign out of Google: dropped by the user's decision (see its row) |
 | Tab context menu | `components/sidebar/tab-item.tsx` | 2 | 🟡 | Built; on-screen check waits for an unlocked screen |
 | Toolbar: back, forward, reload/stop, address field, extension actions | `app/browser/_components/toolbar.tsx`, `browser-action-list.tsx` | 2 (4 for actions) | ✅ | Back, forward, reload/stop, address (following the selected tab): `phase-2/navigation.json`, `phase-2/shortcuts.json`, `phase-2/switcher.png`, `phase-4/regression/navigation.json`; pinned actions with icon and badge, the extensions menu, popups in a popover sized to the page, clicked with CUA: `phase-4/dark-reader.json`, `phase-4/dark-reader-popup.png`, `phase-4/password-managers.json` |
-| Page framed in a rounded, inset card with a soft shadow | `components/content-panel.tsx` | 2 | 🟡 | Card visible in `phase-2/switcher.png`; page pixels inside it wait for an unlocked screen |
+| Page framed in a rounded, inset card with a soft shadow | `components/content-panel.tsx` | 2 | ✅ | The page inside its card on screen: `phase-2/unlocked/window.png`, `phase-2/unlocked/switcher-screen.png` |
 | Empty state (no profile or tab) | `app/browser/_components/empty-state.tsx` | 2 | ✅ | `phase-2/empty-state.png`, `phase-2/profile-lifecycle.json` |
 | Find bar (count, next, previous, Escape) | `app/browser/_components/find-bar.tsx` | 2 | ✅ | `phase-2/find.json`, `phase-2/shortcuts.json` (⌘F focus, Escape) |
 | Tab loading progress | `docs/superpowers/plans/` (tab-loading-progress) | 2 | ✅ | `phase-2/navigation.json` (slow load reports loading, stop ends it) |
 | Ctrl+Tab switcher, MRU, grouped by profile | `components/tab-switcher.tsx`, `tab-switcher-grouping.ts` | 2 | ✅ | `phase-2/switcher.json`, `phase-2/switcher.png`, `phase-2/shortcuts.json` |
-| Profile sheet: name, color, group | `sheets/profile-sheet.tsx`, `components/color-picker.tsx` | 2 | 🟡 | Built; on-screen check waits for an unlocked screen |
+| Profile sheet: name, color, group | `sheets/profile-sheet.tsx`, `components/color-picker.tsx` | 2 | 🟡 | Driven on screen with CUA: the name typed, Create and Save pressed (`phase-5/profile-sheet.json`, `phase-5/profile-sheet-new.png`); picking a color or a group with the pointer waits for the on-screen gestures (`HUMAN-CHECKLIST.md`, Phase 2) |
 | Profile sheet: fingerprint (platform, presets, spoof toggle) | `sheets/profile-sheet.tsx`, `components/default-fingerprints.ts`, `host-webgl.ts` | 5 | ✅ | Filled with CUA: the Mac's platform claims the Mac's GPU (Chrome's GPU info, the very strings WebGL reports), a rename keeps the fingerprint, another platform gets its preset and the cross-OS note, spoofing off clears it; a change reaches the profile's open tabs: `phase-5/profile-sheet.json`, `phase-5/profile-sheet-cross-os.png` |
 | Profile sheet: proxy (type, host, port, user, password, paste `host:port:user:pass`, test) | `sheets/profile-sheet.tsx` | 5 | ✅ | The paste shortcut fills the fields; the test answers through the proxy (its IP on the green button); the proxy saves: `phase-5/profile-sheet.json`, `phase-5/profile-sheet-proxy.png` |
 | Profile sheet: Keep loaded | `sheets/profile-sheet.tsx` | 5 | ✅ | In the profile menu, where the Electron app has it (its sheet has no Keep loaded field); followed by the scheduler: `phase-5/sleep.json` |
@@ -132,7 +132,7 @@ Surfaces Chrome would show in its own dialogs, bubbles, and windows. Each is the
 |---|---|---|---|---|
 | Per-profile isolation (cookies, storage, cache) | `profile/profile.ts` (`persist:profile-<id>`) | 2 | ✅ | `phase-2/profiles-isolation.json` |
 | Permission policy: clipboard writes allowed, the rest denied or prompted | `profile/profile.ts` | 3 | ✅ | `phase-3/permission-prompt.json` — clipboard-write granted without a prompt; other requests in the app's sheet |
-| Spellcheck suggestions and add to dictionary | `packages/electron-chrome-context-menu` | 3 | 🟡 | Built (`phase-3/context-menu.json`); macOS flags no misspelling while the screen is locked (stock Chrome for Testing neither), so suggestions re-check on an unlocked screen. Add to Dictionary writes the system dictionary, so scenarios list it but do not click it |
+| Spellcheck suggestions and add to dictionary | `packages/electron-chrome-context-menu` | 3 | ✅ | On an unlocked screen the menu offers the suggestions and Add to Dictionary, and a suggestion replaces the word: `phase-3/unlocked/context-menu.json` |
 | Page context menu (copy, paste, image, links, inspect) | `packages/electron-chrome-context-menu` | 3 | ✅ | `phase-3/context-menu.json` — the app's NSMenu, in the Electron app's order |
 | Downloads | `profile/profile-tabs.ts` | 2 | ✅ | `phase-2/downloads.json` |
 | Popups and `window.open` open as tabs | `profile/profile-tabs.ts` | 2 | ✅ | `phase-2/popup-new-tab.json` |
