@@ -63,10 +63,12 @@ const windowDrag: Scenario = async (context) => {
 
 	// The lock screen's panel, around its numpad.
 	await app.send("showPinScreen", { mode: "setup" });
+
 	await app.waitFor(
 		"the PIN screen",
 		(state) => state.security.screen !== null,
 	);
+
 	await Bun.sleep(600);
 
 	const lockPanel = await hit(width - 60, 60);
@@ -76,6 +78,7 @@ const windowDrag: Scenario = async (context) => {
 		lockPanel === DRAG,
 		`the lock panel does not move the window: ${lockPanel}`,
 	);
+
 	expect(lockNumpad !== DRAG, `the numpad moves the window: ${lockNumpad}`);
 
 	return { window: { width, height }, hits, lockPanel, lockNumpad };

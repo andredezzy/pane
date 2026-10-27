@@ -246,14 +246,21 @@ private struct ProfileSection: View {
 				.strokeBorder(isActive ? color.opacity(0.4) : .clear, lineWidth: 1)
 		}
 		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: 6)
+		// The Electron app's menu, with its lucide icons.
 		.contextMenu {
-			Button("Edit profile", action: onEdit)
-			Toggle("Keep loaded", isOn: Binding(
+			Button(action: onEdit) {
+				MenuLabel("Edit profile", icon: .pencil)
+			}
+			Toggle(isOn: Binding(
 				get: { profile.keepLoaded },
 				set: { value in model.updateProfile(profile.id) { $0.keepLoaded = value } }
-			))
+			)) {
+				MenuLabel("Keep loaded", icon: .timerOff)
+			}
 			Divider()
-			Button("Delete profile", role: .destructive) { confirmingDelete = true }
+			Button(role: .destructive) { confirmingDelete = true } label: {
+				MenuLabel("Delete profile", icon: .trash2)
+			}
 		}
 		.draggable(DraggedItem.profile(profile.id))
 		.dropDestination(for: DraggedItem.self) { items, _ in
@@ -404,5 +411,26 @@ enum DraggedItem: Codable, Transferable {
 	// bundle's Info.plist, which is the engine's (package.sh).
 	static var transferRepresentation: some TransferRepresentation {
 		CodableRepresentation(contentType: .json)
+	}
+}
+
+// A menu item's title with its lucide icon, which takes the menu's text color.
+private struct MenuLabel: View {
+	let title: String
+	let icon: Lucide
+
+	init(_ title: String, icon: Lucide) {
+		self.title = title
+		self.icon = icon
+	}
+
+	var body: some View {
+		Label {
+			Text(title)
+		} icon: {
+			Image(nsImage: icon.menuImage)
+		}
+		// Menus show only a label's title unless asked for both.
+		.labelStyle(.titleAndIcon)
 	}
 }

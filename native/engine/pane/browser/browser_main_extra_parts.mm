@@ -8,6 +8,8 @@
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
+#include "chrome/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "pane/browser/ui/window_host.h"
 
 #import "pane/browser/browser_application_internal.h"
@@ -40,6 +42,10 @@ void BrowserMainExtraParts::OnProfileManagerDestroying() {
 
 void BrowserMainExtraParts::PostBrowserStart() {
   InstallUIHooks();
+  // ⌘Q quits at once, as it did in the Electron app. Chrome asks to hold it
+  // (the "Warn Before Quitting" pref, on by default), in a panel of its own.
+  g_browser_process->local_state()->SetBoolean(prefs::kConfirmToQuitEnabled,
+                                               false);
   // Contexts let go of their profiles as quitting starts, while the message
   // loop still runs, as Chrome's windows do when they close: profiles then
   // unload with their processes. Released after the loop, a profile could be

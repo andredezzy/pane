@@ -97,3 +97,15 @@ extension BrowserController {
 		state.switcher.visible ? cycleSwitcher(backward: true) : openSwitcher(backward: true)
 	}
 }
+
+extension BrowserController: NSMenuItemValidation {
+	// In full screen the View menu's item reads Exit Full Screen, as AppKit's
+	// own toggleFullScreen: item (the Electron app's role) does.
+	func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+		if menuItem.action == #selector(toggleFullScreenWindow(_:)) {
+			menuItem.title = browserWindow.window.styleMask.contains(.fullScreen) ? "Exit Full Screen" : "Enter Full Screen"
+		}
+
+		return true
+	}
+}

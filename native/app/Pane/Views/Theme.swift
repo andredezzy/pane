@@ -122,9 +122,12 @@ enum Lucide: String {
 	case globe
 	case loaderCircle
 	case moon
+	case pencil
 	case puzzle
 	case rotateCw
 	case settings
+	case timerOff
+	case trash2
 	case x
 
 	private var elements: String {
@@ -147,12 +150,18 @@ enum Lucide: String {
 			#"<path d="M21 12a9 9 0 1 1-6.219-8.56"/>"#
 		case .moon:
 			#"<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>"#
+		case .pencil:
+			#"<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>"#
 		case .puzzle:
 			#"<path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/>"#
 		case .rotateCw:
 			#"<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>"#
 		case .settings:
 			#"<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>"#
+		case .timerOff:
+			#"<path d="M10 2h4"/><path d="M4.6 11a8 8 0 0 0 1.7 8.7 8 8 0 0 0 8.7 1.7"/><path d="M7.4 7.4a8 8 0 0 1 10.3 1 8 8 0 0 1 .9 10.2"/><path d="m2 2 20 20"/><path d="M12 12v-2"/>"#
+		case .trash2:
+			#"<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>"#
 		case .x:
 			#"<path d="M18 6 6 18"/><path d="m6 6 12 12"/>"#
 		}
@@ -160,20 +169,34 @@ enum Lucide: String {
 
 	@MainActor
 	var image: NSImage {
-		if let image = Self.cache[self] {
+		image(strokeWidth: 2, size: 24)
+	}
+
+	// A menu item's icon, as the Electron app drew them (menu/icons.ts):
+	// 16 points, a 1.5 stroke.
+	@MainActor
+	var menuImage: NSImage {
+		image(strokeWidth: 1.5, size: 16)
+	}
+
+	@MainActor
+	private func image(strokeWidth: Double, size: Int) -> NSImage {
+		let key = "\(rawValue) \(strokeWidth) \(size)"
+
+		if let image = Self.cache[key] {
 			return image
 		}
 
-		let svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">"#
+		let svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="\#(size)" height="\#(size)" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="\#(strokeWidth)" stroke-linecap="round" stroke-linejoin="round">"#
 			+ elements + "</svg>"
 		let image = NSImage(data: Data(svg.utf8)) ?? NSImage()
 		image.isTemplate = true
-		Self.cache[self] = image
+		Self.cache[key] = image
 
 		return image
 	}
 
-	@MainActor private static var cache: [Lucide: NSImage] = [:]
+	@MainActor private static var cache: [String: NSImage] = [:]
 }
 
 // A lucide icon at the design's size (h-3 is 12, h-3.5 is 14, h-4 is 16).

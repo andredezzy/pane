@@ -20,6 +20,11 @@ final class ExtensionPopover: NSObject, NSPopoverDelegate, ExtensionPopupDelegat
 		// Straight on the popover's material, the page would be blended with
 		// it (vibrancy), darkening a dark popup to near black.
 		let container = NSView(frame: NSRect(origin: .zero, size: Self.fit(popup.preferredSize)))
+		// Under the dark appearance (the Dark theme) the popup's page never
+		// paints, and the popover shows only this canvas. The page's own color
+		// scheme follows the theme app-wide, so only its view stays aqua; the
+		// popover around it stays dark.
+		container.appearance = NSAppearance(named: .aqua)
 		container.wantsLayer = true
 		container.layer?.backgroundColor = NSColor.white.cgColor
 		let page = popup.nativeView
