@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Assembles native/app/build/Pane.app: the engine's bundle (PaneCore.framework,
 # helpers, resources, Info.plist) with the Swift app's executable in place of
-# Chrome's launcher, then ad-hoc signs the nested code inside-out.
+# Chrome's launcher, then signs the nested code inside-out.
 # Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir;
-# PANE_STRIP=1 strips the engine's local symbols, as dist.sh does)
+# PANE_STRIP=1 strips the engine's local symbols, as dist.sh does;
+# PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc)
 set -euo pipefail
 
 NATIVE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -53,13 +54,33 @@ if [ "${PANE_STRIP:-}" = 1 ]; then
 	strip -x "$VERSION_DIR/PaneCore" "$VERSION_DIR"/Libraries/*.dylib 2>/dev/null
 fi
 
-echo "== sign"
+# Ad-hoc by default. With a Developer ID (PANE_SIGN_IDENTITY="Developer ID
+# Application: …"), each part is signed the way Chrome signs it
+# (chrome/installer/mac/signing/parts.py): the hardened runtime and a secure
+# timestamp, library validation everywhere except the renderer and GPU
+# helpers, which compile code at run time, and the app's entitlements for
+# what pages may ask for.
+IDENTITY="${PANE_SIGN_IDENTITY:--}"
+
+echo "== sign ($([ "$IDENTITY" = - ] && echo ad-hoc || echo "$IDENTITY"))"
 sign() {
-	codesign --force --sign - --timestamp=none "$1"
+	local path="$1" options="${2:-}" entitlements="${3:-}"
+
+	if [ "$IDENTITY" = - ]; then
+		codesign --force --sign - --timestamp=none "$path"
+	else
+		codesign --force --sign "$IDENTITY" --timestamp \
+			${options:+--options "$options"} \
+			${entitlements:+--entitlements "$APP_DIR/signing/$entitlements"} \
+			"$path"
+	fi
 }
 
 for helper in "$VERSION_DIR"/Helpers/*; do
-	sign "$helper"
+	case "$helper" in
+	*"Renderer).app" | *"GPU).app") sign "$helper" restrict,kill,runtime helper-jit.entitlements ;;
+	*) sign "$helper" restrict,library,runtime,kill ;;
+	esac
 done
 
 for library in "$VERSION_DIR"/Libraries/*.dylib; do
@@ -67,7 +88,7 @@ for library in "$VERSION_DIR"/Libraries/*.dylib; do
 done
 
 sign "$FRAMEWORK"
-sign "$OUT"
+sign "$OUT" restrict,library,runtime,kill app.entitlements
 codesign --verify --deep --strict "$OUT"
 
 echo "packaged $OUT"

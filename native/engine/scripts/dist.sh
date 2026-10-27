@@ -5,7 +5,8 @@
 # by dmgbuild, the same pinned build electron-builder runs, with the same
 # settings: the app, a link to /Applications, and "Install Pane.command" on
 # electron-builder's arrow background.
-# Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses native/app/build/Pane.app)
+# Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses native/app/build/Pane.app;
+# PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize the release)
 set -euo pipefail
 
 NATIVE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -72,6 +73,23 @@ cat > "$settings" <<SETTINGS
 SETTINGS
 
 PYTHONIOENCODING=utf8 "$DMGBUILD_DIR/dmgbuild" -s "$settings" "Pane $VERSION-arm64" "$DMG"
+
+# With a Developer ID the dmg is signed too, and with a notarytool profile
+# (xcrun notarytool store-credentials) it is notarized, which covers the app
+# inside, and the ticket stapled to it: Gatekeeper then opens both without a
+# warning. Without them, the app is ad-hoc signed and Gatekeeper warns on
+# other Macs, as with the Electron app's dmg.
+if [ "${PANE_SIGN_IDENTITY:--}" != - ]; then
+	echo "== sign dmg"
+	codesign --force --sign "$PANE_SIGN_IDENTITY" --timestamp "$DMG"
+
+	if [ -n "${PANE_NOTARY_PROFILE:-}" ]; then
+		echo "== notarize"
+		xcrun notarytool submit "$DMG" --keychain-profile "$PANE_NOTARY_PROFILE" --wait
+		xcrun stapler staple "$DMG"
+		spctl --assess --type open --context context:primary-signature --verbose "$DMG"
+	fi
+fi
 
 shasum -a 256 "$DMG"
 echo "built $DMG"

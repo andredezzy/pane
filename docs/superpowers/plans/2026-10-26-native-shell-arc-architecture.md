@@ -313,7 +313,7 @@ docs/native/parity.md
 - [x] **6.1** Write the release packaging.
   - It produces `Pane.app` with `PaneCore.framework` inside, and a dmg named `Pane-<version>-arm64.dmg`, which keeps the in-app update check's contract.
   - The native app gets a single version source.
-- [ ] **6.2 [HUMAN]** (deferred) Apple Developer ID and a `notarytool` Keychain profile. Build the signing and notarization steps so they activate when an identity exists. Until then, builds are ad-hoc signed as today, and the checklist entry says how to enable them.
+- [x] **6.2 [HUMAN]** (deferred) Apple Developer ID and a `notarytool` Keychain profile. Build the signing and notarization steps so they activate when an identity exists. Until then, builds are ad-hoc signed as today, and the checklist entry says how to enable them.
 - [ ] **6.3** Prebuilt engine.
   - `package.sh` emits a versioned PaneCore zip with a checksum.
   - The app builds against a prebuilt engine without a Chromium checkout (Ardia's `prebuilt-engines.tsv` model).
@@ -324,7 +324,7 @@ docs/native/parity.md
   - A GitHub workflow builds the app against the prebuilt engine and runs the `PaneKit` tests on macOS runners.
   - Validate it locally: lint the YAML, and run its build and test commands on this Mac.
   - Engine builds stay local or self-hosted. Provisioning a runner and the first real CI run (which needs a push) go to the checklist.
-- [ ] **6.6** Sparkle only after 6.2. Until then, keep the manual dmg flow from `DESIGN.md`.
+- [x] **6.6** Sparkle only after 6.2. Until then, keep the manual dmg flow from `DESIGN.md`.
 
 **Acceptance**
 - The dmg is produced and mounts, and the installed app passes the smoke scenario → `dist.log`, `smoke.json`
