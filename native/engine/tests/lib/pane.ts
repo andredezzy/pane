@@ -83,6 +83,8 @@ export type AppState = {
 	// The profile sheet: "new", or the edited profile's id.
 	profileSheet: string | null;
 	quitConfirmation: boolean;
+	// The toolbar puzzle's menu is open.
+	extensionsMenu: boolean;
 	// The Mac's WebGL strings, from Chrome's GPU info.
 	hostWebGL: { vendor: string; renderer: string } | null;
 	update: UpdateState;

@@ -66,6 +66,11 @@ final class WindowState {
 	// coordinates), for its popup to point at.
 	var actionAnchors: [String: CGRect] = [:]
 	static let extensionsMenuAnchor = "pane.extensions"
+	// The extensions menu, open under the toolbar's puzzle.
+	var extensionsMenuOpen = false
+	// Where Settings scrolls as it opens: the Extensions section, or one
+	// extension's card in it (their accessibility identifiers).
+	var settingsAnchor: String?
 	// The extension just installed, for the confirmation the app shows.
 	var installedExtension: String?
 	// Bumped to move focus into the address field.

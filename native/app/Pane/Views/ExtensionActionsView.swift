@@ -1,58 +1,60 @@
 import SwiftUI
 
-// The active profile's extension actions in the toolbar: pinned ones as
-// buttons with their badge, the rest in the extensions menu.
+// The active profile's extension actions in the toolbar: the pinned ones as
+// buttons with their badge, then the puzzle, which opens the extensions menu
+// (ExtensionsMenu) and shows whether or not any are installed.
 struct ExtensionActionsView: View {
 	let controller: BrowserController
 
 	private var model: BrowserModel { controller.model }
-	private var profileID: String? { model.activeProfileID }
-	private var extensions: [ExtensionInfo] {
-		profileID.flatMap { model.extensions[$0] }?.filter { $0.enabled && $0.hasAction } ?? []
+	private var pinned: [ExtensionInfo] {
+		model.activeProfileID.flatMap { model.extensions[$0] }?.filter { $0.enabled && $0.hasAction && $0.pinned } ?? []
 	}
 
 	var body: some View {
 		HStack(spacing: 5) {
-			ForEach(extensions.filter(\.pinned)) { item in
+			ForEach(pinned) { item in
 				ActionButton(item: item) { controller.runExtensionAction(item.id) }
 					.anchorPreference(item.id)
 			}
 
-			if !extensions.isEmpty {
-				Menu {
-					ForEach(extensions) { item in
-						Button(item.name) { controller.runExtensionAction(item.id) }
-					}
-
-					Divider()
-
-					ForEach(extensions) { item in
-						Button(item.pinned ? "Unpin \(item.name)" : "Pin \(item.name)") {
-							if let profileID {
-								controller.setExtension(item.id, pinned: !item.pinned, inProfile: profileID)
-							}
-						}
-					}
-
-					Divider()
-
-					Button("Manage Extensions…") { controller.model.page = .settings }
-				} label: {
-					LucideIcon(.puzzle, size: 14)
-				}
-				.menuStyle(.borderlessButton)
-				.menuIndicator(.hidden)
-				.frame(width: 28, height: 28)
-				.foregroundStyle(Palette.mutedForeground)
-				.help("Extensions")
-				.accessibilityLabel("Extensions")
-				.accessibilityIdentifier("pane.extensions")
-				.anchorPreference(WindowState.extensionsMenuAnchor)
+			if model.activeProfileID != nil {
+				ExtensionsButton(isOpen: controller.state.extensionsMenuOpen, action: controller.toggleExtensionsMenu)
+					.anchorPreference(WindowState.extensionsMenuAnchor)
 			}
 		}
 		.onPreferenceChange(ActionAnchorKey.self) { anchors in
 			controller.state.actionAnchors = anchors
 		}
+	}
+}
+
+// The puzzle, as Aside's toolbar draws it, at the action buttons' size:
+// muted; the accent fill on hover, and while its menu is open.
+private struct ExtensionsButton: View {
+	let isOpen: Bool
+	let action: () -> Void
+
+	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+	var body: some View {
+		Button(action: action) {
+			Image(nsImage: Glyph.puzzle.image(strokeWidth: 2, size: 20))
+				.renderingMode(.template)
+				.frame(width: 28, height: 28)
+				.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+		.foregroundStyle(isOpen ? Palette.foreground : isHovered ? Palette.accentForeground : Palette.mutedForeground)
+		.background(isOpen || isHovered ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+		.onHover { hovering in
+			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+		}
+		.help("Extensions")
+		.accessibilityLabel("Extensions")
+		.accessibilityAddTraits(isOpen ? .isSelected : [])
+		.accessibilityIdentifier("pane.extensions")
 	}
 }
 

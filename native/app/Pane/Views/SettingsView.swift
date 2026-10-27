@@ -15,102 +15,117 @@ struct SettingsView: View {
 
 	var body: some View {
 		GeometryReader { geometry in
-			ScrollView {
-				VStack(alignment: .leading, spacing: 0) {
-					VStack(alignment: .leading, spacing: 24) {
-						VStack(alignment: .leading, spacing: 0) {
-							Text("Settings")
-								.font(.system(size: 14, weight: .medium))
-								.foregroundStyle(Palette.accentForeground)
-								.lineBox(20)
-							Text("Manage your application preferences.")
-								.font(.system(size: 12))
-								.foregroundStyle(Palette.mutedForeground)
-								.lineBox(16)
-						}
-
-						PaneSeparator()
-
-						SettingsSection(title: "Appearance") {
-							PresetRow(
-								options: Theme.allCases,
-								selection: model.settings.theme,
-								title: { $0.rawValue.capitalized },
-								select: controller.setTheme
-							)
-							.accessibilityElement(children: .contain)
-							.accessibilityIdentifier("pane.settings.theme")
-						}
-
-						PaneSeparator()
-
-						SettingsSection(title: "Memory & disk") {
-							VStack(alignment: .leading, spacing: 16) {
-								LabeledPresetRow(
-									label: "Sleep background tabs after",
-									options: Self.tabSleepOptions,
-									selection: model.settings.tabSleepAfterMinutes
-								) { model.settings.tabSleepAfterMinutes = $0 }
-									.accessibilityIdentifier("pane.settings.tabSleep")
-								LabeledPresetRow(
-									label: "Unload hidden profiles after",
-									options: Self.profileUnloadOptions,
-									selection: model.settings.profileUnloadAfterMinutes
-								) { model.settings.profileUnloadAfterMinutes = $0 }
-									.accessibilityIdentifier("pane.settings.profileUnload")
-								LabeledPresetRow(
-									label: "Trim cache over",
-									options: Self.cacheBudgetOptions,
-									selection: model.settings.cacheBudgetMB
-								) { model.settings.cacheBudgetMB = $0 }
-									.accessibilityIdentifier("pane.settings.cacheBudget")
+			ScrollViewReader { proxy in
+				ScrollView {
+					VStack(alignment: .leading, spacing: 0) {
+						VStack(alignment: .leading, spacing: 24) {
+							VStack(alignment: .leading, spacing: 0) {
+								Text("Settings")
+									.font(.system(size: 14, weight: .medium))
+									.foregroundStyle(Palette.accentForeground)
+									.lineBox(20)
+								Text("Manage your application preferences.")
+									.font(.system(size: 12))
+									.foregroundStyle(Palette.mutedForeground)
+									.lineBox(16)
 							}
-						}
 
-						PaneSeparator()
+							PaneSeparator()
 
-						SettingsSection(title: "Extensions") {
-							ExtensionSettings(controller: controller)
-						}
+							SettingsSection(title: "Appearance") {
+								PresetRow(
+									options: Theme.allCases,
+									selection: model.settings.theme,
+									title: { $0.rawValue.capitalized },
+									select: controller.setTheme
+								)
+								.accessibilityElement(children: .contain)
+								.accessibilityIdentifier("pane.settings.theme")
+							}
 
-						PaneSeparator()
+							PaneSeparator()
 
-						SettingsSection(title: "Security") {
-							if controller.lock.state.pin == nil {
-								Button("Set up PIN") { controller.lock.show(.setup) }
-									.buttonStyle(.pane(.outline))
-									.accessibilityIdentifier("pane.settings.setUpPIN")
-							} else {
-								HStack(spacing: 8) {
-									Button("Change PIN") { controller.lock.show(.change) }
-										.buttonStyle(.pane(.outline))
-										.accessibilityIdentifier("pane.settings.changePIN")
-									Button("Remove PIN") { controller.lock.show(.remove) }
-										.buttonStyle(.pane(.outline))
-										.accessibilityIdentifier("pane.settings.removePIN")
+							SettingsSection(title: "Memory & disk") {
+								VStack(alignment: .leading, spacing: 16) {
+									LabeledPresetRow(
+										label: "Sleep background tabs after",
+										options: Self.tabSleepOptions,
+										selection: model.settings.tabSleepAfterMinutes
+									) { model.settings.tabSleepAfterMinutes = $0 }
+										.accessibilityIdentifier("pane.settings.tabSleep")
+									LabeledPresetRow(
+										label: "Unload hidden profiles after",
+										options: Self.profileUnloadOptions,
+										selection: model.settings.profileUnloadAfterMinutes
+									) { model.settings.profileUnloadAfterMinutes = $0 }
+										.accessibilityIdentifier("pane.settings.profileUnload")
+									LabeledPresetRow(
+										label: "Trim cache over",
+										options: Self.cacheBudgetOptions,
+										selection: model.settings.cacheBudgetMB
+									) { model.settings.cacheBudgetMB = $0 }
+										.accessibilityIdentifier("pane.settings.cacheBudget")
 								}
 							}
-						}
 
-						PaneSeparator()
+							PaneSeparator()
 
-						SettingsSection(title: "Updates") {
-							UpdateSettings(updater: controller.updater)
+							SettingsSection(title: "Extensions") {
+								ExtensionSettings(controller: controller)
+							}
+							.id("pane.settings.extensions")
+
+							PaneSeparator()
+
+							SettingsSection(title: "Security") {
+								if controller.lock.state.pin == nil {
+									Button("Set up PIN") { controller.lock.show(.setup) }
+										.buttonStyle(.pane(.outline))
+										.accessibilityIdentifier("pane.settings.setUpPIN")
+								} else {
+									HStack(spacing: 8) {
+										Button("Change PIN") { controller.lock.show(.change) }
+											.buttonStyle(.pane(.outline))
+											.accessibilityIdentifier("pane.settings.changePIN")
+										Button("Remove PIN") { controller.lock.show(.remove) }
+											.buttonStyle(.pane(.outline))
+											.accessibilityIdentifier("pane.settings.removePIN")
+									}
+								}
+							}
+
+							PaneSeparator()
+
+							SettingsSection(title: "Updates") {
+								UpdateSettings(updater: controller.updater)
+							}
 						}
+						.frame(maxWidth: 480, alignment: .leading)
+
+						Spacer(minLength: 32)
+
+						Text("Version \(Self.version)")
+							.font(.system(size: 11).monospacedDigit())
+							.lineBox(16.5)
+							.foregroundStyle(Palette.mutedForeground)
+							.frame(maxWidth: .infinity, alignment: .trailing)
 					}
-					.frame(maxWidth: 480, alignment: .leading)
-
-					Spacer(minLength: 32)
-
-					Text("Version \(Self.version)")
-						.font(.system(size: 11).monospacedDigit())
-						.lineBox(16.5)
-						.foregroundStyle(Palette.mutedForeground)
-						.frame(maxWidth: .infinity, alignment: .trailing)
+					.padding(.horizontal, 40)
+					.padding(.vertical, 32)
+					.frame(minHeight: geometry.size.height, alignment: .top)
 				}
-				.padding(.horizontal, 40)
-				.padding(.vertical, 32)
-				.frame(minHeight: geometry.size.height, alignment: .top)
+				// The extensions menu's Manage items open Settings at Extensions,
+				// once the section is laid out.
+				.onChange(of: controller.state.settingsAnchor, initial: true) { _, anchor in
+					guard let anchor else {
+						return
+					}
+
+					DispatchQueue.main.async {
+						proxy.scrollTo(anchor, anchor: .top)
+						controller.state.settingsAnchor = nil
+					}
+				}
 			}
 		}
 		.background(Palette.card)

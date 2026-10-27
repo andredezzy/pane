@@ -485,6 +485,42 @@ final class Automation {
 		case "closeExtensionPopup":
 			controller.extensionPopover.close()
 
+		case "extensionsMenu":
+			// What the puzzle and the extensions menu's controls call, for a
+			// locked screen, where they cannot be clicked.
+			let control = try string("control")
+
+			if control == "puzzle" {
+				controller.toggleExtensionsMenu()
+				break
+			}
+
+			if control == "manage" {
+				controller.showExtensionSettings()
+				break
+			}
+
+			if control == "webStore" {
+				controller.visitWebStore()
+				break
+			}
+
+			let id = try string("id")
+
+			guard
+				let profileID = model.activeProfileID,
+				let item = model.extensions[profileID]?.first(where: { $0.id == id })
+			else {
+				throw AutomationError("no extension \(id) in the active profile")
+			}
+
+			switch control {
+			case "run": controller.runExtensionFromMenu(id)
+			case "pin": controller.setExtension(id, pinned: !item.pinned, inProfile: profileID)
+			case "more": controller.showExtensionMoreMenu(item, at: controller.state.actionAnchors[WindowState.extensionsMenuAnchor] ?? .zero)
+			default: throw AutomationError("unknown extensions menu control \(control)")
+			}
+
 		case "render":
 			// Draws the window's app UI (not the pages, which the GPU process
 			// composites) into a PNG, for checks while the screen is locked.
@@ -891,6 +927,7 @@ final class Automation {
 					"height": popup.preferredSize.height,
 				] as [String: Any]
 			} ?? NSNull(),
+			"extensionsMenu": controller.state.extensionsMenuOpen,
 			"installedExtension": controller.state.installedExtension ?? NSNull(),
 			"pageFullscreen": controller.state.pageFullscreen,
 			"exclusiveAccessHint": controller.state.exclusiveAccessHint ?? NSNull(),

@@ -75,8 +75,12 @@ struct ExtensionSettings: View {
 								setPinned: { pinned in
 									selectedProfileID.map { controller.setExtension(item.id, pinned: pinned, inProfile: $0) }
 								},
-								uninstall: { confirmUninstall(item) }
+								uninstall: {
+									selectedProfileID.map { controller.confirmUninstall(item, inProfile: $0) }
+								}
 							)
+							// Where Manage extension scrolls to.
+							.id("pane.settings.extension.\(item.id)")
 						}
 					}
 					.padding(.top, 16)
@@ -110,21 +114,6 @@ struct ExtensionSettings: View {
 
 		controller.installExtension(id, inProfile: profileID)
 		input = ""
-	}
-
-	private func confirmUninstall(_ item: ExtensionInfo) {
-		guard let profileID = selectedProfileID else {
-			return
-		}
-
-		let profileName = selectedProfile?.name ?? "this profile"
-
-		controller.state.dialog = WindowState.ConfirmDialog(
-			title: "Uninstall \(item.name)?",
-			message: "This will remove the extension from \u{201C}\(profileName)\u{201D}.",
-			confirmTitle: "Uninstall",
-			confirm: { [controller] in controller.uninstallExtension(item.id, inProfile: profileID) }
-		)
 	}
 }
 

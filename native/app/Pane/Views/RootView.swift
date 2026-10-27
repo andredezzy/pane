@@ -39,6 +39,19 @@ struct RootView: View {
 				FindOverlay(controller: controller)
 			}
 
+			// The extensions menu, its trailing edge on the puzzle's, 4 points
+			// under it. A click anywhere else closes it, as a menu's would.
+			if state.extensionsMenuOpen, let anchor = state.actionAnchors[WindowState.extensionsMenuAnchor] {
+				Color.clear
+					.contentShape(Rectangle())
+					.onTapGesture(perform: controller.closeExtensionsMenu)
+
+				ExtensionsMenu(controller: controller)
+					.padding(.leading, max(8, anchor.maxX - 300))
+					.padding(.top, anchor.maxY + 4)
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+			}
+
 			if state.switcher.visible {
 				Palette.sheetScrim
 					.allowsHitTesting(false)
@@ -89,6 +102,14 @@ struct RootView: View {
 			}
 		}
 		.animation(reduceMotion ? nil : .default, value: controller.lock.entry == nil)
+		// The extensions menu belongs to the tab and the window it opened over.
+		.onChange(of: model.activeTabID) { controller.closeExtensionsMenu() }
+		.onChange(of: model.activeProfileID) { controller.closeExtensionsMenu() }
+		.onChange(of: model.page) { controller.closeExtensionsMenu() }
+		.onChange(of: controller.lock.entry == nil) { controller.closeExtensionsMenu() }
+		.onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification, object: controller.browserWindow.window)) { _ in
+			controller.closeExtensionsMenu()
+		}
 		.background(Palette.background)
 		.ignoresSafeArea()
 		.overlay(alignment: .top) {

@@ -124,7 +124,6 @@ enum Lucide: String {
 	case loaderCircle
 	case moon
 	case pencil
-	case puzzle
 	case rotateCw
 	case settings
 	case timerOff
@@ -155,8 +154,6 @@ enum Lucide: String {
 			#"<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>"#
 		case .pencil:
 			#"<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>"#
-		case .puzzle:
-			#"<path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/>"#
 		case .rotateCw:
 			#"<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>"#
 		case .settings:
@@ -184,9 +181,54 @@ enum Lucide: String {
 
 	@MainActor
 	func image(strokeWidth: Double, size: Int) -> NSImage {
-		let key = "\(rawValue) \(strokeWidth) \(size)"
+		TemplateIcon.image("lucide.\(rawValue)", elements, strokeWidth: strokeWidth, size: size)
+	}
+}
 
-		if let image = Self.cache[key] {
+// Pane's own icons, drawn after Aside's extensions menu: its puzzle (a knob
+// on top, a notch on the right), a bell-shaped pin, the pin struck through,
+// the arrow onto a line, and three dots. On Lucide's grid (24 units, round
+// caps and joins), so they sit with its icons.
+enum Glyph: String {
+	case download
+	case ellipsis
+	case pin
+	case pinOff
+	case puzzle
+
+	private var elements: String {
+		switch self {
+		case .download:
+			#"<path d="M12 3.25v14"/><path d="m7.25 12.5 4.75 4.75 4.75-4.75"/><path d="M5 20.75h14"/>"#
+		case .ellipsis:
+			#"<circle cx="3.4" cy="12" r="1.9" fill="black" stroke="none"/><circle cx="12" cy="12" r="1.9" fill="black" stroke="none"/><circle cx="20.6" cy="12" r="1.9" fill="black" stroke="none"/>"#
+		case .pin:
+			#"<path d="M12 14.5V21"/><path d="M8 9V6a2.5 2.5 0 0 1 2.5-2.5h3A2.5 2.5 0 0 1 16 6v3l3.3 5.5H4.7Z"/>"#
+		case .pinOff:
+			// The pin stops short of the stroke on its upper side, and meets
+			// it below.
+			#"<path d="M5.5 14.5h-.8L8 9V6a2.5 2.5 0 0 1 2.5-2.5h3a2.5 2.5 0 0 1 2 1"/><path d="M16 8v1l3.3 5.5H9.5"/><path d="M12 14.5V21"/><path d="M4.25 19.75 19.75 4.25"/>"#
+		case .puzzle:
+			#"<path d="M6 6.25H9.67A2.35 2.35 0 1 1 14.33 6.25H18A2 2 0 0 1 20 8.25V10.88A2.5 2.5 0 0 0 20 15.88V18.5A2 2 0 0 1 18 20.5H6A2 2 0 0 1 4 18.5V8.25A2 2 0 0 1 6 6.25Z"/>"#
+		}
+	}
+
+	@MainActor
+	func image(strokeWidth: Double, size: Int) -> NSImage {
+		TemplateIcon.image("glyph.\(rawValue)", elements, strokeWidth: strokeWidth, size: size)
+	}
+}
+
+// An icon's SVG elements as a template image, `size` points square, so it
+// takes the text color. Each name, stroke, and size is drawn once.
+@MainActor
+private enum TemplateIcon {
+	private static var cache: [String: NSImage] = [:]
+
+	static func image(_ name: String, _ elements: String, strokeWidth: Double, size: Int) -> NSImage {
+		let key = "\(name) \(strokeWidth) \(size)"
+
+		if let image = cache[key] {
 			return image
 		}
 
@@ -194,12 +236,10 @@ enum Lucide: String {
 			+ elements + "</svg>"
 		let image = NSImage(data: Data(svg.utf8)) ?? NSImage()
 		image.isTemplate = true
-		Self.cache[key] = image
+		cache[key] = image
 
 		return image
 	}
-
-	@MainActor private static var cache: [String: NSImage] = [:]
 }
 
 // A lucide icon at the design's size (h-3 is 12, h-3.5 is 14, h-4 is 16).
