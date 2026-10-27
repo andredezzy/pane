@@ -86,6 +86,13 @@ struct Squircle: InsettableShape {
 		self.cornerRadius = cornerRadius
 	}
 
+	// The radius animates, so a shape can round off as it grows (the active
+	// profile's bar becoming a square).
+	var animatableData: CGFloat {
+		get { cornerRadius }
+		set { cornerRadius = newValue }
+	}
+
 	// A circular corner of 0.57 of the radius follows it within 0.012 of the
 	// radius (0.12 points at 10): for layers, whose corners can only be
 	// circular or Apple's continuous ones.
@@ -212,14 +219,17 @@ enum Lucide: String {
 	case chevronLeft
 	case chevronRight
 	case chevronsDownUp
+	case chevronsUpDown
 	case circleDashedX
 	case globe
 	case loaderCircle
+	case monitor
 	case moon
 	case pencil
 	case rotateCw
 	case settings
 	case squareArrowOutUpRight
+	case sun
 	case timerOff
 	case trash2
 	case x
@@ -244,10 +254,14 @@ enum Lucide: String {
 			#"<circle cx="12" cy="12" r="9" stroke-dasharray="2.6 2.6"/><path d="M9.5 9.5l5 5"/><path d="M14.5 9.5l-5 5"/>"#
 		case .chevronsDownUp:
 			#"<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>"#
+		case .chevronsUpDown:
+			#"<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>"#
 		case .globe:
 			#"<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>"#
 		case .loaderCircle:
 			#"<path d="M21 12a9 9 0 1 1-6.219-8.56"/>"#
+		case .monitor:
+			#"<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>"#
 		case .moon:
 			#"<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>"#
 		case .pencil:
@@ -258,6 +272,8 @@ enum Lucide: String {
 			#"<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>"#
 		case .squareArrowOutUpRight:
 			#"<path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/><path d="m21 3-9 9"/><path d="M15 3h6v6"/>"#
+		case .sun:
+			#"<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>"#
 		case .timerOff:
 			#"<path d="M10 2h4"/><path d="M4.6 11a8 8 0 0 0 1.7 8.7 8 8 0 0 0 8.7 1.7"/><path d="M7.4 7.4a8 8 0 0 1 10.3 1 8 8 0 0 1 .9 10.2"/><path d="m2 2 20 20"/><path d="M12 12v-2"/>"#
 		case .trash2:

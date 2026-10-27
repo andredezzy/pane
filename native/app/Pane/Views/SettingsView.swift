@@ -1,9 +1,10 @@
 import PaneKit
 import SwiftUI
 
-// Settings, as the Electron app's page: px-10 py-8, a 480px column of
-// sections 24px apart, each under a caps label and a hairline; the app's
-// version at the bottom right.
+// Settings, in Aside's layout (Paper: 05.1 Settings): a large title, then a
+// muted label over each section's card. A card's rows each hold a title and
+// a description, with their control at the trailing end: a pop-up button
+// (the system's own menu, with up and down chevrons) or outline buttons.
 struct SettingsView: View {
 	let controller: BrowserController
 
@@ -14,102 +15,94 @@ struct SettingsView: View {
 	private static let version = Bundle.main.object(forInfoDictionaryKey: "PaneVersion") as? String ?? "…"
 
 	var body: some View {
-		GeometryReader { geometry in
-			ScrollView {
-				VStack(alignment: .leading, spacing: 0) {
-					VStack(alignment: .leading, spacing: 24) {
-						VStack(alignment: .leading, spacing: 0) {
-							Text("Settings")
-								.font(.system(size: 14, weight: .medium))
-								.foregroundStyle(Palette.accentForeground)
-								.lineBox(20)
-							Text("Manage your application preferences.")
-								.font(.system(size: 12))
-								.foregroundStyle(Palette.mutedForeground)
-								.lineBox(16)
-						}
+		ScrollView {
+			VStack(alignment: .leading, spacing: 28) {
+				Text("Settings")
+					.font(.system(size: 22, weight: .medium))
+					.foregroundStyle(Palette.accentForeground)
+					.lineBox(28)
 
-						PaneSeparator()
-
-						SettingsSection(title: "Appearance") {
-							PresetRow(
-								options: Theme.allCases,
+				VStack(alignment: .leading, spacing: 28) {
+					SettingsGroup(title: "Appearance") {
+						SettingsRow(title: "Theme", description: "Choose how Pane looks.", last: true) {
+							PopUpButton(
+								options: Theme.allCases.map { ($0.rawValue.capitalized, $0) },
 								selection: model.settings.theme,
-								title: { $0.rawValue.capitalized },
+								icon: Self.icon(for:),
 								select: controller.setTheme
 							)
-							.accessibilityElement(children: .contain)
 							.accessibilityIdentifier("pane.settings.theme")
 						}
+					}
 
-						PaneSeparator()
-
-						SettingsSection(title: "Memory & disk") {
-							VStack(alignment: .leading, spacing: 16) {
-								LabeledPresetRow(
-									label: "Sleep background tabs after",
-									options: Self.tabSleepOptions,
-									selection: model.settings.tabSleepAfterMinutes
-								) { model.settings.tabSleepAfterMinutes = $0 }
-									.accessibilityIdentifier("pane.settings.tabSleep")
-								LabeledPresetRow(
-									label: "Unload hidden profiles after",
-									options: Self.profileUnloadOptions,
-									selection: model.settings.profileUnloadAfterMinutes
-								) { model.settings.profileUnloadAfterMinutes = $0 }
-									.accessibilityIdentifier("pane.settings.profileUnload")
-								LabeledPresetRow(
-									label: "Trim cache over",
-									options: Self.cacheBudgetOptions,
-									selection: model.settings.cacheBudgetMB
-								) { model.settings.cacheBudgetMB = $0 }
-									.accessibilityIdentifier("pane.settings.cacheBudget")
+					SettingsGroup(title: "Memory & disk") {
+						SettingsRow(title: "Sleep background tabs", description: "A tab in the background sleeps after this long, to free memory.") {
+							PopUpButton(options: Self.tabSleepOptions, selection: model.settings.tabSleepAfterMinutes) {
+								model.settings.tabSleepAfterMinutes = $0
 							}
+							.accessibilityIdentifier("pane.settings.tabSleep")
 						}
 
-
-						PaneSeparator()
-
-						SettingsSection(title: "Security") {
-							if controller.lock.state.pin == nil {
-								Button("Set up PIN") { controller.lock.show(.setup) }
-									.buttonStyle(.pane(.outline))
-									.accessibilityIdentifier("pane.settings.setUpPIN")
-							} else {
-								HStack(spacing: 8) {
-									Button("Change PIN") { controller.lock.show(.change) }
-										.buttonStyle(.pane(.outline))
-										.accessibilityIdentifier("pane.settings.changePIN")
-									Button("Remove PIN") { controller.lock.show(.remove) }
-										.buttonStyle(.pane(.outline))
-										.accessibilityIdentifier("pane.settings.removePIN")
-								}
+						SettingsRow(title: "Unload hidden profiles", description: "A profile out of view unloads after this long.") {
+							PopUpButton(options: Self.profileUnloadOptions, selection: model.settings.profileUnloadAfterMinutes) {
+								model.settings.profileUnloadAfterMinutes = $0
 							}
+							.accessibilityIdentifier("pane.settings.profileUnload")
 						}
 
-						PaneSeparator()
-
-						SettingsSection(title: "Updates") {
-							UpdateSettings(updater: controller.updater)
+						SettingsRow(title: "Trim cache", description: "A profile that unloads trims its cache past this size.", last: true) {
+							PopUpButton(options: Self.cacheBudgetOptions, selection: model.settings.cacheBudgetMB) {
+								model.settings.cacheBudgetMB = $0
+							}
+							.accessibilityIdentifier("pane.settings.cacheBudget")
 						}
 					}
-					.frame(maxWidth: 480, alignment: .leading)
 
-					Spacer(minLength: 32)
+					SettingsGroup(title: "Security") {
+						if controller.lock.state.pin == nil {
+							SettingsRow(title: "PIN", description: "Lock Pane with a PIN.", last: true) {
+								Button("Set up PIN") { controller.lock.show(.setup) }
+									.buttonStyle(.pane(.outline, size: .small))
+									.accessibilityIdentifier("pane.settings.setUpPIN")
+							}
+						} else {
+							SettingsRow(title: "PIN", description: "Pane asks for it when it opens.", last: true) {
+								Button("Change PIN") { controller.lock.show(.change) }
+									.buttonStyle(.pane(.outline, size: .small))
+									.accessibilityIdentifier("pane.settings.changePIN")
+								Button("Remove PIN") { controller.lock.show(.remove) }
+									.buttonStyle(.pane(.outline, size: .small))
+									.accessibilityIdentifier("pane.settings.removePIN")
+							}
+						}
+					}
 
-					Text("Version \(Self.version)")
-						.font(.system(size: 11).monospacedDigit())
-						.lineBox(16.5)
-						.foregroundStyle(Palette.mutedForeground)
-						.frame(maxWidth: .infinity, alignment: .trailing)
+					SettingsGroup(title: "Updates") {
+						UpdateRow(updater: controller.updater)
+
+						SettingsRow(title: "Version", last: true) {
+							Text(Self.version)
+								.font(.system(size: 13).monospacedDigit())
+								.foregroundStyle(Palette.mutedForeground)
+						}
+					}
 				}
-				.padding(.horizontal, 40)
-				.padding(.vertical, 32)
-				.frame(minHeight: geometry.size.height, alignment: .top)
+				.frame(maxWidth: 640, alignment: .leading)
 			}
+			.padding(.horizontal, 40)
+			.padding(.vertical, 32)
+			.frame(maxWidth: .infinity, alignment: .leading)
 		}
 		.background(Palette.card)
 		.accessibilityIdentifier("pane.settings")
+	}
+
+	private static func icon(for theme: Theme) -> Lucide {
+		switch theme {
+		case .system: .monitor
+		case .light: .sun
+		case .dark: .moon
+		}
 	}
 }
 
@@ -123,67 +116,168 @@ extension SettingsView {
 	static let cacheBudgetOptions: [(String, Int?)] = [("100 MB", 100), ("300 MB", 300), ("1 GB", 1024), ("Off", nil)]
 }
 
-// A medium 11px label, the presets 8px below.
-private struct LabeledPresetRow: View {
-	let label: String
-	let options: [(String, Int?)]
-	let selection: Int?
-	let select: (Int?) -> Void
+// A section: its muted label 15 points in, over a card rounded 22 with a
+// 1-point border, its rows inside.
+private struct SettingsGroup<Content: View>: View {
+	let title: String
+	@ViewBuilder let content: Content
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 8) {
-			Text(label)
-				.font(.system(size: 11, weight: .medium))
-				.foregroundStyle(Palette.foreground)
-				.lineBox(16.5)
+		VStack(alignment: .leading, spacing: 10) {
+			Text(title)
+				.font(.system(size: 13))
+				.foregroundStyle(Palette.mutedForeground)
+				.padding(.leading, 15)
 
-			PresetRow(
-				options: options.map(\.1),
-				selection: selection,
-				title: { value in options.first { $0.1 == value }?.0 ?? "" },
-				select: select
-			)
+			VStack(spacing: 0) {
+				content
+			}
+			.background(Palette.card, in: Squircle(cornerRadius: 22))
+			.overlay {
+				Squircle(cornerRadius: 22)
+					.strokeBorder(Palette.border, lineWidth: 1)
+			}
 			.accessibilityElement(children: .contain)
 		}
 	}
 }
 
-// The Electron app's Updates section: Check for updates and when it last
-// checked, or the available version and its download.
-private struct UpdateSettings: View {
+// A row, at least 56 points: the title at 13 and its description at 12,
+// muted, then the control 10 points from the card's edge; a hairline under
+// every row but the last.
+private struct SettingsRow<Control: View>: View {
+	let title: String
+	var description: String?
+	var last = false
+	@ViewBuilder let control: Control
+
+	var body: some View {
+		HStack(spacing: 16) {
+			VStack(alignment: .leading, spacing: 2) {
+				Text(title)
+					.font(.system(size: 13))
+					.foregroundStyle(Palette.foreground)
+
+				if let description {
+					Text(description)
+						.font(.system(size: 12))
+						.foregroundStyle(Palette.mutedForeground)
+						.contentTransition(.opacity)
+				}
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+
+			HStack(spacing: 8) {
+				control
+			}
+		}
+		.padding(.leading, 15)
+		.padding(.trailing, 10)
+		.padding(.vertical, 12)
+		.frame(minHeight: 56)
+		.overlay(alignment: .bottom) {
+			if !last {
+				Rectangle()
+					.fill(Palette.border)
+					.frame(height: 1)
+			}
+		}
+	}
+}
+
+// A pop-up button, as Aside's: 32 points, a 1-point border and no fill, the
+// value (and its icon, if it has one) and up and down chevrons. A click shows
+// the system's menu of the options, the current one checked.
+private struct PopUpButton<Value: Hashable>: View {
+	let options: [(String, Value)]
+	let selection: Value
+	var icon: ((Value) -> Lucide)?
+	let select: (Value) -> Void
+
+	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+	var body: some View {
+		Menu {
+			Picker(
+				"",
+				selection: Binding(get: { selection }, set: select)
+			) {
+				ForEach(options, id: \.1) { option in
+					Text(option.0).tag(option.1)
+				}
+			}
+			.pickerStyle(.inline)
+			.labelsHidden()
+		} label: {
+			HStack(spacing: 8) {
+				if let icon {
+					LucideIcon(icon(selection), size: 14, strokeWidth: 1.75)
+						.foregroundStyle(Palette.foreground)
+				}
+
+				Text(options.first { $0.1 == selection }?.0 ?? "")
+					.font(.system(size: 13))
+					.foregroundStyle(Palette.foreground)
+
+				LucideIcon(.chevronsUpDown, size: 13, strokeWidth: 2)
+					.foregroundStyle(Palette.mutedForeground)
+			}
+			.padding(.leading, 12)
+			.padding(.trailing, 10)
+			.frame(height: 32)
+			.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 11))
+			.overlay {
+				Squircle(cornerRadius: 11)
+					.strokeBorder(Palette.border, lineWidth: 1)
+			}
+			.contentShape(Squircle(cornerRadius: 11))
+		}
+		.menuStyle(.button)
+		.buttonStyle(.plain)
+		.menuIndicator(.hidden)
+		.fixedSize()
+		.onHover { hovering in
+			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+		}
+	}
+}
+
+// Updates: what the last check found, then Check for updates; or the
+// available version, then its download.
+private struct UpdateRow: View {
 	let updater: Updater
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			if let available = updater.available {
-				VStack(alignment: .leading, spacing: 8) {
-					Text("Version \(available.version) is available")
-						.font(.system(size: 12))
-						.foregroundStyle(Palette.mutedForeground)
-						.lineBox(16)
-
-					Button(downloadLabel) { updater.downloadUpdate() }
-						.buttonStyle(.pane(.outline))
-						.disabled(updater.status == .downloading || updater.status == .downloaded)
-						.accessibilityIdentifier("pane.settings.downloadUpdate")
-				}
+		SettingsRow(title: "Updates", description: status) {
+			if updater.available != nil {
+				Button(downloadLabel) { updater.downloadUpdate() }
+					.buttonStyle(.pane(.outline, size: .small))
+					.disabled(updater.status == .downloading || updater.status == .downloaded)
+					.accessibilityIdentifier("pane.settings.downloadUpdate")
 			} else {
 				Button(updater.status == .checking ? "Checking\u{2026}" : "Check for updates") {
 					Task { await updater.check() }
 				}
-				.buttonStyle(.pane(.outline))
+				.buttonStyle(.pane(.outline, size: .small))
 				.disabled(updater.status == .checking)
 				.accessibilityIdentifier("pane.settings.checkUpdates")
-
-				if let checked = updater.lastCheckedAt {
-					Text("Pane is up to date \u{00B7} checked at \(checked.formatted(date: .omitted, time: .shortened))")
-						.font(.system(size: 12))
-						.foregroundStyle(Palette.mutedForeground)
-						.lineBox(16)
-						.accessibilityIdentifier("pane.settings.upToDate")
-				}
 			}
 		}
+		.accessibilityElement(children: .contain)
+		.accessibilityIdentifier(updater.available == nil && updater.lastCheckedAt != nil ? "pane.settings.upToDate" : "pane.settings.updates")
+	}
+
+	private var status: String {
+		if let available = updater.available {
+			return "Version \(available.version) is available."
+		}
+
+		if let checked = updater.lastCheckedAt {
+			return "Pane is up to date \u{00B7} checked at \(checked.formatted(date: .omitted, time: .shortened))"
+		}
+
+		return "Pane checks for a new version on its own."
 	}
 
 	private var downloadLabel: String {
@@ -196,19 +290,6 @@ private struct UpdateSettings: View {
 			return "Downloaded, quit to install"
 		default:
 			return "Download update"
-		}
-	}
-}
-
-// A caps label, then the section 12px below.
-struct SettingsSection<Content: View>: View {
-	let title: String
-	@ViewBuilder let content: Content
-
-	var body: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(title: title)
-			content
 		}
 	}
 }

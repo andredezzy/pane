@@ -28,9 +28,15 @@ Moving a **selection or highlight** applies instantly, with no transition — wh
 
 Reserve transitions for **hover feedback and enter/exit** — smooth, non-repeated changes where motion aids the eye without fighting input speed. For example, an inactive sidebar tab fades its background on hover, but the active (selected) tab switches instantly.
 
+### An indicator's own change of shape animates
+
+When an item becomes selected and its indicator changes shape, the shape morphs instead of jumping: the active profile's bar grows into a square, rounding off as it widens, and the name beside it moves along. It takes a short spring (about a third of a second, no overshoot to speak of). This is not the highlight moving from item to item, which stays instant. It is the item's own detail settling into its new state, and it is where the app's craft shows.
+
 Implementation notes:
 
 - Selection highlights (active/selected backgrounds and rings) carry no `transition` utility.
+- An indicator that changes shape with a selection animates its size and radius together (`Squircle`'s radius animates), with the spring in `ProfileSection`.
+- Hover fills animate in 0.15 s, easing out, everywhere a hover shows: a fill that appears at once is a missing animation.
 - Scope `transition-colors` to hover states only — e.g. the inactive branch of a tab's className, never the active/selected branch.
 - Always honor `prefers-reduced-motion`.
 

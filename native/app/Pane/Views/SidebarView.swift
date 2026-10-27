@@ -170,6 +170,7 @@ private struct ProfileSection: View {
 	// loaded shows none.
 	@State private var wasLoaded = false
 	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	private var model: BrowserModel { controller.model }
 	private var isExpanded: Bool { model.expandedProfileIDs.contains(profile.id) }
@@ -211,17 +212,12 @@ private struct ProfileSection: View {
 
 		return Button(action: toggle) {
 			HStack(spacing: 8) {
-				// The active profile's bar grows to a 16-point square, the
-				// favicons' size. A selection, so it does not animate.
-				if isActive {
-					Squircle(cornerRadius: 4)
-						.fill(color)
-						.frame(width: 16, height: 16)
-				} else {
-					Capsule(style: .circular)
-						.fill(color)
-						.frame(width: 4, height: 16)
-				}
+				// The active profile's bar grows into a 16-point square, the
+				// favicons' size, rounding off as it widens; the name moves
+				// along (DESIGN.md: Motion, an indicator morphs).
+				Squircle(cornerRadius: isActive ? 4 : 2)
+					.fill(color)
+					.frame(width: isActive ? 16 : 4, height: 16)
 
 				Text(profile.name)
 					.font(.system(size: 12, weight: .medium))
@@ -255,6 +251,7 @@ private struct ProfileSection: View {
 			Squircle(cornerRadius: SidebarRow.cornerRadius)
 				.fill(isActive ? color.opacity(0.04) : .clear)
 		}
+		.animation(reduceMotion ? nil : Self.morph, value: isActive)
 		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: SidebarRow.cornerRadius)
 		// The Electron app's menu, with its lucide icons.
 		.contextMenu {
@@ -289,6 +286,10 @@ private struct ProfileSection: View {
 		.accessibilityIdentifier("pane.profile.\(profile.id)")
 		.accessibilityLabel(profile.name)
 	}
+
+	// Short and settled: about a third of a second, with no overshoot to
+	// speak of.
+	private static let morph = Animation.spring(response: 0.32, dampingFraction: 0.86)
 
 	private func toggle() {
 		if isExpanded {
