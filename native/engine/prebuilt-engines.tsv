@@ -1,0 +1,9 @@
+# Prebuilt engines (scripts/fetch-engine.sh), after Ardia's model: the engine
+# key (scripts/engine-key.sh: the git trees of CHROMIUM_VERSION, args,
+# patches, and //pane), the GitHub release whose assets carry
+# PaneCore-<chromium>-<key:12>.zip, and the archive's SHA-256. A release
+# that changes the engine adds a line: PANE_ENGINE_ARCHIVE=1 dist.sh prints
+# it, and the archive is published as a prerelease named engine-<key:12>
+# (HUMAN-CHECKLIST.md), which the update check, reading the latest release,
+# never sees.
+01d00c32e74719781650aa7e68f2c4bca427f019	engine-01d00c32e747	e226ab3bbe0a56352876b6c3551b830a476c5258d71f52be99a591bd9db73994

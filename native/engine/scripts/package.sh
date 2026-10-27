@@ -4,7 +4,8 @@
 # Chrome's launcher, then signs the nested code inside-out.
 # Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir;
 # PANE_STRIP=1 strips the engine's local symbols, as dist.sh does;
-# PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc)
+# PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc;
+# PANE_ENGINE_ARCHIVE=1 also archives the engine for prebuilt-engines.tsv)
 set -euo pipefail
 
 NATIVE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -92,3 +93,36 @@ sign "$OUT" restrict,library,runtime,kill app.entitlements
 codesign --verify --deep --strict "$OUT"
 
 echo "packaged $OUT"
+
+# The engine a release was built with, for the app to build on without a
+# Chromium checkout (fetch-engine.sh): app/release/PaneCore-<chromium>-<key>.zip,
+# the engine's bundle stripped, with PaneCore.framework at its top for the
+# linker, and its SHA-256. A GitHub release carries it, and
+# prebuilt-engines.tsv names that release.
+if [ "${PANE_ENGINE_ARCHIVE:-}" = 1 ]; then
+	echo "== engine archive"
+	KEY="$("$NATIVE_DIR/engine/scripts/engine-key.sh")"
+	CHROMIUM="$(tr -d '[:space:]' < "$NATIVE_DIR/engine/CHROMIUM_VERSION")"
+	BUILT="$(plutil -extract CFBundleShortVersionString raw "$ENGINE_OUT/Pane.app/Contents/Info.plist")"
+
+	if [ "$BUILT" != "$CHROMIUM" ]; then
+		echo "error: the engine in $ENGINE_OUT is $BUILT, not $CHROMIUM" >&2
+		exit 1
+	fi
+
+	ARCHIVE="$APP_DIR/release/PaneCore-$CHROMIUM-${KEY:0:12}.zip"
+	STAGE="$(mktemp -d)"
+	ditto "$ENGINE_OUT/Pane.app" "$STAGE/Pane.app"
+	ln -s Pane.app/Contents/Frameworks/PaneCore.framework "$STAGE/PaneCore.framework"
+	strip -x "$STAGE/PaneCore.framework/Versions/Current/PaneCore" "$STAGE/PaneCore.framework/Versions/Current"/Libraries/*.dylib 2>/dev/null
+
+	mkdir -p "$APP_DIR/release"
+	rm -f "$ARCHIVE"
+	ditto -c -k --norsrc --noextattr --noacl "$STAGE" "$ARCHIVE"
+	rm -rf "$STAGE"
+
+	SHA256="$(shasum -a 256 "$ARCHIVE" | awk '{ print $1 }')"
+	echo "$SHA256  $(basename "$ARCHIVE")" > "$ARCHIVE.sha256"
+	echo "archived $ARCHIVE"
+	printf 'prebuilt-engines.tsv: %s\tengine-%s\t%s\n' "$KEY" "${KEY:0:12}" "$SHA256"
+fi

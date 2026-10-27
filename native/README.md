@@ -52,3 +52,13 @@ native/engine/scripts/dist.sh      # app/release/Pane-<version>-arm64.dmg: packa
 ```
 
 The app's version lives in `app/VERSION`, its only source: the bundle's version keys, Settings, the update check, and the dmg's name all come from it.
+
+## Prebuilt engine
+
+The app builds without a Chromium checkout on a prebuilt engine, as Ardia's does:
+
+```bash
+PANE_ENGINE_OUT="$(native/engine/scripts/fetch-engine.sh)" native/engine/scripts/package.sh
+```
+
+`engine/prebuilt-engines.tsv` names, per engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`), the GitHub release that carries `PaneCore-<chromium>-<key>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `app/build/engines/`. A checkout whose engine sources changed has no prebuilt: build the engine. `PANE_ENGINE_ARCHIVE=1 dist.sh` (or `package.sh`) archives the engine it was built from into `app/release/` and prints its line for the TSV.

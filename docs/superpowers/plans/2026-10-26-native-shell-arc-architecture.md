@@ -314,7 +314,7 @@ docs/native/parity.md
   - It produces `Pane.app` with `PaneCore.framework` inside, and a dmg named `Pane-<version>-arm64.dmg`, which keeps the in-app update check's contract.
   - The native app gets a single version source.
 - [x] **6.2 [HUMAN]** (deferred) Apple Developer ID and a `notarytool` Keychain profile. Build the signing and notarization steps so they activate when an identity exists. Until then, builds are ad-hoc signed as today, and the checklist entry says how to enable them.
-- [ ] **6.3** Prebuilt engine.
+- [x] **6.3** Prebuilt engine.
   - `package.sh` emits a versioned PaneCore zip with a checksum.
   - The app builds against a prebuilt engine without a Chromium checkout (Ardia's `prebuilt-engines.tsv` model).
 - [ ] **6.4** Upgrade runbook.
