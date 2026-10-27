@@ -28,8 +28,7 @@ BSD-3-Clause (native/third_party/openbsd-bcrypt/LICENSE): vendored unmodified
 in native/app/PaneKit/Sources/CBcrypt for the app lock's PIN hashes.
 
 electron-builder (https://github.com/electron-userland/electron-builder), MIT
-License: native/app/dmg/background.tiff is its default dmg background
-(dmg-builder templates/background.tiff), as the Electron app's dmg uses it.
-The release script runs dmgbuild (https://github.com/dmgbuild/dmgbuild, MIT)
-from electron-builder's prebuilt bundle to lay out the dmg; it is a build
-tool and is not shipped.
+License: the release script runs dmgbuild (https://github.com/dmgbuild/dmgbuild,
+MIT) from electron-builder's prebuilt bundle to lay out the dmg; it is a build
+tool and is not shipped. The dmg's background is Pane's own
+(native/app/dmg/make-background.swift).

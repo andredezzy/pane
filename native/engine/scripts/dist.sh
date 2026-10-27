@@ -2,9 +2,9 @@
 # Packages the app (package.sh) and builds its dmg, as electron-builder built
 # the Electron app's: native/app/release/Pane-<version>-arm64.dmg, the name
 # the in-app update check looks for in a GitHub release. The dmg is laid out
-# by dmgbuild, the same pinned build electron-builder runs, with the same
-# settings: the app, a link to /Applications, and "Install Pane.command" on
-# electron-builder's arrow background.
+# by dmgbuild, the same pinned build electron-builder runs: Pane and a link to
+# /Applications on Pane's own background (native/app/dmg/make-background.swift),
+# as Dia's installer is laid out.
 # Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses native/app/build/Pane.app;
 # PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize the release)
 set -euo pipefail
@@ -46,22 +46,26 @@ mkdir -p "$RELEASE"
 rm -f "$DMG"
 settings="$work/settings.json"
 
-# The settings electron-builder derived from the Electron app's dmg config
-# (apps/veil package.json, build.dmg): the window is the background's size,
-# 400 points from the left and centered on a 1440-point screen height.
+# The window shows the background's 800 by 380 points under Finder's
+# 32-point title bar (the image runs taller, for a shorter one), 400 points
+# from the left and centered on a 1440-point screen height, as the Electron
+# app's was. Pane and Applications sit on the chevrons' line, 210 points
+# either side of the middle, at 200 points with 16-point labels; the volume,
+# and so the window's title, is "Pane", as Dia's is "Dia".
 background="$APP_DIR/dmg/background.tiff"
-read -r width height < <(sips -g pixelWidth -g pixelHeight "$background" | awk '/pixelWidth/ { w = $2 } /pixelHeight/ { h = $2 } END { print w, h }')
+width=800
+height=$(( 380 + 32 ))
 
 cat > "$settings" <<SETTINGS
 {
-  "title": "Pane $VERSION-arm64",
-  "text-size": 12,
+  "title": "Pane",
+  "icon-size": 200,
+  "text-size": 16,
   "compression-level": 9,
   "format": "UDZO",
   "contents": [
-    { "x": 130, "y": 150, "path": "$APP" },
-    { "x": 410, "y": 150, "type": "link", "path": "/Applications" },
-    { "x": 270, "y": 300, "type": "file", "path": "$APP_DIR/dmg/Install Pane.command" }
+    { "x": $(( width / 2 - 210 )), "y": 186, "path": "$APP" },
+    { "x": $(( width / 2 + 210 )), "y": 186, "type": "link", "path": "/Applications" }
   ],
   "icon": "$APP/Contents/Resources/AppIcon.icns",
   "background": "$background",
@@ -72,7 +76,7 @@ cat > "$settings" <<SETTINGS
 }
 SETTINGS
 
-PYTHONIOENCODING=utf8 "$DMGBUILD_DIR/dmgbuild" -s "$settings" "Pane $VERSION-arm64" "$DMG"
+PYTHONIOENCODING=utf8 "$DMGBUILD_DIR/dmgbuild" -s "$settings" "Pane" "$DMG"
 
 # With a Developer ID the dmg is signed too, and with a notarytool profile
 # (xcrun notarytool store-credentials) it is notarized, which covers the app
