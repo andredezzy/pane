@@ -119,6 +119,7 @@ export type AppState = {
 		frame: string;
 		key: boolean;
 		trafficLights: number[];
+		trafficLightFrames: number[][];
 	};
 	closedTabs: number;
 	pendingProfileDeletions: number;

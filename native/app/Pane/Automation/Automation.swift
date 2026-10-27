@@ -297,6 +297,19 @@ final class Automation {
 
 			window.sendEvent(event)
 
+		case "hoverWindow":
+			// The pointer over a point of the window (top-left origin), as a
+			// mouse move the window dispatches; the real pointer stays put.
+			guard let x = command["x"] as? Double, let y = command["y"] as? Double else {
+				throw AutomationError("hoverWindow needs x and y")
+			}
+
+			let window = controller.browserWindow.window
+
+			if let event = Self.mouseEvent(.mouseMoved, at: NSPoint(x: x, y: window.frame.height - y), in: window) {
+				window.sendEvent(event)
+			}
+
 		case "dragWindow":
 			// A real drag from one point of the window to another (top-left
 			// origin), in `steps` moves, dispatched through the window as the
@@ -995,6 +1008,13 @@ final class Automation {
 					let frame = button.convert(button.bounds, to: nil)
 					return [frame.minX, window.frame.height - frame.maxY]
 				} ?? [],
+				// Each button's frame from the window's top left: x, y, width, height.
+				"trafficLightFrames": [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].compactMap { type -> [Double]? in
+					window.standardWindowButton(type).map { button in
+						let frame = button.convert(button.bounds, to: nil)
+						return [frame.minX, window.frame.height - frame.maxY, frame.width, frame.height]
+					}
+				},
 			] as [String: Any],
 			"closedTabs": model.history.closed.count,
 			"pendingProfileDeletions": controller.pendingDeletions.count,
