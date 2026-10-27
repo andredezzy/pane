@@ -58,10 +58,10 @@ private struct PaneButtonBody: View {
 			.padding(.horizontal, style.size.padding + (style.variant == .outline ? 1 : 0))
 			.frame(maxWidth: style.fillsWidth ? .infinity : nil)
 			.frame(height: style.size.height)
-			.background(background, in: RoundedRectangle(cornerRadius: 6, style: .circular))
+			.background(background, in: Squircle(cornerRadius: 11))
 			.overlay {
 				if style.variant == .outline {
-					RoundedRectangle(cornerRadius: 6, style: .circular)
+					Squircle(cornerRadius: 11)
 						.strokeBorder(style.border ?? Palette.border, lineWidth: 1)
 				}
 			}
@@ -149,9 +149,9 @@ struct PaneTextField: View {
 		.onSubmit(onSubmit)
 		.padding(.horizontal, 12)
 		.frame(height: 36)
-		.background(Palette.background, in: RoundedRectangle(cornerRadius: 6, style: .circular))
+		.background(Palette.background, in: Squircle(cornerRadius: 11))
 		.overlay {
-			RoundedRectangle(cornerRadius: 6, style: .circular)
+			Squircle(cornerRadius: 11)
 				.strokeBorder(focused ? Palette.ring : Palette.border, lineWidth: 1)
 		}
 		.opacity(isEnabled ? 1 : 0.5)
@@ -208,7 +208,7 @@ struct PaneSelect<Option: Hashable>: View {
 		.buttonStyle(.plain)
 		.menuIndicator(.hidden)
 		.overlay {
-			RoundedRectangle(cornerRadius: 6, style: .circular)
+			Squircle(cornerRadius: 11)
 				.strokeBorder(Palette.border, lineWidth: 1)
 		}
 	}

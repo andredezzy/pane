@@ -54,7 +54,7 @@ struct ExtensionsMenu: View {
 			.padding(4)
 		}
 		.frame(width: 300)
-		.popoverSurface(cornerRadius: 12)
+		.popoverSurface(cornerRadius: 22)
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel("Extensions")
 		.accessibilityIdentifier("pane.extensionsMenu")
@@ -131,7 +131,7 @@ struct ExtensionMoreMenu: View {
 			.padding(4)
 		}
 		.frame(width: 240)
-		.popoverSurface(cornerRadius: 12)
+		.popoverSurface(cornerRadius: 22)
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel(item.name)
 		.accessibilityIdentifier("pane.extensionMoreMenu")
@@ -168,7 +168,7 @@ private struct ExtensionRow: View {
 						.font(.system(size: 10, weight: .medium))
 						.foregroundStyle(.white)
 						.frame(width: 16, height: 16)
-						.background(Color(rgb: 0x757575), in: RoundedRectangle(cornerRadius: 4, style: .circular))
+						.background(Color(rgb: 0x757575), in: Squircle(cornerRadius: 7))
 				}
 			}
 			.frame(width: 16, height: 16)
@@ -213,8 +213,8 @@ private struct ExtensionRow: View {
 }
 
 // A 32-point row: a button from its leading edge to its trailing buttons,
-// 8 points in, the whole row taking the accent fill on hover (rounded 8,
-// inside the menu's 12 and 4 of padding), and while its more menu is open.
+// 8 points in, the whole row taking the accent fill on hover (rounded 15,
+// inside the menu's 22 and 4 of padding), and while its more menu is open.
 // Without an action, the row only shows.
 private struct MenuRow<Label: View, Trailing: View>: View {
 	let identifier: String
@@ -260,7 +260,7 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 		}
 		.padding(.trailing, 8)
 		.frame(height: 32)
-		.background(isHighlighted || isHovered && action != nil ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 8, style: .circular))
+		.background(isHighlighted || isHovered && action != nil ? Palette.accent : .clear, in: Squircle(cornerRadius: 15))
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
@@ -309,7 +309,7 @@ private struct TrailingButton<Content: View>: View {
 				.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
-		.background(isHovered ? Palette.foreground.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 6, style: .circular))
+		.background(isHovered ? Palette.foreground.opacity(0.08) : .clear, in: Squircle(cornerRadius: 11))
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}

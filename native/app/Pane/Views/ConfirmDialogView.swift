@@ -43,7 +43,7 @@ struct ConfirmDialogView: View {
 		}
 		.padding(24)
 		.frame(width: 384, alignment: .leading)
-		.surfaceBackground(cornerRadius: 8, shadow: .black.opacity(0.1), blur: 15, y: 10)
+		.surfaceBackground(cornerRadius: 15, shadow: .black.opacity(0.1), blur: 15, y: 10)
 		.overlay(alignment: .topTrailing) {
 			Button(action: dismiss) {
 				LucideIcon(.x, size: 16)

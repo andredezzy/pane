@@ -23,7 +23,7 @@ struct QuitConfirmationView: View {
 				.renderingMode(.template)
 				.foregroundStyle(Palette.foreground)
 				.frame(width: 40, height: 40)
-				.background(Self.tile, in: RoundedRectangle(cornerRadius: 10, style: .circular))
+				.background(Self.tile, in: Squircle(cornerRadius: 18))
 				.accessibilityHidden(true)
 
 			VStack(alignment: .leading, spacing: 6) {
@@ -58,7 +58,7 @@ struct QuitConfirmationView: View {
 		}
 		.padding(24)
 		.frame(width: 480, alignment: .leading)
-		.surfaceBackground(cornerRadius: 16, shadow: Self.shadow, blur: 64, y: 24)
+		.surfaceBackground(cornerRadius: 29, shadow: Self.shadow, blur: 64, y: 24)
 		.accessibilityElement(children: .contain)
 		.accessibilityAddTraits(.isModal)
 		.accessibilityIdentifier("pane.quit")
@@ -88,7 +88,7 @@ private struct KeyedLabel: View {
 				.frame(height: 20)
 				.background(
 					role == .cancel ? Palette.secondary : Color.white.opacity(0.18),
-					in: RoundedRectangle(cornerRadius: 5, style: .circular)
+					in: Squircle(cornerRadius: 9)
 				)
 				.accessibilityHidden(true)
 		}
@@ -128,10 +128,10 @@ private struct KeyedButton: View {
 			.padding(.leading, 14)
 			.padding(.trailing, 8)
 			.frame(height: 36)
-			.background(fill, in: RoundedRectangle(cornerRadius: 8, style: .circular))
+			.background(fill, in: Squircle(cornerRadius: 15))
 			.overlay {
 				if role == .cancel {
-					RoundedRectangle(cornerRadius: 8, style: .circular)
+					Squircle(cornerRadius: 15)
 						.strokeBorder(Self.hairline, lineWidth: 1)
 				}
 			}

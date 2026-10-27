@@ -54,8 +54,8 @@ struct LockScreenView: View {
 				WindowDragArea()
 			}
 		}
-		.clipShape(RoundedRectangle(cornerRadius: 10, style: .circular))
-		.surfaceBackground(cornerRadius: 10, ring: Palette.border, shadow: PanelShadow.color)
+		.clipShape(Squircle(cornerRadius: 18))
+		.surfaceBackground(cornerRadius: 18, ring: Palette.border, shadow: PanelShadow.color)
 		.padding(8)
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.lockScreen")

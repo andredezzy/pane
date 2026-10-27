@@ -20,7 +20,7 @@ struct ExtensionPromptView: View {
 							.interpolation(.high)
 					} else {
 						Palette.secondary
-							.clipShape(RoundedRectangle(cornerRadius: 8, style: .circular))
+							.clipShape(Squircle(cornerRadius: 15))
 					}
 				}
 				.frame(width: 32, height: 32)
@@ -78,7 +78,7 @@ struct ExtensionPromptView: View {
 		}
 		.padding(20)
 		.frame(width: 320, alignment: .leading)
-		.popoverSurface(cornerRadius: 16)
+		.popoverSurface(cornerRadius: 29)
 		.accessibilityElement(children: .contain)
 		.accessibilityAddTraits(.isModal)
 		.accessibilityLabel(prompt.title)
@@ -110,10 +110,10 @@ private struct PopupButton: View {
 			.foregroundStyle(isPrimary ? Palette.primaryForeground : Palette.foreground)
 			.padding(.horizontal, 14)
 			.frame(height: 32)
-			.background(fill, in: RoundedRectangle(cornerRadius: 8, style: .circular))
+			.background(fill, in: Squircle(cornerRadius: 15))
 			.overlay {
 				if !isPrimary {
-					RoundedRectangle(cornerRadius: 8, style: .circular)
+					Squircle(cornerRadius: 15)
 						.strokeBorder(Palette.foreground.opacity(0.08), lineWidth: 1)
 				}
 			}

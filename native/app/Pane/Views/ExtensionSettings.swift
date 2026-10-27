@@ -132,7 +132,7 @@ private struct ProfileSelect: View {
 		} label: {
 			HStack(spacing: 6) {
 				if let selection {
-					RoundedRectangle(cornerRadius: 2, style: .circular)
+					Capsule()
 						.fill(selection.color.color)
 						.frame(width: 4, height: 14)
 				}
@@ -145,9 +145,9 @@ private struct ProfileSelect: View {
 			}
 			.padding(.horizontal, 12)
 			.frame(height: 36)
-			.background(Palette.background, in: RoundedRectangle(cornerRadius: 6, style: .circular))
+			.background(Palette.background, in: Squircle(cornerRadius: 11))
 			.overlay {
-				RoundedRectangle(cornerRadius: 6, style: .circular)
+				Squircle(cornerRadius: 11)
 					.strokeBorder(Palette.border, lineWidth: 1)
 			}
 		}
@@ -181,7 +181,7 @@ private struct ExtensionCard: View {
 				}
 			}
 			.frame(width: 32, height: 32)
-			.clipShape(RoundedRectangle(cornerRadius: 6, style: .circular))
+			.clipShape(Squircle(cornerRadius: 11))
 
 			VStack(alignment: .leading, spacing: 2) {
 				HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -227,9 +227,9 @@ private struct ExtensionCard: View {
 				.buttonStyle(.pane(.ghost, size: .small, foreground: Palette.destructive))
 		}
 		.padding(12)
-		.background(Palette.card.opacity(0.3), in: RoundedRectangle(cornerRadius: 8, style: .circular))
+		.background(Palette.card.opacity(0.3), in: Squircle(cornerRadius: 15))
 		.overlay {
-			RoundedRectangle(cornerRadius: 8, style: .circular)
+			Squircle(cornerRadius: 15)
 				.strokeBorder(Palette.border.opacity(0.5), lineWidth: 1)
 		}
 		.accessibilityElement(children: .contain)

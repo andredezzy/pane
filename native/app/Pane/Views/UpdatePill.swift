@@ -43,7 +43,7 @@ struct UpdatePill: View {
 		.padding(.vertical, 6)
 		.padding(.leading, 8)
 		.padding(.trailing, 24)
-		.background(Palette.foreground.opacity(0.05), in: RoundedRectangle(cornerRadius: 6, style: .circular))
+		.background(Palette.foreground.opacity(0.05), in: Squircle(cornerRadius: 11))
 		.onHover { isHovered = $0 }
 		.animation(.easeOut(duration: 0.15), value: isHovered)
 		.animation(.easeInOut(duration: 0.2), value: updater.status)

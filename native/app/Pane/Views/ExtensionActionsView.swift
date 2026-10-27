@@ -107,7 +107,7 @@ private struct ExtensionsButton: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isOpen ? Palette.foreground : isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isOpen || isHovered ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+		.background(isOpen || isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
@@ -119,7 +119,7 @@ private struct ExtensionsButton: View {
 }
 
 // The Electron app's action button (electron-chrome-extensions): 28px,
-// rounded 4, the icon at 70%, a faint white wash on hover; no icon shows the
+// rounded 7, the icon at 70%, a faint white wash on hover; no icon shows the
 // name's first letter on gray. The badge is 12px, 9px text, bottom right.
 private struct ActionButton: View {
 	let item: ExtensionInfo
@@ -140,11 +140,11 @@ private struct ActionButton: View {
 						.font(.system(size: 11.2))
 						.foregroundStyle(.white)
 						.frame(width: 22.4, height: 22.4)
-						.background(Color(rgb: 0x757575), in: RoundedRectangle(cornerRadius: 4, style: .circular))
+						.background(Color(rgb: 0x757575), in: Squircle(cornerRadius: 7))
 				}
 			}
 			.frame(width: 28, height: 28)
-			.background(isHovered ? Color.white.opacity(0.3) : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+			.background(isHovered ? Color.white.opacity(0.3) : .clear, in: Squircle(cornerRadius: 7))
 			.overlay(alignment: .bottomTrailing) {
 				if !item.badgeText.isEmpty {
 					Text(item.badgeText)
@@ -153,9 +153,9 @@ private struct ActionButton: View {
 						.foregroundStyle(Color(nsColor: item.badgeTextColor ?? .white))
 						.padding(.horizontal, 2)
 						.frame(height: 12)
-						.background(Color(nsColor: item.badgeBackground ?? .systemRed), in: RoundedRectangle(cornerRadius: 2, style: .circular))
+						.background(Color(nsColor: item.badgeBackground ?? .systemRed), in: Squircle(cornerRadius: 4))
 						.overlay {
-							RoundedRectangle(cornerRadius: 2, style: .circular).stroke(Color(rgb: 0x444444), lineWidth: 1)
+							Squircle(cornerRadius: 4).stroke(Color(rgb: 0x444444), lineWidth: 1)
 						}
 						.padding(.bottom, 1)
 				}

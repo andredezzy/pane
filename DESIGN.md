@@ -6,7 +6,18 @@ Interaction and visual principles for Pane. Keep entries short and prescriptive.
 
 ### One knob, everything follows, instantly
 
-The theme (`system` / `light` / `dark`) drives `nativeTheme.themeSource`: Pane chrome, native menus, and web content flip together (see docs/adr/0001). Switches apply instantly — no cross-fade. Dialog and sheet scrims stay black-alpha in both themes; colors on fixed-color surfaces (profile swatches, status buttons) don't follow the theme.
+The theme (`system` / `light` / `dark`) sets the app's appearance (`NSApp.appearance`): Pane chrome, native menus, and web content flip together. Switches apply instantly — no cross-fade. Dialog and sheet scrims stay black-alpha in both themes; colors on fixed-color surfaces (profile swatches, status buttons) don't follow the theme.
+
+## Shape
+
+### Corners are superellipses
+
+Every rounded corner is a superellipse: `corner-shape: superellipse(2)` in Paper (CSS's squircle), `Squircle` in the app. The radii are 4, 7, 9, 11, 15, 18, 22, and 29, each 1.84× the circular radius it replaced, so a corner is as deep at 45° as the circle was and flatter where it meets the edges. Circles and capsules stay round: dots, PIN keys, switches, pill bars.
+
+Implementation notes:
+
+- A view takes `Squircle(cornerRadius:)`, never a circular `RoundedRectangle`.
+- A layer, which draws only circular or continuous corners (the page view), takes 0.57 of the radius as a circle: it follows the superellipse within a fifth of a pixel, with no mask to composite.
 
 ## Motion
 

@@ -46,7 +46,7 @@ struct TabSwitcherView: View {
 						.padding(.vertical, 10)
 						.background {
 							if isSelected {
-								RoundedRectangle(cornerRadius: 8, style: .circular)
+								Squircle(cornerRadius: 15)
 									.fill(color.opacity(0x24 / 255))
 									.strokeBorder(color.opacity(0x66 / 255), lineWidth: 1)
 							}
@@ -59,7 +59,7 @@ struct TabSwitcherView: View {
 		}
 		.padding(10)
 		.frame(width: 320)
-		.popoverSurface(cornerRadius: 12)
+		.popoverSurface(cornerRadius: 22)
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel("Tab switcher")
 		.accessibilityIdentifier("pane.switcher")
@@ -76,9 +76,9 @@ private struct SwitcherFavicon: View {
 				.resizable()
 				.interpolation(.high)
 				.frame(width: 16, height: 16)
-				.clipShape(RoundedRectangle(cornerRadius: 2, style: .circular))
+				.clipShape(Squircle(cornerRadius: 4))
 		} else {
-			RoundedRectangle(cornerRadius: 2, style: .circular)
+			Squircle(cornerRadius: 4)
 				.fill(Palette.foreground.opacity(0.1))
 				.frame(width: 16, height: 16)
 		}

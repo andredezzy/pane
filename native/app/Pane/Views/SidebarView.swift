@@ -100,7 +100,7 @@ struct SidebarView: View {
 	}
 }
 
-// 24px, rounded 4, muted; hover fills with the accent color.
+// 24px, rounded 7, muted; hover fills with the accent color.
 private struct CollapseAllButton: View {
 	let isEnabled: Bool
 	let action: () -> Void
@@ -116,7 +116,7 @@ private struct CollapseAllButton: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+		.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
 		.opacity(isEnabled ? 1 : 0.4)
 		.disabled(!isEnabled)
 		.onHover { hovering in
@@ -152,7 +152,7 @@ private struct SidebarButton<Label: View>: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isSelected || (tintsOnHover && isHovered) ? Palette.accentForeground : Palette.mutedForeground)
-		.hoverBackground(isSelected: isSelected, cornerRadius: 6)
+		.hoverBackground(isSelected: isSelected, cornerRadius: 11)
 		.onHover { isHovered = $0 }
 	}
 }
@@ -210,7 +210,7 @@ private struct ProfileSection: View {
 
 		return Button(action: toggle) {
 			HStack(spacing: 6) {
-				RoundedRectangle(cornerRadius: 2, style: .circular)
+				Capsule()
 					.fill(color)
 					.frame(width: 4, height: 14)
 
@@ -244,11 +244,11 @@ private struct ProfileSection: View {
 		.buttonStyle(.plain)
 		.foregroundStyle(isActive ? Palette.accentForeground : Palette.mutedForeground)
 		.background {
-			RoundedRectangle(cornerRadius: 6, style: .circular)
+			Squircle(cornerRadius: 11)
 				.fill(isActive ? color.opacity(0.04) : .clear)
 				.strokeBorder(isActive ? color.opacity(0.4) : .clear, lineWidth: 1)
 		}
-		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: 6)
+		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: 11)
 		// The Electron app's menu, with its lucide icons.
 		.contextMenu {
 			Button(action: onEdit) {
@@ -314,7 +314,7 @@ private struct ProxyDot: View {
 	}
 }
 
-// px-2 py-1, rounded 5, 12px: the favicon (or a globe), the title, and a
+// px-2 py-1, rounded 9, 12px: the favicon (or a globe), the title, and a
 // close X on hover. Selected is foreground/5; unloaded tabs are at 60%.
 private struct TabRow: View {
 	let controller: BrowserController

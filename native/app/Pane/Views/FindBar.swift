@@ -66,9 +66,9 @@ struct FindBar: View {
 		}
 		.padding(.horizontal, 8)
 		.padding(.vertical, 4)
-		.background(Palette.background, in: RoundedRectangle(cornerRadius: 8, style: .circular))
+		.background(Palette.background, in: Squircle(cornerRadius: 15))
 		.overlay {
-			RoundedRectangle(cornerRadius: 8, style: .circular)
+			Squircle(cornerRadius: 15)
 				.strokeBorder(Palette.border, lineWidth: 1)
 		}
 		.mediumShadow()
@@ -81,7 +81,7 @@ struct FindBar: View {
 	}
 }
 
-// 20px, rounded 4, a 12px icon; disabled at 30%.
+// 20px, rounded 7, a 12px icon; disabled at 30%.
 private struct FindButton: View {
 	let icon: Lucide
 	let label: String
@@ -99,7 +99,7 @@ private struct FindButton: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+		.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
 		.opacity(isEnabled ? 1 : 0.3)
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering && isEnabled }

@@ -34,11 +34,11 @@ struct HoverBackground: ViewModifier {
 		content
 			.background {
 				ZStack {
-					RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+					Squircle(cornerRadius: cornerRadius)
 						.fill(hoverFill)
 						.opacity(!isSelected && isHovered ? 1 : 0)
 						.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
-					RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+					Squircle(cornerRadius: cornerRadius)
 						.fill(selectedFill)
 						.opacity(isSelected ? 1 : 0)
 				}
@@ -64,7 +64,7 @@ struct FaviconView: View {
 				.resizable()
 				.interpolation(.high)
 				.frame(width: 12, height: 12)
-				.clipShape(RoundedRectangle(cornerRadius: 2, style: .circular))
+				.clipShape(Squircle(cornerRadius: 4))
 		} else {
 			LucideIcon(.globe, size: 12)
 		}

@@ -18,7 +18,10 @@ final class PageHostView: NSView {
 	override init(frame: NSRect) {
 		super.init(frame: frame)
 		wantsLayer = true
-		layer?.cornerRadius = 10
+		// The content panel's squircle (18), as a layer draws it: a circle of
+		// the radius that follows it within a fifth of a pixel, so no mask
+		// composites the page each frame.
+		layer?.cornerRadius = 18 * Squircle.circularEquivalent
 		layer?.cornerCurve = .circular
 		layer?.masksToBounds = true
 		setAccessibilityIdentifier("pane.content")

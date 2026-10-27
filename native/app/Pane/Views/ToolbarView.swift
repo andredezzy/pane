@@ -76,7 +76,7 @@ struct ToolbarView: View {
 	}
 }
 
-// 26 × 26, rounded 4, muted; hover fills with the accent color.
+// 26 × 26, rounded 7, muted; hover fills with the accent color.
 private struct NavigationButton: View {
 	let icon: Lucide
 	let size: CGFloat
@@ -94,7 +94,7 @@ private struct NavigationButton: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 4, style: .circular))
+		.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
@@ -103,7 +103,7 @@ private struct NavigationButton: View {
 	}
 }
 
-// 30px, rounded 5, px-2.5 text-xs, no fill until hovered (foreground 3%); a
+// 30px, rounded 9, px-2.5 text-xs, no fill until hovered (foreground 3%); a
 // 1px ring when focused, which selects the whole address.
 private struct AddressField: View {
 	@Binding var text: String
@@ -139,18 +139,18 @@ private struct AddressField: View {
 		.frame(height: 30)
 		.background(
 			isHovered ? Palette.foreground.opacity(0.03) : .clear,
-			in: RoundedRectangle(cornerRadius: 5, style: .circular)
+			in: Squircle(cornerRadius: 9)
 		)
 		.overlay {
 			if focused.wrappedValue {
-				RoundedRectangle(cornerRadius: 5, style: .circular)
+				Squircle(cornerRadius: 9)
 					.strokeBorder(Palette.ring, lineWidth: 1)
 			}
 		}
 		.overlay(alignment: .bottomLeading) {
 			LoadingBar(isLoading: isLoading)
 		}
-		.clipShape(RoundedRectangle(cornerRadius: 5, style: .circular))
+		.clipShape(Squircle(cornerRadius: 9))
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
@@ -229,9 +229,9 @@ private struct ProfileChip: View {
 			// px-2.5 inside the 1px border.
 			.padding(.horizontal, 11)
 			.frame(height: 30)
-			.background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 5, style: .circular))
+			.background(color.opacity(0.08), in: Squircle(cornerRadius: 9))
 			.overlay {
-				RoundedRectangle(cornerRadius: 5, style: .circular)
+				Squircle(cornerRadius: 9)
 					.strokeBorder(color.opacity(0.3), lineWidth: 1)
 			}
 			.accessibilityIdentifier("pane.toolbar.profile")

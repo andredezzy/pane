@@ -157,7 +157,7 @@ struct RootView: View {
 		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.45 : 0.14)
 	})
 
-	// The content panel: m-2 ml-0, rounded 10, the panel shadow.
+	// The content panel: m-2 ml-0, rounded 18, the panel shadow.
 	private var content: some View {
 		VStack(spacing: 0) {
 			if showsToolbar {
@@ -176,8 +176,8 @@ struct RootView: View {
 				}
 			}
 		}
-		.clipShape(RoundedRectangle(cornerRadius: fullscreen ? 0 : 10, style: .circular))
-		.surfaceBackground(cornerRadius: fullscreen ? 0 : 10, ring: fullscreen ? .clear : Palette.border, shadow: fullscreen ? .clear : PanelShadow.color)
+		.clipShape(Squircle(cornerRadius: fullscreen ? 0 : 18))
+		.surfaceBackground(cornerRadius: fullscreen ? 0 : 18, ring: fullscreen ? .clear : Palette.border, shadow: fullscreen ? .clear : PanelShadow.color)
 		.padding([.top, .trailing, .bottom], fullscreen ? 0 : 8)
 	}
 

@@ -93,8 +93,8 @@ struct ProfileSheet: View {
 			.padding(.vertical, 16)
 		}
 		// Clipped before the shadow goes on, which would clip it too.
-		.clipShape(RoundedRectangle(cornerRadius: 10, style: .circular))
-		.surfaceBackground(cornerRadius: 10, shadow: .black.opacity(0.5), blur: 40, y: 8)
+		.clipShape(Squircle(cornerRadius: 18))
+		.surfaceBackground(cornerRadius: 18, shadow: .black.opacity(0.5), blur: 40, y: 8)
 		.onAppear(perform: load)
 		.onChange(of: name) { nameError = nil }
 		.onExitCommand(perform: onDone)
@@ -214,7 +214,7 @@ struct ProfileSheet: View {
 		}
 		.padding(12)
 		.overlay {
-			RoundedRectangle(cornerRadius: 6, style: .circular)
+			Squircle(cornerRadius: 11)
 				.strokeBorder(Palette.border, lineWidth: 1)
 		}
 	}
@@ -327,7 +327,7 @@ struct ProfileSheet: View {
 	}
 }
 
-// 24px, rounded 4: a 16px X, muted until hovered.
+// 24px, rounded 7: a 16px X, muted until hovered.
 struct CloseButton: View {
 	let action: () -> Void
 
@@ -360,15 +360,15 @@ private struct SwatchPicker: View {
 				let isSelected = swatch == selection
 
 				Button { selection = swatch } label: {
-					RoundedRectangle(cornerRadius: 6, style: .circular)
+					Squircle(cornerRadius: 11)
 						.fill(swatch.color)
 						.frame(width: 24, height: 24)
 						.background {
 							if isSelected {
-								RoundedRectangle(cornerRadius: 9, style: .circular)
+								Squircle(cornerRadius: 17)
 									.fill(swatch.color)
 									.padding(-3)
-								RoundedRectangle(cornerRadius: 8, style: .circular)
+								Squircle(cornerRadius: 15)
 									.fill(Palette.background)
 									.padding(-2)
 							}
