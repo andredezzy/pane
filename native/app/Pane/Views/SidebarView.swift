@@ -126,9 +126,9 @@ private struct CollapseAllButton: View {
 	}
 }
 
-// A 32-point row at 14, as Aside's sidebar rows: the icon 7 in, the title
-// 10 after it. Selected (Settings, while shown) is foreground/5; hover is the
-// accent color.
+// A 32-point row at 13, macOS's sidebar size, spaced as Aside's rows: the
+// icon 7 in, the title 10 after it. Selected (Settings, while shown) is
+// foreground/5; hover is the accent color.
 private struct SidebarButton<Label: View>: View {
 	let isSelected: Bool
 	// New keeps its muted text on hover; Settings darkens.
@@ -144,7 +144,7 @@ private struct SidebarButton<Label: View>: View {
 				label
 				Spacer(minLength: 0)
 			}
-			.font(.system(size: 14))
+			.font(.system(size: 13))
 			.padding(.leading, 7)
 			.padding(.trailing, 8)
 			.frame(height: SidebarRow.height)
@@ -216,7 +216,7 @@ private struct ProfileSection: View {
 					.frame(width: 4, height: 16)
 
 				Text(profile.name)
-					.font(.system(size: 14, weight: .medium))
+					.font(.system(size: 13, weight: .medium))
 					.lineLimit(1)
 					.truncationMode(.tail)
 					.frame(maxWidth: .infinity, alignment: .leading)
@@ -315,9 +315,9 @@ private struct ProxyDot: View {
 	}
 }
 
-// A 32-point row at 14, as Aside's tabs: the 16-point favicon (or a globe) 7
-// in, the title 10 after it, and a close X on hover. Selected is
-// foreground/5; unloaded tabs are at 60%.
+// A 32-point row at 13, macOS's sidebar size, spaced as Aside's tabs: the
+// 16-point favicon (or a globe) 7 in, the title 10 after it, and a close X on
+// hover. Selected is foreground/5; unloaded tabs are at 60%.
 private struct TabRow: View {
 	let controller: BrowserController
 	let tab: PaneKit.Tab
@@ -335,7 +335,7 @@ private struct TabRow: View {
 				FaviconView(dataURL: tab.favicon)
 
 				Text(tab.title.isEmpty ? "Loading..." : tab.title)
-					.font(.system(size: 14))
+					.font(.system(size: 13))
 					.lineLimit(1)
 					.truncationMode(.tail)
 					.frame(maxWidth: .infinity, alignment: .leading)
@@ -393,7 +393,7 @@ private struct NewTabRow: View {
 			HStack(spacing: 10) {
 				PlusMark()
 				Text("New tab")
-					.font(.system(size: 14))
+					.font(.system(size: 13))
 				Spacer(minLength: 0)
 			}
 			.padding(.leading, 7)

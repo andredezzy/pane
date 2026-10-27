@@ -87,8 +87,8 @@ private struct ExtensionsButton: View {
 
 	var body: some View {
 		Button(action: action) {
-			// The toolbar's stroke: 1.4 of 24 at 20 points is the navigation
-			// buttons' 2 of 24 at 14 (1.17 points).
+			// 1.4 of 24 at 20 points: 1.17 points, the thin stroke the user
+			// chose for it (the chevrons beside it draw Aside's 1.5).
 			Image(nsImage: Glyph.puzzle.image(strokeWidth: 1.4, size: 20))
 				.renderingMode(.template)
 				.frame(width: 32, height: 32)

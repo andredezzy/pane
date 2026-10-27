@@ -3,7 +3,7 @@ import SwiftUI
 
 // The selected tab's toolbar at the top of the content panel, at Aside's
 // sizes: back, forward, and reload or stop (32-point circles), the address
-// (the domain and the title at 14, the URL while editing, with the loading
+// (the domain and the title at 13, the URL while editing, with the loading
 // bar under it), extension actions, and the profile's chip.
 struct ToolbarView: View {
 	let controller: BrowserController
@@ -112,7 +112,7 @@ private struct NavigationButton: View {
 }
 
 // 32 points, rounded 9, no fill until hovered (foreground 3%). At rest it
-// shows the page as Aside does: the domain, a divider, and the title, at 14.
+// shows the page as Aside does: the domain, a divider, and the title, at 13.
 // A click edits the URL, with a 1px ring, and selects all of it.
 private struct AddressField: View {
 	@Binding var text: String
@@ -132,7 +132,7 @@ private struct AddressField: View {
 			prompt: Text("Search or enter URL").foregroundStyle(Palette.mutedForeground)
 		)
 		.textFieldStyle(.plain)
-		.font(.system(size: 14))
+		.font(.system(size: 13))
 		// At rest the label shows instead of the URL; the field stays
 		// under it, to take the click and be read.
 		.foregroundStyle(focused.wrappedValue || label == nil ? Palette.foreground : .clear)
@@ -195,7 +195,7 @@ private struct AddressField: View {
 }
 
 // Aside's address at rest: the domain in the text color, a divider, and the
-// title muted, all at 14.
+// title muted, all at 13, macOS's sidebar size.
 private struct AddressLabel: View {
 	let domain: String
 	let title: String
@@ -218,7 +218,7 @@ private struct AddressLabel: View {
 
 			Spacer(minLength: 0)
 		}
-		.font(.system(size: 14))
+		.font(.system(size: 13))
 		.lineLimit(1)
 	}
 }
@@ -279,7 +279,7 @@ private struct LoadingBar: View {
 	}
 }
 
-// The profile's name in its color: a 28-point capsule at 14 medium, as
+// The profile's name in its color: a 28-point capsule at 13 medium, as
 // Aside's toolbar button, with an 8% fill and a 30% border of the color.
 private struct ProfileChip: View {
 	let profile: BrowserProfile
@@ -288,7 +288,7 @@ private struct ProfileChip: View {
 		let color = profile.color.color
 
 		Text(profile.name)
-			.font(.system(size: 14, weight: .medium))
+			.font(.system(size: 13, weight: .medium))
 			.foregroundStyle(color)
 			.lineLimit(1)
 			.padding(.horizontal, 11)
