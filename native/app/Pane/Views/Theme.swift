@@ -25,7 +25,6 @@ enum Palette {
 
 	// Scrims stay black in both themes (DESIGN.md: Theme).
 	static let sheetScrim = Color.black.opacity(0.4)
-	static let dialogScrim = Color.black.opacity(0.6)
 
 	// The 2px loading bar under the address: blue-500 to blue-400.
 	static let progress = LinearGradient(

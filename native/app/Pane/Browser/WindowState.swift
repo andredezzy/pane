@@ -23,19 +23,8 @@ final class WindowState {
 		}
 	}
 
-	// A confirmation shown over the whole window, as the Electron app's
-	// Dialog: title, message, and a destructive confirm button.
-	struct ConfirmDialog: Identifiable {
-		let id = UUID()
-		let title: String
-		let message: String
-		let confirmTitle: String
-		let confirm: @MainActor () -> Void
-	}
-
 	var find = Find()
 	var switcher = Switcher()
-	var dialog: ConfirmDialog?
 	// Quit Pane? (⌘Q asks first.)
 	var confirmingQuit = false
 	// The profile sheet: a new profile, or one being edited.

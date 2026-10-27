@@ -103,14 +103,6 @@ struct RootView: View {
 				.transition(.move(edge: .trailing).combined(with: .opacity))
 			}
 
-			if let dialog = state.dialog {
-				Palette.dialogScrim
-					.contentShape(Rectangle())
-					.onTapGesture { state.dialog = nil }
-
-				ConfirmDialogView(dialog: dialog) { state.dialog = nil }
-			}
-
 			if state.confirmingQuit {
 				Self.quitScrim
 					.contentShape(Rectangle())
