@@ -58,6 +58,9 @@ struct SidebarView: View {
 		}
 		.padding(.leading, 82)
 		.padding(.trailing, 10)
+		// On the traffic lights' center line: 19 points down (their 38-point
+		// title bar), half a point above the 39-point row's own center.
+		.padding(.bottom, 1)
 		.frame(height: 39)
 	}
 
