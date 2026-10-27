@@ -51,10 +51,12 @@ const quit: Scenario = async (context) => {
 	await focusedPage(app, url);
 
 	await app.send("key", { key: "q", modifiers: ["command"] });
+
 	const asked = await app.waitFor(
 		"Quit Pane?",
 		(state) => state.quitConfirmation,
 	);
+
 	await Bun.sleep(300);
 	await app.send("render", { path: join(context.out, "quit-light.png") });
 
