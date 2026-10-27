@@ -24,7 +24,8 @@ enum ButtonSize {
 }
 
 // rounded-md, font-medium; hover changes color, never selection
-// (DESIGN.md: Motion); disabled is 50% opacity.
+// (DESIGN.md: Motion); disabled is 50% opacity. Outline has no fill but its
+// hover's: the border alone, over whatever it sits on.
 struct PaneButtonStyle: ButtonStyle {
 	var variant: ButtonVariant = .primary
 	var size: ButtonSize = .regular
@@ -102,7 +103,7 @@ private struct PaneButtonBody: View {
 		case .destructive:
 			return Palette.destructive.opacity(isHovered ? 0.9 : 1)
 		case .outline:
-			return isHovered ? Palette.accent : Palette.background
+			return isHovered ? Palette.accent : .clear
 		case .secondary:
 			return Palette.secondary.opacity(isHovered ? 0.8 : 1)
 		case .ghost:

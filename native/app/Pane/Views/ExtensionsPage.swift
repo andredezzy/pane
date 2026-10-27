@@ -214,8 +214,8 @@ private struct SearchField: View {
 	}
 }
 
-// A select trigger (32 points, a 1px border): the profile whose extensions
-// show, with its color.
+// A select trigger (32 points, a 1px border and no fill, as the outline
+// buttons beside it): the profile whose extensions show, with its color.
 private struct ProfileSelect: View {
 	let profiles: [BrowserProfile]
 	let selection: BrowserProfile?
@@ -242,7 +242,7 @@ private struct ProfileSelect: View {
 			}
 			.padding(.horizontal, 12)
 			.frame(height: 32)
-			.background(Palette.background, in: Squircle(cornerRadius: 11))
+			.contentShape(Squircle(cornerRadius: 11))
 			.overlay {
 				Squircle(cornerRadius: 11)
 					.strokeBorder(Palette.border, lineWidth: 1)
