@@ -29,7 +29,7 @@ enum MainMenu {
 		menu.addItem(item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
 		menu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
 		menu.addItem(.separator())
-		menu.addItem(withTitle: "Quit Pane", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+		menu.addItem(item("Quit Pane", #selector(BrowserController.confirmQuit(_:)), "q", target: controller))
 
 		return menu
 	}

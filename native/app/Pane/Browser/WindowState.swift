@@ -36,6 +36,8 @@ final class WindowState {
 	var find = Find()
 	var switcher = Switcher()
 	var dialog: ConfirmDialog?
+	// Quit Pane? (⌘Q asks first.)
+	var confirmingQuit = false
 	// The profile sheet: a new profile, or one being edited.
 	var profileSheet: ProfileSheetTarget?
 

@@ -632,9 +632,9 @@ final class Automation {
 	}
 
 	private static let keyCodes: [String: UInt16] = [
-		"a": 0, "f": 3, "i": 34, "p": 35, "r": 15, "t": 17, "w": 13, "l": 37,
+		"a": 0, "f": 3, "i": 34, "p": 35, "q": 12, "r": 15, "t": 17, "w": 13, "l": 37,
 		"1": 18, "2": 19, "3": 20, "0": 29, "=": 24, "-": 27,
-		"[": 33, "]": 30, ",": 43, "\t": 48, "\u{1b}": 53,
+		"[": 33, "]": 30, ",": 43, "\t": 48, "\r": 36, "\u{1b}": 53,
 	]
 
 	private func modifierFlags(_ names: [String]) -> NSEvent.ModifierFlags {
@@ -807,6 +807,7 @@ final class Automation {
 				"pill": controller.updater.showsPill,
 				"checked": controller.updater.lastCheckedAt != nil,
 			] as [String: Any],
+			"quitConfirmation": controller.state.confirmingQuit,
 			"profileSheet": controller.state.profileSheet.map { target in
 				target.profileID ?? "new"
 			} ?? NSNull(),

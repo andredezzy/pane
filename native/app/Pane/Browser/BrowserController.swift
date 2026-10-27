@@ -33,6 +33,8 @@ final class BrowserController: NSObject {
 	let extensionPopover = ExtensionPopover()
 	// The window's SwiftUI root, where toolbar buttons anchor popups.
 	weak var hostingView: NSView?
+	// Quit Pane?'s keys, while it shows.
+	var quitKeyMonitor: Any?
 	private var tabIDs: [ObjectIdentifier: String] = [:]
 	// The tab id the engine's next inserted tab gets (a tab the app opens).
 	private var pendingTabID: String?

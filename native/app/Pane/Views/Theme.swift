@@ -119,6 +119,7 @@ enum Lucide: String {
 	case arrowUp
 	case chevronDown
 	case chevronsDownUp
+	case circleDashedX
 	case globe
 	case loaderCircle
 	case moon
@@ -142,6 +143,8 @@ enum Lucide: String {
 			#"<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>"#
 		case .chevronDown:
 			#"<path d="m6 9 6 6 6-6"/>"#
+		case .circleDashedX:
+			#"<circle cx="12" cy="12" r="9" stroke-dasharray="2.6 2.6"/><path d="M9.5 9.5l5 5"/><path d="M14.5 9.5l-5 5"/>"#
 		case .chevronsDownUp:
 			#"<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>"#
 		case .globe:
@@ -180,7 +183,7 @@ enum Lucide: String {
 	}
 
 	@MainActor
-	private func image(strokeWidth: Double, size: Int) -> NSImage {
+	func image(strokeWidth: Double, size: Int) -> NSImage {
 		let key = "\(rawValue) \(strokeWidth) \(size)"
 
 		if let image = Self.cache[key] {

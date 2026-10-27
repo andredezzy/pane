@@ -136,7 +136,10 @@ const hosted: Scenario = async (context) => {
 	);
 
 	const helpersBefore = await helpersOf(browser.pid);
-	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility.
+	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility. It
+	// asks first (Quit Pane?); choosing it again quits, as ⌘Q again does.
+	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
+	await Bun.sleep(1_000);
 	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
 	await Bun.sleep(5_000);
 

@@ -1,5 +1,6 @@
 import AppKit
 import PaneKit
+import SwiftUI
 
 // Menu and keyboard actions, and the app-wide theme.
 extension BrowserController {
@@ -95,6 +96,77 @@ extension BrowserController {
 
 	@objc func previousTabMRU(_ sender: Any?) {
 		state.switcher.visible ? cycleSwitcher(backward: true) : openSwitcher(backward: true)
+	}
+}
+
+// Quit Pane? ⌘Q asks first, as Aside does; ⌘Q again, Return, or Quit quits,
+// and Esc, Cancel, or a click outside goes back. At the PIN screen nothing is
+// open to lose, so it quits at once.
+extension BrowserController {
+	@objc func confirmQuit(_ sender: Any?) {
+		if state.confirmingQuit || lock.entry != nil {
+			quit()
+			return
+		}
+
+		quitKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+			// Event monitors run on the main thread.
+			nonisolated(unsafe) let event = event
+			let consumed = MainActor.assumeIsolated { self?.quitPanelConsumes(event) ?? false }
+
+			return consumed ? nil : event
+		}
+
+		withAnimation(Self.panelAnimation) {
+			state.confirmingQuit = true
+		}
+	}
+
+	func cancelQuit() {
+		removeQuitKeyMonitor()
+
+		withAnimation(Self.panelAnimation) {
+			state.confirmingQuit = false
+		}
+	}
+
+	func quit() {
+		removeQuitKeyMonitor()
+		state.confirmingQuit = false
+		NSApp.terminate(nil)
+	}
+
+	private static var panelAnimation: Animation? {
+		NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .easeOut(duration: 0.15)
+	}
+
+	// While Quit Pane? shows it takes every key, as the PIN screen does, so
+	// none reaches the page: Esc goes back, Return quits, and ⌘Q goes on to
+	// the menu, which quits.
+	private func quitPanelConsumes(_ event: NSEvent) -> Bool {
+		let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+		if flags == .command, event.charactersIgnoringModifiers == "q" {
+			return false
+		}
+
+		switch event.keyCode {
+		case 53:
+			cancelQuit()
+		case 36, 76:
+			quit()
+		default:
+			break
+		}
+
+		return true
+	}
+
+	private func removeQuitKeyMonitor() {
+		if let quitKeyMonitor {
+			NSEvent.removeMonitor(quitKeyMonitor)
+			self.quitKeyMonitor = nil
+		}
 	}
 }
 

@@ -69,6 +69,16 @@ struct RootView: View {
 				ConfirmDialogView(dialog: dialog) { state.dialog = nil }
 			}
 
+			if state.confirmingQuit {
+				Self.quitScrim
+					.contentShape(Rectangle())
+					.onTapGesture { controller.cancelQuit() }
+					.transition(.opacity)
+
+				QuitConfirmationView(cancel: controller.cancelQuit, quit: controller.quit)
+					.transition(.opacity.combined(with: .scale(scale: 0.97)))
+			}
+
 			// The PIN screen, over everything; it slides up and back down.
 			if let entry = controller.lock.entry {
 				LockScreenView(lock: controller.lock, entry: entry, updater: controller.updater)
@@ -87,6 +97,11 @@ struct RootView: View {
 			}
 		}
 	}
+
+	// Quit Pane?'s scrim: a light veil, as Aside's, darker on dark.
+	private static let quitScrim = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.45 : 0.14)
+	})
 
 	// The content panel: m-2 ml-0, rounded 10, the panel shadow.
 	private var content: some View {
