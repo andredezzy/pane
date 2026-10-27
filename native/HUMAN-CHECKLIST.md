@@ -55,10 +55,10 @@ Publishing hands this build to every Electron Pane user: their update check offe
 1. Publish the engine that CI builds the app on, as a prerelease (a prerelease is never the latest release, so the update check never sees it):
 
    ```bash
-   shasum -a 256 native/app/release/PaneCore-157.0.8103.15-dbddbf764cac.zip
-   # must print 63542dd1c821688b4af1d4d5d3bd23716b492412d2ffd7c5c4cbc0c8e31a6e00 (native/engine/prebuilt-engines.tsv)
-   gh release create engine-dbddbf764cac native/app/release/PaneCore-157.0.8103.15-dbddbf764cac.zip \
-     --prerelease --title "Engine 157.0.8103.15 (dbddbf764cac)" --notes "PaneCore for native/engine/prebuilt-engines.tsv"
+   shasum -a 256 native/app/release/PaneCore-157.0.8103.15-3cf32214b550.zip
+   # must print e5b754244a22ad3fd0b0bb4780c4d83741cb8506782d343a2da559c86bc718af (native/engine/prebuilt-engines.tsv)
+   gh release create engine-3cf32214b550 native/app/release/PaneCore-157.0.8103.15-3cf32214b550.zip \
+     --prerelease --title "Engine 157.0.8103.15 (3cf32214b550)" --notes "PaneCore for native/engine/prebuilt-engines.tsv"
    ```
 
 2. Merge the branch. `main` has not moved since the branch began, so it fast-forwards:
