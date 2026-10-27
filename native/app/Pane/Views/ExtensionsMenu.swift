@@ -4,7 +4,7 @@ import SwiftUI
 // Extensions menu): 300 wide under the toolbar's puzzle, Manage all
 // extensions and the Chrome Web Store, then the active profile's extensions.
 // A row runs its extension's action; its pin (blue while pinned) keeps the
-// menu open; its more button opens a native menu.
+// menu open; its more button opens ExtensionMoreMenu beside it.
 struct ExtensionsMenu: View {
 	let controller: BrowserController
 
@@ -17,20 +17,18 @@ struct ExtensionsMenu: View {
 		VStack(spacing: 0) {
 			VStack(spacing: 0) {
 				MenuRow(identifier: "pane.extensionsMenu.manage", action: { controller.showExtensionSettings() }) {
-					RowIcon(glyph: .puzzle, strokeWidth: 2)
+					RowIcon(image: Glyph.puzzle.image(strokeWidth: 2, size: 16))
 					RowTitle(text: "Manage all extensions")
 				}
 
 				MenuRow(identifier: "pane.extensionsMenu.webStore", action: controller.visitWebStore) {
-					RowIcon(glyph: .download)
+					RowIcon(image: Glyph.download.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Visit Chrome Web Store")
 				}
 			}
 			.padding(4)
 
-			Rectangle()
-				.fill(Palette.border)
-				.frame(height: 1)
+			MenuSeparator()
 
 			VStack(alignment: .leading, spacing: 0) {
 				Text("Installed extensions")
@@ -56,20 +54,95 @@ struct ExtensionsMenu: View {
 			.padding(4)
 		}
 		.frame(width: 300)
-		// shadow-2xl (0 25px 50px -12px black 25%), on the surface alone: on
-		// the whole view, SwiftUI shadows each row, text, and fill inside it.
-		.background {
-			RoundedRectangle(cornerRadius: 12, style: .circular)
-				.fill(Palette.popover)
-				.shadow(color: .black.opacity(0.25), radius: 25, y: 25)
-		}
-		.overlay {
-			RoundedRectangle(cornerRadius: 12, style: .circular)
-				.strokeBorder(Palette.foreground.opacity(0.1), lineWidth: 1)
-		}
+		.popoverSurface(cornerRadius: 12)
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel("Extensions")
 		.accessibilityIdentifier("pane.extensionsMenu")
+	}
+}
+
+// An extension's more menu, as Aside's (Paper: 02.10 Browser · Extension
+// popups): 240 wide beside the extensions menu, level with the row. Its
+// name, then its Web Store page; Remove and Pin or Unpin; Manage extension,
+// and Options when it has them.
+struct ExtensionMoreMenu: View {
+	let controller: BrowserController
+	let item: ExtensionInfo
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 0) {
+			VStack(alignment: .leading, spacing: 0) {
+				Text(item.name)
+					.font(.system(size: 12))
+					.foregroundStyle(Palette.mutedForeground)
+					.lineLimit(1)
+					.padding(.horizontal, 6)
+					.frame(height: 24)
+					.accessibilityAddTraits(.isHeader)
+
+				MenuRow(identifier: "pane.extensionMoreMenu.storePage", action: { controller.openExtensionStorePage(item.id) }) {
+					RowIcon(image: Lucide.squareArrowOutUpRight.image(strokeWidth: 1.75, size: 16))
+					RowTitle(text: item.name)
+				}
+			}
+			.padding(4)
+
+			MenuSeparator()
+
+			VStack(spacing: 0) {
+				MenuRow(identifier: "pane.extensionMoreMenu.remove", action: {
+					if let profileID = controller.model.activeProfileID {
+						controller.confirmUninstall(item, inProfile: profileID)
+					}
+				}) {
+					RowIcon(image: Lucide.trash2.image(strokeWidth: 1.75, size: 16))
+					RowTitle(text: "Remove from Pane")
+				}
+
+				if item.hasAction {
+					MenuRow(identifier: "pane.extensionMoreMenu.pin", action: {
+						if let profileID = controller.model.activeProfileID {
+							controller.state.extensionMoreMenu = nil
+							controller.setExtension(item.id, pinned: !item.pinned, inProfile: profileID)
+						}
+					}) {
+						RowIcon(image: (item.pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
+						RowTitle(text: item.pinned ? "Unpin" : "Pin")
+					}
+				}
+			}
+			.padding(4)
+
+			MenuSeparator()
+
+			VStack(spacing: 0) {
+				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showExtensionSettings(extensionID: item.id) }) {
+					RowIcon(image: Lucide.settings.image(strokeWidth: 1.75, size: 16))
+					RowTitle(text: "Manage extension")
+				}
+
+				if item.optionsURL != nil {
+					MenuRow(identifier: "pane.extensionMoreMenu.options", action: { controller.openExtensionOptions(item) }) {
+						RowIcon(image: Lucide.settings.image(strokeWidth: 1.75, size: 16))
+						RowTitle(text: "Options")
+					}
+				}
+			}
+			.padding(4)
+		}
+		.frame(width: 240)
+		.popoverSurface(cornerRadius: 12)
+		.accessibilityElement(children: .contain)
+		.accessibilityLabel(item.name)
+		.accessibilityIdentifier("pane.extensionMoreMenu")
+	}
+}
+
+private struct MenuSeparator: View {
+	var body: some View {
+		Rectangle()
+			.fill(Palette.border)
+			.frame(height: 1)
 	}
 }
 
@@ -82,7 +155,8 @@ private struct ExtensionRow: View {
 	var body: some View {
 		MenuRow(
 			identifier: "pane.extensionsMenu.extension.\(item.id)",
-			action: item.hasAction ? { controller.runExtensionFromMenu(item.id) } : nil
+			action: item.hasAction ? { controller.runExtensionFromMenu(item.id) } : nil,
+			isHighlighted: controller.state.extensionMoreMenu?.extensionID == item.id
 		) {
 			Group {
 				if let icon = item.icon {
@@ -105,6 +179,7 @@ private struct ExtensionRow: View {
 		} trailing: {
 			if item.hasAction, let profileID = controller.model.activeProfileID {
 				TrailingButton(label: item.pinned ? "Unpin from toolbar" : "Pin to toolbar") {
+					controller.state.extensionMoreMenu = nil
 					controller.setExtension(item.id, pinned: !item.pinned, inProfile: profileID)
 				} content: {
 					Image(nsImage: (item.pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
@@ -115,10 +190,11 @@ private struct ExtensionRow: View {
 				.accessibilityIdentifier("pane.extensionsMenu.pin.\(item.id)")
 			}
 
-			// Its frame, for the native menu to open under.
+			// Its frame: the more menu opens level with the row, 4 points above
+			// and below the button.
 			GeometryReader { geometry in
 				TrailingButton(label: "More") {
-					controller.showExtensionMoreMenu(item, at: geometry.frame(in: .global))
+					controller.toggleExtensionMoreMenu(item.id, row: geometry.frame(in: .global).insetBy(dx: 0, dy: -4))
 				} content: {
 					Image(nsImage: Glyph.ellipsis.image(strokeWidth: 1.75, size: 16))
 						.renderingMode(.template)
@@ -138,11 +214,12 @@ private struct ExtensionRow: View {
 
 // A 32-point row: a button from its leading edge to its trailing buttons,
 // 8 points in, the whole row taking the accent fill on hover (rounded 8,
-// inside the menu's 12 and 4 of padding). Without an action, the row only
-// shows.
+// inside the menu's 12 and 4 of padding), and while its more menu is open.
+// Without an action, the row only shows.
 private struct MenuRow<Label: View, Trailing: View>: View {
 	let identifier: String
 	let action: (() -> Void)?
+	let isHighlighted: Bool
 	@ViewBuilder let label: Label
 	@ViewBuilder let trailing: Trailing
 
@@ -152,11 +229,13 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 	init(
 		identifier: String,
 		action: (() -> Void)?,
+		isHighlighted: Bool = false,
 		@ViewBuilder label: () -> Label,
 		@ViewBuilder trailing: () -> Trailing = { EmptyView() }
 	) {
 		self.identifier = identifier
 		self.action = action
+		self.isHighlighted = isHighlighted
 		self.label = label()
 		self.trailing = trailing()
 	}
@@ -181,7 +260,7 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 		}
 		.padding(.trailing, 8)
 		.frame(height: 32)
-		.background(isHovered && action != nil ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 8, style: .circular))
+		.background(isHighlighted || isHovered && action != nil ? Palette.accent : .clear, in: RoundedRectangle(cornerRadius: 8, style: .circular))
 		.onHover { hovering in
 			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
 		}
@@ -190,11 +269,10 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 
 // A row's 16-point icon, muted.
 private struct RowIcon: View {
-	let glyph: Glyph
-	var strokeWidth = 1.75
+	let image: NSImage
 
 	var body: some View {
-		Image(nsImage: glyph.image(strokeWidth: strokeWidth, size: 16))
+		Image(nsImage: image)
 			.renderingMode(.template)
 			.foregroundStyle(Palette.mutedForeground)
 			.accessibilityHidden(true)

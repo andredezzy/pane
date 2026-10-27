@@ -97,6 +97,22 @@ extension View {
 		}
 	}
 
+	// A popover surface with a foreground/10 ring, over shadow-2xl (0 25px 50px
+	// -12px black 25%): the tab switcher, the extensions menus, and their
+	// popups. The shadow is the surface's alone: on the whole view, SwiftUI
+	// shadows each row, text, and fill inside it.
+	func popoverSurface(cornerRadius: CGFloat) -> some View {
+		background {
+			RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+				.fill(Palette.popover)
+				.shadow(color: .black.opacity(0.25), radius: 25, y: 25)
+		}
+		.overlay {
+			RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+				.strokeBorder(Palette.foreground.opacity(0.1), lineWidth: 1)
+		}
+	}
+
 	// shadow-md: the find bar.
 	func mediumShadow() -> some View {
 		shadow(color: .black.opacity(0.1), radius: 3, y: 4)
@@ -126,6 +142,7 @@ enum Lucide: String {
 	case pencil
 	case rotateCw
 	case settings
+	case squareArrowOutUpRight
 	case timerOff
 	case trash2
 	case x
@@ -158,6 +175,8 @@ enum Lucide: String {
 			#"<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>"#
 		case .settings:
 			#"<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>"#
+		case .squareArrowOutUpRight:
+			#"<path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/><path d="m21 3-9 9"/><path d="M15 3h6v6"/>"#
 		case .timerOff:
 			#"<path d="M10 2h4"/><path d="M4.6 11a8 8 0 0 0 1.7 8.7 8 8 0 0 0 8.7 1.7"/><path d="M7.4 7.4a8 8 0 0 1 10.3 1 8 8 0 0 1 .9 10.2"/><path d="m2 2 20 20"/><path d="M12 12v-2"/>"#
 		case .trash2:

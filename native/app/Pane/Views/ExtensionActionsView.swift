@@ -15,6 +15,7 @@ struct ExtensionActionsView: View {
 		HStack(spacing: 5) {
 			ForEach(pinned) { item in
 				ActionButton(item: item) { controller.runExtensionAction(item.id) }
+					.contextMenu { ActionContextMenu(controller: controller, item: item) }
 					.anchorPreference(item.id)
 			}
 
@@ -26,6 +27,65 @@ struct ExtensionActionsView: View {
 		.onPreferenceChange(ActionAnchorKey.self) { anchors in
 			controller.state.actionAnchors = anchors
 		}
+	}
+}
+
+// A pinned action's right-click menu, native as Aside's: its Web Store
+// page, Remove and Unpin, then Manage extension and its Options.
+private struct ActionContextMenu: View {
+	let controller: BrowserController
+	let item: ExtensionInfo
+
+	var body: some View {
+		Button { controller.openExtensionStorePage(item.id) } label: {
+			MenuItemLabel(item.name, image: Lucide.squareArrowOutUpRight.menuImage)
+		}
+
+		Divider()
+
+		Button {
+			controller.model.activeProfileID.map { controller.confirmUninstall(item, inProfile: $0) }
+		} label: {
+			MenuItemLabel("Remove from Pane", image: Lucide.trash2.menuImage)
+		}
+
+		Button {
+			controller.model.activeProfileID.map { controller.setExtension(item.id, pinned: false, inProfile: $0) }
+		} label: {
+			MenuItemLabel("Unpin", image: Glyph.pinOff.image(strokeWidth: 1.5, size: 16))
+		}
+
+		Divider()
+
+		Button { controller.showExtensionSettings(extensionID: item.id) } label: {
+			MenuItemLabel("Manage extension", image: Lucide.settings.menuImage)
+		}
+
+		if item.optionsURL != nil {
+			Button { controller.openExtensionOptions(item) } label: {
+				MenuItemLabel("Options", image: Lucide.settings.menuImage)
+			}
+		}
+	}
+}
+
+private struct MenuItemLabel: View {
+	let title: String
+	let image: NSImage
+
+	init(_ title: String, image: NSImage) {
+		self.title = title
+		self.image = image
+	}
+
+	var body: some View {
+		Label {
+			Text(title)
+		} icon: {
+			Image(nsImage: image)
+		}
+		// Menus show only a label's title unless asked for both.
+		.labelStyle(.titleAndIcon)
 	}
 }
 

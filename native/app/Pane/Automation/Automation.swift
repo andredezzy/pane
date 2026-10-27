@@ -517,7 +517,11 @@ final class Automation {
 			switch control {
 			case "run": controller.runExtensionFromMenu(id)
 			case "pin": controller.setExtension(id, pinned: !item.pinned, inProfile: profileID)
-			case "more": controller.showExtensionMoreMenu(item, at: controller.state.actionAnchors[WindowState.extensionsMenuAnchor] ?? .zero)
+			case "more": controller.toggleExtensionMoreMenu(id, row: controller.state.actionAnchors[WindowState.extensionsMenuAnchor] ?? .zero)
+			// The more menu's rows.
+			case "storePage": controller.openExtensionStorePage(id)
+			case "remove": controller.confirmUninstall(item, inProfile: profileID)
+			case "manageExtension": controller.showExtensionSettings(extensionID: id)
 			default: throw AutomationError("unknown extensions menu control \(control)")
 			}
 
@@ -541,6 +545,15 @@ final class Automation {
 	}
 
 	private func clickSheetButton(_ title: String, texts: [String]) throws {
+		if let prompt = controller.state.extensionPrompt {
+			guard [prompt.acceptTitle, prompt.cancelTitle].contains(title) else {
+				throw AutomationError("no button \(title); buttons: \([prompt.acceptTitle, prompt.cancelTitle])")
+			}
+
+			controller.answerExtensionPrompt(accepted: title == prompt.acceptTitle)
+			return
+		}
+
 		guard let alert = controller.dialogs.presented?.alert else {
 			throw AutomationError("no sheet")
 		}
@@ -645,6 +658,18 @@ final class Automation {
 	}
 
 	private func sheetSnapshot() -> Any {
+		// An extension popup answers as a sheet did: its buttons, accept first.
+		if let prompt = controller.state.extensionPrompt {
+			return [
+				"kind": prompt.kind.rawValue,
+				"tabID": NSNull(),
+				"title": prompt.title,
+				"message": ([prompt.permissionsHeading] + prompt.permissions).filter { !$0.isEmpty }.joined(separator: "\n"),
+				"buttons": [prompt.acceptTitle, prompt.cancelTitle],
+				"fields": [String](),
+			] as [String: Any]
+		}
+
 		guard let presented = controller.dialogs.presented else {
 			return NSNull()
 		}
@@ -928,6 +953,7 @@ final class Automation {
 				] as [String: Any]
 			} ?? NSNull(),
 			"extensionsMenu": controller.state.extensionsMenuOpen,
+			"extensionMoreMenu": controller.state.extensionMoreMenu?.extensionID ?? NSNull(),
 			"installedExtension": controller.state.installedExtension ?? NSNull(),
 			"pageFullscreen": controller.state.pageFullscreen,
 			"exclusiveAccessHint": controller.state.exclusiveAccessHint ?? NSNull(),

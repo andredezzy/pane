@@ -25,8 +25,8 @@ final class BrowserController: NSObject {
 	private(set) lazy var dialogs = DialogPresenter(window: browserWindow.window) { [weak self] in
 		self?.model.activeTabID
 	}
-	// The context menu last built (a page's, or an extension's more menu),
-	// kept for scenarios, and whether a page's is on screen.
+	// The page context menu last built, kept for scenarios, and whether it is
+	// on screen.
 	private(set) var lastContextMenu: NSMenu?
 	private(set) var contextMenuOpen = false
 	// Shows extension action popups.
@@ -35,8 +35,9 @@ final class BrowserController: NSObject {
 	weak var hostingView: NSView?
 	// Quit Pane?'s keys, while it shows.
 	var quitKeyMonitor: Any?
-	// Esc, while the extensions menu is open.
-	private var extensionsMenuKeyMonitor: Any?
+	// Esc and Return, while the extensions menu, a more menu, or an extension
+	// popup shows.
+	private var extensionsKeyMonitor: Any?
 	private var tabIDs: [ObjectIdentifier: String] = [:]
 	// The tab id the engine's next inserted tab gets (a tab the app opens).
 	private var pendingTabID: String?
@@ -799,7 +800,19 @@ extension BrowserController: BrowserContextDelegate {
 			return
 		}
 
-		dialogs.enqueue(.extensionInstall(request), tabID: nil)
+		// In the window, as Aside's popup: an AppKit sheet takes some 280 ms
+		// to attach, with the main thread held.
+		presentExtensionPrompt(WindowState.ExtensionPrompt(
+			kind: .install,
+			extensionID: request.extensionIdentifier,
+			title: Self.curlyQuoted(request.title),
+			icon: request.icon,
+			permissionsHeading: request.permissionsHeading,
+			permissions: request.permissions,
+			acceptTitle: request.acceptTitle,
+			cancelTitle: request.cancelTitle,
+			answer: { accepted, _ in accepted ? request.accept() : request.cancel() }
+		))
 	}
 
 	func browserContext(_ context: BrowserContext, didInstall installed: Extension) {
@@ -901,23 +914,49 @@ extension BrowserController {
 		context(for: profileID)?.updateExtensions()
 	}
 
-	// Uninstalls after asking, as Settings and the extensions menu do.
-	func confirmUninstall(_ item: ExtensionInfo, inProfile profileID: String) {
-		let profileName = model.profile(profileID)?.name ?? "this profile"
+	// Chrome's prompt titles quote the name straight (Add "Dark Reader"?);
+	// the popups quote it as Remove does.
+	static func curlyQuoted(_ title: String) -> String {
+		guard let open = title.firstIndex(of: "\""), let close = title.lastIndex(of: "\""), open < close else {
+			return title
+		}
 
-		state.dialog = WindowState.ConfirmDialog(
-			title: "Uninstall \(item.name)?",
-			message: "This will remove the extension from \u{201C}\(profileName)\u{201D}.",
-			confirmTitle: "Uninstall",
-			confirm: { [weak self] in self?.uninstallExtension(item.id, inProfile: profileID) }
-		)
+		return title.replacingCharacters(in: close ... close, with: "\u{201D}").replacingCharacters(in: open ... open, with: "\u{201C}")
+	}
+
+	// Removes after asking, in the popup, as Aside does; Report abuse then
+	// opens the Web Store's report page, as Chrome's dialog does.
+	func confirmUninstall(_ item: ExtensionInfo, inProfile profileID: String) {
+		presentExtensionPrompt(WindowState.ExtensionPrompt(
+			kind: .remove,
+			extensionID: item.id,
+			title: "Remove \u{201C}\(item.name)\u{201D}?",
+			icon: item.icon,
+			permissionsHeading: "",
+			permissions: [],
+			acceptTitle: "Remove",
+			cancelTitle: "Cancel",
+			answer: { [weak self] accepted, reportAbuse in
+				guard accepted, let self else {
+					return
+				}
+
+				uninstallExtension(item.id, inProfile: profileID)
+
+				if reportAbuse, let url = URL(string: "https://chrome.google.com/webstore/report/\(item.id)?utm_source=chrome-remove-extension-dialog") {
+					openTab(inProfile: profileID, url: url)
+				}
+			}
+		))
 	}
 }
 
-// MARK: - Extensions menu
+// MARK: - Extensions menu and popups
 
-// The toolbar puzzle's menu (ExtensionsMenu), as Aside's: it closes on Esc,
-// a click outside it, or once one of its items runs.
+// The toolbar puzzle's menu (ExtensionsMenu), an extension's more menu
+// beside it, and the popups that add or remove one (ExtensionPromptView), as
+// Aside's. Esc closes the topmost; a menu also closes on a click outside it,
+// or once one of its items runs.
 extension BrowserController {
 	static let webStoreURL = URL(string: "https://chromewebstore.google.com/category/extensions")!
 
@@ -932,25 +971,18 @@ extension BrowserController {
 		}
 
 		state.extensionsMenuOpen = true
-		extensionsMenuKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-			guard event.keyCode == 53 else {
-				return event
-			}
-
-			// Event monitors run on the main thread.
-			MainActor.assumeIsolated { self?.closeExtensionsMenu() }
-
-			return nil
-		}
+		syncExtensionsKeyMonitor()
 	}
 
+	// The menu, and the more menu beside it.
 	func closeExtensionsMenu() {
-		if let extensionsMenuKeyMonitor {
-			NSEvent.removeMonitor(extensionsMenuKeyMonitor)
-			self.extensionsMenuKeyMonitor = nil
-		}
-
+		state.extensionMoreMenu = nil
 		state.extensionsMenuOpen = false
+		syncExtensionsKeyMonitor()
+	}
+
+	func toggleExtensionMoreMenu(_ extensionID: String, row: CGRect) {
+		state.extensionMoreMenu = state.extensionMoreMenu?.extensionID == extensionID ? nil : (extensionID, row)
 	}
 
 	// Settings, scrolled to Extensions, or to one extension's card there.
@@ -970,6 +1002,23 @@ extension BrowserController {
 		}
 	}
 
+	// An extension's page in the Web Store, where it came from.
+	func openExtensionStorePage(_ extensionID: String) {
+		closeExtensionsMenu()
+
+		if let profileID = model.activeProfileID, let url = URL(string: "https://chromewebstore.google.com/detail/\(extensionID)") {
+			openTab(inProfile: profileID, url: url)
+		}
+	}
+
+	func openExtensionOptions(_ item: ExtensionInfo) {
+		closeExtensionsMenu()
+
+		if let profileID = model.activeProfileID, let url = item.optionsURL {
+			openTab(inProfile: profileID, url: url)
+		}
+	}
+
 	// A row of the menu: the extension's action, its popup at the puzzle when
 	// it is not pinned.
 	func runExtensionFromMenu(_ extensionID: String) {
@@ -977,41 +1026,70 @@ extension BrowserController {
 		runExtensionAction(extensionID)
 	}
 
-	// An extension's more menu, under its button (`rect`, in the window's
-	// SwiftUI coordinates): Options, Manage extension, then Remove.
-	func showExtensionMoreMenu(_ item: ExtensionInfo, at rect: CGRect) {
-		guard let profileID = model.activeProfileID, let hostingView else {
+	// A popup replaces one still open, which answers no.
+	func presentExtensionPrompt(_ prompt: WindowState.ExtensionPrompt) {
+		closeExtensionsMenu()
+		let previous = state.extensionPrompt
+		state.extensionPromptReportsAbuse = false
+		state.extensionPrompt = prompt
+		syncExtensionsKeyMonitor()
+		previous?.answer(false, false)
+	}
+
+	func answerExtensionPrompt(accepted: Bool) {
+		guard let prompt = state.extensionPrompt else {
 			return
 		}
 
-		let menu = NSMenu()
-		menu.autoenablesItems = false
+		state.extensionPrompt = nil
+		syncExtensionsKeyMonitor()
+		prompt.answer(accepted, accepted && state.extensionPromptReportsAbuse)
+	}
 
-		menu.addItem(ActionMenuItem(title: "Options", enabled: item.optionsURL != nil) { [weak self] in
-			self?.closeExtensionsMenu()
+	// The keys belong to whichever of them shows: a popup takes all but
+	// shortcuts, as a dialog would.
+	private func syncExtensionsKeyMonitor() {
+		let showing = state.extensionsMenuOpen || state.extensionPrompt != nil
 
-			if let url = item.optionsURL {
-				self?.openTab(inProfile: profileID, url: url)
+		if showing, extensionsKeyMonitor == nil {
+			extensionsKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+				// Event monitors run on the main thread.
+				nonisolated(unsafe) let event = event
+				let consumed = MainActor.assumeIsolated { self?.extensionsUIConsumes(event) ?? false }
+
+				return consumed ? nil : event
 			}
-		})
+		} else if !showing, let extensionsKeyMonitor {
+			NSEvent.removeMonitor(extensionsKeyMonitor)
+			self.extensionsKeyMonitor = nil
+		}
+	}
 
-		menu.addItem(ActionMenuItem(title: "Manage extension", enabled: true) { [weak self] in
-			self?.showExtensionSettings(extensionID: item.id)
-		})
+	private func extensionsUIConsumes(_ event: NSEvent) -> Bool {
+		let isPrompt = state.extensionPrompt != nil
 
-		menu.addItem(.separator())
+		switch event.keyCode {
+		case 53:
+			if isPrompt {
+				answerExtensionPrompt(accepted: false)
+			} else if state.extensionMoreMenu != nil {
+				state.extensionMoreMenu = nil
+			} else {
+				closeExtensionsMenu()
+			}
 
-		menu.addItem(ActionMenuItem(title: "Remove from Pane…", enabled: true) { [weak self] in
-			self?.closeExtensionsMenu()
-			self?.confirmUninstall(item, inProfile: profileID)
-		})
+			return true
 
-		lastContextMenu = menu
+		case 36, 76:
+			guard isPrompt else {
+				return false
+			}
 
-		// After the click that asked for it returns: the menu runs its own
-		// loop.
-		DispatchQueue.main.async {
-			menu.popUp(positioning: nil, at: NSPoint(x: rect.minX, y: rect.maxY + 4), in: hostingView)
+			answerExtensionPrompt(accepted: true)
+			return true
+
+		default:
+			return isPrompt && event.modifierFlags.intersection(.deviceIndependentFlagsMask).isDisjoint(with: [.command, .control])
 		}
 	}
 }

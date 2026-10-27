@@ -46,10 +46,39 @@ struct RootView: View {
 					.contentShape(Rectangle())
 					.onTapGesture(perform: controller.closeExtensionsMenu)
 
+				let menuX = max(8, anchor.maxX - 300)
+
 				ExtensionsMenu(controller: controller)
-					.padding(.leading, max(8, anchor.maxX - 300))
+					.padding(.leading, menuX)
 					.padding(.top, anchor.maxY + 4)
 					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+				// An extension's more menu: beside the menu, over its edge by 10
+				// points, level with the row, as Aside's.
+				if let more = state.extensionMoreMenu, let item = activeExtension(more.extensionID) {
+					ExtensionMoreMenu(controller: controller, item: item)
+						.padding(.leading, max(8, menuX - 230))
+						.padding(.top, more.row.minY)
+						.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+				}
+			}
+
+			// Adding or removing an extension: under its toolbar button, else the
+			// puzzle's; centered where there is no toolbar (Settings). A click
+			// outside it cancels.
+			if let prompt = state.extensionPrompt {
+				Color.clear
+					.contentShape(Rectangle())
+					.onTapGesture { controller.answerExtensionPrompt(accepted: false) }
+
+				if showsToolbar, let anchor = state.actionAnchors[prompt.extensionID] ?? state.actionAnchors[WindowState.extensionsMenuAnchor] {
+					ExtensionPromptView(controller: controller, prompt: prompt)
+						.padding(.leading, max(8, anchor.maxX - 320))
+						.padding(.top, anchor.maxY + 4)
+						.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+				} else {
+					ExtensionPromptView(controller: controller, prompt: prompt)
+				}
 			}
 
 			if state.switcher.visible {
@@ -117,6 +146,10 @@ struct RootView: View {
 				ExclusiveAccessHint(text: hint)
 			}
 		}
+	}
+
+	private func activeExtension(_ extensionID: String) -> ExtensionInfo? {
+		model.activeProfileID.flatMap { model.extensions[$0] }?.first { $0.id == extensionID }
 	}
 
 	// Quit Pane?'s scrim: a light veil, as Aside's, darker on dark.

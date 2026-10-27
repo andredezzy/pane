@@ -137,12 +137,13 @@ const extensionManagement: Scenario = async (context) => {
 		has("PaneBrowserContext.updateExtensions"),
 	);
 
-	// Uninstall asks first, in the app's dialog.
+	// Uninstall asks first, in the extension's removal popup.
 	if (locked) {
 		await app.send("uninstallExtension", { id: DARK_READER, profile });
 	} else {
 		const window = await mainWindowOf(pid);
 		await clickButton(pid, window, "Uninstall");
+		await waitForSheet(app, "extensionRemove");
 		await Bun.sleep(500);
 
 		await windowState(
@@ -151,7 +152,7 @@ const extensionManagement: Scenario = async (context) => {
 			join(context.out, "extension-uninstall.png"),
 		);
 
-		await clickButton(pid, window, "Uninstall", "pane.dialog.confirm");
+		await clickButton(pid, window, "Remove", "pane.extensionPopup.accept");
 	}
 
 	const removed = await app.waitFor(

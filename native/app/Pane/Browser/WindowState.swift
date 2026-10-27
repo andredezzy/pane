@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import PaneKit
 
 // Transient UI state of the browser window that is not the browser's data:
@@ -68,6 +68,34 @@ final class WindowState {
 	static let extensionsMenuAnchor = "pane.extensions"
 	// The extensions menu, open under the toolbar's puzzle.
 	var extensionsMenuOpen = false
+	// One extension's more menu, beside its row of the extensions menu: the
+	// extension and the row's frame (the window's SwiftUI coordinates).
+	var extensionMoreMenu: (extensionID: String, row: CGRect)?
+	// Adding or removing an extension, asked in a popup under its toolbar
+	// button (ExtensionPromptView).
+	var extensionPrompt: ExtensionPrompt?
+	// Its Report abuse box, ticked.
+	var extensionPromptReportsAbuse = false
+
+	struct ExtensionPrompt: Identifiable {
+		enum Kind: String {
+			case install = "extensionInstall"
+			case remove = "extensionRemove"
+		}
+
+		let id = UUID()
+		let kind: Kind
+		let extensionID: String
+		let title: String
+		let icon: NSImage?
+		let permissionsHeading: String
+		let permissions: [String]
+		let acceptTitle: String
+		let cancelTitle: String
+		// Answered once: accepted or not, and Report abuse (removal only).
+		let answer: @MainActor (_ accepted: Bool, _ reportAbuse: Bool) -> Void
+	}
+
 	// Where Settings scrolls as it opens: the Extensions section, or one
 	// extension's card in it (their accessibility identifiers).
 	var settingsAnchor: String?

@@ -58,6 +58,14 @@ const pin = (pinned: boolean): Control => ({
 	extension: DARK_READER,
 });
 
+// A row of the more menu.
+const moreItem = (name: string, title: string, id: string): Control => ({
+	name,
+	title,
+	id: `pane.extensionMoreMenu.${id}`,
+	extension: DARK_READER,
+});
+
 const more: Control = {
 	name: "more",
 	title: "More",
@@ -152,11 +160,11 @@ const extensionsMenu: Scenario = async (context) => {
 	// extension.
 	await app.send("installExtension", { id: DARK_READER, profile });
 
-	await answerSheet(
-		app,
-		(await waitForSheet(app, "extensionInstall", 60_000)).buttons?.[0] ??
-			"Add extension",
-	);
+	// The install popup, under the puzzle (the extension has no button yet).
+	const adding = await waitForSheet(app, "extensionInstall", 60_000);
+	await Bun.sleep(300);
+	await app.send("render", { path: join(context.out, "install-popup.png") });
+	await answerSheet(app, adding.buttons?.[0] ?? "Add extension");
 
 	const installed = await app.waitFor(
 		"Dark Reader installed",
@@ -232,25 +240,30 @@ const extensionsMenu: Scenario = async (context) => {
 
 	await Bun.sleep(500);
 
-	// More: a native menu; Manage extension opens Settings.
+	// More: Pane's own menu beside the row; Manage extension opens Settings.
 	await openMenu(app, locked);
 	await press(app, locked, more);
 
-	const moreMenu = await app.waitFor("the more menu", (state) =>
-		(state.contextMenu ?? []).some((each) => each.title === "Manage extension"),
+	const moreMenu = await app.waitFor(
+		"the more menu",
+		(state) => state.extensionMoreMenu === DARK_READER,
 	);
 
-	expect(
-		JSON.stringify((moreMenu.contextMenu ?? []).map((each) => each.title)) ===
-			JSON.stringify(["Options", "Manage extension", "Remove from Pane…"]),
-		`more menu: ${JSON.stringify(moreMenu.contextMenu)}`,
-	);
+	await Bun.sleep(300);
+	await app.send("render", { path: join(context.out, "more-menu.png") });
 
-	await app.send("chooseContextMenuItem", { title: "Manage extension" });
+	await press(
+		app,
+		locked,
+		moreItem("manageExtension", "Manage extension", "manage"),
+	);
 
 	await app.waitFor(
 		"Settings again",
-		(state) => state.page === "settings" && !state.extensionsMenu,
+		(state) =>
+			state.page === "settings" &&
+			!state.extensionsMenu &&
+			state.extensionMoreMenu === null,
 	);
 
 	// The Dark theme, then a click outside closes the menu.
@@ -288,28 +301,28 @@ const extensionsMenu: Scenario = async (context) => {
 		(state) => !state.extensionsMenu,
 	);
 
-	// More › Remove from Pane… asks first, as Settings' Uninstall does.
+	// More › Remove from Pane asks first, in the popup under the puzzle.
 	await openMenu(app, locked);
 	await press(app, locked, more);
 
-	await app.waitFor("the more menu", (state) =>
-		(state.contextMenu ?? []).some(
-			(each) => each.title === "Remove from Pane…",
-		),
+	await app.waitFor(
+		"the more menu",
+		(state) => state.extensionMoreMenu === DARK_READER,
 	);
 
-	await app.send("chooseContextMenuItem", { title: "Remove from Pane…" });
+	await press(app, locked, moreItem("remove", "Remove from Pane", "remove"));
 
-	if (locked) {
-		await app.send("uninstallExtension", { id: DARK_READER, profile });
-	} else {
-		const pid = app.browser.pid;
+	const removing = await waitForSheet(app, "extensionRemove");
+	await Bun.sleep(300);
+	await app.send("render", { path: join(context.out, "remove-popup.png") });
 
-		await clickControl(pid, await mainWindowOf(pid), {
-			title: "Uninstall",
-			id: "pane.dialog.confirm",
-		});
-	}
+	expect(
+		removing.title === `Remove \u201C${name}\u201D?` &&
+			JSON.stringify(removing.buttons) === JSON.stringify(["Remove", "Cancel"]),
+		`remove popup: ${JSON.stringify(removing)}`,
+	);
+
+	const removed = await answerSheet(app, removing.buttons?.[0] ?? "Remove");
 
 	await app.waitFor(
 		"Dark Reader removed",
@@ -326,7 +339,9 @@ const extensionsMenu: Scenario = async (context) => {
 		unpinned: item(unpinned)?.pinned,
 		pinned: item(pinned)?.pinned,
 		popup: ran.extensionPopup,
-		moreMenu: moreMenu.contextMenu,
+		moreMenu: moreMenu.extensionMoreMenu,
+		install: adding,
+		remove: { popup: removing, answer: removed },
 		outsideClick: key
 			? "closed the menu"
 			: "not checked: another app kept the key window",
