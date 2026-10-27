@@ -339,7 +339,7 @@ docs/native/parity.md
   - Remove `apps/veil` and the Electron-only packages (`electron-chrome-extensions`, `electron-chrome-context-menu`, and `ui` if unused).
   - Update `AGENTS.md`, `README`, and `.github/workflows/release.yml` for the native app.
   - `main` keeps the Electron app until the user merges.
-- [ ] **7.3** Prepare the first native release under the `AGENTS.md` version-bump rule (a major bump fits): the version bump, a local dmg build, and the exact commands to merge, tag, and push, written in `HUMAN-CHECKLIST.md`. Do not publish.
+- [x] **7.3** Prepare the first native release under the `AGENTS.md` version-bump rule (a major bump fits): the version bump, a local dmg build, and the exact commands to merge, tag, and push, written in `HUMAN-CHECKLIST.md`. Do not publish.
 
 **Acceptance**
 - The remaining repo gates pass, and the release workflow passes a local dry run of its build steps → `cutover.txt`
