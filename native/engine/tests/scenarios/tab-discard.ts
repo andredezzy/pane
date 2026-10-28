@@ -16,11 +16,9 @@ type Discarded = { id: number; discarded: boolean; url: string } | null;
 // one loads again at once, its view where the old one was. Chrome's own
 // discarding (memory pressure) is off (DisableTabDiscarding).
 const tabDiscard: Scenario = async (context) => {
-	const { app, trace } = await launchTraced(
-		context,
-		"tab-discard",
-		{ args: [`--load-extension=${PROBE}`] },
-	);
+	const { app, trace } = await launchTraced(context, "tab-discard", {
+		args: [`--load-extension=${PROBE}`],
+	});
 
 	const profile = await app.createProfile("Discard");
 	const backURL = context.fixtures.url("nav-a.html?discard-background");
