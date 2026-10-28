@@ -105,6 +105,13 @@ public final class SleepScheduler {
 		for (profileID, profile) in profiles {
 			let loadedTabIDs = profile.tabs.loadedTabIDs()
 
+			// A tab loaded in the background (a link opened in a new tab, a
+			// page's or an extension's) was never active, so no selection
+			// started its clock: the first tick that sees it does.
+			for tabID in loadedTabIDs where tabID != activeTabID && tabBackgroundSince[tabID] == nil {
+				tabBackgroundSince[tabID] = current
+			}
+
 			if loadedTabIDs.isEmpty || profile.keepLoaded {
 				continue
 			}

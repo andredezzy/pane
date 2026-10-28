@@ -130,7 +130,10 @@ private final class Harness {
 struct ProfileUnloadTests {
 	@Test("unloads a hidden profile once the timer elapses")
 	func unloadsHidden() {
+		// Tab sleep stays off, so it cannot drain the profile first: this
+		// isolates the profile clock.
 		let harness = Harness()
+		harness.settings.tabSleepAfterMinutes = nil
 		let tabs = FakeTabs()
 		harness.add("hidden", tabs: tabs)
 		harness.start()
@@ -244,6 +247,25 @@ struct TabSleepTests {
 		harness.advance(minutes: 16)
 
 		#expect(tabs.slept == ["tab-1"])
+	}
+
+	@Test("sleeps a tab loaded in the background that was never active")
+	func sleepsNeverActive() {
+		let harness = Harness()
+		let tabs = FakeTabs(["tab-1"])
+		harness.add("active", tabs: tabs)
+		harness.start()
+
+		harness.activate(tab: "tab-1", profile: "active")
+		// A link opened in a new tab: loaded, never selected.
+		tabs.loadedOverride = ["tab-1", "tab-2"]
+		harness.advance(minutes: 15)
+
+		#expect(tabs.slept.isEmpty)
+
+		harness.advance(minutes: 1)
+
+		#expect(tabs.slept == ["tab-2"])
 	}
 
 	@Test("never sleeps the active tab")
@@ -423,7 +445,9 @@ struct CacheTrimTests {
 
 	@Test("does not stack a second trim while one is in flight")
 	func noStacking() async {
+		// Tab sleep stays off, so the trims come from unloads alone.
 		let harness = Harness()
+		harness.settings.tabSleepAfterMinutes = nil
 		let tabs = FakeTabs()
 		let cache = FakeCache(sizeMB: 400)
 		// The first trim stays in flight across later ticks.
