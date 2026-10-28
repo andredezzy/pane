@@ -6,7 +6,9 @@
 # /Applications on Pane's own background (native/app/dmg/make-background.swift),
 # as Dia's installer is laid out.
 # Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses native/app/build/Pane.app;
-# PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize the release)
+# PANE_DMG_OUT puts the dmg elsewhere, one to install from, the release's
+# left as it is; PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize
+# the release)
 set -euo pipefail
 
 NATIVE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -14,7 +16,7 @@ APP_DIR="$NATIVE_DIR/app"
 APP="$APP_DIR/build/Pane.app"
 RELEASE="$APP_DIR/release"
 VERSION="$(tr -d '[:space:]' < "$APP_DIR/VERSION")"
-DMG="$RELEASE/Pane-$VERSION-arm64.dmg"
+DMG="${PANE_DMG_OUT:-$RELEASE/Pane-$VERSION-arm64.dmg}"
 
 # electron-builder's dmgbuild bundle (dmg-builder 26.8.1): a standalone
 # Python with dmgbuild 1.6.7.
@@ -42,7 +44,7 @@ if [ ! -x "$DMGBUILD_DIR/dmgbuild" ]; then
 fi
 
 echo "== dmg"
-mkdir -p "$RELEASE"
+mkdir -p "$(dirname "$DMG")"
 rm -f "$DMG"
 settings="$work/settings.json"
 
