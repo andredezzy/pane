@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, launchPane, tabOf } from "../lib/pane";
 import { startHttpProxy, startSocks5Proxy } from "../lib/proxies";
@@ -227,7 +226,7 @@ const proxy: Scenario = async (context) => {
 		await app.browser.close();
 
 		// The Electron app's profiles.json, with its proxy's password.
-		const legacyDir = mkdtempSync(join(tmpdir(), "pane-proxy-legacy-"));
+		const legacyDir = context.tempDir("pane-proxy-legacy-");
 		const legacyPage = "http://legacy.pane.test/proxy-check.html";
 
 		writeFileSync(
@@ -283,8 +282,6 @@ const proxy: Scenario = async (context) => {
 			await legacy.send("quit");
 			await Bun.sleep(1_000);
 		}
-
-		rmSync(legacyDir, { recursive: true, force: true });
 
 		const legacyMoved = legacyRuns.every(
 			(entry) =>
