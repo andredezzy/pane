@@ -1,0 +1,56 @@
+name: Gates
+
+# The repo's own checks before a commit (AGENTS.md) that the native workflow
+# does not run: ESLint and Biome, the scenario runner's typecheck, and knip.
+# Biome checks every file git tracks, so any change can fail it: no paths
+# filter, and a Linux runner keeps it cheap. PaneKit's swift test runs in
+# native.yml.
+
+on:
+  push:
+    branches:
+      - main
+      - native-shell
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: Lint, typecheck, and knip
+    runs-on: ubuntu-latest
+
+    env:
+      # Electron is the migration scenario's, which no gate runs.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # bun run lint fixes what it can; CI only reports.
+      - name: ESLint
+        run: bunx eslint .
+
+      - name: Biome
+        run: bunx biome ci .
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Knip
+        run: bun run knip
