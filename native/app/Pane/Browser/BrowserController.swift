@@ -30,6 +30,8 @@ final class BrowserController: NSObject {
 	weak var probe: AutomationProbe?
 	// The extensions feature: lists, the toolbar's menu, popups.
 	private(set) lazy var extensions = ExtensionsController(browser: self)
+	// The window's full screen, with a page's fullscreen.
+	private lazy var fullScreen = FullScreenFollower(controller: self)
 	// The window's SwiftUI root, where toolbar buttons anchor popups.
 	weak var hostingView: NSView?
 	// Profiles whose engine data is still being deleted, on disk until the
@@ -634,12 +636,7 @@ extension BrowserController: BrowserWindowDelegate {
 	// and the window enters full screen as Chrome's does.
 	func browserWindow(_ window: BrowserWindow, tab: WebContents, didChangeFullscreen fullscreen: Bool) {
 		state.pageFullscreen = fullscreen
-
-		let isFullScreen = window.window.styleMask.contains(.fullScreen)
-
-		if fullscreen != isFullScreen {
-			window.window.toggleFullScreen(nil)
-		}
+		fullScreen.follow()
 	}
 
 	func browserWindow(_ window: BrowserWindow, run chooser: FileChooser) {
