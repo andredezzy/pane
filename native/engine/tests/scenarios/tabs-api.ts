@@ -12,9 +12,10 @@ type TabInfo = { id: number; url: string; windowId: number } | null;
 // chrome.tabs resolves to Pane's tabs: "the active tab of the current window"
 // is the selected Pane tab, from a popup and from a service worker;
 // tabs.create opens a Pane tab in the same profile; windows.create opens a
-// tab too, as in the Electron app.
+// tab too, as in the Electron app. chrome.action.openPopup shows the popup in
+// the app's popover, as the extension's button does.
 const tabsApi: Scenario = async (context) => {
-	const { app } = await launchTraced(context, "tabs-api", {
+	const { app, trace } = await launchTraced(context, "tabs-api", {
 		args: [`--load-extension=${PROBE}`],
 	});
 
@@ -100,6 +101,38 @@ const tabsApi: Scenario = async (context) => {
 		(state) => state.activeTabID === tab,
 	);
 
+	// chrome.action.openPopup, which asks for an active window: the app's,
+	// brought forward. Its popup opens where the toolbar button's does
+	// (patch 0005's hook in extension_action_api.cc).
+	const popups = () =>
+		trace().filter(
+			(entry) => entry.name === "PaneBrowserContextDelegate.showExtensionPopup",
+		).length;
+
+	const popupsBefore = popups();
+	await app.send("activate");
+	await app.waitFor("the key window", (state) => state.window.key, 10_000);
+	await worker.evaluate("chrome.action.openPopup()");
+
+	const openedByAPI = await app.waitFor(
+		"the popup chrome.action.openPopup opened",
+		(state) =>
+			state.extensionPopup?.extension === id &&
+			state.extensionPopup.open === true,
+	);
+
+	expect(
+		popups() === popupsBefore + 1,
+		`the app was asked to show ${popups() - popupsBefore} popups`,
+	);
+
+	await app.send("closeExtensionPopup");
+
+	await app.waitFor(
+		"the popup closed",
+		(state) => state.extensionPopup === null,
+	);
+
 	const tabs =
 		withWindowTab.profiles
 			.find((p) => p.id === profile)
@@ -118,6 +151,7 @@ const tabsApi: Scenario = async (context) => {
 		activeTab: tabOf(withTab, tab),
 		tabsAfterCreate: tabs,
 		selectedByUpdate: tabOf(reselected, tab)?.url,
+		openPopup: openedByAPI.extensionPopup,
 		windows,
 	};
 };
