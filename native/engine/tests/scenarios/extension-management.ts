@@ -72,8 +72,19 @@ const extensionManagement: Scenario = async (context) => {
 		`installed unpinned: ${JSON.stringify(item(installed))}`,
 	);
 
-	// Its welcome tab took the window; back to the Extensions page.
-	await Bun.sleep(1_000);
+	// Its welcome tab takes the window; back to the Extensions page once it
+	// has.
+	await app
+		.waitFor(
+			"Dark Reader's help tab",
+			(state) =>
+				(state.profiles.find((each) => each.id === profile)?.tabs ?? []).some(
+					(each) => each.url.startsWith("https://darkreader.org/"),
+				),
+			30_000,
+		)
+		.catch(() => {});
+
 	await showExtensions();
 
 	// Its switch and its pin: a CUA click on its card, or the same call.

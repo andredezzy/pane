@@ -39,7 +39,14 @@ const sidebarReorder: Scenario = async (context) => {
 	// sidebar's 39-point header.
 	const rowY = (index: number) => 39 + 4 + index * 40 + 18;
 
-	const drag = async (fromY: number, path: [number, number][]) => {
+	// Moves paced a frame or two apart, as a hand's; then the order the drop
+	// keeps, once the copy has settled and it changed (or as it stayed).
+	const drag = async (
+		fromY: number,
+		path: [number, number][],
+		orderOf: (state: AppState) => string = order,
+	) => {
+		const before = orderOf(await app.state());
 		await app.send("pointerWindow", { phase: "down", x: 100, y: fromY });
 
 		for (const [x, y] of path) {
@@ -49,9 +56,10 @@ const sidebarReorder: Scenario = async (context) => {
 
 		const [x, y] = path.at(-1) ?? [100, fromY];
 		await app.send("pointerWindow", { phase: "up", x, y });
-		await Bun.sleep(400);
 
-		return app.state();
+		return app
+			.waitFor("the drop", (state) => orderOf(state) !== before, 3_000)
+			.catch(() => app.state());
 	};
 
 	// Alpha down past Charlie: Bravo, Charlie, Alpha, Delta.
@@ -121,7 +129,9 @@ const sidebarReorder: Scenario = async (context) => {
 
 	// Bravo is second, expanded: its tabs follow its header, 32 points, 4 apart.
 	const tabY = (index: number) => rowY(1) + 18 + 4 + index * 36 + 16;
-	const tabs = tabsOf(await drag(tabY(0), steps(tabY(0), tabY(2) + 6)));
+
+	const tabs = tabsOf(await drag(tabY(0), steps(tabY(0), tabY(2) + 6), tabsOf));
+
 	expect(tabs === "two,three,one", `the first tab dragged to the end: ${tabs}`);
 
 	return { initial, down, out, tabs };

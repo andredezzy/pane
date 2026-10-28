@@ -1,3 +1,4 @@
+import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -40,19 +41,27 @@ const fullscreen: Scenario = async (context) => {
 
 	await watcher.sample("fullscreen");
 
-	// Esc once the window is in full screen: a key posted during the move to
-	// its own Space can be lost.
+	// Esc once the window is in full screen. A key posted during the move to
+	// its own Space can be lost, so Esc is pressed again until it lands.
 	await app.waitFor(
 		"the window in full screen",
 		(state) => state.window.fullScreen,
 	);
 
-	await Bun.sleep(1_000);
-	await app.send("key", { key: "\u001b" });
+	let escapes = 0;
 
-	const left = await app.waitFor(
+	const left = await poll(
 		"fullscreen to end",
-		(state) => !state.pageFullscreen,
+		async () => {
+			await app.send("key", { key: "\u001b" });
+			escapes++;
+
+			return app
+				.waitFor("fullscreen to end", (state) => !state.pageFullscreen, 1_000)
+				.catch(() => null);
+		},
+		20_000,
+		0,
 	);
 
 	const after = await page.evaluate<string | null>(
@@ -86,7 +95,7 @@ const fullscreen: Scenario = async (context) => {
 			hint: entered.exclusiveAccessHint,
 			element,
 		},
-		left: { pageFullscreen: left.pageFullscreen, element: after },
+		left: { pageFullscreen: left.pageFullscreen, element: after, escapes },
 		windows,
 	};
 };

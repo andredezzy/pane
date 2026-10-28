@@ -1,4 +1,5 @@
 import { launchPane } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
 // The window moves where the Electron app's did (its root and the lock
@@ -69,9 +70,17 @@ const windowDrag: Scenario = async (context) => {
 		(state) => state.security.screen !== null,
 	);
 
-	await Bun.sleep(600);
+	// The screen slides in: its panel is there once the point hits it.
+	const lockPanel = await poll(
+		"the lock panel",
+		async () => {
+			const view = await hit(width - 60, 60);
 
-	const lockPanel = await hit(width - 60, 60);
+			return view === DRAG && view;
+		},
+		5_000,
+	).catch(() => hit(width - 60, 60));
+
 	const lockNumpad = await hit(width / 2, height / 2);
 
 	expect(
