@@ -95,9 +95,7 @@ struct SidebarView: View {
 			.accessibilityLabel("New")
 			.accessibilityIdentifier("pane.sidebar.new")
 
-			Rectangle()
-				.fill(Palette.foreground.opacity(0.04))
-				.frame(height: 1)
+			Hairline(color: Palette.foreground.opacity(0.04))
 
 			SidebarButton(isSelected: model.page == .settings) {
 				model.page = model.page == .settings ? .browser : .settings
@@ -342,9 +340,9 @@ private struct ProxyDot: View {
 
 	private var color: Color {
 		switch status {
-		case .testing: Color(rgb: 0xEAB308)
-		case .connected: Color(rgb: 0x10B981)
-		case .failed: Color(rgb: 0xEF4444)
+		case .testing: Palette.warning
+		case .connected: Palette.success
+		case .failed: Palette.failure
 		}
 	}
 }

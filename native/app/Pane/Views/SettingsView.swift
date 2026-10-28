@@ -178,9 +178,7 @@ private struct SettingsRow<Control: View>: View {
 		.frame(minHeight: 56)
 		.overlay(alignment: .bottom) {
 			if !last {
-				Rectangle()
-					.fill(Palette.border)
-					.frame(height: 1)
+				Hairline()
 			}
 		}
 	}

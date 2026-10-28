@@ -8,23 +8,13 @@ struct QuitConfirmationView: View {
 	let cancel: () -> Void
 	let quit: () -> Void
 
-	// muted at 70% on light; the dark muted on dark.
-	private static let tile = Color(nsColor: NSColor(name: nil) { appearance in
-		Palette.isDark(appearance) ? NSColor(rgb: 0x232326) : NSColor(rgb: 0xE9E9EB).withAlphaComponent(0.7)
-	})
-
-	// The dialogs' shadow: this one's and the extension install dialog's.
-	static let shadow = Color(nsColor: NSColor(name: nil) { appearance in
-		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.5 : 0.16)
-	})
-
 	var body: some View {
 		VStack(alignment: .leading, spacing: 16) {
 			Image(nsImage: Lucide.circleDashedX.image(strokeWidth: 1.75, size: 22))
 				.renderingMode(.template)
 				.foregroundStyle(Palette.foreground)
 				.frame(width: 40, height: 40)
-				.background(Self.tile, in: Squircle(cornerRadius: 18))
+				.background(Palette.iconTile, in: Squircle(cornerRadius: 18))
 				.accessibilityHidden(true)
 
 			VStack(alignment: .leading, spacing: 6) {
@@ -59,7 +49,7 @@ struct QuitConfirmationView: View {
 		}
 		.padding(24)
 		.frame(width: 480, alignment: .leading)
-		.surfaceBackground(cornerRadius: 29, shadow: Self.shadow, blur: 64, y: 24)
+		.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
 		.accessibilityElement(children: .contain)
 		.accessibilityAddTraits(.isModal)
 		.accessibilityIdentifier("pane.quit")
@@ -78,10 +68,6 @@ struct KeyedLabel: View {
 	let title: String
 	let key: String
 	let role: Role
-
-	private static let cancelKey = Color(nsColor: NSColor(name: nil) { appearance in
-		NSColor(rgb: Palette.isDark(appearance) ? 0xA1A1AA : 0x71717A)
-	})
 
 	var body: some View {
 		HStack(spacing: 8) {
@@ -113,7 +99,7 @@ struct KeyedLabel: View {
 	// On a filled button, the key's chip is the button's text color, faint.
 	private var keyColor: Color {
 		switch role {
-		case .cancel: Self.cancelKey
+		case .cancel: Palette.keyLabel
 		case .destructive: Color.white.opacity(0.85)
 		case .primary: Palette.primaryForeground.opacity(0.85)
 		}

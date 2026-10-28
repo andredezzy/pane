@@ -60,7 +60,7 @@ struct UpdateDot: View {
 
 	var body: some View {
 		Circle()
-			.fill(Color(rgb: 0x10B981))
+			.fill(Palette.success)
 			.frame(width: 6, height: 6)
 			.opacity(pulsing && dimmed ? 0.5 : 1)
 			.onAppear { pulse() }
@@ -90,7 +90,7 @@ struct UpdateProgressBar: View {
 				.fill(Palette.foreground.opacity(0.1))
 				.overlay(alignment: .leading) {
 					Capsule(style: .circular)
-						.fill(Color(rgb: 0x10B981))
+						.fill(Palette.success)
 						.frame(width: geometry.size.width * min(max(progress, 0), 1))
 						.animation(Motion.progress, value: progress)
 				}

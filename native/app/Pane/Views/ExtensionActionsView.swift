@@ -123,7 +123,7 @@ private struct ActionButton: View {
 						.font(.system(size: 9, weight: .medium))
 						.foregroundStyle(.white)
 						.frame(width: 16, height: 16)
-						.background(Color(rgb: 0x757575), in: Squircle(cornerRadius: 5))
+						.background(Palette.letterTile, in: Squircle(cornerRadius: 5))
 				}
 			}
 			.frame(width: 32, height: 32)
@@ -137,7 +137,7 @@ private struct ActionButton: View {
 						.frame(height: 12)
 						.background(Color(nsColor: item.badgeBackground ?? .systemRed), in: Squircle(cornerRadius: 4))
 						.overlay {
-							Squircle(cornerRadius: 4).stroke(Color(rgb: 0x444444), lineWidth: 1)
+							Squircle(cornerRadius: 4).stroke(Palette.badgeRing, lineWidth: 1)
 						}
 						.padding(.bottom, 1)
 				}

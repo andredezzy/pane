@@ -66,7 +66,7 @@ struct ProfileSheet: View {
 						platformPicker
 					}
 
-					PaneSeparator()
+					Hairline()
 
 					switchRow("Enable proxy", isOn: $proxyEnabled)
 
@@ -123,9 +123,7 @@ struct ProfileSheet: View {
 	// The Electron app's header and footer rules: white 5%, which only shows
 	// on dark.
 	private var hairline: some View {
-		Rectangle()
-			.fill(Color.white.opacity(0.05))
-			.frame(height: 1)
+		Hairline(color: .white.opacity(0.05))
 	}
 
 	// A label at left, its switch at right: the switch's own label, so
@@ -426,7 +424,7 @@ private enum ProxyTestState: Equatable {
 	// emerald-600 for a working proxy.
 	var fill: Color? {
 		if case .connected = self {
-			return Color(rgb: 0x059669)
+			return Palette.successFill
 		}
 
 		return nil
@@ -434,7 +432,7 @@ private enum ProxyTestState: Equatable {
 
 	var border: Color? {
 		switch self {
-		case .connected: Color(rgb: 0x059669)
+		case .connected: Palette.successFill
 		case .failed: Palette.destructive
 		default: nil
 		}

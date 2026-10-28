@@ -6,7 +6,9 @@ import SwiftUI
 // which the Pane file in Paper documents too: each one a light/dark pair that
 // follows the window's appearance.
 enum Palette {
-	static let background = pair(0xFAFAFA, 0x0A0A0C)
+	// The window's own fill (AppKit's, under SwiftUI), and SwiftUI's.
+	static let windowBackground = dynamic(0xFAFAFA, 0x0A0A0C)
+	static let background = Color(nsColor: windowBackground)
 	static let foreground = pair(0x18181B, 0xFAFAFA)
 	static let card = pair(0xFFFFFF, 0x1C1C1F)
 	static let popover = pair(0xFFFFFF, 0x1C1C1F)
@@ -41,8 +43,43 @@ enum Palette {
 	// lighter on dark.
 	static let pinned = pair(0x3B82F6, 0x60A5FA)
 
+	// Status colors, the same in both themes, as colors on fixed-color
+	// surfaces are (DESIGN.md: Theme): a proxy's dot (yellow while it is
+	// tested, emerald once connected, red when it failed) and the update's
+	// dot and download bar. A connected proxy's test button fills with
+	// emerald-600, under white text.
+	static let warning = Color(rgb: 0xEAB308)
+	static let success = Color(rgb: 0x10B981)
+	static let failure = Color(rgb: 0xEF4444)
+	static let successFill = Color(rgb: 0x059669)
+
+	// An extension without an icon: the first letter of its name on gray.
+	// A toolbar action's badge is outlined in a darker gray.
+	static let letterTile = Color(rgb: 0x757575)
+	static let badgeRing = Color(rgb: 0x444444)
+
 	// Scrims stay black in both themes (DESIGN.md: Theme).
 	static let sheetScrim = Color.black.opacity(0.4)
+	// Quit Pane?'s and the install dialog's: a light veil, as Aside's,
+	// darker on dark.
+	static let modalScrim = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(white: 0, alpha: isDark(appearance) ? 0.45 : 0.14)
+	})
+	// Their shadow.
+	static let dialogShadow = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(white: 0, alpha: isDark(appearance) ? 0.5 : 0.16)
+	})
+	// Quit Pane?'s icon tile: the muted fill at 70% on light, as it is on
+	// dark.
+	static let iconTile = Color(nsColor: NSColor(name: nil) { appearance in
+		isDark(appearance) ? NSColor(rgb: 0x232326) : NSColor(rgb: 0xE9E9EB, alpha: 0.7)
+	})
+	// The key on Cancel's chip: muted, lighter on dark (zinc-400).
+	static let keyLabel = pair(0x71717A, 0xA1A1AA)
+	// A panel on a dialog's card: the foreground at 4%, 5% on dark.
+	static let panelTint = Color(nsColor: NSColor(name: nil) { appearance in
+		isDark(appearance) ? NSColor(white: 0.98, alpha: 0.05) : NSColor(rgb: 0x18181B, alpha: 0.04)
+	})
 
 	// The 2px loading bar under the address: blue-500 to blue-400.
 	static let progress = LinearGradient(
@@ -52,9 +89,13 @@ enum Palette {
 	)
 
 	private static func pair(_ light: Int, _ dark: Int) -> Color {
-		Color(nsColor: NSColor(name: nil) { appearance in
+		Color(nsColor: dynamic(light, dark))
+	}
+
+	private static func dynamic(_ light: Int, _ dark: Int) -> NSColor {
+		NSColor(name: nil) { appearance in
 			NSColor(rgb: isDark(appearance) ? dark : light)
-		})
+		}
 	}
 
 	static func isDark(_ appearance: NSAppearance) -> Bool {

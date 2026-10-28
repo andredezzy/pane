@@ -17,9 +17,7 @@ final class MainWindowController {
 		window.titlebarAppearsTransparent = true
 		window.titleVisibility = .hidden
 		window.styleMask.insert(.fullSizeContentView)
-		window.backgroundColor = NSColor(name: nil) { appearance in
-			NSColor(rgb: Palette.isDark(appearance) ? 0x0A0A0C : 0xFAFAFA)
-		}
+		window.backgroundColor = Palette.windowBackground
 		window.contentMinSize = NSSize(width: 900, height: 600)
 		window.isRestorable = false
 

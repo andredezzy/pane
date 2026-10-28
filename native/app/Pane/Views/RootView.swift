@@ -81,7 +81,7 @@ struct RootView: View {
 			// centered where there is no toolbar (Settings). A click outside
 			// either cancels.
 			if let prompt = state.extensionPrompt, prompt.kind == .install {
-				Self.modalScrim
+				Palette.modalScrim
 					.contentShape(Rectangle())
 					.onTapGesture { controller.answerExtensionPrompt(accepted: false) }
 
@@ -129,7 +129,7 @@ struct RootView: View {
 			}
 
 			if state.confirmingQuit {
-				Self.modalScrim
+				Palette.modalScrim
 					.contentShape(Rectangle())
 					.onTapGesture { controller.cancelQuit() }
 					.transition(.opacity)
@@ -171,12 +171,6 @@ struct RootView: View {
 	private func activeExtension(_ extensionID: String) -> ExtensionInfo? {
 		model.activeProfileID.flatMap { model.extensions[$0] }?.first { $0.id == extensionID }
 	}
-
-	// Quit Pane?'s and the install dialog's scrim: a light veil, as Aside's,
-	// darker on dark.
-	private static let modalScrim = Color(nsColor: NSColor(name: nil) { appearance in
-		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.45 : 0.14)
-	})
 
 	// The content panel: m-2 ml-0, rounded 18, the panel shadow.
 	private var content: some View {

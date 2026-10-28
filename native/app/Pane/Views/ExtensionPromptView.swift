@@ -95,11 +95,6 @@ struct ExtensionInstallDialog: View {
 	let controller: BrowserController
 	let prompt: WindowState.ExtensionPrompt
 
-	// The foreground at 4%, 5% on dark: a panel on the dialog's surface.
-	private static let panel = Color(nsColor: NSColor(name: nil) { appearance in
-		Palette.isDark(appearance) ? NSColor(white: 0.98, alpha: 0.05) : NSColor(rgb: 0x18181B, alpha: 0.04)
-	})
-
 	var body: some View {
 		VStack(alignment: .leading, spacing: 0) {
 			HStack(spacing: 8) {
@@ -153,7 +148,7 @@ struct ExtensionInstallDialog: View {
 				.padding(.vertical, 12)
 				.padding(.horizontal, 14)
 				.frame(maxWidth: .infinity, alignment: .leading)
-				.background(Self.panel, in: Squircle(cornerRadius: 15))
+				.background(Palette.panelTint, in: Squircle(cornerRadius: 15))
 				.padding(.top, 12)
 			}
 
@@ -176,7 +171,7 @@ struct ExtensionInstallDialog: View {
 		}
 		.padding(24)
 		.frame(width: 424, alignment: .leading)
-		.surfaceBackground(cornerRadius: 29, shadow: QuitConfirmationView.shadow, blur: 64, y: 24)
+		.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
 		.accessibilityElement(children: .contain)
 		.accessibilityAddTraits(.isModal)
 		.accessibilityLabel(prompt.title)

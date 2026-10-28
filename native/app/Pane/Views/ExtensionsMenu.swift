@@ -28,7 +28,7 @@ struct ExtensionsMenu: View {
 			}
 			.padding(4)
 
-			MenuSeparator()
+			Hairline()
 
 			VStack(alignment: .leading, spacing: 0) {
 				Text("Installed extensions")
@@ -87,7 +87,7 @@ struct ExtensionMoreMenu: View {
 			}
 			.padding(4)
 
-			MenuSeparator()
+			Hairline()
 
 			VStack(spacing: 0) {
 				MenuRow(identifier: "pane.extensionMoreMenu.remove", action: {
@@ -113,7 +113,7 @@ struct ExtensionMoreMenu: View {
 			}
 			.padding(4)
 
-			MenuSeparator()
+			Hairline()
 
 			VStack(spacing: 0) {
 				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showExtensions(extensionID: item.id) }) {
@@ -135,14 +135,6 @@ struct ExtensionMoreMenu: View {
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel(item.name)
 		.accessibilityIdentifier("pane.extensionMoreMenu")
-	}
-}
-
-private struct MenuSeparator: View {
-	var body: some View {
-		Rectangle()
-			.fill(Palette.border)
-			.frame(height: 1)
 	}
 }
 
@@ -168,7 +160,7 @@ private struct ExtensionRow: View {
 						.font(.system(size: 10, weight: .medium))
 						.foregroundStyle(.white)
 						.frame(width: 16, height: 16)
-						.background(Color(rgb: 0x757575), in: Squircle(cornerRadius: 7))
+						.background(Palette.letterTile, in: Squircle(cornerRadius: 7))
 				}
 			}
 			.frame(width: 16, height: 16)
