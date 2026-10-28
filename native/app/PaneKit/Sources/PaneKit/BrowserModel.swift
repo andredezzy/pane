@@ -99,6 +99,9 @@ public final class BrowserModel {
 	// Session state of live pages, by tab id.
 	public private(set) var loadedTabIDs: Set<String> = []
 	public private(set) var loadingProgress: [String: Double] = [:]
+	// When each loading tab's load began: a tab coming forward mid-load shows
+	// its progress where it would be had it been shown all along.
+	public private(set) var loadingSince: [String: Date] = [:]
 	public private(set) var navigation: [String: NavigationState] = [:]
 	// Tabs whose page crashed and waits for Reload (the sad tab).
 	public private(set) var crashedTabIDs: Set<String> = []
@@ -358,6 +361,7 @@ public final class BrowserModel {
 		} else {
 			loadedTabIDs.remove(tabID)
 			loadingProgress[tabID] = nil
+			loadingSince[tabID] = nil
 			navigation[tabID] = nil
 			crashedTabIDs.remove(tabID)
 			pictureInPictureTabIDs.remove(tabID)
@@ -366,6 +370,12 @@ public final class BrowserModel {
 	}
 
 	public func setLoading(_ tabID: String, progress: Double?) {
+		if progress == nil {
+			loadingSince[tabID] = nil
+		} else if loadingProgress[tabID] == nil {
+			loadingSince[tabID] = clock.now()
+		}
+
 		loadingProgress[tabID] = progress
 	}
 
