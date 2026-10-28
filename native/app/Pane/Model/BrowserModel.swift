@@ -15,7 +15,7 @@ final class BrowserModel {
 
 	private(set) var profiles: [BrowserProfile]
 	var settings: AppSettings {
-		didSet { scheduleSave() }
+		didSet { scheduleSave(settings: true) }
 	}
 
 	private(set) var history = TabHistory()
@@ -62,7 +62,12 @@ final class BrowserModel {
 	let dataDirectory: URL
 	private let profilesFile: PersistedFile<ProfilesState>
 	private let settingsFile: PersistedFile<SettingsState>
-	private var saveTask: Task<Void, Never>?
+	@ObservationIgnored private var saveTask: Task<Void, Never>?
+	// What changed since the last save: only that file is written.
+	@ObservationIgnored private var profilesChanged = false
+	@ObservationIgnored private var settingsChanged = false
+	// Encodes and writes, in order, off the main thread.
+	@ObservationIgnored private let saveQueue = DispatchQueue(label: "pane.save", qos: .utility)
 
 	init(dataDirectory: URL) {
 		self.dataDirectory = dataDirectory
@@ -72,11 +77,20 @@ final class BrowserModel {
 		settings = Self.load(settingsFile)?.settings ?? .defaults
 	}
 
+	// A file that does not decode is kept aside (<name>.json.damaged) before
+	// the first save writes over it.
 	private static func load<State>(_ file: PersistedFile<State>) -> State? {
 		do {
 			return try file.load()
 		} catch {
 			NSLog("Pane: could not read %@: %@", file.url.path, String(describing: error))
+
+			let damaged = file.url.appendingPathExtension("damaged")
+
+			if !FileManager.default.fileExists(atPath: damaged.path) {
+				try? FileManager.default.copyItem(at: file.url, to: damaged)
+			}
+
 			return nil
 		}
 	}
@@ -119,7 +133,7 @@ final class BrowserModel {
 			updatedAt: now
 		)
 		profiles.append(profile)
-		scheduleSave()
+		scheduleSave(profiles: true)
 
 		return profile.id
 	}
@@ -133,7 +147,7 @@ final class BrowserModel {
 		let fingerprint = profiles[index].fingerprint
 		change(&profiles[index])
 		profiles[index].updatedAt = Self.timestamp()
-		scheduleSave()
+		scheduleSave(profiles: true)
 
 		if profiles[index].proxy != proxy {
 			proxyDidChange?(id)
@@ -162,7 +176,7 @@ final class BrowserModel {
 			activeTabID = nil
 		}
 
-		scheduleSave()
+		scheduleSave(profiles: true)
 	}
 
 	func moveProfile(from source: Int, to destination: Int) {
@@ -172,7 +186,7 @@ final class BrowserModel {
 
 		let profile = profiles.remove(at: source)
 		profiles.insert(profile, at: min(destination, profiles.count))
-		scheduleSave()
+		scheduleSave(profiles: true)
 	}
 
 	// MARK: Tabs
@@ -186,7 +200,7 @@ final class BrowserModel {
 			.flatMap { anchor in profiles[index].tabs.firstIndex { $0.id == anchor } }
 			.map { $0 + 1 } ?? profiles[index].tabs.count
 		profiles[index].tabs.insert(tab, at: position)
-		scheduleSave()
+		scheduleSave(profiles: true)
 	}
 
 	func updateTab(_ id: String, _ change: (inout Tab) -> Void) {
@@ -196,7 +210,7 @@ final class BrowserModel {
 				change(&profiles[profileIndex].tabs[tabIndex])
 
 				if profiles[profileIndex].tabs[tabIndex] != before {
-					scheduleSave()
+					scheduleSave(profiles: true)
 				}
 
 				return
@@ -212,7 +226,7 @@ final class BrowserModel {
 				let tab = profiles[profileIndex].tabs.remove(at: tabIndex)
 				history.pushClosed(ClosedTab(url: tab.url, profileID: profiles[profileIndex].id, title: tab.title, favicon: tab.favicon))
 				forgetTab(id)
-				scheduleSave()
+				scheduleSave(profiles: true)
 
 				return tab
 			}
@@ -235,7 +249,7 @@ final class BrowserModel {
 
 		let tab = profiles[index].tabs.remove(at: source)
 		profiles[index].tabs.insert(tab, at: min(destination, profiles[index].tabs.count))
-		scheduleSave()
+		scheduleSave(profiles: true)
 	}
 
 	// MARK: Selection and live state
@@ -313,7 +327,12 @@ final class BrowserModel {
 
 	// MARK: Persistence
 
-	private func scheduleSave() {
+	// 300 ms after the last change, the files that changed are written. A
+	// title, URL, or favicon change saves too, so the main thread only takes
+	// a copy of the state: the encoding and the write run on saveQueue.
+	private func scheduleSave(profiles: Bool = false, settings: Bool = false) {
+		profilesChanged = profilesChanged || profiles
+		settingsChanged = settingsChanged || settings
 		saveTask?.cancel()
 		saveTask = Task { [weak self] in
 			try? await Task.sleep(for: .milliseconds(300))
@@ -322,20 +341,47 @@ final class BrowserModel {
 				return
 			}
 
-			self?.saveNow()
+			self?.save()
 		}
 	}
 
-	func saveNow() {
+	private func save() {
 		saveTask?.cancel()
 		saveTask = nil
 
-		do {
-			try profilesFile.save(ProfilesState(profiles: profiles))
-			try settingsFile.save(SettingsState(settings: settings))
-		} catch {
-			NSLog("Pane: could not save state: %@", String(describing: error))
+		let profilesFile = profilesFile
+		let settingsFile = settingsFile
+		let profiles = profilesChanged ? ProfilesState(profiles: self.profiles) : nil
+		let settings = settingsChanged ? SettingsState(settings: self.settings) : nil
+		profilesChanged = false
+		settingsChanged = false
+
+		saveQueue.async { [weak self] in
+			do {
+				if let profiles {
+					try profilesFile.save(profiles)
+				}
+			} catch {
+				NSLog("Pane: could not save profiles.json: %@", String(describing: error))
+				Task { @MainActor in self?.scheduleSave(profiles: true) }
+			}
+
+			do {
+				if let settings {
+					try settingsFile.save(settings)
+				}
+			} catch {
+				NSLog("Pane: could not save settings.json: %@", String(describing: error))
+				Task { @MainActor in self?.scheduleSave(settings: true) }
+			}
 		}
+	}
+
+	// Writes what changed and waits for it: at quit, and for scenarios that
+	// read the files.
+	func saveNow() {
+		save()
+		saveQueue.sync {}
 	}
 
 	private static func timestamp() -> String {

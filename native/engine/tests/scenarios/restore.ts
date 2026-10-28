@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
@@ -16,7 +16,9 @@ const saved = (state: AppState): Saved =>
 		tabs: profile.tabs.map(({ url, title }) => ({ url, title })),
 	}));
 
-// Profiles and their tabs, in order, survive quitting and relaunching.
+// Profiles and their tabs, in order, survive quitting and relaunching. A
+// save writes only the file whose state changed: tabs never rewrite
+// settings.json.
 const restore: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-restore-");
 	const first = await launchPane(context, { dataDir });
@@ -53,6 +55,14 @@ const restore: Scenario = async (context) => {
 	writeFileSync(
 		join(context.out, "restore-before.json"),
 		`${JSON.stringify(saved(before), null, "\t")}\n`,
+	);
+
+	await first.send("save");
+	const settingsWritten = existsSync(join(dataDir, "settings.json"));
+
+	expect(
+		!settingsWritten,
+		"saving tabs wrote settings.json, which did not change",
 	);
 
 	await first.browser.close();

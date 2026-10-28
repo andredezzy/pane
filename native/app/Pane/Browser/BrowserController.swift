@@ -1169,13 +1169,36 @@ extension Notification.Name {
 }
 
 extension NSImage {
-	// A PNG data: URL, the form tabs persist favicons in.
+	// The most pixels a favicon keeps a side: it draws at 16 points, 2x.
+	static let faviconPixels = 32
+
+	// A PNG data: URL, the form tabs persist favicons in, at most
+	// faviconPixels a side. A site's 180-pixel touch icon would otherwise
+	// weigh tens of KB of base64 in profiles.json, written at every save.
 	var pngDataURL: String? {
+		guard let image = cgImage(forProposedRect: nil, context: nil, hints: nil), image.width > 0, image.height > 0 else {
+			return nil
+		}
+
+		let scale = min(1, Double(Self.faviconPixels) / Double(max(image.width, image.height)))
+		let width = max(1, Int((Double(image.width) * scale).rounded()))
+		let height = max(1, Int((Double(image.height) * scale).rounded()))
+
 		guard
-			let tiff = tiffRepresentation,
-			let bitmap = NSBitmapImageRep(data: tiff),
-			let png = bitmap.representation(using: .png, properties: [:])
+			let bitmap = NSBitmapImageRep(
+				bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
+				samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+				bytesPerRow: 0, bitsPerPixel: 0
+			),
+			let context = NSGraphicsContext(bitmapImageRep: bitmap)
 		else {
+			return nil
+		}
+
+		context.imageInterpolation = .high
+		context.cgContext.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+		guard let png = bitmap.representation(using: .png, properties: [:]) else {
 			return nil
 		}
 
