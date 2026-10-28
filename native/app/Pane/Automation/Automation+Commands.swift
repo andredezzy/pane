@@ -315,8 +315,7 @@ extension Automation {
 		case "pointerWindow":
 			// One phase of a drag at a point of the window (top-left origin):
 			// down, drag, or up, posted to the event queue as the trackpad's
-			// are. SwiftUI's gestures, in a window in the background, take the
-			// moves in at the release.
+			// are.
 			let types: [String: NSEvent.EventType] = ["down": .leftMouseDown, "drag": .leftMouseDragged, "up": .leftMouseUp]
 
 			guard let type = types[try command.string("phase")] else {

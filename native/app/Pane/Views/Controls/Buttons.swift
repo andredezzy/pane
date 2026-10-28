@@ -260,18 +260,20 @@ private struct RowButton: View {
 	let style: RowButtonStyle
 
 	@State private var isHovered = false
+	@Environment(\.isDraggedRow) private var isDragged
 
 	var body: some View {
 		let shape = Squircle(cornerRadius: style.cornerRadius)
+		let hovered = isHovered && !isDragged
 
 		configuration.label
-			.foregroundStyle(style.isSelected || style.tintsOnHover && isHovered ? Palette.accentForeground : Palette.mutedForeground)
-			.environment(\.isRowHovered, isHovered)
+			.foregroundStyle(style.isSelected || style.tintsOnHover && hovered ? Palette.accentForeground : Palette.mutedForeground)
+			.environment(\.isRowHovered, hovered)
 			.background {
 				ZStack {
-					shape.fill(Palette.accent).opacity(!style.isSelected && isHovered ? 1 : 0)
+					shape.fill(Palette.accent).opacity(!style.isSelected && hovered ? 1 : 0)
 					shape.fill(style.selectedFill).opacity(style.isSelected ? 1 : 0)
-					PressLayer(shape: shape, color: Palette.press, isPressed: configuration.isPressed)
+					PressLayer(shape: shape, color: Palette.press, isPressed: configuration.isPressed && !isDragged)
 				}
 			}
 			.onHover { hovering in

@@ -286,7 +286,7 @@ private struct ProfileSection: View, Equatable {
 				MenuLabel("Delete profile", icon: .trash2)
 			}
 		}
-		.gesture(reorder.gesture(profile.id, ids: { [controller] in controller.model.profiles.map(\.id) }) { [controller] from, to in
+		.simultaneousGesture(reorder.gesture(profile.id, ids: { [controller] in controller.model.profiles.map(\.id) }) { [controller] from, to in
 			controller.moveProfile(from: from, to: to)
 		})
 		.accessibilityIdentifier("pane.profile.\(profile.id)")
@@ -310,6 +310,10 @@ private struct ProfileSection: View, Equatable {
 	}
 
 	private func toggle() {
+		guard !reorder.isDragging else {
+			return
+		}
+
 		controller.toggleProfile(profile.id)
 	}
 }
@@ -407,7 +411,7 @@ private struct TabRow: View, Equatable {
 	}
 
 	var body: some View {
-		Button { controller.select(tabID: tab.id) } label: {
+		Button { unlessDragging { controller.select(tabID: tab.id) } } label: {
 			HStack(spacing: 10) {
 				FaviconView(tabID: tab.id, dataURL: tab.favicon)
 
@@ -417,7 +421,7 @@ private struct TabRow: View, Equatable {
 					.truncationMode(.tail)
 					.frame(maxWidth: .infinity, alignment: .leading)
 
-				TabCloseButton { controller.closeTab(tab.id) }
+				TabCloseButton { unlessDragging { controller.closeTab(tab.id) } }
 			}
 			.padding(.leading, 7)
 			.padding(.trailing, 8)
@@ -430,12 +434,19 @@ private struct TabRow: View, Equatable {
 		.contextMenu {
 			Button("Close tab") { controller.closeTab(tab.id) }
 		}
-		.gesture(reorder.gesture(tab.id, ids: { [controller, profileID] in controller.model.profile(profileID)?.tabs.map(\.id) ?? [] }) { [controller, profileID] from, to in
+		.simultaneousGesture(reorder.gesture(tab.id, ids: { [controller, profileID] in controller.model.profile(profileID)?.tabs.map(\.id) ?? [] }) { [controller, profileID] from, to in
 			controller.moveTab(inProfile: profileID, from: from, to: to)
 		})
 		.accessibilityIdentifier("pane.tab.\(tab.id)")
 		.accessibilityLabel(tab.title.isEmpty ? "Loading" : tab.title)
 		.accessibilityAddTraits(isActive ? .isSelected : [])
+	}
+
+	// A release on the row, or its X, after a drag ends the drag alone.
+	private func unlessDragging(_ action: () -> Void) {
+		if !reorder.isDragging {
+			action()
+		}
 	}
 }
 

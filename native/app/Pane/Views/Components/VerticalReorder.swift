@@ -7,6 +7,11 @@ import SwiftUI
 // the list at 40%, moving to where it would drop as the rows around it slide
 // aside, while a copy of it rides the pointer. On release the copy settles
 // into the row's place, and the order is kept.
+//
+// A row is a button, and its drag runs beside the button's press
+// (`simultaneousGesture`): as the button's `gesture`, the press held every
+// move until the release, and the row moved only then. The press still shows
+// at once, and a release on the row after a drag is no click (`isDragging`).
 @MainActor
 @Observable
 final class VerticalReorder {
@@ -38,6 +43,12 @@ final class VerticalReorder {
 		self.space = space
 		self.rowHeight = rowHeight
 		self.spacing = spacing
+	}
+
+	// A row is dragged, or settling after one: a button's click then is the
+	// drag's release.
+	var isDragging: Bool {
+		drag != nil
 	}
 
 	// The order to draw: the dragged row at the place it would drop.
@@ -149,11 +160,21 @@ struct ReorderFramesKey: PreferenceKey {
 	}
 }
 
+extension EnvironmentValues {
+	// The row is the one dragged: it stands in the list at 40%, under the
+	// pointer more often than not, with no hover or press of its own (the
+	// copy over it has them).
+	@Entry var isDraggedRow = false
+}
+
 extension View {
 	// A row of a reorderable list: at 40% while it is dragged, its frame
 	// reported to the list.
 	func reorderRow(_ id: String, in reorder: VerticalReorder) -> some View {
-		opacity(reorder.drag?.id == id ? 0.4 : 1)
+		let isDragged = reorder.drag?.id == id
+
+		return opacity(isDragged ? 0.4 : 1)
+			.environment(\.isDraggedRow, isDragged)
 			.background {
 				GeometryReader { geometry in
 					Color.clear.preference(key: ReorderFramesKey.self, value: [id: geometry.frame(in: .named(reorder.space))])
@@ -177,9 +198,11 @@ extension View {
 			}
 			.overlay(alignment: .topLeading) {
 				if let drag = reorder.drag {
+					// The row itself stays in the list for VoiceOver.
 					copy(drag.id)
 						.offset(y: reorder.copyTop)
 						.allowsHitTesting(false)
+						.accessibilityHidden(true)
 				}
 			}
 	}
