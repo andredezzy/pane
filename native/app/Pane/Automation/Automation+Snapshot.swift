@@ -154,6 +154,20 @@ extension Automation {
 	// What has keyboard focus: a text field being edited, by its placeholder
 	// (SwiftUI keeps accessibility identifiers off the AppKit field), else
 	// the focused view's identifier or class.
+	// The address bar's load progress as drawn now: started, the share
+	// filled, the opacity, and whether the slow mode's shimmer runs.
+	private var progressBar: [String: Any] {
+		let bar = controller.progressBar
+		let now = CACurrentMediaTime()
+
+		return [
+			"started": bar.isStarted,
+			"progress": bar.progress,
+			"alpha": bar.alpha(at: now),
+			"shimmer": bar.shimmer(at: now) != nil,
+		]
+	}
+
 	private var focus: String {
 		let responder = controller.browserWindow.window.firstResponder
 
@@ -256,6 +270,7 @@ extension Automation {
 			] as [String: Any],
 			"downloads": Array(downloads.values),
 			"address": controller.state.address,
+			"progressBar": progressBar,
 			"window": [
 				"title": window.title,
 				"key": window.isKeyWindow,

@@ -18,9 +18,7 @@ struct ToolbarView: View {
 
 	private var model: BrowserModel { controller.model }
 	private var tabID: String? { model.activeTabID }
-	// The selected tab's load progress, nil while it is not loading.
-	private var progress: Double? { tabID.flatMap { model.loadingProgress[$0] } }
-	private var isLoading: Bool { progress != nil }
+	private var isLoading: Bool { tabID.flatMap { model.loadingProgress[$0] } != nil }
 	private var navigation: BrowserModel.NavigationState { tabID.flatMap { model.navigation[$0] } ?? .init() }
 	private var profile: BrowserProfile? { model.activeProfileID.flatMap(model.profile) }
 
@@ -49,9 +47,7 @@ struct ToolbarView: View {
 				text: Bindable(controller.state).address,
 				title: model.activeTab?.title ?? "",
 				focused: $addressFocused,
-				tabID: tabID,
-				progress: progress,
-				loadingSince: tabID.flatMap { model.loadingSince[$0] },
+				progressBar: controller.progressBar,
 				onSubmit: {
 					controller.navigate(to: controller.state.address)
 					addressFocused = false
@@ -119,9 +115,7 @@ private struct AddressField: View {
 	@Binding var text: String
 	let title: String
 	var focused: FocusState<Bool>.Binding
-	let tabID: String?
-	let progress: Double?
-	let loadingSince: Date?
+	let progressBar: ToolbarProgress
 	let onSubmit: () -> Void
 	let onExit: () -> Void
 
@@ -172,7 +166,8 @@ private struct AddressField: View {
 			}
 		}
 		.overlay(alignment: .bottomLeading) {
-			LoadingBar(tabID: tabID, progress: progress, since: loadingSince)
+			ToolbarProgressBar(progress: progressBar)
+				.frame(height: 2)
 		}
 		.clipShape(Squircle(cornerRadius: 9))
 		.onHover { hovering in
@@ -224,121 +219,6 @@ private struct AddressLabel: View {
 		}
 		.font(.system(size: 12))
 		.lineLimit(1)
-	}
-}
-
-// The Electron app's address progress: a 2px bar that eases to 90% over 8s
-// while the page loads, then fills and fades out. It shows 5% at once, as
-// Chrome's starts at 5% and Safari's at 10%, so a click answers in the next
-// frame. It follows the selected tab: a tab coming forward shows its own
-// state at once, as Chrome's, Aside's, and Safari's do, nothing for a loaded
-// tab (not the last tab's finish) and, for a loading one, the bar where it
-// would be had the tab been shown since its load began (not a start from 0,
-// and never behind where it was).
-private struct LoadingBar: View {
-	let tabID: String?
-	// The tab's load progress, nil while it is not loading, and when it began.
-	let progress: Double?
-	let since: Date?
-
-	@State private var fraction: CGFloat = 0
-	@State private var opacity: Double = 0
-	@State private var run = 0
-
-	private static let start: CGFloat = 0.05
-	private static let ceiling: CGFloat = 0.9
-	// Seconds from the start to the ceiling, on this curve.
-	private static let trickle: Double = 8
-	private static let curve = UnitCurve.bezier(startControlPoint: UnitPoint(x: 0.1, y: 0.05), endControlPoint: UnitPoint(x: 0, y: 1))
-
-	private struct Shown: Equatable {
-		let tabID: String?
-		let isLoading: Bool
-	}
-
-	var body: some View {
-		GeometryReader { geometry in
-			Rectangle()
-				.fill(Palette.progress)
-				.frame(width: geometry.size.width * fraction, height: 2)
-				.frame(maxHeight: .infinity, alignment: .bottom)
-		}
-		.opacity(opacity)
-		.allowsHitTesting(false)
-		.onChange(of: Shown(tabID: tabID, isLoading: progress != nil), initial: true) { old, new in
-			if old.tabID != new.tabID || old == new {
-				jump()
-			} else {
-				new.isLoading ? start() : complete()
-			}
-		}
-	}
-
-	// A load starts on the tab shown.
-	private func start() {
-		set(fraction: Self.start, opacity: 1)
-		ease(Self.trickle, .timingCurve(0.1, 0.05, 0, 1, duration: Self.trickle))
-	}
-
-	// Another tab forward, or the bar first shown: the tab's own state, with
-	// no animation, and the rest of the ease from there.
-	private func jump() {
-		guard let progress else {
-			set(fraction: 0, opacity: 0)
-			return
-		}
-
-		let along = min(max(since.map { Date().timeIntervalSince($0) } ?? 0, 0) / Self.trickle, 1)
-		let curved = Self.start + (Self.ceiling - Self.start) * CGFloat(Self.curve.value(at: along))
-		let remaining = Self.trickle * (1 - along)
-
-		set(fraction: min(max(curved, CGFloat(progress)), Self.ceiling), opacity: 1)
-		ease(remaining, .easeOut(duration: remaining))
-	}
-
-	private func set(fraction: CGFloat, opacity: Double) {
-		run += 1
-
-		var transaction = Transaction()
-		transaction.disablesAnimations = true
-
-		withTransaction(transaction) {
-			self.fraction = fraction
-			self.opacity = opacity
-		}
-	}
-
-	// On to the ceiling, over `duration`. A turn later, so the jump to where
-	// the bar starts is not part of it.
-	private func ease(_ duration: Double, _ animation: Animation) {
-		let current = run
-
-		DispatchQueue.main.async {
-			guard current == run, duration > 0 else {
-				return
-			}
-
-			withAnimation(Motion.unlessReduced(animation)) {
-				fraction = Self.ceiling
-			}
-		}
-	}
-
-	private func complete() {
-		// A load done within a turn: the ease it scheduled does not begin.
-		run += 1
-
-		guard opacity > 0 else {
-			return
-		}
-
-		withAnimation(Motion.unlessReduced(.easeOut(duration: 0.2))) {
-			fraction = 1
-		}
-
-		withAnimation(Motion.unlessReduced(.easeOut(duration: 0.2).delay(0.2))) {
-			opacity = 0
-		}
 	}
 }
 

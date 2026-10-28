@@ -34,6 +34,9 @@ final class BrowserController: NSObject {
 	private lazy var fullScreen = FullScreenFollower(controller: self)
 	// The window's SwiftUI root, where toolbar buttons anchor popups.
 	weak var hostingView: NSView?
+	// The address bar's load progress, as Chrome's toolbar shows the
+	// selected tab's.
+	let progressBar = ToolbarProgress()
 	// Profiles whose engine data is still being deleted, on disk until the
 	// engine confirms, for the next launch.
 	private let deletions: ProfileDeletions
@@ -238,6 +241,10 @@ final class BrowserController: NSObject {
 		model.setPage(.browser)
 		model.setExpanded(profileID, true)
 
+		if previous != tabID {
+			progressBar.tabChanged(progress: model.loadingProgress[tabID], at: CACurrentMediaTime())
+		}
+
 		if previous != tabID, let previous, let page = pages.page(for: previous) {
 			page.isVisible = false
 			pages.devTools(for: previous)?.isVisible = false
@@ -379,6 +386,10 @@ final class BrowserController: NSObject {
 		page.closeImmediately()
 		crashes.forget(tabID)
 		model.setLoaded(tabID, false)
+
+		if model.activeTabID == tabID {
+			progressBar.tabChanged(progress: nil, at: CACurrentMediaTime())
+		}
 	}
 
 	// Removes the profile now; its engine data goes once the engine confirms.
@@ -701,7 +712,14 @@ extension BrowserController: WebContentsDelegate {
 			return
 		}
 
-		model.setLoading(tabID, progress: isLoading ? progress : nil)
+		let previous = model.loadingProgress[tabID]
+		let current = isLoading ? progress : nil
+		model.setLoading(tabID, progress: current)
+
+		if model.activeTabID == tabID {
+			progressBar.reducesMotion = Motion.isReduced
+			progressBar.loadingChanged(from: previous, to: current, at: CACurrentMediaTime())
+		}
 	}
 
 	func webContents(_ webContents: WebContents, didUpdateFavicon favicon: NSImage) {
@@ -735,6 +753,10 @@ extension BrowserController: WebContentsDelegate {
 		}
 
 		model.setLoading(tabID, progress: nil)
+
+		if model.activeTabID == tabID {
+			progressBar.crashed(at: CACurrentMediaTime())
+		}
 
 		// The first crash reloads the page, as a slept tab wakes. A page that
 		// dies again within a minute shows the sad tab instead of looping.

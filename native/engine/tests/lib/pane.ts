@@ -155,6 +155,14 @@ export type AppState = {
 		frame: string;
 	}[];
 	pageFullscreen: boolean;
+	// The address bar's load progress as drawn: started, the share filled,
+	// the opacity, and whether the slow mode's shimmer runs.
+	progressBar: {
+		started: boolean;
+		progress: number;
+		alpha: number;
+		shimmer: boolean;
+	};
 	exclusiveAccessHint: string | null;
 	crashedTabs: string[];
 	pictureInPictureTabs: string[];

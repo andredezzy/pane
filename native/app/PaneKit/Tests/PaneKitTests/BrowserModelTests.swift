@@ -246,31 +246,11 @@ struct BrowserModelTests {
 
 		#expect(model.loadedTabIDs.isEmpty)
 		#expect(model.loadingProgress.isEmpty)
-		#expect(model.loadingSince.isEmpty)
 		#expect(model.navigation.isEmpty)
 		#expect(model.crashedTabIDs.isEmpty)
 		#expect(model.pictureInPictureTabIDs.isEmpty)
 		#expect(model.devToolsTabIDs.isEmpty)
 		#expect(model.tab("a") != nil)
-	}
-
-	@Test("a load keeps the time it began until it ends, through its progress")
-	func loadingSince() {
-		let harness = Harness([profile("p", tabs: ["a"])])
-		let model = harness.model!
-		let began = harness.clock.date
-
-		model.setLoading("a", progress: 0.1)
-		harness.clock.date = began.addingTimeInterval(2)
-		model.setLoading("a", progress: 0.6)
-
-		#expect(model.loadingSince["a"] == began)
-
-		model.setLoading("a", progress: nil)
-		#expect(model.loadingSince["a"] == nil)
-
-		model.setLoading("a", progress: 0.1)
-		#expect(model.loadingSince["a"] == began.addingTimeInterval(2))
 	}
 
 	// MARK: Saving
