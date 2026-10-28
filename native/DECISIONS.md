@@ -321,3 +321,14 @@ Dated record of choices made while building the native shell — what was decide
   - **The drop**: it lands at the place whose top is nearest the copy's, as dnd-kit's closest center. Each place's top is counted with the dragged row out of the list, so an expanded profile's whole height counts. That math is `Reorder` in PaneKit, with tests.
   - **The system drag is gone** (`.draggable`, `.dropDestination`, `DraggedItem`): its preview could leave the window and move sideways.
   - **Checked**: `sidebar-reorder` drags through the event queue (`pointerWindow`, moves with their deltas). It checks a profile dragged down two places, one dragged up and out of the window (it lands first), a short click, and a tab dragged to the end. In a window in the background, SwiftUI takes the moves in only at the release, so no test saw the drag midway. The midway look (the copy, the 40% row, the slide) is unverified on screen.
+- **No moon on an unloaded profile** (the user's request). The Electron app's moon beside the tab count marked a profile unloaded this session; it is gone from the sidebar, and from Paper's sidebars (91 of them) and 02.1. Unloading itself is unchanged.
+- **Paper reviewed as a whole** (the user's request: organization, placement, and anything out of date).
+  - **Pages**: they follow their numbers, the app's screens after the divider, and every flow page has its header. 08 · Extensions and 07 · Installer gained theirs; 05 · Settings lost the deleted 05.2's entry.
+  - **Placement**: every page keeps its grid. Components stand in three columns 120 apart, and 02.11, which sat over the header, joined the first. Settings' dark board is on the dark row. Extensions' boards run across as the other flows' do, light above and dark below, with dark Search and No extensions added.
+  - **Out of date, now fixed**:
+    - 02.7: the Electron app's button sizes, a Large size the app lacks, and Settings' old presets. It now shows the app's sizes and the profile sheet's Platform preset.
+    - 02.8: a field that no longer exists. It gains the pop-up button and the profile select.
+    - 02.1: its hover state had the active square.
+    - 02.3: rows at the old 200 width wrapped their text.
+    - 01.7: the motion principle had no word on morphs.
+    - 02.11: it documents the reorder.

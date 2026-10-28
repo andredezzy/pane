@@ -34,7 +34,7 @@ struct SidebarView: View {
 				}
 				.reorderList(reorder) { id in
 					if let profile = model.profile(id) {
-						ProfileHeaderContent(profile: profile, isActive: model.activeProfileID == id, isUnloaded: false, proxyStatus: model.proxyStatus[id], showsCount: !model.expandedProfileIDs.contains(id))
+						ProfileHeaderContent(profile: profile, isActive: model.activeProfileID == id, proxyStatus: model.proxyStatus[id], showsCount: !model.expandedProfileIDs.contains(id))
 							.padding(.horizontal, 8)
 							.frame(height: 36)
 							.foregroundStyle(Palette.accentForeground)
@@ -184,17 +184,12 @@ private struct ProfileSection: View {
 	// Its tabs reorder by dragging, as the Electron app's did.
 	@State private var tabReorder = VerticalReorder(space: "pane.sidebar.tabs", rowHeight: 32, spacing: 4)
 	@State private var confirmingDelete = false
-	// The moon marks an unload that happened this session: a profile never
-	// loaded shows none.
-	@State private var wasLoaded = false
 	@State private var isHovered = false
 	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	private var model: BrowserModel { controller.model }
 	private var isExpanded: Bool { model.expandedProfileIDs.contains(profile.id) }
 	private var isActive: Bool { model.activeProfileID == profile.id }
-	private var hasLoadedTabs: Bool { profile.tabs.contains { model.loadedTabIDs.contains($0.id) } }
-	private var isUnloaded: Bool { wasLoaded && !hasLoadedTabs && !profile.tabs.isEmpty }
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 4) {
@@ -233,11 +228,6 @@ private struct ProfileSection: View {
 				}
 			}
 		}
-		.onChange(of: hasLoadedTabs, initial: true) { _, loaded in
-			if loaded {
-				wasLoaded = true
-			}
-		}
 		.alert("Delete \u{201C}\(profile.name)\u{201D}?", isPresented: $confirmingDelete) {
 			Button("Delete", role: .destructive) { controller.deleteProfile(profile.id) }
 			Button("Cancel", role: .cancel) {}
@@ -253,7 +243,6 @@ private struct ProfileSection: View {
 			ProfileHeaderContent(
 				profile: profile,
 				isActive: isActive,
-				isUnloaded: isUnloaded,
 				proxyStatus: model.proxyStatus[profile.id],
 				showsCount: !isExpanded
 			)
@@ -308,12 +297,11 @@ private struct ProfileSection: View {
 
 // A profile's header: its color (the active one's bar grown into a 16-point
 // square, the favicons' size, rounding off as it widens, with the name moving
-// along: DESIGN.md › Motion, an indicator morphs), the name, the moon of an
-// unload, the proxy's dot, and the tab count while collapsed.
+// along: DESIGN.md › Motion, an indicator morphs), the name, the proxy's dot,
+// and the tab count while collapsed.
 private struct ProfileHeaderContent: View {
 	let profile: BrowserProfile
 	let isActive: Bool
-	let isUnloaded: Bool
 	let proxyStatus: BrowserModel.ProxyStatus?
 	let showsCount: Bool
 
@@ -328,12 +316,6 @@ private struct ProfileHeaderContent: View {
 				.lineLimit(1)
 				.truncationMode(.tail)
 				.frame(maxWidth: .infinity, alignment: .leading)
-
-			if isUnloaded {
-				LucideIcon(.moon, size: 14)
-					.foregroundStyle(Palette.mutedForeground.opacity(0.5))
-					.accessibilityLabel("Unloaded")
-			}
 
 			if let proxyStatus {
 				ProxyDot(status: proxyStatus)
