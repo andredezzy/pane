@@ -25,17 +25,24 @@ final class ProfileNetwork {
 	}
 
 	// Applies the profile's proxy to its context, before any of its pages
-	// loads.
+	// loads. A proxy changed while its relay started (the profile sheet saved
+	// as the profile opened) is applied in its place, never dropped: two
+	// applies running at once both end on the profile's current proxy.
 	func apply(to context: BrowserContext) async {
 		let profileID = context.identifier
-		let proxy = model.profile(profileID)?.proxy
+		var proxy: ProxyConfig?
 		var rules: String?
 
-		if let proxy {
-			rules = proxy.rules(relayPort: await relayPort(for: proxy, profileID: profileID))
-		} else {
-			stopRelay(profileID)
-		}
+		repeat {
+			proxy = model.profile(profileID)?.proxy
+			rules = nil
+
+			if let proxy {
+				rules = proxy.rules(relayPort: await relayPort(for: proxy, profileID: profileID))
+			} else {
+				stopRelay(profileID)
+			}
+		} while model.profile(profileID)?.proxy != proxy
 
 		context.proxyRules = rules
 		context.webRTCIPHandlingPolicy = WebRTCPolicy.forProfile(proxied: proxy != nil)
