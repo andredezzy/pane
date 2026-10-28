@@ -32,7 +32,7 @@ struct TabSwitcherView: View {
 						let isSelected = index == switcher.selectedIndex
 
 						HStack(spacing: 10) {
-							SwitcherFavicon(dataURL: tab.favicon ?? "")
+							SwitcherFavicon(tabID: tab.id, dataURL: tab.favicon ?? "")
 							Text(tab.title)
 								.font(.system(size: 14))
 								.foregroundStyle(Palette.foreground.opacity(0.8))
@@ -68,19 +68,13 @@ struct TabSwitcherView: View {
 
 // 16px, rounded-sm; without a favicon, a foreground/10 square.
 private struct SwitcherFavicon: View {
+	let tabID: String
 	let dataURL: String
 
 	var body: some View {
-		if let image = FaviconView.image(from: dataURL) {
-			Image(nsImage: image)
-				.resizable()
-				.interpolation(.high)
-				.frame(width: 16, height: 16)
-				.clipShape(Squircle(cornerRadius: 4))
-		} else {
+		FaviconView(tabID: tabID, dataURL: dataURL) {
 			Squircle(cornerRadius: 4)
 				.fill(Palette.foreground.opacity(0.1))
-				.frame(width: 16, height: 16)
 		}
 	}
 }

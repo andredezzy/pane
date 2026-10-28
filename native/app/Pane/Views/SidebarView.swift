@@ -49,6 +49,9 @@ struct SidebarView: View {
 			footer
 		}
 		.frame(maxHeight: .infinity, alignment: .top)
+		// The saved favicons decode as the window opens, before a profile
+		// expands to show them.
+		.task { Favicons.warm(model.profiles.flatMap(\.tabs)) }
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel("Sidebar")
 		.accessibilityIdentifier("pane.sidebar")
@@ -188,7 +191,7 @@ private struct ProfileSection: View {
 					.reorderList(tabReorder) { id in
 						if let tab = profile.tabs.first(where: { $0.id == id }) {
 							HStack(spacing: 10) {
-								FaviconView(dataURL: tab.favicon)
+								FaviconView(tabID: tab.id, dataURL: tab.favicon)
 								Text(tab.title.isEmpty ? "Loading..." : tab.title)
 									.font(.system(size: 12))
 									.lineLimit(1)
@@ -380,7 +383,7 @@ private struct TabRow: View {
 	var body: some View {
 		Button { controller.select(tabID: tab.id) } label: {
 			HStack(spacing: 10) {
-				FaviconView(dataURL: tab.favicon)
+				FaviconView(tabID: tab.id, dataURL: tab.favicon)
 
 				Text(tab.title.isEmpty ? "Loading..." : tab.title)
 					.font(.system(size: 12))
