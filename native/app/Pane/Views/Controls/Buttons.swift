@@ -279,6 +279,12 @@ private struct RowButton: View {
 			.onHover { hovering in
 				withAnimation(Motion.hover) { isHovered = hovering }
 			}
+			// The row moves as one: its place is the list's to animate (a
+			// drag's slide, a profile opening). SwiftUI otherwise hands a move
+			// down to each icon and text, and those a hover redraws took the
+			// hover's 0.15 s ease, apart from the rest (the user's report: a
+			// tab's favicon and title slid at different times).
+			.geometryGroup()
 	}
 }
 
