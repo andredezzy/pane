@@ -16,8 +16,8 @@ final class Automation {
 	// Where pointerWindow's last phase was, for the next move's distance.
 	private var lastPointer: NSPoint?
 	private var downloads: [String: [String: Any]] = [:]
-	// Each profile's cookies (names, domains, and paths; never values), as
-	// last read with readCookies.
+	// Each profile's cookies (names, domains, paths, and attributes; never
+	// values), as last read with readCookies.
 	private var cookies: [String: [[String: Any]]] = [:]
 	// Each profile's HTTP cache size in bytes, as last read with
 	// readCacheSize.
@@ -569,7 +569,7 @@ final class Automation {
 
 			Task { [weak self] in
 				let all = await context.cookies()
-				self?.cookies[profileID] = all.map { ["name": $0.name, "domain": $0.domain, "path": $0.path] }
+				self?.cookies[profileID] = all.map(Self.describe)
 			}
 
 		case "installExtension":
@@ -689,6 +689,26 @@ final class Automation {
 		}
 
 		button.performClick(nil)
+	}
+
+	// A cookie without its value: where it applies, and its attributes.
+	private static func describe(_ cookie: Cookie) -> [String: Any] {
+		let sameSite = switch cookie.sameSite {
+		case .none: "none"
+		case .lax: "lax"
+		case .strict: "strict"
+		default: "unspecified"
+		}
+
+		return [
+			"name": cookie.name,
+			"domain": cookie.domain,
+			"path": cookie.path,
+			"secure": cookie.isSecure,
+			"httpOnly": cookie.isHTTPOnly,
+			"sameSite": sameSite,
+			"expires": cookie.expirationDate?.timeIntervalSince1970 ?? NSNull(),
+		]
 	}
 
 	private func answerFileChooser(paths: [String]?, cancel: Bool) throws {

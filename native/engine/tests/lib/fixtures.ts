@@ -44,6 +44,25 @@ async function route(
 				});
 	}
 
+	// A cookie for each attribute the engine reports (the cookies scenario).
+	// 127.0.0.1 is a trustworthy origin, so Secure ones are kept over http.
+	if (pathname === "/cookie-attributes") {
+		const headers = new Headers({ "Content-Type": "text/html" });
+
+		for (const cookie of [
+			"pane_session=1; Path=/",
+			"pane_lax=1; Path=/; SameSite=Lax; Max-Age=3600",
+			"pane_strict=1; Path=/cookie-attributes; SameSite=Strict; HttpOnly",
+			"pane_none=1; Path=/; SameSite=None; Secure",
+		]) {
+			headers.append("Set-Cookie", cookie);
+		}
+
+		return new Response("<!doctype html><title>Cookies</title><h1>Set</h1>", {
+			headers,
+		});
+	}
+
 	// The proxy test's IP echo, in httpbin's shape.
 	if (pathname === "/ip") {
 		return Response.json({ origin: "203.0.113.7" });

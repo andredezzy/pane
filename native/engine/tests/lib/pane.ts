@@ -37,8 +37,19 @@ export type ProfileState = {
 	// What the engine applied, once the profile is open.
 	network: { proxyRules: string | null; webRTCIPHandlingPolicy: string } | null;
 	keepLoaded: boolean;
-	// Names, domains, and paths, once read with readCookies.
-	cookies: { name: string; domain: string; path: string }[] | null;
+	// Each cookie but its value, once read with readCookies. expires is in
+	// seconds since 1970, null for a session cookie.
+	cookies:
+		| {
+				name: string;
+				domain: string;
+				path: string;
+				secure: boolean;
+				httpOnly: boolean;
+				sameSite: "unspecified" | "none" | "lax" | "strict";
+				expires: number | null;
+		  }[]
+		| null;
 	// The HTTP cache's bytes, once read with readCacheSize.
 	cacheSize: number | null;
 	tabs: TabState[];
