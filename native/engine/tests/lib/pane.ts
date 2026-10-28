@@ -366,6 +366,20 @@ export function tabOf(state: AppState, tabID: string): TabState | undefined {
 		.find((tab) => tab.id === tabID);
 }
 
+// The traffic lights where the app puts them (state.window.trafficLightFrames):
+// all three on one line from (12, 12), evenly apart.
+export function trafficLightsInPlace(lights: number[][]): boolean {
+	const [close, miniaturize, zoom] = lights;
+	const spacing = (miniaturize?.[0] ?? 0) - (close?.[0] ?? 0);
+
+	return (
+		close?.[0] === 12 &&
+		lights.every((frame) => frame[1] === 12) &&
+		spacing > 0 &&
+		(zoom?.[0] ?? 0) - (miniaturize?.[0] ?? 0) === spacing
+	);
+}
+
 export type PaneLaunch = {
 	// Reuse a data directory (for relaunch checks); a throwaway one otherwise,
 	// removed with the scenario's other directories when it ends.

@@ -1,12 +1,23 @@
-import { launchPane, tabOf } from "../lib/pane";
+import { launchPane, tabOf, trafficLightsInPlace } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
 // The window's chrome as the Electron app lays it out: the traffic lights sit
-// in the sidebar's header and the title bar spans the top 40px, over the
+// in the sidebar's header and the title bar spans the top 38px, over the
 // toolbar. Real clicks there (posted through the window's hit testing, as the
 // trackpad's) must still reach the toolbar and the header, not the title bar.
 const windowChrome: Scenario = async (context) => {
 	const app = await launchPane(context);
+
+	// The traffic lights are in place from the window's first frame. AppKit
+	// lays the title bar out as the engine makes the window, and they sat at
+	// its own (9, 9) until the first page's title laid it out again.
+	const launched = (await app.state()).window.trafficLightFrames;
+
+	expect(
+		trafficLightsInPlace(launched),
+		`the traffic lights at launch: ${JSON.stringify(launched)}`,
+	);
+
 	const profile = await app.createProfile("Chrome");
 	const a = context.fixtures.url("nav-a.html");
 	const b = context.fixtures.url("nav-b.html");
@@ -21,25 +32,11 @@ const windowChrome: Scenario = async (context) => {
 	);
 
 	// The window's title follows the page's, and AppKit lays the title bar
-	// out again for it, and for the pointer over the zoom button: the
-	// traffic lights stay in place, all three on one line from (12, 12),
-	// evenly apart.
-	const inPlace = (lights: number[][]) => {
-		const [close, miniaturize, zoom] = lights;
-		const spacing = (miniaturize?.[0] ?? 0) - (close?.[0] ?? 0);
-
-		return (
-			close?.[0] === 12 &&
-			lights.every((frame) => frame[1] === 12) &&
-			spacing > 0 &&
-			(zoom?.[0] ?? 0) - (miniaturize?.[0] ?? 0) === spacing
-		);
-	};
-
+	// out again for it, and for the pointer over the zoom button.
 	const titled = loadedB.window.trafficLightFrames;
 
 	expect(
-		inPlace(titled),
+		trafficLightsInPlace(titled),
 		`the traffic lights moved with the title: ${JSON.stringify(titled)}`,
 	);
 
@@ -49,7 +46,7 @@ const windowChrome: Scenario = async (context) => {
 	await app.send("hoverWindow", { x: 700, y: 400 });
 
 	expect(
-		inPlace(hovered),
+		trafficLightsInPlace(hovered),
 		`the traffic lights moved under the pointer: ${JSON.stringify(hovered)}`,
 	);
 
@@ -80,6 +77,7 @@ const windowChrome: Scenario = async (context) => {
 	);
 
 	return {
+		lightsAtLaunch: launched,
 		back: tabOf(back, tab)?.url,
 		focus: focused.focus,
 		expandedAfterCollapse: collapsed.profiles

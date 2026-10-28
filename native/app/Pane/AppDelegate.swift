@@ -19,6 +19,9 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	}
 
 	func browserApplicationDidStart(_ application: BrowserApplication) {
+		// Before the controller has the engine make the window.
+		TitleBar.prepare()
+
 		let store = ModelStore(dataDirectory: dataDirectory)
 		let model = store.makeModel()
 		let updater = Updater(currentVersion: Bundle.main.object(forInfoDictionaryKey: "PaneVersion") as? String ?? "0.0.0")
