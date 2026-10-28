@@ -108,8 +108,7 @@ struct FindBar: View {
 	})
 }
 
-// A 32-point circle, the accent's fill on hover; disabled at 40%. Its own
-// style, as the plain one dims a disabled label further.
+// A 32-point circle, the accent's fill on hover; disabled at 40%.
 private struct FindButton: View {
 	let icon: Lucide
 	let size: CGFloat
@@ -121,32 +120,7 @@ private struct FindButton: View {
 		Button(action: action) {
 			LucideIcon(icon, size: size, strokeWidth: strokeWidth)
 		}
-		.buttonStyle(FindButtonStyle())
+		.buttonStyle(.icon(size: 32))
 		.accessibilityLabel(label)
-	}
-}
-
-private struct FindButtonStyle: ButtonStyle {
-	func makeBody(configuration: Configuration) -> some View {
-		FindButtonLabel(configuration: configuration)
-	}
-}
-
-private struct FindButtonLabel: View {
-	let configuration: ButtonStyleConfiguration
-
-	@State private var isHovered = false
-	@Environment(\.isEnabled) private var isEnabled
-
-	var body: some View {
-		configuration.label
-			.frame(width: 32, height: 32)
-			.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-			.background(isHovered ? Palette.accent : .clear, in: Circle())
-			.contentShape(Circle())
-			.opacity(isEnabled ? 1 : 0.4)
-			.onHover { hovering in
-				withAnimation(Motion.hover) { isHovered = hovering && isEnabled }
-			}
 	}
 }

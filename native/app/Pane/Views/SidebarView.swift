@@ -119,22 +119,12 @@ private struct CollapseAllButton: View {
 	let isEnabled: Bool
 	let action: () -> Void
 
-	@State private var isHovered = false
-
 	var body: some View {
 		Button(action: action) {
 			LucideIcon(.chevronsDownUp, size: 16)
-				.frame(width: 28, height: 28)
-				.contentShape(Circle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: Circle())
-		.opacity(isEnabled ? 1 : 0.4)
+		.buttonStyle(.icon(size: 28))
 		.disabled(!isEnabled)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering && isEnabled }
-		}
 		.help("Collapse all profiles")
 		.accessibilityLabel("Collapse all profiles")
 	}
@@ -150,8 +140,6 @@ private struct SidebarButton<Label: View>: View {
 	let action: () -> Void
 	@ViewBuilder let label: Label
 
-	@State private var isHovered = false
-
 	var body: some View {
 		Button(action: action) {
 			HStack(spacing: 10) {
@@ -164,10 +152,7 @@ private struct SidebarButton<Label: View>: View {
 			.frame(height: SidebarRow.height)
 			.contentShape(Rectangle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isSelected || (tintsOnHover && isHovered) ? Palette.accentForeground : Palette.mutedForeground)
-		.hoverBackground(isSelected: isSelected, cornerRadius: SidebarRow.cornerRadius)
-		.onHover { isHovered = $0 }
+		.buttonStyle(RowButtonStyle(isSelected: isSelected, cornerRadius: SidebarRow.cornerRadius, tintsOnHover: tintsOnHover))
 	}
 }
 
@@ -183,7 +168,6 @@ private struct ProfileSection: View {
 	// Its tabs reorder by dragging, as the Electron app's did.
 	@State private var tabReorder = VerticalReorder(space: "pane.sidebar.tabs", rowHeight: 32, spacing: 4)
 	@State private var confirmingDelete = false
-	@State private var isHovered = false
 
 	private var model: BrowserModel { controller.model }
 	private var isExpanded: Bool { model.expandedProfileIDs.contains(profile.id) }
@@ -255,8 +239,8 @@ private struct ProfileSection: View {
 			.animation(Motion.morph, value: isActive)
 			.contentShape(Rectangle())
 		}
-		.buttonStyle(.plain)
-		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: SidebarRow.cornerRadius)
+		// Its text follows the profile, not the hover (the label's own).
+		.buttonStyle(RowButtonStyle(isSelected: isActive, selectedFill: .clear, cornerRadius: SidebarRow.cornerRadius, tintsOnHover: false))
 		// The Electron app's menu, with its lucide icons.
 		.contextMenu {
 			Button(action: onEdit) {
@@ -375,8 +359,6 @@ private struct TabRow: View {
 	let reorder: VerticalReorder
 	let ids: [String]
 
-	@State private var isHovered = false
-
 	private var model: BrowserModel { controller.model }
 	private var isActive: Bool { model.activeTabID == tab.id && model.page == .browser }
 	private var isLoaded: Bool { model.loadedTabIDs.contains(tab.id) }
@@ -392,23 +374,16 @@ private struct TabRow: View {
 					.truncationMode(.tail)
 					.frame(maxWidth: .infinity, alignment: .leading)
 
-				Button { controller.closeTab(tab.id) } label: {
-					LucideIcon(.x, size: 14)
-				}
-				.buttonStyle(.plain)
-				.opacity(isHovered ? 1 : 0)
-				.accessibilityLabel("Close tab")
+				TabCloseButton { controller.closeTab(tab.id) }
 			}
 			.padding(.leading, 7)
 			.padding(.trailing, 8)
+			// The row's content dims, not its fill.
+			.opacity(isLoaded || isActive ? 1 : 0.6)
 			.frame(height: SidebarRow.height)
 			.contentShape(Rectangle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isActive || isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.opacity(isLoaded || isActive ? 1 : 0.6)
-		.hoverBackground(isSelected: isActive, cornerRadius: SidebarRow.cornerRadius)
-		.onHover { isHovered = $0 }
+		.buttonStyle(RowButtonStyle(isSelected: isActive, cornerRadius: SidebarRow.cornerRadius))
 		.contextMenu {
 			Button("Close tab") { controller.closeTab(tab.id) }
 		}
@@ -421,11 +396,26 @@ private struct TabRow: View {
 	}
 }
 
+// A tab's close X, in the row's text color, shown while the pointer is over
+// the row: it fades with the row's fill.
+private struct TabCloseButton: View {
+	let action: () -> Void
+
+	@Environment(\.isRowHovered) private var isRowHovered
+
+	var body: some View {
+		Button(action: action) {
+			LucideIcon(.x, size: 14)
+		}
+		.buttonStyle(.plain)
+		.opacity(isRowHovered ? 1 : 0)
+		.accessibilityLabel("Close tab")
+	}
+}
+
 // "+ New tab", a tab row's size, muted until hovered.
 private struct NewTabRow: View {
 	let action: () -> Void
-
-	@State private var isHovered = false
 
 	var body: some View {
 		Button(action: action) {
@@ -440,10 +430,7 @@ private struct NewTabRow: View {
 			.frame(height: SidebarRow.height)
 			.contentShape(Rectangle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.hoverBackground(isSelected: false, cornerRadius: SidebarRow.cornerRadius)
-		.onHover { isHovered = $0 }
+		.buttonStyle(RowButtonStyle(cornerRadius: SidebarRow.cornerRadius))
 	}
 }
 

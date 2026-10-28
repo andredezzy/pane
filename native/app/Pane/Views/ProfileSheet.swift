@@ -352,22 +352,14 @@ struct ProfileSheet: View {
 }
 
 // 24px, rounded 7: a 16px X, muted until hovered.
-struct CloseButton: View {
+private struct CloseButton: View {
 	let action: () -> Void
-
-	@State private var isHovered = false
 
 	var body: some View {
 		Button(action: action) {
 			LucideIcon(.x, size: 16)
-				.frame(width: 24, height: 24)
-				.contentShape(Rectangle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isHovered ? Palette.foreground : Palette.mutedForeground)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.buttonStyle(.icon(size: 24, shape: .squircle(7), hoverTint: Palette.foreground, fill: nil))
 		.accessibilityLabel("Close")
 	}
 }

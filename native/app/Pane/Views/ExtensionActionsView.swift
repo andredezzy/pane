@@ -84,23 +84,15 @@ private struct ExtensionsButton: View {
 	let isOpen: Bool
 	let action: () -> Void
 
-	@State private var isHovered = false
-
 	var body: some View {
 		Button(action: action) {
 			// 1.4 of 24 at 20 points: 1.17 points, the thin stroke the user
 			// chose for it (the chevrons beside it draw Aside's 1.5).
 			Image(nsImage: Glyph.puzzle.image(strokeWidth: 1.4, size: 20))
 				.renderingMode(.template)
-				.frame(width: 32, height: 32)
-				.contentShape(Circle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isOpen ? Palette.foreground : isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isOpen || isHovered ? Palette.accent : .clear, in: Circle())
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		// Open, it takes the text's own color.
+		.buttonStyle(.icon(size: 32, hoverTint: isOpen ? Palette.foreground : Palette.accentForeground, isOn: isOpen))
 		.help("Extensions")
 		.accessibilityLabel("Extensions")
 		.accessibilityAddTraits(isOpen ? .isSelected : [])
@@ -117,8 +109,6 @@ private struct ActionButton: View {
 	let item: ExtensionInfo
 	let isOpen: Bool
 	let action: () -> Void
-
-	@State private var isHovered = false
 
 	var body: some View {
 		Button(action: action) {
@@ -137,7 +127,6 @@ private struct ActionButton: View {
 				}
 			}
 			.frame(width: 32, height: 32)
-			.background(isOpen || isHovered ? Palette.accent : .clear, in: Circle())
 			.overlay(alignment: .bottomTrailing) {
 				if !item.badgeText.isEmpty {
 					Text(item.badgeText)
@@ -153,13 +142,9 @@ private struct ActionButton: View {
 						.padding(.bottom, 1)
 				}
 			}
-			.contentShape(Circle())
 		}
-		.buttonStyle(.plain)
+		.buttonStyle(.icon(size: 32, isOn: isOpen))
 		.opacity(item.actionEnabled ? 1 : 0.4)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
 		.help(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityLabel(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityAddTraits(isOpen ? .isSelected : [])

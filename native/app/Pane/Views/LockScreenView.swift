@@ -298,17 +298,11 @@ private struct BackspaceIcon: View {
 private struct BackButton: View {
 	let action: () -> Void
 
-	@State private var isHovered = false
-
 	var body: some View {
 		Button(action: action) {
 			LucideIcon(.arrowLeft, size: 20)
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(Palette.foreground.opacity(isHovered ? 0.6 : 0.3))
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.buttonStyle(.icon(size: 20, tint: Palette.foreground.opacity(0.3), hoverTint: Palette.foreground.opacity(0.6), fill: nil))
 		.accessibilityLabel("Back")
 		.accessibilityIdentifier("pane.lockScreen.back")
 	}

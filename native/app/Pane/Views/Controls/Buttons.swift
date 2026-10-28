@@ -1,8 +1,10 @@
 import SwiftUI
 
-// The Electron app's packages/ui Button, with the same variants, sizes, and
-// states (its Input, Select, Switch, Separator, and labels are this folder's
-// other files).
+// Pane's buttons: the Electron app's packages/ui Button, with the same
+// variants, sizes, and states; the icon buttons; and the sidebar's rows.
+// Each owns its hover, its press, and its disabled look, so they behave
+// alike: hover fades in 0.15 s, its tint with its fill (DESIGN.md: Motion);
+// a press shows at once and fades as it lets go; selection never animates.
 
 enum ButtonVariant {
 	case primary
@@ -48,7 +50,11 @@ private struct PaneButtonBody: View {
 	@Environment(\.isEnabled) private var isEnabled
 	@State private var isHovered = false
 
+	private var lit: Bool { isHovered && isEnabled }
+
 	var body: some View {
+		let shape = Squircle(cornerRadius: 11)
+
 		configuration.label
 			.font(.system(size: style.fontSize ?? style.size.fontSize, weight: .medium))
 			.lineLimit(1)
@@ -58,20 +64,27 @@ private struct PaneButtonBody: View {
 			.padding(.horizontal, style.size.padding + (style.variant == .outline ? 1 : 0))
 			.frame(maxWidth: style.fillsWidth ? .infinity : nil)
 			.frame(height: style.size.height)
-			.background(background, in: Squircle(cornerRadius: 11))
+			.background {
+				ZStack {
+					shape.fill(background)
+					PressLayer(shape: shape, color: isStrong ? Palette.pressOnStrong : Palette.press, isPressed: configuration.isPressed)
+				}
+			}
 			.overlay {
 				if style.variant == .outline {
-					Squircle(cornerRadius: 11)
-						.strokeBorder(style.border ?? Palette.border, lineWidth: 1)
+					shape.strokeBorder(style.border ?? Palette.border, lineWidth: 1)
 				}
 			}
 			.contentShape(Rectangle())
 			.opacity(isEnabled ? 1 : 0.5)
 			.onHover { hovering in
-				withAnimation(Motion.hover) {
-					isHovered = hovering && isEnabled
-				}
+				withAnimation(Motion.hover) { isHovered = hovering }
 			}
+	}
+
+	// A fill a dark press would not show on.
+	private var isStrong: Bool {
+		style.fill == nil && [.primary, .destructive].contains(style.variant)
 	}
 
 	private var foreground: Color {
@@ -85,7 +98,7 @@ private struct PaneButtonBody: View {
 		case .destructive:
 			return Palette.destructiveForeground
 		case .outline, .ghost:
-			return isHovered ? Palette.accentForeground : Palette.foreground
+			return lit ? Palette.accentForeground : Palette.foreground
 		case .secondary:
 			return Palette.foreground
 		}
@@ -98,15 +111,15 @@ private struct PaneButtonBody: View {
 
 		switch style.variant {
 		case .primary:
-			return Palette.primary.opacity(isHovered ? 0.9 : 1)
+			return Palette.primary.opacity(lit ? 0.9 : 1)
 		case .destructive:
-			return Palette.destructive.opacity(isHovered ? 0.9 : 1)
+			return Palette.destructive.opacity(lit ? 0.9 : 1)
 		case .outline:
-			return isHovered ? Palette.accent : .clear
+			return lit ? Palette.accent : .clear
 		case .secondary:
-			return Palette.secondary.opacity(isHovered ? 0.8 : 1)
+			return Palette.secondary.opacity(lit ? 0.8 : 1)
 		case .ghost:
-			return isHovered ? Palette.accent : .clear
+			return lit ? Palette.accent : .clear
 		}
 	}
 }
@@ -122,6 +135,136 @@ extension ButtonStyle where Self == PaneButtonStyle {
 		border: Color? = nil
 	) -> PaneButtonStyle {
 		PaneButtonStyle(variant: variant, size: size, fontSize: fontSize, fillsWidth: fillsWidth, foreground: foreground, fill: fill, border: border)
+	}
+}
+
+// An icon button, as the toolbar's: the icon in a `size`-point square, muted,
+// darkening as the shape's fill (the accent, by default) fades in on hover;
+// at 40% while disabled, as Aside's gray. `isOn` holds the hover's look while
+// what the button opens shows (the extensions menu, an action's popup).
+struct IconButtonStyle: ButtonStyle {
+	enum Shape {
+		case circle
+		case squircle(CGFloat)
+	}
+
+	var size: CGFloat
+	var shape = Shape.circle
+	var tint = Palette.mutedForeground
+	var hoverTint = Palette.accentForeground
+	// No fill: the tint alone shows the hover.
+	var fill: Color? = Palette.accent
+	var isOn = false
+
+	func makeBody(configuration: Configuration) -> some View {
+		IconButton(configuration: configuration, style: self)
+	}
+}
+
+private struct IconButton: View {
+	let configuration: ButtonStyle.Configuration
+	let style: IconButtonStyle
+
+	@Environment(\.isEnabled) private var isEnabled
+	@State private var isHovered = false
+
+	var body: some View {
+		let lit = style.isOn || isHovered && isEnabled
+		let shape = switch style.shape {
+		case .circle: AnyShape(Circle())
+		case let .squircle(radius): AnyShape(Squircle(cornerRadius: radius))
+		}
+
+		configuration.label
+			.frame(width: style.size, height: style.size)
+			.foregroundStyle(lit ? style.hoverTint : style.tint)
+			.background {
+				ZStack {
+					if let fill = style.fill {
+						shape.fill(fill).opacity(lit ? 1 : 0)
+					}
+
+					PressLayer(shape: shape, color: Palette.press, isPressed: configuration.isPressed)
+				}
+			}
+			.contentShape(shape)
+			.opacity(isEnabled ? 1 : 0.4)
+			.onHover { hovering in
+				withAnimation(Motion.hover) { isHovered = hovering }
+			}
+	}
+}
+
+extension ButtonStyle where Self == IconButtonStyle {
+	static func icon(
+		size: CGFloat,
+		shape: IconButtonStyle.Shape = .circle,
+		tint: Color = Palette.mutedForeground,
+		hoverTint: Color = Palette.accentForeground,
+		fill: Color? = Palette.accent,
+		isOn: Bool = false
+	) -> IconButtonStyle {
+		IconButtonStyle(size: size, shape: shape, tint: tint, hoverTint: hoverTint, fill: fill, isOn: isOn)
+	}
+}
+
+// A sidebar row: the accent's fill fading in on hover as its text goes from
+// muted to the accent's foreground; the selected row's fill (foreground/5)
+// and text at once. Its label reads the hover as `isRowHovered`, for what
+// shows only then (a tab's close X), which fades with the rest.
+struct RowButtonStyle: ButtonStyle {
+	var isSelected = false
+	var selectedFill = Palette.foreground.opacity(0.05)
+	var cornerRadius: CGFloat
+	// New keeps its muted text on hover; the others darken.
+	var tintsOnHover = true
+
+	func makeBody(configuration: Configuration) -> some View {
+		RowButton(configuration: configuration, style: self)
+	}
+}
+
+private struct RowButton: View {
+	let configuration: ButtonStyle.Configuration
+	let style: RowButtonStyle
+
+	@State private var isHovered = false
+
+	var body: some View {
+		let shape = Squircle(cornerRadius: style.cornerRadius)
+
+		configuration.label
+			.foregroundStyle(style.isSelected || style.tintsOnHover && isHovered ? Palette.accentForeground : Palette.mutedForeground)
+			.environment(\.isRowHovered, isHovered)
+			.background {
+				ZStack {
+					shape.fill(Palette.accent).opacity(!style.isSelected && isHovered ? 1 : 0)
+					shape.fill(style.selectedFill).opacity(style.isSelected ? 1 : 0)
+					PressLayer(shape: shape, color: Palette.press, isPressed: configuration.isPressed)
+				}
+			}
+			.onHover { hovering in
+				withAnimation(Motion.hover) { isHovered = hovering }
+			}
+	}
+}
+
+extension EnvironmentValues {
+	// The pointer is over the row the view is in (RowButtonStyle).
+	@Entry var isRowHovered = false
+}
+
+// A press over a button's fill. It fades out as the press ends, and only
+// it: the click's own effect, a selection, lands at once.
+private struct PressLayer<S: Shape>: View {
+	let shape: S
+	let color: Color
+	let isPressed: Bool
+
+	var body: some View {
+		shape.fill(color)
+			.opacity(isPressed ? 1 : 0)
+			.animation(isPressed ? nil : Motion.hover, value: isPressed)
 	}
 }
 

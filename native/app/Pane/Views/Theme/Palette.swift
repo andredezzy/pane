@@ -24,6 +24,13 @@ enum Palette {
 		isDark(appearance) ? NSColor(white: 1, alpha: 0.06) : NSColor(white: 0, alpha: 0.08)
 	})
 
+	// A press, over a button's fill: the foreground at 6% over a light fill
+	// (darker on light, lighter on dark, as the PIN keys' 10%), and the card
+	// at 10% over a strong one (primary, destructive), a step past its
+	// hover's 90%.
+	static let press = foreground.opacity(0.06)
+	static let pressOnStrong = card.opacity(0.1)
+
 	// Aside's pinned blue, for an extension's pin: the progress blue,
 	// lighter on dark.
 	static let pinned = pair(0x3B82F6, 0x60A5FA)

@@ -99,20 +99,15 @@ struct UpdateProgressBar: View {
 	}
 }
 
+// A 12-point X in 16 points, muted until hovered.
 private struct DismissButton: View {
 	let action: () -> Void
-
-	@State private var isHovered = false
 
 	var body: some View {
 		Button(action: action) {
 			LucideIcon(.x, size: 12)
-				.frame(width: 16, height: 16)
-				.contentShape(Rectangle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.onHover { isHovered = $0 }
+		.buttonStyle(.icon(size: 16, shape: .squircle(4), fill: nil))
 		.accessibilityLabel("Dismiss")
 		.accessibilityIdentifier("pane.sidebar.update.dismiss")
 	}

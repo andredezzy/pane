@@ -91,20 +91,11 @@ private struct NavigationButton: View {
 	let label: String
 	let action: () -> Void
 
-	@State private var isHovered = false
-
 	var body: some View {
 		Button(action: action) {
 			LucideIcon(icon, size: size, strokeWidth: strokeWidth)
-				.frame(width: 32, height: 32)
-				.contentShape(Circle())
 		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: Circle())
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.buttonStyle(.icon(size: 32))
 		.help(label)
 		.accessibilityLabel(label)
 	}

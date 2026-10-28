@@ -219,8 +219,6 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 	@ViewBuilder let label: Label
 	@ViewBuilder let trailing: Trailing
 
-	@State private var isHovered = false
-
 	init(
 		identifier: String,
 		action: (() -> Void)?,
@@ -255,10 +253,7 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 		}
 		.padding(.trailing, 8)
 		.frame(height: 32)
-		.background(isHighlighted || isHovered && action != nil ? Palette.accent : .clear, in: Squircle(cornerRadius: 15))
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverBackground(isSelected: isHighlighted, selectedFill: Palette.accent, hoverFill: action == nil ? .clear : Palette.accent, cornerRadius: 15)
 	}
 }
 
@@ -294,19 +289,12 @@ private struct TrailingButton<Content: View>: View {
 	let action: () -> Void
 	@ViewBuilder let content: Content
 
-	@State private var isHovered = false
-
 	var body: some View {
 		Button(action: action) {
 			content
-				.frame(width: 24, height: 24)
-				.contentShape(Rectangle())
 		}
-		.buttonStyle(.plain)
-		.background(isHovered ? Palette.foreground.opacity(0.08) : .clear, in: Squircle(cornerRadius: 11))
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		// The content keeps its own color (the pin's blue).
+		.buttonStyle(.icon(size: 24, shape: .squircle(11), fill: Palette.foreground.opacity(0.08)))
 		.help(label)
 		.accessibilityLabel(label)
 	}

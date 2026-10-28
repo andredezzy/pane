@@ -353,21 +353,14 @@ private struct PinButton: View {
 	let pinned: Bool
 	let action: () -> Void
 
-	@State private var isHovered = false
-	@Environment(\.isEnabled) private var isEnabled
-
 	var body: some View {
+		let tint = pinned ? Palette.pinned : Palette.mutedForeground
+
 		Button(action: action) {
 			Image(nsImage: (pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
 				.renderingMode(.template)
-				.foregroundStyle(pinned ? Palette.pinned : Palette.mutedForeground)
-				.frame(width: 28, height: 28)
-				.background(isHovered ? Palette.accent : .clear, in: Circle())
-				.contentShape(Circle())
 		}
-		.buttonStyle(.plain)
-		.opacity(isEnabled ? 1 : 0.5)
-		.onHover { isHovered = $0 && isEnabled }
+		.buttonStyle(.icon(size: 28, tint: tint, hoverTint: tint))
 		.help(pinned ? "Unpin from toolbar" : "Pin to toolbar")
 		.accessibilityLabel(pinned ? "Unpin from toolbar" : "Pin to toolbar")
 	}
