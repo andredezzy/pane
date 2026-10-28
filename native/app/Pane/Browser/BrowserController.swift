@@ -16,11 +16,10 @@ final class BrowserController: NSObject {
 	private let application: BrowserApplication
 	private var contexts: [String: BrowserContext] = [:]
 	private var contextWaiters: [String: [(BrowserContext?) -> Void]] = [:]
-	private var pages: [String: WebContents] = [:]
-	// DevTools docked to a tab, by tab id.
-	private var devTools: [String: WebContents] = [:]
+	// Each loaded tab's page, and the DevTools docked to it.
+	private let pages = PageRegistry()
 	// When each tab's renderer last died, to tell a crash loop from a crash.
-	private var lastCrash: [String: Date] = [:]
+	private var crashes = CrashLoop()
 	// Built on first use: it needs the window.
 	private(set) lazy var dialogs = DialogPresenter(
 		window: browserWindow.window,
@@ -37,9 +36,6 @@ final class BrowserController: NSObject {
 	weak var hostingView: NSView?
 	// Quit Pane?'s keys, while it shows.
 	var quitKeyMonitor: Any?
-	private var tabIDs: [ObjectIdentifier: String] = [:]
-	// The tab id the engine's next inserted tab gets (a tab the app opens).
-	private var pendingTabID: String?
 	// Profiles whose engine data is still being deleted.
 	private(set) var pendingDeletions: Set<String> = []
 	// The same, on disk until the engine confirms, for the next launch.
@@ -224,11 +220,11 @@ final class BrowserController: NSObject {
 	// MARK: Tabs
 
 	var activePage: WebContents? {
-		model.activeTabID.flatMap { pages[$0] }
+		model.activeTabID.flatMap(pages.page)
 	}
 
 	func page(for tabID: String) -> WebContents? {
-		pages[tabID]
+		pages.page(for: tabID)
 	}
 
 	// Selects a tab, loading its page if it has none.
@@ -242,18 +238,18 @@ final class BrowserController: NSObject {
 		model.setPage(.browser)
 		model.setExpanded(profileID, true)
 
-		if previous != tabID, let previous, let page = pages[previous] {
+		if previous != tabID, let previous, let page = pages.page(for: previous) {
 			page.isVisible = false
-			devTools[previous]?.isVisible = false
+			pages.devTools(for: previous)?.isVisible = false
 		}
 
-		if let page = pages[tabID] {
+		if let page = pages.page(for: tabID) {
 			show(page, profileID: profileID)
 			return
 		}
 
 		withContext(profileID) { [weak self] context in
-			guard let self, model.activeTabID == tabID, pages[tabID] == nil else {
+			guard let self, model.activeTabID == tabID, pages.page(for: tabID) == nil else {
 				return
 			}
 
@@ -296,7 +292,7 @@ final class BrowserController: NSObject {
 	// it); the engine's didRemoveTab then takes it out. An unloaded tab goes
 	// at once.
 	func closeTab(_ tabID: String) {
-		if let page = pages[tabID] {
+		if let page = pages.page(for: tabID) {
 			page.close()
 			return
 		}
@@ -309,7 +305,7 @@ final class BrowserController: NSObject {
 	private func removeTabAndReselect(_ tabID: String) {
 		let wasActive = model.activeTabID == tabID
 		let profileID = model.profileID(ofTab: tabID)
-		lastCrash[tabID] = nil
+		crashes.forget(tabID)
 		model.removeTab(tabID)
 
 		if wasActive {
@@ -375,15 +371,13 @@ final class BrowserController: NSObject {
 	// Drops a tab's page; the tab stays in the sidebar, dimmed. The page is
 	// unmapped before it closes, so its removal report is not a tab closing.
 	func release(tabID: String) {
-		guard let page = pages.removeValue(forKey: tabID) else {
+		guard let page = pages.remove(tabID: tabID) else {
 			return
 		}
 
-		tabIDs[ObjectIdentifier(page)] = nil
 		page.nativeView.removeFromSuperview()
 		page.closeImmediately()
-		devTools[tabID] = nil
-		lastCrash[tabID] = nil
+		crashes.forget(tabID)
 		model.setLoaded(tabID, false)
 	}
 
@@ -425,22 +419,21 @@ final class BrowserController: NSObject {
 
 	private func openPage(tabID: String, url: URL?, context: BrowserContext, foreground: Bool) {
 		browserWindow.activeContext = context
-		pendingTabID = tabID
-		let page = browserWindow.openTab(url: url, context: context, foreground: foreground)
-		pendingTabID = nil
+		let page = pages.opening(tabID) {
+			browserWindow.openTab(url: url, context: context, foreground: foreground)
+		}
 
-		if let page, pages[tabID] == nil {
+		if let page, pages.page(for: tabID) == nil {
 			adopt(page, tabID: tabID)
 		}
 
-		if model.activeTabID == tabID, let page = pages[tabID] {
+		if model.activeTabID == tabID, let page = pages.page(for: tabID) {
 			show(page, profileID: context.identifier)
 		}
 	}
 
 	private func adopt(_ page: WebContents, tabID: String) {
-		pages[tabID] = page
-		tabIDs[ObjectIdentifier(page)] = tabID
+		pages.adopt(page, tabID: tabID)
 		page.delegate = self
 		model.setLoaded(tabID, true)
 		model.setNavigation(tabID, .init(canGoBack: page.canGoBack, canGoForward: page.canGoForward))
@@ -466,7 +459,7 @@ final class BrowserController: NSObject {
 	}
 
 	private func tabID(of page: WebContents) -> String? {
-		tabIDs[ObjectIdentifier(page)]
+		pages.tabID(of: page)
 	}
 
 	// The selected tab's page (and its docked DevTools) in the panel on the
@@ -475,11 +468,11 @@ final class BrowserController: NSObject {
 	// hidden in place, the engine kept the window's active tab drawing.
 	// Never while locked: the page shows once the lock opens.
 	func placeActivePage() {
-		guard interactionAllowed, let tabID = model.activeTabID, let page = pages[tabID] else {
+		guard interactionAllowed, let tabID = model.activeTabID, let page = pages.page(for: tabID) else {
 			return
 		}
 
-		let docked = devTools[tabID]
+		let docked = pages.devTools(for: tabID)
 
 		CATransaction.begin()
 		CATransaction.setDisableActions(true)
@@ -582,7 +575,7 @@ final class BrowserController: NSObject {
 
 extension BrowserController: BrowserWindowDelegate {
 	func browserWindow(_ window: BrowserWindow, didInsertTab tab: WebContents, opener: WebContents?, foreground: Bool) {
-		if let tabID = pendingTabID {
+		if let tabID = pages.pendingTabID {
 			adopt(tab, tabID: tabID)
 			return
 		}
@@ -612,9 +605,7 @@ extension BrowserController: BrowserWindowDelegate {
 		// The page closed: the app closed it (once beforeunload agreed), or it
 		// closed itself (window.close()). Either way its tab goes too. Pages
 		// the app releases are unmapped first.
-		tabIDs[ObjectIdentifier(tab)] = nil
-		pages[tabID] = nil
-		devTools[tabID] = nil
+		pages.remove(tabID: tabID)
 		tab.nativeView.removeFromSuperview()
 		removeTabAndReselect(tabID)
 	}
@@ -635,7 +626,7 @@ extension BrowserController: BrowserWindowDelegate {
 				let self,
 				model.activeTabID == previous,
 				previous.map({ model.profileID(ofTab: $0) != nil }) ?? true,
-				pages[tabID] != nil
+				pages.page(for: tabID) != nil
 			else {
 				return
 			}
@@ -734,11 +725,7 @@ extension BrowserController: WebContentsDelegate {
 
 		// The first crash reloads the page, as a slept tab wakes. A page that
 		// dies again within a minute shows the sad tab instead of looping.
-		let now = Date()
-		let looping = lastCrash[tabID].map { now.timeIntervalSince($0) < 60 } ?? false
-		lastCrash[tabID] = now
-
-		if looping {
+		if crashes.crashed(tabID, at: Date()) {
 			model.setCrashed(tabID, true)
 		} else if model.activeTabID == tabID {
 			webContents.reload()
@@ -819,11 +806,7 @@ extension BrowserController: WebContentsDelegate {
 			return
 		}
 
-		if let previous = devTools[tabID], previous !== tools {
-			previous.isVisible = false
-		}
-
-		devTools[tabID] = tools
+		pages.setDevTools(tools, for: tabID)?.isVisible = false
 		model.setDevToolsOpen(tabID, tools != nil)
 
 		if model.activeTabID == tabID {
@@ -874,9 +857,9 @@ extension BrowserController {
 	// profile would not open has no page: selecting it tries again.
 	func reloadCrashed(_ tabID: String) {
 		model.setCrashed(tabID, false)
-		lastCrash[tabID] = nil
+		crashes.forget(tabID)
 
-		if let page = pages[tabID] {
+		if let page = pages.page(for: tabID) {
 			page.reload()
 		} else if model.activeTabID == tabID {
 			select(tabID: tabID)
