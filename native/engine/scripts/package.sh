@@ -66,6 +66,13 @@ rm -f "$OUT/Contents/Resources/app.icns"
 FRAMEWORK="$OUT/Contents/Frameworks/PaneCore.framework"
 VERSION_DIR="$FRAMEWORK/Versions/Current"
 
+# Drops local symbols. strip warns, for each file, that its signature no
+# longer holds (the bundle is signed again after); only that is silenced, so
+# a wrong path or a file that is no Mach-O still says so.
+strip_local() {
+	strip -x "$@" 2> >(grep -v 'will invalidate the code signature' >&2)
+}
+
 # The notification helpers post Pane's notifications under their own icon:
 # Pane's too.
 for helper in "$VERSION_DIR"/Helpers/*Alerts*.app; do
@@ -79,8 +86,7 @@ done
 # the app links, unchanged. Development builds keep them for stack traces.
 if [ "${PANE_STRIP:-}" = 1 ]; then
 	echo "== strip"
-	# strip warns that the old signatures no longer hold; they are redone below.
-	strip -x "$VERSION_DIR/PaneCore" "$VERSION_DIR"/Libraries/*.dylib 2>/dev/null
+	strip_local "$VERSION_DIR/PaneCore" "$VERSION_DIR"/Libraries/*.dylib
 fi
 
 # Ad-hoc by default. With a Developer ID (PANE_SIGN_IDENTITY="Developer ID
@@ -149,7 +155,7 @@ if [ "${PANE_ENGINE_ARCHIVE:-}" = 1 ]; then
 	STAGE="$(mktemp -d)"
 	ditto "$ENGINE_OUT/Pane.app" "$STAGE/Pane.app"
 	ln -s Pane.app/Contents/Frameworks/PaneCore.framework "$STAGE/PaneCore.framework"
-	strip -x "$STAGE/PaneCore.framework/Versions/Current/PaneCore" "$STAGE/PaneCore.framework/Versions/Current"/Libraries/*.dylib 2>/dev/null
+	strip_local "$STAGE/PaneCore.framework/Versions/Current/PaneCore" "$STAGE/PaneCore.framework/Versions/Current"/Libraries/*.dylib
 
 	mkdir -p "$APP_DIR/release"
 	rm -f "$ARCHIVE"
