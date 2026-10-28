@@ -1,4 +1,7 @@
-import { type AppState, tabOf } from "../lib/pane";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { type AppState, launchPane, tabOf } from "../lib/pane";
 import { startHttpProxy, startSocks5Proxy } from "../lib/proxies";
 import { WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
@@ -10,7 +13,38 @@ const CREDENTIALS = { username: "pane", password: "proxy-secret" };
 // through an HTTP proxy with Basic auth (signed in with the profile's stored
 // credentials, no prompt), profile C through a SOCKS5 proxy with a password
 // (through the app's relay), and profile B direct. Each proxy logs what it
-// carried; A's WebRTC gathers no address of the machine.
+// carried; A's WebRTC gathers no address of the machine. The passwords are
+// kept in the keychain, never in profiles.json (scenarios run with the mock
+// keychain, a file of the data directory): a password the file still holds,
+// as the Electron app's did, signs in, moves there, and signs in again after
+// a relaunch.
+
+type SavedProxy = { password: string | null } | null;
+
+function savedPasswords(dataDir: string) {
+	const read = <T>(name: string): T | null => {
+		try {
+			return (
+				JSON.parse(readFileSync(join(dataDir, name), "utf8")) as { state: T }
+			).state;
+		} catch {
+			return null;
+		}
+	};
+
+	return {
+		inFile: (
+			read<{ profiles: { id: string; proxy: SavedProxy }[] }>("profiles.json")
+				?.profiles ?? []
+		)
+			.filter((profile) => profile.proxy?.password)
+			.map((profile) => profile.id),
+		inKeychain: Object.keys(
+			read<Record<string, string>>("mock-keychain.json") ?? {},
+		),
+	};
+}
+
 const proxy: Scenario = async (context) => {
 	const fixturePort = Number(new URL(context.fixtures.origin).port);
 	const http = await startHttpProxy(fixturePort, CREDENTIALS);
@@ -181,6 +215,86 @@ const proxy: Scenario = async (context) => {
 			`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 		);
 
+		await app.send("save");
+		const passwords = savedPasswords(app.dataDir);
+
+		expect(
+			passwords.inFile.length === 0 &&
+				[a, c, d].every((id) => passwords.inKeychain.includes(id)),
+			`the passwords: ${JSON.stringify(passwords)}`,
+		);
+
+		await app.browser.close();
+
+		// The Electron app's profiles.json, with its proxy's password.
+		const legacyDir = mkdtempSync(join(tmpdir(), "pane-proxy-legacy-"));
+		const legacyPage = "http://legacy.pane.test/proxy-check.html";
+
+		writeFileSync(
+			join(legacyDir, "profiles.json"),
+			JSON.stringify({
+				state: {
+					profiles: [
+						{
+							id: "legacy",
+							name: "Legacy",
+							color: "BLUE",
+							group: null,
+							fingerprint: null,
+							proxy: {
+								proxyType: "HTTP",
+								host: "127.0.0.1",
+								port: http.port,
+								...CREDENTIALS,
+							},
+							keepLoaded: false,
+							tabs: [
+								{ id: "legacy-tab", url: legacyPage, title: "", favicon: "" },
+							],
+							createdAt: "2026-10-27T00:00:00.000Z",
+							updatedAt: "2026-10-27T00:00:00.000Z",
+						},
+					],
+				},
+				version: 0,
+			}),
+		);
+
+		const legacyRuns: unknown[] = [];
+
+		for (const run of ["moved", "read back"]) {
+			const legacy = await launchPane(context, { dataDir: legacyDir });
+			await legacy.send("select", { tab: "legacy-tab" });
+
+			const signedIn = await legacy.waitFor(
+				`the legacy profile's page (${run})`,
+				(state) => tabOf(state, "legacy-tab")?.title === "Proxy check",
+				30_000,
+			);
+
+			await legacy.send("save");
+
+			legacyRuns.push({
+				run,
+				sheet: signedIn.sheet,
+				passwords: savedPasswords(legacyDir),
+			});
+
+			await legacy.send("quit");
+			await Bun.sleep(1_000);
+		}
+
+		rmSync(legacyDir, { recursive: true, force: true });
+
+		const legacyMoved = legacyRuns.every(
+			(entry) =>
+				(entry as { sheet: unknown }).sheet === null &&
+				JSON.stringify((entry as { passwords: unknown }).passwords) ===
+					JSON.stringify({ inFile: [], inKeychain: ["legacy"] }),
+		);
+
+		expect(legacyMoved, `the legacy password: ${JSON.stringify(legacyRuns)}`);
+
 		return {
 			proxies: {
 				http: { port: http.port, log: http.log },
@@ -197,6 +311,8 @@ const proxy: Scenario = async (context) => {
 			pages: { a: tabOf(loadedA, tabA)?.title, b: tabOf(network, tabB)?.url },
 			webRTC: { a: webRTCA, b: webRTCB },
 			windows,
+			passwords,
+			legacyPassword: legacyRuns,
 		};
 	} finally {
 		http.stop();

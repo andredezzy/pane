@@ -68,13 +68,38 @@ final class BrowserModel {
 	@ObservationIgnored private var settingsChanged = false
 	// Encodes and writes, in order, off the main thread.
 	@ObservationIgnored private let saveQueue = DispatchQueue(label: "pane.save", qos: .utility)
+	// Proxy passwords live there, not in profiles.json (PaneKit
+	// ProxyPasswords).
+	@ObservationIgnored private let passwordStore: ProxyPasswordStore
+	// What the store holds, as last read or written. nil when it could not
+	// be read or written this session: the passwords then stay in
+	// profiles.json, as before, rather than be lost.
+	@ObservationIgnored private var storedPasswords: [String: String]?
 
 	init(dataDirectory: URL) {
 		self.dataDirectory = dataDirectory
 		profilesFile = PersistedFile(directory: dataDirectory, name: "profiles")
 		settingsFile = PersistedFile(directory: dataDirectory, name: "settings")
-		profiles = Self.load(profilesFile)?.profiles ?? []
+		passwordStore = ProxyPasswordStore(dataDirectory: dataDirectory)
+
+		let loaded = Self.load(profilesFile)?.profiles ?? []
+
+		// The store is read only for a proxy that signs in: macOS may ask
+		// first.
+		if ProxyPasswords.needsStore(loaded) {
+			storedPasswords = passwordStore.read()
+			profiles = ProxyPasswords.filled(loaded, from: storedPasswords ?? [:])
+		} else {
+			storedPasswords = [:]
+			profiles = loaded
+		}
+
 		settings = Self.load(settingsFile)?.settings ?? .defaults
+
+		// A password the file still holds moves to the store.
+		if storedPasswords != nil, loaded.contains(where: { $0.proxy?.password != nil }) {
+			scheduleSave(profiles: true)
+		}
 	}
 
 	// A file that does not decode is kept aside (<name>.json.damaged) before
@@ -351,15 +376,33 @@ final class BrowserModel {
 
 		let profilesFile = profilesFile
 		let settingsFile = settingsFile
-		let profiles = profilesChanged ? ProfilesState(profiles: self.profiles) : nil
+		let passwordStore = passwordStore
+		let profiles = profilesChanged ? self.profiles : nil
 		let settings = settingsChanged ? SettingsState(settings: self.settings) : nil
+		let storeAvailable = storedPasswords != nil
+		// The store is written only when a password changed.
+		let passwords = profiles.map(ProxyPasswords.of).flatMap { $0 == storedPasswords || !storeAvailable ? nil : $0 }
+
+		if let passwords {
+			storedPasswords = passwords
+		}
+
 		profilesChanged = false
 		settingsChanged = false
 
 		saveQueue.async { [weak self] in
+			var stripsPasswords = storeAvailable
+
+			// The store first: a password leaves profiles.json only once the
+			// store holds it.
+			if let passwords, !passwordStore.write(passwords) {
+				stripsPasswords = false
+				Task { @MainActor in self?.storedPasswords = nil }
+			}
+
 			do {
 				if let profiles {
-					try profilesFile.save(profiles)
+					try profilesFile.save(ProfilesState(profiles: stripsPasswords ? ProxyPasswords.stripped(profiles) : profiles))
 				}
 			} catch {
 				NSLog("Pane: could not save profiles.json: %@", String(describing: error))

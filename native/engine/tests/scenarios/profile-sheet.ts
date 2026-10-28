@@ -18,7 +18,8 @@ import { expect, type Scenario } from "../run";
 // fingerprint; a rename keeps the fingerprint; another platform gets that
 // platform's preset, the cross-OS note, and reaches the profile's open tab;
 // the proxy shortcut fills the fields, its test answers through the proxy,
-// and turning spoofing off clears the fingerprint.
+// its password is kept in the keychain (the mock keychain here), not in
+// profiles.json, and turning spoofing off clears the fingerprint.
 
 type Saved = {
 	id: string;
@@ -233,13 +234,18 @@ const profileSheet: Scenario = async (context) => {
 
 		const savedProxy = proxiedSaved?.proxy;
 
+		const keychain = JSON.parse(
+			readFileSync(join(app.dataDir, "mock-keychain.json"), "utf8"),
+		) as { state: Record<string, string> };
+
 		expect(
 			savedProxy?.proxyType === "HTTP" &&
 				savedProxy.host === "127.0.0.1" &&
 				savedProxy.port === proxy.port &&
 				savedProxy.username === CREDENTIALS.username &&
-				savedProxy.password === CREDENTIALS.password,
-			`the saved proxy: ${JSON.stringify({ ...savedProxy, password: savedProxy?.password ? "(set)" : null })}`,
+				savedProxy.password === null &&
+				keychain.state[proxiedID] === CREDENTIALS.password,
+			`the saved proxy: ${JSON.stringify({ ...savedProxy, password: savedProxy?.password ? "(set)" : null, inKeychain: proxiedID in keychain.state })}`,
 		);
 
 		expect(
@@ -288,7 +294,8 @@ const profileSheet: Scenario = async (context) => {
 				openTab: { before, after },
 			},
 			proxy: {
-				saved: { ...proxiedSaved?.proxy, password: "(set)" },
+				saved: proxiedSaved?.proxy,
+				passwordInKeychain: true,
 				testedThrough: proxy.log.length,
 			},
 			spoofingOff: unspoofed?.fingerprint,

@@ -197,6 +197,7 @@ final class AppLock {
 		if !Self.relaunch(after: [getpid()] + helpers) {
 			// No instance to erase: this one does, its engine still running.
 			let caches = Self.cacheDirectory(for: dataDirectory)
+			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
 			Self.log(PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches) + PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches))
 		}
 
@@ -229,6 +230,7 @@ final class AppLock {
 		}
 
 		if wiped != nil || isWipeDue(dataDirectory) {
+			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
 			log(PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches))
 		}
 
