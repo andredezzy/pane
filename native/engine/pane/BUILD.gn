@@ -123,6 +123,7 @@ source_set("pane") {
     "//extensions/browser",
     "//gpu/config",
     "//extensions/common",
+    "//mojo/public/cpp/bindings",
     "//skia",
     "//net",
     "//printing/buildflags",

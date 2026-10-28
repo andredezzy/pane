@@ -9,6 +9,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/storage_partition.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_constants.h"
 #include "pane/browser/engine_trace.h"
@@ -118,13 +119,18 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
     return;
   }
 
-  manager->GetAllCookies(base::BindOnce(^(const net::CookieList& cookies) {
-    NSMutableArray<PaneCookie*>* result = [NSMutableArray array];
-    for (const net::CanonicalCookie& cookie : cookies) {
-      [result addObject:[[PaneCookie alloc] initWithCanonicalCookie:cookie]];
-    }
-    completion(result);
-  }));
+  // Mojo drops a reply whose pipe closes (the network service restarting,
+  // the profile going): the completion runs then too, with nothing.
+  manager->GetAllCookies(mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      base::BindOnce(^(const net::CookieList& cookies) {
+        NSMutableArray<PaneCookie*>* result = [NSMutableArray array];
+        for (const net::CanonicalCookie& cookie : cookies) {
+          [result
+              addObject:[[PaneCookie alloc] initWithCanonicalCookie:cookie]];
+        }
+        completion(result);
+      }),
+      net::CookieList()));
 }
 
 - (void)getCacheSizeWithCompletion:(void (^)(int64_t))completion {
@@ -137,13 +143,15 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
       ->GetNetworkContext()
       ->ComputeHttpCacheSize(
           base::Time(), base::Time::Max(),
-          base::BindOnce(^(bool is_upper_bound, int64_t size_or_error) {
-            completion(size_or_error < 0 ? 0 : size_or_error);
-          }));
+          mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+              base::BindOnce(^(bool is_upper_bound, int64_t size_or_error) {
+                completion(size_or_error < 0 ? 0 : size_or_error);
+              }),
+              false, int64_t{0}));
 }
 
 - (void)trimCacheWithCompletion:(void (^)(void))completion {
-  pane::Trace("call", "PaneBrowserContext.trimCache");
+  PANE_TRACE("call", "PaneBrowserContext.trimCache");
   if (!self.profile) {
     completion();
     return;
