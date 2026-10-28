@@ -96,8 +96,9 @@ NS_SWIFT_UI_ACTOR
 
 // MARK: Fingerprints
 
-// What a profile without a fingerprint presents: the engine's User-Agent
-// ("… Chrome/156.0.0.0 …") and its full version ("156.0.8078.48").
+// What a profile without a fingerprint presents: the engine's User-Agent, in
+// Chrome's reduced form ("… Chrome/<major>.0.0.0 …"), and its full version
+// ("<major>.0.<build>.<patch>", the engine's CHROMIUM_VERSION).
 @property(readonly, copy) NSString* userAgent;
 @property(readonly, copy) NSString* chromiumVersion;
 

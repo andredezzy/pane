@@ -15,7 +15,6 @@
 #include <optional>
 #include <vector>
 
-#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -97,12 +96,10 @@ class WindowHost : public TabStripModelObserver,
   bool IsActiveBrowser(const Browser* browser) const;
   void RequestActivation(Browser* browser);
 
-  // Closing runs every page's beforeunload, then asks about downloads that
-  // closing would cancel, then closes every Browser and the widget.
+  // Closing runs every page's beforeunload, then closes every Browser and
+  // the widget. Downloads are the profile's, not the window's: they go on.
   void Close();
   bool closing() const { return close_state_ == CloseState::kClosing; }
-  void ConfirmCloseWithDownloads(int count,
-                                 base::OnceCallback<void(bool)> callback);
   bool CanCloseWidget() const { return widget_close_allowed_; }
   void CloseRequestedByUser();
 
@@ -112,8 +109,6 @@ class WindowHost : public TabStripModelObserver,
   void BrowserWindowDestroyed(HostedBrowserWindow* window);
   void ActiveTabChanged(Browser* browser, content::WebContents* contents);
   void FullscreenChanged(content::WebContents* contents, bool fullscreen);
-  bool acted_fullscreen() const { return false; }
-  bool internal() const { return false; }
 
   void ScheduleDialogPositionUpdate();
 
@@ -150,7 +145,6 @@ class WindowHost : public TabStripModelObserver,
   void CommitClose();
   void CloseWidget();
   void NotifyWillClose();
-  int DownloadsCancelledByClose() const;
 
   __weak PaneBrowserWindow* owner_;
   // Keeps the app's object alive until the widget closes.

@@ -346,8 +346,7 @@ bool HostedBrowserWindow::IsMinimized() const {
 
 bool HostedBrowserWindow::IsFullscreen() const {
   if (tab_fullscreen_ ||
-      (host_ && (host_->acted_fullscreen() ||
-                 (host_->widget() && host_->widget()->IsFullscreen())))) {
+      (host_ && host_->widget() && host_->widget()->IsFullscreen())) {
     return true;
   }
   ExclusiveAccessManager* manager =
@@ -443,7 +442,7 @@ ui::ZOrderLevel HostedBrowserWindow::GetZOrderLevel() const {
 }
 
 bool HostedBrowserWindow::IsOnCurrentWorkspace() const {
-  return host_ && !host_->internal();
+  return !!host_;
 }
 
 bool HostedBrowserWindow::IsVisibleOnScreen() const {
@@ -544,14 +543,13 @@ DownloadBubbleUIController* HostedBrowserWindow::GetDownloadBubbleUIController()
   return nullptr;
 }
 
+// On the Mac, Chrome asks only when closing a window would cancel the
+// downloads of an off-the-record or guest profile, which Pane never has:
+// downloads are the profile's and go on. Closing goes on.
 void HostedBrowserWindow::ConfirmBrowserCloseWithPendingDownloads(
     int download_count,
     DownloadCloseType dialog_type,
     base::OnceCallback<void(bool)> callback) {
-  if (host_ && !host_->closing() && !browser_shutdown::IsTryingToQuit()) {
-    host_->ConfirmCloseWithDownloads(download_count, std::move(callback));
-    return;
-  }
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), true));
 }

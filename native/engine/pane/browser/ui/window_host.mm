@@ -14,12 +14,9 @@
 #include <algorithm>
 #include <utility>
 
-#include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/download/download_core_service.h"
-#include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -29,7 +26,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
-#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views_impl.h"
@@ -335,24 +331,6 @@ void WindowHost::ContinueClose() {
       return;
     }
   }
-  const int downloads = DownloadsCancelledByClose();
-  if (downloads > 0) {
-    ConfirmCloseWithDownloads(
-        downloads, base::BindOnce(
-                       [](base::WeakPtr<WindowHost> host, bool close_anyway) {
-                         if (!host ||
-                             host->close_state_ != CloseState::kAsking) {
-                           return;
-                         }
-                         if (close_anyway) {
-                           host->CommitClose();
-                         } else {
-                           host->CancelClose();
-                         }
-                       },
-                       GetWeakPtr()));
-    return;
-  }
   CommitClose();
 }
 
@@ -421,40 +399,6 @@ void WindowHost::CloseWidget() {
   dispatch_async(dispatch_get_main_queue(), ^{
     (void)owner;
   });
-}
-
-int WindowHost::DownloadsCancelledByClose() const {
-  int count = 0;
-  for (const auto& [profile, browser] : browsers_) {
-    if (!profile->IsOffTheRecord()) {
-      continue;
-    }
-    bool other_window = false;
-    GlobalBrowserCollection::GetInstance()->ForEach(
-        [&](BrowserWindowInterface* other) {
-          if (other->GetProfile() == profile &&
-              WindowHost::ForBrowser(other) != this &&
-              !other->capabilities()->IsAttemptingToCloseBrowser()) {
-            other_window = true;
-          }
-          return !other_window;
-        });
-    DownloadCoreService* downloads =
-        DownloadCoreServiceFactory::GetForBrowserContext(profile);
-    if (!other_window && downloads) {
-      count += downloads->BlockingShutdownCount();
-    }
-  }
-  return count;
-}
-
-void WindowHost::ConfirmCloseWithDownloads(
-    int count,
-    base::OnceCallback<void(bool)> callback) {
-  // Pane's downloads are profile-wide and survive a window; only an
-  // off-the-record profile's would be lost, and Pane has none yet.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), true));
 }
 
 void WindowHost::BrowserWindowDestroyed(HostedBrowserWindow* window) {
