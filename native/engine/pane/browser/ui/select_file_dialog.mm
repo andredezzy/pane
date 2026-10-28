@@ -145,10 +145,10 @@ class SelectFileDialog : public ui::SelectFileDialog {
               window:window
               answer:base::BindOnce(&SelectFileDialog::OnAnswer,
                                     base::WrapRefCounted(this))];
-    Trace("callback", "PaneBrowserWindowDelegate.runFileChooser",
-          base::DictValue()
-              .Set("mode", ModeName(mode))
-              .Set("extensions", std::move(traced)));
+    PANE_TRACE("callback", "PaneBrowserWindowDelegate.runFileChooser",
+               base::DictValue()
+                   .Set("mode", ModeName(mode))
+                   .Set("extensions", std::move(traced)));
     [delegate browserWindow:window runFileChooser:chooser_];
   }
 

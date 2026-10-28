@@ -30,12 +30,9 @@ std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
   }
 
   NSMutableArray<NSString*>* names = [NSMutableArray array];
-  base::ListValue traced;
   for (const auto& request : delegate->Requests()) {
-    const char* name =
-        permissions::PermissionKeyForRequestType(request->request_type());
-    [names addObject:@(name)];
-    traced.Append(name);
+    [names addObject:@(permissions::PermissionKeyForRequestType(
+                         request->request_type()))];
   }
 
   auto prompt = base::WrapUnique(new PermissionPrompt());

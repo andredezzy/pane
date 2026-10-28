@@ -106,11 +106,11 @@
   } else {
     language::ResetLanguagePrefs(prefs);
   }
-  pane::Trace("engine", "PaneBrowserContext.applyFingerprint",
-              base::DictValue()
-                  .Set("identifier", base::SysNSStringToUTF8(_identifier))
-                  .Set("acceptLanguages",
-                       prefs->GetString(language::prefs::kAcceptLanguages)));
+  PANE_TRACE("engine", "PaneBrowserContext.applyFingerprint",
+             base::DictValue()
+                 .Set("identifier", base::SysNSStringToUTF8(_identifier))
+                 .Set("acceptLanguages",
+                      prefs->GetString(language::prefs::kAcceptLanguages)));
 }
 
 - (NSString*)identifier {
@@ -140,9 +140,9 @@
 }
 
 - (void)setDownloadDirectory:(NSURL*)downloadDirectory {
-  pane::Trace("call", "PaneBrowserContext.setDownloadDirectory",
-              base::DictValue().Set(
-                  "path", base::SysNSStringToUTF8(downloadDirectory.path)));
+  PANE_TRACE("call", "PaneBrowserContext.setDownloadDirectory",
+             base::DictValue().Set(
+                 "path", base::SysNSStringToUTF8(downloadDirectory.path)));
   if (_profile) {
     DownloadPrefs::FromBrowserContext(_profile)->SetDownloadPath(
         base::FilePath(base::SysNSStringToUTF8(downloadDirectory.path)));
@@ -167,10 +167,10 @@
 }
 
 - (void)setProxyRules:(NSString*)proxyRules {
-  pane::Trace("call", "PaneBrowserContext.setProxyRules",
-              base::DictValue().Set(
-                  "rules", proxyRules ? base::SysNSStringToUTF8(proxyRules)
-                                      : std::string()));
+  PANE_TRACE("call", "PaneBrowserContext.setProxyRules",
+             base::DictValue().Set(
+                 "rules", proxyRules ? base::SysNSStringToUTF8(proxyRules)
+                                     : std::string()));
   if (!_profile) {
     return;
   }
@@ -191,9 +191,8 @@
 }
 
 - (void)setWebRTCIPHandlingPolicy:(NSString*)policy {
-  pane::Trace("call", "PaneBrowserContext.setWebRTCIPHandlingPolicy",
-              base::DictValue().Set("policy",
-                                    base::SysNSStringToUTF8(policy)));
+  PANE_TRACE("call", "PaneBrowserContext.setWebRTCIPHandlingPolicy",
+             base::DictValue().Set("policy", base::SysNSStringToUTF8(policy)));
   if (_profile) {
     _profile->GetPrefs()->SetString(prefs::kWebRTCIPHandlingPolicy,
                                     base::SysNSStringToUTF8(policy));
@@ -223,30 +222,31 @@
 - (void)installExtensionWithIdentifier:(NSString*)identifier
                                 window:(PaneBrowserWindow*)window {
   const std::string id = base::SysNSStringToUTF8(identifier);
-  pane::Trace("call", "PaneBrowserContext.installExtension",
-              base::DictValue().Set("extension", id));
+  PANE_TRACE("call", "PaneBrowserContext.installExtension",
+             base::DictValue().Set("extension", id));
   if (!_profile || !crx_file::id_util::IdIsValid(id)) {
     return;
   }
   auto installer = base::MakeRefCounted<extensions::WebstoreInstallWithPrompt>(
       id, _profile.get(), gfx::NativeWindow(window.window),
-      base::BindOnce([](const std::string& id, bool success,
-                        const std::string& error,
-                        extensions::webstore_install::Result result) {
-        pane::Trace("callback", "PaneBrowserContext.installExtensionDone",
-                    base::DictValue()
-                        .Set("extension", id)
-                        .Set("success", success)
-                        .Set("error", error));
-      }, id));
+      base::BindOnce(
+          [](const std::string& id, bool success, const std::string& error,
+             extensions::webstore_install::Result result) {
+            PANE_TRACE("callback", "PaneBrowserContext.installExtensionDone",
+                       base::DictValue()
+                           .Set("extension", id)
+                           .Set("success", success)
+                           .Set("error", error));
+          },
+          id));
   installer->BeginInstall();
 }
 
 - (void)setEnabled:(BOOL)enabled forExtension:(NSString*)identifier {
-  pane::Trace("call", "PaneBrowserContext.setExtensionEnabled",
-              base::DictValue()
-                  .Set("extension", base::SysNSStringToUTF8(identifier))
-                  .Set("enabled", static_cast<bool>(enabled)));
+  PANE_TRACE("call", "PaneBrowserContext.setExtensionEnabled",
+             base::DictValue()
+                 .Set("extension", base::SysNSStringToUTF8(identifier))
+                 .Set("enabled", static_cast<bool>(enabled)));
   if (![self installedExtension:identifier]) {
     return;
   }
@@ -261,10 +261,10 @@
 }
 
 - (void)setPinned:(BOOL)pinned forExtension:(NSString*)identifier {
-  pane::Trace("call", "PaneBrowserContext.setExtensionPinned",
-              base::DictValue()
-                  .Set("extension", base::SysNSStringToUTF8(identifier))
-                  .Set("pinned", static_cast<bool>(pinned)));
+  PANE_TRACE("call", "PaneBrowserContext.setExtensionPinned",
+             base::DictValue()
+                 .Set("extension", base::SysNSStringToUTF8(identifier))
+                 .Set("pinned", static_cast<bool>(pinned)));
   if (ToolbarActionsModel* toolbar =
           _profile ? ToolbarActionsModel::Get(_profile) : nullptr) {
     toolbar->SetActionVisibility(base::SysNSStringToUTF8(identifier), pinned);
@@ -272,9 +272,9 @@
 }
 
 - (void)uninstallExtension:(NSString*)identifier {
-  pane::Trace("call", "PaneBrowserContext.uninstallExtension",
-              base::DictValue().Set("extension",
-                                    base::SysNSStringToUTF8(identifier)));
+  PANE_TRACE(
+      "call", "PaneBrowserContext.uninstallExtension",
+      base::DictValue().Set("extension", base::SysNSStringToUTF8(identifier)));
   if (![self installedExtension:identifier]) {
     return;
   }
@@ -285,7 +285,7 @@
 }
 
 - (void)updateExtensions {
-  pane::Trace("call", "PaneBrowserContext.updateExtensions");
+  PANE_TRACE("call", "PaneBrowserContext.updateExtensions");
   if (auto* updater =
           _profile ? extensions::ExtensionUpdater::Get(_profile) : nullptr) {
     updater->CheckNow(extensions::ExtensionUpdater::CheckParams());
@@ -294,9 +294,9 @@
 
 - (void)runActionOfExtension:(NSString*)identifier
                     inWindow:(PaneBrowserWindow*)window {
-  pane::Trace("call", "PaneBrowserContext.runAction",
-              base::DictValue().Set("extension",
-                                    base::SysNSStringToUTF8(identifier)));
+  PANE_TRACE(
+      "call", "PaneBrowserContext.runAction",
+      base::DictValue().Set("extension", base::SysNSStringToUTF8(identifier)));
   if (!_profile) {
     return;
   }

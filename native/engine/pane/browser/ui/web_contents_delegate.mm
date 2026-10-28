@@ -139,8 +139,8 @@ bool HostedWebContentsDelegate::HandleContextMenu(
   }
   PaneContextMenu* menu =
       [[PaneContextMenu alloc] initWithParams:params frame:render_frame_host];
-  bridge->TraceCallback(
-      "PaneWebContentsDelegate.showContextMenu",
+  PANE_TRACE_TAB(
+      bridge, "PaneWebContentsDelegate.showContextMenu",
       base::DictValue()
           .Set("x", params.x)
           .Set("y", params.y)
@@ -205,7 +205,7 @@ void HostedWebContentsDelegate::RequestMediaAccessPermission(
     content::MediaResponseCallback callback) {
   if (blink::IsScreenCaptureMediaType(request.video_type)) {
     if (TabBridge* bridge = TabBridge::FromWebContents(web_contents)) {
-      bridge->TraceCallback("policy.screenCaptureDeclined");
+      PANE_TRACE_TAB(bridge, "policy.screenCaptureDeclined");
     }
     std::move(callback).Run(blink::mojom::StreamDevicesSet(),
                             blink::mojom::MediaStreamRequestResult::NOT_SUPPORTED,

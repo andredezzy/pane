@@ -30,7 +30,7 @@
 
 - (instancetype)initWithContentRect:(NSRect)rect {
   if ((self = [super init])) {
-    pane::Trace("call", "PaneBrowserWindow.init");
+    PANE_TRACE("call", "PaneBrowserWindow.init");
     _host = std::make_unique<pane::WindowHost>(self,
                                                gfx::ScreenRectFromNSRect(rect));
   }
@@ -61,9 +61,9 @@
 }
 
 - (void)setActiveContext:(PaneBrowserContext*)context {
-  pane::Trace("call", "PaneBrowserWindow.setActiveContext",
-              base::DictValue().Set(
-                  "context", base::SysNSStringToUTF8(context.identifier ?: @"")));
+  PANE_TRACE("call", "PaneBrowserWindow.setActiveContext",
+             base::DictValue().Set("context", base::SysNSStringToUTF8(
+                                                  context.identifier ?: @"")));
   if (Profile* profile = context.profile) {
     _host->BrowserFor(profile);
     _host->SetActiveProfile(profile);
@@ -73,11 +73,11 @@
 - (PaneWebContents*)openTabWithURL:(NSURL*)URL
                          inContext:(PaneBrowserContext*)context
                         foreground:(BOOL)foreground {
-  pane::Trace("call", "PaneBrowserWindow.openTab",
-              base::DictValue()
-                  .Set("url", base::SysNSStringToUTF8(URL.absoluteString ?: @""))
-                  .Set("context", base::SysNSStringToUTF8(context.identifier))
-                  .Set("foreground", static_cast<bool>(foreground)));
+  PANE_TRACE("call", "PaneBrowserWindow.openTab",
+             base::DictValue()
+                 .Set("url", base::SysNSStringToUTF8(URL.absoluteString ?: @""))
+                 .Set("context", base::SysNSStringToUTF8(context.identifier))
+                 .Set("foreground", static_cast<bool>(foreground)));
   Browser* browser = _host->BrowserFor(context.profile);
   if (!browser) {
     return nil;
@@ -108,8 +108,8 @@
   if (!contents) {
     return;
   }
-  pane::TabBridge::GetOrCreate(contents)->TraceCallback(
-      "PaneBrowserWindow.activateTab");
+  PANE_TRACE_TAB(pane::TabBridge::GetOrCreate(contents),
+                 "PaneBrowserWindow.activateTab");
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
   if (!browser) {

@@ -54,9 +54,10 @@ bool ConfirmInstall(
                                            : Result::USER_CANCELED));
                          },
                          std::move(done_callback))];
-  Trace("callback", "PaneBrowserContextDelegate.confirmExtensionInstall",
-        base::DictValue().Set(
-            "extension", prompt->extension() ? prompt->extension()->id() : ""));
+  PANE_TRACE(
+      "callback", "PaneBrowserContextDelegate.confirmExtensionInstall",
+      base::DictValue().Set(
+          "extension", prompt->extension() ? prompt->extension()->id() : ""));
   [delegate browserContext:context confirmExtensionInstall:request];
   return true;
 }
@@ -68,8 +69,8 @@ bool Installed(Profile* profile,
   if (!context) {
     return false;
   }
-  Trace("callback", "PaneBrowserContextDelegate.didInstallExtension",
-        base::DictValue().Set("extension", extension->id()));
+  PANE_TRACE("callback", "PaneBrowserContextDelegate.didInstallExtension",
+             base::DictValue().Set("extension", extension->id()));
   id<PaneBrowserContextDelegate> delegate = context.delegate;
   if ([delegate respondsToSelector:@selector(browserContext:
                                       didInstallExtension:)]) {

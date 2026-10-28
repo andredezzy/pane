@@ -91,14 +91,14 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)acceptWithText:(NSString*)text {
-  TraceAnswer("PaneJavaScriptDialog.accept",
-              base::DictValue().Set("text", base::SysNSStringToUTF8(
-                                                text ? text : @"")));
+  PANE_TRACE("call", "PaneJavaScriptDialog.accept",
+             base::DictValue().Set("text",
+                                   base::SysNSStringToUTF8(text ? text : @"")));
   [self finish:true text:base::SysNSStringToUTF16(text ? text : @"")];
 }
 
 - (void)cancel {
-  TraceAnswer("PaneJavaScriptDialog.cancel");
+  PANE_TRACE("call", "PaneJavaScriptDialog.cancel");
   [self finish:false text:std::u16string()];
 }
 
@@ -166,7 +166,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   if (_answered) {
     return;
   }
-  TraceAnswer(name);
+  PANE_TRACE("call", name);
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(choice);
@@ -224,9 +224,9 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
     return;
   }
   // The password is never traced.
-  TraceAnswer("PaneAuthenticationChallenge.provide",
-              base::DictValue().Set("username",
-                                    base::SysNSStringToUTF8(username)));
+  PANE_TRACE(
+      "call", "PaneAuthenticationChallenge.provide",
+      base::DictValue().Set("username", base::SysNSStringToUTF8(username)));
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(std::make_pair(base::SysNSStringToUTF16(username),
@@ -238,7 +238,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   if (_answered) {
     return;
   }
-  TraceAnswer("PaneAuthenticationChallenge.cancel");
+  PANE_TRACE("call", "PaneAuthenticationChallenge.cancel");
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(std::nullopt);
@@ -355,7 +355,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 
 - (void)edit:(void (content::WebContents::*)())action
         name:(std::string_view)name {
-  TraceAnswer(name);
+  PANE_TRACE("call", name);
   if (_contents) {
     (_contents.get()->*action)();
   }
@@ -391,9 +391,9 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)replaceMisspellingWith:(NSString*)suggestion {
-  TraceAnswer("PaneContextMenu.replaceMisspelling",
-              base::DictValue().Set("suggestion",
-                                    base::SysNSStringToUTF8(suggestion)));
+  PANE_TRACE(
+      "call", "PaneContextMenu.replaceMisspelling",
+      base::DictValue().Set("suggestion", base::SysNSStringToUTF8(suggestion)));
   if (_contents) {
     _contents->ReplaceMisspelling(base::SysNSStringToUTF16(suggestion));
   }
@@ -402,9 +402,8 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 // As Chrome's SpellingMenuObserver::AddToDictionary: the profile's custom
 // dictionary, and the platform spellchecker the page checks with.
 - (void)addToDictionary {
-  TraceAnswer("PaneContextMenu.addToDictionary",
-              base::DictValue().Set("word",
-                                    base::UTF16ToUTF8(_misspelledWord)));
+  PANE_TRACE("call", "PaneContextMenu.addToDictionary",
+             base::DictValue().Set("word", base::UTF16ToUTF8(_misspelledWord)));
   if (!_contents || _misspelledWord.empty()) {
     return;
   }
@@ -424,14 +423,14 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)copyImage {
-  TraceAnswer("PaneContextMenu.copyImage");
+  PANE_TRACE("call", "PaneContextMenu.copyImage");
   if (content::RenderFrameHost* frame = [self frameHost]) {
     frame->CopyImageAt(_x, _y);
   }
 }
 
 - (void)copyLinkAddress {
-  TraceAnswer("PaneContextMenu.copyLinkAddress");
+  PANE_TRACE("call", "PaneContextMenu.copyLinkAddress");
   if (_link.is_valid()) {
     ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste)
         .WriteText(base::UTF8ToUTF16(_link.spec()));
@@ -439,7 +438,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)copySourceAddress {
-  TraceAnswer("PaneContextMenu.copySourceAddress");
+  PANE_TRACE("call", "PaneContextMenu.copySourceAddress");
   if (_source.is_valid()) {
     ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste)
         .WriteText(base::UTF8ToUTF16(_source.spec()));
@@ -447,12 +446,12 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)saveLinkAs {
-  TraceAnswer("PaneContextMenu.saveLinkAs");
+  PANE_TRACE("call", "PaneContextMenu.saveLinkAs");
   [self saveURL:_link];
 }
 
 - (void)saveSourceAs {
-  TraceAnswer("PaneContextMenu.saveSourceAs");
+  PANE_TRACE("call", "PaneContextMenu.saveSourceAs");
   [self saveURL:_source];
 }
 
@@ -492,7 +491,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)inspectElement {
-  TraceAnswer("PaneContextMenu.inspectElement");
+  PANE_TRACE("call", "PaneContextMenu.inspectElement");
   if (content::RenderFrameHost* frame = [self frameHost]) {
     DevToolsWindow::InspectElement(frame, _x, _y);
   }
@@ -547,8 +546,8 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
       traced.Append(base::SysNSStringToUTF8(url.path));
     }
   }
-  TraceAnswer("PaneFileChooser.choose",
-              base::DictValue().Set("paths", std::move(traced)));
+  PANE_TRACE("call", "PaneFileChooser.choose",
+             base::DictValue().Set("paths", std::move(traced)));
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(paths.empty()
@@ -561,7 +560,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   if (_answered) {
     return;
   }
-  TraceAnswer("PaneFileChooser.cancel");
+  PANE_TRACE("call", "PaneFileChooser.cancel");
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(std::nullopt);
@@ -574,7 +573,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   }
   _answered = YES;
   _answer.Reset();
-  pane::Trace("callback", "PaneBrowserWindowDelegate.didDismissFileChooser");
+  PANE_TRACE("callback", "PaneBrowserWindowDelegate.didDismissFileChooser");
   PaneBrowserWindow* window = _window;
   id<PaneBrowserWindowDelegate> delegate = window.delegate;
   if ([delegate respondsToSelector:@selector(browserWindow:
@@ -622,7 +621,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   if (_answered) {
     return;
   }
-  TraceAnswer(name);
+  PANE_TRACE("call", name);
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(open);
@@ -661,7 +660,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   if (_answered) {
     return;
   }
-  TraceAnswer(name);
+  PANE_TRACE("call", name);
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(terminate);

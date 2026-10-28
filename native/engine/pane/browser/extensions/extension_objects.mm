@@ -138,7 +138,7 @@
   if (_answered) {
     return;
   }
-  pane::Trace("call", name);
+  PANE_TRACE("call", name);
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(install);
@@ -200,7 +200,7 @@
   if (!_popup) {
     return;
   }
-  pane::Trace("call", "PaneExtensionPopup.close");
+  PANE_TRACE("call", "PaneExtensionPopup.close");
   (void)self.extensionIdentifier;
   _popup.reset();
   _keepAlive = nil;

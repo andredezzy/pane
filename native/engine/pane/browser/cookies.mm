@@ -111,7 +111,7 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
 @implementation PaneBrowserContext (PaneCookies)
 
 - (void)getCookiesWithCompletion:(void (^)(NSArray<PaneCookie*>*))completion {
-  pane::Trace("call", "PaneBrowserContext.getCookies");
+  PANE_TRACE("call", "PaneBrowserContext.getCookies");
   network::mojom::CookieManager* manager = CookieManagerOf(self.profile);
   if (!manager) {
     completion(@[]);

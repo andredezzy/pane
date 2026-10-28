@@ -175,9 +175,9 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   // Before the first Browser exists: Pane's windows host Chrome's Browsers.
   pane::InstallBrowserHooks();
 
-  pane::Trace("call", "PaneBrowserApplication.run",
-              base::DictValue().Set("dataDirectory",
-                                    base::SysNSStringToUTF8(dataDirectory.path)));
+  PANE_TRACE("call", "PaneBrowserApplication.run",
+             base::DictValue().Set(
+                 "dataDirectory", base::SysNSStringToUTF8(dataDirectory.path)));
 
   return ChromeMain(static_cast<int>(argv.size()), argv.data());
 }
@@ -339,10 +339,10 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 - (BOOL)setFingerprint:(NSString*)json
     forContextIdentifier:(NSString*)identifier
                    error:(NSError**)error {
-  pane::Trace("call", "PaneBrowserApplication.setFingerprint",
-              base::DictValue()
-                  .Set("identifier", base::SysNSStringToUTF8(identifier))
-                  .Set("set", json != nil));
+  PANE_TRACE("call", "PaneBrowserApplication.setFingerprint",
+             base::DictValue()
+                 .Set("identifier", base::SysNSStringToUTF8(identifier))
+                 .Set("set", json != nil));
 
   std::string message;
   if (!pane::Fingerprints::Get().Set(base::SysNSStringToUTF8(identifier),
@@ -364,7 +364,7 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 }
 
 - (void)engineDidStart {
-  pane::Trace("callback", "PaneBrowserApplicationDelegate.didStart");
+  PANE_TRACE("callback", "PaneBrowserApplicationDelegate.didStart");
   [_delegate browserApplicationDidStart:self];
 }
 
@@ -375,7 +375,7 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
     return;
   }
   _shutDown = YES;
-  pane::Trace("callback", "PaneBrowserApplication.willShutDown");
+  PANE_TRACE("callback", "PaneBrowserApplication.willShutDown");
   if ([_delegate respondsToSelector:@selector
                  (browserApplicationWillShutDown:)]) {
     [_delegate browserApplicationWillShutDown:self];

@@ -130,10 +130,9 @@ bool DeclineDeviceChooser(
   if (!bridge) {
     return false;
   }
-  bridge->TraceCallback("policy.deviceChooserDeclined",
-                        base::DictValue().Set(
-                            "origin",
-                            owner->GetLastCommittedOrigin().Serialize()));
+  PANE_TRACE_TAB(bridge, "policy.deviceChooserDeclined",
+                 base::DictValue().Set(
+                     "origin", owner->GetLastCommittedOrigin().Serialize()));
   controller->Cancel();
   controller.reset();
   return true;

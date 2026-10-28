@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "base/containers/span.h"
@@ -35,8 +36,13 @@ base::File* TraceFile() {
 
 }  // namespace
 
+bool IsTracing() {
+  static const bool tracing = TraceFile() != nullptr;
+  return tracing;
+}
+
 void Trace(std::string_view kind, std::string_view name, base::DictValue args) {
-  base::File* file = TraceFile();
+  base::File* file = IsTracing() ? TraceFile() : nullptr;
   if (!file) {
     return;
   }
@@ -52,8 +58,10 @@ void Trace(std::string_view kind, std::string_view name, base::DictValue args) {
     return;
   }
 
+  // A line that cannot be written (a full disk) is lost: a test aid never
+  // takes the browser down.
   json->push_back('\n');
-  file->WriteAtCurrentPosAndCheck(base::as_byte_span(*json));
+  std::ignore = file->WriteAtCurrentPos(base::as_byte_span(*json));
 }
 
 }  // namespace pane

@@ -128,8 +128,9 @@ bool Fingerprints::Set(const std::string& identifier,
   if (json.empty()) {
     fingerprints_.erase(identifier);
     DropSpares(identifier);
-    Trace("engine", "Fingerprints.set",
-          base::DictValue().Set("identifier", identifier).Set("set", false));
+    PANE_TRACE(
+        "engine", "Fingerprints.set",
+        base::DictValue().Set("identifier", identifier).Set("set", false));
     return true;
   }
 
@@ -159,11 +160,11 @@ bool Fingerprints::Set(const std::string& identifier,
   fingerprints_[identifier] = std::move(fingerprint);
   DropSpares(identifier);
 
-  Trace("engine", "Fingerprints.set",
-        base::DictValue()
-            .Set("identifier", identifier)
-            .Set("set", true)
-            .Set("userAgent", *user_agent));
+  PANE_TRACE("engine", "Fingerprints.set",
+             base::DictValue()
+                 .Set("identifier", identifier)
+                 .Set("set", true)
+                 .Set("userAgent", *user_agent));
   return true;
 }
 
@@ -194,10 +195,10 @@ void Fingerprints::AppendSwitches(base::CommandLine* command_line,
   }
 
   command_line->AppendSwitchASCII(kFingerprintSwitch, fingerprint->renderer);
-  Trace("engine", "Fingerprints.renderer",
-        base::DictValue()
-            .Set("identifier", IdentifierOf(process->GetBrowserContext()))
-            .Set("process", child_process_id));
+  PANE_TRACE("engine", "Fingerprints.renderer",
+             base::DictValue()
+                 .Set("identifier", IdentifierOf(process->GetBrowserContext()))
+                 .Set("process", child_process_id));
 }
 
 }  // namespace pane

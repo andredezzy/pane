@@ -31,6 +31,22 @@
 #import "pane/browser/browser_application_internal.h"
 #import "pane/browser/web_contents_internal.h"
 
+// This tab's trace lines (engine_trace.h): an API call on it, or a callback
+// to its delegate, both with its tab id. The optional base::DictValue of
+// arguments is evaluated only while tracing.
+#define PANE_TRACE_CALL(name, ...)                             \
+  do {                                                         \
+    if (pane::IsTracing()) {                                   \
+      [self traceCall:name args:base::DictValue(__VA_ARGS__)]; \
+    }                                                          \
+  } while (0)
+#define PANE_TRACE_CALLBACK(name, ...)                     \
+  do {                                                     \
+    if (pane::IsTracing()) {                               \
+      [self trace:name args:base::DictValue(__VA_ARGS__)]; \
+    }                                                      \
+  } while (0)
+
 @implementation PaneWebContents {
   base::WeakPtr<content::WebContents> _contents;
   __weak id<PaneWebContentsDelegate> _delegate;
@@ -60,7 +76,7 @@
   if (_contents) {
     args.Set("tab", pane::TabBridge::GetOrCreate(_contents.get())->tab_id());
   }
-  pane::Trace("call", name, std::move(args));
+  PANE_TRACE("call", name, std::move(args));
 }
 
 // MARK: Properties
@@ -97,8 +113,8 @@
 // a contents created hidden; Chrome's view host unhides it when it attaches a
 // tab, so this does too.
 - (void)setVisible:(BOOL)visible {
-  [self traceCall:"PaneWebContents.setVisible"
-             args:base::DictValue().Set("visible", static_cast<bool>(visible))];
+  PANE_TRACE_CALL("PaneWebContents.setVisible",
+                  base::DictValue().Set("visible", static_cast<bool>(visible)));
   if (!_contents) {
     return;
   }
@@ -158,9 +174,9 @@
 // MARK: Navigation
 
 - (void)loadURL:(NSURL*)URL {
-  [self traceCall:"PaneWebContents.loadURL"
-             args:base::DictValue().Set(
-                      "url", base::SysNSStringToUTF8(URL.absoluteString))];
+  PANE_TRACE_CALL("PaneWebContents.loadURL",
+                  base::DictValue().Set(
+                      "url", base::SysNSStringToUTF8(URL.absoluteString)));
   if (!_contents) {
     return;
   }
@@ -170,28 +186,28 @@
 }
 
 - (void)goBack {
-  [self traceCall:"PaneWebContents.goBack" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.goBack");
   if (self.canGoBack) {
     _contents->GetController().GoBack();
   }
 }
 
 - (void)goForward {
-  [self traceCall:"PaneWebContents.goForward" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.goForward");
   if (self.canGoForward) {
     _contents->GetController().GoForward();
   }
 }
 
 - (void)reload {
-  [self traceCall:"PaneWebContents.reload" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.reload");
   if (_contents) {
     _contents->GetController().Reload(content::ReloadType::NORMAL, true);
   }
 }
 
 - (void)stopLoading {
-  [self traceCall:"PaneWebContents.stopLoading" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.stopLoading");
   if (_contents) {
     _contents->Stop();
   }
@@ -200,10 +216,10 @@
 // MARK: Find, zoom, focus
 
 - (void)findText:(NSString*)text forward:(BOOL)forward {
-  [self traceCall:"PaneWebContents.findText"
-             args:base::DictValue()
+  PANE_TRACE_CALL("PaneWebContents.findText",
+                  base::DictValue()
                       .Set("text", base::SysNSStringToUTF8(text))
-                      .Set("forward", static_cast<bool>(forward))];
+                      .Set("forward", static_cast<bool>(forward)));
   auto* finder = _contents ? find_in_page::FindTabHelper::FromWebContents(
                                  _contents.get())
                            : nullptr;
@@ -220,7 +236,7 @@
 }
 
 - (void)stopFinding {
-  [self traceCall:"PaneWebContents.stopFinding" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.stopFinding");
   _findText.clear();
   if (auto* finder = _contents ? find_in_page::FindTabHelper::FromWebContents(
                                      _contents.get())
@@ -248,20 +264,17 @@
   auto* controller = zoom::ZoomController::FromWebContents(_contents.get());
   const double before = controller ? controller->GetZoomLevel() : 0;
   zoom::PageZoom::Zoom(_contents.get(), zoom);
-  [self traceCall:name
-             args:base::DictValue()
-                      .Set("before", before)
-                      .Set("after", controller ? controller->GetZoomLevel() : 0)
-                      .Set("default",
-                           controller ? controller->GetDefaultZoomLevel() : 0)
-                      .Set("host",
-                           content::HostZoomMap::GetZoomLevel(_contents.get()))
-                      .Set("temporary",
-                           content::HostZoomMap::GetForWebContents(
-                               _contents.get())
-                               ->UsesTemporaryZoomLevel(
-                                   _contents->GetPrimaryMainFrame()
-                                       ->GetGlobalId()))];
+  PANE_TRACE_CALL(
+      name,
+      base::DictValue()
+          .Set("before", before)
+          .Set("after", controller ? controller->GetZoomLevel() : 0)
+          .Set("default", controller ? controller->GetDefaultZoomLevel() : 0)
+          .Set("host", content::HostZoomMap::GetZoomLevel(_contents.get()))
+          .Set("temporary",
+               content::HostZoomMap::GetForWebContents(_contents.get())
+                   ->UsesTemporaryZoomLevel(
+                       _contents->GetPrimaryMainFrame()->GetGlobalId())));
 }
 
 - (void)focus {
@@ -271,14 +284,14 @@
 }
 
 - (void)exitFullscreen {
-  [self traceCall:"PaneWebContents.exitFullscreen" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.exitFullscreen");
   if (_contents && _contents->IsFullscreen()) {
     _contents->ExitFullscreen(/*will_cause_resize=*/true);
   }
 }
 
 - (void)print {
-  [self traceCall:"PaneWebContents.print" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.print");
   if (_contents) {
     printing::StartPrint(_contents.get(), /*print_preview_disabled=*/true,
                          /*has_selection=*/false);
@@ -301,7 +314,7 @@
 }
 
 - (void)showDevTools {
-  [self traceCall:"PaneWebContents.showDevTools" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.showDevTools");
   if (_contents) {
     DevToolsWindow::OpenDevToolsWindow(
         _contents.get(), DevToolsToggleAction::Show(),
@@ -310,7 +323,7 @@
 }
 
 - (void)closeDevTools {
-  [self traceCall:"PaneWebContents.closeDevTools" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.closeDevTools");
   // Closes the DevTools page as its own close button does.
   content::WebContents* devtools =
       _contents ? DevToolsWindow::GetInTabWebContents(_contents.get(), nullptr)
@@ -375,9 +388,10 @@
 
 - (void)bridgeDidChangeURL {
   NSURL* URL = self.URL;
-  [self trace:"PaneWebContentsDelegate.didChangeURL"
-         args:base::DictValue().Set(
-                  "url", base::SysNSStringToUTF8(URL.absoluteString ?: @""))];
+  PANE_TRACE_CALLBACK(
+      "PaneWebContentsDelegate.didChangeURL",
+      base::DictValue().Set(
+          "url", base::SysNSStringToUTF8(URL.absoluteString ?: @"")));
   if (URL && [_delegate respondsToSelector:@selector(webContents:
                                                        didChangeURL:)]) {
     [_delegate webContents:self didChangeURL:URL];
@@ -385,10 +399,11 @@
 }
 
 - (void)bridgeDidChangeNavigationState {
-  [self trace:"PaneWebContentsDelegate.didChangeNavigationState"
-         args:base::DictValue()
-                  .Set("canGoBack", static_cast<bool>(self.canGoBack))
-                  .Set("canGoForward", static_cast<bool>(self.canGoForward))];
+  PANE_TRACE_CALLBACK(
+      "PaneWebContentsDelegate.didChangeNavigationState",
+      base::DictValue()
+          .Set("canGoBack", static_cast<bool>(self.canGoBack))
+          .Set("canGoForward", static_cast<bool>(self.canGoForward)));
   if ([_delegate respondsToSelector:@selector
                  (webContentsDidChangeNavigationState:)]) {
     [_delegate webContentsDidChangeNavigationState:self];
@@ -396,10 +411,10 @@
 }
 
 - (void)bridgeDidChangeLoading:(BOOL)isLoading progress:(double)progress {
-  [self trace:"PaneWebContentsDelegate.didChangeLoading"
-         args:base::DictValue()
-                  .Set("isLoading", static_cast<bool>(isLoading))
-                  .Set("progress", progress)];
+  PANE_TRACE_CALLBACK("PaneWebContentsDelegate.didChangeLoading",
+                      base::DictValue()
+                          .Set("isLoading", static_cast<bool>(isLoading))
+                          .Set("progress", progress));
   if ([_delegate respondsToSelector:@selector(webContents:
                                          didChangeLoading:progress:)]) {
     [_delegate webContents:self didChangeLoading:isLoading progress:progress];
@@ -407,7 +422,7 @@
 }
 
 - (void)bridgeDidUpdateFavicon:(NSImage*)favicon {
-  [self trace:"PaneWebContentsDelegate.didUpdateFavicon" args:base::DictValue()];
+  PANE_TRACE_CALLBACK("PaneWebContentsDelegate.didUpdateFavicon");
   if ([_delegate respondsToSelector:@selector(webContents:
                                          didUpdateFavicon:)]) {
     [_delegate webContents:self didUpdateFavicon:favicon];
@@ -417,11 +432,11 @@
 - (void)bridgeDidFindMatches:(NSInteger)count
                  activeMatch:(NSInteger)activeMatch
                        final:(BOOL)final {
-  [self trace:"PaneWebContentsDelegate.didFindMatches"
-         args:base::DictValue()
-                  .Set("count", static_cast<int>(count))
-                  .Set("activeMatch", static_cast<int>(activeMatch))
-                  .Set("final", static_cast<bool>(final))];
+  PANE_TRACE_CALLBACK("PaneWebContentsDelegate.didFindMatches",
+                      base::DictValue()
+                          .Set("count", static_cast<int>(count))
+                          .Set("activeMatch", static_cast<int>(activeMatch))
+                          .Set("final", static_cast<bool>(final)));
   if ([_delegate respondsToSelector:@selector
                  (webContents:didFindMatches:activeMatch:final:)]) {
     [_delegate webContents:self
@@ -432,8 +447,9 @@
 }
 
 - (void)bridgeDidChangePictureInPicture:(BOOL)active {
-  [self trace:"PaneWebContentsDelegate.didChangePictureInPicture"
-         args:base::DictValue().Set("active", static_cast<bool>(active))];
+  PANE_TRACE_CALLBACK(
+      "PaneWebContentsDelegate.didChangePictureInPicture",
+      base::DictValue().Set("active", static_cast<bool>(active)));
   if ([_delegate respondsToSelector:@selector(webContents:
                                          didChangePictureInPicture:)]) {
     [_delegate webContents:self didChangePictureInPicture:active];
@@ -441,9 +457,9 @@
 }
 
 - (void)bridgeRendererDidTerminate:(PaneRendererTermination)termination {
-  [self trace:"PaneWebContentsDelegate.rendererDidTerminate"
-         args:base::DictValue().Set("termination",
-                                    static_cast<int>(termination))];
+  PANE_TRACE_CALLBACK(
+      "PaneWebContentsDelegate.rendererDidTerminate",
+      base::DictValue().Set("termination", static_cast<int>(termination)));
   if ([_delegate respondsToSelector:@selector(webContents:
                                          rendererDidTerminate:)]) {
     [_delegate webContents:self rendererDidTerminate:termination];

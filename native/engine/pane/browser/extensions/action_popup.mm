@@ -57,8 +57,8 @@ void ActionPopup::Show(Browser* browser,
     }
     return;
   }
-  Trace("call", "ExtensionPopup.open",
-        base::DictValue().Set("extension", extension.id()));
+  PANE_TRACE("call", "ExtensionPopup.open",
+             base::DictValue().Set("extension", extension.id()));
   std::unique_ptr<extensions::ExtensionViewHost> host =
       extensions::ExtensionViewHostFactory::CreatePopupHost(extension, url,
                                                             browser);
@@ -102,10 +102,10 @@ gfx::NativeView ActionPopup::GetNativeView() {
 
 void ActionPopup::ResizeDueToAutoResize(content::WebContents* web_contents,
                                         const gfx::Size& new_size) {
-  Trace("event", "ExtensionPopup.resize",
-        base::DictValue()
-            .Set("width", new_size.width())
-            .Set("height", new_size.height()));
+  PANE_TRACE("event", "ExtensionPopup.resize",
+             base::DictValue()
+                 .Set("width", new_size.width())
+                 .Set("height", new_size.height()));
   size_ = new_size;
   [owner_ popupDidResize:NSMakeSize(new_size.width(), new_size.height())];
 }

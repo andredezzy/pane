@@ -72,6 +72,8 @@ class TabBridge : public content::WebContentsObserver,
     devtools_ = devtools;
     devtools_page_bounds_ = page_bounds;
   }
+
+  // Use through PANE_TRACE_TAB, which builds `args` only while tracing.
   void TraceCallback(std::string_view name, base::DictValue args = {});
 
   // content::WebContentsObserver:
@@ -121,5 +123,14 @@ class TabBridge : public content::WebContentsObserver,
 };
 
 }  // namespace pane
+
+// Traces a call or callback about `bridge`'s tab, with its tab id (Trace's
+// line plus "tab"). `bridge` and `args` are evaluated only while tracing.
+#define PANE_TRACE_TAB(bridge, name, ...)                       \
+  do {                                                          \
+    if (::pane::IsTracing()) {                                  \
+      (bridge)->TraceCallback(name __VA_OPT__(, ) __VA_ARGS__); \
+    }                                                           \
+  } while (0)
 
 #endif  // PANE_BROWSER_UI_TAB_BRIDGE_H_

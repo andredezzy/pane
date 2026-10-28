@@ -99,12 +99,13 @@ void DownloadsBridge::OnDownloadUpdated(content::DownloadManager* manager,
 void DownloadsBridge::Report(download::DownloadItem* item) {
   PaneBrowserContext* context = context_;
   PaneDownload* download = [[PaneDownload alloc] initWithItem:item];
-  Trace("callback", "PaneBrowserContextDelegate.didUpdateDownload",
-        base::DictValue()
-            .Set("identifier", item->GetGuid())
-            .Set("state", static_cast<int>(download.state))
-            .Set("receivedBytes", static_cast<double>(download.receivedBytes))
-            .Set("file", item->GetTargetFilePath().value()));
+  PANE_TRACE(
+      "callback", "PaneBrowserContextDelegate.didUpdateDownload",
+      base::DictValue()
+          .Set("identifier", item->GetGuid())
+          .Set("state", static_cast<int>(download.state))
+          .Set("receivedBytes", static_cast<double>(download.receivedBytes))
+          .Set("file", item->GetTargetFilePath().value()));
   id<PaneBrowserContextDelegate> delegate = context.delegate;
   if ([delegate respondsToSelector:@selector(browserContext:
                                           didUpdateDownload:)]) {

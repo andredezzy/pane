@@ -313,7 +313,7 @@ void WindowHost::Close() {
   if (close_state_ != CloseState::kOpen) {
     return;
   }
-  Trace("call", "PaneBrowserWindow.close");
+  PANE_TRACE("call", "PaneBrowserWindow.close");
   close_state_ = CloseState::kAsking;
   ++close_attempt_;
   ContinueClose();
@@ -522,8 +522,8 @@ void WindowHost::OnTabStripModelChanged(
               : tab_strip_model->active_index() == inserted.index;
       PaneWebContents* opener =
           source ? TabBridge::GetOrCreate(source)->tab() : nil;
-      bridge->TraceCallback("PaneBrowserWindowDelegate.didInsertTab",
-                            base::DictValue().Set("foreground", foreground));
+      PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didInsertTab",
+                     base::DictValue().Set("foreground", foreground));
       if ([delegate respondsToSelector:@selector
                     (browserWindow:didInsertTab:opener:foreground:)]) {
         [delegate browserWindow:owner
@@ -546,7 +546,7 @@ void WindowHost::OnTabStripModelChanged(
       if (!bridge) {
         continue;
       }
-      bridge->TraceCallback("PaneBrowserWindowDelegate.didRemoveTab");
+      PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didRemoveTab");
       if ([delegate respondsToSelector:@selector(browserWindow:
                                                   didRemoveTab:)]) {
         [delegate browserWindow:owner didRemoveTab:bridge->tab()];
@@ -698,8 +698,9 @@ BrowserWindow* ForwardToPaneWindow(Browser* browser) {
   if (!host) {
     return nullptr;
   }
-  Trace("call", "WindowHost.forwardWindow",
-        base::DictValue().Set("type", static_cast<int>(browser->GetType())));
+  PANE_TRACE(
+      "call", "WindowHost.forwardWindow",
+      base::DictValue().Set("type", static_cast<int>(browser->GetType())));
   auto* window = new HostedBrowserWindow(host->GetWeakPtr());
   window->AttachBrowser(browser);
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(

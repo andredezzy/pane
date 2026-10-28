@@ -130,7 +130,7 @@ void ExtensionsBridge::Report() {
   }
   PaneBrowserContext* context = context_;
   id<PaneBrowserContextDelegate> delegate = context.delegate;
-  Trace("callback", "PaneBrowserContextDelegate.didChangeExtensions");
+  PANE_TRACE("callback", "PaneBrowserContextDelegate.didChangeExtensions");
   if ([delegate respondsToSelector:@selector
                 (browserContextDidChangeExtensions:)]) {
     [delegate browserContextDidChangeExtensions:context];

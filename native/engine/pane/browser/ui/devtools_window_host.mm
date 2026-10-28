@@ -99,7 +99,7 @@
 namespace pane {
 
 BrowserWindow* CreateDevToolsWindow(Browser* browser) {
-  Trace("call", "DevToolsWindow.undock");
+  PANE_TRACE("call", "DevToolsWindow.undock");
   PaneBrowserWindow* window =
       [[PaneBrowserWindow alloc] initWithContentRect:NSMakeRect(0, 0, 960, 640)];
   window.window.identifier = @"pane.devtools";
