@@ -73,16 +73,20 @@ NS_SWIFT_UI_ACTOR
 - (instancetype)init NS_UNAVAILABLE;
 
 // Opens, creating on first use, the profile named `identifier`. Calls
-// `completion` on the main thread with the context, or nil and an error.
+// `completion` on the main thread with the context, or nil and an error: for
+// an identifier that cannot be one folder name (empty, ".", "..", a "/" or
+// ":", longer than 255 bytes), a profile whose folder cannot be made or that
+// does not load, or once the engine started shutting down.
 - (void)openContextWithIdentifier:(NSString*)identifier
                        completion:
                            (void (^)(PaneBrowserContext* _Nullable context,
                                      NSError* _Nullable error))completion
     NS_SWIFT_NAME(openContext(identifier:completion:));
 
-// Deletes the profile: closes its tabs in every window, then removes its
-// data (cookies, storage, cache, extensions) from disk. `completion` gets
-// NO when the profile is unknown or already being deleted.
+// Deletes the profile: closes its tabs in every window, without asking their
+// pages (no beforeunload), then removes its data (cookies, storage, cache,
+// extensions) from disk. `completion` gets NO when the profile is unknown or
+// already being deleted.
 - (void)deleteContext:(PaneBrowserContext*)context
            completion:(void (^)(BOOL deleted))completion
     NS_SWIFT_NAME(deleteContext(_:completion:));

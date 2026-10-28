@@ -2,23 +2,30 @@
 
 #import "pane/public/PaneBrowserApplication.h"
 
+#include <limits.h>
 #include <string>
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/scoped_observation.h"
 #include "base/strings/sys_string_conversions.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_metrics.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/embedder_support/user_agent_utils.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "gpu/config/gpu_info.h"
 #include "base/version_info/version_info.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/fingerprints.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/window_host.h"
@@ -66,14 +73,43 @@ void AddToSwitchList(std::vector<std::string>& args,
 }
 
 // A profile identifier becomes a directory name under the engine's user data
-// dir, so it may not name anything else.
+// dir, so it may not name anything else, nor be longer than a file name can
+// be (255 bytes on APFS).
 bool IsValidIdentifier(NSString* identifier) {
   if (identifier.length == 0 || [identifier isEqualToString:@"."] ||
-      [identifier isEqualToString:@".."]) {
+      [identifier isEqualToString:@".."] ||
+      [identifier lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > NAME_MAX) {
     return false;
   }
   return [identifier rangeOfString:@"/"].location == NSNotFound &&
          [identifier rangeOfString:@":"].location == NSNotFound;
+}
+
+NSError* ContextError(NSInteger code, NSString* description) {
+  return [NSError errorWithDomain:kErrorDomain
+                             code:code
+                         userInfo:@{NSLocalizedDescriptionKey : description}];
+}
+
+// Closes every page of `profile`, in every window, without beforeunload:
+// Chrome's deletion asks each page that has one, and a page that answers
+// "Stay" (or never gets its dialog shown) would cancel the deletion and leave
+// the profile loaded.
+void CloseEveryPage(Profile* profile) {
+  std::vector<base::WeakPtr<BrowserWindowInterface>> browsers;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        if (browser->GetProfile()->GetOriginalProfile() == profile) {
+          browsers.push_back(browser->GetWeakPtr());
+        }
+        return true;
+      });
+  for (const base::WeakPtr<BrowserWindowInterface>& browser : browsers) {
+    TabStripModel* model = browser ? browser->GetTabStripModel() : nullptr;
+    while (browser && model && !model->empty()) {
+      model->DetachAndDeleteWebContentsAt(model->count() - 1);
+    }
+  }
 }
 
 // Calls back once Chrome has marked a profile for permanent deletion: its
@@ -209,9 +245,16 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
                        completion:
                            (void (^)(PaneBrowserContext* _Nullable context,
                                      NSError* _Nullable error))completion {
-  pane::Trace("call", "PaneBrowserApplication.openContext",
-              base::DictValue().Set("identifier",
-                                    base::SysNSStringToUTF8(identifier)));
+  PANE_TRACE(
+      "call", "PaneBrowserApplication.openContext",
+      base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
+
+  // Once quitting started, every context was released, and one opened now
+  // would hold its profile past the engine's teardown.
+  if (_shutDown) {
+    completion(nil, ContextError(4, @"The engine is shutting down."));
+    return;
+  }
 
   if (PaneBrowserContext* open = _contexts[identifier]) {
     completion(open, nil);
@@ -219,12 +262,7 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   }
 
   if (!IsValidIdentifier(identifier)) {
-    completion(nil, [NSError errorWithDomain:kErrorDomain
-                                        code:1
-                                    userInfo:@{
-                                      NSLocalizedDescriptionKey :
-                                          @"Invalid profile identifier."
-                                    }]);
+    completion(nil, ContextError(1, @"Invalid profile identifier."));
     return;
   }
 
@@ -234,15 +272,13 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   NSString* key = [identifier copy];
   __weak PaneBrowserApplication* weakSelf = self;
 
-  manager->CreateProfileAsync(path, base::BindOnce(^(Profile* profile) {
+  auto created = base::BindOnce(^(Profile* profile) {
     PaneBrowserApplication* strongSelf = weakSelf;
-    if (!strongSelf || !profile) {
-      completion(nil, [NSError errorWithDomain:kErrorDomain
-                                          code:2
-                                      userInfo:@{
-                                        NSLocalizedDescriptionKey :
-                                            @"The profile could not be loaded."
-                                      }]);
+    if (!strongSelf || strongSelf->_shutDown || !profile) {
+      completion(nil,
+                 ContextError(2, strongSelf && strongSelf->_shutDown
+                                     ? @"The engine is shutting down."
+                                     : @"The profile could not be loaded."));
       return;
     }
 
@@ -253,11 +289,36 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
       strongSelf->_contexts[key] = context;
     }
 
-    pane::Trace("callback", "PaneBrowserApplication.openContext.completion",
-                base::DictValue().Set("identifier",
-                                      base::SysNSStringToUTF8(key)));
+    PANE_TRACE(
+        "callback", "PaneBrowserApplication.openContext.completion",
+        base::DictValue().Set("identifier", base::SysNSStringToUTF8(key)));
     completion(context, nil);
-  }));
+  });
+
+  if (manager->GetProfileByPath(path)) {
+    manager->CreateProfileAsync(path, std::move(created));
+    return;
+  }
+
+  // Chrome loads a new profile from a directory it does not check it could
+  // make: without one, the profile's preferences fail to load, the failure
+  // is never reported (a segregated pref store waits for both of its files),
+  // and the profile never finishes loading. The directory is made first,
+  // off the main thread, and a profile that cannot have one fails.
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
+      base::BindOnce(&base::CreateDirectory, path),
+      base::BindOnce(
+          [](base::FilePath path, base::OnceCallback<void(Profile*)> created,
+             bool exists) {
+            ProfileManager* manager = g_browser_process->profile_manager();
+            if (!exists || !manager) {
+              std::move(created).Run(nullptr);
+              return;
+            }
+            manager->CreateProfileAsync(path, std::move(created));
+          },
+          path, std::move(created)));
 }
 
 - (PaneBrowserContext*)contextForProfile:(Profile*)profile {
@@ -290,21 +351,22 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   const base::FilePath path = profile->GetPath();
   [_contexts removeObjectForKey:context.identifier];
   [context shutDown];
+  CloseEveryPage(profile);
   // Chrome closes the profile's Browsers (Pane's included), then marks the
   // profile for deletion and removes its data; the directory goes once nothing
   // holds the profile, or at the next start.
   new ProfileDeletionWaiter(
-      path, base::BindOnce(
-                [](void (^completion)(BOOL), NSString* identifier,
-                   bool deleted) {
-                  pane::Trace("callback", "PaneBrowserApplication.didDeleteContext",
-                              base::DictValue()
-                                  .Set("identifier",
-                                       base::SysNSStringToUTF8(identifier))
-                                  .Set("deleted", deleted));
-                  completion(deleted);
-                },
-                completion, context.identifier));
+      path,
+      base::BindOnce(
+          [](void (^completion)(BOOL), NSString* identifier, bool deleted) {
+            PANE_TRACE(
+                "callback", "PaneBrowserApplication.didDeleteContext",
+                base::DictValue()
+                    .Set("identifier", base::SysNSStringToUTF8(identifier))
+                    .Set("deleted", deleted));
+            completion(deleted);
+          },
+          completion, context.identifier));
   g_browser_process->profile_manager()
       ->GetDeleteProfileHelper()
       .MaybeScheduleProfileForDeletion(

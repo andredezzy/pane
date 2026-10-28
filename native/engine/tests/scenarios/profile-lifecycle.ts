@@ -2,16 +2,22 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, tabOf } from "../lib/pane";
 import { targets as targetsOf } from "../lib/targets";
+import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A first launch shows the empty state; collapsing a profile unloads its
 // pages but keeps its tabs; deleting a profile removes it and its data. A
 // delete the engine never confirmed (a quit, a crash) is finished at the
-// next launch. A profile whose engine context will not open shows its tab
-// as the sad tab, and deleting it leaves nothing pending.
+// next launch. A profile whose page asks before it closes (beforeunload) is
+// deleted without asking. A profile whose engine context will not open (an
+// id with a slash, or too long to be a folder) shows its tab as the sad
+// tab, and deleting it leaves nothing pending.
 const profileLifecycle: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lifecycle-");
-	const app = await launchPane(context, { dataDir });
+
+	const { app, has } = await launchTraced(context, "profile-lifecycle", {
+		dataDir,
+	});
 
 	const empty = await app.state();
 
@@ -25,12 +31,15 @@ const profileLifecycle: Scenario = async (context) => {
 	const keep = await app.createProfile("Keep", "EMERALD");
 	const gone = await app.createProfile("Gone", "ROSE");
 	const keepURL = context.fixtures.url("isolation.html?profile=keep");
-	const goneURL = context.fixtures.url("isolation.html?profile=gone");
+	const goneURL = context.fixtures.url("dialogs.html?profile=gone");
 	const keepTab = await app.openTab(keep, keepURL);
 	await app.page(keepTab, keepURL);
 	const goneTab = await app.openTab(gone, goneURL);
 	const gonePage = await app.page(goneTab, goneURL);
 	await gonePage.evaluate("localStorage.pane = 'gone'");
+	// A page that asks before it goes, once the user touched it.
+	await gonePage.evaluate("armBeforeUnload()");
+	await clickAt((method, params) => gonePage.send(method, params), 20, 20);
 
 	const targets = async () =>
 		(await targetsOf(app.browser.cdp)).filter(
@@ -99,6 +108,22 @@ const profileLifecycle: Scenario = async (context) => {
 	);
 
 	expect(
+		!has(
+			"PaneWebContentsDelegate.runJavaScriptDialog",
+			(args) => args.type === "beforeunload",
+		) && deleted.sheet === null,
+		"deleting the profile asked its page (beforeunload)",
+	);
+
+	expect(
+		has(
+			"PaneBrowserApplication.didDeleteContext",
+			(args) => args.deleted === true,
+		),
+		"the engine did not delete the profile",
+	);
+
+	expect(
 		!(gone in deleted.extensions),
 		"the deleted profile's extensions are still listed",
 	);
@@ -131,30 +156,39 @@ const profileLifecycle: Scenario = async (context) => {
 		listed: existsSync(join(dataDir, "deletions.json")),
 	};
 
-	// A profile whose context will not open: the engine refuses an id that
-	// is not one folder of its data.
+	// Profiles whose context will not open: the engine refuses an id that
+	// is not one folder of its data, or one too long to be a folder name
+	// (Chrome never finished loading one, and the open never answered).
 	const brokenDir = context.tempDir("pane-lifecycle-broken-");
-	const brokenURL = context.fixtures.url("smoke.html?broken");
+	const longID = "long".repeat(75);
+
+	const brokenProfile = (id: string, name: string, tab: string) => ({
+		id,
+		name,
+		color: "ROSE",
+		group: null,
+		fingerprint: null,
+		proxy: null,
+		keepLoaded: false,
+		tabs: [
+			{
+				id: tab,
+				url: context.fixtures.url(`smoke.html?${tab}`),
+				title: "",
+				favicon: "",
+			},
+		],
+		createdAt: "2026-10-27T00:00:00.000Z",
+		updatedAt: "2026-10-27T00:00:00.000Z",
+	});
 
 	writeFileSync(
 		join(brokenDir, "profiles.json"),
 		JSON.stringify({
 			state: {
 				profiles: [
-					{
-						id: "broken/profile",
-						name: "Broken",
-						color: "ROSE",
-						group: null,
-						fingerprint: null,
-						proxy: null,
-						keepLoaded: false,
-						tabs: [
-							{ id: "broken-tab", url: brokenURL, title: "", favicon: "" },
-						],
-						createdAt: "2026-10-27T00:00:00.000Z",
-						updatedAt: "2026-10-27T00:00:00.000Z",
-					},
+					brokenProfile("broken/profile", "Broken", "broken-tab"),
+					brokenProfile(longID, "Long", "long-tab"),
 				],
 			},
 			version: 0,
@@ -169,7 +203,20 @@ const profileLifecycle: Scenario = async (context) => {
 		(state) => state.crashedTabs.includes("broken-tab"),
 	);
 
-	await broken.send("deleteProfile", { profile: "broken/profile" });
+	const longSelected = Date.now();
+	await broken.send("select", { tab: "long-tab" });
+
+	await broken.waitFor(
+		"the sad tab of a profile whose id is too long",
+		(state) => state.crashedTabs.includes("long-tab"),
+		5_000,
+	);
+
+	const longSadTabMs = Date.now() - longSelected;
+
+	for (const id of ["broken/profile", longID]) {
+		await broken.send("deleteProfile", { profile: id });
+	}
 
 	const brokenDeleted = await broken.waitFor(
 		"nothing left pending",
@@ -204,6 +251,7 @@ const profileLifecycle: Scenario = async (context) => {
 		unconfirmedDelete: orphan,
 		contextThatWillNotOpen: {
 			sadTab: sadTab.activeTabID === "broken-tab",
+			longIDSadTabMs: longSadTabMs,
 			pendingAfterDelete: brokenDeleted.pendingProfileDeletions,
 		},
 	};
