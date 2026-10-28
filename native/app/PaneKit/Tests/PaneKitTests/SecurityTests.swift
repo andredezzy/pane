@@ -286,6 +286,81 @@ struct PanicWipeTests {
 		#expect(fileManager.fileExists(atPath: data.appending(path: "automation/kept.json").path))
 	}
 
+	@Test("erases the Electron app's data the migration names, and its caches")
+	func erasesElectronData() throws {
+		let root = FileManager.default.temporaryDirectory.appending(path: "pane-wipe-\(UUID().uuidString)")
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		let fileManager = FileManager.default
+		let support = root.appending(path: "Library/Application Support")
+		let caches = root.appending(path: "Library/Caches")
+		let data = support.appending(path: "Pane")
+		let electron = support.appending(path: "@pane/veil")
+		let neighbor = support.appending(path: "@pane/other")
+
+		for directory in [data, electron.appending(path: "Partitions/profile-a"), caches.appending(path: "@pane/veil/Partitions/profile-a/Cache"), neighbor] {
+			try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+		}
+
+		try Data("{}".utf8).write(to: electron.appending(path: "profiles.json"))
+		try Data("cookies".utf8).write(to: electron.appending(path: "Partitions/profile-a/Cookies"))
+		try Data("cache".utf8).write(to: caches.appending(path: "@pane/veil/Partitions/profile-a/Cache/data_0"))
+		try Data("kept".utf8).write(to: neighbor.appending(path: "kept.txt"))
+		try PersistedFile<ElectronMigration.Record>(directory: data, name: ElectronMigration.recordName)
+			.save(ElectronMigration.Record(source: electron.path, migratedAt: "2026-10-28", profiles: ["a"]))
+
+		let found = try #require(PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches))
+		#expect(found.directory == electron.standardizedFileURL)
+		#expect(found.cacheDirectory == caches.appending(path: "@pane/veil"))
+
+		#expect(PanicWipe.stage(dataDirectory: data, cacheDirectory: nil, electron: found).isEmpty)
+		#expect(!fileManager.fileExists(atPath: electron.path))
+		#expect(!fileManager.fileExists(atPath: caches.appending(path: "@pane/veil").path))
+
+		// A wipe cut short: the next launch finds the staged copies from the
+		// record, which stays.
+		let staged = PanicWipe.staged(dataDirectory: data, cacheDirectory: nil, electron: PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches))
+		#expect(staged.map(\.passes).sorted() == [1, 3])
+
+		#expect(PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: nil, electron: found).isEmpty)
+		#expect(!fileManager.fileExists(atPath: support.appending(path: "@pane/Wiping").path))
+		#expect(!fileManager.fileExists(atPath: caches.appending(path: "@pane/Wiping").path))
+		#expect(fileManager.fileExists(atPath: neighbor.appending(path: "kept.txt").path))
+		#expect(fileManager.fileExists(atPath: data.appending(path: "migration.json").path))
+	}
+
+	@Test("a record naming anything but the Electron app's data erases nothing of it")
+	func refusesOtherFolders() throws {
+		let root = FileManager.default.temporaryDirectory.appending(path: "pane-wipe-\(UUID().uuidString)")
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		let fileManager = FileManager.default
+		let support = root.appending(path: "Library/Application Support")
+		let caches = root.appending(path: "Library/Caches")
+		let data = support.appending(path: "Pane")
+		let documents = root.appending(path: "Documents")
+		try fileManager.createDirectory(at: data.appending(path: "Engine"), withIntermediateDirectories: true)
+		try fileManager.createDirectory(at: documents, withIntermediateDirectories: true)
+		try Data("kept".utf8).write(to: documents.appending(path: "kept.txt"))
+
+		let record = PersistedFile<ElectronMigration.Record>(directory: data, name: ElectronMigration.recordName)
+
+		// A folder without the Electron app's profiles.json stays.
+		try record.save(ElectronMigration.Record(source: documents.path, migratedAt: "2026-10-28", profiles: []))
+		let documentsData = try #require(PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches))
+		#expect(PanicWipe.stage(dataDirectory: data, cacheDirectory: nil, electron: documentsData).isEmpty)
+		#expect(fileManager.fileExists(atPath: documents.appending(path: "kept.txt").path))
+
+		// The data directory's own folder, one holding it, or a shallow path:
+		// never a source.
+		for source in [data.path, support.path, "/Users", "relative/path"] {
+			try record.save(ElectronMigration.Record(source: source, migratedAt: "2026-10-28", profiles: []))
+			#expect(PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches) == nil)
+		}
+
+		_ = PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: nil)
+	}
+
 	@Test("a wipe cut short is still staged, and what it cannot erase is reported")
 	func cutShort() throws {
 		let root = FileManager.default.temporaryDirectory.appending(path: "pane-wipe-\(UUID().uuidString)")

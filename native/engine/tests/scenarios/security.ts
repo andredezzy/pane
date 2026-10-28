@@ -285,9 +285,34 @@ const security: Scenario = async (context) => {
 
 	const profileDir = join(dataDir, "Engine", profile);
 
+	// The Electron app's data this Pane migrated from, as migration.json
+	// names it, with a neighbor the wipe must leave.
+	const electronParent = join(
+		context.tempDir("pane-security-electron-"),
+		"Application Support",
+		"@pane",
+	);
+
+	const electronDir = join(electronParent, "veil");
+	const electronNeighbor = join(electronParent, "other", "kept.txt");
+	mkdirSync(join(electronDir, "Partitions", "profile-a"), { recursive: true });
+	mkdirSync(join(electronParent, "other"), { recursive: true });
+	writeFileSync(join(electronDir, "profiles.json"), "{}");
+	writeFileSync(join(electronDir, "Partitions", "profile-a", "Cookies"), "c");
+	writeFileSync(electronNeighbor, "kept");
+
+	writeFileSync(
+		join(dataDir, "migration.json"),
+		JSON.stringify({
+			state: { source: electronDir, migratedAt: "2026-10-28", profiles: [] },
+			version: 0,
+		}),
+	);
+
 	const before = {
 		profiles: existsSync(join(dataDir, "profiles.json")),
 		profileData: existsSync(profileDir),
+		electronData: existsSync(join(electronDir, "Partitions")),
 	};
 
 	// The wiped instance's helpers (renderers, GPU, network service), which
@@ -336,6 +361,10 @@ const security: Scenario = async (context) => {
 
 	const after = {
 		profileData: existsSync(profileDir),
+		electronData: existsSync(electronDir),
+		electronStaged: existsSync(join(electronParent, "Wiping")),
+		electronNeighbor: existsSync(electronNeighbor),
+		migrationRecord: existsSync(join(dataDir, "migration.json")),
 		staged: existsSync(join(dataDir, "Wiping")),
 		failures: erased.security.wipe.failures,
 		helpers: { before: helpers.length, alive: helpersAlive },
@@ -408,6 +437,15 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(!after.profileData, "the profile's engine data survived the wipe");
+
+	expect(
+		before.electronData &&
+			!after.electronData &&
+			!after.electronStaged &&
+			after.electronNeighbor &&
+			after.migrationRecord,
+		`the Electron app's data: ${JSON.stringify({ before: before.electronData, after })}`,
+	);
 
 	expect(
 		!after.staged && after.failures.length === 0,

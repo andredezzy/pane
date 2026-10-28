@@ -4,7 +4,8 @@ import Foundation
 // and each profile's site data (cookies, storage) move into the native app.
 // Its extensions do not: it installed each once, for every profile, and a
 // native profile has only the extensions added to it. It always reads a copy
-// of the Electron app's data, never the data itself, and never writes there.
+// of the Electron app's data, never the data itself, and never writes there
+// (only the panic wipe erases it: PanicWipe.ElectronData).
 // It runs until it has migrated: a launch that found the Electron app
 // running, or failed, wrote nothing that stops the next one.
 public enum ElectronMigration {
@@ -219,12 +220,15 @@ public enum ElectronMigration {
 	static func isElectronApp(_ pid: pid_t) -> Bool {
 		var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
 
-		guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else {
+		let length = proc_pidpath(pid, &path, UInt32(path.count))
+
+		guard length > 0 else {
 			return false
 		}
 
 		// <app>/Contents/MacOS/<executable>
-		let contents = URL(fileURLWithPath: String(cString: path)).deletingLastPathComponent().deletingLastPathComponent()
+		let executable = String(decoding: path.prefix(Int(length)).map { UInt8(bitPattern: $0) }, as: UTF8.self)
+		let contents = URL(fileURLWithPath: executable).deletingLastPathComponent().deletingLastPathComponent()
 
 		return FileManager.default.fileExists(atPath: contents.appending(path: "Frameworks/Electron Framework.framework").path)
 	}
