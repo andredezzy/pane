@@ -209,13 +209,14 @@ private struct SearchField: View {
 
 			TextField("", text: $text, prompt: Text("Search extensions").foregroundStyle(Palette.mutedForeground))
 				.textFieldStyle(.plain)
-				.font(.system(size: 14))
+				.font(.system(size: 13))
 				.foregroundStyle(Palette.foreground)
 				.focused($focused)
 				.onExitCommand { text = "" }
 				.accessibilityLabel("Search extensions")
 		}
-		.padding(.horizontal, 12)
+		// 12 inside the 1px border, as Paper's field.
+		.padding(.horizontal, 13)
 		.frame(height: 36)
 		.background(Palette.background, in: Squircle(cornerRadius: 11))
 		.overlay {
@@ -256,6 +257,8 @@ private struct ExtensionCard: View {
 				}
 				.frame(width: 40, height: 40)
 				.clipShape(Squircle(cornerRadius: 11))
+				// A disabled extension dims its icon with its text.
+				.opacity(item.enabled ? 1 : 0.6)
 
 				VStack(alignment: .leading, spacing: 3) {
 					HStack(alignment: .firstTextBaseline, spacing: 6) {

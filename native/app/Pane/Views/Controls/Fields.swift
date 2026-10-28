@@ -22,7 +22,8 @@ struct PaneTextField: View {
 		.foregroundStyle(Palette.foreground)
 		.focused($focused)
 		.onSubmit(onSubmit)
-		.padding(.horizontal, 12)
+		// px-3 inside the 1px border: CSS boxes start the text 13 in.
+		.padding(.horizontal, 13)
 		.frame(height: 36)
 		.background(Palette.background, in: Squircle(cornerRadius: 11))
 		.overlay {
