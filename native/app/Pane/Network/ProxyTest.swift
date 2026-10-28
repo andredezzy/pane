@@ -71,7 +71,7 @@ enum ProxyTest {
 	}
 
 	private static func endpoint(_ host: String, _ port: Int) throws -> NWEndpoint {
-		guard let port = NWEndpoint.Port(rawValue: UInt16(clamping: port)) else {
+		guard ProxyConfig.ports.contains(port), let port = UInt16(exactly: port).flatMap(NWEndpoint.Port.init(rawValue:)) else {
 			throw RelayError("bad port")
 		}
 

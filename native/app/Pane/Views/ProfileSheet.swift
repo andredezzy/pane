@@ -13,6 +13,7 @@ struct ProfileSheet: View {
 	@State private var color: ProfileColor = .blue
 	@State private var group = ""
 	@State private var nameError: String?
+	@State private var portError: String?
 	@State private var spoofing = true
 	@State private var platform = Self.hostPlatform
 	@State private var proxyEnabled = false
@@ -97,6 +98,7 @@ struct ProfileSheet: View {
 		.surfaceBackground(cornerRadius: 18, shadow: .black.opacity(0.5), blur: 40, y: 8)
 		.onAppear(perform: load)
 		.onChange(of: name) { nameError = nil }
+		.onChange(of: proxyPort) { portError = nil }
 		.onExitCommand(perform: onDone)
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.profileSheet")
@@ -182,6 +184,17 @@ struct ProfileSheet: View {
 					.accessibilityIdentifier("pane.profile.proxyPort")
 			}
 
+			// As the name's: a profile that asks for a proxy never saves
+			// without one.
+			if let portError {
+				Text(portError)
+					.font(.system(size: 12.8, weight: .medium))
+					.foregroundStyle(Palette.destructive)
+					// Right under the row, as the name's error sits under its field.
+					.padding(.top, -12)
+					.accessibilityIdentifier("pane.profile.portError")
+			}
+
 			HStack(spacing: 8) {
 				PaneTextField(placeholder: "Username (optional)", text: $proxyUsername)
 				PaneTextField(placeholder: "Password (optional)", text: $proxyPassword, secure: true)
@@ -221,10 +234,13 @@ struct ProfileSheet: View {
 
 	@State private var spin = false
 
+	private static let portMessage = "Port must be between 1 and 65535"
+
+	// The proxy as filled in, once it has a host and a valid port.
 	private var proxyConfig: ProxyConfig? {
 		let host = proxyHost.trimmingCharacters(in: .whitespaces)
 
-		guard proxyEnabled, !host.isEmpty, let port = Int(proxyPort) else {
+		guard proxyEnabled, !host.isEmpty, let port = ProxyConfig.port(proxyPort) else {
 			return nil
 		}
 
@@ -258,6 +274,7 @@ struct ProfileSheet: View {
 
 	private func testProxy() {
 		guard let config = proxyConfig else {
+			proxyTest = .failed(Self.portMessage)
 			return
 		}
 
@@ -295,6 +312,13 @@ struct ProfileSheet: View {
 	private func save() {
 		guard !trimmedName.isEmpty else {
 			nameError = "Profile name is required"
+			return
+		}
+
+		// A proxy with a host but no valid port would save as no proxy, and
+		// the profile would go direct.
+		guard !proxyEnabled || proxyHost.trimmingCharacters(in: .whitespaces).isEmpty || ProxyConfig.port(proxyPort) != nil else {
+			portError = Self.portMessage
 			return
 		}
 

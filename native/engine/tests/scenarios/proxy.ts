@@ -141,6 +141,39 @@ const proxy: Scenario = async (context) => {
 			`B's WebRTC exposed ${JSON.stringify(webRTCB)}`,
 		);
 
+		// A SOCKS5 proxy with credentials on a port past 65535 (a hand-edited
+		// profiles.json, say): its relay refuses each connection rather than
+		// trapping, so the test fails, the page does not load, and Pane stays
+		// up with every other profile.
+		const d = await app.createProfile("Bad port", "AMBER");
+
+		await app.send("setProfileProxy", {
+			profile: d,
+			proxy: {
+				proxyType: "SOCKS5",
+				host: "127.0.0.1",
+				port: 70_000,
+				...CREDENTIALS,
+			},
+		});
+
+		const tabD = await app.openTab(d, "http://d.pane.test/proxy-check.html");
+
+		const badPort = await app.waitFor(
+			"D's proxy test failed",
+			(state) => statusOf(state, d) === "failed",
+			30_000,
+		);
+
+		await Bun.sleep(2_000);
+		const afterBadPort = await app.state();
+
+		expect(
+			tabOf(afterBadPort, tabD)?.title !== "Proxy check" &&
+				tabOf(afterBadPort, tabA)?.title === "Proxy check",
+			`the bad port: ${JSON.stringify(tabOf(afterBadPort, tabD))}`,
+		);
+
 		const windows = await watcher.stop();
 
 		expect(
@@ -153,7 +186,11 @@ const proxy: Scenario = async (context) => {
 				http: { port: http.port, log: http.log },
 				socks5: { port: socks.port, log: socks.log },
 			},
-			status: { a: statusOf(tested, a), c: statusOf(tested, c) },
+			status: {
+				a: statusOf(tested, a),
+				c: statusOf(tested, c),
+				badPort: statusOf(badPort, d),
+			},
 			network: Object.fromEntries(
 				network.profiles.map((profile) => [profile.name, profile.network]),
 			),

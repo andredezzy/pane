@@ -93,7 +93,8 @@ final class SocksRelay: @unchecked Sendable {
 	}
 
 	private func connectUpstream(to destination: Destination) async throws -> NWConnection {
-		guard let port = NWEndpoint.Port(rawValue: UInt16(upstream.port)) else {
+		// A port out of range throws rather than trapping in UInt16(_:).
+		guard ProxyConfig.ports.contains(upstream.port), let port = UInt16(exactly: upstream.port).flatMap(NWEndpoint.Port.init(rawValue:)) else {
 			throw RelayError("bad proxy port")
 		}
 

@@ -83,7 +83,8 @@ extension Fingerprint {
 }
 
 // The proxy field's shortcut: "host:port", "host:port:user", or
-// "host:port:user:password", as proxy sellers list them.
+// "host:port:user:password", as proxy sellers list them. The password is the
+// rest of the line, colons and all.
 public struct ProxyString: Equatable, Sendable {
 	public var host: String
 	public var port: Int
@@ -93,13 +94,27 @@ public struct ProxyString: Equatable, Sendable {
 	public init?(_ raw: String) {
 		let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: ":", omittingEmptySubsequences: false).map(String.init)
 
-		guard parts.count >= 2, let host = parts.first, !host.isEmpty, let port = Int(parts[1]) else {
+		guard parts.count >= 2, let host = parts.first, !host.isEmpty, let port = ProxyConfig.port(parts[1]) else {
 			return nil
 		}
+
+		let password = parts.dropFirst(3).joined(separator: ":")
 
 		self.host = host
 		self.port = port
 		username = parts.count > 2 && !parts[2].isEmpty ? parts[2] : nil
-		password = parts.count > 3 && !parts[3].isEmpty ? parts[3] : nil
+		self.password = password.isEmpty ? nil : password
+	}
+}
+
+extension ProxyConfig {
+	// The ports a proxy can listen on: TCP's, without 0.
+	public static let ports = 1 ... 65535
+
+	// The port typed or pasted, or nil when it is not one of `ports`: the
+	// SOCKS relay would trap on it, and Chrome would drop the rule and go
+	// direct.
+	public static func port(_ text: String) -> Int? {
+		Int(text.trimmingCharacters(in: .whitespaces)).flatMap { ports.contains($0) ? $0 : nil }
 	}
 }

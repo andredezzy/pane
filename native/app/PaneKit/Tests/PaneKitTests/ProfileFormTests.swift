@@ -43,6 +43,25 @@ struct ProfileFormTests {
 		#expect(ProxyString("proxy.example:port") == nil)
 		#expect(ProxyString(":8080") == nil)
 	}
+
+	@Test("a pasted password keeps its colons")
+	func proxyPasswordWithColons() {
+		#expect(ProxyString("proxy.example:1080:user:p:ss")?.password == "p:ss")
+		#expect(ProxyString("proxy.example:1080:user:p4ss:")?.password == "p4ss:")
+		#expect(ProxyString("proxy.example:1080:user:")?.password == nil)
+	}
+
+	@Test("a port outside 1–65535 is no port")
+	func proxyPorts() {
+		#expect(ProxyConfig.port("1") == 1)
+		#expect(ProxyConfig.port(" 65535 ") == 65535)
+		#expect(ProxyConfig.port("0") == nil)
+		#expect(ProxyConfig.port("70000") == nil)
+		#expect(ProxyConfig.port("-1") == nil)
+		#expect(ProxyConfig.port("") == nil)
+		#expect(ProxyString("proxy.example:70000") == nil)
+		#expect(ProxyString("proxy.example:-1:user:pass") == nil)
+	}
 }
 
 extension ProxyString {
