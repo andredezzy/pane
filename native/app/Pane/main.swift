@@ -20,19 +20,9 @@ UserDefaults.standard.register(defaults: [
 	"NSQuitAlwaysKeepsWindows": false,
 ])
 
-// Started again by the panic wipe: once the wiped instance has exited, the
-// data is erased once more, in case the engine wrote something on its way out.
-if let argument = CommandLine.arguments.first(where: { $0.hasPrefix(AppLock.wipeSwitch) }),
-   let wiped = pid_t(argument.dropFirst(AppLock.wipeSwitch.count))
-{
-	let deadline = Date().addingTimeInterval(10)
-
-	while kill(wiped, 0) == 0, Date() < deadline {
-		usleep(100_000)
-	}
-
-	AppLock.erase(dataDirectory)
-}
+// The panic wipe's data goes before anything reads the data directory: the
+// wiped instance started this one, or a wipe was cut short (AppLock).
+AppLock.wipeAtLaunch(dataDirectory)
 
 // The first launch after the Electron app brings its data over, from a copy
 // (LaunchMigration), before anything here reads the data directory.

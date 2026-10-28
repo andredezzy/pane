@@ -233,7 +233,13 @@ struct PanicWipeTests {
 		// A link out of the data, as Chromium's SingletonSocket.
 		try fileManager.createSymbolicLink(at: data.appending(path: "Engine/SingletonSocket"), withDestinationURL: outside)
 
-		PanicWipe.run(dataDirectory: data, cacheDirectory: caches)
+		// A second name for the cookies' bytes, outside the data: it shows
+		// they were overwritten, not only unlinked.
+		let witness = outside.appending(path: "cookies-witness")
+		#expect(link(data.appending(path: "Engine/Profile A/Cookies").path, witness.path) == 0)
+
+		// Staged: out of the app's way at once.
+		#expect(PanicWipe.stage(dataDirectory: data, cacheDirectory: caches).isEmpty)
 
 		#expect(!fileManager.fileExists(atPath: data.appending(path: "Engine").path))
 		#expect(!fileManager.fileExists(atPath: caches.appending(path: "Engine").path))
@@ -242,8 +248,46 @@ struct PanicWipeTests {
 			#expect(!fileManager.fileExists(atPath: data.appending(path: name).path))
 		}
 
+		let staged = PanicWipe.staged(dataDirectory: data, cacheDirectory: caches)
+		#expect(staged.map(\.passes).sorted() == [1, 3])
+
+		// Erased.
+		#expect(PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: caches).isEmpty)
+		#expect(PanicWipe.staged(dataDirectory: data, cacheDirectory: caches).isEmpty)
+		#expect(!fileManager.fileExists(atPath: data.appending(path: "Wiping").path))
+		#expect(!fileManager.fileExists(atPath: caches.appending(path: "Wiping").path))
+		#expect(try Data(contentsOf: witness) != Data("cookies".utf8))
+
 		#expect(fileManager.fileExists(atPath: outside.appending(path: "kept.txt").path))
 		#expect(fileManager.fileExists(atPath: data.appending(path: "automation/kept.json").path))
+	}
+
+	@Test("a wipe cut short is still staged, and what it cannot erase is reported")
+	func cutShort() throws {
+		let root = FileManager.default.temporaryDirectory.appending(path: "pane-wipe-\(UUID().uuidString)")
+		let data = root.appending(path: "data")
+		let fileManager = FileManager.default
+		defer {
+			try? fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: data.appending(path: "Wiping").path)
+			try? fileManager.removeItem(at: root)
+		}
+
+		try fileManager.createDirectory(at: data.appending(path: "Engine/Profile A"), withIntermediateDirectories: true)
+		try Data("cookies".utf8).write(to: data.appending(path: "Engine/Profile A/Cookies"))
+		#expect(PanicWipe.stage(dataDirectory: data, cacheDirectory: nil).isEmpty)
+
+		// The app quit before the erase: the next launch finds it.
+		let staged = try #require(PanicWipe.staged(dataDirectory: data, cacheDirectory: nil).first)
+		#expect(fileManager.fileExists(atPath: staged.url.appending(path: "Engine/Profile A/Cookies").path))
+
+		// A folder it may not change: reported, not swallowed.
+		try fileManager.setAttributes([.posixPermissions: 0o555], ofItemAtPath: staged.url.appending(path: "Engine/Profile A").path)
+		let failures = PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: nil)
+		try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: staged.url.appending(path: "Engine/Profile A").path)
+
+		#expect(failures.contains { $0.path.hasSuffix("Profile A/Cookies") })
+		#expect(PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: nil).isEmpty)
+		#expect(!fileManager.fileExists(atPath: data.appending(path: "Wiping").path))
 	}
 
 	@Test("caches live apart only under Application Support")

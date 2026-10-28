@@ -68,6 +68,8 @@ export type SecurityState = {
 	pinLength: number | null;
 	failedAttempts: number;
 	locked: boolean;
+	// The panic wipe's erase, while it runs, and what it could not erase.
+	wipe: { erasing: boolean; failures: string[] };
 	// The PIN screen, while it shows.
 	screen: {
 		mode: "setup" | "change" | "remove" | "unlock";

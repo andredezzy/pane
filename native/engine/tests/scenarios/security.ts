@@ -288,6 +288,15 @@ const security: Scenario = async (context) => {
 		profileData: existsSync(profileDir),
 	};
 
+	// The wiped instance's helpers (renderers, GPU, network service), which
+	// must not outlive it to write after the erase.
+	const helpers = (
+		await Bun.$`pgrep -P ${relaunched.browser.pid}`.quiet().nothrow().text()
+	)
+		.split("\n")
+		.filter(Boolean)
+		.map(Number);
+
 	// The fifth: Pane erases its data and starts again. The new instance is
 	// no child of the runner, which stops it with whatever else still uses
 	// the scenario's directories, however the scenario ends.
@@ -298,15 +307,36 @@ const security: Scenario = async (context) => {
 		"Pane still runs after the fifth wrong PIN",
 	);
 
-	// The new instance answers the same automation channel.
+	// The new instance answers the same automation channel; it starts on
+	// nothing at once and erases the moved data on a thread.
 	const fresh = await relaunched.waitFor(
 		"Pane started again",
 		(state) => !state.profiles.some((entry) => entry.id === profile),
 		30_000,
 	);
 
+	const erased = await relaunched.waitFor(
+		"the wipe's erase done",
+		(state) => !state.security.wipe.erasing,
+		30_000,
+	);
+
+	const helpersAlive = [];
+
+	for (const pid of helpers) {
+		if ((await Bun.$`kill -0 ${pid}`.quiet().nothrow()).exitCode === 0) {
+			helpersAlive.push(pid);
+		}
+	}
+
+	// Nothing comes back a moment later: no helper flushed after the erase.
+	await Bun.sleep(3_000);
+
 	const after = {
 		profileData: existsSync(profileDir),
+		staged: existsSync(join(dataDir, "Wiping")),
+		failures: erased.security.wipe.failures,
+		helpers: { before: helpers.length, alive: helpersAlive },
 		security: saved(dataDir),
 		locked: fresh.security.locked,
 		pinLength: fresh.security.pinLength,
@@ -340,6 +370,16 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(!after.profileData, "the profile's engine data survived the wipe");
+
+	expect(
+		!after.staged && after.failures.length === 0,
+		`the wipe left data: ${JSON.stringify({ staged: after.staged, failures: after.failures })}`,
+	);
+
+	expect(
+		after.helpers.before > 0 && after.helpers.alive.length === 0,
+		`the wiped instance's helpers outlived it: ${JSON.stringify(after.helpers)}`,
+	);
 
 	expect(quitWithCapsLock, "⌘Q with Caps Lock did not quit at the PIN screen");
 

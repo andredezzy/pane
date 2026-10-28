@@ -1059,6 +1059,7 @@ final class Automation {
 				"pinLength": controller.lock.state.pin?.length ?? NSNull(),
 				"failedAttempts": controller.lock.state.failedAttempts,
 				"locked": controller.lock.isLocked,
+				"wipe": ["erasing": AppLock.isErasing, "failures": AppLock.eraseFailures] as [String: Any],
 				"screen": controller.lock.entry.map { entry in
 					[
 						"mode": "\(entry.mode)",
