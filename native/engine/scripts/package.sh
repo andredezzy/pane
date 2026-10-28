@@ -15,6 +15,25 @@ SWIFT_APP="$APP_DIR/build/DerivedData/Build/Products/Release/Pane.app"
 # PANE_APP_OUT puts it elsewhere, beside a build that is running.
 OUT="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
 
+# An archive is named by the engine key of this checkout's engine sources,
+# and CI and every release build on it: it must be the engine built from
+# them. build.sh records the key it built (pane-engine.key); an engine built
+# before the last change to those sources, or from a checkout whose patches
+# or //pane were not these, has another key, or none. Checked first, before
+# the app is built.
+if [ "${PANE_ENGINE_ARCHIVE:-}" = 1 ]; then
+	KEY="$("$NATIVE_DIR/engine/scripts/engine-key.sh")"
+	BUILT_KEY="$(cat "$ENGINE_OUT/pane-engine.key" 2>/dev/null || true)"
+
+	if [ -z "$BUILT_KEY" ]; then
+		echo "error: $ENGINE_OUT records no engine key: build it with build.sh before archiving it" >&2
+		exit 1
+	elif [ "$BUILT_KEY" != "$KEY" ]; then
+		echo "error: the engine in $ENGINE_OUT was built from other sources (key $BUILT_KEY) than this checkout's ($KEY): build it again (build.sh)" >&2
+		exit 1
+	fi
+fi
+
 echo "== swift app"
 (cd "$APP_DIR" && xcodegen generate --quiet)
 xcodebuild -project "$APP_DIR/Pane.xcodeproj" -scheme Pane -configuration Release \

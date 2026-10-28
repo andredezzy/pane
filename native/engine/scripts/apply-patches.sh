@@ -12,7 +12,10 @@
 # whole routine.
 #
 # Usage: apply-patches.sh             apply the series
-#        apply-patches.sh --reverse   take every applied patch out again
+#        apply-patches.sh --reverse   take every applied patch out again; a
+#                                     run that stops on one resumes there
+#        apply-patches.sh --check     exit 0 when what is applied is the
+#                                     series, as it is now (build.sh asks)
 set -euo pipefail
 
 ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -52,6 +55,11 @@ fi
 wanted="$(grep -v '^\s*\(#\|$\)' "$PATCHES/series" | while read -r name; do
 	printf '%s %s\n' "$(shasum -a 256 "$PATCHES/$name" | cut -d' ' -f1)" "$name"
 done)"
+
+if [ "${1:-}" = --check ]; then
+	[ "$wanted" = "$current" ]
+	exit
+fi
 
 if [ "$wanted" = "$current" ]; then
 	echo "patches up to date"

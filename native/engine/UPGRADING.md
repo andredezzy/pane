@@ -63,12 +63,12 @@ bun native/engine/tests/run.ts --binary native/app/build/Pane.app/Contents/MacOS
   --out native/evidence/upgrade-<tag> $(ls native/engine/tests/scenarios | sed 's/\.ts$//')
 ```
 
-Every scenario must pass. The ones that read the screen (CUA) need an unlocked session. Watch the window counts in the results: Chrome UI that a new milestone adds, and that no hook covers, shows up as an extra window.
+Every scenario must pass. The ones that read the screen (CUA) need an unlocked session: on a locked one they skip or work around those checks, and `report.json`'s `complete` is false. Watch the window counts in the results: Chrome UI that a new milestone adds, and that no hook covers, shows up as an extra window.
 
 A scenario that fails may have caught Chrome changing its own behavior (157 started requiring a focused page for fullscreen, and pinning new extensions). Run it on the previous engine under the same conditions to tell. Package the app on that engine's archive with `PANE_ENGINE_OUT` set to the unpacked archive, beside the new one. If the old engine passes and the new behavior is right for a browser, record it in `native/DECISIONS.md` and update the scenario to the new behavior. Otherwise fix Pane.
 
 ## 6. Ship it
 
 1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>".
-2. Archive the engine for CI and other machines: `PANE_ENGINE_ARCHIVE=1 native/engine/scripts/dist.sh` prints the `prebuilt-engines.tsv` line. Add it and commit.
+2. Archive the engine for CI and other machines: `PANE_ENGINE_ARCHIVE=1 native/engine/scripts/dist.sh` prints the `prebuilt-engines.tsv` line. Add it and commit. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
 3. Publish the archive as the `engine-<key:12>` prerelease, and release the app as usual (`native/HUMAN-CHECKLIST.md`).
