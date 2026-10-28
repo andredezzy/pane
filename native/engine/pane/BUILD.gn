@@ -12,6 +12,8 @@ source_set("pane") {
   sources = [
     "app/pane_main_delegate.cc",
     "app/pane_main_delegate.h",
+    "browser/app_callback.cc",
+    "browser/app_callback.h",
     "browser/browser_application.mm",
     "browser/browser_application_internal.h",
     "browser/browser_context.mm",

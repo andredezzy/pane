@@ -1,5 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
+#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/ui_hooks.h"
 
 #include <utility>
@@ -97,12 +98,13 @@ void UpdateDevTools(BrowserWindowInterface* browser,
     return;
   }
   bridge->set_devtools(devtools_tab, page_bounds);
-  bridge->TraceCallback("PaneWebContentsDelegate.didChangeDevTools",
-                        base::DictValue().Set("open", devtools != nullptr));
+  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.didChangeDevTools",
+                 base::DictValue().Set("open", devtools != nullptr));
   PaneWebContents* tab = bridge->tab();
   id<PaneWebContentsDelegate> delegate = tab.delegate;
   if ([delegate respondsToSelector:@selector(webContents:
                                        didChangeDevTools:)]) {
+    ScopedAppCallback callback;
     [delegate webContents:tab didChangeDevTools:devtools_tab];
   }
 }
@@ -112,10 +114,11 @@ void WillPrint(content::WebContents* web_contents) {
   if (!bridge) {
     return;
   }
-  bridge->TraceCallback("PaneWebContentsDelegate.willPrint");
+  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.willPrint");
   PaneWebContents* tab = bridge->tab();
   id<PaneWebContentsDelegate> delegate = tab.delegate;
   if ([delegate respondsToSelector:@selector(webContentsWillPrint:)]) {
+    ScopedAppCallback callback;
     [delegate webContentsWillPrint:tab];
   }
 }

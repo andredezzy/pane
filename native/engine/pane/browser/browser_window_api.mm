@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "net/base/apple/url_conversions.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
@@ -98,7 +99,7 @@
 
 - (void)activateTab:(PaneWebContents*)tab {
   // Changing the tab strip while it notifies would re-enter TabStripModel.
-  if (pane::IsNotifyingTabStrip()) {
+  if (pane::InAppCallback()) {
     dispatch_async(dispatch_get_main_queue(), ^{
       [self activateTab:tab];
     });
@@ -137,6 +138,14 @@
 }
 
 - (void)close {
+  // Closing runs beforeunload and closes Browsers: never from inside a tab
+  // strip notification or a tab's callback.
+  if (pane::InAppCallback()) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self close];
+    });
+    return;
+  }
   _host->Close();
 }
 

@@ -1,5 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
+#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/login_handler.h"
 
 #include <optional>
@@ -82,12 +83,13 @@ bool LoginHandler::BuildViewImpl(const std::u16string& authority,
                          }
                        },
                        weak_factory_.GetWeakPtr())];
-  TabBridge::FromWebContents(web_contents())
-      ->TraceCallback("PaneWebContentsDelegate.authenticate",
-                      base::DictValue()
-                          .Set("host", info.challenger.Serialize())
-                          .Set("realm", info.realm)
-                          .Set("proxy", info.is_proxy));
+  PANE_TRACE_TAB(TabBridge::FromWebContents(web_contents()),
+                 "PaneWebContentsDelegate.authenticate",
+                 base::DictValue()
+                     .Set("host", info.challenger.Serialize())
+                     .Set("realm", info.realm)
+                     .Set("proxy", info.is_proxy));
+  ScopedAppCallback callback;
   [delegate webContents:tab authenticate:challenge_];
   return true;
 }

@@ -94,10 +94,12 @@ void TabBridge::TraceCallback(std::string_view name, base::DictValue args) {
 }
 
 void TabBridge::TitleWasSet(content::NavigationEntry* entry) {
+  ScopedAppCallback callback;
   [tab_ bridgeDidChangeTitle];
 }
 
 void TabBridge::PrimaryPageChanged(content::Page& page) {
+  ScopedAppCallback callback;
   [tab_ bridgeDidChangeURL];
   NavigationStateChanged();
 }
@@ -176,6 +178,7 @@ void TabBridge::OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
   if (notification_icon_type != NON_TOUCH_16_DIP || image.IsEmpty()) {
     return;
   }
+  ScopedAppCallback callback;
   [tab_ bridgeDidUpdateFavicon:image.ToNSImage()];
 }
 
@@ -185,6 +188,7 @@ void TabBridge::OnFindResultAvailable(content::WebContents* web_contents) {
     return;
   }
   const find_in_page::FindNotificationDetails& result = finder->find_result();
+  ScopedAppCallback callback;
   [tab_ bridgeDidFindMatches:result.number_of_matches()
                  activeMatch:result.active_match_ordinal()
                        final:result.final_update()];

@@ -1,5 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
+#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/permission_prompt.h"
 
 #include <utility>
@@ -63,11 +64,18 @@ std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
                                 }
                               },
                               delegate->GetWeakPtr())];
-  bridge->TraceCallback(
-      "PaneWebContentsDelegate.requestPermission",
-      base::DictValue()
-          .Set("permissions", std::move(traced))
-          .Set("origin", delegate->GetRequestingOrigin().spec()));
+  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.requestPermission",
+                 base::DictValue()
+                     .Set("permissions",
+                          [names] {
+                            base::ListValue traced;
+                            for (NSString* name in names) {
+                              traced.Append(base::SysNSStringToUTF8(name));
+                            }
+                            return traced;
+                          }())
+                     .Set("origin", delegate->GetRequestingOrigin().spec()));
+  ScopedAppCallback callback;
   [app webContents:tab requestPermission:prompt->request_];
   return prompt;
 }

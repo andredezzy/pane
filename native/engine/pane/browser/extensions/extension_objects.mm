@@ -17,6 +17,7 @@
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/options_page_info.h"
 #include "net/base/apple/url_conversions.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/extensions/action_popup.h"
 #include "skia/ext/skia_utils_mac.h"

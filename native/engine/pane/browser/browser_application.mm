@@ -266,9 +266,17 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 
 - (void)deleteContext:(PaneBrowserContext*)context
            completion:(void (^)(BOOL deleted))completion {
-  pane::Trace("call", "PaneBrowserApplication.deleteContext",
-              base::DictValue().Set("identifier",
-                                    base::SysNSStringToUTF8(context.identifier)));
+  // Deleting closes the profile's pages: never from inside a tab strip
+  // notification or a tab's callback.
+  if (pane::InAppCallback()) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self deleteContext:context completion:completion];
+    });
+    return;
+  }
+  PANE_TRACE("call", "PaneBrowserApplication.deleteContext",
+             base::DictValue().Set(
+                 "identifier", base::SysNSStringToUTF8(context.identifier)));
   Profile* profile = context.profile;
   if (!profile || _contexts[context.identifier] != context) {
     completion(NO);
@@ -300,7 +308,15 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 }
 
 - (void)terminate {
-  pane::Trace("call", "PaneBrowserApplication.terminate");
+  PANE_TRACE("call", "PaneBrowserApplication.terminate");
+  // Quitting closes every Browser: never from inside a tab strip
+  // notification or a tab's callback.
+  if (pane::InAppCallback()) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      chrome::AttemptExit();
+    });
+    return;
+  }
   chrome::AttemptExit();
 }
 

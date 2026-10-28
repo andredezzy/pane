@@ -1,5 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
+#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/javascript_dialog_manager.h"
 
 #include <utility>
@@ -204,12 +205,12 @@ bool JavaScriptDialogManager::Show(content::WebContents* web_contents,
   }
   // Recorded first: the app may answer before -runJavaScriptDialog: returns.
   dialogs_[web_contents] = dialog;
-  TabBridge::FromWebContents(web_contents)
-      ->TraceCallback("PaneWebContentsDelegate.runJavaScriptDialog",
-                      base::DictValue()
-                          .Set("type", TypeName(dialog.type))
-                          .Set("message",
-                               base::SysNSStringToUTF8(dialog.message)));
+  PANE_TRACE_TAB(TabBridge::FromWebContents(web_contents),
+                 "PaneWebContentsDelegate.runJavaScriptDialog",
+                 base::DictValue()
+                     .Set("type", TypeName(dialog.type))
+                     .Set("message", base::SysNSStringToUTF8(dialog.message)));
+  ScopedAppCallback callback;
   [delegate webContents:tab runJavaScriptDialog:dialog];
   return true;
 }

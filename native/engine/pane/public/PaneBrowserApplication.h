@@ -40,6 +40,16 @@ NS_SWIFT_UI_ACTOR
 // `+runWithDelegate:dataDirectory:`, which runs Chromium on the main thread
 // and returns only when the engine shuts down. Every class of this API is
 // main-thread only, and every callback arrives on the main thread.
+//
+// Delegate callbacks run inside Chromium's own dispatch (a page's observer,
+// a tab strip notification, a page's request). The app may read anything and
+// navigate from them. Calls that destroy a tab or change a tab strip run on
+// the next turn when made from a callback: PaneWebContents -close and
+// -closeImmediately, PaneBrowserWindow -activateTab: and -close, and this
+// class's -deleteContext:completion: and -terminate. -openTabWithURL:… does
+// its work at once (it returns the tab), so it is not for tab strip
+// callbacks (a window delegate's didInsertTab, didRemoveTab,
+// didActivateTab).
 PANE_EXPORT
 NS_SWIFT_NAME(BrowserApplication)
 NS_SWIFT_UI_ACTOR

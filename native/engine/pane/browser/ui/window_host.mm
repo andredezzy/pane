@@ -58,8 +58,6 @@ std::vector<WindowHost*>& Hosts() {
   return *hosts;
 }
 
-int g_tab_strip_notifying = 0;
-
 // The widget's close button asks the app (and the close sequence) first.
 class HostClientView : public views::ClientView {
  public:
@@ -99,10 +97,6 @@ void ActivateExclusively(Browser* browser) {
 }
 
 }  // namespace
-
-bool IsNotifyingTabStrip() {
-  return g_tab_strip_notifying > 0;
-}
 
 const std::vector<WindowHost*>& WindowHost::All() {
   return Hosts();
@@ -495,8 +489,7 @@ void WindowHost::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,
     const TabStripSelectionChange& selection) {
-  base::AutoReset<int> notifying(&g_tab_strip_notifying,
-                                 g_tab_strip_notifying + 1);
+  ScopedAppCallback callback;
   PaneBrowserWindow* owner = owner_;
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
 
@@ -561,10 +554,11 @@ void WindowHost::ShowExclusiveAccessHint(const std::u16string& marked_hint) {
   base::RemoveChars(marked_hint, u"|", &hint);
   PaneBrowserWindow* owner = owner_;
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
-  Trace("callback", "PaneBrowserWindowDelegate.showExclusiveAccessHint",
-        base::DictValue().Set("hint", base::UTF16ToUTF8(hint)));
+  PANE_TRACE("callback", "PaneBrowserWindowDelegate.showExclusiveAccessHint",
+             base::DictValue().Set("hint", base::UTF16ToUTF8(hint)));
   if ([delegate respondsToSelector:@selector(browserWindow:
                                        showExclusiveAccessHint:)]) {
+    ScopedAppCallback callback;
     [delegate browserWindow:owner
         showExclusiveAccessHint:hint.empty() ? nil
                                              : base::SysUTF16ToNSString(hint)];
@@ -576,10 +570,9 @@ void WindowHost::ActiveTabChanged(Browser* browser,
   if (!contents) {
     return;
   }
-  base::AutoReset<int> notifying(&g_tab_strip_notifying,
-                                 g_tab_strip_notifying + 1);
+  ScopedAppCallback callback;
   TabBridge* bridge = TabBridge::GetOrCreate(contents);
-  bridge->TraceCallback("PaneBrowserWindowDelegate.didActivateTab");
+  PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didActivateTab");
   PaneBrowserWindow* owner = owner_;
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   if ([delegate respondsToSelector:@selector(browserWindow:didActivateTab:)]) {
@@ -589,9 +582,10 @@ void WindowHost::ActiveTabChanged(Browser* browser,
 
 void WindowHost::FullscreenChanged(content::WebContents* contents,
                                    bool fullscreen) {
+  ScopedAppCallback callback;
   TabBridge* bridge = TabBridge::GetOrCreate(contents);
-  bridge->TraceCallback("PaneBrowserWindowDelegate.didChangeFullscreen",
-                        base::DictValue().Set("fullscreen", fullscreen));
+  PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didChangeFullscreen",
+                 base::DictValue().Set("fullscreen", fullscreen));
   PaneBrowserWindow* owner = owner_;
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   if ([delegate respondsToSelector:@selector

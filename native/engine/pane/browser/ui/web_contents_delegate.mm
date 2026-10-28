@@ -4,6 +4,7 @@
 // engine/ardiacore/src/ardia/core/ac_browser.mm, Copyright 2026 Mantra Patel,
 // Apache License 2.0; native/third_party/ardia).
 
+#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/web_contents_delegate.h"
 
 #include <utility>
@@ -150,6 +151,7 @@ bool HostedWebContentsDelegate::HandleContextMenu(
           .Set("spellcheck", params.spellcheck_enabled)
           .Set("suggestions",
                static_cast<int>(params.dictionary_suggestions.size())));
+  ScopedAppCallback callback;
   [delegate webContents:tab showContextMenu:menu];
   return true;
 }
@@ -186,7 +188,8 @@ void HostedWebContentsDelegate::RendererUnresponsive(
                       render_widget_host->GetProcess()->GetID(),
                       std::move(hang_monitor_restarter))];
   bridge->set_unresponsive_page(page);
-  bridge->TraceCallback("PaneWebContentsDelegate.becameUnresponsive");
+  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.becameUnresponsive");
+  ScopedAppCallback callback;
   [delegate webContents:tab becameUnresponsive:page];
 }
 

@@ -23,6 +23,7 @@
 #include "content/public/browser/web_contents.h"
 #include "net/base/apple/url_conversions.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
@@ -38,17 +39,14 @@ NSURL* _Nullable ToNSURL(const GURL& url) {
   return url.is_valid() ? net::NSURLWithGURL(url) : nil;
 }
 
-void TraceAnswer(std::string_view name, base::DictValue args = {}) {
-  pane::Trace("call", name, std::move(args));
-}
-
 // Tells the tab's delegate that the engine took `request` back.
 void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
-  pane::Trace("callback", "PaneWebContentsDelegate.didDismissRequest",
-              base::DictValue().Set("kind", kind));
+  PANE_TRACE("callback", "PaneWebContentsDelegate.didDismissRequest",
+             base::DictValue().Set("kind", kind));
   id<PaneWebContentsDelegate> delegate = tab.delegate;
   if ([delegate respondsToSelector:@selector(webContents:
                                        didDismissRequest:)]) {
+    pane::ScopedAppCallback callback;
     [delegate webContents:tab didDismissRequest:request];
   }
 }

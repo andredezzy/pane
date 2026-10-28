@@ -172,10 +172,6 @@ class WindowHost : public TabStripModelObserver,
   base::WeakPtrFactory<WindowHost> weak_factory_{this};
 };
 
-// While a tab strip notification runs, the app must not change the strip
-// (it would re-enter TabStripModel); API calls defer themselves meanwhile.
-bool IsNotifyingTabStrip();
-
 // Sets the hooks of pane/browser/ui/hooks.h. Called once, before the first
 // Browser exists.
 void InstallBrowserHooks();

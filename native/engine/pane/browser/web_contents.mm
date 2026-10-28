@@ -23,6 +23,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/common/page_zoom.h"
 #include "net/base/apple/url_conversions.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "ui/gfx/image/image.h"
@@ -334,27 +335,25 @@
 }
 
 - (void)close {
-  [self traceCall:"PaneWebContents.close" args:base::DictValue()];
-  if (!_contents) {
-    return;
-  }
-  BrowserWindowInterface* browser =
-      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
-          _contents.get());
-  if (!browser) {
-    return;
-  }
-  TabStripModel* model = browser->GetTabStripModel();
-  const int index = model->GetIndexOfWebContents(_contents.get());
-  if (index != TabStripModel::kNoTab) {
-    model->CloseWebContentsAt(
-        index, TabCloseTypes::CLOSE_USER_GESTURE |
-                   TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
-  }
+  PANE_TRACE_CALL("PaneWebContents.close");
+  [self closeRunningBeforeUnload:YES];
 }
 
 - (void)closeImmediately {
-  [self traceCall:"PaneWebContents.closeImmediately" args:base::DictValue()];
+  PANE_TRACE_CALL("PaneWebContents.closeImmediately");
+  [self closeRunningBeforeUnload:NO];
+}
+
+// Called back from inside Chromium's dispatch (a WebContents observer, a tab
+// strip notification), the app would destroy the tab Chromium is working on
+// or re-enter its tab strip: it closes on the next turn.
+- (void)closeRunningBeforeUnload:(BOOL)runBeforeUnload {
+  if (pane::InAppCallback()) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self closeRunningBeforeUnload:runBeforeUnload];
+    });
+    return;
+  }
   if (!_contents) {
     return;
   }
@@ -366,7 +365,14 @@
   }
   TabStripModel* model = browser->GetTabStripModel();
   const int index = model->GetIndexOfWebContents(_contents.get());
-  if (index != TabStripModel::kNoTab) {
+  if (index == TabStripModel::kNoTab) {
+    return;
+  }
+  if (runBeforeUnload) {
+    model->CloseWebContentsAt(index,
+                              TabCloseTypes::CLOSE_USER_GESTURE |
+                                  TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+  } else {
     model->DetachAndDeleteWebContentsAt(index);
   }
 }
