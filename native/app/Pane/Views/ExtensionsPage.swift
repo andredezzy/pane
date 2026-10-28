@@ -199,8 +199,8 @@ private struct SearchField: View {
 
 	var body: some View {
 		HStack(spacing: 8) {
-			Image(systemName: "magnifyingglass")
-				.font(.system(size: 13))
+			// 12.5 points of ink, as the SF Symbol it replaced at 13.
+			LucideIcon(.search, size: 15)
 				.foregroundStyle(Palette.mutedForeground)
 
 			TextField("", text: $text, prompt: Text("Search extensions").foregroundStyle(Palette.mutedForeground))
