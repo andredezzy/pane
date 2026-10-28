@@ -28,6 +28,26 @@ const dialogConfirm: Scenario = async (context) => {
 	const cancel = await answerSheet(app, "Cancel");
 	const refused = await pageResult<{ value: boolean }>(evaluate);
 
+	// Return presses OK and Esc dismisses, as Chrome's dialogs take them.
+	// The keys reach the app's key monitor without the key window.
+	const keys: Record<string, boolean> = {};
+
+	for (const [name, key] of [
+		["return", "\r"],
+		["escape", "\u001b"],
+	] as const) {
+		await page.evaluate("runConfirm()");
+		await waitForSheet(app, "javaScript");
+		await app.send("activate");
+		await app.send("key", { key });
+		keys[name] = (await pageResult<{ value: boolean }>(evaluate)).value;
+	}
+
+	expect(
+		keys.return === true && keys.escape === false,
+		`keys gave ${JSON.stringify(keys)}`,
+	);
+
 	expect(accepted.value === true, `OK gave ${accepted.value}`);
 	expect(refused.value === false, `Cancel gave ${refused.value}`);
 
@@ -48,7 +68,7 @@ const dialogConfirm: Scenario = async (context) => {
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
 
-	return { sheet, answers: [ok, cancel], accepted, refused, windows };
+	return { sheet, answers: [ok, cancel], accepted, refused, keys, windows };
 };
 
 export default dialogConfirm;

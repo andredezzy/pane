@@ -64,6 +64,27 @@ const permissionPrompt: Scenario = async (context) => {
 		"stateOf('clipboard-write')",
 	);
 
+	// Esc dismisses, as Chrome's prompt closed does: the page gets no fonts
+	// (an empty list, not an error), and the site may ask again.
+	await page.send("Runtime.evaluate", {
+		expression: "askFonts()",
+		userGesture: true,
+	});
+
+	await waitForSheet(app, "permission");
+	await app.send("activate");
+	await app.send("key", { key: "\u001b" });
+	const dismissed = await pageResult<string>(evaluate);
+
+	const fontsAfterEscape = await page.evaluate<string>(
+		"stateOf('local-fonts')",
+	);
+
+	expect(
+		dismissed === "granted 0" && fontsAfterEscape === "prompt",
+		`Esc gave ${dismissed}, then ${fontsAfterEscape}`,
+	);
+
 	// The site's next page: what was kept.
 	await app.send("closeTab", { tab });
 	const next = context.fixtures.url("permissions.html?next");
@@ -97,7 +118,8 @@ const permissionPrompt: Scenario = async (context) => {
 	expect(
 		has("PanePermissionRequest.deny") &&
 			has("PanePermissionRequest.allow") &&
-			has("PanePermissionRequest.allowThisTime"),
+			has("PanePermissionRequest.allowThisTime") &&
+			has("PanePermissionRequest.dismiss"),
 		"trace lacks the answers",
 	);
 

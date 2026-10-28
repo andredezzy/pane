@@ -53,61 +53,21 @@ struct RootView: View {
 				FindOverlay(controller: controller)
 			}
 
-			// The extensions menu, its trailing edge on the puzzle's, 4 points
-			// under it. A click anywhere else closes it, as a menu's would.
-			if extensions.menuOpen, let anchor = extensions.actionAnchors[ExtensionsController.menuAnchor] {
-				Color.clear
-					.contentShape(Rectangle())
-					.onTapGesture(perform: extensions.closeMenu)
-
-				let menuX = max(8, anchor.maxX - 300)
-
-				ExtensionsMenu(controller: extensions)
-					.padding(.leading, menuX)
-					.padding(.top, anchor.maxY + 4)
-					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-				// An extension's more menu: beside the menu, over its edge by 10
-				// points, level with the row, as Aside's.
-				if let more = extensions.moreMenu, let item = extensions.active.first(where: { $0.id == more.extensionID }) {
-					ExtensionMoreMenu(controller: extensions, item: item)
-						.padding(.leading, max(8, menuX - 230))
-						.padding(.top, more.row.minY)
-						.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+			// A page's dialog, where its alert sheet sat; it fades out over
+			// the window, not under it (a z-index), and under the overlays
+			// that follow, as the keys go (KeyRouter).
+			if let dialog = controller.dialogs.dialog {
+				AlertPlacement {
+					DialogView(dialog: dialog, presenter: controller.dialogs)
 				}
+				.transition(.opacity.combined(with: .scale(scale: 0.97)))
+				.zIndex(0.5)
 			}
 
-			// Adding an extension: Dia's dialog, centered on the scrim. Removing
-			// one: Aside's popup under its toolbar button, else the puzzle's, and
-			// centered where there is no toolbar (Settings). A click outside
-			// either cancels.
-			if let prompt = extensions.prompt, prompt.kind == .install {
-				Palette.modalScrim
-					.contentShape(Rectangle())
-					.onTapGesture { extensions.answerPrompt(accepted: false) }
-
-				ExtensionInstallDialog(controller: extensions, prompt: prompt)
-			} else if let prompt = extensions.prompt {
-				Color.clear
-					.contentShape(Rectangle())
-					.onTapGesture { extensions.answerPrompt(accepted: false) }
-
-				if showsToolbar, let anchor = extensions.actionAnchors[prompt.extensionID] ?? extensions.actionAnchors[ExtensionsController.menuAnchor] {
-					ExtensionPromptView(controller: extensions, prompt: prompt)
-						.padding(.leading, max(8, anchor.maxX - 320))
-						.padding(.top, anchor.maxY + 4)
-						.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-				} else {
-					ExtensionPromptView(controller: extensions, prompt: prompt)
-				}
+			Group {
+				extensionsOverlays
 			}
-
-			if state.switcher.visible {
-				Palette.sheetScrim
-					.allowsHitTesting(false)
-
-				TabSwitcherView(switcher: state.switcher, profiles: model.profiles)
-			}
+			.zIndex(0.6)
 
 			// The overlays that animate out carry a z-index, the PIN screen's
 			// over the rest: a view a ZStack removes drops to the back, so they
@@ -177,6 +137,67 @@ struct RootView: View {
 		}
 	}
 
+	// The extensions menu, its popups, and the switcher: over a page's
+	// dialog.
+	@ViewBuilder
+	private var extensionsOverlays: some View {
+		// The extensions menu, its trailing edge on the puzzle's, 4 points
+		// under it. A click anywhere else closes it, as a menu's would.
+		if extensions.menuOpen, let anchor = extensions.actionAnchors[ExtensionsController.menuAnchor] {
+			Color.clear
+				.contentShape(Rectangle())
+				.onTapGesture(perform: extensions.closeMenu)
+
+			let menuX = max(8, anchor.maxX - 300)
+
+			ExtensionsMenu(controller: extensions)
+				.padding(.leading, menuX)
+				.padding(.top, anchor.maxY + 4)
+				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+			// An extension's more menu: beside the menu, over its edge by 10
+			// points, level with the row, as Aside's.
+			if let more = extensions.moreMenu, let item = extensions.active.first(where: { $0.id == more.extensionID }) {
+				ExtensionMoreMenu(controller: extensions, item: item)
+					.padding(.leading, max(8, menuX - 230))
+					.padding(.top, more.row.minY)
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+			}
+		}
+
+		// Adding an extension: Dia's dialog, centered on the scrim. Removing
+		// one: Aside's popup under its toolbar button, else the puzzle's, and
+		// centered where there is no toolbar (Settings). A click outside
+		// either cancels.
+		if let prompt = extensions.prompt, prompt.kind == .install {
+			Palette.modalScrim
+				.contentShape(Rectangle())
+				.onTapGesture { extensions.answerPrompt(accepted: false) }
+
+			ExtensionInstallDialog(controller: extensions, prompt: prompt)
+		} else if let prompt = extensions.prompt {
+			Color.clear
+				.contentShape(Rectangle())
+				.onTapGesture { extensions.answerPrompt(accepted: false) }
+
+			if showsToolbar, let anchor = extensions.actionAnchors[prompt.extensionID] ?? extensions.actionAnchors[ExtensionsController.menuAnchor] {
+				ExtensionPromptView(controller: extensions, prompt: prompt)
+					.padding(.leading, max(8, anchor.maxX - 320))
+					.padding(.top, anchor.maxY + 4)
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+			} else {
+				ExtensionPromptView(controller: extensions, prompt: prompt)
+			}
+		}
+
+		if state.switcher.visible {
+			Palette.sheetScrim
+				.allowsHitTesting(false)
+
+			TabSwitcherView(switcher: state.switcher, profiles: model.profiles)
+		}
+	}
+
 	// The content panel: m-2 ml-0, rounded 18, the panel shadow.
 	private var content: some View {
 		let radius: CGFloat = fullscreen ? 0 : 18
@@ -205,6 +226,12 @@ struct RootView: View {
 					}
 				}
 				.clipShape(PanelCorners(radius: radius, top: showsToolbar ? ToolbarView.height : 0))
+
+				// No click reaches the page under its dialog.
+				if controller.dialogs.dialog != nil {
+					Color.clear
+						.contentShape(Rectangle())
+				}
 			}
 		}
 		.surfaceBackground(cornerRadius: radius, ring: fullscreen ? .clear : Palette.border, shadow: fullscreen ? .clear : PanelShadow.color)
@@ -238,5 +265,25 @@ struct PageHostRepresentable: NSViewRepresentable {
 
 	func updateNSView(_ nsView: PageHostView, context: Context) {
 		nsView.layer?.cornerRadius = cornerRadius
+	}
+}
+
+// Where an alert sheet sat on the window: centered across it, its top at
+// three eighths of its height (Paper: 300 of 800), raised as far as it must
+// to fit. Below that line it has the rest of the window; a longer message
+// scrolls.
+private struct AlertPlacement: Layout {
+	func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+		proposal.replacingUnspecifiedDimensions()
+	}
+
+	func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+		let line = (bounds.height * 3 / 8).rounded()
+
+		for subview in subviews {
+			let size = subview.sizeThatFits(ProposedViewSize(width: bounds.width, height: bounds.height - line - 16))
+			let top = max(8, min(line, bounds.height - size.height - 16))
+			subview.place(at: CGPoint(x: bounds.midX, y: bounds.minY + top), anchor: .top, proposal: ProposedViewSize(size))
+		}
 	}
 }

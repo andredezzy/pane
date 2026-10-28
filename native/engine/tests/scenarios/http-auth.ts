@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import {
+	dialogFieldWidths,
 	isScreenLocked,
 	mainWindowOf,
-	sheetFieldWidths,
 	windowState,
 } from "../lib/cua";
 import { tabOf } from "../lib/pane";
@@ -11,7 +11,7 @@ import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// A server asking for credentials (HTTP Basic) gets the app's sheet: Cancel
+// A server asking for credentials (HTTP Basic) gets the app's dialog: Cancel
 // shows the server's refusal, the right credentials sign in.
 const httpAuth: Scenario = async (context) => {
 	const { app, has } = await launchTraced(context, "http-auth");
@@ -32,28 +32,28 @@ const httpAuth: Scenario = async (context) => {
 	await app.send("reload");
 	await waitForSheet(app, "authentication");
 
-	// On screen: both fields at their full width, and a picture of the sheet.
+	// On screen: both fields at their full width, and a picture of the dialog.
 	let fields: number[] | "locked" = "locked";
 
 	if (await isScreenLocked()) {
-		context.defer("the sheet's fields at their full width, on screen");
+		context.defer("the dialog's fields at their full width, on screen");
 	} else {
 		const window = await mainWindowOf(app.browser.pid);
 
 		const wide = (widths: number[]) =>
 			widths.length === 2 && widths.every((width) => width >= 200);
 
-		// The sheet's fields reach accessibility a moment after it shows.
+		// The dialog's fields reach accessibility a moment after it shows.
 		fields = await poll(
-			"the sheet's fields",
+			"the dialog's fields",
 			async () => {
-				const widths = await sheetFieldWidths(app.browser.pid, window);
+				const widths = await dialogFieldWidths(app.browser.pid, window);
 
 				return wide(widths) && widths;
 			},
 			5_000,
 			200,
-		).catch(() => sheetFieldWidths(app.browser.pid, window));
+		).catch(() => dialogFieldWidths(app.browser.pid, window));
 
 		await windowState(
 			app.browser.pid,
@@ -63,7 +63,7 @@ const httpAuth: Scenario = async (context) => {
 
 		expect(
 			wide(fields),
-			`the sheet's fields are ${JSON.stringify(fields)} wide`,
+			`the dialog's fields are ${JSON.stringify(fields)} wide`,
 		);
 	}
 

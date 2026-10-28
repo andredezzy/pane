@@ -45,6 +45,7 @@ final class KeyRouter {
 			extensionsMenu: extensions.menuOpen,
 			extensionMoreMenu: extensions.moreMenu != nil,
 			switcher: state.switcher.visible,
+			dialog: controller.dialogs.dialog != nil,
 			pageFullscreen: state.pageFullscreen,
 			// A field being edited: its field editor has the keyboard.
 			textFieldFocused: controller.browserWindow.window.firstResponder is NSTextView
@@ -70,7 +71,8 @@ final class KeyRouter {
 		case let .cycleSwitcher(backward): controller.cycleSwitcher(backward: backward)
 		case .cancelSwitcher: controller.cancelSwitcher()
 		case .commitSwitcher: controller.commitSwitcher()
-		case .cancelDialog, .confirmDialog: break
+		case .cancelDialog: controller.dialogs.dismiss()
+		case .confirmDialog: controller.dialogs.confirm()
 		case .exitPageFullscreen: controller.activePage?.exitFullscreen()
 		}
 	}

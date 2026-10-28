@@ -399,7 +399,7 @@ extension Automation {
 		return .handled(nil)
 	}
 
-	// A sheet's button, as the user clicks it: an extension's popup, or a
+	// A dialog's button, as the user clicks it: an extension's popup, or a
 	// page's dialog, its fields filled first.
 	private func clickSheetButton(_ title: String, texts: [String]) throws {
 		if let prompt = controller.extensions.prompt {
@@ -411,19 +411,18 @@ extension Automation {
 			return
 		}
 
-		guard let alert = controller.dialogs.presented?.alert else {
-			throw AutomationError("no sheet")
+		let dialogs = controller.dialogs
+
+		guard let dialog = dialogs.dialog else {
+			throw AutomationError("no dialog")
 		}
 
-		guard let button = alert.buttons.first(where: { $0.title == title }) else {
-			throw AutomationError("no button \(title); buttons: \(alert.buttons.map(\.title))")
+		guard let index = dialog.buttons.firstIndex(of: title) else {
+			throw AutomationError("no button \(title); buttons: \(dialog.buttons)")
 		}
 
-		for (field, text) in zip(Self.textFields(in: alert.accessoryView), texts) {
-			field.stringValue = text
-		}
-
-		button.performClick(nil)
+		dialogs.fill(texts)
+		dialogs.press(index)
 	}
 
 	// MARK: Extensions

@@ -285,17 +285,13 @@ export async function activateWebAccessibility(pid: number): Promise<void> {
 	await Bun.sleep(1_000);
 }
 
-// The widths of the text fields in the window's sheet.
-export async function sheetFieldWidths(
+// The widths of a page's dialog's text fields. The dialog is modal to
+// accessibility, so the window shows only its controls while it is up.
+export async function dialogFieldWidths(
 	pid: number,
 	windowId: number,
 ): Promise<number[]> {
-	type Element = {
-		element_index: number;
-		parent_index?: number;
-		role: string;
-		frame?: { w: number };
-	};
+	type Element = { role: string; frame?: { w: number } };
 
 	const { elements } = await call<{ elements: Element[] }>("get_window_state", {
 		pid,
@@ -305,24 +301,8 @@ export async function sheetFieldWidths(
 		include_screenshot: false,
 	});
 
-	const byIndex = new Map(
-		elements.map((element) => [element.element_index, element]),
-	);
-
-	const inSheet = (element: Element): boolean => {
-		const parent =
-			element.parent_index === undefined
-				? undefined
-				: byIndex.get(element.parent_index);
-
-		return !!parent && (parent.role === "AXSheet" || inSheet(parent));
-	};
-
 	return elements
-		.filter(
-			(element) =>
-				/AX(Secure)?TextField/.test(element.role) && inSheet(element),
-		)
+		.filter((element) => /AX(Secure)?TextField/.test(element.role))
 		.map((element) => element.frame?.w ?? 0);
 }
 

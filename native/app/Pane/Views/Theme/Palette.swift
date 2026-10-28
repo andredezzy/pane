@@ -81,6 +81,30 @@ enum Palette {
 		isDark(appearance) ? NSColor(white: 0.98, alpha: 0.05) : NSColor(rgb: 0x18181B, alpha: 0.04)
 	})
 
+	// A page's dialog (Paper: 03.15 to 03.23), drawn as macOS draws an
+	// alert: its gray panel at 95% with a hairline edge, its text, its
+	// fields, its gray and blue buttons, and its shadow (0 16px 48px black
+	// 25%, in both themes).
+	enum Alert {
+		static let panel = Color(nsColor: NSColor(name: nil) { appearance in
+			isDark(appearance) ? NSColor(rgb: 0x2C2C2E, alpha: 0.95) : NSColor(rgb: 0xEBEBEB, alpha: 0.95)
+		})
+		static let edge = Color(nsColor: NSColor(name: nil) { appearance in
+			isDark(appearance) ? NSColor(white: 1, alpha: 0.14) : NSColor(white: 0, alpha: 0.12)
+		})
+		// AppKit's, for the fields' text, and SwiftUI's.
+		static let textColor = dynamic(0x1D1D1F, 0xF5F5F7)
+		static let text = Color(nsColor: textColor)
+		static let field = pair(0xFFFFFF, 0x1C1C1E)
+		static let fieldEdge = Color(nsColor: NSColor(name: nil) { appearance in
+			isDark(appearance) ? NSColor(white: 1, alpha: 0.18) : NSColor(white: 0, alpha: 0.18)
+		})
+		static let placeholderColor = NSColor(rgb: 0x8E8E93)
+		static let button = pair(0xDADADA, 0x48484A)
+		static let defaultButton = pair(0x3478F6, 0x0A84FF)
+		static let shadow = Color.black.opacity(0.25)
+	}
+
 	// The 2px loading bar under the address: blue-500 to blue-400.
 	static let progress = LinearGradient(
 		colors: [Color(rgb: 0x3B82F6), Color(rgb: 0x60A5FA)],

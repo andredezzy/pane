@@ -57,18 +57,6 @@ extension Automation {
 		return ((view as? NSButton).map { [$0] } ?? []) + view.subviews.flatMap { buttons(in: $0) }
 	}
 
-	static func textFields(in view: NSView?) -> [NSTextField] {
-		guard let view else {
-			return []
-		}
-
-		if let field = view as? NSTextField, field.isEditable {
-			return [field]
-		}
-
-		return view.subviews.flatMap { textFields(in: $0) }
-	}
-
 	// Every visible window of the process, by what it is to the app: its
 	// window, the sheet on it, an app-modal panel, or other (Chrome's own).
 	private func nativeWindows() -> [[String: Any]] {
@@ -122,14 +110,14 @@ extension Automation {
 			return NSNull()
 		}
 
-		if let alert = presented.alert {
+		if let dialog = presented.dialog {
 			return [
 				"kind": presented.pending.request.kind,
 				"tabID": presented.pending.tabID ?? NSNull(),
-				"title": alert.messageText,
-				"message": alert.informativeText,
-				"buttons": alert.buttons.map(\.title),
-				"fields": Self.textFields(in: alert.accessoryView).map(\.stringValue),
+				"title": dialog.title,
+				"message": dialog.message.joined(separator: "\n"),
+				"buttons": dialog.buttons,
+				"fields": controller.dialogs.fieldTexts,
 			] as [String: Any]
 		}
 

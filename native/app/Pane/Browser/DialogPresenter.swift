@@ -1,12 +1,18 @@
 import AppKit
 import PaneCore
+import SwiftUI
 import UniformTypeIdentifiers
 
-// Shows the engine's requests (PaneDialogs.h) as native sheets on the window,
-// one at a time. A tab's requests show only while the tab is selected, as
-// Chrome's tab-modal dialogs do; the rest wait their turn. File choosers
-// belong to the window and show whichever tab is selected.
+// Shows the engine's requests (PaneDialogs.h) one at a time. A page's
+// dialog (an alert, a permission, a sign-in, an external app, an
+// unresponsive page) is drawn in the window (DialogView), as the NSAlert
+// sheet it replaced looked; a sheet held the main thread, Chromium's UI
+// thread, some 280 ms as it attached. A tab's requests show only while the
+// tab is selected, as Chrome's tab-modal dialogs do; the rest wait their
+// turn. File choosers stay the system's open and save panels, and belong to
+// the window: they show whichever tab is selected.
 @MainActor
+@Observable
 final class DialogPresenter {
 	@MainActor
 	enum Request {
@@ -57,30 +63,40 @@ final class DialogPresenter {
 		let request: Request
 	}
 
-	// What is on screen: an alert, or a file panel.
+	// What is on screen: a dialog in the window, or a file panel.
 	struct Presented {
 		let pending: Pending
-		let alert: NSAlert?
+		let dialog: PageDialog?
 		let panel: NSSavePanel?
 		let token: Token
 	}
 
-	// Identifies one showing of a sheet. A sheet the app takes down
-	// unanswered is retracted, so its completion answers nothing.
+	// Identifies one showing. A dialog or panel the app takes down unanswered
+	// is retracted, so nothing it does after answers.
 	final class Token {
 		var retracted = false
 	}
 
-	private let window: NSWindow
-	private let activeTabID: () -> String?
-	// Behind the PIN lock requests wait: a sheet would show over the PIN
-	// screen, with the page's text.
-	private let isHeld: () -> Bool
-	private var queue: [Pending] = []
 	private(set) var presented: Presented?
+
+	@ObservationIgnored private let window: NSWindow
+	@ObservationIgnored private let activeTabID: () -> String?
+	// Behind the PIN lock requests wait: a dialog would show over the PIN
+	// screen, with the page's text.
+	@ObservationIgnored private let isHeld: () -> Bool
+	@ObservationIgnored private var queue: [Pending] = []
+	// The shown dialog's fields, by index: their text is what it answers.
+	@ObservationIgnored private var fields: [Int: NSTextField] = [:]
+	// What had the keyboard before a dialog's field took it, for after.
+	@ObservationIgnored private weak var focusBefore: NSResponder?
 
 	var pendingCount: Int {
 		queue.count
+	}
+
+	// The dialog on screen, if a dialog is.
+	var dialog: PageDialog? {
+		presented?.dialog
 	}
 
 	init(window: NSWindow, activeTabID: @escaping () -> String?, isHeld: @escaping () -> Bool) {
@@ -109,7 +125,7 @@ final class DialogPresenter {
 		presentNext()
 	}
 
-	// The selected tab changed: a sheet of another tab goes back in line.
+	// The selected tab changed: a dialog of another tab goes back in line.
 	func selectionChanged() {
 		if let presented, let tabID = presented.pending.tabID, tabID != activeTabID() {
 			retract()
@@ -117,6 +133,55 @@ final class DialogPresenter {
 		}
 
 		presentNext()
+	}
+
+	// MARK: Answering the dialog
+
+	// The shown dialog's fields, as they read now.
+	var fieldTexts: [String] {
+		(dialog?.fields ?? []).indices.map { fields[$0]?.stringValue ?? dialog?.fields[$0].text ?? "" }
+	}
+
+	// A field of the shown dialog, as it is drawn.
+	func register(_ field: NSTextField, at index: Int) {
+		fields[index] = field
+	}
+
+	// Types into the shown dialog's fields, in order: for scenarios.
+	func fill(_ texts: [String]) {
+		for (index, text) in texts.enumerated() {
+			fields[index]?.stringValue = text
+		}
+	}
+
+	// One of its buttons, by its index in `dialog.buttons`.
+	func press(_ index: Int) {
+		answer(.button(index))
+	}
+
+	// Return: its default button, the first.
+	func confirm() {
+		answer(.button(0))
+	}
+
+	// Esc: what Chrome does when its dialog is dismissed.
+	func dismiss() {
+		answer(.dismissed)
+	}
+
+	private func answer(_ answer: PageDialog.Answer) {
+		guard let presented, let dialog = presented.dialog else {
+			return
+		}
+
+		guard !presented.token.retracted else {
+			return
+		}
+
+		// Once: a second press in the same frame answers nothing.
+		presented.token.retracted = true
+		dialog.answer(answer, fieldTexts)
+		end(presented)
 	}
 
 	// Answers the shown file panel with `urls` (nil: cancel) without the user
@@ -166,26 +231,29 @@ final class DialogPresenter {
 			return
 		}
 
-		let (alert, answer) = alert(for: pending.request)
-		let token = Token()
-		presented = Presented(pending: pending, alert: alert, panel: nil, token: token)
-		alert.beginSheetModal(for: window) { [weak self] response in
-			MainActor.assumeIsolated {
-				if !token.retracted {
-					answer(response)
-				}
+		let dialog = Self.dialog(for: pending.request)
+		fields = [:]
 
-				self?.sheetEnded(token)
-			}
+		if !dialog.fields.isEmpty {
+			focusBefore = window.firstResponder
+		}
+
+		withAnimation(Motion.panel) {
+			presented = Presented(pending: pending, dialog: dialog, panel: nil, token: Token())
 		}
 	}
 
-	private func sheetEnded(_ token: Token) {
-		if presented?.token === token {
-			presented = nil
+	// The dialog goes; the next request waits for the main loop's next turn,
+	// so one never replaces another within an update.
+	private func end(_ shown: Presented) {
+		withAnimation(Motion.panel) {
+			if presented?.token === shown.token {
+				presented = nil
+			}
 		}
 
-		// The next sheet waits for this one to finish leaving the window.
+		restoreFocus()
+
 		DispatchQueue.main.async { [weak self] in
 			self?.presentNext()
 		}
@@ -197,152 +265,141 @@ final class DialogPresenter {
 		}
 
 		presented.token.retracted = true
-		self.presented = nil
 
-		if let sheet = presented.alert?.window ?? presented.panel {
-			window.endSheet(sheet, returnCode: .abort)
+		if let panel = presented.panel {
+			self.presented = nil
+			window.endSheet(panel, returnCode: .abort)
+		} else {
+			withAnimation(Motion.panel) {
+				self.presented = nil
+			}
+
+			restoreFocus()
 		}
 	}
 
-	// MARK: Alerts
+	// A dialog's field took the keyboard from the page: it goes back.
+	private func restoreFocus() {
+		guard let focusBefore else {
+			return
+		}
 
-	// An alert for the request, and what each of its buttons answers.
-	private func alert(for request: Request) -> (NSAlert, (NSApplication.ModalResponse) -> Void) {
-		let alert = NSAlert()
-		let first = NSApplication.ModalResponse.alertFirstButtonReturn
-		let second = NSApplication.ModalResponse.alertSecondButtonReturn
+		self.focusBefore = nil
 
+		if let view = focusBefore as? NSView, view.window === window {
+			window.makeFirstResponder(view)
+		}
+	}
+
+	// MARK: Dialogs
+
+	// The request as its dialog: its text, fields, and buttons (the default
+	// first, as an NSAlert orders them), and what each answer does.
+	private static func dialog(for request: Request) -> PageDialog {
 		switch request {
 		case let .javaScript(dialog):
-			return javaScriptAlert(alert, dialog)
+			return javaScriptDialog(dialog)
 
 		case let .permission(request):
-			alert.messageText = "\(Self.host(request.originURL)) wants to"
-			alert.informativeText = request.permissions.map(Self.describe).joined(separator: "\n")
-			alert.addButton(withTitle: "Allow")
-			alert.addButton(withTitle: "Allow This Time")
-			alert.addButton(withTitle: "Don’t Allow")
-
-			return (alert, { response in
-				switch response {
-				case first: request.allow()
-				case second: request.allowThisTime()
-				case .alertThirdButtonReturn: request.deny()
-				default: request.dismiss()
+			return PageDialog(
+				title: "\(host(request.originURL)) wants to",
+				message: request.permissions.map(describe),
+				buttons: ["Allow", "Allow This Time", "Don\u{2019}t Allow"]
+			) { answer, _ in
+				switch answer {
+				case .button(0): request.allow()
+				case .button(1): request.allowThisTime()
+				case .button: request.deny()
+				// Closed without a choice: the site may ask again.
+				case .dismissed: request.dismiss()
 				}
-			})
-
-		case let .authentication(challenge):
-			let username = NSTextField(string: "")
-			username.placeholderString = "Username"
-			let password = NSSecureTextField(string: "")
-			password.placeholderString = "Password"
-			let fields = NSStackView(views: [username, password])
-			fields.orientation = .vertical
-			fields.spacing = 8
-			fields.frame = NSRect(x: 0, y: 0, width: 260, height: 54)
-			// The alert lays its accessory out with constraints: without
-			// them a stack sizes each empty field to its content.
-			for field in [username, password] {
-				field.widthAnchor.constraint(equalToConstant: 260).isActive = true
 			}
 
-			alert.messageText = "Sign in"
-			alert.informativeText = challenge.isForProxy
-				? "The proxy \(challenge.host) requires a username and password."
-				: "\(challenge.host) requires a username and password."
-			alert.accessoryView = fields
-			alert.addButton(withTitle: "Sign In")
-			alert.addButton(withTitle: "Cancel")
-			alert.window.initialFirstResponder = username
-
-			return (alert, { response in
-				if response == first {
-					challenge.provide(username: username.stringValue, password: password.stringValue)
+		case let .authentication(challenge):
+			return PageDialog(
+				title: "Sign in",
+				message: [challenge.isForProxy
+					? "The proxy \(challenge.host) requires a username and password."
+					: "\(challenge.host) requires a username and password."],
+				fields: [.init(placeholder: "Username"), .init(placeholder: "Password", isSecure: true)],
+				buttons: ["Sign In", "Cancel"]
+			) { answer, texts in
+				if answer == .button(0) {
+					challenge.provide(username: texts[0], password: texts[1])
 				} else {
 					challenge.cancel()
 				}
-			})
+			}
 
 		case let .externalProtocol(request):
-			alert.messageText = "Open “\(request.applicationName)”?"
-			alert.informativeText = request.originURL.map { "\(Self.host($0)) wants to open this application." }
-				?? "A website wants to open this application."
-			alert.addButton(withTitle: "Open \(request.applicationName)")
-			alert.addButton(withTitle: "Cancel")
-
-			return (alert, { response in
-				response == first ? request.open() : request.cancel()
-			})
+			return PageDialog(
+				title: "Open \u{201C}\(request.applicationName)\u{201D}?",
+				message: [request.originURL.map { "\(host($0)) wants to open this application." } ?? "A website wants to open this application."],
+				buttons: ["Open \(request.applicationName)", "Cancel"]
+			) { answer, _ in
+				answer == .button(0) ? request.open() : request.cancel()
+			}
 
 		case let .unresponsive(page):
-			alert.messageText = "Page Unresponsive"
-			alert.informativeText = "You can wait for it to become responsive, or exit the page."
-			alert.addButton(withTitle: "Wait")
-			alert.addButton(withTitle: "Exit Page")
-
-			return (alert, { response in
-				response == second ? page.terminate() : page.wait()
-			})
+			// Dismissed, it waits, as Chrome's dialog closed does.
+			return PageDialog(
+				title: "Page Unresponsive",
+				message: ["You can wait for it to become responsive, or exit the page."],
+				buttons: ["Wait", "Exit Page"]
+			) { answer, _ in
+				answer == .button(1) ? page.terminate() : page.wait()
+			}
 
 		case .fileChooser:
 			preconditionFailure("file choosers show a panel")
 		}
 	}
 
-	private func javaScriptAlert(_ alert: NSAlert, _ dialog: JavaScriptDialog) -> (NSAlert, (NSApplication.ModalResponse) -> Void) {
-		let origin = dialog.originURL.map { "\(Self.host($0)) says" } ?? "This page says"
-		var field: NSTextField?
-
-		switch dialog.type {
-		case .alert:
-			alert.messageText = origin
-			alert.informativeText = dialog.message
-			alert.addButton(withTitle: "OK")
-
-		case .confirm:
-			alert.messageText = origin
-			alert.informativeText = dialog.message
-			alert.addButton(withTitle: "OK")
-			alert.addButton(withTitle: "Cancel")
-
-		case .prompt:
-			let input = NSTextField(string: dialog.defaultPromptText)
-			input.frame = NSRect(x: 0, y: 0, width: 260, height: 24)
-			input.widthAnchor.constraint(equalToConstant: 260).isActive = true
-			field = input
-			alert.messageText = origin
-			alert.informativeText = dialog.message
-			alert.accessoryView = input
-			alert.addButton(withTitle: "OK")
-			alert.addButton(withTitle: "Cancel")
-			alert.window.initialFirstResponder = input
-
-		case .beforeUnload:
-			alert.messageText = dialog.isReload ? "Reload site?" : "Leave site?"
-			alert.informativeText = "Changes you made may not be saved."
-			alert.addButton(withTitle: dialog.isReload ? "Reload" : "Leave")
-			alert.addButton(withTitle: "Cancel")
-
-		case .formResubmission:
-			alert.messageText = "Confirm Form Resubmission"
-			alert.informativeText = "This page needs data you entered earlier. Sending it again repeats any action the page performed."
-			alert.addButton(withTitle: "Continue")
-			alert.addButton(withTitle: "Cancel")
-
-		@unknown default:
-			alert.messageText = origin
-			alert.informativeText = dialog.message
-			alert.addButton(withTitle: "OK")
-		}
-
-		return (alert, { response in
-			if response == .alertFirstButtonReturn {
-				dialog.accept(text: field?.stringValue)
+	private static func javaScriptDialog(_ dialog: JavaScriptDialog) -> PageDialog {
+		let origin = dialog.originURL.map { "\(host($0)) says" } ?? "This page says"
+		let accept: @MainActor (PageDialog.Answer, [String]) -> Void = { answer, texts in
+			if answer == .button(0) {
+				dialog.accept(text: texts.first)
 			} else {
 				dialog.cancel()
 			}
-		})
+		}
+
+		switch dialog.type {
+		case .alert:
+			return PageDialog(title: origin, message: [dialog.message], buttons: ["OK"], answer: accept)
+
+		case .confirm:
+			return PageDialog(title: origin, message: [dialog.message], buttons: ["OK", "Cancel"], answer: accept)
+
+		case .prompt:
+			return PageDialog(
+				title: origin,
+				message: [dialog.message],
+				fields: [.init(placeholder: "", text: dialog.defaultPromptText)],
+				buttons: ["OK", "Cancel"],
+				answer: accept
+			)
+
+		case .beforeUnload:
+			return PageDialog(
+				title: dialog.isReload ? "Reload site?" : "Leave site?",
+				message: ["Changes you made may not be saved."],
+				buttons: [dialog.isReload ? "Reload" : "Leave", "Cancel"],
+				answer: accept
+			)
+
+		case .formResubmission:
+			return PageDialog(
+				title: "Confirm Form Resubmission",
+				message: ["This page needs data you entered earlier. Sending it again repeats any action the page performed."],
+				buttons: ["Continue", "Cancel"],
+				answer: accept
+			)
+
+		@unknown default:
+			return PageDialog(title: origin, message: [dialog.message], buttons: ["OK"], answer: accept)
+		}
 	}
 
 	// MARK: File panels
@@ -372,12 +429,12 @@ final class DialogPresenter {
 		}
 
 		panel.directoryURL = chooser.directoryURL
-		let token = Token()
-		presented = Presented(pending: pending, alert: nil, panel: panel, token: token)
+		let shown = Presented(pending: pending, dialog: nil, panel: panel, token: Token())
+		presented = shown
 
 		panel.beginSheetModal(for: window) { [weak self] response in
 			MainActor.assumeIsolated {
-				if !token.retracted {
+				if !shown.token.retracted {
 					if response == .OK {
 						chooser.choose((panel as? NSOpenPanel)?.urls ?? panel.url.map { [$0] } ?? [])
 					} else {
@@ -385,8 +442,19 @@ final class DialogPresenter {
 					}
 				}
 
-				self?.sheetEnded(token)
+				self?.panelEnded(shown.token)
 			}
+		}
+	}
+
+	private func panelEnded(_ token: Token) {
+		if presented?.token === token {
+			presented = nil
+		}
+
+		// The next request waits for the panel to finish leaving the window.
+		DispatchQueue.main.async { [weak self] in
+			self?.presentNext()
 		}
 	}
 
@@ -419,4 +487,29 @@ final class DialogPresenter {
 		default: "• \(permission.replacingOccurrences(of: "_", with: " "))"
 		}
 	}
+}
+
+// A page's dialog as the window draws it: the title, the message's lines,
+// the fields, and the buttons, the default one first.
+struct PageDialog: Identifiable {
+	enum Answer: Equatable {
+		// One of the buttons, by index.
+		case button(Int)
+		// Esc: Chrome's dismissal, a cancel for most.
+		case dismissed
+	}
+
+	struct Field {
+		var placeholder: String
+		var isSecure = false
+		var text = ""
+	}
+
+	let id = UUID()
+	let title: String
+	let message: [String]
+	var fields: [Field] = []
+	let buttons: [String]
+	// Answered once, with the fields' text.
+	let answer: @MainActor (Answer, [String]) -> Void
 }
