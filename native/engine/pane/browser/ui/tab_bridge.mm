@@ -159,19 +159,29 @@ void TabBridge::DidFinishNavigation(
   RenameWebStoreButtons(navigation_handle);
 }
 
+// The page is loading only while a new document loads in its main frame, as
+// Chrome's own tab and toolbar show it (ShouldShowLoadingUI). A frame tree
+// that loads only iframes, as an embed does when its tab comes forward or an
+// ad as it refreshes, starts and stops loading too, under a page already
+// shown. These three cover every change between the two: a main frame's load
+// reports its progress as it starts and as it ends, each after its state
+// changed, and the frame tree's start and stop cover the rest.
 void TabBridge::DidStartLoading() {
-  ScopedAppCallback callback;
-  [tab_ bridgeDidChangeLoading:YES progress:0];
+  ReportLoading(0);
 }
 
 void TabBridge::DidStopLoading() {
-  ScopedAppCallback callback;
-  [tab_ bridgeDidChangeLoading:NO progress:1];
+  ReportLoading(1);
 }
 
 void TabBridge::LoadProgressChanged(double progress) {
+  ReportLoading(progress);
+}
+
+void TabBridge::ReportLoading(double progress) {
   ScopedAppCallback callback;
-  [tab_ bridgeDidChangeLoading:web_contents()->IsLoading() progress:progress];
+  [tab_ bridgeDidChangeLoading:web_contents()->ShouldShowLoadingUI()
+                      progress:progress];
 }
 
 void TabBridge::PrimaryMainFrameRenderProcessGone(

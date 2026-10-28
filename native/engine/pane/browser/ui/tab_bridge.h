@@ -131,6 +131,8 @@ class TabBridge : public content::WebContentsObserver,
   TabBridge(content::WebContents* contents, PaneWebContents* tab);
 
   void NavigationStateChanged();
+  // Tells the app whether the page loads a new document, and how far.
+  void ReportLoading(double progress);
   void StopObservingHelpers();
 
   PaneWebContents* __strong tab_;

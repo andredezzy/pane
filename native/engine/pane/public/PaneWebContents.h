@@ -35,7 +35,9 @@ NS_SWIFT_UI_ACTOR
      didChangeTitle:(NSString*)title;
 - (void)webContents:(PaneWebContents*)webContents didChangeURL:(NSURL*)URL;
 
-// `isLoading` flips at the start and end of a load; `progress` is in [0, 1].
+// `isLoading` holds while a new document loads in the main frame, as Chrome's
+// own loading UI shows (an iframe's load is not the page's); `progress` is
+// the main frame's, in [0, 1].
 - (void)webContents:(PaneWebContents*)webContents
     didChangeLoading:(BOOL)isLoading
             progress:(double)progress;

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Widget page</title>
+		<link rel="icon" href="favicon.png">
+	</head>
+	<body>
+		<h1>A page with a widget</h1>
+		<script>
+			// A frame that loads under the page, slowly, as an embed or a chat
+			// widget does when its tab comes forward. Resolves when it loaded.
+			function addWidget(delay) {
+				return new Promise((resolve) => {
+					const frame = document.createElement("iframe");
+					frame.onload = () => resolve(true);
+					frame.src = `light.html?delay=${delay}&at=${Date.now()}`;
+					document.body.append(frame);
+				});
+			}
+		</script>
+	</body>
+</html>
