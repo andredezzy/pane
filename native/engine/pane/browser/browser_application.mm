@@ -159,6 +159,11 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
                   "OptimizationGuideModelExecution,"
                   "OnDeviceModelBackgroundDownload,OptimizationHints,"
                   "TranslateRankerQuery,TranslateRankerEnforcement");
+  // Chrome discards background tabs under memory pressure (its urgent
+  // discarding), swapping an empty WebContents into the tab. Pane's sleep
+  // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard
+  // still works, and the TabBridge follows the tab into its new WebContents.
+  AddToSwitchList(args, "enable-features", "DisableTabDiscarding");
 
   // An explicit --user-data-dir (scenarios use throwaway ones) wins.
   if (!HasSwitch(args, "user-data-dir")) {

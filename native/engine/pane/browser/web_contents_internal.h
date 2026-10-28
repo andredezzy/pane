@@ -19,6 +19,9 @@ class WebContents;
 
 // From the TabBridge.
 - (void)contentsDestroyed;
+// Chrome discarded the tab and put `contents` in its place: this object is
+// the tab's from now on (pane/browser/ui/tab_bridge.h).
+- (void)bridgeDidMoveToContents:(content::WebContents*)contents;
 - (void)bridgeDidChangeTitle;
 - (void)bridgeDidChangeURL;
 - (void)bridgeDidChangeNavigationState;

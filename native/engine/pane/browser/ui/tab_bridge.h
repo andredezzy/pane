@@ -30,7 +30,10 @@ namespace pane {
 
 // Ties one tab's WebContents to the PaneWebContents the app holds, and turns
 // Chromium's per-tab callbacks into the app's delegate calls. Lives as the
-// WebContents' user data, so it goes with the tab.
+// WebContents' user data, so it goes with the tab. When Chrome discards the
+// tab (an extension's chrome.tabs.discard), which swaps a new WebContents
+// into it, the PaneWebContents moves to the new one: the app keeps the same
+// object for the same tab.
 class TabBridge : public content::WebContentsObserver,
                   public favicon::FaviconDriverObserver,
                   public find_in_page::FindResultObserver,
@@ -42,11 +45,17 @@ class TabBridge : public content::WebContentsObserver,
 
   static TabBridge* GetOrCreate(content::WebContents* contents);
 
+  // Nil once the PaneWebContents moved to the WebContents Chrome put in this
+  // one's place.
   PaneWebContents* tab() const { return tab_; }
 
   // Starts the observers that need the tab helpers Chrome attaches when the
   // tab joins a tab strip (favicons, find in page).
   void Observe();
+
+  // A discarded page (Chrome's empty stand-in for it) loads again: the app
+  // shows it.
+  void LoadIfDiscarded();
 
   // How a page opened this tab, recorded before it reaches the tab strip.
   void set_open(WindowOpenDisposition disposition,
@@ -96,6 +105,8 @@ class TabBridge : public content::WebContentsObserver,
   void LoadProgressChanged(double progress) override;
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
+  void AboutToBeDiscarded(content::WebContents* new_contents) override;
+  void WasDiscarded() override;
   void WebContentsDestroyed() override;
   void MediaPictureInPictureChanged(bool is_picture_in_picture) override;
 
@@ -113,8 +124,12 @@ class TabBridge : public content::WebContentsObserver,
  private:
   friend class content::WebContentsUserData<TabBridge>;
   explicit TabBridge(content::WebContents* contents);
+  // For the WebContents Chrome swaps in when it discards a tab: it takes
+  // over the discarded one's PaneWebContents.
+  TabBridge(content::WebContents* contents, PaneWebContents* tab);
 
   void NavigationStateChanged();
+  void StopObservingHelpers();
 
   PaneWebContents* __strong tab_;
   PaneWebContents* __weak devtools_;

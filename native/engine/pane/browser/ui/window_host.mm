@@ -5,6 +5,8 @@
 // Apache License 2.0; native/third_party/ardia). The close sequence follows
 // Ardia's closely; the rest is rewritten for Pane's API.
 
+#include "components/sessions/content/session_tab_helper.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/window_host.h"
 
 #import <AppKit/AppKit.h>
@@ -524,6 +526,20 @@ void WindowHost::OnTabStripModelChanged(
                          opener:opener
                      foreground:foreground];
       }
+    }
+  } else if (change.type() == TabStripModelChange::kReplaced) {
+    // Chrome discarded the tab (an extension's chrome.tabs.discard): the
+    // app's object moved to the new WebContents already (TabBridge), which
+    // now has its tab helpers. The app keeps its tab, which loads again when
+    // shown.
+    const TabStripModelChange::Replace* replace = change.GetReplace();
+    if (TabBridge* bridge = TabBridge::FromWebContents(replace->new_contents)) {
+      bridge->Observe();
+      PANE_TRACE_TAB(bridge, "PaneWebContents.discarded",
+                     base::DictValue().Set("replacedTab",
+                                           sessions::SessionTabHelper::IdForTab(
+                                               replace->old_contents)
+                                               .id()));
     }
   } else if (change.type() == TabStripModelChange::kRemoved) {
     // Tabs of a closing window or a quitting engine are not closing: the app

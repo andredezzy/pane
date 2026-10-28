@@ -6,6 +6,8 @@
 
 #include "pane/browser/ui/tab_bridge.h"
 
+#import <AppKit/AppKit.h>
+
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -191,7 +193,59 @@ void TabBridge::PrimaryMainFrameRenderProcessGone(
           weak_factory_.GetWeakPtr(), termination));
 }
 
+// Chrome discards a tab by putting an empty WebContents in its place, which
+// loads the page again when shown; this one is destroyed right after (its
+// requests are withdrawn then, as for a closed tab). The app's object moves
+// to the new one before anything sees it, so every callback and call after
+// this reaches the new page. A page the app is showing keeps its place: the
+// new page's view takes the old one's.
+void TabBridge::AboutToBeDiscarded(content::WebContents* new_contents) {
+  if (!tab_ || FromWebContents(new_contents)) {
+    return;
+  }
+  PaneWebContents* tab = std::exchange(tab_, nil);
+  NSView* old_view = web_contents()->GetNativeView().GetNativeNSView();
+  new_contents->SetUserData(UserDataKey(),
+                            base::WrapUnique(new TabBridge(new_contents, tab)));
+  [tab bridgeDidMoveToContents:new_contents];
+  NSView* new_view = new_contents->GetNativeView().GetNativeNSView();
+  if (old_view.superview && new_view && new_view != old_view) {
+    new_view.frame = old_view.frame;
+    new_view.autoresizingMask = old_view.autoresizingMask;
+    new_view.hidden = old_view.hidden;
+    [old_view.superview replaceSubview:old_view with:new_view];
+  }
+}
+
+// The discard is over (the old page is gone). A page the app shows loads at
+// once, as Chrome does for the selected tab of its focused window; one in
+// the background waits until the app shows it (PaneWebContents -setVisible:).
+void TabBridge::WasDiscarded() {
+  if (web_contents()->GetVisibility() == content::Visibility::HIDDEN) {
+    return;
+  }
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<TabBridge> bridge) {
+                       if (bridge) {
+                         bridge->LoadIfDiscarded();
+                       }
+                     },
+                     weak_factory_.GetWeakPtr()));
+}
+
+void TabBridge::LoadIfDiscarded() {
+  if (!web_contents()->WasDiscarded()) {
+    return;
+  }
+  PANE_TRACE_TAB(this, "PaneWebContents.reloadDiscarded");
+  content::NavigationController& controller = web_contents()->GetController();
+  controller.SetNeedsReload();
+  controller.LoadIfNecessary();
+}
+
 void TabBridge::MediaPictureInPictureChanged(bool is_picture_in_picture) {
+  ScopedAppCallback callback;
   [tab_ bridgeDidChangePictureInPicture:is_picture_in_picture];
 }
 

@@ -122,6 +122,11 @@
   _contents->GetNativeView().GetNativeNSView().hidden = !visible;
   if (visible) {
     _contents->WasShown();
+    // A tab Chrome discarded in the background loads again once shown.
+    if (pane::TabBridge* bridge =
+            pane::TabBridge::FromWebContents(_contents.get())) {
+      bridge->LoadIfDiscarded();
+    }
   } else {
     _contents->WasHidden();
   }
@@ -383,10 +388,16 @@
   _contents = nullptr;
 }
 
+- (void)bridgeDidMoveToContents:(content::WebContents*)contents {
+  _contents = contents->GetWeakPtr();
+  _findText.clear();
+}
+
 - (void)bridgeDidChangeTitle {
   NSString* title = self.title;
-  [self trace:"PaneWebContentsDelegate.didChangeTitle"
-         args:base::DictValue().Set("title", base::SysNSStringToUTF8(title))];
+  PANE_TRACE_CALLBACK(
+      "PaneWebContentsDelegate.didChangeTitle",
+      base::DictValue().Set("title", base::SysNSStringToUTF8(title)));
   if ([_delegate respondsToSelector:@selector(webContents:didChangeTitle:)]) {
     [_delegate webContents:self didChangeTitle:title];
   }

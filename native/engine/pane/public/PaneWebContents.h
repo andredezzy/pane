@@ -71,7 +71,8 @@ NS_SWIFT_UI_ACTOR
 - (void)webContents:(PaneWebContents*)webContents
     becameUnresponsive:(PaneUnresponsivePage*)page;
 // The engine withdrew a request the app had not answered: the page
-// navigated, recovered, or closed. The app takes down its UI for it.
+// navigated, recovered, or closed (its tab closed, slept, or was
+// discarded). The app takes down its UI for it.
 - (void)webContents:(PaneWebContents*)webContents
     didDismissRequest:(id)request;
 
@@ -97,7 +98,12 @@ NS_SWIFT_UI_ACTOR
 
 // A tab: a page in one of a window's profiles. Tabs live in Chrome's tab
 // model (pages, popups and extensions see real tabs); the app shows them
-// through `nativeView`.
+// through `nativeView`. An extension may discard a tab (chrome.tabs.discard),
+// which Chrome does by putting a new, empty page in its place: this object
+// stays the tab's, now for that page, which loads again once shown. Its
+// `nativeView` changes then; a view the app shows keeps its place, the new
+// one put where the old one was. Chrome's own discarding (memory pressure)
+// is off: the app's sleep does that job.
 PANE_EXPORT
 NS_SWIFT_NAME(WebContents)
 NS_SWIFT_UI_ACTOR
@@ -114,7 +120,8 @@ NS_SWIFT_UI_ACTOR
 // Whether the app shows this page: the selected tab of a window. A page that
 // is not visible is a background tab, which Chromium throttles. While a page
 // is visible, the engine still notices its window being covered or the screen
-// locking, as Chrome does for its active tab.
+// locking, as Chrome does for its active tab. A discarded page loads again
+// as it becomes visible.
 @property(getter=isVisible) BOOL visible;
 
 @property(readonly, copy) NSString* title;
