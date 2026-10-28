@@ -21,7 +21,7 @@ key="$("$ENGINE_DIR/scripts/engine-key.sh")"
 version="$(tr -d '[:space:]' < "$ENGINE_DIR/CHROMIUM_VERSION")"
 entry="$(awk -v key="$key" '$1 == key { print; exit }' "$ENGINE_DIR/prebuilt-engines.tsv")"
 
-[ -n "$entry" ] || die "no prebuilt engine for this checkout's engine sources ($key): build the engine (native/README.md)"
+[ -n "$entry" ] || die "no prebuilt engine for this checkout's engine sources ($key): build the engine (native/README.md), and publish its archive as engine-${key:0:12} with its line in prebuilt-engines.tsv (native/engine/UPGRADING.md, step 6)"
 read -r _ release sha256 <<< "$entry"
 
 name="PaneCore-$version-${key:0:12}.zip"

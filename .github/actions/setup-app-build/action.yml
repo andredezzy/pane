@@ -36,6 +36,11 @@ runs:
         path: native/app/build/engines
         key: pane-engine-${{ steps.engine.outputs.key }}
 
+    # Into a variable first: within echo's arguments a failed fetch left the
+    # step green and PANE_ENGINE_OUT empty, and the build failed later on a
+    # missing framework, its reason far up the log.
     - name: Fetch the prebuilt engine
       shell: bash
-      run: echo "PANE_ENGINE_OUT=$(native/engine/scripts/fetch-engine.sh)" >> "$GITHUB_ENV"
+      run: |
+        engine="$(native/engine/scripts/fetch-engine.sh)"
+        echo "PANE_ENGINE_OUT=$engine" >> "$GITHUB_ENV"
