@@ -295,6 +295,8 @@ private struct SwatchPicker: View {
 						.fill(swatch.color)
 						.frame(width: 24, height: 24)
 						.background {
+							// A ring concentric with the swatch: its 11 grown by
+							// the 2- and 3-point offsets (DESIGN.md › Shape).
 							if isSelected {
 								Squircle(cornerRadius: 17)
 									.fill(swatch.color)

@@ -120,7 +120,7 @@ private struct ActionButton: View {
 						.font(.system(size: 9, weight: .medium))
 						.foregroundStyle(.white)
 						.frame(width: 16, height: 16)
-						.background(Palette.letterTile, in: Squircle(cornerRadius: 5))
+						.background(Palette.letterTile, in: Squircle(cornerRadius: 4))
 				}
 			}
 			.frame(width: 32, height: 32)

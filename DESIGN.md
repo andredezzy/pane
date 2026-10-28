@@ -14,9 +14,21 @@ The theme (`system` / `light` / `dark`) sets the app's appearance (`NSApp.appear
 
 Every rounded corner is a superellipse: `corner-shape: superellipse(2)` in Paper (CSS's squircle), `Squircle` in the app. The radii are 4, 7, 9, 11, 15, 18, 22, and 29, each 1.84× the circular radius it replaced, so a corner is as deep at 45° as the circle was and flatter where it meets the edges. Circles and capsules stay round: dots, PIN keys, switches, pill bars.
 
+Each radius has its uses (Paper's `--radius-*` tokens carry them too):
+
+- **4** (`--radius-xs`): favicons, letter tiles and badges on a toolbar action, the active profile's square.
+- **7** (`--radius-sm`): icon buttons, a menu's letter tiles, a dialog's fields.
+- **9** (`--radius-tab`): the address bar, chips.
+- **11** (`--radius-md`): buttons, fields, color swatches.
+- **15** (`--radius-lg`): sidebar rows, menu rows, the find bar, extension cards, the popup and keyed buttons.
+- **18** (`--radius-panel`): the content panel, the profile sheet, the PIN screen's panel.
+- **22** (`--radius-xl`): menus, the tab switcher, Settings' cards.
+- **29** (`--radius-2xl`): dialogs (a page's, Quit Pane?, an extension's prompt).
+
 Implementation notes:
 
-- A view takes `Squircle(cornerRadius:)`, never a circular `RoundedRectangle`.
+- A view takes `Squircle(cornerRadius:)`, never a circular `RoundedRectangle`, and one of the scale's radii.
+- A ring around a shape is the one exception: it stays even all the way round by taking the shape's radius grown by its offset, through the circle (`Squircle.circularEquivalent`). The profile sheet's selected color swatch, 11, has its rings at 15 and 17.
 - A capsule takes `Capsule(style: .circular)`. The default style drew a flat stretch at each end of the 28-point profile chip.
 - A layer, which draws only circular or continuous corners (the page view), takes 0.57 of the radius as a circle: it follows the superellipse within a fifth of a pixel, with no mask to composite.
 

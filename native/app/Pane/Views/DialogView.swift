@@ -2,11 +2,12 @@ import AppKit
 import SwiftUI
 
 // A page's dialog (Paper: 03.15 to 03.23), as macOS draws the alert sheet
-// it replaced: 260 points wide, the title and the message at 13, the fields,
-// then the buttons, the default one blue. Two sit side by side, the default
-// on the right; three stack, the default on top. It is drawn in the window,
-// so it shows in the next frame with the main thread free; a sheet held it
-// some 280 ms. Return presses the default, Esc dismisses (KeyRouter).
+// it replaced: 260 points wide, rounded 29 as the app's other dialogs, the
+// title and the message at 13, the fields (rounded 7), then the buttons, the
+// default one blue. Two sit side by side, the default on the right; three
+// stack, the default on top. It is drawn in the window, so it shows in the
+// next frame with the main thread free; a sheet held it some 280 ms. Return
+// presses the default, Esc dismisses (KeyRouter).
 struct DialogView: View {
 	let dialog: PageDialog
 	let presenter: DialogPresenter
@@ -38,12 +39,12 @@ struct DialogView: View {
 		.padding([.trailing, .bottom], 16)
 		.frame(width: 260, alignment: .leading)
 		.background {
-			Squircle(cornerRadius: 26)
+			Squircle(cornerRadius: 29)
 				.fill(Palette.Alert.panel)
 				.shadow(color: Palette.Alert.shadow, radius: 24, y: 16)
 		}
 		.overlay {
-			Squircle(cornerRadius: 26)
+			Squircle(cornerRadius: 29)
 				.strokeBorder(Palette.Alert.edge, lineWidth: 0.5)
 		}
 		.accessibilityElement(children: .contain)
@@ -114,9 +115,9 @@ private struct DialogField: View {
 		AlertTextField(field: field, index: index, presenter: presenter, isEditing: $isEditing)
 			.padding(.horizontal, 7)
 			.frame(height: 22)
-			.background(Palette.Alert.field, in: Squircle(cornerRadius: 6))
+			.background(Palette.Alert.field, in: Squircle(cornerRadius: 7))
 			.overlay {
-				Squircle(cornerRadius: 6)
+				Squircle(cornerRadius: 7)
 					.strokeBorder(isEditing ? Palette.Alert.defaultButton : Palette.Alert.fieldEdge, lineWidth: 1)
 			}
 	}

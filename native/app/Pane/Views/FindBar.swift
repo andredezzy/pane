@@ -20,10 +20,10 @@ struct FindOverlay: View {
 
 // Enter goes to the next match, Shift-Enter to the previous, Escape closes.
 // Aside's bar (the user's call, measured from Aside at 2×): 357 by 54
-// points, rounded as a circle of 8, a soft shadow and no border (a hairline
-// ring in dark, as the popovers'). The field starts 16 points in, with no
-// placeholder; then the count (red when nothing matches), the chevrons 4
-// apart, and close, each a 32-point circle.
+// points, rounded 15 (Aside's circle of 8, on the scale), a soft shadow and
+// no border (a hairline ring in dark, as the popovers'). The field starts 16
+// points in, with no placeholder; then the count (red when nothing matches),
+// the chevrons 4 apart, and close, each a 32-point circle.
 struct FindBar: View {
 	let controller: BrowserController
 
@@ -97,8 +97,8 @@ struct FindBar: View {
 		.accessibilityIdentifier("pane.find")
 	}
 
-	// A circle of 8 (Squircle.circularEquivalent).
-	private static let cornerRadius: CGFloat = 14
+	// The scale's 15: Aside's circle of 8 (Squircle.circularEquivalent).
+	private static let cornerRadius: CGFloat = 15
 
 	private static let shadow = Color(nsColor: NSColor(name: nil) { appearance in
 		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.4 : 0.25)

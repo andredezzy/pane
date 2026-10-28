@@ -28,7 +28,7 @@ struct HoverBackground: ViewModifier {
 
 extension View {
 	// Selected rows are foreground/5; hover is the accent color.
-	func hoverBackground(isSelected: Bool, selectedFill: Color = Palette.foreground.opacity(0.05), hoverFill: Color = Palette.accent, cornerRadius: CGFloat = 5) -> some View {
+	func hoverBackground(isSelected: Bool, selectedFill: Color = Palette.foreground.opacity(0.05), hoverFill: Color = Palette.accent, cornerRadius: CGFloat) -> some View {
 		modifier(HoverBackground(isSelected: isSelected, selectedFill: selectedFill, hoverFill: hoverFill, cornerRadius: cornerRadius))
 	}
 }
