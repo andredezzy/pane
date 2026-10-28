@@ -195,7 +195,8 @@ struct ExtensionsPage: View {
 	}
 }
 
-// A text field with a magnifying glass: what the cards are narrowed to.
+// A text field with a magnifying glass: what the cards are narrowed to. Its
+// border alone, over the page, with no fill (the user's call).
 private struct SearchField: View {
 	@Binding var text: String
 
@@ -218,7 +219,10 @@ private struct SearchField: View {
 		// 12 inside the 1px border, as Paper's field.
 		.padding(.horizontal, 13)
 		.frame(height: 36)
-		.background(Palette.background, in: Squircle(cornerRadius: 11))
+		// A click anywhere in the border focuses the field, as a search
+		// field's does; with no fill, its padding would let the click through.
+		.contentShape(Squircle(cornerRadius: 11))
+		.onTapGesture { focused = true }
 		.overlay {
 			Squircle(cornerRadius: 11)
 				.strokeBorder(focused ? Palette.ring : Palette.border, lineWidth: 1)
