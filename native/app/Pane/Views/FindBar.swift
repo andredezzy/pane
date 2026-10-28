@@ -19,8 +19,11 @@ struct FindOverlay: View {
 }
 
 // Enter goes to the next match, Shift-Enter to the previous, Escape closes.
-// rounded-lg, a border, the background color, px-2 py-1, shadow-md: a 176px
-// field, the count (red when nothing matches), and 20px buttons.
+// Aside's bar (the user's call, measured from Aside at 2×): 357 by 54
+// points, rounded as a circle of 8, a soft shadow and no border (a hairline
+// ring in dark, as the popovers'). The field starts 16 points in, with no
+// placeholder; then the count (red when nothing matches), the chevrons 4
+// apart, and close, each a 32-point circle.
 struct FindBar: View {
 	let controller: BrowserController
 
@@ -31,7 +34,7 @@ struct FindBar: View {
 	private var canStep: Bool { !text.isEmpty && find.matches > 0 }
 
 	var body: some View {
-		HStack(spacing: 4) {
+		HStack(spacing: 8) {
 			// The query is the window's, so a search started elsewhere (the
 			// menu, a script) shows here too; typing searches as you go.
 			TextField(
@@ -40,12 +43,16 @@ struct FindBar: View {
 				// as it takes focus, and searching the same text again would
 				// step to the next match.
 				text: Binding(get: { find.text }, set: { if $0 != find.text { controller.find($0) } }),
-				prompt: Text("Find in page").foregroundStyle(Palette.mutedForeground)
+				// Aside's field shows no placeholder; this one stays, unseen,
+				// for VoiceOver.
+				prompt: Text("Find in page").foregroundStyle(.clear)
 			)
 			.textFieldStyle(.plain)
-			.font(.system(size: 12))
+			.font(.system(size: 13))
 			.foregroundStyle(Palette.foreground)
-			.frame(width: 176, height: 24)
+			// The caret in the text's color, not the system's blue.
+			.tint(Palette.foreground)
+			.frame(maxWidth: .infinity)
 			.focused($focused)
 			.onSubmit { controller.find(text, forward: !NSEvent.modifierFlags.contains(.shift)) }
 			.onExitCommand { controller.closeFind() }
@@ -53,25 +60,34 @@ struct FindBar: View {
 
 			if !text.isEmpty {
 				Text("\(find.activeMatch)/\(find.matches)")
-					.font(.system(size: 11).monospacedDigit())
+					.font(.system(size: 12).monospacedDigit())
 					.foregroundStyle(find.matches == 0 ? Palette.destructive : Palette.mutedForeground)
 					.accessibilityIdentifier("pane.find.count")
 			}
 
-			FindButton(icon: .arrowUp, label: "Previous match") { controller.find(text, forward: false) }
-				.disabled(!canStep)
-			FindButton(icon: .arrowDown, label: "Next match") { controller.find(text, forward: true) }
-				.disabled(!canStep)
-			FindButton(icon: .x, label: "Close find bar") { controller.closeFind() }
+			HStack(spacing: 0) {
+				HStack(spacing: 4) {
+					FindButton(icon: .chevronUp, size: 18, strokeWidth: 2, label: "Previous match") { controller.find(text, forward: false) }
+						.disabled(!canStep)
+					FindButton(icon: .chevronDown, size: 18, strokeWidth: 2, label: "Next match") { controller.find(text, forward: true) }
+						.disabled(!canStep)
+				}
+
+				FindButton(icon: .x, size: 10, strokeWidth: 2.5, label: "Close find bar") { controller.closeFind() }
+			}
 		}
-		.padding(.horizontal, 8)
-		.padding(.vertical, 4)
-		.background(Palette.background, in: Squircle(cornerRadius: 15))
+		.padding(.leading, 16)
+		.padding(.trailing, 6)
+		.frame(width: 357, height: 54)
+		.background {
+			Squircle(cornerRadius: Self.cornerRadius)
+				.fill(Palette.popover)
+				.shadow(color: Self.shadow, radius: 6, y: 6)
+		}
 		.overlay {
-			Squircle(cornerRadius: 15)
-				.strokeBorder(Palette.border, lineWidth: 1)
+			Squircle(cornerRadius: Self.cornerRadius)
+				.strokeBorder(Self.ring, lineWidth: 1)
 		}
-		.mediumShadow()
 		// Focus set during onAppear is dropped: the field is not in the window
 		// yet. One turn of the main loop later it is.
 		.onAppear { DispatchQueue.main.async { focused = true } }
@@ -79,31 +95,59 @@ struct FindBar: View {
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.find")
 	}
+
+	// A circle of 8 (Squircle.circularEquivalent).
+	private static let cornerRadius: CGFloat = 14
+
+	private static let shadow = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.4 : 0.25)
+	})
+
+	private static let ring = Color(nsColor: NSColor(name: nil) { appearance in
+		Palette.isDark(appearance) ? NSColor(white: 1, alpha: 0.1) : .clear
+	})
 }
 
-// 20px, rounded 7, a 12px icon; disabled at 30%.
+// A 32-point circle, the accent's fill on hover; disabled at 40%. Its own
+// style, as the plain one dims a disabled label further.
 private struct FindButton: View {
 	let icon: Lucide
+	let size: CGFloat
+	let strokeWidth: Double
 	let label: String
 	let action: () -> Void
+
+	var body: some View {
+		Button(action: action) {
+			LucideIcon(icon, size: size, strokeWidth: strokeWidth)
+		}
+		.buttonStyle(FindButtonStyle())
+		.accessibilityLabel(label)
+	}
+}
+
+private struct FindButtonStyle: ButtonStyle {
+	func makeBody(configuration: Configuration) -> some View {
+		FindButtonLabel(configuration: configuration)
+	}
+}
+
+private struct FindButtonLabel: View {
+	let configuration: ButtonStyleConfiguration
 
 	@State private var isHovered = false
 	@Environment(\.isEnabled) private var isEnabled
 	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
-		Button(action: action) {
-			LucideIcon(icon, size: 12)
-				.frame(width: 20, height: 20)
-				.contentShape(Rectangle())
-		}
-		.buttonStyle(.plain)
-		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
-		.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 7))
-		.opacity(isEnabled ? 1 : 0.3)
-		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering && isEnabled }
-		}
-		.accessibilityLabel(label)
+		configuration.label
+			.frame(width: 32, height: 32)
+			.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
+			.background(isHovered ? Palette.accent : .clear, in: Circle())
+			.contentShape(Circle())
+			.opacity(isEnabled ? 1 : 0.4)
+			.onHover { hovering in
+				withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering && isEnabled }
+			}
 	}
 }

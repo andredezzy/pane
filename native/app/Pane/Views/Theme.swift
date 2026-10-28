@@ -194,12 +194,6 @@ extension View {
 				.strokeBorder(Palette.foreground.opacity(0.1), lineWidth: 1)
 		}
 	}
-
-	// shadow-md: the find bar.
-	func mediumShadow() -> some View {
-		shadow(color: .black.opacity(0.1), radius: 3, y: 4)
-			.shadow(color: .black.opacity(0.1), radius: 2, y: 2)
-	}
 }
 
 enum PanelShadow {
@@ -211,13 +205,12 @@ enum PanelShadow {
 // Lucide icons (ISC; native/NOTICE), the Electron app's icon set, drawn from
 // their own SVG paths as template images so they take the text color.
 enum Lucide: String {
-	case arrowDown
 	case arrowLeft
 	case arrowRight
-	case arrowUp
 	case chevronDown
 	case chevronLeft
 	case chevronRight
+	case chevronUp
 	case chevronsDownUp
 	case chevronsUpDown
 	case circleDashedX
@@ -236,20 +229,18 @@ enum Lucide: String {
 
 	private var elements: String {
 		switch self {
-		case .arrowDown:
-			#"<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>"#
 		case .arrowLeft:
 			#"<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>"#
 		case .arrowRight:
 			#"<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>"#
-		case .arrowUp:
-			#"<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>"#
 		case .chevronDown:
 			#"<path d="m6 9 6 6 6-6"/>"#
 		case .chevronLeft:
 			#"<path d="m15 18-6-6 6-6"/>"#
 		case .chevronRight:
 			#"<path d="m9 18 6-6-6-6"/>"#
+		case .chevronUp:
+			#"<path d="m18 15-6-6-6 6"/>"#
 		case .circleDashedX:
 			#"<circle cx="12" cy="12" r="9" stroke-dasharray="2.6 2.6"/><path d="M9.5 9.5l5 5"/><path d="M14.5 9.5l-5 5"/>"#
 		case .chevronsDownUp:
