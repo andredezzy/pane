@@ -27,7 +27,9 @@ const sidebarReorder: Scenario = async (context) => {
 
 	const order = (state: AppState) =>
 		state.profiles.map((profile) => profile.name).join(",");
+
 	const initial = order(await app.state());
+
 	expect(
 		initial === "Alpha,Bravo,Charlie,Delta",
 		`the profiles start as ${initial}`,
@@ -60,6 +62,7 @@ const sidebarReorder: Scenario = async (context) => {
 		]);
 
 	const down = order(await drag(rowY(0), steps(rowY(0), rowY(2) + 6)));
+
 	expect(
 		down === "Bravo,Charlie,Alpha,Delta",
 		`Alpha dragged past Charlie: ${down}`,
@@ -73,6 +76,7 @@ const sidebarReorder: Scenario = async (context) => {
 			steps(rowY(3), -200, 100).map(([, y], step) => [100 + step * 120, y]),
 		),
 	);
+
 	expect(
 		out === "Delta,Bravo,Charlie,Alpha",
 		`Delta dragged up and out: ${out}`,
@@ -82,12 +86,14 @@ const sidebarReorder: Scenario = async (context) => {
 	await app.send("pointerWindow", { phase: "down", x: 100, y: rowY(1) });
 	await app.send("pointerWindow", { phase: "drag", x: 102, y: rowY(1) + 2 });
 	await app.send("pointerWindow", { phase: "up", x: 102, y: rowY(1) + 2 });
+
 	const clicked = await app.waitFor(
 		"Bravo expanded",
 		(state) =>
 			state.profiles.find((profile) => profile.name === "Bravo")?.expanded ===
 			true,
 	);
+
 	expect(
 		order(clicked) === out,
 		`a click moved the profiles: ${order(clicked)}`,
@@ -95,6 +101,7 @@ const sidebarReorder: Scenario = async (context) => {
 
 	// Tabs in a profile: the first one dragged to the end.
 	const bravo = ids[1] ?? "";
+
 	const urls = ["light.html?one", "light.html?two", "light.html?three"].map(
 		(each) => context.fixtures.url(each),
 	);
