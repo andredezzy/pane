@@ -1,0 +1,54 @@
+name: App
+
+# The app on the prebuilt engine its engine sources name
+# (engine/prebuilt-engines.tsv): CI never builds Chromium, which takes
+# hours and ~100 GB. Engine builds stay on a developer's Mac, and their
+# archives are published as engine-<key> prereleases. The scenario runner's
+# own checks are gates.yml's.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "engine/**"
+      - "third_party/**"
+      - ".github/actions/setup-app-build/**"
+      - ".github/workflows/app.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "engine/**"
+      - "third_party/**"
+      - ".github/actions/setup-app-build/**"
+      - ".github/workflows/app.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: App and PaneKit
+    # macOS 27 with Xcode 27 on Apple Silicon: the toolchain the app is
+    # developed with.
+    runs-on: xcode-27
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: PaneKit tests
+        working-directory: app/PaneKit
+        run: swift test
+
+      - name: XcodeGen and the prebuilt engine
+        uses: ./.github/actions/setup-app-build
+
+      - name: Build and package the app
+        run: engine/scripts/package.sh

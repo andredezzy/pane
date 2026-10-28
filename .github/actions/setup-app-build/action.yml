@@ -2,7 +2,7 @@ name: Set up the app build
 description: >-
   What package.sh needs on a runner with no Chromium checkout: XcodeGen, at a
   pinned release checked by its SHA-256, and the prebuilt engine the
-  checkout's engine sources name (native/engine/prebuilt-engines.tsv), cached
+  checkout's engine sources name (engine/prebuilt-engines.tsv), cached
   by its key. Sets PANE_ENGINE_OUT for the steps after it.
 
 runs:
@@ -28,12 +28,12 @@ runs:
     - name: Engine key
       id: engine
       shell: bash
-      run: echo "key=$(native/engine/scripts/engine-key.sh)" >> "$GITHUB_OUTPUT"
+      run: echo "key=$(engine/scripts/engine-key.sh)" >> "$GITHUB_OUTPUT"
 
     - name: Cache the prebuilt engine
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        path: native/app/build/engines
+        path: app/build/engines
         key: pane-engine-${{ steps.engine.outputs.key }}
 
     # Into a variable first: within echo's arguments a failed fetch left the
@@ -42,5 +42,5 @@ runs:
     - name: Fetch the prebuilt engine
       shell: bash
       run: |
-        engine="$(native/engine/scripts/fetch-engine.sh)"
+        engine="$(engine/scripts/fetch-engine.sh)"
         echo "PANE_ENGINE_OUT=$engine" >> "$GITHUB_ENV"

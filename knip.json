@@ -4,11 +4,7 @@
 	"ignoreBinaries": ["defaults", "ioreg", "openssl", "swift"],
 	"workspaces": {
 		".": {
-			"entry": [
-				"native/engine/tests/run.ts",
-				"native/engine/tests/scenarios/*.ts",
-				"native/engine/tests/tools/*.ts"
-			],
+			"entry": ["tests/run.ts", "tests/scenarios/*.ts", "tests/tools/*.ts"],
 			"ignoreDependencies": ["electron"]
 		}
 	},
@@ -17,6 +13,6 @@
 		"**/node_modules/**",
 		".claude/**",
 		".cursor/**",
-		"native/engine/tests/pages/**"
+		"tests/pages/**"
 	]
 }

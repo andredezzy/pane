@@ -7,7 +7,7 @@
 	"scripts": {
 		"lint": "eslint --fix && biome check --write --max-diagnostics 500",
 		"typecheck": "tsc -p tsconfig.json",
-		"test": "cd native/app/PaneKit && swift test",
+		"test": "cd app/PaneKit && swift test",
 		"knip": "knip"
 	},
 	"engines": {

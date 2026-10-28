@@ -1,0 +1,34 @@
+Pane native — third-party notices
+
+PaneCore.framework is built from the Chromium project (BSD-3-Clause and the
+licenses of its third-party components, see chrome://credits in the built app).
+
+Patches in engine/patches that originate in other projects are listed
+below with their origin and license. Patches not listed are Pane's own
+(GPL-3.0-only, like the rest of this repository).
+
+Ardia (https://github.com/mantrakp04/ardia), Copyright 2026 Mantra Patel,
+Apache License 2.0 (third_party/ardia/LICENSE.Apache-2.0): Pane's
+window layer adapts files of Ardia's engine layer, and patch
+0003-pane-hosted-browsers.patch follows the shape of its hooks. Each adapted
+file names its Ardia source and what changed; third_party/ardia/README.md
+lists them.
+
+Lucide (https://lucide.dev), ISC License, with portions from Feather (MIT)
+(third_party/lucide/LICENSE): the app's icons
+(app/Pane/Views/Theme.swift) are Lucide's SVG paths, as the Electron
+app uses them through lucide-react.
+
+Patch 0006-pane-fingerprint.patch is Pane's own and borrows no other
+project's patch. Its canvas and audio noise are the Electron app's own
+algorithms (apps/veil profile/fingerprint-preload.ts).
+
+OpenBSD bcrypt (lib/libc/crypt/bcrypt.c, blowfish.c, include/blf.h), ISC and
+BSD-3-Clause (third_party/openbsd-bcrypt/LICENSE): vendored unmodified
+in app/PaneKit/Sources/CBcrypt for the app lock's PIN hashes.
+
+electron-builder (https://github.com/electron-userland/electron-builder), MIT
+License: the release script runs dmgbuild (https://github.com/dmgbuild/dmgbuild,
+MIT) from electron-builder's prebuilt bundle to lay out the dmg; it is a build
+tool and is not shipped. The dmg's background is Pane's own
+(app/dmg/make-background.swift).

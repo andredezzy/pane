@@ -4,7 +4,7 @@ name: Gates
 # does not run: ESLint and Biome, the scenario runner's typecheck, and knip.
 # Biome checks every file git tracks, so any change can fail it: no paths
 # filter, and a Linux runner keeps it cheap. PaneKit's swift test runs in
-# native.yml.
+# app.yml.
 
 on:
   push:

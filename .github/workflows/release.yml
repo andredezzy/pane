@@ -2,9 +2,9 @@ name: Release
 
 # Publishes Pane-<version>-arm64.dmg, the asset the in-app update check
 # reads, when a v* tag on main is pushed. The app builds on the prebuilt
-# engine its engine sources name (native/engine/prebuilt-engines.tsv): an
+# engine its engine sources name (engine/prebuilt-engines.tsv): an
 # engine change publishes its engine-<key> prerelease first
-# (native/engine/UPGRADING.md).
+# (engine/UPGRADING.md).
 
 on:
   push:
@@ -22,7 +22,7 @@ permissions:
 jobs:
   release:
     name: Build and publish
-    # macOS 27 with Xcode 27 on Apple Silicon, as in native.yml.
+    # macOS 27 with Xcode 27 on Apple Silicon, as in app.yml.
     runs-on: xcode-27
 
     steps:
@@ -35,13 +35,13 @@ jobs:
       - name: Verify tag matches app version
         if: github.ref_type == 'tag'
         run: |
-          version="$(tr -d '[:space:]' < native/app/VERSION)"
+          version="$(tr -d '[:space:]' < app/VERSION)"
           expected="v${version}"
           if [ "${GITHUB_REF_NAME}" != "${expected}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match native/app/VERSION ${version} (expected ${expected}). Bump native/app/VERSION or retag."
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match app/VERSION ${version} (expected ${expected}). Bump app/VERSION or retag."
             exit 1
           fi
-          echo "Tag ${GITHUB_REF_NAME} matches native/app/VERSION ${version}."
+          echo "Tag ${GITHUB_REF_NAME} matches app/VERSION ${version}."
 
       # The release is published as the latest at once, and every Pane's
       # update check offers it: a tag on another branch publishes nothing.
@@ -55,7 +55,7 @@ jobs:
           echo "Tag ${GITHUB_REF_NAME} is on main."
 
       - name: PaneKit tests
-        working-directory: native/app/PaneKit
+        working-directory: app/PaneKit
         run: swift test
 
       - name: XcodeGen and the prebuilt engine
@@ -63,16 +63,16 @@ jobs:
 
       # Ad-hoc signed, as every release so far: Developer ID signing and
       # notarization (PANE_SIGN_IDENTITY, PANE_NOTARY_PROFILE) wait for an
-      # identity (native/HUMAN-CHECKLIST.md, 6.2).
+      # identity (docs/human-checklist.md, 6.2).
       - name: Build the dmg
-        run: native/engine/scripts/dist.sh
+        run: engine/scripts/dist.sh
 
       - name: Keep the dmg
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dmg
-          path: native/app/release/Pane-*-arm64.dmg
+          path: app/release/Pane-*-arm64.dmg
           if-no-files-found: error
           retention-days: 7
 
@@ -84,7 +84,7 @@ jobs:
           name: ${{ github.ref_name }}
           draft: false
           generate_release_notes: true
-          files: native/app/release/Pane-*-arm64.dmg
+          files: app/release/Pane-*-arm64.dmg
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

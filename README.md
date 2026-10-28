@@ -36,7 +36,7 @@ Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser wh
 
 - macOS on Apple Silicon, Xcode with Swift 6, and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 - Bun >= 1.3.9 (scenarios and linters)
-- To build the engine yourself: a Chromium checkout (~100 GB; `native/README.md`). Otherwise the app builds on a prebuilt engine.
+- To build the engine yourself: a Chromium checkout (~100 GB; `docs/building.md`). Otherwise the app builds on a prebuilt engine.
 
 ### Build and run
 
@@ -44,18 +44,19 @@ Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser wh
 git clone https://github.com/andredezzy/pane.git
 cd pane
 bun install
-export PANE_ENGINE_OUT="$(native/engine/scripts/fetch-engine.sh)"   # or build the engine: native/README.md
-native/engine/scripts/package.sh                                    # → native/app/build/Pane.app
-open native/app/build/Pane.app
+export PANE_ENGINE_OUT="$(engine/scripts/fetch-engine.sh)"   # or build the engine: docs/building.md
+engine/scripts/package.sh                                    # → app/build/Pane.app
+open app/build/Pane.app
 ```
 
 ## Project structure
 
 ```text
-native/
-  app/        # the Swift app (AppKit + SwiftUI), the PaneKit package, VERSION, dmg resources
-  engine/     # PaneCore.framework: the pinned Chromium tag, gn args, patches, //pane, scripts, scenarios
-docs/adr/     # architecture decisions
+app/           # the Swift app (AppKit + SwiftUI), the PaneKit package, VERSION, dmg resources
+engine/        # PaneCore.framework: the pinned Chromium tag, gn args, patches, //pane, scripts
+tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
+docs/          # building.md, decisions.md, human-checklist.md, adr/
+third_party/   # code Pane adapts, with its licenses (NOTICE)
 ```
 
 ## Scripts
@@ -70,10 +71,10 @@ bun run knip         # check for unused files, deps, and exports
 To produce a distributable:
 
 ```bash
-native/engine/scripts/dist.sh    # dmg → native/app/release/Pane-<version>-arm64.dmg
+engine/scripts/dist.sh    # dmg → app/release/Pane-<version>-arm64.dmg
 ```
 
-Chromium upgrades follow `native/engine/UPGRADING.md`.
+Chromium upgrades follow `engine/UPGRADING.md`.
 
 ## Security
 
@@ -81,4 +82,4 @@ Report vulnerabilities to contact@andredezzy.com.
 
 [GPL-3.0](LICENSE) © [André Victor](https://github.com/andredezzy)
 
-Pane is built on [Chromium](https://www.chromium.org/) (BSD-3-Clause and its components' licenses). Third-party origins and licenses are in `native/NOTICE`.
+Pane is built on [Chromium](https://www.chromium.org/) (BSD-3-Clause and its components' licenses). Third-party origins and licenses are in `NOTICE`.
