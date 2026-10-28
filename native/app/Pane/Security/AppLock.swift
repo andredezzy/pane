@@ -16,6 +16,8 @@ final class AppLock {
 	private(set) var entry: PinEntry?
 	// Bumped to shake the dots.
 	private(set) var shakes = 0
+	// Called once the right PIN opens the lock, for what waited behind it.
+	@ObservationIgnored var didUnlock: (() -> Void)?
 
 	@ObservationIgnored private let file: PersistedFile<SecurityState>
 	@ObservationIgnored private let dataDirectory: URL
@@ -94,6 +96,7 @@ final class AppLock {
 		case .unlock:
 			isLocked = false
 			close()
+			didUnlock?()
 		case .wipe:
 			wipe()
 		case .shake:
@@ -231,11 +234,11 @@ final class AppLock {
 
 	// Whether the PIN screen took `event`: all but Quit.
 	private func consumes(_ event: NSEvent) -> Bool {
-		let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-
-		if flags == .command, event.charactersIgnoringModifiers == "q" {
+		if event.isQuitShortcut {
 			return false
 		}
+
+		let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
 		switch event.keyCode {
 		case 51:
@@ -251,5 +254,13 @@ final class AppLock {
 		}
 
 		return true
+	}
+}
+
+extension NSEvent {
+	// ⌘Q, Caps Lock or not: the key that always reaches Quit.
+	var isQuitShortcut: Bool {
+		modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock) == .command
+			&& charactersIgnoringModifiers?.lowercased() == "q"
 	}
 }

@@ -22,6 +22,10 @@ extension BrowserController {
 	// MARK: Ctrl+Tab switcher
 
 	func openSwitcher(backward: Bool) {
+		guard interactionAllowed else {
+			return
+		}
+
 		let openProfiles = model.profiles.filter { model.expandedProfileIDs.contains($0.id) }
 		let groups = TabSwitcher.groups(mru: model.history.mru, profiles: openProfiles)
 		let flattened = groups.flatMap(\.tabs)
@@ -145,9 +149,7 @@ extension BrowserController {
 	// none reaches the page: Esc goes back, Return quits, and ⌘Q goes on to
 	// the menu, which quits.
 	private func quitPanelConsumes(_ event: NSEvent) -> Bool {
-		let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-
-		if flags == .command, event.charactersIgnoringModifiers == "q" {
+		if event.isQuitShortcut {
 			return false
 		}
 
@@ -172,6 +174,14 @@ extension BrowserController {
 }
 
 extension BrowserController: NSMenuItemValidation {
+	// The controller's items that work behind the PIN lock. About, Hide, and
+	// the Window menu's own are the application's and the window's, which
+	// open nothing.
+	private static let allowedWhileLocked: Set<Selector> = [
+		#selector(confirmQuit(_:)),
+		#selector(checkForUpdates(_:)),
+	]
+
 	// In full screen the View menu's item reads Exit Full Screen, as AppKit's
 	// own toggleFullScreen: item (the Electron app's role) does.
 	func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
@@ -179,6 +189,6 @@ extension BrowserController: NSMenuItemValidation {
 			menuItem.title = browserWindow.window.styleMask.contains(.fullScreen) ? "Exit Full Screen" : "Enter Full Screen"
 		}
 
-		return true
+		return interactionAllowed || menuItem.action.map(Self.allowedWhileLocked.contains) == true
 	}
 }

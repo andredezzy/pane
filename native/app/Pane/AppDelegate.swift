@@ -48,23 +48,13 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		})
 
 		windowController?.showWindow()
-		openLaunchURL(controller)
+
+		if let url = CommandLine.arguments.dropFirst().first(where: { !$0.hasPrefix("-") }).flatMap(URL.init(string:)) {
+			controller.openLaunchURL(url)
+		}
 	}
 
 	func browserApplicationWillShutDown(_ application: BrowserApplication) {
 		controller?.model.saveNow()
-	}
-
-	// `Pane https://…` opens the URL as a new tab, in the first profile (made
-	// on first launch when there is none).
-	private func openLaunchURL(_ controller: BrowserController) {
-		guard let url = CommandLine.arguments.dropFirst().first(where: { !$0.hasPrefix("-") }).flatMap(URL.init(string:)) else {
-			return
-		}
-
-		let profileID = controller.model.profiles.first?.id
-			?? controller.model.createProfile(name: "Personal", color: .blue, group: nil)
-		controller.model.expandedProfileIDs.insert(profileID)
-		controller.openTab(inProfile: profileID, url: url)
 	}
 }

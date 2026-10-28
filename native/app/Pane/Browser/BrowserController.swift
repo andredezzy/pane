@@ -22,9 +22,11 @@ final class BrowserController: NSObject {
 	// When each tab's renderer last died, to tell a crash loop from a crash.
 	private var lastCrash: [String: Date] = [:]
 	// Built on first use: it needs the window.
-	private(set) lazy var dialogs = DialogPresenter(window: browserWindow.window) { [weak self] in
-		self?.model.activeTabID
-	}
+	private(set) lazy var dialogs = DialogPresenter(
+		window: browserWindow.window,
+		activeTabID: { [weak self] in self?.model.activeTabID },
+		isHeld: { [weak self] in self?.interactionAllowed == false }
+	)
 	// The page context menu last built, kept for scenarios, and whether it is
 	// on screen.
 	private(set) var lastContextMenu: NSMenu?
@@ -49,6 +51,8 @@ final class BrowserController: NSObject {
 	let lock: AppLock
 	// The update check and download.
 	let updater: Updater
+	// The URL Pane was started with, while it waits behind the lock.
+	private var launchURL: URL?
 
 	init(model: BrowserModel, application: BrowserApplication, lock: AppLock, updater: Updater) {
 		self.model = model
@@ -65,6 +69,9 @@ final class BrowserController: NSObject {
 		}
 		model.fingerprintDidChange = { [weak self] profileID in
 			self?.fingerprintDidChange(profileID)
+		}
+		lock.didUnlock = { [weak self] in
+			self?.lockDidOpen()
 		}
 
 		// The sidebar shows each proxy's state from launch, as the Electron
@@ -132,6 +139,45 @@ final class BrowserController: NSObject {
 		}
 	}
 
+	// MARK: Lock
+
+	// Whether the user may act on the browser. Behind the PIN lock nothing
+	// opens, loads, or shows: no tab or page, no menu item but Quit and Check
+	// for Updates…, no Chrome dialog or extension popup. Every way in asks
+	// this one question (the menu bar, the switcher, a launch URL, the
+	// engine's requests), so the lock holds for the mouse as for the keys.
+	var interactionAllowed: Bool {
+		!lock.isLocked
+	}
+
+	// The lock opened: what waited behind it goes on.
+	private func lockDidOpen() {
+		if let url = launchURL {
+			launchURL = nil
+			openLaunchURL(url)
+		}
+
+		if let page = activePage, let profileID = model.activeProfileID {
+			show(page, profileID: profileID)
+		}
+
+		dialogs.resume()
+	}
+
+	// `Pane https://…` opens the URL as a new tab, in the first profile (made
+	// on first launch when there is none), once the lock is open.
+	func openLaunchURL(_ url: URL) {
+		guard interactionAllowed else {
+			launchURL = url
+			return
+		}
+
+		let profileID = model.profiles.first?.id
+			?? model.createProfile(name: "Personal", color: .blue, group: nil)
+		model.expandedProfileIDs.insert(profileID)
+		openTab(inProfile: profileID, url: url)
+	}
+
 	// MARK: Contexts
 
 	private func withContext(_ profileID: String, _ body: @escaping (BrowserContext) -> Void) {
@@ -191,7 +237,7 @@ final class BrowserController: NSObject {
 
 	// Selects a tab, loading its page if it has none.
 	func select(tabID: String) {
-		guard let tab = model.tab(tabID), let profileID = model.profileID(ofTab: tabID) else {
+		guard interactionAllowed, let tab = model.tab(tabID), let profileID = model.profileID(ofTab: tabID) else {
 			return
 		}
 
@@ -377,7 +423,13 @@ final class BrowserController: NSObject {
 		model.setNavigation(tabID, .init(canGoBack: page.canGoBack, canGoForward: page.canGoForward))
 	}
 
+	// Never behind the lock: no page view sits under the PIN screen, and the
+	// window's title (the Window menu's, Mission Control's) stays Pane.
 	private func show(_ page: WebContents, profileID: String) {
+		guard interactionAllowed else {
+			return
+		}
+
 		if let context = contexts[profileID] {
 			browserWindow.activeContext = context
 		}
@@ -759,7 +811,7 @@ extension BrowserController {
 	}
 
 	func toggleDevTools() {
-		guard let page = activePage else {
+		guard interactionAllowed, let page = activePage else {
 			return
 		}
 
@@ -767,6 +819,10 @@ extension BrowserController {
 	}
 
 	func printPage() {
+		guard interactionAllowed else {
+			return
+		}
+
 		activePage?.printPage()
 	}
 
@@ -810,7 +866,7 @@ extension BrowserController: BrowserContextDelegate {
 	}
 
 	func browserContext(_ context: BrowserContext, show popup: ExtensionPopup, in window: BrowserWindow) {
-		guard let hostingView else {
+		guard interactionAllowed, let hostingView else {
 			popup.close()
 			return
 		}
@@ -998,8 +1054,14 @@ extension BrowserController {
 		runExtensionAction(extensionID)
 	}
 
-	// A popup replaces one still open, which answers no.
+	// A popup replaces one still open, which answers no. Behind the lock the
+	// answer is no at once.
 	func presentExtensionPrompt(_ prompt: WindowState.ExtensionPrompt) {
+		guard interactionAllowed else {
+			prompt.answer(false, false)
+			return
+		}
+
 		closeExtensionsMenu()
 		let previous = state.extensionPrompt
 		state.extensionPromptReportsAbuse = false

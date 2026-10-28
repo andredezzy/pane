@@ -5,11 +5,14 @@ import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
-// (security.json with its bcryptjs hash of 1234): a wrong PIN counts, the
-// right one unlocks. Then the PIN is changed, removed, and set up again
-// through the PIN screen, and Back leaves it. Last, on a relaunch, five
-// wrong PINs erase the data directory and Pane starts again, fresh. Each
-// check runs in a throwaway data directory.
+// (security.json with its bcryptjs hash of 1234): behind it nothing opens,
+// neither the URL Pane was started with nor the menu bar's items (the
+// mouse's way past the PIN screen's keys) but Quit and Check for Updates….
+// A wrong PIN counts, the right one unlocks, and the URL opens then. Then
+// the PIN is changed, removed, and set up again through the PIN screen, and
+// Back leaves it. On a relaunch, five wrong PINs erase the data directory
+// and Pane starts again, fresh. Last, ⌘Q quits from the PIN screen with
+// Caps Lock on. Each check runs in a throwaway data directory.
 
 // bcryptjs 3.0.3, hashSync("1234", 10): what the Electron app wrote.
 const ELECTRON_SECURITY = {
@@ -64,7 +67,9 @@ const security: Scenario = async (context) => {
 		JSON.stringify(ELECTRON_SECURITY),
 	);
 
-	const app = await launchPane(context, { dataDir });
+	const launchURL = context.fixtures.url("nav-b.html?behind-the-lock");
+
+	const app = await launchPane(context, { dataDir, args: [launchURL] });
 	const launched = await app.state();
 
 	expect(
@@ -72,6 +77,41 @@ const security: Scenario = async (context) => {
 			screen(launched)?.mode === "unlock" &&
 			screen(launched)?.dots === 4,
 		`Pane did not start locked: ${JSON.stringify(launched.security)}`,
+	);
+
+	// The menu bar, as clicked: an item runs only if the menu enables it.
+	const menu = async (path: string[]) =>
+		(await app.send<boolean>("menu", { path })).result;
+
+	const lockedMenu = {
+		newTab: await menu(["File", "New Tab"]),
+		reopenClosedTab: await menu(["File", "Reopen Closed Tab"]),
+		print: await menu(["File", "Print\u2026"]),
+		developerTools: await menu(["View", "Developer Tools"]),
+		tab1: await menu(["Tab", "Tab 1"]),
+		settings: await menu(["Pane", "Settings\u2026"]),
+		extensions: await menu(["Window", "Extensions"]),
+		checkForUpdates: await menu(["Pane", "Check for Updates\u2026"]),
+	};
+
+	// Long enough for a tab to open and load, had one been let through.
+	await Bun.sleep(1_500);
+	const behindLock = await app.state();
+	const tabsBehindLock = behindLock.profiles.flatMap((entry) => entry.tabs);
+
+	expect(
+		Object.entries(lockedMenu).every(
+			([item, ran]) => ran === (item === "checkForUpdates"),
+		),
+		`the menu behind the lock: ${JSON.stringify(lockedMenu)}`,
+	);
+
+	expect(
+		tabsBehindLock.length === 0 &&
+			behindLock.window.title === "Pane" &&
+			behindLock.page === "browser" &&
+			behindLock.sheet === null,
+		`something opened behind the lock: ${JSON.stringify({ tabs: tabsBehindLock, title: behindLock.window.title, page: behindLock.page, sheet: behindLock.sheet })}`,
 	);
 
 	await app.send("render", { path: join(context.out, "security-lock.png") });
@@ -109,6 +149,13 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(unlocked.security.failedAttempts === 0, "the attempts did not reset");
+
+	// The launch URL opens once the lock is open.
+	const opened = await app.waitFor("the launch URL opened", (state) =>
+		state.profiles.some((entry) =>
+			entry.tabs.some((item) => item.url === launchURL && item.loaded),
+		),
+	);
 
 	// Data that the wipe must erase later: a profile with a page.
 	const profile = await app.createProfile("Private", "ROSE");
@@ -268,12 +315,33 @@ const security: Scenario = async (context) => {
 
 	await relaunched.quit();
 
+	// ⌘Q at the PIN screen with Caps Lock on.
+	const capsDir = context.tempDir("pane-security-caps-");
+
+	writeFileSync(
+		join(capsDir, "security.json"),
+		JSON.stringify(ELECTRON_SECURITY),
+	);
+
+	const caps = await launchPane(context, { dataDir: capsDir });
+	await caps.send("activate");
+	await caps.waitFor("the key window", (state) => state.window.key, 10_000);
+	await caps.send("key", { key: "q", modifiers: ["command", "capsLock"] });
+
+	const quitWithCapsLock = await waitForExit(caps.browser.pid);
+
+	if (!quitWithCapsLock) {
+		await caps.browser.close();
+	}
+
 	expect(
 		before.profiles && before.profileData,
 		`nothing to wipe: ${JSON.stringify(before)}`,
 	);
 
 	expect(!after.profileData, "the profile's engine data survived the wipe");
+
+	expect(quitWithCapsLock, "⌘Q with Caps Lock did not quit at the PIN screen");
 
 	expect(
 		!after.locked &&
@@ -283,6 +351,15 @@ const security: Scenario = async (context) => {
 	);
 
 	return {
+		behindTheLock: {
+			menu: lockedMenu,
+			tabs: tabsBehindLock.length,
+			windowTitle: behindLock.window.title,
+			launchURLAfterUnlock: opened.profiles.some((entry) =>
+				entry.tabs.some((item) => item.url === launchURL),
+			),
+		},
+		quitWithCapsLock,
 		electronPin: {
 			unlockedWith: "the Electron app's bcryptjs hash",
 			failedAttemptsAfterWrong: wrong.security.failedAttempts,

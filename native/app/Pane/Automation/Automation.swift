@@ -204,6 +204,26 @@ final class Automation {
 			// event monitors, then the menu's key equivalents, then the window.
 			try postKey(try string("key"), modifiers: command["modifiers"] as? [String] ?? [])
 
+		case "menu":
+			// A click on an item of the menu bar, { path: ["File", "New Tab"] }:
+			// it runs only when the menu enables it, as for the mouse. Returns
+			// whether it ran.
+			let path = command["path"] as? [String] ?? []
+
+			guard let (menu, index) = Self.menuItem(at: path) else {
+				throw AutomationError("no menu item \(path.joined(separator: " › "))")
+			}
+
+			menu.update()
+
+			guard menu.item(at: index)?.isEnabled == true else {
+				return false
+			}
+
+			menu.performActionForItem(at: index)
+
+			return true
+
 		case "activate":
 			// What a click on the window does first: the app comes forward and
 			// its window becomes key. A click activates the app at once; the
@@ -834,6 +854,25 @@ final class Automation {
 		] as [String: Any]
 	}
 
+	// The menu holding the item at `path` in the menu bar, and its index.
+	private static func menuItem(at path: [String]) -> (NSMenu, Int)? {
+		guard let title = path.last, var menu = NSApp.mainMenu else {
+			return nil
+		}
+
+		for name in path.dropLast() {
+			guard let submenu = menu.items.first(where: { $0.title == name })?.submenu else {
+				return nil
+			}
+
+			menu = submenu
+		}
+
+		let index = menu.indexOfItem(withTitle: title)
+
+		return index < 0 ? nil : (menu, index)
+	}
+
 	private static let keyCodes: [String: UInt16] = [
 		"a": 0, "f": 3, "i": 34, "p": 35, "q": 12, "r": 15, "t": 17, "w": 13, "l": 37,
 		"1": 18, "2": 19, "3": 20, "0": 29, "=": 24, "-": 27,
@@ -847,6 +886,7 @@ final class Automation {
 			case "shift": flags.insert(.shift)
 			case "control": flags.insert(.control)
 			case "option": flags.insert(.option)
+			case "capsLock": flags.insert(.capsLock)
 			default: break
 			}
 		}

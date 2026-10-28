@@ -73,6 +73,9 @@ final class DialogPresenter {
 
 	private let window: NSWindow
 	private let activeTabID: () -> String?
+	// Behind the PIN lock requests wait: a sheet would show over the PIN
+	// screen, with the page's text.
+	private let isHeld: () -> Bool
 	private var queue: [Pending] = []
 	private(set) var presented: Presented?
 
@@ -80,9 +83,10 @@ final class DialogPresenter {
 		queue.count
 	}
 
-	init(window: NSWindow, activeTabID: @escaping () -> String?) {
+	init(window: NSWindow, activeTabID: @escaping () -> String?, isHeld: @escaping () -> Bool) {
 		self.window = window
 		self.activeTabID = activeTabID
+		self.isHeld = isHeld
 	}
 
 	func enqueue(_ request: Request, tabID: String?) {
@@ -97,6 +101,11 @@ final class DialogPresenter {
 		}
 
 		queue.removeAll { $0.request.object === object }
+		presentNext()
+	}
+
+	// What held the requests let go.
+	func resume() {
 		presentNext()
 	}
 
@@ -140,6 +149,7 @@ final class DialogPresenter {
 		queue.removeAll { $0.request.isAnswered }
 
 		guard
+			!isHeld(),
 			presented == nil,
 			window.attachedSheet == nil,
 			let index = queue.firstIndex(where: { $0.tabID == nil || $0.tabID == activeTabID() })
