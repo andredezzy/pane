@@ -40,9 +40,6 @@ final class VerticalReorder {
 		self.spacing = spacing
 	}
 
-	// The rows aside slide on a short spring; the copy settles on the same.
-	static let slide = Animation.spring(response: 0.28, dampingFraction: 0.9)
-
 	// The order to draw: the dragged row at the place it would drop.
 	func order(_ ids: [String]) -> [String] {
 		guard let drag, ids == drag.ids else {
@@ -99,7 +96,7 @@ final class VerticalReorder {
 
 		if target != drag.target {
 			drag.target = target
-			withAnimation(Self.slide) { self.drag = drag }
+			withAnimation(Motion.slide) { self.drag = drag }
 		} else {
 			self.drag = drag
 		}
@@ -124,7 +121,7 @@ final class VerticalReorder {
 		}
 
 		drag.settleTop = frames[drag.id]?.minY ?? copyTop
-		withAnimation(Self.slide) { self.drag = drag }
+		withAnimation(Motion.slide) { self.drag = drag }
 
 		let from = drag.start
 		let to = drag.target
@@ -134,7 +131,7 @@ final class VerticalReorder {
 				commit(from, to)
 			}
 
-			withAnimation(.easeOut(duration: 0.12)) { self.drag = nil }
+			withAnimation(Motion.drop) { self.drag = nil }
 		}
 	}
 }

@@ -140,7 +140,6 @@ private struct KeyedButton: View {
 	let configuration: ButtonStyle.Configuration
 	let role: KeyedButtonStyle.Role
 
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 	@State private var isHovered = false
 
 	// The cancel button's hairline: the border token, a little stronger on
@@ -163,7 +162,7 @@ private struct KeyedButton: View {
 			}
 			.contentShape(Rectangle())
 			.onHover { hovering in
-				withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+				withAnimation(Motion.hover) {
 					isHovered = hovering
 				}
 			}

@@ -46,7 +46,6 @@ private struct PaneButtonBody: View {
 	let style: PaneButtonStyle
 
 	@Environment(\.isEnabled) private var isEnabled
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 	@State private var isHovered = false
 
 	var body: some View {
@@ -69,7 +68,7 @@ private struct PaneButtonBody: View {
 			.contentShape(Rectangle())
 			.opacity(isEnabled ? 1 : 0.5)
 			.onHover { hovering in
-				withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+				withAnimation(Motion.hover) {
 					isHovered = hovering && isEnabled
 				}
 			}

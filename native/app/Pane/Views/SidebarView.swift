@@ -110,7 +110,7 @@ struct SidebarView: View {
 		}
 		.padding(.horizontal, 8)
 		.padding(.bottom, 8)
-		.animation(.easeOut(duration: 0.3), value: controller.updater.showsPill)
+		.animation(Motion.fade, value: controller.updater.showsPill)
 	}
 }
 
@@ -120,7 +120,6 @@ private struct CollapseAllButton: View {
 	let action: () -> Void
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -134,7 +133,7 @@ private struct CollapseAllButton: View {
 		.opacity(isEnabled ? 1 : 0.4)
 		.disabled(!isEnabled)
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering && isEnabled }
+			withAnimation(Motion.hover) { isHovered = hovering && isEnabled }
 		}
 		.help("Collapse all profiles")
 		.accessibilityLabel("Collapse all profiles")
@@ -185,7 +184,6 @@ private struct ProfileSection: View {
 	@State private var tabReorder = VerticalReorder(space: "pane.sidebar.tabs", rowHeight: 32, spacing: 4)
 	@State private var confirmingDelete = false
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	private var model: BrowserModel { controller.model }
 	private var isExpanded: Bool { model.expandedProfileIDs.contains(profile.id) }
@@ -254,7 +252,7 @@ private struct ProfileSection: View {
 					.fill(isActive ? color.opacity(0.04) : .clear)
 			}
 			// In the label, as the bar's morph: see ProfileHeaderContent.
-			.animation(reduceMotion ? nil : ProfileHeaderContent.morph, value: isActive)
+			.animation(Motion.morph, value: isActive)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
@@ -302,12 +300,6 @@ private struct ProfileHeaderContent: View {
 	let proxyStatus: BrowserModel.ProxyStatus?
 	let showsCount: Bool
 
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-	// Short and settled: about a third of a second, with no overshoot to
-	// speak of.
-	static let morph = Animation.spring(response: 0.32, dampingFraction: 0.86)
-
 	var body: some View {
 		HStack(spacing: 8) {
 			Squircle(cornerRadius: isActive ? 4 : 2)
@@ -334,7 +326,7 @@ private struct ProfileHeaderContent: View {
 		// the header (closing the active profile) ends the button's press in
 		// the same update, and the press drops an animation set outside the
 		// label, so the bar snapped back thin.
-		.animation(reduceMotion ? nil : Self.morph, value: isActive)
+		.animation(Motion.morph, value: isActive)
 	}
 }
 

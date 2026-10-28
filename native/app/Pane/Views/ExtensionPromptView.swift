@@ -101,7 +101,6 @@ private struct PopupButton: View {
 	let isPrimary: Bool
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		configuration.label
@@ -119,7 +118,7 @@ private struct PopupButton: View {
 			}
 			.contentShape(Rectangle())
 			.onHover { hovering in
-				withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+				withAnimation(Motion.hover) { isHovered = hovering }
 			}
 	}
 

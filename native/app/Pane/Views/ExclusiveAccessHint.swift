@@ -6,7 +6,6 @@ struct ExclusiveAccessHint: View {
 	let text: String
 
 	@State private var shown = true
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Text(text)
@@ -22,7 +21,7 @@ struct ExclusiveAccessHint: View {
 			.task(id: text) {
 				shown = true
 				try? await Task.sleep(for: .seconds(3.5))
-				withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
+				withAnimation(Motion.fade) {
 					shown = false
 				}
 			}

@@ -8,7 +8,6 @@ struct HoverBackground: ViewModifier {
 	let cornerRadius: CGFloat
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	func body(content: Content) -> some View {
 		content
@@ -17,7 +16,7 @@ struct HoverBackground: ViewModifier {
 					Squircle(cornerRadius: cornerRadius)
 						.fill(hoverFill)
 						.opacity(!isSelected && isHovered ? 1 : 0)
-						.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
+						.animation(Motion.hover, value: isHovered)
 					Squircle(cornerRadius: cornerRadius)
 						.fill(selectedFill)
 						.opacity(isSelected ? 1 : 0)

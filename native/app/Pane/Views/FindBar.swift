@@ -137,7 +137,6 @@ private struct FindButtonLabel: View {
 
 	@State private var isHovered = false
 	@Environment(\.isEnabled) private var isEnabled
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		configuration.label
@@ -147,7 +146,7 @@ private struct FindButtonLabel: View {
 			.contentShape(Circle())
 			.opacity(isEnabled ? 1 : 0.4)
 			.onHover { hovering in
-				withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering && isEnabled }
+				withAnimation(Motion.hover) { isHovered = hovering && isEnabled }
 			}
 	}
 }

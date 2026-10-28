@@ -92,7 +92,6 @@ private struct NavigationButton: View {
 	let action: () -> Void
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -104,7 +103,7 @@ private struct NavigationButton: View {
 		.foregroundStyle(isHovered ? Palette.accentForeground : Palette.mutedForeground)
 		.background(isHovered ? Palette.accent : .clear, in: Circle())
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.help(label)
 		.accessibilityLabel(label)
@@ -123,7 +122,6 @@ private struct AddressField: View {
 	let onExit: () -> Void
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		TextField(
@@ -172,7 +170,7 @@ private struct AddressField: View {
 		}
 		.clipShape(Squircle(cornerRadius: 9))
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.accessibilityIdentifier("pane.address")
 	}
@@ -231,7 +229,6 @@ private struct LoadingBar: View {
 	@State private var fraction: CGFloat = 0
 	@State private var opacity: Double = 0
 	@State private var run = 0
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		GeometryReader { geometry in
@@ -258,7 +255,7 @@ private struct LoadingBar: View {
 				return
 			}
 
-			withAnimation(reduceMotion ? nil : .timingCurve(0.1, 0.05, 0, 1, duration: 8)) {
+			withAnimation(Motion.unlessReduced(.timingCurve(0.1, 0.05, 0, 1, duration: 8))) {
 				fraction = 0.9
 			}
 		}
@@ -269,11 +266,11 @@ private struct LoadingBar: View {
 			return
 		}
 
-		withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+		withAnimation(Motion.unlessReduced(.easeOut(duration: 0.2))) {
 			fraction = 1
 		}
 
-		withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2).delay(0.2)) {
+		withAnimation(Motion.unlessReduced(.easeOut(duration: 0.2).delay(0.2))) {
 			opacity = 0
 		}
 	}

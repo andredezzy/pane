@@ -11,7 +11,6 @@ private struct PaneSwitch: View {
 	let configuration: ToggleStyle.Configuration
 
 	@Environment(\.isEnabled) private var isEnabled
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		HStack(spacing: 8) {
@@ -29,7 +28,7 @@ private struct PaneSwitch: View {
 				}
 				.contentShape(Capsule(style: .circular))
 				.onTapGesture {
-					withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+					withAnimation(Motion.toggle) {
 						configuration.isOn.toggle()
 					}
 				}

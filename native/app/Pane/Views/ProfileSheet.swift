@@ -205,7 +205,7 @@ struct ProfileSheet: View {
 					if proxyTest == .testing {
 						LucideIcon(.loaderCircle, size: 12)
 							.rotationEffect(.degrees(spin ? 360 : 0))
-							.onAppear { withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) { spin = true } }
+							.onAppear { withAnimation(Motion.spin) { spin = true } }
 							.onDisappear { spin = false }
 					}
 
@@ -356,7 +356,6 @@ struct CloseButton: View {
 	let action: () -> Void
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -367,7 +366,7 @@ struct CloseButton: View {
 		.buttonStyle(.plain)
 		.foregroundStyle(isHovered ? Palette.foreground : Palette.mutedForeground)
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.accessibilityLabel("Close")
 	}

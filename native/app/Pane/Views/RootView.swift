@@ -9,8 +9,6 @@ import SwiftUI
 struct RootView: View {
 	let controller: BrowserController
 
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
-
 	private var model: BrowserModel { controller.model }
 	private var state: WindowState { controller.state }
 
@@ -146,13 +144,13 @@ struct RootView: View {
 			if let entry = controller.lock.entry {
 				LockScreenView(lock: controller.lock, entry: entry, updater: controller.updater)
 					.transition(.asymmetric(
-						insertion: .move(edge: .bottom).animation(reduceMotion ? nil : .timingCurve(0.16, 1, 0.3, 1, duration: 0.4)),
-						removal: .move(edge: .bottom).animation(reduceMotion ? nil : .easeIn(duration: 0.35))
+						insertion: .move(edge: .bottom).animation(Motion.lockIn),
+						removal: .move(edge: .bottom).animation(Motion.lockOut)
 					))
 					.zIndex(2)
 			}
 		}
-		.animation(reduceMotion ? nil : .default, value: controller.lock.entry == nil)
+		.animation(Motion.unlessReduced(.default), value: controller.lock.entry == nil)
 		// The extensions menu belongs to the tab and the window it opened over.
 		.onChange(of: model.activeTabID) { controller.closeExtensionsMenu() }
 		.onChange(of: model.activeProfileID) { controller.closeExtensionsMenu() }
@@ -209,7 +207,7 @@ struct RootView: View {
 	// Sheets slide in from the right; their scrim fades (DESIGN.md: enter and
 	// exit animate).
 	private func present(_ target: WindowState.ProfileSheetTarget?) {
-		withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+		withAnimation(Motion.sheet) {
 			state.profileSheet = target
 		}
 	}

@@ -45,8 +45,8 @@ struct UpdatePill: View {
 		.padding(.trailing, 24)
 		.background(Palette.foreground.opacity(0.05), in: Squircle(cornerRadius: 15))
 		.onHover { isHovered = $0 }
-		.animation(.easeOut(duration: 0.15), value: isHovered)
-		.animation(.easeInOut(duration: 0.2), value: updater.status)
+		.animation(Motion.hover, value: isHovered)
+		.animation(Motion.status, value: updater.status)
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.sidebar.updatePill")
 	}
@@ -57,7 +57,6 @@ struct UpdateDot: View {
 	let pulsing: Bool
 
 	@State private var dimmed = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Circle()
@@ -70,12 +69,12 @@ struct UpdateDot: View {
 
 	// Tailwind's animate-pulse: half opacity and back, every two seconds.
 	private func pulse() {
-		guard pulsing, !reduceMotion else {
+		guard pulsing, let pulse = Motion.unlessReduced(.easeInOut(duration: 1).repeatForever(autoreverses: true)) else {
 			dimmed = false
 			return
 		}
 
-		withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+		withAnimation(pulse) {
 			dimmed = true
 		}
 	}
@@ -93,7 +92,7 @@ struct UpdateProgressBar: View {
 					Capsule(style: .circular)
 						.fill(Color(rgb: 0x10B981))
 						.frame(width: geometry.size.width * min(max(progress, 0), 1))
-						.animation(.linear(duration: 0.2), value: progress)
+						.animation(Motion.progress, value: progress)
 				}
 		}
 		.frame(height: 4)

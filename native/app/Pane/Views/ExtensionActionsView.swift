@@ -9,7 +9,6 @@ struct ExtensionActionsView: View {
 	let controller: BrowserController
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	private var model: BrowserModel { controller.model }
 	private var pinned: [ExtensionInfo] {
@@ -37,7 +36,7 @@ struct ExtensionActionsView: View {
 						.opacity(isHovered || pinned.contains { $0.id == openID } ? 1 : 0)
 				}
 				.onHover { hovering in
-					withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+					withAnimation(Motion.hover) { isHovered = hovering }
 				}
 			}
 
@@ -86,7 +85,6 @@ private struct ExtensionsButton: View {
 	let action: () -> Void
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -101,7 +99,7 @@ private struct ExtensionsButton: View {
 		.foregroundStyle(isOpen ? Palette.foreground : isHovered ? Palette.accentForeground : Palette.mutedForeground)
 		.background(isOpen || isHovered ? Palette.accent : .clear, in: Circle())
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.help("Extensions")
 		.accessibilityLabel("Extensions")
@@ -121,7 +119,6 @@ private struct ActionButton: View {
 	let action: () -> Void
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -161,7 +158,7 @@ private struct ActionButton: View {
 		.buttonStyle(.plain)
 		.opacity(item.actionEnabled ? 1 : 0.4)
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.help(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityLabel(item.actionTitle.isEmpty ? item.name : item.actionTitle)

@@ -131,7 +131,7 @@ private struct LockUpdateStatus: View {
 			}
 		}
 		.onHover { isHovered = $0 }
-		.animation(.easeOut(duration: 0.2), value: isHovered)
+		.animation(Motion.unlessReduced(.easeOut(duration: 0.2)), value: isHovered)
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.lockScreen.update")
 	}
@@ -144,8 +144,6 @@ private struct PinDots: View {
 	let filled: Int
 	let shakes: Int
 
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
-
 	var body: some View {
 		HStack(spacing: 14) {
 			ForEach(0 ..< length, id: \.self) { index in
@@ -157,11 +155,11 @@ private struct PinDots: View {
 						}
 					}
 					.frame(width: 13, height: 13)
-					.animation(.easeInOut(duration: 0.15), value: filled)
+					.animation(Motion.unlessReduced(.easeInOut(duration: 0.15)), value: filled)
 			}
 		}
 		// globals.css @keyframes shake: 0.4s, ±8 then ±6.
-		.keyframeAnimator(initialValue: 0.0, trigger: reduceMotion ? 0 : shakes) { content, offset in
+		.keyframeAnimator(initialValue: 0.0, trigger: Motion.isReduced ? 0 : shakes) { content, offset in
 			content.offset(x: offset)
 		} keyframes: { _ in
 			KeyframeTrack {
@@ -225,7 +223,6 @@ private struct DigitKey: View {
 	let configuration: ButtonStyleConfiguration
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		let lit = isHovered || configuration.isPressed
@@ -238,8 +235,8 @@ private struct DigitKey: View {
 			.overlay(Circle().strokeBorder(Palette.foreground.opacity(lit ? 0.2 : 0.12), lineWidth: 1))
 			.contentShape(Circle())
 			.onHover { isHovered = $0 }
-			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
-			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
+			.animation(Motion.hover, value: isHovered)
+			.animation(Motion.hover, value: configuration.isPressed)
 	}
 }
 
@@ -255,7 +252,6 @@ private struct BackspaceKey: View {
 	let configuration: ButtonStyleConfiguration
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		configuration.label
@@ -263,8 +259,8 @@ private struct BackspaceKey: View {
 			.frame(width: 64, height: 64)
 			.contentShape(Circle())
 			.onHover { isHovered = $0 }
-			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
-			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
+			.animation(Motion.hover, value: isHovered)
+			.animation(Motion.hover, value: configuration.isPressed)
 	}
 }
 
@@ -303,7 +299,6 @@ private struct BackButton: View {
 	let action: () -> Void
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -312,7 +307,7 @@ private struct BackButton: View {
 		.buttonStyle(.plain)
 		.foregroundStyle(Palette.foreground.opacity(isHovered ? 0.6 : 0.3))
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.accessibilityLabel("Back")
 		.accessibilityIdentifier("pane.lockScreen.back")
@@ -331,14 +326,13 @@ private struct HintLabel: View {
 	let configuration: ButtonStyleConfiguration
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		configuration.label
 			.font(.system(size: 13, weight: .light))
 			.foregroundStyle(Palette.foreground.opacity(isHovered || configuration.isPressed ? 0.8 : 0.6))
 			.onHover { isHovered = $0 }
-			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
-			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
+			.animation(Motion.hover, value: isHovered)
+			.animation(Motion.hover, value: configuration.isPressed)
 	}
 }

@@ -220,7 +220,6 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 	@ViewBuilder let trailing: Trailing
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	init(
 		identifier: String,
@@ -258,7 +257,7 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 		.frame(height: 32)
 		.background(isHighlighted || isHovered && action != nil ? Palette.accent : .clear, in: Squircle(cornerRadius: 15))
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 	}
 }
@@ -296,7 +295,6 @@ private struct TrailingButton<Content: View>: View {
 	@ViewBuilder let content: Content
 
 	@State private var isHovered = false
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -307,7 +305,7 @@ private struct TrailingButton<Content: View>: View {
 		.buttonStyle(.plain)
 		.background(isHovered ? Palette.foreground.opacity(0.08) : .clear, in: Squircle(cornerRadius: 11))
 		.onHover { hovering in
-			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.help(label)
 		.accessibilityLabel(label)
