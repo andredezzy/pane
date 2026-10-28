@@ -1,6 +1,5 @@
 import PaneKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 // Profiles with their tabs. A profile expands to load its tabs and collapses
 // to release them (CONTEXT.md: Unload); the selected tab is highlighted.
@@ -11,6 +10,9 @@ struct SidebarView: View {
 
 	private var model: BrowserModel { controller.model }
 
+	// Profiles reorder by dragging their headers, as the Electron app's did.
+	@State private var reorder = VerticalReorder(space: "pane.sidebar.profiles", rowHeight: 36, spacing: 4)
+
 	var body: some View {
 		VStack(spacing: 0) {
 			header
@@ -18,12 +20,25 @@ struct SidebarView: View {
 			// Fading at its edges as it scrolls, as the Electron app's list.
 			FadingScrollView {
 				VStack(alignment: .leading, spacing: 4) {
-					ForEach(model.profiles) { profile in
-						ProfileSection(
-							controller: controller,
-							profile: profile,
-							onEdit: { onEditProfile(profile.id) }
-						)
+					ForEach(reorder.order(model.profiles.map(\.id)), id: \.self) { id in
+						if let profile = model.profile(id) {
+							ProfileSection(
+								controller: controller,
+								profile: profile,
+								reorder: reorder,
+								onEdit: { onEditProfile(profile.id) }
+							)
+							.reorderRow(id, in: reorder)
+						}
+					}
+				}
+				.reorderList(reorder) { id in
+					if let profile = model.profile(id) {
+						ProfileHeaderContent(profile: profile, isActive: model.activeProfileID == id, isUnloaded: false, proxyStatus: model.proxyStatus[id], showsCount: !model.expandedProfileIDs.contains(id))
+							.padding(.horizontal, 8)
+							.frame(height: 36)
+							.foregroundStyle(Palette.accentForeground)
+							.dragCopy()
 					}
 				}
 				.padding(.horizontal, 8)
@@ -163,8 +178,11 @@ private struct SidebarButton<Label: View>: View {
 private struct ProfileSection: View {
 	let controller: BrowserController
 	let profile: BrowserProfile
+	let reorder: VerticalReorder
 	let onEdit: () -> Void
 
+	// Its tabs reorder by dragging, as the Electron app's did.
+	@State private var tabReorder = VerticalReorder(space: "pane.sidebar.tabs", rowHeight: 32, spacing: 4)
 	@State private var confirmingDelete = false
 	// The moon marks an unload that happened this session: a profile never
 	// loaded shows none.
@@ -184,8 +202,29 @@ private struct ProfileSection: View {
 
 			if isExpanded {
 				VStack(alignment: .leading, spacing: 4) {
-					ForEach(profile.tabs) { tab in
-						TabRow(controller: controller, tab: tab, profileID: profile.id)
+					VStack(alignment: .leading, spacing: 4) {
+						ForEach(tabReorder.order(profile.tabs.map(\.id)), id: \.self) { id in
+							if let tab = profile.tabs.first(where: { $0.id == id }) {
+								TabRow(controller: controller, tab: tab, profileID: profile.id, reorder: tabReorder, ids: profile.tabs.map(\.id))
+									.reorderRow(id, in: tabReorder)
+							}
+						}
+					}
+					.reorderList(tabReorder) { id in
+						if let tab = profile.tabs.first(where: { $0.id == id }) {
+							HStack(spacing: 10) {
+								FaviconView(dataURL: tab.favicon)
+								Text(tab.title.isEmpty ? "Loading..." : tab.title)
+									.font(.system(size: 12))
+									.lineLimit(1)
+									.frame(maxWidth: .infinity, alignment: .leading)
+							}
+							.padding(.leading, 7)
+							.padding(.trailing, 8)
+							.frame(height: SidebarRow.height)
+							.foregroundStyle(Palette.accentForeground)
+							.dragCopy()
+						}
 					}
 
 					// mt-1 against the last tab's 4px margin: CSS collapses
@@ -211,36 +250,13 @@ private struct ProfileSection: View {
 		let color = profile.color.color
 
 		return Button(action: toggle) {
-			HStack(spacing: 8) {
-				// The active profile's bar grows into a 16-point square, the
-				// favicons' size, rounding off as it widens; the name moves
-				// along (DESIGN.md: Motion, an indicator morphs).
-				Squircle(cornerRadius: isActive ? 4 : 2)
-					.fill(color)
-					.frame(width: isActive ? 16 : 4, height: 16)
-
-				Text(profile.name)
-					.font(.system(size: 12, weight: .medium))
-					.lineLimit(1)
-					.truncationMode(.tail)
-					.frame(maxWidth: .infinity, alignment: .leading)
-
-				if isUnloaded {
-					LucideIcon(.moon, size: 14)
-						.foregroundStyle(Palette.mutedForeground.opacity(0.5))
-						.accessibilityLabel("Unloaded")
-				}
-
-				if let status = model.proxyStatus[profile.id] {
-					ProxyDot(status: status)
-				}
-
-				if !isExpanded && !profile.tabs.isEmpty {
-					Text("\(profile.tabs.count)")
-						.font(.system(size: 12))
-						.foregroundStyle(Palette.mutedForeground)
-				}
-			}
+			ProfileHeaderContent(
+				profile: profile,
+				isActive: isActive,
+				isUnloaded: isUnloaded,
+				proxyStatus: model.proxyStatus[profile.id],
+				showsCount: !isExpanded
+			)
 			.padding(.horizontal, 8)
 			.frame(height: 36)
 			.contentShape(Rectangle())
@@ -269,20 +285,9 @@ private struct ProfileSection: View {
 				MenuLabel("Delete profile", icon: .trash2)
 			}
 		}
-		.draggable(DraggedItem.profile(profile.id))
-		.dropDestination(for: DraggedItem.self) { items, _ in
-			guard case let .profile(id) = items.first,
-			      let from = model.profiles.firstIndex(where: { $0.id == id }),
-			      let to = model.profiles.firstIndex(where: { $0.id == profile.id }),
-			      from != to
-			else {
-				return false
-			}
-
+		.gesture(reorder.gesture(profile.id, ids: model.profiles.map(\.id)) { from, to in
 			model.moveProfile(from: from, to: to)
-
-			return true
-		}
+		})
 		.accessibilityIdentifier("pane.profile.\(profile.id)")
 		.accessibilityLabel(profile.name)
 	}
@@ -298,6 +303,62 @@ private struct ProfileSection: View {
 		} else {
 			model.expandedProfileIDs.insert(profile.id)
 		}
+	}
+}
+
+// A profile's header: its color (the active one's bar grown into a 16-point
+// square, the favicons' size, rounding off as it widens, with the name moving
+// along: DESIGN.md › Motion, an indicator morphs), the name, the moon of an
+// unload, the proxy's dot, and the tab count while collapsed.
+private struct ProfileHeaderContent: View {
+	let profile: BrowserProfile
+	let isActive: Bool
+	let isUnloaded: Bool
+	let proxyStatus: BrowserModel.ProxyStatus?
+	let showsCount: Bool
+
+	var body: some View {
+		HStack(spacing: 8) {
+			Squircle(cornerRadius: isActive ? 4 : 2)
+				.fill(profile.color.color)
+				.frame(width: isActive ? 16 : 4, height: 16)
+
+			Text(profile.name)
+				.font(.system(size: 12, weight: .medium))
+				.lineLimit(1)
+				.truncationMode(.tail)
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			if isUnloaded {
+				LucideIcon(.moon, size: 14)
+					.foregroundStyle(Palette.mutedForeground.opacity(0.5))
+					.accessibilityLabel("Unloaded")
+			}
+
+			if let proxyStatus {
+				ProxyDot(status: proxyStatus)
+			}
+
+			if showsCount && !profile.tabs.isEmpty {
+				Text("\(profile.tabs.count)")
+					.font(.system(size: 12))
+					.foregroundStyle(Palette.mutedForeground)
+			}
+		}
+	}
+}
+
+// The copy of a dragged row that rides the pointer: on the card's fill,
+// rounded as the rows are, lifted by a soft shadow.
+private extension View {
+	func dragCopy() -> some View {
+		frame(maxWidth: .infinity)
+			.background(Palette.card, in: Squircle(cornerRadius: SidebarRow.cornerRadius))
+			.overlay {
+				Squircle(cornerRadius: SidebarRow.cornerRadius)
+					.strokeBorder(Palette.border, lineWidth: 1)
+			}
+			.shadow(color: .black.opacity(0.12), radius: 8, y: 4)
 	}
 }
 
@@ -329,6 +390,8 @@ private struct TabRow: View {
 	let controller: BrowserController
 	let tab: PaneKit.Tab
 	let profileID: String
+	let reorder: VerticalReorder
+	let ids: [String]
 
 	@State private var isHovered = false
 
@@ -367,22 +430,9 @@ private struct TabRow: View {
 		.contextMenu {
 			Button("Close tab") { controller.closeTab(tab.id) }
 		}
-		.draggable(DraggedItem.tab(tab.id))
-		.dropDestination(for: DraggedItem.self) { items, _ in
-			guard case let .tab(id) = items.first,
-			      model.profileID(ofTab: id) == profileID,
-			      let tabs = model.profile(profileID)?.tabs,
-			      let from = tabs.firstIndex(where: { $0.id == id }),
-			      let to = tabs.firstIndex(where: { $0.id == tab.id }),
-			      from != to
-			else {
-				return false
-			}
-
+		.gesture(reorder.gesture(tab.id, ids: ids) { from, to in
 			model.moveTab(inProfile: profileID, from: from, to: to)
-
-			return true
-		}
+		})
 		.accessibilityIdentifier("pane.tab.\(tab.id)")
 		.accessibilityLabel(tab.title.isEmpty ? "Loading" : tab.title)
 		.accessibilityAddTraits(isActive ? .isSelected : [])
@@ -427,18 +477,6 @@ private struct PlusMark: View {
 		Text("+")
 			.font(.system(size: 18, weight: .light))
 			.frame(width: 16, height: 16)
-	}
-}
-
-// What a sidebar drag carries: a profile or a tab, by id.
-enum DraggedItem: Codable, Transferable {
-	case profile(String)
-	case tab(String)
-
-	// JSON rather than a custom type: a custom one must be declared in the
-	// bundle's Info.plist, which is the engine's (package.sh).
-	static var transferRepresentation: some TransferRepresentation {
-		CodableRepresentation(contentType: .json)
 	}
 }
 

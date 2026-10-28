@@ -13,6 +13,8 @@ final class Automation {
 	private let outbox: URL
 	private let controller: BrowserController
 	private var timer: Timer?
+	// Where pointerWindow's last phase was, for the next move's distance.
+	private var lastPointer: NSPoint?
 	private var downloads: [String: [String: Any]] = [:]
 	// Each profile's cookies (names, domains, and paths; never values), as
 	// last read with readCookies.
@@ -296,6 +298,38 @@ final class Automation {
 			}
 
 			window.sendEvent(event)
+
+		case "pointerWindow":
+			// One phase of a drag at a point of the window (top-left origin):
+			// down, drag, or up, posted to the event queue as the trackpad's
+			// are, each move with its distance from the last. SwiftUI's
+			// gestures, in a window in the background, take the moves in at
+			// the release.
+			guard let x = command["x"] as? Double, let y = command["y"] as? Double else {
+				throw AutomationError("pointerWindow needs x and y")
+			}
+
+			let types: [String: NSEvent.EventType] = ["down": .leftMouseDown, "drag": .leftMouseDragged, "up": .leftMouseUp]
+
+			guard let type = types[try string("phase")] else {
+				throw AutomationError("pointerWindow's phase is down, drag, or up")
+			}
+
+			let window = controller.browserWindow.window
+			let point = NSPoint(x: x, y: window.frame.height - y)
+
+			// A move carries its distance from the last, as the trackpad's
+			// do: gesture recognizers measure a drag by it.
+			if
+				let event = Self.mouseEvent(type, at: point, in: window),
+				let moved = event.cgEvent?.copy()
+			{
+				let last = type == .leftMouseDown ? point : (lastPointer ?? point)
+				moved.setDoubleValueField(.mouseEventDeltaX, value: point.x - last.x)
+				moved.setDoubleValueField(.mouseEventDeltaY, value: last.y - point.y)
+				lastPointer = point
+				NSApp.postEvent(NSEvent(cgEvent: moved) ?? event, atStart: false)
+			}
 
 		case "hoverWindow":
 			// The pointer over a point of the window (top-left origin), as a
