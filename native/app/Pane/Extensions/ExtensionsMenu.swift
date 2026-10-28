@@ -6,17 +6,16 @@ import SwiftUI
 // A row runs its extension's action; its pin (blue while pinned) keeps the
 // menu open; its more button opens ExtensionMoreMenu beside it.
 struct ExtensionsMenu: View {
-	let controller: BrowserController
+	let controller: ExtensionsController
 
-	private var model: BrowserModel { controller.model }
 	private var extensions: [ExtensionInfo] {
-		model.activeProfileID.flatMap { model.extensions[$0] }?.filter(\.enabled) ?? []
+		controller.active.filter(\.enabled)
 	}
 
 	var body: some View {
 		VStack(spacing: 0) {
 			VStack(spacing: 0) {
-				MenuRow(identifier: "pane.extensionsMenu.manage", action: { controller.showExtensions() }) {
+				MenuRow(identifier: "pane.extensionsMenu.manage", action: { controller.showPage() }) {
 					RowIcon(image: Glyph.puzzle.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Manage all extensions")
 				}
@@ -66,7 +65,7 @@ struct ExtensionsMenu: View {
 // name, then its Web Store page; Remove and Pin or Unpin; Manage Extension,
 // and Options when it has them.
 struct ExtensionMoreMenu: View {
-	let controller: BrowserController
+	let controller: ExtensionsController
 	let item: ExtensionInfo
 
 	var body: some View {
@@ -80,7 +79,7 @@ struct ExtensionMoreMenu: View {
 					.frame(height: 24)
 					.accessibilityAddTraits(.isHeader)
 
-				MenuRow(identifier: "pane.extensionMoreMenu.storePage", action: { controller.openExtensionStorePage(item.id) }) {
+				MenuRow(identifier: "pane.extensionMoreMenu.storePage", action: { controller.openStorePage(item.id) }) {
 					RowIcon(image: Lucide.squareArrowOutUpRight.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: item.name)
 				}
@@ -90,22 +89,13 @@ struct ExtensionMoreMenu: View {
 			Hairline()
 
 			VStack(spacing: 0) {
-				MenuRow(identifier: "pane.extensionMoreMenu.remove", action: {
-					if let profileID = controller.model.activeProfileID {
-						controller.confirmUninstall(item, inProfile: profileID)
-					}
-				}) {
+				MenuRow(identifier: "pane.extensionMoreMenu.remove", action: { controller.confirmUninstall(item) }) {
 					RowIcon(image: Lucide.trash2.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Remove from Pane")
 				}
 
 				if item.hasAction {
-					MenuRow(identifier: "pane.extensionMoreMenu.pin", action: {
-						if let profileID = controller.model.activeProfileID {
-							controller.state.extensionMoreMenu = nil
-							controller.setExtension(item.id, pinned: !item.pinned, inProfile: profileID)
-						}
-					}) {
+					MenuRow(identifier: "pane.extensionMoreMenu.pin", action: { controller.togglePinned(item) }) {
 						RowIcon(image: (item.pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
 						RowTitle(text: item.pinned ? "Unpin" : "Pin")
 					}
@@ -116,13 +106,13 @@ struct ExtensionMoreMenu: View {
 			Hairline()
 
 			VStack(spacing: 0) {
-				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showExtensions(extensionID: item.id) }) {
+				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showPage(extensionID: item.id) }) {
 					RowIcon(image: Lucide.settings.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Manage Extension")
 				}
 
 				if item.optionsURL != nil {
-					MenuRow(identifier: "pane.extensionMoreMenu.options", action: { controller.openExtensionOptions(item) }) {
+					MenuRow(identifier: "pane.extensionMoreMenu.options", action: { controller.openOptions(item) }) {
 						RowIcon(image: Lucide.settings.image(strokeWidth: 1.75, size: 16))
 						RowTitle(text: "Options")
 					}
@@ -141,14 +131,14 @@ struct ExtensionMoreMenu: View {
 // An extension: its icon and name run its action (none without one); the
 // pin and more buttons sit at the trailing edge, 24 points each.
 private struct ExtensionRow: View {
-	let controller: BrowserController
+	let controller: ExtensionsController
 	let item: ExtensionInfo
 
 	var body: some View {
 		MenuRow(
 			identifier: "pane.extensionsMenu.extension.\(item.id)",
-			action: item.hasAction ? { controller.runExtensionFromMenu(item.id) } : nil,
-			isHighlighted: controller.state.extensionMoreMenu?.extensionID == item.id
+			action: item.hasAction ? { controller.runFromMenu(item.id) } : nil,
+			isHighlighted: controller.moreMenu?.extensionID == item.id
 		) {
 			Group {
 				if let icon = item.icon {
@@ -169,10 +159,9 @@ private struct ExtensionRow: View {
 
 			RowTitle(text: item.name)
 		} trailing: {
-			if item.hasAction, let profileID = controller.model.activeProfileID {
+			if item.hasAction {
 				TrailingButton(label: item.pinned ? "Unpin from toolbar" : "Pin to toolbar") {
-					controller.state.extensionMoreMenu = nil
-					controller.setExtension(item.id, pinned: !item.pinned, inProfile: profileID)
+					controller.togglePinned(item)
 				} content: {
 					Image(nsImage: (item.pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
 						.renderingMode(.template)
@@ -186,7 +175,7 @@ private struct ExtensionRow: View {
 			// and below the button.
 			GeometryReader { geometry in
 				TrailingButton(label: "More") {
-					controller.toggleExtensionMoreMenu(item.id, row: geometry.frame(in: .global).insetBy(dx: 0, dy: -4))
+					controller.toggleMoreMenu(item.id, row: geometry.frame(in: .global).insetBy(dx: 0, dy: -4))
 				} content: {
 					Image(nsImage: Glyph.ellipsis.image(strokeWidth: 1.75, size: 16))
 						.renderingMode(.template)

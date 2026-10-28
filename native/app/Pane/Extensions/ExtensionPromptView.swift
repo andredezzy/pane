@@ -7,8 +7,8 @@ import SwiftUI
 // shows in the next frame: an AppKit sheet takes some 280 ms to attach, with
 // the main thread held. Return accepts and Esc cancels (BrowserController).
 struct ExtensionPromptView: View {
-	let controller: BrowserController
-	let prompt: WindowState.ExtensionPrompt
+	let controller: ExtensionsController
+	let prompt: ExtensionPrompt
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 20) {
@@ -50,7 +50,7 @@ struct ExtensionPromptView: View {
 				.padding(.top, 4)
 
 			case .remove:
-				Toggle(isOn: Bindable(controller.state).extensionPromptReportsAbuse) {
+				Toggle(isOn: Bindable(controller).promptReportsAbuse) {
 					Text("Report abuse")
 						.font(.system(size: 13))
 						.foregroundStyle(Palette.accentForeground)
@@ -66,11 +66,11 @@ struct ExtensionPromptView: View {
 			HStack(spacing: 8) {
 				Spacer(minLength: 0)
 
-				Button(prompt.cancelTitle) { controller.answerExtensionPrompt(accepted: false) }
+				Button(prompt.cancelTitle) { controller.answerPrompt(accepted: false) }
 					.buttonStyle(.popup(isPrimary: false))
 					.accessibilityIdentifier("pane.extensionPopup.cancel")
 
-				Button(prompt.acceptTitle) { controller.answerExtensionPrompt(accepted: true) }
+				Button(prompt.acceptTitle) { controller.answerPrompt(accepted: true) }
 					.buttonStyle(.popup(isPrimary: true))
 					.accessibilityIdentifier("pane.extensionPopup.accept")
 			}
@@ -92,8 +92,8 @@ struct ExtensionPromptView: View {
 // a tinted panel, and Cancel (Esc) beside Add to Pane (Return). It shows in
 // the next frame, as the popups do.
 struct ExtensionInstallDialog: View {
-	let controller: BrowserController
-	let prompt: WindowState.ExtensionPrompt
+	let controller: ExtensionsController
+	let prompt: ExtensionPrompt
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 0) {
@@ -155,13 +155,13 @@ struct ExtensionInstallDialog: View {
 			HStack(spacing: 8) {
 				Spacer(minLength: 0)
 
-				Button { controller.answerExtensionPrompt(accepted: false) } label: {
+				Button { controller.answerPrompt(accepted: false) } label: {
 					KeyedLabel(title: prompt.cancelTitle, key: "Esc", role: .cancel)
 				}
 				.buttonStyle(.keyed(.cancel))
 				.accessibilityIdentifier("pane.extensionPopup.cancel")
 
-				Button { controller.answerExtensionPrompt(accepted: true) } label: {
+				Button { controller.answerPrompt(accepted: true) } label: {
 					KeyedLabel(title: prompt.acceptTitle, key: "↩", role: .primary)
 				}
 				.buttonStyle(.keyed(.primary))

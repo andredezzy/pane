@@ -59,7 +59,7 @@ struct ToolbarView: View {
 				}
 			)
 
-			ExtensionActionsView(controller: controller)
+			ExtensionActionsView(extensions: controller.extensions, hasProfile: model.activeProfileID != nil)
 
 			if let profile {
 				ProfileChip(profile: profile)

@@ -54,43 +54,6 @@ final class WindowState {
 	var exclusiveAccessHint: String?
 	// Pages that started printing, for scenarios.
 	var printRequests = 0
-	// Where each extension's toolbar button is (in the window's SwiftUI
-	// coordinates), for its popup to point at.
-	var actionAnchors: [String: CGRect] = [:]
-	static let extensionsMenuAnchor = "pane.extensions"
-	// The extensions menu, open under the toolbar's puzzle.
-	var extensionsMenuOpen = false
-	// One extension's more menu, beside its row of the extensions menu: the
-	// extension and the row's frame (the window's SwiftUI coordinates).
-	var extensionMoreMenu: (extensionID: String, row: CGRect)?
-	// Adding or removing an extension, asked in a popup under its toolbar
-	// button (ExtensionPromptView).
-	var extensionPrompt: ExtensionPrompt?
-	// Its Report abuse box, ticked.
-	var extensionPromptReportsAbuse = false
-
-	struct ExtensionPrompt: Identifiable {
-		enum Kind: String {
-			case install = "extensionInstall"
-			case remove = "extensionRemove"
-		}
-
-		let id = UUID()
-		let kind: Kind
-		let extensionID: String
-		let title: String
-		let icon: NSImage?
-		let permissionsHeading: String
-		let permissions: [String]
-		let acceptTitle: String
-		let cancelTitle: String
-		// Answered once: accepted or not, and Report abuse (removal only).
-		let answer: @MainActor (_ accepted: Bool, _ reportAbuse: Bool) -> Void
-	}
-
-	// Where the Extensions page scrolls as it opens: one extension's card
-	// (its accessibility identifier).
-	var extensionsAnchor: String?
 	// Bumped to move focus into the address field.
 	private(set) var addressFocusRequest = 0
 	// Bumped to move focus into the find field.

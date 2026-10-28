@@ -48,8 +48,6 @@ final class BrowserModel {
 	private(set) var crashedTabIDs: Set<String> = []
 	private(set) var pictureInPictureTabIDs: Set<String> = []
 	private(set) var devToolsTabIDs: Set<String> = []
-	// Each open profile's extensions, as the engine last reported them.
-	private(set) var extensions: [String: [ExtensionInfo]] = [:]
 	// Each proxied profile's last connection test (the Electron app's
 	// proxy-status-store), for the sidebar's dot.
 	var proxyStatus: [String: ProxyStatus] = [:]
@@ -203,7 +201,6 @@ final class BrowserModel {
 
 		profiles.removeAll { $0.id == id }
 		expandedProfileIDs.remove(id)
-		extensions[id] = nil
 
 		if activeProfileID == id {
 			activeProfileID = nil
@@ -320,10 +317,6 @@ final class BrowserModel {
 
 	func setNavigation(_ tabID: String, _ state: NavigationState) {
 		navigation[tabID] = state
-	}
-
-	func setExtensions(_ profileID: String, _ list: [ExtensionInfo]) {
-		extensions[profileID] = list
 	}
 
 	func setCrashed(_ tabID: String, _ crashed: Bool) {

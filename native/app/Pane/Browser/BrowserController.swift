@@ -31,15 +31,12 @@ final class BrowserController: NSObject {
 	// on screen.
 	private(set) var lastContextMenu: NSMenu?
 	private(set) var contextMenuOpen = false
-	// Shows extension action popups.
-	let extensionPopover = ExtensionPopover()
+	// The extensions feature: lists, the toolbar's menu, popups.
+	private(set) lazy var extensions = ExtensionsController(browser: self)
 	// The window's SwiftUI root, where toolbar buttons anchor popups.
 	weak var hostingView: NSView?
 	// Quit Pane?'s keys, while it shows.
 	var quitKeyMonitor: Any?
-	// Esc and Return, while the extensions menu, a more menu, or an extension
-	// popup shows.
-	var extensionsKeyMonitor: Any?
 	private var tabIDs: [ObjectIdentifier: String] = [:]
 	// The tab id the engine's next inserted tab gets (a tab the app opens).
 	private var pendingTabID: String?
@@ -223,7 +220,7 @@ final class BrowserController: NSObject {
 				await network.apply(to: context)
 				let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
 				contexts[profileID] = context
-				refreshExtensions(profileID)
+				extensions.refresh(profileID)
 				waiters.forEach { $0(context) }
 			}
 		}
@@ -407,6 +404,7 @@ final class BrowserController: NSObject {
 	func deleteProfile(_ profileID: String) {
 		unloadProfile(profileID)
 		model.removeProfile(profileID)
+		extensions.forget(profileID)
 		pendingDeletions.insert(profileID)
 		deletions.add(profileID)
 		network.stop(profileID)
@@ -473,7 +471,7 @@ final class BrowserController: NSObject {
 		placeActivePage()
 		dialogs.selectionChanged()
 		// Actions show their state for the selected tab.
-		refreshExtensions(profileID)
+		extensions.refresh(profileID)
 		browserWindow.window.title = page.title.isEmpty ? "Pane" : page.title
 	}
 
@@ -506,6 +504,11 @@ final class BrowserController: NSObject {
 			page.isVisible = false
 			docked?.isVisible = false
 		}
+	}
+
+	// The sidebar's Settings, the Extensions page, or back to the browser.
+	func showPage(_ page: BrowserModel.Page) {
+		model.page = page
 	}
 
 	// MARK: Navigation
@@ -904,39 +907,19 @@ extension BrowserController: BrowserContextDelegate {
 	}
 
 	func browserContextDidChangeExtensions(_ context: BrowserContext) {
-		refreshExtensions(context.identifier)
+		extensions.refresh(context.identifier)
 	}
 
 	func browserContext(_ context: BrowserContext, confirmExtensionInstall request: ExtensionInstallRequest) {
-		// In the window, as Aside's popup: an AppKit sheet takes some 280 ms
-		// to attach, with the main thread held.
-		presentExtensionPrompt(WindowState.ExtensionPrompt(
-			kind: .install,
-			extensionID: request.extensionIdentifier,
-			title: Self.installTitle(request),
-			icon: request.icon,
-			permissionsHeading: request.permissionsHeading,
-			permissions: request.permissions,
-			acceptTitle: request.acceptTitle == "Add extension" ? "Add to Pane" : request.acceptTitle,
-			cancelTitle: request.cancelTitle,
-			answer: { accepted, _ in accepted ? request.accept() : request.cancel() }
-		))
+		extensions.confirmInstall(request)
 	}
 
 	func browserContext(_ context: BrowserContext, didInstall installed: Extension) {
-		refreshExtensions(context.identifier)
+		extensions.refresh(context.identifier)
 	}
 
 	func browserContext(_ context: BrowserContext, show popup: ExtensionPopup, in window: BrowserWindow) {
-		guard interactionAllowed, let hostingView else {
-			popup.close()
-			return
-		}
-
-		let anchor = state.actionAnchors[popup.extensionIdentifier]
-			?? state.actionAnchors[WindowState.extensionsMenuAnchor]
-			?? NSRect(x: hostingView.bounds.maxX - 48, y: 8, width: 26, height: 26)
-		extensionPopover.show(popup, relativeTo: anchor, of: hostingView)
+		extensions.show(popup)
 	}
 }
 

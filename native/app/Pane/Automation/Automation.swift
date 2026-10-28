@@ -593,63 +593,61 @@ final class Automation {
 			}
 
 		case "installExtension":
-			controller.installExtension(try string("id"), inProfile: try string("profile"))
+			controller.extensions.install(try string("id"), inProfile: try string("profile"))
 
 		case "runExtensionAction":
-			controller.runExtensionAction(try string("id"))
+			controller.extensions.runAction(try string("id"))
 
 		case "setExtensionEnabled":
-			controller.setExtension(try string("id"), enabled: command["enabled"] as? Bool ?? true, inProfile: try string("profile"))
+			controller.extensions.setEnabled(try string("id"), command["enabled"] as? Bool ?? true, inProfile: try string("profile"))
 
 		case "setExtensionPinned":
-			controller.setExtension(try string("id"), pinned: command["pinned"] as? Bool ?? true, inProfile: try string("profile"))
+			controller.extensions.setPinned(try string("id"), command["pinned"] as? Bool ?? true, inProfile: try string("profile"))
 
 		case "uninstallExtension":
-			controller.uninstallExtension(try string("id"), inProfile: try string("profile"))
+			controller.extensions.uninstall(try string("id"), inProfile: try string("profile"))
 
 		case "updateExtensions":
-			controller.updateExtensions(inProfile: try string("profile"))
+			controller.extensions.update(inProfile: try string("profile"))
 
 		case "closeExtensionPopup":
-			controller.extensionPopover.close()
+			controller.extensions.popover.close()
 
 		case "extensionsMenu":
 			// What the puzzle and the extensions menu's controls call, for a
 			// locked screen, where they cannot be clicked.
 			let control = try string("control")
+			let extensions = controller.extensions
 
 			if control == "puzzle" {
-				controller.toggleExtensionsMenu()
+				extensions.toggleMenu()
 				break
 			}
 
 			if control == "manage" {
-				controller.showExtensions()
+				extensions.showPage()
 				break
 			}
 
 			if control == "webStore" {
-				controller.visitWebStore()
+				extensions.visitWebStore()
 				break
 			}
 
 			let id = try string("id")
 
-			guard
-				let profileID = model.activeProfileID,
-				let item = model.extensions[profileID]?.first(where: { $0.id == id })
-			else {
+			guard let item = extensions.active.first(where: { $0.id == id }) else {
 				throw AutomationError("no extension \(id) in the active profile")
 			}
 
 			switch control {
-			case "run": controller.runExtensionFromMenu(id)
-			case "pin": controller.setExtension(id, pinned: !item.pinned, inProfile: profileID)
-			case "more": controller.toggleExtensionMoreMenu(id, row: controller.state.actionAnchors[WindowState.extensionsMenuAnchor] ?? .zero)
+			case "run": extensions.runFromMenu(id)
+			case "pin": extensions.togglePinned(item)
+			case "more": extensions.toggleMoreMenu(id, row: extensions.actionAnchors[ExtensionsController.menuAnchor] ?? .zero)
 			// The more menu's rows.
-			case "storePage": controller.openExtensionStorePage(id)
-			case "remove": controller.confirmUninstall(item, inProfile: profileID)
-			case "manageExtension": controller.showExtensions(extensionID: id)
+			case "storePage": extensions.openStorePage(id)
+			case "remove": extensions.confirmUninstall(item)
+			case "manageExtension": extensions.showPage(extensionID: id)
 			default: throw AutomationError("unknown extensions menu control \(control)")
 			}
 
@@ -687,12 +685,12 @@ final class Automation {
 	}
 
 	private func clickSheetButton(_ title: String, texts: [String]) throws {
-		if let prompt = controller.state.extensionPrompt {
+		if let prompt = controller.extensions.prompt {
 			guard [prompt.acceptTitle, prompt.cancelTitle].contains(title) else {
 				throw AutomationError("no button \(title); buttons: \([prompt.acceptTitle, prompt.cancelTitle])")
 			}
 
-			controller.answerExtensionPrompt(accepted: title == prompt.acceptTitle)
+			controller.extensions.answerPrompt(accepted: title == prompt.acceptTitle)
 			return
 		}
 
@@ -799,7 +797,7 @@ final class Automation {
 				"menu"
 			} else if window.identifier?.rawValue == "pane.devtools" {
 				"devtools"
-			} else if let popover = controller.extensionPopover.window, window === popover {
+			} else if let popover = controller.extensions.popover.window, window === popover {
 				"popover"
 			} else if ["_NSFullScreenTransition", "NSToolbarFullScreenWindow"].contains(where: String(describing: type(of: window)).hasPrefix) {
 				// AppKit's own: the full screen animation, and the title bar
@@ -821,7 +819,7 @@ final class Automation {
 
 	private func sheetSnapshot() -> Any {
 		// An extension popup answers as a sheet did: its buttons, accept first.
-		if let prompt = controller.state.extensionPrompt {
+		if let prompt = controller.extensions.prompt {
 			return [
 				"kind": prompt.kind.rawValue,
 				"tabID": NSNull(),
@@ -1122,7 +1120,7 @@ final class Automation {
 				["title": modal.title, "buttons": Self.buttons(in: modal.contentView).map(\.title)] as [String: Any]
 			} ?? NSNull(),
 			"nativeWindows": nativeWindows(),
-			"extensions": model.extensions.mapValues { list in
+			"extensions": controller.extensions.lists.mapValues { list in
 				list.map { item in
 					[
 						"id": item.id,
@@ -1139,7 +1137,7 @@ final class Automation {
 					] as [String: Any]
 				}
 			},
-			"extensionPopup": controller.extensionPopover.popup.map { popup in
+			"extensionPopup": controller.extensions.popover.popup.map { popup in
 				[
 					"extension": popup.extensionIdentifier,
 					"open": popup.isOpen,
@@ -1147,9 +1145,9 @@ final class Automation {
 					"height": popup.preferredSize.height,
 				] as [String: Any]
 			} ?? NSNull(),
-			"extensionsMenu": controller.state.extensionsMenuOpen,
+			"extensionsMenu": controller.extensions.menuOpen,
 			"sidebarWidth": controller.state.sidebarWidth,
-			"extensionMoreMenu": controller.state.extensionMoreMenu?.extensionID ?? NSNull(),
+			"extensionMoreMenu": controller.extensions.moreMenu?.extensionID ?? NSNull(),
 			"pageFullscreen": controller.state.pageFullscreen,
 			"exclusiveAccessHint": controller.state.exclusiveAccessHint ?? NSNull(),
 			"crashedTabs": Array(model.crashedTabIDs),

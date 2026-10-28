@@ -6,26 +6,27 @@ import SwiftUI
 // the pinned ones sit in a capsule that shows while the pointer is over them
 // or one's popup is open.
 struct ExtensionActionsView: View {
-	let controller: BrowserController
+	let extensions: ExtensionsController
+	// Whether a profile is active, so its extensions can show.
+	let hasProfile: Bool
 
 	@State private var isHovered = false
 
-	private var model: BrowserModel { controller.model }
 	private var pinned: [ExtensionInfo] {
-		model.activeProfileID.flatMap { model.extensions[$0] }?.filter { $0.enabled && $0.hasAction && $0.pinned } ?? []
+		extensions.active.filter { $0.enabled && $0.hasAction && $0.pinned }
 	}
 
 	var body: some View {
 		HStack(spacing: 4) {
 			if !pinned.isEmpty {
-				let openID = controller.extensionPopover.popup?.extensionIdentifier
+				let openID = extensions.popover.popup?.extensionIdentifier
 
 				HStack(spacing: 4) {
 					ForEach(pinned) { item in
 						ActionButton(item: item, isOpen: openID == item.id) {
-							controller.runExtensionAction(item.id)
+							extensions.runAction(item.id)
 						}
-						.contextMenu { ActionContextMenu(controller: controller, item: item) }
+						.contextMenu { ActionContextMenu(extensions: extensions, item: item) }
 						.anchorPreference(item.id)
 					}
 				}
@@ -40,13 +41,13 @@ struct ExtensionActionsView: View {
 				}
 			}
 
-			if model.activeProfileID != nil {
-				ExtensionsButton(isOpen: controller.state.extensionsMenuOpen, action: controller.toggleExtensionsMenu)
-					.anchorPreference(WindowState.extensionsMenuAnchor)
+			if hasProfile {
+				ExtensionsButton(isOpen: extensions.menuOpen, action: extensions.toggleMenu)
+					.anchorPreference(ExtensionsController.menuAnchor)
 			}
 		}
 		.onPreferenceChange(ActionAnchorKey.self) { anchors in
-			controller.state.actionAnchors = anchors
+			extensions.actionAnchors = anchors
 		}
 	}
 }
@@ -56,25 +57,21 @@ struct ExtensionActionsView: View {
 // Aside also lists the extension's own action items and its site access,
 // which need the engine.
 private struct ActionContextMenu: View {
-	let controller: BrowserController
+	let extensions: ExtensionsController
 	let item: ExtensionInfo
 
 	var body: some View {
-		Button(item.name) { controller.openExtensionStorePage(item.id) }
+		Button(item.name) { extensions.openStorePage(item.id) }
 
 		Divider()
 
-		Button("Remove from Pane") {
-			controller.model.activeProfileID.map { controller.confirmUninstall(item, inProfile: $0) }
-		}
+		Button("Remove from Pane") { extensions.confirmUninstall(item) }
 
-		Button("Unpin") {
-			controller.model.activeProfileID.map { controller.setExtension(item.id, pinned: false, inProfile: $0) }
-		}
+		Button("Unpin") { extensions.togglePinned(item) }
 
 		Divider()
 
-		Button("Manage Extension") { controller.showExtensions(extensionID: item.id) }
+		Button("Manage Extension") { extensions.showPage(extensionID: item.id) }
 	}
 }
 

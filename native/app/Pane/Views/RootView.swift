@@ -11,6 +11,7 @@ struct RootView: View {
 
 	private var model: BrowserModel { controller.model }
 	private var state: WindowState { controller.state }
+	private var extensions: ExtensionsController { controller.extensions }
 
 	// A page in fullscreen fills the window, without the panel around it.
 	private var fullscreen: Bool { state.pageFullscreen && model.page == .browser }
@@ -54,22 +55,22 @@ struct RootView: View {
 
 			// The extensions menu, its trailing edge on the puzzle's, 4 points
 			// under it. A click anywhere else closes it, as a menu's would.
-			if state.extensionsMenuOpen, let anchor = state.actionAnchors[WindowState.extensionsMenuAnchor] {
+			if extensions.menuOpen, let anchor = extensions.actionAnchors[ExtensionsController.menuAnchor] {
 				Color.clear
 					.contentShape(Rectangle())
-					.onTapGesture(perform: controller.closeExtensionsMenu)
+					.onTapGesture(perform: extensions.closeMenu)
 
 				let menuX = max(8, anchor.maxX - 300)
 
-				ExtensionsMenu(controller: controller)
+				ExtensionsMenu(controller: extensions)
 					.padding(.leading, menuX)
 					.padding(.top, anchor.maxY + 4)
 					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
 				// An extension's more menu: beside the menu, over its edge by 10
 				// points, level with the row, as Aside's.
-				if let more = state.extensionMoreMenu, let item = activeExtension(more.extensionID) {
-					ExtensionMoreMenu(controller: controller, item: item)
+				if let more = extensions.moreMenu, let item = extensions.active.first(where: { $0.id == more.extensionID }) {
+					ExtensionMoreMenu(controller: extensions, item: item)
 						.padding(.leading, max(8, menuX - 230))
 						.padding(.top, more.row.minY)
 						.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -80,24 +81,24 @@ struct RootView: View {
 			// one: Aside's popup under its toolbar button, else the puzzle's, and
 			// centered where there is no toolbar (Settings). A click outside
 			// either cancels.
-			if let prompt = state.extensionPrompt, prompt.kind == .install {
+			if let prompt = extensions.prompt, prompt.kind == .install {
 				Palette.modalScrim
 					.contentShape(Rectangle())
-					.onTapGesture { controller.answerExtensionPrompt(accepted: false) }
+					.onTapGesture { extensions.answerPrompt(accepted: false) }
 
-				ExtensionInstallDialog(controller: controller, prompt: prompt)
-			} else if let prompt = state.extensionPrompt {
+				ExtensionInstallDialog(controller: extensions, prompt: prompt)
+			} else if let prompt = extensions.prompt {
 				Color.clear
 					.contentShape(Rectangle())
-					.onTapGesture { controller.answerExtensionPrompt(accepted: false) }
+					.onTapGesture { extensions.answerPrompt(accepted: false) }
 
-				if showsToolbar, let anchor = state.actionAnchors[prompt.extensionID] ?? state.actionAnchors[WindowState.extensionsMenuAnchor] {
-					ExtensionPromptView(controller: controller, prompt: prompt)
+				if showsToolbar, let anchor = extensions.actionAnchors[prompt.extensionID] ?? extensions.actionAnchors[ExtensionsController.menuAnchor] {
+					ExtensionPromptView(controller: extensions, prompt: prompt)
 						.padding(.leading, max(8, anchor.maxX - 320))
 						.padding(.top, anchor.maxY + 4)
 						.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 				} else {
-					ExtensionPromptView(controller: controller, prompt: prompt)
+					ExtensionPromptView(controller: extensions, prompt: prompt)
 				}
 			}
 
@@ -152,12 +153,12 @@ struct RootView: View {
 		}
 		.animation(Motion.unlessReduced(.default), value: controller.lock.entry == nil)
 		// The extensions menu belongs to the tab and the window it opened over.
-		.onChange(of: model.activeTabID) { controller.closeExtensionsMenu() }
-		.onChange(of: model.activeProfileID) { controller.closeExtensionsMenu() }
-		.onChange(of: model.page) { controller.closeExtensionsMenu() }
-		.onChange(of: controller.lock.entry == nil) { controller.closeExtensionsMenu() }
+		.onChange(of: model.activeTabID) { extensions.closeMenu() }
+		.onChange(of: model.activeProfileID) { extensions.closeMenu() }
+		.onChange(of: model.page) { extensions.closeMenu() }
+		.onChange(of: controller.lock.entry == nil) { extensions.closeMenu() }
 		.onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification, object: controller.browserWindow.window)) { _ in
-			controller.closeExtensionsMenu()
+			extensions.closeMenu()
 		}
 		.background(Palette.background)
 		.ignoresSafeArea()
@@ -166,10 +167,6 @@ struct RootView: View {
 				ExclusiveAccessHint(text: hint)
 			}
 		}
-	}
-
-	private func activeExtension(_ extensionID: String) -> ExtensionInfo? {
-		model.activeProfileID.flatMap { model.extensions[$0] }?.first { $0.id == extensionID }
 	}
 
 	// The content panel: m-2 ml-0, rounded 18, the panel shadow.
@@ -192,7 +189,7 @@ struct RootView: View {
 					if model.page == .settings {
 						SettingsView(controller: controller)
 					} else if model.page == .extensions {
-						ExtensionsPage(controller: controller)
+						ExtensionsPage(model: model, controller: extensions)
 					} else if model.activeTabID == nil {
 						EmptyStateView()
 					} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {

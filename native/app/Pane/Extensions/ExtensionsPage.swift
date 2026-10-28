@@ -7,12 +7,11 @@ import SwiftUI
 // and switch. Extensions come from the Chrome Web Store's own Add to Chrome.
 // Extensions are per profile, so a profile select leads, on the active one.
 struct ExtensionsPage: View {
-	let controller: BrowserController
+	let model: BrowserModel
+	let controller: ExtensionsController
 
 	@State private var profileID: String?
 	@State private var query = ""
-
-	private var model: BrowserModel { controller.model }
 	// The profile chosen in the select while it exists, else the active one,
 	// else the first: deleting the chosen profile brings the page back to
 	// one that is there.
@@ -20,7 +19,7 @@ struct ExtensionsPage: View {
 		profileID.flatMap(model.profile) ?? model.activeProfileID.flatMap(model.profile) ?? model.profiles.first
 	}
 	private var selectedProfileID: String? { selectedProfile?.id }
-	private var extensions: [ExtensionInfo] { selectedProfileID.flatMap { model.extensions[$0] } ?? [] }
+	private var extensions: [ExtensionInfo] { selectedProfileID.map(controller.list) ?? [] }
 
 	private var shown: [ExtensionInfo] {
 		let query = query.trimmingCharacters(in: .whitespaces)
@@ -70,20 +69,20 @@ struct ExtensionsPage: View {
 			}
 			// Manage Extension opens the page at the extension's card, once
 			// the cards are laid out.
-			.onChange(of: controller.state.extensionsAnchor, initial: true) { _, anchor in
+			.onChange(of: controller.pageAnchor, initial: true) { _, anchor in
 				guard let anchor else {
 					return
 				}
 
 				DispatchQueue.main.async {
 					proxy.scrollTo(anchor, anchor: .top)
-					controller.state.extensionsAnchor = nil
+					controller.pageAnchor = nil
 				}
 			}
 		}
 		.background(Palette.card)
 		.onAppear {
-			selectedProfileID.map(controller.refreshExtensions)
+			selectedProfileID.map(controller.refresh)
 		}
 		.onChange(of: profileID) { _, id in
 			if let id {
@@ -127,7 +126,7 @@ struct ExtensionsPage: View {
 				.accessibilityIdentifier("pane.extensions.profile")
 
 				Button("Update all") {
-					selectedProfileID.map { controller.updateExtensions(inProfile: $0) }
+					selectedProfileID.map { controller.update(inProfile: $0) }
 				}
 				.buttonStyle(.pane(.outline, size: .small))
 				.disabled(extensions.isEmpty)
@@ -161,12 +160,12 @@ struct ExtensionsPage: View {
 		ExtensionCard(
 			item: item,
 			setEnabled: { enabled in
-				selectedProfileID.map { controller.setExtension(item.id, enabled: enabled, inProfile: $0) }
+				selectedProfileID.map { controller.setEnabled(item.id, enabled, inProfile: $0) }
 			},
 			setPinned: { pinned in
-				selectedProfileID.map { controller.setExtension(item.id, pinned: pinned, inProfile: $0) }
+				selectedProfileID.map { controller.setPinned(item.id, pinned, inProfile: $0) }
 			},
-			options: { controller.openExtensionOptions(item, inProfile: selectedProfileID) },
+			options: { controller.openOptions(item, inProfile: selectedProfileID) },
 			remove: {
 				selectedProfileID.map { controller.confirmUninstall(item, inProfile: $0) }
 			}
