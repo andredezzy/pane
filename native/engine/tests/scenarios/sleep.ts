@@ -5,8 +5,9 @@ import { expect, type Scenario } from "../run";
 // Sleep, Unload, Keep loaded, and Trim (CONTEXT.md), a minute a second
 // (PANE_TIME_SCALE=60). Tabs sleep after 2 minutes in the background, hidden
 // profiles unload after 4, and any cache is over budget (0 MB). Profile A is
-// the selected one: a background tab sleeps on time, the selected one and one
-// with DevTools open stay. Profile K is Keep loaded and never sleeps. Profile
+// the selected one: a background tab sleeps on time, the selected one, one
+// with DevTools open, and one playing sound (PaneWebContents.audible) stay.
+// Profile K is Keep loaded and never sleeps. Profile
 // B signed in, then was hidden: its tabs sleep, which unloads it, and its
 // cache is trimmed; it is still signed in, its local storage kept and its
 // Cache Storage gone.
@@ -74,6 +75,21 @@ const sleep: Scenario = async (context) => {
 		state.devToolsTabs.includes(a3),
 	);
 
+	// A tone no one hears, which Chrome counts as sound.
+	const audioURL = context.fixtures.url("audio.html");
+	const a4 = await app.openTab(a, audioURL);
+	const audio = await app.page(a4, audioURL);
+
+	const playing = await audio.send<{ result: { value?: string } }>(
+		"Runtime.evaluate",
+		{ expression: "play()", userGesture: true, awaitPromise: true },
+	);
+
+	expect(
+		playing.result.value === "running",
+		`the audio did not start: ${JSON.stringify(playing)}`,
+	);
+
 	const a2 = await app.openTab(a, context.fixtures.url("nav-a.html?selected"));
 	const backgrounded = Date.now();
 
@@ -111,6 +127,7 @@ const sleep: Scenario = async (context) => {
 
 	expect(loaded(settled, a2), "the selected tab slept");
 	expect(loaded(settled, a3), "the tab with DevTools open slept");
+	expect(loaded(settled, a4), "the tab playing sound slept");
 	expect(loaded(settled, k1), "a Keep loaded profile's tab slept");
 
 	expect(
@@ -206,6 +223,7 @@ const sleep: Scenario = async (context) => {
 		stayedLoaded: {
 			selected: loaded(settled, a2),
 			devTools: loaded(settled, a3),
+			audible: loaded(settled, a4),
 			keepLoaded: loaded(settled, k1),
 		},
 		unload: { profile: b, tabUnloaded: !loaded(unloaded, b1) },

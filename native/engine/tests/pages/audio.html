@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Audio</title>
+	</head>
+	<body>
+		<h1>Audio fixture</h1>
+		<script>
+			// A tone too high and too faint to hear (19 kHz at -57 dBFS), which
+			// Chrome still counts as sound (above its -72 dBFS silence): the tab
+			// is audible. Starting it takes a user gesture.
+			async function play() {
+				const context = new AudioContext();
+				const tone = context.createOscillator();
+				const gain = context.createGain();
+				tone.frequency.value = 19000;
+				gain.gain.value = 0.002;
+				tone.connect(gain).connect(context.destination);
+				tone.start();
+				await context.resume();
+				return context.state;
+			}
+		</script>
+	</body>
+</html>
