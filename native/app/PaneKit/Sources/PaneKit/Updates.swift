@@ -49,10 +49,11 @@ public enum Updates {
 		}
 	}
 
-	// The update in GitHub's latest-release JSON, or nil when it is not newer
-	// than `currentVersion` or has no dmg. Throws on JSON that is not a
-	// release, or a version that does not parse.
-	public static func available(inRelease json: Data, currentVersion: String) throws -> AvailableUpdate? {
+	// The update in GitHub's latest-release JSON (fetched from `releasesURL`),
+	// or nil when it is not newer than `currentVersion`, or has no dmg Pane
+	// may download. Throws on JSON that is not a release, or a version that
+	// does not parse.
+	public static func available(inRelease json: Data, currentVersion: String, from releasesURL: URL = releasesURL) throws -> AvailableUpdate? {
 		let release = try JSONDecoder().decode(Release.self, from: json)
 		let version = release.tagName.hasPrefix("v") || release.tagName.hasPrefix("V")
 			? String(release.tagName.dropFirst())
@@ -60,12 +61,40 @@ public enum Updates {
 
 		guard
 			let asset = release.assets.first(where: { $0.name.hasSuffix(dmgSuffix) }),
+			isTrustedDownload(asset.browserDownloadURL, from: releasesURL),
 			try isNewerVersion(version, than: currentVersion)
 		else {
 			return nil
 		}
 
 		return AvailableUpdate(version: version, dmgURL: asset.browserDownloadURL, publishedAt: release.publishedAt)
+	}
+
+	// The repo's own release downloads: what a link from GitHub's JSON must
+	// name, since Pane opens the file it fetches. TLS vouches for the JSON,
+	// not for where its links go.
+	public static let downloadsPrefix = "/andredezzy/pane/releases/download/"
+
+	// Whether Pane may download and open the dmg at `url`: over https, from
+	// the repo's releases on github.com, under a plain file name ending in
+	// the dmg's suffix. A stand-in release server (PANE_UPDATE_URL, the
+	// scenarios') serves its downloads from its own host.
+	public static func isTrustedDownload(_ url: URL, from releasesURL: URL = releasesURL) -> Bool {
+		let name = url.lastPathComponent
+
+		guard name.hasSuffix(dmgSuffix), !name.hasPrefix("."), !name.contains("/") else {
+			return false
+		}
+
+		guard releasesURL == Self.releasesURL else {
+			return url.scheme == releasesURL.scheme && url.host() == releasesURL.host()
+		}
+
+		return url.scheme == "https"
+			&& url.host() == "github.com"
+			&& url.port == nil
+			&& url.standardized.path(percentEncoded: false).hasPrefix(downloadsPrefix)
+			&& !url.path(percentEncoded: false).contains("/../")
 	}
 
 	// A few coarse buckets rather than a live countdown (format-eta.ts): "~3min"

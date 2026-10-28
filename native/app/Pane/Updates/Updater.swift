@@ -91,7 +91,7 @@ final class Updater {
 				throw URLError(.badServerResponse)
 			}
 
-			let update = try Updates.available(inRelease: data, currentVersion: currentVersion)
+			let update = try Updates.available(inRelease: data, currentVersion: currentVersion, from: releasesURL)
 			await settle.value
 			available = update
 			lastCheckedAt = Date()

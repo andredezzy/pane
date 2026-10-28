@@ -2,8 +2,8 @@ import Foundation
 import PaneKit
 import Testing
 
-private func release(tag: String, assets: [String]) -> Data {
-	let list = assets.map { #"{"name":"\#($0)","browser_download_url":"https://github.com/andredezzy/pane/releases/download/\#(tag)/\#($0)"}"# }
+private func release(tag: String, assets: [String], downloads: String = "https://github.com/andredezzy/pane/releases/download") -> Data {
+	let list = assets.map { #"{"name":"\#($0)","browser_download_url":"\#(downloads)/\#(tag)/\#($0)"}"# }
 
 	return Data(#"{"tag_name":"\#(tag)","published_at":"2026-10-20T12:00:00Z","assets":[\#(list.joined(separator: ","))]}"#.utf8)
 }
@@ -31,6 +31,31 @@ struct UpdatesTests {
 	@Test("a release without the arm64 dmg is none")
 	func noDmg() throws {
 		#expect(try Updates.available(inRelease: release(tag: "v1.0.0", assets: ["Pane-1.0.0-x64.dmg"]), currentVersion: "0.2.4") == nil)
+	}
+
+	@Test("a dmg Pane may not download is no update")
+	func untrustedDownloads() throws {
+		for downloads in [
+			"http://github.com/andredezzy/pane/releases/download",
+			"https://evil.example/andredezzy/pane/releases/download",
+			"https://github.com/someone/else/releases/download",
+			"https://github.com/andredezzy/pane/releases/download/../../../someone/else/releases/download",
+			"https://github.com:8443/andredezzy/pane/releases/download",
+		] {
+			#expect(try Updates.available(inRelease: release(tag: "v1.0.0", assets: ["Pane-1.0.0-arm64.dmg"], downloads: downloads), currentVersion: "0.2.4") == nil, "\(downloads)")
+		}
+
+		#expect(!Updates.isTrustedDownload(URL(string: "https://github.com/andredezzy/pane/releases/download/v1/-arm64.dmg/..")!))
+		#expect(!Updates.isTrustedDownload(URL(string: "https://github.com/andredezzy/pane/releases/download/v1/.hidden-arm64.dmg")!))
+	}
+
+	@Test("a stand-in release server serves its downloads from its own host")
+	func standIn() throws {
+		let server = URL(string: "http://127.0.0.1:4100/releases/latest")!
+		let local = release(tag: "v1.0.0", assets: ["Pane-1.0.0-arm64.dmg"], downloads: "http://127.0.0.1:4200/releases/download")
+
+		#expect(try Updates.available(inRelease: local, currentVersion: "0.2.4", from: server)?.version == "1.0.0")
+		#expect(try Updates.available(inRelease: local, currentVersion: "0.2.4") == nil)
 	}
 
 	@Test("a tag without its v counts too")
