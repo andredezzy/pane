@@ -160,10 +160,13 @@ private struct SettingsRow<Control: View>: View {
 					.foregroundStyle(Palette.foreground)
 
 				if let description {
+					// A status that changes (the update check's) crossfades,
+					// as the update pill's does.
 					Text(description)
 						.font(.system(size: 12))
 						.foregroundStyle(Palette.mutedForeground)
 						.contentTransition(.opacity)
+						.animation(Motion.status, value: description)
 				}
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
