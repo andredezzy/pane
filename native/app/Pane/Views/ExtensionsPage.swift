@@ -110,8 +110,16 @@ struct ExtensionsPage: View {
 
 			Spacer()
 
-			if !model.profiles.isEmpty {
-				ProfileSelect(profiles: model.profiles, selection: selectedProfile) { profileID = $0 }
+			if let selectedProfile {
+				// Its border in the profile's color at 40%, as the active
+				// profile's row in the sidebar.
+				PaneMenuButton(
+					options: model.profiles.map { ($0.name, $0.id) },
+					selection: selectedProfile.id,
+					ring: selectedProfile.color.color.opacity(0.4)
+				) { profileID = $0 }
+				.accessibilityLabel("Profile")
+				.accessibilityIdentifier("pane.extensions.profile")
 
 				Button("Update all") {
 					selectedProfileID.map { controller.updateExtensions(inProfile: $0) }
@@ -211,45 +219,6 @@ private struct SearchField: View {
 		}
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.extensions.search")
-	}
-}
-
-// A select trigger (32 points, no fill, as the outline buttons beside it):
-// the profile whose extensions show, its border in the profile's color at
-// 40%, as the active profile's row in the sidebar.
-private struct ProfileSelect: View {
-	let profiles: [BrowserProfile]
-	let selection: BrowserProfile?
-	let select: (String) -> Void
-
-	var body: some View {
-		Menu {
-			ForEach(profiles) { profile in
-				Button(profile.name) { select(profile.id) }
-			}
-		} label: {
-			HStack(spacing: 6) {
-				Text(selection?.name ?? "Profile")
-					.font(.system(size: 13))
-					.foregroundStyle(Palette.foreground)
-				Image(systemName: "chevron.down")
-					.font(.system(size: 10, weight: .semibold))
-					.foregroundStyle(Palette.mutedForeground)
-			}
-			.padding(.horizontal, 12)
-			.frame(height: 32)
-			.contentShape(Squircle(cornerRadius: 11))
-			.overlay {
-				Squircle(cornerRadius: 11)
-					.strokeBorder(selection.map { $0.color.color.opacity(0.4) } ?? Palette.border, lineWidth: 1)
-			}
-		}
-		.menuStyle(.button)
-		.buttonStyle(.plain)
-		.menuIndicator(.hidden)
-		.fixedSize()
-		.accessibilityLabel("Profile")
-		.accessibilityIdentifier("pane.extensions.profile")
 	}
 }
 

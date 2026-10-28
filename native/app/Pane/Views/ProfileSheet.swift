@@ -175,8 +175,10 @@ struct ProfileSheet: View {
 				.accessibilityIdentifier("pane.profile.proxyShortcut")
 
 			HStack(spacing: 8) {
-				PaneSelect(options: ProxyType.allCases, selection: $proxyType, title: \.rawValue)
-					.frame(width: 100)
+				PaneMenuButton(options: ProxyType.allCases.map { ($0.rawValue, $0) }, selection: proxyType, size: .regular, fillsWidth: true) {
+					proxyType = $0
+				}
+				.frame(width: 100)
 				PaneTextField(placeholder: "Host", text: $proxyHost)
 					.accessibilityIdentifier("pane.profile.proxyHost")
 				PaneTextField(placeholder: "Port", text: $proxyPort)

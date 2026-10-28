@@ -25,10 +25,11 @@ struct SettingsView: View {
 				VStack(alignment: .leading, spacing: 28) {
 					SettingsGroup(title: "Appearance") {
 						SettingsRow(title: "Theme", description: "Choose how Pane looks.", last: true) {
-							PopUpButton(
+							PaneMenuButton(
 								options: Theme.allCases.map { ($0.rawValue.capitalized, $0) },
 								selection: model.settings.theme,
 								icon: Self.icon(for:),
+								chevron: .upDown,
 								select: controller.setTheme
 							)
 							.accessibilityIdentifier("pane.settings.theme")
@@ -37,21 +38,21 @@ struct SettingsView: View {
 
 					SettingsGroup(title: "Memory & disk") {
 						SettingsRow(title: "Sleep background tabs", description: "A tab in the background sleeps after this long, to free memory.") {
-							PopUpButton(options: Self.tabSleepOptions, selection: model.settings.tabSleepAfterMinutes) {
+							PaneMenuButton(options: Self.tabSleepOptions, selection: model.settings.tabSleepAfterMinutes, chevron: .upDown) {
 								model.settings.tabSleepAfterMinutes = $0
 							}
 							.accessibilityIdentifier("pane.settings.tabSleep")
 						}
 
 						SettingsRow(title: "Unload hidden profiles", description: "A profile out of view unloads after this long.") {
-							PopUpButton(options: Self.profileUnloadOptions, selection: model.settings.profileUnloadAfterMinutes) {
+							PaneMenuButton(options: Self.profileUnloadOptions, selection: model.settings.profileUnloadAfterMinutes, chevron: .upDown) {
 								model.settings.profileUnloadAfterMinutes = $0
 							}
 							.accessibilityIdentifier("pane.settings.profileUnload")
 						}
 
 						SettingsRow(title: "Trim cache", description: "A profile that unloads trims its cache past this size.", last: true) {
-							PopUpButton(options: Self.cacheBudgetOptions, selection: model.settings.cacheBudgetMB) {
+							PaneMenuButton(options: Self.cacheBudgetOptions, selection: model.settings.cacheBudgetMB, chevron: .upDown) {
 								model.settings.cacheBudgetMB = $0
 							}
 							.accessibilityIdentifier("pane.settings.cacheBudget")
@@ -181,63 +182,6 @@ private struct SettingsRow<Control: View>: View {
 					.fill(Palette.border)
 					.frame(height: 1)
 			}
-		}
-	}
-}
-
-// A pop-up button, as Aside's: 32 points, a 1-point border and no fill, the
-// value (and its icon, if it has one) and up and down chevrons. A click shows
-// the system's menu of the options, the current one checked.
-private struct PopUpButton<Value: Hashable>: View {
-	let options: [(String, Value)]
-	let selection: Value
-	var icon: ((Value) -> Lucide)?
-	let select: (Value) -> Void
-
-	@State private var isHovered = false
-
-	var body: some View {
-		Menu {
-			Picker(
-				"",
-				selection: Binding(get: { selection }, set: select)
-			) {
-				ForEach(options, id: \.1) { option in
-					Text(option.0).tag(option.1)
-				}
-			}
-			.pickerStyle(.inline)
-			.labelsHidden()
-		} label: {
-			HStack(spacing: 8) {
-				if let icon {
-					LucideIcon(icon(selection), size: 14, strokeWidth: 1.75)
-						.foregroundStyle(Palette.foreground)
-				}
-
-				Text(options.first { $0.1 == selection }?.0 ?? "")
-					.font(.system(size: 13))
-					.foregroundStyle(Palette.foreground)
-
-				LucideIcon(.chevronsUpDown, size: 13, strokeWidth: 2)
-					.foregroundStyle(Palette.mutedForeground)
-			}
-			.padding(.leading, 12)
-			.padding(.trailing, 10)
-			.frame(height: 32)
-			.background(isHovered ? Palette.accent : .clear, in: Squircle(cornerRadius: 11))
-			.overlay {
-				Squircle(cornerRadius: 11)
-					.strokeBorder(Palette.border, lineWidth: 1)
-			}
-			.contentShape(Squircle(cornerRadius: 11))
-		}
-		.menuStyle(.button)
-		.buttonStyle(.plain)
-		.menuIndicator(.hidden)
-		.fixedSize()
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 	}
 }
