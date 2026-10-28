@@ -16,13 +16,12 @@ export default defineConfig([
 		],
 	},
 	{
-		files: ["**/*.{ts,tsx,js,jsx}"],
+		files: ["**/*.{ts,js,mjs}"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
 				ecmaVersion: "latest",
 				sourceType: "module",
-				ecmaFeatures: { jsx: true },
 			},
 		},
 		plugins: {

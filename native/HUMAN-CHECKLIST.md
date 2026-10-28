@@ -14,8 +14,6 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 - **Phase 5 · Sign in to a real Google account.** Signing in uses your account, so it is yours. In a Pane profile, open `https://accounts.google.com`, sign in, and check Gmail opens signed in. Google accepted the engine in every run so far (`native/evidence/phase-5/google.json`). If it ever shows "This browser or app may not be secure", note it here: Pane no longer has a workaround for it.
 
-- **Phase 5 · Migrate your Electron Pane, and allow its Keychain item.** The scenarios migrate a copy made by Electron itself, with Chromium's mock keychain (`native/evidence/phase-5/migration.json`). Your real cookies are encrypted with the key in the Electron app's Keychain item, which only you can let the native app read. Quit the Electron Pane, then start the native app once, with no native data yet (`~/Library/Application Support/com.pane.desktop` absent). It reads a copy of `~/Library/Application Support/@pane/veil`, never the folder itself. When macOS asks whether Pane may use "@pane/veil Safe Storage" (the Electron app's cookie key, which Pane copies into its own "Pane Safe Storage"), choose Allow. If macOS then asks about "Pane Safe Storage", choose Always Allow. Then check that your profiles, tabs, and PIN are there and that a site you were signed in to still is. With an ad-hoc signed build, macOS may ask again after each rebuild (6.2).
-
 - **Phase 6 · 6.2 Sign and notarize with a Developer ID.** Signing needs an Apple Developer Program membership and its certificate, which are yours; until then every build is ad-hoc signed, and Gatekeeper warns on other Macs as it did for the Electron dmg. The steps are built and wait for an identity (`native/evidence/phase-6/signing-dry-run.txt` shows every call they make):
   1. In Xcode › Settings › Accounts, add your Apple ID, then Manage Certificates › + › Developer ID Application. `security find-identity -v -p codesigning` then lists "Developer ID Application: <name> (<team id>)".
   2. Store notarization credentials once, under a profile name: `xcrun notarytool store-credentials pane-notary --apple-id <apple id> --team-id <team id>` (it asks for an app-specific password from account.apple.com).
@@ -26,15 +24,17 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 - **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in `native/DECISIONS.md`.
 
-- **Phase 2 · parity.md — review the Electron-only rows marked ⛔.** They are internals of the Electron architecture with no user-facing equivalent to port: `stores.push`/`stores.sync` (cross-process state sync), `tabs.hideAll`/`showActive` and `ui.present`/`dismiss` (an overlay window above page views; native sheets draw above pages), and the app-UI DevTools shortcut (⌥⌘I; the app UI is native). Nothing to do unless one of them should stay; the justification is in each row of `docs/native/parity.md`.
-
 ## Done
+
+- **Phase 5 · Your Electron Pane migrated** (2026-10-28). The native app brought your Electron data over on this Mac (`migration.json` in its data) and adopted its cookie key into "Pane Safe Storage"; the Electron app and its data were deleted since, at your request.
+
+- **Phase 2 · The parity matrix's Electron-only rows** (2026-10-28): moot, with the Electron app retired. They were internals of its architecture (cross-process store sync, the overlay window, the app UI's DevTools shortcut); the matrix and the cutover report left the tree with the other Electron-era docs, and git history keeps them.
 
 - **Publish the first native release** (2026-10-28, your call: every Electron Pane moves to the native app, and the Electron app is no longer supported). v1.0.0 is the latest release, built by the Release workflow on `engine-0d0a01f8c703`: https://github.com/andredezzy/pane/actions/runs/40770609848. A dry run's build of the same commit passed `smoke`, `hosted`, `migration`, and `updates`, and `releases/latest` gives the Electron app's update check v1.0.0 and its `Pane-1.0.0-arm64.dmg`. The release notes walk a 0.x user through the move. The `electron` branch keeps the Electron app as a backup only.
 
 - **Phase 6 · 6.5 The first CI run** (2026-10-28). The Native workflow builds the app on `main` in 3 min 37 s on the `xcode-27` runner, on the engine published as `engine-0d0a01f8c703` by `native/engine/scripts/publish-engine.sh`: https://github.com/andredezzy/pane/actions/runs/40766120708 (`native/evidence/phase-6/ci-first-run.txt`). If GitHub renames the `xcode-27` label (when the image leaves preview), update `runs-on` and `.github/actionlint.yaml`.
 
-- **Phase 5 · Google sign-in fallback and Sign out of Google dropped** (2026-10-26, your decision). Both were workarounds for Google rejecting the Electron engine, which a browser does not have; Google accepts the native engine (`native/evidence/phase-5/google.json`). The rows in `docs/native/parity.md` are marked dropped.
+- **Phase 5 · Google sign-in fallback and Sign out of Google dropped** (2026-10-26, your decision). Both were workarounds for Google rejecting the Electron engine, which a browser does not have; Google accepts the native engine (`native/evidence/phase-5/google.json`).
 
 - **Design · Paper access** (2026-10-26). The Paper app was installed but closed; opened in the background, its local MCP server gave read access to the Pane file, and the native UI was matched to it and to the Electron app (`native/evidence/design/`, DECISIONS: Design fidelity).
 

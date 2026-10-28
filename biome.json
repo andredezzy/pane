@@ -27,11 +27,7 @@
 				"noUnusedVariables": {
 					"level": "error",
 					"fix": "none"
-				},
-				"noUnknownTypeSelector": "off"
-			},
-			"a11y": {
-				"useValidAnchor": "off"
+				}
 			},
 			"complexity": {
 				"noStaticOnlyClass": "off",
@@ -59,15 +55,6 @@
 			"performance": {
 				"noBarrelFile": "warn",
 				"noReExportAll": "warn"
-			},
-			"nursery": {
-				"useSortedClasses": {
-					"level": "error",
-					"fix": "unsafe",
-					"options": {
-						"functions": ["cn", "clsx", "cva", "tw"]
-					}
-				}
 			}
 		}
 	},
@@ -88,9 +75,6 @@
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"
-		},
-		"parser": {
-			"unsafeParameterDecoratorsEnabled": true
 		}
 	},
 	"assist": {

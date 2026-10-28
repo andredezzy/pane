@@ -13,10 +13,7 @@
 		}
 	},
 	"ignore": [
-		"**/dist/**",
-		"**/out/**",
 		"**/release/**",
-		"**/coverage/**",
 		"**/node_modules/**",
 		".claude/**",
 		".cursor/**",

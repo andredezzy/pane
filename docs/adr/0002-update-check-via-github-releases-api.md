@@ -1,5 +1,5 @@
-# Update check via GitHub Releases API, not electron-updater
+# Update check via the GitHub Releases API
 
-Pane checks for updates by querying the repo's latest GitHub Release from the main process and comparing versions — no electron-updater, no update service. The standard electron-builder stack (electron-updater + zip target + latest-mac.yml) was deliberately rejected for now: Pane is ad-hoc signed, and Squirrel.Mac refuses to apply updates to an unsigned app, so electron-updater would add a dependency and a mandatory zip+yml publishing obligation on every release while still being unable to install anything. Installing stays a user action: Pane downloads the dmg and opens it; the user drags to Applications.
+Pane checks for updates by asking for the repo's latest GitHub Release and comparing versions (PaneKit's `Updates`): no update framework, no update service. Installing stays a user action: Pane downloads the dmg and opens it, and the user drags Pane to Applications. The Electron app did the same, having rejected electron-updater: Pane is ad-hoc signed, Squirrel.Mac refuses to update an unsigned app, and its zip and `latest-mac.yml` would have been a publishing duty on every release for an updater that could install nothing. The contract, the `releases/latest` tag and its `-arm64.dmg` asset, is also how every Electron Pane found the native app.
 
-Revisit when an Apple Developer ID exists — silent auto-update requires signing regardless of mechanism, and adopting electron-updater belongs to that signing work.
+Revisit with an Apple Developer ID: silent updates need signing whatever the mechanism, and an updater (Sparkle) belongs to that signing work (`native/HUMAN-CHECKLIST.md`, 6.2).

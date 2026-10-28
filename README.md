@@ -55,7 +55,7 @@ open native/app/build/Pane.app
 native/
   app/        # the Swift app (AppKit + SwiftUI), the PaneKit package, VERSION, dmg resources
   engine/     # PaneCore.framework: the pinned Chromium tag, gn args, patches, //pane, scripts, scenarios
-docs/         # ADRs, the native plan, parity matrix, and cutover report
+docs/adr/     # architecture decisions
 ```
 
 ## Scripts

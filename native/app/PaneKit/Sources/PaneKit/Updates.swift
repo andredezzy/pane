@@ -1,6 +1,7 @@
 import Foundation
 
-// The update check (ADR 0002, apps/veil updater.ts): the repo's latest GitHub
+// The update check (ADR 0002, and the Electron app's updater.ts, whose
+// contract every Electron Pane still reads): the repo's latest GitHub
 // Release, newer than the running app and carrying the arm64 dmg, is the one
 // available update. Installing stays the user's: Pane downloads the dmg and
 // opens it.

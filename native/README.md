@@ -1,6 +1,6 @@
 # Pane native
 
-The native macOS Pane: a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. Plan and progress: `docs/superpowers/plans/2026-10-26-native-shell-arc-architecture.md`.
+The native macOS Pane: a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: `native/DECISIONS.md`.
 
 ## Layout
 
