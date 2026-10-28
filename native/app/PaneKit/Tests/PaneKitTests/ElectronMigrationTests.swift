@@ -83,8 +83,43 @@ struct ElectronMigrationTests {
 		#expect(try ElectronMigration.run(from: source, into: data) == .notNeeded)
 	}
 
+	// A process that runs from an app bundle with Electron's framework in it,
+	// as the Electron app does: a copy of sleep(1).
+	private func fakeElectron(in root: URL) throws -> Process {
+		let contents = root.appending(path: "Pane.app/Contents")
+		let executable = contents.appending(path: "MacOS/Pane")
+		try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+		try fileManager.createDirectory(at: contents.appending(path: "Frameworks/Electron Framework.framework"), withIntermediateDirectories: true)
+		try fileManager.copyItem(at: URL(fileURLWithPath: "/bin/sleep"), to: executable)
+
+		let process = Process()
+		process.executableURL = executable
+		process.arguments = ["30"]
+		try process.run()
+
+		return process
+	}
+
 	@Test("waits while the Electron app runs, and does nothing without it")
 	func preconditions() throws {
+		let source = try electronData()
+		let data = fileManager.temporaryDirectory.appending(path: "pane-native-\(UUID().uuidString)")
+		let electron = try fakeElectron(in: source.appending(path: "bundle"))
+		defer {
+			electron.terminate()
+			try? fileManager.removeItem(at: source)
+			try? fileManager.removeItem(at: data)
+		}
+
+		try fileManager.createSymbolicLink(atPath: source.appending(path: "SingletonLock").path, withDestinationPath: "host-\(electron.processIdentifier)")
+
+		#expect(try ElectronMigration.run(from: source, into: data) == .sourceInUse)
+		#expect(!fileManager.fileExists(atPath: data.appending(path: "profiles.json").path))
+		#expect(try ElectronMigration.run(from: source.appending(path: "missing"), into: data) == .noSource)
+	}
+
+	@Test("a stale lock whose pid is now another process does not hold it back")
+	func staleLock() throws {
 		let source = try electronData()
 		let data = fileManager.temporaryDirectory.appending(path: "pane-native-\(UUID().uuidString)")
 		defer {
@@ -92,11 +127,50 @@ struct ElectronMigrationTests {
 			try? fileManager.removeItem(at: data)
 		}
 
+		// This test's own process: alive, and not an Electron app.
 		try fileManager.createSymbolicLink(atPath: source.appending(path: "SingletonLock").path, withDestinationPath: "host-\(getpid())")
 
-		#expect(try ElectronMigration.run(from: source, into: data) == .sourceInUse)
-		#expect(!fileManager.fileExists(atPath: data.appending(path: "profiles.json").path))
-		#expect(try ElectronMigration.run(from: source.appending(path: "missing"), into: data) == .noSource)
+		#expect(try ElectronMigration.run(from: source, into: data) == .migrated(profiles: 1))
+	}
+
+	@Test("a launch that made nothing, or one cut short, still migrates")
+	func notCommitted() throws {
+		let source = try electronData()
+		let data = fileManager.temporaryDirectory.appending(path: "pane-native-\(UUID().uuidString)")
+		defer {
+			try? fileManager.removeItem(at: source)
+			try? fileManager.removeItem(at: data)
+		}
+
+		// What a launch beside the running Electron app saved (no profiles),
+		// and what a migration killed before profiles.json moved left.
+		try PersistedFile<ProfilesState>(directory: data, name: "profiles").save(ProfilesState())
+		try PersistedFile<SettingsState>(directory: data, name: "settings").save(SettingsState())
+		try PersistedFile<SecurityState>(directory: data, name: "security").save(SecurityState())
+
+		#expect(try ElectronMigration.run(from: source, into: data) == .migrated(profiles: 1))
+
+		let settings = try #require(try PersistedFile<SettingsState>(directory: data, name: "settings").load())
+		#expect(settings.settings.theme == .dark)
+
+		let security = try #require(try PersistedFile<SecurityState>(directory: data, name: "security").load())
+		#expect(security.pin?.length == 4)
+
+		let profiles = try #require(try PersistedFile<ProfilesState>(directory: data, name: "profiles").load())
+		#expect(profiles.profiles.map(\.name) == ["Work"])
+	}
+
+	@Test("a record keeps whether the cookie key still waits; an older one reads as not")
+	func recordCookieKey() throws {
+		let data = fileManager.temporaryDirectory.appending(path: "pane-native-\(UUID().uuidString)")
+		defer { try? fileManager.removeItem(at: data) }
+
+		let file = PersistedFile<ElectronMigration.Record>(directory: data, name: ElectronMigration.recordName)
+		try file.save(ElectronMigration.Record(source: "/old", migratedAt: "2026-10-27T00:00:00Z", profiles: ["a"], cookieKeyPending: true))
+		#expect(try file.load()?.cookieKeyPending == true)
+
+		try Data(#"{"state":{"source":"/old","migratedAt":"2026-10-26T00:00:00Z","profiles":["a"],"pendingExtensions":{}},"version":0}"#.utf8).write(to: file.url)
+		#expect(try file.load()?.cookieKeyPending == nil)
 	}
 
 	@Test("reads the Electron app's folder used last, named after its package")
@@ -125,7 +199,7 @@ struct ElectronMigrationTests {
 		#expect(ElectronMigration.Source(directory: support).keychainService == nil)
 	}
 
-	@Test("the native app's own data is never replaced")
+	@Test("the native app's own profiles are never replaced")
 	func existingData() throws {
 		let source = try electronData()
 		let data = fileManager.temporaryDirectory.appending(path: "pane-native-\(UUID().uuidString)")
@@ -134,7 +208,13 @@ struct ElectronMigrationTests {
 			try? fileManager.removeItem(at: data)
 		}
 
-		try PersistedFile<ProfilesState>(directory: data, name: "profiles").save(ProfilesState())
+		let own = BrowserProfile(id: "own", name: "Mine", createdAt: "2026-10-27T00:00:00Z", updatedAt: "2026-10-27T00:00:00Z")
+		try PersistedFile<ProfilesState>(directory: data, name: "profiles").save(ProfilesState(profiles: [own]))
+
+		#expect(try ElectronMigration.run(from: source, into: data) == .notNeeded)
+
+		// Nor is a file it cannot read.
+		try Data("{".utf8).write(to: data.appending(path: "profiles.json"))
 
 		#expect(try ElectronMigration.run(from: source, into: data) == .notNeeded)
 	}

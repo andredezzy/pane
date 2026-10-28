@@ -29,8 +29,8 @@ enum SafeStorage {
 			return status
 		}
 
-		// Nothing is encrypted with an earlier key of Pane's: the migration
-		// runs only before the native app has data.
+		// Nothing that matters is encrypted with an earlier key of Pane's: the
+		// migration runs only before the native app has profiles.
 		let item: [CFString: Any] = [
 			kSecClass: kSecClassGenericPassword,
 			kSecAttrService: service,
@@ -39,5 +39,18 @@ enum SafeStorage {
 		SecItemDelete(item as CFDictionary)
 
 		return SecItemAdd(item.merging([kSecValueData: key]) { $1 } as CFDictionary, nil)
+	}
+
+	// Whether the engine has a key of its own yet. Reading the item's
+	// attributes, not its secret, asks the user nothing.
+	static func hasEngineKey() -> Bool {
+		let query: [CFString: Any] = [
+			kSecClass: kSecClassGenericPassword,
+			kSecAttrService: service,
+			kSecAttrAccount: account,
+			kSecReturnAttributes: true,
+		]
+
+		return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
 	}
 }

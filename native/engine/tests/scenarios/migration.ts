@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
 	existsSync,
+	lstatSync,
 	mkdirSync,
 	readdirSync,
 	readFileSync,
@@ -15,12 +16,14 @@ import { expect, type Scenario } from "../run";
 // version the Electron app shipped, kept as a dev dependency for this) writes
 // a profile's site data, a cookie and local storage, into a throwaway data
 // directory beside the app's JSON files (two profiles, their tabs, settings,
-// a PIN) and an installed extension. Pane's first launch on it migrates
-// everything, from a copy: it starts locked behind the same PIN, the
-// profiles, tabs, and settings are there, and the profile's pages see the
-// Electron app's cookie and storage. The extension, which the Electron app
-// installed once for every profile, reinstalls in none: each profile adds
-// its own. The Electron data is byte for byte as it was.
+// a PIN) and an installed extension. Pane starts while the Electron app
+// still runs on it (its single-instance lock held): it waits, having written
+// nothing, and goes on once the Electron app quits. It migrates everything,
+// from a copy: it starts locked behind the same PIN, the profiles, tabs, and
+// settings are there, and the profile's pages see the Electron app's cookie
+// and storage. The extension, which the Electron app installed once for
+// every profile, reinstalls in none: each profile adds its own. The Electron
+// data the migration reads is byte for byte as it was.
 
 const ELECTRON = join(
 	import.meta.dir,
@@ -51,6 +54,30 @@ app.whenReady().then(async () => {
 });
 `;
 
+// The Electron app running on its data, as the user left it open: it holds
+// its single-instance lock (SingletonLock) for HOLD_MS, then quits.
+const HOLD = `
+const { app } = require("electron");
+app.setName("@pane/veil");
+app.setPath("userData", process.env.SEED_DIR);
+if (!app.requestSingleInstanceLock()) app.exit(1);
+app.whenReady().then(() => setTimeout(() => app.quit(), Number(process.env.HOLD_MS)));
+`;
+
+// What the migration reads: the JSON files, the partitions, and the
+// extensions. The running Electron app rewrites its own session files at
+// the root (Local State, Preferences), as it always did.
+function migratedData(files: Record<string, string>): Record<string, string> {
+	return Object.fromEntries(
+		Object.entries(files).filter(
+			([path]) =>
+				path.startsWith("Partitions/") ||
+				path.startsWith("Extensions/") ||
+				/^(profiles|settings|security)\.json$/.test(path),
+		),
+	);
+}
+
 function snapshot(root: string): Record<string, string> {
 	const files: Record<string, string> = {};
 
@@ -80,9 +107,12 @@ const migration: Scenario = async (context) => {
 	// The Electron app's data.
 	const source = context.tempDir("pane-electron-");
 
-	const seed = join(context.tempDir("pane-electron-seed-"), "main.js");
+	const scripts = context.tempDir("pane-electron-seed-");
+	const seed = join(scripts, "main.js");
+	const hold = join(scripts, "hold.js");
 
 	writeFileSync(seed, SEED);
+	writeFileSync(hold, HOLD);
 
 	const seeding = Bun.spawn([ELECTRON, seed, "--use-mock-keychain"], {
 		env: {
@@ -213,10 +243,52 @@ const migration: Scenario = async (context) => {
 		`Electron wrote no cookies: ${JSON.stringify(partition)}`,
 	);
 
-	// Pane's first launch.
-	const { app, has } = await launchTraced(context, "migration", {
+	// Pane's first launch, while the Electron app runs.
+	const holding = Bun.spawn([ELECTRON, hold, "--use-mock-keychain"], {
+		env: { ...process.env, SEED_DIR: source, HOLD_MS: "6000" },
+		stdout: "ignore",
+		stderr: "ignore",
+	});
+
+	// A link to "<host>-<pid>", which existsSync, following it, never finds.
+	const locked = () =>
+		!!lstatSync(join(source, "SingletonLock"), { throwIfNoEntry: false });
+
+	const lockDeadline = Date.now() + 15_000;
+
+	while (!locked() && Date.now() < lockDeadline) {
+		await Bun.sleep(100);
+	}
+
+	expect(locked(), "the Electron app took no single-instance lock");
+
+	const dataDir = context.tempDir("pane-data-");
+
+	const launching = launchTraced(context, "migration", {
+		dataDir,
 		env: { PANE_ELECTRON_DATA_DIR: source },
 	});
+
+	await Bun.sleep(3_000);
+
+	const waited = {
+		electronRunning: holding.exitCode === null,
+		wrote: [
+			"profiles.json",
+			"settings.json",
+			"migration.json",
+			"Engine",
+		].filter((name) => existsSync(join(dataDir, name))),
+	};
+
+	const { app, has } = await launching;
+
+	expect(
+		waited.electronRunning && waited.wrote.length === 0,
+		`Pane did not wait for the Electron app: ${JSON.stringify(waited)}`,
+	);
+
+	expect(holding.exitCode !== null, "Pane went on while the Electron app ran");
 
 	const launched = await app.state();
 
@@ -299,7 +371,8 @@ const migration: Scenario = async (context) => {
 	const after = snapshot(source);
 
 	expect(
-		JSON.stringify(after) === JSON.stringify(before),
+		JSON.stringify(migratedData(after)) ===
+			JSON.stringify(migratedData(before)),
 		"the Electron data changed",
 	);
 
@@ -322,6 +395,7 @@ const migration: Scenario = async (context) => {
 			partitionFiles: partition.length,
 			unchanged: true,
 		},
+		whileElectronRan: waited,
 		pin: {
 			lockedAtLaunch: launched.security.locked,
 			unlockedWith: "the Electron app's bcryptjs hash",

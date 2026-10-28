@@ -35,20 +35,11 @@ if let argument = CommandLine.arguments.first(where: { $0.hasPrefix(AppLock.wipe
 }
 
 // The first launch after the Electron app brings its data over, from a copy
-// (PaneKit ElectronMigration), before anything here reads the data directory.
+// (LaunchMigration), before anything here reads the data directory.
 let electron = ProcessInfo.processInfo.environment["PANE_ELECTRON_DATA_DIR"].map { ElectronMigration.Source(directory: URL(fileURLWithPath: $0, isDirectory: true)) }
 	?? ElectronMigration.defaultSource(applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
 
-do {
-	let outcome = try ElectronMigration.run(from: electron.directory, into: dataDirectory)
-	NSLog("Pane: migration from the Electron app: %@", String(describing: outcome))
-
-	if case .migrated = outcome, let appName = electron.appName, let service = electron.keychainService {
-		NSLog("Pane: the Electron app's cookie key: %d", SafeStorage.adoptKey(service: service, account: appName))
-	}
-} catch {
-	NSLog("Pane: the migration from the Electron app failed: %@", String(describing: error))
-}
+LaunchMigration.run(from: electron, into: dataDirectory)
 
 let appDelegate = AppDelegate(dataDirectory: dataDirectory)
 

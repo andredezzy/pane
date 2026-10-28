@@ -5,24 +5,32 @@ import Foundation
 // Its extensions do not: it installed each once, for every profile, and a
 // native profile has only the extensions added to it. It always reads a copy
 // of the Electron app's data, never the data itself, and never writes there.
+// It runs until it has migrated: a launch that found the Electron app
+// running, or failed, wrote nothing that stops the next one.
 public enum ElectronMigration {
 	// What a migration did, kept in the data directory as migration.json so it
-	// runs once. A record from before extensions stayed behind still lists
-	// them as pendingExtensions, which nothing reads.
+	// runs once. The panic wipe leaves it, so a wiped Pane never brings the
+	// Electron app's data back. A record from before extensions stayed behind
+	// still lists them as pendingExtensions, which nothing reads.
 	public struct Record: Codable, Hashable, Sendable {
 		public var source: String
 		public var migratedAt: String
 		public var profiles: [String]
+		// The Electron app's cookie key still waits to go to the engine: the
+		// Keychain could not ask the user (a locked session, say). nil in a
+		// record from before this was kept.
+		public var cookieKeyPending: Bool?
 
-		public init(source: String, migratedAt: String, profiles: [String]) {
+		public init(source: String, migratedAt: String, profiles: [String], cookieKeyPending: Bool? = nil) {
 			self.source = source
 			self.migratedAt = migratedAt
 			self.profiles = profiles
+			self.cookieKeyPending = cookieKeyPending
 		}
 	}
 
 	public enum Outcome: Equatable, Sendable {
-		// The native app has data, or migrated before.
+		// The native app has profiles of its own, or migrated before.
 		case notNeeded
 		// No Electron app data where it lives.
 		case noSource
@@ -86,10 +94,7 @@ public enum ElectronMigration {
 	public static func run(from source: URL, into data: URL, now: Date = Date()) throws -> Outcome {
 		let fileManager = FileManager.default
 
-		guard
-			!fileManager.fileExists(atPath: data.appending(path: "profiles.json").path),
-			!fileManager.fileExists(atPath: data.appending(path: "\(recordName).json").path)
-		else {
+		guard !fileManager.fileExists(atPath: data.appending(path: "\(recordName).json").path), !hasProfiles(data) else {
 			return .notNeeded
 		}
 
@@ -143,11 +148,15 @@ public enum ElectronMigration {
 			}
 		}
 
+		// One left by a migration cut short, or by a launch that made only
+		// settings, is replaced. profiles.json goes last: it commits.
 		for name in ["settings", "security", "profiles"] {
 			let file = staging.appending(path: "\(name).json")
+			let destination = data.appending(path: "\(name).json")
 
 			if fileManager.fileExists(atPath: file.path) {
-				try fileManager.moveItem(at: file, to: data.appending(path: "\(name).json"))
+				try? fileManager.removeItem(at: destination)
+				try fileManager.moveItem(at: file, to: destination)
 			}
 		}
 
@@ -178,16 +187,45 @@ public enum ElectronMigration {
 		}
 	}
 
+	// Profiles of the native app's own, which the migration never replaces.
+	// An empty list is none: a launch that made nothing still migrates. One
+	// that cannot be read counts as some.
+	static func hasProfiles(_ data: URL) -> Bool {
+		do {
+			return try !(PersistedFile<ProfilesState>(directory: data, name: "profiles").load()?.profiles.isEmpty ?? true)
+		} catch {
+			return true
+		}
+	}
+
 	// Chromium marks a running instance with a SingletonLock link to
-	// "<host>-<pid>"; a live pid means the Electron app runs.
-	static func isRunning(_ source: URL) -> Bool {
+	// "<host>-<pid>". The Electron app runs while that pid is alive (EPERM:
+	// alive, another user's) and is an Electron app: a stale lock whose pid
+	// came back as another process would hold the migration back for good.
+	public static func isRunning(_ source: URL) -> Bool {
 		guard
 			let target = try? FileManager.default.destinationOfSymbolicLink(atPath: source.appending(path: "SingletonLock").path),
-			let pid = target.split(separator: "-").last.flatMap({ Int32($0) })
+			let pid = target.split(separator: "-").last.flatMap({ Int32($0) }),
+			kill(pid, 0) == 0 || errno == EPERM
 		else {
 			return false
 		}
 
-		return kill(pid, 0) == 0
+		return isElectronApp(pid)
+	}
+
+	// Whether the process runs from an app bundle with Electron's framework
+	// in it.
+	static func isElectronApp(_ pid: pid_t) -> Bool {
+		var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+
+		guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else {
+			return false
+		}
+
+		// <app>/Contents/MacOS/<executable>
+		let contents = URL(fileURLWithPath: String(cString: path)).deletingLastPathComponent().deletingLastPathComponent()
+
+		return FileManager.default.fileExists(atPath: contents.appending(path: "Frameworks/Electron Framework.framework").path)
 	}
 }
