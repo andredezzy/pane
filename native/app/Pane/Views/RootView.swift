@@ -174,27 +174,35 @@ struct RootView: View {
 
 	// The content panel: m-2 ml-0, rounded 18, the panel shadow.
 	private var content: some View {
-		VStack(spacing: 0) {
+		let radius: CGFloat = fullscreen ? 0 : 18
+
+		return VStack(spacing: 0) {
 			if showsToolbar {
 				ToolbarView(controller: controller)
 			}
 
 			ZStack {
-				PageHostRepresentable(host: controller.pageHost)
+				// The page's layer rounds the panel's corners itself: a clip
+				// over it made SwiftUI mask the page, composited each frame.
+				PageHostRepresentable(host: controller.pageHost, cornerRadius: radius * Squircle.circularEquivalent)
 
-				if model.page == .settings {
-					SettingsView(controller: controller)
-				} else if model.page == .extensions {
-					ExtensionsPage(controller: controller)
-				} else if model.activeTabID == nil {
-					EmptyStateView()
-				} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
-					SadTabView { controller.reloadCrashed(tabID) }
+				// What SwiftUI draws over the page takes the panel's corners:
+				// the bottom ones, and the top ones too without the toolbar.
+				Group {
+					if model.page == .settings {
+						SettingsView(controller: controller)
+					} else if model.page == .extensions {
+						ExtensionsPage(controller: controller)
+					} else if model.activeTabID == nil {
+						EmptyStateView()
+					} else if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
+						SadTabView { controller.reloadCrashed(tabID) }
+					}
 				}
+				.clipShape(PanelCorners(radius: radius, top: showsToolbar ? ToolbarView.height : 0))
 			}
 		}
-		.clipShape(Squircle(cornerRadius: fullscreen ? 0 : 18))
-		.surfaceBackground(cornerRadius: fullscreen ? 0 : 18, ring: fullscreen ? .clear : Palette.border, shadow: fullscreen ? .clear : PanelShadow.color)
+		.surfaceBackground(cornerRadius: radius, ring: fullscreen ? .clear : Palette.border, shadow: fullscreen ? .clear : PanelShadow.color)
 		.padding([.top, .trailing, .bottom], fullscreen ? 0 : 8)
 	}
 
@@ -207,13 +215,30 @@ struct RootView: View {
 	}
 }
 
-// The engine's page view lives in an AppKit host the controller fills.
+// The content panel's squircle, for a view inside it `top` points under its
+// top edge (below the toolbar): the view's corners round where the panel's
+// do, and its top ones meet the toolbar square.
+private struct PanelCorners: Shape {
+	let radius: CGFloat
+	let top: CGFloat
+
+	func path(in rect: CGRect) -> Path {
+		Squircle(cornerRadius: radius).path(in: CGRect(x: rect.minX, y: rect.minY - top, width: rect.width, height: rect.height + top))
+	}
+}
+
+// The engine's page view lives in an AppKit host the controller fills. Its
+// layer takes the panel's corners as a circle (Squircle.circularEquivalent),
+// square in full screen.
 struct PageHostRepresentable: NSViewRepresentable {
 	let host: PageHostView
+	let cornerRadius: CGFloat
 
 	func makeNSView(context: Context) -> PageHostView {
 		host
 	}
 
-	func updateNSView(_ nsView: PageHostView, context: Context) {}
+	func updateNSView(_ nsView: PageHostView, context: Context) {
+		nsView.layer?.cornerRadius = cornerRadius
+	}
 }

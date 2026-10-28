@@ -12,6 +12,10 @@ struct ToolbarView: View {
 	@State private var shownAddress = ""
 	@FocusState private var addressFocused: Bool
 
+	// The page starts 43px down the panel (TOOLBAR_HEIGHT 51 less the 8px
+	// gutter), a pixel under the toolbar's 42.
+	static let height: CGFloat = 43
+
 	private var model: BrowserModel { controller.model }
 	private var tabID: String? { model.activeTabID }
 	private var isLoading: Bool { tabID.flatMap { model.loadingProgress[$0] } != nil }
@@ -63,9 +67,7 @@ struct ToolbarView: View {
 		}
 		.padding(.leading, 5)
 		.padding(.trailing, 6)
-		.frame(height: 42)
-		// The page starts 43px down the panel (TOOLBAR_HEIGHT 51 less the 8px
-		// gutter), a pixel under the toolbar.
+		.frame(height: Self.height - 1)
 		.padding(.bottom, 1)
 		// Another tab shows its own address. The same tab's new address
 		// replaces the text unless the user is typing over it.
