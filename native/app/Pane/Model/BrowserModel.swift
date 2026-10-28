@@ -29,7 +29,16 @@ final class BrowserModel {
 	@ObservationIgnored var selectionDidChange: (() -> Void)?
 	// Profiles open in the sidebar. Not persisted: collapsed on every launch.
 	var expandedProfileIDs: Set<String> = []
-	var page: Page = .browser
+	var page: Page = .browser {
+		didSet {
+			if page != oldValue {
+				pageDidChange?()
+			}
+		}
+	}
+	// Called when the page changes, to hide the selected tab's under
+	// Settings and Extensions.
+	@ObservationIgnored var pageDidChange: (() -> Void)?
 
 	// Session state of live pages, by tab id.
 	private(set) var loadedTabIDs: Set<String> = []

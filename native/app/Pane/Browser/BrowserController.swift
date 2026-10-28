@@ -76,6 +76,9 @@ final class BrowserController: NSObject {
 		lock.didUnlock = { [weak self] in
 			self?.lockDidOpen()
 		}
+		model.pageDidChange = { [weak self] in
+			self?.placeActivePage()
+		}
 
 		// The sidebar shows each proxy's state from launch, as the Electron
 		// app tested them.
@@ -467,10 +470,7 @@ final class BrowserController: NSObject {
 		}
 
 		browserWindow.activateTab(page)
-		let docked = model.activeTabID.flatMap { devTools[$0] }
-		pageHost.show(page, devTools: docked)
-		page.isVisible = true
-		docked?.isVisible = true
+		placeActivePage()
 		dialogs.selectionChanged()
 		// Actions show their state for the selected tab.
 		refreshExtensions(profileID)
@@ -479,6 +479,33 @@ final class BrowserController: NSObject {
 
 	private func tabID(of page: WebContents) -> String? {
 		tabIDs[ObjectIdentifier(page)]
+	}
+
+	// The selected tab's page (and its docked DevTools) in the panel on the
+	// browser page. Under Settings and Extensions, which cover it, it leaves
+	// the panel and is hidden, as a background tab is, so it stops drawing:
+	// hidden in place, the engine kept the window's active tab drawing.
+	// Never while locked: the page shows once the lock opens.
+	private func placeActivePage() {
+		guard interactionAllowed, let tabID = model.activeTabID, let page = pages[tabID] else {
+			return
+		}
+
+		let docked = devTools[tabID]
+
+		CATransaction.begin()
+		CATransaction.setDisableActions(true)
+		defer { CATransaction.commit() }
+
+		if model.page == .browser {
+			pageHost.show(page, devTools: docked)
+			page.isVisible = true
+			docked?.isVisible = true
+		} else {
+			pageHost.show(nil)
+			page.isVisible = false
+			docked?.isVisible = false
+		}
 	}
 
 	// MARK: Navigation
@@ -812,8 +839,7 @@ extension BrowserController: WebContentsDelegate {
 		model.setDevToolsOpen(tabID, tools != nil)
 
 		if model.activeTabID == tabID {
-			pageHost.show(webContents, devTools: tools)
-			tools?.isVisible = true
+			placeActivePage()
 		}
 	}
 }

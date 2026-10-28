@@ -173,6 +173,39 @@ const navigation: Scenario = async (context) => {
 
 	void pageA;
 
+	// Under Settings and Extensions, which cover it, the selected tab's page
+	// is hidden as a background tab is, so it stops drawing; it shows again
+	// on the way back.
+	const shownPage = await app.page(tab, tabOf(showsFirst, tab)?.url ?? "");
+
+	const visibility = () =>
+		shownPage.evaluate<string>("document.visibilityState");
+
+	const pageVisibility: Record<string, string> = {
+		browser: await visibility(),
+	};
+
+	await app.send("showPage", { page: "settings" });
+	pageVisibility.settings = await visibility();
+	await app.send("showPage", { page: "browser" });
+	pageVisibility.back = await visibility();
+	await app.send("extensionsMenu", { control: "manage" });
+	pageVisibility.extensions = await visibility();
+	await app.send("select", { tab });
+	pageVisibility.selected = await visibility();
+
+	expect(
+		JSON.stringify(pageVisibility) ===
+			JSON.stringify({
+				browser: "visible",
+				settings: "hidden",
+				back: "visible",
+				extensions: "hidden",
+				selected: "visible",
+			}),
+		`the page's visibility: ${JSON.stringify(pageVisibility)}`,
+	);
+
 	return {
 		titled: tabOf(titled, tab),
 		back: tabOf(back, tab),
@@ -180,6 +213,7 @@ const navigation: Scenario = async (context) => {
 		slowLoad: { loading: tabOf(loading, tab), stopped: tabOf(stopped, tab) },
 		address: { other: showsOther.address, first: showsFirst.address },
 		arrows: locked ? "not read: the screen is locked" : arrows,
+		pageVisibility,
 	};
 };
 
