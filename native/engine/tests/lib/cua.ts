@@ -326,6 +326,49 @@ export async function sheetFieldWidths(
 		.map((element) => element.frame?.w ?? 0);
 }
 
+// A control's frame and value, by its label and role, in the window's points
+// from its top left (clickWindow's), for a real click at a part of it.
+export async function controlFrame(
+	pid: number,
+	windowId: number,
+	label: string,
+	role: RegExp,
+): Promise<{ x: number; y: number; w: number; h: number; value?: string }> {
+	type Element = {
+		role: string;
+		label?: string;
+		value?: string;
+		frame?: { x: number; y: number; w: number; h: number };
+	};
+
+	const { elements } = await call<{ elements: Element[] }>("get_window_state", {
+		pid,
+		window_id: windowId,
+		tree_format: "elements",
+		max_elements: 500,
+		include_screenshot: false,
+	});
+
+	const element = elements.find(
+		(each) => each.label === label && role.test(each.role),
+	);
+
+	const window = (await windowList(pid)).find(
+		(each) => each.window_id === windowId,
+	);
+
+	if (!element?.frame || !window) {
+		throw new Error(`no ${role} "${label}" in window ${windowId}`);
+	}
+
+	return {
+		...element.frame,
+		x: element.frame.x - window.bounds.x,
+		y: element.frame.y - window.bounds.y,
+		value: element.value,
+	};
+}
+
 // Types `text` into the text field with identifier `id`, as typing does (a
 // SwiftUI field takes typed text, not a value set from outside).
 export async function typeIntoField(

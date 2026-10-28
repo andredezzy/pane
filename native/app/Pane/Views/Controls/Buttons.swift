@@ -287,7 +287,7 @@ extension EnvironmentValues {
 
 // A press over a button's fill. It fades out as the press ends, and only
 // it: the click's own effect, a selection, lands at once.
-private struct PressLayer<S: Shape>: View {
+struct PressLayer<S: Shape>: View {
 	let shape: S
 	let color: Color
 	let isPressed: Bool

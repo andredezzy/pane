@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
 	clickButton,
 	clickControl,
+	controlFrame,
 	mainWindowOf,
 	typeIntoField,
 } from "../lib/cua";
@@ -265,10 +266,35 @@ const profileSheet: Scenario = async (context) => {
 			(state) => state.profileSheet === proxiedID,
 		);
 
-		await clickControl(pid, window, {
-			title: "Spoof fingerprint",
-			role: /AX(CheckBox|Switch)/,
+		// A real click on the switch's label, well clear of the switch: the
+		// whole row toggles it, as a checkbox's label does.
+		const spoofRow = await controlFrame(
+			pid,
+			window,
+			"Spoof fingerprint",
+			/AX(CheckBox|Switch)/,
+		);
+
+		await app.send("clickWindow", {
+			x: spoofRow.x + 30,
+			y: spoofRow.y + spoofRow.h / 2,
 		});
+
+		await Bun.sleep(300);
+
+		const spoofAfterClick = (
+			await controlFrame(
+				pid,
+				window,
+				"Spoof fingerprint",
+				/AX(CheckBox|Switch)/,
+			)
+		).value;
+
+		expect(
+			spoofRow.value === "1" && spoofAfterClick === "0",
+			`a click on the label left the switch at ${spoofAfterClick} (from ${spoofRow.value})`,
+		);
 
 		await clickButton(pid, window, "Save");
 
@@ -298,7 +324,10 @@ const profileSheet: Scenario = async (context) => {
 				passwordInKeychain: true,
 				testedThrough: proxy.log.length,
 			},
-			spoofingOff: unspoofed?.fingerprint,
+			spoofingOff: {
+				byLabelClick: spoofAfterClick,
+				saved: unspoofed?.fingerprint,
+			},
 		};
 	} finally {
 		proxy.stop();
