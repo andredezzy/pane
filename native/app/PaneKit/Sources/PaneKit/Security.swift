@@ -49,6 +49,26 @@ public struct SecurityState: Codable, Hashable, Sendable {
 	public var remainingAttempts: Int {
 		max(0, Self.maxAttempts - failedAttempts)
 	}
+
+	// The state of a security.json that no longer decodes (a disk error, a
+	// newer Pane's format), from what is left of it: the PIN's bcrypt hash,
+	// its length, and the failed attempts. nil when no PIN can be read in
+	// it.
+	public static func recover(from data: Data) -> SecurityState? {
+		let text = String(decoding: data, as: UTF8.self)
+
+		guard
+			let hash = text.firstMatch(of: /\$2[aby]\$\d\d\$[.\/A-Za-z0-9]{53}/)?.output,
+			let length = text.firstMatch(of: /"length"\s*:\s*(\d{1,2})/).flatMap({ Int($0.output.1) }),
+			length >= PinEntry.minimumLength
+		else {
+			return nil
+		}
+
+		let failedAttempts = text.firstMatch(of: /"failedAttempts"\s*:\s*(\d{1,2})/).flatMap { Int($0.output.1) } ?? 0
+
+		return SecurityState(pin: Pin(hash: String(hash), length: length), failedAttempts: failedAttempts)
+	}
 }
 
 // bcrypt through OpenBSD's implementation (CBcrypt): it reads the Electron

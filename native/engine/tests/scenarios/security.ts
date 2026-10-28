@@ -11,8 +11,10 @@ import { expect, type Scenario } from "../run";
 // A wrong PIN counts, the right one unlocks, and the URL opens then. Then
 // the PIN is changed, removed, and set up again through the PIN screen, and
 // Back leaves it. On a relaunch, five wrong PINs erase the data directory
-// and Pane starts again, fresh. Last, ⌘Q quits from the PIN screen with
-// Caps Lock on. Each check runs in a throwaway data directory.
+// and Pane starts again, fresh. Then ⌘Q quits from the PIN screen with Caps
+// Lock on. Last, a security.json that no longer decodes never opens the
+// lock: the PIN left in it still unlocks, and with none left the lock stays
+// shut. Each check runs in a throwaway data directory.
 
 // bcryptjs 3.0.3, hashSync("1234", 10): what the Electron app wrote.
 const ELECTRON_SECURITY = {
@@ -364,6 +366,42 @@ const security: Scenario = async (context) => {
 		await caps.browser.close();
 	}
 
+	// A damaged security.json: cut short, its PIN still in it, then garbage.
+	const damaged = async (name: string, contents: string, keys: string) => {
+		const directory = context.tempDir("pane-security-damaged-");
+		writeFileSync(join(directory, "security.json"), contents);
+
+		const damagedApp = await launchPane(context, { dataDir: directory });
+		const atLaunch = await damagedApp.state();
+
+		await damagedApp.send("render", {
+			path: join(context.out, `security-damaged-${name}.png`),
+		});
+
+		await damagedApp.send("pinKeys", { keys });
+		await Bun.sleep(1_500);
+		const afterKeys = await damagedApp.state();
+
+		const result = {
+			lockedAtLaunch: atLaunch.security.locked,
+			error: screen(atLaunch)?.error ?? null,
+			lockedAfterKeys: afterKeys.security.locked,
+			keptAside: existsSync(join(directory, "security.json.damaged")),
+		};
+
+		await damagedApp.browser.close();
+
+		return result;
+	};
+
+	const truncated = await damaged(
+		"truncated",
+		JSON.stringify(ELECTRON_SECURITY).slice(0, -12),
+		"1234",
+	);
+
+	const garbage = await damaged("garbage", '\u0000\u0000{"state":', "1234");
+
 	expect(
 		before.profiles && before.profileData,
 		`nothing to wipe: ${JSON.stringify(before)}`,
@@ -384,6 +422,21 @@ const security: Scenario = async (context) => {
 	expect(quitWithCapsLock, "⌘Q with Caps Lock did not quit at the PIN screen");
 
 	expect(
+		truncated.lockedAtLaunch &&
+			!truncated.lockedAfterKeys &&
+			truncated.keptAside,
+		`a damaged security.json with its PIN: ${JSON.stringify(truncated)}`,
+	);
+
+	expect(
+		garbage.lockedAtLaunch &&
+			garbage.lockedAfterKeys &&
+			!!garbage.error &&
+			garbage.keptAside,
+		`a damaged security.json without a PIN: ${JSON.stringify(garbage)}`,
+	);
+
+	expect(
 		!after.locked &&
 			after.pinLength === null &&
 			(after.security?.state.pin ?? null) === null,
@@ -400,6 +453,7 @@ const security: Scenario = async (context) => {
 			),
 		},
 		quitWithCapsLock,
+		damagedSecurityFile: { truncated, garbage },
 		electronPin: {
 			unlockedWith: "the Electron app's bcryptjs hash",
 			failedAttemptsAfterWrong: wrong.security.failedAttempts,

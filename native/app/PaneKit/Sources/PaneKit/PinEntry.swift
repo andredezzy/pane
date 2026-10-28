@@ -53,6 +53,16 @@ public struct PinEntry: Equatable, Sendable {
 		step = mode == .setup ? .enter : .verify
 	}
 
+	// The lock with no PIN to check against: it says why, and takes no
+	// keys.
+	public static func unreadable(_ message: String) -> PinEntry {
+		var entry = PinEntry(mode: .unlock, pinLength: minimumLength)
+		entry.error = message
+		entry.busy = true
+
+		return entry
+	}
+
 	public var dismissable: Bool {
 		mode != .unlock
 	}

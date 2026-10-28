@@ -64,6 +64,20 @@ struct SecurityStateTests {
 
 		#expect(written == #"{"state":{"failedAttempts":0,"pin":null},"version":0}"#)
 	}
+
+	@Test("a damaged file gives back its PIN when it still holds one")
+	func recover() {
+		let hash = "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"
+		// Cut short, and in an order no Pane writes.
+		let truncated = #"{"version":0,"state":{"failedAttempts":3,"pin":{"length":6,"hash":"\#(hash)"}"#
+
+		let recovered = SecurityState.recover(from: Data(truncated.utf8))
+		#expect(recovered == SecurityState(pin: Pin(hash: hash, length: 6), failedAttempts: 3))
+
+		#expect(SecurityState.recover(from: Data(#"{"state":{"pin":{"hash":"\#(hash)"#.utf8)) == nil)
+		#expect(SecurityState.recover(from: Data("\u{0}\u{0}garbage".utf8)) == nil)
+		#expect(SecurityState.recover(from: Data(#"{"state":{"pin":{"hash":"$2b$10$short","length":4}}}"#.utf8)) == nil)
+	}
 }
 
 @Suite("PinEntry")
@@ -187,6 +201,16 @@ struct PinEntryTests {
 		}
 
 		#expect(entry.verified(true, remaining: 5) == .removePin("1234"))
+	}
+
+	@Test("an unreadable lock says why and takes no keys")
+	func unreadable() {
+		var entry = PinEntry.unreadable("Can't read the PIN")
+
+		#expect(entry.mode == .unlock && !entry.dismissable)
+		#expect(entry.error == "Can't read the PIN")
+		#expect(entry.digit("1") == .none)
+		#expect(entry.entered.isEmpty)
 	}
 
 	@Test("backspace and non-digits")

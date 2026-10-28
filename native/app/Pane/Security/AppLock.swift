@@ -23,22 +23,41 @@ final class AppLock {
 	@ObservationIgnored private let dataDirectory: URL
 	@ObservationIgnored private var keyMonitor: Any?
 
+	// A security.json that does not decode never opens the lock: its PIN is
+	// read from what is left when it can be, and the lock stays shut when it
+	// cannot. The file is kept aside, as security.json.damaged, before
+	// anything writes over it.
 	init(dataDirectory: URL) {
 		let file = PersistedFile<SecurityState>(directory: dataDirectory, name: "security")
 		var loaded = SecurityState()
+		var unreadable = false
 
 		do {
 			loaded = try file.load() ?? SecurityState()
 		} catch {
 			NSLog("Pane: could not read security.json: %@", String(describing: error))
+
+			let damaged = file.url.appendingPathExtension("damaged")
+
+			if !FileManager.default.fileExists(atPath: damaged.path) {
+				try? FileManager.default.copyItem(at: file.url, to: damaged)
+			}
+
+			if let recovered = (try? Data(contentsOf: file.url)).flatMap(SecurityState.recover) {
+				loaded = recovered
+			} else {
+				unreadable = true
+			}
 		}
 
 		self.dataDirectory = dataDirectory
 		self.file = file
 		state = loaded
-		isLocked = loaded.pin != nil
+		isLocked = loaded.pin != nil || unreadable
 
-		if let pin = loaded.pin {
+		if unreadable {
+			present(.unreadable("Pane can\u{2019}t read its PIN. Quit, then restore or remove security.json."))
+		} else if let pin = loaded.pin {
 			present(PinEntry(mode: .unlock, pinLength: pin.length))
 		}
 	}
@@ -235,7 +254,9 @@ final class AppLock {
 	}
 
 	private static func isWipeDue(_ dataDirectory: URL) -> Bool {
-		guard let state = try? PersistedFile<SecurityState>(directory: dataDirectory, name: "security").load() else {
+		let file = PersistedFile<SecurityState>(directory: dataDirectory, name: "security")
+
+		guard let state = (try? file.load()) ?? (try? Data(contentsOf: file.url)).flatMap(SecurityState.recover) else {
 			return false
 		}
 
