@@ -98,6 +98,11 @@ const profileLifecycle: Scenario = async (context) => {
 		"the deleted profile's page still exists",
 	);
 
+	expect(
+		!(gone in deleted.extensions),
+		"the deleted profile's extensions are still listed",
+	);
+
 	await app.browser.close();
 
 	// A delete the engine never confirmed: deletions.json still names it.

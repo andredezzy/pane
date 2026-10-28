@@ -310,8 +310,15 @@ final class BrowserController: NSObject {
 			return
 		}
 
+		removeTabAndReselect(tabID)
+	}
+
+	// The tab goes from the model; when it was selected, the profile's most
+	// recent tab takes its place.
+	private func removeTabAndReselect(_ tabID: String) {
 		let wasActive = model.activeTabID == tabID
 		let profileID = model.profileID(ofTab: tabID)
+		lastCrash[tabID] = nil
 		model.removeTab(tabID)
 
 		if wasActive {
@@ -385,6 +392,7 @@ final class BrowserController: NSObject {
 		page.nativeView.removeFromSuperview()
 		page.closeImmediately()
 		devTools[tabID] = nil
+		lastCrash[tabID] = nil
 		model.setLoaded(tabID, false)
 	}
 
@@ -593,14 +601,7 @@ extension BrowserController: BrowserWindowDelegate {
 		pages[tabID] = nil
 		devTools[tabID] = nil
 		tab.nativeView.removeFromSuperview()
-
-		let wasActive = model.activeTabID == tabID
-		let profileID = model.profileID(ofTab: tabID)
-		model.removeTab(tabID)
-
-		if wasActive {
-			selectAfterClosing(inProfile: profileID)
-		}
+		removeTabAndReselect(tabID)
 	}
 
 	// Chrome made another tab active: an extension's tabs.update or

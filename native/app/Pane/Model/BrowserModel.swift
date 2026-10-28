@@ -155,6 +155,7 @@ final class BrowserModel {
 
 		profiles.removeAll { $0.id == id }
 		expandedProfileIDs.remove(id)
+		extensions[id] = nil
 
 		if activeProfileID == id {
 			activeProfileID = nil
