@@ -1,9 +1,10 @@
 name: Release
 
 # Publishes Pane-<version>-arm64.dmg, the asset the in-app update check
-# reads, when a v* tag is pushed. The app builds on the prebuilt engine its
-# engine sources name (native/engine/prebuilt-engines.tsv): an engine change
-# publishes its engine-<key> prerelease first (native/engine/UPGRADING.md).
+# reads, when a v* tag on main is pushed. The app builds on the prebuilt
+# engine its engine sources name (native/engine/prebuilt-engines.tsv): an
+# engine change publishes its engine-<key> prerelease first
+# (native/engine/UPGRADING.md).
 
 on:
   push:
@@ -25,8 +26,11 @@ jobs:
     runs-on: xcode-27
 
     steps:
+      # The whole history, to tell whether the tag is on main.
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
 
       - name: Verify tag matches app version
         if: github.ref_type == 'tag'
@@ -38,6 +42,17 @@ jobs:
             exit 1
           fi
           echo "Tag ${GITHUB_REF_NAME} matches native/app/VERSION ${version}."
+
+      # The release is published as the latest at once, and every Pane's
+      # update check offers it: a tag on another branch publishes nothing.
+      - name: Verify the tag is on main
+        if: github.ref_type == 'tag'
+        run: |
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} is not on main. Merge the release into main, then tag it there."
+            exit 1
+          fi
+          echo "Tag ${GITHUB_REF_NAME} is on main."
 
       - name: PaneKit tests
         working-directory: native/app/PaneKit
