@@ -62,9 +62,11 @@ final class VerticalReorder {
 		return min(max(drag.pointer - drag.grab, 0), max(height - rowHeight, 0))
 	}
 
-	// The drag for the row `id` of `ids`: its moves, then the order it ends
-	// on, to `commit` (from, to) when it changed.
-	func gesture(_ id: String, ids: [String], commit: @escaping (Int, Int) -> Void) -> some Gesture {
+	// The drag for the row `id` of the list's `ids`: its moves, then the
+	// order it ends on, to `commit` (from, to) when it changed. The ids are
+	// read as the drag starts, so a row need not take the whole list as an
+	// input to draw itself.
+	func gesture(_ id: String, ids: @escaping @MainActor () -> [String], commit: @escaping (Int, Int) -> Void) -> some Gesture {
 		DragGesture(minimumDistance: 5, coordinateSpace: .named(space))
 			.onChanged { value in
 				MainActor.assumeIsolated {
@@ -78,8 +80,10 @@ final class VerticalReorder {
 			}
 	}
 
-	private func move(_ id: String, ids: [String], start: CGFloat, pointer: CGFloat) {
+	private func move(_ id: String, ids: () -> [String], start: CGFloat, pointer: CGFloat) {
 		if drag == nil {
+			let ids = ids()
+
 			guard let index = ids.firstIndex(of: id), let frame = frames[id] else {
 				return
 			}

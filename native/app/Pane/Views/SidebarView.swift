@@ -22,12 +22,22 @@ struct SidebarView: View {
 				VStack(alignment: .leading, spacing: 4) {
 					ForEach(reorder.order(model.profiles.map(\.id)), id: \.self) { id in
 						if let profile = model.profile(id) {
+							let isActive = model.activeProfileID == id
+
+							// What it shows, as values: a section runs its body
+							// again only when its own change, not the model's.
 							ProfileSection(
 								controller: controller,
 								profile: profile,
+								isActive: isActive,
+								isExpanded: model.expandedProfileIDs.contains(id),
+								proxyStatus: model.proxyStatus[id],
+								selectedTabID: isActive && model.page == .browser ? model.activeTabID : nil,
+								loadedTabIDs: Set(profile.tabs.lazy.map(\.id).filter(model.loadedTabIDs.contains)),
 								reorder: reorder,
-								onEdit: { onEditProfile(profile.id) }
+								onEdit: { onEditProfile(id) }
 							)
+							.equatable()
 							.reorderRow(id, in: reorder)
 						}
 					}
@@ -159,10 +169,20 @@ private struct SidebarButton<Label: View>: View {
 
 // A profile row (36 points; the active one tinted with its color) and,
 // expanded, its tabs and New tab, 32 points each and 4 apart: Aside's
-// 36-point rows. Profiles are 4 apart.
-private struct ProfileSection: View {
+// 36-point rows. Profiles are 4 apart. It takes what it shows as values
+// and reads nothing of the model in its body, so a change to another
+// profile, or to a tab's title, runs only the section and the row it
+// concerns (`==`, `.equatable()`). Its actions go through the controller.
+private struct ProfileSection: View, Equatable {
 	let controller: BrowserController
 	let profile: BrowserProfile
+	let isActive: Bool
+	let isExpanded: Bool
+	let proxyStatus: BrowserModel.ProxyStatus?
+	// The selected tab, when it is one of this profile's and shows.
+	let selectedTabID: String?
+	// Which of its tabs have a live page.
+	let loadedTabIDs: Set<String>
 	let reorder: VerticalReorder
 	let onEdit: () -> Void
 
@@ -171,8 +191,17 @@ private struct ProfileSection: View {
 	@State private var confirmingDelete = false
 
 	private var model: BrowserModel { controller.model }
-	private var isExpanded: Bool { model.expandedProfileIDs.contains(profile.id) }
-	private var isActive: Bool { model.activeProfileID == profile.id }
+
+	// The controller, the reorder, and the edit action are the same for the
+	// section's life.
+	nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+		lhs.profile == rhs.profile
+			&& lhs.isActive == rhs.isActive
+			&& lhs.isExpanded == rhs.isExpanded
+			&& lhs.proxyStatus == rhs.proxyStatus
+			&& lhs.selectedTabID == rhs.selectedTabID
+			&& lhs.loadedTabIDs == rhs.loadedTabIDs
+	}
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 4) {
@@ -183,8 +212,16 @@ private struct ProfileSection: View {
 					VStack(alignment: .leading, spacing: 4) {
 						ForEach(tabReorder.order(profile.tabs.map(\.id)), id: \.self) { id in
 							if let tab = profile.tabs.first(where: { $0.id == id }) {
-								TabRow(controller: controller, tab: tab, profileID: profile.id, reorder: tabReorder, ids: profile.tabs.map(\.id))
-									.reorderRow(id, in: tabReorder)
+								TabRow(
+									controller: controller,
+									tab: tab,
+									isActive: tab.id == selectedTabID,
+									isLoaded: loadedTabIDs.contains(tab.id),
+									profileID: profile.id,
+									reorder: tabReorder
+								)
+								.equatable()
+								.reorderRow(id, in: tabReorder)
 							}
 						}
 					}
@@ -226,7 +263,7 @@ private struct ProfileSection: View {
 			ProfileHeaderContent(
 				profile: profile,
 				isActive: isActive,
-				proxyStatus: model.proxyStatus[profile.id],
+				proxyStatus: proxyStatus,
 				showsCount: !isExpanded
 			)
 			.padding(.horizontal, 8)
@@ -258,7 +295,7 @@ private struct ProfileSection: View {
 				MenuLabel("Delete profile", icon: .trash2)
 			}
 		}
-		.gesture(reorder.gesture(profile.id, ids: model.profiles.map(\.id)) { from, to in
+		.gesture(reorder.gesture(profile.id, ids: { [model] in model.profiles.map(\.id) }) { [model] from, to in
 			model.moveProfile(from: from, to: to)
 		})
 		.accessibilityIdentifier("pane.profile.\(profile.id)")
@@ -274,8 +311,8 @@ private struct ProfileSection: View {
 		let count = profile.tabs.count
 		var parts = ["\(count) \(count == 1 ? "tab" : "tabs")", isExpanded ? "expanded" : "collapsed"]
 
-		if let status = model.proxyStatus[profile.id] {
-			parts.append("proxy \(status.rawValue)")
+		if let proxyStatus {
+			parts.append("proxy \(proxyStatus.rawValue)")
 		}
 
 		return parts.joined(separator: ", ")
@@ -368,17 +405,20 @@ private struct ProxyDot: View {
 
 // A 32-point row at 12, spaced as Aside's tabs: the 16-point favicon (or a
 // globe) 7 in, the title 10 after it, and a close X on hover. Selected is
-// foreground/5; unloaded tabs are at 60%.
-private struct TabRow: View {
+// foreground/5; unloaded tabs are at 60%. As its section, it takes what it
+// shows as values, so selecting another tab runs only the two rows whose
+// selection changed.
+private struct TabRow: View, Equatable {
 	let controller: BrowserController
 	let tab: PaneKit.Tab
+	let isActive: Bool
+	let isLoaded: Bool
 	let profileID: String
 	let reorder: VerticalReorder
-	let ids: [String]
 
-	private var model: BrowserModel { controller.model }
-	private var isActive: Bool { model.activeTabID == tab.id && model.page == .browser }
-	private var isLoaded: Bool { model.loadedTabIDs.contains(tab.id) }
+	nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+		lhs.tab == rhs.tab && lhs.isActive == rhs.isActive && lhs.isLoaded == rhs.isLoaded && lhs.profileID == rhs.profileID
+	}
 
 	var body: some View {
 		Button { controller.select(tabID: tab.id) } label: {
@@ -404,8 +444,8 @@ private struct TabRow: View {
 		.contextMenu {
 			Button("Close tab") { controller.closeTab(tab.id) }
 		}
-		.gesture(reorder.gesture(tab.id, ids: ids) { from, to in
-			model.moveTab(inProfile: profileID, from: from, to: to)
+		.gesture(reorder.gesture(tab.id, ids: { [controller, profileID] in controller.model.profile(profileID)?.tabs.map(\.id) ?? [] }) { [controller, profileID] from, to in
+			controller.model.moveTab(inProfile: profileID, from: from, to: to)
 		})
 		.accessibilityIdentifier("pane.tab.\(tab.id)")
 		.accessibilityLabel(tab.title.isEmpty ? "Loading" : tab.title)
