@@ -24,6 +24,12 @@ enum Palette {
 		isDark(appearance) ? NSColor(white: 1, alpha: 0.06) : NSColor(white: 0, alpha: 0.08)
 	})
 
+	// A border a little stronger on dark: white 10% (the border's 6%), and
+	// black 8% on light. The dialogs' Cancel.
+	static let hairlineStrong = Color(nsColor: NSColor(name: nil) { appearance in
+		isDark(appearance) ? NSColor(white: 1, alpha: 0.1) : NSColor(white: 0, alpha: 0.08)
+	})
+
 	// A press, over a button's fill: the foreground at 6% over a light fill
 	// (darker on light, lighter on dark, as the PIN keys' 10%), and the card
 	// at 10% over a strong one (primary, destructive), a step past its

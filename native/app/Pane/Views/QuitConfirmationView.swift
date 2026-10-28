@@ -47,12 +47,12 @@ struct QuitConfirmationView: View {
 				Button(action: cancel) {
 					KeyedLabel(title: "Cancel", key: "Esc", role: .cancel)
 				}
-				.buttonStyle(KeyedButtonStyle(role: .cancel))
+				.buttonStyle(.keyed(.cancel))
 
 				Button(action: quit) {
 					KeyedLabel(title: "Quit", key: "⌘Q", role: .destructive)
 				}
-				.buttonStyle(KeyedButtonStyle(role: .destructive))
+				.buttonStyle(.keyed(.destructive))
 				.accessibilityIdentifier("pane.quit.confirm")
 			}
 			.padding(.top, 8)
@@ -67,11 +67,17 @@ struct QuitConfirmationView: View {
 }
 
 // A button's title and the key that presses it, on a chip: Quit Pane? and the
-// extension install dialog.
+// extension install dialog, in their buttons' style (`.keyed(role)`).
 struct KeyedLabel: View {
+	enum Role {
+		case cancel
+		case destructive
+		case primary
+	}
+
 	let title: String
 	let key: String
-	let role: KeyedButtonStyle.Role
+	let role: Role
 
 	private static let cancelKey = Color(nsColor: NSColor(name: nil) { appearance in
 		NSColor(rgb: Palette.isDark(appearance) ? 0xA1A1AA : 0x71717A)
@@ -91,6 +97,9 @@ struct KeyedLabel: View {
 				.background(chipColor, in: Squircle(cornerRadius: 9))
 				.accessibilityHidden(true)
 		}
+		// At its own size: under the button's one-line limit, the chip was
+		// offered less than it needs and cut ⌘Q to an ellipsis.
+		.fixedSize()
 	}
 
 	private var titleColor: Color {
@@ -115,67 +124,6 @@ struct KeyedLabel: View {
 		case .cancel: Palette.secondary
 		case .destructive: Color.white.opacity(0.18)
 		case .primary: Palette.primaryForeground.opacity(0.18)
-		}
-	}
-}
-
-// h-9 rounded-lg, the key on a chip at its trailing end: Cancel on the card
-// with a hairline, Quit in the destructive color, Add to Pane in the primary
-// one. Hover changes color only.
-struct KeyedButtonStyle: ButtonStyle {
-	enum Role {
-		case cancel
-		case destructive
-		case primary
-	}
-
-	let role: Role
-
-	func makeBody(configuration: Configuration) -> some View {
-		KeyedButton(configuration: configuration, role: role)
-	}
-}
-
-private struct KeyedButton: View {
-	let configuration: ButtonStyle.Configuration
-	let role: KeyedButtonStyle.Role
-
-	@State private var isHovered = false
-
-	// The cancel button's hairline: the border token, a little stronger on
-	// dark.
-	private static let hairline = Color(nsColor: NSColor(name: nil) { appearance in
-		Palette.isDark(appearance) ? NSColor(white: 1, alpha: 0.1) : NSColor(white: 0, alpha: 0.08)
-	})
-
-	var body: some View {
-		configuration.label
-			.padding(.leading, 14)
-			.padding(.trailing, 8)
-			.frame(height: 36)
-			.background(fill, in: Squircle(cornerRadius: 15))
-			.overlay {
-				if role == .cancel {
-					Squircle(cornerRadius: 15)
-						.strokeBorder(Self.hairline, lineWidth: 1)
-				}
-			}
-			.contentShape(Rectangle())
-			.onHover { hovering in
-				withAnimation(Motion.hover) {
-					isHovered = hovering
-				}
-			}
-	}
-
-	private var fill: Color {
-		switch role {
-		case .cancel:
-			isHovered ? Palette.accent : Palette.card
-		case .destructive:
-			Palette.destructive.opacity(isHovered ? 0.9 : 1)
-		case .primary:
-			Palette.primary.opacity(isHovered ? 0.9 : 1)
 		}
 	}
 }

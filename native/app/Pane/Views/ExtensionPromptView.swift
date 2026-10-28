@@ -67,11 +67,11 @@ struct ExtensionPromptView: View {
 				Spacer(minLength: 0)
 
 				Button(prompt.cancelTitle) { controller.answerExtensionPrompt(accepted: false) }
-					.buttonStyle(PopupButtonStyle(isPrimary: false))
+					.buttonStyle(.popup(isPrimary: false))
 					.accessibilityIdentifier("pane.extensionPopup.cancel")
 
 				Button(prompt.acceptTitle) { controller.answerExtensionPrompt(accepted: true) }
-					.buttonStyle(PopupButtonStyle(isPrimary: true))
+					.buttonStyle(.popup(isPrimary: true))
 					.accessibilityIdentifier("pane.extensionPopup.accept")
 			}
 			.padding(.top, 12)
@@ -83,47 +83,6 @@ struct ExtensionPromptView: View {
 		.accessibilityAddTraits(.isModal)
 		.accessibilityLabel(prompt.title)
 		.accessibilityIdentifier("pane.extensionPopup")
-	}
-}
-
-// h-8 rounded-lg, 13px medium: Cancel on the secondary fill with a hairline,
-// the primary in the primary color. Hover changes color only.
-private struct PopupButtonStyle: ButtonStyle {
-	let isPrimary: Bool
-
-	func makeBody(configuration: Configuration) -> some View {
-		PopupButton(configuration: configuration, isPrimary: isPrimary)
-	}
-}
-
-private struct PopupButton: View {
-	let configuration: ButtonStyle.Configuration
-	let isPrimary: Bool
-
-	@State private var isHovered = false
-
-	var body: some View {
-		configuration.label
-			.font(.system(size: 13, weight: .medium))
-			.lineLimit(1)
-			.foregroundStyle(isPrimary ? Palette.primaryForeground : Palette.foreground)
-			.padding(.horizontal, 14)
-			.frame(height: 32)
-			.background(fill, in: Squircle(cornerRadius: 15))
-			.overlay {
-				if !isPrimary {
-					Squircle(cornerRadius: 15)
-						.strokeBorder(Palette.foreground.opacity(0.08), lineWidth: 1)
-				}
-			}
-			.contentShape(Rectangle())
-			.onHover { hovering in
-				withAnimation(Motion.hover) { isHovered = hovering }
-			}
-	}
-
-	private var fill: Color {
-		isPrimary ? Palette.primary.opacity(isHovered ? 0.9 : 1) : Palette.secondary.opacity(isHovered ? 0.8 : 1)
 	}
 }
 
@@ -204,13 +163,13 @@ struct ExtensionInstallDialog: View {
 				Button { controller.answerExtensionPrompt(accepted: false) } label: {
 					KeyedLabel(title: prompt.cancelTitle, key: "Esc", role: .cancel)
 				}
-				.buttonStyle(KeyedButtonStyle(role: .cancel))
+				.buttonStyle(.keyed(.cancel))
 				.accessibilityIdentifier("pane.extensionPopup.cancel")
 
 				Button { controller.answerExtensionPrompt(accepted: true) } label: {
 					KeyedLabel(title: prompt.acceptTitle, key: "↩", role: .primary)
 				}
-				.buttonStyle(KeyedButtonStyle(role: .primary))
+				.buttonStyle(.keyed(.primary))
 				.accessibilityIdentifier("pane.extensionPopup.accept")
 			}
 			.padding(.top, 24)

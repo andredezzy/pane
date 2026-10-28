@@ -14,24 +14,33 @@ enum ButtonVariant {
 	case ghost
 }
 
-enum ButtonSize {
-	// h-9 px-4 text-sm
-	case regular
-	// h-8 px-3 text-xs
-	case small
+// A button's height, its padding at either end, and its text.
+struct ButtonSize {
+	let height: CGFloat
+	let leading: CGFloat
+	let trailing: CGFloat
+	let fontSize: CGFloat
 
-	var height: CGFloat { self == .regular ? 36 : 32 }
-	var padding: CGFloat { self == .regular ? 16 : 12 }
-	var fontSize: CGFloat { self == .regular ? 14 : 12 }
+	// h-9 px-4 text-sm
+	static let regular = ButtonSize(height: 36, leading: 16, trailing: 16, fontSize: 14)
+	// h-8 px-3 text-xs
+	static let small = ButtonSize(height: 32, leading: 12, trailing: 12, fontSize: 12)
+	// Aside's popups: h-8, 14 in, at 13.
+	static let popup = ButtonSize(height: 32, leading: 14, trailing: 14, fontSize: 13)
+	// A title and its key's chip (KeyedLabel, which sets its own text): h-9,
+	// 14 in, the chip 8 from the end.
+	static let keyed = ButtonSize(height: 36, leading: 14, trailing: 8, fontSize: 14)
 }
 
 // rounded-md, font-medium; hover changes color, never selection
 // (DESIGN.md: Motion); disabled is 50% opacity. Outline has no fill but its
-// hover's: the border alone, over whatever it sits on.
+// hover's: the border alone, over whatever it sits on. Another variant takes
+// a border when given one (a popup's or a dialog's Cancel).
 struct PaneButtonStyle: ButtonStyle {
 	var variant: ButtonVariant = .primary
 	var size: ButtonSize = .regular
 	var fontSize: CGFloat?
+	var cornerRadius: CGFloat = 11
 	var fillsWidth = false
 	var foreground: Color?
 	// A state's own colors over the variant's (className overrides).
@@ -53,15 +62,17 @@ private struct PaneButtonBody: View {
 	private var lit: Bool { isHovered && isEnabled }
 
 	var body: some View {
-		let shape = Squircle(cornerRadius: 11)
+		let shape = Squircle(cornerRadius: style.cornerRadius)
+		// An outline button's 1px border adds to its width (border-box, with
+		// the padding inside).
+		let outline: CGFloat = style.variant == .outline ? 1 : 0
 
 		configuration.label
 			.font(.system(size: style.fontSize ?? style.size.fontSize, weight: .medium))
 			.lineLimit(1)
 			.foregroundStyle(foreground)
-			// An outline button's 1px border adds to its width (border-box,
-			// with the padding inside).
-			.padding(.horizontal, style.size.padding + (style.variant == .outline ? 1 : 0))
+			.padding(.leading, style.size.leading + outline)
+			.padding(.trailing, style.size.trailing + outline)
 			.frame(maxWidth: style.fillsWidth ? .infinity : nil)
 			.frame(height: style.size.height)
 			.background {
@@ -71,8 +82,8 @@ private struct PaneButtonBody: View {
 				}
 			}
 			.overlay {
-				if style.variant == .outline {
-					shape.strokeBorder(style.border ?? Palette.border, lineWidth: 1)
+				if let border = style.border ?? (style.variant == .outline ? Palette.border : nil) {
+					shape.strokeBorder(border, lineWidth: 1)
 				}
 			}
 			.contentShape(Rectangle())
@@ -129,12 +140,32 @@ extension ButtonStyle where Self == PaneButtonStyle {
 		_ variant: ButtonVariant = .primary,
 		size: ButtonSize = .regular,
 		fontSize: CGFloat? = nil,
+		cornerRadius: CGFloat = 11,
 		fillsWidth: Bool = false,
 		foreground: Color? = nil,
 		fill: Color? = nil,
 		border: Color? = nil
 	) -> PaneButtonStyle {
-		PaneButtonStyle(variant: variant, size: size, fontSize: fontSize, fillsWidth: fillsWidth, foreground: foreground, fill: fill, border: border)
+		PaneButtonStyle(variant: variant, size: size, fontSize: fontSize, cornerRadius: cornerRadius, fillsWidth: fillsWidth, foreground: foreground, fill: fill, border: border)
+	}
+
+	// Aside's popups (rounded-lg, h-8, 13 points): the primary, and Cancel
+	// on the secondary fill with a hairline.
+	static func popup(isPrimary: Bool) -> PaneButtonStyle {
+		isPrimary
+			? .pane(.primary, size: .popup, cornerRadius: 15)
+			: .pane(.secondary, size: .popup, cornerRadius: 15, border: Palette.foreground.opacity(0.08))
+	}
+
+	// The dialogs' buttons with their key (KeyedLabel): Cancel on the card
+	// with a hairline, Quit in the destructive color, Add to Pane in the
+	// primary one. Ghost has no fill at rest: the dialog's card shows.
+	static func keyed(_ role: KeyedLabel.Role) -> PaneButtonStyle {
+		switch role {
+		case .cancel: .pane(.ghost, size: .keyed, cornerRadius: 15, border: Palette.hairlineStrong)
+		case .destructive: .pane(.destructive, size: .keyed, cornerRadius: 15)
+		case .primary: .pane(.primary, size: .keyed, cornerRadius: 15)
+		}
 	}
 }
 
