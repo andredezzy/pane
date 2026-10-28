@@ -30,6 +30,8 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 ## Done
 
+- **Publish the first native release** (2026-10-28, your call: every Electron Pane moves to the native app, and the Electron app is no longer supported). v1.0.0 is the latest release, built by the Release workflow on `engine-0d0a01f8c703`: https://github.com/andredezzy/pane/actions/runs/40770609848. A dry run's build of the same commit passed `smoke`, `hosted`, `migration`, and `updates`, and `releases/latest` gives the Electron app's update check v1.0.0 and its `Pane-1.0.0-arm64.dmg`. The release notes walk a 0.x user through the move. The `electron` branch keeps the Electron app as a backup only.
+
 - **Phase 6 · 6.5 The first CI run** (2026-10-28). The Native workflow builds the app on `main` in 3 min 37 s on the `xcode-27` runner, on the engine published as `engine-0d0a01f8c703` by `native/engine/scripts/publish-engine.sh`: https://github.com/andredezzy/pane/actions/runs/40766120708 (`native/evidence/phase-6/ci-first-run.txt`). If GitHub renames the `xcode-27` label (when the image leaves preview), update `runs-on` and `.github/actionlint.yaml`.
 
 - **Phase 5 · Google sign-in fallback and Sign out of Google dropped** (2026-10-26, your decision). Both were workarounds for Google rejecting the Electron engine, which a browser does not have; Google accepts the native engine (`native/evidence/phase-5/google.json`). The rows in `docs/native/parity.md` are marked dropped.
@@ -41,26 +43,3 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 - **Phase 3 · On-screen checks** (2026-10-26). Every sheet and panel answered with a CUA click, spelling suggestions replacing a misspelled word (`native/evidence/phase-3/unlocked/`).
 
 - **Phase 0 · 0.1 — Install full Xcode and select it** (2026-10-26). Xcode 27.1 installed and selected with `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
-
-## Publish the first native release
-
-Prepared on 2026-10-27, and not published. Pane 1.0.0 is on `main` since 2026-10-28 (`Release 1.0.0`, a major bump for the move off Electron, and the native work since), on Chromium 157.0.8103.15. The Electron app's last state is the `electron` branch (`Release 0.6.0`). The engine CI builds the app on is published as the `engine-0d0a01f8c703` prerelease, which the update check never sees: a prerelease is never the latest release. Installed from a dmg, the app passes the smoke scenario (`native/evidence/phase-7/dist.log`), and the release workflow passed a dry run of its build steps (`native/evidence/phase-7/cutover.txt`).
-
-Publishing hands this build to every Electron Pane user: their update check offers v1.0.0 as soon as it is the latest release. So first try it as they will: install the app from a dmg (`native/engine/scripts/dist.sh`), run it, and do "Phase 5 · Migrate your Electron Pane" above. Then:
-
-1. Tag `main` and push the tag. The Release workflow checks the tag against `native/app/VERSION`, builds the dmg on the `xcode-27` runner, and publishes v1.0.0:
-
-   ```bash
-   git switch main
-   git pull --ff-only
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-
-2. Watch it, then check that the release carries `Pane-1.0.0-arm64.dmg` and that an Electron Pane 0.6.0 offers the update. Save the run's URL to `native/evidence/phase-7/published.txt`.
-
-   ```bash
-   gh run watch $(gh run list --workflow Release --limit 1 --json databaseId --jq '.[0].databaseId')
-   ```
-
-   If the run cannot start (the `xcode-27` label) or cannot fetch the engine, publish a dmg built here from the tagged commit instead (`native/engine/scripts/dist.sh`; the one in `native/app/release` is from 2026-10-27, before the native work since): `gh release create v1.0.0 native/app/release/Pane-1.0.0-arm64.dmg --title v1.0.0 --generate-notes`.
