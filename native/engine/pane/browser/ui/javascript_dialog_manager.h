@@ -46,6 +46,11 @@ class JavaScriptDialogManager : public content::JavaScriptDialogManager {
   // "Confirm form resubmission" when reloading a page posted to.
   void RunFormResubmissionDialog(content::WebContents* web_contents);
 
+  // The tab is being destroyed: its dialog, if any, is withdrawn without an
+  // answer, since its frames are gone. Content's own cancel at destruction
+  // never reaches this manager: a closing tab has no delegate by then.
+  void TabClosed(content::WebContents* web_contents);
+
  private:
   friend class base::NoDestructor<JavaScriptDialogManager>;
   JavaScriptDialogManager();

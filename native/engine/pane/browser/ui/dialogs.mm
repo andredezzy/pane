@@ -108,6 +108,15 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   NotifyDismissed(_tab, self, "javaScriptDialog");
 }
 
+- (void)withdraw {
+  if (_answered) {
+    return;
+  }
+  _answered = YES;
+  _completion.Reset();
+  NotifyDismissed(_tab, self, "javaScriptDialog");
+}
+
 - (void)finish:(bool)accepted text:(const std::u16string&)text {
   if (_answered) {
     return;
@@ -585,6 +594,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 // MARK: - PaneExternalProtocolRequest
 
 @implementation PaneExternalProtocolRequest {
+  __weak PaneWebContents* _tab;
   base::OnceCallback<void(bool)> _answer;
 }
 
@@ -602,6 +612,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
     _URL = ToNSURL(URL) ?: [NSURL URLWithString:@"about:blank"];
     _applicationName = base::SysUTF16ToNSString(applicationName);
     _originURL = ToNSURL(originURL);
+    _tab = tab;
     _answer = std::move(answer);
   }
   return self;
@@ -624,6 +635,15 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   if (_answer) {
     std::move(_answer).Run(open);
   }
+}
+
+- (void)withdraw {
+  if (_answered) {
+    return;
+  }
+  _answered = YES;
+  _answer.Reset();
+  NotifyDismissed(_tab, self, "externalProtocol");
 }
 
 @end

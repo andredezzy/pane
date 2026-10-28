@@ -160,6 +160,16 @@ void JavaScriptDialogManager::CancelDialogs(content::WebContents* web_contents,
   }
 }
 
+void JavaScriptDialogManager::TabClosed(content::WebContents* web_contents) {
+  auto it = dialogs_.find(web_contents);
+  if (it == dialogs_.end()) {
+    return;
+  }
+  PaneJavaScriptDialog* dialog = it->second;
+  dialogs_.erase(it);
+  [dialog withdraw];
+}
+
 void JavaScriptDialogManager::RunFormResubmissionDialog(
     content::WebContents* web_contents) {
   if (dialogs_.contains(web_contents) || !AppTakesDialogs(web_contents)) {

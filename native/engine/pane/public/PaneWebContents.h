@@ -166,10 +166,15 @@ NS_SWIFT_UI_ACTOR
 
 // Closes the tab, running the page's beforeunload first: the page may ask to
 // stay (a JavaScript dialog). The delegate hears didRemoveTab when it goes.
+// Called from a delegate callback, it closes on the next turn
+// (PaneBrowserApplication.h).
 - (void)close;
 
 // Closes the tab at once, without beforeunload: for unloading a profile or a
-// tab the app keeps, whose page should simply go.
+// tab the app keeps, whose page should simply go. Called from a delegate
+// callback, on the next turn. Requests the app holds for the page (a
+// JavaScript dialog, an unresponsive page, an external protocol) are
+// withdrawn as it goes (didDismissRequest:), as for any tab that closes.
 - (void)closeImmediately;
 
 @end

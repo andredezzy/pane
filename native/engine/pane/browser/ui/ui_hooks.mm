@@ -64,9 +64,11 @@ bool RunExternalProtocolDialog(
                           },
                           url, web_contents->GetWeakPtr(),
                           std::move(initiator_document))];
-  TabBridge::FromWebContents(web_contents)
-      ->TraceCallback("PaneWebContentsDelegate.openExternalProtocol",
-                      base::DictValue().Set("url", url.spec()));
+  TabBridge* bridge = TabBridge::FromWebContents(web_contents);
+  bridge->WithdrawWhenClosed(request);
+  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.openExternalProtocol",
+                 base::DictValue().Set("url", url.spec()));
+  ScopedAppCallback callback;
   [delegate webContents:tab openExternalProtocol:request];
   return true;
 }

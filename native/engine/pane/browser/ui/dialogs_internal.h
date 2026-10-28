@@ -39,6 +39,8 @@ NS_ASSUME_NONNULL_BEGIN
                       (base::OnceCallback<void(bool, const std::u16string&)>)
                           completion;
 - (void)withdrawAccepting:(BOOL)accept text:(const std::u16string&)text;
+// The page went (its tab closed): nothing is answered.
+- (void)withdraw;
 @end
 
 @interface PanePermissionRequest ()
@@ -90,6 +92,8 @@ NS_ASSUME_NONNULL_BEGIN
                   originURL:(const GURL&)originURL
                         tab:(nullable PaneWebContents*)tab
                      answer:(base::OnceCallback<void(bool)>)answer;
+// The tab closed unanswered; nothing is run.
+- (void)withdraw;
 @end
 
 @interface PaneUnresponsivePage ()

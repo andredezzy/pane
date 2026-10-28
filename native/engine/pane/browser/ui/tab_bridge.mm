@@ -24,9 +24,14 @@
 namespace pane {
 
 TabBridge::TabBridge(content::WebContents* contents)
+    : TabBridge(contents, [[PaneWebContents alloc] initWithContents:contents]) {
+}
+
+TabBridge::TabBridge(content::WebContents* contents, PaneWebContents* tab)
     : content::WebContentsObserver(contents),
       content::WebContentsUserData<TabBridge>(*contents),
-      tab_([[PaneWebContents alloc] initWithContents:contents]) {}
+      tab_(tab),
+      pending_requests_([NSHashTable weakObjectsHashTable]) {}
 
 TabBridge::~TabBridge() {
   [tab_ contentsDestroyed];
@@ -36,6 +41,22 @@ TabBridge::~TabBridge() {
 // looked up: by the time user data (the bridge included) is destroyed, the
 // WebContents has already emptied its user data map.
 void TabBridge::WebContentsDestroyed() {
+  StopObservingHelpers();
+
+  // The page is gone, and its frames with it: the app's object for it is
+  // done, and so is every request it holds for the page that Chrome does
+  // not take back itself. Nothing answers the page.
+  [tab_ contentsDestroyed];
+  ScopedAppCallback callback;
+  JavaScriptDialogManager::GetInstance()->TabClosed(web_contents());
+  [std::exchange(unresponsive_page_, nil) withdraw];
+  for (PaneExternalProtocolRequest* request in pending_requests_.allObjects) {
+    [request withdraw];
+  }
+  [pending_requests_ removeAllObjects];
+}
+
+void TabBridge::StopObservingHelpers() {
   if (observing_favicon_) {
     if (auto* driver =
             favicon::ContentFaviconDriver::FromWebContents(web_contents())) {
@@ -86,6 +107,10 @@ std::optional<WindowOpenDisposition> TabBridge::TakeOpenDisposition() {
 
 int TabBridge::tab_id() const {
   return sessions::SessionTabHelper::IdForTab(&GetWebContents()).id();
+}
+
+void TabBridge::WithdrawWhenClosed(PaneExternalProtocolRequest* request) {
+  [pending_requests_ addObject:request];
 }
 
 void TabBridge::TraceCallback(std::string_view name, base::DictValue args) {
