@@ -24,17 +24,13 @@ Items the autonomous run could not do or verify on its own: each says why it nee
   5. Then 6.6: Sparkle can replace the manual dmg update flow.
   6. Passkeys: with the Developer ID, request Apple's `com.apple.developer.web-browser.public-key-credential` entitlement and add it, with a keychain access group, to `native/app/signing/app.entitlements` and a provisioning profile. Until then Chrome's WebAuthn dialog offers only security keys (`native/DECISIONS.md`, After the cutover).
 
-- **Phase 6 · 6.5 The first CI run.** The `Native` workflow (`.github/workflows/native.yml`) runs PaneKit's tests and builds the app on the prebuilt engine on GitHub's `xcode-27` runner (macOS 27 and Xcode 27, a preview image). It needs a push and a published engine, which are yours. Its commands passed on this Mac (`native/evidence/phase-6/ci-local.txt`).
-  1. Publish the engine that `native/engine/prebuilt-engines.tsv`'s last line names, as a prerelease: `gh release create engine-<key:12> native/app/release/PaneCore-<chromium>-<key:12>.zip --prerelease --title "Engine <chromium> (<key:12>)" --notes "PaneCore for native/engine/prebuilt-engines.tsv"`. Upload the file whose SHA-256 the line holds (`native/app/release/*.zip.sha256`). If you rebuilt it since, run `PANE_ENGINE_ARCHIVE=1 native/engine/scripts/dist.sh` and put the line it prints in the TSV.
-  2. Push the branch: `git push origin native-shell`.
-  3. Watch the run: `gh run watch $(gh run list --workflow Native --limit 1 --json databaseId --jq '.[0].databaseId')`. Save its URL and result to `native/evidence/phase-6/ci-first-run.txt`.
-  4. If GitHub renames the `xcode-27` label (when the image leaves preview), update `runs-on` and `.github/actionlint.yaml`.
-
 - **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in `native/DECISIONS.md`.
 
 - **Phase 2 · parity.md — review the Electron-only rows marked ⛔.** They are internals of the Electron architecture with no user-facing equivalent to port: `stores.push`/`stores.sync` (cross-process state sync), `tabs.hideAll`/`showActive` and `ui.present`/`dismiss` (an overlay window above page views; native sheets draw above pages), and the app-UI DevTools shortcut (⌥⌘I; the app UI is native). Nothing to do unless one of them should stay; the justification is in each row of `docs/native/parity.md`.
 
 ## Done
+
+- **Phase 6 · 6.5 The first CI run** (2026-10-28). The Native workflow builds the app on `main` in 3 min 37 s on the `xcode-27` runner, on the engine published as `engine-0d0a01f8c703` by `native/engine/scripts/publish-engine.sh`: https://github.com/andredezzy/pane/actions/runs/40766120708 (`native/evidence/phase-6/ci-first-run.txt`). If GitHub renames the `xcode-27` label (when the image leaves preview), update `runs-on` and `.github/actionlint.yaml`.
 
 - **Phase 5 · Google sign-in fallback and Sign out of Google dropped** (2026-10-26, your decision). Both were workarounds for Google rejecting the Electron engine, which a browser does not have; Google accepts the native engine (`native/evidence/phase-5/google.json`). The rows in `docs/native/parity.md` are marked dropped.
 
