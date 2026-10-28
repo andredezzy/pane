@@ -49,6 +49,14 @@ if [ -d "$SWIFT_APP/Contents/Resources" ]; then
 	ditto "$SWIFT_APP/Contents/Resources" "$OUT/Contents/Resources"
 fi
 
+# The licenses that go with every copy: Pane's own (GPL-3.0), NOTICE, and the
+# license of each project Pane takes code from (third_party), laid out as in
+# the repo. Chromium's components credit themselves at chrome://credits.
+LICENSES="$OUT/Contents/Resources/Licenses"
+mkdir -p "$LICENSES"
+cp "$ROOT_DIR/LICENSE" "$ROOT_DIR/NOTICE" "$LICENSES/"
+ditto "$ROOT_DIR/third_party" "$LICENSES/third_party"
+
 # Pane's identity over Chromium's: its version (app/VERSION, the one version
 # source), which Finder, the About panel, Settings, and the update check
 # show, and its icon (the Swift app's asset catalog, which replaced

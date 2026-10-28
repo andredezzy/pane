@@ -1,4 +1,7 @@
-Pane native — third-party notices
+Pane — third-party notices
+
+Pane is free software under GPL-3.0-only (LICENSE), with its source at
+https://github.com/andredezzy/pane.
 
 PaneCore.framework is built from the Chromium project (BSD-3-Clause and the
 licenses of its third-party components, see chrome://credits in the built app).
@@ -16,8 +19,8 @@ lists them.
 
 Lucide (https://lucide.dev), ISC License, with portions from Feather (MIT)
 (third_party/lucide/LICENSE): the app's icons
-(app/Pane/Views/Theme.swift) are Lucide's SVG paths, as the Electron
-app uses them through lucide-react.
+(app/Pane/Views/Theme/Icons.swift) are Lucide's SVG paths, as the Electron
+app used them through lucide-react.
 
 Patch 0006-pane-fingerprint.patch is Pane's own and borrows no other
 project's patch. Its canvas and audio noise are the Electron app's own
