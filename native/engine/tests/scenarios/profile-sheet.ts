@@ -6,6 +6,7 @@ import {
 	mainWindowOf,
 	readControl,
 	typeIntoField,
+	windowState,
 } from "../lib/cua";
 import { type AppState, type PaneApp, tabOf } from "../lib/pane";
 import { startHttpProxy } from "../lib/proxies";
@@ -90,6 +91,13 @@ const profileSheet: Scenario = async (context) => {
 			`the engine's GPU strings ${JSON.stringify(host)} are not WebGL's ${JSON.stringify(realWebGL)}`,
 		);
 
+		// VoiceOver's names: the open profile's row reads its tabs and state.
+		const tree = async (name: string) =>
+			(await windowState(pid, window, join(context.out, `${name}.png`)))
+				.tree_markdown;
+
+		const sidebar = await tree("profile-sheet-a11y-sidebar");
+
 		// New profile: spoofing on, the Mac's platform, by default.
 		let known = (await app.state()).profiles.map((profile) => profile.id);
 		await clickButton(pid, window, "New");
@@ -104,6 +112,22 @@ const profileSheet: Scenario = async (context) => {
 		await app.send("render", {
 			path: join(context.out, "profile-sheet-new.png"),
 		});
+
+		// The sheet's fields read their labels, not their placeholders, and
+		// the sheet is modal: the sidebar under it is out of reach.
+		const sheet = await tree("profile-sheet-a11y-sheet");
+
+		const named = {
+			plainRow: /AXButton = "1 tab, expanded" \(Plain\)/.test(sidebar),
+			name: /AXTextField[^\n]*\(Name\)[^\n]*id=pane\.profile\.name/.test(sheet),
+			group: /AXTextField[^\n]*\(Group\)/.test(sheet),
+			sidebarHidden: !/AXButton[^\n]*\(Plain\)/.test(sheet),
+		};
+
+		expect(
+			Object.values(named).every(Boolean),
+			`accessibility names: ${JSON.stringify(named)}`,
+		);
 
 		await clickButton(pid, window, "Create");
 
@@ -309,6 +333,7 @@ const profileSheet: Scenario = async (context) => {
 			hostWebGL: host,
 			webGLInAPlainProfile: realWebGL,
 			macProfile: macSaved?.fingerprint,
+			accessibilityNames: named,
 			renameKeptFingerprint: true,
 			crossOS: {
 				fingerprint: windows?.fingerprint,

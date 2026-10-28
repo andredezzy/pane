@@ -56,6 +56,7 @@ struct FindBar: View {
 			.focused($focused)
 			.onSubmit { controller.find(text, forward: !NSEvent.modifierFlags.contains(.shift)) }
 			.onExitCommand { controller.closeFind() }
+			.accessibilityLabel("Find in page")
 			.accessibilityIdentifier("pane.find.field")
 
 			if !text.isEmpty {

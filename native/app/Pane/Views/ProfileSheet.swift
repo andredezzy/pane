@@ -39,9 +39,10 @@ struct ProfileSheet: View {
 			ScrollView {
 				VStack(alignment: .leading, spacing: 16) {
 					VStack(alignment: .leading, spacing: 0) {
-						FormLabel(title: "Name")
-						PaneTextField(placeholder: "e.g. Work account", text: $name, focusesOnAppear: true, onSubmit: save)
-							.accessibilityIdentifier("pane.profile.name")
+						LabeledField(title: "Name") {
+							PaneTextField(placeholder: "e.g. Work account", text: $name, focusesOnAppear: true, onSubmit: save)
+								.accessibilityIdentifier("pane.profile.name")
+						}
 
 						if let nameError {
 							Text(nameError)
@@ -50,14 +51,16 @@ struct ProfileSheet: View {
 						}
 					}
 
-					VStack(alignment: .leading, spacing: 0) {
-						FormLabel(title: "Group", note: "(optional)")
+					LabeledField(title: "Group", note: "(optional)") {
 						PaneTextField(placeholder: "Enter group name", text: $group, onSubmit: save)
 					}
 
 					VStack(alignment: .leading, spacing: 0) {
 						FormLabel(title: "Color")
+							.accessibilityHidden(true)
 						SwatchPicker(selection: $color)
+							.accessibilityElement(children: .contain)
+							.accessibilityLabel("Color")
 					}
 
 					switchRow("Spoof fingerprint", isOn: $spoofing)
@@ -101,6 +104,9 @@ struct ProfileSheet: View {
 		.onChange(of: proxyPort) { portError = nil }
 		.onExitCommand(perform: onDone)
 		.accessibilityElement(children: .contain)
+		// VoiceOver stays in the sheet while it shows, as in Quit Pane?.
+		.accessibilityAddTraits(.isModal)
+		.accessibilityLabel(profileID == nil ? "New profile" : "Edit profile")
 		.accessibilityIdentifier("pane.profileSheet")
 	}
 
@@ -143,6 +149,7 @@ struct ProfileSheet: View {
 	private var platformPicker: some View {
 		VStack(alignment: .leading, spacing: 0) {
 			FormLabel(title: "Platform")
+				.accessibilityHidden(true)
 			PresetRow(
 				options: [Platform.windows, .macOS, .linux],
 				selection: platform,
@@ -152,6 +159,7 @@ struct ProfileSheet: View {
 				select: { platform = $0 }
 			)
 			.accessibilityElement(children: .contain)
+			.accessibilityLabel("Platform")
 			.accessibilityIdentifier("pane.profile.platform")
 
 			if platform != Self.hostPlatform {
@@ -170,17 +178,20 @@ struct ProfileSheet: View {
 		VStack(alignment: .leading, spacing: 12) {
 			PaneTextField(placeholder: "host:port:username:password", text: $proxyShortcut, monospaced: true)
 				.onChange(of: proxyShortcut) { pasteProxy(proxyShortcut) }
+				.accessibilityLabel("Paste a proxy")
 				.accessibilityIdentifier("pane.profile.proxyShortcut")
 
 			HStack(spacing: 8) {
-				PaneMenuButton(options: ProxyType.allCases.map { ($0.rawValue, $0) }, selection: proxyType, size: .regular, fillsWidth: true) {
+				PaneMenuButton(options: ProxyType.allCases.map { ($0.rawValue, $0) }, selection: proxyType, label: "Proxy type", size: .regular, fillsWidth: true) {
 					proxyType = $0
 				}
 				.frame(width: 100)
 				PaneTextField(placeholder: "Host", text: $proxyHost)
+					.accessibilityLabel("Proxy host")
 					.accessibilityIdentifier("pane.profile.proxyHost")
 				PaneTextField(placeholder: "Port", text: $proxyPort)
 					.frame(width: 80)
+					.accessibilityLabel("Proxy port")
 					.accessibilityIdentifier("pane.profile.proxyPort")
 			}
 
@@ -197,7 +208,9 @@ struct ProfileSheet: View {
 
 			HStack(spacing: 8) {
 				PaneTextField(placeholder: "Username (optional)", text: $proxyUsername)
+					.accessibilityLabel("Proxy username")
 				PaneTextField(placeholder: "Password (optional)", text: $proxyPassword, secure: true)
+					.accessibilityLabel("Proxy password")
 			}
 
 			Button(action: testProxy) {

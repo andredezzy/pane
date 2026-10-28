@@ -58,6 +58,8 @@ struct LockScreenView: View {
 		.surfaceBackground(cornerRadius: 18, ring: Palette.border, shadow: PanelShadow.color)
 		.padding(8)
 		.accessibilityElement(children: .contain)
+		// VoiceOver stays on the PIN screen: nothing under it is reachable.
+		.accessibilityAddTraits(.isModal)
 		.accessibilityIdentifier("pane.lockScreen")
 	}
 

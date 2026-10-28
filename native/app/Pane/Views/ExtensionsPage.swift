@@ -121,9 +121,9 @@ struct ExtensionsPage: View {
 				PaneMenuButton(
 					options: model.profiles.map { ($0.name, $0.id) },
 					selection: selectedProfile.id,
+					label: "Profile",
 					ring: selectedProfile.color.color.opacity(0.4)
 				) { profileID = $0 }
-				.accessibilityLabel("Profile")
 				.accessibilityIdentifier("pane.extensions.profile")
 
 				Button("Update all") {
@@ -214,6 +214,7 @@ private struct SearchField: View {
 				.foregroundStyle(Palette.foreground)
 				.focused($focused)
 				.onExitCommand { text = "" }
+				.accessibilityLabel("Search extensions")
 		}
 		.padding(.horizontal, 12)
 		.frame(height: 36)

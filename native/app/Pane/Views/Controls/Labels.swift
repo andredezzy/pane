@@ -25,6 +25,25 @@ struct SectionLabel: View {
 	}
 }
 
+// A form's field under its label, which names it for VoiceOver: the label is
+// drawn beside the field, not tied to it, so the field read only its
+// placeholder ("e.g. Work account").
+struct LabeledField<Field: View>: View {
+	let title: String
+	var note: String?
+	@ViewBuilder let field: Field
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 0) {
+			FormLabel(title: title, note: note)
+				.accessibilityHidden(true)
+
+			field
+				.accessibilityLabel(title)
+		}
+	}
+}
+
 // Form labels: 11px medium. The Electron app's label is inline in a 16px
 // block, so it takes a 24px line with its text 7.5px down, and the field
 // follows it directly (the label's margin does not apply inline).

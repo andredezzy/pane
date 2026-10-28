@@ -125,6 +125,8 @@ private struct AddressField: View {
 			text: $text,
 			prompt: Text("Search or enter URL").foregroundStyle(Palette.mutedForeground)
 		)
+		// On the field alone: on the whole, it would name the label over it too.
+		.accessibilityLabel("Address")
 		.textFieldStyle(.plain)
 		.font(.system(size: 12))
 		// At rest the label shows instead of the URL; the field stays

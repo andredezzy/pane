@@ -259,7 +259,23 @@ private struct ProfileSection: View {
 			model.moveProfile(from: from, to: to)
 		})
 		.accessibilityIdentifier("pane.profile.\(profile.id)")
+		// The label takes the name alone; what the row shows besides goes in
+		// its value, and the active profile reads as selected.
 		.accessibilityLabel(profile.name)
+		.accessibilityValue(accessibilityValue)
+		.accessibilityAddTraits(isActive ? .isSelected : [])
+	}
+
+	// "3 tabs, collapsed, proxy connected".
+	private var accessibilityValue: String {
+		let count = profile.tabs.count
+		var parts = ["\(count) \(count == 1 ? "tab" : "tabs")", isExpanded ? "expanded" : "collapsed"]
+
+		if let status = model.proxyStatus[profile.id] {
+			parts.append("proxy \(status.rawValue)")
+		}
+
+		return parts.joined(separator: ", ")
 	}
 
 	private func toggle() {

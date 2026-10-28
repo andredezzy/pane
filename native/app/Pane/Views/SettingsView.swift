@@ -28,6 +28,7 @@ struct SettingsView: View {
 							PaneMenuButton(
 								options: Theme.allCases.map { ($0.rawValue.capitalized, $0) },
 								selection: model.settings.theme,
+								label: "Theme",
 								icon: Self.icon(for:),
 								chevron: .upDown,
 								select: controller.setTheme
@@ -38,21 +39,21 @@ struct SettingsView: View {
 
 					SettingsGroup(title: "Memory & disk") {
 						SettingsRow(title: "Sleep background tabs", description: "A tab in the background sleeps after this long, to free memory.") {
-							PaneMenuButton(options: Self.tabSleepOptions, selection: model.settings.tabSleepAfterMinutes, chevron: .upDown) {
+							PaneMenuButton(options: Self.tabSleepOptions, selection: model.settings.tabSleepAfterMinutes, label: "Sleep background tabs", chevron: .upDown) {
 								model.settings.tabSleepAfterMinutes = $0
 							}
 							.accessibilityIdentifier("pane.settings.tabSleep")
 						}
 
 						SettingsRow(title: "Unload hidden profiles", description: "A profile out of view unloads after this long.") {
-							PaneMenuButton(options: Self.profileUnloadOptions, selection: model.settings.profileUnloadAfterMinutes, chevron: .upDown) {
+							PaneMenuButton(options: Self.profileUnloadOptions, selection: model.settings.profileUnloadAfterMinutes, label: "Unload hidden profiles", chevron: .upDown) {
 								model.settings.profileUnloadAfterMinutes = $0
 							}
 							.accessibilityIdentifier("pane.settings.profileUnload")
 						}
 
 						SettingsRow(title: "Trim cache", description: "A profile that unloads trims its cache past this size.", last: true) {
-							PaneMenuButton(options: Self.cacheBudgetOptions, selection: model.settings.cacheBudgetMB, chevron: .upDown) {
+							PaneMenuButton(options: Self.cacheBudgetOptions, selection: model.settings.cacheBudgetMB, label: "Trim cache", chevron: .upDown) {
 								model.settings.cacheBudgetMB = $0
 							}
 							.accessibilityIdentifier("pane.settings.cacheBudget")

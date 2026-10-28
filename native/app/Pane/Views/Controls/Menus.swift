@@ -22,6 +22,8 @@ struct PaneMenuButton<Value: Hashable>: View {
 
 	let options: [(String, Value)]
 	let selection: Value
+	// What it sets, for VoiceOver, which reads the chosen option as its value.
+	var label: String?
 	var size = Size.small
 	var icon: ((Value) -> Lucide)?
 	var chevron = Chevron.down
@@ -33,6 +35,10 @@ struct PaneMenuButton<Value: Hashable>: View {
 	let select: @MainActor (Value) -> Void
 
 	@State private var isHovered = false
+
+	private var title: String {
+		options.first { $0.1 == selection }?.0 ?? ""
+	}
 
 	var body: some View {
 		let shape = Squircle(cornerRadius: 11)
@@ -52,7 +58,7 @@ struct PaneMenuButton<Value: Hashable>: View {
 						.foregroundStyle(Palette.foreground)
 				}
 
-				Text(options.first { $0.1 == selection }?.0 ?? "")
+				Text(title)
 					.font(.system(size: size == .regular ? 14 : 13))
 					.foregroundStyle(Palette.foreground)
 					.lineLimit(1)
@@ -80,5 +86,7 @@ struct PaneMenuButton<Value: Hashable>: View {
 		.onHover { hovering in
 			withAnimation(Motion.hover) { isHovered = hovering }
 		}
+		.accessibilityLabel(label ?? title)
+		.accessibilityValue(label == nil ? "" : title)
 	}
 }
