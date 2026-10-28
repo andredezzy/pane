@@ -83,7 +83,7 @@ const extensionManagement: Scenario = async (context) => {
 		"trace lacks the declined install",
 	);
 
-	// Install by its Web Store ID, as the Web Store's Add to Chrome does (the
+	// Install by its Web Store ID, as the Web Store's install button (Add to Pane) does (the
 	// page has no field for it; dark-reader presses the store's own button),
 	// then accept the app's install sheet.
 	await app.send("installExtension", { id: DARK_READER, profile });

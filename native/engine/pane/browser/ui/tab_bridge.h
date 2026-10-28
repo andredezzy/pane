@@ -100,6 +100,8 @@ class TabBridge : public content::WebContentsObserver,
   void NavigationListPruned(
       const content::PrunedDetails& pruned_details) override;
   void NavigationEntriesDeleted() override;
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
   void LoadProgressChanged(double progress) override;

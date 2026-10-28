@@ -1,5 +1,6 @@
 // Helpers for the Phase 4 scenarios: installing from the Chrome Web Store
-// through its own "Add to Chrome" button and the app's install sheet, and
+// through its own install button (Pane's engine labels it "Add to Pane") and
+// the app's install sheet, and
 // reaching an extension's popup or service worker over CDP.
 import { writeFileSync } from "node:fs";
 import { openPage, Page } from "./cdp";
@@ -23,7 +24,7 @@ export type Installed = {
 };
 
 // Opens the item's Web Store page in a tab of `profile`, presses "Add to
-// Chrome", and accepts the app's install sheet.
+// Pane", and accepts the app's install sheet.
 export async function installFromWebStore(
 	app: PaneApp,
 	profile: string,
@@ -47,7 +48,7 @@ export async function installFromWebStore(
 	const page = await openPage(app.browser.cdp, "about:blank", store.targetId);
 
 	const button =
-		"[...document.querySelectorAll('button')].find((b) => /Add to Chrome/i.test(b.innerText))";
+		"[...document.querySelectorAll('button')].find((b) => /Add to Pane/i.test(b.innerText))";
 
 	const deadline = Date.now() + 30_000;
 
@@ -75,7 +76,7 @@ export async function installFromWebStore(
 		await clickButton(
 			app.browser.pid,
 			await mainWindowOf(app.browser.pid),
-			"Add to Chrome",
+			"Add to Pane",
 		);
 
 		addClick = "cua";

@@ -17,10 +17,14 @@
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
-#include "pane/browser/engine_trace.h"
+#include "pane/browser/app_callback.h"
+#include "pane/browser/ui/javascript_dialog_manager.h"
+#include "pane/browser/web_store.h"
 #include "ui/gfx/image/image.h"
 
+#import "pane/browser/ui/dialogs_internal.h"
 #import "pane/browser/web_contents_internal.h"
 
 namespace pane {
@@ -146,18 +150,27 @@ void TabBridge::NavigationEntriesDeleted() {
 }
 
 void TabBridge::NavigationStateChanged() {
+  ScopedAppCallback callback;
   [tab_ bridgeDidChangeNavigationState];
 }
 
+void TabBridge::DidFinishNavigation(
+    content::NavigationHandle* navigation_handle) {
+  RenameWebStoreButtons(navigation_handle);
+}
+
 void TabBridge::DidStartLoading() {
+  ScopedAppCallback callback;
   [tab_ bridgeDidChangeLoading:YES progress:0];
 }
 
 void TabBridge::DidStopLoading() {
+  ScopedAppCallback callback;
   [tab_ bridgeDidChangeLoading:NO progress:1];
 }
 
 void TabBridge::LoadProgressChanged(double progress) {
+  ScopedAppCallback callback;
   [tab_ bridgeDidChangeLoading:web_contents()->IsLoading() progress:progress];
 }
 

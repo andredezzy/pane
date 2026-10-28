@@ -68,6 +68,8 @@ source_set("pane") {
     "browser/site_data.h",
     "browser/web_contents.mm",
     "browser/web_contents_internal.h",
+    "browser/web_store.cc",
+    "browser/web_store.h",
     "common/host.cc",
     "common/host.h",
     "public/PaneBrowserApplication.h",
