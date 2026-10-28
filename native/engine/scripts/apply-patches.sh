@@ -23,13 +23,22 @@ SRC="$CHROMIUM_ROOT/src"
 
 current="$(cat "$APPLIED/state" 2>/dev/null || true)"
 
+# Last applied, first out. Each patch leaves the record as it comes out, so
+# a run that stops on one (a hand edit in a file it patched) resumes there
+# once that is sorted out, instead of failing on the patches already out.
 reverse() {
-	if [ -n "$current" ]; then
-		tail -r <<< "$current" | while read -r _ name; do
-			git -C "$SRC" apply -R "$APPLIED/$name"
-			echo "reversed $name"
-		done
-	fi
+	while [ -s "$APPLIED/state" ]; do
+		name="$(tail -n 1 "$APPLIED/state" | cut -d' ' -f2)"
+
+		if ! git -C "$SRC" apply -R "$APPLIED/$name"; then
+			echo "cannot take $name out: its files changed since it was applied. Undo that change and run this again; the patches after it are already out" >&2
+			exit 1
+		fi
+
+		sed -i '' '$d' "$APPLIED/state"
+		rm -f "$APPLIED/$name"
+		echo "reversed $name"
+	done
 
 	rm -rf "$APPLIED"
 	current=""
