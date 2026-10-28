@@ -7,6 +7,7 @@ import PaneKit
 final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	let dataDirectory: URL
 	private var controller: BrowserController?
+	private var store: ModelStore?
 	private var windowController: MainWindowController?
 	private var switcherKeys: SwitcherKeys?
 	private var automation: Automation?
@@ -18,16 +19,19 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	}
 
 	func browserApplicationDidStart(_ application: BrowserApplication) {
-		let model = BrowserModel(dataDirectory: dataDirectory)
+		let store = ModelStore(dataDirectory: dataDirectory)
+		let model = store.makeModel()
 		let updater = Updater(currentVersion: Bundle.main.object(forInfoDictionaryKey: "PaneVersion") as? String ?? "0.0.0")
 		let controller = BrowserController(
 			model: model,
+			dataDirectory: dataDirectory,
 			application: application,
 			lock: AppLock(dataDirectory: dataDirectory),
 			updater: updater
 		)
 		updater.schedule()
 		self.controller = controller
+		self.store = store
 
 		controller.applyTheme()
 		NSApp.mainMenu = MainMenu.build(target: controller)
@@ -36,7 +40,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		sleep = SleepController(controller: controller)
 
 		if let directory = ProcessInfo.processInfo.environment["PANE_AUTOMATION_DIR"] {
-			automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller)
+			automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller, store: store)
 		}
 
 		observers.append(NotificationCenter.default.addObserver(
@@ -55,6 +59,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	}
 
 	func browserApplicationWillShutDown(_ application: BrowserApplication) {
-		controller?.model.saveNow()
+		store?.saveNow()
 	}
 }

@@ -78,12 +78,7 @@ struct SidebarView: View {
 
 			Spacer()
 
-			CollapseAllButton(isEnabled: !model.expandedProfileIDs.isEmpty) {
-				for id in model.expandedProfileIDs {
-					controller.unloadProfile(id)
-				}
-				model.expandedProfileIDs.removeAll()
-			}
+			CollapseAllButton(isEnabled: !model.expandedProfileIDs.isEmpty, action: controller.collapseAll)
 		}
 		.padding(.leading, 82)
 		.padding(.trailing, 10)
@@ -110,9 +105,7 @@ struct SidebarView: View {
 
 			Hairline(color: Palette.foreground.opacity(0.04))
 
-			SidebarButton(isSelected: model.page == .settings) {
-				model.page = model.page == .settings ? .browser : .settings
-			} label: {
+			SidebarButton(isSelected: model.page == .settings, action: controller.toggleSettings) {
 				LucideIcon(.settings, size: 16)
 				Text("Settings")
 			}
@@ -189,8 +182,6 @@ private struct ProfileSection: View, Equatable {
 	// Its tabs reorder by dragging, as the Electron app's did.
 	@State private var tabReorder = VerticalReorder(space: "pane.sidebar.tabs", rowHeight: 32, spacing: 4)
 	@State private var confirmingDelete = false
-
-	private var model: BrowserModel { controller.model }
 
 	// The controller, the reorder, and the edit action are the same for the
 	// section's life.
@@ -286,7 +277,7 @@ private struct ProfileSection: View, Equatable {
 			}
 			Toggle(isOn: Binding(
 				get: { profile.keepLoaded },
-				set: { value in model.updateProfile(profile.id) { $0.keepLoaded = value } }
+				set: { [controller, id = profile.id] value in controller.setKeepLoaded(id, value) }
 			)) {
 				MenuLabel("Keep loaded", icon: .timerOff)
 			}
@@ -295,8 +286,8 @@ private struct ProfileSection: View, Equatable {
 				MenuLabel("Delete profile", icon: .trash2)
 			}
 		}
-		.gesture(reorder.gesture(profile.id, ids: { [model] in model.profiles.map(\.id) }) { [model] from, to in
-			model.moveProfile(from: from, to: to)
+		.gesture(reorder.gesture(profile.id, ids: { [controller] in controller.model.profiles.map(\.id) }) { [controller] from, to in
+			controller.moveProfile(from: from, to: to)
 		})
 		.accessibilityIdentifier("pane.profile.\(profile.id)")
 		// The label takes the name alone; what the row shows besides goes in
@@ -319,12 +310,7 @@ private struct ProfileSection: View, Equatable {
 	}
 
 	private func toggle() {
-		if isExpanded {
-			model.expandedProfileIDs.remove(profile.id)
-			controller.unloadProfile(profile.id)
-		} else {
-			model.expandedProfileIDs.insert(profile.id)
-		}
+		controller.toggleProfile(profile.id)
 	}
 }
 
@@ -445,7 +431,7 @@ private struct TabRow: View, Equatable {
 			Button("Close tab") { controller.closeTab(tab.id) }
 		}
 		.gesture(reorder.gesture(tab.id, ids: { [controller, profileID] in controller.model.profile(profileID)?.tabs.map(\.id) ?? [] }) { [controller, profileID] from, to in
-			controller.model.moveTab(inProfile: profileID, from: from, to: to)
+			controller.moveTab(inProfile: profileID, from: from, to: to)
 		})
 		.accessibilityIdentifier("pane.tab.\(tab.id)")
 		.accessibilityLabel(tab.title.isEmpty ? "Loading" : tab.title)

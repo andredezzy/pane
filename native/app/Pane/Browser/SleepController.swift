@@ -30,7 +30,7 @@ final class SleepController {
 			now: { start.addingTimeInterval(Date().timeIntervalSince(start) * scale) }
 		)
 
-		model.selectionDidChange = { [weak self] in
+		model.observeSelection { [weak self] in
 			guard let self else {
 				return
 			}

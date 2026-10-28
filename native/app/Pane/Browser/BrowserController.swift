@@ -53,28 +53,19 @@ final class BrowserController: NSObject {
 	// The URL Pane was started with, while it waits behind the lock.
 	private var launchURL: URL?
 
-	init(model: BrowserModel, application: BrowserApplication, lock: AppLock, updater: Updater) {
+	init(model: BrowserModel, dataDirectory: URL, application: BrowserApplication, lock: AppLock, updater: Updater) {
 		self.model = model
 		self.application = application
 		self.lock = lock
 		self.updater = updater
 		network = ProfileNetwork(model: model)
-		deletions = ProfileDeletions(dataDirectory: model.dataDirectory)
+		deletions = ProfileDeletions(dataDirectory: dataDirectory)
 		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()
 		browserWindow.delegate = self
 		state.sidebarWidth = CGFloat(model.settings.sidebarWidth)
-		model.proxyDidChange = { [weak self] profileID in
-			self?.proxyDidChange(profileID)
-		}
-		model.fingerprintDidChange = { [weak self] profileID in
-			self?.fingerprintDidChange(profileID)
-		}
 		lock.didUnlock = { [weak self] in
 			self?.lockDidOpen()
-		}
-		model.pageDidChange = { [weak self] in
-			self?.placeActivePage()
 		}
 
 		// The sidebar shows each proxy's state from launch, as the Electron
@@ -84,7 +75,7 @@ final class BrowserController: NSObject {
 		}
 	}
 
-	private func proxyDidChange(_ profileID: String) {
+	func proxyDidChange(_ profileID: String) {
 		if let context = contexts[profileID] {
 			Task { await network.apply(to: context) }
 		}
@@ -103,7 +94,7 @@ final class BrowserController: NSObject {
 
 	// A changed fingerprint: the profile's open pages start again in new
 	// renderers, which take it; the selected tab loads again.
-	private func fingerprintDidChange(_ profileID: String) {
+	func fingerprintDidChange(_ profileID: String) {
 		applyFingerprint(profileID)
 
 		guard contexts[profileID] != nil, let profile = model.profile(profileID) else {
@@ -177,7 +168,7 @@ final class BrowserController: NSObject {
 
 		let profileID = model.profiles.first?.id
 			?? model.createProfile(name: "Personal", color: .blue, group: nil)
-		model.expandedProfileIDs.insert(profileID)
+		expandProfile(profileID)
 		openTab(inProfile: profileID, url: url)
 	}
 
@@ -248,8 +239,8 @@ final class BrowserController: NSObject {
 
 		let previous = model.activeTabID
 		model.select(tabID: tabID)
-		model.page = .browser
-		model.expandedProfileIDs.insert(profileID)
+		model.setPage(.browser)
+		model.setExpanded(profileID, true)
 
 		if previous != tabID, let previous, let page = pages[previous] {
 			page.isVisible = false
@@ -408,7 +399,6 @@ final class BrowserController: NSObject {
 		pendingDeletions.insert(profileID)
 		deletions.add(profileID)
 		network.stop(profileID)
-		model.proxyStatus[profileID] = nil
 
 		withContext(profileID) { [weak self] context in
 			guard let self else {
@@ -484,7 +474,7 @@ final class BrowserController: NSObject {
 	// the panel and is hidden, as a background tab is, so it stops drawing:
 	// hidden in place, the engine kept the window's active tab drawing.
 	// Never while locked: the page shows once the lock opens.
-	private func placeActivePage() {
+	func placeActivePage() {
 		guard interactionAllowed, let tabID = model.activeTabID, let page = pages[tabID] else {
 			return
 		}
@@ -504,11 +494,6 @@ final class BrowserController: NSObject {
 			page.isVisible = false
 			docked?.isVisible = false
 		}
-	}
-
-	// The sidebar's Settings, the Extensions page, or back to the browser.
-	func showPage(_ page: BrowserModel.Page) {
-		model.page = page
 	}
 
 	// MARK: Navigation
@@ -975,7 +960,7 @@ extension BrowserController {
 	}
 
 	func endSidebarResize() {
-		model.settings.sidebarWidth = Double(state.sidebarWidth)
+		changeSettings { $0.sidebarWidth = Double(state.sidebarWidth) }
 	}
 
 	// A double-click on the edge.

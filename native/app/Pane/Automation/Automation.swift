@@ -12,6 +12,8 @@ final class Automation {
 	private let inbox: URL
 	private let outbox: URL
 	private let controller: BrowserController
+	// Where the model saves: `save` and `quit` wait for the write.
+	private let store: ModelStore
 	private var timer: Timer?
 	// Where pointerWindow's last phase was, for the next move's distance.
 	private var lastPointer: NSPoint?
@@ -24,10 +26,11 @@ final class Automation {
 	private var cacheSizes: [String: Int64] = [:]
 	private var observer: NSObjectProtocol?
 
-	init(directory: URL, controller: BrowserController) {
+	init(directory: URL, controller: BrowserController, store: ModelStore) {
 		inbox = directory.appendingPathComponent("in", isDirectory: true)
 		outbox = directory.appendingPathComponent("out", isDirectory: true)
 		self.controller = controller
+		self.store = store
 
 		try? FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
 		try? FileManager.default.createDirectory(at: outbox, withIntermediateDirectories: true)
@@ -103,18 +106,27 @@ final class Automation {
 			return nil
 
 		case "createProfile":
-			let color = (command["color"] as? String).flatMap(ProfileColor.init) ?? .blue
-			let id = model.createProfile(name: try string("name"), color: color, group: command["group"] as? String)
-			model.expandedProfileIDs.insert(id)
+			// The profile sheet's Create, as filled in: { name, color?,
+			// group?, spoof? }. Scenarios' profiles spoof nothing unless
+			// asked, so pages see the engine's own values.
+			var draft = ProfileDraft()
+			draft.name = try string("name")
+			draft.color = (command["color"] as? String).flatMap(ProfileColor.init) ?? .blue
+			draft.group = command["group"] as? String ?? ""
+			draft.spoofing = command["spoof"] as? Bool ?? false
 
-			return id
+			guard draft.validate() == nil else {
+				throw AutomationError("createProfile needs a name")
+			}
+
+			return controller.createProfile(draft)
 
 		case "deleteProfile":
 			controller.deleteProfile(try string("profile"))
 
 		case "openTab":
 			let profileID = try string("profile")
-			model.expandedProfileIDs.insert(profileID)
+			controller.expandProfile(profileID)
 
 			return controller.openTab(inProfile: profileID, url: (command["url"] as? String).flatMap(URL.init(string:)))
 
@@ -123,14 +135,14 @@ final class Automation {
 				throw AutomationError("moveProfile needs from and to")
 			}
 
-			model.moveProfile(from: from, to: to)
+			controller.moveProfile(from: from, to: to)
 
 		case "moveTab":
 			guard let from = command["from"] as? Int, let to = command["to"] as? Int else {
 				throw AutomationError("moveTab needs from and to")
 			}
 
-			model.moveTab(inProfile: try string("profile"), from: from, to: to)
+			controller.moveTab(inProfile: try string("profile"), from: from, to: to)
 
 		case "select":
 			controller.select(tabID: try string("tab"))
@@ -179,9 +191,7 @@ final class Automation {
 			controller.setTheme(theme)
 
 		case "unloadProfile":
-			let profileID = try string("profile")
-			model.expandedProfileIDs.remove(profileID)
-			controller.unloadProfile(profileID)
+			controller.collapseProfile(try string("profile"))
 
 		case "setDownloadDirectory":
 			guard let context = controller.context(for: try string("profile")) else {
@@ -494,7 +504,7 @@ final class Automation {
 				proxy = try JSONDecoder().decode(ProxyConfig.self, from: data)
 			}
 
-			model.updateProfile(profileID) { $0.proxy = proxy }
+			controller.updateProfile(profileID) { $0.proxy = proxy }
 
 		case "setProfileFingerprint":
 			// { profile, fingerprint: Fingerprint (profiles.json's) | null }
@@ -506,19 +516,21 @@ final class Automation {
 				fingerprint = try JSONDecoder().decode(Fingerprint.self, from: data)
 			}
 
-			model.updateProfile(profileID) { $0.fingerprint = fingerprint }
+			controller.updateProfile(profileID) { $0.fingerprint = fingerprint }
 
 		case "openProfileSheet":
 			// { profile? }: Edit profile for one, else New.
-			if let profileID = command["profile"] as? String {
-				controller.state.profileSheet = .edit(profileID)
-			} else {
-				controller.state.profileSheet = .new
-			}
+			controller.presentProfileSheet((command["profile"] as? String).map { .edit($0) } ?? .new)
 
 		case "showPage":
-			// { page: "browser" | "settings" }: the sidebar's Settings button.
-			model.page = try string("page") == "settings" ? .settings : .browser
+			// { page: "browser" | "settings" | "extensions" }: the sidebar's
+			// Settings, the menu's Extensions, or back.
+			switch try string("page") {
+			case "browser": controller.showPage(.browser)
+			case "settings": controller.showPage(.settings)
+			case "extensions": controller.extensions.showPage()
+			default: throw AutomationError("unknown page")
+			}
 
 		case "checkUpdates":
 			Task { await controller.updater.check() }
@@ -528,7 +540,7 @@ final class Automation {
 			controller.updater.downloadUpdate()
 
 		case "dismissUpdate":
-			controller.updater.dismissedVersion = controller.updater.available?.version
+			controller.updater.dismissPill()
 
 		case "showPinScreen":
 			// Settings' Set up, Change, or Remove PIN.
@@ -554,13 +566,14 @@ final class Automation {
 		case "setSleepSettings":
 			// { tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB },
 			// each a number or null (off).
-			model.settings.tabSleepAfterMinutes = command["tabSleepAfterMinutes"] as? Int
-			model.settings.profileUnloadAfterMinutes = command["profileUnloadAfterMinutes"] as? Int
-			model.settings.cacheBudgetMB = command["cacheBudgetMB"] as? Int
+			controller.changeSettings {
+				$0.tabSleepAfterMinutes = command["tabSleepAfterMinutes"] as? Int
+				$0.profileUnloadAfterMinutes = command["profileUnloadAfterMinutes"] as? Int
+				$0.cacheBudgetMB = command["cacheBudgetMB"] as? Int
+			}
 
 		case "setKeepLoaded":
-			let keepLoaded = command["keepLoaded"] as? Bool ?? true
-			model.updateProfile(try string("profile")) { $0.keepLoaded = keepLoaded }
+			controller.setKeepLoaded(try string("profile"), command["keepLoaded"] as? Bool ?? true)
 
 		case "readCacheSize":
 			// { profile }: the snapshot's profiles[].cacheSize has it once read.
@@ -657,10 +670,10 @@ final class Automation {
 			try render(to: URL(fileURLWithPath: try string("path")))
 
 		case "save":
-			model.saveNow()
+			store.saveNow()
 
 		case "quit":
-			model.saveNow()
+			store.saveNow()
 			NSApp.terminate(nil)
 
 		default:

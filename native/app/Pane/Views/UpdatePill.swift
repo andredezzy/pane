@@ -36,7 +36,7 @@ struct UpdatePill: View {
 			.foregroundStyle(Palette.accentForeground)
 			.accessibilityIdentifier("pane.sidebar.update")
 
-			DismissButton { updater.dismissedVersion = updater.available?.version }
+			DismissButton(action: updater.dismissPill)
 				.opacity(isHovered ? 1 : 0)
 				.padding(.trailing, 6)
 		}

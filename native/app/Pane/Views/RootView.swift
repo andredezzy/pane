@@ -26,8 +26,8 @@ struct RootView: View {
 				if !fullscreen {
 					SidebarView(
 						controller: controller,
-						onNewProfile: { present(.new) },
-						onEditProfile: { present(.edit($0)) }
+						onNewProfile: { controller.presentProfileSheet(.new) },
+						onEditProfile: { controller.presentProfileSheet(.edit($0)) }
 					)
 					.frame(width: state.sidebarWidth)
 				}
@@ -115,13 +115,21 @@ struct RootView: View {
 			if let target = state.profileSheet {
 				Palette.sheetScrim
 					.contentShape(Rectangle())
-					.onTapGesture { present(nil) }
+					.onTapGesture { controller.presentProfileSheet(nil) }
 					.transition(.opacity)
 					.zIndex(1)
 
 				HStack {
 					Spacer(minLength: 0)
-					ProfileSheet(controller: controller, profileID: target.profileID) { present(nil) }
+					ProfileSheet(profile: target.profileID.flatMap(model.profile), save: { draft in
+						if let id = target.profileID {
+							controller.saveProfile(id, draft)
+						} else {
+							controller.createProfile(draft)
+						}
+					}) {
+						controller.presentProfileSheet(nil)
+					}
 						.frame(width: 360)
 						.padding(8)
 				}
@@ -187,7 +195,7 @@ struct RootView: View {
 				// the bottom ones, and the top ones too without the toolbar.
 				Group {
 					if model.page == .settings {
-						SettingsView(controller: controller)
+						SettingsView(settings: model.settings, lock: controller.lock, updater: controller.updater, change: controller.changeSettings)
 					} else if model.page == .extensions {
 						ExtensionsPage(model: model, controller: extensions)
 					} else if model.activeTabID == nil {
@@ -203,13 +211,6 @@ struct RootView: View {
 		.padding([.top, .trailing, .bottom], fullscreen ? 0 : 8)
 	}
 
-	// Sheets slide in from the right; their scrim fades (DESIGN.md: enter and
-	// exit animate).
-	private func present(_ target: WindowState.ProfileSheetTarget?) {
-		withAnimation(Motion.sheet) {
-			state.profileSheet = target
-		}
-	}
 }
 
 // The content panel's squircle, for a view inside it `top` points under its

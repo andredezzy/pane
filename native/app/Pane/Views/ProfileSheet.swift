@@ -5,31 +5,21 @@ import SwiftUI
 // 8px from the window's top, right, and bottom, with the title and a close X,
 // the form (name, group, color, fingerprint, proxy), and Cancel / Create.
 struct ProfileSheet: View {
-	let controller: BrowserController
-	let profileID: String?
+	// The profile being edited; nil for a new one.
+	let profile: BrowserProfile?
+	// Create or Save, with the form as filled in (BrowserController's
+	// createProfile and saveProfile).
+	let save: (ProfileDraft) -> Void
 	let onDone: () -> Void
 
-	@State private var name = ""
-	@State private var color: ProfileColor = .blue
-	@State private var group = ""
-	@State private var nameError: String?
-	@State private var portError: String?
-	@State private var spoofing = true
-	@State private var platform = Self.hostPlatform
-	@State private var proxyEnabled = false
-	@State private var proxyType = ProxyType.http
-	@State private var proxyHost = ""
-	@State private var proxyPort = "8080"
-	@State private var proxyUsername = ""
-	@State private var proxyPassword = ""
+	// The form, as PaneKit checks and applies it.
+	@State private var draft = ProfileDraft()
+	@State private var problem: ProfileDraft.Problem?
 	@State private var proxyShortcut = ""
 	@State private var proxyTest = ProxyTestState.untested
+	@State private var spin = false
 
-	// Pane runs on macOS only: the host's platform.
-	private static let hostPlatform = Platform.macOS
-
-	private var model: BrowserModel { controller.model }
-	private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
+	private var isNew: Bool { profile == nil }
 
 	var body: some View {
 		VStack(spacing: 0) {
@@ -40,40 +30,40 @@ struct ProfileSheet: View {
 				VStack(alignment: .leading, spacing: 16) {
 					VStack(alignment: .leading, spacing: 0) {
 						LabeledField(title: "Name") {
-							PaneTextField(placeholder: "e.g. Work account", text: $name, focusesOnAppear: true, onSubmit: save)
+							PaneTextField(placeholder: "e.g. Work account", text: $draft.name, focusesOnAppear: true, onSubmit: submit)
 								.accessibilityIdentifier("pane.profile.name")
 						}
 
-						if let nameError {
-							Text(nameError)
+						if problem == .nameMissing {
+							Text(ProfileDraft.Problem.nameMissing.message)
 								.font(.system(size: 12.8, weight: .medium))
 								.foregroundStyle(Palette.destructive)
 						}
 					}
 
 					LabeledField(title: "Group", note: "(optional)") {
-						PaneTextField(placeholder: "Enter group name", text: $group, onSubmit: save)
+						PaneTextField(placeholder: "Enter group name", text: $draft.group, onSubmit: submit)
 					}
 
 					VStack(alignment: .leading, spacing: 0) {
 						FormLabel(title: "Color")
 							.accessibilityHidden(true)
-						SwatchPicker(selection: $color)
+						SwatchPicker(selection: $draft.color)
 							.accessibilityElement(children: .contain)
 							.accessibilityLabel("Color")
 					}
 
-					switchRow("Spoof fingerprint", isOn: $spoofing)
+					switchRow("Spoof fingerprint", isOn: $draft.spoofing)
 
-					if spoofing {
+					if draft.spoofing {
 						platformPicker
 					}
 
 					Hairline()
 
-					switchRow("Enable proxy", isOn: $proxyEnabled)
+					switchRow("Enable proxy", isOn: $draft.proxyEnabled)
 
-					if proxyEnabled {
+					if draft.proxyEnabled {
 						proxyFields
 					}
 				}
@@ -88,7 +78,7 @@ struct ProfileSheet: View {
 				Button("Cancel", action: onDone)
 					.buttonStyle(.pane(.outline))
 					.keyboardShortcut(.cancelAction)
-				Button(profileID == nil ? "Create" : "Save", action: save)
+				Button(isNew ? "Create" : "Save", action: submit)
 					.buttonStyle(.pane(.primary))
 					.keyboardShortcut(.defaultAction)
 					.accessibilityIdentifier("pane.profile.save")
@@ -99,20 +89,20 @@ struct ProfileSheet: View {
 		// Clipped before the shadow goes on, which would clip it too.
 		.clipShape(Squircle(cornerRadius: 18))
 		.surfaceBackground(cornerRadius: 18, shadow: .black.opacity(0.5), blur: 40, y: 8)
-		.onAppear(perform: load)
-		.onChange(of: name) { nameError = nil }
-		.onChange(of: proxyPort) { portError = nil }
+		.onAppear { draft = profile.map(ProfileDraft.init) ?? ProfileDraft() }
+		.onChange(of: draft.name) { problem = problem == .nameMissing ? nil : problem }
+		.onChange(of: draft.proxyPort) { problem = problem == .portInvalid ? nil : problem }
 		.onExitCommand(perform: onDone)
 		.accessibilityElement(children: .contain)
 		// VoiceOver stays in the sheet while it shows, as in Quit Pane?.
 		.accessibilityAddTraits(.isModal)
-		.accessibilityLabel(profileID == nil ? "New profile" : "Edit profile")
+		.accessibilityLabel(isNew ? "New profile" : "Edit profile")
 		.accessibilityIdentifier("pane.profileSheet")
 	}
 
 	private var header: some View {
 		HStack {
-			Text(profileID == nil ? "New profile" : "Edit profile")
+			Text(isNew ? "New profile" : "Edit profile")
 				.font(.system(size: 14, weight: .medium))
 				.foregroundStyle(Palette.accentForeground)
 				.lineBox(20)
@@ -152,18 +142,18 @@ struct ProfileSheet: View {
 				.accessibilityHidden(true)
 			PresetRow(
 				options: [Platform.windows, .macOS, .linux],
-				selection: platform,
+				selection: draft.platform,
 				// CSS capitalize of the lowercased name, as the Electron app
 				// shows it.
 				title: { $0.rawValue.lowercased().capitalized },
-				select: { platform = $0 }
+				select: { draft.platform = $0 }
 			)
 			.accessibilityElement(children: .contain)
 			.accessibilityLabel("Platform")
 			.accessibilityIdentifier("pane.profile.platform")
 
-			if platform != Self.hostPlatform {
-				Text("Cross-OS spoofing can\u{2019}t fool strict WebGL checks \u{2014} use \(Self.hostPlatform.rawValue.lowercased()) or turn spoofing off for Cloudflare-protected sites.")
+			if draft.platform != ProfileDraft.hostPlatform {
+				Text("Cross-OS spoofing can\u{2019}t fool strict WebGL checks \u{2014} use \(ProfileDraft.hostPlatform.rawValue.lowercased()) or turn spoofing off for Cloudflare-protected sites.")
 					.font(.system(size: 10))
 					.foregroundStyle(Palette.mutedForeground)
 					.fixedSize(horizontal: false, vertical: true)
@@ -182,14 +172,14 @@ struct ProfileSheet: View {
 				.accessibilityIdentifier("pane.profile.proxyShortcut")
 
 			HStack(spacing: 8) {
-				PaneMenuButton(options: ProxyType.allCases.map { ($0.rawValue, $0) }, selection: proxyType, label: "Proxy type", size: .regular, fillsWidth: true) {
-					proxyType = $0
+				PaneMenuButton(options: ProxyType.allCases.map { ($0.rawValue, $0) }, selection: draft.proxyType, label: "Proxy type", size: .regular, fillsWidth: true) {
+					draft.proxyType = $0
 				}
 				.frame(width: 100)
-				PaneTextField(placeholder: "Host", text: $proxyHost)
+				PaneTextField(placeholder: "Host", text: $draft.proxyHost)
 					.accessibilityLabel("Proxy host")
 					.accessibilityIdentifier("pane.profile.proxyHost")
-				PaneTextField(placeholder: "Port", text: $proxyPort)
+				PaneTextField(placeholder: "Port", text: $draft.proxyPort)
 					.frame(width: 80)
 					.accessibilityLabel("Proxy port")
 					.accessibilityIdentifier("pane.profile.proxyPort")
@@ -197,8 +187,8 @@ struct ProfileSheet: View {
 
 			// As the name's: a profile that asks for a proxy never saves
 			// without one.
-			if let portError {
-				Text(portError)
+			if problem == .portInvalid {
+				Text(ProfileDraft.Problem.portInvalid.message)
 					.font(.system(size: 12.8, weight: .medium))
 					.foregroundStyle(Palette.destructive)
 					// Right under the row, as the name's error sits under its field.
@@ -207,9 +197,9 @@ struct ProfileSheet: View {
 			}
 
 			HStack(spacing: 8) {
-				PaneTextField(placeholder: "Username (optional)", text: $proxyUsername)
+				PaneTextField(placeholder: "Username (optional)", text: $draft.proxyUsername)
 					.accessibilityLabel("Proxy username")
-				PaneTextField(placeholder: "Password (optional)", text: $proxyPassword, secure: true)
+				PaneTextField(placeholder: "Password (optional)", text: $draft.proxyPassword, secure: true)
 					.accessibilityLabel("Proxy password")
 			}
 
@@ -235,7 +225,7 @@ struct ProfileSheet: View {
 				fill: proxyTest.fill,
 				border: proxyTest.border
 			))
-			.disabled(proxyTest == .testing || proxyHost.trimmingCharacters(in: .whitespaces).isEmpty)
+			.disabled(proxyTest == .testing || draft.proxyHost.trimmingCharacters(in: .whitespaces).isEmpty)
 			.accessibilityIdentifier("pane.profile.testProxy")
 		}
 		.padding(12)
@@ -245,49 +235,15 @@ struct ProfileSheet: View {
 		}
 	}
 
-	@State private var spin = false
-
-	private static let portMessage = "Port must be between 1 and 65535"
-
-	// The proxy as filled in, once it has a host and a valid port.
-	private var proxyConfig: ProxyConfig? {
-		let host = proxyHost.trimmingCharacters(in: .whitespaces)
-
-		guard proxyEnabled, !host.isEmpty, let port = ProxyConfig.port(proxyPort) else {
-			return nil
-		}
-
-		return ProxyConfig(
-			proxyType: proxyType,
-			host: host,
-			port: port,
-			username: proxyUsername.isEmpty ? nil : proxyUsername,
-			password: proxyPassword.isEmpty ? nil : proxyPassword
-		)
-	}
-
 	private func pasteProxy(_ raw: String) {
-		guard let parsed = ProxyString(raw) else {
-			return
+		if draft.pasteProxy(raw) {
+			proxyTest = .untested
 		}
-
-		proxyHost = parsed.host
-		proxyPort = String(parsed.port)
-
-		if let username = parsed.username {
-			proxyUsername = username
-		}
-
-		if let password = parsed.password {
-			proxyPassword = password
-		}
-
-		proxyTest = .untested
 	}
 
 	private func testProxy() {
-		guard let config = proxyConfig else {
-			proxyTest = .failed(Self.portMessage)
+		guard let config = draft.proxy else {
+			proxyTest = .failed(ProfileDraft.Problem.portMessage)
 			return
 		}
 
@@ -301,66 +257,13 @@ struct ProfileSheet: View {
 		}
 	}
 
-	private func load() {
-		guard let profile = profileID.flatMap(model.profile) else {
-			return
+	private func submit() {
+		problem = draft.validate()
+
+		if problem == nil {
+			save(draft)
+			onDone()
 		}
-
-		name = profile.name
-		color = profile.color
-		group = profile.group ?? ""
-		spoofing = profile.fingerprint != nil
-		platform = profile.fingerprint?.platform ?? Self.hostPlatform
-		proxyEnabled = profile.proxy != nil
-
-		if let proxy = profile.proxy {
-			proxyType = proxy.proxyType
-			proxyHost = proxy.host
-			proxyPort = String(proxy.port)
-			proxyUsername = proxy.username ?? ""
-			proxyPassword = proxy.password ?? ""
-		}
-	}
-
-	private func save() {
-		guard !trimmedName.isEmpty else {
-			nameError = "Profile name is required"
-			return
-		}
-
-		// A proxy with a host but no valid port would save as no proxy, and
-		// the profile would go direct.
-		guard !proxyEnabled || proxyHost.trimmingCharacters(in: .whitespaces).isEmpty || ProxyConfig.port(proxyPort) != nil else {
-			portError = Self.portMessage
-			return
-		}
-
-		let groupValue = group.trimmingCharacters(in: .whitespaces)
-		let generate = { Fingerprint.generated(for: platform, hostWebGL: controller.hostWebGL) }
-		let proxy = proxyConfig
-
-		if let profileID {
-			let stored = model.profile(profileID)?.fingerprint
-
-			model.updateProfile(profileID) {
-				$0.name = trimmedName
-				$0.color = color
-				$0.group = groupValue.isEmpty ? nil : groupValue
-				$0.fingerprint = Fingerprint.edited(stored: stored, spoofing: spoofing, platform: platform, generate: generate)
-				$0.proxy = proxy
-			}
-		} else {
-			let id = model.createProfile(name: trimmedName, color: color, group: groupValue.isEmpty ? nil : groupValue)
-			let fingerprint = spoofing ? generate() : nil
-
-			model.updateProfile(id) {
-				$0.fingerprint = fingerprint
-				$0.proxy = proxy
-			}
-			model.expandedProfileIDs.insert(id)
-		}
-
-		onDone()
 	}
 }
 

@@ -7,8 +7,7 @@ extension BrowserController {
 	// MARK: Theme (ADR 0001: one knob for the app, its menus, and pages)
 
 	func setTheme(_ theme: Theme) {
-		model.settings.theme = theme
-		applyTheme()
+		changeSettings { $0.theme = theme }
 	}
 
 	func applyTheme() {

@@ -26,7 +26,7 @@ final class Updater {
 	// Whole seconds left, once the rate settles.
 	private(set) var downloadETA: Int?
 	// The version whose pill was dismissed this launch.
-	var dismissedVersion: String?
+	private(set) var dismissedVersion: String?
 
 	// Scenarios point these at their own release, folder, and no opening.
 	@ObservationIgnored private let releasesURL = ProcessInfo.processInfo.environment["PANE_UPDATE_URL"]
@@ -109,6 +109,11 @@ final class Updater {
 
 	// The pill's click and Settings' Download update. A failure returns to
 	// available, so the user can try again from the same place.
+	// The pill's dismiss: hidden for this version until relaunch.
+	func dismissPill() {
+		dismissedVersion = available?.version
+	}
+
 	func downloadUpdate() {
 		guard status == .available, let available else {
 			return

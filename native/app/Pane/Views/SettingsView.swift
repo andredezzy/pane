@@ -6,9 +6,12 @@ import SwiftUI
 // a description, with their control at the trailing end: a pop-up button
 // (the system's own menu, with up and down chevrons) or outline buttons.
 struct SettingsView: View {
-	let controller: BrowserController
-
-	private var model: BrowserModel { controller.model }
+	let settings: AppSettings
+	let lock: AppLock
+	let updater: Updater
+	// Changes the settings: BrowserController.changeSettings, which applies
+	// a theme at once.
+	let change: (_ edit: (inout AppSettings) -> Void) -> Void
 
 	// Pane's version (package.sh puts it in Info.plist; the bundle's own
 	// versions are Chromium's).
@@ -27,52 +30,53 @@ struct SettingsView: View {
 						SettingsRow(title: "Theme", description: "Choose how Pane looks.", last: true) {
 							PaneMenuButton(
 								options: Theme.allCases.map { ($0.rawValue.capitalized, $0) },
-								selection: model.settings.theme,
+								selection: settings.theme,
 								label: "Theme",
 								icon: Self.icon(for:),
-								chevron: .upDown,
-								select: controller.setTheme
-							)
+								chevron: .upDown
+							) { theme in
+								change { $0.theme = theme }
+							}
 							.accessibilityIdentifier("pane.settings.theme")
 						}
 					}
 
 					SettingsGroup(title: "Memory & disk") {
 						SettingsRow(title: "Sleep background tabs", description: "A tab in the background sleeps after this long, to free memory.") {
-							PaneMenuButton(options: Self.tabSleepOptions, selection: model.settings.tabSleepAfterMinutes, label: "Sleep background tabs", chevron: .upDown) {
-								model.settings.tabSleepAfterMinutes = $0
+							PaneMenuButton(options: Self.tabSleepOptions, selection: settings.tabSleepAfterMinutes, label: "Sleep background tabs", chevron: .upDown) { minutes in
+								change { $0.tabSleepAfterMinutes = minutes }
 							}
 							.accessibilityIdentifier("pane.settings.tabSleep")
 						}
 
 						SettingsRow(title: "Unload hidden profiles", description: "A profile out of view unloads after this long.") {
-							PaneMenuButton(options: Self.profileUnloadOptions, selection: model.settings.profileUnloadAfterMinutes, label: "Unload hidden profiles", chevron: .upDown) {
-								model.settings.profileUnloadAfterMinutes = $0
+							PaneMenuButton(options: Self.profileUnloadOptions, selection: settings.profileUnloadAfterMinutes, label: "Unload hidden profiles", chevron: .upDown) { minutes in
+								change { $0.profileUnloadAfterMinutes = minutes }
 							}
 							.accessibilityIdentifier("pane.settings.profileUnload")
 						}
 
 						SettingsRow(title: "Trim cache", description: "A profile that unloads trims its cache past this size.", last: true) {
-							PaneMenuButton(options: Self.cacheBudgetOptions, selection: model.settings.cacheBudgetMB, label: "Trim cache", chevron: .upDown) {
-								model.settings.cacheBudgetMB = $0
+							PaneMenuButton(options: Self.cacheBudgetOptions, selection: settings.cacheBudgetMB, label: "Trim cache", chevron: .upDown) { megabytes in
+								change { $0.cacheBudgetMB = megabytes }
 							}
 							.accessibilityIdentifier("pane.settings.cacheBudget")
 						}
 					}
 
 					SettingsGroup(title: "Security") {
-						if controller.lock.state.pin == nil {
+						if lock.state.pin == nil {
 							SettingsRow(title: "PIN", description: "Lock Pane with a PIN.", last: true) {
-								Button("Set up PIN") { controller.lock.show(.setup) }
+								Button("Set up PIN") { lock.show(.setup) }
 									.buttonStyle(.pane(.outline, size: .small))
 									.accessibilityIdentifier("pane.settings.setUpPIN")
 							}
 						} else {
 							SettingsRow(title: "PIN", description: "Pane asks for it when it opens.", last: true) {
-								Button("Change PIN") { controller.lock.show(.change) }
+								Button("Change PIN") { lock.show(.change) }
 									.buttonStyle(.pane(.outline, size: .small))
 									.accessibilityIdentifier("pane.settings.changePIN")
-								Button("Remove PIN") { controller.lock.show(.remove) }
+								Button("Remove PIN") { lock.show(.remove) }
 									.buttonStyle(.pane(.outline, size: .small))
 									.accessibilityIdentifier("pane.settings.removePIN")
 							}
@@ -80,7 +84,7 @@ struct SettingsView: View {
 					}
 
 					SettingsGroup(title: "Updates") {
-						UpdateRow(updater: controller.updater)
+						UpdateRow(updater: updater)
 
 						SettingsRow(title: "Version", last: true) {
 							Text(Self.version)

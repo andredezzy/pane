@@ -79,11 +79,11 @@ final class ProfileNetwork {
 	// Tests the profile's proxy and records the outcome for the sidebar.
 	func test(_ profileID: String) {
 		guard let proxy = model.profile(profileID)?.proxy else {
-			model.proxyStatus[profileID] = nil
+			model.setProxyStatus(profileID, nil)
 			return
 		}
 
-		model.proxyStatus[profileID] = .testing
+		model.setProxyStatus(profileID, .testing)
 
 		Task { [weak self] in
 			let outcome = await ProxyTest.run(proxy)
@@ -95,10 +95,10 @@ final class ProfileNetwork {
 
 			switch outcome {
 			case .connected:
-				model.proxyStatus[profileID] = .connected
+				model.setProxyStatus(profileID, .connected)
 			case let .failed(error):
 				NSLog("Pane: the proxy of profile %@ failed its test: %@", profileID, error)
-				model.proxyStatus[profileID] = .failed
+				model.setProxyStatus(profileID, .failed)
 			}
 		}
 	}
