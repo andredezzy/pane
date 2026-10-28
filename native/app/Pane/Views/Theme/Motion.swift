@@ -22,6 +22,11 @@ enum Motion {
 	// Rows sliding aside for a dragged one, and its copy settling into place.
 	static var slide: Animation? { unlessReduced(.spring(response: 0.28, dampingFraction: 0.9)) }
 
+	// The sidebar scrolling to a tab chosen elsewhere (the switcher, a
+	// shortcut, a new tab) that was out of its view: settled, with no
+	// overshoot.
+	static var reveal: Animation? { unlessReduced(.spring(response: 0.3, dampingFraction: 1)) }
+
 	// The copy of a dragged row going, once it has settled.
 	static var drop: Animation? { unlessReduced(.easeOut(duration: 0.12)) }
 

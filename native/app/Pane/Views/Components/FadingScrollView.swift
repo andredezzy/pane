@@ -10,7 +10,6 @@ struct FadingScrollView<Content: View>: View {
 	@State private var top: CGFloat = 0
 	@State private var bottom: CGFloat = 0
 
-	private static var fade: CGFloat { 24 }
 	private static var space: String { "FadingScrollView" }
 
 	var body: some View {
@@ -26,8 +25,8 @@ struct FadingScrollView<Content: View>: View {
 			.coordinateSpace(name: Self.space)
 			.onPreferenceChange(ContentFrameKey.self) { frame in
 				let scrolled = -frame.minY
-				let newTop = min(max(scrolled, 0), Self.fade)
-				let newBottom = min(max(frame.height - viewport.size.height - scrolled, 0), Self.fade)
+				let newTop = min(max(scrolled, 0), ScrollFade.height)
+				let newBottom = min(max(frame.height - viewport.size.height - scrolled, 0), ScrollFade.height)
 
 				// Only a change of either fade draws the mask again: a resize
 				// that scrolls nothing leaves both.
@@ -64,4 +63,9 @@ private struct ContentFrameKey: PreferenceKey {
 			value = next
 		}
 	}
+}
+
+// How far a fading scroll view's edges fade: 24 points, the Electron app's.
+enum ScrollFade {
+	static let height: CGFloat = 24
 }

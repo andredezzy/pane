@@ -17,44 +17,50 @@ struct SidebarView: View {
 		VStack(spacing: 0) {
 			header
 
-			// Fading at its edges as it scrolls, as the Electron app's list.
-			FadingScrollView {
-				VStack(alignment: .leading, spacing: 4) {
-					ForEach(reorder.order(model.profiles.map(\.id)), id: \.self) { id in
-						if let profile = model.profile(id) {
-							let isActive = isShown(id)
+			// Fading at its edges as it scrolls, as the Electron app's list, and
+			// scrolled to the selected tab when it is out of view.
+			ScrollViewReader { proxy in
+				FadingScrollView {
+					VStack(alignment: .leading, spacing: 4) {
+						ForEach(reorder.order(model.profiles.map(\.id)), id: \.self) { id in
+							if let profile = model.profile(id) {
+								let isActive = isShown(id)
 
-							// What it shows, as values: a section runs its body
-							// again only when its own change, not the model's.
-							ProfileSection(
-								controller: controller,
-								profile: profile,
-								isActive: isActive,
-								isExpanded: model.expandedProfileIDs.contains(id),
-								proxyStatus: model.proxyStatus[id],
-								selectedTabID: isActive ? model.activeTabID : nil,
-								loadedTabIDs: Set(profile.tabs.lazy.map(\.id).filter(model.loadedTabIDs.contains)),
-								reorder: reorder,
-								onEdit: { onEditProfile(id) }
-							)
-							.equatable()
-							.reorderRow(id, in: reorder)
+								// What it shows, as values: a section runs its body
+								// again only when its own change, not the model's.
+								ProfileSection(
+									controller: controller,
+									profile: profile,
+									isActive: isActive,
+									isExpanded: model.expandedProfileIDs.contains(id),
+									proxyStatus: model.proxyStatus[id],
+									selectedTabID: isActive ? model.activeTabID : nil,
+									loadedTabIDs: Set(profile.tabs.lazy.map(\.id).filter(model.loadedTabIDs.contains)),
+									reorder: reorder,
+									onEdit: { onEditProfile(id) }
+								)
+								.equatable()
+								.reorderRow(id, in: reorder)
+							}
 						}
 					}
-				}
-				.reorderList(reorder) { id in
-					if let profile = model.profile(id) {
-						ProfileHeaderContent(profile: profile, isActive: isShown(id), proxyStatus: model.proxyStatus[id], showsCount: !model.expandedProfileIDs.contains(id))
-							.padding(.horizontal, 8)
-							.frame(height: 36)
-							.foregroundStyle(Palette.accentForeground)
-							.dragCopy()
+					.reorderList(reorder) { id in
+						if let profile = model.profile(id) {
+							ProfileHeaderContent(profile: profile, isActive: isShown(id), proxyStatus: model.proxyStatus[id], showsCount: !model.expandedProfileIDs.contains(id))
+								.padding(.horizontal, 8)
+								.frame(height: 36)
+								.foregroundStyle(Palette.accentForeground)
+								.dragCopy()
+						}
 					}
+					.padding(.horizontal, 8)
+					.padding(.vertical, 4)
 				}
-				.padding(.horizontal, 8)
-				.padding(.vertical, 4)
+				.accessibilityIdentifier("pane.sidebar.profiles")
+				.onChange(of: model.activeTabID, initial: true) { old, new in
+					reveal(new, in: proxy, animated: old != new)
+				}
 			}
-			.accessibilityIdentifier("pane.sidebar.profiles")
 
 			footer
 		}
@@ -65,6 +71,23 @@ struct SidebarView: View {
 		.accessibilityElement(children: .contain)
 		.accessibilityLabel("Sidebar")
 		.accessibilityIdentifier("pane.sidebar")
+	}
+
+	// The selected tab's row into view, wherever it was chosen (the switcher,
+	// a shortcut, a new tab, a link): the least scroll that shows it whole and
+	// clear of the edges' fades, none when it shows (the user's request). A
+	// turn later, so a profile that opened for it has laid its rows out. At
+	// launch it is there at once.
+	private func reveal(_ tabID: String?, in proxy: ScrollViewProxy, animated: Bool) {
+		guard let tabID else {
+			return
+		}
+
+		DispatchQueue.main.async {
+			withAnimation(animated ? Motion.reveal : nil) {
+				proxy.scrollTo(RevealTarget(tabID: tabID))
+			}
+		}
 	}
 
 	// The profile whose page shows: none on Settings or Extensions, where no
@@ -219,6 +242,13 @@ private struct ProfileSection: View, Equatable {
 								)
 								.equatable()
 								.reorderRow(id, in: tabReorder)
+								// What the sidebar scrolls into view for the
+								// tab: its row and a fade's height around it.
+								.background {
+									Color.clear
+										.frame(height: SidebarRow.height + 2 * ScrollFade.height)
+										.id(RevealTarget(tabID: id))
+								}
 							}
 						}
 					}
@@ -492,6 +522,11 @@ private struct NewTabRow: View {
 		}
 		.buttonStyle(RowButtonStyle(cornerRadius: SidebarRow.cornerRadius))
 	}
+}
+
+// A tab's place to scroll to, apart from its row's identity.
+private struct RevealTarget: Hashable {
+	let tabID: String
 }
 
 // The sidebar's rows, as Aside's: 32 points, rounded 15.
