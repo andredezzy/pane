@@ -23,6 +23,20 @@
 					window.result = `denied ${error.name}`;
 				}
 			}
+			// Idle detection: the prompt's answer as requestPermission's.
+			async function askIdle() {
+				window.result = undefined;
+				window.result = await IdleDetector.requestPermission();
+			}
+			// Local fonts: allowed resolves with the fonts, else it throws.
+			async function askFonts() {
+				window.result = undefined;
+				try {
+					window.result = `granted ${(await window.queryLocalFonts()).length}`;
+				} catch (error) {
+					window.result = `denied ${error.name}`;
+				}
+			}
 			async function stateOf(name) {
 				return (await navigator.permissions.query({ name })).state;
 			}
