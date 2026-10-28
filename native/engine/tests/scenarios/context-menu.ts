@@ -132,10 +132,11 @@ const contextMenu: Scenario = async (context) => {
 			`edit menu ${editMenu}`,
 		);
 
-		spelling = {
-			menu: editMenu,
-			suggestions: "deferred: screen locked, no word flagged",
-		};
+		context.defer(
+			"spelling suggestions: no word is flagged on a locked screen",
+		);
+
+		spelling = { menu: editMenu };
 	}
 
 	// Plain text: navigation, then Inspect opens DevTools on the element.

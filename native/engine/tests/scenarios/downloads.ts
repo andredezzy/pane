@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, tabOf } from "../lib/pane";
 import { expect, type Scenario } from "../run";
@@ -15,7 +14,7 @@ const downloads: Scenario = async (context) => {
 	const tab = await app.openTab(profile, url);
 	const page = await app.page(tab, url);
 
-	const directory = mkdtempSync(join(tmpdir(), "pane-downloads-"));
+	const directory = context.tempDir("pane-downloads-");
 	await app.send("setDownloadDirectory", { profile, path: directory });
 
 	await page.evaluate("document.getElementById('file').click()");

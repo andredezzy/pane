@@ -1,5 +1,5 @@
-import { openPage } from "../lib/cdp";
 import { type PaneApp, tabOf } from "../lib/pane";
+import { waitForPage } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -45,7 +45,12 @@ async function identifierPage(app: PaneApp, profile: string) {
 		45_000,
 	);
 
-	const page = await pageAt(app, "https://accounts.google.com/");
+	const page = await waitForPage(
+		app.browser.cdp,
+		"Google's sign-in page",
+		(info) => info.url.startsWith("https://accounts.google.com/"),
+	);
+
 	const deadline = Date.now() + 20_000;
 	let report = { url: "", identifier: false, title: "" };
 
@@ -66,28 +71,6 @@ async function identifierPage(app: PaneApp, profile: string) {
 		identifier: report.identifier,
 		title: report.title,
 	};
-}
-
-async function pageAt(app: PaneApp, prefix: string) {
-	const deadline = Date.now() + 30_000;
-
-	while (Date.now() < deadline) {
-		const { targetInfos } = await app.browser.cdp.send<{
-			targetInfos: { targetId: string; type: string; url: string }[];
-		}>("Target.getTargets");
-
-		const target = targetInfos.find(
-			(info) => info.type === "page" && info.url.startsWith(prefix),
-		);
-
-		if (target) {
-			return openPage(app.browser.cdp, "about:blank", target.targetId);
-		}
-
-		await Bun.sleep(250);
-	}
-
-	throw new Error(`no page at ${prefix}`);
 }
 
 const google: Scenario = async (context) => {

@@ -18,6 +18,12 @@ export type Traced = {
 		name: string,
 		matches?: (args: Record<string, unknown>) => boolean,
 	) => boolean;
+	// The first entry named `name` that `matches`, once the trace has one.
+	waitForEntry: (
+		name: string,
+		matches?: (args: Record<string, unknown>) => boolean,
+		timeoutMs?: number,
+	) => Promise<TraceEntry>;
 };
 
 export async function launchTraced(
@@ -41,11 +47,32 @@ export async function launchTraced(
 					.map((line) => JSON.parse(line) as TraceEntry)
 			: [];
 
+	const find = (
+		entry: string,
+		matches: (args: Record<string, unknown>) => boolean,
+	) => trace().find((line) => line.name === entry && matches(line.args));
+
 	return {
 		app,
 		trace,
-		has: (entry, matches = () => true) =>
-			trace().some((line) => line.name === entry && matches(line.args)),
+		has: (entry, matches = () => true) => find(entry, matches) !== undefined,
+		waitForEntry: async (entry, matches = () => true, timeoutMs = 20_000) => {
+			const deadline = Date.now() + timeoutMs;
+
+			for (;;) {
+				const found = find(entry, matches);
+
+				if (found) {
+					return found;
+				}
+
+				if (Date.now() > deadline) {
+					throw new Error(`the trace has no ${entry}`);
+				}
+
+				await Bun.sleep(100);
+			}
+		},
 	};
 }
 

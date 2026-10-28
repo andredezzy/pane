@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Subprocess } from "bun";
 import { Cdp } from "./cdp";
 
 export type LaunchOptions = {
@@ -14,32 +15,51 @@ export type Browser = {
 	pid: number;
 	port: number;
 	cdp: Cdp;
+	// Quits the browser, or kills it after 10 s. Safe to call more than once.
 	close: () => Promise<void>;
 };
 
+// The DevTools port once the browser serves it. Fails at once when the
+// browser exits first, rather than after the whole minute.
 async function waitForPort(
+	child: Subprocess,
 	userDataDir: string | null,
 	fixedPort: number | null,
 ): Promise<number> {
 	const deadline = Date.now() + 60_000;
 
 	while (Date.now() < deadline) {
+		if (child.exitCode !== null || child.signalCode !== null) {
+			throw new Error(
+				`the browser exited before it served DevTools (${child.signalCode ?? `exit code ${child.exitCode}`})`,
+			);
+		}
+
 		if (fixedPort !== null) {
 			const response = await fetch(
 				`http://127.0.0.1:${fixedPort}/json/version`,
+				{ signal: AbortSignal.timeout(2_000) },
 			).catch(() => null);
 
 			if (response?.ok) {
 				return fixedPort;
 			}
 		} else if (userDataDir) {
+			let port = 0;
+
 			try {
-				return Number(
+				port = Number(
 					readFileSync(join(userDataDir, "DevToolsActivePort"), "utf8").split(
 						"\n",
 					)[0],
 				);
 			} catch {}
+
+			// The file can be there before its port is written: an empty
+			// line reads as 0.
+			if (Number.isInteger(port) && port > 0) {
+				return port;
+			}
 		}
 
 		await Bun.sleep(250);
@@ -78,6 +98,16 @@ export async function launch(
 		? null
 		: mkdtempSync(join(tmpdir(), "pane-data-"));
 
+	const removeDirs = () => {
+		if (throwaway && userDataDir) {
+			rmSync(userDataDir, { recursive: true, force: true });
+		}
+
+		if (appDataDir) {
+			rmSync(appDataDir, { recursive: true, force: true });
+		}
+	};
+
 	const fixedPort = userDataDir ? null : freePort();
 
 	// A reused directory still holds the last run's port.
@@ -113,40 +143,63 @@ export async function launch(
 		stderr: output,
 	});
 
-	const port = await waitForPort(userDataDir ?? null, fixedPort);
+	const exited = (timeoutMs: number) =>
+		Promise.race([
+			child.exited.then(() => true),
+			Bun.sleep(timeoutMs).then(() => false),
+		]);
 
-	const version = (await (
-		await fetch(`http://127.0.0.1:${port}/json/version`)
-	).json()) as {
-		webSocketDebuggerUrl: string;
+	let port: number;
+	let cdp: Cdp;
+
+	// A launch that fails leaves nothing behind: no app, no directories.
+	try {
+		port = await waitForPort(child, userDataDir ?? null, fixedPort);
+
+		const version = (await (
+			await fetch(`http://127.0.0.1:${port}/json/version`, {
+				signal: AbortSignal.timeout(10_000),
+			})
+		).json()) as {
+			webSocketDebuggerUrl: string;
+		};
+
+		cdp = await Cdp.connect(version.webSocketDebuggerUrl);
+	} catch (error) {
+		child.kill("SIGKILL");
+		await exited(5_000);
+		removeDirs();
+
+		throw error;
+	}
+
+	let closing: Promise<void> | null = null;
+
+	const close = async () => {
+		// An app that already quit (Quit Pane, the panic wipe) has no one to
+		// answer Browser.close.
+		if (child.exitCode === null && child.signalCode === null) {
+			await cdp.send("Browser.close", {}, undefined, 5_000).catch(() => {});
+		}
+
+		cdp.close();
+
+		if (!(await exited(10_000))) {
+			child.kill("SIGKILL");
+			await exited(5_000);
+		}
+
+		removeDirs();
 	};
-
-	const cdp = await Cdp.connect(version.webSocketDebuggerUrl);
 
 	return {
 		pid: child.pid,
 		port,
 		cdp,
-		close: async () => {
-			await cdp.send("Browser.close").catch(() => {});
-			cdp.close();
+		close: () => {
+			closing ??= close();
 
-			const exited = await Promise.race([
-				child.exited.then(() => true),
-				Bun.sleep(10_000).then(() => false),
-			]);
-
-			if (!exited) {
-				child.kill("SIGKILL");
-			}
-
-			if (throwaway && userDataDir) {
-				rmSync(userDataDir, { recursive: true, force: true });
-			}
-
-			if (appDataDir) {
-				rmSync(appDataDir, { recursive: true, force: true });
-			}
+			return closing;
 		},
 	};
 }

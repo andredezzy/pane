@@ -1,13 +1,7 @@
-import {
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
+import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
@@ -62,7 +56,7 @@ async function type(
 }
 
 const security: Scenario = async (context) => {
-	const dataDir = mkdtempSync(join(tmpdir(), "pane-security-"));
+	const dataDir = context.tempDir("pane-security-");
 	mkdirSync(dataDir, { recursive: true });
 
 	writeFileSync(
@@ -247,18 +241,15 @@ const security: Scenario = async (context) => {
 		profileData: existsSync(profileDir),
 	};
 
-	// The fifth: Pane erases its data and starts again.
+	// The fifth: Pane erases its data and starts again. The new instance is
+	// no child of the runner, which stops it with whatever else still uses
+	// the scenario's directories, however the scenario ends.
 	await relaunched.send("pinKeys", { keys: "1111" });
 
-	const deadline = Date.now() + 30_000;
-
-	while (
-		Date.now() < deadline &&
-		(await Bun.$`kill -0 ${relaunched.browser.pid}`.quiet().nothrow())
-			.exitCode === 0
-	) {
-		await Bun.sleep(200);
-	}
+	expect(
+		await waitForExit(relaunched.browser.pid, 30_000),
+		"Pane still runs after the fifth wrong PIN",
+	);
 
 	// The new instance answers the same automation channel.
 	const fresh = await relaunched.waitFor(
@@ -275,9 +266,7 @@ const security: Scenario = async (context) => {
 		profiles: fresh.profiles.length,
 	};
 
-	await relaunched.send("quit").catch(() => {});
-	await Bun.sleep(2_000);
-	await Bun.$`pkill -f ${join(dataDir, "Engine")}`.quiet().nothrow();
+	await relaunched.quit();
 
 	expect(
 		before.profiles && before.profileData,

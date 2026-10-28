@@ -20,6 +20,10 @@ let nextMessageId = 1;
 export class Cdp {
 	private readonly pending = new Map<number, Pending>();
 	private readonly listeners = new Set<Listener>();
+	// Callbacks for the socket closing, so waiters fail at once.
+	private readonly closers = new Set<(error: Error) => void>();
+	// Set once the socket closed: the browser quit, crashed, or close() ran.
+	private closedBy: Error | null = null;
 
 	private constructor(private readonly socket: WebSocket) {
 		socket.addEventListener("message", (event) => {
@@ -44,16 +48,60 @@ export class Cdp {
 				listener(message);
 			}
 		});
+
+		// A browser that quits never answers what is still pending: fail it
+		// now rather than at each call's timeout.
+		socket.addEventListener("close", () =>
+			this.fail(new Error("the DevTools connection closed")),
+		);
+
+		socket.addEventListener("error", () =>
+			this.fail(new Error("the DevTools connection failed")),
+		);
 	}
 
-	static connect(url: string): Promise<Cdp> {
+	private fail(error: Error): void {
+		if (this.closedBy) {
+			return;
+		}
+
+		this.closedBy = error;
+
+		for (const waiter of this.pending.values()) {
+			waiter.reject(error);
+		}
+
+		this.pending.clear();
+
+		for (const closer of this.closers) {
+			closer(error);
+		}
+
+		this.closers.clear();
+	}
+
+	get closed(): boolean {
+		return this.closedBy !== null;
+	}
+
+	static connect(url: string, timeoutMs = 15_000): Promise<Cdp> {
 		return new Promise((resolve, reject) => {
 			const socket = new WebSocket(url);
-			socket.addEventListener("open", () => resolve(new Cdp(socket)));
 
-			socket.addEventListener("error", () =>
-				reject(new Error(`cannot connect to ${url}`)),
-			);
+			const timer = setTimeout(() => {
+				socket.close();
+				reject(new Error(`no connection to ${url} after ${timeoutMs} ms`));
+			}, timeoutMs);
+
+			socket.addEventListener("open", () => {
+				clearTimeout(timer);
+				resolve(new Cdp(socket));
+			});
+
+			socket.addEventListener("error", () => {
+				clearTimeout(timer);
+				reject(new Error(`cannot connect to ${url}`));
+			});
 		});
 	}
 
@@ -64,6 +112,10 @@ export class Cdp {
 		sessionId?: string,
 		timeoutMs = 15_000,
 	): Promise<T> {
+		if (this.closedBy) {
+			return Promise.reject(new Error(`${method}: ${this.closedBy.message}`));
+		}
+
 		const id = nextMessageId++;
 		this.socket.send(JSON.stringify({ id, method, params, sessionId }));
 
@@ -97,23 +149,43 @@ export class Cdp {
 		predicate: (message: EventMessage) => boolean = () => true,
 		timeoutMs = 15_000,
 	): Promise<EventMessage> {
+		if (this.closedBy) {
+			return Promise.reject(
+				new Error(`waiting for ${method}: ${this.closedBy.message}`),
+			);
+		}
+
 		return new Promise((resolve, reject) => {
-			const timer = setTimeout(() => {
+			const done = () => {
+				clearTimeout(timer);
 				off();
+				this.closers.delete(closed);
+			};
+
+			const timer = setTimeout(() => {
+				done();
 				reject(new Error(`timed out waiting for ${method}`));
 			}, timeoutMs);
 
+			const closed = (error: Error) => {
+				done();
+				reject(new Error(`waiting for ${method}: ${error.message}`));
+			};
+
 			const off = this.on((message) => {
 				if (message.method === method && predicate(message)) {
-					clearTimeout(timer);
-					off();
+					done();
 					resolve(message);
 				}
 			});
+
+			this.closers.add(closed);
 		});
 	}
 
+	// Safe to call more than once.
 	close(): void {
+		this.fail(new Error("the DevTools connection was closed"));
 		this.socket.close();
 	}
 }
@@ -157,6 +229,9 @@ export class Page {
 			(message) => message.sessionId === this.sessionId,
 		);
 
+		// Awaited below; a navigation that fails first must not leave it
+		// rejected with no handler.
+		loaded.catch(() => {});
 		await this.send("Page.navigate", { url });
 		await loaded;
 	}

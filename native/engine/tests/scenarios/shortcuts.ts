@@ -1,6 +1,6 @@
-import { readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { launchPane, tabOf } from "../lib/pane";
+import { tabOf } from "../lib/pane";
+import { poll } from "../lib/poll";
+import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 type Key = { key: string; modifiers?: string[] };
@@ -17,10 +17,7 @@ const ZOOM_CALLS = new Set([
 // Every app shortcut, sent as key events through AppKit's queue (event
 // monitors, then menu key equivalents), and its effect on the app.
 const shortcuts: Scenario = async (context) => {
-	const trace = join(context.out, "shortcuts-trace.jsonl");
-	rmSync(trace, { force: true });
-
-	const app = await launchPane(context, { env: { PANE_ENGINE_TRACE: trace } });
+	const { app, trace } = await launchTraced(context, "shortcuts");
 
 	const press = (key: string, ...modifiers: string[]) =>
 		app.send("key", { key, modifiers } satisfies Key);
@@ -141,12 +138,25 @@ const shortcuts: Scenario = async (context) => {
 	);
 
 	await press("r", "command");
-	await Bun.sleep(500);
-	await app.waitFor("⌘R", (state) => !tabOf(state, tabA)?.loading);
 
-	const after = Number(
-		await (await app.page(tabA, a)).evaluate<string>("sessionStorage.loads"),
+	// Reloaded once the page has counted another load.
+	const reloaded = await app.page(tabA, a);
+
+	const after = await poll(
+		"⌘R",
+		async () => {
+			const loads = Number(
+				await reloaded
+					.evaluate<string>("sessionStorage.loads")
+					.catch(() => before),
+			);
+
+			return loads !== before && loads;
+		},
+		10_000,
 	);
+
+	await app.waitFor("⌘R", (state) => !tabOf(state, tabA)?.loading);
 
 	expect(after === before + 1, `⌘R loaded the page ${after - before} times`);
 	checks["⌘R"] = { loadsBefore: before, loadsAfter: after };
@@ -156,17 +166,12 @@ const shortcuts: Scenario = async (context) => {
 	// screen is locked the window is occluded, and Chromium sends an occluded
 	// page no visual updates, so the page's own ratio can lag.)
 	const zoomLevels = () =>
-		readFileSync(trace, "utf8")
-			.split("\n")
-			.filter(Boolean)
-			.map(
-				(line) =>
-					JSON.parse(line) as {
-						name: string;
-						args: { before: number; after: number };
-					},
-			)
-			.filter((entry) => ZOOM_CALLS.has(entry.name));
+		trace()
+			.filter((entry) => ZOOM_CALLS.has(entry.name))
+			.map((entry) => ({
+				name: entry.name,
+				args: entry.args as { before: number; after: number },
+			}));
 
 	const zoomPage = await app.page(tabA, a);
 	const ratio = () => zoomPage.evaluate<number>("devicePixelRatio");

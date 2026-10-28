@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isScreenLocked } from "../lib/cua";
 import { pageResult, WindowWatcher, waitForSheet } from "../lib/surfaces";
@@ -16,7 +15,7 @@ const fileChooser: Scenario = async (context) => {
 	const tab = await app.openTab(profile, url);
 	const page = await app.page(tab, url);
 	const evaluate = (expression: string) => page.evaluate(expression);
-	const folder = mkdtempSync(join(tmpdir(), "pane-files-"));
+	const folder = context.tempDir("pane-files-");
 	const chosen = join(folder, "chosen.txt");
 	writeFileSync(chosen, "Chosen through the Pane panel\n");
 

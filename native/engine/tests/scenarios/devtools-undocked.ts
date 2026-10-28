@@ -1,8 +1,8 @@
+import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
+import { waitForTarget } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
-
-type Target = { targetId: string; type: string; url: string };
 
 // Undocking DevTools moves them into a window of Pane's (not Chrome's DevTools
 // window); docking them again closes it.
@@ -20,30 +20,42 @@ const devtoolsUndocked: Scenario = async (context) => {
 		state.devToolsTabs.includes(tab),
 	);
 
-	await Bun.sleep(1_500);
-
-	// The frontend's own binding, as its "Undock into separate window" does.
+	// The frontend's own binding, as its "Undock into separate window" does,
+	// once the frontend has loaded it.
 	const frontend = async () => {
-		const { targetInfos } = await app.browser.cdp.send<{
-			targetInfos: Target[];
-		}>("Target.getTargets");
-
-		const target = targetInfos.find((info) =>
-			info.url.startsWith("devtools://"),
+		const target = await waitForTarget(
+			app.browser.cdp,
+			"the DevTools frontend",
+			(info) => info.url.startsWith("devtools://"),
 		);
-
-		expect(target, "no DevTools frontend");
 
 		const { sessionId } = await app.browser.cdp.send<{ sessionId: string }>(
 			"Target.attachToTarget",
 			{
-				targetId: target?.targetId,
+				targetId: target.targetId,
 				flatten: true,
 			},
 		);
 
-		return (expression: string) =>
-			app.browser.cdp.send("Runtime.evaluate", { expression }, sessionId);
+		const evaluate = (expression: string) =>
+			app.browser.cdp.send<{ result: { value?: unknown } }>(
+				"Runtime.evaluate",
+				{ expression, returnByValue: true },
+				sessionId,
+			);
+
+		await poll(
+			"the DevTools frontend's bindings",
+			async () =>
+				(
+					await evaluate(
+						"typeof InspectorFrontendHost?.setIsDocked === 'function'",
+					).catch(() => null)
+				)?.result.value === true,
+			15_000,
+		);
+
+		return evaluate;
 	};
 
 	await (await frontend())(
@@ -54,6 +66,7 @@ const devtoolsUndocked: Scenario = async (context) => {
 		state.nativeWindows.some((window) => window.role === "devtools"),
 	);
 
+	// A moment undocked, for the watcher to catch any window of Chrome's.
 	await Bun.sleep(1_000);
 	await watcher.sample("undocked");
 

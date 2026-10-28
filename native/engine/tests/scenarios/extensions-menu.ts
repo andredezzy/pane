@@ -245,7 +245,9 @@ const extensionsMenu: Scenario = async (context) => {
 	await app.send("render", { path: join(context.out, "menu-light.png") });
 
 	// As the screen shows it, over the page.
-	if (!locked) {
+	if (locked) {
+		context.defer("the menu as the screen shows it, over the page");
+	} else {
 		const pid = app.browser.pid;
 
 		await windowState(

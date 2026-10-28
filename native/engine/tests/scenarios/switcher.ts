@@ -53,9 +53,11 @@ const switcher: Scenario = async (context) => {
 	await Bun.sleep(300);
 	await app.send("render", { path: join(context.out, "switcher.png") });
 
-	let screenshot = "deferred: screen locked";
+	let screenshot: string | null = null;
 
-	if (!(await isScreenLocked())) {
+	if (await isScreenLocked()) {
+		context.defer("the switcher as the screen shows it");
+	} else {
 		const windowId = await mainWindowOf(app.browser.pid);
 
 		await windowState(

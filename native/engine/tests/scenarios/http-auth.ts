@@ -6,6 +6,7 @@ import {
 	windowState,
 } from "../lib/cua";
 import { tabOf } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -34,10 +35,25 @@ const httpAuth: Scenario = async (context) => {
 	// On screen: both fields at their full width, and a picture of the sheet.
 	let fields: number[] | "locked" = "locked";
 
-	if (!(await isScreenLocked())) {
+	if (await isScreenLocked()) {
+		context.defer("the sheet's fields at their full width, on screen");
+	} else {
 		const window = await mainWindowOf(app.browser.pid);
-		await Bun.sleep(500);
-		fields = await sheetFieldWidths(app.browser.pid, window);
+
+		const wide = (widths: number[]) =>
+			widths.length === 2 && widths.every((width) => width >= 200);
+
+		// The sheet's fields reach accessibility a moment after it shows.
+		fields = await poll(
+			"the sheet's fields",
+			async () => {
+				const widths = await sheetFieldWidths(app.browser.pid, window);
+
+				return wide(widths) && widths;
+			},
+			5_000,
+			200,
+		).catch(() => sheetFieldWidths(app.browser.pid, window));
 
 		await windowState(
 			app.browser.pid,
@@ -46,7 +62,7 @@ const httpAuth: Scenario = async (context) => {
 		);
 
 		expect(
-			fields.length === 2 && fields.every((width) => width >= 200),
+			wide(fields),
 			`the sheet's fields are ${JSON.stringify(fields)} wide`,
 		);
 	}

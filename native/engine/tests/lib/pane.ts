@@ -4,18 +4,17 @@
 import {
 	existsSync,
 	mkdirSync,
-	mkdtempSync,
 	readFileSync,
 	renameSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ScenarioContext } from "../run";
 import type { Browser } from "./browser";
 import { openPage, type Page } from "./cdp";
 import { isScreenLocked } from "./cua";
+import { targets } from "./targets";
 
 export type TabState = {
 	id: string;
@@ -181,6 +180,8 @@ export class PaneApp {
 		readonly browser: Browser,
 		readonly dataDir: string,
 		private readonly automationDir: string,
+		// Where a stuck app's sample goes: the run's output.
+		private readonly out: string,
 	) {}
 
 	async send<T = unknown>(
@@ -213,7 +214,7 @@ export class PaneApp {
 		}
 
 		// A stuck app: record where its main thread is before failing.
-		const sampleFile = join(tmpdir(), `pane-hang-${command}-${Date.now()}.txt`);
+		const sampleFile = join(this.out, `pane-hang-${command}-${Date.now()}.txt`);
 
 		await Bun.$`sample ${this.browser.pid} 2 -file ${sampleFile}`
 			.quiet()
@@ -251,6 +252,37 @@ export class PaneApp {
 		return state;
 	}
 
+	// The state once `watched` has held still for `quietMs`: for what may or
+	// may not come (an extension's welcome tab), which nothing announces.
+	async settled(
+		description: string,
+		watched: (state: AppState) => unknown,
+		quietMs = 1_000,
+		timeoutMs = 15_000,
+	): Promise<AppState> {
+		const deadline = Date.now() + timeoutMs;
+		let state = await this.state();
+		let value = JSON.stringify(watched(state));
+		let since = Date.now();
+
+		while (Date.now() - since < quietMs) {
+			if (Date.now() > deadline) {
+				throw new Error(`${description} never settled: ${value}`);
+			}
+
+			await Bun.sleep(150);
+			state = await this.state();
+			const next = JSON.stringify(watched(state));
+
+			if (next !== value) {
+				value = next;
+				since = Date.now();
+			}
+		}
+
+		return state;
+	}
+
 	async createProfile(name: string, color = "BLUE"): Promise<string> {
 		return (await this.send<string>("createProfile", { name, color })).result;
 	}
@@ -272,11 +304,7 @@ export class PaneApp {
 		const deadline = Date.now() + 30_000;
 
 		while (Date.now() < deadline) {
-			const { targetInfos } = await this.browser.cdp.send<{
-				targetInfos: { targetId: string; type: string; url: string }[];
-			}>("Target.getTargets");
-
-			const matching = targetInfos.filter(
+			const matching = (await targets(this.browser.cdp)).filter(
 				(target) => target.type === "page" && target.url === url,
 			);
 
@@ -326,7 +354,8 @@ export function tabOf(state: AppState, tabID: string): TabState | undefined {
 }
 
 export type PaneLaunch = {
-	// Reuse a data directory (for relaunch checks); a throwaway one otherwise.
+	// Reuse a data directory (for relaunch checks); a throwaway one otherwise,
+	// removed with the scenario's other directories when it ends.
 	dataDir?: string;
 	args?: string[];
 	env?: Record<string, string>;
@@ -336,7 +365,7 @@ export async function launchPane(
 	context: ScenarioContext,
 	options: PaneLaunch = {},
 ): Promise<PaneApp> {
-	const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "pane-data-"));
+	const dataDir = options.dataDir ?? context.tempDir("pane-data-");
 	const automationDir = join(dataDir, "automation");
 	rmSync(automationDir, { recursive: true, force: true });
 	mkdirSync(join(automationDir, "in"), { recursive: true });
@@ -367,7 +396,7 @@ export async function launchPane(
 		},
 	});
 
-	const app = new PaneApp(browser, dataDir, automationDir);
+	const app = new PaneApp(browser, dataDir, automationDir, context.out);
 	await app.waitFor("the window", (state) => state.window.visible);
 
 	return app;

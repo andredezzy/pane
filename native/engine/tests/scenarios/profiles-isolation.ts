@@ -1,4 +1,5 @@
 import { launchPane } from "../lib/pane";
+import { targets } from "../lib/targets";
 import { settledWindowsOf } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
@@ -48,9 +49,7 @@ const profilesIsolation: Scenario = async (context) => {
 
 	expect(inPersonal.storage === null, "personal saw work's localStorage");
 
-	const { targetInfos } = await app.browser.cdp.send<{
-		targetInfos: { url: string; type: string; browserContextId?: string }[];
-	}>("Target.getTargets");
+	const targetInfos = await targets(app.browser.cdp);
 
 	const contextOf = (url: string) =>
 		targetInfos.find((target) => target.url === url)?.browserContextId;

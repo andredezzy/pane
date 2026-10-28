@@ -1,5 +1,3 @@
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isScreenLocked, mainWindowOf, windowState } from "../lib/cua";
 import { launchPane } from "../lib/pane";
@@ -12,7 +10,7 @@ type Drag = { stepMs: number[]; pageWidth: number };
 // to 260, and the width is kept across launches. Each step of a drag is timed
 // from its event to the window's layout at the new width.
 const sidebarResize: Scenario = async (context) => {
-	const dataDir = mkdtempSync(join(tmpdir(), "pane-sidebar-"));
+	const dataDir = context.tempDir("pane-sidebar-");
 	const first = await launchPane(context, { dataDir });
 	const profile = await first.createProfile("Resize");
 	const url = context.fixtures.url("light.html?resize");
@@ -34,7 +32,9 @@ const sidebarResize: Scenario = async (context) => {
 	// The window as the screen shows it: the fade is a layer mask, which the
 	// app's own render leaves out. Locked, there is no screen to show.
 	const shot = async (file: string) => {
-		if (!(await isScreenLocked())) {
+		if (await isScreenLocked()) {
+			context.defer(`${file}: the list's fade, which only the screen shows`);
+		} else {
 			const pid = first.browser.pid;
 			await windowState(pid, await mainWindowOf(pid), join(context.out, file));
 		}

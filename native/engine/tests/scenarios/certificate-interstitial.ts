@@ -1,18 +1,16 @@
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { $ } from "bun";
 import { tabOf } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
+import { waitForTarget } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
-
-type Target = { targetId: string; type: string; url: string; title: string };
 
 // A site with a certificate Chrome does not trust shows Chrome's warning page
 // inside the tab (web content, not a window); proceeding loads the site.
 const certificateInterstitial: Scenario = async (context) => {
-	const folder = mkdtempSync(join(tmpdir(), "pane-tls-"));
+	const folder = context.tempDir("pane-tls-");
 	await $`openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -keyout ${join(folder, "key.pem")} -out ${join(folder, "cert.pem")}`.quiet();
 
 	const server = Bun.serve({
@@ -51,20 +49,16 @@ const certificateInterstitial: Scenario = async (context) => {
 		await watcher.sample("interstitial");
 
 		// The warning page's own "Proceed" link, through CDP.
-		const { targetInfos } = await app.browser.cdp.send<{
-			targetInfos: Target[];
-		}>("Target.getTargets");
-
-		const target = targetInfos.find(
+		const target = await waitForTarget(
+			app.browser.cdp,
+			"the warning page",
 			(info) => info.type === "page" && info.title === "Privacy error",
 		);
-
-		expect(target, "no target for the warning page");
 
 		const { sessionId } = await app.browser.cdp.send<{ sessionId: string }>(
 			"Target.attachToTarget",
 			{
-				targetId: target?.targetId,
+				targetId: target.targetId,
 				flatten: true,
 			},
 		);

@@ -1,15 +1,13 @@
-import { existsSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, tabOf } from "../lib/pane";
+import { targets as targetsOf } from "../lib/targets";
 import { expect, type Scenario } from "../run";
-
-type Target = { type: string; url: string };
 
 // A first launch shows the empty state; collapsing a profile unloads its
 // pages but keeps its tabs; deleting a profile removes it and its data.
 const profileLifecycle: Scenario = async (context) => {
-	const dataDir = mkdtempSync(join(tmpdir(), "pane-lifecycle-"));
+	const dataDir = context.tempDir("pane-lifecycle-");
 	const app = await launchPane(context, { dataDir });
 
 	const empty = await app.state();
@@ -32,9 +30,9 @@ const profileLifecycle: Scenario = async (context) => {
 	await gonePage.evaluate("localStorage.pane = 'gone'");
 
 	const targets = async () =>
-		(
-			await app.browser.cdp.send<{ targetInfos: Target[] }>("Target.getTargets")
-		).targetInfos.filter((target) => target.type === "page");
+		(await targetsOf(app.browser.cdp)).filter(
+			(target) => target.type === "page",
+		);
 
 	// Collapse (Unload): the tab stays, its page goes.
 	await app.send("unloadProfile", { profile: keep });

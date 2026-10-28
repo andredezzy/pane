@@ -1,26 +1,12 @@
 import { join } from "node:path";
 import { launchPane, type PaneApp } from "../lib/pane";
+import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
 // ⌘Q asks first, as Aside does (Paper: 03.5 Quit Pane). From a focused page:
 // ⌘Q shows Quit Pane?, Esc goes back and gives the page its focus again, and
 // ⌘Q then Return quits. On the Dark theme, ⌘Q twice quits. Keys are posted
 // into the app's event queue, so they take the menu's real path.
-async function exited(app: PaneApp, timeoutMs = 10_000): Promise<boolean> {
-	const deadline = Date.now() + timeoutMs;
-
-	while (Date.now() < deadline) {
-		if (
-			(await Bun.$`kill -0 ${app.browser.pid}`.quiet().nothrow()).exitCode !== 0
-		) {
-			return true;
-		}
-
-		await Bun.sleep(250);
-	}
-
-	return false;
-}
 
 // A key the panel takes needs the key window, as when the user is in Pane;
 // another app may have taken it during the run.
@@ -71,7 +57,7 @@ const quit: Scenario = async (context) => {
 	await app.send("key", { key: "q", modifiers: ["command"] });
 	await app.waitFor("Quit Pane? again", (state) => state.quitConfirmation);
 	await press(app, "\r");
-	const quitByReturn = await exited(app);
+	const quitByReturn = await waitForExit(app.browser.pid);
 
 	expect(quitByReturn, "Return did not quit");
 
@@ -86,7 +72,7 @@ const quit: Scenario = async (context) => {
 	await dark.send("render", { path: join(context.out, "quit-dark.png") });
 
 	await dark.send("key", { key: "q", modifiers: ["command"] });
-	const quitByCommandQ = await exited(dark);
+	const quitByCommandQ = await waitForExit(dark.browser.pid);
 
 	expect(quitByCommandQ, "⌘Q twice did not quit");
 

@@ -2,13 +2,11 @@ import { createHash } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
-	mkdtempSync,
 	readdirSync,
 	readFileSync,
 	statSync,
 	writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -80,12 +78,9 @@ const migration: Scenario = async (context) => {
 	expect(existsSync(ELECTRON), `no Electron at ${ELECTRON}`);
 
 	// The Electron app's data.
-	const source = mkdtempSync(join(tmpdir(), "pane-electron-"));
+	const source = context.tempDir("pane-electron-");
 
-	const seed = join(
-		mkdtempSync(join(tmpdir(), "pane-electron-seed-")),
-		"main.js",
-	);
+	const seed = join(context.tempDir("pane-electron-seed-"), "main.js");
 
 	writeFileSync(seed, SEED);
 

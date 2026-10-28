@@ -58,13 +58,13 @@ export async function isScreenLocked(): Promise<boolean> {
 // The app's largest window. A sheet is a window of its own, and the windows
 // come in no fixed order; only the main window holds the sheet's controls.
 export async function mainWindowOf(pid: number): Promise<number> {
-	const [main] = await windowsOf(pid);
+	const [main] = await windowList(pid);
 
 	if (main === undefined) {
 		throw new Error(`no main window for pid ${pid}`);
 	}
 
-	return main;
+	return main.window_id;
 }
 
 export function windowState(
@@ -136,10 +136,6 @@ async function windowList(pid: number): Promise<ListedWindow[]> {
 	return windows.sort((a, b) => area(b) - area(a));
 }
 
-async function windowsOf(pid: number): Promise<number[]> {
-	return (await windowList(pid)).map((window) => window.window_id);
-}
-
 // A tree without the menu bar, which lists the user's recent items and
 // other apps: failures quote the window, never that.
 function withoutMenuBar(tree: string): string {
@@ -177,7 +173,11 @@ async function readUntil<T>(
 	const deadline = Date.now() + 5_000;
 
 	for (;;) {
-		const windowIds = window === "any" ? await windowsOf(pid) : [window];
+		const windowIds =
+			window === "any"
+				? (await windowList(pid)).map((listed) => listed.window_id)
+				: [window];
+
 		const trees: string[] = [];
 
 		for (const windowId of windowIds) {

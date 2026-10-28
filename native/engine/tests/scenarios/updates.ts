@@ -1,5 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { invokeMenu } from "../lib/cua";
 import { launchPane } from "../lib/pane";
@@ -14,7 +13,7 @@ import { expect, type Scenario } from "../run";
 const VERSION = "99.0.0";
 
 const updates: Scenario = async (context) => {
-	const downloads = mkdtempSync(join(tmpdir(), "pane-updates-"));
+	const downloads = context.tempDir("pane-updates-");
 
 	const app = await launchPane(context, {
 		env: {

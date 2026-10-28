@@ -1,8 +1,7 @@
 import { WindowWatcher } from "../lib/surfaces";
+import { waitForTarget } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
-
-type Target = { type: string; url: string };
 
 // ⇧⌘I docks DevTools beside the tab, inside the app's window; again closes them.
 const devtools: Scenario = async (context) => {
@@ -19,16 +18,15 @@ const devtools: Scenario = async (context) => {
 		state.devToolsTabs.includes(tab),
 	);
 
+	const frontend = await waitForTarget(
+		app.browser.cdp,
+		"the DevTools frontend",
+		(target) => target.url.startsWith("devtools://"),
+	).catch(() => null);
+
+	// A moment open, for the watcher to catch any window of Chrome's.
 	await Bun.sleep(1_000);
 	await watcher.sample("devtools open");
-
-	const { targetInfos } = await app.browser.cdp.send<{ targetInfos: Target[] }>(
-		"Target.getTargets",
-	);
-
-	const frontend = targetInfos.find((target) =>
-		target.url.startsWith("devtools://"),
-	);
 
 	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
 

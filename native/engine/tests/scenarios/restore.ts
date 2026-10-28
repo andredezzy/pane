@@ -1,5 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
@@ -19,7 +18,7 @@ const saved = (state: AppState): Saved =>
 
 // Profiles and their tabs, in order, survive quitting and relaunching.
 const restore: Scenario = async (context) => {
-	const dataDir = mkdtempSync(join(tmpdir(), "pane-restore-"));
+	const dataDir = context.tempDir("pane-restore-");
 	const first = await launchPane(context, { dataDir });
 
 	const layout: [string, string, string[]][] = [

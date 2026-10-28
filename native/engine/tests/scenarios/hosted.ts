@@ -1,4 +1,3 @@
-import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
 	invokeMenu,
@@ -6,37 +5,14 @@ import {
 	mainWindowOf,
 	windowState,
 } from "../lib/cua";
-import { launchPane } from "../lib/pane";
+import { isRunning, waitForExit } from "../lib/processes";
+import { waitForTarget } from "../lib/targets";
+import { launchTraced } from "../lib/traced";
 import { imageDetail, settledWindowsOf } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
-type Target = { type: string; url: string; title: string };
-
 const URL = "https://example.com/";
 const TITLE = "Example Domain";
-
-async function waitForPage(port: number): Promise<Target> {
-	const deadline = Date.now() + 30_000;
-
-	while (Date.now() < deadline) {
-		const targets = (await (
-			await fetch(`http://127.0.0.1:${port}/json/list`)
-		).json()) as Target[];
-
-		const page = targets.find(
-			(target) =>
-				target.type === "page" && target.url === URL && target.title === TITLE,
-		);
-
-		if (page) {
-			return page;
-		}
-
-		await Bun.sleep(250);
-	}
-
-	throw new Error(`no page target ${URL} titled ${TITLE}`);
-}
 
 // The app's helper processes: its children.
 async function helpersOf(pid: number): Promise<number[]> {
@@ -50,55 +26,40 @@ async function helpersOf(pid: number): Promise<number[]> {
 // — with an unlocked screen — the page visible in that window and Cmd+Q
 // shutting every helper down.
 const hosted: Scenario = async (context) => {
-	const trace = join(context.out, "trace.jsonl");
-	rmSync(trace, { force: true });
-
-	const { browser } = await launchPane(context, {
+	const { app, trace, has } = await launchTraced(context, "hosted", {
 		args: [URL],
-		env: { PANE_ENGINE_TRACE: trace },
 	});
 
+	const { browser } = app;
 	const { out } = context;
 
-	const page = await waitForPage(browser.port);
+	const page = await waitForTarget(
+		browser.cdp,
+		`the page ${URL} titled ${TITLE}`,
+		(target) =>
+			target.type === "page" && target.url === URL && target.title === TITLE,
+	);
+
 	const windows = await settledWindowsOf(browser.pid, 1);
 
 	expect(windows.count === 1, `expected 1 window, got ${windows.count}`);
-
-	const calls = readFileSync(trace, "utf8")
-		.split("\n")
-		.filter(Boolean)
-		.map(
-			(line) =>
-				JSON.parse(line) as {
-					kind: string;
-					name: string;
-					args: Record<string, unknown>;
-				},
-		);
-
-	const names = new Set(calls.map((entry) => entry.name));
-
-	for (const name of ["PaneBrowserWindow.openTab"]) {
-		expect(names.has(name), `trace lacks ${name}`);
-	}
+	expect(has("PaneBrowserWindow.openTab"), "trace lacks openTab");
 
 	expect(
-		calls.some(
-			(entry) =>
-				entry.name === "PaneWebContentsDelegate.didChangeTitle" &&
-				entry.args.title === TITLE,
+		has(
+			"PaneWebContentsDelegate.didChangeTitle",
+			(args) => args.title === TITLE,
 		),
 		`trace lacks didChangeTitle(${TITLE})`,
 	);
 
+	const traceEntries = trace().length;
+
 	if (await isScreenLocked()) {
-		return {
-			page,
-			windows,
-			traceEntries: calls.length,
-			visual: "deferred: screen locked",
-		};
+		context.defer("the page drawn in the window");
+		context.defer("Quit Pane stopping every helper");
+
+		return { page, windows, traceEntries };
 	}
 
 	const windowId = await mainWindowOf(browser.pid);
@@ -139,21 +100,14 @@ const hosted: Scenario = async (context) => {
 	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility. It
 	// asks first (Quit Pane?); choosing it again quits, as ⌘Q again does.
 	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
-	await Bun.sleep(1_000);
+	await app.waitFor("Quit Pane?", (current) => current.quitConfirmation);
 	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
-	await Bun.sleep(5_000);
 
-	const exited =
-		(await Bun.$`kill -0 ${browser.pid}`.quiet().nothrow()).exitCode !== 0;
+	const exited = await waitForExit(browser.pid, 5_000);
 
 	// This app's helpers only: other scenarios' may still be exiting.
-	const helpersAfter: number[] = [];
-
-	for (const helper of helpersBefore) {
-		if ((await Bun.$`kill -0 ${helper}`.quiet().nothrow()).exitCode === 0) {
-			helpersAfter.push(helper);
-		}
-	}
+	await Promise.all(helpersBefore.map((helper) => waitForExit(helper, 5_000)));
+	const helpersAfter = helpersBefore.filter(isRunning);
 
 	expect(exited, "the app still runs 5 s after Quit");
 	expect(helpersBefore.length > 0, "the app had no helper processes");
@@ -166,8 +120,7 @@ const hosted: Scenario = async (context) => {
 	return {
 		page,
 		windows,
-		traceEntries: calls.length,
-		visual: "verified",
+		traceEntries,
 		windowTitle: state.window_title,
 		pageDetail: detail,
 		accessibility: tree,

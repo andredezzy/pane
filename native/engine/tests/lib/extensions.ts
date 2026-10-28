@@ -12,8 +12,7 @@ import {
 } from "./cua";
 import type { AppState, PaneApp } from "./pane";
 import { type Answer, answerSheet, waitForSheet } from "./surfaces";
-
-type Target = { targetId: string; type: string; url: string; title: string };
+import { targets, waitForTarget } from "./targets";
 
 export type Installed = {
 	id: string;
@@ -22,33 +21,6 @@ export type Installed = {
 	answer: Answer;
 	addClick: "cua" | "gesture";
 };
-
-export async function targets(app: PaneApp): Promise<Target[]> {
-	return (
-		await app.browser.cdp.send<{ targetInfos: Target[] }>("Target.getTargets")
-	).targetInfos;
-}
-
-export async function waitForTarget(
-	app: PaneApp,
-	description: string,
-	matches: (target: Target) => boolean,
-	timeoutMs = 30_000,
-): Promise<Target> {
-	const deadline = Date.now() + timeoutMs;
-
-	while (Date.now() < deadline) {
-		const found = (await targets(app)).find(matches);
-
-		if (found) {
-			return found;
-		}
-
-		await Bun.sleep(250);
-	}
-
-	throw new Error(`no target: ${description}`);
-}
 
 // Opens the item's Web Store page in a tab of `profile`, presses "Add to
 // Chrome", and accepts the app's install sheet.
@@ -63,7 +35,7 @@ export async function installFromWebStore(
 	);
 
 	const store = await waitForTarget(
-		app,
+		app.browser.cdp,
 		`the Web Store page of ${id}`,
 		(target) =>
 			target.type === "page" &&
@@ -133,7 +105,7 @@ export async function installFromWebStore(
 // The open popup page of extension `id`.
 export async function popupPage(app: PaneApp, id: string): Promise<Page> {
 	const target = await waitForTarget(
-		app,
+		app.browser.cdp,
 		`the popup of ${id}`,
 		(info) =>
 			info.url.startsWith(`chrome-extension://${id}/`) &&
@@ -267,22 +239,20 @@ export async function workerPage(
 	id: string,
 	tabURL: string,
 ): Promise<Page> {
-	type Info = Target & { browserContextId?: string };
-
-	const all = (await targets(app)) as Info[];
+	const all = await targets(app.browser.cdp);
 
 	const context = all.find(
 		(info) => info.type === "page" && info.url === tabURL,
 	)?.browserContextId;
 
-	const target = (await waitForTarget(
-		app,
+	const target = await waitForTarget(
+		app.browser.cdp,
 		`the worker of ${id}`,
 		(info) =>
 			info.type === "service_worker" &&
 			info.url.startsWith(`chrome-extension://${id}/`) &&
-			(info as Info).browserContextId === context,
-	)) as Info;
+			info.browserContextId === context,
+	);
 
 	const { sessionId } = await app.browser.cdp.send<{ sessionId: string }>(
 		"Target.attachToTarget",
