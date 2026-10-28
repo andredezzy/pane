@@ -1,13 +1,14 @@
 import SwiftUI
 
 // What the content panel shows with no tab selected, as in the Electron app:
-// the Pane mark above one muted line. The mark is drawn in white, so it shows
-// on the dark panel only, as the Electron app's does.
+// the Pane mark above one muted line. The mark takes the text's color, so it
+// shows in light as in dark (the Electron app drew it white, unseen in
+// light).
 struct EmptyStateView: View {
 	var body: some View {
 		VStack(spacing: 12) {
 			PaneMark()
-				.stroke(.white, lineWidth: 1.5 * 40 / 24)
+				.stroke(Palette.foreground, lineWidth: 1.5 * 40 / 24)
 				.frame(width: 40, height: 40)
 				.accessibilityLabel("Pane")
 
