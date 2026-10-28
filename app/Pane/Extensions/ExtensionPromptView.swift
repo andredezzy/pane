@@ -33,23 +33,8 @@ struct ExtensionPromptView: View {
 					.frame(maxWidth: .infinity, alignment: .leading)
 			}
 
-			switch prompt.kind {
-			case .install where !prompt.permissions.isEmpty:
-				VStack(alignment: .leading, spacing: 6) {
-					Text(prompt.permissionsHeading)
-						.foregroundStyle(Palette.mutedForeground)
-
-					ForEach(prompt.permissions, id: \.self) { permission in
-						Text("· \(permission)")
-							.foregroundStyle(Palette.accentForeground)
-							.fixedSize(horizontal: false, vertical: true)
-					}
-				}
-				.font(.system(size: 13))
-				.frame(maxWidth: .infinity, alignment: .leading)
-				.padding(.top, 4)
-
-			case .remove:
+			// Installs ask in their own dialog (ExtensionInstallDialog, ADR 0056).
+			if prompt.kind == .remove {
 				Toggle(isOn: Bindable(controller).promptReportsAbuse) {
 					Text("Report abuse")
 						.font(.system(size: 13))
@@ -58,9 +43,6 @@ struct ExtensionPromptView: View {
 				.toggleStyle(.checkbox)
 				.padding(.top, 4)
 				.accessibilityIdentifier("pane.extensionPopup.reportAbuse")
-
-			case .install:
-				EmptyView()
 			}
 
 			HStack(spacing: 8) {
