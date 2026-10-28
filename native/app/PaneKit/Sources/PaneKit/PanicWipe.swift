@@ -12,7 +12,7 @@ public enum PanicWipe {
 	// security.json comes last: while it stays, with its count of failed
 	// attempts, the wipe is still due.
 	public static func targets(dataDirectory: URL, cacheDirectory: URL?) -> [URL] {
-		["Engine", "profiles.json", "settings.json", "security.json"].map {
+		["Engine", "profiles.json", "settings.json", "deletions.json", "security.json"].map {
 			dataDirectory.appending(path: $0)
 		} + [cacheDirectory?.appending(path: "Engine")].compactMap(\.self)
 	}

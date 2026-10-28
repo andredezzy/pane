@@ -1,11 +1,14 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, tabOf } from "../lib/pane";
 import { targets as targetsOf } from "../lib/targets";
 import { expect, type Scenario } from "../run";
 
 // A first launch shows the empty state; collapsing a profile unloads its
-// pages but keeps its tabs; deleting a profile removes it and its data.
+// pages but keeps its tabs; deleting a profile removes it and its data. A
+// delete the engine never confirmed (a quit, a crash) is finished at the
+// next launch. A profile whose engine context will not open shows its tab
+// as the sad tab, and deleting it leaves nothing pending.
 const profileLifecycle: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lifecycle-");
 	const app = await launchPane(context, { dataDir });
@@ -97,6 +100,15 @@ const profileLifecycle: Scenario = async (context) => {
 
 	await app.browser.close();
 
+	// A delete the engine never confirmed: deletions.json still names it.
+	const orphanDir = join(dataDir, "Engine", "orphan");
+	mkdirSync(join(orphanDir, "Network"), { recursive: true });
+
+	writeFileSync(
+		join(dataDir, "deletions.json"),
+		JSON.stringify({ state: ["orphan"], version: 0 }),
+	);
+
 	// Chrome removes a deleted profile's directory once nothing holds the
 	// profile, or else in a low-priority cleanup at the next start.
 	const relaunched = await launchPane(context, { dataDir });
@@ -109,6 +121,59 @@ const profileLifecycle: Scenario = async (context) => {
 
 	await relaunched.browser.close();
 
+	const orphan = {
+		data: existsSync(orphanDir),
+		listed: existsSync(join(dataDir, "deletions.json")),
+	};
+
+	// A profile whose context will not open: the engine refuses an id that
+	// is not one folder of its data.
+	const brokenDir = context.tempDir("pane-lifecycle-broken-");
+	const brokenURL = context.fixtures.url("smoke.html?broken");
+
+	writeFileSync(
+		join(brokenDir, "profiles.json"),
+		JSON.stringify({
+			state: {
+				profiles: [
+					{
+						id: "broken/profile",
+						name: "Broken",
+						color: "ROSE",
+						group: null,
+						fingerprint: null,
+						proxy: null,
+						keepLoaded: false,
+						tabs: [
+							{ id: "broken-tab", url: brokenURL, title: "", favicon: "" },
+						],
+						createdAt: "2026-10-27T00:00:00.000Z",
+						updatedAt: "2026-10-27T00:00:00.000Z",
+					},
+				],
+			},
+			version: 0,
+		}),
+	);
+
+	const broken = await launchPane(context, { dataDir: brokenDir });
+	await broken.send("select", { tab: "broken-tab" });
+
+	const sadTab = await broken.waitFor(
+		"the sad tab of a profile that will not open",
+		(state) => state.crashedTabs.includes("broken-tab"),
+	);
+
+	await broken.send("deleteProfile", { profile: "broken/profile" });
+
+	const brokenDeleted = await broken.waitFor(
+		"nothing left pending",
+		(state) =>
+			state.profiles.length === 0 && state.pendingProfileDeletions === 0,
+	);
+
+	await broken.browser.close();
+
 	expect(
 		after.profiles.map((profile) => profile.name).join(",") === "Keep",
 		`profiles after relaunch: ${after.profiles.map((profile) => profile.name).join(",")}`,
@@ -119,6 +184,11 @@ const profileLifecycle: Scenario = async (context) => {
 		`the deleted profile's data is still at ${profileDir}`,
 	);
 
+	expect(
+		!orphan.data && !orphan.listed,
+		`an unconfirmed delete was not finished: ${JSON.stringify(orphan)}`,
+	);
+
 	return {
 		empty: { profiles: empty.profiles.length, render: "empty-state.png" },
 		unloaded: tabOf(unloaded, keepTab),
@@ -126,6 +196,11 @@ const profileLifecycle: Scenario = async (context) => {
 		deleted: deleted.profiles.map((profile) => profile.name),
 		afterRelaunch: after.profiles.map((profile) => profile.name),
 		profileDirRemoved: !existsSync(profileDir),
+		unconfirmedDelete: orphan,
+		contextThatWillNotOpen: {
+			sadTab: sadTab.activeTabID === "broken-tab",
+			pendingAfterDelete: brokenDeleted.pendingProfileDeletions,
+		},
 	};
 };
 

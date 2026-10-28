@@ -59,11 +59,13 @@ final class BrowserModel {
 		var canGoForward = false
 	}
 
+	let dataDirectory: URL
 	private let profilesFile: PersistedFile<ProfilesState>
 	private let settingsFile: PersistedFile<SettingsState>
 	private var saveTask: Task<Void, Never>?
 
 	init(dataDirectory: URL) {
+		self.dataDirectory = dataDirectory
 		profilesFile = PersistedFile(directory: dataDirectory, name: "profiles")
 		settingsFile = PersistedFile(directory: dataDirectory, name: "settings")
 		profiles = Self.load(profilesFile)?.profiles ?? []

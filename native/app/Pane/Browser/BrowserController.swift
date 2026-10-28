@@ -15,7 +15,7 @@ final class BrowserController: NSObject {
 
 	private let application: BrowserApplication
 	private var contexts: [String: BrowserContext] = [:]
-	private var contextWaiters: [String: [(BrowserContext) -> Void]] = [:]
+	private var contextWaiters: [String: [(BrowserContext?) -> Void]] = [:]
 	private var pages: [String: WebContents] = [:]
 	// DevTools docked to a tab, by tab id.
 	private var devTools: [String: WebContents] = [:]
@@ -45,6 +45,8 @@ final class BrowserController: NSObject {
 	private var pendingTabID: String?
 	// Profiles whose engine data is still being deleted.
 	private(set) var pendingDeletions: Set<String> = []
+	// The same, on disk until the engine confirms, for the next launch.
+	private let deletions: ProfileDeletions
 	// Each profile's proxy and WebRTC policy.
 	let network: ProfileNetwork
 	// The PIN lock.
@@ -60,6 +62,7 @@ final class BrowserController: NSObject {
 		self.lock = lock
 		self.updater = updater
 		network = ProfileNetwork(model: model)
+		deletions = ProfileDeletions(dataDirectory: model.dataDirectory)
 		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()
 		browserWindow.delegate = self
@@ -180,7 +183,9 @@ final class BrowserController: NSObject {
 
 	// MARK: Contexts
 
-	private func withContext(_ profileID: String, _ body: @escaping (BrowserContext) -> Void) {
+	// Runs `body` with the profile's context, opening it first if needed;
+	// with nil when it would not open, so no caller is left half done.
+	private func withContext(_ profileID: String, _ body: @escaping (BrowserContext?) -> Void) {
 		if let context = contexts[profileID] {
 			body(context)
 			return
@@ -199,8 +204,8 @@ final class BrowserController: NSObject {
 			}
 
 			guard let context else {
-				contextWaiters[profileID] = nil
 				NSLog("Pane: could not open profile %@: %@", profileID, String(describing: error))
+				contextWaiters.removeValue(forKey: profileID)?.forEach { $0(nil) }
 				return
 			}
 
@@ -258,6 +263,13 @@ final class BrowserController: NSObject {
 
 		withContext(profileID) { [weak self] context in
 			guard let self, model.activeTabID == tabID, pages[tabID] == nil else {
+				return
+			}
+
+			// The profile would not open: the sad tab, whose Reload tries
+			// again.
+			guard let context else {
+				model.setCrashed(tabID, true)
 				return
 			}
 
@@ -378,11 +390,14 @@ final class BrowserController: NSObject {
 
 	// Removes the profile now; its engine data goes once the engine confirms.
 	// A profile not opened this session is opened first, so data from earlier
-	// sessions goes too.
+	// sessions goes too. Until then deletions.json names it, so a quit, a
+	// crash, or a context that would not open leaves the next launch to
+	// remove its folder (main.swift).
 	func deleteProfile(_ profileID: String) {
 		unloadProfile(profileID)
 		model.removeProfile(profileID)
 		pendingDeletions.insert(profileID)
+		deletions.add(profileID)
 		network.stop(profileID)
 		model.proxyStatus[profileID] = nil
 
@@ -391,9 +406,18 @@ final class BrowserController: NSObject {
 				return
 			}
 
+			guard let context else {
+				pendingDeletions.remove(profileID)
+				return
+			}
+
 			contexts[profileID] = nil
-			application.deleteContext(context) { [weak self] _ in
+			application.deleteContext(context) { [weak self] deleted in
 				self?.pendingDeletions.remove(profileID)
+
+				if deleted {
+					self?.deletions.remove(profileID)
+				}
 			}
 		}
 	}
@@ -806,6 +830,11 @@ extension BrowserController {
 		model.insertTab(tab, inProfile: profileID, after: sourceID)
 
 		withContext(profileID) { [weak self] context in
+			guard let context else {
+				self?.model.setCrashed(tab.id, true)
+				return
+			}
+
 			self?.openPage(tabID: tab.id, url: url, context: context, foreground: false)
 		}
 	}
@@ -826,11 +855,17 @@ extension BrowserController {
 		activePage?.printPage()
 	}
 
-	// The sad tab's Reload, or any reload of a crashed tab.
+	// The sad tab's Reload, or any reload of a crashed tab. A tab whose
+	// profile would not open has no page: selecting it tries again.
 	func reloadCrashed(_ tabID: String) {
 		model.setCrashed(tabID, false)
 		lastCrash[tabID] = nil
-		pages[tabID]?.reload()
+
+		if let page = pages[tabID] {
+			page.reload()
+		} else if model.activeTabID == tabID {
+			select(tabID: tabID)
+		}
 	}
 }
 
@@ -910,7 +945,7 @@ extension BrowserController {
 	// Installs from the Web Store into a profile; the engine asks first.
 	func installExtension(_ identifier: String, inProfile profileID: String) {
 		withContext(profileID) { [weak self] context in
-			guard let self else {
+			guard let self, let context else {
 				return
 			}
 

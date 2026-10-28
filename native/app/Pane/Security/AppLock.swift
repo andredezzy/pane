@@ -263,7 +263,8 @@ final class AppLock {
 		return state.pin != nil && state.failedAttempts >= SecurityState.maxAttempts
 	}
 
-	private static func cacheDirectory(for dataDirectory: URL) -> URL? {
+	// Where the engine keeps the profiles' caches, when apart from their data.
+	static func cacheDirectory(for dataDirectory: URL) -> URL? {
 		let fileManager = FileManager.default
 
 		return PanicWipe.cacheDirectory(

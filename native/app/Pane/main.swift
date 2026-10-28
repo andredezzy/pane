@@ -31,6 +31,12 @@ let electron = ProcessInfo.processInfo.environment["PANE_ELECTRON_DATA_DIR"].map
 
 LaunchMigration.run(from: electron, into: dataDirectory)
 
+// Profiles deleted whose engine data the engine never confirmed gone: their
+// folders go now, while nothing has them open (ProfileDeletions).
+for failure in ProfileDeletions(dataDirectory: dataDirectory).purge(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory)) {
+	NSLog("Pane: could not remove a deleted profile's data: %@", failure)
+}
+
 let appDelegate = AppDelegate(dataDirectory: dataDirectory)
 
 exit(BrowserApplication.run(delegate: appDelegate, dataDirectory: dataDirectory))
