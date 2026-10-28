@@ -7,7 +7,9 @@
 	<body>
 		<h1>Hung renderer fixture</h1>
 		<script>
+			// Named Hanging first, so the app's state shows the moment.
 			function hang() {
+				document.title = "Hanging";
 				setTimeout(() => {
 					for (;;) {}
 				}, 50);
