@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
 	clickButton,
@@ -13,9 +14,10 @@ import { expect, type Scenario } from "../run";
 
 const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
-// The Extensions page manages a profile's extensions: install by Web Store
-// ID (pinned to the toolbar), disable and enable, unpin and pin, update, and
-// remove after asking.
+// The Extensions page manages a profile's extensions: an install declined
+// at its prompt installs nothing; install by Web Store ID (pinned to the
+// toolbar), disable and enable, unpin and pin, update, and remove after
+// asking.
 // On an unlocked screen each control is clicked with CUA; else the same
 // controller calls run through the automation channel.
 const extensionManagement: Scenario = async (context) => {
@@ -46,6 +48,40 @@ const extensionManagement: Scenario = async (context) => {
 	};
 
 	await showExtensions();
+
+	// Declined: the prompt's Cancel leaves the profile without it, on its
+	// list and on disk.
+	await app.send("installExtension", { id: DARK_READER, profile });
+	const offered = await waitForSheet(app, "extensionInstall", 60_000);
+	const cancelTitle = offered.buttons?.[1] ?? "Cancel";
+	const declined = await answerSheet(app, cancelTitle);
+
+	await app.waitFor(
+		"the install prompt gone",
+		(state) => state.sheet?.kind !== "extensionInstall",
+	);
+
+	const extensionDirectory = join(
+		app.dataDir,
+		"Engine",
+		profile,
+		"Extensions",
+		DARK_READER,
+	);
+
+	// Long enough for an install the answer did not stop to land.
+	await Bun.sleep(2_000);
+	const afterDecline = await app.state();
+
+	expect(
+		item(afterDecline) === undefined && !existsSync(extensionDirectory),
+		`declined, yet installed: ${JSON.stringify({ listed: item(afterDecline), onDisk: existsSync(extensionDirectory) })}`,
+	);
+
+	expect(
+		has("PaneExtensionInstallRequest.cancel"),
+		"trace lacks the declined install",
+	);
 
 	// Install by its Web Store ID, as the Web Store's Add to Chrome does (the
 	// page has no field for it; dark-reader presses the store's own button),
@@ -209,6 +245,7 @@ const extensionManagement: Scenario = async (context) => {
 	return {
 		via: locked ? "automation" : "cua",
 		installed: item(installed),
+		declined: { prompt: offered, answer: declined },
 		accepted,
 		disabled: item(disabled)?.enabled,
 		enabled: item(enabled)?.enabled,
