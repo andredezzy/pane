@@ -3,7 +3,8 @@ name: Native
 # The native app on the prebuilt engine its engine sources name
 # (native/engine/prebuilt-engines.tsv): CI never builds Chromium, which takes
 # hours and ~100 GB. Engine builds stay on a developer's Mac, and their
-# archives are published as engine-<key> prereleases.
+# archives are published as engine-<key> prereleases. The scenario runner's
+# own checks are gates.yml's.
 
 on:
   push:
@@ -12,10 +13,12 @@ on:
       - native-shell
     paths:
       - "native/**"
+      - ".github/actions/setup-app-build/**"
       - ".github/workflows/native.yml"
   pull_request:
     paths:
       - "native/**"
+      - ".github/actions/setup-app-build/**"
       - ".github/workflows/native.yml"
   workflow_dispatch:
 
@@ -35,27 +38,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install XcodeGen
-        run: brew install xcodegen
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: PaneKit tests
         working-directory: native/app/PaneKit
         run: swift test
 
-      - name: Engine key
-        id: engine
-        run: echo "key=$(native/engine/scripts/engine-key.sh)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the prebuilt engine
-        uses: actions/cache@v4
-        with:
-          path: native/app/build/engines
-          key: pane-engine-${{ steps.engine.outputs.key }}
-
-      - name: Fetch the prebuilt engine
-        run: echo "PANE_ENGINE_OUT=$(native/engine/scripts/fetch-engine.sh)" >> "$GITHUB_ENV"
+      - name: XcodeGen and the prebuilt engine
+        uses: ./.github/actions/setup-app-build
 
       - name: Build and package the app
         run: native/engine/scripts/package.sh

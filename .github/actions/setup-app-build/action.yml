@@ -1,0 +1,41 @@
+name: Set up the app build
+description: >-
+  What package.sh needs on a runner with no Chromium checkout: XcodeGen, at a
+  pinned release checked by its SHA-256, and the prebuilt engine the
+  checkout's engine sources name (native/engine/prebuilt-engines.tsv), cached
+  by its key. Sets PANE_ENGINE_OUT for the steps after it.
+
+runs:
+  using: composite
+  steps:
+    # A release zip rather than Homebrew's latest: two builds of one tag
+    # generate the same project. The version is the one the app is
+    # developed with.
+    - name: Install XcodeGen
+      shell: bash
+      env:
+        XCODEGEN_VERSION: "2.46.0"
+        XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+      run: |
+        zip="$RUNNER_TEMP/xcodegen.zip"
+        dir="$RUNNER_TEMP/xcodegen-$XCODEGEN_VERSION"
+        curl -fsSL --retry 3 -o "$zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+        echo "$XCODEGEN_SHA256  $zip" | shasum -a 256 -c --quiet
+        mkdir -p "$dir"
+        unzip -q "$zip" -d "$dir"
+        echo "$dir/xcodegen/bin" >> "$GITHUB_PATH"
+
+    - name: Engine key
+      id: engine
+      shell: bash
+      run: echo "key=$(native/engine/scripts/engine-key.sh)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the prebuilt engine
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: native/app/build/engines
+        key: pane-engine-${{ steps.engine.outputs.key }}
+
+    - name: Fetch the prebuilt engine
+      shell: bash
+      run: echo "PANE_ENGINE_OUT=$(native/engine/scripts/fetch-engine.sh)" >> "$GITHUB_ENV"

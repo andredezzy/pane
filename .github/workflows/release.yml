@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Verify tag matches app version
         if: github.ref_type == 'tag'
@@ -39,25 +39,12 @@ jobs:
           fi
           echo "Tag ${GITHUB_REF_NAME} matches native/app/VERSION ${version}."
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
       - name: PaneKit tests
         working-directory: native/app/PaneKit
         run: swift test
 
-      - name: Engine key
-        id: engine
-        run: echo "key=$(native/engine/scripts/engine-key.sh)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the prebuilt engine
-        uses: actions/cache@v4
-        with:
-          path: native/app/build/engines
-          key: pane-engine-${{ steps.engine.outputs.key }}
-
-      - name: Fetch the prebuilt engine
-        run: echo "PANE_ENGINE_OUT=$(native/engine/scripts/fetch-engine.sh)" >> "$GITHUB_ENV"
+      - name: XcodeGen and the prebuilt engine
+        uses: ./.github/actions/setup-app-build
 
       # Ad-hoc signed, as every release so far: Developer ID signing and
       # notarization (PANE_SIGN_IDENTITY, PANE_NOTARY_PROFILE) wait for an
@@ -67,7 +54,7 @@ jobs:
 
       - name: Keep the dmg
         if: github.ref_type != 'tag'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dmg
           path: native/app/release/Pane-*-arm64.dmg
@@ -76,7 +63,7 @@ jobs:
 
       - name: Publish release
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
