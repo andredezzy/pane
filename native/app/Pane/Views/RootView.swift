@@ -110,11 +110,15 @@ struct RootView: View {
 				TabSwitcherView(switcher: state.switcher, profiles: model.profiles)
 			}
 
+			// The overlays that animate out carry a z-index, the PIN screen's
+			// over the rest: a view a ZStack removes drops to the back, so they
+			// left unseen, under the window, in a single frame.
 			if let target = state.profileSheet {
 				Palette.sheetScrim
 					.contentShape(Rectangle())
 					.onTapGesture { present(nil) }
 					.transition(.opacity)
+					.zIndex(1)
 
 				HStack {
 					Spacer(minLength: 0)
@@ -123,6 +127,7 @@ struct RootView: View {
 						.padding(8)
 				}
 				.transition(.move(edge: .trailing).combined(with: .opacity))
+				.zIndex(1)
 			}
 
 			if state.confirmingQuit {
@@ -130,9 +135,11 @@ struct RootView: View {
 					.contentShape(Rectangle())
 					.onTapGesture { controller.cancelQuit() }
 					.transition(.opacity)
+					.zIndex(1)
 
 				QuitConfirmationView(cancel: controller.cancelQuit, quit: controller.quit)
 					.transition(.opacity.combined(with: .scale(scale: 0.97)))
+					.zIndex(1)
 			}
 
 			// The PIN screen, over everything; it slides up and back down.
@@ -142,6 +149,7 @@ struct RootView: View {
 						insertion: .move(edge: .bottom).animation(reduceMotion ? nil : .timingCurve(0.16, 1, 0.3, 1, duration: 0.4)),
 						removal: .move(edge: .bottom).animation(reduceMotion ? nil : .easeIn(duration: 0.35))
 					))
+					.zIndex(2)
 			}
 		}
 		.animation(reduceMotion ? nil : .default, value: controller.lock.entry == nil)

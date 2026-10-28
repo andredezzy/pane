@@ -137,11 +137,14 @@ private struct LockUpdateStatus: View {
 	}
 }
 
-// 13px dots 14px apart: filled for each digit entered, outlined after.
+// 13px dots 14px apart: filled for each digit entered, outlined after. A
+// wrong PIN shakes them, unless motion is reduced.
 private struct PinDots: View {
 	let length: Int
 	let filled: Int
 	let shakes: Int
+
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		HStack(spacing: 14) {
@@ -158,7 +161,7 @@ private struct PinDots: View {
 			}
 		}
 		// globals.css @keyframes shake: 0.4s, ±8 then ±6.
-		.keyframeAnimator(initialValue: 0.0, trigger: shakes) { content, offset in
+		.keyframeAnimator(initialValue: 0.0, trigger: reduceMotion ? 0 : shakes) { content, offset in
 			content.offset(x: offset)
 		} keyframes: { _ in
 			KeyframeTrack {
@@ -210,31 +213,58 @@ private struct Numpad: View {
 }
 
 // numpad.tsx's digit: a 1px ring at 12%, 26px extralight text at 85%; the
-// ring and text darken on hover, and it fills at 10% while pressed.
+// ring and text darken on hover, and it fills at 10% while pressed, each
+// change fading over 150ms (transition-colors), as hover fills do.
 private struct DigitButtonStyle: ButtonStyle {
-	@State private var isHovered = false
-
 	func makeBody(configuration: Configuration) -> some View {
-		configuration.label
-			.font(.system(size: 26, weight: .thin))
-			.foregroundStyle(Palette.foreground.opacity(isHovered || configuration.isPressed ? 1 : 0.85))
-			.frame(width: 64, height: 64)
-			.background(Circle().fill(Palette.foreground.opacity(configuration.isPressed ? 0.1 : 0)))
-			.overlay(Circle().strokeBorder(Palette.foreground.opacity(isHovered || configuration.isPressed ? 0.2 : 0.12), lineWidth: 1))
-			.contentShape(Circle())
-			.onHover { isHovered = $0 }
+		DigitKey(configuration: configuration)
 	}
 }
 
-private struct BackspaceButtonStyle: ButtonStyle {
-	@State private var isHovered = false
+private struct DigitKey: View {
+	let configuration: ButtonStyleConfiguration
 
+	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+	var body: some View {
+		let lit = isHovered || configuration.isPressed
+
+		configuration.label
+			.font(.system(size: 26, weight: .thin))
+			.foregroundStyle(Palette.foreground.opacity(lit ? 1 : 0.85))
+			.frame(width: 64, height: 64)
+			.background(Circle().fill(Palette.foreground.opacity(configuration.isPressed ? 0.1 : 0)))
+			.overlay(Circle().strokeBorder(Palette.foreground.opacity(lit ? 0.2 : 0.12), lineWidth: 1))
+			.contentShape(Circle())
+			.onHover { isHovered = $0 }
+			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
+			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
+	}
+}
+
+// Delete: the glyph at 35%, 60% on hover, 80% while pressed, fading as the
+// digits do.
+private struct BackspaceButtonStyle: ButtonStyle {
 	func makeBody(configuration: Configuration) -> some View {
+		BackspaceKey(configuration: configuration)
+	}
+}
+
+private struct BackspaceKey: View {
+	let configuration: ButtonStyleConfiguration
+
+	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+	var body: some View {
 		configuration.label
 			.foregroundStyle(Palette.foreground.opacity(configuration.isPressed ? 0.8 : isHovered ? 0.6 : 0.35))
 			.frame(width: 64, height: 64)
 			.contentShape(Circle())
 			.onHover { isHovered = $0 }
+			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
+			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
 	}
 }
 
@@ -267,10 +297,13 @@ private struct BackspaceIcon: View {
 	}
 }
 
-// The arrow back out of Set up, Change, or Remove PIN: 30%, 60% on hover.
+// The arrow back out of Set up, Change, or Remove PIN: 30%, 60% on hover,
+// fading as the keys do.
 private struct BackButton: View {
 	let action: () -> Void
+
 	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 
 	var body: some View {
 		Button(action: action) {
@@ -278,20 +311,34 @@ private struct BackButton: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(Palette.foreground.opacity(isHovered ? 0.6 : 0.3))
-		.onHover { isHovered = $0 }
+		.onHover { hovering in
+			withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isHovered = hovering }
+		}
 		.accessibilityLabel("Back")
 		.accessibilityIdentifier("pane.lockScreen.back")
 	}
 }
 
-// "Continue with n-digit PIN": 13px light text at 60%, 80% on hover.
+// "Continue with n-digit PIN": 13px light text at 60%, 80% on hover, fading
+// as the keys do.
 private struct HintButtonStyle: ButtonStyle {
-	@State private var isHovered = false
-
 	func makeBody(configuration: Configuration) -> some View {
+		HintLabel(configuration: configuration)
+	}
+}
+
+private struct HintLabel: View {
+	let configuration: ButtonStyleConfiguration
+
+	@State private var isHovered = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+	var body: some View {
 		configuration.label
 			.font(.system(size: 13, weight: .light))
 			.foregroundStyle(Palette.foreground.opacity(isHovered || configuration.isPressed ? 0.8 : 0.6))
 			.onHover { isHovered = $0 }
+			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
+			.animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
 	}
 }

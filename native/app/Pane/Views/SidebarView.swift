@@ -248,15 +248,16 @@ private struct ProfileSection: View {
 			)
 			.padding(.horizontal, 8)
 			.frame(height: 36)
+			.foregroundStyle(isActive ? Palette.accentForeground : Palette.mutedForeground)
+			.background {
+				Squircle(cornerRadius: SidebarRow.cornerRadius)
+					.fill(isActive ? color.opacity(0.04) : .clear)
+			}
+			// In the label, as the bar's morph: see ProfileHeaderContent.
+			.animation(reduceMotion ? nil : ProfileHeaderContent.morph, value: isActive)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
-		.foregroundStyle(isActive ? Palette.accentForeground : Palette.mutedForeground)
-		.background {
-			Squircle(cornerRadius: SidebarRow.cornerRadius)
-				.fill(isActive ? color.opacity(0.04) : .clear)
-		}
-		.animation(reduceMotion ? nil : Self.morph, value: isActive)
 		.hoverBackground(isSelected: isActive, selectedFill: .clear, cornerRadius: SidebarRow.cornerRadius)
 		// The Electron app's menu, with its lucide icons.
 		.contextMenu {
@@ -281,10 +282,6 @@ private struct ProfileSection: View {
 		.accessibilityLabel(profile.name)
 	}
 
-	// Short and settled: about a third of a second, with no overshoot to
-	// speak of.
-	private static let morph = Animation.spring(response: 0.32, dampingFraction: 0.86)
-
 	private func toggle() {
 		if isExpanded {
 			model.expandedProfileIDs.remove(profile.id)
@@ -304,6 +301,12 @@ private struct ProfileHeaderContent: View {
 	let isActive: Bool
 	let proxyStatus: BrowserModel.ProxyStatus?
 	let showsCount: Bool
+
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+	// Short and settled: about a third of a second, with no overshoot to
+	// speak of.
+	static let morph = Animation.spring(response: 0.32, dampingFraction: 0.86)
 
 	var body: some View {
 		HStack(spacing: 8) {
@@ -327,6 +330,11 @@ private struct ProfileHeaderContent: View {
 					.foregroundStyle(Palette.mutedForeground)
 			}
 		}
+		// Here, inside the button's label, and not on the button: a click on
+		// the header (closing the active profile) ends the button's press in
+		// the same update, and the press drops an animation set outside the
+		// label, so the bar snapped back thin.
+		.animation(reduceMotion ? nil : Self.morph, value: isActive)
 	}
 }
 
