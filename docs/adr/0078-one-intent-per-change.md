@@ -1,0 +1,9 @@
+# Every change goes through one intent
+
+The browser's state changes only through the controller's intents, each of which also does what the change asks of the engine, so the sidebar, the profile sheet, Settings, the menu bar, and Automation, which calls them in the UI's place, cannot drift apart. The model's state (`BrowserModel`, ADR 0077) is read-only outside PaneKit, and `app/Pane/Browser/BrowserController+Intents.swift` changes it: `createProfile(draft)`, `saveProfile`, `updateProfile`, `setKeepLoaded`, `moveProfile`, `moveTab`, `expandProfile`, `collapseProfile` (collapse unloads), `toggleProfile`, `collapseAll`, `showPage` (it hides the page under Settings and Extensions, which the model's `pageDidChange` did), `changeSettings` (a theme applies at once, ADR 0001), and `presentProfileSheet`. It came from the architecture review of 2026-10-28 (A3, and the ui track's A4 and Q4).
+
+The single-slot callbacks are gone. An edit returns what changed (`ProfileChanges`: proxy, fingerprint), and the intent applies it, so no second subscriber can silently drop the first. The sleep clocks watch the selection through `observeSelection`, a list (ADR 0041). The lock's `didUnlock` stays one slot: it has one subscriber and is not the model's.
+
+Automation's `createProfile` is the sheet's Create. It made a profile with no fingerprint and no proxy test, where the sheet generated one; it now builds a `ProfileDraft` and calls the same intent, spoofing off unless the command asks (`spoof`), so scenarios' pages still see the engine's own values (ADR 0018, ADR 0038).
+
+The profile sheet keeps one `ProfileDraft`, PaneKit's (`app/PaneKit/Sources/PaneKit/ProfileDraft.swift`): `init(profile:)`, `validate()` (the name, then a proxy host's port through `ProxyConfig.port`, the first problem shown under its field, as before), the proxy it saves, the paste shortcut, and `apply(to:generate:)`. Sixteen `@State`s became five, and 11 tests cover the draft.

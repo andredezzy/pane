@@ -115,8 +115,7 @@ struct ExtensionsPage: View {
 			Spacer()
 
 			if let selectedProfile {
-				// Its border in the profile's color at 40%, as the active
-				// profile's row in the sidebar.
+				// Its border in the profile's color at 40% (ADR 0062).
 				PaneMenuButton(
 					options: model.profiles.map { ($0.name, $0.id) },
 					selection: selectedProfile.id,

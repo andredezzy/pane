@@ -1,0 +1,7 @@
+# The app decides page visibility, in a layer-backed view tree
+
+The app decides which pages are visible (`PaneWebContents.visible`), as Chrome's tab strip does for its tabs: pages are created hidden, like background tabs, and the app shows the selected one explicitly, because a page Chromium has never shown for real can stay blank. Setting `visible` calls `WasShown` and unhides `WebContentsViewCocoa`, which Chromium hides for contents created hidden; Chrome's own view host unhides it when it attaches a tab, and the arc-engine notes record the same for Arc. Without the explicit show, `WebContentsImpl` ignores occlusion updates until a page was first shown for real, so a page whose window starts covered, or opens while the screen is locked (ADR 0012), stays blank. Once a page is visible, the engine still notices its window being covered or the screen locking, as Chrome does for its active tab; a page that is not visible is a background tab, which Chromium throttles.
+
+The app shows the selected tab's page only on the browser page, and never behind the PIN lock (ADR 0042). Under Settings and Extensions the page leaves the panel and is hidden, as a tab switch hides the old one (ADR 0073). A tab Chrome discarded loads again as it becomes visible (ADR 0041).
+
+The app's views around pages are layer-backed, as in Chrome's own windows. `PageHostView` (`app/Pane/Browser/PageHostView.swift`), which holds the selected page, is a layer-backed view, and rounds its own layer rather than masking the page (ADR 0073).

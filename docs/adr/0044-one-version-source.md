@@ -1,0 +1,7 @@
+# app/VERSION is the one version source
+
+Pane's version lives in `app/VERSION` alone, and the build writes it over the Chromium version the engine's bundle carries, so Finder, the About panel, Settings, the update check, and the dmg's name all give Pane's. `engine/scripts/package.sh` writes it into the bundle's Info.plist as `CFBundleShortVersionString`, `CFBundleVersion`, and `PaneVersion`, and `engine/scripts/dist.sh` names the dmg after it, `Pane-<version>-arm64.dmg`. Settings shows `PaneVersion`, and the update check compares it with the latest release's (ADR 0002). The Release workflow refuses a tag other than `v<version>` (AGENTS.md).
+
+The bundle is the engine's, and its version keys were Chromium's (156.0.8078.48), which Finder and the About panel showed as Pane's. The Electron app set both keys to its own version, and Pane does too. Chromium does not depend on them: it reads the outer bundle's `CFBundleShortVersionString` only as a fallback, when a web app shim looks for an old-style framework layout, and its upgrade detector reads it only with Google's updater, which this build leaves out (`updater_no_updater`). Crashpad reads the framework's own plist.
+
+The version carries on the Electron app's line. It started at that app's 0.6.0, and the first native release bumped it to 1.0.0 (ADR 0051). Every release starts with a semver bump; a local build without one overwrites the last dmg of that name (AGENTS.md).

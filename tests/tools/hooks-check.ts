@@ -203,7 +203,7 @@ const CHECKS: Check[] = [
 
 const lines: string[] = [
 	"# Chrome UI surfaces in Pane's tabs (Phase 3, task 3.1)",
-	"# overridden: Pane's code shows it through the app · disabled: off by setting or switch · kept: Chrome's own, by decision (docs/decisions.md)",
+	"# overridden: Pane's code shows it through the app · disabled: off by setting or switch · kept: Chrome's own, by decision (docs/adr/0022-chrome-surfaces-kept-and-features-off.md)",
 	"",
 ];
 

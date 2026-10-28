@@ -1,0 +1,5 @@
+# Menu shortcuts match the keys as typed
+
+Pane matches its shortcuts against keys as they are typed, so a real key press always reaches them. A shifted menu shortcut uses an uppercase key equivalent with ⌘ alone, the form Interface Builder stores: `"T"` for ⇧⌘T (Reopen Closed Tab, `app/Pane/MainMenu.swift`), since a typed ⇧⌘T arrives as `"T"`, which a `"t"` + Shift item does not match. `shortcuts` presses ⇧⌘T as a real key event, through the automation channel (ADR 0018), and checks that the closed tab comes back.
+
+⌘Q is matched with Caps Lock ignored, so it quits wherever Pane takes every key: at the PIN screen (ADR 0042) and in Quit Pane? (ADR 0053). Before the fix (safety B9, 2026-10-27), ⌘Q with Caps Lock on did nothing at the PIN screen. The check was `NSEvent.isQuitShortcut`; it is PaneKit's `KeyPress.isQuit` now, in the one key monitor's routing (ADR 0079), and a PaneKit test ("⌘Q gets through with Caps Lock on, and only ⌘Q") covers it. `security` presses ⌘Q with Caps Lock at the PIN screen (`capsLock`, a modifier of the automation's `key` command) and checks that Pane quits.

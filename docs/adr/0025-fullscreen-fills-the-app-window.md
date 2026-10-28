@@ -1,0 +1,9 @@
+# Fullscreen fills the app's window, and the window follows the page
+
+A page's fullscreen fills the app's window, with the sidebar and the toolbar stepping aside, and the window's own full screen follows the page's, as Chrome's does: it enters with the page and leaves with it. Chrome's "Press Esc" bubble is replaced by the app's hint (`app/Pane/Views/ExclusiveAccessHint.swift`), and Esc leaves fullscreen wherever focus is (ADR 0079).
+
+Following the page has one trap, found while checking the traffic lights through full screen (ADR 0036). The app had toggled the window whenever the page's fullscreen changed, and AppKit ignores a toggle while the window is still moving in or out: Esc pressed as the window entered, 354 ms after the page's request in the run that found it, left the page windowed and the window in full screen, the sidebar and toolbar back, for good. `FullScreenFollower` (`app/Pane/Browser/FullScreenFollower.swift`) now follows the page again once a move the app started ends, a turn of the run loop later, as Chromium's own fullscreen controller does, since a toggle from within the move's end is ignored too.
+
+Two more rules came with it. The user's own full screen stays when a page leaves its fullscreen in it, as in Chrome, where the app had toggled it off. And leaving full screen (View › Exit Full Screen, or the green button) takes the page out of its fullscreen, which had stayed, filling a window with no sidebar or toolbar.
+
+The `fullscreen` scenario presses Esc as soon as the window starts entering, and the window then leaves full screen. It then takes a page into fullscreen inside the user's full screen, where Esc keeps the user's, and leaves full screen, which ends the page's fullscreen. Each time the traffic lights end at (12, 12); the old build left the window in full screen, with the lights at AppKit's (9, 9).

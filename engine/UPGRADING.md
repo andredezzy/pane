@@ -30,7 +30,7 @@ engine/scripts/apply-patches.sh
 
 A patch that no longer applies is merged three ways from the blobs it was made against (the old tag's, still in the checkout). A conflict stops the run and lists the files that have conflict markers. For each:
 
-1. Resolve the markers. Keep the patch's intent, which `docs/decisions.md` records for each hook and seam, against the new code. If the hooked function moved or was renamed, follow it in the new tag.
+1. Resolve the markers. Keep the patch's intent, which the ADRs record for each hook and seam (ADR 0010 for the startup seam, 0021 for the UI hooks), against the new code. If the hooked function moved or was renamed, follow it in the new tag.
 2. Regenerate that patch: `engine/scripts/make-patch.sh <patch>`. This also records it as applied.
 3. Run `apply-patches.sh` again: it continues after the patches already applied.
 
@@ -65,7 +65,7 @@ bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane \
 
 Every scenario must pass. The ones that read the screen (CUA) need an unlocked session: on a locked one they skip or work around those checks, and `report.json`'s `complete` is false. Watch the window counts in the results: Chrome UI that a new milestone adds, and that no hook covers, shows up as an extra window.
 
-A scenario that fails may have caught Chrome changing its own behavior (157 started requiring a focused page for fullscreen, and pinning new extensions). Run it on the previous engine under the same conditions to tell. Package the app on that engine's archive with `PANE_ENGINE_OUT` set to the unpacked archive, beside the new one. If the old engine passes and the new behavior is right for a browser, record it in `docs/decisions.md` and update the scenario to the new behavior. Otherwise fix Pane.
+A scenario that fails may have caught Chrome changing its own behavior (157 started requiring a focused page for fullscreen, and pinning new extensions). Run it on the previous engine under the same conditions to tell. Package the app on that engine's archive with `PANE_ENGINE_OUT` set to the unpacked archive, beside the new one. If the old engine passes and the new behavior is right for a browser, record it in an ADR and update the scenario to the new behavior. Otherwise fix Pane.
 
 ## 6. Ship it
 

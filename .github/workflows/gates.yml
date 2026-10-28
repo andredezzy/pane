@@ -1,6 +1,6 @@
 name: Gates
 
-# The repo's own checks before a commit (AGENTS.md) that the native workflow
+# The repo's own checks before a commit (AGENTS.md) that the app workflow
 # does not run: ESLint and Biome, the scenario runner's typecheck, and knip.
 # Biome checks every file git tracks, so any change can fail it: no paths
 # filter, and a Linux runner keeps it cheap. PaneKit's swift test runs in

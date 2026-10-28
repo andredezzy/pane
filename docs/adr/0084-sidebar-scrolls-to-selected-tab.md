@@ -1,0 +1,5 @@
+# The sidebar scrolls to the selected tab
+
+When the selected tab's row is out of view, the sidebar scrolls to it, at the user's request (from the tab switcher, or from anywhere). As the selected tab changes, wherever from (the switcher, a shortcut, a new tab, a link, a closed tab's neighbor), the list scrolls the least that shows the tab's row whole and clear of the edges' 24-point fades (ADR 0061), and holds still when the row shows. It scrolls a turn later, so a profile that opened for the tab has laid out its rows, on a 0.3-second spring with no overshoot (`Motion.reveal`), and at once at launch. The sidebar's `reveal` does it (`app/Pane/Views/SidebarView.swift`).
+
+`sidebar-scroll` opens 24 tabs, more than the list shows, and reads the rows' frames through accessibility. The last one opened ends 24 points above the list's bottom. The first, chosen elsewhere, starts 24 points under its top. A tab in view leaves the list still, and twice Ctrl-Tab to the last tab scrolls back down to it. Captured frames show the scroll in 33 frames over 0.4 s.

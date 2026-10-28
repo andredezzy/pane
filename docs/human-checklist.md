@@ -6,7 +6,7 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 - **Phase 2 · Pointer gestures on screen — run when you are away from the Mac.** Dragging profiles and tabs in the sidebar, the profile and tab context menus, the delete-profile confirmation, the profile sheet's color and group pickers, ⌃⌘F full screen, and the Edit menu (it uses the clipboard) need the real pointer (CUA moves the mouse for drags), which would fight you while you work. The rendered rows and the page in its card are now proven on screen (`evidence/phase-2/unlocked/`). Nothing to do but leave the Mac unlocked and idle; the agent runs them then.
 
-- **Phase 3 · Mail — look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in `docs/decisions.md` (Phase 3, Incident).
+- **Phase 3 · Mail — look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in ADR 0030.
 
 - **Phase 3 · Pick a file through the open panel, by hand.** macOS 27 runs open and save panels out of process, and the scenarios answer them beside the panel. Once: open a page with `<input type=file>` in Pane (any upload form), choose a file in the panel, and check the page shows its name.
 
@@ -20,9 +20,9 @@ Items the autonomous run could not do or verify on its own: each says why it nee
   3. Build the release: `PANE_SIGN_IDENTITY="Developer ID Application: <name> (<team id>)" PANE_NOTARY_PROFILE=pane-notary engine/scripts/dist.sh 2>&1 | tee evidence/phase-6/notarized.log`. Each part is signed with the hardened runtime as Chrome signs it, and the dmg is signed, notarized, stapled, and assessed.
   4. Check: `spctl --assess --type open --context context:primary-signature -v app/release/Pane-<version>-arm64.dmg` says "accepted, source=Notarized Developer ID"; install the app from the dmg and `spctl -a -vv /Applications/Pane.app` says the same; run the scenario suite on the signed app (`bun tests/run.ts --binary <app>/Contents/MacOS/Pane --out evidence/phase-6/signed`) to catch an entitlement the hardened runtime needs. Append both outputs to `notarized.log`.
   5. Then 6.6: Sparkle can replace the manual dmg update flow.
-  6. Passkeys: with the Developer ID, request Apple's `com.apple.developer.web-browser.public-key-credential` entitlement and add it, with a keychain access group, to `app/signing/app.entitlements` and a provisioning profile. Until then Chrome's WebAuthn dialog offers only security keys (`docs/decisions.md`, After the cutover).
+  6. Passkeys: with the Developer ID, request Apple's `com.apple.developer.web-browser.public-key-credential` entitlement and add it, with a keychain access group, to `app/signing/app.entitlements` and a provisioning profile. Until then Chrome's WebAuthn dialog offers only security keys (ADR 0052).
 
-- **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in `docs/decisions.md`.
+- **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in ADR 0022.
 
 ## Done
 
@@ -32,11 +32,11 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 - **Publish the first native release** (2026-10-28, your call: every Electron Pane moves to the native app, and the Electron app is no longer supported). v1.0.0 is the latest release, built by the Release workflow on `engine-0d0a01f8c703`: https://github.com/andredezzy/pane/actions/runs/40770609848. A dry run's build of the same commit passed `smoke`, `hosted`, `migration`, and `updates`, and `releases/latest` gives the Electron app's update check v1.0.0 and its `Pane-1.0.0-arm64.dmg`. The release notes walk a 0.x user through the move. The `electron` branch keeps the Electron app as a backup only.
 
-- **Phase 6 · 6.5 The first CI run** (2026-10-28). The Native workflow builds the app on `main` in 3 min 37 s on the `xcode-27` runner, on the engine published as `engine-0d0a01f8c703` by `engine/scripts/publish-engine.sh`: https://github.com/andredezzy/pane/actions/runs/40766120708 (`evidence/phase-6/ci-first-run.txt`). If GitHub renames the `xcode-27` label (when the image leaves preview), update `runs-on` and `.github/actionlint.yaml`.
+- **Phase 6 · 6.5 The first CI run** (2026-10-28). The app's workflow (named Native then) builds the app on `main` in 3 min 37 s on the `xcode-27` runner, on the engine published as `engine-0d0a01f8c703` by `engine/scripts/publish-engine.sh`: https://github.com/andredezzy/pane/actions/runs/40766120708 (`evidence/phase-6/ci-first-run.txt`). If GitHub renames the `xcode-27` label (when the image leaves preview), update `runs-on` and `.github/actionlint.yaml`.
 
 - **Phase 5 · Google sign-in fallback and Sign out of Google dropped** (2026-10-26, your decision). Both were workarounds for Google rejecting the Electron engine, which a browser does not have; Google accepts the native engine (`evidence/phase-5/google.json`).
 
-- **Design · Paper access** (2026-10-26). The Paper app was installed but closed; opened in the background, its local MCP server gave read access to the Pane file, and the native UI was matched to it and to the Electron app (`evidence/design/`, DECISIONS: Design fidelity).
+- **Design · Paper access** (2026-10-26). The Paper app was installed but closed; opened in the background, its local MCP server gave read access to the Pane file, and the native UI was matched to it and to the Electron app (`evidence/design/`, ADR 0034).
 
 - **Phase 1 · Acceptance on screen** (2026-10-26). The Mac was unlocked: `hosted` passed with a real window screenshot, the accessibility read, and Quit Pane from the menu bar (`evidence/phase-1/unlocked/`).
 - **Phase 2 · On-screen checks** (2026-10-26). `switcher` with a real screenshot of the switcher (`switcher-screen.png`) and `shortcuts` with the page visible at each zoom step (`evidence/phase-2/unlocked/`). Pointer gestures remain (Open).

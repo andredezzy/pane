@@ -47,7 +47,7 @@ When an item becomes selected and its indicator changes shape, the shape morphs 
 Implementation notes:
 
 - Selection highlights (active/selected backgrounds and rings) carry no `transition` utility.
-- An indicator that changes shape with a selection animates its size and radius together (`Squircle`'s radius animates), with the spring in `ProfileSection`.
+- An indicator that changes shape with a selection animates its size and radius together (`Squircle`'s radius animates), with the spring `Motion.morph`.
 - Hover fills animate in 0.15 s, easing out, everywhere a hover shows: a fill that appears at once is a missing animation.
 - Scope `transition-colors` to hover states only — e.g. the inactive branch of a tab's className, never the active/selected branch.
 - Always honor `prefers-reduced-motion`.

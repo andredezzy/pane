@@ -55,7 +55,7 @@ open app/build/Pane.app
 app/           # the Swift app (AppKit + SwiftUI), the PaneKit package, VERSION, dmg resources
 engine/        # PaneCore.framework: the pinned Chromium tag, gn args, patches, //pane, scripts
 tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
-docs/          # building.md, decisions.md, human-checklist.md, adr/
+docs/          # building.md, human-checklist.md, adr/ (one record per decision)
 third_party/   # code Pane adapts, with its licenses (NOTICE)
 ```
 

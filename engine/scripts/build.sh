@@ -4,7 +4,7 @@
 #
 # Runs at most PANE_BUILD_JOBS compile jobs (default: two thirds of the cores)
 # under nice. Full parallelism while Spotlight indexed the checkout starved
-# watchdogd and kernel-panicked this Mac once (see docs/decisions.md), so
+# watchdogd and kernel-panicked this Mac once (docs/adr/0007-chromium-checkout.md), so
 # the system always keeps headroom.
 #
 # A build of `chrome` (the engine's bundle) records the engine key of its

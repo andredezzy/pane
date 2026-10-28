@@ -1,0 +1,7 @@
+# Scenarios keep Chromium off the login keychain
+
+Every scenario launch passes `--use-mock-keychain` (`tests/lib/browser.ts`), so a run never reads or writes the user's login Keychain: a freshly signed build asked for the keychain password for its Safe Storage item ("Chromium Safe Storage" then) on every launch. A Keychain item's access list names the app by its designated requirement, and an ad-hoc signature's is its code hash, which every build changes; only a Developer ID ends those prompts for the shipped app (ADR 0048).
+
+The Keychain also failed the first runs under a locked session (ADR 0012): the ad-hoc signed app could neither read nor create its item (`-25320`), so Chrome reported "Encryption is not available" and kept cookies unencrypted for that run. Stock Chrome from the same build shows the same message. The shipped app's item was left to Phase 5, which settled it as "Pane Safe Storage", account "Pane" (patch 0001): the item the migration fills with the Electron app's key (ADR 0043).
+
+The app's own Keychain use honors the same switch, so scenarios never touch the login Keychain at all. Under `--use-mock-keychain` the proxy password store is `mock-keychain.json` in the data directory, not the "Pane Proxy Passwords" item (ADR 0069). What only the real Keychain shows stays unproven by a scenario: the migration's adoption of the Electron app's cookie key is one, since a folder named by `PANE_ELECTRON_DATA_DIR` has no app name, so no key is adopted (ADR 0043).

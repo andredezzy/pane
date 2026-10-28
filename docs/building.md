@@ -1,6 +1,6 @@
 # Building Pane
 
-Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: `docs/decisions.md`.
+Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: the ADRs in `docs/adr/`, one per decision.
 
 ## Layout
 
@@ -13,7 +13,7 @@ Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.f
 - `app/` — the Swift app, the `PaneKit` package, `VERSION`, and the dmg's resources (`dmg/`)
 - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
-- `docs/` — this guide, `decisions.md` (the dated engineering log), `human-checklist.md` (what only a person can do or verify), and the ADRs
+- `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), and `adr/`, one record per decision
 - `evidence/` — gitignored output of acceptance checks, per phase
 
 ## Chromium checkout

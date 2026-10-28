@@ -45,6 +45,10 @@ The dmg is ad-hoc signed and not notarized (no Apple Developer ID is configured)
 - Before committing: `bun run lint`, `bun run typecheck` (the scenario runner), `bun run test` (PaneKit's `swift test`), and `bun run knip` should pass. A change to the app or the engine also runs the scenarios it touches (`docs/building.md`, Scenarios).
 - **The Electron app is retired**: 1.0.0 moved its users to the native app. Its last state is the `electron` branch, kept as a backup and not maintained; comments that cite `apps/veil` point there. Work on `main`.
 
+## Decisions
+
+Record each decision as an ADR in `docs/adr/`, one file per decision: the next number, the decision as the title, then why, what was rejected, and how it is checked, in the form of the others. A decision that replaces an earlier one says so at the top of the old record (as 0003 does) rather than rewriting it away. Add the new record to `docs/adr/README.md`.
+
 ## Design
 
 See `DESIGN.md` for interaction and visual principles (e.g. keyboard-driven changes animate; pointer-driven changes are instant).
