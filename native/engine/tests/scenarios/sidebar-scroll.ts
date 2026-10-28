@@ -41,6 +41,7 @@ const sidebarScroll: Scenario = async (context) => {
 	const shows = (seen: Record<string, number[]>, tabID: string) => {
 		const [, listTop = 0, , listHeight = 0] =
 			seen["pane.sidebar.profiles"] ?? [];
+
 		const [, top = Number.NaN, , height = 0] = seen[`pane.tab.${tabID}`] ?? [];
 
 		return top >= listTop && top + height <= listTop + listHeight;
@@ -49,10 +50,12 @@ const sidebarScroll: Scenario = async (context) => {
 	// Once the selection has moved and the list has scrolled to it.
 	const select = async (tabID: string) => {
 		await app.send("select", { tab: tabID });
+
 		await app.waitFor(
 			"the tab selected",
 			(state) => state.activeTabID === tabID,
 		);
+
 		await Bun.sleep(700);
 
 		return frames();
@@ -82,10 +85,12 @@ const sidebarScroll: Scenario = async (context) => {
 	await app.send("switcher", { action: "next" });
 	await app.send("switcher", { action: "next" });
 	await app.send("switcher", { action: "commit" });
+
 	await app.waitFor(
 		"the switcher's tab",
 		(state) => state.activeTabID === last,
 	);
+
 	await Bun.sleep(700);
 	const switched = await frames();
 	const chosen = last;
