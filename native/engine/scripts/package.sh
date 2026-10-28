@@ -60,6 +60,12 @@ for key in PaneVersion CFBundleShortVersionString CFBundleVersion; do
 	plutil -replace "$key" -string "$PANE_VERSION" "$PLIST"
 done
 
+# The Swift app's minimum macOS (project.yml), over Chromium's older one: the
+# executable does not start on an older macOS, and Finder says so only when
+# the bundle names it.
+plutil -replace LSMinimumSystemVersion -string \
+	"$(plutil -extract LSMinimumSystemVersion raw "$SWIFT_APP/Contents/Info.plist")" "$PLIST"
+
 plutil -replace CFBundleIconFile -string AppIcon "$PLIST"
 rm -f "$OUT/Contents/Resources/app.icns"
 
