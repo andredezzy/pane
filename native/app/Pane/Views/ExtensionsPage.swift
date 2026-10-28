@@ -13,8 +13,13 @@ struct ExtensionsPage: View {
 	@State private var query = ""
 
 	private var model: BrowserModel { controller.model }
-	private var selectedProfileID: String? { profileID ?? model.activeProfileID ?? model.profiles.first?.id }
-	private var selectedProfile: BrowserProfile? { selectedProfileID.flatMap(model.profile) }
+	// The profile chosen in the select while it exists, else the active one,
+	// else the first: deleting the chosen profile brings the page back to
+	// one that is there.
+	private var selectedProfile: BrowserProfile? {
+		profileID.flatMap(model.profile) ?? model.activeProfileID.flatMap(model.profile) ?? model.profiles.first
+	}
+	private var selectedProfileID: String? { selectedProfile?.id }
 	private var extensions: [ExtensionInfo] { selectedProfileID.flatMap { model.extensions[$0] } ?? [] }
 
 	private var shown: [ExtensionInfo] {
