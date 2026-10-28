@@ -41,6 +41,8 @@ NS_ASSUME_NONNULL_BEGIN
 // From the ActionPopup.
 - (void)popupDidResize:(NSSize)size;
 - (void)popupDidClose;
+// Its Browser is going: the popup closes now, before the Browser it holds.
+- (void)browserDidClose;
 @end
 
 NS_ASSUME_NONNULL_END

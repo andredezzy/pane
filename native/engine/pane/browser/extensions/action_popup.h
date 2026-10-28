@@ -6,7 +6,6 @@
 #include <memory>
 
 #include "base/functional/callback.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/extensions/extension_view.h"
 #include "chrome/browser/ui/extensions/extension_popup_types.h"
@@ -16,6 +15,7 @@
 @class PaneExtensionPopup;
 
 class Browser;
+class BrowserWindowInterface;
 
 namespace extensions {
 class Extension;
@@ -37,6 +37,10 @@ class ActionPopup : public extensions::ExtensionView,
   static void Show(Browser* browser,
                    const extensions::Extension& extension,
                    ShowPopupCallback callback);
+
+  // `browser` is going (its window is being destroyed): its popups close
+  // first, as Chrome's popup bubbles go with their browser view.
+  static void CloseAll(const BrowserWindowInterface* browser);
 
   ActionPopup(const ActionPopup&) = delete;
   ActionPopup& operator=(const ActionPopup&) = delete;
@@ -70,7 +74,7 @@ class ActionPopup : public extensions::ExtensionView,
   void EnableAutoResize(content::RenderFrameHost* main_frame);
 
   std::unique_ptr<extensions::ExtensionViewHost> host_;
-  raw_ptr<Browser> browser_;
+  base::WeakPtr<BrowserWindowInterface> browser_;
   ShowPopupCallback callback_;
   gfx::Size size_;
   bool shown_ = false;

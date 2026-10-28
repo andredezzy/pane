@@ -1,8 +1,12 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
+#include "base/no_destructor.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/extensions/action_popup.h"
 
+#include <set>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
 #include "chrome/browser/extensions/extension_view_host.h"
@@ -35,6 +39,11 @@ namespace {
 // Chrome's own popup limits (ExtensionPopup).
 constexpr gfx::Size kMinSize(25, 25);
 constexpr gfx::Size kMaxSize(800, 600);
+
+std::set<ActionPopup*>& LivePopups() {
+  static base::NoDestructor<std::set<ActionPopup*>> popups;
+  return *popups;
+}
 
 }  // namespace
 
@@ -72,10 +81,31 @@ void ActionPopup::Show(Browser* browser,
   raw->host_->CreateRendererSoon();
 }
 
+// static
+void ActionPopup::CloseAll(const BrowserWindowInterface* browser) {
+  std::vector<PaneExtensionPopup*> closing;
+  for (ActionPopup* popup : LivePopups()) {
+    if (popup->browser_.get() == browser && popup->owner_) {
+      closing.push_back(popup->owner_);
+    }
+  }
+  if (!closing.empty()) {
+    PANE_TRACE(
+        "engine", "ExtensionPopup.closeWithBrowser",
+        base::DictValue().Set("popups", static_cast<int>(closing.size())));
+  }
+  for (PaneExtensionPopup* owner : closing) {
+    [owner browserDidClose];
+  }
+}
+
 ActionPopup::ActionPopup(std::unique_ptr<extensions::ExtensionViewHost> host,
                          Browser* browser,
                          ShowPopupCallback callback)
-    : host_(std::move(host)), browser_(browser), callback_(std::move(callback)) {
+    : host_(std::move(host)),
+      browser_(browser->GetWeakPtr()),
+      callback_(std::move(callback)) {
+  LivePopups().insert(this);
   host_->set_view(this);
   Observe(host_->host_contents());
   host_->SetCloseHandler(
@@ -83,6 +113,7 @@ ActionPopup::ActionPopup(std::unique_ptr<extensions::ExtensionViewHost> host,
 }
 
 ActionPopup::~ActionPopup() {
+  LivePopups().erase(this);
   Observe(nullptr);
   if (callback_) {
     std::move(callback_).Run(nullptr);
@@ -141,7 +172,9 @@ bool ActionPopup::HandleKeyboardEvent(
 }
 
 void ActionPopup::OnLoaded() {
-  if (shown_ || !contents()) {
+  // A popup outlives no Browser (CloseAll); one whose Browser is already
+  // gone has nowhere to show.
+  if (shown_ || !contents() || !browser_) {
     return;
   }
   shown_ = true;
@@ -149,13 +182,14 @@ void ActionPopup::OnLoaded() {
 
   PaneBrowserContext* context = [PaneBrowserApplication.sharedApplication
       contextForProfile:browser_->GetProfile()];
-  WindowHost* window_host = HostedBrowserWindow::HostOf(browser_);
+  WindowHost* window_host = HostedBrowserWindow::HostOf(browser_.get());
   PaneBrowserWindow* window = window_host ? window_host->owner() : nil;
   id<PaneBrowserContextDelegate> delegate = context.delegate;
-  Trace("callback", "PaneBrowserContextDelegate.showExtensionPopup",
-        base::DictValue().Set("extension", host_->extension_id()));
+  PANE_TRACE("callback", "PaneBrowserContextDelegate.showExtensionPopup",
+             base::DictValue().Set("extension", host_->extension_id()));
   if (window && [delegate respondsToSelector:@selector
                          (browserContext:showExtensionPopup:inWindow:)]) {
+    ScopedAppCallback app_callback;
     [delegate browserContext:context
           showExtensionPopup:owner_
                     inWindow:window];

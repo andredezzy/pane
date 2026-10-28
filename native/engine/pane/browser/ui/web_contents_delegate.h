@@ -9,7 +9,6 @@
 
 #include <memory>
 
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 
@@ -76,9 +75,6 @@ class HostedWebContentsDelegate : public BrowserWebContentsDelegate {
 
  private:
   base::WeakPtr<WindowHost> host_;
-  // The Browser this delegate serves, forgotten as Pane's when it goes
-  // (after its window, in ~Browser).
-  raw_ptr<const BrowserWindowInterface> ours_;
 };
 
 }  // namespace pane

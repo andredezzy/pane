@@ -65,12 +65,9 @@ HostedWebContentsDelegate::HostedWebContentsDelegate(
                                  window,
                                  capabilities,
                                  browser_ui_controller),
-      host_(std::move(host)),
-      ours_(browser) {}
+      host_(std::move(host)) {}
 
-HostedWebContentsDelegate::~HostedWebContentsDelegate() {
-  HostedBrowserWindow::Forget(ours_);
-}
+HostedWebContentsDelegate::~HostedWebContentsDelegate() = default;
 
 content::WebContents* HostedWebContentsDelegate::OpenURLFromTab(
     content::WebContents* source,

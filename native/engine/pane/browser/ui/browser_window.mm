@@ -5,6 +5,7 @@
 // licensed under the Apache License 2.0 (native/third_party/ardia). Changed
 // for Pane: names and namespace, and without Ardia's extension shortcuts, autofill prompts and background-run eye dropper; Chrome's own shutdown checks for its lifetime helpers.
 
+#include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/ui/browser_window.h"
 
 #import <AppKit/AppKit.h>
@@ -291,8 +292,14 @@ HostedBrowserWindow::HostedBrowserWindow(base::WeakPtr<WindowHost> host)
   LiveWindows().insert(this);
 }
 
+// The Browser goes right after its window. An extension popup opened for it
+// goes first, and the Browser stops counting as Pane's last, so a later one
+// at the same address is not taken for it.
 HostedBrowserWindow::~HostedBrowserWindow() {
   LiveWindows().erase(this);
+  if (browser_) {
+    ActionPopup::CloseAll(browser_);
+  }
   DestroyAnyExclusiveAccessBubble();
   devtools_ui_controller_.reset();
   autofill_bubble_handler_registration_.reset();
@@ -301,6 +308,9 @@ HostedBrowserWindow::~HostedBrowserWindow() {
   }
   if (host_) {
     host_->BrowserWindowDestroyed(this);
+  }
+  if (browser_) {
+    Forget(browser_);
   }
 }
 

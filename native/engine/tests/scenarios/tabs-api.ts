@@ -13,7 +13,8 @@ type TabInfo = { id: number; url: string; windowId: number } | null;
 // is the selected Pane tab, from a popup and from a service worker;
 // tabs.create opens a Pane tab in the same profile; windows.create opens a
 // tab too, as in the Electron app. chrome.action.openPopup shows the popup in
-// the app's popover, as the extension's button does.
+// the app's popover, as the extension's button does. A popup open as its
+// profile is deleted closes with the profile's Browser.
 const tabsApi: Scenario = async (context) => {
 	const { app, trace } = await launchTraced(context, "tabs-api", {
 		args: [`--load-extension=${PROBE}`],
@@ -133,6 +134,28 @@ const tabsApi: Scenario = async (context) => {
 		(state) => state.extensionPopup === null,
 	);
 
+	// A popup still open as its profile goes (deleted, which closes its
+	// Browser) closes first: the popup's page holds that Browser.
+	await app.send("runExtensionAction", { id });
+
+	await app.waitFor(
+		"the popup, again",
+		(state) => state.extensionPopup?.open === true,
+	);
+
+	await app.send("deleteProfile", { profile });
+
+	const deleted = await app.waitFor(
+		"the popup gone with its profile",
+		(state) =>
+			state.extensionPopup === null && state.pendingProfileDeletions === 0,
+	);
+
+	expect(
+		trace().some((entry) => entry.name === "ExtensionPopup.closeWithBrowser"),
+		"the popup outlived its profile's Browser",
+	);
+
 	const tabs =
 		withWindowTab.profiles
 			.find((p) => p.id === profile)
@@ -152,6 +175,7 @@ const tabsApi: Scenario = async (context) => {
 		tabsAfterCreate: tabs,
 		selectedByUpdate: tabOf(reselected, tab)?.url,
 		openPopup: openedByAPI.extensionPopup,
+		popupClosedWithProfile: deleted.extensionPopup === null,
 		windows,
 	};
 };

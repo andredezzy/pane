@@ -217,15 +217,28 @@
   if (!_popup) {
     return;
   }
-  pane::Trace("callback", "PaneExtensionPopupDelegate.didClose");
-  (void)self.extensionIdentifier;
-  if ([_delegate respondsToSelector:@selector(extensionPopupDidClose:)]) {
-    [_delegate extensionPopupDidClose:self];
-  }
+  [self notifyDidClose];
   // The host is mid-close: let it return first.
   dispatch_async(dispatch_get_main_queue(), ^{
     [self close];
   });
+}
+
+- (void)browserDidClose {
+  if (!_popup) {
+    return;
+  }
+  [self notifyDidClose];
+  [self close];
+}
+
+- (void)notifyDidClose {
+  PANE_TRACE("callback", "PaneExtensionPopupDelegate.didClose");
+  (void)self.extensionIdentifier;
+  if ([_delegate respondsToSelector:@selector(extensionPopupDidClose:)]) {
+    pane::ScopedAppCallback callback;
+    [_delegate extensionPopupDidClose:self];
+  }
 }
 
 @end
