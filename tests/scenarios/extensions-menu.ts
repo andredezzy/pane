@@ -11,7 +11,7 @@ import { expect, type Scenario } from "../run";
 
 const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
-// The toolbar's puzzle opens the extensions menu, as Aside's (Paper: 02.9
+// The toolbar's puzzle opens the extensions menu, as Aside's (Paper: 03.9
 // Browser · Extensions): Manage all extensions opens the Extensions page,
 // Visit Chrome Web Store opens it in a new tab, and each extension's row runs
 // its action, its pin pins and unpins it with the menu still open, and its

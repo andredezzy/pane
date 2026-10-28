@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// A page's dialog (Paper: 03.15 to 03.23), as macOS draws the alert sheet
+// A page's dialog (Paper: 04.15 to 04.23), as macOS draws the alert sheet
 // it replaced: 260 points wide, rounded 29 as the app's other dialogs, the
 // title and the message at 13, the fields (rounded 7), then the buttons, the
 // default one blue. Two sit side by side, the default on the right; three

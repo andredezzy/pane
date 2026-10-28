@@ -1,6 +1,6 @@
 import SwiftUI
 
-// The extensions menu, as Aside's (Paper: 02.9 Browser · Extensions, 03.6
+// The extensions menu, as Aside's (Paper: 03.9 Browser · Extensions, 04.6
 // Extensions menu): 300 wide under the toolbar's puzzle, Manage all
 // extensions and the Chrome Web Store, then the active profile's extensions.
 // A row runs its extension's action; its pin (blue while pinned) keeps the
@@ -60,7 +60,7 @@ struct ExtensionsMenu: View {
 	}
 }
 
-// An extension's more menu, as Aside's (Paper: 02.10 Browser · Extension
+// An extension's more menu, as Aside's (Paper: 03.10 Browser · Extension
 // popups): 240 wide beside the extensions menu, level with the row. Its
 // name, then its Web Store page; Remove and Pin or Unpin; Manage Extension,
 // and Options when it has them.

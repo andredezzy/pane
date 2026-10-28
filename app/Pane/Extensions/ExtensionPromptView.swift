@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Adding or removing an extension, asked as Aside asks (Paper: 02.10 Browser
+// Adding or removing an extension, asked as Aside asks (Paper: 03.10 Browser
 // · Extension popups): 320 wide under the extension's toolbar button, its
 // icon beside the title, then what it can do (adding) or Report abuse
 // (removing), and Cancel beside the primary. It is drawn in the window, so it
@@ -68,8 +68,8 @@ struct ExtensionPromptView: View {
 	}
 }
 
-// Adding an extension, asked as Dia asks (Paper: 02.10 Browser · Extension
-// popups, 03.10 Install extension): centered over the window on Quit Pane?'s
+// Adding an extension, asked as Dia asks (Paper: 03.10 Browser · Extension
+// popups, 04.10 Install extension): centered over the window on Quit Pane?'s
 // scrim. Pane's icon takes the extension's, then the title, what it can do on
 // a tinted panel, and Cancel (Esc) beside Add to Pane (Return). It shows in
 // the next frame, as the popups do.

@@ -5,7 +5,7 @@ import { expect, type Scenario } from "../run";
 
 type Drag = { stepMs: number[]; pageWidth: number };
 
-// The sidebar's edge resizes it (Paper: 02.11 Sidebar · Scroll & resize): a
+// The sidebar's edge resizes it (Paper: 03.11 Sidebar · Scroll & resize): a
 // drag follows the pointer between 200 and 400 points, a double-click returns
 // to 260, and the width is kept across launches. Each step of a drag is timed
 // from its event to the window's layout at the new width.

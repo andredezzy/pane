@@ -81,7 +81,7 @@ enum Palette {
 		isDark(appearance) ? NSColor(white: 0.98, alpha: 0.05) : NSColor(rgb: 0x18181B, alpha: 0.04)
 	})
 
-	// A page's dialog (Paper: 03.15 to 03.23), drawn as macOS draws an
+	// A page's dialog (Paper: 04.15 to 04.23), drawn as macOS draws an
 	// alert: its gray panel at 95% with a hairline edge, its text, its
 	// fields, its gray and blue buttons, and its shadow (0 16px 48px black
 	// 25%, in both themes).

@@ -1,5 +1,5 @@
 // Draws the dmg window's background, as Dia's installer lays it out (Paper:
-// 07 · Installer › 07.1 Installer window): a neutral wash, white at the top
+// 08 · Installer › 08.1 Installer window): a neutral wash, white at the top
 // and gray at the corners, "To install, drag Pane to Applications" above, and
 // three chevrons, light to dark, between where Finder draws Pane and the
 // Applications link (dist.sh puts them there). The headline is in the system

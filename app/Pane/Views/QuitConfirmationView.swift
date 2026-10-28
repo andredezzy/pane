@@ -1,7 +1,7 @@
 import SwiftUI
 
-// What ⌘Q asks first (Paper: 03.5 Quit Pane, and Quit confirmation in
-// 02.5 Overlays): an icon tile, the title and what quitting does, then Cancel
+// What ⌘Q asks first (Paper: 04.5 Quit Pane, and Quit confirmation in
+// 03.5 Overlays): an icon tile, the title and what quitting does, then Cancel
 // (Esc) and the destructive Quit (⌘Q again, or Return). The controller takes
 // the keys while it shows (BrowserController.confirmQuit).
 struct QuitConfirmationView: View {

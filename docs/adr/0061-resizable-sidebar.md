@@ -1,6 +1,6 @@
 # The sidebar is resizable, and its list fades at the edges
 
-The sidebar's width follows a drag of its edge, at the user's request, and its list fades at its top and bottom edges as it scrolls, as the Electron app's `scroll-fade-y` did, after the user's report that rows cut hard under the header. Both were designed in Paper first (02.11 Sidebar · Scroll & resize; ADR 0058).
+The sidebar's width follows a drag of its edge, at the user's request, and its list fades at its top and bottom edges as it scrolls, as the Electron app's `scroll-fade-y` did, after the user's report that rows cut hard under the header. Both were designed in Paper first (03.11 Sidebar · Scroll & resize; ADR 0058).
 
 The edge is 8 points wide, 5 over the sidebar and 3 over the panel, under every overlay (`SidebarResizeHandle`). A drag follows the pointer between 200 and 400 points with no animation, as pointer-driven changes are (DESIGN.md › Motion). A double-click returns to 260, Aside's width (ADR 0060). The cursor is macOS 15's column cursor, pointing the one way left at either limit (`resizeLeftRight` before 15). To accessibility, the edge is a splitter valued at the width, which steps by 10. The width is kept across launches in settings.json (`AppSettings.sidebarWidth`, clamped as it loads), and a drag writes the file once, as it ends, not at every step.
 

@@ -4,7 +4,7 @@ import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // Profiles and tabs reorder by dragging, as the Electron app's sortable lists
-// did (Paper: 02.11): the drag follows the pointer up and down only and stays
+// did (Paper: 03.11): the drag follows the pointer up and down only and stays
 // inside the list, and the order is kept on release. Each drag is paced
 // through the event queue. Before the release the rows already stand where
 // the drop would put them (the user's report: nothing moved until the

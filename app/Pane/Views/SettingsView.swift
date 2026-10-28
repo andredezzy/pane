@@ -1,7 +1,7 @@
 import PaneKit
 import SwiftUI
 
-// Settings, in Aside's layout (Paper: 05.1 Settings): a large title, then a
+// Settings, in Aside's layout (Paper: 06.1 Settings): a large title, then a
 // muted label over each section's card. A card's rows each hold a title and
 // a description, with their control at the trailing end: a pop-up button
 // (the system's own menu, with up and down chevrons) or outline buttons.

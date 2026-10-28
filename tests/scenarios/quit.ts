@@ -3,7 +3,7 @@ import { launchPane, type PaneApp } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
-// ⌘Q asks first, as Aside does (Paper: 03.5 Quit Pane). From a focused page:
+// ⌘Q asks first, as Aside does (Paper: 04.5 Quit Pane). From a focused page:
 // ⌘Q shows Quit Pane?, Esc goes back and gives the page its focus again, and
 // ⌘Q then Return quits. On the Dark theme, ⌘Q twice quits. Keys are posted
 // into the app's event queue, so they take the menu's real path.

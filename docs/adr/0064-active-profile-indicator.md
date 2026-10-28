@@ -1,6 +1,6 @@
 # The active profile's bar morphs into a square, only on the browser page
 
-The active profile's row is marked by its bar and a tint, with no border: the bar, 4 by 16 points on every other row, is a 16-point square on the active one, and the row keeps its 4% tint of the profile's color. The shape is the user's request, from their example. The square is the favicons' size, with their rounding (a superellipse of 4, ADR 0057), and Paper draws it on every board and in 02.1.
+The active profile's row is marked by its bar and a tint, with no border: the bar, 4 by 16 points on every other row, is a 16-point square on the active one, and the row keeps its 4% tint of the profile's color. The shape is the user's request, from their example. The square is the favicons' size, with their rounding (a superellipse of 4, ADR 0057), and Paper draws it on every board and in 03.1.
 
 The bar morphs into its square, at the user's call ("DEVEMOS TER ANIMACAO"); it was first treated as a selection, which does not animate. The bar's width and radius animate together, the name moves along, and the tint fades, on a 0.32-second spring with no overshoot (`Motion.morph`, ADR 0070), with `Squircle`'s radius animating for it. DESIGN.md › Motion gained the rule: an indicator's own change of shape animates, while the highlight moving between items stays instant. Captured 41 times across a switch from Freelance to Work, Work's bar went 4, 8.5, 14.5, then 16 points wide, while Freelance's went 16, 11.5, 5, then 4. The same change made the pinned actions' circles and their capsule fade on hover (0.15 s), as the other hover fills do; they had jumped.
 
@@ -8,4 +8,4 @@ Closing the active profile thins its bar with the same motion, after the user's 
 
 No profile shows as active off the browser page, after the user's report from Settings, where HC's square bar and tint stayed. On Settings and on Extensions, the active profile's bar morphs back to 4 points and its tint goes, as its selected tab's highlight already did; back on the browser page, both return. Renders of the three pages checked it. Paper's Settings and Extensions boards drew it so already: the app was the one apart.
 
-The row also lost the Electron app's moon, at the user's request. It sat beside the tab count and marked a profile unloaded this session; it is gone from the sidebar, from Paper's 91 sidebars, and from 02.1. Unloading itself is unchanged (ADR 0041).
+The row also lost the Electron app's moon, at the user's request. It sat beside the tab count and marked a profile unloaded this session; it is gone from the sidebar, from Paper's 91 sidebars, and from 03.1. Unloading itself is unchanged (ADR 0041).

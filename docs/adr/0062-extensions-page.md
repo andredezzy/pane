@@ -1,6 +1,6 @@
 # Extensions have their own page
 
-Extensions are managed on a page of their own, out of Settings, at the user's request: every browser has one, Chrome's chrome://extensions and Aside's aside://extensions. The page takes the content panel as Settings does (`BrowserModel.Page.extensions`). Paper drew it first: 08 · Extensions, light and dark, with a search, no extensions, and Remove (ADR 0058).
+Extensions are managed on a page of their own, out of Settings, at the user's request: every browser has one, Chrome's chrome://extensions and Aside's aside://extensions. The page takes the content panel as Settings does (`BrowserModel.Page.extensions`). Paper drew it first: 09 · Extensions, light and dark, with a search, no extensions, and Remove (ADR 0058).
 
 Its header holds the puzzle, Extensions, the profile select, and Update all, and a search by name or description follows. Then come the cards, two to a row: a 40-point icon, the name and version, two lines of description, and the menu's pin; Options (when the extension has a page) and Remove; and the switch. A pinned extension shows the struck pin in blue, as the extensions menu does; Paper's boards, which had the two pins the other way round, now match. The profile select chooses whose extensions the page lists, since each profile has its own (ADR 0031). At the user's request it has no color bar: its border is in the profile's color at 40%, as the active profile's row in the sidebar had it then. Paper's six boards follow.
 

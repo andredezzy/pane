@@ -1,7 +1,7 @@
 import PaneKit
 import SwiftUI
 
-// The Extensions page (Paper: 08 · Extensions), Pane's chrome://extensions,
+// The Extensions page (Paper: 09 · Extensions), Pane's chrome://extensions,
 // as Chrome and Aside have theirs: a profile's extensions as cards, two to a
 // row, found by name or description, each with its options, removal, pin,
 // and switch. Extensions come from the Chrome Web Store's own install button, which the engine labels Add to Pane.

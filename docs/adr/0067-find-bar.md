@@ -1,6 +1,6 @@
 # The find bar takes Aside's design
 
-The find bar takes Aside's design, at the user's request, measured at 2× from the user's screenshot, without Aside's blue line between the field and the chevrons (the user's call). Paper drew it first: 03.3 Find in page, light and dark, and 02.5's three states (ADR 0058).
+The find bar takes Aside's design, at the user's request, measured at 2× from the user's screenshot, without Aside's blue line between the field and the chevrons (the user's call). Paper drew it first: 04.3 Find in page, light and dark, and 03.5's three states (ADR 0058).
 
 The bar is 357 by 54 points, at the same top right, on the popover's fill. Aside rounds it as a circle of 8, which is 14.7 as a squircle; the bar's squircle was 14 at first and is 15 now, on the radius scale (ADR 0057). Its soft shadow (black 25%, 40% in dark; radius 6, 6 down) matched Aside's across its edge and spread, within a pixel or two. It has no border, but in dark a hairline ring, as the popovers have, so it stands off the page.
 
