@@ -114,6 +114,11 @@ extension BrowserController {
 	func showPage(_ page: BrowserModel.Page) {
 		model.setPage(page)
 		placeActivePage()
+
+		// Back on the browser, its page takes the keys again.
+		if page == .browser {
+			activePage?.focus()
+		}
 	}
 
 	// The sidebar's Settings: there, or back to the browser.

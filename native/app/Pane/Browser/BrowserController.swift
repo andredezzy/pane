@@ -45,6 +45,9 @@ final class BrowserController: NSObject {
 	let updater: Updater
 	// The URL Pane was started with, while it waits behind the lock.
 	private var launchURL: URL?
+	// A new tab with no page of the user's: its address field takes the keys
+	// once it shows, to type in, rather than its page.
+	private var focusesAddress: String?
 
 	init(model: BrowserModel, dataDirectory: URL, application: BrowserApplication, lock: AppLock, updater: Updater) {
 		self.model = model
@@ -268,12 +271,12 @@ final class BrowserController: NSObject {
 	func openTab(inProfile profileID: String, url: URL? = nil) -> String {
 		let tab = Tab(id: UUID().uuidString.lowercased(), url: (url ?? AddressInput.newTabURL).absoluteString)
 		model.insertTab(tab, inProfile: profileID, after: nil)
-		select(tabID: tab.id)
 
 		if url == nil {
-			state.focusAddressField()
+			focusesAddress = tab.id
 		}
 
+		select(tabID: tab.id)
 		return tab.id
 	}
 
@@ -453,6 +456,24 @@ final class BrowserController: NSObject {
 		// Actions show their state for the selected tab.
 		extensions.refresh(profileID)
 		browserWindow.window.title = page.title.isEmpty ? "Pane" : page.title
+		focusEnteredTab(page)
+	}
+
+	// The tab entered takes the keys, as Chrome's tab switch gives them to its
+	// page: as the last page's view left the window with them, AppKit gave
+	// them to the address field, which selected its text (the user's report).
+	// A new tab's address field takes them instead, to type in.
+	private func focusEnteredTab(_ page: WebContents) {
+		guard let tabID = tabID(of: page) else {
+			return
+		}
+
+		if focusesAddress == tabID {
+			focusesAddress = nil
+			state.focusAddressField()
+		} else {
+			page.focus()
+		}
 	}
 
 	private func tabID(of page: WebContents) -> String? {
