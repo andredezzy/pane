@@ -1,9 +1,7 @@
 // Thin wrapper over the cua-driver CLI for checks only the native UI can
 // prove: window screenshots, the accessibility tree, real keystrokes.
-import { existsSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { $ } from "bun";
+import { swiftTool } from "./tools";
 
 const SESSION = "pane-scenarios";
 
@@ -280,24 +278,10 @@ export async function fillFields(
 	}
 }
 
-const ACTIVATE_SOURCE = join(
-	import.meta.dir,
-	"..",
-	"tools",
-	"ax-activate.swift",
-);
-
-const ACTIVATE_BINARY = join(tmpdir(), "pane-tests", "ax-activate");
-
 // Turns on the app's full accessibility, as VoiceOver does, then waits a
 // moment for Chrome to build its pages' trees.
 export async function activateWebAccessibility(pid: number): Promise<void> {
-	if (!existsSync(ACTIVATE_BINARY)) {
-		mkdirSync(join(tmpdir(), "pane-tests"), { recursive: true });
-		await $`swiftc -O ${ACTIVATE_SOURCE} -o ${ACTIVATE_BINARY}`.quiet();
-	}
-
-	await $`${ACTIVATE_BINARY} ${pid}`.quiet();
+	await $`${await swiftTool("ax-activate")} ${pid}`.quiet();
 	await Bun.sleep(1_000);
 }
 
