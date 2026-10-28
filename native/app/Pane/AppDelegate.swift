@@ -40,7 +40,9 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		sleep = SleepController(controller: controller)
 
 		if let directory = ProcessInfo.processInfo.environment["PANE_AUTOMATION_DIR"] {
-			automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller, store: store)
+			let automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller, store: store)
+			controller.probe = automation
+			self.automation = automation
 		}
 
 		observers.append(NotificationCenter.default.addObserver(

@@ -26,17 +26,14 @@ final class BrowserController: NSObject {
 		activeTabID: { [weak self] in self?.model.activeTabID },
 		isHeld: { [weak self] in self?.interactionAllowed == false }
 	)
-	// The page context menu last built, kept for scenarios, and whether it is
-	// on screen.
-	private(set) var lastContextMenu: NSMenu?
-	private(set) var contextMenuOpen = false
+	// Scenarios' view of what the app never reads; nil in a shipped Pane.
+	weak var probe: AutomationProbe?
 	// The extensions feature: lists, the toolbar's menu, popups.
 	private(set) lazy var extensions = ExtensionsController(browser: self)
 	// The window's SwiftUI root, where toolbar buttons anchor popups.
 	weak var hostingView: NSView?
-	// Profiles whose engine data is still being deleted.
-	private(set) var pendingDeletions: Set<String> = []
-	// The same, on disk until the engine confirms, for the next launch.
+	// Profiles whose engine data is still being deleted, on disk until the
+	// engine confirms, for the next launch.
 	private let deletions: ProfileDeletions
 	// Each profile's proxy and WebRTC policy.
 	let network: ProfileNetwork
@@ -388,7 +385,7 @@ final class BrowserController: NSObject {
 		unloadProfile(profileID)
 		model.removeProfile(profileID)
 		extensions.forget(profileID)
-		pendingDeletions.insert(profileID)
+		probe?.profileDeletion(profileID, isPending: true)
 		deletions.add(profileID)
 		network.stop(profileID)
 
@@ -398,13 +395,13 @@ final class BrowserController: NSObject {
 			}
 
 			guard let context else {
-				pendingDeletions.remove(profileID)
+				probe?.profileDeletion(profileID, isPending: false)
 				return
 			}
 
 			contexts[profileID] = nil
 			application.deleteContext(context) { [weak self] deleted in
-				self?.pendingDeletions.remove(profileID)
+				self?.probe?.profileDeletion(profileID, isPending: false)
 
 				if deleted {
 					self?.deletions.remove(profileID)
@@ -772,7 +769,7 @@ extension BrowserController: WebContentsDelegate {
 		}
 
 		let menu = PageContextMenu.build(context, page: webContents, controller: self)
-		lastContextMenu = menu
+		probe?.contextMenu(menu, isOpen: false)
 		let view = webContents.nativeView
 		let point = NSPoint(
 			x: context.location.x,
@@ -781,14 +778,14 @@ extension BrowserController: WebContentsDelegate {
 
 		// Shown once the engine's task returns: the menu runs its own loop.
 		DispatchQueue.main.async { [weak self] in
-			self?.contextMenuOpen = true
+			self?.probe?.contextMenu(menu, isOpen: true)
 			menu.popUp(positioning: nil, at: point, in: view)
-			self?.contextMenuOpen = false
+			self?.probe?.contextMenu(menu, isOpen: false)
 		}
 	}
 
 	func webContentsWillPrint(_ webContents: WebContents) {
-		state.printRequests += 1
+		probe?.pageWillPrint()
 	}
 
 	func webContents(_ webContents: WebContents, didChangePictureInPicture active: Bool) {
@@ -869,7 +866,7 @@ extension BrowserController {
 
 extension BrowserController: BrowserContextDelegate {
 	func browserContext(_ context: BrowserContext, didUpdate download: Download) {
-		NotificationCenter.default.post(name: .paneDownloadDidUpdate, object: download)
+		probe?.downloadDidUpdate(download)
 	}
 
 	func browserContextDidChangeExtensions(_ context: BrowserContext) {
@@ -887,10 +884,6 @@ extension BrowserController: BrowserContextDelegate {
 	func browserContext(_ context: BrowserContext, show popup: ExtensionPopup, in window: BrowserWindow) {
 		extensions.show(popup)
 	}
-}
-
-extension Notification.Name {
-	static let paneDownloadDidUpdate = Notification.Name("PaneDownloadDidUpdate")
 }
 
 extension NSImage {

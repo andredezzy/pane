@@ -271,6 +271,26 @@ const contextMenu: Scenario = async (context) => {
 
 	expect(has("PaneContextMenu.inspectElement"), "trace lacks Inspect");
 
+	// A menu that closed is let go, with the page its items hold: none of
+	// them runs any more.
+	const released = await app.waitFor(
+		"the closed menu released",
+		(state) => state.contextMenu === null,
+		5_000,
+	);
+
+	const stale = await app
+		.send("chooseContextMenuItem", { title: "Reload" })
+		.then(
+			() => "ran",
+			(error: unknown) => String(error),
+		);
+
+	expect(
+		stale.includes("no context menu item"),
+		`a closed menu's Reload: ${stale}`,
+	);
+
 	const windows = await watcher.stop();
 
 	expect(
@@ -284,6 +304,7 @@ const contextMenu: Scenario = async (context) => {
 		edits,
 		newTab,
 		devToolsClosed: !closed.devToolsTabs.includes(tab),
+		menuReleased: released.contextMenu === null,
 		tab: tabOf(closed, tab),
 		windows,
 	};
