@@ -1,8 +1,11 @@
+import { controlEnabled, isScreenLocked, mainWindowOf } from "../lib/cua";
 import { launchPane, tabOf } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
 // Back, forward, reload, and stop through the app, with the tab's URL, title,
-// favicon, history state, and loading state following along.
+// favicon, history state, and loading state following along. On an unlocked
+// screen, the toolbar's Back and Forward are enabled only when the tab can go
+// that way, read through accessibility.
 const navigation: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Browse");
@@ -12,6 +15,31 @@ const navigation: Scenario = async (context) => {
 	const tab = await app.openTab(profile, a);
 	const pageA = await app.page(tab, a);
 
+	const locked = await isScreenLocked();
+	const pid = app.browser.pid;
+	const window = locked ? 0 : await mainWindowOf(pid);
+	const arrows: Record<string, unknown> = {};
+
+	const expectArrows = async (at: string, back: boolean, forward: boolean) => {
+		if (locked) {
+			return;
+		}
+
+		await Bun.sleep(200);
+
+		const shown = {
+			back: await controlEnabled(pid, window, { title: "Back" }),
+			forward: await controlEnabled(pid, window, { title: "Forward" }),
+		};
+
+		arrows[at] = shown;
+
+		expect(
+			shown.back === back && shown.forward === forward,
+			`at ${at}, Back and Forward show ${JSON.stringify(shown)}`,
+		);
+	};
+
 	const titled = await app.waitFor("title and favicon of A", (state) => {
 		const current = tabOf(state, tab);
 
@@ -19,6 +47,7 @@ const navigation: Scenario = async (context) => {
 	});
 
 	expect(!tabOf(titled, tab)?.canGoBack, "a fresh tab cannot go back");
+	await expectArrows("a fresh tab", false, false);
 
 	await app.send("navigate", { input: b });
 
@@ -32,6 +61,8 @@ const navigation: Scenario = async (context) => {
 		);
 	});
 
+	await expectArrows("B", true, false);
+
 	await app.send("back");
 
 	const back = await app.waitFor("back at A", (state) => {
@@ -39,6 +70,8 @@ const navigation: Scenario = async (context) => {
 
 		return current?.url === a && !current.loading && current.canGoForward;
 	});
+
+	await expectArrows("back at A", false, true);
 
 	await app.send("forward");
 
@@ -146,6 +179,7 @@ const navigation: Scenario = async (context) => {
 		reloads: { before: loadsBefore, after: loadsAfter },
 		slowLoad: { loading: tabOf(loading, tab), stopped: tabOf(stopped, tab) },
 		address: { other: showsOther.address, first: showsFirst.address },
+		arrows: locked ? "not read: the screen is locked" : arrows,
 	};
 };
 

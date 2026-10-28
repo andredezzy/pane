@@ -15,14 +15,19 @@ struct ToolbarView: View {
 	private var model: BrowserModel { controller.model }
 	private var tabID: String? { model.activeTabID }
 	private var isLoading: Bool { tabID.flatMap { model.loadingProgress[$0] } != nil }
+	private var navigation: BrowserModel.NavigationState { tabID.flatMap { model.navigation[$0] } ?? .init() }
 	private var profile: BrowserProfile? { model.activeProfileID.flatMap(model.profile) }
 
 	var body: some View {
 		HStack(spacing: 4) {
 			HStack(spacing: 2) {
-				// Aside's chevrons: 1.5 points of stroke at 24.
+				// Aside's chevrons: 1.5 points of stroke at 24. Each dims to
+				// 40%, as the other icon buttons, while the tab has nowhere to
+				// go that way, as Chrome's and Aside's do.
 				NavigationButton(icon: .chevronLeft, size: 24, strokeWidth: 1.5, label: "Back", action: controller.goBack)
+					.disabled(!navigation.canGoBack)
 				NavigationButton(icon: .chevronRight, size: 24, strokeWidth: 1.5, label: "Forward", action: controller.goForward)
+					.disabled(!navigation.canGoForward)
 				// Its reload at 17, with the same 1.5 points.
 				NavigationButton(
 					icon: isLoading ? .x : .rotateCw,

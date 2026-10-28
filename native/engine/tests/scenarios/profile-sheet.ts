@@ -3,8 +3,8 @@ import { join } from "node:path";
 import {
 	clickButton,
 	clickControl,
-	controlFrame,
 	mainWindowOf,
+	readControl,
 	typeIntoField,
 } from "../lib/cua";
 import { type AppState, type PaneApp, tabOf } from "../lib/pane";
@@ -268,7 +268,7 @@ const profileSheet: Scenario = async (context) => {
 
 		// A real click on the switch's label, well clear of the switch: the
 		// whole row toggles it, as a checkbox's label does.
-		const spoofRow = await controlFrame(
+		const spoofRow = await readControl(
 			pid,
 			window,
 			"Spoof fingerprint",
@@ -283,12 +283,7 @@ const profileSheet: Scenario = async (context) => {
 		await Bun.sleep(300);
 
 		const spoofAfterClick = (
-			await controlFrame(
-				pid,
-				window,
-				"Spoof fingerprint",
-				/AX(CheckBox|Switch)/,
-			)
+			await readControl(pid, window, "Spoof fingerprint", /AX(CheckBox|Switch)/)
 		).value;
 
 		expect(
