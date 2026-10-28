@@ -90,7 +90,7 @@ enum MainMenu {
 
 	private static func tabMenu(_ controller: BrowserController) -> NSMenu {
 		let menu = NSMenu(title: "Tab")
-		// Shown for discoverability; SwitcherKeys handles the keys themselves.
+		// Shown for discoverability; KeyRouter handles the keys themselves.
 		menu.addItem(item("Next Tab (Recent)", #selector(BrowserController.nextTabMRU(_:)), "\t", [.control], target: controller))
 		menu.addItem(item("Previous Tab (Recent)", #selector(BrowserController.previousTabMRU(_:)), "\t", [.control, .shift], target: controller))
 		menu.addItem(.separator())

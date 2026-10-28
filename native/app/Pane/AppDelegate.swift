@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	private var controller: BrowserController?
 	private var store: ModelStore?
 	private var windowController: MainWindowController?
-	private var switcherKeys: SwitcherKeys?
+	private var keys: KeyRouter?
 	private var automation: Automation?
 	private var sleep: SleepController?
 	private var observers: [NSObjectProtocol] = []
@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		controller.applyTheme()
 		NSApp.mainMenu = MainMenu.build(target: controller)
 		windowController = MainWindowController(controller: controller)
-		switcherKeys = SwitcherKeys(controller: controller)
+		keys = KeyRouter(controller: controller)
 		sleep = SleepController(controller: controller)
 
 		if let directory = ProcessInfo.processInfo.environment["PANE_AUTOMATION_DIR"] {

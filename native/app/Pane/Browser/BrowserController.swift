@@ -34,8 +34,6 @@ final class BrowserController: NSObject {
 	private(set) lazy var extensions = ExtensionsController(browser: self)
 	// The window's SwiftUI root, where toolbar buttons anchor popups.
 	weak var hostingView: NSView?
-	// Quit Pane?'s keys, while it shows.
-	var quitKeyMonitor: Any?
 	// Profiles whose engine data is still being deleted.
 	private(set) var pendingDeletions: Set<String> = []
 	// The same, on disk until the engine confirms, for the next launch.

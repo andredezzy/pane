@@ -21,7 +21,6 @@ final class AppLock {
 
 	@ObservationIgnored private let file: PersistedFile<SecurityState>
 	@ObservationIgnored private let dataDirectory: URL
-	@ObservationIgnored private var keyMonitor: Any?
 
 	// A security.json that does not decode never opens the lock: its PIN is
 	// read from what is left when it can be, and the lock stays shut when it
@@ -320,61 +319,12 @@ final class AppLock {
 
 	// The PIN screen takes every key while it shows (digits, Delete, Escape
 	// to go back), so nothing reaches a page or the app's shortcuts; only
-	// Quit gets through.
+	// Quit gets through (KeyRouter).
 	private func present(_ entry: PinEntry) {
 		self.entry = entry
-
-		guard keyMonitor == nil else {
-			return
-		}
-
-		keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-			// Event monitors run on the main thread.
-			nonisolated(unsafe) let event = event
-			let consumed = MainActor.assumeIsolated { self?.consumes(event) ?? false }
-
-			return consumed ? nil : event
-		}
 	}
 
 	private func close() {
 		entry = nil
-
-		if let keyMonitor {
-			NSEvent.removeMonitor(keyMonitor)
-			self.keyMonitor = nil
-		}
-	}
-
-	// Whether the PIN screen took `event`: all but Quit.
-	private func consumes(_ event: NSEvent) -> Bool {
-		if event.isQuitShortcut {
-			return false
-		}
-
-		let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-
-		switch event.keyCode {
-		case 51:
-			backspace()
-		case 53:
-			dismiss()
-		case 36, 76:
-			continueWithPin()
-		default:
-			if flags.isDisjoint(with: [.command, .control, .option]), let character = event.characters?.first {
-				digit(character)
-			}
-		}
-
-		return true
-	}
-}
-
-extension NSEvent {
-	// ⌘Q, Caps Lock or not: the key that always reaches Quit.
-	var isQuitShortcut: Bool {
-		modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock) == .command
-			&& charactersIgnoringModifiers?.lowercased() == "q"
 	}
 }

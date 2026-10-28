@@ -25,6 +25,10 @@ enum Motion {
 	// The copy of a dragged row going, once it has settled.
 	static var drop: Animation? { unlessReduced(.easeOut(duration: 0.12)) }
 
+	// A dialog over the window appearing and going: Quit Pane?, a page's
+	// dialog.
+	static var panel: Animation? { unlessReduced(.easeOut(duration: 0.15)) }
+
 	// The profile sheet sliding in from the right as its scrim fades in, and
 	// back out.
 	static var sheet: Animation? { unlessReduced(.easeOut(duration: 0.2)) }

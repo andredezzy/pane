@@ -39,7 +39,7 @@ final class ExtensionPopover: NSObject, NSPopoverDelegate, ExtensionPopupDelegat
 
 		let popover = NSPopover()
 		popover.behavior = .transient
-		popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+		popover.animates = !Motion.isReduced
 		popover.contentViewController = controller
 		popover.contentSize = container.frame.size
 		popover.delegate = self

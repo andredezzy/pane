@@ -6,8 +6,9 @@ import PaneKit
 // profile's extensions as the engine last reported them, the toolbar
 // puzzle's menu (ExtensionsMenu) and an extension's more menu beside it, the
 // popups that add or remove one (ExtensionPromptView), and the action
-// popups (ExtensionPopover). Esc closes the topmost; a menu also closes on a
-// click outside it, or once one of its items runs.
+// popups (ExtensionPopover). Esc closes the topmost, Return accepts a popup
+// (KeyRouter); a menu also closes on a click outside it, or once one of its
+// items runs.
 @MainActor
 @Observable
 final class ExtensionsController {
@@ -37,9 +38,6 @@ final class ExtensionsController {
 	let popover = ExtensionPopover()
 
 	@ObservationIgnored private unowned let browser: BrowserController
-	// Esc and Return, while the extensions menu, a more menu, or an extension
-	// popup shows.
-	@ObservationIgnored private var keyMonitor: Any?
 
 	init(browser: BrowserController) {
 		self.browser = browser
@@ -188,14 +186,12 @@ final class ExtensionsController {
 		}
 
 		menuOpen = true
-		syncKeyMonitor()
 	}
 
 	// The menu, and the more menu beside it.
 	func closeMenu() {
 		moreMenu = nil
 		menuOpen = false
-		syncKeyMonitor()
 	}
 
 	func toggleMoreMenu(_ extensionID: String, row: CGRect) {
@@ -279,7 +275,6 @@ final class ExtensionsController {
 		let previous = self.prompt
 		promptReportsAbuse = false
 		self.prompt = prompt
-		syncKeyMonitor()
 		previous?.answer(false, false)
 	}
 
@@ -289,55 +284,7 @@ final class ExtensionsController {
 		}
 
 		self.prompt = nil
-		syncKeyMonitor()
 		prompt.answer(accepted, accepted && promptReportsAbuse)
-	}
-
-	// The keys belong to whichever of them shows: a popup takes all but
-	// shortcuts, as a dialog would.
-	private func syncKeyMonitor() {
-		let showing = menuOpen || prompt != nil
-
-		if showing, keyMonitor == nil {
-			keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-				// Event monitors run on the main thread.
-				nonisolated(unsafe) let event = event
-				let consumed = MainActor.assumeIsolated { self?.consumes(event) ?? false }
-
-				return consumed ? nil : event
-			}
-		} else if !showing, let keyMonitor {
-			NSEvent.removeMonitor(keyMonitor)
-			self.keyMonitor = nil
-		}
-	}
-
-	private func consumes(_ event: NSEvent) -> Bool {
-		let isPrompt = prompt != nil
-
-		switch event.keyCode {
-		case 53:
-			if isPrompt {
-				answerPrompt(accepted: false)
-			} else if moreMenu != nil {
-				moreMenu = nil
-			} else {
-				closeMenu()
-			}
-
-			return true
-
-		case 36, 76:
-			guard isPrompt else {
-				return false
-			}
-
-			answerPrompt(accepted: true)
-			return true
-
-		default:
-			return isPrompt && event.modifierFlags.intersection(.deviceIndependentFlagsMask).isDisjoint(with: [.command, .control])
-		}
 	}
 }
 
