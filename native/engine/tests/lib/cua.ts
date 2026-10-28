@@ -204,34 +204,47 @@ async function readUntil<T>(
 
 // Clicks a control in the window, or in whichever of the app's windows has
 // it (an app-modal panel is a window of its own), by its accessibility
-// element: a real press, as a user's.
+// element: a real press, as a user's. SwiftUI may build the element anew
+// between the read and the press (kAXErrorInvalidUIElement, -25202): it is
+// read again, up to three times.
 export async function clickControl(
 	pid: number,
 	window: number | "any",
 	control: Control,
 ): Promise<void> {
-	const {
-		state,
-		value: index,
-		windowId,
-	} = await readUntil(
-		pid,
-		window,
-		{ query: control.title, max_elements: 500 },
-		// Only a row that can be pressed: a web button lists no press until
-		// Chrome's full accessibility is on, and pressing it then does nothing.
-		(tree) =>
-			findRow(tree, control)?.match(
-				/\[(\d+)\].*actions=\[[^\]]*\bpress\b/,
-			)?.[1],
-		`control "${control.title}"`,
-	);
+	for (let attempt = 1; ; attempt++) {
+		const {
+			state,
+			value: index,
+			windowId,
+		} = await readUntil(
+			pid,
+			window,
+			{ query: control.title, max_elements: 500 },
+			// Only a row that can be pressed: a web button lists no press until
+			// Chrome's full accessibility is on, and pressing it then does
+			// nothing.
+			(tree) =>
+				findRow(tree, control)?.match(
+					/\[(\d+)\].*actions=\[[^\]]*\bpress\b/,
+				)?.[1],
+			`control "${control.title}"`,
+		);
 
-	await call("click", {
-		pid,
-		window_id: windowId,
-		element_token: `${state.snapshot_id}:${index}`,
-	});
+		try {
+			await call("click", {
+				pid,
+				window_id: windowId,
+				element_token: `${state.snapshot_id}:${index}`,
+			});
+
+			return;
+		} catch (error) {
+			if (attempt >= 3 || !String(error).includes("-25202")) {
+				throw error;
+			}
+		}
+	}
 }
 
 // Clicks the button titled `title`; `id` picks one of several.
