@@ -1,25 +1,23 @@
 import Foundation
 
 // The first launch after the Electron app: its profiles, tabs, settings, PIN,
-// and each profile's site data (cookies, storage) move into the native app,
-// and its extensions reinstall from the Web Store per profile. It always reads
-// a copy of the Electron app's data, never the data itself, and never writes
-// there.
+// and each profile's site data (cookies, storage) move into the native app.
+// Its extensions do not: it installed each once, for every profile, and a
+// native profile has only the extensions added to it. It always reads a copy
+// of the Electron app's data, never the data itself, and never writes there.
 public enum ElectronMigration {
 	// What a migration did, kept in the data directory as migration.json so it
-	// runs once; the extensions still to reinstall stay listed until they are.
+	// runs once. A record from before extensions stayed behind still lists
+	// them as pendingExtensions, which nothing reads.
 	public struct Record: Codable, Hashable, Sendable {
 		public var source: String
 		public var migratedAt: String
 		public var profiles: [String]
-		// By profile id: the Web Store ids it still has to reinstall.
-		public var pendingExtensions: [String: [String]]
 
-		public init(source: String, migratedAt: String, profiles: [String], pendingExtensions: [String: [String]]) {
+		public init(source: String, migratedAt: String, profiles: [String]) {
 			self.source = source
 			self.migratedAt = migratedAt
 			self.profiles = profiles
-			self.pendingExtensions = pendingExtensions
 		}
 	}
 
@@ -30,7 +28,7 @@ public enum ElectronMigration {
 		case noSource
 		// The Electron app is running: its files may be mid-write.
 		case sourceInUse
-		case migrated(profiles: Int, extensions: Int)
+		case migrated(profiles: Int)
 	}
 
 	// Where the Electron app keeps its data, and the name it runs under.
@@ -130,8 +128,6 @@ public enum ElectronMigration {
 			}
 		}
 
-		let extensions = installedExtensions(in: source.appending(path: "Extensions", directoryHint: .isDirectory))
-
 		// 2. The import, from the copy only.
 		try fileManager.createDirectory(at: data.appending(path: "Engine", directoryHint: .isDirectory), withIntermediateDirectories: true)
 
@@ -158,12 +154,11 @@ public enum ElectronMigration {
 		let record = Record(
 			source: source.path,
 			migratedAt: ISO8601DateFormatter().string(from: now),
-			profiles: profiles.map(\.id),
-			pendingExtensions: extensions.isEmpty ? [:] : Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, extensions) })
+			profiles: profiles.map(\.id)
 		)
 		try PersistedFile<Record>(directory: data, name: recordName).save(record)
 
-		return .migrated(profiles: profiles.count, extensions: extensions.count)
+		return .migrated(profiles: profiles.count)
 	}
 
 	// Copies a partition's data, leaving out caches and the Electron
@@ -181,14 +176,6 @@ public enum ElectronMigration {
 
 			try fileManager.copyItem(at: entry, to: destination.appending(path: name))
 		}
-	}
-
-	// The Web Store ids the Electron app installed (Extensions/<id>/<version>),
-	// which it loaded into every profile.
-	static func installedExtensions(in directory: URL) -> [String] {
-		let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-
-		return names.filter { $0.wholeMatch(of: /[a-p]{32}/) != nil }.sorted()
 	}
 
 	// Chromium marks a running instance with a SingletonLock link to

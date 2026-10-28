@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { launchPane } from "../lib/pane";
+import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // The first launch after the Electron app. Electron itself (41.4.0, the
@@ -19,9 +19,10 @@ import { expect, type Scenario } from "../run";
 // directory beside the app's JSON files (two profiles, their tabs, settings,
 // a PIN) and an installed extension. Pane's first launch on it migrates
 // everything, from a copy: it starts locked behind the same PIN, the
-// profiles, tabs, and settings are there, the profile's pages see the
-// Electron app's cookie and storage, and the extension reinstalls from the
-// Web Store. The Electron data is byte for byte as it was.
+// profiles, tabs, and settings are there, and the profile's pages see the
+// Electron app's cookie and storage. The extension, which the Electron app
+// installed once for every profile, reinstalls in none: each profile adds
+// its own. The Electron data is byte for byte as it was.
 
 const ELECTRON = join(
 	import.meta.dir,
@@ -218,7 +219,7 @@ const migration: Scenario = async (context) => {
 	);
 
 	// Pane's first launch.
-	const app = await launchPane(context, {
+	const { app, has } = await launchTraced(context, "migration", {
 		env: { PANE_ELECTRON_DATA_DIR: source },
 	});
 
@@ -282,35 +283,22 @@ const migration: Scenario = async (context) => {
 		`the migrated fingerprint: ${seen.platform}`,
 	);
 
-	// The extension reinstalls from the Web Store as the profile opens.
-	const installed = await app.waitFor(
-		"the extension reinstalled",
-		(state) =>
-			(state.extensions[WORK] ?? []).some((entry) => entry.id === EXTENSION),
-		90_000,
+	// Both profiles open; neither reinstalls the Electron app's extension,
+	// and migration.json lists none to reinstall.
+	await app.send("select", { tab: "p1" });
+
+	await app.waitFor(
+		"both profiles open",
+		(state) => WORK in state.extensions && PERSONAL in state.extensions,
 	);
 
-	// migration.json: no longer pending in Work; still in Personal, which
-	// has not opened.
-	type MigrationRecord = {
-		state: { pendingExtensions: Record<string, string[]> };
-	};
+	// Long enough for a reinstall to start (it did as each profile opened).
+	await Bun.sleep(5_000);
+	const opened = await app.state();
 
-	const readRecord = () =>
-		JSON.parse(
-			readFileSync(join(app.dataDir, "migration.json"), "utf8"),
-		) as MigrationRecord;
-
-	const deadline = Date.now() + 10_000;
-	let record = readRecord();
-
-	while (
-		Date.now() < deadline &&
-		(record.state.pendingExtensions[WORK] ?? []).includes(EXTENSION)
-	) {
-		await Bun.sleep(250);
-		record = readRecord();
-	}
+	const record = JSON.parse(
+		readFileSync(join(app.dataDir, "migration.json"), "utf8"),
+	) as { state: Record<string, unknown> };
 
 	await app.browser.close();
 	const after = snapshot(source);
@@ -320,10 +308,17 @@ const migration: Scenario = async (context) => {
 		"the Electron data changed",
 	);
 
+	const extensions = {
+		work: (opened.extensions[WORK] ?? []).map((entry) => entry.id),
+		personal: (opened.extensions[PERSONAL] ?? []).map((entry) => entry.id),
+	};
+
 	expect(
-		!(record.state.pendingExtensions[WORK] ?? []).includes(EXTENSION) &&
-			(record.state.pendingExtensions[PERSONAL] ?? []).includes(EXTENSION),
-		`pending extensions: ${JSON.stringify(record.state.pendingExtensions)}`,
+		extensions.work.length === 0 &&
+			extensions.personal.length === 0 &&
+			!has("PaneBrowserContext.installExtension") &&
+			!("pendingExtensions" in record.state),
+		`the Electron app's extension reinstalled: ${JSON.stringify({ extensions, record: record.state })}`,
 	);
 
 	return {
@@ -339,10 +334,7 @@ const migration: Scenario = async (context) => {
 		profiles,
 		settings: { theme: unlocked.theme },
 		siteData: seen,
-		extensions: {
-			reinstalled: (installed.extensions[WORK] ?? []).map((entry) => entry.id),
-			pendingUntilOpened: record.state.pendingExtensions,
-		},
+		extensions: { electron: [EXTENSION], reinstalled: extensions },
 	};
 };
 

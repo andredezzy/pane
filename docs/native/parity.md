@@ -103,7 +103,7 @@ Status: ✅ done and proven · 🟡 in progress · — not started · ⛔ droppe
 | Installed extensions per profile | `extension-store.ts` | 4 | ✅ | Chrome's extension system, one per profile (the store is gone): `phase-4/dark-reader.json` |
 | Proxy status per profile | `proxy-status-store.ts` | 5 | ✅ | Tested at launch and on every proxy change; the sidebar's dot: `phase-5/proxy.json` |
 | Update status (checking, available, downloading) | `update-store.ts` | 5 | ✅ | One source for the pill, Settings, and the lock screen (`Updater`); not persisted, as in the Electron app: `phase-5/updates.json` |
-| Migration of all of the above from the Electron app | (new) | 5 | ✅ | First launch, from a copy, never in place: profiles, tabs, settings, the PIN, each profile's site data (Electron's own cookie and local storage reach the profile's pages), extensions reinstalled from the Web Store as each profile opens; the source is byte for byte unchanged: `phase-5/migration.json`, `phase-5/swift-test.txt`. **[HUMAN]** the real Keychain approval: `HUMAN-CHECKLIST.md` |
+| Migration of all of the above from the Electron app | (new) | 5 | ✅ | First launch, from a copy, never in place: profiles, tabs, settings, the PIN, each profile's site data (Electron's own cookie and local storage reach the profile's pages); extensions stay behind, since each profile adds its own; the source is byte for byte unchanged: `phase-5/migration.json`, `phase-5/swift-test.txt`. **[HUMAN]** the real Keychain approval: `HUMAN-CHECKLIST.md` |
 
 ## Chrome's own UI (Phase 3)
 

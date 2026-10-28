@@ -53,7 +53,7 @@ struct ElectronMigrationTests {
 		let before = snapshot(source)
 		let outcome = try ElectronMigration.run(from: source, into: data)
 
-		#expect(outcome == .migrated(profiles: 1, extensions: 1))
+		#expect(outcome == .migrated(profiles: 1))
 		#expect(snapshot(source) == before)
 
 		let profiles = try #require(try PersistedFile<ProfilesState>(directory: data, name: "profiles").load())
@@ -75,8 +75,10 @@ struct ElectronMigrationTests {
 		#expect(!fileManager.fileExists(atPath: profile.appending(path: "Preferences").path))
 		#expect(!fileManager.fileExists(atPath: data.appending(path: "Migration").path))
 
+		// The Electron app's extensions stay behind: none lands in a profile.
 		let record = try #require(try PersistedFile<ElectronMigration.Record>(directory: data, name: ElectronMigration.recordName).load())
-		#expect(record.pendingExtensions == [id: ["ddkjiahejlhfcafbddmgiahcphecmpfh"]])
+		#expect(record.profiles == [id])
+		#expect(!fileManager.fileExists(atPath: profile.appending(path: "Extensions").path))
 
 		#expect(try ElectronMigration.run(from: source, into: data) == .notNeeded)
 	}

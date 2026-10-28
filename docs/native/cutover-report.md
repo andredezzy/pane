@@ -49,7 +49,7 @@ Electron internals, with no user-facing equivalent:
 
 These are not missing features. Each is recorded in `native/DECISIONS.md`.
 
-- **Data moves over once.** The first launch copies the Electron app's data (`~/Library/Application Support/@pane/veil`), never touching the original: profiles, tabs, settings, the PIN, each profile's cookies and storage, and its extensions, reinstalled from the Web Store. The cookie key comes from the Electron app's Keychain item, so macOS asks once.
+- **Data moves over once.** The first launch copies the Electron app's data (`~/Library/Application Support/@pane/veil`), never touching the original: profiles, tabs, settings, the PIN, and each profile's cookies and storage. Extensions stay behind: the Electron app installed each for every profile, and a native profile has only the ones added to it. The cookie key comes from the Electron app's Keychain item, so macOS asks once.
 - **Chrome makes no requests of its own**: no component updater, network time, AI Mode eligibility, Translate ranker, or Google account list. The `quiet` scenario sees nothing leave but the pages' own traffic.
 - **Chrome 157's own changes**: a new extension is pinned to the toolbar, as every extension's button showed in the Electron app. A page goes fullscreen only from a focused view.
 - **One version source**: `native/app/VERSION`. The bundle's version keys, Settings, the update check, and the dmg's name all come from it. The bundle carries Pane's icon.
