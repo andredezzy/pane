@@ -48,38 +48,23 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 ## Publish the first native release
 
-Prepared on 2026-10-27, and not published. Pane 1.0.0 is committed on `native-shell` (`Release 1.0.0`, a major bump for the move off Electron), on Chromium 157.0.8103.15. Its dmg is built here: `native/app/release/Pane-1.0.0-arm64.dmg`. Installed from that dmg, the app passes the smoke scenario (`native/evidence/phase-7/dist.log`), and the release workflow passed a dry run of its build steps (`native/evidence/phase-7/cutover.txt`).
+Prepared on 2026-10-27, and not published. Pane 1.0.0 is on `main` since 2026-10-28 (`Release 1.0.0`, a major bump for the move off Electron, and the native work since), on Chromium 157.0.8103.15. The Electron app's last state is the `electron` branch (`Release 0.6.0`). The engine CI builds the app on is published as the `engine-0d0a01f8c703` prerelease, which the update check never sees: a prerelease is never the latest release. Installed from a dmg, the app passes the smoke scenario (`native/evidence/phase-7/dist.log`), and the release workflow passed a dry run of its build steps (`native/evidence/phase-7/cutover.txt`).
 
-Publishing hands this build to every Electron Pane user: their update check offers v1.0.0 as soon as it is the latest release. So first try it as they will. Quit the Electron Pane, open the dmg, run the app, and do "Phase 5 · Migrate your Electron Pane" above. Then:
+Publishing hands this build to every Electron Pane user: their update check offers v1.0.0 as soon as it is the latest release. So first try it as they will: install the app from a dmg (`native/engine/scripts/dist.sh`), run it, and do "Phase 5 · Migrate your Electron Pane" above. Then:
 
-1. Publish the engine that CI builds the app on, as a prerelease (a prerelease is never the latest release, so the update check never sees it):
-
-   ```bash
-   shasum -a 256 native/app/release/PaneCore-157.0.8103.15-3cf32214b550.zip
-   # must print e5b754244a22ad3fd0b0bb4780c4d83741cb8506782d343a2da559c86bc718af (native/engine/prebuilt-engines.tsv)
-   gh release create engine-3cf32214b550 native/app/release/PaneCore-157.0.8103.15-3cf32214b550.zip \
-     --prerelease --title "Engine 157.0.8103.15 (3cf32214b550)" --notes "PaneCore for native/engine/prebuilt-engines.tsv"
-   ```
-
-2. Merge the branch. `main` has not moved since the branch began, so it fast-forwards:
+1. Tag `main` and push the tag. The Release workflow checks the tag against `native/app/VERSION`, builds the dmg on the `xcode-27` runner, and publishes v1.0.0:
 
    ```bash
    git switch main
-   git merge --ff-only native-shell
-   ```
-
-3. Tag and push. The Release workflow checks the tag against `native/app/VERSION`, builds the dmg on the `xcode-27` runner, and publishes v1.0.0. The Native workflow runs too (6.5's first CI run):
-
-   ```bash
+   git pull --ff-only
    git tag v1.0.0
-   git push origin main
    git push origin v1.0.0
    ```
 
-4. Watch it, then check that the release carries `Pane-1.0.0-arm64.dmg` and that an Electron Pane 0.6.0 offers the update. Save the run's URL to `native/evidence/phase-7/published.txt`.
+2. Watch it, then check that the release carries `Pane-1.0.0-arm64.dmg` and that an Electron Pane 0.6.0 offers the update. Save the run's URL to `native/evidence/phase-7/published.txt`.
 
    ```bash
    gh run watch $(gh run list --workflow Release --limit 1 --json databaseId --jq '.[0].databaseId')
    ```
 
-   If the run cannot start (the `xcode-27` label) or cannot fetch the engine, publish the dmg built here on the pushed tag instead: `gh release create v1.0.0 native/app/release/Pane-1.0.0-arm64.dmg --title v1.0.0 --generate-notes`.
+   If the run cannot start (the `xcode-27` label) or cannot fetch the engine, publish a dmg built here from the tagged commit instead (`native/engine/scripts/dist.sh`; the one in `native/app/release` is from 2026-10-27, before the native work since): `gh release create v1.0.0 native/app/release/Pane-1.0.0-arm64.dmg --title v1.0.0 --generate-notes`.

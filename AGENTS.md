@@ -24,7 +24,7 @@ git tag "v<version>"
 git push && git push origin "v<version>"
 ```
 
-CI verifies the tag matches `native/app/VERSION` and runs PaneKit's tests. It then builds the app on the prebuilt engine that `native/engine/prebuilt-engines.tsv` names for the tagged commit, packages the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. When a release changes the engine (`native/engine/`: `CHROMIUM_VERSION`, `args`, `patches`, `pane`), build it locally first and publish its archive as the `engine-<key>` prerelease (`native/engine/UPGRADING.md`, step 6).
+CI verifies the tag matches `native/app/VERSION` and runs PaneKit's tests. It then builds the app on the prebuilt engine that `native/engine/prebuilt-engines.tsv` names for the tagged commit, packages the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. When a release changes the engine (`native/engine/`: `CHROMIUM_VERSION`, `args`, `patches`, `pane`), build it locally first and publish it with `native/engine/scripts/publish-engine.sh`: its archive becomes the `engine-<key>` prerelease, and its line goes in `prebuilt-engines.tsv` (`native/engine/UPGRADING.md`, step 6).
 
 **Building locally is for testing.** To produce a distributable on your own machine without cutting a release:
 

@@ -69,6 +69,6 @@ A scenario that fails may have caught Chrome changing its own behavior (157 star
 
 ## 6. Ship it
 
-1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>".
-2. Archive the engine for CI and other machines: `PANE_ENGINE_ARCHIVE=1 native/engine/scripts/dist.sh` prints the `prebuilt-engines.tsv` line. Add it and commit. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
-3. Publish the archive as the `engine-<key:12>` prerelease, and release the app as usual (`native/HUMAN-CHECKLIST.md`).
+1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>". Push it.
+2. Publish the engine for CI and other machines: `native/engine/scripts/publish-engine.sh`. It archives the engine (`PANE_ENGINE_ARCHIVE=1 package.sh`) unless `native/app/release` holds its archive, publishes it as the `engine-<key:12>` prerelease, checks GitHub's copy against the archive's SHA-256, and adds its line to `prebuilt-engines.tsv`. Commit that line. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
+3. Release the app as usual (`AGENTS.md`, Releasing).
