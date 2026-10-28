@@ -228,7 +228,7 @@ final class ExtensionsController {
 	}
 
 	// The Chrome Web Store in a new tab of the profile (the active one by
-	// default): its Add to Chrome installs into that profile.
+	// default): its Add to Pane (Add to Chrome, renamed by the engine) installs into that profile.
 	func visitWebStore(inProfile profileID: String? = nil) {
 		closeMenu()
 

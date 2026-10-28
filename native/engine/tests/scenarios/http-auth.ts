@@ -1,10 +1,5 @@
 import { join } from "node:path";
-import {
-	dialogFieldWidths,
-	isScreenLocked,
-	mainWindowOf,
-	windowState,
-} from "../lib/cua";
+import { dialogFieldWidths, isScreenLocked, mainWindowOf } from "../lib/cua";
 import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
@@ -55,11 +50,11 @@ const httpAuth: Scenario = async (context) => {
 			200,
 		).catch(() => dialogFieldWidths(app.browser.pid, window));
 
-		await windowState(
-			app.browser.pid,
-			window,
-			join(context.out, "http-auth-sheet.png"),
-		);
+		// Drawn by the app, not captured from the screen: macOS's AutoFill
+		// can float a one-time code from the user's Messages over the field.
+		await app.send("render", {
+			path: join(context.out, "http-auth-sheet.png"),
+		});
 
 		expect(
 			wide(fields),

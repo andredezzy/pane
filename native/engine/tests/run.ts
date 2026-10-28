@@ -12,6 +12,7 @@ import { type Browser, type LaunchOptions, launch } from "./lib/browser";
 import { isScreenLocked } from "./lib/cua";
 import { type Fixtures, serveFixtures } from "./lib/fixtures";
 import { killUsing } from "./lib/processes";
+import { swiftTool } from "./lib/tools";
 
 export type ScenarioContext = {
 	binary: string;
@@ -86,6 +87,14 @@ async function tearDown(browsers: Browser[], tempDirs: string[]) {
 		await killUsing(directory);
 		rmSync(directory, { recursive: true, force: true });
 	}
+}
+
+// Caps Lock on draws macOS's indicator by every focused field, which the
+// window checks read as a stray window: say so before anything runs.
+if ((await Bun.$`${await swiftTool("caps-lock")}`.text()).trim() === "on") {
+	console.error(
+		"warning: Caps Lock is on; macOS's indicator by focused fields fails the window checks",
+	);
 }
 
 for (const name of positionals) {

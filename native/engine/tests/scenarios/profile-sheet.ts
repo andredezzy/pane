@@ -9,6 +9,7 @@ import {
 	windowState,
 } from "../lib/cua";
 import { type AppState, type PaneApp, tabOf } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { startHttpProxy } from "../lib/proxies";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -292,23 +293,51 @@ const profileSheet: Scenario = async (context) => {
 
 		// A real click on the switch's label, well clear of the switch: the
 		// whole row toggles it, as a checkbox's label does.
-		const spoofRow = await readControl(
+		// Read once the sheet has slid in: two reads 100 ms apart agree.
+		let spoofRow = await readControl(
 			pid,
 			window,
 			"Spoof fingerprint",
 			/AX(CheckBox|Switch)/,
 		);
 
+		await poll("the sheet to settle", async () => {
+			await Bun.sleep(100);
+
+			const again = await readControl(
+				pid,
+				window,
+				"Spoof fingerprint",
+				/AX(CheckBox|Switch)/,
+			);
+
+			const settled = again.x === spoofRow.x && again.y === spoofRow.y;
+			spoofRow = again;
+
+			return settled;
+		});
+
 		await app.send("clickWindow", {
 			x: spoofRow.x + 30,
 			y: spoofRow.y + spoofRow.h / 2,
 		});
 
-		await Bun.sleep(300);
+		// Until the switch reads its new value, or 3 s pass.
+		const spoofAfterClick = await poll(
+			"the switch to toggle",
+			async () => {
+				const { value } = await readControl(
+					pid,
+					window,
+					"Spoof fingerprint",
+					/AX(CheckBox|Switch)/,
+				);
 
-		const spoofAfterClick = (
-			await readControl(pid, window, "Spoof fingerprint", /AX(CheckBox|Switch)/)
-		).value;
+				return value !== spoofRow.value && value;
+			},
+			3_000,
+			100,
+		).catch(() => spoofRow.value);
 
 		expect(
 			spoofRow.value === "1" && spoofAfterClick === "0",

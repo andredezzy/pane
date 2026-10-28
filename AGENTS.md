@@ -12,7 +12,7 @@ Pick the bump with judgement, following semver:
 - **minor** (`0.1.1 → 0.2.0`) — new backward-compatible features.
 - **major** (`0.1.1 → 1.0.0`) — breaking changes or a milestone release.
 
-**Publishing is driven by tags.** GitHub Actions (`.github/workflows/release.yml`) publishes a release whenever a `v*` tag is pushed:
+**Publishing is driven by tags.** GitHub Actions (`.github/workflows/release.yml`) publishes a release whenever a `v*` tag on `main` is pushed (a tag on any other branch fails):
 
 ```bash
 # 1. Bump native/app/VERSION (per the judgement above).
