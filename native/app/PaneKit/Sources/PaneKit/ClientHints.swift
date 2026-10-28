@@ -99,7 +99,8 @@ extension Fingerprint {
 }
 
 // The Sec-CH-UA-* header values (lowercase names) the hints serialize to, as
-// Chrome writes them.
+// Chrome writes them. Only the tests use it, as the oracle for what the
+// engine sends; the engine serializes the headers itself.
 public func clientHintHeaders(_ hints: ClientHints) -> [String: String] {
 	func serialize(_ list: [UABrand]) -> String {
 		list.map { "\"\($0.brand)\";v=\"\($0.version)\"" }.joined(separator: ", ")

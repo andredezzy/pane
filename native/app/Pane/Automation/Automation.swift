@@ -1109,7 +1109,6 @@ final class Automation {
 			"extensionsMenu": controller.state.extensionsMenuOpen,
 			"sidebarWidth": controller.state.sidebarWidth,
 			"extensionMoreMenu": controller.state.extensionMoreMenu?.extensionID ?? NSNull(),
-			"installedExtension": controller.state.installedExtension ?? NSNull(),
 			"pageFullscreen": controller.state.pageFullscreen,
 			"exclusiveAccessHint": controller.state.exclusiveAccessHint ?? NSNull(),
 			"crashedTabs": Array(model.crashedTabIDs),

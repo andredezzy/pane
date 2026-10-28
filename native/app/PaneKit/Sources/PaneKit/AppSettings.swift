@@ -24,6 +24,8 @@ public enum SidebarWidth {
 public struct AppSettings: Codable, Hashable, Sendable {
 	public static let defaults = AppSettings()
 
+	// The Electron app's Chromium override, which nothing here reads: kept
+	// so settings.json round-trips with the Electron app's fields.
 	public var chromiumPath: String
 	public var theme: Theme
 	// Minutes a background tab stays loaded before it sleeps; nil = off.
@@ -59,7 +61,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		let container = try decoder.container(keyedBy: CodingKeys.self)
 		let defaults = AppSettings.defaults
 
-		func minutes(_ key: CodingKeys, default value: Int?) throws -> Int? {
+		// Absent: the default. An explicit null: off.
+		func optionalInt(_ key: CodingKeys, default value: Int?) throws -> Int? {
 			guard container.contains(key) else {
 				return value
 			}
@@ -69,9 +72,9 @@ public struct AppSettings: Codable, Hashable, Sendable {
 
 		chromiumPath = try container.decodeIfPresent(String.self, forKey: .chromiumPath) ?? defaults.chromiumPath
 		theme = try container.decodeIfPresent(Theme.self, forKey: .theme) ?? defaults.theme
-		tabSleepAfterMinutes = try minutes(.tabSleepAfterMinutes, default: defaults.tabSleepAfterMinutes)
-		profileUnloadAfterMinutes = try minutes(.profileUnloadAfterMinutes, default: defaults.profileUnloadAfterMinutes)
-		cacheBudgetMB = try minutes(.cacheBudgetMB, default: defaults.cacheBudgetMB)
+		tabSleepAfterMinutes = try optionalInt(.tabSleepAfterMinutes, default: defaults.tabSleepAfterMinutes)
+		profileUnloadAfterMinutes = try optionalInt(.profileUnloadAfterMinutes, default: defaults.profileUnloadAfterMinutes)
+		cacheBudgetMB = try optionalInt(.cacheBudgetMB, default: defaults.cacheBudgetMB)
 		sidebarWidth = SidebarWidth.clamped(try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? defaults.sidebarWidth)
 	}
 

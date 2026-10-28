@@ -82,10 +82,6 @@ final class BrowserController: NSObject {
 		network.test(profileID)
 	}
 
-	// The profile's fingerprint, or Chrome's own values without one. It goes
-	// to the engine before the profile's context opens, since its network
-	// context takes the User-Agent as it is created. A change reaches
-	// navigations and new renderers at once; open pages keep their renderer's.
 	// The Mac's own WebGL strings, for a fingerprint on its platform.
 	var hostWebGL: Fingerprint.WebGL? {
 		guard let vendor = application.hostWebGLVendor, let renderer = application.hostWebGLRenderer else {
@@ -115,6 +111,10 @@ final class BrowserController: NSObject {
 		}
 	}
 
+	// The profile's fingerprint, or Chrome's own values without one. It goes
+	// to the engine before the profile's context opens, since its network
+	// context takes the User-Agent as it is created. A change reaches
+	// navigations and new renderers at once; open pages keep their renderer's.
 	private func applyFingerprint(_ profileID: String) {
 		do {
 			let json = try model.profile(profileID)?.fingerprint.map { fingerprint in
@@ -806,7 +806,6 @@ extension BrowserController: BrowserContextDelegate {
 	}
 
 	func browserContext(_ context: BrowserContext, didInstall installed: Extension) {
-		state.installedExtension = installed.name
 		refreshExtensions(context.identifier)
 	}
 

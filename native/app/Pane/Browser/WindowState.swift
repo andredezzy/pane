@@ -91,8 +91,6 @@ final class WindowState {
 	// Where the Extensions page scrolls as it opens: one extension's card
 	// (its accessibility identifier).
 	var extensionsAnchor: String?
-	// The extension just installed, for the confirmation the app shows.
-	var installedExtension: String?
 	// Bumped to move focus into the address field.
 	private(set) var addressFocusRequest = 0
 	// Bumped to move focus into the find field.
