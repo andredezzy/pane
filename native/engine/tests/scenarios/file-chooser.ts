@@ -6,7 +6,8 @@ import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // <input type=file> and showSaveFilePicker() open the app's open and save
-// panels on the window; the files chosen reach the page.
+// panels on the window; the files chosen reach the page, and Cancel reaches
+// it as a cancel.
 const fileChooser: Scenario = async (context) => {
 	const { app, has } = await launchTraced(context, "file-chooser");
 	const watcher = new WindowWatcher(app).start();
@@ -31,6 +32,41 @@ const fileChooser: Scenario = async (context) => {
 	expect(openPanel.panel === "open", `panel ${openPanel.panel}`);
 	await app.send("answerFileChooser", { paths: [chosen] });
 	const opened = await pageResult<{ name: string; text: string }>(evaluate);
+
+	// Cancel, answered beside the panel as the choices are: the panels run
+	// out of process, where neither accessibility (the app's tree has no
+	// Cancel) nor a key posted to the app (it goes to the main window)
+	// reaches. It cancels the chooser as the panel's Cancel does. The page
+	// hears a cancel, and keeps its file.
+	const cancel = async () => {
+		await waitForSheet(app, "fileChooser");
+		await app.send("answerFileChooser", { cancel: true });
+	};
+
+	await page.evaluate("window.result = undefined");
+	await clickAt((method, params) => page.send(method, params), box.x, box.y);
+	await cancel();
+	const openCancelled = await pageResult<string>(evaluate);
+
+	const kept = await page.evaluate<string | null>(
+		"document.getElementById('file').files[0]?.name ?? null",
+	);
+
+	await page.send("Runtime.evaluate", {
+		expression: "saveFile()",
+		userGesture: true,
+	});
+
+	await cancel();
+	const saveCancelled = await pageResult<{ error?: string }>(evaluate);
+
+	expect(openCancelled === "cancelled", `open cancelled: ${openCancelled}`);
+	expect(kept === "chosen.txt", `the input lost its file: ${kept}`);
+
+	expect(
+		saveCancelled.error === "AbortError",
+		`save cancelled: ${JSON.stringify(saveCancelled)}`,
+	);
 
 	// The save panel, answered through its own name field and Save.
 	const target = join(folder, "pane-saved.txt");
@@ -74,6 +110,8 @@ const fileChooser: Scenario = async (context) => {
 		"trace lacks the save chooser",
 	);
 
+	expect(has("PaneFileChooser.cancel"), "trace lacks the cancels");
+
 	const windows = await watcher.stop();
 
 	expect(
@@ -85,6 +123,10 @@ const fileChooser: Scenario = async (context) => {
 		openPanel,
 		savePanel,
 		opened,
+		cancelled: {
+			open: { result: openCancelled, kept },
+			save: saveCancelled,
+		},
 		saved,
 		answeredVia: (await isScreenLocked())
 			? "automation (locked screen)"
