@@ -7,17 +7,20 @@ chrome.runtime.onInstalled.addListener(() => {
 		title: "Probe page item",
 		contexts: ["page"],
 	});
+
 	chrome.contextMenus.create({
 		id: "page-check",
 		title: "Probe page check",
 		type: "checkbox",
 		contexts: ["page"],
 	});
+
 	chrome.contextMenus.create({
 		id: "action-item",
 		title: "Probe action item",
 		contexts: ["action"],
 	});
+
 	chrome.contextMenus.create({
 		id: "action-check",
 		title: "Probe action check",
