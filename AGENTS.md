@@ -43,7 +43,7 @@ The dmg is ad-hoc signed and not notarized (no Apple Developer ID is configured)
 - **The app is native**: Swift (AppKit and SwiftUI) in `app/`, on Pane's own Chromium framework built from `engine/`. `docs/building.md` covers the checkout, the engine build, the patches, and the scenarios. Chromium upgrades follow `engine/UPGRADING.md`.
 - **Package manager: Bun** — a `bun.lock` is present. Use `bun` / `bunx`; never npm, pnpm, or yarn. Bun runs the scenario runner (`tests/`) and the linters.
 - Before committing: `bun run lint`, `bun run typecheck` (the scenario runner), `bun run test` (PaneKit's `swift test`), and `bun run knip` should pass. A change to the app or the engine also runs the scenarios it touches (`docs/building.md`, Scenarios).
-- **The Electron app is retired**: 1.0.0 moved its users to the native app. Its last state is the `electron` branch, kept as a backup and not maintained; comments that cite `apps/veil` point there. Work on `main`.
+- **The Electron app is retired**: 0.7.0 moved its users to the native app. Its last state is the `electron` branch, kept as a backup and not maintained; comments that cite `apps/veil` point there. Work on `main`.
 
 ## Decisions
 

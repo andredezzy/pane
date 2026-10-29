@@ -4,4 +4,4 @@ Pane's version lives in `app/VERSION` alone, and the build writes it over the Ch
 
 The bundle is the engine's, and its version keys were Chromium's (156.0.8078.48), which Finder and the About panel showed as Pane's. The Electron app set both keys to its own version, and Pane does too. Chromium does not depend on them: it reads the outer bundle's `CFBundleShortVersionString` only as a fallback, when a web app shim looks for an old-style framework layout, and its upgrade detector reads it only with Google's updater, which this build leaves out (`updater_no_updater`). Crashpad reads the framework's own plist.
 
-The version carries on the Electron app's line. It started at that app's 0.6.0, and the first native release bumped it to 1.0.0 (ADR 0051). Every release starts with a semver bump; a local build without one overwrites the last dmg of that name (AGENTS.md).
+The version carries on the Electron app's line. It started at that app's 0.6.0, and the first native release bumped it to 0.7.0 (ADR 0088). Every release starts with a semver bump; a local build without one overwrites the last dmg of that name (AGENTS.md).
