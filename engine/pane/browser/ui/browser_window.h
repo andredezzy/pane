@@ -28,6 +28,7 @@
 #include "ui/base/accelerators/accelerator.h"
 
 @class NSEvent;
+@class NSMenu;
 
 class BrowserWindowInterface;
 class DevtoolsUIController;
@@ -35,7 +36,12 @@ class ExclusiveAccessBubbleViews;
 
 namespace pane {
 
+class ExtensionShortcuts;
 class WindowHost;
+
+// Whether the menu bar, or `menu`'s submenus, has `event` as a key
+// equivalent.
+bool MenuHasKeyEquivalent(NSMenu* menu, NSEvent* event);
 
 class HostedLocationBar : public LocationBar {
  public:
@@ -207,6 +213,10 @@ class HostedBrowserWindow : public BrowserWindow,
 
   void AttachBrowser(Browser* browser);
   Browser* browser() const { return browser_; }
+  // Its Browser's extension shortcuts, once it has one.
+  ExtensionShortcuts* extension_shortcuts() const {
+    return extension_shortcuts_.get();
+  }
   bool closed_by_chrome() const { return closed_by_chrome_; }
   WindowHost* host() const { return host_.get(); }
   base::WeakPtr<WindowHost> host_weak() const { return host_; }
@@ -385,6 +395,7 @@ class HostedBrowserWindow : public BrowserWindow,
   void PostWindowFullscreenStateChanged();
   base::WeakPtr<content::WebContents> fullscreen_tab_;
   std::unique_ptr<DevtoolsUIController> devtools_ui_controller_;
+  std::unique_ptr<ExtensionShortcuts> extension_shortcuts_;
   std::unique_ptr<ExclusiveAccessBubbleViews> exclusive_access_bubble_;
   base::CancelableTaskTracker exclusive_access_bubble_task_tracker_;
   std::optional<base::CancelableTaskTracker::TaskId>

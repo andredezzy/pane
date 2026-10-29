@@ -39,8 +39,14 @@
 #include "pane/browser/fingerprints.h"
 #include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extension_menu.h"
+#include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/extensions/extensions_bridge.h"
+#include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/window_host.h"
+#include "extensions/common/command.h"
+#include "ui/base/accelerators/accelerator.h"
+#include "ui/events/cocoa/cocoa_event_utils.h"
+#include "ui/events/keycodes/keyboard_code_conversion_mac.h"
 #include "pane/browser/engine_trace.h"
 
 #import "pane/browser/browser_context_internal.h"
@@ -312,6 +318,39 @@
       extensions::ExtensionAction::ShowAction::kShowPopup) {
     pane::ActionPopup::Show(browser, *extension, ShowPopupCallback());
   }
+}
+
+- (BOOL)runExtensionShortcut:(NSEvent*)event
+                    inWindow:(PaneBrowserWindow*)window {
+  if (!_profile || event.type != NSEventTypeKeyDown) {
+    return NO;
+  }
+  pane::WindowHost* host = pane::WindowHost::ForNSWindow(window.window);
+  Browser* browser = host ? host->ExistingBrowserFor(_profile) : nullptr;
+  pane::HostedBrowserWindow* hosted =
+      browser ? pane::HostedBrowserWindow::FromWindow(
+                    static_cast<BrowserWindow*>(browser->GetWindow()))
+              : nullptr;
+  pane::ExtensionShortcuts* shortcuts =
+      hosted ? hosted->extension_shortcuts() : nullptr;
+  const ui::Accelerator accelerator(
+      ui::KeyboardCodeFromNSEvent(event),
+      ui::EventFlagsFromModifiers(event.modifierFlags));
+  extensions::ExtensionId extension;
+  std::string command;
+  if (!shortcuts || !shortcuts->Find(accelerator, &extension, &command) ||
+      pane::MenuHasKeyEquivalent(NSApp.mainMenu, event)) {
+    return NO;
+  }
+  PANE_TRACE("call", "PaneBrowserContext.runExtensionShortcut",
+             base::DictValue().Set("extension", extension).Set("command",
+                                                               command));
+  if (extensions::Command::IsActionRelatedCommand(command)) {
+    [self runActionOfExtension:base::SysUTF8ToNSString(extension)
+                      inWindow:window];
+    return YES;
+  }
+  return shortcuts->Notify(accelerator);
 }
 
 - (PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier

@@ -7,6 +7,7 @@
 
 #import "PaneExport.h"
 
+@class NSEvent;
 @class PaneBrowserContext;
 @class PaneBrowserWindow;
 @class PaneExtension;
@@ -119,6 +120,13 @@ NS_SWIFT_UI_ACTOR
 - (void)runActionOfExtension:(NSString*)identifier
                     inWindow:(PaneBrowserWindow*)window
     NS_SWIFT_NAME(runAction(ofExtension:in:));
+// Runs the extension shortcut (chrome.commands) `event`, a key down, is in
+// `window`, as Chrome does: a command's onCommand, with the active tab, or
+// the action, as a click on it. NO when it is none, or when the menu bar
+// has the key: the browser's shortcuts stay its own.
+- (BOOL)runExtensionShortcut:(NSEvent*)event
+                    inWindow:(PaneBrowserWindow*)window
+    NS_SWIFT_NAME(runExtensionShortcut(_:in:));
 // The extension's own items for its action's right-click menu, as for the
 // active tab of `window`; nil when it has none.
 - (nullable PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier

@@ -6,7 +6,7 @@ import PaneKit
 // that show, topmost first, as they are drawn, whether one takes the key
 // (PaneKit KeyRouting: the PIN screen, Quit Pane?, an extension's popup, the
 // extensions menu, the tab switcher, a page's dialog, a page's fullscreen),
-// then runs what it answered.
+// then runs what it answered, then the extensions' shortcuts.
 @MainActor
 final class KeyRouter {
 	private unowned let controller: BrowserController
@@ -23,7 +23,9 @@ final class KeyRouter {
 		}
 	}
 
-	// Whether `event` stops here and must not reach the window.
+	// Whether `event` stops here and must not reach the window. A key the
+	// overlays leave may be an extension's shortcut (chrome.commands), which
+	// goes before the page, as in Chrome.
 	private func handle(_ event: NSEvent) -> Bool {
 		let route = KeyRouting.route(KeyPress(event), through: overlays)
 
@@ -31,7 +33,7 @@ final class KeyRouter {
 			perform(command)
 		}
 
-		return route.consumed
+		return route.consumed || controller.extensions.runShortcut(event)
 	}
 
 	private var overlays: KeyOverlays {

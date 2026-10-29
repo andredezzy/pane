@@ -32,6 +32,8 @@ source_set("pane") {
     "browser/extensions/extension_hooks.h",
     "browser/extensions/extension_menu.h",
     "browser/extensions/extension_menu.mm",
+    "browser/extensions/extension_shortcuts.h",
+    "browser/extensions/extension_shortcuts.mm",
     "browser/extensions/extension_objects.mm",
     "browser/extensions/extension_ui.h",
     "browser/extensions/extension_ui.mm",

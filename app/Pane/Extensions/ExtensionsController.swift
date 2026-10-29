@@ -90,6 +90,17 @@ final class ExtensionsController {
 		context.runAction(ofExtension: extensionID, in: browser.browserWindow)
 	}
 
+	// The active profile's extension shortcut (chrome.commands) `event` is,
+	// run; false when it is none. Extensions take only chords (⌘, ⌃, or ⌥).
+	func runShortcut(_ event: NSEvent) -> Bool {
+		guard event.type == .keyDown, !event.modifierFlags.isDisjoint(with: [.command, .control, .option]),
+		      let profileID = model.activeProfileID, let context = browser.context(for: profileID) else {
+			return false
+		}
+
+		return context.runExtensionShortcut(event, in: browser.browserWindow)
+	}
+
 	// The extension's own items for its action's right-click menu
 	// (chrome.contextMenus), as for the active tab; nil when it has none.
 	func actionMenu(_ extensionID: String) -> ExtensionActionMenu? {

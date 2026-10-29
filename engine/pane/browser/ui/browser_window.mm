@@ -3,9 +3,10 @@
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
 // engine/ardiacore/src/ardia/core/ac_browser_window.mm, Copyright 2026 Mantra Patel,
 // licensed under the Apache License 2.0 (native/third_party/ardia). Changed
-// for Pane: names and namespace, and without Ardia's extension shortcuts, autofill prompts and background-run eye dropper; Chrome's own shutdown checks for its lifetime helpers.
+// for Pane: names and namespace, and without Ardia's extension shortcuts (Pane's are extension_shortcuts.mm), autofill prompts and background-run eye dropper; Chrome's own shutdown checks for its lifetime helpers.
 
 #include "pane/browser/extensions/action_popup.h"
+#include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/ui/browser_window.h"
 
 #import <AppKit/AppKit.h>
@@ -26,6 +27,7 @@
 #include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/autofill/save_address_bubble_controller.h"
@@ -323,6 +325,8 @@ void HostedBrowserWindow::AttachBrowser(Browser* browser) {
   devtools_ui_controller_ = std::make_unique<DevtoolsUIController>(
       browser,
       std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>());
+  extension_shortcuts_ = std::make_unique<ExtensionShortcuts>(
+      browser->GetProfile(), TabListInterface::From(browser));
 }
 
 void HostedBrowserWindow::DeleteBrowserWindow() {
@@ -554,8 +558,6 @@ void HostedBrowserWindow::ConfirmBrowserCloseWithPendingDownloads(
       FROM_HERE, base::BindOnce(std::move(callback), true));
 }
 
-namespace {
-
 bool MenuHasKeyEquivalent(NSMenu* menu, NSEvent* event) {
   const NSEventModifierFlags mask =
       NSEventModifierFlagCommand | NSEventModifierFlagOption |
@@ -583,6 +585,8 @@ bool MenuHasKeyEquivalent(NSMenu* menu, NSEvent* event) {
   }
   return false;
 }
+
+namespace {
 
 NSEvent* UnhandledKeyDown(const input::NativeWebKeyboardEvent& event) {
   if (event.skip_if_unhandled ||
