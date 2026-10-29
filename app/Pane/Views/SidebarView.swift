@@ -110,7 +110,8 @@ struct SidebarView: View {
 			CollapseAllButton(isEnabled: !model.expandedProfileIDs.isEmpty, action: controller.collapseAll)
 		}
 		.padding(.leading, 82)
-		.padding(.trailing, 10)
+		// 8, as the rows below: Collapse all's edge meets theirs.
+		.padding(.trailing, 8)
 		// On the traffic lights' center line: 19 points down (their 38-point
 		// title bar), half a point above the 39-point row's own center.
 		.padding(.bottom, 1)

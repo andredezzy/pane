@@ -15,7 +15,7 @@ enum ButtonVariant {
 }
 
 // A button's height, its padding at either end, and its text.
-struct ButtonSize {
+struct ButtonSize: Equatable {
 	let height: CGFloat
 	let leading: CGFloat
 	let trailing: CGFloat
@@ -64,8 +64,8 @@ private struct PaneButtonBody: View {
 	var body: some View {
 		let shape = Squircle(cornerRadius: style.cornerRadius)
 		// An outline button's 1px border adds to its width (border-box, with
-		// the padding inside).
-		let outline: CGFloat = style.variant == .outline ? 1 : 0
+		// the padding inside), as the popups' Cancel's does (Aside's border).
+		let outline: CGFloat = style.variant == .outline || (style.size == .popup && style.border != nil) ? 1 : 0
 
 		configuration.label
 			.font(.system(size: style.fontSize ?? style.size.fontSize, weight: .medium))

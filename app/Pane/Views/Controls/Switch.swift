@@ -44,10 +44,20 @@ private struct SwitchRowStyle: ButtonStyle {
 				}
 				.frame(width: 36, height: 20)
 				.overlay(alignment: isOn ? .trailing : .leading) {
+					// shadow-lg: two soft layers, 10 and 4 down, each 10%.
 					Circle()
 						.fill(Palette.background)
+						.background {
+							ZStack {
+								Circle()
+									.fill(Palette.background)
+									.shadow(color: .black.opacity(0.1), radius: 6, y: 9)
+								Circle()
+									.fill(Palette.background)
+									.shadow(color: .black.opacity(0.1), radius: 2.5, y: 3.5)
+							}
+						}
 						.frame(width: 16, height: 16)
-						.shadow(color: .black.opacity(0.15), radius: 4, y: 2)
 						.padding(2)
 				}
 		}

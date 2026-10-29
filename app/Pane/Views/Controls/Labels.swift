@@ -9,19 +9,17 @@ extension View {
 	}
 }
 
-// Settings section labels: 10px medium caps, wide tracking, muted.
+// The Extensions page's list label: 10px medium caps, tracked 0.05em, muted,
+// on a 15px line (Paper's 09.1).
 struct SectionLabel: View {
 	let title: String
 
 	var body: some View {
-		// An inline span in a 16px block: a 24px line box, the 10px text on
-		// the line's baseline, a little below its middle.
 		Text(title.uppercased())
 			.font(.system(size: 10, weight: .medium))
-			.tracking(0.25)
+			.tracking(0.5)
 			.foregroundStyle(Palette.mutedForeground)
-			.offset(y: 2.5)
-			.lineBox(24)
+			.lineBox(15)
 	}
 }
 
@@ -44,9 +42,8 @@ struct LabeledField<Field: View>: View {
 	}
 }
 
-// Form labels: 11px medium. The Electron app's label is inline in a 16px
-// block, so it takes a 24px line with its text 7.5px down, and the field
-// follows it directly (the label's margin does not apply inline).
+// Form labels: 11px medium on an 11px line, 8 above their field (Paper's
+// 03.8 and 05 boards).
 struct FormLabel: View {
 	let title: String
 	var note: String?
@@ -62,8 +59,7 @@ struct FormLabel: View {
 			}
 		}
 		.font(.system(size: 11, weight: .medium))
-		.frame(height: 13)
-		.padding(.top, 7.5)
-		.frame(height: 24, alignment: .top)
+		.lineBox(11)
+		.padding(.bottom, 8)
 	}
 }

@@ -22,12 +22,15 @@ struct QuitConfirmationView: View {
 					.font(.system(size: 18, weight: .semibold))
 					.tracking(-0.18)
 					.foregroundStyle(Palette.foreground)
+					.lineBox(24)
 
 				Text("Your profiles and tabs will be here when you open Pane again. Downloads in progress will stop.")
 					.font(.system(size: 14))
-					// text-sm: 20px lines.
+					// text-sm: 20px lines, half the leading above the first
+					// and below the last.
 					.lineSpacing(3)
-					.foregroundStyle(Palette.foreground.opacity(0.7))
+					.padding(.vertical, 1.5)
+					.foregroundStyle(Palette.dialogMessage)
 					.fixedSize(horizontal: false, vertical: true)
 			}
 
@@ -101,7 +104,7 @@ struct KeyedLabel: View {
 		switch role {
 		case .cancel: Palette.keyLabel
 		case .destructive: Color.white.opacity(0.85)
-		case .primary: Palette.primaryForeground.opacity(0.85)
+		case .primary: Palette.primaryKey
 		}
 	}
 
@@ -109,7 +112,7 @@ struct KeyedLabel: View {
 		switch role {
 		case .cancel: Palette.secondary
 		case .destructive: Color.white.opacity(0.18)
-		case .primary: Palette.primaryForeground.opacity(0.18)
+		case .primary: Palette.primaryKeyChip
 		}
 	}
 }

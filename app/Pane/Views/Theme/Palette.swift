@@ -81,6 +81,27 @@ enum Palette {
 	})
 	// The key on Cancel's chip: muted, lighter on dark (zinc-400).
 	static let keyLabel = pair(0x71717A, 0xA1A1AA)
+	// The add-extension dialog's shadow, Dia's: 0 24px 64px black 25%, 50%
+	// on dark.
+	static let installDialogShadow = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(white: 0, alpha: isDark(appearance) ? 0.5 : 0.25)
+	})
+	// A dialog's message under its title: the foreground at 72%, 68% on dark
+	// (Paper's 03.5 and 04.5).
+	static let dialogMessage = Color(nsColor: NSColor(name: nil) { appearance in
+		isDark(appearance) ? NSColor(rgb: 0xFAFAFA, alpha: 0.68) : NSColor(rgb: 0x18181B, alpha: 0.72)
+	})
+	// The key on a primary button's chip, and the chip: the button's text at
+	// 85% and 18%, softer on dark's light button, 70% and 12% (03.10, 04.10).
+	static let primaryKey = Color(nsColor: NSColor(name: nil) { appearance in
+		isDark(appearance) ? NSColor(rgb: 0x18181B, alpha: 0.7) : NSColor(rgb: 0xFAFAFA, alpha: 0.85)
+	})
+	static let primaryKeyChip = Color(nsColor: NSColor(name: nil) { appearance in
+		isDark(appearance) ? NSColor(rgb: 0x18181B, alpha: 0.12) : NSColor(rgb: 0xFAFAFA, alpha: 0.18)
+	})
+	// The rule between the address's host and path, as Paper draws it on
+	// light, and its dark pair.
+	static let addressDivider = pair(0x858587, 0x606068)
 	// A panel on a dialog's card: the foreground at 4%, 5% on dark.
 	static let panelTint = Color(nsColor: NSColor(name: nil) { appearance in
 		isDark(appearance) ? NSColor(white: 0.98, alpha: 0.05) : NSColor(rgb: 0x18181B, alpha: 0.04)

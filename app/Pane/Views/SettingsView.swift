@@ -140,6 +140,7 @@ private struct SettingsGroup<Content: View>: View {
 			Text(title)
 				.font(.system(size: 13))
 				.foregroundStyle(Palette.mutedForeground)
+				.lineBox(18)
 				.padding(.leading, 15)
 
 			VStack(spacing: 0) {
@@ -155,9 +156,9 @@ private struct SettingsGroup<Content: View>: View {
 	}
 }
 
-// A row, at least 56 points: the title at 13 and its description at 12,
-// muted, then the control 10 points from the card's edge; a hairline under
-// every row but the last.
+// A row, at least 56 points: the title at 13 on an 18-point line and its
+// description at 12 on 16-point lines, muted, then the control 10 points in
+// from the card's 1-point border; a hairline under every row but the last.
 private struct SettingsRow<Control: View>: View {
 	let title: String
 	var description: String?
@@ -170,12 +171,15 @@ private struct SettingsRow<Control: View>: View {
 				Text(title)
 					.font(.system(size: 13))
 					.foregroundStyle(Palette.foreground)
+					.lineBox(18)
 
 				if let description {
 					// A status that changes (the update check's) crossfades,
 					// as the update pill's does.
 					Text(description)
 						.font(.system(size: 12))
+						.lineSpacing(1)
+						.padding(.vertical, 0.5)
 						.foregroundStyle(Palette.mutedForeground)
 						.contentTransition(.opacity)
 						.animation(Motion.status, value: description)
@@ -187,8 +191,8 @@ private struct SettingsRow<Control: View>: View {
 				control
 			}
 		}
-		.padding(.leading, 15)
-		.padding(.trailing, 10)
+		.padding(.leading, 16)
+		.padding(.trailing, 11)
 		.padding(.vertical, 12)
 		.frame(minHeight: 56)
 		.overlay(alignment: .bottom) {

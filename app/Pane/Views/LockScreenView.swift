@@ -24,6 +24,7 @@ struct LockScreenView: View {
 				if let title = entry.title {
 					Text(title)
 						.font(.system(size: 13, weight: .light))
+						.lineBox(20)
 						.foregroundStyle(Palette.foreground.opacity(0.5))
 				}
 
@@ -73,13 +74,17 @@ struct LockScreenView: View {
 			} else {
 				Text("Enter at least 4 digits")
 					.font(.system(size: 13, weight: .light))
+					.lineBox(20)
 					.foregroundStyle(Palette.foreground.opacity(0.3))
 			}
 		}
 
 		if let error = entry.error {
+			// 20-point lines, as every message here.
 			Text(error)
 				.font(.system(size: 13, weight: .light))
+				.lineSpacing(4)
+				.padding(.vertical, 2)
 				.foregroundStyle(Palette.destructive)
 		}
 
@@ -88,6 +93,7 @@ struct LockScreenView: View {
 
 			Text(remaining == 1 ? "Last attempt. All data will be erased." : "\(remaining) attempts remaining")
 				.font(.system(size: 13, weight: .light))
+				.lineBox(20)
 				.foregroundStyle(remaining == 1 ? Palette.destructive : Palette.foreground.opacity(0.3))
 				.accessibilityIdentifier("pane.lockScreen.attempts")
 		}
@@ -335,6 +341,7 @@ private struct HintLabel: View {
 	var body: some View {
 		configuration.label
 			.font(.system(size: 13, weight: .light))
+			.lineBox(20)
 			.foregroundStyle(Palette.foreground.opacity(isHovered || configuration.isPressed ? 0.8 : 0.6))
 			.onHover { isHovered = $0 }
 			.animation(Motion.hover, value: isHovered)

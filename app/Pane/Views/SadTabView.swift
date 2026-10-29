@@ -12,9 +12,11 @@ struct SadTabView: View {
 				Text("This page crashed")
 					.font(.system(size: 14, weight: .medium))
 					.foregroundStyle(Palette.accentForeground)
+					.lineBox(20)
 				Text("Something went wrong while displaying this page.")
 					.font(.system(size: 12))
 					.foregroundStyle(Palette.mutedForeground)
+					.lineBox(16)
 			}
 
 			Button("Reload", action: reload)

@@ -38,6 +38,8 @@ struct ProfileSheet: View {
 							Text(ProfileDraft.Problem.nameMissing.message)
 								.font(.system(size: 12.8, weight: .medium))
 								.foregroundStyle(Palette.destructive)
+								// 8 under the field, as space-y-2 sets it.
+								.padding(.top, 8)
 						}
 					}
 
@@ -143,9 +145,7 @@ struct ProfileSheet: View {
 			PresetRow(
 				options: [Platform.windows, .macOS, .linux],
 				selection: draft.platform,
-				// CSS capitalize of the lowercased name, as the Electron app
-				// shows it.
-				title: { $0.rawValue.lowercased().capitalized },
+				title: { $0.title },
 				select: { draft.platform = $0 }
 			)
 			.accessibilityElement(children: .contain)
@@ -153,8 +153,11 @@ struct ProfileSheet: View {
 			.accessibilityIdentifier("pane.profile.platform")
 
 			if draft.platform != ProfileDraft.hostPlatform {
-				Text("Cross-OS spoofing can\u{2019}t fool strict WebGL checks \u{2014} use \(ProfileDraft.hostPlatform.rawValue.lowercased()) or turn spoofing off for Cloudflare-protected sites.")
+				Text("Cross-OS spoofing can\u{2019}t fool strict WebGL checks \u{2014} use \(ProfileDraft.hostPlatform.title) or turn spoofing off for Cloudflare-protected sites.")
 					.font(.system(size: 10))
+					// 14-point lines.
+					.lineSpacing(1)
+					.padding(.vertical, 0.5)
 					.foregroundStyle(Palette.mutedForeground)
 					.fixedSize(horizontal: false, vertical: true)
 					.padding(.top, 8)
@@ -191,8 +194,8 @@ struct ProfileSheet: View {
 				Text(ProfileDraft.Problem.portInvalid.message)
 					.font(.system(size: 12.8, weight: .medium))
 					.foregroundStyle(Palette.destructive)
-					// Right under the row, as the name's error sits under its field.
-					.padding(.top, -12)
+					// 8 under the row, as the name's error sits under its field.
+					.padding(.top, -4)
 					.accessibilityIdentifier("pane.profile.portError")
 			}
 
@@ -228,7 +231,8 @@ struct ProfileSheet: View {
 			.disabled(proxyTest == .testing || draft.proxyHost.trimmingCharacters(in: .whitespaces).isEmpty)
 			.accessibilityIdentifier("pane.profile.testProxy")
 		}
-		.padding(12)
+		// 12 inside the 1-point border, as CSS's p-3 within it.
+		.padding(13)
 		.overlay {
 			Squircle(cornerRadius: 11)
 				.strokeBorder(Palette.border, lineWidth: 1)

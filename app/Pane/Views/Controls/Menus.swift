@@ -70,8 +70,9 @@ struct PaneMenuButton<Value: Hashable>: View {
 				LucideIcon(chevron == .down ? .chevronDown : .chevronsUpDown, size: chevron == .down ? 16 : 13)
 					.foregroundStyle(Palette.mutedForeground)
 			}
-			.padding(.leading, 12)
-			.padding(.trailing, 10)
+			// 12 and 10 inside the 1-point border, as CSS's padding beside it.
+			.padding(.leading, 13)
+			.padding(.trailing, 11)
 			.frame(height: size == .regular ? 36 : 32)
 			.background(Palette.outlineHover.opacity(isHovered ? 1 : 0), in: shape)
 			.overlay {

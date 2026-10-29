@@ -35,6 +35,15 @@ public enum Platform: String, Codable, CaseIterable, Sendable {
 	case windows = "WINDOWS"
 	case macOS = "MACOS"
 	case linux = "LINUX"
+
+	// As each spells its own name.
+	public var title: String {
+		switch self {
+		case .windows: "Windows"
+		case .macOS: "macOS"
+		case .linux: "Linux"
+		}
+	}
 }
 
 public enum ProxyType: String, Codable, CaseIterable, Sendable {

@@ -51,8 +51,7 @@ struct ExtensionsPage: View {
 								Text("\(shown.count)")
 									.font(.system(size: 10))
 									.foregroundStyle(Palette.mutedForeground)
-									.offset(y: 2.5)
-									.lineBox(24)
+									.lineBox(15)
 							}
 
 							if extensions.isEmpty {
@@ -178,9 +177,11 @@ struct ExtensionsPage: View {
 			Text("No extensions in \(selectedProfile?.name ?? "this profile")")
 				.font(.system(size: 13, weight: .medium))
 				.foregroundStyle(Palette.accentForeground)
+				.lineBox(18)
 			Text("Add them from the Chrome Web Store.")
 				.font(.system(size: 12))
 				.foregroundStyle(Palette.mutedForeground)
+				.lineBox(18)
 			Button("Visit Chrome Web Store") { controller.visitWebStore(inProfile: selectedProfileID) }
 				.buttonStyle(.pane(.outline, size: .small))
 				.padding(.top, 10)
@@ -189,7 +190,7 @@ struct ExtensionsPage: View {
 		.padding(.vertical, 48)
 		.overlay {
 			Squircle(cornerRadius: 15)
-				.strokeBorder(Palette.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+				.strokeBorder(Palette.border, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
 		}
 	}
 }
@@ -224,7 +225,15 @@ private struct SearchField: View {
 		.onTapGesture { focused = true }
 		.overlay {
 			Squircle(cornerRadius: 11)
-				.strokeBorder(focused ? Palette.ring : Palette.border, lineWidth: 1)
+				.strokeBorder(Palette.border, lineWidth: 1)
+		}
+		// Focused, the ring 1 point outside the border, as a field's.
+		.overlay {
+			if focused {
+				Squircle(cornerRadius: 12)
+					.strokeBorder(Palette.ring, lineWidth: 1)
+					.padding(-1)
+			}
 		}
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.extensions.search")
@@ -274,13 +283,16 @@ private struct ExtensionCard: View {
 							.foregroundStyle(Palette.mutedForeground)
 							.fixedSize()
 					}
+					.lineBox(18)
 
 					if !item.summary.isEmpty {
+						// 18-point lines.
 						Text(item.summary)
 							.font(.system(size: 12))
 							.foregroundStyle(Palette.mutedForeground)
 							.lineLimit(2)
-							.lineSpacing(2)
+							.lineSpacing(3)
+							.padding(.vertical, 1.5)
 					}
 				}
 				.frame(maxWidth: .infinity, alignment: .leading)
@@ -314,7 +326,8 @@ private struct ExtensionCard: View {
 				.accessibilityLabel("Enabled")
 			}
 		}
-		.padding(16)
+		// 16 inside the 1-point border, as CSS's p-4 within it.
+		.padding(17)
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 		.background(Palette.card, in: Squircle(cornerRadius: 15))
 		.overlay {

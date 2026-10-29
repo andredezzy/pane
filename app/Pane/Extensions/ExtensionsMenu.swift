@@ -25,7 +25,8 @@ struct ExtensionsMenu: View {
 					RowTitle(text: "Visit Chrome Web Store")
 				}
 			}
-			.padding(4)
+			// 4 inside the menu's 1-point ring, as CSS's p-1 within its border.
+			.padding(5)
 
 			Hairline()
 
@@ -50,7 +51,7 @@ struct ExtensionsMenu: View {
 				}
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
-			.padding(4)
+			.padding(5)
 		}
 		.frame(width: 300)
 		.popoverSurface(cornerRadius: 22)
@@ -84,7 +85,7 @@ struct ExtensionMoreMenu: View {
 					RowTitle(text: item.name)
 				}
 			}
-			.padding(4)
+			.padding(5)
 
 			Hairline()
 
@@ -101,7 +102,7 @@ struct ExtensionMoreMenu: View {
 					}
 				}
 			}
-			.padding(4)
+			.padding(5)
 
 			Hairline()
 
@@ -118,7 +119,7 @@ struct ExtensionMoreMenu: View {
 					}
 				}
 			}
-			.padding(4)
+			.padding(5)
 		}
 		.frame(width: 240)
 		.popoverSurface(cornerRadius: 22)
@@ -191,7 +192,8 @@ private struct ExtensionRow: View {
 
 // A 32-point row: a button from its leading edge to its trailing buttons,
 // 8 points in, the whole row taking the accent fill on hover (rounded 15,
-// inside the menu's 22 and 4 of padding), and while its more menu is open.
+// inside the menu's 22, its ring, and 4 of padding), and while its more menu
+// is open. A long name stops 8 short of the trailing buttons.
 // Without an action, the row only shows.
 private struct MenuRow<Label: View, Trailing: View>: View {
 	let identifier: String
@@ -215,7 +217,7 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 	}
 
 	var body: some View {
-		HStack(spacing: 0) {
+		HStack(spacing: 8) {
 			Button {
 				action?()
 			} label: {

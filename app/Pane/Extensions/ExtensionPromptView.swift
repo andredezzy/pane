@@ -28,6 +28,9 @@ struct ExtensionPromptView: View {
 
 				Text(prompt.title)
 					.font(.system(size: 15, weight: .medium))
+					// 20-point lines.
+					.lineSpacing(1)
+					.padding(.vertical, 0.5)
 					.foregroundStyle(Palette.foreground)
 					.fixedSize(horizontal: false, vertical: true)
 					.frame(maxWidth: .infinity, alignment: .leading)
@@ -58,7 +61,8 @@ struct ExtensionPromptView: View {
 			}
 			.padding(.top, 12)
 		}
-		.padding(20)
+		// 20 inside the 1-point ring, as CSS's p-5 within its border.
+		.padding(21)
 		.frame(width: 320, alignment: .leading)
 		.popoverSurface(cornerRadius: 29)
 		.accessibilityElement(children: .contain)
@@ -106,6 +110,9 @@ struct ExtensionInstallDialog: View {
 			Text(prompt.title)
 				.font(.system(size: 20, weight: .semibold))
 				.tracking(-0.2)
+				// 26-point lines.
+				.lineSpacing(2)
+				.padding(.vertical, 1)
 				.foregroundStyle(Palette.foreground)
 				.fixedSize(horizontal: false, vertical: true)
 				.padding(.top, 14)
@@ -113,6 +120,7 @@ struct ExtensionInstallDialog: View {
 			if !prompt.permissions.isEmpty {
 				VStack(alignment: .leading, spacing: 2) {
 					Text(prompt.permissionsHeading)
+						.padding(.vertical, 1.5)
 
 					ForEach(prompt.permissions, id: \.self) { permission in
 						HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -121,10 +129,12 @@ struct ExtensionInstallDialog: View {
 								.fixedSize(horizontal: false, vertical: true)
 						}
 						.padding(.leading, 8)
+						.padding(.vertical, 1.5)
 					}
 				}
 				.font(.system(size: 14))
-				// 20-point lines.
+				// 20-point lines: each its own text, so its own half-leading
+				// above and below, and the lines a wrap makes 3 apart.
 				.lineSpacing(3)
 				.foregroundStyle(Palette.accentForeground)
 				.padding(.vertical, 12)
@@ -151,9 +161,19 @@ struct ExtensionInstallDialog: View {
 			}
 			.padding(.top, 24)
 		}
-		.padding(24)
+		// 24 inside its own 1-point border, as Dia's dialog draws it (Paper:
+		// 03.10 and 04.10), not Quit Pane?'s ring outside the card.
+		.padding(25)
 		.frame(width: 424, alignment: .leading)
-		.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
+		.background {
+			Squircle(cornerRadius: 29)
+				.fill(Palette.card)
+				.shadow(color: Palette.installDialogShadow, radius: 32, y: 24)
+		}
+		.overlay {
+			Squircle(cornerRadius: 29)
+				.strokeBorder(Palette.foreground.opacity(0.1), lineWidth: 1)
+		}
 		.accessibilityElement(children: .contain)
 		.accessibilityAddTraits(.isModal)
 		.accessibilityLabel(prompt.title)

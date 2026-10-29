@@ -145,7 +145,9 @@ private struct AddressField: View {
 				}
 			}
 		}
-		.padding(.horizontal, 10)
+		// 10 inside the 1-point border the focused field shows (Paper's
+		// 04.8), as CSS's px-2.5 within it.
+		.padding(.horizontal, 11)
 		.overlay(alignment: .leading) {
 			if !focused.wrappedValue, let label {
 				AddressLabel(domain: label.domain, title: label.title)
@@ -207,7 +209,7 @@ private struct AddressLabel: View {
 
 			if !title.isEmpty {
 				Rectangle()
-					.fill(Palette.mutedForeground.opacity(0.8))
+					.fill(Palette.addressDivider)
 					.frame(width: 0.5, height: 18)
 
 				Text(title)
@@ -234,7 +236,8 @@ private struct ProfileChip: View {
 			.font(.system(size: 12, weight: .medium))
 			.foregroundStyle(color)
 			.lineLimit(1)
-			.padding(.horizontal, 11)
+			// 11 inside the 1-point border, as CSS's px-[11px] beside it.
+			.padding(.horizontal, 12)
 			.frame(height: 28)
 			.background {
 				Capsule(style: .circular)

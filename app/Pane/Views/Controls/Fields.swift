@@ -28,7 +28,15 @@ struct PaneTextField: View {
 		.background(Palette.background, in: Squircle(cornerRadius: 11))
 		.overlay {
 			Squircle(cornerRadius: 11)
-				.strokeBorder(focused ? Palette.ring : Palette.border, lineWidth: 1)
+				.strokeBorder(Palette.border, lineWidth: 1)
+		}
+		// Focused, the ring 1 point outside the border, as CSS's ring-1 is.
+		.overlay {
+			if focused {
+				Squircle(cornerRadius: 12)
+					.strokeBorder(Palette.ring, lineWidth: 1)
+					.padding(-1)
+			}
 		}
 		.opacity(isEnabled ? 1 : 0.5)
 		.onAppear {

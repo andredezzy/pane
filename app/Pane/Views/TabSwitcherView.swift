@@ -46,9 +46,14 @@ struct TabSwitcherView: View {
 						.padding(.vertical, 10)
 						.background {
 							if isSelected {
+								// The ring outside the row, as CSS's ring is.
 								Squircle(cornerRadius: 15)
 									.fill(color.opacity(0x24 / 255))
-									.strokeBorder(color.opacity(0x66 / 255), lineWidth: 1)
+									.overlay {
+										Squircle(cornerRadius: 16)
+											.strokeBorder(color.opacity(0x66 / 255), lineWidth: 1)
+											.padding(-1)
+									}
 							}
 						}
 						.accessibilityIdentifier("pane.switcher.tab.\(tab.id)")
@@ -57,7 +62,8 @@ struct TabSwitcherView: View {
 				}
 			}
 		}
-		.padding(10)
+		// 10 inside the 1-point ring, as CSS's p-2.5 within its border.
+		.padding(11)
 		.frame(width: 320)
 		.popoverSurface(cornerRadius: 22)
 		.accessibilityElement(children: .contain)

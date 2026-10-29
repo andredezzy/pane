@@ -15,8 +15,8 @@ struct AppIconButton: View {
 				.resizable()
 				.frame(width: 36, height: 36)
 				.padding(2)
-				.background(Palette.accent.opacity(isHovered ? 1 : 0), in: Squircle(cornerRadius: 12))
-				.contentShape(Squircle(cornerRadius: 12))
+				.background(Palette.accent.opacity(isHovered ? 1 : 0), in: Squircle(cornerRadius: 11))
+				.contentShape(Squircle(cornerRadius: 11))
 		}
 		.buttonStyle(.plain)
 		.onHover { hovering in
@@ -45,11 +45,14 @@ struct AppIconPicker: View {
 					.font(.system(size: 18, weight: .semibold))
 					.tracking(-0.18)
 					.foregroundStyle(Palette.foreground)
+					.lineBox(24)
 
 				Text("Automatic follows the theme: Day when light, Night when dark.")
 					.font(.system(size: 14))
-					// text-sm: 20px lines.
+					// text-sm: 20px lines, half the leading above the first
+					// and below the last.
 					.lineSpacing(3)
+					.padding(.vertical, 1.5)
 					.foregroundStyle(Palette.foreground.opacity(0.7))
 					.fixedSize(horizontal: false, vertical: true)
 			}
@@ -118,11 +121,12 @@ private struct AppIconTile: View {
 					.font(.system(size: 11))
 					.foregroundStyle(isSelected ? Palette.foreground : Palette.mutedForeground)
 					.lineLimit(1)
+					.lineBox(16)
 			}
 			.frame(width: Self.width)
 			.padding(.vertical, 8)
-			.background(Palette.accent.opacity(isHovered ? 1 : 0), in: Squircle(cornerRadius: 14))
-			.contentShape(Squircle(cornerRadius: 14))
+			.background(Palette.accent.opacity(isHovered ? 1 : 0), in: Squircle(cornerRadius: 15))
+			.contentShape(Squircle(cornerRadius: 15))
 		}
 		.buttonStyle(.plain)
 		.onHover { hovering in

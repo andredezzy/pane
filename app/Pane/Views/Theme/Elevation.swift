@@ -28,14 +28,15 @@ extension View {
 	}
 
 	// A popover surface with a foreground/10 ring, over a soft shadow (0 6px
-	// 20px black 14%, as macOS's menus): the tab switcher, the extensions
-	// menus, and their popups. The shadow is the surface's alone: on the
-	// whole view, SwiftUI shadows each row, text, and fill inside it.
+	// 20px black 14%, as macOS's menus, and 40% on dark, as Paper draws it):
+	// the tab switcher, the extensions menus, and their popups. The shadow is
+	// the surface's alone: on the whole view, SwiftUI shadows each row, text,
+	// and fill inside it.
 	func popoverSurface(cornerRadius: CGFloat) -> some View {
 		background {
 			Squircle(cornerRadius: cornerRadius)
 				.fill(Palette.popover)
-				.shadow(color: .black.opacity(0.14), radius: 10, y: 6)
+				.shadow(color: PopoverShadow.color, radius: 10, y: 6)
 		}
 		.overlay {
 			Squircle(cornerRadius: cornerRadius)
@@ -47,5 +48,11 @@ extension View {
 enum PanelShadow {
 	static let color = Color(nsColor: NSColor(name: nil) { appearance in
 		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.25 : 0.08)
+	})
+}
+
+enum PopoverShadow {
+	static let color = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(white: 0, alpha: Palette.isDark(appearance) ? 0.4 : 0.14)
 	})
 }
