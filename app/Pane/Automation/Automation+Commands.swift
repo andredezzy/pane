@@ -537,6 +537,10 @@ extension Automation {
 			// The pill's click.
 			updater.downloadUpdate()
 
+		case "restartToUpdate":
+			// Restart to update, once the update is staged (ADR 0092).
+			updater.restartToUpdate()
+
 		case "dismissUpdate":
 			updater.dismissPill()
 

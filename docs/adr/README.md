@@ -93,3 +93,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md) Pane's icon is a window, and the user picks its sky
 - [0090](0090-verified-update-leaves-quarantine.md) A verified update leaves quarantine
 - [0091](0091-outline-hover-is-foreground-4.md) An outline control's hover is the foreground at 4%
+- [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself

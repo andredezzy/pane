@@ -118,7 +118,7 @@ for (const name of positionals) {
 				throw new Error("the scenario has ended");
 			}
 
-			const browser = await launch(binary, options);
+			const browser = await launch(options?.binary ?? binary, options);
 			browsers.push(browser);
 
 			if (ended) {

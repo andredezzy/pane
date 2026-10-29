@@ -3,11 +3,13 @@ import CryptoKit
 import Observation
 import PaneKit
 
-// The update check and download (ADR 0002; apps/veil updater.ts and
-// update-store.ts): the latest GitHub Release at launch and daily, with
-// retries after a failure; one click downloads its dmg to Downloads and opens
-// it, and the user drags Pane to Applications. Never a modal, never a forced
-// restart (DESIGN.md: Updates).
+// The update check, download, and install (ADR 0002, ADR 0092; apps/veil
+// updater.ts and update-store.ts): the latest GitHub Release at launch and
+// daily, with retries after a failure; one click downloads its dmg to
+// Downloads, and once it checks out Pane stages the new version beside itself.
+// Restart to update quits into it, and any quit installs it. When Pane cannot
+// replace itself, the dmg opens and the user drags Pane to Applications. Never
+// a modal, never a forced restart (DESIGN.md: Updates).
 @MainActor
 @Observable
 final class Updater {
@@ -28,6 +30,8 @@ final class Updater {
 	private(set) var downloadETA: Int?
 	// The version whose pill was dismissed this launch.
 	private(set) var dismissedVersion: String?
+	// The downloaded version's Pane, staged beside this one to swap in at quit.
+	private(set) var staged: URL?
 
 	// Scenarios point these at their own release, folder, and no opening.
 	@ObservationIgnored private let releasesURL = ProcessInfo.processInfo.environment["PANE_UPDATE_URL"]
@@ -36,6 +40,10 @@ final class Updater {
 		.map { URL(fileURLWithPath: $0, isDirectory: true) }
 		?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
 	@ObservationIgnored private let opensDownload = ProcessInfo.processInfo.environment["PANE_UPDATE_OPEN"] != "0"
+	// Nil where Pane cannot replace itself, and in scenarios that turn it off.
+	@ObservationIgnored private let installer = ProcessInfo.processInfo.environment["PANE_UPDATE_INSTALL"] == "0" ? nil : UpdateInstaller()
+	// Restart to update: the quit opens the new Pane too.
+	@ObservationIgnored private var relaunches = false
 	@ObservationIgnored private let currentVersion: String
 	@ObservationIgnored private var scheduled: Task<Void, Never>?
 	@ObservationIgnored private var download: DmgDownload?
@@ -45,6 +53,11 @@ final class Updater {
 
 	init(currentVersion: String) {
 		self.currentVersion = currentVersion
+
+		// What an earlier install left beside the app, off the launch's path.
+		if let installer {
+			Task.detached(priority: .utility) { installer.removeLeftovers() }
+		}
 	}
 
 	// Checks now, then a day after each completed check, or 5, 15, then 60
@@ -146,6 +159,12 @@ final class Updater {
 	// opens it again once downloaded. A failure returns to available, so the
 	// user can try again from the same place.
 	func downloadUpdate() {
+		if status == .downloaded, staged != nil {
+			restartToUpdate()
+
+			return
+		}
+
 		if status == .downloaded, let file = downloaded?.file, FileManager.default.fileExists(atPath: file.path) {
 			open(file)
 
@@ -171,17 +190,82 @@ final class Updater {
 			}
 
 			download = nil
-			downloadProgress = nil
 			downloadETA = nil
 
 			switch result {
 			case let .success(file):
 				downloaded = (available.version, file)
-				status = .downloaded
-				open(file)
+				stage(file, version: available.version)
 			case let .failure(error):
 				NSLog("Pane: the update download failed: %@", String(describing: error))
+				downloadProgress = nil
 				status = .available
+			}
+		}
+	}
+
+	// The checked dmg's Pane, copied beside this one (ADR 0092) while the pill
+	// holds its full bar; without an installer, or when a step fails, the dmg
+	// opens for the user to drag.
+	private func stage(_ file: URL, version: String) {
+		guard let installer else {
+			downloadProgress = nil
+			status = .downloaded
+			open(file)
+
+			return
+		}
+
+		downloadProgress = 1
+
+		Task.detached(priority: .userInitiated) { [weak self] in
+			let result = Result { try installer.stage(file, version: version) }
+
+			await MainActor.run {
+				guard let self else {
+					return
+				}
+
+				self.downloadProgress = nil
+				self.status = .downloaded
+
+				switch result {
+				case let .success(url):
+					self.staged = url
+				case let .failure(error):
+					NSLog("Pane: the update did not stage: %@", String(describing: error))
+					self.open(file)
+				}
+			}
+		}
+	}
+
+	// The pill's, Settings', and the lock screen's Restart to update: quits,
+	// and the quit swaps the staged Pane in and opens it.
+	func restartToUpdate() {
+		guard status == .downloaded, staged != nil else {
+			return
+		}
+
+		relaunches = true
+		NSApp.terminate(nil)
+	}
+
+	// At every quit (AppDelegate), a staged update swaps in. A swap macOS
+	// refuses leaves this app as it was, and the dmg opens instead.
+	func installAtQuit() {
+		guard let installer, let staged else {
+			return
+		}
+
+		do {
+			try installer.install(staged, dmg: downloaded?.file, relaunch: relaunches)
+		} catch {
+			NSLog("Pane: the update did not install: %@", String(describing: error))
+			try? FileManager.default.removeItem(at: staged)
+
+			if let file = downloaded?.file {
+				open(file)
 			}
 		}
 	}
@@ -196,7 +280,7 @@ final class Updater {
 	var label: String {
 		switch status {
 		case .downloading: "Downloading update"
-		case .downloaded: "Downloaded, quit to install"
+		case .downloaded: staged == nil ? "Downloaded, quit to install" : "Restart to update"
 		default: "Update available"
 		}
 	}

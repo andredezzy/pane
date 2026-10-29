@@ -54,14 +54,14 @@ Implementation notes:
 
 ## Updates
 
-### Updates surface quietly; installs stay manual
+### Updates surface quietly; Pane installs them when it quits
 
-Availability is announced, never enforced: a quiet pill in the sidebar footer and an "Updates" section in Settings — never a modal, never a forced restart, never applied automatically. The pill is dismissible per launch per version, and reappears if a newer version ships later.
+Availability is announced, never enforced: a quiet pill in the sidebar footer and an "Updates" section in Settings — never a modal, never a forced restart. The pill is dismissible per launch per version, and reappears if a newer version ships later.
 
-The app is ad-hoc signed, not notarized, so it can't safely replace itself in place. Downloading fetches the dmg and opens it so Finder mounts it — installing is always the user dragging Pane to /Applications themselves.
+Downloading fetches the dmg; once it checks out, Pane stages the new version beside itself and the pill and Settings offer Restart to update. Any quit installs it, and Restart to update quits on purpose and opens the new version. Where Pane can't replace itself (translocated, a folder its user can't write, a step that fails), the dmg opens and the user drags Pane to /Applications (ADR 0092).
 
 Implementation notes:
 
 - The pill, the Settings section, and the lock screen all read the one `Updater` (`app/Pane/Updates/Updater.swift`) — never introduce a second source of truth for update state.
-- A check never takes down what is on offer: the pill stays while it runs, and a downloaded update stays downloaded, its click opening the dmg again.
+- A check never takes down what is on offer: the pill stays while it runs, and a downloaded update stays downloaded, its click restarting into it (or opening the dmg again, where Pane can't install it).
 - Dismissing the pill is in-memory only (no persistence); it resets on relaunch.

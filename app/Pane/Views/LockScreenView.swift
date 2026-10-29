@@ -130,6 +130,15 @@ private struct LockUpdateStatus: View {
 					.frame(maxWidth: isHovered ? 112 : 0, alignment: .leading)
 					.clipped()
 					.accessibilityIdentifier("pane.lockScreen.downloadUpdate")
+			} else if updater.status == .downloaded, updater.staged != nil {
+				Button("Restart") { updater.restartToUpdate() }
+					.buttonStyle(.plain)
+					.font(.system(size: 12, weight: .medium))
+					.foregroundStyle(Palette.mutedForeground)
+					.opacity(isHovered ? 1 : 0)
+					.frame(maxWidth: isHovered ? 112 : 0, alignment: .leading)
+					.clipped()
+					.accessibilityIdentifier("pane.lockScreen.restartToUpdate")
 			}
 		}
 		.onHover { isHovered = $0 }

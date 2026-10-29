@@ -66,5 +66,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 
 	func browserApplicationWillShutDown(_ application: BrowserApplication) {
 		store?.saveNow()
+		// Saved first: a staged update swaps in now (ADR 0092).
+		controller?.updater.installAtQuit()
 	}
 }

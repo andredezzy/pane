@@ -5,8 +5,8 @@ Multi-profile desktop browser with per-profile proxies, fingerprint spoofing, an
 ## Language
 
 **Update check**:
-Comparing the running app's version against the repo's latest GitHub Release. Yields at most one available update — the newest release — never a list of missed versions. Installing remains a user action (download + drag) while Pane is unsigned.
-_Avoid_: auto-update (implies silent install, which unsigned macOS forbids)
+Comparing the running app's version against the repo's latest GitHub Release. Yields at most one available update — the newest release — never a list of missed versions. Downloading it is a user action; installing happens at quit, Pane swapping the new version in for itself (Restart to update quits on purpose), and falls back to the user dragging it from the dmg where Pane cannot.
+_Avoid_: auto-update (implies an install while Pane runs; Pane installs only when the user quits or restarts)
 
 **Theme**:
 The app-wide appearance preference — `system`, `light`, or `dark`. One coherent knob: Pane's chrome, native menus, and what websites in profile tabs observe via `prefers-color-scheme` all follow it, matching desktop Chrome's appearance setting. `system` follows macOS.

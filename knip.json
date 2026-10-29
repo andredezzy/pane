@@ -1,7 +1,15 @@
 {
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"ignoreExportsUsedInFile": true,
-	"ignoreBinaries": ["defaults", "ioreg", "openssl", "swift"],
+	"ignoreBinaries": [
+		"codesign",
+		"defaults",
+		"ditto",
+		"hdiutil",
+		"ioreg",
+		"openssl",
+		"swift"
+	],
 	"workspaces": {
 		".": {
 			"entry": ["tests/run.ts", "tests/scenarios/*.ts", "tests/tools/*.ts"],

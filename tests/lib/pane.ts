@@ -89,6 +89,8 @@ export type UpdateState = {
 	eta: number | null;
 	pill: boolean;
 	checked: boolean;
+	// The downloaded update, staged beside the app to install at quit (ADR 0092).
+	installsItself: boolean;
 };
 
 export type AppState = {
@@ -399,6 +401,8 @@ export type PaneLaunch = {
 	dataDir?: string;
 	args?: string[];
 	env?: Record<string, string>;
+	// Another copy of the app than the run's binary.
+	binary?: string;
 };
 
 export async function launchPane(
@@ -417,6 +421,7 @@ export async function launchPane(
 	const locked = await isScreenLocked();
 
 	const browser = await context.launch({
+		binary: options.binary,
 		userDataDir: join(dataDir, "Engine"),
 		args: [
 			...(locked ? ["--disable-backgrounding-occluded-windows"] : []),

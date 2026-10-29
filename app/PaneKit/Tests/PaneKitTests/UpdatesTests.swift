@@ -141,3 +141,23 @@ struct DownloadETATests {
 		#expect(eta.update(received: 500, total: 1000, now: start + 4) == nil)
 	}
 }
+
+@Suite("UpdateInstall")
+struct UpdateInstallTests {
+	@Test("installs over a bundle Pane runs from in place, never a translocated or mounted one")
+	func target() {
+		#expect(UpdateInstall.target(bundlePath: "/Applications/Pane.app") == "/Applications/Pane.app")
+		#expect(UpdateInstall.target(bundlePath: "/Users/me/Applications/Pane.app") == "/Users/me/Applications/Pane.app")
+		#expect(UpdateInstall.target(bundlePath: "/private/var/folders/x/T/AppTranslocation/1234/d/Pane.app") == nil)
+		#expect(UpdateInstall.target(bundlePath: "/Volumes/Pane/Pane.app") == nil)
+		#expect(UpdateInstall.target(bundlePath: "/usr/local/bin/pane") == nil)
+	}
+
+	@Test("stages the new version hidden beside the app, and knows its leftovers")
+	func staging() {
+		#expect(UpdateInstall.stagedName(version: "0.9.0") == ".Pane-0.9.0.app")
+		#expect(UpdateInstall.isLeftover(".Pane-0.9.0.app"))
+		#expect(!UpdateInstall.isLeftover("Pane.app"))
+		#expect(!UpdateInstall.isLeftover(".Pane-notes.txt"))
+	}
+}

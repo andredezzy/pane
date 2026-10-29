@@ -226,6 +226,8 @@ extension Automation {
 				"progress": controller.updater.downloadProgress ?? NSNull(),
 				"eta": controller.updater.downloadETA ?? NSNull(),
 				"pill": controller.updater.showsPill,
+				// Staged beside the app, to install at quit (ADR 0092).
+				"installsItself": controller.updater.staged != nil,
 				"checked": controller.updater.lastCheckedAt != nil,
 			] as [String: Any],
 			"quitConfirmation": controller.state.confirmingQuit,
