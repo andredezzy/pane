@@ -33,20 +33,22 @@ struct UpdatePill: View {
 							.transition(.asymmetric(insertion: .opacity, removal: .opacity.animation(Motion.barExit)))
 					}
 				}
-				.frame(maxWidth: .infinity, alignment: .leading)
+				.padding(.leading, 7)
+				// Clear of the dismiss button (sidebar.tsx's pr-6).
+				.padding(.trailing, 24)
+				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 				.contentShape(Rectangle())
 			}
 			.buttonStyle(.plain)
 			.foregroundStyle(Palette.accentForeground)
 			.accessibilityIdentifier("pane.sidebar.update")
 
+			// 6 from the pill's edge (right-1.5).
 			DismissButton(action: updater.dismissPill)
 				.opacity(isHovered ? 1 : 0)
 				.padding(.trailing, 6)
 		}
 		.frame(height: 32)
-		.padding(.leading, 7)
-		.padding(.trailing, 24)
 		.background(Palette.foreground.opacity(0.05), in: Squircle(cornerRadius: 15))
 		.onHover { isHovered = $0 }
 		.animation(Motion.hover, value: isHovered)
