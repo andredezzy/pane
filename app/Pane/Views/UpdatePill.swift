@@ -28,14 +28,24 @@ struct UpdatePill: View {
 
 					if updater.status == .downloading {
 						UpdateProgressBar(progress: updater.downloadProgress ?? 0)
-							.frame(minWidth: 24, maxWidth: .infinity)
+							// Clear of the dismiss button while it shows, as
+							// far from it as the text is from the bar: it
+							// draws back at once, and runs out once the button
+							// has gone. Within room it always keeps, 24 points
+							// beside that, so the text never moves and the bar
+							// never goes.
+							.padding(.trailing, isHovered ? 25 : 0)
+							.animation(isHovered ? Motion.hover : Motion.hoverTurn, value: isHovered)
+							.frame(minWidth: 24 + 25, maxWidth: .infinity)
 							.padding(.leading, 4)
 							.transition(.asymmetric(insertion: .opacity, removal: .opacity.animation(Motion.barExit)))
 					}
 				}
 				.padding(.leading, 7)
-				// Clear of the dismiss button (sidebar.tsx's pr-6).
-				.padding(.trailing, 24)
+				// Text stays clear of the dismiss button (sidebar.tsx's pr-6).
+				// The bar runs out to 7 from the edge, as the dot sits 7 from
+				// the start.
+				.padding(.trailing, updater.status == .downloading ? 7 : 24)
 				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 				.contentShape(Rectangle())
 			}
@@ -43,9 +53,11 @@ struct UpdatePill: View {
 			.foregroundStyle(Palette.accentForeground)
 			.accessibilityIdentifier("pane.sidebar.update")
 
-			// 6 from the pill's edge (right-1.5).
+			// 6 from the pill's edge (right-1.5). Over a bar, it shows once
+			// the bar has drawn back.
 			DismissButton(action: updater.dismissPill)
 				.opacity(isHovered ? 1 : 0)
+				.animation(isHovered && updater.status == .downloading ? Motion.hoverTurn : Motion.hover, value: isHovered)
 				.padding(.trailing, 6)
 		}
 		.frame(height: 32)

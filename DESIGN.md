@@ -49,6 +49,7 @@ Implementation notes:
 - Selection highlights (active/selected backgrounds and rings) carry no `transition` utility.
 - An indicator that changes shape with a selection animates its size and radius together (`Squircle`'s radius animates), with the spring `Motion.morph`.
 - Hover fills animate in 0.15 s, easing out, everywhere a hover shows: a fill that appears at once is a missing animation.
+- Two things that share a place under the pointer take turns rather than cross: the update pill's bar draws back at once and its dismiss button shows once the bar has cleared it, and on the way out the button goes first (`Motion.hoverTurn`, the hover's 0.15 s after 0.08 s).
 - Scope `transition-colors` to hover states only — e.g. the inactive branch of a tab's className, never the active/selected branch.
 - Always honor `prefers-reduced-motion`.
 
@@ -65,3 +66,4 @@ Implementation notes:
 - The pill, the Settings section, and the lock screen all read the one `Updater` (`app/Pane/Updates/Updater.swift`) — never introduce a second source of truth for update state.
 - A check never takes down what is on offer: the pill stays while it runs, and a downloaded update stays downloaded, its click restarting into it (or opening the dmg again, where Pane can't install it).
 - Dismissing the pill is in-memory only (no persistence); it resets on relaunch.
+- While it downloads, the pill's bar runs out to 7 from the pill's end, as the dot sits 7 from its start, and under the pointer draws back to about 14 from the dismiss button, within room it always keeps, so the text never moves (ADR 0093).

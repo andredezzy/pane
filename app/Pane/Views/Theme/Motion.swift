@@ -11,6 +11,11 @@ enum Motion {
 	// easing out.
 	static var hover: Animation? { unlessReduced(.easeOut(duration: 0.15)) }
 
+	// A hover change that waits its turn, so neither of two things sits over
+	// the other: the update pill's dismiss button shows once the bar has drawn
+	// back from it, and the bar runs out again once the button has gone.
+	static var hoverTurn: Animation? { unlessReduced(.easeOut(duration: 0.15).delay(0.08)) }
+
 	// A switch's thumb crossing over, as quick as a hover.
 	static var toggle: Animation? { unlessReduced(.easeOut(duration: 0.15)) }
 
