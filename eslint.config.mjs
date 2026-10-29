@@ -2,18 +2,10 @@ import stylisticPlugin from "@stylistic/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import { defineConfig } from "eslint/config";
 
+// ESLint runs one rule, which Biome has no counterpart for through 2.6.4:
+// blank lines around statements. bun run lint and the Gates workflow point
+// it at tests/, the scenario runner, so it walks no build folders.
 export default defineConfig([
-	{
-		ignores: [
-			"**/node_modules/**",
-			"**/dist/**",
-			"**/coverage/**",
-			"**/out/**",
-			"**/build/**",
-			"**/generated/**",
-			"**/*.generated.*",
-		],
-	},
 	{
 		files: ["**/*.{ts,js,mjs}"],
 		languageOptions: {

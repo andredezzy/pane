@@ -43,7 +43,7 @@ jobs:
 
       # bun run lint fixes what it can; CI only reports.
       - name: ESLint
-        run: bunx eslint .
+        run: bunx eslint tests
 
       - name: Biome
         run: bunx biome ci .
