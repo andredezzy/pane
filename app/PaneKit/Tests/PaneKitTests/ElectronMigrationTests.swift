@@ -84,13 +84,26 @@ struct ElectronMigrationTests {
 	}
 
 	// A process that runs from an app bundle with Electron's framework in it,
-	// as the Electron app does: a copy of sleep(1).
+	// as the Electron app does: a copy of sleep(1), signed ad hoc. With
+	// Apple's signature, the copy breaks the launch constraint macOS puts on
+	// its own binaries, and macOS files a crash report named Pane for it.
 	private func fakeElectron(in root: URL) throws -> Process {
 		let contents = root.appending(path: "Pane.app/Contents")
 		let executable = contents.appending(path: "MacOS/Pane")
 		try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
-		try fileManager.createDirectory(at: contents.appending(path: "Frameworks/Electron Framework.framework"), withIntermediateDirectories: true)
 		try fileManager.copyItem(at: URL(fileURLWithPath: "/bin/sleep"), to: executable)
+
+		// Signed before the framework is there: codesign checks a bundle's
+		// frameworks, and an empty folder is none.
+		let codesign = Process()
+		codesign.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+		codesign.arguments = ["--sign", "-", "--force", executable.path]
+		codesign.standardError = FileHandle.nullDevice
+		try codesign.run()
+		codesign.waitUntilExit()
+		try #require(codesign.terminationStatus == 0)
+
+		try fileManager.createDirectory(at: contents.appending(path: "Frameworks/Electron Framework.framework"), withIntermediateDirectories: true)
 
 		let process = Process()
 		process.executableURL = executable
