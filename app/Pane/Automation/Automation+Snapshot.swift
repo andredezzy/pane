@@ -229,6 +229,7 @@ extension Automation {
 				"checked": controller.updater.lastCheckedAt != nil,
 			] as [String: Any],
 			"quitConfirmation": controller.state.confirmingQuit,
+			"appIconPicker": controller.state.choosingAppIcon,
 			"profileSheet": controller.state.profileSheet.map { target in
 				target.profileID ?? "new"
 			} ?? NSNull(),

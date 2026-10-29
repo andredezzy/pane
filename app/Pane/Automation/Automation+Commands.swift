@@ -565,6 +565,10 @@ extension Automation {
 
 			controller.changeSettings { $0.appIcon = icon }
 
+		case "appIconPicker":
+			// { open }: Settings' icon, or the picker's Done.
+			(command["open"] as? Bool ?? true) ? controller.openAppIconPicker() : controller.closeAppIconPicker()
+
 		case "setSleepSettings":
 			// { tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB },
 			// each a number or null (off).

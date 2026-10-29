@@ -58,6 +58,16 @@ struct KeyRoutingTests {
 		#expect(route(quit, overlays) == KeyRoute(nil, consumed: false))
 	}
 
+	@Test("the App icon picker closes on Esc and Return and lets the rest reach its icons")
+	func appIconPicker() {
+		let overlays = KeyOverlays(appIconPicker: true)
+
+		#expect(route(escape, overlays) == KeyRoute(.closeAppIconPicker, consumed: true))
+		#expect(route(returnKey, overlays) == KeyRoute(.closeAppIconPicker, consumed: true))
+		#expect(route(letter("a"), overlays) == KeyRoute(nil, consumed: false))
+		#expect(route(escape, KeyOverlays(quitConfirmation: true, appIconPicker: true)).command == .cancelQuit)
+	}
+
 	@Test("Esc goes to the topmost overlay: Quit Pane? over an extension's popup")
 	func quitOverPrompt() {
 		let overlays = KeyOverlays(quitConfirmation: true, extensionPrompt: true)

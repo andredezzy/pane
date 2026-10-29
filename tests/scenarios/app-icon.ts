@@ -41,20 +41,56 @@ const appIcon: Scenario = async (context) => {
 		);
 	}
 
-	// Settings' tiles, the chosen one ringed, in each theme: the window's app
-	// UI drawn into a PNG, which a locked screen allows.
+	// Settings' row (the chosen icon) and the picker it opens, in each theme:
+	// the window's app UI drawn into a PNG, which a locked screen allows. A
+	// sky picked with the picker open reaches the Dock, and Esc or Return
+	// closes it.
 	await app.send("showPage", { page: "settings" });
 	const renders: string[] = [];
 
-	for (const [theme, appIcon] of [
-		["light", "automatic"],
-		["dark", "moonrise"],
-	] as const) {
-		await app.send("theme", { theme });
-		await app.send("appIcon", { appIcon });
-		const file = `app-icon-settings-${theme}.png`;
+	const render = async (file: string) => {
 		await app.send("render", { path: join(context.out, file) });
 		renders.push(file);
+	};
+
+	for (const [theme, appIcon, close] of [
+		["light", "fuchsia", "\u001b"],
+		["dark", "moonrise", "\r"],
+	] as const) {
+		await app.send("theme", { theme });
+		await app.send("appIcon", { appIcon: "automatic" });
+		await render(`app-icon-settings-${theme}.png`);
+
+		await app.send("appIconPicker", { open: true });
+
+		await app.waitFor(
+			`the picker over ${theme}`,
+			(state) => state.appIconPicker,
+			5_000,
+		);
+
+		await app.send("appIcon", { appIcon });
+
+		const picked = await app.waitFor(
+			`${appIcon} from the picker`,
+			(state) => state.dockIcon === appIcon,
+			5_000,
+		);
+
+		expect(
+			picked.appIconPicker,
+			`the picker closed when ${appIcon} was picked`,
+		);
+
+		await render(`app-icon-picker-${theme}.png`);
+
+		await app.send("key", { key: close });
+
+		await app.waitFor(
+			`the picker closed by ${close === "\r" ? "Return" : "Esc"}`,
+			(state) => !state.appIconPicker,
+			5_000,
+		);
 	}
 
 	return { results, renders };

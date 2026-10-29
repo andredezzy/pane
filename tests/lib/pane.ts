@@ -113,6 +113,8 @@ export type AppState = {
 	// The App icon setting, and the window the Dock shows for it.
 	appIcon: string;
 	dockIcon: string;
+	// Settings' App icon picker, open.
+	appIconPicker: boolean;
 	find: {
 		visible: boolean;
 		text: string;

@@ -27,6 +27,8 @@ final class WindowState {
 	var switcher = Switcher()
 	// Quit Pane? (⌘Q asks first.)
 	var confirmingQuit = false
+	// Settings' App icon picker (ADR 0089).
+	var choosingAppIcon = false
 	// The profile sheet: a new profile, or one being edited.
 	var profileSheet: ProfileSheetTarget?
 

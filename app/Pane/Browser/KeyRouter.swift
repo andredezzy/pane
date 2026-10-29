@@ -41,6 +41,7 @@ final class KeyRouter {
 		return KeyOverlays(
 			pinScreen: controller.lock.entry != nil,
 			quitConfirmation: state.confirmingQuit,
+			appIconPicker: state.choosingAppIcon,
 			extensionPrompt: extensions.prompt != nil,
 			extensionsMenu: extensions.menuOpen,
 			extensionMoreMenu: extensions.moreMenu != nil,
@@ -63,6 +64,7 @@ final class KeyRouter {
 		case .pinContinue: lock.continueWithPin()
 		case .cancelQuit: controller.cancelQuit()
 		case .quit: controller.quit()
+		case .closeAppIconPicker: controller.closeAppIconPicker()
 		case .cancelExtensionPrompt: extensions.answerPrompt(accepted: false)
 		case .acceptExtensionPrompt: extensions.answerPrompt(accepted: true)
 		case .closeExtensionMoreMenu: extensions.closeMoreMenu()

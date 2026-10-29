@@ -9,7 +9,7 @@ public enum Theme: String, Codable, CaseIterable, Sendable {
 }
 
 // The icon the Dock shows for Pane (CONTEXT.md: App icon): the window with one
-// of nine skies, or automatic (ADR 0089). In Settings' order, the sky through
+// of ten skies, or automatic (ADR 0089). In Settings' order, the sky through
 // a day.
 public enum AppIcon: String, Codable, CaseIterable, Sendable {
 	case automatic
@@ -17,6 +17,7 @@ public enum AppIcon: String, Codable, CaseIterable, Sendable {
 	case clouds
 	case morning
 	case dusk
+	case fuchsia
 	case sunset
 	case twilight
 	case afterglow

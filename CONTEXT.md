@@ -13,7 +13,7 @@ The app-wide appearance preference — `system`, `light`, or `dark`. One coheren
 _Avoid_: appearance, color mode, dark mode (as a feature name)
 
 **App icon**:
-The window Pane shows in the Dock, with the sky the user picks — Day, Clouds, Morning, Dusk, Sunset, Twilight, Afterglow, Night, or Moonrise — or `automatic`, which shows Day while Pane's appearance is light and Night while it is dark: the Theme decides, and under `system` the Mac. The bundle's own icon is Day, and Night under the Mac's dark icon style.
+The window Pane shows in the Dock, with the sky the user picks — Day, Clouds, Morning, Dusk, Fuchsia, Sunset, Twilight, Afterglow, Night, or Moonrise — or `automatic`, which shows Day while Pane's appearance is light and Night while it is dark: the Theme decides, and under `system` the Mac. The bundle's own icon is Day, and Night under the Mac's dark icon style.
 _Avoid_: logo (the brand mark in docs and Paper), theme (the appearance itself)
 
 **Sleep (tab)**:

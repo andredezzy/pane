@@ -131,6 +131,23 @@ extension BrowserController {
 	}
 }
 
+// The App icon picker (ADR 0089): Settings' icon opens it over the window. A
+// click on a sky applies it at once and the Dock follows; Done, Return, Esc,
+// or a click outside closes it.
+extension BrowserController {
+	func openAppIconPicker() {
+		withAnimation(Motion.panel) {
+			state.choosingAppIcon = true
+		}
+	}
+
+	func closeAppIconPicker() {
+		withAnimation(Motion.panel) {
+			state.choosingAppIcon = false
+		}
+	}
+}
+
 extension BrowserController: NSMenuItemValidation {
 	// The controller's items that work behind the PIN lock. About, Hide, and
 	// the Window menu's own are the application's and the window's, which

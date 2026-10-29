@@ -97,6 +97,20 @@ struct RootView: View {
 				.zIndex(1)
 			}
 
+			if state.choosingAppIcon {
+				Palette.modalScrim
+					.contentShape(Rectangle())
+					.onTapGesture { controller.closeAppIconPicker() }
+					.transition(.opacity)
+					.zIndex(1)
+
+				AppIconPicker(selection: model.settings.appIcon, select: { icon in
+					controller.changeSettings { $0.appIcon = icon }
+				}, done: controller.closeAppIconPicker)
+					.transition(.opacity.combined(with: .scale(scale: 0.97)))
+					.zIndex(1)
+			}
+
 			if state.confirmingQuit {
 				Palette.modalScrim
 					.contentShape(Rectangle())
@@ -216,7 +230,7 @@ struct RootView: View {
 				// the bottom ones, and the top ones too without the toolbar.
 				Group {
 					if model.page == .settings {
-						SettingsView(settings: model.settings, lock: controller.lock, updater: controller.updater, change: controller.changeSettings)
+						SettingsView(settings: model.settings, lock: controller.lock, updater: controller.updater, change: controller.changeSettings, chooseAppIcon: controller.openAppIconPicker)
 					} else if model.page == .extensions {
 						ExtensionsPage(model: model, controller: extensions)
 					} else if model.activeTabID == nil {

@@ -2,7 +2,7 @@
 // (KeyRouter), which sees every key before the window, the menu bar's
 // shortcuts, and any page; it asks this, with what shows, and runs the
 // command. The overlays are asked topmost first, as they are drawn: the PIN
-// screen, Quit Pane?, an extension's popup, the extensions menu, the tab
+// screen, Quit Pane?, the App icon picker, an extension's popup, the extensions menu, the tab
 // switcher, a page's dialog, then a page in fullscreen. The first that
 // takes the key ends it.
 
@@ -76,6 +76,8 @@ public struct KeyOverlays: Equatable, Sendable {
 	// The PIN screen: the lock, or Settings' Set up, Change, and Remove.
 	public var pinScreen = false
 	public var quitConfirmation = false
+	// Settings' App icon picker (ADR 0089).
+	public var appIconPicker = false
 	public var extensionPrompt = false
 	public var extensionsMenu = false
 	// An extension's more menu, beside the extensions menu.
@@ -90,6 +92,7 @@ public struct KeyOverlays: Equatable, Sendable {
 	public init(
 		pinScreen: Bool = false,
 		quitConfirmation: Bool = false,
+		appIconPicker: Bool = false,
 		extensionPrompt: Bool = false,
 		extensionsMenu: Bool = false,
 		extensionMoreMenu: Bool = false,
@@ -100,6 +103,7 @@ public struct KeyOverlays: Equatable, Sendable {
 	) {
 		self.pinScreen = pinScreen
 		self.quitConfirmation = quitConfirmation
+		self.appIconPicker = appIconPicker
 		self.extensionPrompt = extensionPrompt
 		self.extensionsMenu = extensionsMenu
 		self.extensionMoreMenu = extensionMoreMenu
@@ -118,6 +122,7 @@ public enum KeyCommand: Equatable, Sendable {
 	case pinContinue
 	case cancelQuit
 	case quit
+	case closeAppIconPicker
 	case cancelExtensionPrompt
 	case acceptExtensionPrompt
 	case closeExtensionMoreMenu
@@ -154,6 +159,7 @@ public enum KeyRouting {
 		let layers: [(Bool, (KeyPress, KeyOverlays) -> KeyRoute?)] = [
 			(overlays.pinScreen, pinScreen),
 			(overlays.quitConfirmation, quitConfirmation),
+			(overlays.appIconPicker, appIconPicker),
 			(overlays.extensionPrompt, extensionPrompt),
 			(overlays.extensionsMenu, extensionsMenu),
 			(true, switcher),
@@ -222,6 +228,16 @@ public enum KeyRouting {
 		}
 
 		return .swallow
+	}
+
+	// Esc and Return close it (a sky applies when it is clicked); every other
+	// key goes on to the window, where Tab and Space reach its icons.
+	private static func appIconPicker(_ key: KeyPress, _: KeyOverlays) -> KeyRoute? {
+		guard key.kind == .down, key.isEscape || key.isReturn else {
+			return nil
+		}
+
+		return .take(.closeAppIconPicker)
 	}
 
 	// A popup takes all but shortcuts, as a dialog would.

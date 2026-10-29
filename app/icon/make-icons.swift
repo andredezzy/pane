@@ -30,7 +30,7 @@ let renders = repo.appendingPathComponent("app/icon/renders")
 let pane = repo.appendingPathComponent("app/Pane")
 let assets = pane.appendingPathComponent("Assets.xcassets")
 // In the order Settings shows them: the sky through a day.
-let variants = ["day", "clouds", "morning", "dusk", "sunset", "twilight", "afterglow", "night", "moonrise"]
+let variants = ["day", "clouds", "morning", "dusk", "fuchsia", "sunset", "twilight", "afterglow", "night", "moonrise"]
 let fm = FileManager.default
 let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
 
