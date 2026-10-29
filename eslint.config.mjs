@@ -1,5 +1,4 @@
 import stylisticPlugin from "@stylistic/eslint-plugin";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import { defineConfig } from "eslint/config";
 
@@ -26,7 +25,6 @@ export default defineConfig([
 		},
 		plugins: {
 			stylistic: stylisticPlugin,
-			"@typescript-eslint": tsPlugin,
 		},
 		rules: {
 			"stylistic/padding-line-between-statements": [
