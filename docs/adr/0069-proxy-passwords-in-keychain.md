@@ -1,5 +1,7 @@
 # Proxy passwords live in the Keychain
 
+> **Where they live is superseded by [ADR 0095](0095-proxy-passwords-sealed-under-the-engine-key.md)**: they are sealed in the data directory under the engine's key, so an update asks for the Keychain once, not twice.
+
 A profile's proxy password is kept in the Keychain, not in plain text in `profiles.json`, which writes it as null. The password in the file was the Electron app's format; the review's safety track raised it (safety A3).
 
 One generic password, "Pane Proxy Passwords", holds them all as JSON by profile id, so macOS asks at most once after an update of an ad-hoc signed build (ADR 0048), not once per profile. Its account is the data directory's path, so a Pane started on another data directory keeps its own. The store is `app/Pane/Security/ProxyPasswordStore.swift`, over PaneKit's `ProxyPasswords`.

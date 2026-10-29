@@ -1,7 +1,8 @@
 // Proxy passwords are kept apart from profiles.json, in a secret store the
-// app provides (the login Keychain), by profile id. profiles.json writes
-// them as null; one the file still holds (the Electron app's, or an older
-// Pane's) is read as it is, then moved into the store.
+// app provides (sealed under the engine's key, ProxyPasswordVault), by
+// profile id. profiles.json writes them as null; one the file still holds
+// (the Electron app's, or an older Pane's) is read as it is, then moved into
+// the store.
 public enum ProxyPasswords {
 	// Each proxy's password, by profile id: what the store holds.
 	public static func of(_ profiles: [BrowserProfile]) -> [String: String] {

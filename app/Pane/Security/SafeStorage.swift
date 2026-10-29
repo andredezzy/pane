@@ -1,5 +1,6 @@
 import Foundation
 import LocalAuthentication
+import PaneKit
 import Security
 
 // Chromium encrypts cookies with a key it keeps in the login Keychain, a
@@ -57,6 +58,31 @@ enum SafeStorage {
 		]
 
 		return SecItemDelete(query as CFDictionary)
+	}
+
+	// The engine's key itself, which the proxy passwords are sealed under
+	// (ADR 0095). The engine reads the same item at every launch, so macOS
+	// asks once for the two. Pane never makes the item: the engine does, or
+	// a migration hands it the Electron app's key (adoptKey).
+	nonisolated static func engineSecret() -> ProxyPasswordVault.Secret {
+		var result: CFTypeRef?
+		let query: [CFString: Any] = [
+			kSecClass: kSecClassGenericPassword,
+			kSecAttrService: service,
+			kSecAttrAccount: account,
+			kSecReturnData: true,
+		]
+		let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+		switch status {
+		case errSecSuccess:
+			return (result as? Data).map { .key($0) } ?? .unavailable
+		case errSecItemNotFound:
+			return .missing
+		default:
+			NSLog("Pane: could not read the engine's key: %d", status)
+			return .unavailable
+		}
 	}
 
 	// Whether the engine has a key of its own yet. Reading the item's

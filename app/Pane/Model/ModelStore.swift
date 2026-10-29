@@ -2,7 +2,7 @@ import Foundation
 import PaneKit
 
 // Where BrowserModel's state lives: profiles.json and settings.json in the
-// data directory, and the proxy passwords in the Keychain (PaneKit
+// data directory, and the proxy passwords sealed beside them (PaneKit
 // ProxyPasswords). It reads them at launch, and writes what each save hands
 // it on a serial utility queue, off the main thread (Chromium's UI thread).
 @MainActor
