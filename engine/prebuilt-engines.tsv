@@ -6,3 +6,4 @@
 # the archive as a prerelease named engine-<key:12>, which the update check,
 # reading the latest release, never sees, then adds it.
 0d0a01f8c703e85ba3abcf0fc92893e9ece97b8b	engine-0d0a01f8c703	8b3dedb2634059c3069a5e0fd7164eb7b65031beceae07720452fd841256ae42
+dc5989896851dbfe4fc20b9271d926f6593da4fc	engine-dc5989896851	730ec5a3601985a3add8a276584c561b00ec0785e89de4f0fbade612b6ac0218
