@@ -62,5 +62,6 @@ The app is ad-hoc signed, not notarized, so it can't safely replace itself in pl
 
 Implementation notes:
 
-- The pill and the Settings section both read the shared `update-store` status (`CHECKING`, `AVAILABLE`, `DOWNLOADING`) — never introduce a second source of truth for update state.
+- The pill, the Settings section, and the lock screen all read the one `Updater` (`app/Pane/Updates/Updater.swift`) — never introduce a second source of truth for update state.
+- A check never takes down what is on offer: the pill stays while it runs, and a downloaded update stays downloaded, its click opening the dmg again.
 - Dismissing the pill is in-memory only (no persistence); it resets on relaunch.

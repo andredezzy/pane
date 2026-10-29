@@ -38,6 +38,9 @@ final class Updater {
 	@ObservationIgnored private let currentVersion: String
 	@ObservationIgnored private var scheduled: Task<Void, Never>?
 	@ObservationIgnored private var download: DmgDownload?
+	@ObservationIgnored private var isChecking = false
+	// The dmg downloaded this launch, which the pill opens again.
+	@ObservationIgnored private var downloaded: (version: String, file: URL)?
 
 	init(currentVersion: String) {
 		self.currentVersion = currentVersion
@@ -70,16 +73,24 @@ final class Updater {
 		}
 	}
 
-	// Settings' Check for updates, and the schedule. Never throws: offline,
-	// rate-limited, or a bad answer, the state just returns to idle. Returns
-	// whether the check completed.
+	// Settings' Check for updates, the app menu's, and the schedule. Never
+	// throws: offline, rate-limited, or a bad answer, what was on offer
+	// stays. Returns whether the check completed.
 	@discardableResult
 	func check() async -> Bool {
-		guard status != .checking, status != .downloading else {
+		guard !isChecking, status != .downloading else {
 			return true
 		}
 
-		status = .checking
+		isChecking = true
+		defer { isChecking = false }
+
+		// Only a check with nothing on offer shows (Settings' Checking…): an
+		// offer stays up while its check runs, so the pill never blinks.
+		if status == .idle {
+			status = .checking
+		}
+
 		let settle = Task { try? await Task.sleep(for: .seconds(Updates.minimumChecking)) }
 
 		do {
@@ -93,29 +104,54 @@ final class Updater {
 
 			let update = try Updates.available(inRelease: data, currentVersion: currentVersion, from: releasesURL)
 			await settle.value
-			available = update
 			lastCheckedAt = Date()
-			status = update == nil ? .idle : .available
+			offer(update)
 
 			return true
 		} catch {
 			NSLog("Pane: the update check failed: %@", String(describing: error))
 			await settle.value
-			status = available == nil ? .idle : .available
+
+			if status == .checking {
+				status = .idle
+			}
 
 			return false
 		}
 	}
 
-	// The pill's click and Settings' Download update. A failure returns to
-	// available, so the user can try again from the same place.
+	// What a completed check found. A download that started meanwhile runs
+	// on, and the version already downloaded stays downloaded.
+	private func offer(_ update: AvailableUpdate?) {
+		guard status != .downloading else {
+			return
+		}
+
+		available = update
+
+		if let update {
+			status = update.version == downloaded?.version ? .downloaded : .available
+		} else {
+			status = .idle
+		}
+	}
+
 	// The pill's dismiss: hidden for this version until relaunch.
 	func dismissPill() {
 		dismissedVersion = available?.version
 	}
 
+	// The pill's click and Settings' Download update: downloads the dmg, or
+	// opens it again once downloaded. A failure returns to available, so the
+	// user can try again from the same place.
 	func downloadUpdate() {
-		guard status == .available, let available else {
+		if status == .downloaded, let file = downloaded?.file, FileManager.default.fileExists(atPath: file.path) {
+			open(file)
+
+			return
+		}
+
+		guard status == .available || status == .downloaded, let available else {
 			return
 		}
 
@@ -139,15 +175,19 @@ final class Updater {
 
 			switch result {
 			case let .success(file):
+				downloaded = (available.version, file)
 				status = .downloaded
-
-				if opensDownload {
-					NSWorkspace.shared.open(file)
-				}
+				open(file)
 			case let .failure(error):
 				NSLog("Pane: the update download failed: %@", String(describing: error))
 				status = .available
 			}
+		}
+	}
+
+	private func open(_ file: URL) {
+		if opensDownload {
+			NSWorkspace.shared.open(file)
 		}
 	}
 
