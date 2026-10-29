@@ -2,8 +2,9 @@ import Foundation
 import PaneKit
 import Testing
 
-private func release(tag: String, assets: [String], downloads: String = "https://github.com/andredezzy/pane/releases/download") -> Data {
-	let list = assets.map { #"{"name":"\#($0)","browser_download_url":"\#(downloads)/\#(tag)/\#($0)"}"# }
+private func release(tag: String, assets: [String], downloads: String = "https://github.com/andredezzy/pane/releases/download", digest: String? = nil) -> Data {
+	let digestField = digest.map { #","digest":"\#($0)""# } ?? ""
+	let list = assets.map { #"{"name":"\#($0)","browser_download_url":"\#(downloads)/\#(tag)/\#($0)"\#(digestField)}"# }
 
 	return Data(#"{"tag_name":"\#(tag)","published_at":"2026-10-20T12:00:00Z","assets":[\#(list.joined(separator: ","))]}"#.utf8)
 }
@@ -56,6 +57,19 @@ struct UpdatesTests {
 
 		#expect(try Updates.available(inRelease: local, currentVersion: "0.2.4", from: server)?.version == "1.0.0")
 		#expect(try Updates.available(inRelease: local, currentVersion: "0.2.4") == nil)
+	}
+
+	@Test("the dmg's SHA-256 comes from its digest, when GitHub gives one")
+	func digest() throws {
+		let hex = String(repeating: "ab", count: 32)
+		let dmg = ["Pane-1.0.0-arm64.dmg"]
+
+		#expect(try Updates.available(inRelease: release(tag: "v1.0.0", assets: dmg, digest: "sha256:\(hex)"), currentVersion: "0.2.4")?.sha256 == hex)
+		#expect(try Updates.available(inRelease: release(tag: "v1.0.0", assets: dmg, digest: "sha256:\(hex.uppercased())"), currentVersion: "0.2.4")?.sha256 == hex)
+		#expect(try Updates.available(inRelease: release(tag: "v1.0.0", assets: dmg), currentVersion: "0.2.4")?.sha256 == nil)
+		#expect(Updates.sha256(fromDigest: "sha512:\(hex)") == nil)
+		#expect(Updates.sha256(fromDigest: "sha256:\(hex.dropLast())") == nil)
+		#expect(Updates.sha256(fromDigest: "sha256:\(hex.dropLast(2))zz") == nil)
 	}
 
 	@Test("a tag without its v counts too")

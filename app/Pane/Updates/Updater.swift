@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Observation
 import PaneKit
 
@@ -161,7 +162,7 @@ final class Updater {
 
 		let destination = downloadsDirectory.appending(path: available.dmgURL.lastPathComponent)
 
-		download = DmgDownload(from: available.dmgURL, to: destination) { [weak self] progress, eta in
+		download = DmgDownload(from: available.dmgURL, to: destination, sha256: available.sha256) { [weak self] progress, eta in
 			self?.downloadProgress = progress
 			self?.downloadETA = eta
 		} done: { [weak self] result in
@@ -209,8 +210,17 @@ final class Updater {
 
 // One dmg download, with its progress and time left, into the downloads
 // folder (a name already taken there gets " (1)" and so on, as Chrome does).
+// Given the release's SHA-256, the dmg must match it, and then leaves
+// quarantine (ADR 0090): Pane quarantines every file it writes, and macOS
+// will not open a quarantined copy of an app that is not notarized.
 private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+	private struct DigestMismatch: Error {
+		let expected: String
+		let actual: String
+	}
+
 	private let destination: URL
+	private let sha256: String?
 	private let progress: @MainActor (Double, Int?) -> Void
 	private let done: @MainActor (Result<URL, Error>) -> Void
 	private var eta = DownloadETA()
@@ -219,10 +229,12 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	init(
 		from url: URL,
 		to destination: URL,
+		sha256: String?,
 		progress: @escaping @MainActor (Double, Int?) -> Void,
 		done: @escaping @MainActor (Result<URL, Error>) -> Void
 	) {
 		self.destination = destination
+		self.sha256 = sha256
 		self.progress = progress
 		self.done = done
 		super.init()
@@ -245,16 +257,62 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	}
 
 	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-		let result: Result<URL, Error>
+		session.finishTasksAndInvalidate()
 
 		if let status = (downloadTask.response as? HTTPURLResponse)?.statusCode, status != 200 {
-			result = .failure(URLError(.badServerResponse))
-		} else {
-			result = Result { try moveToFreeName(location) }
+			MainActor.assumeIsolated { done(.failure(URLError(.badServerResponse))) }
+
+			return
 		}
 
-		session.finishTasksAndInvalidate()
-		MainActor.assumeIsolated { done(result) }
+		let file: URL
+
+		do {
+			file = try moveToFreeName(location)
+		} catch {
+			MainActor.assumeIsolated { done(.failure(error)) }
+
+			return
+		}
+
+		// The digest reads the whole dmg: off the main thread.
+		Task.detached(priority: .userInitiated) { [self] in
+			let result = Result { try Self.verify(file, sha256: sha256) }
+			await MainActor.run { done(result) }
+		}
+	}
+
+	// A dmg that differs from the release's SHA-256 is deleted; a matching
+	// one leaves quarantine. Without a digest it stays quarantined, and
+	// Gatekeeper asks before the app inside first opens.
+	private static func verify(_ file: URL, sha256: String?) throws -> URL {
+		guard let sha256 else {
+			return file
+		}
+
+		let handle = try FileHandle(forReadingFrom: file)
+		defer { try? handle.close() }
+
+		var hasher = SHA256()
+
+		while let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty {
+			hasher.update(data: chunk)
+		}
+
+		let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+
+		guard actual == sha256 else {
+			try? FileManager.default.removeItem(at: file)
+
+			throw DigestMismatch(expected: sha256, actual: actual)
+		}
+
+		var values = URLResourceValues()
+		values.quarantineProperties = nil
+		var verified = file
+		try verified.setResourceValues(values)
+
+		return file
 	}
 
 	func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {

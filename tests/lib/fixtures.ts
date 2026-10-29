@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import * as net from "node:net";
 import { join, normalize } from "node:path";
 
@@ -69,10 +70,14 @@ async function route(
 	}
 
 	// A stand-in for GitHub's latest release (every launch checks it):
-	// `?tag=v99.0.0` offers that version, else an old one.
+	// `?tag=v99.0.0` offers that version, else an old one. Each dmg carries
+	// its SHA-256 as GitHub gives it; `?digest=wrong` gives another, and
+	// `?digest=none` none.
 	if (pathname === "/releases/latest") {
-		const tag = new URL(request.url).searchParams.get("tag") ?? "v0.0.1";
+		const { searchParams } = new URL(request.url);
+		const tag = searchParams.get("tag") ?? "v0.0.1";
 		const version = tag.replace(/^v/, "");
+		const digest = searchParams.get("digest");
 		const downloads = await slowDownloads();
 
 		return Response.json({
@@ -82,6 +87,11 @@ async function route(
 				(name) => ({
 					name,
 					browser_download_url: `${downloads}/releases/download/${tag}/${name}`,
+					...(digest === "none"
+						? {}
+						: {
+								digest: `sha256:${digest === "wrong" ? "0".repeat(64) : DOWNLOAD_SHA256}`,
+							}),
 				}),
 			),
 		});
@@ -178,10 +188,18 @@ async function route(
 // progress needs it). Started on first use; one for the whole run.
 let downloadsOrigin: Promise<string> | null = null;
 
+// What every stand-in download serves: 4 MB, in 16 chunks.
+const DOWNLOAD_CHUNK = Buffer.alloc(256 * 1024, 0x50);
+const DOWNLOAD_CHUNKS = 16;
+
+const DOWNLOAD_SHA256 = createHash("sha256")
+	.update(Buffer.concat(Array(DOWNLOAD_CHUNKS).fill(DOWNLOAD_CHUNK)))
+	.digest("hex");
+
 function slowDownloads(): Promise<string> {
 	downloadsOrigin ??= new Promise((ready) => {
-		const chunk = Buffer.alloc(256 * 1024, 0x50);
-		const size = 16 * chunk.length;
+		const chunk = DOWNLOAD_CHUNK;
+		const size = DOWNLOAD_CHUNKS * chunk.length;
 
 		const server = net.createServer((socket) => {
 			socket.on("error", () => socket.destroy());
@@ -191,7 +209,11 @@ function slowDownloads(): Promise<string> {
 					`HTTP/1.1 200 OK\r\nContent-Type: application/x-apple-diskimage\r\nContent-Length: ${size}\r\nConnection: close\r\n\r\n`,
 				);
 
-				for (let index = 0; index < 16 && !socket.destroyed; index++) {
+				for (
+					let index = 0;
+					index < DOWNLOAD_CHUNKS && !socket.destroyed;
+					index++
+				) {
 					socket.write(chunk);
 					await Bun.sleep(250);
 				}

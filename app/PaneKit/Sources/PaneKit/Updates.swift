@@ -9,11 +9,14 @@ public struct AvailableUpdate: Codable, Hashable, Sendable {
 	public var version: String
 	public var dmgURL: URL
 	public var publishedAt: String
+	// The dmg's SHA-256 in lowercase hex, as the release gives it.
+	public var sha256: String?
 
-	public init(version: String, dmgURL: URL, publishedAt: String) {
+	public init(version: String, dmgURL: URL, publishedAt: String, sha256: String? = nil) {
 		self.version = version
 		self.dmgURL = dmgURL
 		self.publishedAt = publishedAt
+		self.sha256 = sha256
 	}
 }
 
@@ -32,10 +35,12 @@ public enum Updates {
 		struct Asset: Decodable {
 			let name: String
 			let browserDownloadURL: URL
+			let digest: String?
 
 			private enum CodingKeys: String, CodingKey {
 				case name
 				case browserDownloadURL = "browser_download_url"
+				case digest
 			}
 		}
 
@@ -68,7 +73,24 @@ public enum Updates {
 			return nil
 		}
 
-		return AvailableUpdate(version: version, dmgURL: asset.browserDownloadURL, publishedAt: release.publishedAt)
+		return AvailableUpdate(
+			version: version,
+			dmgURL: asset.browserDownloadURL,
+			publishedAt: release.publishedAt,
+			sha256: sha256(fromDigest: asset.digest)
+		)
+	}
+
+	// The hex of an asset's digest, which GitHub gives as "sha256:<hex>", or
+	// nil for none or another algorithm.
+	public static func sha256(fromDigest digest: String?) -> String? {
+		guard let digest, digest.hasPrefix("sha256:") else {
+			return nil
+		}
+
+		let hex = digest.dropFirst("sha256:".count).lowercased()
+
+		return hex.count == 64 && hex.allSatisfy(\.isHexDigit) ? hex : nil
 	}
 
 	// The repo's own release downloads: what a link from GitHub's JSON must

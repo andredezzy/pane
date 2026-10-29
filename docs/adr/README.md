@@ -90,3 +90,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0086](0086-repo-layout.md) The repo is laid out as its peers are
 - [0087](0087-app-carries-licenses.md) The app carries its licenses
 - [0088](0088-first-native-release-is-0-7-0.md) The first native release is 0.7.0, and v1.0.0 is withdrawn
+- [0090](0090-verified-update-leaves-quarantine.md) A verified update leaves quarantine
