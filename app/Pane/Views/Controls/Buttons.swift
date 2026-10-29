@@ -126,7 +126,7 @@ private struct PaneButtonBody: View {
 		case .destructive:
 			return Palette.destructive.opacity(lit ? 0.9 : 1)
 		case .outline:
-			return lit ? Palette.accent : .clear
+			return lit ? Palette.outlineHover : .clear
 		case .secondary:
 			return Palette.secondary.opacity(lit ? 0.8 : 1)
 		case .ghost:

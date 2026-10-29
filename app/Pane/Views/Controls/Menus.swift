@@ -73,7 +73,7 @@ struct PaneMenuButton<Value: Hashable>: View {
 			.padding(.leading, 12)
 			.padding(.trailing, 10)
 			.frame(height: size == .regular ? 36 : 32)
-			.background(Palette.accent.opacity(isHovered ? 1 : 0), in: shape)
+			.background(Palette.outlineHover.opacity(isHovered ? 1 : 0), in: shape)
 			.overlay {
 				shape.strokeBorder(ring, lineWidth: 1)
 			}

@@ -39,6 +39,11 @@ enum Palette {
 	static let press = foreground.opacity(0.06)
 	static let pressOnStrong = card.opacity(0.1)
 
+	// An outline control's hover (ADR 0091): the foreground at 4%, lighter
+	// than the accent's solid fill, and right over any surface, light or
+	// dark.
+	static let outlineHover = foreground.opacity(0.04)
+
 	// Aside's pinned blue, for an extension's pin: the progress blue,
 	// lighter on dark.
 	static let pinned = pair(0x3B82F6, 0x60A5FA)
