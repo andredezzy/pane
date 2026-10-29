@@ -36,12 +36,17 @@ struct UpdateInstaller: Sendable {
 		let mount = fileManager.temporaryDirectory.appending(path: "pane-update-\(UUID().uuidString)")
 		try fileManager.createDirectory(at: mount, withIntermediateDirectories: true)
 
-		// The dmg matched the release's SHA-256, so its own checksums need no
-		// second read.
-		try Self.run("/usr/bin/hdiutil", ["attach", dmg.path, "-nobrowse", "-readonly", "-noautoopen", "-noverify", "-mountpoint", mount.path])
+		// macOS 27 deprecates hdiutil's attach and detach for diskutil's,
+		// which earlier systems lack. The dmg matched the release's SHA-256,
+		// so its own checksums need no second read.
+		if #available(macOS 27, *) {
+			try Self.run("/usr/sbin/diskutil", ["image", "attach", "--readOnly", "--nobrowse", "--mountPoint", mount.path, dmg.path])
+		} else {
+			try Self.run("/usr/bin/hdiutil", ["attach", dmg.path, "-nobrowse", "-readonly", "-noautoopen", "-noverify", "-mountpoint", mount.path])
+		}
 
 		defer {
-			if (try? Self.run("/usr/bin/hdiutil", ["detach", mount.path, "-quiet"])) == nil {
+			if (try? Self.run("/usr/sbin/diskutil", ["eject", mount.path])) == nil {
 				try? Self.run("/usr/bin/hdiutil", ["detach", mount.path, "-force", "-quiet"])
 			}
 

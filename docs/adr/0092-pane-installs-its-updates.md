@@ -2,7 +2,7 @@
 
 Pane installs a downloaded update itself, at quit, so the user no longer drags it from the dmg. The user asked for it after an update from 0.7.0 ended on "Pane Not Opened". ADR 0002 had left installing to the user until a Developer ID, and DESIGN.md said Pane, ad-hoc signed, "can't safely replace itself in place". It can, through these steps:
 
-1. **Check.** Once the dmg matches the release's SHA-256 and leaves quarantine (ADR 0090), Pane mounts it. The Pane inside must be this app (`com.pane.desktop`) at the offered version, with its signature whole (`codesign --verify --deep --strict`).
+1. **Check.** Once the dmg matches the release's SHA-256 and leaves quarantine (ADR 0090), Pane mounts it: with `diskutil image attach` on macOS 27, which deprecates hdiutil's attach and detach, and with hdiutil on earlier systems. The Pane inside must be this app (`com.pane.desktop`) at the offered version, with its signature whole (`codesign --verify --deep --strict`).
 2. **Stage.** Pane copies it beside the running app, hidden (`.Pane-<version>.app`). The pill, Settings, and the lock screen then offer Restart to update.
 3. **Swap.** Any quit installs the update; Restart to update quits on purpose. Pane swaps the two bundles in one rename (`renamex_np` with `RENAME_SWAP`), so the app's path never stands empty, and the running process keeps the files it has open.
 4. **Finish.** A detached shell waits for Pane to exit, then removes the old bundle and the dmg. For Restart to update it also opens the new Pane, passing on Pane's own `PANE_` variables, which only scenarios set.
