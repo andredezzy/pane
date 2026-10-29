@@ -12,6 +12,10 @@ _Avoid_: auto-update (implies silent install, which unsigned macOS forbids)
 The app-wide appearance preference — `system`, `light`, or `dark`. One coherent knob: Pane's chrome, native menus, and what websites in profile tabs observe via `prefers-color-scheme` all follow it, matching desktop Chrome's appearance setting. `system` follows macOS.
 _Avoid_: appearance, color mode, dark mode (as a feature name)
 
+**App icon**:
+The window Pane shows in the Dock, with the sky the user picks — Day, Clouds, Morning, Dusk, Sunset, Twilight, Afterglow, Night, or Moonrise — or `automatic`, which shows Day while Pane's appearance is light and Night while it is dark: the Theme decides, and under `system` the Mac. The bundle's own icon is Day, and Night under the Mac's dark icon style.
+_Avoid_: logo (the brand mark in docs and Paper), theme (the appearance itself)
+
 **Sleep (tab)**:
 An inactive tab whose page has been released to reclaim memory. The tab stays in the sidebar (title, favicon, shown dimmed) and comes back by re-navigating when activated. Happens automatically after inactivity, never to a tab that is audible, recently interacted with, has DevTools open, or belongs to a Keep-loaded profile.
 _Avoid_: discard, suspend (Chromium jargon), archive (Arc's archive closes the tab; sleep keeps it)

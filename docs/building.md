@@ -10,7 +10,7 @@ Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.f
   - `patches/` — `series` (apply order), `MANIFEST` (each touched Chromium file → its owning patch), the patches
   - `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`
   - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `package.sh`, `dist.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
-- `app/` — the Swift app, the `PaneKit` package, `VERSION`, and the dmg's resources (`dmg/`)
+- `app/` — the Swift app, the `PaneKit` package, `VERSION`, the dmg's resources (`dmg/`), and the icon's sources (`icon/`: the window's renders, and `make-icons.swift`, which makes the app's icons from them)
 - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
 - `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), and `adr/`, one record per decision

@@ -110,6 +110,9 @@ export type AppState = {
 	page: "browser" | "settings" | "extensions";
 	theme: string;
 	appearance: string;
+	// The App icon setting, and the window the Dock shows for it.
+	appIcon: string;
+	dockIcon: string;
 	find: {
 		visible: boolean;
 		text: string;

@@ -8,6 +8,12 @@ options:
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
+  # An Icon Composer document (AppIcon.icon, ADR 0089) is a folder Xcode
+  # compiles into the asset catalog, not a group of files to copy.
+  fileTypes:
+    icon:
+      file: true
+      buildPhase: resources
 settings:
   base:
     SWIFT_VERSION: "6.0"

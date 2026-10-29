@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src=".github/assets/logo.png" alt="Pane" width="96" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.png" />
+  <img src=".github/assets/logo.png" alt="Pane" width="96" />
+</picture>
 
 <h3>Pane</h3>
 

@@ -1,0 +1,33 @@
+{
+	"groups": [
+		{
+			"layers": [
+				{
+					"glass": false,
+					"image-name-specializations": [
+						{
+							"value": "day.png"
+						},
+						{
+							"appearance": "dark",
+							"value": "night.png"
+						}
+					],
+					"name": "Window"
+				}
+			],
+			"shadow": {
+				"kind": "neutral",
+				"opacity": 0.5
+			},
+			"specular": false,
+			"translucency": {
+				"enabled": false,
+				"value": 0.5
+			}
+		}
+	],
+	"supported-platforms": {
+		"squares": ["macOS"]
+	}
+}

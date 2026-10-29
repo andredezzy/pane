@@ -129,13 +129,18 @@ extension BrowserController {
 	// MARK: Settings
 
 	// A change of the theme applies to the app, its menus, and its pages at
-	// once (ADR 0001).
+	// once (ADR 0001); one of the app icon, to the Dock (ADR 0089).
 	func changeSettings(_ change: (inout AppSettings) -> Void) {
 		let theme = model.settings.theme
+		let appIcon = model.settings.appIcon
 		model.changeSettings(change)
 
 		if model.settings.theme != theme {
 			applyTheme()
+		}
+
+		if model.settings.appIcon != appIcon {
+			dockIcon.show(model.settings.appIcon)
 		}
 	}
 }

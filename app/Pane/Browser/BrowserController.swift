@@ -37,6 +37,8 @@ final class BrowserController: NSObject {
 	// The address bar's load progress, as Chrome's toolbar shows the
 	// selected tab's.
 	let progressBar = ToolbarProgress()
+	// The App icon setting's window in the Dock (ADR 0089).
+	let dockIcon = DockIcon()
 	// Profiles whose engine data is still being deleted, on disk until the
 	// engine confirms, for the next launch.
 	private let deletions: ProfileDeletions

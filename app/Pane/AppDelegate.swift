@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		self.store = store
 
 		controller.applyTheme()
+		controller.dockIcon.show(model.settings.appIcon)
 		NSApp.mainMenu = MainMenu.build(target: controller)
 		windowController = MainWindowController(controller: controller)
 		keys = KeyRouter(controller: controller)

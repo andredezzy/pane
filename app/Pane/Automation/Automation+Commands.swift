@@ -558,6 +558,13 @@ extension Automation {
 
 			controller.setTheme(theme)
 
+		case "appIcon":
+			guard let icon = AppIcon(rawValue: try command.string("appIcon")) else {
+				throw AutomationError("unknown app icon")
+			}
+
+			controller.changeSettings { $0.appIcon = icon }
+
 		case "setSleepSettings":
 			// { tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB },
 			// each a number or null (off).

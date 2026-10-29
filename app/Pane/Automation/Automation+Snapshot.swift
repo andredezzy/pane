@@ -255,6 +255,8 @@ extension Automation {
 			"page": String(describing: model.page),
 			"theme": model.settings.theme.rawValue,
 			"appearance": NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])?.rawValue ?? "",
+			"appIcon": model.settings.appIcon.rawValue,
+			"dockIcon": controller.dockIcon.shown?.rawValue ?? "",
 			"find": [
 				"visible": state.find.visible,
 				"text": state.find.text,

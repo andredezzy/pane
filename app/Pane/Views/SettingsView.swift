@@ -27,7 +27,7 @@ struct SettingsView: View {
 
 				VStack(alignment: .leading, spacing: 28) {
 					SettingsGroup(title: "Appearance") {
-						SettingsRow(title: "Theme", description: "Choose how Pane looks.", last: true) {
+						SettingsRow(title: "Theme", description: "Choose how Pane looks.") {
 							PaneMenuButton(
 								options: Theme.allCases.map { ($0.rawValue.capitalized, $0) },
 								selection: settings.theme,
@@ -38,6 +38,11 @@ struct SettingsView: View {
 								change { $0.theme = theme }
 							}
 							.accessibilityIdentifier("pane.settings.theme")
+						}
+
+						// ADR 0089: the Dock's icon, which changes at once.
+						AppIconRow(selection: settings.appIcon) { icon in
+							change { $0.appIcon = icon }
 						}
 					}
 
@@ -189,6 +194,96 @@ private struct SettingsRow<Control: View>: View {
 				Hairline()
 			}
 		}
+	}
+}
+
+// The App icon setting (ADR 0089): its title and description over the
+// choices as tiles, as macOS lays out its own icon styles, since nine skies
+// have to be seen to be told apart. The last row of its card.
+private struct AppIconRow: View {
+	let selection: AppIcon
+	let select: (AppIcon) -> Void
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 12) {
+			VStack(alignment: .leading, spacing: 2) {
+				Text("App icon")
+					.font(.system(size: 13))
+					.foregroundStyle(Palette.foreground)
+
+				Text("Automatic follows the theme: Day when light, Night when dark.")
+					.font(.system(size: 12))
+					.foregroundStyle(Palette.mutedForeground)
+			}
+
+			// Five a row, Automatic first, then the sky through a day.
+			LazyVGrid(columns: Array(repeating: GridItem(.fixed(AppIconTile.width), spacing: 8), count: 5), alignment: .leading, spacing: 4) {
+				ForEach(AppIcon.allCases, id: \.self) { icon in
+					AppIconTile(icon: icon, isSelected: icon == selection) {
+						select(icon)
+					}
+				}
+			}
+		}
+		.padding(.leading, 15)
+		.padding(.trailing, 10)
+		.padding(.vertical, 12)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.accessibilityElement(children: .contain)
+		.accessibilityLabel("App icon")
+		.accessibilityIdentifier("pane.settings.appIcon")
+	}
+}
+
+// One choice: its icon over its name. The chosen one is ringed as the profile
+// sheet's swatch is (DESIGN.md › Shape), 2 to 4 points out from the icon's
+// body, whose corners are the system's: continuous, 0.257 of its side
+// (measured on macOS 27). The ring is drawn over the icon, so its shadow
+// leaves it even. Hover fills the tile; choosing is instant.
+private struct AppIconTile: View {
+	static let width: CGFloat = 80
+	// The icon at 56 points; macOS lays an app icon's body out at 824 of 1024.
+	private static let size: CGFloat = 56
+	private static let side = size * 824 / 1024
+	private static let radius = side * 0.257
+
+	let icon: AppIcon
+	let isSelected: Bool
+	let action: () -> Void
+
+	@State private var isHovered = false
+
+	var body: some View {
+		Button(action: action) {
+			VStack(spacing: 6) {
+				Image(nsImage: DockIcon.thumbnails[icon]!)
+					.resizable()
+					.frame(width: Self.size, height: Self.size)
+					.overlay {
+						if isSelected {
+							RoundedRectangle(cornerRadius: Self.radius + 4, style: .continuous)
+								.strokeBorder(Palette.foreground, lineWidth: 2)
+								.frame(width: Self.side + 8, height: Self.side + 8)
+						}
+					}
+
+				Text(icon.rawValue.capitalized)
+					.font(.system(size: 11))
+					.foregroundStyle(isSelected ? Palette.foreground : Palette.mutedForeground)
+					.lineLimit(1)
+			}
+			.frame(width: Self.width)
+			.padding(.vertical, 8)
+			.background(Palette.accent.opacity(isHovered ? 1 : 0), in: Squircle(cornerRadius: 14))
+			.contentShape(Squircle(cornerRadius: 14))
+		}
+		.buttonStyle(.plain)
+		.onHover { hovering in
+			withAnimation(Motion.hover) { isHovered = hovering }
+		}
+		.accessibilityLabel(icon.rawValue.capitalized)
+		.accessibilityAddTraits(isSelected ? .isSelected : [])
+		.accessibilityIdentifier("pane.settings.appIcon.\(icon.rawValue)")
 	}
 }
 

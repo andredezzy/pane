@@ -41,6 +41,34 @@ struct SettingsPersistenceTests {
 		#expect(settings?.theme == .dark)
 	}
 
+	@Test("restores a persisted app icon, automatic by default")
+	func restoresAppIcon() throws {
+		let directory = try temporaryDirectory()
+		let file = PersistedFile<SettingsState>(directory: directory, name: "settings")
+
+		#expect(AppSettings.defaults.appIcon == .automatic)
+
+		try #"{"state":{"settings":{"appIcon":"dusk"}},"version":0}"#
+			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
+		#expect(try file.load()?.settings.appIcon == .dusk)
+
+		try file.save(SettingsState(settings: AppSettings(appIcon: .moonrise)))
+		#expect(try file.load()?.settings.appIcon == .moonrise)
+	}
+
+	@Test("shows Day under a light appearance and Night under a dark one when automatic")
+	func automaticAppIcon() {
+		#expect(AppIcon.automatic.resolved(dark: false) == .day)
+		#expect(AppIcon.automatic.resolved(dark: true) == .night)
+		#expect(AppIcon.dusk.resolved(dark: false) == .dusk)
+		#expect(AppIcon.day.resolved(dark: true) == .day)
+
+		// Every other choice is its own window, whatever the appearance.
+		for icon in AppIcon.allCases where icon != .automatic {
+			#expect(icon.resolved(dark: true) == icon && icon.resolved(dark: false) == icon)
+		}
+	}
+
 	@Test("keeps an explicit null as off")
 	func explicitNullIsOff() throws {
 		let directory = try temporaryDirectory()

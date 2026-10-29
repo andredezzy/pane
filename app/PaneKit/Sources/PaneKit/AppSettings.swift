@@ -8,6 +8,28 @@ public enum Theme: String, Codable, CaseIterable, Sendable {
 	case dark
 }
 
+// The icon the Dock shows for Pane (CONTEXT.md: App icon): the window with one
+// of nine skies, or automatic (ADR 0089). In Settings' order, the sky through
+// a day.
+public enum AppIcon: String, Codable, CaseIterable, Sendable {
+	case automatic
+	case day
+	case clouds
+	case morning
+	case dusk
+	case sunset
+	case twilight
+	case afterglow
+	case night
+	case moonrise
+
+	// The window shown: automatic takes Day under a light appearance and Night
+	// under a dark one, the app's own (Theme) or, for system, the Mac's.
+	public func resolved(dark: Bool) -> AppIcon {
+		self == .automatic ? (dark ? .night : .day) : self
+	}
+}
+
 // The sidebar's width, which its edge resizes: 260 points by default (Aside's),
 // between 200 and 400.
 public enum SidebarWidth {
@@ -28,6 +50,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 	// so settings.json round-trips with the Electron app's fields.
 	public var chromiumPath: String
 	public var theme: Theme
+	public var appIcon: AppIcon
 	// Minutes a background tab stays loaded before it sleeps; nil = off.
 	public var tabSleepAfterMinutes: Int?
 	// Minutes a hidden profile stays loaded before it unloads; nil = off.
@@ -38,12 +61,13 @@ public struct AppSettings: Codable, Hashable, Sendable {
 	public var sidebarWidth: Double
 
 	private enum CodingKeys: String, CodingKey {
-		case chromiumPath, theme, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB, sidebarWidth
+		case chromiumPath, theme, appIcon, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB, sidebarWidth
 	}
 
 	public init(
 		chromiumPath: String = "",
 		theme: Theme = .system,
+		appIcon: AppIcon = .automatic,
 		tabSleepAfterMinutes: Int? = 15,
 		profileUnloadAfterMinutes: Int? = 30,
 		cacheBudgetMB: Int? = 300,
@@ -51,6 +75,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 	) {
 		self.chromiumPath = chromiumPath
 		self.theme = theme
+		self.appIcon = appIcon
 		self.tabSleepAfterMinutes = tabSleepAfterMinutes
 		self.profileUnloadAfterMinutes = profileUnloadAfterMinutes
 		self.cacheBudgetMB = cacheBudgetMB
@@ -72,6 +97,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 
 		chromiumPath = try container.decodeIfPresent(String.self, forKey: .chromiumPath) ?? defaults.chromiumPath
 		theme = try container.decodeIfPresent(Theme.self, forKey: .theme) ?? defaults.theme
+		appIcon = try container.decodeIfPresent(AppIcon.self, forKey: .appIcon) ?? defaults.appIcon
 		tabSleepAfterMinutes = try optionalInt(.tabSleepAfterMinutes, default: defaults.tabSleepAfterMinutes)
 		profileUnloadAfterMinutes = try optionalInt(.profileUnloadAfterMinutes, default: defaults.profileUnloadAfterMinutes)
 		cacheBudgetMB = try optionalInt(.cacheBudgetMB, default: defaults.cacheBudgetMB)
@@ -82,6 +108,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		var container = encoder.container(keyedBy: CodingKeys.self)
 		try container.encode(chromiumPath, forKey: .chromiumPath)
 		try container.encode(theme, forKey: .theme)
+		try container.encode(appIcon, forKey: .appIcon)
 		try container.encode(tabSleepAfterMinutes, forKey: .tabSleepAfterMinutes)
 		try container.encode(profileUnloadAfterMinutes, forKey: .profileUnloadAfterMinutes)
 		try container.encode(cacheBudgetMB, forKey: .cacheBudgetMB)
