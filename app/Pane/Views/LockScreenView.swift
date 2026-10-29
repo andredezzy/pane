@@ -100,15 +100,31 @@ struct LockScreenView: View {
 	}
 }
 
-// The dot, the status, the download's bar and time left, and Download, shown
-// on hover while the update waits.
+// The dot, the status, the download's bar and time left, and under the
+// pointer the update's action: Download while it waits, Restart once it is
+// staged. The action fades in beside the status, and its width is kept on the
+// other side too, so the status stays centred and still and nothing wraps.
+// (It grew from no width, and its title wrapped and sat low as it did.)
 private struct LockUpdateStatus: View {
 	let updater: Updater
 
 	@State private var isHovered = false
 
+	private var action: (title: String, identifier: String, run: () -> Void)? {
+		switch updater.status {
+		case .available: ("Download", "pane.lockScreen.downloadUpdate", updater.downloadUpdate)
+		case .downloaded where updater.staged != nil: ("Restart", "pane.lockScreen.restartToUpdate", updater.restartToUpdate)
+		default: nil
+		}
+	}
+
 	var body: some View {
 		HStack(spacing: 6) {
+			if let action {
+				ActionTitle(text: action.title)
+					.hidden()
+			}
+
 			UpdateDot(pulsing: updater.status == .downloading)
 
 			Text(updater.label)
@@ -127,30 +143,31 @@ private struct LockUpdateStatus: View {
 					.padding(.leading, 2)
 			}
 
-			if updater.status == .available {
-				Button("Download") { updater.downloadUpdate() }
-					.buttonStyle(.plain)
-					.font(.system(size: 12, weight: .medium))
-					.foregroundStyle(Palette.mutedForeground)
-					.opacity(isHovered ? 1 : 0)
-					.frame(maxWidth: isHovered ? 112 : 0, alignment: .leading)
-					.clipped()
-					.accessibilityIdentifier("pane.lockScreen.downloadUpdate")
-			} else if updater.status == .downloaded, updater.staged != nil {
-				Button("Restart") { updater.restartToUpdate() }
-					.buttonStyle(.plain)
-					.font(.system(size: 12, weight: .medium))
-					.foregroundStyle(Palette.mutedForeground)
-					.opacity(isHovered ? 1 : 0)
-					.frame(maxWidth: isHovered ? 112 : 0, alignment: .leading)
-					.clipped()
-					.accessibilityIdentifier("pane.lockScreen.restartToUpdate")
+			if let action {
+				Button(action: action.run) {
+					ActionTitle(text: action.title)
+				}
+				.buttonStyle(.plain)
+				.opacity(isHovered ? 1 : 0)
+				.accessibilityIdentifier(action.identifier)
 			}
 		}
+		.lineLimit(1)
 		.onHover { isHovered = $0 }
-		.animation(Motion.unlessReduced(.easeOut(duration: 0.2)), value: isHovered)
+		.animation(Motion.hover, value: isHovered)
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.lockScreen.update")
+	}
+}
+
+// The update action's title: 12, medium, muted.
+private struct ActionTitle: View {
+	let text: String
+
+	var body: some View {
+		Text(text)
+			.font(.system(size: 12, weight: .medium))
+			.foregroundStyle(Palette.mutedForeground)
 	}
 }
 
