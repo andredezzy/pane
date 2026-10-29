@@ -49,6 +49,16 @@ enum Motion {
 	// A status changing in place: the update's text crossfading.
 	static var status: Animation? { unlessReduced(.easeInOut(duration: 0.2)) }
 
+	// A status that takes the place of a bar going beside it (the update's
+	// "Downloaded, quit to install"): the same crossfade, once the bar has
+	// gone, so the text never runs under it.
+	static var statusAfterBar: Animation? { unlessReduced(.easeInOut(duration: 0.2).delay(barExitDuration)) }
+
+	// A progress bar going once its work is done: quick, as what takes its
+	// place waits for it.
+	static var barExit: Animation? { unlessReduced(.easeOut(duration: barExitDuration)) }
+	private static let barExitDuration: TimeInterval = 0.12
+
 	// A progress bar moving to its new share.
 	static var progress: Animation? { unlessReduced(.linear(duration: 0.2)) }
 

@@ -21,12 +21,16 @@ struct UpdatePill: View {
 					Text(updater.label)
 						.font(.system(size: 13))
 						.lineLimit(1)
+						// Whole beside the bar, which takes what is left.
+						.layoutPriority(1)
 						.contentTransition(.opacity)
+						.animation(updater.status == .downloaded ? Motion.statusAfterBar : Motion.status, value: updater.status)
 
 					if updater.status == .downloading {
 						UpdateProgressBar(progress: updater.downloadProgress ?? 0)
 							.frame(minWidth: 24, maxWidth: .infinity)
 							.padding(.leading, 4)
+							.transition(.asymmetric(insertion: .opacity, removal: .opacity.animation(Motion.barExit)))
 					}
 				}
 				.frame(maxWidth: .infinity, alignment: .leading)
