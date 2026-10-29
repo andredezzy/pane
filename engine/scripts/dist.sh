@@ -53,8 +53,11 @@ settings="$work/settings.json"
 # from the left and centered on a 1440-point screen height, as the Electron
 # app's was. Pane and Applications sit on the chevrons' line, 210 points
 # either side of the middle, at 200 points with 16-point labels; the volume,
-# and so the window's title, is "Pane", as Dia's is "Dia".
+# and so the window's title, is "Pane", as Dia's is "Dia". The title bar
+# shows the volume's icon beside it, app/dmg/make-volume-icon.swift's: Pane's,
+# its 16-point art lowered to the title's centre line (ADR 0094).
 background="$APP_DIR/dmg/background.tiff"
+volume_icon="$APP_DIR/dmg/VolumeIcon.icns"
 width=800
 height=$(( 380 + 32 ))
 
@@ -69,7 +72,7 @@ cat > "$settings" <<SETTINGS
     { "x": $(( width / 2 - 210 )), "y": 186, "path": "$APP" },
     { "x": $(( width / 2 + 210 )), "y": 186, "type": "link", "path": "/Applications" }
   ],
-  "icon": "$APP/Contents/Resources/AppIcon.icns",
+  "icon": "$volume_icon",
   "background": "$background",
   "window": {
     "position": { "x": 400, "y": $(( (1440 - height + 1) / 2 )) },

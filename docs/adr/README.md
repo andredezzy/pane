@@ -95,3 +95,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0091](0091-outline-hover-is-foreground-4.md) An outline control's hover is the foreground at 4%
 - [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself
 - [0093](0093-update-pill-bar-runs-to-its-end.md) The update pill's bar runs to its end, and draws back for the dismiss button
+- [0094](0094-dmg-volume-icon-on-the-title-line.md) The dmg's volume icon sits on its title's centre line
