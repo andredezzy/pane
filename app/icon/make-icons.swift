@@ -5,10 +5,11 @@
 // formats the JSON it writes.
 //
 // Every icon has the one frame, Day's, whitened: each render gives only its
-// glass. Day's frame keeps its shading, its luminance lifted 45% toward white
-// and its colour neutral; each sky's panes are cut from its own render, 20
-// pixels in from their outer sides (past the rounded corners' frame) and 3 from
-// the mullion's, and stretched into Day's panes.
+// glass. Day's frame keeps its shading and its colour neutral, and is close to
+// white: a shade's distance from white, d, becomes d²/200, so the faces whiten
+// most and the bevels keep their depth. Each sky's panes are cut from its own
+// render, 20 pixels in from their outer sides (past the rounded corners' frame)
+// and 3 from the mullion's, and stretched into Day's panes.
 //
 // - app/Pane/AppIcon.icon: the bundle's icon, Day by default and Night under
 //   the dark icon style. Each window becomes a full-bleed layer, scaled so the
@@ -226,11 +227,13 @@ let glassAlpha: [Double] = {
 	return alpha
 }()
 
-// The frame's luminance lifted 45% toward white, eased in above the seal's
-// darkness so the seal keeps its line.
+// The frame whitened: a shade's distance from white, d, becomes d²/200, eased
+// in above the seal's darkness so the seal keeps its line. The broad faces, 47
+// levels from white, come to 11, while the deeper shade of the bevels and of
+// the lip by the glass (76 levels, to 29) keeps its depth.
 func whitened(_ l: Double) -> Double {
 	let t = min(max((l - 90) / 70, 0), 1), ease = t * t * (3 - 2 * t)
-	return l + (255 - (255 - l) * 0.55 - l) * ease
+	return l + (255 - (255 - l) * (255 - l) / 200 - l) * ease
 }
 
 // Day's whitened frame around a sky's panes.
