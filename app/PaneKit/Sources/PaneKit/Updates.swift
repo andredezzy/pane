@@ -105,29 +105,43 @@ public enum Updates {
 	}
 }
 
-// A download's time left (updater.ts): the whole transfer's average rate,
-// which bursts and stalls cannot spike, with hysteresis on top. A shorter
-// estimate shows at once; a longer one only once it held for five seconds.
+// A download's time left (updater.ts): the average rate since the first
+// bytes, which bursts and stalls cannot spike, with hysteresis on top. None
+// in the first second: the connection's setup would weigh on the rate, and a
+// 160 MB dmg started at "~150min". Then a shorter estimate shows at once; a
+// longer one only once it held for five seconds.
 public struct DownloadETA: Sendable {
+	private static let settle: TimeInterval = 1
 	private static let increaseHold: TimeInterval = 5
 
-	private let startedAt: Date
+	private var firstBytesAt: Date?
+	private var firstBytes: Int64 = 0
 	private var published: Int?
 	private var increaseSince: Date?
 
-	public init(startedAt: Date) {
-		self.startedAt = startedAt
-	}
+	public init() {}
 
 	// Seconds left after `received` of `total` bytes at `now`, or nil until
 	// the rate is known.
 	public mutating func update(received: Int64, total: Int64, now: Date) -> Int? {
-		guard total > 0 else {
+		guard total > 0, received > 0 else {
 			return published
 		}
 
-		let elapsed = now.timeIntervalSince(startedAt)
-		let rate = elapsed > 0 ? Double(received) / elapsed : 0
+		guard let firstBytesAt else {
+			firstBytesAt = now
+			firstBytes = received
+
+			return published
+		}
+
+		let elapsed = now.timeIntervalSince(firstBytesAt)
+
+		guard elapsed >= Self.settle else {
+			return published
+		}
+
+		let rate = Double(received - firstBytes) / elapsed
 
 		guard rate > 0 else {
 			return published

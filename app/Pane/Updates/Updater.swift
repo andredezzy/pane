@@ -173,7 +173,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	private let destination: URL
 	private let progress: @MainActor (Double, Int?) -> Void
 	private let done: @MainActor (Result<URL, Error>) -> Void
-	private var eta = DownloadETA(startedAt: Date())
+	private var eta = DownloadETA()
 	private var session: URLSession!
 
 	init(

@@ -84,32 +84,46 @@ struct UpdatesTests {
 struct DownloadETATests {
 	private let start = Date(timeIntervalSince1970: 1_800_000_000)
 
-	@Test("uses the whole transfer's average rate")
+	@Test("uses the average rate since the first bytes")
 	func average() {
-		var eta = DownloadETA(startedAt: start)
+		var eta = DownloadETA()
 
-		// 10 MB of 100 MB in 10s: 1 MB/s, 90s left.
-		#expect(eta.update(received: 10_000_000, total: 100_000_000, now: start + 10) == 90)
+		// The first bytes, after the connection's setup, start the clock.
+		#expect(eta.update(received: 1_000_000, total: 100_000_000, now: start) == nil)
+		// 10 MB more in 10s: 1 MB/s, 89s left.
+		#expect(eta.update(received: 11_000_000, total: 100_000_000, now: start + 10) == 89)
+	}
+
+	@Test("none in the first second, however slow the start")
+	func settles() {
+		var eta = DownloadETA()
+
+		#expect(eta.update(received: 16_384, total: 163_000_000, now: start) == nil)
+		#expect(eta.update(received: 32_768, total: 163_000_000, now: start + 0.5) == nil)
+		#expect(eta.update(received: 15_032_768, total: 163_000_000, now: start + 1) == 10)
 	}
 
 	@Test("a shorter estimate shows at once; a longer one only after five seconds")
 	func hysteresis() {
-		var eta = DownloadETA(startedAt: start)
+		var eta = DownloadETA()
 
-		#expect(eta.update(received: 50_000_000, total: 100_000_000, now: start + 10) == 10)
+		#expect(eta.update(received: 1, total: 100_000_001, now: start) == nil)
+		#expect(eta.update(received: 50_000_001, total: 100_000_001, now: start + 10) == 10)
 		// A stall: the average drops, the estimate rises, and is held.
-		#expect(eta.update(received: 50_000_000, total: 100_000_000, now: start + 20) == 10)
-		#expect(eta.update(received: 50_000_000, total: 100_000_000, now: start + 24) == 10)
-		#expect(eta.update(received: 50_000_000, total: 100_000_000, now: start + 26) == 26)
+		#expect(eta.update(received: 50_000_001, total: 100_000_001, now: start + 20) == 10)
+		#expect(eta.update(received: 50_000_001, total: 100_000_001, now: start + 24) == 10)
+		#expect(eta.update(received: 50_000_001, total: 100_000_001, now: start + 26) == 26)
 		// Faster again: shorter at once.
-		#expect(eta.update(received: 90_000_000, total: 100_000_000, now: start + 27) == 3)
+		#expect(eta.update(received: 90_000_001, total: 100_000_001, now: start + 27) == 3)
 	}
 
 	@Test("no estimate before the size or the rate is known")
 	func unknown() {
-		var eta = DownloadETA(startedAt: start)
+		var eta = DownloadETA()
 
 		#expect(eta.update(received: 1000, total: 0, now: start + 1) == nil)
 		#expect(eta.update(received: 0, total: 1000, now: start + 1) == nil)
+		#expect(eta.update(received: 500, total: 1000, now: start + 2) == nil)
+		#expect(eta.update(received: 500, total: 1000, now: start + 4) == nil)
 	}
 }
