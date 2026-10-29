@@ -19,7 +19,7 @@ What was rejected:
 - **Waiting for a Developer ID:** users would keep dragging, and keep meeting Gatekeeper when a step goes wrong.
 - **Keeping the dmg in Downloads:** 190 MB that nothing needs once it is installed.
 
-App Management (macOS 13 and later) refuses changes to an app made by code from another team, and Pane has no team. Its swap of its own bundle went through outside `/Applications`. A refusal in `/Applications` would leave the app as it was and open the dmg.
+App Management (macOS 13 and later) refuses changes to an app made by code from another team, and Pane has no team. Its swap of its own bundle went through outside `/Applications`, and in it: on 2026-10-29 the user's 0.9.0, installed in `/Applications` from its dmg, installed 0.9.1 itself through Restart to update, and reopened with nothing left beside it. A refusal would leave the app as it was and open the dmg.
 
 How it is checked:
 
