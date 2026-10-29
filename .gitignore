@@ -31,6 +31,9 @@ node_modules
 # Playwright MCP
 .playwright-mcp
 
+# super.engineering
+.sc/
+
 # Cache
 .cache
 .superpowers/
