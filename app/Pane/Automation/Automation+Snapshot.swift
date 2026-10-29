@@ -302,6 +302,7 @@ extension Automation {
 			"contextMenu": contextMenu.map { menu in
 				menu.items.filter { !$0.isSeparatorItem }.map { ["title": $0.title, "enabled": $0.isEnabled] as [String: Any] }
 			} ?? NSNull(),
+			"contextMenusShown": contextMenusShown,
 			"modal": (NSApp.modalWindow).map { modal in
 				["title": modal.title, "buttons": Self.buttons(in: modal.contentView).map(\.title)] as [String: Any]
 			} ?? NSNull(),

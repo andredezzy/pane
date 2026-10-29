@@ -32,6 +32,9 @@ final class Automation {
 	private(set) var downloads: [String: [String: Any]] = [:]
 	private(set) weak var contextMenu: NSMenu?
 	private(set) var contextMenuOpen = false
+	// Each menu a page has shown, counted, so a scenario can wait for the
+	// next one rather than read the last.
+	private(set) var contextMenusShown = 0
 	private(set) var printRequests = 0
 	private(set) var pendingDeletions: Set<String> = []
 
@@ -92,6 +95,10 @@ extension Automation: AutomationProbe {
 	}
 
 	func contextMenu(_ menu: NSMenu, isOpen: Bool) {
+		if menu !== contextMenu {
+			contextMenusShown += 1
+		}
+
 		contextMenu = menu
 		contextMenuOpen = isOpen
 	}

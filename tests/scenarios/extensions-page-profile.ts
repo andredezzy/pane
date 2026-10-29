@@ -54,8 +54,23 @@ const extensionsPageProfile: Scenario = async (context) => {
 		`at the start: ${JSON.stringify(atStart)}`,
 	);
 
-	await clickControl(pid, window, { title: "Profile", role: /AXMenuButton/ });
-	await clickControl(pid, "any", { title: "Bravo", role: /AXMenuItem/ });
+	// The menu closes as the app gives up being frontmost (another app's
+	// window a moment), so one that shut before its row was read is opened
+	// again.
+	for (let attempt = 1; ; attempt++) {
+		await clickControl(pid, window, { title: "Profile", role: /AXMenuButton/ });
+
+		try {
+			await clickControl(pid, "any", { title: "Bravo", role: /AXMenuItem/ });
+
+			break;
+		} catch (error) {
+			if (attempt === 3 || !String(error).includes('no control "Bravo"')) {
+				throw error;
+			}
+		}
+	}
+
 	await Bun.sleep(300);
 
 	const chosen = await page("extensions-page-profile-chosen");

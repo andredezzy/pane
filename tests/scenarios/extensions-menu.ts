@@ -107,10 +107,25 @@ async function press(
 	}
 }
 
+// The menu closes as the window gives up key status (another app frontmost
+// a moment, as in pressInMoreMenu), so a press that left it shut is pressed
+// again.
 async function openMenu(app: PaneApp, locked: boolean): Promise<AppState> {
-	await press(app, locked, puzzle);
+	for (let attempt = 1; ; attempt++) {
+		await press(app, locked, puzzle);
 
-	return app.waitFor("the extensions menu", (state) => state.extensionsMenu);
+		try {
+			return await app.waitFor(
+				"the extensions menu",
+				(state) => state.extensionsMenu,
+				5_000,
+			);
+		} catch (error) {
+			if (attempt === 3) {
+				throw error;
+			}
+		}
+	}
 }
 
 // A row of the more menu, the menu reopened first if it closed: the window

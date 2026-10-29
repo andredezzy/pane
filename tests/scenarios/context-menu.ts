@@ -28,14 +28,16 @@ const contextMenu: Scenario = async (context) => {
 	const send = (method: string, params?: Record<string, unknown>) =>
 		page.send(method, params);
 
+	// The next menu the page shows, not the last one still held: each state
+	// is a new object, so only the count tells them apart.
 	const menuAt = async (point: Point, expected: string) => {
-		const before = (await app.state()).contextMenu;
+		const before = (await app.state()).contextMenusShown;
 		await clickAt(send, point.x, point.y, "right");
 
 		const state = await app.waitFor(
 			`a menu with ${expected}`,
 			(current) =>
-				current.contextMenu !== before &&
+				current.contextMenusShown > before &&
 				(current.contextMenu ?? []).some((item) => item.title === expected),
 		);
 

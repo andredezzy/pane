@@ -154,6 +154,8 @@ export type AppState = {
 	} | null;
 	pendingRequests: number;
 	contextMenu: { title: string; enabled: boolean }[] | null;
+	// How many menus the page has shown: a new one counts up.
+	contextMenusShown: number;
 	modal: { title: string; buttons: string[] } | null;
 	nativeWindows: {
 		role: string;
