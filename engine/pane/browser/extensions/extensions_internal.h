@@ -11,6 +11,10 @@
 
 class Profile;
 
+namespace content {
+class WebContents;
+}  // namespace content
+
 namespace extensions {
 class Extension;
 class InstallPromptData;
@@ -18,7 +22,8 @@ class InstallPromptData;
 
 namespace pane {
 class ActionPopup;
-}
+class ExtensionMenu;
+}  // namespace pane
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -43,6 +48,24 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)popupDidClose;
 // Its Browser is going: the popup closes now, before the Browser it holds.
 - (void)browserDidClose;
+@end
+
+@interface PaneExtensionMenuItem ()
+// The item's command in the ExtensionMenu that made it, which runs it.
+@property(readonly) int commandID;
+- (instancetype)initWithKind:(PaneExtensionMenuItemKind)kind
+                   commandID:(int)commandID
+                       title:(NSString*)title
+                     enabled:(BOOL)enabled
+                     checked:(BOOL)checked
+                        icon:(nullable NSImage*)icon
+                    children:(NSArray<PaneExtensionMenuItem*>*)children;
+@end
+
+@interface PaneExtensionActionMenu ()
+// `menu`'s items, run for `contents` while it lasts.
+- (instancetype)initWithMenu:(std::unique_ptr<pane::ExtensionMenu>)menu
+                    contents:(content::WebContents&)contents;
 @end
 
 NS_ASSUME_NONNULL_END

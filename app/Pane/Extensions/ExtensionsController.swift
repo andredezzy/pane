@@ -90,6 +90,16 @@ final class ExtensionsController {
 		context.runAction(ofExtension: extensionID, in: browser.browserWindow)
 	}
 
+	// The extension's own items for its action's right-click menu
+	// (chrome.contextMenus), as for the active tab; nil when it has none.
+	func actionMenu(_ extensionID: String) -> ExtensionActionMenu? {
+		guard let profileID = model.activeProfileID, let context = browser.context(for: profileID) else {
+			return nil
+		}
+
+		return context.actionMenu(ofExtension: extensionID, in: browser.browserWindow)
+	}
+
 	// Installs from the Web Store into a profile; the engine asks first.
 	func install(_ identifier: String, inProfile profileID: String) {
 		browser.withContext(profileID) { [weak self] context in

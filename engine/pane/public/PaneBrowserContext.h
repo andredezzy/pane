@@ -10,6 +10,7 @@
 @class PaneBrowserContext;
 @class PaneBrowserWindow;
 @class PaneExtension;
+@class PaneExtensionActionMenu;
 @class PaneExtensionInstallRequest;
 @class PaneExtensionPopup;
 
@@ -120,6 +121,11 @@ NS_SWIFT_UI_ACTOR
 - (void)runActionOfExtension:(NSString*)identifier
                     inWindow:(PaneBrowserWindow*)window
     NS_SWIFT_NAME(runAction(ofExtension:in:));
+// The extension's own items for its action's right-click menu, as for the
+// active tab of `window`; nil when it has none.
+- (nullable PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier
+                                                  inWindow:(PaneBrowserWindow*)window
+    NS_SWIFT_NAME(actionMenu(ofExtension:in:));
 
 - (instancetype)init NS_UNAVAILABLE;
 

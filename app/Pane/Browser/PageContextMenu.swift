@@ -3,7 +3,8 @@ import PaneCore
 
 // A page's right-click menu, in the Electron app's order
 // (packages/electron-chrome-context-menu): link, media, editing or the
-// selection, else navigation; then Inspect.
+// selection, else navigation; then what extensions add, where Chrome puts
+// it; then Inspect.
 @MainActor
 enum PageContextMenu {
 	static func build(_ context: ContextMenu, page: WebContents, controller: BrowserController) -> NSMenu {
@@ -106,9 +107,41 @@ enum PageContextMenu {
 			separate()
 		}
 
+		for item in context.extensionItems {
+			menu.addItem(extensionItem(item, context: context))
+		}
+
+		separate()
 		add("Inspect") { context.inspectElement() }
 
 		return menu
+	}
+
+	// An extension's item (chrome.contextMenus): the extension's icon at the
+	// top level, which macOS shows or hides as it does every menu's images,
+	// and a checkbox or radio item's state.
+	private static func extensionItem(_ item: ExtensionMenuItem, context: ContextMenu) -> NSMenuItem {
+		let menuItem: NSMenuItem
+
+		switch item.kind {
+		case .separator:
+			return .separator()
+
+		case .submenu:
+			menuItem = NSMenuItem(title: item.title, action: nil, keyEquivalent: "")
+			menuItem.submenu = NSMenu(title: item.title)
+			menuItem.submenu?.autoenablesItems = false
+			menuItem.submenu?.items = item.children.map { extensionItem($0, context: context) }
+			menuItem.isEnabled = item.isEnabled
+
+		default:
+			menuItem = ActionMenuItem(title: item.title, enabled: item.isEnabled) { context.runExtensionItem(item) }
+			menuItem.state = item.isChecked ? .on : .off
+		}
+
+		menuItem.image = item.icon
+
+		return menuItem
 	}
 
 	private static func searchURL(_ text: String) -> URL? {

@@ -12,6 +12,7 @@
 #include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/timer/elapsed_timer.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/render_process_host.h"
@@ -135,11 +136,14 @@ bool HostedWebContentsDelegate::HandleContextMenu(
   if (![delegate respondsToSelector:@selector(webContents:showContextMenu:)]) {
     return false;
   }
+  // How long the menu takes to make, the extensions' items with it.
+  base::ElapsedTimer made;
   PaneContextMenu* menu =
       [[PaneContextMenu alloc] initWithParams:params frame:render_frame_host];
   PANE_TRACE_TAB(
       bridge, "PaneWebContentsDelegate.showContextMenu",
       base::DictValue()
+          .Set("madeMs", made.Elapsed().InMillisecondsF())
           .Set("x", params.x)
           .Set("y", params.y)
           .Set("link", params.link_url.spec())

@@ -6,6 +6,7 @@
 #import <AppKit/AppKit.h>
 
 #import "PaneExport.h"
+#import "PaneExtensions.h"
 
 // What Chrome would show in its own dialogs and bubbles, handed to the app
 // instead. Each request reaches the app through a PaneWebContentsDelegate
@@ -143,6 +144,9 @@ NS_SWIFT_UI_ACTOR
 // suggestions for it.
 @property(readonly, copy) NSString* misspelledWord;
 @property(readonly, copy) NSArray<NSString*>* dictionarySuggestions;
+// The items extensions add for what was clicked, in Chrome's order and
+// grouping.
+@property(readonly, copy) NSArray<PaneExtensionMenuItem*>* extensionItems;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -168,6 +172,9 @@ NS_SWIFT_UI_ACTOR
 - (void)saveSourceAs;
 // Opens DevTools on the element under the pointer.
 - (void)inspectElement;
+// Runs one of extensionItems (onClicked in the extension).
+- (void)runExtensionItem:(PaneExtensionMenuItem*)item
+    NS_SWIFT_NAME(runExtensionItem(_:));
 
 @end
 

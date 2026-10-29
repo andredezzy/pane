@@ -39,11 +39,13 @@
 #include "pane/browser/downloads.h"
 #include "pane/browser/fingerprints.h"
 #include "pane/browser/extensions/action_popup.h"
+#include "pane/browser/extensions/extension_menu.h"
 #include "pane/browser/extensions/extensions_bridge.h"
 #include "pane/browser/ui/window_host.h"
 #include "pane/browser/engine_trace.h"
 
 #import "pane/browser/browser_context_internal.h"
+#import "pane/browser/extensions/extensions_internal.h"
 #import "pane/public/PaneBrowserWindow.h"
 #import "pane/public/PaneExtensions.h"
 
@@ -319,6 +321,28 @@
       extensions::ExtensionAction::ShowAction::kShowPopup) {
     pane::ActionPopup::Show(browser, *extension, ShowPopupCallback());
   }
+}
+
+- (PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier
+                                         inWindow:(PaneBrowserWindow*)window {
+  if (!_profile) {
+    return nil;
+  }
+  const extensions::Extension* extension =
+      extensions::ExtensionRegistry::Get(_profile)
+          ->enabled_extensions()
+          .GetByID(base::SysNSStringToUTF8(identifier));
+  pane::WindowHost* host = pane::WindowHost::ForNSWindow(window.window);
+  Browser* browser = host && extension ? host->BrowserFor(_profile) : nullptr;
+  content::WebContents* contents =
+      browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
+  if (!contents) {
+    return nil;
+  }
+  PaneExtensionActionMenu* menu = [[PaneExtensionActionMenu alloc]
+      initWithMenu:pane::ExtensionMenu::ForAction(_profile, *extension)
+          contents:*contents];
+  return menu.items.count ? menu : nil;
 }
 
 @end

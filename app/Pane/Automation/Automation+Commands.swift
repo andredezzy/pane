@@ -371,12 +371,12 @@ extension Automation {
 		case "chooseContextMenuItem":
 			let title = try command.string("title")
 
-			guard let menu = contextMenu, let index = menu.items.firstIndex(where: { $0.title == title }) else {
+			guard let menu = contextMenu, let found = Self.menuItem(titled: title, in: menu) else {
 				throw AutomationError("no context menu item \(title)")
 			}
 
 			menu.cancelTracking()
-			menu.performActionForItem(at: index)
+			found.menu.performActionForItem(at: found.index)
 
 		case "clickModalButton":
 			let title = try command.string("title")
@@ -450,6 +450,25 @@ extension Automation {
 
 		case "closeExtensionPopup":
 			extensions.popover.close()
+
+		case "extensionActionMenu":
+			// The items the action's right-click menu lists, from what the menu
+			// reads; `run` chooses one by its title. On macOS 27 SwiftUI draws
+			// that menu out of process, where neither the app nor
+			// accessibility can read it.
+			guard let menu = extensions.actionMenu(try command.string("id")) else {
+				return .handled([])
+			}
+
+			if let title = command["run"] as? String {
+				guard let item = Self.extensionItem(titled: title, in: menu.items) else {
+					throw AutomationError("no action menu item \(title)")
+				}
+
+				menu.run(item)
+			}
+
+			return .handled(Self.describe(menu.items))
 
 		case "extensionsMenu":
 			// What the puzzle and the extensions menu's controls call, for a
@@ -622,6 +641,35 @@ extension Automation {
 		let index = menu.indexOfItem(withTitle: title)
 
 		return index < 0 ? nil : (menu, index)
+	}
+
+	// Extension items as a menu snapshot lists them.
+	private static func describe(_ items: [ExtensionMenuItem]) -> [[String: Any]] {
+		items.filter { $0.kind != .separator }.map { item in
+			var entry: [String: Any] = ["title": item.title, "enabled": item.isEnabled, "checked": item.isChecked]
+
+			if item.kind == .submenu {
+				entry["submenu"] = describe(item.children)
+			}
+
+			return entry
+		}
+	}
+
+	private static func extensionItem(titled title: String, in items: [ExtensionMenuItem]) -> ExtensionMenuItem? {
+		items.lazy.compactMap { $0.title == title ? $0 : extensionItem(titled: title, in: $0.children) }.first
+	}
+
+	// The menu holding the item titled `title`, `menu` or one of its
+	// submenus, and the item's index there.
+	private static func menuItem(titled title: String, in menu: NSMenu) -> (menu: NSMenu, index: Int)? {
+		let index = menu.indexOfItem(withTitle: title)
+
+		if index >= 0 {
+			return (menu, index)
+		}
+
+		return menu.items.lazy.compactMap { $0.submenu.flatMap { menuItem(titled: title, in: $0) } }.first
 	}
 
 	private func render(to url: URL) throws {

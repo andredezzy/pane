@@ -24,6 +24,7 @@
 #include "net/base/apple/url_conversions.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "pane/browser/app_callback.h"
+#include "pane/browser/extensions/extension_menu.h"
 #include "pane/browser/engine_trace.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
@@ -275,6 +276,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   std::u16string _misspelledWord;
   std::u16string _suggestedFileName;
   std::string _frameCharset;
+  std::unique_ptr<pane::ExtensionMenu> _extensionMenu;
 }
 
 @synthesize location = _location;
@@ -294,6 +296,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 @synthesize canSelectAll = _canSelectAll;
 @synthesize misspelledWord = _misspelledWordString;
 @synthesize dictionarySuggestions = _dictionarySuggestions;
+@synthesize extensionItems = _extensionItems;
 
 - (instancetype)initWithParams:(const content::ContextMenuParams&)params
                          frame:(content::RenderFrameHost&)frame {
@@ -352,6 +355,9 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
       [suggestions addObject:base::SysUTF16ToNSString(suggestion)];
     }
     _dictionarySuggestions = [suggestions copy];
+    _extensionMenu =
+        pane::ExtensionMenu::ForPage(frame.GetBrowserContext(), params);
+    _extensionItems = _extensionMenu->Items();
   }
   return self;
 }
@@ -501,6 +507,14 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   PANE_TRACE("call", "PaneContextMenu.inspectElement");
   if (content::RenderFrameHost* frame = [self frameHost]) {
     DevToolsWindow::InspectElement(frame, _x, _y);
+  }
+}
+
+- (void)runExtensionItem:(PaneExtensionMenuItem*)item {
+  PANE_TRACE("call", "PaneContextMenu.runExtensionItem",
+             base::DictValue().Set("title", base::SysNSStringToUTF8(item.title)));
+  if (_contents) {
+    _extensionMenu->Run(item, _contents.get(), [self frameHost]);
   }
 }
 

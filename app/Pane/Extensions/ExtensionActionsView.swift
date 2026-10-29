@@ -1,3 +1,4 @@
+import PaneCore
 import SwiftUI
 
 // The active profile's extension actions in the toolbar: the pinned ones as
@@ -53,15 +54,21 @@ struct ExtensionActionsView: View {
 }
 
 // A pinned action's right-click menu, native and plain as Aside's: its name
-// (its Web Store page), Remove from Pane and Unpin, then Manage Extension.
-// Aside also lists the extension's own action items and its site access,
-// which need the engine.
+// (its Web Store page), the extension's own items for its action, Remove
+// from Pane and Unpin, then Manage Extension. Aside also lists its site
+// access, which needs the engine.
 private struct ActionContextMenu: View {
 	let extensions: ExtensionsController
 	let item: ExtensionInfo
 
 	var body: some View {
 		Button(item.name) { extensions.openStorePage(item.id) }
+
+		if let menu = extensions.actionMenu(item.id) {
+			Divider()
+
+			ExtensionMenuItems(items: menu.items, run: menu.run)
+		}
 
 		Divider()
 
@@ -72,6 +79,34 @@ private struct ActionContextMenu: View {
 		Divider()
 
 		Button("Manage Extension") { extensions.showPage(extensionID: item.id) }
+	}
+}
+
+// An extension's items (chrome.contextMenus) in a SwiftUI menu: a checkbox
+// or radio item as a toggle, which shows its check, and a submenu as a menu.
+private struct ExtensionMenuItems: View {
+	let items: [ExtensionMenuItem]
+	let run: (ExtensionMenuItem) -> Void
+
+	var body: some View {
+		ForEach(items, id: \.self) { item in
+			switch item.kind {
+			case .separator:
+				Divider()
+
+			case .submenu:
+				Menu(item.title) { ExtensionMenuItems(items: item.children, run: run) }
+					.disabled(!item.isEnabled)
+
+			case .checkbox, .radio:
+				Toggle(item.title, isOn: Binding { item.isChecked } set: { _ in run(item) })
+					.disabled(!item.isEnabled)
+
+			default:
+				Button(item.title) { run(item) }
+					.disabled(!item.isEnabled)
+			}
+		}
 	}
 }
 

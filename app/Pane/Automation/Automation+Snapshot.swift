@@ -93,6 +93,19 @@ extension Automation {
 		}
 	}
 
+	// A menu's items, with a check on one that shows it and a submenu's own.
+	private static func menuItems(_ menu: NSMenu) -> [[String: Any]] {
+		menu.items.filter { !$0.isSeparatorItem }.map { item in
+			var entry: [String: Any] = ["title": item.title, "enabled": item.isEnabled, "checked": item.state == .on]
+
+			if let submenu = item.submenu {
+				entry["submenu"] = menuItems(submenu)
+			}
+
+			return entry
+		}
+	}
+
 	private func sheetSnapshot() -> Any {
 		// An extension popup answers as a sheet did: its buttons, accept first.
 		if let prompt = controller.extensions.prompt {
@@ -299,9 +312,7 @@ extension Automation {
 			"pendingProfileDeletions": pendingDeletions.count,
 			"sheet": sheetSnapshot(),
 			"pendingRequests": controller.dialogs.pendingCount,
-			"contextMenu": contextMenu.map { menu in
-				menu.items.filter { !$0.isSeparatorItem }.map { ["title": $0.title, "enabled": $0.isEnabled] as [String: Any] }
-			} ?? NSNull(),
+			"contextMenu": contextMenu.map(Self.menuItems) ?? NSNull(),
 			"contextMenusShown": contextMenusShown,
 			"modal": (NSApp.modalWindow).map { modal in
 				["title": modal.title, "buttons": Self.buttons(in: modal.contentView).map(\.title)] as [String: Any]

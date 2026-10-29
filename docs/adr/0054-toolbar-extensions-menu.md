@@ -1,5 +1,7 @@
 # The toolbar's extensions menu and pinned actions follow Aside's
 
+> **Its right-click menu's missing action items are replaced by [ADR 0096](0096-extension-menu-items-show-where-chrome-shows-them.md)**: a pinned action's right-click menu lists the extension's own action items. Site access still waits on the engine. The rest stands.
+
 The toolbar's extensions menu and its pinned actions are Aside's (the user's request), measured from Aside at 2× and designed in Paper first (`03 · Components` › 03.9 Browser · Extensions, and `04 · Browsing` › 04.6 Extensions menu). They replaced a SwiftUI `Menu` that listed each extension twice, then Pin or Unpin for each, and Manage Extensions….
 
 Aside's menu is native, with no web page to read, so its icons were measured in a screenshot and redrawn on Lucide's grid: the puzzle (a knob on top, a notch on the right), a bell-shaped pin, the pin struck through, the arrow onto a line, and three dots (`Glyph` in `app/Pane/Views/Theme/Icons.swift`). The puzzle shows whenever a profile is open, even with no extension installed, after the pinned actions. At 2 of 24 it was too heavy (the user's report): in the toolbar it draws 1.4 of 24 at 20 points, 1.17 points, as the navigation icons then drew 2 of 24 at 14 (rendered at 2×, its edge carried 2.34 pixels of ink, the back arrow's shaft 2.32), and in menus the other icons' 1.75 of 24 at 16.

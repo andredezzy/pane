@@ -93,6 +93,14 @@ export type UpdateState = {
 	installsItself: boolean;
 };
 
+// An item of a page's right-click menu; a submenu lists its own.
+export type MenuItemState = {
+	title: string;
+	enabled: boolean;
+	checked: boolean;
+	submenu?: MenuItemState[];
+};
+
 export type AppState = {
 	// The profile sheet: "new", or the edited profile's id.
 	profileSheet: string | null;
@@ -153,7 +161,7 @@ export type AppState = {
 		panel?: "open" | "save";
 	} | null;
 	pendingRequests: number;
-	contextMenu: { title: string; enabled: boolean }[] | null;
+	contextMenu: MenuItemState[] | null;
 	// How many menus the page has shown: a new one counts up.
 	contextMenusShown: number;
 	modal: { title: string; buttons: string[] } | null;

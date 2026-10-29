@@ -99,6 +99,54 @@ NS_SWIFT_UI_ACTOR
 
 @end
 
+// MARK: - Extension menu items
+
+// What an extension's menu item draws as.
+typedef NS_ENUM(NSInteger, PaneExtensionMenuItemKind) {
+  PaneExtensionMenuItemKindNormal,
+  PaneExtensionMenuItemKindCheckbox,
+  PaneExtensionMenuItemKindRadio,
+  PaneExtensionMenuItemKindSeparator,
+  PaneExtensionMenuItemKindSubmenu,
+} NS_SWIFT_NAME(ExtensionMenuItemKind);
+
+// An item an extension adds to a context menu (chrome.contextMenus), as
+// Chrome's own menu would show it: an extension with several items gets one
+// submenu, under its name and icon. Choosing one goes back to the menu that
+// made it.
+PANE_EXPORT
+NS_SWIFT_NAME(ExtensionMenuItem)
+NS_SWIFT_UI_ACTOR
+@interface PaneExtensionMenuItem : NSObject
+
+@property(readonly) PaneExtensionMenuItemKind kind;
+@property(readonly, copy) NSString* title;
+@property(readonly, getter=isEnabled) BOOL enabled;
+@property(readonly, getter=isChecked) BOOL checked;
+@property(readonly, nullable) NSImage* icon;
+// A submenu's items.
+@property(readonly, copy) NSArray<PaneExtensionMenuItem*>* children;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
+// An extension action's own items for its right-click menu
+// (chrome.contextMenus in the action's context), as for the window's active
+// tab.
+PANE_EXPORT
+NS_SWIFT_NAME(ExtensionActionMenu)
+NS_SWIFT_UI_ACTOR
+@interface PaneExtensionActionMenu : NSObject
+
+@property(readonly, copy) NSArray<PaneExtensionMenuItem*>* items;
+
+- (void)runItem:(PaneExtensionMenuItem*)item NS_SWIFT_NAME(run(_:));
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
 NS_ASSUME_NONNULL_END
 
 #endif  // PANE_PUBLIC_PANEEXTENSIONS_H_

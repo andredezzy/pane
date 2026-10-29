@@ -97,3 +97,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0093](0093-update-pill-bar-runs-to-its-end.md) The update pill's bar runs to its end, and draws back for the dismiss button
 - [0094](0094-dmg-volume-icon-on-the-title-line.md) The dmg's volume icon sits on its title's centre line
 - [0095](0095-proxy-passwords-sealed-under-the-engine-key.md) Proxy passwords are sealed under the engine's key
+- [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items show where Chrome shows them
