@@ -114,8 +114,6 @@ NS_SWIFT_UI_ACTOR
 - (void)setPinned:(BOOL)pinned forExtension:(NSString*)identifier
     NS_SWIFT_NAME(setPinned(_:forExtension:));
 - (void)uninstallExtension:(NSString*)identifier;
-// Checks the Web Store for updates now.
-- (void)updateExtensions;
 // A click on the extension's action in `window`: opens its popup
 // (browserContext:showExtensionPopup:inWindow:) or fires onClicked.
 - (void)runActionOfExtension:(NSString*)identifier

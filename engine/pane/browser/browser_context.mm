@@ -25,7 +25,6 @@
 #include "components/proxy_config/proxy_prefs.h"
 #include "base/functional/bind.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
-#include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/extensions/webstore_install_with_prompt.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -284,14 +283,6 @@
   extensions::ExtensionRegistrar::Get(_profile)->UninstallExtension(
       base::SysNSStringToUTF8(identifier),
       extensions::UNINSTALL_REASON_USER_INITIATED, &error);
-}
-
-- (void)updateExtensions {
-  PANE_TRACE("call", "PaneBrowserContext.updateExtensions");
-  if (auto* updater =
-          _profile ? extensions::ExtensionUpdater::Get(_profile) : nullptr) {
-    updater->CheckNow(extensions::ExtensionUpdater::CheckParams());
-  }
 }
 
 - (void)runActionOfExtension:(NSString*)identifier

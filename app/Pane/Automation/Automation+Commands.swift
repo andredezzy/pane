@@ -445,9 +445,6 @@ extension Automation {
 		case "uninstallExtension":
 			extensions.uninstall(try command.string("id"), inProfile: try command.string("profile"))
 
-		case "updateExtensions":
-			extensions.update(inProfile: try command.string("profile"))
-
 		case "closeExtensionPopup":
 			extensions.popover.close()
 

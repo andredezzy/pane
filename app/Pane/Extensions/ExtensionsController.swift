@@ -123,10 +123,6 @@ final class ExtensionsController {
 		browser.context(for: profileID)?.uninstallExtension(extensionID)
 	}
 
-	func update(inProfile profileID: String) {
-		browser.context(for: profileID)?.updateExtensions()
-	}
-
 	// The engine asks before adding: in the window, as Aside's popup, since
 	// an AppKit sheet takes some 280 ms to attach, with the main thread held.
 	func confirmInstall(_ request: ExtensionInstallRequest) {

@@ -98,3 +98,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0094](0094-dmg-volume-icon-on-the-title-line.md) The dmg's volume icon sits on its title's centre line
 - [0095](0095-proxy-passwords-sealed-under-the-engine-key.md) Proxy passwords are sealed under the engine's key
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items show where Chrome shows them
+- [0097](0097-extensions-update-themselves.md) Extensions update themselves

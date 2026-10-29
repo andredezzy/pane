@@ -122,12 +122,6 @@ struct ExtensionsPage: View {
 					ring: selectedProfile.color.color.opacity(0.4)
 				) { profileID = $0 }
 				.accessibilityIdentifier("pane.extensions.profile")
-
-				Button("Update all") {
-					selectedProfileID.map { controller.update(inProfile: $0) }
-				}
-				.buttonStyle(.pane(.outline, size: .small))
-				.disabled(extensions.isEmpty)
 			}
 		}
 	}

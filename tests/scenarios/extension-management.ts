@@ -16,8 +16,8 @@ const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
 // The Extensions page manages a profile's extensions: an install declined
 // at its prompt installs nothing; install by Web Store ID (pinned to the
-// toolbar), disable and enable, unpin and pin, update, and remove after
-// asking.
+// toolbar), disable and enable, unpin and pin, and remove after asking.
+// Updates need no control: extension-auto-update checks them.
 // On an unlocked screen each control is clicked with CUA; else the same
 // controller calls run through the automation channel.
 const extensionManagement: Scenario = async (context) => {
@@ -171,17 +171,6 @@ const extensionManagement: Scenario = async (context) => {
 	const enabled = await toggle("Enabled", "setExtensionEnabled", true);
 	const unpinned = await toggle("Pinned", "setExtensionPinned", false);
 	const pinned = await toggle("Pinned", "setExtensionPinned", true);
-
-	// Update All asks the Web Store for newer versions.
-	if (locked) {
-		await app.send("updateExtensions", { profile });
-	} else {
-		await clickButton(pid, await mainWindowOf(pid), "Update all");
-	}
-
-	await app.waitFor("the update check", () =>
-		has("PaneBrowserContext.updateExtensions"),
-	);
 
 	// Remove asks first, in the extension's removal popup.
 	if (locked) {
