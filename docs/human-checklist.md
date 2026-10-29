@@ -4,7 +4,7 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 
 ## Open
 
-- **Phase 2 · Pointer gestures on screen — run when you are away from the Mac.** Dragging profiles and tabs in the sidebar, the profile and tab context menus, the delete-profile confirmation, the profile sheet's color and group pickers, ⌃⌘F full screen, and the Edit menu (it uses the clipboard) need the real pointer (CUA moves the mouse for drags), which would fight you while you work. The rendered rows and the page in its card are now proven on screen (`evidence/phase-2/unlocked/`). Nothing to do but leave the Mac unlocked and idle; the agent runs them then.
+- **Phase 2 · The rest of the pointer gestures — run when you are away from the Mac.** The profile sheet's group field and color swatches, ⌃⌘F full screen, and the Edit menu (it uses the clipboard) remain. Full screen takes over the screen, and the menus and clicks need Pane in front, which would fight you while you work. Nothing to do but leave the Mac unlocked and idle; the agent runs them then.
 
 - **Phase 3 · Mail — look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in ADR 0030.
 
@@ -25,6 +25,13 @@ Items the autonomous run could not do or verify on its own: each says why it nee
 - **Phase 3 · Picture-in-picture uses Chromium's player — review.** The floating video player is Chromium's own window (the only surface that can show the video's compositor frame; AVKit's picture-in-picture plays AVFoundation media only). Nothing to do unless it should look different; the reasoning is in ADR 0022.
 
 ## Done
+
+- **Phase 2 · Pointer gestures, the sidebar's** (2026-10-29), with the real pointer while the Mac was idle (`evidence/phase-2/pointer/`):
+  - Dragging Charlie's header to the top put it first, and dragging the third tab to the first moved it there.
+  - A tab's menu closed the tab.
+  - A profile's menu asked “Delete “Bravo”?”, and Delete removed it.
+  - Edit profile opened the profile sheet.
+  - cua-driver's background drag does not move SwiftUI's rows: it needs `delivery_mode: "foreground"`, which moves the pointer.
 
 - **Phase 5 · Your Electron Pane migrated** (2026-10-28). The native app brought your Electron data over on this Mac (`migration.json` in its data) and adopted its cookie key into "Pane Safe Storage"; the Electron app and its data were deleted since, at your request.
 
