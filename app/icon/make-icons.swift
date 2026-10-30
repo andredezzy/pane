@@ -2,7 +2,8 @@
 // one per sky, named for it.
 // Usage: swift app/icon/make-icons.swift   (needs Xcode; run it under the
 // Default icon style, System Settings › Appearance), then bun run lint, which
-// formats the JSON it writes.
+// formats the JSON it writes, then swift app/dmg/make-volume-icon.swift, whose
+// volume icon is AppIconDay.
 //
 // Every icon has the one frame, Day's, whitened: each render gives only its
 // glass. Day's frame keeps its shading and its colour neutral, and is close to
