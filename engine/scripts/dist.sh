@@ -30,6 +30,9 @@ fi
 
 [ -d "$APP" ] || { echo "error: no $APP to put in the dmg" >&2; exit 1; }
 
+# A release blocks the certificates Chrome does (ADR 0111).
+[ -f "$APP/Contents/Resources/crl-set" ] || { echo "error: $APP carries no CRLSet (fetch-crlset.sh)" >&2; exit 1; }
+
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 

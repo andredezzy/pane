@@ -16,7 +16,8 @@ namespace pane {
 // nothing extra: Chrome's AppController already keeps the browser process
 // alive without windows on macOS, and releases that keep-alive when quitting.
 // Also brings up, for each profile as it is added, the services Chrome starts
-// through parts Pane does not run (sync).
+// through parts Pane does not run (sync), and hands the certificate verifier
+// the CRLSet the bundle carries.
 class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
                               public ProfileManagerObserver {
  public:
@@ -26,6 +27,7 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   ~BrowserMainExtraParts() override;
 
   // ChromeBrowserMainExtraParts:
+  void PreProfileInit() override;
   void PostProfileInit(Profile* profile, bool is_initial_profile) override;
   void PostBrowserStart() override;
   void PostMainMessageLoopRun() override;

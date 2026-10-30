@@ -57,6 +57,24 @@ mkdir -p "$LICENSES"
 cp "$ROOT_DIR/LICENSE" "$ROOT_DIR/NOTICE" "$LICENSES/"
 ditto "$ROOT_DIR/third_party" "$LICENSES/third_party"
 
+# Chrome's CRLSet, which the engine hands its certificate verifier at start
+# (ADR 0111): fetched as the app is built, with a day's copy kept in
+# app/build for builds without the network. dist.sh requires it.
+CRLSET="$APP_DIR/build/crl-set"
+
+if [ -z "$(find "$CRLSET" -mtime -1 2>/dev/null)" ]; then
+	if "$ROOT_DIR/engine/scripts/fetch-crlset.sh" "$CRLSET.new"; then
+		mv "$CRLSET.new" "$CRLSET"
+	else
+		rm -f "$CRLSET.new"
+		echo "warning: no new CRLSet: the app carries the last one fetched, if any" >&2
+	fi
+fi
+
+if [ -f "$CRLSET" ]; then
+	cp "$CRLSET" "$OUT/Contents/Resources/crl-set"
+fi
+
 # Pane's identity over Chromium's: its version (app/VERSION, the one version
 # source), which Finder, the About panel, Settings, and the update check
 # show, and its icon (the Swift app's asset catalog, which replaced
