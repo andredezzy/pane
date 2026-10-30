@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for agents (and humans) working in this repo. `CLAUDE.md` is a symlink to this file, so both toolchains read the same instructions.
+Guidance for agents (and humans) working in this repo.
 
 ## Releasing — bump the version, then push a tag
 
