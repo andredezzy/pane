@@ -32,11 +32,14 @@ const restore: Scenario = async (context) => {
 	for (const [name, color, tabs] of layout) {
 		const profile = await first.createProfile(name, color);
 
+		// Each page loads before the next tab opens: a tab loads while it is
+		// selected, and one left before its page started stays unloaded.
 		for (const title of tabs) {
-			await first.openTab(
-				profile,
-				context.fixtures.url(`switcher.html?name=${encodeURIComponent(title)}`),
+			const url = context.fixtures.url(
+				`switcher.html?name=${encodeURIComponent(title)}`,
 			);
+
+			await first.page(await first.openTab(profile, url), url);
 		}
 	}
 

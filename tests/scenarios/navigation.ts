@@ -1,4 +1,4 @@
-import { controlEnabled, isScreenLocked, mainWindowOf } from "../lib/cua";
+import { canDriveUI, controlEnabled, mainWindowOf } from "../lib/cua";
 import { launchPane, tabOf } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
@@ -15,7 +15,7 @@ const navigation: Scenario = async (context) => {
 	const tab = await app.openTab(profile, a);
 	const pageA = await app.page(tab, a);
 
-	const locked = await isScreenLocked();
+	const locked = !(await canDriveUI());
 	const pid = app.browser.pid;
 	const window = locked ? 0 : await mainWindowOf(pid);
 	const arrows: Record<string, unknown> = {};

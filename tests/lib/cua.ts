@@ -53,6 +53,12 @@ export async function isScreenLocked(): Promise<boolean> {
 	return /<key>CGSSessionScreenIsLocked<\/key>\s*<true\/>/.test(output);
 }
 
+// Whether checks of the native UI can run: the screen unlocked, and
+// cua-driver installed (GitHub's runners have none).
+export async function canDriveUI(): Promise<boolean> {
+	return Bun.which("cua-driver") !== null && !(await isScreenLocked());
+}
+
 // The app's largest window. A sheet is a window of its own, and the windows
 // come in no fixed order; only the main window holds the sheet's controls.
 export async function mainWindowOf(pid: number): Promise<number> {

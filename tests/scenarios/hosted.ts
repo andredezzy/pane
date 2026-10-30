@@ -1,10 +1,5 @@
 import { join } from "node:path";
-import {
-	invokeMenu,
-	isScreenLocked,
-	mainWindowOf,
-	windowState,
-} from "../lib/cua";
+import { canDriveUI, invokeMenu, mainWindowOf, windowState } from "../lib/cua";
 import { isRunning, waitForExit } from "../lib/processes";
 import { waitForTarget } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
@@ -55,7 +50,7 @@ const hosted: Scenario = async (context) => {
 
 	const traceEntries = trace().length;
 
-	if (await isScreenLocked()) {
+	if (!(await canDriveUI())) {
 		context.defer("the page drawn in the window");
 		context.defer("Quit Pane stopping every helper");
 
