@@ -23,3 +23,7 @@ updates:
       # (typescript-eslint/typescript-eslint#10940).
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
+      # The migration scenario writes data with the Electron the retired
+      # Electron app shipped (41.4.0, the electron branch), as its users'
+      # data was written.
+      - dependency-name: electron
