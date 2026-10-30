@@ -430,6 +430,11 @@ export async function launchPane(
 	// Chromium's own switch for this keeps pages visible.
 	const locked = await isScreenLocked();
 
+	// A home of its own, kept with the data so a relaunch finds it (see
+	// browser.ts's launch).
+	const home = join(dataDir, "home");
+	mkdirSync(home, { recursive: true });
+
 	const browser = await context.launch({
 		binary: options.binary,
 		userDataDir: join(dataDir, "Engine"),
@@ -438,6 +443,8 @@ export async function launchPane(
 			...(options.args ?? []),
 		],
 		env: {
+			HOME: home,
+			CFFIXED_USER_HOME: home,
 			PANE_DATA_DIR: dataDir,
 			PANE_AUTOMATION_DIR: automationDir,
 			// Every launch checks for updates: against the fixtures, never

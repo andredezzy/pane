@@ -101,13 +101,23 @@ export async function launch(
 		? null
 		: mkdtempSync(join(tmpdir(), "pane-data-"));
 
+	// A home of its own too, unless a scenario names one: under the real
+	// home the app would share the user's Pane's caches, HTTP storage, and
+	// Downloads, and Chromium's Crashpad database. Its preferences stay the
+	// user's domain: cfprefsd ignores a fixed home (CFFIXED_USER_HOME).
+	const home = options.env?.HOME
+		? null
+		: mkdtempSync(join(tmpdir(), "pane-home-"));
+
 	const removeDirs = () => {
 		if (throwaway && userDataDir) {
 			rmSync(userDataDir, { recursive: true, force: true });
 		}
 
-		if (appDataDir) {
-			rmSync(appDataDir, { recursive: true, force: true });
+		for (const directory of [appDataDir, home]) {
+			if (directory) {
+				rmSync(directory, { recursive: true, force: true });
+			}
 		}
 	};
 
@@ -140,6 +150,7 @@ export async function launch(
 				PANE_DATA_DIR: appDataDir,
 				PANE_ELECTRON_DATA_DIR: join(appDataDir, "no-electron-app"),
 			}),
+			...(home && { HOME: home, CFFIXED_USER_HOME: home }),
 			...options.env,
 		},
 		stdout: output,

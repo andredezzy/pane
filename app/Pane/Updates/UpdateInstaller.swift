@@ -81,10 +81,13 @@ struct UpdateInstaller: Sendable {
 
 		// $1 Pane's process, $2 the old bundle (where the staged one was), $3
 		// the new one, $4 the dmg, $5 whether to open the new Pane, then what
-		// `open` passes on: Pane's own PANE_ variables, which only scenarios
-		// set, so the new Pane opens on the same throwaway data.
+		// `open` passes on: Pane's own PANE_ variables, and a home of its own
+		// (CFFIXED_USER_HOME, with HOME), which only scenarios set, so the new
+		// Pane opens on the same throwaway data and home.
 		let script = #"pid=$1 old=$2 app=$3 dmg=$4 relaunch=$5; shift 5; while kill -0 "$pid" 2>/dev/null; do sleep 0.05; done; rm -rf "$old"; [ -n "$dmg" ] && rm -f "$dmg"; [ "$relaunch" = 1 ] && /usr/bin/open "$@" "$app"; exit 0"#
-		let passed = ProcessInfo.processInfo.environment.filter { $0.key.hasPrefix("PANE_") }.sorted { $0.key < $1.key }.flatMap { ["--env", "\($0.key)=\($0.value)"] }
+		let environment = ProcessInfo.processInfo.environment
+		let home = environment["CFFIXED_USER_HOME"] == nil ? [] : ["CFFIXED_USER_HOME", "HOME"]
+		let passed = environment.filter { $0.key.hasPrefix("PANE_") || home.contains($0.key) }.sorted { $0.key < $1.key }.flatMap { ["--env", "\($0.key)=\($0.value)"] }
 		let process = Process()
 		process.executableURL = URL(fileURLWithPath: "/bin/sh")
 		process.arguments = ["-c", script, "pane-update", String(ProcessInfo.processInfo.processIdentifier), staged.path, bundle.path, dmg?.path ?? "", relaunch ? "1" : "0"] + passed
