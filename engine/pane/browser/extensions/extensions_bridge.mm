@@ -31,6 +31,8 @@ ExtensionsBridge::ExtensionsBridge(PaneBrowserContext* context,
   if (auto* dispatcher = extensions::ExtensionActionDispatcher::Get(profile)) {
     action_observation_.Observe(dispatcher);
   }
+  permissions_observation_.Observe(
+      extensions::PermissionsManager::Get(profile));
   if (auto* toolbar = ToolbarActionsModel::Get(profile)) {
     toolbar_observation_.Observe(toolbar);
   }
@@ -175,6 +177,17 @@ void ExtensionsBridge::OnExtensionActionUpdated(
 
 void ExtensionsBridge::OnShuttingDown() {
   action_observation_.Reset();
+}
+
+void ExtensionsBridge::OnExtensionPermissionsUpdated(
+    const extensions::Extension&,
+    const extensions::PermissionSet&,
+    extensions::PermissionsManager::UpdateReason) {
+  Changed();
+}
+
+void ExtensionsBridge::OnPermissionsManagerShutdown() {
+  permissions_observation_.Reset();
 }
 
 void ExtensionsBridge::OnToolbarActionAdded(

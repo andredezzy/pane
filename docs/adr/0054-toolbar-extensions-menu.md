@@ -1,6 +1,6 @@
 # The toolbar's extensions menu and pinned actions follow Aside's
 
-> **Its right-click menu's missing action items are replaced by [ADR 0096](0096-extension-menu-items-show-where-chrome-shows-them.md)**: a pinned action's right-click menu lists the extension's own action items. Site access still waits on the engine. The rest stands.
+> **Its right-click menu's missing action items are replaced by [ADR 0096](0096-extension-menu-items-show-where-chrome-shows-them.md)**: a pinned action's right-click menu lists the extension's own action items. **Its site access rows now ship, by [ADR 0101](0101-action-menu-offers-chromes-site-access.md)**: This Can Read and Change Site Data (or Can't Read or Change Site's Data) and View Web Permissions, and Manage Extension opens the extension's Details ([ADR 0102](0102-extension-details-on-the-extensions-page.md)). The rest stands.
 
 The toolbar's extensions menu and its pinned actions are Aside's (the user's request), measured from Aside at 2× and designed in Paper first (`03 · Components` › 03.9 Browser · Extensions, and `04 · Browsing` › 04.6 Extensions menu). They replaced a SwiftUI `Menu` that listed each extension twice, then Pin or Unpin for each, and Manage Extensions….
 

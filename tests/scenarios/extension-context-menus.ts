@@ -24,16 +24,24 @@ type Click = {
 	tabId: number | null;
 };
 
+type ActionMenu = { items: MenuItemState[]; siteAccess: MenuItemState[] };
+
 // What an extension adds with chrome.contextMenus shows where Chrome shows
 // it. A page's menu has the probe's two page items in a submenu under its
 // name, before Inspect; choosing one runs onClicked with the page and its
 // tab, and the checkbox shows its new state the next time. The pinned
 // action's right-click menu reads the probe's action items, the checkbox
-// checked; choosing one runs onClicked for the active tab.
+// checked; choosing one runs onClicked for the active tab. Its site access
+// follows, as Chrome's: the probe asks for every site, so the submenu offers
+// When You Click the Extension, On <site>, and On All Sites, the current one
+// checked, and each choice changes the sites the probe has; on a page it
+// can't run on, it reads Can’t Read or Change Site’s Data.
 const extensionContextMenus: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "extension-context-menus", {
-		args: [`--load-extension=${PROBE}`],
-	});
+	const { app, has, waitForEntry } = await launchTraced(
+		context,
+		"extension-context-menus",
+		{ args: [`--load-extension=${PROBE}`] },
+	);
 
 	const profile = await app.createProfile("Menus");
 	const url = context.fixtures.url("context.html?extension-context-menus");
@@ -148,12 +156,12 @@ const extensionContextMenus: Scenario = async (context) => {
 	// The action's own items, as its right-click menu reads them.
 	await app.send("setExtensionPinned", { profile, id, pinned: true });
 
-	const listed = await app.send<MenuItemState[]>("extensionActionMenu", { id });
+	const listed = await app.send<ActionMenu>("extensionActionMenu", { id });
 
 	expect(
-		described(listed.result) ===
+		described(listed.result.items) ===
 			"Probe action item, Probe action check (checked)",
-		`the action's menu reads ${described(listed.result)}`,
+		`the action's menu reads ${described(listed.result.items)}`,
 	);
 
 	await app.send("extensionActionMenu", { id, run: "Probe action item" });
@@ -169,11 +177,121 @@ const extensionContextMenus: Scenario = async (context) => {
 
 	expect(has("PaneExtensionActionMenu.run"), "the engine ran no action item");
 
+	// Its site access on the page, as the menu reads it; then each choice,
+	// and the sites the probe has after it (chrome.permissions.getAll).
+	const site = new URL(url).hostname;
+	const submenu = `This Can Read and Change Site Data`;
+
+	const siteAccess = async () => {
+		const menu = (await app.send<ActionMenu>("extensionActionMenu", { id }))
+			.result.siteAccess;
+
+		expect(
+			menu.length === 1 && menu[0]?.title === submenu,
+			`the action's site access reads ${described(menu)}`,
+		);
+
+		return described(menu[0]?.submenu ?? []);
+	};
+
+	const origins = () =>
+		worker.evaluate<string[]>(
+			"chrome.permissions.getAll().then((all) => all.origins)",
+		);
+
+	const choices = (checked: string) =>
+		[`When You Click the Extension`, `On ${site}`, `On All Sites`]
+			.map((title) => (title === checked ? `${title} (checked)` : title))
+			.concat("Learn More About Site Access")
+			.join(", ");
+
+	const initially = await siteAccess();
+
+	expect(
+		initially === choices("On All Sites"),
+		`the site access submenu reads ${initially}`,
+	);
+
+	const choose = async (title: string, has: (origins: string[]) => boolean) => {
+		await app.send("extensionActionMenu", { id, run: title });
+
+		const after = await poll(`the probe's sites after ${title}`, async () => {
+			const current = await origins();
+
+			return has(current) && current;
+		});
+
+		const menu = await siteAccess();
+
+		expect(
+			menu === choices(title),
+			`after ${title}, the submenu reads ${menu}`,
+		);
+
+		return { origins: after, menu };
+	};
+
+	const onClick = await choose(
+		"When You Click the Extension",
+		(current) => !current.includes("<all_urls>"),
+	);
+
+	// Chrome would ask to reload the page now; Pane declines its dialog, and
+	// no window of Chrome's shows.
+	await waitForEntry("PaneExtensions.declineReloadPrompt");
+
+	const windows = (await app.state()).nativeWindows;
+
+	expect(
+		windows.every((window) => window.role === "main"),
+		`a window showed with the main one: ${JSON.stringify(windows)}`,
+	);
+
+	const onSite = await choose(
+		`On ${site}`,
+		(current) =>
+			!current.includes("<all_urls>") &&
+			current.some(
+				(origin) => new URL(origin.replace("*", "x")).hostname === site,
+			),
+	);
+
+	const onAllSites = await choose("On All Sites", (current) =>
+		current.includes("<all_urls>"),
+	);
+
+	expect(
+		has("PaneExtensionActionMenu.run", (args) => args.title === `On ${site}`),
+		"the engine ran no site access choice",
+	);
+
+	// A page it can't run on: data: is no scheme host permissions cover.
+	const data = "data:text/plain,no-sites";
+	const unreachable = await app.openTab(profile, data);
+
+	await app.page(unreachable, data);
+
+	const cantAccess = (await app.send<ActionMenu>("extensionActionMenu", { id }))
+		.result.siteAccess;
+
+	expect(
+		described(cantAccess) ===
+			"Can\u2019t Read or Change Site\u2019s Data (disabled)",
+		`on a data: page, the site access reads ${described(cantAccess)}`,
+	);
+
 	return {
 		extension: id,
 		pageMenu: titles,
 		probeSubmenu: described(probeItems(first)),
-		actionMenu: described(listed.result),
+		actionMenu: described(listed.result.items),
+		siteAccess: {
+			initially,
+			onClick,
+			onSite,
+			onAllSites,
+			cantAccess: described(cantAccess),
+		},
 		clicks: await clicks(4),
 	};
 };

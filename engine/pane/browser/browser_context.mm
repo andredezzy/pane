@@ -25,15 +25,20 @@
 #include "components/proxy_config/proxy_prefs.h"
 #include "base/functional/bind.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/webstore_install_with_prompt.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/crx_file/id_util.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/path_util.h"
+#include "extensions/browser/permissions/scripting_permissions_modifier.h"
+#include "extensions/browser/permissions_manager.h"
 #include "extensions/browser/uninstall_reason.h"
 #include "pane/browser/downloads.h"
 #include "pane/browser/fingerprints.h"
@@ -371,8 +376,75 @@
   }
   PaneExtensionActionMenu* menu = [[PaneExtensionActionMenu alloc]
       initWithMenu:pane::ExtensionMenu::ForAction(_profile, *extension)
+         extension:*extension
           contents:*contents];
-  return menu.items.count ? menu : nil;
+  return menu.items.count || menu.siteAccessItems.count ? menu : nil;
+}
+
+- (PaneExtensionDetails*)detailsOfExtension:(NSString*)identifier {
+  const extensions::Extension* extension = [self installedExtension:identifier];
+  return extension ? [[PaneExtensionDetails alloc] initWithExtension:*extension
+                                                             profile:_profile]
+                   : nil;
+}
+
+- (void)sizeOfExtension:(NSString*)identifier
+             completion:(void (^)(NSString*))completion {
+  const extensions::Extension* extension = [self installedExtension:identifier];
+  if (!extension) {
+    completion(nil);
+    return;
+  }
+  // As chrome://extensions' details page measures it.
+  extensions::path_util::CalculateAndFormatExtensionDirectorySize(
+      extension->path(), IDS_APPLICATION_INFO_SIZE_SMALL_LABEL,
+      base::BindOnce(^(const std::u16string& size) {
+        completion(base::SysUTF16ToNSString(size));
+      }));
+}
+
+// As developerPrivate.updateExtensionConfiguration sets hostAccess.
+- (void)setSiteAccess:(PaneExtensionSiteAccess)access
+         forExtension:(NSString*)identifier {
+  PANE_TRACE("call", "PaneBrowserContext.setExtensionSiteAccess",
+             base::DictValue()
+                 .Set("extension", base::SysNSStringToUTF8(identifier))
+                 .Set("access", static_cast<int>(access)));
+  const extensions::Extension* extension = [self installedExtension:identifier];
+  extensions::PermissionsManager* manager =
+      _profile ? extensions::PermissionsManager::Get(_profile) : nullptr;
+  if (!extension || !manager->CanAffectExtension(*extension)) {
+    return;
+  }
+  extensions::ScriptingPermissionsModifier modifier(_profile, extension);
+  switch (access) {
+    case PaneExtensionSiteAccessOnClick:
+      modifier.SetWithholdHostPermissions(true);
+      modifier.RemoveAllGrantedHostPermissions();
+      break;
+    case PaneExtensionSiteAccessOnSpecificSites:
+      if (manager->HasBroadGrantedHostPermissions(*extension)) {
+        modifier.RemoveBroadGrantedHostPermissions();
+      }
+      modifier.SetWithholdHostPermissions(true);
+      break;
+    case PaneExtensionSiteAccessOnAllSites:
+      modifier.SetWithholdHostPermissions(false);
+      break;
+    case PaneExtensionSiteAccessNone:
+      break;
+  }
+}
+
+- (void)setAllowsFileAccess:(BOOL)allows forExtension:(NSString*)identifier {
+  PANE_TRACE("call", "PaneBrowserContext.setExtensionFileAccess",
+             base::DictValue()
+                 .Set("extension", base::SysNSStringToUTF8(identifier))
+                 .Set("allows", static_cast<bool>(allows)));
+  if ([self installedExtension:identifier]) {
+    extensions::util::SetAllowFileAccess(base::SysNSStringToUTF8(identifier),
+                                         _profile, allows);
+  }
 }
 
 @end

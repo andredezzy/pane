@@ -294,7 +294,7 @@ const extensionsMenu: Scenario = async (context) => {
 	await Bun.sleep(500);
 
 	// More: Pane's own menu beside the row; Manage Extension opens the
-	// Extensions page.
+	// Extensions page at its Details.
 	await openMenu(app, locked);
 	await press(app, locked, more);
 
@@ -313,9 +313,10 @@ const extensionsMenu: Scenario = async (context) => {
 	);
 
 	await app.waitFor(
-		"the Extensions page again",
+		"the Extensions page again, at its Details",
 		(state) =>
 			state.page === "extensions" &&
+			state.extensionDetails?.extension === DARK_READER &&
 			!state.extensionsMenu &&
 			state.extensionMoreMenu === null,
 	);

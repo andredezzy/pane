@@ -30,6 +30,7 @@ chrome/browser/ui/views/permissions/chooser_bubble_ui.cc	0004-pane-ui-hooks.patc
 chrome/browser/ui/views/extensions/extension_install_dialog_view.cc	0005-pane-extensions.patch
 chrome/browser/ui/extensions/extension_install_ui_desktop.cc	0005-pane-extensions.patch
 chrome/browser/extensions/api/extension_action/extension_action_api.cc	0005-pane-extensions.patch
+chrome/browser/extensions/extension_action_runner.cc	0005-pane-extensions.patch
 content/public/browser/content_browser_client.h	0006-pane-fingerprint.patch
 content/public/browser/content_browser_client.cc	0006-pane-fingerprint.patch
 content/browser/renderer_host/render_process_host_impl.cc	0006-pane-fingerprint.patch

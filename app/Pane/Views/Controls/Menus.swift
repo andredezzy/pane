@@ -3,7 +3,7 @@ import SwiftUI
 // A menu's trigger, as Aside's pop-up button and packages/ui's Select: the
 // value (with its icon, if it has one) and a chevron, in a 1-point border,
 // with no fill but the accent's on hover. A click shows the system's menu
-// of the options, the current one checked.
+// of the options, the current one checked, any that can't be chosen dimmed.
 struct PaneMenuButton<Value: Hashable>: View {
 	enum Size {
 		// Among a form's fields (h-9, at 14): the profile sheet's.
@@ -32,6 +32,8 @@ struct PaneMenuButton<Value: Hashable>: View {
 	// Laid out at the width it is given, the chevron at the trailing end,
 	// rather than at its own.
 	var fillsWidth = false
+	// An option the menu shows dimmed, as one that can't be chosen.
+	var isSelectable: (Value) -> Bool = { _ in true }
 	let select: @MainActor (Value) -> Void
 
 	@State private var isHovered = false
@@ -44,13 +46,12 @@ struct PaneMenuButton<Value: Hashable>: View {
 		let shape = Squircle(cornerRadius: 11)
 
 		Menu {
-			Picker("", selection: Binding(get: { selection }, set: select)) {
-				ForEach(options, id: \.1) { option in
-					Text(option.0).tag(option.1)
-				}
+			// A toggle each, checked for the current option and dimmed for one
+			// that can't be chosen.
+			ForEach(options, id: \.1) { option in
+				Toggle(option.0, isOn: Binding(get: { option.1 == selection }, set: { _ in select(option.1) }))
+					.disabled(!isSelectable(option.1))
 			}
-			.pickerStyle(.inline)
-			.labelsHidden()
 		} label: {
 			HStack(spacing: 8) {
 				if let icon {

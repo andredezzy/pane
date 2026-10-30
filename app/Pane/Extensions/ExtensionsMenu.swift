@@ -63,8 +63,8 @@ struct ExtensionsMenu: View {
 
 // An extension's more menu, as Aside's (Paper: 03.10 Browser · Extension
 // popups): 240 wide beside the extensions menu, level with the row. Its
-// name, then its Web Store page; Remove and Pin or Unpin; Manage Extension,
-// and Options when it has them.
+// name, then its Web Store page; Remove and Pin or Unpin; Manage Extension
+// (its Details), and Options when it has them.
 struct ExtensionMoreMenu: View {
 	let controller: ExtensionsController
 	let item: ExtensionInfo
@@ -107,7 +107,7 @@ struct ExtensionMoreMenu: View {
 			Hairline()
 
 			VStack(spacing: 0) {
-				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showPage(extensionID: item.id) }) {
+				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showDetails(item.id) }) {
 					RowIcon(image: Lucide.settings.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Manage Extension")
 				}

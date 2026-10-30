@@ -131,17 +131,65 @@ NS_SWIFT_UI_ACTOR
 
 @end
 
-// An extension action's own items for its right-click menu
-// (chrome.contextMenus in the action's context), as for the window's active
-// tab.
+// What the engine gives an extension action's right-click menu, as for the
+// window's active tab: the extension's own items (chrome.contextMenus in the
+// action's context) and its site access on the tab's page.
 PANE_EXPORT
 NS_SWIFT_NAME(ExtensionActionMenu)
 NS_SWIFT_UI_ACTOR
 @interface PaneExtensionActionMenu : NSObject
 
 @property(readonly, copy) NSArray<PaneExtensionMenuItem*>* items;
+// As Chrome's action menu offers it (ExtensionContextMenuModel's page
+// access items): This Can Read and Change Site Data, a submenu of When You
+// Click the Extension, On <site>, and On All Sites, the current one checked,
+// then Learn More About Site Access; or, where the extension can't run on
+// the page, Can't Read or Change Site's Data, disabled. Empty when the
+// extension asks for no site access (no host permissions, no activeTab).
+@property(readonly, copy) NSArray<PaneExtensionMenuItem*>* siteAccessItems;
 
+// Runs one of `items` or `siteAccessItems`.
 - (void)runItem:(PaneExtensionMenuItem*)item NS_SWIFT_NAME(run(_:));
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
+// MARK: - Extension details
+
+// Where an extension may read and change sites' data, as the Site access
+// pop-up of chrome://extensions' details page sets it (developerPrivate's
+// HostAccess).
+typedef NS_ENUM(NSInteger, PaneExtensionSiteAccess) {
+  // No pop-up: it asks for no sites, or for some sites only (Chrome lists
+  // those instead), or the user can't change them.
+  PaneExtensionSiteAccessNone,
+  PaneExtensionSiteAccessOnClick,
+  PaneExtensionSiteAccessOnSpecificSites,
+  PaneExtensionSiteAccessOnAllSites,
+} NS_SWIFT_NAME(ExtensionSiteAccess);
+
+// What chrome://extensions' details page shows of an extension beyond its
+// snapshot (PaneExtension), as of when it was asked for.
+PANE_EXPORT
+NS_SWIFT_NAME(ExtensionDetails)
+NS_SWIFT_UI_ACTOR
+@interface PaneExtensionDetails : NSObject
+
+// Where it came from, as the details page words it: "Chrome Web Store",
+// "Unpacked extension", "Added by policy"...
+@property(readonly, copy) NSString* source;
+// Its permissions, in Chrome's words. Its sites are siteAccess's where it
+// has the pop-up, and listed here otherwise.
+@property(readonly, copy) NSArray<NSString*>* permissions;
+@property(readonly) PaneExtensionSiteAccess siteAccess;
+// Whether it wants file access, which shows "Allow access to file URLs".
+@property(readonly) BOOL wantsFileAccess;
+@property(readonly) BOOL allowsFileAccess;
+// Its manifest's homepage_url.
+@property(readonly, copy, nullable) NSURL* homepageURL;
+// Its Web Store page, when it updates from the store.
+@property(readonly, copy, nullable) NSURL* webStoreURL;
 
 - (instancetype)init NS_UNAVAILABLE;
 

@@ -343,6 +343,7 @@ extension Automation {
 					"height": popup.preferredSize.height,
 				] as [String: Any]
 			} ?? NSNull(),
+			"extensionDetails": controller.extensions.details.map(Self.describe) ?? NSNull(),
 			"extensionsMenu": controller.extensions.menuOpen,
 			"sidebarWidth": controller.state.sidebarWidth,
 			"extensionMoreMenu": controller.extensions.moreMenu?.extensionID ?? NSNull(),
@@ -353,6 +354,28 @@ extension Automation {
 			"devToolsTabs": Array(model.devToolsTabIDs),
 			"printRequests": printRequests,
 			"focus": focus,
+		]
+	}
+
+	static func describe(_ shown: ShownDetails) -> [String: Any] {
+		let access: String = switch shown.engine?.siteAccess {
+		case .onClick: "onClick"
+		case .onSpecificSites: "onSpecificSites"
+		case .onAllSites: "onAllSites"
+		default: "none"
+		}
+
+		return [
+			"extension": shown.extensionID,
+			"profile": shown.profileID,
+			"size": shown.size ?? NSNull(),
+			"source": shown.engine?.source ?? NSNull(),
+			"permissions": shown.engine?.permissions ?? [],
+			"siteAccess": access,
+			"wantsFileAccess": shown.engine?.wantsFileAccess ?? false,
+			"allowsFileAccess": shown.engine?.allowsFileAccess ?? false,
+			"homepage": shown.engine?.homepageURL?.absoluteString ?? NSNull(),
+			"webStore": shown.engine?.webStoreURL?.absoluteString ?? NSNull(),
 		]
 	}
 

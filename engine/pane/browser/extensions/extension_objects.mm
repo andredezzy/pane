@@ -4,23 +4,35 @@
 
 #include <utility>
 
+#include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
+#include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
+#include "chrome/grit/generated_resources.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
+#include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_util.h"
 #include "extensions/browser/install_prompt_data.h"
+#include "extensions/browser/managed_installation_mode.h"
+#include "extensions/browser/permissions_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
+#include "extensions/common/manifest_handlers/manifest_url_handlers.h"
 #include "extensions/common/manifest_handlers/options_page_info.h"
+#include "extensions/common/permissions/permission_message_provider.h"
+#include "extensions/common/permissions/permission_set.h"
+#include "extensions/common/permissions/permissions_data.h"
 #include "net/base/apple/url_conversions.h"
 #include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/extensions/action_popup.h"
 #include "skia/ext/skia_utils_mac.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/image/image.h"
 
 // MARK: - PaneExtension
@@ -80,6 +92,144 @@
     }
     _actionEnabled = action && action->GetIsVisible(tabID);
     _hasPopup = action && action->HasPopup(tabID);
+  }
+  return self;
+}
+
+@end
+
+// MARK: - PaneExtensionDetails
+
+namespace {
+
+using extensions::PermissionSet;
+
+std::unique_ptr<const PermissionSet> OrEmpty(
+    std::unique_ptr<const PermissionSet> permissions) {
+  return permissions ? std::move(permissions)
+                     : std::make_unique<PermissionSet>();
+}
+
+// The details page's Source, as ExtensionInfoGenerator places the extension
+// and item_util.ts words it.
+NSString* SourceOf(const extensions::Extension& extension, Profile* profile) {
+  using extensions::Manifest;
+  extensions::ExtensionManagement* management =
+      extensions::ExtensionManagementFactory::GetForBrowserContext(profile);
+  const extensions::ManagedInstallationMode mode =
+      management->GetInstallationMode(&extension);
+  const bool from_store = management->UpdatesFromWebstore(extension);
+  int source = IDS_EXTENSIONS_INSTALL_LOCATION_UNKNOWN;
+  if (Manifest::IsPolicyLocation(extension.location()) ||
+      mode == extensions::ManagedInstallationMode::kForced ||
+      mode == extensions::ManagedInstallationMode::kRecommended) {
+    source = IDS_EXTENSIONS_ITEM_SOURCE_POLICY;
+  } else if (extension.location() ==
+                 extensions::mojom::ManifestLocation::kInternal &&
+             from_store) {
+    source = IDS_EXTENSIONS_ITEM_SOURCE_WEBSTORE;
+  } else if (Manifest::IsUnpackedLocation(extension.location())) {
+    source = IDS_EXTENSIONS_ITEM_SOURCE_UNPACKED;
+  } else if (extension.was_installed_by_default() &&
+             !extension.was_installed_by_oem() && from_store) {
+    source = IDS_EXTENSIONS_ITEM_SOURCE_INSTALLED_BY_DEFAULT;
+  } else if (Manifest::IsExternalLocation(extension.location()) && from_store) {
+    source = IDS_EXTENSIONS_ITEM_SOURCE_SIDELOADED;
+  }
+  // "Not from Chrome Web Store." stands in a line here, without its period.
+  std::u16string text = l10n_util::GetStringUTF16(source);
+  base::TrimString(text, u".", &text);
+  return base::SysUTF16ToNSString(text);
+}
+
+// The Site access pop-up, as CreateRuntimeHostPermissionsInfo sets it: only
+// for an extension whose sites the user can change and that asks for all of
+// them (Chrome lists the sites of one that asks for some).
+PaneExtensionSiteAccess SiteAccessOf(const extensions::Extension& extension,
+                                     Profile* profile) {
+  extensions::PermissionsManager* manager =
+      extensions::PermissionsManager::Get(profile);
+  if (!manager->CanAffectExtension(extension)) {
+    return PaneExtensionSiteAccessNone;
+  }
+  extensions::ExtensionPrefs* prefs = extensions::ExtensionPrefs::Get(profile);
+  const bool withheld = manager->HasWithheldHostPermissions(extension);
+  std::unique_ptr<const PermissionSet> granted =
+      OrEmpty(withheld ? prefs->GetRuntimeGrantedPermissions(extension.id())
+                       : prefs->GetGrantedPermissions(extension.id()));
+  if (!extension.permissions_data()->withheld_permissions().ShouldWarnAllHosts(
+          /*include_api_permissions=*/false) &&
+      !granted->ShouldWarnAllHosts(/*include_api_permissions=*/false)) {
+    return PaneExtensionSiteAccessNone;
+  }
+  if (!withheld) {
+    return PaneExtensionSiteAccessOnAllSites;
+  }
+  if (granted->effective_hosts().is_empty()) {
+    return PaneExtensionSiteAccessOnClick;
+  }
+  return granted->ShouldWarnAllHosts(false)
+             ? PaneExtensionSiteAccessOnAllSites
+             : PaneExtensionSiteAccessOnSpecificSites;
+}
+
+// The permission messages of what the extension was granted, as
+// AddPermissionsInfo lists them: without its sites when the pop-up shows
+// them.
+NSArray<NSString*>* PermissionsOf(const extensions::Extension& extension,
+                                  Profile* profile,
+                                  bool without_sites) {
+  std::unique_ptr<const PermissionSet> listed =
+      OrEmpty(extensions::ExtensionPrefs::Get(profile)->GetGrantedPermissions(
+          extension.id()));
+  if (without_sites) {
+    listed = std::make_unique<PermissionSet>(
+        listed->apis().Clone(), listed->manifest_permissions().Clone(),
+        extensions::URLPatternSet(), extensions::URLPatternSet());
+  }
+  const extensions::PermissionMessageProvider* provider =
+      extensions::PermissionMessageProvider::Get();
+  NSMutableArray<NSString*>* messages = [NSMutableArray array];
+  for (const extensions::PermissionMessage& message :
+       provider->GetPermissionMessages(
+           provider->GetAllPermissionIDs(*listed, extension.GetType()))) {
+    [messages addObject:base::SysUTF16ToNSString(message.message())];
+  }
+  return [messages copy];
+}
+
+NSURL* URLOrNil(const GURL& url) {
+  return url.is_valid() ? net::NSURLWithGURL(url) : nil;
+}
+
+}  // namespace
+
+@implementation PaneExtensionDetails
+
+@synthesize source = _source;
+@synthesize permissions = _permissions;
+@synthesize siteAccess = _siteAccess;
+@synthesize wantsFileAccess = _wantsFileAccess;
+@synthesize allowsFileAccess = _allowsFileAccess;
+@synthesize homepageURL = _homepageURL;
+@synthesize webStoreURL = _webStoreURL;
+
+- (instancetype)initWithExtension:(const extensions::Extension&)extension
+                          profile:(Profile*)profile {
+  if ((self = [super init])) {
+    _source = SourceOf(extension, profile);
+    _siteAccess = SiteAccessOf(extension, profile);
+    _permissions = PermissionsOf(extension, profile,
+                                 _siteAccess != PaneExtensionSiteAccessNone);
+    _wantsFileAccess =
+        extension.wants_file_access() ||
+        extensions::Manifest::ShouldAlwaysAllowFileAccess(extension.location());
+    _allowsFileAccess =
+        extensions::util::AllowFileAccess(extension.id(), profile);
+    _homepageURL =
+        URLOrNil(extensions::ManifestURL::GetManifestHomePageURL(&extension));
+    _webStoreURL =
+        URLOrNil(extensions::ManifestURL::GetWebStoreURL(&extension));
   }
   return self;
 }

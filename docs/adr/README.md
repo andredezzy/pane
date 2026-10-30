@@ -102,3 +102,6 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
 - [0100](0100-installer-is-laid-out-as-harks.md) The installer is laid out as Hark's
+- [0101](0101-action-menu-offers-chromes-site-access.md) The pinned action's right-click menu offers Chrome's site access
+- [0102](0102-extension-details-on-the-extensions-page.md) An extension's Details are a view of the Extensions page
+- [0103](0103-chromes-reload-prompt-is-declined.md) Chrome's reload prompt after a site access change is declined without a dialog

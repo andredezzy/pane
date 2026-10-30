@@ -5,10 +5,10 @@ import PaneKit
 // The extensions feature, beside the browser it runs in: each open
 // profile's extensions as the engine last reported them, the toolbar
 // puzzle's menu (ExtensionsMenu) and an extension's more menu beside it, the
-// popups that add or remove one (ExtensionPromptView), and the action
-// popups (ExtensionPopover). Esc closes the topmost, Return accepts a popup
-// (KeyRouter); a menu also closes on a click outside it, or once one of its
-// items runs.
+// Extensions page's Details of one, the popups that add or remove one
+// (ExtensionPromptView), and the action popups (ExtensionPopover). Esc
+// closes the topmost, Return accepts a popup (KeyRouter); a menu also closes
+// on a click outside it, or once one of its items runs.
 @MainActor
 @Observable
 final class ExtensionsController {
@@ -31,9 +31,12 @@ final class ExtensionsController {
 	// Where each extension's toolbar button is (in the window's SwiftUI
 	// coordinates), and the puzzle (menuAnchor), for popups to point at.
 	var actionAnchors: [String: CGRect] = [:]
-	// Where the Extensions page scrolls as it opens: one extension's card
-	// (its accessibility identifier).
+	// Where the Extensions page's list scrolls as it shows: one extension's
+	// card (its accessibility identifier).
 	var pageAnchor: String?
+	// The extension the Extensions page shows the Details of, instead of the
+	// list.
+	private(set) var details: ShownDetails?
 	// Shows extension action popups.
 	let popover = ExtensionPopover()
 
@@ -65,6 +68,10 @@ final class ExtensionsController {
 		}
 
 		lists[profileID] = context.extensions.map(ExtensionInfo.init)
+
+		if details?.profileID == profileID {
+			refreshDetails()
+		}
 	}
 
 	// A deleted profile's go with it.
@@ -101,8 +108,8 @@ final class ExtensionsController {
 		return context.runExtensionShortcut(event, in: browser.browserWindow)
 	}
 
-	// The extension's own items for its action's right-click menu
-	// (chrome.contextMenus), as for the active tab; nil when it has none.
+	// The extension's own items and its site access for its action's
+	// right-click menu, as for the active tab; nil when it has neither.
 	func actionMenu(_ extensionID: String) -> ExtensionActionMenu? {
 		guard let profileID = model.activeProfileID, let context = browser.context(for: profileID) else {
 			return nil
@@ -132,6 +139,19 @@ final class ExtensionsController {
 
 	func uninstall(_ extensionID: String, inProfile profileID: String) {
 		browser.context(for: profileID)?.uninstallExtension(extensionID)
+	}
+
+	// Details' Site access pop-up. The engine changes it at once, so Details
+	// shows it in the same frame, before the engine reports the change.
+	func setSiteAccess(_ extensionID: String, _ access: ExtensionSiteAccess, inProfile profileID: String) {
+		browser.context(for: profileID)?.setSiteAccess(access, forExtension: extensionID)
+		refreshDetails()
+	}
+
+	// Details' Allow access to file URLs; the engine reloads the extension.
+	func setFileAccess(_ extensionID: String, _ allowed: Bool, inProfile profileID: String) {
+		browser.context(for: profileID)?.setAllowsFileAccess(allowed, forExtension: extensionID)
+		refreshDetails()
 	}
 
 	// The engine asks before adding: in the window, as Aside's popup, since
@@ -237,11 +257,56 @@ final class ExtensionsController {
 		runAction(extensionID)
 	}
 
-	// The Extensions page, at one extension's card if given.
-	func showPage(extensionID: String? = nil) {
+	// The Extensions page, its list.
+	func showPage() {
 		closeMenu()
-		pageAnchor = extensionID.map { "pane.extensions.extension.\($0)" }
+		details = nil
 		browser.showPage(.extensions)
+	}
+
+	// The Extensions page at an extension's Details, in a profile (the active
+	// one by default): a card's Details, and Manage Extension and View Web
+	// Permissions, which open chrome://extensions/?id= in Chrome. Its size is
+	// measured off the main thread and joins it once known.
+	func showDetails(_ extensionID: String, inProfile profileID: String? = nil) {
+		closeMenu()
+
+		guard let profileID = profileID ?? model.activeProfileID else {
+			return
+		}
+
+		details = ShownDetails(profileID: profileID, extensionID: extensionID)
+		refreshDetails()
+		browser.showPage(.extensions)
+
+		browser.context(for: profileID)?.size(ofExtension: extensionID) { [weak self] size in
+			guard let self, details?.extensionID == extensionID, details?.profileID == profileID else {
+				return
+			}
+
+			details?.size = size
+		}
+	}
+
+	// Details' back arrow: the list, at the extension's card.
+	func closeDetails() {
+		pageAnchor = details.map { "pane.extensions.extension.\($0.extensionID)" }
+		details = nil
+	}
+
+	// What the engine holds of the shown extension now; the list once it is
+	// removed.
+	private func refreshDetails() {
+		guard let shown = details, let context = browser.context(for: shown.profileID) else {
+			return
+		}
+
+		guard let engine = context.details(ofExtension: shown.extensionID) else {
+			details = nil
+			return
+		}
+
+		details?.engine = engine
 	}
 
 	// The Chrome Web Store in a new tab of the profile (the active one by
@@ -261,6 +326,11 @@ final class ExtensionsController {
 		if let profileID = model.activeProfileID, let url = URL(string: "https://chromewebstore.google.com/detail/\(extensionID)") {
 			browser.openTab(inProfile: profileID, url: url)
 		}
+	}
+
+	// Details' website and Web Store page.
+	func openLink(_ url: URL, inProfile profileID: String) {
+		browser.openTab(inProfile: profileID, url: url)
 	}
 
 	func openOptions(_ item: ExtensionInfo, inProfile profileID: String? = nil) {
@@ -303,6 +373,15 @@ final class ExtensionsController {
 		self.prompt = nil
 		prompt.answer(accepted, accepted && promptReportsAbuse)
 	}
+}
+
+// The extension Details shows, in its profile: what the engine adds to its
+// snapshot (ExtensionInfo), and the size of its files once measured.
+struct ShownDetails {
+	let profileID: String
+	let extensionID: String
+	var engine: ExtensionDetails?
+	var size: String?
 }
 
 // Adding or removing an extension, as its popup asks.

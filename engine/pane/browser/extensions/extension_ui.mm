@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/extension_install_prompt_show_params.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/install_prompt_data.h"
 #include "extensions/common/extension.h"
@@ -99,12 +100,25 @@ std::optional<bool> OpenActionPopup(BrowserWindowInterface& browser,
   return true;
 }
 
+// Chrome's reload prompt, for a tab of Pane's: declined without a dialog,
+// as the device choosers are (ADR 0022).
+bool ReloadPageDialog(content::WebContents* contents) {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+  if (!browser || !HostedBrowserWindow::IsOurs(browser)) {
+    return false;
+  }
+  PANE_TRACE("engine", "PaneExtensions.declineReloadPrompt");
+  return true;
+}
+
 }  // namespace
 
 void InstallExtensionHooks() {
   g_pane_extension_install_dialog = &ConfirmInstall;
   g_pane_extension_installed = &Installed;
   g_pane_open_action_popup = &OpenActionPopup;
+  g_pane_reload_page_dialog = &ReloadPageDialog;
 }
 
 }  // namespace pane

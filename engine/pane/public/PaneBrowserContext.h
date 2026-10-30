@@ -6,14 +6,11 @@
 #import <Foundation/Foundation.h>
 
 #import "PaneExport.h"
+#import "PaneExtensions.h"
 
 @class NSEvent;
 @class PaneBrowserContext;
 @class PaneBrowserWindow;
-@class PaneExtension;
-@class PaneExtensionActionMenu;
-@class PaneExtensionInstallRequest;
-@class PaneExtensionPopup;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -127,11 +124,30 @@ NS_SWIFT_UI_ACTOR
 - (BOOL)runExtensionShortcut:(NSEvent*)event
                     inWindow:(PaneBrowserWindow*)window
     NS_SWIFT_NAME(runExtensionShortcut(_:in:));
-// The extension's own items for its action's right-click menu, as for the
-// active tab of `window`; nil when it has none.
+// The extension's own items and site access for its action's right-click
+// menu, as for the active tab of `window`; nil when it has neither.
 - (nullable PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier
                                                   inWindow:(PaneBrowserWindow*)window
     NS_SWIFT_NAME(actionMenu(ofExtension:in:));
+// The extension's details, as chrome://extensions shows them; nil when it is
+// not installed.
+- (nullable PaneExtensionDetails*)detailsOfExtension:(NSString*)identifier
+    NS_SWIFT_NAME(details(ofExtension:));
+// The size of the extension's files, as the details page words it ("41.3
+// MB", "< 1 MB"), measured off the main thread. `completion` runs on the
+// main thread, with nil when it is not installed.
+- (void)sizeOfExtension:(NSString*)identifier
+             completion:(void (^)(NSString* _Nullable size))completion
+    NS_SWIFT_NAME(size(ofExtension:completion:));
+// Where it may read and change sites' data, as the details page's pop-up
+// sets it. None, or an extension without the pop-up, changes nothing.
+- (void)setSiteAccess:(PaneExtensionSiteAccess)access
+         forExtension:(NSString*)identifier
+    NS_SWIFT_NAME(setSiteAccess(_:forExtension:));
+// Allow access to file URLs. Chrome reloads the extension to apply it.
+- (void)setAllowsFileAccess:(BOOL)allows
+               forExtension:(NSString*)identifier
+    NS_SWIFT_NAME(setAllowsFileAccess(_:forExtension:));
 
 - (instancetype)init NS_UNAVAILABLE;
 

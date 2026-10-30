@@ -57,10 +57,10 @@ index 37c881f5d2..fa344c6c5d 100644
 +_OBJC_METACLASS_$_Pane*
 +_Pane*
 diff --git a/chrome/app/framework.order b/chrome/app/framework.order
-index 6dbc3aeff3..ed64f69196 100644
+index 6dbc3aeff3..df39378f9a 100644
 --- a/chrome/app/framework.order
 +++ b/chrome/app/framework.order
-@@ -31,3 +31,45 @@ _ChromeWebAppShortcutCopierMain
+@@ -31,3 +31,47 @@ _ChromeWebAppShortcutCopierMain
  
  # _ChromeMain must be listed last.  That's the whole point of this file.
  _ChromeMain
@@ -106,6 +106,8 @@ index 6dbc3aeff3..ed64f69196 100644
 +_OBJC_METACLASS_$_PaneExtensionMenuItem
 +_OBJC_CLASS_$_PaneExtensionActionMenu
 +_OBJC_METACLASS_$_PaneExtensionActionMenu
++_OBJC_CLASS_$_PaneExtensionDetails
++_OBJC_METACLASS_$_PaneExtensionDetails
 diff --git a/chrome/app/theme/chromium/BRANDING b/chrome/app/theme/chromium/BRANDING
 index f8363d5b29..0debf509c1 100644
 --- a/chrome/app/theme/chromium/BRANDING

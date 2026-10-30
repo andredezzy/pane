@@ -9,19 +9,33 @@
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/extensions/context_menu_helpers.h"
+#include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/menu_manager.h"
+#include "chrome/browser/extensions/permissions_url_constants.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/url_formatter/url_formatter.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/permissions/site_permissions_helper.h"
+#include "extensions/browser/permissions_manager.h"
 #include "extensions/common/api/extension_action/action_info.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/permissions/permissions_data.h"
 #include "pane/browser/engine_trace.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/image/image.h"
+#include "url/origin.h"
 
 #import "pane/browser/extensions/extensions_internal.h"
 
@@ -46,6 +60,43 @@ bool MatchesAction(std::optional<extensions::ActionInfo::Type> type,
           *type == ActionInfo::Type::kBrowser) ||
          (contexts.Contains(MenuItem::ACTION) &&
           *type == ActionInfo::Type::kAction);
+}
+
+using extensions::ExtensionContextMenuModel;
+using extensions::PermissionsManager;
+
+// As Chrome's CommandIdToSiteAccess: what a page access choice sets.
+std::optional<PermissionsManager::UserSiteAccess> SiteAccessOf(int command_id) {
+  switch (command_id) {
+    case ExtensionContextMenuModel::PAGE_ACCESS_RUN_ON_CLICK:
+      return PermissionsManager::UserSiteAccess::kOnClick;
+    case ExtensionContextMenuModel::PAGE_ACCESS_RUN_ON_SITE:
+      return PermissionsManager::UserSiteAccess::kOnSite;
+    case ExtensionContextMenuModel::PAGE_ACCESS_RUN_ON_ALL_SITES:
+      return PermissionsManager::UserSiteAccess::kOnAllSites;
+    default:
+      return std::nullopt;
+  }
+}
+
+// One of Chrome's page access items, its apostrophes typographic as the
+// app's own text ("Can’t Read or Change Site’s Data").
+PaneExtensionMenuItem* SiteAccessItem(
+    PaneExtensionMenuItemKind kind,
+    int command_id,
+    std::u16string title,
+    bool enabled,
+    bool checked = false,
+    NSArray<PaneExtensionMenuItem*>* children = @[]) {
+  base::ReplaceChars(title, u"'", u"\u2019", &title);
+  return [[PaneExtensionMenuItem alloc]
+      initWithKind:kind
+         commandID:command_id
+             title:base::SysUTF16ToNSString(title)
+           enabled:enabled
+           checked:checked
+              icon:nil
+          children:children];
 }
 
 // The items of `model` that show, with a separator only between two others.
@@ -169,6 +220,99 @@ bool ExtensionMenu::IsCommandIdVisible(int command_id) const {
 // The app runs an item through Run, never through the model.
 void ExtensionMenu::ExecuteCommand(int command_id, int event_flags) {}
 
+NSArray<PaneExtensionMenuItem*>* SiteAccessItems(
+    const extensions::Extension& extension,
+    content::WebContents& contents) {
+  // As ExtensionContextMenuModel::InitMenu: only for an extension that asks
+  // for site access, by host permissions or activeTab.
+  PermissionsManager* permissions =
+      PermissionsManager::Get(contents.GetBrowserContext());
+  const GURL& url = contents.GetLastCommittedURL();
+  if (!permissions->CanAffectExtension(extension) &&
+      !permissions->HasActiveTabAndCanAccess(extension, url)) {
+    return @[];
+  }
+  // It wants site access, but can't run here.
+  if (!permissions->CanUserSelectSiteAccess(
+          extension, url, PermissionsManager::UserSiteAccess::kOnClick)) {
+    return @[ SiteAccessItem(
+        PaneExtensionMenuItemKindNormal,
+        ExtensionContextMenuModel::PAGE_ACCESS_CANT_ACCESS,
+        l10n_util::GetStringUTF16(IDS_EXTENSIONS_CONTEXT_MENU_CANT_ACCESS_PAGE),
+        /*enabled=*/false) ];
+  }
+  // The three choices, each enabled and checked as the model's delegate
+  // says, for the page's origin.
+  const GURL site = url::Origin::Create(url).GetURL();
+  std::optional<PermissionsManager::UserSiteAccess> current;
+  if (!extension.permissions_data()->IsRestrictedUrl(site, nullptr)) {
+    current = permissions->GetUserSiteAccess(extension, site);
+  }
+  auto choice = [&](int command_id, const std::u16string& title) {
+    const PermissionsManager::UserSiteAccess access = *SiteAccessOf(command_id);
+    return SiteAccessItem(
+        PaneExtensionMenuItemKindRadio, command_id, title,
+        permissions->CanUserSelectSiteAccess(extension, site, access),
+        current == access);
+  };
+  NSArray<PaneExtensionMenuItem*>* choices = @[
+    choice(ExtensionContextMenuModel::PAGE_ACCESS_RUN_ON_CLICK,
+           l10n_util::GetStringUTF16(
+               IDS_EXTENSIONS_CONTEXT_MENU_PAGE_ACCESS_RUN_ON_CLICK)),
+    choice(ExtensionContextMenuModel::PAGE_ACCESS_RUN_ON_SITE,
+           l10n_util::GetStringFUTF16(
+               IDS_EXTENSIONS_CONTEXT_MENU_PAGE_ACCESS_RUN_ON_SITE,
+               url_formatter::IDNToUnicode(
+                   url_formatter::StripWWW(url.GetHost())))),
+    choice(ExtensionContextMenuModel::PAGE_ACCESS_RUN_ON_ALL_SITES,
+           l10n_util::GetStringUTF16(
+               IDS_EXTENSIONS_CONTEXT_MENU_PAGE_ACCESS_RUN_ON_ALL_SITES)),
+    SiteAccessItem(PaneExtensionMenuItemKindSeparator, -1, std::u16string(),
+                   /*enabled=*/true),
+    SiteAccessItem(PaneExtensionMenuItemKindNormal,
+                   ExtensionContextMenuModel::PAGE_ACCESS_LEARN_MORE,
+                   l10n_util::GetStringUTF16(
+                       IDS_EXTENSIONS_CONTEXT_MENU_PAGE_ACCESS_LEARN_MORE),
+                   /*enabled=*/true),
+  ];
+  return @[ SiteAccessItem(
+      PaneExtensionMenuItemKindSubmenu,
+      ExtensionContextMenuModel::PAGE_ACCESS_SUBMENU,
+      l10n_util::GetStringUTF16(IDS_EXTENSIONS_CONTEXT_MENU_PAGE_ACCESS),
+      /*enabled=*/true, /*checked=*/false, choices) ];
+}
+
+void RunSiteAccessItem(PaneExtensionMenuItem* item,
+                       const extensions::Extension& extension,
+                       content::WebContents& contents,
+                       const url::Origin& origin) {
+  if (item.commandID == ExtensionContextMenuModel::PAGE_ACCESS_LEARN_MORE) {
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(&contents);
+    if (!browser) {
+      return;
+    }
+    NavigateParams params(
+        browser,
+        GURL(extension_permissions_constants::kRuntimeHostPermissionsHelpURL),
+        ui::PAGE_TRANSITION_LINK);
+    params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    Navigate(&params);
+    return;
+  }
+  // As Chrome: nothing once the tab has gone to another origin, or for an
+  // extension whose site access can't change.
+  std::optional<PermissionsManager::UserSiteAccess> access =
+      SiteAccessOf(item.commandID);
+  if (!access || !origin.IsSameOriginWith(contents.GetLastCommittedURL()) ||
+      !PermissionsManager::Get(contents.GetBrowserContext())
+           ->CanAffectExtension(extension)) {
+    return;
+  }
+  extensions::SitePermissionsHelper(contents.GetBrowserContext())
+      .UpdateSiteAccess(extension, &contents, *access, origin);
+}
+
 }  // namespace pane
 
 // MARK: - PaneExtensionMenuItem
@@ -209,27 +353,47 @@ void ExtensionMenu::ExecuteCommand(int command_id, int event_flags) {}
 @implementation PaneExtensionActionMenu {
   std::unique_ptr<pane::ExtensionMenu> _menu;
   base::WeakPtr<content::WebContents> _contents;
+  extensions::ExtensionId _extensionID;
+  // The page's origin as the menu was made, as Chrome's model keeps it.
+  url::Origin _origin;
 }
 
 @synthesize items = _items;
+@synthesize siteAccessItems = _siteAccessItems;
 
 - (instancetype)initWithMenu:(std::unique_ptr<pane::ExtensionMenu>)menu
+                   extension:(const extensions::Extension&)extension
                     contents:(content::WebContents&)contents {
   if ((self = [super init])) {
     _menu = std::move(menu);
     _contents = contents.GetWeakPtr();
+    _extensionID = extension.id();
+    _origin = url::Origin::Create(contents.GetLastCommittedURL());
     _items = _menu->Items();
+    _siteAccessItems = pane::SiteAccessItems(extension, contents);
   }
   return self;
 }
 
 // As Chrome's action menu runs one: for the tab, with no frame or page
-// clicked.
+// clicked; site access for the extension while it is still enabled.
 - (void)runItem:(PaneExtensionMenuItem*)item {
   PANE_TRACE("call", "PaneExtensionActionMenu.run",
              base::DictValue().Set("title", base::SysNSStringToUTF8(item.title)));
-  if (_contents) {
+  if (!_contents) {
+    return;
+  }
+  if (extensions::ContextMenuMatcher::IsExtensionsCustomCommandId(
+          item.commandID)) {
     _menu->Run(item, _contents.get(), nullptr);
+    return;
+  }
+  const extensions::Extension* extension =
+      extensions::ExtensionRegistry::Get(_contents->GetBrowserContext())
+          ->enabled_extensions()
+          .GetByID(_extensionID);
+  if (extension) {
+    pane::RunSiteAccessItem(item, *extension, *_contents, _origin);
   }
 }
 

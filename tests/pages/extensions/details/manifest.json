@@ -1,0 +1,12 @@
+{
+	"manifest_version": 3,
+	"name": "Pane details probe",
+	"version": "2.4.1",
+	"description": "Asks for every site, downloads, and notifications, and has an options page, for Pane's Details scenario.",
+	"homepage_url": "https://example.com/pane-details-probe",
+	"action": { "default_title": "Details probe" },
+	"background": { "service_worker": "worker.js" },
+	"options_page": "options.html",
+	"permissions": ["downloads", "notifications", "storage"],
+	"host_permissions": ["<all_urls>"]
+}

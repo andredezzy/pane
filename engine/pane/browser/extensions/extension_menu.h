@@ -25,6 +25,10 @@ class Extension;
 class MenuItem;
 }  // namespace extensions
 
+namespace url {
+class Origin;
+}  // namespace url
+
 namespace pane {
 
 // The items extensions add to a context menu (chrome.contextMenus), laid out
@@ -72,6 +76,21 @@ class ExtensionMenu : public ui::SimpleMenuModel::Delegate {
   ui::SimpleMenuModel model_{this};
   extensions::ContextMenuMatcher matcher_;
 };
+
+// `extension`'s site access on `contents`'s page, as Chrome's action menu
+// offers it (ExtensionContextMenuModel::CreatePageAccessItems, the menu
+// without kExtensionsMenuAccessControl), with its strings and command IDs:
+// empty when the extension asks for no site access.
+NSArray<PaneExtensionMenuItem*>* SiteAccessItems(
+    const extensions::Extension& extension,
+    content::WebContents& contents);
+
+// Runs one of them as Chrome's model does: a choice while the page is still
+// at `origin`, where it was offered; Learn More in a new tab.
+void RunSiteAccessItem(PaneExtensionMenuItem* item,
+                       const extensions::Extension& extension,
+                       content::WebContents& contents,
+                       const url::Origin& origin);
 
 }  // namespace pane
 

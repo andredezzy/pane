@@ -53,21 +53,31 @@ struct ExtensionActionsView: View {
 	}
 }
 
-// A pinned action's right-click menu, native and plain as Aside's: its name
-// (its Web Store page), the extension's own items for its action, Remove
-// from Pane and Unpin, then Manage Extension. Aside also lists its site
-// access, which needs the engine.
+// A pinned action's right-click menu, native and plain as Aside's (Paper:
+// 04.13.1, 04.13.2): its name (its Web Store page), the extension's own
+// items for its action, its site access on the page, Remove from Pane and
+// Unpin, then Manage Extension and, for an extension that asks for site
+// access, View Web Permissions (both its Details).
 private struct ActionContextMenu: View {
 	let extensions: ExtensionsController
 	let item: ExtensionInfo
 
 	var body: some View {
+		let menu = extensions.actionMenu(item.id)
+		let siteAccess = menu?.siteAccessItems ?? []
+
 		Button(item.name) { extensions.openStorePage(item.id) }
 
-		if let menu = extensions.actionMenu(item.id) {
+		if let menu, !menu.items.isEmpty {
 			Divider()
 
 			ExtensionMenuItems(items: menu.items, run: menu.run)
+		}
+
+		if let menu, !siteAccess.isEmpty {
+			Divider()
+
+			ExtensionMenuItems(items: siteAccess, run: menu.run)
 		}
 
 		Divider()
@@ -78,7 +88,11 @@ private struct ActionContextMenu: View {
 
 		Divider()
 
-		Button("Manage Extension") { extensions.showPage(extensionID: item.id) }
+		Button("Manage Extension") { extensions.showDetails(item.id) }
+
+		if !siteAccess.isEmpty {
+			Button("View Web Permissions") { extensions.showDetails(item.id) }
+		}
 	}
 }
 

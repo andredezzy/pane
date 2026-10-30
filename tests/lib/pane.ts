@@ -186,6 +186,20 @@ export type AppState = {
 	devToolsTabs: string[];
 	printRequests: number;
 	extensions: Record<string, ExtensionState[]>;
+	// The extension the Extensions page shows the Details of.
+	extensionDetails: {
+		extension: string;
+		profile: string;
+		// Once measured.
+		size: string | null;
+		source: string | null;
+		permissions: string[];
+		siteAccess: "none" | "onClick" | "onSpecificSites" | "onAllSites";
+		wantsFileAccess: boolean;
+		allowsFileAccess: boolean;
+		homepage: string | null;
+		webStore: string | null;
+	} | null;
 	extensionPopup: {
 		extension: string;
 		open: boolean;

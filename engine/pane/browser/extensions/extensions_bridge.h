@@ -18,6 +18,7 @@
 #include "extensions/browser/extension_action_icon_factory.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_observer.h"
+#include "extensions/browser/permissions_manager.h"
 
 @class NSArray;
 @class PaneBrowserContext;
@@ -27,16 +28,18 @@ class Profile;
 
 namespace pane {
 
-// Watches a profile's extensions (installs, enabling, pins, and each action's
-// title, badge, and icon, which differ per tab) and the profile's selected
-// tab, and tells the PaneBrowserContext's delegate, coalescing bursts into one
-// report.
-class ExtensionsBridge : public extensions::ExtensionRegistryObserver,
-                         public extensions::ExtensionActionDispatcher::Observer,
-                         public ToolbarActionsModel::Observer,
-                         public extensions::ExtensionActionIconFactory::Observer,
-                         public TabStripModelObserver,
-                         public BrowserTabStripTrackerDelegate {
+// Watches a profile's extensions (installs, enabling, pins, site access, and
+// each action's title, badge, and icon, which differ per tab) and the
+// profile's selected tab, and tells the PaneBrowserContext's delegate,
+// coalescing bursts into one report.
+class ExtensionsBridge
+    : public extensions::ExtensionRegistryObserver,
+      public extensions::ExtensionActionDispatcher::Observer,
+      public extensions::PermissionsManager::Observer,
+      public ToolbarActionsModel::Observer,
+      public extensions::ExtensionActionIconFactory::Observer,
+      public TabStripModelObserver,
+      public BrowserTabStripTrackerDelegate {
  public:
   ExtensionsBridge(PaneBrowserContext* context, Profile* profile);
   ExtensionsBridge(const ExtensionsBridge&) = delete;
@@ -69,6 +72,13 @@ class ExtensionsBridge : public extensions::ExtensionRegistryObserver,
       content::WebContents* web_contents,
       content::BrowserContext* browser_context) override;
   void OnShuttingDown() override;
+
+  // extensions::PermissionsManager::Observer:
+  void OnExtensionPermissionsUpdated(
+      const extensions::Extension& extension,
+      const extensions::PermissionSet& permissions,
+      extensions::PermissionsManager::UpdateReason reason) override;
+  void OnPermissionsManagerShutdown() override;
 
   // ToolbarActionsModel::Observer:
   void OnToolbarActionAdded(const ToolbarActionsModel::ActionId& id) override;
@@ -109,6 +119,9 @@ class ExtensionsBridge : public extensions::ExtensionRegistryObserver,
   base::ScopedObservation<extensions::ExtensionActionDispatcher,
                           extensions::ExtensionActionDispatcher::Observer>
       action_observation_{this};
+  base::ScopedObservation<extensions::PermissionsManager,
+                          extensions::PermissionsManager::Observer>
+      permissions_observation_{this};
   base::ScopedObservation<ToolbarActionsModel, ToolbarActionsModel::Observer>
       toolbar_observation_{this};
   BrowserTabStripTracker tab_strip_tracker_{this, this};

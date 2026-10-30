@@ -21,6 +21,10 @@ class ExtensionInstallPromptShowParams;
 class Profile;
 class SkBitmap;
 
+namespace content {
+class WebContents;
+}  // namespace content
+
 namespace extensions {
 class Extension;
 class InstallPromptData;
@@ -48,5 +52,11 @@ extern std::optional<bool> (*g_pane_open_action_popup)(
     const extensions::Extension& extension,
     ShowPopupCallback& callback,
     std::string* error);
+
+// extension_action_runner.cc: Chrome's "Reload this page to apply your
+// updated settings on this site", after an extension's site access changed.
+// True when Pane answered it instead: Cancel, at once, as its tabs show no
+// Chrome dialog; the page takes the change on its next load.
+extern bool (*g_pane_reload_page_dialog)(content::WebContents* web_contents);
 
 #endif  // PANE_BROWSER_EXTENSIONS_EXTENSION_HOOKS_H_

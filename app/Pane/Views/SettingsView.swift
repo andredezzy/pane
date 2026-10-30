@@ -129,24 +129,30 @@ extension SettingsView {
 	static let cacheBudgetOptions: [(String, Int?)] = [("100 MB", 100), ("300 MB", 300), ("1 GB", 1024), ("Off", nil)]
 }
 
-// A section: its muted label 15 points in, over a card rounded 22 with a
-// 1-point border, its rows inside.
-private struct SettingsGroup<Content: View>: View {
-	let title: String
+// A section: its muted label 15 points in, if it has one, over a card
+// rounded 22 with a 1-point border, its rows inside the border (as CSS lays
+// out a bordered card) and clipped to it. The Extensions page's Details is
+// laid out in them too.
+struct SettingsGroup<Content: View>: View {
+	var title: String?
 	@ViewBuilder let content: Content
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 10) {
-			Text(title)
-				.font(.system(size: 13))
-				.foregroundStyle(Palette.mutedForeground)
-				.lineBox(18)
-				.padding(.leading, 15)
+			if let title {
+				Text(title)
+					.font(.system(size: 13))
+					.foregroundStyle(Palette.mutedForeground)
+					.lineBox(18)
+					.padding(.leading, 15)
+			}
 
 			VStack(spacing: 0) {
 				content
 			}
-			.background(Palette.card, in: Squircle(cornerRadius: 22))
+			.padding(.vertical, 1)
+			.background(Palette.card)
+			.clipShape(Squircle(cornerRadius: 22))
 			.overlay {
 				Squircle(cornerRadius: 22)
 					.strokeBorder(Palette.border, lineWidth: 1)
@@ -156,22 +162,28 @@ private struct SettingsGroup<Content: View>: View {
 	}
 }
 
-// A row, at least 56 points: the title at 13 on an 18-point line and its
-// description at 12 on 16-point lines, muted, then the control 10 points in
-// from the card's 1-point border; a hairline under every row but the last.
-private struct SettingsRow<Control: View>: View {
+// A row, at least 56 points (Details' rows without a description, 48): the
+// title at 13 on an 18-point line and its description at 12 on 16-point
+// lines, muted, then the control 10 points in from the card's 1-point
+// border; a hairline under every row but the last.
+struct SettingsRow<Control: View>: View {
 	let title: String
 	var description: String?
+	var minHeight: CGFloat = 56
 	var last = false
 	@ViewBuilder let control: Control
 
 	var body: some View {
 		HStack(spacing: 16) {
 			VStack(alignment: .leading, spacing: 2) {
+				// On 18-point lines (16 of its own), wrapping where the control
+				// leaves it too little room (Details' Site access).
 				Text(title)
 					.font(.system(size: 13))
 					.foregroundStyle(Palette.foreground)
-					.lineBox(18)
+					.lineSpacing(2)
+					.padding(.vertical, 1)
+					.fixedSize(horizontal: false, vertical: true)
 
 				if let description {
 					// A status that changes (the update check's) crossfades,
@@ -194,7 +206,7 @@ private struct SettingsRow<Control: View>: View {
 		.padding(.leading, 16)
 		.padding(.trailing, 11)
 		.padding(.vertical, 12)
-		.frame(minHeight: 56)
+		.frame(minHeight: minHeight)
 		.overlay(alignment: .bottom) {
 			if !last {
 				Hairline()

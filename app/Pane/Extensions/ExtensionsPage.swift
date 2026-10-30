@@ -3,8 +3,9 @@ import SwiftUI
 
 // The Extensions page (Paper: 09 · Extensions), Pane's chrome://extensions,
 // as Chrome and Aside have theirs: a profile's extensions as cards, two to a
-// row, found by name or description, each with its options, removal, pin,
-// and switch. Extensions come from the Chrome Web Store's own install button, which the engine labels Add to Pane.
+// row, found by name or description, each with its details, options,
+// removal, pin, and switch; or one extension's Details
+// (ExtensionDetailsView). Extensions come from the Chrome Web Store's own install button, which the engine labels Add to Pane.
 // Extensions are per profile, so a profile select leads, on the active one.
 struct ExtensionsPage: View {
 	let model: BrowserModel
@@ -32,6 +33,35 @@ struct ExtensionsPage: View {
 	}
 
 	var body: some View {
+		Group {
+			if let shown = controller.details, let item = controller.list(shown.profileID).first(where: { $0.id == shown.extensionID }) {
+				ExtensionDetailsView(
+					controller: controller,
+					item: item,
+					shown: shown,
+					profileName: model.profile(shown.profileID)?.name ?? "this profile"
+				)
+			} else {
+				list
+			}
+		}
+		.onAppear {
+			selectedProfileID.map(controller.refresh)
+		}
+		// Back from Details, the list is its profile's.
+		.onChange(of: controller.details?.profileID, initial: true) { _, id in
+			if let id {
+				profileID = id
+			}
+		}
+		.onChange(of: profileID) { _, id in
+			if let id {
+				controller.openContextIfNeeded(profileID: id)
+			}
+		}
+	}
+
+	private var list: some View {
 		ScrollViewReader { proxy in
 			ScrollView {
 				VStack(alignment: .leading, spacing: 20) {
@@ -66,8 +96,8 @@ struct ExtensionsPage: View {
 				.padding(.vertical, 32)
 				.frame(maxWidth: .infinity, alignment: .leading)
 			}
-			// Manage Extension opens the page at the extension's card, once
-			// the cards are laid out.
+			// Back from Details, the list shows the extension's card, once the
+			// cards are laid out.
 			.onChange(of: controller.pageAnchor, initial: true) { _, anchor in
 				guard let anchor else {
 					return
@@ -80,14 +110,6 @@ struct ExtensionsPage: View {
 			}
 		}
 		.background(Palette.card)
-		.onAppear {
-			selectedProfileID.map(controller.refresh)
-		}
-		.onChange(of: profileID) { _, id in
-			if let id {
-				controller.openContextIfNeeded(profileID: id)
-			}
-		}
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.extensions")
 	}
@@ -157,6 +179,7 @@ struct ExtensionsPage: View {
 			setPinned: { pinned in
 				selectedProfileID.map { controller.setPinned(item.id, pinned, inProfile: $0) }
 			},
+			details: { controller.showDetails(item.id, inProfile: selectedProfileID) },
 			options: { controller.openOptions(item, inProfile: selectedProfileID) },
 			remove: {
 				selectedProfileID.map { controller.confirmUninstall(item, inProfile: $0) }
@@ -234,14 +257,16 @@ private struct SearchField: View {
 	}
 }
 
-// A card, rounded 15 with a 1px border, p-4: the 40-point icon, the name and
-// version, two lines of description, and the pin at the top; Options (when
-// the extension has a page) and Remove at the bottom, the switch at its end.
-// A disabled extension's icon and text dim.
+// A card, rounded 15 with a 1px border, p-4: the 40-point icon, the name,
+// two lines of description, and the pin at the top; Details, Options (when
+// the extension has a page, which opens while it is enabled), and Remove at
+// the bottom, the switch at its end. The version is in Details (Paper:
+// 09.15). A disabled extension's icon and text dim.
 private struct ExtensionCard: View {
 	let item: ExtensionInfo
 	let setEnabled: @MainActor (Bool) -> Void
 	let setPinned: @MainActor (Bool) -> Void
+	let details: () -> Void
 	let options: () -> Void
 	let remove: () -> Void
 
@@ -267,17 +292,11 @@ private struct ExtensionCard: View {
 				.opacity(item.enabled ? 1 : 0.6)
 
 				VStack(alignment: .leading, spacing: 3) {
-					HStack(alignment: .firstTextBaseline, spacing: 6) {
-						Text(item.name)
-							.font(.system(size: 13, weight: .medium))
-							.foregroundStyle(Palette.accentForeground)
-							.lineLimit(1)
-						Text(item.version)
-							.font(.system(size: 11))
-							.foregroundStyle(Palette.mutedForeground)
-							.fixedSize()
-					}
-					.lineBox(18)
+					Text(item.name)
+						.font(.system(size: 13, weight: .medium))
+						.foregroundStyle(Palette.accentForeground)
+						.lineLimit(1)
+						.lineBox(18)
 
 					if !item.summary.isEmpty {
 						// 18-point lines.
@@ -301,9 +320,14 @@ private struct ExtensionCard: View {
 			.frame(maxHeight: .infinity, alignment: .top)
 
 			HStack(spacing: 8) {
+				Button("Details", action: details)
+					.buttonStyle(.pane(.outline, size: .small))
+					.accessibilityIdentifier("pane.extensions.details.\(item.id)")
+
 				if item.optionsURL != nil {
 					Button("Options", action: options)
 						.buttonStyle(.pane(.outline, size: .small))
+						.disabled(!item.enabled)
 						.accessibilityIdentifier("pane.extensions.options.\(item.id)")
 				}
 

@@ -13,6 +13,7 @@ enum Lucide: String {
 	case chevronsDownUp
 	case chevronsUpDown
 	case circleDashedX
+	case externalLink
 	case globe
 	case loaderCircle
 	case monitor
@@ -47,6 +48,8 @@ enum Lucide: String {
 			#"<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>"#
 		case .chevronsUpDown:
 			#"<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>"#
+		case .externalLink:
+			#"<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>"#
 		case .globe:
 			#"<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>"#
 		case .loaderCircle:

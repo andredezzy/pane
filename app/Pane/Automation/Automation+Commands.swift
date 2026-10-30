@@ -449,23 +449,48 @@ extension Automation {
 			extensions.popover.close()
 
 		case "extensionActionMenu":
-			// The items the action's right-click menu lists, from what the menu
-			// reads; `run` chooses one by its title. On macOS 27 SwiftUI draws
-			// that menu out of process, where neither the app nor
-			// accessibility can read it.
+			// What the action's right-click menu lists from the engine, as the
+			// menu reads it: the extension's own items and its site access;
+			// `run` chooses one by its title. On macOS 27 SwiftUI draws that
+			// menu out of process, where neither the app nor accessibility
+			// can read it.
 			guard let menu = extensions.actionMenu(try command.string("id")) else {
-				return .handled([])
+				return .handled(["items": [], "siteAccess": []])
 			}
 
 			if let title = command["run"] as? String {
-				guard let item = Self.extensionItem(titled: title, in: menu.items) else {
+				guard let item = Self.extensionItem(titled: title, in: menu.items + menu.siteAccessItems) else {
 					throw AutomationError("no action menu item \(title)")
 				}
 
 				menu.run(item)
 			}
 
-			return .handled(Self.describe(menu.items))
+			return .handled(["items": Self.describe(menu.items), "siteAccess": Self.describe(menu.siteAccessItems)])
+
+		case "showExtensionDetails":
+			// A card's Details: { id, profile }.
+			extensions.showDetails(try command.string("id"), inProfile: try command.string("profile"))
+
+		case "closeExtensionDetails":
+			// Details' back arrow.
+			extensions.closeDetails()
+
+		case "setExtensionSiteAccess":
+			// Details' Site access pop-up: { id, profile, access: "onClick" |
+			// "onSpecificSites" | "onAllSites" }.
+			let access: ExtensionSiteAccess = switch try command.string("access") {
+			case "onClick": .onClick
+			case "onSpecificSites": .onSpecificSites
+			case "onAllSites": .onAllSites
+			default: throw AutomationError("unknown site access")
+			}
+
+			extensions.setSiteAccess(try command.string("id"), access, inProfile: try command.string("profile"))
+
+		case "setExtensionFileAccess":
+			// Details' Allow access to file URLs: { id, profile, allowed }.
+			extensions.setFileAccess(try command.string("id"), command["allowed"] as? Bool ?? true, inProfile: try command.string("profile"))
 
 		case "extensionsMenu":
 			// What the puzzle and the extensions menu's controls call, for a
@@ -500,7 +525,10 @@ extension Automation {
 			// The more menu's rows.
 			case "storePage": extensions.openStorePage(id)
 			case "remove": extensions.confirmUninstall(item)
-			case "manageExtension": extensions.showPage(extensionID: id)
+			case "manageExtension": extensions.showDetails(id)
+			// The pinned action's right-click menu's (which SwiftUI draws out of
+			// process).
+			case "viewWebPermissions": extensions.showDetails(id)
 			default: throw AutomationError("unknown extensions menu control \(control)")
 			}
 		}

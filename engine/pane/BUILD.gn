@@ -100,6 +100,7 @@ source_set("pane") {
     # Chromium 157 split the //chrome/browser/ui aggregate into source sets,
     # which //chrome/browser depends on.
     "//chrome/browser/ui/views:bubble_anchor_util_views",
+    "//chrome/app:generated_resources",
     "//chrome/common",
     "//chrome/common/profiler",
     "//components/autofill/core/common",
@@ -122,6 +123,7 @@ source_set("pane") {
     "//components/spellcheck/common",
     "//components/tabs:public",
     "//components/translate/core/browser",
+    "//components/url_formatter",
     "//components/web_modal",
     "//components/zoom",
     "//content/public/browser",

@@ -63,9 +63,17 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface PaneExtensionActionMenu ()
-// `menu`'s items, run for `contents` while it lasts.
+// `menu`'s items and `extension`'s site access on `contents`'s page, run for
+// `contents` while it lasts.
 - (instancetype)initWithMenu:(std::unique_ptr<pane::ExtensionMenu>)menu
+                   extension:(const extensions::Extension&)extension
                     contents:(content::WebContents&)contents;
+@end
+
+@interface PaneExtensionDetails ()
+// What chrome://extensions' details page shows of `extension` in `profile`.
+- (instancetype)initWithExtension:(const extensions::Extension&)extension
+                          profile:(Profile*)profile;
 @end
 
 NS_ASSUME_NONNULL_END
