@@ -45,3 +45,4 @@ app/release/
 app/*.xcodeproj
 app/DerivedData/
 app/PaneKit/.build/
+app/PaneKit/.build-*/

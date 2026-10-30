@@ -3,8 +3,8 @@ name: App
 # The app on the prebuilt engine its engine sources name
 # (engine/prebuilt-engines.tsv): CI never builds Chromium, which takes
 # hours and ~100 GB. Engine builds stay on a developer's Mac, and their
-# archives are published as engine-<key> prereleases. The scenario runner's
-# own checks are gates.yml's.
+# archives are published as engine-<key> prereleases. The packaged app runs
+# a set of scenarios; the scenario runner's own checks are gates.yml's.
 
 on:
   push:
@@ -16,11 +16,13 @@ on:
       - "third_party/**"
       - ".github/actions/setup-app-build/**"
       - ".github/workflows/app.yml"
+      - "tests/**"
   pull_request:
     paths:
       - "app/**"
       - "engine/**"
       - "third_party/**"
+      - "tests/**"
       - ".github/actions/setup-app-build/**"
       - ".github/workflows/app.yml"
   workflow_dispatch:
@@ -47,8 +49,45 @@ jobs:
         working-directory: app/PaneKit
         run: swift test
 
+      # The same tests under the Thread and Address Sanitizers, and the
+      # package built with warnings as errors, as Chromium's and Brave's CI
+      # build theirs.
+      - name: PaneKit tests, sanitized and strict
+        working-directory: app/PaneKit
+        run: |
+          swift test --sanitize=thread --scratch-path .build-tsan
+          swift test --sanitize=address --scratch-path .build-asan
+          swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict
+
       - name: XcodeGen and the prebuilt engine
         uses: ./.github/actions/setup-app-build
 
       - name: Build and package the app
         run: engine/scripts/package.sh
+
+      # The packaged app launched and driven, as a release is: the scenarios
+      # that need nothing beyond the runner's own fixtures.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      # Electron is the migration scenario's, which does not run here.
+      - name: Install the scenario runner's packages
+        run: bun install --frozen-lockfile
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      - name: Scenarios
+        run: >-
+          bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane
+          --out "$RUNNER_TEMP/scenarios"
+          smoke hosted quiet navigation profiles-isolation restore open-urls security crlset
+
+      - name: Keep the scenarios' evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: scenarios
+          path: ${{ runner.temp }}/scenarios
+          retention-days: 7

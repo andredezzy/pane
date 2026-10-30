@@ -12,7 +12,7 @@
 	],
 	"workspaces": {
 		".": {
-			"entry": ["tests/run.ts", "tests/scenarios/*.ts", "tests/tools/*.ts"],
+			"entry": ["tests/scenarios/*.ts", "tests/tools/*.ts"],
 			"ignoreDependencies": ["electron"]
 		}
 	},

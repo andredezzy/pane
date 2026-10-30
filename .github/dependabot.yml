@@ -1,0 +1,20 @@
+# Bumps the SHA-pinned Actions and the scenario runner's packages, each week
+# in one pull request per ecosystem.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/setup-app-build
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      packages:
+        patterns: ["*"]
