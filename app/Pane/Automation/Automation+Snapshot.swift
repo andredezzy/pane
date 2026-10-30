@@ -69,7 +69,7 @@ extension Automation {
 				"sheet"
 			} else if window === NSApp.modalWindow {
 				"modal"
-			} else if contextMenuOpen, String(describing: type(of: window)).contains("Menu") {
+			} else if contextMenuOpen || Date().timeIntervalSince(contextMenuClosed) < 1, String(describing: type(of: window)).contains("Menu") {
 				"menu"
 			} else if window.identifier?.rawValue == "pane.devtools" {
 				"devtools"

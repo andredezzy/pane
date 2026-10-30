@@ -32,6 +32,9 @@ final class Automation {
 	private(set) var downloads: [String: [String: Any]] = [:]
 	private(set) weak var contextMenu: NSMenu?
 	private(set) var contextMenuOpen = false
+	// When the last one closed: AppKit fades a menu's window out after it
+	// closes, and on a busy Mac it stayed visible for most of a second.
+	private(set) var contextMenuClosed = Date.distantPast
 	// Each menu a page has shown, counted, so a scenario can wait for the
 	// next one rather than read the last.
 	private(set) var contextMenusShown = 0
@@ -101,6 +104,10 @@ extension Automation: AutomationProbe {
 
 		contextMenu = menu
 		contextMenuOpen = isOpen
+
+		if !isOpen {
+			contextMenuClosed = Date()
+		}
 	}
 
 	func downloadDidUpdate(_ download: Download) {
