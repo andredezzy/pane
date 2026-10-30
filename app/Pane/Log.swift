@@ -19,14 +19,15 @@ enum Log {
 
 	// From an input to the frame it changes, in Instruments' Points of
 	// Interest, or `log stream --signpost`: an interval begins as the input
-	// is handled and ends on the main thread's next turn, once Core
-	// Animation has committed this turn's frame to the screen's server.
+	// is handled and ends once Core Animation has committed the frame built
+	// in its turn to the screen's server (AfterFrame).
 	private static let interactions = OSSignposter(subsystem: subsystem, category: .pointsOfInterest)
 
+	@MainActor
 	static func interaction(_ name: StaticString) {
 		let state = interactions.beginInterval(name, id: interactions.makeSignpostID())
 
-		DispatchQueue.main.async {
+		AfterFrame.committed {
 			interactions.endInterval(name, state)
 		}
 	}

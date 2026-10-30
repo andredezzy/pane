@@ -181,9 +181,29 @@ final class BrowserController: NSObject {
 			?? model.createProfile(name: "Personal", color: .blue, group: nil)
 		expandProfile(profileID)
 
-		for url in urls {
-			openTab(inProfile: profileID, url: url)
+		// Each loads at once, as Chrome loads every URL it is handed, even one
+		// another arrives right behind; then the last shows.
+		let tabIDs = urls.map { openTabBehind(inProfile: profileID, url: $0) }
+
+		if let last = tabIDs.last {
+			select(tabID: last)
 		}
+	}
+
+	// A tab whose page loads behind the selected one.
+	private func openTabBehind(inProfile profileID: String, url: URL) -> String {
+		let tab = Tab(id: UUID().uuidString.lowercased(), url: url.absoluteString)
+		model.insertTab(tab, inProfile: profileID, after: nil)
+
+		withContext(profileID) { [weak self] context in
+			guard let self, let context, model.tab(tab.id) != nil, pages.page(for: tab.id) == nil else {
+				return
+			}
+
+			openPage(tabID: tab.id, url: url, context: context, foreground: false)
+		}
+
+		return tab.id
 	}
 
 	// MARK: Contexts
@@ -271,20 +291,26 @@ final class BrowserController: NSObject {
 			return
 		}
 
-		withContext(profileID) { [weak self] context in
-			guard let self, model.activeTabID == tabID, pages.page(for: tabID) == nil else {
-				return
-			}
+		// The engine makes the page on the next turn (11 ms for a new tab's),
+		// so the frame that answers the input, the row selected and a new
+		// tab's address field, does not wait for it; the page shows a turn
+		// later.
+		AfterFrame.next { [weak self] in
+			self?.withContext(profileID) { [weak self] context in
+				guard let self, model.activeTabID == tabID, pages.page(for: tabID) == nil else {
+					return
+				}
 
-			// The profile would not open: the sad tab, whose Reload tries
-			// again.
-			guard let context else {
-				model.setCrashed(tabID, true)
-				return
-			}
+				// The profile would not open: the sad tab, whose Reload
+				// tries again.
+				guard let context else {
+					model.setCrashed(tabID, true)
+					return
+				}
 
-			let url = URL(string: tab.url).flatMap { $0.scheme == nil ? nil : $0 }
-			openPage(tabID: tabID, url: url, context: context, foreground: true)
+				let url = URL(string: tab.url).flatMap { $0.scheme == nil ? nil : $0 }
+				openPage(tabID: tabID, url: url, context: context, foreground: true)
+			}
 		}
 	}
 
@@ -293,7 +319,7 @@ final class BrowserController: NSObject {
 	// 6.5 ms, ahead of the frame. The tab entered has replaced its view in the
 	// window already; one selected again meanwhile stays shown.
 	private func hideAfterFrame(_ tabID: String) {
-		DispatchQueue.main.async { [weak self] in
+		AfterFrame.next { [weak self] in
 			guard let self, model.activeTabID != tabID, let page = pages.page(for: tabID) else {
 				return
 			}
