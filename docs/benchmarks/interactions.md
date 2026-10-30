@@ -21,8 +21,25 @@ Every one of the six runs of 0.13.1 was faster than every run before it, for eac
 
 ## What did not improve enough
 
-- **Selecting a tab and a new tab still take more than a frame** at 120 Hz (8.3 ms). Selecting a tab takes less than one at 60 Hz (16.7 ms) at the median; a new tab, 19.1 ms, a little more. What is left is the frame itself: SwiftUI's update of the sidebar and toolbar and Core Animation's commit, after the work the input runs. Seeing where needs the Time Profiler, which macOS lets attach only with Developer Tools access on.
+- **Selecting a tab and a new tab still take more than a frame** at 120 Hz (8.3 ms) as measured here. Selecting a tab takes less than one at 60 Hz (16.7 ms) at the median; a new tab, 19.1 ms, a little more. The intervals also hold the automation channel's own reply and whatever else the run loop runs in the input's turn; [Where a tab switch's time goes](#where-a-tab-switchs-time-goes) counts the work itself.
 - **The p90 of focusing the address field**, 15.2 ms, is twice its median: the focuses that come with a new tab run in the new tab's turn.
+
+## Where a tab switch's time goes
+
+`sample` (1 ms) on 0.13.1's main thread while the automation channel switched among five loaded tabs, 120 switches in 12 s: 10.6 ms of work a switch, 9.3 ms without the channel's own (reading the command, the state it replies with). About 0.9 ms of it, hiding the tab left, runs after the frame, so a switch's work ahead of its frame is about 8.4 ms, one frame at 120 Hz. In it:
+
+| | Per switch |
+| --- | ---: |
+| The frame's commit (Core Animation, AppKit's display cycle) | 4.2 ms |
+| ↳ SwiftUI's layout of the window (`NSHostingView.layout`) | 2.4 ms |
+| ↳ the window's drag regions (`_resetDragMargins`) | 0.8 ms |
+| ↳ the commit to the window server | 0.7 ms |
+| `select(tabID:)` | 2.5 ms |
+| ↳ the page's view out of the window and the next one in | 1.1 ms |
+| ↳ the page's focus (SwiftUI's first responder observer) | 0.7 ms |
+| SwiftUI's own run loop update | 1.6 ms |
+
+Pane's own view bodies are under 0.2 ms of it: what is left is SwiftUI's and AppKit's work for the window's views. Keeping loaded tabs' views in the window, hidden, rather than swapping them was tried: `select(tabID:)` fell by 1 ms, and the layout and the commit grew by about as much, with every page's view to lay out, so the frame was no sooner (and hidden pages in the window would resize with it). Getting further means fewer views for the window to lay out each frame, as Dia drew its own on AppKit alone.
 
 ## Method
 
