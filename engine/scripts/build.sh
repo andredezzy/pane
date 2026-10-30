@@ -2,10 +2,11 @@
 # Builds targets in ~/chromium/src/out/<Config> using args/<config>.gn.
 # Usage: build.sh [config=release] [targets...=chrome]
 #
-# Runs at most PANE_BUILD_JOBS compile jobs (default: two thirds of the cores)
+# Runs at most PANE_BUILD_JOBS compile jobs (default: a third of the cores)
 # under nice. Full parallelism while Spotlight indexed the checkout starved
-# watchdogd and kernel-panicked this Mac once (docs/adr/0007-chromium-checkout.md), so
-# the system always keeps headroom.
+# watchdogd and kernel-panicked this Mac, and two thirds of the cores did again
+# while it was in use (docs/adr/0007-chromium-checkout.md), so the system keeps
+# room for its user. An idle Mac can take more: PANE_BUILD_JOBS=12.
 #
 # A build of `chrome` (the engine's bundle) records the engine key of its
 # sources in out/<Config>/pane-engine.key (engine-key.sh), which package.sh
@@ -17,7 +18,7 @@ CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
 CONFIG="${1:-release}"
 shift || true
 TARGETS=("${@:-chrome}")
-JOBS="${PANE_BUILD_JOBS:-$(( $(sysctl -n hw.ncpu) * 2 / 3 ))}"
+JOBS="${PANE_BUILD_JOBS:-$(( $(sysctl -n hw.ncpu) / 3 ))}"
 OUT_DIR="out/$(tr '[:lower:]' '[:upper:]' <<< "${CONFIG:0:1}")${CONFIG:1}"
 KEY_FILE="$OUT_DIR/pane-engine.key"
 

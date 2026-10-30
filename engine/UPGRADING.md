@@ -46,7 +46,7 @@ grep -v '^#' engine/patches/series | xargs -n1 engine/scripts/make-patch.sh
 nohup engine/scripts/build.sh > evidence/logs/build-<tag>.log 2>&1 &
 ```
 
-A new milestone rebuilds almost everything: 157 took 1h44m here (about 45,600 objects at 12 of 18 cores), and the sync before it about 25 minutes. Run one Chromium build at a time, and keep the checkout out of Spotlight (`docs/building.md`).
+A new milestone rebuilds almost everything: 157 took 1h44m here (about 45,600 objects at 12 of 18 cores, on an idle Mac), and the sync before it about 25 minutes. `build.sh` runs 6 jobs by default, which leaves the Mac usable; 12 reset it by watchdog while it was in use (ADR 0007), so pass `PANE_BUILD_JOBS=12` only when nobody is using it. Run one Chromium build at a time, and keep the checkout out of Spotlight (`docs/building.md`).
 
 What usually breaks, and where to fix it:
 
