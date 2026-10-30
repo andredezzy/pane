@@ -61,3 +61,11 @@ PANE_ENGINE_OUT="$(engine/scripts/fetch-engine.sh)" engine/scripts/package.sh
 ```
 
 `engine/prebuilt-engines.tsv` names, per engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`), the GitHub release that carries `PaneCore-<chromium>-<key>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `app/build/engines/`. A checkout whose engine sources changed has no prebuilt: build the engine. `PANE_ENGINE_ARCHIVE=1 dist.sh` (or `package.sh`) archives the engine it was built from into `app/release/` and prints its line for the TSV; `publish-engine.sh` archives it, publishes it as the `engine-<key:12>` prerelease, and adds that line. Archiving refuses an engine that `build.sh` did not record the current key for (`out/Release/pane-engine.key`): one built before a change to the engine's sources, or from a checkout whose tag, patches, or `//pane` were not this repo's.
+
+## Reading a crash report
+
+A release strips its executables, so a crash report (`~/Library/Logs/DiagnosticReports/Pane-*.ips`) names addresses, not functions. Its symbols are published: the app's beside the dmg in the release (`Pane-<version>-arm64.dSYM.zip`), and PaneCore's beside the engine archive in the `engine-<key:12>` prerelease (`PaneCore-<chromium>-<key:12>.dSYM.zip`), where `<key>` is the copy's `PaneEngineKey` (`plutil -extract PaneEngineKey raw Pane.app/Contents/Info.plist`). Unzip both, check that their UUIDs (`dwarfdump --uuid`) are the report's images', and resolve each frame against its image's load address:
+
+```bash
+atos -arch arm64 -o PaneCore.dSYM/Contents/Resources/DWARF/PaneCore -l <load address> <address>...
+```

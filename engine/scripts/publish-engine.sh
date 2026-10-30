@@ -62,5 +62,14 @@ fi
 uploaded="$(gh release view "$tag" --json assets --jq ".assets[] | select(.name == \"$name\") | .digest")"
 [ "$uploaded" = "sha256:$sha256" ] || die "$tag's $name is ${uploaded:-missing} on GitHub, not sha256:$sha256"
 
+# PaneCore's debug symbols, for reading a crash inside the engine
+# (docs/building.md), when package.sh made them with the archive.
+symbols="${archive%.zip}.dSYM.zip"
+
+if [ -f "$symbols" ] && ! gh release view "$tag" --json assets --jq '.assets[].name' | grep -qxF "$(basename "$symbols")"; then
+	echo "== upload $(basename "$symbols")"
+	gh release upload "$tag" "$symbols"
+fi
+
 printf '%s\t%s\t%s\n' "$key" "$tag" "$sha256" >> "$TSV"
 echo "published $tag; prebuilt-engines.tsv names it: commit it"

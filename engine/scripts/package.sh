@@ -218,8 +218,8 @@ echo "packaged $OUT"
 # The engine a release was built with, for the app to build on without a
 # Chromium checkout (fetch-engine.sh): app/release/PaneCore-<chromium>-<key>.zip,
 # the engine's bundle stripped, with PaneCore.framework at its top for the
-# linker, and its SHA-256. A GitHub release carries it, and
-# prebuilt-engines.tsv names that release.
+# linker, its SHA-256, and PaneCore's dSYM beside it (.dSYM.zip). A GitHub
+# release carries them, and prebuilt-engines.tsv names that release.
 if [ "${PANE_ENGINE_ARCHIVE:-}" = 1 ]; then
 	echo "== engine archive"
 	KEY="$("$ROOT_DIR/engine/scripts/engine-key.sh")"
@@ -245,5 +245,17 @@ if [ "${PANE_ENGINE_ARCHIVE:-}" = 1 ]; then
 	SHA256="$(shasum -a 256 "$ARCHIVE" | awk '{ print $1 }')"
 	echo "$SHA256  $(basename "$ARCHIVE")" > "$ARCHIVE.sha256"
 	echo "archived $ARCHIVE"
+
+	# The engine's debug symbols, which the archive's stripped PaneCore lacks,
+	# so a crash inside the engine reads too: dsymutil gathers them from the
+	# build's objects, which the next build changes (157: about a minute and
+	# 10 GB of memory, 2 GB, 0.5 GB zipped). Its UUID is the shipped PaneCore's.
+	SYMBOLS="${ARCHIVE%.zip}.dSYM.zip"
+	DSYM_STAGE="$(mktemp -d)"
+	nice -n 10 dsymutil -o "$DSYM_STAGE/PaneCore.dSYM" "$ENGINE_OUT/Pane.app/Contents/Frameworks/PaneCore.framework/Versions/Current/PaneCore"
+	rm -f "$SYMBOLS"
+	ditto -c -k --keepParent "$DSYM_STAGE/PaneCore.dSYM" "$SYMBOLS"
+	rm -rf "$DSYM_STAGE"
+	echo "symbols $SYMBOLS"
 	printf 'prebuilt-engines.tsv: %s\tengine-%s\t%s\n' "$KEY" "${KEY:0:12}" "$SHA256"
 fi
