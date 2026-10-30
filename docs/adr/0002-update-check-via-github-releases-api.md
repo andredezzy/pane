@@ -1,5 +1,7 @@
 # Update check via the GitHub Releases API
 
+> **Its interval is replaced by [ADR 0107](0107-updates-are-checked-every-six-hours.md)**: the check runs every six hours, not daily. The rest stands.
+
 > **Installing is replaced by [ADR 0092](0092-pane-installs-its-updates.md)**: Pane installs a downloaded update itself at quit, and the user drags it from the dmg only where Pane cannot. The check and the download below still hold.
 
 Pane checks for updates by asking for the repo's latest GitHub Release and comparing versions (PaneKit's `Updates`): no update framework, no update service. Installing stays a user action: Pane downloads the dmg and opens it, and the user drags Pane to Applications. The Electron app did the same, having rejected electron-updater: Pane is ad-hoc signed, Squirrel.Mac refuses to update an unsigned app, and its zip and `latest-mac.yml` would have been a publishing duty on every release for an updater that could install nothing. The contract, the `releases/latest` tag and its `-arm64.dmg` asset, is also how every Electron Pane found the native app.

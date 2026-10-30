@@ -41,6 +41,8 @@ final class SleepController {
 		let timer = Timer(timeInterval: SleepScheduler.tickInterval / scale, repeats: true) { [weak self] _ in
 			MainActor.assumeIsolated { self?.tick() }
 		}
+		// A tenth of slack, as Apple's energy guide asks of a repeating timer.
+		timer.tolerance = timer.timeInterval / 10
 		RunLoop.main.add(timer, forMode: .common)
 		self.timer = timer
 	}

@@ -24,8 +24,10 @@ public enum Updates {
 	public static let releasesURL = URL(string: "https://api.github.com/repos/andredezzy/pane/releases/latest")!
 	public static let userAgent = "Pane-Updater"
 	public static let dmgSuffix = "-arm64.dmg"
-	// A completed check runs again a day later; a failed one sooner.
-	public static let checkInterval: TimeInterval = 24 * 60 * 60
+	// A completed check runs again six hours later, as Chrome's and Brave's
+	// check within hours, so a security release reaches Pane soon; a failed
+	// one sooner.
+	public static let checkInterval: TimeInterval = 6 * 60 * 60
 	public static let retryDelays: [TimeInterval] = [5 * 60, 15 * 60, 60 * 60]
 	// The checking state holds at least this long, so a click visibly does
 	// something even when the answer comes at once.

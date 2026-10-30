@@ -6,11 +6,12 @@ import os
 
 // The update check, download, and install (ADR 0002, ADR 0092; apps/veil
 // updater.ts and update-store.ts): the latest GitHub Release at launch and
-// daily, with retries after a failure; one click downloads its dmg to
-// Downloads, and once it checks out Pane stages the new version beside itself.
-// Restart to update quits into it, and any quit installs it. When Pane cannot
-// replace itself, the dmg opens and the user drags Pane to Applications. Never
-// a modal, never a forced restart (DESIGN.md: Updates).
+// every six hours (ADR 0107), with retries after a failure; one click
+// downloads its dmg to Downloads, and once it checks out Pane stages the new
+// version beside itself. Restart to update quits into it, and any quit
+// installs it. When Pane cannot replace itself, the dmg opens and the user
+// drags Pane to Applications. Never a modal, never a forced restart
+// (DESIGN.md: Updates).
 @MainActor
 @Observable
 final class Updater {
@@ -61,8 +62,9 @@ final class Updater {
 		}
 	}
 
-	// Checks now, then a day after each completed check, or 5, 15, then 60
-	// minutes after a failed one.
+	// Checks now, then six hours after each completed check, or 5, 15, then
+	// 60 minutes after a failed one. A tenth of the wait is slack, so the
+	// system can batch the wake with others (Apple's energy guide).
 	func schedule() {
 		scheduled?.cancel()
 		scheduled = Task { [weak self] in
@@ -83,7 +85,7 @@ final class Updater {
 					retry += 1
 				}
 
-				try? await Task.sleep(for: .seconds(delay))
+				try? await Task.sleep(for: .seconds(delay), tolerance: .seconds(delay / 10))
 			}
 		}
 	}

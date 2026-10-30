@@ -107,8 +107,9 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0103](0103-chromes-reload-prompt-is-declined.md) Chrome's reload prompt after a site access change is declined without a dialog
 - [0104](0104-extension-shortcuts-are-changed-in-a-dialog.md) Extensions' keyboard shortcuts are changed in a dialog of the Extensions page
 - [0105](0105-on-specific-sites-lists-its-sites.md) On specific sites lists its sites, and adds and removes them as Chrome's details page does
+- [0106](0106-the-dmg-is-lzma-compressed.md) The dmg is LZMA-compressed
+- [0107](0107-updates-are-checked-every-six-hours.md) Updates are checked every six hours
 - [0108](0108-chromium-releases-are-watched.md) Chromium's releases are watched
 - [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window
-- [0111](0111-chromes-crlset-ships-with-the-app.md) Chrome's CRLSet ships with the app
 - [0110](0110-other-apps-sign-ins-stay-in-macos-sheet.md) Other apps' sign-ins stay in macOS's sheet
-- [0106](0106-the-dmg-is-lzma-compressed.md) The dmg is LZMA-compressed
+- [0111](0111-chromes-crlset-ships-with-the-app.md) Chrome's CRLSet ships with the app
