@@ -1,19 +1,20 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
+import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
 // (security.json with its bcryptjs hash of 1234): behind it nothing opens,
-// neither the URL Pane was started with nor the menu bar's items (the
-// mouse's way past the PIN screen's keys) but Quit and Check for Updates….
-// A wrong PIN counts, the right one unlocks, and the URL opens then. Then
-// the PIN is changed, removed, and set up again through the PIN screen, and
-// Back leaves it. On a relaunch, five wrong PINs erase the data directory
-// and Pane starts again, fresh. Then ⌘Q quits from the PIN screen with Caps
-// Lock on. Last, a security.json that no longer decodes never opens the
-// lock: the PIN left in it still unlocks, and with none left the lock stays
+// neither the URL Pane was started with, nor one another app hands it, nor the
+// menu bar's items (the mouse's way past the PIN screen's keys) but Quit and
+// Check for Updates…. A wrong PIN counts, the right one unlocks, and the URLs
+// open then. Then the PIN is changed, removed, and set up again through the PIN
+// screen, and Back leaves it. On a relaunch, five wrong PINs erase the data
+// directory and Pane starts again, fresh. Then ⌘Q quits from the PIN screen
+// with Caps Lock on. Last, a security.json that no longer decodes never opens
+// the lock: the PIN left in it still unlocks, and with none left the lock stays
 // shut. Each check runs in a throwaway data directory.
 
 // bcryptjs 3.0.3, hashSync("1234", 10): what the Electron app wrote.
@@ -96,6 +97,19 @@ const security: Scenario = async (context) => {
 		checkForUpdates: await menu(["Pane", "Check for Updates\u2026"]),
 	};
 
+	// A link clicked in another app, as Launch Services hands it over.
+	const handedURL = context.fixtures.url("nav-a.html?handed-behind-the-lock");
+
+	const handed =
+		await Bun.$`${await swiftTool("open-urls")} ${dirname(dirname(dirname(context.binary)))} ${app.browser.pid} ${context.tempDir("pane-security-home-")} ${handedURL}`
+			.quiet()
+			.nothrow();
+
+	expect(
+		handed.exitCode === 0,
+		`open-urls failed: ${handed.stderr.toString().trim()}`,
+	);
+
 	// Long enough for a tab to open and load, had one been let through.
 	await Bun.sleep(1_500);
 	const behindLock = await app.state();
@@ -152,11 +166,20 @@ const security: Scenario = async (context) => {
 
 	expect(unlocked.security.failedAttempts === 0, "the attempts did not reset");
 
-	// The launch URL opens once the lock is open.
-	const opened = await app.waitFor("the launch URL opened", (state) =>
-		state.profiles.some((entry) =>
-			entry.tabs.some((item) => item.url === launchURL && item.loaded),
-		),
+	// The URLs open once the lock is open, the handed one last.
+	const opened = await app.waitFor(
+		"the launch and handed URLs opened",
+		(state) =>
+			state.profiles.some((entry) => {
+				const urls = entry.tabs.map((item) => item.url);
+				const handedTab = entry.tabs.find((item) => item.url === handedURL);
+
+				return (
+					urls.indexOf(launchURL) >= 0 &&
+					urls.indexOf(handedURL) > urls.indexOf(launchURL) &&
+					handedTab?.loaded === true
+				);
+			}),
 	);
 
 	// Data that the wipe must erase later: a profile with a page.
@@ -486,9 +509,9 @@ const security: Scenario = async (context) => {
 			menu: lockedMenu,
 			tabs: tabsBehindLock.length,
 			windowTitle: behindLock.window.title,
-			launchURLAfterUnlock: opened.profiles.some((entry) =>
-				entry.tabs.some((item) => item.url === launchURL),
-			),
+			urlsAfterUnlock: opened.profiles
+				.flatMap((entry) => entry.tabs)
+				.map((item) => item.url),
 		},
 		quitWithCapsLock,
 		damagedSecurityFile: { truncated, garbage },

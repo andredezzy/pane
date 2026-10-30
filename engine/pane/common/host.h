@@ -17,6 +17,13 @@
   "PaneBrowserApplicationShouldReopenNotification"
 #define PANE_REOPEN_HAS_VISIBLE_WINDOWS_KEY "hasVisibleWindows"
 
+// Posted by Chrome's AppController, instead of opening them in a Browser of
+// its own, with the URLs another app hands a hosted engine (a link clicked
+// in Mail, a file opened with Pane, `open -a Pane <url>`), as an NSArray of
+// NSURL under PANE_OPEN_URLS_KEY.
+#define PANE_OPEN_URLS_NOTIFICATION "PaneEngineOpenURLsNotification"
+#define PANE_OPEN_URLS_KEY "urls"
+
 namespace pane {
 
 // Whether this process runs under the Pane app rather than Chrome's own

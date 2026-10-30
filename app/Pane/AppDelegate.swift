@@ -60,8 +60,21 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		windowController?.showWindow()
 
 		if let url = CommandLine.arguments.dropFirst().first(where: { !$0.hasPrefix("-") }).flatMap(URL.init(string:)) {
-			controller.openLaunchURL(url)
+			controller.openLaunchURLs([url])
 		}
+	}
+
+	// Another app's URLs open in the window, shown again if it was closed:
+	// web pages and files, nothing else that reaches the engine.
+	func browserApplication(_ application: BrowserApplication, open urls: [URL]) {
+		let pages = urls.filter { ["http", "https", "file"].contains($0.scheme?.lowercased()) }
+
+		guard !pages.isEmpty else {
+			return
+		}
+
+		controller?.openLaunchURLs(pages)
+		windowController?.showWindow()
 	}
 
 	func browserApplicationWillShutDown(_ application: BrowserApplication) {

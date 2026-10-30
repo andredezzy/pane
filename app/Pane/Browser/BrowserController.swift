@@ -49,8 +49,9 @@ final class BrowserController: NSObject {
 	let lock: AppLock
 	// The update check and download.
 	let updater: Updater
-	// The URL Pane was started with, while it waits behind the lock.
-	private var launchURL: URL?
+	// The URLs Pane was started with or handed, while they wait behind the
+	// lock.
+	private var launchURLs: [URL] = []
 	// A new tab with no page of the user's: its address field takes the keys
 	// once it shows, to type in, rather than its page.
 	private var focusesAddress: String?
@@ -148,9 +149,10 @@ final class BrowserController: NSObject {
 
 	// The lock opened: what waited behind it goes on.
 	private func lockDidOpen() {
-		if let url = launchURL {
-			launchURL = nil
-			openLaunchURL(url)
+		if !launchURLs.isEmpty {
+			let urls = launchURLs
+			launchURLs = []
+			openLaunchURLs(urls)
 		}
 
 		if let page = activePage, let profileID = model.activeProfileID {
@@ -160,18 +162,28 @@ final class BrowserController: NSObject {
 		dialogs.resume()
 	}
 
-	// `Pane https://…` opens the URL as a new tab, in the first profile (made
-	// on first launch when there is none), once the lock is open.
-	func openLaunchURL(_ url: URL) {
+	// What Pane is started with (`Pane https://…`) or another app hands it (a
+	// link clicked in Mail, a file opened with Pane) opens as new tabs, in
+	// order, in the profile in use, as Chrome opens them in the last one used
+	// (the first profile, made on first launch when there is none), once the
+	// lock is open. The last one is selected.
+	func openLaunchURLs(_ urls: [URL]) {
 		guard interactionAllowed else {
-			launchURL = url
+			launchURLs += urls
 			return
 		}
 
-		let profileID = model.profiles.first?.id
+		guard !urls.isEmpty else {
+			return
+		}
+
+		let profileID = model.activeProfileID ?? model.profiles.first?.id
 			?? model.createProfile(name: "Personal", color: .blue, group: nil)
 		expandProfile(profileID)
-		openTab(inProfile: profileID, url: url)
+
+		for url in urls {
+			openTab(inProfile: profileID, url: url)
+		}
 	}
 
 	// MARK: Contexts

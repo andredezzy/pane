@@ -34,6 +34,15 @@ NS_SWIFT_UI_ACTOR
 // to be released. The last moment to save the app's state.
 - (void)browserApplicationWillShutDown:(PaneBrowserApplication*)application;
 
+// Another app handed Pane `urls` to open: a link clicked in Mail or Slack
+// with Pane as the default browser, a file opened with Pane, `open -a Pane
+// <url>`. Any scheme the bundle registers (http, https, file), in the order
+// given. URLs that arrive while the engine starts (the app launched to open
+// them) come once it has started, after -browserApplicationDidStart:.
+- (void)browserApplication:(PaneBrowserApplication*)application
+                  openURLs:(NSArray<NSURL*>*)urls
+    NS_SWIFT_NAME(browserApplication(_:open:));
+
 @end
 
 // The engine hosted by the Pane app. The app's `main` calls

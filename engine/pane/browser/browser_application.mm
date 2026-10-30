@@ -147,7 +147,10 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 
 @implementation PaneBrowserApplication {
   __weak id<PaneBrowserApplicationDelegate> _delegate;
+  BOOL _started;
   BOOL _shutDown;
+  // What other apps asked to open before the engine started.
+  NSMutableArray<NSURL*>* _pendingURLs;
   NSURL* _dataDirectory;
   NSMutableDictionary<NSString*, PaneBrowserContext*>* _contexts;
 }
@@ -229,6 +232,13 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
     _delegate = delegate;
     _dataDirectory = [dataDirectory copy];
     _contexts = [NSMutableDictionary dictionary];
+    _pendingURLs = [NSMutableArray array];
+    // From the start: Launch Services hands over the URLs it launched the
+    // app for before the engine has started.
+    [NSNotificationCenter.defaultCenter addObserver:self
+                                           selector:@selector(engineOpenURLs:)
+                                               name:@PANE_OPEN_URLS_NOTIFICATION
+                                             object:nil];
   }
   return self;
 }
@@ -449,6 +459,37 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
 - (void)engineDidStart {
   PANE_TRACE("callback", "PaneBrowserApplicationDelegate.didStart");
   [_delegate browserApplicationDidStart:self];
+  _started = YES;
+
+  if (_pendingURLs.count > 0) {
+    NSArray<NSURL*>* urls = [_pendingURLs copy];
+    [_pendingURLs removeAllObjects];
+    [self deliverURLs:urls];
+  }
+}
+
+// Chrome's AppController hands over what another app asked Pane to open
+// (PANE_OPEN_URLS_NOTIFICATION); until the engine has started, it waits.
+- (void)engineOpenURLs:(NSNotification*)notification {
+  NSArray<NSURL*>* urls = notification.userInfo[@PANE_OPEN_URLS_KEY];
+  if (urls.count == 0 || _shutDown) {
+    return;
+  }
+
+  if (!_started) {
+    [_pendingURLs addObjectsFromArray:urls];
+    return;
+  }
+
+  [self deliverURLs:urls];
+}
+
+- (void)deliverURLs:(NSArray<NSURL*>*)urls {
+  PANE_TRACE("callback", "PaneBrowserApplicationDelegate.openURLs",
+             base::DictValue().Set("count", static_cast<int>(urls.count)));
+  if ([_delegate respondsToSelector:@selector(browserApplication:openURLs:)]) {
+    [_delegate browserApplication:self openURLs:urls];
+  }
 }
 
 // Runs as quitting starts, and again after the message loop as a backstop;

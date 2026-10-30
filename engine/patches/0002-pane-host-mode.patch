@@ -26,7 +26,7 @@ index 199142d671..cc0dc365f3 100644
        {.exe_entry_point_ticks = base::TimeTicks::Now()});
  #endif
 diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
-index ead883ef95..93260adec1 100644
+index ead883ef95..05d714edfb 100644
 --- a/chrome/browser/app_controller_mac.mm
 +++ b/chrome/browser/app_controller_mac.mm
 @@ -139,6 +139,7 @@
@@ -55,7 +55,24 @@ index ead883ef95..93260adec1 100644
    // If the browser is currently trying to quit, don't do anything and return NO
    // to prevent AppKit from doing anything.
    if (browser_shutdown::IsTryingToQuit())
-@@ -2298,6 +2310,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+@@ -2058,6 +2070,16 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+ }
+ 
+ - (void)application:(NSApplication*)sender openURLs:(NSArray<NSURL*>*)urls {
++  // Pane: an app hosting the engine opens them in its own window, not in a
++  // Browser of Chrome's.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    [NSNotificationCenter.defaultCenter
++        postNotificationName:@PANE_OPEN_URLS_NOTIFICATION
++                      object:nil
++                    userInfo:@{@PANE_OPEN_URLS_KEY : urls}];
++    return;
++  }
++
+   StartupTabs startupTabs;
+   for (NSURL* url in urls) {
+     // Handle the google-chrome:// scheme (and chromium://).
+@@ -2298,6 +2320,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
    if (_lastProfile == nullptr)
      return;
  

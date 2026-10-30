@@ -108,3 +108,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0104](0104-extension-shortcuts-are-changed-in-a-dialog.md) Extensions' keyboard shortcuts are changed in a dialog of the Extensions page
 - [0105](0105-on-specific-sites-lists-its-sites.md) On specific sites lists its sites, and adds and removes them as Chrome's details page does
 - [0108](0108-chromium-releases-are-watched.md) Chromium's releases are watched
+- [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window
