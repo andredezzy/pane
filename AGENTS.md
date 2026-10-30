@@ -51,4 +51,6 @@ Record each decision as an ADR in `docs/adr/`, one file per decision: the next n
 
 ## Design
 
+**Every design is proposed in Paper before it is implemented.** Paper is the design source (ADR 0058): any change to what Pane shows, a screen, a control, an icon, or the dmg's window, is drawn there first, as a new board or a change to the board it touches, and shown to the user. Implementation starts only once the user has approved it in Paper, and then matches the board.
+
 See `DESIGN.md` for interaction and visual principles (e.g. keyboard-driven changes animate; pointer-driven changes are instant).
