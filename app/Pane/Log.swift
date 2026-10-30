@@ -1,3 +1,4 @@
+import Foundation
 import os
 
 // Pane's channels in the unified log, by area: what failed and why. A path,
@@ -15,4 +16,18 @@ enum Log {
 	static let network = Logger(subsystem: subsystem, category: "network")
 	static let security = Logger(subsystem: subsystem, category: "security")
 	static let updates = Logger(subsystem: subsystem, category: "updates")
+
+	// From an input to the frame it changes, in Instruments' Points of
+	// Interest, or `log stream --signpost`: an interval begins as the input
+	// is handled and ends on the main thread's next turn, once Core
+	// Animation has committed this turn's frame to the screen's server.
+	private static let interactions = OSSignposter(subsystem: subsystem, category: .pointsOfInterest)
+
+	static func interaction(_ name: StaticString) {
+		let state = interactions.beginInterval(name, id: interactions.makeSignpostID())
+
+		DispatchQueue.main.async {
+			interactions.endInterval(name, state)
+		}
+	}
 }

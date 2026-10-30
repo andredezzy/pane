@@ -251,6 +251,8 @@ final class BrowserController: NSObject {
 			return
 		}
 
+		Log.interaction("Select tab")
+
 		let previous = model.activeTabID
 		model.select(tabID: tabID)
 		model.setPage(.browser)
@@ -303,6 +305,7 @@ final class BrowserController: NSObject {
 	}
 
 	func newTabInActiveProfile() {
+		Log.interaction("New tab")
 		guard let profileID = model.activeProfileID ?? model.profiles.first?.id else {
 			return
 		}

@@ -60,6 +60,7 @@ final class WindowState {
 	private(set) var findFocusRequest = 0
 
 	func focusAddressField() {
+		Log.interaction("Focus address field")
 		addressFocusRequest += 1
 	}
 
