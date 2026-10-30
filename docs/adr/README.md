@@ -113,3 +113,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window
 - [0110](0110-other-apps-sign-ins-stay-in-macos-sheet.md) Other apps' sign-ins stay in macOS's sheet
 - [0111](0111-chromes-crlset-ships-with-the-app.md) Chrome's CRLSet ships with the app
+- [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays

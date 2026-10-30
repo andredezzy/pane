@@ -673,6 +673,20 @@ extension Automation {
 			// Undoes a scenario's Add to Dictionary in the system dictionary.
 			NSSpellChecker.shared.unlearnWord(try command.string("word"))
 
+		case "appleScript":
+			// { source }: a script run in the app, against itself (`current
+			// application`, with the dictionary's raw codes), as Raycast's or
+			// Alfred's reach a browser from outside, but asking no Apple
+			// Events permission. Returns its result as text.
+			var error: NSDictionary?
+			let result = NSAppleScript(source: try command.string("source"))?.executeAndReturnError(&error)
+
+			if let error {
+				throw AutomationError("AppleScript: \(error[NSAppleScript.errorMessage] ?? error)")
+			}
+
+			return .handled(result?.stringValue)
+
 		case "render":
 			// Draws the window's app UI (not the pages, which the GPU process
 			// composites) into a PNG, for checks while the screen is locked.
