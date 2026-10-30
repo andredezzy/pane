@@ -108,7 +108,11 @@ const interactionTiming: Scenario = async (context) => {
 
 			if (begin) {
 				begins.delete(event.signpostID);
-				(durations[begin.name] ??= []).push(at - begin.at);
+
+				durations[begin.name] = [
+					...(durations[begin.name] ?? []),
+					at - begin.at,
+				];
 			}
 		}
 	}
