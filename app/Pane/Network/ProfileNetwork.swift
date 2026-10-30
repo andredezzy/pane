@@ -1,6 +1,7 @@
 import Foundation
 import PaneCore
 import PaneKit
+import os
 
 // Each profile's network, as the Electron app set up a session (apps/veil
 // profile/profile.ts): its proxy as Chrome's fixed rule, through a local relay
@@ -97,7 +98,7 @@ final class ProfileNetwork {
 			case .connected:
 				model.setProxyStatus(profileID, .connected)
 			case let .failed(error):
-				NSLog("Pane: the proxy of profile %@ failed its test: %@", profileID, error)
+				Log.network.error("The proxy of profile \(profileID) failed its test: \(error, privacy: .private)")
 				model.setProxyStatus(profileID, .failed)
 			}
 		}
@@ -122,7 +123,7 @@ final class ProfileNetwork {
 
 			return port
 		} catch {
-			NSLog("Pane: could not start the SOCKS relay of profile %@: %@", profileID, String(describing: error))
+			Log.network.error("Could not start the SOCKS relay of profile \(profileID): \(String(describing: error), privacy: .private)")
 			return nil
 		}
 	}

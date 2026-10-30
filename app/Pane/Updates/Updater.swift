@@ -2,6 +2,7 @@ import AppKit
 import CryptoKit
 import Observation
 import PaneKit
+import os
 
 // The update check, download, and install (ADR 0002, ADR 0092; apps/veil
 // updater.ts and update-store.ts): the latest GitHub Release at launch and
@@ -123,7 +124,7 @@ final class Updater {
 
 			return true
 		} catch {
-			NSLog("Pane: the update check failed: %@", String(describing: error))
+			Log.updates.error("The update check failed: \(String(describing: error), privacy: .private)")
 			await settle.value
 
 			if status == .checking {
@@ -197,7 +198,7 @@ final class Updater {
 				downloaded = (available.version, file)
 				stage(file, version: available.version)
 			case let .failure(error):
-				NSLog("Pane: the update download failed: %@", String(describing: error))
+				Log.updates.error("The update download failed: \(String(describing: error), privacy: .private)")
 				downloadProgress = nil
 				status = .available
 			}
@@ -233,7 +234,7 @@ final class Updater {
 				case let .success(url):
 					self.staged = url
 				case let .failure(error):
-					NSLog("Pane: the update did not stage: %@", String(describing: error))
+					Log.updates.error("The update did not stage: \(String(describing: error), privacy: .private)")
 					self.open(file)
 				}
 			}
@@ -261,7 +262,7 @@ final class Updater {
 		do {
 			try installer.install(staged, dmg: downloaded?.file, relaunch: relaunches)
 		} catch {
-			NSLog("Pane: the update did not install: %@", String(describing: error))
+			Log.updates.error("The update did not install: \(String(describing: error), privacy: .private)")
 			try? FileManager.default.removeItem(at: staged)
 
 			if let file = downloaded?.file {

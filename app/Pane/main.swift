@@ -1,6 +1,7 @@
 import AppKit
 import PaneCore
 import PaneKit
+import os
 
 // Chromium owns the process from here: `run` starts the engine on the main
 // thread and returns only at shutdown. Nothing may touch NSApplication before
@@ -34,7 +35,7 @@ LaunchMigration.run(from: electron, into: dataDirectory)
 // Profiles deleted whose engine data the engine never confirmed gone: their
 // folders go now, while nothing has them open (ProfileDeletions).
 for failure in ProfileDeletions(dataDirectory: dataDirectory).purge(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory)) {
-	NSLog("Pane: could not remove a deleted profile's data: %@", failure)
+	Log.model.error("Could not remove a deleted profile's data: \(failure, privacy: .private)")
 }
 
 let appDelegate = AppDelegate(dataDirectory: dataDirectory)

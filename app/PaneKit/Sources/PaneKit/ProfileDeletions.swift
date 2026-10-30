@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // Profiles deleted whose engine data may still be on disk, kept in
 // deletions.json from the delete until the engine confirms it. A quit, a
@@ -63,7 +64,7 @@ public struct ProfileDeletions: Sendable {
 		do {
 			try file.save(ids)
 		} catch {
-			NSLog("Pane: could not save deletions.json: %@", String(describing: error))
+			Logger(subsystem: "com.pane.desktop", category: "model").error("Could not save deletions.json: \(String(describing: error), privacy: .private)")
 		}
 	}
 }

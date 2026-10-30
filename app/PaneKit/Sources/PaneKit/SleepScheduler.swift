@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // What the scheduler needs from a profile: tabs whose memory it can release,
 // and a cache whose disk it can release. Narrow on purpose, so the scheduler
@@ -58,7 +59,7 @@ public final class SleepScheduler {
 		activeProfileID: String?,
 		activeTabID: String?,
 		now: @escaping () -> Date = Date.init,
-		warn: @escaping (String) -> Void = { NSLog("%@", $0) }
+		warn: @escaping (String) -> Void = { Logger(subsystem: "com.pane.desktop", category: "sleep").error("\($0, privacy: .private)") }
 	) {
 		self.now = now
 		self.warn = warn
@@ -185,7 +186,7 @@ public final class SleepScheduler {
 					try await cache.trim()
 				}
 			} catch {
-				self?.warn("Pane: trimming the cache of profile \(profileID) failed: \(error)")
+				self?.warn("Trimming the cache of profile \(profileID) failed: \(error)")
 			}
 
 			self?.trimming.remove(profileID)

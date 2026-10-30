@@ -1,6 +1,7 @@
 import Foundation
 import PaneKit
 import Security
+import os
 
 // Where proxy passwords live (PaneKit ProxyPasswords): sealed in the data
 // directory, proxy-passwords.json, under the engine's "Pane Safe Storage" key
@@ -54,7 +55,7 @@ struct ProxyPasswordStore: Sendable {
 		}
 
 		guard let passwords = vault.read() else {
-			NSLog("Pane: could not read the proxy passwords")
+			Log.security.error("Could not read the proxy passwords")
 			return nil
 		}
 
@@ -73,7 +74,7 @@ struct ProxyPasswordStore: Sendable {
 		}
 
 		guard vault.write(passwords) else {
-			NSLog("Pane: could not save the proxy passwords")
+			Log.security.error("Could not save the proxy passwords")
 			return false
 		}
 
@@ -113,7 +114,7 @@ struct ProxyPasswordStore: Sendable {
 			case errSecItemNotFound:
 				return [:]
 			default:
-				NSLog("Pane: could not read the proxy passwords' item: %d", status)
+				Log.security.error("Could not read the proxy passwords' item: \(status)")
 				return nil
 			}
 		}

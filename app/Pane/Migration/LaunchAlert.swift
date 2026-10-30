@@ -1,5 +1,6 @@
 import CoreFoundation
 import Foundation
+import os
 
 // A system alert for the launch, before the engine runs: nothing may touch
 // NSApplication then (main.swift), so it is a CFUserNotification, which the
@@ -76,7 +77,7 @@ enum LaunchAlert {
 		let notification = CFUserNotificationCreate(nil, 0, flags | CFOptionFlags(kCFUserNotificationNoteAlertLevel), &error, contents as CFDictionary)
 
 		if notification == nil {
-			NSLog("Pane: could not show the launch alert \"%@\": %d", title, error)
+			Log.app.error("Could not show the launch alert \"\(title)\": \(error)")
 		}
 
 		return notification

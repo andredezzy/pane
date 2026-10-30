@@ -1,6 +1,7 @@
 import AppKit
 import PaneCore
 import PaneKit
+import os
 
 // Joins the model and the engine: opens a profile's BrowserContext on first
 // use, keeps one live page (WebContents) per loaded tab, shows the selected
@@ -130,7 +131,7 @@ final class BrowserController: NSObject {
 
 			try application.setFingerprint(json, forContextIdentifier: profileID)
 		} catch {
-			NSLog("Pane: could not apply the fingerprint of profile %@: %@", profileID, String(describing: error))
+			Log.engine.error("Could not apply the fingerprint of profile \(profileID): \(String(describing: error), privacy: .private)")
 		}
 	}
 
@@ -196,7 +197,7 @@ final class BrowserController: NSObject {
 			}
 
 			guard let context else {
-				NSLog("Pane: could not open profile %@: %@", profileID, String(describing: error))
+				Log.engine.error("Could not open profile \(profileID): \(String(describing: error), privacy: .private)")
 				contextWaiters.removeValue(forKey: profileID)?.forEach { $0(nil) }
 				return
 			}

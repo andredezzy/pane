@@ -1,6 +1,7 @@
 import Foundation
 import PaneKit
 import Security
+import os
 
 // The Electron app's data comes over at launch, before anything reads the
 // data directory or the engine starts (PaneKit ElectronMigration), and its
@@ -16,11 +17,11 @@ enum LaunchMigration {
 			} catch {
 				// Nothing committed (profiles.json moves last), so the next
 				// launch tries again, unless the user makes profiles first.
-				NSLog("Pane: the migration from the Electron app failed: %@", String(describing: error))
+				Log.migration.error("The migration from the Electron app failed: \(String(describing: error), privacy: .private)")
 				return
 			}
 
-			NSLog("Pane: migration from the Electron app: %@ (%.1f s)", String(describing: outcome), Date().timeIntervalSince(started))
+			Log.migration.notice("The migration from the Electron app: \(String(describing: outcome), privacy: .private) (\(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s)")
 
 			switch outcome {
 			case .sourceInUse:
@@ -114,7 +115,7 @@ enum LaunchMigration {
 			status = SafeStorage.adoptKey(service: service, account: appName)
 		}
 
-		NSLog("Pane: the Electron app's cookie key: %d", status)
+		Log.migration.notice("The Electron app's cookie key: \(status)")
 
 		// Adopted, missing, or declined: done. Anything else could not ask.
 		record.cookieKeyPending = ![errSecSuccess, errSecItemNotFound, errSecUserCanceled, errSecAuthFailed].contains(status)
@@ -122,7 +123,7 @@ enum LaunchMigration {
 		do {
 			try file.save(record)
 		} catch {
-			NSLog("Pane: could not save migration.json: %@", String(describing: error))
+			Log.migration.error("Could not save migration.json: \(String(describing: error), privacy: .private)")
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import Foundation
 import PaneKit
+import os
 
 // Where BrowserModel's state lives: profiles.json and settings.json in the
 // data directory, and the proxy passwords sealed beside them (PaneKit
@@ -67,7 +68,7 @@ final class ModelStore {
 		do {
 			return try file.load()
 		} catch {
-			NSLog("Pane: could not read %@: %@", file.url.path, String(describing: error))
+			Log.model.error("Could not read \(file.url.path, privacy: .private): \(String(describing: error), privacy: .private)")
 
 			let damaged = file.url.appendingPathExtension("damaged")
 
@@ -106,7 +107,7 @@ final class ModelStore {
 					try profilesFile.save(ProfilesState(profiles: stripsPasswords ? ProxyPasswords.stripped(profiles) : profiles))
 				}
 			} catch {
-				NSLog("Pane: could not save profiles.json: %@", String(describing: error))
+				Log.model.error("Could not save profiles.json: \(String(describing: error), privacy: .private)")
 				Task { @MainActor in self?.model?.scheduleSave(profiles: true) }
 			}
 
@@ -115,7 +116,7 @@ final class ModelStore {
 					try settingsFile.save(SettingsState(settings: settings))
 				}
 			} catch {
-				NSLog("Pane: could not save settings.json: %@", String(describing: error))
+				Log.model.error("Could not save settings.json: \(String(describing: error), privacy: .private)")
 				Task { @MainActor in self?.model?.scheduleSave(settings: true) }
 			}
 		}

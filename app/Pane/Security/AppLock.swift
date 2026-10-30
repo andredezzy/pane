@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import PaneKit
+import os
 
 // The app lock (apps/veil security-store.ts, trpc/routers/security.ts): with
 // a PIN set, Pane starts locked behind the PIN screen; the screen also sets,
@@ -34,7 +35,7 @@ final class AppLock {
 		do {
 			loaded = try file.load() ?? SecurityState()
 		} catch {
-			NSLog("Pane: could not read security.json: %@", String(describing: error))
+			Log.security.error("Could not read security.json: \(String(describing: error), privacy: .private)")
 
 			let damaged = file.url.appendingPathExtension("damaged")
 
@@ -154,7 +155,7 @@ final class AppLock {
 	private func setPin(_ pin: String) {
 		Task { [weak self] in
 			guard let hash = await Task.detached(operation: { PinHash.make(pin) }).value else {
-				NSLog("Pane: could not hash the new PIN")
+				Log.security.error("Could not hash the new PIN")
 				return
 			}
 
@@ -172,7 +173,7 @@ final class AppLock {
 		do {
 			try file.save(state)
 		} catch {
-			NSLog("Pane: could not save security.json: %@", String(describing: error))
+			Log.security.error("Could not save security.json: \(String(describing: error), privacy: .private)")
 		}
 	}
 
@@ -250,7 +251,7 @@ final class AppLock {
 			let failures = PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
 			// Here, off the launch: the Keychain may take its time.
 			forgetElectronKey(electron)
-			NSLog("Pane: the panic wipe erased its data in %.1f s", Date().timeIntervalSince(started))
+			Log.security.notice("The panic wipe erased its data in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s")
 
 			Task { @MainActor in
 				log(failures)
@@ -307,12 +308,12 @@ final class AppLock {
 		}
 
 		let status = SafeStorage.deleteKey(service: "\(appName) Safe Storage", account: appName)
-		NSLog("Pane: the panic wipe removed the Electron app's cookie key: %d", status)
+		Log.security.notice("The panic wipe removed the Electron app's cookie key: \(status)")
 	}
 
 	private static func log(_ failures: [PanicWipe.Failure]) {
 		for failure in failures {
-			NSLog("Pane: the panic wipe could not erase %@", failure.description)
+			Log.security.error("The panic wipe could not erase \(failure.description, privacy: .private)")
 		}
 	}
 
@@ -343,7 +344,7 @@ final class AppLock {
 			try process.run()
 			return true
 		} catch {
-			NSLog("Pane: could not start again after the wipe: %@", String(describing: error))
+			Log.security.error("Could not start again after the wipe: \(String(describing: error), privacy: .private)")
 			return false
 		}
 	}

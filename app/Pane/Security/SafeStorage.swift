@@ -2,6 +2,7 @@ import Foundation
 import LocalAuthentication
 import PaneKit
 import Security
+import os
 
 // Chromium encrypts cookies with a key it keeps in the login Keychain, a
 // generic password named "<app> Safe Storage" whose account is the app's
@@ -80,7 +81,7 @@ enum SafeStorage {
 		case errSecItemNotFound:
 			return .missing
 		default:
-			NSLog("Pane: could not read the engine's key: %d", status)
+			Log.security.error("Could not read the engine's key: \(status)")
 			return .unavailable
 		}
 	}
