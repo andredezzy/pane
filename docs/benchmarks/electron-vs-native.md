@@ -1,8 +1,50 @@
-# Electron 0.6.0 against native 0.11.2
+# How much the native app improved on the Electron app
 
-Pane's last Electron release, 0.6.0, against the native app at 0.11.2, on one Mac, with the same tools and the same method for both: size, the engines, launch, memory, idle CPU, page loads, and Speedometer and JetStream. ADR 0004 moved Pane to the native shell; ADRs 0051 and 0088 retired the Electron app at 0.7.0. The `benchmark-*` scenarios measured everything here, [README.md](README.md) reruns them, and [electron-vs-native.json](electron-vs-native.json) holds every measurement. Numbers are medians, with the runs' range in brackets. MB is 2^20 bytes, as du and footprint count it.
+What moving Pane from Electron to its native shell (ADR 0004) bought, measured: the native app at 0.11.2 against the last Electron release, 0.6.0, on one Mac, with the same tools and the same method for both. The Electron app is the baseline throughout, and every change is the native app's. ADRs 0051 and 0088 retired the Electron app at 0.7.0. The `benchmark-*` scenarios measured everything here, [README.md](README.md) reruns them, and [electron-vs-native.json](electron-vs-native.json) holds every measurement. Numbers are medians, with the runs' range in brackets. MB is 2^20 bytes, as du and footprint count it.
+
+The two apps run different engines: Chromium 146 (Electron 41.4.0) in the Electron app, Chromium 157 in the native one. Every change below is the shell's and the engine's together; [Caveats](#caveats) says where that matters.
+
+## What improved
+
+| | Electron 0.6.0 | Native 0.11.2 | Improvement |
+| --- | ---: | ---: | --- |
+| Memory, 1 tab | 244 MB | 144 MB | 100 MB less (−41%) |
+| Memory, 5 tabs | 295 MB | 230 MB | 64 MB less (−22%) |
+| Memory, 10 tabs | 401 MB | 345 MB | 56 MB less (−14%) |
+| Relaunch: first page loaded | 434 ms | 347 ms | 87 ms sooner (−20%) |
+| Relaunch: first page painted | 461 ms | 382 ms | 79 ms sooner (−17%) |
+| Cold launch: window on screen | 377 ms | 334 ms | 43 ms sooner (−11%) |
+| Relaunch: window on screen | 388 ms | 351 ms | 37 ms sooner (−9%) |
+| A painted frame reaching the screen (local pages) | 15.7–27.1 ms | 3.7–13.6 ms | 12 to 13.5 ms sooner |
+| Largest contentful paint, `smoke.html` | 28 ms | 16 ms | 12 ms sooner (−43%) |
+| JetStream 3.0 (JavaScript, WebAssembly) | 397 | 435 | 10% higher |
+| Real sites, spread of three runs (empty cache) | up to 1,280 ms | under 120 ms | steadier |
+
+- **Memory** is the largest gain: 100 MB less with one tab. Most of it is the Electron app's GPU process (68 MB more than the native app's) and the two renderers its UI needs (its UI page and its tab switcher's overlay). The native app draws its UI in AppKit and SwiftUI, in its browser process. The gain narrows as tabs open, since the native app's GPU process grows by 4.6 MB a tab and the Electron app's does not: 56 MB less at ten tabs.
+- **Launch:** the window is on screen about 40 ms sooner, and on a relaunch the first page loads 87 ms sooner. The Electron app's relaunch is no faster than its first launch; the native app's is 84 ms faster. The Electron app also shows its window before its UI has painted, a plain placeholder colour for 54 to 68 ms in every run, which the native app has no web page to wait for.
+- **Frames reach the screen sooner.** On the local pages, a frame the renderer has painted takes 3.7 to 13.6 ms to be on screen in the native app, against 15.7 to 27.1 ms in the Electron app.
+- **JetStream** runs 10% faster.
+- **Real sites load as fast, and more steadily:** largest contentful paint is within 4% either way, but the native app's runs never spread more than 120 ms, where the Electron app's reached 1,280 ms.
+
+## What did not improve
+
+| | Electron 0.6.0 | Native 0.11.2 | Change |
+| --- | ---: | ---: | --- |
+| Download (dmg) | 115 MB | 179 MB | 55% bigger |
+| App on disk | 314 MB | 395 MB | 26% bigger |
+| Speedometer 3.1 (web apps: DOM, layout) | 51.1 | 46.0 | 10% lower |
+| Cold launch: first page loaded | 429 ms | 431 ms | the same |
+| Real sites, largest contentful paint | 716 / 1,300 / 1,376 ms | 744 / 1,344 / 1,408 ms | the same, within 4%; the order flipped between passes |
+| Idle CPU, one tab | 0.05% of a core | 0.16% of a core | both under 0.2%; the runs overlap |
+| Processes, 1 tab | 6 | 8 | 2 more (Crashpad's two handlers and a storage service) |
+
+- **Size** is the cost of the engine: `PaneCore.framework` is Chromium's `chrome/` layer (ADR 0009), with its extension system and Chrome's other features, where Electron Framework is Chromium's content layer with Node.js. Its binary alone is 88 MB larger.
+- **Speedometer** is 10% lower. The engines, their builds (Pane's sets no `is_official_build`), and the windows (the native app's tab is 42% larger in area) all differ, and these runs cannot say how much of the gap is the shell's.
+- **Idle CPU** is negligible in both, under 0.2% of one core in every run; the median favours the Electron app, but the ranges overlap.
 
 ## Summary
+
+Every metric measured, the Electron app first:
 
 | Metric | Unit | Better | Electron 0.6.0 | Native 0.11.2 | Native vs Electron |
 | --- | --- | --- | ---: | ---: | ---: |
@@ -29,10 +71,6 @@ Pane's last Electron release, 0.6.0, against the native app at 0.11.2, on one Ma
 | github.com, empty cache: largest contentful paint | ms | lower | 1376 [1284–1400] | 1408 [1388–1464] | +2% (1.02×) |
 | Speedometer 3.1 | score | higher | 51.1 [50.9–51.4] | 46.0 [46.0–46.1] | −10% (0.90×) |
 | JetStream 3.0 | score | higher | 397 [395–399] | 435 [431–439] | +10% (1.10×) |
-
-The two apps run different engines: Electron 0.6.0 is Electron 41.4.0, on Chromium 146.0.7680.216, and native 0.11.2 is on Chromium 157.0.8103.15, eleven milestones later. Every difference here is the shell's and the engine's together; [Caveats](#caveats) says where that matters.
-
-In short: the native app is 55% bigger to download and 26% bigger on disk. It puts its window on screen about 40 ms sooner and, on a relaunch, its first page 87 ms sooner. It uses 100 MB (41%) less memory with one tab, a gap that narrows to 56 MB (14%) at ten. Both idle at under 0.2% of one core, with ranges that overlap. On the real sites the two are within 4% of each other on largest contentful paint, and which one is ahead changed between two passes an hour apart. JetStream scores 10% higher on the native app and Speedometer 10% lower.
 
 ## Machine, builds, and conditions
 

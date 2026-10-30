@@ -2,7 +2,7 @@
 
 Measured comparisons of Pane builds, each with its raw measurements beside it.
 
-- [electron-vs-native.md](electron-vs-native.md) — the last Electron release, 0.6.0, against the native app, 0.11.2: size, launch, memory, idle CPU, page loads, Speedometer and JetStream, and the engines. Raw data: [electron-vs-native.json](electron-vs-native.json).
+- [electron-vs-native.md](electron-vs-native.md) — how much the native app (0.11.2) improved on the last Electron release (0.6.0): what improved, what did not, then size, launch, memory, idle CPU, page loads, Speedometer and JetStream, and the engines, each with its method. Raw data: [electron-vs-native.json](electron-vs-native.json).
 
 ## Rerunning electron-vs-native
 
