@@ -9,7 +9,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT_DIR="$(cd "$HERE/../../../.." && pwd)"
+ROOT_DIR="$(cd "$HERE/../../../../.." && pwd)"
 BUILD="$HERE/build"
 OUT="$HERE/out"
 AERIAL="$HOME/Library/Application Support/com.apple.wallpaper/aerials/videos/4207734D-74FE-4F92-B5E1-6EC8DEE24A15.mov"
