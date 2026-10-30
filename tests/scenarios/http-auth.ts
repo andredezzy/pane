@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { dialogFieldWidths, isScreenLocked, mainWindowOf } from "../lib/cua";
+import { canDriveUI, dialogFieldWidths, mainWindowOf } from "../lib/cua";
 import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
@@ -30,7 +30,7 @@ const httpAuth: Scenario = async (context) => {
 	// On screen: both fields at their full width, and a picture of the dialog.
 	let fields: number[] | "locked" = "locked";
 
-	if (await isScreenLocked()) {
+	if (!(await canDriveUI())) {
 		context.defer("the dialog's fields at their full width, on screen");
 	} else {
 		const window = await mainWindowOf(app.browser.pid);

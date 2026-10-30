@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { isScreenLocked } from "../lib/cua";
+import { canDriveUI } from "../lib/cua";
 import { pageResult, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -128,8 +128,8 @@ const fileChooser: Scenario = async (context) => {
 			save: saveCancelled,
 		},
 		saved,
-		answeredVia: (await isScreenLocked())
-			? "automation (locked screen)"
+		answeredVia: !(await canDriveUI())
+			? "automation (no accessibility)"
 			: "automation",
 		windows,
 	};

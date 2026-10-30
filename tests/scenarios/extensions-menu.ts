@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import {
+	canDriveUI,
 	clickControl,
-	isScreenLocked,
 	mainWindowOf,
 	windowState,
 } from "../lib/cua";
@@ -165,7 +165,7 @@ async function pressInMoreMenu(
 }
 
 const extensionsMenu: Scenario = async (context) => {
-	const locked = await isScreenLocked();
+	const locked = !(await canDriveUI());
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Extensions");
 	const url = context.fixtures.url("light.html?extensions-menu");

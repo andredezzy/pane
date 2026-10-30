@@ -1,4 +1,4 @@
-import { clickButton, isScreenLocked, mainWindowOf } from "../lib/cua";
+import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { tabOf } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
@@ -64,7 +64,7 @@ const sadTab: Scenario = async (context) => {
 
 	await watcher.sample("sad tab");
 
-	const locked = await isScreenLocked();
+	const locked = !(await canDriveUI());
 	const via = locked ? "automation" : "cua";
 
 	// The sad tab's own Reload.

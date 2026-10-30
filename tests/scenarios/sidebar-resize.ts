@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { isScreenLocked, mainWindowOf, windowState } from "../lib/cua";
+import { canDriveUI, mainWindowOf, windowState } from "../lib/cua";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
@@ -32,7 +32,7 @@ const sidebarResize: Scenario = async (context) => {
 	// The window as the screen shows it: the fade is a layer mask, which the
 	// app's own render leaves out. Locked, there is no screen to show.
 	const shot = async (file: string) => {
-		if (await isScreenLocked()) {
+		if (!(await canDriveUI())) {
 			context.defer(`${file}: the list's fade, which only the screen shows`);
 		} else {
 			const pid = first.browser.pid;

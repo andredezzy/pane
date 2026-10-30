@@ -6,8 +6,8 @@ import { writeFileSync } from "node:fs";
 import { openPage, Page } from "./cdp";
 import {
 	activateWebAccessibility,
+	canDriveUI,
 	clickButton,
-	isScreenLocked,
 	mainWindowOf,
 	windowState,
 } from "./cua";
@@ -63,7 +63,7 @@ export async function installFromWebStore(
 	// user gesture, which the Web Store's install API requires.
 	let addClick: Installed["addClick"] = "gesture";
 
-	if (await isScreenLocked()) {
+	if (!(await canDriveUI())) {
 		await page.send("Runtime.evaluate", {
 			expression: `${button}.click()`,
 			userGesture: true,
@@ -141,7 +141,7 @@ export async function pressToolbarAction(
 		),
 	);
 
-	if (await isScreenLocked()) {
+	if (!(await canDriveUI())) {
 		await app.send("runExtensionAction", { id });
 
 		return "automation";
@@ -195,7 +195,7 @@ export async function screenshotPopover(
 	id: string,
 	file: string,
 ): Promise<"cua" | "cdp"> {
-	if (!(await isScreenLocked())) {
+	if (await canDriveUI()) {
 		await windowState(
 			app.browser.pid,
 			await mainWindowOf(app.browser.pid),
@@ -217,7 +217,7 @@ export async function screenshotWindow(
 	file: string,
 	page: Page,
 ): Promise<"cua" | "cdp"> {
-	if (!(await isScreenLocked())) {
+	if (await canDriveUI()) {
 		await windowState(
 			app.browser.pid,
 			await mainWindowOf(app.browser.pid),

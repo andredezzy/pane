@@ -2,7 +2,7 @@
 // app. A sheet is answered by clicking its real button: with cua-driver on an
 // unlocked screen, else through the automation channel, which presses the
 // same NSButton (performClick). Each answer records which way it went.
-import { clickButton, fillFields, isScreenLocked, mainWindowOf } from "./cua";
+import { canDriveUI, clickButton, fillFields, mainWindowOf } from "./cua";
 import type { AppState, PaneApp } from "./pane";
 import { windowsOf } from "./windows";
 
@@ -27,7 +27,7 @@ export async function answerSheet(
 	button: string,
 	texts: string[] = [],
 ): Promise<Answer> {
-	if (!(await isScreenLocked())) {
+	if (await canDriveUI()) {
 		const windowId = await mainWindowOf(app.browser.pid);
 
 		if (texts.length > 0) {
@@ -48,7 +48,7 @@ export async function answerModal(
 	app: PaneApp,
 	button: string,
 ): Promise<Answer> {
-	if (!(await isScreenLocked())) {
+	if (await canDriveUI()) {
 		await clickButton(app.browser.pid, "any", button);
 
 		return { button, via: "cua" };

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { invokeMenu, isScreenLocked } from "../lib/cua";
+import { canDriveUI, invokeMenu } from "../lib/cua";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
@@ -213,10 +213,11 @@ const updates: Scenario = async (context) => {
 
 	// The app menu's Check for Updates… checks again (the checking state
 	// holds 0.8s at least). Accessibility, which chooses it as a user does,
-	// is off on a locked screen: the menu item's own action runs instead.
-	if (await isScreenLocked()) {
+	// is off on a locked screen or without cua-driver: the menu item's own
+	// action runs instead.
+	if (!(await canDriveUI())) {
 		context.defer(
-			"Check for Updates… chosen through accessibility: off on a locked screen",
+			"Check for Updates… chosen through accessibility: off on a locked screen or without cua-driver",
 		);
 
 		await current.send("menu", { path: ["Pane", "Check for Updates…"] });

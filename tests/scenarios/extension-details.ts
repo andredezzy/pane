@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { clickButton, isScreenLocked, mainWindowOf } from "../lib/cua";
+import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { workerPage } from "../lib/extensions";
 import type { AppState } from "../lib/pane";
 import { poll } from "../lib/poll";
@@ -376,7 +376,7 @@ const extensionDetails: Scenario = async (context) => {
 	// list.
 	let removal: unknown = "not checked: the screen is locked";
 
-	if (await isScreenLocked()) {
+	if (!(await canDriveUI())) {
 		context.defer("Details' Remove, which a click on the screen presses");
 	} else {
 		await clickButton(

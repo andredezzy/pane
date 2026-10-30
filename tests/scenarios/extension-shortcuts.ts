@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { isScreenLocked, mainWindowOf, readControl } from "../lib/cua";
+import { canDriveUI, mainWindowOf, readControl } from "../lib/cua";
 import { workerPage } from "../lib/extensions";
 import type { AppState, ExtensionCommands } from "../lib/pane";
 import { poll } from "../lib/poll";
@@ -207,8 +207,11 @@ const extensionShortcuts: Scenario = async (context) => {
 	// at 6%; let go, it records. Where the field is, accessibility reads,
 	// which needs an unlocked screen. (Its hover needs the real pointer: a
 	// posted move reaches no tracking area.)
-	if (await isScreenLocked()) {
-		context.defer("a click's press and recording: the screen is locked");
+	if (!(await canDriveUI())) {
+		context.defer(
+			"a click's press and recording: off on a locked screen or without cua-driver",
+		);
+
 		await record(id, "probe-command");
 	} else {
 		const pid = app.browser.pid;

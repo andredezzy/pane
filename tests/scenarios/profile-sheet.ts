@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+	canDriveUI,
 	clickButton,
 	clickControl,
 	mainWindowOf,
@@ -57,6 +58,13 @@ function newProfile(state: AppState, known: string[]): string | undefined {
 }
 
 const profileSheet: Scenario = async (context) => {
+	// The sheet is filled and pressed through accessibility.
+	if (!(await canDriveUI())) {
+		context.defer("the profile sheet, driven through accessibility");
+
+		return { skipped: "the profile sheet is driven through accessibility" };
+	}
+
 	const fixturePort = Number(new URL(context.fixtures.origin).port);
 	const proxy = await startHttpProxy(fixturePort, CREDENTIALS);
 

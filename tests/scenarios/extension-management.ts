@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
+	canDriveUI,
 	clickButton,
 	clickControl,
-	isScreenLocked,
 	mainWindowOf,
 	windowState,
 } from "../lib/cua";
@@ -28,7 +28,7 @@ const extensionManagement: Scenario = async (context) => {
 	const tab = await app.openTab(profile, url);
 	await app.page(tab, url);
 
-	const locked = await isScreenLocked();
+	const locked = !(await canDriveUI());
 	const pid = app.browser.pid;
 
 	const item = (state: AppState): ExtensionState | undefined =>

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { isScreenLocked, mainWindowOf, windowState } from "../lib/cua";
+import { canDriveUI, mainWindowOf, windowState } from "../lib/cua";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
@@ -55,7 +55,7 @@ const switcher: Scenario = async (context) => {
 
 	let screenshot: string | null = null;
 
-	if (await isScreenLocked()) {
+	if (!(await canDriveUI())) {
 		context.defer("the switcher as the screen shows it");
 	} else {
 		const windowId = await mainWindowOf(app.browser.pid);

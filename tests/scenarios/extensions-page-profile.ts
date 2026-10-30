@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import {
+	canDriveUI,
 	clickControl,
-	isScreenLocked,
 	mainWindowOf,
 	windowState,
 } from "../lib/cua";
@@ -13,7 +13,7 @@ import { expect, type Scenario } from "../run";
 // to the active one, with the select still there. The select is chosen in
 // with real presses through accessibility, so it needs an unlocked screen.
 const extensionsPageProfile: Scenario = async (context) => {
-	if (await isScreenLocked()) {
+	if (!(await canDriveUI())) {
 		return { skipped: "the select is pressed through accessibility" };
 	}
 

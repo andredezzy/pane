@@ -54,9 +54,16 @@ export async function isScreenLocked(): Promise<boolean> {
 }
 
 // Whether checks of the native UI can run: the screen unlocked, and
-// cua-driver installed (GitHub's runners have none).
+// cua-driver installed (GitHub's runners have none) with its daemon up.
 export async function canDriveUI(): Promise<boolean> {
-	return Bun.which("cua-driver") !== null && !(await isScreenLocked());
+	if (Bun.which("cua-driver") === null || (await isScreenLocked())) {
+		return false;
+	}
+
+	// It says so on stderr, and exits 0 either way.
+	const status = await $`cua-driver status`.quiet().nothrow();
+
+	return !`${status.stdout}${status.stderr}`.includes("not running");
 }
 
 // The app's largest window. A sheet is a window of its own, and the windows
