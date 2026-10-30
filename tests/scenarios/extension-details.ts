@@ -17,15 +17,22 @@ type Details = NonNullable<AppState["extensionDetails"]>;
 // notifications, and has an options page and a homepage. Manage Extension
 // opens it at once: version, size, and source, the permissions in Chrome's
 // words, Site access On all sites, file access, and the homepage. Each Site
-// access choice changes the sites the probe has (chrome.permissions.getAll);
-// On specific sites shows once the action's menu granted one site. The back
-// arrow returns to the list, and View Web Permissions and a card's Details
-// open it again. Allow access to file URLs sets Chrome's setting both ways.
-// Remove asks first, then leaves Details for the list.
+// access choice changes the sites the probe has (chrome.permissions.getAll).
+// On specific sites, chosen with no site, asks for one first, as Chrome's
+// details page does: Cancel changes nothing, a site Chrome refuses gets its
+// message, and a site added joins the list with the probe granted it. The
+// action menu's On <site> joins the list too, Add a site under it adds
+// another, and each × takes one away, the last leaving the probe on click.
+// The back arrow returns to the list, and View Web Permissions and a card's
+// Details open it again. Allow access to file URLs sets Chrome's setting
+// both ways. Remove asks first, then leaves Details for the list.
 const extensionDetails: Scenario = async (context) => {
 	const { app, has } = await launchTraced(context, "extension-details", {
 		args: [`--load-extension=${PROBE}`],
 	});
+
+	// Light, whatever the Mac's appearance, for the light renders.
+	await app.send("theme", { theme: "light" });
 
 	const profile = await app.createProfile("Details");
 	const url = context.fixtures.url("light.html?extension-details");
@@ -111,34 +118,195 @@ const extensionDetails: Scenario = async (context) => {
 		(current) => !current.includes("<all_urls>"),
 	);
 
-	// On <site> from the action's menu grants the page's site: Details shows
-	// On specific sites.
+	// The probe's sites, once `check` holds.
+	const sitesWhen = (
+		description: string,
+		check: (origins: string[]) => boolean,
+	) =>
+		poll(`the probe's sites ${description}`, async () => {
+			const current = await origins();
+
+			return check(current) && current;
+		});
+
+	// On specific sites, from On click, asks for a site first, as Chrome's
+	// details page does; Cancel leaves the access as it was.
+	await app.send("setExtensionSiteAccess", {
+		id,
+		profile,
+		access: "onSpecificSites",
+	});
+
+	const asked = await app.waitFor(
+		"Add a site, from On specific sites",
+		(state) => state.addingSite?.extension === id,
+	);
+
+	expect(
+		details(asked)?.siteAccess === "onClick",
+		`asking for a site, Details reads ${details(asked)?.siteAccess}`,
+	);
+
+	await Bun.sleep(300);
+
+	await app.send("render", {
+		path: join(context.out, "extension-details-add-site-light.png"),
+	});
+
+	await app.send("cancelAddExtensionSite");
+
+	const cancelled = await app.waitFor(
+		"Add a site cancelled",
+		(state) => state.addingSite === null,
+	);
+
+	expect(
+		details(cancelled)?.siteAccess === "onClick",
+		`cancelled, Details reads ${details(cancelled)?.siteAccess}`,
+	);
+
+	// A site Chrome refuses keeps the dialog, with Chrome's message.
+	await app.send("setExtensionSiteAccess", {
+		id,
+		profile,
+		access: "onSpecificSites",
+	});
+
+	await app.waitFor("Add a site again", (state) => state.addingSite !== null);
+	await app.send("addExtensionSite", { site: "not a site" });
+
+	const refused = await app.waitFor(
+		"the refused site's message",
+		(state) => state.addingSite?.invalid === true,
+	);
+
+	await Bun.sleep(300);
+
+	await app.send("render", {
+		path: join(context.out, "extension-details-add-site-invalid-light.png"),
+	});
+
+	// example.com is added, On specific sites: the probe has it, and no
+	// other site.
+	await app.send("addExtensionSite", { site: "example.com" });
+
+	const added = await app.waitFor(
+		"example.com in the list",
+		(state) =>
+			state.addingSite === null &&
+			details(state)?.siteAccess === "onSpecificSites" &&
+			JSON.stringify(details(state)?.specificSites) ===
+				JSON.stringify(["*://example.com/*"]),
+	);
+
+	const withExample = await sitesWhen(
+		"with example.com",
+		(current) =>
+			current.includes("*://example.com/*") && !current.includes("<all_urls>"),
+	);
+
+	// On <site> from the action's menu grants the page's site: it joins the
+	// list.
 	const site = new URL(url).hostname;
+
+	const ofPage = (sites: string[]) =>
+		sites.find((each) => new URL(each.replace("*", "x")).hostname === site);
 
 	await app.send("extensionActionMenu", { id, run: `On ${site}` });
 
-	await app.waitFor(
-		"Details at On specific sites",
-		(state) => details(state)?.siteAccess === "onSpecificSites",
+	const fromMenu = await app.waitFor(
+		"the page's site in the list",
+		(state) =>
+			details(state)?.siteAccess === "onSpecificSites" &&
+			details(state)?.specificSites.length === 2 &&
+			ofPage(details(state)?.specificSites ?? []) !== undefined,
 	);
 
-	const specific = await poll("the page's site granted", async () => {
-		const current = await origins();
+	const pageSite = ofPage(details(fromMenu)?.specificSites ?? []) as string;
 
-		return (
-			!current.includes("<all_urls>") &&
-			current.some(
-				(origin) => new URL(origin.replace("*", "x")).hostname === site,
-			) &&
-			current
-		);
-	});
+	const specific = await sitesWhen("with the page's site", (current) =>
+		current.includes(pageSite),
+	);
 
 	await Bun.sleep(300);
 
 	await app.send("render", {
 		path: join(context.out, "extension-details-specific-light.png"),
 	});
+
+	// The list and Add a site in the dark theme.
+	await app.send("theme", { theme: "dark" });
+	await app.waitFor("dark", (state) => /dark/i.test(state.appearance));
+	await Bun.sleep(300);
+
+	await app.send("render", {
+		path: join(context.out, "extension-details-specific-dark.png"),
+	});
+
+	await app.send("showAddExtensionSite", { id, profile });
+	await app.waitFor("Add a site, dark", (state) => state.addingSite !== null);
+	await Bun.sleep(300);
+
+	await app.send("render", {
+		path: join(context.out, "extension-details-add-site-dark.png"),
+	});
+
+	await app.send("cancelAddExtensionSite");
+	await app.send("theme", { theme: "light" });
+
+	// Add a site, under the list: a site of any subdomain; then its ×.
+	await app.send("showAddExtensionSite", { id, profile });
+
+	await app.waitFor(
+		"Add a site, under the list",
+		(state) => state.addingSite !== null,
+	);
+
+	await app.send("addExtensionSite", { site: "https://*.example.org" });
+
+	await app.waitFor(
+		"*.example.org in the list",
+		(state) =>
+			details(state)?.specificSites.includes("https://*.example.org/*") ===
+			true,
+	);
+
+	await sitesWhen("with *.example.org", (current) =>
+		current.includes("https://*.example.org/*"),
+	);
+
+	await app.send("removeExtensionSite", {
+		id,
+		profile,
+		site: "https://*.example.org/*",
+	});
+
+	await app.waitFor(
+		"*.example.org gone",
+		(state) =>
+			details(state)?.specificSites.includes("https://*.example.org/*") ===
+			false,
+	);
+
+	const removed = await sitesWhen(
+		"without *.example.org",
+		(current) => !current.includes("https://*.example.org/*"),
+	);
+
+	// The last site's × leaves it on click, as Chrome's.
+	for (const each of ["*://example.com/*", pageSite]) {
+		await app.send("removeExtensionSite", { id, profile, site: each });
+	}
+
+	const none = await app.waitFor(
+		"no sites left, on click",
+		(state) => details(state)?.siteAccess === "onClick",
+	);
+
+	await sitesWhen(
+		"with no site",
+		(current) => !current.some((origin) => /example|127\.0\.0\.1/.test(origin)),
+	);
 
 	const onAllSites = await setAccess("onAllSites", (current) =>
 		current.includes("<all_urls>"),
@@ -248,7 +416,16 @@ const extensionDetails: Scenario = async (context) => {
 	return {
 		extension: id,
 		details: shown,
-		siteAccess: { onClick, specific, onAllSites },
+		siteAccess: {
+			onClick,
+			refused: refused.addingSite,
+			added: details(added)?.specificSites,
+			withExample,
+			specific,
+			removed,
+			none: details(none)?.specificSites,
+			onAllSites,
+		},
 		fileAccess: { toggled, restored },
 		removal,
 	};

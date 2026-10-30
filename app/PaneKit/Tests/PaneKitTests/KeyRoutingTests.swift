@@ -90,6 +90,16 @@ struct KeyRoutingTests {
 		#expect(route(escape, KeyOverlays(pinScreen: true, extensionShortcuts: true, recordingShortcut: true)).command == .pinBack)
 	}
 
+	@Test("Add a site cancels on Esc and adds on Return; the rest is typed into its field")
+	func addingSite() {
+		let overlays = KeyOverlays(addingSite: true)
+
+		#expect(route(escape, overlays) == KeyRoute(.cancelAddSite, consumed: true))
+		#expect(route(returnKey, overlays) == KeyRoute(.addSite, consumed: true))
+		#expect(route(letter("a"), overlays) == KeyRoute(nil, consumed: false))
+		#expect(route(escape, KeyOverlays(quitConfirmation: true, addingSite: true)).command == .cancelQuit)
+	}
+
 	@Test("Esc goes to the topmost overlay: Quit Pane? over an extension's popup")
 	func quitOverPrompt() {
 		let overlays = KeyOverlays(quitConfirmation: true, extensionPrompt: true)

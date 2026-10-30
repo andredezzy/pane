@@ -3,9 +3,14 @@
 #import "pane/public/PaneBrowserContext.h"
 
 #include <memory>
+#include <optional>
+#include <string>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/no_destructor.h"
+#include "base/strings/strcat.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
@@ -37,6 +42,7 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/path_util.h"
+#include "extensions/browser/permissions/permissions_updater.h"
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/browser/uninstall_reason.h"
@@ -49,6 +55,10 @@
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/window_host.h"
 #include "extensions/common/command.h"
+#include "extensions/common/permissions/permission_set.h"
+#include "extensions/common/url_pattern.h"
+#include "extensions/common/url_pattern_set.h"
+#include "third_party/re2/src/re2/re2.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/events/cocoa/cocoa_event_utils.h"
 #include "ui/events/keycodes/keyboard_code_conversion_mac.h"
@@ -58,6 +68,42 @@
 #import "pane/browser/extensions/extensions_internal.h"
 #import "pane/public/PaneBrowserWindow.h"
 #import "pane/public/PaneExtensions.h"
+
+namespace {
+
+// developerPrivate's ParseRuntimePermissionsPattern: a site of the details
+// page's list ("*://example.com/*"), for http, https, and file, with no path.
+std::optional<URLPattern> PatternOfHost(const std::string& host) {
+  URLPattern pattern(URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS |
+                     URLPattern::SCHEME_FILE);
+  if (pattern.Parse(host) != URLPattern::ParseResult::kSuccess ||
+      pattern.path() != "/*") {
+    return std::nullopt;
+  }
+  return pattern;
+}
+
+// A site as the details page's Add a site takes it: its
+// runtimeHostsPatternRegExp and getPatternFromSite (runtime_hosts_dialog.ts)
+// make what was typed a pattern, the scheme any when none is given. Nothing
+// for one the page refuses.
+std::optional<URLPattern> PatternOfSite(const std::string& site) {
+  static const base::NoDestructor<re2::RE2> kSite(
+      "((http|https|\\*)://)?(\\*\\.)?([a-z0-9\\.-]+\\.[a-z0-9]+|localhost)"
+      "(:[0-9]+)?(/\\*|/)?");
+  std::string scheme;
+  std::string subdomains;
+  std::string host;
+  std::string port;
+  if (!re2::RE2::FullMatch(site, *kSite, &scheme, nullptr, &subdomains, &host,
+                           &port, nullptr)) {
+    return std::nullopt;
+  }
+  return PatternOfHost(base::StrCat(
+      {scheme.empty() ? "*://" : scheme, subdomains, host, port, "/*"}));
+}
+
+}  // namespace
 
 @implementation PaneBrowserContext {
   NSString* _identifier;
@@ -518,6 +564,62 @@
   if ([self installedExtension:identifier]) {
     extensions::util::SetAllowFileAccess(base::SysNSStringToUTF8(identifier),
                                          _profile, allows);
+  }
+}
+
+// As the details page's Add a site, opened from the pop-up or under the
+// list: On specific sites first (developerPrivate's hostAccess), then
+// developerPrivate.addHostPermission.
+- (BOOL)addSite:(NSString*)site toExtension:(NSString*)identifier {
+  PANE_TRACE("call", "PaneBrowserContext.addExtensionSite",
+             base::DictValue()
+                 .Set("extension", base::SysNSStringToUTF8(identifier))
+                 .Set("site", base::SysNSStringToUTF8(site)));
+  const extensions::Extension* extension = [self installedExtension:identifier];
+  std::optional<URLPattern> pattern =
+      PatternOfSite(base::SysNSStringToUTF8(site));
+  if (!extension || !pattern ||
+      !extensions::PermissionsManager::Get(_profile)->CanAffectExtension(
+          *extension)) {
+    return NO;
+  }
+  [self setSiteAccess:PaneExtensionSiteAccessOnSpecificSites
+         forExtension:identifier];
+  extensions::URLPatternSet hosts({*pattern});
+  extensions::PermissionsUpdater(_profile).GrantRuntimePermissions(
+      *extension,
+      extensions::PermissionSet(extensions::APIPermissionSet(),
+                                extensions::ManifestPermissionSet(),
+                                hosts.Clone(), hosts.Clone()),
+      base::DoNothing());
+  return YES;
+}
+
+// As developerPrivate.removeHostPermission.
+- (void)removeSite:(NSString*)site fromExtension:(NSString*)identifier {
+  PANE_TRACE("call", "PaneBrowserContext.removeExtensionSite",
+             base::DictValue()
+                 .Set("extension", base::SysNSStringToUTF8(identifier))
+                 .Set("site", base::SysNSStringToUTF8(site)));
+  const extensions::Extension* extension = [self installedExtension:identifier];
+  std::optional<URLPattern> pattern =
+      PatternOfHost(base::SysNSStringToUTF8(site));
+  extensions::PermissionsManager* manager =
+      _profile ? extensions::PermissionsManager::Get(_profile) : nullptr;
+  if (!extension || !pattern || !manager->CanAffectExtension(*extension)) {
+    return;
+  }
+  extensions::URLPatternSet hosts({*pattern});
+  std::unique_ptr<const extensions::PermissionSet> granted =
+      extensions::PermissionSet::CreateIntersection(
+          extensions::PermissionSet(extensions::APIPermissionSet(),
+                                    extensions::ManifestPermissionSet(),
+                                    hosts.Clone(), hosts.Clone()),
+          *manager->GetRevokablePermissions(*extension),
+          extensions::URLPatternSet::IntersectionBehavior::kDetailed);
+  if (!granted->IsEmpty()) {
+    extensions::PermissionsUpdater(_profile).RevokeRuntimePermissions(
+        *extension, *granted, base::DoNothing());
   }
 }
 

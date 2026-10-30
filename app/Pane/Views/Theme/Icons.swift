@@ -20,6 +20,7 @@ enum Lucide: String {
 	case monitor
 	case moon
 	case pencil
+	case plus
 	case rotateCw
 	case search
 	case settings
@@ -63,6 +64,8 @@ enum Lucide: String {
 			#"<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>"#
 		case .pencil:
 			#"<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>"#
+		case .plus:
+			#"<path d="M5 12h14"/><path d="M12 5v14"/>"#
 		case .rotateCw:
 			#"<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>"#
 		case .search:

@@ -1,5 +1,7 @@
 # An extension's Details are a view of the Extensions page
 
+> **Its On specific sites is replaced by [ADR 0105](0105-on-specific-sites-lists-its-sites.md)** (2026-10-30): the option can always be chosen, and lists its sites with Add a site, as Paper's 09.16; `PaneMenuButton` is a picker again. The rest stands.
+
 Each extension has its Details, as chrome://extensions and Aside's extensions page have theirs: a view inside the Extensions page, with a back arrow to the list. A card's Details button opens it, and so do Manage Extension and View Web Permissions (ADR 0101), as Chrome opens chrome://extensions/?id=. Until now Pane showed only the card, with no permissions, site access, or file access, and Manage Extension scrolled the list to the card. Paper drew it first: 09.13, 09.14 (the site access pop-up open), and 09.15 (the card before and after), light and dark, approved by the user (ADR 0058).
 
 - **The view** (`app/Pane/Extensions/ExtensionDetailsView.swift`), in Settings' layout (ADR 0065) and 640 points wide at most:

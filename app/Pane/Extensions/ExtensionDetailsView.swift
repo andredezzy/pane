@@ -1,13 +1,15 @@
 import PaneCore
+import PaneKit
 import SwiftUI
 
-// An extension's Details on the Extensions page (Paper: 09.13, 09.14), as
-// chrome://extensions' details page, in Settings' layout: the back arrow to
-// the list, the icon, the name, its version, size, and source, and the
-// switch; the description; Permissions, in Chrome's words; Site access, for
-// an extension that asks for every site; Pin to toolbar and Allow access to
-// file URLs; its options, website, and Web Store page; Remove extension.
-// 640 wide at most, as Settings.
+// An extension's Details on the Extensions page (Paper: 09.13, 09.14,
+// 09.16), as chrome://extensions' details page, in Settings' layout: the
+// back arrow to the list, the icon, the name, its version, size, and source,
+// and the switch; the description; Permissions, in Chrome's words; Site
+// access, for an extension that asks for every site, with its sites On
+// specific sites; Pin to toolbar and Allow access to file URLs; its options,
+// website, and Web Store page; Remove extension. 640 wide at most, as
+// Settings.
 struct ExtensionDetailsView: View {
 	let controller: ExtensionsController
 	let item: ExtensionInfo
@@ -40,7 +42,7 @@ struct ExtensionDetailsView: View {
 
 						if engine.siteAccess != .none {
 							SettingsGroup(title: "Site access") {
-								siteAccess(engine.siteAccess)
+								siteAccess(engine)
 							}
 						}
 
@@ -155,21 +157,37 @@ struct ExtensionDetailsView: View {
 		}
 	}
 
-	// The pop-up, Chrome's choices. On specific sites has no list of sites
-	// to choose from here, so it is there only once some are granted (On
-	// <site>, from the action's menu).
-	private func siteAccess(_ access: ExtensionSiteAccess) -> some View {
-		SettingsRow(title: "Allow this extension to read and change all your data on websites you visit", last: true) {
+	// The pop-up, Chrome's choices; On specific sites, the sites it was
+	// granted under it (Paper: 09.16), each with its ×, then Add a site.
+	@ViewBuilder
+	private func siteAccess(_ engine: ExtensionDetails) -> some View {
+		let specific = engine.siteAccess == .onSpecificSites
+
+		SettingsRow(title: "Allow this extension to read and change all your data on websites you visit", last: !specific) {
 			PaneMenuButton(
 				options: [("On click", ExtensionSiteAccess.onClick), ("On specific sites", .onSpecificSites), ("On all sites", .onAllSites)],
-				selection: access,
+				selection: engine.siteAccess,
 				label: "Site access",
-				chevron: .upDown,
-				isSelectable: { $0 != .onSpecificSites || access == .onSpecificSites }
+				chevron: .upDown
 			) { access in
 				controller.setSiteAccess(item.id, access, inProfile: profileID)
 			}
 			.accessibilityIdentifier("pane.extensionDetails.siteAccess")
+		}
+
+		if specific {
+			ForEach(engine.specificSites, id: \.self) { site in
+				SiteRow(title: ExtensionSite.title(site)) {
+					controller.removeSite(site, of: item.id, inProfile: profileID)
+				}
+			}
+
+			LinkRow(
+				link: DetailsLink(title: "Add a site", identifier: "addSite", icon: .plus) {
+					controller.showAddSite(item.id, inProfile: profileID)
+				},
+				last: true
+			)
 		}
 	}
 
@@ -243,11 +261,47 @@ private struct DetailsLink {
 	let title: String
 	let identifier: String
 	var enabled = true
+	var icon = Lucide.externalLink
 	let open: () -> Void
 }
 
-// A row that opens a page: its title, and the external-link icon 16 in from
-// the card's edge; the whole row takes the outline hover's fill.
+// A site of the list: its title, and the × that takes it away, ending 10 in
+// from the card's edge, as the pop-up above it.
+private struct SiteRow: View {
+	let title: String
+	let remove: () -> Void
+
+	var body: some View {
+		HStack(spacing: 16) {
+			Text(title)
+				.font(.system(size: 13))
+				.foregroundStyle(Palette.foreground)
+				.lineLimit(1)
+				.truncationMode(.middle)
+				.lineBox(18)
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			Button(action: remove) {
+				LucideIcon(.x, size: 16, strokeWidth: 1.75)
+			}
+			.buttonStyle(.icon(size: 28))
+			.help("Remove \(title)")
+			.accessibilityLabel("Remove \(title)")
+		}
+		.padding(.leading, 16)
+		.padding(.trailing, 11)
+		.frame(minHeight: 48)
+		.overlay(alignment: .bottom) {
+			Hairline()
+		}
+		.accessibilityElement(children: .contain)
+		.accessibilityIdentifier("pane.extensionDetails.site.\(title)")
+	}
+}
+
+// A row that opens a page, or Add a site's dialog: its title, and its icon
+// (the external link, the plus) 16 in from the card's edge; the whole row
+// takes the outline hover's fill.
 private struct LinkRow: View {
 	let link: DetailsLink
 	let last: Bool
@@ -263,7 +317,7 @@ private struct LinkRow: View {
 					.lineBox(18)
 					.frame(maxWidth: .infinity, alignment: .leading)
 
-				LucideIcon(.externalLink, size: 14, strokeWidth: 1.75)
+				LucideIcon(link.icon, size: 14, strokeWidth: 1.75)
 					.foregroundStyle(Palette.mutedForeground)
 			}
 			.padding(.leading, 16)
@@ -284,5 +338,65 @@ private struct LinkRow: View {
 			withAnimation(Motion.hover) { isHovered = hovering }
 		}
 		.accessibilityIdentifier("pane.extensionDetails.\(link.identifier)")
+	}
+}
+
+// Details' Add a site (Paper: 09.16; Chrome's runtime hosts dialog), as the
+// app's other dialogs: its title, the Site field, Chrome's message for a
+// site it refuses, then Cancel (Esc) and Add (Return), which waits for
+// something typed. The controller takes the two keys (KeyRouting).
+struct AddSiteDialogView: View {
+	let controller: ExtensionsController
+	let dialog: AddSiteDialog
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 16) {
+			Text("Add a site")
+				.font(.system(size: 18, weight: .semibold))
+				.tracking(-0.18)
+				.foregroundStyle(Palette.foreground)
+				.lineBox(24)
+
+			VStack(alignment: .leading, spacing: 6) {
+				LabeledField(title: "Site") {
+					PaneTextField(
+						placeholder: "e.g. https://example.com",
+						text: Binding(get: { dialog.site }, set: controller.editSite),
+						focusesOnAppear: true
+					)
+					.accessibilityIdentifier("pane.addSite.field")
+				}
+
+				if dialog.invalid {
+					Text("Not a valid web address")
+						.font(.system(size: 12, weight: .medium))
+						.foregroundStyle(Palette.destructive)
+						.lineBox(16)
+				}
+			}
+
+			HStack(spacing: 8) {
+				Spacer()
+
+				Button(action: controller.cancelAddSite) {
+					KeyedLabel(title: "Cancel", key: "Esc", role: .cancel)
+				}
+				.buttonStyle(.keyed(.cancel))
+
+				Button(action: controller.addSite) {
+					KeyedLabel(title: "Add", key: "↩", role: .primary)
+				}
+				.buttonStyle(.keyed(.primary))
+				.disabled(dialog.site.isEmpty)
+				.accessibilityIdentifier("pane.addSite.add")
+			}
+			.padding(.top, 8)
+		}
+		.padding(24)
+		.frame(width: 400, alignment: .leading)
+		.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
+		.accessibilityElement(children: .contain)
+		.accessibilityAddTraits(.isModal)
+		.accessibilityIdentifier("pane.addSite")
 	}
 }

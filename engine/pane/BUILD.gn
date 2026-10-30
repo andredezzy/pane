@@ -136,6 +136,7 @@ source_set("pane") {
     "//net",
     "//printing/buildflags",
     "//third_party/blink/public/common",
+    "//third_party/re2",
     "//ui/base",
     "//ui/gfx",
     "//ui/menus",

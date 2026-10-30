@@ -344,6 +344,9 @@ extension Automation {
 				] as [String: Any]
 			} ?? NSNull(),
 			"extensionDetails": controller.extensions.details.map(Self.describe) ?? NSNull(),
+			"addingSite": controller.extensions.addingSite.map { dialog in
+				["extension": dialog.extensionID, "site": dialog.site, "invalid": dialog.invalid] as [String: Any]
+			} ?? NSNull(),
 			"shortcutsDialog": controller.extensions.shortcuts.map(Self.describe) ?? NSNull(),
 			"extensionsMenu": controller.extensions.menuOpen,
 			"sidebarWidth": controller.state.sidebarWidth,
@@ -373,6 +376,7 @@ extension Automation {
 			"source": shown.engine?.source ?? NSNull(),
 			"permissions": shown.engine?.permissions ?? [],
 			"siteAccess": access,
+			"specificSites": shown.engine?.specificSites ?? [],
 			"wantsFileAccess": shown.engine?.wantsFileAccess ?? false,
 			"allowsFileAccess": shown.engine?.allowsFileAccess ?? false,
 			"homepage": shown.engine?.homepageURL?.absoluteString ?? NSNull(),

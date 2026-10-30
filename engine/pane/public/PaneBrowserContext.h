@@ -172,6 +172,16 @@ NS_SWIFT_UI_ACTOR
 - (void)setAllowsFileAccess:(BOOL)allows
                forExtension:(NSString*)identifier
     NS_SWIFT_NAME(setAllowsFileAccess(_:forExtension:));
+// The details page's Add a site: `site` as the user typed it
+// ("example.com", "https://*.example.com"), granted with the extension On
+// specific sites. NO, changing nothing, for one the page refuses ("Not a
+// valid web address").
+- (BOOL)addSite:(NSString*)site
+    toExtension:(NSString*)identifier NS_SWIFT_NAME(addSite(_:toExtension:));
+// Takes one of its specificSites away; with none left, it runs on click.
+- (void)removeSite:(NSString*)site
+     fromExtension:(NSString*)identifier
+    NS_SWIFT_NAME(removeSite(_:fromExtension:));
 
 - (instancetype)init NS_UNAVAILABLE;
 

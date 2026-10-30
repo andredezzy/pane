@@ -3,8 +3,9 @@
 // shortcuts, and any page; it asks this, with what shows, and runs the
 // command. The overlays are asked topmost first, as they are drawn: the PIN
 // screen, Quit Pane?, the App icon picker, the Keyboard shortcuts dialog,
-// an extension's popup, the extensions menu, the tab switcher, a page's
-// dialog, then a page in fullscreen. The first that takes the key ends it.
+// Add a site, an extension's popup, the extensions menu, the tab switcher, a
+// page's dialog, then a page in fullscreen. The first that takes the key
+// ends it.
 
 // The keys Pane's overlays take, by key code (Carbon's kVK_ values).
 public enum KeyCode {
@@ -82,6 +83,8 @@ public struct KeyOverlays: Equatable, Sendable {
 	// recording a key (ADR 0104).
 	public var extensionShortcuts = false
 	public var recordingShortcut = false
+	// An extension's Details asking for a site to add.
+	public var addingSite = false
 	public var extensionPrompt = false
 	public var extensionsMenu = false
 	// An extension's more menu, beside the extensions menu.
@@ -99,6 +102,7 @@ public struct KeyOverlays: Equatable, Sendable {
 		appIconPicker: Bool = false,
 		extensionShortcuts: Bool = false,
 		recordingShortcut: Bool = false,
+		addingSite: Bool = false,
 		extensionPrompt: Bool = false,
 		extensionsMenu: Bool = false,
 		extensionMoreMenu: Bool = false,
@@ -112,6 +116,7 @@ public struct KeyOverlays: Equatable, Sendable {
 		self.appIconPicker = appIconPicker
 		self.extensionShortcuts = extensionShortcuts
 		self.recordingShortcut = recordingShortcut
+		self.addingSite = addingSite
 		self.extensionPrompt = extensionPrompt
 		self.extensionsMenu = extensionsMenu
 		self.extensionMoreMenu = extensionMoreMenu
@@ -135,6 +140,8 @@ public enum KeyCommand: Equatable, Sendable {
 	// The key, or the modifiers held, go to the field recording.
 	case recordShortcut
 	case cancelShortcutRecording
+	case cancelAddSite
+	case addSite
 	case cancelExtensionPrompt
 	case acceptExtensionPrompt
 	case closeExtensionMoreMenu
@@ -173,6 +180,7 @@ public enum KeyRouting {
 			(overlays.quitConfirmation, quitConfirmation),
 			(overlays.appIconPicker, appIconPicker),
 			(overlays.extensionShortcuts, extensionShortcuts),
+			(overlays.addingSite, addingSite),
 			(overlays.extensionPrompt, extensionPrompt),
 			(overlays.extensionsMenu, extensionsMenu),
 			(true, switcher),
@@ -269,6 +277,19 @@ public enum KeyRouting {
 		}
 
 		return .take(.closeExtensionShortcuts)
+	}
+
+	// Esc cancels and Return adds; every other key goes on to its field.
+	private static func addingSite(_ key: KeyPress, _: KeyOverlays) -> KeyRoute? {
+		guard key.kind == .down else {
+			return nil
+		}
+
+		if key.isEscape {
+			return .take(.cancelAddSite)
+		}
+
+		return key.isReturn ? .take(.addSite) : nil
 	}
 
 	// A popup takes all but shortcuts, as a dialog would.

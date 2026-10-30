@@ -131,6 +131,19 @@ struct RootView: View {
 				.zIndex(1)
 			}
 
+			// Details' Add a site; a click outside it cancels.
+			if let dialog = extensions.addingSite {
+				Palette.modalScrim
+					.contentShape(Rectangle())
+					.onTapGesture(perform: extensions.cancelAddSite)
+					.transition(.opacity)
+					.zIndex(1)
+
+				AddSiteDialogView(controller: extensions, dialog: dialog)
+					.transition(.opacity.combined(with: .scale(scale: 0.97)))
+					.zIndex(1)
+			}
+
 			if state.confirmingQuit {
 				Palette.modalScrim
 					.contentShape(Rectangle())
@@ -160,6 +173,7 @@ struct RootView: View {
 		.onChange(of: model.page) {
 			extensions.closeMenu()
 			extensions.closeShortcuts()
+			extensions.cancelAddSite()
 		}
 		.onChange(of: controller.lock.entry == nil) { extensions.closeMenu() }
 		.onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification, object: controller.browserWindow.window)) { _ in

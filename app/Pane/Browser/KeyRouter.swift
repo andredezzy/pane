@@ -5,9 +5,9 @@ import PaneKit
 // view (a page included) and the menu bar's shortcuts. It asks the overlays
 // that show, topmost first, as they are drawn, whether one takes the key
 // (PaneKit KeyRouting: the PIN screen, Quit Pane?, the App icon picker, the
-// Keyboard shortcuts dialog, an extension's popup, the extensions menu, the
-// tab switcher, a page's dialog, a page's fullscreen), then runs what it
-// answered, then the extensions' shortcuts.
+// Keyboard shortcuts dialog, Add a site, an extension's popup, the
+// extensions menu, the tab switcher, a page's dialog, a page's fullscreen),
+// then runs what it answered, then the extensions' shortcuts.
 @MainActor
 final class KeyRouter {
 	private unowned let controller: BrowserController
@@ -47,6 +47,7 @@ final class KeyRouter {
 			appIconPicker: state.choosingAppIcon,
 			extensionShortcuts: extensions.shortcuts != nil,
 			recordingShortcut: extensions.shortcuts?.recording != nil,
+			addingSite: extensions.addingSite != nil,
 			extensionPrompt: extensions.prompt != nil,
 			extensionsMenu: extensions.menuOpen,
 			extensionMoreMenu: extensions.moreMenu != nil,
@@ -73,6 +74,8 @@ final class KeyRouter {
 		case .closeExtensionShortcuts: extensions.closeShortcuts()
 		case .recordShortcut: extensions.recordKey(event)
 		case .cancelShortcutRecording: extensions.cancelRecording()
+		case .cancelAddSite: extensions.cancelAddSite()
+		case .addSite: extensions.addSite()
 		case .cancelExtensionPrompt: extensions.answerPrompt(accepted: false)
 		case .acceptExtensionPrompt: extensions.answerPrompt(accepted: true)
 		case .closeExtensionMoreMenu: extensions.closeMoreMenu()

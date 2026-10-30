@@ -183,6 +183,9 @@ NS_SWIFT_UI_ACTOR
 // has the pop-up, and listed here otherwise.
 @property(readonly, copy) NSArray<NSString*>* permissions;
 @property(readonly) PaneExtensionSiteAccess siteAccess;
+// While siteAccess is On specific sites, the sites it was granted, as the
+// details page lists them: Chrome's patterns ("*://example.com/*"), sorted.
+@property(readonly, copy) NSArray<NSString*>* specificSites;
 // Whether it wants file access, which shows "Allow access to file URLs".
 @property(readonly) BOOL wantsFileAccess;
 @property(readonly) BOOL allowsFileAccess;

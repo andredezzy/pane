@@ -2,10 +2,14 @@
 
 #import "pane/browser/extensions/extensions_internal.h"
 
+#include <algorithm>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
+#include "chrome/browser/extensions/api/developer_private/extension_info_generator.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
@@ -27,6 +31,7 @@
 #include "extensions/common/permissions/permission_message_provider.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "extensions/common/url_pattern.h"
 #include "net/base/apple/url_conversions.h"
 #include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
@@ -198,6 +203,28 @@ NSArray<NSString*>* PermissionsOf(const extensions::Extension& extension,
   return [messages copy];
 }
 
+// The sites the details page lists under On specific sites: the hosts the
+// extension was granted at runtime, none inside another
+// (GetSpecificSiteControls), sorted as its getRuntimeHosts_ sorts them.
+NSArray<NSString*>* SpecificSitesOf(const extensions::Extension& extension,
+                                    Profile* profile) {
+  std::unique_ptr<const PermissionSet> granted = OrEmpty(
+      extensions::ExtensionPrefs::Get(profile)->GetRuntimeGrantedPermissions(
+          extension.id()));
+  std::vector<std::string> sites;
+  for (const URLPattern& host :
+       extensions::ExtensionInfoGenerator::GetDistinctHosts(
+           granted->effective_hosts())) {
+    sites.push_back(host.GetAsString());
+  }
+  std::ranges::sort(sites);
+  NSMutableArray<NSString*>* list = [NSMutableArray array];
+  for (const std::string& site : sites) {
+    [list addObject:base::SysUTF8ToNSString(site)];
+  }
+  return [list copy];
+}
+
 NSURL* URLOrNil(const GURL& url) {
   return url.is_valid() ? net::NSURLWithGURL(url) : nil;
 }
@@ -209,6 +236,7 @@ NSURL* URLOrNil(const GURL& url) {
 @synthesize source = _source;
 @synthesize permissions = _permissions;
 @synthesize siteAccess = _siteAccess;
+@synthesize specificSites = _specificSites;
 @synthesize wantsFileAccess = _wantsFileAccess;
 @synthesize allowsFileAccess = _allowsFileAccess;
 @synthesize homepageURL = _homepageURL;
@@ -219,6 +247,9 @@ NSURL* URLOrNil(const GURL& url) {
   if ((self = [super init])) {
     _source = SourceOf(extension, profile);
     _siteAccess = SiteAccessOf(extension, profile);
+    _specificSites = _siteAccess == PaneExtensionSiteAccessOnSpecificSites
+                         ? SpecificSitesOf(extension, profile)
+                         : @[];
     _permissions = PermissionsOf(extension, profile,
                                  _siteAccess != PaneExtensionSiteAccessNone);
     _wantsFileAccess =

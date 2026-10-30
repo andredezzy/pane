@@ -492,6 +492,26 @@ extension Automation {
 
 			extensions.setSiteAccess(try command.string("id"), access, inProfile: try command.string("profile"))
 
+		case "showAddExtensionSite":
+			// Details' Add a site, under the list: { id, profile }.
+			extensions.showAddSite(try command.string("id"), inProfile: try command.string("profile"))
+
+		case "addExtensionSite":
+			// The dialog's field filled, then Add: { site }.
+			guard extensions.addingSite != nil else {
+				throw AutomationError("no Add a site dialog")
+			}
+
+			extensions.editSite(try command.string("site"))
+			extensions.addSite()
+
+		case "cancelAddExtensionSite":
+			extensions.cancelAddSite()
+
+		case "removeExtensionSite":
+			// A site's ×: { id, profile, site }, the site as the list holds it.
+			extensions.removeSite(try command.string("site"), of: try command.string("id"), inProfile: try command.string("profile"))
+
 		case "setExtensionFileAccess":
 			// Details' Allow access to file URLs: { id, profile, allowed }.
 			extensions.setFileAccess(try command.string("id"), command["allowed"] as? Bool ?? true, inProfile: try command.string("profile"))

@@ -41,6 +41,8 @@ final class ExtensionsController {
 	private(set) var details: ShownDetails?
 	// The Extensions page's Keyboard shortcuts dialog (ADR 0104).
 	private(set) var shortcuts: ShortcutsDialog?
+	// Details' Add a site dialog (Paper: 09.16).
+	private(set) var addingSite: AddSiteDialog?
 	// Shows extension action popups.
 	let popover = ExtensionPopover()
 
@@ -152,9 +154,63 @@ final class ExtensionsController {
 	}
 
 	// Details' Site access pop-up. The engine changes it at once, so Details
-	// shows it in the same frame, before the engine reports the change.
+	// shows it in the same frame, before the engine reports the change. On
+	// specific sites, chosen from another, asks for a site first, as
+	// Chrome's details page does: it holds none yet.
 	func setSiteAccess(_ extensionID: String, _ access: ExtensionSiteAccess, inProfile profileID: String) {
-		browser.context(for: profileID)?.setSiteAccess(access, forExtension: extensionID)
+		guard let context = browser.context(for: profileID) else {
+			return
+		}
+
+		if access == .onSpecificSites, context.details(ofExtension: extensionID)?.siteAccess != .onSpecificSites {
+			showAddSite(extensionID, inProfile: profileID)
+			return
+		}
+
+		context.setSiteAccess(access, forExtension: extensionID)
+		refreshDetails()
+	}
+
+	// Details' Add a site, under the list or from On specific sites.
+	func showAddSite(_ extensionID: String, inProfile profileID: String) {
+		addingSite = AddSiteDialog(profileID: profileID, extensionID: extensionID)
+	}
+
+	// What the dialog's field holds; an edit clears its message. (The field
+	// also writes back what it holds, which is no edit.)
+	func editSite(_ site: String) {
+		guard addingSite != nil, site != addingSite?.site else {
+			return
+		}
+
+		addingSite?.site = site
+		addingSite?.invalid = false
+	}
+
+	// Add, or Return: the site joins the list, with the extension On
+	// specific sites; a site Chrome refuses keeps the dialog, with its
+	// message.
+	func addSite() {
+		guard let dialog = addingSite, !dialog.site.isEmpty, let context = browser.context(for: dialog.profileID) else {
+			return
+		}
+
+		guard context.addSite(dialog.site, toExtension: dialog.extensionID) else {
+			addingSite?.invalid = true
+			return
+		}
+
+		addingSite = nil
+		refreshDetails()
+	}
+
+	func cancelAddSite() {
+		addingSite = nil
+	}
+
+	// A site's ×; with none left, the extension runs on click.
+	func removeSite(_ site: String, of extensionID: String, inProfile profileID: String) {
+		browser.context(for: profileID)?.removeSite(site, fromExtension: extensionID)
 		refreshDetails()
 	}
 
@@ -313,6 +369,7 @@ final class ExtensionsController {
 
 		guard let engine = context.details(ofExtension: shown.extensionID) else {
 			details = nil
+			addingSite = nil
 			return
 		}
 
@@ -547,6 +604,15 @@ struct ShownDetails {
 	let extensionID: String
 	var engine: ExtensionDetails?
 	var size: String?
+}
+
+// Details' Add a site: the extension, what the field holds, and whether
+// Chrome refused it.
+struct AddSiteDialog {
+	let profileID: String
+	let extensionID: String
+	var site = ""
+	var invalid = false
 }
 
 // The Keyboard shortcuts dialog (ADR 0104): a profile's extensions with

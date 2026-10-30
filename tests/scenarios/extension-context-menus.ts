@@ -256,6 +256,20 @@ const extensionContextMenus: Scenario = async (context) => {
 			),
 	);
 
+	// The site joins its Details' list, On specific sites.
+	await app.send("showExtensionDetails", { id, profile });
+
+	const inDetails = await app.waitFor(
+		"the site in Details' list",
+		(state) =>
+			state.extensionDetails?.siteAccess === "onSpecificSites" &&
+			(state.extensionDetails.specificSites ?? []).some(
+				(each) => new URL(each.replace("*", "x")).hostname === site,
+			),
+	);
+
+	await app.send("showPage", { page: "browser" });
+
 	const onAllSites = await choose("On All Sites", (current) =>
 		current.includes("<all_urls>"),
 	);
@@ -289,6 +303,7 @@ const extensionContextMenus: Scenario = async (context) => {
 			initially,
 			onClick,
 			onSite,
+			inDetails: inDetails.extensionDetails?.specificSites,
 			onAllSites,
 			cantAccess: described(cantAccess),
 		},

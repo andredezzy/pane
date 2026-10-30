@@ -209,6 +209,8 @@ export type AppState = {
 		source: string | null;
 		permissions: string[];
 		siteAccess: "none" | "onClick" | "onSpecificSites" | "onAllSites";
+		// On specific sites, Chrome's patterns ("*://example.com/*").
+		specificSites: string[];
 		wantsFileAccess: boolean;
 		allowsFileAccess: boolean;
 		homepage: string | null;
@@ -226,6 +228,9 @@ export type AppState = {
 		// The field a key last moved to, and where it came from.
 		moved: { extension: string; command: string; from: string } | null;
 	} | null;
+	// Details' Add a site, open: what its field holds, and whether Chrome
+	// refused it.
+	addingSite: { extension: string; site: string; invalid: boolean } | null;
 	extensionPopup: {
 		extension: string;
 		open: boolean;
