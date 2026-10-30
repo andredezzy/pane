@@ -262,9 +262,8 @@ final class BrowserController: NSObject {
 			progressBar.tabChanged(progress: model.loadingProgress[tabID], at: CACurrentMediaTime())
 		}
 
-		if previous != tabID, let previous, let page = pages.page(for: previous) {
-			page.isVisible = false
-			pages.devTools(for: previous)?.isVisible = false
+		if previous != tabID, let previous {
+			hideAfterFrame(previous)
 		}
 
 		if let page = pages.page(for: tabID) {
@@ -286,6 +285,21 @@ final class BrowserController: NSObject {
 
 			let url = URL(string: tab.url).flatMap { $0.scheme == nil ? nil : $0 }
 			openPage(tabID: tabID, url: url, context: context, foreground: true)
+		}
+	}
+
+	// Hides the tab left, once the frame showing the tab entered is drawn:
+	// Chromium's WasHidden and the view's hiding took 4.5 of a tab switch's
+	// 6.5 ms, ahead of the frame. The tab entered has replaced its view in the
+	// window already; one selected again meanwhile stays shown.
+	private func hideAfterFrame(_ tabID: String) {
+		DispatchQueue.main.async { [weak self] in
+			guard let self, model.activeTabID != tabID, let page = pages.page(for: tabID) else {
+				return
+			}
+
+			page.isVisible = false
+			pages.devTools(for: tabID)?.isVisible = false
 		}
 	}
 
