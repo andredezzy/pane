@@ -1,0 +1,48 @@
+name: Chromium watch
+
+# Pane ships Chromium's security fixes by moving to each stable tag
+# (engine/UPGRADING.md). Every six hours this compares Chrome's Mac stable version
+# with engine/CHROMIUM_VERSION and, when Pane is behind, opens an issue (one
+# at a time) naming both and whether Pane's patches apply to the new tag
+# (engine/scripts/preflight.sh), so a security release never goes unnoticed.
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Compare with Chrome's Mac stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          stable="$(curl -fsS "https://versionhistory.googleapis.com/v1/chrome/platforms/mac_arm64/channels/stable/versions?page_size=1" | jq -r '.versions[0].version')"
+          pane="$(tr -d '[:space:]' < engine/CHROMIUM_VERSION)"
+          echo "Chrome's Mac stable: $stable; Pane: $pane"
+          if [ "$(printf '%s\n%s\n' "$pane" "$stable" | sort -V | tail -1)" = "$pane" ]; then
+            exit 0
+          fi
+          title="Chromium $stable is out; Pane is on $pane"
+          if gh issue list --state open --search "\"$title\" in:title" --json number --jq 'length' | grep -qv '^0$'; then
+            exit 0
+          fi
+          # Whether Pane's patches apply to the new tag, which the move's
+          # work hangs on.
+          patches="$(engine/scripts/preflight.sh "$stable" 2>&1)" && status=0 || status=$?
+          case "$status" in
+            0) verdict="Every patch applies to $stable as it is." ;;
+            1) verdict="Some patches need work at $stable (engine/scripts/preflight.sh):" ;;
+            *) verdict="Whether the patches apply to $stable could not be checked: gitiles did not answer." ;;
+          esac
+          body="$(printf "Chrome's Mac stable channel is on %s, and engine/CHROMIUM_VERSION is %s. Move the engine to the new tag (engine/UPGRADING.md) and release: check Chrome's release notes (https://chromereleases.googleblog.com/) for security fixes, and for any exploited in the wild.\n\n%s\n\n\`\`\`\n%s\n\`\`\`\n" "$stable" "$pane" "$verdict" "$patches")"
+          gh issue create --title "$title" --body "$body"

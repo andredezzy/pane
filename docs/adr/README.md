@@ -107,3 +107,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0103](0103-chromes-reload-prompt-is-declined.md) Chrome's reload prompt after a site access change is declined without a dialog
 - [0104](0104-extension-shortcuts-are-changed-in-a-dialog.md) Extensions' keyboard shortcuts are changed in a dialog of the Extensions page
 - [0105](0105-on-specific-sites-lists-its-sites.md) On specific sites lists its sites, and adds and removes them as Chrome's details page does
+- [0108](0108-chromium-releases-are-watched.md) Chromium's releases are watched

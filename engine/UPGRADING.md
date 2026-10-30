@@ -1,6 +1,6 @@
 # Upgrading Chromium
 
-Pane ships Chromium's security fixes by moving the engine to each new stable tag: a patch release almost every week, a new milestone every four weeks. The routine below takes the patches out, moves the checkout, puts the patches back (merging what moved), rebuilds, and proves the result with every scenario.
+Pane ships Chromium's security fixes by moving the engine to each new stable tag: since Chrome 153 (2026-09) a new milestone every two weeks, and security updates every week. Follow the Mac stable channel, not Beta or Early Stable. The Chromium watch (`.github/workflows/chromium-watch.yml`, ADR 0108) opens an issue when Chrome's Mac stable is ahead of `CHROMIUM_VERSION`. The routine below takes the patches out, moves the checkout, puts the patches back (merging what moved), rebuilds, and proves the result with every scenario.
 
 ## 1. Pick the tag
 
@@ -11,6 +11,8 @@ curl -s "https://versionhistory.googleapis.com/v1/chrome/platforms/mac_arm64/cha
 ```
 
 A milestone often reaches the stable channel on other platforms first, during its staged rollout (`platforms/win/channels/stable`). Any stable release's tag builds for the Mac.
+
+Then see what the move takes, in under a minute and with no sync: `engine/scripts/preflight.sh <tag>` fetches each file `patches/MANIFEST` names at the tag from Chromium's gitiles and applies every patch to them. It names each patch that no longer applies, with git's reasons; step 3 merges those. The watch's issue carries its output.
 
 ## 2. Move the checkout
 
