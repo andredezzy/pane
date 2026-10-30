@@ -19,4 +19,5 @@ What was rejected:
 How it is checked:
 
 - **Finder:** a test dmg from `dist.sh` (`PANE_SKIP_PACKAGE=1 PANE_DMG_OUT=...`), mounted and opened as a user's would be, its window captured alone, against Paper's 08.1 at 2x: every sampled point of the sky is within 3 levels in sRGB. Finder draws the labels 20.5 points higher than the board first did; the board now draws them where Finder does.
+- **Dark mode:** with the Mac set to dark, Finder darkens the title bar alone. It draws the labels dark on the light sky, as in light mode, so they read the same. A dmg has one background for both, as Hark's does.
 - **The font:** `make-background.swift` checks that Funnel Display loaded before it draws.
