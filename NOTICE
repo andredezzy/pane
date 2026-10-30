@@ -35,3 +35,9 @@ License: the release script runs dmgbuild (https://github.com/dmgbuild/dmgbuild,
 MIT) from electron-builder's prebuilt bundle to lay out the dmg; it is a build
 tool and is not shipped. The dmg's background is Pane's own
 (app/dmg/make-background.swift).
+
+Funnel Display (https://github.com/Dicotype/Funnel, commit f9509ce, from
+Google Fonts), SIL Open Font License 1.1 (app/dmg/fonts/OFL.txt): Pane's
+wordmark type, vendored unmodified in app/dmg/fonts. The dmg's background
+is drawn in it (app/dmg/make-background.swift); the dmg carries the rendered
+image, not the font.

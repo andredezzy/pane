@@ -4,7 +4,7 @@
 # the in-app update check looks for in a GitHub release. The dmg is laid out
 # by dmgbuild, the same pinned build electron-builder runs: Pane and a link to
 # /Applications on Pane's own background (app/dmg/make-background.swift),
-# as Dia's installer is laid out.
+# as Hark's installer is laid out (ADR 0100).
 # Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses app/build/Pane.app;
 # PANE_DMG_OUT puts the dmg elsewhere, one to install from, the release's
 # left as it is; PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize
@@ -48,29 +48,32 @@ mkdir -p "$(dirname "$DMG")"
 rm -f "$DMG"
 settings="$work/settings.json"
 
-# The window shows the background's 800 by 380 points under Finder's
+# The window shows the background's 720 by 560 points under Finder's
 # 32-point title bar (the image runs taller, for a shorter one), 400 points
 # from the left and centered on a 1440-point screen height, as the Electron
-# app's was. Pane and Applications sit on the chevrons' line, 210 points
-# either side of the middle, at 200 points with 16-point labels; the volume,
-# and so the window's title, is "Pane", as Dia's is "Dia". The title bar
-# shows the volume's icon beside it, app/dmg/make-volume-icon.swift's: Pane's,
-# its 16-point art lowered to the title's centre line (ADR 0094).
+# app's was. Pane and Applications sit on the arrow's line, 284 points down,
+# 215 and 518 points in, at 128 points with 16-point labels, as Hark's
+# installer places them (Paper: 08 · Installer › 08.1). The volume, and so
+# the window's title, is "Pane Installer", as Hark's is "Hark Installer"; the
+# updater mounts the dmg at a path of its own, so the name is the window's
+# alone. The title bar shows the volume's icon beside it,
+# app/dmg/make-volume-icon.swift's: Pane's, its 16-point art lowered to the
+# title's centre line (ADR 0094).
 background="$APP_DIR/dmg/background.tiff"
 volume_icon="$APP_DIR/dmg/VolumeIcon.icns"
-width=800
-height=$(( 380 + 32 ))
+width=720
+height=$(( 560 + 32 ))
 
 cat > "$settings" <<SETTINGS
 {
-  "title": "Pane",
-  "icon-size": 200,
+  "title": "Pane Installer",
+  "icon-size": 128,
   "text-size": 16,
   "compression-level": 9,
   "format": "UDZO",
   "contents": [
-    { "x": $(( width / 2 - 210 )), "y": 186, "path": "$APP" },
-    { "x": $(( width / 2 + 210 )), "y": 186, "type": "link", "path": "/Applications" }
+    { "x": 215, "y": 284, "path": "$APP" },
+    { "x": 518, "y": 284, "type": "link", "path": "/Applications" }
   ],
   "icon": "$volume_icon",
   "background": "$background",
@@ -81,7 +84,7 @@ cat > "$settings" <<SETTINGS
 }
 SETTINGS
 
-PYTHONIOENCODING=utf8 "$DMGBUILD_DIR/dmgbuild" -s "$settings" "Pane" "$DMG"
+PYTHONIOENCODING=utf8 "$DMGBUILD_DIR/dmgbuild" -s "$settings" "Pane Installer" "$DMG"
 
 # With a Developer ID the dmg is signed too, and with a notarytool profile
 # (xcrun notarytool store-credentials) it is notarized, which covers the app

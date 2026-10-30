@@ -100,3 +100,5 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items show where Chrome shows them
 - [0097](0097-extensions-update-themselves.md) Extensions update themselves
 - [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome
+- [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
+- [0100](0100-installer-is-laid-out-as-harks.md) The installer is laid out as Hark's
