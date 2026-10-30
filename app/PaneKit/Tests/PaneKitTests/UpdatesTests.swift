@@ -160,4 +160,19 @@ struct UpdateInstallTests {
 		#expect(!UpdateInstall.isLeftover("Pane.app"))
 		#expect(!UpdateInstall.isLeftover(".Pane-notes.txt"))
 	}
+
+	@Test("mounts a dmg at a folder named for its process, and knows one whose process is gone")
+	func mounts() {
+		let running: (Int32) -> Bool = { $0 == 42 }
+		let mine = UpdateInstall.mountName(pid: 42)
+
+		#expect(mine.hasPrefix("pane-update-42-"))
+		#expect(!UpdateInstall.isLeftoverMount(mine, isRunning: running))
+		#expect(UpdateInstall.isLeftoverMount(UpdateInstall.mountName(pid: 7), isRunning: running))
+		// Named before 0.13.1, without a pid.
+		#expect(UpdateInstall.isLeftoverMount("pane-update-19CDC9D9-4317-4BB6-B467-A974ACADFDC1", isRunning: running))
+		#expect(!UpdateInstall.isLeftoverMount("pane-update-notes", isRunning: running))
+		#expect(!UpdateInstall.isLeftoverMount("pane-update-7-notes", isRunning: running))
+		#expect(!UpdateInstall.isLeftoverMount("com.pane.desktop.1pSFam", isRunning: running))
+	}
 }

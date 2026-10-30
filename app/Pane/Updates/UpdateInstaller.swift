@@ -1,5 +1,6 @@
 import Foundation
 import PaneKit
+import os
 
 // Pane installing its own update (ADR 0092). Once the dmg checks out, the Pane
 // inside it is staged beside the running app, hidden; at quit the two bundles
@@ -33,7 +34,7 @@ struct UpdateInstaller: Sendable {
 	// thread: it reads the whole app.
 	func stage(_ dmg: URL, version: String) throws -> URL {
 		let fileManager = FileManager.default
-		let mount = fileManager.temporaryDirectory.appending(path: "pane-update-\(UUID().uuidString)")
+		let mount = fileManager.temporaryDirectory.appending(path: UpdateInstall.mountName(pid: ProcessInfo.processInfo.processIdentifier))
 		try fileManager.createDirectory(at: mount, withIntermediateDirectories: true)
 
 		// macOS 27 deprecates hdiutil's attach and detach for diskutil's,
@@ -46,11 +47,7 @@ struct UpdateInstaller: Sendable {
 		}
 
 		defer {
-			if (try? Self.run("/usr/sbin/diskutil", ["eject", mount.path])) == nil {
-				try? Self.run("/usr/bin/hdiutil", ["detach", mount.path, "-force", "-quiet"])
-			}
-
-			try? fileManager.removeItem(at: mount)
+			Self.unmount(mount)
 		}
 
 		let app = mount.appending(path: "Pane.app")
@@ -94,13 +91,41 @@ struct UpdateInstaller: Sendable {
 		try process.run()
 	}
 
-	// What an earlier install left: a copy staged and never swapped in, or an
-	// old bundle the shell did not get to remove.
+	// What an earlier install left: a copy staged and never swapped in, an
+	// old bundle the shell did not get to remove, or the mount point of a Pane
+	// that quit while staging, its dmg still attached there.
 	func removeLeftovers() {
+		let fileManager = FileManager.default
 		let folder = bundle.deletingLastPathComponent()
 
-		for name in (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [] where UpdateInstall.isLeftover(name) {
-			try? FileManager.default.removeItem(at: folder.appending(path: name))
+		for name in (try? fileManager.contentsOfDirectory(atPath: folder.path)) ?? [] where UpdateInstall.isLeftover(name) {
+			try? fileManager.removeItem(at: folder.appending(path: name))
+		}
+
+		let temporary = fileManager.temporaryDirectory
+		let running: (Int32) -> Bool = { kill($0, 0) == 0 || errno == EPERM }
+
+		for name in (try? fileManager.contentsOfDirectory(atPath: temporary.path)) ?? [] where UpdateInstall.isLeftoverMount(name, isRunning: running) {
+			Self.unmount(temporary.appending(path: name), quietly: true)
+		}
+	}
+
+	// Detaches the dmg at `mount` and removes the folder, which rmdir does only
+	// once it is empty: never a volume still mounted there. `quietly` for a
+	// leftover, whose dmg is usually gone already.
+	private static func unmount(_ mount: URL, quietly: Bool = false) {
+		do {
+			try run("/usr/sbin/diskutil", ["eject", mount.path])
+		} catch {
+			if !quietly {
+				Log.updates.notice("Ejecting the update's dmg failed, detaching it by force: \(String(describing: error), privacy: .private)")
+			}
+
+			try? run("/usr/bin/hdiutil", ["detach", mount.path, "-force", "-quiet"])
+		}
+
+		if rmdir(mount.path) != 0, !quietly {
+			Log.updates.error("Could not remove the update's mount point: \(String(cString: strerror(errno)), privacy: .public)")
 		}
 	}
 
