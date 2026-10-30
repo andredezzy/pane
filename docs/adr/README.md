@@ -114,3 +114,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0110](0110-other-apps-sign-ins-stay-in-macos-sheet.md) Other apps' sign-ins stay in macOS's sheet
 - [0111](0111-chromes-crlset-ships-with-the-app.md) Chrome's CRLSet ships with the app
 - [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays
+- [0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md) Every profile's data is encrypted on disk, under a key the PIN releases

@@ -299,10 +299,12 @@ const migration: Scenario = async (context) => {
 
 	await app.send("pinKeys", { keys: "1234" });
 
+	// The PIN opens the data key; the Electron app's profiles then move into
+	// the data volume (ADR 0113), and Pane opens.
 	const unlocked = await app.waitFor(
-		"unlocked",
-		(state) => !state.security.locked,
-		10_000,
+		"unlocked, its data moved in",
+		(state) => !state.security.locked && state.security.data.phase === "open",
+		60_000,
 	);
 
 	const profiles = unlocked.profiles.map((entry) => ({

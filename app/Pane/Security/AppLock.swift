@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Observation
 import PaneKit
 import os
@@ -6,7 +7,10 @@ import os
 // The app lock (apps/veil security-store.ts, trpc/routers/security.ts): with
 // a PIN set, Pane starts locked behind the PIN screen; the screen also sets,
 // changes, and removes the PIN from Settings. The fifth wrong PIN in a row at
-// the lock erases everything (the panic wipe) and starts Pane fresh.
+// the lock erases everything (the panic wipe) and starts Pane fresh. The PIN
+// opens the data key (ADR 0113), sealed in security.json and in its copy
+// beside the volume, which DataVault then opens the data with: without a
+// PIN, the key opens at launch.
 @MainActor
 @Observable
 final class AppLock {
@@ -21,14 +25,26 @@ final class AppLock {
 	@ObservationIgnored var didUnlock: (() -> Void)?
 
 	@ObservationIgnored private let file: PersistedFile<SecurityState>
+	// security.json's copy beside the volume: losing both loses the data.
+	@ObservationIgnored private let copy: PersistedFile<SecurityState>
 	@ObservationIgnored private let dataDirectory: URL
+	@ObservationIgnored private let vault: DataVault
+	// The open data key and the secret it is sealed under: setting,
+	// changing, or removing the PIN reseals the key with them.
+	@ObservationIgnored private var dataKey: SymmetricKey?
+	@ObservationIgnored private var secret: Data?
+
+	// The PIN screen's line when no key can be read (Paper 07.6).
+	static let keyUnreadable = "Pane can\u{2019}t read the key to your data.\nQuit, then restore security.json."
+	static let keychainDenied = "Pane can\u{2019}t read the key to your data.\nOpen Pane again, and allow its keychain item."
 
 	// A security.json that does not decode never opens the lock: its PIN is
-	// read from what is left when it can be, and the lock stays shut when it
-	// cannot. The file is kept aside, as security.json.damaged, before
-	// anything writes over it.
-	init(dataDirectory: URL) {
+	// read from what is left when it can be, its key from the copy beside
+	// the volume, and the lock stays shut when neither can. The file is kept
+	// aside, as security.json.damaged, before anything writes over it.
+	init(dataDirectory: URL, vault: DataVault) {
 		let file = PersistedFile<SecurityState>(directory: dataDirectory, name: "security")
+		let copy = PersistedFile<SecurityState>(directory: dataDirectory, name: "Data.security")
 		var loaded = SecurityState()
 		var unreadable = false
 
@@ -50,15 +66,43 @@ final class AppLock {
 			}
 		}
 
+		// The copy stands in for a key security.json lost: the file removed,
+		// or no longer decoding.
+		if loaded.key == nil, let kept = (try? copy.load()) ?? nil, kept.key != nil {
+			loaded = kept
+			unreadable = false
+		}
+
+		// A volume no key opens: what it holds cannot be read.
+		let keyLost = loaded.key == nil && vault.volume.exists
+
 		self.dataDirectory = dataDirectory
 		self.file = file
+		self.copy = copy
+		self.vault = vault
 		state = loaded
-		isLocked = loaded.pin != nil || unreadable
+		isLocked = loaded.pin != nil || unreadable || keyLost
 
-		if unreadable {
-			present(.unreadable("Pane can\u{2019}t read its PIN. Quit, then restore or remove security.json."))
+		if unreadable || keyLost {
+			present(.unreadable(Self.keyUnreadable))
 		} else if let pin = loaded.pin {
 			present(PinEntry(mode: .unlock, pinLength: pin.length))
+		}
+	}
+
+	// With no PIN, the key opens at launch, off the main thread: the
+	// Keychain may ask first. With one, the PIN screen opens it.
+	func start() {
+		guard !isLocked else {
+			return
+		}
+
+		let state = state
+		let attach = vault.attacher()
+
+		Task { [weak self] in
+			let opened = await Task.detached(priority: .userInitiated) { Self.open(pin: nil, state: state, attach: attach) }.value
+			self?.opened(opened, unlocking: true)
 		}
 	}
 
@@ -107,11 +151,9 @@ final class AppLock {
 		case let .verify(pin):
 			verify(pin)
 		case let .setPin(pin):
-			setPin(pin)
+			reseal(pin: pin)
 		case .removePin:
-			state = SecurityState()
-			save()
-			close()
+			reseal(pin: nil)
 		case .unlock:
 			isLocked = false
 			close()
@@ -129,51 +171,153 @@ final class AppLock {
 		}
 	}
 
-	// bcrypt takes a moment, so it runs off the main thread. A wrong PIN
-	// counts at once, on disk too, so quitting cannot reset the count.
+	// What opening the data key came to.
+	enum Opened: Sendable {
+		// `attaching`, when the key opens the data: the volume's attach,
+		// started there and then.
+		case key(SymmetricKey, secret: Data, made: DataKey.Sealed?, attaching: Task<DataVault.Attached, Error>?)
+		case wrongPin
+		// The Keychain gave no secret: the user denied it, or it failed.
+		case noSecret
+		// The key does not open with the secret: another engine key.
+		case otherSecret
+	}
+
+	// Opens the data key with the PIN, or, before any is sealed, makes it:
+	// sealed with the PIN, which matches the bcrypt hash an earlier Pane
+	// kept. PBKDF2 and bcrypt take a moment, so it runs off the main thread.
+	// `known`: the secret this session read already, so Change and Remove ask
+	// the Keychain nothing more. `attach`: the key opens the data, and its
+	// volume starts unlocking at once (DataVault.attacher).
+	nonisolated static func open(
+		pin: String?,
+		state: SecurityState,
+		secret known: Data? = nil,
+		attach: (@Sendable (SymmetricKey) -> Task<DataVault.Attached, Error>)? = nil
+	) -> Opened {
+		guard let secret = known ?? SafeStorage.dataSecret(makesOne: state.key == nil) else {
+			return .noSecret
+		}
+
+		let attaching = { (key: SymmetricKey) in attach?(key) }
+
+		if let sealed = state.key {
+			do {
+				let key = try DataKey.open(sealed, secret: secret, pin: pin)
+				return .key(key, secret: secret, made: nil, attaching: attaching(key))
+			} catch is DataKey.OtherSecret {
+				return .otherSecret
+			} catch {
+				return .wrongPin
+			}
+		}
+
+		if let pin {
+			guard let hash = state.pin?.hash, PinHash.verify(pin, against: hash) else {
+				return .wrongPin
+			}
+		}
+
+		let key = DataKey.make()
+
+		guard let sealed = try? DataKey.seal(key, secret: secret, pin: pin) else {
+			return .noSecret
+		}
+
+		return .key(key, secret: secret, made: sealed, attaching: attaching(key))
+	}
+
+	// A wrong PIN counts at once, on disk too, so quitting cannot reset the
+	// count. A key that cannot be read at all is not the PIN's fault, and
+	// counts nothing.
 	private func verify(_ pin: String) {
-		guard let hash = state.pin?.hash else {
+		let state = state
+		let unlocking = entry?.mode == .unlock
+		let known = secret
+		let attach = unlocking ? vault.attacher() : nil
+
+		Task { [weak self] in
+			let opened = await Task.detached(priority: .userInitiated) { Self.open(pin: pin, state: state, secret: known, attach: attach) }.value
+			self?.opened(opened, unlocking: unlocking)
+		}
+	}
+
+	private func opened(_ opened: Opened, unlocking: Bool) {
+		switch opened {
+		case .noSecret:
+			isLocked = true
+			present(.unreadable(Self.keychainDenied))
+		case .otherSecret:
+			isLocked = true
+			present(.unreadable(Self.keyUnreadable))
+		case .wrongPin where entry == nil:
+			// A key sealed with a PIN security.json no longer names.
+			isLocked = true
+			present(.unreadable(Self.keyUnreadable))
+		case .wrongPin:
+			state.failedAttempts += 1
+			save()
+			verified(false)
+		case let .key(key, secret, made, attaching):
+			state.failedAttempts = 0
+
+			if let made {
+				state.key = made
+				state.pin?.hash = nil
+			}
+
+			save()
+
+			if unlocking, let attaching {
+				dataKey = key
+				self.secret = secret
+				vault.open(key, attaching: attaching)
+			}
+
+			verified(true)
+		}
+	}
+
+	private func verified(_ matches: Bool) {
+		guard var entry else {
+			return
+		}
+
+		let action = entry.verified(matches, remaining: state.remainingAttempts)
+		self.entry = entry
+		perform(action)
+	}
+
+	// Seals the open key again: with a new PIN (set up, changed), or none
+	// (removed). Only the key's seal changes; the data stays as it is.
+	private func reseal(pin: String?) {
+		guard let dataKey, let secret else {
+			Log.security.error("No open data key to seal again")
 			return
 		}
 
 		Task { [weak self] in
-			let matches = await Task.detached { PinHash.verify(pin, against: hash) }.value
+			let sealed = await Task.detached(priority: .userInitiated) { try? DataKey.seal(dataKey, secret: secret, pin: pin) }.value
 
-			guard let self, var entry else {
+			guard let self, let sealed else {
+				Log.security.error("Could not seal the data key")
 				return
 			}
 
-			state.failedAttempts = matches ? 0 : state.failedAttempts + 1
-			save()
-
-			let action = entry.verified(matches, remaining: state.remainingAttempts)
-			self.entry = entry
-			perform(action)
-		}
-	}
-
-	private func setPin(_ pin: String) {
-		Task { [weak self] in
-			guard let hash = await Task.detached(operation: { PinHash.make(pin) }).value else {
-				Log.security.error("Could not hash the new PIN")
-				return
-			}
-
-			guard let self else {
-				return
-			}
-
-			state = SecurityState(pin: Pin(hash: hash, length: pin.count), failedAttempts: 0)
+			state = SecurityState(pin: pin.map { Pin(length: $0.count) }, failedAttempts: 0, key: sealed)
 			save()
 			close()
 		}
 	}
 
+	// security.json, and its copy beside the volume.
 	private func save() {
-		do {
-			try file.save(state)
-		} catch {
-			Log.security.error("Could not save security.json: \(String(describing: error), privacy: .private)")
+		for file in [file, copy] {
+			do {
+				try file.save(state)
+			} catch {
+				Log.security.error("Could not save \(file.url.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .private)")
+			}
 		}
 	}
 
@@ -188,6 +332,12 @@ final class AppLock {
 			return
 		}
 
+		// The data key goes first: with it gone, nothing left opens the
+		// volume or the sealed files, wherever their blocks are (ADR 0113).
+		state.key = nil
+		dataKey = nil
+		save()
+
 		let helpers = Self.childProcesses()
 
 		for pid in helpers {
@@ -198,6 +348,7 @@ final class AppLock {
 			// No instance to erase: this one does, its engine still running.
 			let caches = Self.cacheDirectory(for: dataDirectory)
 			let electron = Self.electronData(for: dataDirectory)
+			vault.volume.detachLeftovers()
 			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
 			Self.forgetElectronKey(electron)
 			Self.log(
@@ -237,6 +388,11 @@ final class AppLock {
 
 		if wiped != nil || isWipeDue(dataDirectory) {
 			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
+
+			// The wiped instance's volume, which its watchdog went down with:
+			// its key is gone, and it moves aside detached.
+			DataVolume(dataDirectory: dataDirectory, cacheDirectory: caches).detachLeftovers()
+
 			log(PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron))
 		}
 

@@ -3,17 +3,22 @@ import SwiftUI
 
 // The PIN screen (apps/veil lock-screen/page.tsx and components/numpad.tsx):
 // a panel over the whole window, 8px in, a back arrow when it can be left,
-// and in the middle the title, the dots, the numpad, and the hints.
+// and in the middle the title, the dots, the numpad, and the hints. The data's
+// one-time move into its volume takes the middle while it runs (Paper 07.5).
 struct LockScreenView: View {
 	let lock: AppLock
-	let entry: PinEntry
+	let vault: DataVault
 	let updater: Updater
+
+	private var entry: PinEntry? {
+		lock.entry
+	}
 
 	var body: some View {
 		HStack(spacing: 0) {
 			// grid-cols-[5rem_1fr_5rem]
 			ZStack {
-				if entry.dismissable {
+				if entry?.dismissable == true {
 					BackButton { lock.dismiss() }
 				}
 			}
@@ -21,26 +26,21 @@ struct LockScreenView: View {
 			.frame(maxHeight: .infinity)
 
 			VStack(spacing: 28) {
-				if let title = entry.title {
-					Text(title)
-						.font(.system(size: 13, weight: .light))
-						.lineBox(20)
-						.foregroundStyle(Palette.foreground.opacity(0.5))
+				if let entry {
+					pin(entry)
+				} else if let share = vault.phase.share {
+					DataMove(share: share)
+						.transition(.opacity)
 				}
-
-				PinDots(length: entry.dots, filled: entry.entered.count, shakes: lock.shakes)
-
-				Numpad(digit: lock.digit, backspace: lock.backspace)
-
-				hints
 			}
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
+			.animation(Motion.unlessReduced(.default), value: entry == nil)
 
 			Color.clear.frame(width: 80)
 		}
 		.overlay(alignment: .bottom) {
 			// An update on offer shows while locked too, 24px from the bottom.
-			if entry.mode == .unlock, updater.available != nil,
+			if let entry, entry.mode == .unlock, !entry.isUnreadable, updater.available != nil,
 			   [.available, .downloading, .downloaded].contains(updater.status)
 			{
 				LockUpdateStatus(updater: updater)
@@ -65,7 +65,26 @@ struct LockScreenView: View {
 	}
 
 	@ViewBuilder
-	private var hints: some View {
+	private func pin(_ entry: PinEntry) -> some View {
+		if let title = entry.title {
+			Text(title)
+				.font(.system(size: 13, weight: .light))
+				.lineBox(20)
+				.foregroundStyle(Palette.foreground.opacity(0.5))
+		}
+
+		// At 40% while no key can be read: it takes no keys (Paper 07.6).
+		PinDots(length: entry.dots, filled: entry.entered.count, shakes: lock.shakes)
+			.opacity(entry.isUnreadable ? 0.4 : 1)
+
+		Numpad(digit: lock.digit, backspace: lock.backspace)
+			.opacity(entry.isUnreadable ? 0.4 : 1)
+
+		hints(entry)
+	}
+
+	@ViewBuilder
+	private func hints(_ entry: PinEntry) -> some View {
 		if entry.step == .enter {
 			if entry.canContinue {
 				Button("Continue with \(entry.entered.count)-digit PIN") { lock.continueWithPin() }
@@ -85,6 +104,7 @@ struct LockScreenView: View {
 				.font(.system(size: 13, weight: .light))
 				.lineSpacing(4)
 				.padding(.vertical, 2)
+				.multilineTextAlignment(.center)
 				.foregroundStyle(Palette.destructive)
 		}
 
@@ -97,6 +117,33 @@ struct LockScreenView: View {
 				.foregroundStyle(remaining == 1 ? Palette.destructive : Palette.foreground.opacity(0.3))
 				.accessibilityIdentifier("pane.lockScreen.attempts")
 		}
+	}
+}
+
+// The data's one-time move into its volume (ADR 0113, Paper 07.5): the
+// update's bar, at the numpad's width (three 64-point keys, two 14-point
+// gaps).
+private struct DataMove: View {
+	let share: Double
+
+	var body: some View {
+		VStack(spacing: 14) {
+			Text("Encrypting your data")
+				.font(.system(size: 13, weight: .light))
+				.lineBox(20)
+				.foregroundStyle(Palette.foreground.opacity(0.5))
+
+			UpdateProgressBar(progress: share)
+				.frame(width: 220)
+
+			Text("Once, after this update")
+				.font(.system(size: 13, weight: .light))
+				.lineBox(20)
+				.foregroundStyle(Palette.foreground.opacity(0.3))
+		}
+		.accessibilityElement(children: .combine)
+		.accessibilityValue("\(Int((share * 100).rounded())) percent")
+		.accessibilityIdentifier("pane.lockScreen.move")
 	}
 }
 

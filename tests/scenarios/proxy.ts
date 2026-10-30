@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, launchPane, tabOf } from "../lib/pane";
 import { startHttpProxy, startSocks5Proxy } from "../lib/proxies";
@@ -13,36 +13,36 @@ const CREDENTIALS = { username: "pane", password: "proxy-secret" };
 // credentials, no prompt), profile C through a SOCKS5 proxy with a password
 // (through the app's relay), and profile B direct. Each proxy logs what it
 // carried; A's WebRTC gathers no address of the machine. The passwords are
-// kept in the keychain, never in profiles.json (scenarios run with the mock
-// keychain, a file of the data directory): a password the file still holds,
-// as the Electron app's did, signs in, moves there, and signs in again after
-// a relaunch.
+// kept in profiles.json, sealed under the data key with it (ADR 0113): no
+// file holds one in the clear, and the separate store an earlier Pane kept
+// (a file of the data directory, with the mock keychain) is gone. A password
+// the Electron app's plain profiles.json still holds signs in, is sealed,
+// and signs in again after a relaunch.
 
-type SavedProxy = { password: string | null } | null;
+// Where a password is at rest: profiles.json sealed, no file holding it in
+// the clear (the automation channel's own files aside), no separate store.
+async function passwordsAtRest(dataDir: string) {
+	const profiles = JSON.parse(
+		readFileSync(join(dataDir, "profiles.json"), "utf8"),
+	) as { box?: string };
 
-function savedPasswords(dataDir: string) {
-	const read = <T>(name: string): T | null => {
-		try {
-			return (
-				JSON.parse(readFileSync(join(dataDir, name), "utf8")) as { state: T }
-			).state;
-		} catch {
-			return null;
-		}
-	};
+	const inTheClear = (
+		await Bun.$`grep -rlaF ${CREDENTIALS.password} ${dataDir}`
+			.quiet()
+			.nothrow()
+			.text()
+	)
+		.split("\n")
+		.filter((path) => path !== "" && !path.includes("/automation/"));
 
 	return {
-		inFile: (
-			read<{ profiles: { id: string; proxy: SavedProxy }[] }>("profiles.json")
-				?.profiles ?? []
-		)
-			.filter((profile) => profile.proxy?.password)
-			.map((profile) => profile.id),
-		inKeychain: Object.keys(
-			read<Record<string, string>>("mock-keychain.json") ?? {},
-		),
+		sealed: typeof profiles.box === "string",
+		inTheClear,
+		store: existsSync(join(dataDir, "mock-keychain.json")),
 	};
 }
+
+const atRest = JSON.stringify({ sealed: true, inTheClear: [], store: false });
 
 const proxy: Scenario = async (context) => {
 	const fixturePort = Number(new URL(context.fixtures.origin).port);
@@ -215,11 +215,10 @@ const proxy: Scenario = async (context) => {
 		);
 
 		await app.send("save");
-		const passwords = savedPasswords(app.dataDir);
+		const passwords = await passwordsAtRest(app.dataDir);
 
 		expect(
-			passwords.inFile.length === 0 &&
-				[a, c, d].every((id) => passwords.inKeychain.includes(id)),
+			JSON.stringify(passwords) === atRest,
 			`the passwords: ${JSON.stringify(passwords)}`,
 		);
 
@@ -276,7 +275,7 @@ const proxy: Scenario = async (context) => {
 			legacyRuns.push({
 				run,
 				sheet: signedIn.sheet,
-				passwords: savedPasswords(legacyDir),
+				passwords: await passwordsAtRest(legacyDir),
 			});
 
 			await legacy.send("quit");
@@ -286,8 +285,7 @@ const proxy: Scenario = async (context) => {
 		const legacyMoved = legacyRuns.every(
 			(entry) =>
 				(entry as { sheet: unknown }).sheet === null &&
-				JSON.stringify((entry as { passwords: unknown }).passwords) ===
-					JSON.stringify({ inFile: [], inKeychain: ["legacy"] }),
+				JSON.stringify((entry as { passwords: unknown }).passwords) === atRest,
 		);
 
 		expect(legacyMoved, `the legacy password: ${JSON.stringify(legacyRuns)}`);

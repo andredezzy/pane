@@ -11,7 +11,7 @@ import { parseArgs } from "node:util";
 import { type Browser, type LaunchOptions, launch } from "./lib/browser";
 import { isScreenLocked } from "./lib/cua";
 import { type Fixtures, serveFixtures } from "./lib/fixtures";
-import { killUsing } from "./lib/processes";
+import { detachImagesIn, killUsing } from "./lib/processes";
 import { swiftTool } from "./lib/tools";
 
 export type ScenarioContext = {
@@ -89,6 +89,7 @@ async function tearDown(browsers: Browser[], tempDirs: string[]) {
 	await Promise.all(browsers.map((browser) => browser.close()));
 
 	for (const directory of tempDirs) {
+		await detachImagesIn(directory);
 		await killUsing(directory);
 		rmSync(directory, { recursive: true, force: true });
 	}

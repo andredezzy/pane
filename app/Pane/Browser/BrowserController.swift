@@ -47,6 +47,9 @@ final class BrowserController: NSObject {
 	let network: ProfileNetwork
 	// The PIN lock.
 	let lock: AppLock
+	// The data the key opens: the sealed files, and the volume every
+	// profile's engine data is in (ADR 0113).
+	let vault: DataVault
 	// The update check and download.
 	let updater: Updater
 	// The URLs Pane was started with or handed, while they wait behind the
@@ -56,10 +59,11 @@ final class BrowserController: NSObject {
 	// once it shows, to type in, rather than its page.
 	private var focusesAddress: String?
 
-	init(model: BrowserModel, dataDirectory: URL, application: BrowserApplication, lock: AppLock, updater: Updater) {
+	init(model: BrowserModel, dataDirectory: URL, application: BrowserApplication, lock: AppLock, vault: DataVault, updater: Updater) {
 		self.model = model
 		self.application = application
 		self.lock = lock
+		self.vault = vault
 		self.updater = updater
 		network = ProfileNetwork(model: model)
 		deletions = ProfileDeletions(dataDirectory: dataDirectory)
@@ -68,11 +72,13 @@ final class BrowserController: NSObject {
 		browserWindow.delegate = self
 		state.sidebarWidth = CGFloat(model.settings.sidebarWidth)
 		lock.didUnlock = { [weak self] in
-			self?.lockDidOpen()
+			self?.accessDidOpen()
 		}
+	}
 
-		// The sidebar shows each proxy's state from launch, as the Electron
-		// app tested them.
+	// The profiles, read once the data key opened: the sidebar shows each
+	// proxy's state from then, as the Electron app tested them at launch.
+	func profilesDidLoad() {
 		for profile in model.profiles where profile.proxy != nil {
 			network.test(profile.id)
 		}
@@ -143,12 +149,19 @@ final class BrowserController: NSObject {
 	// for Updates…, no Chrome dialog or extension popup. Every way in asks
 	// this one question (the menu bar, the switcher, a launch URL, the
 	// engine's requests), so the lock holds for the mouse as for the keys.
+	// Behind the lock, and until the data key has opened the profiles (and
+	// an earlier Pane's have moved into the volume), nothing runs.
 	var interactionAllowed: Bool {
-		!lock.isLocked
+		!lock.isLocked && vault.phase == .open
 	}
 
-	// The lock opened: what waited behind it goes on.
-	private func lockDidOpen() {
+	// The lock opened, or the data did: once both have, what waited behind
+	// them goes on.
+	func accessDidOpen() {
+		guard interactionAllowed else {
+			return
+		}
+
 		if !launchURLs.isEmpty {
 			let urls = launchURLs
 			launchURLs = []
@@ -222,6 +235,32 @@ final class BrowserController: NSObject {
 		}
 
 		contextWaiters[profileID] = [body]
+
+		// The profile's engine data is in the volume: its context opens only
+		// once the volume is attached and the profile's links lead into it,
+		// so nothing of it lands in the clear (ADR 0113).
+		vault.whenAttached { [weak self] attached in
+			guard let self else {
+				return
+			}
+
+			guard attached else {
+				contextWaiters.removeValue(forKey: profileID)?.forEach { $0(nil) }
+				return
+			}
+
+			vault.prepare(profile: profileID) { [weak self] prepared in
+				guard prepared else {
+					self?.contextWaiters.removeValue(forKey: profileID)?.forEach { $0(nil) }
+					return
+				}
+
+				self?.openContext(profileID)
+			}
+		}
+	}
+
+	private func openContext(_ profileID: String) {
 		applyFingerprint(profileID)
 		application.openContext(identifier: profileID) { [weak self] context, error in
 			guard let self else {
@@ -477,8 +516,11 @@ final class BrowserController: NSObject {
 			application.deleteContext(context) { [weak self] deleted in
 				self?.probe?.profileDeletion(profileID, isPending: false)
 
+				// The engine removes the profile's link; its folder in the
+				// volume goes here.
 				if deleted {
 					self?.deletions.remove(profileID)
+					self?.vault.remove(profile: profileID)
 				}
 			}
 		}

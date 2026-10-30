@@ -9,14 +9,15 @@ import Foundation
 // quit) is found and finished at the next launch.
 public enum PanicWipe {
 	// What it erases: the engine's data (every profile, extensions and all),
-	// the app's JSON files, and the engine's caches when they live apart.
-	// security.json comes last: while it stays, with its count of failed
-	// attempts, the wipe is still due.
+	// the encrypted volume its profiles live in (ADR 0113), the app's JSON
+	// files, and the engine's caches when they live apart. security.json
+	// comes last, after its copy beside the volume: while it stays, with its
+	// count of failed attempts, the wipe is still due.
 	public static func targets(dataDirectory: URL, cacheDirectory: URL?, electron: ElectronData? = nil) -> [URL] {
-		["Engine", "profiles.json", "settings.json", "deletions.json"].map {
+		["Engine", "Data.sparsebundle", "profiles.json", "settings.json", "deletions.json"].map {
 			dataDirectory.appending(path: $0)
 		} + [cacheDirectory?.appending(path: "Engine"), electron?.directory, electron?.cacheDirectory].compactMap(\.self)
-			+ [dataDirectory.appending(path: "security.json")]
+			+ ["Data.security.json", "security.json"].map { dataDirectory.appending(path: $0) }
 	}
 
 	// The Electron app's data this Pane migrated from (its migration record's
@@ -124,6 +125,28 @@ public enum PanicWipe {
 		return failures
 	}
 
+	// What an earlier engine kept in the clear at its user data dir's root,
+	// which the engine keeps off now (ADR 0113): the segmentation platform's
+	// database of the pages visited. Staged for the erase at launch, before
+	// the engine starts.
+	public static func stageEngineTraces(dataDirectory: URL) -> [Failure] {
+		let traces = dataDirectory.appending(path: "Engine/segmentation_platform", directoryHint: .isDirectory)
+
+		guard FileManager.default.fileExists(atPath: traces.path) else {
+			return []
+		}
+
+		let folder = dataDirectory.appending(path: "\(stagingName)/\(UUID().uuidString)", directoryHint: .isDirectory)
+
+		do {
+			try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+			try FileManager.default.moveItem(at: traces, to: folder.appending(path: traces.lastPathComponent))
+			return []
+		} catch {
+			return [Failure(path: traces.path, reason: String(describing: error))]
+		}
+	}
+
 	// Where staged data waits, each root with its passes: the data
 	// directory, the caches, and beside the Electron app's folder and its
 	// caches.
@@ -162,9 +185,12 @@ public enum PanicWipe {
 
 	// Overwrites and deletes `url` and everything under it. A symbolic link
 	// goes, never what it points to: Chromium links its SingletonSocket into
-	// the temporary directory.
+	// the temporary directory, and each profile's folder is a link into the
+	// volume. The volume's image goes without passes: the data key, gone
+	// first, was its only way in.
 	public static func erase(_ url: URL, passes: Int = 3) -> [Failure] {
 		let fileManager = FileManager.default
+		let passes = url.pathExtension == "sparsebundle" ? 0 : passes
 		var failures: [Failure] = []
 
 		guard let type = attributes(url, &failures)?[.type] as? FileAttributeType else {

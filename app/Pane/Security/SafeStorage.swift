@@ -86,6 +86,48 @@ enum SafeStorage {
 		}
 	}
 
+	// The secret the data key is sealed under (ADR 0113): the engine's, made
+	// here as Chromium makes it when the engine has none yet and `makesOne`,
+	// since a fresh install needs the data key before the engine first reads
+	// its item. Never once a key is sealed: a new secret would not open it.
+	// LaunchMigration has run by then, so the Electron app's key it hands
+	// over is in place. nil when the user denied it, or the Keychain failed.
+	// Under --use-mock-keychain, as the engine's own, a fixed one: scenarios
+	// never touch the login Keychain.
+	nonisolated static func dataSecret(makesOne: Bool) -> Data? {
+		if CommandLine.arguments.contains("--use-mock-keychain") {
+			return Data("Pane mock keychain".utf8)
+		}
+
+		switch engineSecret() {
+		case let .key(secret):
+			return secret
+		case .unavailable:
+			return nil
+		case .missing:
+			guard makesOne else {
+				return nil
+			}
+
+			// 128 random bits, in base64 (keychain_password_mac.mm).
+			let secret = Data(Data((0 ..< 16).map { _ in UInt8.random(in: .min ... .max) }).base64EncodedString().utf8)
+			let item: [CFString: Any] = [
+				kSecClass: kSecClassGenericPassword,
+				kSecAttrService: service,
+				kSecAttrAccount: account,
+				kSecValueData: secret,
+			]
+			let status = SecItemAdd(item as CFDictionary, nil)
+
+			guard status == errSecSuccess else {
+				Log.security.error("Could not make the engine's key: \(status)")
+				return nil
+			}
+
+			return secret
+		}
+	}
+
 	// Whether the engine has a key of its own yet. Reading the item's
 	// attributes, not its secret, asks the user nothing.
 	static func hasEngineKey() -> Bool {

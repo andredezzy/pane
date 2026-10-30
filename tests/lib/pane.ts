@@ -70,6 +70,15 @@ export type SecurityState = {
 	locked: boolean;
 	// The panic wipe's erase, while it runs, and what it could not erase.
 	wipe: { erasing: boolean; failures: string[] };
+	// The data key's side (ADR 0113): closed, "moving <share>", or open; the
+	// volume attached; and why it would not attach.
+	data: {
+		phase: string;
+		attached: boolean;
+		failure: string | null;
+		// When the attach started and ended, in ms since 1970.
+		attachedAt: { started: number; ended: number } | null;
+	};
 	// The PIN screen, while it shows.
 	screen: {
 		mode: "setup" | "change" | "remove" | "unlock";
@@ -507,6 +516,20 @@ export async function launchPane(
 
 	const app = new PaneApp(browser, dataDir, automationDir, context.out);
 	await app.waitFor("the window", (state) => state.window.visible);
+
+	// The data key opens the profiles (ADR 0113): at once without a PIN, and
+	// after an earlier Pane's data moves into the volume. Until then nothing
+	// runs, and a profile's page waits for the volume to attach, so the app is
+	// handed over once the profiles are open and the volume attached, as a
+	// moment after launch, or the PIN screen shows. benchmark-unlock times
+	// what the attach adds.
+	await app.waitFor(
+		"the profiles open and the volume attached, or the PIN screen",
+		(state) =>
+			(state.security.data.phase === "open" && state.security.data.attached) ||
+			state.security.locked,
+		60_000,
+	);
 
 	return app;
 }

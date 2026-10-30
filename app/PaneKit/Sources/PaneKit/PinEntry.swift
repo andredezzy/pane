@@ -46,6 +46,9 @@ public struct PinEntry: Equatable, Sendable {
 	public private(set) var error: String?
 	// A check is running, or the dots are shaking: keys are ignored.
 	public private(set) var busy = false
+	// No key to check a PIN against: the dots and the numpad show at 40%
+	// (Paper 07.6).
+	public private(set) var isUnreadable = false
 
 	public init(mode: Mode, pinLength: Int) {
 		self.mode = mode
@@ -59,6 +62,7 @@ public struct PinEntry: Equatable, Sendable {
 		var entry = PinEntry(mode: .unlock, pinLength: minimumLength)
 		entry.error = message
 		entry.busy = true
+		entry.isUnreadable = true
 
 		return entry
 	}

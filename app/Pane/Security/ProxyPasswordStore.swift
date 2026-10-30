@@ -3,16 +3,15 @@ import PaneKit
 import Security
 import os
 
-// Where proxy passwords live (PaneKit ProxyPasswords): sealed in the data
-// directory, proxy-passwords.json, under the engine's "Pane Safe Storage" key
-// (PaneKit ProxyPasswordVault, ADR 0095). The engine reads that item at every
-// launch anyway, so after an update of an ad-hoc signed build macOS asks once,
-// for it, and the passwords ask nothing more. An earlier Pane kept them in a
-// Keychain item of their own, "Pane Proxy Passwords", whose account is the
-// data directory's path: it is read once more, sealed, and deleted. Under
-// --use-mock-keychain, as the engine's own item, they are a file in the data
-// directory instead, and the login Keychain is never touched: scenarios run
-// so.
+// Where an earlier Pane kept the proxy passwords (PaneKit ProxyPasswordVault):
+// proxy-passwords.json, sealed under the engine's "Pane Safe Storage" key (ADR
+// 0095), or, before that, a Keychain item of their own, "Pane Proxy
+// Passwords", whose account is the data directory's path. Since ADR 0113 they
+// are in profiles.json, sealed with it: these are read once, when an earlier
+// Pane's plain profiles.json is (ModelStore), and deleted once the profiles
+// are sealed with them. Under --use-mock-keychain, as the engine's own item,
+// they are a file in the data directory instead, and the login Keychain is
+// never touched: scenarios run so.
 struct ProxyPasswordStore: Sendable {
 	private static let service = "Pane Proxy Passwords"
 
@@ -36,15 +35,14 @@ struct ProxyPasswordStore: Sendable {
 			secret: { SafeStorage.engineSecret() },
 			sealing: .init(
 				load: { try sealed.load() },
-				save: { try sealed.save($0) },
 				remove: { try? FileManager.default.removeItem(at: sealed.url) }
 			),
-			item: .init(read: { item.read() }, write: { item.write($0) }, delete: { item.delete() })
+			item: .init(read: { item.read() }, delete: { item.delete() })
 		)
 	}
 
 	// nil when the store could not be read (the user denied it, say): the
-	// passwords then stay where they are.
+	// profiles then have no password for those proxies.
 	func read() -> [String: String]? {
 		if let mock {
 			do {
@@ -62,26 +60,7 @@ struct ProxyPasswordStore: Sendable {
 		return passwords
 	}
 
-	// Whether the store now holds `passwords`.
-	func write(_ passwords: [String: String]) -> Bool {
-		if let mock {
-			guard !passwords.isEmpty else {
-				try? FileManager.default.removeItem(at: mock.url)
-				return true
-			}
-
-			return (try? mock.save(passwords)) != nil
-		}
-
-		guard vault.write(passwords) else {
-			Log.security.error("Could not save the proxy passwords")
-			return false
-		}
-
-		return true
-	}
-
-	// For the panic wipe, and once no proxy has a password.
+	// Once the profiles are sealed with the passwords, and for the panic wipe.
 	func delete() {
 		if let mock {
 			try? FileManager.default.removeItem(at: mock.url)
@@ -91,8 +70,7 @@ struct ProxyPasswordStore: Sendable {
 		vault.delete()
 	}
 
-	// The Keychain item an earlier Pane kept them in, and the one they go to
-	// before the engine has a key of its own.
+	// The Keychain item an earlier Pane kept them in.
 	private struct Item: Sendable {
 		let account: String
 
@@ -117,20 +95,6 @@ struct ProxyPasswordStore: Sendable {
 				Log.security.error("Could not read the proxy passwords' item: \(status)")
 				return nil
 			}
-		}
-
-		func write(_ passwords: [String: String]) -> Bool {
-			guard let data = try? JSONEncoder().encode(passwords) else {
-				return false
-			}
-
-			var status = SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary)
-
-			if status == errSecItemNotFound {
-				status = SecItemAdd(query.merging([kSecValueData: data]) { $1 } as CFDictionary, nil)
-			}
-
-			return status == errSecSuccess
 		}
 
 		// Without asking: where macOS would ask, the item stays.

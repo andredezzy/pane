@@ -140,9 +140,16 @@ const profileLifecycle: Scenario = async (context) => {
 	);
 
 	// Chrome removes a deleted profile's directory once nothing holds the
-	// profile, or else in a low-priority cleanup at the next start.
+	// profile, or else in a low-priority cleanup at the next start. Pane
+	// purges what deletions.json names once the data volume is attached
+	// (ADR 0113).
 	const relaunched = await launchPane(context, { dataDir });
-	const after = await relaunched.state();
+
+	const after = await relaunched.waitFor(
+		"the data volume attached",
+		(state) => state.security.data.attached,
+	);
+
 	const until = Date.now() + 20_000;
 
 	while (existsSync(profileDir) && Date.now() < until) {

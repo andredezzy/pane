@@ -202,6 +202,12 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
                   "OnDeviceModelBackgroundDownload,OptimizationHints,"
                   "TranslateRankerQuery,TranslateRankerEnforcement,"
                   "PreconnectToSearch");
+  // The segmentation platform keeps a database of the pages visited
+  // (segmentation_platform/ukm_db) at the user data dir's root, outside the
+  // volume every profile's data is in (ADR 0113), for guesses Chrome's own UI
+  // makes, which Pane does not show.
+  AddToSwitchList(args, "disable-features",
+                  "SegmentationPlatform,SegmentationPlatformUkmEngine");
   // Chrome discards background tabs under memory pressure (its urgent
   // discarding), swapping an empty WebContents into the tab. Pane's sleep
   // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard

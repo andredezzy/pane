@@ -53,90 +53,50 @@ struct ProxyPasswordVaultTests {
 		var vault: ProxyPasswordVault {
 			ProxyPasswordVault(
 				secret: { self.secret },
-				sealing: .init(load: { self.sealed }, save: { self.sealed = $0 }, remove: { self.sealed = nil }),
-				item: .init(read: { self.item ?? [:] }, write: { self.item = $0; return true }, delete: { self.item = nil })
+				sealing: .init(load: { self.sealed }, remove: { self.sealed = nil }),
+				item: .init(read: { self.item ?? [:] }, delete: { self.item = nil })
 			)
 		}
 	}
 
-	@Test("writes sealed under the engine's key, and reads it back")
+	@Test("an earlier Pane's box opens with the engine's key")
 	func sealed() throws {
 		let places = Places()
+		places.sealed = try ProxyPasswordSeal.seal(["a": "s3cret"], secret: Data("engine-key".utf8))
 
-		#expect(places.vault.write(["a": "s3cret"]))
-		#expect(places.sealed != nil)
-		#expect(places.item == nil)
 		#expect(places.vault.read() == ["a": "s3cret"])
 	}
 
-	@Test("an earlier Pane's item is read once more, sealed, and deleted")
-	func migrates() {
+	@Test("the item an earlier Pane kept them in reads too")
+	func item() {
 		let places = Places()
 		places.item = ["a": "from-item"]
 
 		#expect(places.vault.read() == ["a": "from-item"])
-		#expect(places.sealed != nil)
-		#expect(places.item == nil)
-		#expect(places.vault.read() == ["a": "from-item"])
 	}
 
-	@Test("before the engine has a key, the item keeps the passwords")
-	func beforeTheEngine() {
+	@Test("a key the user denies, or another key, reads nothing")
+	func unreadable() throws {
 		let places = Places()
-		places.secret = .missing
+		places.sealed = try ProxyPasswordSeal.seal(["a": "s3cret"], secret: Data("engine-key".utf8))
 
-		#expect(places.vault.write(["a": "s3cret"]))
-		#expect(places.sealed == nil)
-		#expect(places.item == ["a": "s3cret"])
-		#expect(places.vault.read() == ["a": "s3cret"])
-
-		// A later launch, once the engine has its key, seals them.
-		places.secret = .key(Data("engine-key".utf8))
-		#expect(places.vault.read() == ["a": "s3cret"])
-		#expect(places.sealed != nil)
-		#expect(places.item == nil)
-	}
-
-	@Test("a key the user denies leaves the passwords where they are")
-	func denied() {
-		let places = Places()
-		#expect(places.vault.write(["a": "s3cret"]))
 		places.secret = .unavailable
-
 		#expect(places.vault.read() == nil)
-		#expect(!places.vault.write(["a": "changed"]))
-		#expect(places.sealed != nil)
 
-		// An earlier Pane's item still reads, unsealed.
-		let earlier = Places()
-		earlier.item = ["a": "from-item"]
-		earlier.secret = .unavailable
-		#expect(earlier.vault.read() == ["a": "from-item"])
-		#expect(earlier.item == ["a": "from-item"])
-	}
-
-	@Test("another key's box reads as nothing, and stays for its key")
-	func anotherKey() {
-		let places = Places()
-		#expect(places.vault.write(["a": "s3cret"]))
 		places.secret = .key(Data("another".utf8))
-
 		#expect(places.vault.read() == nil)
 		#expect(places.sealed != nil)
 	}
 
-	@Test("no passwords, or the wipe, leave neither the box nor the item")
-	func deletes() {
+	@Test("once the profiles are sealed with them, neither the box nor the item stays")
+	func deletes() throws {
 		let places = Places()
-		#expect(places.vault.write(["a": "s3cret"]))
+		places.sealed = try ProxyPasswordSeal.seal(["a": "s3cret"], secret: Data("engine-key".utf8))
 		places.item = ["b": "stale"]
 
-		#expect(places.vault.write([:]))
+		places.vault.delete()
+
 		#expect(places.sealed == nil)
 		#expect(places.item == nil)
-
-		#expect(places.vault.write(["a": "s3cret"]))
-		places.vault.delete()
-		#expect(places.sealed == nil)
 	}
 }

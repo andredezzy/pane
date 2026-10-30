@@ -45,6 +45,11 @@ rm -rf "$OUT"
 ditto "$ENGINE_OUT/Pane.app" "$OUT"
 cp "$SWIFT_APP/Contents/MacOS/Pane" "$OUT/Contents/MacOS/Pane"
 
+# The volume's watchdog (ADR 0113, app/VolumeWatch): it detaches the
+# encrypted volume once Pane's process ends, a crash included.
+xcrun swiftc -O -target "arm64-apple-macos$(plutil -extract LSMinimumSystemVersion raw "$SWIFT_APP/Contents/Info.plist")" \
+	"$APP_DIR/VolumeWatch/main.swift" -o "$OUT/Contents/MacOS/pane-volume-watch"
+
 if [ -d "$SWIFT_APP/Contents/Resources" ]; then
 	ditto "$SWIFT_APP/Contents/Resources" "$OUT/Contents/Resources"
 fi
@@ -203,6 +208,7 @@ for library in "$VERSION_DIR"/Libraries/*.dylib; do
 done
 
 sign "$FRAMEWORK"
+sign "$OUT/Contents/MacOS/pane-volume-watch" restrict,library,runtime,kill
 sign "$OUT" restrict,library,runtime,kill app.entitlements
 codesign --verify --deep --strict "$OUT"
 

@@ -254,6 +254,15 @@ extension Automation {
 				"failedAttempts": controller.lock.state.failedAttempts,
 				"locked": controller.lock.isLocked,
 				"wipe": ["erasing": AppLock.isErasing, "failures": AppLock.eraseFailures] as [String: Any],
+				// The data key's side (ADR 0113): its phase, the volume, and why
+				// it would not attach.
+				"data": [
+					"phase": controller.vault.phase.share.map { "moving \($0)" } ?? "\(controller.vault.phase)",
+					"attached": controller.vault.isAttached,
+					"failure": controller.vault.failure ?? NSNull(),
+					// When the attach started and ended, in ms since 1970.
+					"attachedAt": controller.vault.attachedAt.map { ["started": $0.started, "ended": $0.ended] } ?? NSNull(),
+				] as [String: Any],
 				"screen": controller.lock.entry.map { entry in
 					[
 						"mode": "\(entry.mode)",

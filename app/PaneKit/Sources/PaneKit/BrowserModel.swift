@@ -124,6 +124,17 @@ public final class BrowserModel {
 		self.persist = persist
 	}
 
+	// The profiles, once the data key opens them (ADR 0113): the model starts
+	// with none. `changed` saves them too, as when they come from an earlier
+	// Pane's plain file.
+	public func load(profiles: [BrowserProfile], changed: Bool) {
+		self.profiles = profiles
+
+		if changed {
+			scheduleSave(profiles: true)
+		}
+	}
+
 	// Every change of the selection calls `observer`, each one added.
 	public func observeSelection(_ observer: @escaping () -> Void) {
 		selectionObservers.append(observer)

@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import {
 	type AppState,
@@ -6,7 +12,7 @@ import {
 	launchPane,
 	type PaneApp,
 } from "../lib/pane";
-import { waitForExit } from "../lib/processes";
+import { imagesAttachedIn, waitForExit } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
@@ -21,6 +27,14 @@ import { expect, type Scenario } from "../run";
 // with Caps Lock on. Last, a security.json that no longer decodes never opens
 // the lock: the PIN left in it still unlocks, and with none left the lock stays
 // shut. Each check runs in a throwaway data directory.
+//
+// The PIN opens the data key (ADR 0113): the Electron app's bcrypt hash is
+// checked once, then the key is sealed with the PIN, and a change or a
+// removal seals it again. Behind the lock the data volume is locked and
+// mounted nowhere, each profile's link leads nowhere, and nothing a page stored, nor its address,
+// is in any file in the clear. The panic wipe destroys the key and erases the
+// volume: the fresh Pane seals a key of its own.
+// A quit detaches the volume, and so does its watchdog when Pane is killed.
 
 // bcryptjs 3.0.3, hashSync("1234", 10): what the Electron app wrote.
 const ELECTRON_SECURITY = {
@@ -36,17 +50,42 @@ const ELECTRON_SECURITY = {
 
 type Saved = {
 	state: {
-		pin: { hash: string; length: number } | null;
+		pin: { hash?: string; length: number } | null;
 		failedAttempts: number;
+		key?: {
+			box: string;
+			pin?: { salt: string; rounds: number } | null;
+			secret: string;
+		};
 	};
 };
 
-function saved(dataDir: string): Saved | null {
-	const file = join(dataDir, "security.json");
+// security.json, or its copy beside the volume ("Data.security").
+function saved(dataDir: string, name = "security"): Saved | null {
+	const file = join(dataDir, `${name}.json`);
 
 	return existsSync(file)
 		? (JSON.parse(readFileSync(file, "utf8")) as Saved)
 		: null;
+}
+
+// A link, whether or not it leads anywhere.
+function lexists(path: string): boolean {
+	try {
+		lstatSync(path);
+
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+// Files under `root` whose bytes hold `text` in the clear, the automation
+// channel's own files aside.
+async function holding(root: string, text: string): Promise<string[]> {
+	return (await Bun.$`grep -rlaF ${text} ${root}`.quiet().nothrow().text())
+		.split("\n")
+		.filter((path) => path !== "" && !path.includes("/automation/"));
 }
 
 function screen(state: AppState) {
@@ -171,6 +210,19 @@ const security: Scenario = async (context) => {
 
 	expect(unlocked.security.failedAttempts === 0, "the attempts did not reset");
 
+	// The Electron app's hash, checked once, gives way to the data key sealed
+	// with the PIN, in security.json and its copy beside the volume.
+	const sealedAtUnlock = saved(dataDir)?.state;
+
+	expect(
+		sealedAtUnlock?.pin?.length === 4 &&
+			sealedAtUnlock.pin.hash === undefined &&
+			!!sealedAtUnlock.key?.pin?.salt &&
+			saved(dataDir, "Data.security")?.state.key?.box ===
+				sealedAtUnlock.key.box,
+		`the data key at the first unlock: ${JSON.stringify(sealedAtUnlock)}`,
+	);
+
 	// The URLs open once the lock is open, the handed one last.
 	const opened = await app.waitFor(
 		"the launch and handed URLs opened",
@@ -187,11 +239,16 @@ const security: Scenario = async (context) => {
 			}),
 	);
 
-	// Data that the wipe must erase later: a profile with a page.
+	// Data that the wipe must erase later: a profile with a page, which
+	// stores a marker in a cookie and local storage.
 	const profile = await app.createProfile("Private", "ROSE");
 	const page = context.fixtures.url("nav-a.html?private");
 	const tab = await app.openTab(profile, page);
-	await app.page(tab, page);
+	const marker = `pane-private-${crypto.randomUUID()}`;
+
+	await (await app.page(tab, page)).evaluate(
+		`document.cookie = "private=${marker}; max-age=3600"; localStorage.setItem("private", "${marker}")`,
+	);
 
 	// Change: the current PIN, then a new one twice.
 	await app.send("showPinScreen", { mode: "change" });
@@ -217,12 +274,15 @@ const security: Scenario = async (context) => {
 		(state) => screen(state) === null && state.security.pinLength === 6,
 	);
 
-	const changedHash = saved(dataDir)?.state.pin?.hash ?? "";
+	// Sealed again with the new PIN: a salt of its own, and no hash.
+	const sealedAtChange = saved(dataDir)?.state;
 
 	expect(
-		changedHash.startsWith("$2b$10$") &&
-			changedHash !== ELECTRON_SECURITY.state.pin.hash,
-		`the new hash: ${changedHash}`,
+		sealedAtChange?.pin?.length === 6 &&
+			sealedAtChange.pin.hash === undefined &&
+			!!sealedAtChange.key?.pin?.salt &&
+			sealedAtChange.key.pin.salt !== sealedAtUnlock?.key?.pin?.salt,
+		`the key at the change: ${JSON.stringify(sealedAtChange)}`,
 	);
 
 	// Remove: the current PIN.
@@ -235,7 +295,12 @@ const security: Scenario = async (context) => {
 		(state) => screen(state) === null && state.security.pinLength === null,
 	);
 
-	expect(saved(dataDir)?.state.pin === null, "security.json still holds a PIN");
+	expect(
+		saved(dataDir)?.state.pin === null &&
+			!!saved(dataDir)?.state.key &&
+			(saved(dataDir)?.state.key?.pin ?? null) === null,
+		`security.json after the removal: ${JSON.stringify(saved(dataDir))}`,
+	);
 
 	// Set up: two PINs that differ, then the same twice.
 	await app.send("showPinScreen", { mode: "setup" });
@@ -292,6 +357,32 @@ const security: Scenario = async (context) => {
 		"Pane did not start locked with the new PIN",
 	);
 
+	// Behind the lock: the image attached, its volume locked and mounted
+	// nowhere, the profile's link leading nowhere, and the page's marker and
+	// address in no file in the clear.
+	const mountPoint = join(dataDir, "Engine", "Volume");
+
+	const lockedData = {
+		attached: locked.security.data.attached,
+		mounted:
+			(await Bun.$`mount`.text()).includes(` on ${mountPoint} `) ||
+			(await Bun.$`mount`.text()).includes(` on /private${mountPoint} `),
+		link: lexists(join(dataDir, "Engine", profile)),
+		leadsNowhere: !existsSync(join(dataDir, "Engine", profile)),
+		marker: await holding(dataDir, marker),
+		address: await holding(dataDir, "nav-a.html?private"),
+	};
+
+	expect(
+		!lockedData.attached &&
+			!lockedData.mounted &&
+			lockedData.link &&
+			lockedData.leadsNowhere &&
+			lockedData.marker.length === 0 &&
+			lockedData.address.length === 0,
+		`behind the lock: ${JSON.stringify(lockedData)}`,
+	);
+
 	for (let attempt = 1; attempt <= 4; attempt++) {
 		await type(
 			relaunched,
@@ -339,7 +430,9 @@ const security: Scenario = async (context) => {
 
 	const before = {
 		profiles: existsSync(join(dataDir, "profiles.json")),
-		profileData: existsSync(profileDir),
+		profileData: lexists(profileDir),
+		volume: existsSync(join(dataDir, "Data.sparsebundle")),
+		key: saved(dataDir)?.state.key?.box ?? null,
 		electronData: existsSync(join(electronDir, "Partitions")),
 	};
 
@@ -388,7 +481,9 @@ const security: Scenario = async (context) => {
 	await Bun.sleep(3_000);
 
 	const after = {
-		profileData: existsSync(profileDir),
+		profileData: lexists(profileDir),
+		// The fresh Pane's own volume, attached: the wiped profile is not in it.
+		profileInVolume: existsSync(join(dataDir, "Engine", "Volume", profile)),
 		electronData: existsSync(electronDir),
 		electronStaged: existsSync(join(electronParent, "Wiping")),
 		electronNeighbor: existsSync(electronNeighbor),
@@ -423,6 +518,52 @@ const security: Scenario = async (context) => {
 	if (!quitWithCapsLock) {
 		await caps.browser.close();
 	}
+
+	// A quit detaches the volume; so does the watchdog when Pane is killed.
+	const detachDir = context.tempDir("pane-security-detach-");
+	const attachedApp = await launchPane(context, { dataDir: detachDir });
+	const detachProfile = await attachedApp.createProfile("Work", "BLUE");
+	const detachPage = context.fixtures.url("nav-b.html?detach");
+
+	await attachedApp.page(
+		await attachedApp.openTab(detachProfile, detachPage),
+		detachPage,
+	);
+
+	const whileOpen = (await imagesAttachedIn(detachDir)).length;
+	await attachedApp.browser.close();
+	const afterQuit = (await imagesAttachedIn(detachDir)).length;
+
+	const killedApp = await launchPane(context, { dataDir: detachDir });
+
+	await killedApp.waitFor(
+		"the volume attached",
+		(state) => state.security.data.attached,
+	);
+
+	const whileOpenAgain = (await imagesAttachedIn(detachDir)).length;
+	process.kill(killedApp.browser.pid, "SIGKILL");
+	await waitForExit(killedApp.browser.pid);
+
+	let afterKill = whileOpenAgain;
+
+	for (
+		const until = Date.now() + 3_000;
+		afterKill > 0 && Date.now() < until;
+		await Bun.sleep(100)
+	) {
+		afterKill = (await imagesAttachedIn(detachDir)).length;
+	}
+
+	const detached = { whileOpen, afterQuit, whileOpenAgain, afterKill };
+
+	expect(
+		whileOpen === 1 &&
+			afterQuit === 0 &&
+			whileOpenAgain === 1 &&
+			afterKill === 0,
+		`the volume after a quit and a kill: ${JSON.stringify(detached)}`,
+	);
 
 	// A damaged security.json: cut short, its PIN still in it, then garbage.
 	const damaged = async (name: string, contents: string, keys: string) => {
@@ -466,6 +607,16 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(!after.profileData, "the profile's engine data survived the wipe");
+
+	// The wiped key is gone: the fresh Pane seals a key of its own, over a
+	// new volume the wiped profile is not in.
+	expect(
+		before.volume &&
+			!!before.key &&
+			after.security?.state.key?.box !== before.key &&
+			!after.profileInVolume,
+		`the wiped key or volume survived: ${JSON.stringify({ before, after })}`,
+	);
 
 	expect(
 		before.electronData &&
@@ -530,8 +681,10 @@ const security: Scenario = async (context) => {
 		},
 		change: {
 			pinLength: changed.security.pinLength,
-			hashPrefix: changedHash.slice(0, 7),
+			sealedWithPin: !!sealedAtChange?.key?.pin,
 		},
+		lockedData,
+		detached,
 		remove: { pinLength: removed.security.pinLength },
 		setup: {
 			mismatch: screen(mismatch)?.error,

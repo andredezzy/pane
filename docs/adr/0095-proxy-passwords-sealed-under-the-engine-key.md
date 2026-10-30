@@ -1,5 +1,7 @@
 # Proxy passwords are sealed under the engine's key
 
+> **Partly replaced by [ADR 0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md)** — the passwords are in `profiles.json`, sealed with it under the data key, and the store this record describes is read once and deleted; Pane makes the engine's Keychain item when it has none and no data key is sealed yet.
+
 Proxy passwords are kept in the data directory, in `proxy-passwords.json`, no longer in a Keychain item of their own. They are sealed with AES-GCM under a key that HKDF-SHA256 derives from the engine's "Pane Safe Storage" secret. It was the user's call, after every update asked for the login keychain's password twice: once for "Pane Safe Storage" and once for "Pane Proxy Passwords" (ADR 0069).
 
 Why an update asks:

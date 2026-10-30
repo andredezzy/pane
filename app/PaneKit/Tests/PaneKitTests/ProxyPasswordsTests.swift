@@ -14,28 +14,20 @@ struct ProxyPasswordsTests {
 		)
 	}
 
-	@Test("profiles.json keeps no password, and reads one back from the store")
-	func roundTrip() throws {
-		let profiles = [profile("a", username: "u", password: "s3cret"), profile("b", username: "u"), profile("c", proxied: false)]
-		let stored = ProxyPasswords.of(profiles)
+	@Test("the passwords an earlier Pane kept apart go back into its profiles")
+	func filled() {
+		let plain = [profile("a", username: "u"), profile("b", username: "u"), profile("c", proxied: false)]
+		let profiles = ProxyPasswords.filled(plain, from: ["a": "s3cret", "c": "no proxy"])
 
-		#expect(stored == ["a": "s3cret"])
-
-		let file = ProfilesState(profiles: ProxyPasswords.stripped(profiles))
-		let data = try JSONEncoder().encode(file)
-		#expect(!String(decoding: data, as: UTF8.self).contains("s3cret"))
-
-		let read = try JSONDecoder().decode(ProfilesState.self, from: data).profiles
-		#expect(ProxyPasswords.filled(read, from: stored) == profiles)
+		#expect(profiles.map(\.proxy?.password) == ["s3cret", nil, nil])
 	}
 
-	@Test("a password the file still holds is read, and wins until moved")
+	@Test("a password the file still holds is read, and wins")
 	func legacy() {
 		let legacy = [profile("a", username: "u", password: "from-file")]
 
 		#expect(ProxyPasswords.needsStore(legacy))
 		#expect(ProxyPasswords.filled(legacy, from: ["a": "stale"]).first?.proxy?.password == "from-file")
-		#expect(ProxyPasswords.of(legacy) == ["a": "from-file"])
 	}
 
 	@Test("only a proxy that signs in needs the store")

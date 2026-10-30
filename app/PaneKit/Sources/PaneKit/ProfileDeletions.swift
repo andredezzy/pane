@@ -4,8 +4,8 @@ import os
 // Profiles deleted whose engine data may still be on disk, kept in
 // deletions.json from the delete until the engine confirms it. A quit, a
 // crash, or a context that would not open leaves an id there, and the next
-// launch removes that profile's folders before the engine starts, when
-// nothing has them open.
+// launch removes that profile's data once the volume is attached, before
+// anything opens a profile.
 public struct ProfileDeletions: Sendable {
 	private let file: PersistedFile<[String]>
 
@@ -25,9 +25,11 @@ public struct ProfileDeletions: Sendable {
 		save(pending.filter { $0 != profileID })
 	}
 
-	// Removes each pending profile's engine folder and caches, and returns
-	// what it could not remove, which stays pending.
-	public func purge(dataDirectory: URL, cacheDirectory: URL?) -> [String] {
+	// Removes each pending profile's data (DataVolume.remove: its links, a
+	// plain folder an earlier Pane left, and its folder in the volume, which
+	// is attached by then), and returns what it could not remove, which
+	// stays pending.
+	public func purge(volume: DataVolume) -> [String] {
 		var failed: [String] = []
 
 		for profileID in pending {
@@ -37,15 +39,8 @@ public struct ProfileDeletions: Sendable {
 				continue
 			}
 
-			let folders = [dataDirectory, cacheDirectory].compactMap(\.self).map {
-				$0.appending(path: "Engine/\(profileID)", directoryHint: .isDirectory)
-			}
-
 			do {
-				for folder in folders where FileManager.default.fileExists(atPath: folder.path) {
-					try FileManager.default.removeItem(at: folder)
-				}
-
+				try volume.remove(profile: profileID)
 				remove(profileID)
 			} catch {
 				failed.append("\(profileID): \(error)")

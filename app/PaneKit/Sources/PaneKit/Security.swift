@@ -2,41 +2,48 @@ import CBcrypt
 import Foundation
 
 // The app lock (apps/veil security-store.ts and trpc/routers/security.ts): a
-// PIN, kept as a bcrypt hash in security.json, and the failed attempts that
-// lead to the panic wipe.
+// PIN, the failed attempts that lead to the panic wipe, and the data key,
+// sealed under the engine's secret and the PIN (ADR 0113), in security.json.
 
 public struct Pin: Codable, Hashable, Sendable {
-	public var hash: String
+	// The bcrypt hash the Electron app and earlier Panes checked the PIN
+	// against: checked once more at the first unlock, when the PIN seals the
+	// data key and the hash goes.
+	public var hash: String?
 	// The digits, so the lock screen draws that many dots and submits on the
 	// last one.
 	public var length: Int
 
-	public init(hash: String, length: Int) {
+	public init(hash: String? = nil, length: Int) {
 		self.hash = hash
 		self.length = length
 	}
 }
 
-// security.json's state, as the Electron app persisted it.
+// security.json's state, as the Electron app persisted it, with the data key.
 public struct SecurityState: Codable, Hashable, Sendable {
 	public static let maxAttempts = 5
 
 	public var pin: Pin?
 	public var failedAttempts: Int
+	// nil until the first launch that makes it.
+	public var key: DataKey.Sealed?
 
 	private enum CodingKeys: String, CodingKey {
-		case pin, failedAttempts
+		case pin, failedAttempts, key
 	}
 
-	public init(pin: Pin? = nil, failedAttempts: Int = 0) {
+	public init(pin: Pin? = nil, failedAttempts: Int = 0, key: DataKey.Sealed? = nil) {
 		self.pin = pin
 		self.failedAttempts = failedAttempts
+		self.key = key
 	}
 
 	public init(from decoder: Decoder) throws {
 		let container = try decoder.container(keyedBy: CodingKeys.self)
 		pin = try container.decodeIfPresent(Pin.self, forKey: .pin)
 		failedAttempts = try container.decodeIfPresent(Int.self, forKey: .failedAttempts) ?? 0
+		key = try container.decodeIfPresent(DataKey.Sealed.self, forKey: .key)
 	}
 
 	// An explicit null, as the Electron app writes it.
@@ -44,6 +51,7 @@ public struct SecurityState: Codable, Hashable, Sendable {
 		var container = encoder.container(keyedBy: CodingKeys.self)
 		try container.encode(pin, forKey: .pin)
 		try container.encode(failedAttempts, forKey: .failedAttempts)
+		try container.encodeIfPresent(key, forKey: .key)
 	}
 
 	public var remainingAttempts: Int {
@@ -53,7 +61,8 @@ public struct SecurityState: Codable, Hashable, Sendable {
 	// The state of a security.json that no longer decodes (a disk error, a
 	// newer Pane's format), from what is left of it: the PIN's bcrypt hash,
 	// its length, and the failed attempts. nil when no PIN can be read in
-	// it.
+	// it. A sealed key is not read back from the pieces: its copy beside the
+	// volume stands in (ADR 0113).
 	public static func recover(from data: Data) -> SecurityState? {
 		let text = String(decoding: data, as: UTF8.self)
 

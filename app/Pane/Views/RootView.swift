@@ -156,9 +156,11 @@ struct RootView: View {
 					.zIndex(1)
 			}
 
-			// The PIN screen, over everything; it slides up and back down.
-			if let entry = controller.lock.entry {
-				LockScreenView(lock: controller.lock, entry: entry, updater: controller.updater)
+			// The PIN screen, over everything; it slides up and back down. The
+			// data's one-time move into its volume shows on the same panel
+			// (ADR 0113), which a PIN that opened it stays up for.
+			if controller.lock.entry != nil || controller.vault.phase.share != nil {
+				LockScreenView(lock: controller.lock, vault: controller.vault, updater: controller.updater)
 					.transition(.asymmetric(
 						insertion: .move(edge: .bottom).animation(Motion.lockIn),
 						removal: .move(edge: .bottom).animation(Motion.lockOut)
@@ -166,7 +168,7 @@ struct RootView: View {
 					.zIndex(2)
 			}
 		}
-		.animation(Motion.unlessReduced(.default), value: controller.lock.entry == nil)
+		.animation(Motion.unlessReduced(.default), value: controller.lock.entry == nil && controller.vault.phase.share == nil)
 		// The extensions menu belongs to the tab and the window it opened over.
 		.onChange(of: model.activeTabID) { extensions.closeMenu() }
 		.onChange(of: model.activeProfileID) { extensions.closeMenu() }

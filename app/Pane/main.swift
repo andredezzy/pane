@@ -21,6 +21,12 @@ UserDefaults.standard.register(defaults: [
 	"NSQuitAlwaysKeepsWindows": false,
 ])
 
+// What an earlier engine kept in the clear, which it keeps off now (ADR
+// 0113), goes with the erase below.
+for failure in PanicWipe.stageEngineTraces(dataDirectory: dataDirectory) {
+	Log.security.error("Could not stage an earlier engine's traces: \(failure.description, privacy: .private)")
+}
+
 // The panic wipe's data goes before anything reads the data directory: the
 // wiped instance started this one, or a wipe was cut short (AppLock).
 AppLock.wipeAtLaunch(dataDirectory)
@@ -32,12 +38,21 @@ let electron = ProcessInfo.processInfo.environment["PANE_ELECTRON_DATA_DIR"].map
 
 LaunchMigration.run(from: electron, into: dataDirectory)
 
-// Profiles deleted whose engine data the engine never confirmed gone: their
-// folders go now, while nothing has them open (ProfileDeletions).
-for failure in ProfileDeletions(dataDirectory: dataDirectory).purge(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory)) {
-	Log.model.error("Could not remove a deleted profile's data: \(failure, privacy: .private)")
+// Chromium opens the profile it used last at startup, before the PIN: never
+// one of Pane's, whose data is in the volume the data key opens (ADR 0113).
+do {
+	try LocalState.startOnDefaultProfile(userDataDirectory: dataDirectory.appending(path: "Engine"))
+} catch {
+	Log.engine.error("Could not point Local State at the Default profile: \(String(describing: error), privacy: .private)")
 }
 
-let appDelegate = AppDelegate(dataDirectory: dataDirectory)
+// The data image attaches now, its volume locked, while the engine starts:
+// only the unlock and the mount wait for the key (ADR 0113).
+let image = DataVault.attachImage(DataVolume(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory)))
 
-exit(BrowserApplication.run(delegate: appDelegate, dataDirectory: dataDirectory))
+let appDelegate = AppDelegate(dataDirectory: dataDirectory, image: image)
+let status = BrowserApplication.run(delegate: appDelegate, dataDirectory: dataDirectory)
+
+// The engine is down, its files closed: the data volume detaches (ADR 0113).
+appDelegate.engineDidStop()
+exit(status)

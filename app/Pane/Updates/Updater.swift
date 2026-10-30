@@ -15,6 +15,10 @@ import os
 @MainActor
 @Observable
 final class Updater {
+	// Ephemeral, as the download's: no cache or cookie of GitHub's answers
+	// in ~/Library, outside the data volume (ADR 0113).
+	private static let session = URLSession(configuration: .ephemeral)
+
 	enum Status: String {
 		case idle
 		case checking
@@ -113,7 +117,7 @@ final class Updater {
 		do {
 			var request = URLRequest(url: releasesURL)
 			request.setValue(Updates.userAgent, forHTTPHeaderField: "User-Agent")
-			let (data, response) = try await URLSession.shared.data(for: request)
+			let (data, response) = try await Self.session.data(for: request)
 
 			guard (response as? HTTPURLResponse)?.statusCode == 200 else {
 				throw URLError(.badServerResponse)
@@ -326,7 +330,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		self.done = done
 		super.init()
 
-		session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
+		session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: .main)
 		var request = URLRequest(url: url)
 		request.setValue(Updates.userAgent, forHTTPHeaderField: "User-Agent")
 		session.downloadTask(with: request).resume()
