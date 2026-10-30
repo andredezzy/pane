@@ -1,14 +1,15 @@
 {
-	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"ignoreExportsUsedInFile": true,
 	"ignoreBinaries": [
-		"codesign",
-		"defaults",
+		"clang",
+		"cua-driver",
 		"ditto",
 		"hdiutil",
 		"ioreg",
 		"openssl",
-		"swift"
+		"swift",
+		"xattr"
 	],
 	"workspaces": {
 		".": {
@@ -16,11 +17,5 @@
 			"ignoreDependencies": ["electron"]
 		}
 	},
-	"ignore": [
-		"**/release/**",
-		"**/node_modules/**",
-		".claude/**",
-		".cursor/**",
-		"tests/pages/**"
-	]
+	"ignore": ["tests/pages/**"]
 }
