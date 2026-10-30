@@ -1,15 +1,15 @@
 {
 	"generatedAt": "2026-10-30T03:50:29.673Z",
 	"downloads": {
-		"electron": {
-			"file": "Pane-0.6.0-arm64.dmg",
-			"bytes": 120965338,
-			"sha256": "669f1d7497ad304f29bc6de6af36799893ffae3da1a867e2ac5225eba0951966"
-		},
 		"native": {
 			"file": "Pane-0.11.2-arm64.dmg",
 			"bytes": 187503474,
 			"sha256": "5e42e1d178749c9e568a128d748359b3c0b3795536fc3aaa75dc8381d44819c0"
+		},
+		"electron": {
+			"file": "Pane-0.6.0-arm64.dmg",
+			"bytes": 120965338,
+			"sha256": "669f1d7497ad304f29bc6de6af36799893ffae3da1a867e2ac5225eba0951966"
 		}
 	},
 	"summary": [
@@ -17,202 +17,202 @@
 			"metric": "Download (dmg)",
 			"unit": "MB",
 			"better": "lower",
-			"electron": 115.36153602600098,
-			"native": 178.81724739074707
+			"native": 178.81724739074707,
+			"electron": 115.36153602600098
 		},
 		{
 			"metric": "App on disk",
 			"unit": "MB",
 			"better": "lower",
-			"electron": 313.8828125,
-			"native": 395.38671875
+			"native": 395.38671875,
+			"electron": 313.8828125
 		},
 		{
 			"metric": "Engine framework on disk",
 			"unit": "MB",
 			"better": "lower",
-			"electron": 261.7109375,
-			"native": 380.77734375
+			"native": 380.77734375,
+			"electron": 261.7109375
 		},
 		{
 			"metric": "Cold launch: window on screen",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 377.4833984375,
 			"native": 334.150390625,
-			"electronRange": [329.4287109375, 406.343505859375],
-			"nativeRange": [301.005859375, 416.922607421875]
+			"electron": 377.4833984375,
+			"nativeRange": [301.005859375, 416.922607421875],
+			"electronRange": [329.4287109375, 406.343505859375]
 		},
 		{
 			"metric": "Cold launch: first page loaded",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 428.96435546875,
 			"native": 430.9921875,
-			"electronRange": [380.402587890625, 452.258544921875],
-			"nativeRange": [394.493896484375, 513.8134765625]
+			"electron": 428.96435546875,
+			"nativeRange": [394.493896484375, 513.8134765625],
+			"electronRange": [380.402587890625, 452.258544921875]
 		},
 		{
 			"metric": "Warm launch: window on screen",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 388.299560546875,
 			"native": 351.448486328125,
-			"electronRange": [350.67626953125, 395.1591796875],
-			"nativeRange": [320.099609375, 371.500244140625]
+			"electron": 388.299560546875,
+			"nativeRange": [320.099609375, 371.500244140625],
+			"electronRange": [350.67626953125, 395.1591796875]
 		},
 		{
 			"metric": "Warm launch: first page loaded",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 433.720458984375,
 			"native": 347.356201171875,
-			"electronRange": [404.78515625, 443.50634765625],
-			"nativeRange": [328.05859375, 363.6904296875]
+			"electron": 433.720458984375,
+			"nativeRange": [328.05859375, 363.6904296875],
+			"electronRange": [404.78515625, 443.50634765625]
 		},
 		{
 			"metric": "Memory, 1 tab",
 			"unit": "MB",
 			"better": "lower",
-			"electron": 243.6327133178711,
 			"native": 143.89877319335938,
-			"electronRange": [243.28887176513672, 243.9139175415039],
-			"nativeRange": [142.63314819335938, 146.43041229248047]
+			"electron": 243.6327133178711,
+			"nativeRange": [142.63314819335938, 146.43041229248047],
+			"electronRange": [243.28887176513672, 243.9139175415039]
 		},
 		{
 			"metric": "Memory, 5 tabs",
 			"unit": "MB",
 			"better": "lower",
-			"electron": 294.57511138916016,
 			"native": 230.41952514648438,
-			"electronRange": [293.7624969482422, 295.2468948364258],
-			"nativeRange": [229.04443359375, 233.1385955810547]
+			"electron": 294.57511138916016,
+			"nativeRange": [229.04443359375, 233.1385955810547],
+			"electronRange": [293.7624969482422, 295.2468948364258]
 		},
 		{
 			"metric": "Memory, 10 tabs",
 			"unit": "MB",
 			"better": "lower",
-			"electron": 401.1436080932617,
 			"native": 345.3166732788086,
-			"electronRange": [400.81536865234375, 402.69041442871094],
-			"nativeRange": [344.33202362060547, 345.3323440551758]
+			"electron": 401.1436080932617,
+			"nativeRange": [344.33202362060547, 345.3323440551758],
+			"electronRange": [400.81536865234375, 402.69041442871094]
 		},
 		{
 			"metric": "Processes, 1 tab",
 			"unit": "",
 			"better": "lower",
-			"electron": 6,
 			"native": 8,
-			"electronRange": [6, 6],
-			"nativeRange": [8, 8]
+			"electron": 6,
+			"nativeRange": [8, 8],
+			"electronRange": [6, 6]
 		},
 		{
 			"metric": "Processes, 10 tabs",
 			"unit": "",
 			"better": "lower",
-			"electron": 15,
 			"native": 17,
-			"electronRange": [15, 15],
-			"nativeRange": [17, 17]
+			"electron": 15,
+			"nativeRange": [17, 17],
+			"electronRange": [15, 15]
 		},
 		{
 			"metric": "Idle CPU, one tab",
 			"unit": "% of a core",
 			"better": "lower",
-			"electron": 0.05139622192136933,
 			"native": 0.1558574385786688,
-			"electronRange": [0.02740121141951092, 0.1823601796905054],
-			"nativeRange": [0.05431280529973347, 0.18207612556394903]
+			"electron": 0.05139622192136933,
+			"nativeRange": [0.05431280529973347, 0.18207612556394903],
+			"electronRange": [0.02740121141951092, 0.1823601796905054]
 		},
 		{
 			"metric": "Idle wakeups, one tab",
 			"unit": "per s",
 			"better": "lower",
-			"electron": 0.06657547917339489,
 			"native": 0.03328620171867321,
-			"electronRange": [0, 0.28300738427685723],
-			"nativeRange": [0, 0.9486003744231382]
+			"electron": 0.06657547917339489,
+			"nativeRange": [0, 0.9486003744231382],
+			"electronRange": [0, 0.28300738427685723]
 		},
 		{
 			"metric": "Idle CPU energy, one tab",
 			"unit": "mW",
 			"better": "lower",
-			"electron": 0.3864852532753661,
 			"native": 0.7188703839353372,
-			"electronRange": [0.15755332214307086, 3.0062995111140105],
-			"nativeRange": [0.45425488000472614, 1.1688852163690877]
+			"electron": 0.3864852532753661,
+			"nativeRange": [0.45425488000472614, 1.1688852163690877],
+			"electronRange": [0.15755332214307086, 3.0062995111140105]
 		},
 		{
 			"metric": "smoke.html, empty cache: largest contentful paint",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 28,
 			"native": 16,
-			"electronRange": [28, 28],
-			"nativeRange": [16, 16]
+			"electron": 28,
+			"nativeRange": [16, 16],
+			"electronRange": [28, 28]
 		},
 		{
 			"metric": "find.html, empty cache: largest contentful paint",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 28,
 			"native": 24,
-			"electronRange": [28, 28],
-			"nativeRange": [24, 28]
+			"electron": 28,
+			"nativeRange": [24, 28],
+			"electronRange": [28, 28]
 		},
 		{
 			"metric": "nav-a.html, empty cache: largest contentful paint",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 28,
 			"native": 28,
-			"electronRange": [24, 28],
-			"nativeRange": [28, 28]
+			"electron": 28,
+			"nativeRange": [28, 28],
+			"electronRange": [24, 28]
 		},
 		{
 			"metric": "en.wikipedia.org/wiki/Web_browser, empty cache: largest contentful paint",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 716,
 			"native": 744,
-			"electronRange": [704, 944],
-			"nativeRange": [740, 756]
+			"electron": 716,
+			"nativeRange": [740, 756],
+			"electronRange": [704, 944]
 		},
 		{
 			"metric": "apple.com, empty cache: largest contentful paint",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 1300,
 			"native": 1344,
-			"electronRange": [1288, 1536],
-			"nativeRange": [1320, 1348]
+			"electron": 1300,
+			"nativeRange": [1320, 1348],
+			"electronRange": [1288, 1536]
 		},
 		{
 			"metric": "github.com, empty cache: largest contentful paint",
 			"unit": "ms",
 			"better": "lower",
-			"electron": 1376,
 			"native": 1408,
-			"electronRange": [1284, 1400],
-			"nativeRange": [1388, 1464]
+			"electron": 1376,
+			"nativeRange": [1388, 1464],
+			"electronRange": [1284, 1400]
 		},
 		{
 			"metric": "Speedometer 3.1",
 			"unit": "score",
 			"better": "higher",
-			"electron": 51.15,
 			"native": 46.05,
-			"electronRange": [50.9, 51.4],
-			"nativeRange": [46, 46.1]
+			"electron": 51.15,
+			"nativeRange": [46, 46.1],
+			"electronRange": [50.9, 51.4]
 		},
 		{
 			"metric": "JetStream 3.0",
 			"unit": "score",
 			"better": "higher",
-			"electron": 397.195,
 			"native": 435.04999999999995,
-			"electronRange": [395.14, 399.25],
-			"nativeRange": [430.82, 439.28]
+			"electron": 397.195,
+			"nativeRange": [430.82, 439.28],
+			"electronRange": [395.14, 399.25]
 		}
 	],
 	"bundle": {

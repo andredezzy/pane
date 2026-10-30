@@ -1,17 +1,18 @@
 // Gathers a benchmark run (the benchmark-* scenarios' results) into one JSON
-// file, with the dmgs the apps came from, and prints the summary table
-// docs/benchmarks/electron-vs-native.md opens with: each median, with its
-// runs' range in brackets.
-// Usage: bun benchmark-report.ts <run dir> <out json> [<electron dmg> <native dmg>]
+// file, with the dmgs the apps came from, and prints the summary table of
+// docs/benchmarks/native-vs-electron.md: the native app first, the Electron
+// app as its baseline, each median with its runs' range in brackets, and the
+// native app's change.
+// Usage: bun benchmark-report.ts <run dir> <out json> [<native dmg> <electron dmg>]
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-const [dir, out, electronDmg, nativeDmg] = process.argv.slice(2);
+const [dir, out, nativeDmg, electronDmg] = process.argv.slice(2);
 
 if (!dir || !out) {
 	console.error(
-		"usage: benchmark-report.ts <run dir> <out json> [<electron dmg> <native dmg>]",
+		"usage: benchmark-report.ts <run dir> <out json> [<native dmg> <electron dmg>]",
 	);
 
 	process.exit(2);
@@ -44,8 +45,8 @@ const download = (file: string | undefined) =>
 		: null;
 
 const downloads = {
-	electron: download(electronDmg),
 	native: download(nativeDmg),
+	electron: download(electronDmg),
 };
 
 const at = (tree: Tree | undefined, path: string[]): Tree | undefined =>
@@ -55,11 +56,11 @@ type Row = {
 	metric: string;
 	unit: string;
 	better: "lower" | "higher";
-	electron: number | null;
 	native: number | null;
+	electron: number | null;
 	// The median's runs' range, where there are runs.
-	electronRange?: [number, number];
 	nativeRange?: [number, number];
+	electronRange?: [number, number];
 };
 
 const MB = 2 ** 20;
@@ -67,15 +68,15 @@ const rows: Row[] = [];
 
 function size(
 	metric: string,
-	electron: number | undefined,
 	native: number | undefined,
+	electron: number | undefined,
 ) {
 	rows.push({
 		metric,
 		unit: "MB",
 		better: "lower",
-		electron: electron === undefined ? null : electron / MB,
 		native: native === undefined ? null : native / MB,
+		electron: electron === undefined ? null : electron / MB,
 	});
 }
 
@@ -89,8 +90,8 @@ function median(
 	scale = 1,
 ) {
 	const read = (kind: string) => at(results[scenario], path(kind));
-	const electron = read("electron");
 	const native = read("native");
+	const electron = read("electron");
 
 	const value = (tree: Tree | undefined) =>
 		typeof tree?.median === "number" ? tree.median / scale : null;
@@ -104,10 +105,10 @@ function median(
 		metric,
 		unit,
 		better,
-		electron: value(electron),
 		native: value(native),
-		electronRange: range(electron),
+		electron: value(electron),
 		nativeRange: range(native),
+		electronRange: range(electron),
 	});
 }
 
@@ -116,18 +117,18 @@ const bundle = results.bundle;
 const diskBytes = (kind: string, ...path: string[]) =>
 	at(bundle, [kind, "sizes", ...path])?.diskBytes as number | undefined;
 
-size("Download (dmg)", downloads.electron?.bytes, downloads.native?.bytes);
+size("Download (dmg)", downloads.native?.bytes, downloads.electron?.bytes);
 
 size(
 	"App on disk",
-	diskBytes("electron", "bundle"),
 	diskBytes("native", "bundle"),
+	diskBytes("electron", "bundle"),
 );
 
 size(
 	"Engine framework on disk",
-	diskBytes("electron", "parts", "Frameworks/Electron Framework.framework"),
 	diskBytes("native", "parts", "Frameworks/PaneCore.framework"),
+	diskBytes("electron", "parts", "Frameworks/Electron Framework.framework"),
 );
 
 for (const launch of ["cold", "warm"]) {
@@ -188,7 +189,7 @@ median("Idle CPU energy, one tab", "mW", "lower", "cpu", (kind) => [
 ]);
 
 const pageKeys = Object.keys(
-	at(results.pages, ["summary", "electron", "cold"]) ?? {},
+	at(results.pages, ["summary", "native", "cold"]) ?? {},
 );
 
 // Largest contentful paint: a fixture's load event takes a few milliseconds
@@ -243,30 +244,60 @@ function cell(
 	return `${format(value, unit)} [${format(range[0], unit)}–${format(range[1], unit)}]`;
 }
 
-function difference(row: Row): string {
-	if (row.electron === null || row.native === null || row.electron === 0) {
+// How a lower value reads, then a higher one: a time is sooner or later, a
+// size smaller or bigger, a count fewer or more, memory and the rest less or
+// more.
+function words(row: Row): [string, string] {
+	if (row.unit === "ms") {
+		return ["sooner", "later"];
+	}
+
+	if (row.unit === "" || row.unit === "per s") {
+		return ["fewer", "more"];
+	}
+
+	if (row.unit === "MB" && !row.metric.startsWith("Memory")) {
+		return ["smaller", "bigger"];
+	}
+
+	return ["less", "more"];
+}
+
+// The native app's change from the Electron app, as the native app's:
+// "99.7 MB less (−41%)", "43 ms sooner (−11%)", "10% higher".
+function change(row: Row): string {
+	if (row.native === null || row.electron === null || row.electron === 0) {
 		return "—";
 	}
 
-	const ratio = row.native / row.electron;
-	const percent = Math.round((ratio - 1) * 100);
-	let sign = "±";
+	const percent = Math.round((row.native / row.electron - 1) * 100);
 
-	if (percent !== 0) {
-		sign = percent > 0 ? "+" : "−";
+	if (percent === 0) {
+		return "the same (±0%)";
 	}
 
-	return `${sign}${Math.abs(percent)}% (${ratio.toFixed(2)}×)`;
+	if (row.better === "higher") {
+		return `${Math.abs(percent)}% ${percent > 0 ? "higher" : "lower"}`;
+	}
+
+	const [lower, higher] = words(row);
+
+	// A unit short enough to read in the phrase; the others are in their
+	// column.
+	const unit = ["MB", "ms", "mW"].includes(row.unit) ? ` ${row.unit}` : "";
+	const amount = format(Math.abs(row.native - row.electron), row.unit);
+
+	return `${amount}${unit} ${percent < 0 ? lower : higher} (${percent < 0 ? "−" : "+"}${Math.abs(percent)}%)`;
 }
 
 const version = (kind: string) => at(bundle, [kind, "version"]) ?? "";
 
 const table = [
-	`| Metric | Unit | Better | Electron ${version("electron")} | Native ${version("native")} | Native vs Electron |`,
-	"| --- | --- | --- | ---: | ---: | ---: |",
+	`| Metric | Unit | Better | Native ${version("native")} | Electron ${version("electron")} | Change |`,
+	"| --- | --- | --- | ---: | ---: | --- |",
 	...rows.map(
 		(row) =>
-			`| ${row.metric} | ${row.unit} | ${row.better} | ${cell(row.electron, row.electronRange, row.unit)} | ${cell(row.native, row.nativeRange, row.unit)} | ${difference(row)} |`,
+			`| ${row.metric} | ${row.unit} | ${row.better} | ${cell(row.native, row.nativeRange, row.unit)} | ${cell(row.electron, row.electronRange, row.unit)} | ${change(row)} |`,
 	),
 ].join("\n");
 
