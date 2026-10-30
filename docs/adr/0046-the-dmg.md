@@ -1,5 +1,7 @@
 # The dmg is built as the Electron app's and laid out as Dia's
 
+> **Its format is replaced by [ADR 0106](0106-the-dmg-is-lzma-compressed.md)**: the dmg is ULMO (LZMA), 22% smaller. The rest stands.
+
 > **Window replaced by [ADR 0100](0100-installer-is-laid-out-as-harks.md)** — the window is laid out as Hark's installer; the build described here stays.
 
 Pane's dmg is built with dmgbuild, as electron-builder built the Electron app's, and its window is laid out as Dia's installer is (the user's request). Without dmgbuild, laying out the window would mean scripting Finder, which asks for Automation permission, or writing `.DS_Store` files by hand. `engine/scripts/dist.sh` packages the app with the engine stripped (ADR 0047) and writes `app/release/Pane-<version>-arm64.dmg`, the name the update check looks for in a GitHub release (ADR 0002). It runs the same dmgbuild that electron-builder 26.8.1 downloads, dmgbuild 1.6.7 in a standalone Python, pinned by its SHA-256, and keeps the Electron dmg's UDZO at level 9 and its window's place: 400 points from the left, centered on a 1440-point screen height.
