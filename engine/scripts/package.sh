@@ -95,6 +95,43 @@ plutil -replace LSMinimumSystemVersion -string \
 plutil -replace CFBundleIconFile -string AppIcon "$PLIST"
 rm -f "$OUT/Contents/Resources/app.icns"
 
+# Pane's name where macOS shows the bundle's own words, in every language:
+# the permission prompts (camera, microphone, location, Bluetooth, passkeys),
+# which Chromium's strings word "Once Chromium has access…", and the About
+# panel's copyright. The commit it was built from, and its engine's key (the
+# one build.sh recorded, or else this checkout's, as a prebuilt engine has
+# none), go beside the version.
+# Cast is off, so its Bonjour service goes.
+python3 -I - "$OUT/Contents/Resources" "$PANE_VERSION" <<'PY'
+import pathlib, re, sys
+resources, version = pathlib.Path(sys.argv[1]), sys.argv[2]
+fixed = {
+    "NSHumanReadableCopyright": "Copyright 2026 Pane. Built on Chromium, copyright The Chromium Authors.",
+    "CFBundleGetInfoString": f"Pane {version}, built on Chromium.",
+}
+for strings in resources.glob("*.lproj/InfoPlist.strings"):
+    raw = strings.read_bytes()
+    encoding = "utf-16" if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else "utf-8"
+    # A key is quoted or bare: "Chromium Shortcut" = …; or CFBundleName = …;
+    def line(match):
+        quoted, bare, value = match.groups()
+        key, written = (quoted, f'"{quoted}"') if quoted is not None else (bare, bare)
+        value = fixed.get(key, value.replace("Chromium", "Pane"))
+        return f'{written} = "{value}";'
+    text = re.sub(r'^(?:"([^"]+)"|([A-Za-z0-9_.]+)) = "((?:[^"\\]|\\.)*)";', line, raw.decode(encoding), flags=re.M)
+    strings.write_bytes(text.encode(encoding))
+PY
+plutil -replace PaneCommit -string "$(git -C "$ROOT_DIR" rev-parse HEAD)" "$PLIST"
+ENGINE_KEY="$(cat "$ENGINE_OUT/pane-engine.key" 2>/dev/null || "$ROOT_DIR/engine/scripts/engine-key.sh" --worktree)"
+plutil -replace PaneEngineKey -string "$ENGINE_KEY" "$PLIST"
+plutil -remove NSBonjourServices "$PLIST" 2>/dev/null || true
+
+# Other apps' sign-ins (ASWebAuthenticationSession) stay in macOS's own
+# sheet, as Dia's do: Chrome opens them in a popup Browser, which Pane turns
+# into a tab of its window, and the sign-in keeps the popup's Browser, gone
+# by then, to close its page (ADR 0110).
+plutil -remove ASWebAuthenticationSessionWebBrowserSupportCapabilities "$PLIST" 2>/dev/null || true
+
 FRAMEWORK="$OUT/Contents/Frameworks/PaneCore.framework"
 VERSION_DIR="$FRAMEWORK/Versions/Current"
 
@@ -106,19 +143,30 @@ strip_local() {
 }
 
 # The notification helpers post Pane's notifications under their own icon:
-# Pane's too.
+# Pane's too, from a catalog of the icon alone (3 MB), not the app's, whose
+# skies for the Dock would add 4.5 MB to each.
+ICON_ONLY="$(mktemp -d)"
+xcrun actool "$APP_DIR/Pane/AppIcon.icon" --compile "$ICON_ONLY" --platform macosx \
+	--minimum-deployment-target "$(plutil -extract LSMinimumSystemVersion raw "$PLIST")" \
+	--app-icon AppIcon --output-partial-info-plist "$ICON_ONLY/partial.plist" \
+	--output-format human-readable-text --errors > /dev/null
+
 for helper in "$VERSION_DIR"/Helpers/*Alerts*.app; do
-	cp "$OUT/Contents/Resources/Assets.car" "$OUT/Contents/Resources/AppIcon.icns" "$helper/Contents/Resources/"
+	cp "$ICON_ONLY/Assets.car" "$ICON_ONLY/AppIcon.icns" "$helper/Contents/Resources/"
 	plutil -replace CFBundleIconFile -string AppIcon "$helper/Contents/Info.plist"
+	plutil -replace CFBundleIconName -string AppIcon "$helper/Contents/Info.plist"
 	rm -f "$helper/Contents/Resources/app.icns"
 done
+rm -rf "$ICON_ONLY"
 
 # A release (dist.sh) drops the engine's local symbols, as Chrome's official
 # builds do: PaneCore shrinks from ~480 MB to ~270 MB, with its exports, which
 # the app links, unchanged. Development builds keep them for stack traces.
 if [ "${PANE_STRIP:-}" = 1 ]; then
 	echo "== strip"
-	strip_local "$VERSION_DIR/PaneCore" "$VERSION_DIR"/Libraries/*.dylib
+	strip_local "$VERSION_DIR/PaneCore" "$VERSION_DIR"/Libraries/*.dylib \
+		"$OUT/Contents/MacOS/Pane" "$VERSION_DIR/Helpers/chrome_crashpad_handler" \
+		"$VERSION_DIR/Helpers/app_mode_loader" "$VERSION_DIR"/Helpers/*.app/Contents/MacOS/*
 fi
 
 # Ad-hoc by default. With a Developer ID (PANE_SIGN_IDENTITY="Developer ID
