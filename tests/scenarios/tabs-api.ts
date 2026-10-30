@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { popupPage, workerPage } from "../lib/extensions";
-import { tabOf } from "../lib/pane";
+import { type AppState, bringToFront, tabOf } from "../lib/pane";
 import { pageResult, WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -111,28 +111,30 @@ const tabsApi: Scenario = async (context) => {
 		).length;
 
 	const popupsBefore = popups();
-	await app.send("activate");
-	await app.waitFor("the key window", (state) => state.window.key, 10_000);
-	await worker.evaluate("chrome.action.openPopup()");
+	let openedByAPI: AppState | null = null;
 
-	const openedByAPI = await app.waitFor(
-		"the popup chrome.action.openPopup opened",
-		(state) =>
-			state.extensionPopup?.extension === id &&
-			state.extensionPopup.open === true,
-	);
+	if (await bringToFront(context, app, "chrome.action.openPopup")) {
+		await worker.evaluate("chrome.action.openPopup()");
 
-	expect(
-		popups() === popupsBefore + 1,
-		`the app was asked to show ${popups() - popupsBefore} popups`,
-	);
+		openedByAPI = await app.waitFor(
+			"the popup chrome.action.openPopup opened",
+			(state) =>
+				state.extensionPopup?.extension === id &&
+				state.extensionPopup.open === true,
+		);
 
-	await app.send("closeExtensionPopup");
+		expect(
+			popups() === popupsBefore + 1,
+			`the app was asked to show ${popups() - popupsBefore} popups`,
+		);
 
-	await app.waitFor(
-		"the popup closed",
-		(state) => state.extensionPopup === null,
-	);
+		await app.send("closeExtensionPopup");
+
+		await app.waitFor(
+			"the popup closed",
+			(state) => state.extensionPopup === null,
+		);
+	}
 
 	// A popup still open as its profile goes (deleted, which closes its
 	// Browser) closes first: the popup's page holds that Browser.
@@ -174,7 +176,7 @@ const tabsApi: Scenario = async (context) => {
 		activeTab: tabOf(withTab, tab),
 		tabsAfterCreate: tabs,
 		selectedByUpdate: tabOf(reselected, tab)?.url,
-		openPopup: openedByAPI.extensionPopup,
+		openPopup: openedByAPI?.extensionPopup ?? null,
 		popupClosedWithProfile: deleted.extensionPopup === null,
 		windows,
 	};

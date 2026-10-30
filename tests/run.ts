@@ -18,6 +18,10 @@ export type ScenarioContext = {
 	binary: string;
 	fixtures: Fixtures;
 	out: string;
+	// Whether the app may take the front from the app in use (--foreground,
+	// and CI, where no one works): keys a panel takes, a page's fullscreen,
+	// Quit Pane?. Otherwise a scenario defers what needs it.
+	foreground: boolean;
 	launch: (options?: LaunchOptions) => Promise<Browser>;
 	// A new directory in $TMPDIR for the scenario alone. It is removed when
 	// the scenario ends, pass or fail, after every process still using it
@@ -47,6 +51,7 @@ const { values, positionals } = parseArgs({
 		binary: { type: "string" },
 		out: { type: "string" },
 		timeout: { type: "string", default: "600" },
+		foreground: { type: "boolean", default: false },
 	},
 });
 
@@ -59,7 +64,7 @@ if (
 	!(timeoutMs > 0)
 ) {
 	console.error(
-		"usage: run.ts --binary <path> --out <dir> [--timeout <seconds>] <scenario>...",
+		"usage: run.ts --binary <path> --out <dir> [--timeout <seconds>] [--foreground] <scenario>...",
 	);
 
 	process.exit(2);
@@ -113,6 +118,7 @@ for (const name of positionals) {
 		binary,
 		fixtures,
 		out,
+		foreground: values.foreground || process.env.CI === "true",
 		launch: async (options) => {
 			if (ended) {
 				throw new Error("the scenario has ended");

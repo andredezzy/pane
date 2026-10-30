@@ -276,8 +276,15 @@ extension Automation {
 		case "activate":
 			// What a click on the window does first: the app comes forward and
 			// its window becomes key. A click activates the app at once; the
-			// cooperative activate() would wait for the frontmost app to yield.
-			NSApp.activate(ignoringOtherApps: true)
+			// cooperative activate() too, whenever the frontmost app is idle.
+			// Scenarios run on a Mac in use, so the app takes the front only
+			// when the runner allows it (PANE_AUTOMATION_FOREGROUND: run.ts
+			// --foreground, and CI): otherwise the app in use keeps it, and
+			// its user's keys stay theirs.
+			if ProcessInfo.processInfo.environment["PANE_AUTOMATION_FOREGROUND"] == "1" {
+				NSApp.activate(ignoringOtherApps: true)
+			}
+
 			window.makeKeyAndOrderFront(nil)
 
 		case "clickPage":

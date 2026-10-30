@@ -1,6 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type AppState, launchPane, type PaneApp } from "../lib/pane";
+import {
+	type AppState,
+	bringToFront,
+	launchPane,
+	type PaneApp,
+} from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
@@ -408,11 +413,12 @@ const security: Scenario = async (context) => {
 	);
 
 	const caps = await launchPane(context, { dataDir: capsDir });
-	await caps.send("activate");
-	await caps.waitFor("the key window", (state) => state.window.key, 10_000);
-	await caps.send("key", { key: "q", modifiers: ["command", "capsLock"] });
+	let quitWithCapsLock: boolean | null = null;
 
-	const quitWithCapsLock = await waitForExit(caps.browser.pid);
+	if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
+		await caps.send("key", { key: "q", modifiers: ["command", "capsLock"] });
+		quitWithCapsLock = await waitForExit(caps.browser.pid);
+	}
 
 	if (!quitWithCapsLock) {
 		await caps.browser.close();
@@ -480,7 +486,10 @@ const security: Scenario = async (context) => {
 		`the wiped instance's helpers outlived it: ${JSON.stringify(after.helpers)}`,
 	);
 
-	expect(quitWithCapsLock, "⌘Q with Caps Lock did not quit at the PIN screen");
+	expect(
+		quitWithCapsLock !== false,
+		"⌘Q with Caps Lock did not quit at the PIN screen",
+	);
 
 	expect(
 		truncated.lockedAtLaunch &&

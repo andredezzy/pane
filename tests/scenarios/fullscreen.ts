@@ -11,6 +11,14 @@ import { expect, type Scenario } from "../run";
 // screen stays when the page leaves; and leaving full screen takes the page
 // out of its fullscreen. Each time the traffic lights end in place.
 const fullscreen: Scenario = async (context) => {
+	// Every check here needs Pane in front, which the app in use keeps
+	// unless the runner allows it.
+	if (!context.foreground) {
+		context.defer("every check: it needs Pane in front (run.ts --foreground)");
+
+		return { skipped: "it needs Pane in front (run.ts --foreground)" };
+	}
+
 	const { app, has } = await launchTraced(context, "fullscreen");
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Fullscreen");

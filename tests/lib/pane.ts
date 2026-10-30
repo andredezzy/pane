@@ -492,6 +492,8 @@ export async function launchPane(
 			CFFIXED_USER_HOME: home,
 			PANE_DATA_DIR: dataDir,
 			PANE_AUTOMATION_DIR: automationDir,
+			// Only then does the app take the front from the app in use.
+			...(context.foreground && { PANE_AUTOMATION_FOREGROUND: "1" }),
 			// Every launch checks for updates: against the fixtures, never
 			// GitHub.
 			PANE_UPDATE_URL: context.fixtures.url("releases/latest"),
@@ -507,4 +509,32 @@ export async function launchPane(
 	await app.waitFor("the window", (state) => state.window.visible);
 
 	return app;
+}
+
+// Brings the app in front with its window key, for a check that needs it
+// (keys a panel takes, a page's fullscreen): true once it is. Without
+// --foreground the app in use keeps the front, and the check is deferred.
+export async function bringToFront(
+	context: ScenarioContext,
+	app: PaneApp,
+	check: string,
+): Promise<boolean> {
+	await app.send("activate");
+
+	const key = await app
+		.waitFor("the key window", (state) => state.window.key, 5_000)
+		.then(
+			() => true,
+			() => false,
+		);
+
+	if (!key && context.foreground) {
+		throw new Error(`the window never became key for ${check}`);
+	}
+
+	if (!key) {
+		context.defer(`${check}: it needs Pane in front (run.ts --foreground)`);
+	}
+
+	return key;
 }

@@ -55,6 +55,14 @@ async function openBoth(app: PaneApp, first: "menu" | "quit"): Promise<void> {
 }
 
 const keyPrecedence: Scenario = async (context) => {
+	// Every check here needs Pane in front, which the app in use keeps
+	// unless the runner allows it.
+	if (!context.foreground) {
+		context.defer("every check: it needs Pane in front (run.ts --foreground)");
+
+		return { skipped: "it needs Pane in front (run.ts --foreground)" };
+	}
+
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Keys");
 	const url = context.fixtures.url("smoke.html?keys");

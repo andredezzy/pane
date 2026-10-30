@@ -30,6 +30,14 @@ async function focusedPage(app: PaneApp, url: string): Promise<void> {
 }
 
 const quit: Scenario = async (context) => {
+	// Every check here needs Pane in front, which the app in use keeps
+	// unless the runner allows it.
+	if (!context.foreground) {
+		context.defer("every check: it needs Pane in front (run.ts --foreground)");
+
+		return { skipped: "it needs Pane in front (run.ts --foreground)" };
+	}
+
 	const url = context.fixtures.url("smoke.html?quit");
 
 	// ⌘Q, Esc, then ⌘Q and Return.
