@@ -2,6 +2,7 @@
 
 Measured comparisons of Pane builds, each with its raw measurements beside it.
 
+- [interactions.md](interactions.md) — how much sooner 0.13.1 answers a tab switch (−38%), a new tab (−45%), and the address field (−55%), from input to the frame, against the code before. Raw data: [interactions.json](interactions.json).
 - [native-vs-electron.md](native-vs-electron.md) — how much the native app (0.11.2) improved on the last Electron release (0.6.0), its baseline: what improved, what did not, then size, launch, memory, idle CPU, page loads, Speedometer and JetStream, and the engines, each with its method, the native app first. Raw data: [native-vs-electron.json](native-vs-electron.json).
 
 ## Rerunning native-vs-electron

@@ -1,0 +1,378 @@
+{
+	"date": "2026-10-30",
+	"machine": {
+		"model": "Mac17,9",
+		"chip": "Apple M5 Pro",
+		"cores": 18,
+		"memoryGB": 48,
+		"macOS": "27.0.1 (26A434)",
+		"display": "built-in 14-inch ProMotion display, 3024 x 1964, up to 120 Hz"
+	},
+	"builds": {
+		"before": "app at 3d85ef7's BrowserController.swift with the interval marks of f8a07e6 (Log.interaction, AfterFrame), engine 95313854dfb3",
+		"after": "Pane 0.13.1 from its release dmg (aad6727), engine 95313854dfb3"
+	},
+	"method": "tests/scenarios/interaction-timing.ts, the builds alternating (each run's order flipped every round), 6 runs each, on the Mac in use; per run 77 tab selections (40 among five loaded tabs, 16 back from a new tab, the 16 each new tab makes, 5 as the tabs open), 16 new tabs from File > New Tab, and 32 address field focuses (the 16 new tabs', 16 from Navigate > Focus Address Bar)",
+	"summary": {
+		"Select tab": {
+			"before": {
+				"medianMs": 25.5,
+				"minMs": 20.7,
+				"maxMs": 31.6,
+				"p90MedianMs": 35.5,
+				"intervals": 462
+			},
+			"after": {
+				"medianMs": 15.8,
+				"minMs": 13.7,
+				"maxMs": 18.3,
+				"p90MedianMs": 21.5,
+				"intervals": 462
+			},
+			"changeMs": -9.7,
+			"changePercent": -38
+		},
+		"New tab": {
+			"before": {
+				"medianMs": 34.5,
+				"minMs": 31.3,
+				"maxMs": 38.3,
+				"p90MedianMs": 37.9,
+				"intervals": 96
+			},
+			"after": {
+				"medianMs": 19.1,
+				"minMs": 12.1,
+				"maxMs": 22.2,
+				"p90MedianMs": 23.1,
+				"intervals": 96
+			},
+			"changeMs": -15.4,
+			"changePercent": -45
+		},
+		"Focus address field": {
+			"before": {
+				"medianMs": 16.5,
+				"minMs": 14.3,
+				"maxMs": 17.4,
+				"p90MedianMs": 19.7,
+				"intervals": 192
+			},
+			"after": {
+				"medianMs": 7.5,
+				"minMs": 7.2,
+				"maxMs": 11.2,
+				"p90MedianMs": 15.2,
+				"intervals": 192
+			},
+			"changeMs": -9.0,
+			"changePercent": -55
+		}
+	},
+	"runs": {
+		"before": [
+			{
+				"run": 1,
+				"loadAverage1m": 4.01,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 23.9,
+					"p90Ms": 33.9,
+					"minMs": 10.3,
+					"maxMs": 292.4
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 31.7,
+					"p90Ms": 34.7,
+					"minMs": 25,
+					"maxMs": 48.5
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 16,
+					"p90Ms": 18.1,
+					"minMs": 10.6,
+					"maxMs": 23.7
+				}
+			},
+			{
+				"run": 2,
+				"loadAverage1m": 3.64,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 26.1,
+					"p90Ms": 34,
+					"minMs": 8.9,
+					"maxMs": 63
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 33,
+					"p90Ms": 36.6,
+					"minMs": 26.7,
+					"maxMs": 40
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 16.4,
+					"p90Ms": 19.3,
+					"minMs": 10.5,
+					"maxMs": 21.1
+				}
+			},
+			{
+				"run": 3,
+				"loadAverage1m": 4.23,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 28.4,
+					"p90Ms": 40.4,
+					"minMs": 9.7,
+					"maxMs": 83.8
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 37.1,
+					"p90Ms": 40.8,
+					"minMs": 25.3,
+					"maxMs": 57.4
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 16.7,
+					"p90Ms": 19.8,
+					"minMs": 10.7,
+					"maxMs": 27.3
+				}
+			},
+			{
+				"run": 4,
+				"loadAverage1m": 4.11,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 24.9,
+					"p90Ms": 33.4,
+					"minMs": 11.3,
+					"maxMs": 66.2
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 31.3,
+					"p90Ms": 33.8,
+					"minMs": 25.4,
+					"maxMs": 35.8
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 14.3,
+					"p90Ms": 19.6,
+					"minMs": 5.4,
+					"maxMs": 20.2
+				}
+			},
+			{
+				"run": 5,
+				"loadAverage1m": 4.48,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 31.6,
+					"p90Ms": 36.9,
+					"minMs": 11.5,
+					"maxMs": 57.7
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 36.1,
+					"p90Ms": 39.2,
+					"minMs": 27.3,
+					"maxMs": 53.9
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 17.4,
+					"p90Ms": 24.2,
+					"minMs": 6.3,
+					"maxMs": 32.2
+				}
+			},
+			{
+				"run": 6,
+				"loadAverage1m": 4.24,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 20.7,
+					"p90Ms": 42,
+					"minMs": 8.6,
+					"maxMs": 64.7
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 38.3,
+					"p90Ms": 44.2,
+					"minMs": 27.6,
+					"maxMs": 55.9
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 17.1,
+					"p90Ms": 25.5,
+					"minMs": 10.9,
+					"maxMs": 33.6
+				}
+			}
+		],
+		"after": [
+			{
+				"run": 1,
+				"loadAverage1m": 3.85,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 15.8,
+					"p90Ms": 22.8,
+					"minMs": 4.9,
+					"maxMs": 355.5
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 22.2,
+					"p90Ms": 29.4,
+					"minMs": 7.3,
+					"maxMs": 32.4
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 7.4,
+					"p90Ms": 13.7,
+					"minMs": 4,
+					"maxMs": 23.8
+				}
+			},
+			{
+				"run": 2,
+				"loadAverage1m": 4.4,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 18.3,
+					"p90Ms": 22,
+					"minMs": 4.7,
+					"maxMs": 127.6
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 20,
+					"p90Ms": 25.6,
+					"minMs": 10.2,
+					"maxMs": 26.9
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 7.2,
+					"p90Ms": 15.4,
+					"minMs": 4,
+					"maxMs": 21.3
+				}
+			},
+			{
+				"run": 3,
+				"loadAverage1m": 4.83,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 15.6,
+					"p90Ms": 20.1,
+					"minMs": 4.5,
+					"maxMs": 28.4
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 18.2,
+					"p90Ms": 22.3,
+					"minMs": 13.5,
+					"maxMs": 27.3
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 10.2,
+					"p90Ms": 14.9,
+					"minMs": 4.2,
+					"maxMs": 23.4
+				}
+			},
+			{
+				"run": 4,
+				"loadAverage1m": 4.1,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 16.9,
+					"p90Ms": 23.8,
+					"minMs": 4.7,
+					"maxMs": 107.1
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 20,
+					"p90Ms": 23.9,
+					"minMs": 7.7,
+					"maxMs": 24.8
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 7.3,
+					"p90Ms": 20.7,
+					"minMs": 5.1,
+					"maxMs": 24.4
+				}
+			},
+			{
+				"run": 5,
+				"loadAverage1m": 3.85,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 13.7,
+					"p90Ms": 21,
+					"minMs": 4.5,
+					"maxMs": 27.9
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 14.5,
+					"p90Ms": 20.8,
+					"minMs": 5.3,
+					"maxMs": 21.5
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 7.6,
+					"p90Ms": 15.1,
+					"minMs": 4.2,
+					"maxMs": 16.5
+				}
+			},
+			{
+				"run": 6,
+				"loadAverage1m": 4.45,
+				"Select tab": {
+					"count": 77,
+					"medianMs": 15.7,
+					"p90Ms": 18.9,
+					"minMs": 4.3,
+					"maxMs": 26.3
+				},
+				"New tab": {
+					"count": 16,
+					"medianMs": 12.1,
+					"p90Ms": 19,
+					"minMs": 10.1,
+					"maxMs": 19.9
+				},
+				"Focus address field": {
+					"count": 32,
+					"medianMs": 11.2,
+					"p90Ms": 19.8,
+					"minMs": 4.8,
+					"maxMs": 20.5
+				}
+			}
+		]
+	}
+}
