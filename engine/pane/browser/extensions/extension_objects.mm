@@ -236,6 +236,27 @@ NSURL* URLOrNil(const GURL& url) {
 
 @end
 
+// MARK: - PaneExtensionCommand
+
+@implementation PaneExtensionCommand
+
+@synthesize name = _name;
+@synthesize summary = _summary;
+@synthesize shortcut = _shortcut;
+
+- (instancetype)initWithName:(NSString*)name
+                     summary:(NSString*)summary
+                    shortcut:(NSString*)shortcut {
+  if ((self = [super init])) {
+    _name = [name copy];
+    _summary = [summary copy];
+    _shortcut = [shortcut copy];
+  }
+  return self;
+}
+
+@end
+
 // MARK: - PaneExtensionInstallRequest
 
 @implementation PaneExtensionInstallRequest {

@@ -101,6 +101,20 @@ export type MenuItemState = {
 	submenu?: MenuItemState[];
 };
 
+// An extension's commands, as the Keyboard shortcuts dialog lists them:
+// each shortcut as Chrome writes it ("Command+Shift+Y", empty when not set)
+// and as the dialog shows it (⇧⌘Y).
+export type ExtensionCommands = {
+	id: string;
+	name: string;
+	commands: {
+		name: string;
+		description: string;
+		shortcut: string;
+		glyphs: string;
+	}[];
+};
+
 export type AppState = {
 	// The profile sheet: "new", or the edited profile's id.
 	profileSheet: string | null;
@@ -199,6 +213,18 @@ export type AppState = {
 		allowsFileAccess: boolean;
 		homepage: string | null;
 		webStore: string | null;
+	} | null;
+	// The Extensions page's Keyboard shortcuts dialog.
+	shortcutsDialog: {
+		profile: string;
+		extensions: ExtensionCommands[];
+		// The field recording a key, the modifiers held (⌃⌥⇧⌘), and why the
+		// last key was refused.
+		recording: { extension: string; command: string } | null;
+		held: string;
+		message: string | null;
+		// The field a key last moved to, and where it came from.
+		moved: { extension: string; command: string; from: string } | null;
 	} | null;
 	extensionPopup: {
 		extension: string;

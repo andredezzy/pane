@@ -1,0 +1,14 @@
+{
+	"manifest_version": 3,
+	"name": "Pane second commands probe",
+	"version": "1.0",
+	"description": "A second extension with a keyboard shortcut (chrome.commands), for Pane's scenarios to move a key from.",
+	"background": { "service_worker": "worker.js" },
+	"permissions": ["storage"],
+	"commands": {
+		"probe-second-command": {
+			"suggested_key": { "default": "Alt+Shift+K" },
+			"description": "Run the second probe's command"
+		}
+	}
+}

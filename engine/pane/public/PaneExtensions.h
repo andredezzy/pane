@@ -195,6 +195,27 @@ NS_SWIFT_UI_ACTOR
 
 @end
 
+// MARK: - Extension shortcuts
+
+// One of an extension's commands (chrome.commands), as
+// chrome://extensions/shortcuts lists it, as of when it was asked for.
+PANE_EXPORT
+NS_SWIFT_NAME(ExtensionCommand)
+NS_SWIFT_UI_ACTOR
+@interface PaneExtensionCommand : NSObject
+
+// The manifest's name: "_execute_action" for the action's.
+@property(readonly, copy) NSString* name;
+// Its description; Chrome's "Activate the extension" for the action's.
+@property(readonly, copy) NSString* summary;
+// Its shortcut as Chrome writes it (Command::AcceleratorToString:
+// "Command+Shift+Y", "Ctrl+Alt+Comma"), or empty when it has none.
+@property(readonly, copy) NSString* shortcut;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
 NS_ASSUME_NONNULL_END
 
 #endif  // PANE_PUBLIC_PANEEXTENSIONS_H_

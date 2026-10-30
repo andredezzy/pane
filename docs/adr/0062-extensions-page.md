@@ -1,6 +1,6 @@
 # Extensions have their own page
 
-> **Its Update all is replaced by [ADR 0097](0097-extensions-update-themselves.md)**: extensions update themselves, as in Chrome, and the header has no button. **The card's version moved into Details, by [ADR 0102](0102-extension-details-on-the-extensions-page.md)**: the card leads its buttons with Details, and the version shows there, with the size and the source. The rest stands.
+> **Its Update all is replaced by [ADR 0097](0097-extensions-update-themselves.md)**: extensions update themselves, as in Chrome, and the header has no button. **The card's version moved into Details, by [ADR 0102](0102-extension-details-on-the-extensions-page.md)**: the card leads its buttons with Details, and the version shows there, with the size and the source. **The header has Keyboard shortcuts beside the profile select, by [ADR 0104](0104-extension-shortcuts-are-changed-in-a-dialog.md)**: it opens the dialog that changes the extensions' shortcuts. The rest stands.
 
 Extensions are managed on a page of their own, out of Settings, at the user's request: every browser has one, Chrome's chrome://extensions and Aside's aside://extensions. The page takes the content panel as Settings does (`BrowserModel.Page.extensions`). Paper drew it first: 09 · Extensions, light and dark, with a search, no extensions, and Remove (ADR 0058).
 

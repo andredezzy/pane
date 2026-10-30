@@ -1,5 +1,7 @@
 # Extensions' keyboard shortcuts work as in Chrome
 
+> **The page to change them now exists, by [ADR 0104](0104-extension-shortcuts-are-changed-in-a-dialog.md)**: the Extensions page's Keyboard shortcuts dialog sets, moves, and clears them as Chrome's chrome://extensions/shortcuts does, and refuses a key the menu bar holds. The rest stands.
+
 An extension's keyboard shortcuts (`chrome.commands`) work as in Chrome and in Aside. A command's shortcut sends `onCommand` with the active tab, and the action's (`_execute_action`) works as a click on the action: its popup, or `action.onClicked`. They work with the page focused, and with the address field being edited. Until now no key reached them. Comparing Pane's Extensions page with Aside's (the user's request: keep parity with stable browsers) found them missing, and the probe extension confirmed it.
 
 - **The engine:** `pane::ExtensionShortcuts` (`engine/pane/browser/extensions/extension_shortcuts.mm`) is Chrome's `ExtensionKeybindingRegistry`, one per Browser, made when the Browser attaches to its window (`HostedBrowserWindow`).

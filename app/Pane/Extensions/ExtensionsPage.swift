@@ -114,8 +114,8 @@ struct ExtensionsPage: View {
 		.accessibilityIdentifier("pane.extensions")
 	}
 
-	// The puzzle, the title and what the page holds; the profile, and Update
-	// all, at the trailing edge.
+	// The puzzle, the title and what the page holds; Keyboard shortcuts and
+	// the profile at the trailing edge (Paper: 09.8).
 	private var header: some View {
 		HStack(spacing: 12) {
 			Image(nsImage: Glyph.puzzle.image(strokeWidth: 1.6, size: 22))
@@ -136,6 +136,20 @@ struct ExtensionsPage: View {
 			Spacer()
 
 			if let selectedProfile {
+				// With no extension enabled, it would have nothing to list.
+				Button {
+					controller.showShortcuts(inProfile: selectedProfile.id)
+				} label: {
+					HStack(spacing: 8) {
+						LucideIcon(.keyboard, size: 14, strokeWidth: 1.75)
+						Text("Keyboard shortcuts")
+							.font(.system(size: 13))
+					}
+				}
+				.buttonStyle(.pane(.outline, size: .small))
+				.disabled(!extensions.contains(where: \.enabled))
+				.accessibilityIdentifier("pane.extensions.shortcuts")
+
 				// Its border in the profile's color at 40% (ADR 0062).
 				PaneMenuButton(
 					options: model.profiles.map { ($0.name, $0.id) },

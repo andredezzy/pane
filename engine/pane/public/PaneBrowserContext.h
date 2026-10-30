@@ -124,6 +124,30 @@ NS_SWIFT_UI_ACTOR
 - (BOOL)runExtensionShortcut:(NSEvent*)event
                     inWindow:(PaneBrowserWindow*)window
     NS_SWIFT_NAME(runExtensionShortcut(_:in:));
+// The extension's commands, as chrome://extensions/shortcuts lists them: its
+// action's, then its named ones, each with its shortcut. Empty when it is
+// not installed or has none.
+- (NSArray<PaneExtensionCommand*>*)commandsOfExtension:(NSString*)identifier
+    NS_SWIFT_NAME(commands(ofExtension:));
+// Sets the command's shortcut, as chrome://extensions/shortcuts does:
+// `shortcut` as Chrome writes it (PaneExtensionCommand.shortcut,
+// +extensionShortcutForEvent:), or empty to clear it. A key another command
+// had moves here, as in Chrome: that command's extension is returned, or nil.
+- (nullable NSString*)setShortcut:(NSString*)shortcut
+                        ofCommand:(NSString*)command
+                        extension:(NSString*)identifier
+    NS_SWIFT_NAME(setShortcut(_:ofCommand:extension:));
+// While one is recorded, no extension shortcut runs in `window`, as
+// chrome://extensions/shortcuts suspends them.
+- (void)setExtensionShortcutsSuspended:(BOOL)suspended
+                              inWindow:(PaneBrowserWindow*)window
+    NS_SWIFT_NAME(setExtensionShortcutsSuspended(_:in:));
+// The shortcut `event`, a key down, types, as Chrome writes it
+// ("Command+Shift+Y"), when Chrome takes it for a command; nil otherwise: no
+// Ctrl, Alt, or Command, a combination Chrome refuses, or a key that can't
+// end a shortcut.
++ (nullable NSString*)extensionShortcutForEvent:(NSEvent*)event
+    NS_SWIFT_NAME(extensionShortcut(for:));
 // The extension's own items and site access for its action's right-click
 // menu, as for the active tab of `window`; nil when it has neither.
 - (nullable PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier

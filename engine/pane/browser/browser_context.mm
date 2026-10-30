@@ -325,25 +325,34 @@
   }
 }
 
-- (BOOL)runExtensionShortcut:(NSEvent*)event
-                    inWindow:(PaneBrowserWindow*)window {
-  if (!_profile || event.type != NSEventTypeKeyDown) {
-    return NO;
-  }
+// The extension shortcuts of this profile's Browser in `window`, once it has
+// one.
+- (pane::ExtensionShortcuts*)extensionShortcutsInWindow:
+    (PaneBrowserWindow*)window {
   pane::WindowHost* host = pane::WindowHost::ForNSWindow(window.window);
-  Browser* browser = host ? host->ExistingBrowserFor(_profile) : nullptr;
+  Browser* browser = host && _profile ? host->ExistingBrowserFor(_profile)
+                                      : nullptr;
   pane::HostedBrowserWindow* hosted =
       browser ? pane::HostedBrowserWindow::FromWindow(
                     static_cast<BrowserWindow*>(browser->GetWindow()))
               : nullptr;
+  return hosted ? hosted->extension_shortcuts() : nullptr;
+}
+
+- (BOOL)runExtensionShortcut:(NSEvent*)event
+                    inWindow:(PaneBrowserWindow*)window {
+  if (event.type != NSEventTypeKeyDown) {
+    return NO;
+  }
   pane::ExtensionShortcuts* shortcuts =
-      hosted ? hosted->extension_shortcuts() : nullptr;
+      [self extensionShortcutsInWindow:window];
   const ui::Accelerator accelerator(
       ui::KeyboardCodeFromNSEvent(event),
       ui::EventFlagsFromModifiers(event.modifierFlags));
   extensions::ExtensionId extension;
   std::string command;
-  if (!shortcuts || !shortcuts->Find(accelerator, &extension, &command) ||
+  if (!shortcuts || shortcuts->shortcut_handling_suspended() ||
+      !shortcuts->Find(accelerator, &extension, &command) ||
       pane::MenuHasKeyEquivalent(NSApp.mainMenu, event)) {
     return NO;
   }
@@ -356,6 +365,71 @@
     return YES;
   }
   return shortcuts->Notify(accelerator);
+}
+
+- (NSArray<PaneExtensionCommand*>*)commandsOfExtension:(NSString*)identifier {
+  const extensions::Extension* extension = [self installedExtension:identifier];
+  if (!extension) {
+    return @[];
+  }
+  NSMutableArray<PaneExtensionCommand*>* commands = [NSMutableArray array];
+  for (const ui::Command& command : pane::CommandsOf(_profile, *extension)) {
+    [commands
+        addObject:[[PaneExtensionCommand alloc]
+                      initWithName:base::SysUTF8ToNSString(
+                                       command.command_name())
+                           summary:base::SysUTF16ToNSString(
+                                       command.description())
+                          shortcut:base::SysUTF8ToNSString(
+                                       extensions::Command::AcceleratorToString(
+                                           command.accelerator()))]];
+  }
+  return commands;
+}
+
+- (NSString*)setShortcut:(NSString*)shortcut
+               ofCommand:(NSString*)command
+               extension:(NSString*)identifier {
+  PANE_TRACE("call", "PaneBrowserContext.setExtensionShortcut",
+             base::DictValue()
+                 .Set("extension", base::SysNSStringToUTF8(identifier))
+                 .Set("command", base::SysNSStringToUTF8(command))
+                 .Set("shortcut", base::SysNSStringToUTF8(shortcut)));
+  if (![self installedExtension:identifier]) {
+    return nil;
+  }
+  const extensions::ExtensionId moved = pane::SetShortcut(
+      _profile, base::SysNSStringToUTF8(identifier),
+      base::SysNSStringToUTF8(command), base::SysNSStringToUTF8(shortcut));
+  return moved.empty() ? nil : base::SysUTF8ToNSString(moved);
+}
+
+- (void)setExtensionShortcutsSuspended:(BOOL)suspended
+                              inWindow:(PaneBrowserWindow*)window {
+  PANE_TRACE("call", "PaneBrowserContext.setExtensionShortcutsSuspended",
+             base::DictValue().Set("suspended", static_cast<bool>(suspended)));
+  if (pane::ExtensionShortcuts* shortcuts =
+          [self extensionShortcutsInWindow:window]) {
+    shortcuts->SetShortcutHandlingSuspended(suspended);
+  }
+}
+
+// As Chrome's shortcut field writes a key (cr_shortcut_util.ts), with
+// Chrome's own conversions, and only what Chrome's parse takes back.
++ (NSString*)extensionShortcutForEvent:(NSEvent*)event {
+  if (event.type != NSEventTypeKeyDown) {
+    return nil;
+  }
+  const std::string shortcut =
+      extensions::Command::AcceleratorToString(ui::Accelerator(
+          ui::KeyboardCodeFromNSEvent(event),
+          ui::EventFlagsFromModifiers(event.modifierFlags)));
+  if (shortcut.empty() ||
+      extensions::Command::StringToAccelerator(shortcut, std::string())
+              .key_code() == ui::VKEY_UNKNOWN) {
+    return nil;
+  }
+  return base::SysUTF8ToNSString(shortcut);
 }
 
 - (PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier

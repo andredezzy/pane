@@ -117,6 +117,37 @@ enum MainMenu {
 		return menu
 	}
 
+	// The title of the menu bar's item `event`, a key down, is the key of,
+	// without its ellipsis ("New Tab", "Settings"): as the engine finds it
+	// (MenuHasKeyEquivalent), where an uppercase key implies Shift.
+	static func itemTitle(for event: NSEvent, in menu: NSMenu? = NSApp.mainMenu) -> String? {
+		let mask: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+		let flags = event.modifierFlags.intersection(mask)
+		let key = event.charactersIgnoringModifiers?.lowercased()
+
+		for item in menu?.items ?? [] {
+			if let submenu = item.submenu {
+				if let title = itemTitle(for: event, in: submenu) {
+					return title
+				}
+
+				continue
+			}
+
+			var itemFlags = item.keyEquivalentModifierMask.intersection(mask)
+
+			if item.keyEquivalent != item.keyEquivalent.lowercased() {
+				itemFlags.insert(.shift)
+			}
+
+			if !item.keyEquivalent.isEmpty, itemFlags == flags, item.keyEquivalent.lowercased() == key {
+				return item.title.hasSuffix("…") ? String(item.title.dropLast()) : item.title
+			}
+		}
+
+		return nil
+	}
+
 	private static func item(
 		_ title: String,
 		_ action: Selector,

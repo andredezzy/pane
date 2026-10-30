@@ -5,7 +5,7 @@ import PaneKit
 // mouse events and one for key events, each in the main window.
 extension Automation {
 	static let keyCodes: [String: UInt16] = [
-		"a": 0, "f": 3, "i": 34, "p": 35, "q": 12, "r": 15, "t": 17, "u": 32, "w": 13, "l": 37, "y": 16,
+		"a": 0, "f": 3, "i": 34, "k": 40, "p": 35, "q": 12, "r": 15, "t": 17, "u": 32, "w": 13, "l": 37, "y": 16,
 		"1": 18, "2": 19, "3": 20, "0": 29, "=": 24, "-": 27,
 		"[": 33, "]": 30, ",": 43, "\t": KeyCode.tab, "\r": KeyCode.returnKey, "\u{1b}": KeyCode.escape,
 	]
@@ -169,7 +169,7 @@ extension Automation {
 		}
 	}
 
-	private static func modifierFlags(_ names: [String]) -> NSEvent.ModifierFlags {
+	static func modifierFlags(_ names: [String]) -> NSEvent.ModifierFlags {
 		names.reduce(into: NSEvent.ModifierFlags()) { flags, name in
 			switch name {
 			case "command": flags.insert(.command)

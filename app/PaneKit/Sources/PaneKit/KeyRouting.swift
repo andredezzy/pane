@@ -2,9 +2,9 @@
 // (KeyRouter), which sees every key before the window, the menu bar's
 // shortcuts, and any page; it asks this, with what shows, and runs the
 // command. The overlays are asked topmost first, as they are drawn: the PIN
-// screen, Quit Pane?, the App icon picker, an extension's popup, the extensions menu, the tab
-// switcher, a page's dialog, then a page in fullscreen. The first that
-// takes the key ends it.
+// screen, Quit Pane?, the App icon picker, the Keyboard shortcuts dialog,
+// an extension's popup, the extensions menu, the tab switcher, a page's
+// dialog, then a page in fullscreen. The first that takes the key ends it.
 
 // The keys Pane's overlays take, by key code (Carbon's kVK_ values).
 public enum KeyCode {
@@ -78,6 +78,10 @@ public struct KeyOverlays: Equatable, Sendable {
 	public var quitConfirmation = false
 	// Settings' App icon picker (ADR 0089).
 	public var appIconPicker = false
+	// The Extensions page's Keyboard shortcuts dialog, and one of its fields
+	// recording a key (ADR 0104).
+	public var extensionShortcuts = false
+	public var recordingShortcut = false
 	public var extensionPrompt = false
 	public var extensionsMenu = false
 	// An extension's more menu, beside the extensions menu.
@@ -93,6 +97,8 @@ public struct KeyOverlays: Equatable, Sendable {
 		pinScreen: Bool = false,
 		quitConfirmation: Bool = false,
 		appIconPicker: Bool = false,
+		extensionShortcuts: Bool = false,
+		recordingShortcut: Bool = false,
 		extensionPrompt: Bool = false,
 		extensionsMenu: Bool = false,
 		extensionMoreMenu: Bool = false,
@@ -104,6 +110,8 @@ public struct KeyOverlays: Equatable, Sendable {
 		self.pinScreen = pinScreen
 		self.quitConfirmation = quitConfirmation
 		self.appIconPicker = appIconPicker
+		self.extensionShortcuts = extensionShortcuts
+		self.recordingShortcut = recordingShortcut
 		self.extensionPrompt = extensionPrompt
 		self.extensionsMenu = extensionsMenu
 		self.extensionMoreMenu = extensionMoreMenu
@@ -123,6 +131,10 @@ public enum KeyCommand: Equatable, Sendable {
 	case cancelQuit
 	case quit
 	case closeAppIconPicker
+	case closeExtensionShortcuts
+	// The key, or the modifiers held, go to the field recording.
+	case recordShortcut
+	case cancelShortcutRecording
 	case cancelExtensionPrompt
 	case acceptExtensionPrompt
 	case closeExtensionMoreMenu
@@ -160,6 +172,7 @@ public enum KeyRouting {
 			(overlays.pinScreen, pinScreen),
 			(overlays.quitConfirmation, quitConfirmation),
 			(overlays.appIconPicker, appIconPicker),
+			(overlays.extensionShortcuts, extensionShortcuts),
 			(overlays.extensionPrompt, extensionPrompt),
 			(overlays.extensionsMenu, extensionsMenu),
 			(true, switcher),
@@ -238,6 +251,24 @@ public enum KeyRouting {
 		}
 
 		return .take(.closeAppIconPicker)
+	}
+
+	// A field recording takes every key, a shortcut's too, and the modifiers
+	// as they go down and up, as Chrome suspends its shortcuts meanwhile; Esc
+	// ends it, and Tab, which leaves Chrome's field. Otherwise Esc and Return
+	// close the dialog, and the rest goes on, as from the App icon picker.
+	private static func extensionShortcuts(_ key: KeyPress, _ overlays: KeyOverlays) -> KeyRoute? {
+		if overlays.recordingShortcut {
+			let ends = key.isEscape || (key.kind == .down && key.keyCode == KeyCode.tab)
+
+			return .take(ends ? .cancelShortcutRecording : .recordShortcut)
+		}
+
+		guard key.kind == .down, key.isEscape || key.isReturn else {
+			return nil
+		}
+
+		return .take(.closeExtensionShortcuts)
 	}
 
 	// A popup takes all but shortcuts, as a dialog would.

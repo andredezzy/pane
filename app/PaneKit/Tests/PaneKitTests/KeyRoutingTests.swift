@@ -68,6 +68,28 @@ struct KeyRoutingTests {
 		#expect(route(escape, KeyOverlays(quitConfirmation: true, appIconPicker: true)).command == .cancelQuit)
 	}
 
+	@Test("Keyboard shortcuts closes on Esc and Return; a field recording takes every key")
+	func extensionShortcuts() {
+		let overlays = KeyOverlays(extensionShortcuts: true)
+
+		#expect(route(escape, overlays) == KeyRoute(.closeExtensionShortcuts, consumed: true))
+		#expect(route(returnKey, overlays) == KeyRoute(.closeExtensionShortcuts, consumed: true))
+		#expect(route(letter("t", .command), overlays) == KeyRoute(nil, consumed: false))
+
+		var recording = overlays
+		recording.recordingShortcut = true
+
+		#expect(route(escape, recording) == KeyRoute(.cancelShortcutRecording, consumed: true))
+		#expect(route(ctrlTab, recording) == KeyRoute(.cancelShortcutRecording, consumed: true))
+		// Pane's own keys and Quit are typed into the field, not run.
+		#expect(route(letter("t", .command), recording) == KeyRoute(.recordShortcut, consumed: true))
+		#expect(route(quit, recording) == KeyRoute(.recordShortcut, consumed: true))
+		#expect(route(returnKey, recording) == KeyRoute(.recordShortcut, consumed: true))
+		#expect(route(KeyPress(kind: .modifiersChanged, keyCode: 55, modifiers: .command), recording) == KeyRoute(.recordShortcut, consumed: true))
+		// The PIN screen over it.
+		#expect(route(escape, KeyOverlays(pinScreen: true, extensionShortcuts: true, recordingShortcut: true)).command == .pinBack)
+	}
+
 	@Test("Esc goes to the topmost overlay: Quit Pane? over an extension's popup")
 	func quitOverPrompt() {
 		let overlays = KeyOverlays(quitConfirmation: true, extensionPrompt: true)

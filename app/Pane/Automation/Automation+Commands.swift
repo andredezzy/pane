@@ -232,6 +232,10 @@ extension Automation {
 		case "releaseModifiers":
 			post(flagsChanged: [])
 
+		case "holdModifiers":
+			// Modifiers going down, with no key yet: { modifiers }.
+			post(flagsChanged: Self.modifierFlags(command["modifiers"] as? [String] ?? []))
+
 		case "typeInPage":
 			// A key typed into the selected page: the page takes focus and the
 			// window delivers the key to it, as when the user types. (Key events
@@ -496,6 +500,25 @@ extension Automation {
 			// What the puzzle and the extensions menu's controls call, for a
 			// locked screen, where they cannot be clicked.
 			try pressExtensionsMenu(try command.string("control"), command)
+
+		case "extensionShortcuts":
+			// What the Keyboard shortcuts dialog lists for { profile }: each
+			// extension's commands with their shortcuts.
+			return .handled(extensions.shortcutCommands(try command.string("profile")).map(Self.describe))
+
+		case "extensionShortcutsDialog":
+			// The dialog's controls, as clicked: { control: "open", profile },
+			// "done", "cancel" (a click beside the field), or a field's
+			// "record" or "clear", with { id, name }, the command's name. Keys
+			// then go through "key", as typed.
+			switch try command.string("control") {
+			case "open": extensions.showShortcuts(inProfile: try command.string("profile"))
+			case "done": extensions.closeShortcuts()
+			case "cancel": extensions.cancelRecording()
+			case "record": extensions.record(CommandField(extensionID: try command.string("id"), command: try command.string("name")))
+			case "clear": extensions.clearShortcut(CommandField(extensionID: try command.string("id"), command: try command.string("name")))
+			default: throw AutomationError("unknown Keyboard shortcuts control")
+			}
 
 		default:
 			return .notMine

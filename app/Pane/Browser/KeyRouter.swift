@@ -4,9 +4,10 @@ import PaneKit
 // Pane's one key monitor. A local event monitor sees every key before any
 // view (a page included) and the menu bar's shortcuts. It asks the overlays
 // that show, topmost first, as they are drawn, whether one takes the key
-// (PaneKit KeyRouting: the PIN screen, Quit Pane?, an extension's popup, the
-// extensions menu, the tab switcher, a page's dialog, a page's fullscreen),
-// then runs what it answered, then the extensions' shortcuts.
+// (PaneKit KeyRouting: the PIN screen, Quit Pane?, the App icon picker, the
+// Keyboard shortcuts dialog, an extension's popup, the extensions menu, the
+// tab switcher, a page's dialog, a page's fullscreen), then runs what it
+// answered, then the extensions' shortcuts.
 @MainActor
 final class KeyRouter {
 	private unowned let controller: BrowserController
@@ -30,7 +31,7 @@ final class KeyRouter {
 		let route = KeyRouting.route(KeyPress(event), through: overlays)
 
 		if let command = route.command {
-			perform(command)
+			perform(command, event)
 		}
 
 		return route.consumed || controller.extensions.runShortcut(event)
@@ -44,6 +45,8 @@ final class KeyRouter {
 			pinScreen: controller.lock.entry != nil,
 			quitConfirmation: state.confirmingQuit,
 			appIconPicker: state.choosingAppIcon,
+			extensionShortcuts: extensions.shortcuts != nil,
+			recordingShortcut: extensions.shortcuts?.recording != nil,
 			extensionPrompt: extensions.prompt != nil,
 			extensionsMenu: extensions.menuOpen,
 			extensionMoreMenu: extensions.moreMenu != nil,
@@ -55,7 +58,7 @@ final class KeyRouter {
 		)
 	}
 
-	private func perform(_ command: KeyCommand) {
+	private func perform(_ command: KeyCommand, _ event: NSEvent) {
 		let lock = controller.lock
 		let extensions = controller.extensions
 
@@ -67,6 +70,9 @@ final class KeyRouter {
 		case .cancelQuit: controller.cancelQuit()
 		case .quit: controller.quit()
 		case .closeAppIconPicker: controller.closeAppIconPicker()
+		case .closeExtensionShortcuts: extensions.closeShortcuts()
+		case .recordShortcut: extensions.recordKey(event)
+		case .cancelShortcutRecording: extensions.cancelRecording()
 		case .cancelExtensionPrompt: extensions.answerPrompt(accepted: false)
 		case .acceptExtensionPrompt: extensions.answerPrompt(accepted: true)
 		case .closeExtensionMoreMenu: extensions.closeMoreMenu()

@@ -1,14 +1,16 @@
 import AppKit
 import PaneCore
 import PaneKit
+import SwiftUI
 
 // The extensions feature, beside the browser it runs in: each open
 // profile's extensions as the engine last reported them, the toolbar
 // puzzle's menu (ExtensionsMenu) and an extension's more menu beside it, the
-// Extensions page's Details of one, the popups that add or remove one
-// (ExtensionPromptView), and the action popups (ExtensionPopover). Esc
-// closes the topmost, Return accepts a popup (KeyRouter); a menu also closes
-// on a click outside it, or once one of its items runs.
+// Extensions page's Details of one and its Keyboard shortcuts dialog, the
+// popups that add or remove one (ExtensionPromptView), and the action popups
+// (ExtensionPopover). Esc closes the topmost, Return accepts a popup
+// (KeyRouter); a menu also closes on a click outside it, or once one of its
+// items runs.
 @MainActor
 @Observable
 final class ExtensionsController {
@@ -37,10 +39,14 @@ final class ExtensionsController {
 	// The extension the Extensions page shows the Details of, instead of the
 	// list.
 	private(set) var details: ShownDetails?
+	// The Extensions page's Keyboard shortcuts dialog (ADR 0104).
+	private(set) var shortcuts: ShortcutsDialog?
 	// Shows extension action popups.
 	let popover = ExtensionPopover()
 
 	@ObservationIgnored private unowned let browser: BrowserController
+	// The context whose shortcuts a recording paused, to resume.
+	@ObservationIgnored private var pausedContext: BrowserContext?
 
 	init(browser: BrowserController) {
 		self.browser = browser
@@ -71,6 +77,10 @@ final class ExtensionsController {
 
 		if details?.profileID == profileID {
 			refreshDetails()
+		}
+
+		if shortcuts?.profileID == profileID {
+			shortcuts?.extensions = shortcutCommands(profileID)
 		}
 	}
 
@@ -309,6 +319,161 @@ final class ExtensionsController {
 		details?.engine = engine
 	}
 
+	// MARK: Keyboard shortcuts
+
+	// What the dialog lists, as chrome://extensions/shortcuts does: the
+	// profile's enabled extensions that have commands, each with them.
+	func shortcutCommands(_ profileID: String) -> [ExtensionCommands] {
+		guard let context = browser.context(for: profileID) else {
+			return []
+		}
+
+		return list(profileID).filter(\.enabled).compactMap { item in
+			let commands = context.commands(ofExtension: item.id)
+
+			return commands.isEmpty ? nil : ExtensionCommands(item: item, commands: commands)
+		}
+	}
+
+	// The header's Keyboard shortcuts, for the profile the page lists.
+	func showShortcuts(inProfile profileID: String) {
+		withAnimation(Motion.panel) {
+			shortcuts = ShortcutsDialog(profileID: profileID, extensions: shortcutCommands(profileID))
+		}
+	}
+
+	// Done, Return, Esc, or a click outside it.
+	func closeShortcuts() {
+		cancelRecording()
+
+		withAnimation(Motion.panel) {
+			shortcuts = nil
+		}
+	}
+
+	// A click on a field: it records the next key, and no extension's
+	// shortcut runs meanwhile, as Chrome suspends them.
+	func record(_ field: CommandField) {
+		guard shortcuts != nil else {
+			return
+		}
+
+		if shortcuts?.recording == nil, let profileID = model.activeProfileID, let context = browser.context(for: profileID) {
+			context.setExtensionShortcutsSuspended(true, in: browser.browserWindow)
+			pausedContext = context
+		}
+
+		shortcuts?.recording = field
+		shortcuts?.held = []
+		shortcuts?.refusal = nil
+		shortcuts?.moved = nil
+	}
+
+	// Esc, Tab, or a click outside the field: it keeps its shortcut.
+	func cancelRecording() {
+		guard shortcuts?.recording != nil else {
+			return
+		}
+
+		shortcuts?.recording = nil
+		shortcuts?.held = []
+		pausedContext?.setExtensionShortcutsSuspended(false, in: browser.browserWindow)
+		pausedContext = nil
+
+		// A message goes as the dialog shrinks around it.
+		withAnimation(Motion.panel) {
+			shortcuts?.refusal = nil
+		}
+	}
+
+	// A key, or the modifiers held, while a field records (KeyRouter). The
+	// modifiers show as they go down. A key Chrome's rules refuse, or one the
+	// menu bar holds (ADR 0098), leaves a message under the field, which
+	// keeps recording; another sets the shortcut, taking it from a command
+	// that had it, as Chrome does.
+	func recordKey(_ event: NSEvent) {
+		guard let dialog = shortcuts, let field = dialog.recording else {
+			return
+		}
+
+		let key = PaneKit.KeyPress(event)
+
+		guard key.kind == .down else {
+			shortcuts?.held = key.modifiers
+			return
+		}
+
+		// Its modifiers are spent: the field reads Type a shortcut again.
+		shortcuts?.held = []
+
+		let shortcut = BrowserContext.extensionShortcut(for: event)
+
+		// The message comes as the dialog grows around it.
+		if let refusal = Self.refusal(of: event, key.modifiers, shortcut: shortcut) {
+			withAnimation(Motion.panel) {
+				shortcuts?.refusal = refusal
+			}
+
+			return
+		}
+
+		guard let shortcut else {
+			return
+		}
+
+		// A command of the same extension that had the key, named by its
+		// description; another extension, by its name.
+		let sibling = dialog.extensions.first { $0.id == field.extensionID }?.commands.first { $0.shortcut == shortcut }
+		let movedFrom = setShortcut(shortcut, of: field, inProfile: dialog.profileID)
+		cancelRecording()
+
+		if let movedFrom {
+			let name = movedFrom == field.extensionID ? sibling?.summary : list(dialog.profileID).first { $0.id == movedFrom }?.name
+
+			withAnimation(Motion.panel) {
+				shortcuts?.moved = (field, name ?? movedFrom)
+			}
+		}
+	}
+
+	// Chrome's rules, on the modifiers then the key, then the menu bar's keys,
+	// which stay Pane's (ADR 0098).
+	private static func refusal(of event: NSEvent, _ modifiers: PaneKit.KeyPress.Modifiers, shortcut: String?) -> ExtensionShortcut.Refusal? {
+		if let refusal = ExtensionShortcut.refusal(modifiers) {
+			return refusal
+		}
+
+		guard let shortcut else {
+			return .typeALetter
+		}
+
+		return MainMenu.itemTitle(for: event).map { .panes(item: $0, shortcut: shortcut) }
+	}
+
+	// A field's Clear: Not set, as Chrome's empties it.
+	func clearShortcut(_ field: CommandField) {
+		guard let profileID = shortcuts?.profileID else {
+			return
+		}
+
+		cancelRecording()
+		shortcuts?.moved = nil
+		setShortcut("", of: field, inProfile: profileID)
+	}
+
+	// Sets a command's shortcut ("" clears it), the dialog showing it at once;
+	// the extension whose command had the key, if any.
+	@discardableResult
+	func setShortcut(_ shortcut: String, of field: CommandField, inProfile profileID: String) -> String? {
+		let movedFrom = browser.context(for: profileID)?.setShortcut(shortcut, ofCommand: field.command, extension: field.extensionID)
+
+		if shortcuts?.profileID == profileID {
+			shortcuts?.extensions = shortcutCommands(profileID)
+		}
+
+		return movedFrom
+	}
+
 	// The Chrome Web Store in a new tab of the profile (the active one by
 	// default): its Add to Pane (Add to Chrome, renamed by the engine) installs into that profile.
 	func visitWebStore(inProfile profileID: String? = nil) {
@@ -382,6 +547,35 @@ struct ShownDetails {
 	let extensionID: String
 	var engine: ExtensionDetails?
 	var size: String?
+}
+
+// The Keyboard shortcuts dialog (ADR 0104): a profile's extensions with
+// their commands, the field recording a key, with the modifiers held and
+// why the last key was refused, and the field a key last moved to, with
+// where it came from.
+struct ShortcutsDialog {
+	let profileID: String
+	var extensions: [ExtensionCommands]
+	var recording: CommandField?
+	var held = PaneKit.KeyPress.Modifiers()
+	var refusal: ExtensionShortcut.Refusal?
+	var moved: (field: CommandField, from: String)?
+}
+
+// An extension and its commands, as the dialog lists them.
+struct ExtensionCommands: Identifiable {
+	let item: ExtensionInfo
+	let commands: [ExtensionCommand]
+
+	var id: String {
+		item.id
+	}
+}
+
+// One command's shortcut field.
+struct CommandField: Hashable {
+	let extensionID: String
+	let command: String
 }
 
 // Adding or removing an extension, as its popup asks.

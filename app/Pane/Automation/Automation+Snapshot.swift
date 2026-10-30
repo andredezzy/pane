@@ -344,6 +344,7 @@ extension Automation {
 				] as [String: Any]
 			} ?? NSNull(),
 			"extensionDetails": controller.extensions.details.map(Self.describe) ?? NSNull(),
+			"shortcutsDialog": controller.extensions.shortcuts.map(Self.describe) ?? NSNull(),
 			"extensionsMenu": controller.extensions.menuOpen,
 			"sidebarWidth": controller.state.sidebarWidth,
 			"extensionMoreMenu": controller.extensions.moreMenu?.extensionID ?? NSNull(),
@@ -376,6 +377,32 @@ extension Automation {
 			"allowsFileAccess": shown.engine?.allowsFileAccess ?? false,
 			"homepage": shown.engine?.homepageURL?.absoluteString ?? NSNull(),
 			"webStore": shown.engine?.webStoreURL?.absoluteString ?? NSNull(),
+		]
+	}
+
+	static func describe(_ dialog: ShortcutsDialog) -> [String: Any] {
+		[
+			"profile": dialog.profileID,
+			"extensions": dialog.extensions.map(describe),
+			"recording": dialog.recording.map { ["extension": $0.extensionID, "command": $0.command] } ?? NSNull(),
+			"held": ExtensionShortcut.glyphs(dialog.held),
+			"message": dialog.refusal?.message ?? NSNull(),
+			"moved": dialog.moved.map { ["extension": $0.field.extensionID, "command": $0.field.command, "from": $0.from] } ?? NSNull(),
+		]
+	}
+
+	static func describe(_ entry: ExtensionCommands) -> [String: Any] {
+		[
+			"id": entry.item.id,
+			"name": entry.item.name,
+			"commands": entry.commands.map { command in
+				[
+					"name": command.name,
+					"description": command.summary,
+					"shortcut": command.shortcut,
+					"glyphs": ExtensionShortcut.glyphs(command.shortcut),
+				]
+			},
 		]
 	}
 

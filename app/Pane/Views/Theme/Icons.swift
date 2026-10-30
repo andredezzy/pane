@@ -15,6 +15,7 @@ enum Lucide: String {
 	case circleDashedX
 	case externalLink
 	case globe
+	case keyboard
 	case loaderCircle
 	case monitor
 	case moon
@@ -52,6 +53,8 @@ enum Lucide: String {
 			#"<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>"#
 		case .globe:
 			#"<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>"#
+		case .keyboard:
+			#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>"#
 		case .loaderCircle:
 			#"<path d="M21 12a9 9 0 1 1-6.219-8.56"/>"#
 		case .monitor:

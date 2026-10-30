@@ -76,6 +76,12 @@ NS_ASSUME_NONNULL_BEGIN
                           profile:(Profile*)profile;
 @end
 
+@interface PaneExtensionCommand ()
+- (instancetype)initWithName:(NSString*)name
+                     summary:(NSString*)summary
+                    shortcut:(NSString*)shortcut;
+@end
+
 NS_ASSUME_NONNULL_END
 
 #endif  // PANE_BROWSER_EXTENSIONS_EXTENSIONS_INTERNAL_H_

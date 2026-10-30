@@ -111,6 +111,26 @@ struct RootView: View {
 					.zIndex(1)
 			}
 
+			// The Extensions page's Keyboard shortcuts. A click outside it stops a
+			// recording first, then closes it.
+			if let dialog = extensions.shortcuts {
+				Palette.modalScrim
+					.contentShape(Rectangle())
+					.onTapGesture {
+						dialog.recording == nil ? extensions.closeShortcuts() : extensions.cancelRecording()
+					}
+					.transition(.opacity)
+					.zIndex(1)
+
+				ExtensionShortcutsDialog(
+					controller: extensions,
+					dialog: dialog,
+					profileName: model.profile(dialog.profileID)?.name ?? "This profile"
+				)
+				.transition(.opacity.combined(with: .scale(scale: 0.97)))
+				.zIndex(1)
+			}
+
 			if state.confirmingQuit {
 				Palette.modalScrim
 					.contentShape(Rectangle())
@@ -137,10 +157,15 @@ struct RootView: View {
 		// The extensions menu belongs to the tab and the window it opened over.
 		.onChange(of: model.activeTabID) { extensions.closeMenu() }
 		.onChange(of: model.activeProfileID) { extensions.closeMenu() }
-		.onChange(of: model.page) { extensions.closeMenu() }
+		.onChange(of: model.page) {
+			extensions.closeMenu()
+			extensions.closeShortcuts()
+		}
 		.onChange(of: controller.lock.entry == nil) { extensions.closeMenu() }
 		.onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification, object: controller.browserWindow.window)) { _ in
 			extensions.closeMenu()
+			// As Chrome's field ends one when it loses focus.
+			extensions.cancelRecording()
 		}
 		.background(Palette.background)
 		.ignoresSafeArea()
