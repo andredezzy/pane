@@ -9,6 +9,9 @@ import { expect, type Scenario } from "../run";
 // network time, the on-device AI model, AI Mode eligibility, the Translate
 // ranker, the Google account list) stay off, as the Electron app never made
 // them. Each request a net log holds names its source (traffic annotation).
+// Nor does it connect anywhere else: no host is looked up, preconnected, or
+// reached but the fixtures' (Chrome's preconnect to its search engine opens
+// connections that no request shows).
 
 type NetLog = {
 	constants: { logEventTypes: Record<string, number> };
@@ -74,7 +77,35 @@ const quiet: Scenario = async (context) => {
 		`requests of its own: ${JSON.stringify(outside)}`,
 	);
 
-	return { requests: requests.size, outside };
+	// The host a lookup, a preconnect, or a connection names: a URL or an
+	// origin ("https://host"), or a host alone, with or without a port.
+	const hostOf = (value: string) =>
+		value.includes("://") ? new URL(value).hostname : value.split(":")[0];
+
+	const connections = new Set<string>();
+
+	for (const event of log.events) {
+		for (const key of ["host", "url"]) {
+			const value = event.params?.[key];
+
+			if (typeof value === "string" && value !== "") {
+				connections.add(hostOf(value) ?? value);
+			}
+		}
+	}
+
+	const fixtureHost = new URL(local).hostname;
+
+	const elsewhere = [...connections].filter(
+		(host) => host !== fixtureHost && host !== "localhost",
+	);
+
+	expect(
+		elsewhere.length === 0,
+		`connections of its own: ${elsewhere.join(", ")}`,
+	);
+
+	return { requests: requests.size, outside, connections: [...connections] };
 };
 
 export default quiet;

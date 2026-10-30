@@ -189,7 +189,10 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   // component updater, the network time check, and the on-device AI model
   // go out from the browser itself, past every profile's proxy; AI Mode's
   // eligibility check carries a profile's Google cookies and country; the
-  // Translate ranker fetches its model.
+  // Translate ranker fetches its model. The default search engine's
+  // preconnect opens connections to Google no page asked for, at start and
+  // again while a page shows, which a net log shows as connections, not
+  // requests.
   args.push_back("--disable-component-update");
   AddToSwitchList(args, "disable-features",
                   "NetworkTimeServiceQuerying,"
@@ -197,7 +200,8 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
                   "AimServerRequestOnStartupEnabled,"
                   "OptimizationGuideModelExecution,"
                   "OnDeviceModelBackgroundDownload,OptimizationHints,"
-                  "TranslateRankerQuery,TranslateRankerEnforcement");
+                  "TranslateRankerQuery,TranslateRankerEnforcement,"
+                  "PreconnectToSearch");
   // Chrome discards background tabs under memory pressure (its urgent
   // discarding), swapping an empty WebContents into the tab. Pane's sleep
   // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard
