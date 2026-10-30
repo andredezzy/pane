@@ -13,6 +13,13 @@ enum LaunchAlert {
 		case dismissed
 	}
 
+	// Scenarios (PANE_AUTOMATION_DIR) run on a Mac in use. The system draws
+	// these alerts in front of every app and gives them the keyboard, so the
+	// user's next Return pressed one: the migration scenario's Cancel quit
+	// Pane. There nothing shows, and an alert waits as for a user who presses
+	// nothing: until `dismissWhen` holds, or not at all without one.
+	private static let silent = ProcessInfo.processInfo.environment["PANE_AUTOMATION_DIR"] != nil
+
 	// Waits for a button, or for `dismissWhen` to hold (asked every second),
 	// which takes the alert down by itself.
 	static func show(
@@ -22,6 +29,14 @@ enum LaunchAlert {
 		alternateButton: String? = nil,
 		dismissWhen: (() -> Bool)? = nil
 	) -> Response {
+		if silent {
+			while let dismissWhen, !dismissWhen() {
+				Thread.sleep(forTimeInterval: 1)
+			}
+
+			return .dismissed
+		}
+
 		guard let notification = create(title: title, message: message, flags: 0, buttons: [
 			kCFUserNotificationDefaultButtonTitleKey: defaultButton,
 			kCFUserNotificationAlternateButtonTitleKey: alternateButton,
@@ -43,7 +58,11 @@ enum LaunchAlert {
 
 	// A note without buttons, up until the work it names is done.
 	static func note(title: String, message: String) -> Note? {
-		create(title: title, message: message, flags: CFOptionFlags(kCFUserNotificationNoDefaultButtonFlag), buttons: [:])
+		guard !silent else {
+			return nil
+		}
+
+		return create(title: title, message: message, flags: CFOptionFlags(kCFUserNotificationNoDefaultButtonFlag), buttons: [:])
 			.map(Note.init)
 	}
 
