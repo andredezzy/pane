@@ -19,7 +19,7 @@ What was rejected:
 - **Each render's own frame:** no two matched in tone or measure, and asking Magnific again matches none either.
 - **More skies in Automatic:** the user asked for light and dark.
 - **The skies the user turned down:** Day with the sun (Day lost it), a room reflected in a midday sky, a crescent moon with a blue glow on the frame, a moon behind clouds, a shooting star, and two oversized full moons.
-- **A Dock tile plug-in for now** (`NSDockTilePlugIn`): it would keep the chosen sky in the Dock while Pane is closed. It waits until the Dock can be checked on screen.
+- **A Dock tile plug-in for now** (`NSDockTilePlugIn`): it would keep the chosen sky in the Dock while Pane is closed. It waits for a Developer ID: on 2026-10-30 the Dock refused one in an ad-hoc signed copy ("Refusing to connect extra … due to not being trusted for binding"), while it loads Ghostty's, signed with a Team ID (`docs/human-checklist.md`, 6.2).
 
 How it is checked:
 
