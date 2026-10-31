@@ -55,7 +55,7 @@ enum Motion {
 	static var status: Animation? { unlessReduced(.easeInOut(duration: 0.2)) }
 
 	// A status that takes the place of a bar going beside it (the update's
-	// "Downloaded, quit to install"): the same crossfade, once the bar has
+	// "Restart to update" or "Quit and install"): the same crossfade, once the bar has
 	// gone, so the text never runs under it.
 	static var statusAfterBar: Animation? { unlessReduced(.easeInOut(duration: 0.2).delay(barExitDuration)) }
 

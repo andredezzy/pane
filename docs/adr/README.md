@@ -118,3 +118,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md) Pane's identifier is xyz.roundedcorners.pane
 - [0115](0115-nothing-outside-the-volume-names-a-page.md) Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
 - [0116](0116-pane-locks-while-open.md) Pane locks while open: on command, when the Mac sleeps or locks, and after a time without use
+- [0117](0117-an-update-pane-cant-install-says-quit-and-install.md) An update Pane can't install itself says Quit and install, and its click quits

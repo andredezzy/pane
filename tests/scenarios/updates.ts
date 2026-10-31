@@ -11,7 +11,8 @@ import { expect, type Scenario } from "../run";
 // (a throwaway one here, left unopened), with progress. A dmg that matches
 // the release's SHA-256 leaves quarantine (ADR 0090); one that differs is
 // deleted, and the update offered again. Once downloaded it stays downloaded,
-// and dismissing hides the pill. Offered nothing newer, Settings says Pane is
+// dismissing hides the pill, and one Pane can't install itself quits for the
+// user to (Quit and install). Offered nothing newer, Settings says Pane is
 // up to date. Nothing reaches GitHub.
 
 const VERSION = "99.0.0";
@@ -20,6 +21,23 @@ const DMG = `Pane-${VERSION}-arm64.dmg`;
 // Pane quarantines what it writes (LSFileQuarantineEnabled).
 const quarantined = (file: string) =>
 	spawnSync("xattr", ["-p", "com.apple.quarantine", file]).status === 0;
+
+// Whether the process quit within `ms`.
+async function quitWithin(pid: number, ms: number) {
+	const deadline = Date.now() + ms;
+
+	while (Date.now() < deadline) {
+		try {
+			process.kill(pid, 0);
+		} catch {
+			return true;
+		}
+
+		await Bun.sleep(100);
+	}
+
+	return false;
+}
 
 // The update's state every 25 ms for `ms`: a blink shows between samples.
 async function sample(app: PaneApp, ms: number) {
@@ -125,8 +143,7 @@ const updates: Scenario = async (context) => {
 	expect(!quarantined(dmg), "the verified dmg is still quarantined");
 	expect(downloaded.update.pill, "the pill went away while it still has news");
 
-	// A check once downloaded leaves it downloaded; the pill's click opens
-	// the dmg again rather than downloading another.
+	// A check once downloaded leaves it downloaded.
 	await app.send("checkUpdates");
 	const whileDownloaded = await sample(app, 1_200);
 
@@ -137,22 +154,29 @@ const updates: Scenario = async (context) => {
 		`the download was forgotten during a check: ${describe(whileDownloaded)}`,
 	);
 
-	await app.send("downloadUpdate");
-	await Bun.sleep(300);
-	const clickedAgain = await app.state();
-
-	expect(
-		clickedAgain.update.status === "downloaded" &&
-			readdirSync(downloads).length === 1,
-		`the click downloaded again: ${clickedAgain.update.status}, ${JSON.stringify(readdirSync(downloads))}`,
-	);
-
 	await app.send("dismissUpdate");
 	const dismissed = await app.state();
 
 	expect(!dismissed.update.pill, "dismissing did not hide the pill");
 
-	await app.browser.close();
+	// The stand-in holds no Pane to stage, so Pane installs it by hand:
+	// Quit and install (Paper 06.3.1) shows the installer and quits, and
+	// downloads nothing again.
+	expect(
+		dismissed.update.label === "Quit and install",
+		`the pill says ${dismissed.update.label}`,
+	);
+
+	const pid = app.browser.pid;
+	await app.send("downloadUpdate").catch(() => undefined);
+	const quit = await quitWithin(pid, 30_000);
+
+	expect(
+		quit && readdirSync(downloads).length === 1,
+		`Quit and install: quit ${quit}, downloads ${JSON.stringify(readdirSync(downloads))}`,
+	);
+
+	await app.browser.close().catch(() => undefined);
 
 	// A dmg that differs from the release's SHA-256 is deleted, and the
 	// update is offered again.

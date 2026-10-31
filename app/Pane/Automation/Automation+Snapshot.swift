@@ -239,6 +239,8 @@ extension Automation {
 				"progress": controller.updater.downloadProgress ?? NSNull(),
 				"eta": controller.updater.downloadETA ?? NSNull(),
 				"pill": controller.updater.showsPill,
+				// What the pill and the lock screen say.
+				"label": controller.updater.label,
 				// Staged beside the app, to install at quit (ADR 0092).
 				"installsItself": controller.updater.staged != nil,
 				"checked": controller.updater.lastCheckedAt != nil,

@@ -59,12 +59,12 @@ Implementation notes:
 
 Availability is announced, never enforced: a quiet pill in the sidebar footer and an "Updates" section in Settings — never a modal, never a forced restart. The pill is dismissible per launch per version, and reappears if a newer version ships later.
 
-Downloading fetches the dmg; once it checks out, Pane stages the new version beside itself and the pill and Settings offer Restart to update. Any quit installs it, and Restart to update quits on purpose and opens the new version. Where Pane can't replace itself (translocated, a folder its user can't write, a step that fails), the dmg opens and the user drags Pane to /Applications (ADR 0092).
+Downloading fetches the dmg; once it checks out, Pane stages the new version beside itself and the pill and Settings offer Restart to update. Any quit installs it, and Restart to update quits on purpose and opens the new version. Where Pane can't replace itself (translocated, a folder its user can't write, a copy of another identifier, a step that fails), the dmg opens, and the pill, Settings, and the lock screen offer Quit and install: the click brings the installer forward and quits Pane, and the user drags Pane to /Applications (ADR 0092, Paper 06.3.1).
 
 Implementation notes:
 
 - The pill, the Settings section, and the lock screen all read the one `Updater` (`app/Pane/Updates/Updater.swift`) — never introduce a second source of truth for update state.
-- A check never takes down what is on offer: the pill stays while it runs, and a downloaded update stays downloaded, its click restarting into it (or opening the dmg again, where Pane can't install it).
+- A check never takes down what is on offer: the pill stays while it runs, and a downloaded update stays downloaded, its click restarting into it (or, where Pane can't install it, showing the installer and quitting).
 - Dismissing the pill is in-memory only (no persistence); it resets on relaunch.
 - While it downloads, the pill's bar runs out to 7 from the pill's end, as the dot sits 7 from its start, and under the pointer draws back to about 14 from the dismiss button, within room it always keeps, so the text never moves (ADR 0093).
-- On the lock screen, the update's action (Download, then Restart) fades in beside the status under the pointer. Its width is kept on the other side too, so the status stays centred and still and no title wraps.
+- On the lock screen, the update's action (Download, then Restart, or Quit where Pane can't install it) fades in beside the status under the pointer. Its width is kept on the other side too, so the status stays centred and still and no title wraps.

@@ -97,6 +97,8 @@ export type UpdateState = {
 	progress: number | null;
 	eta: number | null;
 	pill: boolean;
+	// What the pill and the lock screen say.
+	label: string;
 	checked: boolean;
 	// The downloaded update, staged beside the app to install at quit (ADR 0092).
 	installsItself: boolean;

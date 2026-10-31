@@ -162,9 +162,10 @@ final class Updater {
 		dismissedVersion = available?.version
 	}
 
-	// The pill's click and Settings' Download update: downloads the dmg, or
-	// opens it again once downloaded. A failure returns to available, so the
-	// user can try again from the same place.
+	// The pill's click and Settings' Download update: downloads the dmg;
+	// once downloaded, restarts into it, or, where Pane can't install it
+	// itself, quits for the user to (quitAndInstall). A failure returns to
+	// available, so the user can try again from the same place.
 	func downloadUpdate() {
 		if status == .downloaded, staged != nil {
 			restartToUpdate()
@@ -173,7 +174,7 @@ final class Updater {
 		}
 
 		if status == .downloaded, let file = downloaded?.file, FileManager.default.fileExists(atPath: file.path) {
-			open(file)
+			quitAndInstall(file)
 
 			return
 		}
@@ -258,6 +259,15 @@ final class Updater {
 		NSApp.terminate(nil)
 	}
 
+	// An update Pane can't install itself (a copy of another identifier, a
+	// Pane outside a folder it can write; Paper 06.3.1): its installer comes
+	// forward, and Pane quits, as the copy in Applications can only be
+	// replaced once it has. The user drags the new one in.
+	private func quitAndInstall(_ file: URL) {
+		open(file)
+		NSApp.terminate(nil)
+	}
+
 	// At every quit (AppDelegate), a staged update swaps in. A swap macOS
 	// refuses leaves this app as it was, and the dmg opens instead.
 	func installAtQuit() {
@@ -287,7 +297,7 @@ final class Updater {
 	var label: String {
 		switch status {
 		case .downloading: "Downloading update"
-		case .downloaded: staged == nil ? "Downloaded, quit to install" : "Restart to update"
+		case .downloaded: staged == nil ? "Quit and install" : "Restart to update"
 		default: "Update available"
 		}
 	}

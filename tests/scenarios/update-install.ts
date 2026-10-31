@@ -74,6 +74,12 @@ const updateInstall: Scenario = async (context) => {
 			"a dmg holding another version was staged",
 		);
 
+		// Pane can't install it itself: it says how (Paper 06.3.1).
+		expect(
+			mismatched.update.label === "Quit and install",
+			`the pill says ${mismatched.update.label}`,
+		);
+
 		expect(
 			leftovers(restart.bundle).length === 0,
 			`a mismatched dmg left ${leftovers(restart.bundle).join(", ")}`,
@@ -155,6 +161,23 @@ const updateInstall: Scenario = async (context) => {
 		expect(
 			leftovers(quit.bundle).length === 0,
 			`left beside the app: ${leftovers(quit.bundle).join(", ")}`,
+		);
+
+		// One Pane can't install itself: Quit and install shows the installer
+		// (opened here by no one, PANE_UPDATE_OPEN=0) and quits, the copy as
+		// it was, for the user to drag the new one in.
+		offer = dmgs.mismatched;
+		const byHand = await launchCopy(context, `${origin}/releases/latest`);
+		const before = version(byHand.bundle);
+		await download(byHand.app);
+		const byHandPid = byHand.app.browser.pid;
+		await byHand.app.send("downloadUpdate").catch(() => undefined);
+		await exited(byHandPid);
+
+		expect(
+			version(byHand.bundle) === before &&
+				!existsSync(join(byHand.app.dataDir, "reopened")),
+			`Quit and install left ${version(byHand.bundle)}, reopened: ${existsSync(join(byHand.app.dataDir, "reopened"))}`,
 		);
 
 		return {

@@ -235,9 +235,10 @@ private struct UpdateRow: View {
 			if updater.available != nil {
 				Button(downloadLabel) { updater.downloadUpdate() }
 					.buttonStyle(.pane(.outline, size: .small))
-					// Staged, it restarts into the update (ADR 0092); otherwise the
-					// dmg is open for the user to drag.
-					.disabled(updater.status == .downloading || (updater.status == .downloaded && updater.staged == nil))
+					// Staged, it restarts into the update (ADR 0092); otherwise it
+					// shows the installer and quits, for the user to drag Pane in
+					// (Paper 06.3.1).
+					.disabled(updater.status == .downloading)
 					.accessibilityIdentifier("pane.settings.downloadUpdate")
 			} else {
 				Button(updater.status == .checking ? "Checking\u{2026}" : "Check for updates") {
@@ -254,9 +255,11 @@ private struct UpdateRow: View {
 
 	private var status: String {
 		if let available = updater.available {
-			return updater.status == .downloaded && updater.staged != nil
-				? "Version \(available.version) is ready. Pane restarts into it."
-				: "Version \(available.version) is available."
+			switch (updater.status, updater.staged) {
+			case (.downloaded, .some): return "Version \(available.version) is ready. Pane restarts into it."
+			case (.downloaded, .none): return "Version \(available.version) is downloaded. It installs by hand."
+			default: return "Version \(available.version) is available."
+			}
 		}
 
 		if let checked = updater.lastCheckedAt {
@@ -273,7 +276,7 @@ private struct UpdateRow: View {
 			let eta = updater.downloadETA.map { " \u{00B7} \(Updates.formatETA(seconds: $0))" } ?? ""
 			return "Downloading\u{2026} \(percent)%\(eta)"
 		case .downloaded:
-			return updater.staged == nil ? "Downloaded, quit to install" : "Restart to update"
+			return updater.label
 		default:
 			return "Download update"
 		}

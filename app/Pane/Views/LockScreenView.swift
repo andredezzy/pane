@@ -149,7 +149,7 @@ private struct DataMove: View {
 
 // The dot, the status, the download's bar and time left, and under the
 // pointer the update's action: Download while it waits, Restart once it is
-// staged. The action fades in beside the status, and its width is kept on the
+// staged, Quit where Pane can't install it itself (Paper 06.3.1). The action fades in beside the status, and its width is kept on the
 // other side too, so the status stays centred and still and nothing wraps.
 // (It grew from no width, and its title wrapped and sat low as it did.)
 private struct LockUpdateStatus: View {
@@ -161,6 +161,8 @@ private struct LockUpdateStatus: View {
 		switch updater.status {
 		case .available: ("Download", "pane.lockScreen.downloadUpdate", updater.downloadUpdate)
 		case .downloaded where updater.staged != nil: ("Restart", "pane.lockScreen.restartToUpdate", updater.restartToUpdate)
+		// Quit and install (Paper 06.3.1): the installer, then Pane quits.
+		case .downloaded: ("Quit", "pane.lockScreen.quitAndInstall", updater.downloadUpdate)
 		default: nil
 		}
 	}
