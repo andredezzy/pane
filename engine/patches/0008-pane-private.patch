@@ -1,8 +1,19 @@
 diff --git a/chrome/app/chrome_main_delegate.cc b/chrome/app/chrome_main_delegate.cc
-index 0447c4084b..4bcd0e99d0 100644
+index 0447c4084b..abe3298849 100644
 --- a/chrome/app/chrome_main_delegate.cc
 +++ b/chrome/app/chrome_main_delegate.cc
-@@ -1502,6 +1502,15 @@ void ChromeMainDelegate::InitMacCrashReporter(
+@@ -929,7 +929,9 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
+   // cannot be scheduled immediately after InstantiatePersistentHistograms()
+   // because ThreadPool is not ready at that time yet.
+   base::FilePath metrics_dir;
+-  if (base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
++  // Pane: no spare histogram file either (SandboxInitialized).
++  if (!base::CommandLine::ForCurrentProcess()->HasSwitch("pane-hosted") &&
++      base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
+     PersistentHistogramsCleanup(metrics_dir);
+   }
+ 
+@@ -1502,6 +1504,15 @@ void ChromeMainDelegate::InitMacCrashReporter(
    // dylib is even loaded, to catch potential early crashes.
  
    const bool browser_process = process_type.empty();
@@ -18,6 +29,20 @@ index 0447c4084b..4bcd0e99d0 100644
    const bool install_from_dmg_relauncher_process =
        process_type == switches::kRelauncherProcess &&
        command_line.HasSwitch(switches::kRelauncherProcessDMGDevice);
+@@ -1770,7 +1781,12 @@ void ChromeMainDelegate::SandboxInitialized(const std::string& process_type) {
+   // `kPersistentHistogramsStorage` will not be used. Persist histograms to a
+   // memory-mapped file.
+ #if !defined(BUILDING_CHROME_RENDERER)
+-  if (process_type.empty() && !headless::IsHeadlessMode()) {
++  // Pane: no histograms on disk. BrowserMetrics, at the user data dir's root
++  // and outside the encrypted data, counted the pages loaded and the tabs
++  // open for metrics Pane never sends; set up here before the features are
++  // read, --disable-features=PersistentHistograms never reached it.
++  if (process_type.empty() && !headless::IsHeadlessMode() &&
++      !base::CommandLine::ForCurrentProcess()->HasSwitch("pane-hosted")) {
+     base::FilePath metrics_dir;
+     if (base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
+ #if BUILDFLAG(IS_ANDROID)
 diff --git a/components/services/quarantine/quarantine_mac.mm b/components/services/quarantine/quarantine_mac.mm
 index a393f9185c..5b1083ef63 100644
 --- a/components/services/quarantine/quarantine_mac.mm

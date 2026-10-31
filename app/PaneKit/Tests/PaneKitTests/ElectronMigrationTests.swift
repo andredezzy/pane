@@ -231,4 +231,27 @@ struct ElectronMigrationTests {
 
 		#expect(try ElectronMigration.run(from: source, into: data) == .notNeeded)
 	}
+
+	@Test("a record from before extensions stayed behind is written again without them")
+	func dropsPendingExtensions() throws {
+		let data = FileManager.default.temporaryDirectory.appending(path: "pane-record-\(UUID().uuidString)")
+		try FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
+		defer { try? FileManager.default.removeItem(at: data) }
+		let url = data.appending(path: "migration.json")
+		let old = #"{"state":{"source":"/x/@pane/veil","migratedAt":"2026-10-28T00:00:00Z","profiles":["a"],"pendingExtensions":{"a":["cjpalhdlnbpafiamejdnhcphjbkeiagm"]}},"version":0}"#
+		try Data(old.utf8).write(to: url)
+
+		try ElectronMigration.dropPendingExtensions(data: data)
+		let written = try String(contentsOf: url, encoding: .utf8)
+		#expect(!written.contains("pendingExtensions") && !written.contains("cjpalhdlnbpafiamejdnhcphjbkeiagm"))
+
+		let record = try PersistedFile<ElectronMigration.Record>(directory: data, name: "migration").load()
+		#expect(record?.profiles == ["a"] && record?.source == "/x/@pane/veil")
+
+		// A record without them is left as it is.
+		let before = try Data(contentsOf: url)
+		try ElectronMigration.dropPendingExtensions(data: data)
+		#expect(try Data(contentsOf: url) == before)
+	}
+
 }

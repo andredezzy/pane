@@ -11,7 +11,7 @@ What changes:
 - **No crash handler** (patch 0008, `InitMacCrashReporter`): Crashpad's minidumps held the page's address (`url-chunk`), in its database under Chromium's default user data dir (`~/Library/Application Support/Chromium/Crashpad`), outside the volume and the panic wipe. macOS's own crash reports, which name no page, stay.
 - **Downloads keep their quarantine and no address** (patch 0008, `quarantine_mac.mm`): Chromium wrote the file's and the page's URLs into `kMDItemWhereFroms`, which Spotlight indexes and Get Info shows, and into the quarantine's properties.
 - **Local State keeps no time of use** (PaneKit `LocalState`, at launch and now at quit, after Chromium writes it): each profile's `active_time` and the tab counts (`tab_stats`) go, and Default is named as used last.
-- **No persistent histograms** (`PersistentHistograms` off): `BrowserMetrics` kept counts of the pages loaded and the tabs open, for metrics Pane never sends.
+- **No persistent histograms** (`PersistentHistograms` off): `BrowserMetrics` kept counts of the pages loaded and the tabs open, for metrics Pane never sends. (The flag never reached them, set up before the features are read: ADR 0118 turns them off in patch 0008.)
 - **An earlier Pane's URL session caches go** (`BundleIdentifier.removeSessionCaches`): 0.13's update check kept its responses in `Cache.db` and `fsCachedData`, and its HTTP storage, under either identifier.
 - **The data root and its caches are the user's alone** (0700, `main.swift`): other accounts on the Mac listed them at 0755.
 

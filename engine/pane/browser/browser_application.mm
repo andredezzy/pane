@@ -264,9 +264,8 @@ class ProfileDestructionWaiter : public ProfileObserver,
   // makes, which Pane does not show.
   AddToSwitchList(args, "disable-features",
                   "SegmentationPlatform,SegmentationPlatformUkmEngine");
-  // Nor its histograms, kept in BrowserMetrics at the same root for metrics
-  // Pane never sends: counts of the pages loaded and the tabs open.
-  AddToSwitchList(args, "disable-features", "PersistentHistograms");
+  // Its histograms (BrowserMetrics) Chrome sets up before it reads the
+  // features: patch 0008 keeps them off.
   // Chrome discards background tabs under memory pressure (its urgent
   // discarding), swapping an empty WebContents into the tab. Pane's sleep
   // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard

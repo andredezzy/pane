@@ -85,4 +85,42 @@ public enum BundleIdentifier {
 
 		return failures
 	}
+
+	// The user's cache folder (DARWIN_USER_CACHE_DIR, under /var/folders),
+	// which the system names for each app: HOME does not move it.
+	public static var userCacheDirectory: URL? {
+		let length = confstr(_CS_DARWIN_USER_CACHE_DIR, nil, 0)
+
+		guard length > 0 else {
+			return nil
+		}
+
+		var buffer = [CChar](repeating: 0, count: length)
+
+		guard confstr(_CS_DARWIN_USER_CACHE_DIR, &buffer, length) > 0 else {
+			return nil
+		}
+
+		return URL(fileURLWithPath: String(decoding: buffer.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), as: UTF8.self), isDirectory: true)
+	}
+
+	// What the system kept there for the former identifier, which nothing
+	// reads now: its URL sessions' responses (Cache.db, fsCachedData, 0.13's
+	// update check among them) and its helpers' shader caches (ADR 0118).
+	public static func removeFormerUserCaches(userCaches: URL, former: String = former) -> [String] {
+		[former, "\(former).helper"].compactMap { name in
+			let folder = userCaches.appending(path: name, directoryHint: .isDirectory)
+
+			guard FileManager.default.fileExists(atPath: folder.path) else {
+				return nil
+			}
+
+			do {
+				try FileManager.default.removeItem(at: folder)
+				return nil
+			} catch {
+				return "\(folder.path): \(error)"
+			}
+		}
+	}
 }

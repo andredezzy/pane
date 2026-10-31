@@ -119,3 +119,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0115](0115-nothing-outside-the-volume-names-a-page.md) Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
 - [0116](0116-pane-locks-while-open.md) Pane locks while open: on command, when the Mac sleeps or locks, and after a time without use
 - [0117](0117-an-update-pane-cant-install-says-quit-and-install.md) An update Pane can't install itself says Quit and install, and its click quits
+- [0118](0118-the-at-rest-audit-of-0-15-1.md) What the at-rest audit of 0.15.1 found, and what Pane erases at launch

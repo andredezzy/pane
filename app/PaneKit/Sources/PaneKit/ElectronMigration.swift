@@ -82,6 +82,28 @@ public enum ElectronMigration {
 
 	public static let recordName = "migration"
 
+	// A record from before extensions stayed behind still lists them as
+	// pendingExtensions, which nothing reads: the extensions each profile
+	// had, in the clear beside the sealed profiles. Written again without
+	// them (ADR 0118).
+	public static func dropPendingExtensions(data: URL) throws {
+		let raw = try? Data(contentsOf: data.appending(path: "\(recordName).json"))
+
+		guard
+			let raw,
+			let object = try? JSONSerialization.jsonObject(with: raw) as? [String: Any],
+			(object["state"] as? [String: Any])?["pendingExtensions"] != nil
+		else {
+			return
+		}
+
+		let file = PersistedFile<Record>(directory: data, name: recordName)
+
+		if let record = try file.load() {
+			try file.save(record)
+		}
+	}
+
 	// What a profile's partition holds that a browser cache can rebuild: not
 	// worth copying.
 	static let caches: Set<String> = [

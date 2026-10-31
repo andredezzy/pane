@@ -31,6 +31,12 @@ for failure in BundleIdentifier.removeSessionCaches(library: FileManager.default
 	Log.app.error("Could not remove an earlier Pane's session caches: \(failure, privacy: .private)")
 }
 
+// And what the system kept for the former identifier in the user's cache
+// folder (ADR 0118).
+for failure in BundleIdentifier.userCacheDirectory.map({ BundleIdentifier.removeFormerUserCaches(userCaches: $0) }) ?? [] {
+	Log.app.error("Could not remove an earlier Pane's caches: \(failure, privacy: .private)")
+}
+
 for directory in [dataDirectory, AppLock.cacheDirectory(for: dataDirectory)].compactMap(\.self) {
 	try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 	chmod(directory.path, 0o700)
@@ -62,6 +68,12 @@ let electron = TestHooks.environment("PANE_ELECTRON_DATA_DIR").map { ElectronMig
 	?? ElectronMigration.defaultSource(applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
 
 LaunchMigration.run(from: electron, into: dataDirectory)
+
+do {
+	try ElectronMigration.dropPendingExtensions(data: dataDirectory)
+} catch {
+	Log.migration.error("Could not write the migration record again: \(String(describing: error), privacy: .private)")
+}
 
 // Chromium opens the profile it used last at startup, before the PIN: never
 // one of Pane's, whose data is in the volume the data key opens (ADR 0113).

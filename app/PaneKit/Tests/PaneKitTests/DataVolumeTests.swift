@@ -110,16 +110,27 @@ struct DataVolumeTests {
 		#expect(!fileManager.fileExists(atPath: volume.folder(profile: "p").appending(path: "Profile/Partial").path))
 	}
 
-	@Test("an earlier engine's database of the pages visited is staged for the erase")
+	@Test("an earlier engine's database of the pages visited, and its histograms, are staged for the erase")
 	func engineTraces() throws {
 		let root = try root()
 		defer { try? fileManager.removeItem(at: root) }
 		let traces = root.appending(path: "Engine/segmentation_platform/ukm_db")
 		try fileManager.createDirectory(at: traces, withIntermediateDirectories: true)
 		try Data("https://mail.example.com/".utf8).write(to: traces.appending(path: "000003.log"))
+		let metrics = root.appending(path: "Engine/BrowserMetrics")
+		try fileManager.createDirectory(at: metrics, withIntermediateDirectories: true)
+		try Data(count: 4096).write(to: metrics.appending(path: "BrowserMetrics-6A1B2C3D-6C80.pma"))
+		try Data(count: 4096).write(to: root.appending(path: "Engine/BrowserMetrics-spare.pma"))
+		try fileManager.createDirectory(at: root.appending(path: "Engine/GraphiteDawnCache"), withIntermediateDirectories: true)
 
 		#expect(PanicWipe.stageEngineTraces(dataDirectory: root).isEmpty)
-		#expect(!fileManager.fileExists(atPath: root.appending(path: "Engine/segmentation_platform").path))
+
+		for trace in ["segmentation_platform", "BrowserMetrics", "BrowserMetrics-spare.pma"] {
+			#expect(!fileManager.fileExists(atPath: root.appending(path: "Engine/\(trace)").path), "\(trace) stayed")
+		}
+
+		// The GPU's shader caches are not the user's, and stay.
+		#expect(fileManager.fileExists(atPath: root.appending(path: "Engine/GraphiteDawnCache").path))
 		#expect(PanicWipe.staged(dataDirectory: root, cacheDirectory: nil).count == 1)
 		#expect(PanicWipe.eraseStaged(dataDirectory: root, cacheDirectory: nil).isEmpty)
 		// Nothing to stage the next time.
@@ -213,6 +224,24 @@ struct BundleIdentifierTests {
 
 @Suite("Session caches")
 struct SessionCachesTests {
+	@Test("the former identifier's folders in the user's cache folder go, and nothing else there")
+	func formerUserCaches() throws {
+		let fileManager = FileManager.default
+		let caches = fileManager.temporaryDirectory.appending(path: "pane-user-caches-\(UUID().uuidString)")
+		defer { try? fileManager.removeItem(at: caches) }
+
+		for name in ["pane-old", "pane-old.helper", "pane-new", "pane-new.helper"] {
+			try fileManager.createDirectory(at: caches.appending(path: "\(name)/fsCachedData"), withIntermediateDirectories: true)
+			try Data("db".utf8).write(to: caches.appending(path: "\(name)/Cache.db"))
+		}
+
+		#expect(BundleIdentifier.removeFormerUserCaches(userCaches: caches, former: "pane-old").isEmpty)
+		#expect(try fileManager.contentsOfDirectory(atPath: caches.path).sorted() == ["pane-new", "pane-new.helper"])
+		// Nothing left to remove the next time.
+		#expect(BundleIdentifier.removeFormerUserCaches(userCaches: caches, former: "pane-old").isEmpty)
+		#expect(BundleIdentifier.userCacheDirectory?.lastPathComponent == "C")
+	}
+
 	@Test("an earlier Pane's URL session caches go, under either identifier, and nothing else of its folders")
 	func removed() throws {
 		let fileManager = FileManager.default

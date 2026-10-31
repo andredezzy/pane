@@ -1,9 +1,11 @@
 import {
 	chmodSync,
 	existsSync,
+	mkdirSync,
 	readdirSync,
 	readFileSync,
 	statSync,
+	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { $ } from "bun";
@@ -16,12 +18,47 @@ import { expect, type Scenario } from "../run";
 // keeps its quarantine and no address: Chromium wrote the page and the file's
 // URLs into kMDItemWhereFroms, which Spotlight indexes. After a quit, Local
 // State names no profile of Pane's as used last, and keeps no time of use.
-// The data root is the user's alone, where it was 0755.
+// The data root is the user's alone, where it was 0755. The engine keeps no
+// histograms (BrowserMetrics), which counted the pages loaded and the tabs
+// open, and the extensions an earlier migration record listed go at launch
+// (ADR 0118).
+// What Chrome keeps of its histograms at the engine's root.
+const histogramFiles = (engine: string) =>
+	["BrowserMetrics", "BrowserMetrics-spare.pma", "DeferredBrowserMetrics"]
+		.filter((name) => existsSync(join(engine, name)))
+		.flatMap((name) =>
+			statSync(join(engine, name)).isDirectory()
+				? readdirSync(join(engine, name)).map((file) => `${name}/${file}`)
+				: [name],
+		);
+
 const privateTraces: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-traces-");
 	chmodSync(dataDir, 0o755);
 
+	// A record 0.15.1 and before left, listing the extensions each profile
+	// had. Their histograms are not seeded: Chrome, finding some, empties the
+	// folder, its own file too (PaneKit's tests erase them).
+	const engine = join(dataDir, "Engine");
+	mkdirSync(dataDir, { recursive: true });
+
+	writeFileSync(
+		join(dataDir, "migration.json"),
+		JSON.stringify({
+			state: {
+				source: "/nowhere/@pane/veil",
+				migratedAt: "2026-10-28T00:00:00Z",
+				profiles: [],
+				pendingExtensions: { a: ["cjpalhdlnbpafiamejdnhcphjbkeiagm"] },
+			},
+			version: 0,
+		}),
+	);
+
 	const app = await launchPane(context, { dataDir });
+	// Chrome makes the histograms' file as it starts, and may delete it a
+	// few seconds on: it is looked for at once, and again before the quit.
+	const histogramsAtLaunch = histogramFiles(engine);
 	const home = join(dataDir, "home");
 	const profile = await app.createProfile("Traces");
 
@@ -62,6 +99,10 @@ const privateTraces: Scenario = async (context) => {
 	// Long enough for a crash handler to have written its dump, were there
 	// one.
 	await Bun.sleep(2_000);
+
+	// And while Pane runs: Chrome deletes it at some quits and not at
+	// others.
+	const histogramsWhileOpen = histogramFiles(engine);
 	await app.browser.close();
 
 	const dumps = (
@@ -100,6 +141,17 @@ const privateTraces: Scenario = async (context) => {
 		).length,
 		tabStats: localState.tab_stats !== undefined,
 		dataRootMode: (statSync(dataDir).mode & 0o777).toString(8),
+		histograms: [
+			...new Set([
+				...histogramsAtLaunch,
+				...histogramsWhileOpen,
+				...histogramFiles(engine),
+			]),
+		],
+		pendingExtensions: readFileSync(
+			join(dataDir, "migration.json"),
+			"utf8",
+		).includes("pendingExtensions"),
 	};
 
 	expect(
@@ -120,6 +172,11 @@ const privateTraces: Scenario = async (context) => {
 	expect(
 		traces.dataRootMode === "700",
 		`the data root is ${traces.dataRootMode}`,
+	);
+
+	expect(
+		traces.histograms.length === 0 && !traces.pendingExtensions,
+		`histograms ${JSON.stringify(traces.histograms)}, pending extensions ${traces.pendingExtensions}`,
 	);
 
 	return traces;
