@@ -62,7 +62,10 @@ const sleep: Scenario = async (context) => {
 		context.fixtures.url("nav-a.html?background"),
 	);
 
+	// a3 opens selected, which starts a1's clock. Timed from a2, most of a
+	// second later, the check passed or failed on where the ticks fell.
 	const a3 = await app.openTab(a, context.fixtures.url("nav-a.html?devtools"));
+	const backgrounded = Date.now();
 
 	await app.waitFor(
 		"a3 loaded",
@@ -91,7 +94,6 @@ const sleep: Scenario = async (context) => {
 	);
 
 	const a2 = await app.openTab(a, context.fixtures.url("nav-a.html?selected"));
-	const backgrounded = Date.now();
 
 	const slept = await app.waitFor(
 		"a1 asleep",

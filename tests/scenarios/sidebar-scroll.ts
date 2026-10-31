@@ -1,5 +1,6 @@
 import { isScreenLocked } from "../lib/cua";
 import { launchPane } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
@@ -47,7 +48,6 @@ const sidebarScroll: Scenario = async (context) => {
 		return top >= listTop && top + height <= listTop + listHeight;
 	};
 
-	// Once the selection has moved and the list has scrolled to it.
 	const select = async (tabID: string) => {
 		await app.send("select", { tab: tabID });
 
@@ -55,25 +55,35 @@ const sidebarScroll: Scenario = async (context) => {
 			"the tab selected",
 			(state) => state.activeTabID === tabID,
 		);
+	};
 
-		await Bun.sleep(700);
+	// The frames once the list shows the tab's row whole and holds still, two
+	// reads alike: it scrolls with an animation.
+	const inView = (tabID: string, description: string) => {
+		let previous = "";
 
-		return frames();
+		return poll(description, async () => {
+			const seen = await frames();
+			const read = JSON.stringify(seen);
+			const settled = read === previous && shows(seen, tabID);
+			previous = read;
+
+			return settled && seen;
+		});
 	};
 
 	// The last tab, opened last, is selected at the list's end.
-	await Bun.sleep(700);
-	const opened = await frames();
-
-	expect(shows(opened, last), "the last tab opened is out of view");
+	const opened = await inView(last, "the last tab opened, in view");
 	expect(!shows(opened, first), "the list is short enough to show every tab");
 
 	// The first tab, chosen away from the sidebar: the list scrolls up to it.
-	const up = await select(first);
-	expect(shows(up, first), "the first tab, selected, stayed out of view");
+	await select(first);
+	const up = await inView(first, "the first tab, selected, in view");
 
 	// A tab in view: the list holds still.
-	const still = await select(second);
+	await select(second);
+	await Bun.sleep(700);
+	const still = await frames();
 
 	expect(
 		still[`pane.tab.${first}`]?.[1] === up[`pane.tab.${first}`]?.[1],
@@ -91,11 +101,8 @@ const sidebarScroll: Scenario = async (context) => {
 		(state) => state.activeTabID === last,
 	);
 
-	await Bun.sleep(700);
-	const switched = await frames();
+	await inView(last, "the switcher's tab, in view");
 	const chosen = last;
-
-	expect(shows(switched, last), "the switcher's tab stayed out of view");
 
 	return {
 		lastOpened: opened[`pane.tab.${last}`],
