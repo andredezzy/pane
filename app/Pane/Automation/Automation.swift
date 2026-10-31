@@ -2,7 +2,8 @@ import AppKit
 import PaneCore
 import PaneKit
 
-// A test-only command channel, on when PANE_AUTOMATION_DIR is set: the
+// A test-only command channel, on when PANE_AUTOMATION_DIR is set in a
+// scenario's run, on the mock keychain (TestHooks), never otherwise: the
 // scenario runner drops JSON commands into `<dir>/in/<n>.json` and reads the
 // result, with a snapshot of the app's state, from `<dir>/out/<n>.json`.
 // Its commands call the controller's intents and actions, the ones the UI

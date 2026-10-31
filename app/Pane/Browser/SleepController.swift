@@ -10,7 +10,7 @@ import PaneKit
 final class SleepController {
 	// Debug only: PANE_TIME_SCALE=60 makes a minute pass every second, for the
 	// sleep scenario.
-	private static let timeScale = ProcessInfo.processInfo.environment["PANE_TIME_SCALE"]
+	private static let timeScale = TestHooks.environment("PANE_TIME_SCALE")
 		.flatMap(Double.init).map { max($0, 1) } ?? 1
 
 	private unowned let controller: BrowserController

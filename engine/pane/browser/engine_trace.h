@@ -17,6 +17,11 @@ namespace pane {
 // Without the variable, tracing costs one branch: call sites go through
 // PANE_TRACE (or test IsTracing() themselves), which builds a line's
 // arguments only while tracing.
+// A scenario's launch (the mock keychain) allows the trace, which names the
+// pages: before the first trace call, since Chrome's command line is not
+// there yet.
+void AllowTracing();
+
 bool IsTracing();
 
 void Trace(std::string_view kind,

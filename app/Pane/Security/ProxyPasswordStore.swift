@@ -25,7 +25,7 @@ struct ProxyPasswordStore: Sendable {
 		let path = dataDirectory.standardizedFileURL.path
 		let former = dataDirectory.deletingLastPathComponent().appending(path: BundleIdentifier.former).standardizedFileURL.path
 		accounts = dataDirectory.lastPathComponent == BundleIdentifier.pane ? [path, former] : [path]
-		mock = CommandLine.arguments.contains("--use-mock-keychain")
+		mock = TestHooks.enabled
 			? PersistedFile(directory: dataDirectory, name: "mock-keychain")
 			: nil
 		sealed = PersistedFile(directory: dataDirectory, name: "proxy-passwords")

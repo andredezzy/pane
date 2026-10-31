@@ -138,17 +138,22 @@ struct DataVolumeTests {
 
 @Suite("LocalState")
 struct LocalStateTests {
-	@Test("the engine starts on its Default profile, with no profile of Pane's open last")
+	@Test("the engine starts on its Default profile, with no profile of Pane's open last, and keeps no time of use")
 	func startsOnDefault() throws {
-		let state = #"{"profile":{"last_used":"0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e","last_active_profiles":["0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e"],"info_cache":{"Default":{"name":"Person 1"}}},"browser":{"enabled_labs_experiments":[]},"profile_counts_reported":"13437866866342267"}"#
+		let state = #"{"profile":{"last_used":"0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e","last_active_profiles":["0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e"],"info_cache":{"Default":{"name":"Person 1"},"0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e":{"name":"Person 2","active_time":1793000000.5}}},"tab_stats":{"max_tabs_per_window":21},"browser":{"enabled_labs_experiments":[]},"profile_counts_reported":"13437866866342267"}"#
 		let changed = try #require(try LocalState.startingOnDefaultProfile(Data(state.utf8)))
 		let json = try #require(try JSONSerialization.jsonObject(with: changed) as? [String: Any])
 		let profile = try #require(json["profile"] as? [String: Any])
 
 		#expect(profile["last_used"] as? String == "Default")
 		#expect((profile["last_active_profiles"] as? [Any])?.isEmpty == true)
+		// No time or count of use, outside the volume.
+		let profiles = try #require(profile["info_cache"] as? [String: Any])
+		#expect((profiles["0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e"] as? [String: Any])?["active_time"] == nil)
+		#expect(json["tab_stats"] == nil)
 		// Nothing else changes.
-		#expect((profile["info_cache"] as? [String: Any])?["Default"] != nil)
+		#expect((profiles["Default"] as? [String: Any])?["name"] as? String == "Person 1")
+		#expect((profiles["0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e"] as? [String: Any])?["name"] as? String == "Person 2")
 		#expect(json["profile_counts_reported"] as? String == "13437866866342267")
 		#expect(json["browser"] != nil)
 
@@ -173,6 +178,13 @@ struct BundleIdentifierTests {
 			try? fileManager.removeItem(at: root)
 			defaults.removePersistentDomain(forName: former)
 			defaults.removePersistentDomain(forName: current)
+
+			// cfprefsd leaves each emptied domain's file behind.
+			let preferences = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0].appending(path: "Preferences")
+
+			for name in [former, current] {
+				try? fileManager.removeItem(at: preferences.appending(path: "\(name).plist"))
+			}
 		}
 
 		let support = root.appending(path: "Application Support")
@@ -196,6 +208,34 @@ struct BundleIdentifierTests {
 		try fileManager.createDirectory(at: support.appending(path: former), withIntermediateDirectories: true)
 		#expect(move().isEmpty)
 		#expect(fileManager.fileExists(atPath: support.appending(path: former).path))
+	}
+}
+
+@Suite("Session caches")
+struct SessionCachesTests {
+	@Test("an earlier Pane's URL session caches go, under either identifier, and nothing else of its folders")
+	func removed() throws {
+		let fileManager = FileManager.default
+		let library = fileManager.temporaryDirectory.appending(path: "pane-library-\(UUID().uuidString)")
+		defer { try? fileManager.removeItem(at: library) }
+
+		for identifier in ["pane-a", "pane-b"] {
+			let caches = library.appending(path: "Caches/\(identifier)")
+			try fileManager.createDirectory(at: caches.appending(path: "fsCachedData"), withIntermediateDirectories: true)
+			try fileManager.createDirectory(at: caches.appending(path: "Engine"), withIntermediateDirectories: true)
+			try Data("db".utf8).write(to: caches.appending(path: "Cache.db"))
+			try fileManager.createDirectory(at: library.appending(path: "HTTPStorages/\(identifier)"), withIntermediateDirectories: true)
+		}
+
+		#expect(BundleIdentifier.removeSessionCaches(library: library, identifiers: ["pane-a", "pane-b"]).isEmpty)
+
+		for identifier in ["pane-a", "pane-b"] {
+			let caches = library.appending(path: "Caches/\(identifier)")
+			#expect(!fileManager.fileExists(atPath: caches.appending(path: "Cache.db").path))
+			#expect(!fileManager.fileExists(atPath: caches.appending(path: "fsCachedData").path))
+			#expect(!fileManager.fileExists(atPath: library.appending(path: "HTTPStorages/\(identifier)").path))
+			#expect(fileManager.fileExists(atPath: caches.appending(path: "Engine").path))
+		}
 	}
 }
 

@@ -7,14 +7,14 @@ import os
 // thread and returns only at shutdown. Nothing may touch NSApplication before
 // it, because the engine creates the shared application itself.
 let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-let dataDirectory = ProcessInfo.processInfo.environment["PANE_DATA_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+let dataDirectory = TestHooks.environment("PANE_DATA_DIR").map { URL(fileURLWithPath: $0, isDirectory: true) }
 	?? applicationSupport.appendingPathComponent(BundleIdentifier.pane, isDirectory: true)
 
 // An earlier Pane's data, under its former identifier's folders, moves to this
 // one's before anything reads it (ADR 0114). Scenarios name their own data, or
 // a home of their own (CFFIXED_USER_HOME), whose preferences are still the
 // user's: those stay.
-if ProcessInfo.processInfo.environment["PANE_DATA_DIR"] == nil {
+if TestHooks.environment("PANE_DATA_DIR") == nil {
 	for failure in BundleIdentifier.moveFormerData(
 		applicationSupport: applicationSupport,
 		caches: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0],
@@ -22,6 +22,18 @@ if ProcessInfo.processInfo.environment["PANE_DATA_DIR"] == nil {
 	) {
 		Log.app.error("Could not move an earlier Pane's data: \(failure, privacy: .private)")
 	}
+}
+
+// What an earlier Pane's URL sessions kept in the clear goes (ADR 0113), and
+// the data and its caches are the user's alone: other accounts on this Mac
+// read them at 0755.
+for failure in BundleIdentifier.removeSessionCaches(library: FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]) {
+	Log.app.error("Could not remove an earlier Pane's session caches: \(failure, privacy: .private)")
+}
+
+for directory in [dataDirectory, AppLock.cacheDirectory(for: dataDirectory)].compactMap(\.self) {
+	try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+	chmod(directory.path, 0o700)
 }
 
 // Pane restores its own session (profiles.json), so AppKit's window
@@ -46,7 +58,7 @@ AppLock.wipeAtLaunch(dataDirectory)
 
 // The first launch after the Electron app brings its data over, from a copy
 // (LaunchMigration), before anything here reads the data directory.
-let electron = ProcessInfo.processInfo.environment["PANE_ELECTRON_DATA_DIR"].map { ElectronMigration.Source(directory: URL(fileURLWithPath: $0, isDirectory: true)) }
+let electron = TestHooks.environment("PANE_ELECTRON_DATA_DIR").map { ElectronMigration.Source(directory: URL(fileURLWithPath: $0, isDirectory: true)) }
 	?? ElectronMigration.defaultSource(applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
 
 LaunchMigration.run(from: electron, into: dataDirectory)

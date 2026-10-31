@@ -1,5 +1,7 @@
 # Scenarios drive the app through a test-only automation channel
 
+> **Narrowed by [ADR 0115](0115-nothing-outside-the-volume-names-a-page.md)**: the channel opens only in a scenario's launch, on the mock keychain (`TestHooks`), where none of the user's data opens; a process of the user's starting Pane with `PANE_AUTOMATION_DIR` had read every tab of a launch without a PIN.
+
 Scenarios drive the app through an automation channel that exists only when `PANE_AUTOMATION_DIR` is set, so they exercise the app's own paths while a shipped Pane carries none of it. The runner drops JSON commands into `<dir>/in/`, and the app replies, with a snapshot of its state, in `<dir>/out/`. Commands call the same intents and actions the UI calls (ADR 0078). Key presses are real `NSEvent`s posted to the app's event queue, so they go through the key monitor (ADR 0079) and menu key equivalents as typed keys do. CDP stays for reading pages, and CUA for anything the screen must show (ADR 0012).
 
 The channel is split by concern, in `app/Pane/Automation/` (A6 of the architecture review of 2026-10-28, fixed under the user's standing order to fix everything found). `Automation.swift` polls and replies. `Automation+Commands.swift` groups the commands by what they drive (profiles, tabs, the page, input, dialogs, extensions, security, updates, the app), with `AutomationCommand` reading the fields. `Automation+Events.swift` builds every mouse and key event, one builder each, where `clickPage` and `typeInPage` had built their own. `Automation+Snapshot.swift` reads the state.

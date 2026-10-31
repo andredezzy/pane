@@ -76,7 +76,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		keys = KeyRouter(controller: controller)
 		sleep = SleepController(controller: controller)
 
-		if let directory = ProcessInfo.processInfo.environment["PANE_AUTOMATION_DIR"] {
+		if let directory = TestHooks.environment("PANE_AUTOMATION_DIR") {
 			let automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller, store: store)
 			controller.probe = automation
 			self.automation = automation
@@ -125,5 +125,9 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	// open (main.swift).
 	func engineDidStop() {
 		vault?.close()
+
+		// Chromium wrote it as it quit: the profile used last, and when each
+		// was (LocalState).
+		try? LocalState.startOnDefaultProfile(userDataDirectory: dataDirectory.appending(path: "Engine"))
 	}
 }

@@ -57,4 +57,32 @@ public enum BundleIdentifier {
 
 		return failures
 	}
+
+	// What URLSession's default sessions kept for an earlier Pane, in the
+	// clear and outside the encrypted data (ADR 0113): the update check's
+	// responses (Cache.db, fsCachedData, under the caches' folder, which the
+	// move above takes along) and its HTTP storage, under either identifier.
+	// Pane's sessions are ephemeral since, so none of it comes back.
+	public static func removeSessionCaches(library: URL, identifiers: [String] = [pane, former]) -> [String] {
+		let fileManager = FileManager.default
+		var failures: [String] = []
+
+		for identifier in identifiers {
+			let caches = library.appending(path: "Caches/\(identifier)", directoryHint: .isDirectory)
+			let storages = library.appending(path: "HTTPStorages", directoryHint: .isDirectory)
+
+			let leftovers = ["Cache.db", "Cache.db-shm", "Cache.db-wal", "fsCachedData"].map { caches.appending(path: $0) }
+				+ [storages.appending(path: identifier), storages.appending(path: "\(identifier).binarycookies")]
+
+			for leftover in leftovers where fileManager.fileExists(atPath: leftover.path) {
+				do {
+					try fileManager.removeItem(at: leftover)
+				} catch {
+					failures.append("\(leftover.path): \(error)")
+				}
+			}
+		}
+
+		return failures
+	}
 }

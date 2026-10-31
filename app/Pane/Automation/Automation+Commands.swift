@@ -281,7 +281,7 @@ extension Automation {
 			// when the runner allows it (PANE_AUTOMATION_FOREGROUND: run.ts
 			// --foreground, and CI): otherwise the app in use keeps it, and
 			// its user's keys stay theirs.
-			if ProcessInfo.processInfo.environment["PANE_AUTOMATION_FOREGROUND"] == "1" {
+			if TestHooks.environment("PANE_AUTOMATION_FOREGROUND") == "1" {
 				NSApp.activate(ignoringOtherApps: true)
 			}
 

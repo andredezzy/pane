@@ -174,7 +174,8 @@ if [ "${PANE_STRIP:-}" = 1 ]; then
 		"$VERSION_DIR/Helpers/app_mode_loader" "$VERSION_DIR"/Helpers/*.app/Contents/MacOS/*
 fi
 
-# Ad-hoc by default. With a Developer ID (PANE_SIGN_IDENTITY="Developer ID
+# Ad-hoc by default, with the hardened runtime but no library validation (see
+# sign). With a Developer ID (PANE_SIGN_IDENTITY="Developer ID
 # Application: …"), each part is signed the way Chrome signs it
 # (chrome/installer/mac/signing/parts.py): the hardened runtime and a secure
 # timestamp, library validation everywhere except the renderer and GPU
@@ -186,8 +187,27 @@ echo "== sign ($([ "$IDENTITY" = - ] && echo ad-hoc || echo "$IDENTITY"))"
 sign() {
 	local path="$1" options="${2:-}" entitlements="${3:-}"
 
-	if [ "$IDENTITY" = - ]; then
+	if [ "$IDENTITY" = - ] && [ -z "$options" ]; then
 		codesign --force --sign - --timestamp=none "$path"
+	elif [ "$IDENTITY" = - ]; then
+		# Ad-hoc, with the hardened runtime all the same: it keeps other
+		# processes' libraries (DYLD_INSERT_LIBRARIES) and debuggers out of
+		# Pane, which would read the Keychain's secret, and the data it
+		# opens, without a prompt (ADR 0113). Library validation stays off,
+		# and so does restrict: ad-hoc code has no Team ID to match its own
+		# framework by, and restricted code may not load it by
+		# @executable_path.
+		local merged
+		merged="$(mktemp -d)/$(basename "$path").entitlements"
+
+		if [ -n "$entitlements" ]; then
+			cp "$APP_DIR/signing/$entitlements" "$merged"
+		else
+			plutil -create xml1 "$merged"
+		fi
+
+		/usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$merged" >/dev/null
+		codesign --force --sign - --timestamp=none --options runtime,kill --entitlements "$merged" "$path"
 	else
 		codesign --force --sign "$IDENTITY" --timestamp \
 			${options:+--options "$options"} \

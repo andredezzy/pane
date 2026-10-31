@@ -168,8 +168,20 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   g_application = [[PaneBrowserApplication alloc] initWithDelegate:delegate
                                                      dataDirectory:dataDirectory];
 
+  // A launch on the mock keychain, a scenario's, whose secret opens none of
+  // the user's data (ADR 0113), passes Chrome its switches. Any other passes
+  // the URLs it opens and Pane's own switches alone: a process of the user's
+  // starting Pane with --remote-debugging-port, --enable-logging, or
+  // --load-extension would read every page once the PIN opened the data.
+  NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
+  const bool scenario = [arguments containsObject:@"--use-mock-keychain"];
   std::vector<std::string> args;
-  for (NSString* arg in NSProcessInfo.processInfo.arguments) {
+  for (NSUInteger index = 0; index < arguments.count; index++) {
+    NSString* arg = arguments[index];
+    if (index > 0 && !scenario && [arg hasPrefix:@"-"] &&
+        ![arg hasPrefix:@"--pane-wipe-after="]) {
+      continue;
+    }
     args.push_back(base::SysNSStringToUTF8(arg));
   }
 
@@ -208,6 +220,9 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   // makes, which Pane does not show.
   AddToSwitchList(args, "disable-features",
                   "SegmentationPlatform,SegmentationPlatformUkmEngine");
+  // Nor its histograms, kept in BrowserMetrics at the same root for metrics
+  // Pane never sends: counts of the pages loaded and the tabs open.
+  AddToSwitchList(args, "disable-features", "PersistentHistograms");
   // Chrome discards background tabs under memory pressure (its urgent
   // discarding), swapping an empty WebContents into the tab. Pane's sleep
   // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard
@@ -224,6 +239,10 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   std::vector<const char*> argv;
   for (const std::string& arg : args) {
     argv.push_back(arg.c_str());
+  }
+
+  if (scenario) {
+    pane::AllowTracing();
   }
 
   // Before the first Browser exists: Pane's windows host Chrome's Browsers.

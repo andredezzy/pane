@@ -1,5 +1,7 @@
 # Every profile's data is encrypted on disk, under a key the PIN releases
 
+> **Extended by [ADR 0115](0115-nothing-outside-the-volume-names-a-page.md)**: what the engine and macOS kept outside the volume (crash dumps, Handoff, downloads' origins, Local State's times of use) goes, and only a scenario's launch takes Pane's test hooks.
+
 Everything Pane keeps of a profile is encrypted on disk: its tabs, cookies, site data, and caches. Without the data key nothing of it reads from the disk, and with a PIN set the key opens only with the PIN. It was the user's call (2026-10-30), after a test listed every profile's name and open tabs from `profiles.json` while the lock was set and no PIN had been typed.
 
 What the test found, before this decision:

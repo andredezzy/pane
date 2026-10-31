@@ -95,7 +95,7 @@ enum SafeStorage {
 	// Under --use-mock-keychain, as the engine's own, a fixed one: scenarios
 	// never touch the login Keychain.
 	nonisolated static func dataSecret(makesOne: Bool) -> Data? {
-		if CommandLine.arguments.contains("--use-mock-keychain") {
+		if TestHooks.enabled {
 			return Data("Pane mock keychain".utf8)
 		}
 

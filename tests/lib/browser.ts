@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
 import { Cdp } from "./cdp";
+import { detachImagesIn } from "./processes";
 
 export type LaunchOptions = {
 	args?: string[];
@@ -130,13 +131,16 @@ export async function launch(
 		? null
 		: mkdtempSync(join(tmpdir(), "pane-home-"));
 
-	const removeDirs = () => {
+	// A data volume still attached inside (ADR 0113), as one a killed app's
+	// watchdog has yet to detach, goes first: removing its mount point fails.
+	const removeDirs = async () => {
 		if (throwaway && userDataDir) {
 			rmSync(userDataDir, { recursive: true, force: true });
 		}
 
 		for (const directory of [appDataDir, home]) {
 			if (directory) {
+				await detachImagesIn(directory);
 				rmSync(directory, { recursive: true, force: true });
 			}
 		}
@@ -203,7 +207,7 @@ export async function launch(
 	} catch (error) {
 		child.kill("SIGKILL");
 		await exited(5_000);
-		removeDirs();
+		await removeDirs();
 
 		throw error;
 	}
@@ -224,7 +228,7 @@ export async function launch(
 			await exited(5_000);
 		}
 
-		removeDirs();
+		await removeDirs();
 	};
 
 	return {

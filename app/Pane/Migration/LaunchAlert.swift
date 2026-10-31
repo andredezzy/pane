@@ -18,7 +18,7 @@ enum LaunchAlert {
 	// user's next Return pressed one: the migration scenario's Cancel quit
 	// Pane. There nothing shows, and an alert waits as for a user who presses
 	// nothing: until `dismissWhen` holds, or not at all without one.
-	private static let silent = ProcessInfo.processInfo.environment["PANE_AUTOMATION_DIR"] != nil
+	private static let silent = TestHooks.environment("PANE_AUTOMATION_DIR") != nil
 
 	// Waits for a button, or for `dismissWhen` to hold (asked every second),
 	// which takes the alert down by itself.

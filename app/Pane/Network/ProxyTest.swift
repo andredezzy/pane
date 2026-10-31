@@ -13,7 +13,7 @@ enum ProxyTest {
 
 	// The Electron app's echo; scenarios point it at their own.
 	private static var testURL: URL {
-		ProcessInfo.processInfo.environment["PANE_PROXY_TEST_URL"].flatMap(URL.init(string:))
+		TestHooks.environment("PANE_PROXY_TEST_URL").flatMap(URL.init(string:))
 			?? URL(string: "https://httpbin.org/ip")!
 	}
 

@@ -26,7 +26,7 @@ index 199142d671..cc0dc365f3 100644
        {.exe_entry_point_ticks = base::TimeTicks::Now()});
  #endif
 diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
-index ead883ef95..05d714edfb 100644
+index ead883ef95..f6718338ea 100644
 --- a/chrome/browser/app_controller_mac.mm
 +++ b/chrome/browser/app_controller_mac.mm
 @@ -139,6 +139,7 @@
@@ -85,6 +85,19 @@ index ead883ef95..05d714edfb 100644
    auto& entry = _profileBookmarkMenuBridgeMap[profile->GetPath()];
    if (!entry || !entry->GetProfile()) {
      // This creates a deep copy, but only the first 3 items in the root menu
+@@ -2513,6 +2541,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+ }
+ 
+ - (void)updateHandoffManager:(content::WebContents*)webContents {
++  // Pane: no Handoff. It advertised the shown tab's address and title to
++  // the user's other devices and the system's activity, outside the PIN.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    return;
++  }
++
+   if (!_handoffManager)
+     _handoffManager = [[HandoffManager alloc] init];
+ 
 diff --git a/chrome/browser/chrome_browser_main_mac.mm b/chrome/browser/chrome_browser_main_mac.mm
 index b269f1610a..7f4ec26920 100644
 --- a/chrome/browser/chrome_browser_main_mac.mm

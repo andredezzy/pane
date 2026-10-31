@@ -40,14 +40,14 @@ final class Updater {
 	private(set) var staged: URL?
 
 	// Scenarios point these at their own release, folder, and no opening.
-	@ObservationIgnored private let releasesURL = ProcessInfo.processInfo.environment["PANE_UPDATE_URL"]
+	@ObservationIgnored private let releasesURL = TestHooks.environment("PANE_UPDATE_URL")
 		.flatMap(URL.init(string:)) ?? Updates.releasesURL
-	@ObservationIgnored private let downloadsDirectory = ProcessInfo.processInfo.environment["PANE_UPDATE_DOWNLOADS"]
+	@ObservationIgnored private let downloadsDirectory = TestHooks.environment("PANE_UPDATE_DOWNLOADS")
 		.map { URL(fileURLWithPath: $0, isDirectory: true) }
 		?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
-	@ObservationIgnored private let opensDownload = ProcessInfo.processInfo.environment["PANE_UPDATE_OPEN"] != "0"
+	@ObservationIgnored private let opensDownload = TestHooks.environment("PANE_UPDATE_OPEN") != "0"
 	// Nil where Pane cannot replace itself, and in scenarios that turn it off.
-	@ObservationIgnored private let installer = ProcessInfo.processInfo.environment["PANE_UPDATE_INSTALL"] == "0" ? nil : UpdateInstaller()
+	@ObservationIgnored private let installer = TestHooks.environment("PANE_UPDATE_INSTALL") == "0" ? nil : UpdateInstaller()
 	// Restart to update: the quit opens the new Pane too.
 	@ObservationIgnored private var relaunches = false
 	@ObservationIgnored private let currentVersion: String
