@@ -256,8 +256,11 @@ struct DataLockTests {
 		#expect(first != nil)
 		#expect(DataLock(dataDirectory: root) == nil)
 
+		// Taken as the next Pane takes it (main.swift), waiting: a process
+		// another test starts holds the parent's descriptors until it execs,
+		// which under the thread sanitizer outlasted the release (CI).
 		first = nil
-		#expect(DataLock(dataDirectory: root) != nil)
+		#expect(DataLock.wait(dataDirectory: root, timeout: 3) != nil)
 	}
 
 	@Test("a Pane started while another quits takes the lock once that one lets go")
@@ -291,8 +294,10 @@ struct DataLockTests {
 		try child.run()
 		defer { child.terminate() }
 
+		// Waited for briefly, as in held: the child sleeps for longer, so a
+		// lock it inherited would still fail this.
 		#expect(lock != nil)
 		lock = nil
-		#expect(DataLock(dataDirectory: root) != nil)
+		#expect(DataLock.wait(dataDirectory: root, timeout: 2) != nil)
 	}
 }
