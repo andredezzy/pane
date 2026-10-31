@@ -225,9 +225,10 @@ struct DataLockTests {
 		let root = try root()
 		defer { try? FileManager.default.removeItem(at: root) }
 
+		// The wait can take the lock only once the first lets go, so no clock
+		// is checked: a sanitized build on a loaded CI runner took 4.4 s.
 		var first = DataLock(dataDirectory: root)
-		let started = Date()
-		let waiting = Task.detached { DataLock.wait(dataDirectory: root, timeout: 5) }
+		let waiting = Task.detached { DataLock.wait(dataDirectory: root, timeout: 30) }
 
 		try await Task.sleep(for: .milliseconds(200))
 		#expect(first != nil)
@@ -235,7 +236,6 @@ struct DataLockTests {
 
 		let taken = await waiting.value
 		#expect(taken != nil)
-		#expect(Date().timeIntervalSince(started) < 1)
 		#expect(DataLock.wait(dataDirectory: root, timeout: 0.1) == nil)
 	}
 
