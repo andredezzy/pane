@@ -61,14 +61,20 @@ export async function installFromWebStore(
 
 	// The real button: a CUA click on an unlocked screen; else a click with a
 	// user gesture, which the Web Store's install API requires.
-	let addClick: Installed["addClick"] = "gesture";
+	const addClick: Installed["addClick"] = (await canDriveUI())
+		? "cua"
+		: "gesture";
 
-	if (!(await canDriveUI())) {
-		await page.send("Runtime.evaluate", {
-			expression: `${button}.click()`,
-			userGesture: true,
-		});
-	} else {
+	const press = async () => {
+		if (addClick === "gesture") {
+			await page.send("Runtime.evaluate", {
+				expression: `${button}.click()`,
+				userGesture: true,
+			});
+
+			return;
+		}
+
 		// Another extension's welcome tab may have opened over the store's.
 		await app.send("select", { tab });
 		await activateWebAccessibility(app.browser.pid);
@@ -78,11 +84,27 @@ export async function installFromWebStore(
 			await mainWindowOf(app.browser.pid),
 			"Add to Pane",
 		);
+	};
 
-		addClick = "cua";
+	// The store wires its button a moment after it shows, and a click before
+	// that does nothing: the scenarios clicked once, at once, and waited out
+	// the minute. The click repeats until the install sheet comes.
+	let sheet: NonNullable<AppState["sheet"]> | undefined;
+
+	for (const until = Date.now() + 60_000; !sheet && Date.now() < until; ) {
+		if ((await app.state()).sheet?.kind !== "extensionInstall") {
+			await press();
+		}
+
+		sheet = await waitForSheet(app, "extensionInstall", 3_000).catch(
+			() => undefined,
+		);
 	}
 
-	const sheet = await waitForSheet(app, "extensionInstall", 60_000);
+	if (!sheet) {
+		throw new Error(`no install sheet for ${id} after a minute of clicks`);
+	}
+
 	const answer = await answerSheet(app, sheet.buttons?.[0] ?? "Add extension");
 
 	const installed = await app.waitFor(

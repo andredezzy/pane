@@ -1,4 +1,5 @@
-import { launchPane } from "../lib/pane";
+import { bringToFront, launchPane } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
 // The AppleScript dictionary Pane keeps from Chromium (ADR 0112) answers for
@@ -42,17 +43,51 @@ const applescript: Scenario = async (context) => {
 
 	const answers: Record<string, unknown> = {};
 
-	for (const [name, tabCount] of [
-		["Bravo", "2"],
-		["Charlie", "1"],
-		["Alpha", "2"],
-	] as const) {
+	// Chromium's front window is the Browser it activated last, and the
+	// engine activates the shown profile's only with Pane's window key
+	// (WindowHost::SetActiveProfile), as Chrome activates a window: shown in
+	// the background, another profile is the front window once Pane is in
+	// front (ADR 0112). The switch to Personal is checked with Pane in
+	// front, and deferred without --foreground; Work's tabs, the Browser in
+	// front either way, are checked always.
+	const front = await bringToFront(
+		context,
+		app,
+		"the front window after a switch to another profile",
+	);
+
+	const shown = front
+		? ([
+				["Bravo", "2"],
+				["Charlie", "1"],
+				["Alpha", "2"],
+			] as const)
+		: ([
+				["Bravo", "2"],
+				["Alpha", "2"],
+			] as const);
+
+	for (const [name, tabCount] of shown) {
 		await app.send("select", { tab: tabs[name] });
 
 		await app.waitFor(
 			`${name} selected`,
 			(state) => state.activeTabID === tabs[name],
 		);
+
+		// Activated, the Browser takes a turn to be the front window
+		// (HostedBrowserWindow::Activate posts it): the answer is read once
+		// it names the tab, within a second, and how long that took is kept.
+		const asked = Date.now();
+
+		await poll(
+			`AppleScript naming ${name}`,
+			async () => (await run(URL_OF_ACTIVE)) === url(name),
+			1_000,
+			20,
+		).catch(() => undefined);
+
+		const namedAfterMs = Date.now() - asked;
 
 		const answer = {
 			windows: await run(WINDOWS),
@@ -69,7 +104,7 @@ const applescript: Scenario = async (context) => {
 			`with ${name} shown, AppleScript answers ${JSON.stringify(answer)}`,
 		);
 
-		answers[name] = answer;
+		answers[name] = { ...answer, namedAfterMs };
 	}
 
 	return answers;
