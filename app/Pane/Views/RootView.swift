@@ -158,17 +158,24 @@ struct RootView: View {
 
 			// The PIN screen, over everything; it slides up and back down. The
 			// data's one-time move into its volume shows on the same panel
-			// (ADR 0113), which a PIN that opened it stays up for.
-			if controller.lock.entry != nil || controller.vault.phase.share != nil {
-				LockScreenView(lock: controller.lock, vault: controller.vault, updater: controller.updater)
-					.transition(.asymmetric(
-						insertion: .move(edge: .bottom).animation(Motion.lockIn),
-						removal: .move(edge: .bottom).animation(Motion.lockOut)
-					))
-					.zIndex(2)
+			// (ADR 0113), which a PIN that opened it stays up for. Its own
+			// stack animates it alone: the window behind changes in the same
+			// update (the profiles leave or come back, the toolbar with them),
+			// and animated, the page made as it opened kept a size from the
+			// way (ADR 0116).
+			ZStack {
+				if controller.lock.entry != nil || controller.vault.phase.share != nil {
+					LockScreenView(lock: controller.lock, vault: controller.vault, updater: controller.updater)
+						.transition(.asymmetric(
+							insertion: .move(edge: .bottom).animation(Motion.lockIn),
+							removal: .move(edge: .bottom).animation(Motion.lockOut)
+						))
+				}
 			}
+			.frame(maxWidth: .infinity, maxHeight: .infinity)
+			.animation(Motion.unlessReduced(.default), value: controller.lock.entry == nil && controller.vault.phase.share == nil)
+			.zIndex(2)
 		}
-		.animation(Motion.unlessReduced(.default), value: controller.lock.entry == nil && controller.vault.phase.share == nil)
 		// The extensions menu belongs to the tab and the window it opened over.
 		.onChange(of: model.activeTabID) { extensions.closeMenu() }
 		.onChange(of: model.activeProfileID) { extensions.closeMenu() }

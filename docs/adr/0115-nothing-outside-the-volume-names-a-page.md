@@ -20,7 +20,7 @@ What stays, and whose call it is:
 - **The PIN is optional** (the user's call, 2026-10-31): without one, the data key opens with the Keychain's secret alone.
 - **A short PIN falls offline** to someone with the files and the Keychain's secret: a four-digit PIN in about 11 minutes. The PIN is four digits or more, as many as the user likes (the user's call), and its length is kept in `security.json`, so the unlock completes at the last digit. Only a key in the Secure Enclave stops it, which needs a Developer ID (ADR 0048); the user is getting one.
 - **Site notifications** go through macOS, which shows and keeps their title and text (the user's call: as they are).
-- **Pane locks only at launch**: a Lock command, a lock when the Mac sleeps or locks, and one after an idle time are drawn in Paper (06.4, 07.9) and wait for the user's approval.
+- **Pane locks only at launch**: a Lock command, a lock when the Mac sleeps or locks, and one after an idle time are drawn in Paper (06.4, 07.9) and wait for the user's approval. (Approved and built: ADR 0116.)
 - **The GPU's shader caches** at the engine's root hold compiled shaders, not pages; turned off, every launch would compile them again.
 - **macOS's own records**: when Pane was in use and which of its menu commands ran (Biome, knowledgeC), the quarantine events' times, and a print job's name.
 - **Plain data from before 0.14** stays plain until the first unlock after the update, and the panic wipe's passes do not reach an SSD's old blocks: FileVault covers those. The Electron app's data stays where it was (ADR 0043).

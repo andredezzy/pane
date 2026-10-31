@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	private var keys: KeyRouter?
 	private var automation: Automation?
 	private var sleep: SleepController?
+	private var locks: LockController?
 	private var observers: [NSObjectProtocol] = []
 
 	// The data's lock and the image's attach, from before the engine
@@ -62,6 +63,9 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		vault.didFail = { [weak lock] in
 			lock?.volumeWontOpen()
 		}
+		controller.didLock = { [weak store] in
+			store?.unloadProfiles()
+		}
 
 		// An earlier Pane's profiles move in at once, with no PIN to ask
 		// first: the panel shows from the first frame.
@@ -75,6 +79,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		windowController = MainWindowController(controller: controller)
 		keys = KeyRouter(controller: controller)
 		sleep = SleepController(controller: controller)
+		locks = LockController(controller: controller)
 
 		if let directory = TestHooks.environment("PANE_AUTOMATION_DIR") {
 			let automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller, store: store)

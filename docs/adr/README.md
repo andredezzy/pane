@@ -117,3 +117,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md) Every profile's data is encrypted on disk, under a key the PIN releases
 - [0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md) Pane's identifier is xyz.roundedcorners.pane
 - [0115](0115-nothing-outside-the-volume-names-a-page.md) Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
+- [0116](0116-pane-locks-while-open.md) Pane locks while open: on command, when the Mac sleeps or locks, and after a time without use

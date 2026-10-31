@@ -8,11 +8,6 @@ import PaneKit
 // app did; the page comes back by navigating again when the tab is selected.
 @MainActor
 final class SleepController {
-	// Debug only: PANE_TIME_SCALE=60 makes a minute pass every second, for the
-	// sleep scenario.
-	private static let timeScale = TestHooks.environment("PANE_TIME_SCALE")
-		.flatMap(Double.init).map { max($0, 1) } ?? 1
-
 	private unowned let controller: BrowserController
 	private let scheduler: SleepScheduler
 	private var timer: Timer?
@@ -21,7 +16,7 @@ final class SleepController {
 		self.controller = controller
 		let model = controller.model
 		let start = Date()
-		let scale = Self.timeScale
+		let scale = TestHooks.timeScale
 
 		scheduler = SleepScheduler(
 			profileIDs: model.profiles.map(\.id),

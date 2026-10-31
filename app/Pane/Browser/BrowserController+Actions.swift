@@ -82,6 +82,7 @@ extension BrowserController {
 	@objc func goForwardPage(_ sender: Any?) { goForward() }
 	@objc func focusAddressBar(_ sender: Any?) { state.focusAddressField() }
 	@objc func showSettings(_ sender: Any?) { showPage(.settings) }
+	@objc func lockPane(_ sender: Any?) { lockNow() }
 	@objc func showExtensionsPage(_ sender: Any?) { extensions.showPage() }
 	@objc func printActivePage(_ sender: Any?) { printPage() }
 	@objc func toggleDeveloperTools(_ sender: Any?) { toggleDevTools() }
@@ -162,6 +163,11 @@ extension BrowserController: NSMenuItemValidation {
 	func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
 		if menuItem.action == #selector(toggleFullScreenWindow(_:)) {
 			menuItem.title = browserWindow.window.styleMask.contains(.fullScreen) ? "Exit Full Screen" : "Enter Full Screen"
+		}
+
+		// Only a PIN locks Pane.
+		if menuItem.action == #selector(lockPane(_:)) {
+			return interactionAllowed && lock.state.pin != nil
 		}
 
 		return interactionAllowed || menuItem.action.map(Self.allowedWhileLocked.contains) == true

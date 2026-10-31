@@ -25,6 +25,9 @@ enum MainMenu {
 		menu.addItem(.separator())
 		menu.addItem(item("Settings…", #selector(BrowserController.showSettings(_:)), ",", target: controller))
 		menu.addItem(.separator())
+		// Paper 07.9: closes every profile's data, and the PIN screen shows.
+		menu.addItem(item("Lock Pane", #selector(BrowserController.lockPane(_:)), "l", [.command, .control], target: controller))
+		menu.addItem(.separator())
 		menu.addItem(withTitle: "Hide Pane", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
 		menu.addItem(item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
 		menu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")

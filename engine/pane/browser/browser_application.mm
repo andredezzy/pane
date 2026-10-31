@@ -9,15 +9,22 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/strings/sys_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/download/download_core_service.h"
+#include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_metrics.h"
+#include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -141,6 +148,43 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   base::OnceCallback<void(bool)> done_;
   base::ScopedObservation<ProfileManager, ProfileManagerObserver> observation_{
       this};
+};
+
+// Calls back once Chrome destroys a profile, which closes its files, or with
+// false past `timeout` or when the profile manager goes first. Deletes
+// itself.
+class ProfileDestructionWaiter : public ProfileObserver,
+                                 public ProfileManagerObserver {
+ public:
+  ProfileDestructionWaiter(Profile* profile,
+                           base::TimeDelta timeout,
+                           base::OnceCallback<void(bool)> done)
+      : done_(std::move(done)) {
+    profile_observation_.Observe(profile);
+    manager_observation_.Observe(g_browser_process->profile_manager());
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&ProfileDestructionWaiter::Finish,
+                       weak_factory_.GetWeakPtr(), false),
+        timeout);
+  }
+
+  void OnProfileWillBeDestroyed(Profile* profile) override { Finish(true); }
+  void OnProfileManagerDestroying() override { Finish(false); }
+
+ private:
+  void Finish(bool destroyed) {
+    profile_observation_.Reset();
+    manager_observation_.Reset();
+    std::move(done_).Run(destroyed);
+    delete this;
+  }
+
+  base::OnceCallback<void(bool)> done_;
+  base::ScopedObservation<Profile, ProfileObserver> profile_observation_{this};
+  base::ScopedObservation<ProfileManager, ProfileManagerObserver>
+      manager_observation_{this};
+  base::WeakPtrFactory<ProfileDestructionWaiter> weak_factory_{this};
 };
 
 }  // namespace
@@ -411,6 +455,51 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
       .MaybeScheduleProfileForDeletion(
           path, base::DoNothing(),
           ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
+}
+
+- (void)closeContext:(PaneBrowserContext*)context
+          completion:(void (^)(BOOL closed))completion {
+  // Closing closes the profile's pages: never from inside a tab strip
+  // notification or a tab's callback.
+  if (pane::InAppCallback()) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self closeContext:context completion:completion];
+    });
+    return;
+  }
+  PANE_TRACE("call", "PaneBrowserApplication.closeContext",
+             base::DictValue().Set(
+                 "identifier", base::SysNSStringToUTF8(context.identifier)));
+  Profile* profile = context.profile;
+  if (!profile || _contexts[context.identifier] != context) {
+    completion(NO);
+    return;
+  }
+  [_contexts removeObjectForKey:context.identifier];
+  // Chrome destroys a profile once nothing holds it (its
+  // DestroyProfileOnBrowserClose): the context's hold goes with its
+  // shutdown, the Browsers' with the Browsers. A hosted Browser stays open
+  // without tabs (Browser::TabStripEmpty), so each is closed once its pages
+  // are gone; until then the profile kept every database on the volume open.
+  new ProfileDestructionWaiter(
+      profile, base::Seconds(10),
+      base::BindOnce(
+          [](void (^completion)(BOOL), NSString* identifier, bool closed) {
+            PANE_TRACE(
+                "callback", "PaneBrowserApplication.didCloseContext",
+                base::DictValue()
+                    .Set("identifier", base::SysNSStringToUTF8(identifier))
+                    .Set("closed", closed));
+            completion(closed);
+          },
+          completion, context.identifier));
+  // A download under way holds the profile too: it stops as at a quit, its
+  // partial file removed.
+  DownloadCoreServiceFactory::GetForBrowserContext(profile)->CancelDownloads(
+      DownloadCoreService::CancelDownloadsTrigger::kShutdown);
+  [context shutDown];
+  CloseEveryPage(profile);
+  chrome::CloseAllBrowsersWithProfile(profile);
 }
 
 - (void)terminate {

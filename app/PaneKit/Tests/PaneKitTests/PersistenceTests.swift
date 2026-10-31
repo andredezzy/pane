@@ -69,6 +69,23 @@ struct SettingsPersistenceTests {
 		}
 	}
 
+	@Test("locks after 15 minutes without use by default, and keeps Never")
+	func lockAfter() throws {
+		let directory = try temporaryDirectory()
+		let file = PersistedFile<SettingsState>(directory: directory, name: "settings")
+
+		// A settings.json from before ADR 0116.
+		try #"{"state":{"settings":{"theme":"dark"}},"version":0}"#
+			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
+		#expect(try file.load()?.settings.lockAfterMinutes == 15)
+
+		try file.save(SettingsState(settings: AppSettings(lockAfterMinutes: nil)))
+		#expect(try file.load()?.settings.lockAfterMinutes == nil)
+
+		try file.save(SettingsState(settings: AppSettings(lockAfterMinutes: 1)))
+		#expect(try file.load()?.settings.lockAfterMinutes == 1)
+	}
+
 	@Test("keeps an explicit null as off")
 	func explicitNullIsOff() throws {
 		let directory = try temporaryDirectory()

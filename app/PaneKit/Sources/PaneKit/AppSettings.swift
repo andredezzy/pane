@@ -58,11 +58,14 @@ public struct AppSettings: Codable, Hashable, Sendable {
 	public var profileUnloadAfterMinutes: Int?
 	// Megabytes of cache a profile may hold before an unload trims it; nil = off.
 	public var cacheBudgetMB: Int?
+	// Minutes without use before Pane locks, with a PIN set; nil = never by
+	// time (it still locks when the Mac sleeps or locks, and on Lock Pane).
+	public var lockAfterMinutes: Int?
 	// Points, within SidebarWidth.range.
 	public var sidebarWidth: Double
 
 	private enum CodingKeys: String, CodingKey {
-		case chromiumPath, theme, appIcon, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB, sidebarWidth
+		case chromiumPath, theme, appIcon, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB, lockAfterMinutes, sidebarWidth
 	}
 
 	public init(
@@ -72,6 +75,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		tabSleepAfterMinutes: Int? = 15,
 		profileUnloadAfterMinutes: Int? = 30,
 		cacheBudgetMB: Int? = 300,
+		lockAfterMinutes: Int? = 15,
 		sidebarWidth: Double = SidebarWidth.standard
 	) {
 		self.chromiumPath = chromiumPath
@@ -80,6 +84,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		self.tabSleepAfterMinutes = tabSleepAfterMinutes
 		self.profileUnloadAfterMinutes = profileUnloadAfterMinutes
 		self.cacheBudgetMB = cacheBudgetMB
+		self.lockAfterMinutes = lockAfterMinutes
 		self.sidebarWidth = SidebarWidth.clamped(sidebarWidth)
 	}
 
@@ -102,6 +107,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		tabSleepAfterMinutes = try optionalInt(.tabSleepAfterMinutes, default: defaults.tabSleepAfterMinutes)
 		profileUnloadAfterMinutes = try optionalInt(.profileUnloadAfterMinutes, default: defaults.profileUnloadAfterMinutes)
 		cacheBudgetMB = try optionalInt(.cacheBudgetMB, default: defaults.cacheBudgetMB)
+		lockAfterMinutes = try optionalInt(.lockAfterMinutes, default: defaults.lockAfterMinutes)
 		sidebarWidth = SidebarWidth.clamped(try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? defaults.sidebarWidth)
 	}
 
@@ -113,6 +119,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		try container.encode(tabSleepAfterMinutes, forKey: .tabSleepAfterMinutes)
 		try container.encode(profileUnloadAfterMinutes, forKey: .profileUnloadAfterMinutes)
 		try container.encode(cacheBudgetMB, forKey: .cacheBudgetMB)
+		try container.encode(lockAfterMinutes, forKey: .lockAfterMinutes)
 		try container.encode(sidebarWidth, forKey: .sidebarWidth)
 	}
 }

@@ -48,6 +48,13 @@ final class DataVault {
 	@ObservationIgnored private var dataLock: DataLock?
 	// The attach the key started, for the quit to wait for (close).
 	@ObservationIgnored private var attaching: Task<Attached, Error>?
+	// A lock's detach, which the next attach waits for (lock): the device it
+	// left attached, when a profile would not close.
+	@ObservationIgnored private var closing: Task<String?, Never>?
+	// What the open does once attached (finish), for a lock to wait for.
+	@ObservationIgnored private var finishing: Task<Void, Never>?
+	// Locks so far: an attach or move a lock overtook reports to no one.
+	@ObservationIgnored private var locks = 0
 	// When the attach started and ended, in milliseconds since 1970.
 	@ObservationIgnored private(set) var attachedAt: (started: Double, ended: Double)?
 	@ObservationIgnored private var attachWaiters: [(Bool) -> Void] = []
@@ -156,9 +163,13 @@ final class DataVault {
 		let volume = volume
 		let image = image
 		let locking = dataLock == nil ? dataDirectory : nil
+		let closing = closing
 
 		return { key in
-			Task.detached(priority: .userInitiated) { try await Self.attach(volume, key: key, image: image, locking: locking) }
+			Task.detached(priority: .userInitiated) {
+				_ = await closing?.value
+				return try await Self.attach(volume, key: key, image: image, locking: locking)
+			}
 		}
 	}
 
@@ -265,6 +276,11 @@ final class DataVault {
 	// making of the image say, is waited for first: quit in it, Pane left the
 	// image attached once it finished, and before its watchdog started.
 	func close() {
+		// A lock's detach, still under way, or the device it left attached.
+		if let left = Self.settled(closing) ?? nil, device == nil {
+			device = left
+		}
+
 		if device == nil {
 			device = Self.settled(attaching)?.device ?? Self.settled(image)??.image
 		}
@@ -273,11 +289,15 @@ final class DataVault {
 			return
 		}
 
-		let used = isAttached ? volume.usedBytes : nil
-		let started = Date()
+		Self.detach(volume, device: device, used: isAttached ? volume.usedBytes : nil)
+		isAttached = false
+	}
 
-		// The engine's helpers end a moment after it (the network service
-		// keeps the cookies open): the detach waits for them, then forces.
+	// The image detached by its device, the volume's helpers given a moment
+	// (the network service keeps the cookies open), then forced; then
+	// compacted when it keeps much unused space.
+	private nonisolated static func detach(_ volume: DataVolume, device: String, used: Int64?) {
+		let started = Date()
 		var detached = false
 
 		for delay in [0, 50, 100, 200, 400, 800] {
@@ -294,7 +314,6 @@ final class DataVault {
 				try volume.detach(device: device, force: true)
 			}
 
-			isAttached = false
 			Log.security.notice("The data volume detached in \(Date().timeIntervalSince(started), format: .fixed(precision: 2)) s")
 
 			if let used {
@@ -302,6 +321,64 @@ final class DataVault {
 			}
 		} catch {
 			Log.security.error("Could not detach the data volume: \(String(describing: error), privacy: .private)")
+		}
+	}
+
+	// Pane locked while open (ADR 0116): the vault starts over at once,
+	// closed, for the PIN to open again, and an attach the PIN starts waits
+	// for this lock's detach (attacher). Off the main thread, the detach waits
+	// for an attach or move still under way, and for `closed`, which says
+	// every profile closed in the engine and its files with it. A profile that
+	// would not close keeps its files open: the image stays attached for the
+	// quit to detach once the engine has stopped (close), where forcing it
+	// would pull the files from under the engine.
+	func lock(once closed: Task<Bool, Never>) {
+		locks += 1
+		filesKey = nil
+		phase = .closed
+		failure = nil
+		attachedAt = nil
+
+		let volume = volume
+		let known = device
+		let attaching = attaching
+		let image = image
+		let finishing = finishing
+
+		device = nil
+		isAttached = false
+		self.attaching = nil
+		self.image = nil
+		self.finishing = nil
+
+		// A profile waiting for the attach opens no more.
+		let waiters = attachWaiters
+		attachWaiters = []
+		waiters.forEach { $0(false) }
+
+		closing = Task.detached(priority: .userInitiated) {
+			await finishing?.value
+
+			var device = known
+
+			if device == nil, let attached = try? await attaching?.value {
+				device = attached.device
+			}
+
+			if device == nil, let devices = await image?.value {
+				device = devices.image
+			}
+
+			guard let device else {
+				return nil
+			}
+
+			guard await closed.value else {
+				return device
+			}
+
+			Self.detach(volume, device: device, used: volume.usedBytes)
+			return nil
 		}
 	}
 
@@ -332,8 +409,8 @@ final class DataVault {
 		didBecomeOpen?()
 	}
 
-	private func moved(_ share: Double) {
-		if case .moving = phase {
+	private func moved(_ share: Double, locks: Int) {
+		if locks == self.locks, case .moving = phase {
 			phase = .moving(share)
 		}
 	}
@@ -346,8 +423,9 @@ final class DataVault {
 		let dataDirectory = dataDirectory
 		let caches = AppLock.cacheDirectory(for: dataDirectory)
 		let deletions = ProfileDeletions(dataDirectory: dataDirectory)
+		let locks = locks
 
-		Task.detached(priority: .userInitiated) { [weak self] in
+		finishing = Task.detached(priority: .userInitiated) { [weak self] in
 			do {
 				let attached = try await attaching.value
 
@@ -360,7 +438,7 @@ final class DataVault {
 						}
 
 						reported = share
-						Task { @MainActor in self?.moved(share) }
+						Task { @MainActor in self?.moved(share, locks: locks) }
 					}
 				}
 
@@ -368,7 +446,7 @@ final class DataVault {
 					Log.security.error("Could not remove a deleted profile's data: \(failure, privacy: .private)")
 				}
 
-				await MainActor.run { self?.didAttach(attached, moved: ids != nil) }
+				await MainActor.run { self?.didAttach(attached, moved: ids != nil, locks: locks) }
 
 				if ids != nil {
 					for failure in PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches) {
@@ -377,19 +455,25 @@ final class DataVault {
 				}
 			} catch {
 				Log.security.error("Could not attach the data volume: \(String(describing: error), privacy: .private)")
-				await MainActor.run { self?.attachFailed(String(describing: error)) }
+				await MainActor.run { self?.attachFailed(String(describing: error), locks: locks) }
 			}
 		}
 	}
 
-	private func didAttach(_ attached: Attached, moved: Bool) {
-		isAttached = true
-		device = attached.device
-		attachedAt = (attached.started, attached.ended)
-
+	private func didAttach(_ attached: Attached, moved: Bool, locks: Int) {
+		// Kept even when a lock overtook the attach: the image is this Pane's.
 		if let lock = attached.lock {
 			dataLock = lock
 		}
+
+		// The lock overtook it: its detach has the device.
+		guard locks == self.locks else {
+			return
+		}
+
+		isAttached = true
+		device = attached.device
+		attachedAt = (attached.started, attached.ended)
 
 		if moved {
 			becomeOpen()
@@ -402,7 +486,11 @@ final class DataVault {
 
 	// No profile's context opens: the window still shows the profiles and
 	// their tabs.
-	private func attachFailed(_ reason: String) {
+	private func attachFailed(_ reason: String, locks: Int) {
+		guard locks == self.locks else {
+			return
+		}
+
 		failure = reason
 		didFail?()
 

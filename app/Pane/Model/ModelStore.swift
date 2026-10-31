@@ -75,6 +75,14 @@ final class ModelStore {
 		}
 	}
 
+	// Pane locked while open (ADR 0116): what changed is written, then the
+	// profiles leave memory, until the key opens them again (loadProfiles).
+	// With the key gone no save writes over profiles.json (write).
+	func unloadProfiles() {
+		saveNow()
+		model?.load(profiles: [], changed: false)
+	}
+
 	// Writes what changed and waits for it: at quit, and for scenarios that
 	// read the files.
 	func saveNow() {

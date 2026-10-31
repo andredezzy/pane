@@ -79,13 +79,21 @@ struct SettingsView: View {
 									.accessibilityIdentifier("pane.settings.setUpPIN")
 							}
 						} else {
-							SettingsRow(title: "PIN", description: "Pane asks for it when it opens.", last: true) {
+							SettingsRow(title: "PIN", description: "Pane asks for it when it opens, and when it locks.") {
 								Button("Change PIN") { lock.show(.change) }
 									.buttonStyle(.pane(.outline, size: .small))
 									.accessibilityIdentifier("pane.settings.changePIN")
 								Button("Remove PIN") { lock.show(.remove) }
 									.buttonStyle(.pane(.outline, size: .small))
 									.accessibilityIdentifier("pane.settings.removePIN")
+							}
+
+							// Paper 06.4.
+							SettingsRow(title: "Lock after", description: "Pane locks after this long without use, and when the Mac sleeps or locks.", last: true) {
+								PaneMenuButton(options: Self.lockAfterOptions, selection: settings.lockAfterMinutes, label: "Lock after", chevron: .upDown) { minutes in
+									change { $0.lockAfterMinutes = minutes }
+								}
+								.accessibilityIdentifier("pane.settings.lockAfter")
 							}
 						}
 					}
@@ -125,6 +133,8 @@ struct SettingsView: View {
 extension SettingsView {
 	static let tabSleepOptions: [(String, Int?)] = [("5 min", 5), ("15 min", 15), ("1 hour", 60), ("Off", nil)]
 	static let profileUnloadOptions: [(String, Int?)] = [("15 min", 15), ("30 min", 30), ("2 hours", 120), ("Off", nil)]
+	// Never still locks when the Mac sleeps or locks, and on Lock Pane.
+	static let lockAfterOptions: [(String, Int?)] = [("1 min", 1), ("5 min", 5), ("15 min", 15), ("1 hour", 60), ("Never", nil)]
 	// Megabytes, per profile: no cache is shared.
 	static let cacheBudgetOptions: [(String, Int?)] = [("100 MB", 100), ("300 MB", 300), ("1 GB", 1024), ("Off", nil)]
 }

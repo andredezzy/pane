@@ -108,6 +108,19 @@ final class AppLock {
 		}
 	}
 
+	// Pane locks while open (ADR 0116, Paper 07.9): the PIN screen shows at
+	// once, as at launch, and the data key goes from memory; the caller
+	// closes every profile's data behind it. Only a PIN locks.
+	func lockNow() {
+		guard let pin = state.pin, !isLocked else {
+			return
+		}
+
+		isLocked = true
+		dataKey = nil
+		present(PinEntry(mode: .unlock, pinLength: pin.length))
+	}
+
 	// The volume would not open once the key had (DataVault): nothing of the
 	// profiles can run, so the lock shuts, says so, and takes no keys. With
 	// a PIN, the panel that slid away comes back.

@@ -17,6 +17,12 @@ final class BrowserController: NSObject {
 	private let application: BrowserApplication
 	private var contexts: [String: BrowserContext] = [:]
 	private var contextWaiters: [String: [(BrowserContext?) -> Void]] = [:]
+	// Contexts the engine is opening or deleting, for a lock to wait for.
+	private var engineWork: [ObjectIdentifier: EngineWork] = [:]
+	// The tab that showed when Pane locked, shown again once it opens.
+	private var resumeTabID: String?
+	// Pane locked: the store writes what changed and empties the model.
+	var didLock: (() -> Void)?
 	// Each loaded tab's page, and the DevTools docked to it.
 	private let pages = PageRegistry()
 	// When each tab's renderer last died, to tell a crash loop from a crash.
@@ -172,7 +178,64 @@ final class BrowserController: NSObject {
 			show(page, profileID: profileID)
 		}
 
+		if let tabID = resumeTabID, model.tab(tabID) != nil {
+			resumeTabID = nil
+			select(tabID: tabID)
+		}
+
 		dialogs.resume()
+	}
+
+	// Pane locks while open (ADR 0116, Paper 06.4 and 07.9): Lock Pane, the
+	// Mac sleeping or locking, or the time without use Settings names, with a
+	// PIN set. The PIN screen shows in the next frame; behind it every page
+	// closes, what changed is written and the profiles leave memory, every
+	// profile closes in the engine, which closes its files, and the volume
+	// detaches. The PIN opens them again, and the tab that showed comes
+	// back.
+	func lockNow() {
+		guard lock.state.pin != nil, !lock.isLocked else {
+			return
+		}
+
+		resumeTabID = model.activeTabID ?? resumeTabID
+		lock.lockNow()
+
+		for profile in model.profiles {
+			unloadProfile(profile.id)
+		}
+
+		didLock?()
+
+		// Every profile closes in the engine, one opening or being deleted
+		// once that is done; what waited for a context gets none.
+		let closing = ContextClosing()
+
+		for context in contexts.values {
+			closing.close(context, in: application)
+		}
+
+		contexts.removeAll()
+		engineWork.values.forEach { $0.wait(for: closing) }
+		engineWork.removeAll()
+		let waiting = contextWaiters.values.joined()
+		contextWaiters.removeAll()
+		closing.seal()
+
+		let closed = Task { await closing.closed }
+		vault.lock(once: closed)
+		waiting.forEach { $0(nil) }
+
+		// Still open, a profile keeps its files on the volume: Pane quits,
+		// which closes every one, and the volume detaches after (ADR 0116).
+		Task { [weak self] in
+			guard await !closed.value else {
+				return
+			}
+
+			Log.security.error("A profile was still open after Pane locked: Pane quits to close it")
+			self?.quit()
+		}
 	}
 
 	// What Pane is started with (`Pane https://…`) or another app hands it (a
@@ -235,6 +298,7 @@ final class BrowserController: NSObject {
 		}
 
 		contextWaiters[profileID] = [body]
+		let work = beginWork()
 
 		// The profile's engine data is in the volume: its context opens only
 		// once the volume is attached and the profile's links lead into it,
@@ -245,22 +309,26 @@ final class BrowserController: NSObject {
 			}
 
 			guard attached else {
-				contextWaiters.removeValue(forKey: profileID)?.forEach { $0(nil) }
+				opened(profileID, nil, work)
 				return
 			}
 
 			vault.prepare(profile: profileID) { [weak self] prepared in
-				guard prepared else {
-					self?.contextWaiters.removeValue(forKey: profileID)?.forEach { $0(nil) }
+				guard let self else {
 					return
 				}
 
-				self?.openContext(profileID)
+				guard prepared, work.lock == nil else {
+					opened(profileID, nil, work)
+					return
+				}
+
+				openContext(profileID, work)
 			}
 		}
 	}
 
-	private func openContext(_ profileID: String) {
+	private func openContext(_ profileID: String, _ work: EngineWork) {
 		applyFingerprint(profileID)
 		application.openContext(identifier: profileID) { [weak self] context, error in
 			guard let self else {
@@ -269,7 +337,13 @@ final class BrowserController: NSObject {
 
 			guard let context else {
 				Log.engine.error("Could not open profile \(profileID): \(String(describing: error), privacy: .private)")
-				contextWaiters.removeValue(forKey: profileID)?.forEach { $0(nil) }
+				opened(profileID, nil, work)
+				return
+			}
+
+			// A lock came first: the context closes for it, as it is.
+			guard work.lock == nil else {
+				opened(profileID, context, work)
 				return
 			}
 
@@ -282,12 +356,43 @@ final class BrowserController: NSObject {
 				}
 
 				await network.apply(to: context)
-				let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
-				contexts[profileID] = context
-				extensions.refresh(profileID)
-				waiters.forEach { $0(context) }
+				opened(profileID, context, work)
 			}
 		}
+	}
+
+	// The open ended: what waited has the context, or nil when it would not
+	// open. A lock that came first closes it instead.
+	private func opened(_ profileID: String, _ context: BrowserContext?, _ work: EngineWork) {
+		endWork(work)
+
+		if let closing = work.lock {
+			if let context {
+				closing.close(context, in: application)
+			}
+
+			closing.finish(true)
+			return
+		}
+
+		let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
+
+		if let context {
+			contexts[profileID] = context
+			extensions.refresh(profileID)
+		}
+
+		waiters.forEach { $0(context) }
+	}
+
+	private func beginWork() -> EngineWork {
+		let work = EngineWork()
+		engineWork[ObjectIdentifier(work)] = work
+		return work
+	}
+
+	private func endWork(_ work: EngineWork) {
+		engineWork[ObjectIdentifier(work)] = nil
 	}
 
 	func context(for profileID: String) -> BrowserContext? {
@@ -513,12 +618,18 @@ final class BrowserController: NSObject {
 			}
 
 			contexts[profileID] = nil
+			let work = beginWork()
+
 			application.deleteContext(context) { [weak self] deleted in
+				self?.endWork(work)
+				// A lock waited for the profile to go.
+				work.lock?.finish(deleted)
 				self?.probe?.profileDeletion(profileID, isPending: false)
 
 				// The engine removes the profile's link; its folder in the
-				// volume goes here.
-				if deleted {
+				// volume goes here, or, once a lock closed the volume, at the
+				// next open (ProfileDeletions).
+				if deleted, work.lock == nil {
 					self?.deletions.remove(profileID)
 					self?.vault.remove(profile: profileID)
 				}

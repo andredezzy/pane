@@ -599,6 +599,33 @@ extension Automation {
 			default: throw AutomationError("unknown PIN screen mode")
 			}
 
+		case "lockNow":
+			// Lock Pane (⌃⌘L, Paper 07.9).
+			controller.lockNow()
+
+		case "pageLayout":
+			// Where the page's card and the page in it sit, in the window's
+			// points from its top left, and the size the engine last drew
+			// the page at: a stale one draws it shifted (ADR 0116).
+			let host = controller.pageHost
+			let height = controller.browserWindow.window.contentView?.bounds.height ?? 0
+			let rect = { (view: NSView) -> [String: Double] in
+				let frame = view.convert(view.bounds, to: nil)
+				return ["x": frame.minX, "y": height - frame.maxY, "width": frame.width, "height": frame.height]
+			}
+			let page = host.subviews.last
+			let drawn = page?.subviews.first?.layer?.sublayers?.first?.bounds.size
+
+			return .handled([
+				"host": rect(host),
+				"page": page.map(rect) as Any,
+				"drawn": drawn.map { ["width": $0.width, "height": $0.height] } as Any,
+			] as [String: Any])
+
+		case "setLockAfter":
+			// { minutes }: a number, or null (never).
+			controller.changeSettings { $0.lockAfterMinutes = command["minutes"] as? Int }
+
 		case "pinKeys":
 			// { keys: "1234" }: the numpad's digits; "<" is Delete, ">" is
 			// Continue, "^" is the back arrow.

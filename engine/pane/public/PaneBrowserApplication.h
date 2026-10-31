@@ -100,6 +100,14 @@ NS_SWIFT_UI_ACTOR
            completion:(void (^)(BOOL deleted))completion
     NS_SWIFT_NAME(deleteContext(_:completion:));
 
+// Closes the profile and keeps its data: closes its tabs in every window,
+// without asking their pages, and lets Chrome destroy the profile, which
+// closes its files (Pane's lock, ADR 0116). `completion` gets NO when the
+// profile is unknown, or still held after ten seconds.
+- (void)closeContext:(PaneBrowserContext*)context
+          completion:(void (^)(BOOL closed))completion
+    NS_SWIFT_NAME(closeContext(_:completion:));
+
 // Starts an orderly engine shutdown, as Quit does.
 - (void)terminate;
 

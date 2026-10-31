@@ -9,6 +9,10 @@ import Foundation
 enum TestHooks {
 	static let enabled = CommandLine.arguments.contains("--use-mock-keychain")
 
+	// PANE_TIME_SCALE=60 makes a minute pass every second, for the sleep
+	// and lock scenarios.
+	static let timeScale = environment("PANE_TIME_SCALE").flatMap(Double.init).map { max($0, 1) } ?? 1
+
 	// A hook's variable, in a scenario's run only.
 	static func environment(_ name: String) -> String? {
 		enabled ? ProcessInfo.processInfo.environment[name] : nil
