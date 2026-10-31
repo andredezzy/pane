@@ -59,6 +59,9 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		vault.didBecomeOpen = { [weak controller] in
 			controller?.accessDidOpen()
 		}
+		vault.didFail = { [weak lock] in
+			lock?.volumeWontOpen()
+		}
 
 		// An earlier Pane's profiles move in at once, with no PIN to ask
 		// first: the panel shows from the first frame.

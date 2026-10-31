@@ -166,14 +166,32 @@ const dataVolume: Scenario = async (context) => {
 	await Bun.$`/usr/bin/hdiutil create -size 1g -type SPARSEBUNDLE -fs APFS -volname Pane ${join(dataDir, "Data")} -quiet`;
 
 	const plainApp = await launchPane(context, { dataDir, volumeFails: true });
-	const plainState = await plainApp.state();
+
+	// The lock shuts and says so (07.8).
+	const plainState = await plainApp.waitFor(
+		"the lock saying the data won't open",
+		(state) => state.security.locked && state.security.screen?.error != null,
+	);
 
 	const plain = {
 		failure: plainState.security.data.failure,
+		locked: plainState.security.locked,
+		message: plainState.security.screen?.error,
 		mounted: await mounted(),
 		attachedImages: (await imagesAttachedIn(dataDir)).length,
 		profileFolder: false,
 	};
+
+	// The panel as Paper's 07.8 draws it, in both themes, once it has slid
+	// in.
+	for (const theme of ["light", "dark"]) {
+		await plainApp.send("theme", { theme });
+		await Bun.sleep(600);
+
+		await plainApp.send("render", {
+			path: join(context.out, `data-volume-07.8-${theme}.png`),
+		});
+	}
 
 	await plainApp.browser.close();
 
@@ -190,6 +208,8 @@ const dataVolume: Scenario = async (context) => {
 
 	expect(
 		(plain.failure ?? "").includes("not encrypted") &&
+			plain.message ===
+				"Pane can\u{2019}t open your encrypted data.\nQuit, then open Pane again." &&
 			!plain.mounted &&
 			plain.attachedImages === 0 &&
 			!plain.profileFolder,

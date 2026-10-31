@@ -48,9 +48,10 @@ Launch and unlock:
 Moving the data in:
 
 - **An earlier Pane's plain profile folders move into the volume** before any profile opens, file by file, each staged for the panic wipe's erase only once its copy is whole, so a move a quit cuts short copies that folder again. Their caches are dropped, and rebuild. The move follows the data, not the launch: plain folders found at any open move in.
-- **Two states on screen change**, drawn in Paper and approved by the user (2026-10-30) on the Lock screen page (ADR 0058):
+- **Three states on screen change**, drawn in Paper and approved by the user (2026-10-30) on the Lock screen page (ADR 0058):
   - **07.5, the move's progress**: "Encrypting your data", the update's bar (`UpdateProgressBar`) at the numpad's width, and "Once, after this update", in place of the dots and the numpad. With no PIN to ask first, it shows from the first frame.
   - **07.6, an unreadable key**: "Pane can't read the key to your data. / Quit, then restore security.json.", in two lines, no longer saying to remove the file. The dots and the numpad show at 40%, since the lock takes no keys then. When the Keychain gives no secret, its second line asks to open Pane again and allow its keychain item (07.7, drawn while building, approved by the user, 2026-10-30).
+  - **07.8, the data won't open**: "Pane can't open your encrypted data. / Quit, then open Pane again.", on the same dimmed panel, when the volume would not attach once the key opened: a damaged image, a plain volume in its place, another Pane holding the data past the wait. The lock shuts and takes no keys; with a PIN, the panel that slid away comes back (approved by the user, 2026-10-31). Before it, nothing showed, and the pages never loaded.
 
 The panic wipe:
 
@@ -106,6 +107,6 @@ How it is checked:
   - `proxy`: `profiles.json` is sealed, no file holds a proxy's password in the clear, the store is gone, and the Electron app's plain password signs in, sealed, before and after a relaunch.
   - `migration`: the Electron app's profiles move into the volume behind the PIN, and the page sees their cookies and local storage.
   - `profile-lifecycle`: a delete the engine never confirmed is purged once the volume is mounted.
-  - `data-volume`: a second Pane on the same data hands over and quits, and the first keeps its volume and loads pages, where it lost both before; an image cut short before its container, then before its volume, is finished; a plain volume in the encrypted one's place is refused, detached, and holds nothing of the profile's; a quit while the first launch makes the image leaves nothing attached.
+  - `data-volume`: a second Pane on the same data hands over and quits, and the first keeps its volume and loads pages, where it lost both before; an image cut short before its container, then before its volume, is finished; a plain volume in the encrypted one's place is refused, detached, and holds nothing of the profile's, and the lock shows 07.8's lines, rendered in both themes; a quit while the first launch makes the image leaves nothing attached.
   - Every scenario starts once the profiles are open and the volume mounted, or the PIN screen shows (`tests/lib/pane.ts`), and fails at launch, saying why, when the volume would not attach; `benchmark-unlock` times what the volume adds.
 - **A real update from the published app**: one Keychain prompt, as before, and the caches' link under `~/Library/Caches`, which scenarios do not reach, holding the HTTP cache.

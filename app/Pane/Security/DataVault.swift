@@ -55,6 +55,8 @@ final class DataVault {
 	@ObservationIgnored var didOpen: (() -> Void)?
 	// The profiles are read and their move, if any, done.
 	@ObservationIgnored var didBecomeOpen: (() -> Void)?
+	// The volume would not attach: the lock says so (07.8).
+	@ObservationIgnored var didFail: (() -> Void)?
 	// The profiles' ids, once the model has them: what an open moves in.
 	@ObservationIgnored var profileIDs: () -> [String] = { [] }
 	@ObservationIgnored private let dataDirectory: URL
@@ -402,6 +404,7 @@ final class DataVault {
 	// their tabs.
 	private func attachFailed(_ reason: String) {
 		failure = reason
+		didFail?()
 
 		if case .moving = phase {
 			becomeOpen()

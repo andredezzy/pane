@@ -37,6 +37,8 @@ final class AppLock {
 	// The PIN screen's line when no key can be read (Paper 07.6).
 	static let keyUnreadable = "Pane can\u{2019}t read the key to your data.\nQuit, then restore security.json."
 	static let keychainDenied = "Pane can\u{2019}t read the key to your data.\nOpen Pane again, and allow its keychain item."
+	// And when the volume would not open (07.8).
+	static let dataWontOpen = "Pane can\u{2019}t open your encrypted data.\nQuit, then open Pane again."
 
 	// A security.json that does not decode never opens the lock: its PIN is
 	// read from what is left when it can be, its key from the copy beside
@@ -104,6 +106,14 @@ final class AppLock {
 			let opened = await Task.detached(priority: .userInitiated) { Self.open(pin: nil, state: state, attach: attach) }.value
 			self?.opened(opened, unlocking: true)
 		}
+	}
+
+	// The volume would not open once the key had (DataVault): nothing of the
+	// profiles can run, so the lock shuts, says so, and takes no keys. With
+	// a PIN, the panel that slid away comes back.
+	func volumeWontOpen() {
+		isLocked = true
+		present(.unreadable(Self.dataWontOpen))
 	}
 
 	// Settings' Set up, Change, and Remove PIN.
