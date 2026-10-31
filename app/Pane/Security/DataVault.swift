@@ -43,6 +43,9 @@ final class DataVault {
 	@ObservationIgnored private var device: String?
 	// The image's attach at launch, its volume locked (attachImage).
 	@ObservationIgnored private var image: Task<DataVolume.Devices?, Never>?
+	// The data's lock, held from launch, or taken once the Pane that held it
+	// let go: the image is this one's alone while it is (DataLock).
+	@ObservationIgnored private var dataLock: DataLock?
 	// When the attach started and ended, in milliseconds since 1970.
 	@ObservationIgnored private(set) var attachedAt: (started: Double, ended: Double)?
 	@ObservationIgnored private var attachWaiters: [(Bool) -> Void] = []
@@ -87,18 +90,27 @@ final class DataVault {
 
 	// The device the attach returned, and when it started and ended, in
 	// milliseconds since 1970: for the security scenario and benchmark-unlock.
+	// Another Pane held the data past the wait for its lock.
+	private struct Held: Error, CustomStringConvertible {
+		var description: String {
+			"another Pane holds this data"
+		}
+	}
+
 	struct Attached: Sendable {
 		let device: String
 		let started: Double
 		let ended: Double
+		// Taken for the attach, by a Pane started while another held it.
+		let lock: DataLock?
 	}
 
 	// The image attaches as Pane starts, its volume locked, while the engine
 	// starts and the PIN is typed, with its watchdog: what is left once the
 	// key opens is the unlock and the mount. main.swift starts it before the
-	// engine's singleton, so it attaches once and clears nothing: a Pane
-	// already running holds the image, and keeps it. One that fails here is
-	// attached again, leftovers cleared, once the key opens.
+	// engine's singleton, holding the data's lock, so a Pane started while
+	// another runs never starts it: that one's image stays its own. One that
+	// fails here is attached again, leftovers cleared, once the key opens.
 	nonisolated static func attachImage(_ volume: DataVolume) -> Task<DataVolume.Devices?, Never> {
 		Task.detached(priority: .userInitiated) {
 			guard volume.exists, let devices = try? volume.attachImageOnce() else {
@@ -110,9 +122,15 @@ final class DataVault {
 		}
 	}
 
-	// The image's attach from main.swift, whose device the quit detaches.
-	func adopt(_ image: Task<DataVolume.Devices?, Never>) {
+	// The data's lock and the image's attach from main.swift, whose device
+	// the quit detaches: neither, when another Pane held the data at launch.
+	func adopt(_ image: Task<DataVolume.Devices?, Never>?, lock: DataLock?) {
 		self.image = image
+		dataLock = lock
+
+		guard let image else {
+			return
+		}
 
 		Task { [weak self] in
 			if let devices = await image.value {
@@ -127,36 +145,50 @@ final class DataVault {
 	func attacher() -> @Sendable (SymmetricKey) -> Task<Attached, Error> {
 		let volume = volume
 		let image = image
+		let locking = dataLock == nil ? dataDirectory : nil
 
 		return { key in
-			Task.detached(priority: .userInitiated) { try await Self.attach(volume, key: key, image: image) }
+			Task.detached(priority: .userInitiated) { try await Self.attach(volume, key: key, image: image, locking: locking) }
 		}
 	}
 
 	// Unlocks and mounts the volume the image attached at launch, or attaches
-	// it now, or makes it the first time.
-	private nonisolated static func attach(_ volume: DataVolume, key: SymmetricKey, image: Task<DataVolume.Devices?, Never>?) async throws -> Attached {
+	// it now, or makes it the first time. A Pane started while another held
+	// the data takes its lock first, once that one has let go: it quit, and
+	// detached the image before, or the engine's singleton ended it.
+	private nonisolated static func attach(
+		_ volume: DataVolume,
+		key: SymmetricKey,
+		image: Task<DataVolume.Devices?, Never>?,
+		locking dataDirectory: URL?
+	) async throws -> Attached {
 		let started = Date().timeIntervalSince1970 * 1000
 		let passphrase = DataKey.volumePassphrase(key)
+		var lock: DataLock?
+
+		if let dataDirectory {
+			lock = DataLock.wait(dataDirectory: dataDirectory, timeout: 30)
+
+			guard lock != nil else {
+				throw Held()
+			}
+		}
+
 		let devices: DataVolume.Devices
 
 		if let attached = await image?.value {
 			devices = attached
-			try volume.open(devices, passphrase: passphrase)
-		} else if volume.exists {
-			devices = try volume.attachImage()
-			watch(volume, device: devices.image)
-			try volume.open(devices, passphrase: passphrase)
 		} else {
-			devices = try volume.create(passphrase: passphrase)
+			devices = try volume.attachOrMake(passphrase: passphrase)
 			watch(volume, device: devices.image)
-			try volume.open(devices, passphrase: passphrase)
 		}
+
+		try volume.open(devices, passphrase: passphrase)
 
 		let ended = Date().timeIntervalSince1970 * 1000
 		Log.security.notice("The data volume opened in \((ended - started) / 1000, format: .fixed(precision: 2)) s")
 
-		return Attached(device: devices.image, started: started, ended: ended)
+		return Attached(device: devices.image, started: started, ended: ended, lock: lock)
 	}
 
 	private nonisolated static func watch(_ volume: DataVolume, device: String) {
@@ -316,6 +348,10 @@ final class DataVault {
 		isAttached = true
 		device = attached.device
 		attachedAt = (attached.started, attached.ended)
+
+		if let lock = attached.lock {
+			dataLock = lock
+		}
 
 		if moved {
 			becomeOpen()

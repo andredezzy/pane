@@ -46,11 +46,18 @@ do {
 	Log.engine.error("Could not point Local State at the Default profile: \(String(describing: error), privacy: .private)")
 }
 
+// The Pane that runs on this data holds its lock until it ends. One started
+// while it runs, which hands its URLs over through the engine's singleton and
+// quits, or while it quits, leaves its image alone (DataLock, ADR 0113).
+let dataLock = DataLock(dataDirectory: dataDirectory)
+
 // The data image attaches now, its volume locked, while the engine starts:
 // only the unlock and the mount wait for the key (ADR 0113).
-let image = DataVault.attachImage(DataVolume(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory)))
+let image = dataLock.map { _ in
+	DataVault.attachImage(DataVolume(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory)))
+}
 
-let appDelegate = AppDelegate(dataDirectory: dataDirectory, image: image)
+let appDelegate = AppDelegate(dataDirectory: dataDirectory, dataLock: dataLock, image: image)
 let status = BrowserApplication.run(delegate: appDelegate, dataDirectory: dataDirectory)
 
 // The engine is down, its files closed: the data volume detaches (ADR 0113).

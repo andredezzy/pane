@@ -27,6 +27,15 @@ public struct DataVolume: Sendable {
 		}
 	}
 
+	// A volume in the image that is not encrypted, refused (open).
+	public struct NotEncrypted: Error, CustomStringConvertible {
+		public let volume: String
+
+		public var description: String {
+			"the volume \(volume) is not encrypted"
+		}
+	}
+
 	// An attached image's devices: its own (/dev/diskN), which detaches it
 	// whole, and its encrypted volume's.
 	public struct Devices: Sendable, Hashable {
@@ -79,40 +88,97 @@ public struct DataVolume: Sendable {
 
 	// MARK: Attaching
 
-	// Made once, and left attached with its volume unlocked: hdiutil makes
-	// the image with a plain APFS volume, which goes once a volume born
-	// encrypted with the passphrase is added beside it.
-	public func create(passphrase: String) throws -> Devices {
+	// Attaches the image, its volume locked, or makes it the first time, or
+	// finishes one a quit cut short while making it, which has no volume and
+	// so holds nothing. Made, it has no file system, an APFS container on it,
+	// and in that one volume, born encrypted with the passphrase, which
+	// diskutil reads from stdin: no plain volume is ever made to be mounted
+	// in its place. 1.2 s, where hdiutil's image with a plain volume, removed
+	// once the encrypted one was added beside it, took 3.5.
+	public func attachOrMake(passphrase: String) throws -> Devices {
 		try prepareMountPoint()
-		try run("/usr/bin/hdiutil", [
-			"create", "-size", "1t", "-type", "SPARSEBUNDLE", "-fs", "APFS", "-volname", "Plain",
-			image.deletingPathExtension().path, "-quiet",
-		])
+		let made = !exists
 
-		let plain = try attachImage()
-		let container = try self.container(of: plain.volume)
-		try run("/usr/sbin/diskutil", ["apfs", "addVolume", container, "APFS", "Pane", "-stdinpassphrase", "-nomount"], input: passphrase)
-		try run("/usr/sbin/diskutil", ["apfs", "deleteVolume", plain.volume])
+		if made {
+			try makeImage()
+		}
 
-		return Devices(image: plain.image, volume: try volume(named: "Pane", in: container))
-	}
+		let attached: Attachment
 
-	// Attaches the image without mounting it: its volume stays locked. One a
-	// crash left attached goes first, when the attach finds it.
-	public func attachImage() throws -> Devices {
 		do {
-			return try attachImageOnce()
+			attached = try attachOnce()
 		} catch {
 			detachLeftovers()
-			return try attachImageOnce()
+			attached = try attachOnce()
 		}
+
+		if let volume = attached.volume {
+			return Devices(image: attached.image, volume: volume)
+		}
+
+		let container = try attached.container ?? makeContainer(on: attached.image, made: made)
+		let output = try run("/usr/sbin/diskutil", ["apfs", "addVolume", container, "APFS", "Pane", "-stdinpassphrase", "-nomount"], input: passphrase)
+
+		// diskutil names the volume it made on a line of its own.
+		let prefix = "Disk from APFS operation: "
+		let line = String(decoding: output, as: UTF8.self).split(separator: "\n").last { $0.hasPrefix(prefix) }
+		let volume = try line.map { $0.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces) } ?? self.volume(named: "Pane", in: container)
+
+		return Devices(image: attached.image, volume: Self.device(volume))
+	}
+
+	// A terabyte at most, sparse, with no file system. `diskutil image
+	// create` where macOS has it, in 70 ms; hdiutil's takes a second.
+	private func makeImage() throws {
+		do {
+			guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 else {
+				throw CocoaError(.featureUnsupported)
+			}
+
+			try run("/usr/sbin/diskutil", ["image", "create", "blank", "--fs", "None", "--format", "UDSB", "--size", "1T", image.path])
+		} catch {
+			try run("/usr/bin/hdiutil", ["create", "-size", "1t", "-type", "SPARSEBUNDLE", "-layout", "NONE", image.deletingPathExtension().path, "-quiet"])
+		}
+	}
+
+	// The image's APFS container, made on it unless one is there: formatting
+	// erases, so only an image just made, or one diskutil finds no container
+	// on, is formatted.
+	private func makeContainer(on image: String, made: Bool) throws -> String {
+		if !made, let container = try? container(of: image) {
+			return container
+		}
+
+		try run("/sbin/newfs_apfs", ["-C", "-w", image])
+		return try container(of: image)
+	}
+
+	// The image attached once, its volume locked. One with no volume yet,
+	// whose making a quit cut short, stays attached for attachOrMake to
+	// finish.
+	public func attachImageOnce() throws -> Devices {
+		let attached = try attachOnce()
+
+		guard let volume = attached.volume else {
+			throw Failure(command: "attach", status: 0, output: "no APFS volume in the image")
+		}
+
+		return Devices(image: attached.image, volume: volume)
+	}
+
+	// An attached image's devices: its own, and its APFS container's and
+	// volume's, once made.
+	private struct Attachment {
+		let image: String
+		let container: String?
+		let volume: String?
 	}
 
 	// One attach, nothing cleared on failure: before the engine's singleton,
 	// a Pane already running may hold the image, and keeps it. `diskutil image
 	// attach` where macOS has it, since hdiutil's attach is deprecated there;
 	// hdiutil on the macOS versions before it.
-	public func attachImageOnce() throws -> Devices {
+	private func attachOnce() throws -> Attachment {
 		var output: Data
 
 		do {
@@ -128,39 +194,68 @@ public struct DataVolume: Sendable {
 		guard
 			let plist = try PropertyListSerialization.propertyList(from: output, format: nil) as? [String: Any],
 			let entities = plist["system-entities"] as? [[String: Any]],
-			let image = entities.first?["dev-entry"] as? String
+			let image = Self.imageDevice(entities)
 		else {
 			throw Failure(command: "attach", status: 0, output: String(decoding: output, as: UTF8.self))
 		}
 
-		// diskutil names an APFS volume by its role, hdiutil by its type's
-		// GUID.
-		let volume = entities.first {
-			["Apple_APFS_Volume", "41504653-0000-11AA-AA11-00306543ECAC"].contains($0["content-hint"] as? String)
-		}?["dev-entry"] as? String
-
-		guard let volume else {
-			throw Failure(command: "attach", status: 0, output: "no APFS volume in \(entities)")
+		let device = { (hints: [String]) in
+			(entities.first { hints.contains($0["content-hint"] as? String ?? "") }?["dev-entry"] as? String).map(Self.device)
 		}
 
-		return Devices(image: Self.device(image), volume: Self.device(volume))
+		return Attachment(
+			image: image,
+			container: device(Self.containerHints),
+			volume: device(["Apple_APFS_Volume", "41504653-0000-11AA-AA11-00306543ECAC"])
+		)
 	}
 
-	// Unlocks the attached image's volume with the passphrase, then mounts
-	// it. A volume just made is unlocked already, and mounts as it is.
-	public func open(_ devices: Devices, passphrase: String) throws {
-		do {
-			try run("/usr/sbin/diskutil", ["apfs", "unlockVolume", devices.volume, "-stdinpassphrase", "-nomount"], input: passphrase)
-		} catch {
-			do {
-				try mount(devices)
-				return
-			} catch {}
+	// diskutil names an APFS container and volume by their role, hdiutil by
+	// their type's GUID.
+	private static let containerHints = ["Apple_APFS_Container", "EF57347C-0000-11AA-AA11-00306543ECAC"]
 
+	// The image's own device among an attachment's: its whole disk, which
+	// detaches it whole, not its APFS container's, a whole disk too. They
+	// come in no set order: a partitioned image's EFI partition came first.
+	// diskutil names them without /dev/, hdiutil with it.
+	private static func imageDevice(_ entities: [[String: Any]]) -> String? {
+		entities.lazy.compactMap { entity -> String? in
+			guard
+				let device = (entity["dev-entry"] as? String).map(Self.device),
+				device.hasPrefix("/dev/disk"), device.dropFirst("/dev/disk".count).allSatisfy(\.isNumber),
+				!containerHints.contains(entity["content-hint"] as? String ?? "")
+			else {
+				return nil
+			}
+
+			return device
+		}.first
+	}
+
+	// Unlocks the attached image's volume with the passphrase and mounts it,
+	// and keeps it only if it is encrypted: a plain volume put in its place
+	// unlocks with nothing and would take the profiles in the clear, so its
+	// image detaches before anything is written. One left unlocked mounts as
+	// it is, and is checked the same.
+	public func open(_ devices: Devices, passphrase: String) throws {
+		let unlocked = Result {
+			try run("/usr/sbin/diskutil", ["apfs", "unlockVolume", devices.volume, "-stdinpassphrase", "-nomount"], input: passphrase)
+		}
+
+		do {
+			try mount(devices)
+		} catch {
+			// A volume that would not unlock says why.
+			_ = try unlocked.get()
 			throw error
 		}
 
-		try mount(devices)
+		let values = try? URL(fileURLWithPath: mountPoint.path, isDirectory: true).resourceValues(forKeys: [.volumeIsEncryptedKey])
+
+		guard values?.volumeIsEncrypted == true else {
+			try? detach(device: devices.image, force: true)
+			throw NotEncrypted(volume: devices.volume)
+		}
 	}
 
 	// At the mount point, out of the Finder (nobrowse), through Disk
@@ -259,7 +354,7 @@ public struct DataVolume: Sendable {
 		let path = Self.realPath(image.path)
 
 		for attached in images where (attached["image-path"] as? String).map(Self.realPath) == path {
-			if let device = (attached["system-entities"] as? [[String: Any]])?.first?["dev-entry"] as? String {
+			if let device = (attached["system-entities"] as? [[String: Any]]).flatMap(Self.imageDevice) {
 				try? detach(device: device, force: true)
 			}
 		}

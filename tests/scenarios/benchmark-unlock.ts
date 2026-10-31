@@ -90,9 +90,14 @@ const benchmarkUnlock: Scenario = async (context) => {
 	const setup = await launchPane(context, { dataDir: locked });
 	await setup.send("pinKeys", { keys: "1234" });
 
+	// Until the volume it makes is whole: quit while it was being made, the
+	// timed runs had opened a plain volume an earlier Pane left behind.
 	await setup.waitFor(
-		"unlocked",
-		(state) => !state.security.locked && state.security.data.phase === "open",
+		"unlocked, the volume made",
+		(state) =>
+			!state.security.locked &&
+			state.security.data.phase === "open" &&
+			state.security.data.attached,
 		60_000,
 	);
 

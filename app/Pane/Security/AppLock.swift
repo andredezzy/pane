@@ -173,7 +173,7 @@ final class AppLock {
 
 	// What opening the data key came to.
 	enum Opened: Sendable {
-		// `attaching`, when the key opens the data: the volume's attach,
+		// `attaching`, when a saved key opens the data: the volume's attach,
 		// started there and then.
 		case key(SymmetricKey, secret: Data, made: DataKey.Sealed?, attaching: Task<DataVault.Attached, Error>?)
 		case wrongPin
@@ -224,7 +224,9 @@ final class AppLock {
 			return .noSecret
 		}
 
-		return .key(key, secret: secret, made: sealed, attaching: attaching(key))
+		// Saved first (opened): a quit before would leave a volume made with
+		// no key saved to open it, which Pane takes for a key lost.
+		return .key(key, secret: secret, made: sealed, attaching: nil)
 	}
 
 	// A wrong PIN counts at once, on disk too, so quitting cannot reset the
@@ -268,10 +270,11 @@ final class AppLock {
 
 			save()
 
-			if unlocking, let attaching {
+			// A key just made is saved now, before the volume it opens is.
+			if unlocking {
 				dataKey = key
 				self.secret = secret
-				vault.open(key, attaching: attaching)
+				vault.open(key, attaching: attaching ?? vault.attacher()(key))
 			}
 
 			verified(true)

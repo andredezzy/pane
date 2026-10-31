@@ -467,6 +467,9 @@ export type PaneLaunch = {
 	env?: Record<string, string>;
 	// Another copy of the app than the run's binary.
 	binary?: string;
+	// The volume is meant not to attach (data-volume): the launch returns
+	// once it has failed, where it fails otherwise, saying why.
+	volumeFails?: boolean;
 };
 
 export async function launchPane(
@@ -522,14 +525,23 @@ export async function launchPane(
 	// runs, and a profile's page waits for the volume to attach, so the app is
 	// handed over once the profiles are open and the volume attached, as a
 	// moment after launch, or the PIN screen shows. benchmark-unlock times
-	// what the attach adds.
-	await app.waitFor(
+	// what the attach adds. A volume that would not attach ends the wait.
+	const launched = await app.waitFor(
 		"the profiles open and the volume attached, or the PIN screen",
 		(state) =>
 			(state.security.data.phase === "open" && state.security.data.attached) ||
-			state.security.locked,
+			state.security.locked ||
+			state.security.data.failure !== null,
 		60_000,
 	);
+
+	if (launched.security.data.failure !== null && !options.volumeFails) {
+		await browser.close();
+
+		throw new Error(
+			`the volume did not attach: ${launched.security.data.failure}`,
+		);
+	}
 
 	return app;
 }

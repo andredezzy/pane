@@ -78,7 +78,10 @@ export async function imagesAttachedIn(path: string): Promise<string[]> {
 			JSON.parse(info.stdout.toString() || "{}") as {
 				images?: {
 					"image-path"?: string;
-					"system-entities"?: { "dev-entry"?: string }[];
+					"system-entities"?: {
+						"dev-entry"?: string;
+						"content-hint"?: string;
+					}[];
 				}[];
 			}
 		).images ?? [];
@@ -89,8 +92,23 @@ export async function imagesAttachedIn(path: string): Promise<string[]> {
 
 			return imagePath !== undefined && resolved(imagePath).startsWith(inside);
 		})
-		.map((image) => image["system-entities"]?.[0]?.["dev-entry"])
+		.map((image) => imageDevice(image["system-entities"] ?? []))
 		.filter((device): device is string => device !== undefined);
+}
+
+// An attached image's own device: its whole disk, not its APFS container's,
+// a whole disk too. hdiutil lists them in no set order (DataVolume).
+export function imageDevice(
+	entities: { "dev-entry"?: string; "content-hint"?: string }[],
+): string | undefined {
+	return entities.find(
+		(entity) =>
+			/^\/dev\/disk\d+$/.test(entity["dev-entry"] ?? "") &&
+			![
+				"Apple_APFS_Container",
+				"EF57347C-0000-11AA-AA11-00306543ECAC",
+			].includes(entity["content-hint"] ?? ""),
+	)?.["dev-entry"];
 }
 
 // Detaches them: a Pane killed leaves its volume attached until its

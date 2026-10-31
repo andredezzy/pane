@@ -156,3 +156,61 @@ struct LocalStateTests {
 		#expect(try LocalState.startingOnDefaultProfile(changed) == nil)
 	}
 }
+
+@Suite("DataLock")
+struct DataLockTests {
+	private func root() throws -> URL {
+		let root = FileManager.default.temporaryDirectory.appending(path: "pane-lock-\(UUID().uuidString)")
+		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+		return root
+	}
+
+	@Test("the data's lock is one Pane's while it runs, and the next one's once it lets go")
+	func held() throws {
+		let root = try root()
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		var first = DataLock(dataDirectory: root)
+		#expect(first != nil)
+		#expect(DataLock(dataDirectory: root) == nil)
+
+		first = nil
+		#expect(DataLock(dataDirectory: root) != nil)
+	}
+
+	@Test("a Pane started while another quits takes the lock once that one lets go")
+	func waits() async throws {
+		let root = try root()
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		var first = DataLock(dataDirectory: root)
+		let started = Date()
+		let waiting = Task.detached { DataLock.wait(dataDirectory: root, timeout: 5) }
+
+		try await Task.sleep(for: .milliseconds(200))
+		#expect(first != nil)
+		first = nil
+
+		let taken = await waiting.value
+		#expect(taken != nil)
+		#expect(Date().timeIntervalSince(started) < 1)
+		#expect(DataLock.wait(dataDirectory: root, timeout: 0.1) == nil)
+	}
+
+	@Test("a process Pane starts does not keep the lock: the update's relaunch takes it")
+	func notInherited() throws {
+		let root = try root()
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		var lock = DataLock(dataDirectory: root)
+		let child = Process()
+		child.executableURL = URL(fileURLWithPath: "/bin/sleep")
+		child.arguments = ["5"]
+		try child.run()
+		defer { child.terminate() }
+
+		#expect(lock != nil)
+		lock = nil
+		#expect(DataLock(dataDirectory: root) != nil)
+	}
+}

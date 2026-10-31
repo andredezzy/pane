@@ -15,11 +15,14 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	private var sleep: SleepController?
 	private var observers: [NSObjectProtocol] = []
 
-	// The data image's attach, started before the engine (main.swift).
-	private let image: Task<DataVolume.Devices?, Never>
+	// The data's lock and the image's attach, from before the engine
+	// (main.swift): neither when another Pane held the data then.
+	private let dataLock: DataLock?
+	private let image: Task<DataVolume.Devices?, Never>?
 
-	init(dataDirectory: URL, image: Task<DataVolume.Devices?, Never>) {
+	init(dataDirectory: URL, dataLock: DataLock?, image: Task<DataVolume.Devices?, Never>?) {
 		self.dataDirectory = dataDirectory
+		self.dataLock = dataLock
 		self.image = image
 	}
 
@@ -85,7 +88,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		})
 
 		windowController?.showWindow()
-		vault.adopt(image)
+		vault.adopt(image, lock: dataLock)
 		lock.start()
 
 		if let url = CommandLine.arguments.dropFirst().first(where: { !$0.hasPrefix("-") }).flatMap(URL.init(string:)) {

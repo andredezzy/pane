@@ -11,6 +11,12 @@ guard arguments.count == 4, let pid = pid_t(arguments[1]), arguments[2].hasPrefi
 	exit(64)
 }
 
+// A session of its own: a kill of Pane's process group, which ended Pane and
+// this watchdog together and left the volume mounted, or the hangup of the
+// terminal Pane was started from, does not reach it.
+signal(SIGHUP, SIG_IGN)
+setsid()
+
 // The path with its links resolved (/var is /private/var), as hdiutil reports it.
 func real(_ path: String) -> String {
 	guard let resolved = realpath(path, nil) else {

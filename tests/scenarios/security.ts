@@ -542,6 +542,26 @@ const security: Scenario = async (context) => {
 	);
 
 	const whileOpenAgain = (await imagesAttachedIn(detachDir)).length;
+
+	// The watchdog is in a session of its own, apart from Pane's process
+	// group: a kill of that group had ended both and left the volume mounted.
+	const groupOf = async (pid: string) =>
+		(await Bun.$`/bin/ps -o pgid= -p ${pid}`.quiet().nothrow().text()).trim();
+
+	const watchdog =
+		(
+			await Bun.$`/usr/bin/pgrep -f ${`pane-volume-watch ${killedApp.browser.pid} `}`
+				.quiet()
+				.nothrow()
+				.text()
+		)
+			.trim()
+			.split("\n")[0] ?? "";
+
+	const watchdogGroup = watchdog ? await groupOf(watchdog) : "";
+	const paneGroup = await groupOf(String(killedApp.browser.pid));
+	const watchdogApart = watchdogGroup !== "" && watchdogGroup !== paneGroup;
+
 	process.kill(killedApp.browser.pid, "SIGKILL");
 	await waitForExit(killedApp.browser.pid);
 
@@ -555,12 +575,19 @@ const security: Scenario = async (context) => {
 		afterKill = (await imagesAttachedIn(detachDir)).length;
 	}
 
-	const detached = { whileOpen, afterQuit, whileOpenAgain, afterKill };
+	const detached = {
+		whileOpen,
+		afterQuit,
+		whileOpenAgain,
+		watchdog: { pid: watchdog, group: watchdogGroup, paneGroup },
+		afterKill,
+	};
 
 	expect(
 		whileOpen === 1 &&
 			afterQuit === 0 &&
 			whileOpenAgain === 1 &&
+			watchdogApart &&
 			afterKill === 0,
 		`the volume after a quit and a kill: ${JSON.stringify(detached)}`,
 	);
