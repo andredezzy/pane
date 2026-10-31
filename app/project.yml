@@ -34,7 +34,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Pane
-        PRODUCT_BUNDLE_IDENTIFIER: com.pane.desktop
+        PRODUCT_BUNDLE_IDENTIFIER: xyz.roundedcorners.pane
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_NSPrincipalClass: BrowserCrApplication
         SWIFT_INCLUDE_PATHS: $(SRCROOT)/../engine/pane/public

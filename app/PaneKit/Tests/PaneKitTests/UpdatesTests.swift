@@ -173,6 +173,6 @@ struct UpdateInstallTests {
 		#expect(UpdateInstall.isLeftoverMount("pane-update-19CDC9D9-4317-4BB6-B467-A974ACADFDC1", isRunning: running))
 		#expect(!UpdateInstall.isLeftoverMount("pane-update-notes", isRunning: running))
 		#expect(!UpdateInstall.isLeftoverMount("pane-update-7-notes", isRunning: running))
-		#expect(!UpdateInstall.isLeftoverMount("com.pane.desktop.1pSFam", isRunning: running))
+		#expect(!UpdateInstall.isLeftoverMount("xyz.roundedcorners.pane.1pSFam", isRunning: running))
 	}
 }

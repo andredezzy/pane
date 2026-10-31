@@ -115,3 +115,4 @@ One record per decision, numbered in the order the decisions were made: the deci
 - [0111](0111-chromes-crlset-ships-with-the-app.md) Chrome's CRLSet ships with the app
 - [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays
 - [0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md) Every profile's data is encrypted on disk, under a key the PIN releases
+- [0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md) Pane's identifier is xyz.roundedcorners.pane

@@ -6,10 +6,23 @@ import os
 // Chromium owns the process from here: `run` starts the engine on the main
 // thread and returns only at shutdown. Nothing may touch NSApplication before
 // it, because the engine creates the shared application itself.
+let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
 let dataDirectory = ProcessInfo.processInfo.environment["PANE_DATA_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
-	?? FileManager.default
-	.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-	.appendingPathComponent("com.pane.desktop", isDirectory: true)
+	?? applicationSupport.appendingPathComponent(BundleIdentifier.pane, isDirectory: true)
+
+// An earlier Pane's data, under its former identifier's folders, moves to this
+// one's before anything reads it (ADR 0114). Scenarios name their own data, or
+// a home of their own (CFFIXED_USER_HOME), whose preferences are still the
+// user's: those stay.
+if ProcessInfo.processInfo.environment["PANE_DATA_DIR"] == nil {
+	for failure in BundleIdentifier.moveFormerData(
+		applicationSupport: applicationSupport,
+		caches: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0],
+		defaults: ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"] == nil ? .standard : nil
+	) {
+		Log.app.error("Could not move an earlier Pane's data: \(failure, privacy: .private)")
+	}
+}
 
 // Pane restores its own session (profiles.json), so AppKit's window
 // restoration stays off, along with its "reopen windows?" alert after a crash.

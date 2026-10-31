@@ -59,7 +59,7 @@ public final class SleepScheduler {
 		activeProfileID: String?,
 		activeTabID: String?,
 		now: @escaping () -> Date = Date.init,
-		warn: @escaping (String) -> Void = { Logger(subsystem: "com.pane.desktop", category: "sleep").error("\($0, privacy: .private)") }
+		warn: @escaping (String) -> Void = { Logger(subsystem: BundleIdentifier.pane, category: "sleep").error("\($0, privacy: .private)") }
 	) {
 		self.now = now
 		self.warn = warn

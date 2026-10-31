@@ -467,6 +467,12 @@ export type PaneLaunch = {
 	env?: Record<string, string>;
 	// Another copy of the app than the run's binary.
 	binary?: string;
+	// The data root the app derives from `env`'s HOME and CFFIXED_USER_HOME
+	// (a throwaway folder), as on a Mac: the move of an earlier identifier's
+	// data runs only then (ADR 0114). `dataDir` names where it lands; the
+	// automation channel and the home go beside it, so nothing is in it
+	// before the launch.
+	derivedDataRoot?: boolean;
 	// The volume is meant not to attach (data-volume): the launch returns
 	// once it has failed, where it fails otherwise, saying why.
 	volumeFails?: boolean;
@@ -477,7 +483,12 @@ export async function launchPane(
 	options: PaneLaunch = {},
 ): Promise<PaneApp> {
 	const dataDir = options.dataDir ?? context.tempDir("pane-data-");
-	const automationDir = join(dataDir, "automation");
+
+	const own = options.derivedDataRoot
+		? context.tempDir("pane-automation-")
+		: dataDir;
+
+	const automationDir = join(own, "automation");
 	rmSync(automationDir, { recursive: true, force: true });
 	mkdirSync(join(automationDir, "in"), { recursive: true });
 	mkdirSync(join(automationDir, "out"), { recursive: true });
@@ -489,12 +500,13 @@ export async function launchPane(
 
 	// A home of its own, kept with the data so a relaunch finds it (see
 	// browser.ts's launch).
-	const home = join(dataDir, "home");
+	const home = join(own, "home");
 	mkdirSync(home, { recursive: true });
 
 	const browser = await context.launch({
 		binary: options.binary,
 		userDataDir: join(dataDir, "Engine"),
+		derivedDataRoot: options.derivedDataRoot,
 		args: [
 			...(locked ? ["--disable-backgrounding-occluded-windows"] : []),
 			...(options.args ?? []),
@@ -502,7 +514,7 @@ export async function launchPane(
 		env: {
 			HOME: home,
 			CFFIXED_USER_HOME: home,
-			PANE_DATA_DIR: dataDir,
+			...(!options.derivedDataRoot && { PANE_DATA_DIR: dataDir }),
 			PANE_AUTOMATION_DIR: automationDir,
 			// Only then does the app take the front from the app in use.
 			...(context.foreground && { PANE_AUTOMATION_FOREGROUND: "1" }),

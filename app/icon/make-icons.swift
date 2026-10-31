@@ -327,7 +327,7 @@ func systemIcon(_ images: [(appearance: String?, name: String, image: CGImage)])
 	try! fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: app.appendingPathComponent("MacOS/Icon").path)
 	let info: [String: Any] = [
 		"CFBundleExecutable": "Icon", "CFBundleIconFile": "AppIcon", "CFBundleIconName": "AppIcon",
-		"CFBundleIdentifier": "com.pane.icon.\(UUID().uuidString)", "CFBundlePackageType": "APPL",
+		"CFBundleIdentifier": "xyz.roundedcorners.pane.icon.\(UUID().uuidString)", "CFBundlePackageType": "APPL",
 	]
 	try! PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: app.appendingPathComponent("Info.plist"))
 

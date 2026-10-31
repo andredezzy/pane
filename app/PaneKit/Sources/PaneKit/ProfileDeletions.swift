@@ -59,7 +59,7 @@ public struct ProfileDeletions: Sendable {
 		do {
 			try file.save(ids)
 		} catch {
-			Logger(subsystem: "com.pane.desktop", category: "model").error("Could not save deletions.json: \(String(describing: error), privacy: .private)")
+			Logger(subsystem: BundleIdentifier.pane, category: "model").error("Could not save deletions.json: \(String(describing: error), privacy: .private)")
 		}
 	}
 }

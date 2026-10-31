@@ -186,7 +186,7 @@ async function standInDmg(
 
 	const keys = {
 		CFBundleExecutable: "Pane",
-		CFBundleIdentifier: "com.pane.desktop",
+		CFBundleIdentifier: "xyz.roundedcorners.pane",
 		CFBundlePackageType: "APPL",
 		CFBundleShortVersionString: holds,
 		PaneVersion: holds,

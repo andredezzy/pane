@@ -157,6 +157,48 @@ struct LocalStateTests {
 	}
 }
 
+@Suite("BundleIdentifier")
+struct BundleIdentifierTests {
+	private let fileManager = FileManager.default
+
+	// Identifiers of the test's own: a persistent domain is the whole Mac's,
+	// so the real ones would reach the installed Pane's preferences.
+	@Test("an earlier Pane's data and caches move to this identifier's folders, once")
+	func moveFormerData() throws {
+		let root = fileManager.temporaryDirectory.appending(path: "pane-identifier-\(UUID().uuidString)")
+		let former = "pane-test-former-\(UUID().uuidString)"
+		let current = "pane-test-current-\(UUID().uuidString)"
+		let defaults = try #require(UserDefaults(suiteName: current))
+		defer {
+			try? fileManager.removeItem(at: root)
+			defaults.removePersistentDomain(forName: former)
+			defaults.removePersistentDomain(forName: current)
+		}
+
+		let support = root.appending(path: "Application Support")
+		let caches = root.appending(path: "Caches")
+		try fileManager.createDirectory(at: support.appending(path: "\(former)/Engine"), withIntermediateDirectories: true)
+		try Data("{}".utf8).write(to: support.appending(path: "\(former)/profiles.json"))
+		try fileManager.createDirectory(at: caches.appending(path: "\(former)/Engine"), withIntermediateDirectories: true)
+		defaults.setPersistentDomain(["NSWindow Frame PaneMainWindow": "0 0 1280 800", "NSOSPLastRootDirectory": Data([1])], forName: former)
+
+		let move = { BundleIdentifier.moveFormerData(applicationSupport: support, caches: caches, defaults: defaults, from: former, to: current) }
+
+		#expect(move().isEmpty)
+		#expect(fileManager.fileExists(atPath: support.appending(path: "\(current)/profiles.json").path))
+		#expect(fileManager.fileExists(atPath: caches.appending(path: "\(current)/Engine").path))
+		#expect(!fileManager.fileExists(atPath: support.appending(path: former).path))
+		#expect(defaults.string(forKey: "NSWindow Frame PaneMainWindow") == "0 0 1280 800")
+		#expect(defaults.persistentDomain(forName: former)?.isEmpty ?? true)
+
+		// An earlier Pane's folder that turns up later moves nowhere: this
+		// identifier's data is the one in use.
+		try fileManager.createDirectory(at: support.appending(path: former), withIntermediateDirectories: true)
+		#expect(move().isEmpty)
+		#expect(fileManager.fileExists(atPath: support.appending(path: former).path))
+	}
+}
+
 @Suite("DataLock")
 struct DataLockTests {
 	private func root() throws -> URL {

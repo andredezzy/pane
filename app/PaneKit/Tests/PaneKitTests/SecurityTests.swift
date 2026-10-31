@@ -395,8 +395,8 @@ struct PanicWipeTests {
 		let caches = URL(fileURLWithPath: "/Users/someone/Library/Caches")
 
 		#expect(
-			PanicWipe.cacheDirectory(for: support.appending(path: "com.pane.desktop"), applicationSupport: support, caches: caches)
-				== caches.appending(path: "com.pane.desktop")
+			PanicWipe.cacheDirectory(for: support.appending(path: BundleIdentifier.pane), applicationSupport: support, caches: caches)
+				== caches.appending(path: BundleIdentifier.pane)
 		)
 		#expect(PanicWipe.cacheDirectory(for: URL(fileURLWithPath: "/tmp/pane-data"), applicationSupport: support, caches: caches) == nil)
 		#expect(PanicWipe.cacheDirectory(for: support, applicationSupport: support, caches: caches) == nil)

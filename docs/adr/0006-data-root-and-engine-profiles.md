@@ -1,6 +1,6 @@
 # Pane's data root is com.pane.desktop, with the engine's profiles under Engine
 
-> **Partly replaced by [ADR 0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md)** — each `Engine/<profile id>`, and its caches' folder, is a link into an encrypted volume attached at `Engine/Volume`, whose image is in the data root.
+> **Partly replaced by [ADR 0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md)** — each `Engine/<profile id>`, and its caches' folder, is a link into an encrypted volume attached at `Engine/Volume`, whose image is in the data root — **and by [ADR 0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md)**: the data root's and the caches' folders are `xyz.roundedcorners.pane`.
 
 The native app keeps its data in `~/Library/Application Support/com.pane.desktop/` (ADR 0004), because that folder collides with none of the Electron app's directories (`@pane/veil`, `@pane/desktop`, `Pane`); the Electron app's data is migrated from a copy, never in place (ADR 0043). Pane's own JSON state (`profiles.json`, `settings.json`, and the others) stays at the root. The engine's user data dir is `Engine/` inside it, and each profile is `Engine/<profile id>`.
 

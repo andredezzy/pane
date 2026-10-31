@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
@@ -12,6 +12,12 @@ export type LaunchOptions = {
 	// Another copy than the run's binary: a scenario that replaces the app's
 	// bundle (update-install) runs one of its own.
 	binary?: string;
+	// The Pane app derives its data root from its home, as on a Mac, rather
+	// than PANE_DATA_DIR: the move ADR 0114 makes at launch runs only then.
+	// Only under a home of the scenario's own, fixed for Foundation too
+	// (CFFIXED_USER_HOME): with HOME alone, the app's Application Support is
+	// the user's.
+	derivedDataRoot?: boolean;
 };
 
 export type Browser = {
@@ -97,9 +103,24 @@ export async function launch(
 	// The Pane app keeps its own data (PANE_DATA_DIR) and migrates the
 	// Electron app's on a first launch: unless a scenario names them, both
 	// are throwaway, never the user's at their default paths.
-	const appDataDir = options.env?.PANE_DATA_DIR
-		? null
-		: mkdtempSync(join(tmpdir(), "pane-data-"));
+	if (options.derivedDataRoot) {
+		const fixed = options.env?.CFFIXED_USER_HOME;
+
+		if (
+			!fixed ||
+			options.env?.HOME !== fixed ||
+			!realpathSync(fixed).startsWith(realpathSync(tmpdir()))
+		) {
+			throw new Error(
+				"a derived data root needs HOME and CFFIXED_USER_HOME on the same throwaway folder",
+			);
+		}
+	}
+
+	const appDataDir =
+		options.env?.PANE_DATA_DIR || options.derivedDataRoot
+			? null
+			: mkdtempSync(join(tmpdir(), "pane-data-"));
 
 	// A home of its own too, unless a scenario names one: under the real
 	// home the app would share the user's Pane's caches, HTTP storage, and

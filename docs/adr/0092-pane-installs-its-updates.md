@@ -1,5 +1,7 @@
 # Pane installs its updates itself
 
+> **Partly replaced by [ADR 0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md)** — the update to the new identifier does not install itself from 0.13.1 and before, whose check wants the identifier they have: their update opens the dmg.
+
 Pane installs a downloaded update itself, at quit, so the user no longer drags it from the dmg. The user asked for it after an update from 0.7.0 ended on "Pane Not Opened". ADR 0002 had left installing to the user until a Developer ID, and DESIGN.md said Pane, ad-hoc signed, "can't safely replace itself in place". It can, through these steps:
 
 1. **Check.** Once the dmg matches the release's SHA-256 and leaves quarantine (ADR 0090), Pane mounts it: with `diskutil image attach` on macOS 27, which deprecates hdiutil's attach and detach, and with hdiutil on earlier systems. The Pane inside must be this app (`com.pane.desktop`) at the offered version, with its signature whole (`codesign --verify --deep --strict`).

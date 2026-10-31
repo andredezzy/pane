@@ -37,7 +37,7 @@ const interactionTiming: Scenario = async (context) => {
 			"--style",
 			"ndjson",
 			"--predicate",
-			'subsystem == "com.pane.desktop" AND category == "PointsOfInterest"',
+			'subsystem == "xyz.roundedcorners.pane" AND category == "PointsOfInterest"',
 		],
 		{ stdout: "pipe", stderr: "ignore" },
 	);

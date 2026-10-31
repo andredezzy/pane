@@ -6,7 +6,8 @@ import os
 // Where an earlier Pane kept the proxy passwords (PaneKit ProxyPasswordVault):
 // proxy-passwords.json, sealed under the engine's "Pane Safe Storage" key (ADR
 // 0095), or, before that, a Keychain item of their own, "Pane Proxy
-// Passwords", whose account is the data directory's path. Since ADR 0113 they
+// Passwords", whose account is the data directory's path (under the former
+// identifier's folder, for a data root ADR 0114 moved). Since ADR 0113 they
 // are in profiles.json, sealed with it: these are read once, when an earlier
 // Pane's plain profiles.json is (ModelStore), and deleted once the profiles
 // are sealed with them. Under --use-mock-keychain, as the engine's own item,
@@ -15,12 +16,15 @@ import os
 struct ProxyPasswordStore: Sendable {
 	private static let service = "Pane Proxy Passwords"
 
-	private let account: String
+	// The data directory's path, and where it was before ADR 0114 moved it.
+	private let accounts: [String]
 	private let mock: PersistedFile<[String: String]>?
 	private let sealed: PersistedFile<ProxyPasswordSeal.Sealed>
 
 	init(dataDirectory: URL) {
-		account = dataDirectory.standardizedFileURL.path
+		let path = dataDirectory.standardizedFileURL.path
+		let former = dataDirectory.deletingLastPathComponent().appending(path: BundleIdentifier.former).standardizedFileURL.path
+		accounts = dataDirectory.lastPathComponent == BundleIdentifier.pane ? [path, former] : [path]
 		mock = CommandLine.arguments.contains("--use-mock-keychain")
 			? PersistedFile(directory: dataDirectory, name: "mock-keychain")
 			: nil
@@ -29,7 +33,7 @@ struct ProxyPasswordStore: Sendable {
 
 	private var vault: ProxyPasswordVault {
 		let sealed = sealed
-		let item = Item(account: account)
+		let item = Item(accounts: accounts)
 
 		return ProxyPasswordVault(
 			secret: { SafeStorage.engineSecret() },
@@ -70,36 +74,41 @@ struct ProxyPasswordStore: Sendable {
 		vault.delete()
 	}
 
-	// The Keychain item an earlier Pane kept them in.
+	// The Keychain item an earlier Pane kept them in, under the first account
+	// that has one.
 	private struct Item: Sendable {
-		let account: String
-
-		private var query: [CFString: Any] {
-			[
-				kSecClass: kSecClassGenericPassword,
-				kSecAttrService: ProxyPasswordStore.service,
-				kSecAttrAccount: account,
-			]
-		}
+		let accounts: [String]
 
 		func read() -> [String: String]? {
-			var result: CFTypeRef?
-			let status = SecItemCopyMatching(query.merging([kSecReturnData: true]) { $1 } as CFDictionary, &result)
+			for account in accounts {
+				var result: CFTypeRef?
+				let query: [CFString: Any] = [
+					kSecClass: kSecClassGenericPassword,
+					kSecAttrService: ProxyPasswordStore.service,
+					kSecAttrAccount: account,
+					kSecReturnData: true,
+				]
+				let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-			switch status {
-			case errSecSuccess:
-				return (result as? Data).flatMap { try? JSONDecoder().decode([String: String].self, from: $0) }
-			case errSecItemNotFound:
-				return [:]
-			default:
-				Log.security.error("Could not read the proxy passwords' item: \(status)")
-				return nil
+				switch status {
+				case errSecSuccess:
+					return (result as? Data).flatMap { try? JSONDecoder().decode([String: String].self, from: $0) }
+				case errSecItemNotFound:
+					continue
+				default:
+					Log.security.error("Could not read the proxy passwords' item: \(status)")
+					return nil
+				}
 			}
+
+			return [:]
 		}
 
 		// Without asking: where macOS would ask, the item stays.
 		func delete() {
-			SafeStorage.deleteKey(service: ProxyPasswordStore.service, account: account)
+			for account in accounts {
+				SafeStorage.deleteKey(service: ProxyPasswordStore.service, account: account)
+			}
 		}
 	}
 }
