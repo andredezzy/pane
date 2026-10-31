@@ -21,7 +21,7 @@ import { expect, type Scenario } from "../run";
 // The data root is the user's alone, where it was 0755. The engine keeps no
 // histograms (BrowserMetrics), which counted the pages loaded and the tabs
 // open, and the extensions an earlier migration record listed go at launch
-// (ADR 0118).
+// (ADR 0115).
 // What Chrome keeps of its histograms at the engine's root.
 const histogramFiles = (engine: string) =>
 	["BrowserMetrics", "BrowserMetrics-spare.pma", "DeferredBrowserMetrics"]

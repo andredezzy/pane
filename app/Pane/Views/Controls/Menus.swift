@@ -2,7 +2,7 @@ import SwiftUI
 
 // A menu's trigger, as Aside's pop-up button and packages/ui's Select: the
 // value (with its icon, if it has one) and a chevron, in a 1-point border,
-// with no fill but the accent's on hover. A click shows the system's menu
+// with no fill but the foreground at 4% on hover (ADR 0063). A click shows the system's menu
 // of the options, the current one checked.
 struct PaneMenuButton<Value: Hashable>: View {
 	enum Size {

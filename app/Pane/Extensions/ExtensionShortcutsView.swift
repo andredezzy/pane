@@ -8,7 +8,7 @@ import SwiftUI
 // description and its shortcut, and Done. A click on a shortcut records the
 // next key, with every shortcut paused; Esc, Tab, or a click beside the
 // field stops it. Done, Return, Esc while nothing records, or a click
-// outside the dialog closes it (KeyRouting, ADR 0104).
+// outside the dialog closes it (KeyRouting, ADR 0098).
 struct ExtensionShortcutsDialog: View {
 	let controller: ExtensionsController
 	let dialog: ShortcutsDialog

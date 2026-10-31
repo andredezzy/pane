@@ -32,7 +32,7 @@ for failure in BundleIdentifier.removeSessionCaches(library: FileManager.default
 }
 
 // And what the system kept for the former identifier in the user's cache
-// folder (ADR 0118).
+// folder (ADR 0115).
 for failure in BundleIdentifier.userCacheDirectory.map({ BundleIdentifier.removeFormerUserCaches(userCaches: $0) }) ?? [] {
 	Log.app.error("Could not remove an earlier Pane's caches: \(failure, privacy: .private)")
 }

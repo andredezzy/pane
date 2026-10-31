@@ -5,7 +5,7 @@ import os
 
 // Where an earlier Pane kept the proxy passwords (PaneKit ProxyPasswordVault):
 // proxy-passwords.json, sealed under the engine's "Pane Safe Storage" key (ADR
-// 0095), or, before that, a Keychain item of their own, "Pane Proxy
+// 0069), or, before that, a Keychain item of their own, "Pane Proxy
 // Passwords", whose account is the data directory's path (under the former
 // identifier's folder, for a data root ADR 0114 moved). Since ADR 0113 they
 // are in profiles.json, sealed with it: these are read once, when an earlier

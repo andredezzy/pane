@@ -62,7 +62,7 @@ enum SafeStorage {
 	}
 
 	// The engine's key itself, which the proxy passwords are sealed under
-	// (ADR 0095). The engine reads the same item at every launch, so macOS
+	// (ADR 0069). The engine reads the same item at every launch, so macOS
 	// asks once for the two. Pane never makes the item: the engine does, or
 	// a migration hands it the Electron app's key (adoptKey).
 	nonisolated static func engineSecret() -> ProxyPasswordVault.Secret {

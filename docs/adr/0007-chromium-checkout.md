@@ -1,6 +1,6 @@
 # The Chromium checkout is a shallow clone of the tag, kept out of Spotlight
 
-> **Its job cap is lowered** (2026-10-30): two thirds of the cores (12 of 18) reset the Mac again by watchdog (`wdog,reset_in_1`), three minutes into a patch release's build while the Mac was in use. `build.sh` now runs a third of the cores (6) by default, and `PANE_BUILD_JOBS=12` is for an idle Mac. The rest stands.
+> **Its job cap is lowered** (2026-10-30): two thirds of the cores (12 of 18) reset the Mac again by watchdog (`wdog,reset_in_1`), three minutes into a patch release's build (157.0.8103.26, ADR 0005) while the Mac was in use. `build.sh` now runs a third of the cores (6) by default, and `PANE_BUILD_JOBS=12` is for an idle Mac. The rest stands.
 
 The Chromium checkout is a shallow git clone of the pinned tag (ADR 0005) with an unmanaged `.gclient`, synced with `--no-history --shallow`, rather than the official source tarball, which is Linux-oriented and skips Mac-only deps and hooks. `engine/scripts/sync.sh` makes it at `~/chromium` (`CHROMIUM_ROOT` overrides it), outside the repo. It clones `depot_tools`, writes the `.gclient` (unmanaged, so gclient syncs DEPS but never moves `src` off the tag), clones `src` at the tag with depth 1, syncs the deps, runs the hooks, and links `src/pane` to `engine/pane`. Moving to another tag fetches that tag alone, so the checkout stays shallow. A step already done is skipped: a second run on a synced checkout changes nothing.
 

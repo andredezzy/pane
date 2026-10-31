@@ -4,4 +4,4 @@
 
 ⌘Q again, Return, or Quit quits; Esc, Cancel, or a click outside goes back. While it shows it takes every key, as the PIN screen does, so none reaches the page whatever has focus, and it passes ⌘Q on to the menu; the one key monitor routes them (ADR 0079). At the PIN screen ⌘Q quits at once: nothing is open to lose there.
 
-It replaces Chrome's own hold-to-quit. Chrome's Warn Before Quitting pref is on by default and asks for a held ⌘Q in a window of its own; the engine turns it off (`kConfirmToQuitEnabled`). The `quit` scenario drives Quit Pane? through the app's real key path, and `hosted` chooses Quit Pane twice.
+It replaces Chrome's own hold-to-quit. Chrome's Warn Before Quitting pref is on by default and asks for a held ⌘Q in a window of its own; the engine turns it off (`kConfirmToQuitEnabled`). The `quit` scenario drives Quit Pane? through the app's real key path, where the run lets Pane take the front (ADR 0012), and `hosted` chooses Quit Pane twice.

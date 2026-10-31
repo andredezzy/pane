@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 // Proxy passwords as an earlier Pane sealed them under the engine's key (ADR
-// 0095): AES-GCM, with a key HKDF-SHA256 derives from the "Pane Safe Storage"
+// 0069): AES-GCM, with a key HKDF-SHA256 derives from the "Pane Safe Storage"
 // secret. Read once since ADR 0113, which seals them in profiles.json.
 public enum ProxyPasswordSeal {
 	// AES-GCM's combined box (nonce, ciphertext, and tag), in base64.
@@ -40,7 +40,7 @@ public enum ProxyPasswordSeal {
 }
 
 // Where an earlier Pane kept the proxy passwords, apart from profiles.json:
-// sealed under the engine's key (ADR 0095), or, before that, in a Keychain
+// sealed under the engine's key (ADR 0069), or, before that, in a Keychain
 // item of their own ("Pane Proxy Passwords"). Since ADR 0113 they are in
 // profiles.json, sealed with it: these are read once, when an earlier Pane's
 // plain profiles.json is, then deleted. The app gives it the Keychain and the

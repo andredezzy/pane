@@ -1,6 +1,6 @@
 # Upgrading Chromium
 
-Pane ships Chromium's security fixes by moving the engine to each new stable tag: since Chrome 153 (2026-09) a new milestone every two weeks, and security updates every week. Follow the Mac stable channel, not Beta or Early Stable. The Chromium watch (`.github/workflows/chromium-watch.yml`, ADR 0108) opens an issue when Chrome's Mac stable is ahead of `CHROMIUM_VERSION`. The routine below takes the patches out, moves the checkout, puts the patches back (merging what moved), rebuilds, and proves the result with every scenario.
+Pane ships Chromium's security fixes by moving the engine to each new stable tag: since Chrome 153 (2026-09) a new milestone every two weeks, and security updates every week. Follow the Mac stable channel, not Beta or Early Stable. The Chromium watch (`.github/workflows/chromium-watch.yml`, ADR 0005) opens an issue when Chrome's Mac stable is ahead of `CHROMIUM_VERSION`. The routine below takes the patches out, moves the checkout, puts the patches back (merging what moved), rebuilds, and proves the result with every scenario.
 
 ## 1. Pick the tag
 

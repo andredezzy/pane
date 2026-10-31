@@ -11,7 +11,7 @@ type NetLog = {
 };
 
 // The CRLSet a packaged app carries is the one its certificate verifier
-// uses (ADR 0111): the bundle's crl-set is Chrome's, the engine hands it to
+// uses (ADR 0040): the bundle's crl-set is Chrome's, the engine hands it to
 // the verifier, which applies it once startup is over (Chrome's: the first
 // page painted), and from then on verifying a page's certificate (a
 // self-signed one: the verifier runs either way) names that CRLSet's

@@ -3,7 +3,7 @@ name: Chromium watch
 # Pane ships Chromium's security fixes by moving to each stable tag
 # (engine/UPGRADING.md). Every six hours this compares Chrome's Mac stable version
 # with engine/CHROMIUM_VERSION and, when Pane is behind, opens an issue (one
-# at a time) naming both and whether Pane's patches apply to the new tag
+# per stable version it is behind) naming both and whether Pane's patches apply to the new tag
 # (engine/scripts/preflight.sh), so a security release never goes unnoticed.
 
 on:

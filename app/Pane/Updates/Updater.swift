@@ -6,7 +6,7 @@ import os
 
 // The update check, download, and install (ADR 0002, ADR 0092; apps/veil
 // updater.ts and update-store.ts): the latest GitHub Release at launch and
-// every six hours (ADR 0107), with retries after a failure; one click
+// every six hours (ADR 0002), with retries after a failure; one click
 // downloads its dmg to Downloads, and once it checks out Pane stages the new
 // version beside itself. Restart to update quits into it, and any quit
 // installs it. When Pane cannot replace itself, the dmg opens and the user
@@ -312,7 +312,7 @@ final class Updater {
 // One dmg download, with its progress and time left, into the downloads
 // folder (a name already taken there gets " (1)" and so on, as Chrome does).
 // Given the release's SHA-256, the dmg must match it, and then leaves
-// quarantine (ADR 0090): Pane quarantines every file it writes, and macOS
+// quarantine (ADR 0002): Pane quarantines every file it writes, and macOS
 // will not open a quarantined copy of an app that is not notarized.
 private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
 	private struct DigestMismatch: Error {

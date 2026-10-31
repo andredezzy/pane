@@ -9,7 +9,7 @@ import { expect, type Scenario } from "../run";
 // DESIGN.md: Updates). Offered 99.0.0, Pane shows the sidebar pill, which a
 // check keeps up; its click downloads the arm64 dmg into the downloads folder
 // (a throwaway one here, left unopened), with progress. A dmg that matches
-// the release's SHA-256 leaves quarantine (ADR 0090); one that differs is
+// the release's SHA-256 leaves quarantine (ADR 0002); one that differs is
 // deleted, and the update offered again. Once downloaded it stays downloaded,
 // dismissing hides the pill, and one Pane can't install itself quits for the
 // user to (Quit and install). Offered nothing newer, Settings says Pane is

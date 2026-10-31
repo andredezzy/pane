@@ -39,7 +39,7 @@ final class ExtensionsController {
 	// The extension the Extensions page shows the Details of, instead of the
 	// list.
 	private(set) var details: ShownDetails?
-	// The Extensions page's Keyboard shortcuts dialog (ADR 0104).
+	// The Extensions page's Keyboard shortcuts dialog (ADR 0098).
 	private(set) var shortcuts: ShortcutsDialog?
 	// Details' Add a site dialog (Paper: 09.16).
 	private(set) var addingSite: AddSiteDialog?
@@ -615,7 +615,7 @@ struct AddSiteDialog {
 	var invalid = false
 }
 
-// The Keyboard shortcuts dialog (ADR 0104): a profile's extensions with
+// The Keyboard shortcuts dialog (ADR 0098): a profile's extensions with
 // their commands, the field recording a key, with the modifiers held and
 // why the last key was refused, and the field a key last moved to, with
 // where it came from.

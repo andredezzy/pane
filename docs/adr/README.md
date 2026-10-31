@@ -1,122 +1,127 @@
 # Architecture decisions
 
-One record per decision, numbered in the order the decisions were made: the decision as the title, then why, what was rejected, and how it is checked. A record that a later one replaces says so at its top, as 0003 does. A new decision takes the next number (AGENTS.md).
+One record per subject, numbered in the order the subjects were first decided: the decision as the title, then why, what was rejected, and how it is checked. A later decision on a subject that has a record goes into that record, with what it changed and why. One that changes another record's subject says so at that record's top, as 0092 does. A new subject takes the next number (AGENTS.md).
 
 - [0001](0001-theme-drives-the-app-and-every-page.md) Theme drives the app and every page
-- [0002](0002-update-check-via-github-releases-api.md) Update check via the GitHub Releases API
-- [0003](0003-electron-as-browser-substrate-not-tauri.md) Electron as the browser substrate, not Tauri
-- [0004](0004-native-shell-on-own-chromium-framework.md) Native shell on Pane's own Chromium framework
-- [0005](0005-pin-a-chromium-stable-tag.md) Pane pins a Chromium stable tag
-- [0006](0006-data-root-and-engine-profiles.md) Pane's data root is com.pane.desktop, with the engine's profiles under Engine
+- [0002](0002-update-check-via-github-releases-api.md) Pane checks GitHub's latest release at launch and every six hours, and a dmg that matches the release's SHA-256 leaves quarantine
+- [0004](0004-native-shell-on-own-chromium-framework.md) Pane is a native Swift shell on its own Chromium framework, not Electron or Tauri
+- [0005](0005-pin-a-chromium-stable-tag.md) Pane pins a Chromium stable tag, and a watch tells it when Chrome's Mac stable moves
+- [0006](0006-data-root-and-engine-profiles.md) Pane's data root is its identifier's folder, with the engine's profiles under Engine
 - [0007](0007-chromium-checkout.md) The Chromium checkout is a shallow clone of the tag, kept out of Spotlight
 - [0008](0008-patches-from-saved-copies.md) Patches apply and reverse from saved copies
 - [0009](0009-panecore-framework.md) The engine is PaneCore.framework, Chrome's own layer, with explicit exports
-- [0010](0010-host-mode.md) Host mode is one seam into Chrome's startup and the --pane-hosted switch
+- [0010](0010-host-mode.md) Host mode is one seam into Chrome's startup and the --pane-hosted switch, and Pane's quit outranks Chrome's keep-alives
 - [0011](0011-app-decides-page-visibility.md) The app decides page visibility, in a layer-backed view tree
-- [0012](0012-scenarios-on-a-locked-screen.md) Scenarios run on a locked screen and report what they could not prove
+- [0012](0012-scenarios-on-a-locked-screen.md) Scenarios run unattended on the user's Mac: they never reach its apps or take its front, clean up after themselves, wait for conditions, and report what they could not prove
 - [0013](0013-scenarios-use-a-mock-keychain.md) Scenarios keep Chromium off the login keychain
 - [0014](0014-hidden-browser-per-window-and-profile.md) One hidden Chrome Browser per window and profile
 - [0015](0015-popups-become-tabs.md) Popups become tabs in the opener's profile
-- [0016](0016-session-saved-at-engine-shutdown.md) The app saves its session when the engine shuts down
-- [0017](0017-engine-callbacks-defer-reentrant-calls.md) Calls made from inside engine callbacks wait for the next turn
+- [0016](0016-session-saved-at-engine-shutdown.md) Pane restores its own session: the app saves it when the engine shuts down, and AppKit's window restoration is off
+- [0017](0017-engine-callbacks-defer-reentrant-calls.md) The engine's API keeps Chromium's order and its word: calls made from inside a callback wait for the next turn, and every promised callback and request completes or goes with its tab
 - [0018](0018-automation-channel.md) Scenarios drive the app through a test-only automation channel
 - [0019](0019-menu-shortcuts-match-typed-keys.md) Menu shortcuts match the keys as typed
 - [0020](0020-deleting-a-profile.md) Deleting a profile is durable before it completes, and asks no page
-- [0021](0021-chrome-ui-as-requests.md) Every Chrome dialog, bubble, and menu of a tab is a request the app answers
+- [0021](0021-chrome-ui-as-requests.md) Every Chrome dialog, bubble, and menu of a tab is a request the app answers: a page's dialogs drawn in the window, file choosers and printing in the system's panels
 - [0022](0022-chrome-surfaces-kept-and-features-off.md) Some Chrome surfaces stay Chrome's, and some features stay off
-- [0023](0023-print-uses-the-system-panel.md) Print uses the system print panel
 - [0024](0024-devtools-in-the-app-window.md) DevTools dock beside the tab in the app's window
 - [0025](0025-fullscreen-fills-the-app-window.md) Fullscreen fills the app's window, and the window follows the page
 - [0026](0026-closing-a-tab-waits-for-chrome.md) Closing a tab waits for Chrome
 - [0027](0027-crash-loop-shows-the-sad-tab.md) A crash loop shows the app's sad tab
-- [0028](0028-window-restoration-off.md) AppKit's window restoration is off
 - [0029](0029-spellcheck-per-profile.md) Spellcheck starts with each profile
-- [0030](0030-scenarios-never-open-the-users-apps.md) Scenarios never hand a link to the user's apps
 - [0031](0031-extensions-per-profile.md) Extensions run on Chrome's extension system, per profile
 - [0032](0032-extension-actions-and-popups.md) Extension actions and popups behave as Chrome's
-- [0033](0033-quit-outranks-remote-debugging.md) Quit outranks a remote debugging client
 - [0034](0034-native-ui-reproduces-the-electron-design.md) The native UI reproduces the Electron app's design, as Paper documents it
-- [0035](0035-text-12-points-without-smoothing.md) UI text is drawn without font smoothing, and the sidebar's and toolbar's is 12 points
 - [0036](0036-window-chrome-and-traffic-lights.md) AppKit places the traffic lights at (12, 12), from the window's first frame
 - [0037](0037-per-profile-proxies.md) Each profile's proxy is Chrome's own per-profile setting
 - [0038](0038-fingerprint-in-the-engine.md) The fingerprint lives in Blink and the browser, not in script
 - [0039](0039-no-google-sign-in-workaround.md) No Google sign-in workaround
-- [0040](0040-chrome-makes-no-requests.md) Chrome makes no request of its own
+- [0040](0040-chrome-makes-no-requests.md) Chrome makes no request of its own but the extension updater's, and its CRLSet ships with the app
 - [0041](0041-tab-sleep.md) Idle tabs sleep and hidden profiles unload on PaneKit's scheduler, with Chrome's discarding off
 - [0042](0042-pin-lock-and-panic-wipe.md) The PIN lock and the panic wipe are the Electron app's
 - [0043](0043-electron-migration.md) The Electron app's data migrates once, from a copy, before anything loads
 - [0044](0044-one-version-source.md) app/VERSION is the one version source
-- [0045](0045-panes-icon.md) Pane's icon, dated so macOS cannot show Chromium's
-- [0046](0046-the-dmg.md) The dmg is built as the Electron app's and laid out as Dia's
-- [0047](0047-releases-strip-the-engine.md) A release strips the engine's local symbols
-- [0048](0048-signing-waits-for-a-developer-id.md) Signing, notarization, and Sparkle wait for a Developer ID
+- [0046](0046-the-dmg.md) The dmg is built with dmgbuild, LZMA-compressed, and laid out as Hark's installer, its volume icon on the title's centre line
+- [0047](0047-releases-strip-the-engine.md) A release strips its local symbols, and publishes them beside it
+- [0048](0048-signing-waits-for-a-developer-id.md) Signing, notarization, and iCloud passkeys wait for a Developer ID
 - [0049](0049-prebuilt-engines.md) Prebuilt engines are matched by key and published as prereleases
 - [0050](0050-ci-on-the-prebuilt-engine.md) CI builds the app on the prebuilt engine and never builds Chromium
-- [0051](0051-native-release-retires-electron.md) Pane 1.0.0 is the native app, and the Electron app is retired
-- [0052](0052-passkeys-security-keys-only.md) Passkeys reach security keys only, until Apple's browser entitlement
+- [0051](0051-native-release-retires-electron.md) Pane 0.7.0 is the first native release, and the Electron app is retired
 - [0053](0053-quit-asks-first.md) ⌘Q asks first
 - [0054](0054-toolbar-extensions-menu.md) The toolbar's extensions menu and pinned actions follow Aside's
 - [0055](0055-lighter-shadows.md) Shadows are lighter, one per surface
 - [0056](0056-extension-prompts.md) Extensions ask in popups, and adding one asks in Dia's dialog
 - [0057](0057-superellipse-radius-scale.md) Every corner is a superellipse on the design's radius scale
-- [0058](0058-paper-draws-every-state.md) Paper draws every state the app shows, reviewed against the app
-- [0059](0059-scenario-runner-rules.md) The scenario runner cleans up, keeps deadlines, and waits for conditions
-- [0060](0060-sidebar-and-toolbar-sizes.md) The sidebar and toolbar take Aside's sizes, and the content panel stays Pane's
+- [0058](0058-paper-draws-every-state.md) Every design is drawn in Paper and approved before it is built, and Paper draws every state the app shows, reviewed against the app
+- [0060](0060-sidebar-and-toolbar-sizes.md) The sidebar and toolbar take Aside's sizes with 12-point text, UI text is drawn without font smoothing, and the content panel stays Pane's
 - [0061](0061-resizable-sidebar.md) The sidebar is resizable, and its list fades at the edges
 - [0062](0062-extensions-page.md) Extensions have their own page
-- [0063](0063-outline-controls.md) Outline controls have no fill
+- [0063](0063-outline-controls.md) Outline controls have no fill, and their hover is the foreground at 4%
 - [0064](0064-active-profile-indicator.md) The active profile's bar morphs into a square, only on the browser page
 - [0065](0065-settings-layout.md) Settings take Aside's layout
 - [0066](0066-sidebar-reordering.md) Profiles and tabs reorder as the Electron app's did, live and as one
 - [0067](0067-find-bar.md) The find bar takes Aside's design
 - [0068](0068-saves-off-the-main-thread.md) Saves run off the main thread and write only what changed
-- [0069](0069-proxy-passwords-in-keychain.md) Proxy passwords live in the Keychain
+- [0069](0069-proxy-passwords-in-keychain.md) Proxy passwords are never kept in the clear, and ask the Keychain nothing of their own
 - [0070](0070-one-source-per-design-concern.md) The view layer has one source per concern
 - [0071](0071-voiceover-labels.md) VoiceOver names Pane's controls
 - [0072](0072-favicons.md) Favicons decode once, off the main thread, into a bounded cache
 - [0073](0073-views-redraw-what-changed.md) Views redraw only what changed and never mask the page
-- [0074](0074-every-engine-request-answers.md) Every engine request answers, or goes with its tab
 - [0075](0075-tracing-cost.md) Tracing costs one branch when off
 - [0076](0076-web-store-says-pane.md) The Chrome Web Store's buttons say Pane
-- [0077](0077-controllers-by-ownership.md) Controllers are split by what they own, and the model lives in PaneKit
-- [0078](0078-one-intent-per-change.md) Every change goes through one intent
+- [0077](0077-controllers-by-ownership.md) The model lives in PaneKit and changes only through the controller's intents, and controllers are split by what they own
 - [0079](0079-one-key-monitor.md) One key monitor, in drawing order
-- [0080](0080-page-dialogs-in-the-window.md) A page's dialogs are drawn in the window
-- [0081](0081-loading-means-a-new-main-frame-document.md) A page is loading only while its main frame loads a new document
-- [0082](0082-address-bar-progress.md) The address bar's progress is Chrome's toolbar progress bar, for the selected tab
+- [0081](0081-loading-means-a-new-main-frame-document.md) A tab is loading only while its main frame loads a new document, and the address bar shows the selected tab's load as Chrome's toolbar progress bar
 - [0083](0083-entering-a-tab-focuses-the-page.md) Entering a tab gives its page the keys
 - [0084](0084-sidebar-scrolls-to-selected-tab.md) The sidebar scrolls to the selected tab
 - [0085](0085-requires-macos-14.md) The app requires macOS 14, as its executable does
 - [0086](0086-repo-layout.md) The repo is laid out as its peers are
 - [0087](0087-app-carries-licenses.md) The app carries its licenses
-- [0088](0088-first-native-release-is-0-7-0.md) The first native release is 0.7.0, and v1.0.0 is withdrawn
-- [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md) Pane's icon is a window, and the user picks its sky
-- [0090](0090-verified-update-leaves-quarantine.md) A verified update leaves quarantine
-- [0091](0091-outline-hover-is-foreground-4.md) An outline control's hover is the foreground at 4%
-- [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself
+- [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md) Pane's icon is a window whose sky the user picks, and the bundle carries it in Chromium's place, dated so macOS cannot show Chromium's
+- [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself at quit, and where it can't, says Quit and install and quits
 - [0093](0093-update-pill-bar-runs-to-its-end.md) The update pill's bar runs to its end, and draws back for the dismiss button
-- [0094](0094-dmg-volume-icon-on-the-title-line.md) The dmg's volume icon sits on its title's centre line
-- [0095](0095-proxy-passwords-sealed-under-the-engine-key.md) Proxy passwords are sealed under the engine's key
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items show where Chrome shows them
 - [0097](0097-extensions-update-themselves.md) Extensions update themselves
-- [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome
+- [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed in a dialog of the Extensions page
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
-- [0100](0100-installer-is-laid-out-as-harks.md) The installer is laid out as Hark's
-- [0101](0101-action-menu-offers-chromes-site-access.md) The pinned action's right-click menu offers Chrome's site access
-- [0102](0102-extension-details-on-the-extensions-page.md) An extension's Details are a view of the Extensions page
-- [0103](0103-chromes-reload-prompt-is-declined.md) Chrome's reload prompt after a site access change is declined without a dialog
-- [0104](0104-extension-shortcuts-are-changed-in-a-dialog.md) Extensions' keyboard shortcuts are changed in a dialog of the Extensions page
-- [0105](0105-on-specific-sites-lists-its-sites.md) On specific sites lists its sites, and adds and removes them as Chrome's details page does
-- [0106](0106-the-dmg-is-lzma-compressed.md) The dmg is LZMA-compressed
-- [0107](0107-updates-are-checked-every-six-hours.md) Updates are checked every six hours
-- [0108](0108-chromium-releases-are-watched.md) Chromium's releases are watched
+- [0101](0101-action-menu-offers-chromes-site-access.md) The pinned action's right-click menu offers Chrome's site access, and Chrome's reload prompt after a change is declined without a dialog
+- [0102](0102-extension-details-on-the-extensions-page.md) An extension's Details are a view of the Extensions page, and On specific sites lists its sites, added and removed as Chrome's details page does
 - [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window
 - [0110](0110-other-apps-sign-ins-stay-in-macos-sheet.md) Other apps' sign-ins stay in macOS's sheet
-- [0111](0111-chromes-crlset-ships-with-the-app.md) Chrome's CRLSet ships with the app
 - [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays
 - [0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md) Every profile's data is encrypted on disk, under a key the PIN releases
 - [0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md) Pane's identifier is xyz.roundedcorners.pane
 - [0115](0115-nothing-outside-the-volume-names-a-page.md) Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
 - [0116](0116-pane-locks-while-open.md) Pane locks while open: on command, when the Mac sleeps or locks, and after a time without use
-- [0117](0117-an-update-pane-cant-install-says-quit-and-install.md) An update Pane can't install itself says Quit and install, and its click quits
-- [0118](0118-the-at-rest-audit-of-0-15-1.md) What the at-rest audit of 0.15.1 found, and what Pane erases at launch
+
+## Merged records
+
+These numbers were records of their own until they were merged into the record they refined or completed (2026-10-31). The numbers stay taken, and code and history that cite them mean:
+
+- 0003 → [0004](0004-native-shell-on-own-chromium-framework.md)
+- 0023 → [0021](0021-chrome-ui-as-requests.md)
+- 0028 → [0016](0016-session-saved-at-engine-shutdown.md)
+- 0030 → [0012](0012-scenarios-on-a-locked-screen.md)
+- 0033 → [0010](0010-host-mode.md)
+- 0035 → [0060](0060-sidebar-and-toolbar-sizes.md)
+- 0045 → [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md)
+- 0052 → [0048](0048-signing-waits-for-a-developer-id.md)
+- 0059 → [0012](0012-scenarios-on-a-locked-screen.md)
+- 0074 → [0017](0017-engine-callbacks-defer-reentrant-calls.md)
+- 0078 → [0077](0077-controllers-by-ownership.md)
+- 0080 → [0021](0021-chrome-ui-as-requests.md)
+- 0082 → [0081](0081-loading-means-a-new-main-frame-document.md)
+- 0088 → [0051](0051-native-release-retires-electron.md)
+- 0090 → [0002](0002-update-check-via-github-releases-api.md)
+- 0091 → [0063](0063-outline-controls.md)
+- 0094 → [0046](0046-the-dmg.md)
+- 0095 → [0069](0069-proxy-passwords-in-keychain.md)
+- 0100 → [0046](0046-the-dmg.md)
+- 0103 → [0101](0101-action-menu-offers-chromes-site-access.md)
+- 0104 → [0098](0098-extension-shortcuts-work-as-in-chrome.md)
+- 0105 → [0102](0102-extension-details-on-the-extensions-page.md)
+- 0106 → [0046](0046-the-dmg.md)
+- 0107 → [0002](0002-update-check-via-github-releases-api.md)
+- 0108 → [0005](0005-pin-a-chromium-stable-tag.md)
+- 0111 → [0040](0040-chrome-makes-no-requests.md)
+- 0117 → [0092](0092-pane-installs-its-updates.md)
+- 0118 → [0115](0115-nothing-outside-the-volume-names-a-page.md)

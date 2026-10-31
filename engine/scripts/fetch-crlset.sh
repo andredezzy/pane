@@ -5,7 +5,7 @@
 # carry a valid signature by the key Chrome pins for CRLSets
 # (chrome/browser/component_updater/crl_set_component_installer.cc). Writes
 # its crl-set file to <dest>; package.sh puts it in the bundle, and the engine
-# loads it at start (ADR 0111). On the build machine, never on a user's Mac.
+# loads it at start (ADR 0040). On the build machine, never on a user's Mac.
 # Usage: fetch-crlset.sh <dest>
 set -euo pipefail
 

@@ -47,7 +47,7 @@ The dmg is ad-hoc signed and not notarized (no Apple Developer ID is configured)
 
 ## Decisions
 
-Record each decision as an ADR in `docs/adr/`, one file per decision: the next number, the decision as the title, then why, what was rejected, and how it is checked, in the form of the others. A decision that replaces an earlier one says so at the top of the old record (as 0003 does) rather than rewriting it away. Add the new record to `docs/adr/README.md`.
+Record each decision as an ADR in `docs/adr/`, one record per subject. A decision on a subject that has a record goes into that record, with what it changed and why, so the record reads as the subject's whole decision. A new subject takes the next number: the decision as the title, then why, what was rejected, and how it is checked, in the form of the others. A decision that changes another record's subject says so at the top of that record (as 0092 does) rather than rewriting it away. Keep `docs/adr/README.md`'s index in step; a merged record's number stays taken, listed there under Merged records.
 
 ## Design
 

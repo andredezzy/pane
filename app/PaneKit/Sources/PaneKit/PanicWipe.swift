@@ -129,7 +129,7 @@ public enum PanicWipe {
 	// which the engine keeps off now: the segmentation platform's database of
 	// the pages visited (ADR 0113), and the histograms that counted the pages
 	// loaded and the tabs open, with their spare and deferred files (ADR
-	// 0118). Staged for the erase at launch, before the engine starts.
+	// 0115). Staged for the erase at launch, before the engine starts.
 	static let engineTraces = ["segmentation_platform", "BrowserMetrics", "BrowserMetrics-spare.pma", "DeferredBrowserMetrics"]
 
 	public static func stageEngineTraces(dataDirectory: URL) -> [Failure] {

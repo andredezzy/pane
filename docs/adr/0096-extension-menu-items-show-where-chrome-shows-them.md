@@ -1,5 +1,7 @@
 # Extensions' own menu items show where Chrome shows them
 
+> **Refined by [ADR 0101](0101-action-menu-offers-chromes-site-access.md)** — the pinned action's right-click menu now also lists the extension's site access, which this record left out until the engine exposed it.
+
 The items an extension adds with `chrome.contextMenus` show in the page's right-click menu and in its pinned action's, laid out by Chrome's own `ContextMenuMatcher`. The order, the grouping (an extension with several items gets one submenu under its name), titles cut at 75 characters with the selection in them, radio groups, separators, and the action menu's limit of six top-level items are all Chrome's. Until now neither menu showed them: an extension such as a password manager that saves or fills from the right-click menu had no way in.
 
 - **The engine:** `pane::ExtensionMenu` (`engine/pane/browser/extensions/extension_menu.mm`) fills a `ui::SimpleMenuModel` through the matcher.
@@ -18,7 +20,7 @@ What was rejected:
 - **Matching the items in the app from `MenuManager`'s list:** it would repeat Chrome's matching, grouping, and limits, and drift from them.
 - **Chrome's own `RenderViewContextMenu`:** in host mode Chrome shows no UI of its own (ADR 0021), and its model carries Chrome's items, which Pane draws itself.
 - **Listing the action's items in the extensions menu's more menu too:** Chrome's menu there does, but Aside's, which Pane's follows (ADR 0054), does not, and Pane's popover would need submenus and checkboxes. An unpinned extension's action items show once it is pinned.
-- **Site access (This Can Read and Change Site Data, View Web Permissions):** it still needs the engine (ADR 0054). Paper draws it, and the app does not show it yet.
+- **Site access (This Can Read and Change Site Data, View Web Permissions) in the same change:** it needed the engine to expose the extension's site access (ADR 0054). It shipped next, and is ADR 0101's.
 - **Checking the action's menu through accessibility or the menu itself:**
   - On macOS 27, SwiftUI draws a context menu out of process: the app holds an `NSCampoMenuItem` with a remote view, and accessibility cannot resolve the menu's window.
   - A scenario reads the items from what the menu reads instead.

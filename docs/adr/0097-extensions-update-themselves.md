@@ -1,9 +1,9 @@
 # Extensions update themselves
 
-Extensions update on their own, as in every browser, and the Extensions page has no Update all. It was the user's call (2026-10-29): the button should not exist. Chrome's extension updater already ran in Pane's engine. As each profile starts, it asks Chrome's update service (`update.googleapis.com/service/update2/json`) for newer versions of its Web Store extensions, then again every five hours or so. It installs what it finds, as Chrome does.
+Extensions update on their own, as in every browser, and the Extensions page has no Update all. It was the user's call (2026-10-29): the button should not exist. Chrome's extension updater already ran in Pane's engine. As each profile starts, it asks Chrome's update service (`update.googleapis.com/service/update2/json`) for newer versions of its Web Store extensions, then again every five hours or so. It installs what it finds, as Chrome does. It is the one request Chrome makes of its own that Pane keeps, the exception to ADR 0040.
 
 - **The engine:** it keeps Chrome's updater as is. `PaneBrowserContext`'s `updateExtensions`, the button's call (`ExtensionUpdater::CheckNow`), is gone, with the app's `ExtensionsController.update(inProfile:)` and the automation's `updateExtensions`.
-- **The page:** the header holds the puzzle, the title, and the profile select at the trailing edge. Paper's 12 boards lost the button too.
+- **The page:** the header holds the puzzle and the title, then Keyboard shortcuts (ADR 0098) and the profile select at the trailing edge. Paper's 12 boards lost the button too.
 - **A profile that is not open:** its engine is not running, so it does not check. It checks when it next opens, as a Chrome profile does.
 
 What was rejected:

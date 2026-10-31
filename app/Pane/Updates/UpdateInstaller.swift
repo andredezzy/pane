@@ -62,7 +62,7 @@ struct UpdateInstaller: Sendable {
 		let staged = bundle.deletingLastPathComponent().appending(path: UpdateInstall.stagedName(version: version))
 		try? fileManager.removeItem(at: staged)
 		try Self.run("/usr/bin/ditto", [app.path, staged.path])
-		// The dmg left quarantine (ADR 0090); a copy must not carry it either.
+		// The dmg left quarantine (ADR 0002); a copy must not carry it either.
 		try? Self.run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", staged.path])
 
 		return staged

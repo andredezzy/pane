@@ -597,8 +597,8 @@ final class BrowserController: NSObject {
 	// Removes the profile now; its engine data goes once the engine confirms.
 	// A profile not opened this session is opened first, so data from earlier
 	// sessions goes too. Until then deletions.json names it, so a quit, a
-	// crash, or a context that would not open leaves the next launch to
-	// remove its folder (main.swift).
+	// crash, a lock, or a context that would not open leaves its folder to the
+	// data volume's next open (ProfileDeletions.purge, from DataVault).
 	func deleteProfile(_ profileID: String) {
 		unloadProfile(profileID)
 		model.removeProfile(profileID)

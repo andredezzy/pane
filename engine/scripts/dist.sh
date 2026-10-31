@@ -4,7 +4,7 @@
 # the in-app update check looks for in a GitHub release. The dmg is laid out
 # by dmgbuild, the same pinned build electron-builder runs: Pane and a link to
 # /Applications on Pane's own background (app/dmg/make-background.swift),
-# as Hark's installer is laid out (ADR 0100).
+# as Hark's installer is laid out (ADR 0046).
 # Its debug symbols go beside it (Pane-<version>-arm64.dSYM.zip).
 # Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses app/build/Pane.app;
 # PANE_DMG_OUT puts the dmg elsewhere, one to install from, the release's
@@ -31,7 +31,7 @@ fi
 
 [ -d "$APP" ] || { echo "error: no $APP to put in the dmg" >&2; exit 1; }
 
-# A release blocks the certificates Chrome does (ADR 0111).
+# A release blocks the certificates Chrome does (ADR 0040).
 [ -f "$APP/Contents/Resources/crl-set" ] || { echo "error: $APP carries no CRLSet (fetch-crlset.sh)" >&2; exit 1; }
 
 work="$(mktemp -d)"
@@ -62,7 +62,7 @@ settings="$work/settings.json"
 # updater mounts the dmg at a path of its own, so the name is the window's
 # alone. The title bar shows the volume's icon beside it,
 # app/dmg/make-volume-icon.swift's: Pane's, its 16-point art lowered to the
-# title's centre line (ADR 0094).
+# title's centre line (ADR 0046).
 background="$APP_DIR/dmg/background.tiff"
 volume_icon="$APP_DIR/dmg/VolumeIcon.icns"
 width=720

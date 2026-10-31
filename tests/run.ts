@@ -28,7 +28,8 @@ export type ScenarioContext = {
 	// is stopped.
 	tempDir: (prefix: string) => string;
 	// Records a check the scenario skipped (a locked screen hides what it
-	// checks), so the report tells a full pass from a partial one.
+	// checks, or Pane may not take the front without --foreground), so the
+	// report tells a full pass from a partial one.
 	defer: (check: string) => void;
 };
 
@@ -224,7 +225,8 @@ const report = {
 	binary,
 	finishedAt: new Date().toISOString(),
 	passed: results.every((r) => r.ok),
-	// Every check ran: nothing was deferred for a locked screen.
+	// Every check ran: nothing was deferred for a locked screen, or for the
+	// front Pane may not take.
 	complete: results.every((r) => r.ok && (r.deferred as string[]).length === 0),
 	results,
 };

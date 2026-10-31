@@ -63,7 +63,7 @@ cp "$ROOT_DIR/LICENSE" "$ROOT_DIR/NOTICE" "$LICENSES/"
 ditto "$ROOT_DIR/third_party" "$LICENSES/third_party"
 
 # Chrome's CRLSet, which the engine hands its certificate verifier at start
-# (ADR 0111): fetched as the app is built, with a day's copy kept in
+# (ADR 0040): fetched as the app is built, with a day's copy kept in
 # app/build for builds without the network. dist.sh requires it.
 CRLSET="$APP_DIR/build/crl-set"
 
@@ -193,7 +193,7 @@ sign() {
 		# Ad-hoc, with the hardened runtime all the same: it keeps other
 		# processes' libraries (DYLD_INSERT_LIBRARIES) and debuggers out of
 		# Pane, which would read the Keychain's secret, and the data it
-		# opens, without a prompt (ADR 0113). Library validation stays off,
+		# opens, without a prompt (ADR 0115). Library validation stays off,
 		# and so does restrict: ad-hoc code has no Team ID to match its own
 		# framework by, and restricted code may not load it by
 		# @executable_path.

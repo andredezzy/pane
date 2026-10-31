@@ -85,7 +85,7 @@ public enum ElectronMigration {
 	// A record from before extensions stayed behind still lists them as
 	// pendingExtensions, which nothing reads: the extensions each profile
 	// had, in the clear beside the sealed profiles. Written again without
-	// them (ADR 0118).
+	// them (ADR 0115).
 	public static func dropPendingExtensions(data: URL) throws {
 		let raw = try? Data(contentsOf: data.appending(path: "\(recordName).json"))
 

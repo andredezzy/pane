@@ -106,7 +106,7 @@ public enum BundleIdentifier {
 
 	// What the system kept there for the former identifier, which nothing
 	// reads now: its URL sessions' responses (Cache.db, fsCachedData, 0.13's
-	// update check among them) and its helpers' shader caches (ADR 0118).
+	// update check among them) and its helpers' shader caches (ADR 0115).
 	public static func removeFormerUserCaches(userCaches: URL, former: String = former) -> [String] {
 		[former, "\(former).helper"].compactMap { name in
 			let folder = userCaches.appending(path: name, directoryHint: .isDirectory)

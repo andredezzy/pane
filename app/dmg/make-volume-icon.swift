@@ -1,7 +1,7 @@
 // Makes the dmg's volume icon, VolumeIcon.icns beside this file: Pane's icon,
 // Day, as macOS draws it (app/icon/make-icons.swift's AppIconDay), with its
 // 16-point art 1.5 points lower. Finder's title bar sets the volume's icon
-// there beside its title, "Pane", with the icon's centre 1.5 points above the
+// there beside its title, "Pane Installer", with the icon's centre 1.5 points above the
 // title's, from its capitals' tops to its baseline; lowered, the two share a
 // centre. The other sizes, for the desktop and Get Info, stand as drawn.
 // Usage: swift app/dmg/make-volume-icon.swift

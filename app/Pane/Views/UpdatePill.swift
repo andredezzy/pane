@@ -19,7 +19,7 @@ struct UpdatePill: View {
 					UpdateDot(pulsing: updater.status == .downloading)
 
 					Text(updater.label)
-						// 12, as the sidebar's rows (ADR 0035).
+						// 12, as the sidebar's rows (ADR 0060).
 						.font(.system(size: 12))
 						.lineLimit(1)
 						// Whole beside the bar, which takes what is left.

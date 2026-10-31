@@ -1,6 +1,8 @@
-# Signing, notarization, and Sparkle wait for a Developer ID
+# Signing, notarization, and iCloud passkeys wait for a Developer ID
 
 > **Amended by [ADR 0115](0115-nothing-outside-the-volume-names-a-page.md)**: ad-hoc builds run under the hardened runtime too, with library validation and `restrict` off, which ad-hoc code cannot meet; it keeps injected libraries and debuggers out.
+
+> **Its updates are replaced by [ADR 0092](0092-pane-installs-its-updates.md)**: Pane installs its updates itself without a Developer ID, and Sparkle was rejected.
 
 Developer ID signing and notarization are built and wait for an identity, since an Apple Developer Program membership and its certificate are the user's to get (`docs/human-checklist.md`, 6.2). Until then every build is ad-hoc signed, as the Electron app's was, and Gatekeeper warns on other Macs. With `PANE_SIGN_IDENTITY` set, `engine/scripts/package.sh` signs each part the way Chrome signs it (`chrome/installer/mac/signing/parts.py`): the hardened runtime and a secure timestamp everywhere, and library validation everywhere except the renderer and GPU helpers, which compile code at run time and carry the JIT entitlement (`app/signing/helper-jit.entitlements`). Dylibs and the framework are signed plain. The app takes entitlements for what pages may ask for: the camera, the microphone, and location (`app/signing/app.entitlements`). Chrome's sandbox-only keys (USB, Bluetooth, print) are left out, since Pane declines device choosers and the hardened runtime ignores those keys. `engine/scripts/dist.sh` then signs the dmg, and with `PANE_NOTARY_PROFILE` it notarizes the dmg (which covers the app inside), staples it, and assesses it. Without an identity nothing changes.
 
@@ -8,4 +10,6 @@ It cannot be tested without an identity. Ad-hoc signatures carry no Team ID, so 
 
 A Developer ID also ends the Keychain prompts. A Keychain item's access list names the app by its designated requirement: an ad-hoc signature's is its code hash, which every build changes, and a Developer ID's is the team and bundle id, which updates keep.
 
-Sparkle waits for the identity too: an automatic update should arrive signed and notarized, as the dmg does. Until then the update check stays the Electron app's (ADR 0002): the dmg downloads and opens, and the user drags the app in. The checklist's 6.2 entry takes Sparkle up after signing, and passkeys wait on the same identity (ADR 0052).
+**Passkeys reach security keys only** until then. Chrome's WebAuthn dialog shows over the page, a child window of Pane's above it, but offers only a security key. iCloud Keychain passkeys need Apple's `com.apple.developer.web-browser.public-key-credential` entitlement, and the Touch ID authenticator a keychain access group, both granted only with a Developer ID and a provisioning profile. The Electron app had no WebAuthn at all. With the identity, the checklist's 6.2 requests the entitlement and adds it, with a keychain access group, to `app/signing/app.entitlements` and a provisioning profile.
+
+Sparkle was to wait for the identity too, so that an automatic update would arrive signed and notarized, and until then the update check stayed the Electron app's (ADR 0002): the dmg downloaded and opened, and the user dragged the app in. ADR 0092 replaced that: Pane installs its updates itself.

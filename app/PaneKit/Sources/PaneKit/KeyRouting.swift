@@ -80,7 +80,7 @@ public struct KeyOverlays: Equatable, Sendable {
 	// Settings' App icon picker (ADR 0089).
 	public var appIconPicker = false
 	// The Extensions page's Keyboard shortcuts dialog, and one of its fields
-	// recording a key (ADR 0104).
+	// recording a key (ADR 0098).
 	public var extensionShortcuts = false
 	public var recordingShortcut = false
 	// An extension's Details asking for a site to add.

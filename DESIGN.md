@@ -30,7 +30,7 @@ Implementation notes:
 - A view takes `Squircle(cornerRadius:)`, never a circular `RoundedRectangle`, and one of the scale's radii.
 - A ring around a shape is the one exception: it stays even all the way round by taking the shape's radius grown by its offset, through the circle (`Squircle.circularEquivalent`). The profile sheet's selected color swatch, 11, has its rings at 15 and 17.
 - A capsule takes `Capsule(style: .circular)`. The default style drew a flat stretch at each end of the 28-point profile chip.
-- A layer, which draws only circular or continuous corners (the page view), takes 0.57 of the radius as a circle: it follows the superellipse within a fifth of a pixel, with no mask to composite.
+- A layer, which draws only circular or continuous corners (the page view), takes 0.57 of the radius as a circle: it follows the superellipse within a fifth of a point (0.4 pixels at 2×), with no mask to composite.
 
 ## Motion
 

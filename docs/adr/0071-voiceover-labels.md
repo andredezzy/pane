@@ -4,4 +4,4 @@ Pane's own controls read to VoiceOver by what they are and what they hold, not b
 
 The address field's name sits on the field itself: set on the whole view, it renamed the domain and the title drawn over the field at rest (ADR 0060). The find bar likewise shows no placeholder but keeps one, unseen, for VoiceOver (ADR 0067).
 
-`profile-sheet` reads all of it from the accessibility tree; it failed before.
+`profile-sheet` reads the profile row's value, the sheet's field names, and its modality from the accessibility tree; it failed before. No scenario reads the other names and values.

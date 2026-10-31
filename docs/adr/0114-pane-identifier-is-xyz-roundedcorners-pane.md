@@ -39,7 +39,7 @@ What was rejected:
 How it is checked:
 
 - **PaneKit's test**, with identifiers of its own (a persistent domain is the whole Mac's): the data root and the caches move, the window's frame comes along, the former domain goes, and a former folder that turns up later moves nowhere.
-- **`identifier-move`**: Pane derives its data root from a throwaway home of the scenario's (`tests/lib/pane.ts`, `derivedDataRoot`, which refuses a home not fixed for Foundation too), finds an earlier Pane's data under the former identifier, shows its profiles, seals `profiles.json`, and leaves no former folder; the user's own folders are checked untouched.
+- **`identifier-move`**: Pane derives its data root from a throwaway home of the scenario's (`derivedDataRoot`, `tests/lib/pane.ts`; `tests/lib/browser.ts` refuses a home not fixed for Foundation too), finds an earlier Pane's data under the former identifier, shows its profiles, seals `profiles.json`, and leaves no former folder; the user's own folders are checked untouched.
 - **`update-install`** installs an update of the same identifier, the new one; **`interaction-timing`** reads the log under the new subsystem.
 - **Every bundle of the packaged app** names the new identifier, and none the former: the app, the framework, and its eight helpers (`plutil -extract CFBundleIdentifier raw`).
 - **The upgrade from 0.13.1, once** (2026-10-30), on a throwaway home: the installed 0.13.1 signed in to a page, its profile in the clear under `com.pane.desktop`; this build moved the data root, moved the profile into the encrypted volume behind its link, and the page was still signed in, its cookie and local storage kept.

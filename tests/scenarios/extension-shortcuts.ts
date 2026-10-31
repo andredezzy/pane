@@ -26,7 +26,7 @@ type Command = { name: string; tabId: number | null };
 // the active tab, and ⌘⇧U its action (_execute_action, onClicked); with
 // the address field being edited, ⌘⇧Y runs its command too.
 //
-// The Extensions page's Keyboard shortcuts (ADR 0104) lists them as
+// The Extensions page's Keyboard shortcuts (ADR 0098) lists them as
 // chrome://extensions/shortcuts does, and changes them through the dialog's
 // field, with keys typed as the user types them: a new key fires and the old
 // one no longer does; Chrome's refusals and a key of the menu bar's leave a
