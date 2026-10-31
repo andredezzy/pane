@@ -46,6 +46,8 @@ final class DataVault {
 	// The data's lock, held from launch, or taken once the Pane that held it
 	// let go: the image is this one's alone while it is (DataLock).
 	@ObservationIgnored private var dataLock: DataLock?
+	// The attach the key started, for the quit to wait for (close).
+	@ObservationIgnored private var attaching: Task<Attached, Error>?
 	// When the attach started and ended, in milliseconds since 1970.
 	@ObservationIgnored private(set) var attachedAt: (started: Double, ended: Double)?
 	@ObservationIgnored private var attachWaiters: [(Bool) -> Void] = []
@@ -74,6 +76,7 @@ final class DataVault {
 	// opens: on the first open, or one after a quit cut that move short.
 	func open(_ key: SymmetricKey, attaching: Task<Attached, Error>) {
 		filesKey = DataKey.filesKey(key)
+		self.attaching = attaching
 		didOpen?()
 
 		let ids = profileIDs()
@@ -90,6 +93,11 @@ final class DataVault {
 
 	// The device the attach returned, and when it started and ended, in
 	// milliseconds since 1970: for the security scenario and benchmark-unlock.
+	// A task's value, handed from the task that waits for it (settled).
+	private final class Settled<Value>: @unchecked Sendable {
+		var value: Value?
+	}
+
 	// Another Pane held the data past the wait for its lock.
 	private struct Held: Error, CustomStringConvertible {
 		var description: String {
@@ -251,8 +259,14 @@ final class DataVault {
 
 	// After the engine has shut down, when nothing has the volume's files
 	// open: the image detached, mounted or still locked, and compacted when it
-	// keeps much unused space.
+	// keeps much unused space. An attach still under way, the first launch's
+	// making of the image say, is waited for first: quit in it, Pane left the
+	// image attached once it finished, and before its watchdog started.
 	func close() {
+		if device == nil {
+			device = Self.settled(attaching)?.device ?? Self.settled(image)??.image
+		}
+
 		guard let device else {
 			return
 		}
@@ -287,6 +301,28 @@ final class DataVault {
 		} catch {
 			Log.security.error("Could not detach the data volume: \(String(describing: error), privacy: .private)")
 		}
+	}
+
+	// A task's value, waited for on the main thread at quit, which the
+	// attaches never need: 5 s at most, where the image's making takes 1.5.
+	private nonisolated static func settled<Value: Sendable, Failure: Error>(_ task: Task<Value, Failure>?) -> Value? {
+		guard let task else {
+			return nil
+		}
+
+		let box = Settled<Value>()
+		let done = DispatchSemaphore(value: 0)
+
+		Task.detached {
+			if case let .success(value) = await task.result {
+				box.value = value
+			}
+
+			done.signal()
+		}
+
+		_ = done.wait(timeout: .now() + 5)
+		return box.value
 	}
 
 	private func becomeOpen() {

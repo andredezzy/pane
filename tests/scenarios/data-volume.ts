@@ -11,7 +11,8 @@ import { expect, type Scenario } from "../run";
 // quit. An image whose making a quit cut short, before its APFS container or
 // before its volume, is finished. A plain volume put in the encrypted one's
 // place, which unlocks with nothing, is refused before anything is written
-// to it.
+// to it. A quit while the first launch makes the image leaves nothing
+// attached.
 const dataVolume: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-volume-");
 	const image = join(dataDir, "Data.sparsebundle");
@@ -195,7 +196,39 @@ const dataVolume: Scenario = async (context) => {
 		`a plain volume in the encrypted one's place: ${JSON.stringify(plain)}`,
 	);
 
-	return { handOver, finished, plain };
+	// A quit while the first launch makes the image: Pane waits for the
+	// attach under way, then detaches it. It had left the image attached
+	// once the attach finished, after Pane and before its watchdog.
+	const quitDir = context.tempDir("pane-volume-quit-");
+	const quitHome = join(quitDir, "home");
+	mkdirSync(quitHome, { recursive: true });
+
+	const quitting = await context.launch({
+		env: {
+			PANE_DATA_DIR: quitDir,
+			PANE_ELECTRON_DATA_DIR: join(quitDir, "no-electron-app"),
+			HOME: quitHome,
+			CFFIXED_USER_HOME: quitHome,
+		},
+	});
+
+	await Bun.sleep(700);
+	await quitting.close();
+
+	// Long enough for an attach left under way to have finished.
+	await Bun.sleep(3_000);
+
+	const quitWhileMaking = {
+		made: existsSync(join(quitDir, "Data.sparsebundle")),
+		attached: (await imagesAttachedIn(quitDir)).length,
+	};
+
+	expect(
+		quitWhileMaking.attached === 0,
+		`a quit while the image was made: ${JSON.stringify(quitWhileMaking)}`,
+	);
+
+	return { handOver, finished, plain, quitWhileMaking };
 };
 
 export default dataVolume;
