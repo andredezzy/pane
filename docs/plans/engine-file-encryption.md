@@ -28,6 +28,13 @@ On a release build, all of these hold:
    - The engine builds clean and publishes (`publish-engine.sh`).
 5. **Fast.** The benchmarks stay within the budgets below, against 0.15.2's.
 6. **Recorded.** ADR 0119 records the decision, its residuals, and its checks; ADRs 0113 and 0115 point to it. `engine/UPGRADING.md` gains the audit step.
+7. **Tried as a person would.** A computer-use pass of the whole QA checklist (Testing as a person would, below) passes on the release candidate, in light and dark, with its report and screenshots committed. It covers:
+   - the PIN typed with real keys;
+   - Lock Pane from the keyboard and the menu, and the idle lock;
+   - real sites, and a sign-in that survives a relaunch;
+   - a large profile's migration with its progress;
+   - the downgrade fence's screen;
+   - the profile's files seen from another app.
 
 ## Threat model
 
@@ -112,7 +119,7 @@ All of them use BoringSSL, already in Chromium; AES runs in hardware on Apple si
 
 ## Phases
 
-Each phase ends green (its checks, and the scenarios it touches), is committed, and adds its findings to the log. Estimates are for one agent working full time, measured where they can be.
+Each phase ends green, is committed, and adds its findings to the log. Green means its checks, the scenarios it touches, and a computer-use pass of the QA checklist's items for what it changed (below). Estimates are for one agent working full time, measured where they can be.
 
 ### Phase 0: groundwork (about 1 week)
 
@@ -141,8 +148,13 @@ Each phase ends green (its checks, and the scenarios it touches), is committed, 
 7. **Engine unit tests.**
    - Add a `pane_unittests` gtest target in `engine/pane` for the layers below.
    - CI never builds Chromium, so these run locally. Add them to AGENTS.md's checks before committing an engine change, and document them in `docs/building.md`.
+8. **The QA rig.** Set up the computer-use rig (below). Run the checklist once on 0.15.2's build, so later passes compare against its screenshots, recordings, and timings.
 
-**Done when:** the baseline and the inventory are committed, the audit runs in report mode, the memory claim and the Spotlight check are settled, and the key reaches both processes and leaves them after a lock, with unit tests.
+**Done when:**
+- the baseline, the inventory, and the QA rig's first pass are committed;
+- the audit runs in report mode;
+- the memory claim and the Spotlight check are settled;
+- the key reaches both processes and leaves them after a lock, with unit tests.
 
 ### Phase 1: SQLite (about 2 weeks)
 
@@ -278,6 +290,7 @@ The profile's stores are then strict: plaintext is refused.
 
 - **Everything green:** the full suite, PaneKit, `pane_unittests`, lint, typecheck, and knip. Add `files-encrypted` to CI's scenario list (`.github/workflows/app.yml`).
 - **The audit across states:** `files-encrypted` strict with three profiles, after a lock and an unlock, after a relaunch, and after a crash.
+- **The whole QA checklist by computer use** on the release candidate, in light and dark, against 0.15.2's pass from Phase 0. Every finding is fixed and checked again the same way.
 - **Budgets.** Set against Phase 0's baseline; adjust them only with the user.
 
   | Measure | Budget |
@@ -292,6 +305,72 @@ The profile's stores are then strict: plaintext is refused.
 
 - **The record.** ADR 0119: the decision, what was rejected, the residuals, and the checks; notes at the top of ADRs 0113 and 0115. Add a step to `engine/UPGRADING.md`: on every Chromium upgrade, run `files-inventory` and `files-encrypted`, and look for new stores.
 - **Release** (a minor version, 0.16.0), with the user's explicit OK: build the engine, `publish-engine.sh`, tag, watch CI, then check the live update from 0.15.2. Then re-audit the user's own data after they update, reading metadata only, as done for 0.15.1.
+
+## Testing as a person would: computer use
+
+Scenarios prove the mechanics, through the automation channel. A person checks what they see and do:
+- real clicks and keys, through macOS;
+- the screens, against Paper;
+- real sites;
+- the flows that take time: the idle lock, a large migration.
+
+Whoever carries this plan out does both, and drives the app itself by computer use.
+
+### The rig
+
+- **cua-driver** (installed, 0.38.0; its skill, and the repo's wrapper `tests/lib/cua.ts`): the accessibility tree, clicks and typing through element tokens, menus, real keystrokes, and window screenshots.
+- **Captures without taking the front:**
+  - `screencapture -l <window id>` for stills, as the lock's on-screen check of 2026-10-31 did;
+  - `screencapture -v` for short recordings, where motion matters: the PIN screen's slide, a migration's progress.
+- **The automation channel, for setup only:** making profiles, planting values, scaling time (`PANE_TIME_SCALE`). It never stands in for the input being tested.
+- **A folder per pass:** screenshots, recordings, and a report. The report and the screenshots (fixtures only, nothing of the user's) are committed under `docs/plans/qa/engine-file-encryption/`. Recordings stay local; the report names them.
+
+### When it may take the screen
+
+The user works on this Mac, and a run never takes the front from the app in use (ADR 0012).
+
+- **Always a test copy.** The build under test runs through the scenario harness, on throwaway data. Never the user's Pane, `/Applications`, the user's data, or the user's accounts.
+- **Background first.** Whatever accessibility does on a window that isn't in front runs at any time: element clicks, menus, typing into a field, window captures.
+- **The front, only when allowed.** What needs Pane in front (real keystrokes such as ⌃⌘L and the PIN, a sheet, fullscreen) runs only when either holds:
+  - the user has said so in the session;
+  - the Mac has been idle for at least 10 minutes, with its screen unlocked (`HIDIdleTime` from `ioreg -c IOHIDSystem`, `CGSSessionScreenIsLocked`).
+
+  Before such a pass, the agent:
+  - notifies the user what will run, for how long, and that any key or click stops it;
+  - checks the idle time again before each step, and stops at the first sign of the user;
+  - puts back, at the end, the app that was in front.
+- **If neither comes.** When a foreground pass is due and neither condition comes within a working day, ask once.
+
+### The checklist
+
+Each phase runs the items its change touches. Phase 6 runs them all on the release candidate, in light and dark.
+
+1. **Lock and unlock.**
+   - The PIN typed with real keys, and a wrong one.
+   - Lock Pane by ⌃⌘L and from the menu.
+   - The idle lock and the lock at the Mac's sleep (time scaled).
+   - The PIN screen against Paper 07.1 to 07.9.
+   - The tab that showed comes back.
+   - From a recording, the time from the keypress to the PIN screen's first frame.
+2. **Real browsing,** on throwaway profiles.
+   - Public sites that need no account: an encyclopedia, a video, a map, an offline-capable web app.
+   - The sign-in fixture: signed in, and still signed in after a relaunch and after a lock.
+   - The address bar suggesting history after a relaunch.
+   - A download through the UI.
+   - An extension added from the Web Store through its own buttons.
+3. **Migration.**
+   - Phase 5's large 0.15.2 profile, opened with the new build: its progress against its approved Paper board.
+   - Killed midway, then relaunched.
+   - Everything there afterwards, checked through the UI: history, signed-in sites, site data, extensions.
+4. **The downgrade fence.** The published 0.15.2 on migrated data: its screen matches 07.8, and no file changed.
+5. **The files from another app.** While Pane is open, as a person poking at the folder would:
+   - Finder's Quick Look, and `strings` and `sqlite3` in Terminal;
+   - on History, Cookies, Local Storage, an IndexedDB file, and a cache file.
+
+   Each shows ciphertext; the screenshots go in the report.
+6. **Speed as felt.** Recordings of the same page loads and repeat visits on 0.15.2 and on the new build, timed frame by frame, beside the benchmarks.
+
+Every finding is fixed, then checked again the same way.
 
 ## What was rejected
 
@@ -329,7 +408,7 @@ The profile's stores are then strict: plaintext is refused.
 
 ## Effort
 
-About 8 to 9 weeks of focused work (6 to 10):
+About 9 to 10 weeks of focused work (7 to 11):
 
 | Phase | Weeks |
 |---|---|
@@ -340,8 +419,9 @@ About 8 to 9 weeks of focused work (6 to 10):
 | 4 | 2 |
 | 5 | 1.5, alongside 1 to 4 |
 | 6 | 1 |
+| QA passes by computer use | about 1, across the phases |
 
-The first estimate (5 to 6 weeks) grew with what the research and this review found: the Storage Service's own process, IndexedDB's and CacheStorage's names, the origin private file system's descriptors, crash safety, the safety copy, and the downgrade fence.
+The first estimate (5 to 6 weeks) grew with what the research and this review found: the Storage Service's own process, IndexedDB's and CacheStorage's names, the origin private file system's descriptors, crash safety, the safety copy, the downgrade fence, and the computer-use passes.
 
 ## Gates that need the user
 
@@ -350,6 +430,7 @@ The first estimate (5 to 6 weeks) grew with what the research and this review fo
 - **The threat model,** if it is to include processes that write.
 - **Scope:** the extensions' folders. Hiding which extensions are installed means encrypting `Extensions/` through the unzip utility and the extension loaders, about a week more.
 - **A budget that can't be met,** or a cache that would have to stay off.
+- **Taking the screen:** a foreground computer-use pass runs only on an idle Mac or with the user's say-so. If neither comes, ask once.
 
 ## Working rules for whoever carries this out
 
@@ -357,6 +438,7 @@ The first estimate (5 to 6 weeks) grew with what the research and this review fo
 - **The user's things:** never touch `/Applications` or the user's data root. Start Pane only through the scenario harness, on throwaway data. Never send input to the app in front. Never print the user's data.
 - **Measurements:** measure before and after, and report the numbers; a regression found is a regression fixed.
 - **Commits:** commit at the end of each green phase. Record every decision and finding in this plan's log, and in ADR 0119 at the end.
+- **Computer use:** follow the rig's rules (Testing as a person would). Use only test copies and throwaway data, work in the background first, take the front only when idle or allowed, and stop at the first sign of the user.
 - **Blockers:** when a phase hits one, take the fallback this plan names. Ask the user only at the gates above.
 
 ## Log
@@ -382,4 +464,8 @@ The first estimate (5 to 6 weeks) grew with what the research and this review fo
     - the no-PIN case;
     - what the user exports, as out of scope.
   - Dropped: ignoring Local State's flags.
+  - At the user's request, added testing by computer use:
+    - a QA rig on cua-driver;
+    - a checklist run per phase, and in full on the release candidate (Done when, item 7);
+    - the rules for taking the screen on a Mac in use.
   - No phase started.
