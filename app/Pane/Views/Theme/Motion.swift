@@ -16,7 +16,8 @@ enum Motion {
 	// back from it, and the bar runs out again once the button has gone.
 	static var hoverTurn: Animation? { unlessReduced(.easeOut(duration: 0.15).delay(0.08)) }
 
-	// A switch's thumb crossing over, as quick as a hover.
+	// A switch's thumb crossing over, and what its row shows or hides, as quick
+	// as a hover.
 	static var toggle: Animation? { unlessReduced(.easeOut(duration: 0.15)) }
 
 	// An indicator's own change of shape (the active profile's bar growing
@@ -66,10 +67,6 @@ enum Motion {
 
 	// A progress bar moving to its new share.
 	static var progress: Animation? { unlessReduced(.linear(duration: 0.2)) }
-
-	// A spinner keeps turning while motion is reduced, as the system's do:
-	// it is the only sign of the work going on.
-	static let spin = Animation.linear(duration: 1).repeatForever(autoreverses: false)
 
 	static var isReduced: Bool {
 		NSWorkspace.shared.accessibilityDisplayShouldReduceMotion

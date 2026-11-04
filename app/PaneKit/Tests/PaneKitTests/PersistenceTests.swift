@@ -132,6 +132,7 @@ struct ProfilesPersistenceTests {
 
 		#expect(profile.color == .blue)
 		#expect(profile.keepLoaded == false)
+		#expect(profile.savesHistory)
 		#expect(profile.group == nil)
 		#expect(profile.tabs == [Tab(id: "t1", url: "https://example.com/", title: "Example Domain", favicon: "")])
 		#expect(profile.fingerprint?.screen.colorDepth == 24)
@@ -145,7 +146,7 @@ struct ProfilesPersistenceTests {
 		let directory = try temporaryDirectory()
 		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
 		let state = ProfilesState(profiles: [
-			BrowserProfile(id: "p1", name: "Work", color: .violet, group: "Clients", keepLoaded: true, tabs: [Tab(id: "t1", url: "https://example.com/")], createdAt: "a", updatedAt: "b"),
+			BrowserProfile(id: "p1", name: "Work", color: .violet, group: "Clients", keepLoaded: true, savesHistory: false, tabs: [Tab(id: "t1", url: "https://example.com/")], createdAt: "a", updatedAt: "b"),
 		])
 
 		try file.save(state)

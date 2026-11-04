@@ -37,6 +37,9 @@ export type ProfileState = {
 	// What the engine applied, once the profile is open.
 	network: { proxyRules: string | null; webRTCIPHandlingPolicy: string } | null;
 	keepLoaded: boolean;
+	savesHistory: boolean;
+	// What the engine has, once the profile is open.
+	engineSavesHistory: boolean | null;
 	// Each cookie but its value, once read with readCookies. expires is in
 	// seconds since 1970, null for a session cookie.
 	cookies:

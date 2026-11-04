@@ -1,0 +1,89 @@
+diff --git a/chrome/browser/download/BUILD.gn b/chrome/browser/download/BUILD.gn
+index d9df6c2de2..567998ad7c 100644
+--- a/chrome/browser/download/BUILD.gn
++++ b/chrome/browser/download/BUILD.gn
+@@ -218,6 +218,7 @@ source_set("impl") {
+     "//components/enterprise/connectors/core",
+     "//components/enterprise/obfuscation/core:enterprise_obfuscation",
+     "//components/history/content/browser",
++    "//components/history/core/common",
+     "//components/infobars/content",
+     "//components/pdf/common:constants",
+     "//components/pdf/common:util",
+diff --git a/chrome/browser/download/download_history.cc b/chrome/browser/download/download_history.cc
+index 35ec2f5780..5fb0521c32 100644
+--- a/chrome/browser/download/download_history.cc
++++ b/chrome/browser/download/download_history.cc
+@@ -48,6 +48,8 @@
+ #include "components/history/core/browser/download_database.h"
+ #include "components/history/core/browser/download_row.h"
+ #include "components/history/core/browser/history_service.h"
++#include "components/history/core/common/pref_names.h"
++#include "components/prefs/pref_service.h"
+ #include "content/public/browser/browser_task_traits.h"
+ #include "content/public/browser/browser_thread.h"
+ #include "content/public/browser/download_manager.h"
+@@ -728,6 +730,15 @@ void DownloadHistory::OnDownloadRestoredFromHistory(
+ 
+ bool DownloadHistory::NeedToUpdateDownloadHistory(
+     download::DownloadItem* item) {
++  // Pane: a profile that saves no history keeps no record of its downloads
++  // either, extensions' included.
++  content::DownloadManager* manager = notifier_.GetManager();
++  if (manager && Profile::FromBrowserContext(manager->GetBrowserContext())
++                     ->GetPrefs()
++                     ->GetBoolean(prefs::kSavingBrowserHistoryDisabled)) {
++    return false;
++  }
++
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   // Always populate new extension downloads to history.
+   DownloadHistoryData* data = DownloadHistoryData::Get(item);
+diff --git a/components/favicon/content/BUILD.gn b/components/favicon/content/BUILD.gn
+index e7befb283f..c83d4846f6 100644
+--- a/components/favicon/content/BUILD.gn
++++ b/components/favicon/content/BUILD.gn
+@@ -21,6 +21,9 @@ static_library("content") {
+   deps = [
+     "//base",
+     "//components/favicon_base",
++    "//components/history/core/common",
++    "//components/prefs",
++    "//components/user_prefs",
+     "//content/public/browser",
+     "//content/public/common",
+     "//url",
+diff --git a/components/favicon/content/content_favicon_driver.cc b/components/favicon/content/content_favicon_driver.cc
+index 8b58b5dcda..0555d9c05e 100644
+--- a/components/favicon/content/content_favicon_driver.cc
++++ b/components/favicon/content/content_favicon_driver.cc
+@@ -9,6 +9,9 @@
+ #include "components/favicon/content/favicon_url_util.h"
+ #include "components/favicon/core/favicon_service.h"
+ #include "components/favicon/core/favicon_url.h"
++#include "components/history/core/common/pref_names.h"
++#include "components/prefs/pref_service.h"
++#include "components/user_prefs/user_prefs.h"
+ #include "content/public/browser/browser_context.h"
+ #include "content/public/browser/favicon_status.h"
+ #include "content/public/browser/navigation_controller.h"
+@@ -121,7 +124,18 @@ void ContentFaviconDriver::DownloadManifest(const GURL& url,
+ 
+ bool ContentFaviconDriver::IsOffTheRecord() {
+   DCHECK(web_contents());
+-  return web_contents()->GetBrowserContext()->IsOffTheRecord();
++  content::BrowserContext* context = web_contents()->GetBrowserContext();
++  if (context->IsOffTheRecord()) {
++    return true;
++  }
++  // Pane: a profile that saves no history keeps no page's icon either, as
++  // off the record. The icon's mapping names the page it was found on.
++  PrefService* prefs = user_prefs::UserPrefs::IsInitialized(context)
++                           ? user_prefs::UserPrefs::Get(context)
++                           : nullptr;
++  return prefs &&
++         prefs->FindPreference(::prefs::kSavingBrowserHistoryDisabled) &&
++         prefs->GetBoolean(::prefs::kSavingBrowserHistoryDisabled);
+ }
+ 
+ void ContentFaviconDriver::OnFaviconUpdated(

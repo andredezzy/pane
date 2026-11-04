@@ -6,7 +6,10 @@
 #include "base/functional/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/time/time.h"
+#include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/history/core/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/storage_partition.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
@@ -165,6 +168,38 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
       {}, base::BindOnce(^{
         completion();
       }));
+}
+
+// MARK: History
+
+- (BOOL)savesHistory {
+  return !self.profile || !self.profile->GetPrefs()->GetBoolean(
+                              prefs::kSavingBrowserHistoryDisabled);
+}
+
+- (void)setSavesHistory:(BOOL)savesHistory {
+  PANE_TRACE(
+      "call", "PaneBrowserContext.setSavesHistory",
+      base::DictValue().Set("savesHistory", static_cast<bool>(savesHistory)));
+  if (self.profile) {
+    self.profile->GetPrefs()->SetBoolean(prefs::kSavingBrowserHistoryDisabled,
+                                         !savesHistory);
+  }
+}
+
+- (void)clearHistoryWithCompletion:(void (^)(void))completion {
+  PANE_TRACE("call", "PaneBrowserContext.clearHistory");
+  if (!self.profile) {
+    completion();
+    return;
+  }
+
+  pane::RemoveSiteData(self.profile,
+                       chrome_browsing_data_remover::DATA_TYPE_HISTORY |
+                           content::BrowsingDataRemover::DATA_TYPE_DOWNLOADS,
+                       {}, base::BindOnce(^{
+                         completion();
+                       }));
 }
 
 @end

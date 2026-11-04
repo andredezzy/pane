@@ -51,12 +51,31 @@ enum Palette {
 	// Status colors, the same in both themes, as colors on fixed-color
 	// surfaces are (DESIGN.md: Theme): a proxy's dot (yellow while it is
 	// tested, emerald once connected, red when it failed) and the update's
-	// dot and download bar. A connected proxy's test button fills with
-	// emerald-600, under white text.
+	// dot and download bar.
 	static let warning = Color(rgb: 0xEAB308)
 	static let success = Color(rgb: 0x10B981)
 	static let failure = Color(rgb: 0xEF4444)
-	static let successFill = Color(rgb: 0x059669)
+
+	// The profile sheet (Paper's 05.4 and 05.5). A card on it, between the
+	// sheet's fill and the window's on dark, and a field on the card.
+	static let sheetCard = pair(0xFAFAFA, 0x151517)
+	static let sheetCardField = pair(0xFFFFFF, 0x0A0A0C)
+	// The chosen platform's tile.
+	static let chosenTile = Color(nsColor: NSColor(name: nil) { appearance in
+		isDark(appearance) ? NSColor(white: 1, alpha: 0.06) : NSColor(rgb: 0xFFFFFF)
+	})
+	// A warning's fill, amber at 10% and 12% on dark, and its icon, which the
+	// amber itself would wash out on light.
+	static let warningFill = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(rgb: 0xEAB308, alpha: isDark(appearance) ? 0.12 : 0.1)
+	})
+	static let warningIcon = pair(0xA16207, 0xEAB308)
+	// Apple's logo, in the one colour it comes in on each ground.
+	static let appleLogo = pair(0x000000, 0xFFFFFF)
+	// A faint edge around Tux on dark, where the black back would melt away.
+	static let tuxEdge = Color(nsColor: NSColor(name: nil) { appearance in
+		NSColor(white: 1, alpha: isDark(appearance) ? 0.6 : 0)
+	})
 
 	// An extension without an icon: the first letter of its name on gray.
 	// A toolbar action's badge is outlined in a darker gray.
@@ -79,8 +98,9 @@ enum Palette {
 	static let iconTile = Color(nsColor: NSColor(name: nil) { appearance in
 		isDark(appearance) ? NSColor(rgb: 0x232326) : NSColor(rgb: 0xE9E9EB, alpha: 0.7)
 	})
-	// The key on Cancel's chip: muted, lighter on dark (zinc-400).
-	static let keyLabel = pair(0x71717A, 0xA1A1AA)
+	// Muted, lighter on dark (zinc-400): the key on Cancel's chip, a platform's
+	// name on its tile, an embedded menu's chevrons.
+	static let mutedLifted = pair(0x71717A, 0xA1A1AA)
 	// The add-extension dialog's shadow, Dia's: 0 24px 64px black 25%, 50%
 	// on dark.
 	static let installDialogShadow = Color(nsColor: NSColor(name: nil) { appearance in

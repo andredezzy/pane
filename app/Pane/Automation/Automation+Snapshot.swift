@@ -210,6 +210,9 @@ extension Automation {
 					"expanded": model.expandedProfileIDs.contains(profile.id),
 					"proxyStatus": model.proxyStatus[profile.id]?.rawValue ?? NSNull(),
 					"keepLoaded": profile.keepLoaded,
+					"savesHistory": profile.savesHistory,
+					// What the engine has, once the profile is open.
+					"engineSavesHistory": controller.context(for: profile.id)?.savesHistory ?? NSNull(),
 					"cacheSize": cacheSizes[profile.id].map { $0 as Any } ?? NSNull(),
 					"cookies": cookies[profile.id] ?? NSNull(),
 					// What the engine applied to the open profile.

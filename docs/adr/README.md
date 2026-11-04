@@ -92,6 +92,8 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md) Pane's identifier is xyz.roundedcorners.pane
 - [0115](0115-nothing-outside-the-volume-names-a-page.md) Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
 - [0116](0116-pane-locks-while-open.md) Pane locks while open: on command, when the Mac sleeps or locks, and after a time without use
+- [0119](0119-a-profile-can-keep-no-history.md) A profile can keep no history: its pages, their icons, and its downloads, and turning it off clears what it kept
+- [0120](0120-profile-sheet-cards-and-platform-logos.md) The profile sheet holds its settings in cards, and picks a fingerprint's platform by its real logo
 
 ## Merged records
 

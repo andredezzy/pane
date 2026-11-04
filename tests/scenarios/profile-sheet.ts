@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
 	canDriveUI,
@@ -15,19 +14,20 @@ import { startHttpProxy } from "../lib/proxies";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// The profile sheet's fingerprint and proxy (apps/veil profile-sheet.tsx),
-// filled as a user would: presses and typing through the window's
-// accessibility, never the pointer. A profile on the Mac's platform claims
-// the Mac's real GPU, the very strings WebGL reports in a profile without a
-// fingerprint; a rename keeps the fingerprint; another platform gets that
-// platform's preset, the cross-OS note, and reaches the profile's open tab;
-// the proxy shortcut fills the fields, its test answers through the proxy,
-// its password is kept in the keychain (the mock keychain here), not in
-// profiles.json, and turning spoofing off clears the fingerprint.
+// The profile sheet (ADR 0120), filled as a user would: presses and typing
+// through the window's accessibility, never the pointer. A profile on the
+// Mac's platform claims the Mac's real GPU, the very strings WebGL reports in
+// a profile without a fingerprint; a rename keeps the fingerprint; another
+// platform gets that platform's preset, the warning, and reaches the profile's
+// open tab; a proxy string pasted into the address fills the fields, and its
+// test answers through the proxy (proxy checks its password at rest); Save
+// history reaches the engine (profile-history checks what the engine then
+// does); and turning spoofing off clears the fingerprint.
 
 type Saved = {
 	id: string;
 	name: string;
+	savesHistory: boolean;
 	fingerprint: {
 		platform: string;
 		webgl: { vendor: string; renderer: string } | null;
@@ -43,14 +43,8 @@ type Saved = {
 
 const CREDENTIALS = { username: "pane", password: "proxy-secret" };
 
-async function saved(app: PaneApp, id: string): Promise<Saved | undefined> {
-	await app.send("save");
-
-	const file = JSON.parse(
-		readFileSync(join(app.dataDir, "profiles.json"), "utf8"),
-	) as { state: { profiles: Saved[] } };
-
-	return file.state.profiles.find((profile) => profile.id === id);
+async function saved(app: PaneApp, id: string): Promise<Saved> {
+	return (await app.send<Saved>("readProfile", { profile: id })).result;
 }
 
 function newProfile(state: AppState, known: string[]): string | undefined {
@@ -105,6 +99,20 @@ const profileSheet: Scenario = async (context) => {
 			(await windowState(pid, window, join(context.out, `${name}.png`)))
 				.tree_markdown;
 
+		// The sheet as it is, beside Paper's boards, in both themes.
+		const render = async (name: string) => {
+			for (const theme of ["light", "dark"]) {
+				await app.send("theme", { theme });
+				await Bun.sleep(300);
+
+				await app.send("render", {
+					path: join(context.out, `${name}-${theme}.png`),
+				});
+			}
+
+			await app.send("theme", { theme: "system" });
+		};
+
 		const sidebar = await tree("profile-sheet-a11y-sidebar");
 
 		// New profile: spoofing on, the Mac's platform, by default.
@@ -117,10 +125,7 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		await typeIntoField(pid, window, "pane.profile.name", "Mac claim");
-
-		await app.send("render", {
-			path: join(context.out, "profile-sheet-new.png"),
-		});
+		await render("profile-sheet-new");
 
 		// The sheet's fields read their labels, not their placeholders, and
 		// the sheet is modal: the sidebar under it is out of reach.
@@ -130,6 +135,9 @@ const profileSheet: Scenario = async (context) => {
 			plainRow: /AXButton = "1 tab, expanded" \(Plain\)/.test(sidebar),
 			name: /AXTextField[^\n]*\(Name\)[^\n]*id=pane\.profile\.name/.test(sheet),
 			group: /AXTextField[^\n]*\(Group\)/.test(sheet),
+			history: /AX(CheckBox|Switch)[^\n]*\(Save history\)/.test(sheet),
+			spoofing: /AX(CheckBox|Switch)[^\n]*\(Spoof fingerprint\)/.test(sheet),
+			platform: /AXButton[^\n]*\(macOS\)/.test(sheet),
 			sidebarHidden: !/AXButton[^\n]*\(Plain\)/.test(sheet),
 		};
 
@@ -149,10 +157,11 @@ const profileSheet: Scenario = async (context) => {
 		const macSaved = await saved(app, mac);
 
 		expect(
-			macSaved?.fingerprint?.platform === "MACOS" &&
+			macSaved.savesHistory === true &&
+				macSaved.fingerprint?.platform === "MACOS" &&
 				macSaved.fingerprint.webgl?.vendor === realWebGL.vendor &&
 				macSaved.fingerprint.webgl?.renderer === realWebGL.renderer,
-			`the Mac profile's fingerprint: ${JSON.stringify(macSaved?.fingerprint)}`,
+			`the Mac profile's fingerprint: ${JSON.stringify(macSaved.fingerprint)}`,
 		);
 
 		// A page of it, to see the fingerprint change reach it.
@@ -178,22 +187,26 @@ const profileSheet: Scenario = async (context) => {
 		const renamed = await saved(app, mac);
 
 		expect(
-			renamed?.name === "Mac claim renamed" &&
+			renamed.name === "Mac claim renamed" &&
 				JSON.stringify(renamed.fingerprint) ===
-					JSON.stringify(macSaved?.fingerprint),
+					JSON.stringify(macSaved.fingerprint),
 			`the rename changed ${JSON.stringify(renamed)}`,
 		);
 
-		// Another platform: its preset, the note, and the open tab follows.
+		// Another platform: its preset, the warning, and the open tab follows.
+		// Save history off with it, which the open profile's engine takes at
+		// once.
 		await app.send("openProfileSheet", { profile: mac });
 		await app.waitFor("the edit sheet", (state) => state.profileSheet === mac);
 		await clickButton(pid, window, "Windows");
-		await Bun.sleep(300);
 
-		await app.send("render", {
-			path: join(context.out, "profile-sheet-cross-os.png"),
+		await clickControl(pid, window, {
+			title: "Save history",
+			role: /AX(CheckBox|Switch)/,
 		});
 
+		await Bun.sleep(300);
+		await render("profile-sheet-cross-os");
 		await clickButton(pid, window, "Save");
 
 		await app.waitFor(
@@ -204,9 +217,21 @@ const profileSheet: Scenario = async (context) => {
 		const windows = await saved(app, mac);
 
 		expect(
-			windows?.fingerprint?.platform === "WINDOWS" &&
+			windows.fingerprint?.platform === "WINDOWS" &&
 				windows.fingerprint.webgl?.vendor === "Google Inc. (NVIDIA)",
-			`the Windows fingerprint: ${JSON.stringify(windows?.fingerprint)}`,
+			`the Windows fingerprint: ${JSON.stringify(windows.fingerprint)}`,
+		);
+
+		const historyOff = await app.waitFor(
+			"the engine told of Save history",
+			(state) =>
+				state.profiles.find((each) => each.id === mac)?.engineSavesHistory ===
+				false,
+		);
+
+		expect(
+			windows.savesHistory === false,
+			`Save history off saved ${windows.savesHistory}`,
 		);
 
 		await app.send("select", { tab: macTab });
@@ -226,7 +251,7 @@ const profileSheet: Scenario = async (context) => {
 			`the open tab saw ${before}, then ${after}`,
 		);
 
-		// The proxy: the shortcut, its test, and Create.
+		// The proxy: a string pasted into its address, its test, and Create.
 		known = (await app.state()).profiles.map((profile) => profile.id);
 		await clickButton(pid, window, "New");
 
@@ -238,24 +263,45 @@ const profileSheet: Scenario = async (context) => {
 		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
 
 		await clickControl(pid, window, {
-			title: "Enable proxy",
+			title: "Proxy",
 			role: /AX(CheckBox|Switch)/,
 		});
 
 		await typeIntoField(
 			pid,
 			window,
-			"pane.profile.proxyShortcut",
+			"pane.profile.proxyHost",
 			`127.0.0.1:${proxy.port}:${CREDENTIALS.username}:${CREDENTIALS.password}`,
 		);
 
-		await clickButton(pid, window, "Test proxy");
-		await clickControl(pid, window, { title: "203.0.113.7" }).catch(() => {});
+		await clickButton(pid, window, "Test connection");
 
-		await app.send("render", {
-			path: join(context.out, "profile-sheet-proxy.png"),
-		});
+		const tested = await poll(
+			"the test's answer",
+			async () => {
+				const answer = await tree("profile-sheet-a11y-proxy");
 
+				return answer.includes("Connected · 203.0.113.7") && answer;
+			},
+			10_000,
+			200,
+		);
+
+		const fields = {
+			host: /AXTextField[^\n]*"127\.0\.0\.1"[^\n]*\(Proxy host\)|AXTextField[^\n]*\(Proxy host\)[^\n]*127\.0\.0\.1/.test(
+				tested,
+			),
+			port: new RegExp(
+				`AXTextField[^\\n]*(\\(Proxy port\\)[^\\n]*${proxy.port}|${proxy.port}[^\\n]*\\(Proxy port\\))`,
+			).test(tested),
+		};
+
+		expect(
+			Object.values(fields).every(Boolean),
+			`the pasted proxy's fields: ${JSON.stringify(fields)}`,
+		);
+
+		await render("profile-sheet-proxy");
 		await clickButton(pid, window, "Create");
 
 		const proxied = await app.waitFor(
@@ -266,20 +312,20 @@ const profileSheet: Scenario = async (context) => {
 		const proxiedID = newProfile(proxied, known) ?? "";
 		const proxiedSaved = await saved(app, proxiedID);
 
-		const savedProxy = proxiedSaved?.proxy;
+		const savedProxy = proxiedSaved.proxy;
 
-		const keychain = JSON.parse(
-			readFileSync(join(app.dataDir, "mock-keychain.json"), "utf8"),
-		) as { state: Record<string, string> };
+		const shownProxy = {
+			...savedProxy,
+			password: savedProxy?.password ? "(set)" : null,
+		};
 
 		expect(
 			savedProxy?.proxyType === "HTTP" &&
 				savedProxy.host === "127.0.0.1" &&
 				savedProxy.port === proxy.port &&
 				savedProxy.username === CREDENTIALS.username &&
-				savedProxy.password === null &&
-				keychain.state[proxiedID] === CREDENTIALS.password,
-			`the saved proxy: ${JSON.stringify({ ...savedProxy, password: savedProxy?.password ? "(set)" : null, inKeychain: proxiedID in keychain.state })}`,
+				savedProxy.password === CREDENTIALS.password,
+			`the saved proxy: ${JSON.stringify(shownProxy)}`,
 		);
 
 		expect(
@@ -300,8 +346,11 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		// A real click on the switch's label, well clear of the switch: the
-		// whole row toggles it, as a checkbox's label does.
-		// Read once the sheet has slid in: two reads 100 ms apart agree.
+		// whole row toggles it, as a checkbox's label does. Once the sheet has
+		// slid in (0.2 s) and its name field taken focus; two reads 100 ms apart
+		// agree.
+		await Bun.sleep(400);
+
 		let spoofRow = await readControl(
 			pid,
 			window,
@@ -349,7 +398,7 @@ const profileSheet: Scenario = async (context) => {
 
 		expect(
 			spoofRow.value === "1" && spoofAfterClick === "0",
-			`a click on the label left the switch at ${spoofAfterClick} (from ${spoofRow.value})`,
+			`a click on the label at ${spoofRow.x + 30},${spoofRow.y + spoofRow.h / 2} left the switch at ${spoofAfterClick} (from ${spoofRow.value})`,
 		);
 
 		await clickButton(pid, window, "Save");
@@ -362,28 +411,32 @@ const profileSheet: Scenario = async (context) => {
 		const unspoofed = await saved(app, proxiedID);
 
 		expect(
-			unspoofed?.fingerprint === null,
-			`spoofing off kept ${JSON.stringify(unspoofed?.fingerprint)}`,
+			unspoofed.fingerprint === null,
+			`spoofing off kept ${JSON.stringify(unspoofed.fingerprint)}`,
 		);
 
 		return {
 			hostWebGL: host,
 			webGLInAPlainProfile: realWebGL,
-			macProfile: macSaved?.fingerprint,
+			macProfile: macSaved.fingerprint,
 			accessibilityNames: named,
 			renameKeptFingerprint: true,
 			crossOS: {
-				fingerprint: windows?.fingerprint,
+				fingerprint: windows.fingerprint,
 				openTab: { before, after },
 			},
+			historyOff: {
+				saved: windows.savesHistory,
+				engine: historyOff.profiles.find((each) => each.id === mac)
+					?.engineSavesHistory,
+			},
 			proxy: {
-				saved: proxiedSaved?.proxy,
-				passwordInKeychain: true,
+				saved: shownProxy,
 				testedThrough: proxy.log.length,
 			},
 			spoofingOff: {
 				byLabelClick: spoofAfterClick,
-				saved: unspoofed?.fingerprint,
+				saved: unspoofed.fingerprint,
 			},
 		};
 	} finally {

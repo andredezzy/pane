@@ -192,7 +192,7 @@ struct BrowserModelTests {
 
 	// MARK: Profiles
 
-	@Test("an edit reports what the engine must apply: its proxy, its fingerprint")
+	@Test("an edit reports what the engine must apply: its proxy, its fingerprint, its history choice")
 	func detectsChanges() {
 		let model = Harness([profile("p")]).model!
 		let proxy = ProxyConfig(proxyType: .http, host: "proxy.example", port: 8080)
@@ -205,6 +205,8 @@ struct BrowserModelTests {
 			$0.proxy = nil
 			$0.fingerprint = nil
 		} == [.proxy, .fingerprint])
+		#expect(model.updateProfile("p") { $0.savesHistory = false } == .history)
+		#expect(model.updateProfile("p") { $0.savesHistory = false } == [])
 		#expect(model.updateProfile("none") { $0.proxy = proxy } == [])
 		#expect(model.profile("p")?.name == "Renamed")
 	}

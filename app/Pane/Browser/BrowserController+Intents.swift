@@ -35,7 +35,7 @@ extension BrowserController {
 		updateProfile(id) { draft.apply(to: &$0, generate: generateFingerprint(draft)) }
 	}
 
-	// Any edit; a new proxy or fingerprint reaches the engine.
+	// Any edit; a new proxy, fingerprint, or history choice reaches the engine.
 	func updateProfile(_ id: String, _ change: (inout BrowserProfile) -> Void) {
 		apply(model.updateProfile(id, change), to: id)
 	}
@@ -55,6 +55,10 @@ extension BrowserController {
 	// The sheet, sliding in from the right as its scrim fades (DESIGN.md:
 	// enter and exit animate); nil takes it away.
 	func presentProfileSheet(_ target: WindowState.ProfileSheetTarget?) {
+		if target != nil {
+			Log.interaction("Open profile sheet")
+		}
+
 		withAnimation(Motion.sheet) {
 			state.profileSheet = target
 		}
@@ -73,6 +77,10 @@ extension BrowserController {
 
 		if changes.contains(.fingerprint) {
 			fingerprintDidChange(id)
+		}
+
+		if changes.contains(.history) {
+			historyDidChange(id)
 		}
 	}
 

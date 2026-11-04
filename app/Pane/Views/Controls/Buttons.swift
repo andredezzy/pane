@@ -25,6 +25,8 @@ struct ButtonSize: Equatable {
 	static let regular = ButtonSize(height: 36, leading: 16, trailing: 16, fontSize: 14)
 	// h-8 px-3 text-xs
 	static let small = ButtonSize(height: 32, leading: 12, trailing: 12, fontSize: 12)
+	// h-7, 10 in: a form's secondary action (the profile sheet's Test connection).
+	static let compact = ButtonSize(height: 28, leading: 10, trailing: 10, fontSize: 12)
 	// Aside's popups: h-8, 14 in, at 13.
 	static let popup = ButtonSize(height: 32, leading: 14, trailing: 14, fontSize: 13)
 	// A title and its key's chip (KeyedLabel, which sets its own text): h-9,
@@ -304,33 +306,5 @@ struct PressLayer<S: Shape>: View {
 		shape.fill(color)
 			.opacity(isPressed ? 1 : 0)
 			.animation(isPressed ? nil : Motion.hover, value: isPressed)
-	}
-}
-
-// A row of equal buttons as CSS flex-1 lays them out: the width shared before
-// borders, so outline buttons end 2px wider than filled ones.
-struct PresetRow<Option: Hashable>: View {
-	let options: [Option]
-	let selection: Option
-	let title: (Option) -> String
-	let select: (Option) -> Void
-
-	var body: some View {
-		GeometryReader { geometry in
-			let borders = CGFloat(options.filter { $0 != selection }.count) * 2
-			let share = (geometry.size.width - CGFloat(options.count - 1) * 4 - borders) / CGFloat(options.count)
-
-			HStack(spacing: 4) {
-				ForEach(options, id: \.self) { option in
-					let isSelected = option == selection
-
-					Button(title(option)) { select(option) }
-						.buttonStyle(.pane(isSelected ? .primary : .outline, size: .small, fontSize: 11, fillsWidth: true))
-						.frame(width: share + (isSelected ? 0 : 2))
-						.accessibilityAddTraits(isSelected ? .isSelected : [])
-				}
-			}
-		}
-		.frame(height: 32)
 	}
 }

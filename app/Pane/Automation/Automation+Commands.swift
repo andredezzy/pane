@@ -33,13 +33,14 @@ extension Automation {
 		switch command.name {
 		case "createProfile":
 			// The profile sheet's Create, as filled in: { name, color?,
-			// group?, spoof? }. Scenarios' profiles spoof nothing unless
-			// asked, so pages see the engine's own values.
+			// group?, spoof?, savesHistory? }. Scenarios' profiles spoof nothing
+			// unless asked, so pages see the engine's own values.
 			var draft = ProfileDraft()
 			draft.name = try command.string("name")
 			draft.color = (command["color"] as? String).flatMap(ProfileColor.init) ?? .blue
 			draft.group = command["group"] as? String ?? ""
 			draft.spoofing = command["spoof"] as? Bool ?? false
+			draft.savesHistory = command["savesHistory"] as? Bool ?? true
 
 			guard draft.validate() == nil else {
 				throw AutomationError("createProfile needs a name")
@@ -73,6 +74,22 @@ extension Automation {
 
 		case "setKeepLoaded":
 			controller.setKeepLoaded(try command.string("profile"), command["keepLoaded"] as? Bool ?? true)
+
+		case "closeProfileSheet":
+			controller.presentProfileSheet(nil)
+
+		case "readProfile":
+			// { profile }: the profile as the sealed profiles.json holds it.
+			guard let profile = controller.model.profile(try command.string("profile")) else {
+				throw AutomationError("no such profile")
+			}
+
+			return .handled(try JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)))
+
+		case "setSavesHistory":
+			// The profile sheet's Save history, as Save applies it: { profile, savesHistory }.
+			let savesHistory = command["savesHistory"] as? Bool ?? true
+			controller.updateProfile(try command.string("profile")) { $0.savesHistory = savesHistory }
 
 		case "setDownloadDirectory":
 			try openContext(command).downloadDirectory = URL(fileURLWithPath: try command.string("path"), isDirectory: true)

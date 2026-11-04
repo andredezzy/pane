@@ -25,6 +25,7 @@ public struct ProfileDraft: Equatable, Sendable {
 	public var name = ""
 	public var color = ProfileColor.blue
 	public var group = ""
+	public var savesHistory = true
 	public var spoofing = true
 	public var platform = hostPlatform
 	public var proxyEnabled = false
@@ -42,6 +43,7 @@ public struct ProfileDraft: Equatable, Sendable {
 		name = profile.name
 		color = profile.color
 		group = profile.group ?? ""
+		savesHistory = profile.savesHistory
 		spoofing = profile.fingerprint != nil
 		platform = profile.fingerprint?.platform ?? Self.hostPlatform
 		proxyEnabled = profile.proxy != nil
@@ -122,6 +124,7 @@ public struct ProfileDraft: Equatable, Sendable {
 		profile.name = trimmedName
 		profile.color = color
 		profile.group = group.isEmpty ? nil : group
+		profile.savesHistory = savesHistory
 		profile.fingerprint = Fingerprint.edited(stored: profile.fingerprint, spoofing: spoofing, platform: platform, generate: generate)
 		profile.proxy = proxy
 	}

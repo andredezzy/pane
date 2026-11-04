@@ -41,6 +41,7 @@ public final class BrowserModel {
 
 		public static let proxy = ProfileChanges(rawValue: 1 << 0)
 		public static let fingerprint = ProfileChanges(rawValue: 1 << 1)
+		public static let history = ProfileChanges(rawValue: 1 << 2)
 	}
 
 	// What a save writes: a copy of the state of each file that changed,
@@ -204,8 +205,8 @@ public final class BrowserModel {
 		return profile.id
 	}
 
-	// What the change did to the profile's proxy and fingerprint, for the
-	// engine to apply.
+	// What the change did to the profile's proxy, fingerprint, and history
+	// choice, for the engine to apply.
 	@discardableResult
 	public func updateProfile(_ id: String, _ change: (inout BrowserProfile) -> Void) -> ProfileChanges {
 		guard let index = profiles.firstIndex(where: { $0.id == id }) else {
@@ -214,6 +215,7 @@ public final class BrowserModel {
 
 		let proxy = profiles[index].proxy
 		let fingerprint = profiles[index].fingerprint
+		let savesHistory = profiles[index].savesHistory
 		change(&profiles[index])
 		profiles[index].updatedAt = timestamp()
 		scheduleSave(profiles: true)
@@ -226,6 +228,10 @@ public final class BrowserModel {
 
 		if profiles[index].fingerprint != fingerprint {
 			changes.insert(.fingerprint)
+		}
+
+		if profiles[index].savesHistory != savesHistory {
+			changes.insert(.history)
 		}
 
 		return changes

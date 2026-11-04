@@ -102,7 +102,7 @@ struct KeyedLabel: View {
 	// On a filled button, the key's chip is the button's text color, faint.
 	private var keyColor: Color {
 		switch role {
-		case .cancel: Palette.keyLabel
+		case .cancel: Palette.mutedLifted
 		case .destructive: Color.white.opacity(0.85)
 		case .primary: Palette.primaryKey
 		}

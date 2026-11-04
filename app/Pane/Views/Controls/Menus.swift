@@ -11,6 +11,9 @@ struct PaneMenuButton<Value: Hashable>: View {
 		// Beside the small buttons (h-8, at 13): Settings', the Extensions
 		// page's.
 		case small
+		// A segment of a field, at 13: as tall as the field, whose border and
+		// corners it takes (the profile sheet's proxy address).
+		case embedded
 	}
 
 	enum Chevron {
@@ -41,7 +44,8 @@ struct PaneMenuButton<Value: Hashable>: View {
 	}
 
 	var body: some View {
-		let shape = Squircle(cornerRadius: 11)
+		let isEmbedded = size == .embedded
+		let shape = Squircle(cornerRadius: isEmbedded ? 0 : 11)
 
 		Menu {
 			Picker("", selection: Binding(get: { selection }, set: select)) {
@@ -52,31 +56,32 @@ struct PaneMenuButton<Value: Hashable>: View {
 			.pickerStyle(.inline)
 			.labelsHidden()
 		} label: {
-			HStack(spacing: 8) {
+			HStack(spacing: isEmbedded ? 6 : 8) {
 				if let icon {
 					LucideIcon(icon(selection), size: 14, strokeWidth: 1.75)
 						.foregroundStyle(Palette.foreground)
 				}
 
-				Text(title)
-					.font(.system(size: size == .regular ? 14 : 13))
-					.foregroundStyle(Palette.foreground)
-					.lineLimit(1)
+				titleText
 
 				if fillsWidth {
 					Spacer(minLength: 0)
 				}
 
-				LucideIcon(chevron == .down ? .chevronDown : .chevronsUpDown, size: chevron == .down ? 16 : 13)
-					.foregroundStyle(Palette.mutedForeground)
+				LucideIcon(chevron == .down ? .chevronDown : .chevronsUpDown, size: isEmbedded ? 12 : chevron == .down ? 16 : 13)
+					.foregroundStyle(isEmbedded ? Palette.mutedLifted : Palette.mutedForeground)
 			}
-			// 12 and 10 inside the 1-point border, as CSS's padding beside it.
-			.padding(.leading, 13)
-			.padding(.trailing, 11)
-			.frame(height: size == .regular ? 36 : 32)
+			// 12 and 10 inside the 1-point border, as CSS's padding beside it;
+			// embedded, the field's border is outside them.
+			.padding(.leading, isEmbedded ? 12 : 13)
+			.padding(.trailing, isEmbedded ? 10 : 11)
+			.frame(height: height)
+			.frame(maxHeight: isEmbedded ? .infinity : nil)
 			.background(Palette.outlineHover.opacity(isHovered ? 1 : 0), in: shape)
 			.overlay {
-				shape.strokeBorder(ring, lineWidth: 1)
+				if !isEmbedded {
+					shape.strokeBorder(ring, lineWidth: 1)
+				}
 			}
 			.contentShape(shape)
 		}
@@ -89,5 +94,31 @@ struct PaneMenuButton<Value: Hashable>: View {
 		}
 		.accessibilityLabel(label ?? title)
 		.accessibilityValue(label == nil ? "" : title)
+	}
+
+	private var height: CGFloat? {
+		switch size {
+		case .regular: 36
+		case .small: 32
+		case .embedded: nil
+		}
+	}
+
+	// Embedded, in the room its longest option takes, so what follows it in the
+	// field stays where it is when the choice changes.
+	private var titleText: some View {
+		ZStack(alignment: .leading) {
+			if size == .embedded {
+				ForEach(options, id: \.1) { option in
+					Text(option.0)
+						.hidden()
+				}
+			}
+
+			Text(title)
+				.foregroundStyle(Palette.foreground)
+		}
+		.font(.system(size: size == .regular ? 14 : 13))
+		.lineLimit(1)
 	}
 }

@@ -37,7 +37,8 @@ NS_SWIFT_NAME(Cookie)
 
 @end
 
-// A profile's cookies and cache. Completions run on the main thread.
+// A profile's cookies, cache, and history. Completions run on the main
+// thread.
 @interface PaneBrowserContext (PaneCookies)
 
 // Every cookie of the profile.
@@ -54,6 +55,21 @@ NS_SWIFT_NAME(Cookie)
 // IndexedDB stay, so the profile stays signed in.
 - (void)trimCacheWithCompletion:(void (^)(void))completion
     NS_SWIFT_NAME(trimCache(completion:));
+
+// Whether the profile keeps a record of where it went: the pages it visits
+// (Chrome's history, and the visited-link colours drawn from it), their
+// icons, and its downloads. NO is Chrome's SavingBrowserHistoryDisabled
+// policy, with the icons and the downloads kept off too; the tabs, their back
+// and forward lists, cookies, and site data are unaffected. YES until set,
+// and kept in the profile's prefs.
+@property BOOL savesHistory;
+
+// Deletes what the profile kept of where it went, for all time, as Chrome's
+// Clear browsing data does with Browsing history and Download history: an open
+// tab keeps its page and loses its back and forward list. Cookies and site
+// data stay, so the profile stays signed in.
+- (void)clearHistoryWithCompletion:(void (^)(void))completion
+    NS_SWIFT_NAME(clearHistory(completion:));
 
 @end
 

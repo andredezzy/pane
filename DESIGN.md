@@ -18,9 +18,9 @@ Each radius has its uses (Paper's `--radius-*` tokens carry them too):
 
 - **4** (`--radius-xs`): favicons, letter tiles and badges on a toolbar action, the active profile's square.
 - **7** (`--radius-sm`): icon buttons, a menu's letter tiles, a dialog's fields.
-- **9** (`--radius-tab`): the address bar, chips.
-- **11** (`--radius-md`): buttons, fields, color swatches.
-- **15** (`--radius-lg`): sidebar rows, menu rows, the find bar, extension cards, the popup and keyed buttons.
+- **9** (`--radius-tab`): the address bar, chips, the profile sheet's warning and Test connection.
+- **11** (`--radius-md`): buttons, fields, color swatches, the platform tiles.
+- **15** (`--radius-lg`): sidebar rows, menu rows, the find bar, extension cards, the popup and keyed buttons, the profile sheet's cards.
 - **18** (`--radius-panel`): the content panel, the profile sheet, the PIN screen's panel.
 - **22** (`--radius-xl`): menus, the tab switcher, Settings' cards.
 - **29** (`--radius-2xl`): dialogs (a page's, Quit Pane?, an extension's prompt).

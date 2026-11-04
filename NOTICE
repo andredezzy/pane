@@ -22,6 +22,14 @@ Lucide (https://lucide.dev), ISC License, with portions from Feather (MIT)
 (app/Pane/Views/Theme/Icons.swift) are Lucide's SVG paths, as the Electron
 app used them through lucide-react.
 
+The platform logos in the profile sheet
+(app/Pane/Assets.xcassets/Platform*.imageset) name the platform a fingerprint
+claims; each mark belongs to its owner and implies no endorsement. Windows is
+Microsoft's, from Wikimedia Commons (Windows_logo_-_2021.svg, public domain).
+Apple's and Tux are as drawn in gilbarbara/logos (https://github.com/gilbarbara/logos,
+CC0 1.0), Tux without its soft shadow. Tux is by Larry Ewing
+(lewing@isc.tamu.edu), made with The GIMP.
+
 Patch 0006-pane-fingerprint.patch is Pane's own and borrows no other
 project's patch. Its canvas and audio noise are the Electron app's own
 algorithms (apps/veil profile/fingerprint-preload.ts).

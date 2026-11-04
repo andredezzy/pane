@@ -228,12 +228,15 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 	public var proxy: ProxyConfig?
 	// Exempts the profile from automatic sleep and unload (CONTEXT.md).
 	public var keepLoaded: Bool
+	// Whether it keeps a record of where it went (ADR 0119). A file from before
+	// the choice has none: it kept its history, and still does.
+	public var savesHistory: Bool
 	public var tabs: [Tab]
 	public var createdAt: String
 	public var updatedAt: String
 
 	private enum CodingKeys: String, CodingKey {
-		case id, name, color, group, fingerprint, proxy, keepLoaded, tabs, createdAt, updatedAt
+		case id, name, color, group, fingerprint, proxy, keepLoaded, savesHistory, tabs, createdAt, updatedAt
 	}
 
 	public init(
@@ -244,6 +247,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		fingerprint: Fingerprint? = nil,
 		proxy: ProxyConfig? = nil,
 		keepLoaded: Bool = false,
+		savesHistory: Bool = true,
 		tabs: [Tab] = [],
 		createdAt: String,
 		updatedAt: String
@@ -255,6 +259,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		self.fingerprint = fingerprint
 		self.proxy = proxy
 		self.keepLoaded = keepLoaded
+		self.savesHistory = savesHistory
 		self.tabs = tabs
 		self.createdAt = createdAt
 		self.updatedAt = updatedAt
@@ -269,6 +274,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		fingerprint = try container.decodeIfPresent(Fingerprint.self, forKey: .fingerprint)
 		proxy = try container.decodeIfPresent(ProxyConfig.self, forKey: .proxy)
 		keepLoaded = try container.decodeIfPresent(Bool.self, forKey: .keepLoaded) ?? false
+		savesHistory = try container.decodeIfPresent(Bool.self, forKey: .savesHistory) ?? true
 		tabs = try container.decode([Tab].self, forKey: .tabs)
 		createdAt = try container.decode(String.self, forKey: .createdAt)
 		updatedAt = try container.decode(String.self, forKey: .updatedAt)
@@ -284,6 +290,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		try container.encode(fingerprint, forKey: .fingerprint)
 		try container.encode(proxy, forKey: .proxy)
 		try container.encode(keepLoaded, forKey: .keepLoaded)
+		try container.encode(savesHistory, forKey: .savesHistory)
 		try container.encode(tabs, forKey: .tabs)
 		try container.encode(createdAt, forKey: .createdAt)
 		try container.encode(updatedAt, forKey: .updatedAt)

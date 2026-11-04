@@ -31,3 +31,7 @@ _Avoid_: clear browsing data (Chrome's takes cookies too, which breaks the promi
 **Keep loaded**:
 A per-profile exemption from automatic sleep and unload, for always-on or session-critical profiles whose pages must stay live.
 _Avoid_: pin (already means something in browser tabs), whitelist
+
+**Save history**:
+A per-profile choice, on by default, of whether a profile keeps a record of where it went: the pages it visits, their icons, and its downloads. Turning it off clears what it kept; its cookies and tabs stay, so it stays signed in.
+_Avoid_: incognito, private (those keep no cookies either), clear browsing data (Chrome's wider dialog, which this uses part of)

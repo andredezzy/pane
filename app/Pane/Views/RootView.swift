@@ -90,7 +90,7 @@ struct RootView: View {
 					}) {
 						controller.presentProfileSheet(nil)
 					}
-						.frame(width: 360)
+						.frame(width: 400)
 						.padding(8)
 				}
 				.transition(.move(edge: .trailing).combined(with: .opacity))

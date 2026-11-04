@@ -1,12 +1,14 @@
 import { stats } from "../lib/benchmark";
+import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
 // How long each signposted interaction (Log.interaction) takes, from the
 // input to the frame Core Animation commits for it, read from the unified
 // log as the app runs: selecting a tab among five loaded ones, a new tab
-// from the File menu, and focusing the address field. It times; it does
-// not judge, so a change is measured before and after.
+// from the File menu, focusing the address field, opening the profile sheet
+// (the first time draws the platforms' logos), and choosing a platform. It
+// times; it does not judge, so a change is measured before and after.
 // /usr/bin/log, by its path: zsh has a builtin of the same name.
 
 type Signpost = {
@@ -45,6 +47,7 @@ const interactionTiming: Scenario = async (context) => {
 	// The stream opens before the app starts its first interval.
 	await Bun.sleep(1_000);
 
+	const driveUI = await canDriveUI();
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Timing");
 	const tabs: string[] = [];
@@ -72,6 +75,22 @@ const interactionTiming: Scenario = async (context) => {
 		await Bun.sleep(150);
 		await app.send("menu", { path: ["Navigate", "Focus Address Bar"] });
 		await Bun.sleep(150);
+	}
+
+	for (let round = 0; round < ROUNDS; round++) {
+		await app.send("openProfileSheet");
+		await Bun.sleep(400);
+
+		// A press on a tile, where accessibility can reach it.
+		if (driveUI) {
+			const pid = app.browser.pid;
+			const window = await mainWindowOf(pid);
+			await clickButton(pid, window, round % 2 === 0 ? "Windows" : "macOS");
+			await Bun.sleep(150);
+		}
+
+		await app.send("closeProfileSheet");
+		await Bun.sleep(400);
 	}
 
 	await Bun.sleep(1_000);
@@ -118,9 +137,12 @@ const interactionTiming: Scenario = async (context) => {
 	}
 
 	expect(
-		["Select tab", "New tab", "Focus address field"].every(
-			(name) => (durations[name]?.length ?? 0) > 0,
-		),
+		[
+			"Select tab",
+			"New tab",
+			"Focus address field",
+			"Open profile sheet",
+		].every((name) => (durations[name]?.length ?? 0) > 0),
 		`the log held no intervals for ${JSON.stringify(Object.keys(durations))}`,
 	);
 
@@ -135,6 +157,7 @@ const interactionTiming: Scenario = async (context) => {
 				name,
 				{
 					count: values.length,
+					samplesMs: values.length <= 8 ? values.map(round) : undefined,
 					medianMs: round(median),
 					p90Ms: round(p90),
 					minMs: round(min),

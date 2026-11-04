@@ -16,7 +16,6 @@ enum Lucide: String {
 	case externalLink
 	case globe
 	case keyboard
-	case loaderCircle
 	case monitor
 	case moon
 	case pencil
@@ -28,6 +27,7 @@ enum Lucide: String {
 	case sun
 	case timerOff
 	case trash2
+	case triangleAlert
 	case x
 
 	private var elements: String {
@@ -56,8 +56,6 @@ enum Lucide: String {
 			#"<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>"#
 		case .keyboard:
 			#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>"#
-		case .loaderCircle:
-			#"<path d="M21 12a9 9 0 1 1-6.219-8.56"/>"#
 		case .monitor:
 			#"<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>"#
 		case .moon:
@@ -80,6 +78,8 @@ enum Lucide: String {
 			#"<path d="M10 2h4"/><path d="M4.6 11a8 8 0 0 0 1.7 8.7 8 8 0 0 0 8.7 1.7"/><path d="M7.4 7.4a8 8 0 0 1 10.3 1 8 8 0 0 1 .9 10.2"/><path d="m2 2 20 20"/><path d="M12 12v-2"/>"#
 		case .trash2:
 			#"<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>"#
+		case .triangleAlert:
+			#"<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>"#
 		case .x:
 			#"<path d="M18 6 6 18"/><path d="m6 6 12 12"/>"#
 		}

@@ -12,6 +12,7 @@ struct ProfileDraftTests {
 		let draft = ProfileDraft()
 
 		#expect(draft.name.isEmpty)
+		#expect(draft.savesHistory)
 		#expect(draft.spoofing)
 		#expect(draft.platform == ProfileDraft.hostPlatform)
 		#expect(!draft.proxyEnabled)
@@ -46,6 +47,19 @@ struct ProfileDraftTests {
 		#expect(draft.proxyPort == "3128")
 		#expect(draft.proxyUsername.isEmpty)
 		#expect(!ProfileDraft(profile: profile()).spoofing)
+	}
+
+	@Test("the history choice goes from the profile to the form and back")
+	func historyChoice() {
+		var saved = profile()
+		saved.savesHistory = false
+
+		var draft = ProfileDraft(profile: saved)
+		#expect(!draft.savesHistory)
+
+		draft.savesHistory = true
+		draft.apply(to: &saved) { .preset(.macOS) }
+		#expect(saved.savesHistory)
 	}
 
 	@Test("a name is required, spaces alone are none")

@@ -172,10 +172,9 @@ struct SettingsGroup<Content: View>: View {
 	}
 }
 
-// A row, at least 56 points (Details' rows without a description, 48): the
-// title at 13 on an 18-point line and its description at 12 on 16-point
-// lines, muted, then the control 10 points in from the card's 1-point
-// border; a hairline under every row but the last.
+// A row, at least 56 points (Details' rows without a description, 48): its
+// labels, then the control 10 points in from the card's 1-point border; a
+// hairline under every row but the last.
 struct SettingsRow<Control: View>: View {
 	let title: String
 	var description: String?
@@ -185,29 +184,7 @@ struct SettingsRow<Control: View>: View {
 
 	var body: some View {
 		HStack(spacing: 16) {
-			VStack(alignment: .leading, spacing: 2) {
-				// On 18-point lines (16 of its own), wrapping where the control
-				// leaves it too little room (Details' Site access).
-				Text(title)
-					.font(.system(size: 13))
-					.foregroundStyle(Palette.foreground)
-					.lineSpacing(2)
-					.padding(.vertical, 1)
-					.fixedSize(horizontal: false, vertical: true)
-
-				if let description {
-					// A status that changes (the update check's) crossfades,
-					// as the update pill's does.
-					Text(description)
-						.font(.system(size: 12))
-						.lineSpacing(1)
-						.padding(.vertical, 0.5)
-						.foregroundStyle(Palette.mutedForeground)
-						.contentTransition(.opacity)
-						.animation(Motion.status, value: description)
-				}
-			}
-			.frame(maxWidth: .infinity, alignment: .leading)
+			RowLabels(title: title, description: description)
 
 			HStack(spacing: 8) {
 				control

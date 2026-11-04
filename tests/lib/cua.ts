@@ -128,7 +128,9 @@ function findRow(tree: string, control: Control): string | undefined {
 		);
 }
 
-type Snapshot = { snapshot_id: string; tree_markdown: string };
+// A window that goes between the list and the read (a menu closing) has no
+// tree.
+type Snapshot = { snapshot_id: string; tree_markdown?: string };
 
 type ListedWindow = {
 	window_id: number;
@@ -198,13 +200,14 @@ async function readUntil<T>(
 				...args,
 			});
 
-			const value = found(state.tree_markdown);
+			const tree = state.tree_markdown ?? "";
+			const value = found(tree);
 
 			if (value !== undefined) {
 				return { state, value, windowId };
 			}
 
-			trees.push(`window ${windowId}:\n${withoutMenuBar(state.tree_markdown)}`);
+			trees.push(`window ${windowId}:\n${withoutMenuBar(tree)}`);
 		}
 
 		if (Date.now() > deadline) {

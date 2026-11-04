@@ -148,6 +148,35 @@ final class BrowserController: NSObject {
 		}
 	}
 
+	// Save history changed (ADR 0119). Off clears what the profile kept, now,
+	// opening it if it is closed, as the sheet says; on waits for it to open.
+	func historyDidChange(_ profileID: String) {
+		guard contexts[profileID] != nil || model.profile(profileID)?.savesHistory == false else {
+			return
+		}
+
+		withContext(profileID) { [weak self] context in
+			if let context {
+				self?.applyHistory(profileID, to: context)
+			}
+		}
+	}
+
+	// The engine keeps the choice it last had, in the profile's prefs: one it
+	// never reached, a quit or a crash after the Save, is made up as the
+	// profile opens, the clear with it.
+	private func applyHistory(_ profileID: String, to context: BrowserContext) {
+		guard let savesHistory = model.profile(profileID)?.savesHistory, context.savesHistory != savesHistory else {
+			return
+		}
+
+		context.savesHistory = savesHistory
+
+		if !savesHistory {
+			context.clearHistory {}
+		}
+	}
+
 	// MARK: Lock
 
 	// Whether the user may act on the browser. Behind the PIN lock nothing
@@ -348,6 +377,7 @@ final class BrowserController: NSObject {
 			}
 
 			context.delegate = self
+			applyHistory(profileID, to: context)
 
 			// The proxy goes on before any page of the profile loads.
 			Task { [weak self] in
