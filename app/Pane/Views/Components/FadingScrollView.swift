@@ -1,9 +1,9 @@
 import SwiftUI
 
-// A vertical scroll view whose edges fade as it scrolls, as the Electron
-// app's scroll-fade-y: the top fade grows from 0 to 24 points over the first
-// 24 scrolled, the bottom one shrinks to 0 over the last 24, so nothing fades
-// at either end or when the content fits.
+// A vertical scroll view whose edges fade as it scrolls: the top fade grows
+// from nothing to its full height over the first points scrolled, the bottom
+// one shrinks to nothing over the last, so nothing fades at either end or when
+// the content fits. The sidebar's list and the profile sheet's body.
 struct FadingScrollView<Content: View>: View {
 	@ViewBuilder let content: Content
 
@@ -18,18 +18,17 @@ struct FadingScrollView<Content: View>: View {
 				content
 					.background {
 						GeometryReader { geometry in
-							Color.clear.preference(key: ContentFrameKey.self, value: geometry.frame(in: .named(Self.space)))
+							Color.clear.preference(key: ScrollMetricsKey.self, value: ScrollMetrics(content: geometry.frame(in: .named(Self.space)), viewportHeight: viewport.size.height))
 						}
 					}
 			}
 			.coordinateSpace(name: Self.space)
-			.onPreferenceChange(ContentFrameKey.self) { frame in
-				let scrolled = -frame.minY
+			.onPreferenceChange(ScrollMetricsKey.self) { metrics in
+				let scrolled = -metrics.content.minY
 				let newTop = min(max(scrolled, 0), ScrollFade.height)
-				let newBottom = min(max(frame.height - viewport.size.height - scrolled, 0), ScrollFade.height)
+				let newBottom = min(max(metrics.content.height - metrics.viewportHeight - scrolled, 0), ScrollFade.height)
 
-				// Only a change of either fade draws the mask again: a resize
-				// that scrolls nothing leaves both.
+				// Only a change of either fade draws the mask again.
 				if newTop != top {
 					top = newTop
 				}
@@ -40,10 +39,10 @@ struct FadingScrollView<Content: View>: View {
 			}
 			.mask {
 				VStack(spacing: 0) {
-					LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+					LinearGradient(stops: ScrollFade.stops, startPoint: .top, endPoint: .bottom)
 						.frame(height: top)
 					Color.black
-					LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+					LinearGradient(stops: ScrollFade.stops, startPoint: .bottom, endPoint: .top)
 						.frame(height: bottom)
 				}
 			}
@@ -51,21 +50,34 @@ struct FadingScrollView<Content: View>: View {
 	}
 }
 
-private struct ContentFrameKey: PreferenceKey {
-	static let defaultValue = CGRect.zero
+// The content's frame in the scroll view, and the viewport's height, which a
+// resize changes with the content's frame unmoved: a window shrunk under a list
+// that fit has to fade too.
+private struct ScrollMetrics: Equatable {
+	var content = CGRect.zero
+	var viewportHeight: CGFloat = 0
+}
 
-	// The content's frame, whichever sibling reports it: the others report
-	// none.
-	static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+private struct ScrollMetricsKey: PreferenceKey {
+	static let defaultValue = ScrollMetrics()
+
+	// Whichever sibling reports them: the others report none.
+	static func reduce(value: inout ScrollMetrics, nextValue: () -> ScrollMetrics) {
 		let next = nextValue()
 
-		if next != .zero {
+		if next != defaultValue {
 			value = next
 		}
 	}
 }
 
-// How far a fading scroll view's edges fade: 24 points, the Electron app's.
+// How far a fading scroll view's edges fade, 40 points, and how: the content's
+// alpha is the square of its share of the way in from the edge, so it stays
+// faint across most of the fade and only then comes up (ADR 0061).
 enum ScrollFade {
-	static let height: CGFloat = 24
+	static let height: CGFloat = 40
+
+	static let stops = stride(from: 0.0, through: 1.0, by: 0.25).map { share in
+		Gradient.Stop(color: .black.opacity(share * share), location: share)
+	}
 }

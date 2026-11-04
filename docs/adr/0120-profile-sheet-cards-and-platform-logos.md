@@ -10,6 +10,7 @@ What changes (`app/Pane/Views/ProfileSheet.swift`):
 - **The platform:** three tiles 72 tall, 13 above and below inside their border, each a logo over its name, the chosen one ringed in the foreground as the App icon picker's is (ADR 0089). Choosing is instant; hover fills the others.
 - **A warning** when the platform is not the Mac's, on amber, which comes and goes with the layout's move (`Motion.toggle`), though the click that causes it lands at once.
 - **One address field:** the proxy's type, host, and port, with `PaneMenuButton`'s `embedded` size for the type, which holds the width of its longest option, so the host does not move when it changes. The separate paste field is gone. A proxy string pasted into the host fills the fields; typed there, it fills them when the field is left, or on Test connection or Save, since a host typed a key at a time must not lose its colons as they come.
+- **The body fades at its top and bottom as it scrolls**, the user's request, seeing the proxy's card cut hard at the footer: the sidebar's `FadingScrollView` (ADR 0061), the same height and curve. Nothing fades at either end, or when the form fits.
 - **The proxy test beside its button**, a dot and words, not on the button: yellow "Testing…", emerald "Connected · 45.12.8.19", or the error on red. An answer is dropped once the fields no longer hold the proxy it tested.
 
 The words the boards leave to the states: "Sites see this Mac." with spoofing off, and "Keeps no pages or downloads." on a profile with nothing to clear.

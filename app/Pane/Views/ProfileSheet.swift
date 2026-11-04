@@ -28,7 +28,7 @@ struct ProfileSheet: View {
 			header
 			hairline
 
-			ScrollView {
+			FadingScrollView {
 				VStack(alignment: .leading, spacing: 18) {
 					identity
 

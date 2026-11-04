@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { $ } from "bun";
 import {
 	canDriveUI,
 	clickButton,
@@ -302,6 +303,23 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		await render("profile-sheet-proxy");
+
+		// The form runs past the body here: its edges fade as it scrolls, for
+		// the eye to check in the window as the screen shows it.
+		const nameField = await readControl(pid, window, "Name", /AXTextField/);
+
+		await app.send("scrollWindow", {
+			x: nameField.x + 40,
+			y: nameField.y + 200,
+			dy: -12,
+		});
+
+		await Bun.sleep(300);
+
+		await $`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, "profile-sheet-scrolled.png")}`
+			.quiet()
+			.nothrow();
+
 		await clickButton(pid, window, "Create");
 
 		const proxied = await app.waitFor(

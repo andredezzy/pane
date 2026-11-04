@@ -17,8 +17,8 @@ const sidebarResize: Scenario = async (context) => {
 	const tab = await first.openTab(profile, url);
 	await first.page(tab, url);
 
-	// The list fades at its edges as it scrolls (the Electron app's
-	// scroll-fade-y): enough tabs to scroll, drawn at the top and scrolled.
+	// The list fades at its edges as it scrolls (ADR 0061): enough tabs to
+	// scroll, drawn at the top and scrolled.
 	for (let index = 0; index < 24; index++) {
 		await first.send("openTab", {
 			profile,
