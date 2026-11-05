@@ -331,6 +331,8 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	private var session: URLSession!
 	private var task: URLSessionDownloadTask?
 	private var received: Int64 = 0
+	// The connection has brought something, so its window runs from there.
+	private var hasBytes = false
 	// The task began from resume data, which the server may refuse.
 	private var isResumed = false
 	// The server refused to go on from where a connection left off: it is not
@@ -372,6 +374,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		self.task = task
 		isResumed = resumeData != nil
 		isSwitching = false
+		hasBytes = false
 
 		self.resumeData = resumeData
 
@@ -385,14 +388,23 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		judgeLater(task)
 	}
 
-	private func judgeLater(_ task: URLSessionDownloadTask) {
-		DispatchQueue.main.asyncAfter(deadline: .now() + pace.window) { [weak self] in
+	private func judgeLater(_ task: URLSessionDownloadTask, after delay: TimeInterval? = nil) {
+		DispatchQueue.main.asyncAfter(deadline: .now() + (delay ?? pace.window)) { [weak self] in
 			self?.judge(task)
 		}
 	}
 
 	private func judge(_ judged: URLSessionDownloadTask) {
 		guard judged === task, !isFinished else {
+			return
+		}
+
+		// Its first bytes came since this was set, and the window runs from them.
+		let timeLeft = pace.timeLeft(now: Date())
+
+		guard timeLeft <= 0 else {
+			judgeLater(judged, after: timeLeft)
+
 			return
 		}
 
@@ -453,12 +465,18 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		}
 
 		received = fileOffset
+		hasBytes = true
 		pace.begin(received: fileOffset, now: Date())
 	}
 
-	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
 		guard downloadTask === task else {
 			return
+		}
+
+		if !hasBytes {
+			hasBytes = true
+			pace.begin(received: totalBytesWritten - bytesWritten, now: Date())
 		}
 
 		received = totalBytesWritten

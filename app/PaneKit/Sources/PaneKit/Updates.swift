@@ -152,11 +152,16 @@ public struct DownloadPace: Sendable {
 		Self.firstWindow * pow(2, Double(switches))
 	}
 
-	// A connection's window starts: a new one, or one that resumed `received`
-	// bytes in.
+	// A connection's window starts: a new one, then again at its first bytes,
+	// since its setup (DNS, TLS, a redirect) says nothing of its rate.
 	public mutating func begin(received: Int64, now: Date) {
 		windowStart = now
 		windowBytes = received
+	}
+
+	// What is left of the window.
+	public func timeLeft(now: Date) -> TimeInterval {
+		window - now.timeIntervalSince(windowStart)
 	}
 
 	// At the end of its window, whether to leave the connection, one that can be

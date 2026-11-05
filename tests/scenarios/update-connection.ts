@@ -12,7 +12,8 @@ import { expect, type Scenario } from "../run";
 // asked, the file comes from the start, while that loses little. Far enough in,
 // a connection that cannot resume stays, and so does one once its server has
 // refused to resume: it is asked only once. One that drops goes on from where it
-// got to. One of unknown length at a good rate is left alone. Each way the file
+// got to. One of unknown length at a good rate is left alone, and so is one judged
+// from its first bytes, however late they come. Each way the file
 // matches the release's digest. A node server: it sends a stream's
 // Content-Length, as GitHub does, where Bun.serve drops it.
 
@@ -27,6 +28,7 @@ type Kind =
 	| "refuses"
 	| "refusedOnce"
 	| "stays"
+	| "lateStart"
 	| "drops"
 	| "unknownLength";
 
@@ -103,6 +105,15 @@ const CASES: Record<Kind, Case> = {
 			trickle(payload, response, 30 * MB, SLOW);
 		},
 		validators: false,
+		length: true,
+	},
+	// Nothing for 4.5 s, the setup of a slow network, then 2 MB/s.
+	lateStart: {
+		size: 14 * MB,
+		first: (payload, response) => {
+			setTimeout(() => trickle(payload, response, 0, MB / 5), 4_500);
+		},
+		validators: true,
 		length: true,
 	},
 	// 8 MB, then the connection is cut.
@@ -282,6 +293,7 @@ const updateConnection: Scenario = async (context) => {
 					requests.filter(({ range }) => range !== null).length === 1 &&
 					requests.at(-1)?.range === null,
 				stays: requests.length === 1 && seconds > 10,
+				lateStart: requests.length === 1 && seconds > 10,
 				drops: requests.length === 2 && offset > 0 && !wentBack,
 				unknownLength: requests.length === 1 && seconds > 5,
 			};

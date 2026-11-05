@@ -204,6 +204,15 @@ struct DownloadPaceTests {
 		#expect(pace.window == 10)
 	}
 
+	@Test("a window begun again at a connection's first bytes runs its length from there")
+	func firstBytes() {
+		var pace = DownloadPace(now: start)
+		#expect(pace.timeLeft(now: start.addingTimeInterval(5)) == 0)
+
+		pace.begin(received: 0, now: start.addingTimeInterval(4.5))
+		#expect(pace.timeLeft(now: start.addingTimeInterval(5)) == 4.5)
+	}
+
 	@Test("a connection that picks up starts the count over")
 	func picksUp() {
 		var pace = DownloadPace(now: start)
