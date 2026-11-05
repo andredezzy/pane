@@ -333,6 +333,11 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	private var received: Int64 = 0
 	// The task began from resume data, which the server may refuse.
 	private var isResumed = false
+	// Where the last connection left off, if the next never got far enough to
+	// say.
+	private var resumeData: Data?
+	// Connections dropped in a row with nothing brought since.
+	private var drops = 0
 	// The task is being cancelled for another connection.
 	private var isSwitching = false
 	private var isFinished = false
@@ -365,8 +370,11 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		isResumed = resumeData != nil
 		isSwitching = false
 
+		self.resumeData = resumeData
+
 		if resumeData == nil {
 			received = 0
+			eta = DownloadETA()
 		}
 
 		pace.begin(received: received, now: Date())
@@ -385,7 +393,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 			return
 		}
 
-		guard pace.shouldSwitch(received: received, now: Date()) else {
+		guard pace.shouldSwitch(received: received, now: Date()), canLeave(judged) else {
 			judgeLater(judged)
 
 			return
@@ -401,13 +409,25 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		}
 	}
 
-	private func switchConnection(from old: URLSessionDownloadTask, resuming resumeData: Data?) {
+	// A connection that cannot resume gives up what it brought, so it is left
+	// only while that is little: nothing yet, or under a twentieth of the file.
+	private func canLeave(_ task: URLSessionDownloadTask) -> Bool {
+		let response = task.response as? HTTPURLResponse
+		let validated = response?.value(forHTTPHeaderField: "ETag") != nil || response?.value(forHTTPHeaderField: "Last-Modified") != nil
+		let takesRanges = response?.value(forHTTPHeaderField: "Accept-Ranges") == "bytes" && validated
+
+		return isResumed || takesRanges || received == 0 || received * 20 < task.countOfBytesExpectedToReceive
+	}
+
+	private func switchConnection(from old: URLSessionDownloadTask, resuming newData: Data?) {
 		guard old === task, !isFinished else {
 			return
 		}
 
 		let oldSession = session
-		start(resuming: resumeData)
+		// A resumed task cancelled before its answer gives none: where the last
+		// one stopped still stands.
+		start(resuming: newData ?? resumeData)
 		oldSession?.finishTasksAndInvalidate()
 	}
 
@@ -430,11 +450,16 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	}
 
 	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-		guard downloadTask === task, totalBytesExpectedToWrite > 0 else {
+		guard downloadTask === task else {
 			return
 		}
 
 		received = totalBytesWritten
+		drops = 0
+
+		guard totalBytesExpectedToWrite > 0 else {
+			return
+		}
 
 		let fraction = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
 		let seconds = eta.update(received: totalBytesWritten, total: totalBytesExpectedToWrite, now: Date())
@@ -520,7 +545,28 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 			return
 		}
 
-		if isResumed {
+		// A connection that dropped goes on from where it got to, after 2, 4,
+		// then 8 s in a row with nothing brought: long enough for a Wi-Fi switch,
+		// which would fail each at once.
+		if let data = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data, drops < 3 {
+			drops += 1
+			task = nil
+
+			DispatchQueue.main.asyncAfter(deadline: .now() + Double(1 << drops)) { [weak self] in
+				guard let self else {
+					return
+				}
+
+				let oldSession = session
+				start(resuming: data)
+				oldSession?.finishTasksAndInvalidate()
+			}
+
+			return
+		}
+
+		// Refused rather than dropped: from the start, once.
+		if isResumed, drops == 0 {
 			startOver()
 
 			return

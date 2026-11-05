@@ -1,117 +1,206 @@
 import { createHash, randomBytes } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
+import { createServer, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
-// A download leaves a connection that crawls (ADR 0002), against a stand-in
-// release whose first connection trickles and whose next ones run at full
-// speed. One that takes ranges gets the rest from where it got to, the bar
-// never going back. One that offers no ranges, or refuses them when asked,
-// gets the file from the start. Each way the file matches the release's digest.
+// A download's connections (ADR 0002), against a stand-in release. One that
+// crawls is left: where the server takes ranges the rest comes from where it
+// got to, the bar never going back; where it offers none, or refuses them when
+// asked, the file comes from the start, while that loses little. Far enough in,
+// a connection that cannot resume stays. One that drops goes on from where it
+// got to. One of unknown length at a good rate is left alone. Each way the file
+// matches the release's digest. A node server: it sends a stream's
+// Content-Length, as GitHub does, where Bun.serve drops it.
 
 const VERSION = "99.0.0";
 const DMG = `Pane-${VERSION}-arm64.dmg`;
-const SIZE = 12 * 1024 * 1024;
-const ETAG = '"pane-stand-in"';
+const MB = 1024 * 1024;
+const VALIDATORS = { "Accept-Ranges": "bytes", ETag: '"pane-stand-in"' };
 
-type Server = "resumes" | "noRanges" | "refuses";
+type Kind =
+	| "resumes"
+	| "noRanges"
+	| "refuses"
+	| "stays"
+	| "drops"
+	| "unknownLength";
 
-const payload = randomBytes(SIZE);
-const sha256 = createHash("sha256").update(payload).digest("hex");
+type Case = {
+	size: number;
+	// The first connection's body.
+	first: (payload: Buffer, response: ServerResponse) => void;
+	validators: boolean;
+	length: boolean;
+	refusesRanges?: boolean;
+};
 
-// 16 KB every 100 ms, 160 KB/s: a slow connection, not a dead one.
-function trickle(): ReadableStream<Uint8Array> {
-	let sent = 0;
+// `chunk` bytes every 100 ms from `from` on, until the end or the client goes.
+function trickle(
+	payload: Buffer,
+	response: ServerResponse,
+	from: number,
+	chunk: number,
+) {
+	let sent = from;
 
-	return new ReadableStream({
-		async pull(controller) {
-			await Bun.sleep(100);
-			const chunk = payload.subarray(sent, sent + 16 * 1024);
-			sent += chunk.length;
-			controller.enqueue(new Uint8Array(chunk));
+	const timer = setInterval(() => {
+		response.write(payload.subarray(sent, sent + chunk));
+		sent += chunk;
 
-			if (sent >= SIZE) {
-				controller.close();
-			}
-		},
-	});
+		if (sent >= payload.length) {
+			clearInterval(timer);
+			response.end();
+		}
+	}, 100);
+
+	response.on("close", () => clearInterval(timer));
 }
 
-function serve(kind: Server) {
+// 160 KB/s: a slow connection, not a dead one.
+const SLOW = 16 * 1024;
+
+const CASES: Record<Kind, Case> = {
+	resumes: {
+		size: 40 * MB,
+		first: (payload, response) => trickle(payload, response, 0, SLOW),
+		validators: true,
+		length: true,
+	},
+	noRanges: {
+		size: 40 * MB,
+		first: (payload, response) => trickle(payload, response, 0, SLOW),
+		validators: false,
+		length: true,
+	},
+	refuses: {
+		size: 40 * MB,
+		first: (payload, response) => trickle(payload, response, 0, SLOW),
+		validators: true,
+		length: true,
+		refusesRanges: true,
+	},
+	// Most of it fast, then the trickle past the next window: 15 s of it.
+	stays: {
+		size: 30 * MB + (5 * MB) / 2,
+		first: (payload, response) => {
+			response.write(payload.subarray(0, 30 * MB));
+			trickle(payload, response, 30 * MB, SLOW);
+		},
+		validators: false,
+		length: true,
+	},
+	// 8 MB, then the connection is cut.
+	drops: {
+		size: 40 * MB,
+		first: (payload, response) => {
+			response.write(payload.subarray(0, 8 * MB));
+			setTimeout(() => response.destroy(), 300);
+		},
+		validators: true,
+		length: true,
+	},
+	// 2 MB/s for 7 s, past the first window, with no length to say how far.
+	unknownLength: {
+		size: 14 * MB,
+		first: (payload, response) => trickle(payload, response, 0, MB / 5),
+		validators: false,
+		length: false,
+	},
+};
+
+async function serve(kind: Kind) {
+	const { size, first, validators, length, refusesRanges } = CASES[kind];
+	const payload = randomBytes(size);
+	const sha256 = createHash("sha256").update(payload).digest("hex");
 	const requests: { range: string | null }[] = [];
 
-	const server = Bun.serve({
-		hostname: "127.0.0.1",
-		port: 0,
-		idleTimeout: 60,
-		fetch(request): Response {
-			const { pathname, origin } = new URL(request.url);
+	const server = createServer((request, response) => {
+		const { pathname } = new URL(request.url ?? "/", "http://stand-in");
 
-			if (pathname === "/releases/latest") {
-				return Response.json({
+		if (pathname === "/releases/latest") {
+			const { port } = server.address() as AddressInfo;
+
+			response.setHeader("Content-Type", "application/json");
+
+			response.end(
+				JSON.stringify({
 					tag_name: `v${VERSION}`,
 					published_at: "2026-11-04T00:00:00Z",
 					assets: [
 						{
 							name: DMG,
-							browser_download_url: `${origin}/download/${DMG}`,
+							browser_download_url: `http://127.0.0.1:${port}/download/${DMG}`,
 							digest: `sha256:${sha256}`,
 						},
 					],
-				});
-			}
+				}),
+			);
 
-			const range = request.headers.get("range");
-			requests.push({ range });
+			return;
+		}
 
-			const validators: Record<string, string> =
-				kind === "noRanges" ? {} : { "Accept-Ranges": "bytes", ETag: ETAG };
+		const range = request.headers.range ?? null;
+		requests.push({ range });
 
-			const headers = {
-				"Content-Type": "application/octet-stream",
-				...validators,
-			};
+		const headers = {
+			"Content-Type": "application/octet-stream",
+			...(validators && VALIDATORS),
+		};
 
-			if (requests.length === 1) {
-				return new Response(trickle(), {
-					headers: { ...headers, "Content-Length": String(SIZE) },
-				});
-			}
-
-			if (range && kind === "refuses") {
-				return new Response("expired", { status: 403 });
-			}
-
-			const from = Number(range?.match(/bytes=(\d+)-/)?.[1] ?? 0);
-
-			return new Response(new Uint8Array(payload.subarray(from)), {
-				status: range ? 206 : 200,
-				headers: {
-					...headers,
-					"Content-Length": String(SIZE - from),
-					...(range && {
-						"Content-Range": `bytes ${from}-${SIZE - 1}/${SIZE}`,
-					}),
-				},
+		if (requests.length === 1) {
+			response.writeHead(200, {
+				...headers,
+				...(length && { "Content-Length": String(size) }),
 			});
-		},
+
+			first(payload, response);
+
+			return;
+		}
+
+		if (range && refusesRanges) {
+			response.writeHead(403);
+			response.end("expired");
+
+			return;
+		}
+
+		const from = Number(range?.match(/bytes=(\d+)-/)?.[1] ?? 0);
+
+		response.writeHead(range ? 206 : 200, {
+			...headers,
+			"Content-Length": String(size - from),
+			...(range && {
+				"Content-Range": `bytes ${from}-${size - 1}/${size}`,
+			}),
+		});
+
+		response.end(payload.subarray(from));
 	});
 
-	return { server, requests };
+	await new Promise<void>((listening) =>
+		server.listen(0, "127.0.0.1", listening),
+	);
+
+	const { port } = server.address() as AddressInfo;
+
+	return { server, requests, sha256, origin: `http://127.0.0.1:${port}` };
 }
 
 const updateConnection: Scenario = async (context) => {
 	const results: Record<string, unknown> = {};
 
-	for (const kind of ["resumes", "noRanges", "refuses"] as const) {
-		const { server, requests } = serve(kind);
+	for (const kind of Object.keys(CASES) as Kind[]) {
+		const { server, requests, sha256, origin } = await serve(kind);
 		const downloads = context.tempDir("pane-connection-");
 
 		try {
 			const app = await launchPane(context, {
 				env: {
-					PANE_UPDATE_URL: `${server.url.origin}/releases/latest`,
+					PANE_UPDATE_URL: `${origin}/releases/latest`,
 					PANE_UPDATE_DOWNLOADS: downloads,
 					PANE_UPDATE_OPEN: "0",
 					PANE_UPDATE_INSTALL: "0",
@@ -127,7 +216,6 @@ const updateConnection: Scenario = async (context) => {
 			const started = Date.now();
 			await app.send("downloadUpdate");
 
-			// The bar as it goes.
 			const bar: number[] = [];
 
 			const done = await app.waitFor(
@@ -139,7 +227,7 @@ const updateConnection: Scenario = async (context) => {
 
 					return state.update.status === "downloaded";
 				},
-				40_000,
+				60_000,
 			);
 
 			const seconds = (Date.now() - started) / 1000;
@@ -148,47 +236,37 @@ const updateConnection: Scenario = async (context) => {
 				requests[1]?.range?.match(/bytes=(\d+)-/)?.[1] ?? 0,
 			);
 
+			const wentBack = bar.some((value, at) => value < (bar[at - 1] ?? 0));
 			const file = readFileSync(join(downloads, DMG));
 
 			const whole =
 				createHash("sha256").update(file).digest("hex") === sha256 &&
 				readdirSync(downloads).length === 1;
 
+			const got = JSON.stringify({ seconds, requests, wentBack });
+
 			expect(
 				done.update.status === "downloaded" && whole,
-				`${kind}: downloaded ${done.update.status}, the file whole: ${whole}`,
+				`${kind}: ${done.update.status}, the file whole: ${whole}, ${got}`,
 			);
 
-			// The trickle alone would take over a minute.
-			expect(seconds < 30, `${kind}: took ${seconds} s`);
-
-			if (kind === "resumes") {
-				const wentBack = bar.some((value, at) => value < (bar[at - 1] ?? 0));
-
-				expect(
-					requests.length === 2 && offset > 0 && !wentBack,
-					`resumes: requests ${JSON.stringify(requests)}, bar ${JSON.stringify(bar)}`,
-				);
-			}
-
-			if (kind === "noRanges") {
-				expect(
+			const expected: Record<Kind, boolean> = {
+				resumes: requests.length === 2 && offset > 0 && !wentBack,
+				noRanges:
 					requests.length === 2 && requests.every(({ range }) => !range),
-					`no ranges: requests ${JSON.stringify(requests)}`,
-				);
-			}
-
-			if (kind === "refuses") {
-				expect(
+				refuses:
 					requests.length === 3 && offset > 0 && requests[2]?.range === null,
-					`refuses: requests ${JSON.stringify(requests)}`,
-				);
-			}
+				stays: requests.length === 1 && seconds > 10,
+				drops: requests.length === 2 && offset > 0 && !wentBack,
+				unknownLength: requests.length === 1 && seconds > 5,
+			};
 
+			expect(expected[kind], `${kind}: ${got}`);
 			results[kind] = { seconds, requests, resumedAt: offset };
 			await app.browser.close();
 		} finally {
-			server.stop(true);
+			server.closeAllConnections();
+			server.close();
 		}
 	}
 
