@@ -28,6 +28,10 @@ public struct TabHistory: Hashable, Sendable {
 	public mutating func popClosed() -> ClosedTab? {
 		closed.isEmpty ? nil : closed.removeFirst()
 	}
+
+	public mutating func forgetClosed(inProfile profileID: String) {
+		closed.removeAll { $0.profileID == profileID }
+	}
 }
 
 public struct ClosedTab: Hashable, Sendable {

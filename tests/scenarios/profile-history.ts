@@ -265,6 +265,18 @@ const historyScenario: Scenario = async (context) => {
 			tabOf(state, keepsTab)?.loading === false,
 	);
 
+	// A tab closed in each, which Reopen closed tab holds in memory.
+	for (const [profile, query] of [
+		[keeps, "closed-here"],
+		[off, "closed-elsewhere"],
+	] as const) {
+		const closing = await app.openTab(profile, pageURL(query));
+		await app.send("closeTab", { tab: closing });
+	}
+
+	await app.waitFor("two closed tabs", (state) => state.closedTabs === 2);
+	await app.send("select", { tab: keepsTab });
+
 	// Turned off: what it kept goes.
 	await app.send("setSavesHistory", { profile: keeps, savesHistory: false });
 
@@ -277,6 +289,11 @@ const historyScenario: Scenario = async (context) => {
 		},
 		30_000,
 		500,
+	);
+
+	await app.waitFor(
+		"the closed tab of the profile that cleared to go, and the other to stay",
+		(state) => state.closedTabs === 1,
 	);
 
 	await app.send("readCookies", { profile: keeps });

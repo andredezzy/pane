@@ -211,6 +211,19 @@ struct BrowserModelTests {
 		#expect(model.profile("p")?.name == "Renamed")
 	}
 
+	@Test("a clear forgets the profile's closed tabs, and no other's")
+	func clearForgetsClosedTabs() {
+		let harness = Harness([profile("a", tabs: ["one"]), profile("b", tabs: ["two"])])
+		let model = harness.model!
+		model.removeTab("one")
+		model.removeTab("two")
+
+		model.forgetClosedTabs(inProfile: "a")
+
+		#expect(model.popClosedTab()?.profileID == "b")
+		#expect(model.popClosedTab() == nil)
+	}
+
 	@Test("a new profile, off from the start, has nothing to clear")
 	func newProfileOwesNoClear() {
 		let harness = Harness()

@@ -336,6 +336,12 @@ public final class BrowserModel {
 		history.popClosed()
 	}
 
+	// What Reopen closed tab holds of a profile, which a clear of its history
+	// takes, as Chrome's takes its recently closed tabs.
+	public func forgetClosedTabs(inProfile profileID: String) {
+		history.forgetClosed(inProfile: profileID)
+	}
+
 	// `destination` past the end puts it last.
 	public func moveTab(inProfile profileID: String, from source: Int, to destination: Int) {
 		guard
