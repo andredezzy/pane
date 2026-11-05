@@ -11,7 +11,7 @@ index d9df6c2de2..567998ad7c 100644
      "//components/pdf/common:constants",
      "//components/pdf/common:util",
 diff --git a/chrome/browser/download/download_history.cc b/chrome/browser/download/download_history.cc
-index 35ec2f5780..5fb0521c32 100644
+index 35ec2f5780..87ac1173cc 100644
 --- a/chrome/browser/download/download_history.cc
 +++ b/chrome/browser/download/download_history.cc
 @@ -48,6 +48,8 @@
@@ -23,22 +23,62 @@ index 35ec2f5780..5fb0521c32 100644
  #include "content/public/browser/browser_task_traits.h"
  #include "content/public/browser/browser_thread.h"
  #include "content/public/browser/download_manager.h"
-@@ -728,6 +730,15 @@ void DownloadHistory::OnDownloadRestoredFromHistory(
+@@ -66,6 +68,13 @@ using history::DownloadState;
+ 
+ namespace {
+ 
++// Pane: whether the manager's profile keeps no history.
++bool SavesNoHistory(content::DownloadManager* manager) {
++  return manager && Profile::FromBrowserContext(manager->GetBrowserContext())
++                        ->GetPrefs()
++                        ->GetBoolean(prefs::kSavingBrowserHistoryDisabled);
++}
++
+ 
+ 
+ // Per-DownloadItem data. This information does not belong inside DownloadItem,
+@@ -648,7 +657,9 @@ void DownloadHistory::OnDownloadUpdated(content::DownloadManager* manager,
+     MaybeAddToHistory(item);
+     return;
+   }
+-  if (item->IsTemporary()) {
++  if (item->IsTemporary() || SavesNoHistory(notifier_.GetManager())) {
++    // Pane: a page being saved when its profile stopped saving history had its
++    // row written as it began, and a clear skips what is in progress.
+     OnDownloadRemoved(notifier_.GetManager(), item);
+     return;
+   }
+@@ -728,6 +739,12 @@ void DownloadHistory::OnDownloadRestoredFromHistory(
  
  bool DownloadHistory::NeedToUpdateDownloadHistory(
      download::DownloadItem* item) {
 +  // Pane: a profile that saves no history keeps no record of its downloads
 +  // either, extensions' included.
-+  content::DownloadManager* manager = notifier_.GetManager();
-+  if (manager && Profile::FromBrowserContext(manager->GetBrowserContext())
-+                     ->GetPrefs()
-+                     ->GetBoolean(prefs::kSavingBrowserHistoryDisabled)) {
++  if (SavesNoHistory(notifier_.GetManager())) {
 +    return false;
 +  }
 +
  #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
    // Always populate new extension downloads to history.
    DownloadHistoryData* data = DownloadHistoryData::Get(item);
+diff --git a/chrome/browser/extensions/api/history/history_api.cc b/chrome/browser/extensions/api/history/history_api.cc
+index 8e3c8c94b4..9da8ccd78f 100644
+--- a/chrome/browser/extensions/api/history/history_api.cc
++++ b/chrome/browser/extensions/api/history/history_api.cc
+@@ -357,6 +357,13 @@ ExtensionFunction::ResponseAction HistoryAddUrlFunction::Run() {
+     return RespondNow(Error(std::move(error)));
+   }
+ 
++  // Pane: a profile that saves no history keeps no page an extension adds
++  // either. The policy leaves this explicit access open, for Chrome's own.
++  if (GetProfile()->GetPrefs()->GetBoolean(
++          prefs::kSavingBrowserHistoryDisabled)) {
++    return RespondNow(NoArguments());
++  }
++
+   history::HistoryService* hs = HistoryServiceFactory::GetForProfile(
+       GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
+   hs->AddPage(url, base::Time::Now(), history::SOURCE_EXTENSION);
 diff --git a/components/favicon/content/BUILD.gn b/components/favicon/content/BUILD.gn
 index e7befb283f..c83d4846f6 100644
 --- a/components/favicon/content/BUILD.gn

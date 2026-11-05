@@ -1,0 +1,7 @@
+{
+	"manifest_version": 3,
+	"name": "Pane history probe",
+	"version": "1.0",
+	"description": "Adds a page to the profile's history for Pane's scenarios, from its own page.",
+	"permissions": ["history"]
+}

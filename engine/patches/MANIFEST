@@ -67,3 +67,4 @@ chrome/browser/download/BUILD.gn	0009-pane-history.patch
 chrome/browser/download/download_history.cc	0009-pane-history.patch
 components/favicon/content/BUILD.gn	0009-pane-history.patch
 components/favicon/content/content_favicon_driver.cc	0009-pane-history.patch
+chrome/browser/extensions/api/history/history_api.cc	0009-pane-history.patch

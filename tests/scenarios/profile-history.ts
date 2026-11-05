@@ -9,13 +9,15 @@ import { expect, type Scenario } from "../run";
 
 // A profile's Save history (ADR 0119), against what the engine writes to disk.
 // On, a profile keeps the pages it visits, their icons, and its downloads. Off
-// from the start it keeps none of them, and a page still shows its icon and a
-// file still downloads. Turned off, what it kept goes, an open tab's back list
+// from the start it keeps none of them, an extension's chrome.history.addUrl
+// included, and a page still shows its icon and a file still downloads. Turned
+// off, what it kept goes, an open tab's back list
 // with it, as in Chrome's Clear browsing data; its cookies and tabs stay, and
 // nothing new comes, though a tab still goes back within itself. Turned on, it
 // keeps pages again. The choice outlives a quit; a closed profile opens to
-// clear when it is turned off; and a choice the engine lost to a crash right
-// after the Save is made up, the clear with it, when the profile opens.
+// clear when it is turned off, and closes again; a choice the engine lost to a
+// crash right after the Save is made up, the clear with it, when the profile
+// opens; and so is a clear a lock or a quit cut short, with the choice landed.
 
 type Kept = { pages: string[]; icons: string[]; downloads: number };
 
@@ -107,7 +109,18 @@ const historyScenario: Scenario = async (context) => {
 		(await app.state()).profiles.find((each) => each.id === profile)
 			?.engineSavesHistory;
 
-	const app = await launchPane(context, { dataDir });
+	const PROBE = join(
+		import.meta.dir,
+		"..",
+		"pages",
+		"extensions",
+		"history-probe",
+	);
+
+	const app = await launchPane(context, {
+		dataDir,
+		args: [`--load-extension=${PROBE}`],
+	});
 
 	// Off from the start, browsing first; then the one that keeps.
 	const off = (
@@ -119,7 +132,30 @@ const historyScenario: Scenario = async (context) => {
 
 	const keeps = await app.createProfile("Keeps");
 	await browse(app, off, "off");
+
+	// An extension asks to add a page, in each.
+	const addPage = async (profile: string, added: string) => {
+		const loaded = await app.waitFor("the probe extension", (state) =>
+			(state.extensions[profile] ?? []).some(
+				(item) => item.name === "Pane history probe",
+			),
+		);
+
+		const id = (loaded.extensions[profile] ?? []).find(
+			(item) => item.name === "Pane history probe",
+		)?.id;
+
+		const url = `chrome-extension://${id}/probe.html?${added}`;
+		const page = await app.page(await app.openTab(profile, url), url);
+
+		await page.evaluate(
+			`chrome.history.addUrl({ url: ${JSON.stringify(added)} })`,
+		);
+	};
+
+	await addPage(off, "https://added-off.example/");
 	const keepsTab = await browse(app, keeps, "keeps");
+	await addPage(keeps, "https://added-keeps.example/");
 
 	const offEngine = await engineOf(app, off);
 	const keepsEngine = await engineOf(app, keeps);
@@ -135,8 +171,9 @@ const historyScenario: Scenario = async (context) => {
 			const kept = keptBy(keeps);
 
 			return (
-				kept.pages.some((page) => page.includes("keeps")) &&
-				kept.icons.some((page) => page.includes("keeps")) &&
+				kept.pages.includes(pageURL("keeps")) &&
+				kept.pages.includes("https://added-keeps.example/") &&
+				kept.icons.includes(pageURL("keeps")) &&
 				kept.downloads > 0 &&
 				kept
 			);
@@ -264,14 +301,6 @@ const historyScenario: Scenario = async (context) => {
 
 	await second.send("setSavesHistory", { profile: off, savesHistory: false });
 
-	await second.waitFor(
-		"the closed profile to open",
-		(state) =>
-			state.profiles.find((each) => each.id === off)?.engineSavesHistory ===
-			false,
-		20_000,
-	);
-
 	await poll(
 		"the closed profile's history to go",
 		() => {
@@ -280,6 +309,27 @@ const historyScenario: Scenario = async (context) => {
 			return isEmpty(kept) && kept;
 		},
 		30_000,
+		500,
+	);
+
+	await second.waitFor(
+		"the profile opened to clear to close again",
+		(state) =>
+			state.profiles.find((each) => each.id === off)?.engineSavesHistory ===
+			null,
+		20_000,
+	);
+
+	// Owed until the engine's commit has reached the disk: 15 s on.
+	await poll(
+		"the clear no longer owed",
+		async () =>
+			!(
+				await second.send<{ clearsHistory: boolean }>("readProfile", {
+					profile: off,
+				})
+			).result.clearsHistory,
+		25_000,
 		500,
 	);
 
@@ -324,7 +374,36 @@ const historyScenario: Scenario = async (context) => {
 		500,
 	);
 
+	// The choice landed and the clear did not, as a lock or a quit can leave
+	// it: the engine's pref already says off, and the clear still runs.
+	await third.app.send("setClearsHistory", { profile: off });
+	await third.app.send("save");
 	await third.app.browser.close();
+
+	const fourth = await launchTraced(context, "profile-history-owed", {
+		dataDir,
+	});
+
+	const owedURL = pageURL("after-owed");
+	await fourth.app.page(await fourth.app.openTab(off, owedURL), owedURL);
+
+	const owedClear = await fourth.waitForEntry(
+		"PaneBrowserContext.clearHistory",
+	);
+
+	const owedGone = await poll(
+		"the owed clear to finish",
+		async () =>
+			!(
+				await fourth.app.send<{ clearsHistory: boolean }>("readProfile", {
+					profile: off,
+				})
+			).result.clearsHistory,
+		25_000,
+		500,
+	);
+
+	await fourth.app.browser.close();
 
 	return {
 		keptWhileOn,
@@ -335,6 +414,7 @@ const historyScenario: Scenario = async (context) => {
 		keptWhenBackOn,
 		closedEngineAtLaunch: closedEngine,
 		madeUpAtOpen: madeUp.args,
+		owedClearAtOpen: { ran: owedClear.name, done: owedGone },
 		keptAfterCrash,
 	};
 };

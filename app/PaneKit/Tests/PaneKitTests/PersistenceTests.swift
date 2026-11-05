@@ -133,6 +133,7 @@ struct ProfilesPersistenceTests {
 		#expect(profile.color == .blue)
 		#expect(profile.keepLoaded == false)
 		#expect(profile.savesHistory)
+		#expect(!profile.clearsHistory)
 		#expect(profile.group == nil)
 		#expect(profile.tabs == [Tab(id: "t1", url: "https://example.com/", title: "Example Domain", favicon: "")])
 		#expect(profile.fingerprint?.screen.colorDepth == 24)
@@ -152,6 +153,18 @@ struct ProfilesPersistenceTests {
 		try file.save(state)
 
 		#expect(try file.load() == state)
+	}
+
+	@Test("a clear still owed outlives a quit")
+	func clearOwedPersists() throws {
+		let directory = try temporaryDirectory()
+		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
+		var profile = BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")
+		profile.savesHistory = false
+
+		try file.save(ProfilesState(profiles: [profile]))
+
+		#expect(try file.load()?.profiles.first?.clearsHistory == true)
 	}
 
 	@Test("writes explicit nulls, as the Electron app does")

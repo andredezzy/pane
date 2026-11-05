@@ -17,6 +17,12 @@ final class BrowserController: NSObject {
 	private let application: BrowserApplication
 	private var contexts: [String: BrowserContext] = [:]
 	private var contextWaiters: [String: [(BrowserContext?) -> Void]] = [:]
+	// Closed profiles opened only to clear their history (historyDidChange).
+	private var openedToClearHistory: Set<String> = []
+	// The profiles whose clear the engine is running, and what ends each one's
+	// wait for it to reach the disk.
+	private var clearingHistory: Set<String> = []
+	private var historyClearSettling: [String: DispatchWorkItem] = [:]
 	// Contexts the engine is opening or deleting, for a lock to wait for.
 	private var engineWork: [ObjectIdentifier: EngineWork] = [:]
 	// The tab that showed when Pane locked, shown again once it opens.
@@ -151,29 +157,113 @@ final class BrowserController: NSObject {
 	// Save history changed (ADR 0119). Off clears what the profile kept, now,
 	// opening it if it is closed, as the sheet says; on waits for it to open.
 	func historyDidChange(_ profileID: String) {
-		guard contexts[profileID] != nil || model.profile(profileID)?.savesHistory == false else {
+		if let context = contexts[profileID] {
+			applyHistory(profileID, to: context)
 			return
+		}
+
+		guard model.profile(profileID)?.clearsHistory == true else {
+			return
+		}
+
+		// Opening for something else, it stays open for that.
+		if contextWaiters[profileID] == nil {
+			openedToClearHistory.insert(profileID)
 		}
 
 		withContext(profileID) { [weak self] context in
-			if let context {
-				self?.applyHistory(profileID, to: context)
+			guard let self else {
+				return
 			}
+
+			guard let context else {
+				openedToClearHistory.remove(profileID)
+				return
+			}
+
+			applyHistory(profileID, to: context)
+			closeIfOpenedToClearHistory(profileID)
 		}
 	}
 
-	// The engine keeps the choice it last had, in the profile's prefs: one it
-	// never reached, a quit or a crash after the Save, is made up as the
-	// profile opens, the clear with it.
+	// The choice reaches the engine, and a clear still owed runs. Both are made
+	// up as the profile opens, whatever a quit, a crash, or a lock cut short.
+	// Off here and on in the engine, the engine never took the Save, nor kept
+	// its clear: a file from before `clearsHistory` owes none by name.
 	private func applyHistory(_ profileID: String, to context: BrowserContext) {
-		guard let savesHistory = model.profile(profileID)?.savesHistory, context.savesHistory != savesHistory else {
+		guard let profile = model.profile(profileID) else {
 			return
 		}
 
-		context.savesHistory = savesHistory
+		let owed = profile.clearsHistory || (context.savesHistory && !profile.savesHistory)
 
-		if !savesHistory {
-			context.clearHistory {}
+		if context.savesHistory != profile.savesHistory {
+			context.savesHistory = profile.savesHistory
+		}
+
+		guard owed, clearingHistory.insert(profileID).inserted else {
+			return
+		}
+
+		historyClearSettling[profileID]?.cancel()
+
+		context.clearHistory { [weak self] in
+			self?.historyCleared(profileID)
+		}
+	}
+
+	// Done in the engine, on disk within its 10-second commit: until then a
+	// crash loses the deletion, and the clear stays owed.
+	private func historyCleared(_ profileID: String) {
+		clearingHistory.remove(profileID)
+		closeIfOpenedToClearHistory(profileID)
+
+		let settled = DispatchWorkItem { [weak self] in
+			self?.historyClearSettling[profileID] = nil
+			self?.model.updateProfile(profileID) { $0.clearsHistory = false }
+		}
+
+		historyClearSettling[profileID] = settled
+		DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: settled)
+	}
+
+	// A closed profile opened only to clear closes again, its memory and its
+	// proxy's relay with it, once it has both opened and cleared, unless
+	// something has come to use it meanwhile. What asks for it as it closes
+	// waits, and opens it again.
+	private func closeIfOpenedToClearHistory(_ profileID: String) {
+		guard
+			openedToClearHistory.contains(profileID),
+			!clearingHistory.contains(profileID),
+			let context = contexts[profileID]
+		else {
+			return
+		}
+
+		openedToClearHistory.remove(profileID)
+
+		guard
+			model.page != .extensions,
+			model.profile(profileID)?.tabs.allSatisfy({ pages.page(for: $0.id) == nil }) == true
+		else {
+			return
+		}
+
+		contexts[profileID] = nil
+		network.stop(profileID)
+		contextWaiters[profileID] = []
+		let work = beginWork()
+
+		application.closeContext(context) { [weak self] closed in
+			guard let self else {
+				return
+			}
+
+			endWork(work)
+			work.lock?.finish(closed)
+
+			let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
+			waiters.forEach { self.withContext(profileID, $0) }
 		}
 	}
 
@@ -245,6 +335,9 @@ final class BrowserController: NSObject {
 		}
 
 		contexts.removeAll()
+		// A clear cut short here is still owed, at the next open.
+		clearingHistory.removeAll()
+		openedToClearHistory.removeAll()
 		engineWork.values.forEach { $0.wait(for: closing) }
 		engineWork.removeAll()
 		let waiting = contextWaiters.values.joined()

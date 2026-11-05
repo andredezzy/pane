@@ -230,13 +230,23 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 	public var keepLoaded: Bool
 	// Whether it keeps a record of where it went (ADR 0119). A file from before
 	// the choice has none: it kept its history, and still does.
-	public var savesHistory: Bool
+	public var savesHistory: Bool {
+		didSet {
+			if savesHistory != oldValue {
+				clearsHistory = !savesHistory
+			}
+		}
+	}
+
+	// Turned off, what it kept is still to clear, until the engine says it is
+	// gone: a lock or a quit before then clears at the next open.
+	public var clearsHistory: Bool
 	public var tabs: [Tab]
 	public var createdAt: String
 	public var updatedAt: String
 
 	private enum CodingKeys: String, CodingKey {
-		case id, name, color, group, fingerprint, proxy, keepLoaded, savesHistory, tabs, createdAt, updatedAt
+		case id, name, color, group, fingerprint, proxy, keepLoaded, savesHistory, clearsHistory, tabs, createdAt, updatedAt
 	}
 
 	public init(
@@ -260,6 +270,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		self.proxy = proxy
 		self.keepLoaded = keepLoaded
 		self.savesHistory = savesHistory
+		clearsHistory = false
 		self.tabs = tabs
 		self.createdAt = createdAt
 		self.updatedAt = updatedAt
@@ -275,6 +286,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		proxy = try container.decodeIfPresent(ProxyConfig.self, forKey: .proxy)
 		keepLoaded = try container.decodeIfPresent(Bool.self, forKey: .keepLoaded) ?? false
 		savesHistory = try container.decodeIfPresent(Bool.self, forKey: .savesHistory) ?? true
+		clearsHistory = try container.decodeIfPresent(Bool.self, forKey: .clearsHistory) ?? false
 		tabs = try container.decode([Tab].self, forKey: .tabs)
 		createdAt = try container.decode(String.self, forKey: .createdAt)
 		updatedAt = try container.decode(String.self, forKey: .updatedAt)
@@ -291,6 +303,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		try container.encode(proxy, forKey: .proxy)
 		try container.encode(keepLoaded, forKey: .keepLoaded)
 		try container.encode(savesHistory, forKey: .savesHistory)
+		try container.encode(clearsHistory, forKey: .clearsHistory)
 		try container.encode(tabs, forKey: .tabs)
 		try container.encode(createdAt, forKey: .createdAt)
 		try container.encode(updatedAt, forKey: .updatedAt)

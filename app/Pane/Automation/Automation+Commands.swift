@@ -86,6 +86,10 @@ extension Automation {
 
 			return .handled(try JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)))
 
+		case "setClearsHistory":
+			// { profile }: a clear still owed, as a lock or a quit leaves one.
+			controller.updateProfile(try command.string("profile")) { $0.clearsHistory = true }
+
 		case "setSavesHistory":
 			// The profile sheet's Save history, as Save applies it: { profile, savesHistory }.
 			let savesHistory = command["savesHistory"] as? Bool ?? true

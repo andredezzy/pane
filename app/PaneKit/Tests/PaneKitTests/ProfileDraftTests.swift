@@ -49,6 +49,26 @@ struct ProfileDraftTests {
 		#expect(!ProfileDraft(profile: profile()).spoofing)
 	}
 
+	@Test("turning history off owes a clear, kept until it is done; back on owes none")
+	func clearOwed() {
+		var saved = profile()
+		#expect(!saved.clearsHistory)
+
+		saved.savesHistory = false
+		#expect(saved.clearsHistory)
+
+		saved.clearsHistory = false
+		saved.savesHistory = false
+		#expect(!saved.clearsHistory)
+
+		saved.savesHistory = true
+		saved.savesHistory = false
+		#expect(saved.clearsHistory)
+
+		saved.savesHistory = true
+		#expect(!saved.clearsHistory)
+	}
+
 	@Test("the history choice goes from the profile to the form and back")
 	func historyChoice() {
 		var saved = profile()
@@ -60,6 +80,20 @@ struct ProfileDraftTests {
 		draft.savesHistory = true
 		draft.apply(to: &saved) { .preset(.macOS) }
 		#expect(saved.savesHistory)
+	}
+
+	@Test("saving an IPv6 host leaves it and the credentials as they are")
+	func ipv6Host() {
+		var draft = ProfileDraft()
+		draft.proxyHost = "[2606:4700:4700::1111]"
+		draft.proxyPort = "1080"
+		draft.proxyUsername = "user"
+
+		let pasted = draft.pasteProxy(draft.proxyHost)
+		#expect(!pasted)
+		#expect(draft.proxyHost == "[2606:4700:4700::1111]")
+		#expect(draft.proxyPort == "1080")
+		#expect(draft.proxyUsername == "user")
 	}
 
 	@Test("a name is required, spaces alone are none")
