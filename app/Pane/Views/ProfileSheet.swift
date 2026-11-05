@@ -17,6 +17,8 @@ struct ProfileSheet: View {
 	// set as it appeared, the whole sheet drew twice ahead of its first frame.
 	@State private var draft: ProfileDraft
 	@State private var problem: ProfileDraft.Problem?
+	// Each Save that a problem stops, to bring its field into view again.
+	@State private var stoppedSaves = 0
 	@State private var proxyTest = ProxyTestState.untested
 	// The proxy `proxyTest` is about.
 	@State private var testedProxy: ProxyConfig?
@@ -36,39 +38,48 @@ struct ProfileSheet: View {
 			header
 			Hairline()
 
-			ScrollView {
-				VStack(alignment: .leading, spacing: 18) {
-					identity
+			ScrollViewReader { reader in
+				ScrollView {
+					VStack(alignment: .leading, spacing: 18) {
+						identity
 
-					SheetSection(title: "Privacy") {
-						SheetSwitch(title: "Save history", note: historyNote, isOn: $draft.savesHistory)
-					}
+						SheetSection(title: "Privacy") {
+							SheetSwitch(title: "Save history", note: historyNote, isOn: $draft.savesHistory)
+						}
 
-					SheetSection(title: "Fingerprint") {
-						SheetSwitch(title: "Spoof fingerprint", note: spoofNote, isOn: $draft.spoofing)
+						SheetSection(title: "Fingerprint") {
+							SheetSwitch(title: "Spoof fingerprint", note: spoofNote, isOn: $draft.spoofing)
 
-						if draft.spoofing {
-							Hairline()
-							platformFields
-							Hairline()
-							timeZoneRow
+							if draft.spoofing {
+								Hairline()
+								platformFields
+								Hairline()
+								timeZoneRow
+							}
+						}
+
+						SheetSection(title: "Network") {
+							SheetSwitch(title: "Proxy", note: draft.proxyEnabled ? "Its traffic goes through this proxy." : "Connects directly.", isOn: $draft.proxyEnabled)
+
+							if draft.proxyEnabled {
+								Hairline()
+								proxyFields
+							}
 						}
 					}
-
-					SheetSection(title: "Network") {
-						SheetSwitch(title: "Proxy", note: draft.proxyEnabled ? "Its traffic goes through this proxy." : "Connects directly.", isOn: $draft.proxyEnabled)
-
-						if draft.proxyEnabled {
-							Hairline()
-							proxyFields
-						}
+					.padding(20)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					// The warning comes and goes as a tile's click, itself instant,
+					// crosses to or from the Mac's platform.
+					.animation(Motion.toggle, value: isCrossOS)
+				}
+				// The field with the problem may be past the body's end, and the host's
+				// has no words to say why Save did nothing.
+				.onChange(of: stoppedSaves) {
+					withAnimation(Motion.reveal) {
+						reader.scrollTo(problem == .nameMissing ? ProblemField.name : ProblemField.proxy)
 					}
 				}
-				.padding(20)
-				.frame(maxWidth: .infinity, alignment: .leading)
-				// The warning comes and goes as a tile's click, itself instant,
-				// crosses to or from the Mac's platform.
-				.animation(Motion.toggle, value: isCrossOS)
 			}
 
 			Hairline()
@@ -91,6 +102,17 @@ struct ProfileSheet: View {
 		.surfaceBackground(cornerRadius: 18, shadow: .black.opacity(0.5), blur: 40, y: 8)
 		.onChange(of: draft.name) { problem = problem == .nameMissing ? nil : problem }
 		.onChange(of: draft.proxyPort) { problem = problem == .portInvalid ? nil : problem }
+		// Until it is a host: "http:" on the way to something else stays ringed.
+		.onChange(of: draft.proxyHost) {
+			if problem == .hostMissing || problem == .hostInvalid {
+				problem = draft.hostProblem
+			}
+		}
+		.onChange(of: draft.proxyEnabled) {
+			if problem != .nameMissing {
+				problem = nil
+			}
+		}
 		// A test's answer is about the proxy it tested, not the one typed since.
 		.onChange(of: draft.proxy) {
 			if draft.proxy != testedProxy {
@@ -135,6 +157,7 @@ struct ProfileSheet: View {
 						.padding(.top, 8)
 				}
 			}
+			.id(ProblemField.name)
 
 			LabeledField(title: "Group", note: "(optional)", labelSize: .regular) {
 				PaneTextField(placeholder: "Enter group name", text: $draft.group, fontSize: 13, onSubmit: submit)
@@ -230,7 +253,13 @@ struct ProfileSheet: View {
 	// The proxy: its address, credentials, and test.
 	private var proxyFields: some View {
 		VStack(alignment: .leading, spacing: 8) {
-			ProxyAddressField(draft: $draft)
+			ProxyAddressField(draft: $draft, hostProblem: problem == .hostMissing || problem == .hostInvalid ? problem : nil)
+				// What Save brings into view: the field, and 12 clear of the rules.
+				.background {
+					Color.clear
+						.frame(height: 60)
+						.id(ProblemField.proxy)
+				}
 
 			// As the name's: a profile that asks for a proxy never saves
 			// without one.
@@ -315,11 +344,22 @@ struct ProfileSheet: View {
 		draft.pasteProxy(draft.proxyHost)
 		problem = draft.validate()
 
-		if problem == nil {
+		guard let problem else {
 			save(draft)
 			onDone()
+
+			return
 		}
+
+		stoppedSaves += 1
+		AccessibilityNotification.Announcement(problem.message).post()
 	}
+}
+
+// What a Save stopped by a problem brings into view.
+private enum ProblemField {
+	case name
+	case proxy
 }
 
 extension View {
@@ -523,6 +563,9 @@ private struct ProxyAddressField: View {
 	}
 
 	@Binding var draft: ProfileDraft
+	// What is wrong with the host, shown by its red ring alone (Paper's 05.8 and
+	// 05.9).
+	let hostProblem: ProfileDraft.Problem?
 
 	@FocusState private var focused: Part?
 
@@ -539,7 +582,9 @@ private struct ProxyAddressField: View {
 			TextField("", text: $draft.proxyHost, prompt: prompt("Host"))
 				.focused($focused, equals: .host)
 				.padding(.horizontal, 12)
+				.anchorPreference(key: HostCellKey.self, value: .bounds) { $0 }
 				.accessibilityLabel("Proxy host")
+				.accessibilityHint(hostProblem?.message ?? "")
 				.accessibilityIdentifier("pane.profile.proxyHost")
 
 			divider
@@ -558,6 +603,23 @@ private struct ProxyAddressField: View {
 		.foregroundStyle(Palette.foreground)
 		.clipShape(Squircle(cornerRadius: 11))
 		.fieldBox(fill: Palette.sheetCardField, isFocused: focused != nil)
+		// Over the field's border and the dividers, in their place around the host.
+		.overlayPreferenceValue(HostCellKey.self) { cell in
+			GeometryReader { field in
+				if let cell {
+					let frame = field[cell]
+
+					Rectangle()
+						.strokeBorder(Palette.destructive, lineWidth: 1)
+						.frame(width: frame.width + 2, height: field.size.height)
+						.position(x: frame.midX, y: field.size.height / 2)
+						.opacity(hostProblem == nil ? 0 : 1)
+						.animation(Motion.toggle, value: hostProblem == nil)
+				}
+			}
+			.allowsHitTesting(false)
+			.accessibilityHidden(true)
+		}
 		.onChange(of: draft.proxyHost) { old, new in
 			if new.count - old.count > 1 {
 				draft.pasteProxy(new)
@@ -574,6 +636,15 @@ private struct ProxyAddressField: View {
 		Rectangle()
 			.fill(Palette.border)
 			.frame(width: 1)
+	}
+}
+
+// The host's cell in the address field, for the ring drawn over the field.
+private struct HostCellKey: PreferenceKey {
+	static let defaultValue: Anchor<CGRect>? = nil
+
+	static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+		value = value ?? nextValue()
 	}
 }
 

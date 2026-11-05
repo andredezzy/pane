@@ -126,6 +126,35 @@ public struct ProxyString: Equatable, Sendable {
 }
 
 extension ProxyConfig {
+	// Whether Chrome can read this as a proxy's host: a name, an IPv4 address, or
+	// an IPv6 one with its brackets or without. A scheme, credentials, a path, or
+	// spaces make a rule Chrome drops, which fails the profile's every request.
+	public static func isHost(_ text: String) -> Bool {
+		let bare = text.hasPrefix("[") && text.hasSuffix("]") ? String(text.dropFirst().dropLast()) : text
+		var ipv6 = in6_addr()
+
+		// inet_pton takes a zone ("fe80::1%en0"), and Chrome does not.
+		if inet_pton(AF_INET6, bare, &ipv6) == 1 {
+			return !bare.contains("%")
+		}
+
+		guard bare == text, !text.isEmpty, !text.hasPrefix("."), !text.contains("..") else {
+			return false
+		}
+
+		if text.allSatisfy({ $0 == "." || $0.isNumber }) {
+			var ipv4 = in_addr()
+
+			return inet_pton(AF_INET, text, &ipv4) == 1
+		}
+
+		return text.unicodeScalars.allSatisfy { scalar in
+			scalar.isASCII
+				? CharacterSet.alphanumerics.contains(scalar) || "-._".unicodeScalars.contains(scalar)
+				: !scalar.properties.isWhitespace
+		}
+	}
+
 	// The ports a proxy can listen on: TCP's, without 0.
 	public static let ports = 1 ... 65535
 

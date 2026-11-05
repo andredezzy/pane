@@ -7,14 +7,20 @@ public struct ProfileDraft: Equatable, Sendable {
 	// Pane runs on macOS only: the host's platform.
 	public static let hostPlatform = Platform.macOS
 
-	// What keeps it from saving, the first found, shown under its field.
+	// What keeps it from saving, the first found, shown at its field: the name's
+	// and the port's in words under it, the host's as a red ring, whose words are
+	// for VoiceOver.
 	public enum Problem: Equatable, Sendable {
 		case nameMissing
+		case hostMissing
+		case hostInvalid
 		case portInvalid
 
 		public var message: String {
 			switch self {
 			case .nameMissing: "Profile name is required"
+			case .hostMissing: "Proxy host is required"
+			case .hostInvalid: "Host must be a name or an IP address"
 			case .portInvalid: Self.portMessage
 			}
 		}
@@ -68,18 +74,28 @@ public struct ProfileDraft: Equatable, Sendable {
 		proxyHost.trimmingCharacters(in: .whitespaces)
 	}
 
-	// A proxy with a host but no valid port would save as no proxy, and the
-	// profile would go direct: it does not save.
+	// The sheet says "Its traffic goes through this proxy" while the switch is on:
+	// no host, or no valid port, would save as no proxy, and the profile would go
+	// direct, and a host Chrome cannot read would fail its every page. None of
+	// them saves.
 	public func validate() -> Problem? {
 		if trimmedName.isEmpty {
 			return .nameMissing
 		}
 
-		if proxyEnabled, !trimmedHost.isEmpty, ProxyConfig.port(proxyPort) == nil {
-			return .portInvalid
+		guard proxyEnabled else {
+			return nil
 		}
 
-		return nil
+		return hostProblem ?? (ProxyConfig.port(proxyPort) == nil ? .portInvalid : nil)
+	}
+
+	public var hostProblem: Problem? {
+		if trimmedHost.isEmpty {
+			return .hostMissing
+		}
+
+		return ProxyConfig.isHost(trimmedHost) ? nil : .hostInvalid
 	}
 
 	// The proxy as filled in, once it has a host and a valid port.

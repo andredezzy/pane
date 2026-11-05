@@ -170,21 +170,46 @@ struct ProfileDraftTests {
 		#expect(draft.validate() == .nameMissing)
 	}
 
-	@Test("no host, or the proxy off, saves as no proxy, whatever the port")
+	@Test("the proxy off saves as no proxy, whatever its fields hold")
 	func noProxy() {
+		var draft = ProfileDraft()
+		draft.name = "Work"
+		draft.proxyHost = "http://proxy.example"
+		draft.proxyPort = "0"
+
+		#expect(draft.validate() == nil)
+		#expect(draft.proxy == nil)
+	}
+
+	@Test("the proxy on does not save without a host, before anything about its port")
+	func hostMissing() {
 		var draft = ProfileDraft()
 		draft.name = "Work"
 		draft.proxyEnabled = true
 		draft.proxyHost = "  "
 		draft.proxyPort = "0"
 
-		#expect(draft.validate() == nil)
-		#expect(draft.proxy == nil)
+		#expect(draft.validate() == .hostMissing)
 
-		draft.proxyHost = "proxy.example"
-		draft.proxyEnabled = false
-		#expect(draft.validate() == nil)
-		#expect(draft.proxy == nil)
+		draft.name = ""
+		#expect(draft.validate() == .nameMissing)
+	}
+
+	@Test("the proxy on does not save with a host Chrome cannot read")
+	func hostInvalid() {
+		var draft = ProfileDraft()
+		draft.name = "Work"
+		draft.proxyEnabled = true
+
+		for host in ["http://45.12.8.19", "socks5://u:p@45.12.8.19:1080", "u:p@45.12.8.19", "45.12.8.19/", "not a host", "[::1", "fe80::1%en0", "999.1.1.1", "1.2.3", ".proxy", "a..b", "host:abc"] {
+			draft.proxyHost = host
+			#expect(draft.validate() == .hostInvalid, "host \(host)")
+		}
+
+		for host in ["proxy.example", "PROXY.example", "exa_mple.test", "ex\u{E4}mple.test", "localhost", "45.12.8.19", "::1", "[::1]", "2001:db8::1", " proxy.example "] {
+			draft.proxyHost = host
+			#expect(draft.validate() == nil, "host \(host)")
+		}
 	}
 
 	@Test("the proxy trims its host and leaves empty credentials out")

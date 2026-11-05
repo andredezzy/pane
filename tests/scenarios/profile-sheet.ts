@@ -21,7 +21,9 @@ import { expect, type Scenario } from "../run";
 // a profile without a fingerprint; a rename keeps the fingerprint; another
 // platform gets that platform's preset, the warning, and reaches the profile's
 // open tab; a proxy string pasted into the address fills the fields, and its
-// test answers through the proxy (proxy checks its password at rest); Save
+// test answers through the proxy (proxy checks its password at rest), and with
+// no host, or one Chrome cannot read, it does not save, the field ringed in red
+// and brought into view for want of words; Save
 // history reaches the engine (profile-history checks what the engine then
 // does); a fingerprint follows the computer's time zone until the menu names
 // another, which reaches the open tab; and turning spoofing off clears the
@@ -371,16 +373,113 @@ const profileSheet: Scenario = async (context) => {
 
 		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
 
+		// Another platform's warning takes the address past the body's end.
+		await clickButton(pid, window, "Windows");
+
 		await clickControl(pid, window, {
 			title: "Proxy",
 			role: /AX(CheckBox|Switch)/,
 		});
+
+		await Bun.sleep(300);
+
+		const hostField = () =>
+			readControl(pid, window, "Proxy host", /AXTextField/);
+
+		// Where the body ends: the footer's rule, 16 over its buttons.
+		const bodyEnd = async () =>
+			(await readControl(pid, window, "Create", /AXButton/)).y - 17;
+
+		const hostBefore = await hostField();
+		const belowTheBody = hostBefore.y + hostBefore.h > (await bodyEnd());
+
+		// Pressed with what cannot save: the sheet stays, and nothing is made.
+		const hostLine = async (name: string) =>
+			(await tree(`profile-sheet-a11y-${name}`))
+				.split("\n")
+				.find((line) => line.includes("(Proxy host)")) ?? "";
+
+		const refuses = async (name: string, message: string) => {
+			await clickButton(pid, window, "Create");
+			await Bun.sleep(500);
+			const state = await app.state();
+
+			expect(
+				state.profileSheet === "new" && !newProfile(state, known),
+				`${name} saved: ${JSON.stringify(state.profileSheet)}`,
+			);
+
+			const host = await hostField();
+
+			const end = await bodyEnd();
+
+			// In view, and clear of the rule.
+			expect(
+				host.y + host.h <= end - 8,
+				`${name}: the host ends at ${host.y + host.h}, the body at ${end} (started below it: ${belowTheBody})`,
+			);
+
+			// No words on the screen: VoiceOver hears why.
+			const line = await hostLine(name);
+
+			expect(line.includes(`help="${message}"`), `${name}: ${line}`);
+
+			await render(`profile-sheet-${name}`);
+		};
+
+		await refuses("host-missing", "Proxy host is required");
+
+		await typeIntoField(
+			pid,
+			window,
+			"pane.profile.proxyHost",
+			"http://127.0.0.1",
+		);
+
+		await refuses("host-unreadable", "Host must be a name or an IP address");
+
+		// Afresh: the field holds what was typed, and takes more after it.
+		await clickButton(pid, window, "Cancel");
+
+		await app.waitFor(
+			"the sheet closed",
+			(state) => state.profileSheet === null,
+		);
+
+		await clickButton(pid, window, "New");
+
+		await app.waitFor(
+			"the new profile sheet",
+			(state) => state.profileSheet === "new",
+		);
+
+		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
+
+		await clickControl(pid, window, {
+			title: "Proxy",
+			role: /AX(CheckBox|Switch)/,
+		});
+
+		await Bun.sleep(300);
+		await refuses("host-missing-again", "Proxy host is required");
 
 		await typeIntoField(
 			pid,
 			window,
 			"pane.profile.proxyHost",
 			`127.0.0.1:${proxy.port}:${CREDENTIALS.username}:${CREDENTIALS.password}`,
+		);
+
+		// A host now: the problem goes as it is typed.
+		const hostFixed = await poll(
+			"the host's problem to go",
+			async () => {
+				const line = await hostLine("host-fixed");
+
+				return !line.includes("help=") && line;
+			},
+			5_000,
+			100,
 		);
 
 		await clickButton(pid, window, "Test connection");
@@ -574,6 +673,8 @@ const profileSheet: Scenario = async (context) => {
 			proxy: {
 				saved: shownProxy,
 				testedThrough: proxy.log.length,
+				hostBelowTheBody: belowTheBody,
+				hostFixed,
 			},
 			spoofingOff: {
 				byLabelClick: spoofAfterClick,
