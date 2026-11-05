@@ -204,6 +204,14 @@ public struct DownloadETA: Sendable {
 
 	public init() {}
 
+	// A new connection: its rate says nothing of the last one's, whose average
+	// would hold the time left high long after a crawl. What shows stays until
+	// the new rate settles.
+	public mutating func restartRate() {
+		firstBytesAt = nil
+		increaseSince = nil
+	}
+
 	// Seconds left after `received` of `total` bytes at `now`, or nil until
 	// the rate is known.
 	public mutating func update(received: Int64, total: Int64, now: Date) -> Int? {

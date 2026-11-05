@@ -142,6 +142,30 @@ struct DownloadETATests {
 	}
 }
 
+@Suite("DownloadETA across connections")
+struct DownloadETAAcrossConnectionsTests {
+	private let start = Date(timeIntervalSince1970: 1000)
+	private let megabyte: Int64 = 1_000_000
+
+	@Test("a new connection's rate replaces the last one's, and the time left holds until it is known")
+	func newConnection() {
+		var eta = DownloadETA()
+		let total = 135 * megabyte
+		_ = eta.update(received: 1, total: total, now: start)
+		let crawling = eta.update(received: megabyte, total: total, now: start.addingTimeInterval(5))
+		#expect(crawling == 670)
+
+		eta.restartRate()
+		let held = eta.update(received: megabyte, total: total, now: start.addingTimeInterval(5))
+		#expect(held == crawling)
+
+		// A second at 30 MB/s: 104 MB left, about 3.5 s, not the 20 of the average
+		// since the first bytes.
+		let afterSwitch = eta.update(received: 31 * megabyte, total: total, now: start.addingTimeInterval(6))
+		#expect(afterSwitch == 3)
+	}
+}
+
 @Suite("DownloadPace")
 struct DownloadPaceTests {
 	private let start = Date(timeIntervalSince1970: 1000)

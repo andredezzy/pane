@@ -381,6 +381,8 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		if resumeData == nil {
 			received = 0
 			eta = DownloadETA()
+		} else {
+			eta.restartRate()
 		}
 
 		pace.begin(received: received, now: Date())
