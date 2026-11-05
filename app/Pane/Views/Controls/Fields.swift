@@ -11,6 +11,9 @@ struct PaneTextField: View {
 	var secure = false
 	// autoFocus: the field takes focus as it appears.
 	var focusesOnAppear = false
+	// Why it keeps a form from saving: its border turns red, and VoiceOver reads
+	// this.
+	var problem: String?
 	var onSubmit: () -> Void = {}
 
 	@FocusState private var focused: Bool
@@ -25,7 +28,8 @@ struct PaneTextField: View {
 		.onSubmit(onSubmit)
 		// px-3 inside the 1px border: CSS boxes start the text 13 in.
 		.padding(.horizontal, 13)
-		.fieldBox(fill: fill, isFocused: focused)
+		.fieldBox(fill: fill, isFocused: focused, hasProblem: problem != nil)
+		.accessibilityHint(problem ?? "")
 		.opacity(isEnabled ? 1 : 0.5)
 		.onAppear {
 			if focusesOnAppear {
@@ -41,16 +45,19 @@ struct PaneTextField: View {
 
 extension View {
 	// A field's box: 36 points, rounded 11, its 1-point border, and, focused, the
-	// ring 1 point outside the border, as CSS's ring-1 is.
-	func fieldBox(fill: Color, isFocused: Bool) -> some View {
+	// ring 1 point outside the border, as CSS's ring-1 is. A field with a problem
+	// shows that alone: its border red, which comes and goes as a row's content
+	// does, and no ring.
+	func fieldBox(fill: Color, isFocused: Bool, hasProblem: Bool = false) -> some View {
 		frame(height: 36)
 			.background(fill, in: Squircle(cornerRadius: 11))
 			.overlay {
 				Squircle(cornerRadius: 11)
-					.strokeBorder(Palette.border, lineWidth: 1)
+					.strokeBorder(hasProblem ? Palette.destructive : Palette.border, lineWidth: 1)
+					.animation(Motion.toggle, value: hasProblem)
 			}
 			.overlay {
-				if isFocused {
+				if isFocused && !hasProblem {
 					Squircle(cornerRadius: 12)
 						.strokeBorder(Palette.ring, lineWidth: 1)
 						.padding(-1)

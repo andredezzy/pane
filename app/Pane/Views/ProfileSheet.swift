@@ -100,9 +100,18 @@ struct ProfileSheet: View {
 		// Clipped before the shadow goes on, which would clip it too.
 		.clipShape(Squircle(cornerRadius: 18))
 		.surfaceBackground(cornerRadius: 18, shadow: .black.opacity(0.5), blur: 40, y: 8)
-		.onChange(of: draft.name) { problem = problem == .nameMissing ? nil : problem }
-		.onChange(of: draft.proxyPort) { problem = problem == .portInvalid ? nil : problem }
-		// Until it is a host: "http:" on the way to something else stays ringed.
+		// Each ring stays until its field can save: "http:" on the way to something
+		// else is still no host, and "700" on the way to 7000 goes at once.
+		.onChange(of: draft.name) {
+			if problem == .nameMissing {
+				problem = draft.trimmedName.isEmpty ? .nameMissing : nil
+			}
+		}
+		.onChange(of: draft.proxyPort) {
+			if problem == .portInvalid {
+				problem = ProxyConfig.port(draft.proxyPort) == nil ? .portInvalid : nil
+			}
+		}
 		.onChange(of: draft.proxyHost) {
 			if problem == .hostMissing || problem == .hostInvalid {
 				problem = draft.hostProblem
@@ -147,14 +156,8 @@ struct ProfileSheet: View {
 		VStack(alignment: .leading, spacing: 16) {
 			VStack(alignment: .leading, spacing: 0) {
 				LabeledField(title: "Name", labelSize: .regular) {
-					PaneTextField(placeholder: "e.g. Work account", text: $draft.name, fontSize: 13, focusesOnAppear: true, onSubmit: submit)
+					PaneTextField(placeholder: "e.g. Work account", text: $draft.name, fontSize: 13, focusesOnAppear: true, problem: problem == .nameMissing ? problem?.message : nil, onSubmit: submit)
 						.accessibilityIdentifier("pane.profile.name")
-				}
-
-				if problem == .nameMissing {
-					problemText(.nameMissing)
-						// 8 under the field, as space-y-2 sets it.
-						.padding(.top, 8)
 				}
 			}
 			.id(ProblemField.name)
@@ -253,20 +256,13 @@ struct ProfileSheet: View {
 	// The proxy: its address, credentials, and test.
 	private var proxyFields: some View {
 		VStack(alignment: .leading, spacing: 8) {
-			ProxyAddressField(draft: $draft, hostProblem: problem == .hostMissing || problem == .hostInvalid ? problem : nil)
+			ProxyAddressField(draft: $draft, problem: problem == .nameMissing ? nil : problem)
 				// What Save brings into view: the field, and 12 clear of the rules.
 				.background {
 					Color.clear
 						.frame(height: 60)
 						.id(ProblemField.proxy)
 				}
-
-			// As the name's: a profile that asks for a proxy never saves
-			// without one.
-			if problem == .portInvalid {
-				problemText(.portInvalid)
-					.accessibilityIdentifier("pane.profile.portError")
-			}
 
 			HStack(spacing: 8) {
 				PaneTextField(placeholder: "Username (optional)", text: $draft.proxyUsername, fontSize: 13, fill: Palette.sheetCardField)
@@ -306,12 +302,6 @@ struct ProfileSheet: View {
 			.padding(.top, 4)
 		}
 		.sheetRowPadding(bottom: 14)
-	}
-
-	private func problemText(_ problem: ProfileDraft.Problem) -> some View {
-		Text(problem.message)
-			.font(.system(size: 12.8, weight: .medium))
-			.foregroundStyle(Palette.destructive)
 	}
 
 	private func testProxy() {
@@ -557,17 +547,25 @@ private struct TimeZoneMenu: View {
 // fills them all, pasted into the host, or typed there and left (ProxyString);
 // while it is typed the host stays as it is, for the colons to come.
 private struct ProxyAddressField: View {
-	private enum Part {
+	fileprivate enum Part {
 		case host
 		case port
 	}
 
 	@Binding var draft: ProfileDraft
-	// What is wrong with the host, shown by its red ring alone (Paper's 05.8 and
-	// 05.9).
-	let hostProblem: ProfileDraft.Problem?
+	// What keeps the host or the port from saving, shown by a red ring around that
+	// part alone (Paper's 05.8, 05.9, and 05.11).
+	let problem: ProfileDraft.Problem?
 
 	@FocusState private var focused: Part?
+
+	private var ringed: Part? {
+		switch problem {
+		case .hostMissing, .hostInvalid: .host
+		case .portInvalid: .port
+		case .nameMissing, nil: nil
+		}
+	}
 
 	var body: some View {
 		let prompt: (String) -> Text = { Text($0).foregroundStyle(Palette.mutedForeground) }
@@ -582,9 +580,9 @@ private struct ProxyAddressField: View {
 			TextField("", text: $draft.proxyHost, prompt: prompt("Host"))
 				.focused($focused, equals: .host)
 				.padding(.horizontal, 12)
-				.anchorPreference(key: HostCellKey.self, value: .bounds) { $0 }
+				.anchorPreference(key: AddressCellsKey.self, value: .bounds) { [.host: $0] }
 				.accessibilityLabel("Proxy host")
-				.accessibilityHint(hostProblem?.message ?? "")
+				.accessibilityHint(ringed == .host ? problem?.message ?? "" : "")
 				.accessibilityIdentifier("pane.profile.proxyHost")
 
 			divider
@@ -595,26 +593,48 @@ private struct ProxyAddressField: View {
 				.padding(.horizontal, 12)
 				// Room for 65535 at 13: 41 points, and 12 either side.
 				.frame(width: 65)
+				.anchorPreference(key: AddressCellsKey.self, value: .bounds) { [.port: $0] }
 				.accessibilityLabel("Proxy port")
+				.accessibilityHint(ringed == .port ? problem?.message ?? "" : "")
 				.accessibilityIdentifier("pane.profile.proxyPort")
 		}
 		.textFieldStyle(.plain)
 		.font(.system(size: 13))
 		.foregroundStyle(Palette.foreground)
 		.clipShape(Squircle(cornerRadius: 11))
-		.fieldBox(fill: Palette.sheetCardField, isFocused: focused != nil)
-		// Over the field's border and the dividers, in their place around the host.
-		.overlayPreferenceValue(HostCellKey.self) { cell in
+		.fieldBox(fill: Palette.sheetCardField, isFocused: focused != nil && problem == nil)
+		// Over the field's border and the dividers, in their place around the part.
+		.overlayPreferenceValue(AddressCellsKey.self) { cells in
 			GeometryReader { field in
-				if let cell {
-					let frame = field[cell]
+				if let host = cells[.host] {
+					let frame = field[host]
 
 					Rectangle()
 						.strokeBorder(Palette.destructive, lineWidth: 1)
 						.frame(width: frame.width + 2, height: field.size.height)
 						.position(x: frame.midX, y: field.size.height / 2)
-						.opacity(hostProblem == nil ? 0 : 1)
-						.animation(Motion.toggle, value: hostProblem == nil)
+						.opacity(ringed == .host ? 1 : 0)
+						.animation(Motion.toggle, value: ringed == .host)
+				}
+
+				if let port = cells[.port] {
+					let start = field[port].minX - 1
+
+					// The field's own right end, and a line in the divider's place.
+					ZStack(alignment: .leading) {
+						Squircle(cornerRadius: 11)
+							.strokeBorder(Palette.destructive, lineWidth: 1)
+							.mask(alignment: .trailing) {
+								Rectangle().frame(width: field.size.width - start)
+							}
+
+						Rectangle()
+							.fill(Palette.destructive)
+							.frame(width: 1)
+							.offset(x: start)
+					}
+					.opacity(ringed == .port ? 1 : 0)
+					.animation(Motion.toggle, value: ringed == .port)
 				}
 			}
 			.allowsHitTesting(false)
@@ -639,12 +659,12 @@ private struct ProxyAddressField: View {
 	}
 }
 
-// The host's cell in the address field, for the ring drawn over the field.
-private struct HostCellKey: PreferenceKey {
-	static let defaultValue: Anchor<CGRect>? = nil
+// The address field's parts, for the ring drawn over the field.
+private struct AddressCellsKey: PreferenceKey {
+	static let defaultValue: [ProxyAddressField.Part: Anchor<CGRect>] = [:]
 
-	static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-		value = value ?? nextValue()
+	static func reduce(value: inout [ProxyAddressField.Part: Anchor<CGRect>], nextValue: () -> [ProxyAddressField.Part: Anchor<CGRect>]) {
+		value.merge(nextValue()) { _, new in new }
 	}
 }
 

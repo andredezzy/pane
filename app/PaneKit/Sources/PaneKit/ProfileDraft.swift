@@ -7,9 +7,8 @@ public struct ProfileDraft: Equatable, Sendable {
 	// Pane runs on macOS only: the host's platform.
 	public static let hostPlatform = Platform.macOS
 
-	// What keeps it from saving, the first found, shown at its field: the name's
-	// and the port's in words under it, the host's as a red ring, whose words are
-	// for VoiceOver.
+	// What keeps it from saving, the first found, shown as a red ring around its
+	// field, whose words are for VoiceOver.
 	public enum Problem: Equatable, Sendable {
 		case nameMissing
 		case hostMissing

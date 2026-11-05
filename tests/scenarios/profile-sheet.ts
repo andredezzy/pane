@@ -21,9 +21,9 @@ import { expect, type Scenario } from "../run";
 // a profile without a fingerprint; a rename keeps the fingerprint; another
 // platform gets that platform's preset, the warning, and reaches the profile's
 // open tab; a proxy string pasted into the address fills the fields, and its
-// test answers through the proxy (proxy checks its password at rest), and with
-// no host, or one Chrome cannot read, it does not save, the field ringed in red
-// and brought into view for want of words; Save
+// test answers through the proxy (proxy checks its password at rest); with no
+// name, no host, one Chrome cannot read, or no valid port, it does not save, the
+// field ringed in red and brought into view for want of words; Save
 // history reaches the engine (profile-history checks what the engine then
 // does); a fingerprint follows the computer's time zone until the menu names
 // another, which reaches the open tab; and turning spoofing off clears the
@@ -371,7 +371,42 @@ const profileSheet: Scenario = async (context) => {
 			(state) => state.profileSheet === "new",
 		);
 
+		// With no name it does not save, and VoiceOver hears why.
+		await clickButton(pid, window, "Create");
+		await Bun.sleep(500);
+
+		const noName = await app.state();
+
+		expect(
+			noName.profileSheet === "new" && !newProfile(noName, known),
+			`no name saved: ${JSON.stringify(noName.profileSheet)}`,
+		);
+
+		const fieldLine = async (label: string, name: string) =>
+			(await tree(`profile-sheet-a11y-${name}`))
+				.split("\n")
+				.find((line) => line.includes(`(${label})`)) ?? "";
+
+		const nameLine = await fieldLine("Name", "name-missing");
+
+		expect(
+			nameLine.includes('help="Profile name is required"'),
+			`no name: ${nameLine}`,
+		);
+
+		await render("profile-sheet-name-missing");
 		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
+
+		const nameFixed = await poll(
+			"the name's problem to go",
+			async () => {
+				const line = await fieldLine("Name", "name-fixed");
+
+				return !line.includes("help=") && line;
+			},
+			5_000,
+			100,
+		);
 
 		// Another platform's warning takes the address past the body's end.
 		await clickButton(pid, window, "Windows");
@@ -394,12 +429,11 @@ const profileSheet: Scenario = async (context) => {
 		const belowTheBody = hostBefore.y + hostBefore.h > (await bodyEnd());
 
 		// Pressed with what cannot save: the sheet stays, and nothing is made.
-		const hostLine = async (name: string) =>
-			(await tree(`profile-sheet-a11y-${name}`))
-				.split("\n")
-				.find((line) => line.includes("(Proxy host)")) ?? "";
-
-		const refuses = async (name: string, message: string) => {
+		const refuses = async (
+			name: string,
+			message: string,
+			label = "Proxy host",
+		) => {
 			await clickButton(pid, window, "Create");
 			await Bun.sleep(500);
 			const state = await app.state();
@@ -420,7 +454,7 @@ const profileSheet: Scenario = async (context) => {
 			);
 
 			// No words on the screen: VoiceOver hears why.
-			const line = await hostLine(name);
+			const line = await fieldLine(label, name);
 
 			expect(line.includes(`help="${message}"`), `${name}: ${line}`);
 
@@ -463,6 +497,42 @@ const profileSheet: Scenario = async (context) => {
 		await Bun.sleep(300);
 		await refuses("host-missing-again", "Proxy host is required");
 
+		// A host, and a port past the last one. The port's field selects its text
+		// as it takes focus, so this replaces the 8080 it holds.
+		await typeIntoField(pid, window, "pane.profile.proxyHost", "127.0.0.1");
+		await typeIntoField(pid, window, "pane.profile.proxyPort", "70000");
+
+		await refuses(
+			"port-invalid",
+			"Port must be between 1 and 65535",
+			"Proxy port",
+		);
+
+		// Afresh again, for the proxy string below.
+		await clickButton(pid, window, "Cancel");
+
+		await app.waitFor(
+			"the sheet closed",
+			(state) => state.profileSheet === null,
+		);
+
+		await clickButton(pid, window, "New");
+
+		await app.waitFor(
+			"the new profile sheet",
+			(state) => state.profileSheet === "new",
+		);
+
+		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
+
+		await clickControl(pid, window, {
+			title: "Proxy",
+			role: /AX(CheckBox|Switch)/,
+		});
+
+		await Bun.sleep(300);
+		await refuses("host-missing-once-more", "Proxy host is required");
+
 		await typeIntoField(
 			pid,
 			window,
@@ -474,7 +544,7 @@ const profileSheet: Scenario = async (context) => {
 		const hostFixed = await poll(
 			"the host's problem to go",
 			async () => {
-				const line = await hostLine("host-fixed");
+				const line = await fieldLine("Proxy host", "host-fixed");
 
 				return !line.includes("help=") && line;
 			},
@@ -675,6 +745,7 @@ const profileSheet: Scenario = async (context) => {
 				testedThrough: proxy.log.length,
 				hostBelowTheBody: belowTheBody,
 				hostFixed,
+				nameFixed,
 			},
 			spoofingOff: {
 				byLabelClick: spoofAfterClick,
