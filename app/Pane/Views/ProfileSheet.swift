@@ -42,6 +42,8 @@ struct ProfileSheet: View {
 						if draft.spoofing {
 							Hairline()
 							platformFields
+							Hairline()
+							timeZoneRow
 						}
 					}
 
@@ -199,6 +201,21 @@ struct ProfileSheet: View {
 				.frame(maxWidth: .infinity, alignment: .leading)
 				.background(Palette.warningFill, in: Squircle(cornerRadius: 9))
 			}
+		}
+		.sheetRowPadding()
+	}
+
+	// The zone the fingerprint claims, or the computer's (ADR 0038).
+	private var timeZoneRow: some View {
+		HStack(spacing: 16) {
+			RowLabels(
+				title: "Time zone",
+				description: draft.timeZone.isEmpty
+					? "Follows this Mac: \(TimeZones.city(TimeZone.current.identifier))."
+					: "Overrides this Mac\u{2019}s time zone."
+			)
+
+			TimeZoneMenu(selection: $draft.timeZone)
 		}
 		.sheetRowPadding()
 	}
@@ -437,6 +454,51 @@ private struct PlatformLogo: View {
 			}
 		}
 		.accessibilityHidden(true)
+	}
+}
+
+// Automatic, every zone by region, then UTC. The trigger shows the zone's city.
+private struct TimeZoneMenu: View {
+	// Listed once: their offsets change with the seasons, not while Pane runs.
+	private static let regions = TimeZones.regions()
+
+	@Binding var selection: String
+
+	var body: some View {
+		PaneMenuTrigger(
+			title: selection.isEmpty ? "Automatic" : TimeZones.city(selection),
+			label: "Time zone",
+			chevron: .upDown
+		) {
+			Picker("", selection: $selection) {
+				Text("Automatic").tag("")
+			}
+			.pickerStyle(.inline)
+			.labelsHidden()
+
+			Divider()
+
+			ForEach(Self.regions) { region in
+				Menu(region.name) {
+					Picker("", selection: $selection) {
+						ForEach(region.choices) { choice in
+							Text(choice.title).tag(choice.identifier)
+						}
+					}
+					.pickerStyle(.inline)
+					.labelsHidden()
+				}
+			}
+
+			Divider()
+
+			Picker("", selection: $selection) {
+				Text(TimeZones.utc).tag(TimeZones.utc)
+			}
+			.pickerStyle(.inline)
+			.labelsHidden()
+		}
+		.accessibilityIdentifier("pane.profile.timeZone")
 	}
 }
 

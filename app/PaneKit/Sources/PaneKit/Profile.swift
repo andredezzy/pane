@@ -96,6 +96,7 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 	public var screen: Screen
 	public var language: String
 	public var languages: [String]
+	// The zone it claims; empty, it claims none, and follows the computer.
 	public var timezone: String
 	public var webgl: WebGL?
 	public var hardwareConcurrency: Int
@@ -105,8 +106,13 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 	public var audio: Noise
 
 	private enum CodingKeys: String, CodingKey {
-		case userAgent, platform, screen, language, languages, timezone, webgl
+		case userAgent, platform, screen, language, languages, webgl
 		case hardwareConcurrency, deviceMemory, maxTouchPoints, canvas, audio
+		// A key of its own: under "timezone", every file holds a preset's zone,
+		// which nobody chose, so a file without this one follows the computer
+		// (ADR 0038). "timezone" is still written, as Pane before 0.17 requires it.
+		case timezone = "timeZone"
+		case olderTimezone = "timezone"
 	}
 
 	public init(
@@ -144,7 +150,7 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 		screen = try container.decode(Screen.self, forKey: .screen)
 		language = try container.decode(String.self, forKey: .language)
 		languages = try container.decode([String].self, forKey: .languages)
-		timezone = try container.decode(String.self, forKey: .timezone)
+		timezone = try container.decodeIfPresent(String.self, forKey: .timezone) ?? ""
 		webgl = try container.decodeIfPresent(WebGL.self, forKey: .webgl)
 		hardwareConcurrency = try container.decode(Int.self, forKey: .hardwareConcurrency)
 		deviceMemory = try container.decode(Double.self, forKey: .deviceMemory)
@@ -161,6 +167,7 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 		try container.encode(language, forKey: .language)
 		try container.encode(languages, forKey: .languages)
 		try container.encode(timezone, forKey: .timezone)
+		try container.encode(timezone, forKey: .olderTimezone)
 		try container.encode(webgl, forKey: .webgl)
 		try container.encode(hardwareConcurrency, forKey: .hardwareConcurrency)
 		try container.encode(deviceMemory, forKey: .deviceMemory)

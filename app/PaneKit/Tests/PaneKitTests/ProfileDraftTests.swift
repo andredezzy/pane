@@ -49,6 +49,40 @@ struct ProfileDraftTests {
 		#expect(!ProfileDraft(profile: profile()).spoofing)
 	}
 
+	@Test("the time zone goes from the profile to the form and back, and survives another platform")
+	func timeZone() {
+		var claimed = Fingerprint.preset(.macOS)
+		claimed.timezone = "Asia/Tokyo"
+		var saved = profile(fingerprint: claimed)
+
+		var draft = ProfileDraft(profile: saved)
+		#expect(draft.timeZone == "Asia/Tokyo")
+
+		draft.platform = .windows
+		draft.apply(to: &saved) { .preset(.windows) }
+		#expect(saved.fingerprint?.platform == .windows)
+		#expect(saved.fingerprint?.timezone == "Asia/Tokyo")
+
+		draft.timeZone = ""
+		draft.apply(to: &saved) { .preset(.windows) }
+		#expect(saved.fingerprint?.timezone == "")
+
+		draft.timeZone = "Asia/Tokyo"
+		draft.spoofing = false
+		draft.apply(to: &saved) { .preset(.windows) }
+		#expect(saved.fingerprint == nil)
+		#expect(ProfileDraft(profile: saved).timeZone.isEmpty)
+	}
+
+	@Test("a new profile claims no time zone: it follows the computer")
+	func newTimeZone() {
+		#expect(ProfileDraft().timeZone.isEmpty)
+
+		for platform in Platform.allCases {
+			#expect(Fingerprint.preset(platform).timezone.isEmpty)
+		}
+	}
+
 	@Test("turning history off owes a clear, kept until it is done; back on owes none")
 	func clearOwed() {
 		var saved = profile()

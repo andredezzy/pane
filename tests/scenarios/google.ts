@@ -15,7 +15,7 @@ const WINDOWS = {
 	screen: { width: 1920, height: 1080, colorDepth: 24 },
 	language: "en-US",
 	languages: ["en-US", "en"],
-	timezone: "America/New_York",
+	timeZone: "America/New_York",
 	webgl: {
 		vendor: "Google Inc. (NVIDIA)",
 		renderer:

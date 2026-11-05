@@ -28,6 +28,8 @@ public struct ProfileDraft: Equatable, Sendable {
 	public var savesHistory = true
 	public var spoofing = true
 	public var platform = hostPlatform
+	// The zone the fingerprint claims; empty, the computer's.
+	public var timeZone = ""
 	public var proxyEnabled = false
 	public var proxyType = ProxyType.http
 	public var proxyHost = ""
@@ -46,6 +48,7 @@ public struct ProfileDraft: Equatable, Sendable {
 		savesHistory = profile.savesHistory
 		spoofing = profile.fingerprint != nil
 		platform = profile.fingerprint?.platform ?? Self.hostPlatform
+		timeZone = profile.fingerprint?.timezone ?? ""
 		proxyEnabled = profile.proxy != nil
 
 		if let proxy = profile.proxy {
@@ -126,6 +129,7 @@ public struct ProfileDraft: Equatable, Sendable {
 		profile.group = group.isEmpty ? nil : group
 		profile.savesHistory = savesHistory
 		profile.fingerprint = Fingerprint.edited(stored: profile.fingerprint, spoofing: spoofing, platform: platform, generate: generate)
+		profile.fingerprint?.timezone = timeZone
 		profile.proxy = proxy
 	}
 }

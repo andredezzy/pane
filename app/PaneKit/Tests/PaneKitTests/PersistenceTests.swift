@@ -137,6 +137,8 @@ struct ProfilesPersistenceTests {
 		#expect(profile.group == nil)
 		#expect(profile.tabs == [Tab(id: "t1", url: "https://example.com/", title: "Example Domain", favicon: "")])
 		#expect(profile.fingerprint?.screen.colorDepth == 24)
+		// Its zone was a preset's, under the older key: it follows the computer.
+		#expect(profile.fingerprint?.timezone == "")
 		#expect(profile.fingerprint?.canvas.noise == true)
 		#expect(profile.fingerprint?.audio.noise == true)
 		#expect(profile.proxy == ProxyConfig(proxyType: .socks5, host: "127.0.0.1", port: 1080, username: "u", password: nil))
@@ -153,6 +155,22 @@ struct ProfilesPersistenceTests {
 		try file.save(state)
 
 		#expect(try file.load() == state)
+	}
+
+	@Test("a zone chosen outlives a quit, and an older Pane still finds the key it requires")
+	func chosenTimeZone() throws {
+		let directory = try temporaryDirectory()
+		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
+		var fingerprint = Fingerprint.preset(.macOS)
+		fingerprint.timezone = "Asia/Tokyo"
+
+		try file.save(ProfilesState(profiles: [BrowserProfile(id: "p1", name: "Work", fingerprint: fingerprint, createdAt: "a", updatedAt: "b")]))
+
+		#expect(try file.load()?.profiles.first?.fingerprint?.timezone == "Asia/Tokyo")
+
+		let json = try String(contentsOf: file.url, encoding: .utf8)
+		#expect(json.contains(#""timeZone":"Asia\/Tokyo""#))
+		#expect(json.contains(#""timezone":"Asia\/Tokyo""#))
 	}
 
 	@Test("a clear still owed outlives a quit")

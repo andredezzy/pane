@@ -23,7 +23,9 @@ import { expect, type Scenario } from "../run";
 // open tab; a proxy string pasted into the address fills the fields, and its
 // test answers through the proxy (proxy checks its password at rest); Save
 // history reaches the engine (profile-history checks what the engine then
-// does); and turning spoofing off clears the fingerprint.
+// does); a fingerprint follows the computer's time zone until the menu names
+// another, which reaches the open tab; and turning spoofing off clears the
+// fingerprint.
 
 type Saved = {
 	id: string;
@@ -31,6 +33,7 @@ type Saved = {
 	savesHistory: boolean;
 	fingerprint: {
 		platform: string;
+		timeZone: string;
 		webgl: { vendor: string; renderer: string } | null;
 	} | null;
 	proxy: {
@@ -252,6 +255,110 @@ const profileSheet: Scenario = async (context) => {
 			`the open tab saw ${before}, then ${after}`,
 		);
 
+		// The computer's time zone, until the menu names another. The menu's
+		// titles carry today's offset, as Intl spells it but for its minus sign.
+		const macZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+		const pageZone = async () =>
+			(await app.page(macTab, fingerprintURL)).evaluate<string>(
+				"Intl.DateTimeFormat().resolvedOptions().timeZone",
+			);
+
+		const followed = await pageZone();
+
+		const offset = new Intl.DateTimeFormat("en-US", {
+			timeZone: "Asia/Tokyo",
+			timeZoneName: "shortOffset",
+		})
+			.formatToParts(new Date())
+			.find((part) => part.type === "timeZoneName")?.value;
+
+		const chooseZone = async (path: string[], shows: string) => {
+			await app.send("openProfileSheet", { profile: mac });
+
+			await app.waitFor(
+				"the edit sheet",
+				(state) => state.profileSheet === mac,
+			);
+
+			await Bun.sleep(400);
+
+			// Pressed through accessibility in a window that may be on another
+			// Space, a menu or its submenu does not always open or take the press:
+			// again from the trigger, until the trigger shows the choice.
+			await poll(
+				`the menu's ${path.join(" > ")}`,
+				async () => {
+					try {
+						await clickControl(pid, window, {
+							title: "Time zone",
+							role: /AXMenuButton/,
+						});
+
+						for (const title of path) {
+							await clickControl(pid, "any", { title, role: /AXMenuItem/ });
+						}
+
+						await Bun.sleep(200);
+
+						const { value } = await readControl(
+							pid,
+							window,
+							"Time zone",
+							/AXMenuButton/,
+						);
+
+						return value === shows;
+					} catch {
+						return false;
+					}
+				},
+				60_000,
+				500,
+			);
+
+			await Bun.sleep(300);
+			await clickButton(pid, window, "Save");
+
+			await app.waitFor(
+				"the sheet closed",
+				(state) => state.profileSheet === null,
+			);
+
+			await app.send("select", { tab: macTab });
+
+			await app.waitFor(
+				"the tab back",
+				(state) =>
+					!!tabOf(state, macTab)?.loaded && !tabOf(state, macTab)?.loading,
+			);
+		};
+
+		await chooseZone(["Asia", `Tokyo (${offset})`], "Tokyo");
+		const chosen = await pageZone();
+		const chosenSaved = (await saved(app, mac)).fingerprint?.timeZone;
+
+		await chooseZone(["Automatic"], "Automatic");
+		const followedAgain = await pageZone();
+		const followedSaved = (await saved(app, mac)).fingerprint?.timeZone;
+
+		const timeZone = {
+			followed,
+			chosen,
+			chosenSaved,
+			followedAgain,
+			followedSaved,
+		};
+
+		expect(
+			followed === macZone &&
+				chosen === "Asia/Tokyo" &&
+				chosenSaved === "Asia/Tokyo" &&
+				followedAgain === macZone &&
+				followedSaved === "",
+			`the time zone, on a Mac in ${macZone}: ${JSON.stringify(timeZone)}`,
+		);
+
 		// The proxy: a string pasted into its address, its test, and Create.
 		known = (await app.state()).profiles.map((profile) => profile.id);
 		await clickButton(pid, window, "New");
@@ -451,6 +558,7 @@ const profileSheet: Scenario = async (context) => {
 				fingerprint: windows.fingerprint,
 				openTab: { before, after },
 			},
+			timeZone,
 			historyOff: {
 				saved: windows.savesHistory,
 				engine: historyOff.profiles.find((each) => each.id === mac)

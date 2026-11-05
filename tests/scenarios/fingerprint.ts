@@ -19,7 +19,7 @@ type Report = {
 	deviceMemory: number;
 	language: string;
 	languages: string[];
-	timezone: string;
+	timeZone: string;
 	locale: string;
 	numberLocale: string;
 	offsets: number[];
@@ -72,7 +72,7 @@ const WINDOWS = {
 	screen: { width: 1920, height: 1080, colorDepth: 24 },
 	language: "en-US",
 	languages: ["en-US", "en"],
-	timezone: "America/New_York",
+	timeZone: "America/New_York",
 	webgl: {
 		vendor: "Google Inc. (NVIDIA)",
 		renderer:
@@ -92,7 +92,7 @@ const LINUX = {
 	screen: { width: 1366, height: 768, colorDepth: 24 },
 	language: "pt-BR",
 	languages: ["pt-BR", "pt", "en"],
-	timezone: "Asia/Tokyo",
+	timeZone: "Asia/Tokyo",
 	webgl: {
 		vendor: "Google Inc. (Intel)",
 		renderer: "ANGLE (Intel, Mesa Intel(R) UHD Graphics 630, OpenGL 4.6)",
@@ -218,7 +218,7 @@ const fingerprint: Scenario = async (context) => {
 				deviceMemory: configured.deviceMemory,
 				language: configured.language,
 				languages: configured.languages,
-				timezone: configured.timezone,
+				timezone: configured.timeZone,
 				locale: configured.language,
 				numberLocale: configured.language,
 				offsets: claimed.offsets,
@@ -358,7 +358,7 @@ const fingerprint: Scenario = async (context) => {
 				userAgent,
 				platform: claimed.navigatorPlatform,
 				hardwareConcurrency: configured.hardwareConcurrency,
-				timezone: configured.timezone,
+				timezone: configured.timeZone,
 				screenWidth: configured.screen.width,
 			}),
 			`${key}'s first script saw ${JSON.stringify(reports.early)}`,
