@@ -193,12 +193,14 @@ public final class BrowserModel {
 		}
 	}
 
-	// A new profile, at the end, as `configure` makes it.
+	// A new profile, at the end, as `configure` makes it. Off from the start, it
+	// has kept nothing to clear.
 	@discardableResult
 	public func createProfile(_ configure: (inout BrowserProfile) -> Void) -> String {
 		let now = timestamp()
 		var profile = BrowserProfile(id: UUID().uuidString.lowercased(), name: "", createdAt: now, updatedAt: now)
 		configure(&profile)
+		profile.clearsHistory = false
 		profiles.append(profile)
 		scheduleSave(profiles: true)
 

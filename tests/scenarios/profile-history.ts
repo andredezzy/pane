@@ -151,7 +151,7 @@ const historyScenario: Scenario = async (context) => {
 		"history-probe",
 	);
 
-	const app = await launchPane(context, {
+	const { app, has } = await launchTraced(context, "profile-history-first", {
 		dataDir,
 		args: [RESOLVER, `--load-extension=${PROBE}`],
 	});
@@ -239,6 +239,12 @@ const historyScenario: Scenario = async (context) => {
 	expect(
 		isEmpty(keptWhileOff) && namedWhileOff.length === 0,
 		`off from the start, it kept ${JSON.stringify(keptWhileOff)} in ${JSON.stringify(namedWhileOff)}`,
+	);
+
+	// With nothing kept, nothing to clear.
+	expect(
+		!has("PaneBrowserContext.clearHistory"),
+		"a new profile, off from the start, ran a clear as it opened",
 	);
 
 	// A cookie, which clearing leaves, and a step of the tab's own history,
@@ -394,10 +400,10 @@ const historyScenario: Scenario = async (context) => {
 		"the clear no longer owed",
 		async () =>
 			!(
-				await second.send<{ clearsHistory: boolean }>("readProfile", {
+				await second.send<{ historyClearOwed: boolean }>("readProfile", {
 					profile: off,
 				})
-			).result.clearsHistory,
+			).result.historyClearOwed,
 		25_000,
 		500,
 	);
@@ -469,10 +475,10 @@ const historyScenario: Scenario = async (context) => {
 		"the owed clear to finish",
 		async () =>
 			!(
-				await fourth.app.send<{ clearsHistory: boolean }>("readProfile", {
+				await fourth.app.send<{ historyClearOwed: boolean }>("readProfile", {
 					profile: off,
 				})
-			).result.clearsHistory,
+			).result.historyClearOwed,
 		25_000,
 		500,
 	);

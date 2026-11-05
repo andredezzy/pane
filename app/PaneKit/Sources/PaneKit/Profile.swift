@@ -246,14 +246,17 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 	}
 
 	// Turned off, what it kept is still to clear, until the engine says it is
-	// gone: a lock or a quit before then clears at the next open.
+	// gone: a lock or a quit before then clears at the next open. A file without
+	// the key, from before 0.18, owes one if the profile is off, for what those
+	// versions neither kept off nor cleared (ADR 0119).
 	public var clearsHistory: Bool
 	public var tabs: [Tab]
 	public var createdAt: String
 	public var updatedAt: String
 
 	private enum CodingKeys: String, CodingKey {
-		case id, name, color, group, fingerprint, proxy, keepLoaded, savesHistory, clearsHistory, tabs, createdAt, updatedAt
+		case id, name, color, group, fingerprint, proxy, keepLoaded, savesHistory, tabs, createdAt, updatedAt
+		case clearsHistory = "historyClearOwed"
 	}
 
 	public init(
@@ -293,7 +296,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		proxy = try container.decodeIfPresent(ProxyConfig.self, forKey: .proxy)
 		keepLoaded = try container.decodeIfPresent(Bool.self, forKey: .keepLoaded) ?? false
 		savesHistory = try container.decodeIfPresent(Bool.self, forKey: .savesHistory) ?? true
-		clearsHistory = try container.decodeIfPresent(Bool.self, forKey: .clearsHistory) ?? false
+		clearsHistory = try container.decodeIfPresent(Bool.self, forKey: .clearsHistory) ?? !savesHistory
 		tabs = try container.decode([Tab].self, forKey: .tabs)
 		createdAt = try container.decode(String.self, forKey: .createdAt)
 		updatedAt = try container.decode(String.self, forKey: .updatedAt)

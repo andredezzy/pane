@@ -188,20 +188,16 @@ final class BrowserController: NSObject {
 
 	// The choice reaches the engine, and a clear still owed runs. Both are made
 	// up as the profile opens, whatever a quit, a crash, or a lock cut short.
-	// Off here and on in the engine, the engine never took the Save, nor kept
-	// its clear: a file from before `clearsHistory` owes none by name.
 	private func applyHistory(_ profileID: String, to context: BrowserContext) {
 		guard let profile = model.profile(profileID) else {
 			return
 		}
 
-		let owed = profile.clearsHistory || (context.savesHistory && !profile.savesHistory)
-
 		if context.savesHistory != profile.savesHistory {
 			context.savesHistory = profile.savesHistory
 		}
 
-		guard owed, clearingHistory.insert(profileID).inserted else {
+		guard profile.clearsHistory, clearingHistory.insert(profileID).inserted else {
 			return
 		}
 

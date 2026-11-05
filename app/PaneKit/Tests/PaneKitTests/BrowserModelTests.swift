@@ -211,6 +211,16 @@ struct BrowserModelTests {
 		#expect(model.profile("p")?.name == "Renamed")
 	}
 
+	@Test("a new profile, off from the start, has nothing to clear")
+	func newProfileOwesNoClear() {
+		let harness = Harness()
+		let model = harness.model!
+		let id = model.createProfile { $0.savesHistory = false }
+
+		#expect(model.profile(id)?.savesHistory == false)
+		#expect(model.profile(id)?.clearsHistory == false)
+	}
+
 	@Test("profiles take the clock's time, created and updated")
 	func timestamps() {
 		let harness = Harness()

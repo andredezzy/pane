@@ -185,6 +185,28 @@ struct ProfilesPersistenceTests {
 		#expect(try file.load()?.profiles.first?.clearsHistory == true)
 	}
 
+	@Test("a file from before the owed clear's key owes one, on a profile that is off")
+	func olderFileOwesAClear() throws {
+		let encoded = { (saves: Bool, owed: Bool?) throws -> Data in
+			var profile = BrowserProfile(id: "p1", name: "Work", savesHistory: saves, createdAt: "a", updatedAt: "b")
+			profile.clearsHistory = owed ?? false
+			var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
+
+			if owed == nil {
+				object["historyClearOwed"] = nil
+			}
+
+			return try JSONSerialization.data(withJSONObject: object)
+		}
+
+		let decode = { (data: Data) throws in try JSONDecoder().decode(BrowserProfile.self, from: data) }
+
+		#expect(try decode(encoded(false, nil)).clearsHistory)
+		#expect(try !decode(encoded(true, nil)).clearsHistory)
+		#expect(try !decode(encoded(false, false)).clearsHistory)
+		#expect(try decode(encoded(false, true)).clearsHistory)
+	}
+
 	@Test("writes explicit nulls, as the Electron app does")
 	func writesNulls() throws {
 		let directory = try temporaryDirectory()
