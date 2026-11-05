@@ -26,9 +26,9 @@ struct ProfileSheet: View {
 	var body: some View {
 		VStack(spacing: 0) {
 			header
-			hairline
+			Hairline()
 
-			FadingScrollView {
+			ScrollView {
 				VStack(alignment: .leading, spacing: 18) {
 					identity
 
@@ -61,7 +61,7 @@ struct ProfileSheet: View {
 				.animation(Motion.toggle, value: isCrossOS)
 			}
 
-			hairline
+			Hairline()
 
 			HStack(spacing: 8) {
 				Spacer()
@@ -110,12 +110,6 @@ struct ProfileSheet: View {
 		.frame(height: 24)
 		.padding(.horizontal, 20)
 		.padding(.vertical, 16)
-	}
-
-	// The Electron app's header and footer rules: white 5%, which only shows
-	// on dark.
-	private var hairline: some View {
-		Hairline(color: .white.opacity(0.05))
 	}
 
 	private var identity: some View {

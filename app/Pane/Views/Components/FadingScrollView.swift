@@ -3,7 +3,8 @@ import SwiftUI
 // A vertical scroll view whose edges fade as it scrolls: the top fade grows
 // from nothing to its full height over the first points scrolled, the bottom
 // one shrinks to nothing over the last, so nothing fades at either end or when
-// the content fits. The sidebar's list and the profile sheet's body.
+// the content fits. For an edge with nothing to mark it (DESIGN.md › Scroll
+// edges): the sidebar's list.
 struct FadingScrollView<Content: View>: View {
 	@ViewBuilder let content: Content
 

@@ -304,8 +304,9 @@ const profileSheet: Scenario = async (context) => {
 
 		await render("profile-sheet-proxy");
 
-		// The form runs past the body here: its edges fade as it scrolls, for
-		// the eye to check in the window as the screen shows it.
+		// The form runs past the body here: it ends hard at the rules, which show
+		// in both themes, for the eye to check in the window as the screen shows
+		// it.
 		const nameField = await readControl(pid, window, "Name", /AXTextField/);
 
 		await app.send("scrollWindow", {
@@ -316,9 +317,16 @@ const profileSheet: Scenario = async (context) => {
 
 		await Bun.sleep(300);
 
-		await $`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, "profile-sheet-scrolled.png")}`
-			.quiet()
-			.nothrow();
+		for (const theme of ["light", "dark"]) {
+			await app.send("theme", { theme });
+			await Bun.sleep(300);
+
+			await $`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, `profile-sheet-scrolled-${theme}.png`)}`
+				.quiet()
+				.nothrow();
+		}
+
+		await app.send("theme", { theme: "system" });
 
 		await clickButton(pid, window, "Create");
 

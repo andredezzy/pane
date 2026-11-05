@@ -32,6 +32,12 @@ Implementation notes:
 - A capsule takes `Capsule(style: .circular)`. The default style drew a flat stretch at each end of the 28-point profile chip.
 - A layer, which draws only circular or continuous corners (the page view), takes 0.57 of the radius as a circle: it follows the superellipse within a fifth of a point (0.4 pixels at 2×), with no mask to composite.
 
+## Scroll edges
+
+### A fade is for an edge with nothing to mark it
+
+A scroll view whose edge has nothing visible at it fades there as it scrolls, as the sidebar's list does. One bounded by a rule, a header, or a footer ends hard at it, as the profile sheet's body does, and never takes both. A rule that bounds one shows in both themes.
+
 ## Motion
 
 ### Selection is instant; hover and enter/exit animate

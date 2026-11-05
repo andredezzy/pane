@@ -4,13 +4,13 @@ The sheet had grown a field at a time from the Electron app's (ADR 0034): a colu
 
 What changes (`app/Pane/Views/ProfileSheet.swift`):
 
-- **400 points wide**, from 360, for three tiles and a sentence under each switch. The rest of its frame stays: inset 8 from the window, the header and footer rules.
+- **400 points wide**, from 360, for three tiles and a sentence under each switch. The rest of its frame stays: inset 8 from the window, and a rule under the header and over the footer.
 - **The name, group, and color**, at the top, with no card: labels at 12 on 16-point lines (`FormLabel.Size.regular`), fields at 13, swatches 8 apart.
 - **Privacy, Fingerprint, and Network**, each a label over a card, as Settings' groups (ADR 0065) at the panel's scale: rounded 15, over a fill of its own (`Palette.sheetCard`). Each switch has a sentence under it that says what its state does, and changes with it (`RowLabels`, shared with Settings).
 - **The platform:** three tiles 72 tall, 13 above and below inside their border, each a logo over its name, the chosen one ringed in the foreground as the App icon picker's is (ADR 0089). Choosing is instant; hover fills the others.
 - **A warning** when the platform is not the Mac's, on amber, which comes and goes with the layout's move (`Motion.toggle`), though the click that causes it lands at once.
 - **One address field:** the proxy's type, host, and port, with `PaneMenuButton`'s `embedded` size for the type, which holds the width of its longest option, so the host does not move when it changes. The separate paste field is gone. A proxy string pasted into the host fills the fields; typed there, it fills them when the field is left, or on Test connection or Save, since a host typed a key at a time must not lose its colons as they come.
-- **The body fades at its top and bottom as it scrolls**, the user's request, seeing the proxy's card cut hard at the footer: the sidebar's `FadingScrollView` (ADR 0061), the same height and curve. Nothing fades at either end, or when the form fits.
+- **The body scrolls between two rules, the header's and the footer's, in the border color in both themes.** They were white 5%, the Electron app's, which only showed on dark, so on light the proxy's card cut hard at nothing. 0.16.1 gave the body the sidebar's fade for that (ADR 0061). On seeing it beside the rules on dark, the user gave the rule: a fade is for an edge with nothing to mark it (`DESIGN.md` › Scroll edges). So the rules show on light too, and the body does not fade.
 - **The proxy test beside its button**, a dot and words, not on the button: yellow "Testing…", emerald "Connected · 45.12.8.19", or the error on red. An answer is dropped once the fields no longer hold the proxy it tested.
 
 The words the boards leave to the states: "Sites see this Mac." with spoofing off, and "Keeps no pages or downloads." on a profile with nothing to clear.
