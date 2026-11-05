@@ -84,7 +84,9 @@ extension Fingerprint {
 
 // The proxy field's shortcut: "host:port", "host:port:user", or
 // "host:port:user:password", as proxy sellers list them. The password is the
-// rest of the line, colons and all.
+// rest of the line, colons and all. An IPv6 host takes its brackets, and an
+// IPv6 address alone is a host, not a shortcut: the sheet reads what is in the
+// host field as one.
 public struct ProxyString: Equatable, Sendable {
 	public var host: String
 	public var port: Int
@@ -92,17 +94,33 @@ public struct ProxyString: Equatable, Sendable {
 	public var password: String?
 
 	public init?(_ raw: String) {
-		let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+		let line = raw.trimmingCharacters(in: .whitespaces)
+		var address = in6_addr()
 
-		guard parts.count >= 2, let host = parts.first, !host.isEmpty, let port = ProxyConfig.port(parts[1]) else {
+		guard inet_pton(AF_INET6, line, &address) != 1 else {
 			return nil
 		}
 
-		let password = parts.dropFirst(3).joined(separator: ":")
+		let hostEnd = line.hasPrefix("[")
+			? line.firstIndex(of: "]").map(line.index(after:))
+			: line.firstIndex(of: ":")
+
+		guard let hostEnd, line[hostEnd...].first == ":" else {
+			return nil
+		}
+
+		let host = String(line[..<hostEnd])
+		let fields = line[hostEnd...].dropFirst().split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+
+		guard !host.isEmpty, let port = ProxyConfig.port(fields[0]) else {
+			return nil
+		}
+
+		let password = fields.dropFirst(2).joined(separator: ":")
 
 		self.host = host
 		self.port = port
-		username = parts.count > 2 && !parts[2].isEmpty ? parts[2] : nil
+		username = fields.count > 1 && !fields[1].isEmpty ? fields[1] : nil
 		self.password = password.isEmpty ? nil : password
 	}
 }

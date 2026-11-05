@@ -26,11 +26,11 @@ enum ProxyTest {
 
 			switch config.proxyType {
 			case .http:
-				proxy = ProxyConfiguration(httpCONNECTProxy: try endpoint(config.host, config.port))
+				proxy = ProxyConfiguration(httpCONNECTProxy: try endpoint(config.connectionHost, config.port))
 			case .https:
-				proxy = ProxyConfiguration(httpCONNECTProxy: try endpoint(config.host, config.port), tlsOptions: NWProtocolTLS.Options())
+				proxy = ProxyConfiguration(httpCONNECTProxy: try endpoint(config.connectionHost, config.port), tlsOptions: NWProtocolTLS.Options())
 			case .socks5 where !config.needsRelay:
-				proxy = ProxyConfiguration(socksv5Proxy: try endpoint(config.host, config.port))
+				proxy = ProxyConfiguration(socksv5Proxy: try endpoint(config.connectionHost, config.port))
 			case .socks4, .socks5:
 				let local = try SocksRelay(upstream: config)
 				relay = local

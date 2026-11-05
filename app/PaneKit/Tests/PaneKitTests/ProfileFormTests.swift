@@ -44,6 +44,22 @@ struct ProfileFormTests {
 		#expect(ProxyString(":8080") == nil)
 	}
 
+	@Test("an IPv6 host is no shortcut, and takes its brackets in one")
+	func proxyStringIPv6() {
+		#expect(ProxyString("[2606:4700:4700::1111]") == nil)
+		#expect(ProxyString("2606:4700:4700::1111") == nil)
+		#expect(ProxyString("::1") == nil)
+
+		let bracketed = ProxyString("[2606:4700:4700::1111]:1080:user:p:ss")
+		#expect(bracketed?.host == "[2606:4700:4700::1111]")
+		#expect(bracketed?.port == 1080)
+		#expect(bracketed?.username == "user")
+		#expect(bracketed?.password == "p:ss")
+
+		// Colons alone do not make an address: an all-hex name stays a shortcut.
+		#expect(ProxyString("cafe:8080:abcd:1234")?.host == "cafe")
+	}
+
 	@Test("a pasted password keeps its colons")
 	func proxyPasswordWithColons() {
 		#expect(ProxyString("proxy.example:1080:user:p:ss")?.password == "p:ss")

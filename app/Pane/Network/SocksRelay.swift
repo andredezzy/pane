@@ -98,7 +98,7 @@ final class SocksRelay: @unchecked Sendable {
 			throw RelayError("bad proxy port")
 		}
 
-		let remote = NWConnection(host: NWEndpoint.Host(upstream.host), port: port, using: .tcp)
+		let remote = NWConnection(host: NWEndpoint.Host(upstream.connectionHost), port: port, using: .tcp)
 
 		do {
 			try await remote.open(on: queue, timeout: 15)

@@ -265,6 +265,7 @@ struct ProfileSheet: View {
 		draft.pasteProxy(draft.proxyHost)
 
 		guard let config = draft.proxy else {
+			testedProxy = nil
 			proxyTest = .failed(ProfileDraft.Problem.portMessage)
 			return
 		}
@@ -474,7 +475,8 @@ private struct ProxyAddressField: View {
 				.focused($focused, equals: .port)
 				.monospacedDigit()
 				.padding(.horizontal, 12)
-				.frame(width: 63)
+				// Room for 65535 at 13: 41 points, and 12 either side.
+				.frame(width: 65)
 				.accessibilityLabel("Proxy port")
 				.accessibilityIdentifier("pane.profile.proxyPort")
 		}

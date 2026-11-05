@@ -17,7 +17,7 @@ extension ProxyConfig {
 			return "socks5://127.0.0.1:\(relayPort)"
 		}
 
-		return "\(proxyType.rawValue.lowercased())://\(host):\(port)"
+		return "\(proxyType.rawValue.lowercased())://\(chromeHost):\(port)"
 	}
 
 	// Whether Chrome's authentication challenge comes from this proxy: Chrome
@@ -25,7 +25,20 @@ extension ProxyConfig {
 	public func isChallenger(_ challenger: String) -> Bool {
 		let hostPort = challenger.range(of: "://").map { String(challenger[$0.upperBound...]) } ?? challenger
 
-		return hostPort.lowercased() == "\(host):\(port)".lowercased()
+		return hostPort.lowercased() == "\(chromeHost):\(port)".lowercased()
+	}
+
+	// An IPv6 host, as typed with its brackets or without. Chrome reads a bare
+	// one's colons as the port and drops the rule, which would take the profile
+	// direct, past its proxy.
+	private var chromeHost: String {
+		host.contains(":") && !host.hasPrefix("[") ? "[\(host)]" : host
+	}
+
+	// The host for a connection of Pane's own: NWEndpoint reads brackets as part
+	// of a name.
+	public var connectionHost: String {
+		host.hasPrefix("[") && host.hasSuffix("]") ? String(host.dropFirst().dropLast()) : host
 	}
 }
 

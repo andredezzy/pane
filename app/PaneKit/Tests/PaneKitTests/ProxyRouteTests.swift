@@ -3,6 +3,22 @@ import Testing
 
 @Suite("ProxyRoute")
 struct ProxyRouteTests {
+	@Test("an IPv6 host takes brackets for Chrome, typed with them or not, and none for a connection")
+	func ipv6Host() {
+		let bare = ProxyConfig(proxyType: .socks5, host: "2606:4700:4700::1111", port: 1080)
+		let bracketed = ProxyConfig(proxyType: .http, host: "[2606:4700:4700::1111]", port: 3128)
+		let named = ProxyConfig(proxyType: .http, host: "proxy.example", port: 3128)
+
+		#expect(bare.rules(relayPort: nil) == "socks5://[2606:4700:4700::1111]:1080")
+		#expect(bracketed.rules(relayPort: nil) == "http://[2606:4700:4700::1111]:3128")
+		#expect(bare.isChallenger("socks5://[2606:4700:4700::1111]:1080"))
+		#expect(bracketed.isChallenger("http://[2606:4700:4700::1111]:3128"))
+
+		#expect(bare.connectionHost == "2606:4700:4700::1111")
+		#expect(bracketed.connectionHost == "2606:4700:4700::1111")
+		#expect(named.connectionHost == "proxy.example")
+	}
+
 	@Test("HTTP and HTTPS proxies go to Chrome as they are, credentials and all")
 	func httpProxies() {
 		let http = ProxyConfig(proxyType: .http, host: "proxy.example", port: 8080, username: "u", password: "p")
