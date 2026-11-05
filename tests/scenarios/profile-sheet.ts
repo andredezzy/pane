@@ -142,6 +142,7 @@ const profileSheet: Scenario = async (context) => {
 			history: /AX(CheckBox|Switch)[^\n]*\(Save history\)/.test(sheet),
 			spoofing: /AX(CheckBox|Switch)[^\n]*\(Spoof fingerprint\)/.test(sheet),
 			platform: /AXButton[^\n]*\(macOS\)/.test(sheet),
+			timeZone: /\bTime zone\b/.test(sheet),
 			sidebarHidden: !/AXButton[^\n]*\(Plain\)/.test(sheet),
 		};
 
@@ -532,6 +533,12 @@ const profileSheet: Scenario = async (context) => {
 		expect(
 			spoofRow.value === "1" && spoofAfterClick === "0",
 			`a click on the label at ${spoofRow.x + 30},${spoofRow.y + spoofRow.h / 2} left the switch at ${spoofAfterClick} (from ${spoofRow.value})`,
+		);
+
+		// With spoofing off sites see the Mac's zone with the rest of the Mac.
+		expect(
+			!/\bTime zone\b/.test(await tree("profile-sheet-a11y-spoof-off")),
+			"the time zone's row still shows with spoofing off",
 		);
 
 		await clickButton(pid, window, "Save");

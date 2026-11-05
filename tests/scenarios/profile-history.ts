@@ -20,7 +20,8 @@ import { expect, type Scenario } from "../run";
 // outlives a quit, with nothing committed as its pages close; a closed profile opens to
 // clear when it is turned off, and closes again; a choice the engine lost to a
 // crash right after the Save is made up, the clear with it, when the profile
-// opens; and so is a clear a lock or a quit cut short, with the choice landed.
+// opens; and so is a clear a lock or a quit cut short, with the choice landed,
+// at the next launch, the profile opening for it and closing again.
 
 type Kept = { pages: string[]; icons: string[]; downloads: number };
 
@@ -481,11 +482,17 @@ const historyScenario: Scenario = async (context) => {
 		args: [RESOLVER],
 	});
 
-	const owedURL = pageURL("after-owed");
-	await fourth.app.page(await fourth.app.openTab(off, owedURL), owedURL);
-
+	// With nothing to open it, the launch runs what is owed, and it closes again.
 	const owedClear = await fourth.waitForEntry(
 		"PaneBrowserContext.clearHistory",
+	);
+
+	await fourth.app.waitFor(
+		"the profile opened for what it owed to close again",
+		(state) =>
+			state.profiles.find((each) => each.id === off)?.engineSavesHistory ===
+			null,
+		20_000,
 	);
 
 	const owedGone = await poll(

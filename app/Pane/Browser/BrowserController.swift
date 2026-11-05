@@ -89,10 +89,15 @@ final class BrowserController: NSObject {
 	}
 
 	// The profiles, read once the data key opened: the sidebar shows each
-	// proxy's state from then, as the Electron app tested them at launch.
+	// proxy's state from then, as the Electron app tested them at launch. A clear
+	// still owed runs now, rather than whenever its profile next opens.
 	func profilesDidLoad() {
 		for profile in model.profiles where profile.proxy != nil {
 			network.test(profile.id)
+		}
+
+		for profile in model.profiles where profile.clearsHistory {
+			historyDidChange(profile.id)
 		}
 	}
 
