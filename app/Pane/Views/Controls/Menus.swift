@@ -1,8 +1,6 @@
 import SwiftUI
 
 enum PaneMenuSize {
-	// Among a form's fields (h-9, at 14): the profile sheet's.
-	case regular
 	// Beside the small buttons (h-8, at 13): Settings', the Extensions page's.
 	case small
 	// A segment of a field, at 13: as tall as the field, whose border and
@@ -66,7 +64,7 @@ struct PaneMenuTrigger<Content: View>: View {
 			// embedded, the field's border is outside them.
 			.padding(.leading, isEmbedded ? 12 : 13)
 			.padding(.trailing, isEmbedded ? 10 : 11)
-			.frame(height: height)
+			.frame(height: isEmbedded ? nil : 32)
 			.frame(maxHeight: isEmbedded ? .infinity : nil)
 			.background(Palette.outlineHover.opacity(isHovered ? 1 : 0), in: shape)
 			.overlay {
@@ -87,14 +85,6 @@ struct PaneMenuTrigger<Content: View>: View {
 		.accessibilityValue(label == nil ? "" : title)
 	}
 
-	private var height: CGFloat? {
-		switch size {
-		case .regular: 36
-		case .small: 32
-		case .embedded: nil
-		}
-	}
-
 	private var titleText: some View {
 		ZStack(alignment: .leading) {
 			ForEach(titles, id: \.self) { title in
@@ -105,7 +95,7 @@ struct PaneMenuTrigger<Content: View>: View {
 			Text(title)
 				.foregroundStyle(Palette.foreground)
 		}
-		.font(.system(size: size == .regular ? 14 : 13))
+		.font(.system(size: 13))
 		.lineLimit(1)
 	}
 }

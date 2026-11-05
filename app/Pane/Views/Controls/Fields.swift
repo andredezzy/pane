@@ -5,7 +5,6 @@ import SwiftUI
 struct PaneTextField: View {
 	let placeholder: String
 	@Binding var text: String
-	var monospaced = false
 	var fontSize: CGFloat = 14
 	var fill = Palette.background
 	// type="password": the text shows as dots.
@@ -20,7 +19,7 @@ struct PaneTextField: View {
 	var body: some View {
 		field
 		.textFieldStyle(.plain)
-		.font(monospaced ? .system(size: 11, design: .monospaced) : .system(size: fontSize))
+		.font(.system(size: fontSize))
 		.foregroundStyle(Palette.foreground)
 		.focused($focused)
 		.onSubmit(onSubmit)

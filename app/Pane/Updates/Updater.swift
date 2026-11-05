@@ -368,7 +368,9 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 
 	// On a session of its own: a task on the last one would share its connection.
 	private func start(resuming resumeData: Data? = nil) {
+		let lastSession = session
 		session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: .main)
+		lastSession?.finishTasksAndInvalidate()
 
 		let task = resumeData.map(session.downloadTask(withResumeData:)) ?? session.downloadTask(with: request)
 		self.task = task
@@ -444,11 +446,9 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 			return
 		}
 
-		let oldSession = session
 		// A resumed task cancelled before its answer gives none: where the last
 		// one stopped still stands.
 		start(resuming: isRefused ? nil : newData ?? resumeData)
-		oldSession?.finishTasksAndInvalidate()
 	}
 
 	// The server refused to go on from there (GitHub's signed link expires):
@@ -456,9 +456,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	private func startOver() {
 		Log.updates.notice("The download could not resume, and starts over")
 		isRefused = true
-		let oldSession = session
 		start()
-		oldSession?.finishTasksAndInvalidate()
 	}
 
 	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didResumeAtOffset fileOffset: Int64, expectedTotalBytes _: Int64) {
@@ -507,15 +505,13 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 				return
 			}
 
-			isFinished = true
-			session.finishTasksAndInvalidate()
+			finish()
 			MainActor.assumeIsolated { done(.failure(URLError(.badServerResponse))) }
 
 			return
 		}
 
-		isFinished = true
-		session.finishTasksAndInvalidate()
+		finish()
 
 		let file: URL
 
@@ -580,13 +576,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 			task = nil
 
 			DispatchQueue.main.asyncAfter(deadline: .now() + Double(1 << drops)) { [weak self] in
-				guard let self else {
-					return
-				}
-
-				let oldSession = session
-				start(resuming: data)
-				oldSession?.finishTasksAndInvalidate()
+				self?.start(resuming: data)
 			}
 
 			return
@@ -599,9 +589,13 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 			return
 		}
 
+		finish()
+		MainActor.assumeIsolated { done(.failure(error)) }
+	}
+
+	private func finish() {
 		isFinished = true
 		session.finishTasksAndInvalidate()
-		MainActor.assumeIsolated { done(.failure(error)) }
 	}
 
 	private func moveToFreeName(_ location: URL) throws -> URL {

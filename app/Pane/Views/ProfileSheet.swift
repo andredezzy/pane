@@ -181,8 +181,8 @@ struct ProfileSheet: View {
 						Log.interaction("Choose platform")
 						draft.platform = platform
 					}
-						.buttonStyle(PlatformTileStyle(platform: platform, isSelected: platform == draft.platform))
-						.accessibilityAddTraits(platform == draft.platform ? .isSelected : [])
+					.buttonStyle(PlatformTileStyle(platform: platform, isSelected: platform == draft.platform))
+					.accessibilityAddTraits(platform == draft.platform ? .isSelected : [])
 				}
 			}
 			.accessibilityElement(children: .contain)
