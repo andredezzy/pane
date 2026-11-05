@@ -33,5 +33,5 @@ A per-profile exemption from automatic sleep and unload, for always-on or sessio
 _Avoid_: pin (already means something in browser tabs), whitelist
 
 **Save history**:
-A per-profile choice, on by default, of whether a profile keeps a record of where it went: the pages it visits, their icons, and its downloads. Turning it off clears what it kept; its cookies and tabs stay, so it stays signed in.
+A per-profile choice, on by default, of whether a profile keeps a record of where it went: the pages it visits, their icons, its downloads, and what Chrome learns from them. Turning it off clears what it kept; its cookies, site data, and tabs stay, so it stays signed in.
 _Avoid_: incognito, private (those keep no cookies either), clear browsing data (Chrome's wider dialog, which this uses part of)

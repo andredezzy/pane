@@ -247,7 +247,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 
 	// Turned off, what it kept is still to clear, until the engine says it is
 	// gone: a lock or a quit before then clears at the next open. A file without
-	// the key, from before 0.18, owes one if the profile is off, for what those
+	// the key, from before 0.17.1, owes one if the profile is off, for what those
 	// versions neither kept off nor cleared (ADR 0119).
 	public var clearsHistory: Bool
 	public var tabs: [Tab]
