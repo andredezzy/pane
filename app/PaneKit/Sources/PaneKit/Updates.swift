@@ -129,6 +129,59 @@ public enum Updates {
 	}
 }
 
+// When a download leaves its connection (ADR 0002). On a path that throttles
+// some connections and not others, one that starts slow stays slow while the
+// next gets the full rate. Slower than 1 MB/s over its window, a connection is
+// left. Each new one that is no faster doubles the next window, and after four
+// the download stays put: the link itself is the slow one then.
+public struct DownloadPace: Sendable {
+	private static let slowBytesPerSecond = 1_000_000.0
+	private static let firstWindow: TimeInterval = 5
+	private static let switchesInARow = 4
+
+	private var switches = 0
+	private var windowStart: Date
+	private var windowBytes: Int64 = 0
+
+	public init(now: Date) {
+		windowStart = now
+	}
+
+	// How long the connection gets before it is judged.
+	public var window: TimeInterval {
+		Self.firstWindow * pow(2, Double(switches))
+	}
+
+	// A connection's window starts: a new one, or one that resumed `received`
+	// bytes in.
+	public mutating func begin(received: Int64, now: Date) {
+		windowStart = now
+		windowBytes = received
+	}
+
+	// At the end of its window, whether to leave the connection. The next
+	// window starts here either way.
+	public mutating func shouldSwitch(received: Int64, now: Date) -> Bool {
+		let elapsed = now.timeIntervalSince(windowStart)
+		let rate = elapsed > 0 ? Double(received - windowBytes) / elapsed : 0
+		begin(received: received, now: now)
+
+		guard rate < Self.slowBytesPerSecond else {
+			switches = 0
+
+			return false
+		}
+
+		guard switches < Self.switchesInARow else {
+			return false
+		}
+
+		switches += 1
+
+		return true
+	}
+}
+
 // A download's time left (updater.ts): the average rate since the first
 // bytes, which bursts and stalls cannot spike, with hysteresis on top. None
 // in the first second: the connection's setup would weigh on the rate, and a

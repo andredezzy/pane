@@ -311,21 +311,31 @@ final class Updater {
 
 // One dmg download, with its progress and time left, into the downloads
 // folder (a name already taken there gets " (1)" and so on, as Chrome does).
-// Given the release's SHA-256, the dmg must match it, and then leaves
-// quarantine (ADR 0002): Pane quarantines every file it writes, and macOS
-// will not open a quarantined copy of an app that is not notarized.
+// A connection that crawls is left for another, from where it got to
+// (DownloadPace). Given the release's SHA-256, the dmg must match it, and then
+// leaves quarantine (ADR 0002): Pane quarantines every file it writes, and
+// macOS will not open a quarantined copy of an app that is not notarized.
 private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
 	private struct DigestMismatch: Error {
 		let expected: String
 		let actual: String
 	}
 
+	private let request: URLRequest
 	private let destination: URL
 	private let sha256: String?
 	private let progress: @MainActor (Double, Int?) -> Void
 	private let done: @MainActor (Result<URL, Error>) -> Void
 	private var eta = DownloadETA()
+	private var pace = DownloadPace(now: Date())
 	private var session: URLSession!
+	private var task: URLSessionDownloadTask?
+	private var received: Int64 = 0
+	// The task began from resume data, which the server may refuse.
+	private var isResumed = false
+	// The task is being cancelled for another connection.
+	private var isSwitching = false
+	private var isFinished = false
 
 	init(
 		from url: URL,
@@ -334,22 +344,97 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		progress: @escaping @MainActor (Double, Int?) -> Void,
 		done: @escaping @MainActor (Result<URL, Error>) -> Void
 	) {
+		var request = URLRequest(url: url)
+		request.setValue(Updates.userAgent, forHTTPHeaderField: "User-Agent")
+		self.request = request
 		self.destination = destination
 		self.sha256 = sha256
 		self.progress = progress
 		self.done = done
 		super.init()
 
-		session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: .main)
-		var request = URLRequest(url: url)
-		request.setValue(Updates.userAgent, forHTTPHeaderField: "User-Agent")
-		session.downloadTask(with: request).resume()
+		start()
 	}
 
-	func urlSession(_: URLSession, downloadTask _: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-		guard totalBytesExpectedToWrite > 0 else {
+	// On a session of its own: a task on the last one would share its connection.
+	private func start(resuming resumeData: Data? = nil) {
+		session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: .main)
+
+		let task = resumeData.map(session.downloadTask(withResumeData:)) ?? session.downloadTask(with: request)
+		self.task = task
+		isResumed = resumeData != nil
+		isSwitching = false
+
+		if resumeData == nil {
+			received = 0
+		}
+
+		pace.begin(received: received, now: Date())
+		task.resume()
+		judgeLater(task)
+	}
+
+	private func judgeLater(_ task: URLSessionDownloadTask) {
+		DispatchQueue.main.asyncAfter(deadline: .now() + pace.window) { [weak self] in
+			self?.judge(task)
+		}
+	}
+
+	private func judge(_ judged: URLSessionDownloadTask) {
+		guard judged === task, !isFinished else {
 			return
 		}
+
+		guard pace.shouldSwitch(received: received, now: Date()) else {
+			judgeLater(judged)
+
+			return
+		}
+
+		Log.updates.notice("The download left a slow connection \(self.received) bytes in")
+		isSwitching = true
+
+		judged.cancel { [weak self] resumeData in
+			DispatchQueue.main.async {
+				self?.switchConnection(from: judged, resuming: resumeData)
+			}
+		}
+	}
+
+	private func switchConnection(from old: URLSessionDownloadTask, resuming resumeData: Data?) {
+		guard old === task, !isFinished else {
+			return
+		}
+
+		let oldSession = session
+		start(resuming: resumeData)
+		oldSession?.finishTasksAndInvalidate()
+	}
+
+	// The server refused to go on from there (GitHub's signed link expires):
+	// from the start, once.
+	private func startOver() {
+		Log.updates.notice("The download could not resume, and starts over")
+		let oldSession = session
+		start()
+		oldSession?.finishTasksAndInvalidate()
+	}
+
+	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didResumeAtOffset fileOffset: Int64, expectedTotalBytes _: Int64) {
+		guard downloadTask === task else {
+			return
+		}
+
+		received = fileOffset
+		pace.begin(received: fileOffset, now: Date())
+	}
+
+	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+		guard downloadTask === task, totalBytesExpectedToWrite > 0 else {
+			return
+		}
+
+		received = totalBytesWritten
 
 		let fraction = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
 		let seconds = eta.update(received: totalBytesWritten, total: totalBytesExpectedToWrite, now: Date())
@@ -358,13 +443,27 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	}
 
 	func urlSession(_: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-		session.finishTasksAndInvalidate()
+		guard downloadTask === task else {
+			return
+		}
 
-		if let status = (downloadTask.response as? HTTPURLResponse)?.statusCode, status != 200 {
+		// 206 is a resumed download's last part, in a file whole by now.
+		if let status = (downloadTask.response as? HTTPURLResponse)?.statusCode, ![200, 206].contains(status) {
+			if isResumed {
+				startOver()
+
+				return
+			}
+
+			isFinished = true
+			session.finishTasksAndInvalidate()
 			MainActor.assumeIsolated { done(.failure(URLError(.badServerResponse))) }
 
 			return
 		}
+
+		isFinished = true
+		session.finishTasksAndInvalidate()
 
 		let file: URL
 
@@ -416,11 +515,18 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		return file
 	}
 
-	func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
-		guard let error else {
+	func urlSession(_: URLSession, task completed: URLSessionTask, didCompleteWithError error: Error?) {
+		guard let error, completed === task, !isSwitching, !isFinished else {
 			return
 		}
 
+		if isResumed {
+			startOver()
+
+			return
+		}
+
+		isFinished = true
 		session.finishTasksAndInvalidate()
 		MainActor.assumeIsolated { done(.failure(error)) }
 	}

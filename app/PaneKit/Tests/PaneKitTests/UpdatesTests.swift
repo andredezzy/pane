@@ -142,6 +142,72 @@ struct DownloadETATests {
 	}
 }
 
+@Suite("DownloadPace")
+struct DownloadPaceTests {
+	private let start = Date(timeIntervalSince1970: 1000)
+	private let megabyte: Int64 = 1_000_000
+
+	@Test("a connection at a good rate stays")
+	func goodRate() {
+		var pace = DownloadPace(now: start)
+		#expect(pace.window == 5)
+
+		let leaves = pace.shouldSwitch(received: 6 * megabyte, now: start.addingTimeInterval(5))
+		#expect(!leaves)
+		#expect(pace.window == 5)
+	}
+
+	@Test("a slow connection, or a stalled one, is left at the end of its window")
+	func slow() {
+		var crawling = DownloadPace(now: start)
+		let leavesCrawling = crawling.shouldSwitch(received: 4 * megabyte, now: start.addingTimeInterval(5))
+		#expect(leavesCrawling)
+
+		var stalled = DownloadPace(now: start)
+		let leavesStalled = stalled.shouldSwitch(received: 0, now: start.addingTimeInterval(5))
+		#expect(leavesStalled)
+	}
+
+	@Test("each new connection no faster doubles the next window, and after four the download stays")
+	func givesUp() {
+		var pace = DownloadPace(now: start)
+		var now = start
+
+		for window in [5.0, 10, 20, 40] {
+			#expect(pace.window == window)
+			now.addTimeInterval(window)
+			let leaves = pace.shouldSwitch(received: 0, now: now)
+			#expect(leaves)
+		}
+
+		#expect(pace.window == 80)
+		now.addTimeInterval(80)
+		let leaves = pace.shouldSwitch(received: 0, now: now)
+		#expect(!leaves)
+	}
+
+	@Test("a connection that picks up starts the count over")
+	func picksUp() {
+		var pace = DownloadPace(now: start)
+		let first = pace.shouldSwitch(received: 0, now: start.addingTimeInterval(5))
+		#expect(first)
+		#expect(pace.window == 10)
+
+		let second = pace.shouldSwitch(received: 100 * megabyte, now: start.addingTimeInterval(15))
+		#expect(!second)
+		#expect(pace.window == 5)
+	}
+
+	@Test("a resumed connection is judged by what it brought, not what came before")
+	func resumed() {
+		var pace = DownloadPace(now: start)
+		pace.begin(received: 100 * megabyte, now: start.addingTimeInterval(1))
+
+		let leaves = pace.shouldSwitch(received: 101 * megabyte, now: start.addingTimeInterval(6))
+		#expect(leaves)
+	}
+}
+
 @Suite("UpdateInstall")
 struct UpdateInstallTests {
 	@Test("installs over a bundle Pane runs from in place, never a translocated or mounted one")
