@@ -81,3 +81,4 @@ chrome/browser/download/chrome_download_manager_delegate.h	0009-pane-history.pat
 content/browser/download/download_manager_impl.cc	0009-pane-history.patch
 content/public/browser/download_manager_delegate.cc	0009-pane-history.patch
 content/public/browser/download_manager_delegate.h	0009-pane-history.patch
+chrome/browser/chrome_content_browser_client.cc	0009-pane-history.patch

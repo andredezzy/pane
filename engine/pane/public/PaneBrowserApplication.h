@@ -138,6 +138,12 @@ NS_SWIFT_UI_ACTOR
                    error:(NSError**)error
     NS_SWIFT_NAME(setFingerprint(_:forContextIdentifier:));
 
+// Whether the profile named keeps its HTTP and code caches off the disk. Set it
+// before the profile opens: a context reads it once, as it is created.
+- (void)setKeepsCachesInMemory:(BOOL)inMemory
+          forContextIdentifier:(NSString*)identifier
+    NS_SWIFT_NAME(setKeepsCachesInMemory(_:forContextIdentifier:));
+
 @end
 
 NS_ASSUME_NONNULL_END

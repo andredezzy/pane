@@ -1,3 +1,27 @@
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 1defcfa514..e57f27fafe 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -421,6 +421,7 @@
+ #include "net/ssl/ssl_cert_request_info.h"
+ #include "net/ssl/ssl_private_key.h"
+ #include "pdf/buildflags.h"
++#include "pane/browser/caches_in_memory.h"  // nogncheck
+ #include "printing/buildflags/buildflags.h"
+ #include "sandbox/policy/features.h"
+ #include "sandbox/policy/mojom/sandbox.mojom.h"
+@@ -3917,7 +3918,10 @@ ChromeContentBrowserClient::GetGeneratedCodeCacheSettings(
+       cache_path = disk_cache_dir.Append(cache_path.BaseName());
+     }
+   }
+-  return content::GeneratedCodeCacheSettings(true, size_in_bytes, cache_path);
++  // Pane: a profile that saves no history keeps no compiled code on disk: each
++  // entry names the script's URL.
++  return content::GeneratedCodeCacheSettings(
++      !pane::KeepsCachesInMemory(context), size_in_bytes, cache_path);
+ }
+ 
+ std::string ChromeContentBrowserClient::GetWebUIHostnameForCodeCacheMetrics(
 diff --git a/chrome/browser/download/BUILD.gn b/chrome/browser/download/BUILD.gn
 index d9df6c2de2..567998ad7c 100644
 --- a/chrome/browser/download/BUILD.gn

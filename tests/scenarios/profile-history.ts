@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { copyFileSync, existsSync } from "node:fs";
+import { copyFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { $ } from "bun";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
@@ -13,7 +13,8 @@ import { expect, type Scenario } from "../run";
 // Chrome learns from them. Off from the start it keeps none of them, an
 // extension's chrome.history.addUrl included, and a page still shows its icon
 // and a file still downloads: no file of the profile but its site data names a
-// site it went to, each visit having a host of its own to look for. Turned off,
+// site it went to, its caches staying in memory, each visit having a host of its
+// own to look for. Turned off,
 // what it kept goes, an open tab's back list with it, as in Chrome's Clear
 // browsing data; its cookies and tabs stay, and nothing new comes, though a tab
 // still goes back within itself. Turned on, it keeps pages again. The choice
@@ -29,7 +30,7 @@ const isEmpty = (kept: Kept) =>
 	kept.pages.length === 0 && kept.icons.length === 0 && kept.downloads === 0;
 
 // What keeps a site by name on purpose: the profile's site data (ADR 0119).
-const SITE_DATA = /^\/(Cache|Code Cache|Cookies|Local Storage|Session Storage)/;
+const SITE_DATA = /^\/(Cookies|Local Storage|Session Storage)/;
 
 // The downloads a profile ran before it was turned off, which a deletion leaves
 // in this log until the profile next opens.
@@ -60,18 +61,29 @@ const historyScenario: Scenario = async (context) => {
 		}
 
 		const copy = join(scratch, `${profile}-${file}`);
-		copyFileSync(source, copy);
 
-		if (existsSync(`${source}-journal`)) {
-			copyFileSync(`${source}-journal`, `${copy}-journal`);
-		}
+		// A copy made as the engine commits can come out torn: another, then.
+		for (let attempt = 0; ; attempt++) {
+			rmSync(`${copy}-journal`, { force: true });
+			copyFileSync(source, copy);
 
-		const database = new Database(copy);
+			if (existsSync(`${source}-journal`)) {
+				copyFileSync(`${source}-journal`, `${copy}-journal`);
+			}
 
-		try {
-			return database.query(query).all();
-		} finally {
-			database.close();
+			const database = new Database(copy);
+
+			try {
+				return database.query(query).all();
+			} catch (error) {
+				if (attempt === 4 || !String(error).includes("malformed")) {
+					throw error;
+				}
+
+				Bun.sleepSync(300);
+			} finally {
+				database.close();
+			}
 		}
 	};
 
@@ -227,7 +239,9 @@ const historyScenario: Scenario = async (context) => {
 			return (
 				["/History", "/Preferences", "/Network Action Predictor"].every(
 					(file) => named.includes(file),
-				) && named
+				) &&
+				named.some((file) => file.startsWith("/Cache/")) &&
+				named
 			);
 		},
 		30_000,
@@ -278,8 +292,23 @@ const historyScenario: Scenario = async (context) => {
 	await app.waitFor("two closed tabs", (state) => state.closedTabs === 2);
 	await app.send("select", { tab: keepsTab });
 
-	// Turned off: what it kept goes.
+	// Turned off: it opens again, to keep its caches in memory, the selected tab
+	// with it, and what it kept goes.
+	const turnedOff = Date.now();
 	await app.send("setSavesHistory", { profile: keeps, savesHistory: false });
+
+	await app.waitFor(
+		"the tab back in a context that caches in memory",
+		(state) =>
+			tabOf(state, keepsTab)?.title !== undefined &&
+			tabOf(state, keepsTab)?.loaded === true &&
+			tabOf(state, keepsTab)?.loading === false &&
+			state.profiles.find((each) => each.id === keeps)?.engineSavesHistory ===
+				false,
+		30_000,
+	);
+
+	const reopenedMs = Date.now() - turnedOff;
 
 	await poll(
 		"what it kept to go",
@@ -426,8 +455,9 @@ const historyScenario: Scenario = async (context) => {
 		500,
 	);
 
-	// Back on, with a page. Off again and a crash at once: the Save is on disk,
-	// the profile's prefs, which the engine writes a few seconds on, are not.
+	// Back on, with a page. Off again and a crash at once: whichever of the clear,
+	// the engine's commit, and the Save got to the disk, what it kept goes by the
+	// time the profile has opened again.
 	await second.send("setSavesHistory", { profile: off, savesHistory: true });
 	await browse(second, off, "before-crash");
 
@@ -438,8 +468,6 @@ const historyScenario: Scenario = async (context) => {
 		500,
 	);
 
-	// The prefs carrying "on" have reached the disk by now.
-	await Bun.sleep(commitInterval);
 	await second.send("setSavesHistory", { profile: off, savesHistory: false });
 	await second.send("save");
 
@@ -454,11 +482,6 @@ const historyScenario: Scenario = async (context) => {
 
 	const url = pageURL("after-crash");
 	await third.app.page(await third.app.openTab(off, url), url);
-
-	const madeUp = await third.waitForEntry(
-		"PaneBrowserContext.setSavesHistory",
-		(args) => args.savesHistory === false,
-	);
 
 	const keptAfterCrash = await poll(
 		"what it kept to go, once it opened",
@@ -495,6 +518,20 @@ const historyScenario: Scenario = async (context) => {
 		20_000,
 	);
 
+	// Turned on while closed, the engine hears of it as the profile opens.
+	await fourth.app.send("setSavesHistory", {
+		profile: off,
+		savesHistory: true,
+	});
+
+	const onURL = pageURL("turned-on-closed");
+	await fourth.app.page(await fourth.app.openTab(off, onURL), onURL);
+
+	const madeUpOn = await fourth.waitForEntry(
+		"PaneBrowserContext.setSavesHistory",
+		(args) => args.savesHistory === true,
+	);
+
 	const owedGone = await poll(
 		"the owed clear to finish",
 		async () =>
@@ -510,6 +547,7 @@ const historyScenario: Scenario = async (context) => {
 	await fourth.app.browser.close();
 
 	return {
+		reopenedMs,
 		keptWhileOn,
 		namedWhileOn,
 		keptWhileOff,
@@ -518,7 +556,7 @@ const historyScenario: Scenario = async (context) => {
 		keptAfterOff,
 		keptWhenBackOn,
 		closedEngineAtLaunch: closedEngine,
-		madeUpAtOpen: madeUp.args,
+		madeUpAtOpen: madeUpOn.args,
 		owedClearAtOpen: { ran: owedClear.name, done: owedGone },
 		keptAfterCrash,
 	};

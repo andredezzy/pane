@@ -40,6 +40,8 @@ source_set("pane") {
     "browser/extensions/extensions_bridge.h",
     "browser/extensions/extensions_bridge.mm",
     "browser/extensions/extensions_internal.h",
+    "browser/caches_in_memory.cc",
+    "browser/caches_in_memory.h",
     "browser/fingerprints.cc",
     "browser/fingerprints.h",
     "browser/engine_trace.h",

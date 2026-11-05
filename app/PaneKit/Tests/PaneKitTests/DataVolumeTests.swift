@@ -37,7 +37,7 @@ struct DataVolumeTests {
 		#expect(!volume.isMounted)
 	}
 
-	@Test("a profile that saves no history opens without the log of its earlier downloads")
+	@Test("a profile that saves no history opens without its earlier downloads' log or caches")
 	func downloadCache() throws {
 		let root = try root()
 		defer { try? fileManager.removeItem(at: root) }
@@ -46,13 +46,20 @@ struct DataVolumeTests {
 
 		try volume.prepare(profile: "p")
 
-		let cache = volume.folder(profile: "p").appending(path: "Profile/shared_proto_db")
-		try fileManager.createDirectory(at: cache, withIntermediateDirectories: true)
+		let folder = volume.folder(profile: "p")
+		let written = ["Profile/shared_proto_db", "Profile/Cache", "Profile/Code Cache", "Cache/Cache", "Cache/Code Cache"].map { folder.appending(path: $0) }
+		let kept = folder.appending(path: "Profile/Local Storage")
+
+		for item in written + [kept] {
+			try fileManager.createDirectory(at: item, withIntermediateDirectories: true)
+		}
+
 		try volume.prepare(profile: "p", savesHistory: true)
-		#expect(fileManager.fileExists(atPath: cache.path))
+		#expect(written.allSatisfy { fileManager.fileExists(atPath: $0.path) })
 
 		try volume.prepare(profile: "p", savesHistory: false)
-		#expect(!fileManager.fileExists(atPath: cache.path))
+		#expect(written.allSatisfy { !fileManager.fileExists(atPath: $0.path) })
+		#expect(fileManager.fileExists(atPath: kept.path))
 	}
 
 	@Test("a link to somewhere else is replaced")

@@ -66,9 +66,9 @@ NS_SWIFT_NAME(Cookie)
 @property BOOL savesHistory;
 
 // Deletes what the profile kept of where it went, for all time, as Chrome's
-// Clear browsing data does with Browsing history, Download history, and site
-// usage data: an open tab keeps its page and loses its back and forward list.
-// Cookies and site data stay, so the profile stays signed in.
+// Clear browsing data does with Browsing history, Download history, site usage
+// data, and the cache: an open tab keeps its page and loses its back and
+// forward list. Cookies and site data stay, so the profile stays signed in.
 - (void)clearHistoryWithCompletion:(void (^)(void))completion
     NS_SWIFT_NAME(clearHistory(completion:));
 

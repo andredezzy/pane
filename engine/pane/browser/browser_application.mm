@@ -33,6 +33,7 @@
 #include "gpu/config/gpu_info.h"
 #include "base/version_info/version_info.h"
 #include "pane/browser/app_callback.h"
+#include "pane/browser/caches_in_memory.h"
 #include "pane/browser/fingerprints.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/window_host.h"
@@ -544,6 +545,15 @@ class ProfileDestructionWaiter : public ProfileObserver,
 - (NSString*)chromiumVersion {
   return base::SysUTF8ToNSString(
       std::string(version_info::GetVersionNumber()));
+}
+
+- (void)setKeepsCachesInMemory:(BOOL)inMemory
+          forContextIdentifier:(NSString*)identifier {
+  PANE_TRACE("call", "PaneBrowserApplication.setKeepsCachesInMemory",
+             base::DictValue()
+                 .Set("identifier", base::SysNSStringToUTF8(identifier))
+                 .Set("inMemory", static_cast<bool>(inMemory)));
+  pane::SetKeepsCachesInMemory(base::SysNSStringToUTF8(identifier), inMemory);
 }
 
 - (BOOL)setFingerprint:(NSString*)json

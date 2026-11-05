@@ -408,10 +408,10 @@ public struct DataVolume: Sendable {
 
 	// Makes the profile's folders in the attached volume and the links to
 	// them, before the engine opens the profile. A plain folder still in
-	// their place moves in first. One that saves no history loses the leveldb
-	// log of downloads it ran while it did (ADR 0119), which a deletion does not
-	// rewrite; beside them is only Chrome's in-product help, which Pane does not
-	// show.
+	// their place moves in first. One that saves no history loses what it wrote
+	// while it did (ADR 0119): the leveldb log of its downloads, which a deletion
+	// does not rewrite, beside which is only Chrome's in-product help, which Pane
+	// does not show; and its caches, which it now keeps in memory.
 	public func prepare(profile id: String, savesHistory: Bool = true) throws {
 		if isPlainFolder(engineFolder(id)) {
 			try moveIn(profiles: [id]) { _ in }
@@ -431,7 +431,11 @@ public struct DataVolume: Sendable {
 		}
 
 		if !savesHistory {
-			try? FileManager.default.removeItem(at: folder.appending(path: "Profile/shared_proto_db"))
+			// The caches are in Cache, or beside the profile's own files where the
+			// data root is not under the home's Application Support.
+			for item in ["Profile/shared_proto_db", "Profile/Cache", "Profile/Code Cache", "Cache/Cache", "Cache/Code Cache"] {
+				try? FileManager.default.removeItem(at: folder.appending(path: item))
+			}
 		}
 	}
 

@@ -23,6 +23,11 @@ final class BrowserController: NSObject {
 	// wait for it to reach the disk.
 	private var clearingHistory: Set<String> = []
 	private var historyClearSettling: [String: DispatchWorkItem] = [:]
+	// Open profiles whose caches are on disk: all that save history, and one
+	// turned off since it opened, until it opens again.
+	private var contextsCachingOnDisk: Set<String> = []
+	// The downloads each open profile is running, which its closing would end.
+	private var runningDownloads: [String: Set<String>] = [:]
 	// Contexts the engine is opening or deleting, for a lock to wait for.
 	private var engineWork: [ObjectIdentifier: EngineWork] = [:]
 	// The tab that showed when Pane locked, shown again once it opens.
@@ -219,6 +224,7 @@ final class BrowserController: NSObject {
 	private func historyCleared(_ profileID: String) {
 		clearingHistory.remove(profileID)
 		closeIfOpenedToClearHistory(profileID)
+		reopenCachingInMemory(profileID)
 
 		let settled = DispatchWorkItem { [weak self] in
 			self?.historyClearSettling[profileID] = nil
@@ -251,7 +257,46 @@ final class BrowserController: NSObject {
 			return
 		}
 
+		close(profileID, context)
+	}
+
+	// A profile turned off while open was still writing its caches to disk, and
+	// only a new context stops that: its pages start again, as for a new
+	// fingerprint, the selected one at once. A download it is running would end,
+	// so then the caches stay until the profile next opens, which removes them
+	// (DataVolume.prepare).
+	private func reopenCachingInMemory(_ profileID: String) {
+		guard
+			contextsCachingOnDisk.contains(profileID),
+			runningDownloads[profileID]?.isEmpty != false,
+			let context = contexts[profileID],
+			let profile = model.profile(profileID),
+			!profile.savesHistory
+		else {
+			return
+		}
+
+		let selected = model.activeTabID
+
+		for tab in profile.tabs {
+			release(tabID: tab.id)
+		}
+
+		close(profileID, context)
+
+		if let selected, profile.tabs.contains(where: { $0.id == selected }) {
+			select(tabID: selected)
+		} else if model.page == .extensions {
+			extensions.openContextIfNeeded(profileID: profileID)
+		}
+	}
+
+	// What asks for the profile as it closes waits, and opens it again. Closed,
+	// a clear it ran is on disk, and no longer owed.
+	private func close(_ profileID: String, _ context: BrowserContext) {
 		contexts[profileID] = nil
+		contextsCachingOnDisk.remove(profileID)
+		runningDownloads[profileID] = nil
 		network.stop(profileID)
 		contextWaiters[profileID] = []
 		let work = beginWork()
@@ -263,6 +308,11 @@ final class BrowserController: NSObject {
 
 			endWork(work)
 			work.lock?.finish(closed)
+
+			if closed, work.lock == nil {
+				historyClearSettling.removeValue(forKey: profileID)?.cancel()
+				model.updateProfile(profileID) { $0.clearsHistory = false }
+			}
 
 			let waiters = contextWaiters.removeValue(forKey: profileID) ?? []
 			waiters.forEach { self.withContext(profileID, $0) }
@@ -340,6 +390,8 @@ final class BrowserController: NSObject {
 		// A clear cut short here is still owed, at the next open.
 		clearingHistory.removeAll()
 		openedToClearHistory.removeAll()
+		contextsCachingOnDisk.removeAll()
+		runningDownloads.removeAll()
 		engineWork.values.forEach { $0.wait(for: closing) }
 		engineWork.removeAll()
 		let waiting = contextWaiters.values.joined()
@@ -454,6 +506,10 @@ final class BrowserController: NSObject {
 
 	private func openContext(_ profileID: String, _ work: EngineWork) {
 		applyFingerprint(profileID)
+
+		let savesHistory = model.profile(profileID)?.savesHistory ?? true
+		application.setKeepsCachesInMemory(!savesHistory, forContextIdentifier: profileID)
+
 		application.openContext(identifier: profileID) { [weak self] context, error in
 			guard let self else {
 				return
@@ -472,6 +528,11 @@ final class BrowserController: NSObject {
 			}
 
 			context.delegate = self
+
+			if savesHistory {
+				contextsCachingOnDisk.insert(profileID)
+			}
+
 			applyHistory(profileID, to: context)
 
 			// The proxy goes on before any page of the profile loads.
@@ -1243,6 +1304,12 @@ extension BrowserController {
 extension BrowserController: BrowserContextDelegate {
 	func browserContext(_ context: BrowserContext, didUpdate download: Download) {
 		probe?.downloadDidUpdate(download)
+
+		if download.state == .inProgress {
+			runningDownloads[context.identifier, default: []].insert(download.identifier)
+		} else {
+			runningDownloads[context.identifier]?.remove(download.identifier)
+		}
 	}
 
 	func browserContextDidChangeExtensions(_ context: BrowserContext) {

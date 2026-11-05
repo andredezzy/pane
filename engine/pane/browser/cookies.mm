@@ -195,11 +195,12 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
   }
 
   // Site usage: the engagement scores, whose keys name each site, which the
-  // history alone leaves.
+  // history alone leaves. The cache: each entry names its whole URL.
   pane::RemoveSiteData(self.profile,
                        chrome_browsing_data_remover::DATA_TYPE_HISTORY |
                            chrome_browsing_data_remover::DATA_TYPE_SITE_USAGE_DATA |
-                           content::BrowsingDataRemover::DATA_TYPE_DOWNLOADS,
+                           content::BrowsingDataRemover::DATA_TYPE_DOWNLOADS |
+                           content::BrowsingDataRemover::DATA_TYPE_CACHE,
                        {}, base::BindOnce(^{
                          completion();
                        }));
