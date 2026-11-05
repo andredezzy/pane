@@ -1,0 +1,79 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# Every file a profile writes is encrypted under a per-profile key that only
+# Pane's processes hold in memory (docs/adr/0121): the key registry and the
+# formats, which the patched storage layers call. `core` depends on nothing but
+# //base and BoringSSL, so //sql, LevelDB, and //services can depend on it.
+
+import("//testing/test.gni")
+
+source_set("core") {
+  sources = [
+    "engine_keys.cc",
+    "engine_keys.h",
+    "stream_cipher.cc",
+    "stream_cipher.h",
+    "whole_file.cc",
+    "whole_file.h",
+  ]
+
+  deps = [
+    "//base",
+    "//third_party/boringssl",
+  ]
+}
+
+source_set("handover") {
+  sources = [
+    "handover.cc",
+    "handover.h",
+  ]
+
+  public_deps = [
+    ":core",
+    "//pane/encryption/public/mojom",
+  ]
+
+  deps = [
+    ":sqlite",
+    "//base",
+  ]
+}
+
+source_set("sqlite") {
+  sources = [
+    "sqlite_vfs.cc",
+    "sqlite_vfs.h",
+  ]
+
+  deps = [
+    ":core",
+    "//base",
+    "//sql",
+    "//third_party/boringssl",
+    "//third_party/sqlite",
+  ]
+}
+
+test("pane_unittests") {
+  testonly = true
+
+  sources = [
+    "engine_keys_unittest.cc",
+    "sqlite_vfs_unittest.cc",
+    "stream_cipher_unittest.cc",
+    "whole_file_unittest.cc",
+  ]
+
+  deps = [
+    ":core",
+    ":sqlite",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//sql",
+    "//sql:test_support",
+    "//testing/gtest",
+    "//third_party/sqlite",
+  ]
+}

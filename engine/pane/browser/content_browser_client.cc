@@ -5,8 +5,10 @@
 #include <utility>
 
 #include "chrome/browser/chrome_browser_main.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "pane/browser/browser_main_extra_parts.h"
 #include "pane/browser/fingerprints.h"
+#include "pane/encryption/handover.h"
 #include "pane/common/host.h"
 
 namespace pane {
@@ -34,6 +36,22 @@ void ContentBrowserClient::AppendExtraCommandLineSwitches(
   ChromeContentBrowserClient::AppendExtraCommandLineSwitches(command_line,
                                                              child_process_id);
   Fingerprints::Get().AppendSwitches(command_line, child_process_id);
+}
+
+void ContentBrowserClient::ConfigureNetworkContextParams(
+    content::BrowserContext* context,
+    bool in_memory,
+    const base::FilePath& relative_partition_path,
+    network::mojom::NetworkContextParams* network_context_params,
+    cert_verifier::mojom::CertVerifierCreationParams*
+        cert_verifier_creation_params) {
+  ChromeContentBrowserClient::ConfigureNetworkContextParams(
+      context, in_memory, relative_partition_path, network_context_params,
+      cert_verifier_creation_params);
+
+  // Each time: a network service that restarts gets its keys back this way.
+  network_context_params->pane_engine_keys =
+      encryption::KeysForOtherProcess();
 }
 
 std::string ContentBrowserClient::GetUserAgentForBrowserContext(

@@ -276,7 +276,7 @@ export class PaneApp {
 	constructor(
 		readonly browser: Browser,
 		readonly dataDir: string,
-		private readonly automationDir: string,
+		readonly automationDir: string,
 		// Where a stuck app's sample goes: the run's output.
 		private readonly out: string,
 	) {}

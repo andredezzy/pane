@@ -131,6 +131,7 @@ source_set("pane") {
     "//components/web_modal",
     "//components/zoom",
     "//content/public/browser",
+    "//pane/encryption:handover",
     "//content/public/common",
     "//extensions/browser",
     "//gpu/config",

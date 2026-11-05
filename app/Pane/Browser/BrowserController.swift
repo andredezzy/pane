@@ -510,7 +510,13 @@ final class BrowserController: NSObject {
 		let savesHistory = model.profile(profileID)?.savesHistory ?? true
 		application.setKeepsCachesInMemory(!savesHistory, forContextIdentifier: profileID)
 
-		application.openContext(identifier: profileID) { [weak self] context, error in
+		// Gone only behind a lock, whose work closes as it opens.
+		guard let engineKey = vault.engineKey(profile: profileID) else {
+			opened(profileID, nil, work)
+			return
+		}
+
+		application.openContext(identifier: profileID, engineKey: engineKey) { [weak self] context, error in
 			guard let self else {
 				return
 			}

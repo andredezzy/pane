@@ -36,6 +36,8 @@ final class DataVault {
 	@ObservationIgnored let volume: DataVolume
 	// Pane's own files' key, once the data key opened.
 	@ObservationIgnored private(set) var filesKey: SymmetricKey?
+	// The data key, for each profile's engine key (ADR 0121), while unlocked.
+	@ObservationIgnored private var dataKey: SymmetricKey?
 	@ObservationIgnored private(set) var isAttached = false
 	// Why the volume would not attach, for the log and the security scenario.
 	@ObservationIgnored private(set) var failure: String?
@@ -64,6 +66,9 @@ final class DataVault {
 	@ObservationIgnored var didBecomeOpen: (() -> Void)?
 	// The volume would not attach: the lock says so (07.8).
 	@ObservationIgnored var didFail: (() -> Void)?
+	// A lock's detach succeeded: no process has a profile's file open, so each
+	// can forget its keys (ADR 0121).
+	@ObservationIgnored var didDetachLocked: (() -> Void)?
 	// The profiles' ids, once the model has them: what an open moves in.
 	@ObservationIgnored var profileIDs: () -> [String] = { [] }
 	@ObservationIgnored private let dataDirectory: URL
@@ -85,6 +90,7 @@ final class DataVault {
 	// opens: on the first open, or one after a quit cut that move short.
 	func open(_ key: SymmetricKey, attaching: Task<Attached, Error>) {
 		filesKey = DataKey.filesKey(key)
+		dataKey = key
 		self.attaching = attaching
 		didOpen?()
 
@@ -225,6 +231,11 @@ final class DataVault {
 		}
 	}
 
+	// The key a profile's engine files are under, while unlocked.
+	func engineKey(profile id: String) -> Data? {
+		dataKey.map { DataKey.engineKey($0, profile: id).withUnsafeBytes { Data($0) } }
+	}
+
 	// Runs `body` once the volume is attached, with false when it would not
 	// attach.
 	func whenAttached(_ body: @escaping (Bool) -> Void) {
@@ -335,6 +346,7 @@ final class DataVault {
 	func lock(once closed: Task<Bool, Never>) {
 		locks += 1
 		filesKey = nil
+		dataKey = nil
 		phase = .closed
 		failure = nil
 		attachedAt = nil
@@ -378,6 +390,7 @@ final class DataVault {
 			}
 
 			Self.detach(volume, device: device, used: volume.usedBytes)
+			await MainActor.run { [weak self] in self?.didDetachLocked?() }
 			return nil
 		}
 	}

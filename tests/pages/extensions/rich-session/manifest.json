@@ -1,0 +1,8 @@
+{
+	"manifest_version": 3,
+	"name": "Pane rich session probe",
+	"version": "1.0",
+	"permissions": ["storage", "history", "cookies"],
+	"host_permissions": ["<all_urls>"],
+	"background": { "service_worker": "worker.js" }
+}

@@ -1,0 +1,9 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+
+mojom("mojom") {
+  generate_blink = true
+  sources = [ "engine_keys.mojom" ]
+  public_deps = [ "//mojo/public/mojom/base" ]
+}

@@ -1,0 +1,20 @@
+// Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+module pane.mojom;
+
+import "mojo/public/mojom/base/file_path.mojom";
+import "mojo/public/mojom/base/shared_memory.mojom";
+
+// One profile's engine key. In a shared memory region, as os_crypt_async passes
+// its keys, so it never enters a mojo buffer.
+struct ProfileKey {
+  string id;
+  mojo_base.mojom.UnsafeSharedMemoryRegion key;
+};
+
+// What the browser process knows of the profiles' files, for the network
+// service and the Storage Service: where they live, and their keys.
+struct EngineKeys {
+  array<mojo_base.mojom.FilePath> roots;
+  array<ProfileKey> keys;
+};

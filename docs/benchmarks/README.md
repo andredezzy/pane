@@ -5,6 +5,8 @@ Measured comparisons of Pane builds, each with its raw measurements beside it.
 - [interactions.md](interactions.md) — how much sooner 0.13.1 answers a tab switch (−38%), a new tab (−45%), and the address field (−55%), from input to the frame, against the code before. Raw data: [interactions.json](interactions.json).
 - [native-vs-electron.md](native-vs-electron.md) — how much the native app (0.11.2) improved on the last Electron release (0.6.0), its baseline: what improved, what did not, then size, launch, memory, idle CPU, page loads, Speedometer and JetStream, and the engines, each with its method, the native app first. Raw data: [native-vs-electron.json](native-vs-electron.json).
 
+- [engine-encryption.md](engine-encryption.md) — what encrypting every profile file costs, against 0.15.2, by the budgets of `docs/plans/engine-file-encryption.md`.
+
 ## Rerunning native-vs-electron
 
 The benchmark is six scenarios of the scenario runner (`tests/scenarios/benchmark-*.ts`, on `tests/lib/benchmark.ts`), run on the native app as the run's binary, with the Electron app named by `PANE_BENCHMARK_ELECTRON`. Two Swift tools measure for them, the same for both apps: `tests/tools/window-wait.swift` (the first window on screen) and `tests/tools/process-usage.swift` (the kernel's CPU, wakeup, and energy counters per process). `tests/tools/benchmark-report.ts` gathers a run into one JSON file and prints the summary table, the native app first. Each app is used from a copy out of its release dmg, never from `/Applications`, and launched by its executable, so a Pane the user has open is never touched.

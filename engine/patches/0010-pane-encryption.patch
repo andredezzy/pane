@@ -1,0 +1,912 @@
+diff --git a/base/BUILD.gn b/base/BUILD.gn
+index 2587bd828b..5bd671333a 100644
+--- a/base/BUILD.gn
++++ b/base/BUILD.gn
+@@ -1666,6 +1666,8 @@ component("base") {
+     "files/file_util.cc",
+     "files/file_util.h",
+     "files/important_file_writer.cc",
++    "files/pane_file_codec.cc",
++    "files/pane_file_codec.h",
+     "files/important_file_writer.h",
+     "files/important_file_writer_cleaner.cc",
+     "files/important_file_writer_cleaner.h",
+diff --git a/base/files/file_util.cc b/base/files/file_util.cc
+index fe72e5f568..e6aef2a77f 100644
+--- a/base/files/file_util.cc
++++ b/base/files/file_util.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "base/files/file_util.h"
+ 
++#include "base/files/pane_file_codec.h"
++
+ #include <algorithm>
+ #include <array>
+ #include <string_view>
+@@ -364,6 +366,13 @@ std::optional<std::vector<uint8_t>> ReadFileToBytes(const FilePath& path) {
+                                    })) {
+     return std::nullopt;
+   }
++
++  // Pane: what a profile's sealed file holds, once read whole.
++  std::string opened;
++  if (const PaneFileCodec* codec = GetPaneFileCodec();
++      codec && codec->open(path, bytes, &opened)) {
++    bytes.assign(opened.begin(), opened.end());
++  }
+   return bytes;
+ }
+ 
+@@ -385,7 +394,18 @@ bool ReadFileToStringWithMaxSize(const FilePath& path,
+   if (!file_stream) {
+     return false;
+   }
+-  return ReadStreamToStringWithMaxSize(file_stream.get(), max_size, contents);
++  const bool read =
++      ReadStreamToStringWithMaxSize(file_stream.get(), max_size, contents);
++
++  // Pane: what a profile's sealed file holds, once read whole.
++  if (read && contents) {
++    std::string opened;
++    if (const PaneFileCodec* codec = GetPaneFileCodec();
++        codec && codec->open(path, as_byte_span(*contents), &opened)) {
++      *contents = std::move(opened);
++    }
++  }
++  return read;
+ }
+ 
+ bool IsDirectoryEmpty(const FilePath& dir_path) {
+diff --git a/base/files/file_util_posix.cc b/base/files/file_util_posix.cc
+index 538fdbc604..179c10bf97 100644
+--- a/base/files/file_util_posix.cc
++++ b/base/files/file_util_posix.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "base/files/file_util.h"
+ 
++#include "base/files/pane_file_codec.h"
++
+ #include <dirent.h>
+ #include <errno.h>
+ #include <fcntl.h>
+@@ -1438,6 +1440,14 @@ std::optional<uint64_t> ReadFile(const FilePath& filename, span<char> buffer) {
+ 
+ bool WriteFile(const FilePath& filename, span<const uint8_t> data) {
+   ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
++
++  // Pane: a profile's file reaches the disk sealed.
++  std::string sealed;
++  if (const PaneFileCodec* codec = GetPaneFileCodec();
++      codec && codec->seal(filename, data, &sealed)) {
++    data = as_byte_span(sealed);
++  }
++
+ #if BUILDFLAG(IS_ANDROID)
+   if (filename.IsVirtualDocumentPath()) {
+     std::optional<files_internal::VirtualDocumentPath> vp =
+diff --git a/base/files/important_file_writer.cc b/base/files/important_file_writer.cc
+index 11a32fb7d1..80af26ea0e 100644
+--- a/base/files/important_file_writer.cc
++++ b/base/files/important_file_writer.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "base/files/important_file_writer.h"
+ 
++#include "base/files/pane_file_codec.h"
++
+ #include <stddef.h>
+ #include <stdint.h>
+ #include <stdio.h>
+@@ -278,6 +280,14 @@ bool ImportantFileWriter::WriteFileAtomicallyImpl(
+     bool from_instance,
+     ReplaceFileCallback replace_file_callback) {
+   const TimeTicks write_start = TimeTicks::Now();
++
++  // Pane: a profile's file reaches the disk sealed, temporary file included.
++  std::string sealed;
++  if (const PaneFileCodec* codec = GetPaneFileCodec();
++      codec && codec->seal(path, as_byte_span(data), &sealed)) {
++    data = sealed;
++  }
++
+   if (!from_instance) {
+     ImportantFileWriterCleaner::AddDirectory(path.DirName());
+   }
+diff --git a/base/files/pane_file_codec.cc b/base/files/pane_file_codec.cc
+new file mode 100644
+index 0000000000..7d55425da7
+--- /dev/null
++++ b/base/files/pane_file_codec.cc
+@@ -0,0 +1,21 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#include "base/files/pane_file_codec.h"
++
++#include <atomic>
++
++namespace base {
++
++namespace {
++std::atomic<const PaneFileCodec*> g_codec{nullptr};
++}  // namespace
++
++void SetPaneFileCodec(const PaneFileCodec* codec) {
++  g_codec.store(codec, std::memory_order_release);
++}
++
++const PaneFileCodec* GetPaneFileCodec() {
++  return g_codec.load(std::memory_order_acquire);
++}
++
++}  // namespace base
+diff --git a/base/files/pane_file_codec.h b/base/files/pane_file_codec.h
+new file mode 100644
+index 0000000000..d693ea961d
+--- /dev/null
++++ b/base/files/pane_file_codec.h
+@@ -0,0 +1,36 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#ifndef BASE_FILES_PANE_FILE_CODEC_H_
++#define BASE_FILES_PANE_FILE_CODEC_H_
++
++#include <stdint.h>
++
++#include <string>
++
++#include "base/base_export.h"
++#include "base/containers/span.h"
++#include "base/files/file_path.h"
++
++namespace base {
++
++// Pane encrypts a profile's files (pane/encryption): the ones Chromium writes
++// and reads whole come through here, so its callers see only their plaintext.
++// Each function returns false for a path it leaves alone. Nothing is set in a
++// process that has no profile's files, where this costs one load.
++struct PaneFileCodec {
++  // Seals `plaintext` for `path` into `sealed`.
++  bool (*seal)(const FilePath& path,
++               span<const uint8_t> plaintext,
++               std::string* sealed);
++  // Opens what `path` held into `plaintext`. A plain file passes as it is.
++  bool (*open)(const FilePath& path,
++               span<const uint8_t> stored,
++               std::string* plaintext);
++};
++
++BASE_EXPORT void SetPaneFileCodec(const PaneFileCodec* codec);
++BASE_EXPORT const PaneFileCodec* GetPaneFileCodec();
++
++}  // namespace base
++
++#endif  // BASE_FILES_PANE_FILE_CODEC_H_
+diff --git a/components/services/storage/BUILD.gn b/components/services/storage/BUILD.gn
+index ee6e3c4329..65b7aa8794 100644
+--- a/components/services/storage/BUILD.gn
++++ b/components/services/storage/BUILD.gn
+@@ -109,6 +109,7 @@ source_set("storage") {
+     "//components/services/storage/privileged/cpp",
+     "//components/services/storage/privileged/mojom",
+     "//components/services/storage/public/mojom",
++    "//pane/encryption:handover",
+     "//components/services/storage/service_worker:service_worker_proto",
+     "//mojo/public/cpp/bindings",
+     "//net",
+diff --git a/components/services/storage/public/mojom/BUILD.gn b/components/services/storage/public/mojom/BUILD.gn
+index 4f8baecb4a..c9ec7472cf 100644
+--- a/components/services/storage/public/mojom/BUILD.gn
++++ b/components/services/storage/public/mojom/BUILD.gn
+@@ -29,6 +29,7 @@ mojom("mojom") {
+     "//components/services/storage/public/mojom/buckets",
+     "//components/services/storage/public/mojom/filesystem",
+     "//mojo/public/mojom/base",
++    "//pane/encryption/public/mojom",
+     "//sandbox/policy/mojom",
+     "//services/network/public/mojom:mojom_network_param",
+     "//services/network/public/mojom:url_loader_base",
+diff --git a/components/services/storage/public/mojom/storage_service.mojom b/components/services/storage/public/mojom/storage_service.mojom
+index c647f34f3e..42b0fea870 100644
+--- a/components/services/storage/public/mojom/storage_service.mojom
++++ b/components/services/storage/public/mojom/storage_service.mojom
+@@ -7,6 +7,7 @@ module storage.mojom;
+ import "components/services/storage/public/mojom/local_storage_control.mojom";
+ import "components/services/storage/public/mojom/session_storage_control.mojom";
+ import "mojo/public/mojom/base/file_path.mojom";
++import "pane/encryption/public/mojom/engine_keys.mojom";
+ import "sandbox/policy/mojom/sandbox.mojom";
+ 
+ [EnableIfNot=is_android]
+@@ -22,6 +23,14 @@ const sandbox.mojom.Sandbox kStorageSandbox = sandbox.mojom.Sandbox.kService;
+ // global connection to this interface.
+ [ServiceSandbox=kStorageSandbox]
+ interface StorageService {
++  // Pane: the profiles' keys and where their files live. Sent before each
++  // Bind*StorageControl, so a service that restarts gets them back.
++  PaneSetEngineKeys(pane.mojom.EngineKeys keys);
++
++  // Pane: forgets the keys, once the lock's detach has left no file open.
++  // Replies with how many this process still holds, for its trace.
++  PaneDropEngineKeys() => (uint32 left);
++
+   // Enables more aggressive flushing of DOM Storage data to disk in order to
+   // minimize chance of data loss.
+   EnableAggressiveDomStorageFlushing();
+diff --git a/components/services/storage/storage_service_impl.cc b/components/services/storage/storage_service_impl.cc
+index ffe1ae56a9..bcbd0f24b9 100644
+--- a/components/services/storage/storage_service_impl.cc
++++ b/components/services/storage/storage_service_impl.cc
+@@ -4,6 +4,9 @@
+ 
+ #include "components/services/storage/storage_service_impl.h"
+ 
++#include "pane/encryption/engine_keys.h"  // nogncheck
++#include "pane/encryption/handover.h"  // nogncheck
++
+ #include "base/functional/bind.h"
+ #include "base/not_fatal_until.h"
+ #include "base/task/sequenced_task_runner.h"
+@@ -78,6 +81,17 @@ StorageServiceImpl::StorageServiceImpl(
+ 
+ StorageServiceImpl::~StorageServiceImpl() = default;
+ 
++void StorageServiceImpl::PaneSetEngineKeys(pane::mojom::EngineKeysPtr keys) {
++  pane::encryption::ReceiveKeys(std::move(keys),
++                                pane::encryption::Stores::kLevelDB);
++}
++
++void StorageServiceImpl::PaneDropEngineKeys(
++    PaneDropEngineKeysCallback callback) {
++  pane::encryption::DropKeys();
++  std::move(callback).Run(pane::encryption::KeyCount());
++}
++
+ void StorageServiceImpl::EnableAggressiveDomStorageFlushing() {
+   StorageAreaImpl::EnableAggressiveCommitDelay();
+ }
+diff --git a/components/services/storage/storage_service_impl.h b/components/services/storage/storage_service_impl.h
+index 3e64507a2a..4cc80cbac0 100644
+--- a/components/services/storage/storage_service_impl.h
++++ b/components/services/storage/storage_service_impl.h
+@@ -42,6 +42,8 @@ class StorageServiceImpl : public mojom::StorageService {
+   ~StorageServiceImpl() override;
+ 
+   // mojom::StorageService implementation:
++  void PaneSetEngineKeys(pane::mojom::EngineKeysPtr keys) override;
++  void PaneDropEngineKeys(PaneDropEngineKeysCallback callback) override;
+   void EnableAggressiveDomStorageFlushing() override;
+ #if !BUILDFLAG(IS_ANDROID)
+   void SetDataDirectory(
+diff --git a/content/browser/BUILD.gn b/content/browser/BUILD.gn
+index bee9872ba3..5892f56568 100644
+--- a/content/browser/BUILD.gn
++++ b/content/browser/BUILD.gn
+@@ -132,6 +132,7 @@ source_set("browser") {
+   ldflags = []
+ 
+   deps = [
++    "//pane/encryption:handover",
+     ":child_process_security_policy_impl",
+     "//base",
+     "//base:base_static",
+diff --git a/content/browser/dom_storage/dom_storage_context_wrapper.cc b/content/browser/dom_storage/dom_storage_context_wrapper.cc
+index abe861aed3..317e86d5e8 100644
+--- a/content/browser/dom_storage/dom_storage_context_wrapper.cc
++++ b/content/browser/dom_storage/dom_storage_context_wrapper.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "content/browser/dom_storage/dom_storage_context_wrapper.h"
+ 
++#include "pane/encryption/handover.h"  // nogncheck
++
+ #include <algorithm>
+ #include <string>
+ #include <vector>
+@@ -352,6 +354,10 @@ void DOMStorageContextWrapper::MaybeBindSessionStorageControl(
+   if (!partition_)
+     return;
+   session_storage_control_.reset();
++  // Pane: its keys first, here since a service that restarted lost them.
++  if (auto keys = pane::encryption::KeysForOtherProcess()) {
++    partition_->GetStorageService()->PaneSetEngineKeys(std::move(keys));
++  }
+   partition_->GetStorageService()->BindSessionStorageControl(
+       partition_->GetStoragePartitionPath(), clear_on_open,
+       session_storage_control_.BindNewPipeAndPassReceiver());
+@@ -372,6 +378,10 @@ void DOMStorageContextWrapper::MaybeBindLocalStorageControl() {
+     return;
+   }
+   local_storage_control_.reset();
++  // Pane: its keys first, here since a service that restarted lost them.
++  if (auto keys = pane::encryption::KeysForOtherProcess()) {
++    partition_->GetStorageService()->PaneSetEngineKeys(std::move(keys));
++  }
+   partition_->GetStorageService()->BindLocalStorageControl(
+       partition_->GetStoragePartitionPath(),
+       local_storage_control_.BindNewPipeAndPassReceiver());
+diff --git a/content/browser/storage_partition_impl.cc b/content/browser/storage_partition_impl.cc
+index 7b69ec7f35..ce1a85f25e 100644
+--- a/content/browser/storage_partition_impl.cc
++++ b/content/browser/storage_partition_impl.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "content/browser/storage_partition_impl.h"
+ 
++#include "content/public/browser/pane_storage_service.h"
++
+ #include <stdint.h>
+ 
+ #include <functional>
+@@ -942,6 +944,19 @@ LocalNetworkAccessResolution ResolveLocalNetworkAccess(
+ 
+ }  // namespace
+ 
++void PaneDropStorageServiceKeys(base::OnceCallback<void(uint32_t)> done) {
++  mojo::Remote<storage::mojom::StorageService>& remote =
++      GetStorageServiceRemoteStorage();
++
++  if (!remote) {
++    std::move(done).Run(0);
++    return;
++  }
++
++  remote->PaneDropEngineKeys(
++      mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(done), 0u));
++}
++
+ // Static.
+ storage::QuotaClientTypes StoragePartitionImpl::GenerateQuotaClientTypes(
+     uint32_t remove_mask) {
+diff --git a/content/public/browser/BUILD.gn b/content/public/browser/BUILD.gn
+index 4ff52ee455..feb24cd116 100644
+--- a/content/public/browser/BUILD.gn
++++ b/content/public/browser/BUILD.gn
+@@ -450,6 +450,7 @@ source_set("browser_sources") {
+     "ssl_status.h",
+     "startup_helper.cc",
+     "startup_helper.h",
++    "pane_storage_service.h",
+     "storage_notification_service.h",
+     "storage_partition.h",
+     "storage_partition_config.cc",
+diff --git a/content/public/browser/pane_storage_service.h b/content/public/browser/pane_storage_service.h
+new file mode 100644
+index 0000000000..8ae61ea2b9
+--- /dev/null
++++ b/content/public/browser/pane_storage_service.h
+@@ -0,0 +1,20 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#ifndef CONTENT_PUBLIC_BROWSER_PANE_STORAGE_SERVICE_H_
++#define CONTENT_PUBLIC_BROWSER_PANE_STORAGE_SERVICE_H_
++
++#include <stdint.h>
++
++#include "base/functional/callback_forward.h"
++#include "content/common/content_export.h"
++
++namespace content {
++
++// Pane: asks the Storage Service to forget its keys, and replies with how many
++// it still holds: 0 from a service that is not running.
++CONTENT_EXPORT void PaneDropStorageServiceKeys(
++    base::OnceCallback<void(uint32_t)> done);
++
++}  // namespace content
++
++#endif  // CONTENT_PUBLIC_BROWSER_PANE_STORAGE_SERVICE_H_
+diff --git a/services/network/BUILD.gn b/services/network/BUILD.gn
+index cdee37560e..163d56b1e5 100644
+--- a/services/network/BUILD.gn
++++ b/services/network/BUILD.gn
+@@ -360,6 +360,7 @@ component("network_service") {
+   configs += [ "//build/config/compiler:wexit_time_destructors" ]
+ 
+   deps = [
++    "//pane/encryption:handover",
+     "//base",
+     "//base:build_time",
+     "//build:chromecast_buildflags",
+diff --git a/services/network/network_context.cc b/services/network/network_context.cc
+index 7c2bc9f901..4d7881c332 100644
+--- a/services/network/network_context.cc
++++ b/services/network/network_context.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "services/network/network_context.h"
+ 
++#include "pane/encryption/handover.h"  // nogncheck
++
+ #include <algorithm>
+ #include <memory>
+ #include <optional>
+@@ -739,6 +741,10 @@ NetworkContext::NetworkContext(
+       variations_headers_(std::move(params_->initial_variations_headers)) {
+   TRACE_EVENT0("loading", "NetworkContext::NetworkContext");
+ 
++  // Pane: before anything of the profile's opens.
++  pane::encryption::ReceiveKeys(std::move(params_->pane_engine_keys),
++                                pane::encryption::Stores::kAll);
++
+   if (features::ShouldBindNetworkContextDirectReceiver()) {
+     receiver_.emplace<DirectReceiver>(mojo::DirectReceiverKey{}, this);
+   }
+diff --git a/services/network/network_service.cc b/services/network/network_service.cc
+index 3b55b33d58..381caa2eb1 100644
+--- a/services/network/network_service.cc
++++ b/services/network/network_service.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "services/network/network_service.h"
+ 
++#include "pane/encryption/engine_keys.h"  // nogncheck
++
+ #include <algorithm>
+ #include <cstdint>
+ #include <map>
+@@ -420,6 +422,11 @@ NetworkService::NetworkService(
+   }
+ }
+ 
++void NetworkService::PaneDropEngineKeys(PaneDropEngineKeysCallback callback) {
++  pane::encryption::DropKeys();
++  std::move(callback).Run(pane::encryption::KeyCount());
++}
++
+ void NetworkService::Initialize(mojom::NetworkServiceParamsPtr params,
+                                 bool mock_network_change_notifier) {
+   if (initialized_) {
+diff --git a/services/network/network_service.h b/services/network/network_service.h
+index 47f96caf5d..aec42a1198 100644
+--- a/services/network/network_service.h
++++ b/services/network/network_service.h
+@@ -162,6 +162,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
+       net::NetworkTrafficAnnotationTag traffic_annotation);
+ 
+   // mojom::NetworkService implementation:
++  void PaneDropEngineKeys(PaneDropEngineKeysCallback callback) override;
+   void SetParams(mojom::NetworkServiceParamsPtr params) override;
+   void StartNetLog(base::File file,
+                    uint64_t max_total_size,
+diff --git a/services/network/public/mojom/BUILD.gn b/services/network/public/mojom/BUILD.gn
+index 79817b8276..3f569020dc 100644
+--- a/services/network/public/mojom/BUILD.gn
++++ b/services/network/public/mojom/BUILD.gn
+@@ -1976,6 +1976,7 @@ mojom("mojom") {
+   ]
+ 
+   public_deps = [
++    "//pane/encryption/public/mojom",
+     ":cookies_mojom",
+     ":mojom_cache_storage_side_data_writer",
+     ":mojom_connection_allowlist",
+diff --git a/services/network/public/mojom/network_context.mojom b/services/network/public/mojom/network_context.mojom
+index ba22365134..cec7f9f2ff 100644
+--- a/services/network/public/mojom/network_context.mojom
++++ b/services/network/public/mojom/network_context.mojom
+@@ -100,6 +100,7 @@ import "services/network/public/mojom/p2p.mojom";
+ import "services/network/public/mojom/p2p_trusted.mojom";
+ 
+ [EnableIf=enable_disk_cache_sql_backend]
++import "pane/encryption/public/mojom/engine_keys.mojom";
+ import "services/network/public/mojom/shared_http_cache_client.mojom";
+ 
+ const uint32 kWebSocketOptionNone = 0;
+@@ -640,6 +641,11 @@ struct NetworkContextParams {
+   // If true, the HTTP cache will be encrypted on disk.
+   bool enable_encrypted_http_cache = false;
+ 
++  // Pane: the profiles' keys and where their files live, registered before the
++  // cookie store loads. Each new context brings them, so a network service that
++  // restarts gets them back (pane/encryption).
++  pane.mojom.EngineKeys? pane_engine_keys;
++
+   // If set, the network process will use the remote to reach the unexportable
+   // key service in the browser process, and delegate all unexportable keys
+   // operations to it. This remote should only be used for Device Bound
+diff --git a/services/network/public/mojom/network_service.mojom b/services/network/public/mojom/network_service.mojom
+index 535d121dc2..0024c0e0a3 100644
+--- a/services/network/public/mojom/network_service.mojom
++++ b/services/network/public/mojom/network_service.mojom
+@@ -193,6 +193,10 @@ interface GssapiLibraryLoadObserver {
+ // be available on all platforms.
+ [ServiceSandbox=sandbox.mojom.Sandbox.kNetwork]
+ interface NetworkService {
++  // Pane: forgets the profiles' keys, once the lock's detach has left no file
++  // open. Replies with how many this process still holds, for its trace.
++  PaneDropEngineKeys() => (uint32 left);
++
+   // Sets the parameters and initializes the service.
+   SetParams(NetworkServiceParams params);
+ 
+diff --git a/third_party/leveldatabase/BUILD.gn b/third_party/leveldatabase/BUILD.gn
+index db16e21024..40f990215a 100644
+--- a/third_party/leveldatabase/BUILD.gn
++++ b/third_party/leveldatabase/BUILD.gn
+@@ -127,6 +127,7 @@ component("leveldatabase") {
+   deps = [
+     "//build:chromeos_buildflags",
+     "//components/services/storage/public/cpp/filesystem",
++    "//pane/encryption:core",
+     "//third_party/crc32c",
+     "//third_party/re2",
+     "//third_party/snappy",
+@@ -164,6 +165,7 @@ static_library("leveldb_static") {
+   deps = [
+     "//build:chromeos_buildflags",
+     "//components/services/storage/public/cpp/filesystem",
++    "//pane/encryption:core",
+     "//third_party/crc32c",
+     "//third_party/re2",
+     "//third_party/snappy",
+diff --git a/third_party/leveldatabase/env_chromium.cc b/third_party/leveldatabase/env_chromium.cc
+index 393c170608..cf0879918a 100644
+--- a/third_party/leveldatabase/env_chromium.cc
++++ b/third_party/leveldatabase/env_chromium.cc
+@@ -4,7 +4,9 @@
+ 
+ #include "third_party/leveldatabase/env_chromium.h"
+ 
++#include <algorithm>
+ #include <atomic>
++#include <cstdarg>
+ #include <iterator>
+ #include <limits>
+ #include <optional>
+@@ -43,6 +45,8 @@
+ #include "build/build_config.h"
+ #include "build/chromeos_buildflags.h"
+ #include "components/services/storage/public/cpp/filesystem/filesystem_proxy.h"
++#include "pane/encryption/engine_keys.h"  // nogncheck
++#include "pane/encryption/stream_cipher.h"  // nogncheck
+ #include "third_party/leveldatabase/chromium_logger.h"
+ #include "third_party/leveldatabase/leveldb_chrome.h"
+ #include "third_party/leveldatabase/src/include/leveldb/options.h"
+@@ -128,10 +132,51 @@ class Retrier {
+   base::TimeDelta time_to_sleep_;
+ };
+ 
++// Pane: a profile's LevelDB files are encrypted (pane/encryption/stream_cipher.h).
++// The keys of `path`, if it is one of them.
++std::optional<pane::encryption::ProfileKeys> PaneKeysFor(
++    const base::FilePath& path) {
++  pane::encryption::PathVerdict verdict = pane::encryption::Classify(path);
++  return verdict.kind == pane::encryption::PathKind::kEncrypted
++             ? verdict.keys
++             : std::nullopt;
++}
++
++// Pane: an encrypted file open for reading. A file shorter than its header, or
++// with a header of zeros, is one a crash cut short as it was made: it counts as
++// empty, with no cipher. A plain file here was never migrated, and an error
++// would have LevelDB's callers repair or delete the store: the process stops.
++std::unique_ptr<pane::encryption::StreamCipher> PaneCipherForRead(
++    const pane::encryption::ProfileKeys& keys,
++    base::File* file,
++    bool* empty) {
++  using pane::encryption::StreamCipher;
++  StreamCipher::Header header;
++  std::optional<size_t> read = file->Read(0, header);
++  *empty = !read || *read < header.size() ||
++           std::all_of(header.begin(), header.end(),
++                       [](uint8_t byte) { return byte == 0; });
++
++  if (*empty) {
++    return nullptr;
++  }
++
++  CHECK(StreamCipher::HasMagic(header)) << "A plain LevelDB file in a profile.";
++  return StreamCipher::FromHeader(keys, header);
++}
++
+ class ChromiumSequentialFile : public leveldb::SequentialFile {
+  public:
+   ChromiumSequentialFile(const std::string& fname, base::File f)
+-      : filename_(fname), file_(std::move(f)) {}
++      : filename_(fname), file_(std::move(f)) {
++    // Pane.
++    if (std::optional<pane::encryption::ProfileKeys> keys =
++            PaneKeysFor(FilePath::FromUTF8Unsafe(fname))) {
++      cipher_ = PaneCipherForRead(*keys, &file_, &pane_empty_);
++      file_.Seek(base::File::FROM_BEGIN,
++                 pane::encryption::StreamCipher::kHeaderSize);
++    }
++  }
+ 
+   ChromiumSequentialFile(const ChromiumSequentialFile&) = delete;
+   ChromiumSequentialFile& operator=(const ChromiumSequentialFile&) = delete;
+@@ -141,6 +186,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+   // Note: This method is relatively hot during leveldb database
+   // compaction. Please avoid making them slower.
+   Status Read(size_t n, Slice* result, char* scratch) override {
++    if (pane_empty_) {
++      *result = Slice(scratch, 0);
++      return Status::OK();
++    }
+     std::optional<size_t> bytes_read = file_.ReadAtCurrentPosNoBestEffort(
+         base::as_writable_bytes(UNSAFE_TODO(base::span(scratch, n))));
+     if (!bytes_read.has_value()) {
+@@ -148,16 +197,26 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+       return MakeIOError(filename_, base::File::ErrorToString(error),
+                          kSequentialFileRead, error);
+     }
++    if (cipher_) {
++      base::span<uint8_t> bytes =
++          base::as_writable_bytes(UNSAFE_TODO(base::span(scratch, *bytes_read)));
++      cipher_->Apply(pane_offset_, bytes, bytes);
++      pane_offset_ += *bytes_read;
++    }
+     *result = Slice(scratch, *bytes_read);
+     return Status::OK();
+   }
+ 
+   Status Skip(uint64_t n) override {
++    if (pane_empty_) {
++      return Status::OK();
++    }
+     if (file_.Seek(base::File::FROM_CURRENT, n) == -1) {
+       base::File::Error error = base::File::GetLastFileError();
+       return MakeIOError(filename_, base::File::ErrorToString(error),
+                          kSequentialFileSkip, error);
+     } else {
++      pane_offset_ += n;
+       return Status::OK();
+     }
+   }
+@@ -165,6 +224,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+  private:
+   std::string filename_;
+   base::File file_;
++  // Pane.
++  std::unique_ptr<pane::encryption::StreamCipher> cipher_;
++  bool pane_empty_ = false;
++  uint64_t pane_offset_ = 0;
+ };
+ 
+ void RemoveFile(const Slice& key, void* value) {
+@@ -176,14 +239,22 @@ Status ReadFromFileToScratch(uint64_t offset,
+                              Slice* result,
+                              char* scratch,
+                              base::File* file,
+-                             const base::FilePath& file_path) {
++                             const base::FilePath& file_path,
++                             const pane::encryption::StreamCipher* cipher) {
+   base::span<uint8_t> scratch_span =
+       base::as_writable_bytes(UNSAFE_TODO(base::span(scratch, n)));
+-  std::optional<size_t> bytes_read = file->Read(offset, scratch_span);
++  // Pane: past the header, then decrypted.
++  std::optional<size_t> bytes_read = file->Read(
++      cipher ? offset + pane::encryption::StreamCipher::kHeaderSize : offset,
++      scratch_span);
+   if (!bytes_read) {
+     return MakeIOError(file_path.AsUTF8Unsafe(), "Could not perform read",
+                        kRandomAccessFileRead);
+   }
++  if (cipher) {
++    base::span<uint8_t> bytes = scratch_span.first(*bytes_read);
++    cipher->Apply(offset, bytes, bytes);
++  }
+   *result = Slice(scratch, bytes_read.value());
+ 
+   return Status::OK();
+@@ -201,13 +272,18 @@ Status ReadFromFileToScratch(uint64_t offset,
+ // file is evicted.
+ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+  public:
+-  ChromiumEvictableRandomAccessFile(base::FilePath file_path,
+-                                    base::File file,
+-                                    storage::FilesystemProxy* filesystem,
+-                                    leveldb::Cache* file_cache)
++  ChromiumEvictableRandomAccessFile(
++      base::FilePath file_path,
++      base::File file,
++      storage::FilesystemProxy* filesystem,
++      leveldb::Cache* file_cache,
++      std::unique_ptr<pane::encryption::StreamCipher> cipher,
++      bool pane_empty)
+       : filepath_(std::move(file_path)),
+         filesystem_(filesystem),
+         file_cache_(file_cache),
++        cipher_(std::move(cipher)),
++        pane_empty_(pane_empty),
+         cache_key_data_(this),
+         cache_key_(
+             leveldb::Slice(reinterpret_cast<const char*>(&cache_key_data_),
+@@ -235,6 +311,10 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+               size_t n,
+               Slice* result,
+               char* scratch) const override {
++    if (pane_empty_) {
++      *result = Slice(scratch, 0);
++      return Status::OK();
++    }
+     leveldb::Cache::Handle* handle = file_cache_->Lookup(cache_key_);
+     if (!handle) {
+       int flags = base::File::FLAG_READ | base::File::FLAG_OPEN;
+@@ -247,8 +327,8 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+                                    sizeof(base::File), &RemoveFile);
+     }
+     base::File* file = static_cast<base::File*>(file_cache_->Value(handle));
+-    Status status =
+-        ReadFromFileToScratch(offset, n, result, scratch, file, filepath_);
++    Status status = ReadFromFileToScratch(offset, n, result, scratch, file,
++                                          filepath_, cipher_.get());
+     file_cache_->Release(handle);
+     return status;
+   }
+@@ -257,14 +337,23 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+   const base::FilePath filepath_;
+   storage::FilesystemProxy* const filesystem_;
+   mutable leveldb::Cache* file_cache_;
++  // Pane.
++  const std::unique_ptr<pane::encryption::StreamCipher> cipher_;
++  const bool pane_empty_;
+   const ChromiumEvictableRandomAccessFile* cache_key_data_;
+   leveldb::Slice cache_key_;
+ };
+ 
+ class ChromiumRandomAccessFile : public leveldb::RandomAccessFile {
+  public:
+-  ChromiumRandomAccessFile(base::FilePath file_path, base::File file)
+-      : filepath_(std::move(file_path)), file_(std::move(file)) {}
++  ChromiumRandomAccessFile(base::FilePath file_path,
++                           base::File file,
++                           std::unique_ptr<pane::encryption::StreamCipher> cipher,
++                           bool pane_empty)
++      : filepath_(std::move(file_path)),
++        file_(std::move(file)),
++        cipher_(std::move(cipher)),
++        pane_empty_(pane_empty) {}
+ 
+   ChromiumRandomAccessFile(const ChromiumRandomAccessFile&) = delete;
+   ChromiumRandomAccessFile& operator=(const ChromiumRandomAccessFile&) = delete;
+@@ -277,12 +366,20 @@ class ChromiumRandomAccessFile : public leveldb::RandomAccessFile {
+               size_t n,
+               Slice* result,
+               char* scratch) const override {
+-    return ReadFromFileToScratch(offset, n, result, scratch, &file_, filepath_);
++    if (pane_empty_) {
++      *result = Slice(scratch, 0);
++      return Status::OK();
++    }
++    return ReadFromFileToScratch(offset, n, result, scratch, &file_, filepath_,
++                                 cipher_.get());
+   }
+ 
+  private:
+   const base::FilePath filepath_;
+   mutable base::File file_;
++  // Pane.
++  const std::unique_ptr<pane::encryption::StreamCipher> cipher_;
++  const bool pane_empty_;
+ };
+ 
+ class ChromiumWritableFile : public leveldb::WritableFile {
+@@ -306,6 +403,12 @@ class ChromiumWritableFile : public leveldb::WritableFile {
+ 
+   std::string filename_;
+   base::File file_;
++  // Pane: the file's cipher, the content's length so far, and whether a write
++  // failed, after which it takes no more, so its keystream is never reused.
++  std::unique_ptr<pane::encryption::StreamCipher> cipher_;
++  uint64_t pane_offset_ = 0;
++  bool pane_failed_ = false;
++  std::vector<uint8_t> pane_buffer_;
+ #if defined(OS_POSIX) || defined(OS_FUCHSIA)
+   storage::FilesystemProxy* const filesystem_;
+ #endif
+@@ -330,6 +433,13 @@ ChromiumWritableFile::ChromiumWritableFile(const std::string& fname,
+     file_type_ = kTable;
+   }
+   parent_dir_ = FilePath::FromUTF8Unsafe(fname).DirName().AsUTF8Unsafe();
++
++  // Pane: a new file starts with its header.
++  if (std::optional<pane::encryption::ProfileKeys> keys = PaneKeysFor(path)) {
++    pane::encryption::StreamCipher::Header header;
++    cipher_ = pane::encryption::StreamCipher::ForNewFile(*keys, &header);
++    pane_failed_ = !file_.WriteAtCurrentPosAndCheck(header);
++  }
+ }
+ 
+ Status ChromiumWritableFile::SyncParent() {
+@@ -353,11 +463,23 @@ Status ChromiumWritableFile::SyncParent() {
+ 
+ Status ChromiumWritableFile::Append(const Slice& data) {
+   DCHECK(file_.IsValid());
+-  if (!file_.WriteAtCurrentPosAndCheck(base::as_byte_span(data))) {
++  base::span<const uint8_t> bytes = base::as_byte_span(data);
++  if (cipher_) {
++    if (pane_failed_) {
++      return MakeIOError(filename_, "A write failed before",
++                         kWritableFileAppend);
++    }
++    pane_buffer_.resize(bytes.size());
++    cipher_->Apply(pane_offset_, bytes, pane_buffer_);
++    bytes = pane_buffer_;
++  }
++  if (!file_.WriteAtCurrentPosAndCheck(bytes)) {
+     base::File::Error error = base::File::GetLastFileError();
++    pane_failed_ = true;
+     return MakeIOError(filename_, base::File::ErrorToString(error),
+                        kWritableFileAppend, error);
+   }
++  pane_offset_ += bytes.size();
+   return Status::OK();
+ }
+ 
+@@ -481,7 +603,9 @@ Options::Options() {
+ //
+ // Currently log reuse is an experimental feature in leveldb. More info at:
+ // https://github.com/google/leveldb/commit/251ebf5dc70129ad3
+-#if BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
++  // Pane: an encrypted file takes no appends once closed, and neither does a
++  // plain one here, since a database's options don't say which it is.
+   // Reusing logs on Chrome OS resulted in an unacceptably high leveldb
+   // corruption rate (at least for Indexed DB). More info at
+   // https://crbug.com/460568
+@@ -862,6 +986,11 @@ Status ChromiumEnv::GetFileSize(const std::string& fname, uint64_t* size) {
+     s = MakeIOError(fname, "Could not determine file size.", kGetFileSize);
+   } else {
+     *size = static_cast<uint64_t>(info->size);
++    // Pane: the content's length, which repair reads.
++    if (PaneKeysFor(base::FilePath::FromUTF8Unsafe(fname))) {
++      const uint64_t header = pane::encryption::StreamCipher::kHeaderSize;
++      *size = *size > header ? *size - header : 0;
++    }
+   }
+   return s;
+ }
+@@ -943,6 +1072,15 @@ Status ChromiumEnv::NewLogger(const std::string& fname,
+                               leveldb::Logger** result) {
+   *result = nullptr;
+   FilePath path = FilePath::FromUTF8Unsafe(fname);
++  // Pane: LevelDB's text log prints user keys, so a profile's logs nothing.
++  if (PaneKeysFor(path)) {
++    class NoLogger : public leveldb::Logger {
++     public:
++      void Logv(const char*, va_list) override {}
++    };
++    *result = new NoLogger();
++    return Status::OK();
++  }
+   ASSIGN_OR_RETURN(base::File open_result,
+                    filesystem_->OpenFile(path, base::File::FLAG_CREATE_ALWAYS |
+                                                    base::File::FLAG_WRITE),
+@@ -975,13 +1113,20 @@ Status ChromiumEnv::NewRandomAccessFile(const std::string& fname,
+                      return MakeIOError(fname, FileErrorString(error),
+                                         kNewRandomAccessFile, error);
+                    });
++  // Pane.
++  std::unique_ptr<pane::encryption::StreamCipher> cipher;
++  bool empty = false;
++  if (std::optional<pane::encryption::ProfileKeys> keys =
++          PaneKeysFor(file_path)) {
++    cipher = PaneCipherForRead(*keys, &file, &empty);
++  }
+   if (file_cache_) {
+     *result = new ChromiumEvictableRandomAccessFile(
+         std::move(file_path), std::move(file), filesystem_.get(),
+-        file_cache_.get());
++        file_cache_.get(), std::move(cipher), empty);
+   } else {
+-    *result =
+-        new ChromiumRandomAccessFile(std::move(file_path), std::move(file));
++    *result = new ChromiumRandomAccessFile(std::move(file_path), std::move(file),
++                                           std::move(cipher), empty);
+   }
+   return Status::OK();
+ }
+@@ -1005,6 +1150,10 @@ Status ChromiumEnv::NewAppendableFile(const std::string& fname,
+                                       leveldb::WritableFile** result) {
+   *result = nullptr;
+   FilePath path = FilePath::FromUTF8Unsafe(fname);
++  // Pane: an encrypted file is never reopened to append.
++  if (PaneKeysFor(path)) {
++    return Status::NotSupported(fname, "an encrypted file takes no appends");
++  }
+   ASSIGN_OR_RETURN(base::File open_result,
+                    filesystem_->OpenFile(path, base::File::FLAG_OPEN_ALWAYS |
+                                                    base::File::FLAG_APPEND),

@@ -1,0 +1,13 @@
+== sqlite3 History
+https://en.wikipedia.org/wiki/Web_browser
+== strings Cookies (hosts)
+en.wikipedia.orgenwikimwuser-sessionIdv10
+P.wikipedia.orgWMF-Uniqv10%
+.wikipedia.orgWMF-Last-Access-Globalv10%
+== strings Local Storage
+VERSION
+*_https://en.wikipedia.org
+== file Cache
+index-dir
+0bc67403b29e1aba_0
+1/0/_dk_https://wikipedia.org https://wikipedia.org https://en.wikipedia.org/w/load.php?modules=skins.vector.icons.js&im

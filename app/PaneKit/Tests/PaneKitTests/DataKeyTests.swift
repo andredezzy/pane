@@ -10,6 +10,18 @@ private func bytes(_ key: SymmetricKey) -> Data {
 
 @Suite("DataKey")
 struct DataKeyTests {
+	// Each profile's engine key (ADR 0121): its own, and neither the files' key
+	// nor the volume's passphrase. The vector is what tests/lib/engine-key.ts
+	// derives, to look for the key on disk.
+	@Test func engineKeyIsPerProfile() {
+		let key = SymmetricKey(data: Data(repeating: 7, count: 32))
+		let one = DataKey.engineKey(key, profile: "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f02").withUnsafeBytes { Data($0) }
+		let two = DataKey.engineKey(key, profile: "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f03").withUnsafeBytes { Data($0) }
+		#expect(one != two)
+		#expect(one != DataKey.filesKey(key).withUnsafeBytes { Data($0) })
+		#expect(one.map { String(format: "%02x", $0) }.joined() == "095fb86a06d3e7f7b357b5166b2f83a7e9764eda45d155dcdad6c102bd354fc2")
+	}
+
 	private let secret = Data("engine-safe-storage-secret".utf8)
 
 	@Test("sealed without a PIN, the key opens with the secret alone")

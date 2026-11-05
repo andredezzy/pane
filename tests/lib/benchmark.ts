@@ -80,24 +80,20 @@ async function describe(
 	};
 }
 
-// The Electron app, from PANE_BENCHMARK_ELECTRON, and the run's binary, the
-// native app.
+// The run's binary, the native app, and the Electron app when
+// PANE_BENCHMARK_ELECTRON names one (docs/benchmarks/README.md). Without one,
+// a benchmark measures the run's binary alone, as a comparison of two native
+// builds does (docs/benchmarks/engine-encryption.md).
 export async function benchmarkedApps(
 	context: ScenarioContext,
 ): Promise<BenchmarkedApp[]> {
 	const electron = process.env.PANE_BENCHMARK_ELECTRON;
 
-	if (!electron) {
-		throw new Error(
-			"PANE_BENCHMARK_ELECTRON names no Electron app (docs/benchmarks/README.md)",
-		);
-	}
-
 	// Compiled now, not inside the first timed launch.
 	await swiftTool("window-wait");
 
 	return [
-		await describe("electron", electron),
+		...(electron ? [await describe("electron", electron)] : []),
 		await describe("native", context.binary),
 	];
 }

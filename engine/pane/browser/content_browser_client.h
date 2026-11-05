@@ -24,6 +24,13 @@ class ContentBrowserClient : public ChromeContentBrowserClient {
       bool is_integration_test) override;
   void AppendExtraCommandLineSwitches(base::CommandLine* command_line,
                                       int child_process_id) override;
+  void ConfigureNetworkContextParams(
+      content::BrowserContext* context,
+      bool in_memory,
+      const base::FilePath& relative_partition_path,
+      network::mojom::NetworkContextParams* network_context_params,
+      cert_verifier::mojom::CertVerifierCreationParams*
+          cert_verifier_creation_params) override;
   std::string GetUserAgentForBrowserContext(
       content::BrowserContext* browser_context) override;
   blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(

@@ -85,12 +85,23 @@ NS_SWIFT_UI_ACTOR
 // `completion` on the main thread with the context, or nil and an error: for
 // an identifier that cannot be one folder name (empty, ".", "..", a "/" or
 // ":", longer than 255 bytes), a profile whose folder cannot be made or that
-// does not load, or once the engine started shutting down.
+// does not load, or once the engine started shutting down. `engineKey`, 32
+// bytes, encrypts every file the profile writes (docs/adr/0121): it stays in
+// Pane's processes' memory, until -dropEngineKeysWithCompletion:.
 - (void)openContextWithIdentifier:(NSString*)identifier
+                        engineKey:(NSData*)engineKey
                        completion:
                            (void (^)(PaneBrowserContext* _Nullable context,
                                      NSError* _Nullable error))completion
-    NS_SWIFT_NAME(openContext(identifier:completion:));
+    NS_SWIFT_NAME(openContext(identifier:engineKey:completion:));
+
+// Forgets every profile's key in every process, once the lock's detach has left
+// no profile's file open. A path of a profile's with no key then stops the
+// process that reaches it. `completion` gets how many each process still holds,
+// by "browser", "network", and "storage", each 0 when all went well.
+- (void)dropEngineKeysWithCompletion:(void (^)(NSDictionary<NSString*, NSNumber*>*
+                                                   left))completion
+    NS_SWIFT_NAME(dropEngineKeys(completion:));
 
 // Deletes the profile: closes its tabs in every window, without asking their
 // pages (no beforeunload), then removes its data (cookies, storage, cache,

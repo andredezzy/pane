@@ -63,6 +63,13 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		vault.didFail = { [weak lock] in
 			lock?.volumeWontOpen()
 		}
+		vault.didDetachLocked = { [weak application] in
+			application?.dropEngineKeys { left in
+				if left.values.contains(where: { $0.intValue != 0 }) {
+					Log.security.error("A process kept its keys through a lock: \(left, privacy: .public)")
+				}
+			}
+		}
 		controller.didLock = { [weak store] in
 			store?.unloadProfiles()
 		}

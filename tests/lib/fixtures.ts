@@ -132,6 +132,47 @@ async function route(
 		);
 	}
 
+	// The rich session's page (tests/lib/rich-session.ts), which the HTTP cache
+	// keeps, with its text, its script, and a sign-in's cookie, each from the
+	// address.
+	if (pathname === "/rich-session/page") {
+		const { searchParams } = new URL(request.url);
+
+		return new Response(
+			`<!doctype html><title>Rich session</title><h1>${searchParams.get("text")}</h1><script src="/rich-session/script.js?value=${searchParams.get("script")}"></script>`,
+			{
+				headers: {
+					"Content-Type": "text/html; charset=utf-8",
+					"Cache-Control": "public, max-age=3600",
+					"Set-Cookie": `rich_session=${searchParams.get("cookie")}; Path=/; Max-Age=86400; HttpOnly`,
+				},
+			},
+		);
+	}
+
+	// Past the size V8 keeps code for, and the HTTP cache keeps it for an hour.
+	if (pathname === "/rich-session/script.js") {
+		const { searchParams } = new URL(request.url);
+		const body = `window.richScript = ${JSON.stringify(searchParams.get("value"))};\n${"function pad(n) { return n * 2; }\n".repeat(600)}`;
+
+		return new Response(body, {
+			headers: {
+				"Content-Type": "text/javascript",
+				"Cache-Control": "public, max-age=3600",
+			},
+		});
+	}
+
+	// The rich session's service worker, its value in its source.
+	if (pathname === "/rich-session/worker.js") {
+		const { searchParams } = new URL(request.url);
+
+		return new Response(
+			`self.richValue = ${JSON.stringify(searchParams.get("value"))};\nself.addEventListener("fetch", () => {});\n`,
+			{ headers: { "Content-Type": "text/javascript" } },
+		);
+	}
+
 	// 256 KB the HTTP cache keeps for an hour.
 	if (pathname === "/cacheable") {
 		return new Response("p".repeat(256 * 1024), {

@@ -295,6 +295,14 @@ public struct DataVolume: Sendable {
 
 		// The volume's root, the user's alone.
 		chmod(mountPoint.path, 0o700)
+
+		// Spotlight leaves it alone: mdutil can't tell its state on a volume out
+		// of the Finder, and an index would outlive the lock (ADR 0121).
+		let unindexed = mountPoint.appending(path: ".metadata_never_index")
+
+		if !FileManager.default.fileExists(atPath: unindexed.path) {
+			FileManager.default.createFile(atPath: unindexed.path, contents: nil)
+		}
 	}
 
 	private final class MountResult: @unchecked Sendable {

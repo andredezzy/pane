@@ -82,6 +82,12 @@ public enum DataKey {
 		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, info: Data("Pane files".utf8), outputByteCount: 32)
 	}
 
+	// The key every file a profile's engine writes is encrypted under (ADR 0121),
+	// which only Pane's processes hold in memory.
+	public static func engineKey(_ key: SymmetricKey, profile id: String) -> SymmetricKey {
+		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, salt: Data(id.utf8), info: Data("Pane engine files".utf8), outputByteCount: 32)
+	}
+
 	// The volume's passphrase, which hdiutil reads from standard input.
 	public static func volumePassphrase(_ key: SymmetricKey) -> String {
 		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, info: Data("Pane data volume".utf8), outputByteCount: 32)

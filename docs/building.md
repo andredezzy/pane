@@ -32,6 +32,15 @@ Every script is safe to re-run. The first sync and the first build take hours; l
 
 Edit files in `~/chromium/src`, list each touched file in `patches/MANIFEST` with its owning patch, then regenerate the patch with `engine/scripts/make-patch.sh <patch-name>`. A file belongs to exactly one patch, so a patch is the diff of its own files against the pinned tag.
 
+## Engine unit tests
+
+```bash
+engine/scripts/build.sh release pane_unittests
+~/chromium/src/out/Release/pane_unittests
+```
+
+`pane_unittests` checks `//pane/encryption`, the formats every profile file is written in (ADR 0121): the key registry, the SQLite VFS through journals, WAL, kills, Raze and Recovery, and the stream and whole-file codecs. CI never builds Chromium, so these run locally, before committing an engine change.
+
 ## Scenarios
 
 ```bash

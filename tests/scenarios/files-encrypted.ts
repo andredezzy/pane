@@ -1,0 +1,94 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { audit } from "../lib/file-audit";
+import {
+	plantedInRealTemporaryFolder,
+	READ_BACK,
+	type ReadBack,
+	richSession,
+	STORES_COMMITTED_MS,
+} from "../lib/rich-session";
+import { expect, type Scenario } from "../run";
+
+// What a process that reads files finds while Pane is open and unlocked
+// (docs/plans/engine-file-encryption.md): every file under each profile's
+// folder, its caches, the data root, and what Pane's processes made in $TMPDIR
+// is ciphertext or on the plan's allow-list; none holds a planted value; and no
+// name gives a site away, in clear or as an unkeyed hash. It reports until
+// PANE_AUDIT_STRICT says the plan's Phase 4 has ended.
+const STRICT = process.env.PANE_AUDIT_STRICT === "1";
+
+const filesEncrypted: Scenario = async (context) => {
+	const session = await richSession(context);
+	await Bun.sleep(STORES_COMMITTED_MS);
+	const found = audit(session.roots, session.planted);
+	const inTemporaryFolder = await plantedInRealTemporaryFolder(session.planted);
+
+	// What it wrote still reads, through everything that encrypted it.
+	const back = await session.page.evaluate<ReadBack>(READ_BACK);
+	const { values } = session.planted;
+
+	expect(
+		back.localStorage === values.localStorage &&
+			back.sessionStorage === values.sessionStorage &&
+			back.indexedDB.value === values.indexedDB &&
+			back.indexedDB.blob.startsWith(values.indexedDBBlob ?? "") &&
+			back.cacheStorage === values.cacheStorage &&
+			back.originPrivate === values.originPrivate &&
+			back.originPrivateSync === values.originPrivateSync &&
+			back.serviceWorker !== null &&
+			back.cookie.includes(values.scriptCookie ?? ""),
+		`the session does not read back: ${JSON.stringify(back)}`,
+	);
+
+	const report = {
+		strict: STRICT,
+		files: found.files.length,
+		plain: found.plain.map(({ path, kind, plain }) => ({ path, kind, plain })),
+		planted: found.planted.map(({ path, planted }) => ({ path, planted })),
+		named: found.named,
+		inTemporaryFolder,
+	};
+
+	writeFileSync(
+		join(context.out, "files-encrypted-findings.json"),
+		`${JSON.stringify(report, null, "\t")}\n`,
+	);
+
+	await session.app.quit();
+
+	// A session that left nothing to find would pass anything.
+	expect(found.files.length > 50, `only ${found.files.length} files`);
+
+	expect(
+		inTemporaryFolder.length === 0,
+		`planted values in the temporary folder: ${inTemporaryFolder.join("; ")}`,
+	);
+
+	if (STRICT) {
+		expect(
+			found.plain.length === 0,
+			`plain files: ${found.plain.map((file) => `${file.path} (${file.plain.join(", ")})`).join("; ")}`,
+		);
+
+		expect(
+			found.planted.length === 0,
+			`planted values on disk: ${found.planted.map((file) => `${file.path} (${file.planted.join(", ")})`).join("; ")}`,
+		);
+
+		expect(
+			found.named.length === 0,
+			`names that give a site away: ${found.named.map((item) => `${item.path} (${item.named.join(", ")})`).join("; ")}`,
+		);
+	}
+
+	return {
+		strict: STRICT,
+		files: found.files.length,
+		plain: found.plain.length,
+		planted: found.planted.length,
+		named: found.named.length,
+	};
+};
+
+export default filesEncrypted;

@@ -32,6 +32,15 @@
 #include "content/public/browser/gpu_data_manager.h"
 #include "gpu/config/gpu_info.h"
 #include "base/version_info/version_info.h"
+#include "pane/encryption/engine_keys.h"
+#include "pane/encryption/handover.h"
+#include "content/public/browser/network_service_instance.h"
+#include "content/public/browser/pane_storage_service.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "chrome/common/chrome_paths_internal.h"
+#include "services/network/public/mojom/network_service.mojom.h"
+#include "base/apple/foundation_util.h"
+#include "base/barrier_closure.h"
 #include "pane/browser/app_callback.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/fingerprints.h"
@@ -91,6 +100,38 @@ bool IsValidIdentifier(NSString* identifier) {
   }
   return [identifier rangeOfString:@"/"].location == NSNotFound &&
          [identifier rangeOfString:@":"].location == NSNotFound;
+}
+
+// The roots a profile's files live under, in each form a path reaches them, and
+// its key, for this process and, through ContentBrowserClient, the others'.
+void RegisterEngineKey(const base::FilePath& user_data_dir,
+                       const std::string& identifier,
+                       NSData* key) {
+  pane::encryption::InstallHooks();
+
+  std::vector<base::FilePath> roots = {user_data_dir,
+                                       user_data_dir.Append("Volume")};
+
+  // Their resolved forms: /var is /private/var, and the caches' folder links
+  // into the volume too. A realpath, once per open.
+  const base::FilePath resolved = base::MakeAbsoluteFilePath(user_data_dir);
+
+  if (!resolved.empty()) {
+    roots.push_back(resolved);
+    roots.push_back(resolved.Append("Volume"));
+  }
+
+  base::FilePath caches;
+  chrome::GetUserCacheDirectory(user_data_dir.Append(identifier), &caches);
+
+  if (!caches.empty() && caches.DirName() != user_data_dir) {
+    roots.push_back(caches.DirName());
+  }
+
+  pane::encryption::AddRoots(roots);
+  pane::encryption::RegisterKey(
+      identifier,
+      base::apple::NSDataToSpan(key).first<pane::encryption::kKeySize>());
 }
 
 NSError* ContextError(NSInteger code, NSString* description) {
@@ -325,6 +366,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
 }
 
 - (void)openContextWithIdentifier:(NSString*)identifier
+                        engineKey:(NSData*)engineKey
                        completion:
                            (void (^)(PaneBrowserContext* _Nullable context,
                                      NSError* _Nullable error))completion {
@@ -349,9 +391,19 @@ class ProfileDestructionWaiter : public ProfileObserver,
     return;
   }
 
+  if (engineKey.length != pane::encryption::kKeySize) {
+    completion(nil, ContextError(5, @"The profile's key is not a key."));
+    return;
+  }
+
   ProfileManager* manager = g_browser_process->profile_manager();
   base::FilePath path =
       manager->user_data_dir().Append(base::SysNSStringToUTF8(identifier));
+
+  // Before anything of the profile opens, in this process or another.
+  RegisterEngineKey(manager->user_data_dir(), base::SysNSStringToUTF8(identifier),
+                    engineKey);
+
   NSString* key = [identifier copy];
   __weak PaneBrowserApplication* weakSelf = self;
 
@@ -402,6 +454,40 @@ class ProfileDestructionWaiter : public ProfileObserver,
             manager->CreateProfileAsync(path, std::move(created));
           },
           path, std::move(created)));
+}
+
+- (void)dropEngineKeysWithCompletion:(void (^)(NSDictionary<NSString*, NSNumber*>*
+                                                   left))completion {
+  PANE_TRACE("call", "PaneBrowserApplication.dropEngineKeys");
+  pane::encryption::DropKeys();
+
+  // The network service and the Storage Service answer on their own.
+  __block uint32_t network = 0;
+  __block uint32_t storage = 0;
+  auto answered = base::BarrierClosure(
+      2, base::BindOnce(^{
+        const size_t browser = pane::encryption::KeyCount();
+        PANE_TRACE("callback", "PaneBrowserApplication.engineKeysDropped",
+                   base::DictValue()
+                       .Set("browser", static_cast<int>(browser))
+                       .Set("network", static_cast<int>(network))
+                       .Set("storage", static_cast<int>(storage)));
+        completion(@{
+          @"browser" : @(browser),
+          @"network" : @(network),
+          @"storage" : @(storage),
+        });
+      }));
+
+  content::GetNetworkService()->PaneDropEngineKeys(
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce(^(uint32_t left) {
+            network = left;
+          }).Then(answered),
+          0u));
+  content::PaneDropStorageServiceKeys(base::BindOnce(^(uint32_t left) {
+                                        storage = left;
+                                      }).Then(answered));
 }
 
 - (PaneBrowserContext*)contextForProfile:(Profile*)profile {
