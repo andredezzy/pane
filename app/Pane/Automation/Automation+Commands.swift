@@ -86,6 +86,11 @@ extension Automation {
 
 			return .handled(try JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)))
 
+		case "requestEnhancedUserInterface":
+			// What an assistive app sets on the application to ask for the whole
+			// accessibility tree.
+			NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
+
 		case "changeSystemTimeZone":
 			// { zone }: the Mac's zone changes, as far as the engine can tell: its
 			// monitor asks ICU, which reads TZ first, when macOS says it changed.

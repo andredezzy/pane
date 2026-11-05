@@ -22,6 +22,8 @@ export type LaunchOptions = {
 };
 
 export type Browser = {
+	// How the process ended, once it has.
+	exit: () => { code: number | null; signal: string | null };
 	pid: number;
 	port: number;
 	cdp: Cdp;
@@ -234,6 +236,10 @@ export async function launch(
 	return {
 		pid: child.pid,
 		port,
+		exit: () => ({
+			code: child.exitCode,
+			signal: child.signalCode === null ? null : String(child.signalCode),
+		}),
 		cdp,
 		close: () => {
 			closing ??= close();

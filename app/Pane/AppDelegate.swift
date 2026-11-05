@@ -129,6 +129,10 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	// After the engine has shut down, when nothing has the volume's files
 	// open (main.swift).
 	func engineDidStop() {
+		// Waiting for the volume's detach spins this run loop, and with the engine
+		// gone a timer of Chromium's aborts: the 2 s it waits after an assistive
+		// app asks for the accessibility tree.
+		NSObject.cancelPreviousPerformRequests(withTarget: NSApp as Any)
 		vault?.close()
 
 		// Chromium wrote it as it quit: the profile used last, and when each

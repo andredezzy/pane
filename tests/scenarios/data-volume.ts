@@ -248,7 +248,30 @@ const dataVolume: Scenario = async (context) => {
 		`a quit while the image was made: ${JSON.stringify(quitWhileMaking)}`,
 	);
 
-	return { handOver, finished, plain, quitWhileMaking };
+	// An assistive app asks for the accessibility tree just before a quit. Chromium
+	// answers 2 s later, on a timer that the wait for the volume's detach fired with
+	// the engine gone: an abort at the quit, from 0.14 to 0.17. The quit takes about
+	// a second, so these land on either side of the wait.
+	const assisted: {
+		waitedMs: number;
+		code: number | null;
+		signal: string | null;
+	}[] = [];
+
+	for (const waitedMs of [400, 900, 1_300, 1_700]) {
+		const app = await launchPane(context);
+		await app.send("requestEnhancedUserInterface");
+		await Bun.sleep(waitedMs);
+		await app.browser.close();
+		assisted.push({ waitedMs, ...app.browser.exit() });
+	}
+
+	expect(
+		assisted.every(({ code, signal }) => code === 0 && signal === null),
+		`quits after an assistive app's request: ${JSON.stringify(assisted)}`,
+	);
+
+	return { handOver, finished, plain, quitWhileMaking, assisted };
 };
 
 export default dataVolume;

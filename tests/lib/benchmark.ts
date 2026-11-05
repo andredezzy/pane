@@ -742,7 +742,13 @@ export async function launchApp(
 
 		const pane = automationDir
 			? new PaneApp(
-					{ pid: child.pid, port, cdp, close: async () => {} },
+					{
+						pid: child.pid,
+						port,
+						cdp,
+						close: async () => {},
+						exit: () => ({ code: child.exitCode, signal: null }),
+					},
 					dataDir,
 					automationDir,
 					context.out,
