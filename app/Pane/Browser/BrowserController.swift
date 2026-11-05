@@ -435,7 +435,7 @@ final class BrowserController: NSObject {
 				return
 			}
 
-			vault.prepare(profile: profileID) { [weak self] prepared in
+			vault.prepare(profile: profileID, savesHistory: model.profile(profileID)?.savesHistory ?? true) { [weak self] prepared in
 				guard let self else {
 					return
 				}

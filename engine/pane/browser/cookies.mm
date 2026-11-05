@@ -194,8 +194,11 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
     return;
   }
 
+  // Site usage: the engagement scores, whose keys name each site, which the
+  // history alone leaves.
   pane::RemoveSiteData(self.profile,
                        chrome_browsing_data_remover::DATA_TYPE_HISTORY |
+                           chrome_browsing_data_remover::DATA_TYPE_SITE_USAGE_DATA |
                            content::BrowsingDataRemover::DATA_TYPE_DOWNLOADS,
                        {}, base::BindOnce(^{
                          completion();

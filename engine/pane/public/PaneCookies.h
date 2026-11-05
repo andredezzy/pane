@@ -58,16 +58,17 @@ NS_SWIFT_NAME(Cookie)
 
 // Whether the profile keeps a record of where it went: the pages it visits
 // (Chrome's history, and the visited-link colours drawn from it), their
-// icons, and its downloads. NO is Chrome's SavingBrowserHistoryDisabled
-// policy, with the icons and the downloads kept off too; the tabs, their back
-// and forward lists, cookies, and site data are unaffected. YES until set,
-// and kept in the profile's prefs.
+// icons, its downloads, and what Chrome learns from its visits (the sites'
+// engagement scores and the loading predictor). NO is Chrome's
+// SavingBrowserHistoryDisabled policy, with those kept off too; the tabs,
+// their back and forward lists, cookies, and site data are unaffected. YES
+// until set, and kept in the profile's prefs.
 @property BOOL savesHistory;
 
 // Deletes what the profile kept of where it went, for all time, as Chrome's
-// Clear browsing data does with Browsing history and Download history: an open
-// tab keeps its page and loses its back and forward list. Cookies and site
-// data stay, so the profile stays signed in.
+// Clear browsing data does with Browsing history, Download history, and site
+// usage data: an open tab keeps its page and loses its back and forward list.
+// Cookies and site data stay, so the profile stays signed in.
 - (void)clearHistoryWithCompletion:(void (^)(void))completion
     NS_SWIFT_NAME(clearHistory(completion:));
 

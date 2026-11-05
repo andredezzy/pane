@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { copyFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { $ } from "bun";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { isRunning } from "../lib/processes";
@@ -8,13 +9,15 @@ import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A profile's Save history (ADR 0119), against what the engine writes to disk.
-// On, a profile keeps the pages it visits, their icons, and its downloads. Off
-// from the start it keeps none of them, an extension's chrome.history.addUrl
-// included, and a page still shows its icon and a file still downloads. Turned
-// off, what it kept goes, an open tab's back list
-// with it, as in Chrome's Clear browsing data; its cookies and tabs stay, and
-// nothing new comes, though a tab still goes back within itself. Turned on, it
-// keeps pages again. The choice outlives a quit; a closed profile opens to
+// On, a profile keeps the pages it visits, their icons, its downloads, and what
+// Chrome learns from them. Off from the start it keeps none of them, an
+// extension's chrome.history.addUrl included, and a page still shows its icon
+// and a file still downloads: no file of the profile but its site data names a
+// site it went to, each visit having a host of its own to look for. Turned off,
+// what it kept goes, an open tab's back list with it, as in Chrome's Clear
+// browsing data; its cookies and tabs stay, and nothing new comes, though a tab
+// still goes back within itself. Turned on, it keeps pages again. The choice
+// outlives a quit, with nothing committed as its pages close; a closed profile opens to
 // clear when it is turned off, and closes again; a choice the engine lost to a
 // crash right after the Save is made up, the clear with it, when the profile
 // opens; and so is a clear a lock or a quit cut short, with the choice landed.
@@ -24,13 +27,27 @@ type Kept = { pages: string[]; icons: string[]; downloads: number };
 const isEmpty = (kept: Kept) =>
 	kept.pages.length === 0 && kept.icons.length === 0 && kept.downloads === 0;
 
+// What keeps a site by name on purpose: the profile's site data (ADR 0119).
+const SITE_DATA = /^\/(Cache|Code Cache|Cookies|Local Storage|Session Storage)/;
+
+// The downloads a profile ran before it was turned off, which a deletion leaves
+// in this log until the profile next opens.
+const DOWNLOAD_LOG = /^\/shared_proto_db\//;
+
 const historyScenario: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-history-");
 	const scratch = context.tempDir("pane-history-copies-");
 	const downloads = context.tempDir("pane-history-downloads-");
 
-	const pageURL = (query: string) =>
-		context.fixtures.url(`nav-a.html?${query}`);
+	// Each visit on a host of its own, as the records by site name it. Any host
+	// under pane.test is the fixtures' server.
+	const { port } = new URL(context.fixtures.origin);
+	const RESOLVER = "--host-resolver-rules=MAP *.pane.test 127.0.0.1";
+
+	const fixtureURL = (page: string, query: string) =>
+		`http://${query}.pane.test:${port}/${page}?${query}`;
+
+	const pageURL = (query: string) => fixtureURL("nav-a.html", query);
 
 	// One table of a copy of an engine database: the engine holds it locked
 	// while it runs, and a copy with its journal reads as the engine left it.
@@ -69,6 +86,23 @@ const historyScenario: Scenario = async (context) => {
 		downloads: rows(profile, "History", "SELECT id FROM downloads").length,
 	});
 
+	// Every file of the profile that names the visit's host, its site data aside.
+	const namedBy = async (profile: string, query: string) => {
+		const root = join(dataDir, "Engine", profile);
+
+		const files =
+			await $`find -L ${root} -type f -print0 | xargs -0 /usr/bin/grep -la ${`${query}.pane.test`}`
+				.quiet()
+				.nothrow()
+				.text();
+
+		return files
+			.split("\n")
+			.filter(Boolean)
+			.map((file) => file.slice(root.length))
+			.filter((file) => !SITE_DATA.test(file));
+	};
+
 	// A page and a download in the profile; the page's tab.
 	const browse = async (app: PaneApp, profile: string, query: string) => {
 		const url = pageURL(query);
@@ -85,7 +119,7 @@ const historyScenario: Scenario = async (context) => {
 			(download) => download.state === "complete",
 		).length;
 
-		const fileURL = context.fixtures.url(`downloads.html?${query}`);
+		const fileURL = fixtureURL("downloads.html", query);
 		const fileTab = await app.openTab(profile, fileURL);
 		const filePage = await app.page(fileTab, fileURL);
 		await app.send("setDownloadDirectory", { profile, path: downloads });
@@ -119,7 +153,7 @@ const historyScenario: Scenario = async (context) => {
 
 	const app = await launchPane(context, {
 		dataDir,
-		args: [`--load-extension=${PROBE}`],
+		args: [RESOLVER, `--load-extension=${PROBE}`],
 	});
 
 	// Off from the start, browsing first; then the one that keeps.
@@ -182,11 +216,29 @@ const historyScenario: Scenario = async (context) => {
 		500,
 	);
 
+	// What the records by site hold on, once they have reached the disk: the
+	// proof that what follows would see them.
+	const namedWhileOn = await poll(
+		"the records of its visits on disk",
+		async () => {
+			const named = await namedBy(keeps, "keeps");
+
+			return (
+				["/History", "/Preferences", "/Network Action Predictor"].every(
+					(file) => named.includes(file),
+				) && named
+			);
+		},
+		30_000,
+		500,
+	);
+
 	const keptWhileOff = keptBy(off);
+	const namedWhileOff = await namedBy(off, "off");
 
 	expect(
-		isEmpty(keptWhileOff),
-		`off from the start, it kept ${JSON.stringify(keptWhileOff)}`,
+		isEmpty(keptWhileOff) && namedWhileOff.length === 0,
+		`off from the start, it kept ${JSON.stringify(keptWhileOff)} in ${JSON.stringify(namedWhileOff)}`,
 	);
 
 	// A cookie, which clearing leaves, and a step of the tab's own history,
@@ -196,7 +248,7 @@ const historyScenario: Scenario = async (context) => {
 	await app.send("select", { tab: keepsTab });
 
 	await app.send("navigate", {
-		input: context.fixtures.url("nav-b.html?keeps"),
+		input: fixtureURL("nav-b.html", "keeps"),
 	});
 
 	await app.waitFor(
@@ -249,7 +301,7 @@ const historyScenario: Scenario = async (context) => {
 
 	// Off, nothing new comes, and the tab still goes back within itself.
 	await app.send("navigate", {
-		input: context.fixtures.url("nav-a.html?within-the-tab"),
+		input: pageURL("within-the-tab"),
 	});
 
 	const goesBack = await app.waitFor(
@@ -263,9 +315,17 @@ const historyScenario: Scenario = async (context) => {
 	await Bun.sleep(commitInterval);
 	const keptAfterOff = keptBy(keeps);
 
+	const namedAfterOff = [
+		...(await namedBy(keeps, "keeps")).filter(
+			(file) => !DOWNLOAD_LOG.test(file),
+		),
+		...(await namedBy(keeps, "after-off")),
+		...(await namedBy(keeps, "within-the-tab")),
+	];
+
 	expect(
-		isEmpty(keptAfterOff),
-		`turned off, it kept ${JSON.stringify(keptAfterOff)}`,
+		isEmpty(keptAfterOff) && namedAfterOff.length === 0,
+		`turned off, it kept ${JSON.stringify(keptAfterOff)} in ${JSON.stringify(namedAfterOff)}`,
 	);
 
 	// Turned on, it keeps pages again, in the open profile.
@@ -286,11 +346,20 @@ const historyScenario: Scenario = async (context) => {
 	await app.send("save");
 	await app.browser.close();
 
-	// A quit: each choice stands. A closed profile turned off opens, and
-	// clears.
-	const second = await launchPane(context, { dataDir });
+	// A quit: each choice stands, and the pages that closed with it, opened
+	// while their profile kept its history, commit nothing. Opening, the profile
+	// leaves the log behind. A closed profile turned off opens, and clears.
+	const second = await launchPane(context, { dataDir, args: [RESOLVER] });
 	const reopened = await second.state();
 	const closedEngine = await engineOf(second, off);
+	const quitURL = pageURL("after-quit");
+	await second.page(await second.openTab(keeps, quitURL), quitURL);
+	const namedAfterQuit = await namedBy(keeps, "keeps");
+
+	expect(
+		namedAfterQuit.length === 0,
+		`after the quit, it kept ${JSON.stringify(namedAfterQuit)}`,
+	);
 
 	expect(
 		reopened.profiles.find((each) => each.id === off)?.savesHistory === true &&
@@ -354,7 +423,11 @@ const historyScenario: Scenario = async (context) => {
 	process.kill(crashed, "SIGKILL");
 	await poll("the crash", () => !isRunning(crashed), 10_000);
 
-	const third = await launchTraced(context, "profile-history", { dataDir });
+	const third = await launchTraced(context, "profile-history", {
+		dataDir,
+		args: [RESOLVER],
+	});
+
 	const url = pageURL("after-crash");
 	await third.app.page(await third.app.openTab(off, url), url);
 
@@ -382,6 +455,7 @@ const historyScenario: Scenario = async (context) => {
 
 	const fourth = await launchTraced(context, "profile-history-owed", {
 		dataDir,
+		args: [RESOLVER],
 	});
 
 	const owedURL = pageURL("after-owed");
@@ -407,6 +481,7 @@ const historyScenario: Scenario = async (context) => {
 
 	return {
 		keptWhileOn,
+		namedWhileOn,
 		keptWhileOff,
 		afterTheClear,
 		goesBackWhileOff: tabOf(goesBack, keepsTab)?.canGoBack,

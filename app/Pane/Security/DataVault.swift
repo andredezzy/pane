@@ -239,13 +239,13 @@ final class DataVault {
 
 	// The profile's folders in the volume and its links, off the main thread:
 	// a plain folder an earlier Pane left still moves in.
-	func prepare(profile id: String, _ done: @escaping (Bool) -> Void) {
+	func prepare(profile id: String, savesHistory: Bool, _ done: @escaping (Bool) -> Void) {
 		let volume = volume
 
 		Task {
 			let prepared = await Task.detached(priority: .userInitiated) { () -> Bool in
 				do {
-					try volume.prepare(profile: id)
+					try volume.prepare(profile: id, savesHistory: savesHistory)
 					return true
 				} catch {
 					Log.security.error("Could not prepare a profile's folders: \(String(describing: error), privacy: .private)")

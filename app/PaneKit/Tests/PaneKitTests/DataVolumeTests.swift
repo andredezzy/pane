@@ -37,6 +37,24 @@ struct DataVolumeTests {
 		#expect(!volume.isMounted)
 	}
 
+	@Test("a profile that saves no history opens without the log of its earlier downloads")
+	func downloadCache() throws {
+		let root = try root()
+		defer { try? fileManager.removeItem(at: root) }
+		let data = root.appending(path: "data")
+		let volume = DataVolume(dataDirectory: data, cacheDirectory: nil)
+
+		try volume.prepare(profile: "p")
+
+		let cache = volume.folder(profile: "p").appending(path: "Profile/shared_proto_db")
+		try fileManager.createDirectory(at: cache, withIntermediateDirectories: true)
+		try volume.prepare(profile: "p", savesHistory: true)
+		#expect(fileManager.fileExists(atPath: cache.path))
+
+		try volume.prepare(profile: "p", savesHistory: false)
+		#expect(!fileManager.fileExists(atPath: cache.path))
+	}
+
 	@Test("a link to somewhere else is replaced")
 	func relink() throws {
 		let root = try root()

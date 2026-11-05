@@ -68,3 +68,16 @@ chrome/browser/download/download_history.cc	0009-pane-history.patch
 components/favicon/content/BUILD.gn	0009-pane-history.patch
 components/favicon/content/content_favicon_driver.cc	0009-pane-history.patch
 chrome/browser/extensions/api/history/history_api.cc	0009-pane-history.patch
+chrome/browser/media/BUILD.gn	0009-pane-history.patch
+chrome/browser/media/media_engagement_service.cc	0009-pane-history.patch
+chrome/browser/predictors/BUILD.gn	0009-pane-history.patch
+chrome/browser/predictors/resource_prefetch_predictor.cc	0009-pane-history.patch
+components/site_engagement/content/BUILD.gn	0009-pane-history.patch
+components/site_engagement/content/site_engagement_service.cc	0009-pane-history.patch
+chrome/browser/media/media_engagement_session.cc	0009-pane-history.patch
+chrome/browser/media/media_engagement_service.h	0009-pane-history.patch
+chrome/browser/download/chrome_download_manager_delegate.cc	0009-pane-history.patch
+chrome/browser/download/chrome_download_manager_delegate.h	0009-pane-history.patch
+content/browser/download/download_manager_impl.cc	0009-pane-history.patch
+content/public/browser/download_manager_delegate.cc	0009-pane-history.patch
+content/public/browser/download_manager_delegate.h	0009-pane-history.patch

@@ -10,6 +10,45 @@ index d9df6c2de2..567998ad7c 100644
      "//components/infobars/content",
      "//components/pdf/common:constants",
      "//components/pdf/common:util",
+diff --git a/chrome/browser/download/chrome_download_manager_delegate.cc b/chrome/browser/download/chrome_download_manager_delegate.cc
+index 5d999436c7..756b7d4ec0 100644
+--- a/chrome/browser/download/chrome_download_manager_delegate.cc
++++ b/chrome/browser/download/chrome_download_manager_delegate.cc
+@@ -64,6 +64,7 @@
+ #include "components/actor/core/actor_features.h"
+ #include "components/actor/public/mojom/actor_types.mojom.h"
+ #include "components/download/public/common/download_danger_type.h"
++#include "components/history/core/common/pref_names.h"
+ #include "components/download/public/common/download_features.h"
+ #include "components/download/public/common/download_interrupt_reasons.h"
+ #include "components/download/public/common/download_item.h"
+@@ -1155,6 +1156,14 @@ void ChromeDownloadManagerDelegate::ShouldCompleteDownloadInternal(
+   }
+ }
+ 
++// Pane: a profile that saves no history keeps no record of a running download
++// either: the cache holds its URL, page, and path, in a leveldb log a deletion
++// does not rewrite. A crash loses the row that would have offered to resume it.
++bool ChromeDownloadManagerDelegate::PersistsNewDownloads() {
++  return !profile_->GetPrefs()->GetBoolean(
++      prefs::kSavingBrowserHistoryDisabled);
++}
++
+ bool ChromeDownloadManagerDelegate::ShouldCompleteDownload(
+     DownloadItem* item,
+     base::OnceClosure user_complete_callback) {
+diff --git a/chrome/browser/download/chrome_download_manager_delegate.h b/chrome/browser/download/chrome_download_manager_delegate.h
+index 677db611b4..3e72886dc4 100644
+--- a/chrome/browser/download/chrome_download_manager_delegate.h
++++ b/chrome/browser/download/chrome_download_manager_delegate.h
+@@ -126,6 +126,7 @@ class ChromeDownloadManagerDelegate
+                                    const base::FilePath& path) override;
+   bool ShouldAutomaticallyOpenFileByPolicy(const GURL& url,
+                                            const base::FilePath& path) override;
++  bool PersistsNewDownloads() override;
+   bool ShouldCompleteDownload(download::DownloadItem* item,
+                               base::OnceClosure complete_callback) override;
+   bool ShouldOpenDownload(
 diff --git a/chrome/browser/download/download_history.cc b/chrome/browser/download/download_history.cc
 index 35ec2f5780..87ac1173cc 100644
 --- a/chrome/browser/download/download_history.cc
@@ -79,6 +118,113 @@ index 8e3c8c94b4..9da8ccd78f 100644
    history::HistoryService* hs = HistoryServiceFactory::GetForProfile(
        GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
    hs->AddPage(url, base::Time::Now(), history::SOURCE_EXTENSION);
+diff --git a/chrome/browser/media/BUILD.gn b/chrome/browser/media/BUILD.gn
+index b8ee7a166e..221bf06400 100644
+--- a/chrome/browser/media/BUILD.gn
++++ b/chrome/browser/media/BUILD.gn
+@@ -425,6 +425,7 @@ source_set("impl") {
+     "//chrome/browser/ui/browser_window",
+     "//components/content_settings/browser",
+     "//components/content_settings/core/common",
++    "//components/history/core/common",
+     "//components/no_state_prefetch/browser",
+     "//components/prefs",
+     "//components/sessions",
+diff --git a/chrome/browser/media/media_engagement_service.cc b/chrome/browser/media/media_engagement_service.cc
+index 46a1f3f0ae..88b9288826 100644
+--- a/chrome/browser/media/media_engagement_service.cc
++++ b/chrome/browser/media/media_engagement_service.cc
+@@ -23,6 +23,7 @@
+ #include "components/content_settings/core/browser/host_content_settings_map.h"
+ #include "components/content_settings/core/common/content_settings.h"
+ #include "components/history/core/browser/history_service.h"
++#include "components/history/core/common/pref_names.h"
+ #include "components/no_state_prefetch/browser/no_state_prefetch_contents.h"
+ #include "components/prefs/pref_service.h"
+ #include "content/public/browser/web_contents.h"
+@@ -323,6 +324,11 @@ Profile* MediaEngagementService::profile() const {
+ 
+ bool MediaEngagementService::ShouldRecordEngagement(
+     const url::Origin& origin) const {
++  // Pane: a profile that saves no history keeps no count of its visits either.
++  if (profile_->GetPrefs()->GetBoolean(prefs::kSavingBrowserHistoryDisabled)) {
++    return false;
++  }
++
+   if (base::FeatureList::IsEnabled(media::kMediaEngagementHTTPSOnly))
+     return origin.scheme() == url::kHttpsScheme;
+ 
+diff --git a/chrome/browser/media/media_engagement_service.h b/chrome/browser/media/media_engagement_service.h
+index 5d1b6af72f..79f375a771 100644
+--- a/chrome/browser/media/media_engagement_service.h
++++ b/chrome/browser/media/media_engagement_service.h
+@@ -109,6 +109,7 @@ class MediaEngagementService : public KeyedService,
+   friend class MediaEngagementServiceTest;
+   friend class MediaEngagementSessionTest;
+   friend class MediaEngagementContentsObserver;
++  friend class MediaEngagementSession;
+ 
+   MediaEngagementService(Profile* profile, base::Clock* clock);
+ 
+diff --git a/chrome/browser/media/media_engagement_session.cc b/chrome/browser/media/media_engagement_session.cc
+index 3e6522b5a7..f1059939cc 100644
+--- a/chrome/browser/media/media_engagement_session.cc
++++ b/chrome/browser/media/media_engagement_session.cc
+@@ -143,6 +143,15 @@ bool MediaEngagementSession::HasPendingDataToCommit() const {
+ void MediaEngagementSession::CommitPendingData() {
+   CHECK(HasPendingDataToCommit(), base::NotFatalUntil::M161);
+ 
++  // Pane: a session that began while its profile saved history commits nothing
++  // once it has stopped.
++  if (!service_->ShouldRecordEngagement(origin_)) {
++    pending_data_to_commit_.visit = pending_data_to_commit_.players =
++        pending_data_to_commit_.audio_context_playback =
++            pending_data_to_commit_.media_element_playback = false;
++    return;
++  }
++
+   MediaEngagementScore score = service_->CreateEngagementScore(origin_);
+   bool previous_high_value = score.high_score();
+ 
+diff --git a/chrome/browser/predictors/BUILD.gn b/chrome/browser/predictors/BUILD.gn
+index f16db3d8a4..98133a7754 100644
+--- a/chrome/browser/predictors/BUILD.gn
++++ b/chrome/browser/predictors/BUILD.gn
+@@ -53,6 +53,7 @@ source_set("predictors") {
+     "//base",
+     "//chrome/browser/profiles:profile",
+     "//components/history/core/browser",
++    "//components/history/core/common",
+     "//components/keyed_service/core",
+     "//components/network_hints/common:mojo_bindings",
+     "//components/optimization_guide/core",
+diff --git a/chrome/browser/predictors/resource_prefetch_predictor.cc b/chrome/browser/predictors/resource_prefetch_predictor.cc
+index bd0296108e..a4ef211925 100644
+--- a/chrome/browser/predictors/resource_prefetch_predictor.cc
++++ b/chrome/browser/predictors/resource_prefetch_predictor.cc
+@@ -24,6 +24,8 @@
+ #include "chrome/browser/profiles/profile.h"
+ #include "components/history/core/browser/history_database.h"
+ #include "components/history/core/browser/url_utils.h"
++#include "components/history/core/common/pref_names.h"
++#include "components/prefs/pref_service.h"
+ #include "content/public/browser/browser_thread.h"
+ #include "content/public/browser/web_contents.h"
+ #include "net/base/network_anonymization_key.h"
+@@ -303,6 +305,13 @@ void ResourcePrefetchPredictor::Shutdown() {
+ bool ResourcePrefetchPredictor::TryEnsureRecordingPrecondition() {
+   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+ 
++  // Pane: a profile that saves no history learns nothing of where it goes. A
++  // predictor that started while it did would go on learning otherwise: only
++  // its start asks History, which the policy closes.
++  if (profile_->GetPrefs()->GetBoolean(prefs::kSavingBrowserHistoryDisabled)) {
++    return false;
++  }
++
+   // Make sure initialization is done or start initialization if necessary.
+   if (initialization_state_ == NOT_INITIALIZED) {
+     StartInitialization();
 diff --git a/components/favicon/content/BUILD.gn b/components/favicon/content/BUILD.gn
 index e7befb283f..c83d4846f6 100644
 --- a/components/favicon/content/BUILD.gn
@@ -127,3 +273,83 @@ index 8b58b5dcda..0555d9c05e 100644
  }
  
  void ContentFaviconDriver::OnFaviconUpdated(
+diff --git a/components/site_engagement/content/BUILD.gn b/components/site_engagement/content/BUILD.gn
+index 6287f81ef2..d4ae44d826 100644
+--- a/components/site_engagement/content/BUILD.gn
++++ b/components/site_engagement/content/BUILD.gn
+@@ -22,6 +22,7 @@ source_set("content") {
+     "//components/browsing_data/core",
+     "//components/content_settings/core/browser",
+     "//components/content_settings/core/common",
++    "//components/history/core/common",
+     "//components/no_state_prefetch/browser",
+     "//components/no_state_prefetch/common",
+     "//components/permissions",
+diff --git a/components/site_engagement/content/site_engagement_service.cc b/components/site_engagement/content/site_engagement_service.cc
+index 77e9d51e01..b8151d5c2e 100644
+--- a/components/site_engagement/content/site_engagement_service.cc
++++ b/components/site_engagement/content/site_engagement_service.cc
+@@ -25,6 +25,7 @@
+ #include "components/browsing_data/core/browsing_data_utils.h"
+ #include "components/content_settings/core/browser/host_content_settings_map.h"
+ #include "components/content_settings/core/common/content_settings_pattern.h"
++#include "components/history/core/common/pref_names.h"
+ #include "components/permissions/permissions_client.h"
+ #include "components/prefs/pref_registry_simple.h"
+ #include "components/prefs/pref_service.h"
+@@ -564,6 +565,13 @@ void SiteEngagementService::RecordMetrics(
+ }
+ 
+ bool SiteEngagementService::ShouldRecordEngagement(const GURL& url) const {
++  // Pane: a profile that saves no history keeps no score for where it went:
++  // the scores' keys name each site.
++  PrefService* prefs = user_prefs::UserPrefs::Get(browser_context_);
++  if (prefs->FindPreference(::prefs::kSavingBrowserHistoryDisabled) &&
++      prefs->GetBoolean(::prefs::kSavingBrowserHistoryDisabled)) {
++    return false;
++  }
+   return url.SchemeIsHTTPOrHTTPS() || url.SchemeIs(content::kChromeUIScheme) ||
+          url.SchemeIs(content::kChromeUIUntrustedScheme);
+ }
+diff --git a/content/browser/download/download_manager_impl.cc b/content/browser/download/download_manager_impl.cc
+index 26a84ddd62..5ef24f485a 100644
+--- a/content/browser/download/download_manager_impl.cc
++++ b/content/browser/download/download_manager_impl.cc
+@@ -977,7 +977,8 @@ void DownloadManagerImpl::CreateNewDownloadItemToStart(
+   std::move(callback).Run(
+       std::move(info), download,
+       is_duplicate ? duplicate_download_file_path : base::FilePath(),
+-      should_persist_new_download_);
++      should_persist_new_download_ &&
++          (!delegate_ || delegate_->PersistsNewDownloads()));
+   if (download) {
+     // For new downloads, we notify here, rather than earlier, so that
+     // the download_file is bound to download and all the usual
+diff --git a/content/public/browser/download_manager_delegate.cc b/content/public/browser/download_manager_delegate.cc
+index 5f16563fc2..5c0ab3434a 100644
+--- a/content/public/browser/download_manager_delegate.cc
++++ b/content/public/browser/download_manager_delegate.cc
+@@ -163,4 +163,8 @@ bool DownloadManagerDelegate::SupportsHistoryLoading() {
+   return false;
+ }
+ 
++bool DownloadManagerDelegate::PersistsNewDownloads() {
++  return true;
++}
++
+ }  // namespace content
+diff --git a/content/public/browser/download_manager_delegate.h b/content/public/browser/download_manager_delegate.h
+index a50246a04f..35a609dadc 100644
+--- a/content/public/browser/download_manager_delegate.h
++++ b/content/public/browser/download_manager_delegate.h
+@@ -261,6 +261,10 @@ class CONTENT_EXPORT DownloadManagerDelegate {
+   // becoming initialized.
+   virtual bool SupportsHistoryLoading();
+ 
++  // Pane: whether a new download goes in the on-disk cache of those in
++  // progress.
++  virtual bool PersistsNewDownloads();
++
+  protected:
+   virtual ~DownloadManagerDelegate();
+ };
