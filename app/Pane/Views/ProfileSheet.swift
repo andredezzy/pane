@@ -13,12 +13,20 @@ struct ProfileSheet: View {
 	let save: (ProfileDraft) -> Void
 	let onDone: () -> Void
 
-	// The form, as PaneKit checks and applies it.
-	@State private var draft = ProfileDraft()
+	// The form, as PaneKit checks and applies it. It starts as the sheet does:
+	// set as it appeared, the whole sheet drew twice ahead of its first frame.
+	@State private var draft: ProfileDraft
 	@State private var problem: ProfileDraft.Problem?
 	@State private var proxyTest = ProxyTestState.untested
 	// The proxy `proxyTest` is about.
 	@State private var testedProxy: ProxyConfig?
+
+	init(profile: BrowserProfile?, save: @escaping (ProfileDraft) -> Void, onDone: @escaping () -> Void) {
+		self.profile = profile
+		self.save = save
+		self.onDone = onDone
+		_draft = State(initialValue: profile.map(ProfileDraft.init) ?? ProfileDraft())
+	}
 
 	private var isNew: Bool { profile == nil }
 	private var isCrossOS: Bool { draft.platform != ProfileDraft.hostPlatform }
@@ -81,7 +89,6 @@ struct ProfileSheet: View {
 		// Clipped before the shadow goes on, which would clip it too.
 		.clipShape(Squircle(cornerRadius: 18))
 		.surfaceBackground(cornerRadius: 18, shadow: .black.opacity(0.5), blur: 40, y: 8)
-		.onAppear { draft = profile.map(ProfileDraft.init) ?? ProfileDraft() }
 		.onChange(of: draft.name) { problem = problem == .nameMissing ? nil : problem }
 		.onChange(of: draft.proxyPort) { problem = problem == .portInvalid ? nil : problem }
 		// A test's answer is about the proxy it tested, not the one typed since.
@@ -459,8 +466,9 @@ private struct PlatformLogo: View {
 
 // Automatic, every zone by region, then UTC. The trigger shows the zone's city.
 private struct TimeZoneMenu: View {
-	// Listed once: their offsets change with the seasons, not while Pane runs.
-	private static let regions = TimeZones.regions()
+	// Off the main thread, as the sheet opens: 429 zones cost the frame that
+	// answers the click 3 ms, and a Pane left open has to show today's offsets.
+	@State private var regions: [TimeZones.Region] = []
 
 	@Binding var selection: String
 
@@ -478,7 +486,7 @@ private struct TimeZoneMenu: View {
 
 			Divider()
 
-			ForEach(Self.regions) { region in
+			ForEach(regions) { region in
 				Menu(region.name) {
 					Picker("", selection: $selection) {
 						ForEach(region.choices) { choice in
@@ -499,6 +507,9 @@ private struct TimeZoneMenu: View {
 			.labelsHidden()
 		}
 		.accessibilityIdentifier("pane.profile.timeZone")
+		.task {
+			regions = await Task.detached(priority: .userInitiated) { TimeZones.regions() }.value
+		}
 	}
 }
 

@@ -31,8 +31,10 @@ struct PaneTextField: View {
 		.onAppear {
 			if focusesOnAppear {
 				// Focus set during onAppear is dropped: the field is not in
-				// the window yet. One turn of the main loop later it is.
-				DispatchQueue.main.async { focused = true }
+				// the window yet. Once the frame that shows it is committed it
+				// is, and that frame does not wait for the field editor, which
+				// took 30 of the profile sheet's 50 ms to its first frame.
+				AfterFrame.next { focused = true }
 			}
 		}
 	}
