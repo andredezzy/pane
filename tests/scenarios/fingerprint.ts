@@ -1,4 +1,5 @@
 import { cpus } from "node:os";
+import { poll } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -485,7 +486,63 @@ const fingerprint: Scenario = async (context) => {
 		"a renderer of C got a fingerprint",
 	);
 
+	// The Mac's zone changes with Pane open. A fingerprint on Automatic and a
+	// profile without one follow it in the page already there; a zone the profile
+	// names stays.
+	const follows = (
+		await app.send<string>("createProfile", { name: "Follows", spoof: true })
+	).result;
+
+	const openZone = async (profile: string, name: string) => {
+		const url = context.fixtures.url(`nav-a.html?zone-${name}`);
+		const page = await app.page(await app.openTab(profile, url), url);
+
+		return () =>
+			page.evaluate<{ zone: string; offset: number }>(
+				"({ zone: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date('2026-01-15T12:00:00Z').getTimezoneOffset() })",
+			);
+	};
+
+	const automatic = await openZone(follows, "automatic");
+	const named = await openZone(profiles.a ?? "", "named");
+	const plain = await openZone(profiles.c ?? "", "plain");
+	const NEW_ZONE = "Pacific/Auckland";
+	const macBefore = await automatic();
+
+	expect(
+		macBefore.zone === Intl.DateTimeFormat().resolvedOptions().timeZone,
+		`Automatic, before the change: ${JSON.stringify(macBefore)}`,
+	);
+
+	await app.send("changeSystemTimeZone", { zone: NEW_ZONE });
+
+	const afterChange = await poll(
+		"Automatic to follow the Mac",
+		async () => {
+			const seen = {
+				automatic: await automatic(),
+				named: await named(),
+				plain: await plain(),
+			};
+
+			return (
+				seen.automatic.zone === NEW_ZONE && seen.plain.zone === NEW_ZONE && seen
+			);
+		},
+		10_000,
+		200,
+	);
+
+	expect(
+		// Auckland in January is 13 hours ahead.
+		afterChange.automatic.offset === -780 &&
+			afterChange.plain.offset === -780 &&
+			afterChange.named.zone === WINDOWS.timeZone,
+		`after the Mac's zone changed: ${JSON.stringify(afterChange)}`,
+	);
+
 	return {
+		zoneChange: { before: macBefore, after: afterChange },
 		engine: { version: engineVersion, grease: realGrease },
 		profiles: checks,
 		real: {

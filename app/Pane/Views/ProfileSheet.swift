@@ -218,7 +218,7 @@ struct ProfileSheet: View {
 			RowLabels(
 				title: "Time zone",
 				description: draft.timeZone.isEmpty
-					? "Follows this Mac: \(TimeZones.city(TimeZone.current.identifier))."
+					? "Follows this Mac: \(TimeZones.city(TimeZone.autoupdatingCurrent.identifier))."
 					: "Overrides this Mac\u{2019}s time zone."
 			)
 

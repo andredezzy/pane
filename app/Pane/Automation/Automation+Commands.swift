@@ -86,6 +86,12 @@ extension Automation {
 
 			return .handled(try JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)))
 
+		case "changeSystemTimeZone":
+			// { zone }: the Mac's zone changes, as far as the engine can tell: its
+			// monitor asks ICU, which reads TZ first, when macOS says it changed.
+			setenv("TZ", try command.string("zone"), 1)
+			NotificationCenter.default.post(name: .NSSystemTimeZoneDidChange, object: nil)
+
 		case "setClearsHistory":
 			// { profile }: a clear still owed, as a lock or a quit leaves one.
 			controller.updateProfile(try command.string("profile")) { $0.clearsHistory = true }
