@@ -333,6 +333,9 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	private var received: Int64 = 0
 	// The task began from resume data, which the server may refuse.
 	private var isResumed = false
+	// The server refused to go on from where a connection left off: it is not
+	// asked again.
+	private var isRefused = false
 	// Where the last connection left off, if the next never got far enough to
 	// say.
 	private var resumeData: Data?
@@ -393,7 +396,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 			return
 		}
 
-		guard pace.shouldSwitch(received: received, now: Date()), canLeave(judged) else {
+		guard pace.shouldSwitch(received: received, now: Date(), canLeave: canLeave(judged)) else {
 			judgeLater(judged)
 
 			return
@@ -411,12 +414,15 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 
 	// A connection that cannot resume gives up what it brought, so it is left
 	// only while that is little: nothing yet, or under a twentieth of the file.
+	// A resumed one with no answer yet gives up nothing: where the last one
+	// stopped still stands.
 	private func canLeave(_ task: URLSessionDownloadTask) -> Bool {
 		let response = task.response as? HTTPURLResponse
 		let validated = response?.value(forHTTPHeaderField: "ETag") != nil || response?.value(forHTTPHeaderField: "Last-Modified") != nil
-		let takesRanges = response?.value(forHTTPHeaderField: "Accept-Ranges") == "bytes" && validated
+		let offersRanges = response?.statusCode == 206 || response?.value(forHTTPHeaderField: "Accept-Ranges") == "bytes"
+		let canResume = !isRefused && offersRanges && validated
 
-		return isResumed || takesRanges || received == 0 || received * 20 < task.countOfBytesExpectedToReceive
+		return (isResumed && response == nil) || canResume || received == 0 || received * 20 < task.countOfBytesExpectedToReceive
 	}
 
 	private func switchConnection(from old: URLSessionDownloadTask, resuming newData: Data?) {
@@ -427,7 +433,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 		let oldSession = session
 		// A resumed task cancelled before its answer gives none: where the last
 		// one stopped still stands.
-		start(resuming: newData ?? resumeData)
+		start(resuming: isRefused ? nil : newData ?? resumeData)
 		oldSession?.finishTasksAndInvalidate()
 	}
 
@@ -435,6 +441,7 @@ private final class DmgDownload: NSObject, URLSessionDownloadDelegate, @unchecke
 	// from the start, once.
 	private func startOver() {
 		Log.updates.notice("The download could not resume, and starts over")
+		isRefused = true
 		let oldSession = session
 		start()
 		oldSession?.finishTasksAndInvalidate()

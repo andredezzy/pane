@@ -10,7 +10,8 @@ import { expect, type Scenario } from "../run";
 // crawls is left: where the server takes ranges the rest comes from where it
 // got to, the bar never going back; where it offers none, or refuses them when
 // asked, the file comes from the start, while that loses little. Far enough in,
-// a connection that cannot resume stays. One that drops goes on from where it
+// a connection that cannot resume stays, and so does one once its server has
+// refused to resume: it is asked only once. One that drops goes on from where it
 // got to. One of unknown length at a good rate is left alone. Each way the file
 // matches the release's digest. A node server: it sends a stream's
 // Content-Length, as GitHub does, where Bun.serve drops it.
@@ -24,6 +25,7 @@ type Kind =
 	| "resumes"
 	| "noRanges"
 	| "refuses"
+	| "refusedOnce"
 	| "stays"
 	| "drops"
 	| "unknownLength";
@@ -35,6 +37,8 @@ type Case = {
 	validators: boolean;
 	length: boolean;
 	refusesRanges?: boolean;
+	// Every connection without a range crawls too.
+	allCrawl?: boolean;
 };
 
 // `chunk` bytes every 100 ms from `from` on, until the end or the client goes.
@@ -82,6 +86,15 @@ const CASES: Record<Kind, Case> = {
 		length: true,
 		refusesRanges: true,
 	},
+	// Crawling from the start each time: refused once, it does not ask again.
+	refusedOnce: {
+		size: 4 * MB,
+		first: (payload, response) => trickle(payload, response, 0, SLOW),
+		validators: true,
+		length: true,
+		refusesRanges: true,
+		allCrawl: true,
+	},
 	// Most of it fast, then the trickle past the next window: 15 s of it.
 	stays: {
 		size: 30 * MB + (5 * MB) / 2,
@@ -112,7 +125,9 @@ const CASES: Record<Kind, Case> = {
 };
 
 async function serve(kind: Kind) {
-	const { size, first, validators, length, refusesRanges } = CASES[kind];
+	const { size, first, validators, length, refusesRanges, allCrawl } =
+		CASES[kind];
+
 	const payload = randomBytes(size);
 	const sha256 = createHash("sha256").update(payload).digest("hex");
 	const requests: { range: string | null }[] = [];
@@ -164,6 +179,13 @@ async function serve(kind: Kind) {
 		if (range && refusesRanges) {
 			response.writeHead(403);
 			response.end("expired");
+
+			return;
+		}
+
+		if (!range && allCrawl) {
+			response.writeHead(200, { ...headers, "Content-Length": String(size) });
+			trickle(payload, response, 0, SLOW);
 
 			return;
 		}
@@ -256,6 +278,9 @@ const updateConnection: Scenario = async (context) => {
 					requests.length === 2 && requests.every(({ range }) => !range),
 				refuses:
 					requests.length === 3 && offset > 0 && requests[2]?.range === null,
+				refusedOnce:
+					requests.filter(({ range }) => range !== null).length === 1 &&
+					requests.at(-1)?.range === null,
 				stays: requests.length === 1 && seconds > 10,
 				drops: requests.length === 2 && offset > 0 && !wentBack,
 				unknownLength: requests.length === 1 && seconds > 5,

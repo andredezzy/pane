@@ -159,9 +159,10 @@ public struct DownloadPace: Sendable {
 		windowBytes = received
 	}
 
-	// At the end of its window, whether to leave the connection. The next
-	// window starts here either way.
-	public mutating func shouldSwitch(received: Int64, now: Date) -> Bool {
+	// At the end of its window, whether to leave the connection, one that can be
+	// left: one that cannot spends no switch. The next window starts here either
+	// way.
+	public mutating func shouldSwitch(received: Int64, now: Date, canLeave: Bool = true) -> Bool {
 		let elapsed = now.timeIntervalSince(windowStart)
 		let rate = elapsed > 0 ? Double(received - windowBytes) / elapsed : 0
 		begin(received: received, now: now)
@@ -172,7 +173,7 @@ public struct DownloadPace: Sendable {
 			return false
 		}
 
-		guard switches < Self.switchesInARow else {
+		guard canLeave, switches < Self.switchesInARow else {
 			return false
 		}
 

@@ -186,6 +186,24 @@ struct DownloadPaceTests {
 		#expect(!leaves)
 	}
 
+	@Test("a connection that cannot be left spends no switch, and its next window is no longer")
+	func cannotBeLeft() {
+		var pace = DownloadPace(now: start)
+		var now = start
+
+		for _ in 0 ..< 6 {
+			now.addTimeInterval(5)
+			let leaves = pace.shouldSwitch(received: 0, now: now, canLeave: false)
+			#expect(!leaves)
+			#expect(pace.window == 5)
+		}
+
+		now.addTimeInterval(5)
+		let leaves = pace.shouldSwitch(received: 0, now: now)
+		#expect(leaves)
+		#expect(pace.window == 10)
+	}
+
 	@Test("a connection that picks up starts the count over")
 	func picksUp() {
 		var pace = DownloadPace(now: start)
