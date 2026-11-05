@@ -130,8 +130,8 @@ extension ProxyConfig {
 	public static let ports = 1 ... 65535
 
 	// The port typed or pasted, or nil when it is not one of `ports`: the
-	// SOCKS relay would trap on it, and Chrome would drop the rule and go
-	// direct.
+	// SOCKS relay would trap on it, and Chrome would fail every request of the
+	// profile.
 	public static func port(_ text: String) -> Int? {
 		Int(text.trimmingCharacters(in: .whitespaces)).flatMap { ports.contains($0) ? $0 : nil }
 	}

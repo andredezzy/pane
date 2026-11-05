@@ -1,3 +1,5 @@
+import Foundation
+
 // How a profile's proxy reaches Chrome (apps/veil profile/proxy-relay.ts and
 // profile-tabs.ts): Chrome's proxy rule for it, whether it needs the app's
 // SOCKS relay, and the WebRTC policy that keeps the real address from leaking
@@ -21,18 +23,40 @@ extension ProxyConfig {
 	}
 
 	// Whether Chrome's authentication challenge comes from this proxy: Chrome
-	// names it "scheme://host:port" ("http://127.0.0.1:3128").
+	// names it "scheme://host:port" in its own form, whatever was typed: "[::1]"
+	// for "0:0:0:0:0:0:0:1", a name in lowercase and punycode, and no port where
+	// it is the scheme's. Missed, the user is asked for what the profile holds.
 	public func isChallenger(_ challenger: String) -> Bool {
-		let hostPort = challenger.range(of: "://").map { String(challenger[$0.upperBound...]) } ?? challenger
+		guard
+			let named = URLComponents(string: challenger.contains("://") ? challenger : "http://\(challenger)"),
+			let namedHost = named.encodedHost
+		else {
+			return false
+		}
 
-		return hostPort.lowercased() == "\(chromeHost):\(port)".lowercased()
+		return (named.port ?? (named.scheme == "https" ? 443 : 80)) == port
+			&& Self.canonicalHost(namedHost) == Self.canonicalHost(connectionHost)
 	}
 
-	// An IPv6 host, as typed with its brackets or without. Chrome reads a bare
-	// one's colons as the port and drops the rule, which would take the profile
-	// direct, past its proxy.
+	// An IPv6 host, as typed with its brackets or without. Chrome cannot read a
+	// bare one's colons, and fails every request of the profile.
 	private var chromeHost: String {
 		host.contains(":") && !host.hasPrefix("[") ? "[\(host)]" : host
+	}
+
+	private static func canonicalHost(_ host: String) -> String {
+		let bare = host.hasPrefix("[") && host.hasSuffix("]") ? String(host.dropFirst().dropLast()) : host
+		var address = in6_addr()
+
+		if inet_pton(AF_INET6, bare, &address) == 1 {
+			var text = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
+
+			if inet_ntop(AF_INET6, &address, &text, socklen_t(INET6_ADDRSTRLEN)) != nil {
+				return String(cString: text)
+			}
+		}
+
+		return (URLComponents(string: "http://\(bare)")?.encodedHost ?? bare).lowercased()
 	}
 
 	// The host for a connection of Pane's own: NWEndpoint reads brackets as part

@@ -61,6 +61,25 @@ struct ProxyRouteTests {
 		#expect(!proxy.isChallenger("https://other.example:3128"))
 	}
 
+	@Test("a challenge is matched in the form Chrome names it, whatever was typed")
+	func challengerForms() {
+		let ipv6 = ProxyConfig(proxyType: .http, host: "2001:0DB8:0:0::0001", port: 3128)
+		#expect(ipv6.isChallenger("http://[2001:db8::1]:3128"))
+		#expect(!ipv6.isChallenger("http://[2001:db8::2]:3128"))
+		#expect(!ipv6.isChallenger("http://[2001:db8::1]:8080"))
+
+		let bracketed = ProxyConfig(proxyType: .http, host: "[0:0:0:0:0:0:0:1]", port: 3128)
+		#expect(bracketed.isChallenger("http://[::1]:3128"))
+
+		// Chrome leaves out the scheme's own port.
+		#expect(ProxyConfig(proxyType: .http, host: "proxy.example", port: 80).isChallenger("http://proxy.example"))
+		#expect(ProxyConfig(proxyType: .https, host: "proxy.example", port: 443).isChallenger("https://proxy.example"))
+		#expect(!ProxyConfig(proxyType: .http, host: "proxy.example", port: 443).isChallenger("http://proxy.example"))
+
+		// A name in punycode.
+		#expect(ProxyConfig(proxyType: .http, host: "ex\u{E4}mple.test", port: 3128).isChallenger("http://xn--exmple-cua.test:3128"))
+	}
+
 	@Test("a proxied profile keeps all UDP to the proxy; others hide private interfaces")
 	func webRTC() {
 		#expect(WebRTCPolicy.forProfile(proxied: true) == "disable_non_proxied_udp")

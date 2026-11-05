@@ -26,9 +26,9 @@ function resolve(host: string, port: number, fixturePort: number) {
 		: { host, port };
 }
 
-function listen(server: net.Server): Promise<number> {
+function listen(server: net.Server, host: string): Promise<number> {
 	return new Promise((done) => {
-		server.listen(0, "127.0.0.1", () => {
+		server.listen(0, host, () => {
 			done((server.address() as net.AddressInfo).port);
 		});
 	});
@@ -38,6 +38,7 @@ function listen(server: net.Server): Promise<number> {
 export async function startHttpProxy(
 	fixturePort: number,
 	credentials: { username: string; password: string },
+	host = "127.0.0.1",
 ): Promise<TestProxy> {
 	const log: ProxyLogEntry[] = [];
 	const expected = `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`;
@@ -120,7 +121,7 @@ export async function startHttpProxy(
 		client.on("data", onData);
 	});
 
-	const port = await listen(server);
+	const port = await listen(server, host);
 
 	return { port, log, stop: () => server.close() };
 }
@@ -129,6 +130,7 @@ export async function startHttpProxy(
 export async function startSocks5Proxy(
 	fixturePort: number,
 	credentials: { username: string; password: string },
+	host = "127.0.0.1",
 ): Promise<TestProxy> {
 	const log: ProxyLogEntry[] = [];
 
@@ -251,7 +253,7 @@ export async function startSocks5Proxy(
 		client.on("data", onData);
 	});
 
-	const port = await listen(server);
+	const port = await listen(server, host);
 
 	return { port, log, stop: () => server.close() };
 }

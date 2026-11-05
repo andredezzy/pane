@@ -207,6 +207,69 @@ const proxy: Scenario = async (context) => {
 			`the bad port: ${JSON.stringify(tabOf(afterBadPort, tabD))}`,
 		);
 
+		// Proxies on an IPv6 address: one typed in a form Chrome rewrites, whose
+		// challenge it names in its own, and one with brackets, through the relay.
+		// Neither asks the user, and each carries the page.
+		const http6 = await startHttpProxy(fixturePort, CREDENTIALS, "::1");
+		const socks6 = await startSocks5Proxy(fixturePort, CREDENTIALS, "::1");
+
+		try {
+			const e = await app.createProfile("IPv6 HTTP", "ROSE");
+			const f = await app.createProfile("IPv6 SOCKS", "TEAL");
+
+			await app.send("setProfileProxy", {
+				profile: e,
+				proxy: {
+					proxyType: "HTTP",
+					host: "0:0:0:0:0:0:0:1",
+					port: http6.port,
+					...CREDENTIALS,
+				},
+			});
+
+			await app.send("setProfileProxy", {
+				profile: f,
+				proxy: {
+					proxyType: "SOCKS5",
+					host: "[::1]",
+					port: socks6.port,
+					...CREDENTIALS,
+				},
+			});
+
+			const tabE = await app.openTab(e, "http://e.pane.test/proxy-check.html");
+			const tabF = await app.openTab(f, "http://f.pane.test/proxy-check.html");
+
+			const ipv6 = await app.waitFor(
+				"the pages through the IPv6 proxies",
+				(state) =>
+					tabOf(state, tabE)?.title === "Proxy check" &&
+					tabOf(state, tabF)?.title === "Proxy check" &&
+					["connected", "failed"].includes(statusOf(state, e) ?? "") &&
+					["connected", "failed"].includes(statusOf(state, f) ?? ""),
+				30_000,
+			);
+
+			expect(
+				statusOf(ipv6, e) === "connected" &&
+					statusOf(ipv6, f) === "connected" &&
+					http6.log.some(
+						(entry) =>
+							entry.target.includes("e.pane.test") &&
+							entry.user === CREDENTIALS.username,
+					) &&
+					socks6.log.some(
+						(entry) =>
+							entry.target.startsWith("f.pane.test") &&
+							entry.user === CREDENTIALS.username,
+					),
+				`the IPv6 proxies: ${JSON.stringify({ http: http6.log, socks: socks6.log, e: statusOf(ipv6, e), f: statusOf(ipv6, f) })}`,
+			);
+		} finally {
+			http6.stop();
+			socks6.stop();
+		}
+
 		const windows = await watcher.stop();
 
 		expect(
