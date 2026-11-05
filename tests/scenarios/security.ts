@@ -12,6 +12,7 @@ import {
 	launchPane,
 	type PaneApp,
 } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { imagesAttachedIn, waitForExit } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
@@ -532,7 +533,20 @@ const security: Scenario = async (context) => {
 
 	const whileOpen = (await imagesAttachedIn(detachDir)).length;
 	await attachedApp.browser.close();
-	const afterQuit = (await imagesAttachedIn(detachDir)).length;
+
+	// The detach ends a moment after the process does.
+	const afterQuit = await poll(
+		"the volume to detach after a quit",
+		async () => {
+			const attached = (await imagesAttachedIn(detachDir)).length;
+
+			return attached === 0 ? "none" : false;
+		},
+		15_000,
+		200,
+	)
+		.then(() => 0)
+		.catch(async () => (await imagesAttachedIn(detachDir)).length);
 
 	const killedApp = await launchPane(context, { dataDir: detachDir });
 
