@@ -52,7 +52,7 @@ extension ProxyConfig {
 			var text = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
 
 			if inet_ntop(AF_INET6, &address, &text, socklen_t(INET6_ADDRSTRLEN)) != nil {
-				return String(cString: text)
+				return String(decoding: text.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), as: UTF8.self)
 			}
 		}
 
