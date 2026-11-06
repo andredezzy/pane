@@ -1,0 +1,8 @@
+sqlite3 History: Parse error in 3rd command line argument: file is not a database (26)
+sqlite3 Cookies: Parse error in 3rd command line argument: file is not a database (26)
+strings History: 212992 bytes, 57 strings of 8+, 0 naming a site, planted values 0, starts b'Pane SQL'
+strings Cookies: 20480 bytes, 6 strings of 8+, 0 naming a site, planted values 0, starts b'Pane SQL'
+strings Preferences: 9581 bytes, 3 strings of 8+, 0 naming a site, planted values 0, starts b'PANEWF1\n'
+strings Local Storage log: 51 bytes, 1 strings of 8+, 0 naming a site, planted values 0, starts b'PANESF1\n'
+strings an IndexedDB log: 662392 bytes, 156 strings of 8+, 0 naming a site, planted values 0, starts b'PANESF1\n'
+strings a cache entry: 503 bytes, 1 strings of 8+, 0 naming a site, planted values 0, starts b'(\x18\x95\xf8\xdal\xf4\x9d'

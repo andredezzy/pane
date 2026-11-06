@@ -104,17 +104,30 @@ struct UpdateProgressBar: View {
 	let progress: Double
 
 	var body: some View {
-		GeometryReader { geometry in
-			Capsule(style: .circular)
-				.fill(Palette.foreground.opacity(0.1))
-				.overlay(alignment: .leading) {
-					Capsule(style: .circular)
-						.fill(Palette.success)
-						.frame(width: geometry.size.width * min(max(progress, 0), 1))
-						.animation(Motion.progress, value: progress)
-				}
-		}
-		.frame(height: 4)
+		Capsule(style: .circular)
+			.fill(Palette.foreground.opacity(0.1))
+			.overlay {
+				// A shape over the whole bar, so its animation is of the share alone:
+				// a frame's would carry the bar's own position too, and left the fill
+				// behind as the lock's panel slid up with it.
+				ProgressFill(share: min(max(progress, 0), 1))
+					.fill(Palette.success)
+					.animation(Motion.progress, value: progress)
+			}
+			.frame(height: 4)
+	}
+}
+
+private struct ProgressFill: Shape {
+	var share: Double
+
+	var animatableData: Double {
+		get { share }
+		set { share = newValue }
+	}
+
+	func path(in rect: CGRect) -> Path {
+		Capsule(style: .circular).path(in: CGRect(x: rect.minX, y: rect.minY, width: rect.width * share, height: rect.height))
 	}
 }
 

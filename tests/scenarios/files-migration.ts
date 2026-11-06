@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { mainWindowOf } from "../lib/cua";
 import { volumePassphrase } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";
 import { audit } from "../lib/file-audit";
@@ -261,12 +262,19 @@ async function pass(context: ScenarioContext, earlier: string) {
 		30_000,
 	);
 
-	const screenshot = join(
-		context.out,
-		`files-migration-fence-${basenameOf(earlier)}.png`,
-	);
+	// What it shows, on screen, in each theme: Paper 07.8's lines.
+	const name = basenameOf(earlier);
+	const window = await mainWindowOf(fence.browser.pid);
 
-	await fence.send("render", { path: screenshot }).catch(() => {});
+	for (const theme of ["light", "dark"]) {
+		await fence.send("theme", { theme });
+		await Bun.sleep(500);
+
+		await Bun.$`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, `fence-${name}-${theme}.png`)}`
+			.quiet()
+			.nothrow();
+	}
+
 	await fence.browser.close();
 	await Bun.sleep(1_000);
 

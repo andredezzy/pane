@@ -56,6 +56,10 @@ const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 		"Pane's own file",
 	],
 	[/^Pane\.lock$/, "the data's lock"],
+	[
+		/^Engine\/Volume\/\.fseventsd\/(no_log|fseventsd-uuid)$/,
+		"macOS's for the volume: its log is off, these name nothing",
+	],
 	[/^Data\.sparsebundle\//, "the volume's image"],
 	[
 		/^Engine\/(Local State|Last Version|Variations|ChromeFeatureState)$/,
@@ -490,6 +494,11 @@ export function audit(roots: AuditRoots, planted: Planted): Audit {
 		(path) => {
 			if (path.startsWith("Downloads/")) {
 				return "the user's download";
+			}
+
+			// The engine's Default profile, with only Chromium's defaults.
+			if (/^Library\/Caches\/[^/]+\/Engine\/Default\//.test(path)) {
+				return "the engine's root, before the PIN";
 			}
 
 			return path.startsWith("Library/Preferences/")

@@ -46,6 +46,39 @@ const shortcuts: Scenario = async (context) => {
 	const tabNew = opened.activeTabID as string;
 	checks["⌘T"] = { tabs: opened.profiles[0]?.tabs.length, focus: opened.focus };
 
+	// What is typed replaces the address that came after the field took the focus,
+	// and ⌘L selects it again while the field has the focus.
+	await app.waitFor("the new tab's address", (state) => state.address !== "");
+	await Bun.sleep(100);
+	await press("a");
+	const typed = await app.waitFor("the key", (state) => state.address !== "");
+
+	expect(
+		typed.address === "a",
+		`typing in a new tab's address field gave "${typed.address}"`,
+	);
+
+	// Behind the app in use its window isn't key, so nothing takes the select.
+	if (context.foreground) {
+		await press("l", "command");
+		await Bun.sleep(100);
+		await press("p");
+
+		const retyped = await app.waitFor(
+			"the key after ⌘L",
+			(state) => state.address !== "a",
+		);
+
+		expect(
+			retyped.address === "p",
+			`typing after ⌘L in the focused field gave "${retyped.address}"`,
+		);
+	} else {
+		context.defer("⌘L selecting again: it needs Pane in front");
+	}
+
+	await press("\u001b");
+
 	// ⌘1: the profile's first tab.
 	await press("1", "command");
 	await app.waitFor("⌘1", (state) => state.activeTabID === tabA);

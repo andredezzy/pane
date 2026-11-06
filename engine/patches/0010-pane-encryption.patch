@@ -1743,7 +1743,7 @@ index db16e21024..40f990215a 100644
      "//third_party/re2",
      "//third_party/snappy",
 diff --git a/third_party/leveldatabase/env_chromium.cc b/third_party/leveldatabase/env_chromium.cc
-index 393c170608..c1466ba434 100644
+index 393c170608..53526f8a11 100644
 --- a/third_party/leveldatabase/env_chromium.cc
 +++ b/third_party/leveldatabase/env_chromium.cc
 @@ -4,7 +4,9 @@
@@ -2041,18 +2041,7 @@ index 393c170608..c1466ba434 100644
    return Status::OK();
  }
  
-@@ -481,7 +607,9 @@ Options::Options() {
- //
- // Currently log reuse is an experimental feature in leveldb. More info at:
- // https://github.com/google/leveldb/commit/251ebf5dc70129ad3
--#if BUILDFLAG(IS_CHROMEOS)
-+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
-+  // Pane: an encrypted file takes no appends once closed, and neither does a
-+  // plain one here, since a database's options don't say which it is.
-   // Reusing logs on Chrome OS resulted in an unacceptably high leveldb
-   // corruption rate (at least for Indexed DB). More info at
-   // https://crbug.com/460568
-@@ -862,6 +990,11 @@ Status ChromiumEnv::GetFileSize(const std::string& fname, uint64_t* size) {
+@@ -862,6 +988,11 @@ Status ChromiumEnv::GetFileSize(const std::string& fname, uint64_t* size) {
      s = MakeIOError(fname, "Could not determine file size.", kGetFileSize);
    } else {
      *size = static_cast<uint64_t>(info->size);
@@ -2064,7 +2053,7 @@ index 393c170608..c1466ba434 100644
    }
    return s;
  }
-@@ -943,6 +1076,15 @@ Status ChromiumEnv::NewLogger(const std::string& fname,
+@@ -943,6 +1074,15 @@ Status ChromiumEnv::NewLogger(const std::string& fname,
                                leveldb::Logger** result) {
    *result = nullptr;
    FilePath path = FilePath::FromUTF8Unsafe(fname);
@@ -2080,7 +2069,7 @@ index 393c170608..c1466ba434 100644
    ASSIGN_OR_RETURN(base::File open_result,
                     filesystem_->OpenFile(path, base::File::FLAG_CREATE_ALWAYS |
                                                     base::File::FLAG_WRITE),
-@@ -975,13 +1117,20 @@ Status ChromiumEnv::NewRandomAccessFile(const std::string& fname,
+@@ -975,13 +1115,20 @@ Status ChromiumEnv::NewRandomAccessFile(const std::string& fname,
                       return MakeIOError(fname, FileErrorString(error),
                                          kNewRandomAccessFile, error);
                     });
@@ -2104,7 +2093,7 @@ index 393c170608..c1466ba434 100644
    }
    return Status::OK();
  }
-@@ -1005,6 +1154,10 @@ Status ChromiumEnv::NewAppendableFile(const std::string& fname,
+@@ -1005,6 +1152,10 @@ Status ChromiumEnv::NewAppendableFile(const std::string& fname,
                                        leveldb::WritableFile** result) {
    *result = nullptr;
    FilePath path = FilePath::FromUTF8Unsafe(fname);

@@ -11,7 +11,7 @@ import type { Scenario } from "../run";
 // and reads, Local Storage's first read, and the repeat visit, a page loaded
 // again after a relaunch from what the last launch cached.
 
-const RELAUNCHES = 5;
+const RELAUNCHES = Number(process.env.PANE_STORES_RELAUNCHES ?? 5);
 const HISTORY_ENTRIES = 5_000;
 const HISTORY_QUERIES = 25;
 const COOKIES = 3_000;

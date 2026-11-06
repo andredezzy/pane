@@ -332,6 +332,29 @@ public struct DataVolume: Sendable {
 		if !FileManager.default.fileExists(atPath: unindexed.path) {
 			FileManager.default.createFile(atPath: unindexed.path, contents: nil)
 		}
+
+		stopFileEventsLog()
+	}
+
+	// macOS logs the names of the files that change at a volume's root, in the
+	// clear, and an earlier Pane's logs name each site's folders: an empty
+	// `no_log` turns that off, and what is there goes.
+	private func stopFileEventsLog() {
+		let events = mountPoint.appending(path: ".fseventsd", directoryHint: .isDirectory)
+		let noLog = events.appending(path: "no_log")
+
+		guard !FileManager.default.fileExists(atPath: noLog.path) else {
+			return
+		}
+
+		try? FileManager.default.createDirectory(at: events, withIntermediateDirectories: true)
+		FileManager.default.createFile(atPath: noLog.path, contents: nil)
+
+		for item in (try? FileManager.default.contentsOfDirectory(at: events, includingPropertiesForKeys: nil)) ?? []
+			where !["no_log", "fseventsd-uuid"].contains(item.lastPathComponent)
+		{
+			try? FileManager.default.removeItem(at: item)
+		}
 	}
 
 	private final class MountResult: @unchecked Sendable {

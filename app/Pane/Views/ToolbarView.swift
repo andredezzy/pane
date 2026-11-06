@@ -77,10 +77,27 @@ struct ToolbarView: View {
 		.onChange(of: model.activeTab?.url, initial: true) { _, url in
 			if !addressFocused || controller.state.address == shownAddress {
 				showAddress(url)
+
+				// A new tab's address comes after its field took the focus: typing
+				// still replaces it, as it did the empty field.
+				if addressFocused {
+					selectAddress()
+				}
 			}
 		}
 		.onChange(of: controller.state.addressFocusRequest) {
+			// Already there, its focus won't change: ⌘L still selects the address.
+			if addressFocused {
+				selectAddress()
+			}
+
 			addressFocused = true
+		}
+	}
+
+	private func selectAddress() {
+		DispatchQueue.main.async {
+			NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
 		}
 	}
 

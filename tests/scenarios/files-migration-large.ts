@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { mainWindowOf } from "../lib/cua";
 import { engineKey } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";
 import { launchPane, type PaneLaunch, tabOf } from "../lib/pane";
@@ -123,6 +124,13 @@ const filesMigrationLarge: Scenario = async (context) => {
 		const moving = /^moving (.+)/.exec(state.security.data.phase);
 
 		if (moving) {
+			// Paper 07.5's panel, on screen, once.
+			if (!sawPanel) {
+				await Bun.$`/usr/sbin/screencapture -x -o -l ${await mainWindowOf(finishing.browser.pid)} ${join(context.out, "migration-panel.png")}`
+					.quiet()
+					.nothrow();
+			}
+
 			sawPanel = true;
 			share = Number(moving[1]);
 		}

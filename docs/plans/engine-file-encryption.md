@@ -96,11 +96,12 @@ These may stay plain; `files-encrypted` still searches them for the planted valu
 - **The data root:**
   - Pane's own files: `settings.json`, readable at the user's call; `security.json` and `Data.security.json`, which hold the PIN's check and the sealed key; `migration.json`; `profiles.json`, sealed; `Pane.lock`.
   - The volume's image, `Data.sparsebundle`.
+- **macOS's in the volume:** `.fseventsd/no_log` and `fseventsd-uuid`. Its log, which names files that change, is off at every mount.
 - **The engine's root** (`Engine/`), which Chromium uses before the PIN:
   - `Local State`, `Last Version`, `Variations`, `ChromeFeatureState`;
   - the GPU's shader caches: `GraphiteDawnCache`, `GPUPersistentCache` (ADR 0115);
   - `Safe Browsing`, `component_crx_cache`, `extensions_crx_cache`, `Webstore Downloads`, `NativeMessagingHosts`;
-  - the `Default` profile, holding only Chromium's defaults (ADR 0115).
+  - the `Default` profile, holding only Chromium's defaults (ADR 0115), and its caches under `~/Library/Caches`.
 - **In a profile:** `Extensions/` (installed extensions' public code), empty files and folders, and the file system's `.usage` counts (a magic and a size: metadata, as a file's size is).
 
 ### Formats
@@ -304,7 +305,7 @@ The profile's stores are then strict: plaintext is refused.
   | One-time migration | reported in MB/s; shown as progress past 1 s |
 
 - **The record.** ADR 0119: the decision, what was rejected, the residuals, and the checks; notes at the top of ADRs 0113 and 0115. Add a step to `engine/UPGRADING.md`: on every Chromium upgrade, run `files-inventory` and `files-encrypted`, and look for new stores.
-- **Release** (a minor version, 0.16.0), with the user's explicit OK: build the engine, `publish-engine.sh`, tag, watch CI, then check the live update from 0.15.2. Then re-audit the user's own data after they update, reading metadata only, as done for 0.15.1.
+- **Release** (a minor version: 0.18.0, since 0.17 has shipped), with the user's explicit OK: build the engine, `publish-engine.sh`, tag, watch CI, then check the live update from 0.15.2. Then re-audit the user's own data after they update, reading metadata only, as done for 0.15.1.
 
 ## Testing as a person would: computer use
 
@@ -500,3 +501,10 @@ The first estimate (5 to 6 weeks) grew with what the research and this review fo
   - **Progress:** Paper 07.5's panel as it was approved, past a second, for a profile the window waits for. No new UI.
   - **Measured:** 659 MB in 2.85 s, 231 MB/s, on this Mac; six kills at random points of that, and all there after.
   - **Suite:** 87 scenarios, all pass but `hosted`, which failed the same on the published 0.17.2: cua-driver now waits for a consent before it captures, so `windowState` falls back on `screencapture -l`.
+- 2026-11-06: Phase 6.
+  - **On the stripped candidate:** the full suite, 87 scenarios, in the background, then in front while the Mac was idle for what defers; `switcher` failed once under load and passed three of three after. `files-migration` from the published 0.15.2 and 0.17.2, `files-migration-large`, `pane_unittests`, PaneKit strict and with both sanitizers, lint, typecheck, and knip.
+  - **Budgets** (`docs/benchmarks/engine-encryption.md`): all met but one. The first launch ever on new data is +12 ms against 0.15.2, over its +10, with the cause not found; it waits on the user. A warm launch is level, once LevelDB's log reuse went back on where nothing is encrypted: an encrypted file refuses the append, and LevelDB goes on without it.
+  - **The caches' real link:** scenarios' homes lived under `/var`, where Chromium keeps the caches in the profile. A home with no alias in its path reaches the real `~/Library/Caches` link: its entries hold ciphertext, and that run found macOS's `.fseventsd` log at the volume's root, off at every mount now, and the Default profile's caches, added to the allow-list.
+  - **The computer-use pass** (`docs/plans/qa/engine-file-encryption/release-candidate/report.md`), in light and dark, against Phase 0's. Two findings in the UI, fixed: ⌘T then typing appended to the address, as every release has; and the panel's fill trailing its track as it slid up.
+  - **A mistake of the agent's:** Finder's Quick Look step sent keys to the user's own Finder window, and took a capture of a preview of one of their files. The report says what happened; the capture is deleted, nothing of it committed. That item is undone, waiting on the user. The sleep lock is not driven by hand, since it would sleep the user's Mac.
+  - **Waiting on the user:** publishing (the engine, the push, the tag), which CI needs since it never builds Chromium; so a real update from a published build, and the audit of the user's own data after it, have not run. Version 0.16.0 in this plan is 0.18.0 now.
