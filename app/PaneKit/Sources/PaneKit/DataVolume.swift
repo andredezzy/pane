@@ -527,12 +527,23 @@ public struct DataVolume: Sendable {
 		case restore
 	}
 
-	// A profile is about to open.
+	// A profile is about to open. Once it has come up, it never goes back: the
+	// copy is older than everything written since. An open that a kill ended
+	// counts; one that Pane closed, by a quit or a lock, does not
+	// (safetyCopiesClosed).
 	public func safetyCopyWillOpen(profile id: String) -> SafetyCopyStep {
 		let folder = folder(profile: id)
 
-		guard FileManager.default.fileExists(atPath: folder.appending(path: "SafetyCopy").path) else {
+		guard
+			FileManager.default.fileExists(atPath: folder.appending(path: "SafetyCopy").path),
+			!FileManager.default.fileExists(atPath: folder.appending(path: Self.safeOpen(1)).path)
+		else {
 			return .none
+		}
+
+		// 0.18.0 counted a quit as a kill, so what it left proves nothing.
+		for marker in [".safety-opening", ".safety-failed"] {
+			try? FileManager.default.removeItem(at: folder.appending(path: marker))
 		}
 
 		let opening = folder.appending(path: Self.openingMarker)
@@ -564,7 +575,9 @@ public struct DataVolume: Sendable {
 		try? FileManager.default.removeItem(at: folder.appending(path: Self.openingMarker))
 	}
 
-	// The profile came up. The third time in a row, its copy goes.
+	// The profile came up: nothing counts against it any more. The copy stays
+	// for now, whatever the count: 0.18.2's repair reads its listing, the only
+	// proof of what a migration moved.
 	public func safetyCopyDidOpen(profile id: String) {
 		let folder = folder(profile: id)
 
@@ -575,26 +588,30 @@ public struct DataVolume: Sendable {
 		try? FileManager.default.removeItem(at: folder.appending(path: Self.openingMarker))
 		try? FileManager.default.removeItem(at: folder.appending(path: Self.failedMarker))
 
-		let opens = (1 ... Self.safeOpens).map { folder.appending(path: ".safety-opened-\($0)") }
+		let opens = (1 ... Self.safeOpens).map { folder.appending(path: Self.safeOpen($0)) }
 
-		guard let next = opens.first(where: { !FileManager.default.fileExists(atPath: $0.path) }) else {
-			return
+		if let next = opens.first(where: { !FileManager.default.fileExists(atPath: $0.path) }) {
+			touch(next)
 		}
+	}
 
-		touch(next)
-
-		if next == opens.last {
-			for item in opens + [folder.appending(path: Self.restoredMarker), folder.appending(path: "SafetyCopy")] {
-				try? FileManager.default.removeItem(at: item)
-			}
+	// Pane closes the profiles itself, for a quit or a lock: the opens under way
+	// failed at nothing.
+	public func safetyCopiesClosed() {
+		for folder in (try? FileManager.default.contentsOfDirectory(at: mountPoint, includingPropertiesForKeys: nil)) ?? [] {
+			try? FileManager.default.removeItem(at: folder.appending(path: Self.openingMarker))
 		}
 	}
 
 	private static let encryptedMarker = ".files-encrypted"
-	private static let openingMarker = ".safety-opening"
-	private static let failedMarker = ".safety-failed"
+	private static let openingMarker = ".safety-started"
+	private static let failedMarker = ".safety-killed"
 	private static let restoredMarker = ".safety-restored"
 	private static let safeOpens = 3
+
+	private static func safeOpen(_ count: Int) -> String {
+		".safety-opened-\(count)"
+	}
 
 	private func touch(_ url: URL) {
 		FileManager.default.createFile(atPath: url.path, contents: nil)

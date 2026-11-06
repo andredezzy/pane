@@ -414,13 +414,22 @@ final class DataVault {
 		await withCheckedContinuation { migrationsIdle.append($0) }
 	}
 
-	// The profile came up: its safety copy counts this open.
+	// The profile came up: past 5 s, its safety copy counts this open. A lock
+	// inside them closed the open, so its timer counts nothing.
 	func profileDidOpen(_ id: String) {
 		let volume = volume
+		let locks = locks
 
-		Task.detached(priority: .utility) {
+		Task { [weak self] in
 			try? await Task.sleep(for: .seconds(5))
-			volume.safetyCopyDidOpen(profile: id)
+
+			guard locks == self?.locks else {
+				return
+			}
+
+			Task.detached(priority: .utility) {
+				volume.safetyCopyDidOpen(profile: id)
+			}
 		}
 	}
 

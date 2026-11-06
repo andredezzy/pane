@@ -31,30 +31,48 @@ struct DataVolumeTests {
 		#expect(!volume.filesAreEncrypted(profile: "other"))
 	}
 
-	@Test("a safety copy goes after three opens in a row, and comes back after two that never came up")
-	func safetyCopy() throws {
+	// A profile with a safety copy, in a volume made for the test.
+	private func volumeWithSafetyCopy() throws -> (volume: DataVolume, folder: URL, copy: URL, root: URL) {
+		let root = try root()
+		let volume = DataVolume(dataDirectory: root, cacheDirectory: nil)
+		try volume.prepare(profile: "p")
+		let folder = volume.folder(profile: "p")
+		let copy = folder.appending(path: "SafetyCopy")
+		fileManager.createFile(atPath: copy.path, contents: Data("copy".utf8))
+		return (volume, folder, copy, root)
+	}
+
+	@Test("a safety copy stays through the opens that come up, until the repair that reads it")
+	func safetyCopyStays() throws {
+		let (volume, _, copy, root) = try volumeWithSafetyCopy()
+		defer { try? fileManager.removeItem(at: root) }
+
+		for open in 1 ... 4 {
+			#expect(volume.safetyCopyWillOpen(profile: "p") == .none, "open \(open)")
+			volume.safetyCopyDidOpen(profile: "p")
+		}
+
+		#expect(fileManager.fileExists(atPath: copy.path))
+	}
+
+	@Test("no safety copy, nothing to count")
+	func noSafetyCopy() throws {
 		let root = try root()
 		defer { try? fileManager.removeItem(at: root) }
 		let volume = DataVolume(dataDirectory: root, cacheDirectory: nil)
 		try volume.prepare(profile: "p")
-		let copy = volume.folder(profile: "p").appending(path: "SafetyCopy")
 
-		// No copy: nothing to count.
-		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
-		fileManager.createFile(atPath: copy.path, contents: Data("copy".utf8))
-
-		// Each open that comes up counts; the third, the copy goes.
-		for open in 1 ... 3 {
-			#expect(fileManager.fileExists(atPath: copy.path), "open \(open)")
+		for _ in 1 ... 3 {
 			#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
-			volume.safetyCopyDidOpen(profile: "p")
 		}
+	}
 
-		#expect(!fileManager.fileExists(atPath: copy.path))
-
-		// A kill in one open is forgiven; two in a row restore, once.
-		fileManager.createFile(atPath: copy.path, contents: Data("copy".utf8))
+	@Test("two opens killed before any came up restore the copy, once")
+	func safetyCopyRestores() throws {
+		let (volume, _, copy, root) = try volumeWithSafetyCopy()
+		defer { try? fileManager.removeItem(at: root) }
 		volume.markFilesEncrypted(profile: "p")
+
 		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
 		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
 		#expect(volume.safetyCopyWillOpen(profile: "p") == .restore)
@@ -62,10 +80,81 @@ struct DataVolumeTests {
 		#expect(!volume.filesAreEncrypted(profile: "p"))
 
 		// After that the copy stays, whatever comes, and nothing restores again.
-		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
-		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
-		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		for _ in 1 ... 3 {
+			#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		}
+
 		#expect(fileManager.fileExists(atPath: copy.path))
+	}
+
+	@Test("a profile that came up once never goes back to its copy, however many opens are killed after")
+	func safetyCopyAfterAGoodOpen() throws {
+		let (volume, _, _, root) = try volumeWithSafetyCopy()
+		defer { try? fileManager.removeItem(at: root) }
+
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		volume.safetyCopyDidOpen(profile: "p")
+
+		for open in 1 ... 5 {
+			#expect(volume.safetyCopyWillOpen(profile: "p") == .none, "open \(open)")
+		}
+	}
+
+	@Test("a quit or a lock inside an open is no failure: only a kill counts")
+	func safetyCopyAfterAQuit() throws {
+		let (volume, _, _, root) = try volumeWithSafetyCopy()
+		defer { try? fileManager.removeItem(at: root) }
+
+		for open in 1 ... 5 {
+			#expect(volume.safetyCopyWillOpen(profile: "p") == .none, "open \(open)")
+			volume.safetyCopiesClosed()
+		}
+
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .restore)
+	}
+
+	@Test("what 0.18.0's opens left counts for nothing: it counted quits as kills")
+	func safetyCopyFromAnEarlierPane() throws {
+		let (volume, folder, _, root) = try volumeWithSafetyCopy()
+		defer { try? fileManager.removeItem(at: root) }
+
+		for marker in [".safety-opening", ".safety-failed"] {
+			fileManager.createFile(atPath: folder.appending(path: marker).path, contents: nil)
+		}
+
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(!fileManager.fileExists(atPath: folder.appending(path: ".safety-opening").path))
+		#expect(!fileManager.fileExists(atPath: folder.appending(path: ".safety-failed").path))
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .restore)
+	}
+
+	@Test("a profile has a folder only once it has been prepared")
+	func hasFolder() throws {
+		let root = try root()
+		defer { try? fileManager.removeItem(at: root) }
+		let volume = DataVolume(dataDirectory: root, cacheDirectory: nil)
+
+		#expect(!volume.hasFolder(profile: "p"))
+		try volume.prepare(profile: "p")
+		#expect(volume.hasFolder(profile: "p"))
+	}
+
+	@Test("a passphrase that will not change stops the open: nothing converts while the former one still opens the volume")
+	func formerPassphraseThatWillNotChange() throws {
+		let root = try root()
+		defer { try? fileManager.removeItem(at: root) }
+		let volume = DataVolume(dataDirectory: root, cacheDirectory: nil)
+		let devices = try volume.attachOrMake(passphrase: "former")
+		defer { try? volume.detach(device: devices.image, force: true) }
+
+		// APFS refuses an empty passphrase, which fails the change.
+		#expect(throws: DataVolume.Failure.self) {
+			try volume.open(devices, passphrase: "", former: "former")
+		}
+		#expect(!volume.isMounted)
 	}
 
 	@Test("a profile's engine folder and caches are links into the volume")
