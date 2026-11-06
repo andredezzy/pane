@@ -31,7 +31,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0032](0032-extension-actions-and-popups.md) Extension actions and popups behave as Chrome's
 - [0034](0034-native-ui-reproduces-the-electron-design.md) The native UI reproduces the Electron app's design, as Paper documents it
 - [0036](0036-window-chrome-and-traffic-lights.md) AppKit places the traffic lights at (12, 12), from the window's first frame
-- [0037](0037-per-profile-proxies.md) Each profile's proxy is Chrome's own per-profile setting
+- [0037](0037-per-profile-proxies.md) Each profile's proxy is Chrome's own per-profile setting, and its password is never kept in the clear
 - [0038](0038-fingerprint-in-the-engine.md) The fingerprint lives in Blink and the browser, not in script
 - [0039](0039-no-google-sign-in-workaround.md) No Google sign-in workaround
 - [0040](0040-chrome-makes-no-requests.md) Chrome makes no request of its own but the extension updater's, and its CRLSet ships with the app
@@ -60,7 +60,6 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0066](0066-sidebar-reordering.md) Profiles and tabs reorder as the Electron app's did, live and as one
 - [0067](0067-find-bar.md) The find bar takes Aside's design
 - [0068](0068-saves-off-the-main-thread.md) Saves run off the main thread and write only what changed
-- [0069](0069-proxy-passwords-in-keychain.md) Proxy passwords are never kept in the clear, and ask the Keychain nothing of their own
 - [0070](0070-one-source-per-design-concern.md) The view layer has one source per concern
 - [0071](0071-voiceover-labels.md) VoiceOver names Pane's controls
 - [0072](0072-favicons.md) Favicons decode once, off the main thread, into a bounded cache
@@ -105,6 +104,7 @@ These numbers were records of their own until they were merged into the record t
 - 0045 → [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md)
 - 0052 → [0048](0048-signing-waits-for-a-developer-id.md)
 - 0059 → [0012](0012-scenarios-on-a-locked-screen.md)
+- 0069 → [0037](0037-per-profile-proxies.md)
 - 0074 → [0017](0017-engine-callbacks-defer-reentrant-calls.md)
 - 0078 → [0077](0077-controllers-by-ownership.md)
 - 0080 → [0021](0021-chrome-ui-as-requests.md)
@@ -114,7 +114,7 @@ These numbers were records of their own until they were merged into the record t
 - 0091 → [0063](0063-outline-controls.md)
 - 0093 → [0092](0092-pane-installs-its-updates.md)
 - 0094 → [0046](0046-the-dmg.md)
-- 0095 → [0069](0069-proxy-passwords-in-keychain.md)
+- 0095 → [0037](0037-per-profile-proxies.md)
 - 0097 → [0062](0062-extensions-page.md)
 - 0100 → [0046](0046-the-dmg.md)
 - 0101 → [0096](0096-extension-menu-items-show-where-chrome-shows-them.md)

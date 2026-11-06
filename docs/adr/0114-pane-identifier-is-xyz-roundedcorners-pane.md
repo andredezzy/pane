@@ -13,7 +13,7 @@ What moves at the first launch after (`BundleIdentifier.moveFormerData`, `app/Pa
 
 - **The data root and the caches**, a rename each on the same volume. The data root holds ADR 0113's volume, its sealed key, and everything else of the profiles. Nothing moves once the new data root exists.
 - **The window's frame**, from the former preferences, whose domain then goes: it kept the open panel's last folder (ADR 0113). Under a fixed home (scenarios), the data is the run's but the preferences are the user's own, since cfprefsd ignores a fixed home: they stay.
-- **The proxy passwords' Keychain item an earlier Pane kept** (ADR 0069), whose account is the data root's path, is read under the former path too.
+- **The proxy passwords' Keychain item an earlier Pane kept** (ADR 0037), whose account is the data root's path, is read under the former path too.
 
 What macOS keeps by identifier, and starts over:
 

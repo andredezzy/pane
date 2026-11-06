@@ -8,4 +8,4 @@ The main thread now only copies the state, which is value types, and a serial ut
 
 Measured in PaneKit with 300 tabs in 6 profiles, a save held the main thread 21.7 ms with 360-pixel favicons (47 KB of base64 each, a 14 MB file). The copy that replaces it takes 0.006 ms. The same tabs with 32-pixel favicons write 1.4 MB in 2.5 ms, off the main thread. `restore` checks that saving tabs leaves `settings.json` unwritten; before, the first save wrote it.
 
-A file that does not open or decode is kept aside (`profiles.json.damaged`, `settings.json.damaged`) before the first save writes over it, as `security.json` is (ADR 0042). The proxy passwords were written on the same queue, before the file (ADR 0069); they are now in `profiles.json`, sealed with it (ADR 0113).
+A file that does not open or decode is kept aside (`profiles.json.damaged`, `settings.json.damaged`) before the first save writes over it, as `security.json` is (ADR 0042). The proxy passwords were written on the same queue, before the file (ADR 0037); they are now in `profiles.json`, sealed with it (ADR 0113).
