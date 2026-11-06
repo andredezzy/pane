@@ -24,7 +24,7 @@
 | 3 | Killed midway, then relaunched | ✓ | | six kills at random points, the stores read back: by the scenario, not by hand |
 | 4 | The published 0.15.2 and 0.17.2 on migrated data: Paper 07.8's lines; no file of the volume changed | ✓ `fence-*-light` | ✓ `fence-*-dark` | `files-migration` hashes the volume's 144 files |
 | 5 | The files from another app: `sqlite3`, `strings`, `file` | ✓ | | `files-from-another-app.txt`: "file is not a database", no site named, no planted value |
-| 5 | **Finder's Quick Look** | **not done** | | see below |
+| 5 | **Finder's Quick Look** | skipped, the user's call | | see below |
 | 6 | Speed as felt | ✓ | | recordings timed frame by frame, in the benchmark's page |
 
 ## Findings, each fixed and checked again the same way
@@ -37,4 +37,4 @@
 
 ## What went wrong
 
-**The Quick Look step sent keys to the user's Finder.** To see encrypted test files in Quick Look, the agent opened a throwaway folder in Finder and sent `down` and `space` by the folder window's id. They went to the user's own Finder window instead: its selection in Downloads moved, and Quick Look opened on one of the user's files, which stayed on screen behind the app in front. A capture of an unnamed Finder window then took that preview. The capture was deleted, the panel closed by accessibility with no more keys, and no more input sent to Finder; nothing of the file is in this repository. Finder's Quick Look remains undone, since it needs the user's say-so. `strings`, `sqlite3`, and `file` covered what it would have shown.
+**The Quick Look step sent keys to the user's Finder.** To see encrypted test files in Quick Look, the agent opened a throwaway folder in Finder and sent `down` and `space` by the folder window's id. They went to the user's own Finder window instead: its selection in Downloads moved, and Quick Look opened on one of the user's files, which stayed on screen behind the app in front. A capture of an unnamed Finder window then took that preview. The capture was deleted, the panel closed by accessibility with no more keys, and no more input sent to Finder; nothing of the file is in this repository. The user chose to skip Finder's Quick Look (2026-11-06): `strings`, `sqlite3`, and `file` covered what it would have shown.
