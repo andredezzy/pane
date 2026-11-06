@@ -483,10 +483,12 @@ async function safetyCopy(context: ScenarioContext, earlier: string) {
 	// A plain file big enough that the migration is still going at the select.
 	await quickOpen(context, shared, sharedLaunch, async (app) => {
 		rmSync(join(sharedFolder, ".files-encrypted"), { force: true });
+
 		writeFileSync(
 			join(sharedFolder, "Profile", "filler"),
 			Buffer.alloc(600 * 1024 * 1024),
 		);
+
 		await kill(app);
 	});
 

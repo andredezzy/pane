@@ -258,9 +258,7 @@ export function plainMarkers(bytes: Buffer): string[] {
 
 	// Past a stream's header, whose random bytes alone read as text about once
 	// in 800 empty logs.
-	const content = bytes
-		.subarray(0, STREAM_MAGIC.length)
-		.equals(STREAM_MAGIC)
+	const content = bytes.subarray(0, STREAM_MAGIC.length).equals(STREAM_MAGIC)
 		? bytes.subarray(STREAM_HEADER_SIZE)
 		: bytes;
 
