@@ -30,7 +30,8 @@ Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser wh
 - **Per-profile proxies** — each profile routes through its own HTTP, HTTPS, SOCKS4, or SOCKS5 proxy; authenticated SOCKS connections use a local relay
 - **Browser fingerprinting** — configurable user agent and Client Hints, platform, WebGL, canvas noise, audio noise, screen, timezone, and locale per profile, applied inside the engine
 - **Chrome extensions** — install from the Chrome Web Store per profile, with Chrome's own extension system and updates
-- **PIN lock with data wipe** — optional bcrypt-hashed PIN; five consecutive failures relaunch Pane fresh and overwrite all profile data in 3 random passes
+- **Encrypted on disk** — every profile's tabs, cookies, site data, and caches, under a key the optional PIN releases
+- **PIN lock with data wipe** — five consecutive failures relaunch Pane fresh, with the key gone and the data erased
 - **Memory that stays small** — idle tabs sleep, hidden profiles unload, and their caches are trimmed
 
 ## Getting started
