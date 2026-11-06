@@ -183,6 +183,31 @@ index 0000000000..d693ea961d
 +}  // namespace base
 +
 +#endif  // BASE_FILES_PANE_FILE_CODEC_H_
+diff --git a/chrome/browser/download/background_download_service_factory.cc b/chrome/browser/download/background_download_service_factory.cc
+index 7fe4f837ba..0446594d70 100644
+--- a/chrome/browser/download/background_download_service_factory.cc
++++ b/chrome/browser/download/background_download_service_factory.cc
+@@ -4,6 +4,9 @@
+ 
+ #include "chrome/browser/download/background_download_service_factory.h"
+ 
++#include "base/command_line.h"
++#include "pane/common/host.h"  // nogncheck
++
+ #include <memory>
+ #include <utility>
+ 
+@@ -169,7 +172,9 @@ BackgroundDownloadServiceFactory::BuildServiceInstanceFor(
+   }
+ 
+   // Build in memory download service for incognito profile.
+-  if (key->IsOffTheRecord()) {
++  // Pane: and for every profile: its files hold the requests in the clear.
++  if (key->IsOffTheRecord() ||
++      base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
+     auto blob_context_getter_factory =
+         std::make_unique<DownloadBlobContextGetterFactory>(key);
+     scoped_refptr<base::SingleThreadTaskRunner> io_task_runner =
 diff --git a/components/services/storage/BUILD.gn b/components/services/storage/BUILD.gn
 index ee6e3c4329..65b7aa8794 100644
 --- a/components/services/storage/BUILD.gn
@@ -279,6 +304,33 @@ index 3e64507a2a..4cc80cbac0 100644
    void EnableAggressiveDomStorageFlushing() override;
  #if !BUILDFLAG(IS_ANDROID)
    void SetDataDirectory(
+diff --git a/components/sessions/core/tab_restore_service_impl.cc b/components/sessions/core/tab_restore_service_impl.cc
+index fc0c2c5531..29c9748156 100644
+--- a/components/sessions/core/tab_restore_service_impl.cc
++++ b/components/sessions/core/tab_restore_service_impl.cc
+@@ -4,6 +4,9 @@
+ 
+ #include "components/sessions/core/tab_restore_service_impl.h"
+ 
++#include "base/command_line.h"
++#include "pane/common/host.h"  // nogncheck
++
+ #include <stddef.h>
+ #include <stdint.h>
+ #include <string.h>
+@@ -1943,6 +1946,12 @@ void TabRestoreServiceImpl::LoadTabsFromLastSession() {
+ 
+ void TabRestoreServiceImpl::UpdatePersistenceDelegate(
+     os_crypt_async::OSCryptAsync* os_crypt_async) {
++  // Pane: tab restore keeps nothing on disk: its own reopen-closed-tab does not
++  // use it, and Chrome's files name every page closed.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    return;
++  }
++
+   // When a persistence delegate has been created, it must be shut down and
+   // deleted if a pref service is available and saving history is disabled.
+   if (pref_change_registrar_.prefs() &&
 diff --git a/content/browser/BUILD.gn b/content/browser/BUILD.gn
 index bee9872ba3..5892f56568 100644
 --- a/content/browser/BUILD.gn
@@ -291,6 +343,58 @@ index bee9872ba3..5892f56568 100644
      ":child_process_security_policy_impl",
      "//base",
      "//base:base_static",
+diff --git a/content/browser/blob_storage/chrome_blob_storage_context.cc b/content/browser/blob_storage/chrome_blob_storage_context.cc
+index 3dd15f65f7..95afaef7af 100644
+--- a/content/browser/blob_storage/chrome_blob_storage_context.cc
++++ b/content/browser/blob_storage/chrome_blob_storage_context.cc
+@@ -4,6 +4,9 @@
+ 
+ #include "content/browser/blob_storage/chrome_blob_storage_context.h"
+ 
++#include "base/command_line.h"
++#include "pane/common/host.h"  // nogncheck
++
+ #include <memory>
+ #include <utility>
+ 
+@@ -125,7 +128,10 @@ ChromeBlobStorageContext* ChromeBlobStorageContext::GetFor(
+ 
+     // If we're not incognito mode, schedule all of our file tasks to enable
+     // disk on the storage context.
+-    if (!context->IsOffTheRecord() && io_thread_valid) {
++    // Pane: a blob's bytes stay in memory, as Incognito's: paged to disk they are
++    // whatever a page handed the browser, in the clear.
++    if (!context->IsOffTheRecord() && io_thread_valid &&
++        !base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
+       file_task_runner = base::ThreadPool::CreateTaskRunner(
+           {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
+diff --git a/content/browser/cache_storage/cache_storage_manager.cc b/content/browser/cache_storage/cache_storage_manager.cc
+index 9ceba08df4..346e1a29b2 100644
+--- a/content/browser/cache_storage/cache_storage_manager.cc
++++ b/content/browser/cache_storage/cache_storage_manager.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "content/browser/cache_storage/cache_storage_manager.h"
+ 
++#include "pane/encryption/engine_keys.h"  // nogncheck
++
+ #include <stdint.h>
+ 
+ #include <map>
+@@ -126,6 +128,12 @@ base::FilePath ConstructOriginPath(const base::FilePath& profile_path,
+   if (owner != storage::mojom::CacheStorageOwner::kCacheAPI) {
+     identifier += "-" + base::NumberToString(static_cast<int>(owner));
+   }
++  // Pane: a keyed name: an unkeyed hash of an origin names it to anyone with a
++  // list of sites.
++  if (std::optional<std::string> keyed =
++          pane::encryption::KeyedName(profile_path, identifier)) {
++    return first_party_default_root_path.AppendASCII(*keyed);
++  }
+   const std::string origin_hash_hex =
+       base::HexEncodeLower(base::SHA1Hash(base::as_byte_span(identifier)));
+   return first_party_default_root_path.AppendASCII(origin_hash_hex);
 diff --git a/content/browser/dom_storage/dom_storage_context_wrapper.cc b/content/browser/dom_storage/dom_storage_context_wrapper.cc
 index abe861aed3..317e86d5e8 100644
 --- a/content/browser/dom_storage/dom_storage_context_wrapper.cc
@@ -326,6 +430,146 @@ index abe861aed3..317e86d5e8 100644
    partition_->GetStorageService()->BindLocalStorageControl(
        partition_->GetStoragePartitionPath(),
        local_storage_control_.BindNewPipeAndPassReceiver());
+diff --git a/content/browser/file_system_access/file_system_access_access_handle_host_impl.cc b/content/browser/file_system_access/file_system_access_access_handle_host_impl.cc
+index 27490bdd2e..d8294eb18e 100644
+--- a/content/browser/file_system_access/file_system_access_access_handle_host_impl.cc
++++ b/content/browser/file_system_access/file_system_access_access_handle_host_impl.cc
+@@ -34,12 +34,14 @@ FileSystemAccessAccessHandleHostImpl::FileSystemAccessAccessHandleHostImpl(
+   CHECK(manager_, base::NotFatalUntil::M159);
+ 
+   CHECK(
+-      manager_->context()->is_incognito() == file_delegate_receiver.is_valid(),
++      (manager_->context()->is_incognito() ||
++       manager_->context()->pane_files_encrypted()) == file_delegate_receiver.is_valid(),
+       base::NotFatalUntil::M159);
+ 
+   // Only create a file delegate host in incognito mode.
+   incognito_host_ =
+-      manager_->context()->is_incognito()
++      manager_->context()->is_incognito() ||
++              manager_->context()->pane_files_encrypted()
+           ? std::make_unique<FileSystemAccessFileDelegateHostImpl>(
+                 manager_, url_,
+                 base::PassKey<FileSystemAccessAccessHandleHostImpl>(),
+@@ -48,7 +50,8 @@ FileSystemAccessAccessHandleHostImpl::FileSystemAccessAccessHandleHostImpl(
+ 
+   // Only create a file modification host in non-incognito mode.
+   file_modification_host_ =
+-      !manager_->context()->is_incognito()
++      !manager_->context()->is_incognito() &&
++              !manager_->context()->pane_files_encrypted()
+           ? std::make_unique<FileSystemAccessFileModificationHostImpl>(
+                 manager_, url_,
+                 base::PassKey<FileSystemAccessAccessHandleHostImpl>(),
+diff --git a/content/browser/file_system_access/file_system_access_file_handle_impl.cc b/content/browser/file_system_access/file_system_access_file_handle_impl.cc
+index e4b3716e15..0c75189e5f 100644
+--- a/content/browser/file_system_access/file_system_access_file_handle_impl.cc
++++ b/content/browser/file_system_access/file_system_access_file_handle_impl.cc
+@@ -347,7 +347,8 @@ void FileSystemAccessFileHandleImpl::DidTakeAccessHandleLock(
+   }
+ 
+   auto open_file_callback =
+-      file_system_context()->is_incognito()
++      file_system_context()->is_incognito() ||
++              file_system_context()->pane_files_encrypted()
+           ? base::BindOnce(&FileSystemAccessFileHandleImpl::DoOpenIncognitoFile,
+                            weak_factory_.GetWeakPtr(), std::move(lock))
+           : base::BindOnce(&FileSystemAccessFileHandleImpl::DoOpenFile,
+diff --git a/content/browser/file_system_access/file_system_access_manager_impl.cc b/content/browser/file_system_access/file_system_access_manager_impl.cc
+index 81de939313..0217cd70a9 100644
+--- a/content/browser/file_system_access/file_system_access_manager_impl.cc
++++ b/content/browser/file_system_access/file_system_access_manager_impl.cc
+@@ -2201,7 +2201,7 @@ void FileSystemAccessManagerImpl::RemoveAccessHandleHost(
+   CHECK(access_handle_host, base::NotFatalUntil::M159);
+ 
+   // Capacity allocations only exist in non-incognito mode.
+-  if (context()->is_incognito()) {
++  if (context()->is_incognito() || context()->pane_files_encrypted()) {
+     DidCleanupAccessHandleCapacityAllocation(access_handle_host);
+     return;
+   }
+diff --git a/content/browser/indexed_db/file_path_util.cc b/content/browser/indexed_db/file_path_util.cc
+index 539c14c4da..321d206698 100644
+--- a/content/browser/indexed_db/file_path_util.cc
++++ b/content/browser/indexed_db/file_path_util.cc
+@@ -4,6 +4,9 @@
+ 
+ #include "content/browser/indexed_db/file_path_util.h"
+ 
++#include "base/command_line.h"
++#include "pane/common/host.h"  // nogncheck
++
+ #include <inttypes.h>
+ #include <stddef.h>
+ #include <stdint.h>
+@@ -50,6 +53,10 @@ bool IsDatabaseFile(const base::FilePath& path) {
+ }  // namespace
+ 
+ bool ShouldUseLegacyFilePath(const storage::BucketLocator& bucket_locator) {
++  // Pane: the legacy folders name each origin: a bucket's are named by its id.
++  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
++    return false;
++  }
+   return bucket_locator.storage_key.IsFirstPartyContext() &&
+          bucket_locator.is_default;
+ }
+diff --git a/content/browser/indexed_db/file_stream_reader_to_data_pipe.cc b/content/browser/indexed_db/file_stream_reader_to_data_pipe.cc
+index 0066635189..71a53ce139 100644
+--- a/content/browser/indexed_db/file_stream_reader_to_data_pipe.cc
++++ b/content/browser/indexed_db/file_stream_reader_to_data_pipe.cc
+@@ -4,6 +4,9 @@
+ 
+ #include "content/browser/indexed_db/file_stream_reader_to_data_pipe.h"
+ 
++#include "net/disk_cache/basic_cache_file.h"
++#include "storage/browser/file_system/pane_encrypted_stream.h"
++
+ #include <optional>
+ 
+ #include "base/files/file.h"
+@@ -42,7 +45,7 @@ class FileStreamReaderToDataPipe {
+   void OnDataPipeClosed(MojoResult result);
+   void OnComplete(net::Error result);
+ 
+-  base::File file_;
++  std::unique_ptr<disk_cache::CacheFile> file_;
+   mojo::ScopedDataPipeProducerHandle dest_;
+ 
+   TransferCompletionCallback completion_callback_;
+@@ -66,7 +69,12 @@ FileStreamReaderToDataPipe::FileStreamReaderToDataPipe(
+       completion_callback_(std::move(completion_callback)),
+       offset_(offset),
+       read_length_(read_length) {
+-  file_.Initialize(file_path, base::File::FLAG_OPEN | base::File::FLAG_READ);
++  // Pane: a blob of a profile's, through its format.
++  file_ = storage::PaneIsEncryptedFile(file_path)
++              ? storage::PaneOpenEncryptedFile(
++                    file_path, base::File::FLAG_OPEN | base::File::FLAG_READ)
++              : std::make_unique<disk_cache::BasicCacheFile>(base::File(
++                    file_path, base::File::FLAG_OPEN | base::File::FLAG_READ));
+ }
+ 
+ FileStreamReaderToDataPipe::~FileStreamReaderToDataPipe() = default;
+@@ -77,8 +85,8 @@ void FileStreamReaderToDataPipe::Start() {
+     return;
+   }
+ 
+-  if (!file_.IsValid()) {
+-    OnComplete(net::FileErrorToNetError(file_.error_details()));
++  if (!file_->IsValid()) {
++    OnComplete(net::FileErrorToNetError(file_->error_details()));
+     return;
+   }
+ 
+@@ -123,7 +131,7 @@ void FileStreamReaderToDataPipe::ReadMore() {
+     base::span<uint8_t> buffer =
+         base::as_writable_byte_span(*pending_write_).first(read_bytes);
+     std::optional<size_t> result =
+-        file_.Read(offset_ + transferred_bytes_, buffer);
++        file_->Read(offset_ + transferred_bytes_, buffer);
+ 
+     if (!result) {
+       // Read error.
 diff --git a/content/browser/storage_partition_impl.cc b/content/browser/storage_partition_impl.cc
 index 7b69ec7f35..ce1a85f25e 100644
 --- a/content/browser/storage_partition_impl.cc
@@ -397,11 +641,143 @@ index 0000000000..8ae61ea2b9
 +}  // namespace content
 +
 +#endif  // CONTENT_PUBLIC_BROWSER_PANE_STORAGE_SERVICE_H_
+diff --git a/net/BUILD.gn b/net/BUILD.gn
+index 228a325df9..5454643781 100644
+--- a/net/BUILD.gn
++++ b/net/BUILD.gn
+@@ -564,6 +564,8 @@ component("net") {
+     "disk_cache/memory/mem_entry_impl.cc",
+     "disk_cache/memory/mem_entry_impl.h",
+     "disk_cache/memory_entry_data_hints.h",
++    "disk_cache/pane_cache_hook.cc",
++    "disk_cache/pane_cache_hook.h",
+     "disk_cache/net_log_parameters.cc",
+     "disk_cache/net_log_parameters.h",
+     "disk_cache/simple/post_operation_waiter.cc",
+diff --git a/net/disk_cache/disk_cache.cc b/net/disk_cache/disk_cache.cc
+index 0c4e347098..1f78295228 100644
+--- a/net/disk_cache/disk_cache.cc
++++ b/net/disk_cache/disk_cache.cc
+@@ -25,6 +25,7 @@
+ #include "build/buildflag.h"
+ #include "net/base/cache_type.h"
+ #include "net/base/features.h"
++#include "net/disk_cache/pane_cache_hook.h"
+ #include "net/base/net_errors.h"
+ #include "net/disk_cache/backend_cleanup_tracker.h"
+ #include "net/disk_cache/basic_cache_file.h"
+@@ -120,6 +121,7 @@ class CacheCreator {
+   disk_cache::BackendResultCallback callback_;
+   std::unique_ptr<disk_cache::Backend> created_cache_;
+   raw_ptr<net::NetLog> net_log_;
++  bool pane_wrapped_ = false;
+   scoped_refptr<disk_cache::BackendCleanupTracker> cleanup_tracker_;
+   raw_ptr<net::CacheEncryptionDelegate> cache_encryption_delegate_;
+   base::TimeTicks init_start_time_;
+@@ -173,7 +175,14 @@ void CacheCreator::Run() {
+       (backend_type_ == net::CACHE_BACKEND_DEFAULT &&
+        kSimpleBackendIsDefault)) {
+     std::unique_ptr<disk_cache::CacheEntryHasher> cache_entry_hasher;
+-    if (cache_encryption_delegate_) {
++    // Pane: every cache of a profile's, whatever its type, is encrypted, with
++    // keyed names for its entries. A retry keeps the operations it wrapped.
++    if (const disk_cache::PaneCacheHook* hook = disk_cache::GetPaneCacheHook();
++        hook && type_ != net::MEMORY_CACHE &&
++        hook->wrap_cache(path_, &file_operations_factory_, &cache_entry_hasher,
++                         pane_wrapped_)) {
++      pane_wrapped_ = true;
++    } else if (cache_encryption_delegate_) {
+       cache_entry_hasher = cache_encryption_delegate_->GetCacheEntryHasher();
+       if (!cache_entry_hasher) {
+         FailAttempt();
+diff --git a/net/disk_cache/pane_cache_hook.cc b/net/disk_cache/pane_cache_hook.cc
+new file mode 100644
+index 0000000000..ed3b3f52d2
+--- /dev/null
++++ b/net/disk_cache/pane_cache_hook.cc
+@@ -0,0 +1,21 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#include "net/disk_cache/pane_cache_hook.h"
++
++#include <atomic>
++
++namespace disk_cache {
++
++namespace {
++std::atomic<const PaneCacheHook*> g_hook{nullptr};
++}  // namespace
++
++void SetPaneCacheHook(const PaneCacheHook* hook) {
++  g_hook.store(hook, std::memory_order_release);
++}
++
++const PaneCacheHook* GetPaneCacheHook() {
++  return g_hook.load(std::memory_order_acquire);
++}
++
++}  // namespace disk_cache
+diff --git a/net/disk_cache/pane_cache_hook.h b/net/disk_cache/pane_cache_hook.h
+new file mode 100644
+index 0000000000..816d58dcc0
+--- /dev/null
++++ b/net/disk_cache/pane_cache_hook.h
+@@ -0,0 +1,41 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#ifndef NET_DISK_CACHE_PANE_CACHE_HOOK_H_
++#define NET_DISK_CACHE_PANE_CACHE_HOOK_H_
++
++#include <memory>
++
++#include "base/files/file_path.h"
++#include "base/memory/scoped_refptr.h"
++#include "net/base/net_export.h"
++
++namespace disk_cache {
++
++class BackendFileOperationsFactory;
++class CacheEntryHasher;
++class CacheFile;
++
++// Pane encrypts a profile's files (pane/encryption) with Chromium's own chunked
++// format (services/network/enterprise/encryption), which //net and //storage
++// cannot depend on. It fills these in every process that writes such a file.
++struct PaneCacheHook {
++  // Whether a file at `path` is encrypted.
++  bool (*is_protected)(const base::FilePath& path);
++  // For a cache at `path`: wraps `factory` in the encrypted file operations
++  // unless `wrapped`, and gives the keyed hasher for its entries' names. False,
++  // changing nothing, for a cache that is not encrypted.
++  bool (*wrap_cache)(const base::FilePath& path,
++                     scoped_refptr<BackendFileOperationsFactory>* factory,
++                     std::unique_ptr<CacheEntryHasher>* hasher,
++                     bool wrapped);
++  // A file's content, read and written through the chunked format.
++  std::unique_ptr<CacheFile> (*wrap_file)(const base::FilePath& path,
++                                          std::unique_ptr<CacheFile> file);
++};
++
++NET_EXPORT void SetPaneCacheHook(const PaneCacheHook* hook);
++NET_EXPORT const PaneCacheHook* GetPaneCacheHook();
++
++}  // namespace disk_cache
++
++#endif  // NET_DISK_CACHE_PANE_CACHE_HOOK_H_
 diff --git a/services/network/BUILD.gn b/services/network/BUILD.gn
-index cdee37560e..163d56b1e5 100644
+index cdee37560e..0f9d5a5a8c 100644
 --- a/services/network/BUILD.gn
 +++ b/services/network/BUILD.gn
-@@ -360,6 +360,7 @@ component("network_service") {
+@@ -69,6 +69,8 @@ component("network_service") {
+     "enterprise/encryption/encrypted_cache_entry_hasher.h",
+     "enterprise/encryption/encrypted_cache_file.cc",
+     "enterprise/encryption/encrypted_cache_file.h",
++    "enterprise/encryption/pane_cache_hook.cc",
++    "enterprise/encryption/pane_cache_hook.h",
+     "enterprise/encryption/os_crypt_cache_encryption_delegate.cc",
+     "enterprise/encryption/os_crypt_cache_encryption_delegate.h",
+     "file_opener_for_upload.cc",
+@@ -360,6 +362,7 @@ component("network_service") {
    configs += [ "//build/config/compiler:wexit_time_destructors" ]
  
    deps = [
@@ -409,30 +785,156 @@ index cdee37560e..163d56b1e5 100644
      "//base",
      "//base:build_time",
      "//build:chromecast_buildflags",
+diff --git a/services/network/enterprise/encryption/pane_cache_hook.cc b/services/network/enterprise/encryption/pane_cache_hook.cc
+new file mode 100644
+index 0000000000..cbc0d0fcd5
+--- /dev/null
++++ b/services/network/enterprise/encryption/pane_cache_hook.cc
+@@ -0,0 +1,83 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#include "services/network/enterprise/encryption/pane_cache_hook.h"
++
++#include <memory>
++#include <string>
++#include <utility>
++
++#include "base/containers/span.h"
++#include "base/memory/scoped_refptr.h"
++#include "crypto/process_bound_string.h"
++#include "net/disk_cache/cache_file.h"
++#include "net/disk_cache/disk_cache.h"
++#include "net/disk_cache/pane_cache_hook.h"
++#include "pane/encryption/engine_keys.h"  // nogncheck
++#include "services/network/enterprise/encryption/encrypted_backend_file_operations_factory.h"
++#include "services/network/enterprise/encryption/encrypted_cache_entry_hasher.h"
++#include "services/network/enterprise/encryption/encrypted_cache_file.h"
++
++namespace network::enterprise_encryption {
++
++namespace {
++
++std::optional<crypto::ProcessBoundString> KeyFor(const base::FilePath& path) {
++  pane::encryption::PathVerdict verdict = pane::encryption::Classify(path);
++
++  if (verdict.kind != pane::encryption::PathKind::kEncrypted) {
++    return std::nullopt;
++  }
++
++  return crypto::ProcessBoundString(
++      std::string(base::as_string_view(verdict.keys->caches)));
++}
++
++bool IsProtected(const base::FilePath& path) {
++  return pane::encryption::Classify(path).kind ==
++         pane::encryption::PathKind::kEncrypted;
++}
++
++bool WrapCache(const base::FilePath& path,
++               scoped_refptr<disk_cache::BackendFileOperationsFactory>* factory,
++               std::unique_ptr<disk_cache::CacheEntryHasher>* hasher,
++               bool wrapped) {
++  std::optional<crypto::ProcessBoundString> key = KeyFor(path);
++
++  if (!key) {
++    return false;
++  }
++
++  if (!wrapped) {
++    scoped_refptr<disk_cache::BackendFileOperationsFactory> inner =
++        *factory ? *factory
++                 : base::MakeRefCounted<
++                       disk_cache::TrivialFileOperationsFactory>();
++    *factory = base::MakeRefCounted<EncryptedBackendFileOperationsFactory>(
++        std::move(inner), *key);
++  }
++
++  *hasher = std::make_unique<EncryptedCacheEntryHasher>(std::move(*key));
++  return true;
++}
++
++std::unique_ptr<disk_cache::CacheFile> WrapFile(
++    const base::FilePath& path,
++    std::unique_ptr<disk_cache::CacheFile> file) {
++  std::optional<crypto::ProcessBoundString> key = KeyFor(path);
++  return key ? std::make_unique<EncryptedCacheFile>(std::move(file), *key)
++             : std::move(file);
++}
++
++constexpr disk_cache::PaneCacheHook kHook = {
++    .is_protected = &IsProtected,
++    .wrap_cache = &WrapCache,
++    .wrap_file = &WrapFile,
++};
++
++}  // namespace
++
++void InstallPaneCacheHook() {
++  disk_cache::SetPaneCacheHook(&kHook);
++}
++
++}  // namespace network::enterprise_encryption
+diff --git a/services/network/enterprise/encryption/pane_cache_hook.h b/services/network/enterprise/encryption/pane_cache_hook.h
+new file mode 100644
+index 0000000000..0c331c5713
+--- /dev/null
++++ b/services/network/enterprise/encryption/pane_cache_hook.h
+@@ -0,0 +1,16 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#ifndef SERVICES_NETWORK_ENTERPRISE_ENCRYPTION_PANE_CACHE_HOOK_H_
++#define SERVICES_NETWORK_ENTERPRISE_ENCRYPTION_PANE_CACHE_HOOK_H_
++
++#include "base/component_export.h"
++
++namespace network::enterprise_encryption {
++
++// Fills disk_cache's hook with this directory's chunked format, under each
++// profile's cache key (pane/encryption). Safe to call again.
++COMPONENT_EXPORT(NETWORK_SERVICE) void InstallPaneCacheHook();
++
++}  // namespace network::enterprise_encryption
++
++#endif  // SERVICES_NETWORK_ENTERPRISE_ENCRYPTION_PANE_CACHE_HOOK_H_
 diff --git a/services/network/network_context.cc b/services/network/network_context.cc
-index 7c2bc9f901..4d7881c332 100644
+index 7c2bc9f901..5eab08c2f8 100644
 --- a/services/network/network_context.cc
 +++ b/services/network/network_context.cc
-@@ -4,6 +4,8 @@
+@@ -4,6 +4,10 @@
  
  #include "services/network/network_context.h"
  
++#include "pane/encryption/engine_keys.h"  // nogncheck
 +#include "pane/encryption/handover.h"  // nogncheck
++#include "services/network/enterprise/encryption/pane_cache_hook.h"
 +
  #include <algorithm>
  #include <memory>
  #include <optional>
-@@ -739,6 +741,10 @@ NetworkContext::NetworkContext(
+@@ -739,6 +743,11 @@ NetworkContext::NetworkContext(
        variations_headers_(std::move(params_->initial_variations_headers)) {
    TRACE_EVENT0("loading", "NetworkContext::NetworkContext");
  
 +  // Pane: before anything of the profile's opens.
++  enterprise_encryption::InstallPaneCacheHook();
 +  pane::encryption::ReceiveKeys(std::move(params_->pane_engine_keys),
 +                                pane::encryption::Stores::kAll);
 +
    if (features::ShouldBindNetworkContextDirectReceiver()) {
      receiver_.emplace<DirectReceiver>(mojo::DirectReceiverKey{}, this);
    }
+@@ -3008,7 +3017,10 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
+       CHECK(!is_network_bound);
+ 
+       cache_params.path = params_->file_paths->http_cache_directory->path();
+-      if (params_->file_paths->no_vary_search_directory) {
++      // Pane: its files hold pages' addresses, in no format of a profile's.
++      if (params_->file_paths->no_vary_search_directory &&
++          pane::encryption::Classify(cache_params.path).kind !=
++              pane::encryption::PathKind::kEncrypted) {
+         cache_params.no_vary_search_path =
+             params_->file_paths->no_vary_search_directory->path();
+       }
 diff --git a/services/network/network_service.cc b/services/network/network_service.cc
 index 3b55b33d58..381caa2eb1 100644
 --- a/services/network/network_service.cc
@@ -521,6 +1023,705 @@ index 535d121dc2..0024c0e0a3 100644
    // Sets the parameters and initializes the service.
    SetParams(NetworkServiceParams params);
  
+diff --git a/storage/browser/BUILD.gn b/storage/browser/BUILD.gn
+index dca844f0af..3ba5c04025 100644
+--- a/storage/browser/BUILD.gn
++++ b/storage/browser/BUILD.gn
+@@ -131,6 +131,8 @@ component("browser") {
+     "file_system/obfuscated_file_util.h",
+     "file_system/obfuscated_file_util_delegate.h",
+     "file_system/obfuscated_file_util_disk_delegate.cc",
++    "file_system/pane_encrypted_stream.cc",
++    "file_system/pane_encrypted_stream.h",
+     "file_system/obfuscated_file_util_disk_delegate.h",
+     "file_system/obfuscated_file_util_memory_delegate.cc",
+     "file_system/obfuscated_file_util_memory_delegate.h",
+diff --git a/storage/browser/blob/write_blob_to_file.cc b/storage/browser/blob/write_blob_to_file.cc
+index ab57b00341..35e41d1802 100644
+--- a/storage/browser/blob/write_blob_to_file.cc
++++ b/storage/browser/blob/write_blob_to_file.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "storage/browser/blob/write_blob_to_file.h"
+ 
++#include "storage/browser/file_system/pane_encrypted_stream.h"
++
+ #include <stdint.h>
+ 
+ #include <algorithm>
+@@ -169,12 +171,28 @@ mojom::WriteBlobToFileResult CopyFileAndMaybeWriteTimeModified(
+   if (!base::GetFileInfo(copy_from, &info)) {
+     return mojom::WriteBlobToFileResult::kIOError;
+   }
++  // Pane: its length as its users know it, and a copy through the format.
++  const bool pane_source = PaneIsEncryptedFile(copy_from);
++  if (pane_source &&
++      PaneGetEncryptedFileInfo(copy_from, &info) != base::File::FILE_OK) {
++    return mojom::WriteBlobToFileResult::kIOError;
++  }
+   if (!FileStreamReader::VerifySnapshotTime(expected_last_modified_copy_from,
+                                             info) ||
+       (enforce_exact_size && info.size != size)) {
+     return mojom::WriteBlobToFileResult::kInvalidBlob;
+   }
+ 
++  if (pane_source || PaneIsEncryptedFile(copy_to)) {
++    if (PaneCopyFile(copy_from, copy_to, offset, size) != base::File::FILE_OK) {
++      base::DeleteFile(copy_to);
++      return mojom::WriteBlobToFileResult::kIOError;
++    }
++    return last_modified
++               ? SetFileModificationTime(copy_to, last_modified.value())
++               : mojom::WriteBlobToFileResult::kSuccess;
++  }
++
+   // Do a full file copy if the sizes match and there is no offset.
+   if (info.size == size && offset == 0) {
+     if (!base::CopyFile(copy_from, copy_to)) {
+diff --git a/storage/browser/file_system/file_system_context.cc b/storage/browser/file_system/file_system_context.cc
+index 76dc4c5420..db6198cd46 100644
+--- a/storage/browser/file_system/file_system_context.cc
++++ b/storage/browser/file_system/file_system_context.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "storage/browser/file_system/file_system_context.h"
+ 
++#include "storage/browser/file_system/pane_encrypted_stream.h"
++
+ #include <stddef.h>
+ #include <stdint.h>
+ 
+@@ -758,4 +760,8 @@ void FileSystemContext::DidOpenFileSystemForResolveURL(
+                      info));
+ }
+ 
++bool FileSystemContext::pane_files_encrypted() const {
++  return PaneIsEncryptedFile(partition_path_.AppendASCII("File System"));
++}
++
+ }  // namespace storage
+diff --git a/storage/browser/file_system/file_system_context.h b/storage/browser/file_system/file_system_context.h
+index 1dddeebaa9..8cde38e574 100644
+--- a/storage/browser/file_system/file_system_context.h
++++ b/storage/browser/file_system/file_system_context.h
+@@ -333,6 +333,10 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) FileSystemContext
+ 
+   bool is_incognito() { return is_incognito_; }
+ 
++  // Pane: whether this partition's files are encrypted, which renderers can't
++  // hold a descriptor of: they go through the browser, as Incognito's do.
++  COMPONENT_EXPORT(STORAGE_BROWSER) bool pane_files_encrypted() const;
++
+   void ResolveURLOnOpenFileSystemForTesting(
+       const blink::StorageKey& storage_key,
+       const std::optional<storage::BucketLocator>& bucket,
+diff --git a/storage/browser/file_system/local_file_stream_reader.cc b/storage/browser/file_system/local_file_stream_reader.cc
+index 96b1fbf986..0277d310ca 100644
+--- a/storage/browser/file_system/local_file_stream_reader.cc
++++ b/storage/browser/file_system/local_file_stream_reader.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "storage/browser/file_system/local_file_stream_reader.h"
+ 
++#include "storage/browser/file_system/pane_encrypted_stream.h"
++
+ #include <stdint.h>
+ 
+ #include <memory>
+@@ -56,6 +58,12 @@ std::unique_ptr<FileStreamReader> FileStreamReader::CreateForLocalFile(
+     const base::Time& expected_modification_time,
+     file_access::ScopedFileAccessDelegate::RequestFilesAccessIOCallback
+         file_access) {
++  // Pane: a profile's file, through its format.
++  if (PaneIsEncryptedFile(file_path)) {
++    return PaneCreateEncryptedReader(std::move(task_runner), file_path,
++                                     initial_offset,
++                                     expected_modification_time);
++  }
+   return std::make_unique<LocalFileStreamReader>(
+       std::move(task_runner), file_path, initial_offset,
+       expected_modification_time, base::PassKey<FileStreamReader>(),
+diff --git a/storage/browser/file_system/local_file_stream_writer.cc b/storage/browser/file_system/local_file_stream_writer.cc
+index c021855752..bfee15810f 100644
+--- a/storage/browser/file_system/local_file_stream_writer.cc
++++ b/storage/browser/file_system/local_file_stream_writer.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "storage/browser/file_system/local_file_stream_writer.h"
+ 
++#include "storage/browser/file_system/pane_encrypted_stream.h"
++
+ #include <stdint.h>
+ 
+ #include <memory>
+@@ -42,6 +44,11 @@ std::unique_ptr<FileStreamWriter> FileStreamWriter::CreateForLocalFile(
+     const base::FilePath& file_path,
+     int64_t initial_offset,
+     OpenOrCreate open_or_create) {
++  // Pane: a profile's file, through its format.
++  if (PaneIsEncryptedFile(file_path)) {
++    return PaneCreateEncryptedWriter(task_runner, file_path, initial_offset,
++                                     open_or_create);
++  }
+   return std::make_unique<LocalFileStreamWriter>(
+       task_runner, file_path, initial_offset, open_or_create,
+       base::PassKey<FileStreamWriter>());
+diff --git a/storage/browser/file_system/obfuscated_file_util_disk_delegate.cc b/storage/browser/file_system/obfuscated_file_util_disk_delegate.cc
+index 745b918baa..48f230806c 100644
+--- a/storage/browser/file_system/obfuscated_file_util_disk_delegate.cc
++++ b/storage/browser/file_system/obfuscated_file_util_disk_delegate.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "storage/browser/file_system/obfuscated_file_util_disk_delegate.h"
+ 
++#include "storage/browser/file_system/pane_encrypted_stream.h"
++
+ #include "base/files/file_util.h"
+ #include "storage/browser/file_system/native_file_util.h"
+ 
+@@ -67,6 +69,10 @@ base::File::Error ObfuscatedFileUtilDiskDelegate::CreateDirectory(
+ base::File::Error ObfuscatedFileUtilDiskDelegate::GetFileInfo(
+     const base::FilePath& path,
+     base::File::Info* file_info) {
++  // Pane: the length a page knows, not the one on disk.
++  if (PaneIsEncryptedFile(path)) {
++    return PaneGetEncryptedFileInfo(path, file_info);
++  }
+   return NativeFileUtil::GetFileInfo(path, file_info);
+ }
+ base::File::Error ObfuscatedFileUtilDiskDelegate::Touch(
+@@ -79,6 +85,9 @@ base::File::Error ObfuscatedFileUtilDiskDelegate::Touch(
+ base::File::Error ObfuscatedFileUtilDiskDelegate::Truncate(
+     const base::FilePath& path,
+     int64_t length) {
++  if (PaneIsEncryptedFile(path)) {
++    return PaneTruncateEncryptedFile(path, length);
++  }
+   return NativeFileUtil::Truncate(path, length);
+ }
+ 
+@@ -95,6 +104,11 @@ base::File::Error ObfuscatedFileUtilDiskDelegate::CopyInForeignFile(
+     const base::FilePath& dest_path,
+     FileSystemOperation::CopyOrMoveOptionSet options,
+     NativeFileUtil::CopyOrMoveMode mode) {
++  // Pane: a file from outside goes in encrypted. Move is a copy here too, since
++  // what it leaves behind stays the user's.
++  if (PaneIsEncryptedFile(dest_path)) {
++    return PaneCopyInPlainFile(src_path, dest_path);
++  }
+   return NativeFileUtil::CopyOrMoveFile(src_path, dest_path, options, mode);
+ }
+ 
+diff --git a/storage/browser/file_system/pane_encrypted_stream.cc b/storage/browser/file_system/pane_encrypted_stream.cc
+new file mode 100644
+index 0000000000..3132f19710
+--- /dev/null
++++ b/storage/browser/file_system/pane_encrypted_stream.cc
+@@ -0,0 +1,427 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#include "storage/browser/file_system/pane_encrypted_stream.h"
++
++#include <algorithm>
++#include <limits>
++#include <memory>
++#include <optional>
++#include <utility>
++#include <vector>
++
++#include "base/check.h"
++#include "base/files/file_util.h"
++#include "base/functional/bind.h"
++#include "base/functional/callback.h"
++#include "base/functional/callback_helpers.h"
++#include "base/memory/ref_counted.h"
++#include "base/memory/weak_ptr.h"
++#include "base/numerics/safe_conversions.h"
++#include "base/task/task_runner.h"
++#include "net/base/file_stream.h"
++#include "net/base/io_buffer.h"
++#include "net/base/net_errors.h"
++#include "net/disk_cache/basic_cache_file.h"
++#include "net/disk_cache/pane_cache_hook.h"
++
++namespace storage {
++
++namespace {
++
++constexpr uint32_t kOpenFlags =
++    base::File::FLAG_OPEN | base::File::FLAG_READ | base::File::FLAG_WRITE;
++
++// The open file, on the task runner: the reader and the writer each run one
++// operation at a time.
++class EncryptedFile : public base::RefCountedThreadSafe<EncryptedFile> {
++ public:
++  EncryptedFile(const base::FilePath& path, uint32_t flags)
++      : path_(path), flags_(flags) {}
++
++  // Opens on first use. FILE_OK, or why not.
++  base::File::Error Open() {
++    if (!file_) {
++      file_ = PaneOpenEncryptedFile(path_, flags_);
++    }
++    return file_->IsValid() ? base::File::FILE_OK : file_->error_details();
++  }
++
++  int ReadAt(int64_t offset, scoped_refptr<net::IOBuffer> buffer, int length) {
++    if (const base::File::Error error = Open(); error != base::File::FILE_OK) {
++      return net::FileErrorToNetError(error);
++    }
++
++    std::optional<size_t> read =
++        file_->Read(offset, buffer->first(base::checked_cast<size_t>(length)));
++    return read ? base::checked_cast<int>(*read) : net::ERR_FAILED;
++  }
++
++  int WriteAt(int64_t offset, scoped_refptr<net::IOBuffer> buffer, int length) {
++    if (const base::File::Error error = Open(); error != base::File::FILE_OK) {
++      return net::FileErrorToNetError(error);
++    }
++
++    return file_->WriteAndCheck(offset,
++                                buffer->first(base::checked_cast<size_t>(length)))
++               ? length
++               : net::ERR_FAILED;
++  }
++
++  int64_t Length() {
++    return Open() == base::File::FILE_OK ? file_->GetLength()
++                                         : net::ERR_FILE_NOT_FOUND;
++  }
++
++  int Flush() {
++    if (Open() != base::File::FILE_OK) {
++      return net::ERR_FAILED;
++    }
++
++    base::File plain(path_, base::File::FLAG_OPEN | base::File::FLAG_WRITE);
++    return plain.IsValid() && plain.Flush() ? net::OK : net::ERR_FAILED;
++  }
++
++ private:
++  friend class base::RefCountedThreadSafe<EncryptedFile>;
++  ~EncryptedFile() = default;
++
++  const base::FilePath path_;
++  const uint32_t flags_;
++  std::unique_ptr<disk_cache::CacheFile> file_;
++};
++
++class EncryptedReader : public FileStreamReader {
++ public:
++  EncryptedReader(scoped_refptr<base::TaskRunner> task_runner,
++                  const base::FilePath& path,
++                  int64_t offset,
++                  const base::Time& expected_modification_time)
++      : task_runner_(std::move(task_runner)),
++        path_(path),
++        offset_(offset),
++        expected_modification_time_(expected_modification_time),
++        file_(base::MakeRefCounted<EncryptedFile>(path, kOpenFlags)) {}
++
++  ~EncryptedReader() override {
++    task_runner_->PostTask(FROM_HERE,
++                           base::DoNothingWithBoundArgs(std::move(file_)));
++  }
++
++  int Read(net::IOBuffer* buffer,
++           int length,
++           net::CompletionOnceCallback callback) override {
++    task_runner_->PostTaskAndReplyWithResult(
++        FROM_HERE,
++        base::BindOnce(
++            [](scoped_refptr<EncryptedFile> file, base::FilePath path,
++               base::Time expected, bool verified, int64_t offset,
++               scoped_refptr<net::IOBuffer> buffer, int length) {
++              if (!verified) {
++                base::File::Info info;
++                if (!base::GetFileInfo(path, &info)) {
++                  return static_cast<int>(net::ERR_FILE_NOT_FOUND);
++                }
++                if (!VerifySnapshotTime(expected, info)) {
++                  return static_cast<int>(net::ERR_UPLOAD_FILE_CHANGED);
++                }
++              }
++              return file->ReadAt(offset, std::move(buffer), length);
++            },
++            file_, path_, expected_modification_time_, verified_, offset_,
++            base::WrapRefCounted(buffer), length),
++        base::BindOnce(&EncryptedReader::DidRead, weak_factory_.GetWeakPtr(),
++                       std::move(callback)));
++    return net::ERR_IO_PENDING;
++  }
++
++  int64_t GetLength(GetLengthCallback callback) override {
++    task_runner_->PostTaskAndReplyWithResult(
++        FROM_HERE,
++        base::BindOnce(
++            [](scoped_refptr<EncryptedFile> file, base::FilePath path,
++               base::Time expected) -> int64_t {
++              base::File::Info info;
++              if (!base::GetFileInfo(path, &info)) {
++                return net::ERR_FILE_NOT_FOUND;
++              }
++              if (!VerifySnapshotTime(expected, info)) {
++                return net::ERR_UPLOAD_FILE_CHANGED;
++              }
++              return file->Length();
++            },
++            file_, path_, expected_modification_time_),
++        base::BindOnce(
++            [](GetLengthCallback callback, int64_t length) {
++              if (length < 0) {
++                std::move(callback).Run(
++                    base::unexpected(static_cast<net::Error>(length)));
++              } else {
++                std::move(callback).Run(length);
++              }
++            },
++            std::move(callback)));
++    return net::ERR_IO_PENDING;
++  }
++
++ private:
++  void DidRead(net::CompletionOnceCallback callback, int result) {
++    if (result >= 0) {
++      verified_ = true;
++      offset_ += result;
++    }
++    std::move(callback).Run(result);
++  }
++
++  const scoped_refptr<base::TaskRunner> task_runner_;
++  const base::FilePath path_;
++  int64_t offset_;
++  const base::Time expected_modification_time_;
++  bool verified_ = false;
++  scoped_refptr<EncryptedFile> file_;
++  base::WeakPtrFactory<EncryptedReader> weak_factory_{this};
++};
++
++class EncryptedWriter : public FileStreamWriter {
++ public:
++  EncryptedWriter(scoped_refptr<base::TaskRunner> task_runner,
++                  const base::FilePath& path,
++                  int64_t offset,
++                  OpenOrCreate open_or_create)
++      : task_runner_(std::move(task_runner)),
++        offset_(offset),
++        file_(base::MakeRefCounted<EncryptedFile>(
++            path,
++            open_or_create == CREATE_NEW_FILE_ALWAYS
++                ? base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_READ |
++                      base::File::FLAG_WRITE
++                : kOpenFlags)) {}
++
++  ~EncryptedWriter() override {
++    task_runner_->PostTask(FROM_HERE,
++                           base::DoNothingWithBoundArgs(std::move(file_)));
++  }
++
++  int Write(net::IOBuffer* buffer,
++            int length,
++            net::CompletionOnceCallback callback) override {
++    has_pending_ = true;
++    task_runner_->PostTaskAndReplyWithResult(
++        FROM_HERE,
++        base::BindOnce(&EncryptedFile::WriteAt, file_, offset_,
++                       base::WrapRefCounted(buffer), length),
++        base::BindOnce(&EncryptedWriter::DidWrite, weak_factory_.GetWeakPtr(),
++                       std::move(callback)));
++    return net::ERR_IO_PENDING;
++  }
++
++  int Cancel(net::CompletionOnceCallback callback) override {
++    if (!has_pending_) {
++      return net::ERR_UNEXPECTED;
++    }
++    cancel_callback_ = std::move(callback);
++    return net::ERR_IO_PENDING;
++  }
++
++  int Flush(FlushMode, net::CompletionOnceCallback callback) override {
++    has_pending_ = true;
++    task_runner_->PostTaskAndReplyWithResult(
++        FROM_HERE, base::BindOnce(&EncryptedFile::Flush, file_),
++        base::BindOnce(&EncryptedWriter::DidFlush, weak_factory_.GetWeakPtr(),
++                       std::move(callback)));
++    return net::ERR_IO_PENDING;
++  }
++
++ private:
++  bool Cancelled() {
++    has_pending_ = false;
++    if (!cancel_callback_) {
++      return false;
++    }
++    std::move(cancel_callback_).Run(net::OK);
++    return true;
++  }
++
++  void DidWrite(net::CompletionOnceCallback callback, int result) {
++    if (result >= 0) {
++      offset_ += result;
++    }
++    if (!Cancelled()) {
++      std::move(callback).Run(result);
++    }
++  }
++
++  void DidFlush(net::CompletionOnceCallback callback, int result) {
++    if (!Cancelled()) {
++      std::move(callback).Run(result);
++    }
++  }
++
++  const scoped_refptr<base::TaskRunner> task_runner_;
++  int64_t offset_;
++  scoped_refptr<EncryptedFile> file_;
++  bool has_pending_ = false;
++  net::CompletionOnceCallback cancel_callback_;
++  base::WeakPtrFactory<EncryptedWriter> weak_factory_{this};
++};
++
++}  // namespace
++
++bool PaneIsEncryptedFile(const base::FilePath& path) {
++  const disk_cache::PaneCacheHook* hook = disk_cache::GetPaneCacheHook();
++  return hook && hook->is_protected(path);
++}
++
++std::unique_ptr<disk_cache::CacheFile> PaneOpenEncryptedFile(
++    const base::FilePath& path,
++    uint32_t flags) {
++  const disk_cache::PaneCacheHook* hook = disk_cache::GetPaneCacheHook();
++  CHECK(hook);
++  return hook->wrap_file(
++      path, std::make_unique<disk_cache::BasicCacheFile>(base::File(path, flags)));
++}
++
++std::unique_ptr<FileStreamReader> PaneCreateEncryptedReader(
++    scoped_refptr<base::TaskRunner> task_runner,
++    const base::FilePath& path,
++    int64_t initial_offset,
++    const base::Time& expected_modification_time) {
++  return std::make_unique<EncryptedReader>(std::move(task_runner), path,
++                                           initial_offset,
++                                           expected_modification_time);
++}
++
++std::unique_ptr<FileStreamWriter> PaneCreateEncryptedWriter(
++    scoped_refptr<base::TaskRunner> task_runner,
++    const base::FilePath& path,
++    int64_t initial_offset,
++    FileStreamWriter::OpenOrCreate open_or_create) {
++  return std::make_unique<EncryptedWriter>(std::move(task_runner), path,
++                                           initial_offset, open_or_create);
++}
++
++base::File::Error PaneGetEncryptedFileInfo(const base::FilePath& path,
++                                           base::File::Info* info) {
++  if (!base::GetFileInfo(path, info)) {
++    return base::File::GetLastFileError();
++  }
++
++  if (info->is_directory) {
++    return base::File::FILE_OK;
++  }
++
++  std::unique_ptr<disk_cache::CacheFile> file =
++      PaneOpenEncryptedFile(path, base::File::FLAG_OPEN | base::File::FLAG_READ);
++
++  if (!file->IsValid()) {
++    return file->error_details();
++  }
++
++  info->size = file->GetLength();
++  return base::File::FILE_OK;
++}
++
++base::File::Error PaneTruncateEncryptedFile(const base::FilePath& path,
++                                            int64_t length) {
++  std::unique_ptr<disk_cache::CacheFile> file =
++      PaneOpenEncryptedFile(path, kOpenFlags);
++
++  if (!file->IsValid()) {
++    return file->error_details();
++  }
++
++  return file->SetLength(length) ? base::File::FILE_OK
++                                 : base::File::FILE_ERROR_FAILED;
++}
++
++base::File::Error PaneCopyInPlainFile(const base::FilePath& from,
++                                      const base::FilePath& to) {
++  base::File source(from, base::File::FLAG_OPEN | base::File::FLAG_READ);
++
++  if (!source.IsValid()) {
++    return source.error_details();
++  }
++
++  std::unique_ptr<disk_cache::CacheFile> target = PaneOpenEncryptedFile(
++      to, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_READ |
++              base::File::FLAG_WRITE);
++
++  if (!target->IsValid()) {
++    return target->error_details();
++  }
++
++  std::vector<uint8_t> buffer(1 << 20);
++
++  for (int64_t offset = 0;;) {
++    std::optional<size_t> read = source.Read(offset, buffer);
++
++    if (!read) {
++      return base::File::FILE_ERROR_FAILED;
++    }
++
++    if (*read == 0) {
++      return base::File::FILE_OK;
++    }
++
++    if (!target->WriteAndCheck(offset, base::span(buffer).first(*read))) {
++      return base::File::FILE_ERROR_FAILED;
++    }
++
++    offset += *read;
++  }
++}
++
++base::File::Error PaneCopyFile(const base::FilePath& from,
++                               const base::FilePath& to,
++                               int64_t offset,
++                               int64_t size) {
++  const auto open = [](const base::FilePath& path, uint32_t flags)
++      -> std::unique_ptr<disk_cache::CacheFile> {
++    return PaneIsEncryptedFile(path)
++               ? PaneOpenEncryptedFile(path, flags)
++               : std::make_unique<disk_cache::BasicCacheFile>(
++                     base::File(path, flags));
++  };
++
++  std::unique_ptr<disk_cache::CacheFile> source =
++      open(from, base::File::FLAG_OPEN | base::File::FLAG_READ);
++
++  if (!source->IsValid()) {
++    return source->error_details();
++  }
++
++  std::unique_ptr<disk_cache::CacheFile> target =
++      open(to, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_READ |
++                   base::File::FLAG_WRITE);
++
++  if (!target->IsValid()) {
++    return target->error_details();
++  }
++
++  std::vector<uint8_t> buffer(1 << 20);
++  int64_t copied = 0;
++
++  while (copied < size) {
++    const size_t wanted = static_cast<size_t>(
++        std::min<int64_t>(static_cast<int64_t>(buffer.size()), size - copied));
++    std::optional<size_t> read =
++        source->Read(offset + copied, base::span(buffer).first(wanted));
++
++    if (!read) {
++      return base::File::FILE_ERROR_FAILED;
++    }
++
++    if (*read == 0) {
++      break;
++    }
++
++    if (!target->WriteAndCheck(copied, base::span(buffer).first(*read))) {
++      return base::File::FILE_ERROR_FAILED;
++    }
++
++    copied += *read;
++  }
++
++  return base::File::FILE_OK;
++}
++
++}  // namespace storage
+diff --git a/storage/browser/file_system/pane_encrypted_stream.h b/storage/browser/file_system/pane_encrypted_stream.h
+new file mode 100644
+index 0000000000..74562fad8b
+--- /dev/null
++++ b/storage/browser/file_system/pane_encrypted_stream.h
+@@ -0,0 +1,71 @@
++// Copyright 2026 Pane. Licensed under GPL-3.0-only.
++
++#ifndef STORAGE_BROWSER_FILE_SYSTEM_PANE_ENCRYPTED_STREAM_H_
++#define STORAGE_BROWSER_FILE_SYSTEM_PANE_ENCRYPTED_STREAM_H_
++
++#include <stdint.h>
++
++#include <memory>
++
++#include "base/files/file.h"
++#include "base/files/file_path.h"
++#include "base/memory/scoped_refptr.h"
++#include "base/task/task_runner.h"
++#include "base/time/time.h"
++#include "storage/browser/file_system/file_stream_reader.h"
++#include "storage/browser/file_system/file_stream_writer.h"
++
++namespace disk_cache {
++class CacheFile;
++}
++
++namespace storage {
++
++// Pane: a profile's stream files (IndexedDB's blobs, the origin private file
++// system) go through the chunked format (net/disk_cache/pane_cache_hook.h),
++// since they are read and overwritten anywhere in them.
++
++// Whether `path` is one. False in a process with no such files.
++COMPONENT_EXPORT(STORAGE_BROWSER)
++bool PaneIsEncryptedFile(const base::FilePath& path);
++
++// `path` through the format, opened with `flags` (FLAG_READ is added, since a
++// partial chunk is read back to write it).
++COMPONENT_EXPORT(STORAGE_BROWSER)
++std::unique_ptr<disk_cache::CacheFile> PaneOpenEncryptedFile(
++    const base::FilePath& path,
++    uint32_t flags);
++
++std::unique_ptr<FileStreamReader> PaneCreateEncryptedReader(
++    scoped_refptr<base::TaskRunner> task_runner,
++    const base::FilePath& path,
++    int64_t initial_offset,
++    const base::Time& expected_modification_time);
++
++std::unique_ptr<FileStreamWriter> PaneCreateEncryptedWriter(
++    scoped_refptr<base::TaskRunner> task_runner,
++    const base::FilePath& path,
++    int64_t initial_offset,
++    FileStreamWriter::OpenOrCreate open_or_create);
++
++// What the disk delegate needs: a file's length as its users know it, a change
++// of it, and a plain file (wherever it is) copied in, encrypted.
++base::File::Error PaneGetEncryptedFileInfo(const base::FilePath& path,
++                                           base::File::Info* info);
++base::File::Error PaneTruncateEncryptedFile(const base::FilePath& path,
++                                            int64_t length);
++COMPONENT_EXPORT(STORAGE_BROWSER)
++base::File::Error PaneCopyInPlainFile(const base::FilePath& from,
++                                      const base::FilePath& to);
++
++// `size` bytes of `from`, from `offset`, into a new `to`, each read or written
++// through the format if it is a profile's.
++COMPONENT_EXPORT(STORAGE_BROWSER)
++base::File::Error PaneCopyFile(const base::FilePath& from,
++                               const base::FilePath& to,
++                               int64_t offset,
++                               int64_t size);
++
++}  // namespace storage
++
++#endif  // STORAGE_BROWSER_FILE_SYSTEM_PANE_ENCRYPTED_STREAM_H_
 diff --git a/third_party/leveldatabase/BUILD.gn b/third_party/leveldatabase/BUILD.gn
 index db16e21024..40f990215a 100644
 --- a/third_party/leveldatabase/BUILD.gn
@@ -542,7 +1743,7 @@ index db16e21024..40f990215a 100644
      "//third_party/re2",
      "//third_party/snappy",
 diff --git a/third_party/leveldatabase/env_chromium.cc b/third_party/leveldatabase/env_chromium.cc
-index 393c170608..cf0879918a 100644
+index 393c170608..c1466ba434 100644
 --- a/third_party/leveldatabase/env_chromium.cc
 +++ b/third_party/leveldatabase/env_chromium.cc
 @@ -4,7 +4,9 @@
@@ -564,7 +1765,7 @@ index 393c170608..cf0879918a 100644
  #include "third_party/leveldatabase/chromium_logger.h"
  #include "third_party/leveldatabase/leveldb_chrome.h"
  #include "third_party/leveldatabase/src/include/leveldb/options.h"
-@@ -128,10 +132,51 @@ class Retrier {
+@@ -128,10 +132,55 @@ class Retrier {
    base::TimeDelta time_to_sleep_;
  };
  
@@ -588,16 +1789,20 @@ index 393c170608..cf0879918a 100644
 +    bool* empty) {
 +  using pane::encryption::StreamCipher;
 +  StreamCipher::Header header;
-+  std::optional<size_t> read = file->Read(0, header);
-+  *empty = !read || *read < header.size() ||
-+           std::all_of(header.begin(), header.end(),
-+                       [](uint8_t byte) { return byte == 0; });
++  const size_t read = file->Read(0, header).value_or(0);
++  const auto got = base::span(header).first(read);
++  // What a crash leaves of a header: zeros, or the start of its magic.
++  *empty = read == 0 ||
++           std::all_of(got.begin(), got.end(),
++                       [](uint8_t byte) { return byte == 0; }) ||
++           (read < header.size() && StreamCipher::HasMagicStart(got));
 +
 +  if (*empty) {
 +    return nullptr;
 +  }
 +
-+  CHECK(StreamCipher::HasMagic(header)) << "A plain LevelDB file in a profile.";
++  CHECK(read == header.size() && StreamCipher::HasMagic(header))
++      << "A plain LevelDB file in a profile.";
 +  return StreamCipher::FromHeader(keys, header);
 +}
 +
@@ -617,7 +1822,7 @@ index 393c170608..cf0879918a 100644
  
    ChromiumSequentialFile(const ChromiumSequentialFile&) = delete;
    ChromiumSequentialFile& operator=(const ChromiumSequentialFile&) = delete;
-@@ -141,6 +186,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+@@ -141,6 +190,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
    // Note: This method is relatively hot during leveldb database
    // compaction. Please avoid making them slower.
    Status Read(size_t n, Slice* result, char* scratch) override {
@@ -628,7 +1833,7 @@ index 393c170608..cf0879918a 100644
      std::optional<size_t> bytes_read = file_.ReadAtCurrentPosNoBestEffort(
          base::as_writable_bytes(UNSAFE_TODO(base::span(scratch, n))));
      if (!bytes_read.has_value()) {
-@@ -148,16 +197,26 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+@@ -148,16 +201,26 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
        return MakeIOError(filename_, base::File::ErrorToString(error),
                           kSequentialFileRead, error);
      }
@@ -655,7 +1860,7 @@ index 393c170608..cf0879918a 100644
        return Status::OK();
      }
    }
-@@ -165,6 +224,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+@@ -165,6 +228,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
   private:
    std::string filename_;
    base::File file_;
@@ -666,7 +1871,7 @@ index 393c170608..cf0879918a 100644
  };
  
  void RemoveFile(const Slice& key, void* value) {
-@@ -176,14 +239,22 @@ Status ReadFromFileToScratch(uint64_t offset,
+@@ -176,14 +243,22 @@ Status ReadFromFileToScratch(uint64_t offset,
                               Slice* result,
                               char* scratch,
                               base::File* file,
@@ -691,7 +1896,7 @@ index 393c170608..cf0879918a 100644
    *result = Slice(scratch, bytes_read.value());
  
    return Status::OK();
-@@ -201,13 +272,18 @@ Status ReadFromFileToScratch(uint64_t offset,
+@@ -201,13 +276,18 @@ Status ReadFromFileToScratch(uint64_t offset,
  // file is evicted.
  class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
   public:
@@ -714,7 +1919,7 @@ index 393c170608..cf0879918a 100644
          cache_key_data_(this),
          cache_key_(
              leveldb::Slice(reinterpret_cast<const char*>(&cache_key_data_),
-@@ -235,6 +311,10 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -235,6 +315,10 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
                size_t n,
                Slice* result,
                char* scratch) const override {
@@ -725,7 +1930,7 @@ index 393c170608..cf0879918a 100644
      leveldb::Cache::Handle* handle = file_cache_->Lookup(cache_key_);
      if (!handle) {
        int flags = base::File::FLAG_READ | base::File::FLAG_OPEN;
-@@ -247,8 +327,8 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -247,8 +331,8 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
                                     sizeof(base::File), &RemoveFile);
      }
      base::File* file = static_cast<base::File*>(file_cache_->Value(handle));
@@ -736,7 +1941,7 @@ index 393c170608..cf0879918a 100644
      file_cache_->Release(handle);
      return status;
    }
-@@ -257,14 +337,23 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -257,14 +341,23 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
    const base::FilePath filepath_;
    storage::FilesystemProxy* const filesystem_;
    mutable leveldb::Cache* file_cache_;
@@ -762,7 +1967,7 @@ index 393c170608..cf0879918a 100644
  
    ChromiumRandomAccessFile(const ChromiumRandomAccessFile&) = delete;
    ChromiumRandomAccessFile& operator=(const ChromiumRandomAccessFile&) = delete;
-@@ -277,12 +366,20 @@ class ChromiumRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -277,12 +370,20 @@ class ChromiumRandomAccessFile : public leveldb::RandomAccessFile {
                size_t n,
                Slice* result,
                char* scratch) const override {
@@ -784,7 +1989,7 @@ index 393c170608..cf0879918a 100644
  };
  
  class ChromiumWritableFile : public leveldb::WritableFile {
-@@ -306,6 +403,12 @@ class ChromiumWritableFile : public leveldb::WritableFile {
+@@ -306,6 +407,12 @@ class ChromiumWritableFile : public leveldb::WritableFile {
  
    std::string filename_;
    base::File file_;
@@ -797,7 +2002,7 @@ index 393c170608..cf0879918a 100644
  #if defined(OS_POSIX) || defined(OS_FUCHSIA)
    storage::FilesystemProxy* const filesystem_;
  #endif
-@@ -330,6 +433,13 @@ ChromiumWritableFile::ChromiumWritableFile(const std::string& fname,
+@@ -330,6 +437,13 @@ ChromiumWritableFile::ChromiumWritableFile(const std::string& fname,
      file_type_ = kTable;
    }
    parent_dir_ = FilePath::FromUTF8Unsafe(fname).DirName().AsUTF8Unsafe();
@@ -811,7 +2016,7 @@ index 393c170608..cf0879918a 100644
  }
  
  Status ChromiumWritableFile::SyncParent() {
-@@ -353,11 +463,23 @@ Status ChromiumWritableFile::SyncParent() {
+@@ -353,11 +467,23 @@ Status ChromiumWritableFile::SyncParent() {
  
  Status ChromiumWritableFile::Append(const Slice& data) {
    DCHECK(file_.IsValid());
@@ -836,7 +2041,7 @@ index 393c170608..cf0879918a 100644
    return Status::OK();
  }
  
-@@ -481,7 +603,9 @@ Options::Options() {
+@@ -481,7 +607,9 @@ Options::Options() {
  //
  // Currently log reuse is an experimental feature in leveldb. More info at:
  // https://github.com/google/leveldb/commit/251ebf5dc70129ad3
@@ -847,7 +2052,7 @@ index 393c170608..cf0879918a 100644
    // Reusing logs on Chrome OS resulted in an unacceptably high leveldb
    // corruption rate (at least for Indexed DB). More info at
    // https://crbug.com/460568
-@@ -862,6 +986,11 @@ Status ChromiumEnv::GetFileSize(const std::string& fname, uint64_t* size) {
+@@ -862,6 +990,11 @@ Status ChromiumEnv::GetFileSize(const std::string& fname, uint64_t* size) {
      s = MakeIOError(fname, "Could not determine file size.", kGetFileSize);
    } else {
      *size = static_cast<uint64_t>(info->size);
@@ -859,7 +2064,7 @@ index 393c170608..cf0879918a 100644
    }
    return s;
  }
-@@ -943,6 +1072,15 @@ Status ChromiumEnv::NewLogger(const std::string& fname,
+@@ -943,6 +1076,15 @@ Status ChromiumEnv::NewLogger(const std::string& fname,
                                leveldb::Logger** result) {
    *result = nullptr;
    FilePath path = FilePath::FromUTF8Unsafe(fname);
@@ -875,7 +2080,7 @@ index 393c170608..cf0879918a 100644
    ASSIGN_OR_RETURN(base::File open_result,
                     filesystem_->OpenFile(path, base::File::FLAG_CREATE_ALWAYS |
                                                     base::File::FLAG_WRITE),
-@@ -975,13 +1113,20 @@ Status ChromiumEnv::NewRandomAccessFile(const std::string& fname,
+@@ -975,13 +1117,20 @@ Status ChromiumEnv::NewRandomAccessFile(const std::string& fname,
                       return MakeIOError(fname, FileErrorString(error),
                                          kNewRandomAccessFile, error);
                     });
@@ -899,7 +2104,7 @@ index 393c170608..cf0879918a 100644
    }
    return Status::OK();
  }
-@@ -1005,6 +1150,10 @@ Status ChromiumEnv::NewAppendableFile(const std::string& fname,
+@@ -1005,6 +1154,10 @@ Status ChromiumEnv::NewAppendableFile(const std::string& fname,
                                        leveldb::WritableFile** result) {
    *result = nullptr;
    FilePath path = FilePath::FromUTF8Unsafe(fname);

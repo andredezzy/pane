@@ -33,6 +33,10 @@ class StreamCipher {
   // True for what a new file's header starts with.
   static bool HasMagic(base::span<const uint8_t> stored);
 
+  // True for what a crash can leave of a header: as much of the magic as was
+  // written, or the whole of it and part of what follows.
+  static bool HasMagicStart(base::span<const uint8_t> stored);
+
   // An existing file's cipher. Crashes on a header made under another key: an
   // error here would have Chromium repair or delete the store.
   static std::unique_ptr<StreamCipher> FromHeader(

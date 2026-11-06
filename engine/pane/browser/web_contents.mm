@@ -374,9 +374,9 @@
     return;
   }
   if (runBeforeUnload) {
-    model->CloseWebContentsAt(index,
-                              TabCloseTypes::CLOSE_USER_GESTURE |
-                                  TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+    // No historical tab: Pane's reopen-closed-tab keeps its own list, and tab
+    // restore's names every page closed (ADR 0121).
+    model->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE);
   } else {
     model->DetachAndDeleteWebContentsAt(index);
   }

@@ -2,6 +2,7 @@
 
 #include "pane/encryption/stream_cipher.h"
 
+#include <algorithm>
 #include <string_view>
 
 #include "base/check.h"
@@ -71,6 +72,12 @@ bool StreamCipher::HasMagic(base::span<const uint8_t> stored) {
   return stored.size() >= kMagicSize &&
          stored.first<kMagicSize>() ==
              base::as_byte_span(kMagic).first<kMagicSize>();
+}
+
+// static
+bool StreamCipher::HasMagicStart(base::span<const uint8_t> stored) {
+  const size_t size = std::min(stored.size(), kMagicSize);
+  return stored.first(size) == base::as_byte_span(kMagic).first(size);
 }
 
 // static

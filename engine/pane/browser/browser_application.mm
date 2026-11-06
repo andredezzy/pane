@@ -32,12 +32,14 @@
 #include "content/public/browser/gpu_data_manager.h"
 #include "gpu/config/gpu_info.h"
 #include "base/version_info/version_info.h"
+#include "pane/encryption/profile_migration.h"
 #include "pane/encryption/engine_keys.h"
 #include "pane/encryption/handover.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/pane_storage_service.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "chrome/common/chrome_paths_internal.h"
+#include "services/network/enterprise/encryption/pane_cache_hook.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "base/apple/foundation_util.h"
 #include "base/barrier_closure.h"
@@ -108,6 +110,7 @@ void RegisterEngineKey(const base::FilePath& user_data_dir,
                        const std::string& identifier,
                        NSData* key) {
   pane::encryption::InstallHooks();
+  network::enterprise_encryption::InstallPaneCacheHook();
 
   std::vector<base::FilePath> roots = {user_data_dir,
                                        user_data_dir.Append("Volume")};
@@ -306,6 +309,11 @@ class ProfileDestructionWaiter : public ProfileObserver,
   // makes, which Pane does not show.
   AddToSwitchList(args, "disable-features",
                   "SegmentationPlatform,SegmentationPlatformUkmEngine");
+  // Chromium's own encrypted copies of the bookmarks and the sessions open with
+  // the Keychain's secret alone, without the PIN: the profile's own files replace
+  // them (ADR 0121).
+  AddToSwitchList(args, "disable-features",
+                  "EncryptBookmarks,EncryptSessionStorage");
   // Its histograms (BrowserMetrics) Chrome sets up before it reads the
   // features: patch 0008 keeps them off.
   // Chrome discards background tabs under memory pressure (its urgent
@@ -454,6 +462,84 @@ class ProfileDestructionWaiter : public ProfileObserver,
             manager->CreateProfileAsync(path, std::move(created));
           },
           path, std::move(created)));
+}
+
+- (void)migrateContextWithIdentifier:(NSString*)identifier
+                           engineKey:(NSData*)engineKey
+                              folder:(NSURL*)folder
+                            progress:(void (^)(double share))progress
+                          completion:(void (^)(BOOL migrated))completion {
+  PANE_TRACE(
+      "call", "PaneBrowserApplication.migrateContext",
+      base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
+  ProfileManager* manager = g_browser_process->profile_manager();
+  RegisterEngineKey(manager->user_data_dir(),
+                    base::SysNSStringToUTF8(identifier), engineKey);
+  // Resolved: Foundation has /var for /private/var, where the roots have both
+  // only as the user data dir was given.
+  const base::FilePath root =
+      base::MakeAbsoluteFilePath(base::apple::NSURLToFilePath(folder));
+
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE,
+      {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+       // A quit mid-way goes on where it was, at the next launch.
+       base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+      base::BindOnce(
+          [](base::FilePath root, void (^progress)(double)) {
+            const base::FilePath profile = root.AppendASCII("Profile");
+            const base::FilePath archive = root.AppendASCII("SafetyCopy");
+
+            // A new profile has nothing to keep.
+            if (base::PathExists(profile.AppendASCII("Preferences")) &&
+                !base::PathExists(archive) &&
+                !pane::WriteSafetyCopy(profile, archive)) {
+              return false;
+            }
+
+            return pane::MigrateProfileFiles(
+                profile, root.AppendASCII("Cache"),
+                base::BindRepeating(
+                    [](void (^progress)(double), double share) {
+                      progress(share);
+                    },
+                    progress));
+          },
+          root, [progress copy]),
+      base::BindOnce(
+          [](void (^completion)(BOOL), bool migrated) {
+            PANE_TRACE("callback",
+                       "PaneBrowserApplication.migrateContext.completion",
+                       base::DictValue().Set("migrated", migrated));
+            completion(migrated);
+          },
+          [completion copy]));
+}
+
+- (void)restoreContextWithIdentifier:(NSString*)identifier
+                           engineKey:(NSData*)engineKey
+                              folder:(NSURL*)folder
+                          completion:(void (^)(BOOL restored))completion {
+  PANE_TRACE(
+      "call", "PaneBrowserApplication.restoreContext",
+      base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
+  ProfileManager* manager = g_browser_process->profile_manager();
+  RegisterEngineKey(manager->user_data_dir(),
+                    base::SysNSStringToUTF8(identifier), engineKey);
+  // Resolved: Foundation has /var for /private/var, where the roots have both
+  // only as the user data dir was given.
+  const base::FilePath root =
+      base::MakeAbsoluteFilePath(base::apple::NSURLToFilePath(folder));
+
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE,
+      {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+       base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+      base::BindOnce(&pane::RestoreSafetyCopy, root.AppendASCII("Profile"),
+                     root.AppendASCII("SafetyCopy")),
+      base::BindOnce([](void (^completion)(BOOL),
+                        bool restored) { completion(restored); },
+                     [completion copy]));
 }
 
 - (void)dropEngineKeysWithCompletion:(void (^)(NSDictionary<NSString*, NSNumber*>*

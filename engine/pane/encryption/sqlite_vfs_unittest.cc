@@ -2,14 +2,20 @@
 
 #include "pane/encryption/sqlite_vfs.h"
 
+#include <signal.h>
 #include <stdint.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include <string>
 #include <vector>
 
+#include "base/at_exit.h"
+#include "base/command_line.h"
+#include "base/files/file.h"
 #include "base/files/file_util.h"
+#include "base/process/launch.h"
+#include "base/process/process.h"
+#include "base/test/multiprocess_test.h"
 #include "base/functional/bind.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_number_conversions.h"
@@ -22,6 +28,7 @@
 #include "sql/transaction.h"
 #include "sql/test/test_helpers.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "testing/multiprocess_func_list.h"
 #include "third_party/sqlite/sqlite3.h"
 
 namespace pane::encryption {
@@ -415,76 +422,111 @@ TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
   }
 }
 
-// A process killed mid-write, as a crash leaves it: nothing committed is lost,
-// in a rollback journal or in a WAL. kill -9 hits the transaction at random.
-TEST_F(SqliteVfsTest, KilledWhileWritingLosesNothingCommitted) {
-  for (const bool wal : {false, true}) {
-    const base::FilePath path = profile_.Append(wal ? "KillWal" : "KillJournal");
-    int committed = 0;
+// A process killed mid-write, as a crash leaves it: nothing it was told is
+// committed is lost, in a rollback journal or in a WAL, over 200 kills. The child
+// is a real process: a fork can't run Chromium's base.
+void KillLoop(const base::FilePath& root, const base::FilePath& path, bool wal) {
+  const base::FilePath told = root.AppendASCII(wal ? "told-wal" : "told-journal");
+  int committed = 0;
 
-    for (int round = 0; round < 40; round++) {
-      int pipe_fds[2];
-      ASSERT_EQ(pipe(pipe_fds), 0);
-      const pid_t child = fork();
-      ASSERT_GE(child, 0);
+  for (int round = 0; round < 200; round++) {
+    base::CommandLine command = base::GetMultiProcessTestChildBaseCommandLine();
+    command.AppendSwitchPath("root", root);
+    command.AppendSwitchPath("database", path);
+    command.AppendSwitchPath("told", told);
+    command.AppendSwitchASCII("first", base::NumberToString(committed));
 
-      if (child == 0) {
-        close(pipe_fds[0]);
-        sql::Database db(sql::DatabaseOptions().set_wal_mode(wal),
-                         sql::test::kTestTag);
+    if (wal) {
+      command.AppendSwitch("wal");
+    }
 
-        if (!db.Open(path)) {
-          _exit(2);
-        }
+    base::DeleteFile(told);
+    base::Process child = base::SpawnMultiProcessTestChild(
+        "PaneSqliteKilledWriter", command, base::LaunchOptions());
+    ASSERT_TRUE(child.IsValid());
 
-        std::ignore = db.Execute(
-            "CREATE TABLE IF NOT EXISTS t(id INTEGER PRIMARY KEY, value TEXT)");
+    // It has started writing; then a moment, different every round.
+    for (int wait = 0; wait < 2000 && !base::PathExists(told); wait++) {
+      usleep(1000);
+    }
 
-        for (int i = committed;; i++) {
-          sql::Statement insert(
-              db.GetUniqueStatement("INSERT INTO t VALUES(?, ?)"));
-          insert.BindInt(0, i);
-          insert.BindString(1, std::string(600, 'y'));
+    usleep((round * 613) % 8000);
+    kill(child.Pid(), SIGKILL);
+    int code = 0;
+    child.WaitForExit(&code);
 
-          if (!insert.Run()) {
-            _exit(3);
-          }
-
-          // Told only once committed.
-          const uint32_t done = i + 1;
-          std::ignore = write(pipe_fds[1], &done, sizeof(done));
-        }
-      }
-
-      close(pipe_fds[1]);
-      usleep(1000 + (round * 997) % 20000);
-      kill(child, SIGKILL);
-      waitpid(child, nullptr, 0);
-
-      uint32_t last = committed;
+    uint32_t last = committed;
+    {
+      base::File file(told, base::File::FLAG_OPEN | base::File::FLAG_READ);
       uint32_t value = 0;
 
-      while (read(pipe_fds[0], &value, sizeof(value)) == sizeof(value)) {
+      if (file.IsValid() &&
+          file.Read(0, base::byte_span_from_ref(value)) == sizeof(value)) {
         last = value;
-      }
-
-      close(pipe_fds[0]);
-
-      sql::Database db(sql::DatabaseOptions().set_wal_mode(wal),
-                       sql::test::kTestTag);
-      ASSERT_TRUE(db.Open(path)) << "round " << round;
-
-      if (db.DoesTableExist("t")) {
-        const int rows = Count(db);
-        EXPECT_GE(rows, static_cast<int>(last)) << "round " << round;
-        committed = rows;
-        sql::Statement check(db.GetUniqueStatement("PRAGMA integrity_check"));
-        ASSERT_TRUE(check.Step());
-        EXPECT_EQ(check.ColumnString(0), "ok") << "round " << round;
       }
     }
 
-    EXPECT_GT(committed, 0);
+    sql::Database db(sql::DatabaseOptions().set_wal_mode(wal),
+                     sql::test::kTestTag);
+    ASSERT_TRUE(db.Open(path)) << "round " << round;
+
+    if (db.DoesTableExist("t")) {
+      sql::Statement count(db.GetUniqueStatement("SELECT COUNT(*) FROM t"));
+      ASSERT_TRUE(count.Step());
+      const int rows = count.ColumnInt(0);
+      ASSERT_GE(rows, static_cast<int>(last)) << "round " << round;
+      committed = rows;
+      sql::Statement check(db.GetUniqueStatement("PRAGMA integrity_check"));
+      ASSERT_TRUE(check.Step());
+      ASSERT_EQ(check.ColumnString(0), "ok") << "round " << round;
+    }
+  }
+
+  EXPECT_GT(committed, 0);
+}
+
+TEST_F(SqliteVfsTest, KilledWhileWritingAJournalLosesNothingCommitted) {
+  KillLoop(root_, profile_.AppendASCII("History"), /*wal=*/false);
+}
+
+TEST_F(SqliteVfsTest, KilledWhileWritingAWalLosesNothingCommitted) {
+  KillLoop(root_, profile_.AppendASCII("DIPS"), /*wal=*/true);
+}
+
+MULTIPROCESS_TEST_MAIN(PaneSqliteKilledWriter) {
+  base::CommandLine* command = base::CommandLine::ForCurrentProcess();
+  base::AtExitManager at_exit;
+  AddRoots({command->GetSwitchValuePath("root")});
+  Key key;
+  key.fill(5);
+  RegisterKey(kID, key);
+  InstallSqliteVfs();
+
+  sql::Database db(sql::DatabaseOptions().set_wal_mode(command->HasSwitch("wal")),
+                   sql::test::kTestTag);
+
+  if (!db.Open(command->GetSwitchValuePath("database")) ||
+      !db.Execute("CREATE TABLE IF NOT EXISTS t(id INTEGER PRIMARY KEY, value TEXT)")) {
+    return 2;
+  }
+
+  base::File told(command->GetSwitchValuePath("told"),
+                  base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+  int first = 0;
+  base::StringToInt(command->GetSwitchValueASCII("first"), &first);
+
+  for (int i = first;; i++) {
+    sql::Statement insert(db.GetUniqueStatement("INSERT INTO t VALUES(?, ?)"));
+    insert.BindInt(0, i);
+    insert.BindString(1, std::string(600 + i % 3000, 'y'));
+
+    if (!insert.Run()) {
+      return 3;
+    }
+
+    // Told only once committed.
+    const uint32_t done = i + 1;
+    told.Write(0, base::byte_span_from_ref(done));
   }
 }
 

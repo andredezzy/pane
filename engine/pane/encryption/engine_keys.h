@@ -9,6 +9,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/span.h"
@@ -26,6 +27,8 @@ struct ProfileKeys {
   Key stream_files;
   Key stream_check;
   Key whole_files;
+  Key caches;
+  Key names;
 };
 
 // A path's verdict.
@@ -73,6 +76,12 @@ size_t KeyCount();
 // The verdict for `path`, in either form. Crashes for a protected path with no
 // key.
 PathVerdict Classify(const base::FilePath& path);
+
+// A folder's name for `text` (an origin's identifier) in a profile's folder,
+// keyed so that no list of sites gives it away: HMAC-SHA256 under the profile's
+// names key, cut to 160 bits, in hex. nullopt outside a profile's folder.
+std::optional<std::string> KeyedName(const base::FilePath& profile_path,
+                                     std::string_view text);
 
 // HKDF-SHA256 of `key`, with `salt` and `info`.
 Key DeriveKey(base::span<const uint8_t> key,

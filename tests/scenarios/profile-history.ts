@@ -1,10 +1,10 @@
 import { Database } from "bun:sqlite";
-import { copyFileSync, existsSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { $ } from "bun";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { isRunning } from "../lib/processes";
+import { plainContent, profileKeys } from "../lib/profile-files";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -62,15 +62,26 @@ const historyScenario: Scenario = async (context) => {
 
 		const copy = join(scratch, `${profile}-${file}`);
 
-		// A copy made as the engine commits can come out torn: another, then.
+		// A copy made as the engine commits can come out torn, or a page caught
+		// between its bytes: another, then. Its journal stays behind: in its own
+		// format, and only a commit under way has one to play back.
 		for (let attempt = 0; ; attempt++) {
-			rmSync(`${copy}-journal`, { force: true });
-			copyFileSync(source, copy);
+			let plain: Buffer;
 
-			if (existsSync(`${source}-journal`)) {
-				copyFileSync(`${source}-journal`, `${copy}-journal`);
+			try {
+				plain = plainContent(source, profileKeys(dataDir, profile));
+			} catch (error) {
+				if (attempt === 4) {
+					throw error;
+				}
+
+				Bun.sleepSync(300);
+
+				continue;
 			}
 
+			rmSync(`${copy}-journal`, { force: true });
+			writeFileSync(copy, plain);
 			const database = new Database(copy);
 
 			try {
@@ -103,17 +114,42 @@ const historyScenario: Scenario = async (context) => {
 	const namedBy = async (profile: string, query: string) => {
 		const root = join(dataDir, "Engine", profile);
 
-		const files =
-			await $`find -L ${root} -type f -print0 | xargs -0 /usr/bin/grep -la ${`${query}.pane.test`}`
-				.quiet()
-				.nothrow()
-				.text();
+		if (!existsSync(root)) {
+			return [];
+		}
 
-		return files
-			.split("\n")
-			.filter(Boolean)
-			.map((file) => file.slice(root.length))
-			.filter((file) => !SITE_DATA.test(file));
+		const keys = profileKeys(dataDir, profile);
+		const host = `${query}.pane.test`;
+		const named: string[] = [];
+
+		const visit = (folder: string) => {
+			for (const entry of readdirSync(folder, { withFileTypes: true })) {
+				const path = join(folder, entry.name);
+				const file = path.slice(root.length);
+
+				if (entry.isDirectory()) {
+					visit(path);
+				} else if (/^\/(Cache|Code Cache)\//.test(file)) {
+					// The caches' format stays closed here, their names keyed: an
+					// entry in them is a page they keep.
+					if (/_0$/.test(entry.name)) {
+						named.push(file);
+					}
+				} else if (entry.isFile()) {
+					try {
+						if (plainContent(path, keys).includes(host)) {
+							named.push(file);
+						}
+					} catch {
+						// Caught as the engine rewrites it: the next poll reads it.
+					}
+				}
+			}
+		};
+
+		visit(root);
+
+		return named.filter((file) => !SITE_DATA.test(file));
 	};
 
 	// A page and a download in the profile; the page's tab.

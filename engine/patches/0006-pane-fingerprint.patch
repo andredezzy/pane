@@ -119,10 +119,30 @@ index 6811b5d2f0..f0ba9b79e7 100644
    // |request_headers_| comes from |begin_params_|. Clear |request_headers_| now
    // so that if |request_headers_| are needed, they will be updated.
 diff --git a/content/browser/renderer_host/render_process_host_impl.cc b/content/browser/renderer_host/render_process_host_impl.cc
-index cf64747dbc..ed17db1299 100644
+index cf64747dbc..cb23a1811f 100644
 --- a/content/browser/renderer_host/render_process_host_impl.cc
 +++ b/content/browser/renderer_host/render_process_host_impl.cc
-@@ -2068,8 +2068,10 @@ bool RenderProcessHostImpl::Init() {
+@@ -7,6 +7,8 @@
+ 
+ #include "content/browser/renderer_host/render_process_host_impl.h"
+ 
++#include "pane/common/host.h"  // nogncheck
++
+ #include <algorithm>
+ #include <atomic>
+ #include <limits>
+@@ -2010,7 +2012,10 @@ bool RenderProcessHostImpl::Init() {
+   // Set cache information after establishing a channel since the handles are
+   // stored on the channels. Note that we also check if the factory is
+   // initialized because in tests the factory may never have been initialized.
++  // Pane: no GPU cache in a profile: the blockfile format maps its files, which
++  // pane/encryption cannot reach.
+   if (!GetBrowserContext()->IsOffTheRecord() &&
++      !base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH) &&
+       features::IsShaderDiskCacheEnabled(
+           base::CommandLine::ForCurrentProcess())) {
+     if (auto* cache_factory = GetGpuDiskCacheFactorySingleton()) {
+@@ -2068,8 +2073,10 @@ bool RenderProcessHostImpl::Init() {
    TRACE_EVENT("navigation", "RenderProcessHostImpl::Init",
                perfetto::Flow::Global(trace_id));
    GetRendererInterface()->InitializeRenderer(

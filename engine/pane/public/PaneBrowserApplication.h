@@ -95,6 +95,27 @@ NS_SWIFT_UI_ACTOR
                                      NSError* _Nullable error))completion
     NS_SWIFT_NAME(openContext(identifier:engineKey:completion:));
 
+// Encrypts a closed profile's files written by an earlier Pane, in place, off the
+// main thread, before its context opens (docs/adr/0121). `folder` is its folder
+// in the volume, its Profile and Cache inside. A safety copy goes there first, as
+// SafetyCopy, once. A kill at any point loses nothing: the next call goes on.
+// `progress` gets the share done, on any thread; `completion`, on the main
+// thread, whether it finished.
+- (void)migrateContextWithIdentifier:(NSString*)identifier
+                           engineKey:(NSData*)engineKey
+                              folder:(NSURL*)folder
+                            progress:(void (^)(double share))progress
+                          completion:(void (^)(BOOL migrated))completion
+    NS_SWIFT_NAME(migrateContext(identifier:engineKey:folder:progress:completion:));
+
+// Puts a profile back as its safety copy has it, for a migration that left it
+// failing to open. Runs off the main thread.
+- (void)restoreContextWithIdentifier:(NSString*)identifier
+                           engineKey:(NSData*)engineKey
+                              folder:(NSURL*)folder
+                          completion:(void (^)(BOOL restored))completion
+    NS_SWIFT_NAME(restoreContext(identifier:engineKey:folder:completion:));
+
 // Forgets every profile's key in every process, once the lock's detach has left
 // no profile's file open. A path of a profile's with no key then stops the
 // process that reaches it. `completion` gets how many each process still holds,

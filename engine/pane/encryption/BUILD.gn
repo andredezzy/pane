@@ -55,11 +55,31 @@ source_set("sqlite") {
   ]
 }
 
+source_set("migration") {
+  sources = [
+    "profile_migration.cc",
+    "profile_migration.h",
+  ]
+
+  deps = [
+    ":core",
+    ":sqlite",
+    "//base",
+    "//net",
+    "//sql",
+    "//storage/browser",
+    "//storage/common",
+    "//url",
+  ]
+}
+
 test("pane_unittests") {
   testonly = true
 
   sources = [
     "engine_keys_unittest.cc",
+    "leveldb_env_unittest.cc",
+    "profile_migration_unittest.cc",
     "sqlite_vfs_unittest.cc",
     "stream_cipher_unittest.cc",
     "whole_file_unittest.cc",
@@ -67,13 +87,18 @@ test("pane_unittests") {
 
   deps = [
     ":core",
+    ":migration",
     ":sqlite",
     "//base",
     "//base/test:run_all_unittests",
     "//base/test:test_support",
+    "//net",
+    "//services/network:network_service",
     "//sql",
     "//sql:test_support",
+    "//storage/browser",
     "//testing/gtest",
+    "//third_party/leveldatabase",
     "//third_party/sqlite",
   ]
 }

@@ -14,9 +14,9 @@ import { expect, type Scenario } from "../run";
 // (docs/plans/engine-file-encryption.md): every file under each profile's
 // folder, its caches, the data root, and what Pane's processes made in $TMPDIR
 // is ciphertext or on the plan's allow-list; none holds a planted value; and no
-// name gives a site away, in clear or as an unkeyed hash. It reports until
-// PANE_AUDIT_STRICT says the plan's Phase 4 has ended.
-const STRICT = process.env.PANE_AUDIT_STRICT === "1";
+// name gives a site away, in clear or as an unkeyed hash. PANE_AUDIT_REPORT=1
+// reports what it finds rather than failing, for a build from before all this.
+const STRICT = process.env.PANE_AUDIT_REPORT !== "1";
 
 const filesEncrypted: Scenario = async (context) => {
 	const session = await richSession(context);

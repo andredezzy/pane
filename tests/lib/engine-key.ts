@@ -17,7 +17,7 @@ type Sealed = {
 	pin: { salt: string; rounds: number } | null;
 };
 
-function dataKey(dataDir: string, pin: string | null): Buffer {
+export function dataKey(dataDir: string, pin: string | null): Buffer {
 	const sealed = (
 		JSON.parse(readFileSync(join(dataDir, "security.json"), "utf8")) as {
 			state: { key: Sealed };
@@ -79,4 +79,17 @@ export function keyForms(key: Buffer): Buffer[] {
 		Buffer.from(key.toString("base64")),
 		createHash("sha256").update(key).digest(),
 	];
+}
+
+// What the volume's unlocked with, as PaneKit's DataKey derives it (ADR 0121).
+export function volumePassphrase(dataDir: string, pin: string | null): string {
+	return Buffer.from(
+		hkdfSync(
+			"sha256",
+			dataKey(dataDir, pin),
+			Buffer.alloc(0),
+			"Pane data volume, files encrypted",
+			32,
+		),
+	).toString("base64");
 }

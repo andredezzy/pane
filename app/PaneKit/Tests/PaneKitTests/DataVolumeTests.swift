@@ -18,6 +18,56 @@ struct DataVolumeTests {
 		try? fileManager.destinationOfSymbolicLink(atPath: url.path)
 	}
 
+	@Test("a profile's files count as encrypted once marked, beside them in the volume")
+	func encryptedMarker() throws {
+		let root = try root()
+		defer { try? fileManager.removeItem(at: root) }
+		let volume = DataVolume(dataDirectory: root, cacheDirectory: nil)
+		try volume.prepare(profile: "p")
+
+		#expect(!volume.filesAreEncrypted(profile: "p"))
+		volume.markFilesEncrypted(profile: "p")
+		#expect(volume.filesAreEncrypted(profile: "p"))
+		#expect(!volume.filesAreEncrypted(profile: "other"))
+	}
+
+	@Test("a safety copy goes after three opens in a row, and comes back after two that never came up")
+	func safetyCopy() throws {
+		let root = try root()
+		defer { try? fileManager.removeItem(at: root) }
+		let volume = DataVolume(dataDirectory: root, cacheDirectory: nil)
+		try volume.prepare(profile: "p")
+		let copy = volume.folder(profile: "p").appending(path: "SafetyCopy")
+
+		// No copy: nothing to count.
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		fileManager.createFile(atPath: copy.path, contents: Data("copy".utf8))
+
+		// Each open that comes up counts; the third, the copy goes.
+		for open in 1 ... 3 {
+			#expect(fileManager.fileExists(atPath: copy.path), "open \(open)")
+			#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+			volume.safetyCopyDidOpen(profile: "p")
+		}
+
+		#expect(!fileManager.fileExists(atPath: copy.path))
+
+		// A kill in one open is forgiven; two in a row restore, once.
+		fileManager.createFile(atPath: copy.path, contents: Data("copy".utf8))
+		volume.markFilesEncrypted(profile: "p")
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .restore)
+		volume.safetyCopyDidRestore(profile: "p")
+		#expect(!volume.filesAreEncrypted(profile: "p"))
+
+		// After that the copy stays, whatever comes, and nothing restores again.
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(volume.safetyCopyWillOpen(profile: "p") == .none)
+		#expect(fileManager.fileExists(atPath: copy.path))
+	}
+
 	@Test("a profile's engine folder and caches are links into the volume")
 	func prepare() throws {
 		let root = try root()

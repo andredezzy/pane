@@ -63,6 +63,24 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		vault.didFail = { [weak lock] in
 			lock?.volumeWontOpen()
 		}
+		vault.fileMigrator = DataVault.FileMigrator(
+			migrate: { [weak application] id, key, folder, progress, done in
+				guard let application else {
+					done(false)
+					return
+				}
+
+				application.migrateContext(identifier: id, engineKey: key, folder: folder, progress: progress, completion: done)
+			},
+			restore: { [weak application] id, key, folder, done in
+				guard let application else {
+					done(false)
+					return
+				}
+
+				application.restoreContext(identifier: id, engineKey: key, folder: folder, completion: done)
+			}
+		)
 		vault.didDetachLocked = { [weak application] in
 			application?.dropEngineKeys { left in
 				if left.values.contains(where: { $0.intValue != 0 }) {

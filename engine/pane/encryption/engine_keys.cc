@@ -10,10 +10,12 @@
 #include "base/containers/span.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/synchronization/lock.h"
 #include "third_party/boringssl/src/include/openssl/digest.h"
 #include "third_party/boringssl/src/include/openssl/hkdf.h"
+#include "third_party/boringssl/src/include/openssl/hmac.h"
 #include "third_party/boringssl/src/include/openssl/mem.h"
 
 namespace pane::encryption {
@@ -108,6 +110,8 @@ ProfileKeys DeriveProfileKeys(base::span<const uint8_t> engine_key) {
       .stream_files = DeriveKey(engine_key, no_salt, "Pane stream files"),
       .stream_check = DeriveKey(engine_key, no_salt, "Pane stream check"),
       .whole_files = DeriveKey(engine_key, no_salt, "Pane whole files"),
+      .caches = DeriveKey(engine_key, no_salt, "Pane caches"),
+      .names = DeriveKey(engine_key, no_salt, "Pane names"),
   };
 }
 
@@ -208,6 +212,24 @@ PathVerdict Classify(const base::FilePath& path) {
   }
 
   return {};
+}
+
+std::optional<std::string> KeyedName(const base::FilePath& profile_path,
+                                     std::string_view text) {
+  // Any file of the profile: its folder itself is not a file of it.
+  const PathVerdict verdict = Classify(profile_path.AppendASCII("Name"));
+
+  if (verdict.kind != PathKind::kEncrypted) {
+    return std::nullopt;
+  }
+
+  uint8_t digest[EVP_MAX_MD_SIZE];
+  unsigned int length = 0;
+  CHECK(HMAC(EVP_sha256(), verdict.keys->names.data(),
+             verdict.keys->names.size(),
+             reinterpret_cast<const uint8_t*>(text.data()), text.size(), digest,
+             &length));
+  return base::ToLowerASCII(base::HexEncode(base::span(digest).first(20u)));
 }
 
 void ResetForTesting() {

@@ -191,6 +191,7 @@ final class DataVault {
 	) async throws -> Attached {
 		let started = Date().timeIntervalSince1970 * 1000
 		let passphrase = DataKey.volumePassphrase(key)
+		let former = DataKey.formerVolumePassphrase(key)
 		var lock: DataLock?
 
 		if let dataDirectory {
@@ -210,7 +211,7 @@ final class DataVault {
 			watch(volume, device: devices.image)
 		}
 
-		try volume.open(devices, passphrase: passphrase)
+		try volume.open(devices, passphrase: passphrase, former: former)
 
 		let ended = Date().timeIntervalSince1970 * 1000
 		Log.security.notice("The data volume opened in \((ended - started) / 1000, format: .fixed(precision: 2)) s")
@@ -264,7 +265,160 @@ final class DataVault {
 				}
 			}.value
 
-			done(prepared)
+			guard prepared else {
+				done(false)
+				return
+			}
+
+			ensureFilesEncrypted(profile: id, waiting: true, done)
+		}
+	}
+
+	// MARK: Encrypting a profile's files (ADR 0121)
+
+	// The engine's way to encrypt or restore a profile's folder.
+	struct FileMigrator {
+		var migrate: (_ id: String, _ key: Data, _ folder: URL, _ progress: @escaping @Sendable (Double) -> Void, _ done: @escaping (Bool) -> Void) -> Void
+		var restore: (_ id: String, _ key: Data, _ folder: URL, _ done: @escaping (Bool) -> Void) -> Void
+	}
+
+	@ObservationIgnored var fileMigrator: FileMigrator?
+	// The profile each migration under way is for, and who waits for it.
+	@ObservationIgnored private var migrations: [String: [(Bool) -> Void]] = [:]
+	// The panel shows for one a profile waits for, past a second (Paper 07.5).
+	@ObservationIgnored private var showsMigration = false
+	@ObservationIgnored private var migrationShares: [String: Double] = [:]
+	@ObservationIgnored private var migrationsIdle: [CheckedContinuation<Void, Never>] = []
+
+	// Runs `done` once the profile's files are encrypted. One a window waits for
+	// shows the panel past a second; the others run behind it, one at a time.
+	private func ensureFilesEncrypted(profile id: String, waiting: Bool, _ done: @escaping (Bool) -> Void) {
+		let step = volume.safetyCopyWillOpen(profile: id)
+
+		if step == .restore, let key = engineKey(profile: id), let fileMigrator {
+			fileMigrator.restore(id, key, volume.folder(profile: id)) { [weak self] restored in
+				if restored {
+					self?.volume.safetyCopyDidRestore(profile: id)
+				}
+
+				self?.ensureFilesEncrypted(profile: id, waiting: waiting, done)
+			}
+			return
+		}
+
+		migrate(profile: id, waiting: waiting, done)
+	}
+
+	private func migrate(profile id: String, waiting: Bool, _ done: @escaping (Bool) -> Void) {
+		guard !volume.filesAreEncrypted(profile: id) else {
+			done(true)
+			return
+		}
+
+		// One a window waits for shows, however it started.
+		if waiting {
+			let locks = locks
+
+			DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+				guard let self, locks == self.locks, let share = self.migrationShares[id], self.phase == .open else {
+					return
+				}
+
+				self.showsMigration = true
+				self.phase = .moving(share)
+			}
+		}
+
+		if migrations[id] != nil {
+			migrations[id]?.append(done)
+			return
+		}
+
+		guard let key = engineKey(profile: id), let fileMigrator else {
+			done(false)
+			return
+		}
+
+		migrations[id] = [done]
+		migrationShares[id] = 0
+		let locks = locks
+
+		fileMigrator.migrate(id, key, volume.folder(profile: id), { [weak self] value in
+			Task { @MainActor in
+				guard let self else {
+					return
+				}
+
+				self.migrationShares[id] = value
+
+				if self.showsMigration {
+					self.moved(value, locks: locks)
+				}
+			}
+		}, { [weak self] migrated in
+			guard let self else {
+				return
+			}
+
+			if migrated {
+				volume.markFilesEncrypted(profile: id)
+			} else {
+				Log.security.error("Could not encrypt a profile's files")
+			}
+
+			let waiters = migrations.removeValue(forKey: id) ?? []
+			migrationShares[id] = nil
+
+			if showsMigration, migrations.isEmpty {
+				showsMigration = false
+
+				if locks == self.locks {
+					becomeOpen()
+				}
+			}
+
+			waiters.forEach { $0(migrated) }
+
+			if migrations.isEmpty {
+				migrationsIdle.forEach { $0.resume() }
+				migrationsIdle = []
+			}
+		})
+	}
+
+	// Every profile not yet encrypted, one at a time, behind what the window shows.
+	func encryptRemainingProfiles(_ ids: [String]) {
+		guard let id = ids.first else {
+			return
+		}
+
+		let locks = locks
+
+		migrate(profile: id, waiting: false) { [weak self] _ in
+			guard let self, locks == self.locks else {
+				return
+			}
+
+			encryptRemainingProfiles(Array(ids.dropFirst()))
+		}
+	}
+
+	// A lock's detach waits for a migration under way: it has the volume's files open.
+	private func migrationsFinished() async {
+		guard !migrations.isEmpty else {
+			return
+		}
+
+		await withCheckedContinuation { migrationsIdle.append($0) }
+	}
+
+	// The profile came up: its safety copy counts this open.
+	func profileDidOpen(_ id: String) {
+		let volume = volume
+
+		Task.detached(priority: .utility) {
+			try? await Task.sleep(for: .seconds(5))
+			volume.safetyCopyDidOpen(profile: id)
 		}
 	}
 
@@ -368,8 +522,9 @@ final class DataVault {
 		attachWaiters = []
 		waiters.forEach { $0(false) }
 
-		closing = Task.detached(priority: .userInitiated) {
+		closing = Task.detached(priority: .userInitiated) { [weak self] in
 			await finishing?.value
+			await self?.migrationsFinished()
 
 			var device = known
 
@@ -495,6 +650,9 @@ final class DataVault {
 		let waiters = attachWaiters
 		attachWaiters = []
 		waiters.forEach { $0(true) }
+
+		// A profile a window asked for goes first: it asked just above.
+		encryptRemainingProfiles(profileIDs())
 	}
 
 	// No profile's context opens: the window still shows the profiles and

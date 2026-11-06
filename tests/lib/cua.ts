@@ -78,17 +78,28 @@ export async function mainWindowOf(pid: number): Promise<number> {
 	return main.window_id;
 }
 
-export function windowState(
+export async function windowState(
 	pid: number,
 	windowId: number,
 	screenshot: string,
 ): Promise<WindowState> {
-	return call<WindowState>("get_window_state", {
+	const state = await call<WindowState>("get_window_state", {
 		pid,
 		window_id: windowId,
 		max_depth: 12,
 		screenshot_out_file: screenshot,
 	});
+
+	// The driver's own capture waits for a consent only a person can give
+	// (`cua-driver permissions grant`): the system's takes the window as well,
+	// without the front.
+	if (!state.screenshot_file_path) {
+		await $`/usr/sbin/screencapture -x -o -l ${windowId} ${screenshot}`
+			.quiet()
+			.nothrow();
+	}
+
+	return state;
 }
 
 // What to click: a control by its title, of `role` (buttons, links, and

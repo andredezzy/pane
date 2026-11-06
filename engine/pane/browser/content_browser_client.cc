@@ -52,6 +52,16 @@ void ContentBrowserClient::ConfigureNetworkContextParams(
   // Each time: a network service that restarts gets its keys back this way.
   network_context_params->pane_engine_keys =
       encryption::KeysForOtherProcess();
+
+  // What the network service would keep on disk outside its stores' formats
+  // stays in memory: the hosts it reached, its reports, and No-Vary-Search's
+  // own files, which name pages (ADR 0121).
+  if (network_context_params->file_paths) {
+    auto& paths = *network_context_params->file_paths;
+    paths.http_server_properties_file_name.reset();
+    paths.sct_auditing_pending_reports_file_name.reset();
+    paths.no_vary_search_directory.reset();
+  }
 }
 
 std::string ContentBrowserClient::GetUserAgentForBrowserContext(

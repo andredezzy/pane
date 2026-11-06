@@ -101,7 +101,7 @@ These may stay plain; `files-encrypted` still searches them for the planted valu
   - the GPU's shader caches: `GraphiteDawnCache`, `GPUPersistentCache` (ADR 0115);
   - `Safe Browsing`, `component_crx_cache`, `extensions_crx_cache`, `Webstore Downloads`, `NativeMessagingHosts`;
   - the `Default` profile, holding only Chromium's defaults (ADR 0115).
-- **In a profile:** `Extensions/` (installed extensions' public code), and empty files and folders.
+- **In a profile:** `Extensions/` (installed extensions' public code), empty files and folders, and the file system's `.usage` counts (a magic and a size: metadata, as a file's size is).
 
 ### Formats
 
@@ -482,3 +482,21 @@ The first estimate (5 to 6 weeks) grew with what the research and this review fo
     - Page 1's plaintext is not cached per file: a whole-page read and decrypt costs microseconds, and a stale cache would hide another connection's write. If `benchmark-stores` asks for it, it comes back.
     - The hook in `base` is one new header, included by three `.cc` files, so it rebuilds `base`'s objects and links, not the 2 hours this plan feared. The mojom fields cost 1,500 build steps, once.
   - **The QA rig** (`qa-hold`, `qa-send`, `docs/plans/qa/engine-file-encryption/phase-0/report.md`): first pass on 0.15.2. Background items done: PIN screen, wrong and right PIN by accessibility, a real site, the files read from another program. Owed with the first foreground pass, since the Mac has been in use: real keys, ⌃⌘L, the menu (macOS disables an app's menu behind the front one), sign-in, suggestions, download and Web Store through the UI, Quick Look, recordings.
+- 2026-11-05: Phases 1 to 5, built together, since their formats and hooks share one registry.
+  - **SQLite** (`engine/pane/encryption/sqlite_vfs.cc`). What reading SQLite's I/O found, against the plan:
+    - A journal's header is a sector long, which is often a page: a page in a journal is told by its place (4 bytes past a multiple of 8), or the header would be encrypted and a hot journal ignored. A test that copies a mid-transaction database with its log, journal and WAL, proves it.
+    - `sqlite3_recover` reads blocks at any offset, so the main file's reads are general; a page handed out is only ever decrypted.
+    - A database keeps its page size: SQLite reads and journals the file at the new size before it writes any, so `PRAGMA page_size` on a database with content does nothing (through `SQLITE_FCNTL_PRAGMA`), rather than the two-way support the plan implied. A new database takes its size. Raze keeps working, its null database having the same size.
+    - The plan's Raze patch is not needed: the extension reserves the in-memory connection's bytes too.
+    - Kill loops: real child processes (a fork can't run Chromium's base), 200 kills in a journal and 200 in a WAL, with nothing told committed lost.
+  - **LevelDB** (`third_party/leveldatabase/env_chromium.cc`). As planned. A file shorter than its header counts as empty only if it is the start of one; a plain file crashes, since LevelDB's callers would have destroyed a store that reads corrupt.
+  - **Blobs and the origin private file system:** Chromium's chunked format (`EncryptedCacheFile`), not the plan's CTR stream: both are overwritten in place, by a sync access handle and by `write({position})`, which reuses a CTR keystream. The chunked format is AES-256-GCM-SIV, for that. `FileStreamReader` and `FileStreamWriter::CreateForLocalFile` choose by path, so everything over them follows. Sync access handles go through the mojo delegate, as Incognito's do.
+  - **Caches:** one hook in `disk_cache` (`net/disk_cache/pane_cache_hook.h`), so every Simple cache under a profile is encrypted with keyed entry names whatever its type: HTTP, CacheStorage, ScriptCache, the code cache, Shared Dictionary. So the code cache and shared dictionaries stay on, where the plan had them off until they hurt: nothing of theirs reads as plain, and repeat visits keep them. GPU caches in a profile are off, as planned. No-Vary-Search's persistence is off.
+  - **Whole files** through `base`, at the cost of a small link, not 2 hours. A plain file in a protected path passes as it is: reading one risks nothing, and a crash would stop a profile for a file Chromium can rebuild.
+  - **Names:** IndexedDB's default buckets move to `WebStorage/<id>/IndexedDB`, CacheStorage's folders to a keyed name.
+  - **The audit** is strict now: every protected file must also be in a format of Pane's, past the markers and the entropy. Its allow-list gains one entry, the file system's `.usage` counts (a magic and a size).
+  - **Migration** (`engine/pane/encryption/profile_migration.cc`). Runs per profile as it is prepared, and for the rest behind it. Its progress is an empty file beside the profile in the volume (`.files-encrypted`), rather than in `profiles.json`: it says what the volume holds, and goes with it. Each file goes to a temporary one, is verified by decrypting it, and is renamed; Simple cache entries are converted file by file with their names rekeyed, without a backend.
+  - **The downgrade fence:** the volume's passphrase changes on the first open, before any file converts. On the data migrated from the published 0.15.2 and 0.17.2, each says "Passphrase incorrect": Paper 07.8's screen, and the volume's 144 files keep their hashes and times, read by attaching it apart from any Pane. The image's own bands do change when any Pane attaches it (APFS checkpoints), so "changes no file" is checked on what the volume holds and on `security.json`, its copy, and `profiles.json`.
+  - **Progress:** Paper 07.5's panel as it was approved, past a second, for a profile the window waits for. No new UI.
+  - **Measured:** 659 MB in 2.85 s, 231 MB/s, on this Mac; six kills at random points of that, and all there after.
+  - **Suite:** 87 scenarios, all pass but `hosted`, which failed the same on the published 0.17.2: cua-driver now waits for a consent before it captures, so `windowState` falls back on `screencapture -l`.

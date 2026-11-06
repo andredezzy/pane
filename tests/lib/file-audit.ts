@@ -58,11 +58,12 @@ const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 	[/^Pane\.lock$/, "the data's lock"],
 	[/^Data\.sparsebundle\//, "the volume's image"],
 	[
-		/^Engine\/(Local State|Last Version|Variations|ChromeFeatureState|First Run|Last Browser|lockfile|SingletonCookie|SingletonLock|SingletonSocket|DevToolsActivePort|CrashpadMetrics(-active)?\.pma|BrowserMetrics(-active)?\.pma|.*\.pma)$/,
+		/^Engine\/(Local State|Last Version|Variations|ChromeFeatureState)$/,
 		"the engine's root, before the PIN",
 	],
+	[/^Engine\/DevToolsActivePort$/, "the scenario's own port"],
 	[
-		/^Engine\/(GraphiteDawnCache|GPUPersistentCache|ShaderCache|GrShaderCache|DawnGraphiteCache|DawnWebGPUCache|Safe Browsing|component_crx_cache|extensions_crx_cache|Webstore Downloads|NativeMessagingHosts|Default|Crash Reports|BrowserMetrics|CertificateTransparency|Crowd Deny|OnDeviceHeadSuggestModel|PKIMetadata|Subresource Filter|SSLErrorAssistant|TpcdMetadata|TrustTokenKeyCommitments|ZxcvbnData|MEIPreload|FirstPartySetsPreloaded|Dictionaries|Floc|hyphen-data|OriginTrials|WidevineCdm|segmentation_platform|AutofillStates|CookieReadinessList|OpenCookieDatabase|PrivacySandboxAttestationsPreloaded|ProbabilisticRevealTokenRegistry|RecoveryImproved|Trust Protection Lists|ActorSafetyLists|AmountExtractionHeuristicRegexes|commerce_heuristics|optimization_guide_model_store|Local Traces)\//,
+		/^Engine\/(GraphiteDawnCache|GPUPersistentCache|Safe Browsing|component_crx_cache|extensions_crx_cache|Webstore Downloads|NativeMessagingHosts|Default)\//,
 		"the engine's root, before the PIN",
 	],
 	[/^automation\//, "the scenario's channel"],
@@ -71,6 +72,10 @@ const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 
 const PROFILE_ALLOWED: [RegExp, string][] = [
 	[/^Extensions\//, "installed extensions' public code"],
+	[
+		/^File System\/.*\/\.usage$/,
+		"the file system's usage count: its magic and a size, metadata as a file's size is",
+	],
 ];
 
 // What wrote a file of a profile, from its path, as the plan's table sorts them.
@@ -177,6 +182,32 @@ const textShare = (bytes: Uint8Array) => {
 
 	return bytes.length > 0 ? text / bytes.length : 0;
 };
+
+// Pane's formats (pane/encryption), and the chunked format's header, whose first
+// byte is its length.
+const ENCRYPTED_MAGICS = ["Pane SQLite v1\n", "PANESF1\n", "PANEWF1\n"].map(
+	(magic) => Buffer.from(magic, "latin1"),
+);
+
+const CHUNKED_HEADER_SIZE = 40;
+
+// SQLite's own for a WAL and a rollback journal: their headers stay clear, and
+// the pages after them are Pane's format, as `plainMarkers` checks past 4 KiB.
+const SQLITE_LOG_MAGICS = ["377f0682", "377f0683", "d9d505f920a163d7"].map(
+	(magic) => Buffer.from(magic, "hex"),
+);
+
+export function hasEncryptedFormat(bytes: Buffer): boolean {
+	return (
+		ENCRYPTED_MAGICS.some((magic) =>
+			bytes.subarray(0, magic.length).equals(magic),
+		) ||
+		SQLITE_LOG_MAGICS.some((magic) =>
+			bytes.subarray(0, magic.length).equals(magic),
+		) ||
+		(bytes.length >= CHUNKED_HEADER_SIZE && bytes[0] === CHUNKED_HEADER_SIZE)
+	);
+}
 
 // Why this content reads as plain, if it does: a store's own header, JSON,
 // HTML, a URL, or, past 4 KiB, too little entropy for ciphertext.
@@ -363,12 +394,19 @@ function auditTree(
 			continue;
 		}
 
+		const fileAllowed = bytes.length === 0 ? "empty" : allowed(name);
+
 		files.push({
 			path: label(name),
 			size: bytes.length,
 			...classifyPath(name),
-			allowed: bytes.length === 0 ? "empty" : allowed(name),
-			plain: plainMarkers(bytes),
+			allowed: fileAllowed,
+			plain: [
+				...plainMarkers(bytes),
+				...(fileAllowed === null && !hasEncryptedFormat(bytes)
+					? ["no format of Pane's"]
+					: []),
+			],
 			entropy:
 				bytes.length > 4096 ? Math.round(entropyOf(bytes) * 1000) / 1000 : null,
 			planted: heldBy(bytes, planted),

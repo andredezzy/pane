@@ -87,6 +87,7 @@ jobs:
           bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane
           --out "$RUNNER_TEMP/scenarios"
           smoke hosted quiet navigation profiles-isolation restore open-urls security crlset
+          files-encrypted
 
       - name: Keep the scenarios' evidence
         if: failure()

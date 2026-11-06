@@ -237,9 +237,28 @@ public struct DataVolume: Sendable {
 	// unlocks with nothing and would take the profiles in the clear, so its
 	// image detaches before anything is written. One left unlocked mounts as
 	// it is, and is checked the same.
-	public func open(_ devices: Devices, passphrase: String) throws {
-		let unlocked = Result {
+	//
+	// A volume an earlier Pane made still takes `former` (ADR 0121): it unlocks
+	// with that once, and changes to `passphrase` before anything converts, so
+	// that Pane no longer opens what this one will encrypt. The change is one
+	// call to APFS, so a kill leaves one passphrase or the other, and each is
+	// tried.
+	public func open(_ devices: Devices, passphrase: String, former: String? = nil) throws {
+		var unlocked = Result {
 			try run("/usr/sbin/diskutil", ["apfs", "unlockVolume", devices.volume, "-stdinpassphrase", "-nomount"], input: passphrase)
+		}
+
+		if case .failure = unlocked, let former {
+			let unlockedWithFormer = Result {
+				try run("/usr/sbin/diskutil", ["apfs", "unlockVolume", devices.volume, "-stdinpassphrase", "-nomount"], input: former)
+			}
+
+			if case .success = unlockedWithFormer {
+				unlocked = unlockedWithFormer
+			}
+
+			// Also when both failed since it is left unlocked, after a crash.
+			try? changePassphrase(of: devices, from: former, to: passphrase)
 		}
 
 		do {
@@ -256,6 +275,16 @@ public struct DataVolume: Sendable {
 			try? detach(device: devices.image, force: true)
 			throw NotEncrypted(volume: devices.volume)
 		}
+	}
+
+	// The volume's one user, from one passphrase to another. diskutil reads both
+	// from its standard input, a line each: neither is an argument.
+	private func changePassphrase(of devices: Devices, from old: String, to new: String) throws {
+		try run(
+			"/usr/sbin/diskutil",
+			["apfs", "changePassphrase", devices.volume, "-user", "disk", "-oldStdinpassphrase", "-newStdinpassphrase"],
+			input: "\(old)\n\(new)\n"
+		)
 	}
 
 	// At the mount point, out of the Finder (nobrowse), through Disk
@@ -445,6 +474,98 @@ public struct DataVolume: Sendable {
 				try? FileManager.default.removeItem(at: folder.appending(path: item))
 			}
 		}
+	}
+
+	// MARK: Encrypting a profile's files (ADR 0121)
+
+	// Whether the profile's files are all in their encrypted formats: an empty
+	// file beside them, in the volume, so it says what the volume holds.
+	public func filesAreEncrypted(profile id: String) -> Bool {
+		FileManager.default.fileExists(atPath: folder(profile: id).appending(path: Self.encryptedMarker).path)
+	}
+
+	public func markFilesEncrypted(profile id: String) {
+		touch(folder(profile: id).appending(path: Self.encryptedMarker))
+	}
+
+	// What the first opens after a migration do with its safety copy.
+	public enum SafetyCopyStep: Equatable, Sendable {
+		case none
+		// Two opens in a row never came up: back to the copy, and migrate again.
+		case restore
+	}
+
+	// A profile is about to open.
+	public func safetyCopyWillOpen(profile id: String) -> SafetyCopyStep {
+		let folder = folder(profile: id)
+
+		guard FileManager.default.fileExists(atPath: folder.appending(path: "SafetyCopy").path) else {
+			return .none
+		}
+
+		let opening = folder.appending(path: Self.openingMarker)
+		let failed = folder.appending(path: Self.failedMarker)
+		let restored = folder.appending(path: Self.restoredMarker)
+		var step = SafetyCopyStep.none
+
+		if FileManager.default.fileExists(atPath: opening.path) {
+			if FileManager.default.fileExists(atPath: failed.path) {
+				// Once: a copy that fails again would fail for good, and stays.
+				if !FileManager.default.fileExists(atPath: restored.path) {
+					step = .restore
+				}
+			} else {
+				touch(failed)
+			}
+		}
+
+		touch(opening)
+		return step
+	}
+
+	// A copy restored: the profile migrates again, with its counts from the start.
+	public func safetyCopyDidRestore(profile id: String) {
+		let folder = folder(profile: id)
+		touch(folder.appending(path: Self.restoredMarker))
+		try? FileManager.default.removeItem(at: folder.appending(path: Self.encryptedMarker))
+		try? FileManager.default.removeItem(at: folder.appending(path: Self.failedMarker))
+		try? FileManager.default.removeItem(at: folder.appending(path: Self.openingMarker))
+	}
+
+	// The profile came up. The third time in a row, its copy goes.
+	public func safetyCopyDidOpen(profile id: String) {
+		let folder = folder(profile: id)
+
+		guard FileManager.default.fileExists(atPath: folder.appending(path: "SafetyCopy").path) else {
+			return
+		}
+
+		try? FileManager.default.removeItem(at: folder.appending(path: Self.openingMarker))
+		try? FileManager.default.removeItem(at: folder.appending(path: Self.failedMarker))
+
+		let opens = (1 ... Self.safeOpens).map { folder.appending(path: ".safety-opened-\($0)") }
+
+		guard let next = opens.first(where: { !FileManager.default.fileExists(atPath: $0.path) }) else {
+			return
+		}
+
+		touch(next)
+
+		if next == opens.last {
+			for item in opens + [folder.appending(path: Self.restoredMarker), folder.appending(path: "SafetyCopy")] {
+				try? FileManager.default.removeItem(at: item)
+			}
+		}
+	}
+
+	private static let encryptedMarker = ".files-encrypted"
+	private static let openingMarker = ".safety-opening"
+	private static let failedMarker = ".safety-failed"
+	private static let restoredMarker = ".safety-restored"
+	private static let safeOpens = 3
+
+	private func touch(_ url: URL) {
+		FileManager.default.createFile(atPath: url.path, contents: nil)
 	}
 
 	// Moves the plain profile folders an earlier Pane left (Engine/<id>) into

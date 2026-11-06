@@ -69,6 +69,8 @@ Every scenario must pass. The ones that read the screen (CUA) need an unlocked s
 
 A scenario that fails may have caught Chrome changing its own behavior (157 started requiring a focused page for fullscreen, and pinning new extensions). Run it on the previous engine under the same conditions to tell. Package the app on that engine's archive with `PANE_ENGINE_OUT` set to the unpacked archive, beside the new one. If the old engine passes and the new behavior is right for a browser, record it in an ADR and update the scenario to the new behavior. Otherwise fix Pane.
 
+Then audit the stores (ADR 0121): a milestone adds some. Run `files-inventory` and `files-encrypted`, and read the inventory's `unknown` list. A new store with no hook fails `files-encrypted`, and reads as plain in the inventory: give it a hook in `pane/encryption`, or an entry in the plan's table with why it is neither. Run `pane_unittests`: its VFS leans on `sqlite3`'s shapes of I/O, and an upgrade of SQLite can add one.
+
 ## 6. Ship it
 
 1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>". Push it.
