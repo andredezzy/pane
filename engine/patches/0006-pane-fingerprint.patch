@@ -452,7 +452,7 @@ index ed5028943e..db3d828e91 100644
    const display::ScreenInfo& screen_info = GetScreenInfo();
    gfx::Rect rect = available ? screen_info.available_rect : screen_info.rect;
 diff --git a/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc b/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
-index 13c0ced1be..9a2f7b2ab8 100644
+index 3da40c38fa..02ba497daf 100644
 --- a/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
 +++ b/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
 @@ -114,6 +114,7 @@
