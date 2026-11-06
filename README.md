@@ -42,7 +42,7 @@ Pane needs macOS 14 or later on Apple Silicon.
 
 1. Download `Pane-<version>-arm64.dmg` from the [latest release](https://github.com/andredezzy/pane/releases/latest).
 2. Open it and drag Pane to Applications.
-3. Open Pane. It is not notarized yet, so macOS stops it the first time: "Apple could not verify “Pane” is free of malware". Choose Done, then System Settings › Privacy & Security › Open Anyway.
+3. Open Pane. It is not notarized yet, so macOS stops it the first time, saying it could not verify Pane. Close that dialog, then choose Open Anyway in System Settings › Privacy & Security.
 
 Updates need none of this: Pane installs them itself.
 
@@ -67,12 +67,12 @@ open app/build/Pane.app
 ## Project structure
 
 ```text
-app/           # the Swift app (AppKit + SwiftUI), the PaneKit package, VERSION, dmg resources
+app/           # the Swift app (AppKit + SwiftUI), the PaneKit package, the volume's watchdog, VERSION, signing and dmg resources
 engine/        # PaneCore.framework: the pinned Chromium tag, gn args, patches, //pane, scripts
 tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
-docs/          # building.md, human-checklist.md, adr/ (one record per decision), benchmarks/
+docs/          # building.md, human-checklist.md, adr/ (one record per subject), benchmarks/, growth/
 third_party/   # the license and origin of each project Pane takes code from (NOTICE)
-.github/       # CI: gates.yml (linters), app.yml (tests and build), release.yml (the dmg, on a v* tag)
+.github/       # CI: gates.yml (linters), app.yml (tests and build), release.yml (the dmg, on a v* tag), chromium-watch.yml (when Chrome's Mac stable moves)
 ```
 
 ## Scripts

@@ -1,6 +1,6 @@
 # Building Pane
 
-Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: the ADRs in `docs/adr/`, one per decision.
+Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: the ADRs in `docs/adr/`, one per subject.
 
 ## Layout
 
@@ -9,12 +9,12 @@ Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.f
   - `args/` — gn args per build config
   - `patches/` — `series` (apply order), `MANIFEST` (each touched Chromium file → its owning patch), the patches
   - `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`
-  - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `package.sh`, `dist.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
-- `app/` — the Swift app, the `PaneKit` package, `VERSION`, the dmg's resources (`dmg/`), and the icon's sources (`icon/`: the window's renders, and `make-icons.swift`, which makes the app's icons from them)
+  - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `update-exports.sh`, `preflight.sh`, `fetch-crlset.sh`, `package.sh`, `dist.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
+- `app/` — the Swift app, the `PaneKit` package, the volume's watchdog (`VolumeWatch/`), `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon's sources (`icon/`: the window's renders, and `make-icons.swift`, which makes the app's icons from them)
 - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
-- `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), `adr/`, one record per decision, and `benchmarks/`, measured comparisons of Pane builds with their raw data and how to rerun them
-- `evidence/` — gitignored output of acceptance checks, per phase
+- `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), `adr/`, one record per subject, `benchmarks/`, measured comparisons of Pane builds with their raw data and how to rerun them, and `growth/`, the media Pane is shown with outside the app
+- `evidence/` — gitignored output of acceptance checks
 
 ## Chromium checkout
 

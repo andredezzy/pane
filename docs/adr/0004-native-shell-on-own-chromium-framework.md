@@ -4,7 +4,7 @@ Pane moves off Electron to the architecture Arc and Dia use: a pure-Swift app (A
 
 The framework is built from Chromium's `chrome/` layer plus a `//pane` tree, with a small patch series for the framework layout (ADR 0009), a host mode in which Chrome creates no UI of its own (ADR 0010), and the hook seams.
 
-Scope is macOS on Apple Silicon; Windows and Linux are out for now (Dia ships on Mac only, and Arc's Windows port required porting Swift itself). The native app's data root is ADR 0006's, and the Electron data is migrated from a copy, never in place (ADR 0043). The product language in `CONTEXT.md`, the rules in `DESIGN.md`, and ADRs 0001 and 0002 carried over. Each decision since is an ADR of its own, from 0005.
+Scope is macOS on Apple Silicon; Windows and Linux are out for now (Dia ships on Mac only, and Arc's Windows port required porting Swift itself). The native app's data root is ADR 0006's, and the Electron data is migrated from a copy, never in place (ADR 0043). The product language in `CONTEXT.md`, the rules in `DESIGN.md`, and ADRs 0001 and 0002 carried over. Each subject since has an ADR of its own, from 0005.
 
 What was rejected:
 
