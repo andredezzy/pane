@@ -75,17 +75,6 @@ public struct DataVolume: Sendable {
 		return mountedOn == String(cString: resolved)
 	}
 
-	// What the mounted volume holds, in bytes, for compact.
-	public var usedBytes: Int64? {
-		var info = statfs()
-
-		guard isMounted, statfs(mountPoint.path, &info) == 0 else {
-			return nil
-		}
-
-		return Int64(info.f_blocks - info.f_bfree) * Int64(info.f_bsize)
-	}
-
 	// MARK: Attaching
 
 	// Attaches the image, its volume locked, or makes it the first time, or
@@ -441,17 +430,6 @@ public struct DataVolume: Sendable {
 		process.executableURL = helper
 		process.arguments = [String(getpid()), device, image.path]
 		try process.run()
-	}
-
-	// The space the sparse bundle keeps after deletions goes back to the
-	// disk once it holds over 1 GB more than the volume used: on the detached
-	// image, which is not encrypted itself.
-	public func compact(used: Int64) throws {
-		guard size(image) - used > 1 << 30 else {
-			return
-		}
-
-		try run("/usr/bin/hdiutil", ["compact", image.path, "-quiet"])
 	}
 
 	// Made once, and read-only while nothing is attached on it.

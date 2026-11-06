@@ -492,8 +492,7 @@ final class DataVault {
 	}
 
 	// After the engine has shut down, when nothing has the volume's files
-	// open: the image detached, mounted or still locked, and compacted when it
-	// keeps much unused space. An attach still under way, the first launch's
+	// open: the image detached, mounted or still locked. An attach still under way, the first launch's
 	// making of the image say, is waited for first: quit in it, Pane left the
 	// image attached once it finished, and before its watchdog started.
 	func close() {
@@ -510,14 +509,14 @@ final class DataVault {
 			return
 		}
 
-		Self.detach(volume, device: device, used: isAttached ? volume.usedBytes : nil)
+		volume.safetyCopiesClosed()
+		Self.detach(volume, device: device)
 		isAttached = false
 	}
 
 	// The image detached by its device, the volume's helpers given a moment
-	// (the network service keeps the cookies open), then forced; then
-	// compacted when it keeps much unused space.
-	private nonisolated static func detach(_ volume: DataVolume, device: String, used: Int64?) {
+	// (the network service keeps the cookies open), then forced.
+	private nonisolated static func detach(_ volume: DataVolume, device: String) {
 		let started = Date()
 		var detached = false
 
@@ -536,10 +535,6 @@ final class DataVault {
 			}
 
 			Log.security.notice("The data volume detached in \(Date().timeIntervalSince(started), format: .fixed(precision: 2)) s")
-
-			if let used {
-				try volume.compact(used: used)
-			}
 		} catch {
 			Log.security.error("Could not detach the data volume: \(String(describing: error), privacy: .private)")
 		}
@@ -600,7 +595,8 @@ final class DataVault {
 				return device
 			}
 
-			Self.detach(volume, device: device, used: volume.usedBytes)
+			volume.safetyCopiesClosed()
+			Self.detach(volume, device: device)
 			await MainActor.run { [weak self] in self?.didDetachLocked?() }
 			return nil
 		}
@@ -672,9 +668,13 @@ final class DataVault {
 
 				await MainActor.run { self?.didAttach(attached, moved: ids != nil, locks: locks) }
 
+				// On its own: a lock waits for what this task does, and the volume
+				// stays mounted behind the PIN until it ends.
 				if ids != nil {
-					for failure in PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches) {
-						Log.security.error("Could not erase a plain copy: \(failure.description, privacy: .private)")
+					Task.detached(priority: .utility) {
+						for failure in PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches) {
+							Log.security.error("Could not erase a plain copy: \(failure.description, privacy: .private)")
+						}
 					}
 				}
 			} catch {
