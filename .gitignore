@@ -1,42 +1,21 @@
 # Dependencies
 node_modules
 
-# Environment Variables
+# Secrets
 .env
 .env.*
+*.pem
 
 # Logs
 *.log
 
 # OS
 .DS_Store
-*.pem
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-
-# VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# Playwright MCP
-.playwright-mcp
-
-# super.engineering
+# Tools
+.claude/
 .sc/
-
-# Cache
-.cache
-.superpowers/
+.swiftpm/
 
 # The app and the engine
 /evidence/
