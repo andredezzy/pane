@@ -52,6 +52,8 @@ static_assert(kNonceSize + kTagSize + kInfoSize == kSqliteReservedBytes);
 
 // The clear part of page 1.
 constexpr int kPageOneClearEnd = 24;
+// What SQLite reads of a file as it opens it (sqlite3BtreeOpen).
+constexpr int kSqliteHeaderRead = 100;
 
 constexpr size_t kWalHeaderSize = 32;
 constexpr size_t kWalFrameHeaderSize = 24;
@@ -76,6 +78,8 @@ struct PaneFile {
   // A page's ciphertext on its way out; SQLite's own buffer stays as it is.
   RAW_PTR_EXCLUSION uint8_t* scratch;
   int scratch_size;
+  // Its path, which SQLite keeps until the file closes.
+  RAW_PTR_EXCLUSION const char* name;
 };
 
 const sqlite3_io_methods* EncryptedMethods();
@@ -205,6 +209,11 @@ int RealWrite(PaneFile* file, const void* in, int amount, sqlite3_int64 offset) 
 
 // Main file ------------------------------------------------------------------
 
+bool HasContent(const std::string& path) {
+  struct stat info;
+  return stat(path.c_str(), &info) == 0 && info.st_size > 0;
+}
+
 // The page size in a Pane page 1's clear bytes, read from the file.
 int DiscoverPageSize(PaneFile* file) {
   uint8_t header[kPageOneClearEnd];
@@ -289,6 +298,18 @@ int ReadMain(PaneFile* file, void* out, int amount, sqlite3_int64 offset) {
       return rc;
     }
 
+    // SQLite reads the header as it opens, before any journal plays back. Of a
+    // page 1 a crash tore, which the journal restores, that read comes back
+    // short, which SQLite takes for an empty header, so the playback runs: an
+    // error would fail the open, which Chromium's quota database answers by
+    // erasing every store (patch 0010).
+    if (rc == SQLITE_IOERR_AUTH && offset == 0 &&
+        amount == kSqliteHeaderRead &&
+        HasContent(std::string(file->name) + "-journal")) {
+      memset(out, 0, amount);
+      return SQLITE_IOERR_SHORT_READ;
+    }
+
     if (rc != SQLITE_OK) {
       return rc;
     }
@@ -341,13 +362,18 @@ int WriteMain(PaneFile* file,
 
 // Journal and WAL ------------------------------------------------------------
 
-// An encrypted page at `offset` of a journal or WAL. One that fails to
-// authenticate comes back zero, so SQLite's own checksum ends the playback: a
-// page a crash tore is what a rollback or a recovery stops at.
+// An encrypted page at `offset` of a journal or WAL. During a playback, one that
+// fails to authenticate comes back zero, so SQLite's own checksum ends it: a page
+// a crash tore is what a rollback or a recovery stops at. Past the playback, a
+// WAL's page is an error, as a main file's is: zeros would read as a malformed
+// database, which Chromium razes.
+enum class LoggedPageRead { kPlayback, kPage };
+
 int ReadLoggedPage(PaneFile* file,
                    uint8_t* page,
                    int size,
-                   sqlite3_int64 offset) {
+                   sqlite3_int64 offset,
+                   LoggedPageRead read = LoggedPageRead::kPlayback) {
   const int rc = RealRead(file, page, size, offset);
 
   if (rc != SQLITE_OK) {
@@ -356,6 +382,10 @@ int ReadLoggedPage(PaneFile* file,
 
   if (!OpenPage(file, static_cast<uint64_t>(offset), page, size,
                 /*is_page_one=*/false)) {
+    if (read == LoggedPageRead::kPage) {
+      return SQLITE_IOERR_AUTH;
+    }
+
     memset(page, 0, size);
   }
 
@@ -439,7 +469,7 @@ int ReadWal(PaneFile* file, void* out, int amount, sqlite3_int64 offset) {
   uint8_t* bytes = static_cast<uint8_t*>(out);
 
   if (amount == size) {
-    return ReadLoggedPage(file, bytes, size, offset);
+    return ReadLoggedPage(file, bytes, size, offset, LoggedPageRead::kPage);
   }
 
   // A frame whole, as recovery reads it: its header in the clear, then its page.
@@ -658,11 +688,6 @@ sqlite3_vfs* ParentOf(sqlite3_vfs* vfs) {
   return static_cast<sqlite3_vfs*>(vfs->pAppData);
 }
 
-bool HasContent(const std::string& path) {
-  struct stat info;
-  return stat(path.c_str(), &info) == 0 && info.st_size > 0;
-}
-
 // What a main file's page 1 says at its open: an empty file is a new database;
 // a plain one in a protected path, or one under another key, stops the process,
 // since an error would reach Chromium's corruption handling. A page 1 a crash
@@ -735,6 +760,7 @@ int Open(sqlite3_vfs* vfs,
 
   memset(pane, 0, sizeof(PaneFile));
   pane->real = reinterpret_cast<sqlite3_file*>(pane + 1);
+  pane->name = name;
   pane->kind = (flags & SQLITE_OPEN_MAIN_DB)       ? FileKind::kMain
                : (flags & SQLITE_OPEN_MAIN_JOURNAL) ? FileKind::kJournal
                                                     : FileKind::kWal;

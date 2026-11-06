@@ -785,6 +785,24 @@ index cdee37560e..0f9d5a5a8c 100644
      "//base",
      "//base:build_time",
      "//build:chromecast_buildflags",
+diff --git a/services/network/enterprise/encryption/encrypted_cache_file.cc b/services/network/enterprise/encryption/encrypted_cache_file.cc
+index a2937631bd..713dd17a4d 100644
+--- a/services/network/enterprise/encryption/encrypted_cache_file.cc
++++ b/services/network/enterprise/encryption/encrypted_cache_file.cc
+@@ -488,6 +488,13 @@ EncryptedCacheFile::ReadAndDecryptChunk(uint32_t chunk_index,
+ 
+   auto decrypt_result =
+       encryptor_->DecryptChunk(ciphertext, chunk_index, is_last_chunk);
++  // Pane: a kill between an append's writes leaves the physical tail marked as
++  // not the last. The mark guards only against someone who truncates the file,
++  // whom Pane's threat model leaves out (docs/adr/0121), and the bytes are good.
++  if (!decrypt_result.has_value() && is_last_chunk) {
++    decrypt_result = encryptor_->DecryptChunk(ciphertext, chunk_index,
++                                              /*is_last_chunk=*/false);
++  }
+   if (!decrypt_result.has_value()) {
+     DecryptionFailureReason reason =
+         ciphertext.size() < kAuthTagSize
 diff --git a/services/network/enterprise/encryption/pane_cache_hook.cc b/services/network/enterprise/encryption/pane_cache_hook.cc
 new file mode 100644
 index 0000000000..cbc0d0fcd5
@@ -985,18 +1003,19 @@ index 79817b8276..3f569020dc 100644
      ":mojom_cache_storage_side_data_writer",
      ":mojom_connection_allowlist",
 diff --git a/services/network/public/mojom/network_context.mojom b/services/network/public/mojom/network_context.mojom
-index ba22365134..cec7f9f2ff 100644
+index ba22365134..966a616e2a 100644
 --- a/services/network/public/mojom/network_context.mojom
 +++ b/services/network/public/mojom/network_context.mojom
-@@ -100,6 +100,7 @@ import "services/network/public/mojom/p2p.mojom";
+@@ -99,6 +99,8 @@ import "services/network/public/mojom/p2p.mojom";
+ [EnableIf=is_p2p_enabled]
  import "services/network/public/mojom/p2p_trusted.mojom";
  
- [EnableIf=enable_disk_cache_sql_backend]
 +import "pane/encryption/public/mojom/engine_keys.mojom";
++
+ [EnableIf=enable_disk_cache_sql_backend]
  import "services/network/public/mojom/shared_http_cache_client.mojom";
  
- const uint32 kWebSocketOptionNone = 0;
-@@ -640,6 +641,11 @@ struct NetworkContextParams {
+@@ -640,6 +642,11 @@ struct NetworkContextParams {
    // If true, the HTTP cache will be encrypted on disk.
    bool enable_encrypted_http_cache = false;
  
@@ -1722,6 +1741,32 @@ index 0000000000..74562fad8b
 +}  // namespace storage
 +
 +#endif  // STORAGE_BROWSER_FILE_SYSTEM_PANE_ENCRYPTED_STREAM_H_
+diff --git a/storage/browser/quota/quota_database.cc b/storage/browser/quota/quota_database.cc
+index 3a7483bdf7..eee5e19115 100644
+--- a/storage/browser/quota/quota_database.cc
++++ b/storage/browser/quota/quota_database.cc
+@@ -26,6 +26,7 @@
+ #include "sql/recovery.h"
+ #include "sql/statement.h"
+ #include "sql/transaction.h"
++#include "third_party/sqlite/sqlite3.h"
+ #include "storage/browser/quota/quota_database_migrations.h"
+ #include "storage/browser/quota/quota_features.h"
+ #include "storage/browser/quota/quota_internals.mojom.h"
+@@ -976,6 +977,13 @@ QuotaError QuotaDatabase::EnsureOpened() {
+                                               base::Unretained(this)));
+ 
+   if (!OpenDatabase() || !EnsureDatabaseVersion()) {
++    // Pane: a reset dooms WebStorage, where every default bucket's IndexedDB
++    // lives (docs/adr/0121). Only a malformed database resets: anything else
++    // stops the process, which loses nothing.
++    const int pane_error = sqlite_error_code_ & 0xff;
++    CHECK(db_file_path_.empty() || pane_error == SQLITE_CORRUPT ||
++          pane_error == SQLITE_NOTADB)
++        << "The quota database would not open: " << sqlite_error_code_;
+     LOG(ERROR) << "Could not open the quota database, resetting.";
+     if (!db_file_path_.empty() && ResetStorage()) {
+       // ResetStorage() has succeeded and database is already open.
 diff --git a/third_party/leveldatabase/BUILD.gn b/third_party/leveldatabase/BUILD.gn
 index db16e21024..40f990215a 100644
 --- a/third_party/leveldatabase/BUILD.gn

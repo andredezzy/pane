@@ -131,3 +131,5 @@ storage/browser/file_system/local_file_stream_writer.cc	0010-pane-encryption.pat
 storage/browser/file_system/obfuscated_file_util_disk_delegate.cc	0010-pane-encryption.patch
 storage/browser/file_system/pane_encrypted_stream.cc	0010-pane-encryption.patch
 storage/browser/file_system/pane_encrypted_stream.h	0010-pane-encryption.patch
+services/network/enterprise/encryption/encrypted_cache_file.cc	0010-pane-encryption.patch
+storage/browser/quota/quota_database.cc	0010-pane-encryption.patch
