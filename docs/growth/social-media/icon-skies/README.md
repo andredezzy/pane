@@ -2,7 +2,7 @@
 
 A 10-second loop for X that shows Pane's ten app-icon skies. A Liquid Glass dock sits on macOS 27's own wallpaper, Golden Gate · Sunset, with Finder, Pane, and Paper; Pane's icon swaps skies faster and faster, with a click on each swap, until it lands on Day with a boom.
 
-`pane-icon-skies-4k.mp4` is the cut the user approved on 2026-10-29: 3840×2160, 60 fps, H.264 with AAC sound, 43 MB. It shows the cartoon skies of Release 0.11.1.
+[`pane-icon-skies-4k.mp4`](https://github.com/andredezzy/pane/releases/download/media-icon-skies/pane-icon-skies-4k.mp4) is the cut the user approved on 2026-10-29: 3840×2160, 60 fps, H.264 with AAC sound, 43 MB. It shows the cartoon skies of Release 0.11.1. It lives in the `media-icon-skies` prerelease, not the tree, which every checkout would pay for.
 
 ## Rendering
 
