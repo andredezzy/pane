@@ -77,8 +77,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0086](0086-repo-layout.md) The repo is laid out as its peers are
 - [0087](0087-app-carries-licenses.md) The app carries its licenses
 - [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md) Pane's icon is a window whose sky the user picks, and the bundle carries it in Chromium's place, dated so macOS cannot show Chromium's
-- [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself at quit, and where it can't, says Quit and install and quits
-- [0093](0093-update-pill-bar-runs-to-its-end.md) The update pill's bar runs to its end, and draws back for the dismiss button
+- [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself at quit, and where it can't, says Quit and install and quits, and the update pill's bar runs to its end, drawing back for the dismiss button
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items and site access show where Chrome shows them, and Chrome's reload prompt after a change is declined without a dialog
 - [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed in a dialog of the Extensions page
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
@@ -113,6 +112,7 @@ These numbers were records of their own until they were merged into the record t
 - 0088 → [0051](0051-native-release-retires-electron.md)
 - 0090 → [0002](0002-update-check-via-github-releases-api.md)
 - 0091 → [0063](0063-outline-controls.md)
+- 0093 → [0092](0092-pane-installs-its-updates.md)
 - 0094 → [0046](0046-the-dmg.md)
 - 0095 → [0069](0069-proxy-passwords-in-keychain.md)
 - 0097 → [0062](0062-extensions-page.md)

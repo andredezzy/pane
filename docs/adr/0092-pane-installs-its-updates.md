@@ -1,4 +1,4 @@
-# Pane installs its updates itself at quit, and where it can't, says Quit and install and quits
+# Pane installs its updates itself at quit, and where it can't, says Quit and install and quits, and the update pill's bar runs to its end, drawing back for the dismiss button
 
 > **Partly replaced by [ADR 0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md)** — the update to the new identifier does not install itself from 0.13.1 and before, whose check wants the identifier they have: their update opens the dmg.
 
@@ -18,6 +18,10 @@ Before 0.15.1, Pane said "Downloaded, quit to install" there, on the pill and on
 
 App Management (macOS 13 and later) refuses changes to an app made by code from another team, and Pane has no team. Its swap of its own bundle went through outside `/Applications`, and in it: on 2026-10-29 the user's 0.9.0, installed in `/Applications` from its dmg, installed 0.9.1 itself through Restart to update, and reopened with nothing left beside it. A refusal would leave the app as it was and open the dmg.
 
+**The pill's bar.** While an update downloads, the pill's progress bar runs out to 7 points from the pill's end, as the dot sits 7 from its start: the user's call, on a pill whose bar stopped 24 short, in room kept for a dismiss button that shows only under the pointer. Under the pointer the bar draws back to 32 from the end, so it sits about 14 points from the X's ink, as far as the text sits from the bar; a first try at 24 left 6.5, and the user asked for more room. The bar draws back within room it always keeps, 24 points for itself and 25 for the button, so the text never moves or cuts differently as the pointer comes and goes, and at the narrowest sidebar (200 points) the bar shrinks from 51 points to 26 rather than going.
+
+The bar and the X take turns rather than cross (`Motion.hoverTurn`, the hover's 0.15 s after 0.08 s): the bar draws back at once, and the X fades in once the bar has cleared its place; on the way out the X goes first, and the bar runs out after it. Fading both at once left the X at 20 to 50% over the bar's tip for three frames, each way.
+
 What was rejected:
 
 - **Sparkle:** it needs an appcast and EdDSA signing in the release pipeline, and its installer ends in the same swap.
@@ -29,6 +33,9 @@ What was rejected:
 - **Keeping the click to reopen the dmg** where Pane can't install: the user still had to find out that Pane must quit before Finder replaces it.
 - **Quitting without the installer:** the dmg the download opened may have been closed by then.
 - **Saying why** Pane can't (another identifier, a folder Pane can't write): the reason is one the user can't act on, and the step is the same.
+- **Keeping the bar 24 short at all times:** room for a button that is not there.
+- **Taking the button's room from the text under the pointer:** at narrow sidebars the text would cut differently as the pointer came and went.
+- **Letting the bar shrink to nothing under the pointer:** at the narrowest sidebar the download's only sign of progress would vanish while the user looks at it.
 
 How it is checked:
 
@@ -42,3 +49,8 @@ How it is checked:
 - **The `updates` scenario:** its stand-in dmg is no disk image and holds no Pane to stage, so it says Quit and install, and its click quits Pane without downloading again.
 - **Against the real release:** a build reporting 0.7.9 found v0.8.0 on GitHub 0.9 s after launch. It downloaded, verified, and staged the 190 MB dmg by 26.4 s, and quit 0.2 s after Restart to update with the bundle already 0.8.0. The new Pane opened 2.0 s later with its profile kept, nothing left beside it, and the dmg gone.
 - 0.13.1 and before keep their text: they are published.
+- **Paper:** 03.3 Sidebar · Footer draws the downloading pill at rest and under the pointer, and 04.27 draws it at rest, in light and dark.
+- **A recording of the pill:** a build whose hover toggled itself every 0.9 s, its X drawn pure red to tell it from the bar, was recorded losslessly at 60 frames a second. It ran in light and dark, at sidebars of 260 and 200.
+  - At rest the bar ends 7.0 points from the pill's end, and under the pointer 32.0. It draws back in about 130 ms, and the X starts to show once the bar has passed its place.
+  - On the way back the X is at 1% when the bar crosses its place. No frame has the bar under a visible X.
+  - The text's right edge stays on the same pixel in every frame.
