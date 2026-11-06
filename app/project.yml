@@ -4,7 +4,6 @@
 # shippable bundle.
 name: Pane
 options:
-  bundleIdPrefix: com.pane
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
