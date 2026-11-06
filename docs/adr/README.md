@@ -41,8 +41,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0046](0046-the-dmg.md) The dmg is built with dmgbuild, LZMA-compressed, and laid out as Hark's installer, its volume icon on the title's centre line
 - [0047](0047-releases-strip-the-engine.md) A release strips its local symbols, and publishes them beside it
 - [0048](0048-signing-waits-for-a-developer-id.md) Signing, notarization, and iCloud passkeys wait for a Developer ID
-- [0049](0049-prebuilt-engines.md) Prebuilt engines are matched by key and published as prereleases
-- [0050](0050-ci-on-the-prebuilt-engine.md) CI builds the app on the prebuilt engine and never builds Chromium
+- [0049](0049-prebuilt-engines.md) Prebuilt engines are matched by key and published as prereleases, and CI builds the app on them and never builds Chromium
 - [0051](0051-native-release-retires-electron.md) Pane 0.7.0 is the first native release, and the Electron app is retired
 - [0053](0053-quit-asks-first.md) ⌘Q asks first
 - [0054](0054-toolbar-extensions-menu.md) The toolbar's extensions menu and pinned actions follow Aside's
@@ -101,6 +100,7 @@ These numbers were records of their own until they were merged into the record t
 - 0033 → [0010](0010-host-mode.md)
 - 0035 → [0060](0060-sidebar-and-toolbar-sizes.md)
 - 0045 → [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md)
+- 0050 → [0049](0049-prebuilt-engines.md)
 - 0052 → [0048](0048-signing-waits-for-a-developer-id.md)
 - 0059 → [0012](0012-scenarios-on-a-locked-screen.md)
 - 0069 → [0037](0037-per-profile-proxies.md)
