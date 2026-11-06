@@ -30,11 +30,23 @@ Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser wh
 - **Per-profile proxies** — each profile routes through its own HTTP, HTTPS, SOCKS4, or SOCKS5 proxy; authenticated SOCKS connections use a local relay
 - **Browser fingerprinting** — configurable user agent and Client Hints, platform, WebGL, canvas noise, audio noise, screen, timezone, and locale per profile, applied inside the engine
 - **Chrome extensions** — install from the Chrome Web Store per profile, with Chrome's own extension system and updates
-- **Encrypted on disk** — every profile's tabs, cookies, site data, and caches, under a key the optional PIN releases
-- **PIN lock with data wipe** — five consecutive failures relaunch Pane fresh, with the key gone and the data erased
+- **Encrypted on disk** — every profile's tabs, cookies, site data, and caches, in a volume under a key the optional PIN releases, and every file a profile writes again under a key only Pane's processes hold
+- **PIN lock with data wipe** — Pane locks at launch, on command, when the Mac sleeps or locks, and after a time without use; five consecutive failures at the lock relaunch Pane fresh, with the key gone and the data erased
+- **Save history, per profile** — turned off, a profile keeps no record of its pages, their icons, or its downloads, and what it kept is cleared; it stays signed in
 - **Memory that stays small** — idle tabs sleep, hidden profiles unload, and their caches are trimmed
+- **Updates that install themselves** — Pane checks for a new release, downloads it when you say, and swaps it in as it quits
 
-## Getting started
+## Install
+
+Pane needs macOS 14 or later on Apple Silicon.
+
+1. Download `Pane-<version>-arm64.dmg` from the [latest release](https://github.com/andredezzy/pane/releases/latest).
+2. Open it and drag Pane to Applications.
+3. Open Pane. It is not notarized yet, so macOS stops it the first time: "Apple could not verify “Pane” is free of malware". Choose Done, then System Settings › Privacy & Security › Open Anyway.
+
+Updates need none of this: Pane installs them itself.
+
+## Build from source
 
 ### Requirements
 
