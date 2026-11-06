@@ -54,7 +54,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0058](0058-paper-draws-every-state.md) Every design is drawn in Paper and approved before it is built, and Paper draws every state the app shows, reviewed against the app
 - [0060](0060-sidebar-and-toolbar-sizes.md) The sidebar and toolbar take Aside's sizes with 12-point text, UI text is drawn without font smoothing, and the content panel stays Pane's
 - [0061](0061-resizable-sidebar.md) The sidebar is resizable, and its list fades at the edges
-- [0062](0062-extensions-page.md) Extensions have their own page
+- [0062](0062-extensions-page.md) Extensions have their own page, whose Details list an extension's sites and change them as Chrome's details page does, and they update themselves
 - [0063](0063-outline-controls.md) Outline controls have no fill, and their hover is the foreground at 4%
 - [0064](0064-active-profile-indicator.md) The active profile's bar morphs into a square, only on the browser page
 - [0065](0065-settings-layout.md) Settings take Aside's layout
@@ -80,10 +80,8 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself at quit, and where it can't, says Quit and install and quits
 - [0093](0093-update-pill-bar-runs-to-its-end.md) The update pill's bar runs to its end, and draws back for the dismiss button
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items and site access show where Chrome shows them, and Chrome's reload prompt after a change is declined without a dialog
-- [0097](0097-extensions-update-themselves.md) Extensions update themselves
 - [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed in a dialog of the Extensions page
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
-- [0102](0102-extension-details-on-the-extensions-page.md) An extension's Details are a view of the Extensions page, and On specific sites lists its sites, added and removed as Chrome's details page does
 - [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window
 - [0110](0110-other-apps-sign-ins-stay-in-macos-sheet.md) Other apps' sign-ins stay in macOS's sheet
 - [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays
@@ -117,11 +115,13 @@ These numbers were records of their own until they were merged into the record t
 - 0091 → [0063](0063-outline-controls.md)
 - 0094 → [0046](0046-the-dmg.md)
 - 0095 → [0069](0069-proxy-passwords-in-keychain.md)
+- 0097 → [0062](0062-extensions-page.md)
 - 0100 → [0046](0046-the-dmg.md)
 - 0101 → [0096](0096-extension-menu-items-show-where-chrome-shows-them.md)
+- 0102 → [0062](0062-extensions-page.md)
 - 0103 → [0096](0096-extension-menu-items-show-where-chrome-shows-them.md)
 - 0104 → [0098](0098-extension-shortcuts-work-as-in-chrome.md)
-- 0105 → [0102](0102-extension-details-on-the-extensions-page.md)
+- 0105 → [0062](0062-extensions-page.md)
 - 0106 → [0046](0046-the-dmg.md)
 - 0107 → [0002](0002-update-check-via-github-releases-api.md)
 - 0108 → [0005](0005-pin-a-chromium-stable-tag.md)

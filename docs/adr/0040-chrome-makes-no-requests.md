@@ -13,7 +13,7 @@ What is off:
 
 The switch and the features are set in `engine/pane/browser/browser_application.mm`, the per-profile prefs in `engine/pane/browser/browser_context.mm`. The component updater, the network time check, and the on-device AI model were the requests that went out from the browser itself.
 
-The one request Chrome still makes of its own is the extension updater's: as each profile starts, and every five hours or so after, it asks Chrome's update service (`update.googleapis.com`) for newer versions of its Web Store extensions, as every browser does (ADR 0097).
+The one request Chrome still makes of its own is the extension updater's: as each profile starts, and every five hours or so after, it asks Chrome's update service (`update.googleapis.com`) for newer versions of its Web Store extensions, as every browser does (ADR 0062).
 
 The CRLSet ships with the app:
 
