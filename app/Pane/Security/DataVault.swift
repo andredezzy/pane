@@ -468,15 +468,25 @@ final class DataVault {
 		}
 	}
 
-	// A deleted profile's data: its links, and its folder in the volume.
-	func remove(profile id: String) {
+	// A deleted profile's data: its links, and its folder in the volume. `removed`
+	// runs once it is all gone: until then the deletion's record stays, so a quit
+	// on the way leaves no folder that nothing names.
+	func remove(profile id: String, _ removed: @escaping () -> Void) {
 		let volume = volume
 
-		Task.detached(priority: .utility) {
-			do {
-				try volume.remove(profile: id)
-			} catch {
-				Log.security.error("Could not remove a deleted profile's data: \(String(describing: error), privacy: .private)")
+		Task {
+			let gone = await Task.detached(priority: .utility) { () -> Bool in
+				do {
+					try volume.remove(profile: id)
+					return true
+				} catch {
+					Log.security.error("Could not remove a deleted profile's data: \(String(describing: error), privacy: .private)")
+					return false
+				}
+			}.value
+
+			if gone {
+				removed()
 			}
 		}
 	}

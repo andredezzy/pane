@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, tabOf } from "../lib/pane";
+import { poll } from "../lib/poll";
+import { waitForExit } from "../lib/processes";
 import { targets as targetsOf } from "../lib/targets";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -11,7 +13,8 @@ import { expect, type Scenario } from "../run";
 // next launch. A profile whose page asks before it closes (beforeunload) is
 // deleted without asking. A profile whose engine context will not open (an
 // id with a slash, or too long to be a folder) shows its tab as the sad
-// tab, and deleting it leaves nothing pending.
+// tab, and deleting it leaves nothing pending. A kill while a deleted profile's
+// folder is going leaves its record, and the next launch finishes it.
 const profileLifecycle: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lifecycle-");
 
@@ -232,6 +235,57 @@ const profileLifecycle: Scenario = async (context) => {
 	);
 
 	await broken.browser.close();
+
+	// Killed once the engine confirmed a delete, with the folder still going:
+	// thousands of files, so it takes a moment.
+	const killedDir = context.tempDir("pane-lifecycle-killed-");
+
+	const killed = await launchTraced(context, "profile-lifecycle-killed", {
+		dataDir: killedDir,
+	});
+
+	const doomed = await killed.app.createProfile("Doomed", "ROSE");
+	const doomedURL = context.fixtures.url("nav-a.html?doomed");
+	await killed.app.page(await killed.app.openTab(doomed, doomedURL), doomedURL);
+	const doomedFolder = join(killedDir, "Engine", "Volume", doomed);
+	const filler = join(doomedFolder, "filler");
+	mkdirSync(filler);
+
+	for (let file = 0; file < 40_000; file++) {
+		writeFileSync(join(filler, String(file)), "x");
+	}
+
+	await killed.app.send("deleteProfile", { profile: doomed });
+
+	await killed.waitForEntry(
+		"PaneBrowserApplication.didDeleteContext",
+		(args) => args.deleted === true,
+	);
+
+	process.kill(killed.app.browser.pid, "SIGKILL");
+	await waitForExit(killed.app.browser.pid);
+	// The watchdog's detach, before the next launch attaches.
+	await Bun.sleep(1_500);
+
+	const afterKill = await launchPane(context, { dataDir: killedDir });
+
+	const purged = await poll(
+		"the killed delete finished",
+		async () =>
+			!existsSync(doomedFolder) &&
+			(await afterKill.state()).pendingProfileDeletions === 0,
+		30_000,
+	).then(
+		() => true,
+		() => false,
+	);
+
+	await afterKill.browser.close();
+
+	expect(
+		purged,
+		"a kill during a delete left the profile's folder, with no record of it",
+	);
 
 	expect(
 		after.profiles.map((profile) => profile.name).join(",") === "Keep",

@@ -826,8 +826,9 @@ final class BrowserController: NSObject {
 				// volume goes here, or, once a lock closed the volume, at the
 				// next open (ProfileDeletions).
 				if deleted, work.lock == nil {
-					self?.deletions.remove(profileID)
-					self?.vault.remove(profile: profileID)
+					self?.vault.remove(profile: profileID) {
+						self?.deletions.remove(profileID)
+					}
 				}
 			}
 		}
