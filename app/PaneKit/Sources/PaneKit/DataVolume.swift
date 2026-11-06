@@ -566,11 +566,13 @@ public struct DataVolume: Sendable {
 		return step
 	}
 
-	// A copy restored: the profile migrates again, with its counts from the start.
+	// A copy restored: the profile migrates again, with its counts from the
+	// start. The files are plain, so their marker goes first: a kill here must not
+	// leave them marked encrypted, which would stop the process at every open.
 	public func safetyCopyDidRestore(profile id: String) {
 		let folder = folder(profile: id)
-		touch(folder.appending(path: Self.restoredMarker))
 		try? FileManager.default.removeItem(at: folder.appending(path: Self.encryptedMarker))
+		touch(folder.appending(path: Self.restoredMarker))
 		try? FileManager.default.removeItem(at: folder.appending(path: Self.failedMarker))
 		try? FileManager.default.removeItem(at: folder.appending(path: Self.openingMarker))
 	}

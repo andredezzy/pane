@@ -1,11 +1,21 @@
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	truncateSync,
+	writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 import { mainWindowOf } from "../lib/cua";
 import { volumePassphrase } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";
 import { audit } from "../lib/file-audit";
 import { launchPane, type PaneApp, type PaneLaunch, tabOf } from "../lib/pane";
+import { waitForExit } from "../lib/processes";
 import {
 	READ_BACK,
 	type ReadBack,
@@ -13,6 +23,7 @@ import {
 	richSession,
 	STORES_COMMITTED_MS,
 } from "../lib/rich-session";
+import { launchTraced } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // A profile an earlier Pane wrote, opened with this one (ADR 0121): everything it
@@ -20,6 +31,14 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // through the migration, it goes on and loses nothing. Started again on the
 // migrated data, the earlier Pane opens nothing and changes nothing of it, and
 // says the data won't open (Paper 07.8).
+//
+// Its safety copy comes back only after opens a kill ended before any came up:
+// never after quits inside the first seconds, which keep what was written since.
+// One that won't restore leaves the profile refused, and tried once.
+//
+// A profile with no folder yet, made without a tab, migrates nothing: its missing
+// path resolved against the working directory, where the engine deleted a `Cache`
+// and looked through a `Profile`.
 //
 // PANE_EARLIER_BUILDS names the published Panes' executables, comma-separated:
 // each is the source of a pass.
@@ -311,7 +330,236 @@ async function pass(context: ScenarioContext, earlier: string) {
 	};
 }
 
+// A tabless profile's launch, from a folder that holds what the engine would
+// have taken for the profile's own.
+async function noFolder(context: ScenarioContext) {
+	const dataDir = context.tempDir("pane-migration-tabless-");
+	const first = await launchPane(context, { dataDir });
+	await first.createProfile("No tab", "BLUE");
+	await first.browser.close();
+
+	const cwd = context.tempDir("pane-migration-cwd-");
+	const keeps = ["Cache/keep", "Profile/keep"].map((file) => join(cwd, file));
+
+	for (const keep of keeps) {
+		mkdirSync(dirname(keep), { recursive: true });
+		writeFileSync(keep, "kept");
+	}
+
+	const { app, trace } = await launchTraced(
+		context,
+		"files-migration-tabless",
+		{
+			dataDir,
+			cwd,
+		},
+	);
+
+	// Past the attach's migrations of every profile.
+	await Bun.sleep(3_000);
+	await app.browser.close();
+
+	expect(
+		keeps.every((keep) => existsSync(keep)),
+		`a profile with no folder took from the working directory: ${keeps.filter((keep) => !existsSync(keep)).join(", ")}`,
+	);
+
+	expect(
+		!trace().some(
+			(line) => line.name === "PaneBrowserApplication.migrateContext",
+		),
+		"a profile with no folder migrated",
+	);
+}
+
+// Opens of a migrated profile, each ended inside its first seconds.
+async function quickOpen(
+	context: ScenarioContext,
+	session: RichSession,
+	launch: PaneLaunch,
+	end: (app: PaneApp) => Promise<void>,
+	write?: string,
+): Promise<{ read: string | null; ms: number }> {
+	const started = Date.now();
+	const app = await launchPane(context, launch);
+	await app.send("select", { tab: session.tab });
+	const page = await app.page(session.tab, session.url);
+
+	if (write) {
+		await page.evaluate(
+			`localStorage.setItem("after", ${JSON.stringify(write)})`,
+		);
+	}
+
+	const read = await page.evaluate<string | null>(
+		`localStorage.getItem("after")`,
+	);
+
+	const ms = Date.now() - started;
+	await end(app);
+	// A kill's detach, by the watchdog, before the next attach.
+	await Bun.sleep(1_000);
+
+	return { read, ms };
+}
+
+const kill = async (app: PaneApp) => {
+	process.kill(app.browser.pid, "SIGKILL");
+	await waitForExit(app.browser.pid);
+};
+
+const quit = async (app: PaneApp) => {
+	await app.browser.close();
+};
+
+// Quits inside the first seconds keep what was written since; kills before any
+// open came up go back to the copy; a copy that won't restore is tried once.
+async function safetyCopy(context: ScenarioContext, earlier: string) {
+	const written = `after-${crypto.randomUUID()}`;
+	const quits = await richSession(context, earlier);
+	await quits.app.browser.close();
+	const quitsLaunch: PaneLaunch = { ...quits.launch, binary: undefined };
+
+	await quickOpen(context, quits, quitsLaunch, quit, written);
+
+	for (let open = 1; open <= 4; open++) {
+		const { read, ms } = await quickOpen(context, quits, quitsLaunch, quit);
+
+		expect(
+			read === written,
+			`quit inside an open (${open}, ${ms} ms): what was written since the migration went: ${read}`,
+		);
+	}
+
+	// Kills: the copy comes back, the session as it was, the later write gone.
+	const kills = await richSession(context, earlier);
+	await kills.app.browser.close();
+	const killsLaunch: PaneLaunch = { ...kills.launch, binary: undefined };
+
+	const killsFolder = join(
+		kills.roots.dataRoot,
+		"Engine",
+		"Volume",
+		kills.profile,
+	);
+
+	await quickOpen(context, kills, killsLaunch, kill, written);
+	await quickOpen(context, kills, killsLaunch, kill);
+
+	const restored = await launchPane(context, killsLaunch);
+	await restored.send("select", { tab: kills.tab });
+	const page = await restored.page(kills.tab, kills.url);
+	const back = await page.evaluate<ReadBack>(READ_BACK);
+
+	const afterRestore = await page.evaluate<string | null>(
+		`localStorage.getItem("after")`,
+	);
+
+	expect(
+		back.localStorage === kills.planted.values.localStorage &&
+			afterRestore === null &&
+			existsSync(join(killsFolder, ".safety-restored")),
+		`kills before any open came up did not restore the copy: ${JSON.stringify({ back, afterRestore })}`,
+	);
+
+	await restored.browser.close();
+
+	// A restore and a migration never share the folder: the copy marked for a
+	// restore, the files marked not yet encrypted, as a kill in a migration
+	// leaves them.
+	const shared = await richSession(context, earlier);
+	await shared.app.browser.close();
+	const sharedLaunch: PaneLaunch = { ...shared.launch, binary: undefined };
+
+	const sharedFolder = join(
+		shared.roots.dataRoot,
+		"Engine",
+		"Volume",
+		shared.profile,
+	);
+
+	await quickOpen(context, shared, sharedLaunch, kill);
+
+	// A plain file big enough that the migration is still going at the select.
+	await quickOpen(context, shared, sharedLaunch, async (app) => {
+		rmSync(join(sharedFolder, ".files-encrypted"), { force: true });
+		writeFileSync(
+			join(sharedFolder, "Profile", "filler"),
+			Buffer.alloc(600 * 1024 * 1024),
+		);
+		await kill(app);
+	});
+
+	const both = await launchTraced(
+		context,
+		"files-migration-shared",
+		sharedLaunch,
+	);
+
+	await both.app.send("select", { tab: shared.tab });
+	await both.app.page(shared.tab, shared.url);
+
+	const order = both.trace().map((line) => line.name);
+	const restoreAt = order.indexOf("PaneBrowserApplication.restoreContext");
+	const migrateAt = order.indexOf("PaneBrowserApplication.migrateContext");
+
+	const migratedAt = order.indexOf(
+		"PaneBrowserApplication.migrateContext.completion",
+	);
+
+	expect(
+		restoreAt < 0 ||
+			migrateAt < 0 ||
+			migrateAt > restoreAt ||
+			(migratedAt >= 0 && migratedAt < restoreAt),
+		`a restore and a migration on one folder: ${order.filter((name) => /migrateContext|restoreContext/.test(name)).join(", ")}`,
+	);
+
+	await both.app.browser.close();
+
+	// A copy that won't restore: refused, tried once, and nothing else lost.
+	const bad = await richSession(context, earlier);
+	await bad.app.browser.close();
+	const badLaunch: PaneLaunch = { ...bad.launch, binary: undefined };
+	const badFolder = join(bad.roots.dataRoot, "Engine", "Volume", bad.profile);
+
+	await quickOpen(context, bad, badLaunch, async (app) => {
+		truncateSync(join(badFolder, "SafetyCopy"), 8);
+		await kill(app);
+	});
+
+	await quickOpen(context, bad, badLaunch, kill);
+
+	const refused = await launchTraced(
+		context,
+		"files-migration-bad-copy",
+		badLaunch,
+	);
+
+	await refused.app.send("select", { tab: bad.tab });
+
+	await refused.app.waitFor(
+		"the sad tab of a profile whose copy won't restore",
+		(state) => state.crashedTabs.includes(bad.tab),
+		10_000,
+	);
+
+	// Long enough for a loop to show itself.
+	await Bun.sleep(2_000);
+
+	const tries = refused
+		.trace()
+		.filter(
+			(line) => line.name === "PaneBrowserApplication.restoreContext",
+		).length;
+
+	expect(tries === 1, `a copy that won't restore was tried ${tries} times`);
+	await refused.app.browser.close();
+}
+
 const filesMigration: Scenario = async (context) => {
+	await noFolder(context);
+
 	const builds = (process.env.PANE_EARLIER_BUILDS ?? "")
 		.split(",")
 		.filter(Boolean);
@@ -326,6 +574,7 @@ const filesMigration: Scenario = async (context) => {
 
 	for (const build of builds) {
 		passes.push(await pass(context, build));
+		await safetyCopy(context, build);
 	}
 
 	return { passes };

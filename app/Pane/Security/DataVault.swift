@@ -291,22 +291,72 @@ final class DataVault {
 	@ObservationIgnored private var migrationsIdle: [CheckedContinuation<Void, Never>] = []
 
 	// Runs `done` once the profile's files are encrypted. One a window waits for
-	// shows the panel past a second; the others run behind it, one at a time.
+	// shows the panel past a second; the others run behind it, one at a time. A
+	// migration and a restore never share a folder: each waits for the other, and
+	// a lock's detach for both (migrationsFinished).
 	private func ensureFilesEncrypted(profile id: String, waiting: Bool, _ done: @escaping (Bool) -> Void) {
-		let step = volume.safetyCopyWillOpen(profile: id)
+		if migrations[id] != nil {
+			if waiting {
+				showMigrationPastASecond(profile: id)
+			}
 
-		if step == .restore, let key = engineKey(profile: id), let fileMigrator {
-			fileMigrator.restore(id, key, volume.folder(profile: id)) { [weak self] restored in
-				if restored {
-					self?.volume.safetyCopyDidRestore(profile: id)
-				}
-
+			migrations[id]?.append { [weak self] _ in
 				self?.ensureFilesEncrypted(profile: id, waiting: waiting, done)
 			}
 			return
 		}
 
+		let step = volume.safetyCopyWillOpen(profile: id)
+
+		if step == .restore, let key = engineKey(profile: id), let fileMigrator {
+			migrations[id] = []
+
+			fileMigrator.restore(id, key, volume.folder(profile: id)) { [weak self] restored in
+				guard let self else {
+					return
+				}
+
+				let waiters = migrations.removeValue(forKey: id) ?? []
+
+				if restored {
+					volume.safetyCopyDidRestore(profile: id)
+					ensureFilesEncrypted(profile: id, waiting: waiting, done)
+				} else {
+					Log.security.error("Could not restore a profile's safety copy")
+					done(false)
+				}
+
+				endMigration(waiters, restored)
+			}
+			return
+		}
+
 		migrate(profile: id, waiting: waiting, done)
+	}
+
+	// What waited for a migration or a restore that ended goes on, and a lock's
+	// detach, once none is left.
+	private func endMigration(_ waiters: [(Bool) -> Void], _ result: Bool) {
+		waiters.forEach { $0(result) }
+
+		if migrations.isEmpty {
+			migrationsIdle.forEach { $0.resume() }
+			migrationsIdle = []
+		}
+	}
+
+	// One a window waits for shows, however it started.
+	private func showMigrationPastASecond(profile id: String) {
+		let locks = locks
+
+		DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+			guard let self, locks == self.locks, let share = self.migrationShares[id], self.phase == .open else {
+				return
+			}
+
+			self.showsMigration = true
+			self.phase = .moving(share)
+		}
 	}
 
 	private func migrate(profile id: String, waiting: Bool, _ done: @escaping (Bool) -> Void) {
@@ -317,18 +367,8 @@ final class DataVault {
 			return
 		}
 
-		// One a window waits for shows, however it started.
 		if waiting {
-			let locks = locks
-
-			DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-				guard let self, locks == self.locks, let share = self.migrationShares[id], self.phase == .open else {
-					return
-				}
-
-				self.showsMigration = true
-				self.phase = .moving(share)
-			}
+			showMigrationPastASecond(profile: id)
 		}
 
 		if migrations[id] != nil {
@@ -379,12 +419,7 @@ final class DataVault {
 				}
 			}
 
-			waiters.forEach { $0(migrated) }
-
-			if migrations.isEmpty {
-				migrationsIdle.forEach { $0.resume() }
-				migrationsIdle = []
-			}
+			endMigration(waiters, migrated)
 		})
 	}
 
