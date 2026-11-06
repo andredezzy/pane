@@ -79,8 +79,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items and site access show where Chrome shows them, and Chrome's reload prompt after a change is declined without a dialog
 - [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed in a dialog of the Extensions page
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
-- [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window
-- [0110](0110-other-apps-sign-ins-stay-in-macos-sheet.md) Other apps' sign-ins stay in macOS's sheet
+- [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window, and their sign-ins stay in macOS's sheet
 - [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays
 - [0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md) Every profile's data is encrypted on disk, under a key the PIN releases
 - [0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md) Pane's identifier is xyz.roundedcorners.pane
@@ -125,6 +124,7 @@ These numbers were records of their own until they were merged into the record t
 - 0106 → [0046](0046-the-dmg.md)
 - 0107 → [0002](0002-update-check-via-github-releases-api.md)
 - 0108 → [0005](0005-pin-a-chromium-stable-tag.md)
+- 0110 → [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md)
 - 0111 → [0040](0040-chrome-makes-no-requests.md)
 - 0117 → [0092](0092-pane-installs-its-updates.md)
 - 0118 → [0115](0115-nothing-outside-the-volume-names-a-page.md)
