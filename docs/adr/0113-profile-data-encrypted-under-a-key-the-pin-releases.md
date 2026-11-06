@@ -104,7 +104,7 @@ How it is checked:
   - `DataVolume` links a profile's folders, moves an earlier Pane's in whole and stages them for the erase, copies again what a cut-short move left, and the wipe takes its image without passes and the key's copy before `security.json`.
   - `LocalState` starts the engine on Default, and `ProfileDeletions` purges a linked profile and a plain one.
   - `DataLock` is one process's while it runs and the next one's once it lets go, waited for, and not kept by a process Pane starts.
-- **Scenarios**, on the mock keychain (ADR 0013) and a real volume:
+- **Scenarios**, on the mock keychain (ADR 0012) and a real volume:
   - `security`: behind the lock the image is attached, its volume locked and mounted nowhere, the profile's link leads nowhere, and a page's address and a value it stored are in no file under the data root; the Electron app's hash gives way to the key sealed with the PIN, in both copies, a change reseals it with a new salt, and a removal seals it without one; the panic wipe destroys the key and erases the volume; the volume is detached after a quit, and, by its watchdog, after a `SIGKILL`; the watchdog runs apart from Pane's process group.
   - `proxy`: `profiles.json` is sealed, no file holds a proxy's password in the clear, the store is gone, and the Electron app's plain password signs in, sealed, before and after a relaunch.
   - `migration`: the Electron app's profiles move into the volume behind the PIN, and the page sees their cookies and local storage.

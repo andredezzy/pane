@@ -12,8 +12,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0009](0009-panecore-framework.md) The engine is PaneCore.framework, Chrome's own layer, with explicit exports
 - [0010](0010-host-mode.md) Host mode is one seam into Chrome's startup and the --pane-hosted switch, and Pane's quit outranks Chrome's keep-alives
 - [0011](0011-app-decides-page-visibility.md) The app decides page visibility, in a layer-backed view tree
-- [0012](0012-scenarios-on-a-locked-screen.md) Scenarios run unattended on the user's Mac: they never reach its apps or take its front, clean up after themselves, wait for conditions, and report what they could not prove
-- [0013](0013-scenarios-use-a-mock-keychain.md) Scenarios keep Chromium off the login keychain
+- [0012](0012-scenarios-on-a-locked-screen.md) Scenarios run unattended on the user's Mac: they never reach its apps or its login keychain or take its front, clean up after themselves, wait for conditions, and report what they could not prove
 - [0014](0014-hidden-browser-per-window-and-profile.md) One hidden Chrome Browser per window and profile
 - [0015](0015-popups-become-tabs.md) Popups become tabs in the opener's profile
 - [0016](0016-session-saved-at-engine-shutdown.md) Pane restores its own session: the app saves it when the engine shuts down, and AppKit's window restoration is off
@@ -97,6 +96,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 These numbers were records of their own until they were merged into the record they refined or completed (2026-10-31 and 2026-11-06). The numbers stay taken, and code and history that cite them mean:
 
 - 0003 → [0004](0004-native-shell-on-own-chromium-framework.md)
+- 0013 → [0012](0012-scenarios-on-a-locked-screen.md)
 - 0023 → [0021](0021-chrome-ui-as-requests.md)
 - 0028 → [0016](0016-session-saved-at-engine-shutdown.md)
 - 0030 → [0012](0012-scenarios-on-a-locked-screen.md)

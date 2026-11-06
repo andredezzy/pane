@@ -17,7 +17,7 @@ Sealed under the engine's key (2026-10-29), the user's call, after every update 
 - **The passwords moved to `proxy-passwords.json`** in the data directory, sealed with AES-GCM under a key HKDF-SHA256 derives from the engine's secret. PaneKit's `ProxyPasswordSeal` seals and opens them, and `ProxyPasswordVault` decides where they are read from; the app gives it the Keychain and the file (`app/Pane/Security/ProxyPasswordStore.swift`, `SafeStorage.engineSecret`).
 - **The first launch after it** read the old item once more, its last prompt, sealed what it held, and deleted it. Before the engine had a key, in a fresh install's first moments, the passwords went to the old item and were sealed at a later launch. A key the user denied, or one that did not open the box, left the passwords where they were, and the box stayed for its key.
 
-The panic wipe deletes the sealed file and the old item, the item without asking (ADR 0042). Under `--use-mock-keychain` the store is `mock-keychain.json` in the data directory, so scenarios never touch the login Keychain (ADR 0013).
+The panic wipe deletes the sealed file and the old item, the item without asking (ADR 0042). Under `--use-mock-keychain` the store is `mock-keychain.json` in the data directory, so scenarios never touch the login Keychain (ADR 0012).
 
 What was rejected:
 
