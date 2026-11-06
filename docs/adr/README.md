@@ -27,8 +27,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0026](0026-closing-a-tab-waits-for-chrome.md) Closing a tab waits for Chrome
 - [0027](0027-crash-loop-shows-the-sad-tab.md) A crash loop shows the app's sad tab
 - [0029](0029-spellcheck-per-profile.md) Spellcheck starts with each profile
-- [0031](0031-extensions-per-profile.md) Extensions run on Chrome's extension system, per profile
-- [0032](0032-extension-actions-and-popups.md) Extension actions and popups behave as Chrome's
+- [0031](0031-extensions-per-profile.md) Extensions run on Chrome's extension system, per profile, and their actions and popups behave as Chrome's
 - [0034](0034-native-ui-reproduces-the-electron-design.md) The native UI reproduces the Electron app's design, as Paper documents it
 - [0036](0036-window-chrome-and-traffic-lights.md) AppKit places the traffic lights at (12, 12), from the window's first frame
 - [0037](0037-per-profile-proxies.md) Each profile's proxy is Chrome's own per-profile setting, and its password is never kept in the clear
@@ -98,6 +97,7 @@ These numbers were records of their own until they were merged into the record t
 - 0023 → [0021](0021-chrome-ui-as-requests.md)
 - 0028 → [0016](0016-session-saved-at-engine-shutdown.md)
 - 0030 → [0012](0012-scenarios-on-a-locked-screen.md)
+- 0032 → [0031](0031-extensions-per-profile.md)
 - 0033 → [0010](0010-host-mode.md)
 - 0035 → [0060](0060-sidebar-and-toolbar-sizes.md)
 - 0045 → [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md)
