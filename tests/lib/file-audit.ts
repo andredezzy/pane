@@ -195,6 +195,10 @@ const ENCRYPTED_MAGICS = ["Pane SQLite v1\n", "PANESF1\n", "PANEWF1\n"].map(
 
 const CHUNKED_HEADER_SIZE = 40;
 
+// The stream format's (pane/encryption/stream_cipher.h).
+const STREAM_MAGIC = Buffer.from("PANESF1\n", "latin1");
+const STREAM_HEADER_SIZE = 32;
+
 // SQLite's own for a WAL and a rollback journal: their headers stay clear, and
 // the pages after them are Pane's format, as `plainMarkers` checks past 4 KiB.
 const SQLITE_LOG_MAGICS = ["377f0682", "377f0683", "d9d505f920a163d7"].map(
@@ -252,7 +256,19 @@ export function plainMarkers(bytes: Buffer): string[] {
 		found.push("low entropy");
 	}
 
-	if (bytes.length <= 4096 && bytes.length >= 16 && textShare(bytes) > 0.75) {
+	// Past a stream's header, whose random bytes alone read as text about once
+	// in 800 empty logs.
+	const content = bytes
+		.subarray(0, STREAM_MAGIC.length)
+		.equals(STREAM_MAGIC)
+		? bytes.subarray(STREAM_HEADER_SIZE)
+		: bytes;
+
+	if (
+		bytes.length <= 4096 &&
+		content.length >= 16 &&
+		textShare(content) > 0.75
+	) {
 		found.push("text");
 	}
 
