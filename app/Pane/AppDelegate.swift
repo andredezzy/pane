@@ -79,6 +79,14 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 				}
 
 				application.restoreContext(identifier: id, engineKey: key, folder: folder, completion: done)
+			},
+			repair: { [weak application] id, key, folder, done in
+				guard let application else {
+					done(false)
+					return
+				}
+
+				application.repairContext(identifier: id, engineKey: key, folder: folder, completion: done)
 			}
 		)
 		vault.didDetachLocked = { [weak application] in

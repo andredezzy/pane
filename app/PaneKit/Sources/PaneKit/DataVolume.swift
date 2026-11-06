@@ -494,8 +494,19 @@ public struct DataVolume: Sendable {
 		FileManager.default.fileExists(atPath: folder(profile: id).appending(path: Self.encryptedMarker).path)
 	}
 
+	// Encrypted by this Pane, so nothing of an earlier one's is there to put right.
 	public func markFilesEncrypted(profile id: String) {
 		touch(folder(profile: id).appending(path: Self.encryptedMarker))
+		markFilesRepaired(profile: id)
+	}
+
+	// Whether what a migration before 0.18.2 did to the profile has been put right.
+	public func filesAreRepaired(profile id: String) -> Bool {
+		FileManager.default.fileExists(atPath: folder(profile: id).appending(path: Self.repairedMarker).path)
+	}
+
+	public func markFilesRepaired(profile id: String) {
+		touch(folder(profile: id).appending(path: Self.repairedMarker))
 	}
 
 	// What the first opens after a migration do with its safety copy.
@@ -555,9 +566,8 @@ public struct DataVolume: Sendable {
 		try? FileManager.default.removeItem(at: folder.appending(path: Self.openingMarker))
 	}
 
-	// The profile came up: nothing counts against it any more. The copy stays
-	// for now, whatever the count: 0.18.2's repair reads its listing, the only
-	// proof of what a migration moved.
+	// The profile came up: nothing counts against it any more. From the third time
+	// in a row, its copy goes, once the repair that reads its listing has run.
 	public func safetyCopyDidOpen(profile id: String) {
 		let folder = folder(profile: id)
 
@@ -573,6 +583,12 @@ public struct DataVolume: Sendable {
 		if let next = opens.first(where: { !FileManager.default.fileExists(atPath: $0.path) }) {
 			touch(next)
 		}
+
+		if filesAreRepaired(profile: id), opens.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) {
+			for item in opens + [folder.appending(path: Self.restoredMarker), folder.appending(path: "SafetyCopy")] {
+				try? FileManager.default.removeItem(at: item)
+			}
+		}
 	}
 
 	// Pane closes the profiles itself, for a quit or a lock: the opens under way
@@ -584,6 +600,7 @@ public struct DataVolume: Sendable {
 	}
 
 	private static let encryptedMarker = ".files-encrypted"
+	private static let repairedMarker = ".files-repaired"
 	private static let openingMarker = ".safety-started"
 	private static let failedMarker = ".safety-killed"
 	private static let restoredMarker = ".safety-restored"

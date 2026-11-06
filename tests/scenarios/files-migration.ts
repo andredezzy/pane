@@ -10,6 +10,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import type { Page } from "../lib/cdp";
 import { mainWindowOf } from "../lib/cua";
 import { volumePassphrase } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";
@@ -21,6 +22,7 @@ import {
 	type ReadBack,
 	type RichSession,
 	richSession,
+	sessionFolders,
 	STORES_COMMITTED_MS,
 } from "../lib/rich-session";
 import { launchTraced } from "../lib/traced";
@@ -559,6 +561,115 @@ async function safetyCopy(context: ScenarioContext, earlier: string) {
 	await refused.app.browser.close();
 }
 
+// A page of a site, and the same site inside another site's page, whose storage
+// is partitioned: a row of its own in the quota database, for the same origin.
+async function partitionedSession(context: ScenarioContext, earlier: string) {
+	const folders = sessionFolders(context, earlier);
+	const { port } = new URL(context.fixtures.origin);
+	const id = crypto.randomUUID().slice(0, 8);
+	const site = `http://site-${id}.localhost:${port}/partitioned-store.html`;
+	const top = `http://top-${id}.localhost:${port}/smoke.html`;
+	const app = await launchPane(context, folders.launch);
+	const profile = await app.createProfile("Partitioned");
+	const siteTab = await app.openTab(profile, site);
+	const topTab = await app.openTab(profile, top);
+
+	await (await app.page(siteTab, site)).evaluate(
+		`stores.idb.write("the site's own")`,
+	);
+
+	await askEmbed(await app.page(topTab, top), site, {
+		op: "write",
+		kind: "opfs",
+		value: "the embed's own",
+	});
+
+	await app.browser.close();
+
+	return { ...folders, site, top, siteTab, topTab };
+}
+
+// The site inside the page, asked for a store's value.
+async function askEmbed(
+	page: Page,
+	site: string,
+	message: { op: string; kind: string; value?: string },
+) {
+	return page.evaluate<{ result?: string; error?: string }>(`new Promise((resolve) => {
+		const frame = document.createElement("iframe");
+		frame.src = ${JSON.stringify(site)};
+		addEventListener("message", ({ data }) => { frame.remove(); resolve(data); }, { once: true });
+		frame.onload = () => frame.contentWindow.postMessage(${JSON.stringify(message)}, "*");
+		document.body.append(frame);
+	})`);
+}
+
+async function readPartitioned(
+	app: PaneApp,
+	session: Awaited<ReturnType<typeof partitionedSession>>,
+) {
+	await app.send("select", { tab: session.siteTab });
+
+	const own = await (
+		await app.page(session.siteTab, session.site)
+	).evaluate<string | null>("stores.idb.read()");
+
+	await app.send("select", { tab: session.topTab });
+
+	const embed = await askEmbed(await app.page(session.topTab, session.top), session.site, {
+		op: "read",
+		kind: "opfs",
+	});
+
+	return { own, embed: embed.result ?? embed.error };
+}
+
+// A site's IndexedDB stays its own, and a partitioned file system reads back. And
+// with PANE_REPAIR_FROM, a published Pane that got them wrong: what it left is
+// put right, for a profile with its safety copy.
+async function partitioned(context: ScenarioContext, earlier: string) {
+	const migrated = await partitionedSession(context, earlier);
+	const app = await launchPane(context, { ...migrated.launch, binary: undefined });
+	const got = await readPartitioned(app, migrated);
+	await app.browser.close();
+
+	expect(
+		got.own === "the site's own" && got.embed === "the embed's own",
+		`partitioned storage after the migration: ${JSON.stringify(got)}`,
+	);
+
+	const wrong = process.env.PANE_REPAIR_FROM;
+
+	if (!wrong) {
+		return;
+	}
+
+	const repaired = await partitionedSession(context, earlier);
+	const left = await launchPane(context, { ...repaired.launch, binary: wrong });
+	const before = await readPartitioned(left, repaired);
+	await left.browser.close();
+
+	expect(
+		before.own !== "the site's own" && before.embed !== "the embed's own",
+		`${wrong} got these right: ${JSON.stringify(before)}`,
+	);
+
+	const fixed = await launchPane(context, { ...repaired.launch, binary: undefined });
+	const after = await readPartitioned(fixed, repaired);
+	await fixed.browser.close();
+
+	expect(
+		after.embed === "the embed's own",
+		`a partitioned file system after the repair: ${JSON.stringify(after)}`,
+	);
+
+	// The site made a new store when the earlier Pane read it, so both stay.
+	expect(
+		after.own === before.own,
+		`a site's store after the repair: ${JSON.stringify({ before, after })}`,
+	);
+}
+
 const filesMigration: Scenario = async (context) => {
 	await noFolder(context);
 
@@ -577,6 +688,7 @@ const filesMigration: Scenario = async (context) => {
 	for (const build of builds) {
 		passes.push(await pass(context, build));
 		await safetyCopy(context, build);
+		await partitioned(context, build);
 	}
 
 	return { passes };

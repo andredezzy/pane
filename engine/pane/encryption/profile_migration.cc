@@ -2,6 +2,9 @@
 
 #include "pane/encryption/profile_migration.h"
 
+#include <sys/stat.h>
+#include <time.h>
+
 #include <algorithm>
 #include <array>
 #include <map>
@@ -17,6 +20,7 @@
 #include "base/files/file.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
+#include "base/hash/sha1.h"
 #include "base/logging.h"
 #include "base/numerics/byte_conversions.h"
 #include "base/strings/strcat.h"
@@ -478,7 +482,9 @@ std::optional<std::string> OriginInIndex(const base::FilePath& index) {
 }
 
 // CacheStorage's folders move from an unkeyed hash of their origin to a keyed
-// name (ConstructOriginPath, patch 0010), each once.
+// name (ConstructOriginPath, patch 0010), each once. The hash covers its owner's
+// suffix too (Background Fetch's is "-1"), which only it tells: two owners of
+// one origin keep two folders. A folder that matches neither has moved.
 bool MigrateCacheStorageNames(const base::FilePath& profile) {
   const base::FilePath root = profile.AppendASCII("Service Worker")
                                   .AppendASCII("CacheStorage");
@@ -487,16 +493,8 @@ bool MigrateCacheStorageNames(const base::FilePath& profile) {
 
   for (base::FilePath folder = folders.Next(); !folder.empty();
        folder = folders.Next()) {
-    const base::FilePath index = folder.AppendASCII("index.txt");
-    std::string head;
-
-    // Sealed already: its folder has moved.
-    if (!base::ReadFileToString(index, &head) ||
-        encryption::IsSealedWholeFile(base::as_byte_span(head))) {
-      continue;
-    }
-
-    std::optional<std::string> origin = OriginInIndex(index);
+    std::optional<std::string> origin =
+        OriginInIndex(folder.AppendASCII("index.txt"));
 
     if (!origin) {
       continue;
@@ -504,21 +502,56 @@ bool MigrateCacheStorageNames(const base::FilePath& profile) {
 
     const std::string identifier = storage::GetIdentifierFromOrigin(
         url::Origin::Create(GURL(*origin)));
-    std::optional<std::string> keyed =
-        encryption::KeyedName(profile, identifier);
 
-    if (!keyed) {
-      return false;
-    }
+    for (const std::string& owned : {identifier, identifier + "-1"}) {
+      if (base::HexEncodeLower(base::SHA1Hash(base::as_byte_span(owned))) !=
+          folder.BaseName().value()) {
+        continue;
+      }
 
-    const base::FilePath target = root.AppendASCII(*keyed);
+      std::optional<std::string> keyed = encryption::KeyedName(profile, owned);
 
-    if (target != folder && !base::Move(folder, target)) {
-      return false;
+      if (!keyed || !base::Move(folder, root.AppendASCII(*keyed))) {
+        return false;
+      }
     }
   }
 
   return true;
+}
+
+// A default bucket for an origin's identifier, scheme_host_port.
+std::optional<int64_t> AddDefaultBucket(sql::Database& quota,
+                                        const std::string& identifier) {
+  const size_t scheme_end = identifier.find('_');
+  const size_t host_end = identifier.rfind('_');
+
+  if (scheme_end == std::string::npos || host_end <= scheme_end) {
+    return std::nullopt;
+  }
+
+  const std::string host =
+      identifier.substr(scheme_end + 1, host_end - scheme_end - 1);
+  const std::string port = identifier.substr(host_end + 1);
+  const std::string storage_key =
+      base::StrCat({identifier.substr(0, scheme_end), "://", host,
+                    port == "0" ? "" : base::StrCat({":", port}), "/"});
+  sql::Statement add(quota.GetUniqueStatement(
+      "INSERT INTO buckets(storage_key, host, name, use_count, "
+      "last_accessed, last_modified, expiration, quota, persistent, "
+      "durability) VALUES(?, ?, '_default', 0, ?, ?, ?, 0, 0, 1)"));
+  const base::Time now = base::Time::Now();
+  add.BindString(0, storage_key);
+  add.BindString(1, host);
+  add.BindTime(2, now);
+  add.BindTime(3, now);
+  add.BindTime(4, base::Time::Max());
+
+  if (!add.Run()) {
+    return std::nullopt;
+  }
+
+  return quota.GetLastInsertRowId();
 }
 
 // IndexedDB's folders move from one that names the origin to its default
@@ -560,10 +593,14 @@ bool MigrateIndexedDBNames(const base::FilePath& profile) {
     return false;
   }
 
-  // Each default bucket, by the identifier its origin's folder is named by.
+  // Each first party's default bucket, by the identifier its origin's folder is
+  // named by. A partitioned storage key, past its `^`, parses to the same origin:
+  // the store is the first party's, and in a third party's bucket the site reads
+  // an empty one, and the embed reads this.
   std::map<std::string, int64_t> buckets;
   sql::Statement rows(quota.GetUniqueStatement(
-      "SELECT id, storage_key FROM buckets WHERE name='_default'"));
+      "SELECT id, storage_key FROM buckets WHERE name='_default' AND "
+      "instr(storage_key, '^')=0"));
 
   while (rows.Step()) {
     const GURL url(rows.ColumnStringView(1));
@@ -580,36 +617,14 @@ bool MigrateIndexedDBNames(const base::FilePath& profile) {
     if (auto known = buckets.find(identifier); known != buckets.end()) {
       bucket = known->second;
     } else {
-      // A store the quota database lost track of keeps its data: scheme_host_port.
-      const size_t scheme_end = identifier.find('_');
-      const size_t host_end = identifier.rfind('_');
+      // A store the quota database lost track of keeps its data.
+      std::optional<int64_t> added = AddDefaultBucket(quota, identifier);
 
-      if (scheme_end == std::string::npos || host_end <= scheme_end) {
+      if (!added) {
         return false;
       }
 
-      const std::string host =
-          identifier.substr(scheme_end + 1, host_end - scheme_end - 1);
-      const std::string port = identifier.substr(host_end + 1);
-      const std::string storage_key = base::StrCat(
-          {identifier.substr(0, scheme_end), "://", host,
-           port == "0" ? "" : base::StrCat({":", port}), "/"});
-      sql::Statement add(quota.GetUniqueStatement(
-          "INSERT INTO buckets(storage_key, host, name, use_count, "
-          "last_accessed, last_modified, expiration, quota, persistent, "
-          "durability) VALUES(?, ?, '_default', 0, ?, ?, ?, 0, 0, 1)"));
-      const base::Time now = base::Time::Now();
-      add.BindString(0, storage_key);
-      add.BindString(1, host);
-      add.BindTime(2, now);
-      add.BindTime(3, now);
-      add.BindTime(4, base::Time::Max());
-
-      if (!add.Run()) {
-        return false;
-      }
-
-      bucket = quota.GetLastInsertRowId();
+      bucket = *added;
     }
 
     const base::FilePath target =
@@ -644,7 +659,9 @@ bool IsLevelDBFolder(const base::FilePath& folder) {
 }
 
 bool IsStreamPath(const base::FilePath& profile, const base::FilePath& path) {
-  if (IsUnder(profile, path, "File System")) {
+  // A first party's, and under a partitioned bucket (kFileSystemDirectory).
+  if (IsUnder(profile, path, "File System") ||
+      IsUnder(profile, path, "FileSystem")) {
     return path.BaseName().value() != ".usage";
   }
 
@@ -878,29 +895,128 @@ bool WriteSafetyCopy(const base::FilePath& profile,
   return Replace(temporary, archive);
 }
 
-bool RestoreSafetyCopy(const base::FilePath& profile,
-                       const base::FilePath& archive) {
-  const ProfileKeys keys = KeysFor(archive);
-  base::File in(archive, base::File::FLAG_OPEN | base::File::FLAG_READ);
-  StreamCipher::Header header;
+namespace {
 
-  if (!in.IsValid() || in.Read(0, header) != header.size()) {
-    return false;
+// A safety copy's records, in order, under one stream: a name's length, the name,
+// the file's size and time, then the file.
+class SafetyCopyReader {
+ public:
+  struct Entry {
+    std::string name;
+    uint64_t size;
+    base::Time time;
+  };
+
+  explicit SafetyCopyReader(const base::FilePath& archive)
+      : in_(archive, base::File::FLAG_OPEN | base::File::FLAG_READ) {
+    StreamCipher::Header header;
+
+    if (in_.IsValid() && in_.Read(0, header) == header.size() &&
+        StreamCipher::HasMagic(header)) {
+      cipher_ = StreamCipher::FromHeader(KeysFor(archive), header);
+      length_ = in_.GetLength() - StreamCipher::kHeaderSize;
+    }
   }
 
-  std::unique_ptr<StreamCipher> cipher = StreamCipher::FromHeader(keys, header);
-  const int64_t length = in.GetLength() - StreamCipher::kHeaderSize;
-  int64_t offset = 0;
+  bool IsValid() const { return !!cipher_; }
+  bool AtEnd() const { return offset_ >= length_; }
 
-  const auto read = [&](base::span<uint8_t> bytes) {
-    if (in.Read(StreamCipher::kHeaderSize + offset, bytes) != bytes.size()) {
+  bool Read(base::span<uint8_t> bytes) {
+    if (in_.Read(StreamCipher::kHeaderSize + offset_, bytes) != bytes.size()) {
       return false;
     }
 
-    cipher->Apply(offset, bytes, bytes);
-    offset += bytes.size();
+    cipher_->Apply(offset_, bytes, bytes);
+    offset_ += bytes.size();
     return true;
-  };
+  }
+
+  // The next record's head, its file left to Read or Skip.
+  std::optional<Entry> Next() {
+    std::array<uint8_t, 4> name_length;
+
+    if (!Read(name_length)) {
+      return std::nullopt;
+    }
+
+    const uint32_t name_size = base::U32FromLittleEndian(name_length);
+
+    if (name_size > length_ - offset_) {
+      return std::nullopt;
+    }
+
+    std::string name(name_size, '\0');
+    std::array<uint8_t, 8> size;
+    std::array<uint8_t, 8> time;
+
+    if (!Read(base::as_writable_byte_span(name)) || !Read(size) || !Read(time)) {
+      return std::nullopt;
+    }
+
+    return Entry{std::move(name), base::U64FromLittleEndian(size),
+                 base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(
+                     base::U64FromLittleEndian(time)))};
+  }
+
+  bool Skip(uint64_t size) {
+    if (size > static_cast<uint64_t>(length_ - offset_)) {
+      return false;
+    }
+
+    offset_ += size;
+    return true;
+  }
+
+ private:
+  base::File in_;
+  std::unique_ptr<StreamCipher> cipher_;
+  int64_t length_ = 0;
+  int64_t offset_ = 0;
+};
+
+// Every record, read to the archive's end.
+bool ReadsThrough(const base::FilePath& archive) {
+  SafetyCopyReader reader(archive);
+
+  if (!reader.IsValid()) {
+    return false;
+  }
+
+  std::vector<uint8_t> buffer(kBufferSize);
+
+  while (!reader.AtEnd()) {
+    std::optional<SafetyCopyReader::Entry> entry = reader.Next();
+
+    if (!entry) {
+      return false;
+    }
+
+    for (uint64_t at = 0; at < entry->size;) {
+      auto chunk = base::span(buffer).first(
+          std::min<size_t>(buffer.size(), entry->size - at));
+
+      if (!reader.Read(chunk)) {
+        return false;
+      }
+
+      at += chunk.size();
+    }
+  }
+
+  return true;
+}
+
+}  // namespace
+
+bool RestoreSafetyCopy(const base::FilePath& profile,
+                       const base::FilePath& archive) {
+  // Read through first: what follows deletes.
+  if (!ReadsThrough(archive)) {
+    LOG(ERROR) << "A profile's safety copy does not read through.";
+    return false;
+  }
+
+  SafetyCopyReader reader(archive);
 
   // Everything goes but the extensions' code, which no migration touches.
   base::FileEnumerator entries(profile, /*recursive=*/false,
@@ -916,23 +1032,15 @@ bool RestoreSafetyCopy(const base::FilePath& profile,
 
   std::vector<uint8_t> buffer(kBufferSize);
 
-  while (offset < length) {
-    std::array<uint8_t, 4> name_length;
+  while (!reader.AtEnd()) {
+    std::optional<SafetyCopyReader::Entry> entry = reader.Next();
 
-    if (!read(name_length)) {
+    if (!entry) {
       return false;
     }
 
-    std::string name(base::U32FromLittleEndian(name_length), '\0');
-    std::array<uint8_t, 8> size_bytes;
-    std::array<uint8_t, 8> time_bytes;
-
-    if (!read(base::as_writable_byte_span(name)) || !read(size_bytes) ||
-        !read(time_bytes)) {
-      return false;
-    }
-
-    const base::FilePath target = profile.Append(base::FilePath::FromUTF8Unsafe(name));
+    const base::FilePath target =
+        profile.Append(base::FilePath::FromUTF8Unsafe(entry->name));
 
     if (!base::CreateDirectory(target.DirName())) {
       return false;
@@ -940,13 +1048,12 @@ bool RestoreSafetyCopy(const base::FilePath& profile,
 
     base::File out(target,
                    base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
-    const uint64_t size = base::U64FromLittleEndian(size_bytes);
 
-    for (uint64_t at = 0; at < size;) {
+    for (uint64_t at = 0; at < entry->size;) {
       auto chunk = base::span(buffer).first(
-          std::min<size_t>(buffer.size(), size - at));
+          std::min<size_t>(buffer.size(), entry->size - at));
 
-      if (!read(chunk) || !out.WriteAtCurrentPosAndCheck(chunk)) {
+      if (!reader.Read(chunk) || !out.WriteAtCurrentPosAndCheck(chunk)) {
         return false;
       }
 
@@ -954,12 +1061,254 @@ bool RestoreSafetyCopy(const base::FilePath& profile,
     }
 
     out.Close();
-    const base::Time time = base::Time::FromDeltaSinceWindowsEpoch(
-        base::Microseconds(base::U64FromLittleEndian(time_bytes)));
-    base::TouchFile(target, time, time);
+    base::TouchFile(target, entry->time, entry->time);
   }
 
   return true;
+}
+
+namespace {
+
+// Partitioned file systems, sealed as whole files by a migration before 0.18.2,
+// which read as empty: each goes back to the stream format its readers expect.
+// Its magic proves what happened to it.
+bool RewrapSealedFileSystems(const base::FilePath& profile) {
+  const base::FilePath web_storage = profile.AppendASCII("WebStorage");
+
+  for (const base::FilePath& file : FilesUnder(web_storage)) {
+    if (!IsUnder(web_storage, file, "FileSystem") ||
+        IsLevelDBFolder(file.DirName()) ||
+        file.BaseName().value() == ".usage") {
+      continue;
+    }
+
+    // Read raw: base's file functions open what is sealed.
+    base::File source(file, base::File::FLAG_OPEN | base::File::FLAG_READ);
+    base::File::Info info;
+
+    if (!source.IsValid() || !source.GetInfo(&info)) {
+      return false;
+    }
+
+    // Its head first: a file system's files can be large, and few are sealed.
+    std::array<uint8_t, 64> head;
+    const auto start = base::span(head).first(
+        std::min<size_t>(head.size(), static_cast<size_t>(info.size)));
+
+    if (source.Read(0, start) != start.size() ||
+        !encryption::IsSealedWholeFile(start)) {
+      continue;
+    }
+
+    std::vector<uint8_t> sealed(info.size);
+
+    if (source.Read(0, sealed) != sealed.size()) {
+      return false;
+    }
+
+    std::optional<std::string> plain =
+        encryption::OpenWholeFile(KeysFor(file), sealed);
+
+    if (!plain) {
+      LOG(ERROR) << "A sealed file of a profile does not open.";
+      return false;
+    }
+
+    const base::FilePath temporary = TemporaryFor(file);
+
+    {
+      std::unique_ptr<disk_cache::CacheFile> target =
+          storage::PaneOpenEncryptedFile(
+              temporary, base::File::FLAG_CREATE_ALWAYS |
+                             base::File::FLAG_READ | base::File::FLAG_WRITE);
+
+      if (!target->IsValid() ||
+          (!plain->empty() &&
+           !target->WriteAndCheck(0, base::as_byte_span(*plain)))) {
+        base::DeleteFile(temporary);
+        return false;
+      }
+
+      std::string back(plain->size(), '\0');
+
+      if (!plain->empty() &&
+          target->Read(0, base::as_writable_byte_span(back)) != back.size()) {
+        base::DeleteFile(temporary);
+        return false;
+      }
+
+      if (back != *plain) {
+        base::DeleteFile(temporary);
+        return false;
+      }
+    }
+
+    if (!base::TouchFile(temporary, info.last_accessed, info.last_modified) ||
+        !Replace(temporary, file)) {
+      base::DeleteFile(temporary);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// When `path` came to be: a move keeps it.
+std::optional<timespec> BirthOf(const base::FilePath& path) {
+  struct stat info;
+
+  if (stat(path.value().c_str(), &info) != 0) {
+    return std::nullopt;
+  }
+
+  return info.st_birthtimespec;
+}
+
+bool IsEarlier(const timespec& one, const timespec& other) {
+  return one.tv_sec < other.tv_sec ||
+         (one.tv_sec == other.tv_sec && one.tv_nsec < other.tv_nsec);
+}
+
+// A first party's IndexedDB that a migration before 0.18.2 moved into a third
+// party's bucket. It took the last default bucket of the origin in storage key
+// order, a partitioned one if it had any, so among the buckets that hold a store
+// from before the migration, the last is where it went. A bucket that already
+// held a store got it nested inside. The archive's listing says which first
+// parties had one. Where the first party has a store again, both stay as they
+// are, since nothing proves which it wants.
+bool MoveIndexedDBToFirstParties(const base::FilePath& profile,
+                                 const base::FilePath& archive) {
+  const base::FilePath web_storage = profile.AppendASCII("WebStorage");
+  const base::FilePath quota_path = web_storage.AppendASCII("QuotaManager");
+  const std::optional<timespec> migrated = BirthOf(archive);
+  SafetyCopyReader reader(archive);
+
+  if (!migrated || !reader.IsValid() || !base::PathExists(quota_path)) {
+    return true;
+  }
+
+  std::set<std::string> identifiers;
+  constexpr std::string_view kPrefix = "IndexedDB/";
+  constexpr std::string_view kSuffix = ".indexeddb.leveldb/";
+
+  while (!reader.AtEnd()) {
+    std::optional<SafetyCopyReader::Entry> entry = reader.Next();
+
+    if (!entry || !reader.Skip(entry->size)) {
+      return true;
+    }
+
+    if (const size_t end = entry->name.find(kSuffix);
+        entry->name.starts_with(kPrefix) && end != std::string::npos) {
+      identifiers.insert(
+          entry->name.substr(kPrefix.size(), end - kPrefix.size()));
+    }
+  }
+
+  if (identifiers.empty()) {
+    return true;
+  }
+
+  sql::Database quota(sql::DatabaseOptions(), "Quota");
+
+  if (!quota.Open(quota_path)) {
+    return false;
+  }
+
+  struct Buckets {
+    std::optional<int64_t> first_party;
+    // In storage key order, as the migration read them.
+    std::vector<int64_t> partitioned;
+  };
+
+  std::map<std::string, Buckets> by_identifier;
+  sql::Statement rows(quota.GetUniqueStatement(
+      "SELECT id, storage_key FROM buckets WHERE name='_default' "
+      "ORDER BY storage_key"));
+
+  while (rows.Step()) {
+    const std::string_view key = rows.ColumnStringView(1);
+    const GURL url(key);
+
+    if (!url.is_valid()) {
+      continue;
+    }
+
+    Buckets& buckets =
+        by_identifier[storage::GetIdentifierFromOrigin(url::Origin::Create(url))];
+
+    if (key.find('^') == std::string_view::npos) {
+      buckets.first_party = rows.ColumnInt64(0);
+    } else {
+      buckets.partitioned.push_back(rows.ColumnInt64(0));
+    }
+  }
+
+  const auto folder_of = [&](int64_t bucket) {
+    return web_storage.AppendASCII(base::NumberToString(bucket))
+        .AppendASCII("IndexedDB");
+  };
+
+  for (const std::string& identifier : identifiers) {
+    const Buckets& buckets = by_identifier[identifier];
+    base::FilePath from;
+
+    for (auto bucket = buckets.partitioned.rbegin();
+         bucket != buckets.partitioned.rend() && from.empty(); ++bucket) {
+      const base::FilePath store =
+          folder_of(*bucket).AppendASCII("indexeddb.leveldb");
+      const std::string nested = base::StrCat({identifier, ".indexeddb.leveldb"});
+      std::optional<timespec> born = BirthOf(store);
+
+      if (base::DirectoryExists(store.AppendASCII(nested))) {
+        from = store.AppendASCII(nested);
+      } else if (born && IsEarlier(*born, *migrated)) {
+        from = store;
+      }
+    }
+
+    if (from.empty()) {
+      continue;
+    }
+
+    if (buckets.first_party && base::PathExists(folder_of(*buckets.first_party)
+                                                    .AppendASCII("indexeddb.leveldb"))) {
+      LOG(ERROR) << "A site has IndexedDB stores in two buckets: both stay.";
+      continue;
+    }
+
+    std::optional<int64_t> right = buckets.first_party
+                                       ? buckets.first_party
+                                       : AddDefaultBucket(quota, identifier);
+
+    if (!right || !base::CreateDirectory(folder_of(*right))) {
+      return false;
+    }
+
+    const base::FilePath blob_from =
+        from.BaseName().value() == "indexeddb.leveldb"
+            ? from.DirName().AppendASCII("indexeddb.blob")
+            : from.DirName().DirName().AppendASCII("indexeddb.blob").AppendASCII(
+                  base::StrCat({identifier, ".indexeddb.blob"}));
+    const base::FilePath blob_to = folder_of(*right).AppendASCII("indexeddb.blob");
+
+    // The blobs first: a kill between leaves the store to find here next time.
+    if ((base::PathExists(blob_from) && !base::PathExists(blob_to) &&
+         !base::Move(blob_from, blob_to)) ||
+        !base::Move(from, folder_of(*right).AppendASCII("indexeddb.leveldb"))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+}  // namespace
+
+bool RepairMigratedProfile(const base::FilePath& profile,
+                           const base::FilePath& archive) {
+  const bool moved = MoveIndexedDBToFirstParties(profile, archive);
+  return RewrapSealedFileSystems(profile) && moved;
 }
 
 }  // namespace pane

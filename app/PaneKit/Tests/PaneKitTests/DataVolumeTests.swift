@@ -42,9 +42,9 @@ struct DataVolumeTests {
 		return (volume, folder, copy, root)
 	}
 
-	@Test("a safety copy stays through the opens that come up, until the repair that reads it")
-	func safetyCopyStays() throws {
-		let (volume, _, copy, root) = try volumeWithSafetyCopy()
+	@Test("a safety copy goes from the third open that comes up, once the repair that reads it has run")
+	func safetyCopyGoes() throws {
+		let (volume, folder, copy, root) = try volumeWithSafetyCopy()
 		defer { try? fileManager.removeItem(at: root) }
 
 		for open in 1 ... 4 {
@@ -53,6 +53,23 @@ struct DataVolumeTests {
 		}
 
 		#expect(fileManager.fileExists(atPath: copy.path))
+		#expect(!volume.filesAreRepaired(profile: "p"))
+
+		volume.markFilesRepaired(profile: "p")
+		volume.safetyCopyDidOpen(profile: "p")
+		#expect(!fileManager.fileExists(atPath: copy.path))
+		#expect(!fileManager.fileExists(atPath: folder.appending(path: ".safety-opened-3").path))
+		#expect(volume.filesAreRepaired(profile: "p"))
+	}
+
+	@Test("a profile this Pane encrypted has nothing to repair")
+	func nothingToRepair() throws {
+		let (volume, _, _, root) = try volumeWithSafetyCopy()
+		defer { try? fileManager.removeItem(at: root) }
+
+		#expect(!volume.filesAreRepaired(profile: "p"))
+		volume.markFilesEncrypted(profile: "p")
+		#expect(volume.filesAreRepaired(profile: "p"))
 	}
 
 	@Test("no safety copy, nothing to count")

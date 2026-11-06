@@ -290,6 +290,7 @@ final class DataVault {
 	struct FileMigrator {
 		var migrate: (_ id: String, _ key: Data, _ folder: URL, _ progress: @escaping @Sendable (Double) -> Void, _ done: @escaping (Bool) -> Void) -> Void
 		var restore: (_ id: String, _ key: Data, _ folder: URL, _ done: @escaping (Bool) -> Void) -> Void
+		var repair: (_ id: String, _ key: Data, _ folder: URL, _ done: @escaping (Bool) -> Void) -> Void
 	}
 
 	@ObservationIgnored var fileMigrator: FileMigrator?
@@ -370,10 +371,14 @@ final class DataVault {
 	}
 
 	private func migrate(profile id: String, waiting: Bool, _ done: @escaping (Bool) -> Void) {
-		// A profile made without a tab has no folder: nothing to encrypt, and the
-		// engine would resolve the missing path against the working directory.
-		guard !volume.filesAreEncrypted(profile: id), volume.hasFolder(profile: id) else {
+		// A profile made without a tab has no folder: nothing to encrypt.
+		guard volume.hasFolder(profile: id) else {
 			done(true)
+			return
+		}
+
+		guard !volume.filesAreEncrypted(profile: id) else {
+			repair(profile: id, done)
 			return
 		}
 
@@ -431,6 +436,43 @@ final class DataVault {
 
 			endMigration(waiters, migrated)
 		})
+	}
+
+	// What a migration before 0.18.2 left wrong in a profile, put right once before
+	// it next opens. One that fails opens as it was, and tries again next time.
+	private func repair(profile id: String, _ done: @escaping (Bool) -> Void) {
+		guard !volume.filesAreRepaired(profile: id) else {
+			done(true)
+			return
+		}
+
+		if migrations[id] != nil {
+			migrations[id]?.append(done)
+			return
+		}
+
+		guard let key = engineKey(profile: id), let fileMigrator else {
+			done(false)
+			return
+		}
+
+		migrations[id] = []
+
+		fileMigrator.repair(id, key, volume.folder(profile: id)) { [weak self] repaired in
+			guard let self else {
+				return
+			}
+
+			if repaired {
+				volume.markFilesRepaired(profile: id)
+			} else {
+				Log.security.error("Could not repair a profile's files")
+			}
+
+			let waiters = migrations.removeValue(forKey: id) ?? []
+			done(true)
+			endMigration(waiters, true)
+		}
 	}
 
 	// Every profile not yet encrypted, one at a time, behind what the window shows.

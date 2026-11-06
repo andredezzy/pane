@@ -116,6 +116,14 @@ NS_SWIFT_UI_ACTOR
                           completion:(void (^)(BOOL restored))completion
     NS_SWIFT_NAME(restoreContext(identifier:engineKey:folder:completion:));
 
+// Puts right what a migration before 0.18.2 did to a profile, once. Runs off the
+// main thread, on a closed profile.
+- (void)repairContextWithIdentifier:(NSString*)identifier
+                          engineKey:(NSData*)engineKey
+                             folder:(NSURL*)folder
+                         completion:(void (^)(BOOL repaired))completion
+    NS_SWIFT_NAME(repairContext(identifier:engineKey:folder:completion:));
+
 // Forgets every profile's key in every process, once the lock's detach has left
 // no profile's file open. A path of a profile's with no key then stops the
 // process that reaches it. `completion` gets how many each process still holds,

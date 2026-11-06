@@ -542,6 +542,42 @@ class ProfileDestructionWaiter : public ProfileObserver,
                      [completion copy]));
 }
 
+- (void)repairContextWithIdentifier:(NSString*)identifier
+                          engineKey:(NSData*)engineKey
+                             folder:(NSURL*)folder
+                         completion:(void (^)(BOOL repaired))completion {
+  PANE_TRACE(
+      "call", "PaneBrowserApplication.repairContext",
+      base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
+  ProfileManager* manager = g_browser_process->profile_manager();
+  RegisterEngineKey(manager->user_data_dir(),
+                    base::SysNSStringToUTF8(identifier), engineKey);
+  // Resolved: Foundation has /var for /private/var, where the roots have both
+  // only as the user data dir was given.
+  const base::FilePath root =
+      base::MakeAbsoluteFilePath(base::apple::NSURLToFilePath(folder));
+
+  if (root.empty()) {
+    completion(NO);
+    return;
+  }
+
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE,
+      {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+       base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+      base::BindOnce(&pane::RepairMigratedProfile, root.AppendASCII("Profile"),
+                     root.AppendASCII("SafetyCopy")),
+      base::BindOnce(
+          [](void (^completion)(BOOL), bool repaired) {
+            PANE_TRACE("callback",
+                       "PaneBrowserApplication.repairContext.completion",
+                       base::DictValue().Set("repaired", repaired));
+            completion(repaired);
+          },
+          [completion copy]));
+}
+
 - (void)dropEngineKeysWithCompletion:(void (^)(NSDictionary<NSString*, NSNumber*>*
                                                    left))completion {
   PANE_TRACE("call", "PaneBrowserApplication.dropEngineKeys");

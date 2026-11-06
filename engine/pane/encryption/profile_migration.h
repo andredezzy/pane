@@ -33,6 +33,14 @@ bool WriteSafetyCopy(const base::FilePath& profile,
 bool RestoreSafetyCopy(const base::FilePath& profile,
                        const base::FilePath& archive);
 
+// Puts right what a migration before 0.18.2 did to a closed profile: a site's
+// IndexedDB moved into a bucket of a third party's, as the archive's listing
+// shows, when that site has no store since; and partitioned file systems sealed
+// as whole files. Each step can run again: false leaves the rest for the next
+// call.
+bool RepairMigratedProfile(const base::FilePath& profile,
+                           const base::FilePath& archive);
+
 }  // namespace pane
 
 #endif  // PANE_ENCRYPTION_PROFILE_MIGRATION_H_
