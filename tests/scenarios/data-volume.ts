@@ -114,12 +114,24 @@ const dataVolume: Scenario = async (context) => {
 		exitCode: second.exitCode,
 		mounted: await mounted(),
 		loads: await loads(first, profile, "after"),
+		watchdogs: (
+			await Bun.$`/usr/bin/pgrep -f ${`pane-volume-watch ${first.browser.pid} `}`
+				.quiet()
+				.nothrow()
+				.text()
+		)
+			.split("\n")
+			.filter(Boolean).length,
 	};
 
 	await first.browser.close();
 
 	expect(
-		handOver.before && handOver.exited && handOver.mounted && handOver.loads,
+		handOver.before &&
+			handOver.exited &&
+			handOver.mounted &&
+			handOver.loads &&
+			handOver.watchdogs === 1,
 		`a second Pane on the same data: ${JSON.stringify(handOver)}`,
 	);
 

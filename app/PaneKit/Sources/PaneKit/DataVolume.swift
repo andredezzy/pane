@@ -423,12 +423,12 @@ public struct DataVolume: Sendable {
 		return String(cString: resolved)
 	}
 
-	// Runs `helper` (pane-volume-watch), which detaches the image's `device`
-	// once this process ends, a crash included, if it still holds this image.
-	public func watch(device: String, helper: URL) throws {
+	// Runs `helper` (pane-volume-watch), which detaches this image, on whichever
+	// device it then has, once this process ends, a crash included.
+	public func watch(helper: URL) throws {
 		let process = Process()
 		process.executableURL = helper
-		process.arguments = [String(getpid()), device, image.path]
+		process.arguments = [String(getpid()), image.path]
 		try process.run()
 	}
 

@@ -140,7 +140,7 @@ final class DataVault {
 				return nil
 			}
 
-			watch(volume, device: devices.image)
+			watch(volume)
 			return devices
 		}
 	}
@@ -208,7 +208,7 @@ final class DataVault {
 			devices = attached
 		} else {
 			devices = try volume.attachOrMake(passphrase: passphrase)
-			watch(volume, device: devices.image)
+			watch(volume)
 		}
 
 		try volume.open(devices, passphrase: passphrase, former: former)
@@ -219,14 +219,24 @@ final class DataVault {
 		return Attached(device: devices.image, started: started, ended: ended, lock: lock)
 	}
 
-	private nonisolated static func watch(_ volume: DataVolume, device: String) {
+	// One watchdog for this Pane's life: it finds the image by its path.
+	private nonisolated static let watching = OSAllocatedUnfairLock(initialState: false)
+
+	private nonisolated static func watch(_ volume: DataVolume) {
+		guard !watching.withLock({ started in
+			defer { started = true }
+			return started
+		}) else {
+			return
+		}
+
 		guard let helper = Bundle.main.url(forAuxiliaryExecutable: "pane-volume-watch") else {
 			Log.security.error("No pane-volume-watch in the bundle: a crash leaves the volume attached")
 			return
 		}
 
 		do {
-			try volume.watch(device: device, helper: helper)
+			try volume.watch(helper: helper)
 		} catch {
 			Log.security.error("Could not start the volume's watchdog: \(String(describing: error), privacy: .private)")
 		}

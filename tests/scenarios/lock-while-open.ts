@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { imagesAttachedIn } from "../lib/processes";
+import { imagesAttachedIn, waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
 // Pane locks while open (ADR 0116, Paper 06.4 and 07.9). Lock Pane shows the
@@ -12,7 +12,8 @@ import { expect, type Scenario } from "../run";
 // profile open in Chrome: the lock stops it, as a quit does, and the volume
 // still detaches whole, never forced from under the engine. With Lock after
 // set, Pane locks by itself once it has gone that long without use (a minute
-// a second here).
+// a second here). One watchdog serves a Pane through every lock, and still
+// detaches the image when Pane is killed.
 
 // bcryptjs 3.0.3, hashSync("1234", 10): a PIN as the Electron app set it.
 const PIN_1234 = {
@@ -134,6 +135,21 @@ const lockWhileOpen: Scenario = async (context) => {
 		60_000,
 	);
 
+	const watchdogs = async () =>
+		(
+			await Bun.$`/usr/bin/pgrep -f ${`pane-volume-watch ${app.browser.pid} `}`
+				.quiet()
+				.nothrow()
+				.text()
+		)
+			.split("\n")
+			.filter(Boolean).length;
+
+	expect(
+		(await watchdogs()) === 1,
+		`watchdogs after a lock and an unlock: ${await watchdogs()}`,
+	);
+
 	const again = await app.page(tab, url);
 
 	const identity = await again.evaluate<{
@@ -195,7 +211,36 @@ const lockWhileOpen: Scenario = async (context) => {
 
 	expect(idle, "Pane did not lock after a minute without use");
 
-	await app.browser.close();
+	// Once more through a lock: the image on whichever device it has now.
+	await app.send("setLockAfter", { minutes: null });
+	await app.send("pinKeys", { keys: "1234" });
+
+	await app.waitFor(
+		"unlocked once more",
+		(state) => !state.security.locked && state.security.data.attached,
+		60_000,
+	);
+
+	const watchdogsAtTheEnd = await watchdogs();
+
+	expect(
+		watchdogsAtTheEnd === 1,
+		`watchdogs after two locks: ${watchdogsAtTheEnd}`,
+	);
+
+	process.kill(app.browser.pid, "SIGKILL");
+	await waitForExit(app.browser.pid);
+
+	const detachedAfterKill = await poll(
+		"the watchdog's detach after a kill",
+		async () => (await imagesAttachedIn(dataDir)).length === 0,
+		10_000,
+	).then(
+		() => true,
+		() => false,
+	);
+
+	expect(detachedAfterKill, "a kill after two locks left the image attached");
 
 	return { whileLocked, afterUnlock, idleLock: idle };
 };
