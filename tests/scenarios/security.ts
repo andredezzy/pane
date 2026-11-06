@@ -15,7 +15,7 @@ import {
 import { poll } from "../lib/poll";
 import { imagesAttachedIn, waitForExit } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
 // (security.json with its bcryptjs hash of 1234): behind it nothing opens,
@@ -28,6 +28,10 @@ import { expect, type Scenario } from "../run";
 // with Caps Lock on. Last, a security.json that no longer decodes never opens
 // the lock: the PIN left in it still unlocks, and with none left the lock stays
 // shut. Each check runs in a throwaway data directory.
+//
+// Wrong PINs in Settings erase nothing (ADR 0042): they count in memory, and the
+// fifth only locks Pane. A last attempt on disk with the key still there, which
+// Settings left in 0.18.0, erases nothing either, and leaves the lock its attempts.
 //
 // The PIN opens the data key (ADR 0113): the Electron app's bcrypt hash is
 // checked once, then the key is sealed with the PIN, and a change or a
@@ -106,7 +110,149 @@ async function type(
 	return app.waitFor(description, until, 10_000);
 }
 
+// The count on disk, in security.json and its copy, with the key left in both.
+function setFailedAttempts(dataDir: string, failedAttempts: number) {
+	for (const name of ["security", "Data.security"]) {
+		const file = saved(dataDir, name);
+
+		expect(file !== null, `no ${name}.json`);
+
+		writeFileSync(
+			join(dataDir, `${name}.json`),
+			JSON.stringify({
+				...file,
+				state: { ...file.state, failedAttempts },
+			}),
+		);
+	}
+}
+
+// A profile's page, reading back what it stored once the PIN opened it.
+async function settingsAttempts(context: ScenarioContext) {
+	const dataDir = context.tempDir("pane-security-settings-");
+	const PIN = "2468";
+	const first = await launchPane(context, { dataDir });
+	const profile = await first.createProfile("Kept", "BLUE");
+	const url = context.fixtures.url("nav-a.html?kept");
+	const tab = await first.openTab(profile, url);
+	const value = `kept-${crypto.randomUUID()}`;
+
+	await (await first.page(tab, url)).evaluate(
+		`localStorage.setItem("kept", ${JSON.stringify(value)})`,
+	);
+
+	await first.send("showPinScreen", { mode: "setup" });
+
+	await type(first, `${PIN}>`, "confirming", (state) => {
+		return screen(state)?.step === "confirm";
+	});
+
+	await type(first, PIN, "the PIN set up", (state) => screen(state) === null);
+	await first.browser.close();
+
+	// The PIN, then the page's value: the data is there.
+	const unlocks = async (app: PaneApp, when: string) => {
+		await type(
+			app,
+			PIN,
+			`the PIN opening Pane ${when}`,
+			(state) =>
+				!state.security.locked &&
+				state.security.data.attached &&
+				state.profiles.some((entry) => entry.id === profile),
+		);
+
+		await app.send("select", { tab });
+
+		const read = await (await app.page(tab, url)).evaluate<string | null>(
+			`localStorage.getItem("kept")`,
+		);
+
+		expect(read === value, `the data ${when}: ${read}`);
+	};
+
+	const wrongInChange = async (app: PaneApp, times: number) => {
+		await app.send("showPinScreen", { mode: "change" });
+
+		for (let attempt = 1; attempt <= times; attempt++) {
+			await type(
+				app,
+				"1111",
+				`wrong PIN ${attempt} in Change`,
+				(state) => screen(state)?.entered === 0 && !screen(state)?.busy,
+			);
+		}
+	};
+
+	// What Settings left on disk in 0.18.0: the last attempt, with the key. A
+	// wipe had stood due at this launch.
+	setFailedAttempts(dataDir, 5);
+	const leftBehind = await launchPane(context, { dataDir });
+	const atLaunch = await leftBehind.state();
+
+	expect(
+		atLaunch.security.locked && !atLaunch.security.wipe.erasing,
+		`five attempts on disk, with the key: ${JSON.stringify(atLaunch.security)}`,
+	);
+
+	expect(
+		lexists(join(dataDir, "Engine", profile)),
+		"five attempts on disk, with the key, erased the data",
+	);
+
+	// A typo there is one attempt of five.
+	const typo = await type(
+		leftBehind,
+		"1111",
+		"a wrong PIN after them",
+		(state) =>
+			state.security.failedAttempts > 0 &&
+			screen(state)?.entered === 0 &&
+			!screen(state)?.busy,
+	);
+
+	expect(
+		typo.security.failedAttempts === 1 &&
+			(await waitForExit(leftBehind.browser.pid, 500)) === false,
+		`a wrong PIN after them: ${JSON.stringify(typo.security)}`,
+	);
+
+	await unlocks(leftBehind, "after five attempts on disk");
+
+	// Four in Change, then a quit: nothing counted, and the data is there.
+	await wrongInChange(leftBehind, 4);
+
+	expect(
+		saved(dataDir)?.state.failedAttempts === 0,
+		`four wrong in Change, on disk: ${saved(dataDir)?.state.failedAttempts}`,
+	);
+
+	await leftBehind.browser.close();
+	const afterFour = await launchPane(context, { dataDir });
+	await unlocks(afterFour, "after four wrong in Change");
+
+	// Five in Change: Pane locks, erasing nothing, and the right PIN opens it.
+	await wrongInChange(afterFour, 5);
+
+	const lockedOut = await afterFour.waitFor(
+		"Pane locked by the fifth wrong PIN in Change",
+		(state) => state.security.locked && screen(state)?.mode === "unlock",
+		5_000,
+	);
+
+	expect(
+		saved(dataDir)?.state.failedAttempts === 0 &&
+			lockedOut.security.failedAttempts === 0,
+		`five wrong in Change, on disk: ${saved(dataDir)?.state.failedAttempts}`,
+	);
+
+	await unlocks(afterFour, "after five wrong in Change");
+	await afterFour.browser.close();
+}
+
 const security: Scenario = async (context) => {
+	await settingsAttempts(context);
+
 	const dataDir = context.tempDir("pane-security-");
 	mkdirSync(dataDir, { recursive: true });
 

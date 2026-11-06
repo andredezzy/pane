@@ -91,6 +91,9 @@ final class BrowserController: NSObject {
 		lock.didUnlock = { [weak self] in
 			self?.accessDidOpen()
 		}
+		lock.didExhaustSettingsAttempts = { [weak self] in
+			self?.lockNow()
+		}
 	}
 
 	// The profiles, read once the data key opened: the sidebar shows each

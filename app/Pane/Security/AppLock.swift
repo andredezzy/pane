@@ -7,7 +7,8 @@ import os
 // The app lock (apps/veil security-store.ts, trpc/routers/security.ts): with
 // a PIN set, Pane starts locked behind the PIN screen; the screen also sets,
 // changes, and removes the PIN from Settings. The fifth wrong PIN in a row at
-// the lock erases everything (the panic wipe) and starts Pane fresh. The PIN
+// the lock erases everything (the panic wipe) and starts Pane fresh; the fifth
+// in Settings only locks Pane (ADR 0042). The PIN
 // opens the data key (ADR 0113), sealed in security.json and in its copy
 // beside the volume, which DataVault then opens the data with: without a
 // PIN, the key opens at launch.
@@ -23,6 +24,8 @@ final class AppLock {
 	private(set) var shakes = 0
 	// Called once the right PIN opens the lock, for what waited behind it.
 	@ObservationIgnored var didUnlock: (() -> Void)?
+	// Called at the fifth wrong PIN in Settings, for Pane to lock.
+	@ObservationIgnored var didExhaustSettingsAttempts: (() -> Void)?
 
 	@ObservationIgnored private let file: PersistedFile<SecurityState>
 	// security.json's copy beside the volume: losing both loses the data.
@@ -33,6 +36,9 @@ final class AppLock {
 	// changing, or removing the PIN reseals the key with them.
 	@ObservationIgnored private var dataKey: SymmetricKey?
 	@ObservationIgnored private var secret: Data?
+	// Wrong PINs in Settings in a row, in memory only: the count on disk is the
+	// lock's alone, where its fifth erases everything.
+	@ObservationIgnored private var settingsAttempts = 0
 
 	// The PIN screen's line when no key can be read (Paper 07.6).
 	static let keyUnreadable = "Pane can\u{2019}t read the key to your data.\nQuit, then restore security.json."
@@ -73,6 +79,13 @@ final class AppLock {
 		if loaded.key == nil, let kept = (try? copy.load()) ?? nil, kept.key != nil {
 			loaded = kept
 			unreadable = false
+		}
+
+		// The lock's fifth attempt takes the key in the same save, so the last
+		// attempt with a key still there came from Settings in 0.18.0, where wrong
+		// PINs counted: it leaves the lock its attempts, or one typo would erase.
+		if loaded.failedAttempts >= SecurityState.maxAttempts, loaded.key != nil {
+			loaded.failedAttempts = 0
 		}
 
 		// A volume no key opens: what it holds cannot be read.
@@ -252,9 +265,9 @@ final class AppLock {
 		return .key(key, secret: secret, made: sealed, attaching: nil)
 	}
 
-	// A wrong PIN counts at once, on disk too, so quitting cannot reset the
-	// count. A key that cannot be read at all is not the PIN's fault, and
-	// counts nothing.
+	// A wrong PIN at the lock counts at once, on disk too, so quitting cannot
+	// reset the count. A key that cannot be read at all is not the PIN's fault,
+	// and counts nothing.
 	private func verify(_ pin: String) {
 		let state = state
 		let unlocking = entry?.mode == .unlock
@@ -279,12 +292,29 @@ final class AppLock {
 			// A key sealed with a PIN security.json no longer names.
 			isLocked = true
 			present(.unreadable(Self.keyUnreadable))
-		case .wrongPin:
+		case .wrongPin where unlocking:
 			state.failedAttempts += 1
+
+			// The last attempt and the key go in one save: with the key gone,
+			// nothing left opens the volume or the sealed files, wherever their
+			// blocks are (ADR 0113), and a wipe is due (isWipeDue).
+			if state.failedAttempts >= SecurityState.maxAttempts {
+				state.key = nil
+			}
+
 			save()
 			verified(false)
+		case .wrongPin:
+			settingsAttempts += 1
+			verified(false)
+
+			if settingsAttempts >= SecurityState.maxAttempts {
+				settingsAttempts = 0
+				didExhaustSettingsAttempts?()
+			}
 		case let .key(key, secret, made, attaching):
 			state.failedAttempts = 0
+			settingsAttempts = 0
 
 			if let made {
 				state.key = made
@@ -350,19 +380,13 @@ final class AppLock {
 	// MARK: Panic wipe
 
 	// Only after the last attempt at the lock: the count lives on disk, where
-	// nothing but a wrong PIN raises it. This instance only ends. Its helpers
+	// nothing but a wrong PIN there raises it. This instance only ends. Its helpers
 	// go first, so none (the network service, say) writes after, and the
 	// instance it starts erases once they are all gone (wipeAtLaunch).
 	private func wipe() {
 		guard state.pin != nil, state.failedAttempts >= SecurityState.maxAttempts else {
 			return
 		}
-
-		// The data key goes first: with it gone, nothing left opens the
-		// volume or the sealed files, wherever their blocks are (ADR 0113).
-		state.key = nil
-		dataKey = nil
-		save()
 
 		let helpers = Self.childProcesses()
 
@@ -452,7 +476,7 @@ final class AppLock {
 			return false
 		}
 
-		return state.pin != nil && state.failedAttempts >= SecurityState.maxAttempts
+		return state.pin != nil && state.failedAttempts >= SecurityState.maxAttempts && state.key == nil
 	}
 
 	// Where the engine keeps the profiles' caches, when apart from their data.
