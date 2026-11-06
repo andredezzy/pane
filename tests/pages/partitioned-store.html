@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Partitioned store</title>
+<script>
+	// A value in this context's IndexedDB or origin private file system, for a
+	// page to write and read back, and for its parent, in another site, to ask for.
+	const idb = () =>
+		new Promise((resolve, reject) => {
+			const opened = indexedDB.open("partitioned-store", 1);
+			opened.onupgradeneeded = () => opened.result.createObjectStore("items");
+			opened.onerror = () => reject(opened.error);
+			opened.onsuccess = () => resolve(opened.result);
+		});
+
+	const stores = {
+		idb: {
+			async write(value) {
+				const db = await idb();
+				await new Promise((resolve, reject) => {
+					const tx = db.transaction("items", "readwrite");
+					tx.objectStore("items").put(value, "value");
+					tx.oncomplete = resolve;
+					tx.onerror = () => reject(tx.error);
+				});
+				db.close();
+			},
+			async read() {
+				const db = await idb();
+				const value = await new Promise((resolve, reject) => {
+					const got = db.transaction("items").objectStore("items").get("value");
+					got.onsuccess = () => resolve(got.result ?? null);
+					got.onerror = () => reject(got.error);
+				});
+				db.close();
+				return value;
+			},
+		},
+		opfs: {
+			async write(value) {
+				const root = await navigator.storage.getDirectory();
+				const file = await root.getFileHandle("value", { create: true });
+				const stream = await file.createWritable();
+				await stream.write(value);
+				await stream.close();
+			},
+			async read() {
+				const root = await navigator.storage.getDirectory();
+				const file = await root.getFileHandle("value");
+				return (await file.getFile()).text();
+			},
+		},
+	};
+
+	addEventListener("message", async ({ data, source }) => {
+		try {
+			source.postMessage({ result: await stores[data.kind][data.op](data.value) }, "*");
+		} catch (error) {
+			source.postMessage({ error: String(error) }, "*");
+		}
+	});
+</script>
