@@ -27,6 +27,9 @@ enum class SqliteMigration {
   kNothingToDo,
   // Its copy failed, or would not verify: the original stays, as it was.
   kFailed,
+  // SQLite finds it malformed, as the engine would when it read that page and
+  // razed it: the original stays, for the caller to drop.
+  kCorrupt,
 };
 
 // Encrypts a plain database of a closed profile in place, surviving a kill at
@@ -34,6 +37,10 @@ enum class SqliteMigration {
 // writes a temporary encrypted copy, which is verified and fsynced, then
 // renamed over the original. The profile's key must be registered.
 SqliteMigration MigrateSqliteDatabase(const base::FilePath& path);
+
+// Whether `PRAGMA quick_check` says "ok" of the database open in `path`: it
+// reports what it finds as rows, and returns SQLITE_OK whatever they say.
+bool SqliteQuickCheckPasses(const base::FilePath& path, const char* vfs);
 
 // Whether `path` starts with SQLite's own magic.
 bool IsPlainSqliteDatabase(const base::FilePath& path);

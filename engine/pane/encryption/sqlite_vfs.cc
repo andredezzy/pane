@@ -933,6 +933,27 @@ bool IsEncryptedSqliteDatabase(const base::FilePath& path) {
   return magic && memcmp(magic->data(), kPaneMagic, 16) == 0;
 }
 
+bool SqliteQuickCheckPasses(const base::FilePath& path, const char* vfs) {
+  sqlite3* db = nullptr;
+  bool passes = false;
+
+  if (sqlite3_open_v2(path.value().c_str(), &db, SQLITE_OPEN_READONLY, vfs) ==
+      SQLITE_OK) {
+    const int checked = sqlite3_exec(
+        db, "PRAGMA quick_check(1)",
+        [](void* said_ok, int columns, char** values, char**) {
+          *static_cast<bool*>(said_ok) =
+              columns == 1 && values[0] && strcmp(values[0], "ok") == 0;
+          return 0;
+        },
+        &passes, nullptr);
+    passes = passes && checked == SQLITE_OK;
+  }
+
+  sqlite3_close(db);
+  return passes;
+}
+
 SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
   InstallSqliteVfs();
 
@@ -968,20 +989,18 @@ SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
 
   if (vacuumed != SQLITE_OK) {
     base::DeleteFile(temporary);
-    return SqliteMigration::kFailed;
+    const int primary = vacuumed & 0xff;
+    return primary == SQLITE_CORRUPT || primary == SQLITE_NOTADB
+               ? SqliteMigration::kCorrupt
+               : SqliteMigration::kFailed;
   }
 
-  // The copy decrypts, whole, before it replaces anything.
-  sqlite3* copy = nullptr;
-  bool verified = false;
-
-  if (sqlite3_open_v2(temporary.value().c_str(), &copy, SQLITE_OPEN_READONLY,
-                      kVfsName) == SQLITE_OK) {
-    verified = sqlite3_exec(copy, "PRAGMA quick_check(1)", nullptr, nullptr,
-                            nullptr) == SQLITE_OK;
-  }
-
-  sqlite3_close(copy);
+  // The copy decrypts, whole, before it replaces anything. One that fails the
+  // check with an original that passes it is this code's failure; with one that
+  // fails it too, the copy is as good as what it copies.
+  const bool verified = SqliteQuickCheckPasses(temporary, kVfsName) ||
+                        (IsEncryptedSqliteDatabase(temporary) &&
+                         !SqliteQuickCheckPasses(path, kParentVfsName));
 
   if (!verified || !IsEncryptedSqliteDatabase(temporary)) {
     base::DeleteFile(temporary);

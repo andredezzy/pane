@@ -50,6 +50,7 @@ using encryption::StreamCipher;
 
 constexpr std::string_view kTemporarySuffix = ".pane-migrating";
 constexpr size_t kBufferSize = 1 << 20;
+constexpr int64_t kLargestWholeFile = 1 << 30;
 
 // The Simple cache's header, by which a plain entry is told, and its entry's key
 // is read (net/disk_cache/simple/simple_entry_format.h).
@@ -240,6 +241,14 @@ bool MigrateWholeFile(const base::FilePath& path) {
       return true;
     }
 
+    // base::File reads 2 GiB at most, and nothing Pane knows of is whole files
+    // that large: it stays as it is, in the encrypted volume, rather than stop
+    // the process at every launch. A plain file in a protected path passes.
+    if (length > kLargestWholeFile) {
+      LOG(ERROR) << "A file of a profile too large to seal whole.";
+      return true;
+    }
+
     bytes.emplace(length);
 
     if (file.Read(0, *bytes) != static_cast<size_t>(length)) {
@@ -368,12 +377,17 @@ bool MigrateSimpleEntry(const base::FilePath& path) {
   base::File source(path, base::File::FLAG_OPEN | base::File::FLAG_READ);
   const uint32_t key_length = base::U32FromLittleEndian(
       base::span(header).subspan<kSimpleKeyLengthOffset, 4u>());
+
+  // A bad cache entry goes: nothing keeps it but a page that can ask again.
+  if (!source.IsValid() || key_length > source.GetLength()) {
+    return base::DeleteFile(path);
+  }
+
   std::string key(key_length, '\0');
 
-  if (!source.IsValid() ||
-      source.Read(kSimpleHeaderSize, base::as_writable_byte_span(key)) !=
-          key_length) {
-    return false;
+  if (source.Read(kSimpleHeaderSize, base::as_writable_byte_span(key)) !=
+      key_length) {
+    return base::DeleteFile(path);
   }
 
   std::unique_ptr<disk_cache::CacheEntryHasher> hasher;
@@ -706,10 +720,25 @@ bool MigrateProfileFiles(const base::FilePath& profile,
   for (const base::FilePath& file : files) {
     if (!IsUnder(profile, file, "Extensions") &&
         encryption::IsPlainSqliteDatabase(file)) {
-      if (encryption::MigrateSqliteDatabase(file) ==
-          encryption::SqliteMigration::kFailed) {
-        LOG(ERROR) << "A database of a profile would not migrate.";
-        ok = false;
+      switch (encryption::MigrateSqliteDatabase(file)) {
+        case encryption::SqliteMigration::kFailed:
+          LOG(ERROR) << "A database of a profile would not migrate.";
+          ok = false;
+          break;
+        case encryption::SqliteMigration::kCorrupt:
+          // Chromium would raze it at the page that shows it: one store, where
+          // keeping it bars the whole profile, at every launch. The safety copy
+          // keeps it.
+          LOG(ERROR) << "A malformed database of a profile goes.";
+          did(file);
+          base::DeleteFile(file);
+          base::DeleteFile(base::FilePath(file.value() + "-journal"));
+          base::DeleteFile(base::FilePath(file.value() + "-wal"));
+          base::DeleteFile(base::FilePath(file.value() + "-shm"));
+          continue;
+        case encryption::SqliteMigration::kMigrated:
+        case encryption::SqliteMigration::kNothingToDo:
+          break;
       }
 
       did(file);
