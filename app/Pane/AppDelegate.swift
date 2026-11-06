@@ -89,6 +89,11 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 				application.repairContext(identifier: id, engineKey: key, folder: folder, completion: done)
 			}
 		)
+		// Something kept a file of the volume open past the wait: the quit detaches
+		// it, once the engine has stopped (ADR 0116).
+		vault.didFailToDetachLocked = { [weak controller] in
+			controller?.quit()
+		}
 		vault.didDetachLocked = { [weak application] in
 			application?.dropEngineKeys { left in
 				if left.values.contains(where: { $0.intValue != 0 }) {

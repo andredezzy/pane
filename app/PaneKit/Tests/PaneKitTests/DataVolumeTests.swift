@@ -159,6 +159,20 @@ struct DataVolumeTests {
 		#expect(volume.hasFolder(profile: "p"))
 	}
 
+	@Test("a volume a lock could not detach opens as it is")
+	func openTwice() throws {
+		let root = try root()
+		defer { try? fileManager.removeItem(at: root) }
+		let volume = DataVolume(dataDirectory: root, cacheDirectory: nil)
+		let devices = try volume.attachOrMake(passphrase: "pass")
+		defer { try? volume.detach(device: devices.image, force: true) }
+
+		try volume.open(devices, passphrase: "pass")
+		#expect(volume.isMounted)
+		try volume.open(devices, passphrase: "pass")
+		#expect(volume.isMounted)
+	}
+
 	@Test("a passphrase that will not change stops the open: nothing converts while the former one still opens the volume")
 	func formerPassphraseThatWillNotChange() throws {
 		let root = try root()

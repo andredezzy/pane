@@ -13,7 +13,8 @@ import { expect, type Scenario } from "../run";
 // still detaches whole, never forced from under the engine. With Lock after
 // set, Pane locks by itself once it has gone that long without use (a minute
 // a second here). One watchdog serves a Pane through every lock, and still
-// detaches the image when Pane is killed.
+// detaches the image when Pane is killed. A file something else holds open is never
+// pulled away: the lock waits, and past 10 s Pane quits.
 
 // bcryptjs 3.0.3, hashSync("1234", 10): a PIN as the Electron app set it.
 const PIN_1234 = {
@@ -228,6 +229,41 @@ const lockWhileOpen: Scenario = async (context) => {
 		`watchdogs after two locks: ${watchdogsAtTheEnd}`,
 	);
 
+	// Something else keeps a file of the volume open: a lock never forces the
+	// detach, which pulled the files from under the engine, whose next flush stopped
+	// it. It goes once the file closes.
+	const held = join(mountPoint, "held");
+	writeFileSync(held, "held");
+	const holder = Bun.spawn(["/usr/bin/tail", "-f", held], { stdout: "ignore" });
+	await Bun.sleep(200);
+	await app.send("lockNow");
+	await Bun.sleep(3_000);
+	const heldThrough = (await imagesAttachedIn(dataDir)).length;
+	holder.kill();
+	await holder.exited;
+
+	const detachedOnceFree = await poll(
+		"the lock's detach once the file closed",
+		async () => (await imagesAttachedIn(dataDir)).length === 0,
+		10_000,
+	).then(
+		() => true,
+		() => false,
+	);
+
+	expect(
+		heldThrough === 1 && detachedOnceFree,
+		`a file held through a lock: attached ${heldThrough}, then detached ${detachedOnceFree}`,
+	);
+
+	await app.send("pinKeys", { keys: "1234" });
+
+	await app.waitFor(
+		"unlocked after the wait",
+		(state) => !state.security.locked && state.security.data.attached,
+		60_000,
+	);
+
 	process.kill(app.browser.pid, "SIGKILL");
 	await waitForExit(app.browser.pid);
 
@@ -241,6 +277,39 @@ const lockWhileOpen: Scenario = async (context) => {
 	);
 
 	expect(detachedAfterKill, "a kill after two locks left the image attached");
+
+	// Held past the wait: Pane quits, and the volume detaches after the engine.
+	const last = await launchPane(context, { dataDir });
+	await last.send("pinKeys", { keys: "1234" });
+
+	await last.waitFor(
+		"unlocked for the long hold",
+		(state) => !state.security.locked && state.security.data.attached,
+		60_000,
+	);
+
+	const longHolder = Bun.spawn(["/usr/bin/tail", "-f", held], {
+		stdout: "ignore",
+	});
+	await Bun.sleep(200);
+	await last.send("lockNow");
+	const quitOnItsOwn = await waitForExit(last.browser.pid, 30_000);
+	longHolder.kill();
+	await longHolder.exited;
+
+	const detachedAfterQuit = await poll(
+		"the quit's detach",
+		async () => (await imagesAttachedIn(dataDir)).length === 0,
+		15_000,
+	).then(
+		() => true,
+		() => false,
+	);
+
+	expect(
+		quitOnItsOwn && detachedAfterQuit,
+		`a file held past the wait: quit ${quitOnItsOwn}, detached ${detachedAfterQuit}`,
+	);
 
 	return { whileLocked, afterUnlock, idleLock: idle };
 };

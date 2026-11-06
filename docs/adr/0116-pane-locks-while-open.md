@@ -10,7 +10,7 @@ What changes:
 - **The PIN opens it all again**: the volume attaches, the profiles load, and the tab that showed comes back, still signed in.
 - **Only the PIN screen animates** (`RootView`): its slide had an animation over the whole window, which also animated what changed behind it in the same update: the toolbar going and coming with the profiles. Behind the rising screen the window is already empty, and behind the falling one the toolbar is already in place.
 - **What was under way waits for the lock.** A context still opening as Pane locks closes once it has opened; a profile being deleted is waited for, and its folder goes at the next open. An attach or a move from an earlier Pane still running is waited for before the detach. The PIN typed meanwhile waits for the detach before attaching again. None of it blocks the main thread.
-- **A profile still open 10 s after the lock makes Pane quit**, which closes every profile, and the volume detaches after. The detach is never forced while the engine has files open.
+- **A profile still open 10 s after the lock makes Pane quit**, which closes every profile, and the volume detaches after. The detach is never forced while the engine runs. Until 0.18.2 it was, after 1.55 s, and the keys went whether or not it worked: a profile's `closed` fires as its destruction begins, before its stores close, so a late flush met a volume that was gone. It now tries for 10 s; past that, the keys stay and Pane quits, and the forced detach waits until the engine has stopped. `lock-while-open` holds a file open through a lock, then past the wait.
 
 What was rejected:
 

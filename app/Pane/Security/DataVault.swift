@@ -69,6 +69,8 @@ final class DataVault {
 	// A lock's detach succeeded: no process has a profile's file open, so each
 	// can forget its keys (ADR 0121).
 	@ObservationIgnored var didDetachLocked: (() -> Void)?
+	// It would not: the keys stay, for what still has the files open.
+	@ObservationIgnored var didFailToDetachLocked: (() -> Void)?
 	// The profiles' ids, once the model has them: what an open moves in.
 	@ObservationIgnored var profileIDs: () -> [String] = { [] }
 	@ObservationIgnored private let dataDirectory: URL
@@ -566,23 +568,14 @@ final class DataVault {
 		isAttached = false
 	}
 
-	// The image detached by its device, the volume's helpers given a moment
-	// (the network service keeps the cookies open), then forced.
+	// The image detached by its device, with the engine stopped: the volume's
+	// helpers given a moment (the network service keeps the cookies open), then
+	// forced.
 	private nonisolated static func detach(_ volume: DataVolume, device: String) {
 		let started = Date()
-		var detached = false
-
-		for delay in [0, 50, 100, 200, 400, 800] {
-			usleep(useconds_t(delay * 1000))
-
-			if (try? volume.detach(device: device)) != nil {
-				detached = true
-				break
-			}
-		}
 
 		do {
-			if !detached {
+			if !tryDetaching(volume, device: device, waits: [0, 50, 100, 200, 400, 800]) {
 				try volume.detach(device: device, force: true)
 			}
 
@@ -592,14 +585,31 @@ final class DataVault {
 		}
 	}
 
+	private nonisolated static func tryDetaching(_ volume: DataVolume, device: String, waits: [Int]) -> Bool {
+		for wait in waits {
+			usleep(useconds_t(wait * 1000))
+
+			if (try? volume.detach(device: device)) != nil {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	// At a lock, with the engine running: never forced, which would pull the files
+	// from under it, the first flush after that stopping the process (ADR 0116).
+	// A profile's stores close a moment after its context does. 10 s, at most.
+	private nonisolated static let lockDetachWaits = [0, 50, 100, 200, 400, 800] + Array(repeating: 500, count: 17)
+
 	// Pane locked while open (ADR 0116): the vault starts over at once,
 	// closed, for the PIN to open again, and an attach the PIN starts waits
 	// for this lock's detach (attacher). Off the main thread, the detach waits
 	// for an attach or move still under way, and for `closed`, which says
-	// every profile closed in the engine and its files with it. A profile that
-	// would not close keeps its files open: the image stays attached for the
-	// quit to detach once the engine has stopped (close), where forcing it
-	// would pull the files from under the engine.
+	// every profile began closing in the engine: its stores close a moment after.
+	// A profile that would not close keeps its files open: the image stays
+	// attached for the quit to detach once the engine has stopped (close), where
+	// forcing it would pull the files from under the engine.
 	func lock(once closed: Task<Bool, Never>) {
 		locks += 1
 		filesKey = nil
@@ -648,7 +658,13 @@ final class DataVault {
 			}
 
 			volume.safetyCopiesClosed()
-			Self.detach(volume, device: device)
+
+			guard Self.tryDetaching(volume, device: device, waits: Self.lockDetachWaits) else {
+				Log.security.error("Could not detach the data volume at a lock: Pane quits to close it")
+				await MainActor.run { [weak self] in self?.didFailToDetachLocked?() }
+				return device
+			}
+
 			await MainActor.run { [weak self] in self?.didDetachLocked?() }
 			return nil
 		}

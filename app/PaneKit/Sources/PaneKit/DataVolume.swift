@@ -281,8 +281,13 @@ public struct DataVolume: Sendable {
 	}
 
 	// At the mount point, out of the Finder (nobrowse), through Disk
-	// Arbitration in this process: 50 ms, where diskutil takes 200 to start.
+	// Arbitration in this process: 50 ms, where diskutil takes 200 to start. One
+	// a lock could not detach is still there.
 	public func mount(_ devices: Devices) throws {
+		guard !isMounted else {
+			return
+		}
+
 		try prepareMountPoint()
 
 		guard
