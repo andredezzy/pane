@@ -255,10 +255,14 @@ public struct DataVolume: Sendable {
 
 			if case .success = unlockedWithFormer {
 				unlocked = unlockedWithFormer
+				// Nothing converts while an earlier Pane can still open this
+				// volume, and raze what it can't read.
+				try changePassphrase(of: devices, from: former, to: passphrase)
+			} else {
+				// Both failed since it is left unlocked, after a crash, which takes
+				// the change all the same; or it is on neither, which the mount says.
+				try? changePassphrase(of: devices, from: former, to: passphrase)
 			}
-
-			// Also when both failed since it is left unlocked, after a crash.
-			try? changePassphrase(of: devices, from: former, to: passphrase)
 		}
 
 		do {
