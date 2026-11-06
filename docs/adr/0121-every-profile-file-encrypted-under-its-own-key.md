@@ -73,3 +73,5 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 - **`engine-keys`**, **`memory-guarded`**, **`volume-unindexed`** (Spotlight: `.metadata_never_index` at every mount, since `mdutil` can't tell on a volume out of the Finder).
 - **`pane_unittests`**, run locally since CI builds no Chromium: every I/O shape of a journal and a WAL, a mid-transaction crash rolled back from the log on disk, 200 kills in each with nothing committed lost, Raze, Recovery, VACUUM, a wrong key or none crashing and deleting nothing, LevelDB with repair, and the migration killed at any point.
 - **By hand, by computer use:** `docs/plans/qa/engine-file-encryption/`, against the published 0.15.2.
+- **A real update:** the published 0.15.2 took 0.18.0 from GitHub, swapped itself at quit, and the data it had written migrated and read back.
+- **What it costs:** `docs/benchmarks/engine-encryption.md`. All budgets met but the first launch on new data, +12 ms over 0.15.2 where the budget is +10, which the user accepted (2026-11-06).

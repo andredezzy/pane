@@ -30,7 +30,7 @@ What `docs/plans/engine-file-encryption.md` measures against: the published 0.15
 
 What the table says:
 
-- **The first launch on new data is the one measure over budget**, by 2 ms, once per install. The published 0.17.2 measures 269 ms there, so about 10 ms of it is this work's, from a cause not found. A warm launch, which is every other one, is level.
+- **The first launch on new data is the one measure over budget**, by 2 ms, once per install. The published 0.17.2 measures 269 ms there, so about 10 ms of it is this work's, from a cause not found. The user accepted it, 2026-11-06. A warm launch, which is every other one, is level.
 - **The local fixtures load in under 6 ms,** where a tenth of a millisecond is a percent or more: `smoke.html` reads +8.9%, which is 0.4 ms.
 - **Log reuse mattered.** The first candidate turned LevelDB's off for every store, and the Default profile's, which open at startup, cost a warm launch 15 ms. Off only where it must be, it is level: an encrypted file refuses an append, and LevelDB goes on without reusing.
 - **A blob costs its chunks:** 8 MiB takes 11 ms more to write and 5 ms more to read. No budget names it.
