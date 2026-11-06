@@ -29,4 +29,4 @@ Two values were settled on the dark side:
 - **Popover shadows:** 40% on dark, as Paper's dark boards drew them, and 14% on light.
 - **The address's rule:** #858587 on light and #606068 on dark.
 
-What macOS draws stays as macOS draws it: the system checkbox, a system alert's centered text, and a context menu's destructive item in the menu's normal color. The extension right-click menu's missing items, which waited on the engine (ADR 0054), are built: the extension's own items (ADR 0096) and its site access (ADR 0101).
+What macOS draws stays as macOS draws it: the system checkbox, a system alert's centered text, and a context menu's destructive item in the menu's normal color. The extension right-click menu's missing items, which waited on the engine (ADR 0054), are built: the extension's own items and its site access (ADR 0096).

@@ -79,11 +79,10 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md) Pane's icon is a window whose sky the user picks, and the bundle carries it in Chromium's place, dated so macOS cannot show Chromium's
 - [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself at quit, and where it can't, says Quit and install and quits
 - [0093](0093-update-pill-bar-runs-to-its-end.md) The update pill's bar runs to its end, and draws back for the dismiss button
-- [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items show where Chrome shows them
+- [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items and site access show where Chrome shows them, and Chrome's reload prompt after a change is declined without a dialog
 - [0097](0097-extensions-update-themselves.md) Extensions update themselves
 - [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed in a dialog of the Extensions page
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
-- [0101](0101-action-menu-offers-chromes-site-access.md) The pinned action's right-click menu offers Chrome's site access, and Chrome's reload prompt after a change is declined without a dialog
 - [0102](0102-extension-details-on-the-extensions-page.md) An extension's Details are a view of the Extensions page, and On specific sites lists its sites, added and removed as Chrome's details page does
 - [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window
 - [0110](0110-other-apps-sign-ins-stay-in-macos-sheet.md) Other apps' sign-ins stay in macOS's sheet
@@ -98,7 +97,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 
 ## Merged records
 
-These numbers were records of their own until they were merged into the record they refined or completed (2026-10-31). The numbers stay taken, and code and history that cite them mean:
+These numbers were records of their own until they were merged into the record they refined or completed (2026-10-31 and 2026-11-06). The numbers stay taken, and code and history that cite them mean:
 
 - 0003 → [0004](0004-native-shell-on-own-chromium-framework.md)
 - 0023 → [0021](0021-chrome-ui-as-requests.md)
@@ -119,7 +118,8 @@ These numbers were records of their own until they were merged into the record t
 - 0094 → [0046](0046-the-dmg.md)
 - 0095 → [0069](0069-proxy-passwords-in-keychain.md)
 - 0100 → [0046](0046-the-dmg.md)
-- 0103 → [0101](0101-action-menu-offers-chromes-site-access.md)
+- 0101 → [0096](0096-extension-menu-items-show-where-chrome-shows-them.md)
+- 0103 → [0096](0096-extension-menu-items-show-where-chrome-shows-them.md)
 - 0104 → [0098](0098-extension-shortcuts-work-as-in-chrome.md)
 - 0105 → [0102](0102-extension-details-on-the-extensions-page.md)
 - 0106 → [0046](0046-the-dmg.md)
