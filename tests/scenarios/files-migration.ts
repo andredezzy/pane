@@ -22,8 +22,8 @@ import {
 	type ReadBack,
 	type RichSession,
 	richSession,
-	sessionFolders,
 	STORES_COMMITTED_MS,
+	sessionFolders,
 } from "../lib/rich-session";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
@@ -595,7 +595,10 @@ async function askEmbed(
 	site: string,
 	message: { op: string; kind: string; value?: string },
 ) {
-	return page.evaluate<{ result?: string; error?: string }>(`new Promise((resolve) => {
+	return page.evaluate<{
+		result?: string;
+		error?: string;
+	}>(`new Promise((resolve) => {
 		const frame = document.createElement("iframe");
 		frame.src = ${JSON.stringify(site)};
 		addEventListener("message", ({ data }) => { frame.remove(); resolve(data); }, { once: true });
@@ -610,16 +613,20 @@ async function readPartitioned(
 ) {
 	await app.send("select", { tab: session.siteTab });
 
-	const own = await (
-		await app.page(session.siteTab, session.site)
-	).evaluate<string | null>("stores.idb.read()");
+	const own = await (await app.page(session.siteTab, session.site)).evaluate<
+		string | null
+	>("stores.idb.read()");
 
 	await app.send("select", { tab: session.topTab });
 
-	const embed = await askEmbed(await app.page(session.topTab, session.top), session.site, {
-		op: "read",
-		kind: "opfs",
-	});
+	const embed = await askEmbed(
+		await app.page(session.topTab, session.top),
+		session.site,
+		{
+			op: "read",
+			kind: "opfs",
+		},
+	);
 
 	return { own, embed: embed.result ?? embed.error };
 }
@@ -629,7 +636,10 @@ async function readPartitioned(
 // put right, for a profile with its safety copy.
 async function partitioned(context: ScenarioContext, earlier: string) {
 	const migrated = await partitionedSession(context, earlier);
-	const app = await launchPane(context, { ...migrated.launch, binary: undefined });
+	const app = await launchPane(context, {
+		...migrated.launch,
+		binary: undefined,
+	});
 	const got = await readPartitioned(app, migrated);
 	await app.browser.close();
 
@@ -654,7 +664,10 @@ async function partitioned(context: ScenarioContext, earlier: string) {
 		`${wrong} got these right: ${JSON.stringify(before)}`,
 	);
 
-	const fixed = await launchPane(context, { ...repaired.launch, binary: undefined });
+	const fixed = await launchPane(context, {
+		...repaired.launch,
+		binary: undefined,
+	});
 	const after = await readPartitioned(fixed, repaired);
 	await fixed.browser.close();
 

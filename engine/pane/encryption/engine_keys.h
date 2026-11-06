@@ -23,6 +23,12 @@ using Key = std::array<uint8_t, kKeySize>;
 // What the formats use, each derived from the engine key, so that no two share
 // a key.
 struct ProfileKeys {
+  ProfileKeys() = default;
+  ProfileKeys(const ProfileKeys&) = default;
+  ProfileKeys& operator=(const ProfileKeys&) = default;
+  // Every copy is cleansed as it goes.
+  ~ProfileKeys();
+
   Key sqlite_pages;
   Key stream_files;
   Key stream_check;

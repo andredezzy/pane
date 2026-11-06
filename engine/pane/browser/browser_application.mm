@@ -480,6 +480,12 @@ class ProfileDestructionWaiter : public ProfileObserver,
   const base::FilePath root =
       base::MakeAbsoluteFilePath(base::apple::NSURLToFilePath(folder));
 
+  // No folder: paths from an empty root would lead into the working directory.
+  if (root.empty()) {
+    completion(NO);
+    return;
+  }
+
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
@@ -530,6 +536,11 @@ class ProfileDestructionWaiter : public ProfileObserver,
   // only as the user data dir was given.
   const base::FilePath root =
       base::MakeAbsoluteFilePath(base::apple::NSURLToFilePath(folder));
+
+  if (root.empty()) {
+    completion(NO);
+    return;
+  }
 
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,

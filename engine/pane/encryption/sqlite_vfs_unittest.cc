@@ -27,6 +27,7 @@
 #include "sql/statement.h"
 #include "sql/transaction.h"
 #include "sql/test/test_helpers.h"
+#include "storage/browser/quota/quota_database.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
 #include "third_party/sqlite/sqlite3.h"
@@ -420,6 +421,127 @@ TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
 
     ASSERT_TRUE(db.Execute("ROLLBACK"));
   }
+}
+
+// A power cut tore page 1 while a journal stood ready to restore it. SQLite reads
+// the header as it opens, before the playback: failing there made Chromium's quota
+// database reset, erasing every store under WebStorage (patch 0010).
+TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
+  const base::FilePath path = profile_.Append("Torn");
+  const base::FilePath copy = profile_.AppendASCII("WebStorage/QuotaManager");
+  ASSERT_TRUE(base::CreateDirectory(copy.DirName()));
+  const base::FilePath keep = profile_.AppendASCII("WebStorage/7/IndexedDB/keep");
+  ASSERT_TRUE(base::CreateDirectory(keep.DirName()));
+  ASSERT_TRUE(base::WriteFile(keep, "kept"));
+
+  sql::Database db(sql::DatabaseOptions().set_wal_mode(false),
+                   sql::test::kTestTag);
+  ASSERT_TRUE(db.Open(path));
+  Fill(db, 2000);
+  ASSERT_TRUE(db.Execute("PRAGMA cache_size=5"));
+  ASSERT_TRUE(db.Execute("BEGIN"));
+  // A change of schema, whose cookie is on page 1: the journal holds that page.
+  ASSERT_TRUE(db.Execute("CREATE TABLE more(value TEXT)"));
+  ASSERT_TRUE(db.Execute("UPDATE t SET value = 'pane-changed-' || id"));
+
+  const base::FilePath journal(path.value() + "-journal");
+  ASSERT_TRUE(base::CopyFile(path, copy));
+  ASSERT_TRUE(base::CopyFile(journal, base::FilePath(copy.value() + "-journal")));
+  ASSERT_TRUE(db.Execute("ROLLBACK"));
+  db.Close();
+
+  std::string raw = Raw(copy);
+  raw[200] ^= 1;
+  ASSERT_TRUE(base::WriteFile(copy, raw));
+  const std::string journal_bytes = Raw(base::FilePath(copy.value() + "-journal"));
+
+  {
+    sql::Database opened(sql::DatabaseOptions().set_wal_mode(false),
+                         sql::test::kTestTag);
+    ASSERT_TRUE(opened.Open(copy));
+    EXPECT_EQ(Count(opened), 2000);
+  }
+
+  // Torn again, and opened as Chromium's quota database opens it.
+  ASSERT_TRUE(base::WriteFile(copy, raw));
+  ASSERT_TRUE(
+      base::WriteFile(base::FilePath(copy.value() + "-journal"), journal_bytes));
+
+  {
+    storage::QuotaDatabase quota(profile_);
+    EXPECT_TRUE(quota.GetAllBuckets().has_value());
+  }
+
+  EXPECT_TRUE(base::PathExists(keep));
+}
+
+// The journal gone, and nothing to restore it: an error, which Chromium does not
+// raze for.
+TEST_F(SqliteVfsTest, APageOneTornWithNoJournalIsAnError) {
+  {
+    sql::Database db(Options(), sql::test::kTestTag);
+    ASSERT_TRUE(db.Open(path_));
+    Fill(db, 100);
+  }
+
+  std::string raw = Raw(path_);
+  raw[200] ^= 1;
+  ASSERT_TRUE(base::WriteFile(path_, raw));
+
+  sqlite3* db = nullptr;
+  const int opened =
+      sqlite3_open_v2(path_.value().c_str(), &db, SQLITE_OPEN_READWRITE, nullptr);
+  const int read =
+      opened == SQLITE_OK
+          ? sqlite3_exec(db, "SELECT COUNT(*) FROM t", nullptr, nullptr, nullptr)
+          : opened;
+  sqlite3_close(db);
+  EXPECT_EQ(read & 0xff, SQLITE_IOERR);
+  EXPECT_EQ(Raw(path_), raw);
+}
+
+// Past the playback, a WAL's page that won't authenticate is an error: zeros would
+// read as a malformed database, which Chromium razes.
+TEST_F(SqliteVfsTest, AChangedWalPageIsAnError) {
+  sqlite3* db = nullptr;
+  ASSERT_EQ(sqlite3_open_v2(path_.value().c_str(), &db,
+                            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr),
+            SQLITE_OK);
+  ASSERT_EQ(sqlite3_exec(db,
+                         "PRAGMA journal_mode=WAL;"
+                         "CREATE TABLE t(value TEXT);"
+                         "INSERT INTO t VALUES('one');",
+                         nullptr, nullptr, nullptr),
+            SQLITE_OK);
+
+  const base::FilePath wal(path_.value() + "-wal");
+  std::string raw = Raw(wal);
+  ASSERT_GT(raw.size(), 8192u);
+  // The last frame's page: no later one takes its place.
+  raw[raw.size() - 4096 + 100] ^= 1;
+  ASSERT_TRUE(base::WriteFile(wal, raw));
+
+  // What it holds in memory goes, so the read reaches the file.
+  sqlite3_db_release_memory(db);
+  const int read =
+      sqlite3_exec(db, "SELECT SUM(LENGTH(value)) FROM t", nullptr, nullptr, nullptr);
+  sqlite3_close(db);
+  EXPECT_EQ(read & 0xff, SQLITE_IOERR);
+}
+
+TEST_F(SqliteVfsTest, TheQuickCheckSaysWhatItFinds) {
+  {
+    sql::Database db(Options(), sql::test::kTestTag);
+    ASSERT_TRUE(db.Open(path_));
+    Fill(db, 500);
+  }
+
+  EXPECT_TRUE(SqliteQuickCheckPasses(path_, nullptr));
+
+  std::string raw = Raw(path_);
+  raw[4096 * 5 + 100] ^= 1;
+  ASSERT_TRUE(base::WriteFile(path_, raw));
+  EXPECT_FALSE(SqliteQuickCheckPasses(path_, nullptr));
 }
 
 // A process killed mid-write, as a crash leaves it: nothing it was told is

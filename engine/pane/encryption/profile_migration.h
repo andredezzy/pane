@@ -29,7 +29,8 @@ bool WriteSafetyCopy(const base::FilePath& profile,
                      const base::FilePath& archive);
 
 // Puts the profile back as the archive has it: its files go, its extensions'
-// code aside, and the archive's come back with their times.
+// code aside, and the archive's come back with their times. An archive that
+// doesn't read through to its end leaves the profile as it was, and false.
 bool RestoreSafetyCopy(const base::FilePath& profile,
                        const base::FilePath& archive);
 

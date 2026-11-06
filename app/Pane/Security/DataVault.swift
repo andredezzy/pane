@@ -298,8 +298,9 @@ final class DataVault {
 	@ObservationIgnored var fileMigrator: FileMigrator?
 	// The profile each migration under way is for, and who waits for it.
 	@ObservationIgnored private var migrations: [String: [(Bool) -> Void]] = [:]
-	// The panel shows for one a profile waits for, past a second (Paper 07.5).
-	@ObservationIgnored private var showsMigration = false
+	// The profile whose migration the panel shows: one the window waits for, past a
+	// second (Paper 07.5).
+	@ObservationIgnored private var showing: String?
 	@ObservationIgnored private var migrationShares: [String: Double] = [:]
 	@ObservationIgnored private var migrationsIdle: [CheckedContinuation<Void, Never>] = []
 
@@ -367,7 +368,7 @@ final class DataVault {
 				return
 			}
 
-			self.showsMigration = true
+			self.showing = id
 			self.phase = .moving(share)
 		}
 	}
@@ -410,7 +411,7 @@ final class DataVault {
 
 				self.migrationShares[id] = value
 
-				if self.showsMigration {
+				if self.showing == id {
 					self.moved(value, locks: locks)
 				}
 			}
@@ -428,8 +429,8 @@ final class DataVault {
 			let waiters = migrations.removeValue(forKey: id) ?? []
 			migrationShares[id] = nil
 
-			if showsMigration, migrations.isEmpty {
-				showsMigration = false
+			if showing == id {
+				showing = nil
 
 				if locks == self.locks {
 					becomeOpen()
@@ -670,8 +671,9 @@ final class DataVault {
 		}
 	}
 
-	// A task's value, waited for on the main thread at quit, which the
-	// attaches never need: 5 s at most, where the image's making takes 1.5.
+	// A task's value, waited for on the main thread at quit, which the attaches
+	// never need: 5 s at most, where the image's making takes 1.5. It spins the run
+	// loop, since a lock's detach ends on the main actor.
 	private nonisolated static func settled<Value: Sendable, Failure: Error>(_ task: Task<Value, Failure>?) -> Value? {
 		guard let task else {
 			return nil
@@ -688,7 +690,12 @@ final class DataVault {
 			done.signal()
 		}
 
-		_ = done.wait(timeout: .now() + 5)
+		let deadline = Date().addingTimeInterval(5)
+
+		while done.wait(timeout: .now()) == .timedOut, Date() < deadline {
+			RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+		}
+
 		return box.value
 	}
 

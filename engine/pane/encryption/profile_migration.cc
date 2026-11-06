@@ -702,6 +702,8 @@ void RemoveWhatRebuilds(const base::FilePath& root) {
 
   for (const std::string_view name : kStale) {
     base::DeleteFile(root.AppendASCII(name));
+    // Where the network service keeps them.
+    base::DeleteFile(root.AppendASCII("Network").AppendASCII(name));
   }
 }
 

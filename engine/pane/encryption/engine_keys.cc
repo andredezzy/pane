@@ -105,17 +105,21 @@ std::optional<Located> LocateIn(const base::FilePath& root,
 
 ProfileKeys DeriveProfileKeys(base::span<const uint8_t> engine_key) {
   const base::span<const uint8_t> no_salt;
-  return ProfileKeys{
-      .sqlite_pages = DeriveKey(engine_key, no_salt, "Pane SQLite pages"),
-      .stream_files = DeriveKey(engine_key, no_salt, "Pane stream files"),
-      .stream_check = DeriveKey(engine_key, no_salt, "Pane stream check"),
-      .whole_files = DeriveKey(engine_key, no_salt, "Pane whole files"),
-      .caches = DeriveKey(engine_key, no_salt, "Pane caches"),
-      .names = DeriveKey(engine_key, no_salt, "Pane names"),
-  };
+  ProfileKeys keys;
+  keys.sqlite_pages = DeriveKey(engine_key, no_salt, "Pane SQLite pages");
+  keys.stream_files = DeriveKey(engine_key, no_salt, "Pane stream files");
+  keys.stream_check = DeriveKey(engine_key, no_salt, "Pane stream check");
+  keys.whole_files = DeriveKey(engine_key, no_salt, "Pane whole files");
+  keys.caches = DeriveKey(engine_key, no_salt, "Pane caches");
+  keys.names = DeriveKey(engine_key, no_salt, "Pane names");
+  return keys;
 }
 
 }  // namespace
+
+ProfileKeys::~ProfileKeys() {
+  OPENSSL_cleanse(this, sizeof(*this));
+}
 
 Key DeriveKey(base::span<const uint8_t> key,
               base::span<const uint8_t> salt,
@@ -133,6 +137,9 @@ void AddRoots(const std::vector<base::FilePath>& roots) {
   base::AutoLock lock(registry.lock);
 
   for (const base::FilePath& root : roots) {
+    // A relative root would match a relative path under the working directory.
+    CHECK(root.IsAbsolute());
+
     if (!std::ranges::contains(registry.roots, root)) {
       registry.roots.push_back(root);
     }
@@ -149,9 +156,7 @@ void RegisterKey(const std::string& id,
                  base::span<const uint8_t, kKeySize> key) {
   Registry& registry = GetRegistry();
   base::AutoLock lock(registry.lock);
-  Key copy;
-  base::span(copy).copy_from(key);
-  registry.engine_keys[id] = copy;
+  base::span(registry.engine_keys[id]).copy_from(key);
   registry.keys[id] = DeriveProfileKeys(key);
 }
 
