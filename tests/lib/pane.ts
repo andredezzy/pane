@@ -481,6 +481,8 @@ export type PaneLaunch = {
 	// The volume is meant not to attach (data-volume): the launch returns
 	// once it has failed, where it fails otherwise, saying why.
 	volumeFails?: boolean;
+	// Where the process starts, as a terminal's folder would be.
+	cwd?: string;
 };
 
 export async function launchPane(
@@ -512,6 +514,7 @@ export async function launchPane(
 		binary: options.binary,
 		userDataDir: join(dataDir, "Engine"),
 		derivedDataRoot: options.derivedDataRoot,
+		cwd: options.cwd,
 		args: [
 			...(locked ? ["--disable-backgrounding-occluded-windows"] : []),
 			...(options.args ?? []),

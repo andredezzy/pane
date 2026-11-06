@@ -310,7 +310,9 @@ final class DataVault {
 	}
 
 	private func migrate(profile id: String, waiting: Bool, _ done: @escaping (Bool) -> Void) {
-		guard !volume.filesAreEncrypted(profile: id) else {
+		// A profile made without a tab has no folder: nothing to encrypt, and the
+		// engine would resolve the missing path against the working directory.
+		guard !volume.filesAreEncrypted(profile: id), volume.hasFolder(profile: id) else {
 			done(true)
 			return
 		}

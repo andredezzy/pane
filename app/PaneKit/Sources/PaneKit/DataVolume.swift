@@ -466,6 +466,11 @@ public struct DataVolume: Sendable {
 		mountPoint.appending(path: id, directoryHint: .isDirectory)
 	}
 
+	// A profile made without a tab has none until it first opens.
+	public func hasFolder(profile id: String) -> Bool {
+		FileManager.default.fileExists(atPath: folder(profile: id).path)
+	}
+
 	// Makes the profile's folders in the attached volume and the links to
 	// them, before the engine opens the profile. A plain folder still in
 	// their place moves in first. One that saves no history loses what it wrote

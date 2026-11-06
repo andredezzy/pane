@@ -19,6 +19,8 @@ export type LaunchOptions = {
 	// (CFFIXED_USER_HOME): with HOME alone, the app's Application Support is
 	// the user's.
 	derivedDataRoot?: boolean;
+	// Where the process starts, as a terminal's folder would be.
+	cwd?: string;
 };
 
 export type Browser = {
@@ -171,6 +173,7 @@ export async function launch(
 	const output = process.env.PANE_SCENARIO_STDERR ? "inherit" : "ignore";
 
 	const child = Bun.spawn([binary, ...args], {
+		cwd: options.cwd,
 		env: {
 			...process.env,
 			...(appDataDir && {
