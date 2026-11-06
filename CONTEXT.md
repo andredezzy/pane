@@ -35,3 +35,15 @@ _Avoid_: pin (already means something in browser tabs), whitelist
 **Save history**:
 A per-profile choice, on by default, of whether a profile keeps a record of where it went: the pages it visits, their icons, its downloads, and what Chrome learns from them. Turning it off clears what it kept; its cookies, site data, and tabs stay, so it stays signed in.
 _Avoid_: incognito, private (those keep no cookies either), clear browsing data (Chrome's wider dialog, which this uses part of)
+
+**Lock**:
+Pane shut behind its PIN: the profiles out of the model, no page open, and the encrypted volume detached. With a PIN set, it comes at launch, on Lock Pane, when the Mac sleeps or locks, and after a time without use; five wrong PINs at the lock wipe everything. Wrong PINs in Settings lock Pane and erase nothing.
+_Avoid_: sign out (the profiles stay signed in), pause, sleep (a tab's)
+
+**Data key**:
+The key behind everything of Pane's on disk: it opens the encrypted volume, seals `profiles.json`, and each profile's Engine key derives from it. It is kept only sealed, under the Keychain's secret and, when set, the PIN, so the PIN releases it rather than being it. The panic wipe destroys it first.
+_Avoid_: PIN (what releases it), master password
+
+**Engine key**:
+A profile's own key for the files the engine writes, derived from the Data key and held only by Pane's processes, so a process reading those files finds ciphertext while Pane is unlocked as much as while it is locked. Not the key of a prebuilt engine (`engine-key.sh`, a hash of the engine's sources), which the release docs also call the engine key: say which when both are in play.
+_Avoid_: profile key, cookie key (Chromium's "Pane Safe Storage")

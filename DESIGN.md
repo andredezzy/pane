@@ -52,12 +52,12 @@ When an item becomes selected and its indicator changes shape, the shape morphs 
 
 Implementation notes:
 
-- Selection highlights (active/selected backgrounds and rings) carry no `transition` utility.
+- Selection highlights (active/selected backgrounds and rings) carry no animation.
 - An indicator that changes shape with a selection animates its size and radius together (`Squircle`'s radius animates), with the spring `Motion.morph`.
 - Hover fills animate in 0.15 s, easing out, everywhere a hover shows: a fill that appears at once is a missing animation.
 - Two things that share a place under the pointer take turns rather than cross: the update pill's bar draws back at once and its dismiss button shows once the bar has cleared it, and on the way out the button goes first (`Motion.hoverTurn`, the hover's 0.15 s after 0.08 s).
-- Scope `transition-colors` to hover states only — e.g. the inactive branch of a tab's className, never the active/selected branch.
-- Always honor `prefers-reduced-motion`.
+- A row's fill animates with its hover alone (`.animation(Motion.hover, value:)`, or `withAnimation(Motion.hover)` around the hover's change), never with its selection.
+- Every animation goes through `Motion` (`app/Pane/Views/Theme/Motion.swift`), named for what it is and nil while the Mac reduces motion, so a view honors the setting with no check of its own (ADR 0070).
 
 ## Updates
 

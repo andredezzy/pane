@@ -41,8 +41,12 @@ The dmg is ad-hoc signed and not notarized (no Apple Developer ID is configured)
 ## Tooling
 
 - **The app is native**: Swift (AppKit and SwiftUI) in `app/`, on Pane's own Chromium framework built from `engine/`. `docs/building.md` covers the checkout, the engine build, the patches, and the scenarios. Chromium upgrades follow `engine/UPGRADING.md`.
+- **The engine stays as faithful to Chromium as it can be** (ADR 0004): a change goes in `//pane` first, through a seam Chromium already has second, and into a Chromium file only when neither can do it.
+- **The product's words** are in `CONTEXT.md`: use its terms, and avoid what it says to avoid, in code, docs, and what Pane shows.
 - **Package manager: Bun** — a `bun.lock` is present. Use `bun` / `bunx`; never npm, pnpm, or yarn. Bun runs the scenario runner (`tests/`) and the linters.
 - Before committing: `bun run lint`, `bun run typecheck` (the scenario runner), `bun run test` (PaneKit's `swift test`), and `bun run knip` should pass. A change to the app or the engine also runs the scenarios it touches (`docs/building.md`, Scenarios). A change to the engine also runs `pane_unittests` (`docs/building.md`, Engine unit tests), which CI cannot, since it never builds Chromium.
+- Before a push or a tag, also run in `app/PaneKit` what the App workflow (`.github/workflows/app.yml`) runs beyond those: `swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict`, `swift test --sanitize=thread --scratch-path .build-tsan`, and `swift test --sanitize=address --scratch-path .build-asan`. A deprecation once passed every check above and failed only the strict build, which turned App red on a release's tag.
+- **QA drives only a test copy.** Start Pane through the scenario harness, on throwaway data, never `/Applications` or the user's data root. Real keys and clicks go only to that copy, proven frontmost right before each one: never to Finder, a terminal, or any app holding the user's windows, even for a throwaway folder. `screencapture -l` takes only a window whose title or owner proves it is the test's. To see how a file looks from another app, use `strings`, `sqlite3`, and `file` in a shell, which send no input.
 - **The Electron app is retired**: 0.7.0 moved its users to the native app. Its last state is the `electron` branch, kept as a backup and not maintained; comments that cite `apps/veil` or `packages/` point there. Work on `main`.
 
 ## Decisions
@@ -53,4 +57,6 @@ Record each decision as an ADR in `docs/adr/`, one record per subject. A decisio
 
 **Every design is proposed in Paper before it is implemented.** Paper is the design source (ADR 0058): any change to what Pane shows, a screen, a control, an icon, or the dmg's window, is drawn there first, as a new board or a change to the board it touches, and shown to the user. Implementation starts only once the user has approved it in Paper, and then matches the board.
 
-See `DESIGN.md` for interaction and visual principles (e.g. keyboard-driven changes animate; pointer-driven changes are instant).
+Paper's desktop app serves an MCP over streamable HTTP at `http://127.0.0.1:29979/mcp` while it runs. Where no client is set up for it, call it with `curl`: `initialize`, keep the `mcp-session-id` header, send `notifications/initialized`, then `tools/call`. Replies come as SSE `data:` lines, and every file tool needs `fileId`. Start with `get_guide`, topic `paper-mcp-instructions`. `paper-gen://` image generation spends the user's usage, so use it only when the user asks for art.
+
+See `DESIGN.md` for interaction and visual principles (e.g. a selection moves instantly; hover and enter/exit animate).

@@ -6,6 +6,8 @@ The framework is built from Chromium's `chrome/` layer plus a `//pane` tree, wit
 
 Scope is macOS on Apple Silicon; Windows and Linux are out for now (Dia ships on Mac only, and Arc's Windows port required porting Swift itself). The native app's data root is ADR 0006's, and the Electron data is migrated from a copy, never in place (ADR 0043). The product language in `CONTEXT.md`, the rules in `DESIGN.md`, and ADRs 0001 and 0002 carried over. Each subject since has an ADR of its own, from 0005.
 
+**The engine stays as faithful to Chromium as it can be** (the user, 2026-11-06). Every edit to a Chromium file is carried through each upgrade, so a change goes in `//pane` first, through a seam Chromium already has second, and into a Chromium file only when neither can do it. Cutting a patch of Pane's moves the engine toward the original. Encryption (ADR 0121) and the fingerprint (ADR 0038) stay, as what makes Pane, kept as small as they can be, and a data-loss fix outranks the count.
+
 What was rejected:
 
 - **CEF:** embedding in the app's own NSView forces CEF's Alloy style, which has no extension system (removed in M128), no autofill or password manager, and no Chrome dialogs, covering 167 of the 1,701 methods Arc's app needs; the arc-engine analysis rejected it for Arc for the same reason.
@@ -15,4 +17,5 @@ What was rejected:
 
 How it is checked:
 
+- **The count of what the patches edit** (`engine/patches/*.patch`, each `diff --git` that is not a new file): 121 Chromium files and 1,363 changed lines, with 11 files added, at 0.18.0. A change that raises it says why.
 - **`docs/benchmarks/native-vs-electron.md`** measures what the move bought: the native app at 0.11.2 against the last Electron release, 0.6.0, on one Mac, by the `benchmark-*` scenarios.
