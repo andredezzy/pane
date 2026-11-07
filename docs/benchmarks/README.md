@@ -9,36 +9,38 @@ Measured comparisons of Pane builds, each with its raw measurements beside it.
 
 ## 0.19.0's candidate against the published 0.18.0
 
-The floor, the simplifications, and Chromium 158, against the budgets they were held to. Each from its dmg, stripped, taking turns on an M5 Pro on 2026-11-07, so a trend in the Mac's load falls on both. Medians over three rounds, six for page loads.
+The simplifications and Chromium 158, with every upgrade path kept (ADR 0122), against the budgets they were held to. Each from its dmg, stripped, taking turns over three rounds on an M5 Pro on 2026-11-07, so a trend in the Mac's load falls on both. Medians.
 
 | Measure | 0.18.0 | Candidate | Change | Budget | |
 |---|---:|---:|---:|---:|---|
-| Launch to first window, warm | 273.6 ms | 271.2 ms | −2.4 ms | ≤ +5 ms | ✓ a gain |
-| Launch to first window, cold | 271.1 ms | 267.5 ms | −3.6 ms | ≤ +5 ms | ✓ a gain |
-| PIN to first page painted | 498.9 ms | 502.9 ms | +4.0 ms | ≤ +25 ms | ✓ |
-| No PIN, launch to first page painted | 572.0 ms | 578.3 ms | +6.3 ms | | |
-| History query, p95 | 11.1 ms | 11.1 ms | 0 | ≤ +3% | ✓ |
-| First request with 3,000 cookies, p95 | 18.2 ms | 18.7 ms | +2.7% | ≤ +3% | ✓ |
-| Repeat visit after a relaunch, Wikipedia | 140 ms | 135 ms | −3.6% | ≤ +3% | ✓ |
-| Repeat visit, GitHub | 425.0 ms | 425.7 ms | +0.2% | ≤ +3% | ✓ |
-| Repeat visit, Apple | 939.6 ms | 979.7 ms | +4.3% | ≤ +3% | over, within the site's noise |
-| Warm load, `smoke.html` | 4.9 ms | 5.0 ms | +2% | ≤ +3% | ✓ |
-| Warm load, `find.html` | 4.5 ms | 7.5 ms | +3.0 ms | ≤ +3% | **over** |
-| Warm load, `nav-a.html` | 5.2 ms | 6.9 ms | +1.7 ms | ≤ +3% | **over** |
-| Warm load, GitHub | 407.8 ms | 425.0 ms | +4.2% | ≤ +3% | over, within the site's noise |
-| Warm load, Apple | 669.1 ms | 609.6 ms | −8.9% | ≤ +3% | ✓ |
-| Warm load, Wikipedia | 176.0 ms | 249.2 ms | see below | ≤ +3% | noise |
-| Memory, 1 tab | 146.7 MB | 149.7 MB | +2.1% | ≤ +1% | **over** |
-| Memory, 5 tabs | 233.2 MB | 237.3 MB | +1.8% | ≤ +1% | **over** |
-| Memory, 10 tabs | 343.9 MB | 351.0 MB | +2.1% | ≤ +1% | **over** |
+| Launch to first window, warm | 271.0 ms | 265.7 ms | −5.3 ms | ≤ +5 ms | ✓ |
+| Launch to first window, cold | 271.6 ms | 270.6 ms | −1.0 ms | ≤ +5 ms | ✓ |
+| PIN to first page painted | 496.3 ms | 498.8 ms | +2.5 ms | ≤ +25 ms | ✓ |
+| No PIN, launch to first page painted | 577.2 ms | 570.2 ms | −7.0 ms | | |
+| History query, p95 | 11.4 ms | 11.0 ms | −3.5% | ≤ +3% | ✓ |
+| First request with 3,000 cookies, p95 | 18.9 ms | 19.2 ms | +1.6% | ≤ +3% | ✓ |
+| Repeat visit after a relaunch, Wikipedia | 100.7 ms | 99.9 ms | −0.8% | ≤ +3% | ✓ |
+| Repeat visit, Apple | 951.0 ms | 939.6 ms | −1.2% | ≤ +3% | ✓ |
+| Repeat visit, GitHub | 352.8 ms | 368.7 ms | +4.5% | ≤ +3% | over, within the site's noise |
+| Warm load, Wikipedia | 157.7 ms | 158.7 ms | +0.6% | ≤ +3% | ✓ |
+| Warm load, GitHub | 353.4 ms | 349.0 ms | −1.2% | ≤ +3% | ✓ |
+| Warm load, Apple | 570.9 ms | 471.1 ms | −17.5% | ≤ +3% | ✓ |
+| Warm load, `smoke.html` | 4.8 ms | 4.8 ms | 0 | ≤ +3% | ✓ |
+| Warm load, `find.html` | 4.6 ms | 7.0 ms | +2.4 ms | ≤ +3% | **over, accepted** |
+| Warm load, `nav-a.html` | 5.3 ms | 8.3 ms | +3.0 ms | ≤ +3% | **over, accepted** |
+| Memory, 1 tab | 138.8 MB | 140.7 MB | +1.4% | ≤ +1% | **over, accepted** |
+| Memory, 5 tabs | 226.9 MB | 229.3 MB | +1.0% | ≤ +1% | ✓ |
+| Memory, 10 tabs | 338.7 MB | 342.5 MB | +1.1% | ≤ +1% | **over, accepted** |
 
-The user accepted the two that are over and traced below, as the cost of Chromium 158 (2026-11-07).
+The user accepted the misses marked so, as the cost of Chromium 158 (2026-11-07).
 
-**Memory is Chromium 158's.** At ten tabs the GPU process grows 1.8 MB and the renderers 4 MB, where the browser, Pane's own process, grows 0.5 MB. Against the same code on 157 the GPU process is the same 1.8 MB up and the renderers 1.6 MB; the published 0.18.2, on 157, sits under 0.18.0.
+**Memory is Chromium 158's.** On the previous candidate, measured the same way, the GPU process at ten tabs grew 1.8 MB and the renderers 4 MB, where the browser, Pane's own process, grew 0.5 MB. Against the same code on 157 the GPU process is the same 1.8 MB up and the renderers 1.6 MB. Sets of rounds differ from one another by about 1%: an earlier set read +1.8 to +2.1%.
 
-**A tiny page's slower load is Chromium 158's too.** A fixture's load comes in two modes, 4.6 ms and 7.7 ms, the 3 ms between the first byte and `DOMContentLoaded`, with its first paint a frame later. 157 builds took the slower mode in 2 to 5 of 27 loads, and 158 builds, stripped or not, in 13 and 14 of 27, once in none of 18. It doesn't show on a real site, whose noise is far larger.
+**A tiny page's slower load is Chromium 158's too.** A fixture's load comes in two modes, about 4.6 ms and 7.7 ms, the 3 ms between the first byte and `DOMContentLoaded`, with its first paint a frame later. 157 builds took the slower mode in 2 to 5 of 27 loads, and 158 builds in 12 to 18 of 27, once in none of 18. It doesn't show on a real site, whose noise is far larger.
 
-**A real site's load is the site's.** Wikipedia comes in three modes on every build, about 105, 160, and 250 ms, by the first byte's time, so a median moves with how many of each a run drew. Round by round, the candidate's ratio to 0.18.0 runs from 0.97 to 1.68 there, and from 0.53 to 1.03 on Apple.
+**A real site's load is the site's.** Wikipedia comes in three modes on every build, about 105, 160, and 250 ms, by the first byte's time, so a median moves with how many of each a run drew.
+
+**The upgrade paths cost nothing at launch:** with them back, launch reads as it did without them, within a set's noise.
 
 **The volume's watchdog cost an unlock 250 ms, and doesn't now.** From 0.18.1 it took the data's lock as Pane ended, and held it through an `hdiutil info` that found nothing. A Pane started in those 250 ms found the lock taken, and attached its image only once the key opened. `benchmark-unlock` relaunches at once, so it showed: 494 ms to 783 ms from the PIN. A quit that detached now ends the watchdog (ADR 0113).
 
