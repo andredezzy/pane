@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { $ } from "bun";
 import {
 	canDriveUI,
 	clickButton,
@@ -75,6 +74,51 @@ const profileSheet: Scenario = async (context) => {
 		const pid = app.browser.pid;
 		const window = await mainWindowOf(pid);
 
+		const newSheet = async () => {
+			await clickButton(pid, window, "New");
+
+			await app.waitFor(
+				"the new profile sheet",
+				(state) => state.profileSheet === "new",
+			);
+		};
+
+		const editSheet = async (profile: string) => {
+			await app.send("openProfileSheet", { profile });
+
+			await app.waitFor(
+				"the edit sheet",
+				(state) => state.profileSheet === profile,
+			);
+		};
+
+		const closeWith = async (button: string) => {
+			await clickButton(pid, window, button);
+
+			await app.waitFor(
+				"the sheet closed",
+				(state) => state.profileSheet === null,
+			);
+		};
+
+		const tabBack = async (tab: string) => {
+			await app.send("select", { tab });
+
+			await app.waitFor(
+				"the tab back",
+				(state) => !!tabOf(state, tab)?.loaded && !tabOf(state, tab)?.loading,
+			);
+		};
+
+		const proxySwitch = async () => {
+			await clickControl(pid, window, {
+				title: "Proxy",
+				role: /AX(CheckBox|Switch)/,
+			});
+
+			await Bun.sleep(300);
+		};
+
 		// What WebGL reports on this Mac, in a profile without a fingerprint.
 		const plain = await app.createProfile("Plain", "ZINC");
 		const plainURL = context.fixtures.url("nav-a.html?plain");
@@ -115,12 +159,7 @@ const profileSheet: Scenario = async (context) => {
 
 		// New profile: spoofing on, the Mac's platform, by default.
 		let known = (await app.state()).profiles.map((profile) => profile.id);
-		await clickButton(pid, window, "New");
-
-		await app.waitFor(
-			"the new profile sheet",
-			(state) => state.profileSheet === "new",
-		);
+		await newSheet();
 
 		await typeIntoField(pid, window, "pane.profile.name", "Mac claim");
 		await render("profile-sheet-new");
@@ -172,16 +211,10 @@ const profileSheet: Scenario = async (context) => {
 		).evaluate<string>("navigator.platform");
 
 		// A rename keeps the fingerprint.
-		await app.send("openProfileSheet", { profile: mac });
-		await app.waitFor("the edit sheet", (state) => state.profileSheet === mac);
+		await editSheet(mac);
 		// The field selects its text as it takes focus: typing replaces it.
 		await typeIntoField(pid, window, "pane.profile.name", "Mac claim renamed");
-		await clickButton(pid, window, "Save");
-
-		await app.waitFor(
-			"the sheet closed",
-			(state) => state.profileSheet === null,
-		);
+		await closeWith("Save");
 
 		const renamed = await saved(app, mac);
 
@@ -195,8 +228,7 @@ const profileSheet: Scenario = async (context) => {
 		// Another platform: its preset, the warning, and the open tab follows.
 		// Save history off with it, which the open profile's engine takes at
 		// once.
-		await app.send("openProfileSheet", { profile: mac });
-		await app.waitFor("the edit sheet", (state) => state.profileSheet === mac);
+		await editSheet(mac);
 		await clickButton(pid, window, "Windows");
 
 		await clickControl(pid, window, {
@@ -206,12 +238,7 @@ const profileSheet: Scenario = async (context) => {
 
 		await Bun.sleep(300);
 		await render("profile-sheet-cross-os");
-		await clickButton(pid, window, "Save");
-
-		await app.waitFor(
-			"the sheet closed",
-			(state) => state.profileSheet === null,
-		);
+		await closeWith("Save");
 
 		const windows = await saved(app, mac);
 
@@ -233,13 +260,7 @@ const profileSheet: Scenario = async (context) => {
 			`Save history off saved ${windows.savesHistory}`,
 		);
 
-		await app.send("select", { tab: macTab });
-
-		await app.waitFor(
-			"the tab back",
-			(state) =>
-				!!tabOf(state, macTab)?.loaded && !tabOf(state, macTab)?.loading,
-		);
+		await tabBack(macTab);
 
 		const after = await (
 			await app.page(macTab, fingerprintURL)
@@ -269,12 +290,7 @@ const profileSheet: Scenario = async (context) => {
 			.find((part) => part.type === "timeZoneName")?.value;
 
 		const chooseZone = async (path: string[], shows: string) => {
-			await app.send("openProfileSheet", { profile: mac });
-
-			await app.waitFor(
-				"the edit sheet",
-				(state) => state.profileSheet === mac,
-			);
+			await editSheet(mac);
 
 			await Bun.sleep(400);
 
@@ -313,20 +329,8 @@ const profileSheet: Scenario = async (context) => {
 			);
 
 			await Bun.sleep(300);
-			await clickButton(pid, window, "Save");
-
-			await app.waitFor(
-				"the sheet closed",
-				(state) => state.profileSheet === null,
-			);
-
-			await app.send("select", { tab: macTab });
-
-			await app.waitFor(
-				"the tab back",
-				(state) =>
-					!!tabOf(state, macTab)?.loaded && !tabOf(state, macTab)?.loading,
-			);
+			await closeWith("Save");
+			await tabBack(macTab);
 		};
 
 		await chooseZone(["Asia", `Tokyo (${offset})`], "Tokyo");
@@ -337,31 +341,18 @@ const profileSheet: Scenario = async (context) => {
 		const followedAgain = await pageZone();
 		const followedSaved = (await saved(app, mac)).fingerprint?.timeZone;
 
-		const timeZone = {
-			followed,
-			chosen,
-			chosenSaved,
-			followedAgain,
-			followedSaved,
-		};
-
 		expect(
 			followed === macZone &&
 				chosen === "Asia/Tokyo" &&
 				chosenSaved === "Asia/Tokyo" &&
 				followedAgain === macZone &&
 				followedSaved === "",
-			`the time zone, on a Mac in ${macZone}: ${JSON.stringify(timeZone)}`,
+			`the time zone, on a Mac in ${macZone}: ${JSON.stringify({ followed, chosen, chosenSaved, followedAgain, followedSaved })}`,
 		);
 
 		// The proxy: a string pasted into its address, its test, and Create.
 		known = (await app.state()).profiles.map((profile) => profile.id);
-		await clickButton(pid, window, "New");
-
-		await app.waitFor(
-			"the new profile sheet",
-			(state) => state.profileSheet === "new",
-		);
+		await newSheet();
 
 		// With no name it does not save, and VoiceOver hears why.
 		await clickButton(pid, window, "Create");
@@ -403,12 +394,7 @@ const profileSheet: Scenario = async (context) => {
 		// Another platform's warning takes the address past the body's end.
 		await clickButton(pid, window, "Windows");
 
-		await clickControl(pid, window, {
-			title: "Proxy",
-			role: /AX(CheckBox|Switch)/,
-		});
-
-		await Bun.sleep(300);
+		await proxySwitch();
 
 		const hostField = () =>
 			readControl(pid, window, "Proxy host", /AXTextField/);
@@ -419,6 +405,13 @@ const profileSheet: Scenario = async (context) => {
 
 		const hostBefore = await hostField();
 		const belowTheBody = hostBefore.y + hostBefore.h > (await bodyEnd());
+
+		const proxiedAfresh = async () => {
+			await closeWith("Cancel");
+			await newSheet();
+			await typeIntoField(pid, window, "pane.profile.name", "Proxied");
+			await proxySwitch();
+		};
 
 		// Pressed with what cannot save: the sheet stays, and nothing is made.
 		const refuses = async (
@@ -465,28 +458,7 @@ const profileSheet: Scenario = async (context) => {
 		await refuses("host-unreadable", "Host must be a name or an IP address");
 
 		// Afresh: the field holds what was typed, and takes more after it.
-		await clickButton(pid, window, "Cancel");
-
-		await app.waitFor(
-			"the sheet closed",
-			(state) => state.profileSheet === null,
-		);
-
-		await clickButton(pid, window, "New");
-
-		await app.waitFor(
-			"the new profile sheet",
-			(state) => state.profileSheet === "new",
-		);
-
-		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
-
-		await clickControl(pid, window, {
-			title: "Proxy",
-			role: /AX(CheckBox|Switch)/,
-		});
-
-		await Bun.sleep(300);
+		await proxiedAfresh();
 		await refuses("host-missing-again", "Proxy host is required");
 
 		// A host, and a port past the last one. The port's field selects its text
@@ -501,28 +473,7 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		// Afresh again, for the proxy string below.
-		await clickButton(pid, window, "Cancel");
-
-		await app.waitFor(
-			"the sheet closed",
-			(state) => state.profileSheet === null,
-		);
-
-		await clickButton(pid, window, "New");
-
-		await app.waitFor(
-			"the new profile sheet",
-			(state) => state.profileSheet === "new",
-		);
-
-		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
-
-		await clickControl(pid, window, {
-			title: "Proxy",
-			role: /AX(CheckBox|Switch)/,
-		});
-
-		await Bun.sleep(300);
+		await proxiedAfresh();
 		await refuses("host-missing-once-more", "Proxy host is required");
 
 		await typeIntoField(
@@ -590,7 +541,7 @@ const profileSheet: Scenario = async (context) => {
 			await app.send("theme", { theme });
 			await Bun.sleep(300);
 
-			await $`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, `profile-sheet-scrolled-${theme}.png`)}`
+			await Bun.$`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, `profile-sheet-scrolled-${theme}.png`)}`
 				.quiet()
 				.nothrow();
 		}
@@ -605,14 +556,7 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		const proxiedID = newProfile(proxied, known) ?? "";
-		const proxiedSaved = await saved(app, proxiedID);
-
-		const savedProxy = proxiedSaved.proxy;
-
-		const shownProxy = {
-			...savedProxy,
-			password: savedProxy?.password ? "(set)" : null,
-		};
+		const savedProxy = (await saved(app, proxiedID)).proxy;
 
 		expect(
 			savedProxy?.proxyType === "HTTP" &&
@@ -620,7 +564,7 @@ const profileSheet: Scenario = async (context) => {
 				savedProxy.port === proxy.port &&
 				savedProxy.username === CREDENTIALS.username &&
 				savedProxy.password === CREDENTIALS.password,
-			`the saved proxy: ${JSON.stringify(shownProxy)}`,
+			`the saved proxy: ${JSON.stringify({ ...savedProxy, password: savedProxy?.password ? "(set)" : null })}`,
 		);
 
 		expect(
@@ -633,12 +577,7 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		// Spoofing off.
-		await app.send("openProfileSheet", { profile: proxiedID });
-
-		await app.waitFor(
-			"the edit sheet",
-			(state) => state.profileSheet === proxiedID,
-		);
+		await editSheet(proxiedID);
 
 		// A real click on the switch's label, well clear of the switch: the
 		// whole row toggles it, as a checkbox's label does. Once the sheet has
@@ -646,22 +585,15 @@ const profileSheet: Scenario = async (context) => {
 		// agree.
 		await Bun.sleep(400);
 
-		let spoofRow = await readControl(
-			pid,
-			window,
-			"Spoof fingerprint",
-			/AX(CheckBox|Switch)/,
-		);
+		const spoofSwitch = () =>
+			readControl(pid, window, "Spoof fingerprint", /AX(CheckBox|Switch)/);
+
+		let spoofRow = await spoofSwitch();
 
 		await poll("the sheet to settle", async () => {
 			await Bun.sleep(100);
 
-			const again = await readControl(
-				pid,
-				window,
-				"Spoof fingerprint",
-				/AX(CheckBox|Switch)/,
-			);
+			const again = await spoofSwitch();
 
 			const settled = again.x === spoofRow.x && again.y === spoofRow.y;
 			spoofRow = again;
@@ -678,12 +610,7 @@ const profileSheet: Scenario = async (context) => {
 		const spoofAfterClick = await poll(
 			"the switch to toggle",
 			async () => {
-				const { value } = await readControl(
-					pid,
-					window,
-					"Spoof fingerprint",
-					/AX(CheckBox|Switch)/,
-				);
+				const { value } = await spoofSwitch();
 
 				return value !== spoofRow.value && value;
 			},
@@ -702,12 +629,7 @@ const profileSheet: Scenario = async (context) => {
 			"the time zone's row still shows with spoofing off",
 		);
 
-		await clickButton(pid, window, "Save");
-
-		await app.waitFor(
-			"the sheet closed",
-			(state) => state.profileSheet === null,
-		);
+		await closeWith("Save");
 
 		const unspoofed = await saved(app, proxiedID);
 

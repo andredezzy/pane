@@ -111,6 +111,23 @@ const historyScenario: Scenario = async (context) => {
 		downloads: rows(profile, "History", "SELECT id FROM downloads").length,
 	});
 
+	const keptNothing = (description: string, profile: string) =>
+		poll(description, () => isEmpty(keptBy(profile)), 30_000, 500);
+
+	// Owed until the engine's commit has reached the disk: 15 s on.
+	const clearNoLongerOwed = (app: PaneApp, profile: string) =>
+		poll(
+			"the clear no longer owed",
+			async () =>
+				!(
+					await app.send<{ historyClearOwed: boolean }>("readProfile", {
+						profile,
+					})
+				).result.historyClearOwed,
+			25_000,
+			500,
+		);
+
 	// Every file of the profile that names the visit's host, its site data aside.
 	const namedBy = async (profile: string, query: string) => {
 		const root = join(dataDir, "Engine", profile);
@@ -334,16 +351,7 @@ const historyScenario: Scenario = async (context) => {
 		30_000,
 	);
 
-	await poll(
-		"what it kept to go",
-		() => {
-			const kept = keptBy(keeps);
-
-			return isEmpty(kept) && kept;
-		},
-		30_000,
-		500,
-	);
+	await keptNothing("what it kept to go", keeps);
 
 	await app.waitFor(
 		"the closed tab of the profile that cleared to go, and the other to stay",
@@ -447,16 +455,7 @@ const historyScenario: Scenario = async (context) => {
 
 	await second.send("setSavesHistory", { profile: off, savesHistory: false });
 
-	await poll(
-		"the closed profile's history to go",
-		() => {
-			const kept = keptBy(off);
-
-			return isEmpty(kept) && kept;
-		},
-		30_000,
-		500,
-	);
+	await keptNothing("the closed profile's history to go", off);
 
 	await second.waitFor(
 		"the profile opened to clear to close again",
@@ -466,18 +465,7 @@ const historyScenario: Scenario = async (context) => {
 		20_000,
 	);
 
-	// Owed until the engine's commit has reached the disk: 15 s on.
-	await poll(
-		"the clear no longer owed",
-		async () =>
-			!(
-				await second.send<{ historyClearOwed: boolean }>("readProfile", {
-					profile: off,
-				})
-			).result.historyClearOwed,
-		25_000,
-		500,
-	);
+	await clearNoLongerOwed(second, off);
 
 	// Back on, with a page. Off again and a crash at once: whichever of the clear,
 	// the engine's commit, and the Save got to the disk, what it kept goes by the
@@ -505,18 +493,9 @@ const historyScenario: Scenario = async (context) => {
 	});
 
 	const url = pageURL("after-crash");
-	await third.app.page(await third.app.openTab(off, url), url);
+	await third.app.openPage(off, url);
 
-	await poll(
-		"what it kept to go, once it opened",
-		() => {
-			const kept = keptBy(off);
-
-			return isEmpty(kept) && kept;
-		},
-		30_000,
-		500,
-	);
+	await keptNothing("what it kept to go, once it opened", off);
 
 	// The choice landed and the clear did not, as a lock or a quit can leave
 	// it: the engine's pref already says off, and the clear still runs.
@@ -547,24 +526,14 @@ const historyScenario: Scenario = async (context) => {
 	});
 
 	const onURL = pageURL("turned-on-closed");
-	await fourth.app.page(await fourth.app.openTab(off, onURL), onURL);
+	await fourth.app.openPage(off, onURL);
 
 	await fourth.waitForEntry(
 		"PaneBrowserContext.setSavesHistory",
 		(args) => args.savesHistory === true,
 	);
 
-	await poll(
-		"the owed clear to finish",
-		async () =>
-			!(
-				await fourth.app.send<{ historyClearOwed: boolean }>("readProfile", {
-					profile: off,
-				})
-			).result.historyClearOwed,
-		25_000,
-		500,
-	);
+	await clearNoLongerOwed(fourth.app, off);
 
 	await fourth.app.browser.close();
 };

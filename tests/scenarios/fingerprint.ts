@@ -190,8 +190,6 @@ const fingerprint: Scenario = async (context) => {
 		entry.brand.startsWith("Not"),
 	);
 
-	const checks: Record<string, unknown> = {};
-
 	for (const key of ["a", "b"] as const) {
 		const claimed = CLAIMED[key];
 		const configured = claimed.fingerprint;
@@ -366,7 +364,6 @@ const fingerprint: Scenario = async (context) => {
 
 		// The headers each request carried match navigator.userAgentData.
 		const data = frame.userAgentData;
-		const headerChecks: Record<string, unknown> = {};
 
 		for (const [source, headers] of Object.entries(reports.headers)) {
 			const expectedHeaders: Record<string, string> = {
@@ -374,9 +371,6 @@ const fingerprint: Scenario = async (context) => {
 				"sec-ch-ua": serialize(data.brands),
 				"sec-ch-ua-mobile": "?0",
 				"sec-ch-ua-platform": `"${data.platform}"`,
-			};
-
-			const highEntropy: Record<string, string> = {
 				"sec-ch-ua-full-version-list": serialize(data.high.fullVersionList),
 				"sec-ch-ua-platform-version": `"${data.high.platformVersion}"`,
 				"sec-ch-ua-arch": `"${data.high.architecture}"`,
@@ -385,8 +379,6 @@ const fingerprint: Scenario = async (context) => {
 				"sec-ch-ua-wow64": "?0",
 				"sec-ch-ua-form-factors": `"Desktop"`,
 			};
-
-			Object.assign(expectedHeaders, highEntropy);
 
 			// A service worker's own fetch carries the hints Chrome sends from
 			// service workers, the ones C's carries.
@@ -412,26 +404,7 @@ const fingerprint: Scenario = async (context) => {
 				(headers["accept-language"] ?? "").startsWith(configured.language),
 				`${key} ${source} Accept-Language ${headers["accept-language"]}`,
 			);
-
-			headerChecks[source] = Object.fromEntries(
-				Object.entries(headers).filter(
-					([name]) =>
-						name.startsWith("sec-ch-ua") ||
-						name === "user-agent" ||
-						name === "accept-language",
-				),
-			);
 		}
-
-		checks[key] = {
-			profile: profiles[key],
-			configured,
-			reported: Object.fromEntries(
-				CONTEXTS.map((name) => [name, reports[name]]),
-			),
-			early: reports.early,
-			headers: headerChecks,
-		};
 	}
 
 	// A and B are told apart by their noise; C has none.

@@ -224,7 +224,7 @@ const profileLifecycle: Scenario = async (context) => {
 
 	const doomed = await killed.app.createProfile("Doomed", "ROSE");
 	const doomedURL = context.fixtures.url("nav-a.html?doomed");
-	await killed.app.page(await killed.app.openTab(doomed, doomedURL), doomedURL);
+	await killed.app.openPage(doomed, doomedURL);
 	const doomedFolder = join(killedDir, "Engine", "Volume", doomed);
 	const filler = join(doomedFolder, "filler");
 	mkdirSync(filler);

@@ -10,6 +10,7 @@ import {
 import { poll, pollValue } from "../lib/poll";
 import {
 	imagesAttachedIn,
+	isRunning,
 	mountedAt,
 	pgrep,
 	waitForExit,
@@ -172,11 +173,9 @@ async function pinWithNoKey(context: ScenarioContext) {
 			!result.image,
 		`a PIN with no key: ${JSON.stringify(result)}`,
 	);
-
-	return result;
 }
 
-// A profile's page, reading back what it stored once the PIN opened it.
+// Wrong PINs in Settings, and the last attempt 0.18.0 left on disk: the data stays.
 async function settingsAttempts(context: ScenarioContext) {
 	const dataDir = context.tempDir("pane-security-settings-");
 	const PIN = "2468";
@@ -579,12 +578,15 @@ const security: Scenario = async (context) => {
 	// names each profile it brought.
 	writeFileSync(join(dataDir, "migration.json"), "{}");
 
-	const before = {
-		profiles: existsSync(join(dataDir, "profiles.json")),
-		profileData: lexists(profileDir),
-		volume: existsSync(join(dataDir, "Data.sparsebundle")),
-		key: saved(dataDir)?.state.key?.box ?? null,
-	};
+	const keyBefore = saved(dataDir)?.state.key?.box;
+
+	expect(
+		existsSync(join(dataDir, "profiles.json")) &&
+			lexists(profileDir) &&
+			existsSync(join(dataDir, "Data.sparsebundle")) &&
+			!!keyBefore,
+		"nothing to wipe",
+	);
 
 	// The wiped instance's helpers (renderers, GPU, network service), which
 	// must not outlive it to write after the erase.
@@ -614,28 +616,43 @@ const security: Scenario = async (context) => {
 		30_000,
 	);
 
-	const helpersAlive = [];
+	// Every helper is gone: nothing can flush after the erase.
+	const helpersAlive = helpers.filter(isRunning);
 
-	for (const pid of helpers) {
-		if ((await Bun.$`kill -0 ${pid}`.quiet().nothrow()).exitCode === 0) {
-			helpersAlive.push(pid);
-		}
-	}
+	expect(
+		helpers.length > 0 && helpersAlive.length === 0,
+		`the wiped instance's helpers outlived it: ${helpersAlive.length} of ${helpers.length}`,
+	);
 
-	// Every helper is gone, by the check below: nothing can flush after the erase.
-	const after = {
-		profileData: lexists(profileDir),
-		// The fresh Pane's own volume, attached: the wiped profile is not in it.
-		profileInVolume: existsSync(join(dataDir, "Engine", "Volume", profile)),
-		migrationRecord: existsSync(join(dataDir, "migration.json")),
-		staged: existsSync(join(dataDir, "Wiping")),
-		failures: erased.security.wipe.failures,
-		helpers: { before: helpers.length, alive: helpersAlive },
-		security: saved(dataDir),
-		locked: fresh.security.locked,
-		pinLength: fresh.security.pinLength,
-		profiles: fresh.profiles.length,
-	};
+	expect(!lexists(profileDir), "the profile's engine data survived the wipe");
+
+	// The wiped key is gone: the fresh Pane seals a key of its own, over a new
+	// volume the wiped profile is not in.
+	const afterWipe = saved(dataDir)?.state;
+
+	expect(
+		afterWipe?.key?.box !== keyBefore &&
+			!existsSync(join(dataDir, "Engine", "Volume", profile)),
+		`the wiped key or volume survived: ${JSON.stringify({ keyBefore, afterWipe })}`,
+	);
+
+	expect(
+		!existsSync(join(dataDir, "migration.json")),
+		"a migration's record survived the wipe",
+	);
+
+	expect(
+		!existsSync(join(dataDir, "Wiping")) &&
+			erased.security.wipe.failures.length === 0,
+		`the wipe left data: ${JSON.stringify(erased.security.wipe.failures)}`,
+	);
+
+	expect(
+		!fresh.security.locked &&
+			fresh.security.pinLength === null &&
+			(afterWipe?.pin ?? null) === null,
+		`the PIN survived: ${JSON.stringify(fresh.security)}`,
+	);
 
 	await relaunched.quit();
 
@@ -644,16 +661,17 @@ const security: Scenario = async (context) => {
 	await withPin(context, capsDir, "1234");
 
 	const caps = await launchPane(context, { dataDir: capsDir });
-	let quitWithCapsLock: boolean | null = null;
 
 	if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
 		await caps.send("key", { key: "q", modifiers: ["command", "capsLock"] });
-		quitWithCapsLock = await waitForExit(caps.browser.pid);
+
+		expect(
+			await waitForExit(caps.browser.pid),
+			"⌘Q with Caps Lock did not quit at the PIN screen",
+		);
 	}
 
-	if (!quitWithCapsLock) {
-		await caps.browser.close();
-	}
+	await caps.browser.close();
 
 	// A quit detaches the volume; so does the watchdog when Pane is killed.
 	const detachDir = context.tempDir("pane-security-detach-");
@@ -663,22 +681,17 @@ const security: Scenario = async (context) => {
 
 	await attachedApp.openPage(detachProfile, detachPage);
 
-	const whileOpen = (await imagesAttachedIn(detachDir)).length;
+	const attachedCount = async () => (await imagesAttachedIn(detachDir)).length;
+	expect((await attachedCount()) === 1, "the volume was not attached");
 	await attachedApp.browser.close();
 
 	// The detach ends a moment after the process does.
-	const afterQuit = await poll(
+	await poll(
 		"the volume to detach after a quit",
-		async () => {
-			const attached = (await imagesAttachedIn(detachDir)).length;
-
-			return attached === 0 ? "none" : false;
-		},
+		async () => (await attachedCount()) === 0,
 		15_000,
 		200,
-	)
-		.then(() => 0)
-		.catch(async () => (await imagesAttachedIn(detachDir)).length);
+	);
 
 	const killedApp = await launchPane(context, { dataDir: detachDir });
 
@@ -687,49 +700,38 @@ const security: Scenario = async (context) => {
 		(state) => state.security.data.attached,
 	);
 
-	const whileOpenAgain = (await imagesAttachedIn(detachDir)).length;
+	expect((await attachedCount()) === 1, "the volume was not attached again");
 
 	// The watchdog is in a session of its own, apart from Pane's process
 	// group: a kill of that group had ended both and left the volume mounted.
-	const groupOf = async (pid: string) =>
-		(await Bun.$`/bin/ps -o pgid= -p ${pid}`.quiet().nothrow().text()).trim();
+	const groupOf = async (pid: number | undefined) =>
+		(
+			await Bun.$`/bin/ps -o pgid= -p ${pid ?? ""}`.quiet().nothrow().text()
+		).trim();
 
-	const [watchdogPid] = await pgrep(
+	const [watchdog] = await pgrep(
 		"-f",
 		`pane-volume-watch ${killedApp.browser.pid} `,
 	);
 
-	const watchdog = watchdogPid === undefined ? "" : String(watchdogPid);
+	const watchdogGroup = await groupOf(watchdog);
+	const paneGroup = await groupOf(killedApp.browser.pid);
 
-	const watchdogGroup = watchdog ? await groupOf(watchdog) : "";
-	const paneGroup = await groupOf(String(killedApp.browser.pid));
-	const watchdogApart = watchdogGroup !== "" && watchdogGroup !== paneGroup;
+	expect(
+		watchdogGroup !== "" && watchdogGroup !== paneGroup,
+		`the watchdog ${watchdog}, group ${watchdogGroup}, is in Pane's ${paneGroup}`,
+	);
 
 	process.kill(killedApp.browser.pid, "SIGKILL");
 	await waitForExit(killedApp.browser.pid);
 
 	const afterKill = await pollValue(
-		async () => (await imagesAttachedIn(detachDir)).length,
+		attachedCount,
 		(attached) => attached === 0,
 		3_000,
 	);
 
-	const detached = {
-		whileOpen,
-		afterQuit,
-		whileOpenAgain,
-		watchdog: { pid: watchdog, group: watchdogGroup, paneGroup },
-		afterKill,
-	};
-
-	expect(
-		whileOpen === 1 &&
-			afterQuit === 0 &&
-			whileOpenAgain === 1 &&
-			watchdogApart &&
-			afterKill === 0,
-		`the volume after a quit and a kill: ${JSON.stringify(detached)}`,
-	);
+	expect(afterKill === 0, `${afterKill} images attached after a kill`);
 
 	// A damaged security.json: cut short with its key's copy beside it, then
 	// garbage with none.
@@ -780,40 +782,6 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(
-		before.profiles && before.profileData,
-		`nothing to wipe: ${JSON.stringify(before)}`,
-	);
-
-	expect(!after.profileData, "the profile's engine data survived the wipe");
-
-	// The wiped key is gone: the fresh Pane seals a key of its own, over a
-	// new volume the wiped profile is not in.
-	expect(
-		before.volume &&
-			!!before.key &&
-			after.security?.state.key?.box !== before.key &&
-			!after.profileInVolume,
-		`the wiped key or volume survived: ${JSON.stringify({ before, after })}`,
-	);
-
-	expect(!after.migrationRecord, "a migration's record survived the wipe");
-
-	expect(
-		!after.staged && after.failures.length === 0,
-		`the wipe left data: ${JSON.stringify({ staged: after.staged, failures: after.failures })}`,
-	);
-
-	expect(
-		after.helpers.before > 0 && after.helpers.alive.length === 0,
-		`the wiped instance's helpers outlived it: ${JSON.stringify(after.helpers)}`,
-	);
-
-	expect(
-		quitWithCapsLock !== false,
-		"⌘Q with Caps Lock did not quit at the PIN screen",
-	);
-
-	expect(
 		truncated.lockedAtLaunch &&
 			!truncated.lockedAfterKeys &&
 			truncated.keptAside,
@@ -826,13 +794,6 @@ const security: Scenario = async (context) => {
 			!!garbage.error &&
 			garbage.keptAside,
 		`a damaged security.json with no copy: ${JSON.stringify(garbage)}`,
-	);
-
-	expect(
-		!after.locked &&
-			after.pinLength === null &&
-			(after.security?.state.pin ?? null) === null,
-		`the PIN survived: ${JSON.stringify(after)}`,
 	);
 };
 
