@@ -16,13 +16,12 @@ struct SettingsPersistenceTests {
 	@Test("fills defaults for fields a persisted settings.json predates")
 	func fillsDefaults() throws {
 		let directory = try temporaryDirectory()
-		try #"{"state":{"settings":{"chromiumPath":"/Applications/Chromium.app"}},"version":0}"#
+		try #"{"state":{"settings":{"theme":"system"}},"version":0}"#
 			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
 
 		let settings = try PersistedFile<SettingsState>(directory: directory, name: "settings").load()?.settings
 
 		#expect(settings == AppSettings(
-			chromiumPath: "/Applications/Chromium.app",
 			theme: .system,
 			tabSleepAfterMinutes: 15,
 			profileUnloadAfterMinutes: 30,
@@ -33,7 +32,7 @@ struct SettingsPersistenceTests {
 	@Test("restores a persisted theme")
 	func restoresTheme() throws {
 		let directory = try temporaryDirectory()
-		try #"{"state":{"settings":{"chromiumPath":"","theme":"dark"}},"version":0}"#
+		try #"{"state":{"settings":{"theme":"dark"}},"version":0}"#
 			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
 
 		let settings = try PersistedFile<SettingsState>(directory: directory, name: "settings").load()?.settings
@@ -117,8 +116,8 @@ struct SettingsPersistenceTests {
 
 @Suite("profiles persistence")
 struct ProfilesPersistenceTests {
-	// A file that misses a key an earlier Pane didn't write fails whole: ModelStore
-	// keeps it aside. The floor means none reaches here (ADR 0122).
+	// A file that misses a key every Pane since 0.14 wrote fails whole: ModelStore
+	// keeps it aside (ADR 0122).
 	@Test("a profile missing a key fails its whole file")
 	func missingKey() throws {
 		let directory = try temporaryDirectory()
@@ -126,10 +125,44 @@ struct ProfilesPersistenceTests {
 		try file.save(ProfilesState(profiles: [BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")]))
 
 		let whole = try String(contentsOf: file.url, encoding: .utf8)
-		try whole.replacingOccurrences(of: #""savesHistory":true,"#, with: "").write(to: file.url, atomically: true, encoding: .utf8)
+		try whole.replacingOccurrences(of: #""keepLoaded":false,"#, with: "").write(to: file.url, atomically: true, encoding: .utf8)
 
-		#expect(whole.contains(#""savesHistory":true,"#))
+		#expect(whole.contains(#""keepLoaded":false,"#))
 		#expect(throws: DecodingError.self) { try file.load() }
+	}
+
+	// The floor rewrites the file only when something changes, so one it opened and
+	// left is still 0.15's (ADR 0122). data-volume goes through it for real.
+	@Test("what a file the floor left unsaved can miss still reads")
+	func fileTheFloorLeftUnsaved() throws {
+		let object = { (saves: Bool?, owed: Bool?, zone: String?) throws -> Data in
+			var fingerprint = Fingerprint.preset(.macOS)
+			fingerprint.timezone = zone ?? ""
+			var profile = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(BrowserProfile(id: "p1", name: "Work", fingerprint: fingerprint, createdAt: "a", updatedAt: "b"))) as? [String: Any])
+			var encoded = try #require(profile["fingerprint"] as? [String: Any])
+
+			encoded["timeZone"] = zone
+			encoded["timezone"] = "America/Sao_Paulo"
+			profile["fingerprint"] = encoded
+			profile["savesHistory"] = saves
+			profile["historyClearOwed"] = owed
+
+			return try JSONSerialization.data(withJSONObject: profile)
+		}
+
+		let decode = { (data: Data) throws in try JSONDecoder().decode(BrowserProfile.self, from: data) }
+		let old = try decode(object(nil, nil, nil))
+
+		#expect(old.savesHistory)
+		#expect(!old.clearsHistory)
+		// Its zone was a preset's, under the older key: it follows the computer.
+		#expect(old.fingerprint?.timezone == "")
+
+		// One that is off owes a clear, for what those versions neither kept off nor
+		// cleared.
+		#expect(try decode(object(false, nil, nil)).clearsHistory)
+		#expect(try !decode(object(false, false, nil)).clearsHistory)
+		#expect(try decode(object(nil, nil, "Asia/Tokyo")).fingerprint?.timezone == "Asia/Tokyo")
 	}
 
 	@Test("round-trips through save and load")

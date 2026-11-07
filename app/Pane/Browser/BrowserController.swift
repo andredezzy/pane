@@ -329,8 +329,8 @@ final class BrowserController: NSObject {
 	// for Updates…, no Chrome dialog or extension popup. Every way in asks
 	// this one question (the menu bar, the switcher, a launch URL, the
 	// engine's requests), so the lock holds for the mouse as for the keys.
-	// Behind the lock, and until the data key has opened the profiles (and
-	// an earlier Pane's have moved into the volume), nothing runs.
+	// Behind the lock, and until the data key has opened the profiles, nothing
+	// runs.
 	var interactionAllowed: Bool {
 		!lock.isLocked && vault.phase == .open
 	}

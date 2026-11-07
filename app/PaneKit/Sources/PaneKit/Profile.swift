@@ -1,9 +1,11 @@
 import Foundation
 
 // The persisted profile model, as profiles.json holds it. Field names and raw
-// values are the Electron app's. Every key is required: the floor (ADR 0122) means
-// no file from before these keys reaches this code, and one missing a key fails
-// whole, kept aside by ModelStore.
+// values are the Electron app's. Every key is required, and one missing fails the
+// whole file, kept aside by ModelStore, but for three the floor (ADR 0122) does not
+// settle: it rewrites the file only when something changes, so one it opened and
+// left can still be 0.15's. They stay until a later floor: `timeZone` (0.17),
+// `savesHistory` (0.16), and `historyClearOwed` (0.17.1).
 
 public enum ProfileColor: String, Codable, CaseIterable, Sendable {
 	case blue = "BLUE"
@@ -103,7 +105,8 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 		case userAgent, platform, screen, language, languages, webgl
 		case hardwareConcurrency, deviceMemory, maxTouchPoints, canvas, audio
 		// A key of its own: under "timezone", an earlier Pane's files held a
-		// preset's zone, which nobody chose (ADR 0038).
+		// preset's zone, which nobody chose, so a file without this one follows
+		// the computer (ADR 0038).
 		case timezone = "timeZone"
 	}
 
@@ -133,6 +136,22 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 		self.maxTouchPoints = maxTouchPoints
 		self.canvas = canvas
 		self.audio = audio
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		userAgent = try container.decode(String.self, forKey: .userAgent)
+		platform = try container.decode(Platform.self, forKey: .platform)
+		screen = try container.decode(Screen.self, forKey: .screen)
+		language = try container.decode(String.self, forKey: .language)
+		languages = try container.decode([String].self, forKey: .languages)
+		timezone = try container.decodeIfPresent(String.self, forKey: .timezone) ?? ""
+		webgl = try container.decodeIfPresent(WebGL.self, forKey: .webgl)
+		hardwareConcurrency = try container.decode(Int.self, forKey: .hardwareConcurrency)
+		deviceMemory = try container.decode(Double.self, forKey: .deviceMemory)
+		maxTouchPoints = try container.decode(Int.self, forKey: .maxTouchPoints)
+		canvas = try container.decode(Noise.self, forKey: .canvas)
+		audio = try container.decode(Noise.self, forKey: .audio)
 	}
 }
 
@@ -177,7 +196,8 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 	public var proxy: ProxyConfig?
 	// Exempts the profile from automatic sleep and unload (CONTEXT.md).
 	public var keepLoaded: Bool
-	// Whether it keeps a record of where it went (ADR 0119).
+	// Whether it keeps a record of where it went (ADR 0119). A file from before
+	// the choice has none: it kept its history, and still does.
 	public var savesHistory: Bool {
 		didSet {
 			if savesHistory != oldValue {
@@ -187,7 +207,9 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 	}
 
 	// Turned off, what it kept is still to clear, until the engine says it is
-	// gone: a lock or a quit before then clears at the next open (ADR 0119).
+	// gone: a lock or a quit before then clears at the next open. A file without
+	// the key, from before 0.17.1, owes one if the profile is off, for what those
+	// versions neither kept off nor cleared (ADR 0119).
 	public var clearsHistory: Bool
 	public var tabs: [Tab]
 	public var createdAt: String
@@ -223,5 +245,21 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		self.tabs = tabs
 		self.createdAt = createdAt
 		self.updatedAt = updatedAt
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		id = try container.decode(String.self, forKey: .id)
+		name = try container.decode(String.self, forKey: .name)
+		color = try container.decode(ProfileColor.self, forKey: .color)
+		group = try container.decodeIfPresent(String.self, forKey: .group)
+		fingerprint = try container.decodeIfPresent(Fingerprint.self, forKey: .fingerprint)
+		proxy = try container.decodeIfPresent(ProxyConfig.self, forKey: .proxy)
+		keepLoaded = try container.decode(Bool.self, forKey: .keepLoaded)
+		savesHistory = try container.decodeIfPresent(Bool.self, forKey: .savesHistory) ?? true
+		clearsHistory = try container.decodeIfPresent(Bool.self, forKey: .clearsHistory) ?? !savesHistory
+		tabs = try container.decode([Tab].self, forKey: .tabs)
+		createdAt = try container.decode(String.self, forKey: .createdAt)
+		updatedAt = try container.decode(String.self, forKey: .updatedAt)
 	}
 }

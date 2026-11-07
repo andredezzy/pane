@@ -14,6 +14,7 @@ import { imageDevice, imagesAttachedIn } from "../lib/processes";
 import {
 	READ_BACK,
 	type ReadBack,
+	type RichSession,
 	richSession,
 	STORES_COMMITTED_MS,
 } from "../lib/rich-session";
@@ -29,7 +30,9 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // to it. A quit while the first launch makes the image leaves nothing
 // attached. A data folder from before the floor (ADR 0122) is refused, with every
 // hash and time unchanged, and the Pane that wrote it still opens it all:
-// PANE_EARLIER_BUILDS names that Pane's executables, comma-separated.
+// PANE_EARLIER_BUILDS names that Pane's executables, comma-separated. With
+// PANE_FLOOR_BUILD naming the floor's, what it converted opens here, and what its
+// conversion left goes.
 
 // A file's hash and time.
 function hashAndTime(path: string) {
@@ -180,11 +183,21 @@ async function beforeTheFloor(context: ScenarioContext, earlier: string) {
 
 	// The Pane that wrote it still opens it all: what the floor's dmg then converts.
 	const again = await launchPane(context, session.launch);
-	await again.send("select", { tab: session.tab });
-	const page = await again.page(session.tab, session.url);
-	const back = await page.evaluate<ReadBack>(READ_BACK);
+	await expectSession(again, session, "after the refused launch");
 	await again.browser.close();
 
+	return {
+		earlier,
+		filesChecked: Object.keys(before).length,
+		failure: state.security.data.failure?.slice(0, 200),
+	};
+}
+
+// What the session planted, read back through its page.
+async function expectSession(app: PaneApp, session: RichSession, when: string) {
+	await app.send("select", { tab: session.tab });
+	const page = await app.page(session.tab, session.url);
+	const back = await page.evaluate<ReadBack>(READ_BACK);
 	const { values } = session.planted;
 
 	expect(
@@ -193,14 +206,59 @@ async function beforeTheFloor(context: ScenarioContext, earlier: string) {
 			back.cacheStorage === values.cacheStorage &&
 			back.originPrivate === values.originPrivate &&
 			back.cookie.includes(values.scriptCookie ?? ""),
-		`what ${earlier} wrote, after the refused launch: ${JSON.stringify(back)}`,
+		`what the session wrote, ${when}: ${JSON.stringify(back)}`,
+	);
+}
+
+// The way a user comes: a folder from before the floor, converted by the floor's
+// Pane, then opened by this one. Nothing changes under the floor, so its
+// profiles.json is still as the earlier Pane wrote it, and must read here.
+async function throughTheFloor(
+	context: ScenarioContext,
+	earlier: string,
+	floor: string,
+) {
+	const session = await richSession(context, earlier);
+	await Bun.sleep(STORES_COMMITTED_MS);
+	await session.app.browser.close();
+
+	const profile = join(
+		session.roots.dataRoot,
+		"Engine",
+		"Volume",
+		session.profile,
 	);
 
-	return {
-		earlier,
-		filesChecked: Object.keys(before).length,
-		failure: state.security.data.failure?.slice(0, 200),
-	};
+	const left = () =>
+		readdirSync(profile).filter((name) =>
+			/^(SafetyCopy|\.safety-.*|\.files-repaired)$/.test(name),
+		);
+
+	const converting = await launchPane(context, {
+		...session.launch,
+		binary: floor,
+	});
+
+	await expectSession(converting, session, `on ${floor}`);
+	const leftByTheFloor = left();
+	await converting.browser.close();
+
+	const app = await launchPane(context, {
+		...session.launch,
+		binary: undefined,
+	});
+
+	await expectSession(app, session, "past the floor");
+	const leftHere = left();
+	const marked = existsSync(join(profile, ".files-encrypted"));
+	await app.browser.close();
+
+	expect(
+		leftByTheFloor.includes("SafetyCopy") && leftHere.length === 0 && marked,
+		`what the conversion left: ${JSON.stringify({ leftByTheFloor, leftHere, marked })}`,
+	);
+
+	return { earlier, floor, leftByTheFloor };
 }
 
 const dataVolume: Scenario = async (context) => {
@@ -485,7 +543,27 @@ const dataVolume: Scenario = async (context) => {
 		refused.push(await beforeTheFloor(context, build));
 	}
 
-	return { handOver, finished, plain, quitWhileMaking, assisted, refused };
+	const floor = process.env.PANE_FLOOR_BUILD;
+	const earlier = builds[0];
+
+	if (!floor || !earlier) {
+		context.defer(
+			"no floor to convert an earlier build's data (PANE_FLOOR_BUILD, PANE_EARLIER_BUILDS)",
+		);
+	}
+
+	const converted =
+		floor && earlier ? await throughTheFloor(context, earlier, floor) : null;
+
+	return {
+		handOver,
+		finished,
+		plain,
+		quitWhileMaking,
+		assisted,
+		refused,
+		converted,
+	};
 };
 
 export default dataVolume;

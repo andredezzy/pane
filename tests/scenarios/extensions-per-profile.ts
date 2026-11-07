@@ -62,8 +62,7 @@ const extensionsPerProfile: Scenario = async (context) => {
 		(state) => state.activeProfileID === second && second in state.extensions,
 	);
 
-	// Long enough for anything the first install (or a migration) would
-	// carry over to arrive.
+	// Long enough for anything the first install would carry over to arrive.
 	await Bun.sleep(5_000);
 	const beside = await app.state();
 
