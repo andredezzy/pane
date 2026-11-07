@@ -24,12 +24,8 @@ struct RootView: View {
 
 			HStack(spacing: 0) {
 				if !fullscreen {
-					SidebarView(
-						controller: controller,
-						onNewProfile: { controller.presentProfileSheet(.new) },
-						onEditProfile: { controller.presentProfileSheet(.edit($0)) }
-					)
-					.frame(width: state.sidebarWidth)
+					SidebarView(controller: controller)
+						.frame(width: state.sidebarWidth)
 				}
 
 				content

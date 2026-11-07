@@ -76,23 +76,15 @@ final class ModelStore {
 			return try file.load()
 		} catch {
 			Log.model.error("Could not read \(file.url.path, privacy: .private): \(String(describing: error), privacy: .private)")
-			keepAside(file.url)
+			keepDamaged(file.url)
 			return nil
-		}
-	}
-
-	private static func keepAside(_ url: URL) {
-		let damaged = url.appendingPathExtension("damaged")
-
-		if !FileManager.default.fileExists(atPath: damaged.path) {
-			try? FileManager.default.copyItem(at: url, to: damaged)
 		}
 	}
 
 	private func write(_ save: BrowserModel.Save) {
 		if profilesUnread, save.profiles != nil {
 			profilesUnread = false
-			Self.keepAside(profilesFile.url)
+			keepDamaged(profilesFile.url)
 		}
 
 		let profilesFile = profilesFile

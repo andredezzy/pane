@@ -373,7 +373,7 @@ final class BrowserController: NSObject {
 	// profile closes in the engine, which closes its files, and the volume
 	// detaches. The PIN opens them again, and the tab that showed comes
 	// back.
-	func lockNow() {
+	@objc func lockNow(_ sender: Any? = nil) {
 		guard lock.state.pin != nil, !lock.isLocked else {
 			return
 		}
@@ -462,10 +462,11 @@ final class BrowserController: NSObject {
 		}
 	}
 
-	// A tab whose page loads behind the selected one.
-	private func openTabBehind(inProfile profileID: String, url: URL) -> String {
+	// A tab whose page loads behind the selected one, after `anchor`, or last.
+	@discardableResult
+	private func openTabBehind(inProfile profileID: String, url: URL, after anchor: String? = nil) -> String {
 		let tab = Tab(id: UUID().uuidString.lowercased(), url: url.absoluteString)
-		model.insertTab(tab, inProfile: profileID, after: nil)
+		model.insertTab(tab, inProfile: profileID, after: anchor)
 
 		withContext(profileID) { [weak self] context in
 			guard let self, let context, model.tab(tab.id) != nil, pages.page(for: tab.id) == nil else {
@@ -707,7 +708,7 @@ final class BrowserController: NSObject {
 		return tab.id
 	}
 
-	func newTabInActiveProfile() {
+	@objc func newTab(_ sender: Any? = nil) {
 		Log.interaction("New tab")
 		guard let profileID = model.activeProfileID ?? model.profiles.first?.id else {
 			return
@@ -753,13 +754,13 @@ final class BrowserController: NSObject {
 		}
 	}
 
-	func closeActiveTab() {
+	@objc func closeActiveTab(_ sender: Any? = nil) {
 		if let tabID = model.activeTabID {
 			closeTab(tabID)
 		}
 	}
 
-	func reopenClosedTab() {
+	@objc func reopenClosedTab(_ sender: Any? = nil) {
 		guard let closed = model.popClosedTab(), model.profile(closed.profileID) != nil else {
 			return
 		}
@@ -971,15 +972,15 @@ final class BrowserController: NSObject {
 		}
 	}
 
-	func goBack() {
+	@objc func goBack(_ sender: Any? = nil) {
 		activePage?.goBack()
 	}
 
-	func goForward() {
+	@objc func goForward(_ sender: Any? = nil) {
 		activePage?.goForward()
 	}
 
-	func reload() {
+	@objc func reload(_ sender: Any? = nil) {
 		if let tabID = model.activeTabID, model.crashedTabIDs.contains(tabID) {
 			reloadCrashed(tabID)
 			return
@@ -997,21 +998,21 @@ final class BrowserController: NSObject {
 		activePage?.stopLoading()
 	}
 
-	func zoomIn() {
+	@objc func zoomIn(_ sender: Any?) {
 		activePage?.zoomIn()
 	}
 
-	func zoomOut() {
+	@objc func zoomOut(_ sender: Any?) {
 		activePage?.zoomOut()
 	}
 
-	func resetZoom() {
+	@objc func resetZoom(_ sender: Any?) {
 		activePage?.resetZoom()
 	}
 
 	// MARK: Find
 
-	func showFind() {
+	@objc func showFind(_ sender: Any? = nil) {
 		state.find.visible = true
 		focusFindField()
 	}
@@ -1290,20 +1291,10 @@ extension BrowserController {
 			return
 		}
 
-		let tab = Tab(id: UUID().uuidString.lowercased(), url: url.absoluteString)
-		model.insertTab(tab, inProfile: profileID, after: sourceID)
-
-		withContext(profileID) { [weak self] context in
-			guard let context else {
-				self?.model.setCrashed(tab.id, true)
-				return
-			}
-
-			self?.openPage(tabID: tab.id, url: url, context: context, foreground: false)
-		}
+		openTabBehind(inProfile: profileID, url: url, after: sourceID)
 	}
 
-	func toggleDevTools() {
+	@objc func toggleDevTools(_ sender: Any? = nil) {
 		guard interactionAllowed, let page = activePage else {
 			return
 		}
@@ -1311,7 +1302,7 @@ extension BrowserController {
 		page.isDevToolsOpen ? page.closeDevTools() : page.showDevTools()
 	}
 
-	func printPage() {
+	@objc func printPage(_ sender: Any?) {
 		guard interactionAllowed else {
 			return
 		}

@@ -327,9 +327,7 @@ private struct LinkRow: View {
 		.buttonStyle(.plain)
 		.disabled(!link.enabled)
 		.opacity(link.enabled ? 1 : 0.5)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverFade($isHovered)
 		.accessibilityIdentifier("pane.extensionDetails.\(link.identifier)")
 	}
 }

@@ -58,13 +58,7 @@ final class AppLock {
 			loaded = try file.load() ?? SecurityState()
 		} catch {
 			Log.security.error("Could not read security.json: \(String(describing: error), privacy: .private)")
-
-			let damaged = file.url.appendingPathExtension("damaged")
-
-			if !FileManager.default.fileExists(atPath: damaged.path) {
-				try? FileManager.default.copyItem(at: file.url, to: damaged)
-			}
-
+			keepDamaged(file.url)
 			unreadable = true
 		}
 

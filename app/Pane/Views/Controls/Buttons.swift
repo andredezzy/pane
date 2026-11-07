@@ -84,9 +84,7 @@ private struct PaneButtonBody: View {
 			}
 			.contentShape(Rectangle())
 			.opacity(isEnabled ? 1 : 0.5)
-			.onHover { hovering in
-				withAnimation(Motion.hover) { isHovered = hovering }
-			}
+			.hoverFade($isHovered)
 	}
 
 	// A fill a dark press would not show on.
@@ -204,9 +202,7 @@ private struct IconButton: View {
 			}
 			.contentShape(shape)
 			.opacity(isEnabled ? 1 : 0.4)
-			.onHover { hovering in
-				withAnimation(Motion.hover) { isHovered = hovering }
-			}
+			.hoverFade($isHovered)
 	}
 }
 
@@ -260,9 +256,7 @@ private struct RowButton: View {
 					PressLayer(shape: shape, color: Palette.press, isPressed: configuration.isPressed && !isDragged)
 				}
 			}
-			.onHover { hovering in
-				withAnimation(Motion.hover) { isHovered = hovering }
-			}
+			.hoverFade($isHovered)
 			// The row moves as one: its place is the list's to animate (a
 			// drag's slide, a profile opening). SwiftUI otherwise hands a move
 			// down to each icon and text, and those a hover redraws took the

@@ -26,7 +26,7 @@ enum MainMenu {
 		menu.addItem(item("Settings…", #selector(BrowserController.showSettings(_:)), ",", target: controller))
 		menu.addItem(.separator())
 		// Paper 07.9: closes every profile's data, and the PIN screen shows.
-		menu.addItem(item("Lock Pane", #selector(BrowserController.lockPane(_:)), "l", [.command, .control], target: controller))
+		menu.addItem(item("Lock Pane", #selector(BrowserController.lockNow(_:)), "l", [.command, .control], target: controller))
 		menu.addItem(.separator())
 		menu.addItem(withTitle: "Hide Pane", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
 		menu.addItem(item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
@@ -40,12 +40,12 @@ enum MainMenu {
 	private static func fileMenu(_ controller: BrowserController) -> NSMenu {
 		let menu = NSMenu(title: "File")
 		menu.addItem(item("New Tab", #selector(BrowserController.newTab(_:)), "t", target: controller))
-		menu.addItem(item("Close Tab", #selector(BrowserController.closeSelectedTab(_:)), "w", target: controller))
+		menu.addItem(item("Close Tab", #selector(BrowserController.closeActiveTab(_:)), "w", target: controller))
 		// An uppercase key implies Shift, as Interface Builder stores ⇧⌘T: a
 		// typed ⇧⌘T arrives as "T".
-		menu.addItem(item("Reopen Closed Tab", #selector(BrowserController.reopenLastClosedTab(_:)), "T", target: controller))
+		menu.addItem(item("Reopen Closed Tab", #selector(BrowserController.reopenClosedTab(_:)), "T", target: controller))
 		menu.addItem(.separator())
-		menu.addItem(item("Print…", #selector(BrowserController.printActivePage(_:)), "p", target: controller))
+		menu.addItem(item("Print…", #selector(BrowserController.printPage(_:)), "p", target: controller))
 
 		return menu
 	}
@@ -65,28 +65,28 @@ enum MainMenu {
 
 	private static func viewMenu(_ controller: BrowserController) -> NSMenu {
 		let menu = NSMenu(title: "View")
-		menu.addItem(item("Find in Page", #selector(BrowserController.findInPage(_:)), "f", target: controller))
+		menu.addItem(item("Find in Page", #selector(BrowserController.showFind(_:)), "f", target: controller))
 		menu.addItem(.separator())
-		menu.addItem(item("Reload", #selector(BrowserController.reloadPage(_:)), "r", target: controller))
+		menu.addItem(item("Reload", #selector(BrowserController.reload(_:)), "r", target: controller))
 		menu.addItem(.separator())
-		menu.addItem(item("Actual Size", #selector(BrowserController.actualSize(_:)), "0", target: controller))
-		menu.addItem(item("Zoom In", #selector(BrowserController.zoomInPage(_:)), "+", target: controller))
-		menu.addItem(item("Zoom In", #selector(BrowserController.zoomInPage(_:)), "=", target: controller, alternate: true))
-		menu.addItem(item("Zoom Out", #selector(BrowserController.zoomOutPage(_:)), "-", target: controller))
+		menu.addItem(item("Actual Size", #selector(BrowserController.resetZoom(_:)), "0", target: controller))
+		menu.addItem(item("Zoom In", #selector(BrowserController.zoomIn(_:)), "+", target: controller))
+		menu.addItem(item("Zoom In", #selector(BrowserController.zoomIn(_:)), "=", target: controller, alternate: true))
+		menu.addItem(item("Zoom Out", #selector(BrowserController.zoomOut(_:)), "-", target: controller))
 		menu.addItem(.separator())
 		menu.addItem(item("Enter Full Screen", #selector(BrowserController.toggleFullScreenWindow(_:)), "f", [.command, .control], target: controller))
 		menu.addItem(.separator())
-		menu.addItem(item("Developer Tools", #selector(BrowserController.toggleDeveloperTools(_:)), "I", target: controller))
+		menu.addItem(item("Developer Tools", #selector(BrowserController.toggleDevTools(_:)), "I", target: controller))
 
 		return menu
 	}
 
 	private static func navigateMenu(_ controller: BrowserController) -> NSMenu {
 		let menu = NSMenu(title: "Navigate")
-		menu.addItem(item("Back", #selector(BrowserController.goBackPage(_:)), "[", target: controller))
-		menu.addItem(item("Forward", #selector(BrowserController.goForwardPage(_:)), "]", target: controller))
+		menu.addItem(item("Back", #selector(BrowserController.goBack(_:)), "[", target: controller))
+		menu.addItem(item("Forward", #selector(BrowserController.goForward(_:)), "]", target: controller))
 		menu.addItem(.separator())
-		menu.addItem(item("Focus Address Bar", #selector(BrowserController.focusAddressBar(_:)), "l", target: controller))
+		menu.addItem(item("Focus Address Bar", #selector(BrowserController.focusAddressField(_:)), "l", target: controller))
 
 		return menu
 	}

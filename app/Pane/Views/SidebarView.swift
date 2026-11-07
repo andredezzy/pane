@@ -5,8 +5,6 @@ import SwiftUI
 // to release them (CONTEXT.md: Unload); the selected tab is highlighted.
 struct SidebarView: View {
 	let controller: BrowserController
-	var onNewProfile: () -> Void
-	var onEditProfile: (String) -> Void
 
 	private var model: BrowserModel { controller.model }
 
@@ -36,8 +34,7 @@ struct SidebarView: View {
 									proxyStatus: model.proxyStatus[id],
 									selectedTabID: isActive ? model.activeTabID : nil,
 									loadedTabIDs: Set(profile.tabs.lazy.map(\.id).filter(model.loadedTabIDs.contains)),
-									reorder: reorder,
-									onEdit: { onEditProfile(id) }
+									reorder: reorder
 								)
 								.equatable()
 								.reorderRow(id, in: reorder)
@@ -126,7 +123,7 @@ struct SidebarView: View {
 					.transition(.opacity.combined(with: .offset(y: 4)))
 			}
 
-			SidebarButton(isSelected: false, tintsOnHover: false, action: onNewProfile) {
+			SidebarButton(isSelected: false, tintsOnHover: false, action: { controller.presentProfileSheet(.new) }) {
 				PlusMark()
 				Text("New")
 			}
@@ -207,14 +204,12 @@ private struct ProfileSection: View, Equatable {
 	// Which of its tabs have a live page.
 	let loadedTabIDs: Set<String>
 	let reorder: VerticalReorder
-	let onEdit: () -> Void
 
 	// Its tabs reorder by dragging, as the Electron app's did.
 	@State private var tabReorder = VerticalReorder(space: "pane.sidebar.tabs", rowHeight: 32, spacing: 4)
 	@State private var confirmingDelete = false
 
-	// The controller, the reorder, and the edit action are the same for the
-	// section's life.
+	// The controller and the reorder are the same for the section's life.
 	nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
 		lhs.profile == rhs.profile
 			&& lhs.isActive == rhs.isActive
@@ -309,7 +304,7 @@ private struct ProfileSection: View, Equatable {
 		.buttonStyle(RowButtonStyle(isSelected: isActive, selectedFill: .clear, cornerRadius: SidebarRow.cornerRadius, tintsOnHover: false))
 		// The Electron app's menu, with its lucide icons.
 		.contextMenu {
-			Button(action: onEdit) {
+			Button { [controller, id = profile.id] in controller.presentProfileSheet(.edit(id)) } label: {
 				MenuLabel("Edit profile", icon: .pencil)
 			}
 			Toggle(isOn: Binding(

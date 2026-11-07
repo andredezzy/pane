@@ -28,18 +28,19 @@ struct ToolbarView: View {
 				// Aside's chevrons: 1.5 points of stroke at 24. Each dims to
 				// 40%, as the other icon buttons, while the tab has nowhere to
 				// go that way, as Chrome's and Aside's do.
-				NavigationButton(icon: .chevronLeft, size: 24, strokeWidth: 1.5, label: "Back", action: controller.goBack)
+				NavigationButton(icon: .chevronLeft, size: 24, strokeWidth: 1.5, label: "Back") { controller.goBack() }
 					.disabled(!navigation.canGoBack)
-				NavigationButton(icon: .chevronRight, size: 24, strokeWidth: 1.5, label: "Forward", action: controller.goForward)
+				NavigationButton(icon: .chevronRight, size: 24, strokeWidth: 1.5, label: "Forward") { controller.goForward() }
 					.disabled(!navigation.canGoForward)
 				// Its reload at 17, with the same 1.5 points.
 				NavigationButton(
 					icon: isLoading ? .x : .rotateCw,
 					size: 17,
 					strokeWidth: 2.1,
-					label: isLoading ? "Stop" : "Reload",
-					action: isLoading ? controller.stop : controller.reload
-				)
+					label: isLoading ? "Stop" : "Reload"
+				) {
+					isLoading ? controller.stop() : controller.reload()
+				}
 				.accessibilityIdentifier("pane.toolbar.reload")
 			}
 
@@ -164,9 +165,7 @@ private struct AddressField: View {
 				.frame(height: 2)
 		}
 		.clipShape(Squircle(cornerRadius: 9))
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverFade($isHovered)
 		.accessibilityIdentifier("pane.address")
 	}
 

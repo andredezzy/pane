@@ -184,9 +184,7 @@ private struct ShortcutField: View {
 					.padding(-1)
 			}
 		}
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverFade($isHovered)
 		.accessibilityValue(shortcut.isEmpty ? "Not set" : ExtensionShortcut.glyphs(shortcut))
 	}
 

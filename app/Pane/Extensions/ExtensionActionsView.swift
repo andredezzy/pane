@@ -37,9 +37,7 @@ struct ExtensionActionsView: View {
 						.strokeBorder(Palette.border, lineWidth: 1)
 						.opacity(isHovered || pinned.contains { $0.identifier == openID } ? 1 : 0)
 				}
-				.onHover { hovering in
-					withAnimation(Motion.hover) { isHovered = hovering }
-				}
+				.hoverFade($isHovered)
 			}
 
 			if hasProfile {

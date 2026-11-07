@@ -71,9 +71,7 @@ struct PaneMenuTrigger<Content: View>: View {
 		.buttonStyle(.plain)
 		.menuIndicator(.hidden)
 		.fixedSize(horizontal: true, vertical: false)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverFade($isHovered)
 		.accessibilityLabel(label ?? title)
 		.accessibilityValue(label == nil ? "" : title)
 	}

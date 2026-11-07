@@ -77,3 +77,12 @@ enum Motion {
 		isReduced ? nil : animation
 	}
 }
+
+extension View {
+	// Whether the pointer is over it, changing with the hover's fade.
+	func hoverFade(_ isHovered: Binding<Bool>) -> some View {
+		onHover { hovering in
+			withAnimation(Motion.hover) { isHovered.wrappedValue = hovering }
+		}
+	}
+}

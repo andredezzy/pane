@@ -460,9 +460,7 @@ private struct PlatformTile: View {
 		}
 		.contentShape(shape)
 		.animation(nil, value: isSelected)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverFade($isHovered)
 	}
 }
 

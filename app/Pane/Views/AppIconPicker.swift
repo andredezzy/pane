@@ -19,9 +19,7 @@ struct AppIconButton: View {
 				.contentShape(Squircle(cornerRadius: 11))
 		}
 		.buttonStyle(.plain)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverFade($isHovered)
 		.accessibilityLabel("App icon")
 		.accessibilityValue(icon.rawValue.capitalized)
 		.accessibilityHint("Shows every icon")
@@ -109,9 +107,7 @@ private struct AppIconTile: View {
 			.contentShape(Squircle(cornerRadius: 15))
 		}
 		.buttonStyle(.plain)
-		.onHover { hovering in
-			withAnimation(Motion.hover) { isHovered = hovering }
-		}
+		.hoverFade($isHovered)
 		.accessibilityLabel(icon.rawValue.capitalized)
 		.accessibilityAddTraits(isSelected ? .isSelected : [])
 		.accessibilityIdentifier("pane.settings.appIcon.\(icon.rawValue)")

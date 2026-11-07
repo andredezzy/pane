@@ -66,22 +66,8 @@ extension BrowserController {
 		Task { await updater.check() }
 	}
 
-	@objc func newTab(_ sender: Any?) { newTabInActiveProfile() }
-	@objc func closeSelectedTab(_ sender: Any?) { closeActiveTab() }
-	@objc func reopenLastClosedTab(_ sender: Any?) { reopenClosedTab() }
-	@objc func findInPage(_ sender: Any?) { showFind() }
-	@objc func reloadPage(_ sender: Any?) { reload() }
-	@objc func zoomInPage(_ sender: Any?) { zoomIn() }
-	@objc func zoomOutPage(_ sender: Any?) { zoomOut() }
-	@objc func actualSize(_ sender: Any?) { resetZoom() }
-	@objc func goBackPage(_ sender: Any?) { goBack() }
-	@objc func goForwardPage(_ sender: Any?) { goForward() }
-	@objc func focusAddressBar(_ sender: Any?) { focusAddressField() }
 	@objc func showSettings(_ sender: Any?) { showPage(.settings) }
-	@objc func lockPane(_ sender: Any?) { lockNow() }
 	@objc func showExtensionsPage(_ sender: Any?) { extensions.showPage() }
-	@objc func printActivePage(_ sender: Any?) { printPage() }
-	@objc func toggleDeveloperTools(_ sender: Any?) { toggleDevTools() }
 
 	@objc func selectTabByNumber(_ sender: NSMenuItem) {
 		selectTab(atIndex: sender.tag - 1)
@@ -131,7 +117,7 @@ extension BrowserController {
 
 	// All of it selected, to type over. Already there, its focus won't change:
 	// ⌘L still selects the address.
-	func focusAddressField() {
+	@objc func focusAddressField(_ sender: Any? = nil) {
 		Log.interaction("Focus address field")
 
 		if !isEditingAddress, let field = textField(prompting: ToolbarView.addressPrompt) {
@@ -266,7 +252,7 @@ extension BrowserController: NSMenuItemValidation {
 		}
 
 		// Only a PIN locks Pane.
-		if menuItem.action == #selector(lockPane(_:)) {
+		if menuItem.action == #selector(lockNow(_:)) {
 			return interactionAllowed && lock.state.pin != nil
 		}
 

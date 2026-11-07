@@ -32,6 +32,16 @@ public struct PersistedFile<State: Codable & Sendable>: Sendable {
 	}
 }
 
+// A file that will not read, kept as <name>.json.damaged before a save writes over
+// it. The first one kept stays.
+public func keepDamaged(_ url: URL) {
+	let damaged = url.appendingPathExtension("damaged")
+
+	if !FileManager.default.fileExists(atPath: damaged.path) {
+		try? FileManager.default.copyItem(at: url, to: damaged)
+	}
+}
+
 public struct ProfilesState: Codable, Hashable, Sendable {
 	public var profiles: [BrowserProfile]
 
