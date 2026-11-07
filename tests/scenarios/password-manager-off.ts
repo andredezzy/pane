@@ -24,7 +24,7 @@ const passwordManagerOff: Scenario = async (context) => {
 	);
 
 	await Bun.sleep(2_000);
-	await watcher.sample("after sign-in");
+	await watcher.sample();
 	const state = await app.state();
 
 	expect(
@@ -32,12 +32,7 @@ const passwordManagerOff: Scenario = async (context) => {
 		"something asked after the sign-in",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default passwordManagerOff;

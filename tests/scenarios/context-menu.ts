@@ -284,12 +284,7 @@ const contextMenu: Scenario = async (context) => {
 		`a closed menu's Reload: ${stale}`,
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default contextMenu;

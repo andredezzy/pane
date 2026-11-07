@@ -27,7 +27,7 @@ const fileChooser: Scenario = async (context) => {
 
 	await clickAt((method, params) => page.send(method, params), box.x, box.y);
 	const openPanel = await waitForSheet(app, "fileChooser");
-	await watcher.sample("open panel");
+	await watcher.sample();
 	expect(openPanel.panel === "open", `panel ${openPanel.panel}`);
 	await app.send("answerFileChooser", { paths: [chosen] });
 	const opened = await pageResult<{ name: string; text: string }>(evaluate);
@@ -111,12 +111,7 @@ const fileChooser: Scenario = async (context) => {
 
 	expect(has("PaneFileChooser.cancel"), "trace lacks the cancels");
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default fileChooser;

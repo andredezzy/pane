@@ -88,7 +88,7 @@ const tabsApi: Scenario = async (context) => {
 		),
 	);
 
-	await watcher.sample("after windows.create");
+	await watcher.sample();
 
 	// tabs.update({ active: true }) selects that tab in the app.
 	await worker.evaluate(
@@ -155,12 +155,7 @@ const tabsApi: Scenario = async (context) => {
 		"the popup outlived its profile's Browser",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default tabsApi;

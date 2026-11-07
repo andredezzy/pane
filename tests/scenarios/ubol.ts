@@ -133,12 +133,7 @@ const ubol: Scenario = async (context) => {
 
 	expect(image === "net::ERR_BLOCKED_BY_CLIENT", `the ad image: ${image}`);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default ubol;

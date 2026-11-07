@@ -266,12 +266,7 @@ const proxy: Scenario = async (context) => {
 			socks6.stop();
 		}
 
-		const windows = await watcher.stop();
-
-		expect(
-			windows.others.length === 0,
-			`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-		);
+		await watcher.stop();
 
 		await app.send("save");
 		const passwords = await passwordsAtRest(app.dataDir);

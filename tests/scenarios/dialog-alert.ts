@@ -18,7 +18,7 @@ const dialogAlert: Scenario = async (context) => {
 
 	await page.evaluate("runAlert()");
 	const sheet = await waitForSheet(app, "javaScript");
-	await watcher.sample("sheet shown");
+	await watcher.sample();
 
 	expect(sheet.message === "Pane alert", `sheet message ${sheet.message}`);
 	expect(sheet.title === "127.0.0.1 says", `sheet title ${sheet.title}`);
@@ -41,12 +41,7 @@ const dialogAlert: Scenario = async (context) => {
 
 	expect(has("PaneJavaScriptDialog.accept"), "trace lacks the answer");
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default dialogAlert;

@@ -64,12 +64,7 @@ const proxyAuth: Scenario = async (context) => {
 			"trace lacks a proxy authenticate",
 		);
 
-		const windows = await watcher.stop();
-
-		expect(
-			windows.others.length === 0,
-			`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-		);
+		await watcher.stop();
 	} finally {
 		proxy.stop(true);
 	}

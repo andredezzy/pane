@@ -42,12 +42,7 @@ const externalProtocol: Scenario = async (context) => {
 	expect(has("PaneExternalProtocolRequest.cancel"), "trace lacks the cancel");
 	expect(!has("PaneExternalProtocolRequest.open"), "the app opened the link");
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default externalProtocol;

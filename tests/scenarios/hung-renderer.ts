@@ -83,12 +83,7 @@ const hungRenderer: Scenario = async (context) => {
 
 	expect(has("PaneUnresponsivePage.terminate"), "trace lacks the answer");
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default hungRenderer;

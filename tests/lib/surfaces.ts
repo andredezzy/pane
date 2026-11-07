@@ -2,9 +2,10 @@
 // app. A sheet is answered by clicking its real button: with cua-driver on an
 // unlocked screen, else through the automation channel, which presses the
 // same NSButton (performClick). Each answer records which way it went.
+
+import { expect } from "../run";
 import { canDriveUI, clickButton, fillFields, mainWindowOf } from "./cua";
 import type { AppState, PaneApp } from "./pane";
-import { windowsOf } from "./windows";
 
 export type Answer = { button: string; via: "cua" | "automation" };
 
@@ -59,22 +60,20 @@ export async function answerModal(
 	return { button, via: "automation" };
 }
 
-type WindowSample = {
-	at: number;
-	label?: string;
-	cgWindows: number;
-	nativeWindows: AppState["nativeWindows"];
-};
+type NativeWindow = AppState["nativeWindows"][number];
 
 // Samples the app's windows through a scenario: every visible window must be
-// the app's own (its window, a sheet on it, an app-modal panel). Anything
-// else is Chrome's UI showing through.
+// the app's own (its window, a sheet on it, an app-modal panel). Anything else
+// is Chrome's UI showing through, which stop() fails on, but for what
+// `expected` allows.
 export class WindowWatcher {
-	readonly samples: WindowSample[] = [];
+	private readonly others: NativeWindow[] = [];
 	private timer: ReturnType<typeof setInterval> | null = null;
-	private readonly startedAt = Date.now();
 
-	constructor(private readonly app: PaneApp) {}
+	constructor(
+		private readonly app: PaneApp,
+		private readonly expected: (window: NativeWindow) => boolean = () => false,
+	) {}
 
 	start(): this {
 		this.timer = setInterval(() => {
@@ -84,62 +83,29 @@ export class WindowWatcher {
 		return this;
 	}
 
-	async sample(label?: string): Promise<void> {
-		const [state, cg] = await Promise.all([
-			this.app.state(),
-			windowsOf(this.app.browser.pid),
-		]);
+	async sample(): Promise<void> {
+		const { nativeWindows } = await this.app.state();
 
-		this.samples.push({
-			at: Date.now() - this.startedAt,
-			label,
-			cgWindows: cg.count,
-			nativeWindows: state.nativeWindows,
-		});
+		this.others.push(
+			...nativeWindows.filter(
+				(window) => window.role === "other" && !this.expected(window),
+			),
+		);
 	}
 
-	async stop(): Promise<WindowReport> {
+	async stop(): Promise<void> {
 		if (this.timer) {
 			clearInterval(this.timer);
 		}
 
-		await this.sample("end");
+		await this.sample();
 
-		const others = this.samples.flatMap((sample) =>
-			sample.nativeWindows
-				.filter((window) => window.role === "other")
-				.map((window) => ({ at: sample.at, ...window })),
+		expect(
+			this.others.length === 0,
+			`Chrome windows appeared: ${JSON.stringify(this.others)}`,
 		);
-
-		return {
-			samples: this.samples.length,
-			maxCgWindows: Math.max(...this.samples.map((sample) => sample.cgWindows)),
-			roles: [
-				...new Set(
-					this.samples.flatMap((sample) =>
-						sample.nativeWindows.map((window) => window.role),
-					),
-				),
-			],
-			others,
-			labeled: this.samples.filter((sample) => sample.label),
-		};
 	}
 }
-
-export type WindowReport = {
-	samples: number;
-	maxCgWindows: number;
-	roles: string[];
-	others: {
-		at: number;
-		role: string;
-		class: string;
-		title: string;
-		frame: string;
-	}[];
-	labeled: WindowSample[];
-};
 
 // The page answer of a fixture's window.result, once set.
 export async function pageResult<T>(

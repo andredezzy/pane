@@ -95,7 +95,7 @@ const passwordManagers: Scenario = async (context) => {
 			const text = await firstWords(await popupPage(app, manager.id));
 			await Bun.sleep(1_000);
 			await screenshotPopover(app, manager.id, file);
-			await watcher.sample(manager.file);
+			await watcher.sample();
 			await app.send("closeExtensionPopup");
 
 			expect(text.length > 0, `${installed.name}'s popup rendered nothing`);
@@ -113,17 +113,12 @@ const passwordManagers: Scenario = async (context) => {
 		const text = await firstWords(page);
 		await Bun.sleep(1_000);
 		await screenshotWindow(app, file, page);
-		await watcher.sample(manager.file);
+		await watcher.sample();
 
 		expect(text.length > 0, `${installed.name}'s page rendered nothing`);
 	}
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default passwordManagers;

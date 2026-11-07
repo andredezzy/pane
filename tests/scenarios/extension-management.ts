@@ -212,7 +212,7 @@ const extensionManagement: Scenario = async (context) => {
 		30_000,
 	);
 
-	await watcher.sample("removed");
+	await watcher.sample();
 
 	expect(
 		has("PaneBrowserContext.setExtensionEnabled") &&
@@ -221,12 +221,7 @@ const extensionManagement: Scenario = async (context) => {
 		"trace lacks the management calls",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default extensionManagement;

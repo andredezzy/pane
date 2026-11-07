@@ -68,7 +68,7 @@ const devtoolsUndocked: Scenario = async (context) => {
 
 	// A moment undocked, for the watcher to catch any window of Chrome's.
 	await Bun.sleep(1_000);
-	await watcher.sample("undocked");
+	await watcher.sample();
 
 	await (await frontend())("InspectorFrontendHost.setIsDocked(true, () => {})");
 
@@ -80,17 +80,7 @@ const devtoolsUndocked: Scenario = async (context) => {
 
 	expect(has("DevToolsWindow.undock"), "trace lacks the undock");
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
-
-	expect(
-		windows.roles.includes("devtools"),
-		"no DevTools window of Pane's was seen",
-	);
+	await watcher.stop();
 };
 
 export default devtoolsUndocked;

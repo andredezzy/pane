@@ -45,12 +45,7 @@ const dialogBeforeUnload: Scenario = async (context) => {
 		"trace lacks runJavaScriptDialog(beforeunload)",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default dialogBeforeUnload;

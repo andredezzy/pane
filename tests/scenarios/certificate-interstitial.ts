@@ -46,7 +46,7 @@ const certificateInterstitial: Scenario = async (context) => {
 			30_000,
 		);
 
-		await watcher.sample("interstitial");
+		await watcher.sample();
 
 		// The warning page's own "Proceed" link, through CDP.
 		const target = await waitForTarget(
@@ -86,12 +86,7 @@ const certificateInterstitial: Scenario = async (context) => {
 			"trace lacks the warning page",
 		);
 
-		const windows = await watcher.stop();
-
-		expect(
-			windows.others.length === 0,
-			`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-		);
+		await watcher.stop();
 	} finally {
 		server.stop(true);
 	}

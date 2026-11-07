@@ -16,7 +16,7 @@ const print: Scenario = async (context) => {
 
 	await app.waitFor("the print panel", (state) => state.modal !== null, 20_000);
 
-	await watcher.sample("print panel");
+	await watcher.sample();
 	await answerModal(app, "Cancel");
 	await app.waitFor("the panel to close", (state) => state.modal === null);
 
@@ -43,12 +43,7 @@ const print: Scenario = async (context) => {
 	expect(has("PaneWebContentsDelegate.willPrint"), "trace lacks willPrint");
 	expect(has("PaneWebContents.print"), "trace lacks the ⌘P print");
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default print;

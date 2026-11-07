@@ -19,7 +19,7 @@ const screenCapture: Scenario = async (context) => {
 	});
 
 	const screen = await pageResult<string>(evaluate);
-	await watcher.sample("screen");
+	await watcher.sample();
 
 	await page.send("Runtime.evaluate", {
 		expression: "askCast()",
@@ -27,7 +27,7 @@ const screenCapture: Scenario = async (context) => {
 	});
 
 	const cast = await pageResult<string>(evaluate, 20_000);
-	await watcher.sample("cast");
+	await watcher.sample();
 
 	expect(screen === "screen: NotSupportedError", screen);
 	expect(cast !== "cast: granted", cast);
@@ -37,12 +37,7 @@ const screenCapture: Scenario = async (context) => {
 		"trace lacks the declined capture",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default screenCapture;

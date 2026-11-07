@@ -23,7 +23,7 @@ const deviceChooser: Scenario = async (context) => {
 			page.evaluate(expression),
 		);
 
-		await watcher.sample(ask);
+		await watcher.sample();
 	}
 
 	expect(answers.askUsb === "usb: NotFoundError", `usb: ${answers.askUsb}`);
@@ -39,12 +39,7 @@ const deviceChooser: Scenario = async (context) => {
 		"trace lacks the declined chooser",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default deviceChooser;

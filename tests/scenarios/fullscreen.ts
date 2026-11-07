@@ -124,7 +124,7 @@ const fullscreen: Scenario = async (context) => {
 		"document.fullscreenElement?.tagName ?? null",
 	);
 
-	await watcher.sample("fullscreen");
+	await watcher.sample();
 
 	await app.waitFor(
 		"the window in full screen",
@@ -183,12 +183,7 @@ const fullscreen: Scenario = async (context) => {
 
 	lightsInPlace(userLeft, "after the user's full screen");
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default fullscreen;

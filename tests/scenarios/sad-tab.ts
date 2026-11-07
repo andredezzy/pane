@@ -62,7 +62,7 @@ const sadTab: Scenario = async (context) => {
 
 	await crashTwice();
 
-	await watcher.sample("sad tab");
+	await watcher.sample();
 
 	const locked = !(await canDriveUI());
 
@@ -96,12 +96,7 @@ const sadTab: Scenario = async (context) => {
 
 	await pageIsBack();
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default sadTab;

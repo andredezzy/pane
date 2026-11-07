@@ -43,12 +43,7 @@ const dialogPrompt: Scenario = async (context) => {
 		"trace lacks the typed answer",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default dialogPrompt;

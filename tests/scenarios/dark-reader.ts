@@ -19,7 +19,7 @@ const darkReader: Scenario = async (context) => {
 	const b = await app.createProfile("B", "ROSE");
 
 	await installFromWebStore(app, a, DARK_READER);
-	await watcher.sample("installed");
+	await watcher.sample();
 
 	const urlA = context.fixtures.url("light.html?profile=a");
 	const urlB = context.fixtures.url("light.html?profile=b");
@@ -56,7 +56,7 @@ const darkReader: Scenario = async (context) => {
 		join(context.out, "dark-reader-popup.png"),
 	);
 
-	await watcher.sample("popup");
+	await watcher.sample();
 	await app.send("closeExtensionPopup");
 
 	expect(
@@ -69,12 +69,7 @@ const darkReader: Scenario = async (context) => {
 		"trace lacks the popup",
 	);
 
-	const windows = await watcher.stop();
-
-	expect(
-		windows.others.length === 0,
-		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
-	);
+	await watcher.stop();
 };
 
 export default darkReader;
