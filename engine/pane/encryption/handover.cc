@@ -41,13 +41,9 @@ mojom::EngineKeysPtr KeysForOtherProcess() {
   return handover;
 }
 
-void ReceiveKeys(mojom::EngineKeysPtr keys, Stores stores) {
+void ReceiveKeys(mojom::EngineKeysPtr keys) {
   if (!keys) {
     return;
-  }
-
-  if (stores == Stores::kAll) {
-    InstallHooks();
   }
 
   AddRoots(keys->roots);

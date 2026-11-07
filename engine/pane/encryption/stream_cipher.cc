@@ -44,6 +44,16 @@ Key FileKey(const ProfileKeys& keys, base::span<const uint8_t> file_id) {
 
 }  // namespace
 
+// static
+std::unique_ptr<StreamCipher> StreamCipher::Under(
+    const ProfileKeys& keys,
+    base::span<const uint8_t> file_id) {
+  Key file_key = FileKey(keys, file_id);
+  auto cipher = base::WrapUnique(new StreamCipher(file_key));
+  OPENSSL_cleanse(file_key.data(), file_key.size());
+  return cipher;
+}
+
 StreamCipher::StreamCipher(base::span<const uint8_t, kKeySize> file_key) {
   CHECK_EQ(AES_set_encrypt_key(file_key.data(), kKeySize * 8, &key_), 0);
 }
@@ -61,10 +71,7 @@ std::unique_ptr<StreamCipher> StreamCipher::ForNewFile(const ProfileKeys& keys,
   RAND_bytes(file_id.data(), file_id.size());
   out.last<kCheckSize>().copy_from(CheckOf(keys, file_id));
 
-  Key file_key = FileKey(keys, file_id);
-  auto cipher = base::WrapUnique(new StreamCipher(file_key));
-  OPENSSL_cleanse(file_key.data(), file_key.size());
-  return cipher;
+  return Under(keys, file_id);
 }
 
 // static
@@ -90,10 +97,7 @@ std::unique_ptr<StreamCipher> StreamCipher::FromHeader(
   CHECK(check == base::span<const uint8_t>(CheckOf(keys, file_id)))
       << "A profile's stream file under another key.";
 
-  Key file_key = FileKey(keys, file_id);
-  auto cipher = base::WrapUnique(new StreamCipher(file_key));
-  OPENSSL_cleanse(file_key.data(), file_key.size());
-  return cipher;
+  return Under(keys, file_id);
 }
 
 void StreamCipher::Apply(uint64_t offset,

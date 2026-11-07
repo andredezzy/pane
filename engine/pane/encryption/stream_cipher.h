@@ -15,12 +15,11 @@
 
 namespace pane::encryption {
 
-// A file written front to back and never changed in place: LevelDB's files,
-// IndexedDB's blobs, the origin private file system's. 32 bytes of header (magic
-// and version, flags, a random file id, and a check of the key), then the
-// content under AES-256-CTR, the counter being the logical block index, under a
-// key of the file's own. A file fails for good after any failed write, so its
-// keystream is never reused.
+// A file written front to back and never changed in place: LevelDB's. 32 bytes
+// of header (magic and version, flags, a random file id, and a check of the key),
+// then the content under AES-256-CTR, the counter being the logical block index,
+// under a key of the file's own. A file fails for good after any failed write, so
+// its keystream is never reused.
 class StreamCipher {
  public:
   static constexpr size_t kHeaderSize = 32;
@@ -54,6 +53,10 @@ class StreamCipher {
              base::span<uint8_t> out) const;
 
  private:
+  // The cipher of the file `file_id`, under its own key.
+  static std::unique_ptr<StreamCipher> Under(const ProfileKeys& keys,
+                                             base::span<const uint8_t> file_id);
+
   explicit StreamCipher(base::span<const uint8_t, kKeySize> file_key);
 
   AES_KEY key_;

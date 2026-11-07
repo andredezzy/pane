@@ -38,9 +38,7 @@ TEST_F(EngineKeysTest, EveryFormOfAProfilesPathIsItsKeys) {
         std::string("/data/Engine/Volume/") + kID + "/Profile/History",
         std::string("/data/Engine/Volume/") + kID + "/Cache/Cache_Data/index",
         std::string("/Caches/pane/Engine/") + kID + "/Cache/Cache_Data/index"}) {
-    const PathVerdict verdict = Classify(base::FilePath(path));
-    EXPECT_EQ(verdict.kind, PathKind::kEncrypted) << path;
-    EXPECT_EQ(verdict.profile_id, kID) << path;
+    EXPECT_TRUE(KeysFor(base::FilePath(path))) << path;
   }
 }
 
@@ -51,31 +49,25 @@ TEST_F(EngineKeysTest, WhatIsNotAProfilesFileStaysPlain) {
        {"/data/Engine/Local State", "/data/Engine/Default/History",
         "/data/Engine/Safe Browsing/Bloom", "/data/settings.json",
         "/elsewhere/History", "/data/Engine/Volume/.fseventsd/0001"}) {
-    EXPECT_EQ(Classify(base::FilePath(path)).kind, PathKind::kPlain) << path;
+    EXPECT_FALSE(KeysFor(base::FilePath(path))) << path;
   }
 }
 
-TEST_F(EngineKeysTest, ExtensionsCodeIsAllowed) {
+TEST_F(EngineKeysTest, ExtensionsCodeStaysPlain) {
   Register(kID);
-  EXPECT_EQ(Classify(base::FilePath(std::string("/data/Engine/") + kID +
-                                    "/Extensions/abc/1.0/manifest.json"))
-                .kind,
-            PathKind::kAllowed);
-  EXPECT_EQ(Classify(base::FilePath(std::string("/data/Engine/Volume/") + kID +
-                                    "/Profile/Extensions/abc/1.0/a.js"))
-                .kind,
-            PathKind::kAllowed);
-  // Its state is not.
-  EXPECT_EQ(Classify(base::FilePath(std::string("/data/Engine/") + kID +
-                                    "/Extension State/000003.log"))
-                .kind,
-            PathKind::kEncrypted);
+  EXPECT_FALSE(KeysFor(base::FilePath(std::string("/data/Engine/") + kID +
+                                      "/Extensions/abc/1.0/manifest.json")));
+  EXPECT_FALSE(KeysFor(base::FilePath(std::string("/data/Engine/Volume/") + kID +
+                                      "/Profile/Extensions/abc/1.0/a.js")));
+  // Its state does not.
+  EXPECT_TRUE(KeysFor(base::FilePath(std::string("/data/Engine/") + kID +
+                                     "/Extension State/000003.log")));
 }
 
 TEST_F(EngineKeysTest, AProtectedPathWithNoKeyCrashes) {
   Register(kID);
   EXPECT_DEATH_IF_SUPPORTED(
-      Classify(base::FilePath(std::string("/data/Engine/") + kOtherID + "/History")),
+      KeysFor(base::FilePath(std::string("/data/Engine/") + kOtherID + "/History")),
       "");
 }
 
@@ -88,17 +80,17 @@ TEST_F(EngineKeysTest, DroppingForgetsEveryKeyAndStillProtects) {
   EXPECT_EQ(KeyCount(), 0u);
   EXPECT_TRUE(RegisteredKeys().empty());
   EXPECT_DEATH_IF_SUPPORTED(
-      Classify(base::FilePath(std::string("/data/Engine/") + kID + "/History")), "");
+      KeysFor(base::FilePath(std::string("/data/Engine/") + kID + "/History")), "");
 }
 
 TEST_F(EngineKeysTest, EachUseHasADifferentKey) {
   Register(kID);
-  const PathVerdict verdict =
-      Classify(base::FilePath(std::string("/data/Engine/") + kID + "/History"));
-  ASSERT_TRUE(verdict.keys);
-  EXPECT_NE(verdict.keys->sqlite_pages, verdict.keys->stream_files);
-  EXPECT_NE(verdict.keys->stream_files, verdict.keys->whole_files);
-  EXPECT_NE(verdict.keys->stream_files, verdict.keys->stream_check);
+  const std::optional<ProfileKeys> keys =
+      KeysFor(base::FilePath(std::string("/data/Engine/") + kID + "/History"));
+  ASSERT_TRUE(keys);
+  EXPECT_NE(keys->sqlite_pages, keys->stream_files);
+  EXPECT_NE(keys->stream_files, keys->whole_files);
+  EXPECT_NE(keys->stream_files, keys->stream_check);
 }
 
 }  // namespace

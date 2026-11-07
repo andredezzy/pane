@@ -190,7 +190,7 @@ size_t KeyCount() {
   return registry.keys.size();
 }
 
-PathVerdict Classify(const base::FilePath& path) {
+std::optional<ProfileKeys> KeysFor(const base::FilePath& path) {
   Registry& registry = GetRegistry();
   base::AutoLock lock(registry.lock);
 
@@ -202,7 +202,7 @@ PathVerdict Classify(const base::FilePath& path) {
     }
 
     if (!located->inside.empty() && located->inside[0] == "Extensions") {
-      return {PathKind::kAllowed, std::nullopt, {}};
+      return std::nullopt;
     }
 
     auto key = registry.keys.find(located->id);
@@ -213,25 +213,25 @@ PathVerdict Classify(const base::FilePath& path) {
       LOG(FATAL) << "A profile's file with no key.";
     }
 
-    return {PathKind::kEncrypted, key->second, located->id};
+    return key->second;
   }
 
-  return {};
+  return std::nullopt;
 }
 
 std::optional<std::string> KeyedName(const base::FilePath& profile_path,
                                      std::string_view text) {
   // Any file of the profile: its folder itself is not a file of it.
-  const PathVerdict verdict = Classify(profile_path.AppendASCII("Name"));
+  const std::optional<ProfileKeys> keys = KeysFor(profile_path.AppendASCII("Name"));
 
-  if (verdict.kind != PathKind::kEncrypted) {
+  if (!keys) {
     return std::nullopt;
   }
 
   uint8_t digest[EVP_MAX_MD_SIZE];
   unsigned int length = 0;
-  CHECK(HMAC(EVP_sha256(), verdict.keys->names.data(),
-             verdict.keys->names.size(),
+  CHECK(HMAC(EVP_sha256(), keys->names.data(),
+             keys->names.size(),
              reinterpret_cast<const uint8_t*>(text.data()), text.size(), digest,
              &length));
   return base::ToLowerASCII(base::HexEncode(base::span(digest).first(20u)));

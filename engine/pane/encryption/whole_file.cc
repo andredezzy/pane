@@ -27,13 +27,13 @@ base::span<const uint8_t> MagicBytes() {
 bool SealForPath(const base::FilePath& path,
                  base::span<const uint8_t> plaintext,
                  std::string* sealed) {
-  PathVerdict verdict = Classify(path);
+  std::optional<ProfileKeys> keys = KeysFor(path);
 
-  if (verdict.kind != PathKind::kEncrypted) {
+  if (!keys) {
     return false;
   }
 
-  *sealed = SealWholeFile(*verdict.keys, plaintext);
+  *sealed = SealWholeFile(*keys, plaintext);
   return true;
 }
 
@@ -46,13 +46,13 @@ bool OpenForPath(const base::FilePath& path,
     return false;
   }
 
-  PathVerdict verdict = Classify(path);
+  std::optional<ProfileKeys> keys = KeysFor(path);
 
-  if (verdict.kind != PathKind::kEncrypted) {
+  if (!keys) {
     return false;
   }
 
-  std::optional<std::string> opened = OpenWholeFile(*verdict.keys, stored);
+  std::optional<std::string> opened = OpenWholeFile(*keys, stored);
 
   // Another key, or changed bytes: an error here would have Chromium start over
   // and overwrite the file. A crash loses nothing.

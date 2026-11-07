@@ -77,8 +77,6 @@ struct PaneFile {
   RAW_PTR_EXCLUSION const char* name;
 };
 
-const sqlite3_io_methods* EncryptedMethods();
-
 bool IsValidPageSize(int size) {
   return size >= 512 && size <= 65536 && (size & (size - 1)) == 0;
 }
@@ -673,10 +671,6 @@ constexpr sqlite3_io_methods kMethods = {
     .xShmUnmap = &ShmUnmap,
 };
 
-const sqlite3_io_methods* EncryptedMethods() {
-  return &kMethods;
-}
-
 // The VFS --------------------------------------------------------------------
 
 sqlite3_vfs* ParentOf(sqlite3_vfs* vfs) {
@@ -743,13 +737,13 @@ int Open(sqlite3_vfs* vfs,
   const int kinds =
       flags & (SQLITE_OPEN_MAIN_DB | SQLITE_OPEN_MAIN_JOURNAL | SQLITE_OPEN_WAL);
 
-  std::optional<PathVerdict> verdict;
+  std::optional<ProfileKeys> keys;
 
   if (name && kinds) {
-    verdict = Classify(base::FilePath(name));
+    keys = KeysFor(base::FilePath(name));
   }
 
-  if (!verdict || verdict->kind != PathKind::kEncrypted) {
+  if (!keys) {
     return parent->xOpen(parent, name, file, flags, out_flags);
   }
 
@@ -761,7 +755,7 @@ int Open(sqlite3_vfs* vfs,
                                                     : FileKind::kWal;
 
   if (pane->kind != FileKind::kMain) {
-    // Same folder, so same verdict: its main file is one of these, even with
+    // Same folder, so same keys: its main file is one of these, even with
     // sqlite3_recover's methods wrapped around it.
     sqlite3_file* main = sqlite3_database_file_object(name);
     CHECK(main) << "A journal or WAL in a profile with no main file.";
@@ -775,14 +769,14 @@ int Open(sqlite3_vfs* vfs,
   }
 
   pane->aead = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm(),
-                                verdict->keys->sqlite_pages.data(),
-                                verdict->keys->sqlite_pages.size(), kTagSize);
+                                keys->sqlite_pages.data(),
+                                keys->sqlite_pages.size(), kTagSize);
   CHECK(pane->aead);
 
-  const Key key_id = DeriveKey(verdict->keys->sqlite_pages,
+  const Key key_id = DeriveKey(keys->sqlite_pages,
                                base::span<const uint8_t>(), "Pane SQLite key id");
   memcpy(pane->key_id, key_id.data(), sizeof(pane->key_id));
-  pane->base.pMethods = EncryptedMethods();
+  pane->base.pMethods = &kMethods;
 
   if (pane->kind == FileKind::kMain) {
     CheckMainAtOpen(pane, name);
@@ -861,7 +855,7 @@ int ReserveBytes(sqlite3* db, const char** error, const void*) {
 
   const bool in_memory = !name || name[0] == '\0';
 
-  if (in_memory || (file && file->pMethods == EncryptedMethods())) {
+  if (in_memory || (file && file->pMethods == &kMethods)) {
     int reserved = kSqliteReservedBytes;
     sqlite3_file_control(db, "main", SQLITE_FCNTL_RESERVE_BYTES, &reserved);
   }

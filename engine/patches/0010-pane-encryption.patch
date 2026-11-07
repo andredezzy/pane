@@ -260,7 +260,7 @@ index c647f34f3e..42b0fea870 100644
    // minimize chance of data loss.
    EnableAggressiveDomStorageFlushing();
 diff --git a/components/services/storage/storage_service_impl.cc b/components/services/storage/storage_service_impl.cc
-index ffe1ae56a9..bcbd0f24b9 100644
+index ffe1ae56a9..31eaa424d6 100644
 --- a/components/services/storage/storage_service_impl.cc
 +++ b/components/services/storage/storage_service_impl.cc
 @@ -4,6 +4,9 @@
@@ -273,13 +273,12 @@ index ffe1ae56a9..bcbd0f24b9 100644
  #include "base/functional/bind.h"
  #include "base/not_fatal_until.h"
  #include "base/task/sequenced_task_runner.h"
-@@ -78,6 +81,17 @@ StorageServiceImpl::StorageServiceImpl(
+@@ -78,6 +81,16 @@ StorageServiceImpl::StorageServiceImpl(
  
  StorageServiceImpl::~StorageServiceImpl() = default;
  
 +void StorageServiceImpl::PaneSetEngineKeys(pane::mojom::EngineKeysPtr keys) {
-+  pane::encryption::ReceiveKeys(std::move(keys),
-+                                pane::encryption::Stores::kLevelDB);
++  pane::encryption::ReceiveKeys(std::move(keys));
 +}
 +
 +void StorageServiceImpl::PaneDropEngineKeys(
@@ -805,7 +804,7 @@ index a2937631bd..713dd17a4d 100644
          ciphertext.size() < kAuthTagSize
 diff --git a/services/network/enterprise/encryption/pane_cache_hook.cc b/services/network/enterprise/encryption/pane_cache_hook.cc
 new file mode 100644
-index 0000000000..cbc0d0fcd5
+index 0000000000..a185dbfe70
 --- /dev/null
 +++ b/services/network/enterprise/encryption/pane_cache_hook.cc
 @@ -0,0 +1,83 @@
@@ -833,19 +832,19 @@ index 0000000000..cbc0d0fcd5
 +namespace {
 +
 +std::optional<crypto::ProcessBoundString> KeyFor(const base::FilePath& path) {
-+  pane::encryption::PathVerdict verdict = pane::encryption::Classify(path);
++  std::optional<pane::encryption::ProfileKeys> keys =
++      pane::encryption::KeysFor(path);
 +
-+  if (verdict.kind != pane::encryption::PathKind::kEncrypted) {
++  if (!keys) {
 +    return std::nullopt;
 +  }
 +
 +  return crypto::ProcessBoundString(
-+      std::string(base::as_string_view(verdict.keys->caches)));
++      std::string(base::as_string_view(keys->caches)));
 +}
 +
 +bool IsProtected(const base::FilePath& path) {
-+  return pane::encryption::Classify(path).kind ==
-+         pane::encryption::PathKind::kEncrypted;
++  return pane::encryption::KeysFor(path).has_value();
 +}
 +
 +bool WrapCache(const base::FilePath& path,
@@ -915,7 +914,7 @@ index 0000000000..0c331c5713
 +
 +#endif  // SERVICES_NETWORK_ENTERPRISE_ENCRYPTION_PANE_CACHE_HOOK_H_
 diff --git a/services/network/network_context.cc b/services/network/network_context.cc
-index 7c2bc9f901..5eab08c2f8 100644
+index 7c2bc9f901..51071ffb2a 100644
 --- a/services/network/network_context.cc
 +++ b/services/network/network_context.cc
 @@ -4,6 +4,10 @@
@@ -935,21 +934,20 @@ index 7c2bc9f901..5eab08c2f8 100644
  
 +  // Pane: before anything of the profile's opens.
 +  enterprise_encryption::InstallPaneCacheHook();
-+  pane::encryption::ReceiveKeys(std::move(params_->pane_engine_keys),
-+                                pane::encryption::Stores::kAll);
++  pane::encryption::InstallHooks();
++  pane::encryption::ReceiveKeys(std::move(params_->pane_engine_keys));
 +
    if (features::ShouldBindNetworkContextDirectReceiver()) {
      receiver_.emplace<DirectReceiver>(mojo::DirectReceiverKey{}, this);
    }
-@@ -3008,7 +3017,10 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
+@@ -3008,7 +3017,9 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
        CHECK(!is_network_bound);
  
        cache_params.path = params_->file_paths->http_cache_directory->path();
 -      if (params_->file_paths->no_vary_search_directory) {
 +      // Pane: its files hold pages' addresses, in no format of a profile's.
 +      if (params_->file_paths->no_vary_search_directory &&
-+          pane::encryption::Classify(cache_params.path).kind !=
-+              pane::encryption::PathKind::kEncrypted) {
++          !pane::encryption::KeysFor(cache_params.path)) {
          cache_params.no_vary_search_path =
              params_->file_paths->no_vary_search_directory->path();
        }
@@ -1233,10 +1231,10 @@ index 745b918baa..48f230806c 100644
  
 diff --git a/storage/browser/file_system/pane_encrypted_stream.cc b/storage/browser/file_system/pane_encrypted_stream.cc
 new file mode 100644
-index 0000000000..3132f19710
+index 0000000000..aae260ab81
 --- /dev/null
 +++ b/storage/browser/file_system/pane_encrypted_stream.cc
-@@ -0,0 +1,427 @@
+@@ -0,0 +1,406 @@
 +// Copyright 2026 Pane. Licensed under GPL-3.0-only.
 +
 +#include "storage/browser/file_system/pane_encrypted_stream.h"
@@ -1253,6 +1251,7 @@ index 0000000000..3132f19710
 +#include "base/functional/bind.h"
 +#include "base/functional/callback.h"
 +#include "base/functional/callback_helpers.h"
++#include "base/functional/function_ref.h"
 +#include "base/memory/ref_counted.h"
 +#include "base/memory/weak_ptr.h"
 +#include "base/numerics/safe_conversions.h"
@@ -1269,6 +1268,9 @@ index 0000000000..3132f19710
 +
 +constexpr uint32_t kOpenFlags =
 +    base::File::FLAG_OPEN | base::File::FLAG_READ | base::File::FLAG_WRITE;
++constexpr uint32_t kCreateFlags = base::File::FLAG_CREATE_ALWAYS |
++                                  base::File::FLAG_READ |
++                                  base::File::FLAG_WRITE;
 +
 +// The open file, on the task runner: the reader and the writer each run one
 +// operation at a time.
@@ -1430,10 +1432,8 @@ index 0000000000..3132f19710
 +        offset_(offset),
 +        file_(base::MakeRefCounted<EncryptedFile>(
 +            path,
-+            open_or_create == CREATE_NEW_FILE_ALWAYS
-+                ? base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_READ |
-+                      base::File::FLAG_WRITE
-+                : kOpenFlags)) {}
++            open_or_create == CREATE_NEW_FILE_ALWAYS ? kCreateFlags
++                                                     : kOpenFlags)) {}
 +
 +  ~EncryptedWriter() override {
 +    task_runner_->PostTask(FROM_HERE,
@@ -1502,6 +1502,50 @@ index 0000000000..3132f19710
 +  net::CompletionOnceCallback cancel_callback_;
 +  base::WeakPtrFactory<EncryptedWriter> weak_factory_{this};
 +};
++
++// Up to `size` bytes of `source`, from `offset`, to the start of what
++// `open_target` opens, once `source` has opened.
++base::File::Error Copy(
++    std::unique_ptr<disk_cache::CacheFile> source,
++    base::FunctionRef<std::unique_ptr<disk_cache::CacheFile>()> open_target,
++    int64_t offset,
++    int64_t size) {
++  if (!source->IsValid()) {
++    return source->error_details();
++  }
++
++  std::unique_ptr<disk_cache::CacheFile> target = open_target();
++
++  if (!target->IsValid()) {
++    return target->error_details();
++  }
++
++  std::vector<uint8_t> buffer(1 << 20);
++  int64_t copied = 0;
++
++  while (copied < size) {
++    const size_t wanted = static_cast<size_t>(
++        std::min<int64_t>(static_cast<int64_t>(buffer.size()), size - copied));
++    std::optional<size_t> read =
++        source->Read(offset + copied, base::span(buffer).first(wanted));
++
++    if (!read) {
++      return base::File::FILE_ERROR_FAILED;
++    }
++
++    if (*read == 0) {
++      break;
++    }
++
++    if (!target->WriteAndCheck(copied, base::span(buffer).first(*read))) {
++      return base::File::FILE_ERROR_FAILED;
++    }
++
++    copied += *read;
++  }
++
++  return base::File::FILE_OK;
++}
 +
 +}  // namespace
 +
@@ -1574,39 +1618,10 @@ index 0000000000..3132f19710
 +
 +base::File::Error PaneCopyInPlainFile(const base::FilePath& from,
 +                                      const base::FilePath& to) {
-+  base::File source(from, base::File::FLAG_OPEN | base::File::FLAG_READ);
-+
-+  if (!source.IsValid()) {
-+    return source.error_details();
-+  }
-+
-+  std::unique_ptr<disk_cache::CacheFile> target = PaneOpenEncryptedFile(
-+      to, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_READ |
-+              base::File::FLAG_WRITE);
-+
-+  if (!target->IsValid()) {
-+    return target->error_details();
-+  }
-+
-+  std::vector<uint8_t> buffer(1 << 20);
-+
-+  for (int64_t offset = 0;;) {
-+    std::optional<size_t> read = source.Read(offset, buffer);
-+
-+    if (!read) {
-+      return base::File::FILE_ERROR_FAILED;
-+    }
-+
-+    if (*read == 0) {
-+      return base::File::FILE_OK;
-+    }
-+
-+    if (!target->WriteAndCheck(offset, base::span(buffer).first(*read))) {
-+      return base::File::FILE_ERROR_FAILED;
-+    }
-+
-+    offset += *read;
-+  }
++  return Copy(std::make_unique<disk_cache::BasicCacheFile>(
++                  base::File(from, base::File::FLAG_OPEN | base::File::FLAG_READ)),
++              [&] { return PaneOpenEncryptedFile(to, kCreateFlags); }, 0,
++              std::numeric_limits<int64_t>::max());
 +}
 +
 +base::File::Error PaneCopyFile(const base::FilePath& from,
@@ -1621,52 +1636,14 @@ index 0000000000..3132f19710
 +                     base::File(path, flags));
 +  };
 +
-+  std::unique_ptr<disk_cache::CacheFile> source =
-+      open(from, base::File::FLAG_OPEN | base::File::FLAG_READ);
-+
-+  if (!source->IsValid()) {
-+    return source->error_details();
-+  }
-+
-+  std::unique_ptr<disk_cache::CacheFile> target =
-+      open(to, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_READ |
-+                   base::File::FLAG_WRITE);
-+
-+  if (!target->IsValid()) {
-+    return target->error_details();
-+  }
-+
-+  std::vector<uint8_t> buffer(1 << 20);
-+  int64_t copied = 0;
-+
-+  while (copied < size) {
-+    const size_t wanted = static_cast<size_t>(
-+        std::min<int64_t>(static_cast<int64_t>(buffer.size()), size - copied));
-+    std::optional<size_t> read =
-+        source->Read(offset + copied, base::span(buffer).first(wanted));
-+
-+    if (!read) {
-+      return base::File::FILE_ERROR_FAILED;
-+    }
-+
-+    if (*read == 0) {
-+      break;
-+    }
-+
-+    if (!target->WriteAndCheck(copied, base::span(buffer).first(*read))) {
-+      return base::File::FILE_ERROR_FAILED;
-+    }
-+
-+    copied += *read;
-+  }
-+
-+  return base::File::FILE_OK;
++  return Copy(open(from, base::File::FLAG_OPEN | base::File::FLAG_READ),
++              [&] { return open(to, kCreateFlags); }, offset, size);
 +}
 +
 +}  // namespace storage
 diff --git a/storage/browser/file_system/pane_encrypted_stream.h b/storage/browser/file_system/pane_encrypted_stream.h
 new file mode 100644
-index 0000000000..74562fad8b
+index 0000000000..e7e5344bb4
 --- /dev/null
 +++ b/storage/browser/file_system/pane_encrypted_stream.h
 @@ -0,0 +1,71 @@
@@ -1701,8 +1678,8 @@ index 0000000000..74562fad8b
 +COMPONENT_EXPORT(STORAGE_BROWSER)
 +bool PaneIsEncryptedFile(const base::FilePath& path);
 +
-+// `path` through the format, opened with `flags` (FLAG_READ is added, since a
-+// partial chunk is read back to write it).
++// `path` through the format, opened with `flags`, which need FLAG_READ to write:
++// a partial chunk is read back.
 +COMPONENT_EXPORT(STORAGE_BROWSER)
 +std::unique_ptr<disk_cache::CacheFile> PaneOpenEncryptedFile(
 +    const base::FilePath& path,
@@ -1788,7 +1765,7 @@ index db16e21024..40f990215a 100644
      "//third_party/re2",
      "//third_party/snappy",
 diff --git a/third_party/leveldatabase/env_chromium.cc b/third_party/leveldatabase/env_chromium.cc
-index 393c170608..53526f8a11 100644
+index 393c170608..bbfbafd800 100644
 --- a/third_party/leveldatabase/env_chromium.cc
 +++ b/third_party/leveldatabase/env_chromium.cc
 @@ -4,7 +4,9 @@
@@ -1810,24 +1787,15 @@ index 393c170608..53526f8a11 100644
  #include "third_party/leveldatabase/chromium_logger.h"
  #include "third_party/leveldatabase/leveldb_chrome.h"
  #include "third_party/leveldatabase/src/include/leveldb/options.h"
-@@ -128,10 +132,55 @@ class Retrier {
+@@ -128,10 +132,46 @@ class Retrier {
    base::TimeDelta time_to_sleep_;
  };
  
-+// Pane: a profile's LevelDB files are encrypted (pane/encryption/stream_cipher.h).
-+// The keys of `path`, if it is one of them.
-+std::optional<pane::encryption::ProfileKeys> PaneKeysFor(
-+    const base::FilePath& path) {
-+  pane::encryption::PathVerdict verdict = pane::encryption::Classify(path);
-+  return verdict.kind == pane::encryption::PathKind::kEncrypted
-+             ? verdict.keys
-+             : std::nullopt;
-+}
-+
 +// Pane: an encrypted file open for reading. A file shorter than its header, or
 +// with a header of zeros, is one a crash cut short as it was made: it counts as
-+// empty, with no cipher. A plain file here was never migrated, and an error
-+// would have LevelDB's callers repair or delete the store: the process stops.
++// empty, with no cipher. A plain file here is older than Pane's floor (ADR 0122),
++// and an error would have LevelDB's callers repair or delete the store: the
++// process stops.
 +std::unique_ptr<pane::encryption::StreamCipher> PaneCipherForRead(
 +    const pane::encryption::ProfileKeys& keys,
 +    base::File* file,
@@ -1858,7 +1826,7 @@ index 393c170608..53526f8a11 100644
 +      : filename_(fname), file_(std::move(f)) {
 +    // Pane.
 +    if (std::optional<pane::encryption::ProfileKeys> keys =
-+            PaneKeysFor(FilePath::FromUTF8Unsafe(fname))) {
++            pane::encryption::KeysFor(FilePath::FromUTF8Unsafe(fname))) {
 +      cipher_ = PaneCipherForRead(*keys, &file_, &pane_empty_);
 +      file_.Seek(base::File::FROM_BEGIN,
 +                 pane::encryption::StreamCipher::kHeaderSize);
@@ -1867,7 +1835,7 @@ index 393c170608..53526f8a11 100644
  
    ChromiumSequentialFile(const ChromiumSequentialFile&) = delete;
    ChromiumSequentialFile& operator=(const ChromiumSequentialFile&) = delete;
-@@ -141,6 +190,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+@@ -141,6 +181,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
    // Note: This method is relatively hot during leveldb database
    // compaction. Please avoid making them slower.
    Status Read(size_t n, Slice* result, char* scratch) override {
@@ -1878,7 +1846,7 @@ index 393c170608..53526f8a11 100644
      std::optional<size_t> bytes_read = file_.ReadAtCurrentPosNoBestEffort(
          base::as_writable_bytes(UNSAFE_TODO(base::span(scratch, n))));
      if (!bytes_read.has_value()) {
-@@ -148,16 +201,26 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+@@ -148,16 +192,26 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
        return MakeIOError(filename_, base::File::ErrorToString(error),
                           kSequentialFileRead, error);
      }
@@ -1905,7 +1873,7 @@ index 393c170608..53526f8a11 100644
        return Status::OK();
      }
    }
-@@ -165,6 +228,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
+@@ -165,6 +219,10 @@ class ChromiumSequentialFile : public leveldb::SequentialFile {
   private:
    std::string filename_;
    base::File file_;
@@ -1916,7 +1884,7 @@ index 393c170608..53526f8a11 100644
  };
  
  void RemoveFile(const Slice& key, void* value) {
-@@ -176,14 +243,22 @@ Status ReadFromFileToScratch(uint64_t offset,
+@@ -176,14 +234,22 @@ Status ReadFromFileToScratch(uint64_t offset,
                               Slice* result,
                               char* scratch,
                               base::File* file,
@@ -1941,7 +1909,7 @@ index 393c170608..53526f8a11 100644
    *result = Slice(scratch, bytes_read.value());
  
    return Status::OK();
-@@ -201,13 +276,18 @@ Status ReadFromFileToScratch(uint64_t offset,
+@@ -201,13 +267,18 @@ Status ReadFromFileToScratch(uint64_t offset,
  // file is evicted.
  class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
   public:
@@ -1964,7 +1932,7 @@ index 393c170608..53526f8a11 100644
          cache_key_data_(this),
          cache_key_(
              leveldb::Slice(reinterpret_cast<const char*>(&cache_key_data_),
-@@ -235,6 +315,10 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -235,6 +306,10 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
                size_t n,
                Slice* result,
                char* scratch) const override {
@@ -1975,7 +1943,7 @@ index 393c170608..53526f8a11 100644
      leveldb::Cache::Handle* handle = file_cache_->Lookup(cache_key_);
      if (!handle) {
        int flags = base::File::FLAG_READ | base::File::FLAG_OPEN;
-@@ -247,8 +331,8 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -247,8 +322,8 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
                                     sizeof(base::File), &RemoveFile);
      }
      base::File* file = static_cast<base::File*>(file_cache_->Value(handle));
@@ -1986,7 +1954,7 @@ index 393c170608..53526f8a11 100644
      file_cache_->Release(handle);
      return status;
    }
-@@ -257,14 +341,23 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -257,14 +332,23 @@ class ChromiumEvictableRandomAccessFile : public leveldb::RandomAccessFile {
    const base::FilePath filepath_;
    storage::FilesystemProxy* const filesystem_;
    mutable leveldb::Cache* file_cache_;
@@ -2012,7 +1980,7 @@ index 393c170608..53526f8a11 100644
  
    ChromiumRandomAccessFile(const ChromiumRandomAccessFile&) = delete;
    ChromiumRandomAccessFile& operator=(const ChromiumRandomAccessFile&) = delete;
-@@ -277,12 +370,20 @@ class ChromiumRandomAccessFile : public leveldb::RandomAccessFile {
+@@ -277,12 +361,20 @@ class ChromiumRandomAccessFile : public leveldb::RandomAccessFile {
                size_t n,
                Slice* result,
                char* scratch) const override {
@@ -2034,7 +2002,7 @@ index 393c170608..53526f8a11 100644
  };
  
  class ChromiumWritableFile : public leveldb::WritableFile {
-@@ -306,6 +407,12 @@ class ChromiumWritableFile : public leveldb::WritableFile {
+@@ -306,6 +398,12 @@ class ChromiumWritableFile : public leveldb::WritableFile {
  
    std::string filename_;
    base::File file_;
@@ -2047,13 +2015,13 @@ index 393c170608..53526f8a11 100644
  #if defined(OS_POSIX) || defined(OS_FUCHSIA)
    storage::FilesystemProxy* const filesystem_;
  #endif
-@@ -330,6 +437,13 @@ ChromiumWritableFile::ChromiumWritableFile(const std::string& fname,
+@@ -330,6 +428,13 @@ ChromiumWritableFile::ChromiumWritableFile(const std::string& fname,
      file_type_ = kTable;
    }
    parent_dir_ = FilePath::FromUTF8Unsafe(fname).DirName().AsUTF8Unsafe();
 +
 +  // Pane: a new file starts with its header.
-+  if (std::optional<pane::encryption::ProfileKeys> keys = PaneKeysFor(path)) {
++  if (std::optional<pane::encryption::ProfileKeys> keys = pane::encryption::KeysFor(path)) {
 +    pane::encryption::StreamCipher::Header header;
 +    cipher_ = pane::encryption::StreamCipher::ForNewFile(*keys, &header);
 +    pane_failed_ = !file_.WriteAtCurrentPosAndCheck(header);
@@ -2061,7 +2029,7 @@ index 393c170608..53526f8a11 100644
  }
  
  Status ChromiumWritableFile::SyncParent() {
-@@ -353,11 +467,23 @@ Status ChromiumWritableFile::SyncParent() {
+@@ -353,11 +458,23 @@ Status ChromiumWritableFile::SyncParent() {
  
  Status ChromiumWritableFile::Append(const Slice& data) {
    DCHECK(file_.IsValid());
@@ -2086,24 +2054,24 @@ index 393c170608..53526f8a11 100644
    return Status::OK();
  }
  
-@@ -862,6 +988,11 @@ Status ChromiumEnv::GetFileSize(const std::string& fname, uint64_t* size) {
+@@ -862,6 +979,11 @@ Status ChromiumEnv::GetFileSize(const std::string& fname, uint64_t* size) {
      s = MakeIOError(fname, "Could not determine file size.", kGetFileSize);
    } else {
      *size = static_cast<uint64_t>(info->size);
 +    // Pane: the content's length, which repair reads.
-+    if (PaneKeysFor(base::FilePath::FromUTF8Unsafe(fname))) {
++    if (pane::encryption::KeysFor(base::FilePath::FromUTF8Unsafe(fname))) {
 +      const uint64_t header = pane::encryption::StreamCipher::kHeaderSize;
 +      *size = *size > header ? *size - header : 0;
 +    }
    }
    return s;
  }
-@@ -943,6 +1074,15 @@ Status ChromiumEnv::NewLogger(const std::string& fname,
+@@ -943,6 +1065,15 @@ Status ChromiumEnv::NewLogger(const std::string& fname,
                                leveldb::Logger** result) {
    *result = nullptr;
    FilePath path = FilePath::FromUTF8Unsafe(fname);
 +  // Pane: LevelDB's text log prints user keys, so a profile's logs nothing.
-+  if (PaneKeysFor(path)) {
++  if (pane::encryption::KeysFor(path)) {
 +    class NoLogger : public leveldb::Logger {
 +     public:
 +      void Logv(const char*, va_list) override {}
@@ -2114,7 +2082,7 @@ index 393c170608..53526f8a11 100644
    ASSIGN_OR_RETURN(base::File open_result,
                     filesystem_->OpenFile(path, base::File::FLAG_CREATE_ALWAYS |
                                                     base::File::FLAG_WRITE),
-@@ -975,13 +1115,20 @@ Status ChromiumEnv::NewRandomAccessFile(const std::string& fname,
+@@ -975,13 +1106,20 @@ Status ChromiumEnv::NewRandomAccessFile(const std::string& fname,
                       return MakeIOError(fname, FileErrorString(error),
                                          kNewRandomAccessFile, error);
                     });
@@ -2122,7 +2090,7 @@ index 393c170608..53526f8a11 100644
 +  std::unique_ptr<pane::encryption::StreamCipher> cipher;
 +  bool empty = false;
 +  if (std::optional<pane::encryption::ProfileKeys> keys =
-+          PaneKeysFor(file_path)) {
++          pane::encryption::KeysFor(file_path)) {
 +    cipher = PaneCipherForRead(*keys, &file, &empty);
 +  }
    if (file_cache_) {
@@ -2138,12 +2106,12 @@ index 393c170608..53526f8a11 100644
    }
    return Status::OK();
  }
-@@ -1005,6 +1152,10 @@ Status ChromiumEnv::NewAppendableFile(const std::string& fname,
+@@ -1005,6 +1143,10 @@ Status ChromiumEnv::NewAppendableFile(const std::string& fname,
                                        leveldb::WritableFile** result) {
    *result = nullptr;
    FilePath path = FilePath::FromUTF8Unsafe(fname);
 +  // Pane: an encrypted file is never reopened to append.
-+  if (PaneKeysFor(path)) {
++  if (pane::encryption::KeysFor(path)) {
 +    return Status::NotSupported(fname, "an encrypted file takes no appends");
 +  }
    ASSIGN_OR_RETURN(base::File open_result,

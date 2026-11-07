@@ -37,24 +37,6 @@ struct ProfileKeys {
   Key names;
 };
 
-// A path's verdict.
-enum class PathKind {
-  // Not a profile's file: it stays as it is.
-  kPlain,
-  // A profile's file the plan lets stay plain: its extensions' public code.
-  kAllowed,
-  // A profile's file, with its key registered.
-  kEncrypted,
-};
-
-struct PathVerdict {
-  PathKind kind = PathKind::kPlain;
-  // Set for kEncrypted, and only then.
-  std::optional<ProfileKeys> keys;
-  // Set for kEncrypted, and only then.
-  std::string profile_id;
-};
-
 // A process's registry of its keys and of the roots that protected paths live
 // under. Thread-safe. Nothing in it reaches the disk, a command line, or the
 // environment.
@@ -79,9 +61,10 @@ std::vector<std::pair<std::string, Key>> RegisteredKeys();
 size_t DropKeys();
 size_t KeyCount();
 
-// The verdict for `path`, in either form. Crashes for a protected path with no
-// key.
-PathVerdict Classify(const base::FilePath& path);
+// The keys of `path`, in either form, or nullopt for what stays plain: anything
+// that is not a profile's file, and its extensions' public code. Crashes for a
+// protected path with no key.
+std::optional<ProfileKeys> KeysFor(const base::FilePath& path);
 
 // A folder's name for `text` (an origin's identifier) in a profile's folder,
 // keyed so that no list of sites gives it away: HMAC-SHA256 under the profile's

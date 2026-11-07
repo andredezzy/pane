@@ -12,15 +12,8 @@ namespace pane::encryption {
 // does not host.
 mojom::EngineKeysPtr KeysForOtherProcess();
 
-// What a process writes of a profile's files: the Storage Service has only
-// LevelDB's, which needs nothing installed, and has a SQLite VFS of its own.
-enum class Stores {
-  kAll,
-  kLevelDB,
-};
-
 // Takes them in another process, into its registry. Null changes nothing.
-void ReceiveKeys(mojom::EngineKeysPtr keys, Stores stores);
+void ReceiveKeys(mojom::EngineKeysPtr keys);
 
 // Sets up a process that writes a profile's files through SQLite and base's file
 // functions. Safe to call again.
