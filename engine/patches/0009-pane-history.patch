@@ -1,24 +1,12 @@
-diff --git a/chrome/browser/download/BUILD.gn b/chrome/browser/download/BUILD.gn
-index d9df6c2de2..567998ad7c 100644
---- a/chrome/browser/download/BUILD.gn
-+++ b/chrome/browser/download/BUILD.gn
-@@ -218,6 +218,7 @@ source_set("impl") {
-     "//components/enterprise/connectors/core",
-     "//components/enterprise/obfuscation/core:enterprise_obfuscation",
-     "//components/history/content/browser",
-+    "//components/history/core/common",
-     "//components/infobars/content",
-     "//components/pdf/common:constants",
-     "//components/pdf/common:util",
 diff --git a/chrome/browser/download/download_history.cc b/chrome/browser/download/download_history.cc
-index 35ec2f5780..87ac1173cc 100644
+index 35ec2f5780..7f6341c9cb 100644
 --- a/chrome/browser/download/download_history.cc
 +++ b/chrome/browser/download/download_history.cc
 @@ -48,6 +48,8 @@
  #include "components/history/core/browser/download_database.h"
  #include "components/history/core/browser/download_row.h"
  #include "components/history/core/browser/history_service.h"
-+#include "components/history/core/common/pref_names.h"
++#include "components/history/core/common/pref_names.h"  // nogncheck
 +#include "components/prefs/pref_service.h"
  #include "content/public/browser/browser_task_traits.h"
  #include "content/public/browser/browser_thread.h"
@@ -79,27 +67,15 @@ index 8e3c8c94b4..9da8ccd78f 100644
    history::HistoryService* hs = HistoryServiceFactory::GetForProfile(
        GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
    hs->AddPage(url, base::Time::Now(), history::SOURCE_EXTENSION);
-diff --git a/chrome/browser/media/BUILD.gn b/chrome/browser/media/BUILD.gn
-index b8ee7a166e..221bf06400 100644
---- a/chrome/browser/media/BUILD.gn
-+++ b/chrome/browser/media/BUILD.gn
-@@ -425,6 +425,7 @@ source_set("impl") {
-     "//chrome/browser/ui/browser_window",
-     "//components/content_settings/browser",
-     "//components/content_settings/core/common",
-+    "//components/history/core/common",
-     "//components/no_state_prefetch/browser",
-     "//components/prefs",
-     "//components/sessions",
 diff --git a/chrome/browser/media/media_engagement_service.cc b/chrome/browser/media/media_engagement_service.cc
-index 46a1f3f0ae..88b9288826 100644
+index 46a1f3f0ae..030574d329 100644
 --- a/chrome/browser/media/media_engagement_service.cc
 +++ b/chrome/browser/media/media_engagement_service.cc
 @@ -23,6 +23,7 @@
  #include "components/content_settings/core/browser/host_content_settings_map.h"
  #include "components/content_settings/core/common/content_settings.h"
  #include "components/history/core/browser/history_service.h"
-+#include "components/history/core/common/pref_names.h"
++#include "components/history/core/common/pref_names.h"  // nogncheck
  #include "components/no_state_prefetch/browser/no_state_prefetch_contents.h"
  #include "components/prefs/pref_service.h"
  #include "content/public/browser/web_contents.h"
@@ -147,27 +123,15 @@ index 3e6522b5a7..f1059939cc 100644
    MediaEngagementScore score = service_->CreateEngagementScore(origin_);
    bool previous_high_value = score.high_score();
  
-diff --git a/chrome/browser/predictors/BUILD.gn b/chrome/browser/predictors/BUILD.gn
-index f16db3d8a4..98133a7754 100644
---- a/chrome/browser/predictors/BUILD.gn
-+++ b/chrome/browser/predictors/BUILD.gn
-@@ -53,6 +53,7 @@ source_set("predictors") {
-     "//base",
-     "//chrome/browser/profiles:profile",
-     "//components/history/core/browser",
-+    "//components/history/core/common",
-     "//components/keyed_service/core",
-     "//components/network_hints/common:mojo_bindings",
-     "//components/optimization_guide/core",
 diff --git a/chrome/browser/predictors/resource_prefetch_predictor.cc b/chrome/browser/predictors/resource_prefetch_predictor.cc
-index bd0296108e..a4ef211925 100644
+index bd0296108e..08c99de7b4 100644
 --- a/chrome/browser/predictors/resource_prefetch_predictor.cc
 +++ b/chrome/browser/predictors/resource_prefetch_predictor.cc
 @@ -24,6 +24,8 @@
  #include "chrome/browser/profiles/profile.h"
  #include "components/history/core/browser/history_database.h"
  #include "components/history/core/browser/url_utils.h"
-+#include "components/history/core/common/pref_names.h"
++#include "components/history/core/common/pref_names.h"  // nogncheck
 +#include "components/prefs/pref_service.h"
  #include "content/public/browser/browser_thread.h"
  #include "content/public/browser/web_contents.h"
@@ -186,31 +150,17 @@ index bd0296108e..a4ef211925 100644
    // Make sure initialization is done or start initialization if necessary.
    if (initialization_state_ == NOT_INITIALIZED) {
      StartInitialization();
-diff --git a/components/favicon/content/BUILD.gn b/components/favicon/content/BUILD.gn
-index e7befb283f..c83d4846f6 100644
---- a/components/favicon/content/BUILD.gn
-+++ b/components/favicon/content/BUILD.gn
-@@ -21,6 +21,9 @@ static_library("content") {
-   deps = [
-     "//base",
-     "//components/favicon_base",
-+    "//components/history/core/common",
-+    "//components/prefs",
-+    "//components/user_prefs",
-     "//content/public/browser",
-     "//content/public/common",
-     "//url",
 diff --git a/components/favicon/content/content_favicon_driver.cc b/components/favicon/content/content_favicon_driver.cc
-index 8b58b5dcda..0555d9c05e 100644
+index 8b58b5dcda..db8e5e7bfc 100644
 --- a/components/favicon/content/content_favicon_driver.cc
 +++ b/components/favicon/content/content_favicon_driver.cc
 @@ -9,6 +9,9 @@
  #include "components/favicon/content/favicon_url_util.h"
  #include "components/favicon/core/favicon_service.h"
  #include "components/favicon/core/favicon_url.h"
-+#include "components/history/core/common/pref_names.h"
-+#include "components/prefs/pref_service.h"
-+#include "components/user_prefs/user_prefs.h"
++#include "components/history/core/common/pref_names.h"  // nogncheck
++#include "components/prefs/pref_service.h"  // nogncheck
++#include "components/user_prefs/user_prefs.h"  // nogncheck
  #include "content/public/browser/browser_context.h"
  #include "content/public/browser/favicon_status.h"
  #include "content/public/browser/navigation_controller.h"
@@ -234,27 +184,15 @@ index 8b58b5dcda..0555d9c05e 100644
  }
  
  void ContentFaviconDriver::OnFaviconUpdated(
-diff --git a/components/site_engagement/content/BUILD.gn b/components/site_engagement/content/BUILD.gn
-index 6287f81ef2..d4ae44d826 100644
---- a/components/site_engagement/content/BUILD.gn
-+++ b/components/site_engagement/content/BUILD.gn
-@@ -22,6 +22,7 @@ source_set("content") {
-     "//components/browsing_data/core",
-     "//components/content_settings/core/browser",
-     "//components/content_settings/core/common",
-+    "//components/history/core/common",
-     "//components/no_state_prefetch/browser",
-     "//components/no_state_prefetch/common",
-     "//components/permissions",
 diff --git a/components/site_engagement/content/site_engagement_service.cc b/components/site_engagement/content/site_engagement_service.cc
-index 77e9d51e01..b8151d5c2e 100644
+index 77e9d51e01..ca34e6af4b 100644
 --- a/components/site_engagement/content/site_engagement_service.cc
 +++ b/components/site_engagement/content/site_engagement_service.cc
 @@ -25,6 +25,7 @@
  #include "components/browsing_data/core/browsing_data_utils.h"
  #include "components/content_settings/core/browser/host_content_settings_map.h"
  #include "components/content_settings/core/common/content_settings_pattern.h"
-+#include "components/history/core/common/pref_names.h"
++#include "components/history/core/common/pref_names.h"  // nogncheck
  #include "components/permissions/permissions_client.h"
  #include "components/prefs/pref_registry_simple.h"
  #include "components/prefs/pref_service.h"
