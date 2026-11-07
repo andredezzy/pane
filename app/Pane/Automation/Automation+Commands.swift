@@ -583,7 +583,7 @@ extension Automation {
 		default:
 			let id = try command.string("id")
 
-			guard let item = extensions.active.first(where: { $0.id == id }) else {
+			guard let item = extensions.active.first(where: { $0.identifier == id }) else {
 				throw AutomationError("no extension \(id) in the active profile")
 			}
 

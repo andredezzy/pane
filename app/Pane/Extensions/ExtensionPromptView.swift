@@ -13,17 +13,10 @@ struct ExtensionPromptView: View {
 	var body: some View {
 		VStack(alignment: .leading, spacing: 20) {
 			HStack(spacing: 20) {
-				Group {
-					if let icon = prompt.icon {
-						Image(nsImage: icon)
-							.resizable()
-							.interpolation(.high)
-					} else {
-						Palette.secondary
-							.clipShape(Squircle(cornerRadius: 15))
-					}
+				ExtensionIcon(icon: prompt.icon, size: 32) {
+					Palette.secondary
+						.clipShape(Squircle(cornerRadius: 15))
 				}
-				.frame(width: 32, height: 32)
 				.accessibilityHidden(true)
 
 				Text(prompt.title)
@@ -92,17 +85,10 @@ struct ExtensionInstallDialog: View {
 				LucideIcon(.arrowLeft, size: 16)
 					.foregroundStyle(Palette.mutedForeground)
 
-				Group {
-					if let icon = prompt.icon {
-						Image(nsImage: icon)
-							.resizable()
-							.interpolation(.high)
-					} else {
-						Palette.secondary
-							.clipShape(Squircle(cornerRadius: 15))
-					}
+				ExtensionIcon(icon: prompt.icon, size: 32) {
+					Palette.secondary
+						.clipShape(Squircle(cornerRadius: 15))
 				}
-				.frame(width: 32, height: 32)
 			}
 			.frame(height: 32)
 			.accessibilityHidden(true)

@@ -19,7 +19,7 @@ final class ExtensionsController {
 	static let menuAnchor = "pane.extensions"
 
 	// Each open profile's extensions.
-	private(set) var lists: [String: [ExtensionInfo]] = [:]
+	private(set) var lists: [String: [Extension]] = [:]
 	// The extensions menu, open under the toolbar's puzzle.
 	private(set) var menuOpen = false
 	// One extension's more menu, beside its row of the extensions menu: the
@@ -59,11 +59,11 @@ final class ExtensionsController {
 	}
 
 	// The active profile's extensions.
-	var active: [ExtensionInfo] {
+	var active: [Extension] {
 		model.activeProfileID.flatMap { lists[$0] } ?? []
 	}
 
-	func list(_ profileID: String) -> [ExtensionInfo] {
+	func list(_ profileID: String) -> [Extension] {
 		lists[profileID] ?? []
 	}
 
@@ -75,7 +75,7 @@ final class ExtensionsController {
 			return
 		}
 
-		lists[profileID] = context.extensions.map(ExtensionInfo.init)
+		lists[profileID] = context.extensions
 
 		if details?.profileID == profileID {
 			refreshDetails()
@@ -238,10 +238,10 @@ final class ExtensionsController {
 
 	// Removes after asking, in the popup, as Aside does; Report abuse then
 	// opens the Web Store's report page, as Chrome's dialog does.
-	func confirmUninstall(_ item: ExtensionInfo, inProfile profileID: String) {
+	func confirmUninstall(_ item: Extension, inProfile profileID: String) {
 		present(ExtensionPrompt(
 			kind: .remove,
-			extensionID: item.id,
+			extensionID: item.identifier,
 			title: ExtensionPromptText.removeTitle(item.name),
 			icon: item.icon,
 			permissionsHeading: "",
@@ -253,9 +253,9 @@ final class ExtensionsController {
 					return
 				}
 
-				uninstall(item.id, inProfile: profileID)
+				uninstall(item.identifier, inProfile: profileID)
 
-				if reportAbuse, let url = ExtensionPromptText.reportAbuseURL(item.id) {
+				if reportAbuse, let url = ExtensionPromptText.reportAbuseURL(item.identifier) {
 					browser.openTab(inProfile: profileID, url: url)
 				}
 			}
@@ -307,13 +307,13 @@ final class ExtensionsController {
 
 	// A row's pin, the more menu's Pin and Unpin, a pinned button's Unpin:
 	// in the active profile, the more menu closed.
-	func togglePinned(_ item: ExtensionInfo) {
+	func togglePinned(_ item: Extension) {
 		guard let profileID = model.activeProfileID else {
 			return
 		}
 
 		moreMenu = nil
-		setPinned(item.id, !item.pinned, inProfile: profileID)
+		setPinned(item.identifier, !item.isPinned, inProfile: profileID)
 	}
 
 	// A row of the menu: the extension's action, its popup at the puzzle when
@@ -385,8 +385,8 @@ final class ExtensionsController {
 			return []
 		}
 
-		return list(profileID).filter(\.enabled).compactMap { item in
-			let commands = context.commands(ofExtension: item.id)
+		return list(profileID).filter(\.isEnabled).compactMap { item in
+			let commands = context.commands(ofExtension: item.identifier)
 
 			return commands.isEmpty ? nil : ExtensionCommands(item: item, commands: commands)
 		}
@@ -480,12 +480,12 @@ final class ExtensionsController {
 
 		// A command of the same extension that had the key, named by its
 		// description; another extension, by its name.
-		let sibling = dialog.extensions.first { $0.id == field.extensionID }?.commands.first { $0.shortcut == shortcut }
+		let sibling = dialog.extensions.first { $0.item.identifier == field.extensionID }?.commands.first { $0.shortcut == shortcut }
 		let movedFrom = setShortcut(shortcut, of: field, inProfile: dialog.profileID)
 		cancelRecording()
 
 		if let movedFrom {
-			let name = movedFrom == field.extensionID ? sibling?.summary : list(dialog.profileID).first { $0.id == movedFrom }?.name
+			let name = movedFrom == field.extensionID ? sibling?.summary : list(dialog.profileID).first { $0.identifier == movedFrom }?.name
 
 			withAnimation(Motion.panel) {
 				shortcuts?.moved = (field, name ?? movedFrom)
@@ -555,7 +555,7 @@ final class ExtensionsController {
 		browser.openTab(inProfile: profileID, url: url)
 	}
 
-	func openOptions(_ item: ExtensionInfo, inProfile profileID: String? = nil) {
+	func openOptions(_ item: Extension, inProfile profileID: String? = nil) {
 		closeMenu()
 
 		if let profileID = profileID ?? model.activeProfileID, let url = item.optionsURL {
@@ -564,7 +564,7 @@ final class ExtensionsController {
 	}
 
 	// Remove from Pane, in the active profile.
-	func confirmUninstall(_ item: ExtensionInfo) {
+	func confirmUninstall(_ item: Extension) {
 		if let profileID = model.activeProfileID {
 			confirmUninstall(item, inProfile: profileID)
 		}
@@ -598,7 +598,7 @@ final class ExtensionsController {
 }
 
 // The extension Details shows, in its profile: what the engine adds to its
-// snapshot (ExtensionInfo), and the size of its files once measured.
+// report (Extension), and the size of its files once measured.
 struct ShownDetails {
 	let profileID: String
 	let extensionID: String
@@ -629,13 +629,9 @@ struct ShortcutsDialog {
 }
 
 // An extension and its commands, as the dialog lists them.
-struct ExtensionCommands: Identifiable {
-	let item: ExtensionInfo
+struct ExtensionCommands {
+	let item: Extension
 	let commands: [ExtensionCommand]
-
-	var id: String {
-		item.id
-	}
 }
 
 // One command's shortcut field.

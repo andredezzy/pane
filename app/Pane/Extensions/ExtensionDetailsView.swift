@@ -12,7 +12,7 @@ import SwiftUI
 // Settings.
 struct ExtensionDetailsView: View {
 	let controller: ExtensionsController
-	let item: ExtensionInfo
+	let item: Extension
 	let shown: ShownDetails
 	let profileName: String
 
@@ -94,18 +94,11 @@ struct ExtensionDetailsView: View {
 			.accessibilityLabel("Back to extensions")
 			.accessibilityIdentifier("pane.extensionDetails.back")
 
-			Group {
-				if let icon = item.icon {
-					Image(nsImage: icon)
-						.resizable()
-						.interpolation(.high)
-				} else {
-					Palette.secondary
-				}
+			ExtensionIcon(icon: item.icon, size: 40) {
+				Palette.secondary
 			}
-			.frame(width: 40, height: 40)
 			.clipShape(Squircle(cornerRadius: 11))
-			.opacity(item.enabled ? 1 : 0.6)
+			.opacity(item.isEnabled ? 1 : 0.6)
 
 			VStack(alignment: .leading, spacing: 0) {
 				Text(item.name)
@@ -122,7 +115,7 @@ struct ExtensionDetailsView: View {
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
 
-			Toggle(isOn: Binding(get: { item.enabled }, set: { controller.setEnabled(item.id, $0, inProfile: profileID) })) {
+			Toggle(isOn: Binding(get: { item.isEnabled }, set: { controller.setEnabled(item.identifier, $0, inProfile: profileID) })) {
 				EmptyView()
 			}
 			.toggleStyle(.paneSwitch)
@@ -170,7 +163,7 @@ struct ExtensionDetailsView: View {
 				label: "Site access",
 				chevron: .upDown
 			) { access in
-				controller.setSiteAccess(item.id, access, inProfile: profileID)
+				controller.setSiteAccess(item.identifier, access, inProfile: profileID)
 			}
 			.accessibilityIdentifier("pane.extensionDetails.siteAccess")
 		}
@@ -178,13 +171,13 @@ struct ExtensionDetailsView: View {
 		if specific {
 			ForEach(engine.specificSites, id: \.self) { site in
 				SiteRow(title: ExtensionSite.title(site)) {
-					controller.removeSite(site, of: item.id, inProfile: profileID)
+					controller.removeSite(site, of: item.identifier, inProfile: profileID)
 				}
 			}
 
 			LinkRow(
 				link: DetailsLink(title: "Add a site", identifier: "addSite", icon: .plus) {
-					controller.showAddSite(item.id, inProfile: profileID)
+					controller.showAddSite(item.identifier, inProfile: profileID)
 				},
 				last: true
 			)
@@ -195,18 +188,18 @@ struct ExtensionDetailsView: View {
 	private func controls(_ engine: ExtensionDetails) -> some View {
 		if item.hasAction {
 			SettingsRow(title: "Pin to toolbar", minHeight: 48, last: !engine.wantsFileAccess) {
-				Toggle(isOn: Binding(get: { item.pinned }, set: { controller.setPinned(item.id, $0, inProfile: profileID) })) {
+				Toggle(isOn: Binding(get: { item.isPinned }, set: { controller.setPinned(item.identifier, $0, inProfile: profileID) })) {
 					EmptyView()
 				}
 				.toggleStyle(.paneSwitch)
-				.disabled(!item.enabled)
+				.disabled(!item.isEnabled)
 				.accessibilityLabel("Pin to toolbar")
 			}
 		}
 
 		if engine.wantsFileAccess {
 			SettingsRow(title: "Allow access to file URLs", minHeight: 48, last: true) {
-				Toggle(isOn: Binding(get: { engine.allowsFileAccess }, set: { controller.setFileAccess(item.id, $0, inProfile: profileID) })) {
+				Toggle(isOn: Binding(get: { engine.allowsFileAccess }, set: { controller.setFileAccess(item.identifier, $0, inProfile: profileID) })) {
 					EmptyView()
 				}
 				.toggleStyle(.paneSwitch)
@@ -221,7 +214,7 @@ struct ExtensionDetailsView: View {
 		var links: [DetailsLink] = []
 
 		if item.optionsURL != nil {
-			links.append(DetailsLink(title: "Extension options", identifier: "options", enabled: item.enabled) {
+			links.append(DetailsLink(title: "Extension options", identifier: "options", enabled: item.isEnabled) {
 				controller.openOptions(item, inProfile: profileID)
 			})
 		}

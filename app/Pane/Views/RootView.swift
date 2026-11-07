@@ -217,7 +217,7 @@ struct RootView: View {
 
 			// An extension's more menu: beside the menu, over its edge by 10
 			// points, level with the row, as Aside's.
-			if let more = extensions.moreMenu, let item = extensions.active.first(where: { $0.id == more.extensionID }) {
+			if let more = extensions.moreMenu, let item = extensions.active.first(where: { $0.identifier == more.extensionID }) {
 				ExtensionMoreMenu(controller: extensions, item: item)
 					.padding(.leading, max(8, menuX - 230))
 					.padding(.top, more.row.minY)

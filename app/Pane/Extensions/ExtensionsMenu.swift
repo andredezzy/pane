@@ -1,3 +1,4 @@
+import PaneCore
 import SwiftUI
 
 // The extensions menu, as Aside's (Paper: 03.9 Browser · Extensions, 04.6
@@ -8,8 +9,8 @@ import SwiftUI
 struct ExtensionsMenu: View {
 	let controller: ExtensionsController
 
-	private var extensions: [ExtensionInfo] {
-		controller.active.filter(\.enabled)
+	private var extensions: [Extension] {
+		controller.active.filter(\.isEnabled)
 	}
 
 	var body: some View {
@@ -45,7 +46,7 @@ struct ExtensionsMenu: View {
 						.padding(.horizontal, 8)
 						.frame(height: 32)
 				} else {
-					ForEach(extensions) { item in
+					ForEach(extensions, id: \.identifier) { item in
 						ExtensionRow(controller: controller, item: item)
 					}
 				}
@@ -67,7 +68,7 @@ struct ExtensionsMenu: View {
 // (its Details), and Options when it has them.
 struct ExtensionMoreMenu: View {
 	let controller: ExtensionsController
-	let item: ExtensionInfo
+	let item: Extension
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 0) {
@@ -80,7 +81,7 @@ struct ExtensionMoreMenu: View {
 					.frame(height: 24)
 					.accessibilityAddTraits(.isHeader)
 
-				MenuRow(identifier: "pane.extensionMoreMenu.storePage", action: { controller.openStorePage(item.id) }) {
+				MenuRow(identifier: "pane.extensionMoreMenu.storePage", action: { controller.openStorePage(item.identifier) }) {
 					RowIcon(image: Lucide.squareArrowOutUpRight.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: item.name)
 				}
@@ -97,8 +98,8 @@ struct ExtensionMoreMenu: View {
 
 				if item.hasAction {
 					MenuRow(identifier: "pane.extensionMoreMenu.pin", action: { controller.togglePinned(item) }) {
-						RowIcon(image: (item.pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
-						RowTitle(text: item.pinned ? "Unpin" : "Pin")
+						RowIcon(image: (item.isPinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
+						RowTitle(text: item.isPinned ? "Unpin" : "Pin")
 					}
 				}
 			}
@@ -107,7 +108,7 @@ struct ExtensionMoreMenu: View {
 			Hairline()
 
 			VStack(spacing: 0) {
-				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showDetails(item.id) }) {
+				MenuRow(identifier: "pane.extensionMoreMenu.manage", action: { controller.showDetails(item.identifier) }) {
 					RowIcon(image: Lucide.settings.image(strokeWidth: 1.75, size: 16))
 					RowTitle(text: "Manage Extension")
 				}
@@ -133,56 +134,45 @@ struct ExtensionMoreMenu: View {
 // pin and more buttons sit at the trailing edge, 24 points each.
 private struct ExtensionRow: View {
 	let controller: ExtensionsController
-	let item: ExtensionInfo
+	let item: Extension
 
 	var body: some View {
 		MenuRow(
-			identifier: "pane.extensionsMenu.extension.\(item.id)",
-			action: item.hasAction ? { controller.runFromMenu(item.id) } : nil,
-			isHighlighted: controller.moreMenu?.extensionID == item.id
+			identifier: "pane.extensionsMenu.extension.\(item.identifier)",
+			action: item.hasAction ? { controller.runFromMenu(item.identifier) } : nil,
+			isHighlighted: controller.moreMenu?.extensionID == item.identifier
 		) {
-			Group {
-				if let icon = item.icon {
-					Image(nsImage: icon)
-						.resizable()
-						.interpolation(.high)
-				} else {
-					Text(item.name.prefix(1).uppercased())
-						.font(.system(size: 10, weight: .medium))
-						.foregroundStyle(.white)
-						.frame(width: 16, height: 16)
-						.background(Palette.letterTile, in: Squircle(cornerRadius: 7))
-				}
+			ExtensionIcon(icon: item.icon, size: 16) {
+				ExtensionLetter(name: item.name, fontSize: 10, cornerRadius: 7)
 			}
-			.frame(width: 16, height: 16)
-			.opacity(item.hasAction && !item.actionEnabled ? 0.4 : 1)
+			.opacity(item.hasAction && !item.isActionEnabled ? 0.4 : 1)
 			.accessibilityHidden(true)
 
 			RowTitle(text: item.name)
 		} trailing: {
 			if item.hasAction {
-				TrailingButton(label: item.pinned ? "Unpin from toolbar" : "Pin to toolbar") {
+				TrailingButton(label: item.isPinned ? "Unpin from toolbar" : "Pin to toolbar") {
 					controller.togglePinned(item)
 				} content: {
-					Image(nsImage: (item.pinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
+					Image(nsImage: (item.isPinned ? Glyph.pinOff : Glyph.pin).image(strokeWidth: 1.75, size: 16))
 						.renderingMode(.template)
-						.foregroundStyle(item.pinned ? Palette.pinned : Palette.mutedForeground)
+						.foregroundStyle(item.isPinned ? Palette.pinned : Palette.mutedForeground)
 				}
-				.accessibilityAddTraits(item.pinned ? .isSelected : [])
-				.accessibilityIdentifier("pane.extensionsMenu.pin.\(item.id)")
+				.accessibilityAddTraits(item.isPinned ? .isSelected : [])
+				.accessibilityIdentifier("pane.extensionsMenu.pin.\(item.identifier)")
 			}
 
 			// Its frame: the more menu opens level with the row, 4 points above
 			// and below the button.
 			GeometryReader { geometry in
 				TrailingButton(label: "More") {
-					controller.toggleMoreMenu(item.id, row: geometry.frame(in: .global).insetBy(dx: 0, dy: -4))
+					controller.toggleMoreMenu(item.identifier, row: geometry.frame(in: .global).insetBy(dx: 0, dy: -4))
 				} content: {
 					Image(nsImage: Glyph.ellipsis.image(strokeWidth: 1.75, size: 16))
 						.renderingMode(.template)
 						.foregroundStyle(Palette.mutedForeground)
 				}
-				.accessibilityIdentifier("pane.extensionsMenu.more.\(item.id)")
+				.accessibilityIdentifier("pane.extensionsMenu.more.\(item.identifier)")
 			}
 			.frame(width: 24, height: 24)
 		}

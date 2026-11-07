@@ -13,8 +13,8 @@ struct ExtensionActionsView: View {
 
 	@State private var isHovered = false
 
-	private var pinned: [ExtensionInfo] {
-		extensions.active.filter { $0.enabled && $0.hasAction && $0.pinned }
+	private var pinned: [Extension] {
+		extensions.active.filter { $0.isEnabled && $0.hasAction && $0.isPinned }
 	}
 
 	var body: some View {
@@ -23,19 +23,19 @@ struct ExtensionActionsView: View {
 				let openID = extensions.popover.popup?.extensionIdentifier
 
 				HStack(spacing: 4) {
-					ForEach(pinned) { item in
-						ActionButton(item: item, isOpen: openID == item.id) {
-							extensions.runAction(item.id)
+					ForEach(pinned, id: \.identifier) { item in
+						ActionButton(item: item, isOpen: openID == item.identifier) {
+							extensions.runAction(item.identifier)
 						}
 						.contextMenu { ActionContextMenu(extensions: extensions, item: item) }
-						.anchorPreference(item.id)
+						.anchorPreference(item.identifier)
 					}
 				}
 				.padding(1)
 				.overlay {
 					Capsule(style: .circular)
 						.strokeBorder(Palette.border, lineWidth: 1)
-						.opacity(isHovered || pinned.contains { $0.id == openID } ? 1 : 0)
+						.opacity(isHovered || pinned.contains { $0.identifier == openID } ? 1 : 0)
 				}
 				.onHover { hovering in
 					withAnimation(Motion.hover) { isHovered = hovering }
@@ -60,13 +60,13 @@ struct ExtensionActionsView: View {
 // access, View Web Permissions (both its Details).
 private struct ActionContextMenu: View {
 	let extensions: ExtensionsController
-	let item: ExtensionInfo
+	let item: Extension
 
 	var body: some View {
-		let menu = extensions.actionMenu(item.id)
+		let menu = extensions.actionMenu(item.identifier)
 		let siteAccess = menu?.siteAccessItems ?? []
 
-		Button(item.name) { extensions.openStorePage(item.id) }
+		Button(item.name) { extensions.openStorePage(item.identifier) }
 
 		if let menu, !menu.items.isEmpty {
 			Divider()
@@ -88,10 +88,10 @@ private struct ActionContextMenu: View {
 
 		Divider()
 
-		Button("Manage Extension") { extensions.showDetails(item.id) }
+		Button("Manage Extension") { extensions.showDetails(item.identifier) }
 
 		if !siteAccess.isEmpty {
-			Button("View Web Permissions") { extensions.showDetails(item.id) }
+			Button("View Web Permissions") { extensions.showDetails(item.identifier) }
 		}
 	}
 }
@@ -152,25 +152,14 @@ private struct ExtensionsButton: View {
 // action icons; no icon shows the name's first letter on gray. The badge is
 // 12px, 9px text, bottom right.
 private struct ActionButton: View {
-	let item: ExtensionInfo
+	let item: Extension
 	let isOpen: Bool
 	let action: () -> Void
 
 	var body: some View {
 		Button(action: action) {
-			Group {
-				if let icon = item.icon {
-					Image(nsImage: icon)
-						.resizable()
-						.interpolation(.high)
-						.frame(width: 16, height: 16)
-				} else {
-					Text(item.name.prefix(1).uppercased())
-						.font(.system(size: 9, weight: .medium))
-						.foregroundStyle(.white)
-						.frame(width: 16, height: 16)
-						.background(Palette.letterTile, in: Squircle(cornerRadius: 4))
-				}
+			ExtensionIcon(icon: item.icon, size: 16) {
+				ExtensionLetter(name: item.name, fontSize: 9, cornerRadius: 4)
 			}
 			.frame(width: 32, height: 32)
 			.overlay(alignment: .bottomTrailing) {
@@ -181,7 +170,7 @@ private struct ActionButton: View {
 						.foregroundStyle(Color(nsColor: item.badgeTextColor ?? .white))
 						.padding(.horizontal, 2)
 						.frame(height: 12)
-						.background(Color(nsColor: item.badgeBackground ?? .systemRed), in: Squircle(cornerRadius: 4))
+						.background(Color(nsColor: item.badgeBackgroundColor ?? .systemRed), in: Squircle(cornerRadius: 4))
 						.overlay {
 							Squircle(cornerRadius: 4).stroke(Palette.badgeRing, lineWidth: 1)
 						}
@@ -190,11 +179,11 @@ private struct ActionButton: View {
 			}
 		}
 		.buttonStyle(.icon(size: 32, isOn: isOpen))
-		.opacity(item.actionEnabled ? 1 : 0.4)
+		.opacity(item.isActionEnabled ? 1 : 0.4)
 		.help(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityLabel(item.actionTitle.isEmpty ? item.name : item.actionTitle)
 		.accessibilityAddTraits(isOpen ? .isSelected : [])
-		.accessibilityIdentifier("pane.extension.\(item.id)")
+		.accessibilityIdentifier("pane.extension.\(item.identifier)")
 	}
 }
 

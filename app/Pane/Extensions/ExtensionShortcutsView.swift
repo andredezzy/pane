@@ -71,23 +71,12 @@ struct ExtensionShortcutsDialog: View {
 	// its commands.
 	private var groups: some View {
 		VStack(alignment: .leading, spacing: 16) {
-			ForEach(dialog.extensions) { entry in
+			ForEach(dialog.extensions, id: \.item.identifier) { entry in
 				VStack(alignment: .leading, spacing: 0) {
 					HStack(spacing: 10) {
-						Group {
-							if let icon = entry.item.icon {
-								Image(nsImage: icon)
-									.resizable()
-									.interpolation(.high)
-							} else {
-								Text(entry.item.name.prefix(1).uppercased())
-									.font(.system(size: 11, weight: .medium))
-									.foregroundStyle(.white)
-									.frame(width: 20, height: 20)
-									.background(Palette.letterTile, in: Squircle(cornerRadius: 7))
-							}
+						ExtensionIcon(icon: entry.item.icon, size: 20) {
+							ExtensionLetter(name: entry.item.name, fontSize: 11, cornerRadius: 7)
 						}
-						.frame(width: 20, height: 20)
 						.accessibilityHidden(true)
 
 						Text(entry.item.name)
@@ -99,7 +88,7 @@ struct ExtensionShortcutsDialog: View {
 					.frame(height: 28)
 
 					ForEach(entry.commands, id: \.name) { command in
-						row(CommandField(extensionID: entry.item.id, command: command.name), command)
+						row(CommandField(extensionID: entry.item.identifier, command: command.name), command)
 					}
 				}
 			}

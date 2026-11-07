@@ -347,11 +347,11 @@ extension Automation {
 			"extensions": controller.extensions.lists.mapValues { list in
 				list.map { item in
 					[
-						"id": item.id,
+						"id": item.identifier,
 						"name": item.name,
 						"version": item.version,
-						"enabled": item.enabled,
-						"pinned": item.pinned,
+						"enabled": item.isEnabled,
+						"pinned": item.isPinned,
 						"actionTitle": item.actionTitle,
 						"iconVisible": item.icon.map(Self.hasVisiblePixels) ?? false,
 					] as [String: Any]
@@ -418,7 +418,7 @@ extension Automation {
 
 	static func describe(_ entry: ExtensionCommands) -> [String: Any] {
 		[
-			"id": entry.item.id,
+			"id": entry.item.identifier,
 			"name": entry.item.name,
 			"commands": entry.commands.map { command in
 				[
