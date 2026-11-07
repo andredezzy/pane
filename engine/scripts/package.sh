@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assembles app/build/Pane.app: the engine's bundle (PaneCore.framework,
+# Assembles app/build/Pane.app: the engine's bundle ("Pane Framework.framework",
 # helpers, resources, Info.plist) with the Swift app's executable in place of
 # Chrome's launcher, then signs the nested code inside-out.
 # Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir;
@@ -117,7 +117,7 @@ plutil -remove NSBonjourServices "$PLIST" 2>/dev/null || true
 # by then, to close its page (ADR 0110).
 plutil -remove ASWebAuthenticationSessionWebBrowserSupportCapabilities "$PLIST" 2>/dev/null || true
 
-FRAMEWORK="$OUT/Contents/Frameworks/PaneCore.framework"
+FRAMEWORK="$OUT/Contents/Frameworks/Pane Framework.framework"
 VERSION_DIR="$FRAMEWORK/Versions/Current"
 
 # Drops local symbols. strip warns, for each file, that its signature no
@@ -145,11 +145,11 @@ done
 rm -rf "$ICON_ONLY"
 
 # A release (dist.sh) drops the engine's local symbols, as Chrome's official
-# builds do: PaneCore shrinks from ~480 MB to ~270 MB, with its exports, which
+# builds do: the framework shrinks from ~480 MB to ~270 MB, with its exports, which
 # the app links, unchanged. Development builds keep them for stack traces.
 if [ "${PANE_STRIP:-}" = 1 ]; then
 	echo "== strip"
-	strip_local "$VERSION_DIR/PaneCore" "$VERSION_DIR"/Libraries/*.dylib \
+	strip_local "$VERSION_DIR/Pane Framework" "$VERSION_DIR"/Libraries/*.dylib \
 		"$OUT/Contents/MacOS/Pane" "$VERSION_DIR/Helpers/chrome_crashpad_handler" \
 		"$VERSION_DIR/Helpers/app_mode_loader" "$VERSION_DIR"/Helpers/*.app/Contents/MacOS/*
 fi

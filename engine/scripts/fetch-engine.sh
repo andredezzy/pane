@@ -37,7 +37,7 @@ if [ ! -f "$dest/.complete" ]; then
 	echo "$sha256  $work/$name" | shasum -a 256 -c --quiet || die "$name does not match its SHA-256 in prebuilt-engines.tsv"
 
 	ditto -x -k "$work/$name" "$work/engine"
-	[ -f "$work/engine/PaneCore.framework/Versions/Current/PaneCore" ] || die "$name holds no PaneCore.framework"
+	[ -f "$work/engine/Pane Framework.framework/Versions/Current/Pane Framework" ] || die "$name holds no Pane Framework.framework"
 	touch "$work/engine/.complete"
 
 	# Only the engine in use is kept: each is ~300 MB.

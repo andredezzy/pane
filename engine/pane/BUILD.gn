@@ -1,10 +1,10 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
 # The //pane tree: Pane's embedding layer over Chromium's chrome/ layer. It is
-# linked into PaneCore.framework through //chrome:chrome_dll, and its public/
+# linked into Pane Framework.framework through //chrome:chrome_dll, and its public/
 # headers are the Objective-C API the Pane app builds against.
 
-assert(is_mac, "PaneCore is macOS only.")
+assert(is_mac, "Pane's engine is macOS only.")
 
 source_set("pane") {
   visibility = [ "//chrome:chrome_dll" ]

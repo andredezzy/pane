@@ -13,7 +13,7 @@ namespace pane {
 
 // Chrome's main delegate with Pane's clients plugged in. chrome/app's
 // ChromeMain builds this instead of a plain ChromeMainDelegate, so every
-// process of PaneCore.framework runs through it.
+// process of Pane Framework.framework runs through it.
 class PaneMainDelegate : public ChromeMainDelegate {
  public:
   explicit PaneMainDelegate(const StartupTimestamps& timestamps);

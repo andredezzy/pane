@@ -37,8 +37,8 @@ archive_engine() {
 
 	stage="$(mktemp -d)"
 	ditto "$ENGINE_OUT/Pane.app" "$stage/Pane.app"
-	ln -s Pane.app/Contents/Frameworks/PaneCore.framework "$stage/PaneCore.framework"
-	strip -x "$stage/PaneCore.framework/Versions/Current/PaneCore" "$stage/PaneCore.framework/Versions/Current"/Libraries/*.dylib \
+	ln -s "Pane.app/Contents/Frameworks/Pane Framework.framework" "$stage/Pane Framework.framework"
+	strip -x "$stage/Pane Framework.framework/Versions/Current/Pane Framework" "$stage/Pane Framework.framework/Versions/Current"/Libraries/*.dylib \
 		2> >(grep -v 'will invalidate the code signature' >&2)
 
 	mkdir -p "$RELEASE"
@@ -54,9 +54,9 @@ archive_engine() {
 	# 10 GB of memory, 2 GB, 0.5 GB zipped). Its UUID is the shipped PaneCore's.
 	symbols="${archive%.zip}.dSYM.zip"
 	dsym_stage="$(mktemp -d)"
-	nice -n 10 dsymutil -o "$dsym_stage/PaneCore.dSYM" "$ENGINE_OUT/Pane.app/Contents/Frameworks/PaneCore.framework/Versions/Current/PaneCore"
+	nice -n 10 dsymutil -o "$dsym_stage/Pane Framework.dSYM" "$ENGINE_OUT/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current/Pane Framework"
 	rm -f "$symbols"
-	ditto -c -k --keepParent "$dsym_stage/PaneCore.dSYM" "$symbols"
+	ditto -c -k --keepParent "$dsym_stage/Pane Framework.dSYM" "$symbols"
 	rm -rf "$dsym_stage"
 	echo "symbols $symbols"
 }

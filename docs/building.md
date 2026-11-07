@@ -1,10 +1,10 @@
 # Building Pane
 
-Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: the ADRs in `docs/adr/`, one per subject.
+Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `Pane Framework.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: the ADRs in `docs/adr/`, one per subject.
 
 ## Layout
 
-- `engine/` — everything that becomes `PaneCore.framework`
+- `engine/` — everything that becomes `Pane Framework.framework`
   - `CHROMIUM_VERSION` — the pinned Chromium stable tag
   - `args/` — gn args per build config
   - `patches/` — `series` (apply order), `MANIFEST` (each touched Chromium file → its owning patch), the patches
@@ -90,5 +90,5 @@ PANE_ENGINE_OUT="$(engine/scripts/fetch-engine.sh)" engine/scripts/package.sh
 A release strips its executables, so a crash report (`~/Library/Logs/DiagnosticReports/Pane-*.ips`) names addresses, not functions. Its symbols are published: the app's beside the dmg in the release (`Pane-<version>-arm64.dSYM.zip`), and PaneCore's beside the engine archive in the `engine-<key:12>` prerelease (`PaneCore-<chromium>-<key:12>.dSYM.zip`), where `<key>` is the copy's `PaneEngineKey` (`plutil -extract PaneEngineKey raw Pane.app/Contents/Info.plist`). Unzip both, check that their UUIDs (`dwarfdump --uuid`) are the report's images', and resolve each frame against its image's load address:
 
 ```bash
-atos -arch arm64 -o PaneCore.dSYM/Contents/Resources/DWARF/PaneCore -l <load address> <address>...
+atos -arch arm64 -o "Pane Framework.dSYM/Contents/Resources/DWARF/Pane Framework" -l <load address> <address>...
 ```

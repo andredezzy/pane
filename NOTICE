@@ -3,7 +3,7 @@ Pane — third-party notices
 Pane is free software under GPL-3.0-only (LICENSE), with its source at
 https://github.com/andredezzy/pane.
 
-PaneCore.framework is built from the Chromium project (BSD-3-Clause and the
+Pane Framework.framework is built from the Chromium project (BSD-3-Clause and the
 licenses of its third-party components, see chrome://credits in the built app).
 
 Patches in engine/patches that originate in other projects are listed

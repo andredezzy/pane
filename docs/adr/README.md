@@ -9,7 +9,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0006](0006-data-root-and-engine-profiles.md) Pane's data root is its identifier's folder, with the engine's profiles under Engine
 - [0007](0007-chromium-checkout.md) The Chromium checkout is a shallow clone of the tag, kept out of Spotlight
 - [0008](0008-patches-from-saved-copies.md) Patches apply and reverse from saved copies
-- [0009](0009-panecore-framework.md) The engine is PaneCore.framework, Chrome's own layer, with explicit exports
+- [0009](0009-panecore-framework.md) The engine is Chrome's own framework and layer, Pane's by its branding, with explicit exports
 - [0010](0010-host-mode.md) Host mode is one seam into Chrome's startup and the --pane-hosted switch, and Pane's quit outranks Chrome's keep-alives
 - [0011](0011-app-decides-page-visibility.md) The app decides page visibility, in a layer-backed view tree
 - [0012](0012-scenarios-on-a-locked-screen.md) Scenarios run unattended on the user's Mac: they never reach its apps or its login keychain or take its front, clean up after themselves, wait for conditions, and report what they could not prove
