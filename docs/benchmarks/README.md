@@ -21,9 +21,9 @@ bun tests/run.ts --binary <copy of Pane>/Contents/MacOS/Pane --out <dir> --timeo
 | --- | --- | --- | --- |
 | `benchmark-launch` | From the exec: the first window on screen and the first tab's page loaded; cold (new data) and warm (relaunch) | 7 each | 2 min |
 | `benchmark-unlock` | From the PIN, and from a launch with none, to the first page painted, and the volume's attach within it | 5 each | 1 min |
-| `benchmark-pages` | Three local fixtures and three real sites: load, first and largest contentful paint, first byte; empty and filled cache | 3 | 4 min |
+| `benchmark-pages` | Three local fixtures and three real sites: load, first and largest contentful paint, first byte; empty and filled cache | 3 | 2 min |
 | `benchmark-memory` | Every process's physical footprint, summed, and the process count, with 1, 5, and 10 tabs, 30 s idle | 3 | 5 min |
-| `benchmark-stores` | History search, the first request with 3,000 cookies to load, IndexedDB, Local Storage's first read, and the repeat visit after a relaunch (`PANE_STORES_RELAUNCHES`, 5) | 5 | 5 min |
+| `benchmark-stores` | History search, the first request with 3,000 cookies to load, IndexedDB, Local Storage's first read, and the repeat visit after a relaunch (`PANE_STORES_RELAUNCHES`, 5) | 5 | 1 min |
 | `interaction-timing` | The app's own signposted intervals, from an input to the frame it commits | 8 rounds | 1 min |
 
 `native-vs-electron.md` can't be rerun from this tree: its bundle, CPU, and suites benchmarks, its report, and the Electron app's half of `tests/lib/benchmark.ts` are gone. Commit `1a8b786` is the last able to rerun it, with its recipe in that commit's copy of this file.
