@@ -46,7 +46,7 @@ third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc	
 third_party/blink/renderer/modules/speech/speech_synthesis.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/modules/webaudio/offline_audio_context.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc	0006-pane-fingerprint.patch
-components/signin/internal/identity_manager/gaia_cookie_manager_service.cc	0007-pane-quiet.patch
+components/signin/internal/identity_manager/gaia_cookie_manager_service.cc	0008-pane-private.patch
 components/os_crypt/common/keychain_password_mac.mm	0001-pane-framework.patch
 chrome/app/chrome_main_delegate.cc	0008-pane-private.patch
 chrome/browser/download/download_history.cc	0009-pane-history.patch
