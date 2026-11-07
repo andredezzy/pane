@@ -52,12 +52,6 @@ UserDefaults.standard.register(defaults: [
 	"NSQuitAlwaysKeepsWindows": false,
 ])
 
-// What an earlier engine kept in the clear, which it keeps off now (ADR
-// 0113), goes with the erase below.
-for failure in PanicWipe.stageEngineTraces(dataDirectory: dataDirectory) {
-	Log.security.error("Could not stage an earlier engine's traces: \(failure.description, privacy: .private)")
-}
-
 // The panic wipe's data goes before anything reads the data directory: the
 // wiped instance started this one, or a wipe was cut short (AppLock).
 AppLock.wipeAtLaunch(dataDirectory)

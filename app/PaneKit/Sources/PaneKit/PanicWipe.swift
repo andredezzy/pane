@@ -125,39 +125,6 @@ public enum PanicWipe {
 		return failures
 	}
 
-	// What an earlier engine kept in the clear at its user data dir's root,
-	// which the engine keeps off now: the segmentation platform's database of
-	// the pages visited (ADR 0113), and the histograms that counted the pages
-	// loaded and the tabs open, with their spare and deferred files (ADR
-	// 0115). Staged for the erase at launch, before the engine starts.
-	static let engineTraces = ["segmentation_platform", "BrowserMetrics", "BrowserMetrics-spare.pma", "DeferredBrowserMetrics"]
-
-	public static func stageEngineTraces(dataDirectory: URL) -> [Failure] {
-		let fileManager = FileManager.default
-		let traces = engineTraces.map { dataDirectory.appending(path: "Engine/\($0)") }.filter { fileManager.fileExists(atPath: $0.path) }
-
-		guard !traces.isEmpty else {
-			return []
-		}
-
-		let folder = dataDirectory.appending(path: "\(stagingName)/\(UUID().uuidString)", directoryHint: .isDirectory)
-
-		do {
-			try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
-		} catch {
-			return traces.map { Failure(path: $0.path, reason: String(describing: error)) }
-		}
-
-		return traces.compactMap { trace in
-			do {
-				try fileManager.moveItem(at: trace, to: folder.appending(path: trace.lastPathComponent))
-				return nil
-			} catch {
-				return Failure(path: trace.path, reason: String(describing: error))
-			}
-		}
-	}
-
 	// Where staged data waits, each root with its passes: the data
 	// directory, the caches, and beside the Electron app's folder and its
 	// caches.

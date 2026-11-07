@@ -223,33 +223,6 @@ struct DataVolumeTests {
 		#expect(try Data(contentsOf: entry) == Data("page".utf8))
 	}
 
-	@Test("an earlier engine's database of the pages visited, and its histograms, are staged for the erase")
-	func engineTraces() throws {
-		let root = try root()
-		defer { try? fileManager.removeItem(at: root) }
-		let traces = root.appending(path: "Engine/segmentation_platform/ukm_db")
-		try fileManager.createDirectory(at: traces, withIntermediateDirectories: true)
-		try Data("https://mail.example.com/".utf8).write(to: traces.appending(path: "000003.log"))
-		let metrics = root.appending(path: "Engine/BrowserMetrics")
-		try fileManager.createDirectory(at: metrics, withIntermediateDirectories: true)
-		try Data(count: 4096).write(to: metrics.appending(path: "BrowserMetrics-6A1B2C3D-6C80.pma"))
-		try Data(count: 4096).write(to: root.appending(path: "Engine/BrowserMetrics-spare.pma"))
-		try fileManager.createDirectory(at: root.appending(path: "Engine/GraphiteDawnCache"), withIntermediateDirectories: true)
-
-		#expect(PanicWipe.stageEngineTraces(dataDirectory: root).isEmpty)
-
-		for trace in ["segmentation_platform", "BrowserMetrics", "BrowserMetrics-spare.pma"] {
-			#expect(!fileManager.fileExists(atPath: root.appending(path: "Engine/\(trace)").path), "\(trace) stayed")
-		}
-
-		// The GPU's shader caches are not the user's, and stay.
-		#expect(fileManager.fileExists(atPath: root.appending(path: "Engine/GraphiteDawnCache").path))
-		#expect(PanicWipe.staged(dataDirectory: root, cacheDirectory: nil).count == 1)
-		#expect(PanicWipe.eraseStaged(dataDirectory: root, cacheDirectory: nil).isEmpty)
-		// Nothing to stage the next time.
-		#expect(PanicWipe.stageEngineTraces(dataDirectory: root).isEmpty)
-	}
-
 	@Test("the wipe erases the volume's image without passes, and the key's copy before security.json")
 	func wipe() throws {
 		let data = URL(fileURLWithPath: "/tmp/pane")
