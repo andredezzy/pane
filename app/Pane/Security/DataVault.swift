@@ -173,26 +173,37 @@ final class DataVault {
 		return Attached(device: devices.image, started: started, ended: ended, lock: lock)
 	}
 
-	// One watchdog for this Pane's life: it finds the image by its path.
-	private nonisolated static let watching = OSAllocatedUnfairLock(initialState: false)
+	// One watchdog for this Pane's life, once started: it finds the image by its
+	// path.
+	private nonisolated static let watchdog = OSAllocatedUnfairLock<pid_t?>(initialState: nil)
 
 	private nonisolated static func watch(_ volume: DataVolume) {
-		guard !watching.withLock({ started in
-			defer { started = true }
-			return started
-		}) else {
-			return
-		}
+		watchdog.withLock { running in
+			guard running == nil else {
+				return
+			}
 
-		guard let helper = Bundle.main.url(forAuxiliaryExecutable: "pane-volume-watch") else {
-			Log.security.error("No pane-volume-watch in the bundle: a crash leaves the volume attached")
-			return
-		}
+			guard let helper = Bundle.main.url(forAuxiliaryExecutable: "pane-volume-watch") else {
+				Log.security.error("No pane-volume-watch in the bundle: a crash leaves the volume attached")
+				return
+			}
 
-		do {
-			try volume.watch(helper: helper)
-		} catch {
-			Log.security.error("Could not start the volume's watchdog: \(String(describing: error), privacy: .private)")
+			do {
+				running = try volume.watch(helper: helper)
+			} catch {
+				Log.security.error("Could not start the volume's watchdog: \(String(describing: error), privacy: .private)")
+			}
+		}
+	}
+
+	// The image is off, so nothing is left for the watchdog, which would hold the
+	// data's lock through its hdiutil: a Pane started in those 250 ms finds the
+	// lock taken, and its image attaches only once the key opens (ADR 0113).
+	private nonisolated static func endWatchdog() {
+		watchdog.withLock { running in
+			if let running {
+				kill(running, SIGTERM)
+			}
 		}
 	}
 
@@ -286,6 +297,7 @@ final class DataVault {
 				try volume.detach(device: device, force: true)
 			}
 
+			endWatchdog()
 			Log.security.notice("The data volume detached in \(Date().timeIntervalSince(started), format: .fixed(precision: 2)) s")
 		} catch {
 			Log.security.error("Could not detach the data volume: \(String(describing: error), privacy: .private)")

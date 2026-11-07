@@ -683,7 +683,18 @@ const security: Scenario = async (context) => {
 
 	const attachedCount = async () => (await imagesAttachedIn(detachDir)).length;
 	expect((await attachedCount()) === 1, "the volume was not attached");
+	const quitPid = attachedApp.browser.pid;
 	await attachedApp.browser.close();
+
+	// A quit that detached ends its watchdog, which would hold the data's lock
+	// through its hdiutil: a launch right behind it would attach its image only
+	// once the key opened, 250 ms later.
+	const watchdogsAfterQuit = await pgrep("-f", `pane-volume-watch ${quitPid} `);
+
+	expect(
+		watchdogsAfterQuit.length === 0,
+		`a watchdog outlived the quit: ${watchdogsAfterQuit}`,
+	);
 
 	// The detach ends a moment after the process does.
 	await poll(
