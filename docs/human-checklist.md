@@ -2,7 +2,9 @@
 
 What only a person can do or verify: each item says why it needs one, and the steps. An item leaves this file when it is done; what it found goes in its ADR.
 
-- **The rest of the pointer gestures: run when you are away from the Mac.** The profile sheet's group field and color swatches, ⌃⌘F full screen, and the Edit menu (it uses the clipboard) remain. Full screen takes over the screen, and the menus and clicks need Pane in front, which would fight you while you work. Nothing to do but leave the Mac unlocked and idle; the agent runs them then. cua-driver's background drag does not move SwiftUI's rows: a drag needs `delivery_mode: "foreground"`, which moves the pointer.
+- **The Edit menu's Cut, Copy, and Paste.** They use the clipboard, and what is on it is yours: an agent neither reads nor overwrites it. Once: in Pane, copy a word from a page, and paste it in the address field. Its Select All and the rest of the pointer gestures ran by computer use on 0.19.0's candidate (`docs/qa/review-and-simplify/report.md`). cua-driver's background drag does not move SwiftUI's rows: a drag needs `delivery_mode: "foreground"`, which moves the pointer.
+
+- **VoiceOver through a window, by ear.** The window's views changed for 0.19.0 (the live resize and the 23 accessibility elements match the build before, by machine), but what VoiceOver says and when is for a person to hear. Once: turn VoiceOver on, and walk a window from the sidebar to a page.
 
 - **Mail: look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in ADR 0012.
 
