@@ -20,12 +20,12 @@ const dialogConfirm: Scenario = async (context) => {
 	await page.evaluate("runConfirm()");
 	const sheet = await waitForSheet(app, "javaScript");
 	expect(sheet.buttons?.join(",") === "OK,Cancel", `buttons ${sheet.buttons}`);
-	const ok = await answerSheet(app, "OK");
+	await answerSheet(app, "OK");
 	const accepted = await pageResult<{ value: boolean }>(evaluate);
 
 	await page.evaluate("runConfirm()");
 	await waitForSheet(app, "javaScript");
-	const cancel = await answerSheet(app, "Cancel");
+	await answerSheet(app, "Cancel");
 	const refused = await pageResult<{ value: boolean }>(evaluate);
 
 	// Return presses OK and Esc dismisses, as Chrome's dialogs take them.
@@ -67,8 +67,6 @@ const dialogConfirm: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { sheet, answers: [ok, cancel], accepted, refused, keys, windows };
 };
 
 export default dialogConfirm;

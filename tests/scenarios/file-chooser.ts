@@ -117,19 +117,6 @@ const fileChooser: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		openPanel,
-		savePanel,
-		opened,
-		cancelled: {
-			open: { result: openCancelled, kept },
-			save: saveCancelled,
-		},
-		saved,
-		answeredVia: "automation",
-		windows,
-	};
 };
 
 export default fileChooser;

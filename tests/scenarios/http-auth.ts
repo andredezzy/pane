@@ -17,12 +17,9 @@ const httpAuth: Scenario = async (context) => {
 
 	const sheet = await waitForSheet(app, "authentication");
 	expect(sheet.message?.includes("127.0.0.1"), `sheet ${sheet.message}`);
-	const cancel = await answerSheet(app, "Cancel");
+	await answerSheet(app, "Cancel");
 
-	const refused = await app.waitFor(
-		"the 401 page",
-		(state) => !tabOf(state, tab)?.loading,
-	);
+	await app.waitFor("the 401 page", (state) => !tabOf(state, tab)?.loading);
 
 	await app.send("reload");
 	await waitForSheet(app, "authentication");
@@ -62,9 +59,9 @@ const httpAuth: Scenario = async (context) => {
 		);
 	}
 
-	const signIn = await answerSheet(app, "Sign In", ["pane", "secret"]);
+	await answerSheet(app, "Sign In", ["pane", "secret"]);
 
-	const signedIn = await app.waitFor(
+	await app.waitFor(
 		"the signed-in page",
 		(state) => tabOf(state, tab)?.title === "Signed in",
 	);
@@ -91,15 +88,6 @@ const httpAuth: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		sheet,
-		answers: [cancel, signIn],
-		fieldWidths: fields,
-		refusedTitle: tabOf(refused, tab)?.title,
-		signedIn: tabOf(signedIn, tab),
-		windows,
-	};
 };
 
 export default httpAuth;

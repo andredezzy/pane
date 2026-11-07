@@ -35,7 +35,7 @@ const quit: Scenario = async (context) => {
 	if (!context.foreground) {
 		context.defer("every check: it needs Pane in front (run.ts --foreground)");
 
-		return { skipped: "it needs Pane in front (run.ts --foreground)" };
+		return;
 	}
 
 	const url = context.fixtures.url("smoke.html?quit");
@@ -46,17 +46,14 @@ const quit: Scenario = async (context) => {
 
 	await app.send("key", { key: "q", modifiers: ["command"] });
 
-	const asked = await app.waitFor(
-		"Quit Pane?",
-		(state) => state.quitConfirmation,
-	);
+	await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 
 	await Bun.sleep(300);
 	await app.send("render", { path: join(context.out, "quit-light.png") });
 
 	await press(app, "\u001b");
 
-	const cancelled = await app.waitFor(
+	await app.waitFor(
 		"Quit Pane? gone, the page focused again",
 		(state) =>
 			!state.quitConfirmation && state.focus === "RenderWidgetHostViewCocoa",
@@ -83,16 +80,6 @@ const quit: Scenario = async (context) => {
 	const quitByCommandQ = await waitForExit(dark.browser.pid);
 
 	expect(quitByCommandQ, "⌘Q twice did not quit");
-
-	return {
-		asked: asked.quitConfirmation,
-		escape: {
-			closed: !cancelled.quitConfirmation,
-			pageFocusedAgain: cancelled.focus,
-		},
-		quitByReturn,
-		quitByCommandQ,
-	};
 };
 
 export default quit;

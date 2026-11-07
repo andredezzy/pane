@@ -72,30 +72,17 @@ const pageLoading: Scenario = async (context) => {
 	const slow = context.fixtures.url("nav-b.html?delay=1500");
 	await app.send("navigate", { input: slow });
 
-	const loading = await app.waitFor(
+	await app.waitFor(
 		"the navigation loading",
 		(state: AppState) => tabOf(state, tab)?.loading === true,
 		1_000,
 	);
 
-	const loaded = await app.waitFor(
+	await app.waitFor(
 		"the navigation loaded",
 		(state: AppState) =>
 			tabOf(state, tab)?.url === slow && tabOf(state, tab)?.loading === false,
 	);
-
-	return {
-		widget: {
-			ms: widgetMs,
-			samples: widget.length,
-			loading: widget.some(Boolean),
-		},
-		forwardAgain: tabOf(back, tab)?.loading,
-		navigation: {
-			loading: tabOf(loading, tab)?.loading,
-			loaded: tabOf(loaded, tab)?.loading,
-		},
-	};
 };
 
 export default pageLoading;

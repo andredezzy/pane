@@ -231,7 +231,7 @@ const extensionContextMenus: Scenario = async (context) => {
 		return { origins: after, menu };
 	};
 
-	const onClick = await choose(
+	await choose(
 		"When You Click the Extension",
 		(current) => !current.includes("<all_urls>"),
 	);
@@ -247,7 +247,7 @@ const extensionContextMenus: Scenario = async (context) => {
 		`a window showed with the main one: ${JSON.stringify(windows)}`,
 	);
 
-	const onSite = await choose(
+	await choose(
 		`On ${site}`,
 		(current) =>
 			!current.includes("<all_urls>") &&
@@ -259,7 +259,7 @@ const extensionContextMenus: Scenario = async (context) => {
 	// The site joins its Details' list, On specific sites.
 	await app.send("showExtensionDetails", { id, profile });
 
-	const inDetails = await app.waitFor(
+	await app.waitFor(
 		"the site in Details' list",
 		(state) =>
 			state.extensionDetails?.siteAccess === "onSpecificSites" &&
@@ -270,9 +270,7 @@ const extensionContextMenus: Scenario = async (context) => {
 
 	await app.send("showPage", { page: "browser" });
 
-	const onAllSites = await choose("On All Sites", (current) =>
-		current.includes("<all_urls>"),
-	);
+	await choose("On All Sites", (current) => current.includes("<all_urls>"));
 
 	expect(
 		has("PaneExtensionActionMenu.run", (args) => args.title === `On ${site}`),
@@ -293,22 +291,6 @@ const extensionContextMenus: Scenario = async (context) => {
 			"Can\u2019t Read or Change Site\u2019s Data (disabled)",
 		`on a data: page, the site access reads ${described(cantAccess)}`,
 	);
-
-	return {
-		extension: id,
-		pageMenu: titles,
-		probeSubmenu: described(probeItems(first)),
-		actionMenu: described(listed.result.items),
-		siteAccess: {
-			initially,
-			onClick,
-			onSite,
-			inDetails: inDetails.extensionDetails?.specificSites,
-			onAllSites,
-			cantAccess: described(cantAccess),
-		},
-		clicks: await clicks(4),
-	};
 };
 
 export default extensionContextMenus;

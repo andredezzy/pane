@@ -96,7 +96,7 @@ const webStoreLabels: Scenario = async (context) => {
 		return name;
 	};
 
-	const added = await installLabel(/^Add to Pane$/, "Add to Pane");
+	await installLabel(/^Add to Pane$/, "Add to Pane");
 	const english = await buttons();
 
 	const renamedElsewhere = english.filter(
@@ -115,13 +115,13 @@ const webStoreLabels: Scenario = async (context) => {
 		"the page's own title changed",
 	);
 
-	const addShot = await screenshot(page, "web-store-add-to-pane.png");
+	await screenshot(page, "web-store-add-to-pane.png");
 
 	// The script starts as the document commits, before its first paint.
 	const injections = () =>
 		trace().filter((entry) => entry.name === "WebStore.renameButtons");
 
-	const first = await poll("the store script's report", () => injections()[0]);
+	await poll("the store script's report", () => injections()[0]);
 
 	// Other languages. French says Google Chrome, which becomes Pane.
 	const languages: Record<string, string> = {};
@@ -161,10 +161,7 @@ const webStoreLabels: Scenario = async (context) => {
 		30_000,
 	);
 
-	const otherItem = await installLabel(
-		/^Add to Pane$/,
-		"the other item's install button",
-	);
+	await installLabel(/^Add to Pane$/, "the other item's install button");
 
 	expect(
 		(await page.evaluate<boolean | null>("window.paneSameDocument ?? null")) ===
@@ -191,19 +188,17 @@ const webStoreLabels: Scenario = async (context) => {
 	// Dark Reader opens its welcome tab; the store's tab is the one to show.
 	await app.send("select", { tab });
 
-	let removed: string;
-
 	try {
-		removed = await installLabel(/^Remove from Pane$/, "Remove from Pane");
+		await installLabel(/^Remove from Pane$/, "Remove from Pane");
 	} catch {
 		// The store learns of installs it did not start when it loads.
 		await page.navigate(`${item}?hl=en`);
-		removed = await installLabel(/^Remove from Pane$/, "Remove from Pane");
+		await installLabel(/^Remove from Pane$/, "Remove from Pane");
 	}
 
-	const removeShot = await screenshot(page, "web-store-remove-from-pane.png");
+	await screenshot(page, "web-store-remove-from-pane.png");
 
-	const removedFr = await (async () => {
+	await (async () => {
 		await page.navigate(`${item}?hl=fr`);
 
 		return installLabel(/^Supprimer de Pane$/, "the fr remove button");
@@ -221,21 +216,6 @@ const webStoreLabels: Scenario = async (context) => {
 		lookalike === "Add to Chrome",
 		`a button on another site was renamed: ${lookalike}`,
 	);
-
-	return {
-		added,
-		otherButtons: english
-			.filter((button) => !button.install)
-			.map((button) => button.text),
-		firstInjection: first.args,
-		injections: injections().length,
-		languages,
-		otherItem: { url: nextItem, label: otherItem },
-		removed,
-		removedFr,
-		lookalike,
-		screenshots: [addShot, removeShot],
-	};
 };
 
 export default webStoreLabels;

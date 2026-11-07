@@ -21,14 +21,14 @@ async function helpersOf(pid: number): Promise<number[]> {
 // — with an unlocked screen — the page visible in that window and Cmd+Q
 // shutting every helper down.
 const hosted: Scenario = async (context) => {
-	const { app, trace, has } = await launchTraced(context, "hosted", {
+	const { app, has } = await launchTraced(context, "hosted", {
 		args: [URL],
 	});
 
 	const { browser } = app;
 	const { out } = context;
 
-	const page = await waitForTarget(
+	await waitForTarget(
 		browser.cdp,
 		`the page ${URL} titled ${TITLE}`,
 		(target) =>
@@ -48,13 +48,11 @@ const hosted: Scenario = async (context) => {
 		`trace lacks didChangeTitle(${TITLE})`,
 	);
 
-	const traceEntries = trace().length;
-
 	if (!(await canDriveUI())) {
 		context.defer("the page drawn in the window");
 		context.defer("Quit Pane stopping every helper");
 
-		return { page, windows, traceEntries };
+		return;
 	}
 
 	const windowId = await mainWindowOf(browser.pid);
@@ -111,16 +109,6 @@ const hosted: Scenario = async (context) => {
 		helpersAfter.length === 0,
 		`helpers still running after Quit: ${helpersAfter.join(", ")}`,
 	);
-
-	return {
-		page,
-		windows,
-		traceEntries,
-		windowTitle: state.window_title,
-		pageDetail: detail,
-		accessibility: tree,
-		quit: { helpersBefore: helpersBefore.length, exited, helpersAfter: 0 },
-	};
 };
 
 export default hosted;

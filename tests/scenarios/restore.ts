@@ -100,8 +100,6 @@ const restore: Scenario = async (context) => {
 		),
 		"restored profiles should start collapsed, with no page loaded",
 	);
-
-	return { dataDir, profiles: saved(after) };
 };
 
 export default restore;

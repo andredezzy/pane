@@ -62,7 +62,7 @@ const devtoolsUndocked: Scenario = async (context) => {
 		"InspectorFrontendHost.setIsDocked(false, () => {})",
 	);
 
-	const undocked = await app.waitFor("the DevTools window", (state) =>
+	await app.waitFor("the DevTools window", (state) =>
 		state.nativeWindows.some((window) => window.role === "devtools"),
 	);
 
@@ -72,7 +72,7 @@ const devtoolsUndocked: Scenario = async (context) => {
 
 	await (await frontend())("InspectorFrontendHost.setIsDocked(true, () => {})");
 
-	const docked = await app.waitFor(
+	await app.waitFor(
 		"the DevTools window to go",
 		(state) =>
 			!state.nativeWindows.some((window) => window.role === "devtools"),
@@ -91,14 +91,6 @@ const devtoolsUndocked: Scenario = async (context) => {
 		windows.roles.includes("devtools"),
 		"no DevTools window of Pane's was seen",
 	);
-
-	return {
-		undocked: undocked.nativeWindows.filter(
-			(window) => window.role === "devtools",
-		),
-		dockedAgain: docked.devToolsTabs,
-		windows,
-	};
 };
 
 export default devtoolsUndocked;

@@ -37,7 +37,7 @@ const hungRenderer: Scenario = async (context) => {
 
 	// Wait: the sheet goes and the renderer lives. The key is still
 	// unanswered, so the hang monitor asks again.
-	const waited = await answerSheet(app, "Wait");
+	await answerSheet(app, "Wait");
 
 	await app.waitFor(
 		"the sheet gone after Wait",
@@ -51,14 +51,14 @@ const hungRenderer: Scenario = async (context) => {
 		"Wait ended the renderer",
 	);
 
-	const again = await waitForSheet(app, "unresponsive", 60_000);
+	await waitForSheet(app, "unresponsive", 60_000);
 
 	expect(
 		!has("PaneWebContentsDelegate.rendererDidTerminate"),
 		"the renderer ended while the page was waited for",
 	);
 
-	const answer = await answerSheet(app, "Exit Page");
+	await answerSheet(app, "Exit Page");
 
 	const terminated = await waitForEntry(
 		"PaneWebContentsDelegate.rendererDidTerminate",
@@ -69,7 +69,7 @@ const hungRenderer: Scenario = async (context) => {
 	expect(terminated, "Exit Page did not end the renderer");
 
 	// Loaded again: it hangs itself again a second later.
-	const back = await app.waitFor(
+	await app.waitFor(
 		"the reloaded page",
 		(state) =>
 			["Hang", "Hanging"].includes(tabOf(state, tab)?.title ?? "") &&
@@ -89,15 +89,6 @@ const hungRenderer: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		sheet,
-		waited,
-		askedAgain: again.kind,
-		answer,
-		tab: tabOf(back, tab),
-		windows,
-	};
 };
 
 export default hungRenderer;

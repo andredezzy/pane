@@ -78,10 +78,8 @@ const tabDiscard: Scenario = async (context) => {
 	);
 
 	// Selecting it loads it again: a new document, the same tab.
-	const selectedAt = Date.now();
 	await app.send("select", { tab: back });
 	const reloaded = await app.page(back, backURL);
-	const reloadMs = Date.now() - selectedAt;
 
 	expect(
 		(await reloaded.evaluate<boolean | null>("window.loadedOnce ?? null")) ===
@@ -106,7 +104,7 @@ const tabDiscard: Scenario = async (context) => {
 		`the selected tab was not discarded: ${JSON.stringify(discardedFront)}`,
 	);
 
-	const reloadedFront = await poll(
+	await poll(
 		"the selected tab loaded again",
 		async () => {
 			const found = await pageTargets(backURL);
@@ -165,18 +163,6 @@ const tabDiscard: Scenario = async (context) => {
 		final.activeTabID === back && tabOf(final, back)?.loaded === true,
 		`the app's tab changed: ${JSON.stringify(tabOf(final, back))}`,
 	);
-
-	return {
-		discardedBackground: discardedBack,
-		reloadOnSelectMs: reloadMs,
-		afterReload: reloadedState,
-		discardedSelected: discardedFront,
-		selectedReloaded: reloadedFront.length,
-		underPanel,
-		discards: trace().filter(
-			(entry) => entry.name === "PaneWebContents.discarded",
-		).length,
-	};
 };
 
 export default tabDiscard;

@@ -156,8 +156,6 @@ const privateTraces: Scenario = async (context) => {
 		traces.histograms.length === 0,
 		`histograms ${JSON.stringify(traces.histograms)}`,
 	);
-
-	return traces;
 };
 
 export default privateTraces;

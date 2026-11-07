@@ -102,7 +102,7 @@ const extensionShortcuts: Scenario = async (context) => {
 	// With the address field being edited, as with the page focused.
 	await app.send("key", { key: "l", modifiers: ["command"] });
 
-	const editing = await app.waitFor(
+	await app.waitFor(
 		"the address field focused",
 		(state) => state.focus === "field: Search or enter URL",
 	);
@@ -409,16 +409,6 @@ const extensionShortcuts: Scenario = async (context) => {
 	);
 
 	await app.send("extensionShortcutsDialog", { control: "done" });
-
-	return {
-		extension: id,
-		second: secondID,
-		commands: await commands(4),
-		fieldFocus: editing.focus,
-		listed,
-		moved: moved.shortcutsDialog?.moved,
-		movedBack: back.shortcutsDialog?.moved,
-	};
 };
 
 export default extensionShortcuts;

@@ -14,9 +14,7 @@ const devtools: Scenario = async (context) => {
 
 	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
 
-	const open = await app.waitFor("DevTools", (state) =>
-		state.devToolsTabs.includes(tab),
-	);
+	await app.waitFor("DevTools", (state) => state.devToolsTabs.includes(tab));
 
 	const frontend = await waitForTarget(
 		app.browser.cdp,
@@ -30,7 +28,7 @@ const devtools: Scenario = async (context) => {
 
 	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
 
-	const closed = await app.waitFor(
+	await app.waitFor(
 		"DevTools to close",
 		(state) => !state.devToolsTabs.includes(tab),
 	);
@@ -59,13 +57,6 @@ const devtools: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		open: open.devToolsTabs,
-		frontend: frontend?.url,
-		closed: closed.devToolsTabs,
-		windows,
-	};
 };
 
 export default devtools;

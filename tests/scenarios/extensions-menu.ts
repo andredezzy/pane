@@ -172,7 +172,7 @@ const extensionsMenu: Scenario = async (context) => {
 	await openMenu(app, locked);
 	await press(app, locked, webStore);
 
-	const visited = await app.waitFor(
+	await app.waitFor(
 		"the Web Store tab",
 		(state) =>
 			!state.extensionsMenu &&
@@ -228,14 +228,14 @@ const extensionsMenu: Scenario = async (context) => {
 	await openMenu(app, locked);
 	await press(app, locked, pin(true));
 
-	const unpinned = await app.waitFor(
+	await app.waitFor(
 		"unpinned from the menu",
 		(state) => item(state)?.pinned === false && state.extensionsMenu,
 	);
 
 	await press(app, locked, pin(false));
 
-	const pinned = await app.waitFor(
+	await app.waitFor(
 		"pinned again from the menu",
 		(state) => item(state)?.pinned === true && state.extensionsMenu,
 	);
@@ -259,7 +259,7 @@ const extensionsMenu: Scenario = async (context) => {
 	// Its row runs its action: the popup, and the menu closes.
 	await press(app, locked, row(name));
 
-	const ran = await app.waitFor(
+	await app.waitFor(
 		"its popup",
 		(state) =>
 			state.extensionPopup?.extension === DARK_READER && !state.extensionsMenu,
@@ -282,7 +282,7 @@ const extensionsMenu: Scenario = async (context) => {
 	await openMenu(app, locked);
 	await press(app, locked, more);
 
-	const moreMenu = await app.waitFor(
+	await app.waitFor(
 		"the more menu",
 		(state) => state.extensionMoreMenu === DARK_READER,
 	);
@@ -365,30 +365,13 @@ const extensionsMenu: Scenario = async (context) => {
 		`remove popup: ${JSON.stringify(removing)}`,
 	);
 
-	const removed = await answerSheet(app, removing.buttons?.[0] ?? "Remove");
+	await answerSheet(app, removing.buttons?.[0] ?? "Remove");
 
 	await app.waitFor(
 		"Dark Reader removed",
 		(state) => item(state) === undefined,
 		30_000,
 	);
-
-	return {
-		via: locked ? "automation" : "cua",
-		webStoreTab: (
-			visited.profiles.find((each) => each.id === profile)?.tabs ?? []
-		).map((each) => each.url),
-		installedPinned: item(installed)?.pinned,
-		unpinned: item(unpinned)?.pinned,
-		pinned: item(pinned)?.pinned,
-		popup: ran.extensionPopup,
-		moreMenu: moreMenu.extensionMoreMenu,
-		install: adding,
-		remove: { popup: removing, answer: removed },
-		outsideClick: key
-			? "closed the menu"
-			: "not checked: another app kept the key window",
-	};
 };
 
 export default extensionsMenu;

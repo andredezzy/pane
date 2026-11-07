@@ -249,7 +249,7 @@ const updates: Scenario = async (context) => {
 		await invokeMenu(current.browser.pid, ["Pane", "Check for Updates…"]);
 	}
 
-	const rechecking = await current.waitFor(
+	await current.waitFor(
 		"checking from the menu",
 		(state) => state.update.status === "checking",
 		5_000,
@@ -267,24 +267,6 @@ const updates: Scenario = async (context) => {
 	await current.send("render", {
 		path: join(context.out, "update-settings.png"),
 	});
-
-	return {
-		offered: offered.update,
-		checkWhileOffered: describe(whileOffered),
-		downloading: { progressSeen: partial },
-		downloaded: {
-			status: downloaded.update.status,
-			file: DMG,
-			bytes: statSync(dmg).size,
-			quarantined: quarantined(dmg),
-		},
-		checkWhileDownloaded: describe(whileDownloaded),
-		dismissed: { pill: dismissed.update.pill },
-		mismatch: { status: refused.update.status, kept },
-		unverified: { quarantined: unverifiedQuarantined },
-		upToDate: upToDate.update,
-		menuCheck: rechecking.update.status,
-	};
 };
 
 export default updates;

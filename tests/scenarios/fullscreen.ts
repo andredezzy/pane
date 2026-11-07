@@ -16,7 +16,7 @@ const fullscreen: Scenario = async (context) => {
 	if (!context.foreground) {
 		context.defer("every check: it needs Pane in front (run.ts --foreground)");
 
-		return { skipped: "it needs Pane in front (run.ts --foreground)" };
+		return;
 	}
 
 	const { app, has } = await launchTraced(context, "fullscreen");
@@ -131,7 +131,7 @@ const fullscreen: Scenario = async (context) => {
 		(state) => state.window.fullScreen,
 	);
 
-	const { left, escapes } = await pressEscape();
+	await pressEscape();
 
 	const after = await page.evaluate<string | null>(
 		"document.fullscreenElement?.tagName ?? null",
@@ -141,10 +141,7 @@ const fullscreen: Scenario = async (context) => {
 	// and the new one put the traffic lights at its own (9, 9).
 	const windowed = await settled(false, "the window out of full screen");
 
-	const lightsAfterPage = lightsInPlace(
-		windowed,
-		"after the page's fullscreen",
-	);
+	lightsInPlace(windowed, "after the page's fullscreen");
 
 	expect(element === "HTML", `fullscreen element ${element}`);
 
@@ -179,15 +176,12 @@ const fullscreen: Scenario = async (context) => {
 	await toggleFromMenu();
 	const userLeft = await settled(false, "the window out of full screen");
 
-	const pageLeft = await app.waitFor(
+	await app.waitFor(
 		"the page out of fullscreen",
 		(state) => !state.pageFullscreen,
 	);
 
-	const lightsAfterUser = lightsInPlace(
-		userLeft,
-		"after the user's full screen",
-	);
+	lightsInPlace(userLeft, "after the user's full screen");
 
 	const windows = await watcher.stop();
 
@@ -195,26 +189,6 @@ const fullscreen: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		entered: {
-			pageFullscreen: entered.pageFullscreen,
-			hint: entered.exclusiveAccessHint,
-			element,
-		},
-		left: { pageFullscreen: left.pageFullscreen, element: after, escapes },
-		windowed: {
-			fullScreen: windowed.window.fullScreen,
-			lights: lightsAfterPage,
-		},
-		userFullScreenKept: kept.window.fullScreen,
-		userLeft: {
-			fullScreen: userLeft.window.fullScreen,
-			pageFullscreen: pageLeft.pageFullscreen,
-			lights: lightsAfterUser,
-		},
-		windows,
-	};
 };
 
 export default fullscreen;

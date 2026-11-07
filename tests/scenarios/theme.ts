@@ -15,11 +15,6 @@ const theme: Scenario = async (context) => {
 			await $`defaults read -g AppleInterfaceStyle`.quiet().nothrow().text()
 		).trim() === "Dark";
 
-	const results: Record<
-		string,
-		{ appearance: string; pageDark: boolean; expectedDark: boolean }
-	> = {};
-
 	for (const value of ["light", "dark", "system"] as const) {
 		const expectedDark =
 			value === "dark" || (value === "system" && systemIsDark);
@@ -39,13 +34,12 @@ const theme: Scenario = async (context) => {
 			}
 		}
 
-		const { appearance } = await app.state();
-		results[value] = { appearance, pageDark, expectedDark };
-
 		expect(
 			pageDark === expectedDark,
 			`theme ${value}: page dark = ${pageDark}`,
 		);
+
+		const { appearance } = await app.state();
 
 		expect(
 			appearance ===
@@ -53,8 +47,6 @@ const theme: Scenario = async (context) => {
 			`theme ${value}: app appearance ${appearance}`,
 		);
 	}
-
-	return { systemIsDark, results };
 };
 
 export default theme;

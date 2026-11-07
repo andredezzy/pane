@@ -80,8 +80,6 @@ const extensionAutoUpdate: Scenario = async (context) => {
 		asked && named.includes(DARK_READER),
 		`the relaunch asked ${UPDATE_SERVICE}: ${asked}, for ${named.join(", ") || "nothing"}`,
 	);
-
-	return { asked, named: [...new Set(named)] };
 };
 
 export default extensionAutoUpdate;

@@ -60,12 +60,11 @@ const sadTab: Scenario = async (context) => {
 		return back;
 	};
 
-	const sad = await crashTwice();
+	await crashTwice();
 
 	await watcher.sample("sad tab");
 
 	const locked = !(await canDriveUI());
-	const via = locked ? "automation" : "cua";
 
 	// The sad tab's own Reload.
 	if (locked) {
@@ -79,7 +78,7 @@ const sadTab: Scenario = async (context) => {
 		);
 	}
 
-	const back = await pageIsBack();
+	await pageIsBack();
 
 	// The toolbar's Reload (and ⌘R) bring a sad tab back too.
 	await crashTwice();
@@ -103,14 +102,6 @@ const sadTab: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		crashes: crashes(),
-		crashedTabs: sad.crashedTabs,
-		reloadVia: via,
-		tab: tabOf(back, tab),
-		windows,
-	};
 };
 
 export default sadTab;

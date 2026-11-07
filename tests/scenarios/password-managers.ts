@@ -48,7 +48,6 @@ const passwordManagers: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Passwords");
 	const url = context.fixtures.url("password.html?managers");
-	const results: Record<string, unknown>[] = [];
 
 	for (const manager of MANAGERS) {
 		const installed = await installFromWebStore(app, profile, manager.id);
@@ -79,7 +78,7 @@ const passwordManagers: Scenario = async (context) => {
 
 		// Whether it has a popup is known once its button is pressed: one
 		// turns it off seconds after installing (1Password).
-		const click = await pressToolbarAction(app, profile, manager.id);
+		await pressToolbarAction(app, profile, manager.id);
 		const own = `chrome-extension://${manager.id}/`;
 
 		const pressed = await app.waitFor(
@@ -93,28 +92,16 @@ const passwordManagers: Scenario = async (context) => {
 		);
 
 		if (pressed.extensionPopup?.open) {
-			const opened = { popup: pressed.extensionPopup, click };
 			const text = await firstWords(await popupPage(app, manager.id));
 			await Bun.sleep(1_000);
-			const shot = await screenshotPopover(app, manager.id, file);
+			await screenshotPopover(app, manager.id, file);
 			await watcher.sample(manager.file);
 			await app.send("closeExtensionPopup");
 
 			expect(text.length > 0, `${installed.name}'s popup rendered nothing`);
 
-			results.push({
-				installed,
-				opens: "popup",
-				popup: opened.popup,
-				toolbarClick: opened.click,
-				text,
-				screenshot: { file: manager.file, via: shot },
-			});
-
 			continue;
 		}
-
-		const opened = tabOf(pressed, pressed.activeTabID ?? "");
 
 		// Its page routes itself (the URL changes as it starts).
 		const page = await waitForPage(
@@ -125,19 +112,10 @@ const passwordManagers: Scenario = async (context) => {
 
 		const text = await firstWords(page);
 		await Bun.sleep(1_000);
-		const shot = await screenshotWindow(app, file, page);
+		await screenshotWindow(app, file, page);
 		await watcher.sample(manager.file);
 
 		expect(text.length > 0, `${installed.name}'s page rendered nothing`);
-
-		results.push({
-			installed,
-			opens: "tab",
-			page: opened?.url,
-			toolbarClick: click,
-			text,
-			screenshot: { file: manager.file, via: shot },
-		});
 	}
 
 	const windows = await watcher.stop();
@@ -146,8 +124,6 @@ const passwordManagers: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { managers: results, windows };
 };
 
 export default passwordManagers;

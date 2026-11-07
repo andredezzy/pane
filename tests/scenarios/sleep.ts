@@ -95,11 +95,7 @@ const sleep: Scenario = async (context) => {
 
 	const a2 = await app.openTab(a, context.fixtures.url("nav-a.html?selected"));
 
-	const slept = await app.waitFor(
-		"a1 asleep",
-		(state) => !loaded(state, a1),
-		15_000,
-	);
+	await app.waitFor("a1 asleep", (state) => !loaded(state, a1), 15_000);
 
 	const sleptAfter = (Date.now() - backgrounded) / 1000;
 
@@ -110,11 +106,7 @@ const sleep: Scenario = async (context) => {
 	);
 
 	// B's tab sleeps too, which unloads B, and B is trimmed.
-	const unloaded = await app.waitFor(
-		"B unloaded",
-		(state) => !loaded(state, b1),
-		20_000,
-	);
+	await app.waitFor("B unloaded", (state) => !loaded(state, b1), 20_000);
 
 	await app.waitFor(
 		"B trimmed",
@@ -209,37 +201,6 @@ const sleep: Scenario = async (context) => {
 		tabOf(restored, a1)?.url === context.fixtures.url("nav-a.html?background"),
 		`a1 came back at ${tabOf(restored, a1)?.url}`,
 	);
-
-	return {
-		settings: {
-			tabSleepAfterMinutes: 2,
-			profileUnloadAfterMinutes: 4,
-			cacheBudgetMB: 0,
-			timeScale: SCALE,
-		},
-		tabSleep: {
-			tab: a1,
-			sleptAfterSeconds: sleptAfter,
-			scaledMinutes: (sleptAfter * SCALE) / 60,
-		},
-		stayedLoaded: {
-			selected: loaded(settled, a2),
-			devTools: loaded(settled, a3),
-			audible: loaded(settled, a4),
-			keepLoaded: loaded(settled, k1),
-		},
-		unload: { profile: b, tabUnloaded: !loaded(unloaded, b1) },
-		trim: {
-			cacheBytesBefore: cacheBefore,
-			cacheBytesAfter: cacheAfter,
-			signInCookieKept: identity.cookie.includes("pane_session=signed-in"),
-			localStorageKept: identity.storage,
-			cacheStorageEntryAfterWake: entry,
-			cacheStorageNames: identity.caches,
-		},
-		restored: { tab: a1, url: tabOf(restored, a1)?.url },
-		slept: { a1: !loaded(slept, a1) },
-	};
 };
 
 export default sleep;

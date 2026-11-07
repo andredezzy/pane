@@ -81,14 +81,6 @@ const filesEncrypted: Scenario = async (context) => {
 			`names that give a site away: ${found.named.map((item) => `${item.path} (${item.named.join(", ")})`).join("; ")}`,
 		);
 	}
-
-	return {
-		strict: STRICT,
-		files: found.files.length,
-		plain: found.plain.length,
-		planted: found.planted.length,
-		named: found.named.length,
-	};
 };
 
 export default filesEncrypted;

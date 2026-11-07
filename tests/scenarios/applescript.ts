@@ -41,8 +41,6 @@ const applescript: Scenario = async (context) => {
 			})
 		).result;
 
-	const answers: Record<string, unknown> = {};
-
 	// Chromium's front window is the Browser it activated last, and the
 	// engine activates the shown profile's only with Pane's window key
 	// (WindowHost::SetActiveProfile), as Chrome activates a window: shown in
@@ -77,17 +75,13 @@ const applescript: Scenario = async (context) => {
 
 		// Activated, the Browser takes a turn to be the front window
 		// (HostedBrowserWindow::Activate posts it): the answer is read once
-		// it names the tab, within a second, and how long that took is kept.
-		const asked = Date.now();
-
+		// it names the tab, within a second.
 		await poll(
 			`AppleScript naming ${name}`,
 			async () => (await run(URL_OF_ACTIVE)) === url(name),
 			1_000,
 			20,
 		).catch(() => undefined);
-
-		const namedAfterMs = Date.now() - asked;
 
 		const answer = {
 			windows: await run(WINDOWS),
@@ -103,11 +97,7 @@ const applescript: Scenario = async (context) => {
 				answer.tabs === tabCount,
 			`with ${name} shown, AppleScript answers ${JSON.stringify(answer)}`,
 		);
-
-		answers[name] = { ...answer, namedAfterMs };
 	}
-
-	return answers;
 };
 
 export default applescript;

@@ -20,7 +20,7 @@ const dialogBeforeUnload: Scenario = async (context) => {
 	await app.send("closeTab", { tab });
 	const sheet = await waitForSheet(app, "javaScript");
 	expect(sheet.title === "Leave site?", `sheet title ${sheet.title}`);
-	const stay = await answerSheet(app, "Cancel");
+	await answerSheet(app, "Cancel");
 
 	await Bun.sleep(1_000);
 	const kept = await app.state();
@@ -33,12 +33,9 @@ const dialogBeforeUnload: Scenario = async (context) => {
 
 	await app.send("closeTab", { tab });
 	await waitForSheet(app, "javaScript");
-	const leave = await answerSheet(app, "Leave");
+	await answerSheet(app, "Leave");
 
-	const closed = await app.waitFor(
-		"the tab to close",
-		(state) => !tabOf(state, tab),
-	);
+	await app.waitFor("the tab to close", (state) => !tabOf(state, tab));
 
 	expect(
 		has(
@@ -54,13 +51,6 @@ const dialogBeforeUnload: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		sheet,
-		answers: [stay, leave],
-		tabsAfter: closed.profiles[0]?.tabs.length,
-		windows,
-	};
 };
 
 export default dialogBeforeUnload;

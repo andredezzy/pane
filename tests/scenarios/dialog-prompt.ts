@@ -20,12 +20,12 @@ const dialogPrompt: Scenario = async (context) => {
 	await page.evaluate("runPrompt()");
 	const sheet = await waitForSheet(app, "javaScript");
 	expect(sheet.fields?.[0] === "default text", `prompt field ${sheet.fields}`);
-	const ok = await answerSheet(app, "OK", ["Typed in Pane"]);
+	await answerSheet(app, "OK", ["Typed in Pane"]);
 	const typed = await pageResult<{ value: string | null }>(evaluate);
 
 	await page.evaluate("runPrompt()");
 	await waitForSheet(app, "javaScript");
-	const cancel = await answerSheet(app, "Cancel");
+	await answerSheet(app, "Cancel");
 	const cancelled = await pageResult<{ value: string | null }>(evaluate);
 
 	expect(
@@ -49,8 +49,6 @@ const dialogPrompt: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { sheet, answers: [ok, cancel], typed, cancelled, windows };
 };
 
 export default dialogPrompt;

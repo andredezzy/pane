@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { popupPage, workerPage } from "../lib/extensions";
-import { type AppState, bringToFront, tabOf } from "../lib/pane";
+import { bringToFront } from "../lib/pane";
 import { pageResult, WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -70,7 +70,7 @@ const tabsApi: Scenario = async (context) => {
 		`chrome.tabs.create({ url: ${JSON.stringify(created)} })`,
 	);
 
-	const withTab = await app.waitFor("the extension's tab", (state) =>
+	await app.waitFor("the extension's tab", (state) =>
 		(state.profiles.find((p) => p.id === profile)?.tabs ?? []).some(
 			(t) => t.url === created,
 		),
@@ -82,12 +82,10 @@ const tabsApi: Scenario = async (context) => {
 		`chrome.windows.create({ url: ${JSON.stringify(windowed)}, type: "popup" })`,
 	);
 
-	const withWindowTab = await app.waitFor(
-		"the extension's window, as a tab",
-		(state) =>
-			(state.profiles.find((p) => p.id === profile)?.tabs ?? []).some(
-				(t) => t.url === windowed,
-			),
+	await app.waitFor("the extension's window, as a tab", (state) =>
+		(state.profiles.find((p) => p.id === profile)?.tabs ?? []).some(
+			(t) => t.url === windowed,
+		),
 	);
 
 	await watcher.sample("after windows.create");
@@ -97,7 +95,7 @@ const tabsApi: Scenario = async (context) => {
 		`chrome.tabs.query({ url: ${JSON.stringify(url)} }).then(([found]) => chrome.tabs.update(found.id, { active: true }))`,
 	);
 
-	const reselected = await app.waitFor(
+	await app.waitFor(
 		"the first tab selected by the extension",
 		(state) => state.activeTabID === tab,
 	);
@@ -111,12 +109,11 @@ const tabsApi: Scenario = async (context) => {
 		).length;
 
 	const popupsBefore = popups();
-	let openedByAPI: AppState | null = null;
 
 	if (await bringToFront(context, app, "chrome.action.openPopup")) {
 		await worker.evaluate("chrome.action.openPopup()");
 
-		openedByAPI = await app.waitFor(
+		await app.waitFor(
 			"the popup chrome.action.openPopup opened",
 			(state) =>
 				state.extensionPopup?.extension === id &&
@@ -147,7 +144,7 @@ const tabsApi: Scenario = async (context) => {
 
 	await app.send("deleteProfile", { profile });
 
-	const deleted = await app.waitFor(
+	await app.waitFor(
 		"the popup gone with its profile",
 		(state) =>
 			state.extensionPopup === null && state.pendingProfileDeletions === 0,
@@ -158,28 +155,12 @@ const tabsApi: Scenario = async (context) => {
 		"the popup outlived its profile's Browser",
 	);
 
-	const tabs =
-		withWindowTab.profiles
-			.find((p) => p.id === profile)
-			?.tabs.map((t) => t.url) ?? [];
-
 	const windows = await watcher.stop();
 
 	expect(
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		extension: id,
-		fromPopup,
-		activeTab: tabOf(withTab, tab),
-		tabsAfterCreate: tabs,
-		selectedByUpdate: tabOf(reselected, tab)?.url,
-		openPopup: openedByAPI?.extensionPopup ?? null,
-		popupClosedWithProfile: deleted.extensionPopup === null,
-		windows,
-	};
 };
 
 export default tabsApi;

@@ -89,8 +89,6 @@ const windowDrag: Scenario = async (context) => {
 	);
 
 	expect(lockNumpad !== DRAG, `the numpad moves the window: ${lockNumpad}`);
-
-	return { window: { width, height }, hits, lockPanel, lockNumpad };
 };
 
 export default windowDrag;

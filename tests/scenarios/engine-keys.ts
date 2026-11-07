@@ -63,11 +63,9 @@ const engineKeys: Scenario = async (context) => {
 
 	// In no file, once what is written has reached the disk.
 	await Bun.sleep(32_000); // The cookie store commits within 30 s.
-	let files = 0;
 
 	for (const file of filesUnder(dataDir)) {
 		const bytes = readFileSync(file);
-		files++;
 
 		for (const form of forms) {
 			expect(!bytes.includes(form), `the key is in ${file}`);
@@ -96,7 +94,7 @@ const engineKeys: Scenario = async (context) => {
 	const network = await pidOf("network.mojom.NetworkService");
 	process.kill(network, "SIGKILL");
 
-	const afterNetwork = await poll(
+	await poll(
 		"the network service back",
 		async () => {
 			const next = await pidOf("network.mojom.NetworkService");
@@ -121,7 +119,7 @@ const engineKeys: Scenario = async (context) => {
 	const storage = await pidOf("storage.mojom.StorageService");
 	process.kill(storage, "SIGKILL");
 
-	const afterStorage = await poll(
+	await poll(
 		"the Storage Service back",
 		async () => {
 			await app.send("reload", { tab });
@@ -168,7 +166,7 @@ const engineKeys: Scenario = async (context) => {
 	// The app has not crashed, nothing is open, and the PIN brings it back.
 	await app.send("pinKeys", { keys: "1234" });
 
-	const unlocked = await app.waitFor(
+	await app.waitFor(
 		"unlocked again, the tab back",
 		(state) =>
 			!state.security.locked &&
@@ -188,14 +186,6 @@ const engineKeys: Scenario = async (context) => {
 	);
 
 	await app.quit();
-
-	return {
-		processes: processes.length,
-		files,
-		restarts: { network: afterNetwork, storage: afterStorage },
-		dropped: dropped.args,
-		profiles: unlocked.profiles.length,
-	};
 };
 
 export default engineKeys;

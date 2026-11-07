@@ -25,7 +25,7 @@ const popupNewTab: Scenario = async (context) => {
 		userGesture: true,
 	});
 
-	const afterLink = await app.waitFor("the link's tab", (state) =>
+	await app.waitFor("the link's tab", (state) =>
 		state.profiles.some((p) => p.tabs.some((tab) => tab.url === viaLink)),
 	);
 
@@ -77,13 +77,6 @@ const popupNewTab: Scenario = async (context) => {
 	);
 
 	expect(tabOf(afterClose, opener), "the opener's tab went away");
-
-	return {
-		afterLink: afterLink.profiles,
-		afterOpen: afterOpen.profiles,
-		afterClose: afterClose.profiles,
-		windows,
-	};
 };
 
 export default popupNewTab;

@@ -1,5 +1,4 @@
 import { isScreenLocked } from "../lib/cua";
-import { tabOf } from "../lib/pane";
 import {
 	clearClipboard,
 	clipboardText,
@@ -86,8 +85,6 @@ const contextMenu: Scenario = async (context) => {
 	// must be one macOS's spellchecker rejects ("helo", "teh", "speling" pass
 	// it). On a locked screen a plain edit menu is accepted: spelling there
 	// was only ever tried with "helo", so it is unproven either way.
-	let spelling: Record<string, unknown>;
-
 	await page.evaluate(
 		"(() => { const field = document.getElementById('text'); field.focus(); const range = document.createRange(); range.selectNodeContents(field); range.collapse(false); const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range); })()",
 	);
@@ -138,8 +135,6 @@ const contextMenu: Scenario = async (context) => {
 			has("PaneContextMenu.replaceMisspelling"),
 			"trace lacks the replacement",
 		);
-
-		spelling = { menu: editMenu, replaced: text };
 	} else {
 		expect(
 			locked,
@@ -155,16 +150,12 @@ const contextMenu: Scenario = async (context) => {
 		context.defer(
 			"spelling suggestions: no word is flagged on a locked screen",
 		);
-
-		spelling = { menu: editMenu };
 	}
 
 	// The field's edit commands and the link's address, through the menu.
 	const restoreClipboard = await saveClipboard(
 		context.tempDir("pane-clipboard-"),
 	);
-
-	let edits: Record<string, unknown>;
 
 	try {
 		const field = () =>
@@ -239,7 +230,7 @@ const contextMenu: Scenario = async (context) => {
 				() => 0,
 			);
 
-		edits = { text, link, toasts };
+		expect(toasts === 0, `Chrome showed ${toasts} toasts`);
 	} finally {
 		await restoreClipboard();
 	}
@@ -261,7 +252,7 @@ const contextMenu: Scenario = async (context) => {
 	await app.waitFor("DevTools", (state) => state.devToolsTabs.includes(tab));
 	await app.send("toggleDevTools");
 
-	const closed = await app.waitFor(
+	await app.waitFor(
 		"DevTools to close",
 		(state) => !state.devToolsTabs.includes(tab),
 	);
@@ -275,7 +266,7 @@ const contextMenu: Scenario = async (context) => {
 
 	// A menu that closed is let go, with the page its items hold: none of
 	// them runs any more.
-	const released = await app.waitFor(
+	await app.waitFor(
 		"the closed menu released",
 		(state) => state.contextMenu === null,
 		5_000,
@@ -299,17 +290,6 @@ const contextMenu: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		menus: { link: linkMenu, plain: plainMenu },
-		spelling,
-		edits,
-		newTab,
-		devToolsClosed: !closed.devToolsTabs.includes(tab),
-		menuReleased: released.contextMenu === null,
-		tab: tabOf(closed, tab),
-		windows,
-	};
 };
 
 export default contextMenu;

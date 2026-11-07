@@ -97,7 +97,6 @@ const updateInstall: Scenario = async (context) => {
 		await download(restart.app);
 		const staged = await restart.app.state();
 		expect(staged.update.installsItself, "the matching dmg was not staged");
-		const besideBeforeQuit = readdirSync(dirname(restart.bundle));
 
 		const pid = restart.app.browser.pid;
 		await restart.app.send("restartToUpdate").catch(() => undefined);
@@ -179,12 +178,6 @@ const updateInstall: Scenario = async (context) => {
 				!existsSync(join(byHand.app.dataDir, "reopened")),
 			`Quit and install left ${version(byHand.bundle)}, reopened: ${existsSync(join(byHand.app.dataDir, "reopened"))}`,
 		);
-
-		return {
-			besideBeforeQuit,
-			restarted: version(restart.bundle),
-			quit: version(quit.bundle),
-		};
 	} finally {
 		server.stop(true);
 	}

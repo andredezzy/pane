@@ -14,14 +14,10 @@ const print: Scenario = async (context) => {
 
 	await page.evaluate("startPrint()");
 
-	const scripted = await app.waitFor(
-		"the print panel",
-		(state) => state.modal !== null,
-		20_000,
-	);
+	await app.waitFor("the print panel", (state) => state.modal !== null, 20_000);
 
 	await watcher.sample("print panel");
-	const cancel = await answerModal(app, "Cancel");
+	await answerModal(app, "Cancel");
 	await app.waitFor("the panel to close", (state) => state.modal === null);
 
 	const printed = await page.evaluate<{ before: boolean; after: boolean }>(
@@ -30,13 +26,13 @@ const print: Scenario = async (context) => {
 
 	await app.send("key", { key: "p", modifiers: ["command"] });
 
-	const fromMenu = await app.waitFor(
+	await app.waitFor(
 		"the print panel from ⌘P",
 		(state) => state.modal !== null,
 		20_000,
 	);
 
-	const cancelAgain = await answerModal(app, "Cancel");
+	await answerModal(app, "Cancel");
 
 	await app.waitFor(
 		"the panel to close again",
@@ -53,14 +49,6 @@ const print: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		panel: scripted.modal,
-		menuPanel: fromMenu.modal,
-		answers: [cancel, cancelAgain],
-		printed,
-		windows,
-	};
 };
 
 export default print;

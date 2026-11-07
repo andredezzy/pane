@@ -224,8 +224,6 @@ async function serve(kind: Kind) {
 }
 
 const updateConnection: Scenario = async (context) => {
-	const results: Record<string, unknown> = {};
-
 	for (const kind of Object.keys(CASES) as Kind[]) {
 		const { server, requests, sha256, origin } = await serve(kind);
 		const downloads = context.tempDir("pane-connection-");
@@ -299,15 +297,12 @@ const updateConnection: Scenario = async (context) => {
 			};
 
 			expect(expected[kind], `${kind}: ${got}`);
-			results[kind] = { seconds, requests, resumedAt: offset };
 			await app.browser.close();
 		} finally {
 			server.closeAllConnections();
 			server.close();
 		}
 	}
-
-	return results;
 };
 
 export default updateConnection;

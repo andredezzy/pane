@@ -28,7 +28,7 @@ const dialogFormResubmission: Scenario = async (context) => {
 		`sheet title ${sheet.title}`,
 	);
 
-	const answer = await answerSheet(app, "Continue");
+	await answerSheet(app, "Continue");
 
 	await app.waitFor("the second post", (state) => !tabOf(state, tab)?.loading);
 	const posted = await app.page(tab, echo);
@@ -50,8 +50,6 @@ const dialogFormResubmission: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { sheet, answer, posts, windows };
 };
 
 export default dialogFormResubmission;

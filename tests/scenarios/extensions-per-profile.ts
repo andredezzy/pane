@@ -57,7 +57,7 @@ const extensionsPerProfile: Scenario = async (context) => {
 	await app.page(secondTab, secondURL);
 	await app.send("select", { tab: secondTab });
 
-	const opened = await app.waitFor(
+	await app.waitFor(
 		"the second profile open",
 		(state) => state.activeProfileID === second && second in state.extensions,
 	);
@@ -99,7 +99,7 @@ const extensionsPerProfile: Scenario = async (context) => {
 		pinned: false,
 	});
 
-	const changed = await app.waitFor(
+	await app.waitFor(
 		"the first profile's Dark Reader disabled and unpinned",
 		(state) =>
 			item(state, first)?.enabled === false &&
@@ -117,7 +117,7 @@ const extensionsPerProfile: Scenario = async (context) => {
 
 	await app.send("uninstallExtension", { id: DARK_READER, profile: first });
 
-	const removed = await app.waitFor(
+	await app.waitFor(
 		"Dark Reader removed from the first profile",
 		(state) => item(state, first) === undefined,
 	);
@@ -129,17 +129,6 @@ const extensionsPerProfile: Scenario = async (context) => {
 		item(afterRemove, second)?.enabled === true,
 		`the second profile lost its Dark Reader: ${JSON.stringify(listed(afterRemove))}`,
 	);
-
-	return {
-		openedSecond: listed(opened),
-		besideFirstInstall: { listed: listed(beside), onDisk, installs },
-		afterFirstDisabledAndUnpinned: {
-			first: item(changed, first),
-			second: item(afterChange, second),
-		},
-		afterFirstRemoved: listed(removed),
-		secondKept: listed(afterRemove),
-	};
 };
 
 export default extensionsPerProfile;

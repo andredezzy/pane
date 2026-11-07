@@ -206,12 +206,10 @@ const profileLifecycle: Scenario = async (context) => {
 	const broken = await launchPane(context, { dataDir: brokenDir });
 	await broken.send("select", { tab: "broken-tab" });
 
-	const sadTab = await broken.waitFor(
-		"the sad tab of a profile that will not open",
-		(state) => state.crashedTabs.includes("broken-tab"),
+	await broken.waitFor("the sad tab of a profile that will not open", (state) =>
+		state.crashedTabs.includes("broken-tab"),
 	);
 
-	const longSelected = Date.now();
 	await broken.send("select", { tab: "long-tab" });
 
 	await broken.waitFor(
@@ -220,13 +218,11 @@ const profileLifecycle: Scenario = async (context) => {
 		5_000,
 	);
 
-	const longSadTabMs = Date.now() - longSelected;
-
 	for (const id of ["broken/profile", longID]) {
 		await broken.send("deleteProfile", { profile: id });
 	}
 
-	const brokenDeleted = await broken.waitFor(
+	await broken.waitFor(
 		"nothing left pending",
 		(state) =>
 			state.profiles.length === 0 && state.pendingProfileDeletions === 0,
@@ -299,21 +295,6 @@ const profileLifecycle: Scenario = async (context) => {
 		!orphan.data && !orphan.listed,
 		`an unconfirmed delete was not finished: ${JSON.stringify(orphan)}`,
 	);
-
-	return {
-		empty: { profiles: empty.profiles.length, render: "empty-state.png" },
-		unloaded: tabOf(unloaded, keepTab),
-		reloaded: tabOf(reloaded, keepTab),
-		deleted: deleted.profiles.map((profile) => profile.name),
-		afterRelaunch: after.profiles.map((profile) => profile.name),
-		profileDirRemoved: !existsSync(profileDir),
-		unconfirmedDelete: orphan,
-		contextThatWillNotOpen: {
-			sadTab: sadTab.activeTabID === "broken-tab",
-			longIDSadTabMs: longSadTabMs,
-			pendingAfterDelete: brokenDeleted.pendingProfileDeletions,
-		},
-	};
 };
 
 export default profileLifecycle;

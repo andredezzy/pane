@@ -22,8 +22,6 @@ const shortcuts: Scenario = async (context) => {
 	const press = (key: string, ...modifiers: string[]) =>
 		app.send("key", { key, modifiers } satisfies Key);
 
-	const checks: Record<string, unknown> = {};
-
 	const profile = await app.createProfile("Keys");
 	const a = context.fixtures.url("nav-a.html");
 	const b = context.fixtures.url("nav-b.html");
@@ -44,7 +42,6 @@ const shortcuts: Scenario = async (context) => {
 	});
 
 	const tabNew = opened.activeTabID as string;
-	checks["⌘T"] = { tabs: opened.profiles[0]?.tabs.length, focus: opened.focus };
 
 	// What is typed replaces the address that came after the field took the focus,
 	// and ⌘L selects it again while the field has the focus.
@@ -88,24 +85,17 @@ const shortcuts: Scenario = async (context) => {
 	await app.waitFor("⌘2", (state) => state.activeTabID === tabNew);
 	await press("w", "command");
 
-	const closed = await app.waitFor(
+	await app.waitFor(
 		"⌘W",
 		(state) => state.profiles[0]?.tabs.length === 1 && state.closedTabs === 1,
 	);
 
-	checks["⌘W"] = {
-		tabs: closed.profiles[0]?.tabs.length,
-		active: closed.activeTabID === tabA,
-	};
-
 	await press("t", "command", "shift");
 
-	const reopened = await app.waitFor(
+	await app.waitFor(
 		"⇧⌘T",
 		(state) => state.profiles[0]?.tabs.length === 2 && state.closedTabs === 0,
 	);
-
-	checks["⇧⌘T"] = { tabs: reopened.profiles[0]?.tabs.map((tab) => tab.url) };
 
 	await press("1", "command");
 	await app.waitFor("⌘1 again", (state) => state.activeTabID === tabA);
@@ -113,26 +103,18 @@ const shortcuts: Scenario = async (context) => {
 	// ⌘F opens the find bar with its field focused; Escape closes it.
 	await press("f", "command");
 
-	const finding = await app.waitFor(
+	await app.waitFor(
 		"⌘F",
 		(state) => state.find.visible && state.focus === FIND,
 	);
 
-	checks["⌘F"] = { visible: finding.find.visible, focus: finding.focus };
-
 	await press("\u001b");
-	const unfinding = await app.waitFor("Escape", (state) => !state.find.visible);
-	checks.Escape = { visible: unfinding.find.visible };
+	await app.waitFor("Escape", (state) => !state.find.visible);
 
 	// ⌘L focuses the address field.
 	await press("l", "command");
 
-	const addressing = await app.waitFor(
-		"⌘L",
-		(state) => state.focus === ADDRESS,
-	);
-
-	checks["⌘L"] = { focus: addressing.focus };
+	await app.waitFor("⌘L", (state) => state.focus === ADDRESS);
 
 	// ⌘[ and ⌘] walk the history.
 	await app.send("navigate", { input: b });
@@ -163,8 +145,6 @@ const shortcuts: Scenario = async (context) => {
 		(state) => tabOf(state, tabA)?.url === a && !tabOf(state, tabA)?.loading,
 	);
 
-	checks["⌘[ ⌘]"] = "back, forward, back";
-
 	// ⌘R reloads.
 	const before = Number(
 		await (await app.page(tabA, a)).evaluate<string>("sessionStorage.loads"),
@@ -192,7 +172,6 @@ const shortcuts: Scenario = async (context) => {
 	await app.waitFor("⌘R", (state) => !tabOf(state, tabA)?.loading);
 
 	expect(after === before + 1, `⌘R loaded the page ${after - before} times`);
-	checks["⌘R"] = { loadsBefore: before, loadsAfter: after };
 
 	// ⌘= / ⌘0 / ⌘- change the page zoom. The engine trace records each zoom
 	// level; a visible page also shows it in devicePixelRatio. (While the
@@ -265,17 +244,14 @@ const shortcuts: Scenario = async (context) => {
 		return { level: entry.args.after, pageVisible, pageRatio };
 	};
 
-	checks["⌘= ⌘0 ⌘-"] = {
-		base,
-		zoomIn: await zoom("=", "zoomIn", (level) => level > 0),
-		reset: await zoom("0", "resetZoom", (level) => level === 0),
-		zoomOut: await zoom("-", "zoomOut", (level) => level < 0),
-		resetAgain: await zoom("0", "resetZoom", (level) => level === 0),
-	};
+	await zoom("=", "zoomIn", (level) => level > 0);
+	await zoom("0", "resetZoom", (level) => level === 0);
+	await zoom("-", "zoomOut", (level) => level < 0);
+	await zoom("0", "resetZoom", (level) => level === 0);
 
 	// ⌃⇥ opens the switcher on the previous tab; releasing Control picks it.
 	await press("\t", "control");
-	const switching = await app.waitFor("⌃⇥", (state) => state.switcher.visible);
+	await app.waitFor("⌃⇥", (state) => state.switcher.visible);
 	await app.send("releaseModifiers");
 
 	const switched = await app.waitFor(
@@ -288,15 +264,10 @@ const shortcuts: Scenario = async (context) => {
 		"the switcher did not move to the previous tab",
 	);
 
-	checks["⌃⇥"] = {
-		groups: switching.switcher.groups,
-		selected: switched.activeTabID,
-	};
-
 	// ⌃⇧⇥ opens it stepping backward; Escape cancels without switching.
 	const activeBefore = (await app.state()).activeTabID;
 	await press("\t", "control", "shift");
-	const backward = await app.waitFor("⌃⇧⇥", (state) => state.switcher.visible);
+	await app.waitFor("⌃⇧⇥", (state) => state.switcher.visible);
 	await press("\u001b", "control");
 
 	const cancelled = await app.waitFor(
@@ -311,22 +282,10 @@ const shortcuts: Scenario = async (context) => {
 		"Escape in the switcher changed the tab",
 	);
 
-	checks["⌃⇧⇥"] = {
-		selectedIndex: backward.switcher.selectedIndex,
-		cancelled: true,
-	};
-
 	// ⌘, opens settings.
 	await press(",", "command");
 
-	const settings = await app.waitFor(
-		"⌘,",
-		(state) => state.page === "settings",
-	);
-
-	checks["⌘,"] = { page: settings.page };
-
-	return checks;
+	await app.waitFor("⌘,", (state) => state.page === "settings");
 };
 
 export default shortcuts;

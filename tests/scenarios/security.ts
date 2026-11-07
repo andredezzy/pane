@@ -289,7 +289,7 @@ async function settingsAttempts(context: ScenarioContext) {
 }
 
 const security: Scenario = async (context) => {
-	const noKey = await pinWithNoKey(context);
+	await pinWithNoKey(context);
 	await settingsAttempts(context);
 
 	const dataDir = context.tempDir("pane-security-");
@@ -403,19 +403,17 @@ const security: Scenario = async (context) => {
 	);
 
 	// The URLs open once the lock is open, the handed one last.
-	const opened = await app.waitFor(
-		"the launch and handed URLs opened",
-		(state) =>
-			state.profiles.some((entry) => {
-				const urls = entry.tabs.map((item) => item.url);
-				const handedTab = entry.tabs.find((item) => item.url === handedURL);
+	await app.waitFor("the launch and handed URLs opened", (state) =>
+		state.profiles.some((entry) => {
+			const urls = entry.tabs.map((item) => item.url);
+			const handedTab = entry.tabs.find((item) => item.url === handedURL);
 
-				return (
-					urls.indexOf(launchURL) >= 0 &&
-					urls.indexOf(handedURL) > urls.indexOf(launchURL) &&
-					handedTab?.loaded === true
-				);
-			}),
+			return (
+				urls.indexOf(launchURL) >= 0 &&
+				urls.indexOf(handedURL) > urls.indexOf(launchURL) &&
+				handedTab?.loaded === true
+			);
+		}),
 	);
 
 	// Data that the wipe must erase later: a profile with a page, which
@@ -446,7 +444,7 @@ const security: Scenario = async (context) => {
 		(state) => screen(state)?.step === "confirm",
 	);
 
-	const changed = await type(
+	await type(
 		app,
 		"567890",
 		"the PIN changed",
@@ -466,7 +464,7 @@ const security: Scenario = async (context) => {
 	// Remove: the current PIN.
 	await app.send("showPinScreen", { mode: "remove" });
 
-	const removed = await type(
+	await type(
 		app,
 		"567890",
 		"the PIN removed",
@@ -490,7 +488,7 @@ const security: Scenario = async (context) => {
 		(state) => screen(state)?.step === "confirm",
 	);
 
-	const mismatch = await type(
+	await type(
 		app,
 		"2469",
 		"the mismatch",
@@ -502,7 +500,7 @@ const security: Scenario = async (context) => {
 		(state) => screen(state)?.entered === 0 && !screen(state)?.busy,
 	);
 
-	const setUp = await type(
+	await type(
 		app,
 		"2468",
 		"the PIN set up",
@@ -860,34 +858,6 @@ const security: Scenario = async (context) => {
 			(after.security?.state.pin ?? null) === null,
 		`the PIN survived: ${JSON.stringify(after)}`,
 	);
-
-	return {
-		behindTheLock: {
-			menu: lockedMenu,
-			tabs: tabsBehindLock.length,
-			windowTitle: behindLock.window.title,
-			urlsAfterUnlock: opened.profiles
-				.flatMap((entry) => entry.tabs)
-				.map((item) => item.url),
-		},
-		quitWithCapsLock,
-		damagedSecurityFile: { truncated, garbage },
-		noKey,
-		pin: { failedAttemptsAfterWrong: wrong.security.failedAttempts },
-		change: {
-			pinLength: changed.security.pinLength,
-			sealedWithPin: !!sealedAtChange?.key?.pin,
-		},
-		lockedData,
-		detached,
-		remove: { pinLength: removed.security.pinLength },
-		setup: {
-			mismatch: screen(mismatch)?.error,
-			pinLength: setUp.security.pinLength,
-		},
-		back: { pinLength: back.security.pinLength },
-		wipe: { before, after },
-	};
 };
 
 export default security;

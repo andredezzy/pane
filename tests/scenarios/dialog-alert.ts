@@ -23,7 +23,7 @@ const dialogAlert: Scenario = async (context) => {
 	expect(sheet.message === "Pane alert", `sheet message ${sheet.message}`);
 	expect(sheet.title === "127.0.0.1 says", `sheet title ${sheet.title}`);
 
-	const answer = await answerSheet(app, "OK");
+	await answerSheet(app, "OK");
 
 	const result = await pageResult<{ value: unknown }>((expression) =>
 		page.evaluate(expression),
@@ -47,8 +47,6 @@ const dialogAlert: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { sheet, answer, result, windows };
 };
 
 export default dialogAlert;

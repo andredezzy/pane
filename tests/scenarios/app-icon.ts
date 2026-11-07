@@ -7,7 +7,6 @@ import { expect, type Scenario } from "../run";
 // dark one.
 const appIcon: Scenario = async (context) => {
 	const app = await launchPane(context);
-	const results: Record<string, { appIcon: string; dockIcon: string }> = {};
 
 	const cases = [
 		{ theme: "light", appIcon: "automatic", dockIcon: "day" },
@@ -20,7 +19,7 @@ const appIcon: Scenario = async (context) => {
 		{ theme: "light", appIcon: "automatic", dockIcon: "day" },
 	] as const;
 
-	for (const [index, step] of cases.entries()) {
+	for (const [, step] of cases.entries()) {
 		await app.send("theme", { theme: step.theme });
 		await app.send("appIcon", { appIcon: step.appIcon });
 
@@ -29,11 +28,6 @@ const appIcon: Scenario = async (context) => {
 			(state) => state.dockIcon === step.dockIcon,
 			5_000,
 		);
-
-		results[`${index + 1}. ${step.theme}, ${step.appIcon}`] = {
-			appIcon: state.appIcon,
-			dockIcon: state.dockIcon,
-		};
 
 		expect(
 			state.appIcon === step.appIcon && state.dockIcon === step.dockIcon,
@@ -46,12 +40,9 @@ const appIcon: Scenario = async (context) => {
 	// sky picked with the picker open reaches the Dock, and Esc or Return
 	// closes it.
 	await app.send("showPage", { page: "settings" });
-	const renders: string[] = [];
 
-	const render = async (file: string) => {
-		await app.send("render", { path: join(context.out, file) });
-		renders.push(file);
-	};
+	const render = (file: string) =>
+		app.send("render", { path: join(context.out, file) });
 
 	for (const [theme, appIcon, close] of [
 		["light", "fuchsia", "\u001b"],
@@ -92,8 +83,6 @@ const appIcon: Scenario = async (context) => {
 			5_000,
 		);
 	}
-
-	return { results, renders };
 };
 
 export default appIcon;

@@ -54,15 +54,12 @@ const windowChrome: Scenario = async (context) => {
 	// sidebar.
 	await app.send("clickWindow", { x: 281, y: 29 });
 
-	const back = await app.waitFor(
-		"back to A",
-		(state) => tabOf(state, tab)?.url === a,
-	);
+	await app.waitFor("back to A", (state) => tabOf(state, tab)?.url === a);
 
 	// The address field, under the title bar.
 	await app.send("clickWindow", { x: 700, y: 29 });
 
-	const focused = await app.waitFor(
+	await app.waitFor(
 		"the address field focused",
 		(state) => state.focus === "field: Search or enter URL",
 	);
@@ -70,20 +67,11 @@ const windowChrome: Scenario = async (context) => {
 	// Collapse all, a 28-point circle at the end of the sidebar's header.
 	await app.send("clickWindow", { x: 236, y: 19.5 });
 
-	const collapsed = await app.waitFor(
+	await app.waitFor(
 		"profiles collapsed",
 		(state) =>
 			state.activeTabID === null || !state.profiles.some((p) => p.expanded),
 	);
-
-	return {
-		lightsAtLaunch: launched,
-		back: tabOf(back, tab)?.url,
-		focus: focused.focus,
-		expandedAfterCollapse: collapsed.profiles
-			.filter((p) => p.expanded)
-			.map((p) => p.name),
-	};
 };
 
 export default windowChrome;

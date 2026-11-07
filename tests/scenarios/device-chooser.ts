@@ -45,8 +45,6 @@ const deviceChooser: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { answers, windows };
 };
 
 export default deviceChooser;

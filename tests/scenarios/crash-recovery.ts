@@ -5,10 +5,7 @@ import { expect, type Scenario } from "../run";
 // The selected tab's renderer dies; the app hears of it and reloads the page,
 // which comes back working.
 const crashRecovery: Scenario = async (context) => {
-	const { app, trace, waitForEntry } = await launchTraced(
-		context,
-		"crash-recovery",
-	);
+	const { app, waitForEntry } = await launchTraced(context, "crash-recovery");
 
 	const profile = await app.createProfile("Crash");
 	const url = context.fixtures.url("crash.html");
@@ -48,12 +45,6 @@ const crashRecovery: Scenario = async (context) => {
 
 	expect(recovered?.title === "Crash me", "the page did not come back");
 	expect(recovered?.fresh, "the page was not reloaded");
-
-	const termination = trace().filter((entry) =>
-		entry.name.endsWith("rendererDidTerminate"),
-	);
-
-	return { termination, recovered, tab: tabOf(await app.state(), tab) };
 };
 
 export default crashRecovery;

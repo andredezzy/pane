@@ -40,7 +40,6 @@ const progressBar: Scenario = async (context) => {
 
 	// A navigation the server holds 9 s: the bar shows at once, at its start.
 	const slowURL = context.fixtures.url("nav-b.html?delay=9000");
-	const navigated = Date.now();
 	await app.send("navigate", { input: slowURL });
 
 	const started = await app.waitFor(
@@ -48,8 +47,6 @@ const progressBar: Scenario = async (context) => {
 		(state) => state.progressBar.started,
 		1_000,
 	);
-
-	const startedMs = Date.now() - navigated;
 
 	expect(
 		started.progressBar.progress >= 0.05,
@@ -82,7 +79,7 @@ const progressBar: Scenario = async (context) => {
 	// Five seconds with no news: the slow mode's shimmer.
 	const backAt = Date.now();
 
-	const slow = await app.waitFor(
+	await app.waitFor(
 		"the slow mode",
 		(state) => state.progressBar.shimmer,
 		8_000,
@@ -96,29 +93,18 @@ const progressBar: Scenario = async (context) => {
 	);
 
 	// The load ends: the bar fills, then fades out.
-	const full = await app.waitFor(
+	await app.waitFor(
 		"the bar full",
 		(state) =>
 			tabOf(state, busy)?.loading === false && state.progressBar.progress === 1,
 		12_000,
 	);
 
-	const gone = await app.waitFor(
+	await app.waitFor(
 		"the bar gone after the load",
 		(state) => state.progressBar.alpha === 0,
 		2_000,
 	);
-
-	return {
-		startedMs,
-		started: started.progressBar,
-		away: away.progressBar,
-		back: back.progressBar,
-		slowMs,
-		slow: slow.progressBar,
-		full: full.progressBar,
-		gone: gone.progressBar,
-	};
 };
 
 export default progressBar;

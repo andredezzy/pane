@@ -117,7 +117,7 @@ const dialogTabClosed: Scenario = async (context) => {
 
 	await app.send("closeTab", { tab: shownTab });
 
-	const afterShown = await app.waitFor(
+	await app.waitFor(
 		"the shown alert taken down",
 		(state) =>
 			state.sheet === null && state.pendingRequests === 0 && dismissals() === 3,
@@ -136,21 +136,10 @@ const dialogTabClosed: Scenario = async (context) => {
 		() => alerts() > before,
 	);
 
-	const freshShown = await app.waitFor(
+	await app.waitFor(
 		"the new tab's alert shown",
 		(state) => state.sheet?.kind === "javaScript",
 	);
-
-	return {
-		dismissals: dismissals(),
-		afterClose: { pending: afterClose.pendingRequests },
-		afterSleep: { pending: afterSleep.pendingRequests },
-		afterShownClosed: {
-			pending: afterShown.pendingRequests,
-			sheet: afterShown.sheet,
-		},
-		freshAlert: freshShown.sheet?.message,
-	};
 };
 
 export default dialogTabClosed;

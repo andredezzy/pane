@@ -33,7 +33,7 @@ const permissionPrompt: Scenario = async (context) => {
 		`sheet ${notifications.message}`,
 	);
 
-	const deny = await answerSheet(app, "Don’t Allow");
+	await answerSheet(app, "Don’t Allow");
 	const denied = await pageResult<string>(evaluate);
 
 	await page.send("Runtime.evaluate", {
@@ -41,8 +41,8 @@ const permissionPrompt: Scenario = async (context) => {
 		userGesture: true,
 	});
 
-	const windowManagement = await waitForSheet(app, "permission");
-	const allow = await answerSheet(app, "Allow");
+	await waitForSheet(app, "permission");
+	await answerSheet(app, "Allow");
 	const allowed = await pageResult<string>(evaluate);
 
 	await page.send("Runtime.evaluate", {
@@ -57,7 +57,7 @@ const permissionPrompt: Scenario = async (context) => {
 		`buttons ${idleDetection.buttons}`,
 	);
 
-	const allowThisTime = await answerSheet(app, "Allow This Time");
+	await answerSheet(app, "Allow This Time");
 	const allowedOnce = await pageResult<string>(evaluate);
 
 	const clipboardWrite = await page.evaluate<string>(
@@ -129,19 +129,6 @@ const permissionPrompt: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		notifications,
-		windowManagement,
-		idleDetection,
-		answers: [deny, allow, allowThisTime],
-		denied,
-		allowed,
-		allowedOnce,
-		kept,
-		clipboardWrite,
-		windows,
-	};
 };
 
 export default permissionPrompt;

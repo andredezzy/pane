@@ -40,7 +40,7 @@ const certificateInterstitial: Scenario = async (context) => {
 		const url = `https://127.0.0.1:${server.port}/`;
 		const tab = await app.openTab(profile, url);
 
-		const warned = await app.waitFor(
+		await app.waitFor(
 			"the certificate warning",
 			(state) => tabOf(state, tab)?.title === "Privacy error",
 			30_000,
@@ -72,7 +72,7 @@ const certificateInterstitial: Scenario = async (context) => {
 			sessionId,
 		);
 
-		const proceeded = await app.waitFor(
+		await app.waitFor(
 			"the site",
 			(state) => tabOf(state, tab)?.title === "Secure fixture",
 			30_000,
@@ -92,12 +92,6 @@ const certificateInterstitial: Scenario = async (context) => {
 			windows.others.length === 0,
 			`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 		);
-
-		return {
-			warned: tabOf(warned, tab),
-			proceeded: tabOf(proceeded, tab),
-			windows,
-		};
 	} finally {
 		server.stop(true);
 	}

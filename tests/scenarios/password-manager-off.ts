@@ -38,8 +38,6 @@ const passwordManagerOff: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { sheet: state.sheet, windows };
 };
 
 export default passwordManagerOff;

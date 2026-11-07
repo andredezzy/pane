@@ -60,7 +60,7 @@ const keyPrecedence: Scenario = async (context) => {
 	if (!context.foreground) {
 		context.defer("every check: it needs Pane in front (run.ts --foreground)");
 
-		return { skipped: "it needs Pane in front (run.ts --foreground)" };
+		return;
 	}
 
 	const app = await launchPane(context);
@@ -85,8 +85,6 @@ const keyPrecedence: Scenario = async (context) => {
 			`the ${first} first: Esc, then Esc, left ${JSON.stringify(steps)}`,
 		);
 	}
-
-	return { orders };
 };
 
 export default keyPrecedence;

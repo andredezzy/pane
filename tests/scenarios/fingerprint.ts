@@ -472,8 +472,6 @@ const fingerprint: Scenario = async (context) => {
 		(entry) => entry.name === "Fingerprints.renderer",
 	);
 
-	const sets = trace().filter((entry) => entry.name === "Fingerprints.set");
-
 	for (const key of ["a", "b"] as const) {
 		expect(
 			renderers.some((entry) => entry.args.identifier === profiles[key]),
@@ -540,36 +538,6 @@ const fingerprint: Scenario = async (context) => {
 			afterChange.named.zone === WINDOWS.timeZone,
 		`after the Mac's zone changed: ${JSON.stringify(afterChange)}`,
 	);
-
-	return {
-		zoneChange: { before: macBefore, after: afterChange },
-		engine: { version: engineVersion, grease: realGrease },
-		profiles: checks,
-		real: {
-			profile: profiles.c,
-			userAgent: real.userAgent,
-			platform: real.platform,
-			brands: real.userAgentData.brands,
-			noisyChannels: real.canvas.noisyChannels,
-			native: real.native,
-		},
-		noise: {
-			canvas: {
-				a: collected.a.frame.canvas.imageData,
-				b: collected.b.frame.canvas.imageData,
-				c: real.canvas.imageData,
-			},
-			audio: {
-				a: collected.a.frame.audio?.sum,
-				b: collected.b.frame.audio?.sum,
-				c: real.audio?.sum,
-			},
-		},
-		trace: {
-			set: sets.map((entry) => entry.args),
-			renderers: renderers.map((entry) => entry.args),
-		},
-	};
 };
 
 export default fingerprint;

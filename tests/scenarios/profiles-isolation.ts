@@ -72,17 +72,6 @@ const profilesIsolation: Scenario = async (context) => {
 		state.profiles.map((profile) => profile.tabs.length).join(",") === "1,1",
 		"each profile should hold its one tab",
 	);
-
-	return {
-		windows,
-		work: { tab: workTab, ...inWork, browserContextId: contextOf(workURL) },
-		personal: {
-			tab: personalTab,
-			...inPersonal,
-			browserContextId: contextOf(personalURL),
-		},
-		profiles: state.profiles,
-	};
 };
 
 export default profilesIsolation;

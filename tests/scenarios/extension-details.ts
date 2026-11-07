@@ -113,10 +113,7 @@ const extensionDetails: Scenario = async (context) => {
 		});
 	};
 
-	const onClick = await setAccess(
-		"onClick",
-		(current) => !current.includes("<all_urls>"),
-	);
+	await setAccess("onClick", (current) => !current.includes("<all_urls>"));
 
 	// The probe's sites, once `check` holds.
 	const sitesWhen = (
@@ -175,7 +172,7 @@ const extensionDetails: Scenario = async (context) => {
 	await app.waitFor("Add a site again", (state) => state.addingSite !== null);
 	await app.send("addExtensionSite", { site: "not a site" });
 
-	const refused = await app.waitFor(
+	await app.waitFor(
 		"the refused site's message",
 		(state) => state.addingSite?.invalid === true,
 	);
@@ -190,7 +187,7 @@ const extensionDetails: Scenario = async (context) => {
 	// other site.
 	await app.send("addExtensionSite", { site: "example.com" });
 
-	const added = await app.waitFor(
+	await app.waitFor(
 		"example.com in the list",
 		(state) =>
 			state.addingSite === null &&
@@ -199,7 +196,7 @@ const extensionDetails: Scenario = async (context) => {
 				JSON.stringify(["*://example.com/*"]),
 	);
 
-	const withExample = await sitesWhen(
+	await sitesWhen(
 		"with example.com",
 		(current) =>
 			current.includes("*://example.com/*") && !current.includes("<all_urls>"),
@@ -224,7 +221,7 @@ const extensionDetails: Scenario = async (context) => {
 
 	const pageSite = ofPage(details(fromMenu)?.specificSites ?? []) as string;
 
-	const specific = await sitesWhen("with the page's site", (current) =>
+	await sitesWhen("with the page's site", (current) =>
 		current.includes(pageSite),
 	);
 
@@ -288,7 +285,7 @@ const extensionDetails: Scenario = async (context) => {
 			false,
 	);
 
-	const removed = await sitesWhen(
+	await sitesWhen(
 		"without *.example.org",
 		(current) => !current.includes("https://*.example.org/*"),
 	);
@@ -298,7 +295,7 @@ const extensionDetails: Scenario = async (context) => {
 		await app.send("removeExtensionSite", { id, profile, site: each });
 	}
 
-	const none = await app.waitFor(
+	await app.waitFor(
 		"no sites left, on click",
 		(state) => details(state)?.siteAccess === "onClick",
 	);
@@ -308,9 +305,7 @@ const extensionDetails: Scenario = async (context) => {
 		(current) => !current.some((origin) => /example|127\.0\.0\.1/.test(origin)),
 	);
 
-	const onAllSites = await setAccess("onAllSites", (current) =>
-		current.includes("<all_urls>"),
-	);
+	await setAccess("onAllSites", (current) => current.includes("<all_urls>"));
 
 	// The back arrow, then View Web Permissions, from the browser.
 	await app.send("closeExtensionDetails");
@@ -369,13 +364,11 @@ const extensionDetails: Scenario = async (context) => {
 		return allowed;
 	};
 
-	const toggled = await fileAccess(!shown.allowsFileAccess);
-	const restored = await fileAccess(shown.allowsFileAccess);
+	await fileAccess(!shown.allowsFileAccess);
+	await fileAccess(shown.allowsFileAccess);
 
 	// Remove extension asks first, in the popup; removed, the page shows the
 	// list.
-	let removal: unknown = "not checked: the screen is locked";
-
 	if (!(await canDriveUI())) {
 		context.defer("Details' Remove, which a click on the screen presses");
 	} else {
@@ -393,7 +386,7 @@ const extensionDetails: Scenario = async (context) => {
 			`the removal popup reads ${JSON.stringify(asked)}`,
 		);
 
-		const answer = await answerSheet(app, asked.buttons?.[0] ?? "Remove");
+		await answerSheet(app, asked.buttons?.[0] ?? "Remove");
 
 		await app.waitFor(
 			"removed, the list shows",
@@ -403,8 +396,6 @@ const extensionDetails: Scenario = async (context) => {
 				state.page === "extensions",
 			30_000,
 		);
-
-		removal = { popup: asked, answer };
 	}
 
 	expect(
@@ -412,23 +403,6 @@ const extensionDetails: Scenario = async (context) => {
 			has("PaneBrowserContext.setExtensionFileAccess"),
 		"the engine set no site or file access",
 	);
-
-	return {
-		extension: id,
-		details: shown,
-		siteAccess: {
-			onClick,
-			refused: refused.addingSite,
-			added: details(added)?.specificSites,
-			withExample,
-			specific,
-			removed,
-			none: details(none)?.specificSites,
-			onAllSites,
-		},
-		fileAccess: { toggled, restored },
-		removal,
-	};
 };
 
 export default extensionDetails;

@@ -248,7 +248,7 @@ const historyScenario: Scenario = async (context) => {
 		`the engine's choice: off ${offEngine}, keeps ${keepsEngine}`,
 	);
 
-	const keptWhileOn = await poll(
+	await poll(
 		"the profile's history on disk",
 		() => {
 			const kept = keptBy(keeps);
@@ -267,7 +267,7 @@ const historyScenario: Scenario = async (context) => {
 
 	// What the records by site hold on, once they have reached the disk: the
 	// proof that what follows would see them.
-	const namedWhileOn = await poll(
+	await poll(
 		"the records of its visits on disk",
 		async () => {
 			const named = await namedBy(keeps, "keeps");
@@ -330,7 +330,6 @@ const historyScenario: Scenario = async (context) => {
 
 	// Turned off: it opens again, to keep its caches in memory, the selected tab
 	// with it, and what it kept goes.
-	const turnedOff = Date.now();
 	await app.send("setSavesHistory", { profile: keeps, savesHistory: false });
 
 	await app.waitFor(
@@ -343,8 +342,6 @@ const historyScenario: Scenario = async (context) => {
 				false,
 		30_000,
 	);
-
-	const reopenedMs = Date.now() - turnedOff;
 
 	await poll(
 		"what it kept to go",
@@ -393,7 +390,7 @@ const historyScenario: Scenario = async (context) => {
 		input: pageURL("within-the-tab"),
 	});
 
-	const goesBack = await app.waitFor(
+	await app.waitFor(
 		"the tab's own history while off",
 		(state) =>
 			tabOf(state, keepsTab)?.url.includes("within-the-tab") === true &&
@@ -421,7 +418,7 @@ const historyScenario: Scenario = async (context) => {
 	await app.send("setSavesHistory", { profile: off, savesHistory: true });
 	await browse(app, off, "back-on");
 
-	const keptWhenBackOn = await poll(
+	await poll(
 		"the page kept again",
 		() => {
 			const kept = keptBy(off);
@@ -440,7 +437,7 @@ const historyScenario: Scenario = async (context) => {
 	// leaves the log behind. A closed profile turned off opens, and clears.
 	const second = await launchPane(context, { dataDir, args: [RESOLVER] });
 	const reopened = await second.state();
-	const closedEngine = await engineOf(second, off);
+	await engineOf(second, off);
 	const quitURL = pageURL("after-quit");
 	await second.page(await second.openTab(keeps, quitURL), quitURL);
 	const namedAfterQuit = await namedBy(keeps, "keeps");
@@ -519,7 +516,7 @@ const historyScenario: Scenario = async (context) => {
 	const url = pageURL("after-crash");
 	await third.app.page(await third.app.openTab(off, url), url);
 
-	const keptAfterCrash = await poll(
+	await poll(
 		"what it kept to go, once it opened",
 		() => {
 			const kept = keptBy(off);
@@ -542,9 +539,7 @@ const historyScenario: Scenario = async (context) => {
 	});
 
 	// With nothing to open it, the launch runs what is owed, and it closes again.
-	const owedClear = await fourth.waitForEntry(
-		"PaneBrowserContext.clearHistory",
-	);
+	await fourth.waitForEntry("PaneBrowserContext.clearHistory");
 
 	await fourth.app.waitFor(
 		"the profile opened for what it owed to close again",
@@ -563,12 +558,12 @@ const historyScenario: Scenario = async (context) => {
 	const onURL = pageURL("turned-on-closed");
 	await fourth.app.page(await fourth.app.openTab(off, onURL), onURL);
 
-	const madeUpOn = await fourth.waitForEntry(
+	await fourth.waitForEntry(
 		"PaneBrowserContext.setSavesHistory",
 		(args) => args.savesHistory === true,
 	);
 
-	const owedGone = await poll(
+	await poll(
 		"the owed clear to finish",
 		async () =>
 			!(
@@ -581,21 +576,6 @@ const historyScenario: Scenario = async (context) => {
 	);
 
 	await fourth.app.browser.close();
-
-	return {
-		reopenedMs,
-		keptWhileOn,
-		namedWhileOn,
-		keptWhileOff,
-		afterTheClear,
-		goesBackWhileOff: tabOf(goesBack, keepsTab)?.canGoBack,
-		keptAfterOff,
-		keptWhenBackOn,
-		closedEngineAtLaunch: closedEngine,
-		madeUpAtOpen: madeUpOn.args,
-		owedClearAtOpen: { ran: owedClear.name, done: owedGone },
-		keptAfterCrash,
-	};
 };
 
 export default historyScenario;

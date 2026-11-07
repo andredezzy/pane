@@ -22,16 +22,15 @@ const pictureInPicture: Scenario = async (context) => {
 		awaitPromise: true,
 	});
 
-	const entered = await app.waitFor("picture-in-picture", (state) =>
+	await app.waitFor("picture-in-picture", (state) =>
 		state.pictureInPictureTabs.includes(tab),
 	);
 
 	await watcher.sample("pip");
-	const during = (await app.state()).nativeWindows;
 
 	await page.evaluate("document.exitPictureInPicture()");
 
-	const left = await app.waitFor(
+	await app.waitFor(
 		"the end of picture-in-picture",
 		(state) => !state.pictureInPictureTabs.includes(tab),
 	);
@@ -61,20 +60,7 @@ const pictureInPicture: Scenario = async (context) => {
 		"trace lacks the end",
 	);
 
-	const windows = await watcher.stop();
-
-	const otherClasses = [
-		...new Set(windows.others.map((window) => window.class)),
-	];
-
-	return {
-		entered: entered.pictureInPictureTabs,
-		left: left.pictureInPictureTabs,
-		events,
-		windowsDuringPictureInPicture: during,
-		pictureInPictureWindowClasses: otherClasses,
-		windows,
-	};
+	await watcher.stop();
 };
 
 export default pictureInPicture;

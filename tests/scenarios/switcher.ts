@@ -53,8 +53,6 @@ const switcher: Scenario = async (context) => {
 	await Bun.sleep(300);
 	await app.send("render", { path: join(context.out, "switcher.png") });
 
-	let screenshot: string | null = null;
-
 	if (!(await canDriveUI())) {
 		context.defer("the switcher as the screen shows it");
 	} else {
@@ -65,8 +63,6 @@ const switcher: Scenario = async (context) => {
 			windowId,
 			join(context.out, "switcher-screen.png"),
 		);
-
-		screenshot = "switcher-screen.png";
 	}
 
 	await app.send("switcher", { action: "next" });
@@ -78,13 +74,6 @@ const switcher: Scenario = async (context) => {
 		committed.activeTabID === tabs.Docs,
 		`commit selected ${Object.entries(tabs).find(([, id]) => id === committed.activeTabID)?.[0] ?? committed.activeTabID}, not Docs`,
 	);
-
-	return {
-		groups: open.switcher.groups,
-		render: "switcher.png",
-		screenshot,
-		selected: committed.activeTabID,
-	};
 };
 
 export default switcher;

@@ -65,7 +65,6 @@ const memoryGuarded: Scenario = async (context) => {
 	);
 
 	const probe = await swiftTool("task-probe");
-	const results: Record<string, unknown> = {};
 
 	for (const [name, pid] of Object.entries(processes)) {
 		const lldb = await run([
@@ -106,24 +105,17 @@ const memoryGuarded: Scenario = async (context) => {
 			leaks: ["/usr/bin/leaks", "--fullContent", String(pid)],
 		};
 
-		const printed: Record<string, number> = {};
-
 		for (const [tool, command] of Object.entries(tools)) {
 			const { output } = await run(command);
-			printed[tool] = output.length;
 
 			expect(
 				!output.includes(planted),
 				`${tool} printed a value planted in the ${name} process`,
 			);
 		}
-
-		results[name] = { lldb: "refused", task, printed };
 	}
 
 	await app.quit();
-
-	return results;
 };
 
 export default memoryGuarded;

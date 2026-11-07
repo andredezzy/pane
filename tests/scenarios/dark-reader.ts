@@ -18,7 +18,7 @@ const darkReader: Scenario = async (context) => {
 	const a = await app.createProfile("A", "BLUE");
 	const b = await app.createProfile("B", "ROSE");
 
-	const installed = await installFromWebStore(app, a, DARK_READER);
+	await installFromWebStore(app, a, DARK_READER);
 	await watcher.sample("installed");
 
 	const urlA = context.fixtures.url("light.html?profile=a");
@@ -47,10 +47,10 @@ const darkReader: Scenario = async (context) => {
 
 	// Its toolbar button opens the popup in the app's popover, sized to the
 	// popup's page.
-	const opened = await openPopupFromToolbar(app, a, DARK_READER);
+	await openPopupFromToolbar(app, a, DARK_READER);
 	await Bun.sleep(1_500);
 
-	const popupShot = await screenshotPopover(
+	await screenshotPopover(
 		app,
 		DARK_READER,
 		join(context.out, "dark-reader-popup.png"),
@@ -75,15 +75,6 @@ const darkReader: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		installed,
-		luminance: { a: luminanceA, b: luminanceB },
-		popup: opened.popup,
-		toolbarClick: opened.click,
-		popupScreenshot: { file: "dark-reader-popup.png", via: popupShot },
-		windows,
-	};
 };
 
 export default darkReader;

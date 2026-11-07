@@ -87,7 +87,7 @@ const proxy: Scenario = async (context) => {
 		const pageA = "http://a.pane.test/proxy-check.html";
 		const tabA = await app.openTab(a, pageA);
 
-		const loadedA = await app.waitFor(
+		await app.waitFor(
 			"A's page through its proxy",
 			(state) => tabOf(state, tabA)?.title === "Proxy check",
 			30_000,
@@ -188,7 +188,7 @@ const proxy: Scenario = async (context) => {
 
 		const tabD = await app.openTab(d, "http://d.pane.test/proxy-check.html");
 
-		const badPort = await app.waitFor(
+		await app.waitFor(
 			"D's proxy test failed",
 			(state) => statusOf(state, d) === "failed",
 			30_000,
@@ -282,25 +282,6 @@ const proxy: Scenario = async (context) => {
 		);
 
 		await app.browser.close();
-
-		return {
-			proxies: {
-				http: { port: http.port, log: http.log },
-				socks5: { port: socks.port, log: socks.log },
-			},
-			status: {
-				a: statusOf(tested, a),
-				c: statusOf(tested, c),
-				badPort: statusOf(badPort, d),
-			},
-			network: Object.fromEntries(
-				network.profiles.map((profile) => [profile.name, profile.network]),
-			),
-			pages: { a: tabOf(loadedA, tabA)?.title, b: tabOf(network, tabB)?.url },
-			webRTC: { a: webRTCA, b: webRTCB },
-			windows,
-			passwords,
-		};
 	} finally {
 		http.stop();
 		socks.stop();

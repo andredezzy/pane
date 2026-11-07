@@ -44,12 +44,9 @@ const proxyAuth: Scenario = async (context) => {
 		const sheet = await waitForSheet(app, "authentication");
 		expect(sheet.message?.startsWith("The proxy"), `sheet ${sheet.message}`);
 
-		const answer = await answerSheet(app, "Sign In", [
-			"proxy-user",
-			"proxy-secret",
-		]);
+		await answerSheet(app, "Sign In", ["proxy-user", "proxy-secret"]);
 
-		const loaded = await app.waitFor(
+		await app.waitFor(
 			"the proxied page",
 			(state) => tabOf(state, tab)?.title === "Through the proxy",
 		);
@@ -73,8 +70,6 @@ const proxyAuth: Scenario = async (context) => {
 			windows.others.length === 0,
 			`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 		);
-
-		return { sheet, answer, tab: tabOf(loaded, tab), proxied, windows };
 	} finally {
 		proxy.stop(true);
 	}

@@ -15,10 +15,7 @@ const volumeUnindexed: Scenario = async (context) => {
 
 	const mount = join(app.dataDir, "Engine", "Volume");
 
-	const status = await Bun.$`/usr/bin/mdutil -s ${mount}`
-		.nothrow()
-		.quiet()
-		.text();
+	await Bun.$`/usr/bin/mdutil -s ${mount}`.nothrow().quiet().text();
 
 	// Long enough for an indexer to have started on what the profile wrote.
 	await Bun.sleep(20_000);
@@ -32,10 +29,7 @@ const volumeUnindexed: Scenario = async (context) => {
 		.split("\n")
 		.filter(Boolean);
 
-	const stores = await Bun.$`find ${mount} -maxdepth 1 -name ".*"`
-		.nothrow()
-		.quiet()
-		.text();
+	await Bun.$`find ${mount} -maxdepth 1 -name ".*"`.nothrow().quiet().text();
 
 	await app.quit();
 
@@ -43,8 +37,6 @@ const volumeUnindexed: Scenario = async (context) => {
 		found.length === 0,
 		`Spotlight has ${found.length} items of the volume`,
 	);
-
-	return { status: status.trim(), found: found.length, hidden: stores.trim() };
 };
 
 export default volumeUnindexed;

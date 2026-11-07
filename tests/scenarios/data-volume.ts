@@ -546,24 +546,13 @@ const dataVolume: Scenario = async (context) => {
 	const floor = process.env.PANE_FLOOR_BUILD;
 	const earlier = builds[0];
 
-	if (!floor || !earlier) {
+	if (floor && earlier) {
+		await throughTheFloor(context, earlier, floor);
+	} else {
 		context.defer(
 			"no floor to convert an earlier build's data (PANE_FLOOR_BUILD, PANE_EARLIER_BUILDS)",
 		);
 	}
-
-	const converted =
-		floor && earlier ? await throughTheFloor(context, earlier, floor) : null;
-
-	return {
-		handOver,
-		finished,
-		plain,
-		quitWhileMaking,
-		assisted,
-		refused,
-		converted,
-	};
 };
 
 export default dataVolume;

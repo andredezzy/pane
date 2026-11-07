@@ -86,13 +86,6 @@ const tabFocus: Scenario = async (context) => {
 		fresh.focus === "field: Search or enter URL",
 		`a new tab focused ${fresh.focus}`,
 	);
-
-	return {
-		selected: selected.focus,
-		switched: switched.focus,
-		backFromSettings: back.focus,
-		newTab: fresh.focus,
-	};
 };
 
 export default tabFocus;

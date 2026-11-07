@@ -98,19 +98,6 @@ const google: Scenario = async (context) => {
 			`${name}: Google showed ${result.url.href} (identifier field: ${result.identifier})`,
 		);
 	}
-
-	return {
-		accepted: Object.fromEntries(
-			Object.entries(accepted).map(([name, result]) => [
-				name,
-				{
-					url: `${result.url.origin}${result.url.pathname}`,
-					identifierField: result.identifier,
-					title: result.title,
-				},
-			]),
-		),
-	};
 };
 
 export default google;

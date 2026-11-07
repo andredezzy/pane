@@ -84,13 +84,6 @@ const openURLs: Scenario = async (context) => {
 		opened.nativeWindows.every((window) => window.role === "main"),
 		`a window showed with the main one: ${JSON.stringify(opened.nativeWindows)}`,
 	);
-
-	return {
-		handedTo: JSON.parse(handed.stdout.toString()),
-		tabs: opened.profiles
-			.find((profile) => profile.id === personal)
-			?.tabs.map((tab) => tab.url),
-	};
 };
 
 export default openURLs;

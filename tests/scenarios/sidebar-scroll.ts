@@ -16,7 +16,7 @@ const sidebarScroll: Scenario = async (context) => {
 			"the sidebar's scroll: accessibility is off on a locked screen",
 		);
 
-		return {};
+		return;
 	}
 
 	const profile = await app.createProfile("Scroll");
@@ -102,14 +102,6 @@ const sidebarScroll: Scenario = async (context) => {
 	);
 
 	await inView(last, "the switcher's tab, in view");
-	const chosen = last;
-
-	return {
-		lastOpened: opened[`pane.tab.${last}`],
-		firstSelected: up[`pane.tab.${first}`],
-		list: up["pane.sidebar.profiles"],
-		switcherChose: tabs.indexOf(chosen),
-	};
 };
 
 export default sidebarScroll;

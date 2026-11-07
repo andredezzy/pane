@@ -44,8 +44,6 @@ const downloads: Scenario = async (context) => {
 		tabOf(done, tab)?.url === url,
 		"the tab navigated away for a download",
 	);
-
-	return { download, directory, tab: tabOf(done, tab) };
 };
 
 export default downloads;

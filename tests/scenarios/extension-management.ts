@@ -54,7 +54,7 @@ const extensionManagement: Scenario = async (context) => {
 	await app.send("installExtension", { id: DARK_READER, profile });
 	const offered = await waitForSheet(app, "extensionInstall", 60_000);
 	const cancelTitle = offered.buttons?.[1] ?? "Cancel";
-	const declined = await answerSheet(app, cancelTitle);
+	await answerSheet(app, cancelTitle);
 
 	await app.waitFor(
 		"the install prompt gone",
@@ -90,10 +90,7 @@ const extensionManagement: Scenario = async (context) => {
 
 	const sheet = await waitForSheet(app, "extensionInstall", 60_000);
 
-	const accepted = await answerSheet(
-		app,
-		sheet.buttons?.[0] ?? "Add extension",
-	);
+	await answerSheet(app, sheet.buttons?.[0] ?? "Add extension");
 
 	const installed = await app.waitFor(
 		"Dark Reader installed",
@@ -167,10 +164,10 @@ const extensionManagement: Scenario = async (context) => {
 		);
 	}
 
-	const disabled = await toggle("Enabled", "setExtensionEnabled", false);
-	const enabled = await toggle("Enabled", "setExtensionEnabled", true);
-	const unpinned = await toggle("Pinned", "setExtensionPinned", false);
-	const pinned = await toggle("Pinned", "setExtensionPinned", true);
+	await toggle("Enabled", "setExtensionEnabled", false);
+	await toggle("Enabled", "setExtensionEnabled", true);
+	await toggle("Pinned", "setExtensionPinned", false);
+	await toggle("Pinned", "setExtensionPinned", true);
 
 	// Remove asks first, in the extension's removal popup.
 	if (locked) {
@@ -209,7 +206,7 @@ const extensionManagement: Scenario = async (context) => {
 		});
 	}
 
-	const removed = await app.waitFor(
+	await app.waitFor(
 		"Dark Reader removed",
 		(state) => item(state) === undefined,
 		30_000,
@@ -230,19 +227,6 @@ const extensionManagement: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		via: locked ? "automation" : "cua",
-		installed: item(installed),
-		declined: { prompt: offered, answer: declined },
-		accepted,
-		disabled: item(disabled)?.enabled,
-		enabled: item(enabled)?.enabled,
-		unpinned: item(unpinned)?.pinned,
-		pinned: item(pinned)?.pinned,
-		removed: (removed.extensions[profile] ?? []).map((each) => each.id),
-		windows,
-	};
 };
 
 export default extensionManagement;

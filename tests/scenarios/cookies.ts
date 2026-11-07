@@ -48,8 +48,6 @@ const cookies: Scenario = async (context) => {
 		Object.values(checks).every(Boolean),
 		`cookies as read: ${JSON.stringify({ checks, all })}`,
 	);
-
-	return { checks, cookies: all };
 };
 
 export default cookies;

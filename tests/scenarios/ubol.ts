@@ -19,7 +19,7 @@ const ubol: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Blocking");
 
-	const installed = await installFromWebStore(app, profile, UBLOCK_LITE);
+	await installFromWebStore(app, profile, UBLOCK_LITE);
 
 	const blank = context.fixtures.url("isolation.html?ubol");
 	const tab = await app.openTab(profile, blank);
@@ -139,15 +139,6 @@ const ubol: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return {
-		installed,
-		loads: loads.length,
-		adScript: { url: AD_SCRIPT, outcome: script },
-		adImage: { url: AD_IMAGE, outcome: image },
-		requests: [...chains.values()],
-		windows,
-	};
 };
 
 export default ubol;

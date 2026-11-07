@@ -14,7 +14,7 @@ import { expect, type Scenario } from "../run";
 // with real presses through accessibility, so it needs an unlocked screen.
 const extensionsPageProfile: Scenario = async (context) => {
 	if (!(await canDriveUI())) {
-		return { skipped: "the select is pressed through accessibility" };
+		return;
 	}
 
 	const app = await launchPane(context);
@@ -95,8 +95,6 @@ const extensionsPageProfile: Scenario = async (context) => {
 		afterDelete.shows === "Alpha" && afterDelete.select,
 		`the deleted profile stayed chosen: ${JSON.stringify(afterDelete)}`,
 	);
-
-	return { atStart, chosen, afterDelete };
 };
 
 export default extensionsPageProfile;

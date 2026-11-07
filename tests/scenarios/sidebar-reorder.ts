@@ -63,8 +63,6 @@ const sidebarReorder: Scenario = async (context) => {
 		);
 	};
 
-	const midways: Record<string, Record<string, number>> = {};
-
 	// Before the release, each row's top is where the drop would put it:
 	// `rows` lists the ids in that order, from the first row's top, `pitch`
 	// apart, and the copy rides the pointer over them.
@@ -84,7 +82,6 @@ const sidebarReorder: Scenario = async (context) => {
 			// The rows slide aside on a 0.28-second spring.
 			await Bun.sleep(400);
 			const seen = await tops(prefix);
-			midways[name] = seen;
 
 			rows.forEach((id, index) => {
 				const top = seen[id] ?? Number.NaN;
@@ -251,8 +248,6 @@ const sidebarReorder: Scenario = async (context) => {
 	if (locked) {
 		context.defer("the rows mid-drag: accessibility is off on a locked screen");
 	}
-
-	return { initial, down, out, tabs, midways };
 };
 
 export default sidebarReorder;

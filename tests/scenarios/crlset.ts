@@ -47,10 +47,9 @@ const crlset: Scenario = async (context) => {
 	});
 
 	const netLog = join(context.out, "crlset-netlog.json");
-	let appliedAfter = 0;
 
 	try {
-		const { app, trace, waitForEntry } = await launchTraced(context, "crlset", {
+		const { app, waitForEntry } = await launchTraced(context, "crlset", {
 			args: [`--log-net-log=${netLog}`],
 		});
 
@@ -59,13 +58,7 @@ const crlset: Scenario = async (context) => {
 		const first = context.fixtures.url("light.html?crlset");
 		await app.page(await app.openTab(profile, first), first);
 
-		const applied = await waitForEntry(
-			"PaneEngine.crlSetApplied",
-			() => true,
-			60_000,
-		);
-
-		appliedAfter = applied.t - (trace()[0]?.t ?? applied.t);
+		await waitForEntry("PaneEngine.crlSetApplied", () => true, 60_000);
 
 		const tab = await app.openTab(profile, `https://127.0.0.1:${server.port}/`);
 
@@ -97,8 +90,6 @@ const crlset: Scenario = async (context) => {
 		sequences.length > 0 && sequences.every((each) => each === header.Sequence),
 		`the verifier used CRLSet ${JSON.stringify(sequences)}, the bundle's is ${header.Sequence}`,
 	);
-
-	return { bundled: header.Sequence, verified: sequences, appliedAfter };
 };
 
 export default crlset;

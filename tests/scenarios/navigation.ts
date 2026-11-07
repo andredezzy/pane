@@ -65,7 +65,7 @@ const navigation: Scenario = async (context) => {
 
 	await app.send("back");
 
-	const back = await app.waitFor("back at A", (state) => {
+	await app.waitFor("back at A", (state) => {
 		const current = tabOf(state, tab);
 
 		return current?.url === a && !current.loading && current.canGoForward;
@@ -124,7 +124,7 @@ const navigation: Scenario = async (context) => {
 	const slow = context.fixtures.url("nav-b.html?delay=10000");
 	await app.send("navigate", { input: slow });
 
-	const loading = await app.waitFor(
+	await app.waitFor(
 		"the slow load",
 		(state) => tabOf(state, tab)?.loading === true,
 	);
@@ -159,10 +159,7 @@ const navigation: Scenario = async (context) => {
 	const otherTab = await app.openTab(other, c);
 	await app.page(otherTab, c);
 
-	const showsOther = await app.waitFor(
-		"the other tab's address",
-		(state) => state.address === c,
-	);
+	await app.waitFor("the other tab's address", (state) => state.address === c);
 
 	await app.send("select", { tab });
 
@@ -205,16 +202,6 @@ const navigation: Scenario = async (context) => {
 			}),
 		`the page's visibility: ${JSON.stringify(pageVisibility)}`,
 	);
-
-	return {
-		titled: tabOf(titled, tab),
-		back: tabOf(back, tab),
-		reloads: { before: loadsBefore, after: loadsAfter },
-		slowLoad: { loading: tabOf(loading, tab), stopped: tabOf(stopped, tab) },
-		address: { other: showsOther.address, first: showsFirst.address },
-		arrows: locked ? "not read: the screen is locked" : arrows,
-		pageVisibility,
-	};
 };
 
 export default navigation;

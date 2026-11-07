@@ -88,10 +88,7 @@ const sidebarResize: Scenario = async (context) => {
 	// A double-click on the edge: the standard width.
 	await first.send("clickWindow", { x: 198, y, clicks: 2 });
 
-	const reset = await first.waitFor(
-		"260 again",
-		(state) => state.sidebarWidth === 260,
-	);
+	await first.waitFor("260 again", (state) => state.sidebarWidth === 260);
 
 	// Kept across launches.
 	const kept = await drag(258, 298);
@@ -107,28 +104,6 @@ const sidebarResize: Scenario = async (context) => {
 	const second = await launchPane(context, { dataDir });
 	const relaunched = (await second.state()).sidebarWidth;
 	expect(relaunched === 300, `after relaunching: ${relaunched}`);
-
-	const steps = [wider, widest, narrowest, kept]
-		.flatMap((each) => each.result.stepMs)
-		.sort((a, b) => a - b);
-
-	return {
-		widths: {
-			initial,
-			wider: wider.state.sidebarWidth,
-			widest: widest.state.sidebarWidth,
-			narrowest: narrowest.state.sidebarWidth,
-			reset: reset.sidebarWidth,
-			relaunched,
-		},
-		pageWidth: wider.result.pageWidth,
-		stepMs: {
-			count: steps.length,
-			median: steps[Math.floor(steps.length / 2)],
-			p95: steps[Math.floor(steps.length * 0.95)],
-			max: steps.at(-1),
-		},
-	};
 };
 
 export default sidebarResize;

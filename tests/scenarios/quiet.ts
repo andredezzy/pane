@@ -104,8 +104,6 @@ const quiet: Scenario = async (context) => {
 		elsewhere.length === 0,
 		`connections of its own: ${elsewhere.join(", ")}`,
 	);
-
-	return { requests: requests.size, outside, connections: [...connections] };
 };
 
 export default quiet;

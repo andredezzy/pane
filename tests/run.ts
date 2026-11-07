@@ -35,9 +35,9 @@ export type ScenarioContext = {
 	defer: (check: string) => void;
 };
 
-export type Scenario = (
-	context: ScenarioContext,
-) => Promise<Record<string, unknown>>;
+// What it returns goes into its entry of the report: a benchmark's numbers.
+// A scenario that checks returns nothing.
+export type Scenario = (context: ScenarioContext) => Promise<unknown>;
 
 export class ScenarioFailure extends Error {}
 
@@ -181,7 +181,12 @@ for (const given of positionals) {
 			}),
 		]);
 
-		entry = { name, ok: true, ms: Date.now() - startedAt, result };
+		entry = {
+			name,
+			ok: true,
+			ms: Date.now() - startedAt,
+			...(result === undefined ? {} : { result }),
+		};
 	} catch (error) {
 		entry = {
 			name,

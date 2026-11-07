@@ -22,7 +22,7 @@ const externalProtocol: Scenario = async (context) => {
 		(await Bun.$`pgrep -x Maps`.quiet().nothrow()).exitCode === 0;
 
 	const sheet = await waitForSheet(app, "externalProtocol");
-	const answer = await answerSheet(app, "Cancel");
+	await answerSheet(app, "Cancel");
 	await Bun.sleep(1_000);
 
 	const mapsAfter =
@@ -48,8 +48,6 @@ const externalProtocol: Scenario = async (context) => {
 		windows.others.length === 0,
 		`Chrome windows appeared: ${JSON.stringify(windows.others)}`,
 	);
-
-	return { sheet, answer, windows };
 };
 
 export default externalProtocol;

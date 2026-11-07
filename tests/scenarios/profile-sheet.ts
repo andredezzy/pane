@@ -62,7 +62,7 @@ const profileSheet: Scenario = async (context) => {
 	if (!(await canDriveUI())) {
 		context.defer("the profile sheet, driven through accessibility");
 
-		return { skipped: "the profile sheet is driven through accessibility" };
+		return;
 	}
 
 	const fixturePort = Number(new URL(context.fixtures.origin).port);
@@ -229,7 +229,7 @@ const profileSheet: Scenario = async (context) => {
 			`the Windows fingerprint: ${JSON.stringify(windows.fingerprint)}`,
 		);
 
-		const historyOff = await app.waitFor(
+		await app.waitFor(
 			"the engine told of Save history",
 			(state) =>
 				state.profiles.find((each) => each.id === mac)?.engineSavesHistory ===
@@ -397,7 +397,7 @@ const profileSheet: Scenario = async (context) => {
 		await render("profile-sheet-name-missing");
 		await typeIntoField(pid, window, "pane.profile.name", "Proxied");
 
-		const nameFixed = await poll(
+		await poll(
 			"the name's problem to go",
 			async () => {
 				const line = await fieldLine("Name", "name-fixed");
@@ -541,7 +541,7 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		// A host now: the problem goes as it is typed.
-		const hostFixed = await poll(
+		await poll(
 			"the host's problem to go",
 			async () => {
 				const line = await fieldLine("Proxy host", "host-fixed");
@@ -723,35 +723,6 @@ const profileSheet: Scenario = async (context) => {
 			(unspoofed.fingerprint ?? null) === null,
 			`spoofing off kept ${JSON.stringify(unspoofed.fingerprint)}`,
 		);
-
-		return {
-			hostWebGL: host,
-			webGLInAPlainProfile: realWebGL,
-			macProfile: macSaved.fingerprint,
-			accessibilityNames: named,
-			renameKeptFingerprint: true,
-			crossOS: {
-				fingerprint: windows.fingerprint,
-				openTab: { before, after },
-			},
-			timeZone,
-			historyOff: {
-				saved: windows.savesHistory,
-				engine: historyOff.profiles.find((each) => each.id === mac)
-					?.engineSavesHistory,
-			},
-			proxy: {
-				saved: shownProxy,
-				testedThrough: proxy.log.length,
-				hostBelowTheBody: belowTheBody,
-				hostFixed,
-				nameFixed,
-			},
-			spoofingOff: {
-				byLabelClick: spoofAfterClick,
-				saved: unspoofed.fingerprint,
-			},
-		};
 	} finally {
 		proxy.stop();
 	}

@@ -291,8 +291,6 @@ const lockWhileOpen: Scenario = async (context) => {
 		quitOnItsOwn && detachedAfterQuit,
 		`a file held past the wait: quit ${quitOnItsOwn}, detached ${detachedAfterQuit}`,
 	);
-
-	return { whileLocked, afterUnlock, idleLock: idle };
 };
 
 export default lockWhileOpen;
