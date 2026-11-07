@@ -35,13 +35,6 @@ namespace net {
 class AuthChallengeInfo;
 }
 
-// permission_prompt_factory.cc: the prompt for a permission request; nullptr
-// keeps Chrome's bubble.
-extern std::unique_ptr<permissions::PermissionPrompt> (
-    *g_pane_create_permission_prompt)(
-    content::WebContents* web_contents,
-    permissions::PermissionPrompt::Delegate* delegate);
-
 // login_handler_views.cc: the HTTP or proxy authentication prompt; nullptr
 // keeps Chrome's dialog. `callback` is taken only when a handler is returned.
 extern std::unique_ptr<LoginHandler> (*g_pane_create_login_handler)(

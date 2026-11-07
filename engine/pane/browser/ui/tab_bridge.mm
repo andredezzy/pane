@@ -6,6 +6,9 @@
 
 #include "pane/browser/ui/tab_bridge.h"
 
+#include "components/permissions/permission_request_manager.h"
+#include "pane/browser/ui/permission_prompt.h"
+
 #import <AppKit/AppKit.h>
 
 #include <utility>
@@ -97,6 +100,14 @@ void TabBridge::Observe() {
             find_in_page::FindTabHelper::FromWebContents(web_contents())) {
       finder->AddObserver(this);
       observing_find_ = true;
+    }
+  }
+  if (!asks_permissions_) {
+    if (auto* requests = permissions::PermissionRequestManager::FromWebContents(
+            web_contents())) {
+      requests->set_view_factory_for_testing(
+          base::BindRepeating(&PermissionPrompt::Create));
+      asks_permissions_ = true;
     }
   }
 }

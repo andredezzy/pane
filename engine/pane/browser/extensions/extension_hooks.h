@@ -37,13 +37,6 @@ extern bool (*g_pane_extension_install_dialog)(
     ExtensionInstallPrompt::DoneCallback& done_callback,
     std::unique_ptr<extensions::InstallPromptData>& prompt);
 
-// extension_install_ui_desktop.cc: an extension was installed. True when the
-// app was told, instead of Chrome's "added" bubble.
-extern bool (*g_pane_extension_installed)(
-    Profile* profile,
-    scoped_refptr<const extensions::Extension> extension,
-    const SkBitmap* icon);
-
 // extension_action_api.cc: chrome.action.openPopup() for a Browser Pane
 // hosts. Empty: not Pane's; true: shown (`callback` runs once it is); false:
 // refused, with `error`.
@@ -52,11 +45,5 @@ extern std::optional<bool> (*g_pane_open_action_popup)(
     const extensions::Extension& extension,
     ShowPopupCallback& callback,
     std::string* error);
-
-// extension_action_runner.cc: Chrome's "Reload this page to apply your
-// updated settings on this site", after an extension's site access changed.
-// True when Pane answered it instead: Cancel, at once, as its tabs show no
-// Chrome dialog; the page takes the change on its next load.
-extern bool (*g_pane_reload_page_dialog)(content::WebContents* web_contents);
 
 #endif  // PANE_BROWSER_EXTENSIONS_EXTENSION_HOOKS_H_

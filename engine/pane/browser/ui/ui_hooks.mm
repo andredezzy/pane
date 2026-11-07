@@ -15,7 +15,6 @@
 #include "pane/browser/extensions/extension_ui.h"
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/login_handler.h"
-#include "pane/browser/ui/permission_prompt.h"
 #include "pane/browser/ui/select_file_dialog.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "url/gurl.h"
@@ -132,7 +131,6 @@ bool DeclineDeviceChooser(
 }  // namespace
 
 void InstallUIHooks() {
-  g_pane_create_permission_prompt = &PermissionPrompt::Create;
   g_pane_create_login_handler = &LoginHandler::Create;
   g_pane_external_protocol_dialog = &RunExternalProtocolDialog;
   g_pane_hosts_devtools = &HostsDevTools;

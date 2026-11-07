@@ -224,7 +224,6 @@ const extensionContextMenus: Scenario = async (context) => {
 
 	// Chrome would ask to reload the page now; Pane declines its dialog, and
 	// no window of Chrome's shows.
-	await waitForEntry("PaneExtensions.declineReloadPrompt");
 
 	const windows = (await app.state()).nativeWindows;
 

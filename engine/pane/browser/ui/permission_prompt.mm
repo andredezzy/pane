@@ -23,6 +23,11 @@ namespace pane {
 std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
     content::WebContents* web_contents,
     Delegate* delegate) {
+  // As Chrome's factory does where no location bar shows, and Pane's never does.
+  if (delegate->ShouldDropCurrentRequestIfCannotShowQuietly()) {
+    return nullptr;
+  }
+
   TabBridge* bridge = TabBridge::FromWebContents(web_contents);
   PaneWebContents* tab = bridge ? bridge->tab() : nil;
   id<PaneWebContentsDelegate> app = tab.delegate;

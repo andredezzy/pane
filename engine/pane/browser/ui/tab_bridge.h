@@ -144,6 +144,7 @@ class TabBridge : public content::WebContentsObserver,
   base::WeakPtr<content::WebContents> open_source_;
   bool observing_favicon_ = false;
   bool observing_find_ = false;
+  bool asks_permissions_ = false;
   base::WeakPtrFactory<TabBridge> weak_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();

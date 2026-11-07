@@ -980,10 +980,6 @@ extension BrowserController: BrowserContextDelegate {
 		extensions.confirmInstall(request)
 	}
 
-	func browserContext(_ context: BrowserContext, didInstall installed: Extension) {
-		extensions.refresh(context.identifier)
-	}
-
 	func browserContext(_ context: BrowserContext, show popup: ExtensionPopup, in window: BrowserWindow) {
 		extensions.show(popup)
 	}

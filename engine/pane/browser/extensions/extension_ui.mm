@@ -2,13 +2,17 @@
 
 #include "pane/browser/extensions/extension_ui.h"
 
+#include <optional>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/functional/bind.h"
+#include "base/no_destructor.h"
 #include "chrome/browser/extensions/extension_install_prompt_show_params.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/extensions/extension_install_ui.h"
+#include "chrome/browser/ui/extensions/reload_page_dialog_controller.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/install_prompt_data.h"
 #include "extensions/common/extension.h"
@@ -16,8 +20,6 @@
 #include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extension_hooks.h"
 #include "pane/browser/ui/browser_window.h"
-#include "skia/ext/skia_utils_mac.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 
 #import "pane/browser/browser_application_internal.h"
 #import "pane/browser/extensions/extensions_internal.h"
@@ -63,31 +65,6 @@ bool ConfirmInstall(
   return true;
 }
 
-bool Installed(Profile* profile,
-               scoped_refptr<const extensions::Extension> extension,
-               const SkBitmap* icon) {
-  PaneBrowserContext* context = ContextFor(profile);
-  if (!context) {
-    return false;
-  }
-  PANE_TRACE("callback", "PaneBrowserContextDelegate.didInstallExtension",
-             base::DictValue().Set("extension", extension->id()));
-  id<PaneBrowserContextDelegate> delegate = context.delegate;
-  if ([delegate respondsToSelector:@selector(browserContext:
-                                      didInstallExtension:)]) {
-    // The registry may not list it yet: the snapshot comes from Chrome's own.
-    PaneExtension* installed = [[PaneExtension alloc]
-        initWithExtension:*extension
-                  profile:profile->GetOriginalProfile()
-                    tabID:extensions::ExtensionAction::kDefaultTabId
-                     icon:icon && !icon->isNull()
-                              ? skia::SkBitmapToNSImage(*icon)
-                              : nil];
-    [delegate browserContext:context didInstallExtension:installed];
-  }
-  return true;
-}
-
 std::optional<bool> OpenActionPopup(BrowserWindowInterface& browser,
                                     const extensions::Extension& extension,
                                     ShowPopupCallback& callback,
@@ -100,25 +77,20 @@ std::optional<bool> OpenActionPopup(BrowserWindowInterface& browser,
   return true;
 }
 
-// Chrome's reload prompt, for a tab of Pane's: declined without a dialog,
-// as the device choosers are (ADR 0022).
-bool ReloadPageDialog(content::WebContents* contents) {
-  BrowserWindowInterface* browser =
-      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
-  if (!browser || !HostedBrowserWindow::IsOurs(browser)) {
-    return false;
-  }
-  PANE_TRACE("engine", "PaneExtensions.declineReloadPrompt");
-  return true;
-}
-
 }  // namespace
 
 void InstallExtensionHooks() {
   g_pane_extension_install_dialog = &ConfirmInstall;
-  g_pane_extension_installed = &Installed;
   g_pane_open_action_popup = &OpenActionPopup;
-  g_pane_reload_page_dialog = &ReloadPageDialog;
+  // Chrome's "added" bubble and its "Reload this page to apply your updated
+  // settings" have no place in Pane's tabs: the app hears of an install through
+  // browserContextDidChangeExtensions:, and a page takes a change of site access
+  // on its next load (ADR 0101).
+  static base::NoDestructor<base::AutoReset<bool>> no_install_ui(
+      ExtensionInstallUI::disable_ui_for_tests(true));
+  static base::NoDestructor<base::AutoReset<std::optional<bool>>>
+      no_reload_dialog(
+          extensions::ReloadPageDialogController::AcceptDialogForTesting(false));
 }
 
 }  // namespace pane

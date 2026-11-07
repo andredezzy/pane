@@ -58,10 +58,6 @@ NS_SWIFT_UI_ACTOR
 - (void)browserContext:(PaneBrowserContext*)context
     confirmExtensionInstall:(PaneExtensionInstallRequest*)request;
 
-// An extension was installed, where Chrome would show its "added" bubble.
-- (void)browserContext:(PaneBrowserContext*)context
-    didInstallExtension:(PaneExtension*)extension;
-
 // An action's popup is ready to show: the user ran the action, or the
 // extension called chrome.action.openPopup().
 - (void)browserContext:(PaneBrowserContext*)context
