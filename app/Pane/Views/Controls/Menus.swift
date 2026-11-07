@@ -31,9 +31,6 @@ struct PaneMenuTrigger<Content: View>: View {
 	var chevron = PaneMenuChevron.down
 	// The Extensions page's takes the profile's color.
 	var ring = Palette.border
-	// Laid out at the width it is given, the chevron at the trailing end,
-	// rather than at its own.
-	var fillsWidth = false
 	@ViewBuilder let content: Content
 
 	@State private var isHovered = false
@@ -52,10 +49,6 @@ struct PaneMenuTrigger<Content: View>: View {
 				}
 
 				titleText
-
-				if fillsWidth {
-					Spacer(minLength: 0)
-				}
 
 				LucideIcon(chevron == .down ? .chevronDown : .chevronsUpDown, size: isEmbedded ? 12 : chevron == .down ? 16 : 13)
 					.foregroundStyle(isEmbedded ? Palette.mutedLifted : Palette.mutedForeground)
@@ -77,7 +70,7 @@ struct PaneMenuTrigger<Content: View>: View {
 		.menuStyle(.button)
 		.buttonStyle(.plain)
 		.menuIndicator(.hidden)
-		.fixedSize(horizontal: !fillsWidth, vertical: false)
+		.fixedSize(horizontal: true, vertical: false)
 		.onHover { hovering in
 			withAnimation(Motion.hover) { isHovered = hovering }
 		}
@@ -109,7 +102,6 @@ struct PaneMenuButton<Value: Hashable>: View {
 	var icon: ((Value) -> Lucide)?
 	var chevron = PaneMenuChevron.down
 	var ring = Palette.border
-	var fillsWidth = false
 	let select: @MainActor (Value) -> Void
 
 	var body: some View {
@@ -120,8 +112,7 @@ struct PaneMenuButton<Value: Hashable>: View {
 			size: size,
 			icon: icon?(selection),
 			chevron: chevron,
-			ring: ring,
-			fillsWidth: fillsWidth
+			ring: ring
 		) {
 			Picker("", selection: Binding(get: { selection }, set: select)) {
 				ForEach(options, id: \.1) { option in

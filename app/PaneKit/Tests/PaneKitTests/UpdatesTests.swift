@@ -20,7 +20,6 @@ struct UpdatesTests {
 
 		#expect(update?.version == "0.3.0")
 		#expect(update?.dmgURL.lastPathComponent == "Pane-0.3.0-arm64.dmg")
-		#expect(update?.publishedAt == "2026-10-20T12:00:00Z")
 	}
 
 	@Test("the same or an older release is none")

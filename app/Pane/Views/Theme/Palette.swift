@@ -151,13 +151,6 @@ enum Palette {
 		static let shadow = Color.black.opacity(0.25)
 	}
 
-	// The 2px loading bar under the address: blue-500 to blue-400.
-	static let progress = LinearGradient(
-		colors: [Color(rgb: 0x3B82F6), Color(rgb: 0x60A5FA)],
-		startPoint: .leading,
-		endPoint: .trailing
-	)
-
 	private static func pair(_ light: Int, _ dark: Int) -> Color {
 		Color(nsColor: dynamic(light, dark))
 	}

@@ -316,7 +316,7 @@ public final class BrowserModel {
 		for profileIndex in profiles.indices {
 			if let tabIndex = profiles[profileIndex].tabs.firstIndex(where: { $0.id == id }) {
 				let tab = profiles[profileIndex].tabs.remove(at: tabIndex)
-				history.pushClosed(ClosedTab(url: tab.url, profileID: profiles[profileIndex].id, title: tab.title, favicon: tab.favicon))
+				history.pushClosed(ClosedTab(url: tab.url, profileID: profiles[profileIndex].id))
 				forgetTab(id)
 				scheduleSave(profiles: true)
 

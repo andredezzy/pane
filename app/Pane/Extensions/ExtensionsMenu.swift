@@ -202,6 +202,8 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 	@ViewBuilder let label: Label
 	@ViewBuilder let trailing: Trailing
 
+	@State private var isHovered = false
+
 	init(
 		identifier: String,
 		action: (() -> Void)?,
@@ -236,7 +238,19 @@ private struct MenuRow<Label: View, Trailing: View>: View {
 		}
 		.padding(.trailing, 8)
 		.frame(height: 32)
-		.hoverBackground(isSelected: isHighlighted, selectedFill: Palette.accent, hoverFill: action == nil ? .clear : Palette.accent, cornerRadius: 15)
+		// Hover animates; highlighting never does (DESIGN.md: Motion).
+		.background {
+			ZStack {
+				Squircle(cornerRadius: 15)
+					.fill(action == nil ? .clear : Palette.accent)
+					.opacity(!isHighlighted && isHovered ? 1 : 0)
+					.animation(Motion.hover, value: isHovered)
+				Squircle(cornerRadius: 15)
+					.fill(Palette.accent)
+					.opacity(isHighlighted ? 1 : 0)
+			}
+		}
+		.onHover { isHovered = $0 }
 	}
 }
 

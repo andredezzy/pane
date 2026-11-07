@@ -41,12 +41,7 @@ struct ButtonSize: Equatable {
 struct PaneButtonStyle: ButtonStyle {
 	var variant: ButtonVariant = .primary
 	var size: ButtonSize = .regular
-	var fontSize: CGFloat?
 	var cornerRadius: CGFloat = 11
-	var fillsWidth = false
-	var foreground: Color?
-	// A state's own colors over the variant's (className overrides).
-	var fill: Color?
 	var border: Color?
 
 	func makeBody(configuration: Configuration) -> some View {
@@ -70,12 +65,11 @@ private struct PaneButtonBody: View {
 		let outline: CGFloat = style.variant == .outline || (style.size == .popup && style.border != nil) ? 1 : 0
 
 		configuration.label
-			.font(.system(size: style.fontSize ?? style.size.fontSize, weight: .medium))
+			.font(.system(size: style.size.fontSize, weight: .medium))
 			.lineLimit(1)
 			.foregroundStyle(foreground)
 			.padding(.leading, style.size.leading + outline)
 			.padding(.trailing, style.size.trailing + outline)
-			.frame(maxWidth: style.fillsWidth ? .infinity : nil)
 			.frame(height: style.size.height)
 			.background {
 				ZStack {
@@ -97,14 +91,10 @@ private struct PaneButtonBody: View {
 
 	// A fill a dark press would not show on.
 	private var isStrong: Bool {
-		style.fill == nil && [.primary, .destructive].contains(style.variant)
+		[.primary, .destructive].contains(style.variant)
 	}
 
 	private var foreground: Color {
-		if let color = style.foreground {
-			return color
-		}
-
 		switch style.variant {
 		case .primary:
 			return Palette.primaryForeground
@@ -118,10 +108,6 @@ private struct PaneButtonBody: View {
 	}
 
 	private var background: Color {
-		if let fill = style.fill {
-			return fill
-		}
-
 		switch style.variant {
 		case .primary:
 			return Palette.primary.opacity(lit ? 0.9 : 1)
@@ -141,14 +127,10 @@ extension ButtonStyle where Self == PaneButtonStyle {
 	static func pane(
 		_ variant: ButtonVariant = .primary,
 		size: ButtonSize = .regular,
-		fontSize: CGFloat? = nil,
 		cornerRadius: CGFloat = 11,
-		fillsWidth: Bool = false,
-		foreground: Color? = nil,
-		fill: Color? = nil,
 		border: Color? = nil
 	) -> PaneButtonStyle {
-		PaneButtonStyle(variant: variant, size: size, fontSize: fontSize, cornerRadius: cornerRadius, fillsWidth: fillsWidth, foreground: foreground, fill: fill, border: border)
+		PaneButtonStyle(variant: variant, size: size, cornerRadius: cornerRadius, border: border)
 	}
 
 	// Aside's popups (rounded-lg, h-8, 13 points): the primary, and Cancel

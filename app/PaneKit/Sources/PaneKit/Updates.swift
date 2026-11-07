@@ -8,14 +8,12 @@ import Foundation
 public struct AvailableUpdate: Codable, Hashable, Sendable {
 	public var version: String
 	public var dmgURL: URL
-	public var publishedAt: String
 	// The dmg's SHA-256 in lowercase hex, as the release gives it.
 	public var sha256: String?
 
-	public init(version: String, dmgURL: URL, publishedAt: String, sha256: String? = nil) {
+	public init(version: String, dmgURL: URL, sha256: String? = nil) {
 		self.version = version
 		self.dmgURL = dmgURL
-		self.publishedAt = publishedAt
 		self.sha256 = sha256
 	}
 }
@@ -47,12 +45,10 @@ public enum Updates {
 		}
 
 		let tagName: String
-		let publishedAt: String
 		let assets: [Asset]
 
 		private enum CodingKeys: String, CodingKey {
 			case tagName = "tag_name"
-			case publishedAt = "published_at"
 			case assets
 		}
 	}
@@ -78,7 +74,6 @@ public enum Updates {
 		return AvailableUpdate(
 			version: version,
 			dmgURL: asset.browserDownloadURL,
-			publishedAt: release.publishedAt,
 			sha256: sha256(fromDigest: asset.digest)
 		)
 	}

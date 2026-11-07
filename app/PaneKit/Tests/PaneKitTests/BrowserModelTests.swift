@@ -97,7 +97,7 @@ struct BrowserModelTests {
 		#expect(model.activeProfileID == "p")
 		#expect(model.history.mru == ["b"])
 		#expect(!model.loadedTabIDs.contains("a"))
-		#expect(model.history.closed.first == ClosedTab(url: "https://a.example/", profileID: "p", title: "A", favicon: "data:image/png;base64,AA"))
+		#expect(model.history.closed.first == ClosedTab(url: "https://a.example/", profileID: "p"))
 
 		#expect(model.popClosedTab()?.url == "https://a.example/")
 		#expect(model.popClosedTab() == nil)

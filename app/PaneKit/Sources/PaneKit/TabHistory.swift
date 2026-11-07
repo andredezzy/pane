@@ -37,14 +37,10 @@ public struct TabHistory: Hashable, Sendable {
 public struct ClosedTab: Hashable, Sendable {
 	public var url: String
 	public var profileID: String
-	public var title: String?
-	public var favicon: String?
 
-	public init(url: String, profileID: String, title: String? = nil, favicon: String? = nil) {
+	public init(url: String, profileID: String) {
 		self.url = url
 		self.profileID = profileID
-		self.title = title
-		self.favicon = favicon
 	}
 }
 

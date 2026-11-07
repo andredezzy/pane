@@ -5,7 +5,6 @@ import SwiftUI
 // their own SVG paths as template images so they take the text color.
 enum Lucide: String {
 	case arrowLeft
-	case arrowRight
 	case chevronDown
 	case chevronLeft
 	case chevronRight
@@ -34,8 +33,6 @@ enum Lucide: String {
 		switch self {
 		case .arrowLeft:
 			#"<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>"#
-		case .arrowRight:
-			#"<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>"#
 		case .chevronDown:
 			#"<path d="m6 9 6 6 6-6"/>"#
 		case .chevronLeft:
