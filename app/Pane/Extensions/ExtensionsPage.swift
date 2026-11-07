@@ -173,7 +173,9 @@ struct ExtensionsPage: View {
 			ForEach(rows, id: \.first?.identifier) { row in
 				GridRow {
 					ForEach(row, id: \.identifier) { item in
-						card(item)
+						ExtensionCard(controller: controller, item: item, profileID: selectedProfileID)
+							// Where Manage Extension scrolls to.
+							.id(ExtensionCard.identifier(item.identifier))
 					}
 
 					if row.count == 1 {
@@ -183,25 +185,6 @@ struct ExtensionsPage: View {
 				}
 			}
 		}
-	}
-
-	private func card(_ item: Extension) -> some View {
-		ExtensionCard(
-			item: item,
-			setEnabled: { enabled in
-				selectedProfileID.map { controller.setEnabled(item.identifier, enabled, inProfile: $0) }
-			},
-			setPinned: { pinned in
-				selectedProfileID.map { controller.setPinned(item.identifier, pinned, inProfile: $0) }
-			},
-			details: { controller.showDetails(item.identifier, inProfile: selectedProfileID) },
-			options: { controller.openOptions(item, inProfile: selectedProfileID) },
-			remove: {
-				selectedProfileID.map { controller.confirmUninstall(item, inProfile: $0) }
-			}
-		)
-		// Where Manage Extension scrolls to.
-		.id(ExtensionCard.identifier(item.identifier))
 	}
 
 	private var empty: some View {
@@ -278,12 +261,9 @@ private struct SearchField: View {
 // the bottom, the switch at its end. The version is in Details (Paper:
 // 09.15). A disabled extension's icon and text dim.
 private struct ExtensionCard: View {
+	let controller: ExtensionsController
 	let item: Extension
-	let setEnabled: @MainActor (Bool) -> Void
-	let setPinned: @MainActor (Bool) -> Void
-	let details: () -> Void
-	let options: () -> Void
-	let remove: () -> Void
+	let profileID: String?
 
 	static func identifier(_ extensionID: String) -> String {
 		"pane.extensions.extension.\(extensionID)"
@@ -320,7 +300,9 @@ private struct ExtensionCard: View {
 				.opacity(item.isEnabled ? 1 : 0.6)
 
 				if item.hasAction {
-					PinButton(pinned: item.isPinned) { setPinned(!item.isPinned) }
+					PinButton(pinned: item.isPinned) {
+						profileID.map { controller.setPinned(item.identifier, !item.isPinned, inProfile: $0) }
+					}
 						.disabled(!item.isEnabled)
 						.accessibilityIdentifier("pane.extensions.pin.\(item.identifier)")
 				}
@@ -328,24 +310,26 @@ private struct ExtensionCard: View {
 			.frame(maxHeight: .infinity, alignment: .top)
 
 			HStack(spacing: 8) {
-				Button("Details", action: details)
+				Button("Details") { controller.showDetails(item.identifier, inProfile: profileID) }
 					.buttonStyle(.pane(.outline, size: .small))
 					.accessibilityIdentifier("pane.extensions.details.\(item.identifier)")
 
 				if item.optionsURL != nil {
-					Button("Options", action: options)
+					Button("Options") { controller.openOptions(item, inProfile: profileID) }
 						.buttonStyle(.pane(.outline, size: .small))
 						.disabled(!item.isEnabled)
 						.accessibilityIdentifier("pane.extensions.options.\(item.identifier)")
 				}
 
-				Button("Remove", action: remove)
+				Button("Remove") { profileID.map { controller.confirmUninstall(item, inProfile: $0) } }
 					.buttonStyle(.pane(.outline, size: .small))
 					.accessibilityIdentifier("pane.extensions.remove.\(item.identifier)")
 
 				Spacer()
 
-				Toggle(isOn: Binding(get: { item.isEnabled }, set: setEnabled)) {
+				Toggle(isOn: Binding(get: { item.isEnabled }, set: { enabled in
+					profileID.map { controller.setEnabled(item.identifier, enabled, inProfile: $0) }
+				})) {
 					EmptyView()
 				}
 				.toggleStyle(.paneSwitch)

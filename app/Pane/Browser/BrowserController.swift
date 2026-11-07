@@ -15,7 +15,7 @@ final class BrowserController: NSObject {
 	let pageHost = PageHostView()
 
 	private let application: BrowserApplication
-	private let store: ModelStore
+	let store: ModelStore
 	// Each profile's context in the engine.
 	private(set) lazy var contexts = ProfileContexts(browser: self, application: application)
 	// The tab that showed when Pane locked, shown again once it opens.

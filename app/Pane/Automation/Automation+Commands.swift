@@ -742,10 +742,10 @@ extension Automation {
 			try render(to: URL(fileURLWithPath: try command.string("path")))
 
 		case "save":
-			store.saveNow()
+			controller.store.saveNow()
 
 		case "quit":
-			store.saveNow()
+			controller.store.saveNow()
 			NSApp.terminate(nil)
 
 		default:

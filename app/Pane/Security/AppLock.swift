@@ -18,7 +18,9 @@ final class AppLock {
 	private(set) var state: SecurityState
 	// The PIN screen covers the window, and only the PIN opens it.
 	private(set) var isLocked: Bool
-	// The PIN screen, while it shows.
+	// The PIN screen, while it shows. It takes every key (digits, Delete, Escape
+	// to go back), so nothing reaches a page or the app's shortcuts; only Quit gets
+	// through (KeyRouter).
 	private(set) var entry: PinEntry?
 	// Bumped to shake the dots.
 	private(set) var shakes = 0
@@ -89,9 +91,9 @@ final class AppLock {
 		isLocked = loaded.pin != nil || unreadable || keyLost
 
 		if unreadable || keyLost {
-			present(.unreadable(Self.keyUnreadable))
+			entry = .unreadable(Self.keyUnreadable)
 		} else if let pin = loaded.pin {
-			present(PinEntry(mode: .unlock, pinLength: pin.length))
+			entry = PinEntry(mode: .unlock, pinLength: pin.length)
 		}
 	}
 
@@ -120,7 +122,7 @@ final class AppLock {
 		}
 
 		isLocked = true
-		present(PinEntry(mode: .unlock, pinLength: pin.length))
+		entry = PinEntry(mode: .unlock, pinLength: pin.length)
 	}
 
 	// The volume would not open once the key had (DataVault): nothing of the
@@ -128,7 +130,7 @@ final class AppLock {
 	// a PIN, the panel that slid away comes back.
 	func volumeWontOpen() {
 		isLocked = true
-		present(.unreadable(Self.dataWontOpen))
+		entry = .unreadable(Self.dataWontOpen)
 	}
 
 	// Settings' Set up, Change, and Remove PIN.
@@ -137,7 +139,7 @@ final class AppLock {
 			return
 		}
 
-		present(PinEntry(mode: mode, pinLength: state.pin?.length ?? 0))
+		entry = PinEntry(mode: mode, pinLength: state.pin?.length ?? 0)
 	}
 
 	// The back arrow, or Escape; never while locked.
@@ -146,7 +148,7 @@ final class AppLock {
 			return
 		}
 
-		close()
+		entry = nil
 	}
 
 	func digit(_ digit: Character) {
@@ -181,7 +183,7 @@ final class AppLock {
 			reseal(pin: nil)
 		case .unlock:
 			isLocked = false
-			close()
+			entry = nil
 			didUnlock?()
 		case .wipe:
 			wipe()
@@ -272,14 +274,14 @@ final class AppLock {
 		switch opened {
 		case .noSecret:
 			isLocked = true
-			present(.unreadable(Self.keychainDenied))
+			entry = .unreadable(Self.keychainDenied)
 		case .otherSecret:
 			isLocked = true
-			present(.unreadable(Self.keyUnreadable))
+			entry = .unreadable(Self.keyUnreadable)
 		case .wrongPin where entry == nil:
 			// A key sealed with a PIN security.json no longer names.
 			isLocked = true
-			present(.unreadable(Self.keyUnreadable))
+			entry = .unreadable(Self.keyUnreadable)
 		case .wrongPin where unlocking:
 			state.failedAttempts += 1
 
@@ -348,7 +350,7 @@ final class AppLock {
 
 			state = SecurityState(pin: pin.map { Pin(length: $0.count) }, failedAttempts: 0, key: sealed)
 			save()
-			close()
+			entry = nil
 		}
 	}
 
@@ -404,18 +406,5 @@ final class AppLock {
 			applicationSupport: fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
 			caches: fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
 		)
-	}
-
-	// MARK: Keys
-
-	// The PIN screen takes every key while it shows (digits, Delete, Escape
-	// to go back), so nothing reaches a page or the app's shortcuts; only
-	// Quit gets through (KeyRouter).
-	private func present(_ entry: PinEntry) {
-		self.entry = entry
-	}
-
-	private func close() {
-		entry = nil
 	}
 }

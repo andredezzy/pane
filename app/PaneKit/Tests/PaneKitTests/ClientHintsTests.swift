@@ -32,13 +32,9 @@ private func serialized(_ list: [UABrand]) -> String {
 // Chrome writes them: the oracle for what the engine sends, which serializes the
 // headers itself.
 private func clientHintHeaders(_ hints: EngineFingerprint.Metadata) -> [String: String] {
-	func serialize(_ list: [UABrand]) -> String {
-		list.map { "\"\($0.brand)\";v=\"\($0.version)\"" }.joined(separator: ", ")
-	}
-
 	return [
-		"sec-ch-ua": serialize(hints.brands),
-		"sec-ch-ua-full-version-list": serialize(hints.fullVersionList),
+		"sec-ch-ua": serialized(hints.brands),
+		"sec-ch-ua-full-version-list": serialized(hints.fullVersionList),
 		"sec-ch-ua-full-version": "\"\(hints.fullVersion)\"",
 		"sec-ch-ua-platform": "\"\(hints.platform)\"",
 		"sec-ch-ua-platform-version": "\"\(hints.platformVersion)\"",

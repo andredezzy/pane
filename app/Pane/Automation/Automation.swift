@@ -16,8 +16,6 @@ final class Automation {
 	private let inbox: URL
 	private let outbox: URL
 	let controller: BrowserController
-	// Where the model saves: `save` and `quit` wait for the write.
-	let store: ModelStore
 	private var timer: Timer?
 	// Where pointerWindow's last phase was, for the next move's distance.
 	var lastPointer: NSPoint?
@@ -41,11 +39,10 @@ final class Automation {
 	private(set) var contextMenusShown = 0
 	private(set) var pendingDeletions: Set<String> = []
 
-	init(directory: URL, controller: BrowserController, store: ModelStore) {
+	init(directory: URL, controller: BrowserController) {
 		inbox = directory.appendingPathComponent("in", isDirectory: true)
 		outbox = directory.appendingPathComponent("out", isDirectory: true)
 		self.controller = controller
-		self.store = store
 
 		try? FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
 		try? FileManager.default.createDirectory(at: outbox, withIntermediateDirectories: true)

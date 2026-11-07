@@ -7,8 +7,6 @@ import PaneKit
 final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	let dataDirectory: URL
 	private var controller: BrowserController?
-	private var store: ModelStore?
-	private var vault: DataVault?
 	private var windowController: MainWindowController?
 	private var keys: KeyRouter?
 	private var automation: Automation?
@@ -50,8 +48,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		)
 		updater.schedule()
 		self.controller = controller
-		self.store = store
-		self.vault = vault
 
 		controller.applyTheme()
 		controller.dockIcon.show(model.settings.appIcon)
@@ -62,7 +58,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		locks = LockController(controller: controller)
 
 		if let directory = TestHooks.environment("PANE_AUTOMATION_DIR") {
-			let automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller, store: store)
+			let automation = Automation(directory: URL(fileURLWithPath: directory), controller: controller)
 			controller.probe = automation
 			self.automation = automation
 		}
@@ -97,7 +93,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 	}
 
 	func browserApplicationWillShutDown(_ application: BrowserApplication) {
-		store?.saveNow()
+		controller?.store.saveNow()
 		// Saved first: a staged update swaps in now (ADR 0092).
 		controller?.updater.installAtQuit()
 		// AppKit keeps the open panel's last folder in Pane's preferences:
@@ -112,7 +108,7 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		// gone a timer of Chromium's aborts: the 2 s it waits after an assistive
 		// app asks for the accessibility tree.
 		NSObject.cancelPreviousPerformRequests(withTarget: NSApp as Any)
-		vault?.close()
+		controller?.vault.close()
 
 		// Chromium wrote it as it quit: the profile used last, and when each
 		// was (LocalState).

@@ -177,9 +177,6 @@ extension Automation {
 		}
 	}
 
-	// What has keyboard focus: a text field being edited, by its placeholder
-	// (SwiftUI keeps accessibility identifiers off the AppKit field), else
-	// the focused view's identifier or class.
 	// The address bar's load progress as drawn now: started, the share
 	// filled, the opacity, and whether the slow mode's shimmer runs.
 	private var progressBar: [String: Any] {
@@ -194,6 +191,9 @@ extension Automation {
 		]
 	}
 
+	// What has keyboard focus: a text field being edited, by its placeholder
+	// (SwiftUI keeps accessibility identifiers off the AppKit field), else
+	// the focused view's identifier or class.
 	private var focus: String {
 		let responder = controller.browserWindow.window.firstResponder
 
@@ -321,11 +321,6 @@ extension Automation {
 				"visible": window.isVisible,
 				"fullScreen": window.styleMask.contains(.fullScreen),
 				"frame": NSStringFromRect(window.frame),
-				// The close button's origin from the window's top left.
-				"trafficLights": window.standardWindowButton(.closeButton).map { button -> [Double] in
-					let frame = button.convert(button.bounds, to: nil)
-					return [frame.minX, window.frame.height - frame.maxY]
-				} ?? [],
 				// Each button's frame from the window's top left: x, y, width, height.
 				"trafficLightFrames": [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].compactMap { type -> [Double]? in
 					window.standardWindowButton(type).map { button in
