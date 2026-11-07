@@ -14,7 +14,7 @@ public struct Pin: Codable, Hashable, Sendable {
 	}
 }
 
-// security.json's state, as the Electron app persisted it, with the data key.
+// security.json's state, with the data key.
 public struct SecurityState: Codable, Hashable, Sendable {
 	public static let maxAttempts = 5
 
@@ -23,29 +23,10 @@ public struct SecurityState: Codable, Hashable, Sendable {
 	// nil until the first launch that makes it.
 	public var key: DataKey.Sealed?
 
-	private enum CodingKeys: String, CodingKey {
-		case pin, failedAttempts, key
-	}
-
 	public init(pin: Pin? = nil, failedAttempts: Int = 0, key: DataKey.Sealed? = nil) {
 		self.pin = pin
 		self.failedAttempts = failedAttempts
 		self.key = key
-	}
-
-	public init(from decoder: Decoder) throws {
-		let container = try decoder.container(keyedBy: CodingKeys.self)
-		pin = try container.decodeIfPresent(Pin.self, forKey: .pin)
-		failedAttempts = try container.decodeIfPresent(Int.self, forKey: .failedAttempts) ?? 0
-		key = try container.decodeIfPresent(DataKey.Sealed.self, forKey: .key)
-	}
-
-	// An explicit null, as the Electron app writes it.
-	public func encode(to encoder: Encoder) throws {
-		var container = encoder.container(keyedBy: CodingKeys.self)
-		try container.encode(pin, forKey: .pin)
-		try container.encode(failedAttempts, forKey: .failedAttempts)
-		try container.encodeIfPresent(key, forKey: .key)
 	}
 
 	public var remainingAttempts: Int {

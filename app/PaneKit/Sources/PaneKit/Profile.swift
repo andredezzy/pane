@@ -1,8 +1,9 @@
 import Foundation
 
-// The persisted profile model. Field names and raw values match the Electron
-// app's profiles.json, so its file decodes as-is (Phase 5 migration) and the
-// defaults below are the same ones its loader applies to older files.
+// The persisted profile model, as profiles.json holds it. Field names and raw
+// values are the Electron app's. Every key is required: the floor (ADR 0122) means
+// no file from before these keys reaches this code, and one missing a key fails
+// whole, kept aside by ModelStore.
 
 public enum ProfileColor: String, Codable, CaseIterable, Sendable {
 	case blue = "BLUE"
@@ -64,13 +65,6 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 			self.height = height
 			self.colorDepth = colorDepth
 		}
-
-		public init(from decoder: Decoder) throws {
-			let container = try decoder.container(keyedBy: CodingKeys.self)
-			width = try container.decode(Int.self, forKey: .width)
-			height = try container.decode(Int.self, forKey: .height)
-			colorDepth = try container.decodeIfPresent(Int.self, forKey: .colorDepth) ?? 24
-		}
 	}
 
 	public struct WebGL: Codable, Hashable, Sendable {
@@ -108,11 +102,9 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 	private enum CodingKeys: String, CodingKey {
 		case userAgent, platform, screen, language, languages, webgl
 		case hardwareConcurrency, deviceMemory, maxTouchPoints, canvas, audio
-		// A key of its own: under "timezone", every file holds a preset's zone,
-		// which nobody chose, so a file without this one follows the computer
-		// (ADR 0038). "timezone" is still written, as Pane before 0.17 requires it.
+		// A key of its own: under "timezone", an earlier Pane's files held a
+		// preset's zone, which nobody chose (ADR 0038).
 		case timezone = "timeZone"
-		case olderTimezone = "timezone"
 	}
 
 	public init(
@@ -142,39 +134,6 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 		self.canvas = canvas
 		self.audio = audio
 	}
-
-	public init(from decoder: Decoder) throws {
-		let container = try decoder.container(keyedBy: CodingKeys.self)
-		userAgent = try container.decode(String.self, forKey: .userAgent)
-		platform = try container.decode(Platform.self, forKey: .platform)
-		screen = try container.decode(Screen.self, forKey: .screen)
-		language = try container.decode(String.self, forKey: .language)
-		languages = try container.decode([String].self, forKey: .languages)
-		timezone = try container.decodeIfPresent(String.self, forKey: .timezone) ?? ""
-		webgl = try container.decodeIfPresent(WebGL.self, forKey: .webgl)
-		hardwareConcurrency = try container.decode(Int.self, forKey: .hardwareConcurrency)
-		deviceMemory = try container.decode(Double.self, forKey: .deviceMemory)
-		maxTouchPoints = try container.decode(Int.self, forKey: .maxTouchPoints)
-		canvas = try container.decodeIfPresent(Noise.self, forKey: .canvas) ?? Noise(noise: true)
-		audio = try container.decodeIfPresent(Noise.self, forKey: .audio) ?? Noise(noise: true)
-	}
-
-	public func encode(to encoder: Encoder) throws {
-		var container = encoder.container(keyedBy: CodingKeys.self)
-		try container.encode(userAgent, forKey: .userAgent)
-		try container.encode(platform, forKey: .platform)
-		try container.encode(screen, forKey: .screen)
-		try container.encode(language, forKey: .language)
-		try container.encode(languages, forKey: .languages)
-		try container.encode(timezone, forKey: .timezone)
-		try container.encode(timezone, forKey: .olderTimezone)
-		try container.encode(webgl, forKey: .webgl)
-		try container.encode(hardwareConcurrency, forKey: .hardwareConcurrency)
-		try container.encode(deviceMemory, forKey: .deviceMemory)
-		try container.encode(maxTouchPoints, forKey: .maxTouchPoints)
-		try container.encode(canvas, forKey: .canvas)
-		try container.encode(audio, forKey: .audio)
-	}
 }
 
 public struct ProxyConfig: Codable, Hashable, Sendable {
@@ -191,15 +150,6 @@ public struct ProxyConfig: Codable, Hashable, Sendable {
 		self.username = username
 		self.password = password
 	}
-
-	public func encode(to encoder: Encoder) throws {
-		var container = encoder.container(keyedBy: CodingKeys.self)
-		try container.encode(proxyType, forKey: .proxyType)
-		try container.encode(host, forKey: .host)
-		try container.encode(port, forKey: .port)
-		try container.encode(username, forKey: .username)
-		try container.encode(password, forKey: .password)
-	}
 }
 
 public struct Tab: Codable, Hashable, Identifiable, Sendable {
@@ -215,14 +165,6 @@ public struct Tab: Codable, Hashable, Identifiable, Sendable {
 		self.title = title
 		self.favicon = favicon
 	}
-
-	public init(from decoder: Decoder) throws {
-		let container = try decoder.container(keyedBy: CodingKeys.self)
-		id = try container.decode(String.self, forKey: .id)
-		url = try container.decode(String.self, forKey: .url)
-		title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
-		favicon = try container.decodeIfPresent(String.self, forKey: .favicon) ?? ""
-	}
 }
 
 public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
@@ -235,8 +177,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 	public var proxy: ProxyConfig?
 	// Exempts the profile from automatic sleep and unload (CONTEXT.md).
 	public var keepLoaded: Bool
-	// Whether it keeps a record of where it went (ADR 0119). A file from before
-	// the choice has none: it kept its history, and still does.
+	// Whether it keeps a record of where it went (ADR 0119).
 	public var savesHistory: Bool {
 		didSet {
 			if savesHistory != oldValue {
@@ -246,9 +187,7 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 	}
 
 	// Turned off, what it kept is still to clear, until the engine says it is
-	// gone: a lock or a quit before then clears at the next open. A file without
-	// the key, from before 0.17.1, owes one if the profile is off, for what those
-	// versions neither kept off nor cleared (ADR 0119).
+	// gone: a lock or a quit before then clears at the next open (ADR 0119).
 	public var clearsHistory: Bool
 	public var tabs: [Tab]
 	public var createdAt: String
@@ -284,38 +223,5 @@ public struct BrowserProfile: Codable, Hashable, Identifiable, Sendable {
 		self.tabs = tabs
 		self.createdAt = createdAt
 		self.updatedAt = updatedAt
-	}
-
-	public init(from decoder: Decoder) throws {
-		let container = try decoder.container(keyedBy: CodingKeys.self)
-		id = try container.decode(String.self, forKey: .id)
-		name = try container.decode(String.self, forKey: .name)
-		color = try container.decodeIfPresent(ProfileColor.self, forKey: .color) ?? .blue
-		group = try container.decodeIfPresent(String.self, forKey: .group)
-		fingerprint = try container.decodeIfPresent(Fingerprint.self, forKey: .fingerprint)
-		proxy = try container.decodeIfPresent(ProxyConfig.self, forKey: .proxy)
-		keepLoaded = try container.decodeIfPresent(Bool.self, forKey: .keepLoaded) ?? false
-		savesHistory = try container.decodeIfPresent(Bool.self, forKey: .savesHistory) ?? true
-		clearsHistory = try container.decodeIfPresent(Bool.self, forKey: .clearsHistory) ?? !savesHistory
-		tabs = try container.decode([Tab].self, forKey: .tabs)
-		createdAt = try container.decode(String.self, forKey: .createdAt)
-		updatedAt = try container.decode(String.self, forKey: .updatedAt)
-	}
-
-	// Explicit nulls, as the Electron app writes them.
-	public func encode(to encoder: Encoder) throws {
-		var container = encoder.container(keyedBy: CodingKeys.self)
-		try container.encode(id, forKey: .id)
-		try container.encode(name, forKey: .name)
-		try container.encode(color, forKey: .color)
-		try container.encode(group, forKey: .group)
-		try container.encode(fingerprint, forKey: .fingerprint)
-		try container.encode(proxy, forKey: .proxy)
-		try container.encode(keepLoaded, forKey: .keepLoaded)
-		try container.encode(savesHistory, forKey: .savesHistory)
-		try container.encode(clearsHistory, forKey: .clearsHistory)
-		try container.encode(tabs, forKey: .tabs)
-		try container.encode(createdAt, forKey: .createdAt)
-		try container.encode(updatedAt, forKey: .updatedAt)
 	}
 }

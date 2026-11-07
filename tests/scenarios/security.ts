@@ -474,7 +474,7 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(
-		saved(dataDir)?.state.pin === null &&
+		(saved(dataDir)?.state.pin ?? null) === null &&
 			!!saved(dataDir)?.state.key &&
 			(saved(dataDir)?.state.key?.pin ?? null) === null,
 		`security.json after the removal: ${JSON.stringify(saved(dataDir))}`,

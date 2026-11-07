@@ -14,6 +14,9 @@ final class ModelStore {
 	// Encodes and writes, in order, off the main thread.
 	private let saveQueue = DispatchQueue(label: "pane.save", qos: .utility)
 	private let vault: DataVault
+	// A profiles.json that would not open: kept aside before a save writes over
+	// it, so a launch that goes no further changes nothing of the data (ADR 0122).
+	private var profilesUnread = false
 	// A write that failed asks it to save again.
 	private weak var model: BrowserModel?
 
@@ -35,8 +38,8 @@ final class ModelStore {
 		return model
 	}
 
-	// Once the vault has the key. A file that neither opens nor decodes is kept
-	// aside: a plain one from before the floor among them (ADR 0122).
+	// Once the vault has the key. One that neither opens nor decodes leaves the
+	// sidebar empty: a plain one from before the floor among them (ADR 0122).
 	func loadProfiles() {
 		guard let model, let key = vault.filesKey else {
 			return
@@ -46,7 +49,7 @@ final class ModelStore {
 			model.load(profiles: try profilesFile.load(key: key)?.profiles ?? [])
 		} catch {
 			Log.model.error("Could not open profiles.json: \(String(describing: error), privacy: .private)")
-			Self.keepAside(profilesFile.url)
+			profilesUnread = true
 			model.load(profiles: [])
 		}
 	}
@@ -87,6 +90,11 @@ final class ModelStore {
 	}
 
 	private func write(_ save: BrowserModel.Save) {
+		if profilesUnread, save.profiles != nil {
+			profilesUnread = false
+			Self.keepAside(profilesFile.url)
+		}
+
 		let profilesFile = profilesFile
 		let settingsFile = settingsFile
 		// Before the key opens there is nothing to save over profiles.json.

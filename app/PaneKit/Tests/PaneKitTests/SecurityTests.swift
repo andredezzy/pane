@@ -12,8 +12,8 @@ struct SecurityStateTests {
 		defer { try? FileManager.default.removeItem(at: directory) }
 		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-		let electron = #"{"state":{"pin":{"hash":"$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO","length":4},"failedAttempts":2},"version":0}"#
-		try Data(electron.utf8).write(to: directory.appending(path: "security.json"))
+		let before = #"{"state":{"pin":{"hash":"$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO","length":4},"failedAttempts":2},"version":0}"#
+		try Data(before.utf8).write(to: directory.appending(path: "security.json"))
 
 		let file = PersistedFile<SecurityState>(directory: directory, name: "security")
 		let state = try #require(try file.load())
@@ -23,10 +23,8 @@ struct SecurityStateTests {
 		#expect(state.failedAttempts == 2)
 		#expect(state.remainingAttempts == 3)
 
-		try file.save(SecurityState())
-		let written = try String(contentsOf: directory.appending(path: "security.json"), encoding: .utf8)
-
-		#expect(written == #"{"state":{"failedAttempts":0,"pin":null},"version":0}"#)
+		try file.save(SecurityState(pin: Pin(length: 6), failedAttempts: 1))
+		#expect(try file.load() == SecurityState(pin: Pin(length: 6), failedAttempts: 1))
 	}
 }
 

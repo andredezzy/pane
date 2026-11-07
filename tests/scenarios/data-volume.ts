@@ -111,6 +111,8 @@ function ownFiles(dataDir: string): Record<string, string> {
 		"security.json",
 		"Data.security.json",
 		"profiles.json",
+		"profiles.json.damaged",
+		"security.json.damaged",
 		"settings.json",
 		"deletions.json",
 	]) {

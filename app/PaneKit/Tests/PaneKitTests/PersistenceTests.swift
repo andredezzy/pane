@@ -1,5 +1,5 @@
-// Settings cases ported from apps/veil/src/stores/settings-store.test.ts, plus
-// round trips through the Electron app's file formats.
+// Settings cases ported from apps/veil/src/stores/settings-store.test.ts, and
+// round trips through the files' formats.
 import Foundation
 import PaneKit
 import Testing
@@ -117,31 +117,19 @@ struct SettingsPersistenceTests {
 
 @Suite("profiles persistence")
 struct ProfilesPersistenceTests {
-	// The shape the Electron app writes: defaults absent from older files,
-	// explicit nulls, tabs without isLoaded.
-	private let electronProfiles = #"""
-	{"state":{"profiles":[{"name":"Work","group":null,"fingerprint":{"userAgent":"UA","platform":"MACOS","screen":{"width":1512,"height":982},"language":"en-US","languages":["en-US","en"],"timezone":"America/Sao_Paulo","webgl":null,"hardwareConcurrency":8,"deviceMemory":8,"maxTouchPoints":0},"proxy":{"proxyType":"SOCKS5","host":"127.0.0.1","port":1080,"username":"u","password":null},"id":"p1","tabs":[{"id":"t1","url":"https://example.com/","title":"Example Domain"}],"createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-02T00:00:00.000Z"}]},"version":0}
-	"""#
-
-	@Test("reads the Electron app's profiles.json with its defaults")
-	func readsElectronFile() throws {
+	// A file that misses a key an earlier Pane didn't write fails whole: ModelStore
+	// keeps it aside. The floor means none reaches here (ADR 0122).
+	@Test("a profile missing a key fails its whole file")
+	func missingKey() throws {
 		let directory = try temporaryDirectory()
-		try electronProfiles.write(to: directory.appendingPathComponent("profiles.json"), atomically: true, encoding: .utf8)
+		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
+		try file.save(ProfilesState(profiles: [BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")]))
 
-		let profile = try #require(PersistedFile<ProfilesState>(directory: directory, name: "profiles").load()?.profiles.first)
+		let whole = try String(contentsOf: file.url, encoding: .utf8)
+		try whole.replacingOccurrences(of: #""savesHistory":true,"#, with: "").write(to: file.url, atomically: true, encoding: .utf8)
 
-		#expect(profile.color == .blue)
-		#expect(profile.keepLoaded == false)
-		#expect(profile.savesHistory)
-		#expect(!profile.clearsHistory)
-		#expect(profile.group == nil)
-		#expect(profile.tabs == [Tab(id: "t1", url: "https://example.com/", title: "Example Domain", favicon: "")])
-		#expect(profile.fingerprint?.screen.colorDepth == 24)
-		// Its zone was a preset's, under the older key: it follows the computer.
-		#expect(profile.fingerprint?.timezone == "")
-		#expect(profile.fingerprint?.canvas.noise == true)
-		#expect(profile.fingerprint?.audio.noise == true)
-		#expect(profile.proxy == ProxyConfig(proxyType: .socks5, host: "127.0.0.1", port: 1080, username: "u", password: nil))
+		#expect(whole.contains(#""savesHistory":true,"#))
+		#expect(throws: DecodingError.self) { try file.load() }
 	}
 
 	@Test("round-trips through save and load")
@@ -157,7 +145,7 @@ struct ProfilesPersistenceTests {
 		#expect(try file.load() == state)
 	}
 
-	@Test("a zone chosen outlives a quit, and an older Pane still finds the key it requires")
+	@Test("a zone chosen outlives a quit")
 	func chosenTimeZone() throws {
 		let directory = try temporaryDirectory()
 		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
@@ -170,7 +158,6 @@ struct ProfilesPersistenceTests {
 
 		let json = try String(contentsOf: file.url, encoding: .utf8)
 		#expect(json.contains(#""timeZone":"Asia\/Tokyo""#))
-		#expect(json.contains(#""timezone":"Asia\/Tokyo""#))
 	}
 
 	@Test("a clear still owed outlives a quit")
@@ -183,42 +170,6 @@ struct ProfilesPersistenceTests {
 		try file.save(ProfilesState(profiles: [profile]))
 
 		#expect(try file.load()?.profiles.first?.clearsHistory == true)
-	}
-
-	@Test("a file from before the owed clear's key owes one, on a profile that is off")
-	func olderFileOwesAClear() throws {
-		let encoded = { (saves: Bool, owed: Bool?) throws -> Data in
-			var profile = BrowserProfile(id: "p1", name: "Work", savesHistory: saves, createdAt: "a", updatedAt: "b")
-			profile.clearsHistory = owed ?? false
-			var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
-
-			if owed == nil {
-				object["historyClearOwed"] = nil
-			}
-
-			return try JSONSerialization.data(withJSONObject: object)
-		}
-
-		let decode = { (data: Data) throws in try JSONDecoder().decode(BrowserProfile.self, from: data) }
-
-		#expect(try decode(encoded(false, nil)).clearsHistory)
-		#expect(try !decode(encoded(true, nil)).clearsHistory)
-		#expect(try !decode(encoded(false, false)).clearsHistory)
-		#expect(try decode(encoded(false, true)).clearsHistory)
-	}
-
-	@Test("writes explicit nulls, as the Electron app does")
-	func writesNulls() throws {
-		let directory = try temporaryDirectory()
-		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
-		try file.save(ProfilesState(profiles: [BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")]))
-
-		let json = try String(contentsOf: file.url, encoding: .utf8)
-
-		#expect(json.contains(#""group":null"#))
-		#expect(json.contains(#""proxy":null"#))
-		#expect(json.contains(#""fingerprint":null"#))
-		#expect(json.contains(#""version":0"#))
 	}
 
 	@Test("reports a missing file as nil")

@@ -720,7 +720,7 @@ const profileSheet: Scenario = async (context) => {
 		const unspoofed = await saved(app, proxiedID);
 
 		expect(
-			unspoofed.fingerprint === null,
+			(unspoofed.fingerprint ?? null) === null,
 			`spoofing off kept ${JSON.stringify(unspoofed.fingerprint)}`,
 		);
 
