@@ -46,11 +46,4 @@ extern bool (*g_pane_external_protocol_dialog)(
     content::WeakDocumentPtr initiator_document,
     const std::u16string& program_name);
 
-// devtools_window.cc, devtools_window_views.cc: Pane docks DevTools beside
-// the tab of a Browser it hosts (Chrome docks them in the BrowserView), and
-// is told each time docked DevTools appear, change, or go.
-extern bool (*g_pane_hosts_devtools)(BrowserWindowInterface* browser);
-extern void (*g_pane_update_devtools)(BrowserWindowInterface* browser,
-                                      content::WebContents* inspected);
-
 #endif  // PANE_BROWSER_UI_UI_HOOKS_H_

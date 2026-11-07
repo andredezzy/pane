@@ -24,7 +24,11 @@
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/app/chrome_command_ids.h"
 
+#include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "chrome/browser/devtools/devtools_ui_controller.h"
+#include "chrome/browser/devtools/devtools_window.h"
+#include "pane/browser/app_callback.h"
+#include "pane/browser/ui/tab_bridge.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
@@ -66,6 +70,8 @@
 #include "ui/gfx/mac/coordinate_conversion.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/widget/widget.h"
+
+#import "pane/public/PaneWebContents.h"
 
 namespace pane {
 
@@ -252,6 +258,54 @@ autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
 
 namespace {
 
+// Chrome docks DevTools in the BrowserView, and Pane's Browsers have none: the
+// app places the DevTools page beside the inspected tab instead.
+class DockingDevtoolsController final : public DevtoolsUIController {
+ public:
+  using DevtoolsUIController::DevtoolsUIController;
+
+  bool UpdateDevtools(content::WebContents* inspected,
+                      bool update_devtools_web_contents) override;
+};
+
+void UpdateDockedDevTools(content::WebContents* inspected) {
+  TabBridge* bridge = TabBridge::FromWebContents(inspected);
+  if (!bridge) {
+    return;
+  }
+  DevToolsContentsResizingStrategy strategy;
+  content::WebContents* devtools =
+      DevToolsWindow::GetInTabWebContents(inspected, &strategy);
+  PaneWebContents* devtools_tab =
+      devtools ? TabBridge::GetOrCreate(devtools)->tab() : nil;
+  // Chrome lays the page over the DevTools view at these bounds (the
+  // splitter); empty when DevTools covers it.
+  const gfx::Rect page_bounds = strategy.hide_inspected_contents()
+                                    ? gfx::Rect()
+                                    : strategy.bounds();
+  if (devtools_tab == bridge->devtools() &&
+      page_bounds == bridge->devtools_page_bounds()) {
+    return;
+  }
+  bridge->set_devtools(devtools_tab, page_bounds);
+  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.didChangeDevTools",
+                 base::DictValue().Set("open", devtools != nullptr));
+  PaneWebContents* tab = bridge->tab();
+  id<PaneWebContentsDelegate> delegate = tab.delegate;
+  if ([delegate respondsToSelector:@selector(webContents:
+                                       didChangeDevTools:)]) {
+    ScopedAppCallback callback;
+    [delegate webContents:tab didChangeDevTools:devtools_tab];
+  }
+}
+
+bool DockingDevtoolsController::UpdateDevtools(
+    content::WebContents* inspected,
+    bool update_devtools_web_contents) {
+  UpdateDockedDevTools(inspected);
+  return false;
+}
+
 std::set<const BrowserWindow*>& LiveWindows() {
   static base::NoDestructor<std::set<const BrowserWindow*>> windows;
   return *windows;
@@ -322,7 +376,7 @@ void HostedBrowserWindow::AttachBrowser(Browser* browser) {
   autofill_bubble_handler_registration_.emplace(
       browser->GetUnownedUserDataHost(), autofill_bubble_handler_);
   location_bar_->set_browser(browser);
-  devtools_ui_controller_ = std::make_unique<DevtoolsUIController>(
+  devtools_ui_controller_ = std::make_unique<DockingDevtoolsController>(
       browser,
       std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>());
   extension_shortcuts_ = std::make_unique<ExtensionShortcuts>(

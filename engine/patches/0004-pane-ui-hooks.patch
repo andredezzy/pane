@@ -1,80 +1,28 @@
-diff --git a/chrome/browser/devtools/devtools_window.cc b/chrome/browser/devtools/devtools_window.cc
-index e9803277ee..e1d41affcf 100644
---- a/chrome/browser/devtools/devtools_window.cc
-+++ b/chrome/browser/devtools/devtools_window.cc
-@@ -131,12 +131,19 @@
- #include "components/keep_alive_registry/scoped_keep_alive.h"
- #endif
+diff --git a/chrome/browser/devtools/devtools_ui_controller.h b/chrome/browser/devtools/devtools_ui_controller.h
+index aecb3609bf..a2dd257b96 100644
+--- a/chrome/browser/devtools/devtools_ui_controller.h
++++ b/chrome/browser/devtools/devtools_ui_controller.h
+@@ -32,7 +32,7 @@ class DevtoolsUIController {
+       BrowserWindowInterface* browser,
+       const std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>&
+           contents_container_views);
+-  ~DevtoolsUIController();
++  virtual ~DevtoolsUIController();  // Pane: virtual, with UpdateDevtools().
  
-+#include "pane/browser/ui/ui_hooks.h"  // nogncheck
-+
- using blink::WebInputEvent;
- using content::BrowserThread;
- using content::DevToolsAgentHost;
- using content::GlobalRenderFrameHostId;
- using content::WebContents;
+   DevtoolsUIController(const DevtoolsUIController&) = delete;
+   DevtoolsUIController& operator=(const DevtoolsUIController&) = delete;
+@@ -41,8 +41,9 @@ class DevtoolsUIController {
  
-+// Pane: see pane/browser/ui/ui_hooks.h.
-+bool (*g_pane_hosts_devtools)(BrowserWindowInterface* browser) = nullptr;
-+void (*g_pane_update_devtools)(BrowserWindowInterface* browser,
-+                               content::WebContents* inspected) = nullptr;
-+
- namespace {
+   void TearDown();
  
- typedef std::vector<DevToolsWindow*> DevToolsWindows;
-@@ -1075,8 +1082,11 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
-         FROM_HERE, base::BindOnce(&DevToolsWindow::ActivateInspectedTab,
-                                   weak_factory_.GetWeakPtr()));
+-  bool UpdateDevtools(content::WebContents* web_contents,
+-                      bool update_devtools_web_contents = true);
++  // Pane: virtual, for the Browsers it hosts (pane/browser/ui/browser_window.mm).
++  virtual bool UpdateDevtools(content::WebContents* web_contents,
++                              bool update_devtools_web_contents = true);
  
--    if (auto* devtools_ui_controller =
--            DevtoolsUIController::From(inspected_browser)) {
-+    // Pane: the app docks DevTools beside the tabs of its windows.
-+    if (g_pane_hosts_devtools && g_pane_hosts_devtools(inspected_browser)) {
-+      g_pane_update_devtools(inspected_browser, inspected_web_contents);
-+    } else if (auto* devtools_ui_controller =
-+                   DevtoolsUIController::From(inspected_browser)) {
-       devtools_ui_controller->UpdateDevtools(inspected_web_contents);
-     }
-     main_web_contents_->SetInitialFocus();
-@@ -1415,7 +1425,10 @@ DevToolsWindow* DevToolsWindow::Create(
- #endif  // BUILDFLAG(IS_MAC)
-     DevtoolsUIController* devtools_ui_controller =
-         browser ? DevtoolsUIController::From(browser) : nullptr;
--    if (!devtools_ui_controller || !devtools_ui_controller->CanDockDevtools()) {
-+    const bool pane_docks =
-+        browser && g_pane_hosts_devtools && g_pane_hosts_devtools(browser);
-+    if (!pane_docks && (!devtools_ui_controller ||
-+                        !devtools_ui_controller->CanDockDevtools())) {
-       can_dock = false;
-     }
-   }
-diff --git a/chrome/browser/devtools/devtools_window_views.cc b/chrome/browser/devtools/devtools_window_views.cc
-index 937debfe3f..4465efe169 100644
---- a/chrome/browser/devtools/devtools_window_views.cc
-+++ b/chrome/browser/devtools/devtools_window_views.cc
-@@ -20,6 +20,8 @@
- #include "chrome/browser/printing/print_preview_dialog_controller.h"
- #endif
- 
-+#include "pane/browser/ui/ui_hooks.h"  // nogncheck
-+
- using content::WebContents;
- 
- // static
-@@ -137,8 +139,11 @@ void DevToolsWindow::UpdateBrowserWindow() {
-   if (!inspected_browser) {
-     return;
-   }
--  if (auto* devtools_ui_controller =
--          DevtoolsUIController::From(inspected_browser)) {
-+  // Pane: the app docks DevTools beside the tabs of its windows.
-+  if (g_pane_hosts_devtools && g_pane_hosts_devtools(inspected_browser)) {
-+    g_pane_update_devtools(inspected_browser, inspected_web_contents);
-+  } else if (auto* devtools_ui_controller =
-+                 DevtoolsUIController::From(inspected_browser)) {
-     devtools_ui_controller->UpdateDevtools(inspected_web_contents);
-   }
- }
+   // Returns true if the browser window can dock a DevTools panel.
+   bool CanDockDevtools() const;
 diff --git a/chrome/browser/ui/views/external_protocol_dialog.cc b/chrome/browser/ui/views/external_protocol_dialog.cc
 index 6e5a662267..fe2e322d1d 100644
 --- a/chrome/browser/ui/views/external_protocol_dialog.cc

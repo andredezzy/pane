@@ -19,8 +19,6 @@ components/remote_cocoa/app_shim/bridged_content_view.h	0003-pane-hosted-browser
 components/remote_cocoa/app_shim/bridged_content_view.mm	0003-pane-hosted-browsers.patch
 chrome/browser/ui/views/login_handler_views.cc	0004-pane-ui-hooks.patch
 chrome/browser/ui/views/external_protocol_dialog.cc	0004-pane-ui-hooks.patch
-chrome/browser/devtools/devtools_window.cc	0004-pane-ui-hooks.patch
-chrome/browser/devtools/devtools_window_views.cc	0004-pane-ui-hooks.patch
 chrome/browser/ui/views/extensions/extension_install_dialog_view.cc	0005-pane-extensions.patch
 chrome/browser/extensions/api/extension_action/extension_action_api.cc	0005-pane-extensions.patch
 content/public/browser/content_browser_client.h	0006-pane-fingerprint.patch
@@ -110,3 +108,4 @@ services/network/enterprise/encryption/encrypted_cache_file.cc	0010-pane-encrypt
 storage/browser/quota/quota_database.cc	0010-pane-encryption.patch
 chrome/browser/ui/views/frame/browser_window_factory.cc	0003-pane-hosted-browsers.patch
 components/services/quarantine/quarantine_mac.mm	0008-pane-private.patch
+chrome/browser/devtools/devtools_ui_controller.h	0004-pane-ui-hooks.patch

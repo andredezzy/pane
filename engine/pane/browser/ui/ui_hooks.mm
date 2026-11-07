@@ -6,8 +6,6 @@
 #include <utility>
 
 #include "base/functional/bind.h"
-#include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
-#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/extensions/extension_ui.h"
@@ -70,51 +68,11 @@ bool RunExternalProtocolDialog(
   return true;
 }
 
-bool HostsDevTools(BrowserWindowInterface* browser) {
-  return HostedBrowserWindow::IsOurs(browser);
-}
-
-// Docked DevTools appeared, changed, or went: the app places the DevTools
-// page (DevToolsWindow keeps it while docked) beside the inspected tab.
-void UpdateDevTools(BrowserWindowInterface* browser,
-                    content::WebContents* inspected) {
-  TabBridge* bridge = TabBridge::FromWebContents(inspected);
-  if (!bridge) {
-    return;
-  }
-  DevToolsContentsResizingStrategy strategy;
-  content::WebContents* devtools =
-      DevToolsWindow::GetInTabWebContents(inspected, &strategy);
-  PaneWebContents* devtools_tab =
-      devtools ? TabBridge::GetOrCreate(devtools)->tab() : nil;
-  // Chrome lays the page over the DevTools view at these bounds (the
-  // splitter); empty when DevTools covers it.
-  const gfx::Rect page_bounds = strategy.hide_inspected_contents()
-                                    ? gfx::Rect()
-                                    : strategy.bounds();
-  if (devtools_tab == bridge->devtools() &&
-      page_bounds == bridge->devtools_page_bounds()) {
-    return;
-  }
-  bridge->set_devtools(devtools_tab, page_bounds);
-  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.didChangeDevTools",
-                 base::DictValue().Set("open", devtools != nullptr));
-  PaneWebContents* tab = bridge->tab();
-  id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if ([delegate respondsToSelector:@selector(webContents:
-                                       didChangeDevTools:)]) {
-    ScopedAppCallback callback;
-    [delegate webContents:tab didChangeDevTools:devtools_tab];
-  }
-}
-
 }  // namespace
 
 void InstallUIHooks() {
   g_pane_create_login_handler = &LoginHandler::Create;
   g_pane_external_protocol_dialog = &RunExternalProtocolDialog;
-  g_pane_hosts_devtools = &HostsDevTools;
-  g_pane_update_devtools = &UpdateDevTools;
   InstallExtensionHooks();
   InstallSelectFileDialogFactory();
 }
