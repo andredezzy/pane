@@ -88,8 +88,9 @@ extension Automation {
 
 		case "requestEnhancedUserInterface":
 			// What an assistive app sets on the application to ask for the whole
-			// accessibility tree.
-			NSApp.accessibilitySetValue(true, forAttribute: NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface"))
+			// accessibility tree. By name: the method's deprecated, and what the
+			// engine overrides to hear of it.
+			NSApp.perform(NSSelectorFromString("accessibilitySetValue:forAttribute:"), with: NSNumber(value: true), with: "AXEnhancedUserInterface")
 
 		case "changeSystemTimeZone":
 			// { zone }: the Mac's zone changes, as far as the engine can tell: its

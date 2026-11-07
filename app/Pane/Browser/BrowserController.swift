@@ -217,8 +217,11 @@ final class BrowserController: NSObject {
 		historyClearSettling[profileID]?.cancel()
 		model.forgetClosedTabs(inProfile: profileID)
 
+		// On the engine's UI thread, as its header doesn't say.
 		context.clearHistory { [weak self] in
-			self?.historyCleared(profileID)
+			MainActor.assumeIsolated {
+				self?.historyCleared(profileID)
+			}
 		}
 	}
 
