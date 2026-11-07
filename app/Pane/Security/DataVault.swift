@@ -21,11 +21,9 @@ final class DataVault {
 
 	private(set) var phase: Phase = .closed
 	@ObservationIgnored let volume: DataVolume
-	// Pane's own files' key, once the data key opened.
-	@ObservationIgnored private(set) var filesKey: SymmetricKey?
-	// The data key, for each profile's engine key (ADR 0121), while unlocked.
-	@ObservationIgnored private var dataKey: SymmetricKey?
-	@ObservationIgnored private(set) var isAttached = false
+	// The data key while unlocked: for Pane's own files, for each profile's engine
+	// key (ADR 0121), and to seal again with a new PIN.
+	@ObservationIgnored private(set) var dataKey: SymmetricKey?
 	// Why the volume would not attach, for the log and the security scenario.
 	@ObservationIgnored private(set) var failure: String?
 	// The attached image's device, which detaches it whole.
@@ -35,6 +33,8 @@ final class DataVault {
 	// The data's lock, held from launch, or taken once the Pane that held it
 	// let go: the image is this one's alone while it is (DataLock).
 	@ObservationIgnored private var dataLock: DataLock?
+	// Told what opens and what will not.
+	@ObservationIgnored weak var controller: BrowserController?
 	// The attach the key started, for the quit to wait for (close).
 	@ObservationIgnored private var attaching: Task<Attached, Error>?
 	// A lock's detach, which the next attach waits for (lock): the device it
@@ -47,33 +47,35 @@ final class DataVault {
 	// When the attach started and ended, in milliseconds since 1970.
 	@ObservationIgnored private(set) var attachedAt: (started: Double, ended: Double)?
 	@ObservationIgnored private var attachWaiters: [(Bool) -> Void] = []
-	// The key opened: the model reads the profiles.
-	@ObservationIgnored var didOpen: (() -> Void)?
-	// The profiles are read.
-	@ObservationIgnored var didBecomeOpen: (() -> Void)?
-	// The volume would not attach: the lock says so (07.8).
-	@ObservationIgnored var didFail: (() -> Void)?
-	// A lock's detach succeeded: no process has a profile's file open, so each
-	// can forget its keys (ADR 0121).
-	@ObservationIgnored var didDetachLocked: (() -> Void)?
-	// It would not: the keys stay, for what still has the files open.
-	@ObservationIgnored var didFailToDetachLocked: (() -> Void)?
 	@ObservationIgnored private let dataDirectory: URL
 
-	init(dataDirectory: URL) {
+	// The data's lock and the image's attach from main.swift, whose device the
+	// quit detaches: neither, when another Pane held the data at launch.
+	init(dataDirectory: URL, dataLock: DataLock?, image: Task<DataVolume.Devices?, Never>?) {
 		self.dataDirectory = dataDirectory
+		self.dataLock = dataLock
+		self.image = image
 		volume = DataVolume(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory))
 	}
 
 	// The key opened, and `attaching`, started where it opened, attaches the
 	// volume.
 	func open(_ key: SymmetricKey, attaching: Task<Attached, Error>) {
-		filesKey = DataKey.filesKey(key)
 		dataKey = key
 		self.attaching = attaching
-		didOpen?()
-		becomeOpen()
+		controller?.dataKeyDidOpen()
+		phase = .open
+		controller?.accessDidOpen()
 		finish(attaching)
+	}
+
+	// Pane's own files' key, once the data key opened.
+	var filesKey: SymmetricKey? {
+		dataKey.map(DataKey.filesKey)
+	}
+
+	var isAttached: Bool {
+		device != nil
 	}
 
 	// The device the attach returned, and when it started and ended, in
@@ -112,23 +114,6 @@ final class DataVault {
 
 			watch(volume)
 			return devices
-		}
-	}
-
-	// The data's lock and the image's attach from main.swift, whose device
-	// the quit detaches: neither, when another Pane held the data at launch.
-	func adopt(_ image: Task<DataVolume.Devices?, Never>?, lock: DataLock?) {
-		self.image = image
-		dataLock = lock
-
-		guard let image else {
-			return
-		}
-
-		Task { [weak self] in
-			if let devices = await image.value {
-				self?.device = devices.image
-			}
 		}
 	}
 
@@ -287,7 +272,7 @@ final class DataVault {
 		}
 
 		Self.detach(volume, device: device)
-		isAttached = false
+		self.device = nil
 	}
 
 	// The image detached by its device, with the engine stopped: the volume's
@@ -334,7 +319,6 @@ final class DataVault {
 	// forcing it would pull the files from under the engine.
 	func lock(once closed: Task<Bool, Never>) {
 		locks += 1
-		filesKey = nil
 		dataKey = nil
 		phase = .closed
 		failure = nil
@@ -347,7 +331,6 @@ final class DataVault {
 		let finishing = finishing
 
 		device = nil
-		isAttached = false
 		self.attaching = nil
 		self.image = nil
 		self.finishing = nil
@@ -380,11 +363,11 @@ final class DataVault {
 
 			guard Self.tryDetaching(volume, device: device, waits: Self.lockDetachWaits) else {
 				Log.security.error("Could not detach the data volume at a lock: Pane quits to close it")
-				await MainActor.run { [weak self] in self?.didFailToDetachLocked?() }
+				await MainActor.run { [weak self] in self?.controller?.quit() }
 				return device
 			}
 
-			await MainActor.run { [weak self] in self?.didDetachLocked?() }
+			await MainActor.run { [weak self] in self?.controller?.volumeDidDetachAtLock() }
 			return nil
 		}
 	}
@@ -415,11 +398,6 @@ final class DataVault {
 		}
 
 		return box.value
-	}
-
-	private func becomeOpen() {
-		phase = .open
-		didBecomeOpen?()
 	}
 
 	// Once mounted: purges the profiles deleted while it was detached.
@@ -455,7 +433,6 @@ final class DataVault {
 			return
 		}
 
-		isAttached = true
 		device = attached.device
 		attachedAt = (attached.started, attached.ended)
 
@@ -472,7 +449,7 @@ final class DataVault {
 		}
 
 		failure = reason
-		didFail?()
+		controller?.lock.volumeWontOpen()
 
 		let waiters = attachWaiters
 		attachWaiters = []

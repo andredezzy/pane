@@ -15,6 +15,7 @@ final class BrowserController: NSObject {
 	let pageHost = PageHostView()
 
 	private let application: BrowserApplication
+	private let store: ModelStore
 	private var contexts: [String: BrowserContext] = [:]
 	private var contextWaiters: [String: [(BrowserContext?) -> Void]] = [:]
 	// Closed profiles opened only to clear their history (historyDidChange).
@@ -32,8 +33,6 @@ final class BrowserController: NSObject {
 	private var engineWork: [ObjectIdentifier: EngineWork] = [:]
 	// The tab that showed when Pane locked, shown again once it opens.
 	private var resumeTabID: String?
-	// Pane locked: the store writes what changed and empties the model.
-	var didLock: (() -> Void)?
 	// Each loaded tab's page, and the DevTools docked to it.
 	private let pages = PageRegistry()
 	// When each tab's renderer last died, to tell a crash loop from a crash.
@@ -76,8 +75,9 @@ final class BrowserController: NSObject {
 	// once it shows, to type in, rather than its page.
 	private var focusesAddress: String?
 
-	init(model: BrowserModel, dataDirectory: URL, application: BrowserApplication, lock: AppLock, vault: DataVault, updater: Updater) {
+	init(model: BrowserModel, store: ModelStore, dataDirectory: URL, application: BrowserApplication, lock: AppLock, vault: DataVault, updater: Updater) {
 		self.model = model
+		self.store = store
 		self.application = application
 		self.lock = lock
 		self.vault = vault
@@ -87,6 +87,7 @@ final class BrowserController: NSObject {
 		browserWindow = BrowserWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800))
 		super.init()
 		browserWindow.delegate = self
+		vault.controller = self
 		state.sidebarWidth = CGFloat(model.settings.sidebarWidth)
 		lock.didUnlock = { [weak self] in
 			self?.accessDidOpen()
@@ -99,7 +100,9 @@ final class BrowserController: NSObject {
 	// The profiles, read once the data key opened: the sidebar shows each
 	// proxy's state from then, as the Electron app tested them at launch. A clear
 	// still owed runs now, rather than whenever its profile next opens.
-	func profilesDidLoad() {
+	func dataKeyDidOpen() {
+		store.loadProfiles()
+
 		for profile in model.profiles where profile.proxy != nil {
 			network.test(profile.id)
 		}
@@ -382,7 +385,8 @@ final class BrowserController: NSObject {
 			unloadProfile(profile.id)
 		}
 
-		didLock?()
+		// What changed is written, and the profiles leave memory.
+		store.unloadProfiles()
 
 		// Every profile closes in the engine, one opening or being deleted
 		// once that is done; what waited for a context gets none.
@@ -417,6 +421,16 @@ final class BrowserController: NSObject {
 
 			Log.security.error("A profile was still open after Pane locked: Pane quits to close it")
 			self?.quit()
+		}
+	}
+
+	// A lock's detach succeeded: no process has a profile's file open, so each can
+	// forget its keys (ADR 0121). When it would not, Pane quits (DataVault.lock).
+	func volumeDidDetachAtLock() {
+		application.dropEngineKeys { left in
+			if left.values.contains(where: { $0.intValue != 0 }) {
+				Log.security.error("A process kept its keys through a lock: \(left, privacy: .public)")
+			}
 		}
 	}
 

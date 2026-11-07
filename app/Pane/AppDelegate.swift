@@ -34,13 +34,14 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		// The data key opens the profiles (ADR 0113): the model starts with
 		// its settings alone, and the lock, or the launch without a PIN, opens
 		// the rest.
-		let vault = DataVault(dataDirectory: dataDirectory)
+		let vault = DataVault(dataDirectory: dataDirectory, dataLock: dataLock, image: image)
 		let lock = AppLock(dataDirectory: dataDirectory, vault: vault)
 		let store = ModelStore(dataDirectory: dataDirectory, vault: vault)
 		let model = store.makeModel()
 		let updater = Updater(currentVersion: Bundle.main.object(forInfoDictionaryKey: "PaneVersion") as? String ?? "0.0.0")
 		let controller = BrowserController(
 			model: model,
+			store: store,
 			dataDirectory: dataDirectory,
 			application: application,
 			lock: lock,
@@ -51,32 +52,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		self.controller = controller
 		self.store = store
 		self.vault = vault
-
-		vault.didOpen = { [weak store, weak controller] in
-			store?.loadProfiles()
-			controller?.profilesDidLoad()
-		}
-		vault.didBecomeOpen = { [weak controller] in
-			controller?.accessDidOpen()
-		}
-		vault.didFail = { [weak lock] in
-			lock?.volumeWontOpen()
-		}
-		// Something kept a file of the volume open past the wait: the quit detaches
-		// it, once the engine has stopped (ADR 0116).
-		vault.didFailToDetachLocked = { [weak controller] in
-			controller?.quit()
-		}
-		vault.didDetachLocked = { [weak application] in
-			application?.dropEngineKeys { left in
-				if left.values.contains(where: { $0.intValue != 0 }) {
-					Log.security.error("A process kept its keys through a lock: \(left, privacy: .public)")
-				}
-			}
-		}
-		controller.didLock = { [weak store] in
-			store?.unloadProfiles()
-		}
 
 		controller.applyTheme()
 		controller.dockIcon.show(model.settings.appIcon)
@@ -101,7 +76,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		})
 
 		windowController?.showWindow()
-		vault.adopt(image, lock: dataLock)
 		lock.start()
 
 		if let url = CommandLine.arguments.dropFirst().first(where: { !$0.hasPrefix("-") }).flatMap(URL.init(string:)) {

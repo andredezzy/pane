@@ -32,9 +32,8 @@ final class AppLock {
 	@ObservationIgnored private let copy: PersistedFile<SecurityState>
 	@ObservationIgnored private let dataDirectory: URL
 	@ObservationIgnored private let vault: DataVault
-	// The open data key and the secret it is sealed under: setting,
-	// changing, or removing the PIN reseals the key with them.
-	@ObservationIgnored private var dataKey: SymmetricKey?
+	// The secret the open data key is sealed under: setting, changing, or
+	// removing the PIN reseals the key with it.
 	@ObservationIgnored private var secret: Data?
 	// Wrong PINs in Settings in a row, in memory only: the count on disk is the
 	// lock's alone, where its fifth erases everything.
@@ -127,7 +126,6 @@ final class AppLock {
 		}
 
 		isLocked = true
-		dataKey = nil
 		present(PinEntry(mode: .unlock, pinLength: pin.length))
 	}
 
@@ -320,7 +318,6 @@ final class AppLock {
 
 			// A key just made is saved now, before the volume it opens is.
 			if unlocking {
-				dataKey = key
 				self.secret = secret
 				vault.open(key, attaching: attaching ?? vault.attacher()(key))
 			}
@@ -342,7 +339,7 @@ final class AppLock {
 	// Seals the open key again: with a new PIN (set up, changed), or none
 	// (removed). Only the key's seal changes; the data stays as it is.
 	private func reseal(pin: String?) {
-		guard let dataKey, let secret else {
+		guard let dataKey = vault.dataKey, let secret else {
 			Log.security.error("No open data key to seal again")
 			return
 		}
