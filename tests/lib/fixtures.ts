@@ -299,9 +299,7 @@ export function serveFixtures(): Fixtures {
 				"",
 			);
 
-			const file = Bun.file(
-				join(PAGES_DIR, relative === "/" ? "index.html" : relative),
-			);
+			const file = Bun.file(join(PAGES_DIR, relative));
 
 			if (!(await file.exists())) {
 				return new Response("not found", { status: 404 });

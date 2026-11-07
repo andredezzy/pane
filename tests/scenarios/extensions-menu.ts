@@ -88,23 +88,7 @@ async function press(
 	}
 
 	const pid = app.browser.pid;
-
-	// SwiftUI may redraw the control between reading it and pressing it (the
-	// toolbar as the page settles): accessibility then calls it invalid
-	// (-25202), and nothing was pressed, so it is read and pressed again.
-	for (let attempt = 1; ; attempt++) {
-		try {
-			await clickControl(pid, await mainWindowOf(pid), control);
-
-			return;
-		} catch (error) {
-			if (attempt === 3 || !String(error).includes("-25202")) {
-				throw error;
-			}
-
-			await Bun.sleep(300);
-		}
-	}
+	await clickControl(pid, await mainWindowOf(pid), control);
 }
 
 // The menu closes as the window gives up key status (another app frontmost

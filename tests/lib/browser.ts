@@ -9,7 +9,7 @@ export type LaunchOptions = {
 	args?: string[];
 	env?: Record<string, string>;
 	// Stock Chromium gets a throwaway profile; the Pane app manages its own data.
-	userDataDir?: string | null;
+	userDataDir?: string;
 	// Another copy than the run's binary: a scenario that replaces the app's
 	// bundle (update-install) runs one of its own.
 	binary?: string;
@@ -37,8 +37,7 @@ export type Browser = {
 // browser exits first, rather than after the whole minute.
 async function waitForPort(
 	child: Subprocess,
-	userDataDir: string | null,
-	fixedPort: number | null,
+	userDataDir: string,
 ): Promise<number> {
 	const deadline = Date.now() + 60_000;
 
@@ -49,49 +48,26 @@ async function waitForPort(
 			);
 		}
 
-		if (fixedPort !== null) {
-			const response = await fetch(
-				`http://127.0.0.1:${fixedPort}/json/version`,
-				{ signal: AbortSignal.timeout(2_000) },
-			).catch(() => null);
+		let port = 0;
 
-			if (response?.ok) {
-				return fixedPort;
-			}
-		} else if (userDataDir) {
-			let port = 0;
+		try {
+			port = Number(
+				readFileSync(join(userDataDir, "DevToolsActivePort"), "utf8").split(
+					"\n",
+				)[0],
+			);
+		} catch {}
 
-			try {
-				port = Number(
-					readFileSync(join(userDataDir, "DevToolsActivePort"), "utf8").split(
-						"\n",
-					)[0],
-				);
-			} catch {}
-
-			// The file can be there before its port is written: an empty
-			// line reads as 0.
-			if (Number.isInteger(port) && port > 0) {
-				return port;
-			}
+		// The file can be there before its port is written: an empty
+		// line reads as 0.
+		if (Number.isInteger(port) && port > 0) {
+			return port;
 		}
 
 		await Bun.sleep(250);
 	}
 
 	throw new Error("browser never exposed its DevTools port");
-}
-
-function freePort(): number {
-	const server = Bun.serve({ port: 0, fetch: () => new Response() });
-	const { port } = server;
-	server.stop(true);
-
-	if (port === undefined) {
-		throw new Error("no free port");
-	}
-
-	return port;
 }
 
 // Launches a Chromium-based binary with remote debugging and connects to it.
@@ -101,9 +77,8 @@ export async function launch(
 ): Promise<Browser> {
 	const throwaway = options.userDataDir === undefined;
 
-	const userDataDir = throwaway
-		? mkdtempSync(join(tmpdir(), "pane-profile-"))
-		: options.userDataDir;
+	const userDataDir =
+		options.userDataDir ?? mkdtempSync(join(tmpdir(), "pane-profile-"));
 
 	// The Pane app keeps its own data (PANE_DATA_DIR): unless a scenario names
 	// it, it is throwaway, never the user's at its default path.
@@ -137,7 +112,7 @@ export async function launch(
 	// A data volume still attached inside (ADR 0113), as one a killed app's
 	// watchdog has yet to detach, goes first: removing its mount point fails.
 	const removeDirs = async () => {
-		if (throwaway && userDataDir) {
+		if (throwaway) {
 			rmSync(userDataDir, { recursive: true, force: true });
 		}
 
@@ -149,22 +124,18 @@ export async function launch(
 		}
 	};
 
-	const fixedPort = userDataDir ? null : freePort();
-
 	// A reused directory still holds the last run's port.
-	if (userDataDir) {
-		rmSync(join(userDataDir, "DevToolsActivePort"), { force: true });
-	}
+	rmSync(join(userDataDir, "DevToolsActivePort"), { force: true });
 
 	const args = [
-		`--remote-debugging-port=${fixedPort ?? 0}`,
+		"--remote-debugging-port=0",
 		"--no-first-run",
 		"--no-default-browser-check",
 		// Scenarios never touch the user's login keychain (Chromium's
 		// "Safe Storage" item would prompt for the password on every launch
 		// of a freshly signed build).
 		"--use-mock-keychain",
-		...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
+		`--user-data-dir=${userDataDir}`,
 		...(options.args ?? []),
 	];
 
@@ -194,7 +165,7 @@ export async function launch(
 
 	// A launch that fails leaves nothing behind: no app, no directories.
 	try {
-		port = await waitForPort(child, userDataDir ?? null, fixedPort);
+		port = await waitForPort(child, userDataDir);
 
 		const version = (await (
 			await fetch(`http://127.0.0.1:${port}/json/version`, {
