@@ -280,6 +280,12 @@ class ProfileDestructionWaiter : public ProfileObserver,
   // Features that put Chrome's own UI outside the app's window: Glic (Gemini
   // in Chrome) adds a menu bar item, the Media Router a Cast dialog (the
   // Electron app had no casting).
+  // From 158, a data directory other than Chrome's default, as Pane's is, can't
+  // use the "v10" key every cookie and password was sealed under: they read as
+  // gone, and every site signs out. It guards one app's data from another's
+  // copy of Chrome; Pane's are behind its own key already (docs/adr/0121).
+  AddToSwitchList(args, "disable-features",
+                  "KeychainKeyProviderUserDataDirProtection");
   AddToSwitchList(args, "disable-features", "Glic,MediaRouter");
   // Requests to Google that Chrome makes on its own and the Electron app
   // never did (found by their traffic annotations in a net log): the

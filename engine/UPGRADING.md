@@ -71,6 +71,8 @@ Every scenario must pass. The ones that read the screen (CUA) need an unlocked s
 
 A scenario that fails may have caught Chrome changing its own behavior (157 started requiring a focused page for fullscreen, and pinning new extensions). Run it on the previous engine under the same conditions to tell. Package the app on that engine's archive with `PANE_ENGINE_OUT` set to the unpacked archive, beside the new one. If the old engine passes and the new behavior is right for a browser, record it in an ADR and update the scenario to the new behavior. Otherwise fix Pane.
 
+Then the data of the release before it, which no other scenario reads across a move: `PANE_EARLIER_BUILDS=<a build before the floor> PANE_FLOOR_BUILD=<the published release>` and `data-volume`, whose session has a cookie, every store, and a service worker. A new version can change what an old file means: 158 turned on `KeychainKeyProviderUserDataDirProtection`, which on a data directory other than Chrome's default makes the key every cookie is sealed under unavailable. Every test on its own build passed, and every user would have been signed out. So when this fails, read the milestone's diff of `chrome/browser/browser_process_impl.cc` and of what the failing store reads.
+
 Then audit the stores (ADR 0121): a milestone adds some. `files-encrypted`, among the scenarios above, fails on a new store with no hook, and its result in `files-encrypted.json` lists every `unknown` file (the whole list is `files-inventory-list.json`): give the store a hook in `pane/encryption`, or an entry in `tests/lib/file-audit.ts`' allow-list with why it is neither. Run `pane_unittests`: its VFS leans on `sqlite3`'s shapes of I/O, and an upgrade of SQLite can add one.
 
 ## 6. Ship it
