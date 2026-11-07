@@ -277,7 +277,6 @@ class ProfileDestructionWaiter : public ProfileObserver,
   args.push_back("--" PANE_HOSTED_SWITCH);
   args.push_back("--no-startup-window");
   args.push_back("--no-first-run");
-  args.push_back("--no-default-browser-check");
   // Printing goes straight to the system print panel, not Chrome's preview.
   args.push_back("--disable-print-preview");
   // Features that put Chrome's own UI outside the app's window: Glic (Gemini
@@ -296,8 +295,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
   args.push_back("--disable-component-update");
   AddToSwitchList(args, "disable-features",
                   "NetworkTimeServiceQuerying,"
-                  "AimEnabled,AimServerEligibilityEnabled,"
-                  "AimServerRequestOnStartupEnabled,"
+                  "AimEnabled,"
                   "OptimizationGuideModelExecution,"
                   "OnDeviceModelBackgroundDownload,OptimizationHints,"
                   "TranslateRankerQuery,TranslateRankerEnforcement,"
