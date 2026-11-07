@@ -61,33 +61,9 @@ enum SafeStorage {
 		return SecItemDelete(query as CFDictionary)
 	}
 
-	// The engine's key itself, which the proxy passwords are sealed under
-	// (ADR 0069). The engine reads the same item at every launch, so macOS
-	// asks once for the two. Pane never makes the item: the engine does, or
-	// a migration hands it the Electron app's key (adoptKey).
-	nonisolated static func engineSecret() -> ProxyPasswordVault.Secret {
-		var result: CFTypeRef?
-		let query: [CFString: Any] = [
-			kSecClass: kSecClassGenericPassword,
-			kSecAttrService: service,
-			kSecAttrAccount: account,
-			kSecReturnData: true,
-		]
-		let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-		switch status {
-		case errSecSuccess:
-			return (result as? Data).map { .key($0) } ?? .unavailable
-		case errSecItemNotFound:
-			return .missing
-		default:
-			Log.security.error("Could not read the engine's key: \(status)")
-			return .unavailable
-		}
-	}
-
-	// The secret the data key is sealed under (ADR 0113): the engine's, made
-	// here as Chromium makes it when the engine has none yet and `makesOne`,
+	// The secret the data key is sealed under (ADR 0113): the engine's, which it
+	// reads at every launch too, so macOS asks once for the two. Made here as
+	// Chromium makes it when the engine has none yet and `makesOne`,
 	// since a fresh install needs the data key before the engine first reads
 	// its item. Never once a key is sealed: a new secret would not open it.
 	// LaunchMigration has run by then, so the Electron app's key it hands
@@ -99,16 +75,19 @@ enum SafeStorage {
 			return Data("Pane mock keychain".utf8)
 		}
 
-		switch engineSecret() {
-		case let .key(secret):
-			return secret
-		case .unavailable:
-			return nil
-		case .missing:
-			guard makesOne else {
-				return nil
-			}
+		var result: CFTypeRef?
+		let query: [CFString: Any] = [
+			kSecClass: kSecClassGenericPassword,
+			kSecAttrService: service,
+			kSecAttrAccount: account,
+			kSecReturnData: true,
+		]
+		let status = SecItemCopyMatching(query as CFDictionary, &result)
 
+		switch status {
+		case errSecSuccess:
+			return result as? Data
+		case errSecItemNotFound where makesOne:
 			// 128 random bits, in base64 (keychain_password_mac.mm).
 			let secret = Data(Data((0 ..< 16).map { _ in UInt8.random(in: .min ... .max) }).base64EncodedString().utf8)
 			let item: [CFString: Any] = [
@@ -125,6 +104,11 @@ enum SafeStorage {
 			}
 
 			return secret
+		case errSecItemNotFound:
+			return nil
+		default:
+			Log.security.error("Could not read the engine's key: \(status)")
+			return nil
 		}
 	}
 

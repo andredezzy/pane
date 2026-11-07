@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, tabOf } from "../lib/pane";
 import { startHttpProxy, startSocks5Proxy } from "../lib/proxies";
@@ -14,11 +14,10 @@ const CREDENTIALS = { username: "pane", password: "proxy-secret" };
 // (through the app's relay), and profile B direct. Each proxy logs what it
 // carried; A's WebRTC gathers no address of the machine. The passwords are
 // kept in profiles.json, sealed under the data key with it (ADR 0113): no
-// file holds one in the clear, and the separate store an earlier Pane kept
-// (a file of the data directory, with the mock keychain) is gone.
+// file holds one in the clear.
 
 // Where a password is at rest: profiles.json sealed, no file holding it in
-// the clear (the automation channel's own files aside), no separate store.
+// the clear (the automation channel's own files aside).
 async function passwordsAtRest(dataDir: string) {
 	const profiles = JSON.parse(
 		readFileSync(join(dataDir, "profiles.json"), "utf8"),
@@ -36,11 +35,10 @@ async function passwordsAtRest(dataDir: string) {
 	return {
 		sealed: typeof profiles.box === "string",
 		inTheClear,
-		store: existsSync(join(dataDir, "mock-keychain.json")),
 	};
 }
 
-const atRest = JSON.stringify({ sealed: true, inTheClear: [], store: false });
+const atRest = JSON.stringify({ sealed: true, inTheClear: [] });
 
 const proxy: Scenario = async (context) => {
 	const fixturePort = Number(new URL(context.fixtures.origin).port);

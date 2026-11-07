@@ -400,7 +400,6 @@ final class AppLock {
 			let caches = Self.cacheDirectory(for: dataDirectory)
 			let electron = Self.electronData(for: dataDirectory)
 			vault.volume.detachLeftovers()
-			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
 			Self.forgetElectronKey(electron)
 			Self.log(
 				PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
@@ -438,8 +437,6 @@ final class AppLock {
 		}
 
 		if wiped != nil || isWipeDue(dataDirectory) {
-			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
-
 			// The wiped instance's volume, which its watchdog went down with:
 			// its key is gone, and it moves aside detached.
 			DataVolume(dataDirectory: dataDirectory, cacheDirectory: caches).detachLeftovers()
