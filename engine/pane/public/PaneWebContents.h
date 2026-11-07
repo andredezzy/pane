@@ -82,10 +82,6 @@ NS_SWIFT_UI_ACTOR
 - (void)webContents:(PaneWebContents*)webContents
     showContextMenu:(PaneContextMenu*)menu;
 
-// The page started printing (window.print() or -print); the system print
-// panel follows.
-- (void)webContentsWillPrint:(PaneWebContents*)webContents;
-
 // Video picture-in-picture started or ended. The floating player is
 // Chromium's own window.
 - (void)webContents:(PaneWebContents*)webContents

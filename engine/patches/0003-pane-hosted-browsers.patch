@@ -60,29 +60,6 @@ index 99041fad5c..42b7892e4d 100644
    // A touch tab drag session may still be delivering OS touch events to this
    // window's native widget. Destroying it mid-gesture would strand the drag, so
    // let TabDragController take ownership of closing this browser once the drag
-diff --git a/chrome/browser/ui/browser_commands.cc b/chrome/browser/ui/browser_commands.cc
-index 365dcd789d..186b7bb8ea 100644
---- a/chrome/browser/ui/browser_commands.cc
-+++ b/chrome/browser/ui/browser_commands.cc
-@@ -3,6 +3,7 @@
- // found in the LICENSE file.
- 
- #include "chrome/browser/ui/browser_commands.h"
-+#include "pane/browser/ui/hooks.h"  // nogncheck
- 
- #include <algorithm>
- #include <memory>
-@@ -1498,7 +1499,9 @@ void CloseTab(BrowserWindowInterface* browser) {
- #endif
- 
-   ToastController* toast_controller = ToastController::From(browser);
--  if (!toast_controller) {
-+  // Pane: Pane's Browsers have no BrowserView, so no pinned tab toast.
-+  if (!toast_controller || (g_pane_viewless_browsers &&
-+                            !BrowserView::GetBrowserViewForBrowser(browser))) {
-     CloseSelectedTabAndRecordTabCountMetric(browser);
-     return;
-   }
 diff --git a/chrome/browser/ui/browser_window/internal/browser_window_features.cc b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
 index 6c1c78d434..b262202ecd 100644
 --- a/chrome/browser/ui/browser_window/internal/browser_window_features.cc
@@ -181,7 +158,7 @@ index 804a89c558..9a3b673fb0 100644
    for (auto* contents_view : browser_view->GetAllVisibleContentsWebViews()) {
      if (contents_view->web_contents() == web_contents) {
 diff --git a/chrome/browser/ui/toasts/toast_controller.cc b/chrome/browser/ui/toasts/toast_controller.cc
-index 77b520e599..0e82316db5 100644
+index 77b520e599..668f9cf7a7 100644
 --- a/chrome/browser/ui/toasts/toast_controller.cc
 +++ b/chrome/browser/ui/toasts/toast_controller.cc
 @@ -3,6 +3,7 @@
@@ -213,17 +190,6 @@ index 77b520e599..0e82316db5 100644
    if (!CanShowToast(params.toast_id)) {
      RecordToastFailedToShow(params.toast_id);
      return false;
-@@ -336,7 +350,9 @@ void ToastController::CreateToast(ToastParams params,
-   if (!anchor_view) {
-     // Don't actually create the toast in unit tests
-     // TODO(webium): show toast in webui browser.
--    if (!webui_browser::IsWebUIBrowserEnabled()) {
-+    // Pane: Pane's Browsers have no BrowserView to anchor a toast to.
-+    if (!webui_browser::IsWebUIBrowserEnabled() &&
-+        !(browser_window_interface_ && g_pane_viewless_browsers)) {
-       CHECK_IS_TEST();
-     }
-     return;
 diff --git a/chrome/browser/ui/unload_controller.cc b/chrome/browser/ui/unload_controller.cc
 index 02ae74168c..f5362e0881 100644
 --- a/chrome/browser/ui/unload_controller.cc

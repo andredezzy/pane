@@ -111,20 +111,6 @@ void UpdateDevTools(BrowserWindowInterface* browser,
   }
 }
 
-void WillPrint(content::WebContents* web_contents) {
-  TabBridge* bridge = TabBridge::FromWebContents(web_contents);
-  if (!bridge) {
-    return;
-  }
-  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.willPrint");
-  PaneWebContents* tab = bridge->tab();
-  id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if ([delegate respondsToSelector:@selector(webContentsWillPrint:)]) {
-    ScopedAppCallback callback;
-    [delegate webContentsWillPrint:tab];
-  }
-}
-
 // Device choosers stay closed, as in the Electron app: the page's
 // requestDevice() is declined at once, with no UI.
 bool DeclineDeviceChooser(
@@ -151,7 +137,6 @@ void InstallUIHooks() {
   g_pane_external_protocol_dialog = &RunExternalProtocolDialog;
   g_pane_hosts_devtools = &HostsDevTools;
   g_pane_update_devtools = &UpdateDevTools;
-  g_pane_will_print = &WillPrint;
   g_pane_device_chooser = &DeclineDeviceChooser;
   InstallExtensionHooks();
   InstallSelectFileDialogFactory();

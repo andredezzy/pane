@@ -130,28 +130,3 @@ index b269f1610a..7f4ec26920 100644
  
    return content::RESULT_CODE_NORMAL_EXIT;
  }
-diff --git a/chrome/browser/devtools/chrome_devtools_manager_delegate.cc b/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
-index 34e568267b..e3e53e8294 100644
---- a/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
-+++ b/chrome/browser/devtools/chrome_devtools_manager_delegate.cc
-@@ -71,6 +71,7 @@
- #include "ui/base/window_open_disposition.h"
- #include "ui/gfx/switches.h"
- #include "ui/views/controls/webview/webview.h"
-+#include "pane/common/host.h"  // nogncheck: header-only constants
- 
- #if BUILDFLAG(IS_CHROMEOS)
- #include "ash/constants/ash_switches.h"
-@@ -329,6 +330,12 @@ std::string ChromeDevToolsManagerDelegate::GetTargetType(
-     return DevToolsAgentHost::kTypePage;
-   }
- 
-+  // Pane: in a hosted engine the app shows pages in its own views, so a
-+  // WebContents that is nothing above is one of the app's pages.
-+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
-+    return DevToolsAgentHost::kTypePage;
-+  }
-+
-   return DevToolsAgentHost::kTypeOther;
- }
- 

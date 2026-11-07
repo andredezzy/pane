@@ -52,8 +52,7 @@ extern std::unique_ptr<BrowserWebContentsDelegate> (
     DesktopBrowserWindowCapabilities& capabilities,
     BrowserUiController& browser_ui_controller);
 
-// toast_controller.cc defines it; reading mode and browser_commands.cc read
-// it: this process hosts Browsers without a BrowserView, so Chrome's UI that
+// toast_controller.cc defines it, and reading mode reads it: this process hosts Browsers without a BrowserView, so Chrome's UI that
 // needs one (toasts, the reading mode side panel) stands aside for them.
 extern bool g_pane_viewless_browsers;
 

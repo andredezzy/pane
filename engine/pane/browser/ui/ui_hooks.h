@@ -65,9 +65,6 @@ extern bool (*g_pane_hosts_devtools)(BrowserWindowInterface* browser);
 extern void (*g_pane_update_devtools)(BrowserWindowInterface* browser,
                                       content::WebContents* inspected);
 
-// print_view_manager_base.cc: a page called window.print().
-extern void (*g_pane_will_print)(content::WebContents* web_contents);
-
 // chooser_bubble_ui.cc: a page asks to pick a USB, HID, serial, or Bluetooth
 // device. True when Pane answered (it declines, as the Electron app did);
 // `controller` is then consumed.
