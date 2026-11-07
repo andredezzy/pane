@@ -18,7 +18,7 @@
 | 2 | A download through the page | ✓ | ✓ | Tab, Return: `state.downloads` says complete |
 | 2 | An extension from the Web Store, by its buttons | ✓ Dark Reader, by pointer | ✓ uBlock Origin Lite, Return in the sheet | "Add to Pane", the sheet, the toolbar's icon, its popup, the extensions menu |
 | 3 | What changed, by pixel with 0.18.0 | ✓ | ✓ | below |
-| 4 | 0.15.2's data shows 07.8, and nothing changed | ✓ | ✓ | `data-volume` from 0.15.2 and 0.17.2 through the published 0.18.2: every site still signed in |
+| 4 | An earlier Pane's data opens, and everything reads back | ✓ | n/a | `files-migration` from 0.14.2, 0.15.2, 0.16.3, and 0.17.2, the repair from 0.18.0 and 0.18.1, and 0.18.2's data, read back: below |
 | 5 | The files from another app | ✓ | n/a | below |
 | 6 | Speed as felt | ✓ | n/a | below |
 | 7 | The profile sheet's group field and swatches | ✓ | ✓ | by pointer; the swatch's ring follows, the color saved |
@@ -34,6 +34,12 @@ Also by pointer: a window's live resize from its corner, 1512 × 883 to 1251 × 
 
 - **Two differ by 70%:** `menu-light`, `more-menu`. The page behind the menu is dark or white by when Dark Reader, just installed, reaches a tab already open, and 0.18.0 shows both (white once, dark once, in two more runs). The menus are identical.
 - **Eighteen differ by under 0.04%, in text alone:** what changes from run to run (a fixture's port number, the version in Settings), and the name typed in the sheet, a device pixel to the left while its field has the focus. `Fields.swift` hasn't changed since 0.18.0; what has is when a field takes the focus (`e9d0b74`).
+
+## Earlier Panes' data
+
+The candidate is what updates each of them (ADR 0122), so each wrote its own data and the candidate opened it: from 0.14.2, 0.15.2, 0.16.3, and 0.17.2, converted through kills at 150, 400, and 800 ms into the first open, with every store read back, cookies included, and nothing plain on disk. What 0.18.0 and 0.18.1 left wrong is put right. 0.18.2's data reads back. `files-migration-large` converts 600 MB, and its render shows 07.5 on the candidate.
+
+**Not by hand:** 07.5 with a real earlier profile, typed through with the PIN, and an earlier build updating to the candidate end to end. The conversion and the swap are each checked, by `files-migration` and `update-install`, and meet in the real update from published builds after the release.
 
 ## The files from another app
 
