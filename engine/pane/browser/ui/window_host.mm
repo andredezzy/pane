@@ -29,7 +29,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views_impl.h"
-#import "components/remote_cocoa/app_shim/bridged_content_view.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "base/strings/string_util.h"
@@ -43,6 +42,7 @@
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/web_contents_delegate.h"
 #import "pane/public/PaneBrowserWindow.h"
+#include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/client_view.h"
@@ -127,6 +127,8 @@ WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
   widget_delegate_->SetCanMinimize(true);
   widget_delegate_->SetCanFullscreen(true);
   widget_delegate_->SetTitle(u"Pane");
+  auto* native_view_host = widget_delegate_->SetContentsView(
+      std::make_unique<views::NativeViewHost>());
   widget_delegate_->SetClientViewFactory(base::BindOnce(
       [](base::WeakPtr<WindowHost> host, views::Widget* widget,
          views::View* contents) -> std::unique_ptr<views::ClientView> {
@@ -144,16 +146,13 @@ WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
   widget_->Init(std::move(params));
   widget_->AddObserver(this);
 
-  // The app's view covers the widget's: it is hit-tested and read by
-  // assistive technologies first (patch 0003, BridgedContentView).
+  // The app's view fills the widget, as a WebView would hold a page: Views routes
+  // clicks and assistive technologies to it.
   NSView* content = ns_window().contentView;
   host_view_ = [[NSView alloc] initWithFrame:content.bounds];
   host_view_.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
   host_view_.wantsLayer = YES;
-  [content addSubview:host_view_];
-  if ([content isKindOfClass:[BridgedContentView class]]) {
-    static_cast<BridgedContentView*>(content).paneEmbeddedView = host_view_;
-  }
+  native_view_host->Attach(gfx::NativeView(host_view_));
 }
 
 WindowHost::~WindowHost() {
