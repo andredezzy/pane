@@ -31,7 +31,7 @@ The panic wipe deletes the sealed file and the old item, the item without asking
 
 What was rejected:
 
-- **Routing a proxy's change through `withContext`:** it would open the contexts of profiles nobody opened.
+- **Routing a proxy's change through `ProfileContexts.with`:** it would open the contexts of profiles nobody opened.
 - **Deleting the engine's "Pane Safe Storage" key in the panic wipe:** that key is not scoped by data directory, so a wipe in a Pane on a throwaway data directory would sign the real one out.
 - **A certificate of Pane's own, to keep both items' grants across updates:** tried on 2026-10-29 and undone the same day. The partition list macOS keeps on each item (its `partition_id` entry) names an app without a Team ID by its code hash (`cdhash:`), whatever certificate signs it: a test item made through the calls Chromium makes refused the second build of a tool signed with the same certificate (`-25293`), as it refused an ad-hoc one. Developer ID browsers' items (Dia, Aside) carry `teamid:`, which updates keep; a Developer ID would end the prompt altogether (ADR 0048), and it is the user's call for later.
 - **Keeping the engine's key out of the Keychain:** the cookies' encryption would no longer keep them from other apps.

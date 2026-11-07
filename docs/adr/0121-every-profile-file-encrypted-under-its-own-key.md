@@ -85,7 +85,7 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 ## How it is checked
 
 - **`files-encrypted`** (in CI): a rich session, with Pane open and unlocked, then every file under the profile, its caches, the data root, the home, and `$TMPDIR`: each in a format of Pane's or on the allow-list, none holding a planted value, no name giving a site away, in clear or as an unkeyed hash. The session's values read back through it all.
-- **`files-inventory`** lists every file, for `engine/UPGRADING.md`'s step at each new Chromium.
+- **`files-encrypted`** also lists every file (`inventory.json`), for `engine/UPGRADING.md`'s step at each new Chromium.
 - **`files-migration`**, from each published build it is given (0.15.2 and 0.17.2): killed three times in its first opens, everything still there, nothing plain, and the published build on the migrated data refused, the volume's files unchanged. **`files-migration-large`**: with its panel, and six kills at random points.
 - **`engine-keys`**, **`memory-guarded`**, **`volume-unindexed`** (Spotlight: `.metadata_never_index` at every mount, since `mdutil` can't tell on a volume out of the Finder).
 - **`pane_unittests`**, run locally since CI builds no Chromium: every I/O shape of a journal and a WAL, a mid-transaction crash rolled back from the log on disk, 200 kills in each with nothing committed lost, Raze, Recovery, VACUUM, a wrong key or none crashing and deleting nothing, LevelDB with repair, and the migration killed at any point.

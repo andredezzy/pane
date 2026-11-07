@@ -32,5 +32,5 @@ How it is checked:
 - **Tests:** PaneKit's tests cover the setting's persistence and Automatic's rule.
 - **The `app-icon` scenario:** it runs each theme and setting against the window the Dock shows, through the automation snapshot. It opens the dialog, picks a sky with the dialog open, and closes it with Esc and with Return. It renders Settings' row and the dialog in each theme.
 - **KeyRouting tests:** they cover the dialog's keys, and Quit Pane? over the dialog.
-- **Other scenarios:** `theme`, `smoke`, `shortcuts`, `quit`, `key-precedence`, `switcher`, and `security` pass on that build.
+- **Other scenarios:** `theme`, `smoke`, `shortcuts`, `quit`, `key-precedence`, and `security` pass on that build.
 - **The pixel comparisons:** `AppIconDay` against NSWorkspace's drawing of the packaged app shows no pixel apart, again with the whiter frame (2026-10-29), on a fresh copy of the app: macOS keeps an app's icon by its path, and the build's path still drew the old one. Day's icon against Sunset's differs by more than 8 levels only inside the glass, so the frames match: on the frame, every sky is within 3 levels of Day. Clouds' cartoon render keeps that (2026-10-29): its frame is Day's to the level, and it differs by more than 8 levels only inside the glass.

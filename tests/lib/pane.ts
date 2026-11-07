@@ -35,7 +35,6 @@ type ProfileState = {
 	// The proxy's last connection test, for a proxied profile.
 	proxyStatus: "testing" | "connected" | "failed" | null;
 	// What the engine applied, once the profile is open.
-	network: { proxyRules: string | null; webRTCIPHandlingPolicy: string } | null;
 	keepLoaded: boolean;
 	savesHistory: boolean;
 	// What the engine has, once the profile is open.
@@ -63,7 +62,6 @@ type DownloadState = {
 	url: string;
 	path: string | null;
 	receivedBytes: number;
-	totalBytes: number;
 	state: "inProgress" | "complete" | "cancelled" | "interrupted";
 };
 
@@ -98,7 +96,6 @@ type UpdateState = {
 	status: "idle" | "checking" | "available" | "downloading" | "downloaded";
 	available: string | null;
 	progress: number | null;
-	eta: number | null;
 	pill: boolean;
 	// What the pill and the lock screen say.
 	label: string;
@@ -161,8 +158,6 @@ export type AppState = {
 	};
 	switcher: {
 		visible: boolean;
-		selectedIndex: number;
-		groups: { profileID: string; name: string; tabs: string[] }[];
 	};
 	downloads: DownloadState[];
 	// The address field's text.
@@ -173,7 +168,6 @@ export type AppState = {
 		fullScreen: boolean;
 		frame: string;
 		key: boolean;
-		trafficLights: number[];
 		trafficLightFrames: number[][];
 	};
 	closedTabs: number;
@@ -212,7 +206,6 @@ export type AppState = {
 	crashedTabs: string[];
 	pictureInPictureTabs: string[];
 	devToolsTabs: string[];
-	printRequests: number;
 	extensions: Record<string, ExtensionState[]>;
 	// The extension the Extensions page shows the Details of.
 	extensionDetails: {
@@ -259,11 +252,7 @@ export type ExtensionState = {
 	version: string;
 	enabled: boolean;
 	pinned: boolean;
-	hasAction: boolean;
-	hasPopup: boolean;
 	actionTitle: string;
-	badgeText: string;
-	hasIcon: boolean;
 	// The icon draws something (it can be there and blank).
 	iconVisible: boolean;
 };

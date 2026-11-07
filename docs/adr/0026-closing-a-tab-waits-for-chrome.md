@@ -4,4 +4,4 @@ The app removes a loaded tab only when Chrome reports it closed, so a page's bef
 
 Unloading a profile closes its pages at once, with no beforeunload (`-closeImmediately`): the profile's tabs stay in the sidebar, and only their pages go. Deleting a profile also closes its pages without asking them (ADR 0020), and so does a lock, as it closes each profile in the engine (`closeContext`, ADR 0116). These calls wait for the next turn when made inside an engine callback, and a page closed at once withdraws the requests the app holds for it (ADR 0017).
 
-The `dialog-beforeunload` scenario checks it: Cancel keeps the tab and its page, and Leave closes it.
+The `dialogs` scenario checks it: Cancel keeps the tab and its page, and Leave closes it.

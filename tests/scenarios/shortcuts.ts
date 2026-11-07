@@ -54,6 +54,26 @@ const shortcuts: Scenario = async (context) => {
 		`typing in a new tab's address field gave "${typed.address}"`,
 	);
 
+	// A key already in the queue behind ⌘L acts on what ⌘L did: it replaces the
+	// text. Both land in one of the automation's polls, so no front is needed.
+	await Promise.all([press("l", "command"), press("q")]);
+
+	const queued = await app.waitFor(
+		"the key queued behind ⌘L",
+		(state) => state.address !== "a",
+	);
+
+	expect(
+		queued.address === "q",
+		`a key queued behind ⌘L in the field gave "${queued.address}"`,
+	);
+
+	await press("a");
+	await app.waitFor("the field back to a", (state) => state.address !== "q");
+	await press("l", "command");
+	await press("a");
+	await app.waitFor("the field holding a", (state) => state.address === "a");
+
 	// Behind the app in use its window isn't key, so nothing takes the select.
 	if (context.foreground) {
 		await press("l", "command");

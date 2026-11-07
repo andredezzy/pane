@@ -4,4 +4,4 @@ When a tab's renderer crashes, the app reloads the page; when it crashes again w
 
 The sad tab is the app's (`app/Pane/Views/SadTabView.swift`), not Chrome's. Its Reload, the toolbar's Reload, and ⌘R bring the page back. The engine posts a renderer's crash to the app a task later, so the app's reload never runs while Chrome's other observers are still being told the renderer died (ADR 0017).
 
-The `crash-recovery` scenario kills the selected tab's renderer and expects the page back, working. `sad-tab` crashes a page twice in a row and expects the sad tab, then its Reload, or the toolbar's, to bring the page back.
+`sad-tab` kills the selected tab's renderer and expects the page back, working. `sad-tab` crashes a page twice in a row and expects the sad tab, then its Reload, or the toolbar's, to bring the page back.
