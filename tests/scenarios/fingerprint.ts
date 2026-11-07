@@ -100,7 +100,7 @@ const LINUX = {
 	},
 	hardwareConcurrency: 4,
 	deviceMemory: 4,
-	maxTouchPoints: 0,
+	maxTouchPoints: 5,
 	canvas: { noise: true },
 	audio: { noise: true },
 };

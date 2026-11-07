@@ -24,7 +24,6 @@ content/browser/service_worker/service_worker_version.cc	0006-pane-fingerprint.p
 content/browser/worker_host/shared_worker_host.cc	0006-pane-fingerprint.patch
 components/client_hints/browser/client_hints.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/platform/BUILD.gn	0006-pane-fingerprint.patch
-third_party/blink/renderer/core/events/navigator_events.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/core/execution_context/navigator_base.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/core/frame/local_dom_window.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc	0006-pane-fingerprint.patch

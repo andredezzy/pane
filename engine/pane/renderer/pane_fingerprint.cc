@@ -40,7 +40,6 @@ std::optional<PaneFingerprint> Parse(const std::string& json) {
   fingerprint.hardware_concurrency =
       std::max(1, root->FindInt("hardwareConcurrency").value_or(1));
   fingerprint.device_memory = root->FindDouble("deviceMemory").value_or(8);
-  fingerprint.max_touch_points = root->FindInt("maxTouchPoints").value_or(0);
   if (const base::DictValue* screen = root->FindDict("screen")) {
     fingerprint.screen.width = screen->FindInt("width").value_or(0);
     fingerprint.screen.height = screen->FindInt("height").value_or(0);

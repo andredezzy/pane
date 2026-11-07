@@ -157,6 +157,7 @@ bool Fingerprints::Set(const std::string& identifier,
     }
   }
   fingerprint.renderer = base::WriteJson(*renderer).value_or("{}");
+  fingerprint.max_touch_points = renderer->FindInt("maxTouchPoints").value_or(0);
   fingerprints_[identifier] = std::move(fingerprint);
   DropSpares(identifier);
 

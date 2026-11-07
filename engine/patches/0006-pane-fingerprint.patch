@@ -232,26 +232,6 @@ index 9a920eb24d..a1a49407c1 100644
  }  // namespace content
  
  #endif  // CONTENT_PUBLIC_BROWSER_CONTENT_BROWSER_CLIENT_H_
-diff --git a/third_party/blink/renderer/core/events/navigator_events.cc b/third_party/blink/renderer/core/events/navigator_events.cc
-index a57561775c..38e3e293e8 100644
---- a/third_party/blink/renderer/core/events/navigator_events.cc
-+++ b/third_party/blink/renderer/core/events/navigator_events.cc
-@@ -34,10 +34,15 @@
- #include "third_party/blink/renderer/core/frame/local_frame.h"
- #include "third_party/blink/renderer/core/frame/navigator.h"
- #include "third_party/blink/renderer/core/frame/settings.h"
-+#include "pane/renderer/pane_fingerprint.h"
- 
- namespace blink {
- 
- int32_t NavigatorEvents::maxTouchPoints(Navigator& navigator) {
-+  // Pane: the profile's fingerprint.
-+  if (const PaneFingerprint* fingerprint = PaneFingerprint::Get()) {
-+    return fingerprint->max_touch_points;
-+  }
-   LocalDOMWindow* window = navigator.DomWindow();
-   return window ? window->GetFrame()->GetSettings()->GetMaxTouchPoints() : 0;
- }
 diff --git a/third_party/blink/renderer/core/execution_context/navigator_base.cc b/third_party/blink/renderer/core/execution_context/navigator_base.cc
 index 83f427c5ec..de5d86881d 100644
 --- a/third_party/blink/renderer/core/execution_context/navigator_base.cc

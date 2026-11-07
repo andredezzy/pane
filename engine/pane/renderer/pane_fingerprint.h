@@ -41,7 +41,6 @@ class PLATFORM_EXPORT PaneFingerprint {
   std::string platform;
   unsigned hardware_concurrency = 0;
   float device_memory = 0;
-  int max_touch_points = 0;
   Screen screen;
   double device_pixel_ratio = 1;
   // WEBGL_debug_renderer_info's unmasked vendor and renderer.

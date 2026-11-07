@@ -36,6 +36,8 @@ struct Fingerprint {
   // What each of the profile's renderers reports, as JSON for
   // --pane-fingerprint (blink's PaneFingerprint).
   std::string renderer;
+  // navigator.maxTouchPoints, through the web preferences.
+  int max_touch_points = 0;
 };
 
 // The fingerprint of each profile, by its identifier (its directory's name).

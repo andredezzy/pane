@@ -10,7 +10,9 @@
 #include "components/history/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/generated_code_cache_settings.h"
+#include "content/public/browser/web_contents.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "pane/browser/browser_main_extra_parts.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/fingerprints.h"
@@ -74,6 +76,19 @@ void ContentBrowserClient::ConfigureNetworkContextParams(
     if (KeepsCachesInMemory(context)) {
       paths.http_cache_directory.reset();
     }
+  }
+}
+
+void ContentBrowserClient::OverrideWebPreferences(
+    content::WebContents* web_contents,
+    content::SiteInstance& main_frame_site,
+    blink::web_pref::WebPreferences* web_prefs) {
+  ChromeContentBrowserClient::OverrideWebPreferences(
+      web_contents, main_frame_site, web_prefs);
+
+  if (const Fingerprint* fingerprint =
+          Fingerprints::Get().For(web_contents->GetBrowserContext())) {
+    web_prefs->pointer_events_max_touch_points = fingerprint->max_touch_points;
   }
 }
 
