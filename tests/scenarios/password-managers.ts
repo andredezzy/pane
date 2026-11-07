@@ -43,14 +43,14 @@ const passwordManagers: Scenario = async (context) => {
 	const url = context.fixtures.url("password.html?managers");
 
 	for (const manager of MANAGERS) {
-		const installed = await installFromWebStore(app, profile, manager.id);
+		const name = await installFromWebStore(app, profile, manager.id);
 
 		// Each may open a welcome tab after ours; the button is pressed on
 		// our page, selected again once no more tabs open.
 		const { tab } = await app.openPage(profile, `${url}&${manager.id}`);
 
 		await app.settled(
-			`${installed.name}'s tabs`,
+			`${name}'s tabs`,
 			(state) =>
 				state.profiles
 					.find((each) => each.id === profile)
@@ -62,7 +62,7 @@ const passwordManagers: Scenario = async (context) => {
 
 		const file = join(context.out, manager.file);
 
-		await app.waitFor(`${installed.name}'s toolbar icon`, (state) =>
+		await app.waitFor(`${name}'s toolbar icon`, (state) =>
 			(state.extensions[profile] ?? []).some(
 				(item) => item.id === manager.id && item.iconVisible,
 			),
@@ -74,7 +74,7 @@ const passwordManagers: Scenario = async (context) => {
 		const own = `chrome-extension://${manager.id}/`;
 
 		const pressed = await app.waitFor(
-			`${installed.name}'s popup or its own page`,
+			`${name}'s popup or its own page`,
 			(state) =>
 				(state.extensionPopup?.open === true &&
 					state.extensionPopup.width > 25) ||
@@ -90,16 +90,14 @@ const passwordManagers: Scenario = async (context) => {
 			await watcher.sample();
 			await app.send("closeExtensionPopup");
 
-			expect(text.length > 0, `${installed.name}'s popup rendered nothing`);
+			expect(text.length > 0, `${name}'s popup rendered nothing`);
 
 			continue;
 		}
 
 		// Its page routes itself (the URL changes as it starts).
-		const page = await waitForPage(
-			app.browser.cdp,
-			`${installed.name}'s page`,
-			(info) => info.url.startsWith(own),
+		const page = await waitForPage(app.browser.cdp, `${name}'s page`, (info) =>
+			info.url.startsWith(own),
 		);
 
 		const text = await firstWords(page);
@@ -107,7 +105,7 @@ const passwordManagers: Scenario = async (context) => {
 		await screenshotWindow(app, file, page);
 		await watcher.sample();
 
-		expect(text.length > 0, `${installed.name}'s page rendered nothing`);
+		expect(text.length > 0, `${name}'s page rendered nothing`);
 	}
 
 	await watcher.stop();

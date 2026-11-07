@@ -27,7 +27,7 @@ export type TabState = {
 	canGoForward: boolean;
 };
 
-export type ProfileState = {
+type ProfileState = {
 	id: string;
 	name: string;
 	color: string;
@@ -58,7 +58,7 @@ export type ProfileState = {
 	tabs: TabState[];
 };
 
-export type DownloadState = {
+type DownloadState = {
 	id: string;
 	url: string;
 	path: string | null;
@@ -67,7 +67,7 @@ export type DownloadState = {
 	state: "inProgress" | "complete" | "cancelled" | "interrupted";
 };
 
-export type SecurityState = {
+type SecurityState = {
 	pinLength: number | null;
 	failedAttempts: number;
 	locked: boolean;
@@ -94,7 +94,7 @@ export type SecurityState = {
 	} | null;
 };
 
-export type UpdateState = {
+type UpdateState = {
 	status: "idle" | "checking" | "available" | "downloading" | "downloaded";
 	available: string | null;
 	progress: number | null;

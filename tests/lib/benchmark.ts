@@ -146,7 +146,7 @@ async function pageAt(
 	throw new Error(`no page at ${url}`);
 }
 
-export type AppProcess = {
+type AppProcess = {
 	pid: number;
 	type: string;
 	rssBytes: number;
@@ -167,7 +167,7 @@ function processType(command: string): string {
 // the browser, its helpers, and those that left its tree (Crashpad's handler
 // is launchd's child). Never by its arguments, which the runner's own
 // command line shares.
-export async function processesOf(app: BenchmarkedApp): Promise<AppProcess[]> {
+async function processesOf(app: BenchmarkedApp): Promise<AppProcess[]> {
 	const commands = new Map(
 		(await Bun.$`ps -axww -o pid=,command=`.quiet().text())
 			.split("\n")

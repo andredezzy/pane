@@ -6,7 +6,7 @@ import type { ScenarioContext } from "../run";
 import { launchPane, type PaneApp, type PaneLaunch } from "./pane";
 import { poll } from "./poll";
 
-export type TraceEntry = {
+type TraceEntry = {
 	// Milliseconds since 1970.
 	t: number;
 	kind: string;

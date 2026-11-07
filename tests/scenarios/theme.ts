@@ -1,4 +1,3 @@
-import { $ } from "bun";
 import { launchPane } from "../lib/pane";
 import { pollValue } from "../lib/poll";
 import { expect, type Scenario } from "../run";
@@ -12,7 +11,7 @@ const theme: Scenario = async (context) => {
 
 	const systemIsDark =
 		(
-			await $`defaults read -g AppleInterfaceStyle`.quiet().nothrow().text()
+			await Bun.$`defaults read -g AppleInterfaceStyle`.quiet().nothrow().text()
 		).trim() === "Dark";
 
 	for (const value of ["light", "dark", "system"] as const) {

@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { $ } from "bun";
 import { launchPane, tabOf } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
@@ -10,7 +9,7 @@ import { type Scenario } from "../run";
 // inside the tab (web content, not a window); proceeding loads the site.
 const certificateInterstitial: Scenario = async (context) => {
 	const folder = context.tempDir("pane-tls-");
-	await $`openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -keyout ${join(folder, "key.pem")} -out ${join(folder, "cert.pem")}`.quiet();
+	await Bun.$`openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -keyout ${join(folder, "key.pem")} -out ${join(folder, "cert.pem")}`.quiet();
 
 	const server = Bun.serve({
 		hostname: "127.0.0.1",

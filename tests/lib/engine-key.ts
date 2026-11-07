@@ -19,7 +19,7 @@ type Sealed = {
 	pin: { salt: string; rounds: number } | null;
 };
 
-export function dataKey(dataDir: string, pin: string | null): Buffer {
+function dataKey(dataDir: string, pin: string | null): Buffer {
 	const sealed = (
 		JSON.parse(readFileSync(join(dataDir, "security.json"), "utf8")) as {
 			state: { key: Sealed };

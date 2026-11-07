@@ -1,6 +1,5 @@
 // Thin wrapper over the cua-driver CLI for checks only the native UI can
 // prove: window screenshots, the accessibility tree, real keystrokes.
-import { $ } from "bun";
 import { swiftTool } from "./tools";
 
 const SESSION = "pane-scenarios";
@@ -19,7 +18,7 @@ export async function call<T>(
 	args: Record<string, unknown>,
 ): Promise<T> {
 	const run = () =>
-		$`cua-driver ${tool} ${JSON.stringify({ session: SESSION, ...args })}`
+		Bun.$`cua-driver ${tool} ${JSON.stringify({ session: SESSION, ...args })}`
 			.quiet()
 			.nothrow();
 
@@ -27,7 +26,7 @@ export async function call<T>(
 
 	// The driver ends idle sessions, and only start_session revives a name.
 	if (output.stderr.toString().includes("session has ended")) {
-		await $`cua-driver start_session ${JSON.stringify({ session: SESSION })}`
+		await Bun.$`cua-driver start_session ${JSON.stringify({ session: SESSION })}`
 			.quiet()
 			.nothrow();
 
@@ -48,7 +47,7 @@ export async function call<T>(
 // macOS hides every window from accessibility and stops delivering input while
 // the screen is locked, so visual checks must wait for an unlocked session.
 export async function isScreenLocked(): Promise<boolean> {
-	const output = await $`ioreg -n Root -d1 -a`.quiet().text();
+	const output = await Bun.$`ioreg -n Root -d1 -a`.quiet().text();
 
 	return /<key>CGSSessionScreenIsLocked<\/key>\s*<true\/>/.test(output);
 }
@@ -61,7 +60,7 @@ export async function canDriveUI(): Promise<boolean> {
 	}
 
 	// It says so on stderr, and exits 0 either way.
-	const status = await $`cua-driver status`.quiet().nothrow();
+	const status = await Bun.$`cua-driver status`.quiet().nothrow();
 
 	return !`${status.stdout}${status.stderr}`.includes("not running");
 }
@@ -94,7 +93,7 @@ export async function windowState(
 	// (`cua-driver permissions grant`): the system's takes the window as well,
 	// without the front.
 	if (!state.screenshot_file_path) {
-		await $`/usr/sbin/screencapture -x -o -l ${windowId} ${screenshot}`
+		await Bun.$`/usr/sbin/screencapture -x -o -l ${windowId} ${screenshot}`
 			.quiet()
 			.nothrow();
 	}
@@ -321,7 +320,7 @@ export async function fillFields(
 // Turns on the app's full accessibility, as VoiceOver does, then waits a
 // moment for Chrome to build its pages' trees.
 export async function activateWebAccessibility(pid: number): Promise<void> {
-	await $`${await swiftTool("ax-activate")} ${pid}`.quiet();
+	await Bun.$`${await swiftTool("ax-activate")} ${pid}`.quiet();
 	await Bun.sleep(1_000);
 }
 

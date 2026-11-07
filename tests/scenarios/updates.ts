@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { canDriveUI, invokeMenu } from "../lib/cua";
@@ -21,7 +20,7 @@ const DMG = `Pane-${VERSION}-arm64.dmg`;
 
 // Pane quarantines what it writes (LSFileQuarantineEnabled).
 const quarantined = (file: string) =>
-	spawnSync("xattr", ["-p", "com.apple.quarantine", file]).status === 0;
+	Bun.spawnSync(["xattr", "-p", "com.apple.quarantine", file]).exitCode === 0;
 
 // The update's state every 25 ms for `ms`: a blink shows between samples.
 async function sample(app: PaneApp, ms: number) {

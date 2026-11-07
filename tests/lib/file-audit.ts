@@ -17,7 +17,7 @@ export type Planted = {
 	urls: string[];
 };
 
-export type AuditedFile = {
+type AuditedFile = {
 	path: string;
 	size: number;
 	kind: string;
@@ -146,7 +146,7 @@ function classify(path: string): { kind: string; writer: string } {
 }
 
 // Bits a byte over the whole file.
-export function entropyOf(bytes: Uint8Array): number {
+function entropyOf(bytes: Uint8Array): number {
 	if (bytes.length === 0) {
 		return 0;
 	}
@@ -204,7 +204,7 @@ const SQLITE_LOG_MAGICS = ["377f0682", "377f0683", "d9d505f920a163d7"].map(
 	(magic) => Buffer.from(magic, "hex"),
 );
 
-export function hasEncryptedFormat(bytes: Buffer): boolean {
+function hasEncryptedFormat(bytes: Buffer): boolean {
 	return (
 		ENCRYPTED_MAGICS.some((magic) =>
 			bytes.subarray(0, magic.length).equals(magic),
@@ -226,7 +226,7 @@ function isJournalBeforeItsSync(name: string, bytes: Buffer): boolean {
 
 // Why this content reads as plain, if it does: a store's own header, JSON,
 // HTML, a URL, or, past 4 KiB, too little entropy for ciphertext.
-export function plainMarkers(bytes: Buffer): string[] {
+function plainMarkers(bytes: Buffer): string[] {
 	const found: string[] = [];
 
 	if (bytes.length === 0) {

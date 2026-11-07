@@ -1,7 +1,6 @@
-// Helpers for the Phase 4 scenarios: installing from the Chrome Web Store
-// through its own install button (Pane's engine labels it "Add to Pane") and
-// the app's install sheet, and
-// reaching an extension's popup or service worker over CDP.
+// Installing from the Chrome Web Store through its own install button (Pane's
+// engine labels it "Add to Pane") and the app's install sheet, and reaching an
+// extension's popup or service worker over CDP.
 import { writeFileSync } from "node:fs";
 import { openPage, Page } from "./cdp";
 import {
@@ -13,7 +12,7 @@ import {
 } from "./cua";
 import type { AppState, PaneApp } from "./pane";
 import { poll } from "./poll";
-import { type Answer, answerSheet, waitForSheet } from "./surfaces";
+import { answerSheet, waitForSheet } from "./surfaces";
 import { targets, waitForTarget } from "./targets";
 
 export const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
@@ -53,21 +52,13 @@ export async function installById(
 	);
 }
 
-export type Installed = {
-	id: string;
-	name: string;
-	sheet: NonNullable<AppState["sheet"]>;
-	answer: Answer;
-	addClick: "cua" | "gesture";
-};
-
 // Opens the item's Web Store page in a tab of `profile`, presses "Add to
-// Pane", and accepts the app's install sheet.
+// Pane", and accepts the app's install sheet: the extension's name.
 export async function installFromWebStore(
 	app: PaneApp,
 	profile: string,
 	id: string,
-): Promise<Installed> {
+): Promise<string> {
 	const tab = await app.openTab(
 		profile,
 		`https://chromewebstore.google.com/detail/${id}`,
@@ -97,16 +88,9 @@ export async function installFromWebStore(
 
 	// The real button: a CUA click on an unlocked screen; else a click with a
 	// user gesture, which the Web Store's install API requires.
-	const addClick: Installed["addClick"] = (await canDriveUI())
-		? "cua"
-		: "gesture";
-
 	const press = async () => {
-		if (addClick === "gesture") {
-			await page.send("Runtime.evaluate", {
-				expression: `${button}.click()`,
-				userGesture: true,
-			});
+		if (!(await canDriveUI())) {
+			await page.gesture(`${button}.click()`);
 
 			return;
 		}
@@ -141,7 +125,7 @@ export async function installFromWebStore(
 		throw new Error(`no install sheet for ${id} after a minute of clicks`);
 	}
 
-	const answer = await answerSheet(app, sheet.buttons?.[0] ?? "Add extension");
+	await answerSheet(app, sheet.buttons?.[0] ?? "Add extension");
 
 	const installed = await app.waitFor(
 		`${id} installed`,
@@ -154,11 +138,10 @@ export async function installFromWebStore(
 
 	await app.send("closeTab", { tab });
 
-	const name =
+	return (
 		(installed.extensions[profile] ?? []).find((item) => item.id === id)
-			?.name ?? id;
-
-	return { id, name, sheet, answer, addClick };
+			?.name ?? id
+	);
 }
 
 // The open popup page of extension `id`.
@@ -175,7 +158,7 @@ export async function popupPage(app: PaneApp, id: string): Promise<Page> {
 	return openPage(app.browser.cdp, "about:blank", target.targetId);
 }
 
-export async function screenshotPopup(page: Page, file: string): Promise<void> {
+async function screenshotPopup(page: Page, file: string): Promise<void> {
 	const { data } = await page.send<{ data: string }>("Page.captureScreenshot", {
 		format: "png",
 	});
@@ -190,7 +173,7 @@ export async function pressToolbarAction(
 	app: PaneApp,
 	profile: string,
 	id: string,
-): Promise<"cua" | "automation"> {
+): Promise<void> {
 	await app.send("setExtensionPinned", { profile, id, pinned: true });
 
 	const pinned = await app.waitFor("the pinned action", (state) =>
@@ -202,7 +185,7 @@ export async function pressToolbarAction(
 	if (!(await canDriveUI())) {
 		await app.send("runExtensionAction", { id });
 
-		return "automation";
+		return;
 	}
 
 	const item = pinned.extensions[profile]?.find((each) => each.id === id);
@@ -213,14 +196,7 @@ export async function pressToolbarAction(
 		item?.actionTitle || item?.name || id,
 		`pane.extension.${id}`,
 	);
-
-	return "cua";
 }
-
-export type OpenedPopup = {
-	popup: NonNullable<AppState["extensionPopup"]>;
-	click: "cua" | "automation";
-};
 
 // Presses extension `id`'s toolbar button and waits for the popover with
 // the popup sized to its page.
@@ -228,20 +204,15 @@ export async function openPopupFromToolbar(
 	app: PaneApp,
 	profile: string,
 	id: string,
-): Promise<OpenedPopup> {
-	const click = await pressToolbarAction(app, profile, id);
+): Promise<void> {
+	await pressToolbarAction(app, profile, id);
 
-	const shown = await app.waitFor(
+	await app.waitFor(
 		"the popup at its page's size",
 		(state) =>
 			state.extensionPopup?.open === true && state.extensionPopup.width > 25,
 		30_000,
 	);
-
-	return {
-		popup: shown.extensionPopup as OpenedPopup["popup"],
-		click,
-	};
 }
 
 // A screenshot of the popover with extension `id`'s popup: through CUA on
@@ -252,20 +223,16 @@ export async function screenshotPopover(
 	app: PaneApp,
 	id: string,
 	file: string,
-): Promise<"cua" | "cdp"> {
+): Promise<void> {
 	if (await canDriveUI()) {
 		await windowState(
 			app.browser.pid,
 			await mainWindowOf(app.browser.pid),
 			file,
 		);
-
-		return "cua";
+	} else {
+		await screenshotPopup(await popupPage(app, id), file);
 	}
-
-	await screenshotPopup(await popupPage(app, id), file);
-
-	return "cdp";
 }
 
 // A screenshot of the app's window through CUA on an unlocked screen, else
@@ -274,20 +241,16 @@ export async function screenshotWindow(
 	app: PaneApp,
 	file: string,
 	page: Page,
-): Promise<"cua" | "cdp"> {
+): Promise<void> {
 	if (await canDriveUI()) {
 		await windowState(
 			app.browser.pid,
 			await mainWindowOf(app.browser.pid),
 			file,
 		);
-
-		return "cua";
+	} else {
+		await screenshotPopup(page, file);
 	}
-
-	await screenshotPopup(page, file);
-
-	return "cdp";
 }
 
 // The extension's service worker in the profile of `tabURL`'s tab, to call

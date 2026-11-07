@@ -5,7 +5,7 @@
 // other hosts are connected for real.
 import * as net from "node:net";
 
-export type ProxyLogEntry = {
+type ProxyLogEntry = {
 	proxy: "http" | "socks5";
 	user: string | null;
 	method: string;

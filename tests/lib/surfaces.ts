@@ -1,14 +1,11 @@
-// Helpers for the Phase 3 scenarios: Chrome's dialogs and menus, shown by the
-// app. A sheet is answered by clicking its real button: with cua-driver on an
-// unlocked screen, else through the automation channel, which presses the
-// same NSButton (performClick). Each answer records which way it went.
+// Chrome's dialogs and menus, shown by the app. A sheet is answered by clicking
+// its real button: with cua-driver on an unlocked screen, else through the
+// automation channel, which presses the same NSButton (performClick).
 
 import { expect } from "../run";
 import { canDriveUI, clickButton, fillFields, mainWindowOf } from "./cua";
 import type { AppState, PaneApp } from "./pane";
 import { poll } from "./poll";
-
-export type Answer = { button: string; via: "cua" | "automation" };
 
 export async function waitForSheet(
 	app: PaneApp,
@@ -28,7 +25,7 @@ export async function answerSheet(
 	app: PaneApp,
 	button: string,
 	texts: string[] = [],
-): Promise<Answer> {
+): Promise<void> {
 	if (await canDriveUI()) {
 		const windowId = await mainWindowOf(app.browser.pid);
 
@@ -37,28 +34,17 @@ export async function answerSheet(
 		}
 
 		await clickButton(app.browser.pid, windowId, button);
-
-		return { button, via: "cua" };
+	} else {
+		await app.send("clickSheetButton", { title: button, texts });
 	}
-
-	await app.send("clickSheetButton", { title: button, texts });
-
-	return { button, via: "automation" };
 }
 
-export async function answerModal(
-	app: PaneApp,
-	button: string,
-): Promise<Answer> {
+export async function answerModal(app: PaneApp, button: string): Promise<void> {
 	if (await canDriveUI()) {
 		await clickButton(app.browser.pid, "any", button);
-
-		return { button, via: "cua" };
+	} else {
+		await app.send("clickModalButton", { title: button });
 	}
-
-	await app.send("clickModalButton", { title: button });
-
-	return { button, via: "automation" };
 }
 
 type NativeWindow = AppState["nativeWindows"][number];

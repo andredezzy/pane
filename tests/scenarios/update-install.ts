@@ -7,7 +7,6 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { $ } from "bun";
 import { launchPane, type PaneApp } from "../lib/pane";
 import { pollValue } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
@@ -230,12 +229,12 @@ async function standInDmg(
 		'#include <stdio.h>\n#include <stdlib.h>\nint main(void) { const char *d = getenv("PANE_DATA_DIR"); char p[4096]; FILE *f; if (!d) return 1; snprintf(p, sizeof p, "%s/reopened", d); f = fopen(p, "w"); if (!f) return 1; fputs(VERSION, f); fclose(f); return 0; }\n',
 	);
 
-	await $`clang -O2 -DVERSION=${`"${holds}"`} -o ${join(contents, "MacOS", "Pane")} ${source}`.quiet();
-	await $`codesign --force --sign - ${join(root, "Pane.app")}`.quiet();
+	await Bun.$`clang -O2 -DVERSION=${`"${holds}"`} -o ${join(contents, "MacOS", "Pane")} ${source}`.quiet();
+	await Bun.$`codesign --force --sign - ${join(root, "Pane.app")}`.quiet();
 
 	const name = `Pane-${offered}-arm64.dmg`;
 	const path = join(work, name);
-	await $`hdiutil create -quiet -ov -fs HFS+ -volname Pane -srcfolder ${root} ${path}`.quiet();
+	await Bun.$`hdiutil create -quiet -ov -fs HFS+ -volname Pane -srcfolder ${root} ${path}`.quiet();
 
 	return {
 		name,
@@ -249,7 +248,7 @@ async function standInDmg(
 async function launchCopy(context: Parameters<Scenario>[0], releases: string) {
 	const folder = context.tempDir("pane-apps-");
 	const bundle = join(folder, "Pane.app");
-	await $`ditto ${context.binary.replace(/\/Contents\/MacOS\/Pane$/, "")} ${bundle}`.quiet();
+	await Bun.$`ditto ${context.binary.replace(/\/Contents\/MacOS\/Pane$/, "")} ${bundle}`.quiet();
 
 	const downloads = context.tempDir("pane-downloads-");
 

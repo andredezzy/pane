@@ -1,16 +1,6 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
-	"ignoreExportsUsedInFile": true,
-	"ignoreBinaries": [
-		"clang",
-		"cua-driver",
-		"ditto",
-		"hdiutil",
-		"ioreg",
-		"openssl",
-		"swift",
-		"xattr"
-	],
+	"ignoreBinaries": ["swift"],
 	"workspaces": {
 		".": {
 			"entry": [

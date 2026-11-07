@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { $ } from "bun";
 import { tabOf } from "../lib/pane";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -34,7 +33,7 @@ const crlset: Scenario = async (context) => {
 	);
 
 	const folder = context.tempDir("pane-crlset-");
-	await $`openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -keyout ${join(folder, "key.pem")} -out ${join(folder, "cert.pem")}`.quiet();
+	await Bun.$`openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -keyout ${join(folder, "key.pem")} -out ${join(folder, "cert.pem")}`.quiet();
 
 	const server = Bun.serve({
 		hostname: "127.0.0.1",

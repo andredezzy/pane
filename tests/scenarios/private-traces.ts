@@ -6,7 +6,6 @@ import {
 	statSync,
 } from "node:fs";
 import { join } from "node:path";
-import { $ } from "bun";
 import { launchPane, tabOf } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
@@ -59,7 +58,9 @@ const privateTraces: Scenario = async (context) => {
 		done.downloads.find((download) => download.state === "complete")?.path ??
 		"";
 
-	const attributes = (await $`/usr/bin/xattr ${saved}`.quiet().nothrow().text())
+	const attributes = (
+		await Bun.$`/usr/bin/xattr ${saved}`.quiet().nothrow().text()
+	)
 		.trim()
 		.split("\n")
 		.filter(Boolean);
@@ -91,7 +92,7 @@ const privateTraces: Scenario = async (context) => {
 	await app.browser.close();
 
 	const dumps = (
-		await $`/usr/bin/find ${home} ${dataDir} -name ${"*.dmp"}`
+		await Bun.$`/usr/bin/find ${home} ${dataDir} -name ${"*.dmp"}`
 			.quiet()
 			.nothrow()
 			.text()
