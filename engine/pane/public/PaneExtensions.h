@@ -39,7 +39,6 @@ NS_SWIFT_UI_ACTOR
 @property(readonly, nullable) NSColor* badgeBackgroundColor;
 @property(readonly, nullable) NSColor* badgeTextColor;
 @property(readonly, getter=isActionEnabled) BOOL actionEnabled;
-@property(readonly) BOOL hasPopup;
 
 - (instancetype)init NS_UNAVAILABLE;
 

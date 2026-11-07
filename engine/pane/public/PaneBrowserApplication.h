@@ -13,13 +13,10 @@
 NS_ASSUME_NONNULL_BEGIN
 
 // Posted on the main thread when the user re-activates Pane (for example by
-// clicking its Dock icon). `userInfo[PaneReopenHasVisibleWindowsKey]` is an
-// NSNumber BOOL.
+// clicking its Dock icon).
 PANE_EXPORT extern NSNotificationName const
     PaneBrowserApplicationShouldReopenNotification
         NS_SWIFT_NAME(BrowserApplication.shouldReopenNotification);
-PANE_EXPORT extern NSString* const PaneReopenHasVisibleWindowsKey
-    NS_SWIFT_NAME(BrowserApplication.reopenHasVisibleWindowsKey);
 
 NS_SWIFT_NAME(BrowserApplicationDelegate)
 NS_SWIFT_UI_ACTOR
@@ -63,9 +60,6 @@ PANE_EXPORT
 NS_SWIFT_NAME(BrowserApplication)
 NS_SWIFT_UI_ACTOR
 @interface PaneBrowserApplication : NSObject
-
-// The running application, or nil before the engine started.
-@property(class, readonly, nullable) PaneBrowserApplication* sharedApplication;
 
 @property(readonly, weak) id<PaneBrowserApplicationDelegate> delegate;
 

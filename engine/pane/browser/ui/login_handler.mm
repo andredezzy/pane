@@ -63,7 +63,6 @@ bool LoginHandler::BuildViewImpl(const std::u16string& authority,
   const net::AuthChallengeInfo& info = auth_info();
   challenge_ = [[PaneAuthenticationChallenge alloc]
       initWithHost:base::SysUTF8ToNSString(info.challenger.Serialize())
-             realm:base::SysUTF8ToNSString(info.realm)
             scheme:base::SysUTF8ToNSString(info.scheme)
              proxy:info.is_proxy
                tab:tab

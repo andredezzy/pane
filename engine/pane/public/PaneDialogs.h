@@ -90,7 +90,6 @@ NS_SWIFT_UI_ACTOR
 
 // The server (or proxy), as "scheme://host:port".
 @property(readonly, copy) NSString* host;
-@property(readonly, copy) NSString* realm;
 // "basic", "digest", …
 @property(readonly, copy) NSString* scheme;
 // A proxy asks, not the site. (Not `isProxy`, which NSObject defines.)
@@ -127,10 +126,8 @@ NS_SWIFT_UI_ACTOR
 // Where, in the page view's coordinates (origin at the top left).
 @property(readonly) NSPoint location;
 @property(readonly, copy, nullable) NSURL* linkURL;
-@property(readonly, copy) NSString* linkText;
 @property(readonly) PaneContextMenuMediaType mediaType;
 @property(readonly, copy, nullable) NSURL* sourceURL;
-@property(readonly) BOOL hasImageContents;
 @property(readonly, copy) NSString* selectionText;
 @property(readonly, getter=isEditable) BOOL editable;
 @property(readonly) BOOL canUndo;

@@ -15,7 +15,6 @@
 // re-activates a hosted engine (for example from the Dock).
 #define PANE_SHOULD_REOPEN_NOTIFICATION \
   "PaneBrowserApplicationShouldReopenNotification"
-#define PANE_REOPEN_HAS_VISIBLE_WINDOWS_KEY "hasVisibleWindows"
 
 // Posted by Chrome's AppController, instead of opening them in a Browser of
 // its own, with the URLs another app hands a hosted engine (a link clicked

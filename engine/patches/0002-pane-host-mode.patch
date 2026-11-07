@@ -26,7 +26,7 @@ index 199142d671..cc0dc365f3 100644
        {.exe_entry_point_ticks = base::TimeTicks::Now()});
  #endif
 diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
-index ead883ef95..f6718338ea 100644
+index ead883ef95..093ccb2913 100644
 --- a/chrome/browser/app_controller_mac.mm
 +++ b/chrome/browser/app_controller_mac.mm
 @@ -139,6 +139,7 @@
@@ -37,7 +37,7 @@ index ead883ef95..f6718338ea 100644
  #include "ui/base/base_window.h"
  #import "ui/base/cocoa/nsmenu_additions.h"
  #import "ui/base/cocoa/nsmenuitem_additions.h"
-@@ -1852,6 +1853,17 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+@@ -1852,6 +1853,14 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
  // browser windows.
  - (BOOL)applicationShouldHandleReopen:(NSApplication*)theApplication
                      hasVisibleWindows:(BOOL)hasVisibleWindows {
@@ -45,17 +45,14 @@ index ead883ef95..f6718338ea 100644
 +  if (base::CommandLine::ForCurrentProcess()->HasSwitch(PANE_HOSTED_SWITCH)) {
 +    [NSNotificationCenter.defaultCenter
 +        postNotificationName:@PANE_SHOULD_REOPEN_NOTIFICATION
-+                      object:nil
-+                    userInfo:@{
-+                      @PANE_REOPEN_HAS_VISIBLE_WINDOWS_KEY : @(hasVisibleWindows)
-+                    }];
++                      object:nil];
 +    return NO;
 +  }
 +
    // If the browser is currently trying to quit, don't do anything and return NO
    // to prevent AppKit from doing anything.
    if (browser_shutdown::IsTryingToQuit())
-@@ -2058,6 +2070,16 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+@@ -2058,6 +2067,16 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
  }
  
  - (void)application:(NSApplication*)sender openURLs:(NSArray<NSURL*>*)urls {
@@ -72,7 +69,7 @@ index ead883ef95..f6718338ea 100644
    StartupTabs startupTabs;
    for (NSURL* url in urls) {
      // Handle the google-chrome:// scheme (and chromium://).
-@@ -2298,6 +2320,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+@@ -2298,6 +2317,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
    if (_lastProfile == nullptr)
      return;
  
@@ -85,7 +82,7 @@ index ead883ef95..f6718338ea 100644
    auto& entry = _profileBookmarkMenuBridgeMap[profile->GetPath()];
    if (!entry || !entry->GetProfile()) {
      // This creates a deep copy, but only the first 3 items in the root menu
-@@ -2513,6 +2541,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
+@@ -2513,6 +2538,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
  }
  
  - (void)updateHandoffManager:(content::WebContents*)webContents {

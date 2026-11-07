@@ -31,8 +31,6 @@ NS_SWIFT_NAME(Download)
 // Where the file is being written, once Chrome picked it.
 @property(readonly, copy, nullable) NSURL* fileURL;
 @property(readonly) int64_t receivedBytes;
-// -1 while unknown.
-@property(readonly) int64_t totalBytes;
 @property(readonly) PaneDownloadState state;
 
 - (instancetype)init NS_UNAVAILABLE;

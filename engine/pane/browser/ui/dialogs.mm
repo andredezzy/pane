@@ -202,14 +202,12 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 @synthesize host = _host;
-@synthesize realm = _realm;
 @synthesize scheme = _scheme;
 @synthesize forProxy = _forProxy;
 @synthesize answered = _answered;
 
 - (instancetype)
     initWithHost:(NSString*)host
-           realm:(NSString*)realm
           scheme:(NSString*)scheme
            proxy:(BOOL)proxy
              tab:(PaneWebContents*)tab
@@ -218,7 +216,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
                                                   std::u16string>>)>)answer {
   if ((self = [super init])) {
     _host = [host copy];
-    _realm = [realm copy];
     _scheme = [scheme copy];
     _forProxy = proxy;
     _tab = tab;
@@ -281,10 +278,8 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 
 @synthesize location = _location;
 @synthesize linkURL = _linkURL;
-@synthesize linkText = _linkText;
 @synthesize mediaType = _mediaType;
 @synthesize sourceURL = _sourceURL;
-@synthesize hasImageContents = _hasImageContents;
 @synthesize selectionText = _selectionText;
 @synthesize editable = _editable;
 @synthesize canUndo = _canUndo;
@@ -313,7 +308,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
     _frameCharset = params.frame_charset;
     _location = NSMakePoint(params.x, params.y);
     _linkURL = ToNSURL(params.link_url);
-    _linkText = base::SysUTF16ToNSString(params.link_text);
     switch (params.media_type) {
       case blink::mojom::ContextMenuDataMediaType::kNone:
         _mediaType = PaneContextMenuMediaTypeNone;
@@ -335,7 +329,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
         break;
     }
     _sourceURL = ToNSURL(params.src_url);
-    _hasImageContents = params.has_image_contents;
     _selectionText = base::SysUTF16ToNSString(params.selection_text);
     _editable = params.is_editable;
     _canUndo = (params.edit_flags & blink::ContextMenuDataEditFlags::kCanUndo) != 0;

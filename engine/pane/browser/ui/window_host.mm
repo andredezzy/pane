@@ -296,12 +296,6 @@ void WindowHost::CloseRequestedByUser() {
   if (close_state_ != CloseState::kOpen) {
     return;
   }
-  PaneBrowserWindow* owner = owner_;
-  id<PaneBrowserWindowDelegate> delegate = owner.delegate;
-  if ([delegate respondsToSelector:@selector(browserWindowShouldClose:)] &&
-      ![delegate browserWindowShouldClose:owner]) {
-    return;
-  }
   Close();
 }
 

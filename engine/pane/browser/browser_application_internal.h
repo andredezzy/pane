@@ -8,6 +8,9 @@
 class Profile;
 
 @interface PaneBrowserApplication ()
+// The running application, or nil before the engine started.
+@property(class, readonly, nullable) PaneBrowserApplication* sharedApplication;
+
 
 // Called once by BrowserMainExtraParts when the engine finished starting.
 - (void)engineDidStart;

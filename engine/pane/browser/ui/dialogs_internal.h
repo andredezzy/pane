@@ -57,7 +57,6 @@ NS_ASSUME_NONNULL_BEGIN
 // `answer` gets the credentials, or nullopt to cancel.
 - (instancetype)
     initWithHost:(NSString*)host
-           realm:(NSString*)realm
           scheme:(NSString*)scheme
            proxy:(BOOL)proxy
              tab:(nullable PaneWebContents*)tab

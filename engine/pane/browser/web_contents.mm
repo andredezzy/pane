@@ -148,10 +148,6 @@
   return _contents && _contents->IsCurrentlyAudible();
 }
 
-- (double)loadProgress {
-  return _contents ? _contents->GetLoadProgress() : 0;
-}
-
 - (NSImage*)favicon {
   auto* driver = _contents ? favicon::ContentFaviconDriver::FromWebContents(
                                  _contents.get())

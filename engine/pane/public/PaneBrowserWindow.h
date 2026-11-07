@@ -42,17 +42,9 @@ NS_SWIFT_UI_ACTOR
                     tab:(PaneWebContents*)tab
     didChangeFullscreen:(BOOL)fullscreen;
 
-// The user asked to close the window; NO keeps it open.
-- (BOOL)browserWindowShouldClose:(PaneBrowserWindow*)window;
 // Every page agreed to close; the window is about to go.
 - (void)browserWindowWillClose:(PaneBrowserWindow*)window;
 
-// A key press in a page, before the page sees it; YES consumes it.
-- (BOOL)browserWindow:(PaneBrowserWindow*)window
-    preHandleKeyEvent:(NSEvent*)event;
-// A key press the page did not handle; YES consumes it.
-- (BOOL)browserWindow:(PaneBrowserWindow*)window
-       handleKeyEvent:(NSEvent*)event;
 
 // A file dialog for this window (PaneDialogs.h). Not implemented: cancelled.
 - (void)browserWindow:(PaneBrowserWindow*)window

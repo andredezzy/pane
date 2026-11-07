@@ -58,7 +58,6 @@
 @synthesize badgeBackgroundColor = _badgeBackgroundColor;
 @synthesize badgeTextColor = _badgeTextColor;
 @synthesize actionEnabled = _actionEnabled;
-@synthesize hasPopup = _hasPopup;
 
 - (instancetype)initWithExtension:(const extensions::Extension&)extension
                           profile:(Profile*)profile
@@ -96,7 +95,6 @@
           skia::SkColorToSRGBNSColor(action->GetBadgeTextColor(tabID));
     }
     _actionEnabled = action && action->GetIsVisible(tabID);
-    _hasPopup = action && action->HasPopup(tabID);
   }
   return self;
 }

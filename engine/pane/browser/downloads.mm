@@ -20,7 +20,6 @@
   NSURL* _URL;
   NSURL* _fileURL;
   int64_t _receivedBytes;
-  int64_t _totalBytes;
   PaneDownloadState _state;
 }
 
@@ -34,7 +33,6 @@
                    : [NSURL fileURLWithPath:base::SysUTF8ToNSString(
                                                 target.value())];
     _receivedBytes = item->GetReceivedBytes();
-    _totalBytes = item->GetTotalBytes() > 0 ? item->GetTotalBytes() : -1;
     switch (item->GetState()) {
       case download::DownloadItem::COMPLETE:
         _state = PaneDownloadStateComplete;
@@ -67,10 +65,6 @@
 
 - (int64_t)receivedBytes {
   return _receivedBytes;
-}
-
-- (int64_t)totalBytes {
-  return _totalBytes;
 }
 
 - (PaneDownloadState)state {

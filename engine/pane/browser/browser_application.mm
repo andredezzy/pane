@@ -56,8 +56,6 @@ extern "C" int ChromeMain(int argc, const char** argv);
 
 NSNotificationName const PaneBrowserApplicationShouldReopenNotification =
     @PANE_SHOULD_REOPEN_NOTIFICATION;
-NSString* const PaneReopenHasVisibleWindowsKey =
-    @PANE_REOPEN_HAS_VISIBLE_WINDOWS_KEY;
 
 namespace {
 

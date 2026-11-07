@@ -85,10 +85,6 @@
   }
 }
 
-- (BOOL)browserWindowShouldClose:(PaneBrowserWindow*)window {
-  return YES;
-}
-
 - (void)browserWindowWillClose:(PaneBrowserWindow*)window {
   [self showPage:nil];
   _keepAlive = nil;

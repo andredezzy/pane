@@ -659,12 +659,6 @@ content::KeyboardEventProcessingResult HostedBrowserWindow::PreHandleKeyboardEve
   if (!ns_event || ns_event.type != NSEventTypeKeyDown || !host_) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
-  PaneBrowserWindow* owner = host_->owner();
-  id<PaneBrowserWindowDelegate> delegate = owner.delegate;
-  if ([delegate respondsToSelector:@selector(browserWindow:preHandleKeyEvent:)] &&
-      [delegate browserWindow:owner preHandleKeyEvent:ns_event]) {
-    return content::KeyboardEventProcessingResult::HANDLED;
-  }
   if ((ns_event.modifierFlags & NSEventModifierFlagCommand) &&
       MenuHasKeyEquivalent(NSApp.mainMenu, ns_event)) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED_IS_SHORTCUT;
@@ -677,12 +671,6 @@ bool HostedBrowserWindow::HandleKeyboardEvent(
   NSEvent* ns_event = UnhandledKeyDown(event);
   if (!ns_event || !host_) {
     return false;
-  }
-  PaneBrowserWindow* owner = host_->owner();
-  id<PaneBrowserWindowDelegate> delegate = owner.delegate;
-  if ([delegate respondsToSelector:@selector(browserWindow:handleKeyEvent:)] &&
-      [delegate browserWindow:owner handleKeyEvent:ns_event]) {
-    return true;
   }
   if (!(ns_event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl |
                                   NSEventModifierFlagFunction))) {
