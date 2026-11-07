@@ -62,7 +62,10 @@ await Bun.sleep(LEAD_IN_MS);
 await runSteps(sessionFile, steps);
 await recording.exited;
 
-const changed = await changedFrames(movie);
+// The recording's own start shows as a change in its first frames.
+const changed = (await changedFrames(movie)).filter(
+	(time) => time >= LEAD_IN_MS / 2,
+);
 
 console.log(
 	JSON.stringify({

@@ -7,7 +7,9 @@
 //       exit 0 only with the Mac that idle and its screen unlocked.
 //   bun tests/rigs/front.ts <qa-session.json> <step>...
 //       front  key:<key>  hot:<mod+mod+key>  text:<text>  menu:<Item>...<Item>
-//       sleep:<seconds>  shot:<file>  send:<command>[:<json>]
+//       click:<x>,<y>  drag:<x>,<y>,<x>,<y>  sleep:<seconds>  shot:<file>
+//       send:<command>[:<json>]
+//   Coordinates are in the window's own screenshot pixels.
 import { readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Browser } from "../lib/browser";
@@ -103,6 +105,12 @@ export async function runSteps(sessionFile: string, steps: string[]) {
 			await input("hotkey", { keys: argument.split("+") });
 		} else if (kind === "text") {
 			await input("type_text", { text: argument });
+		} else if (kind === "click") {
+			const [x, y] = argument.split(",").map(Number);
+			await input("click", { x, y });
+		} else if (kind === "drag") {
+			const [from_x, from_y, to_x, to_y] = argument.split(",").map(Number);
+			await input("drag", { from_x, from_y, to_x, to_y, duration_ms: 800 });
 		} else if (kind === "menu") {
 			await guard();
 
