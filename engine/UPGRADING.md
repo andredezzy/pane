@@ -45,8 +45,11 @@ grep -v '^#' engine/patches/series | xargs -n1 engine/scripts/make-patch.sh
 ## 4. Build
 
 ```bash
+mkdir -p evidence/logs
 nohup engine/scripts/build.sh > evidence/logs/build-<tag>.log 2>&1 &
 ```
+
+A new milestone's build is the one to change what most of Chromium compiles in: `COMPANY_FULLNAME`, `COMPANY_SHORTNAME`, and `COPYRIGHT` in `BRANDING` (patch 0001) become Rounded Corners at one, if they still say Pane (ADR 0114). A patch release keeps them for its own, cheaper build. Regenerate that patch with `make-patch.sh` before building.
 
 A new milestone rebuilds almost everything: 157 took 1h44m here (about 45,600 objects at 12 of 18 cores, on an idle Mac), and the sync before it about 25 minutes. `build.sh` runs 6 jobs by default, which leaves the Mac usable; 12 reset it by watchdog while it was in use (ADR 0007), so pass `PANE_BUILD_JOBS=12` only when nobody is using it. Run one Chromium build at a time, and keep the checkout out of Spotlight (`docs/building.md`).
 
@@ -62,17 +65,17 @@ What usually breaks, and where to fix it:
 engine/scripts/package.sh
 (cd app/PaneKit && swift test)
 bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane \
-  --out evidence/upgrade-<tag> $(ls tests/scenarios | sed 's/\.ts$//')
+  --out evidence/upgrade-<tag> tests/scenarios/*.ts
 ```
 
-Every scenario must pass. The ones that read the screen (CUA) need an unlocked session: on a locked one they skip or work around those checks, and `report.json`'s `complete` is false. Watch the window counts in the results: Chrome UI that a new milestone adds, and that no hook covers, shows up as an extra window.
+Every scenario must pass. The ones that read the screen (CUA) need an unlocked session: on a locked one they skip or work around those checks, and `report.json`'s `complete` is false. Chrome UI that a new milestone adds, and that no hook covers, shows up as an extra window, which the scenario that saw it fails on (`WindowWatcher`).
 
 A scenario that fails may have caught Chrome changing its own behavior (157 started requiring a focused page for fullscreen, and pinning new extensions). Run it on the previous engine under the same conditions to tell. Package the app on that engine's archive with `PANE_ENGINE_OUT` set to the unpacked archive, beside the new one. If the old engine passes and the new behavior is right for a browser, record it in an ADR and update the scenario to the new behavior. Otherwise fix Pane.
 
-Then audit the stores (ADR 0121): a milestone adds some. Run `files-inventory` and `files-encrypted`, and read the inventory's `unknown` list. A new store with no hook fails `files-encrypted`, and reads as plain in the inventory: give it a hook in `pane/encryption`, or an entry in the plan's table with why it is neither. Run `pane_unittests`: its VFS leans on `sqlite3`'s shapes of I/O, and an upgrade of SQLite can add one.
+Then audit the stores (ADR 0121): a milestone adds some. `files-encrypted`, among the scenarios above, fails on a new store with no hook, and its result in `files-encrypted.json` lists every `unknown` file (the whole list is `files-inventory-list.json`): give the store a hook in `pane/encryption`, or an entry in `tests/lib/file-audit.ts`' allow-list with why it is neither. Run `pane_unittests`: its VFS leans on `sqlite3`'s shapes of I/O, and an upgrade of SQLite can add one.
 
 ## 6. Ship it
 
-1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>". Push it.
+1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>", with `README.md`'s `Chromium-<milestone>` badge at a new milestone. Push it.
 2. Publish the engine for CI and other machines: `engine/scripts/publish-engine.sh`. It archives the engine (`PANE_ENGINE_ARCHIVE=1 package.sh`) unless `app/release` holds its archive, publishes it as the `engine-<key:12>` prerelease, checks GitHub's copy against the archive's SHA-256, and adds its line to `prebuilt-engines.tsv`. Commit that line. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
 3. Release the app as usual (`AGENTS.md`, Releasing).
