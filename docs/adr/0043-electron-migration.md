@@ -1,6 +1,8 @@
 # The Electron app's data migrates once, from a copy, before anything loads
 
 > **Refined by [ADR 0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md)** — the copied profile folders move into the encrypted volume before any profile opens, and Pane makes the engine's Keychain item at the first launch when it has none, so a cookie key macOS could not ask for is no longer retried — **and narrowed by [ADR 0115](0115-nothing-outside-the-volume-names-a-page.md)**: `PANE_ELECTRON_DATA_DIR` counts only in a scenario's launch.
+>
+> **Replaced by [ADR 0122](0122-pane-upgrades-only-from-the-last-0-18-x.md)** — the migration is gone: a user on 0.6.0 or before starts empty, with Electron's folder untouched. This record stays as what it was.
 
 On the first launch with no native data, before anything loads, Pane migrates the Electron app's data once, from a copy, and never writes the source, so the profiles, tabs, PIN, and site data come over while the Electron app's own data stays as it was (`app/Pane/main.swift`, `app/Pane/Migration/LaunchMigration.swift`, PaneKit's `ElectronMigration`). `migration.json` records the migration, so it runs once.
 

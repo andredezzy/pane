@@ -1,5 +1,7 @@
 # Every file a profile writes is encrypted under a key only Pane's processes hold
 
+> **Partly replaced by [ADR 0122](0122-pane-upgrades-only-from-the-last-0-18-x.md)** — this Pane no longer converts: a volume on the former passphrase reaches 07.8, a profile with its Preferences and no marker is refused, and a new one takes its marker at `DataVolume.prepare`. The last 0.18.x is what converts. The engine's half of the conversion follows; `files-migration` and `files-migration-large` are gone.
+
 The user's requirement (2026-10-31): none of Pane's content can be seen without the PIN. ADR 0113 encrypted every profile at rest, and ADR 0116 locked Pane while open, but while Pane is unlocked the volume is mounted, and any process running as the user read the profiles' files: history, site storage, caches, preferences. ADR 0115 listed that gap. This closes it inside the engine: a process that reads files, even with Full Disk Access, finds only ciphertext, while Pane is unlocked as much as while it is locked. It reverses ADR 0113's rejection of encrypting each of Chromium's stores, which weighed a patch in every storage layer against an upgrade's cost; `docs/plans/engine-file-encryption.md` has the plan, and what each phase found.
 
 Without a PIN the files are just as encrypted: the data key then opens with the Keychain's secret alone, and macOS asks the user before any other process reads that item.
