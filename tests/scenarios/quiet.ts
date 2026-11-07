@@ -65,6 +65,12 @@ const quiet: Scenario = async (context) => {
 
 	const local = context.fixtures.origin;
 
+	// A log that holds nothing would pass what follows.
+	expect(
+		[...requests.values()].some((request) => request.url === url),
+		`the net log lacks the tab's own request (${requests.size} requests)`,
+	);
+
 	const outside = [...requests.values()].filter(
 		(request) =>
 			request.url &&
@@ -95,6 +101,11 @@ const quiet: Scenario = async (context) => {
 	}
 
 	const fixtureHost = new URL(local).hostname;
+
+	expect(
+		connections.has(fixtureHost),
+		`the net log lacks the fixtures' host: ${[...connections].join(", ")}`,
+	);
 
 	const elsewhere = [...connections].filter(
 		(host) => host !== fixtureHost && host !== "localhost",

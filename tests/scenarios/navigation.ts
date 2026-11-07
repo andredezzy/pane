@@ -17,6 +17,11 @@ const navigation: Scenario = async (context) => {
 	const locked = !(await canDriveUI());
 	const pid = app.browser.pid;
 	const window = locked ? 0 : await mainWindowOf(pid);
+
+	if (locked) {
+		context.defer("the toolbar's arrows, read through accessibility");
+	}
+
 	const arrows: Record<string, unknown> = {};
 
 	const expectArrows = async (at: string, back: boolean, forward: boolean) => {

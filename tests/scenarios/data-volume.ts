@@ -190,12 +190,6 @@ async function beforeTheFloor(context: ScenarioContext, earlier: string) {
 	const again = await launchPane(context, session.launch);
 	await expectSession(again, session, "after the refused launch");
 	await again.browser.close();
-
-	return {
-		earlier,
-		filesChecked: Object.keys(before).length,
-		failure: state.security.data.failure?.slice(0, 200),
-	};
 }
 
 // What the session planted, read back through its page.
@@ -262,8 +256,6 @@ async function throughTheFloor(
 		leftByTheFloor.includes("SafetyCopy") && leftHere.length === 0 && marked,
 		`what the conversion left: ${JSON.stringify({ leftByTheFloor, leftHere, marked })}`,
 	);
-
-	return { earlier, floor, leftByTheFloor };
 }
 
 const dataVolume: Scenario = async (context) => {
@@ -490,7 +482,7 @@ const dataVolume: Scenario = async (context) => {
 	};
 
 	expect(
-		quitWhileMaking.attached === 0,
+		quitWhileMaking.made && quitWhileMaking.attached === 0,
 		`a quit while the image was made: ${JSON.stringify(quitWhileMaking)}`,
 	);
 
@@ -525,10 +517,8 @@ const dataVolume: Scenario = async (context) => {
 		context.defer("no earlier build named (PANE_EARLIER_BUILDS)");
 	}
 
-	const refused = [];
-
 	for (const build of builds) {
-		refused.push(await beforeTheFloor(context, build));
+		await beforeTheFloor(context, build);
 	}
 
 	const floor = process.env.PANE_FLOOR_BUILD;

@@ -14,6 +14,8 @@ import { expect, type Scenario } from "../run";
 // with real presses through accessibility, so it needs an unlocked screen.
 const extensionsPageProfile: Scenario = async (context) => {
 	if (!(await canDriveUI())) {
+		context.defer("every check: the select is pressed through accessibility");
+
 		return;
 	}
 

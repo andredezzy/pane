@@ -29,11 +29,9 @@ const sidebarResize: Scenario = async (context) => {
 	await Bun.sleep(500);
 
 	// The window as the screen shows it: the fade is a layer mask, which the
-	// app's own render leaves out. Locked, there is no screen to show.
+	// app's own render leaves out. A picture, which nothing reads.
 	const shot = async (file: string) => {
-		if (!(await canDriveUI())) {
-			context.defer(`${file}: the list's fade, which only the screen shows`);
-		} else {
+		if (await canDriveUI()) {
 			const pid = first.browser.pid;
 			await windowState(pid, await mainWindowOf(pid), join(context.out, file));
 		}

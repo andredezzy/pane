@@ -1,23 +1,19 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
 // Spotlight indexes nothing of the mounted volume (ADR 0121): it holds ciphertext
-// now, but its names are the store's, and an index outlives a lock. mdutil says
-// the mount's state ("unknown" on a volume out of the Finder, so the root says
-// .metadata_never_index at every mount), and mdfind finds nothing there.
+// now, but its names are the store's, and an index outlives a lock. mdutil reads
+// "unknown" on a volume out of the Finder, so the root says .metadata_never_index
+// at every mount, and mdfind finds nothing there.
 const volumeUnindexed: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Spotlight");
-	const url = context.fixtures.url("smoke.html?spotlight");
-	await app.openPage(profile, url);
+	await app.openPage(profile, context.fixtures.url("smoke.html?spotlight"));
 
 	const mount = join(app.dataDir, "Engine", "Volume");
-
-	await Bun.$`/usr/bin/mdutil -s ${mount}`.nothrow().quiet().text();
-
-	// Long enough for an indexer to have started on what the profile wrote.
-	await Bun.sleep(20_000);
+	const refused = existsSync(join(mount, ".metadata_never_index"));
 
 	const found = (
 		await Bun.$`/usr/bin/mdfind -onlyin ${mount} kMDItemFSName == "*"`
@@ -28,9 +24,9 @@ const volumeUnindexed: Scenario = async (context) => {
 		.split("\n")
 		.filter(Boolean);
 
-	await Bun.$`find ${mount} -maxdepth 1 -name ".*"`.nothrow().quiet().text();
-
 	await app.quit();
+
+	expect(refused, "the volume's root lacks .metadata_never_index");
 
 	expect(
 		found.length === 0,

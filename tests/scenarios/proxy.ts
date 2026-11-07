@@ -193,8 +193,11 @@ const proxy: Scenario = async (context) => {
 			30_000,
 		);
 
-		await Bun.sleep(2_000);
-		const afterBadPort = await app.state();
+		const afterBadPort = await app.waitFor(
+			"D's page to fail",
+			(state) => tabOf(state, tabD)?.loading === false,
+			30_000,
+		);
 
 		expect(
 			tabOf(afterBadPort, tabD)?.title !== "Proxy check" &&

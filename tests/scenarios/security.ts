@@ -622,9 +622,7 @@ const security: Scenario = async (context) => {
 		}
 	}
 
-	// Nothing comes back a moment later: no helper flushed after the erase.
-	await Bun.sleep(3_000);
-
+	// Every helper is gone, by the check below: nothing can flush after the erase.
 	const after = {
 		profileData: lexists(profileDir),
 		// The fresh Pane's own volume, attached: the wiped profile is not in it.

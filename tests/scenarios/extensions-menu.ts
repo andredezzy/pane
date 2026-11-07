@@ -6,7 +6,12 @@ import {
 	windowState,
 } from "../lib/cua";
 import { DARK_READER } from "../lib/extensions";
-import { type AppState, launchPane, type PaneApp } from "../lib/pane";
+import {
+	type AppState,
+	bringToFront,
+	launchPane,
+	type PaneApp,
+} from "../lib/pane";
 import { answerSheet, waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
 
@@ -238,10 +243,8 @@ const extensionsMenu: Scenario = async (context) => {
 
 	await app.render("menu-light.png");
 
-	// As the screen shows it, over the page.
-	if (locked) {
-		context.defer("the menu as the screen shows it, over the page");
-	} else {
+	// As the screen shows it, over the page: a picture, which nothing reads.
+	if (!locked) {
 		const pid = app.browser.pid;
 
 		await windowState(
@@ -308,17 +311,8 @@ const extensionsMenu: Scenario = async (context) => {
 	// A click lands in the key window, as the user's would: the app comes
 	// forward first (pressing with CUA does not make it key). While another
 	// app keeps it, as when someone works on this Mac during the run, Esc
-	// closes the menu instead, and the result says so.
-	await app.send("activate");
-
-	const key = await app
-		.waitFor("the key window", (state) => state.window.key, 5_000)
-		.then(
-			() => true,
-			() => false,
-		);
-
-	if (key) {
+	// closes the menu instead.
+	if (await bringToFront(context, app, "a click outside closing the menu")) {
 		const height = Number(
 			opened.window.frame.match(/([\d.]+)\}\}$/)?.[1] ?? 800,
 		);
@@ -328,10 +322,7 @@ const extensionsMenu: Scenario = async (context) => {
 		await app.send("key", { key: "\u001b" });
 	}
 
-	await app.waitFor(
-		key ? "the menu closed by a click outside" : "the menu closed by Esc",
-		(state) => !state.extensionsMenu,
-	);
+	await app.waitFor("the menu closed", (state) => !state.extensionsMenu);
 
 	// More › Remove from Pane asks first, in the popup under the puzzle.
 	await openMenu(app, locked);
