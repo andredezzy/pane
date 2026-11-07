@@ -14,17 +14,6 @@ public struct UABrand: Codable, Hashable, Sendable {
 	}
 }
 
-public struct ClientHints: Codable, Hashable, Sendable {
-	public var platform: String
-	public var platformVersion: String
-	public var architecture: String
-	public var bitness: String
-	public var mobile: Bool
-	public var brands: [UABrand]
-	public var fullVersionList: [UABrand]
-	public var uaFullVersion: String
-}
-
 // Rewrites the Chrome version a stored User-Agent claims to the engine's, so a
 // fingerprint never advertises a Chrome build the engine is not: a stale claim
 // is a contradiction Cloudflare Turnstile detects by probing the runtime. Any
@@ -51,7 +40,7 @@ extension Fingerprint {
 	// claims would send them. `engineVersion` is the engine's full version
 	// ("156.0.8078.48"): Chrome reports it in the full version list, while its
 	// User-Agent only carries the major ("Chrome/156.0.0.0").
-	public func clientHints(engineVersion: String) -> ClientHints {
+	public func clientHints(engineVersion: String) -> EngineFingerprint.Metadata {
 		let majorText = userAgent.firstMatch(of: /Chrome\/(\d+)/).map { String($0.1) } ?? "136"
 		let major = Int(majorText) ?? 136
 		let fullVersion: String
@@ -62,24 +51,19 @@ extension Fingerprint {
 			fullVersion = userAgent.firstMatch(of: /Chrome\/(\d+\.\d+\.\d+\.\d+)/).map { String($0.1) } ?? "\(majorText).0.0.0"
 		}
 
-		return ClientHints(
-			platform: uaPlatform,
+		return EngineFingerprint.Metadata(
+			brands: brandList(seed: major, brand: "Google Chrome", version: majorText, fullVersions: false),
+			fullVersionList: brandList(seed: major, brand: "Google Chrome", version: fullVersion, fullVersions: true),
+			fullVersion: fullVersion,
+			platform: platform.title,
 			platformVersion: platformVersion,
 			architecture: isAppleSilicon ? "arm" : "x86",
 			bitness: "64",
+			model: "",
 			mobile: false,
-			brands: brandList(seed: major, brand: "Google Chrome", version: majorText, fullVersions: false),
-			fullVersionList: brandList(seed: major, brand: "Google Chrome", version: fullVersion, fullVersions: true),
-			uaFullVersion: fullVersion
+			wow64: false,
+			formFactors: ["Desktop"]
 		)
-	}
-
-	private var uaPlatform: String {
-		switch platform {
-		case .windows: "Windows"
-		case .macOS: "macOS"
-		case .linux: "Linux"
-		}
 	}
 
 	// Chrome reports an empty platform version on Linux (user_agent_utils.cc
@@ -96,29 +80,6 @@ extension Fingerprint {
 	private var isAppleSilicon: Bool {
 		(webgl?.renderer ?? "").contains(/(?i)apple|\bm[1-4]\b|arm/)
 	}
-}
-
-// The Sec-CH-UA-* header values (lowercase names) the hints serialize to, as
-// Chrome writes them. Only the tests use it, as the oracle for what the
-// engine sends; the engine serializes the headers itself.
-public func clientHintHeaders(_ hints: ClientHints) -> [String: String] {
-	func serialize(_ list: [UABrand]) -> String {
-		list.map { "\"\($0.brand)\";v=\"\($0.version)\"" }.joined(separator: ", ")
-	}
-
-	return [
-		"sec-ch-ua": serialize(hints.brands),
-		"sec-ch-ua-full-version-list": serialize(hints.fullVersionList),
-		"sec-ch-ua-full-version": "\"\(hints.uaFullVersion)\"",
-		"sec-ch-ua-platform": "\"\(hints.platform)\"",
-		"sec-ch-ua-platform-version": "\"\(hints.platformVersion)\"",
-		"sec-ch-ua-arch": "\"\(hints.architecture)\"",
-		"sec-ch-ua-bitness": "\"\(hints.bitness)\"",
-		"sec-ch-ua-wow64": "?0",
-		"sec-ch-ua-model": "\"\"",
-		"sec-ch-ua-form-factors": "\"Desktop\"",
-		"sec-ch-ua-mobile": hints.mobile ? "?1" : "?0",
-	]
 }
 
 // Chromium's brand list (GenerateBrandVersionList in user_agent_utils.cc): a

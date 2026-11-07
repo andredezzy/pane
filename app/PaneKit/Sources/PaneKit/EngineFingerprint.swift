@@ -63,22 +63,8 @@ public struct EngineFingerprint: Codable, Hashable, Sendable {
 	public init(fingerprint: Fingerprint, profileID: String, engineUserAgent: String, engineVersion: String) {
 		var reconciled = fingerprint
 		reconciled.userAgent = reconcileChromeVersion(fingerprint.userAgent, realUA: engineUserAgent)
-		let hints = reconciled.clientHints(engineVersion: engineVersion)
-
 		userAgent = reconciled.userAgent
-		userAgentMetadata = Metadata(
-			brands: hints.brands,
-			fullVersionList: hints.fullVersionList,
-			fullVersion: hints.uaFullVersion,
-			platform: hints.platform,
-			platformVersion: hints.platformVersion,
-			architecture: hints.architecture,
-			bitness: hints.bitness,
-			model: "",
-			mobile: hints.mobile,
-			wow64: false,
-			formFactors: ["Desktop"]
-		)
+		userAgentMetadata = reconciled.clientHints(engineVersion: engineVersion)
 		languages = fingerprint.languages.isEmpty ? [fingerprint.language] : fingerprint.languages
 		renderer = Renderer(
 			platform: fingerprint.navigatorPlatform,

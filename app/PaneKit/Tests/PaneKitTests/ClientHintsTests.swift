@@ -28,6 +28,29 @@ private func serialized(_ list: [UABrand]) -> String {
 	list.map { "\"\($0.brand)\";v=\"\($0.version)\"" }.joined(separator: ", ")
 }
 
+// The Sec-CH-UA-* header values (lowercase names) the hints serialize to, as
+// Chrome writes them: the oracle for what the engine sends, which serializes the
+// headers itself.
+private func clientHintHeaders(_ hints: EngineFingerprint.Metadata) -> [String: String] {
+	func serialize(_ list: [UABrand]) -> String {
+		list.map { "\"\($0.brand)\";v=\"\($0.version)\"" }.joined(separator: ", ")
+	}
+
+	return [
+		"sec-ch-ua": serialize(hints.brands),
+		"sec-ch-ua-full-version-list": serialize(hints.fullVersionList),
+		"sec-ch-ua-full-version": "\"\(hints.fullVersion)\"",
+		"sec-ch-ua-platform": "\"\(hints.platform)\"",
+		"sec-ch-ua-platform-version": "\"\(hints.platformVersion)\"",
+		"sec-ch-ua-arch": "\"\(hints.architecture)\"",
+		"sec-ch-ua-bitness": "\"\(hints.bitness)\"",
+		"sec-ch-ua-wow64": "?0",
+		"sec-ch-ua-model": "\"\"",
+		"sec-ch-ua-form-factors": "\"Desktop\"",
+		"sec-ch-ua-mobile": hints.mobile ? "?1" : "?0",
+	]
+}
+
 // Ported from apps/veil profile/client-hints.test.ts.
 @Suite("reconcileChromeVersion")
 struct ReconcileChromeVersionTests {
@@ -109,7 +132,7 @@ struct ClientHintsTests {
 		let hints = fingerprint(.windows, userAgent: "Mozilla/5.0 Chrome/156.0.0.0 Safari/537.36")
 			.clientHints(engineVersion: "156.0.8078.48")
 
-		#expect(hints.uaFullVersion == "156.0.8078.48")
+		#expect(hints.fullVersion == "156.0.8078.48")
 		#expect(serialized(hints.fullVersionList) == #""Not:A-Brand";v="8.0.0.0", "Chromium";v="156.0.8078.48", "Google Chrome";v="156.0.8078.48""#)
 		#expect(serialized(hints.brands) == #""Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="156""#)
 	}
@@ -119,7 +142,7 @@ struct ClientHintsTests {
 		let hints = fingerprint(.windows, userAgent: "Mozilla/5.0 Chrome/136.0.7103.92 Safari/537.36")
 			.clientHints(engineVersion: "156.0.8078.48")
 
-		#expect(hints.uaFullVersion == "136.0.7103.92")
+		#expect(hints.fullVersion == "136.0.7103.92")
 		#expect(hints.brands.contains(UABrand(brand: "Google Chrome", version: "136")))
 	}
 
@@ -127,7 +150,7 @@ struct ClientHintsTests {
 	func noChromeToken() {
 		let hints = fingerprint(.windows, userAgent: "Mozilla/5.0 (weird runtime)").clientHints(engineVersion: "156.0.8078.48")
 
-		#expect(hints.uaFullVersion == "136.0.0.0")
+		#expect(hints.fullVersion == "136.0.0.0")
 		#expect(hints.brands.contains(UABrand(brand: "Chromium", version: "136")))
 	}
 
