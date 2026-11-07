@@ -636,10 +636,12 @@ async function readPartitioned(
 // put right, for a profile with its safety copy.
 async function partitioned(context: ScenarioContext, earlier: string) {
 	const migrated = await partitionedSession(context, earlier);
+
 	const app = await launchPane(context, {
 		...migrated.launch,
 		binary: undefined,
 	});
+
 	const got = await readPartitioned(app, migrated);
 	await app.browser.close();
 
@@ -668,6 +670,7 @@ async function partitioned(context: ScenarioContext, earlier: string) {
 		...repaired.launch,
 		binary: undefined,
 	});
+
 	const after = await readPartitioned(fixed, repaired);
 	await fixed.browser.close();
 

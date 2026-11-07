@@ -291,6 +291,7 @@ const lockWhileOpen: Scenario = async (context) => {
 	const longHolder = Bun.spawn(["/usr/bin/tail", "-f", held], {
 		stdout: "ignore",
 	});
+
 	await Bun.sleep(200);
 	await last.send("lockNow");
 	const quitOnItsOwn = await waitForExit(last.browser.pid, 30_000);
