@@ -21,10 +21,10 @@ index f6509a9755..4a5728df8e 100644
  
  void ClientHints::PersistClientHints(
 diff --git a/content/browser/renderer_host/navigation_request.cc b/content/browser/renderer_host/navigation_request.cc
-index 6811b5d2f0..f0ba9b79e7 100644
+index 4c35b986cf..bf1555146f 100644
 --- a/content/browser/renderer_host/navigation_request.cc
 +++ b/content/browser/renderer_host/navigation_request.cc
-@@ -368,8 +368,9 @@ bool NeedsHTTPOrigin(const std::string& method) {
+@@ -371,8 +371,9 @@ bool NeedsHTTPOrigin(const std::string& method) {
  
  // Computes the value that should be set for the User-Agent header, if
  // `user_agent_override` is non-empty, `user_agent_override` is returned as the
@@ -36,7 +36,7 @@ index 6811b5d2f0..f0ba9b79e7 100644
    if (!user_agent_override.empty()) {
      base::UmaHistogramEnumeration("Navigation.UserAgentStringType",
                                    UserAgentStringType::kOverriden);
-@@ -383,7 +384,8 @@ std::string ComputeUserAgentValue(const std::string& user_agent_override) {
+@@ -386,7 +387,8 @@ std::string ComputeUserAgentValue(const std::string& user_agent_override) {
            ? UserAgentStringType::kReducedVersion
            : UserAgentStringType::kFullVersion);
  
@@ -46,7 +46,7 @@ index 6811b5d2f0..f0ba9b79e7 100644
  }
  
  void AddAdditionalRequestHeaders(
-@@ -417,8 +419,9 @@ void AddAdditionalRequestHeaders(
+@@ -420,8 +422,9 @@ void AddAdditionalRequestHeaders(
    // https://w3c.github.io/webappsec/specs/upgrade/#feature-detect
    headers->SetHeaderIfMissing("Upgrade-Insecure-Requests", "1");
  
@@ -58,7 +58,7 @@ index 6811b5d2f0..f0ba9b79e7 100644
  
    if (!render_prefs.enable_referrers) {
      *referrer =
-@@ -6562,7 +6565,7 @@ void NavigationRequest::OnRedirectChecksComplete(
+@@ -6810,7 +6813,7 @@ void NavigationRequest::OnRedirectChecksComplete(
      if (!devtools_user_agent_override_) {
        headers_update_params.modified_headers.SetHeader(
            net::HttpRequestHeaders::kUserAgent,
@@ -67,7 +67,7 @@ index 6811b5d2f0..f0ba9b79e7 100644
      }
    }
  
-@@ -11065,7 +11068,8 @@ void NavigationRequest::SetIsOverridingUserAgent(bool override_ua) {
+@@ -11328,7 +11331,8 @@ void NavigationRequest::SetIsOverridingUserAgent(bool override_ua) {
          common_params_->url);
    }
    headers.SetHeader(net::HttpRequestHeaders::kUserAgent,
@@ -78,7 +78,7 @@ index 6811b5d2f0..f0ba9b79e7 100644
    // |request_headers_| comes from |begin_params_|. Clear |request_headers_| now
    // so that if |request_headers_| are needed, they will be updated.
 diff --git a/content/browser/renderer_host/render_process_host_impl.cc b/content/browser/renderer_host/render_process_host_impl.cc
-index cf64747dbc..cb23a1811f 100644
+index 232d1c239d..97b9d6a68a 100644
 --- a/content/browser/renderer_host/render_process_host_impl.cc
 +++ b/content/browser/renderer_host/render_process_host_impl.cc
 @@ -7,6 +7,8 @@
@@ -90,7 +90,7 @@ index cf64747dbc..cb23a1811f 100644
  #include <algorithm>
  #include <atomic>
  #include <limits>
-@@ -2010,7 +2012,10 @@ bool RenderProcessHostImpl::Init() {
+@@ -2011,7 +2013,10 @@ bool RenderProcessHostImpl::Init() {
    // Set cache information after establishing a channel since the handles are
    // stored on the channels. Note that we also check if the factory is
    // initialized because in tests the factory may never have been initialized.
@@ -101,7 +101,7 @@ index cf64747dbc..cb23a1811f 100644
        features::IsShaderDiskCacheEnabled(
            base::CommandLine::ForCurrentProcess())) {
      if (auto* cache_factory = GetGpuDiskCacheFactorySingleton()) {
-@@ -2068,8 +2073,10 @@ bool RenderProcessHostImpl::Init() {
+@@ -2069,8 +2074,10 @@ bool RenderProcessHostImpl::Init() {
    TRACE_EVENT("navigation", "RenderProcessHostImpl::Init",
                perfetto::Flow::Global(trace_id));
    GetRendererInterface()->InitializeRenderer(
@@ -115,10 +115,10 @@ index cf64747dbc..cb23a1811f 100644
        GetContentClient()->browser()->GetOriginTrialsSettings(), cpu_tier,
        trace_id);
 diff --git a/content/browser/service_worker/service_worker_version.cc b/content/browser/service_worker/service_worker_version.cc
-index f1305b444c..acd0d27264 100644
+index de70e90d1f..4b80bebf4c 100644
 --- a/content/browser/service_worker/service_worker_version.cc
 +++ b/content/browser/service_worker/service_worker_version.cc
-@@ -2792,8 +2792,12 @@ void ServiceWorkerVersion::StartWorkerInternal() {
+@@ -2822,8 +2822,12 @@ void ServiceWorkerVersion::StartWorkerInternal() {
        outside_fetch_client_settings_object_.Clone();
  
    ContentBrowserClient* browser_client = GetContentClient()->browser();
@@ -134,10 +134,10 @@ index f1305b444c..acd0d27264 100644
    params->script_url_to_skip_throttling = updated_script_url_;
    params->main_script_load_params = std::move(main_script_load_params_);
 diff --git a/content/browser/worker_host/shared_worker_host.cc b/content/browser/worker_host/shared_worker_host.cc
-index dcbf9f96ec..f8d8d0e197 100644
+index 673f6767b7..2e201ac5ff 100644
 --- a/content/browser/worker_host/shared_worker_host.cc
 +++ b/content/browser/worker_host/shared_worker_host.cc
-@@ -511,8 +511,10 @@ void SharedWorkerHost::Start(
+@@ -512,8 +512,10 @@ void SharedWorkerHost::Start(
        instance_.worker_storage_key().origin(),
        creator_policy_container_host_ &&
            creator_policy_container_host_->policies().is_web_secure_context,
@@ -151,7 +151,7 @@ index dcbf9f96ec..f8d8d0e197 100644
        std::move(renderer_preferences), std::move(preference_watcher_receiver),
        std::move(content_settings), std::move(container_info),
 diff --git a/content/public/browser/content_browser_client.cc b/content/public/browser/content_browser_client.cc
-index 92be4ef5f5..da23419542 100644
+index d127c0082c..5b66ed34b9 100644
 --- a/content/public/browser/content_browser_client.cc
 +++ b/content/public/browser/content_browser_client.cc
 @@ -61,6 +61,7 @@
@@ -162,7 +162,7 @@ index 92be4ef5f5..da23419542 100644
  #include "content/public/common/content_features.h"
  #include "content/public/common/url_constants.h"
  #include "content/public/common/url_utils.h"
-@@ -1444,6 +1445,22 @@ blink::UserAgentMetadata ContentBrowserClient::GetUserAgentMetadata() {
+@@ -1460,6 +1461,22 @@ blink::UserAgentMetadata ContentBrowserClient::GetUserAgentMetadata() {
    return blink::UserAgentMetadata();
  }
  
@@ -185,8 +185,8 @@ index 92be4ef5f5..da23419542 100644
  std::optional<gfx::ImageSkia> ContentBrowserClient::GetProductLogo() {
    return std::nullopt;
  }
-@@ -2099,4 +2116,10 @@ bool ContentBrowserClient::IsExemptFromWindowSizeCheck(const GURL& url) {
-   return url.SchemeIs(kChromeUIScheme) || url.SchemeIs(kChromeDevToolsScheme);
+@@ -2126,4 +2143,10 @@ bool ContentBrowserClient::IsNoStatePrefetch(WebContents* web_contents) {
+   return false;
  }
  
 +blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
@@ -197,10 +197,10 @@ index 92be4ef5f5..da23419542 100644
 +
  }  // namespace content
 diff --git a/content/public/browser/content_browser_client.h b/content/public/browser/content_browser_client.h
-index 9a920eb24d..a1a49407c1 100644
+index afb78e0cca..6a0cbb96ae 100644
 --- a/content/public/browser/content_browser_client.h
 +++ b/content/public/browser/content_browser_client.h
-@@ -2535,6 +2535,19 @@ class CONTENT_EXPORT ContentBrowserClient {
+@@ -2570,6 +2570,19 @@ class CONTENT_EXPORT ContentBrowserClient {
    // Returns user agent metadata. Content may cache this value.
    virtual blink::UserAgentMetadata GetUserAgentMetadata();
  
@@ -220,8 +220,8 @@ index 9a920eb24d..a1a49407c1 100644
    // Returns a 256x256 transparent background image of the product logo, i.e.
    // the browser icon, if available.
    virtual std::optional<gfx::ImageSkia> GetProductLogo();
-@@ -3437,6 +3450,11 @@ class CONTENT_EXPORT ContentBrowserClient {
-   virtual bool IsExemptFromWindowSizeCheck(const GURL& url);
+@@ -3472,6 +3485,11 @@ class CONTENT_EXPORT ContentBrowserClient {
+   virtual bool IsNoStatePrefetch(WebContents* web_contents);
  };
  
 +// Pane: the embedder's GetUserAgentMetadataForBrowserContext(), for code outside
@@ -257,7 +257,7 @@ index 83f427c5ec..de5d86881d 100644
    // We need to check the ReduceUserAgentMinorVersion feature flag for
    // Android WebView, which does not currently ship a reduced User-Agent.
 diff --git a/third_party/blink/renderer/core/frame/local_dom_window.cc b/third_party/blink/renderer/core/frame/local_dom_window.cc
-index f2aeb1ac0c..c8490589a8 100644
+index 3c8005efb9..89b2702a53 100644
 --- a/third_party/blink/renderer/core/frame/local_dom_window.cc
 +++ b/third_party/blink/renderer/core/frame/local_dom_window.cc
 @@ -99,6 +99,7 @@
@@ -268,7 +268,7 @@ index f2aeb1ac0c..c8490589a8 100644
  #include "third_party/blink/renderer/core/frame/navigator.h"
  #include "third_party/blink/renderer/core/frame/permissions_policy_violation_report_body.h"
  #include "third_party/blink/renderer/core/frame/report.h"
-@@ -1962,6 +1963,10 @@ double LocalDOMWindow::devicePixelRatio() const {
+@@ -1963,6 +1964,10 @@ double LocalDOMWindow::devicePixelRatio() const {
    if (!GetFrame()) {
      return 0.0;
    }
@@ -371,10 +371,10 @@ index ed5028943e..9586770715 100644
    const display::ScreenInfo& screen_info = GetScreenInfo();
    gfx::Rect rect = available ? screen_info.available_rect : screen_info.rect;
 diff --git a/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc b/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
-index 3da40c38fa..ee2b5d9c56 100644
+index 5d9d963d79..56fddab2a5 100644
 --- a/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
 +++ b/third_party/blink/renderer/core/html/canvas/html_canvas_element.cc
-@@ -114,6 +114,7 @@
+@@ -113,6 +113,7 @@
  #include "third_party/blink/renderer/platform/bindings/exception_state.h"
  #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
  #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
@@ -382,7 +382,7 @@ index 3da40c38fa..ee2b5d9c56 100644
  #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
  #include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
  #include "third_party/blink/renderer/platform/graphics/exported_canvas_resource.h"
-@@ -1434,6 +1435,11 @@ String HTMLCanvasElement::ToDataURLInternal(
+@@ -1437,6 +1438,11 @@ String HTMLCanvasElement::ToDataURLInternal(
        ImageEncoderUtils::ToEncodingMimeType(mime_type);
  
    scoped_refptr<StaticBitmapImage> image_bitmap = Snapshot(source_buffer);
@@ -394,7 +394,7 @@ index 3da40c38fa..ee2b5d9c56 100644
    if (image_bitmap) {
      std::unique_ptr<ImageDataBuffer> data_buffer =
          ImageDataBuffer::Create(image_bitmap);
-@@ -1538,6 +1544,11 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
+@@ -1541,6 +1547,11 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
  
    CanvasAsyncBlobCreator* async_creator = nullptr;
    scoped_refptr<StaticBitmapImage> image_bitmap = Snapshot(kBackBuffer);
@@ -438,7 +438,7 @@ index 5aab8bc930..fb74b1f919 100644
  String LocaleController::SetLocaleOverride(const String& locale,
                                             bool is_claiming_override) {
 diff --git a/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc b/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc
-index 41ed6d0c21..344d32d920 100644
+index c312b115c9..a4a5769f78 100644
 --- a/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc
 +++ b/third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.cc
 @@ -50,6 +50,7 @@
@@ -449,7 +449,7 @@ index 41ed6d0c21..344d32d920 100644
  #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
  #include "third_party/blink/renderer/platform/graphics/exported_canvas_resource.h"
  #include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
-@@ -587,6 +588,11 @@ ScriptPromise<Blob> OffscreenCanvas::convertToBlob(
+@@ -569,6 +570,11 @@ ScriptPromise<Blob> OffscreenCanvas::convertToBlob(
  
    base::TimeTicks start_time = base::TimeTicks::Now();
    scoped_refptr<StaticBitmapImage> image_bitmap = context_->GetImage();
@@ -527,7 +527,7 @@ index 3a64ead085..f4df397ede 100644
  
  }  // namespace blink
 diff --git a/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc b/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
-index ba2dcc2f2f..a396ddceb0 100644
+index eaa71b910d..353ca4ce8c 100644
 --- a/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
 +++ b/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
 @@ -87,6 +87,7 @@
@@ -538,7 +538,7 @@ index ba2dcc2f2f..a396ddceb0 100644
  #include "third_party/blink/renderer/platform/fonts/font_selector.h"
  #include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
  #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
-@@ -872,6 +873,10 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
+@@ -934,6 +935,10 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
        SkIRect bounds =
            snapshot->PaintImageForCurrentFrame().GetSkImageInfo().bounds();
        DCHECK(!bounds.intersect(SkIRect::MakeXYWH(sx, sy, sw, sh)));
@@ -576,7 +576,7 @@ index 891a81543b..33011fcee4 100644
      voice_list_.push_back(
          MakeGarbageCollected<SpeechSynthesisVoice>(std::move(mojom_voice)));
 diff --git a/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc b/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
-index 7ae88d3b2d..16785ccd95 100644
+index baf8b320c6..446b35e4aa 100644
 --- a/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
 +++ b/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
 @@ -46,6 +46,7 @@
@@ -587,8 +587,8 @@ index 7ae88d3b2d..16785ccd95 100644
  #include "third_party/blink/renderer/platform/bindings/script_state.h"
  #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
  #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
-@@ -583,6 +584,17 @@ void OfflineAudioContext::OnChunkRendered() {
-   Member<AudioBuffer> rendered_buffer = pending_render_targets_.TakeFirst();
+@@ -578,6 +579,17 @@ void OfflineAudioContext::OnChunkRendered() {
+   Member<AudioBuffer> rendered_buffer = pending_render_targets_.front();
  
    CHECK(rendered_buffer);
 +
@@ -602,11 +602,11 @@ index 7ae88d3b2d..16785ccd95 100644
 +    }
 +  }
 +
+   // Keep the target queued across `Resolve()` so synchronous thenable getters
+   // can enqueue more chunks without starting a duplicate render.
    resolver->Resolve(rendered_buffer.Get());
- 
-   if (IsRenderComplete()) {
 diff --git a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
-index e72f6f7ca6..3d9c37cdfe 100644
+index 1a00418d11..046f8c9468 100644
 --- a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
 +++ b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
 @@ -139,6 +139,7 @@
@@ -617,7 +617,7 @@ index e72f6f7ca6..3d9c37cdfe 100644
  #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
  #include "third_party/blink/renderer/platform/graphics/canvas_2d_resource_provider.h"
  #include "third_party/blink/renderer/platform/graphics/canvas_non_2d_resource_provider.h"
-@@ -4219,6 +4220,12 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
+@@ -4295,6 +4296,12 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
        return ScriptValue::CreateNull(script_state->GetIsolate());
      case WebGLDebugRendererInfo::kUnmaskedRendererWebgl:
        if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
@@ -630,7 +630,7 @@ index e72f6f7ca6..3d9c37cdfe 100644
          return WebGLAny(script_state,
                          String(ContextGL()->GetString(GL_RENDERER)));
        }
-@@ -4228,6 +4235,12 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
+@@ -4304,6 +4311,12 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
        return ScriptValue::CreateNull(script_state->GetIsolate());
      case WebGLDebugRendererInfo::kUnmaskedVendorWebgl:
        if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
@@ -644,10 +644,10 @@ index e72f6f7ca6..3d9c37cdfe 100644
                          String(ContextGL()->GetString(GL_VENDOR)));
        }
 diff --git a/third_party/blink/renderer/platform/BUILD.gn b/third_party/blink/renderer/platform/BUILD.gn
-index 0adcb6894f..2d2066f17f 100644
+index ec13ed0736..b1795f2edf 100644
 --- a/third_party/blink/renderer/platform/BUILD.gn
 +++ b/third_party/blink/renderer/platform/BUILD.gn
-@@ -1465,6 +1465,8 @@ component("platform") {
+@@ -1450,6 +1450,8 @@ component("platform") {
      "p2p/socket_client.h",
      "p2p/socket_client_delegate.h",
      "p2p/socket_client_impl.cc",

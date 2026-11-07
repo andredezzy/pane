@@ -35,15 +35,15 @@ namespace pane {
 namespace {
 
 bool IsWindowDisposition(WindowOpenDisposition disposition) {
-  return disposition == WindowOpenDisposition::NEW_POPUP ||
-         disposition == WindowOpenDisposition::NEW_WINDOW;
+  return disposition == WindowOpenDisposition::kNewPopup ||
+         disposition == WindowOpenDisposition::kNewWindow;
 }
 
 bool IsNewTabDisposition(WindowOpenDisposition disposition) {
   return IsWindowDisposition(disposition) ||
-         disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-         disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB ||
-         disposition == WindowOpenDisposition::NEW_SPLIT_VIEW;
+         disposition == WindowOpenDisposition::kNewForegroundTab ||
+         disposition == WindowOpenDisposition::kNewBackgroundTab ||
+         disposition == WindowOpenDisposition::kNewSplitView;
 }
 
 }  // namespace
@@ -87,9 +87,9 @@ content::WebContents* HostedWebContentsDelegate::OpenURLFromTab(
       WindowHost::PendingOpen{params.disposition,
                               source ? source->GetWeakPtr() : nullptr});
   if (IsWindowDisposition(params.disposition)) {
-    tab_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
-  } else if (params.disposition == WindowOpenDisposition::NEW_SPLIT_VIEW) {
-    tab_params.disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
+    tab_params.disposition = WindowOpenDisposition::kNewForegroundTab;
+  } else if (params.disposition == WindowOpenDisposition::kNewSplitView) {
+    tab_params.disposition = WindowOpenDisposition::kNewBackgroundTab;
   }
   return BrowserWebContentsDelegate::OpenURLFromTab(
       source, tab_params, std::move(navigation_handle_callback));
@@ -106,7 +106,7 @@ content::WebContents* HostedWebContentsDelegate::AddNewContents(
   if (host_ && new_contents) {
     TabBridge::GetOrCreate(new_contents.get())->set_open(disposition, source);
     if (IsWindowDisposition(disposition)) {
-      disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+      disposition = WindowOpenDisposition::kNewForegroundTab;
     }
   }
   return BrowserWebContentsDelegate::AddNewContents(

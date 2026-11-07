@@ -12,7 +12,7 @@
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-000000?style=flat&colorA=000000&colorB=000000" />
   <img alt="Swift" src="https://img.shields.io/badge/Swift-6-000000?style=flat&colorA=000000&colorB=000000" />
-  <img alt="Chromium" src="https://img.shields.io/badge/Chromium-157-000000?style=flat&colorA=000000&colorB=000000" />
+  <img alt="Chromium" src="https://img.shields.io/badge/Chromium-158-000000?style=flat&colorA=000000&colorB=000000" />
 </p>
 
 <p align="center">

@@ -24,7 +24,7 @@ index aecb3609bf..a2dd257b96 100644
    // Returns true if the browser window can dock a DevTools panel.
    bool CanDockDevtools() const;
 diff --git a/chrome/browser/ui/views/external_protocol_dialog.cc b/chrome/browser/ui/views/external_protocol_dialog.cc
-index 6e5a662267..fe2e322d1d 100644
+index b0d95981d6..dc4cbbc6eb 100644
 --- a/chrome/browser/ui/views/external_protocol_dialog.cc
 +++ b/chrome/browser/ui/views/external_protocol_dialog.cc
 @@ -35,9 +35,18 @@
@@ -61,7 +61,7 @@ index 6e5a662267..fe2e322d1d 100644
    new ExternalProtocolDialog(web_contents, url, program_name, initiating_origin,
                               std::move(initiator_document));
 diff --git a/chrome/browser/ui/views/login_handler_views.cc b/chrome/browser/ui/views/login_handler_views.cc
-index 14a99f40f3..f7f3153cbc 100644
+index f3becfac76..3ea069b5a8 100644
 --- a/chrome/browser/ui/views/login_handler_views.cc
 +++ b/chrome/browser/ui/views/login_handler_views.cc
 @@ -21,6 +21,7 @@

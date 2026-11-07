@@ -1,8 +1,8 @@
 diff --git a/chrome/browser/download/download_history.cc b/chrome/browser/download/download_history.cc
-index 35ec2f5780..7f6341c9cb 100644
+index 6eb76040b2..43537e1106 100644
 --- a/chrome/browser/download/download_history.cc
 +++ b/chrome/browser/download/download_history.cc
-@@ -48,6 +48,8 @@
+@@ -56,6 +56,8 @@
  #include "components/history/core/browser/download_database.h"
  #include "components/history/core/browser/download_row.h"
  #include "components/history/core/browser/history_service.h"
@@ -11,7 +11,7 @@ index 35ec2f5780..7f6341c9cb 100644
  #include "content/public/browser/browser_task_traits.h"
  #include "content/public/browser/browser_thread.h"
  #include "content/public/browser/download_manager.h"
-@@ -66,6 +68,13 @@ using history::DownloadState;
+@@ -79,6 +81,13 @@ using history::DownloadState;
  
  namespace {
  
@@ -25,7 +25,7 @@ index 35ec2f5780..7f6341c9cb 100644
  
  
  // Per-DownloadItem data. This information does not belong inside DownloadItem,
-@@ -648,7 +657,9 @@ void DownloadHistory::OnDownloadUpdated(content::DownloadManager* manager,
+@@ -809,7 +818,9 @@ void DownloadHistory::OnDownloadUpdated(content::DownloadManager* manager,
      MaybeAddToHistory(item);
      return;
    }
@@ -36,7 +36,7 @@ index 35ec2f5780..7f6341c9cb 100644
      OnDownloadRemoved(notifier_.GetManager(), item);
      return;
    }
-@@ -728,6 +739,12 @@ void DownloadHistory::OnDownloadRestoredFromHistory(
+@@ -889,6 +900,12 @@ void DownloadHistory::OnDownloadRestoredFromHistory(
  
  bool DownloadHistory::NeedToUpdateDownloadHistory(
      download::DownloadItem* item) {
@@ -50,10 +50,10 @@ index 35ec2f5780..7f6341c9cb 100644
    // Always populate new extension downloads to history.
    DownloadHistoryData* data = DownloadHistoryData::Get(item);
 diff --git a/chrome/browser/extensions/api/history/history_api.cc b/chrome/browser/extensions/api/history/history_api.cc
-index 8e3c8c94b4..9da8ccd78f 100644
+index 534aefcdb5..98d4189163 100644
 --- a/chrome/browser/extensions/api/history/history_api.cc
 +++ b/chrome/browser/extensions/api/history/history_api.cc
-@@ -357,6 +357,13 @@ ExtensionFunction::ResponseAction HistoryAddUrlFunction::Run() {
+@@ -363,6 +363,13 @@ ExtensionFunction::ResponseAction HistoryAddUrlFunction::Run() {
      return RespondNow(Error(std::move(error)));
    }
  
@@ -123,7 +123,7 @@ index 3e6522b5a7..ca2e2602e6 100644
    bool previous_high_value = score.high_score();
  
 diff --git a/chrome/browser/predictors/resource_prefetch_predictor.cc b/chrome/browser/predictors/resource_prefetch_predictor.cc
-index bd0296108e..08c99de7b4 100644
+index 7329e0af1e..6274f87622 100644
 --- a/chrome/browser/predictors/resource_prefetch_predictor.cc
 +++ b/chrome/browser/predictors/resource_prefetch_predictor.cc
 @@ -24,6 +24,8 @@
@@ -137,7 +137,7 @@ index bd0296108e..08c99de7b4 100644
  #include "net/base/network_anonymization_key.h"
 @@ -303,6 +305,13 @@ void ResourcePrefetchPredictor::Shutdown() {
  bool ResourcePrefetchPredictor::TryEnsureRecordingPrecondition() {
-   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
  
 +  // Pane: a profile that saves no history learns nothing of where it goes. A
 +  // predictor that started while it did would go on learning otherwise: only
@@ -210,7 +210,7 @@ index 77e9d51e01..ca34e6af4b 100644
           url.SchemeIs(content::kChromeUIUntrustedScheme);
  }
 diff --git a/content/browser/download/download_manager_impl.cc b/content/browser/download/download_manager_impl.cc
-index 26a84ddd62..f7dc1fc9c4 100644
+index 6465a372e9..bdbba7b350 100644
 --- a/content/browser/download/download_manager_impl.cc
 +++ b/content/browser/download/download_manager_impl.cc
 @@ -977,7 +977,8 @@ void DownloadManagerImpl::CreateNewDownloadItemToStart(

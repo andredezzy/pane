@@ -86,8 +86,8 @@
   NavigateParams params(browser,
                         URL ? net::GURLWithNSURL(URL) : GURL("about:blank"),
                         ui::PAGE_TRANSITION_TYPED);
-  params.disposition = foreground ? WindowOpenDisposition::NEW_FOREGROUND_TAB
-                                  : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+  params.disposition = foreground ? WindowOpenDisposition::kNewForegroundTab
+                                  : WindowOpenDisposition::kNewBackgroundTab;
   params.window_action = NavigateParams::WindowAction::kNoAction;
   base::AutoReset<pane::WindowHost::PendingOpen> pending(
       &_host->pending_open(),

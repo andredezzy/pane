@@ -454,7 +454,7 @@ void WindowHost::OnTabStripModelChanged(
       }
       const bool foreground =
           disposition
-              ? *disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB
+              ? *disposition != WindowOpenDisposition::kNewBackgroundTab
               : tab_strip_model->active_index() == inserted.index;
       PaneWebContents* opener =
           source ? TabBridge::GetOrCreate(source)->tab() : nil;

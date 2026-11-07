@@ -296,7 +296,7 @@ void RunSiteAccessItem(PaneExtensionMenuItem* item,
         browser,
         GURL(extension_permissions_constants::kRuntimeHostPermissionsHelpURL),
         ui::PAGE_TRANSITION_LINK);
-    params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    params.disposition = WindowOpenDisposition::kNewForegroundTab;
     Navigate(&params);
     return;
   }

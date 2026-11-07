@@ -26,7 +26,7 @@ index 199142d671..cc0dc365f3 100644
        {.exe_entry_point_ticks = base::TimeTicks::Now()});
  #endif
 diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
-index ead883ef95..093ccb2913 100644
+index f251259f82..3d6288551f 100644
 --- a/chrome/browser/app_controller_mac.mm
 +++ b/chrome/browser/app_controller_mac.mm
 @@ -139,6 +139,7 @@

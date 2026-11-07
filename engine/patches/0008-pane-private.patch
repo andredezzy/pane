@@ -1,8 +1,8 @@
 diff --git a/chrome/app/chrome_main_delegate.cc b/chrome/app/chrome_main_delegate.cc
-index 0447c4084b..abe3298849 100644
+index 33a3b3844a..f477d1d48d 100644
 --- a/chrome/app/chrome_main_delegate.cc
 +++ b/chrome/app/chrome_main_delegate.cc
-@@ -929,7 +929,9 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
+@@ -931,7 +931,9 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
    // cannot be scheduled immediately after InstantiatePersistentHistograms()
    // because ThreadPool is not ready at that time yet.
    base::FilePath metrics_dir;
@@ -13,8 +13,8 @@ index 0447c4084b..abe3298849 100644
      PersistentHistogramsCleanup(metrics_dir);
    }
  
-@@ -1502,6 +1504,15 @@ void ChromeMainDelegate::InitMacCrashReporter(
-   // dylib is even loaded, to catch potential early crashes.
+@@ -1512,6 +1514,15 @@ void ChromeMainDelegate::InitMacCrashReporter(
+   // catch potential early crashes.
  
    const bool browser_process = process_type.empty();
 +
@@ -29,7 +29,7 @@ index 0447c4084b..abe3298849 100644
    const bool install_from_dmg_relauncher_process =
        process_type == switches::kRelauncherProcess &&
        command_line.HasSwitch(switches::kRelauncherProcessDMGDevice);
-@@ -1770,7 +1781,12 @@ void ChromeMainDelegate::SandboxInitialized(const std::string& process_type) {
+@@ -1796,7 +1807,12 @@ void ChromeMainDelegate::SandboxInitialized(const std::string& process_type) {
    // `kPersistentHistogramsStorage` will not be used. Persist histograms to a
    // memory-mapped file.
  #if !defined(BUILDING_CHROME_RENDERER)

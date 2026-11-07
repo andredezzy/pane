@@ -1,8 +1,8 @@
 diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
-index f1d133b6cd..7488d94efc 100644
+index 06bfcf5a90..7dd35a8b5c 100644
 --- a/chrome/BUILD.gn
 +++ b/chrome/BUILD.gn
-@@ -1341,6 +1341,7 @@ if (is_win) {
+@@ -1356,6 +1356,7 @@ if (is_win) {
        "//components/policy:generated",
        "//components/webapps/isolated_web_apps:scheme",
        "//content/public/app",
@@ -10,7 +10,7 @@ index f1d133b6cd..7488d94efc 100644
        "//third_party/cld_3/src/src:cld_3",
      ]
  
-@@ -1447,7 +1448,9 @@ if (is_win) {
+@@ -1462,7 +1463,9 @@ if (is_win) {
  
    # TOOD(crbug.com/40740432#comment9) - thakis@ look into why profile and
    # coverage instrumentation adds these symbols in different orders
