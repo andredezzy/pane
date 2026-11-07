@@ -225,9 +225,18 @@ function isJournalBeforeItsSync(name: string, bytes: Buffer): boolean {
 	);
 }
 
+// A rollback journal's header fills its first sector, nearly all zeros, so a
+// journal of up to three pages reads as low entropy whatever they hold: 7.57 for
+// one page of ciphertext, whose page alone reads 7.96. What counts is past it.
+function pastJournalHeader(name: string, bytes: Buffer): Buffer {
+	return name.endsWith("-journal") && bytes.length >= 24
+		? bytes.subarray(bytes.readUInt32BE(20))
+		: bytes;
+}
+
 // Why this content reads as plain, if it does: a store's own header, JSON,
 // HTML, a URL, or, past 4 KiB, too little entropy for ciphertext.
-function plainMarkers(bytes: Buffer): string[] {
+function plainMarkers(name: string, bytes: Buffer): string[] {
 	const found: string[] = [];
 
 	if (bytes.length === 0) {
@@ -260,7 +269,9 @@ function plainMarkers(bytes: Buffer): string[] {
 		found.push("a URL");
 	}
 
-	if (bytes.length > 4096 && entropyOf(bytes) < 7.9) {
+	const judged = pastJournalHeader(name, bytes);
+
+	if (judged.length > 4096 && entropyOf(judged) < 7.9) {
 		found.push("low entropy");
 	}
 
@@ -428,7 +439,7 @@ function auditTree(
 			...classifyPath(name),
 			allowed: fileAllowed,
 			plain: [
-				...plainMarkers(bytes),
+				...plainMarkers(name, bytes),
 				...(fileAllowed === null &&
 				!hasEncryptedFormat(bytes) &&
 				!isJournalBeforeItsSync(name, bytes)
