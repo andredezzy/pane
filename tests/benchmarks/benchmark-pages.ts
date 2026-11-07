@@ -89,6 +89,7 @@ const benchmarkPages: Scenario = async (context) => {
 	const app = await benchmarkedApp(context);
 	const urls = [...LOCAL.map((path) => context.fixtures.url(path)), ...SITES];
 	const loads: Load[] = [];
+	const failures: string[] = [];
 
 	for (let run = 0; run < RUNS; run++) {
 		const running = await launchApp(context, app, {
@@ -97,15 +98,27 @@ const benchmarkPages: Scenario = async (context) => {
 
 		for (const pass of ["cold", "warm"] as const) {
 			for (const url of urls) {
-				await navigate(running.page, "about:blank");
-				const navigateToLoad = await navigate(running.page, url);
+				// A real site can navigate itself, or stall on this Mac's VPN: that
+				// load is tried again, and counted if it never gives a number.
+				for (let attempt = 1; ; attempt++) {
+					try {
+						await navigate(running.page, "about:blank");
+						const navigateToLoad = await navigate(running.page, url);
 
-				const timing =
-					await running.page.evaluate<
-						Omit<Load, "url" | "pass" | "navigateToLoad">
-					>(TIMING);
+						const timing =
+							await running.page.evaluate<
+								Omit<Load, "url" | "pass" | "navigateToLoad">
+							>(TIMING);
 
-				loads.push({ url, pass, ...timing, navigateToLoad });
+						loads.push({ url, pass, ...timing, navigateToLoad });
+						break;
+					} catch (error) {
+						if (attempt === 3) {
+							failures.push(`${url}: ${String(error)}`);
+							break;
+						}
+					}
+				}
 			}
 		}
 
@@ -150,6 +163,7 @@ const benchmarkPages: Scenario = async (context) => {
 	);
 
 	return {
+		failures,
 		runs: RUNS,
 		conditions: { started, ended: conditions() },
 		summary,
