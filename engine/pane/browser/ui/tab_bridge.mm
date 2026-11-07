@@ -82,6 +82,12 @@ void TabBridge::StopObservingHelpers() {
   }
 }
 
+PaneWebContents* TabFor(content::WebContents* web_contents) {
+  TabBridge* bridge =
+      web_contents ? TabBridge::FromWebContents(web_contents) : nullptr;
+  return bridge ? bridge->tab() : nil;
+}
+
 TabBridge* TabBridge::GetOrCreate(content::WebContents* contents) {
   CreateForWebContents(contents);
   return FromWebContents(contents);

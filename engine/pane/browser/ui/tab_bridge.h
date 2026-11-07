@@ -34,6 +34,9 @@ namespace pane {
 // tab (an extension's chrome.tabs.discard), which swaps a new WebContents
 // into it, the PaneWebContents moves to the new one: the app keeps the same
 // object for the same tab.
+// The app's object for `web_contents`'s tab, or nil if it has none.
+PaneWebContents* TabFor(content::WebContents* web_contents);
+
 class TabBridge : public content::WebContentsObserver,
                   public favicon::FaviconDriverObserver,
                   public find_in_page::FindResultObserver,

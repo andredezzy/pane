@@ -51,26 +51,6 @@
   return self;
 }
 
-- (NSString*)identifier {
-  return _identifier;
-}
-
-- (NSURL*)URL {
-  return _URL;
-}
-
-- (NSURL*)fileURL {
-  return _fileURL;
-}
-
-- (int64_t)receivedBytes {
-  return _receivedBytes;
-}
-
-- (PaneDownloadState)state {
-  return _state;
-}
-
 @end
 
 namespace pane {

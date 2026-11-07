@@ -6,8 +6,15 @@
 
 assert(is_mac, "Pane's engine is macOS only.")
 
+# A property's ivar and getter come from the compiler, as Objective-C's default:
+# Chromium's build asks for them spelled out, which here was 100 lines of nothing.
+config("autosynthesized_properties") {
+  cflags_objcc = [ "-Wno-objc-missing-property-synthesis" ]
+}
+
 source_set("pane") {
   visibility = [ "//chrome:chrome_dll" ]
+  configs += [ ":autosynthesized_properties" ]
 
   sources = [
     "app/pane_main_delegate.cc",

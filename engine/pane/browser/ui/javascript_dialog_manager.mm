@@ -22,11 +22,6 @@ namespace pane {
 
 namespace {
 
-PaneWebContents* TabFor(content::WebContents* web_contents) {
-  TabBridge* bridge = TabBridge::FromWebContents(web_contents);
-  return bridge ? bridge->tab() : nil;
-}
-
 bool AppTakesDialogs(content::WebContents* web_contents) {
   return [TabFor(web_contents).delegate
       respondsToSelector:@selector(webContents:runJavaScriptDialog:)];

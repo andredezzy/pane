@@ -319,13 +319,6 @@ void RunSiteAccessItem(PaneExtensionMenuItem* item,
 
 @implementation PaneExtensionMenuItem
 
-@synthesize kind = _kind;
-@synthesize commandID = _commandID;
-@synthesize title = _title;
-@synthesize enabled = _enabled;
-@synthesize checked = _checked;
-@synthesize icon = _icon;
-@synthesize children = _children;
 
 - (instancetype)initWithKind:(PaneExtensionMenuItemKind)kind
                    commandID:(int)commandID
@@ -358,8 +351,6 @@ void RunSiteAccessItem(PaneExtensionMenuItem* item,
   url::Origin _origin;
 }
 
-@synthesize items = _items;
-@synthesize siteAccessItems = _siteAccessItems;
 
 - (instancetype)initWithMenu:(std::unique_ptr<pane::ExtensionMenu>)menu
                    extension:(const extensions::Extension&)extension

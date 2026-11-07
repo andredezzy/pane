@@ -44,20 +44,6 @@
 
 @implementation PaneExtension
 
-@synthesize identifier = _identifier;
-@synthesize name = _name;
-@synthesize version = _version;
-@synthesize summary = _summary;
-@synthesize enabled = _enabled;
-@synthesize pinned = _pinned;
-@synthesize icon = _icon;
-@synthesize optionsURL = _optionsURL;
-@synthesize hasAction = _hasAction;
-@synthesize actionTitle = _actionTitle;
-@synthesize badgeText = _badgeText;
-@synthesize badgeBackgroundColor = _badgeBackgroundColor;
-@synthesize badgeTextColor = _badgeTextColor;
-@synthesize actionEnabled = _actionEnabled;
 
 - (instancetype)initWithExtension:(const extensions::Extension&)extension
                           profile:(Profile*)profile
@@ -231,14 +217,6 @@ NSURL* URLOrNil(const GURL& url) {
 
 @implementation PaneExtensionDetails
 
-@synthesize source = _source;
-@synthesize permissions = _permissions;
-@synthesize siteAccess = _siteAccess;
-@synthesize specificSites = _specificSites;
-@synthesize wantsFileAccess = _wantsFileAccess;
-@synthesize allowsFileAccess = _allowsFileAccess;
-@synthesize homepageURL = _homepageURL;
-@synthesize webStoreURL = _webStoreURL;
 
 - (instancetype)initWithExtension:(const extensions::Extension&)extension
                           profile:(Profile*)profile {
@@ -269,9 +247,6 @@ NSURL* URLOrNil(const GURL& url) {
 
 @implementation PaneExtensionCommand
 
-@synthesize name = _name;
-@synthesize summary = _summary;
-@synthesize shortcut = _shortcut;
 
 - (instancetype)initWithName:(NSString*)name
                      summary:(NSString*)summary
@@ -292,15 +267,6 @@ NSURL* URLOrNil(const GURL& url) {
   base::OnceCallback<void(bool)> _answer;
 }
 
-@synthesize title = _title;
-@synthesize extensionIdentifier = _extensionIdentifier;
-@synthesize extensionName = _extensionName;
-@synthesize icon = _icon;
-@synthesize permissionsHeading = _permissionsHeading;
-@synthesize permissions = _permissions;
-@synthesize acceptTitle = _acceptTitle;
-@synthesize cancelTitle = _cancelTitle;
-@synthesize answered = _answered;
 
 - (instancetype)initWithPrompt:(const extensions::InstallPromptData&)prompt
                         answer:(base::OnceCallback<void(bool)>)answer {

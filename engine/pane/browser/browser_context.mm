@@ -161,6 +161,10 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
   return self;
 }
 
+- (Profile*)profile {
+  return _profile;
+}
+
 - (void)applyFingerprint {
   if (!_profile) {
     return;
@@ -183,14 +187,6 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
                  .Set("identifier", base::SysNSStringToUTF8(_identifier))
                  .Set("acceptLanguages",
                       prefs->GetString(language::prefs::kAcceptLanguages)));
-}
-
-- (NSString*)identifier {
-  return _identifier;
-}
-
-- (Profile*)profile {
-  return _profile;
 }
 
 - (id<PaneBrowserContextDelegate>)delegate {

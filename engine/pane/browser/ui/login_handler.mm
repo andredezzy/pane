@@ -19,12 +19,6 @@ namespace pane {
 
 namespace {
 
-PaneWebContents* TabFor(content::WebContents* web_contents) {
-  TabBridge* bridge =
-      web_contents ? TabBridge::FromWebContents(web_contents) : nullptr;
-  return bridge ? bridge->tab() : nil;
-}
-
 }  // namespace
 
 // static

@@ -61,12 +61,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   base::OnceCallback<void(bool, const std::u16string&)> _completion;
 }
 
-@synthesize type = _type;
-@synthesize message = _message;
-@synthesize defaultPromptText = _defaultPromptText;
-@synthesize originURL = _originURL;
-@synthesize reload = _reload;
-@synthesize answered = _answered;
 
 - (instancetype)initWithType:(PaneJavaScriptDialogType)type
                      message:(const std::u16string&)message
@@ -137,9 +131,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   base::OnceCallback<void(int)> _answer;
 }
 
-@synthesize permissions = _permissions;
-@synthesize originURL = _originURL;
-@synthesize answered = _answered;
 
 - (instancetype)initWithPermissions:(NSArray<NSString*>*)permissions
                           originURL:(const GURL&)originURL
@@ -201,10 +192,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
       _answer;
 }
 
-@synthesize host = _host;
-@synthesize scheme = _scheme;
-@synthesize forProxy = _forProxy;
-@synthesize answered = _answered;
 
 - (instancetype)
     initWithHost:(NSString*)host
@@ -276,22 +263,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   std::unique_ptr<pane::ExtensionMenu> _extensionMenu;
 }
 
-@synthesize location = _location;
-@synthesize linkURL = _linkURL;
-@synthesize mediaType = _mediaType;
-@synthesize sourceURL = _sourceURL;
-@synthesize selectionText = _selectionText;
-@synthesize editable = _editable;
-@synthesize canUndo = _canUndo;
-@synthesize canRedo = _canRedo;
-@synthesize canCut = _canCut;
-@synthesize canCopy = _canCopy;
-@synthesize canPaste = _canPaste;
-@synthesize canDelete = _canDelete;
-@synthesize canSelectAll = _canSelectAll;
 @synthesize misspelledWord = _misspelledWordString;
-@synthesize dictionarySuggestions = _dictionarySuggestions;
-@synthesize extensionItems = _extensionItems;
 
 - (instancetype)initWithParams:(const content::ContextMenuParams&)params
                          frame:(content::RenderFrameHost&)frame {
@@ -520,12 +492,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   base::OnceCallback<void(std::optional<std::vector<base::FilePath>>)> _answer;
 }
 
-@synthesize mode = _mode;
-@synthesize title = _title;
-@synthesize allowedFileExtensions = _allowedFileExtensions;
-@synthesize directoryURL = _directoryURL;
-@synthesize defaultFileName = _defaultFileName;
-@synthesize answered = _answered;
 
 - (instancetype)
     initWithMode:(PaneFileChooserMode)mode
@@ -605,10 +571,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   base::OnceCallback<void(bool)> _answer;
 }
 
-@synthesize URL = _URL;
-@synthesize applicationName = _applicationName;
-@synthesize originURL = _originURL;
-@synthesize answered = _answered;
 
 - (instancetype)initWithURL:(const GURL&)URL
             applicationName:(const std::u16string&)applicationName
@@ -662,7 +624,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   base::OnceCallback<void(bool)> _answer;
 }
 
-@synthesize answered = _answered;
 
 - (instancetype)initWithTab:(PaneWebContents*)tab
                      answer:(base::OnceCallback<void(bool)>)answer {

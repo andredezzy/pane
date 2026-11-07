@@ -78,36 +78,8 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
   return self;
 }
 
-- (NSString*)name {
-  return _name;
-}
-
-- (NSString*)value {
-  return _value;
-}
-
-- (NSString*)domain {
-  return _domain;
-}
-
-- (NSString*)path {
-  return _path;
-}
-
-- (BOOL)isSecure {
-  return _secure;
-}
-
 - (BOOL)isHTTPOnly {
   return _httpOnly;
-}
-
-- (NSDate*)expirationDate {
-  return _expirationDate;
-}
-
-- (PaneCookieSameSite)sameSite {
-  return _sameSite;
 }
 
 @end

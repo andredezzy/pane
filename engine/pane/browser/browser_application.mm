@@ -360,14 +360,6 @@ class ProfileDestructionWaiter : public ProfileObserver,
   return self;
 }
 
-- (id<PaneBrowserApplicationDelegate>)delegate {
-  return _delegate;
-}
-
-- (NSURL*)dataDirectory {
-  return _dataDirectory;
-}
-
 - (void)openContextWithIdentifier:(NSString*)identifier
                         engineKey:(NSData*)engineKey
                        completion:
