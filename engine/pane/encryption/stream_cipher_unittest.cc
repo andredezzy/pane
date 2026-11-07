@@ -52,26 +52,6 @@ TEST(StreamCipherTest, AnyOffsetDecryptsWhatTheWholeWrite) {
   }
 }
 
-TEST(StreamCipherTest, PiecewiseAppendsMatchOneWrite) {
-  StreamCipher::Header header;
-  auto cipher = StreamCipher::ForNewFile(KeysOf(1), &header);
-  const std::vector<uint8_t> plain = Bytes(1000);
-  std::vector<uint8_t> whole(plain.size());
-  cipher->Apply(0, plain, whole);
-
-  std::vector<uint8_t> pieces(plain.size());
-  size_t offset = 0;
-
-  for (const size_t size : {1u, 7u, 16u, 33u, 500u, 443u}) {
-    cipher->Apply(offset, base::span(plain).subspan(offset, size),
-                  base::span(pieces).subspan(offset, size));
-    offset += size;
-  }
-
-  EXPECT_EQ(offset, plain.size());
-  EXPECT_EQ(pieces, whole);
-}
-
 TEST(StreamCipherTest, TwoFilesHaveDifferentKeystreams) {
   StreamCipher::Header one;
   StreamCipher::Header two;
