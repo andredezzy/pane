@@ -100,27 +100,8 @@ struct ProfileSheet: View {
 		// Clipped before the shadow goes on, which would clip it too.
 		.clipShape(Squircle(cornerRadius: 18))
 		.surfaceBackground(cornerRadius: 18, shadow: .black.opacity(0.5), blur: 40, y: 8)
-		// Each ring stays until its field can save: "http:" on the way to something
-		// else is still no host, and "700" on the way to 7000 goes at once.
-		.onChange(of: draft.name) {
-			if problem == .nameMissing {
-				problem = draft.trimmedName.isEmpty ? .nameMissing : nil
-			}
-		}
-		.onChange(of: draft.proxyPort) {
-			if problem == .portInvalid {
-				problem = ProxyConfig.port(draft.proxyPort) == nil ? .portInvalid : nil
-			}
-		}
-		.onChange(of: draft.proxyHost) {
-			if problem == .hostMissing || problem == .hostInvalid {
-				problem = draft.hostProblem
-			}
-		}
-		.onChange(of: draft.proxyEnabled) {
-			if problem != .nameMissing {
-				problem = nil
-			}
+		.onChange(of: draft) {
+			problem = problem.flatMap(draft.remaining)
 		}
 		// A test's answer is about the proxy it tested, not the one typed since.
 		.onChange(of: draft.proxy) {

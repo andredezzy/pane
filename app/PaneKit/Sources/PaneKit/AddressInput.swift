@@ -26,4 +26,20 @@ public enum AddressInput {
 
 		return search.url
 	}
+
+	// The field at rest: the domain (without www.) and the page's title, for a web
+	// address; nil for any other text, which shows as it is.
+	public static func label(for text: String, title: String) -> (domain: String, title: String)? {
+		guard let url = URL(string: text), ["http", "https"].contains(url.scheme), var host = url.host(), !host.isEmpty else {
+			return nil
+		}
+
+		if host.hasPrefix("www.") {
+			host.removeFirst(4)
+		}
+
+		let title = title.trimmingCharacters(in: .whitespaces)
+
+		return (host, title == text ? "" : title)
+	}
 }

@@ -270,7 +270,7 @@ extension Automation {
 				"pinLength": controller.lock.state.pin?.length ?? NSNull(),
 				"failedAttempts": controller.lock.state.failedAttempts,
 				"locked": controller.lock.isLocked,
-				"wipe": ["erasing": AppLock.isErasing, "failures": AppLock.eraseFailures] as [String: Any],
+				"wipe": ["erasing": PanicWipeRun.isErasing, "failures": PanicWipeRun.eraseFailures] as [String: Any],
 				// The data key's side (ADR 0113): its phase, the volume, and why
 				// it would not attach.
 				"data": [

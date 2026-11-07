@@ -26,4 +26,14 @@ struct AddressInputTests {
 	func blank() {
 		#expect(AddressInput.url(for: "   ") == nil)
 	}
+
+	@Test("a web address at rest is its domain and title; other text has no label")
+	func label() {
+		let label = AddressInput.label(for: "https://www.example.com/a", title: " A page ")
+		#expect(label?.domain == "example.com")
+		#expect(label?.title == "A page")
+		#expect(AddressInput.label(for: "https://example.com/a", title: "https://example.com/a")?.title == "")
+		#expect(AddressInput.label(for: "data:text/html,a", title: "a") == nil)
+		#expect(AddressInput.label(for: "pane browser", title: "") == nil)
+	}
 }

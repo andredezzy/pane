@@ -97,6 +97,17 @@ public struct ProfileDraft: Equatable, Sendable {
 		return ProxyConfig.isHost(trimmedHost) ? nil : .hostInvalid
 	}
 
+	// What of `problem` an edit leaves: its ring stays until its field can save, so
+	// "http:" on the way to something else is still no host, and "700" on the way
+	// to 7000 goes at once. The proxy's go with its switch.
+	public func remaining(_ problem: Problem) -> Problem? {
+		switch problem {
+		case .nameMissing: trimmedName.isEmpty ? .nameMissing : nil
+		case .hostMissing, .hostInvalid: proxyEnabled ? hostProblem : nil
+		case .portInvalid: proxyEnabled && ProxyConfig.port(proxyPort) == nil ? .portInvalid : nil
+		}
+	}
+
 	// The proxy as filled in, once it has a host and a valid port.
 	public var proxy: ProxyConfig? {
 		guard proxyEnabled, !trimmedHost.isEmpty, let port = ProxyConfig.port(proxyPort) else {

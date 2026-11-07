@@ -169,20 +169,8 @@ private struct AddressField: View {
 		.accessibilityIdentifier("pane.address")
 	}
 
-	// The domain (without www.) and the page's title, for a web address;
-	// any other text shows as it is.
 	private var label: (domain: String, title: String)? {
-		guard let url = URL(string: text), ["http", "https"].contains(url.scheme), var host = url.host(), !host.isEmpty else {
-			return nil
-		}
-
-		if host.hasPrefix("www.") {
-			host.removeFirst(4)
-		}
-
-		let title = self.title.trimmingCharacters(in: .whitespaces)
-
-		return (host, title == text ? "" : title)
+		AddressInput.label(for: text, title: title)
 	}
 }
 

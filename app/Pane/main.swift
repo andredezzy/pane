@@ -27,8 +27,8 @@ UserDefaults.standard.register(defaults: [
 ])
 
 // The panic wipe's data goes before anything reads the data directory: the
-// wiped instance started this one, or a wipe was cut short (AppLock).
-AppLock.wipeAtLaunch(dataDirectory)
+// wiped instance started this one, or a wipe was cut short (PanicWipeRun).
+PanicWipeRun.atLaunch(dataDirectory)
 
 // Chromium opens the profile it used last at startup, before the PIN: never
 // one of Pane's, whose data is in the volume the data key opens (ADR 0113).

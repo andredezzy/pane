@@ -280,4 +280,30 @@ struct ProfileDraftTests {
 		#expect(saved.fingerprint == .preset(.linux))
 		#expect(saved.group == nil)
 	}
+
+	@Test("each ring stays until its field can save")
+	func remaining() {
+		var draft = ProfileDraft()
+		#expect(draft.remaining(.nameMissing) == .nameMissing)
+		draft.name = "Work"
+		#expect(draft.remaining(.nameMissing) == nil)
+
+		draft.proxyEnabled = true
+		#expect(draft.remaining(.hostMissing) == .hostMissing)
+		draft.proxyHost = "http:"
+		#expect(draft.remaining(.hostMissing) == .hostInvalid)
+		draft.proxyHost = "example.com"
+		#expect(draft.remaining(.hostInvalid) == nil)
+
+		draft.proxyPort = "70000"
+		#expect(draft.remaining(.portInvalid) == .portInvalid)
+		draft.proxyPort = "700"
+		#expect(draft.remaining(.portInvalid) == nil)
+
+		draft.proxyPort = "70000"
+		draft.proxyHost = ""
+		draft.proxyEnabled = false
+		#expect(draft.remaining(.portInvalid) == nil)
+		#expect(draft.remaining(.hostMissing) == nil)
+	}
 }
