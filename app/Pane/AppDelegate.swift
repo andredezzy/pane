@@ -48,6 +48,38 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		)
 		updater.schedule()
 		self.controller = controller
+		vault.fileMigrator = DataVault.FileMigrator(
+			migrate: { [weak application] id, key, folder, progress, done in
+				guard let application else {
+					done(false)
+					return
+				}
+
+				application.migrateContext(identifier: id, engineKey: key, folder: folder, progress: progress, completion: done)
+			},
+			restore: { [weak application] id, key, folder, done in
+				guard let application else {
+					done(false)
+					return
+				}
+
+				application.restoreContext(identifier: id, engineKey: key, folder: folder, completion: done)
+			},
+			repair: { [weak application] id, key, folder, done in
+				guard let application else {
+					done(false)
+					return
+				}
+
+				application.repairContext(identifier: id, engineKey: key, folder: folder, completion: done)
+			}
+		)
+
+		// An earlier Pane's profiles move in at once, with no PIN to ask
+		// first: the panel shows from the first frame.
+		if !lock.isLocked, vault.volume.hasPlainProfiles {
+			vault.expectMove()
+		}
 
 		controller.applyTheme()
 		controller.dockIcon.show(model.settings.appIcon)

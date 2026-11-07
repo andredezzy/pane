@@ -151,6 +151,7 @@ final class ProfileContexts {
 		if let context {
 			contexts[profileID] = context
 			browser.extensions.refresh(profileID)
+			browser.vault.profileDidOpen(profileID)
 		}
 
 		waiters.forEach { $0(context) }

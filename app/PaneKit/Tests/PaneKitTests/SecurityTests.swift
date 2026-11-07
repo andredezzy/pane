@@ -2,29 +2,81 @@ import Foundation
 import PaneKit
 import Testing
 
+@Suite("PinHash")
+struct PinHashTests {
+	// Made by the Electron app's bcryptjs 3.0.3 (hashSync).
+	@Test("verifies the Electron app's bcryptjs hashes")
+	func electronHashes() {
+		#expect(PinHash.verify("1234", against: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
+		#expect(PinHash.verify("908172", against: "$2b$10$L3aErfv3P/fHFyJoj1nlbOlhXNE/XlPmAx40ZQ5PfES6lQ53p2mXC"))
+		#expect(PinHash.verify("0000", against: "$2b$04$FDOi3iSOShZpLJbeU3jh0emN7Ma0VvZ./v68GcSUz/UqOZApKkSKK"))
+		#expect(!PinHash.verify("1235", against: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
+		#expect(!PinHash.verify("", against: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
+	}
+
+	// bcryptjs 2 wrote $2a$; for a PIN, 2a and 2b hash alike (they differ
+	// only past 255 bytes).
+	@Test("verifies an older $2a$ hash")
+	func twoA() {
+		#expect(PinHash.verify("1234", against: "$2a$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
+	}
+
+	@Test("rejects a malformed hash instead of crashing")
+	func malformed() {
+		#expect(!PinHash.verify("1234", against: ""))
+		#expect(!PinHash.verify("1234", against: "not a hash"))
+		#expect(!PinHash.verify("1234", against: "$2b$10$short"))
+	}
+
+	@Test("makes salted $2b$ hashes at the Electron app's cost")
+	func makes() throws {
+		let first = try #require(PinHash.make("4321"))
+		let second = try #require(PinHash.make("4321"))
+
+		#expect(first.hasPrefix("$2b$10$"))
+		#expect(first.count == 60)
+		#expect(first != second)
+		#expect(PinHash.verify("4321", against: first))
+		#expect(!PinHash.verify("4322", against: first))
+	}
+}
+
 @Suite("SecurityState")
 struct SecurityStateTests {
-	// A PIN from before the data key, its bcrypt hash aside: AppLock stops at its
-	// missing key (Paper 07.6).
-	@Test("reads security.json from before the data key, with no key to open")
-	func beforeTheKey() throws {
+	@Test("reads and writes security.json as the Electron app did")
+	func electronFile() throws {
 		let directory = FileManager.default.temporaryDirectory.appending(path: "pane-security-\(UUID().uuidString)")
 		defer { try? FileManager.default.removeItem(at: directory) }
 		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-		let before = #"{"state":{"pin":{"hash":"$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO","length":4},"failedAttempts":2},"version":0}"#
-		try Data(before.utf8).write(to: directory.appending(path: "security.json"))
+		let electron = #"{"state":{"pin":{"hash":"$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO","length":4},"failedAttempts":2},"version":0}"#
+		try Data(electron.utf8).write(to: directory.appending(path: "security.json"))
 
 		let file = PersistedFile<SecurityState>(directory: directory, name: "security")
 		let state = try #require(try file.load())
 
 		#expect(state.pin?.length == 4)
-		#expect(state.key == nil)
 		#expect(state.failedAttempts == 2)
 		#expect(state.remainingAttempts == 3)
 
-		try file.save(SecurityState(pin: Pin(length: 6), failedAttempts: 1))
-		#expect(try file.load() == SecurityState(pin: Pin(length: 6), failedAttempts: 1))
+		try file.save(SecurityState())
+		let written = try String(contentsOf: directory.appending(path: "security.json"), encoding: .utf8)
+
+		#expect(written == #"{"state":{"failedAttempts":0,"pin":null},"version":0}"#)
+	}
+
+	@Test("a damaged file gives back its PIN when it still holds one")
+	func recover() {
+		let hash = "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"
+		// Cut short, and in an order no Pane writes.
+		let truncated = #"{"version":0,"state":{"failedAttempts":3,"pin":{"length":6,"hash":"\#(hash)"}"#
+
+		let recovered = SecurityState.recover(from: Data(truncated.utf8))
+		#expect(recovered == SecurityState(pin: Pin(hash: hash, length: 6), failedAttempts: 3))
+
+		#expect(SecurityState.recover(from: Data(#"{"state":{"pin":{"hash":"\#(hash)"#.utf8)) == nil)
+		#expect(SecurityState.recover(from: Data("\u{0}\u{0}garbage".utf8)) == nil)
+		#expect(SecurityState.recover(from: Data(#"{"state":{"pin":{"hash":"$2b$10$short","length":4}}}"#.utf8)) == nil)
 	}
 }
 
@@ -198,7 +250,7 @@ struct PanicWipeTests {
 		try Data("kept".utf8).write(to: outside.appending(path: "kept.txt"))
 		try Data("kept".utf8).write(to: data.appending(path: "automation/kept.json"))
 
-		for name in ["profiles.json", "settings.json", "security.json", "migration.json"] {
+		for name in ["profiles.json", "settings.json", "security.json"] {
 			try Data("{}".utf8).write(to: data.appending(path: name))
 		}
 
@@ -216,7 +268,7 @@ struct PanicWipeTests {
 		#expect(!fileManager.fileExists(atPath: data.appending(path: "Engine").path))
 		#expect(!fileManager.fileExists(atPath: caches.appending(path: "Engine").path))
 
-		for name in ["profiles.json", "settings.json", "security.json", "migration.json"] {
+		for name in ["profiles.json", "settings.json", "security.json"] {
 			#expect(!fileManager.fileExists(atPath: data.appending(path: name).path))
 		}
 
@@ -232,6 +284,81 @@ struct PanicWipeTests {
 
 		#expect(fileManager.fileExists(atPath: outside.appending(path: "kept.txt").path))
 		#expect(fileManager.fileExists(atPath: data.appending(path: "automation/kept.json").path))
+	}
+
+	@Test("erases the Electron app's data the migration names, and its caches")
+	func erasesElectronData() throws {
+		let root = FileManager.default.temporaryDirectory.appending(path: "pane-wipe-\(UUID().uuidString)")
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		let fileManager = FileManager.default
+		let support = root.appending(path: "Library/Application Support")
+		let caches = root.appending(path: "Library/Caches")
+		let data = support.appending(path: "Pane")
+		let electron = support.appending(path: "@pane/veil")
+		let neighbor = support.appending(path: "@pane/other")
+
+		for directory in [data, electron.appending(path: "Partitions/profile-a"), caches.appending(path: "@pane/veil/Partitions/profile-a/Cache"), neighbor] {
+			try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+		}
+
+		try Data("{}".utf8).write(to: electron.appending(path: "profiles.json"))
+		try Data("cookies".utf8).write(to: electron.appending(path: "Partitions/profile-a/Cookies"))
+		try Data("cache".utf8).write(to: caches.appending(path: "@pane/veil/Partitions/profile-a/Cache/data_0"))
+		try Data("kept".utf8).write(to: neighbor.appending(path: "kept.txt"))
+		try PersistedFile<ElectronMigration.Record>(directory: data, name: ElectronMigration.recordName)
+			.save(ElectronMigration.Record(source: electron.path, migratedAt: "2026-10-28", profiles: ["a"]))
+
+		let found = try #require(PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches))
+		#expect(found.directory == electron.standardizedFileURL)
+		#expect(found.cacheDirectory == caches.appending(path: "@pane/veil"))
+
+		#expect(PanicWipe.stage(dataDirectory: data, cacheDirectory: nil, electron: found).isEmpty)
+		#expect(!fileManager.fileExists(atPath: electron.path))
+		#expect(!fileManager.fileExists(atPath: caches.appending(path: "@pane/veil").path))
+
+		// A wipe cut short: the next launch finds the staged copies from the
+		// record, which stays.
+		let staged = PanicWipe.staged(dataDirectory: data, cacheDirectory: nil, electron: PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches))
+		#expect(staged.map(\.passes).sorted() == [1, 3])
+
+		#expect(PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: nil, electron: found).isEmpty)
+		#expect(!fileManager.fileExists(atPath: support.appending(path: "@pane/Wiping").path))
+		#expect(!fileManager.fileExists(atPath: caches.appending(path: "@pane/Wiping").path))
+		#expect(fileManager.fileExists(atPath: neighbor.appending(path: "kept.txt").path))
+		#expect(fileManager.fileExists(atPath: data.appending(path: "migration.json").path))
+	}
+
+	@Test("a record naming anything but the Electron app's data erases nothing of it")
+	func refusesOtherFolders() throws {
+		let root = FileManager.default.temporaryDirectory.appending(path: "pane-wipe-\(UUID().uuidString)")
+		defer { try? FileManager.default.removeItem(at: root) }
+
+		let fileManager = FileManager.default
+		let support = root.appending(path: "Library/Application Support")
+		let caches = root.appending(path: "Library/Caches")
+		let data = support.appending(path: "Pane")
+		let documents = root.appending(path: "Documents")
+		try fileManager.createDirectory(at: data.appending(path: "Engine"), withIntermediateDirectories: true)
+		try fileManager.createDirectory(at: documents, withIntermediateDirectories: true)
+		try Data("kept".utf8).write(to: documents.appending(path: "kept.txt"))
+
+		let record = PersistedFile<ElectronMigration.Record>(directory: data, name: ElectronMigration.recordName)
+
+		// A folder without the Electron app's profiles.json stays.
+		try record.save(ElectronMigration.Record(source: documents.path, migratedAt: "2026-10-28", profiles: []))
+		let documentsData = try #require(PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches))
+		#expect(PanicWipe.stage(dataDirectory: data, cacheDirectory: nil, electron: documentsData).isEmpty)
+		#expect(fileManager.fileExists(atPath: documents.appending(path: "kept.txt").path))
+
+		// The data directory's own folder, one holding it, or a shallow path:
+		// never a source.
+		for source in [data.path, support.path, "/Users", "relative/path"] {
+			try record.save(ElectronMigration.Record(source: source, migratedAt: "2026-10-28", profiles: []))
+			#expect(PanicWipe.electronData(dataDirectory: data, applicationSupport: support, caches: caches) == nil)
+		}
+
+		_ = PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: nil)
 	}
 
 	@Test("a wipe cut short is still staged, and what it cannot erase is reported")

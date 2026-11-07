@@ -7,7 +7,8 @@
 				"tests/scenarios/*.ts",
 				"tests/benchmarks/*.ts",
 				"tests/rigs/*.ts"
-			]
+			],
+			"ignoreDependencies": ["electron"]
 		}
 	},
 	"ignore": ["tests/pages/**"]

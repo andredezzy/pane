@@ -1765,7 +1765,7 @@ index 6d2ab42b7e..1baa3d2086 100644
      "//third_party/re2",
      "//third_party/snappy",
 diff --git a/third_party/leveldatabase/env_chromium.cc b/third_party/leveldatabase/env_chromium.cc
-index a3eea3b5d6..56e5e4ec32 100644
+index a3eea3b5d6..423f167884 100644
 --- a/third_party/leveldatabase/env_chromium.cc
 +++ b/third_party/leveldatabase/env_chromium.cc
 @@ -4,7 +4,9 @@
@@ -1793,8 +1793,8 @@ index a3eea3b5d6..56e5e4ec32 100644
  
 +// Pane: an encrypted file open for reading. A file shorter than its header, or
 +// with a header of zeros, is one a crash cut short as it was made: it counts as
-+// empty, with no cipher. A plain file here is older than Pane's floor (ADR 0122),
-+// and an error would have LevelDB's callers repair or delete the store: the
++// empty, with no cipher. A plain file here is one no migration has reached (ADR
++// 0121), and an error would have LevelDB's callers repair or delete the store: the
 +// process stops.
 +std::unique_ptr<pane::encryption::StreamCipher> PaneCipherForRead(
 +    const pane::encryption::ProfileKeys& keys,

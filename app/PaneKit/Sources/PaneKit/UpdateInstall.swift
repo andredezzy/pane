@@ -36,13 +36,20 @@ public enum UpdateInstall {
 
 	// Whether `name` is such a mount point whose process is gone (`isRunning`
 	// asks about a pid): a Pane that quit while staging, its dmg perhaps
-	// still attached there.
+	// still attached there. One named before 0.13.1, without a pid, is left
+	// either way.
 	public static func isLeftoverMount(_ name: String, isRunning: (Int32) -> Bool) -> Bool {
 		guard name.hasPrefix(mountPrefix) else {
 			return false
 		}
 
-		let parts = name.dropFirst(mountPrefix.count).split(separator: "-", maxSplits: 1)
+		let rest = name.dropFirst(mountPrefix.count)
+
+		if UUID(uuidString: String(rest)) != nil {
+			return true
+		}
+
+		let parts = rest.split(separator: "-", maxSplits: 1)
 
 		guard parts.count == 2, let pid = Int32(parts[0]), UUID(uuidString: String(parts[1])) != nil else {
 			return false

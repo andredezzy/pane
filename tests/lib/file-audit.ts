@@ -52,7 +52,7 @@ const SIMPLE_CACHE = Buffer.from("305c72a71b6dfbfc", "hex");
 // for a profile, to its folder.
 const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 	[
-		/^(settings|security|Data\.security|profiles|deletions)\.json$/,
+		/^(settings|security|Data\.security|migration|profiles|deletions)\.json$/,
 		"Pane's own file",
 	],
 	[/^Pane\.lock$/, "the data's lock"],
@@ -71,6 +71,7 @@ const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 		"the engine's root, before the PIN",
 	],
 	[/^automation\//, "the scenario's channel"],
+	[/^no-electron-app/, "the scenario's stand-in"],
 ];
 
 const PROFILE_ALLOWED: [RegExp, string][] = [

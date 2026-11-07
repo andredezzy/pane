@@ -1,8 +1,6 @@
 # Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
 
 > **Extended by [ADR 0121](0121-every-profile-file-encrypted-under-its-own-key.md)**: what this lists as readable by another process while Pane is unlocked, the profiles' files, no longer is. What it keeps outside the volume stays as it is here.
->
-> **Partly replaced by [ADR 0122](0122-pane-upgrades-only-from-the-last-0-18-x.md)** — what earlier Panes and the former identifier left is no longer sought at launch, and `dropPendingExtensions` is gone.
 
 The user's requirement (2026-10-31): all of Pane's content is encrypted under the PIN, and none of it can be seen without it, whether by another process of the user's, by someone with a copy of the disk, or by someone at the Mac while Pane is locked. Two audits looked for what still could be:
 

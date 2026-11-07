@@ -1,8 +1,6 @@
 # Extensions run on Chrome's extension system, per profile, and their actions and popups behave as Chrome's
 
 > **Refined by [ADR 0115](0115-nothing-outside-the-volume-names-a-page.md)** — a `migration.json` that still lists the extensions as `pendingExtensions` is written again without them at launch.
->
-> **Partly replaced by [ADR 0122](0122-pane-upgrades-only-from-the-last-0-18-x.md)** — `migration.json` is no longer rewritten, or read.
 
 Extensions run on Chrome's own extension system, so every extension API is Chrome's (ADR 0004), and each profile has its own: a profile is its own Chrome profile (`Engine/<id>`, ADR 0006, a link into the encrypted volume since ADR 0113), with its own extension registry, toolbar, and `Extensions/` folder, and the app keeps each profile's list by its id. The engine hands the app their toolbar actions, popups, install prompts, and management (`engine/pane/public/PaneExtensions.h` and `PaneBrowserContext.h`, `engine/pane/browser/extensions/`), and the app draws them (ADRs 0054, 0056, 0062).
 

@@ -1,14 +1,5 @@
-import { createHash } from "node:crypto";
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	rmSync,
-	statSync,
-} from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { formerVolumePassphrase } from "../lib/engine-key";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import {
 	imageDevice,
@@ -16,14 +7,7 @@ import {
 	mountedAt,
 	pgrep,
 } from "../lib/processes";
-import {
-	READ_BACK,
-	type ReadBack,
-	type RichSession,
-	richSession,
-	STORES_COMMITTED_MS,
-} from "../lib/rich-session";
-import { expect, type Scenario, type ScenarioContext } from "../run";
+import { expect, type Scenario } from "../run";
 
 // The image Pane finds at launch, and which Pane holds it (ADR 0113). A
 // second Pane started on the same data, as from a terminal, hands over to the
@@ -33,231 +17,7 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // before its volume, is finished. A plain volume put in the encrypted one's
 // place, which unlocks with nothing, is refused before anything is written
 // to it. A quit while the first launch makes the image leaves nothing
-// attached. A data folder from before the floor (ADR 0122) is refused, with every
-// hash and time unchanged, and the Pane that wrote it still opens it all:
-// PANE_EARLIER_BUILDS names that Pane's executables, comma-separated. With
-// PANE_FLOOR_BUILD naming the floor's, what it converted opens here, and what its
-// conversion left goes.
-
-// A file's hash and time.
-function hashAndTime(path: string) {
-	return `${createHash("sha256").update(readFileSync(path)).digest("hex")} ${statSync(path).mtimeMs}`;
-}
-
-// Every file inside the volume, by hash and time, read by attaching it apart from
-// any Pane, as only the data key allows. The image's own bands change whenever it
-// attaches, as APFS writes its checkpoints; what the volume holds is what counts.
-async function volumeFiles(
-	context: ScenarioContext,
-	dataDir: string,
-): Promise<Record<string, string>> {
-	const image = join(dataDir, "Data.sparsebundle");
-	const mount = context.tempDir("pane-volume-look-");
-
-	const attached =
-		await Bun.$`/usr/bin/hdiutil attach ${image} -nomount -plist -noverify -noautoopen`.text();
-
-	const devices = [
-		...attached.matchAll(/<string>(\/dev\/disk[0-9s]+)<\/string>/g),
-	].map((match) => match[1] as string);
-
-	const whole = devices.find((device) => /^\/dev\/disk\d+$/.test(device));
-	const volume = devices.findLast((device) => /s\d+$/.test(device));
-	expect(whole && volume, `no volume in the image: ${attached.slice(0, 300)}`);
-
-	try {
-		const unlock = Bun.spawn(
-			[
-				"/usr/sbin/diskutil",
-				"apfs",
-				"unlockVolume",
-				volume as string,
-				"-stdinpassphrase",
-				"-mountpoint",
-				mount,
-			],
-			{ stdin: "pipe", stdout: "ignore", stderr: "ignore" },
-		);
-
-		unlock.stdin.write(formerVolumePassphrase(dataDir, null));
-		await unlock.stdin.end();
-		expect((await unlock.exited) === 0, "the volume would not unlock");
-
-		const files: Record<string, string> = {};
-
-		const visit = (folder: string) => {
-			for (const entry of readdirSync(folder, { withFileTypes: true })) {
-				const path = join(folder, entry.name);
-
-				if (/^\.(fseventsd|Spotlight-V100)/.test(entry.name)) {
-					continue;
-				}
-
-				if (entry.isDirectory()) {
-					visit(path);
-				} else if (entry.isFile()) {
-					files[path.slice(mount.length)] = hashAndTime(path);
-				}
-			}
-		};
-
-		visit(mount);
-
-		return files;
-	} finally {
-		await Bun.$`/usr/bin/hdiutil detach ${whole as string} -force`
-			.quiet()
-			.nothrow();
-	}
-}
-
-// Pane's own files that hold the user's data.
-function ownFiles(dataDir: string): Record<string, string> {
-	const files: Record<string, string> = {};
-
-	for (const file of [
-		"security.json",
-		"Data.security.json",
-		"profiles.json",
-		"profiles.json.damaged",
-		"security.json.damaged",
-		"settings.json",
-		"deletions.json",
-	]) {
-		const path = join(dataDir, file);
-
-		if (existsSync(path)) {
-			files[file] = hashAndTime(path);
-		}
-	}
-
-	return files;
-}
-
-// A data folder an earlier Pane wrote, whose volume is on the passphrase ADR 0121
-// moved away from.
-async function beforeTheFloor(context: ScenarioContext, earlier: string) {
-	const session = await richSession(context, earlier);
-	await Bun.sleep(STORES_COMMITTED_MS);
-	await session.app.browser.close();
-	await Bun.sleep(2_000);
-
-	const dataDir = session.roots.dataRoot;
-
-	const before = {
-		...(await volumeFiles(context, dataDir)),
-		...ownFiles(dataDir),
-	};
-
-	expect(Object.keys(before).length > 100, "the volume looks empty");
-
-	const refused = await launchPane(context, {
-		...session.launch,
-		binary: undefined,
-		volumeFails: true,
-	});
-
-	const state = await refused.waitFor(
-		"the lock saying the data won't open",
-		(current) =>
-			current.security.locked &&
-			current.security.screen?.error != null &&
-			current.security.data.failure !== null,
-		30_000,
-	);
-
-	await refused.browser.close();
-	await Bun.sleep(1_000);
-
-	const after = {
-		...(await volumeFiles(context, dataDir)),
-		...ownFiles(dataDir),
-	};
-
-	const changed = Object.keys({ ...before, ...after }).filter(
-		(file) => before[file] !== after[file],
-	);
-
-	expect(
-		state.security.screen?.error ===
-			"Pane can\u{2019}t open your encrypted data.\nQuit, then open Pane again.",
-		`a data folder from before the floor: ${JSON.stringify(state.security)}`,
-	);
-
-	expect(changed.length === 0, `the refused launch changed ${changed}`);
-
-	// The Pane that wrote it still opens it all: what the floor's dmg then converts.
-	const again = await launchPane(context, session.launch);
-	await expectSession(again, session, "after the refused launch");
-	await again.browser.close();
-}
-
-// What the session planted, read back through its page.
-async function expectSession(app: PaneApp, session: RichSession, when: string) {
-	await app.send("select", { tab: session.tab });
-	const page = await app.page(session.tab, session.url);
-	const back = await page.evaluate<ReadBack>(READ_BACK);
-	const { values } = session.planted;
-
-	expect(
-		back.localStorage === values.localStorage &&
-			back.indexedDB.value === values.indexedDB &&
-			back.cacheStorage === values.cacheStorage &&
-			back.originPrivate === values.originPrivate &&
-			back.cookie.includes(values.scriptCookie ?? ""),
-		`what the session wrote, ${when}: ${JSON.stringify(back)}`,
-	);
-}
-
-// The way a user comes: a folder from before the floor, converted by the floor's
-// Pane, then opened by this one. Nothing changes under the floor, so its
-// profiles.json is still as the earlier Pane wrote it, and must read here.
-async function throughTheFloor(
-	context: ScenarioContext,
-	earlier: string,
-	floor: string,
-) {
-	const session = await richSession(context, earlier);
-	await Bun.sleep(STORES_COMMITTED_MS);
-	await session.app.browser.close();
-
-	const profile = join(
-		session.roots.dataRoot,
-		"Engine",
-		"Volume",
-		session.profile,
-	);
-
-	const left = () =>
-		readdirSync(profile).filter((name) =>
-			/^(SafetyCopy|\.safety-.*|\.files-repaired)$/.test(name),
-		);
-
-	const converting = await launchPane(context, {
-		...session.launch,
-		binary: floor,
-	});
-
-	await expectSession(converting, session, `on ${floor}`);
-	const leftByTheFloor = left();
-	await converting.browser.close();
-
-	const app = await launchPane(context, {
-		...session.launch,
-		binary: undefined,
-	});
-
-	await expectSession(app, session, "past the floor");
-	const leftHere = left();
-	const marked = existsSync(join(profile, ".files-encrypted"));
-	await app.browser.close();
-
-	expect(
-		leftByTheFloor.includes("SafetyCopy") && leftHere.length === 0 && marked,
-		`what the conversion left: ${JSON.stringify({ leftByTheFloor, leftHere, marked })}`,
-	);
-}
-
+// attached.
 const dataVolume: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-volume-");
 	const image = join(dataDir, "Data.sparsebundle");
@@ -326,6 +86,7 @@ const dataVolume: Scenario = async (context) => {
 				HOME: home,
 				CFFIXED_USER_HOME: home,
 				PANE_DATA_DIR: dataDir,
+				PANE_ELECTRON_DATA_DIR: join(dataDir, "no-electron-app"),
 			},
 			stdout: "ignore",
 			stderr: "ignore",
@@ -465,6 +226,7 @@ const dataVolume: Scenario = async (context) => {
 	const quitting = await context.launch({
 		env: {
 			PANE_DATA_DIR: quitDir,
+			PANE_ELECTRON_DATA_DIR: join(quitDir, "no-electron-app"),
 			HOME: quitHome,
 			CFFIXED_USER_HOME: quitHome,
 		},
@@ -508,29 +270,6 @@ const dataVolume: Scenario = async (context) => {
 		assisted.every(({ code, signal }) => code === 0 && signal === null),
 		`quits after an assistive app's request: ${JSON.stringify(assisted)}`,
 	);
-
-	const builds = (process.env.PANE_EARLIER_BUILDS ?? "")
-		.split(",")
-		.filter(Boolean);
-
-	if (builds.length === 0) {
-		context.defer("no earlier build named (PANE_EARLIER_BUILDS)");
-	}
-
-	for (const build of builds) {
-		await beforeTheFloor(context, build);
-	}
-
-	const floor = process.env.PANE_FLOOR_BUILD;
-	const earlier = builds[0];
-
-	if (floor && earlier) {
-		await throughTheFloor(context, earlier, floor);
-	} else {
-		context.defer(
-			"no floor to convert an earlier build's data (PANE_FLOOR_BUILD, PANE_EARLIER_BUILDS)",
-		);
-	}
 };
 
 export default dataVolume;

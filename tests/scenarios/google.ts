@@ -24,8 +24,6 @@ const WINDOWS = {
 	hardwareConcurrency: 8,
 	deviceMemory: 8,
 	maxTouchPoints: 0,
-	canvas: { noise: true },
-	audio: { noise: true },
 };
 
 // Google's sign-in page, as the profile gets it.

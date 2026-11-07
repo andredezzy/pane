@@ -1,7 +1,7 @@
 import Foundation
 
 // One JSON file under the data root, in the envelope the Electron app's store
-// wrote ({"state": …, "version": 0}), as every file since has it.
+// wrote ({"state": …, "version": 0}), so its files read back unchanged.
 public struct PersistedFile<State: Codable & Sendable>: Sendable {
 	private struct Envelope: Codable {
 		var state: State

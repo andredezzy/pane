@@ -47,6 +47,9 @@ public enum SidebarWidth {
 public struct AppSettings: Codable, Hashable, Sendable {
 	public static let defaults = AppSettings()
 
+	// The Electron app's Chromium override, which nothing here reads: kept
+	// so settings.json round-trips with the Electron app's fields.
+	public var chromiumPath: String
 	public var theme: Theme
 	public var appIcon: AppIcon
 	// Minutes a background tab stays loaded before it sleeps; nil = off.
@@ -62,10 +65,11 @@ public struct AppSettings: Codable, Hashable, Sendable {
 	public var sidebarWidth: Double
 
 	private enum CodingKeys: String, CodingKey {
-		case theme, appIcon, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB, lockAfterMinutes, sidebarWidth
+		case chromiumPath, theme, appIcon, tabSleepAfterMinutes, profileUnloadAfterMinutes, cacheBudgetMB, lockAfterMinutes, sidebarWidth
 	}
 
 	public init(
+		chromiumPath: String = "",
 		theme: Theme = .system,
 		appIcon: AppIcon = .automatic,
 		tabSleepAfterMinutes: Int? = 15,
@@ -74,6 +78,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 		lockAfterMinutes: Int? = 15,
 		sidebarWidth: Double = SidebarWidth.standard
 	) {
+		self.chromiumPath = chromiumPath
 		self.theme = theme
 		self.appIcon = appIcon
 		self.tabSleepAfterMinutes = tabSleepAfterMinutes
@@ -96,6 +101,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 			return try container.decodeNil(forKey: key) ? nil : container.decode(Int.self, forKey: key)
 		}
 
+		chromiumPath = try container.decodeIfPresent(String.self, forKey: .chromiumPath) ?? defaults.chromiumPath
 		theme = try container.decodeIfPresent(Theme.self, forKey: .theme) ?? defaults.theme
 		appIcon = try container.decodeIfPresent(AppIcon.self, forKey: .appIcon) ?? defaults.appIcon
 		tabSleepAfterMinutes = try optionalInt(.tabSleepAfterMinutes, default: defaults.tabSleepAfterMinutes)
@@ -107,6 +113,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
 
 	public func encode(to encoder: Encoder) throws {
 		var container = encoder.container(keyedBy: CodingKeys.self)
+		try container.encode(chromiumPath, forKey: .chromiumPath)
 		try container.encode(theme, forKey: .theme)
 		try container.encode(appIcon, forKey: .appIcon)
 		try container.encode(tabSleepAfterMinutes, forKey: .tabSleepAfterMinutes)

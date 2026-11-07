@@ -1,7 +1,5 @@
 # Pane's identifier is xyz.roundedcorners.pane
 
-> **Partly replaced by [ADR 0122](0122-pane-upgrades-only-from-the-last-0-18-x.md)** — the data of `com.pane.desktop` no longer moves: a user on 0.13.1 or before starts empty, and it stays where it is.
-
 Pane's bundle identifier is `xyz.roundedcorners.pane`, the reverse of its domain, pane.roundedcorners.xyz: Pane is a project of the studio Rounded Corners (the user's call, 2026-10-30). It was `com.pane.desktop` until 0.14.0.
 
 What it names:

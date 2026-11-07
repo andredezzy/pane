@@ -9,7 +9,8 @@ import Foundation
 // the PIN stretched with PBKDF2 is that derivation's salt, so the key opens
 // only with both, and opening it is how the PIN is checked.
 public enum DataKey {
-	// OWASP's rounds for PBKDF2-HMAC-SHA256: 64 ms on an M5 Pro.
+	// OWASP's rounds for PBKDF2-HMAC-SHA256: 64 ms on an M5 Pro, where the
+	// bcrypt it replaces (cost 10) took 40.
 	public static let rounds = 600_000
 
 	public struct Sealed: Codable, Hashable, Sendable {
@@ -87,10 +88,20 @@ public enum DataKey {
 		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, salt: Data(id.utf8), info: Data("Pane engine files".utf8), outputByteCount: 32)
 	}
 
-	// The volume's passphrase, which diskutil reads from standard input. A Pane
-	// before ADR 0121 derived another, so it opens nothing of this one's (ADR 0122).
+	// The volume's passphrase, which diskutil reads from standard input.
 	public static func volumePassphrase(_ key: SymmetricKey) -> String {
-		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, info: Data("Pane data volume, files encrypted".utf8), outputByteCount: 32)
+		passphrase(key, label: "Pane data volume, files encrypted")
+	}
+
+	// What a Pane before ADR 0121 derives. The first open of a volume that still
+	// takes it changes it to the one above before any file converts, so an older
+	// Pane, whose engine would raze encrypted stores, opens nothing.
+	public static func formerVolumePassphrase(_ key: SymmetricKey) -> String {
+		passphrase(key, label: "Pane data volume")
+	}
+
+	private static func passphrase(_ key: SymmetricKey, label: String) -> String {
+		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, info: Data(label.utf8), outputByteCount: 32)
 			.withUnsafeBytes { Data($0) }
 			.base64EncodedString()
 	}

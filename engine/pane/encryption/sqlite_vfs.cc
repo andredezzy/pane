@@ -981,7 +981,7 @@ SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
     return SqliteMigration::kNothingToDo;
   }
 
-  CHECK(Classify(path).kind == PathKind::kEncrypted);
+  CHECK(KeysFor(path).has_value());
 
   base::FilePath temporary = path.AddExtension(".pane-migrating");
   base::DeleteFile(temporary);

@@ -1,5 +1,5 @@
-// Settings cases ported from apps/veil/src/stores/settings-store.test.ts, and
-// round trips through the files' formats.
+// Settings cases ported from apps/veil/src/stores/settings-store.test.ts, plus
+// round trips through the Electron app's file formats.
 import Foundation
 import PaneKit
 import Testing
@@ -21,12 +21,13 @@ struct SettingsPersistenceTests {
 	func fillsDefaults() throws {
 		let directory = try temporaryDirectory()
 		defer { remove(directory) }
-		try #"{"state":{"settings":{"theme":"system"}},"version":0}"#
+		try #"{"state":{"settings":{"chromiumPath":"/Applications/Chromium.app"}},"version":0}"#
 			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
 
 		let settings = try PersistedFile<SettingsState>(directory: directory, name: "settings").load()?.settings
 
 		#expect(settings == AppSettings(
+			chromiumPath: "/Applications/Chromium.app",
 			theme: .system,
 			tabSleepAfterMinutes: 15,
 			profileUnloadAfterMinutes: 30,
@@ -38,7 +39,7 @@ struct SettingsPersistenceTests {
 	func restoresTheme() throws {
 		let directory = try temporaryDirectory()
 		defer { remove(directory) }
-		try #"{"state":{"settings":{"theme":"dark"}},"version":0}"#
+		try #"{"state":{"settings":{"chromiumPath":"","theme":"dark"}},"version":0}"#
 			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
 
 		let settings = try PersistedFile<SettingsState>(directory: directory, name: "settings").load()?.settings
@@ -126,54 +127,32 @@ struct SettingsPersistenceTests {
 
 @Suite("profiles persistence")
 struct ProfilesPersistenceTests {
-	// A file that misses a key every Pane since 0.14 wrote fails whole: ModelStore
-	// keeps it aside (ADR 0122).
-	@Test("a profile missing a key fails its whole file")
-	func missingKey() throws {
+	// The shape the Electron app writes: defaults absent from older files,
+	// explicit nulls, tabs without isLoaded.
+	private let electronProfiles = #"""
+	{"state":{"profiles":[{"name":"Work","group":null,"fingerprint":{"userAgent":"UA","platform":"MACOS","screen":{"width":1512,"height":982},"language":"en-US","languages":["en-US","en"],"timezone":"America/Sao_Paulo","webgl":null,"hardwareConcurrency":8,"deviceMemory":8,"maxTouchPoints":0},"proxy":{"proxyType":"SOCKS5","host":"127.0.0.1","port":1080,"username":"u","password":null},"id":"p1","tabs":[{"id":"t1","url":"https://example.com/","title":"Example Domain"}],"createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-02T00:00:00.000Z"}]},"version":0}
+	"""#
+
+	@Test("reads the Electron app's profiles.json with its defaults")
+	func readsElectronFile() throws {
 		let directory = try temporaryDirectory()
 		defer { remove(directory) }
-		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
-		try file.save(ProfilesState(profiles: [BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")]))
+		try electronProfiles.write(to: directory.appendingPathComponent("profiles.json"), atomically: true, encoding: .utf8)
 
-		let whole = try String(contentsOf: file.url, encoding: .utf8)
-		try whole.replacingOccurrences(of: #""keepLoaded":false,"#, with: "").write(to: file.url, atomically: true, encoding: .utf8)
+		let profile = try #require(PersistedFile<ProfilesState>(directory: directory, name: "profiles").load()?.profiles.first)
 
-		#expect(whole.contains(#""keepLoaded":false,"#))
-		#expect(throws: DecodingError.self) { try file.load() }
-	}
-
-	// The floor rewrites the file only when something changes, so one it opened and
-	// left is still 0.15's (ADR 0122). data-volume goes through it for real.
-	@Test("what a file the floor left unsaved can miss still reads")
-	func fileTheFloorLeftUnsaved() throws {
-		let object = { (saves: Bool?, owed: Bool?, zone: String?) throws -> Data in
-			var fingerprint = Fingerprint.preset(.macOS)
-			fingerprint.timezone = zone ?? ""
-			var profile = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(BrowserProfile(id: "p1", name: "Work", fingerprint: fingerprint, createdAt: "a", updatedAt: "b"))) as? [String: Any])
-			var encoded = try #require(profile["fingerprint"] as? [String: Any])
-
-			encoded["timeZone"] = zone
-			encoded["timezone"] = "America/Sao_Paulo"
-			profile["fingerprint"] = encoded
-			profile["savesHistory"] = saves
-			profile["historyClearOwed"] = owed
-
-			return try JSONSerialization.data(withJSONObject: profile)
-		}
-
-		let decode = { (data: Data) throws in try JSONDecoder().decode(BrowserProfile.self, from: data) }
-		let old = try decode(object(nil, nil, nil))
-
-		#expect(old.savesHistory)
-		#expect(!old.clearsHistory)
+		#expect(profile.color == .blue)
+		#expect(profile.keepLoaded == false)
+		#expect(profile.savesHistory)
+		#expect(!profile.clearsHistory)
+		#expect(profile.group == nil)
+		#expect(profile.tabs == [Tab(id: "t1", url: "https://example.com/", title: "Example Domain", favicon: "")])
+		#expect(profile.fingerprint?.screen.colorDepth == 24)
 		// Its zone was a preset's, under the older key: it follows the computer.
-		#expect(old.fingerprint?.timezone == "")
-
-		// One that is off owes a clear, for what those versions neither kept off nor
-		// cleared.
-		#expect(try decode(object(false, nil, nil)).clearsHistory)
-		#expect(try !decode(object(false, false, nil)).clearsHistory)
-		#expect(try decode(object(nil, nil, "Asia/Tokyo")).fingerprint?.timezone == "Asia/Tokyo")
+		#expect(profile.fingerprint?.timezone == "")
+		#expect(profile.fingerprint?.canvas.noise == true)
+		#expect(profile.fingerprint?.audio.noise == true)
+		#expect(profile.proxy == ProxyConfig(proxyType: .socks5, host: "127.0.0.1", port: 1080, username: "u", password: nil))
 	}
 
 	@Test("round-trips through save and load")
@@ -190,7 +169,7 @@ struct ProfilesPersistenceTests {
 		#expect(try file.load() == state)
 	}
 
-	@Test("a zone chosen outlives a quit")
+	@Test("a zone chosen outlives a quit, and an older Pane still finds the key it requires")
 	func chosenTimeZone() throws {
 		let directory = try temporaryDirectory()
 		defer { remove(directory) }
@@ -204,6 +183,7 @@ struct ProfilesPersistenceTests {
 
 		let json = try String(contentsOf: file.url, encoding: .utf8)
 		#expect(json.contains(#""timeZone":"Asia\/Tokyo""#))
+		#expect(json.contains(#""timezone":"Asia\/Tokyo""#))
 	}
 
 	@Test("a clear still owed outlives a quit")
@@ -217,6 +197,42 @@ struct ProfilesPersistenceTests {
 		try file.save(ProfilesState(profiles: [profile]))
 
 		#expect(try file.load()?.profiles.first?.clearsHistory == true)
+	}
+
+	@Test("a file from before the owed clear's key owes one, on a profile that is off")
+	func olderFileOwesAClear() throws {
+		let encoded = { (saves: Bool, owed: Bool?) throws -> Data in
+			var profile = BrowserProfile(id: "p1", name: "Work", savesHistory: saves, createdAt: "a", updatedAt: "b")
+			profile.clearsHistory = owed ?? false
+			var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
+
+			if owed == nil {
+				object["historyClearOwed"] = nil
+			}
+
+			return try JSONSerialization.data(withJSONObject: object)
+		}
+
+		let decode = { (data: Data) throws in try JSONDecoder().decode(BrowserProfile.self, from: data) }
+
+		#expect(try decode(encoded(false, nil)).clearsHistory)
+		#expect(try !decode(encoded(true, nil)).clearsHistory)
+		#expect(try !decode(encoded(false, false)).clearsHistory)
+		#expect(try decode(encoded(false, true)).clearsHistory)
+	}
+
+	@Test("writes explicit nulls, as the Electron app does")
+	func writesNulls() throws {
+		let directory = try temporaryDirectory()
+		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
+		try file.save(ProfilesState(profiles: [BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")]))
+
+		let json = try String(contentsOf: file.url, encoding: .utf8)
+
+		#expect(json.contains(#""group":null"#))
+		#expect(json.contains(#""proxy":null"#))
+		#expect(json.contains(#""fingerprint":null"#))
+		#expect(json.contains(#""version":0"#))
 	}
 
 	@Test("reports a missing file as nil")

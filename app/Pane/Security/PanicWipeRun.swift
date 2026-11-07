@@ -19,6 +19,7 @@ enum PanicWipeRun {
 	// wipe cut short left (a crash, a quit) is erased the same way.
 	static func atLaunch(_ dataDirectory: URL) {
 		let caches = AppLock.cacheDirectory(for: dataDirectory)
+		let electron = electronData(for: dataDirectory)
 		let wiped = CommandLine.arguments.first { $0.hasPrefix(wipeSwitch) }
 			.map { $0.dropFirst(wipeSwitch.count).split(separator: ",").compactMap { pid_t($0) } }
 
@@ -31,14 +32,16 @@ enum PanicWipeRun {
 		}
 
 		if wiped != nil || isWipeDue(dataDirectory) {
+			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
+
 			// The wiped instance's volume, which its watchdog went down with:
 			// its key is gone, and it moves aside detached.
 			DataVolume(dataDirectory: dataDirectory, cacheDirectory: caches).detachLeftovers()
 
-			log(PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches))
+			log(PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron))
 		}
 
-		guard !PanicWipe.staged(dataDirectory: dataDirectory, cacheDirectory: caches).isEmpty else {
+		guard !PanicWipe.staged(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron).isEmpty else {
 			return
 		}
 
@@ -46,7 +49,9 @@ enum PanicWipeRun {
 
 		let thread = Thread {
 			let started = Date()
-			let failures = PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches)
+			let failures = PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
+			// Here, off the launch: the Keychain may take its time.
+			forgetElectronKey(electron)
 			Log.security.notice("The panic wipe erased its data in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s")
 
 			Task { @MainActor in
@@ -62,11 +67,38 @@ enum PanicWipeRun {
 	private static func isWipeDue(_ dataDirectory: URL) -> Bool {
 		let file = PersistedFile<SecurityState>(directory: dataDirectory, name: "security")
 
-		guard let state = try? file.load() else {
+		guard let state = (try? file.load()) ?? (try? Data(contentsOf: file.url)).flatMap(SecurityState.recover) else {
 			return false
 		}
 
 		return state.pin != nil && state.failedAttempts >= SecurityState.maxAttempts && state.key == nil
+	}
+
+	// The Electron app's data this Pane migrated from, which the wipe erases
+	// too (PanicWipe.ElectronData).
+	static func electronData(for dataDirectory: URL) -> PanicWipe.ElectronData? {
+		let fileManager = FileManager.default
+
+		return PanicWipe.electronData(
+			dataDirectory: dataDirectory,
+			applicationSupport: fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
+			caches: fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+		)
+	}
+
+	// The Electron app's cookie key goes with its data, when macOS lets it
+	// go without asking: a prompt would ask whoever typed the wrong PINs.
+	// Its data erased, the key opens nothing anyway.
+	nonisolated static func forgetElectronKey(_ electron: PanicWipe.ElectronData?) {
+		guard
+			let directory = electron?.directory,
+			let appName = ElectronMigration.appNames.first(where: { directory.path.hasSuffix("/\($0)") })
+		else {
+			return
+		}
+
+		let status = SafeStorage.deleteKey(service: "\(appName) Safe Storage", account: appName)
+		Log.security.notice("The panic wipe removed the Electron app's cookie key: \(status)")
 	}
 
 	static func log(_ failures: [PanicWipe.Failure]) {

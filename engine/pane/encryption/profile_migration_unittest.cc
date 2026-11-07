@@ -453,7 +453,7 @@ TEST_F(RepairTest, APartitionedFileSystemSealedWholeGoesBackToAStream) {
   ASSERT_TRUE(base::CreateDirectory(folder));
   const base::FilePath file = folder.AppendASCII("00000001");
   const std::string content = kSecret + std::string(10000, 'o');
-  WriteRaw(file, SealWholeFile(*Classify(file).keys, base::as_byte_span(content)));
+  WriteRaw(file, SealWholeFile(*KeysFor(file), base::as_byte_span(content)));
 
   ASSERT_TRUE(RepairMigratedProfile(profile_, archive_));
   ASSERT_TRUE(RepairMigratedProfile(profile_, archive_));

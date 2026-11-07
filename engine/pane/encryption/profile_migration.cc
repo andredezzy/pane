@@ -47,8 +47,6 @@ namespace pane {
 
 namespace {
 
-using encryption::PathKind;
-using encryption::PathVerdict;
 using encryption::ProfileKeys;
 using encryption::StreamCipher;
 
@@ -141,9 +139,9 @@ base::FilePath TemporaryFor(const base::FilePath& path) {
 }
 
 ProfileKeys KeysFor(const base::FilePath& path) {
-  PathVerdict verdict = encryption::Classify(path);
-  CHECK(verdict.kind == PathKind::kEncrypted);
-  return *verdict.keys;
+  std::optional<ProfileKeys> keys = encryption::KeysFor(path);
+  CHECK(keys);
+  return *keys;
 }
 
 // LevelDB --------------------------------------------------------------------

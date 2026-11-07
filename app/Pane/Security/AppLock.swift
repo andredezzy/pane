@@ -47,9 +47,10 @@ final class AppLock {
 	// And when the volume would not open (07.8).
 	static let dataWontOpen = "Pane can\u{2019}t open your encrypted data.\nQuit, then open Pane again."
 
-	// A security.json that does not decode never opens the lock: its key is read
-	// from the copy beside the volume, and the lock stays shut without one. The
-	// file is kept aside, as security.json.damaged, before anything writes over it.
+	// A security.json that does not decode never opens the lock: its PIN is
+	// read from what is left when it can be, its key from the copy beside
+	// the volume, and the lock stays shut when neither can. The file is kept
+	// aside, as security.json.damaged, before anything writes over it.
 	init(dataDirectory: URL, vault: DataVault) {
 		let file = PersistedFile<SecurityState>(directory: dataDirectory, name: "security")
 		let copy = PersistedFile<SecurityState>(directory: dataDirectory, name: "Data.security")
@@ -61,7 +62,12 @@ final class AppLock {
 		} catch {
 			Log.security.error("Could not read security.json: \(String(describing: error), privacy: .private)")
 			keepDamaged(file.url)
-			unreadable = true
+
+			if let recovered = (try? Data(contentsOf: file.url)).flatMap(SecurityState.recover) {
+				loaded = recovered
+			} else {
+				unreadable = true
+			}
 		}
 
 		// The copy stands in for a key security.json lost: the file removed,
@@ -78,10 +84,8 @@ final class AppLock {
 			loaded.failedAttempts = 0
 		}
 
-		// A volume no key opens: what it holds cannot be read. Nor is a PIN with no
-		// key checked, the bcrypt hash of a Pane before 0.14 (ADR 0122): it counts no
-		// attempts, since the fifth erases, and makes no key.
-		let keyLost = loaded.key == nil && (vault.volume.exists || loaded.pin != nil)
+		// A volume no key opens: what it holds cannot be read.
+		let keyLost = loaded.key == nil && vault.volume.exists
 
 		self.dataDirectory = dataDirectory
 		self.file = file
@@ -210,8 +214,9 @@ final class AppLock {
 		case otherSecret
 	}
 
-	// Opens the data key with the PIN, or, with no PIN and none sealed yet, makes
-	// it. PBKDF2 takes a moment, so it runs off the main thread.
+	// Opens the data key with the PIN, or, before any is sealed, makes it:
+	// sealed with the PIN, which matches the bcrypt hash an earlier Pane
+	// kept. PBKDF2 and bcrypt take a moment, so it runs off the main thread.
 	// `known`: the secret this session read already, so Change and Remove ask
 	// the Keychain nothing more. `attach`: the key opens the data, and its
 	// volume starts unlocking at once (DataVault.attacher).
@@ -221,12 +226,6 @@ final class AppLock {
 		secret known: Data? = nil,
 		attach: (@Sendable (SymmetricKey) -> Task<DataVault.Attached, Error>)? = nil
 	) -> Opened {
-		// A PIN with no key sealed stops at init: never a key made under it, and
-		// never an attempt counted for it.
-		guard pin == nil || state.key != nil else {
-			return .otherSecret
-		}
-
 		guard let secret = known ?? SafeStorage.dataSecret(makesOne: state.key == nil) else {
 			return .noSecret
 		}
@@ -244,9 +243,15 @@ final class AppLock {
 			}
 		}
 
+		if let pin {
+			guard let hash = state.pin?.hash, PinHash.verify(pin, against: hash) else {
+				return .wrongPin
+			}
+		}
+
 		let key = DataKey.make()
 
-		guard let sealed = try? DataKey.seal(key, secret: secret, pin: nil) else {
+		guard let sealed = try? DataKey.seal(key, secret: secret, pin: pin) else {
 			return .noSecret
 		}
 
@@ -308,6 +313,7 @@ final class AppLock {
 
 			if let made {
 				state.key = made
+				state.pin?.hash = nil
 			}
 
 			save()
@@ -354,10 +360,9 @@ final class AppLock {
 		}
 	}
 
-	// security.json, and its copy beside the volume. One that already says this
-	// is left alone: a launch that goes no further changes nothing of the data.
+	// security.json, and its copy beside the volume.
 	private func save() {
-		for file in [file, copy] where (try? file.load()) != state {
+		for file in [file, copy] {
 			do {
 				try file.save(state)
 			} catch {
@@ -386,10 +391,13 @@ final class AppLock {
 		if !PanicWipeRun.relaunch(after: [getpid()] + helpers) {
 			// No instance to erase: this one does, its engine still running.
 			let caches = Self.cacheDirectory(for: dataDirectory)
+			let electron = PanicWipeRun.electronData(for: dataDirectory)
 			vault.volume.detachLeftovers()
+			ProxyPasswordStore(dataDirectory: dataDirectory).delete()
+			PanicWipeRun.forgetElectronKey(electron)
 			PanicWipeRun.log(
-				PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches)
-					+ PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches)
+				PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
+					+ PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
 			)
 		}
 

@@ -3,7 +3,9 @@ import Foundation
 
 // One file under the data root, sealed under the data key's files key (ADR
 // 0113): AES-GCM over the state's JSON, bound to the file's name, so a box
-// moved to another file does not open. A plain file never reads as one.
+// moved to another file does not open. A plain file never reads as one: only
+// the move into the volume reads the plain files these replace, through
+// PersistedFile.
 public struct SealedFile<State: Codable & Sendable>: Sendable {
 	private struct Disk: Codable {
 		// AES-GCM's combined box (nonce, ciphertext, and tag), in base64.

@@ -634,7 +634,7 @@ const profileSheet: Scenario = async (context) => {
 		const unspoofed = await saved(app, proxiedID);
 
 		expect(
-			(unspoofed.fingerprint ?? null) === null,
+			unspoofed.fingerprint === null,
 			`spoofing off kept ${JSON.stringify(unspoofed.fingerprint)}`,
 		);
 	} finally {

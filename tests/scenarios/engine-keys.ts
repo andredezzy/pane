@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { engineKey, keyForms } from "../lib/engine-key";
-import { setUpPin, tabOf } from "../lib/pane";
+import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { helperPid } from "../lib/processes";
 import { launchTraced } from "../lib/traced";
@@ -11,6 +11,17 @@ import { expect, type Scenario } from "../run";
 // Service, a restart of either gets it back and loses nothing, it is on no
 // command line, in no environment, and in no file, and every process's registry
 // is empty once a lock has detached the volume; the PIN brings it all back.
+
+const PIN_1234 = {
+	state: {
+		pin: {
+			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
+			length: 4,
+		},
+		failedAttempts: 0,
+	},
+	version: 0,
+};
 
 function* filesUnder(root: string): Generator<string> {
 	for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -26,13 +37,21 @@ function* filesUnder(root: string): Generator<string> {
 
 const engineKeys: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-engine-keys-");
+	mkdirSync(dataDir, { recursive: true });
+	writeFileSync(join(dataDir, "security.json"), JSON.stringify(PIN_1234));
 
 	const { app, trace } = await launchTraced(context, "engine-keys", {
 		dataDir,
 	});
 
 	await app.send("setLockAfter", { minutes: null });
-	await setUpPin(app, "1234");
+	await app.send("pinKeys", { keys: "1234" });
+
+	await app.waitFor(
+		"unlocked, the volume attached",
+		(state) => !state.security.locked && state.security.data.attached,
+		60_000,
+	);
 
 	const profile = await app.createProfile("Keys");
 	const { port } = new URL(context.fixtures.origin);

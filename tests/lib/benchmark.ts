@@ -411,6 +411,7 @@ export async function launchApp(
 		CFFIXED_USER_HOME: home,
 		PANE_DATA_DIR: dataDir,
 		PANE_UPDATE_URL: context.fixtures.url("releases/latest"),
+		PANE_ELECTRON_DATA_DIR: join(dataDir, "no-electron-app"),
 	};
 
 	if (options.automation) {

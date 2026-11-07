@@ -107,7 +107,7 @@ const STORE = (values: Record<string, string>) => `(async () => {
 	return { worker: registration.active !== null || registration.installing !== null, read };
 })()`;
 
-// What the page reads back: for a check after a relaunch or a lock.
+// What the page reads back: for a check after a relaunch, a lock, or a migration.
 export const READ_BACK = `(async () => {
 	const fromIndexedDB = await new Promise((resolve, reject) => {
 		const opened = indexedDB.open("rich-session", 1);
