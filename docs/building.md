@@ -35,7 +35,7 @@ Edit files in `~/chromium/src`, list each touched file in `patches/MANIFEST` wit
 ## Engine unit tests
 
 ```bash
-engine/scripts/build.sh release pane_unittests
+engine/scripts/build.sh pane_unittests
 ~/chromium/src/out/Release/pane_unittests
 ```
 
@@ -83,7 +83,7 @@ The app builds without a Chromium checkout on a prebuilt engine, as Ardia's does
 PANE_ENGINE_OUT="$(engine/scripts/fetch-engine.sh)" engine/scripts/package.sh
 ```
 
-`engine/prebuilt-engines.tsv` names, per engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`), the GitHub release that carries `PaneCore-<chromium>-<key>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `app/build/engines/`. A checkout whose engine sources changed has no prebuilt: build the engine. `PANE_ENGINE_ARCHIVE=1 dist.sh` (or `package.sh`) archives the engine it was built from into `app/release/` and prints its line for the TSV; `publish-engine.sh` archives it, publishes it as the `engine-<key:12>` prerelease, and adds that line. Archiving refuses an engine that `build.sh` did not record the current key for (`out/Release/pane-engine.key`): one built before a change to the engine's sources, or from a checkout whose tag, patches, or `//pane` were not this repo's.
+`engine/prebuilt-engines.tsv` names the engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`) of the `engine-<key:12>` release that carries `PaneCore-<chromium>-<key:12>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `app/build/engines/`. A checkout whose engine sources changed has no prebuilt: build the engine. `publish-engine.sh` archives the engine into `app/release/`, publishes it as the prerelease, and overwrites that line. Archiving refuses an engine that `build.sh` did not record the current key for (`out/Release/pane-engine.key`): one built before a change to the engine's sources, or from a checkout whose tag, patches, or `//pane` were not this repo's.
 
 ## Reading a crash report
 

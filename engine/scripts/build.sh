@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Builds targets in ~/chromium/src/out/<Config> using args/<config>.gn.
-# Usage: build.sh [config=release] [targets...=chrome]
+# Builds targets in ~/chromium/src/out/Release using args/release.gn.
+# Usage: build.sh [targets...=chrome]
 #
 # Runs at most PANE_BUILD_JOBS compile jobs (default: a third of the cores)
 # under nice. Full parallelism while Spotlight indexed the checkout starved
@@ -9,17 +9,15 @@
 # room for its user. An idle Mac can take more: PANE_BUILD_JOBS=12.
 #
 # A build of `chrome` (the engine's bundle) records the engine key of its
-# sources in out/<Config>/pane-engine.key (engine-key.sh), which package.sh
-# checks before it archives the engine.
+# sources in out/Release/pane-engine.key (engine-key.sh), which
+# publish-engine.sh checks before it archives the engine.
 set -euo pipefail
 
 ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
-CONFIG="${1:-release}"
-shift || true
 TARGETS=("${@:-chrome}")
 JOBS="${PANE_BUILD_JOBS:-$(( $(sysctl -n hw.ncpu) / 3 ))}"
-OUT_DIR="out/$(tr '[:lower:]' '[:upper:]' <<< "${CONFIG:0:1}")${CONFIG:1}"
+OUT_DIR="out/Release"
 KEY_FILE="$OUT_DIR/pane-engine.key"
 
 export PATH="$CHROMIUM_ROOT/depot_tools:$PATH"
@@ -61,8 +59,8 @@ if $records_key; then
 fi
 
 # Rewriting an unchanged args.gn would force gn to regenerate every ninja file.
-if ! cmp -s "$ENGINE_DIR/args/$CONFIG.gn" "$OUT_DIR/args.gn"; then
-	cp "$ENGINE_DIR/args/$CONFIG.gn" "$OUT_DIR/args.gn"
+if ! cmp -s "$ENGINE_DIR/args/release.gn" "$OUT_DIR/args.gn"; then
+	cp "$ENGINE_DIR/args/release.gn" "$OUT_DIR/args.gn"
 	gn gen "$OUT_DIR"
 fi
 
@@ -70,7 +68,7 @@ nice -n 10 autoninja -j "$JOBS" -C "$OUT_DIR" "${TARGETS[@]}"
 
 if $records_key; then
 	if [ -z "$key" ]; then
-		echo "warning: this build matches no engine key, and package.sh will not archive it" >&2
+		echo "warning: this build matches no engine key, and publish-engine.sh will not archive it" >&2
 	elif [ "$(built_key)" != "$key" ]; then
 		echo "warning: the engine's sources changed during the build: build again before archiving it" >&2
 	else

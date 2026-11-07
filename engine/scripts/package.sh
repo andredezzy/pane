@@ -4,8 +4,7 @@
 # Chrome's launcher, then signs the nested code inside-out.
 # Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir;
 # PANE_STRIP=1 strips the engine's local symbols, as dist.sh does;
-# PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc;
-# PANE_ENGINE_ARCHIVE=1 also archives the engine for prebuilt-engines.tsv)
+# PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -14,25 +13,6 @@ ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
 SWIFT_APP="$APP_DIR/build/DerivedData/Build/Products/Release/Pane.app"
 # PANE_APP_OUT puts it elsewhere, beside a build that is running.
 OUT="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
-
-# An archive is named by the engine key of this checkout's engine sources,
-# and CI and every release build on it: it must be the engine built from
-# them. build.sh records the key it built (pane-engine.key); an engine built
-# before the last change to those sources, or from a checkout whose patches
-# or //pane were not these, has another key, or none. Checked first, before
-# the app is built.
-if [ "${PANE_ENGINE_ARCHIVE:-}" = 1 ]; then
-	KEY="$("$ROOT_DIR/engine/scripts/engine-key.sh")"
-	BUILT_KEY="$(cat "$ENGINE_OUT/pane-engine.key" 2>/dev/null || true)"
-
-	if [ -z "$BUILT_KEY" ]; then
-		echo "error: $ENGINE_OUT records no engine key: build it with build.sh before archiving it" >&2
-		exit 1
-	elif [ "$BUILT_KEY" != "$KEY" ]; then
-		echo "error: the engine in $ENGINE_OUT was built from other sources (key $BUILT_KEY) than this checkout's ($KEY): build it again (build.sh)" >&2
-		exit 1
-	fi
-fi
 
 echo "== swift app"
 (cd "$APP_DIR" && xcodegen generate --quiet)
@@ -240,48 +220,3 @@ find "$OUT" -name "*.app" -exec touch {} +
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$OUT"
 
 echo "packaged $OUT"
-
-# The engine a release was built with, for the app to build on without a
-# Chromium checkout (fetch-engine.sh): app/release/PaneCore-<chromium>-<key>.zip,
-# the engine's bundle stripped, with PaneCore.framework at its top for the
-# linker, its SHA-256, and PaneCore's dSYM beside it (.dSYM.zip). A GitHub
-# release carries them, and prebuilt-engines.tsv names that release.
-if [ "${PANE_ENGINE_ARCHIVE:-}" = 1 ]; then
-	echo "== engine archive"
-	KEY="$("$ROOT_DIR/engine/scripts/engine-key.sh")"
-	CHROMIUM="$(tr -d '[:space:]' < "$ROOT_DIR/engine/CHROMIUM_VERSION")"
-	BUILT="$(plutil -extract CFBundleShortVersionString raw "$ENGINE_OUT/Pane.app/Contents/Info.plist")"
-
-	if [ "$BUILT" != "$CHROMIUM" ]; then
-		echo "error: the engine in $ENGINE_OUT is $BUILT, not $CHROMIUM" >&2
-		exit 1
-	fi
-
-	ARCHIVE="$APP_DIR/release/PaneCore-$CHROMIUM-${KEY:0:12}.zip"
-	STAGE="$(mktemp -d)"
-	ditto "$ENGINE_OUT/Pane.app" "$STAGE/Pane.app"
-	ln -s Pane.app/Contents/Frameworks/PaneCore.framework "$STAGE/PaneCore.framework"
-	strip_local "$STAGE/PaneCore.framework/Versions/Current/PaneCore" "$STAGE/PaneCore.framework/Versions/Current"/Libraries/*.dylib
-
-	mkdir -p "$APP_DIR/release"
-	rm -f "$ARCHIVE"
-	ditto -c -k --norsrc --noextattr --noacl "$STAGE" "$ARCHIVE"
-	rm -rf "$STAGE"
-
-	SHA256="$(shasum -a 256 "$ARCHIVE" | awk '{ print $1 }')"
-	echo "$SHA256  $(basename "$ARCHIVE")" > "$ARCHIVE.sha256"
-	echo "archived $ARCHIVE"
-
-	# The engine's debug symbols, which the archive's stripped PaneCore lacks,
-	# so a crash inside the engine reads too: dsymutil gathers them from the
-	# build's objects, which the next build changes (157: about a minute and
-	# 10 GB of memory, 2 GB, 0.5 GB zipped). Its UUID is the shipped PaneCore's.
-	SYMBOLS="${ARCHIVE%.zip}.dSYM.zip"
-	DSYM_STAGE="$(mktemp -d)"
-	nice -n 10 dsymutil -o "$DSYM_STAGE/PaneCore.dSYM" "$ENGINE_OUT/Pane.app/Contents/Frameworks/PaneCore.framework/Versions/Current/PaneCore"
-	rm -f "$SYMBOLS"
-	ditto -c -k --keepParent "$DSYM_STAGE/PaneCore.dSYM" "$SYMBOLS"
-	rm -rf "$DSYM_STAGE"
-	echo "symbols $SYMBOLS"
-	printf 'prebuilt-engines.tsv: %s\tengine-%s\t%s\n' "$KEY" "${KEY:0:12}" "$SHA256"
-fi

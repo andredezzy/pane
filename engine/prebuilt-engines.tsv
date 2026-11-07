@@ -1,23 +1,7 @@
-# Prebuilt engines (engine/scripts/fetch-engine.sh), after Ardia's model: the
-# engine key (engine/scripts/engine-key.sh: the git trees of CHROMIUM_VERSION,
-# args, patches, and //pane), the GitHub release whose assets carry
-# PaneCore-<chromium>-<key:12>.zip, and the archive's SHA-256. A release that
-# changes the engine adds a line: engine/scripts/publish-engine.sh publishes
-# the archive as a prerelease named engine-<key:12>, which the update check,
-# reading the latest release, never sees, then adds it.
-0d0a01f8c703e85ba3abcf0fc92893e9ece97b8b	engine-0d0a01f8c703	8b3dedb2634059c3069a5e0fd7164eb7b65031beceae07720452fd841256ae42
-dc5989896851dbfe4fc20b9271d926f6593da4fc	engine-dc5989896851	730ec5a3601985a3add8a276584c561b00ec0785e89de4f0fbade612b6ac0218
-37183af9c58265bd933951b600cb368725feacc2	engine-37183af9c582	4647e862f291b14ee32781008192f26d3403070d25f62056c871f60fb3976345
-dc1d35ad40907170c7148babc060cc1d031ad69b	engine-dc1d35ad4090	1f81830f24bfce2974f7e1077a47d402634798508070d40bf4911c1769c9a9b2
-8c6bea31d1b0f3cf51126b3db1cac4c1a136c319	engine-8c6bea31d1b0	ea8786abce11c94875aec1d0c6920021c3fcfc5b559e8a996a36a324802d7023
-95313854dfb33245324e7bbd058767d9c02a9cff	engine-95313854dfb3	4b0fcb4c4f908b890dc222ca3d8e6acf674b31576fdc4ac81a374b9459e4a229
-c910a3a55b1003f6d0231dc62c911e23db61c007	engine-c910a3a55b10	cbd8c7528b5ce48cb0e0f3ac36574744ae8542b7201bf07179f15d5ec2c127cb
-8f11314d94edfe72506c87effeebb6b36ea90323	engine-8f11314d94ed	9861f6d9ceefe91e2eae0a61c2720f79220be50cfe690d3bee8119b46afcc9ec
-dc4169ae445bf8b749553f3c0f344a13ca0cfe9b	engine-dc4169ae445b	83ee0a2272362376ab534b3b9f9d5cdbe1ebc1606aa8b3d96e29fd0149075a52
-c445d2e588c3f6cdf76824a0891f666cf1b1a126	engine-c445d2e588c3	ecffc5de504df2852d6d2444a879c156d86f672c27aa50724758f68b91171fdf
-8251a2343b25cbaf16b83723d39964c67c6b9419	engine-8251a2343b25	cf9821c3951b8a0ebea2554791bdaf89dc67d7aa4613d8fd519b2807d8af6553
-fff3dc5328bdda419f6ae926dcaabc8cac6555ed	engine-fff3dc5328bd	dc984c90784546705c161b14ef9bb1e23862d85c3ab0cff670f010d84f553908
-38458a62ad5798c24bf6f40a295e40e72b98e057	engine-38458a62ad57	3639870b61d166ac8ec64839dc8936cc88995d30d8f28a6f2af0986650524ceb
-a32a272cd58fb1d6392d0c2e46743a3431d63ce2	engine-a32a272cd58f	14c6ec3385077b003ef65c629664b15e403d69dae63bd1423303ad44216164c8
-b80da1fcef25155436aef7d2162be6acc1a27c51	engine-b80da1fcef25	3bb1ce6c06936e6a65784e5cf78c0365f2555744b98e26ae6dd299fc30ef06af
-8c5c42cd4db0f27f8cdfa29c2db4d5e4f2cd1391	engine-8c5c42cd4db0	42fc56cf1e63e866f2789439bd270320835d335294fed5edc702b19273ca47d7
+# The prebuilt engine of the engine sources at this commit: its engine key
+# (engine/scripts/engine-key.sh: the git trees of CHROMIUM_VERSION, args, patches,
+# and //pane) and the SHA-256 of PaneCore-<chromium>-<key:12>.zip, an asset of the
+# engine-<key:12> prerelease, which the update check, reading the latest release,
+# never sees. engine/scripts/publish-engine.sh publishes it and overwrites the
+# line. A tag reads its own tree's, and every key shipped stays a prerelease.
+8c5c42cd4db0f27f8cdfa29c2db4d5e4f2cd1391	42fc56cf1e63e866f2789439bd270320835d335294fed5edc702b19273ca47d7

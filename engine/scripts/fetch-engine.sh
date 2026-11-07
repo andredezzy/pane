@@ -2,14 +2,14 @@
 # Fetches the prebuilt engine made from this checkout's engine sources and
 # prints its directory, a stand-in for the engine's out/Release: the app then
 # builds and packages without a Chromium checkout (Ardia's prebuilt-engines.tsv
-# model). prebuilt-engines.tsv names, per engine key (engine-key.sh), the
-# GitHub release carrying PaneCore-<chromium>-<key>.zip and its SHA-256.
+# model). prebuilt-engines.tsv names the engine key (engine-key.sh) of the
+# engine-<key:12> GitHub release carrying PaneCore-<chromium>-<key:12>.zip, and
+# its SHA-256.
 # Usage: PANE_ENGINE_OUT="$(fetch-engine.sh)" package.sh
-#   PANE_PREBUILT_ASSETS overrides where releases' assets are downloaded from.
 set -euo pipefail
 
 ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-ASSETS="${PANE_PREBUILT_ASSETS:-https://github.com/andredezzy/pane/releases/download}"
+ASSETS="https://github.com/andredezzy/pane/releases/download"
 STORE="$(cd "$ENGINE_DIR/.." && pwd)/app/build/engines"
 
 die() {
@@ -22,7 +22,8 @@ version="$(tr -d '[:space:]' < "$ENGINE_DIR/CHROMIUM_VERSION")"
 entry="$(awk -v key="$key" '$1 == key { print; exit }' "$ENGINE_DIR/prebuilt-engines.tsv")"
 
 [ -n "$entry" ] || die "no prebuilt engine for this checkout's engine sources ($key): build the engine (docs/building.md), then publish it as engine-${key:0:12} with engine/scripts/publish-engine.sh (engine/UPGRADING.md, step 6)"
-read -r _ release sha256 <<< "$entry"
+read -r _ sha256 <<< "$entry"
+release="engine-${key:0:12}"
 
 name="PaneCore-$version-${key:0:12}.zip"
 dest="$STORE/${key:0:12}"
