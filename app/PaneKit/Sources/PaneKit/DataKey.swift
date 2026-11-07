@@ -88,20 +88,10 @@ public enum DataKey {
 		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, salt: Data(id.utf8), info: Data("Pane engine files".utf8), outputByteCount: 32)
 	}
 
-	// The volume's passphrase, which diskutil reads from standard input.
+	// The volume's passphrase, which diskutil reads from standard input. A Pane
+	// before ADR 0121 derived another, so it opens nothing of this one's (ADR 0122).
 	public static func volumePassphrase(_ key: SymmetricKey) -> String {
-		passphrase(key, label: "Pane data volume, files encrypted")
-	}
-
-	// What a Pane before ADR 0121 derives. The first open of a volume that still
-	// takes it changes it to the one above before any file converts, so an older
-	// Pane, whose engine would raze encrypted stores, opens nothing.
-	public static func formerVolumePassphrase(_ key: SymmetricKey) -> String {
-		passphrase(key, label: "Pane data volume")
-	}
-
-	private static func passphrase(_ key: SymmetricKey, label: String) -> String {
-		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, info: Data(label.utf8), outputByteCount: 32)
+		HKDF<SHA256>.deriveKey(inputKeyMaterial: key, info: Data("Pane data volume, files encrypted".utf8), outputByteCount: 32)
 			.withUnsafeBytes { Data($0) }
 			.base64EncodedString()
 	}

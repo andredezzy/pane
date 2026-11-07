@@ -575,7 +575,6 @@ final class BrowserController: NSObject {
 		if let context {
 			contexts[profileID] = context
 			extensions.refresh(profileID)
-			vault.profileDidOpen(profileID)
 		}
 
 		waiters.forEach { $0(context) }

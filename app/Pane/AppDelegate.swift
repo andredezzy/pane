@@ -63,32 +63,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		vault.didFail = { [weak lock] in
 			lock?.volumeWontOpen()
 		}
-		vault.fileMigrator = DataVault.FileMigrator(
-			migrate: { [weak application] id, key, folder, progress, done in
-				guard let application else {
-					done(false)
-					return
-				}
-
-				application.migrateContext(identifier: id, engineKey: key, folder: folder, progress: progress, completion: done)
-			},
-			restore: { [weak application] id, key, folder, done in
-				guard let application else {
-					done(false)
-					return
-				}
-
-				application.restoreContext(identifier: id, engineKey: key, folder: folder, completion: done)
-			},
-			repair: { [weak application] id, key, folder, done in
-				guard let application else {
-					done(false)
-					return
-				}
-
-				application.repairContext(identifier: id, engineKey: key, folder: folder, completion: done)
-			}
-		)
 		// Something kept a file of the volume open past the wait: the quit detaches
 		// it, once the engine has stopped (ADR 0116).
 		vault.didFailToDetachLocked = { [weak controller] in

@@ -10,14 +10,6 @@ private func bytes(_ key: SymmetricKey) -> Data {
 
 @Suite("DataKey")
 struct DataKeyTests {
-	// Files encrypted, a volume changes to a passphrase an earlier Pane doesn't
-	// derive (ADR 0121), which still derives the one it was made with.
-	@Test func volumePassphraseMovesOn() {
-		let key = SymmetricKey(data: Data(repeating: 7, count: 32))
-		#expect(DataKey.volumePassphrase(key) != DataKey.formerVolumePassphrase(key))
-		#expect(DataKey.formerVolumePassphrase(key) == HKDF<SHA256>.deriveKey(inputKeyMaterial: key, info: Data("Pane data volume".utf8), outputByteCount: 32).withUnsafeBytes { Data($0) }.base64EncodedString())
-	}
-
 	// Each profile's engine key (ADR 0121): its own, and neither the files' key
 	// nor the volume's passphrase. The vector is what tests/lib/engine-key.ts
 	// derives, to look for the key on disk.

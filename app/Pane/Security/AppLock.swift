@@ -366,9 +366,10 @@ final class AppLock {
 		}
 	}
 
-	// security.json, and its copy beside the volume.
+	// security.json, and its copy beside the volume. One that already says this
+	// is left alone: a launch that goes no further changes nothing of the data.
 	private func save() {
-		for file in [file, copy] {
+		for file in [file, copy] where (try? file.load()) != state {
 			do {
 				try file.save(state)
 			} catch {

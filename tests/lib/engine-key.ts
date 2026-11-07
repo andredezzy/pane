@@ -81,14 +81,18 @@ export function keyForms(key: Buffer): Buffer[] {
 	];
 }
 
-// What the volume's unlocked with, as PaneKit's DataKey derives it (ADR 0121).
-export function volumePassphrase(dataDir: string, pin: string | null): string {
+// What a volume from before ADR 0121 is unlocked with, which PaneKit's DataKey no
+// longer derives (ADR 0122): for a scenario to read such a volume apart from Pane.
+export function formerVolumePassphrase(
+	dataDir: string,
+	pin: string | null,
+): string {
 	return Buffer.from(
 		hkdfSync(
 			"sha256",
 			dataKey(dataDir, pin),
 			Buffer.alloc(0),
-			"Pane data volume, files encrypted",
+			"Pane data volume",
 			32,
 		),
 	).toString("base64");
