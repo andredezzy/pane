@@ -16,7 +16,6 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_handler.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -24,7 +23,6 @@
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
-#include "chrome/browser/ui/views/exclusive_access/exclusive_access_bubble_views_context.h"
 #include "ui/base/accelerators/accelerator.h"
 
 @class NSEvent;
@@ -32,7 +30,7 @@
 
 class BrowserWindowInterface;
 class DevtoolsUIController;
-class ExclusiveAccessBubbleViews;
+class ExclusiveAccessManager;
 
 namespace pane {
 
@@ -204,7 +202,6 @@ class HostedFindBar : public FindBar {
 
 class HostedBrowserWindow : public BrowserWindow,
                         public ExclusiveAccessContext,
-                        public ExclusiveAccessBubbleViewsContext,
                         public ui::AcceleratorProvider {
  public:
   explicit HostedBrowserWindow(base::WeakPtr<WindowHost> host);
@@ -217,8 +214,6 @@ class HostedBrowserWindow : public BrowserWindow,
   ExtensionShortcuts* extension_shortcuts() const {
     return extension_shortcuts_.get();
   }
-  bool closed_by_chrome() const { return closed_by_chrome_; }
-  WindowHost* host() const { return host_.get(); }
   base::WeakPtr<WindowHost> host_weak() const { return host_; }
 
   static HostedBrowserWindow* FromWindow(const BrowserWindow* window);
@@ -360,20 +355,13 @@ class HostedBrowserWindow : public BrowserWindow,
       const ExclusiveAccessBubbleParams& params,
       ExclusiveAccessBubbleHideCallback first_hide_callback) override;
   bool IsExclusiveAccessBubbleDisplayed() const override;
-  void OnExclusiveAccessUserInput() override;
+  void OnExclusiveAccessUserInput() override {}
   content::WebContents* GetWebContentsForExclusiveAccess() override;
   bool CanUserEnterFullscreen() const override;
   bool CanUserExitFullscreen() const override;
 
-  ExclusiveAccessManager* GetExclusiveAccessManager() override;
+  ExclusiveAccessManager* GetExclusiveAccessManager();
   ui::AcceleratorProvider* GetAcceleratorProvider() override;
-  gfx::NativeView GetBubbleParentView() const override;
-  gfx::Rect GetClientAreaBoundsInScreen() const override;
-  bool IsImmersiveModeEnabled() const override;
-  gfx::Rect GetTopContainerBoundsInScreen() override;
-  void DestroyAnyExclusiveAccessBubble() override;
-  void RepositionExclusiveAccessBubble();
-
   bool GetAcceleratorForCommandId(int command_id,
                                   ui::Accelerator* accelerator) const override;
 
@@ -390,16 +378,11 @@ class HostedBrowserWindow : public BrowserWindow,
   std::optional<ui::ScopedUnownedUserData<autofill::AutofillBubbleHandler>>
       autofill_bubble_handler_registration_;
   bool tab_fullscreen_ = false;
-  bool closed_by_chrome_ = false;
   void ReportFullscreenTab();
   void PostWindowFullscreenStateChanged();
   base::WeakPtr<content::WebContents> fullscreen_tab_;
   std::unique_ptr<DevtoolsUIController> devtools_ui_controller_;
   std::unique_ptr<ExtensionShortcuts> extension_shortcuts_;
-  std::unique_ptr<ExclusiveAccessBubbleViews> exclusive_access_bubble_;
-  base::CancelableTaskTracker exclusive_access_bubble_task_tracker_;
-  std::optional<base::CancelableTaskTracker::TaskId>
-      exclusive_access_bubble_destruction_task_id_;
   base::WeakPtrFactory<HostedBrowserWindow> weak_factory_{this};
 };
 

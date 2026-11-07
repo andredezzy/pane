@@ -43,7 +43,6 @@
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "ui/gfx/range/range.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
-#include "chrome/browser/ui/views/exclusive_access/exclusive_access_bubble_views.h"
 #include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "components/tabs/public/tab_interface.h"
@@ -356,7 +355,6 @@ HostedBrowserWindow::~HostedBrowserWindow() {
   if (browser_) {
     ActionPopup::CloseAll(browser_);
   }
-  DestroyAnyExclusiveAccessBubble();
   devtools_ui_controller_.reset();
   autofill_bubble_handler_registration_.reset();
   if (browser_) {
@@ -466,9 +464,6 @@ void HostedBrowserWindow::Close() {
   if (!browser_) {
     return;
   }
-  Profile* profile = browser_->GetProfile();
-  closed_by_chrome_ = host_ && !host_->closing() && !browser_shutdown::IsTryingToQuit() &&
-                      !profile->ShutdownStarted();
   UnloadController* unload = UnloadController::From(browser_);
   if (unload) {
     unload->OnWindowClosing();
@@ -821,12 +816,6 @@ void HostedBrowserWindow::UpdateExclusiveAccessBubble(
   }
 }
 
-void HostedBrowserWindow::OnExclusiveAccessUserInput() {
-  if (exclusive_access_bubble_) {
-    exclusive_access_bubble_->OnUserInput();
-  }
-}
-
 ExclusiveAccessManager* HostedBrowserWindow::GetExclusiveAccessManager() {
   return browser_ ? ExclusiveAccessManager::From(browser_)
                   : nullptr;
@@ -845,36 +834,6 @@ bool HostedBrowserWindow::GetAcceleratorForCommandId(
   *accelerator =
       ui::Accelerator(ui::VKEY_F, ui::EF_CONTROL_DOWN | ui::EF_COMMAND_DOWN);
   return true;
-}
-
-gfx::NativeView HostedBrowserWindow::GetBubbleParentView() const {
-  return host_ && host_->widget() ? host_->widget()->GetNativeView()
-                                  : gfx::NativeView();
-}
-
-gfx::Rect HostedBrowserWindow::GetClientAreaBoundsInScreen() const {
-  return host_ && host_->widget()
-             ? host_->widget()->GetClientAreaBoundsInScreen()
-             : gfx::Rect();
-}
-
-bool HostedBrowserWindow::IsImmersiveModeEnabled() const {
-  return false;
-}
-
-gfx::Rect HostedBrowserWindow::GetTopContainerBoundsInScreen() {
-  return gfx::Rect();
-}
-
-void HostedBrowserWindow::RepositionExclusiveAccessBubble() {
-  if (exclusive_access_bubble_) {
-    exclusive_access_bubble_->RepositionIfVisible();
-  }
-}
-
-void HostedBrowserWindow::DestroyAnyExclusiveAccessBubble() {
-  exclusive_access_bubble_.reset();
-  exclusive_access_bubble_destruction_task_id_.reset();
 }
 
 void HostedBrowserWindow::ReportFullscreenTab() {
@@ -915,8 +874,7 @@ void HostedBrowserWindow::ReportFullscreenTab() {
 }
 
 bool HostedBrowserWindow::IsExclusiveAccessBubbleDisplayed() const {
-  return exclusive_access_bubble_ && (exclusive_access_bubble_->IsShowing() ||
-                                      exclusive_access_bubble_->IsVisible());
+  return false;
 }
 
 content::WebContents* HostedBrowserWindow::GetWebContentsForExclusiveAccess() {
