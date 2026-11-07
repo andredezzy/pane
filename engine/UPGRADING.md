@@ -49,7 +49,7 @@ mkdir -p evidence/logs
 nohup engine/scripts/build.sh > evidence/logs/build-<tag>.log 2>&1 &
 ```
 
-A new milestone's build is the one to change what most of Chromium compiles in: `COMPANY_FULLNAME`, `COMPANY_SHORTNAME`, and `COPYRIGHT` in `BRANDING` (patch 0001) become Rounded Corners at one, if they still say Pane (ADR 0114). A patch release keeps them for its own, cheaper build. Regenerate that patch with `make-patch.sh` before building.
+A new milestone's build is the one to change what most of Chromium compiles in, such as `engine/pane/BRANDING` (its `branding_file_path` in `engine/args/release.gn`): `chrome_version.h` carries its names into most of the build (ADR 0114). A new `BRANDING` key at a milestone comes from `chrome/app/theme/chromium/BRANDING` at the new tag: take any it adds, and keep Pane's names. A patch release leaves it alone, for its own, cheaper build.
 
 A new milestone rebuilds almost everything: 157 took 1h44m here (about 45,600 objects at 12 of 18 cores, on an idle Mac), and the sync before it about 25 minutes. `build.sh` runs 6 jobs by default, which leaves the Mac usable; 12 reset it by watchdog while it was in use (ADR 0007), so pass `PANE_BUILD_JOBS=12` only when nobody is using it. Run one Chromium build at a time, and keep the checkout out of Spotlight (`docs/building.md`).
 

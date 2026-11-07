@@ -3,7 +3,6 @@ chrome/BUILD.gn	0001-pane-framework.patch
 chrome/app/chrome_exe_main_mac.cc	0001-pane-framework.patch
 chrome/app/framework.exports	0001-pane-framework.patch
 chrome/app/framework.order	0001-pane-framework.patch
-chrome/app/theme/chromium/BRANDING	0001-pane-framework.patch
 chrome/browser/web_applications/os_integration/mac/BUILD.gn	0001-pane-framework.patch
 chrome/common/chrome_constants.cc	0001-pane-framework.patch
 content/public/app/BUILD.gn	0001-pane-framework.patch

@@ -29,7 +29,7 @@ The update from an earlier Pane:
 The engine:
 
 - **Only `MAC_BUNDLE_ID` changed in `BRANDING`.** It fills the bundles' Info.plist, never compiled code, so the engine built again in minutes.
-- **`COMPANY_FULLNAME`, `COMPANY_SHORTNAME`, and `COPYRIGHT` still say Pane** (patch 0001): `chrome_version.h` compiles them into most of Chromium, so changing them takes a full build. They are to become Rounded Corners at one; `engine/UPGRADING.md` has no step for it yet.
+- **`COMPANY_FULLNAME`, `COMPANY_SHORTNAME`, and `COPYRIGHT` said Pane until the review of 0.18.0**: `chrome_version.h` compiles them into most of Chromium, so changing them took a full build, the one that moved `BRANDING` into `//pane` (ADR 0009). They say Rounded Corners, and `engine/UPGRADING.md` has the step for what a new tag's `BRANDING` adds.
 
 What was rejected:
 

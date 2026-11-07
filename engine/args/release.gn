@@ -6,7 +6,8 @@ symbol_level = 1
 target_cpu = "arm64"
 proprietary_codecs = true
 ffmpeg_branding = "Chrome"
-is_component_build = false
+# Pane's names, in //pane (ADR 0009).
+branding_file_path = "//pane/BRANDING"
 # Chromium's testing field trials (testing/variations) stay off: they switch on
 # experimental features (Omnibox Everywhere's menu bar item, among others), and
 # Pane ships Chromium's defaults, as official builds do.

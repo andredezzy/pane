@@ -110,30 +110,6 @@ index 6dbc3aeff3..c4a6e619d9 100644
 +_OBJC_METACLASS_$_PaneExtensionDetails
 +_OBJC_CLASS_$_PaneExtensionCommand
 +_OBJC_METACLASS_$_PaneExtensionCommand
-diff --git a/chrome/app/theme/chromium/BRANDING b/chrome/app/theme/chromium/BRANDING
-index f8363d5b29..8d90c239de 100644
---- a/chrome/app/theme/chromium/BRANDING
-+++ b/chrome/app/theme/chromium/BRANDING
-@@ -1,10 +1,10 @@
--COMPANY_FULLNAME=The Chromium Authors
--COMPANY_SHORTNAME=The Chromium Authors
--PRODUCT_FULLNAME=Chromium
--PRODUCT_SHORTNAME=Chromium
--PRODUCT_INSTALLER_FULLNAME=Chromium Installer
--PRODUCT_INSTALLER_SHORTNAME=Chromium Installer
--COPYRIGHT=Copyright @LASTCHANGE_YEAR@ The Chromium Authors. All rights reserved.
--MAC_BUNDLE_ID=org.chromium.Chromium
--MAC_CREATOR_CODE=Cr24
-+COMPANY_FULLNAME=Pane
-+COMPANY_SHORTNAME=Pane
-+PRODUCT_FULLNAME=Pane
-+PRODUCT_SHORTNAME=Pane
-+PRODUCT_INSTALLER_FULLNAME=Pane Installer
-+PRODUCT_INSTALLER_SHORTNAME=Pane Installer
-+COPYRIGHT=Copyright @LASTCHANGE_YEAR@ Pane and The Chromium Authors. All rights reserved.
-+MAC_BUNDLE_ID=xyz.roundedcorners.pane
-+MAC_CREATOR_CODE=Pane
- MAC_TEAM_ID=
 diff --git a/chrome/browser/web_applications/os_integration/mac/BUILD.gn b/chrome/browser/web_applications/os_integration/mac/BUILD.gn
 index 7f1b9cfd15..ff66f1a48d 100644
 --- a/chrome/browser/web_applications/os_integration/mac/BUILD.gn

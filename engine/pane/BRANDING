@@ -1,0 +1,10 @@
+COMPANY_FULLNAME=Rounded Corners
+COMPANY_SHORTNAME=Rounded Corners
+PRODUCT_FULLNAME=Pane
+PRODUCT_SHORTNAME=Pane
+PRODUCT_INSTALLER_FULLNAME=Pane Installer
+PRODUCT_INSTALLER_SHORTNAME=Pane Installer
+COPYRIGHT=Copyright @LASTCHANGE_YEAR@ Rounded Corners and The Chromium Authors. All rights reserved.
+MAC_BUNDLE_ID=xyz.roundedcorners.pane
+MAC_CREATOR_CODE=Pane
+MAC_TEAM_ID=
