@@ -216,6 +216,14 @@ export function hasEncryptedFormat(bytes: Buffer): boolean {
 	);
 }
 
+// SQLite zeroes a journal's magic until its first sync (writeJournalHdr): one read
+// in that moment has no format yet, and its pages are Pane's as ever.
+function isJournalBeforeItsSync(name: string, bytes: Buffer): boolean {
+	return (
+		name.endsWith("-journal") && bytes.subarray(0, 12).every((b) => b === 0)
+	);
+}
+
 // Why this content reads as plain, if it does: a store's own header, JSON,
 // HTML, a URL, or, past 4 KiB, too little entropy for ciphertext.
 export function plainMarkers(bytes: Buffer): string[] {
@@ -420,7 +428,9 @@ function auditTree(
 			allowed: fileAllowed,
 			plain: [
 				...plainMarkers(bytes),
-				...(fileAllowed === null && !hasEncryptedFormat(bytes)
+				...(fileAllowed === null &&
+				!hasEncryptedFormat(bytes) &&
+				!isJournalBeforeItsSync(name, bytes)
 					? ["no format of Pane's"]
 					: []),
 			],
