@@ -178,7 +178,7 @@ sign() {
 		# framework by, and restricted code may not load it by
 		# @executable_path.
 		local merged
-		merged="$(mktemp -d)/$(basename "$path").entitlements"
+		merged="$(mktemp)"
 
 		if [ -n "$entitlements" ]; then
 			cp "$APP_DIR/signing/$entitlements" "$merged"
@@ -188,6 +188,7 @@ sign() {
 
 		/usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$merged" >/dev/null
 		codesign --force --sign - --timestamp=none --options runtime,kill --entitlements "$merged" "$path"
+		rm -f "$merged"
 	else
 		codesign --force --sign "$IDENTITY" --timestamp \
 			${options:+--options "$options"} \

@@ -11,11 +11,16 @@ private func temporaryDirectory() throws -> URL {
 	return url
 }
 
+private func remove(_ directory: URL) {
+	try? FileManager.default.removeItem(at: directory)
+}
+
 @Suite("settings persistence")
 struct SettingsPersistenceTests {
 	@Test("fills defaults for fields a persisted settings.json predates")
 	func fillsDefaults() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		try #"{"state":{"settings":{"theme":"system"}},"version":0}"#
 			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
 
@@ -32,6 +37,7 @@ struct SettingsPersistenceTests {
 	@Test("restores a persisted theme")
 	func restoresTheme() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		try #"{"state":{"settings":{"theme":"dark"}},"version":0}"#
 			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
 
@@ -43,6 +49,7 @@ struct SettingsPersistenceTests {
 	@Test("restores a persisted app icon, automatic by default")
 	func restoresAppIcon() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		let file = PersistedFile<SettingsState>(directory: directory, name: "settings")
 
 		#expect(AppSettings.defaults.appIcon == .automatic)
@@ -71,6 +78,7 @@ struct SettingsPersistenceTests {
 	@Test("locks after 15 minutes without use by default, and keeps Never")
 	func lockAfter() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		let file = PersistedFile<SettingsState>(directory: directory, name: "settings")
 
 		// A settings.json from before ADR 0116.
@@ -88,6 +96,7 @@ struct SettingsPersistenceTests {
 	@Test("keeps an explicit null as off")
 	func explicitNullIsOff() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		try #"{"state":{"settings":{"tabSleepAfterMinutes":null}},"version":0}"#
 			.write(to: directory.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
 
@@ -100,6 +109,7 @@ struct SettingsPersistenceTests {
 	@Test("keeps the sidebar's width, within its range")
 	func sidebarWidth() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		let file = PersistedFile<SettingsState>(directory: directory, name: "settings")
 
 		#expect(AppSettings.defaults.sidebarWidth == 260)
@@ -121,6 +131,7 @@ struct ProfilesPersistenceTests {
 	@Test("a profile missing a key fails its whole file")
 	func missingKey() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
 		try file.save(ProfilesState(profiles: [BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")]))
 
@@ -168,6 +179,7 @@ struct ProfilesPersistenceTests {
 	@Test("round-trips through save and load")
 	func roundTrips() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
 		let state = ProfilesState(profiles: [
 			BrowserProfile(id: "p1", name: "Work", color: .violet, group: "Clients", keepLoaded: true, savesHistory: false, tabs: [Tab(id: "t1", url: "https://example.com/")], createdAt: "a", updatedAt: "b"),
@@ -181,6 +193,7 @@ struct ProfilesPersistenceTests {
 	@Test("a zone chosen outlives a quit")
 	func chosenTimeZone() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
 		var fingerprint = Fingerprint.preset(.macOS)
 		fingerprint.timezone = "Asia/Tokyo"
@@ -196,6 +209,7 @@ struct ProfilesPersistenceTests {
 	@Test("a clear still owed outlives a quit")
 	func clearOwedPersists() throws {
 		let directory = try temporaryDirectory()
+		defer { remove(directory) }
 		let file = PersistedFile<ProfilesState>(directory: directory, name: "profiles")
 		var profile = BrowserProfile(id: "p1", name: "Work", createdAt: "a", updatedAt: "b")
 		profile.savesHistory = false
@@ -207,7 +221,10 @@ struct ProfilesPersistenceTests {
 
 	@Test("reports a missing file as nil")
 	func missingFile() throws {
-		#expect(try PersistedFile<ProfilesState>(directory: temporaryDirectory(), name: "profiles").load() == nil)
+		let directory = try temporaryDirectory()
+		defer { remove(directory) }
+
+		#expect(try PersistedFile<ProfilesState>(directory: directory, name: "profiles").load() == nil)
 	}
 }
 
