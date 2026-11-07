@@ -91,29 +91,28 @@ index 46a1f3f0ae..030574d329 100644
    if (base::FeatureList::IsEnabled(media::kMediaEngagementHTTPSOnly))
      return origin.scheme() == url::kHttpsScheme;
  
-diff --git a/chrome/browser/media/media_engagement_service.h b/chrome/browser/media/media_engagement_service.h
-index 5d1b6af72f..79f375a771 100644
---- a/chrome/browser/media/media_engagement_service.h
-+++ b/chrome/browser/media/media_engagement_service.h
-@@ -109,6 +109,7 @@ class MediaEngagementService : public KeyedService,
-   friend class MediaEngagementServiceTest;
-   friend class MediaEngagementSessionTest;
-   friend class MediaEngagementContentsObserver;
-+  friend class MediaEngagementSession;
- 
-   MediaEngagementService(Profile* profile, base::Clock* clock);
- 
 diff --git a/chrome/browser/media/media_engagement_session.cc b/chrome/browser/media/media_engagement_session.cc
-index 3e6522b5a7..f1059939cc 100644
+index 3e6522b5a7..ca2e2602e6 100644
 --- a/chrome/browser/media/media_engagement_session.cc
 +++ b/chrome/browser/media/media_engagement_session.cc
-@@ -143,6 +143,15 @@ bool MediaEngagementSession::HasPendingDataToCommit() const {
+@@ -6,6 +6,9 @@
+ 
+ #include "chrome/browser/media/media_engagement_score.h"
+ #include "chrome/browser/media/media_engagement_service.h"
++#include "chrome/browser/profiles/profile.h"
++#include "components/history/core/common/pref_names.h"  // nogncheck
++#include "components/prefs/pref_service.h"
+ #include "media/base/media_switches.h"
+ #include "services/metrics/public/cpp/ukm_builders.h"
+ #include "services/metrics/public/cpp/ukm_entry_builder.h"
+@@ -143,6 +146,16 @@ bool MediaEngagementSession::HasPendingDataToCommit() const {
  void MediaEngagementSession::CommitPendingData() {
    CHECK(HasPendingDataToCommit(), base::NotFatalUntil::M161);
  
 +  // Pane: a session that began while its profile saved history commits nothing
 +  // once it has stopped.
-+  if (!service_->ShouldRecordEngagement(origin_)) {
++  if (service_->profile()->GetPrefs()->GetBoolean(
++          prefs::kSavingBrowserHistoryDisabled)) {
 +    pending_data_to_commit_.visit = pending_data_to_commit_.players =
 +        pending_data_to_commit_.audio_context_playback =
 +            pending_data_to_commit_.media_element_playback = false;

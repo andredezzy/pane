@@ -29,10 +29,9 @@ namespace web_app {
 class AppBrowserController;
 }
 
-// browser.cc: lets a Browser take Pane's own BrowserWindow (Pane passes it in
-// BrowserWindowCreateParams::window, a test-only param otherwise), and asks
-// for one when Chrome makes a Browser itself; nullptr keeps Chrome's.
-extern BrowserWindow* (*g_pane_browser_window_factory)(Browser* browser);
+// browser_window_factory.cc: the window of a new Browser; nullptr keeps Chrome's.
+extern BrowserWindow* (*g_pane_browser_window_factory)(
+    BrowserWindowInterface* browser);
 
 // browser.cc, unload_controller.cc: a Browser behind one of Pane's windows
 // stays open when its last tab closes, unless the window is closing.

@@ -35,9 +35,6 @@ content/browser/service_worker/service_worker_version.cc	0006-pane-fingerprint.p
 content/browser/worker_host/shared_worker_host.cc	0006-pane-fingerprint.patch
 components/client_hints/browser/client_hints.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/platform/BUILD.gn	0006-pane-fingerprint.patch
-third_party/blink/renderer/platform/pane/pane_fingerprint.h	0006-pane-fingerprint.patch
-third_party/blink/renderer/platform/pane/pane_fingerprint.cc	0006-pane-fingerprint.patch
-third_party/blink/renderer/core/core_initializer.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/core/events/navigator_events.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/core/execution_context/navigator_base.cc	0006-pane-fingerprint.patch
 third_party/blink/renderer/core/frame/local_dom_window.cc	0006-pane-fingerprint.patch
@@ -56,7 +53,6 @@ third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc	0006-pa
 components/signin/internal/identity_manager/gaia_cookie_manager_service.cc	0007-pane-quiet.patch
 components/os_crypt/common/keychain_password_mac.mm	0001-pane-framework.patch
 chrome/app/chrome_main_delegate.cc	0008-pane-private.patch
-components/services/quarantine/quarantine_mac.mm	0008-pane-private.patch
 chrome/browser/download/download_history.cc	0009-pane-history.patch
 components/favicon/content/content_favicon_driver.cc	0009-pane-history.patch
 chrome/browser/extensions/api/history/history_api.cc	0009-pane-history.patch
@@ -64,7 +60,6 @@ chrome/browser/media/media_engagement_service.cc	0009-pane-history.patch
 chrome/browser/predictors/resource_prefetch_predictor.cc	0009-pane-history.patch
 components/site_engagement/content/site_engagement_service.cc	0009-pane-history.patch
 chrome/browser/media/media_engagement_session.cc	0009-pane-history.patch
-chrome/browser/media/media_engagement_service.h	0009-pane-history.patch
 content/browser/download/download_manager_impl.cc	0009-pane-history.patch
 base/BUILD.gn	0010-pane-encryption.patch
 base/files/pane_file_codec.h	0010-pane-encryption.patch
@@ -117,3 +112,5 @@ storage/browser/file_system/pane_encrypted_stream.cc	0010-pane-encryption.patch
 storage/browser/file_system/pane_encrypted_stream.h	0010-pane-encryption.patch
 services/network/enterprise/encryption/encrypted_cache_file.cc	0010-pane-encryption.patch
 storage/browser/quota/quota_database.cc	0010-pane-encryption.patch
+chrome/browser/ui/views/frame/browser_window_factory.cc	0003-pane-hosted-browsers.patch
+components/services/quarantine/quarantine_mac.mm	0008-pane-private.patch

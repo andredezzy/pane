@@ -51,6 +51,10 @@ namespace pane {
 
 namespace {
 
+// The window for the Browser being made, which Chromium asks for in its
+// constructor.
+BrowserWindow* g_window_of_next_browser = nullptr;
+
 std::vector<WindowHost*>& Hosts() {
   static base::NoDestructor<std::vector<WindowHost*>> hosts;
   return *hosts;
@@ -206,9 +210,9 @@ Browser* WindowHost::BrowserFor(Profile* profile) {
   }
 
   auto* window = new HostedBrowserWindow(GetWeakPtr());
+  g_window_of_next_browser = window;
   BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_NORMAL,
                                    *profile, /*user_gesture=*/true);
-  params.window = window;
   params.omit_from_session_restore = true;
   params.should_trigger_session_restore = false;
   Browser* browser =
@@ -681,7 +685,14 @@ BrowserWindow* ForwardToPaneWindow(Browser* browser) {
   return window;
 }
 
-BrowserWindow* HostChromeBrowser(Browser* browser) {
+BrowserWindow* HostChromeBrowser(BrowserWindowInterface* interface) {
+  // A Browser a window makes itself (WindowHost::BrowserFor).
+  if (g_window_of_next_browser) {
+    return std::exchange(g_window_of_next_browser, nullptr);
+  }
+
+  auto* browser = static_cast<Browser*>(interface);
+
   switch (browser->GetType()) {
     // Undocked DevTools get a window of Pane's (devtools_window_host.mm).
     case BrowserWindowInterface::TYPE_DEVTOOLS:
