@@ -86,7 +86,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0119](0119-a-profile-can-keep-no-history.md) A profile can keep no history: its pages, their icons, and its downloads, and turning it off clears what it kept
 - [0120](0120-profile-sheet-cards-and-platform-logos.md) The profile sheet holds its settings in cards, and picks a fingerprint's platform by its real logo
 - [0121](0121-every-profile-file-encrypted-under-its-own-key.md) Every file a profile writes is encrypted under a key only Pane's processes hold
-- [0122](0122-pane-upgrades-only-from-the-last-0-18-x.md) Pane upgrades only from the last 0.18.x
+- [0122](0122-every-pane-updates-straight-to-the-newest.md) Every Pane updates straight to the newest, which carries every upgrade path itself
 
 ## Merged records
 
