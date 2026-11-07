@@ -225,11 +225,11 @@ extension Automation {
 					"keepLoaded": profile.keepLoaded,
 					"savesHistory": profile.savesHistory,
 					// What the engine has, once the profile is open.
-					"engineSavesHistory": controller.context(for: profile.id)?.savesHistory ?? NSNull(),
+					"engineSavesHistory": controller.contexts[profile.id]?.savesHistory ?? NSNull(),
 					"cacheSize": cacheSizes[profile.id].map { $0 as Any } ?? NSNull(),
 					"cookies": cookies[profile.id] ?? NSNull(),
 					// What the engine applied to the open profile.
-					"network": controller.context(for: profile.id).map { context in
+					"network": controller.contexts[profile.id].map { context in
 						[
 							"proxyRules": context.proxyRules ?? NSNull(),
 							"webRTCIPHandlingPolicy": context.webRTCIPHandlingPolicy,

@@ -9,7 +9,7 @@ import os
 // the key, with the PIN when there is one, and hands it here. The volume
 // attaches on a thread while the window already shows the profiles; a
 // profile's context opens only once it is attached and the profile's links
-// are in place (BrowserController.withContext).
+// are in place (ProfileContexts.with).
 @MainActor
 @Observable
 final class DataVault {

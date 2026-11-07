@@ -46,7 +46,7 @@ final class SleepController {
 		var profiles: [String: SleepScheduler.Profile] = [:]
 
 		for profile in controller.model.profiles {
-			guard let context = controller.context(for: profile.id) else {
+			guard let context = controller.contexts[profile.id] else {
 				continue
 			}
 

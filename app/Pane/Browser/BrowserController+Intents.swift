@@ -80,7 +80,7 @@ extension BrowserController {
 		}
 
 		if changes.contains(.history) {
-			historyDidChange(id)
+			contexts.historyDidChange(id)
 		}
 	}
 

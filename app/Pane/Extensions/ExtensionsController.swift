@@ -71,7 +71,7 @@ final class ExtensionsController {
 
 	// What the profile's open context holds now.
 	func refresh(_ profileID: String) {
-		guard let context = browser.context(for: profileID) else {
+		guard let context = browser.contexts[profileID] else {
 			return
 		}
 
@@ -94,7 +94,7 @@ final class ExtensionsController {
 	// Opens the profile's engine context if it is not open yet, so its
 	// extensions can be listed and managed.
 	func openContextIfNeeded(profileID: String) {
-		browser.withContext(profileID) { [weak self] _ in
+		browser.contexts.with(profileID) { [weak self] _ in
 			self?.refresh(profileID)
 		}
 	}
@@ -102,7 +102,7 @@ final class ExtensionsController {
 	// The extension's toolbar action in the active profile: its popup, or
 	// chrome.action.onClicked.
 	func runAction(_ extensionID: String) {
-		guard let profileID = model.activeProfileID, let context = browser.context(for: profileID) else {
+		guard let profileID = model.activeProfileID, let context = browser.contexts[profileID] else {
 			return
 		}
 
@@ -113,7 +113,7 @@ final class ExtensionsController {
 	// run; false when it is none. Extensions take only chords (⌘, ⌃, or ⌥).
 	func runShortcut(_ event: NSEvent) -> Bool {
 		guard event.type == .keyDown, !event.modifierFlags.isDisjoint(with: [.command, .control, .option]),
-		      let profileID = model.activeProfileID, let context = browser.context(for: profileID) else {
+		      let profileID = model.activeProfileID, let context = browser.contexts[profileID] else {
 			return false
 		}
 
@@ -123,7 +123,7 @@ final class ExtensionsController {
 	// The extension's own items and its site access for its action's
 	// right-click menu, as for the active tab; nil when it has neither.
 	func actionMenu(_ extensionID: String) -> ExtensionActionMenu? {
-		guard let profileID = model.activeProfileID, let context = browser.context(for: profileID) else {
+		guard let profileID = model.activeProfileID, let context = browser.contexts[profileID] else {
 			return nil
 		}
 
@@ -132,7 +132,7 @@ final class ExtensionsController {
 
 	// Installs from the Web Store into a profile; the engine asks first.
 	func install(_ identifier: String, inProfile profileID: String) {
-		browser.withContext(profileID) { [weak self] context in
+		browser.contexts.with(profileID) { [weak self] context in
 			guard let self, let context else {
 				return
 			}
@@ -142,15 +142,15 @@ final class ExtensionsController {
 	}
 
 	func setEnabled(_ extensionID: String, _ enabled: Bool, inProfile profileID: String) {
-		browser.context(for: profileID)?.setEnabled(enabled, forExtension: extensionID)
+		browser.contexts[profileID]?.setEnabled(enabled, forExtension: extensionID)
 	}
 
 	func setPinned(_ extensionID: String, _ pinned: Bool, inProfile profileID: String) {
-		browser.context(for: profileID)?.setPinned(pinned, forExtension: extensionID)
+		browser.contexts[profileID]?.setPinned(pinned, forExtension: extensionID)
 	}
 
 	func uninstall(_ extensionID: String, inProfile profileID: String) {
-		browser.context(for: profileID)?.uninstallExtension(extensionID)
+		browser.contexts[profileID]?.uninstallExtension(extensionID)
 	}
 
 	// Details' Site access pop-up. The engine changes it at once, so Details
@@ -158,7 +158,7 @@ final class ExtensionsController {
 	// specific sites, chosen from another, asks for a site first, as
 	// Chrome's details page does: it holds none yet.
 	func setSiteAccess(_ extensionID: String, _ access: ExtensionSiteAccess, inProfile profileID: String) {
-		guard let context = browser.context(for: profileID) else {
+		guard let context = browser.contexts[profileID] else {
 			return
 		}
 
@@ -191,7 +191,7 @@ final class ExtensionsController {
 	// specific sites; a site Chrome refuses keeps the dialog, with its
 	// message.
 	func addSite() {
-		guard let dialog = addingSite, !dialog.site.isEmpty, let context = browser.context(for: dialog.profileID) else {
+		guard let dialog = addingSite, !dialog.site.isEmpty, let context = browser.contexts[dialog.profileID] else {
 			return
 		}
 
@@ -210,13 +210,13 @@ final class ExtensionsController {
 
 	// A site's ×; with none left, the extension runs on click.
 	func removeSite(_ site: String, of extensionID: String, inProfile profileID: String) {
-		browser.context(for: profileID)?.removeSite(site, fromExtension: extensionID)
+		browser.contexts[profileID]?.removeSite(site, fromExtension: extensionID)
 		refreshDetails()
 	}
 
 	// Details' Allow access to file URLs; the engine reloads the extension.
 	func setFileAccess(_ extensionID: String, _ allowed: Bool, inProfile profileID: String) {
-		browser.context(for: profileID)?.setAllowsFileAccess(allowed, forExtension: extensionID)
+		browser.contexts[profileID]?.setAllowsFileAccess(allowed, forExtension: extensionID)
 		refreshDetails()
 	}
 
@@ -345,7 +345,7 @@ final class ExtensionsController {
 		refreshDetails()
 		browser.showPage(.extensions)
 
-		browser.context(for: profileID)?.size(ofExtension: extensionID) { [weak self] size in
+		browser.contexts[profileID]?.size(ofExtension: extensionID) { [weak self] size in
 			guard let self, details?.extensionID == extensionID, details?.profileID == profileID else {
 				return
 			}
@@ -363,7 +363,7 @@ final class ExtensionsController {
 	// What the engine holds of the shown extension now; the list once it is
 	// removed.
 	private func refreshDetails() {
-		guard let shown = details, let context = browser.context(for: shown.profileID) else {
+		guard let shown = details, let context = browser.contexts[shown.profileID] else {
 			return
 		}
 
@@ -381,7 +381,7 @@ final class ExtensionsController {
 	// What the dialog lists, as chrome://extensions/shortcuts does: the
 	// profile's enabled extensions that have commands, each with them.
 	func shortcutCommands(_ profileID: String) -> [ExtensionCommands] {
-		guard let context = browser.context(for: profileID) else {
+		guard let context = browser.contexts[profileID] else {
 			return []
 		}
 
@@ -415,7 +415,7 @@ final class ExtensionsController {
 			return
 		}
 
-		if shortcuts?.recording == nil, let profileID = model.activeProfileID, let context = browser.context(for: profileID) {
+		if shortcuts?.recording == nil, let profileID = model.activeProfileID, let context = browser.contexts[profileID] {
 			context.setExtensionShortcutsSuspended(true, in: browser.browserWindow)
 			pausedContext = context
 		}
@@ -522,7 +522,7 @@ final class ExtensionsController {
 	// the extension whose command had the key, if any.
 	@discardableResult
 	func setShortcut(_ shortcut: String, of field: CommandField, inProfile profileID: String) -> String? {
-		let movedFrom = browser.context(for: profileID)?.setShortcut(shortcut, ofCommand: field.command, extension: field.extensionID)
+		let movedFrom = browser.contexts[profileID]?.setShortcut(shortcut, ofCommand: field.command, extension: field.extensionID)
 
 		if shortcuts?.profileID == profileID {
 			shortcuts?.extensions = shortcutCommands(profileID)

@@ -1,6 +1,6 @@
 import PaneCore
 
-// A profile's context the engine is opening (withContext: from the wait for
+// A profile's context the engine is opening (ProfileContexts.with: from the wait for
 // the volume to the proxy set on it) or deleting. A lock that comes first
 // waits for it: an opened context closes for that lock instead.
 @MainActor

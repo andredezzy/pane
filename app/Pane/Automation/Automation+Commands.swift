@@ -142,7 +142,7 @@ extension Automation {
 	private func openContext(_ command: AutomationCommand) throws -> BrowserContext {
 		let profileID = try command.string("profile")
 
-		guard let context = controller.context(for: profileID) else {
+		guard let context = controller.contexts[profileID] else {
 			throw AutomationError("profile \(profileID) is not open")
 		}
 
