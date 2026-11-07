@@ -5,8 +5,10 @@ import { WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// A page that crashes again right after its automatic reload shows the
-// app's sad tab, not Chrome's; its Reload, or the toolbar's, brings it back.
+// The selected tab's renderer dies: the app hears of it and reloads the page,
+// which comes back new and working. A page that crashes again right after that
+// reload shows the app's sad tab, not Chrome's; its Reload, or the toolbar's,
+// brings it back.
 const sadTab: Scenario = async (context) => {
 	const { app, trace } = await launchTraced(context, "sad-tab");
 	const watcher = new WindowWatcher(app).start();
@@ -26,6 +28,19 @@ const sadTab: Scenario = async (context) => {
 
 		for (let crash = before + 1; crash <= before + 2; crash++) {
 			const page = await app.page(tab, url);
+
+			expect(
+				(await page.evaluate("window.beforeCrash")) === undefined,
+				"the crash did not reload the page",
+			);
+
+			expect(
+				(await page.evaluate<string>("document.title")) === "Crash me",
+				"the page did not come back",
+			);
+
+			await page.evaluate("window.beforeCrash = true");
+			// The renderer dies before it can answer, so the reply never comes.
 			page.send("Page.crash").catch(() => {});
 
 			await poll(

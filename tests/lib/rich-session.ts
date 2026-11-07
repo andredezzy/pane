@@ -2,7 +2,7 @@
 // profile signed in, with history, Local and Session Storage, IndexedDB with
 // blobs, CacheStorage, a service worker, the origin private file system with a
 // sync access handle, a download, and an extension, each holding a value of its
-// own, random, for files-inventory and files-encrypted to look for on disk.
+// own, random, for files-encrypted to look for on disk.
 import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

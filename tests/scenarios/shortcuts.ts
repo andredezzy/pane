@@ -246,6 +246,7 @@ const shortcuts: Scenario = async (context) => {
 	// ⌃⇥ opens the switcher on the previous tab; releasing Control picks it.
 	await press("\t", "control");
 	await app.waitFor("⌃⇥", (state) => state.switcher.visible);
+	await app.render("switcher.png");
 	await app.send("releaseModifiers");
 
 	const switched = await app.waitFor(

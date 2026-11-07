@@ -1,45 +1,26 @@
 import { launchPane, tabOf } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
-// The address bar's progress behaves as Chrome's toolbar's (the user's call:
-// exactly as a stable browser's; ToolbarProgress, from Chromium's
-// ToolbarProgressBar). A load shows at once at its real progress, at least 5%,
-// fading in. A tab come forward with no load hides the bar at once; one
-// mid-load shows its own progress. Five quiet seconds start the slow mode's
-// shimmer. A finished load fills the bar, holds 100 ms, and fades out.
+// The address bar's progress follows the app's tabs and the engine's loads:
+// the rules of the bar are ToolbarProgressTests'. A load shows at once, fading
+// in. A tab come forward with no load hides the bar at once, and one mid-load
+// shows its own progress. A finished load fills the bar and fades it out.
 const progressBar: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Progress");
-	const idleURL = context.fixtures.url("nav-a.html");
-	const idle = await app.openTab(profile, idleURL);
 
-	await app.waitFor(
-		"the first tab loaded",
-		(state) =>
-			tabOf(state, idle)?.url === idleURL &&
-			tabOf(state, idle)?.loading === false,
+	const { tab: idle } = await app.openPage(
+		profile,
+		context.fixtures.url("nav-a.html"),
 	);
 
-	const busyURL = context.fixtures.url("light.html");
-	const busy = await app.openTab(profile, busyURL);
-
-	await app.waitFor(
-		"the second tab loaded",
-		(state) =>
-			tabOf(state, busy)?.url === busyURL &&
-			tabOf(state, busy)?.loading === false,
+	const { tab: busy } = await app.openPage(
+		profile,
+		context.fixtures.url("light.html"),
 	);
 
-	// A finished load: hidden.
-	const rest = await app.waitFor(
-		"the bar gone",
-		(state) => state.progressBar.alpha === 0,
-	);
-
-	expect(!rest.progressBar.started, "the bar stayed started after a load");
-
-	// A navigation the server holds 9 s: the bar shows at once, at its start.
-	const slowURL = context.fixtures.url("nav-b.html?delay=9000");
+	// A navigation the server holds 3 s: the bar shows at once, at its start.
+	const slowURL = context.fixtures.url("nav-b.html?delay=3000");
 	await app.send("navigate", { input: slowURL });
 
 	const started = await app.waitFor(
@@ -76,28 +57,12 @@ const progressBar: Scenario = async (context) => {
 		`back on the loading tab: ${JSON.stringify(back.progressBar)}`,
 	);
 
-	// Five seconds with no news: the slow mode's shimmer.
-	const backAt = Date.now();
-
-	await app.waitFor(
-		"the slow mode",
-		(state) => state.progressBar.shimmer,
-		8_000,
-	);
-
-	const slowMs = Date.now() - backAt;
-
-	expect(
-		slowMs >= 4_800,
-		`the slow mode began ${slowMs} ms after the last news, before 5 s`,
-	);
-
 	// The load ends: the bar fills, then fades out.
 	await app.waitFor(
 		"the bar full",
 		(state) =>
 			tabOf(state, busy)?.loading === false && state.progressBar.progress === 1,
-		12_000,
+		6_000,
 	);
 
 	await app.waitFor(
