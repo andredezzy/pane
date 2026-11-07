@@ -80,10 +80,7 @@ const profileSheet: Scenario = async (context) => {
 		const plain = await app.createProfile("Plain", "ZINC");
 		const plainURL = context.fixtures.url("nav-a.html?plain");
 
-		const plainPage = await app.page(
-			await app.openTab(plain, plainURL),
-			plainURL,
-		);
+		const { page: plainPage } = await app.openPage(plain, plainURL);
 
 		const realWebGL = await plainPage.evaluate<{
 			vendor: string;
@@ -109,11 +106,7 @@ const profileSheet: Scenario = async (context) => {
 		const render = async (name: string) => {
 			for (const theme of ["light", "dark"]) {
 				await app.send("theme", { theme });
-				await Bun.sleep(300);
-
-				await app.send("render", {
-					path: join(context.out, `${name}-${theme}.png`),
-				});
+				await app.render(`${name}-${theme}.png`);
 			}
 
 			await app.send("theme", { theme: "system" });

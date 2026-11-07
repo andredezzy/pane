@@ -10,8 +10,7 @@ const pageLoading: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Loading");
 	const url = context.fixtures.url("widget.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	await app.waitFor(
 		"the page loaded",

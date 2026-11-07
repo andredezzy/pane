@@ -15,15 +15,11 @@ const popupNewTab: Scenario = async (context) => {
 	);
 
 	const url = context.fixtures.url("popup.html");
-	const opener = await app.openTab(profile, url);
-	const page = await app.page(opener, url);
+	const { tab: opener, page } = await app.openPage(profile, url);
 	const viaLink = context.fixtures.url("popup-target.html?via=link");
 	const viaOpen = context.fixtures.url("popup-target.html?via=open");
 
-	await page.send("Runtime.evaluate", {
-		expression: "document.getElementById('blank').click()",
-		userGesture: true,
-	});
+	await page.gesture("document.getElementById('blank').click()");
 
 	await app.waitFor("the link's tab", (state) =>
 		state.profiles.some((p) => p.tabs.some((tab) => tab.url === viaLink)),
@@ -31,10 +27,7 @@ const popupNewTab: Scenario = async (context) => {
 
 	await app.send("select", { tab: opener });
 
-	await page.send("Runtime.evaluate", {
-		expression: "openPopup()",
-		userGesture: true,
-	});
+	await page.gesture("openPopup()");
 
 	const afterOpen = await app.waitFor("the popup's tab", (state) =>
 		state.profiles.some((p) =>

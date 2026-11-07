@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
-import { workerPage } from "../lib/extensions";
+import { extensionId, workerPage } from "../lib/extensions";
 import type { AppState } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { answerSheet, waitForSheet } from "../lib/surfaces";
@@ -36,16 +36,9 @@ const extensionDetails: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Details");
 	const url = context.fixtures.url("light.html?extension-details");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	await app.openPage(profile, url);
 
-	const loaded = await app.waitFor("the probe extension", (state) =>
-		(state.extensions[profile] ?? []).some((item) => item.name === NAME),
-	);
-
-	const id = (loaded.extensions[profile] ?? []).find(
-		(item) => item.name === NAME,
-	)?.id as string;
+	const id = await extensionId(app, profile, NAME);
 
 	const worker = await workerPage(app, id, url);
 
@@ -88,11 +81,7 @@ const extensionDetails: Scenario = async (context) => {
 		`Details reads ${JSON.stringify(shown)}`,
 	);
 
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-light.png"),
-	});
+	await app.render("extension-details-light.png");
 
 	// Site access, as its pop-up sets it.
 	const setAccess = async (
@@ -144,11 +133,7 @@ const extensionDetails: Scenario = async (context) => {
 		`asking for a site, Details reads ${details(asked)?.siteAccess}`,
 	);
 
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-add-site-light.png"),
-	});
+	await app.render("extension-details-add-site-light.png");
 
 	await app.send("cancelAddExtensionSite");
 
@@ -177,11 +162,7 @@ const extensionDetails: Scenario = async (context) => {
 		(state) => state.addingSite?.invalid === true,
 	);
 
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-add-site-invalid-light.png"),
-	});
+	await app.render("extension-details-add-site-invalid-light.png");
 
 	// example.com is added, On specific sites: the probe has it, and no
 	// other site.
@@ -225,28 +206,16 @@ const extensionDetails: Scenario = async (context) => {
 		current.includes(pageSite),
 	);
 
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-specific-light.png"),
-	});
+	await app.render("extension-details-specific-light.png");
 
 	// The list and Add a site in the dark theme.
 	await app.send("theme", { theme: "dark" });
 	await app.waitFor("dark", (state) => /dark/i.test(state.appearance));
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-specific-dark.png"),
-	});
+	await app.render("extension-details-specific-dark.png");
 
 	await app.send("showAddExtensionSite", { id, profile });
 	await app.waitFor("Add a site, dark", (state) => state.addingSite !== null);
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-add-site-dark.png"),
-	});
+	await app.render("extension-details-add-site-dark.png");
 
 	await app.send("cancelAddExtensionSite");
 	await app.send("theme", { theme: "light" });
@@ -315,11 +284,7 @@ const extensionDetails: Scenario = async (context) => {
 		(state) => state.page === "extensions" && state.extensionDetails === null,
 	);
 
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-list-light.png"),
-	});
+	await app.render("extension-details-list-light.png");
 
 	await app.send("showPage", { page: "browser" });
 	await app.send("extensionsMenu", { control: "viewWebPermissions", id });
@@ -341,11 +306,7 @@ const extensionDetails: Scenario = async (context) => {
 			details(state)?.size != null,
 	);
 
-	await Bun.sleep(300);
-
-	await app.send("render", {
-		path: join(context.out, "extension-details-dark.png"),
-	});
+	await app.render("extension-details-dark.png");
 
 	await app.send("theme", { theme: "light" });
 

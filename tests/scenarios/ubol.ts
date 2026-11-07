@@ -22,8 +22,7 @@ const ubol: Scenario = async (context) => {
 	await installFromWebStore(app, profile, UBLOCK_LITE);
 
 	const blank = context.fixtures.url("isolation.html?ubol");
-	const tab = await app.openTab(profile, blank);
-	const page = await app.page(tab, blank);
+	const { page } = await app.openPage(profile, blank);
 	await page.send("Network.enable");
 
 	// Each request's URLs, redirects included, and how it ended.

@@ -200,8 +200,7 @@ const sidebarReorder: Scenario = async (context) => {
 	const tabIDs: string[] = [];
 
 	for (const url of urls) {
-		const tab = await app.openTab(bravo, url);
-		await app.page(tab, url);
+		const { tab } = await app.openPage(bravo, url);
 		tabIDs.push(tab);
 	}
 

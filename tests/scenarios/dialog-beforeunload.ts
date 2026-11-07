@@ -10,8 +10,7 @@ const dialogBeforeUnload: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Dialogs");
 	const url = context.fixtures.url("dialogs.html?kind=beforeunload");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	// Chrome asks only on a page the user interacted with.
 	await page.evaluate("armBeforeUnload()");

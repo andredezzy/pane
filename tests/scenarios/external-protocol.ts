@@ -9,8 +9,7 @@ const externalProtocol: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Protocols");
 	const url = context.fixtures.url("external.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 
 	const box = await page.evaluate<{ x: number; y: number }>(
 		"(() => { const r = document.getElementById('mail').getBoundingClientRect(); return { x: r.left + 5, y: r.top + 5 }; })()",

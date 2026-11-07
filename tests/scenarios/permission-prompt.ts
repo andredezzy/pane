@@ -17,14 +17,10 @@ const permissionPrompt: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Permissions");
 	const url = context.fixtures.url("permissions.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 	const evaluate = (expression: string) => page.evaluate(expression);
 
-	await page.send("Runtime.evaluate", {
-		expression: "askNotifications()",
-		userGesture: true,
-	});
+	await page.gesture("askNotifications()");
 
 	const notifications = await waitForSheet(app, "permission");
 
@@ -36,19 +32,13 @@ const permissionPrompt: Scenario = async (context) => {
 	await answerSheet(app, "Don’t Allow");
 	const denied = await pageResult<string>(evaluate);
 
-	await page.send("Runtime.evaluate", {
-		expression: "askWindowManagement()",
-		userGesture: true,
-	});
+	await page.gesture("askWindowManagement()");
 
 	await waitForSheet(app, "permission");
 	await answerSheet(app, "Allow");
 	const allowed = await pageResult<string>(evaluate);
 
-	await page.send("Runtime.evaluate", {
-		expression: "askIdle()",
-		userGesture: true,
-	});
+	await page.gesture("askIdle()");
 
 	const idleDetection = await waitForSheet(app, "permission");
 
@@ -66,10 +56,7 @@ const permissionPrompt: Scenario = async (context) => {
 
 	// Esc dismisses, as Chrome's prompt closed does: the page gets no fonts
 	// (an empty list, not an error), and the site may ask again.
-	await page.send("Runtime.evaluate", {
-		expression: "askFonts()",
-		userGesture: true,
-	});
+	await page.gesture("askFonts()");
 
 	await waitForSheet(app, "permission");
 	await app.send("activate");
@@ -88,7 +75,7 @@ const permissionPrompt: Scenario = async (context) => {
 	// The site's next page: what was kept.
 	await app.send("closeTab", { tab });
 	const next = context.fixtures.url("permissions.html?next");
-	const nextPage = await app.page(await app.openTab(profile, next), next);
+	const { page: nextPage } = await app.openPage(profile, next);
 
 	const kept = {
 		notifications: await nextPage.evaluate<string>("stateOf('notifications')"),

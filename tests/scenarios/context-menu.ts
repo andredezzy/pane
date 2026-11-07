@@ -4,7 +4,7 @@ import {
 	clipboardText,
 	saveClipboard,
 } from "../lib/pasteboard";
-import { poll } from "../lib/poll";
+import { poll, pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -21,8 +21,7 @@ const contextMenu: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Menus");
 	const url = context.fixtures.url("context.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	const send = (method: string, params?: Record<string, unknown>) =>
 		page.send(method, params);
@@ -111,20 +110,14 @@ const contextMenu: Scenario = async (context) => {
 
 		await app.send("chooseContextMenuItem", { title: suggestion });
 
-		let text = "";
-		const until = Date.now() + 5_000;
-
-		while (Date.now() < until) {
-			text = await page.evaluate<string>(
-				"document.getElementById('text').innerText.trim()",
-			);
-
-			if (text !== "Pane recieve") {
-				break;
-			}
-
-			await Bun.sleep(100);
-		}
+		const text = await pollValue(
+			() =>
+				page.evaluate<string>(
+					"document.getElementById('text').innerText.trim()",
+				),
+			(current) => current !== "Pane recieve",
+			5_000,
+		);
 
 		expect(
 			text === `Pane ${suggestion}`,

@@ -12,8 +12,7 @@ const fileChooser: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Files");
 	const url = context.fixtures.url("files.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 	const evaluate = (expression: string) => page.evaluate(expression);
 	const folder = context.tempDir("pane-files-");
 	const chosen = join(folder, "chosen.txt");
@@ -51,10 +50,7 @@ const fileChooser: Scenario = async (context) => {
 		"document.getElementById('file').files[0]?.name ?? null",
 	);
 
-	await page.send("Runtime.evaluate", {
-		expression: "saveFile()",
-		userGesture: true,
-	});
+	await page.gesture("saveFile()");
 
 	await cancel();
 	const saveCancelled = await pageResult<{ error?: string }>(evaluate);
@@ -70,10 +66,7 @@ const fileChooser: Scenario = async (context) => {
 	// The save panel, answered through its own name field and Save.
 	const target = join(folder, "pane-saved.txt");
 
-	await page.send("Runtime.evaluate", {
-		expression: "saveFile()",
-		userGesture: true,
-	});
+	await page.gesture("saveFile()");
 
 	const savePanel = await waitForSheet(app, "fileChooser");
 	expect(savePanel.panel === "save", `panel ${savePanel.panel}`);

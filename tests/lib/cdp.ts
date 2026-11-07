@@ -223,6 +223,19 @@ export class Page {
 		return result.value as T;
 	}
 
+	// Runs `expression` as a user's click would, with its gesture. Waits only
+	// for what it starts unless `settled`: a file panel holds its promise.
+	gesture<T = Record<string, unknown>>(
+		expression: string,
+		settled = false,
+	): Promise<T> {
+		return this.send<T>("Runtime.evaluate", {
+			expression,
+			userGesture: true,
+			awaitPromise: settled,
+		});
+	}
+
 	async navigate(url: string): Promise<void> {
 		const loaded = this.cdp.waitFor(
 			"Page.loadEventFired",

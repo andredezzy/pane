@@ -10,8 +10,7 @@ const volumeUnindexed: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Spotlight");
 	const url = context.fixtures.url("smoke.html?spotlight");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	await app.openPage(profile, url);
 
 	const mount = join(app.dataDir, "Engine", "Volume");
 

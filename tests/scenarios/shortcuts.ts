@@ -1,5 +1,5 @@
 import { tabOf } from "../lib/pane";
-import { poll } from "../lib/poll";
+import { poll, pollValue } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -25,8 +25,7 @@ const shortcuts: Scenario = async (context) => {
 	const profile = await app.createProfile("Keys");
 	const a = context.fixtures.url("nav-a.html");
 	const b = context.fixtures.url("nav-b.html");
-	const tabA = await app.openTab(profile, a);
-	await app.page(tabA, a);
+	const { tab: tabA } = await app.openPage(profile, a);
 
 	// ⌘T: a new tab in the active profile, with the address field focused.
 	await press("t", "command");
@@ -201,11 +200,12 @@ const shortcuts: Scenario = async (context) => {
 		const count = zoomLevels().length;
 		await press(key, "command");
 
-		const deadline = Date.now() + 5_000;
-
-		while (zoomLevels().length === count && Date.now() < deadline) {
-			await Bun.sleep(50);
-		}
+		await pollValue(
+			() => zoomLevels().length,
+			(length) => length !== count,
+			5_000,
+			50,
+		);
 
 		const entry = zoomLevels()[count];
 
@@ -227,13 +227,7 @@ const shortcuts: Scenario = async (context) => {
 			const expected = (value: number) =>
 				Math.sign(value - base) === Math.sign(entry.args.after);
 
-			const until = Date.now() + 5_000;
-			pageRatio = await ratio();
-
-			while (!expected(pageRatio) && Date.now() < until) {
-				await Bun.sleep(100);
-				pageRatio = await ratio();
-			}
+			pageRatio = await pollValue(ratio, expected, 5_000);
 
 			expect(
 				expected(pageRatio),

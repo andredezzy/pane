@@ -14,8 +14,7 @@ const sidebarResize: Scenario = async (context) => {
 	const first = await launchPane(context, { dataDir });
 	const profile = await first.createProfile("Resize");
 	const url = context.fixtures.url("light.html?resize");
-	const tab = await first.openTab(profile, url);
-	await first.page(tab, url);
+	const { tab } = await first.openPage(profile, url);
 
 	// The list fades at its edges as it scrolls (ADR 0061): enough tabs to
 	// scroll, drawn at the top and scrolled.

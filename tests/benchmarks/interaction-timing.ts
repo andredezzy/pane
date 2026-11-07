@@ -54,8 +54,7 @@ const interactionTiming: Scenario = async (context) => {
 
 	for (const name of ["Mail", "Docs", "Calendar", "News", "Music"]) {
 		const url = context.fixtures.url(`switcher.html?name=${name}`);
-		const tab = await app.openTab(profile, url);
-		await app.page(tab, url);
+		const { tab } = await app.openPage(profile, url);
 		tabs.push(tab);
 	}
 

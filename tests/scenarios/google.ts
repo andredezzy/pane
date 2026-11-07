@@ -1,4 +1,5 @@
 import { type PaneApp, tabOf } from "../lib/pane";
+import { pollValue } from "../lib/poll";
 import { waitForPage } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -53,20 +54,15 @@ async function identifierPage(app: PaneApp, profile: string) {
 		(info) => info.url.startsWith("https://accounts.google.com/"),
 	);
 
-	const deadline = Date.now() + 20_000;
-	let report = { url: "", identifier: false, title: "" };
-
-	while (Date.now() < deadline) {
-		report = await page.evaluate<typeof report>(
-			`({ url: location.href, identifier: !!document.querySelector('input[type="email"], #identifierId'), title: document.title })`,
-		);
-
-		if (report.identifier) {
-			break;
-		}
-
-		await Bun.sleep(500);
-	}
+	const report = await pollValue(
+		() =>
+			page.evaluate<{ url: string; identifier: boolean; title: string }>(
+				`({ url: location.href, identifier: !!document.querySelector('input[type="email"], #identifierId'), title: document.title })`,
+			),
+		(current) => current.identifier,
+		20_000,
+		500,
+	);
 
 	return {
 		url: new URL(report.url),

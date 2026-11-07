@@ -1,5 +1,6 @@
 import { $ } from "bun";
 import { launchPane } from "../lib/pane";
+import { pollValue } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
 // The theme setting drives the app's appearance and the pages' color scheme.
@@ -7,8 +8,7 @@ const theme: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Theme");
 	const url = context.fixtures.url("theme.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 
 	const systemIsDark =
 		(
@@ -21,18 +21,15 @@ const theme: Scenario = async (context) => {
 
 		await app.send("theme", { theme: value });
 
-		const deadline = Date.now() + 10_000;
-		let pageDark = !expectedDark;
-
-		while (pageDark !== expectedDark && Date.now() < deadline) {
-			pageDark = await page.evaluate<boolean>(
-				"matchMedia('(prefers-color-scheme: dark)').matches",
-			);
-
-			if (pageDark !== expectedDark) {
-				await Bun.sleep(200);
-			}
-		}
+		const pageDark = await pollValue(
+			() =>
+				page.evaluate<boolean>(
+					"matchMedia('(prefers-color-scheme: dark)').matches",
+				),
+			(dark) => dark === expectedDark,
+			10_000,
+			200,
+		);
 
 		expect(
 			pageDark === expectedDark,

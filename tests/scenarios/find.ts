@@ -6,8 +6,7 @@ const find: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Find");
 	const url = context.fixtures.url("find.html");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	await app.openPage(profile, url);
 
 	await app.send("find", { text: "needle" });
 

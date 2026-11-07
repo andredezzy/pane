@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { workerPage } from "../lib/extensions";
+import { extensionId, workerPage } from "../lib/extensions";
 import type { MenuItemState } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { clickAt, launchTraced } from "../lib/traced";
@@ -45,16 +45,9 @@ const extensionContextMenus: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Menus");
 	const url = context.fixtures.url("context.html?extension-context-menus");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 
-	const loaded = await app.waitFor("the probe extension", (state) =>
-		(state.extensions[profile] ?? []).some((item) => item.name === NAME),
-	);
-
-	const id = (loaded.extensions[profile] ?? []).find(
-		(item) => item.name === NAME,
-	)?.id as string;
+	const id = await extensionId(app, profile, NAME);
 
 	const worker = await workerPage(app, id, url);
 
@@ -279,9 +272,7 @@ const extensionContextMenus: Scenario = async (context) => {
 
 	// A page it can't run on: data: is no scheme host permissions cover.
 	const data = "data:text/plain,no-sites";
-	const unreachable = await app.openTab(profile, data);
-
-	await app.page(unreachable, data);
+	await app.openPage(profile, data);
 
 	const cantAccess = (await app.send<ActionMenu>("extensionActionMenu", { id }))
 		.result.siteAccess;

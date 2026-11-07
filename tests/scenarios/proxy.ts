@@ -104,8 +104,7 @@ const proxy: Scenario = async (context) => {
 
 		const carriedBefore = http.log.length + socks.log.length;
 		const pageB = context.fixtures.url("proxy-check.html?direct");
-		const tabB = await app.openTab(b, pageB);
-		const directB = await app.page(tabB, pageB);
+		const { page: directB } = await app.openPage(b, pageB);
 		const carriedAfter = http.log.length + socks.log.length;
 
 		// WebRTC: A sends all UDP to its proxy, which means none; B hides its

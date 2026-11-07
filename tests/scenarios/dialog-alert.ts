@@ -13,8 +13,7 @@ const dialogAlert: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Dialogs");
 	const url = context.fixtures.url("dialogs.html?kind=alert");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 
 	await page.evaluate("runAlert()");
 	const sheet = await waitForSheet(app, "javaScript");

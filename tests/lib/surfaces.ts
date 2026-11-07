@@ -6,6 +6,7 @@
 import { expect } from "../run";
 import { canDriveUI, clickButton, fillFields, mainWindowOf } from "./cua";
 import type { AppState, PaneApp } from "./pane";
+import { poll } from "./poll";
 
 export type Answer = { button: string; via: "cua" | "automation" };
 
@@ -112,17 +113,9 @@ export async function pageResult<T>(
 	evaluate: (expression: string) => Promise<unknown>,
 	timeoutMs = 10_000,
 ): Promise<T> {
-	const deadline = Date.now() + timeoutMs;
-
-	while (Date.now() < deadline) {
-		const value = await evaluate("window.result").catch(() => undefined);
-
-		if (value !== undefined && value !== null) {
-			return value as T;
-		}
-
-		await Bun.sleep(100);
-	}
-
-	throw new Error("the page never reported a result");
+	return poll(
+		"the page to report a result",
+		() => evaluate("window.result").catch(() => undefined) as Promise<T>,
+		timeoutMs,
+	);
 }

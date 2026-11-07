@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { workerPage } from "../lib/extensions";
+import { extensionId, workerPage } from "../lib/extensions";
 import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { targets } from "../lib/targets";
@@ -22,22 +22,12 @@ const tabDiscard: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Discard");
 	const backURL = context.fixtures.url("nav-a.html?discard-background");
-	const back = await app.openTab(profile, backURL);
-	const backPage = await app.page(back, backURL);
+	const { tab: back, page: backPage } = await app.openPage(profile, backURL);
 	await backPage.evaluate("window.loadedOnce = true");
 	const frontURL = context.fixtures.url("nav-b.html?discard-front");
-	const front = await app.openTab(profile, frontURL);
-	await app.page(front, frontURL);
+	await app.openPage(profile, frontURL);
 
-	const loaded = await app.waitFor("the probe extension", (state) =>
-		(state.extensions[profile] ?? []).some(
-			(item) => item.name === "Pane tabs API probe",
-		),
-	);
-
-	const id = (loaded.extensions[profile] ?? []).find(
-		(item) => item.name === "Pane tabs API probe",
-	)?.id as string;
+	const id = await extensionId(app, profile, "Pane tabs API probe");
 
 	const worker = await workerPage(app, id, frontURL);
 

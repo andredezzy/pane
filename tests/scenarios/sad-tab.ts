@@ -1,5 +1,6 @@
 import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { tabOf } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -27,13 +28,12 @@ const sadTab: Scenario = async (context) => {
 			const page = await app.page(tab, url);
 			page.send("Page.crash").catch(() => {});
 
-			const deadline = Date.now() + 15_000;
-
-			while (crashes() < crash && Date.now() < deadline) {
-				await Bun.sleep(150);
-			}
-
-			expect(crashes() >= crash, `crash ${crash} was not reported`);
+			await poll(
+				`crash ${crash} to be reported`,
+				() => crashes() >= crash,
+				15_000,
+				150,
+			);
 		}
 
 		return app.waitFor("the sad tab", (state) =>

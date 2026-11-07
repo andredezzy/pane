@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { extensionId } from "../lib/extensions";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { isRunning } from "../lib/processes";
@@ -155,8 +156,7 @@ const historyScenario: Scenario = async (context) => {
 	// A page and a download in the profile; the page's tab.
 	const browse = async (app: PaneApp, profile: string, query: string) => {
 		const url = pageURL(query);
-		const tab = await app.openTab(profile, url);
-		await app.page(tab, url);
+		const { tab } = await app.openPage(profile, url);
 
 		await app.waitFor(
 			`the icon of ${query}`,
@@ -169,8 +169,7 @@ const historyScenario: Scenario = async (context) => {
 		).length;
 
 		const fileURL = fixtureURL("downloads.html", query);
-		const fileTab = await app.openTab(profile, fileURL);
-		const filePage = await app.page(fileTab, fileURL);
+		const { page: filePage } = await app.openPage(profile, fileURL);
 		await app.send("setDownloadDirectory", { profile, path: downloads });
 		await filePage.evaluate("document.getElementById('file').click()");
 
@@ -218,18 +217,10 @@ const historyScenario: Scenario = async (context) => {
 
 	// An extension asks to add a page, in each.
 	const addPage = async (profile: string, added: string) => {
-		const loaded = await app.waitFor("the probe extension", (state) =>
-			(state.extensions[profile] ?? []).some(
-				(item) => item.name === "Pane history probe",
-			),
-		);
-
-		const id = (loaded.extensions[profile] ?? []).find(
-			(item) => item.name === "Pane history probe",
-		)?.id;
+		const id = await extensionId(app, profile, "Pane history probe");
 
 		const url = `chrome-extension://${id}/probe.html?${added}`;
-		const page = await app.page(await app.openTab(profile, url), url);
+		const { page } = await app.openPage(profile, url);
 
 		await page.evaluate(
 			`chrome.history.addUrl({ url: ${JSON.stringify(added)} })`,
@@ -439,7 +430,7 @@ const historyScenario: Scenario = async (context) => {
 	const reopened = await second.state();
 	await engineOf(second, off);
 	const quitURL = pageURL("after-quit");
-	await second.page(await second.openTab(keeps, quitURL), quitURL);
+	await second.openPage(keeps, quitURL);
 	const namedAfterQuit = await namedBy(keeps, "keeps");
 
 	expect(

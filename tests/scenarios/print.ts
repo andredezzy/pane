@@ -9,8 +9,7 @@ const print: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Print");
 	const url = context.fixtures.url("print.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 
 	await page.evaluate("startPrint()");
 

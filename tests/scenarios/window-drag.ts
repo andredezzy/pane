@@ -14,7 +14,7 @@ const windowDrag: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Drag");
 	const url = context.fixtures.url("smoke.html?drag");
-	await app.page(await app.openTab(profile, url), url);
+	await app.openPage(profile, url);
 
 	const frame = (await app.state()).window.frame;
 

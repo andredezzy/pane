@@ -3,6 +3,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { canDriveUI, invokeMenu } from "../lib/cua";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
+import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
 // The update check against a stand-in for GitHub's latest release (ADR 0002,
@@ -21,23 +22,6 @@ const DMG = `Pane-${VERSION}-arm64.dmg`;
 // Pane quarantines what it writes (LSFileQuarantineEnabled).
 const quarantined = (file: string) =>
 	spawnSync("xattr", ["-p", "com.apple.quarantine", file]).status === 0;
-
-// Whether the process quit within `ms`.
-async function quitWithin(pid: number, ms: number) {
-	const deadline = Date.now() + ms;
-
-	while (Date.now() < deadline) {
-		try {
-			process.kill(pid, 0);
-		} catch {
-			return true;
-		}
-
-		await Bun.sleep(100);
-	}
-
-	return false;
-}
 
 // The update's state every 25 ms for `ms`: a blink shows between samples.
 async function sample(app: PaneApp, ms: number) {
@@ -85,7 +69,7 @@ const updates: Scenario = async (context) => {
 		`offered ${offered.update.available}`,
 	);
 
-	await app.send("render", { path: join(context.out, "update-pill.png") });
+	await app.render("update-pill.png", 0);
 
 	// A check while the update is on offer (the app menu's) leaves the pill
 	// up: it blinked for the check's 0.8 s.
@@ -169,7 +153,7 @@ const updates: Scenario = async (context) => {
 
 	const pid = app.browser.pid;
 	await app.send("downloadUpdate").catch(() => undefined);
-	const quit = await quitWithin(pid, 30_000);
+	const quit = await waitForExit(pid, 30_000);
 
 	expect(
 		quit && readdirSync(downloads).length === 1,
@@ -262,11 +246,7 @@ const updates: Scenario = async (context) => {
 	);
 
 	await current.send("showPage", { page: "settings" });
-	await Bun.sleep(300);
-
-	await current.send("render", {
-		path: join(context.out, "update-settings.png"),
-	});
+	await current.render("update-settings.png");
 };
 
 export default updates;

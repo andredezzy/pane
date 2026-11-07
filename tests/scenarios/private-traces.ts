@@ -46,8 +46,7 @@ const privateTraces: Scenario = async (context) => {
 
 	// A download.
 	const url = context.fixtures.url("downloads.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 	const directory = context.tempDir("pane-traces-downloads-");
 	await app.send("setDownloadDirectory", { profile, path: directory });
 	await page.evaluate("document.getElementById('file').click()");
@@ -67,8 +66,12 @@ const privateTraces: Scenario = async (context) => {
 
 	// A renderer's crash, which the app reloads.
 	const crashURL = context.fixtures.url("crash.html");
-	const crashTab = await app.openTab(profile, crashURL);
-	const crashPage = await app.page(crashTab, crashURL);
+
+	const { tab: crashTab, page: crashPage } = await app.openPage(
+		profile,
+		crashURL,
+	);
+
 	crashPage.send("Page.crash").catch(() => {});
 
 	await app.waitFor(

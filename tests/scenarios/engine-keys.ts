@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { engineKey, keyForms } from "../lib/engine-key";
 import { setUpPin, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
+import { helperPid } from "../lib/processes";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -36,8 +37,8 @@ const engineKeys: Scenario = async (context) => {
 	const profile = await app.createProfile("Keys");
 	const { port } = new URL(context.fixtures.origin);
 	const url = `http://keys.localhost:${port}/smoke.html`;
-	const tab = await app.openTab(profile, url);
-	let page = await app.page(tab, url);
+	const { tab, page: firstPage } = await app.openPage(profile, url);
+	let page = firstPage;
 
 	await page.evaluate(
 		`document.cookie = "kept=cookie-value; max-age=86400"; localStorage.setItem("kept", "storage-value")`,
@@ -72,18 +73,7 @@ const engineKeys: Scenario = async (context) => {
 		}
 	}
 
-	const pidOf = async (kind: string) =>
-		Number(
-			(await Bun.$`ps -axo pid=,args=`.text())
-				.split("\n")
-				.find(
-					(row) =>
-						row.includes(kind) &&
-						row.includes(dataDir.replace(/^\/private/, "")),
-				)
-				?.trim()
-				.split(/\s+/)[0],
-		);
+	const pidOf = (kind: string) => helperPid(dataDir, kind);
 
 	const readBack = async () =>
 		page.evaluate<{ cookie: string; storage: string | null }>(

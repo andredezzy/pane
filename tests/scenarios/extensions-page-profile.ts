@@ -21,8 +21,7 @@ const extensionsPageProfile: Scenario = async (context) => {
 	const alpha = await app.createProfile("Alpha");
 	const bravo = await app.createProfile("Bravo", "ROSE");
 	const url = context.fixtures.url("light.html?extensions-page-profile");
-	const tab = await app.openTab(alpha, url);
-	await app.page(tab, url);
+	await app.openPage(alpha, url);
 
 	await app.send("extensionsMenu", { control: "manage" });
 

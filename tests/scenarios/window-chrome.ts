@@ -21,8 +21,7 @@ const windowChrome: Scenario = async (context) => {
 	const profile = await app.createProfile("Chrome");
 	const a = context.fixtures.url("nav-a.html");
 	const b = context.fixtures.url("nav-b.html");
-	const tab = await app.openTab(profile, a);
-	await app.page(tab, a);
+	const { tab } = await app.openPage(profile, a);
 
 	await app.send("navigate", { input: b });
 

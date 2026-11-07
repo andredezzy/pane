@@ -36,8 +36,7 @@ const sleep: Scenario = async (context) => {
 	// B signs in and caches, then stays hidden.
 	const b = await app.createProfile("Signed in", "VIOLET");
 	const signIn = context.fixtures.url("sign-in");
-	const b1 = await app.openTab(b, signIn);
-	const signedIn = await app.page(b1, signIn);
+	const { tab: b1, page: signedIn } = await app.openPage(b, signIn);
 	await signedIn.evaluate("window.ready");
 
 	await app.send("readCacheSize", { profile: b });
@@ -80,12 +79,11 @@ const sleep: Scenario = async (context) => {
 
 	// A tone no one hears, which Chrome counts as sound.
 	const audioURL = context.fixtures.url("audio.html");
-	const a4 = await app.openTab(a, audioURL);
-	const audio = await app.page(a4, audioURL);
+	const { tab: a4, page: audio } = await app.openPage(a, audioURL);
 
-	const playing = await audio.send<{ result: { value?: string } }>(
-		"Runtime.evaluate",
-		{ expression: "play()", userGesture: true, awaitPromise: true },
+	const playing = await audio.gesture<{ result: { value?: string } }>(
+		"play()",
+		true,
 	);
 
 	expect(

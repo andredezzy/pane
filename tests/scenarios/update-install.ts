@@ -9,6 +9,8 @@ import {
 import { dirname, join } from "node:path";
 import { $ } from "bun";
 import { launchPane, type PaneApp } from "../lib/pane";
+import { pollValue } from "../lib/poll";
+import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
 // Pane installing its own update (ADR 0092), against a stand-in release whose
@@ -102,8 +104,12 @@ const updateInstall: Scenario = async (context) => {
 		await restart.app.send("restartToUpdate").catch(() => undefined);
 		await exited(pid);
 
-		const reopened = await waitForFile(
-			join(restart.app.dataDir, "reopened"),
+		const reopenedFile = join(restart.app.dataDir, "reopened");
+
+		const reopened = await pollValue(
+			() =>
+				existsSync(reopenedFile) ? readFileSync(reopenedFile, "utf8") : "",
+			(text) => text !== "",
 			15_000,
 		);
 
@@ -290,43 +296,10 @@ function leftovers(bundle: string): string[] {
 	);
 }
 
-async function exited(pid: number) {
-	const deadline = Date.now() + 30_000;
-
-	while (Date.now() < deadline) {
-		try {
-			process.kill(pid, 0);
-		} catch {
-			return;
-		}
-
-		await Bun.sleep(100);
-	}
-
-	throw new Error(`Pane (${pid}) did not quit`);
-}
-
-async function waitForFile(path: string, timeoutMs: number): Promise<string> {
-	const deadline = Date.now() + timeoutMs;
-
-	while (Date.now() < deadline) {
-		if (existsSync(path)) {
-			return readFileSync(path, "utf8");
-		}
-
-		await Bun.sleep(100);
-	}
-
-	return "";
-}
+const exited = async (pid: number) =>
+	expect(await waitForExit(pid, 30_000), `Pane (${pid}) did not quit`);
 
 // The shell removes the old bundle once Pane has exited: a moment after.
-async function settle(done: () => boolean) {
-	const deadline = Date.now() + 5_000;
-
-	while (!done() && Date.now() < deadline) {
-		await Bun.sleep(100);
-	}
-}
+const settle = (done: () => boolean) => pollValue(done, (gone) => gone, 5_000);
 
 export default updateInstall;

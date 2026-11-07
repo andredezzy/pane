@@ -1,6 +1,6 @@
 import { stats } from "../lib/benchmark";
 import type { Page } from "../lib/cdp";
-import { workerPage } from "../lib/extensions";
+import { extensionId, workerPage } from "../lib/extensions";
 import { launchPane, type PaneApp, type PaneLaunch } from "../lib/pane";
 import { sessionFolders } from "../lib/rich-session";
 import type { Scenario } from "../run";
@@ -41,17 +41,7 @@ const summary = (values: number[]) => ({
 const EXTENSION_NAME = "Pane rich session probe";
 
 async function extensionWorker(app: PaneApp, profile: string, url: string) {
-	const state = await app.waitFor("the probe extension", (current) =>
-		(current.extensions[profile] ?? []).some(
-			(item) => item.name === EXTENSION_NAME,
-		),
-	);
-
-	const id = (state.extensions[profile] ?? []).find(
-		(item) => item.name === EXTENSION_NAME,
-	)?.id as string;
-
-	return workerPage(app, id, url);
+	return workerPage(app, await extensionId(app, profile, EXTENSION_NAME), url);
 }
 
 // The first navigation's time to its first byte: cookies load before its
@@ -77,8 +67,7 @@ const benchmarkStores: Scenario = async (context) => {
 
 	const first = await launchPane(context, launch);
 	const profile = await first.createProfile("Stores");
-	const tab = await first.openTab(profile, page);
-	const storePage = await first.page(tab, page);
+	const { page: storePage } = await first.openPage(profile, page);
 	const worker = await extensionWorker(first, profile, page);
 
 	// History: filled through the extension API, which writes as a visit does.
@@ -146,8 +135,7 @@ const benchmarkStores: Scenario = async (context) => {
 
 	// The sites' pages, for the repeat visits after a relaunch to load from.
 	const visit = async (app: PaneApp, url: string) => {
-		const opened = await app.openTab(profile, url);
-		const loaded = await app.page(opened, url);
+		const { tab: opened, page: loaded } = await app.openPage(profile, url);
 		const timing = await navigationTiming(loaded);
 		await app.send("closeTab", { tab: opened });
 
@@ -175,8 +163,7 @@ const benchmarkStores: Scenario = async (context) => {
 	for (let run = 0; run < RELAUNCHES; run++) {
 		const app = await launchPane(context, launch);
 		const url = `${page}?relaunch=${run}`;
-		const opened = await app.openTab(profile, url);
-		const loaded = await app.page(opened, url);
+		const { page: loaded } = await app.openPage(profile, url);
 		firstRequest.push((await navigationTiming(loaded)).responseStart);
 
 		localStorageFirstRead.push(

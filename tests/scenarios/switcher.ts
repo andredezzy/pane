@@ -50,8 +50,7 @@ const switcher: Scenario = async (context) => {
 		"selection should start at the previous tab",
 	);
 
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "switcher.png") });
+	await app.render("switcher.png");
 
 	if (!(await canDriveUI())) {
 		context.defer("the switcher as the screen shows it");

@@ -1,3 +1,4 @@
+import { pollValue } from "./poll";
 import { swiftTool } from "./tools";
 
 export type WindowList = {
@@ -11,7 +12,7 @@ export type WindowList = {
 };
 
 // On-screen, normal-layer windows owned by the given processes.
-export async function windowsOf(...pids: number[]): Promise<WindowList> {
+async function windowsOf(...pids: number[]): Promise<WindowList> {
 	const binary = await swiftTool("windows");
 
 	return JSON.parse(await Bun.$`${binary} ${pids.map(String)}`.text());
@@ -24,15 +25,12 @@ export async function settledWindowsOf(
 	expected: number,
 	timeoutMs = 5_000,
 ): Promise<WindowList> {
-	const deadline = Date.now() + timeoutMs;
-	let list = await windowsOf(pid);
-
-	while (list.count !== expected && Date.now() < deadline) {
-		await Bun.sleep(250);
-		list = await windowsOf(pid);
-	}
-
-	return list;
+	return pollValue(
+		() => windowsOf(pid),
+		(list) => list.count === expected,
+		timeoutMs,
+		250,
+	);
 }
 
 // How much detail a region of a PNG has (fractions of its size): the

@@ -9,22 +9,15 @@ const screenCapture: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Capture");
 	const url = context.fixtures.url("devices.html?capture");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 	const evaluate = (expression: string) => page.evaluate(expression);
 
-	await page.send("Runtime.evaluate", {
-		expression: "askScreen()",
-		userGesture: true,
-	});
+	await page.gesture("askScreen()");
 
 	const screen = await pageResult<string>(evaluate);
 	await watcher.sample();
 
-	await page.send("Runtime.evaluate", {
-		expression: "askCast()",
-		userGesture: true,
-	});
+	await page.gesture("askCast()");
 
 	const cast = await pageResult<string>(evaluate, 20_000);
 	await watcher.sample();

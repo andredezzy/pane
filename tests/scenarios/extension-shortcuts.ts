@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { canDriveUI, mainWindowOf, readControl } from "../lib/cua";
-import { workerPage } from "../lib/extensions";
+import { extensionId, workerPage } from "../lib/extensions";
 import type { AppState, ExtensionCommands } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
@@ -40,21 +40,10 @@ const extensionShortcuts: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Shortcuts");
 	const url = context.fixtures.url("light.html?extension-shortcuts");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	const { tab } = await app.openPage(profile, url);
 
-	const loaded = await app.waitFor("the probe extensions", (state) =>
-		[NAME, SECOND_NAME].every((name) =>
-			(state.extensions[profile] ?? []).some((item) => item.name === name),
-		),
-	);
-
-	const idOf = (name: string) =>
-		(loaded.extensions[profile] ?? []).find((item) => item.name === name)
-			?.id as string;
-
-	const id = idOf(NAME);
-	const secondID = idOf(SECOND_NAME);
+	const id = await extensionId(app, profile, NAME);
+	const secondID = await extensionId(app, profile, SECOND_NAME);
 
 	const worker = await workerPage(app, id, url);
 	const secondWorker = await workerPage(app, secondID, url);
@@ -169,11 +158,7 @@ const extensionShortcuts: Scenario = async (context) => {
 
 	const render = async (name: string) => {
 		// Past the hover's and the panel's 0.15 s.
-		await Bun.sleep(300);
-
-		await app.send("render", {
-			path: join(context.out, `extension-shortcuts-${name}.png`),
-		});
+		await app.render(`extension-shortcuts-${name}.png`);
 	};
 
 	// The header's Keyboard shortcuts, for the profile the page lists.

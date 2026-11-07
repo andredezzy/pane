@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ScenarioContext } from "../run";
 import type { Page } from "./cdp";
-import { workerPage } from "./extensions";
+import { extensionId, workerPage } from "./extensions";
 import type { AuditRoots, Planted } from "./file-audit";
 import { launchPane, type PaneApp, type PaneLaunch } from "./pane";
 
@@ -189,15 +189,11 @@ export async function richSession(
 	await page.evaluate(STORE(values));
 
 	// The extension's own storage, its LevelDB, and its service worker.
-	const extension = await app.waitFor("the session's extension", (state) =>
-		(state.extensions[profile] ?? []).some(
-			(item) => item.name === "Pane rich session probe",
-		),
+	const extensionID = await extensionId(
+		app,
+		profile,
+		"Pane rich session probe",
 	);
-
-	const extensionID = (extension.extensions[profile] ?? []).find(
-		(item) => item.name === "Pane rich session probe",
-	)?.id as string;
 
 	const worker = await workerPage(app, extensionID, url);
 

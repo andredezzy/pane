@@ -439,6 +439,23 @@ export class PaneApp {
 		throw new Error(`no page target for tab ${tabID} at ${url}`);
 	}
 
+	// A tab at `url`, once loaded, and its page.
+	async openPage(
+		profile: string,
+		url: string,
+	): Promise<{ tab: string; page: Page }> {
+		const tab = await this.openTab(profile, url);
+
+		return { tab, page: await this.page(tab, url) };
+	}
+
+	// Draws the window to `file` in the run's output, a moment after what
+	// changed has settled.
+	async render(file: string, settleMs = 300): Promise<void> {
+		await Bun.sleep(settleMs);
+		await this.send("render", { path: join(this.out, file) });
+	}
+
 	async quit(): Promise<void> {
 		await this.send("quit").catch(() => {});
 	}

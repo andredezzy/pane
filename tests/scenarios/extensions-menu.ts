@@ -5,11 +5,10 @@ import {
 	mainWindowOf,
 	windowState,
 } from "../lib/cua";
+import { DARK_READER } from "../lib/extensions";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
 import { answerSheet, waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
-
-const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
 // The toolbar's puzzle opens the extensions menu, as Aside's (Paper: 03.9
 // Browser · Extensions): Manage all extensions opens the Extensions page,
@@ -153,16 +152,14 @@ const extensionsMenu: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Extensions");
 	const url = context.fixtures.url("light.html?extensions-menu");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	const { tab } = await app.openPage(profile, url);
 
 	const item = (state: AppState) =>
 		(state.extensions[profile] ?? []).find((each) => each.id === DARK_READER);
 
 	// None installed: the puzzle still shows, and the menu says so.
 	await openMenu(app, locked);
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "menu-empty.png") });
+	await app.render("menu-empty.png");
 
 	// Esc closes it.
 	await app.send("key", { key: "\u001b" });
@@ -197,8 +194,7 @@ const extensionsMenu: Scenario = async (context) => {
 
 	// The install popup, under the puzzle (the extension has no button yet).
 	const adding = await waitForSheet(app, "extensionInstall", 60_000);
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "install-popup.png") });
+	await app.render("install-popup.png");
 	await answerSheet(app, adding.buttons?.[0] ?? "Add extension");
 
 	const installed = await app.waitFor(
@@ -240,8 +236,7 @@ const extensionsMenu: Scenario = async (context) => {
 		(state) => item(state)?.pinned === true && state.extensionsMenu,
 	);
 
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "menu-light.png") });
+	await app.render("menu-light.png");
 
 	// As the screen shows it, over the page.
 	if (locked) {
@@ -287,8 +282,7 @@ const extensionsMenu: Scenario = async (context) => {
 		(state) => state.extensionMoreMenu === DARK_READER,
 	);
 
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "more-menu.png") });
+	await app.render("more-menu.png");
 
 	await pressInMoreMenu(
 		app,
@@ -309,8 +303,7 @@ const extensionsMenu: Scenario = async (context) => {
 	await app.send("theme", { theme: "dark" });
 	await app.send("select", { tab });
 	const opened = await openMenu(app, locked);
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "menu-dark.png") });
+	await app.render("menu-dark.png");
 
 	// A click lands in the key window, as the user's would: the app comes
 	// forward first (pressing with CUA does not make it key). While another
@@ -356,8 +349,7 @@ const extensionsMenu: Scenario = async (context) => {
 	);
 
 	const removing = await waitForSheet(app, "extensionRemove");
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "remove-popup.png") });
+	await app.render("remove-popup.png");
 
 	expect(
 		removing.title === `Remove \u201C${name}\u201D?` &&

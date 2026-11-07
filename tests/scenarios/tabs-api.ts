@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { popupPage, workerPage } from "../lib/extensions";
+import { extensionId, popupPage, workerPage } from "../lib/extensions";
 import { bringToFront } from "../lib/pane";
 import { pageResult, WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
@@ -23,18 +23,9 @@ const tabsApi: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Extensions");
 	const url = context.fixtures.url("nav-a.html?tabs-api");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	const { tab } = await app.openPage(profile, url);
 
-	const loaded = await app.waitFor("the probe extension", (state) =>
-		(state.extensions[profile] ?? []).some(
-			(item) => item.name === "Pane tabs API probe",
-		),
-	);
-
-	const id = (loaded.extensions[profile] ?? []).find(
-		(item) => item.name === "Pane tabs API probe",
-	)?.id as string;
+	const id = await extensionId(app, profile, "Pane tabs API probe");
 
 	// From the popup, which also asks the worker.
 	await app.send("runExtensionAction", { id });

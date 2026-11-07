@@ -9,8 +9,7 @@ const devtools: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("DevTools");
 	const url = context.fixtures.url("nav-a.html?devtools");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	const { tab } = await app.openPage(profile, url);
 
 	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
 

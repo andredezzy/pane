@@ -1,11 +1,10 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { DARK_READER } from "../lib/extensions";
 import type { AppState, ExtensionState } from "../lib/pane";
 import { waitForSheet } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
-
-const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
 // Each profile has its own extensions: one installed in a profile lists,
 // pins, enables, and removes there only, and lives in that profile's data
@@ -18,8 +17,7 @@ const extensionsPerProfile: Scenario = async (context) => {
 	const first = await app.createProfile("First");
 	const second = await app.createProfile("Second", "EMERALD");
 	const firstURL = context.fixtures.url("light.html?first");
-	const firstTab = await app.openTab(first, firstURL);
-	await app.page(firstTab, firstURL);
+	await app.openPage(first, firstURL);
 
 	const item = (state: AppState, profile: string): ExtensionState | undefined =>
 		(state.extensions[profile] ?? []).find((each) => each.id === DARK_READER);
@@ -53,8 +51,7 @@ const extensionsPerProfile: Scenario = async (context) => {
 
 	// The second profile opens beside it, with no extension of its own.
 	const secondURL = context.fixtures.url("light.html?second");
-	const secondTab = await app.openTab(second, secondURL);
-	await app.page(secondTab, secondURL);
+	const { tab: secondTab } = await app.openPage(second, secondURL);
 	await app.send("select", { tab: secondTab });
 
 	await app.waitFor(

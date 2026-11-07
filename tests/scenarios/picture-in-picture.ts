@@ -16,18 +16,13 @@ const pictureInPicture: Scenario = async (context) => {
 
 	const profile = await app.createProfile("PiP");
 	const url = context.fixtures.url("pip.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	await page.evaluate(
 		"new Promise((resolve) => video.readyState >= 1 ? resolve() : video.addEventListener('loadedmetadata', resolve))",
 	);
 
-	await page.send("Runtime.evaluate", {
-		expression: "video.requestPictureInPicture()",
-		userGesture: true,
-		awaitPromise: true,
-	});
+	await page.gesture("video.requestPictureInPicture()", true);
 
 	await app.waitFor("picture-in-picture", (state) =>
 		state.pictureInPictureTabs.includes(tab),

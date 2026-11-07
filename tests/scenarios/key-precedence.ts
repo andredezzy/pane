@@ -66,7 +66,7 @@ const keyPrecedence: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Keys");
 	const url = context.fixtures.url("smoke.html?keys");
-	await app.page(await app.openTab(profile, url), url);
+	await app.openPage(profile, url);
 
 	const orders: Record<string, Showing[]> = {};
 

@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { canDriveUI, dialogFieldWidths, mainWindowOf } from "../lib/cua";
 import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
@@ -49,9 +48,7 @@ const httpAuth: Scenario = async (context) => {
 
 		// Drawn by the app, not captured from the screen: macOS's AutoFill
 		// can float a one-time code from the user's Messages over the field.
-		await app.send("render", {
-			path: join(context.out, "http-auth-sheet.png"),
-		});
+		await app.render("http-auth-sheet.png", 0);
 
 		expect(
 			wide(fields),

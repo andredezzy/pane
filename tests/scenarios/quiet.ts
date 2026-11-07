@@ -31,7 +31,7 @@ const quiet: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Quiet", "BLUE");
 	const url = context.fixtures.url("nav-a.html?quiet");
-	await app.page(await app.openTab(profile, url), url);
+	await app.openPage(profile, url);
 	await Bun.sleep(30_000);
 	await app.browser.close();
 

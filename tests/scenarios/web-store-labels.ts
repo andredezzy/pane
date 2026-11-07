@@ -1,13 +1,12 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { openPage, type Page } from "../lib/cdp";
+import { DARK_READER, installById } from "../lib/extensions";
 import { poll } from "../lib/poll";
-import { answerSheet, waitForSheet } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 const STORE = "https://chromewebstore.google.com";
 
 type Button = { text: string; install: boolean };
@@ -172,18 +171,7 @@ const webStoreLabels: Scenario = async (context) => {
 	// Installing redraws the button as the remove button.
 	await page.navigate(`${item}?hl=en`);
 	await installLabel(/^Add to Pane$/, "Add to Pane before installing");
-	await app.send("installExtension", { id: DARK_READER, profile });
-	const sheet = await waitForSheet(app, "extensionInstall", 60_000);
-	await answerSheet(app, sheet.buttons?.[0] ?? "Add extension");
-
-	await app.waitFor(
-		"Dark Reader installed",
-		(state) =>
-			(state.extensions[profile] ?? []).some(
-				(installed) => installed.id === DARK_READER && installed.enabled,
-			),
-		120_000,
-	);
+	await installById(app, profile, DARK_READER);
 
 	// Dark Reader opens its welcome tab; the store's tab is the one to show.
 	await app.send("select", { tab });

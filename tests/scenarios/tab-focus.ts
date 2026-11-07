@@ -10,10 +10,8 @@ const tabFocus: Scenario = async (context) => {
 	const profile = await app.createProfile("Focus");
 	const a = context.fixtures.url("nav-a.html");
 	const b = context.fixtures.url("nav-b.html");
-	const first = await app.openTab(profile, a);
-	await app.page(first, a);
-	const second = await app.openTab(profile, b);
-	await app.page(second, b);
+	const { tab: first } = await app.openPage(profile, a);
+	const { tab: second } = await app.openPage(profile, b);
 
 	await app.waitFor(
 		"both loaded",

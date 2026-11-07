@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { sealProfiles } from "../lib/engine-key";
 import { launchPane, tabOf } from "../lib/pane";
-import { poll } from "../lib/poll";
+import { poll, pollValue } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { targets as targetsOf } from "../lib/targets";
 import { clickAt, launchTraced } from "../lib/traced";
@@ -30,16 +30,14 @@ const profileLifecycle: Scenario = async (context) => {
 		"a first launch should have no profiles",
 	);
 
-	await app.send("render", { path: join(context.out, "empty-state.png") });
+	await app.render("empty-state.png", 0);
 
 	const keep = await app.createProfile("Keep", "EMERALD");
 	const gone = await app.createProfile("Gone", "ROSE");
 	const keepURL = context.fixtures.url("isolation.html?profile=keep");
 	const goneURL = context.fixtures.url("dialogs.html?profile=gone");
-	const keepTab = await app.openTab(keep, keepURL);
-	await app.page(keepTab, keepURL);
-	const goneTab = await app.openTab(gone, goneURL);
-	const gonePage = await app.page(goneTab, goneURL);
+	const { tab: keepTab } = await app.openPage(keep, keepURL);
+	const { page: gonePage } = await app.openPage(gone, goneURL);
 	await gonePage.evaluate("localStorage.pane = 'gone'");
 	// A page that asks before it goes, once the user touched it.
 	await gonePage.evaluate("armBeforeUnload()");
@@ -68,18 +66,11 @@ const profileLifecycle: Scenario = async (context) => {
 		"Keep is still expanded",
 	);
 
-	const deadline = Date.now() + 10_000;
-
-	while (
-		(await targets()).some((target) => target.url === keepURL) &&
-		Date.now() < deadline
-	) {
-		await Bun.sleep(200);
-	}
-
-	expect(
-		!(await targets()).some((target) => target.url === keepURL),
-		"the unloaded tab's page still exists",
+	await poll(
+		"the unloaded tab's page to go",
+		async () => !(await targets()).some((target) => target.url === keepURL),
+		10_000,
+		200,
 	);
 
 	// Selecting the tab again loads it.
@@ -154,11 +145,12 @@ const profileLifecycle: Scenario = async (context) => {
 		(state) => state.security.data.attached,
 	);
 
-	const until = Date.now() + 20_000;
-
-	while (existsSync(profileDir) && Date.now() < until) {
-		await Bun.sleep(250);
-	}
+	await pollValue(
+		() => existsSync(profileDir),
+		(left) => !left,
+		20_000,
+		250,
+	);
 
 	await relaunched.browser.close();
 

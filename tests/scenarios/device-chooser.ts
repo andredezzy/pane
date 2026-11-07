@@ -9,15 +9,11 @@ const deviceChooser: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Devices");
 	const url = context.fixtures.url("devices.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 	const answers: Record<string, string> = {};
 
 	for (const ask of ["askUsb", "askHid", "askSerial"]) {
-		await page.send("Runtime.evaluate", {
-			expression: `${ask}()`,
-			userGesture: true,
-		});
+		await page.gesture(`${ask}()`);
 
 		answers[ask] = await pageResult<string>((expression) =>
 			page.evaluate(expression),

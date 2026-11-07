@@ -2,7 +2,12 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, setUpPin, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { imagesAttachedIn, waitForExit } from "../lib/processes";
+import {
+	imagesAttachedIn,
+	mountedAt,
+	pgrep,
+	waitForExit,
+} from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
 // Pane locks while open (ADR 0116, Paper 06.4 and 07.9). Lock Pane shows the
@@ -20,14 +25,7 @@ const lockWhileOpen: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lock-");
 	const mountPoint = join(dataDir, "Engine", "Volume");
 
-	const mounted = async () => {
-		const table = await Bun.$`/sbin/mount`.text();
-
-		return (
-			table.includes(` on ${mountPoint} `) ||
-			table.includes(` on /private${mountPoint} `)
-		);
-	};
+	const mounted = () => mountedAt(mountPoint);
 
 	const app = await launchPane(context, {
 		dataDir,
@@ -39,8 +37,7 @@ const lockWhileOpen: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Work", "BLUE");
 	const url = context.fixtures.url("sign-in");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 	await page.evaluate("window.ready");
 
 	// A download under way: 4 MB over 4 s, from the release stand-in.
@@ -117,14 +114,7 @@ const lockWhileOpen: Scenario = async (context) => {
 	);
 
 	const watchdogs = async () =>
-		(
-			await Bun.$`/usr/bin/pgrep -f ${`pane-volume-watch ${app.browser.pid} `}`
-				.quiet()
-				.nothrow()
-				.text()
-		)
-			.split("\n")
-			.filter(Boolean).length;
+		(await pgrep("-f", `pane-volume-watch ${app.browser.pid} `)).length;
 
 	expect(
 		(await watchdogs()) === 1,

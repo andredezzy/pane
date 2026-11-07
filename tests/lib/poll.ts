@@ -28,3 +28,22 @@ export async function poll<T>(
 		await Bun.sleep(intervalMs);
 	}
 }
+
+// The last value of `probe`, once `done` holds of it or past `timeoutMs`: for
+// a check that then fails with the value in its message.
+export async function pollValue<T>(
+	probe: () => Promise<T> | T,
+	done: (value: T) => boolean,
+	timeoutMs = 10_000,
+	intervalMs = 100,
+): Promise<T> {
+	const deadline = Date.now() + timeoutMs;
+	let value = await probe();
+
+	while (!done(value) && Date.now() <= deadline) {
+		await Bun.sleep(intervalMs);
+		value = await probe();
+	}
+
+	return value;
+}

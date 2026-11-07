@@ -1,4 +1,5 @@
 import { launchPane } from "../lib/pane";
+import { helperPid } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
@@ -34,29 +35,16 @@ const memoryGuarded: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile(planted);
 	const url = context.fixtures.url("smoke.html?memory");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 
 	await page.evaluate(
 		`localStorage.setItem("memory", ${JSON.stringify(planted)}); document.cookie = "memory=${planted}; max-age=9000"`,
 	);
 
-	const rows = (await Bun.$`ps -axo pid=,args=`.text())
-		.split("\n")
-		.filter((row) => row.includes(app.dataDir.replace(/^\/private/, "")));
-
-	const pidOf = (kind: string) =>
-		Number(
-			rows
-				.find((row) => row.includes(kind))
-				?.trim()
-				.split(/\s+/)[0],
-		);
-
 	const processes = {
 		browser: app.browser.pid,
-		network: pidOf("network.mojom.NetworkService"),
-		storage: pidOf("storage.mojom.StorageService"),
+		network: await helperPid(app.dataDir, "network.mojom.NetworkService"),
+		storage: await helperPid(app.dataDir, "storage.mojom.StorageService"),
 	};
 
 	expect(

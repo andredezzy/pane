@@ -10,8 +10,7 @@ const dialogFormResubmission: Scenario = async (context) => {
 	const profile = await app.createProfile("Dialogs");
 	const url = context.fixtures.url("form.html");
 	const echo = context.fixtures.url("echo");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	await page.evaluate("document.getElementById('form').submit()");
 

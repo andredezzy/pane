@@ -56,7 +56,7 @@ const crlset: Scenario = async (context) => {
 		// A first page, whose paint ends startup.
 		const profile = await app.createProfile("Certificates");
 		const first = context.fixtures.url("light.html?crlset");
-		await app.page(await app.openTab(profile, first), first);
+		await app.openPage(profile, first);
 
 		await waitForEntry("PaneEngine.crlSetApplied", () => true, 60_000);
 

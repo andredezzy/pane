@@ -7,12 +7,11 @@ import {
 	mainWindowOf,
 	windowState,
 } from "../lib/cua";
+import { DARK_READER, installById } from "../lib/extensions";
 import type { AppState, ExtensionState } from "../lib/pane";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
-
-const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
 // The Extensions page manages a profile's extensions: an install declined
 // at its prompt installs nothing; install by Web Store ID (pinned to the
@@ -25,8 +24,7 @@ const extensionManagement: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Manage");
 	const url = context.fixtures.url("light.html?manage");
-	const tab = await app.openTab(profile, url);
-	await app.page(tab, url);
+	await app.openPage(profile, url);
 
 	const locked = !(await canDriveUI());
 	const pid = app.browser.pid;
@@ -86,17 +84,7 @@ const extensionManagement: Scenario = async (context) => {
 	// Install by its Web Store ID, as the Web Store's install button (Add to Pane) does (the
 	// page has no field for it; dark-reader presses the store's own button),
 	// then accept the app's install sheet.
-	await app.send("installExtension", { id: DARK_READER, profile });
-
-	const sheet = await waitForSheet(app, "extensionInstall", 60_000);
-
-	await answerSheet(app, sheet.buttons?.[0] ?? "Add extension");
-
-	const installed = await app.waitFor(
-		"Dark Reader installed",
-		(state) => item(state)?.enabled === true,
-		120_000,
-	);
+	const installed = await installById(app, profile, DARK_READER);
 
 	// A new extension is pinned (Chromium's default since 157), so its button
 	// shows in the toolbar as every extension's did in the Electron app.

@@ -11,8 +11,7 @@ const downloads: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Downloads");
 	const url = context.fixtures.url("downloads.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	const directory = context.tempDir("pane-downloads-");
 	await app.send("setDownloadDirectory", { profile, path: directory });

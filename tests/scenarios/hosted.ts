@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { canDriveUI, invokeMenu, mainWindowOf, windowState } from "../lib/cua";
-import { isRunning, waitForExit } from "../lib/processes";
+import { isRunning, pgrep, waitForExit } from "../lib/processes";
 import { waitForTarget } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { imageDetail, settledWindowsOf } from "../lib/windows";
@@ -8,13 +8,6 @@ import { expect, type Scenario } from "../run";
 
 const URL = "https://example.com/";
 const TITLE = "Example Domain";
-
-// The app's helper processes: its children.
-async function helpersOf(pid: number): Promise<number[]> {
-	const output = await Bun.$`pgrep -P ${pid}`.quiet().nothrow().text();
-
-	return output.split("\n").filter(Boolean).map(Number);
-}
 
 // Phase 1: the Pane app hosts the engine. One window of the app's own, the
 // page reported as a DevTools page, the app↔engine traffic in the trace, and
@@ -89,7 +82,7 @@ const hosted: Scenario = async (context) => {
 		`the page area is blank (luminance deviation ${detail.deviation})`,
 	);
 
-	const helpersBefore = await helpersOf(browser.pid);
+	const helpersBefore = await pgrep("-P", String(browser.pid));
 	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility. It
 	// asks first (Quit Pane?); choosing it again quits, as ⌘Q again does.
 	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);

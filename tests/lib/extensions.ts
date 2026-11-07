@@ -12,8 +12,46 @@ import {
 	windowState,
 } from "./cua";
 import type { AppState, PaneApp } from "./pane";
+import { poll } from "./poll";
 import { type Answer, answerSheet, waitForSheet } from "./surfaces";
 import { targets, waitForTarget } from "./targets";
+
+export const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
+
+// The id of the extension called `name`, once `profile` lists it.
+export async function extensionId(
+	app: PaneApp,
+	profile: string,
+	name: string,
+): Promise<string> {
+	const state = await app.waitFor(`the extension ${name}`, (current) =>
+		(current.extensions[profile] ?? []).some((item) => item.name === name),
+	);
+
+	return (state.extensions[profile] ?? []).find((item) => item.name === name)
+		?.id as string;
+}
+
+// Installs by its Web Store id, as the store's own button does, and accepts
+// the app's install sheet: the state once it is enabled.
+export async function installById(
+	app: PaneApp,
+	profile: string,
+	id: string,
+): Promise<AppState> {
+	await app.send("installExtension", { id, profile });
+	const sheet = await waitForSheet(app, "extensionInstall", 60_000);
+	await answerSheet(app, sheet.buttons?.[0] ?? "Add extension");
+
+	return app.waitFor(
+		`${id} installed`,
+		(state) =>
+			(state.extensions[profile] ?? []).some(
+				(item) => item.id === id && item.enabled,
+			),
+		120_000,
+	);
+}
 
 export type Installed = {
 	id: string;
@@ -50,14 +88,12 @@ export async function installFromWebStore(
 	const button =
 		"[...document.querySelectorAll('button')].find((b) => /Add to Pane/i.test(b.innerText))";
 
-	const deadline = Date.now() + 30_000;
-
-	while (
-		!(await page.evaluate<boolean>(`!!${button}`)) &&
-		Date.now() < deadline
-	) {
-		await Bun.sleep(500);
-	}
+	await poll(
+		`the Add to Pane button of ${id}`,
+		() => page.evaluate<boolean>(`!!${button}`),
+		30_000,
+		500,
+	);
 
 	// The real button: a CUA click on an unlocked screen; else a click with a
 	// user gesture, which the Web Store's install API requires.

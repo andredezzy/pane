@@ -13,8 +13,7 @@ const dialogConfirm: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Dialogs");
 	const url = context.fixtures.url("dialogs.html?kind=confirm");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { page } = await app.openPage(profile, url);
 	const evaluate = (expression: string) => page.evaluate(expression);
 
 	await page.evaluate("runConfirm()");

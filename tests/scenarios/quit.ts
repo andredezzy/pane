@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { launchPane, type PaneApp } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
@@ -18,7 +17,7 @@ async function press(app: PaneApp, key: string): Promise<void> {
 
 async function focusedPage(app: PaneApp, url: string): Promise<void> {
 	const profile = await app.createProfile("Quit");
-	await app.page(await app.openTab(profile, url), url);
+	await app.openPage(profile, url);
 	await app.send("activate");
 	await app.waitFor("the key window", (state) => state.window.key, 10_000);
 	await app.send("clickPage", { x: 20, y: 20 });
@@ -48,8 +47,7 @@ const quit: Scenario = async (context) => {
 
 	await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 
-	await Bun.sleep(300);
-	await app.send("render", { path: join(context.out, "quit-light.png") });
+	await app.render("quit-light.png");
 
 	await press(app, "\u001b");
 
@@ -73,8 +71,7 @@ const quit: Scenario = async (context) => {
 
 	await dark.send("key", { key: "q", modifiers: ["command"] });
 	await dark.waitFor("Quit Pane?", (state) => state.quitConfirmation);
-	await Bun.sleep(300);
-	await dark.send("render", { path: join(context.out, "quit-dark.png") });
+	await dark.render("quit-dark.png");
 
 	await dark.send("key", { key: "q", modifiers: ["command"] });
 	const quitByCommandQ = await waitForExit(dark.browser.pid);

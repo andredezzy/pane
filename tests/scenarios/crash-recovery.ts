@@ -9,8 +9,7 @@ const crashRecovery: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Crash");
 	const url = context.fixtures.url("crash.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	await page.evaluate("window.__beforeCrash = true");
 	// The renderer dies before it can answer, so the reply never comes.

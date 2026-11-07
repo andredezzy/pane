@@ -1,6 +1,7 @@
 // The browser's DevTools targets (pages, popups, workers, DevTools itself),
 // found by what they show, and attached to.
 import { type Cdp, openPage, type Page } from "./cdp";
+import { poll } from "./poll";
 
 export type Target = {
 	targetId: string;
@@ -22,19 +23,12 @@ export async function waitForTarget(
 	matches: (target: Target) => boolean,
 	timeoutMs = 30_000,
 ): Promise<Target> {
-	const deadline = Date.now() + timeoutMs;
-
-	while (Date.now() < deadline) {
-		const found = (await targets(cdp)).find(matches);
-
-		if (found) {
-			return found;
-		}
-
-		await Bun.sleep(250);
-	}
-
-	throw new Error(`no target: ${description}`);
+	return poll(
+		`a target: ${description}`,
+		async () => (await targets(cdp)).find(matches),
+		timeoutMs,
+		250,
+	);
 }
 
 // Attaches to the first page target that `matches`, once there is one.

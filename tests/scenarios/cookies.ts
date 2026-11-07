@@ -8,7 +8,7 @@ const cookies: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Cookies");
 	const url = context.fixtures.url("cookie-attributes");
-	await app.page(await app.openTab(profile, url), url);
+	await app.openPage(profile, url);
 
 	const setAt = Date.now() / 1000;
 	await app.send("readCookies", { profile });

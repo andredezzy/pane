@@ -39,7 +39,7 @@ const restore: Scenario = async (context) => {
 				`switcher.html?name=${encodeURIComponent(title)}`,
 			);
 
-			await first.page(await first.openTab(profile, url), url);
+			await first.openPage(profile, url);
 		}
 	}
 

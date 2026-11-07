@@ -10,7 +10,12 @@ import {
 import { join } from "node:path";
 import { formerVolumePassphrase } from "../lib/engine-key";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
-import { imageDevice, imagesAttachedIn } from "../lib/processes";
+import {
+	imageDevice,
+	imagesAttachedIn,
+	mountedAt,
+	pgrep,
+} from "../lib/processes";
 import {
 	READ_BACK,
 	type ReadBack,
@@ -266,14 +271,7 @@ const dataVolume: Scenario = async (context) => {
 	const image = join(dataDir, "Data.sparsebundle");
 	const mountPoint = join(dataDir, "Engine", "Volume");
 
-	const mounted = async () => {
-		const table = await Bun.$`/sbin/mount`.text();
-
-		return (
-			table.includes(` on ${mountPoint} `) ||
-			table.includes(` on /private${mountPoint} `)
-		);
-	};
+	const mounted = () => mountedAt(mountPoint);
 
 	// A new page in the profile loads, its data in the volume.
 	const loads = async (app: PaneApp, profile: string, query: string) => {
@@ -361,14 +359,8 @@ const dataVolume: Scenario = async (context) => {
 		exitCode: second.exitCode,
 		mounted: await mounted(),
 		loads: await loads(first, profile, "after"),
-		watchdogs: (
-			await Bun.$`/usr/bin/pgrep -f ${`pane-volume-watch ${first.browser.pid} `}`
-				.quiet()
-				.nothrow()
-				.text()
-		)
-			.split("\n")
-			.filter(Boolean).length,
+		watchdogs: (await pgrep("-f", `pane-volume-watch ${first.browser.pid} `))
+			.length,
 	};
 
 	await first.browser.close();
@@ -445,11 +437,7 @@ const dataVolume: Scenario = async (context) => {
 	// in.
 	for (const theme of ["light", "dark"]) {
 		await plainApp.send("theme", { theme });
-		await Bun.sleep(600);
-
-		await plainApp.send("render", {
-			path: join(context.out, `data-volume-07.8-${theme}.png`),
-		});
+		await plainApp.render(`data-volume-07.8-${theme}.png`, 600);
 	}
 
 	await plainApp.browser.close();

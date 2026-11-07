@@ -4,6 +4,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { ScenarioContext } from "../run";
 import { launchPane, type PaneApp, type PaneLaunch } from "./pane";
+import { poll } from "./poll";
 
 export type TraceEntry = {
 	// Milliseconds since 1970.
@@ -58,23 +59,8 @@ export async function launchTraced(
 		app,
 		trace,
 		has: (entry, matches = () => true) => find(entry, matches) !== undefined,
-		waitForEntry: async (entry, matches = () => true, timeoutMs = 20_000) => {
-			const deadline = Date.now() + timeoutMs;
-
-			for (;;) {
-				const found = find(entry, matches);
-
-				if (found) {
-					return found;
-				}
-
-				if (Date.now() > deadline) {
-					throw new Error(`the trace has no ${entry}`);
-				}
-
-				await Bun.sleep(100);
-			}
-		},
+		waitForEntry: (entry, matches = () => true, timeoutMs = 20_000) =>
+			poll(`${entry} in the trace`, () => find(entry, matches), timeoutMs),
 	};
 }
 

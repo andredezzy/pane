@@ -8,6 +8,7 @@ import {
 	screenshotWindow,
 } from "../lib/extensions";
 import { tabOf } from "../lib/pane";
+import { pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForPage } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
@@ -19,23 +20,16 @@ const MANAGERS = [
 ];
 
 // The first words a page shows: it may show only a logo while it starts.
-async function firstWords(page: Page): Promise<string> {
-	const deadline = Date.now() + 30_000;
-	let text = "";
-
-	while (!text && Date.now() < deadline) {
-		text = (
-			await page.evaluate<string>(
+function firstWords(page: Page): Promise<string> {
+	return pollValue(
+		() =>
+			page.evaluate<string>(
 				"(document.body?.innerText ?? '').trim().slice(0, 200)",
-			)
-		).trim();
-
-		if (!text) {
-			await Bun.sleep(500);
-		}
-	}
-
-	return text;
+			),
+		(current) => current.trim() !== "",
+		30_000,
+		500,
+	);
 }
 
 // 1Password and NordPass from the Chrome Web Store: their toolbar buttons
@@ -54,8 +48,7 @@ const passwordManagers: Scenario = async (context) => {
 
 		// Each may open a welcome tab after ours; the button is pressed on
 		// our page, selected again once no more tabs open.
-		const tab = await app.openTab(profile, `${url}&${manager.id}`);
-		await app.page(tab, `${url}&${manager.id}`);
+		const { tab } = await app.openPage(profile, `${url}&${manager.id}`);
 
 		await app.settled(
 			`${installed.name}'s tabs`,

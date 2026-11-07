@@ -7,8 +7,13 @@ import {
 	type PaneApp,
 	setUpPin,
 } from "../lib/pane";
-import { poll } from "../lib/poll";
-import { imagesAttachedIn, waitForExit } from "../lib/processes";
+import { poll, pollValue } from "../lib/poll";
+import {
+	imagesAttachedIn,
+	mountedAt,
+	pgrep,
+	waitForExit,
+} from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
@@ -355,7 +360,7 @@ const security: Scenario = async (context) => {
 		`something opened behind the lock: ${JSON.stringify({ tabs: tabsBehindLock, title: behindLock.window.title, page: behindLock.page, sheet: behindLock.sheet })}`,
 	);
 
-	await app.send("render", { path: join(context.out, "security-lock.png") });
+	await app.render("security-lock.png", 0);
 
 	// A wrong PIN.
 	const wrong = await type(
@@ -375,11 +380,7 @@ const security: Scenario = async (context) => {
 		"the failed attempt is not on disk",
 	);
 
-	await Bun.sleep(500);
-
-	await app.send("render", {
-		path: join(context.out, "security-wrong-pin.png"),
-	});
+	await app.render("security-wrong-pin.png", 500);
 
 	const unlocked = await type(
 		app,
@@ -540,9 +541,7 @@ const security: Scenario = async (context) => {
 
 	const lockedData = {
 		attached: locked.security.data.attached,
-		mounted:
-			(await Bun.$`mount`.text()).includes(` on ${mountPoint} `) ||
-			(await Bun.$`mount`.text()).includes(` on /private${mountPoint} `),
+		mounted: await mountedAt(mountPoint),
 		link: lexists(join(dataDir, "Engine", profile)),
 		leadsNowhere: !existsSync(join(dataDir, "Engine", profile)),
 		marker: await holding(dataDir, marker),
@@ -572,11 +571,7 @@ const security: Scenario = async (context) => {
 	}
 
 	// Past the dots' fade.
-	await Bun.sleep(500);
-
-	await relaunched.send("render", {
-		path: join(context.out, "security-last-attempt.png"),
-	});
+	await relaunched.render("security-last-attempt.png", 500);
 
 	const profileDir = join(dataDir, "Engine", profile);
 
@@ -593,12 +588,7 @@ const security: Scenario = async (context) => {
 
 	// The wiped instance's helpers (renderers, GPU, network service), which
 	// must not outlive it to write after the erase.
-	const helpers = (
-		await Bun.$`pgrep -P ${relaunched.browser.pid}`.quiet().nothrow().text()
-	)
-		.split("\n")
-		.filter(Boolean)
-		.map(Number);
+	const helpers = await pgrep("-P", String(relaunched.browser.pid));
 
 	// The fifth: Pane erases its data and starts again. The new instance is
 	// no child of the runner, which stops it with whatever else still uses
@@ -673,10 +663,7 @@ const security: Scenario = async (context) => {
 	const detachProfile = await attachedApp.createProfile("Work", "BLUE");
 	const detachPage = context.fixtures.url("nav-b.html?detach");
 
-	await attachedApp.page(
-		await attachedApp.openTab(detachProfile, detachPage),
-		detachPage,
-	);
+	await attachedApp.openPage(detachProfile, detachPage);
 
 	const whileOpen = (await imagesAttachedIn(detachDir)).length;
 	await attachedApp.browser.close();
@@ -709,15 +696,12 @@ const security: Scenario = async (context) => {
 	const groupOf = async (pid: string) =>
 		(await Bun.$`/bin/ps -o pgid= -p ${pid}`.quiet().nothrow().text()).trim();
 
-	const watchdog =
-		(
-			await Bun.$`/usr/bin/pgrep -f ${`pane-volume-watch ${killedApp.browser.pid} `}`
-				.quiet()
-				.nothrow()
-				.text()
-		)
-			.trim()
-			.split("\n")[0] ?? "";
+	const [watchdogPid] = await pgrep(
+		"-f",
+		`pane-volume-watch ${killedApp.browser.pid} `,
+	);
+
+	const watchdog = watchdogPid === undefined ? "" : String(watchdogPid);
 
 	const watchdogGroup = watchdog ? await groupOf(watchdog) : "";
 	const paneGroup = await groupOf(String(killedApp.browser.pid));
@@ -726,15 +710,11 @@ const security: Scenario = async (context) => {
 	process.kill(killedApp.browser.pid, "SIGKILL");
 	await waitForExit(killedApp.browser.pid);
 
-	let afterKill = whileOpenAgain;
-
-	for (
-		const until = Date.now() + 3_000;
-		afterKill > 0 && Date.now() < until;
-		await Bun.sleep(100)
-	) {
-		afterKill = (await imagesAttachedIn(detachDir)).length;
-	}
+	const afterKill = await pollValue(
+		async () => (await imagesAttachedIn(detachDir)).length,
+		(attached) => attached === 0,
+		3_000,
+	);
 
 	const detached = {
 		whileOpen,
@@ -766,9 +746,7 @@ const security: Scenario = async (context) => {
 		const damagedApp = await launchPane(context, { dataDir: directory });
 		const atLaunch = await damagedApp.state();
 
-		await damagedApp.send("render", {
-			path: join(context.out, `security-damaged-${name}.png`),
-		});
+		await damagedApp.render(`security-damaged-${name}.png`, 0);
 
 		await damagedApp.send("pinKeys", { keys });
 		await Bun.sleep(1_500);

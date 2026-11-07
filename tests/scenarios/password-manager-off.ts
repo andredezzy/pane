@@ -10,8 +10,7 @@ const passwordManagerOff: Scenario = async (context) => {
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Passwords");
 	const url = context.fixtures.url("password.html");
-	const tab = await app.openTab(profile, url);
-	const page = await app.page(tab, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	await page.evaluate(
 		"document.getElementById('username').value = 'pane'; document.getElementById('password').value = 'a-test-password'; document.getElementById('login').submit()",

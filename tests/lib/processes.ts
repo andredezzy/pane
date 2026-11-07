@@ -33,17 +33,50 @@ export async function waitForExit(
 	return true;
 }
 
+// The pids pgrep lists for these arguments.
+export async function pgrep(...args: string[]): Promise<number[]> {
+	const output = await Bun.$`/usr/bin/pgrep ${args}`.quiet().nothrow().text();
+
+	return output.split("\n").filter(Boolean).map(Number);
+}
+
+// The pid of the app's helper of `kind` ("network.mojom"): the one process
+// whose arguments name it and the app's data.
+export async function helperPid(
+	dataDir: string,
+	kind: string,
+): Promise<number> {
+	const rows = (await Bun.$`ps -axo pid=,args=`.text()).split("\n");
+
+	return Number(
+		rows
+			.find(
+				(row) =>
+					row.includes(kind) && row.includes(dataDir.replace(/^\/private/, "")),
+			)
+			?.trim()
+			.split(/\s+/)[0],
+	);
+}
+
+// Whether a volume is mounted at `path`, which the table may name under /private.
+export async function mountedAt(path: string): Promise<boolean> {
+	const table = await Bun.$`/sbin/mount`.text();
+
+	return (
+		table.includes(` on ${path} `) || table.includes(` on /private${path} `)
+	);
+}
+
 // Kills every process whose arguments contain `path`, and waits for them to
 // go, so nothing writes into the directory as it is removed. Returns their
 // pids.
 export async function killUsing(path: string): Promise<number[]> {
 	const pattern = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-	const pids = (await Bun.$`pgrep -f ${pattern}`.quiet().nothrow().text())
-		.split("\n")
-		.filter(Boolean)
-		.map(Number)
-		.filter((pid) => pid !== process.pid);
+	const pids = (await pgrep("-f", pattern)).filter(
+		(pid) => pid !== process.pid,
+	);
 
 	for (const pid of pids) {
 		try {

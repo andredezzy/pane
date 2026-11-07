@@ -42,11 +42,9 @@ const dialogTabClosed: Scenario = async (context) => {
 	// A background tab's alert, waiting in line for its tab to be selected.
 	const queueAlert = async (name: string) => {
 		const url = context.fixtures.url(`dialogs.html?tab=${name}`);
-		const tab = await app.openTab(profile, url);
-		const page = await app.page(tab, url);
+		const { tab, page } = await app.openPage(profile, url);
 		const front = context.fixtures.url(`nav-a.html?front-of-${name}`);
-		const frontTab = await app.openTab(profile, front);
-		await app.page(frontTab, front);
+		await app.openPage(profile, front);
 		const before = alerts();
 		await page.evaluate("runAlert()");
 
@@ -106,8 +104,7 @@ const dialogTabClosed: Scenario = async (context) => {
 
 	// It closes while its alert shows: the app takes the alert down.
 	const shownURL = context.fixtures.url("dialogs.html?tab=shown");
-	const shownTab = await app.openTab(profile, shownURL);
-	const shown = await app.page(shownTab, shownURL);
+	const { tab: shownTab, page: shown } = await app.openPage(profile, shownURL);
 	await shown.evaluate("runAlert()");
 
 	await app.waitFor(
@@ -126,8 +123,7 @@ const dialogTabClosed: Scenario = async (context) => {
 
 	// A tab opened after still gets its dialogs.
 	const freshURL = context.fixtures.url("dialogs.html?tab=fresh");
-	const freshTab = await app.openTab(profile, freshURL);
-	const fresh = await app.page(freshTab, freshURL);
+	const { page: fresh } = await app.openPage(profile, freshURL);
 	const before = alerts();
 	await fresh.evaluate("runAlert()");
 

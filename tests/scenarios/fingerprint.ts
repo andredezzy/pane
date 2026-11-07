@@ -178,8 +178,7 @@ const fingerprint: Scenario = async (context) => {
 
 	for (const key of ["a", "b", "c"] as const) {
 		const url = context.fixtures.url(`fingerprint.html?profile=${key}`);
-		const tab = await app.openTab(profiles[key], url);
-		const page = await app.page(tab, url);
+		const { page } = await app.openPage(profiles[key], url);
 		collected[key] = await page.evaluate<Collected>("collectAll()");
 	}
 
@@ -493,7 +492,7 @@ const fingerprint: Scenario = async (context) => {
 
 	const openZone = async (profile: string, name: string) => {
 		const url = context.fixtures.url(`nav-a.html?zone-${name}`);
-		const page = await app.page(await app.openTab(profile, url), url);
+		const { page } = await app.openPage(profile, url);
 
 		return () =>
 			page.evaluate<{ zone: string; offset: number }>(

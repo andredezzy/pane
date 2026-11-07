@@ -12,8 +12,7 @@ const navigation: Scenario = async (context) => {
 	const a = context.fixtures.url("nav-a.html");
 	const b = context.fixtures.url("nav-b.html");
 
-	const tab = await app.openTab(profile, a);
-	const pageA = await app.page(tab, a);
+	const { tab, page: pageA } = await app.openPage(profile, a);
 
 	const locked = !(await canDriveUI());
 	const pid = app.browser.pid;
@@ -156,8 +155,7 @@ const navigation: Scenario = async (context) => {
 
 	const other = await app.createProfile("Other");
 	const c = context.fixtures.url("nav-b.html?other");
-	const otherTab = await app.openTab(other, c);
-	await app.page(otherTab, c);
+	await app.openPage(other, c);
 
 	await app.waitFor("the other tab's address", (state) => state.address === c);
 

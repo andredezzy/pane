@@ -1,11 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { DARK_READER, installById } from "../lib/extensions";
 import { launchPane } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
-import { answerSheet, waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
-
-const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
 // Chrome's update service, which its extension updater asks for the Web
 // Store's extensions, naming each in a header.
@@ -21,16 +19,7 @@ const extensionAutoUpdate: Scenario = async (context) => {
 	const first = await launchPane(context, { dataDir });
 	const profile = await first.createProfile("Updates");
 
-	await first.send("installExtension", { id: DARK_READER, profile });
-	const sheet = await waitForSheet(first, "extensionInstall", 60_000);
-	await answerSheet(first, sheet.buttons?.[0] ?? "Add extension");
-
-	await first.waitFor(
-		"Dark Reader installed",
-		(state) =>
-			(state.extensions[profile] ?? []).some((item) => item.id === DARK_READER),
-		120_000,
-	);
+	await installById(first, profile, DARK_READER);
 
 	const firstPid = first.browser.pid;
 	await first.send("quit").catch(() => undefined);

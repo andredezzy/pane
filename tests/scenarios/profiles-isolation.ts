@@ -11,16 +11,14 @@ const profilesIsolation: Scenario = async (context) => {
 	const personal = await app.createProfile("Personal", "ROSE");
 
 	const workURL = context.fixtures.url("isolation.html?profile=work");
-	const workTab = await app.openTab(work, workURL);
-	const workPage = await app.page(workTab, workURL);
+	const { page: workPage } = await app.openPage(work, workURL);
 
 	await workPage.evaluate(
 		"document.cookie = 'pane=work; max-age=3600'; localStorage.pane = 'work'",
 	);
 
 	const personalURL = context.fixtures.url("isolation.html?profile=personal");
-	const personalTab = await app.openTab(personal, personalURL);
-	const personalPage = await app.page(personalTab, personalURL);
+	const { page: personalPage } = await app.openPage(personal, personalURL);
 
 	const read =
 		"({ cookie: document.cookie, storage: localStorage.pane ?? null })";
