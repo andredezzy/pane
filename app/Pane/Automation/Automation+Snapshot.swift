@@ -2,6 +2,19 @@ import AppKit
 import PaneCore
 import PaneKit
 
+private extension DialogPresenter.Request {
+	var kind: String {
+		switch self {
+		case .javaScript: "javaScript"
+		case .permission: "permission"
+		case .authentication: "authentication"
+		case .externalProtocol: "externalProtocol"
+		case .unresponsive: "unresponsive"
+		case .fileChooser: "fileChooser"
+		}
+	}
+}
+
 // The state each reply carries: what the app shows and holds, read as the
 // user would see it, plus what the probe reported.
 extension Automation {
@@ -240,7 +253,6 @@ extension Automation {
 				"status": controller.updater.status.rawValue,
 				"available": controller.updater.available?.version ?? NSNull(),
 				"progress": controller.updater.downloadProgress ?? NSNull(),
-				"eta": controller.updater.downloadETA ?? NSNull(),
 				"pill": controller.updater.showsPill,
 				// What the pill and the lock screen say.
 				"label": controller.updater.label,
@@ -340,11 +352,7 @@ extension Automation {
 						"version": item.version,
 						"enabled": item.enabled,
 						"pinned": item.pinned,
-						"hasAction": item.hasAction,
-						"hasPopup": item.hasPopup,
 						"actionTitle": item.actionTitle,
-						"badgeText": item.badgeText,
-						"hasIcon": item.icon != nil,
 						"iconVisible": item.icon.map(Self.hasVisiblePixels) ?? false,
 					] as [String: Any]
 				}
@@ -370,7 +378,6 @@ extension Automation {
 			"crashedTabs": Array(model.crashedTabIDs),
 			"pictureInPictureTabs": Array(model.pictureInPictureTabIDs),
 			"devToolsTabs": Array(model.devToolsTabIDs),
-			"printRequests": printRequests,
 			"focus": focus,
 		]
 	}
@@ -438,7 +445,6 @@ extension Automation {
 			"url": download.url.absoluteString,
 			"path": download.fileURL?.path ?? NSNull(),
 			"receivedBytes": download.receivedBytes,
-			"totalBytes": download.totalBytes,
 			"state": state,
 		]
 	}

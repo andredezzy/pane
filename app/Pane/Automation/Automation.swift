@@ -39,7 +39,6 @@ final class Automation {
 	// Each menu a page has shown, counted, so a scenario can wait for the
 	// next one rather than read the last.
 	private(set) var contextMenusShown = 0
-	private(set) var printRequests = 0
 	private(set) var pendingDeletions: Set<String> = []
 
 	init(directory: URL, controller: BrowserController, store: ModelStore) {
@@ -94,10 +93,6 @@ final class Automation {
 }
 
 extension Automation: AutomationProbe {
-	func pageWillPrint() {
-		printRequests += 1
-	}
-
 	func contextMenu(_ menu: NSMenu, isOpen: Bool) {
 		if menu !== contextMenu {
 			contextMenusShown += 1

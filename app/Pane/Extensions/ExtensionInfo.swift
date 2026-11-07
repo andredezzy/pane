@@ -17,7 +17,6 @@ struct ExtensionInfo: Identifiable {
 	let badgeBackground: NSColor?
 	let badgeTextColor: NSColor?
 	let actionEnabled: Bool
-	let hasPopup: Bool
 
 	@MainActor
 	init(_ source: Extension) {
@@ -35,6 +34,5 @@ struct ExtensionInfo: Identifiable {
 		badgeBackground = source.badgeBackgroundColor
 		badgeTextColor = source.badgeTextColor
 		actionEnabled = source.isActionEnabled
-		hasPopup = source.hasPopup
 	}
 }

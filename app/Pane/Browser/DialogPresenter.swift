@@ -44,17 +44,6 @@ final class DialogPresenter {
 			case let .fileChooser(request): request.isAnswered
 			}
 		}
-
-		var kind: String {
-			switch self {
-			case .javaScript: "javaScript"
-			case .permission: "permission"
-			case .authentication: "authentication"
-			case .externalProtocol: "externalProtocol"
-			case .unresponsive: "unresponsive"
-			case .fileChooser: "fileChooser"
-			}
-		}
 	}
 
 	struct Pending {

@@ -172,9 +172,6 @@ extension Automation {
 		case "closeTab":
 			controller.closeTab(try command.string("tab"))
 
-		case "reopenClosedTab":
-			controller.reopenClosedTab()
-
 		case "reloadCrashed":
 			controller.reloadCrashed(try command.string("tab"))
 
@@ -213,14 +210,6 @@ extension Automation {
 		case "stop":
 			controller.stop()
 
-		case "zoom":
-			switch try command.string("direction") {
-			case "in": controller.zoomIn()
-			case "out": controller.zoomOut()
-			case "reset": controller.resetZoom()
-			default: throw AutomationError("unknown zoom direction")
-			}
-
 		case "find":
 			controller.find(try command.string("text"), forward: command["forward"] as? Bool ?? true)
 			controller.showFind()
@@ -230,9 +219,6 @@ extension Automation {
 
 		case "toggleDevTools":
 			controller.toggleDevTools()
-
-		case "print":
-			controller.printPage()
 
 		case "showPage":
 			// { page: "browser" | "settings" | "extensions" }: the sidebar's
@@ -714,7 +700,7 @@ extension Automation {
 				throw AutomationError("unknown theme")
 			}
 
-			controller.setTheme(theme)
+			controller.changeSettings { $0.theme = theme }
 
 		case "appIcon":
 			guard let icon = AppIcon(rawValue: try command.string("appIcon")) else {
@@ -735,10 +721,6 @@ extension Automation {
 				$0.profileUnloadAfterMinutes = command["profileUnloadAfterMinutes"] as? Int
 				$0.cacheBudgetMB = command["cacheBudgetMB"] as? Int
 			}
-
-		case "unlearnWord":
-			// Undoes a scenario's Add to Dictionary in the system dictionary.
-			NSSpellChecker.shared.unlearnWord(try command.string("word"))
 
 		case "appleScript":
 			// { source }: a script run in the app, against itself (`current

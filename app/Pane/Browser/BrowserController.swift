@@ -1245,10 +1245,6 @@ extension BrowserController: WebContentsDelegate {
 		}
 	}
 
-	func webContentsWillPrint(_ webContents: WebContents) {
-		probe?.pageWillPrint()
-	}
-
 	func webContents(_ webContents: WebContents, didChangePictureInPicture active: Bool) {
 		guard let tabID = tabID(of: webContents) else {
 			return

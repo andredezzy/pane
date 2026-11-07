@@ -6,10 +6,6 @@ import SwiftUI
 extension BrowserController {
 	// MARK: Theme (ADR 0001: one knob for the app, its menus, and pages)
 
-	func setTheme(_ theme: Theme) {
-		changeSettings { $0.theme = theme }
-	}
-
 	func applyTheme() {
 		switch model.settings.theme {
 		case .system: NSApp.appearance = nil
