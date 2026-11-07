@@ -41,6 +41,22 @@ The candidate is what updates each of them (ADR 0122), so each wrote its own dat
 
 **Not by hand:** 07.5 with a real earlier profile, typed through with the PIN, and an earlier build updating to the candidate end to end. The conversion and the swap are each checked, by `files-migration` and `update-install`, and meet in the real update from published builds after the release.
 
+## The real update, from GitHub
+
+After the release, a copy of each published build, on throwaway data, found 0.19.0 on GitHub, downloaded it, swapped at quit, and opened its data on 0.19.0, with a page's value read back:
+
+| From | Download | Read back |
+|---|---:|---|
+| 0.18.2 | 7.1 s | ✓ |
+| 0.18.1 | 7.3 s | ✓ |
+| 0.18.0 | 7.3 s | ✓ |
+| 0.17.2 | 7.1 s | ✓ |
+| 0.16.3 | 7.4 s | ✓ |
+| 0.15.2 | 7.1 s | ✓ |
+| 0.14.2 | 7.1 s | ✓ |
+
+**Not run this way:** 0.13.1 and before. Their automation lacks what the harness reads, so `identifier-move`, `security`, `proxy`, and `migration` cover their data, and ADR 0114 their update, which opens the dmg for one drag.
+
 ## The files from another app
 
 With Pane open and unlocked, on a rich session's profile: 142 files by `strings`, none naming the site, none holding a planted value. `sqlite3` reads no table of `History`, `Cookies`, `Web Data`, or `QuotaManager`, and `file` calls each `data`. The control is `files-encrypted`'s planted values, found in the plain copy.
