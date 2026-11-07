@@ -40,22 +40,7 @@ struct AppIconPicker: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 16) {
-			VStack(alignment: .leading, spacing: 6) {
-				Text("App icon")
-					.font(.system(size: 18, weight: .semibold))
-					.tracking(-0.18)
-					.foregroundStyle(Palette.foreground)
-					.lineBox(24)
-
-				Text("Automatic follows the theme: Day when light, Night when dark.")
-					.font(.system(size: 14))
-					// text-sm: 20px lines, half the leading above the first
-					// and below the last.
-					.lineSpacing(3)
-					.padding(.vertical, 1.5)
-					.foregroundStyle(Palette.foreground.opacity(0.7))
-					.fixedSize(horizontal: false, vertical: true)
-			}
+			DialogHeading(title: "App icon", message: "Automatic follows the theme: Day when light, Night when dark.")
 
 			LazyVGrid(columns: Array(repeating: GridItem(.fixed(AppIconTile.width), spacing: 4), count: 6), alignment: .leading, spacing: 4) {
 				ForEach(AppIcon.allCases, id: \.self) { icon in
@@ -76,12 +61,7 @@ struct AppIconPicker: View {
 			}
 			.padding(.top, 8)
 		}
-		.padding(24)
-		.frame(width: 480, alignment: .leading)
-		.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
-		.accessibilityElement(children: .contain)
-		.accessibilityAddTraits(.isModal)
-		.accessibilityIdentifier("pane.appIcon")
+		.dialogSurface(width: 480, identifier: "pane.appIcon")
 	}
 }
 

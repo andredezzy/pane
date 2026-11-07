@@ -16,22 +16,7 @@ struct ExtensionShortcutsDialog: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 20) {
-			VStack(alignment: .leading, spacing: 6) {
-				Text("Keyboard shortcuts")
-					.font(.system(size: 18, weight: .semibold))
-					.tracking(-0.18)
-					.foregroundStyle(Palette.foreground)
-					.lineBox(24)
-
-				Text("\(profileName)’s extensions. Click a shortcut, then press the keys.")
-					.font(.system(size: 14))
-					// text-sm: 20px lines, half the leading above the first
-					// and below the last.
-					.lineSpacing(3)
-					.padding(.vertical, 1.5)
-					.foregroundStyle(Palette.foreground.opacity(0.7))
-					.fixedSize(horizontal: false, vertical: true)
-			}
+			DialogHeading(title: "Keyboard shortcuts", message: "\(profileName)’s extensions. Click a shortcut, then press the keys.")
 
 			// A long list scrolls inside the dialog.
 			ViewThatFits(in: .vertical) {

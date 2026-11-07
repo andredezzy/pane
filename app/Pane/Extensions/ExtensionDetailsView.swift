@@ -344,11 +344,7 @@ struct AddSiteDialogView: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 16) {
-			Text("Add a site")
-				.font(.system(size: 18, weight: .semibold))
-				.tracking(-0.18)
-				.foregroundStyle(Palette.foreground)
-				.lineBox(24)
+			DialogHeading(title: "Add a site")
 
 			VStack(alignment: .leading, spacing: 6) {
 				LabeledField(title: "Site") {
@@ -385,11 +381,6 @@ struct AddSiteDialogView: View {
 			}
 			.padding(.top, 8)
 		}
-		.padding(24)
-		.frame(width: 400, alignment: .leading)
-		.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
-		.accessibilityElement(children: .contain)
-		.accessibilityAddTraits(.isModal)
-		.accessibilityIdentifier("pane.addSite")
+		.dialogSurface(width: 400, identifier: "pane.addSite")
 	}
 }

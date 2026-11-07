@@ -17,22 +17,11 @@ struct QuitConfirmationView: View {
 				.background(Palette.iconTile, in: Squircle(cornerRadius: 18))
 				.accessibilityHidden(true)
 
-			VStack(alignment: .leading, spacing: 6) {
-				Text("Quit Pane?")
-					.font(.system(size: 18, weight: .semibold))
-					.tracking(-0.18)
-					.foregroundStyle(Palette.foreground)
-					.lineBox(24)
-
-				Text("Your profiles and tabs will be here when you open Pane again. Downloads in progress will stop.")
-					.font(.system(size: 14))
-					// text-sm: 20px lines, half the leading above the first
-					// and below the last.
-					.lineSpacing(3)
-					.padding(.vertical, 1.5)
-					.foregroundStyle(Palette.dialogMessage)
-					.fixedSize(horizontal: false, vertical: true)
-			}
+			DialogHeading(
+				title: "Quit Pane?",
+				message: "Your profiles and tabs will be here when you open Pane again. Downloads in progress will stop.",
+				messageColor: Palette.dialogMessage
+			)
 
 			HStack(spacing: 8) {
 				Spacer()
@@ -50,12 +39,48 @@ struct QuitConfirmationView: View {
 			}
 			.padding(.top, 8)
 		}
-		.padding(24)
-		.frame(width: 480, alignment: .leading)
-		.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
-		.accessibilityElement(children: .contain)
-		.accessibilityAddTraits(.isModal)
-		.accessibilityIdentifier("pane.quit")
+		.dialogSurface(width: 480, identifier: "pane.quit")
+	}
+}
+
+// A dialog's title, and what it says under it, in the app's dialogs (Paper: 03.5
+// Overlays).
+struct DialogHeading: View {
+	let title: String
+	var message: String?
+	var messageColor = Palette.foreground.opacity(0.7)
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 6) {
+			Text(title)
+				.font(.system(size: 18, weight: .semibold))
+				.tracking(-0.18)
+				.foregroundStyle(Palette.foreground)
+				.lineBox(24)
+
+			if let message {
+				Text(message)
+					.font(.system(size: 14))
+					// text-sm: 20px lines, half the leading above the first
+					// and below the last.
+					.lineSpacing(3)
+					.padding(.vertical, 1.5)
+					.foregroundStyle(messageColor)
+					.fixedSize(horizontal: false, vertical: true)
+			}
+		}
+	}
+}
+
+extension View {
+	// A dialog's card, with 24 of padding, for VoiceOver a modal.
+	func dialogSurface(width: CGFloat, identifier: String) -> some View {
+		padding(24)
+			.frame(width: width, alignment: .leading)
+			.surfaceBackground(cornerRadius: 29, shadow: Palette.dialogShadow, blur: 64, y: 24)
+			.accessibilityElement(children: .contain)
+			.accessibilityAddTraits(.isModal)
+			.accessibilityIdentifier(identifier)
 	}
 }
 

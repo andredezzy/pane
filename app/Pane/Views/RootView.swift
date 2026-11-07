@@ -98,62 +98,36 @@ struct RootView: View {
 			}
 
 			if state.choosingAppIcon {
-				Palette.modalScrim
-					.contentShape(Rectangle())
-					.onTapGesture { controller.closeAppIconPicker() }
-					.transition(.opacity)
-					.zIndex(1)
-
-				AppIconPicker(selection: model.settings.appIcon, select: { icon in
-					controller.changeSettings { $0.appIcon = icon }
-				}, done: controller.closeAppIconPicker)
-					.transition(.opacity.combined(with: .scale(scale: 0.97)))
-					.zIndex(1)
+				modal(dismiss: controller.closeAppIconPicker) {
+					AppIconPicker(selection: model.settings.appIcon, select: { icon in
+						controller.changeSettings { $0.appIcon = icon }
+					}, done: controller.closeAppIconPicker)
+				}
 			}
 
 			// The Extensions page's Keyboard shortcuts. A click outside it stops a
 			// recording first, then closes it.
 			if let dialog = extensions.shortcuts {
-				Palette.modalScrim
-					.contentShape(Rectangle())
-					.onTapGesture {
-						dialog.recording == nil ? extensions.closeShortcuts() : extensions.cancelRecording()
-					}
-					.transition(.opacity)
-					.zIndex(1)
-
-				ExtensionShortcutsDialog(
-					controller: extensions,
-					dialog: dialog,
-					profileName: model.profile(dialog.profileID)?.name ?? "This profile"
-				)
-				.transition(.opacity.combined(with: .scale(scale: 0.97)))
-				.zIndex(1)
+				modal(dismiss: { dialog.recording == nil ? extensions.closeShortcuts() : extensions.cancelRecording() }) {
+					ExtensionShortcutsDialog(
+						controller: extensions,
+						dialog: dialog,
+						profileName: model.profile(dialog.profileID)?.name ?? "This profile"
+					)
+				}
 			}
 
 			// Details' Add a site; a click outside it cancels.
 			if let dialog = extensions.addingSite {
-				Palette.modalScrim
-					.contentShape(Rectangle())
-					.onTapGesture(perform: extensions.cancelAddSite)
-					.transition(.opacity)
-					.zIndex(1)
-
-				AddSiteDialogView(controller: extensions, dialog: dialog)
-					.transition(.opacity.combined(with: .scale(scale: 0.97)))
-					.zIndex(1)
+				modal(dismiss: extensions.cancelAddSite) {
+					AddSiteDialogView(controller: extensions, dialog: dialog)
+				}
 			}
 
 			if state.confirmingQuit {
-				Palette.modalScrim
-					.contentShape(Rectangle())
-					.onTapGesture { controller.cancelQuit() }
-					.transition(.opacity)
-					.zIndex(1)
-
-				QuitConfirmationView(cancel: controller.cancelQuit, quit: controller.quit)
-					.transition(.opacity.combined(with: .scale(scale: 0.97)))
-					.zIndex(1)
+				modal(dismiss: controller.cancelQuit) {
+					QuitConfirmationView(cancel: controller.cancelQuit, quit: controller.quit)
+				}
 			}
 
 			// The PIN screen, over everything; it slides up and back down. Its own
@@ -195,6 +169,21 @@ struct RootView: View {
 				ExclusiveAccessHint(text: hint)
 			}
 		}
+	}
+
+	// A dialog on the modal scrim, a click on which dismisses it. Both fade out
+	// over the window (a z-index, as the overlays above).
+	@ViewBuilder
+	private func modal(dismiss: @escaping () -> Void, @ViewBuilder content: () -> some View) -> some View {
+		Palette.modalScrim
+			.contentShape(Rectangle())
+			.onTapGesture(perform: dismiss)
+			.transition(.opacity)
+			.zIndex(1)
+
+		content()
+			.transition(.opacity.combined(with: .scale(scale: 0.97)))
+			.zIndex(1)
 	}
 
 	// The extensions menu, its popups, and the switcher: over a page's
