@@ -37,11 +37,9 @@ type ActionMenu = { items: MenuItemState[]; siteAccess: MenuItemState[] };
 // checked, and each choice changes the sites the probe has; on a page it
 // can't run on, it reads Can’t Read or Change Site’s Data.
 const extensionContextMenus: Scenario = async (context) => {
-	const { app, waitForEntry } = await launchTraced(
-		context,
-		"extension-context-menus",
-		{ args: [`--load-extension=${PROBE}`] },
-	);
+	const { app } = await launchTraced(context, "extension-context-menus", {
+		args: [`--load-extension=${PROBE}`],
+	});
 
 	const profile = await app.createProfile("Menus");
 	const url = context.fixtures.url("context.html?extension-context-menus");
