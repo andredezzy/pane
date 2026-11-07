@@ -56,7 +56,6 @@ A new milestone rebuilds almost everything: 157 took 1h44m here (about 45,600 ob
 What usually breaks, and where to fix it:
 
 - **`//pane` no longer compiles**: Chrome's internal APIs drift between milestones (renamed methods, moved headers, changed callbacks). Fix `engine/pane`, not Chromium.
-- **`verify_order` fails** on `framework.order`: the exported Pane symbols changed order or set. Run `update-exports.sh`, rebuild, then `make-patch.sh 0001-pane-framework.patch`.
 - **A patched file failed to compile**: the merge in step 3 kept something the new code no longer has. Fix the file, then `make-patch.sh` its patch.
 
 ## 5. Prove it

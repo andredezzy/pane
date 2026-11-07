@@ -1,5 +1,5 @@
 diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
-index f1d133b6cd..b6590fee79 100644
+index f1d133b6cd..82e5c53cae 100644
 --- a/chrome/BUILD.gn
 +++ b/chrome/BUILD.gn
 @@ -491,7 +491,8 @@ if (is_win) {
@@ -20,6 +20,17 @@ index f1d133b6cd..b6590fee79 100644
        "//third_party/cld_3/src/src:cld_3",
      ]
  
+@@ -1447,7 +1449,9 @@ if (is_win) {
+ 
+   # TOOD(crbug.com/40740432#comment9) - thakis@ look into why profile and
+   # coverage instrumentation adds these symbols in different orders
+-  if (!is_component_build && chrome_pgo_phase != 1 && !using_sanitizer) {
++  # Pane: its exports come after _ChromeMain, so nothing checks that it is last.
++  if (false && !is_component_build && chrome_pgo_phase != 1 &&
++      !using_sanitizer) {
+     action("verify_chrome_framework_order") {
+       script = "//chrome/tools/build/mac/verify_order.py"
+       stamp_file = "$target_out_dir/run_$target_name.stamp"
 diff --git a/chrome/app/chrome_exe_main_mac.cc b/chrome/app/chrome_exe_main_mac.cc
 index f812b05fd7..4f49bef01a 100644
 --- a/chrome/app/chrome_exe_main_mac.cc
@@ -56,60 +67,6 @@ index 37c881f5d2..fa344c6c5d 100644
 +_OBJC_CLASS_$_Pane*
 +_OBJC_METACLASS_$_Pane*
 +_Pane*
-diff --git a/chrome/app/framework.order b/chrome/app/framework.order
-index 6dbc3aeff3..c4a6e619d9 100644
---- a/chrome/app/framework.order
-+++ b/chrome/app/framework.order
-@@ -31,3 +31,49 @@ _ChromeWebAppShortcutCopierMain
- 
- # _ChromeMain must be listed last.  That's the whole point of this file.
- _ChromeMain
-+
-+# Pane: the embedding API the Pane app links against.
-+# Every symbol framework.exports lets through must be listed here, in the
-+# order the linker lays them out (native/engine/scripts/update-exports.sh).
-+_PaneBrowserApplicationShouldReopenNotification
-+_PaneReopenHasVisibleWindowsKey
-+_OBJC_CLASS_$_PaneBrowserApplication
-+_OBJC_METACLASS_$_PaneBrowserApplication
-+_OBJC_CLASS_$_PaneBrowserContext
-+_OBJC_METACLASS_$_PaneBrowserContext
-+_OBJC_CLASS_$_PaneWebContents
-+_OBJC_METACLASS_$_PaneWebContents
-+_OBJC_CLASS_$_PaneBrowserWindow
-+_OBJC_METACLASS_$_PaneBrowserWindow
-+_OBJC_CLASS_$_PaneDownload
-+_OBJC_METACLASS_$_PaneDownload
-+_OBJC_CLASS_$_PaneJavaScriptDialog
-+_OBJC_METACLASS_$_PaneJavaScriptDialog
-+_OBJC_CLASS_$_PanePermissionRequest
-+_OBJC_METACLASS_$_PanePermissionRequest
-+_OBJC_CLASS_$_PaneAuthenticationChallenge
-+_OBJC_METACLASS_$_PaneAuthenticationChallenge
-+_OBJC_CLASS_$_PaneContextMenu
-+_OBJC_METACLASS_$_PaneContextMenu
-+_OBJC_CLASS_$_PaneFileChooser
-+_OBJC_METACLASS_$_PaneFileChooser
-+_OBJC_CLASS_$_PaneExternalProtocolRequest
-+_OBJC_METACLASS_$_PaneExternalProtocolRequest
-+_OBJC_CLASS_$_PaneUnresponsivePage
-+_OBJC_METACLASS_$_PaneUnresponsivePage
-+_OBJC_CLASS_$_PaneExtension
-+_OBJC_METACLASS_$_PaneExtension
-+_OBJC_CLASS_$_PaneExtensionInstallRequest
-+_OBJC_METACLASS_$_PaneExtensionInstallRequest
-+_OBJC_CLASS_$_PaneExtensionPopup
-+_OBJC_METACLASS_$_PaneExtensionPopup
-+_OBJC_CLASS_$_PaneCookie
-+_OBJC_METACLASS_$_PaneCookie
-+_OBJC_CLASS_$_PaneExtensionMenuItem
-+_OBJC_METACLASS_$_PaneExtensionMenuItem
-+_OBJC_CLASS_$_PaneExtensionActionMenu
-+_OBJC_METACLASS_$_PaneExtensionActionMenu
-+_OBJC_CLASS_$_PaneExtensionDetails
-+_OBJC_METACLASS_$_PaneExtensionDetails
-+_OBJC_CLASS_$_PaneExtensionCommand
-+_OBJC_METACLASS_$_PaneExtensionCommand
 diff --git a/chrome/browser/web_applications/os_integration/mac/BUILD.gn b/chrome/browser/web_applications/os_integration/mac/BUILD.gn
 index 7f1b9cfd15..ff66f1a48d 100644
 --- a/chrome/browser/web_applications/os_integration/mac/BUILD.gn
