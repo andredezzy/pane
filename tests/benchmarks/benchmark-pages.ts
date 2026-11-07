@@ -1,7 +1,6 @@
 import {
-	benchmarkedApps,
+	benchmarkedApp,
 	conditions,
-	inTurn,
 	launchApp,
 	now,
 	stats,
@@ -9,8 +8,7 @@ import {
 import type { Page } from "../lib/cdp";
 import type { Scenario } from "../run";
 
-// Page loads, the Electron app against the native one: the fixtures' local
-// pages and a few real sites, each opened in the app's first tab (CDP's
+// Page loads: the fixtures' local pages and a few real sites, each opened in the app's first tab (CDP's
 // Page.navigate, as typing it in the address bar), read with the page's own
 // Performance API: navigation start to the load event's end, first and
 // largest contentful paint, and the first byte. Each run is a launch on new
@@ -37,7 +35,7 @@ type Load = {
 	domContentLoaded: number;
 	responseStart: number;
 	// When the first contentful frame was on screen (the entry's startTime,
-	// its presentationTime in both engines), and when the renderer painted
+	// its presentationTime), and when the renderer painted
 	// it (paintTime): the difference is the frame's way to the screen.
 	firstContentfulPaint: number | null;
 	firstContentfulPaintPainted: number | null;
@@ -88,36 +86,31 @@ async function navigate(page: Page, url: string): Promise<number> {
 
 const benchmarkPages: Scenario = async (context) => {
 	const started = conditions();
-	const apps = await benchmarkedApps(context);
+	const app = await benchmarkedApp(context);
 	const urls = [...LOCAL.map((path) => context.fixtures.url(path)), ...SITES];
-
-	const loads: Record<string, Load[]> = Object.fromEntries(
-		apps.map((app) => [app.kind, []]),
-	);
+	const loads: Load[] = [];
 
 	for (let run = 0; run < RUNS; run++) {
-		for (const app of inTurn(apps, run)) {
-			const running = await launchApp(context, app, {
-				url: context.fixtures.url(`smoke.html?pages=${run}`),
-			});
+		const running = await launchApp(context, app, {
+			url: context.fixtures.url(`smoke.html?pages=${run}`),
+		});
 
-			for (const pass of ["cold", "warm"] as const) {
-				for (const url of urls) {
-					await navigate(running.page, "about:blank");
-					const navigateToLoad = await navigate(running.page, url);
+		for (const pass of ["cold", "warm"] as const) {
+			for (const url of urls) {
+				await navigate(running.page, "about:blank");
+				const navigateToLoad = await navigate(running.page, url);
 
-					const timing =
-						await running.page.evaluate<
-							Omit<Load, "url" | "pass" | "navigateToLoad">
-						>(TIMING);
+				const timing =
+					await running.page.evaluate<
+						Omit<Load, "url" | "pass" | "navigateToLoad">
+					>(TIMING);
 
-					loads[app.kind]?.push({ url, pass, ...timing, navigateToLoad });
-				}
+				loads.push({ url, pass, ...timing, navigateToLoad });
 			}
-
-			await running.quit();
-			await Bun.sleep(2_000);
 		}
+
+		await running.quit();
+		await Bun.sleep(2_000);
 	}
 
 	const metrics = [
@@ -129,34 +122,29 @@ const benchmarkPages: Scenario = async (context) => {
 	] as const;
 
 	const summary = Object.fromEntries(
-		Object.entries(loads).map(([kind, entries]) => [
-			kind,
+		["cold", "warm"].map((pass) => [
+			pass,
 			Object.fromEntries(
-				["cold", "warm"].map((pass) => [
-					pass,
-					Object.fromEntries(
-						urls.map((url) => {
-							const runs = entries.filter(
-								(entry) => entry.url === url && entry.pass === pass,
-							);
+				urls.map((url) => {
+					const runs = loads.filter(
+						(entry) => entry.url === url && entry.pass === pass,
+					);
 
-							return [
-								url.startsWith(context.fixtures.origin)
-									? url.slice(context.fixtures.origin.length + 1)
-									: url,
-								Object.fromEntries(
-									metrics.map((metric) => {
-										const values = runs
-											.map((entry) => entry[metric])
-											.filter((value): value is number => value !== null);
+					return [
+						url.startsWith(context.fixtures.origin)
+							? url.slice(context.fixtures.origin.length + 1)
+							: url,
+						Object.fromEntries(
+							metrics.map((metric) => {
+								const values = runs
+									.map((entry) => entry[metric])
+									.filter((value): value is number => value !== null);
 
-										return [metric, values.length > 0 ? stats(values) : null];
-									}),
-								),
-							];
-						}),
-					),
-				]),
+								return [metric, values.length > 0 ? stats(values) : null];
+							}),
+						),
+					];
+				}),
 			),
 		]),
 	);

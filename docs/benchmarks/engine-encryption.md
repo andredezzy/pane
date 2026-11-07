@@ -42,7 +42,8 @@ As felt, from recordings of the window, timed frame by frame (three of each), to
 
 ```bash
 bun tests/run.ts --binary <copy of Pane>/Contents/MacOS/Pane --out <dir> --timeout 2400 \
-	benchmark-launch benchmark-unlock benchmark-pages benchmark-memory benchmark-stores
+	tests/benchmarks/benchmark-launch.ts tests/benchmarks/benchmark-unlock.ts tests/benchmarks/benchmark-pages.ts \
+	tests/benchmarks/benchmark-memory.ts tests/benchmarks/benchmark-stores.ts
 ```
 
-Without `PANE_BENCHMARK_ELECTRON`, the benchmarks measure the run's binary alone. `benchmark-stores` measures what a store's format costs, on data big enough to reach the disk: 5,000 history entries searched through `chrome.history`, the first request after a relaunch with 3,000 cookies to load, IndexedDB's writes and reads, Local Storage's first read, and the repeat visit after a relaunch; `PANE_STORES_RELAUNCHES` sets how many relaunches.
+The benchmarks measure the run's binary alone, so two builds take turns. `benchmark-stores` measures what a store's format costs, on data big enough to reach the disk: 5,000 history entries searched through `chrome.history`, the first request after a relaunch with 3,000 cookies to load, IndexedDB's writes and reads, Local Storage's first read, and the repeat visit after a relaunch; `PANE_STORES_RELAUNCHES` sets how many relaunches.

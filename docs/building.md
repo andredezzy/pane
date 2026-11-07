@@ -11,7 +11,7 @@ Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `PaneCore.f
   - `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`
   - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `update-exports.sh`, `preflight.sh`, `fetch-crlset.sh`, `package.sh`, `dist.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
 - `app/` — the Swift app, the `PaneKit` package, the volume's watchdog (`VolumeWatch/`), `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon's sources (`icon/`: the window's renders, and `make-icons.swift`, which makes the app's icons from them)
-- `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios
+- `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios that check (`scenarios/`), what measures and never judges (`benchmarks/`), and a held test copy for a pass by hand (`rigs/`)
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
 - `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), `adr/`, one record per subject, `benchmarks/`, measured comparisons of Pane builds with their raw data and how to rerun them, and `growth/`, the media Pane is shown with outside the app
 - `evidence/` — gitignored output of acceptance checks
@@ -44,12 +44,26 @@ engine/scripts/build.sh release pane_unittests
 ## Scenarios
 
 ```bash
-bun tests/run.ts --binary <path to browser executable> --out <dir> [--foreground] <scenario>...
+bun tests/run.ts --binary <path to browser executable> --out <dir> [--foreground] <scenario or path>...
 ```
 
 The runner serves `tests/pages` on 127.0.0.1, launches the binary with remote debugging, runs each scenario, and writes `<scenario>.json` plus `report.json` into `--out`. `PANE_SCENARIO_STDERR=1` shows the binary's log. A scenario fails after `--timeout` seconds (600). Whatever it launched is quit, and the directories it took (`context.tempDir`) are removed, with any process still using them. Each entry records whether the screen was locked and the checks it deferred; `report.json`'s `complete` is true only when every check ran.
 
 Scenarios for the Pane app (`lib/pane.ts`) give it throwaway data (`PANE_DATA_DIR`) and a throwaway home (`HOME` and `CFFIXED_USER_HOME`, so its caches, HTTP storage, Downloads, and Crashpad's database are not the user's Pane's), and drive it through its automation channel (`PANE_AUTOMATION_DIR`, `app/Pane/Automation/`), which, with every `PANE_` hook, works only under `--use-mock-keychain` (`TestHooks`), where none of the user's data opens; the engine passes Chromium no switch of a launch without it but Pane's own: JSON commands that call the same controller methods the UI does, key presses posted as real `NSEvent`s, and a state snapshot with every reply. CDP reads pages; `lib/cua.ts` covers what only the screen shows, and needs an unlocked session and cua-driver's daemon (`canDriveUI()`), or the checks defer. Scenarios run on a Mac in use, so the app never takes the front from the app its user is in: what needs Pane in front (keys a panel takes, a page's fullscreen, Quit Pane?) defers unless `--foreground` allows it, which CI does and an idle Mac can. Preferences are the one thing they still share with the user's Pane: cfprefsd keeps them by bundle ID and ignores a fixed home, and a copy under another bundle ID would ask again for what macOS granted Pane (pasting from other apps), which closes its menus. So a run sets Chromium's `LastRunAppBundlePath` to the build, which the user's Pane resets when it next starts.
+
+## Rigs
+
+A person's pass, by computer use, runs on a test copy `tests/rigs/` holds open, on throwaway data, and never on the user's Pane:
+
+```bash
+bun tests/run.ts --binary <copy of Pane>/Contents/MacOS/Pane --out <dir> --timeout 7300 tests/rigs/qa-hold.ts  # PIN 1234; ends at <dir>/qa-stop
+bun tests/rigs/qa-send.ts <dir>/qa-session.json <command> [json]                                               # setup, through the automation channel
+bun tests/rigs/front.ts guard [idle seconds]                                                                   # exit 3 unless the Mac is that idle and unlocked
+bun tests/rigs/front.ts <dir>/qa-session.json <step>...                                                        # keys and captures
+bun tests/rigs/frame-timing.ts <dir>/qa-session.json <out.mov> <seconds> <step>...                             # when the picture changed, from a recording
+```
+
+Taking the front needs the user's word in the session, or the Mac idle 10 minutes with its screen unlocked (`front.ts guard`). `front.ts` checks before each key that the test copy's pid is the frontmost app's and that no input but its own has come, and stops with exit 3 at the first sign of the user: nothing the user's gets keys. It captures the test copy's window, never the screen.
 
 ## App
 

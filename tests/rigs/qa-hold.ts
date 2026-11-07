@@ -4,8 +4,8 @@ import { launchPane, setUpPin } from "../lib/pane";
 import { sessionFolders } from "../lib/rich-session";
 import type { Scenario } from "../run";
 
-// A test copy for a pass by hand, by computer use (docs/plans/engine-file-encryption.md,
-// Testing as a person would): Pane on throwaway data, with a PIN of 1234 and a
+// A test copy for a pass by hand, by computer use (docs/building.md, Rigs):
+// Pane on throwaway data, with a PIN of 1234 and a
 // profile, held open until `<out>/qa-stop` exists or PANE_QA_MINUTES have passed.
 // `<out>/qa-session.json` says where it is. `--foreground` is what lets it take
 // the front, for the steps that need it.

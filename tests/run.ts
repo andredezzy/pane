@@ -4,9 +4,11 @@
 //
 // Usage: bun tests/run.ts --binary <path> --out <dir>
 //        [--timeout <seconds per scenario, 600>] <scenario>...
+// A scenario is a name in scenarios/, or the path of a .ts file of its form
+// (benchmarks/, rigs/), which reports under its base name.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, type LaunchOptions, launch } from "./lib/browser";
 import { isScreenLocked } from "./lib/cua";
@@ -104,7 +106,8 @@ if ((await Bun.$`${await swiftTool("caps-lock")}`.text()).trim() === "on") {
 	);
 }
 
-for (const name of positionals) {
+for (const given of positionals) {
+	const name = basename(given, ".ts");
 	const browsers: Browser[] = [];
 	const tempDirs: string[] = [];
 	const deferred: string[] = [];
@@ -153,7 +156,12 @@ for (const name of positionals) {
 	};
 
 	try {
-		const scenario: Scenario = (await import(`./scenarios/${name}.ts`)).default;
+		const scenario: Scenario = (
+			await import(
+				given.endsWith(".ts") ? resolve(given) : `./scenarios/${name}.ts`
+			)
+		).default;
+
 		const running = scenario(context);
 		// Raced below; it can still fail after its deadline.
 		running.catch(() => {});

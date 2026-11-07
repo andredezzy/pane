@@ -13,7 +13,11 @@
 	],
 	"workspaces": {
 		".": {
-			"entry": ["tests/scenarios/*.ts", "tests/tools/*.ts"]
+			"entry": [
+				"tests/scenarios/*.ts",
+				"tests/benchmarks/*.ts",
+				"tests/rigs/*.ts"
+			]
 		}
 	},
 	"ignore": ["tests/pages/**"]

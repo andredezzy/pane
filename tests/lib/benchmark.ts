@@ -1,15 +1,8 @@
-// The benchmark of the Electron app against the native one (the benchmark-*
-// scenarios, docs/benchmarks/README.md). Both apps launch the same way, on
-// throwaway data, with the same flags, and are measured with the same tools:
-// the window list for the window, the pages' own Performance API for loads,
-// footprint for memory, and the kernel's counters for CPU.
-import {
-	mkdirSync,
-	readFileSync,
-	realpathSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
+// Timing Pane on its own, as the benchmarks do (tests/benchmarks,
+// docs/benchmarks): the window list for the window, the pages' own Performance
+// API for loads, and footprint for memory. On throwaway data, with one set of
+// flags, so two builds compare.
+import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { loadavg } from "node:os";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
@@ -20,45 +13,32 @@ import { waitForExit } from "./processes";
 import { targets } from "./targets";
 import { swiftTool } from "./tools";
 
-export type AppKind = "electron" | "native";
-
 export type BenchmarkedApp = {
-	kind: AppKind;
 	executable: string;
-	bundle: string;
-	version: string;
 	// The bundle as given and as its helpers name it (/tmp is /private/tmp):
 	// a process of the app has its executable inside one.
 	paths: string[];
 };
 
-// The Electron app's one profile, seeded before its first launch: the
-// native app makes its own, "Personal", when it opens its launch URL.
-const ELECTRON_PROFILE = "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f01";
-const PROFILE_NAME = "Personal";
-
-// What both apps are given. The Mac is in use while the benchmark runs, and
-// another app's window can cover the benchmark's: Chromium would throttle an
-// occluded window or a background renderer. The Electron app checks GitHub
-// for updates at launch, with no switch to turn it off, so its host does not
-// resolve; the native app's check goes to the fixtures.
+// The Mac is in use while a benchmark runs, and another app's window can cover
+// the benchmark's: Chromium would throttle an occluded window or a background
+// renderer.
 const SHARED_ARGS = [
 	"--no-first-run",
 	"--no-default-browser-check",
 	"--use-mock-keychain",
 	"--disable-backgrounding-occluded-windows",
 	"--disable-renderer-backgrounding",
-	"--host-resolver-rules=MAP api.github.com ~NOTFOUND",
 ];
 
 // Milliseconds since 1970, to the microsecond: the clock the window tool and
 // the pages' performance.timeOrigin read.
 export const now = () => performance.timeOrigin + performance.now();
 
-async function describe(
-	kind: AppKind,
-	executable: string,
+export async function benchmarkedApp(
+	context: ScenarioContext,
 ): Promise<BenchmarkedApp> {
+	const executable = context.binary;
 	const end = executable.indexOf(".app/");
 
 	if (end < 0) {
@@ -67,41 +47,10 @@ async function describe(
 
 	const bundle = executable.slice(0, end + 4);
 
-	const version = (
-		await Bun.$`plutil -extract CFBundleShortVersionString raw -o - ${join(bundle, "Contents/Info.plist")}`.text()
-	).trim();
-
-	return {
-		kind,
-		executable,
-		bundle,
-		version,
-		paths: [...new Set([bundle, realpathSync(bundle)])],
-	};
-}
-
-// The run's binary, the native app, and the Electron app when
-// PANE_BENCHMARK_ELECTRON names one (docs/benchmarks/README.md). Without one,
-// a benchmark measures the run's binary alone, as a comparison of two native
-// builds does (docs/benchmarks/engine-encryption.md).
-export async function benchmarkedApps(
-	context: ScenarioContext,
-): Promise<BenchmarkedApp[]> {
-	const electron = process.env.PANE_BENCHMARK_ELECTRON;
-
 	// Compiled now, not inside the first timed launch.
 	await swiftTool("window-wait");
 
-	return [
-		...(electron ? [await describe("electron", electron)] : []),
-		await describe("native", context.binary),
-	];
-}
-
-// The apps in a run's order: they take turns going first, so a trend in the
-// Mac's load falls on both.
-export function inTurn<T>(apps: T[], run: number): T[] {
-	return run % 2 === 0 ? apps : [...apps].reverse();
+	return { executable, paths: [...new Set([bundle, realpathSync(bundle)])] };
 }
 
 export type LaunchTimes = {
@@ -110,18 +59,6 @@ export type LaunchTimes = {
 	window: number | null;
 	windowResolution: number | null;
 	devTools: number;
-	// The Electron app's UI, a page of its own: its first paint, its load,
-	// and its sidebar listing the profile (shownAtCheck: it already did when
-	// first checked, so the time is an upper bound).
-	ui: {
-		firstContentfulPaint: number | null;
-		loaded: number;
-		profileShown: number;
-		shownAtCheck: boolean;
-	} | null;
-	// When the Electron app was asked for the tab (the native app opens its
-	// launch URL itself).
-	tabRequested: number | null;
 	// The first tab's page.
 	page: { firstContentfulPaint: number | null; loaded: number };
 };
@@ -208,57 +145,6 @@ async function pageAt(
 
 	throw new Error(`no page at ${url}`);
 }
-
-let nextRequest = 900_000_000;
-
-// A mutation of the Electron app's tRPC router, sent from its UI the way
-// its own client sends one. Ids start high, clear of the client's own.
-// Returns when it was sent, by the UI's clock.
-async function electronMutation(
-	ui: Page,
-	path: string,
-	input: unknown,
-): Promise<number> {
-	const id = nextRequest++;
-
-	return ui.evaluate<number>(`new Promise((resolve, reject) => {
-		const timer = setTimeout(() => reject(new Error("no reply to ${path}")), 15000);
-		let sentAt = 0;
-		window.electronTRPC.onMessage((message) => {
-			if (message.id !== ${id}) {
-				return;
-			}
-			clearTimeout(timer);
-			if (message.error) {
-				reject(new Error(JSON.stringify(message.error)));
-			} else {
-				resolve(sentAt);
-			}
-		});
-		sentAt = performance.timeOrigin + performance.now();
-		window.electronTRPC.sendMessage({
-			method: "request",
-			operation: { id: ${id}, type: "mutation", path: ${JSON.stringify(path)}, input: ${JSON.stringify(input)}, context: {} },
-		});
-	})`);
-}
-
-// When the Electron app's sidebar first lists the profile, by the UI's clock.
-const PROFILE_SHOWN = `new Promise((resolve) => {
-	const shown = () => (document.body?.textContent ?? "").includes(${JSON.stringify(PROFILE_NAME)});
-	const at = () => performance.timeOrigin + performance.now();
-	if (shown()) {
-		resolve({ at: at(), atCheck: true });
-		return;
-	}
-	const observer = new MutationObserver(() => {
-		if (shown()) {
-			observer.disconnect();
-			resolve({ at: at(), atCheck: false });
-		}
-	});
-	observer.observe(document, { childList: true, subtree: true, characterData: true });
-})`;
 
 export type AppProcess = {
 	pid: number;
@@ -383,7 +269,7 @@ export async function memoryOf(
 		};
 	}
 
-	throw new Error(`footprint could not read the ${app.kind} app`);
+	throw new Error("footprint could not read the app");
 }
 
 export type Stats = {
@@ -408,24 +294,6 @@ export function stats(values: number[]): Stats {
 		min: sorted[0] ?? Number.NaN,
 		max: sorted.at(-1) ?? Number.NaN,
 		runs: values,
-	};
-}
-
-// The Mac the benchmark ran on.
-export async function machine(): Promise<Record<string, string | number>> {
-	const sysctl = async (name: string) =>
-		(await Bun.$`sysctl -n ${name}`.text()).trim();
-
-	const swVers = async (flag: string) =>
-		(await Bun.$`sw_vers ${flag}`.text()).trim();
-
-	return {
-		model: await sysctl("hw.model"),
-		chip: await sysctl("machdep.cpu.brand_string"),
-		cores: Number(await sysctl("hw.ncpu")),
-		memoryBytes: Number(await sysctl("hw.memsize")),
-		macOS: await swVers("-productVersion"),
-		build: await swVers("-buildVersion"),
 	};
 }
 
@@ -459,31 +327,20 @@ export class RunningApp {
 		readonly times: LaunchTimes,
 		// The first tab's page.
 		readonly page: Page,
-		// The Electron app's UI page, or the native app's automation channel.
-		private readonly ui: Page | null,
+		// Its automation channel, when asked for.
 		private readonly pane: PaneApp | null,
 	) {}
 
-	// Opens a tab at `url` the way the app's UI does, and returns its page
-	// once loaded.
+	// Opens a tab at `url` through the automation channel, and returns its
+	// page once loaded.
 	async openTab(url: string): Promise<Page> {
-		if (this.ui) {
-			await electronMutation(this.ui, "tabs.open", {
-				profileId: ELECTRON_PROFILE,
-				url,
-			});
-		} else if (this.pane) {
-			const profile = (await this.pane.state()).profiles[0]?.id;
+		const profile = (await this.pane?.state())?.profiles[0]?.id;
 
-			if (!profile) {
-				throw new Error("the native app has no profile");
-			}
-
-			await this.pane.openTab(profile, url);
-		} else {
-			throw new Error("launched without its automation channel");
+		if (!this.pane || !profile) {
+			throw new Error("no automation channel, or no profile");
 		}
 
+		await this.pane.openTab(profile, url);
 		const page = await pageAt(this.cdp, url);
 		await loadedTiming(page);
 
@@ -524,92 +381,52 @@ export class RunningApp {
 }
 
 export type LaunchOptions = {
-	// The first tab's page: the native app's launch URL; the Electron app,
-	// which takes none, opens it from its UI once the UI lists the profile.
+	// The first tab's page: the app opens it as its launch URL.
 	url: string;
 	// A relaunch reuses the data; a launch makes its own otherwise.
 	dataDir?: string;
-	// The native app's automation channel, for opening more tabs. It polls
-	// its directory ten times a second, so the CPU benchmark leaves it off.
+	// The automation channel, for opening more tabs. It polls its directory
+	// ten times a second, so a launch being timed leaves it off.
 	automation?: boolean;
 };
 
-// Launches the app, timing the window, the UI, and the first tab's page from
-// the exec.
+// Launches the app, timing the window and the first tab's page from the exec.
 export async function launchApp(
 	context: ScenarioContext,
 	app: BenchmarkedApp,
 	options: LaunchOptions,
 ): Promise<RunningApp> {
-	const dataDir =
-		options.dataDir ?? context.tempDir(`pane-benchmark-${app.kind}-`);
-
+	const dataDir = options.dataDir ?? context.tempDir("pane-benchmark-");
 	const port = freePort();
-	const args = [`--remote-debugging-port=${port}`, ...SHARED_ARGS];
 	let automationDir: string | null = null;
 
-	// Each app gets a home of its own, the one macOS gives a process that
-	// sets CFFIXED_USER_HOME: the Electron app keeps its data there, and both
-	// share the user's bundle ID, so URLSession's cache and cookies (the
-	// native app's update check) and Crashpad's database would otherwise be
-	// the user's.
+	// A home of its own, the one macOS gives a process that sets
+	// CFFIXED_USER_HOME: URLSession's cache and cookies and Crashpad's database
+	// would otherwise be the user's Pane's.
 	const home = join(dataDir, "home");
 	mkdirSync(home, { recursive: true });
-	const env: Record<string, string> = { HOME: home, CFFIXED_USER_HOME: home };
 
-	if (app.kind === "electron") {
-		// The Electron app's data, at @pane/veil, with one profile.
-		const userData = join(
-			home,
-			"Library",
-			"Application Support",
-			"@pane",
-			"veil",
-		);
+	const env: Record<string, string> = {
+		HOME: home,
+		CFFIXED_USER_HOME: home,
+		PANE_DATA_DIR: dataDir,
+		PANE_UPDATE_URL: context.fixtures.url("releases/latest"),
+	};
 
-		mkdirSync(userData, { recursive: true });
-		const profiles = join(userData, "profiles.json");
-
-		if (!options.dataDir) {
-			writeFileSync(
-				profiles,
-				JSON.stringify({
-					state: {
-						profiles: [
-							{
-								id: ELECTRON_PROFILE,
-								name: PROFILE_NAME,
-								color: "BLUE",
-								group: null,
-								fingerprint: null,
-								proxy: null,
-								keepLoaded: false,
-								tabs: [],
-								createdAt: "2026-10-29T00:00:00.000Z",
-								updatedAt: "2026-10-29T00:00:00.000Z",
-							},
-						],
-					},
-					version: 0,
-				}),
-			);
-		}
-
-		args.push(`--user-data-dir=${userData}`);
-	} else {
-		env.PANE_DATA_DIR = dataDir;
-		env.PANE_UPDATE_URL = context.fixtures.url("releases/latest");
-
-		if (options.automation) {
-			automationDir = join(dataDir, "automation");
-			rmSync(automationDir, { recursive: true, force: true });
-			mkdirSync(join(automationDir, "in"), { recursive: true });
-			mkdirSync(join(automationDir, "out"), { recursive: true });
-			env.PANE_AUTOMATION_DIR = automationDir;
-		}
-
-		args.push(`--user-data-dir=${join(dataDir, "Engine")}`, options.url);
+	if (options.automation) {
+		automationDir = join(dataDir, "automation");
+		rmSync(automationDir, { recursive: true, force: true });
+		mkdirSync(join(automationDir, "in"), { recursive: true });
+		mkdirSync(join(automationDir, "out"), { recursive: true });
+		env.PANE_AUTOMATION_DIR = automationDir;
 	}
+
+	const args = [
+		`--remote-debugging-port=${port}`,
+		...SHARED_ARGS,
+		`--user-data-dir=${join(dataDir, "Engine")}`,
+		options.url,
+	];
 
 	const output = process.env.PANE_SCENARIO_STDERR ? "inherit" : "ignore";
 	const windowWait = await swiftTool("window-wait");
@@ -646,7 +463,7 @@ export async function launchApp(
 		while (!socket) {
 			if (child.exitCode !== null || Date.now() > deadline) {
 				throw new Error(
-					`the ${app.kind} app never served DevTools (${child.exitCode === null ? "still running after 60 s" : `exit code ${child.exitCode}, signal ${child.signalCode}`})`,
+					`the app never served DevTools (${child.exitCode === null ? "still running after 60 s" : `exit code ${child.exitCode}, signal ${child.signalCode}`})`,
 				);
 			}
 
@@ -665,54 +482,6 @@ export async function launchApp(
 		}
 
 		cdp = await Cdp.connect(socket);
-		let ui: Page | null = null;
-		let uiTimes: LaunchTimes["ui"] = null;
-		let tabRequested: number | null = null;
-
-		if (app.kind === "electron") {
-			let target = null;
-
-			while (!target) {
-				if (Date.now() > deadline) {
-					throw new Error("the Electron app's UI never loaded");
-				}
-
-				target = (await targets(cdp)).find(
-					(info) =>
-						info.type === "page" && info.url.endsWith("/renderer/index.html"),
-				);
-
-				if (!target) {
-					await Bun.sleep(10);
-				}
-			}
-
-			ui = await openPage(cdp, "about:blank", target.targetId);
-
-			const shown = await ui.evaluate<{ at: number; atCheck: boolean }>(
-				PROFILE_SHOWN,
-			);
-
-			tabRequested = since(
-				await electronMutation(ui, "tabs.open", {
-					profileId: ELECTRON_PROFILE,
-					url: options.url,
-				}),
-			);
-
-			const timing = await loadedTiming(ui);
-
-			uiTimes = {
-				firstContentfulPaint:
-					timing.firstContentfulPaint === null
-						? null
-						: since(timing.timeOrigin + timing.firstContentfulPaint),
-				loaded: since(timing.timeOrigin + timing.loadEventEnd),
-				profileShown: since(shown.at),
-				shownAtCheck: shown.atCheck,
-			};
-		}
-
 		const page = await pageAt(cdp, options.url);
 		const timing = await loadedTiming(page);
 		const seen = await window;
@@ -724,8 +493,6 @@ export async function launchApp(
 					? null
 					: seen.seenAt - seen.notSeenAt,
 			devTools: since(devToolsAt),
-			ui: uiTimes,
-			tabRequested,
 			page: {
 				firstContentfulPaint:
 					timing.firstContentfulPaint === null
@@ -750,7 +517,7 @@ export async function launchApp(
 				)
 			: null;
 
-		return new RunningApp(app, child, cdp, dataDir, times, page, ui, pane);
+		return new RunningApp(app, child, cdp, dataDir, times, page, pane);
 	} catch (error) {
 		cdp?.close();
 		watcher.kill();

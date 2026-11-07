@@ -14,7 +14,7 @@ export type WindowState = {
 	screenshot_file_path?: string;
 };
 
-async function call<T>(
+export async function call<T>(
 	tool: string,
 	args: Record<string, unknown>,
 ): Promise<T> {

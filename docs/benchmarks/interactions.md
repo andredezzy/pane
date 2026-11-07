@@ -43,7 +43,7 @@ Pane's own view bodies are under 0.2 ms of it: what is left is SwiftUI's and App
 
 ## Method
 
-`tests/scenarios/interaction-timing.ts` launches the build with five loaded tabs and repeats each interaction through the automation channel: 77 tab selections a run (40 among the five, 16 back from a new tab, the 16 each new tab makes, 5 as the tabs open), 16 new tabs from File › New Tab, and 32 address field focuses (the new tabs' 16, and 16 from Navigate › Focus Address Bar). It reads the intervals from the unified log as they happen (`/usr/bin/log stream --signpost`; zsh has a builtin named `log`).
+`tests/benchmarks/interaction-timing.ts` launches the build with five loaded tabs and repeats each interaction through the automation channel: 77 tab selections a run (40 among the five, 16 back from a new tab, the 16 each new tab makes, 5 as the tabs open), 16 new tabs from File › New Tab, and 32 address field focuses (the new tabs' 16, and 16 from Navigate › Focus Address Bar). It reads the intervals from the unified log as they happen (`/usr/bin/log stream --signpost`; zsh has a builtin named `log`).
 
 Each interval is the app's own (`Log.interaction`): it begins as the input is handled and ends once Core Animation has committed the frame built in its turn to the window server, in a run loop observer just after Core Animation's (`AfterFrame`). It leaves out what follows the commit: the window server compositing that frame for the display's next refresh, and a page's own content, which its renderer and the GPU process draw.
 
@@ -74,8 +74,8 @@ PANE_APP_OUT=/tmp/bench-int/before/Pane.app engine/scripts/package.sh
 git checkout -- app/Pane/Browser/BrowserController.swift
 
 # Each run takes about 25 seconds; alternate the two.
-bun tests/run.ts --binary /tmp/bench-int/after/Pane.app/Contents/MacOS/Pane --out /tmp/bench-int/after-1 interaction-timing
-bun tests/run.ts --binary /tmp/bench-int/before/Pane.app/Contents/MacOS/Pane --out /tmp/bench-int/before-1 interaction-timing
+bun tests/run.ts --binary /tmp/bench-int/after/Pane.app/Contents/MacOS/Pane --out /tmp/bench-int/after-1 tests/benchmarks/interaction-timing.ts
+bun tests/run.ts --binary /tmp/bench-int/before/Pane.app/Contents/MacOS/Pane --out /tmp/bench-int/before-1 tests/benchmarks/interaction-timing.ts
 ```
 
 Each run's `interaction-timing.json` holds every interaction's count, median, p90, and range. The scenario never takes the front from the app in use.
