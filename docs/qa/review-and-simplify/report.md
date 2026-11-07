@@ -47,14 +47,17 @@ With Pane open and unlocked, on a rich session's profile: 142 files by `strings`
 
 ## Speed as felt
 
-The same steps on the same setup, one profile and one tab on a real page, recorded with `screencapture -v` and timed with `tests/rigs/frame-timing.ts`, each three times. In milliseconds into the recording, the key about a second in, the last frame that changed:
+The same steps on the same setup, one profile and one tab on a real page, recorded with `screencapture -v` and timed frame by frame, each three times. In milliseconds into the recording, the key about a second in:
 
-| Steps | 0.18.0 | Candidate |
-|---|---:|---:|
-| ⌃⌘L, the lock in place | 1600 to 1617 | 1600 to 1700 |
-| The PIN's four keys, the page back | 3217 to 3500 | 3283 to 3500 |
-| ⌘R on a real page | 1983 | 1983 to 2000 |
-| ⌘T, the field ready | 1350 to 1500 | 1317 to 1550 |
+| Steps | What | 0.18.0 | Candidate |
+|---|---|---:|---:|
+| ⌃⌘L | The lock in place | 1600 to 1617 | 1600 to 1683 |
+| The PIN's four keys | The page back | 3217 to 3500 | 3367 to 3383 |
+| ⌘R on a real page | First paint | 1017 | 1017 |
+| ⌘R on a real page | Settled | about 1250 | about 1250 |
+| ⌘T | The new tab's first frame | 1000 to 1017 | 967 to 1017 |
+
+Past that, a reload shows only a change at the threshold once a second, on both.
 
 ## Findings
 
