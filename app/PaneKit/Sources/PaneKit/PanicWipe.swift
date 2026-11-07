@@ -95,7 +95,7 @@ public enum PanicWipe {
 
 	// Where the moved data waits, beside each root on the same volume, so
 	// the move is a rename.
-	static let stagingName = "Wiping"
+	private static let stagingName = "Wiping"
 
 	// Moves every target into `Wiping/<id>/` beside it, in `targets`'s order.
 	// The Electron app's folder goes only while it still looks like its data

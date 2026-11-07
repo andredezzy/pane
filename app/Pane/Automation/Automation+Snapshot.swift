@@ -262,7 +262,7 @@ extension Automation {
 				// The data key's side (ADR 0113): its phase, the volume, and why
 				// it would not attach.
 				"data": [
-					"phase": controller.vault.phase.share.map { "moving \($0)" } ?? "\(controller.vault.phase)",
+					"phase": "\(controller.vault.phase)",
 					"attached": controller.vault.isAttached,
 					"failure": controller.vault.failure ?? NSNull(),
 					// When the attach started and ended, in ms since 1970.

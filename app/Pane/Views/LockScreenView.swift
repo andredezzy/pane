@@ -3,11 +3,9 @@ import SwiftUI
 
 // The PIN screen (apps/veil lock-screen/page.tsx and components/numpad.tsx):
 // a panel over the whole window, 8px in, a back arrow when it can be left,
-// and in the middle the title, the dots, the numpad, and the hints. The data's
-// one-time move into its volume takes the middle while it runs (Paper 07.5).
+// and in the middle the title, the dots, the numpad, and the hints.
 struct LockScreenView: View {
 	let lock: AppLock
-	let vault: DataVault
 	let updater: Updater
 
 	private var entry: PinEntry? {
@@ -28,9 +26,6 @@ struct LockScreenView: View {
 			VStack(spacing: 28) {
 				if let entry {
 					pin(entry)
-				} else if let share = vault.phase.share {
-					DataMove(share: share)
-						.transition(.opacity)
 				}
 			}
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -117,33 +112,6 @@ struct LockScreenView: View {
 				.foregroundStyle(remaining == 1 ? Palette.destructive : Palette.foreground.opacity(0.3))
 				.accessibilityIdentifier("pane.lockScreen.attempts")
 		}
-	}
-}
-
-// The data's one-time move into its volume (ADR 0113, Paper 07.5): the
-// update's bar, at the numpad's width (three 64-point keys, two 14-point
-// gaps).
-private struct DataMove: View {
-	let share: Double
-
-	var body: some View {
-		VStack(spacing: 14) {
-			Text("Encrypting your data")
-				.font(.system(size: 13, weight: .light))
-				.lineBox(20)
-				.foregroundStyle(Palette.foreground.opacity(0.5))
-
-			UpdateProgressBar(progress: share)
-				.frame(width: 220)
-
-			Text("Once, after this update")
-				.font(.system(size: 13, weight: .light))
-				.lineBox(20)
-				.foregroundStyle(Palette.foreground.opacity(0.3))
-		}
-		.accessibilityElement(children: .combine)
-		.accessibilityValue("\(Int((share * 100).rounded())) percent")
-		.accessibilityIdentifier("pane.lockScreen.move")
 	}
 }
 

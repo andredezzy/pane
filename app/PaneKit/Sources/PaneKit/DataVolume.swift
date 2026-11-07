@@ -432,8 +432,7 @@ public struct DataVolume: Sendable {
 	}
 
 	// Makes the profile's folders in the attached volume and the links to
-	// them, before the engine opens the profile. A plain folder still in
-	// their place moves in first. One that saves no history loses what it wrote
+	// them, before the engine opens the profile. One that saves no history loses what it wrote
 	// while it did (ADR 0119): the leveldb log of its downloads, which a deletion
 	// does not rewrite, beside which is only Chrome's in-product help, which Pane
 	// does not show; and its caches, which it now keeps in memory.
@@ -443,10 +442,6 @@ public struct DataVolume: Sendable {
 	// tab, and the engine, which stops at a plain store, never sees it. A new
 	// profile has nothing to convert, and is marked before its first file.
 	public func prepare(profile id: String, savesHistory: Bool = true) throws {
-		if isPlainFolder(engineFolder(id)) {
-			try moveIn(profiles: [id]) { _ in }
-		}
-
 		let folder = folder(profile: id)
 		let marker = folder.appending(path: Self.encryptedMarker)
 		let marked = FileManager.default.fileExists(atPath: marker.path)
@@ -460,10 +455,6 @@ public struct DataVolume: Sendable {
 		try link(engineFolder(id), to: folder.appending(path: "Profile"))
 
 		if let caches = cacheFolder(id) {
-			if isPlainFolder(caches) {
-				try stage(caches, in: cacheDirectory, id: UUID().uuidString)
-			}
-
 			try link(caches, to: folder.appending(path: "Cache"))
 		}
 
@@ -497,55 +488,8 @@ public struct DataVolume: Sendable {
 		}
 	}
 
-	// Moves the plain profile folders an earlier Pane left (Engine/<id>) into
-	// the attached volume, each behind its link, and stages them, and their
-	// caches, which rebuild, for the panic wipe's erase (PanicWipe.eraseStaged).
-	// `progress` gets the share copied, 0 to 1. Each folder is staged only
-	// once its copy is whole, so one cut short is copied again.
-	public func moveIn(profiles ids: [String], progress: (Double) -> Void) throws {
-		let plain = ids.filter { isPlainFolder(engineFolder($0)) }
-		let total = plain.reduce(Int64(0)) { $0 + size(engineFolder($1)) }
-		let move = UUID().uuidString
-		var copied: Int64 = 0
-
-		for id in plain {
-			let target = folder(profile: id).appending(path: "Profile", directoryHint: .isDirectory)
-
-			if FileManager.default.fileExists(atPath: target.path) {
-				try FileManager.default.removeItem(at: target)
-			}
-
-			try FileManager.default.createDirectory(at: folder(profile: id), withIntermediateDirectories: true)
-			try copy(engineFolder(id), to: target) { size in
-				copied += size
-				progress(total > 0 ? min(Double(copied) / Double(total), 1) : 1)
-			}
-
-			try stage(engineFolder(id), in: dataDirectory, id: move)
-			try link(engineFolder(id), to: target)
-
-			if let caches = cacheFolder(id), isPlainFolder(caches) {
-				try stage(caches, in: cacheDirectory, id: move)
-			}
-		}
-
-		progress(1)
-	}
-
-	// Whether an earlier Pane's plain folder is still in the profile's place.
-	public func hasPlainFolder(profile id: String) -> Bool {
-		isPlainFolder(engineFolder(id))
-	}
-
-	// Whether Engine holds any profile's plain folder: a profile's is named by
-	// its id, a UUID, where the engine's own are not (Default, and the rest).
-	public var hasPlainProfiles: Bool {
-		let entries = (try? FileManager.default.contentsOfDirectory(atPath: dataDirectory.appending(path: "Engine").path)) ?? []
-		return entries.contains { UUID(uuidString: $0) != nil && hasPlainFolder(profile: $0) }
-	}
-
-	// The profile's links, its plain folders if an earlier Pane left any, and
-	// its folder in the attached volume.
+	// The profile's links, or a plain folder refused in their place, and its
+	// folder in the attached volume.
 	public func remove(profile id: String) throws {
 		for url in [engineFolder(id), cacheFolder(id), folder(profile: id)].compactMap(\.self)
 			where (try? FileManager.default.attributesOfItem(atPath: url.path)) != nil
@@ -567,9 +511,15 @@ public struct DataVolume: Sendable {
 		(try? FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeDirectory
 	}
 
+	// A plain folder in the link's place, an earlier Pane's site data never moved
+	// into the volume, stays there, and the profile is refused (ADR 0122).
 	private func link(_ link: URL, to target: URL) throws {
 		if (try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)) == target.path {
 			return
+		}
+
+		if isPlainFolder(link) {
+			throw BeforeTheFloor(folder: link.path)
 		}
 
 		if (try? FileManager.default.attributesOfItem(atPath: link.path)) != nil {
@@ -578,61 +528,6 @@ public struct DataVolume: Sendable {
 
 		try FileManager.default.createDirectory(at: link.deletingLastPathComponent(), withIntermediateDirectories: true)
 		try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
-	}
-
-	// Into `root`'s Wiping folder, where PanicWipe erases it.
-	private func stage(_ url: URL, in root: URL?, id: String) throws {
-		guard let root else {
-			return
-		}
-
-		let folder = root.appending(path: "\(PanicWipe.stagingName)/\(id)", directoryHint: .isDirectory)
-		try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-		try FileManager.default.moveItem(at: url, to: folder.appending(path: url.lastPathComponent))
-	}
-
-	// File by file, so `copied` hears of each one's size. Links are copied
-	// as links. The enumerator gives each path relative to `source`, as the
-	// link /var → /private/var would otherwise shift a path made from URLs.
-	private func copy(_ source: URL, to target: URL, copied: (Int64) -> Void) throws {
-		let fileManager = FileManager.default
-		try fileManager.createDirectory(at: target, withIntermediateDirectories: true)
-
-		guard let entries = fileManager.enumerator(atPath: source.path) else {
-			return
-		}
-
-		while let path = entries.nextObject() as? String {
-			let from = source.appending(path: path)
-			let to = target.appending(path: path)
-
-			switch entries.fileAttributes?[.type] as? FileAttributeType {
-			case .typeSymbolicLink?:
-				try fileManager.createSymbolicLink(atPath: to.path, withDestinationPath: fileManager.destinationOfSymbolicLink(atPath: from.path))
-			case .typeDirectory?:
-				try fileManager.createDirectory(at: to, withIntermediateDirectories: true)
-			default:
-				try fileManager.copyItem(at: from, to: to)
-				copied((entries.fileAttributes?[.size] as? NSNumber)?.int64Value ?? 0)
-			}
-		}
-	}
-
-	// The files' sizes under `folder`.
-	private func size(_ folder: URL) -> Int64 {
-		guard let entries = FileManager.default.enumerator(atPath: folder.path) else {
-			return 0
-		}
-
-		var total: Int64 = 0
-
-		while entries.nextObject() != nil {
-			if entries.fileAttributes?[.type] as? FileAttributeType == .typeRegular {
-				total += (entries.fileAttributes?[.size] as? NSNumber)?.int64Value ?? 0
-			}
-		}
-
-		return total
 	}
 
 	// A disk image tool, with `input` on its standard input (a passphrase is

@@ -2,8 +2,8 @@ import Foundation
 import PaneKit
 import Testing
 
-// The volume's links and moves, on a plain folder standing in for the
-// attached volume: the disk image itself is the scenarios' (security).
+// The volume's links and what it refuses, on a plain folder standing in for the
+// attached volume, and its image where a test makes one.
 @Suite("DataVolume")
 struct DataVolumeTests {
 	private let fileManager = FileManager.default
@@ -183,63 +183,44 @@ struct DataVolumeTests {
 		#expect(link(data.appending(path: "Engine/p")) == volume.folder(profile: "p").appending(path: "Profile").path)
 	}
 
-	@Test("an earlier Pane's plain folders move in, whole, and wait for the wipe's erase")
-	func moveIn() throws {
-		let root = try root()
-		defer { try? fileManager.removeItem(at: root) }
-		let data = root.appending(path: "data")
-		let caches = root.appending(path: "caches")
-		let volume = DataVolume(dataDirectory: data, cacheDirectory: caches)
-		let plain = data.appending(path: "Engine/p")
-
-		try fileManager.createDirectory(at: plain.appending(path: "Local Storage/leveldb"), withIntermediateDirectories: true)
-		try Data(repeating: 7, count: 300_000).write(to: plain.appending(path: "Local Storage/leveldb/000003.log"))
-		try Data("cookie".utf8).write(to: plain.appending(path: "Cookies"))
-		try fileManager.createSymbolicLink(atPath: plain.appending(path: "SingletonCookie").path, withDestinationPath: "12345")
-		try fileManager.createDirectory(at: caches.appending(path: "Engine/p/Cache"), withIntermediateDirectories: true)
-		try Data("page".utf8).write(to: caches.appending(path: "Engine/p/Cache/entry"))
-
-		var shares: [Double] = []
-		try volume.moveIn(profiles: ["p", "never-opened"]) { shares.append($0) }
-
-		let moved = volume.folder(profile: "p").appending(path: "Profile")
-		#expect(try Data(contentsOf: moved.appending(path: "Local Storage/leveldb/000003.log")) == Data(repeating: 7, count: 300_000))
-		#expect(try Data(contentsOf: moved.appending(path: "Cookies")) == Data("cookie".utf8))
-		#expect(link(moved.appending(path: "SingletonCookie")) == "12345")
-		#expect(link(plain) == moved.path)
-		#expect(shares.last == 1)
-		#expect(shares == shares.sorted())
-		#expect((try? fileManager.attributesOfItem(atPath: caches.appending(path: "Engine/p").path)) == nil)
-
-		// Staged for the erase, data and caches alike, which then takes them.
-		let staged = PanicWipe.staged(dataDirectory: data, cacheDirectory: caches)
-		#expect(staged.map(\.passes).sorted() == [1, 3])
-		#expect(PanicWipe.eraseStaged(dataDirectory: data, cacheDirectory: caches).isEmpty)
-		#expect(PanicWipe.staged(dataDirectory: data, cacheDirectory: caches).isEmpty)
-
-		// The caches' link comes with the profile's next prepare.
-		try volume.prepare(profile: "p")
-		#expect(link(caches.appending(path: "Engine/p")) == volume.folder(profile: "p").appending(path: "Cache").path)
-	}
-
-	@Test("a move cut short before its stage copies the folder again")
-	func moveAgain() throws {
+	// What 0.13.1 and before wrote, never moved into a volume: a link there would
+	// delete it.
+	@Test("a plain folder in a profile's place is refused, and stays")
+	func plainFolderRefused() throws {
 		let root = try root()
 		defer { try? fileManager.removeItem(at: root) }
 		let data = root.appending(path: "data")
 		let volume = DataVolume(dataDirectory: data, cacheDirectory: nil)
-		let plain = data.appending(path: "Engine/p")
+		let cookies = data.appending(path: "Engine/p/Cookies")
 
-		try fileManager.createDirectory(at: plain, withIntermediateDirectories: true)
-		try Data("whole".utf8).write(to: plain.appending(path: "Cookies"))
-		// What a copy cut short left.
-		try fileManager.createDirectory(at: volume.folder(profile: "p").appending(path: "Profile"), withIntermediateDirectories: true)
-		try Data("half".utf8).write(to: volume.folder(profile: "p").appending(path: "Profile/Partial"))
+		try fileManager.createDirectory(at: cookies.deletingLastPathComponent(), withIntermediateDirectories: true)
+		try Data("cookie".utf8).write(to: cookies)
 
-		try volume.moveIn(profiles: ["p"]) { _ in }
+		#expect(throws: DataVolume.BeforeTheFloor.self) {
+			try volume.prepare(profile: "p")
+		}
 
-		#expect(try Data(contentsOf: volume.folder(profile: "p").appending(path: "Profile/Cookies")) == Data("whole".utf8))
-		#expect(!fileManager.fileExists(atPath: volume.folder(profile: "p").appending(path: "Profile/Partial").path))
+		#expect(try Data(contentsOf: cookies) == Data("cookie".utf8))
+		#expect(link(data.appending(path: "Engine/p")) == nil)
+		#expect(!exists(volume.folder(profile: "p").appending(path: ".files-encrypted")))
+	}
+
+	@Test("a plain folder of caches in a profile's place is refused too, and stays")
+	func plainCachesRefused() throws {
+		let root = try root()
+		defer { try? fileManager.removeItem(at: root) }
+		let caches = root.appending(path: "caches")
+		let volume = DataVolume(dataDirectory: root.appending(path: "data"), cacheDirectory: caches)
+		let entry = caches.appending(path: "Engine/p/Cache/entry")
+
+		try fileManager.createDirectory(at: entry.deletingLastPathComponent(), withIntermediateDirectories: true)
+		try Data("page".utf8).write(to: entry)
+
+		#expect(throws: DataVolume.BeforeTheFloor.self) {
+			try volume.prepare(profile: "p")
+		}
+
+		#expect(try Data(contentsOf: entry) == Data("page".utf8))
 	}
 
 	@Test("an earlier engine's database of the pages visited, and its histograms, are staged for the erase")

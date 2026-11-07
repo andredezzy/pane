@@ -52,7 +52,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		self.store = store
 		self.vault = vault
 
-		vault.profileIDs = { model.profiles.map(\.id) }
 		vault.didOpen = { [weak store, weak controller] in
 			store?.loadProfiles()
 			controller?.profilesDidLoad()
@@ -77,12 +76,6 @@ final class AppDelegate: NSObject, BrowserApplicationDelegate {
 		}
 		controller.didLock = { [weak store] in
 			store?.unloadProfiles()
-		}
-
-		// An earlier Pane's profiles move in at once, with no PIN to ask
-		// first: the panel shows from the first frame.
-		if !lock.isLocked, vault.volume.hasPlainProfiles {
-			vault.expectMove()
 		}
 
 		controller.applyTheme()

@@ -9,27 +9,14 @@ import os
 // the key, with the PIN when there is one, and hands it here. The volume
 // attaches on a thread while the window already shows the profiles; a
 // profile's context opens only once it is attached and the profile's links
-// are in place (BrowserController.withContext). The first open after an
-// earlier Pane moves its plain profile folders in, with the lock's panel
-// showing the move (Paper 07.5).
+// are in place (BrowserController.withContext).
 @MainActor
 @Observable
 final class DataVault {
 	enum Phase: Equatable {
 		// Nothing of the profiles is read yet.
 		case closed
-		// An earlier Pane's plain folders moving in: the share copied.
-		case moving(Double)
 		case open
-
-		// The share copied, while moving.
-		var share: Double? {
-			if case let .moving(share) = self {
-				share
-			} else {
-				nil
-			}
-		}
 	}
 
 	private(set) var phase: Phase = .closed
@@ -55,14 +42,14 @@ final class DataVault {
 	@ObservationIgnored private var closing: Task<String?, Never>?
 	// What the open does once attached (finish), for a lock to wait for.
 	@ObservationIgnored private var finishing: Task<Void, Never>?
-	// Locks so far: an attach or move a lock overtook reports to no one.
+	// Locks so far: an attach a lock overtook reports to no one.
 	@ObservationIgnored private var locks = 0
 	// When the attach started and ended, in milliseconds since 1970.
 	@ObservationIgnored private(set) var attachedAt: (started: Double, ended: Double)?
 	@ObservationIgnored private var attachWaiters: [(Bool) -> Void] = []
 	// The key opened: the model reads the profiles.
 	@ObservationIgnored var didOpen: (() -> Void)?
-	// The profiles are read and their move, if any, done.
+	// The profiles are read.
 	@ObservationIgnored var didBecomeOpen: (() -> Void)?
 	// The volume would not attach: the lock says so (07.8).
 	@ObservationIgnored var didFail: (() -> Void)?
@@ -71,8 +58,6 @@ final class DataVault {
 	@ObservationIgnored var didDetachLocked: (() -> Void)?
 	// It would not: the keys stay, for what still has the files open.
 	@ObservationIgnored var didFailToDetachLocked: (() -> Void)?
-	// The profiles' ids, once the model has them: what an open moves in.
-	@ObservationIgnored var profileIDs: () -> [String] = { [] }
 	@ObservationIgnored private let dataDirectory: URL
 
 	init(dataDirectory: URL) {
@@ -80,32 +65,15 @@ final class DataVault {
 		volume = DataVolume(dataDirectory: dataDirectory, cacheDirectory: AppLock.cacheDirectory(for: dataDirectory))
 	}
 
-	// An earlier Pane's profiles wait to move in with no PIN to ask first:
-	// the panel shows the move from the first frame, as the PIN screen shows
-	// from it (ADR 0042).
-	func expectMove() {
-		phase = .moving(0)
-	}
-
 	// The key opened, and `attaching`, started where it opened, attaches the
-	// volume. Profiles an earlier Pane left in the clear move in before any
-	// opens: on the first open, or one after a quit cut that move short.
+	// volume.
 	func open(_ key: SymmetricKey, attaching: Task<Attached, Error>) {
 		filesKey = DataKey.filesKey(key)
 		dataKey = key
 		self.attaching = attaching
 		didOpen?()
-
-		let ids = profileIDs()
-		let moving = ids.contains(where: volume.hasPlainFolder)
-
-		if moving {
-			phase = .moving(0)
-		} else {
-			becomeOpen()
-		}
-
-		finish(attaching, moving: moving ? ids : nil)
+		becomeOpen()
+		finish(attaching)
 	}
 
 	// The device the attach returned, and when it started and ended, in
@@ -260,8 +228,7 @@ final class DataVault {
 		}
 	}
 
-	// The profile's folders in the volume and its links, off the main thread:
-	// a plain folder an earlier Pane left still moves in.
+	// The profile's folders in the volume and its links, off the main thread.
 	func prepare(profile id: String, savesHistory: Bool, _ done: @escaping (Bool) -> Void) {
 		let volume = volume
 
@@ -360,7 +327,7 @@ final class DataVault {
 	// Pane locked while open (ADR 0116): the vault starts over at once,
 	// closed, for the PIN to open again, and an attach the PIN starts waits
 	// for this lock's detach (attacher). Off the main thread, the detach waits
-	// for an attach or move still under way, and for `closed`, which says
+	// for an attach still under way, and for `closed`, which says
 	// every profile began closing in the engine: its stores close a moment after.
 	// A profile that would not close keeps its files open: the image stays
 	// attached for the quit to detach once the engine has stopped (close), where
@@ -455,54 +422,21 @@ final class DataVault {
 		didBecomeOpen?()
 	}
 
-	private func moved(_ share: Double, locks: Int) {
-		if locks == self.locks, case .moving = phase {
-			phase = .moving(share)
-		}
-	}
-
-	// Once mounted: moves an earlier Pane's plain folders in when `ids`
-	// names them, and purges the profiles deleted while it was detached; the
-	// plain copies are erased after, off the launch.
-	private func finish(_ attaching: Task<Attached, Error>, moving ids: [String]?) {
-		let volume = volume
-		let dataDirectory = dataDirectory
-		let caches = AppLock.cacheDirectory(for: dataDirectory)
+	// Once mounted: purges the profiles deleted while it was detached.
+	private func finish(_ attaching: Task<Attached, Error>) {
 		let deletions = ProfileDeletions(dataDirectory: dataDirectory)
+		let volume = volume
 		let locks = locks
 
 		finishing = Task.detached(priority: .userInitiated) { [weak self] in
 			do {
 				let attached = try await attaching.value
 
-				if let ids {
-					var reported = 0.0
-
-					try volume.moveIn(profiles: ids) { share in
-						guard share - reported >= 0.01 || share == 1 else {
-							return
-						}
-
-						reported = share
-						Task { @MainActor in self?.moved(share, locks: locks) }
-					}
-				}
-
 				for failure in deletions.purge(volume: volume) {
 					Log.security.error("Could not remove a deleted profile's data: \(failure, privacy: .private)")
 				}
 
-				await MainActor.run { self?.didAttach(attached, moved: ids != nil, locks: locks) }
-
-				// On its own: a lock waits for what this task does, and the volume
-				// stays mounted behind the PIN until it ends.
-				if ids != nil {
-					Task.detached(priority: .utility) {
-						for failure in PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches) {
-							Log.security.error("Could not erase a plain copy: \(failure.description, privacy: .private)")
-						}
-					}
-				}
+				await MainActor.run { self?.didAttach(attached, locks: locks) }
 			} catch {
 				Log.security.error("Could not attach the data volume: \(String(describing: error), privacy: .private)")
 				await MainActor.run { self?.attachFailed(String(describing: error), locks: locks) }
@@ -510,7 +444,7 @@ final class DataVault {
 		}
 	}
 
-	private func didAttach(_ attached: Attached, moved: Bool, locks: Int) {
+	private func didAttach(_ attached: Attached, locks: Int) {
 		// Kept even when a lock overtook the attach: the image is this Pane's.
 		if let lock = attached.lock {
 			dataLock = lock
@@ -524,10 +458,6 @@ final class DataVault {
 		isAttached = true
 		device = attached.device
 		attachedAt = (attached.started, attached.ended)
-
-		if moved {
-			becomeOpen()
-		}
 
 		let waiters = attachWaiters
 		attachWaiters = []
@@ -543,10 +473,6 @@ final class DataVault {
 
 		failure = reason
 		didFail?()
-
-		if case .moving = phase {
-			becomeOpen()
-		}
 
 		let waiters = attachWaiters
 		attachWaiters = []
