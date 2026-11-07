@@ -11,9 +11,9 @@ import {
 import { expect, type Scenario } from "../run";
 
 // What a process that reads files finds while Pane is open and unlocked
-// (docs/plans/engine-file-encryption.md): every file under each profile's
+// (docs/adr/0121): every file under each profile's
 // folder, its caches, the data root, and what Pane's processes made in $TMPDIR
-// is ciphertext or on the plan's allow-list; none holds a planted value; and no
+// is ciphertext or on ADR 0121's allow-list; none holds a planted value; and no
 // name gives a site away, in clear or as an unkeyed hash.
 //
 // It also lists every file, with its kind, what wrote it, and whether it reads

@@ -13,7 +13,7 @@ Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `Pane Frame
 - `app/` — the Swift app, the `PaneKit` package, the volume's watchdog (`VolumeWatch/`), `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon's sources (`icon/`: the window's renders, and `make-icons.swift`, which makes the app's icons from them)
 - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios that check (`scenarios/`), what measures and never judges (`benchmarks/`), and a held test copy for a pass by hand (`rigs/`)
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
-- `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), `adr/`, one record per subject, `benchmarks/`, measured comparisons of Pane builds with their raw data and how to rerun them, and `growth/`, the media Pane is shown with outside the app
+- `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), `qa/`, reports of passes by computer use, `adr/`, one record per subject, `benchmarks/`, measured comparisons of Pane builds with their raw data and how to rerun them, and `growth/`, the media Pane is shown with outside the app
 - `evidence/` — gitignored output of acceptance checks
 
 ## Chromium checkout
@@ -64,6 +64,30 @@ bun tests/rigs/frame-timing.ts <dir>/qa-session.json <out.mov> <seconds> <step>.
 ```
 
 Taking the front needs the user's word in the session, or the Mac idle 10 minutes with its screen unlocked (`front.ts guard`). `front.ts` checks before each key that the test copy's pid is the frontmost app's and that no input but its own has come, and stops with exit 3 at the first sign of the user: nothing the user's gets keys. It captures the test copy's window, never the screen.
+
+## Testing as a person would
+
+Scenarios prove the mechanics; a person checks what they see and do. A release candidate gets this pass too, driven by computer use, in light and dark, with every finding fixed and checked again the same way. Reports go in `docs/qa/<subject>/`, naming their screenshots, which stay in `evidence/`.
+
+The rig: cua-driver (`tests/lib/cua.ts`), `screencapture -l <window id>` for stills, `screencapture -v` for motion, `tests/rigs/qa-hold.ts` to hold a test copy open, and `tests/rigs/qa-send.ts` for setup only, never in place of the input under test.
+
+**Taking the screen.** The Mac is in use, so:
+
+- **Always a test copy,** through the scenario harness, on throwaway data. Never the user's Pane, `/Applications`, the user's data, or the user's accounts.
+- **Background first.** Whatever accessibility does on a window not in front runs at any time.
+- **The front, only when allowed:** the user has said so in the session, or the Mac has been idle at least 10 minutes with its screen unlocked (`HIDIdleTime` from `ioreg -c IOHIDSystem`, `CGSSessionScreenIsLocked`). Say first what will run, for how long, and that any key or click stops it. Check again before each step, stop at the first sign of the user, and put back the app that was in front.
+- **Before every key, prove the target:** the frontmost app's pid is the test copy's, immediately before each key. Nothing of the user's gets keys, and only windows proven to be the test's get captured. `tests/rigs/` has the guard.
+- **If neither comes within a working day,** ask once.
+
+**The checklist:**
+
+1. **Lock and unlock:** the PIN typed with real keys, a wrong one, wrong ones in Settings, ⌃⌘L, the menu, the idle lock with time scaled, the PIN screen against Paper 07.1 to 07.9, the tab that showed comes back, keypress to first frame from a recording.
+2. **Real browsing,** on throwaway profiles: public sites that need no account, the sign-in fixture surviving a relaunch and a lock, address suggestions after a relaunch, a download through the UI, an extension from the Web Store.
+3. **What changed:** the screens a release touches against their boards, each compared by pixel with the last release.
+4. **An older Pane's data:** 07.8 for 0.15.2's data, and nothing changed.
+5. **The files from another app,** in Terminal, on test data only: `strings` and `sqlite3` on History, Cookies, Local Storage, an IndexedDB file, and a cache file.
+6. **Speed as felt:** recordings of the same page loads on the last release and the candidate, timed frame by frame.
+7. **Open items in `docs/human-checklist.md`** an agent may do.
 
 ## App
 

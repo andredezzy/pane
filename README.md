@@ -70,7 +70,7 @@ open app/build/Pane.app
 app/           # the Swift app (AppKit + SwiftUI), the PaneKit package, the volume's watchdog, VERSION, signing and dmg resources
 engine/        # Pane Framework.framework: the pinned Chromium tag, gn args, patches, //pane, scripts
 tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
-docs/          # building.md, human-checklist.md, adr/ (one record per subject), benchmarks/, growth/
+docs/          # building.md, human-checklist.md, adr/ (one record per subject), benchmarks/, growth/, qa/
 third_party/   # the license and origin of each project Pane takes code from (NOTICE)
 .github/       # CI: gates.yml (linters), app.yml (tests and build), release.yml (the dmg, on a v* tag), chromium-watch.yml (when Chrome's Mac stable moves)
 ```

@@ -1,8 +1,8 @@
 // What a process that only reads files finds of a profile while Pane is
-// unlocked (docs/plans/engine-file-encryption.md): every file under the
+// unlocked (docs/adr/0121): every file under the
 // profile's folder, its caches' folder, the data root, the throwaway home, and
 // what Pane's processes made in $TMPDIR, each sorted into what wrote it, what
-// its content shows, and whether the plan's allow-list lets it stay plain.
+// its content shows, and whether ADR 0121's allow-list lets it stay plain.
 import { createHash } from "node:crypto";
 import { type Dirent, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -22,7 +22,7 @@ type AuditedFile = {
 	size: number;
 	kind: string;
 	writer: string;
-	// Why the plan lets it stay plain; null for a file that must be ciphertext.
+	// Why ADR 0121 lets it stay plain; null for a file that must be ciphertext.
 	allowed: string | null;
 	// Why its content reads as plain, if it does.
 	plain: string[];
@@ -48,7 +48,7 @@ const SQLITE = Buffer.from("SQLite format 3\0", "latin1");
 const LEVELDB_FOOTER = Buffer.from("57fb808b247547db", "hex");
 const SIMPLE_CACHE = Buffer.from("305c72a71b6dfbfc", "hex");
 
-// The plan's allow-list, relative to the data root (Engine's own files) and,
+// ADR 0121's allow-list, relative to the data root (Engine's own files) and,
 // for a profile, to its folder.
 const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 	[
@@ -81,7 +81,7 @@ const PROFILE_ALLOWED: [RegExp, string][] = [
 	],
 ];
 
-// What wrote a file of a profile, from its path, as the plan's table sorts them.
+// What wrote a file of a profile, from its path, by what writes it.
 const KINDS: [RegExp, string, string][] = [
 	[
 		/^(Network\/)?(Cookies|Reporting and NEL|Trust Tokens|Device Bound Sessions)(-journal|-wal)?$/,

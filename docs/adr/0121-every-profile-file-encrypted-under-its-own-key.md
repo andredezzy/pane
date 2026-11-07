@@ -2,7 +2,7 @@
 
 > **Partly replaced by [ADR 0122](0122-pane-upgrades-only-from-the-last-0-18-x.md)** — this Pane no longer converts: a volume on the former passphrase reaches 07.8, a profile with its Preferences and no marker is refused, and a new one takes its marker at `DataVolume.prepare`. The last 0.18.x is what converts. The engine's half of the conversion follows; `files-migration` and `files-migration-large` are gone.
 
-The user's requirement (2026-10-31): none of Pane's content can be seen without the PIN. ADR 0113 encrypted every profile at rest, and ADR 0116 locked Pane while open, but while Pane is unlocked the volume is mounted, and any process running as the user read the profiles' files: history, site storage, caches, preferences. ADR 0115 listed that gap. This closes it inside the engine: a process that reads files, even with Full Disk Access, finds only ciphertext, while Pane is unlocked as much as while it is locked. It reverses ADR 0113's rejection of encrypting each of Chromium's stores, which weighed a patch in every storage layer against an upgrade's cost; `docs/plans/engine-file-encryption.md` has the plan, and what each phase found.
+The user's requirement (2026-10-31): none of Pane's content can be seen without the PIN. ADR 0113 encrypted every profile at rest, and ADR 0116 locked Pane while open, but while Pane is unlocked the volume is mounted, and any process running as the user read the profiles' files: history, site storage, caches, preferences. ADR 0115 listed that gap. This closes it inside the engine: a process that reads files, even with Full Disk Access, finds only ciphertext, while Pane is unlocked as much as while it is locked. It reverses ADR 0113's rejection of encrypting each of Chromium's stores, which weighed a patch in every storage layer against an upgrade's cost; the plan this work was done by, in the history before `review-and-simplify` has the plan, and what each phase found.
 
 Without a PIN the files are just as encrypted: the data key then opens with the Keychain's secret alone, and macOS asks the user before any other process reads that item.
 
@@ -60,6 +60,15 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 - **Past a playback, a WAL's page that won't authenticate is an error.** Zeros read as a malformed database, which Chromium razes.
 - **A kill between an append's writes leaves a stream's tail readable:** its last chunk may be marked as not the last, and a read tries both marks (`encrypted_cache_file.cc`, one more Chromium file, since a repair at open would race a writer). The mark guards only against someone who truncates the file, whom the threat model leaves out. A power cut can still tear a chunk.
 
+## What may stay plain
+
+`files-encrypted` still searches these for what it planted. Any addition needs its reason here.
+
+- **The data root:** Pane's own files: `settings.json`, readable at the user's call; `security.json` and `Data.security.json`, which hold the PIN's length and the sealed key; `profiles.json`, sealed; `deletions.json`, which names only ids; `Pane.lock`. The volume's image, `Data.sparsebundle`.
+- **macOS's in the volume:** `.fseventsd/no_log` and `fseventsd-uuid`. Its log, which names files that change, is off at every mount.
+- **The engine's root** (`Engine/`), which Chromium uses before the PIN: `Local State`, `Last Version`, `Variations`, `ChromeFeatureState`; the GPU's shader caches, `GraphiteDawnCache` and `GPUPersistentCache` (ADR 0115); `Safe Browsing`, `component_crx_cache`, `extensions_crx_cache`, `Webstore Downloads`, `NativeMessagingHosts`; the `Default` profile, holding only Chromium's defaults (ADR 0115), and its caches under `~/Library/Caches`.
+- **In a profile:** `Extensions/`, installed extensions' public code; empty files and folders; and the file system's `.usage` counts, a magic and a size: metadata, as a file's size is.
+
 ## Residuals
 
 - **A process that writes.** It can change Pane's bundle, which ad-hoc signing does not guard, and steal the key at the next launch; or edit Local State. This waits for a Developer ID (ADR 0048). Nothing here depends on a feature flag or a field trial.
@@ -89,6 +98,6 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 - **`files-migration`**, from each published build it is given (0.15.2 and 0.17.2): killed three times in its first opens, everything still there, nothing plain, and the published build on the migrated data refused, the volume's files unchanged. **`files-migration-large`**: with its panel, and six kills at random points.
 - **`engine-keys`**, **`memory-guarded`**, **`volume-unindexed`** (Spotlight: `.metadata_never_index` at every mount, since `mdutil` can't tell on a volume out of the Finder).
 - **`pane_unittests`**, run locally since CI builds no Chromium: every I/O shape of a journal and a WAL, a mid-transaction crash rolled back from the log on disk, 200 kills in each with nothing committed lost, Raze, Recovery, VACUUM, a wrong key or none crashing and deleting nothing, LevelDB with repair, and the migration killed at any point.
-- **By hand, by computer use:** `docs/plans/qa/engine-file-encryption/`, against the published 0.15.2.
+- **By hand, by computer use:** `docs/qa/engine-file-encryption/`, with their screenshots kept locally,, against the published 0.15.2.
 - **A real update:** the published 0.15.2 took 0.18.0 from GitHub, swapped itself at quit, and the data it had written migrated and read back.
 - **What it costs:** `docs/benchmarks/engine-encryption.md`. All budgets met but the first launch on new data, +12 ms over 0.15.2 where the budget is +10, which the user accepted (2026-11-06).

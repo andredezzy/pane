@@ -1,4 +1,4 @@
-// A rich session on throwaway data (docs/plans/engine-file-encryption.md): a
+// A rich session on throwaway data (docs/adr/0121): a
 // profile signed in, with history, Local and Session Storage, IndexedDB with
 // blobs, CacheStorage, a service worker, the origin private file system with a
 // sync access handle, a download, and an extension, each holding a value of its

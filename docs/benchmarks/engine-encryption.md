@@ -1,6 +1,6 @@
 # Encrypting every profile file: what it costs
 
-What `docs/plans/engine-file-encryption.md` measures against: the published 0.15.2, from its release's dmg, against the release candidate, stripped as a release is, taking turns on this Mac (M5 Pro, 2026-11-05 and 06), the two alternating so a trend in its load falls on both.
+What the plan for ADR 0121 measured against: the published 0.15.2, from its release's dmg, against the release candidate, stripped as a release is, taking turns on this Mac (M5 Pro, 2026-11-05 and 06), the two alternating so a trend in its load falls on both.
 
 | Measure | 0.15.2 | Candidate | Budget | Change |
 |---|---|---|---|---|
