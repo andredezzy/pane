@@ -155,6 +155,12 @@ async function pressInMoreMenu(
 const extensionsMenu: Scenario = async (context) => {
 	const locked = !(await canDriveUI());
 	const app = await launchPane(context);
+
+	// Allowed the front, it takes it now: asked for only once the run is under way,
+	// it doesn't always win it from the app in use.
+	if (context.foreground) {
+		await bringToFront(context, app, "the run");
+	}
 	const profile = await app.createProfile("Extensions");
 	const url = context.fixtures.url("light.html?extensions-menu");
 	const { tab } = await app.openPage(profile, url);
