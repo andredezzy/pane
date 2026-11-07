@@ -17,5 +17,15 @@ What was rejected:
 
 How it is checked:
 
-- **The count of what the patches edit** (`engine/patches/*.patch`, each `diff --git` that is not a new file): 121 Chromium files and 1,363 changed lines, with 11 files added, at 0.18.0. A change that raises it says why.
+- **The count of what the patches edit** (`engine/patches/*.patch`, each `diff --git` that is not a new file): 121 Chromium files and 1,363 changed lines, with 11 files added, at 0.18.0, and 93, 1,035, and 9 after the review of 0.18.0 cut what `//pane` or a seam could carry. A change that raises it says why.
+- **What stays, and why no seam does it** (that review read every hunk):
+  - **0001:** `//pane` in `chrome_dll`, the exports, the order check off, and the Keychain's names, which have no gn arg.
+  - **0002:** `ChromeMain`'s delegate, and the `AppController` methods (a reopen, opened URLs, the last profile, Handoff) and the main menu, which AppKit's delegate owns.
+  - **0003:** a window that stays with no tabs, the window and `WebContentsDelegate` factories, and three places that need a `BrowserView` (toasts, reading mode, the sad tab). `AllowCheckIsTestForTesting` could stand for reading mode's, and was rejected: it also trips `CHECK_IS_NOT_TEST`, which production code holds (`prefetch_container.cc`).
+  - **0004:** sign-in, DevTools' one virtual, and the external protocol dialog, whose test delegate would make Pane reimplement six of its behaviors.
+  - **0005:** the extension install dialog and `chrome.action.openPopup()`.
+  - **0006:** the User-Agent per context, in renderers, navigations, workers, and Client Hints, and what Blink reports, which nothing outside it can change: the fingerprint.
+  - **0008:** the crash handler and persistent histograms, which start inside `ChromeMainDelegate` before features are read, the quarantine's URLs, and Gaia's account list.
+  - **0009:** a profile that saves no history keeps nothing where Chromium has no per-profile switch: downloads, favicons, engagement, the predictor, and an extension's `history.addUrl`.
+  - **0010:** encryption's hooks in each store, and two data-loss fixes (ADR 0121).
 - **`docs/benchmarks/native-vs-electron.md`** measures what the move bought: the native app at 0.11.2 against the last Electron release, 0.6.0, on one Mac, by the `benchmark-*` scenarios.
