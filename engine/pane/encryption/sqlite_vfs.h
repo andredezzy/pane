@@ -20,34 +20,6 @@ void InstallSqliteVfs();
 // bytes 16-23 stay clear, authenticated.
 inline constexpr int kSqliteReservedBytes = 32;
 
-enum class SqliteMigration {
-  // A plain database re-encrypted, and in its place.
-  kMigrated,
-  // Nothing to do: already encrypted, empty, or not a database.
-  kNothingToDo,
-  // Its copy failed, or would not verify: the original stays, as it was.
-  kFailed,
-  // SQLite finds it malformed, as the engine would when it read that page and
-  // razed it: the original stays, for the caller to drop.
-  kCorrupt,
-};
-
-// Encrypts a plain database of a closed profile in place, surviving a kill at
-// any point: the raw open settles any journal left in the clear, VACUUM INTO
-// writes a temporary encrypted copy, which is verified and fsynced, then
-// renamed over the original. The profile's key must be registered.
-SqliteMigration MigrateSqliteDatabase(const base::FilePath& path);
-
-// Whether `PRAGMA quick_check` says "ok" of the database open in `path`: it
-// reports what it finds as rows, and returns SQLITE_OK whatever they say.
-bool SqliteQuickCheckPasses(const base::FilePath& path, const char* vfs);
-
-// Whether `path` starts with SQLite's own magic.
-bool IsPlainSqliteDatabase(const base::FilePath& path);
-
-// Whether `path` starts with Pane's page format.
-bool IsEncryptedSqliteDatabase(const base::FilePath& path);
-
 }  // namespace pane::encryption
 
 #endif  // PANE_ENCRYPTION_SQLITE_VFS_H_

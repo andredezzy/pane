@@ -19,14 +19,9 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/span.h"
-#include "base/files/file.h"
-#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/numerics/byte_conversions.h"
-#include "base/strings/strcat.h"
-#include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "pane/encryption/engine_keys.h"
 #include "sql/initialization.h"
 #include "third_party/boringssl/src/include/openssl/aead.h"
@@ -706,7 +701,7 @@ void CheckMainAtOpen(PaneFile* file, const char* name) {
   }
 
   CHECK(memcmp(header, kSqliteMagic, sizeof(kSqliteMagic)) != 0)
-      << "A plain database in a profile, not migrated.";
+      << "A plain database in a profile.";
 
   if (memcmp(header, kPaneMagic, sizeof(kPaneMagic)) != 0) {
     return;
@@ -906,39 +901,6 @@ void InstallOnce() {
            SQLITE_OK);
 }
 
-std::optional<std::array<char, 16>> MagicOf(const base::FilePath& path) {
-  base::File file(path, base::File::FLAG_OPEN | base::File::FLAG_READ);
-
-  if (!file.IsValid()) {
-    return std::nullopt;
-  }
-
-  std::array<char, 16> magic;
-
-  if (file.Read(0, base::as_writable_byte_span(magic)) != 16u) {
-    return std::nullopt;
-  }
-
-  return magic;
-}
-
-// The temporary copy's name, in the database's folder, in a URI: a path with a
-// space or a '?' in it would otherwise not parse.
-std::string UriOf(const base::FilePath& path) {
-  std::string uri = "file:";
-
-  for (const char c : path.value()) {
-    if (base::IsAsciiAlpha(c) || base::IsAsciiDigit(c) ||
-        std::string_view("/-_.~").find(c) != std::string_view::npos) {
-      uri.push_back(c);
-    } else {
-      base::StringAppendF(&uri, "%%%02X", static_cast<unsigned char>(c));
-    }
-  }
-
-  return uri;
-}
-
 }  // namespace
 
 void InstallSqliteVfs() {
@@ -947,118 +909,6 @@ void InstallSqliteVfs() {
     return true;
   }();
   std::ignore = installed;
-}
-
-bool IsPlainSqliteDatabase(const base::FilePath& path) {
-  std::optional<std::array<char, 16>> magic = MagicOf(path);
-  return magic && memcmp(magic->data(), kSqliteMagic, 16) == 0;
-}
-
-bool IsEncryptedSqliteDatabase(const base::FilePath& path) {
-  std::optional<std::array<char, 16>> magic = MagicOf(path);
-  return magic && memcmp(magic->data(), kPaneMagic, 16) == 0;
-}
-
-bool SqliteQuickCheckPasses(const base::FilePath& path, const char* vfs) {
-  sqlite3* db = nullptr;
-  bool passes = false;
-
-  if (sqlite3_open_v2(path.value().c_str(), &db, SQLITE_OPEN_READONLY, vfs) ==
-      SQLITE_OK) {
-    const int checked = sqlite3_exec(
-        db, "PRAGMA quick_check(1)",
-        [](void* said_ok, int columns, char** values, char**) {
-          *static_cast<bool*>(said_ok) =
-              columns == 1 && values[0] && strcmp(values[0], "ok") == 0;
-          return 0;
-        },
-        &passes, nullptr);
-    passes = passes && checked == SQLITE_OK;
-  }
-
-  sqlite3_close(db);
-  return passes;
-}
-
-SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
-  InstallSqliteVfs();
-
-  if (!IsPlainSqliteDatabase(path)) {
-    return SqliteMigration::kNothingToDo;
-  }
-
-  CHECK(Classify(path).kind == PathKind::kEncrypted);
-
-  base::FilePath temporary = path.AddExtension(".pane-migrating");
-  base::DeleteFile(temporary);
-  base::DeleteFile(temporary.InsertBeforeExtension("-journal"));
-
-  sqlite3* raw = nullptr;
-  const std::string name = path.value();
-
-  // On Chromium's own VFS: the open settles a journal or WAL left in the clear.
-  if (sqlite3_open_v2(name.c_str(), &raw,
-                      SQLITE_OPEN_READWRITE | SQLITE_OPEN_URI,
-                      kParentVfsName) != SQLITE_OK) {
-    sqlite3_close(raw);
-    return SqliteMigration::kFailed;
-  }
-
-  int reserved = kSqliteReservedBytes;
-  sqlite3_file_control(raw, "main", SQLITE_FCNTL_RESERVE_BYTES, &reserved);
-
-  const std::string vacuum =
-      base::StrCat({"VACUUM main INTO '", UriOf(temporary), "?vfs=", kVfsName,
-                    "'"});
-  const int vacuumed = sqlite3_exec(raw, vacuum.c_str(), nullptr, nullptr, nullptr);
-  sqlite3_close(raw);
-
-  if (vacuumed != SQLITE_OK) {
-    base::DeleteFile(temporary);
-    const int primary = vacuumed & 0xff;
-    return primary == SQLITE_CORRUPT || primary == SQLITE_NOTADB
-               ? SqliteMigration::kCorrupt
-               : SqliteMigration::kFailed;
-  }
-
-  // The copy decrypts, whole, before it replaces anything. One that fails the
-  // check with an original that passes it is this code's failure; with one that
-  // fails it too, the copy is as good as what it copies.
-  const bool verified = SqliteQuickCheckPasses(temporary, kVfsName) ||
-                        (IsEncryptedSqliteDatabase(temporary) &&
-                         !SqliteQuickCheckPasses(path, kParentVfsName));
-
-  if (!verified || !IsEncryptedSqliteDatabase(temporary)) {
-    base::DeleteFile(temporary);
-    return SqliteMigration::kFailed;
-  }
-
-  {
-    base::File file(temporary, base::File::FLAG_OPEN | base::File::FLAG_WRITE);
-
-    if (!file.IsValid() || !file.Flush()) {
-      base::DeleteFile(temporary);
-      return SqliteMigration::kFailed;
-    }
-  }
-
-  if (!base::ReplaceFile(temporary, path, nullptr)) {
-    base::DeleteFile(temporary);
-    return SqliteMigration::kFailed;
-  }
-
-  base::DeleteFile(base::FilePath(name + "-journal"));
-  base::DeleteFile(base::FilePath(name + "-wal"));
-  base::DeleteFile(base::FilePath(name + "-shm"));
-
-  base::File directory(path.DirName(),
-                       base::File::FLAG_OPEN | base::File::FLAG_READ);
-
-  if (directory.IsValid()) {
-    directory.Flush();
-  }
-
-  return SqliteMigration::kMigrated;
 }
 
 }  // namespace pane::encryption

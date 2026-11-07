@@ -132,7 +132,6 @@ source_set("pane") {
     "//components/zoom",
     "//content/public/browser",
     "//pane/encryption:handover",
-    "//pane/encryption:migration",
     "//content/public/common",
     "//extensions/browser",
     "//gpu/config",
