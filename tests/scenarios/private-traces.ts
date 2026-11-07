@@ -1,11 +1,9 @@
 import {
 	chmodSync,
 	existsSync,
-	mkdirSync,
 	readdirSync,
 	readFileSync,
 	statSync,
-	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { $ } from "bun";
@@ -20,8 +18,7 @@ import { expect, type Scenario } from "../run";
 // State names no profile of Pane's as used last, and keeps no time of use.
 // The data root is the user's alone, where it was 0755. The engine keeps no
 // histograms (BrowserMetrics), which counted the pages loaded and the tabs
-// open, and the extensions an earlier migration record listed go at launch
-// (ADR 0115).
+// open (ADR 0115).
 // What Chrome keeps of its histograms at the engine's root.
 const histogramFiles = (engine: string) =>
 	["BrowserMetrics", "BrowserMetrics-spare.pma", "DeferredBrowserMetrics"]
@@ -36,24 +33,9 @@ const privateTraces: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-traces-");
 	chmodSync(dataDir, 0o755);
 
-	// A record 0.15.1 and before left, listing the extensions each profile
-	// had. Their histograms are not seeded: Chrome, finding some, empties the
-	// folder, its own file too (PaneKit's tests erase them).
+	// Their histograms are not seeded: Chrome, finding some, empties the folder,
+	// its own file too.
 	const engine = join(dataDir, "Engine");
-	mkdirSync(dataDir, { recursive: true });
-
-	writeFileSync(
-		join(dataDir, "migration.json"),
-		JSON.stringify({
-			state: {
-				source: "/nowhere/@pane/veil",
-				migratedAt: "2026-10-28T00:00:00Z",
-				profiles: [],
-				pendingExtensions: { a: ["cjpalhdlnbpafiamejdnhcphjbkeiagm"] },
-			},
-			version: 0,
-		}),
-	);
 
 	const app = await launchPane(context, { dataDir });
 	// Chrome makes the histograms' file as it starts, and may delete it a
@@ -148,10 +130,6 @@ const privateTraces: Scenario = async (context) => {
 				...histogramFiles(engine),
 			]),
 		],
-		pendingExtensions: readFileSync(
-			join(dataDir, "migration.json"),
-			"utf8",
-		).includes("pendingExtensions"),
 	};
 
 	expect(
@@ -175,8 +153,8 @@ const privateTraces: Scenario = async (context) => {
 	);
 
 	expect(
-		traces.histograms.length === 0 && !traces.pendingExtensions,
-		`histograms ${JSON.stringify(traces.histograms)}, pending extensions ${traces.pendingExtensions}`,
+		traces.histograms.length === 0,
+		`histograms ${JSON.stringify(traces.histograms)}`,
 	);
 
 	return traces;

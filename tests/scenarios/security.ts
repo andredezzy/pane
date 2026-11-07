@@ -1,9 +1,4 @@
-import {
-	existsSync,
-	lstatSync,
-	readFileSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
 	type AppState,
@@ -129,11 +124,7 @@ function setFailedAttempts(dataDir: string, failedAttempts: number) {
 }
 
 // A data folder with a PIN, set up through the PIN screen, and Pane quit.
-async function withPin(
-	context: ScenarioContext,
-	dataDir: string,
-	pin: string,
-) {
+async function withPin(context: ScenarioContext, dataDir: string, pin: string) {
 	const app = await launchPane(context, { dataDir });
 	await setUpPin(app, pin);
 	await app.browser.close();

@@ -56,19 +56,6 @@ UserDefaults.standard.register(defaults: [
 // wiped instance started this one, or a wipe was cut short (AppLock).
 AppLock.wipeAtLaunch(dataDirectory)
 
-// The first launch after the Electron app brings its data over, from a copy
-// (LaunchMigration), before anything here reads the data directory.
-let electron = TestHooks.environment("PANE_ELECTRON_DATA_DIR").map { ElectronMigration.Source(directory: URL(fileURLWithPath: $0, isDirectory: true)) }
-	?? ElectronMigration.defaultSource(applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
-
-LaunchMigration.run(from: electron, into: dataDirectory)
-
-do {
-	try ElectronMigration.dropPendingExtensions(data: dataDirectory)
-} catch {
-	Log.migration.error("Could not write the migration record again: \(String(describing: error), privacy: .private)")
-}
-
 // Chromium opens the profile it used last at startup, before the PIN: never
 // one of Pane's, whose data is in the volume the data key opens (ADR 0113).
 do {

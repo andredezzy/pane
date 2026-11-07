@@ -1,10 +1,5 @@
 import { stats } from "../lib/benchmark";
-import {
-	type AppState,
-	launchPane,
-	type PaneApp,
-	setUpPin,
-} from "../lib/pane";
+import { type AppState, launchPane, type PaneApp, setUpPin } from "../lib/pane";
 import type { Scenario } from "../run";
 
 // From the PIN to the first page painted, and from a launch without a PIN to

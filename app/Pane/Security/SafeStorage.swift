@@ -1,55 +1,20 @@
 import Foundation
-import PaneKit
 import Security
 import os
 
 // Chromium encrypts cookies with a key it keeps in the login Keychain, a
 // generic password named "<app> Safe Storage" whose account is the app's
-// name. The engine's is "Pane Safe Storage" (patch 0001); the Electron app's
-// is named after its package ("@pane/veil Safe Storage"). A migration hands
-// the Electron app's key to the engine's item, so the cookies it copied still
-// decrypt.
+// name. The engine's is "Pane Safe Storage" (patch 0001).
 enum SafeStorage {
-	static let service = "Pane Safe Storage"
-	static let account = "Pane"
-
-	// macOS asks the user whether Pane may read the Electron app's item.
-	// Without its key, the migrated sites are signed out; nothing else is
-	// lost.
-	@discardableResult
-	static func adoptKey(service electronService: String, account electronAccount: String) -> OSStatus {
-		var result: CFTypeRef?
-		let query: [CFString: Any] = [
-			kSecClass: kSecClassGenericPassword,
-			kSecAttrService: electronService,
-			kSecAttrAccount: electronAccount,
-			kSecReturnData: true,
-		]
-		let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-		guard status == errSecSuccess, let key = result as? Data else {
-			return status
-		}
-
-		// Nothing that matters is encrypted with an earlier key of Pane's: the
-		// migration runs only before the native app has profiles.
-		let item: [CFString: Any] = [
-			kSecClass: kSecClassGenericPassword,
-			kSecAttrService: service,
-			kSecAttrAccount: account,
-		]
-		SecItemDelete(item as CFDictionary)
-
-		return SecItemAdd(item.merging([kSecValueData: key]) { $1 } as CFDictionary, nil)
-	}
+	private static let service = "Pane Safe Storage"
+	private static let account = "Pane"
 
 	// The secret the data key is sealed under (ADR 0113): the engine's, which it
 	// reads at every launch too, so macOS asks once for the two. Made here as
 	// Chromium makes it when the engine has none yet and `makesOne`,
 	// since a fresh install needs the data key before the engine first reads
 	// its item. Never once a key is sealed: a new secret would not open it.
-	// LaunchMigration has run by then, so the Electron app's key it hands
-	// over is in place. nil when the user denied it, or the Keychain failed.
+	// nil when the user denied it, or the Keychain failed.
 	// Under --use-mock-keychain, as the engine's own, a fixed one: scenarios
 	// never touch the login Keychain.
 	nonisolated static func dataSecret(makesOne: Bool) -> Data? {
@@ -92,18 +57,5 @@ enum SafeStorage {
 			Log.security.error("Could not read the engine's key: \(status)")
 			return nil
 		}
-	}
-
-	// Whether the engine has a key of its own yet. Reading the item's
-	// attributes, not its secret, asks the user nothing.
-	static func hasEngineKey() -> Bool {
-		let query: [CFString: Any] = [
-			kSecClass: kSecClassGenericPassword,
-			kSecAttrService: service,
-			kSecAttrAccount: account,
-			kSecReturnAttributes: true,
-		]
-
-		return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
 	}
 }

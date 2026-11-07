@@ -13,8 +13,7 @@
 	],
 	"workspaces": {
 		".": {
-			"entry": ["tests/scenarios/*.ts", "tests/tools/*.ts"],
-			"ignoreDependencies": ["electron"]
+			"entry": ["tests/scenarios/*.ts", "tests/tools/*.ts"]
 		}
 	},
 	"ignore": ["tests/pages/**"]

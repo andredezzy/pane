@@ -78,7 +78,7 @@ third_party/   # the license and origin of each project Pane takes code from (NO
 ## Scripts
 
 ```bash
-bun install          # once: the linters, the typecheck, knip, and the migration scenario's Electron
+bun install          # once: the linters, the typecheck, and knip
 bun run lint         # ESLint --fix + Biome check --write
 bun run typecheck    # type-check the scenario runner
 bun run test         # PaneKit's tests (swift test)

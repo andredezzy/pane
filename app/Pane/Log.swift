@@ -12,7 +12,6 @@ enum Log {
 
 	static let app = Logger(subsystem: subsystem, category: "app")
 	static let engine = Logger(subsystem: subsystem, category: "engine")
-	static let migration = Logger(subsystem: subsystem, category: "migration")
 	static let model = Logger(subsystem: subsystem, category: "model")
 	static let network = Logger(subsystem: subsystem, category: "network")
 	static let security = Logger(subsystem: subsystem, category: "security")

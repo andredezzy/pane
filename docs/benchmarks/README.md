@@ -47,7 +47,7 @@ Any one scenario can run alone; each writes `<scenario>.json` into `--out`, and 
 How the two apps are kept equal and apart (`tests/lib/benchmark.ts`):
 
 - Both get a throwaway data directory and home (`HOME` and `CFFIXED_USER_HOME`), `--use-mock-keychain`, a fixed `--remote-debugging-port`, `--no-first-run`, and the same throttling switches: `--disable-backgrounding-occluded-windows` and `--disable-renderer-backgrounding`. The two apps share the user's bundle ID, `com.pane.desktop`, so without the home of their own, URLSession's cache and cookies and Crashpad's database would be the user's.
-- The Electron app's data is `@pane/veil` in its home, seeded with one profile, "Personal". The native app gets `PANE_DATA_DIR`, `PANE_UPDATE_URL` at the fixtures, and `PANE_ELECTRON_DATA_DIR` at an empty directory, as `tests/lib/pane.ts` gives it, and makes its own "Personal" profile when it opens its launch URL.
+- The Electron app's data is `@pane/veil` in its home, seeded with one profile, "Personal". The native app gets `PANE_DATA_DIR` and `PANE_UPDATE_URL` at the fixtures, as `tests/lib/pane.ts` gives it, and makes its own "Personal" profile when it opens its launch URL.
 - Neither checks GitHub for updates: the Electron app's check has no switch, so `--host-resolver-rules` leaves `api.github.com` unresolved for both.
 - Tabs open the way each app's UI opens them: the Electron app's tRPC `tabs.open`, sent from its UI page, and the native app's launch URL for the first tab and its automation channel (`openTab`) for the rest. The CPU scenario leaves the channel off, since it polls ten times a second.
 - The apps take turns going first in each run, so a trend in the Mac's load falls on both. Each scenario records the load averages when it starts and ends.

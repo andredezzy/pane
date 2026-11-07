@@ -599,7 +599,6 @@ export async function launchApp(
 	} else {
 		env.PANE_DATA_DIR = dataDir;
 		env.PANE_UPDATE_URL = context.fixtures.url("releases/latest");
-		env.PANE_ELECTRON_DATA_DIR = join(dataDir, "no-electron-app");
 
 		if (options.automation) {
 			automationDir = join(dataDir, "automation");

@@ -105,9 +105,8 @@ export async function launch(
 		? mkdtempSync(join(tmpdir(), "pane-profile-"))
 		: options.userDataDir;
 
-	// The Pane app keeps its own data (PANE_DATA_DIR) and migrates the
-	// Electron app's on a first launch: unless a scenario names them, both
-	// are throwaway, never the user's at their default paths.
+	// The Pane app keeps its own data (PANE_DATA_DIR): unless a scenario names
+	// it, it is throwaway, never the user's at its default path.
 	if (options.derivedDataRoot) {
 		const fixed = options.env?.CFFIXED_USER_HOME;
 
@@ -176,10 +175,7 @@ export async function launch(
 		cwd: options.cwd,
 		env: {
 			...process.env,
-			...(appDataDir && {
-				PANE_DATA_DIR: appDataDir,
-				PANE_ELECTRON_DATA_DIR: join(appDataDir, "no-electron-app"),
-			}),
+			...(appDataDir && { PANE_DATA_DIR: appDataDir }),
 			...(home && { HOME: home, CFFIXED_USER_HOME: home }),
 			...options.env,
 		},

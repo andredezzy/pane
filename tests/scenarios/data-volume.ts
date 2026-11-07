@@ -276,7 +276,6 @@ const dataVolume: Scenario = async (context) => {
 				HOME: home,
 				CFFIXED_USER_HOME: home,
 				PANE_DATA_DIR: dataDir,
-				PANE_ELECTRON_DATA_DIR: join(dataDir, "no-electron-app"),
 			},
 			stdout: "ignore",
 			stderr: "ignore",
@@ -426,7 +425,6 @@ const dataVolume: Scenario = async (context) => {
 	const quitting = await context.launch({
 		env: {
 			PANE_DATA_DIR: quitDir,
-			PANE_ELECTRON_DATA_DIR: join(quitDir, "no-electron-app"),
 			HOME: quitHome,
 			CFFIXED_USER_HOME: quitHome,
 		},
