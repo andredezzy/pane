@@ -2,7 +2,7 @@
 //
 // Modeled on Ardia's WindowHost (https://github.com/mantrakp04/ardia,
 // engine/ardiacore/src/ardia/core/ac_browser.mm, Copyright 2026 Mantra Patel,
-// Apache License 2.0; native/third_party/ardia). The close sequence follows
+// Apache License 2.0; third_party/ardia). The close sequence follows
 // Ardia's closely; the rest is rewritten for Pane's API.
 
 #include "components/sessions/content/session_tab_helper.h"
@@ -693,7 +693,7 @@ BrowserWindow* HostChromeBrowser(Browser* browser) {
       return ForwardToPaneWindow(browser);
     default:
       // Document picture-in-picture keeps Chromium's floating window, as video
-      // picture-in-picture does (native/DECISIONS.md).
+      // picture-in-picture does (ADR 0022).
       return nullptr;
   }
 }

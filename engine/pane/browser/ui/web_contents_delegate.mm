@@ -2,7 +2,7 @@
 //
 // Modeled on Ardia's ACWebContentsDelegate (https://github.com/mantrakp04/ardia,
 // engine/ardiacore/src/ardia/core/ac_browser.mm, Copyright 2026 Mantra Patel,
-// Apache License 2.0; native/third_party/ardia).
+// Apache License 2.0; third_party/ardia).
 
 #include "pane/browser/app_callback.h"
 #include "pane/browser/ui/web_contents_delegate.h"

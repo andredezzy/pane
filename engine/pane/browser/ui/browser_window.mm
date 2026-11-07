@@ -2,7 +2,7 @@
 //
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
 // engine/ardiacore/src/ardia/core/ac_browser_window.mm, Copyright 2026 Mantra Patel,
-// licensed under the Apache License 2.0 (native/third_party/ardia). Changed
+// licensed under the Apache License 2.0 (third_party/ardia). Changed
 // for Pane: names and namespace, and without Ardia's extension shortcuts (Pane's are extension_shortcuts.mm), autofill prompts and background-run eye dropper; Chrome's own shutdown checks for its lifetime helpers.
 
 #include "pane/browser/extensions/action_popup.h"

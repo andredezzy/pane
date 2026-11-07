@@ -3,7 +3,7 @@
 #ifndef PANE_BROWSER_UI_HOOKS_H_
 #define PANE_BROWSER_UI_HOOKS_H_
 
-// Function pointers and flags that Pane's patches (native/engine/patches)
+// Function pointers and flags that Pane's patches (engine/patches)
 // define in Chrome's own files, and that //pane sets as the browser starts
 // (pane/browser/ui/hooks.mm). Unset, Chrome behaves as stock. Chrome's files
 // include this header (nogncheck), so a signature that drifts on either side

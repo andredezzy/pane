@@ -2,7 +2,7 @@
 //
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
 // engine/ardiacore/src/ardia/core/ac_browser_window.h, Copyright 2026 Mantra Patel,
-// licensed under the Apache License 2.0 (native/third_party/ardia). Changed
+// licensed under the Apache License 2.0 (third_party/ardia). Changed
 // for Pane: names and namespace, without Ardia's extension shortcuts, and
 // Chromium 157's BrowserWindow (no profile IPH methods).
 

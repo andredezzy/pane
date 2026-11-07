@@ -2,7 +2,7 @@
 //
 // Modeled on Ardia's WindowHost (https://github.com/mantrakp04/ardia,
 // engine/ardiacore/src/ardia/core/ac_browser.{h,mm}, Copyright 2026 Mantra
-// Patel, Apache License 2.0; native/third_party/ardia): the window as a Chrome
+// Patel, Apache License 2.0; third_party/ardia): the window as a Chrome
 // Views widget with the app's view inside, one hidden Browser per profile, and
 // the close sequence. Rewritten for Pane's API, without Ardia's app-specific
 // features.

@@ -2,7 +2,7 @@
 //
 // Modeled on Ardia's ACWebContentsDelegate (https://github.com/mantrakp04/ardia,
 // engine/ardiacore/src/ardia/core/ac_browser.{h,mm}, Copyright 2026 Mantra
-// Patel, Apache License 2.0; native/third_party/ardia).
+// Patel, Apache License 2.0; third_party/ardia).
 
 #ifndef PANE_BROWSER_UI_WEB_CONTENTS_DELEGATE_H_
 #define PANE_BROWSER_UI_WEB_CONTENTS_DELEGATE_H_

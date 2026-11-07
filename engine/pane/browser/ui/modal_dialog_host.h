@@ -2,7 +2,7 @@
 //
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
 // engine/ardiacore/src/ardia/core/ac_modal_dialog_host.h, Copyright 2026 Mantra Patel,
-// licensed under the Apache License 2.0 (native/third_party/ardia). Changed
+// licensed under the Apache License 2.0 (third_party/ardia). Changed
 // for Pane: names and namespace, and nothing else.
 
 #ifndef PANE_BROWSER_UI_MODAL_DIALOG_HOST_H_
