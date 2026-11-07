@@ -28,6 +28,11 @@ final class KeyRouter {
 	// overlays leave may be an extension's shortcut (chrome.commands), which
 	// goes before the page, as in Chrome.
 	private func handle(_ event: NSEvent) -> Bool {
+		// A click's selection of the address goes first: this key replaces it.
+		if event.type == .keyDown {
+			controller.selectAddressIfOwed()
+		}
+
 		let route = KeyRouting.route(KeyPress(event), through: overlays)
 
 		if let command = route.command {

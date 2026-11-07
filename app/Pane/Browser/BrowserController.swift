@@ -683,6 +683,13 @@ final class BrowserController: NSObject {
 		}
 
 		select(tabID: tab.id)
+
+		// A key typed right behind ⌘T goes in the field, not the page left.
+		if url == nil, model.activeTabID == tab.id {
+			focusAddressField()
+			showAddress(tab.url)
+		}
+
 		return tab.id
 	}
 
@@ -891,7 +898,11 @@ final class BrowserController: NSObject {
 
 		if focusesAddress == tabID {
 			focusesAddress = nil
-			state.focusAddressField()
+
+			// ⌘T focused it, and what has been typed since stays.
+			if !isEditingAddress {
+				focusAddressField()
+			}
 		} else {
 			page.focus()
 		}
@@ -988,7 +999,7 @@ final class BrowserController: NSObject {
 
 	func showFind() {
 		state.find.visible = true
-		state.focusFindField()
+		focusFindField()
 	}
 
 	func find(_ text: String, forward: Bool = true) {

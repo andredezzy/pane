@@ -8,8 +8,8 @@ import SwiftUI
 struct ToolbarView: View {
 	let controller: BrowserController
 
-	// The address last put in the field, to tell the user's typing from it.
-	@State private var shownAddress = ""
+	static let addressPrompt = "Search or enter URL"
+
 	@FocusState private var addressFocused: Bool
 
 	// The page starts 43px down the panel (TOOLBAR_HEIGHT 51 less the 8px
@@ -50,13 +50,14 @@ struct ToolbarView: View {
 				progressBar: controller.progressBar,
 				onSubmit: {
 					controller.navigate(to: controller.state.address)
-					addressFocused = false
+					controller.endEditingAddress()
 				},
 				onExit: {
-					showAddress(model.activeTab?.url)
-					addressFocused = false
+					controller.showAddress(model.activeTab?.url)
+					controller.endEditingAddress()
 					controller.activePage?.focus()
-				}
+				},
+				onFocusChange: controller.addressFocusChanged(isFocused:)
 			)
 
 			ExtensionActionsView(extensions: controller.extensions, hasProfile: model.activeProfileID != nil)
@@ -69,41 +70,19 @@ struct ToolbarView: View {
 		.padding(.trailing, 6)
 		.frame(height: Self.height - 1)
 		.padding(.bottom, 1)
-		// Another tab shows its own address. The same tab's new address
-		// replaces the text unless the user is typing over it.
+		// Another tab shows its own address, unless ⌘T showed it already: what
+		// has been typed since stays. The same tab's new address replaces the
+		// text unless the user is typing over it.
 		.onChange(of: tabID) {
-			showAddress(model.activeTab?.url)
+			if controller.state.addressTabID != tabID {
+				controller.showAddress(model.activeTab?.url)
+			}
 		}
 		.onChange(of: model.activeTab?.url, initial: true) { _, url in
-			if !addressFocused || controller.state.address == shownAddress {
-				showAddress(url)
-
-				// A new tab's address comes after its field took the focus: typing
-				// still replaces it, as it did the empty field.
-				if addressFocused {
-					selectAddress()
-				}
+			if !controller.isEditingAddress || controller.state.address == controller.state.shownAddress {
+				controller.showAddress(url)
 			}
 		}
-		.onChange(of: controller.state.addressFocusRequest) {
-			// Already there, its focus won't change: ⌘L still selects the address.
-			if addressFocused {
-				selectAddress()
-			}
-
-			addressFocused = true
-		}
-	}
-
-	private func selectAddress() {
-		DispatchQueue.main.async {
-			NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
-		}
-	}
-
-	private func showAddress(_ url: String?) {
-		controller.state.address = url ?? ""
-		shownAddress = controller.state.address
 	}
 }
 
@@ -135,6 +114,7 @@ private struct AddressField: View {
 	let progressBar: ToolbarProgress
 	let onSubmit: () -> Void
 	let onExit: () -> Void
+	let onFocusChange: (Bool) -> Void
 
 	@State private var isHovered = false
 
@@ -142,7 +122,7 @@ private struct AddressField: View {
 		TextField(
 			"",
 			text: $text,
-			prompt: Text("Search or enter URL").foregroundStyle(Palette.mutedForeground)
+			prompt: Text(ToolbarView.addressPrompt).foregroundStyle(Palette.mutedForeground)
 		)
 		// On the field alone: on the whole, it would name the label over it too.
 		.accessibilityLabel("Address")
@@ -155,12 +135,7 @@ private struct AddressField: View {
 		.onSubmit(onSubmit)
 		.onExitCommand(perform: onExit)
 		.onChange(of: focused.wrappedValue) { _, isFocused in
-			if isFocused {
-				// As the Electron app's input.select() on focus.
-				DispatchQueue.main.async {
-					NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
-				}
-			}
+			onFocusChange(isFocused)
 		}
 		// 10 inside the 1-point border the focused field shows (Paper's
 		// 04.8), as CSS's px-2.5 within it.

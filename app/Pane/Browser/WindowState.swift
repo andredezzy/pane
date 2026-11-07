@@ -2,7 +2,7 @@ import AppKit
 import PaneKit
 
 // Transient UI state of the browser window that is not the browser's data:
-// the find bar, focus requests, the Ctrl+Tab switcher.
+// the find bar, the address field's text, the Ctrl+Tab switcher.
 @MainActor
 @Observable
 final class WindowState {
@@ -47,6 +47,12 @@ final class WindowState {
 	// The address field's text: the selected tab's address, or what the user
 	// types over it.
 	var address = ""
+	// The address last put in the field, to tell the user's typing from it, and
+	// whose it is.
+	var shownAddress = ""
+	var addressTabID: String?
+	// The field, focused, has had all of its text selected.
+	var addressIsSelected = false
 	// The sidebar's width: its edge's drag changes it at each step, and the
 	// settings keep it once the drag ends (SidebarResizeHandle).
 	var sidebarWidth = CGFloat(SidebarWidth.standard)
@@ -54,17 +60,4 @@ final class WindowState {
 	var pageFullscreen = false
 	// "Press Esc to exit full screen", while a page has fullscreen or a lock.
 	var exclusiveAccessHint: String?
-	// Bumped to move focus into the address field.
-	private(set) var addressFocusRequest = 0
-	// Bumped to move focus into the find field.
-	private(set) var findFocusRequest = 0
-
-	func focusAddressField() {
-		Log.interaction("Focus address field")
-		addressFocusRequest += 1
-	}
-
-	func focusFindField() {
-		findFocusRequest += 1
-	}
 }

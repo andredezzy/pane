@@ -27,7 +27,7 @@ struct FindOverlay: View {
 struct FindBar: View {
 	let controller: BrowserController
 
-	@FocusState private var focused: Bool
+	static let prompt = "Find in page"
 
 	private var find: WindowState.Find { controller.state.find }
 	private var text: String { find.text }
@@ -45,7 +45,7 @@ struct FindBar: View {
 				text: Binding(get: { find.text }, set: { if $0 != find.text { controller.find($0) } }),
 				// Aside's field shows no placeholder; this one stays, unseen,
 				// for VoiceOver.
-				prompt: Text("Find in page").foregroundStyle(.clear)
+				prompt: Text(Self.prompt).foregroundStyle(.clear)
 			)
 			.textFieldStyle(.plain)
 			.font(.system(size: 13))
@@ -53,7 +53,6 @@ struct FindBar: View {
 			// The caret in the text's color, not the system's blue.
 			.tint(Palette.foreground)
 			.frame(maxWidth: .infinity)
-			.focused($focused)
 			.onSubmit { controller.find(text, forward: !NSEvent.modifierFlags.contains(.shift)) }
 			.onExitCommand { controller.closeFind() }
 			.accessibilityLabel("Find in page")
@@ -89,10 +88,6 @@ struct FindBar: View {
 			Squircle(cornerRadius: Self.cornerRadius)
 				.strokeBorder(Self.ring, lineWidth: 1)
 		}
-		// Focus set during onAppear is dropped: the field is not in the window
-		// yet. One turn of the main loop later it is.
-		.onAppear { DispatchQueue.main.async { focused = true } }
-		.onChange(of: controller.state.findFocusRequest) { focused = true }
 		.accessibilityElement(children: .contain)
 		.accessibilityIdentifier("pane.find")
 	}

@@ -222,8 +222,8 @@ extension Automation {
 			}
 
 		case "find":
-			controller.showFind()
 			controller.find(try command.string("text"), forward: command["forward"] as? Bool ?? true)
+			controller.showFind()
 
 		case "closeFind":
 			controller.closeFind()
