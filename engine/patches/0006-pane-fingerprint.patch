@@ -1,44 +1,3 @@
-diff --git a/chrome/browser/net/profile_network_context_service.cc b/chrome/browser/net/profile_network_context_service.cc
-index 62ff3787b2..45edbab281 100644
---- a/chrome/browser/net/profile_network_context_service.cc
-+++ b/chrome/browser/net/profile_network_context_service.cc
-@@ -78,9 +78,11 @@
- #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
- #include "content/public/browser/browser_context.h"
- #include "content/public/browser/browser_thread.h"
-+#include "content/public/browser/content_browser_client.h"
- #include "content/public/browser/network_service_instance.h"
- #include "content/public/browser/reduce_accept_language_utils.h"
- #include "content/public/browser/shared_cors_origin_access_list.h"
-+#include "pane/browser/caches_in_memory.h"  // nogncheck
- #include "content/public/browser/storage_partition.h"
- #include "content/public/common/url_constants.h"
- #include "crypto/crypto_buildflags.h"
-@@ -1354,6 +1356,9 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
-   g_browser_process->system_network_context_manager()
-       ->ConfigureDefaultNetworkContextParams(network_context_params);
- 
-+  // Pane: the profile's own User-Agent, for a profile with a fingerprint.
-+  network_context_params->user_agent =
-+      content::GetUserAgentForBrowserContext(profile_);
-   network_context_params->accept_language = ComputeAcceptLanguage();
-   network_context_params->enable_referrers = enable_referrers_.GetValue();
- 
-@@ -1404,8 +1409,12 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
-     network_context_params->file_paths =
-         ::network::mojom::NetworkContextFilePaths::New();
- 
--    network_context_params->file_paths->http_cache_directory =
--        base_cache_path.Append(chrome::kCacheDirname);
-+    // Pane: a profile that saves no history keeps its cache in memory, as off
-+    // the record, cookies and all else on disk: each entry names its whole URL.
-+    if (!pane::KeepsCachesInMemory(profile_)) {
-+      network_context_params->file_paths->http_cache_directory =
-+          base_cache_path.Append(chrome::kCacheDirname);
-+    }
-     network_context_params->file_paths->data_directory =
-         path.Append(chrome::kNetworkDataDirname);
-     network_context_params->file_paths->unsandboxed_data_path = path;
 diff --git a/components/client_hints/browser/client_hints.cc b/components/client_hints/browser/client_hints.cc
 index f6509a9755..4a5728df8e 100644
 --- a/components/client_hints/browser/client_hints.cc
@@ -192,7 +151,7 @@ index dcbf9f96ec..f8d8d0e197 100644
        std::move(renderer_preferences), std::move(preference_watcher_receiver),
        std::move(content_settings), std::move(container_info),
 diff --git a/content/public/browser/content_browser_client.cc b/content/public/browser/content_browser_client.cc
-index 92be4ef5f5..c8fe83f2a9 100644
+index 92be4ef5f5..da23419542 100644
 --- a/content/public/browser/content_browser_client.cc
 +++ b/content/public/browser/content_browser_client.cc
 @@ -61,6 +61,7 @@
@@ -203,7 +162,7 @@ index 92be4ef5f5..c8fe83f2a9 100644
  #include "content/public/common/content_features.h"
  #include "content/public/common/url_constants.h"
  #include "content/public/common/url_utils.h"
-@@ -1444,6 +1445,17 @@ blink::UserAgentMetadata ContentBrowserClient::GetUserAgentMetadata() {
+@@ -1444,6 +1445,22 @@ blink::UserAgentMetadata ContentBrowserClient::GetUserAgentMetadata() {
    return blink::UserAgentMetadata();
  }
  
@@ -218,18 +177,18 @@ index 92be4ef5f5..c8fe83f2a9 100644
 +  return GetUserAgentMetadata();
 +}
 +
++bool ContentBrowserClient::PersistsNewDownloads(
++    BrowserContext* browser_context) {
++  return true;
++}
++
  std::optional<gfx::ImageSkia> ContentBrowserClient::GetProductLogo() {
    return std::nullopt;
  }
-@@ -2099,4 +2111,15 @@ bool ContentBrowserClient::IsExemptFromWindowSizeCheck(const GURL& url) {
+@@ -2099,4 +2116,10 @@ bool ContentBrowserClient::IsExemptFromWindowSizeCheck(const GURL& url) {
    return url.SchemeIs(kChromeUIScheme) || url.SchemeIs(kChromeDevToolsScheme);
  }
  
-+std::string GetUserAgentForBrowserContext(BrowserContext* browser_context) {
-+  return GetContentClient()->browser()->GetUserAgentForBrowserContext(
-+      browser_context);
-+}
-+
 +blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
 +    BrowserContext* browser_context) {
 +  return GetContentClient()->browser()->GetUserAgentMetadataForBrowserContext(
@@ -238,10 +197,10 @@ index 92be4ef5f5..c8fe83f2a9 100644
 +
  }  // namespace content
 diff --git a/content/public/browser/content_browser_client.h b/content/public/browser/content_browser_client.h
-index 9a920eb24d..57006928a4 100644
+index 9a920eb24d..a1a49407c1 100644
 --- a/content/public/browser/content_browser_client.h
 +++ b/content/public/browser/content_browser_client.h
-@@ -2535,6 +2535,15 @@ class CONTENT_EXPORT ContentBrowserClient {
+@@ -2535,6 +2535,19 @@ class CONTENT_EXPORT ContentBrowserClient {
    // Returns user agent metadata. Content may cache this value.
    virtual blink::UserAgentMetadata GetUserAgentMetadata();
  
@@ -254,17 +213,19 @@ index 9a920eb24d..57006928a4 100644
 +  virtual blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
 +      BrowserContext* browser_context);
 +
++  // Pane: whether a new download goes in the on-disk cache of those in
++  // progress.
++  virtual bool PersistsNewDownloads(BrowserContext* browser_context);
++
    // Returns a 256x256 transparent background image of the product logo, i.e.
    // the browser icon, if available.
    virtual std::optional<gfx::ImageSkia> GetProductLogo();
-@@ -3437,6 +3446,13 @@ class CONTENT_EXPORT ContentBrowserClient {
+@@ -3437,6 +3450,11 @@ class CONTENT_EXPORT ContentBrowserClient {
    virtual bool IsExemptFromWindowSizeCheck(const GURL& url);
  };
  
-+// Pane: the embedder's GetUserAgentForBrowserContext() and
-+// GetUserAgentMetadataForBrowserContext(), for code outside content.
-+CONTENT_EXPORT std::string GetUserAgentForBrowserContext(
-+    BrowserContext* browser_context);
++// Pane: the embedder's GetUserAgentMetadataForBrowserContext(), for code outside
++// content.
 +CONTENT_EXPORT blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
 +    BrowserContext* browser_context);
 +

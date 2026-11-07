@@ -31,6 +31,9 @@ class ContentBrowserClient : public ChromeContentBrowserClient {
       network::mojom::NetworkContextParams* network_context_params,
       cert_verifier::mojom::CertVerifierCreationParams*
           cert_verifier_creation_params) override;
+  content::GeneratedCodeCacheSettings GetGeneratedCodeCacheSettings(
+      content::BrowserContext* context) override;
+  bool PersistsNewDownloads(content::BrowserContext* browser_context) override;
   std::string GetUserAgentForBrowserContext(
       content::BrowserContext* browser_context) override;
   blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
