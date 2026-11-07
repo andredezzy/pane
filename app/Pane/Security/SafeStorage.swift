@@ -1,5 +1,4 @@
 import Foundation
-import LocalAuthentication
 import PaneKit
 import Security
 import os
@@ -42,23 +41,6 @@ enum SafeStorage {
 		SecItemDelete(item as CFDictionary)
 
 		return SecItemAdd(item.merging([kSecValueData: key]) { $1 } as CFDictionary, nil)
-	}
-
-	// Removes an item without asking the user anything: where macOS would
-	// ask, it fails instead (errSecInteractionNotAllowed).
-	@discardableResult
-	nonisolated static func deleteKey(service: String, account: String) -> OSStatus {
-		let context = LAContext()
-		context.interactionNotAllowed = true
-
-		let query: [CFString: Any] = [
-			kSecClass: kSecClassGenericPassword,
-			kSecAttrService: service,
-			kSecAttrAccount: account,
-			kSecUseAuthenticationContext: context,
-		]
-
-		return SecItemDelete(query as CFDictionary)
 	}
 
 	// The secret the data key is sealed under (ADR 0113): the engine's, which it

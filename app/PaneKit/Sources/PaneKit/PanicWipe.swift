@@ -2,63 +2,22 @@ import Foundation
 
 // The panic wipe after the last failed PIN attempt (apps/veil
 // security/wipe.ts): every profile's engine data and the app's own files are
-// overwritten with random bytes, then deleted, and so is the Electron app's
-// data the migration copied them from. Nothing else is touched. The data
+// overwritten with random bytes, then deleted. Nothing else is touched. The data
 // moves out of the app's way first (stage), at once, so a fresh Pane starts
 // on nothing while the moved data is erased; a wipe cut short (a crash, a
 // quit) is found and finished at the next launch.
 public enum PanicWipe {
 	// What it erases: the engine's data (every profile, extensions and all),
 	// the encrypted volume its profiles live in (ADR 0113), the app's JSON
-	// files, and the engine's caches when they live apart. security.json
-	// comes last, after its copy beside the volume: while it stays, with its
-	// count of failed attempts, the wipe is still due.
-	public static func targets(dataDirectory: URL, cacheDirectory: URL?, electron: ElectronData? = nil) -> [URL] {
-		["Engine", "Data.sparsebundle", "profiles.json", "settings.json", "deletions.json"].map {
+	// files, the record of a migration from the Electron app, which names each
+	// profile it brought, and the engine's caches when they live apart.
+	// security.json comes last, after its copy beside the volume: while it stays,
+	// with its count of failed attempts, the wipe is still due.
+	public static func targets(dataDirectory: URL, cacheDirectory: URL?) -> [URL] {
+		["Engine", "Data.sparsebundle", "profiles.json", "settings.json", "deletions.json", "migration.json"].map {
 			dataDirectory.appending(path: $0)
-		} + [cacheDirectory?.appending(path: "Engine"), electron?.directory, electron?.cacheDirectory].compactMap(\.self)
+		} + [cacheDirectory?.appending(path: "Engine")].compactMap(\.self)
 			+ ["Data.security.json", "security.json"].map { dataDirectory.appending(path: $0) }
-	}
-
-	// The Electron app's data this Pane migrated from (its migration record's
-	// source), and that data's caches: every profile's cookies again, which
-	// the key the login Keychain keeps still opens. The user chose that the
-	// wipe erases them too (the migration itself only ever reads them).
-	// migration.json stays, so a wiped Pane never looks for them again.
-	public struct ElectronData: Hashable, Sendable {
-		public let directory: URL
-		public let cacheDirectory: URL?
-
-		public init(directory: URL, cacheDirectory: URL?) {
-			self.directory = directory
-			self.cacheDirectory = cacheDirectory
-		}
-	}
-
-	// The record's source, whether or not it is still there (a wipe cut
-	// short finds its staged copy beside it); nil with no record, or one
-	// naming a folder that holds the data directory or sits inside it.
-	public static func electronData(dataDirectory: URL, applicationSupport: URL, caches: URL) -> ElectronData? {
-		guard
-			let record = try? PersistedFile<ElectronMigration.Record>(directory: dataDirectory, name: ElectronMigration.recordName).load(),
-			record.source.hasPrefix("/")
-		else {
-			return nil
-		}
-
-		let source = URL(fileURLWithPath: record.source, isDirectory: true).standardizedFileURL
-		let data = dataDirectory.standardizedFileURL.pathComponents
-		let components = source.pathComponents
-
-		// "/", a volume, a home folder: never a source to erase.
-		guard components.count > 4, !data.starts(with: components), !components.starts(with: data) else {
-			return nil
-		}
-
-		return ElectronData(
-			directory: source,
-			cacheDirectory: Self.cacheDirectory(for: source, applicationSupport: applicationSupport, caches: caches)
-		)
 	}
 
 	// Chromium keeps a profile's caches under ~/Library/Caches when the
@@ -98,20 +57,14 @@ public enum PanicWipe {
 	private static let stagingName = "Wiping"
 
 	// Moves every target into `Wiping/<id>/` beside it, in `targets`'s order.
-	// The Electron app's folder goes only while it still looks like its data
-	// (its profiles.json), so a record pointing elsewhere erases nothing.
-	public static func stage(dataDirectory: URL, cacheDirectory: URL?, electron: ElectronData? = nil) -> [Failure] {
+	public static func stage(dataDirectory: URL, cacheDirectory: URL?) -> [Failure] {
 		let fileManager = FileManager.default
 		let id = UUID().uuidString
 		var failures: [Failure] = []
 
-		for target in targets(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory, electron: electron)
+		for target in targets(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory)
 			where (try? target.checkResourceIsReachable()) == true || isLink(target)
 		{
-			if target == electron?.directory, !fileManager.fileExists(atPath: target.appending(path: "profiles.json").path) {
-				continue
-			}
-
 			let folder = target.deletingLastPathComponent().appending(path: "\(stagingName)/\(id)", directoryHint: .isDirectory)
 
 			do {
@@ -125,19 +78,15 @@ public enum PanicWipe {
 		return failures
 	}
 
-	// Where staged data waits, each root with its passes: the data
-	// directory, the caches, and beside the Electron app's folder and its
-	// caches.
-	private static func roots(dataDirectory: URL, cacheDirectory: URL?, electron: ElectronData?) -> [(URL?, Int)] {
-		[
-			(dataDirectory, 3), (cacheDirectory, 1),
-			(electron?.directory.deletingLastPathComponent(), 3), (electron?.cacheDirectory?.deletingLastPathComponent(), 1),
-		]
+	// Where staged data waits, each root with its passes: the data directory and
+	// the caches.
+	private static func roots(dataDirectory: URL, cacheDirectory: URL?) -> [(URL?, Int)] {
+		[(dataDirectory, 3), (cacheDirectory, 1)]
 	}
 
 	// Everything staged and not erased yet, this wipe's or one cut short's.
-	public static func staged(dataDirectory: URL, cacheDirectory: URL?, electron: ElectronData? = nil) -> [Staged] {
-		roots(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory, electron: electron).flatMap { root, passes -> [Staged] in
+	public static func staged(dataDirectory: URL, cacheDirectory: URL?) -> [Staged] {
+		roots(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory).flatMap { root, passes -> [Staged] in
 			guard let root else {
 				return []
 			}
@@ -151,10 +100,10 @@ public enum PanicWipe {
 
 	// Erases everything staged, then the staging folders once empty: a wipe
 	// staged meanwhile keeps its own.
-	public static func eraseStaged(dataDirectory: URL, cacheDirectory: URL?, electron: ElectronData? = nil) -> [Failure] {
-		let failures = staged(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory, electron: electron).flatMap { erase($0.url, passes: $0.passes) }
+	public static func eraseStaged(dataDirectory: URL, cacheDirectory: URL?) -> [Failure] {
+		let failures = staged(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory).flatMap { erase($0.url, passes: $0.passes) }
 
-		for root in roots(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory, electron: electron).compactMap(\.0) {
+		for root in roots(dataDirectory: dataDirectory, cacheDirectory: cacheDirectory).compactMap(\.0) {
 			rmdir(root.appending(path: stagingName).path)
 		}
 

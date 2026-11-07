@@ -1,7 +1,6 @@
 import {
 	existsSync,
 	lstatSync,
-	mkdirSync,
 	readFileSync,
 	writeFileSync,
 } from "node:fs";
@@ -592,36 +591,15 @@ const security: Scenario = async (context) => {
 
 	const profileDir = join(dataDir, "Engine", profile);
 
-	// The Electron app's data this Pane migrated from, as migration.json
-	// names it, with a neighbor the wipe must leave.
-	const electronParent = join(
-		context.tempDir("pane-security-electron-"),
-		"Application Support",
-		"@pane",
-	);
-
-	const electronDir = join(electronParent, "veil");
-	const electronNeighbor = join(electronParent, "other", "kept.txt");
-	mkdirSync(join(electronDir, "Partitions", "profile-a"), { recursive: true });
-	mkdirSync(join(electronParent, "other"), { recursive: true });
-	writeFileSync(join(electronDir, "profiles.json"), "{}");
-	writeFileSync(join(electronDir, "Partitions", "profile-a", "Cookies"), "c");
-	writeFileSync(electronNeighbor, "kept");
-
-	writeFileSync(
-		join(dataDir, "migration.json"),
-		JSON.stringify({
-			state: { source: electronDir, migratedAt: "2026-10-28", profiles: [] },
-			version: 0,
-		}),
-	);
+	// A migration's record, from a Pane that came from the Electron app, which
+	// names each profile it brought.
+	writeFileSync(join(dataDir, "migration.json"), "{}");
 
 	const before = {
 		profiles: existsSync(join(dataDir, "profiles.json")),
 		profileData: lexists(profileDir),
 		volume: existsSync(join(dataDir, "Data.sparsebundle")),
 		key: saved(dataDir)?.state.key?.box ?? null,
-		electronData: existsSync(join(electronDir, "Partitions")),
 	};
 
 	// The wiped instance's helpers (renderers, GPU, network service), which
@@ -672,9 +650,6 @@ const security: Scenario = async (context) => {
 		profileData: lexists(profileDir),
 		// The fresh Pane's own volume, attached: the wiped profile is not in it.
 		profileInVolume: existsSync(join(dataDir, "Engine", "Volume", profile)),
-		electronData: existsSync(electronDir),
-		electronStaged: existsSync(join(electronParent, "Wiping")),
-		electronNeighbor: existsSync(electronNeighbor),
 		migrationRecord: existsSync(join(dataDir, "migration.json")),
 		staged: existsSync(join(dataDir, "Wiping")),
 		failures: erased.security.wipe.failures,
@@ -856,14 +831,7 @@ const security: Scenario = async (context) => {
 		`the wiped key or volume survived: ${JSON.stringify({ before, after })}`,
 	);
 
-	expect(
-		before.electronData &&
-			!after.electronData &&
-			!after.electronStaged &&
-			after.electronNeighbor &&
-			after.migrationRecord,
-		`the Electron app's data: ${JSON.stringify({ before: before.electronData, after })}`,
-	);
+	expect(!after.migrationRecord, "a migration's record survived the wipe");
 
 	expect(
 		!after.staged && after.failures.length === 0,

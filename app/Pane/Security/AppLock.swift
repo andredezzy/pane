@@ -393,12 +393,10 @@ final class AppLock {
 		if !Self.relaunch(after: [getpid()] + helpers) {
 			// No instance to erase: this one does, its engine still running.
 			let caches = Self.cacheDirectory(for: dataDirectory)
-			let electron = Self.electronData(for: dataDirectory)
 			vault.volume.detachLeftovers()
-			Self.forgetElectronKey(electron)
 			Self.log(
-				PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
-					+ PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
+				PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches)
+					+ PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches)
 			)
 		}
 
@@ -419,7 +417,6 @@ final class AppLock {
 	// wipe cut short left (a crash, a quit) is erased the same way.
 	static func wipeAtLaunch(_ dataDirectory: URL) {
 		let caches = cacheDirectory(for: dataDirectory)
-		let electron = electronData(for: dataDirectory)
 		let wiped = CommandLine.arguments.first { $0.hasPrefix(wipeSwitch) }
 			.map { $0.dropFirst(wipeSwitch.count).split(separator: ",").compactMap { pid_t($0) } }
 
@@ -436,10 +433,10 @@ final class AppLock {
 			// its key is gone, and it moves aside detached.
 			DataVolume(dataDirectory: dataDirectory, cacheDirectory: caches).detachLeftovers()
 
-			log(PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron))
+			log(PanicWipe.stage(dataDirectory: dataDirectory, cacheDirectory: caches))
 		}
 
-		guard !PanicWipe.staged(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron).isEmpty else {
+		guard !PanicWipe.staged(dataDirectory: dataDirectory, cacheDirectory: caches).isEmpty else {
 			return
 		}
 
@@ -447,9 +444,7 @@ final class AppLock {
 
 		let thread = Thread {
 			let started = Date()
-			let failures = PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches, electron: electron)
-			// Here, off the launch: the Keychain may take its time.
-			forgetElectronKey(electron)
+			let failures = PanicWipe.eraseStaged(dataDirectory: dataDirectory, cacheDirectory: caches)
 			Log.security.notice("The panic wipe erased its data in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s")
 
 			Task { @MainActor in
@@ -481,33 +476,6 @@ final class AppLock {
 			applicationSupport: fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
 			caches: fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
 		)
-	}
-
-	// The Electron app's data this Pane migrated from, which the wipe erases
-	// too (PanicWipe.ElectronData).
-	static func electronData(for dataDirectory: URL) -> PanicWipe.ElectronData? {
-		let fileManager = FileManager.default
-
-		return PanicWipe.electronData(
-			dataDirectory: dataDirectory,
-			applicationSupport: fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
-			caches: fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-		)
-	}
-
-	// The Electron app's cookie key goes with its data, when macOS lets it
-	// go without asking: a prompt would ask whoever typed the wrong PINs.
-	// Its data erased, the key opens nothing anyway.
-	private nonisolated static func forgetElectronKey(_ electron: PanicWipe.ElectronData?) {
-		guard
-			let directory = electron?.directory,
-			let appName = ElectronMigration.appNames.first(where: { directory.path.hasSuffix("/\($0)") })
-		else {
-			return
-		}
-
-		let status = SafeStorage.deleteKey(service: "\(appName) Safe Storage", account: appName)
-		Log.security.notice("The panic wipe removed the Electron app's cookie key: \(status)")
 	}
 
 	private static func log(_ failures: [PanicWipe.Failure]) {
