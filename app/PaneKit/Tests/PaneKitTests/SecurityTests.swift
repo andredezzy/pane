@@ -2,49 +2,12 @@ import Foundation
 import PaneKit
 import Testing
 
-@Suite("PinHash")
-struct PinHashTests {
-	// Made by the Electron app's bcryptjs 3.0.3 (hashSync).
-	@Test("verifies the Electron app's bcryptjs hashes")
-	func electronHashes() {
-		#expect(PinHash.verify("1234", against: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
-		#expect(PinHash.verify("908172", against: "$2b$10$L3aErfv3P/fHFyJoj1nlbOlhXNE/XlPmAx40ZQ5PfES6lQ53p2mXC"))
-		#expect(PinHash.verify("0000", against: "$2b$04$FDOi3iSOShZpLJbeU3jh0emN7Ma0VvZ./v68GcSUz/UqOZApKkSKK"))
-		#expect(!PinHash.verify("1235", against: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
-		#expect(!PinHash.verify("", against: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
-	}
-
-	// bcryptjs 2 wrote $2a$; for a PIN, 2a and 2b hash alike (they differ
-	// only past 255 bytes).
-	@Test("verifies an older $2a$ hash")
-	func twoA() {
-		#expect(PinHash.verify("1234", against: "$2a$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"))
-	}
-
-	@Test("rejects a malformed hash instead of crashing")
-	func malformed() {
-		#expect(!PinHash.verify("1234", against: ""))
-		#expect(!PinHash.verify("1234", against: "not a hash"))
-		#expect(!PinHash.verify("1234", against: "$2b$10$short"))
-	}
-
-	@Test("makes salted $2b$ hashes at the Electron app's cost")
-	func makes() throws {
-		let first = try #require(PinHash.make("4321"))
-		let second = try #require(PinHash.make("4321"))
-
-		#expect(first.hasPrefix("$2b$10$"))
-		#expect(first.count == 60)
-		#expect(first != second)
-		#expect(PinHash.verify("4321", against: first))
-		#expect(!PinHash.verify("4322", against: first))
-	}
-}
-
 @Suite("SecurityState")
 struct SecurityStateTests {
-	@Test("reads and writes security.json as the Electron app did")
-	func electronFile() throws {
+	// A PIN from before the data key, its bcrypt hash aside: AppLock stops at its
+	// missing key (Paper 07.6).
+	@Test("reads security.json from before the data key, with no key to open")
+	func beforeTheKey() throws {
 		let directory = FileManager.default.temporaryDirectory.appending(path: "pane-security-\(UUID().uuidString)")
 		defer { try? FileManager.default.removeItem(at: directory) }
 		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -56,6 +19,7 @@ struct SecurityStateTests {
 		let state = try #require(try file.load())
 
 		#expect(state.pin?.length == 4)
+		#expect(state.key == nil)
 		#expect(state.failedAttempts == 2)
 		#expect(state.remainingAttempts == 3)
 
@@ -63,20 +27,6 @@ struct SecurityStateTests {
 		let written = try String(contentsOf: directory.appending(path: "security.json"), encoding: .utf8)
 
 		#expect(written == #"{"state":{"failedAttempts":0,"pin":null},"version":0}"#)
-	}
-
-	@Test("a damaged file gives back its PIN when it still holds one")
-	func recover() {
-		let hash = "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO"
-		// Cut short, and in an order no Pane writes.
-		let truncated = #"{"version":0,"state":{"failedAttempts":3,"pin":{"length":6,"hash":"\#(hash)"}"#
-
-		let recovered = SecurityState.recover(from: Data(truncated.utf8))
-		#expect(recovered == SecurityState(pin: Pin(hash: hash, length: 6), failedAttempts: 3))
-
-		#expect(SecurityState.recover(from: Data(#"{"state":{"pin":{"hash":"\#(hash)"#.utf8)) == nil)
-		#expect(SecurityState.recover(from: Data("\u{0}\u{0}garbage".utf8)) == nil)
-		#expect(SecurityState.recover(from: Data(#"{"state":{"pin":{"hash":"$2b$10$short","length":4}}}"#.utf8)) == nil)
 	}
 }
 

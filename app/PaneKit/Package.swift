@@ -11,19 +11,7 @@ let package = Package(
 		.library(name: "PaneKit", targets: ["PaneKit"]),
 	],
 	targets: [
-		// OpenBSD's bcrypt, vendored unmodified; these defines stand in for
-		// OpenBSD's libc internals (third_party/openbsd-bcrypt).
-		.target(
-			name: "CBcrypt",
-			cSettings: [
-				.headerSearchPath("."),
-				.define("DEF_WEAK(x)", to: ""),
-				.define("WRAP(x)", to: "x"),
-				.define("explicit_bzero(p,n)", to: "memset_s(p,n,0,n)"),
-				.define("__STDC_WANT_LIB_EXT1__", to: "1"),
-			]
-		),
-		.target(name: "PaneKit", dependencies: ["CBcrypt"]),
+		.target(name: "PaneKit"),
 		.testTarget(name: "PaneKitTests", dependencies: ["PaneKit"]),
 	]
 )

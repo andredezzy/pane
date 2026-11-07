@@ -565,6 +565,28 @@ export async function launchPane(
 	return app;
 }
 
+// Sets up a PIN through the PIN screen, as Settings does, once the key has opened.
+export async function setUpPin(app: PaneApp, pin: string) {
+	await app.send("showPinScreen", { mode: "setup" });
+	await app.send("pinKeys", { keys: `${pin}>` });
+
+	await app.waitFor(
+		"the PIN asked again",
+		(state) => state.security.screen?.step === "confirm",
+		10_000,
+	);
+
+	await app.send("pinKeys", { keys: pin });
+
+	await app.waitFor(
+		"the PIN set up",
+		(state) =>
+			state.security.screen === null &&
+			state.security.pinLength === pin.length,
+		10_000,
+	);
+}
+
 // Brings the app in front with its window key, for a check that needs it
 // (keys a panel takes, a page's fullscreen): true once it is. Without
 // --foreground the app in use keeps the front, and the check is deferred.

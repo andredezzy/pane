@@ -1,30 +1,19 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { stats } from "../lib/benchmark";
-import { type AppState, launchPane, type PaneApp } from "../lib/pane";
+import {
+	type AppState,
+	launchPane,
+	type PaneApp,
+	setUpPin,
+} from "../lib/pane";
 import type { Scenario } from "../run";
 
 // From the PIN to the first page painted, and from a launch without a PIN to
 // the first page painted (ADR 0113). Pane is relaunched with a launch URL on
 // the data an earlier launch left, and timed on the page's own clock (its
 // time origin and first contentful paint) against the runner's, on the same
-// Mac. The first launch with a PIN unlocks once, as the timed ones do, so a
-// one-time move of the data stays out of the timings.
+// Mac. The PIN is set up on a launch of its own, which stays out of the timings.
 
 const RUNS = 5;
-
-// bcryptjs 3.0.3, hashSync("1234", 10): a PIN as the Electron app set it,
-// which every Pane reads.
-const PIN_1234 = {
-	state: {
-		pin: {
-			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
-			length: 4,
-		},
-		failedAttempts: 0,
-	},
-	version: 0,
-};
 
 // When the page at `url` first painted, in epoch milliseconds.
 async function firstPaint(app: PaneApp, url: string): Promise<number> {
@@ -84,23 +73,8 @@ const benchmarkUnlock: Scenario = async (context) => {
 	}
 
 	const locked = context.tempDir("pane-unlock-pin-");
-	mkdirSync(locked, { recursive: true });
-	writeFileSync(join(locked, "security.json"), JSON.stringify(PIN_1234));
-
 	const setup = await launchPane(context, { dataDir: locked });
-	await setup.send("pinKeys", { keys: "1234" });
-
-	// Until the volume it makes is whole: quit while it was being made, the
-	// timed runs had opened a plain volume an earlier Pane left behind.
-	await setup.waitFor(
-		"unlocked, the volume made",
-		(state) =>
-			!state.security.locked &&
-			state.security.data.phase === "open" &&
-			state.security.data.attached,
-		60_000,
-	);
-
+	await setUpPin(setup, "1234");
 	await setup.createProfile("Work", "BLUE");
 	await setup.browser.close();
 

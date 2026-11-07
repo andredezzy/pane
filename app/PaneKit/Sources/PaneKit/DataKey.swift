@@ -9,8 +9,7 @@ import Foundation
 // the PIN stretched with PBKDF2 is that derivation's salt, so the key opens
 // only with both, and opening it is how the PIN is checked.
 public enum DataKey {
-	// OWASP's rounds for PBKDF2-HMAC-SHA256: 64 ms on an M5 Pro, where the
-	// bcrypt it replaces (cost 10) took 40.
+	// OWASP's rounds for PBKDF2-HMAC-SHA256: 64 ms on an M5 Pro.
 	public static let rounds = 600_000
 
 	public struct Sealed: Codable, Hashable, Sendable {

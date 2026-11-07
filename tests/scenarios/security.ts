@@ -11,38 +11,40 @@ import {
 	bringToFront,
 	launchPane,
 	type PaneApp,
+	setUpPin,
 } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { imagesAttachedIn, waitForExit } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
-// The PIN lock. Pane starts locked behind a PIN the Electron app set
-// (security.json with its bcryptjs hash of 1234): behind it nothing opens,
-// neither the URL Pane was started with, nor one another app hands it, nor the
+// The PIN lock. Pane starts locked behind a PIN set up through the PIN screen:
+// behind it nothing opens, neither the URL Pane was started with, nor one another app hands it, nor the
 // menu bar's items (the mouse's way past the PIN screen's keys) but Quit and
 // Check for Updates…. A wrong PIN counts, the right one unlocks, and the URLs
 // open then. Then the PIN is changed, removed, and set up again through the PIN
 // screen, and Back leaves it. On a relaunch, five wrong PINs erase the data
 // directory and Pane starts again, fresh. Then ⌘Q quits from the PIN screen
 // with Caps Lock on. Last, a security.json that no longer decodes never opens
-// the lock: the PIN left in it still unlocks, and with none left the lock stays
-// shut. Each check runs in a throwaway data directory.
+// the lock: the key's copy beside the volume still does, with the PIN, and with
+// none the lock stays shut. Each check runs in a throwaway data directory.
+//
+// A PIN from before the data key, no more than a bcrypt hash and no key, takes no
+// keys, counts no attempts, and makes no key: it stops at 07.6 (ADR 0122).
 //
 // Wrong PINs in Settings erase nothing (ADR 0042): they count in memory, and the
 // fifth only locks Pane. A last attempt on disk with the key still there, which
 // Settings left in 0.18.0, erases nothing either, and leaves the lock its attempts.
 //
-// The PIN opens the data key (ADR 0113): the Electron app's bcrypt hash is
-// checked once, then the key is sealed with the PIN, and a change or a
+// The PIN opens the data key (ADR 0113), sealed with it, and a change or a
 // removal seals it again. Behind the lock the data volume is locked and
 // mounted nowhere, each profile's link leads nowhere, and nothing a page stored, nor its address,
 // is in any file in the clear. The panic wipe destroys the key and erases the
 // volume: the fresh Pane seals a key of its own.
 // A quit detaches the volume, and so does its watchdog when Pane is killed.
 
-// bcryptjs 3.0.3, hashSync("1234", 10): what the Electron app wrote.
-const ELECTRON_SECURITY = {
+// bcryptjs 3.0.3, hashSync("1234", 10): what a Pane before 0.14 kept.
+const BCRYPT_ONLY = {
 	state: {
 		pin: {
 			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
@@ -55,7 +57,7 @@ const ELECTRON_SECURITY = {
 
 type Saved = {
 	state: {
-		pin: { hash?: string; length: number } | null;
+		pin: { length: number } | null;
 		failedAttempts: number;
 		key?: {
 			box: string;
@@ -127,6 +129,58 @@ function setFailedAttempts(dataDir: string, failedAttempts: number) {
 	}
 }
 
+// A data folder with a PIN, set up through the PIN screen, and Pane quit.
+async function withPin(
+	context: ScenarioContext,
+	dataDir: string,
+	pin: string,
+) {
+	const app = await launchPane(context, { dataDir });
+	await setUpPin(app, pin);
+	await app.browser.close();
+}
+
+// A PIN from before the data key, with no key: nothing left checks it, so no PIN
+// opens it, no attempt counts, since the fifth erases, and no key is made.
+async function pinWithNoKey(context: ScenarioContext) {
+	const dataDir = context.tempDir("pane-security-no-key-");
+	const contents = JSON.stringify(BCRYPT_ONLY);
+	writeFileSync(join(dataDir, "security.json"), contents);
+
+	const app = await launchPane(context, { dataDir });
+	const atLaunch = await app.state();
+
+	await app.send("pinKeys", { keys: "1234" });
+	await Bun.sleep(1_000);
+	await app.send("pinKeys", { keys: "0000" });
+	await Bun.sleep(1_000);
+
+	const afterKeys = await app.state();
+	await app.browser.close();
+
+	const result = {
+		error: screen(atLaunch)?.error ?? null,
+		locked: afterKeys.security.locked,
+		failedAttempts: afterKeys.security.failedAttempts,
+		file: readFileSync(join(dataDir, "security.json"), "utf8") === contents,
+		keyCopy: existsSync(join(dataDir, "Data.security.json")),
+		image: existsSync(join(dataDir, "Data.sparsebundle")),
+	};
+
+	expect(
+		result.error ===
+			"Pane can\u{2019}t read the key to your data.\nQuit, then restore security.json." &&
+			result.locked &&
+			result.failedAttempts === 0 &&
+			result.file &&
+			!result.keyCopy &&
+			!result.image,
+		`a PIN with no key: ${JSON.stringify(result)}`,
+	);
+
+	return result;
+}
+
 // A profile's page, reading back what it stored once the PIN opened it.
 async function settingsAttempts(context: ScenarioContext) {
 	const dataDir = context.tempDir("pane-security-settings-");
@@ -141,13 +195,7 @@ async function settingsAttempts(context: ScenarioContext) {
 		`localStorage.setItem("kept", ${JSON.stringify(value)})`,
 	);
 
-	await first.send("showPinScreen", { mode: "setup" });
-
-	await type(first, `${PIN}>`, "confirming", (state) => {
-		return screen(state)?.step === "confirm";
-	});
-
-	await type(first, PIN, "the PIN set up", (state) => screen(state) === null);
+	await setUpPin(first, PIN);
 	await first.browser.close();
 
 	// The PIN, then the page's value: the data is there.
@@ -251,15 +299,11 @@ async function settingsAttempts(context: ScenarioContext) {
 }
 
 const security: Scenario = async (context) => {
+	const noKey = await pinWithNoKey(context);
 	await settingsAttempts(context);
 
 	const dataDir = context.tempDir("pane-security-");
-	mkdirSync(dataDir, { recursive: true });
-
-	writeFileSync(
-		join(dataDir, "security.json"),
-		JSON.stringify(ELECTRON_SECURITY),
-	);
+	await withPin(context, dataDir, "1234");
 
 	const launchURL = context.fixtures.url("nav-b.html?behind-the-lock");
 
@@ -347,7 +391,6 @@ const security: Scenario = async (context) => {
 		path: join(context.out, "security-wrong-pin.png"),
 	});
 
-	// The Electron app's PIN.
 	const unlocked = await type(
 		app,
 		"1234",
@@ -357,13 +400,12 @@ const security: Scenario = async (context) => {
 
 	expect(unlocked.security.failedAttempts === 0, "the attempts did not reset");
 
-	// The Electron app's hash, checked once, gives way to the data key sealed
-	// with the PIN, in security.json and its copy beside the volume.
+	// The data key is sealed with the PIN, in security.json and its copy beside
+	// the volume.
 	const sealedAtUnlock = saved(dataDir)?.state;
 
 	expect(
 		sealedAtUnlock?.pin?.length === 4 &&
-			sealedAtUnlock.pin.hash === undefined &&
 			!!sealedAtUnlock.key?.pin?.salt &&
 			saved(dataDir, "Data.security")?.state.key?.box ===
 				sealedAtUnlock.key.box,
@@ -421,12 +463,11 @@ const security: Scenario = async (context) => {
 		(state) => screen(state) === null && state.security.pinLength === 6,
 	);
 
-	// Sealed again with the new PIN: a salt of its own, and no hash.
+	// Sealed again with the new PIN: a salt of its own.
 	const sealedAtChange = saved(dataDir)?.state;
 
 	expect(
 		sealedAtChange?.pin?.length === 6 &&
-			sealedAtChange.pin.hash === undefined &&
 			!!sealedAtChange.key?.pin?.salt &&
 			sealedAtChange.key.pin.salt !== sealedAtUnlock?.key?.pin?.salt,
 		`the key at the change: ${JSON.stringify(sealedAtChange)}`,
@@ -648,11 +689,7 @@ const security: Scenario = async (context) => {
 
 	// ⌘Q at the PIN screen with Caps Lock on.
 	const capsDir = context.tempDir("pane-security-caps-");
-
-	writeFileSync(
-		join(capsDir, "security.json"),
-		JSON.stringify(ELECTRON_SECURITY),
-	);
+	await withPin(context, capsDir, "1234");
 
 	const caps = await launchPane(context, { dataDir: capsDir });
 	let quitWithCapsLock: boolean | null = null;
@@ -752,9 +789,14 @@ const security: Scenario = async (context) => {
 		`the volume after a quit and a kill: ${JSON.stringify(detached)}`,
 	);
 
-	// A damaged security.json: cut short, its PIN still in it, then garbage.
-	const damaged = async (name: string, contents: string, keys: string) => {
-		const directory = context.tempDir("pane-security-damaged-");
+	// A damaged security.json: cut short with its key's copy beside it, then
+	// garbage with none.
+	const damaged = async (
+		name: string,
+		directory: string,
+		contents: string,
+		keys: string,
+	) => {
 		writeFileSync(join(directory, "security.json"), contents);
 
 		const damagedApp = await launchPane(context, { dataDir: directory });
@@ -780,13 +822,22 @@ const security: Scenario = async (context) => {
 		return result;
 	};
 
+	const withCopy = context.tempDir("pane-security-damaged-");
+	await withPin(context, withCopy, "1234");
+
 	const truncated = await damaged(
 		"truncated",
-		JSON.stringify(ELECTRON_SECURITY).slice(0, -12),
+		withCopy,
+		readFileSync(join(withCopy, "security.json"), "utf8").slice(0, -12),
 		"1234",
 	);
 
-	const garbage = await damaged("garbage", '\u0000\u0000{"state":', "1234");
+	const garbage = await damaged(
+		"garbage",
+		context.tempDir("pane-security-damaged-"),
+		'\u0000\u0000{"state":',
+		"1234",
+	);
 
 	expect(
 		before.profiles && before.profileData,
@@ -833,7 +884,7 @@ const security: Scenario = async (context) => {
 		truncated.lockedAtLaunch &&
 			!truncated.lockedAfterKeys &&
 			truncated.keptAside,
-		`a damaged security.json with its PIN: ${JSON.stringify(truncated)}`,
+		`a damaged security.json with its key's copy: ${JSON.stringify(truncated)}`,
 	);
 
 	expect(
@@ -841,7 +892,7 @@ const security: Scenario = async (context) => {
 			garbage.lockedAfterKeys &&
 			!!garbage.error &&
 			garbage.keptAside,
-		`a damaged security.json without a PIN: ${JSON.stringify(garbage)}`,
+		`a damaged security.json with no copy: ${JSON.stringify(garbage)}`,
 	);
 
 	expect(
@@ -862,10 +913,8 @@ const security: Scenario = async (context) => {
 		},
 		quitWithCapsLock,
 		damagedSecurityFile: { truncated, garbage },
-		electronPin: {
-			unlockedWith: "the Electron app's bcryptjs hash",
-			failedAttemptsAfterWrong: wrong.security.failedAttempts,
-		},
+		noKey,
+		pin: { failedAttemptsAfterWrong: wrong.security.failedAttempts },
 		change: {
 			pinLength: changed.security.pinLength,
 			sealedWithPin: !!sealedAtChange?.key?.pin,

@@ -1,6 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchPane, tabOf } from "../lib/pane";
+import { launchPane, setUpPin, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { imagesAttachedIn, waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
@@ -16,22 +16,8 @@ import { expect, type Scenario } from "../run";
 // detaches the image when Pane is killed. A file something else holds open is never
 // pulled away: the lock waits, and past 10 s Pane quits.
 
-// bcryptjs 3.0.3, hashSync("1234", 10): a PIN as the Electron app set it.
-const PIN_1234 = {
-	state: {
-		pin: {
-			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
-			length: 4,
-		},
-		failedAttempts: 0,
-	},
-	version: 0,
-};
-
 const lockWhileOpen: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lock-");
-	mkdirSync(dataDir, { recursive: true });
-	writeFileSync(join(dataDir, "security.json"), JSON.stringify(PIN_1234));
 	const mountPoint = join(dataDir, "Engine", "Volume");
 
 	const mounted = async () => {
@@ -49,13 +35,7 @@ const lockWhileOpen: Scenario = async (context) => {
 	});
 
 	await app.send("setLockAfter", { minutes: null });
-	await app.send("pinKeys", { keys: "1234" });
-
-	await app.waitFor(
-		"unlocked, the volume attached",
-		(state) => !state.security.locked && state.security.data.attached,
-		60_000,
-	);
+	await setUpPin(app, "1234");
 
 	const profile = await app.createProfile("Work", "BLUE");
 	const url = context.fixtures.url("sign-in");
