@@ -32,6 +32,8 @@ The floor, the simplifications, and Chromium 158, against the budgets they were 
 | Memory, 5 tabs | 233.2 MB | 237.3 MB | +1.8% | ≤ +1% | **over** |
 | Memory, 10 tabs | 343.9 MB | 351.0 MB | +2.1% | ≤ +1% | **over** |
 
+The user accepted the two that are over and traced below, as the cost of Chromium 158 (2026-11-07).
+
 **Memory is Chromium 158's.** At ten tabs the GPU process grows 1.8 MB and the renderers 4 MB, where the browser, Pane's own process, grows 0.5 MB. Against the same code on 157 the GPU process is the same 1.8 MB up and the renderers 1.6 MB; the published 0.18.2, on 157, sits under 0.18.0.
 
 **A tiny page's slower load is Chromium 158's too.** A fixture's load comes in two modes, 4.6 ms and 7.7 ms, the 3 ms between the first byte and `DOMContentLoaded`, with its first paint a frame later. 157 builds took the slower mode in 2 to 5 of 27 loads, and 158 builds, stripped or not, in 13 and 14 of 27, once in none of 18. It doesn't show on a real site, whose noise is far larger.
