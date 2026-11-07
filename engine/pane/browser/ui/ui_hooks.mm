@@ -9,8 +9,6 @@
 #include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
-#include "components/permissions/chooser_controller.h"
-#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/extensions/extension_ui.h"
 #include "pane/browser/ui/browser_window.h"
@@ -110,24 +108,6 @@ void UpdateDevTools(BrowserWindowInterface* browser,
   }
 }
 
-// Device choosers stay closed, as in the Electron app: the page's
-// requestDevice() is declined at once, with no UI.
-bool DeclineDeviceChooser(
-    content::RenderFrameHost* owner,
-    std::unique_ptr<permissions::ChooserController>& controller) {
-  TabBridge* bridge = TabBridge::FromWebContents(
-      content::WebContents::FromRenderFrameHost(owner));
-  if (!bridge) {
-    return false;
-  }
-  PANE_TRACE_TAB(bridge, "policy.deviceChooserDeclined",
-                 base::DictValue().Set(
-                     "origin", owner->GetLastCommittedOrigin().Serialize()));
-  controller->Cancel();
-  controller.reset();
-  return true;
-}
-
 }  // namespace
 
 void InstallUIHooks() {
@@ -135,7 +115,6 @@ void InstallUIHooks() {
   g_pane_external_protocol_dialog = &RunExternalProtocolDialog;
   g_pane_hosts_devtools = &HostsDevTools;
   g_pane_update_devtools = &UpdateDevTools;
-  g_pane_device_chooser = &DeclineDeviceChooser;
   InstallExtensionHooks();
   InstallSelectFileDialogFactory();
 }

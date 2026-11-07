@@ -85,7 +85,7 @@ void InstallExtensionHooks() {
   // Chrome's "added" bubble and its "Reload this page to apply your updated
   // settings" have no place in Pane's tabs: the app hears of an install through
   // browserContextDidChangeExtensions:, and a page takes a change of site access
-  // on its next load (ADR 0101).
+  // on its next load (ADR 0096).
   static base::NoDestructor<base::AutoReset<bool>> no_install_ui(
       ExtensionInstallUI::disable_ui_for_tests(true));
   static base::NoDestructor<base::AutoReset<std::optional<bool>>>

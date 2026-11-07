@@ -12,6 +12,10 @@
 #include "base/no_destructor.h"
 #include "base/strings/strcat.h"
 #include "base/strings/sys_string_conversions.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -128,6 +132,16 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
     PrefService* prefs = profile->GetPrefs();
     // Downloads go straight to the download directory, never to a dialog.
     prefs->SetBoolean(prefs::kPromptForDownload, false);
+    // Device choosers stay closed, as in the Electron app: a page's
+    // requestDevice() is declined at once, with no UI (ADR 0022).
+    HostContentSettingsMap* settings =
+        HostContentSettingsMapFactory::GetForProfile(profile);
+    for (const ContentSettingsType guard :
+         {ContentSettingsType::USB_GUARD, ContentSettingsType::HID_GUARD,
+          ContentSettingsType::SERIAL_GUARD,
+          ContentSettingsType::BLUETOOTH_GUARD}) {
+      settings->SetDefaultContentSetting(guard, CONTENT_SETTING_BLOCK);
+    }
     // Chrome's password manager and autofill stay off: Pane relies on
     // extension password managers, so their bubbles never appear.
     prefs->SetBoolean(password_manager::prefs::kCredentialsEnableService,

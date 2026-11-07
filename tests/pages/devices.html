@@ -25,6 +25,7 @@
 				window.result = `hid: ${devices.length} devices`;
 			}
 			const askSerial = () => settle("serial", () => navigator.serial.requestPort());
+			const askBluetooth = () => settle("bluetooth", () => navigator.bluetooth.requestDevice({ acceptAllDevices: true }));
 			const askScreen = () => settle("screen", () => navigator.mediaDevices.getDisplayMedia({ video: true }));
 			const askCast = () => settle("cast", () => new PresentationRequest(["https://example.invalid/receiver"]).start());
 		</script>

@@ -13,7 +13,6 @@
 #include <optional>
 #include <string>
 
-#include "components/permissions/permission_prompt.h"
 #include "content/public/browser/login_delegate.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "url/origin.h"
@@ -26,10 +25,6 @@ namespace content {
 class RenderFrameHost;
 class WebContents;
 }  // namespace content
-
-namespace permissions {
-class ChooserController;
-}
 
 namespace net {
 class AuthChallengeInfo;
@@ -57,12 +52,5 @@ extern bool (*g_pane_external_protocol_dialog)(
 extern bool (*g_pane_hosts_devtools)(BrowserWindowInterface* browser);
 extern void (*g_pane_update_devtools)(BrowserWindowInterface* browser,
                                       content::WebContents* inspected);
-
-// chooser_bubble_ui.cc: a page asks to pick a USB, HID, serial, or Bluetooth
-// device. True when Pane answered (it declines, as the Electron app did);
-// `controller` is then consumed.
-extern bool (*g_pane_device_chooser)(
-    content::RenderFrameHost* owner,
-    std::unique_ptr<permissions::ChooserController>& controller);
 
 #endif  // PANE_BROWSER_UI_UI_HOOKS_H_
