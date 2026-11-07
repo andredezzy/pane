@@ -2,12 +2,14 @@
 // the sealed data key under the mock keychain's secret: for a scenario to look
 // for the key where it must not be. Only the mock keychain's key opens this way.
 import {
+	createCipheriv,
 	createDecipheriv,
 	createHash,
 	hkdfSync,
 	pbkdf2Sync,
+	randomBytes,
 } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const MOCK_SECRET = Buffer.from("Pane mock keychain");
@@ -68,6 +70,39 @@ export function engineKey(
 			"Pane engine files",
 			32,
 		),
+	);
+}
+
+// Writes profiles.json as PaneKit's SealedFile seals it, for a launch to read
+// profiles no Pane would make (profile-lifecycle). The data key is the one a first
+// launch left there.
+export function sealProfiles(dataDir: string, profiles: unknown[]) {
+	const filesKey = Buffer.from(
+		hkdfSync(
+			"sha256",
+			dataKey(dataDir, null),
+			Buffer.alloc(0),
+			"Pane files",
+			32,
+		),
+	);
+
+	const nonce = randomBytes(12);
+	const cipher = createCipheriv("aes-256-gcm", filesKey, nonce);
+	cipher.setAAD(Buffer.from("profiles"));
+
+	const sealed = Buffer.concat([
+		cipher.update(JSON.stringify({ profiles })),
+		cipher.final(),
+	]);
+
+	writeFileSync(
+		join(dataDir, "profiles.json"),
+		JSON.stringify({
+			box: Buffer.concat([nonce, sealed, cipher.getAuthTag()]).toString(
+				"base64",
+			),
+		}),
 	);
 }
 

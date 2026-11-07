@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { sealProfiles } from "../lib/engine-key";
 import { launchPane, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
@@ -180,6 +181,8 @@ const profileLifecycle: Scenario = async (context) => {
 		fingerprint: null,
 		proxy: null,
 		keepLoaded: false,
+		savesHistory: true,
+		historyClearOwed: false,
 		tabs: [
 			{
 				id: tab,
@@ -192,18 +195,13 @@ const profileLifecycle: Scenario = async (context) => {
 		updatedAt: "2026-10-27T00:00:00.000Z",
 	});
 
-	writeFileSync(
-		join(brokenDir, "profiles.json"),
-		JSON.stringify({
-			state: {
-				profiles: [
-					brokenProfile("broken/profile", "Broken", "broken-tab"),
-					brokenProfile(longID, "Long", "long-tab"),
-				],
-			},
-			version: 0,
-		}),
-	);
+	// A first launch leaves the key they are sealed under.
+	await (await launchPane(context, { dataDir: brokenDir })).browser.close();
+
+	sealProfiles(brokenDir, [
+		brokenProfile("broken/profile", "Broken", "broken-tab"),
+		brokenProfile(longID, "Long", "long-tab"),
+	]);
 
 	const broken = await launchPane(context, { dataDir: brokenDir });
 	await broken.send("select", { tab: "broken-tab" });
