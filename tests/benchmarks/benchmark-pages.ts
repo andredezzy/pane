@@ -111,10 +111,12 @@ const benchmarkPages: Scenario = async (context) => {
 							>(TIMING);
 
 						loads.push({ url, pass, ...timing, navigateToLoad });
+
 						break;
 					} catch (error) {
 						if (attempt === 3) {
 							failures.push(`${url}: ${String(error)}`);
+
 							break;
 						}
 					}

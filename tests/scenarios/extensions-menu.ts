@@ -161,6 +161,7 @@ const extensionsMenu: Scenario = async (context) => {
 	if (context.foreground) {
 		await bringToFront(context, app, "the run");
 	}
+
 	const profile = await app.createProfile("Extensions");
 	const url = context.fixtures.url("light.html?extensions-menu");
 	const { tab } = await app.openPage(profile, url);
