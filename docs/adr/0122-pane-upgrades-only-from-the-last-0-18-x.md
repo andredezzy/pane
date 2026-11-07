@@ -34,7 +34,7 @@ A new profile gets its `.files-encrypted` in `prepare`, before its first file: i
 - **bcrypt:** `CBcrypt`, `third_party/openbsd-bcrypt`, `Pin.hash`, `PinHash`, and `SecurityState.recover`. A `security.json` that does not decode opens through its key's copy beside the volume, or stays shut.
 - **A plain `profiles.json`,** the proxy passwords' stores (those proxies lose their passwords), and plain profile folders, with Paper 07.5, which showed their move and the conversion.
 - **What an engine before 0.15.1 kept at its root** (`stageEngineTraces`), which stays as stale clear files on an install that never ran a later one; and mount points named before 0.13.1.
-- **ADR 0121's conversion:** on the Swift side, `formerVolumePassphrase`, `open(... former:)`, `FileMigrator`, and the safety copy's counting; in the engine, `profile_migration`, its `migration` target and tests, `MigrateSqliteDatabase` with `SqliteMigration`, `SqliteQuickCheckPasses`, `IsPlainSqliteDatabase`, `IsEncryptedSqliteDatabase`, and `migrateContext`, `restoreContext`, and `repairContext`.
+- **ADR 0121's conversion, on the Swift side:** `formerVolumePassphrase`, `open(... former:)`, `FileMigrator`, and the safety copy's counting. **The engine's half follows:** `profile_migration`, SQLite's migration, and `migrateContext`, `restoreContext`, and `repairContext`.
 - **Codable's tolerance** for files older than the floor, in `profiles.json` and `security.json`, and `chromiumPath`, which nothing read.
 
 ## What stays

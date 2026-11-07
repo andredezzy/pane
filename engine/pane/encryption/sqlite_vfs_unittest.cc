@@ -66,11 +66,6 @@ class SqliteVfsTest : public testing::Test {
     return raw;
   }
 
-  // Whether `path` starts with SQLite's own magic: a page 1 written plain.
-  bool HasSqliteMagic(const base::FilePath& path) {
-    return Raw(path).starts_with("SQLite format 3");
-  }
-
   void Fill(sql::Database& db, int rows, int first = 0) {
     ASSERT_TRUE(db.Execute(
         "CREATE TABLE IF NOT EXISTS t(id INTEGER PRIMARY KEY, value TEXT)"));
@@ -108,7 +103,8 @@ TEST_F(SqliteVfsTest, ANewDatabaseIsEncryptedAndReads) {
     EXPECT_EQ(Count(db), 500);
   }
 
-  EXPECT_FALSE(HasSqliteMagic(path_));
+  EXPECT_TRUE(IsEncryptedSqliteDatabase(path_));
+  EXPECT_FALSE(IsPlainSqliteDatabase(path_));
   EXPECT_EQ(Raw(path_).find(kSecret), std::string::npos);
 
   sql::Database again(Options(), sql::test::kTestTag);
@@ -142,7 +138,7 @@ TEST_F(SqliteVfsTest, AFileOutsideAProfileStaysPlain) {
     ASSERT_TRUE(db.Open(plain));
     Fill(db, 10);
   }
-  EXPECT_TRUE(HasSqliteMagic(plain));
+  EXPECT_TRUE(IsPlainSqliteDatabase(plain));
   EXPECT_NE(Raw(plain).find(kSecret), std::string::npos);
 }
 
@@ -206,7 +202,7 @@ TEST_F(SqliteVfsTest, RazeLeavesAnEncryptedEmptyDatabase) {
   Fill(db, 5);
   EXPECT_EQ(Count(db), 5);
   db.Close();
-  EXPECT_FALSE(HasSqliteMagic(path_));
+  EXPECT_TRUE(IsEncryptedSqliteDatabase(path_));
   EXPECT_EQ(Raw(path_).find(kSecret), std::string::npos);
 }
 
@@ -254,7 +250,7 @@ TEST_F(SqliteVfsTest, RecoveryKeepsItsDataEncrypted) {
                 &db, sql::Recovery::Strategy::kRecoverOrRaze),
             sql::SqliteResultCode::kOk);
   ASSERT_FALSE(db.is_open());
-  EXPECT_FALSE(HasSqliteMagic(path_));
+  EXPECT_FALSE(IsPlainSqliteDatabase(path_));
   EXPECT_EQ(Raw(path_).find(kSecret), std::string::npos);
 
   sql::Database again(Options(), sql::test::kTestTag);
@@ -326,6 +322,39 @@ TEST_F(SqliteVfsTest, AChangedPageIsAnIOErrorAndNothingIsDeleted) {
   EXPECT_FALSE(catastrophic);
   db.Close();
   EXPECT_EQ(Raw(path_), raw);
+}
+
+TEST_F(SqliteVfsTest, APlainDatabaseMigratesWithAllItsRows) {
+  // Written plain, through Chromium's own VFS, as an earlier Pane wrote it.
+  const base::FilePath plain = profile_.Append("Older");
+  {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(sqlite3_open_v2(plain.value().c_str(), &db,
+                              SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+                              "VFSWrapper"),
+              SQLITE_OK);
+    ASSERT_EQ(sqlite3_exec(db,
+                           "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT);"
+                           "CREATE INDEX t_value ON t(value);"
+                           "INSERT INTO t VALUES(1, 'pane-secret-value-in-a-page');"
+                           "INSERT INTO t VALUES(2, 'pane-secret-value-in-a-page');",
+                           nullptr, nullptr, nullptr),
+              SQLITE_OK);
+    sqlite3_close(db);
+  }
+
+  ASSERT_TRUE(IsPlainSqliteDatabase(plain));
+  EXPECT_EQ(MigrateSqliteDatabase(plain), SqliteMigration::kMigrated);
+  EXPECT_TRUE(IsEncryptedSqliteDatabase(plain));
+  EXPECT_EQ(Raw(plain).find(kSecret), std::string::npos);
+  EXPECT_EQ(MigrateSqliteDatabase(plain), SqliteMigration::kNothingToDo);
+
+  sql::Database db(Options(), sql::test::kTestTag);
+  ASSERT_TRUE(db.Open(plain));
+  EXPECT_EQ(Count(db), 2);
+  EXPECT_TRUE(db.DoesIndexExist("t_value"));
+  Fill(db, 100, 10);
+  EXPECT_EQ(Count(db), 102);
 }
 
 TEST_F(SqliteVfsTest, APlainDatabaseInAProfileCrashes) {
@@ -498,6 +527,21 @@ TEST_F(SqliteVfsTest, AChangedWalPageIsAnError) {
       sqlite3_exec(db, "SELECT SUM(LENGTH(value)) FROM t", nullptr, nullptr, nullptr);
   sqlite3_close(db);
   EXPECT_EQ(read & 0xff, SQLITE_IOERR);
+}
+
+TEST_F(SqliteVfsTest, TheQuickCheckSaysWhatItFinds) {
+  {
+    sql::Database db(Options(), sql::test::kTestTag);
+    ASSERT_TRUE(db.Open(path_));
+    Fill(db, 500);
+  }
+
+  EXPECT_TRUE(SqliteQuickCheckPasses(path_, nullptr));
+
+  std::string raw = Raw(path_);
+  raw[4096 * 5 + 100] ^= 1;
+  ASSERT_TRUE(base::WriteFile(path_, raw));
+  EXPECT_FALSE(SqliteQuickCheckPasses(path_, nullptr));
 }
 
 // A process killed mid-write, as a crash leaves it: nothing it was told is
