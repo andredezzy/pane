@@ -672,6 +672,13 @@ final class BrowserController: NSObject {
 // MARK: - BrowserWindowDelegate
 
 extension BrowserController: BrowserWindowDelegate {
+	// A chord goes to the page first, its answer a round trip away: a key behind
+	// ⌘T would reach the page left, so ⌘T goes ahead of it, reserved as in Chrome
+	// (IsReservedCommandOrKey).
+	func browserWindow(_ window: BrowserWindow, preHandleKeyEvent event: NSEvent) -> Bool {
+		KeyPress(event).isNewTab && NSApp.mainMenu?.performKeyEquivalent(with: event) == true
+	}
+
 	func browserWindow(_ window: BrowserWindow, didInsertTab tab: WebContents, opener: WebContents?, foreground: Bool) {
 		if let tabID = pages.pendingTabID {
 			adopt(tab, tabID: tabID)

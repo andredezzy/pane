@@ -58,6 +58,11 @@ public struct KeyPress: Equatable, Sendable {
 		kind == .down && modifiers.subtracting(.capsLock) == .command && charactersIgnoringModifiers?.lowercased() == "q"
 	}
 
+	// ⌘T, which a page never gets ahead of the browser, as in Chrome.
+	public var isNewTab: Bool {
+		kind == .down && modifiers.subtracting(.capsLock) == .command && charactersIgnoringModifiers?.lowercased() == "t"
+	}
+
 	var isEscape: Bool {
 		kind == .down && keyCode == KeyCode.escape
 	}

@@ -25,6 +25,14 @@ struct KeyRoutingTests {
 		}
 	}
 
+	@Test("⌘T is reserved, Caps Lock or not; ⇧⌘T and a typed t are not")
+	func newTab() {
+		#expect(letter("t", .command).isNewTab)
+		#expect(letter("t", [.command, .capsLock]).isNewTab)
+		#expect(!letter("T", [.command, .shift]).isNewTab)
+		#expect(!letter("t").isNewTab)
+	}
+
 	@Test("the PIN screen takes every key but Quit")
 	func pinScreen() {
 		let overlays = KeyOverlays(pinScreen: true)
