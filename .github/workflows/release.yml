@@ -58,9 +58,14 @@ jobs:
           fi
           echo "Tag ${GITHUB_REF_NAME} is on main."
 
-      - name: PaneKit tests
+      # As app.yml: a release ran none of this until v0.17.1's strict build
+      # failed only there.
+      - name: PaneKit tests, sanitized and strict
         working-directory: app/PaneKit
-        run: swift test
+        run: |
+          swift test --sanitize=thread --scratch-path .build-tsan
+          swift test --sanitize=address --scratch-path .build-asan
+          swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict
 
       - name: XcodeGen and the prebuilt engine
         uses: ./.github/actions/setup-app-build

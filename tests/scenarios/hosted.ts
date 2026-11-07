@@ -6,16 +6,17 @@ import { launchTraced } from "../lib/traced";
 import { imageDetail, settledWindowsOf } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
-const URL = "https://example.com/";
-const TITLE = "Example Domain";
+const TITLE = "Pane hosted";
 
-// Phase 1: the Pane app hosts the engine. One window of the app's own, the
+// The Pane app hosts the engine. One window of the app's own, the
 // page reported as a DevTools page, the app↔engine traffic in the trace, and
 // — with an unlocked screen — the page visible in that window and Cmd+Q
 // shutting every helper down.
 const hosted: Scenario = async (context) => {
+	const url = context.fixtures.url("hosted.html");
+
 	const { app, has } = await launchTraced(context, "hosted", {
-		args: [URL],
+		args: [url],
 	});
 
 	const { browser } = app;
@@ -23,9 +24,9 @@ const hosted: Scenario = async (context) => {
 
 	await waitForTarget(
 		browser.cdp,
-		`the page ${URL} titled ${TITLE}`,
+		`the page ${url} titled ${TITLE}`,
 		(target) =>
-			target.type === "page" && target.url === URL && target.title === TITLE,
+			target.type === "page" && target.url === url && target.title === TITLE,
 	);
 
 	const windows = await settledWindowsOf(browser.pid, 1);
@@ -67,7 +68,7 @@ const hosted: Scenario = async (context) => {
 	);
 
 	expect(
-		new RegExp(`AXTextField = "${URL.replace(/[./]/g, "\\$&")}"`).test(tree),
+		tree.includes(`AXTextField = "${url}"`),
 		"the address field does not show the page",
 	);
 
