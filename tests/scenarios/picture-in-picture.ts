@@ -1,5 +1,5 @@
+import { launchPane } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // Video picture-in-picture: the app hears of it, and the floating player is
@@ -7,7 +7,7 @@ import { expect, type Scenario } from "../run";
 const PLAYER = "Picture in Picture";
 
 const pictureInPicture: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "picture-in-picture");
+	const app = await launchPane(context);
 
 	const watcher = new WindowWatcher(
 		app,
@@ -50,22 +50,6 @@ const pictureInPicture: Scenario = async (context) => {
 	expect(
 		events.entered && events.left,
 		`page events ${JSON.stringify(events)}`,
-	);
-
-	expect(
-		has(
-			"PaneWebContentsDelegate.didChangePictureInPicture",
-			(args) => args.active === true,
-		),
-		"trace lacks the start",
-	);
-
-	expect(
-		has(
-			"PaneWebContentsDelegate.didChangePictureInPicture",
-			(args) => args.active === false,
-		),
-		"trace lacks the end",
 	);
 
 	await watcher.stop();

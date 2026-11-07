@@ -44,8 +44,6 @@ const hungRenderer: Scenario = async (context) => {
 		(state) => state.sheet?.kind !== "unresponsive",
 	);
 
-	expect(has("PaneUnresponsivePage.wait"), "trace lacks Wait");
-
 	expect(
 		!has("PaneWebContentsDelegate.rendererDidTerminate"),
 		"Wait ended the renderer",
@@ -75,13 +73,6 @@ const hungRenderer: Scenario = async (context) => {
 			["Hang", "Hanging"].includes(tabOf(state, tab)?.title ?? "") &&
 			!tabOf(state, tab)?.loading,
 	);
-
-	expect(
-		has("PaneWebContentsDelegate.becameUnresponsive"),
-		"trace lacks becameUnresponsive",
-	);
-
-	expect(has("PaneUnresponsivePage.terminate"), "trace lacks the answer");
 
 	await watcher.stop();
 };

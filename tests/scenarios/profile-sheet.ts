@@ -9,10 +9,9 @@ import {
 	typeIntoField,
 	windowState,
 } from "../lib/cua";
-import { type AppState, type PaneApp, tabOf } from "../lib/pane";
+import { type AppState, launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { startHttpProxy } from "../lib/proxies";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // The profile sheet (ADR 0120), filled as a user would: presses and typing
@@ -69,7 +68,7 @@ const profileSheet: Scenario = async (context) => {
 	const proxy = await startHttpProxy(fixturePort, CREDENTIALS);
 
 	try {
-		const { app } = await launchTraced(context, "profile-sheet", {
+		const app = await launchPane(context, {
 			env: { PANE_PROXY_TEST_URL: "http://check.pane.test/ip" },
 		});
 

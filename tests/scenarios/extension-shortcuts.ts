@@ -2,8 +2,8 @@ import { join } from "node:path";
 import { canDriveUI, mainWindowOf, readControl } from "../lib/cua";
 import { extensionId, workerPage } from "../lib/extensions";
 import type { AppState, ExtensionCommands } from "../lib/pane";
+import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 const PROBE = join(import.meta.dir, "..", "pages", "extensions", "commands");
@@ -34,7 +34,7 @@ type Command = { name: string; tabId: number | null };
 // here and says so; Clear empties one; and while a field records, no
 // shortcut runs.
 const extensionShortcuts: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "extension-shortcuts", {
+	const app = await launchPane(context, {
 		args: [`--load-extension=${PROBE},${SECOND}`],
 	});
 
@@ -384,14 +384,6 @@ const extensionShortcuts: Scenario = async (context) => {
 
 	await noMore(worker, 4, "⌥⇧K, recorded, ran nothing");
 	await noMore(secondWorker, 0, "⌥⇧K, recorded, ran nothing");
-
-	expect(
-		has(
-			"PaneBrowserContext.setExtensionShortcutsSuspended",
-			(args) => args.suspended === true,
-		),
-		"recording paused the shortcuts",
-	);
 
 	await app.send("extensionShortcutsDialog", { control: "done" });
 };

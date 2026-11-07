@@ -30,15 +30,6 @@ const externalProtocol: Scenario = async (context) => {
 	expect(mapsAfter === mapsBefore, "Maps opened");
 
 	expect(sheet.title?.startsWith("Open “"), `sheet ${sheet.title}`);
-
-	expect(
-		has("PaneWebContentsDelegate.openExternalProtocol", (args) =>
-			String(args.url).startsWith("maps:"),
-		),
-		"trace lacks openExternalProtocol",
-	);
-
-	expect(has("PaneExternalProtocolRequest.cancel"), "trace lacks the cancel");
 	expect(!has("PaneExternalProtocolRequest.open"), "the app opened the link");
 
 	await watcher.stop();

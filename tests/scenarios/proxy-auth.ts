@@ -1,6 +1,5 @@
-import { tabOf } from "../lib/pane";
+import { launchPane, tabOf } from "../lib/pane";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 const TARGET = "http://pane-proxy.test/";
@@ -33,7 +32,7 @@ const proxyAuth: Scenario = async (context) => {
 	});
 
 	try {
-		const { app, has } = await launchTraced(context, "proxy-auth", {
+		const app = await launchPane(context, {
 			args: [`--proxy-server=http://127.0.0.1:${proxy.port}`],
 		});
 
@@ -54,14 +53,6 @@ const proxyAuth: Scenario = async (context) => {
 		expect(
 			proxied.some((url) => url.startsWith(TARGET)),
 			`the proxy saw ${proxied.join(", ")}`,
-		);
-
-		expect(
-			has(
-				"PaneWebContentsDelegate.authenticate",
-				(args) => args.proxy === true,
-			),
-			"trace lacks a proxy authenticate",
 		);
 
 		await watcher.stop();

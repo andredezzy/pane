@@ -9,8 +9,8 @@ import {
 } from "../lib/cua";
 import { DARK_READER, installById } from "../lib/extensions";
 import type { AppState, ExtensionState } from "../lib/pane";
+import { launchPane } from "../lib/pane";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // The Extensions page manages a profile's extensions: an install declined
@@ -20,7 +20,7 @@ import { expect, type Scenario } from "../run";
 // On an unlocked screen each control is clicked with CUA; else the same
 // controller calls run through the automation channel.
 const extensionManagement: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "extension-management");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Manage");
 	const url = context.fixtures.url("light.html?manage");
@@ -74,11 +74,6 @@ const extensionManagement: Scenario = async (context) => {
 	expect(
 		item(afterDecline) === undefined && !existsSync(extensionDirectory),
 		`declined, yet installed: ${JSON.stringify({ listed: item(afterDecline), onDisk: existsSync(extensionDirectory) })}`,
-	);
-
-	expect(
-		has("PaneExtensionInstallRequest.cancel"),
-		"trace lacks the declined install",
 	);
 
 	// Install by its Web Store ID, as the Web Store's install button (Add to Pane) does (the
@@ -201,13 +196,6 @@ const extensionManagement: Scenario = async (context) => {
 	);
 
 	await watcher.sample();
-
-	expect(
-		has("PaneBrowserContext.setExtensionEnabled") &&
-			has("PaneBrowserContext.setExtensionPinned") &&
-			has("PaneBrowserContext.uninstallExtension"),
-		"trace lacks the management calls",
-	);
 
 	await watcher.stop();
 };

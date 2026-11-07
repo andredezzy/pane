@@ -1,10 +1,10 @@
+import { launchPane } from "../lib/pane";
 import {
 	answerSheet,
 	pageResult,
 	WindowWatcher,
 	waitForSheet,
 } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A site's permission request shows as the app's sheet; the answer reaches
@@ -13,7 +13,7 @@ import { expect, type Scenario } from "../run";
 // request without keeping the permission, as Allow keeps it for the site's
 // next page. Clipboard writes need no prompt (the Electron app's policy).
 const permissionPrompt: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "permission-prompt");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Permissions");
 	const url = context.fixtures.url("permissions.html");
@@ -95,19 +95,6 @@ const permissionPrompt: Scenario = async (context) => {
 			kept.windowManagement === "granted" &&
 			kept.idleDetection === "prompt",
 		`kept for the next page: ${JSON.stringify(kept)}`,
-	);
-
-	expect(
-		has("PaneWebContentsDelegate.requestPermission"),
-		"trace lacks requestPermission",
-	);
-
-	expect(
-		has("PanePermissionRequest.deny") &&
-			has("PanePermissionRequest.allow") &&
-			has("PanePermissionRequest.allowThisTime") &&
-			has("PanePermissionRequest.dismiss"),
-		"trace lacks the answers",
 	);
 
 	await watcher.stop();

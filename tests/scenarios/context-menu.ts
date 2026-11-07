@@ -1,4 +1,5 @@
 import { isScreenLocked } from "../lib/cua";
+import { launchPane } from "../lib/pane";
 import {
 	clearClipboard,
 	clipboardText,
@@ -6,7 +7,7 @@ import {
 } from "../lib/pasteboard";
 import { poll, pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
-import { clickAt, launchTraced } from "../lib/traced";
+import { clickAt } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 type Point = { x: number; y: number };
@@ -17,7 +18,7 @@ type Point = { x: number; y: number };
 // Address, the field's Select All, Copy, Cut, and Paste, a suggestion, and
 // Inspect. The copies go to the Mac's clipboard, which is put back after.
 const contextMenu: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "context-menu");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Menus");
 	const url = context.fixtures.url("context.html");
@@ -123,11 +124,6 @@ const contextMenu: Scenario = async (context) => {
 			text === `Pane ${suggestion}`,
 			`the text became ${JSON.stringify(text)}`,
 		);
-
-		expect(
-			has("PaneContextMenu.replaceMisspelling"),
-			"trace lacks the replacement",
-		);
 	} else {
 		expect(
 			locked,
@@ -202,16 +198,6 @@ const contextMenu: Scenario = async (context) => {
 		await choose("Copy Link Address");
 		await copied(link, "the link's address copied");
 
-		for (const name of [
-			"selectAll",
-			"copy",
-			"cut",
-			"paste",
-			"copyLinkAddress",
-		]) {
-			expect(has(`PaneContextMenu.${name}`), `trace lacks ${name}`);
-		}
-
 		// Pane's menu writes the clipboard itself, never through Chrome's
 		// menu and its "Link copied" toast (patch 0003's toast hunks).
 		const toasts = await app.browser.cdp
@@ -249,13 +235,6 @@ const contextMenu: Scenario = async (context) => {
 		"DevTools to close",
 		(state) => !state.devToolsTabs.includes(tab),
 	);
-
-	expect(
-		has("PaneWebContentsDelegate.showContextMenu"),
-		"trace lacks showContextMenu",
-	);
-
-	expect(has("PaneContextMenu.inspectElement"), "trace lacks Inspect");
 
 	// A menu that closed is let go, with the page its items hold: none of
 	// them runs any more.

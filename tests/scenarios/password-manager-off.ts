@@ -1,12 +1,11 @@
-import { tabOf } from "../lib/pane";
+import { launchPane, tabOf } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // Chrome's password manager and autofill stay off (Pane relies on extension
 // password managers): signing in shows no "Save password?" bubble.
 const passwordManagerOff: Scenario = async (context) => {
-	const { app } = await launchTraced(context, "password-manager-off");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Passwords");
 	const url = context.fixtures.url("password.html");

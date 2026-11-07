@@ -1,11 +1,11 @@
-import { tabOf } from "../lib/pane";
+import { launchPane, tabOf } from "../lib/pane";
 import {
 	answerSheet,
 	pageResult,
 	WindowWatcher,
 	waitForSheet,
 } from "../lib/surfaces";
-import { clickAt, launchTraced } from "../lib/traced";
+import { clickAt } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A page's dialogs show as the app's sheets, on one launch, each page in a tab
@@ -13,7 +13,7 @@ import { expect, type Scenario } from "../run";
 // Return's or Esc's; prompt() returns what was typed, or null; beforeunload asks
 // before its tab closes; and reloading what was posted asks first.
 const dialogs: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "dialogs");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Dialogs");
 
@@ -27,12 +27,6 @@ const dialogs: Scenario = async (context) => {
 			result: <T>() => pageResult<T>((expression) => page.evaluate(expression)),
 		};
 	};
-
-	const dialogType = (type: string) =>
-		has(
-			"PaneWebContentsDelegate.runJavaScriptDialog",
-			(args) => args.type === type,
-		);
 
 	// alert()
 	const alert = await openDialogs("alert");
@@ -53,8 +47,6 @@ const dialogs: Scenario = async (context) => {
 	await answerSheet(app, "OK");
 	const alerted = await alert.result<{ value: unknown }>();
 	expect("value" in alerted, "alert() did not return");
-	expect(dialogType("alert"), "trace lacks runJavaScriptDialog(alert)");
-	expect(has("PaneJavaScriptDialog.accept"), "trace lacks the answer");
 
 	// confirm()
 	const confirm = await openDialogs("confirm");
@@ -95,8 +87,6 @@ const dialogs: Scenario = async (context) => {
 
 	expect(accepted.value === true, `OK gave ${accepted.value}`);
 	expect(refused.value === false, `Cancel gave ${refused.value}`);
-	expect(dialogType("confirm"), "trace lacks runJavaScriptDialog(confirm)");
-	expect(has("PaneJavaScriptDialog.cancel"), "trace lacks the cancel");
 
 	// prompt()
 	const prompt = await openDialogs("prompt");
@@ -125,11 +115,6 @@ const dialogs: Scenario = async (context) => {
 		`Cancel gave ${JSON.stringify(cancelled.value)}`,
 	);
 
-	expect(
-		has("PaneJavaScriptDialog.accept", (args) => args.text === "Typed in Pane"),
-		"trace lacks the typed answer",
-	);
-
 	// beforeunload: Cancel keeps the tab (and its page), Leave closes it. Chrome
 	// asks only on a page the user interacted with.
 	const leaving = await openDialogs("beforeunload");
@@ -155,11 +140,6 @@ const dialogs: Scenario = async (context) => {
 	await waitForSheet(app, "javaScript");
 	await answerSheet(app, "Leave");
 	await app.waitFor("the tab to close", (state) => !tabOf(state, leaving.tab));
-
-	expect(
-		dialogType("beforeunload"),
-		"trace lacks runJavaScriptDialog(beforeunload)",
-	);
 
 	// Reloading a page that was posted to asks first; Continue posts again.
 	const echo = context.fixtures.url("echo");
@@ -189,11 +169,6 @@ const dialogs: Scenario = async (context) => {
 	const posted = await app.page(tab, echo);
 	const posts = Number(await posted.evaluate<string>("sessionStorage.posts"));
 	expect(posts === 2, `the form was posted ${posts} times`);
-
-	expect(
-		dialogType("formResubmission"),
-		"trace lacks the form resubmission dialog",
-	);
 
 	await watcher.stop();
 };

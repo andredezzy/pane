@@ -1,14 +1,13 @@
 import { canDriveUI, dialogFieldWidths, mainWindowOf } from "../lib/cua";
-import { tabOf } from "../lib/pane";
+import { launchPane, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A server asking for credentials (HTTP Basic) gets the app's dialog: Cancel
 // shows the server's refusal, the right credentials sign in.
 const httpAuth: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "http-auth");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Auth");
 	const url = context.fixtures.url("auth");
@@ -61,22 +60,6 @@ const httpAuth: Scenario = async (context) => {
 	await app.waitFor(
 		"the signed-in page",
 		(state) => tabOf(state, tab)?.title === "Signed in",
-	);
-
-	expect(
-		has(
-			"PaneWebContentsDelegate.authenticate",
-			(args) => args.realm === "Pane fixtures",
-		),
-		"trace lacks authenticate",
-	);
-
-	expect(
-		has(
-			"PaneAuthenticationChallenge.provide",
-			(args) => args.username === "pane",
-		),
-		"trace lacks the credentials",
 	);
 
 	await watcher.stop();

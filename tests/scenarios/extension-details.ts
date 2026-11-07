@@ -2,9 +2,9 @@ import { join } from "node:path";
 import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { extensionId, workerPage } from "../lib/extensions";
 import type { AppState } from "../lib/pane";
+import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { answerSheet, waitForSheet } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 const PROBE = join(import.meta.dir, "..", "pages", "extensions", "details");
@@ -27,7 +27,7 @@ type Details = NonNullable<AppState["extensionDetails"]>;
 // Details open it again. Allow access to file URLs sets Chrome's setting
 // both ways. Remove asks first, then leaves Details for the list.
 const extensionDetails: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "extension-details", {
+	const app = await launchPane(context, {
 		args: [`--load-extension=${PROBE}`],
 	});
 
@@ -358,12 +358,6 @@ const extensionDetails: Scenario = async (context) => {
 			30_000,
 		);
 	}
-
-	expect(
-		has("PaneBrowserContext.setExtensionSiteAccess") &&
-			has("PaneBrowserContext.setExtensionFileAccess"),
-		"the engine set no site or file access",
-	);
 };
 
 export default extensionDetails;

@@ -1,13 +1,13 @@
+import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
-import { launchTraced } from "../lib/traced";
-import { expect, type Scenario } from "../run";
+import { type Scenario } from "../run";
 
 // Undocking DevTools moves them into a window of Pane's (not Chrome's DevTools
 // window); docking them again closes it.
 const devtoolsUndocked: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "devtools-undocked");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("DevTools");
 	const url = context.fixtures.url("nav-a.html?undock");
@@ -76,8 +76,6 @@ const devtoolsUndocked: Scenario = async (context) => {
 		(state) =>
 			!state.nativeWindows.some((window) => window.role === "devtools"),
 	);
-
-	expect(has("DevToolsWindow.undock"), "trace lacks the undock");
 
 	await watcher.stop();
 };

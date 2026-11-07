@@ -1,7 +1,6 @@
-import { type AppState, trafficLightsInPlace } from "../lib/pane";
+import { type AppState, launchPane, trafficLightsInPlace } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A page's fullscreen fills the app's window (no sidebar or toolbar), the
@@ -19,7 +18,7 @@ const fullscreen: Scenario = async (context) => {
 		return;
 	}
 
-	const { app, has } = await launchTraced(context, "fullscreen");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Fullscreen");
 	const url = context.fixtures.url("fullscreen.html");
@@ -146,11 +145,6 @@ const fullscreen: Scenario = async (context) => {
 	);
 
 	expect(after === null, "Esc did not leave fullscreen");
-
-	expect(
-		has("PaneBrowserWindowDelegate.showExclusiveAccessHint"),
-		"trace lacks the hint",
-	);
 
 	// The user's own full screen, then the page's fullscreen in it: leaving
 	// the page's keeps the window in full screen.

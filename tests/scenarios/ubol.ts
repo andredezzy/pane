@@ -1,7 +1,7 @@
 import { installFromWebStore } from "../lib/extensions";
+import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 const UBLOCK_LITE = "ddkjiahejlhfcafbddmgiahcphecmpfh";
@@ -15,7 +15,7 @@ type Failed = { requestId: string; errorText: string; blockedReason?: string };
 // and swaps the ad script for its own inert stand-in (a redirect to the
 // extension).
 const ubol: Scenario = async (context) => {
-	const { app } = await launchTraced(context, "ubol");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Blocking");
 

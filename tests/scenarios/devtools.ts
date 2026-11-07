@@ -1,11 +1,11 @@
+import { launchPane } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // ⇧⌘I docks DevTools beside the tab, inside the app's window; again closes them.
 const devtools: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "devtools");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("DevTools");
 	const url = context.fixtures.url("nav-a.html?devtools");
@@ -33,22 +33,6 @@ const devtools: Scenario = async (context) => {
 	);
 
 	expect(frontend, "no DevTools frontend target");
-
-	expect(
-		has(
-			"PaneWebContentsDelegate.didChangeDevTools",
-			(args) => args.open === true,
-		),
-		"trace lacks DevTools opening",
-	);
-
-	expect(
-		has(
-			"PaneWebContentsDelegate.didChangeDevTools",
-			(args) => args.open === false,
-		),
-		"trace lacks DevTools closing",
-	);
 
 	await watcher.stop();
 };

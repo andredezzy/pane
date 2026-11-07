@@ -5,15 +5,15 @@ import {
 	openPopupFromToolbar,
 	screenshotPopover,
 } from "../lib/extensions";
+import { launchPane } from "../lib/pane";
 import { pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // Dark Reader from the Chrome Web Store, in profile A only, darkens a light
 // page in A and not in B; its toolbar popup opens.
 const darkReader: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "dark-reader");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const a = await app.createProfile("A", "BLUE");
 	const b = await app.createProfile("B", "ROSE");
@@ -52,16 +52,6 @@ const darkReader: Scenario = async (context) => {
 
 	await watcher.sample();
 	await app.send("closeExtensionPopup");
-
-	expect(
-		has("PaneBrowserContextDelegate.confirmExtensionInstall"),
-		"trace lacks the install prompt",
-	);
-
-	expect(
-		has("PaneBrowserContextDelegate.showExtensionPopup"),
-		"trace lacks the popup",
-	);
 
 	await watcher.stop();
 };

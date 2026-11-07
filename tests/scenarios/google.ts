@@ -1,7 +1,6 @@
-import { type PaneApp, tabOf } from "../lib/pane";
+import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { pollValue } from "../lib/poll";
 import { waitForPage } from "../lib/targets";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // Google accepts the engine: its sign-in page shows the identifier field, in
@@ -72,7 +71,7 @@ async function identifierPage(app: PaneApp, profile: string) {
 }
 
 const google: Scenario = async (context) => {
-	const { app } = await launchTraced(context, "google");
+	const app = await launchPane(context);
 	const plain = await app.createProfile("Google", "BLUE");
 	const windows = await app.createProfile("Google Windows", "EMERALD");
 

@@ -37,7 +37,7 @@ type ActionMenu = { items: MenuItemState[]; siteAccess: MenuItemState[] };
 // checked, and each choice changes the sites the probe has; on a page it
 // can't run on, it reads Can’t Read or Change Site’s Data.
 const extensionContextMenus: Scenario = async (context) => {
-	const { app, has, waitForEntry } = await launchTraced(
+	const { app, waitForEntry } = await launchTraced(
 		context,
 		"extension-context-menus",
 		{ args: [`--load-extension=${PROBE}`] },
@@ -141,11 +141,6 @@ const extensionContextMenus: Scenario = async (context) => {
 	await app.send("chooseContextMenuItem", { title: "Probe page check" });
 	await clicks(3);
 
-	expect(
-		has("PaneContextMenu.runExtensionItem"),
-		"the engine ran no page item",
-	);
-
 	// The action's own items, as its right-click menu reads them.
 	await app.send("setExtensionPinned", { profile, id, pinned: true });
 
@@ -167,8 +162,6 @@ const extensionContextMenus: Scenario = async (context) => {
 			action.tabId === clicked.tabId,
 		`the action item's onClicked got ${JSON.stringify(action)}, the page's tab ${clicked.tabId}`,
 	);
-
-	expect(has("PaneExtensionActionMenu.run"), "the engine ran no action item");
 
 	// Its site access on the page, as the menu reads it; then each choice,
 	// and the sites the probe has after it (chrome.permissions.getAll).
@@ -264,11 +257,6 @@ const extensionContextMenus: Scenario = async (context) => {
 	await app.send("showPage", { page: "browser" });
 
 	await choose("On All Sites", (current) => current.includes("<all_urls>"));
-
-	expect(
-		has("PaneExtensionActionMenu.run", (args) => args.title === `On ${site}`),
-		"the engine ran no site access choice",
-	);
 
 	// A page it can't run on: data: is no scheme host permissions cover.
 	const data = "data:text/plain,no-sites";

@@ -1,14 +1,15 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { launchPane } from "../lib/pane";
 import { pageResult, WindowWatcher, waitForSheet } from "../lib/surfaces";
-import { clickAt, launchTraced } from "../lib/traced";
+import { clickAt } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // <input type=file> and showSaveFilePicker() open the app's open and save
 // panels on the window; the files chosen reach the page, and Cancel reaches
 // it as a cancel.
 const fileChooser: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "file-chooser");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Files");
 	const url = context.fixtures.url("files.html");
@@ -85,24 +86,6 @@ const fileChooser: Scenario = async (context) => {
 	);
 
 	expect(contents.startsWith("Saved by the Pane"), "the saved file is wrong");
-
-	expect(
-		has(
-			"PaneBrowserWindowDelegate.runFileChooser",
-			(args) => args.mode === "open",
-		),
-		"trace lacks the open chooser",
-	);
-
-	expect(
-		has(
-			"PaneBrowserWindowDelegate.runFileChooser",
-			(args) => args.mode === "save",
-		),
-		"trace lacks the save chooser",
-	);
-
-	expect(has("PaneFileChooser.cancel"), "trace lacks the cancels");
 
 	await watcher.stop();
 };

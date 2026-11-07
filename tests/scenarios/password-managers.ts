@@ -7,11 +7,10 @@ import {
 	screenshotPopover,
 	screenshotWindow,
 } from "../lib/extensions";
-import { tabOf } from "../lib/pane";
+import { launchPane, tabOf } from "../lib/pane";
 import { pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForPage } from "../lib/targets";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 const MANAGERS = [
@@ -38,7 +37,7 @@ function firstWords(page: Page): Promise<string> {
 // after installing) opens its own page in a tab instead, as in Chrome.
 // Signing in stays with the user (HUMAN-CHECKLIST).
 const passwordManagers: Scenario = async (context) => {
-	const { app } = await launchTraced(context, "password-managers");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Passwords");
 	const url = context.fixtures.url("password.html?managers");

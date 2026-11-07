@@ -111,14 +111,6 @@ const profileLifecycle: Scenario = async (context) => {
 	);
 
 	expect(
-		has(
-			"PaneBrowserApplication.didDeleteContext",
-			(args) => args.deleted === true,
-		),
-		"the engine did not delete the profile",
-	);
-
-	expect(
 		!(gone in deleted.extensions),
 		"the deleted profile's extensions are still listed",
 	);

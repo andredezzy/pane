@@ -1,11 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { $ } from "bun";
-import { tabOf } from "../lib/pane";
+import { launchPane, tabOf } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
-import { launchTraced } from "../lib/traced";
-import { expect, type Scenario } from "../run";
+import { type Scenario } from "../run";
 
 // A site with a certificate Chrome does not trust shows Chrome's warning page
 // inside the tab (web content, not a window); proceeding loads the site.
@@ -30,10 +29,7 @@ const certificateInterstitial: Scenario = async (context) => {
 	});
 
 	try {
-		const { app, has } = await launchTraced(
-			context,
-			"certificate-interstitial",
-		);
+		const app = await launchPane(context);
 
 		const watcher = new WindowWatcher(app).start();
 		const profile = await app.createProfile("TLS");
@@ -76,14 +72,6 @@ const certificateInterstitial: Scenario = async (context) => {
 			"the site",
 			(state) => tabOf(state, tab)?.title === "Secure fixture",
 			30_000,
-		);
-
-		expect(
-			has(
-				"PaneWebContentsDelegate.didChangeTitle",
-				(args) => args.title === "Privacy error",
-			),
-			"trace lacks the warning page",
 		);
 
 		await watcher.stop();

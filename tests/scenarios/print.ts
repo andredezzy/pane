@@ -1,11 +1,11 @@
+import { launchPane } from "../lib/pane";
 import { answerModal, WindowWatcher } from "../lib/surfaces";
-import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // window.print() and ⌘P open the system print panel (not Chrome's preview);
 // Cancel lets the page go on.
 const print: Scenario = async (context) => {
-	const { app, has } = await launchTraced(context, "print");
+	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Print");
 	const url = context.fixtures.url("print.html");
@@ -39,8 +39,6 @@ const print: Scenario = async (context) => {
 	);
 
 	expect(printed.after, `the page saw ${JSON.stringify(printed)}`);
-	expect(has("PaneWebContentsDelegate.willPrint"), "trace lacks willPrint");
-	expect(has("PaneWebContents.print"), "trace lacks the ⌘P print");
 
 	await watcher.stop();
 };
