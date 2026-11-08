@@ -1,6 +1,8 @@
 // Waits for the first on-screen, normal-layer window owned by a process, and
 // prints, as JSON, when the window list first showed it (milliseconds since
-// 1970) and when the list before it was read, which bounds the moment.
+// 1970) and when the list before it was read, which bounds the moment. A
+// window at alpha 0 is not yet seen: Views orders its window in that way
+// until a frame of the window's size arrives.
 // Usage: window-wait <pid> [timeout in ms, 60000]
 import CoreGraphics
 import Foundation
@@ -34,6 +36,7 @@ while Date() < deadline {
 
 	let window = all.first { info in
 		info[kCGWindowOwnerPID as String] as? Int32 == pid && info[kCGWindowLayer as String] as? Int == 0
+			&& (info[kCGWindowAlpha as String] as? Double ?? 0) > 0
 	}
 
 	if let window {

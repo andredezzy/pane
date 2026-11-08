@@ -9,11 +9,11 @@ import {
 import type { Scenario } from "../run";
 
 // Memory: every process of the app (the browser, its helpers, renderers, GPU, utilities, Crashpad), each one's
-// physical footprint summed, with one tab, five, and ten. The tabs are the
-// fixtures' small local pages, so what grows with them is the browser's and
-// the app's own cost per tab, not a site's. Each count is read once the app
-// has been idle for a while after its last tab loaded; each run is a launch
-// on new data.
+// physical footprint summed, in all and by process type, with one tab, five,
+// and ten. The tabs are the fixtures' small local pages, so what grows with
+// them is the browser's and the app's own cost per tab, not a site's. Each
+// count is read once the app has been idle for a while after its last tab
+// loaded; each run is a launch on new data.
 
 const RUNS = 3;
 const IDLE_MS = 30_000;
@@ -62,6 +62,21 @@ const benchmarkMemory: Scenario = async (context) => {
 				footprintTotalBytes: stats(runs.map((run) => run.footprintTotalBytes)),
 				rssSumBytes: stats(runs.map((run) => run.rssSumBytes)),
 				processes: stats(runs.map((run) => run.processes)),
+				// The browser process, where the app's UI lives, apart from the
+				// renderers, GPU, and utilities. A type a run lacks is 0 in it.
+				byType: Object.fromEntries(
+					[...new Set(runs.flatMap((run) => Object.keys(run.byType)))].map(
+						(type) => [
+							type,
+							{
+								count: stats(runs.map((run) => run.byType[type]?.count ?? 0)),
+								footprintBytes: stats(
+									runs.map((run) => run.byType[type]?.footprintBytes ?? 0),
+								),
+							},
+						],
+					),
+				),
 			},
 		]),
 	);

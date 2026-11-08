@@ -4,6 +4,7 @@
 	"workspaces": {
 		".": {
 			"entry": [
+				"tests/ab.ts",
 				"tests/scenarios/*.ts",
 				"tests/benchmarks/*.ts",
 				"tests/rigs/*.ts"
