@@ -1,6 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/permission_prompt.h"
 
 #include <utility>
@@ -12,9 +11,9 @@
 #include "components/permissions/permission_request.h"
 #include "components/permissions/permission_uma_constants.h"
 #include "components/permissions/request_type.h"
-#include "pane/browser/ui/tab_bridge.h"
-
+#include "pane/browser/app_callback.h"
 #import "pane/browser/ui/dialogs_internal.h"
+#include "pane/browser/ui/tab_bridge.h"
 #import "pane/public/PaneWebContents.h"
 
 namespace pane {
@@ -23,7 +22,8 @@ namespace pane {
 std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
     content::WebContents* web_contents,
     Delegate* delegate) {
-  // As Chrome's factory does where no location bar shows, and Pane's never does.
+  // As Chrome's factory does where no location bar shows, and Pane's never
+  // does.
   if (delegate->ShouldDropCurrentRequestIfCannotShowQuietly()) {
     return nullptr;
   }
@@ -51,8 +51,7 @@ std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
                                 if (!delegate) {
                                   return;
                                 }
-                                const PromptOptions options =
-                                    std::monostate();
+                                const PromptOptions options = std::monostate();
                                 switch (choice) {
                                   case 0:
                                     delegate->Accept(options);

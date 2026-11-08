@@ -1,6 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/login_handler.h"
 
 #include <optional>
@@ -10,16 +9,14 @@
 #include "base/memory/ptr_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "net/base/auth.h"
-#include "pane/browser/ui/tab_bridge.h"
-
+#include "pane/browser/app_callback.h"
 #import "pane/browser/ui/dialogs_internal.h"
+#include "pane/browser/ui/tab_bridge.h"
 #import "pane/public/PaneWebContents.h"
 
 namespace pane {
 
-namespace {
-
-}  // namespace
+namespace {}  // namespace
 
 // static
 std::unique_ptr<::LoginHandler> LoginHandler::Create(
@@ -62,9 +59,8 @@ bool LoginHandler::BuildViewImpl(const std::u16string& authority,
                tab:tab
             answer:base::BindOnce(
                        [](base::WeakPtr<LoginHandler> handler,
-                          std::optional<std::pair<std::u16string,
-                                                  std::u16string>>
-                              credentials) {
+                          std::optional<std::pair<
+                              std::u16string, std::u16string>> credentials) {
                          if (!handler) {
                            return;
                          }

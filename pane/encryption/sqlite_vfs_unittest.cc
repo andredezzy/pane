@@ -13,20 +13,20 @@
 #include "base/command_line.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
+#include "base/files/scoped_temp_dir.h"
+#include "base/functional/bind.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
-#include "base/test/multiprocess_test.h"
-#include "base/functional/bind.h"
-#include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/gtest_util.h"
+#include "base/test/multiprocess_test.h"
 #include "pane/encryption/engine_keys.h"
 #include "sql/database.h"
 #include "sql/error_delegate_util.h"
 #include "sql/recovery.h"
 #include "sql/statement.h"
-#include "sql/transaction.h"
 #include "sql/test/test_helpers.h"
+#include "sql/transaction.h"
 #include "storage/browser/quota/quota_database.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
@@ -123,9 +123,9 @@ TEST_F(SqliteVfsTest, EveryConnectionReservesItsBytes) {
     ASSERT_EQ(sqlite3_exec(db, "CREATE TABLE t(id)", nullptr, nullptr, nullptr),
               SQLITE_OK);
     int reserved = -1;
-    ASSERT_EQ(sqlite3_file_control(db, "main", SQLITE_FCNTL_RESERVE_BYTES,
-                                   &reserved),
-              SQLITE_OK);
+    ASSERT_EQ(
+        sqlite3_file_control(db, "main", SQLITE_FCNTL_RESERVE_BYTES, &reserved),
+        SQLITE_OK);
     EXPECT_EQ(reserved, kSqliteReservedBytes) << name;
     sqlite3_close(db);
   }
@@ -167,10 +167,10 @@ TEST_F(SqliteVfsTest, WalWritesCheckpointsAndReopens) {
     const base::FilePath path =
         profile_.Append(exclusive ? "WalExclusive" : "WalNormal");
     {
-      sql::Database db(sql::DatabaseOptions()
-                           .set_exclusive_locking(exclusive)
-                           .set_wal_mode(true),
-                       sql::test::kTestTag);
+      sql::Database db(
+          sql::DatabaseOptions().set_exclusive_locking(exclusive).set_wal_mode(
+              true),
+          sql::test::kTestTag);
       ASSERT_TRUE(db.Open(path));
       Fill(db, 300);
       ASSERT_TRUE(db.CheckpointDatabase());
@@ -183,10 +183,10 @@ TEST_F(SqliteVfsTest, WalWritesCheckpointsAndReopens) {
       }
     }
 
-    sql::Database again(sql::DatabaseOptions()
-                            .set_exclusive_locking(exclusive)
-                            .set_wal_mode(true),
-                        sql::test::kTestTag);
+    sql::Database again(
+        sql::DatabaseOptions().set_exclusive_locking(exclusive).set_wal_mode(
+            true),
+        sql::test::kTestTag);
     ASSERT_TRUE(again.Open(path));
     EXPECT_EQ(Count(again), 600);
     EXPECT_EQ(Raw(path).find(kSecret), std::string::npos);
@@ -317,7 +317,8 @@ TEST_F(SqliteVfsTest, AChangedPageIsAnIOErrorAndNothingIsDeleted) {
       &catastrophic));
   ASSERT_TRUE(db.Open(path_));
   std::ignore = Count(db);
-  sql::Statement scan(db.GetUniqueStatement("SELECT SUM(LENGTH(value)) FROM t"));
+  sql::Statement scan(
+      db.GetUniqueStatement("SELECT SUM(LENGTH(value)) FROM t"));
   std::ignore = scan.Step();
   EXPECT_FALSE(catastrophic);
   db.Close();
@@ -333,13 +334,14 @@ TEST_F(SqliteVfsTest, APlainDatabaseMigratesWithAllItsRows) {
                               SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
                               "VFSWrapper"),
               SQLITE_OK);
-    ASSERT_EQ(sqlite3_exec(db,
-                           "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT);"
-                           "CREATE INDEX t_value ON t(value);"
-                           "INSERT INTO t VALUES(1, 'pane-secret-value-in-a-page');"
-                           "INSERT INTO t VALUES(2, 'pane-secret-value-in-a-page');",
-                           nullptr, nullptr, nullptr),
-              SQLITE_OK);
+    ASSERT_EQ(
+        sqlite3_exec(db,
+                     "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT);"
+                     "CREATE INDEX t_value ON t(value);"
+                     "INSERT INTO t VALUES(1, 'pane-secret-value-in-a-page');"
+                     "INSERT INTO t VALUES(2, 'pane-secret-value-in-a-page');",
+                     nullptr, nullptr, nullptr),
+        SQLITE_OK);
     sqlite3_close(db);
   }
 
@@ -378,12 +380,14 @@ TEST_F(SqliteVfsTest, APlainDatabaseInAProfileCrashes) {
       "");
 }
 
-// The files as a crash leaves them mid-transaction, with pages it spilled to the
-// main file or the WAL: a copy taken then, opened whole, shows the last commit.
+// The files as a crash leaves them mid-transaction, with pages it spilled to
+// the main file or the WAL: a copy taken then, opened whole, shows the last
+// commit.
 TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
   for (const bool wal : {false, true}) {
     const base::FilePath path = profile_.Append(wal ? "HotWal" : "HotJournal");
-    const base::FilePath copy = profile_.Append(wal ? "CopyWal" : "CopyJournal");
+    const base::FilePath copy =
+        profile_.Append(wal ? "CopyWal" : "CopyJournal");
     sql::Database db(sql::DatabaseOptions().set_wal_mode(wal),
                      sql::test::kTestTag);
     ASSERT_TRUE(db.Open(path));
@@ -423,14 +427,16 @@ TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
   }
 }
 
-// A power cut tore page 1 while a journal stood ready to restore it. SQLite reads
-// the header as it opens, before the playback: failing there made Chromium's quota
-// database reset, erasing every store under WebStorage (patch 0010).
+// A power cut tore page 1 while a journal stood ready to restore it. SQLite
+// reads the header as it opens, before the playback: failing there made
+// Chromium's quota database reset, erasing every store under WebStorage (patch
+// 0010).
 TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
   const base::FilePath path = profile_.Append("Torn");
   const base::FilePath copy = profile_.AppendASCII("WebStorage/QuotaManager");
   ASSERT_TRUE(base::CreateDirectory(copy.DirName()));
-  const base::FilePath keep = profile_.AppendASCII("WebStorage/7/IndexedDB/keep");
+  const base::FilePath keep =
+      profile_.AppendASCII("WebStorage/7/IndexedDB/keep");
   ASSERT_TRUE(base::CreateDirectory(keep.DirName()));
   ASSERT_TRUE(base::WriteFile(keep, "kept"));
 
@@ -446,14 +452,16 @@ TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
 
   const base::FilePath journal(path.value() + "-journal");
   ASSERT_TRUE(base::CopyFile(path, copy));
-  ASSERT_TRUE(base::CopyFile(journal, base::FilePath(copy.value() + "-journal")));
+  ASSERT_TRUE(
+      base::CopyFile(journal, base::FilePath(copy.value() + "-journal")));
   ASSERT_TRUE(db.Execute("ROLLBACK"));
   db.Close();
 
   std::string raw = Raw(copy);
   raw[200] ^= 1;
   ASSERT_TRUE(base::WriteFile(copy, raw));
-  const std::string journal_bytes = Raw(base::FilePath(copy.value() + "-journal"));
+  const std::string journal_bytes =
+      Raw(base::FilePath(copy.value() + "-journal"));
 
   {
     sql::Database opened(sql::DatabaseOptions().set_wal_mode(false),
@@ -464,8 +472,8 @@ TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
 
   // Torn again, and opened as Chromium's quota database opens it.
   ASSERT_TRUE(base::WriteFile(copy, raw));
-  ASSERT_TRUE(
-      base::WriteFile(base::FilePath(copy.value() + "-journal"), journal_bytes));
+  ASSERT_TRUE(base::WriteFile(base::FilePath(copy.value() + "-journal"),
+                              journal_bytes));
 
   {
     storage::QuotaDatabase quota(profile_);
@@ -475,8 +483,8 @@ TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
   EXPECT_TRUE(base::PathExists(keep));
 }
 
-// The journal gone, and nothing to restore it: an error, which Chromium does not
-// raze for.
+// The journal gone, and nothing to restore it: an error, which Chromium does
+// not raze for.
 TEST_F(SqliteVfsTest, APageOneTornWithNoJournalIsAnError) {
   {
     sql::Database db(Options(), sql::test::kTestTag);
@@ -489,24 +497,25 @@ TEST_F(SqliteVfsTest, APageOneTornWithNoJournalIsAnError) {
   ASSERT_TRUE(base::WriteFile(path_, raw));
 
   sqlite3* db = nullptr;
-  const int opened =
-      sqlite3_open_v2(path_.value().c_str(), &db, SQLITE_OPEN_READWRITE, nullptr);
-  const int read =
-      opened == SQLITE_OK
-          ? sqlite3_exec(db, "SELECT COUNT(*) FROM t", nullptr, nullptr, nullptr)
-          : opened;
+  const int opened = sqlite3_open_v2(path_.value().c_str(), &db,
+                                     SQLITE_OPEN_READWRITE, nullptr);
+  const int read = opened == SQLITE_OK
+                       ? sqlite3_exec(db, "SELECT COUNT(*) FROM t", nullptr,
+                                      nullptr, nullptr)
+                       : opened;
   sqlite3_close(db);
   EXPECT_EQ(read & 0xff, SQLITE_IOERR);
   EXPECT_EQ(Raw(path_), raw);
 }
 
-// Past the playback, a WAL's page that won't authenticate is an error: zeros would
-// read as a malformed database, which Chromium razes.
+// Past the playback, a WAL's page that won't authenticate is an error: zeros
+// would read as a malformed database, which Chromium razes.
 TEST_F(SqliteVfsTest, AChangedWalPageIsAnError) {
   sqlite3* db = nullptr;
-  ASSERT_EQ(sqlite3_open_v2(path_.value().c_str(), &db,
-                            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr),
-            SQLITE_OK);
+  ASSERT_EQ(
+      sqlite3_open_v2(path_.value().c_str(), &db,
+                      SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr),
+      SQLITE_OK);
   ASSERT_EQ(sqlite3_exec(db,
                          "PRAGMA journal_mode=WAL;"
                          "CREATE TABLE t(value TEXT);"
@@ -523,8 +532,8 @@ TEST_F(SqliteVfsTest, AChangedWalPageIsAnError) {
 
   // What it holds in memory goes, so the read reaches the file.
   sqlite3_db_release_memory(db);
-  const int read =
-      sqlite3_exec(db, "SELECT SUM(LENGTH(value)) FROM t", nullptr, nullptr, nullptr);
+  const int read = sqlite3_exec(db, "SELECT SUM(LENGTH(value)) FROM t", nullptr,
+                                nullptr, nullptr);
   sqlite3_close(db);
   EXPECT_EQ(read & 0xff, SQLITE_IOERR);
 }
@@ -545,10 +554,13 @@ TEST_F(SqliteVfsTest, TheQuickCheckSaysWhatItFinds) {
 }
 
 // A process killed mid-write, as a crash leaves it: nothing it was told is
-// committed is lost, in a rollback journal or in a WAL, over 200 kills. The child
-// is a real process: a fork can't run Chromium's base.
-void KillLoop(const base::FilePath& root, const base::FilePath& path, bool wal) {
-  const base::FilePath told = root.AppendASCII(wal ? "told-wal" : "told-journal");
+// committed is lost, in a rollback journal or in a WAL, over 200 kills. The
+// child is a real process: a fork can't run Chromium's base.
+void KillLoop(const base::FilePath& root,
+              const base::FilePath& path,
+              bool wal) {
+  const base::FilePath told =
+      root.AppendASCII(wal ? "told-wal" : "told-journal");
   int committed = 0;
 
   for (int round = 0; round < 200; round++) {
@@ -624,11 +636,13 @@ MULTIPROCESS_TEST_MAIN(PaneSqliteKilledWriter) {
   RegisterKey(kID, key);
   InstallSqliteVfs();
 
-  sql::Database db(sql::DatabaseOptions().set_wal_mode(command->HasSwitch("wal")),
-                   sql::test::kTestTag);
+  sql::Database db(
+      sql::DatabaseOptions().set_wal_mode(command->HasSwitch("wal")),
+      sql::test::kTestTag);
 
   if (!db.Open(command->GetSwitchValuePath("database")) ||
-      !db.Execute("CREATE TABLE IF NOT EXISTS t(id INTEGER PRIMARY KEY, value TEXT)")) {
+      !db.Execute(
+          "CREATE TABLE IF NOT EXISTS t(id INTEGER PRIMARY KEY, value TEXT)")) {
     return 2;
   }
 

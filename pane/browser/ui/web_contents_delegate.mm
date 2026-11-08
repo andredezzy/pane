@@ -1,10 +1,10 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 //
-// Modeled on Ardia's ACWebContentsDelegate (https://github.com/mantrakp04/ardia,
+// Modeled on Ardia's ACWebContentsDelegate
+// (https://github.com/mantrakp04/ardia,
 // engine/ardiacore/src/ardia/core/ac_browser.mm, Copyright 2026 Mantra Patel,
 // Apache License 2.0; third_party/ardia).
 
-#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/web_contents_delegate.h"
 
 #include <utility>
@@ -19,16 +19,16 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/result_codes.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/browser_window.h"
+#import "pane/browser/ui/dialogs_internal.h"
 #include "pane/browser/ui/javascript_dialog_manager.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
+#import "pane/public/PaneWebContents.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
-
-#import "pane/browser/ui/dialogs_internal.h"
-#import "pane/public/PaneWebContents.h"
 
 namespace pane {
 
@@ -110,8 +110,8 @@ content::WebContents* HostedWebContentsDelegate::AddNewContents(
     }
   }
   return BrowserWebContentsDelegate::AddNewContents(
-      source, std::move(new_contents), target_url, disposition,
-      window_features, user_gesture, was_blocked);
+      source, std::move(new_contents), target_url, disposition, window_features,
+      user_gesture, was_blocked);
 }
 
 content::JavaScriptDialogManager*
@@ -164,8 +164,8 @@ void HostedWebContentsDelegate::RendererUnresponsive(
   TabBridge* bridge = TabBridge::FromWebContents(source);
   PaneWebContents* tab = bridge ? bridge->tab() : nil;
   id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if (![delegate respondsToSelector:@selector(webContents:
-                                       becameUnresponsive:)]) {
+  if (![delegate
+          respondsToSelector:@selector(webContents:becameUnresponsive:)]) {
     // Nobody to ask: keep waiting, as Chrome does until the user decides.
     return;
   }
@@ -211,9 +211,9 @@ void HostedWebContentsDelegate::RequestMediaAccessPermission(
     if (TabBridge* bridge = TabBridge::FromWebContents(web_contents)) {
       PANE_TRACE_TAB(bridge, "policy.screenCaptureDeclined");
     }
-    std::move(callback).Run(blink::mojom::StreamDevicesSet(),
-                            blink::mojom::MediaStreamRequestResult::NOT_SUPPORTED,
-                            nullptr);
+    std::move(callback).Run(
+        blink::mojom::StreamDevicesSet(),
+        blink::mojom::MediaStreamRequestResult::NOT_SUPPORTED, nullptr);
     return;
   }
   BrowserWebContentsDelegate::RequestMediaAccessPermission(

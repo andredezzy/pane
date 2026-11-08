@@ -222,7 +222,8 @@ std::optional<ProfileKeys> KeysFor(const base::FilePath& path) {
 std::optional<std::string> KeyedName(const base::FilePath& profile_path,
                                      std::string_view text) {
   // Any file of the profile: its folder itself is not a file of it.
-  const std::optional<ProfileKeys> keys = KeysFor(profile_path.AppendASCII("Name"));
+  const std::optional<ProfileKeys> keys =
+      KeysFor(profile_path.AppendASCII("Name"));
 
   if (!keys) {
     return std::nullopt;
@@ -230,8 +231,7 @@ std::optional<std::string> KeyedName(const base::FilePath& profile_path,
 
   uint8_t digest[EVP_MAX_MD_SIZE];
   unsigned int length = 0;
-  CHECK(HMAC(EVP_sha256(), keys->names.data(),
-             keys->names.size(),
+  CHECK(HMAC(EVP_sha256(), keys->names.data(), keys->names.size(),
              reinterpret_cast<const uint8_t*>(text.data()), text.size(), digest,
              &length));
   return base::ToLowerASCII(base::HexEncode(base::span(digest).first(20u)));

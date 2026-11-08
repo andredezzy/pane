@@ -66,7 +66,8 @@ StreamCipher::~StreamCipher() {
 std::unique_ptr<StreamCipher> StreamCipher::ForNewFile(const ProfileKeys& keys,
                                                        Header* header) {
   base::span<uint8_t> out(*header);
-  out.first<kMagicSize>().copy_from(base::as_byte_span(kMagic).first<kMagicSize>());
+  out.first<kMagicSize>().copy_from(
+      base::as_byte_span(kMagic).first<kMagicSize>());
   auto file_id = out.subspan(kMagicSize, kFileIDSize);
   RAND_bytes(file_id.data(), file_id.size());
   out.last<kCheckSize>().copy_from(CheckOf(keys, file_id));
@@ -92,7 +93,8 @@ std::unique_ptr<StreamCipher> StreamCipher::FromHeader(
     const ProfileKeys& keys,
     base::span<const uint8_t, kHeaderSize> header) {
   CHECK(HasMagic(header)) << "A profile's stream file with no header.";
-  auto file_id = base::span<const uint8_t>(header).subspan(kMagicSize, kFileIDSize);
+  auto file_id =
+      base::span<const uint8_t>(header).subspan(kMagicSize, kFileIDSize);
   auto check = base::span<const uint8_t>(header).last<kCheckSize>();
   CHECK(check == base::span<const uint8_t>(CheckOf(keys, file_id)))
       << "A profile's stream file under another key.";

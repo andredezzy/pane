@@ -29,7 +29,8 @@ namespace web_app {
 class AppBrowserController;
 }
 
-// browser_window_factory.cc: the window of a new Browser; nullptr keeps Chrome's.
+// browser_window_factory.cc: the window of a new Browser; nullptr keeps
+// Chrome's.
 extern BrowserWindow* (*g_pane_browser_window_factory)(
     BrowserWindowInterface* browser);
 
@@ -51,8 +52,9 @@ extern std::unique_ptr<BrowserWebContentsDelegate> (
     DesktopBrowserWindowCapabilities& capabilities,
     BrowserUiController& browser_ui_controller);
 
-// toast_controller.cc defines it, and reading mode reads it: this process hosts Browsers without a BrowserView, so Chrome's UI that
-// needs one (toasts, the reading mode side panel) stands aside for them.
+// toast_controller.cc defines it, and reading mode reads it: this process hosts
+// Browsers without a BrowserView, so Chrome's UI that needs one (toasts, the
+// reading mode side panel) stands aside for them.
 extern bool g_pane_viewless_browsers;
 
 #endif  // PANE_BROWSER_UI_HOOKS_H_

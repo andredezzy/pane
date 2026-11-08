@@ -1,9 +1,9 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 //
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
-// engine/ardiacore/src/ardia/core/ac_modal_dialog_host.h, Copyright 2026 Mantra Patel,
-// licensed under the Apache License 2.0 (third_party/ardia). Changed
-// for Pane: names and namespace, and nothing else.
+// engine/ardiacore/src/ardia/core/ac_modal_dialog_host.h, Copyright 2026 Mantra
+// Patel, licensed under the Apache License 2.0 (third_party/ardia). Changed for
+// Pane: names and namespace, and nothing else.
 
 #ifndef PANE_BROWSER_UI_MODAL_DIALOG_HOST_H_
 #define PANE_BROWSER_UI_MODAL_DIALOG_HOST_H_
@@ -36,7 +36,7 @@ void DialogHostObserverAdded();
 void DialogHostObserverRemoved();
 
 class TabDialogHost : public web_modal::WebContentsModalDialogHost,
-                        public content::WebContentsUserData<TabDialogHost> {
+                      public content::WebContentsUserData<TabDialogHost> {
  public:
   TabDialogHost(const TabDialogHost&) = delete;
   TabDialogHost& operator=(const TabDialogHost&) = delete;
@@ -60,6 +60,6 @@ class TabDialogHost : public web_modal::WebContentsModalDialogHost,
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
 
-}
+}  // namespace pane
 
 #endif

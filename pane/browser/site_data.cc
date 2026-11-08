@@ -46,9 +46,8 @@ void RemoveSiteData(content::BrowserContext* browser_context,
                     base::OnceClosure done) {
   std::unique_ptr<content::BrowsingDataFilterBuilder> filter =
       content::BrowsingDataFilterBuilder::Create(
-          origins.empty()
-              ? content::BrowsingDataFilterBuilder::Mode::kPreserve
-              : content::BrowsingDataFilterBuilder::Mode::kDelete);
+          origins.empty() ? content::BrowsingDataFilterBuilder::Mode::kPreserve
+                          : content::BrowsingDataFilterBuilder::Mode::kDelete);
   for (const url::Origin& origin : origins) {
     filter->AddOrigin(origin);
   }

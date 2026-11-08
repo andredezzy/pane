@@ -3,11 +3,10 @@
 #ifndef PANE_BROWSER_EXTENSIONS_EXTENSIONS_INTERNAL_H_
 #define PANE_BROWSER_EXTENSIONS_EXTENSIONS_INTERNAL_H_
 
-#import "pane/public/PaneExtensions.h"
-
 #include <memory>
 
 #include "base/functional/callback.h"
+#import "pane/public/PaneExtensions.h"
 
 class Profile;
 

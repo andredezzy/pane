@@ -60,8 +60,8 @@ std::optional<PaneFingerprint> Parse(const std::string& json) {
   }
   fingerprint.canvas_noise = root->FindBool("canvasNoise").value_or(false);
   fingerprint.audio_noise = root->FindBool("audioNoise").value_or(false);
-  fingerprint.noise_seed = static_cast<uint32_t>(
-      root->FindDouble("noiseSeed").value_or(0));
+  fingerprint.noise_seed =
+      static_cast<uint32_t>(root->FindDouble("noiseSeed").value_or(0));
   if (const std::string* timezone = root->FindString("timezone")) {
     fingerprint.timezone = *timezone;
   }
@@ -110,9 +110,8 @@ void PaneFingerprint::NoiseCanvasPixels(const SkPixmap& pixmap,
   }
 
   // SAFETY: an SkPixmap's pixels span computeByteSize() bytes.
-  base::span<uint8_t> pixels = UNSAFE_BUFFERS(
-      base::span(static_cast<uint8_t*>(pixmap.writable_addr()),
-                 pixmap.computeByteSize()));
+  base::span<uint8_t> pixels = UNSAFE_BUFFERS(base::span(
+      static_cast<uint8_t*>(pixmap.writable_addr()), pixmap.computeByteSize()));
   const size_t row_bytes = pixmap.rowBytes();
   const size_t width = static_cast<size_t>(pixmap.width());
 

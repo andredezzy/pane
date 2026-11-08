@@ -1,7 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#import "pane/browser/extensions/extensions_internal.h"
-
 #include <algorithm>
 #include <string>
 #include <utility>
@@ -14,6 +12,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/grit/generated_resources.h"
+#include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_prefs.h"
@@ -22,7 +21,6 @@
 #include "extensions/browser/install_prompt_data.h"
 #include "extensions/browser/managed_installation_mode.h"
 #include "extensions/browser/permissions_manager.h"
-#include "content/public/browser/web_contents.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
@@ -36,6 +34,7 @@
 #include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/extensions/action_popup.h"
+#import "pane/browser/extensions/extensions_internal.h"
 #include "skia/ext/skia_utils_mac.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/image/image.h"
@@ -43,7 +42,6 @@
 // MARK: - PaneExtension
 
 @implementation PaneExtension
-
 
 - (instancetype)initWithExtension:(const extensions::Extension&)extension
                           profile:(Profile*)profile
@@ -62,21 +60,22 @@
     ToolbarActionsModel* toolbar = ToolbarActionsModel::Get(profile);
     _pinned = toolbar && toolbar->IsActionPinned(extension.id());
     _icon = icon;
-    const GURL& options = extensions::OptionsPageInfo::GetOptionsPage(&extension);
+    const GURL& options =
+        extensions::OptionsPageInfo::GetOptionsPage(&extension);
     _optionsURL = options.is_valid() ? net::NSURLWithGURL(options) : nil;
 
     extensions::ExtensionAction* action =
         extensions::ExtensionActionManager::Get(profile)->GetExtensionAction(
             extension);
     _hasAction = action != nullptr;
-    _actionTitle = action ? base::SysUTF8ToNSString(action->GetTitle(tabID))
-                          : @"";
-    _badgeText = action ? base::SysUTF8ToNSString(
-                              action->GetDisplayBadgeText(tabID))
-                        : @"";
+    _actionTitle =
+        action ? base::SysUTF8ToNSString(action->GetTitle(tabID)) : @"";
+    _badgeText =
+        action ? base::SysUTF8ToNSString(action->GetDisplayBadgeText(tabID))
+               : @"";
     if (action && _badgeText.length > 0) {
-      _badgeBackgroundColor = skia::SkColorToSRGBNSColor(
-          action->GetBadgeBackgroundColor(tabID));
+      _badgeBackgroundColor =
+          skia::SkColorToSRGBNSColor(action->GetBadgeBackgroundColor(tabID));
       _badgeTextColor =
           skia::SkColorToSRGBNSColor(action->GetBadgeTextColor(tabID));
     }
@@ -217,7 +216,6 @@ NSURL* URLOrNil(const GURL& url) {
 
 @implementation PaneExtensionDetails
 
-
 - (instancetype)initWithExtension:(const extensions::Extension&)extension
                           profile:(Profile*)profile {
   if ((self = [super init])) {
@@ -247,7 +245,6 @@ NSURL* URLOrNil(const GURL& url) {
 
 @implementation PaneExtensionCommand
 
-
 - (instancetype)initWithName:(NSString*)name
                      summary:(NSString*)summary
                     shortcut:(NSString*)shortcut {
@@ -267,14 +264,13 @@ NSURL* URLOrNil(const GURL& url) {
   base::OnceCallback<void(bool)> _answer;
 }
 
-
 - (instancetype)initWithPrompt:(const extensions::InstallPromptData&)prompt
                         answer:(base::OnceCallback<void(bool)>)answer {
   if ((self = [super init])) {
     _title = base::SysUTF16ToNSString(prompt.GetDialogTitle());
-    _extensionIdentifier = prompt.extension()
-                               ? base::SysUTF8ToNSString(prompt.extension()->id())
-                               : @"";
+    _extensionIdentifier =
+        prompt.extension() ? base::SysUTF8ToNSString(prompt.extension()->id())
+                           : @"";
     _extensionName = prompt.extension()
                          ? base::SysUTF8ToNSString(prompt.extension()->name())
                          : @"";

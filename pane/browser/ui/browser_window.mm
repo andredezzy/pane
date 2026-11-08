@@ -1,16 +1,15 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 //
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
-// engine/ardiacore/src/ardia/core/ac_browser_window.mm, Copyright 2026 Mantra Patel,
-// licensed under the Apache License 2.0 (third_party/ardia). Changed
-// for Pane: names and namespace, and without Ardia's extension shortcuts (Pane's are extension_shortcuts.mm), autofill prompts and background-run eye dropper; Chrome's own shutdown checks for its lifetime helpers.
+// engine/ardiacore/src/ardia/core/ac_browser_window.mm, Copyright 2026 Mantra
+// Patel, licensed under the Apache License 2.0 (third_party/ardia). Changed for
+// Pane: names and namespace, and without Ardia's extension shortcuts (Pane's
+// are extension_shortcuts.mm), autofill prompts and background-run eye dropper;
+// Chrome's own shutdown checks for its lifetime helpers.
 
-#include "pane/browser/extensions/action_popup.h"
-#include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/ui/browser_window.h"
 
 #import <AppKit/AppKit.h>
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,56 +20,56 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/app/chrome_command_ids.h"
-
 #include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/devtools/devtools_window.h"
-#include "pane/browser/app_callback.h"
-#include "pane/browser/ui/tab_bridge.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/autofill/save_address_bubble_controller.h"
 #include "chrome/browser/ui/autofill/update_address_bubble_controller.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
-#include "ui/gfx/range/range.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/eye_dropper.h"
 #include "content/public/browser/eye_dropper_listener.h"
-#include "components/input/native_web_keyboard_event.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
-#import "pane/public/PaneBrowserWindow.h"
 #include "content/public/browser/web_contents.h"
-#include "pane/browser/ui/window_host.h"
+#include "pane/browser/app_callback.h"
+#include "pane/browser/extensions/action_popup.h"
+#include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/ui/modal_dialog_host.h"
+#include "pane/browser/ui/tab_bridge.h"
+#include "pane/browser/ui/window_host.h"
+#import "pane/public/PaneBrowserWindow.h"
+#import "pane/public/PaneWebContents.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/accelerators/accelerator.h"
-#include "ui/content_accelerators/accelerator_util.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/color/color_provider_manager.h"
+#include "ui/content_accelerators/accelerator_util.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
-#include "ui/base/mojom/window_show_state.mojom.h"
-#include "ui/color/color_provider_manager.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
+#include "ui/gfx/range/range.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/widget/widget.h"
-
-#import "pane/public/PaneWebContents.h"
 
 namespace pane {
 
@@ -155,10 +154,11 @@ HostedAutofillBubbleHandler::HostedAutofillBubbleHandler() = default;
 HostedAutofillBubbleHandler::~HostedAutofillBubbleHandler() = default;
 
 #define PANE_NO_BUBBLE(...) \
-  {                       \
-    return nullptr;       \
+  {                         \
+    return nullptr;         \
   }
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::ShowSaveCreditCardBubble(
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowSaveCreditCardBubble(
     content::WebContents* web_contents,
     autofill::SaveCardBubbleController* controller,
     bool) {
@@ -171,154 +171,159 @@ autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::ShowIbanBubble(
     autofill::IbanBubbleType) {
   return nullptr;
 }
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowOfferNotificationBubble(content::WebContents* web_contents,
-                                autofill::OfferNotificationBubbleController*,
-                                bool) {
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowOfferNotificationBubble(
+    content::WebContents* web_contents,
+    autofill::OfferNotificationBubbleController*,
+    bool) {
   return nullptr;
 }
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowSaveAutofillAiDataBubble(content::WebContents*,
-                                 autofill::AutofillAiImportDataController*)
-        PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowAutofillAiLocalSaveNotification(
-        content::WebContents*,
-        autofill::AutofillAiImportDataController*) PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowSaveAddressProfileBubble(
-        content::WebContents* web_contents,
-        std::unique_ptr<autofill::SaveAddressBubbleController> controller,
-        bool) {
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowSaveAutofillAiDataBubble(
+    content::WebContents*,
+    autofill::AutofillAiImportDataController*)
+    PANE_NO_BUBBLE() autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
+        ShowAutofillAiLocalSaveNotification(
+            content::WebContents*,
+            autofill::AutofillAiImportDataController*) PANE_NO_BUBBLE()
+            autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
+                ShowSaveAddressProfileBubble(
+                    content::WebContents* web_contents,
+                    std::unique_ptr<autofill::SaveAddressBubbleController>
+                        controller,
+                    bool) {
   return nullptr;
 }
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::ShowAddressSignInPromo(
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowAddressSignInPromo(
     content::WebContents* web_contents,
     const autofill::AutofillProfile&) {
   return nullptr;
 }
 #endif
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowUpdateAddressProfileBubble(
-        content::WebContents* web_contents,
-        std::unique_ptr<autofill::UpdateAddressBubbleController> controller,
-        bool) {
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowUpdateAddressProfileBubble(
+    content::WebContents* web_contents,
+    std::unique_ptr<autofill::UpdateAddressBubbleController> controller,
+    bool) {
   return nullptr;
 }
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowFilledCardInformationBubble(
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowFilledCardInformationBubble(
+    content::WebContents*,
+    autofill::FilledCardInformationBubbleController*,
+    bool) PANE_NO_BUBBLE() autofill::
+    AutofillBubbleBase* HostedAutofillBubbleHandler::ShowVirtualCardEnrollBubble(
         content::WebContents*,
-        autofill::FilledCardInformationBubbleController*,
+        autofill::VirtualCardEnrollBubbleController*,
         bool) PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowVirtualCardEnrollBubble(content::WebContents*,
-                                autofill::VirtualCardEnrollBubbleController*,
-                                bool) PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowVirtualCardEnrollConfirmationBubble(
-        content::WebContents*,
-        autofill::VirtualCardEnrollBubbleController*) PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowMandatoryReauthBubble(content::WebContents*,
-                              autofill::MandatoryReauthBubbleController*,
-                              bool,
-                              autofill::MandatoryReauthBubbleType)
-        PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowSaveCardConfirmationBubble(
-        content::WebContents* web_contents,
-        autofill::SaveCardBubbleController* controller) {
+        autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
+            ShowVirtualCardEnrollConfirmationBubble(
+                content::WebContents*,
+                autofill::VirtualCardEnrollBubbleController*) PANE_NO_BUBBLE()
+                autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
+                    ShowMandatoryReauthBubble(
+                        content::WebContents*,
+                        autofill::MandatoryReauthBubbleController*,
+                        bool,
+                        autofill::MandatoryReauthBubbleType)
+                        PANE_NO_BUBBLE() autofill::
+                            AutofillBubbleBase* HostedAutofillBubbleHandler::
+                                ShowSaveCardConfirmationBubble(
+                                    content::WebContents* web_contents,
+                                    autofill::SaveCardBubbleController*
+                                        controller) {
   return nullptr;
 }
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowSaveIbanConfirmationBubble(content::WebContents*,
-                                   autofill::IbanBubbleController*)
-        PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowOmniboxAutofillBubble(content::WebContents*,
-                              autofill::OmniboxAutofillBubbleController*)
-        PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowPaymentsChurnedUsersBubble(
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowSaveIbanConfirmationBubble(
+    content::WebContents*,
+    autofill::IbanBubbleController*) PANE_NO_BUBBLE() autofill::
+    AutofillBubbleBase* HostedAutofillBubbleHandler::ShowOmniboxAutofillBubble(
         content::WebContents*,
-        autofill::PaymentsChurnedUsersBubbleController*,
-        bool) PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowPaymentsChurnedUsersConfirmationBubble(
-        content::WebContents*,
-        autofill::PaymentsChurnedUsersBubbleController*) PANE_NO_BUBBLE()
-autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-    ShowWalletReminderNoticeBubble(
-        content::WebContents*,
-        autofill::WalletReminderNoticeBubbleController*,
-        bool) PANE_NO_BUBBLE()
+        autofill::OmniboxAutofillBubbleController*) PANE_NO_BUBBLE()
+        autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
+            ShowPaymentsChurnedUsersBubble(
+                content::WebContents*,
+                autofill::PaymentsChurnedUsersBubbleController*,
+                bool) PANE_NO_BUBBLE()
+                autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
+                    ShowPaymentsChurnedUsersConfirmationBubble(
+                        content::WebContents*,
+                        autofill::PaymentsChurnedUsersBubbleController*)
+                        PANE_NO_BUBBLE() autofill::
+                            AutofillBubbleBase* HostedAutofillBubbleHandler::
+                                ShowWalletReminderNoticeBubble(
+                                    content::WebContents*,
+                                    autofill::
+                                        WalletReminderNoticeBubbleController*,
+                                    bool) PANE_NO_BUBBLE()
 #undef PANE_NO_BUBBLE
 
-namespace {
+                                    namespace {
 
-// Chrome docks DevTools in the BrowserView, and Pane's Browsers have none: the
-// app places the DevTools page beside the inspected tab instead.
-class DockingDevtoolsController final : public DevtoolsUIController {
- public:
-  using DevtoolsUIController::DevtoolsUIController;
+  // Chrome docks DevTools in the BrowserView, and Pane's Browsers have none:
+  // the app places the DevTools page beside the inspected tab instead.
+  class DockingDevtoolsController final : public DevtoolsUIController {
+   public:
+    using DevtoolsUIController::DevtoolsUIController;
 
-  bool UpdateDevtools(content::WebContents* inspected,
-                      bool update_devtools_web_contents) override;
-};
+    bool UpdateDevtools(content::WebContents* inspected,
+                        bool update_devtools_web_contents) override;
+  };
 
-void UpdateDockedDevTools(content::WebContents* inspected) {
-  TabBridge* bridge = TabBridge::FromWebContents(inspected);
-  if (!bridge) {
-    return;
+  void UpdateDockedDevTools(content::WebContents * inspected) {
+    TabBridge* bridge = TabBridge::FromWebContents(inspected);
+    if (!bridge) {
+      return;
+    }
+    DevToolsContentsResizingStrategy strategy;
+    content::WebContents* devtools =
+        DevToolsWindow::GetInTabWebContents(inspected, &strategy);
+    PaneWebContents* devtools_tab =
+        devtools ? TabBridge::GetOrCreate(devtools)->tab() : nil;
+    // Chrome lays the page over the DevTools view at these bounds (the
+    // splitter); empty when DevTools covers it.
+    const gfx::Rect page_bounds =
+        strategy.hide_inspected_contents() ? gfx::Rect() : strategy.bounds();
+    if (devtools_tab == bridge->devtools() &&
+        page_bounds == bridge->devtools_page_bounds()) {
+      return;
+    }
+    bridge->set_devtools(devtools_tab, page_bounds);
+    PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.didChangeDevTools",
+                   base::DictValue().Set("open", devtools != nullptr));
+    PaneWebContents* tab = bridge->tab();
+    id<PaneWebContentsDelegate> delegate = tab.delegate;
+    if ([delegate
+            respondsToSelector:@selector(webContents:didChangeDevTools:)]) {
+      ScopedAppCallback callback;
+      [delegate webContents:tab didChangeDevTools:devtools_tab];
+    }
   }
-  DevToolsContentsResizingStrategy strategy;
-  content::WebContents* devtools =
-      DevToolsWindow::GetInTabWebContents(inspected, &strategy);
-  PaneWebContents* devtools_tab =
-      devtools ? TabBridge::GetOrCreate(devtools)->tab() : nil;
-  // Chrome lays the page over the DevTools view at these bounds (the
-  // splitter); empty when DevTools covers it.
-  const gfx::Rect page_bounds = strategy.hide_inspected_contents()
-                                    ? gfx::Rect()
-                                    : strategy.bounds();
-  if (devtools_tab == bridge->devtools() &&
-      page_bounds == bridge->devtools_page_bounds()) {
-    return;
+
+  bool DockingDevtoolsController::UpdateDevtools(
+      content::WebContents * inspected, bool update_devtools_web_contents) {
+    UpdateDockedDevTools(inspected);
+    return false;
   }
-  bridge->set_devtools(devtools_tab, page_bounds);
-  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.didChangeDevTools",
-                 base::DictValue().Set("open", devtools != nullptr));
-  PaneWebContents* tab = bridge->tab();
-  id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if ([delegate respondsToSelector:@selector(webContents:
-                                       didChangeDevTools:)]) {
-    ScopedAppCallback callback;
-    [delegate webContents:tab didChangeDevTools:devtools_tab];
+
+  std::set<const BrowserWindow*>& LiveWindows() {
+    static base::NoDestructor<std::set<const BrowserWindow*>> windows;
+    return *windows;
+  }
+  std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>&
+  Records() {
+    static base::NoDestructor<
+        std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>>
+        records;
+    return *records;
   }
 }
 
-bool DockingDevtoolsController::UpdateDevtools(
-    content::WebContents* inspected,
-    bool update_devtools_web_contents) {
-  UpdateDockedDevTools(inspected);
-  return false;
-}
-
-std::set<const BrowserWindow*>& LiveWindows() {
-  static base::NoDestructor<std::set<const BrowserWindow*>> windows;
-  return *windows;
-}
-std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>& Records() {
-  static base::NoDestructor<
-      std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>>
-      records;
-  return *records;
-}
-
-}
-
-HostedBrowserWindow* HostedBrowserWindow::FromWindow(const BrowserWindow* window) {
+HostedBrowserWindow* HostedBrowserWindow::FromWindow(
+    const BrowserWindow* window) {
   if (!window || !LiveWindows().contains(window)) {
     return nullptr;
   }
@@ -343,7 +348,8 @@ void HostedBrowserWindow::Forget(const BrowserWindowInterface* browser) {
 }
 
 HostedBrowserWindow::HostedBrowserWindow(base::WeakPtr<WindowHost> host)
-    : host_(std::move(host)), location_bar_(std::make_unique<HostedLocationBar>()) {
+    : host_(std::move(host)),
+      location_bar_(std::make_unique<HostedLocationBar>()) {
   LiveWindows().insert(this);
 }
 
@@ -445,7 +451,7 @@ void RequestShow(WindowHost* host, bool active) {
   }
 }
 
-}
+}  // namespace
 
 void HostedBrowserWindow::Show() {
   RequestShow(host_.get(), true);
@@ -473,14 +479,15 @@ void HostedBrowserWindow::Close() {
 void HostedBrowserWindow::Activate() {
   if (host_ && browser_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(
-                       [](base::WeakPtr<WindowHost> host,
-                          base::WeakPtr<BrowserWindowInterface> browser) {
-                         if (host && browser) {
-                           host->RequestActivation(static_cast<Browser*>(browser.get()));
-                         }
-                       },
-                       host_, browser_->GetWeakPtr()));
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<WindowHost> host,
+               base::WeakPtr<BrowserWindowInterface> browser) {
+              if (host && browser) {
+                host->RequestActivation(static_cast<Browser*>(browser.get()));
+              }
+            },
+            host_, browser_->GetWeakPtr()));
   }
 }
 
@@ -512,9 +519,9 @@ ui::NativeTheme* HostedBrowserWindow::GetNativeTheme() {
 }
 
 const ui::ThemeProvider* HostedBrowserWindow::GetThemeProvider() const {
-  return browser_ ? &ThemeService::GetThemeProviderForProfile(
-                        browser_->GetProfile())
-                  : nullptr;
+  return browser_
+             ? &ThemeService::GetThemeProviderForProfile(browser_->GetProfile())
+             : nullptr;
 }
 
 const ui::ColorProvider* HostedBrowserWindow::GetColorProvider() const {
@@ -534,9 +541,9 @@ std::vector<StatusBubble*> HostedBrowserWindow::GetStatusBubbles() {
 }
 
 void HostedBrowserWindow::OnActiveTabChanged(content::WebContents* old_contents,
-                                         content::WebContents* new_contents,
-                                         int index,
-                                         int reason) {
+                                             content::WebContents* new_contents,
+                                             int index,
+                                             int reason) {
   if (host_ && browser_) {
     host_->ActiveTabChanged(browser_, new_contents);
   }
@@ -550,7 +557,8 @@ gfx::Size HostedBrowserWindow::GetContentsSize() const {
   return gfx::Size(size.width, size.height);
 }
 
-autofill::AutofillBubbleHandler* HostedBrowserWindow::GetAutofillBubbleHandler() {
+autofill::AutofillBubbleHandler*
+HostedBrowserWindow::GetAutofillBubbleHandler() {
   return &autofill_bubble_handler_;
 }
 
@@ -592,7 +600,8 @@ ShowTranslateBubbleResult HostedBrowserWindow::ShowTranslateBubble(
   return ShowTranslateBubbleResult::kBrowserWindowNotValid;
 }
 
-DownloadBubbleUIController* HostedBrowserWindow::GetDownloadBubbleUIController() {
+DownloadBubbleUIController*
+HostedBrowserWindow::GetDownloadBubbleUIController() {
   return nullptr;
 }
 
@@ -646,9 +655,10 @@ NSEvent* UnhandledKeyDown(const input::NativeWebKeyboardEvent& event) {
   return ns_event.type == NSEventTypeKeyDown ? ns_event : nil;
 }
 
-}
+}  // namespace
 
-content::KeyboardEventProcessingResult HostedBrowserWindow::PreHandleKeyboardEvent(
+content::KeyboardEventProcessingResult
+HostedBrowserWindow::PreHandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
   // Esc leaves fullscreen and pointer or keyboard lock, as in Chrome.
   if (ExclusiveAccessManager* manager = GetExclusiveAccessManager();
@@ -672,8 +682,9 @@ bool HostedBrowserWindow::HandleKeyboardEvent(
   if (!ns_event || !host_) {
     return false;
   }
-  if (!(ns_event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl |
-                                  NSEventModifierFlagFunction))) {
+  if (!(ns_event.modifierFlags &
+        (NSEventModifierFlagCommand | NSEventModifierFlagControl |
+         NSEventModifierFlagFunction))) {
     return false;
   }
   return [NSApp.mainMenu performKeyEquivalent:ns_event];
@@ -697,8 +708,9 @@ void HostedFindBar::Show(bool animate, bool focus) {
 void HostedFindBar::Hide(bool animate) {
   visible_ = false;
 }
-void HostedFindBar::SetFindTextAndSelectedRange(const std::u16string& find_text,
-                                            const gfx::Range& selected_range) {
+void HostedFindBar::SetFindTextAndSelectedRange(
+    const std::u16string& find_text,
+    const gfx::Range& selected_range) {
   find_text_ = find_text;
 }
 std::u16string_view HostedFindBar::GetFindText() const {
@@ -748,9 +760,10 @@ Profile* HostedBrowserWindow::GetProfile() {
   return browser_ ? browser_->GetProfile() : nullptr;
 }
 
-void HostedBrowserWindow::EnterFullscreen(const url::Origin& origin,
-                                      ExclusiveAccessBubbleType bubble_type,
-                                      FullscreenTabParams fullscreen_tab_params) {
+void HostedBrowserWindow::EnterFullscreen(
+    const url::Origin& origin,
+    ExclusiveAccessBubbleType bubble_type,
+    FullscreenTabParams fullscreen_tab_params) {
   tab_fullscreen_ = true;
   base::WeakPtr<HostedBrowserWindow> self = weak_factory_.GetWeakPtr();
   ReportFullscreenTab();
@@ -766,17 +779,16 @@ void HostedBrowserWindow::ExitFullscreen() {
 
 void HostedBrowserWindow::PostWindowFullscreenStateChanged() {
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(
-                     [](base::WeakPtr<HostedBrowserWindow> window) {
-                       ExclusiveAccessManager* manager =
-                           window ? window->GetExclusiveAccessManager()
-                                  : nullptr;
-                       if (manager && window->tab_fullscreen_) {
-                         manager->fullscreen_controller()
-                             ->WindowFullscreenStateChanged();
-                       }
-                     },
-                     weak_factory_.GetWeakPtr()));
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<HostedBrowserWindow> window) {
+            ExclusiveAccessManager* manager =
+                window ? window->GetExclusiveAccessManager() : nullptr;
+            if (manager && window->tab_fullscreen_) {
+              manager->fullscreen_controller()->WindowFullscreenStateChanged();
+            }
+          },
+          weak_factory_.GetWeakPtr()));
 }
 
 // The "Press Esc to exit full screen" hint is the app's to show
@@ -805,8 +817,7 @@ void HostedBrowserWindow::UpdateExclusiveAccessBubble(
 }
 
 ExclusiveAccessManager* HostedBrowserWindow::GetExclusiveAccessManager() {
-  return browser_ ? ExclusiveAccessManager::From(browser_)
-                  : nullptr;
+  return browser_ ? ExclusiveAccessManager::From(browser_) : nullptr;
 }
 
 ui::AcceleratorProvider* HostedBrowserWindow::GetAcceleratorProvider() {
@@ -843,16 +854,16 @@ void HostedBrowserWindow::ReportFullscreenTab() {
   base::WeakPtr<content::WebContents> entering = fullscreen_tab_;
   if (was) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(
-                       [](base::WeakPtr<content::WebContents> left) {
-                         content::RenderWidgetHostView* view =
-                             left ? left->GetRenderWidgetHostView() : nullptr;
-                         if (view && !left->IsFullscreen()) {
-                           view->GetRenderWidgetHost()
-                               ->SynchronizeVisualProperties();
-                         }
-                       },
-                       was->GetWeakPtr()));
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<content::WebContents> left) {
+              content::RenderWidgetHostView* view =
+                  left ? left->GetRenderWidgetHostView() : nullptr;
+              if (view && !left->IsFullscreen()) {
+                view->GetRenderWidgetHost()->SynchronizeVisualProperties();
+              }
+            },
+            was->GetWeakPtr()));
     host_->FullscreenChanged(was, false);
   }
   if (content::WebContents* contents = entering.get();
@@ -903,7 +914,6 @@ void HostedBrowserWindow::ShowEmojiPanel() {
   [NSApp orderFrontCharacterPalette:nil];
 }
 
-
 std::unique_ptr<content::EyeDropper> HostedBrowserWindow::OpenEyeDropper(
     content::RenderFrameHost* frame,
     content::EyeDropperListener* listener) {
@@ -932,4 +942,4 @@ BrowserView* HostedBrowserWindow::AsBrowserView() {
   return nullptr;
 }
 
-}
+}  // namespace pane

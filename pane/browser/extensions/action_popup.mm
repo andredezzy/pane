@@ -1,7 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "base/no_destructor.h"
-#include "pane/browser/app_callback.h"
 #include "pane/browser/extensions/action_popup.h"
 
 #include <set>
@@ -9,6 +7,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/no_destructor.h"
 #include "chrome/browser/extensions/extension_view_host.h"
 #include "chrome/browser/extensions/extension_view_host_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -21,13 +20,13 @@
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/common/extension.h"
+#include "pane/browser/app_callback.h"
+#import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
+#import "pane/browser/extensions/extensions_internal.h"
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
-
-#import "pane/browser/browser_application_internal.h"
-#import "pane/browser/extensions/extensions_internal.h"
 #import "pane/public/PaneBrowserContext.h"
 #import "pane/public/PaneBrowserWindow.h"
 #import "pane/public/PaneWebContents.h"
@@ -56,9 +55,8 @@ void ActionPopup::Show(Browser* browser,
           ->GetExtensionAction(extension);
   content::WebContents* active =
       browser->GetTabStripModel()->GetActiveWebContents();
-  const int tab_id =
-      active ? sessions::SessionTabHelper::IdForTab(active).id()
-             : extensions::ExtensionAction::kDefaultTabId;
+  const int tab_id = active ? sessions::SessionTabHelper::IdForTab(active).id()
+                            : extensions::ExtensionAction::kDefaultTabId;
   const GURL url = action ? action->GetPopupUrl(tab_id) : GURL();
   if (!url.is_valid()) {
     if (callback) {
@@ -187,12 +185,11 @@ void ActionPopup::OnLoaded() {
   id<PaneBrowserContextDelegate> delegate = context.delegate;
   PANE_TRACE("callback", "PaneBrowserContextDelegate.showExtensionPopup",
              base::DictValue().Set("extension", host_->extension_id()));
-  if (window && [delegate respondsToSelector:@selector
-                         (browserContext:showExtensionPopup:inWindow:)]) {
+  if (window &&
+      [delegate respondsToSelector:
+                    @selector(browserContext:showExtensionPopup:inWindow:)]) {
     ScopedAppCallback app_callback;
-    [delegate browserContext:context
-          showExtensionPopup:owner_
-                    inWindow:window];
+    [delegate browserContext:context showExtensionPopup:owner_ inWindow:window];
   }
   if (callback_) {
     std::move(callback_).Run(host_.get());

@@ -1,7 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#import "pane/browser/ui/dialogs_internal.h"
-
 #include <utility>
 
 #include "base/memory/weak_ptr.h"
@@ -11,10 +9,10 @@
 #include "chrome/browser/spellchecker/spellcheck_custom_dictionary.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_service.h"
+#include "components/download/public/common/download_url_parameters.h"
 #include "components/spellcheck/browser/spellcheck_platform.h"
 #include "components/spellcheck/common/spellcheck_features.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
-#include "components/download/public/common/download_url_parameters.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/download_manager.h"
@@ -24,15 +22,15 @@
 #include "net/base/apple/url_conversions.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "pane/browser/app_callback.h"
-#include "pane/browser/extensions/extension_menu.h"
 #include "pane/browser/engine_trace.h"
+#include "pane/browser/extensions/extension_menu.h"
+#import "pane/browser/ui/dialogs_internal.h"
+#import "pane/public/PaneBrowserWindow.h"
+#import "pane/public/PaneWebContents.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "url/gurl.h"
-
-#import "pane/public/PaneBrowserWindow.h"
-#import "pane/public/PaneWebContents.h"
 
 namespace {
 
@@ -45,8 +43,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   PANE_TRACE("callback", "PaneWebContentsDelegate.didDismissRequest",
              base::DictValue().Set("kind", kind));
   id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if ([delegate respondsToSelector:@selector(webContents:
-                                       didDismissRequest:)]) {
+  if ([delegate respondsToSelector:@selector(webContents:didDismissRequest:)]) {
     pane::ScopedAppCallback callback;
     [delegate webContents:tab didDismissRequest:request];
   }
@@ -60,7 +57,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   __weak PaneWebContents* _tab;
   base::OnceCallback<void(bool, const std::u16string&)> _completion;
 }
-
 
 - (instancetype)initWithType:(PaneJavaScriptDialogType)type
                      message:(const std::u16string&)message
@@ -131,7 +127,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   base::OnceCallback<void(int)> _answer;
 }
 
-
 - (instancetype)initWithPermissions:(NSArray<NSString*>*)permissions
                           originURL:(const GURL&)originURL
                                 tab:(PaneWebContents*)tab
@@ -192,15 +187,15 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
       _answer;
 }
 
-
 - (instancetype)
     initWithHost:(NSString*)host
           scheme:(NSString*)scheme
            proxy:(BOOL)proxy
              tab:(PaneWebContents*)tab
-          answer:(base::OnceCallback<
-                     void(std::optional<std::pair<std::u16string,
-                                                  std::u16string>>)>)answer {
+          answer:
+              (base::OnceCallback<void(
+                   std::optional<std::pair<std::u16string, std::u16string>>)>)
+                  answer {
   if ((self = [super init])) {
     _host = [host copy];
     _scheme = [scheme copy];
@@ -268,8 +263,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 - (instancetype)initWithParams:(const content::ContextMenuParams&)params
                          frame:(content::RenderFrameHost&)frame {
   if ((self = [super init])) {
-    _contents =
-        content::WebContents::FromRenderFrameHost(&frame)->GetWeakPtr();
+    _contents = content::WebContents::FromRenderFrameHost(&frame)->GetWeakPtr();
     _frame = frame.GetGlobalId();
     _x = params.x;
     _y = params.y;
@@ -303,17 +297,20 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
     _sourceURL = ToNSURL(params.src_url);
     _selectionText = base::SysUTF16ToNSString(params.selection_text);
     _editable = params.is_editable;
-    _canUndo = (params.edit_flags & blink::ContextMenuDataEditFlags::kCanUndo) != 0;
-    _canRedo = (params.edit_flags & blink::ContextMenuDataEditFlags::kCanRedo) != 0;
-    _canCut = (params.edit_flags & blink::ContextMenuDataEditFlags::kCanCut) != 0;
-    _canCopy = (params.edit_flags & blink::ContextMenuDataEditFlags::kCanCopy) != 0;
+    _canUndo =
+        (params.edit_flags & blink::ContextMenuDataEditFlags::kCanUndo) != 0;
+    _canRedo =
+        (params.edit_flags & blink::ContextMenuDataEditFlags::kCanRedo) != 0;
+    _canCut =
+        (params.edit_flags & blink::ContextMenuDataEditFlags::kCanCut) != 0;
+    _canCopy =
+        (params.edit_flags & blink::ContextMenuDataEditFlags::kCanCopy) != 0;
     _canPaste =
         (params.edit_flags & blink::ContextMenuDataEditFlags::kCanPaste) != 0;
     _canDelete =
         (params.edit_flags & blink::ContextMenuDataEditFlags::kCanDelete) != 0;
-    _canSelectAll =
-        (params.edit_flags & blink::ContextMenuDataEditFlags::kCanSelectAll) !=
-        0;
+    _canSelectAll = (params.edit_flags &
+                     blink::ContextMenuDataEditFlags::kCanSelectAll) != 0;
     _misspelledWordString = base::SysUTF16ToNSString(params.misspelled_word);
     NSMutableArray<NSString*>* suggestions = [NSMutableArray array];
     for (const std::u16string& suggestion : params.dictionary_suggestions) {
@@ -364,8 +361,7 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)selectAll {
-  [self edit:&content::WebContents::SelectAll
-        name:"PaneContextMenu.selectAll"];
+  [self edit:&content::WebContents::SelectAll name:"PaneContextMenu.selectAll"];
 }
 
 - (void)replaceMisspellingWith:(NSString*)suggestion {
@@ -476,8 +472,9 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
 }
 
 - (void)runExtensionItem:(PaneExtensionMenuItem*)item {
-  PANE_TRACE("call", "PaneContextMenu.runExtensionItem",
-             base::DictValue().Set("title", base::SysNSStringToUTF8(item.title)));
+  PANE_TRACE(
+      "call", "PaneContextMenu.runExtensionItem",
+      base::DictValue().Set("title", base::SysNSStringToUTF8(item.title)));
   if (_contents) {
     _extensionMenu->Run(item, _contents.get(), [self frameHost]);
   }
@@ -491,7 +488,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   __weak PaneBrowserWindow* _window;
   base::OnceCallback<void(std::optional<std::vector<base::FilePath>>)> _answer;
 }
-
 
 - (instancetype)
     initWithMode:(PaneFileChooserMode)mode
@@ -530,9 +526,8 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
              base::DictValue().Set("paths", std::move(traced)));
   _answered = YES;
   if (_answer) {
-    std::move(_answer).Run(paths.empty()
-                               ? std::nullopt
-                               : std::make_optional(std::move(paths)));
+    std::move(_answer).Run(
+        paths.empty() ? std::nullopt : std::make_optional(std::move(paths)));
   }
 }
 
@@ -556,8 +551,8 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   PANE_TRACE("callback", "PaneBrowserWindowDelegate.didDismissFileChooser");
   PaneBrowserWindow* window = _window;
   id<PaneBrowserWindowDelegate> delegate = window.delegate;
-  if ([delegate respondsToSelector:@selector(browserWindow:
-                                       didDismissFileChooser:)]) {
+  if ([delegate
+          respondsToSelector:@selector(browserWindow:didDismissFileChooser:)]) {
     [delegate browserWindow:window didDismissFileChooser:self];
   }
 }
@@ -570,7 +565,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   __weak PaneWebContents* _tab;
   base::OnceCallback<void(bool)> _answer;
 }
-
 
 - (instancetype)initWithURL:(const GURL&)URL
             applicationName:(const std::u16string&)applicationName
@@ -623,7 +617,6 @@ void NotifyDismissed(PaneWebContents* tab, id request, std::string_view kind) {
   __weak PaneWebContents* _tab;
   base::OnceCallback<void(bool)> _answer;
 }
-
 
 - (instancetype)initWithTab:(PaneWebContents*)tab
                      answer:(base::OnceCallback<void(bool)>)answer {

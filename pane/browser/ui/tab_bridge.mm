@@ -6,9 +6,6 @@
 
 #include "pane/browser/ui/tab_bridge.h"
 
-#include "components/permissions/permission_request_manager.h"
-#include "pane/browser/ui/permission_prompt.h"
-
 #import <AppKit/AppKit.h>
 
 #include <utility>
@@ -19,16 +16,17 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
+#include "components/permissions/permission_request_manager.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/app_callback.h"
+#import "pane/browser/ui/dialogs_internal.h"
 #include "pane/browser/ui/javascript_dialog_manager.h"
+#include "pane/browser/ui/permission_prompt.h"
+#import "pane/browser/web_contents_internal.h"
 #include "pane/browser/web_store.h"
 #include "ui/gfx/image/image.h"
-
-#import "pane/browser/ui/dialogs_internal.h"
-#import "pane/browser/web_contents_internal.h"
 
 namespace pane {
 
@@ -222,15 +220,14 @@ void TabBridge::PrimaryMainFrameRenderProcessGone(
   // reloads right away would otherwise relaunch the renderer mid-notification,
   // before extensions forgot the old process.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          [](base::WeakPtr<TabBridge> bridge,
-             PaneRendererTermination termination) {
-            if (bridge) {
-              [bridge->tab_ bridgeRendererDidTerminate:termination];
-            }
-          },
-          weak_factory_.GetWeakPtr(), termination));
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<TabBridge> bridge,
+                        PaneRendererTermination termination) {
+                       if (bridge) {
+                         [bridge->tab_ bridgeRendererDidTerminate:termination];
+                       }
+                     },
+                     weak_factory_.GetWeakPtr(), termination));
 }
 
 // Chrome discards a tab by putting an empty WebContents in its place, which

@@ -1,10 +1,10 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 //
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
-// engine/ardiacore/src/ardia/core/ac_browser_window.h, Copyright 2026 Mantra Patel,
-// licensed under the Apache License 2.0 (third_party/ardia). Changed
-// for Pane: names and namespace, without Ardia's extension shortcuts, and
-// Chromium 157's BrowserWindow (no profile IPH methods).
+// engine/ardiacore/src/ardia/core/ac_browser_window.h, Copyright 2026 Mantra
+// Patel, licensed under the Apache License 2.0 (third_party/ardia). Changed for
+// Pane: names and namespace, without Ardia's extension shortcuts, and Chromium
+// 157's BrowserWindow (no profile IPH methods).
 
 #ifndef PANE_BROWSER_UI_BROWSER_WINDOW_H_
 #define PANE_BROWSER_UI_BROWSER_WINDOW_H_
@@ -47,7 +47,8 @@ class HostedLocationBar : public LocationBar {
   ~HostedLocationBar() override;
   void set_browser(BrowserWindowInterface* browser) { browser_ = browser; }
 
-  void FocusLocation(bool is_user_initiated, bool clear_focus_if_failed) override {}
+  void FocusLocation(bool is_user_initiated,
+                     bool clear_focus_if_failed) override {}
   void FocusSearch() override {}
   void UpdateFocusBehavior(bool toolbar_visible) override {}
   void UpdateContentSettingsIcons() override {}
@@ -174,15 +175,17 @@ class HostedFindBar : public FindBar {
   void Show(bool animate, bool focus) override;
   void Hide(bool animate) override;
   void SetFocusAndSelection() override {}
-  void ClearResults(const find_in_page::FindNotificationDetails& results) override {}
+  void ClearResults(
+      const find_in_page::FindNotificationDetails& results) override {}
   void StopAnimation() override {}
   void MoveWindowIfNecessary() override {}
   void SetFindTextAndSelectedRange(const std::u16string& find_text,
                                    const gfx::Range& selected_range) override;
   std::u16string_view GetFindText() const override;
   gfx::Range GetSelectedRange() const override;
-  void UpdateUIForFindResult(const find_in_page::FindNotificationDetails& result,
-                             const std::u16string& find_text) override {}
+  void UpdateUIForFindResult(
+      const find_in_page::FindNotificationDetails& result,
+      const std::u16string& find_text) override {}
   void AudibleAlert() override {}
   bool IsFindBarVisible() const override;
   void RestoreSavedFocus() override {}
@@ -201,8 +204,8 @@ class HostedFindBar : public FindBar {
 };
 
 class HostedBrowserWindow : public BrowserWindow,
-                        public ExclusiveAccessContext,
-                        public ui::AcceleratorProvider {
+                            public ExclusiveAccessContext,
+                            public ui::AcceleratorProvider {
  public:
   explicit HostedBrowserWindow(base::WeakPtr<WindowHost> host);
   HostedBrowserWindow(const HostedBrowserWindow&) = delete;
@@ -263,7 +266,8 @@ class HostedBrowserWindow : public BrowserWindow,
                           content::WebContents* new_contents,
                           int index,
                           int reason) override;
-  void OnTabDetached(content::WebContents* contents, bool was_active) override {}
+  void OnTabDetached(content::WebContents* contents, bool was_active) override {
+  }
   gfx::Size GetContentsSize() const override;
   void SetContentsSize(const gfx::Size& size) override {}
   autofill::AutofillBubbleHandler* GetAutofillBubbleHandler() override;
@@ -386,6 +390,6 @@ class HostedBrowserWindow : public BrowserWindow,
   base::WeakPtrFactory<HostedBrowserWindow> weak_factory_{this};
 };
 
-}
+}  // namespace pane
 
 #endif

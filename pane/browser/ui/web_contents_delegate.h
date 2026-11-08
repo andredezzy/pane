@@ -1,6 +1,7 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 //
-// Modeled on Ardia's ACWebContentsDelegate (https://github.com/mantrakp04/ardia,
+// Modeled on Ardia's ACWebContentsDelegate
+// (https://github.com/mantrakp04/ardia,
 // engine/ardiacore/src/ardia/core/ac_browser.{h,mm}, Copyright 2026 Mantra
 // Patel, Apache License 2.0; third_party/ardia).
 

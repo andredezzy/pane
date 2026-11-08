@@ -45,7 +45,6 @@ NS_SWIFT_UI_ACTOR
 // Every page agreed to close; the window is about to go.
 - (void)browserWindowWillClose:(PaneBrowserWindow*)window;
 
-
 // A file dialog for this window (PaneDialogs.h). Not implemented: cancelled.
 - (void)browserWindow:(PaneBrowserWindow*)window
        runFileChooser:(PaneFileChooser*)chooser;

@@ -54,8 +54,8 @@ constexpr std::string_view kTemporarySuffix = ".pane-migrating";
 constexpr size_t kBufferSize = 1 << 20;
 constexpr int64_t kLargestWholeFile = 1 << 30;
 
-// The Simple cache's header, by which a plain entry is told, and its entry's key
-// is read (net/disk_cache/simple/simple_entry_format.h).
+// The Simple cache's header, by which a plain entry is told, and its entry's
+// key is read (net/disk_cache/simple/simple_entry_format.h).
 constexpr std::array<uint8_t, 8> kSimpleMagic = {0x30, 0x5c, 0x72, 0xa7,
                                                  0x1b, 0x6d, 0xfb, 0xfc};
 constexpr size_t kSimpleKeyLengthOffset = 12;
@@ -64,10 +64,18 @@ constexpr size_t kSimpleHeaderSize = 24;
 // What rebuilds on its own, whole, at any depth of a profile: gone rather than
 // converted. Each cache's entries name the URLs they hold.
 constexpr std::string_view kRebuilt[] = {
-    "Cache",      "Code Cache",      "GPUCache",
-    "DawnGraphiteCache", "DawnWebGPUCache", "Shared Dictionary",
-    "No_Vary_Search",    "blob_storage",    "Download Service",
-    "Sessions",   "Sessions_Encrypted",     "EncryptedBookmarks2",
+    "Cache",
+    "Code Cache",
+    "GPUCache",
+    "DawnGraphiteCache",
+    "DawnWebGPUCache",
+    "Shared Dictionary",
+    "No_Vary_Search",
+    "blob_storage",
+    "Download Service",
+    "Sessions",
+    "Sessions_Encrypted",
+    "EncryptedBookmarks2",
 };
 
 // Files that are gone: stale, or memory-only now.
@@ -398,10 +406,10 @@ bool MigrateSimpleEntry(const base::FilePath& path) {
   CHECK(hook && hook->wrap_cache(path, &factory, &hasher, /*wrapped=*/true));
 
   const std::string name = path.BaseName().AsUTF8Unsafe();
-  const std::string keyed = base::StrCat(
-      {base::ToLowerASCII(base::HexEncode(base::U64ToBigEndian(
-           hasher->GetEntryHashKey(key)))),
-       name.substr(16)});
+  const std::string keyed =
+      base::StrCat({base::ToLowerASCII(base::HexEncode(
+                        base::U64ToBigEndian(hasher->GetEntryHashKey(key)))),
+                    name.substr(16)});
   const base::FilePath target = path.DirName().AppendASCII(keyed);
   const base::FilePath temporary = TemporaryFor(target);
 
@@ -480,12 +488,13 @@ std::optional<std::string> OriginInIndex(const base::FilePath& index) {
 }
 
 // CacheStorage's folders move from an unkeyed hash of their origin to a keyed
-// name (ConstructOriginPath, patch 0010), each once. The hash covers its owner's
-// suffix too (Background Fetch's is "-1"), which only it tells: two owners of
-// one origin keep two folders. A folder that matches neither has moved.
+// name (ConstructOriginPath, patch 0010), each once. The hash covers its
+// owner's suffix too (Background Fetch's is "-1"), which only it tells: two
+// owners of one origin keep two folders. A folder that matches neither has
+// moved.
 bool MigrateCacheStorageNames(const base::FilePath& profile) {
-  const base::FilePath root = profile.AppendASCII("Service Worker")
-                                  .AppendASCII("CacheStorage");
+  const base::FilePath root =
+      profile.AppendASCII("Service Worker").AppendASCII("CacheStorage");
   base::FileEnumerator folders(root, /*recursive=*/false,
                                base::FileEnumerator::DIRECTORIES);
 
@@ -498,8 +507,8 @@ bool MigrateCacheStorageNames(const base::FilePath& profile) {
       continue;
     }
 
-    const std::string identifier = storage::GetIdentifierFromOrigin(
-        url::Origin::Create(GURL(*origin)));
+    const std::string identifier =
+        storage::GetIdentifierFromOrigin(url::Origin::Create(GURL(*origin)));
 
     for (const std::string& owned : {identifier, identifier + "-1"}) {
       if (base::HexEncodeLower(base::SHA1Hash(base::as_byte_span(owned))) !=
@@ -592,9 +601,9 @@ bool MigrateIndexedDBNames(const base::FilePath& profile) {
   }
 
   // Each first party's default bucket, by the identifier its origin's folder is
-  // named by. A partitioned storage key, past its `^`, parses to the same origin:
-  // the store is the first party's, and in a third party's bucket the site reads
-  // an empty one, and the embed reads this.
+  // named by. A partitioned storage key, past its `^`, parses to the same
+  // origin: the store is the first party's, and in a third party's bucket the
+  // site reads an empty one, and the embed reads this.
   std::map<std::string, int64_t> buckets;
   sql::Statement rows(quota.GetUniqueStatement(
       "SELECT id, storage_key FROM buckets WHERE name='_default' AND "
@@ -801,7 +810,8 @@ bool MigrateProfileFiles(const base::FilePath& profile,
     }
 
     if (!migrated) {
-      LOG(ERROR) << "A file of a profile would not migrate: " << file.BaseName();
+      LOG(ERROR) << "A file of a profile would not migrate: "
+                 << file.BaseName();
       return false;
     }
 
@@ -842,7 +852,8 @@ bool WriteSafetyCopy(const base::FilePath& profile,
   base::File out(temporary,
                  base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
   StreamCipher::Header header;
-  std::unique_ptr<StreamCipher> cipher = StreamCipher::ForNewFile(keys, &header);
+  std::unique_ptr<StreamCipher> cipher =
+      StreamCipher::ForNewFile(keys, &header);
 
   if (!out.IsValid() || !out.WriteAtCurrentPosAndCheck(header)) {
     return false;
@@ -897,8 +908,8 @@ bool WriteSafetyCopy(const base::FilePath& profile,
 
 namespace {
 
-// A safety copy's records, in order, under one stream: a name's length, the name,
-// the file's size and time, then the file.
+// A safety copy's records, in order, under one stream: a name's length, the
+// name, the file's size and time, then the file.
 class SafetyCopyReader {
  public:
   struct Entry {
@@ -949,13 +960,14 @@ class SafetyCopyReader {
     std::array<uint8_t, 8> size;
     std::array<uint8_t, 8> time;
 
-    if (!Read(base::as_writable_byte_span(name)) || !Read(size) || !Read(time)) {
+    if (!Read(base::as_writable_byte_span(name)) || !Read(size) ||
+        !Read(time)) {
       return std::nullopt;
     }
 
     return Entry{std::move(name), base::U64FromLittleEndian(size),
-                 base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(
-                     base::U64FromLittleEndian(time)))};
+                 base::Time::FromDeltaSinceWindowsEpoch(
+                     base::Microseconds(base::U64FromLittleEndian(time)))};
   }
 
   bool Skip(uint64_t size) {
@@ -1019,9 +1031,9 @@ bool RestoreSafetyCopy(const base::FilePath& profile,
   SafetyCopyReader reader(archive);
 
   // Everything goes but the extensions' code, which no migration touches.
-  base::FileEnumerator entries(profile, /*recursive=*/false,
-                               base::FileEnumerator::FILES |
-                                   base::FileEnumerator::DIRECTORIES);
+  base::FileEnumerator entries(
+      profile, /*recursive=*/false,
+      base::FileEnumerator::FILES | base::FileEnumerator::DIRECTORIES);
 
   for (base::FilePath entry = entries.Next(); !entry.empty();
        entry = entries.Next()) {
@@ -1171,11 +1183,11 @@ bool IsEarlier(const timespec& one, const timespec& other) {
 
 // A first party's IndexedDB that a migration before 0.18.2 moved into a third
 // party's bucket. It took the last default bucket of the origin in storage key
-// order, a partitioned one if it had any, so among the buckets that hold a store
-// from before the migration, the last is where it went. A bucket that already
-// held a store got it nested inside. The archive's listing says which first
-// parties had one. Where the first party has a store again, both stay as they
-// are, since nothing proves which it wants.
+// order, a partitioned one if it had any, so among the buckets that hold a
+// store from before the migration, the last is where it went. A bucket that
+// already held a store got it nested inside. The archive's listing says which
+// first parties had one. Where the first party has a store again, both stay as
+// they are, since nothing proves which it wants.
 bool MoveIndexedDBToFirstParties(const base::FilePath& profile,
                                  const base::FilePath& archive) {
   const base::FilePath web_storage = profile.AppendASCII("WebStorage");
@@ -1234,8 +1246,8 @@ bool MoveIndexedDBToFirstParties(const base::FilePath& profile,
       continue;
     }
 
-    Buckets& buckets =
-        by_identifier[storage::GetIdentifierFromOrigin(url::Origin::Create(url))];
+    Buckets& buckets = by_identifier[storage::GetIdentifierFromOrigin(
+        url::Origin::Create(url))];
 
     if (key.find('^') == std::string_view::npos) {
       buckets.first_party = rows.ColumnInt64(0);
@@ -1257,7 +1269,8 @@ bool MoveIndexedDBToFirstParties(const base::FilePath& profile,
          bucket != buckets.partitioned.rend() && from.empty(); ++bucket) {
       const base::FilePath store =
           folder_of(*bucket).AppendASCII("indexeddb.leveldb");
-      const std::string nested = base::StrCat({identifier, ".indexeddb.leveldb"});
+      const std::string nested =
+          base::StrCat({identifier, ".indexeddb.leveldb"});
       std::optional<timespec> born = BirthOf(store);
 
       if (base::DirectoryExists(store.AppendASCII(nested))) {
@@ -1271,8 +1284,9 @@ bool MoveIndexedDBToFirstParties(const base::FilePath& profile,
       continue;
     }
 
-    if (buckets.first_party && base::PathExists(folder_of(*buckets.first_party)
-                                                    .AppendASCII("indexeddb.leveldb"))) {
+    if (buckets.first_party &&
+        base::PathExists(
+            folder_of(*buckets.first_party).AppendASCII("indexeddb.leveldb"))) {
       LOG(ERROR) << "A site has IndexedDB stores in two buckets: both stay.";
       continue;
     }
@@ -1288,9 +1302,12 @@ bool MoveIndexedDBToFirstParties(const base::FilePath& profile,
     const base::FilePath blob_from =
         from.BaseName().value() == "indexeddb.leveldb"
             ? from.DirName().AppendASCII("indexeddb.blob")
-            : from.DirName().DirName().AppendASCII("indexeddb.blob").AppendASCII(
-                  base::StrCat({identifier, ".indexeddb.blob"}));
-    const base::FilePath blob_to = folder_of(*right).AppendASCII("indexeddb.blob");
+            : from.DirName()
+                  .DirName()
+                  .AppendASCII("indexeddb.blob")
+                  .AppendASCII(base::StrCat({identifier, ".indexeddb.blob"}));
+    const base::FilePath blob_to =
+        folder_of(*right).AppendASCII("indexeddb.blob");
 
     // The blobs first: a kill between leaves the store to find here next time.
     if ((base::PathExists(blob_from) && !base::PathExists(blob_to) &&

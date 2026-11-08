@@ -7,9 +7,8 @@
 #include "components/download/public/common/download_item.h"
 #include "content/public/browser/download_manager.h"
 #include "net/base/apple/url_conversions.h"
-#include "pane/browser/engine_trace.h"
-
 #import "pane/browser/browser_context_internal.h"
+#include "pane/browser/engine_trace.h"
 
 @interface PaneDownload ()
 - (instancetype)initWithItem:(download::DownloadItem*)item;
@@ -28,10 +27,10 @@
     _identifier = base::SysUTF8ToNSString(item->GetGuid());
     _URL = net::NSURLWithGURL(item->GetURL());
     const base::FilePath& target = item->GetTargetFilePath();
-    _fileURL = target.empty()
-                   ? nil
-                   : [NSURL fileURLWithPath:base::SysUTF8ToNSString(
-                                                target.value())];
+    _fileURL =
+        target.empty()
+            ? nil
+            : [NSURL fileURLWithPath:base::SysUTF8ToNSString(target.value())];
     _receivedBytes = item->GetReceivedBytes();
     switch (item->GetState()) {
       case download::DownloadItem::COMPLETE:
@@ -81,8 +80,8 @@ void DownloadsBridge::Report(download::DownloadItem* item) {
           .Set("receivedBytes", static_cast<double>(download.receivedBytes))
           .Set("file", item->GetTargetFilePath().value()));
   id<PaneBrowserContextDelegate> delegate = context.delegate;
-  if ([delegate respondsToSelector:@selector(browserContext:
-                                          didUpdateDownload:)]) {
+  if ([delegate
+          respondsToSelector:@selector(browserContext:didUpdateDownload:)]) {
     [delegate browserContext:context didUpdateDownload:download];
   }
 }

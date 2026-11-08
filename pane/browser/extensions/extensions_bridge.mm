@@ -16,11 +16,10 @@
 #include "extensions/browser/ui_util.h"
 #include "extensions/common/extension.h"
 #include "pane/browser/engine_trace.h"
-#include "pane/browser/ui/window_host.h"
-#include "ui/gfx/image/image.h"
-
 #import "pane/browser/extensions/extensions_internal.h"
+#include "pane/browser/ui/window_host.h"
 #import "pane/public/PaneBrowserContext.h"
+#include "ui/gfx/image/image.h"
 
 namespace pane {
 
@@ -116,8 +115,8 @@ void ExtensionsBridge::Changed() {
   }
   report_pending_ = true;
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&ExtensionsBridge::Report,
-                                weak_factory_.GetWeakPtr()));
+      FROM_HERE,
+      base::BindOnce(&ExtensionsBridge::Report, weak_factory_.GetWeakPtr()));
 }
 
 void ExtensionsBridge::Report() {
@@ -133,8 +132,8 @@ void ExtensionsBridge::Report() {
   PaneBrowserContext* context = context_;
   id<PaneBrowserContextDelegate> delegate = context.delegate;
   PANE_TRACE("callback", "PaneBrowserContextDelegate.didChangeExtensions");
-  if ([delegate respondsToSelector:@selector
-                (browserContextDidChangeExtensions:)]) {
+  if ([delegate
+          respondsToSelector:@selector(browserContextDidChangeExtensions:)]) {
     [delegate browserContextDidChangeExtensions:context];
   }
 }

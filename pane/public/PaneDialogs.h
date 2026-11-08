@@ -49,8 +49,7 @@ NS_SWIFT_UI_ACTOR
 
 // OK (alert, confirm), the entered text (prompt), Leave/Reload
 // (beforeunload), Continue (form resubmission).
-- (void)acceptWithText:(nullable NSString*)text
-    NS_SWIFT_NAME(accept(text:));
+- (void)acceptWithText:(nullable NSString*)text NS_SWIFT_NAME(accept(text:));
 - (void)cancel;
 
 @end

@@ -5,8 +5,6 @@
 // Apache License 2.0; third_party/ardia). The close sequence follows
 // Ardia's closely; the rest is rewritten for Pane's API.
 
-#include "components/sessions/content/session_tab_helper.h"
-#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/window_host.h"
 
 #import <AppKit/AppKit.h>
@@ -16,6 +14,9 @@
 
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_util.h"
+#include "base/strings/sys_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
@@ -29,11 +30,10 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views_impl.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
-#include "base/strings/string_util.h"
-#include "base/strings/sys_string_conversions.h"
-#include "base/strings/utf_string_conversions.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/devtools_window_host.h"
@@ -73,8 +73,7 @@ class HostClientView : public views::ClientView {
       return views::CloseRequestResult::kCanClose;
     }
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&WindowHost::CloseRequestedByUser, host_));
+        FROM_HERE, base::BindOnce(&WindowHost::CloseRequestedByUser, host_));
     return views::CloseRequestResult::kCannotClose;
   }
 
@@ -146,8 +145,8 @@ WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
   widget_->Init(std::move(params));
   widget_->AddObserver(this);
 
-  // The app's view fills the widget, as a WebView would hold a page: Views routes
-  // clicks and assistive technologies to it.
+  // The app's view fills the widget, as a WebView would hold a page: Views
+  // routes clicks and assistive technologies to it.
   NSView* content = ns_window().contentView;
   host_view_ = [[NSView alloc] initWithFrame:content.bounds];
   host_view_.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
@@ -201,8 +200,8 @@ Browser* WindowHost::BrowserFor(Profile* profile) {
   if (Browser* browser = ExistingBrowserFor(profile)) {
     return browser;
   }
-  if (close_state_ != CloseState::kOpen || !widget_ ||
-      widget_close_allowed_ || browser_shutdown::IsTryingToQuit() ||
+  if (close_state_ != CloseState::kOpen || !widget_ || widget_close_allowed_ ||
+      browser_shutdown::IsTryingToQuit() ||
       GetBrowserWindowCreationStatusForProfile(*profile) !=
           BrowserWindowInterface::CreationStatus::kOk) {
     return nullptr;
@@ -270,8 +269,7 @@ void WindowHost::RequestActivation(Browser* browser) {
   }
 }
 
-void WindowHost::OnWidgetActivationChanged(views::Widget* widget,
-                                           bool active) {
+void WindowHost::OnWidgetActivationChanged(views::Widget* widget, bool active) {
   Browser* browser =
       active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr;
   if (!browser) {
@@ -453,15 +451,14 @@ void WindowHost::OnTabStripModelChanged(
         source = opener_tab ? opener_tab->GetContents() : nullptr;
       }
       const bool foreground =
-          disposition
-              ? *disposition != WindowOpenDisposition::kNewBackgroundTab
-              : tab_strip_model->active_index() == inserted.index;
+          disposition ? *disposition != WindowOpenDisposition::kNewBackgroundTab
+                      : tab_strip_model->active_index() == inserted.index;
       PaneWebContents* opener =
           source ? TabBridge::GetOrCreate(source)->tab() : nil;
       PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didInsertTab",
                      base::DictValue().Set("foreground", foreground));
-      if ([delegate respondsToSelector:@selector
-                    (browserWindow:didInsertTab:opener:foreground:)]) {
+      if ([delegate respondsToSelector:@selector(browserWindow:didInsertTab:
+                                                 opener:foreground:)]) {
         [delegate browserWindow:owner
                    didInsertTab:bridge->tab()
                          opener:opener
@@ -490,15 +487,15 @@ void WindowHost::OnTabStripModelChanged(
       return;
     }
     for (const auto& removed : change.GetRemove()->contents) {
-      TabBridge* bridge =
-          removed.contents ? TabBridge::FromWebContents(removed.contents)
-                           : nullptr;
+      TabBridge* bridge = removed.contents
+                              ? TabBridge::FromWebContents(removed.contents)
+                              : nullptr;
       if (!bridge) {
         continue;
       }
       PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didRemoveTab");
-      if ([delegate respondsToSelector:@selector(browserWindow:
-                                                  didRemoveTab:)]) {
+      if ([delegate
+              respondsToSelector:@selector(browserWindow:didRemoveTab:)]) {
         [delegate browserWindow:owner didRemoveTab:bridge->tab()];
       }
     }
@@ -513,8 +510,9 @@ void WindowHost::ShowExclusiveAccessHint(const std::u16string& marked_hint) {
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   PANE_TRACE("callback", "PaneBrowserWindowDelegate.showExclusiveAccessHint",
              base::DictValue().Set("hint", base::UTF16ToUTF8(hint)));
-  if ([delegate respondsToSelector:@selector(browserWindow:
-                                       showExclusiveAccessHint:)]) {
+  if ([delegate
+          respondsToSelector:@selector(
+                                 browserWindow:showExclusiveAccessHint:)]) {
     ScopedAppCallback callback;
     [delegate browserWindow:owner
         showExclusiveAccessHint:hint.empty() ? nil
@@ -545,8 +543,9 @@ void WindowHost::FullscreenChanged(content::WebContents* contents,
                  base::DictValue().Set("fullscreen", fullscreen));
   PaneBrowserWindow* owner = owner_;
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
-  if ([delegate respondsToSelector:@selector
-                (browserWindow:tab:didChangeFullscreen:)]) {
+  if ([delegate
+          respondsToSelector:@selector(
+                                 browserWindow:tab:didChangeFullscreen:)]) {
     [delegate browserWindow:owner
                         tab:bridge->tab()
         didChangeFullscreen:fullscreen];
@@ -627,8 +626,8 @@ namespace {
 WindowHost* PaneWindowFor(Profile* profile) {
   WindowHost* first = nullptr;
   for (WindowHost* host : WindowHost::All()) {
-    if (host->closing() || [host->ns_window().identifier
-                               isEqualToString:@"pane.devtools"]) {
+    if (host->closing() ||
+        [host->ns_window().identifier isEqualToString:@"pane.devtools"]) {
       continue;
     }
     if (host->ExistingBrowserFor(profile)) {
@@ -734,9 +733,9 @@ std::unique_ptr<BrowserWebContentsDelegate> CreateWebContentsDelegate(
     return nullptr;
   }
   return std::make_unique<HostedWebContentsDelegate>(
-      browser, exclusive_access_manager, command_controller,
-      unload_controller, app_browser_controller, window, capabilities,
-      browser_ui_controller, hosted->host_weak());
+      browser, exclusive_access_manager, command_controller, unload_controller,
+      app_browser_controller, window, capabilities, browser_ui_controller,
+      hosted->host_weak());
 }
 
 }  // namespace

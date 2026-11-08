@@ -18,8 +18,8 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "pane/browser/engine_trace.h"
-#include "ui/gfx/geometry/rect.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gfx/geometry/rect.h"
 
 @class NSHashTable;
 @class PaneExternalProtocolRequest;
@@ -70,9 +70,7 @@ class TabBridge : public content::WebContentsObserver,
   int tab_id() const;
 
   // The unresponsive-page request the app holds, if any.
-  PaneUnresponsivePage* unresponsive_page() const {
-    return unresponsive_page_;
-  }
+  PaneUnresponsivePage* unresponsive_page() const { return unresponsive_page_; }
   void set_unresponsive_page(PaneUnresponsivePage* page) {
     unresponsive_page_ = page;
   }

@@ -50,8 +50,10 @@ struct ProfileKeys {
 void AddRoots(const std::vector<base::FilePath>& roots);
 std::vector<base::FilePath> Roots();
 
-// Registers a profile's engine key (idempotent). `id` is the name of its folder.
-void RegisterKey(const std::string& id, base::span<const uint8_t, kKeySize> key);
+// Registers a profile's engine key (idempotent). `id` is the name of its
+// folder.
+void RegisterKey(const std::string& id,
+                 base::span<const uint8_t, kKeySize> key);
 
 // The engine keys held, to pass on to another process.
 std::vector<std::pair<std::string, Key>> RegisteredKeys();

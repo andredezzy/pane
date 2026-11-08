@@ -1,6 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/ui_hooks.h"
 
 #include <utility>
@@ -8,15 +7,15 @@
 #include "base/functional/bind.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "content/public/browser/web_contents.h"
+#include "pane/browser/app_callback.h"
 #include "pane/browser/extensions/extension_ui.h"
 #include "pane/browser/ui/browser_window.h"
+#import "pane/browser/ui/dialogs_internal.h"
 #include "pane/browser/ui/login_handler.h"
 #include "pane/browser/ui/select_file_dialog.h"
 #include "pane/browser/ui/tab_bridge.h"
-#include "url/gurl.h"
-
-#import "pane/browser/ui/dialogs_internal.h"
 #import "pane/public/PaneWebContents.h"
+#include "url/gurl.h"
 
 namespace pane {
 
@@ -30,8 +29,8 @@ bool RunExternalProtocolDialog(
     const std::u16string& program_name) {
   PaneWebContents* tab = TabFor(web_contents);
   id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if (![delegate respondsToSelector:@selector(webContents:
-                                       openExternalProtocol:)]) {
+  if (![delegate
+          respondsToSelector:@selector(webContents:openExternalProtocol:)]) {
     return false;
   }
   PaneExternalProtocolRequest* request = [[PaneExternalProtocolRequest alloc]

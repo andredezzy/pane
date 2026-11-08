@@ -133,8 +133,8 @@ void SealPage(const PaneFile* file,
     memcpy(out + 16, page + 16, kPageOneClearEnd - 16);
   }
 
-  const Associated associated =
-      MakeAssociated(file->kind, place, info, is_page_one ? page + 16 : nullptr);
+  const Associated associated = MakeAssociated(
+      file->kind, place, info, is_page_one ? page + 16 : nullptr);
   size_t tag_size = 0;
   CHECK(EVP_AEAD_CTX_seal_scatter(file->aead, out + start, tag, &tag_size,
                                   kTagSize, nonce, kNonceSize, page + start,
@@ -156,8 +156,8 @@ bool OpenPage(const PaneFile* file,
   const uint8_t* info = tag + kTagSize;
   const int start = is_page_one ? kPageOneClearEnd : 0;
 
-  const Associated associated =
-      MakeAssociated(file->kind, place, info, is_page_one ? page + 16 : nullptr);
+  const Associated associated = MakeAssociated(
+      file->kind, place, info, is_page_one ? page + 16 : nullptr);
 
   if (!EVP_AEAD_CTX_open_gather(file->aead, page + start, nonce, kNonceSize,
                                 page + start, content_end - start, tag,
@@ -201,7 +201,10 @@ int RealRead(PaneFile* file, void* out, int amount, sqlite3_int64 offset) {
   return file->real->pMethods->xRead(file->real, out, amount, offset);
 }
 
-int RealWrite(PaneFile* file, const void* in, int amount, sqlite3_int64 offset) {
+int RealWrite(PaneFile* file,
+              const void* in,
+              int amount,
+              sqlite3_int64 offset) {
   return file->real->pMethods->xWrite(file->real, in, amount, offset);
 }
 
@@ -225,8 +228,8 @@ int DiscoverPageSize(PaneFile* file) {
   return IsValidPageSize(size) ? size : 0;
 }
 
-// One whole page of the main file into `page`, decrypted. SQLITE_IOERR_SHORT_READ
-// past the file's end, its tail zero.
+// One whole page of the main file into `page`, decrypted.
+// SQLITE_IOERR_SHORT_READ past the file's end, its tail zero.
 int ReadMainPage(PaneFile* file, uint8_t* page, int size, uint64_t number) {
   const int rc = RealRead(file, page, size, (number - 1) * size);
 
@@ -301,8 +304,7 @@ int ReadMain(PaneFile* file, void* out, int amount, sqlite3_int64 offset) {
     // short, which SQLite takes for an empty header, so the playback runs: an
     // error would fail the open, which Chromium's quota database answers by
     // erasing every store (patch 0010).
-    if (rc == SQLITE_IOERR_AUTH && offset == 0 &&
-        amount == kSqliteHeaderRead &&
+    if (rc == SQLITE_IOERR_AUTH && offset == 0 && amount == kSqliteHeaderRead &&
         HasContent(std::string(file->name) + "-journal")) {
       memset(out, 0, amount);
       return SQLITE_IOERR_SHORT_READ;
@@ -360,11 +362,11 @@ int WriteMain(PaneFile* file,
 
 // Journal and WAL ------------------------------------------------------------
 
-// An encrypted page at `offset` of a journal or WAL. During a playback, one that
-// fails to authenticate comes back zero, so SQLite's own checksum ends it: a page
-// a crash tore is what a rollback or a recovery stops at. Past the playback, a
-// WAL's page is an error, as a main file's is: zeros would read as a malformed
-// database, which Chromium razes.
+// An encrypted page at `offset` of a journal or WAL. During a playback, one
+// that fails to authenticate comes back zero, so SQLite's own checksum ends it:
+// a page a crash tore is what a rollback or a recovery stops at. Past the
+// playback, a WAL's page is an error, as a main file's is: zeros would read as
+// a malformed database, which Chromium razes.
 enum class LoggedPageRead { kPlayback, kPage };
 
 int ReadLoggedPage(PaneFile* file,
@@ -444,8 +446,8 @@ int DiscoverWalPageSize(PaneFile* file) {
     return 0;
   }
 
-  const int size = (header[8] << 24) | (header[9] << 16) | (header[10] << 8) |
-                   header[11];
+  const int size =
+      (header[8] << 24) | (header[9] << 16) | (header[10] << 8) | header[11];
   return IsValidPageSize(size) ? size : 0;
 }
 
@@ -470,7 +472,8 @@ int ReadWal(PaneFile* file, void* out, int amount, sqlite3_int64 offset) {
     return ReadLoggedPage(file, bytes, size, offset, LoggedPageRead::kPage);
   }
 
-  // A frame whole, as recovery reads it: its header in the clear, then its page.
+  // A frame whole, as recovery reads it: its header in the clear, then its
+  // page.
   if (static_cast<size_t>(amount) == kWalFrameHeaderSize + size) {
     const int rc = RealRead(file, bytes, kWalFrameHeaderSize, offset);
 
@@ -485,15 +488,12 @@ int ReadWal(PaneFile* file, void* out, int amount, sqlite3_int64 offset) {
   return SQLITE_IOERR_READ;
 }
 
-int WriteWal(PaneFile* file,
-             const void* in,
-             int amount,
-             sqlite3_int64 offset) {
+int WriteWal(PaneFile* file, const void* in, int amount, sqlite3_int64 offset) {
   const uint8_t* bytes = static_cast<const uint8_t*>(in);
 
   if (static_cast<size_t>(amount) == kWalHeaderSize && offset == 0) {
-    const int size = (bytes[8] << 24) | (bytes[9] << 16) | (bytes[10] << 8) |
-                     bytes[11];
+    const int size =
+        (bytes[8] << 24) | (bytes[9] << 16) | (bytes[10] << 8) | bytes[11];
     file->page_size = IsValidPageSize(size) ? size : 0;
     return RealWrite(file, in, amount, offset);
   }
@@ -719,9 +719,8 @@ void CheckMainAtOpen(PaneFile* file, const char* name) {
     return;
   }
 
-  const bool same_key =
-      info[0] == kFormat &&
-      memcmp(info + 1, file->key_id, sizeof(file->key_id)) == 0;
+  const bool same_key = info[0] == kFormat && memcmp(info + 1, file->key_id,
+                                                     sizeof(file->key_id)) == 0;
 
   if (!same_key) {
     const std::string main(name);
@@ -739,8 +738,8 @@ int Open(sqlite3_vfs* vfs,
   PaneFile* pane = Of(file);
   pane->base.pMethods = nullptr;
 
-  const int kinds =
-      flags & (SQLITE_OPEN_MAIN_DB | SQLITE_OPEN_MAIN_JOURNAL | SQLITE_OPEN_WAL);
+  const int kinds = flags & (SQLITE_OPEN_MAIN_DB | SQLITE_OPEN_MAIN_JOURNAL |
+                             SQLITE_OPEN_WAL);
 
   std::optional<ProfileKeys> keys;
 
@@ -755,7 +754,7 @@ int Open(sqlite3_vfs* vfs,
   memset(pane, 0, sizeof(PaneFile));
   pane->real = reinterpret_cast<sqlite3_file*>(pane + 1);
   pane->name = name;
-  pane->kind = (flags & SQLITE_OPEN_MAIN_DB)       ? FileKind::kMain
+  pane->kind = (flags & SQLITE_OPEN_MAIN_DB)        ? FileKind::kMain
                : (flags & SQLITE_OPEN_MAIN_JOURNAL) ? FileKind::kJournal
                                                     : FileKind::kWal;
 
@@ -773,13 +772,13 @@ int Open(sqlite3_vfs* vfs,
     return rc;
   }
 
-  pane->aead = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm(),
-                                keys->sqlite_pages.data(),
-                                keys->sqlite_pages.size(), kTagSize);
+  pane->aead =
+      EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm(), keys->sqlite_pages.data(),
+                       keys->sqlite_pages.size(), kTagSize);
   CHECK(pane->aead);
 
-  const Key key_id = DeriveKey(keys->sqlite_pages,
-                               base::span<const uint8_t>(), "Pane SQLite key id");
+  const Key key_id = DeriveKey(keys->sqlite_pages, base::span<const uint8_t>(),
+                               "Pane SQLite key id");
   memcpy(pane->key_id, key_id.data(), sizeof(pane->key_id));
   pane->base.pMethods = &kMethods;
 
@@ -851,8 +850,8 @@ int CurrentTimeInt64(sqlite3_vfs* vfs, sqlite3_int64* now) {
 }
 
 // Every connection Pane's files can reach: a new encrypted database, and the
-// temporary and in-memory ones Raze and sql::Recovery back up from, whose page 1
-// a backup copies verbatim.
+// temporary and in-memory ones Raze and sql::Recovery back up from, whose page
+// 1 a backup copies verbatim.
 int ReserveBytes(sqlite3* db, const char** error, const void*) {
   const char* name = sqlite3_db_filename(db, "main");
   sqlite3_file* file = nullptr;
@@ -895,9 +894,9 @@ void InstallOnce() {
   };
 
   CHECK_EQ(sqlite3_vfs_register(&vfs, /*makeDflt=*/1), SQLITE_OK);
-  CHECK_EQ(sqlite3_auto_extension(
-               reinterpret_cast<void (*)(void)>(&ReserveBytes)),
-           SQLITE_OK);
+  CHECK_EQ(
+      sqlite3_auto_extension(reinterpret_cast<void (*)(void)>(&ReserveBytes)),
+      SQLITE_OK);
 }
 
 std::optional<std::array<char, 16>> MagicOf(const base::FilePath& path) {
@@ -1001,10 +1000,10 @@ SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
   int reserved = kSqliteReservedBytes;
   sqlite3_file_control(raw, "main", SQLITE_FCNTL_RESERVE_BYTES, &reserved);
 
-  const std::string vacuum =
-      base::StrCat({"VACUUM main INTO '", UriOf(temporary), "?vfs=", kVfsName,
-                    "'"});
-  const int vacuumed = sqlite3_exec(raw, vacuum.c_str(), nullptr, nullptr, nullptr);
+  const std::string vacuum = base::StrCat(
+      {"VACUUM main INTO '", UriOf(temporary), "?vfs=", kVfsName, "'"});
+  const int vacuumed =
+      sqlite3_exec(raw, vacuum.c_str(), nullptr, nullptr, nullptr);
   sqlite3_close(raw);
 
   if (vacuumed != SQLITE_OK) {

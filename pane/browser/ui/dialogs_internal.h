@@ -3,14 +3,13 @@
 #ifndef PANE_BROWSER_UI_DIALOGS_INTERNAL_H_
 #define PANE_BROWSER_UI_DIALOGS_INTERNAL_H_
 
-#import "pane/public/PaneDialogs.h"
-
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
+#import "pane/public/PaneDialogs.h"
 
 class GURL;
 
@@ -60,9 +59,10 @@ NS_ASSUME_NONNULL_BEGIN
           scheme:(NSString*)scheme
            proxy:(BOOL)proxy
              tab:(nullable PaneWebContents*)tab
-          answer:(base::OnceCallback<
-                     void(std::optional<std::pair<std::u16string,
-                                                  std::u16string>>)>)answer;
+          answer:
+              (base::OnceCallback<void(
+                   std::optional<std::pair<std::u16string, std::u16string>>)>)
+                  answer;
 - (void)withdraw;
 @end
 

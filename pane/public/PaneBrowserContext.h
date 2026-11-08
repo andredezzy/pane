@@ -101,9 +101,11 @@ NS_SWIFT_UI_ACTOR
 - (void)installExtensionWithIdentifier:(NSString*)identifier
                                 window:(PaneBrowserWindow*)window
     NS_SWIFT_NAME(installExtension(identifier:window:));
-- (void)setEnabled:(BOOL)enabled forExtension:(NSString*)identifier
+- (void)setEnabled:(BOOL)enabled
+      forExtension:(NSString*)identifier
     NS_SWIFT_NAME(setEnabled(_:forExtension:));
-- (void)setPinned:(BOOL)pinned forExtension:(NSString*)identifier
+- (void)setPinned:(BOOL)pinned
+     forExtension:(NSString*)identifier
     NS_SWIFT_NAME(setPinned(_:forExtension:));
 - (void)uninstallExtension:(NSString*)identifier;
 // A click on the extension's action in `window`: opens its popup
@@ -145,7 +147,8 @@ NS_SWIFT_UI_ACTOR
 // The extension's own items and site access for its action's right-click
 // menu, as for the active tab of `window`; nil when it has neither.
 - (nullable PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier
-                                                  inWindow:(PaneBrowserWindow*)window
+                                                  inWindow:
+                                                      (PaneBrowserWindow*)window
     NS_SWIFT_NAME(actionMenu(ofExtension:in:));
 // The extension's details, as chrome://extensions shows them; nil when it is
 // not installed.

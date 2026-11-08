@@ -30,14 +30,13 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "pane/browser/engine_trace.h"
+#import "pane/browser/extensions/extensions_internal.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/image/image.h"
 #include "url/origin.h"
-
-#import "pane/browser/extensions/extensions_internal.h"
 
 namespace pane {
 
@@ -131,19 +130,19 @@ NSArray<PaneExtensionMenuItem*>* ItemsOf(ui::MenuModel& model) {
       continue;
     }
     ui::ImageModel icon = model.GetIconAt(i);
-    [items addObject:[[PaneExtensionMenuItem alloc]
-                         initWithKind:kind
-                            commandID:model.GetCommandIdAt(i)
-                                // As Chrome's Mac menus show a label:
-                                // without its mnemonic marks.
-                                title:l10n_util::FixUpWindowsStyleLabel(
-                                          model.GetLabelAt(i))
-                              enabled:model.IsEnabledAt(i)
-                              checked:model.IsItemCheckedAt(i)
-                                 icon:icon.IsImage()
-                                          ? icon.GetImage().ToNSImage()
-                                          : nil
-                             children:children]];
+    [items
+        addObject:[[PaneExtensionMenuItem alloc]
+                      initWithKind:kind
+                         commandID:model.GetCommandIdAt(i)
+                             // As Chrome's Mac menus show a label:
+                             // without its mnemonic marks.
+                             title:l10n_util::FixUpWindowsStyleLabel(
+                                       model.GetLabelAt(i))
+                           enabled:model.IsEnabledAt(i)
+                           checked:model.IsItemCheckedAt(i)
+                              icon:icon.IsImage() ? icon.GetImage().ToNSImage()
+                                                  : nil
+                          children:children]];
   }
   if (items.lastObject.kind == PaneExtensionMenuItemKindSeparator) {
     [items removeLastObject];
@@ -319,7 +318,6 @@ void RunSiteAccessItem(PaneExtensionMenuItem* item,
 
 @implementation PaneExtensionMenuItem
 
-
 - (instancetype)initWithKind:(PaneExtensionMenuItemKind)kind
                    commandID:(int)commandID
                        title:(NSString*)title
@@ -351,7 +349,6 @@ void RunSiteAccessItem(PaneExtensionMenuItem* item,
   url::Origin _origin;
 }
 
-
 - (instancetype)initWithMenu:(std::unique_ptr<pane::ExtensionMenu>)menu
                    extension:(const extensions::Extension&)extension
                     contents:(content::WebContents&)contents {
@@ -369,8 +366,9 @@ void RunSiteAccessItem(PaneExtensionMenuItem* item,
 // As Chrome's action menu runs one: for the tab, with no frame or page
 // clicked; site access for the extension while it is still enabled.
 - (void)runItem:(PaneExtensionMenuItem*)item {
-  PANE_TRACE("call", "PaneExtensionActionMenu.run",
-             base::DictValue().Set("title", base::SysNSStringToUTF8(item.title)));
+  PANE_TRACE(
+      "call", "PaneExtensionActionMenu.run",
+      base::DictValue().Set("title", base::SysNSStringToUTF8(item.title)));
   if (!_contents) {
     return;
   }

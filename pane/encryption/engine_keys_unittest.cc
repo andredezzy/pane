@@ -18,7 +18,8 @@ class EngineKeysTest : public testing::Test {
  protected:
   void SetUp() override {
     ResetForTesting();
-    AddRoots({base::FilePath("/data/Engine"), base::FilePath("/data/Engine/Volume"),
+    AddRoots({base::FilePath("/data/Engine"),
+              base::FilePath("/data/Engine/Volume"),
               base::FilePath("/Caches/pane/Engine")});
   }
   void TearDown() override { ResetForTesting(); }
@@ -37,7 +38,8 @@ TEST_F(EngineKeysTest, EveryFormOfAProfilesPathIsItsKeys) {
        {std::string("/data/Engine/") + kID + "/History",
         std::string("/data/Engine/Volume/") + kID + "/Profile/History",
         std::string("/data/Engine/Volume/") + kID + "/Cache/Cache_Data/index",
-        std::string("/Caches/pane/Engine/") + kID + "/Cache/Cache_Data/index"}) {
+        std::string("/Caches/pane/Engine/") + kID +
+            "/Cache/Cache_Data/index"}) {
     EXPECT_TRUE(KeysFor(base::FilePath(path))) << path;
   }
 }
@@ -57,8 +59,9 @@ TEST_F(EngineKeysTest, ExtensionsCodeStaysPlain) {
   Register(kID);
   EXPECT_FALSE(KeysFor(base::FilePath(std::string("/data/Engine/") + kID +
                                       "/Extensions/abc/1.0/manifest.json")));
-  EXPECT_FALSE(KeysFor(base::FilePath(std::string("/data/Engine/Volume/") + kID +
-                                      "/Profile/Extensions/abc/1.0/a.js")));
+  EXPECT_FALSE(
+      KeysFor(base::FilePath(std::string("/data/Engine/Volume/") + kID +
+                             "/Profile/Extensions/abc/1.0/a.js")));
   // Its state does not.
   EXPECT_TRUE(KeysFor(base::FilePath(std::string("/data/Engine/") + kID +
                                      "/Extension State/000003.log")));
@@ -67,7 +70,8 @@ TEST_F(EngineKeysTest, ExtensionsCodeStaysPlain) {
 TEST_F(EngineKeysTest, AProtectedPathWithNoKeyCrashes) {
   Register(kID);
   EXPECT_DEATH_IF_SUPPORTED(
-      KeysFor(base::FilePath(std::string("/data/Engine/") + kOtherID + "/History")),
+      KeysFor(
+          base::FilePath(std::string("/data/Engine/") + kOtherID + "/History")),
       "");
 }
 
@@ -80,7 +84,8 @@ TEST_F(EngineKeysTest, DroppingForgetsEveryKeyAndStillProtects) {
   EXPECT_EQ(KeyCount(), 0u);
   EXPECT_TRUE(RegisteredKeys().empty());
   EXPECT_DEATH_IF_SUPPORTED(
-      KeysFor(base::FilePath(std::string("/data/Engine/") + kID + "/History")), "");
+      KeysFor(base::FilePath(std::string("/data/Engine/") + kID + "/History")),
+      "");
 }
 
 TEST_F(EngineKeysTest, EachUseHasADifferentKey) {

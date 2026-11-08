@@ -16,8 +16,8 @@ namespace pane {
 // it, then renamed over the original, and skips what is already done: a kill at
 // any point loses nothing, and the next run goes on.
 //
-// `profile` and `cache` are its folders in the volume, resolved. `progress` gets
-// the share done, 0 to 1. False leaves what failed as it was.
+// `profile` and `cache` are its folders in the volume, resolved. `progress`
+// gets the share done, 0 to 1. False leaves what failed as it was.
 bool MigrateProfileFiles(const base::FilePath& profile,
                          const base::FilePath& cache,
                          base::RepeatingCallback<void(double)> progress);

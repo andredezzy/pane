@@ -58,10 +58,9 @@ std::vector<ui::Command> CommandsOf(Profile* profile,
             .accelerator());
     commands.push_back(std::move(command));
   };
-  for (auto type :
-       {extensions::ActionInfo::Type::kBrowser,
-        extensions::ActionInfo::Type::kPage,
-        extensions::ActionInfo::Type::kAction}) {
+  for (auto type : {extensions::ActionInfo::Type::kBrowser,
+                    extensions::ActionInfo::Type::kPage,
+                    extensions::ActionInfo::Type::kAction}) {
     extensions::Command action;
     if (service->GetExtensionActionCommand(extension.id(), type,
                                            extensions::CommandService::ALL,
@@ -96,8 +95,7 @@ extensions::ExtensionId SetShortcut(Profile* profile,
   return {};
 }
 
-ExtensionShortcuts::ExtensionShortcuts(Profile* profile,
-                                       TabListInterface* tabs)
+ExtensionShortcuts::ExtensionShortcuts(Profile* profile, TabListInterface* tabs)
     : ExtensionKeybindingRegistry(profile, tabs, ALL_EXTENSIONS) {
   Init();
 }
@@ -126,9 +124,10 @@ bool ExtensionShortcuts::PopulateCommands(
   const extensions::ActionInfo* action =
       extensions::ActionInfo::GetExtensionActionInfo(extension);
   extensions::Command command;
-  if (action && service->GetExtensionActionCommand(
-                    extension->id(), action->type,
-                    extensions::CommandService::ACTIVE, &command, nullptr) &&
+  if (action &&
+      service->GetExtensionActionCommand(extension->id(), action->type,
+                                         extensions::CommandService::ACTIVE,
+                                         &command, nullptr) &&
       command.accelerator().key_code() != ui::VKEY_UNKNOWN) {
     (*commands)[command.command_name()] = command;
     found = true;

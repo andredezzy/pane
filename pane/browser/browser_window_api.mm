@@ -1,7 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#import "pane/public/PaneBrowserWindow.h"
-
 #include <memory>
 
 #include "base/auto_reset.h"
@@ -14,15 +12,15 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "net/base/apple/url_conversions.h"
 #include "pane/browser/app_callback.h"
+#import "pane/browser/browser_application_internal.h"
+#import "pane/browser/browser_context_internal.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
+#import "pane/browser/web_contents_internal.h"
+#import "pane/public/PaneBrowserWindow.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
 #include "url/gurl.h"
-
-#import "pane/browser/browser_application_internal.h"
-#import "pane/browser/browser_context_internal.h"
-#import "pane/browser/web_contents_internal.h"
 
 @implementation PaneBrowserWindow {
   std::unique_ptr<pane::WindowHost> _host;

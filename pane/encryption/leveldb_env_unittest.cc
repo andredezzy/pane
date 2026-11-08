@@ -54,8 +54,7 @@ class LevelDBEnvTest : public testing::Test {
 
   void Fill(leveldb::DB* db, int rows) {
     for (int i = 0; i < rows; i++) {
-      ASSERT_TRUE(db->Put(leveldb::WriteOptions(),
-                          "key-" + std::to_string(i),
+      ASSERT_TRUE(db->Put(leveldb::WriteOptions(), "key-" + std::to_string(i),
                           kSecret + std::string(500, 'v'))
                       .ok());
     }
@@ -144,7 +143,8 @@ TEST_F(LevelDBEnvTest, NoKeyCrashes) {
 }
 
 TEST_F(LevelDBEnvTest, APlainFileCrashes) {
-  ASSERT_TRUE(base::WriteFile(path_.AppendASCII("CURRENT"), "MANIFEST-000001\n"));
+  ASSERT_TRUE(
+      base::WriteFile(path_.AppendASCII("CURRENT"), "MANIFEST-000001\n"));
   EXPECT_DEATH_IF_SUPPORTED(Open(), "");
 }
 

@@ -19,11 +19,10 @@
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
+#import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/window_host.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
-
-#import "pane/browser/browser_application_internal.h"
 
 namespace pane {
 
@@ -74,8 +73,7 @@ void BrowserMainExtraParts::PreProfileInit() {
 void BrowserMainExtraParts::PostProfileInit(Profile* profile,
                                             bool is_initial_profile) {
   if (!profile_manager_observation_.IsObserving()) {
-    profile_manager_observation_.Observe(
-        g_browser_process->profile_manager());
+    profile_manager_observation_.Observe(g_browser_process->profile_manager());
   }
   OnProfileAdded(profile);
 }
@@ -107,9 +105,9 @@ void BrowserMainExtraParts::PostBrowserStart() {
   // windows are the app's, and Quit is the user's call.
   app_terminating_subscription_ =
       browser_shutdown::AddAppTerminatingCallback(base::BindOnce([] {
-    ChromeDevToolsManagerDelegate::AllowBrowserToClose();
-    [PaneBrowserApplication.sharedApplication engineWillShutDown];
-  }));
+        ChromeDevToolsManagerDelegate::AllowBrowserToClose();
+        [PaneBrowserApplication.sharedApplication engineWillShutDown];
+      }));
   [PaneBrowserApplication.sharedApplication engineDidStart];
 }
 

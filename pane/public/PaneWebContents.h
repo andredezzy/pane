@@ -75,8 +75,7 @@ NS_SWIFT_UI_ACTOR
 // The engine withdrew a request the app had not answered: the page
 // navigated, recovered, or closed (its tab closed, slept, or was
 // discarded). The app takes down its UI for it.
-- (void)webContents:(PaneWebContents*)webContents
-    didDismissRequest:(id)request;
+- (void)webContents:(PaneWebContents*)webContents didDismissRequest:(id)request;
 
 // A right-click in the page. Not implemented: Chrome's own menu.
 - (void)webContents:(PaneWebContents*)webContents

@@ -15,8 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Posted on the main thread when the user re-activates Pane (for example by
 // clicking its Dock icon).
 PANE_EXPORT extern NSNotificationName const
-    PaneBrowserApplicationShouldReopenNotification
-        NS_SWIFT_NAME(BrowserApplication.shouldReopenNotification);
+    PaneBrowserApplicationShouldReopenNotification NS_SWIFT_NAME(BrowserApplication.shouldReopenNotification);
 
 NS_SWIFT_NAME(BrowserApplicationDelegate)
 NS_SWIFT_UI_ACTOR
@@ -89,12 +88,12 @@ NS_SWIFT_UI_ACTOR
                                      NSError* _Nullable error))completion
     NS_SWIFT_NAME(openContext(identifier:engineKey:completion:));
 
-// Encrypts a closed profile's files written by an earlier Pane, in place, off the
-// main thread, before its context opens (docs/adr/0121). `folder` is its folder
-// in the volume, its Profile and Cache inside. A safety copy goes there first, as
-// SafetyCopy, once. A kill at any point loses nothing: the next call goes on.
-// `progress` gets the share done, on any thread; `completion`, on the main
-// thread, whether it finished.
+// Encrypts a closed profile's files written by an earlier Pane, in place, off
+// the main thread, before its context opens (docs/adr/0121). `folder` is its
+// folder in the volume, its Profile and Cache inside. A safety copy goes there
+// first, as SafetyCopy, once. A kill at any point loses nothing: the next call
+// goes on. `progress` gets the share done, on any thread; `completion`, on the
+// main thread, whether it finished.
 - (void)migrateContextWithIdentifier:(NSString*)identifier
                            engineKey:(NSData*)engineKey
                               folder:(NSURL*)folder
@@ -110,8 +109,8 @@ NS_SWIFT_UI_ACTOR
                           completion:(void (^)(BOOL restored))completion
     NS_SWIFT_NAME(restoreContext(identifier:engineKey:folder:completion:));
 
-// Puts right what a migration before 0.18.2 did to a profile, once. Runs off the
-// main thread, on a closed profile.
+// Puts right what a migration before 0.18.2 did to a profile, once. Runs off
+// the main thread, on a closed profile.
 - (void)repairContextWithIdentifier:(NSString*)identifier
                           engineKey:(NSData*)engineKey
                              folder:(NSURL*)folder
@@ -122,8 +121,8 @@ NS_SWIFT_UI_ACTOR
 // no profile's file open. A path of a profile's with no key then stops the
 // process that reaches it. `completion` gets how many each process still holds,
 // by "browser", "network", and "storage", each 0 when all went well.
-- (void)dropEngineKeysWithCompletion:(void (^)(NSDictionary<NSString*, NSNumber*>*
-                                                   left))completion
+- (void)dropEngineKeysWithCompletion:
+    (void (^)(NSDictionary<NSString*, NSNumber*>* left))completion
     NS_SWIFT_NAME(dropEngineKeys(completion:));
 
 // Deletes the profile: closes its tabs in every window, without asking their

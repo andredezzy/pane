@@ -37,13 +37,8 @@ TEST(StreamCipherTest, AnyOffsetDecryptsWhatTheWholeWrite) {
 
   auto reader = StreamCipher::FromHeader(KeysOf(1), header);
 
-  for (const auto& [offset, size] :
-       std::vector<std::pair<size_t, size_t>>{{0, 4099},
-                                              {1, 15},
-                                              {15, 1},
-                                              {16, 16},
-                                              {17, 4000},
-                                              {4095, 4}}) {
+  for (const auto& [offset, size] : std::vector<std::pair<size_t, size_t>>{
+           {0, 4099}, {1, 15}, {15, 1}, {16, 16}, {17, 4000}, {4095, 4}}) {
     std::vector<uint8_t> out(size);
     reader->Apply(offset, base::span(stored).subspan(offset, size), out);
     EXPECT_EQ(out, std::vector<uint8_t>(plain.begin() + offset,

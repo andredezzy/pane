@@ -16,13 +16,12 @@
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/install_prompt_data.h"
 #include "extensions/common/extension.h"
+#import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extension_hooks.h"
-#include "pane/browser/ui/browser_window.h"
-
-#import "pane/browser/browser_application_internal.h"
 #import "pane/browser/extensions/extensions_internal.h"
+#include "pane/browser/ui/browser_window.h"
 #import "pane/public/PaneBrowserContext.h"
 
 namespace pane {
@@ -41,8 +40,9 @@ bool ConfirmInstall(
     std::unique_ptr<extensions::InstallPromptData>& prompt) {
   PaneBrowserContext* context = ContextFor(show_params->profile());
   id<PaneBrowserContextDelegate> delegate = context.delegate;
-  if (![delegate respondsToSelector:@selector(browserContext:
-                                       confirmExtensionInstall:)]) {
+  if (![delegate
+          respondsToSelector:@selector(
+                                 browserContext:confirmExtensionInstall:)]) {
     return false;
   }
   PaneExtensionInstallRequest* request = [[PaneExtensionInstallRequest alloc]
@@ -84,13 +84,14 @@ void InstallExtensionHooks() {
   g_pane_open_action_popup = &OpenActionPopup;
   // Chrome's "added" bubble and its "Reload this page to apply your updated
   // settings" have no place in Pane's tabs: the app hears of an install through
-  // browserContextDidChangeExtensions:, and a page takes a change of site access
-  // on its next load (ADR 0096).
+  // browserContextDidChangeExtensions:, and a page takes a change of site
+  // access on its next load (ADR 0096).
   static base::NoDestructor<base::AutoReset<bool>> no_install_ui(
       ExtensionInstallUI::disable_ui_for_tests(true));
   static base::NoDestructor<base::AutoReset<std::optional<bool>>>
       no_reload_dialog(
-          extensions::ReloadPageDialogController::AcceptDialogForTesting(false));
+          extensions::ReloadPageDialogController::AcceptDialogForTesting(
+              false));
 }
 
 }  // namespace pane

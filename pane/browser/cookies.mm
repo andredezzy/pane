@@ -1,8 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#import "pane/public/PaneCookies.h"
-
-
 #include "base/functional/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/time/time.h"
@@ -15,12 +12,12 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_constants.h"
+#import "pane/browser/browser_context_internal.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/site_data.h"
+#import "pane/public/PaneCookies.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
-
-#import "pane/browser/browser_context_internal.h"
 
 namespace {
 
@@ -70,8 +67,9 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
     _httpOnly = cookie.IsHttpOnly();
     _expirationDate =
         cookie.IsPersistent()
-            ? [NSDate dateWithTimeIntervalSince1970:cookie.ExpiryDate()
-                                                        .InSecondsFSinceUnixEpoch()]
+            ? [NSDate
+                  dateWithTimeIntervalSince1970:cookie.ExpiryDate()
+                                                    .InSecondsFSinceUnixEpoch()]
             : nil;
     _sameSite = FromNet(cookie.SameSite());
   }
@@ -168,14 +166,15 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
 
   // Site usage: the engagement scores, whose keys name each site, which the
   // history alone leaves. The cache: each entry names its whole URL.
-  pane::RemoveSiteData(self.profile,
-                       chrome_browsing_data_remover::DATA_TYPE_HISTORY |
-                           chrome_browsing_data_remover::DATA_TYPE_SITE_USAGE_DATA |
-                           content::BrowsingDataRemover::DATA_TYPE_DOWNLOADS |
-                           content::BrowsingDataRemover::DATA_TYPE_CACHE,
-                       {}, base::BindOnce(^{
-                         completion();
-                       }));
+  pane::RemoveSiteData(
+      self.profile,
+      chrome_browsing_data_remover::DATA_TYPE_HISTORY |
+          chrome_browsing_data_remover::DATA_TYPE_SITE_USAGE_DATA |
+          content::BrowsingDataRemover::DATA_TYPE_DOWNLOADS |
+          content::BrowsingDataRemover::DATA_TYPE_CACHE,
+      {}, base::BindOnce(^{
+        completion();
+      }));
 }
 
 @end

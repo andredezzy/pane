@@ -14,8 +14,8 @@
 #include "base/command_line.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
-#include "base/files/scoped_temp_dir.h"
 #include "base/files/pane_file_codec.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/hash/sha1.h"
@@ -49,7 +49,8 @@ constexpr char kSecret[] = "pane-secret-value-in-a-profile";
 
 // Past the registered key, base::WriteFile seals (pane_file_codec.h).
 void WriteRaw(const base::FilePath& path, std::string_view bytes) {
-  base::File file(path, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+  base::File file(path,
+                  base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
   ASSERT_TRUE(file.WriteAtCurrentPosAndCheck(base::as_byte_span(bytes)));
 }
 
@@ -87,7 +88,8 @@ class ProfileMigrationTest : public testing::Test {
                               SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
                               "VFSWrapper"),
               SQLITE_OK);
-    ASSERT_EQ(sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr), SQLITE_OK)
+    ASSERT_EQ(sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr),
+              SQLITE_OK)
         << sqlite3_errmsg(db);
     sqlite3_close(db);
   }
@@ -113,7 +115,8 @@ class ProfileMigrationTest : public testing::Test {
         " '_default', 0, 0, 0, 0, 0, 0, 1);");
 
     {
-      const base::FilePath store = profile_.AppendASCII("Local Storage/leveldb");
+      const base::FilePath store =
+          profile_.AppendASCII("Local Storage/leveldb");
       ASSERT_TRUE(base::CreateDirectory(store));
       Fill(store);
     }
@@ -127,8 +130,8 @@ class ProfileMigrationTest : public testing::Test {
     ASSERT_TRUE(base::CreateDirectory(orphan));
     Fill(orphan);
 
-    const base::FilePath blob =
-        profile_.AppendASCII("IndexedDB/https_kept.example_0.indexeddb.blob/1/00");
+    const base::FilePath blob = profile_.AppendASCII(
+        "IndexedDB/https_kept.example_0.indexeddb.blob/1/00");
     ASSERT_TRUE(base::CreateDirectory(blob));
     ASSERT_TRUE(base::WriteFile(blob.AppendASCII("2"),
                                 kSecret + std::string(100000, 'b')));
@@ -139,13 +142,16 @@ class ProfileMigrationTest : public testing::Test {
 
     const base::FilePath caches = profile_.AppendASCII("Cache/Cache_Data");
     ASSERT_TRUE(base::CreateDirectory(caches));
-    ASSERT_TRUE(base::WriteFile(caches.AppendASCII("0123456789abcdef_0"), kSecret));
+    ASSERT_TRUE(
+        base::WriteFile(caches.AppendASCII("0123456789abcdef_0"), kSecret));
     ASSERT_TRUE(base::CreateDirectory(cache_.AppendASCII("Cache/Cache_Data")));
     ASSERT_TRUE(base::WriteFile(
         cache_.AppendASCII("Cache/Cache_Data/0123456789abcdef_0"), kSecret));
     ASSERT_TRUE(base::CreateDirectory(profile_.AppendASCII("Sessions")));
-    ASSERT_TRUE(base::WriteFile(profile_.AppendASCII("Sessions/Tabs_1"), kSecret));
-    ASSERT_TRUE(base::WriteFile(profile_.AppendASCII("Visited Links"), kSecret));
+    ASSERT_TRUE(
+        base::WriteFile(profile_.AppendASCII("Sessions/Tabs_1"), kSecret));
+    ASSERT_TRUE(
+        base::WriteFile(profile_.AppendASCII("Visited Links"), kSecret));
 
     const base::FilePath code = profile_.AppendASCII("Extensions/abc/1.0");
     ASSERT_TRUE(base::CreateDirectory(code));
@@ -189,16 +195,18 @@ class ProfileMigrationTest : public testing::Test {
       ASSERT_TRUE(leveldb_env::OpenDB(options, store.AsUTF8Unsafe(), &db).ok())
           << store;
       std::string value;
-      EXPECT_TRUE(db->Get(leveldb::ReadOptions(), "k199", &value).ok()) << store;
+      EXPECT_TRUE(db->Get(leveldb::ReadOptions(), "k199", &value).ok())
+          << store;
       EXPECT_TRUE(value.starts_with(kSecret));
     }
 
     EXPECT_FALSE(base::PathExists(profile_.AppendASCII("IndexedDB")));
 
-    const base::FilePath blob = profile_.AppendASCII(
-        "WebStorage/7/IndexedDB/indexeddb.blob/1/00/2");
-    std::unique_ptr<disk_cache::CacheFile> file = storage::PaneOpenEncryptedFile(
-        blob, base::File::FLAG_OPEN | base::File::FLAG_READ);
+    const base::FilePath blob =
+        profile_.AppendASCII("WebStorage/7/IndexedDB/indexeddb.blob/1/00/2");
+    std::unique_ptr<disk_cache::CacheFile> file =
+        storage::PaneOpenEncryptedFile(
+            blob, base::File::FLAG_OPEN | base::File::FLAG_READ);
     ASSERT_TRUE(file->IsValid());
     EXPECT_EQ(file->GetLength(),
               static_cast<int64_t>(strlen(kSecret) + 100000));
@@ -207,7 +215,8 @@ class ProfileMigrationTest : public testing::Test {
     base::FileEnumerator files(folder_, /*recursive=*/true,
                                base::FileEnumerator::FILES);
 
-    for (base::FilePath path = files.Next(); !path.empty(); path = files.Next()) {
+    for (base::FilePath path = files.Next(); !path.empty();
+         path = files.Next()) {
       if (path.value().find("/Extensions/") != std::string::npos ||
           path.BaseName().value() == "SafetyCopy") {
         continue;
@@ -241,11 +250,9 @@ TEST_F(ProfileMigrationTest, EverythingIsEncryptedAndStillThere) {
   std::vector<double> shares;
   ASSERT_TRUE(MigrateProfileFiles(
       profile_, cache_,
-      base::BindRepeating(
-          [](std::vector<double>* shares, double share) {
-            shares->push_back(share);
-          },
-          &shares)));
+      base::BindRepeating([](std::vector<double>* shares,
+                             double share) { shares->push_back(share); },
+                          &shares)));
   EXPECT_EQ(shares.back(), 1);
   EXPECT_TRUE(std::ranges::is_sorted(shares));
   ExpectMigrated();
@@ -315,8 +322,8 @@ TEST_F(ProfileMigrationTest, ASafetyCopyPutsItAllBack) {
 
   // Plain again, as the earlier Pane left it, the code untouched.
   EXPECT_TRUE(IsPlainSqliteDatabase(profile_.AppendASCII("History")));
-  EXPECT_TRUE(base::PathExists(
-      profile_.AppendASCII("IndexedDB/https_kept.example_0.indexeddb.leveldb/CURRENT")));
+  EXPECT_TRUE(base::PathExists(profile_.AppendASCII(
+      "IndexedDB/https_kept.example_0.indexeddb.leveldb/CURRENT")));
   EXPECT_TRUE(base::PathExists(
       profile_.AppendASCII("Extensions/abc/1.0/manifest.json")));
 
@@ -325,8 +332,8 @@ TEST_F(ProfileMigrationTest, ASafetyCopyPutsItAllBack) {
   ExpectMigrated();
 }
 
-// What a migration before 0.18.2 did to a first party's store with a partitioned
-// bucket beside it: a row for each.
+// What a migration before 0.18.2 did to a first party's store with a
+// partitioned bucket beside it: a row for each.
 void AddPartitionedBucket(const base::FilePath& quota, int64_t id) {
   sql::Database db(sql::DatabaseOptions(), sql::test::kTestTag);
   ASSERT_TRUE(db.Open(quota));
@@ -339,15 +346,16 @@ void AddPartitionedBucket(const base::FilePath& quota, int64_t id) {
 }
 
 TEST_F(ProfileMigrationTest, AFirstPartyStoreGoesToItsOwnBucket) {
-  WritePlainSqlite(
-      profile_.AppendASCII("WebStorage/QuotaManager"),
-      "CREATE UNIQUE INDEX buckets_by_storage_key ON buckets(storage_key, name);"
-      "INSERT INTO buckets VALUES(30, 'https://kept.example/^0https://top.example',"
-      " 'kept.example', '_default', 0, 0, 0, 0, 0, 0, 1)");
+  WritePlainSqlite(profile_.AppendASCII("WebStorage/QuotaManager"),
+                   "CREATE UNIQUE INDEX buckets_by_storage_key ON "
+                   "buckets(storage_key, name);"
+                   "INSERT INTO buckets VALUES(30, "
+                   "'https://kept.example/^0https://top.example',"
+                   " 'kept.example', '_default', 0, 0, 0, 0, 0, 0, 1)");
 
   ASSERT_TRUE(MigrateProfileFiles(profile_, cache_, base::DoNothing()));
-  EXPECT_TRUE(base::PathExists(
-      profile_.AppendASCII("WebStorage/7/IndexedDB/indexeddb.leveldb/CURRENT")));
+  EXPECT_TRUE(base::PathExists(profile_.AppendASCII(
+      "WebStorage/7/IndexedDB/indexeddb.leveldb/CURRENT")));
   EXPECT_FALSE(base::PathExists(profile_.AppendASCII("WebStorage/30")));
 }
 
@@ -379,7 +387,8 @@ class RepairTest : public ProfileMigrationTest {
   void ExpectStoreIn(int bucket) {
     leveldb_env::Options options;
     std::unique_ptr<leveldb::DB> db;
-    const base::FilePath store = Bucket(bucket).AppendASCII("indexeddb.leveldb");
+    const base::FilePath store =
+        Bucket(bucket).AppendASCII("indexeddb.leveldb");
     ASSERT_TRUE(leveldb_env::OpenDB(options, store.AsUTF8Unsafe(), &db).ok());
     std::string value;
     EXPECT_TRUE(db->Get(leveldb::ReadOptions(), "k199", &value).ok());
@@ -393,8 +402,7 @@ TEST_F(RepairTest, AStoreInAThirdPartysBucketGoesToItsFirstParty) {
   MoveToThirdParty();
   ASSERT_TRUE(RepairMigratedProfile(profile_, archive_));
   ExpectStoreIn(7);
-  EXPECT_TRUE(base::PathExists(
-      Bucket(7).AppendASCII("indexeddb.blob/1/00/2")));
+  EXPECT_TRUE(base::PathExists(Bucket(7).AppendASCII("indexeddb.blob/1/00/2")));
   EXPECT_FALSE(base::PathExists(Bucket(30).AppendASCII("indexeddb.leveldb")));
 
   // Again: nothing to do.
@@ -403,7 +411,8 @@ TEST_F(RepairTest, AStoreInAThirdPartysBucketGoesToItsFirstParty) {
 }
 
 TEST_F(RepairTest, AStoreNestedInAThirdPartysGoesToItsFirstParty) {
-  ASSERT_TRUE(base::CreateDirectory(Bucket(30).AppendASCII("indexeddb.leveldb")));
+  ASSERT_TRUE(
+      base::CreateDirectory(Bucket(30).AppendASCII("indexeddb.leveldb")));
   ASSERT_TRUE(base::WriteFile(
       Bucket(30).AppendASCII("indexeddb.leveldb/CURRENT"), "the embed's"));
   ASSERT_TRUE(base::Move(
@@ -412,14 +421,16 @@ TEST_F(RepairTest, AStoreNestedInAThirdPartysGoesToItsFirstParty) {
           "indexeddb.leveldb/https_kept.example_0.indexeddb.leveldb")));
   ASSERT_TRUE(RepairMigratedProfile(profile_, archive_));
   ExpectStoreIn(7);
-  EXPECT_TRUE(base::PathExists(Bucket(30).AppendASCII("indexeddb.leveldb/CURRENT")));
+  EXPECT_TRUE(
+      base::PathExists(Bucket(30).AppendASCII("indexeddb.leveldb/CURRENT")));
 }
 
 TEST_F(RepairTest, WithAStoreInEachBucketBothStay) {
   MoveToThirdParty();
   const base::FilePath again = Bucket(7).AppendASCII("indexeddb.leveldb");
   ASSERT_TRUE(base::CreateDirectory(again));
-  ASSERT_TRUE(base::WriteFile(again.AppendASCII("CURRENT"), "the site's since"));
+  ASSERT_TRUE(
+      base::WriteFile(again.AppendASCII("CURRENT"), "the site's since"));
   ASSERT_TRUE(RepairMigratedProfile(profile_, archive_));
   ExpectStoreIn(30);
   std::string current;
@@ -430,7 +441,8 @@ TEST_F(RepairTest, WithAStoreInEachBucketBothStay) {
 TEST_F(RepairTest, AStoreBornAfterTheMigrationIsTheThirdPartysOwn) {
   // The first party's store stayed in its bucket, then was cleared; the embed
   // made its own.
-  ASSERT_TRUE(base::DeletePathRecursively(Bucket(7).AppendASCII("indexeddb.leveldb")));
+  ASSERT_TRUE(
+      base::DeletePathRecursively(Bucket(7).AppendASCII("indexeddb.leveldb")));
   const base::FilePath own = Bucket(30).AppendASCII("indexeddb.leveldb");
   usleep(1000);
   ASSERT_TRUE(base::CreateDirectory(own));
@@ -511,7 +523,8 @@ TEST_F(ProfileMigrationTest, AMalformedDatabaseGoesAndTheProfileOpens) {
 }
 
 TEST_F(ProfileMigrationTest, ABadCacheEntryGoesAndTheProfileOpens) {
-  const base::FilePath caches = profile_.AppendASCII("Service Worker/ScriptCache");
+  const base::FilePath caches =
+      profile_.AppendASCII("Service Worker/ScriptCache");
   ASSERT_TRUE(base::CreateDirectory(caches));
   std::string entry("\x30\x5c\x72\xa7\x1b\x6d\xfb\xfc", 8);
   entry += std::string(4, '\0');
@@ -525,7 +538,8 @@ TEST_F(ProfileMigrationTest, ABadCacheEntryGoesAndTheProfileOpens) {
 
 TEST_F(ProfileMigrationTest, AFileTooLargeToSealWholeStays) {
   const base::FilePath large = profile_.AppendASCII("Large");
-  base::File file(large, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+  base::File file(large,
+                  base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
   ASSERT_TRUE(file.SetLength(int64_t{5} << 29));
   file.Close();
   ASSERT_TRUE(MigrateProfileFiles(profile_, cache_, base::DoNothing()));
@@ -533,7 +547,8 @@ TEST_F(ProfileMigrationTest, AFileTooLargeToSealWholeStays) {
 }
 
 TEST_F(ProfileMigrationTest, TwoOwnersOfAnOriginKeepTheirCacheStorages) {
-  const base::FilePath root = profile_.AppendASCII("Service Worker/CacheStorage");
+  const base::FilePath root =
+      profile_.AppendASCII("Service Worker/CacheStorage");
   const std::string origin = "https://kept.example/";
   const std::string index =
       std::string("\x12", 1) + static_cast<char>(origin.size()) + origin;
@@ -586,7 +601,8 @@ TEST_F(ProfileMigrationTest, ACopyCutShortLeavesTheProfileAsItWas) {
 // there, and the file reads to its end, over a tail a kill may have left
 // between the writes of one append.
 TEST_F(ProfileMigrationTest, KilledWhileAppendingAStreamReadsToItsEnd) {
-  const base::FilePath file = profile_.AppendASCII("File System/000/t/00/appended");
+  const base::FilePath file =
+      profile_.AppendASCII("File System/000/t/00/appended");
   const base::FilePath told = root_.AppendASCII("told");
 
   for (int round = 0; round < 60; round++) {
@@ -612,8 +628,9 @@ TEST_F(ProfileMigrationTest, KilledWhileAppendingAStreamReadsToItsEnd) {
     int64_t length = 0;
     ASSERT_TRUE(base::StringToInt64(said.empty() ? "0" : said, &length));
 
-    std::unique_ptr<disk_cache::CacheFile> read = storage::PaneOpenEncryptedFile(
-        file, base::File::FLAG_OPEN | base::File::FLAG_READ);
+    std::unique_ptr<disk_cache::CacheFile> read =
+        storage::PaneOpenEncryptedFile(
+            file, base::File::FLAG_OPEN | base::File::FLAG_READ);
     ASSERT_TRUE(read->IsValid());
     const int64_t size = read->GetLength();
     ASSERT_GE(size, length) << "round " << round;

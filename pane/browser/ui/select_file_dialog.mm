@@ -12,14 +12,13 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/sys_string_conversions.h"
 #include "pane/browser/engine_trace.h"
+#import "pane/browser/ui/dialogs_internal.h"
 #include "pane/browser/ui/window_host.h"
+#import "pane/public/PaneBrowserWindow.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "ui/shell_dialogs/select_file_dialog_factory.h"
 #include "ui/shell_dialogs/select_file_policy.h"
 #include "ui/shell_dialogs/selected_file_info.h"
-
-#import "pane/browser/ui/dialogs_internal.h"
-#import "pane/public/PaneBrowserWindow.h"
 
 namespace pane {
 
@@ -92,8 +91,8 @@ class SelectFileDialog : public ui::SelectFileDialog {
     WindowHost* host = ns_window ? WindowHost::ForNSWindow(ns_window) : nullptr;
     PaneBrowserWindow* window = host ? host->owner() : nil;
     id<PaneBrowserWindowDelegate> delegate = window.delegate;
-    if (![delegate respondsToSelector:@selector(browserWindow:
-                                             runFileChooser:)]) {
+    if (![delegate
+            respondsToSelector:@selector(browserWindow:runFileChooser:)]) {
       // Not one of Pane's windows: Chrome's own panel answers the listener.
       fallback_ = ui::CreateSelectFileDialog(listener_.get(), nullptr);
       fallback_->SelectFile(type, title, default_path, file_types,
@@ -122,14 +121,14 @@ class SelectFileDialog : public ui::SelectFileDialog {
     NSURL* directory = nil;
     NSString* name = @"";
     if (!default_path.empty()) {
-      const bool names_file = mode == PaneFileChooserModeSave ||
-                              !default_path.Extension().empty();
+      const bool names_file =
+          mode == PaneFileChooserModeSave || !default_path.Extension().empty();
       const base::FilePath folder =
           names_file ? default_path.DirName() : default_path;
       if (!folder.empty() && folder != base::FilePath(".")) {
-        directory = [NSURL
-            fileURLWithPath:base::SysUTF8ToNSString(folder.value())
-                isDirectory:YES];
+        directory =
+            [NSURL fileURLWithPath:base::SysUTF8ToNSString(folder.value())
+                       isDirectory:YES];
       }
       if (mode == PaneFileChooserModeSave) {
         name = base::SysUTF8ToNSString(default_path.BaseName().value());
@@ -189,8 +188,7 @@ class SelectFileDialogFactory : public ui::SelectFileDialogFactory {
 }  // namespace
 
 void InstallSelectFileDialogFactory() {
-  ui::SelectFileDialog::SetFactory(
-      std::make_unique<SelectFileDialogFactory>());
+  ui::SelectFileDialog::SetFactory(std::make_unique<SelectFileDialogFactory>());
 }
 
 }  // namespace pane

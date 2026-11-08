@@ -16,10 +16,10 @@
 namespace pane::encryption {
 
 // A file written front to back and never changed in place: LevelDB's. 32 bytes
-// of header (magic and version, flags, a random file id, and a check of the key),
-// then the content under AES-256-CTR, the counter being the logical block index,
-// under a key of the file's own. A file fails for good after any failed write, so
-// its keystream is never reused.
+// of header (magic and version, flags, a random file id, and a check of the
+// key), then the content under AES-256-CTR, the counter being the logical block
+// index, under a key of the file's own. A file fails for good after any failed
+// write, so its keystream is never reused.
 class StreamCipher {
  public:
   static constexpr size_t kHeaderSize = 32;

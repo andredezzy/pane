@@ -1,11 +1,13 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#import "pane/public/PaneWebContents.h"
+#include "content/public/browser/web_contents.h"
 
 #include <string>
 
 #include "base/memory/weak_ptr.h"
 #include "base/strings/sys_string_conversions.h"
+#include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/printing/print_view_manager_common.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -13,24 +15,21 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
-#include "chrome/browser/devtools/devtools_window.h"
-#include "chrome/browser/printing/print_view_manager_common.h"
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
-#include "content/public/browser/navigation_controller.h"
-#include "content/public/browser/web_contents.h"
 #include "content/public/browser/host_zoom_map.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/common/page_zoom.h"
 #include "net/base/apple/url_conversions.h"
 #include "pane/browser/app_callback.h"
+#import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/tab_bridge.h"
+#import "pane/browser/web_contents_internal.h"
+#import "pane/public/PaneWebContents.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
-
-#import "pane/browser/browser_application_internal.h"
-#import "pane/browser/web_contents_internal.h"
 
 // This tab's trace lines (engine_trace.h): an API call on it, or a callback
 // to its delegate, both with its tab id. The optional base::DictValue of
@@ -103,8 +102,7 @@
 }
 
 - (BOOL)isVisible {
-  return _contents &&
-         _contents->GetVisibility() != content::Visibility::HIDDEN;
+  return _contents && _contents->GetVisibility() != content::Visibility::HIDDEN;
 }
 
 // The embedder decides visibility, as Chrome's tab strip does for its tabs:
@@ -149,9 +147,10 @@
 }
 
 - (NSImage*)favicon {
-  auto* driver = _contents ? favicon::ContentFaviconDriver::FromWebContents(
-                                 _contents.get())
-                           : nullptr;
+  auto* driver =
+      _contents
+          ? favicon::ContentFaviconDriver::FromWebContents(_contents.get())
+          : nullptr;
   if (!driver || !driver->FaviconIsValid()) {
     return nil;
   }
@@ -222,9 +221,9 @@
                   base::DictValue()
                       .Set("text", base::SysNSStringToUTF8(text))
                       .Set("forward", static_cast<bool>(forward)));
-  auto* finder = _contents ? find_in_page::FindTabHelper::FromWebContents(
-                                 _contents.get())
-                           : nullptr;
+  auto* finder =
+      _contents ? find_in_page::FindTabHelper::FromWebContents(_contents.get())
+                : nullptr;
   if (!finder) {
     return;
   }
@@ -405,8 +404,8 @@
       "PaneWebContentsDelegate.didChangeURL",
       base::DictValue().Set(
           "url", base::SysNSStringToUTF8(URL.absoluteString ?: @"")));
-  if (URL && [_delegate respondsToSelector:@selector(webContents:
-                                                       didChangeURL:)]) {
+  if (URL &&
+      [_delegate respondsToSelector:@selector(webContents:didChangeURL:)]) {
     [_delegate webContents:self didChangeURL:URL];
   }
 }
@@ -417,8 +416,8 @@
       base::DictValue()
           .Set("canGoBack", static_cast<bool>(self.canGoBack))
           .Set("canGoForward", static_cast<bool>(self.canGoForward)));
-  if ([_delegate respondsToSelector:@selector
-                 (webContentsDidChangeNavigationState:)]) {
+  if ([_delegate
+          respondsToSelector:@selector(webContentsDidChangeNavigationState:)]) {
     [_delegate webContentsDidChangeNavigationState:self];
   }
 }
@@ -428,16 +427,16 @@
                       base::DictValue()
                           .Set("isLoading", static_cast<bool>(isLoading))
                           .Set("progress", progress));
-  if ([_delegate respondsToSelector:@selector(webContents:
-                                         didChangeLoading:progress:)]) {
+  if ([_delegate
+          respondsToSelector:@selector(
+                                 webContents:didChangeLoading:progress:)]) {
     [_delegate webContents:self didChangeLoading:isLoading progress:progress];
   }
 }
 
 - (void)bridgeDidUpdateFavicon:(NSImage*)favicon {
   PANE_TRACE_CALLBACK("PaneWebContentsDelegate.didUpdateFavicon");
-  if ([_delegate respondsToSelector:@selector(webContents:
-                                         didUpdateFavicon:)]) {
+  if ([_delegate respondsToSelector:@selector(webContents:didUpdateFavicon:)]) {
     [_delegate webContents:self didUpdateFavicon:favicon];
   }
 }
@@ -450,8 +449,8 @@
                           .Set("count", static_cast<int>(count))
                           .Set("activeMatch", static_cast<int>(activeMatch))
                           .Set("final", static_cast<bool>(final)));
-  if ([_delegate respondsToSelector:@selector
-                 (webContents:didFindMatches:activeMatch:final:)]) {
+  if ([_delegate respondsToSelector:@selector(webContents:didFindMatches:
+                                              activeMatch:final:)]) {
     [_delegate webContents:self
             didFindMatches:count
                activeMatch:activeMatch
@@ -463,8 +462,9 @@
   PANE_TRACE_CALLBACK(
       "PaneWebContentsDelegate.didChangePictureInPicture",
       base::DictValue().Set("active", static_cast<bool>(active)));
-  if ([_delegate respondsToSelector:@selector(webContents:
-                                         didChangePictureInPicture:)]) {
+  if ([_delegate
+          respondsToSelector:@selector(
+                                 webContents:didChangePictureInPicture:)]) {
     [_delegate webContents:self didChangePictureInPicture:active];
   }
 }
@@ -473,8 +473,8 @@
   PANE_TRACE_CALLBACK(
       "PaneWebContentsDelegate.rendererDidTerminate",
       base::DictValue().Set("termination", static_cast<int>(termination)));
-  if ([_delegate respondsToSelector:@selector(webContents:
-                                         rendererDidTerminate:)]) {
+  if ([_delegate
+          respondsToSelector:@selector(webContents:rendererDidTerminate:)]) {
     [_delegate webContents:self rendererDidTerminate:termination];
   }
 }

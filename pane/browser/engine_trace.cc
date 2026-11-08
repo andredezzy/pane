@@ -25,10 +25,9 @@ std::atomic<bool> g_allowed{false};
 
 // A helper process has Chrome's command line before its first trace.
 bool Allowed() {
-  return g_allowed ||
-         (base::CommandLine::InitializedForCurrentProcess() &&
-          base::CommandLine::ForCurrentProcess()->HasSwitch(
-              "use-mock-keychain"));
+  return g_allowed || (base::CommandLine::InitializedForCurrentProcess() &&
+                       base::CommandLine::ForCurrentProcess()->HasSwitch(
+                           "use-mock-keychain"));
 }
 
 // Opened once, on first use, and written through on every line so the trace

@@ -59,7 +59,7 @@ class JavaScriptDialogManager : public content::JavaScriptDialogManager {
   // Hands `dialog` to the tab's delegate; false when the app takes none.
   bool Show(content::WebContents* web_contents, PaneJavaScriptDialog* dialog);
 
-  std::map<content::WebContents*, PaneJavaScriptDialog* __strong> dialogs_;
+  std::map<content::WebContents*, PaneJavaScriptDialog * __strong> dialogs_;
 };
 
 }  // namespace pane

@@ -1,6 +1,5 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/javascript_dialog_manager.h"
 
 #include <utility>
@@ -11,12 +10,12 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "pane/browser/app_callback.h"
+#import "pane/browser/ui/dialogs_internal.h"
 #include "pane/browser/ui/tab_bridge.h"
+#import "pane/public/PaneWebContents.h"
 #include "url/gurl.h"
 #include "url/origin.h"
-
-#import "pane/browser/ui/dialogs_internal.h"
-#import "pane/public/PaneWebContents.h"
 
 namespace pane {
 
@@ -79,24 +78,25 @@ void JavaScriptDialogManager::RunJavaScriptDialog(
       type = PaneJavaScriptDialogTypePrompt;
       break;
   }
-  Show(web_contents,
-       [[PaneJavaScriptDialog alloc]
-            initWithType:type
-                 message:message_text
-       defaultPromptText:default_prompt_text
-               originURL:render_frame_host->GetLastCommittedOrigin().GetURL()
-                  reload:NO
-                     tab:TabFor(web_contents)
-              completion:base::BindOnce(
-                             [](JavaScriptDialogManager* self,
-                                content::WebContents* web_contents,
-                                DialogClosedCallback callback, bool accepted,
-                                const std::u16string& text) {
-                               self->dialogs_.erase(web_contents);
-                               std::move(callback).Run(accepted, text);
-                             },
-                             base::Unretained(this), web_contents,
-                             std::move(callback))]);
+  Show(
+      web_contents,
+      [[PaneJavaScriptDialog alloc]
+               initWithType:type
+                    message:message_text
+          defaultPromptText:default_prompt_text
+                  originURL:render_frame_host->GetLastCommittedOrigin().GetURL()
+                     reload:NO
+                        tab:TabFor(web_contents)
+                 completion:base::BindOnce(
+                                [](JavaScriptDialogManager* self,
+                                   content::WebContents* web_contents,
+                                   DialogClosedCallback callback, bool accepted,
+                                   const std::u16string& text) {
+                                  self->dialogs_.erase(web_contents);
+                                  std::move(callback).Run(accepted, text);
+                                },
+                                base::Unretained(this), web_contents,
+                                std::move(callback))]);
 }
 
 void JavaScriptDialogManager::RunBeforeUnloadDialog(
@@ -109,24 +109,25 @@ void JavaScriptDialogManager::RunBeforeUnloadDialog(
     std::move(callback).Run(true, std::u16string());
     return;
   }
-  Show(web_contents,
-       [[PaneJavaScriptDialog alloc]
-            initWithType:PaneJavaScriptDialogTypeBeforeUnload
-                 message:std::u16string()
-       defaultPromptText:std::u16string()
-               originURL:render_frame_host->GetLastCommittedOrigin().GetURL()
-                  reload:is_reload
-                     tab:TabFor(web_contents)
-              completion:base::BindOnce(
-                             [](JavaScriptDialogManager* self,
-                                content::WebContents* web_contents,
-                                DialogClosedCallback callback, bool accepted,
-                                const std::u16string& text) {
-                               self->dialogs_.erase(web_contents);
-                               std::move(callback).Run(accepted, text);
-                             },
-                             base::Unretained(this), web_contents,
-                             std::move(callback))]);
+  Show(
+      web_contents,
+      [[PaneJavaScriptDialog alloc]
+               initWithType:PaneJavaScriptDialogTypeBeforeUnload
+                    message:std::u16string()
+          defaultPromptText:std::u16string()
+                  originURL:render_frame_host->GetLastCommittedOrigin().GetURL()
+                     reload:is_reload
+                        tab:TabFor(web_contents)
+                 completion:base::BindOnce(
+                                [](JavaScriptDialogManager* self,
+                                   content::WebContents* web_contents,
+                                   DialogClosedCallback callback, bool accepted,
+                                   const std::u16string& text) {
+                                  self->dialogs_.erase(web_contents);
+                                  std::move(callback).Run(accepted, text);
+                                },
+                                base::Unretained(this), web_contents,
+                                std::move(callback))]);
 }
 
 bool JavaScriptDialogManager::HandleJavaScriptDialog(
@@ -139,10 +140,9 @@ bool JavaScriptDialogManager::HandleJavaScriptDialog(
   }
   PaneJavaScriptDialog* dialog = it->second;
   [dialog withdrawAccepting:accept
-                       text:prompt_override
-                                ? *prompt_override
-                                : base::SysNSStringToUTF16(
-                                      dialog.defaultPromptText)];
+                       text:prompt_override ? *prompt_override
+                                            : base::SysNSStringToUTF16(
+                                                  dialog.defaultPromptText)];
   return true;
 }
 
@@ -171,41 +171,42 @@ void JavaScriptDialogManager::RunFormResubmissionDialog(
     web_contents->GetController().CancelPendingReload();
     return;
   }
-  Show(web_contents,
-       [[PaneJavaScriptDialog alloc]
-            initWithType:PaneJavaScriptDialogTypeFormResubmission
-                 message:std::u16string()
-       defaultPromptText:std::u16string()
-               originURL:web_contents->GetLastCommittedURL()
-                  reload:YES
-                     tab:TabFor(web_contents)
-              completion:base::BindOnce(
-                             [](JavaScriptDialogManager* self,
-                                base::WeakPtr<content::WebContents> contents,
-                                content::WebContents* key, bool accepted,
-                                const std::u16string&) {
-                               self->dialogs_.erase(key);
-                               if (!contents) {
-                                 return;
-                               }
-                               if (accepted) {
-                                 contents->GetController()
-                                     .ContinuePendingReload();
-                               } else {
-                                 contents->GetController()
-                                     .CancelPendingReload();
-                               }
-                             },
-                             base::Unretained(this),
-                             web_contents->GetWeakPtr(), web_contents)]);
+  Show(
+      web_contents,
+      [[PaneJavaScriptDialog alloc]
+               initWithType:PaneJavaScriptDialogTypeFormResubmission
+                    message:std::u16string()
+          defaultPromptText:std::u16string()
+                  originURL:web_contents->GetLastCommittedURL()
+                     reload:YES
+                        tab:TabFor(web_contents)
+                 completion:base::BindOnce(
+                                [](JavaScriptDialogManager* self,
+                                   base::WeakPtr<content::WebContents> contents,
+                                   content::WebContents* key, bool accepted,
+                                   const std::u16string&) {
+                                  self->dialogs_.erase(key);
+                                  if (!contents) {
+                                    return;
+                                  }
+                                  if (accepted) {
+                                    contents->GetController()
+                                        .ContinuePendingReload();
+                                  } else {
+                                    contents->GetController()
+                                        .CancelPendingReload();
+                                  }
+                                },
+                                base::Unretained(this),
+                                web_contents->GetWeakPtr(), web_contents)]);
 }
 
 bool JavaScriptDialogManager::Show(content::WebContents* web_contents,
                                    PaneJavaScriptDialog* dialog) {
   PaneWebContents* tab = TabFor(web_contents);
   id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if (![delegate respondsToSelector:@selector(webContents:
-                                       runJavaScriptDialog:)]) {
+  if (![delegate
+          respondsToSelector:@selector(webContents:runJavaScriptDialog:)]) {
     return false;
   }
   // Recorded first: the app may answer before -runJavaScriptDialog: returns.

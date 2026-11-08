@@ -13,7 +13,6 @@
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
-
 #import "pane/public/PaneBrowserWindow.h"
 #import "pane/public/PaneWebContents.h"
 
@@ -96,8 +95,8 @@ namespace pane {
 
 BrowserWindow* CreateDevToolsWindow(Browser* browser) {
   PANE_TRACE("call", "DevToolsWindow.undock");
-  PaneBrowserWindow* window =
-      [[PaneBrowserWindow alloc] initWithContentRect:NSMakeRect(0, 0, 960, 640)];
+  PaneBrowserWindow* window = [[PaneBrowserWindow alloc]
+      initWithContentRect:NSMakeRect(0, 0, 960, 640)];
   window.window.identifier = @"pane.devtools";
   window.window.title = @"DevTools";
   HostedDevToolsWindowController* controller =

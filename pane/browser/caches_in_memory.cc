@@ -33,7 +33,8 @@ void SetKeepsCachesInMemory(const std::string& identifier, bool in_memory) {
 bool KeepsCachesInMemory(content::BrowserContext* browser_context) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  return Identifiers().contains(browser_context->GetPath().BaseName().AsUTF8Unsafe());
+  return Identifiers().contains(
+      browser_context->GetPath().BaseName().AsUTF8Unsafe());
 }
 
 }  // namespace pane

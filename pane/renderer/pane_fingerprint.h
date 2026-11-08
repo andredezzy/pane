@@ -59,7 +59,9 @@ class PLATFORM_EXPORT PaneFingerprint {
   // of a canvas `canvas_width` wide: ±1 on each color channel of each opaque
   // pixel, keyed by its position in the canvas, so any read of a pixel gets
   // the same noise. A no-op without canvas noise or for another format.
-  void NoiseCanvasPixels(const SkPixmap& pixmap, int x, int y,
+  void NoiseCanvasPixels(const SkPixmap& pixmap,
+                         int x,
+                         int y,
                          int canvas_width) const;
 
   // `image` with the canvas noise, for the canvas exports (toDataURL, toBlob,

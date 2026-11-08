@@ -11,13 +11,13 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/generated_code_cache_settings.h"
 #include "content/public/browser/web_contents.h"
-#include "services/network/public/mojom/network_context.mojom.h"
-#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "pane/browser/browser_main_extra_parts.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/fingerprints.h"
-#include "pane/encryption/handover.h"
 #include "pane/common/host.h"
+#include "pane/encryption/handover.h"
+#include "services/network/public/mojom/network_context.mojom.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 
 namespace pane {
 
@@ -61,8 +61,7 @@ void ContentBrowserClient::ConfigureNetworkContextParams(
   network_context_params->user_agent = GetUserAgentForBrowserContext(context);
 
   // Each time: a network service that restarts gets its keys back this way.
-  network_context_params->pane_engine_keys =
-      encryption::KeysForOtherProcess();
+  network_context_params->pane_engine_keys = encryption::KeysForOtherProcess();
 
   // What the network service would keep on disk outside its stores' formats
   // stays in memory: the hosts it reached and its reports (ADR 0121).

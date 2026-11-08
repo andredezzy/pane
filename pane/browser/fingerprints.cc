@@ -14,8 +14,8 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/spare_render_process_host_manager.h"
-#include "content/public/common/result_codes.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/result_codes.h"
 #include "pane/browser/engine_trace.h"
 
 namespace pane {
@@ -136,15 +136,18 @@ bool Fingerprints::Set(const std::string& identifier,
 
   std::optional<base::DictValue> root =
       base::JSONReader::ReadDict(json, base::JSON_PARSE_RFC);
-  const std::string* user_agent = root ? root->FindString("userAgent") : nullptr;
+  const std::string* user_agent =
+      root ? root->FindString("userAgent") : nullptr;
   std::optional<blink::UserAgentMetadata> metadata =
       root ? ParseMetadata(root->FindDict("userAgentMetadata")) : std::nullopt;
-  const base::ListValue* languages = root ? root->FindList("languages") : nullptr;
+  const base::ListValue* languages =
+      root ? root->FindList("languages") : nullptr;
   const base::DictValue* renderer = root ? root->FindDict("renderer") : nullptr;
   if (!user_agent || user_agent->empty() || !metadata || !languages ||
       !renderer) {
-    *error = "Not a fingerprint: it needs userAgent, userAgentMetadata, "
-             "languages, and renderer.";
+    *error =
+        "Not a fingerprint: it needs userAgent, userAgentMetadata, "
+        "languages, and renderer.";
     return false;
   }
 
@@ -157,7 +160,8 @@ bool Fingerprints::Set(const std::string& identifier,
     }
   }
   fingerprint.renderer = base::WriteJson(*renderer).value_or("{}");
-  fingerprint.max_touch_points = renderer->FindInt("maxTouchPoints").value_or(0);
+  fingerprint.max_touch_points =
+      renderer->FindInt("maxTouchPoints").value_or(0);
   fingerprints_[identifier] = std::move(fingerprint);
   DropSpares(identifier);
 

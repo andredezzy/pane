@@ -1,46 +1,44 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#import "pane/public/PaneBrowserContext.h"
-
 #include <memory>
 #include <optional>
 #include <string>
 
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/content_settings/core/common/content_settings.h"
-#include "components/content_settings/core/common/content_settings_types.h"
 #include "chrome/browser/download/download_prefs.h"
+#include "chrome/browser/extensions/extension_action_runner.h"
+#include "chrome/browser/extensions/extension_util.h"
+#include "chrome/browser/extensions/webstore_install_with_prompt.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/common/pref_names.h"
-#include "base/strings/string_util.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
+#include "components/crx_file/id_util.h"
 #include "components/language/core/browser/language_prefs.h"
-#include "components/signin/public/base/signin_pref_names.h"
-#include "components/translate/core/browser/translate_pref_names.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_dictionary.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/proxy_config/proxy_prefs.h"
-#include "base/functional/bind.h"
-#include "chrome/browser/extensions/extension_action_runner.h"
-#include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/extensions/webstore_install_with_prompt.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
-#include "chrome/grit/generated_resources.h"
-#include "components/crx_file/id_util.h"
+#include "components/signin/public/base/signin_pref_names.h"
+#include "components/translate/core/browser/translate_pref_names.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_registrar.h"
@@ -50,28 +48,28 @@
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/browser/uninstall_reason.h"
-#include "pane/browser/downloads.h"
-#include "pane/browser/fingerprints.h"
-#include "pane/browser/extensions/action_popup.h"
-#include "pane/browser/extensions/extension_menu.h"
-#include "pane/browser/extensions/extension_shortcuts.h"
-#include "pane/browser/extensions/extensions_bridge.h"
-#include "pane/browser/ui/browser_window.h"
-#include "pane/browser/ui/window_host.h"
 #include "extensions/common/command.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "extensions/common/url_pattern.h"
 #include "extensions/common/url_pattern_set.h"
+#import "pane/browser/browser_context_internal.h"
+#include "pane/browser/downloads.h"
+#include "pane/browser/engine_trace.h"
+#include "pane/browser/extensions/action_popup.h"
+#include "pane/browser/extensions/extension_menu.h"
+#include "pane/browser/extensions/extension_shortcuts.h"
+#include "pane/browser/extensions/extensions_bridge.h"
+#import "pane/browser/extensions/extensions_internal.h"
+#include "pane/browser/fingerprints.h"
+#include "pane/browser/ui/browser_window.h"
+#include "pane/browser/ui/window_host.h"
+#import "pane/public/PaneBrowserContext.h"
+#import "pane/public/PaneBrowserWindow.h"
+#import "pane/public/PaneExtensions.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/events/cocoa/cocoa_event_utils.h"
 #include "ui/events/keycodes/keyboard_code_conversion_mac.h"
-#include "pane/browser/engine_trace.h"
-
-#import "pane/browser/browser_context_internal.h"
-#import "pane/browser/extensions/extensions_internal.h"
-#import "pane/public/PaneBrowserWindow.h"
-#import "pane/public/PaneExtensions.h"
 
 namespace {
 
@@ -281,10 +279,10 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
 }
 
 - (const extensions::Extension*)installedExtension:(NSString*)identifier {
-  return _profile ? extensions::ExtensionRegistry::Get(_profile)
-                        ->GetInstalledExtension(
-                            base::SysNSStringToUTF8(identifier))
-                  : nullptr;
+  return _profile
+             ? extensions::ExtensionRegistry::Get(_profile)
+                   ->GetInstalledExtension(base::SysNSStringToUTF8(identifier))
+             : nullptr;
 }
 
 - (void)installExtensionWithIdentifier:(NSString*)identifier
@@ -368,10 +366,9 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
   Browser* browser = host && extension ? host->BrowserFor(_profile) : nullptr;
   content::WebContents* contents =
       browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
-  auto* runner = contents
-                     ? extensions::ExtensionActionRunner::GetForWebContents(
-                           contents)
-                     : nullptr;
+  auto* runner =
+      contents ? extensions::ExtensionActionRunner::GetForWebContents(contents)
+               : nullptr;
   if (!runner) {
     return;
   }
@@ -386,8 +383,8 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
 - (pane::ExtensionShortcuts*)extensionShortcutsInWindow:
     (PaneBrowserWindow*)window {
   pane::WindowHost* host = pane::WindowHost::ForNSWindow(window.window);
-  Browser* browser = host && _profile ? host->ExistingBrowserFor(_profile)
-                                      : nullptr;
+  Browser* browser =
+      host && _profile ? host->ExistingBrowserFor(_profile) : nullptr;
   pane::HostedBrowserWindow* hosted =
       browser ? pane::HostedBrowserWindow::FromWindow(
                     static_cast<BrowserWindow*>(browser->GetWindow()))
@@ -412,9 +409,9 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
       pane::MenuHasKeyEquivalent(NSApp.mainMenu, event)) {
     return NO;
   }
-  PANE_TRACE("call", "PaneBrowserContext.runExtensionShortcut",
-             base::DictValue().Set("extension", extension).Set("command",
-                                                               command));
+  PANE_TRACE(
+      "call", "PaneBrowserContext.runExtensionShortcut",
+      base::DictValue().Set("extension", extension).Set("command", command));
   if (extensions::Command::IsActionRelatedCommand(command)) {
     [self runActionOfExtension:base::SysUTF8ToNSString(extension)
                       inWindow:window];
@@ -476,10 +473,9 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
   if (event.type != NSEventTypeKeyDown) {
     return nil;
   }
-  const std::string shortcut =
-      extensions::Command::AcceleratorToString(ui::Accelerator(
-          ui::KeyboardCodeFromNSEvent(event),
-          ui::EventFlagsFromModifiers(event.modifierFlags)));
+  const std::string shortcut = extensions::Command::AcceleratorToString(
+      ui::Accelerator(ui::KeyboardCodeFromNSEvent(event),
+                      ui::EventFlagsFromModifiers(event.modifierFlags)));
   if (shortcut.empty() ||
       extensions::Command::StringToAccelerator(shortcut, std::string())
               .key_code() == ui::VKEY_UNKNOWN) {

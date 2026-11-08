@@ -1,9 +1,9 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 //
 // Adapted from Ardia (https://github.com/mantrakp04/ardia),
-// engine/ardiacore/src/ardia/core/ac_modal_dialog_host.mm, Copyright 2026 Mantra Patel,
-// licensed under the Apache License 2.0 (third_party/ardia). Changed
-// for Pane: names and namespace, and nothing else.
+// engine/ardiacore/src/ardia/core/ac_modal_dialog_host.mm, Copyright 2026
+// Mantra Patel, licensed under the Apache License 2.0 (third_party/ardia).
+// Changed for Pane: names and namespace, and nothing else.
 
 #include "pane/browser/ui/modal_dialog_host.h"
 
@@ -24,9 +24,10 @@ namespace {
 int g_dialog_host_observers = 0;
 id g_frame_change_observer = nil;
 
-}
+}  // namespace
 
-gfx::Rect PageRectInHostView(NSView* host_view, content::WebContents* contents) {
+gfx::Rect PageRectInHostView(NSView* host_view,
+                             content::WebContents* contents) {
   if (!host_view) {
     return gfx::Rect();
   }
@@ -41,8 +42,8 @@ gfx::Rect PageRectInHostView(NSView* host_view, content::WebContents* contents) 
       page = bounds;
     }
   }
-  const CGFloat top = host_view.isFlipped ? NSMinY(page)
-                                          : NSHeight(bounds) - NSMaxY(page);
+  const CGFloat top =
+      host_view.isFlipped ? NSMinY(page) : NSHeight(bounds) - NSMaxY(page);
   return gfx::Rect(NSMinX(page), top, NSWidth(page), NSHeight(page));
 }
 
@@ -171,4 +172,4 @@ void TabDialogHost::NotifyPositionRequiresUpdate() {
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(TabDialogHost);
 
-}
+}  // namespace pane

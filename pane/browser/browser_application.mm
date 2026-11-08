@@ -1,11 +1,12 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#import "pane/public/PaneBrowserApplication.h"
-
 #include <limits.h>
+
 #include <string>
 #include <vector>
 
+#include "base/apple/foundation_util.h"
+#include "base/barrier_closure.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -15,6 +16,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
+#include "base/version_info/version_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
@@ -28,30 +30,27 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_paths_internal.h"
 #include "components/embedder_support/user_agent_utils.h"
 #include "content/public/browser/gpu_data_manager.h"
-#include "gpu/config/gpu_info.h"
-#include "base/version_info/version_info.h"
-#include "pane/encryption/profile_migration.h"
-#include "pane/encryption/engine_keys.h"
-#include "pane/encryption/handover.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/pane_storage_service.h"
+#include "gpu/config/gpu_info.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
-#include "chrome/common/chrome_paths_internal.h"
-#include "services/network/enterprise/encryption/pane_cache_hook.h"
-#include "services/network/public/mojom/network_service.mojom.h"
-#include "base/apple/foundation_util.h"
-#include "base/barrier_closure.h"
 #include "pane/browser/app_callback.h"
-#include "pane/browser/caches_in_memory.h"
-#include "pane/browser/fingerprints.h"
-#include "pane/browser/engine_trace.h"
-#include "pane/browser/ui/window_host.h"
-#include "pane/common/host.h"
-
 #import "pane/browser/browser_application_internal.h"
 #import "pane/browser/browser_context_internal.h"
+#include "pane/browser/caches_in_memory.h"
+#include "pane/browser/engine_trace.h"
+#include "pane/browser/fingerprints.h"
+#include "pane/browser/ui/window_host.h"
+#include "pane/common/host.h"
+#include "pane/encryption/engine_keys.h"
+#include "pane/encryption/handover.h"
+#include "pane/encryption/profile_migration.h"
+#import "pane/public/PaneBrowserApplication.h"
+#include "services/network/enterprise/encryption/pane_cache_hook.h"
+#include "services/network/public/mojom/network_service.mojom.h"
 
 extern "C" int ChromeMain(int argc, const char** argv);
 
@@ -167,7 +166,8 @@ void CloseEveryPage(Profile* profile) {
 // destroyed or, at the latest, at the next start. Deletes itself.
 class ProfileDeletionWaiter : public ProfileManagerObserver {
  public:
-  ProfileDeletionWaiter(base::FilePath path, base::OnceCallback<void(bool)> done)
+  ProfileDeletionWaiter(base::FilePath path,
+                        base::OnceCallback<void(bool)> done)
       : path_(std::move(path)), done_(std::move(done)) {
     observation_.Observe(g_browser_process->profile_manager());
   }
@@ -252,8 +252,9 @@ class ProfileDestructionWaiter : public ProfileObserver,
     [NSException raise:NSInternalInconsistencyException
                 format:@"The Pane engine runs once per process."];
   }
-  g_application = [[PaneBrowserApplication alloc] initWithDelegate:delegate
-                                                     dataDirectory:dataDirectory];
+  g_application =
+      [[PaneBrowserApplication alloc] initWithDelegate:delegate
+                                         dataDirectory:dataDirectory];
 
   // A launch on the mock keychain, a scenario's, whose secret opens none of
   // the user's data (ADR 0113), passes Chrome its switches. Any other passes
@@ -312,8 +313,8 @@ class ProfileDestructionWaiter : public ProfileObserver,
   AddToSwitchList(args, "disable-features",
                   "SegmentationPlatform,SegmentationPlatformUkmEngine");
   // Chromium's own encrypted copies of the bookmarks and the sessions open with
-  // the Keychain's secret alone, without the PIN: the profile's own files replace
-  // them (ADR 0121).
+  // the Keychain's secret alone, without the PIN: the profile's own files
+  // replace them (ADR 0121).
   AddToSwitchList(args, "disable-features",
                   "EncryptBookmarks,EncryptSessionStorage");
   // Its histograms (BrowserMetrics) Chrome sets up before it reads the
@@ -403,8 +404,8 @@ class ProfileDestructionWaiter : public ProfileObserver,
       manager->user_data_dir().Append(base::SysNSStringToUTF8(identifier));
 
   // Before anything of the profile opens, in this process or another.
-  RegisterEngineKey(manager->user_data_dir(), base::SysNSStringToUTF8(identifier),
-                    engineKey);
+  RegisterEngineKey(manager->user_data_dir(),
+                    base::SysNSStringToUTF8(identifier), engineKey);
 
   NSString* key = [identifier copy];
   __weak PaneBrowserApplication* weakSelf = self;
@@ -499,11 +500,9 @@ class ProfileDestructionWaiter : public ProfileObserver,
 
             return pane::MigrateProfileFiles(
                 profile, root.AppendASCII("Cache"),
-                base::BindRepeating(
-                    [](void (^progress)(double), double share) {
-                      progress(share);
-                    },
-                    progress));
+                base::BindRepeating([](void (^progress)(double),
+                                       double share) { progress(share); },
+                                    progress));
           },
           root, [progress copy]),
       base::BindOnce(
@@ -542,9 +541,9 @@ class ProfileDestructionWaiter : public ProfileObserver,
        base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
       base::BindOnce(&pane::RestoreSafetyCopy, root.AppendASCII("Profile"),
                      root.AppendASCII("SafetyCopy")),
-      base::BindOnce([](void (^completion)(BOOL),
-                        bool restored) { completion(restored); },
-                     [completion copy]));
+      base::BindOnce(
+          [](void (^completion)(BOOL), bool restored) { completion(restored); },
+          [completion copy]));
 }
 
 - (void)repairContextWithIdentifier:(NSString*)identifier
@@ -583,8 +582,8 @@ class ProfileDestructionWaiter : public ProfileObserver,
           [completion copy]));
 }
 
-- (void)dropEngineKeysWithCompletion:(void (^)(NSDictionary<NSString*, NSNumber*>*
-                                                   left))completion {
+- (void)dropEngineKeysWithCompletion:
+    (void (^)(NSDictionary<NSString*, NSNumber*>* left))completion {
   PANE_TRACE("call", "PaneBrowserApplication.dropEngineKeys");
   pane::encryption::DropKeys();
 
@@ -666,8 +665,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
   g_browser_process->profile_manager()
       ->GetDeleteProfileHelper()
       .MaybeScheduleProfileForDeletion(
-          path, base::DoNothing(),
-          ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
+          path, base::DoNothing(), ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
 }
 
 - (void)closeContext:(PaneBrowserContext*)context
@@ -756,8 +754,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
 }
 
 - (NSString*)chromiumVersion {
-  return base::SysUTF8ToNSString(
-      std::string(version_info::GetVersionNumber()));
+  return base::SysUTF8ToNSString(std::string(version_info::GetVersionNumber()));
 }
 
 - (void)setKeepsCachesInMemory:(BOOL)inMemory
@@ -840,8 +837,8 @@ class ProfileDestructionWaiter : public ProfileObserver,
   }
   _shutDown = YES;
   PANE_TRACE("callback", "PaneBrowserApplication.willShutDown");
-  if ([_delegate respondsToSelector:@selector
-                 (browserApplicationWillShutDown:)]) {
+  if ([_delegate
+          respondsToSelector:@selector(browserApplicationWillShutDown:)]) {
     [_delegate browserApplicationWillShutDown:self];
   }
   for (PaneBrowserContext* context in _contexts.allValues) {

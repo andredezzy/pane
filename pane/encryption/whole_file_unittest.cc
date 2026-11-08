@@ -87,7 +87,8 @@ TEST_F(WholeFileHooksTest, WriteFileAndImportantFileWriterSealAProfilesFile) {
   const base::FilePath plain = profile_.Append("Written");
   const base::FilePath atomic = profile_.Append("Preferences");
   ASSERT_TRUE(base::WriteFile(plain, "secret one"));
-  ASSERT_TRUE(base::ImportantFileWriter::WriteFileAtomically(atomic, "secret two"));
+  ASSERT_TRUE(
+      base::ImportantFileWriter::WriteFileAtomically(atomic, "secret two"));
 
   for (const auto& path : {plain, atomic}) {
     const std::string raw = RawBytes(path);
