@@ -55,6 +55,8 @@ After the release, a copy of each published build, on throwaway data, found 0.19
 | 0.15.2 | 7.1 s | ✓ |
 | 0.14.2 | 7.1 s | ✓ |
 
+**0.19.1,** the same way: from 0.19.0, 0.18.0, and 0.17.2, downloaded in 9.2 to 12.8 s, each swapped at quit and read back. On its candidate: 71 scenarios pass in the background, 8 defer for the front, none fail; `files-migration` from 0.15.2 and 0.17.2 with the repair from 0.18.0, and `files-migration-large`.
+
 **Not run this way:** 0.13.1 and before. Their automation lacks what the harness reads, so `identifier-move`, `security`, `proxy`, and `migration` cover their data, and ADR 0114 their update, which opens the dmg for one drag.
 
 ## The files from another app
