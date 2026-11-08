@@ -12,7 +12,7 @@ Pick the bump with judgement, following semver:
 - **minor** (`0.1.1 → 0.2.0`) — new backward-compatible features.
 - **major** (`0.1.1 → 1.0.0`) — breaking changes or a milestone release.
 
-**Publishing is driven by tags.** GitHub Actions (`.github/workflows/release.yml`) publishes a release whenever a `v*` tag on `main` is pushed (a tag on any other branch fails):
+**Publishing is driven by tags.** GitHub Actions (`.github/workflows/release.yml`) publishes a release whenever a `v*` tag on `main` is pushed, or on `swift` (below); a tag on any other branch fails:
 
 ```bash
 # 1. Bump app/VERSION (per the judgement above).
@@ -25,6 +25,8 @@ git push && git push origin "v<version>"
 ```
 
 CI verifies the tag matches `app/VERSION` and runs PaneKit's tests. It then builds the app on the prebuilt engine that `engine/prebuilt-engines.tsv` names for the tagged commit, packages the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. When a release changes the engine (`engine/`: `CHROMIUM_VERSION`, `args`, `patches`, `pane`), build it locally first and publish it with `engine/scripts/publish-engine.sh`: its archive becomes the `engine-<key>` prerelease, and its line goes in `prebuilt-engines.tsv` (`engine/UPGRADING.md`, step 6).
+
+**The Swift line ships from `swift`, the one exception to working and tagging on `main`.** `main` is the Views line (`docs/plans/views-migration.md`, D1) until its first release. A fix the Swift app still takes, for data loss or security only, goes on the `swift` branch, cut from `v0.19.1`, whose engine archive is `46b8f8b35c24`; it is released from there with a tag on `swift`, by the steps above, and goes into `main` as well while `main` still holds the code it fixes.
 
 **Building locally is for testing.** To produce a distributable on your own machine without cutting a release:
 
@@ -45,7 +47,7 @@ The dmg is ad-hoc signed and not notarized (no Apple Developer ID is configured)
 - **The product's words** are in `CONTEXT.md`: use its terms, and avoid what it says to avoid, in code, docs, and what Pane shows.
 - **Package manager: Bun** — a `bun.lock` is present. Use `bun` / `bunx`; never npm, pnpm, or yarn. Bun runs the scenario runner (`tests/`) and the linters.
 - Before committing: `bun run lint`, `bun run typecheck` (the scenario runner), `bun run test` (PaneKit's `swift test`), and `bun run knip` should pass. `bun run lint` fixes what it can, so a fix it made goes in the commit too: Gates runs `bunx eslint tests` and `bunx biome ci .`, which fix nothing. A change to the app or the engine also runs the scenarios it touches (`docs/building.md`, Scenarios). A change to the engine also runs `pane_unittests` (`docs/building.md`, Engine unit tests), which CI cannot, since it never builds Chromium.
-- Before a push or a tag, also run in `app/PaneKit` what the App workflow (`.github/workflows/app.yml`) runs beyond those: `swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict`, `swift test --sanitize=thread --scratch-path .build-tsan`, and `swift test --sanitize=address --scratch-path .build-asan`. A deprecation once passed every check above and failed only the strict build, which turned App red on a release's tag.
+- Before a push or a tag, also run in `app/PaneKit` what the Release workflow (`.github/workflows/release.yml`) runs beyond those: `swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict`, `swift test --sanitize=thread --scratch-path .build-tsan`, and `swift test --sanitize=address --scratch-path .build-asan`. A deprecation once passed every check above and failed only the strict build, which turned CI red on a release's tag. CI runs no scenarios on `main`: before a push or a tag, run on this Mac the scenarios the change touches, on a build of it (`docs/building.md`, Scenarios).
 - **QA drives only a test copy.** Start Pane through the scenario harness, on throwaway data, never `/Applications` or the user's data root. Real keys and clicks go only to that copy, proven frontmost right before each one: never to Finder, a terminal, or any app holding the user's windows, even for a throwaway folder. `screencapture -l` takes only a window whose title or owner proves it is the test's. To see how a file looks from another app, use `strings`, `sqlite3`, and `file` in a shell, which send no input.
 - **The Electron app is retired**: 0.7.0 moved its users to the native app. Its last state is the `electron` branch, kept as a backup and not maintained; comments that cite `apps/veil` or `packages/` point there. Work on `main`.
 

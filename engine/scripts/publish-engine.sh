@@ -2,7 +2,7 @@
 # Publishes the engine this checkout's sources name, for CI and the release
 # workflow to fetch (fetch-engine.sh): its archive as the engine-<key> GitHub
 # prerelease, then its line in prebuilt-engines.tsv, which the caller
-# commits. CI never builds Chromium (app.yml), so an engine change is built
+# commits. CI never builds Chromium (release.yml), so an engine change is built
 # here first (build.sh) and published with this. The archive is the engine's
 # bundle, stripped, with its framework at its top for the linker, its SHA-256,
 # and PaneCore's dSYM beside it, made when missing and only from the engine

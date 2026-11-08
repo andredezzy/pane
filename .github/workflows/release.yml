@@ -1,10 +1,12 @@
 name: Release
 
 # Publishes Pane-<version>-arm64.dmg, the asset the in-app update check
-# reads, when a v* tag on main is pushed. The app builds on the prebuilt
-# engine its engine sources name (engine/prebuilt-engines.tsv): an
-# engine change publishes its engine-<key> prerelease first
-# (engine/UPGRADING.md).
+# reads, when a v* tag is pushed on main, or on the swift branch the Swift
+# line ships its fixes from until the Views cutover (AGENTS.md). The app
+# builds on the prebuilt engine its engine sources name
+# (engine/prebuilt-engines.tsv): an engine change publishes its
+# engine-<key> prerelease first (engine/UPGRADING.md). CI runs no
+# scenarios: they run on a developer's Mac before each push and tag.
 
 on:
   push:
@@ -26,11 +28,12 @@ permissions:
 jobs:
   release:
     name: Build and publish
-    # macOS 27 with Xcode 27 on Apple Silicon, as in app.yml.
+    # macOS 27 with Xcode 27 on Apple Silicon: the toolchain the app is
+    # developed with.
     runs-on: xcode-27
 
     steps:
-      # The whole history, to tell whether the tag is on main.
+      # The whole history, to tell whether the tag is on main or swift.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,18 +51,23 @@ jobs:
           echo "Tag ${GITHUB_REF_NAME} matches app/VERSION ${version}."
 
       # The release is published as the latest at once, and every Pane's
-      # update check offers it: a tag on another branch publishes nothing.
-      - name: Verify the tag is on main
+      # update check offers it: a tag on any branch but main and swift
+      # publishes nothing.
+      - name: Verify the tag is on main or swift
         if: github.ref_type == 'tag'
         run: |
-          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
-            echo "::error::Tag ${GITHUB_REF_NAME} is not on main. Merge the release into main, then tag it there."
-            exit 1
-          fi
-          echo "Tag ${GITHUB_REF_NAME} is on main."
+          for branch in main swift; do
+            if git merge-base --is-ancestor "${GITHUB_SHA}" "origin/${branch}"; then
+              echo "Tag ${GITHUB_REF_NAME} is on ${branch}."
+              exit 0
+            fi
+          done
+          echo "::error::Tag ${GITHUB_REF_NAME} is on neither main nor swift. Merge the release into one of them, then tag it there."
+          exit 1
 
-      # As app.yml: a release ran none of this until v0.17.1's strict build
-      # failed only there.
+      # PaneKit's tests under the Thread and Address Sanitizers, and built
+      # with warnings as errors: a release ran none of this until v0.17.1's
+      # strict build failed only in CI.
       - name: PaneKit tests, sanitized and strict
         working-directory: app/PaneKit
         run: |
@@ -67,8 +75,28 @@ jobs:
           swift test --sanitize=address --scratch-path .build-asan
           swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict
 
-      - name: XcodeGen and the prebuilt engine
-        uses: ./.github/actions/setup-app-build
+      # A release zip rather than Homebrew's latest: two builds of one tag
+      # generate the same project.
+      - name: Install XcodeGen
+        env:
+          XCODEGEN_VERSION: "2.46.0"
+          XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+        run: |
+          zip="$RUNNER_TEMP/xcodegen.zip"
+          dir="$RUNNER_TEMP/xcodegen-$XCODEGEN_VERSION"
+          curl -fsSL --retry 3 -o "$zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $zip" | shasum -a 256 -c --quiet
+          mkdir -p "$dir"
+          unzip -q "$zip" -d "$dir"
+          echo "$dir/xcodegen/bin" >> "$GITHUB_PATH"
+
+      # The engine its engine sources name (engine/prebuilt-engines.tsv),
+      # into a variable first: within echo's arguments a failed fetch left
+      # the step green and PANE_ENGINE_OUT empty.
+      - name: Fetch the prebuilt engine
+        run: |
+          engine="$(engine/scripts/fetch-engine.sh)"
+          echo "PANE_ENGINE_OUT=$engine" >> "$GITHUB_ENV"
 
       # Ad-hoc signed, as every release so far: Developer ID signing and
       # notarization (PANE_SIGN_IDENTITY, PANE_NOTARY_PROFILE) wait for an

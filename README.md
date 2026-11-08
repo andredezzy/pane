@@ -72,7 +72,7 @@ engine/        # Pane Framework.framework: the pinned Chromium tag, gn args, pat
 tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
 docs/          # building.md, human-checklist.md, adr/ (one record per subject), benchmarks/, growth/, qa/
 third_party/   # the license and origin of each project Pane takes code from (NOTICE)
-.github/       # CI: gates.yml (linters), app.yml (tests and build), release.yml (the dmg, on a v* tag), chromium-watch.yml (when Chrome's Mac stable moves)
+.github/       # CI: gates.yml (linters), release.yml (the dmg, on a v* tag), chromium-watch.yml (when Chrome's Mac stable moves)
 ```
 
 ## Scripts

@@ -39,7 +39,7 @@ export type ScenarioContext = {
 // A scenario that checks returns nothing.
 export type Scenario = (context: ScenarioContext) => Promise<unknown>;
 
-export class ScenarioFailure extends Error {}
+class ScenarioFailure extends Error {}
 
 export function expect(condition: unknown, message: string): asserts condition {
 	if (!condition) {
