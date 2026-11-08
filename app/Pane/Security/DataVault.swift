@@ -549,7 +549,11 @@ final class DataVault {
 		}
 
 		if device == nil {
-			device = Self.settled(attaching)?.device ?? Self.settled(image)??.image
+			// The launch's image only if it still holds this image: a volume refused
+			// as not encrypted was detached then, and its number may be another
+			// disk's by now.
+			device = Self.settled(attaching)?.device
+				?? (Self.settled(image)??.image).flatMap { volume.holds(device: $0) ? $0 : nil }
 		}
 
 		guard let device else {
@@ -637,7 +641,7 @@ final class DataVault {
 				device = attached.device
 			}
 
-			if device == nil, let devices = await image?.value {
+			if device == nil, let devices = await image?.value, volume.holds(device: devices.image) {
 				device = devices.image
 			}
 

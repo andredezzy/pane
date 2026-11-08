@@ -428,21 +428,32 @@ public struct DataVolume: Sendable {
 
 	// Every attachment of this image hdiutil lists, by its device.
 	public func detachLeftovers() {
+		for device in devicesHoldingImage() {
+			try? detach(device: device, force: true)
+		}
+	}
+
+	// Whether `device` still holds this image. Detached, its number goes to the next
+	// disk attached, so one remembered from before is checked first (DataVault).
+	public func holds(device: String) -> Bool {
+		devicesHoldingImage().contains(Self.device(device))
+	}
+
+	// Each device hdiutil lists for this image.
+	private func devicesHoldingImage() -> [String] {
 		guard
 			let output = try? run("/usr/bin/hdiutil", ["info", "-plist"]),
 			let info = try? PropertyListSerialization.propertyList(from: output, format: nil) as? [String: Any],
 			let images = info["images"] as? [[String: Any]]
 		else {
-			return
+			return []
 		}
 
 		let path = Self.realPath(image.path)
 
-		for attached in images where (attached["image-path"] as? String).map(Self.realPath) == path {
-			if let device = (attached["system-entities"] as? [[String: Any]]).flatMap(Self.imageDevice) {
-				try? detach(device: device, force: true)
-			}
-		}
+		return images
+			.filter { ($0["image-path"] as? String).map(Self.realPath) == path }
+			.compactMap { ($0["system-entities"] as? [[String: Any]]).flatMap(Self.imageDevice) }
 	}
 
 	// With its links resolved (/var is /private/var), as hdiutil may name it.

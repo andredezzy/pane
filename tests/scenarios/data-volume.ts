@@ -193,7 +193,25 @@ const dataVolume: Scenario = async (context) => {
 		await plainApp.render(`data-volume-07.8-${theme}.png`, 600);
 	}
 
+	// Pane detached the plain image as it refused it: a disk given that number
+	// since stays attached through Pane's quit.
+	const decoy = join(context.tempDir("pane-volume-decoy-"), "Decoy.dmg");
+	await Bun.$`/usr/bin/hdiutil create -quiet -size 1m -fs HFS+ -volname Decoy ${decoy}`.quiet();
+
+	const decoyDevice = /<string>(\/dev\/disk\d+)<\/string>/.exec(
+		await Bun.$`/usr/bin/hdiutil attach ${decoy} -nomount -plist`.text(),
+	)?.[1];
+
 	await plainApp.browser.close();
+	const decoyKept = (await Bun.$`/usr/bin/hdiutil info`.text()).includes(decoy);
+	await Bun.$`/usr/bin/hdiutil detach ${decoyDevice ?? decoy} -force`
+		.quiet()
+		.nothrow();
+
+	expect(
+		decoyKept,
+		`Pane's quit detached another disk, given its image's number: ${decoyDevice}`,
+	);
 
 	// Nothing of the profile's reached it.
 	const look = context.tempDir("pane-volume-plain-");
