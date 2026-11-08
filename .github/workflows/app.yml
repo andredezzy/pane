@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - main
+      - swift
     paths:
       - "app/**"
       - "engine/**"

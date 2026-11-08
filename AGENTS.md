@@ -12,7 +12,7 @@ Pick the bump with judgement, following semver:
 - **minor** (`0.1.1 → 0.2.0`) — new backward-compatible features.
 - **major** (`0.1.1 → 1.0.0`) — breaking changes or a milestone release.
 
-**Publishing is driven by tags.** GitHub Actions (`.github/workflows/release.yml`) publishes a release whenever a `v*` tag on `main` is pushed (a tag on any other branch fails):
+**Publishing is driven by tags.** GitHub Actions (`.github/workflows/release.yml`) publishes a release whenever a `v*` tag on `main` is pushed, or on `swift` (below); a tag on any other branch fails:
 
 ```bash
 # 1. Bump app/VERSION (per the judgement above).
@@ -25,6 +25,8 @@ git push && git push origin "v<version>"
 ```
 
 CI verifies the tag matches `app/VERSION` and runs PaneKit's tests. It then builds the app on the prebuilt engine that `engine/prebuilt-engines.tsv` names for the tagged commit, packages the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. When a release changes the engine (`engine/`: `CHROMIUM_VERSION`, `args`, `patches`, `pane`), build it locally first and publish it with `engine/scripts/publish-engine.sh`: its archive becomes the `engine-<key>` prerelease, and its line goes in `prebuilt-engines.tsv` (`engine/UPGRADING.md`, step 6).
+
+**The Swift line ships from `swift`, the one exception to working and tagging on `main`.** `main` is the Views line (`docs/plans/views-migration.md` there, D1) until its first release. This branch, cut from `v0.19.1`, whose engine archive is `46b8f8b35c24`, takes the fixes the Swift app still needs, for data loss or security only; it is released with a tag on `swift`, by the steps above, and each fix goes into `main` as well while `main` still holds the code it fixes.
 
 **Building locally is for testing.** To produce a distributable on your own machine without cutting a release:
 
