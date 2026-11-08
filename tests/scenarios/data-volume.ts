@@ -204,6 +204,7 @@ const dataVolume: Scenario = async (context) => {
 
 	await plainApp.browser.close();
 	const decoyKept = (await Bun.$`/usr/bin/hdiutil info`.text()).includes(decoy);
+
 	await Bun.$`/usr/bin/hdiutil detach ${decoyDevice ?? decoy} -force`
 		.quiet()
 		.nothrow();
