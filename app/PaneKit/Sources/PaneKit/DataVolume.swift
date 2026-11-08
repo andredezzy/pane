@@ -138,8 +138,39 @@ public struct DataVolume: Sendable {
 			return container
 		}
 
+		let path = image.hasPrefix("/dev/") ? image : "/dev/\(image)"
+
+		try Self.whenReady {
+			guard FileManager.default.fileExists(atPath: path) else {
+				throw Failure(command: "newfs_apfs", status: 0, output: "no \(path) yet")
+			}
+		}
+
 		try run("/sbin/newfs_apfs", ["-C", "-w", image])
-		return try container(of: image)
+		return try Self.whenReady { try container(of: image) }
+	}
+
+	// A disk just made shows a moment after the tool that made it returns, on a
+	// loaded Mac: on CI, newfs_apfs found no /dev/disk5, diskutil no container after
+	// it, and no APFS volume to unlock, each in one of a few runs. `body` is asked
+	// again for up to 3 s while `notYet` takes its failure for that.
+	private static func whenReady<T>(_ body: () throws -> T, notYet: (Error) -> Bool = { _ in true }) throws -> T {
+		let deadline = Date().addingTimeInterval(3)
+
+		while true {
+			do {
+				return try body()
+			} catch where notYet(error) && Date() < deadline {
+				usleep(100_000)
+			}
+		}
+	}
+
+	// Only "not found" is asked again: a wrong passphrase fails at once.
+	private func unlock(_ volume: String, with passphrase: String) throws {
+		try Self.whenReady({
+			_ = try run("/usr/sbin/diskutil", ["apfs", "unlockVolume", volume, "-stdinpassphrase", "-nomount"], input: passphrase)
+		}, notYet: { ($0 as? Failure)?.output.contains("Could not find APFS Volume") == true })
 	}
 
 	// The image attached once, its volume locked. One with no volume yet,
@@ -233,14 +264,10 @@ public struct DataVolume: Sendable {
 	// call to APFS, so a kill leaves one passphrase or the other, and each is
 	// tried.
 	public func open(_ devices: Devices, passphrase: String, former: String? = nil) throws {
-		var unlocked = Result {
-			try run("/usr/sbin/diskutil", ["apfs", "unlockVolume", devices.volume, "-stdinpassphrase", "-nomount"], input: passphrase)
-		}
+		var unlocked = Result { try unlock(devices.volume, with: passphrase) }
 
 		if case .failure = unlocked, let former {
-			let unlockedWithFormer = Result {
-				try run("/usr/sbin/diskutil", ["apfs", "unlockVolume", devices.volume, "-stdinpassphrase", "-nomount"], input: former)
-			}
+			let unlockedWithFormer = Result { try unlock(devices.volume, with: former) }
 
 			if case .success = unlockedWithFormer {
 				unlocked = unlockedWithFormer
