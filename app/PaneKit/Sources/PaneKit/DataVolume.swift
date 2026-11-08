@@ -148,10 +148,10 @@ public struct DataVolume: Sendable {
 	// A disk just made is ready a moment after the tool that made it returns, on a
 	// loaded Mac: on CI, newfs_apfs found no /dev/disk5, then could not open a
 	// /dev/disk7 just detached and given again; diskutil found no container after
-	// it, and no APFS volume to unlock; each in one of a few runs. `body` is asked
-	// again for up to 3 s while `notYet` takes its failure for that.
+	// it, and no APFS volume to unlock, for over 3 s once; each in one of a few runs.
+	// `body` is asked again for up to 10 s while `notYet` takes its failure for that.
 	private static func whenReady<T>(_ body: () throws -> T, notYet: (Error) -> Bool = { _ in true }) throws -> T {
-		let deadline = Date().addingTimeInterval(3)
+		let deadline = Date().addingTimeInterval(10)
 
 		while true {
 			do {
