@@ -85,13 +85,6 @@ jobs:
           --out "$RUNNER_TEMP/scenarios"
           smoke hosted quiet navigation profiles-isolation restore open-urls security crlset
           files-encrypted fullscreen quit key-precedence
-          app-icon certificate-interstitial context-menu cookies
-          device-chooser devtools-undocked devtools dialog-tab-closed
-          downloads engine-keys extension-context-menus external-protocol find
-          hung-renderer identifier-move lock-while-open password-manager-off
-          permission-prompt picture-in-picture print private-traces
-          progress-bar proxy-auth screen-capture tab-discard tab-focus theme
-          update-install window-chrome
 
       - name: Keep the scenarios' evidence
         if: failure()
