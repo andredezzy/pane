@@ -4,7 +4,9 @@ import Testing
 
 // The volume's links and moves, on a plain folder standing in for the
 // attached volume: the disk image itself is the scenarios' (security).
-@Suite("DataVolume")
+// One at a time: these attach real images, and a cleanup that detaches by device
+// number would take another test's image, given the same number a moment later.
+@Suite("DataVolume", .serialized)
 struct DataVolumeTests {
 	private let fileManager = FileManager.default
 
