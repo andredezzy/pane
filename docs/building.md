@@ -26,7 +26,7 @@ engine/scripts/apply-patches.sh   # apply patches/series (no-op when unchanged)
 engine/scripts/build.sh           # out/Release, target `chrome` (args/release.gn)
 ```
 
-Every script is safe to re-run. The first sync and the first build take hours; later builds are incremental. Moving to a newer Chromium is a routine: `engine/UPGRADING.md`.
+Every script is safe to re-run. The first sync and the first build take hours; later builds are incremental. The checkout syncs Windows' dependencies and Chrome's PGO profiles too (ADR 0007); to compile for Windows, sync once with `PANE_WIN_TOOLCHAIN_DIR` naming the folder that holds the toolchain's zip, packaged from a Visual Studio install (Chromium's `docs/windows_build_instructions.md`, Packaging), which stays outside the repo. Moving to a newer Chromium is a routine: `engine/UPGRADING.md`.
 
 ## Patches
 
