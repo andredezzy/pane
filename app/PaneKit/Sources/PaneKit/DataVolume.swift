@@ -138,21 +138,17 @@ public struct DataVolume: Sendable {
 			return container
 		}
 
-		let path = image.hasPrefix("/dev/") ? image : "/dev/\(image)"
+		try Self.whenReady({
+			_ = try run("/sbin/newfs_apfs", ["-C", "-w", image])
+		}, notYet: { ($0 as? Failure).map { $0.output.contains("unable to open") || $0.output.contains("unable to format") } == true })
 
-		try Self.whenReady {
-			guard FileManager.default.fileExists(atPath: path) else {
-				throw Failure(command: "newfs_apfs", status: 0, output: "no \(path) yet")
-			}
-		}
-
-		try run("/sbin/newfs_apfs", ["-C", "-w", image])
 		return try Self.whenReady { try container(of: image) }
 	}
 
-	// A disk just made shows a moment after the tool that made it returns, on a
-	// loaded Mac: on CI, newfs_apfs found no /dev/disk5, diskutil no container after
-	// it, and no APFS volume to unlock, each in one of a few runs. `body` is asked
+	// A disk just made is ready a moment after the tool that made it returns, on a
+	// loaded Mac: on CI, newfs_apfs found no /dev/disk5, then could not open a
+	// /dev/disk7 just detached and given again; diskutil found no container after
+	// it, and no APFS volume to unlock; each in one of a few runs. `body` is asked
 	// again for up to 3 s while `notYet` takes its failure for that.
 	private static func whenReady<T>(_ body: () throws -> T, notYet: (Error) -> Bool = { _ in true }) throws -> T {
 		let deadline = Date().addingTimeInterval(3)
