@@ -6,9 +6,12 @@ import SwiftUI
 extension BrowserController {
 	// MARK: Theme (ADR 0001: one knob for the app, its menus, and pages)
 
+	// A scenario's PANE_SYSTEM_APPEARANCE stands in for the system's, which it
+	// can't change on a Mac in use, so its renders show either one, the
+	// Lock's included, before the settings open.
 	func applyTheme() {
 		switch model.settings.theme {
-		case .system: NSApp.appearance = nil
+		case .system: NSApp.appearance = TestHooks.environment("PANE_SYSTEM_APPEARANCE").flatMap { ["light": .aqua, "dark": .darkAqua][$0] }.flatMap(NSAppearance.init(named:))
 		case .light: NSApp.appearance = NSAppearance(named: .aqua)
 		case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
 		}
