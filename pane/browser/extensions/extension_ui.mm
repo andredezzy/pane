@@ -10,7 +10,7 @@
 #include "base/no_destructor.h"
 #include "chrome/browser/extensions/extension_install_prompt_show_params.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/extensions/extension_install_ui.h"
 #include "chrome/browser/ui/extensions/reload_page_dialog_controller.h"
 #include "extensions/browser/extension_action.h"

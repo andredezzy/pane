@@ -37,12 +37,14 @@
 #include "content/public/browser/pane_storage_service.h"
 #include "gpu/config/gpu_info.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "pane/app/engine_switches.h"
 #include "pane/browser/app_callback.h"
 #import "pane/browser/browser_application_internal.h"
 #import "pane/browser/browser_context_internal.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/fingerprints.h"
+#include "pane/browser/profiles.h"
 #include "pane/browser/ui/window_host.h"
 #include "pane/common/host.h"
 #include "pane/encryption/engine_keys.h"
@@ -62,77 +64,6 @@ namespace {
 PaneBrowserApplication* g_application = nil;
 
 NSString* const kErrorDomain = @"PaneBrowserApplication";
-
-bool HasSwitch(const std::vector<std::string>& args, std::string_view name) {
-  const std::string prefix = "--" + std::string(name);
-  for (const std::string& arg : args) {
-    if (arg == prefix || arg.starts_with(prefix + "=")) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Adds `value` to a comma-separated switch (--disable-features=…), keeping
-// whatever the command line already lists there.
-void AddToSwitchList(std::vector<std::string>& args,
-                     std::string_view name,
-                     std::string_view value) {
-  const std::string prefix = "--" + std::string(name) + "=";
-  for (std::string& arg : args) {
-    if (arg.starts_with(prefix)) {
-      arg += "," + std::string(value);
-      return;
-    }
-  }
-  args.push_back(prefix + std::string(value));
-}
-
-// A profile identifier becomes a directory name under the engine's user data
-// dir, so it may not name anything else, nor be longer than a file name can
-// be (255 bytes on APFS).
-bool IsValidIdentifier(NSString* identifier) {
-  if (identifier.length == 0 || [identifier isEqualToString:@"."] ||
-      [identifier isEqualToString:@".."] ||
-      [identifier lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > NAME_MAX) {
-    return false;
-  }
-  return [identifier rangeOfString:@"/"].location == NSNotFound &&
-         [identifier rangeOfString:@":"].location == NSNotFound;
-}
-
-// The roots a profile's files live under, in each form a path reaches them, and
-// its key, for this process and, through ContentBrowserClient, the others'.
-void RegisterEngineKey(const base::FilePath& user_data_dir,
-                       const std::string& identifier,
-                       NSData* key) {
-  pane::encryption::InstallHooks();
-  network::enterprise_encryption::InstallPaneCacheHook();
-
-  std::vector<base::FilePath> roots = {user_data_dir,
-                                       user_data_dir.Append("Volume")};
-
-  // Their resolved forms: /var is /private/var, and the caches' folder links
-  // into the volume too. A realpath, once per open.
-  const base::FilePath resolved = base::MakeAbsoluteFilePath(user_data_dir);
-
-  if (!resolved.empty()) {
-    roots.push_back(resolved);
-    roots.push_back(resolved.Append("Volume"));
-  }
-
-  base::FilePath caches;
-  chrome::GetUserCacheDirectory(user_data_dir.Append(identifier), &caches);
-
-  if (!caches.empty() && caches.DirName() != user_data_dir) {
-    roots.push_back(caches.DirName());
-  }
-
-  pane::encryption::AddRoots(roots);
-  pane::encryption::RegisterKey(
-      identifier,
-      base::apple::NSDataToSpan(key).first<pane::encryption::kKeySize>());
-}
 
 NSError* ContextError(NSInteger code, NSString* description) {
   return [NSError errorWithDomain:kErrorDomain
@@ -256,81 +187,16 @@ class ProfileDestructionWaiter : public ProfileObserver,
       [[PaneBrowserApplication alloc] initWithDelegate:delegate
                                          dataDirectory:dataDirectory];
 
-  // A launch on the mock keychain, a scenario's, whose secret opens none of
-  // the user's data (ADR 0113), passes Chrome its switches. Any other passes
-  // the URLs it opens and Pane's own switches alone: a process of the user's
-  // starting Pane with --remote-debugging-port, --enable-logging, or
-  // --load-extension would read every page once the PIN opened the data.
+  // What Pane's engine starts with (EngineCommandLine): the switches the
+  // launch may keep, then the ones every launch runs with.
   NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
   const bool scenario = [arguments containsObject:@"--use-mock-keychain"];
-  std::vector<std::string> args;
-  for (NSUInteger index = 0; index < arguments.count; index++) {
-    NSString* arg = arguments[index];
-    if (index > 0 && !scenario && [arg hasPrefix:@"-"] &&
-        ![arg hasPrefix:@"--pane-wipe-after="]) {
-      continue;
-    }
-    args.push_back(base::SysNSStringToUTF8(arg));
+  std::vector<std::string> given;
+  for (NSString* arg in arguments) {
+    given.push_back(base::SysNSStringToUTF8(arg));
   }
-
-  // Chrome's own UI stays off: the app draws every window and the menu bar.
-  args.push_back("--" PANE_HOSTED_SWITCH);
-  args.push_back("--no-startup-window");
-  args.push_back("--no-first-run");
-  // Printing goes straight to the system print panel, not Chrome's preview.
-  args.push_back("--disable-print-preview");
-  // Features that put Chrome's own UI outside the app's window: Glic (Gemini
-  // in Chrome) adds a menu bar item, the Media Router a Cast dialog (the
-  // Electron app had no casting).
-  // From 158, a data directory other than Chrome's default, as Pane's is, can't
-  // use the "v10" key every cookie and password was sealed under: they read as
-  // gone, and every site signs out. It guards one app's data from another's
-  // copy of Chrome; Pane's are behind its own key already (docs/adr/0121).
-  AddToSwitchList(args, "disable-features",
-                  "KeychainKeyProviderUserDataDirProtection");
-  AddToSwitchList(args, "disable-features", "Glic,MediaRouter");
-  // Requests to Google that Chrome makes on its own and the Electron app
-  // never did (found by their traffic annotations in a net log): the
-  // component updater, the network time check, and the on-device AI model
-  // go out from the browser itself, past every profile's proxy; AI Mode's
-  // eligibility check carries a profile's Google cookies and country; the
-  // Translate ranker fetches its model. The default search engine's
-  // preconnect opens connections to Google no page asked for, at start and
-  // again while a page shows, which a net log shows as connections, not
-  // requests.
-  args.push_back("--disable-component-update");
-  AddToSwitchList(args, "disable-features",
-                  "NetworkTimeServiceQuerying,"
-                  "AimEnabled,"
-                  "OptimizationGuideModelExecution,"
-                  "OnDeviceModelBackgroundDownload,OptimizationHints,"
-                  "TranslateRankerQuery,TranslateRankerEnforcement,"
-                  "PreconnectToSearch");
-  // The segmentation platform keeps a database of the pages visited
-  // (segmentation_platform/ukm_db) at the user data dir's root, outside the
-  // volume every profile's data is in (ADR 0113), for guesses Chrome's own UI
-  // makes, which Pane does not show.
-  AddToSwitchList(args, "disable-features",
-                  "SegmentationPlatform,SegmentationPlatformUkmEngine");
-  // Chromium's own encrypted copies of the bookmarks and the sessions open with
-  // the Keychain's secret alone, without the PIN: the profile's own files
-  // replace them (ADR 0121).
-  AddToSwitchList(args, "disable-features",
-                  "EncryptBookmarks,EncryptSessionStorage");
-  // Its histograms (BrowserMetrics) Chrome sets up before it reads the
-  // features: patch 0008 keeps them off.
-  // Chrome discards background tabs under memory pressure (its urgent
-  // discarding), swapping an empty WebContents into the tab. Pane's sleep
-  // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard
-  // still works, and the TabBridge follows the tab into its new WebContents.
-  AddToSwitchList(args, "enable-features", "DisableTabDiscarding");
-
-  // An explicit --user-data-dir (scenarios use throwaway ones) wins.
-  if (!HasSwitch(args, "user-data-dir")) {
-    NSURL* engine = [dataDirectory URLByAppendingPathComponent:@"Engine"
-                                                   isDirectory:YES];
-    args.push_back("--user-data-dir=" + base::SysNSStringToUTF8(engine.path));
-  }
+  std::vector<std::string> args = pane::EngineCommandLine(
+      given, base::apple::NSURLToFilePath(dataDirectory));
 
   std::vector<const char*> argv;
   for (const std::string& arg : args) {
@@ -389,7 +255,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
     return;
   }
 
-  if (!IsValidIdentifier(identifier)) {
+  if (!pane::IsValidProfileIdentifier(base::SysNSStringToUTF8(identifier))) {
     completion(nil, ContextError(1, @"Invalid profile identifier."));
     return;
   }
@@ -398,14 +264,6 @@ class ProfileDestructionWaiter : public ProfileObserver,
     completion(nil, ContextError(5, @"The profile's key is not a key."));
     return;
   }
-
-  ProfileManager* manager = g_browser_process->profile_manager();
-  base::FilePath path =
-      manager->user_data_dir().Append(base::SysNSStringToUTF8(identifier));
-
-  // Before anything of the profile opens, in this process or another.
-  RegisterEngineKey(manager->user_data_dir(),
-                    base::SysNSStringToUTF8(identifier), engineKey);
 
   NSString* key = [identifier copy];
   __weak PaneBrowserApplication* weakSelf = self;
@@ -433,30 +291,8 @@ class ProfileDestructionWaiter : public ProfileObserver,
     completion(context, nil);
   });
 
-  if (manager->GetProfileByPath(path)) {
-    manager->CreateProfileAsync(path, std::move(created));
-    return;
-  }
-
-  // Chrome loads a new profile from a directory it does not check it could
-  // make: without one, the profile's preferences fail to load, the failure
-  // is never reported (a segregated pref store waits for both of its files),
-  // and the profile never finishes loading. The directory is made first,
-  // off the main thread, and a profile that cannot have one fails.
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
-      base::BindOnce(&base::CreateDirectory, path),
-      base::BindOnce(
-          [](base::FilePath path, base::OnceCallback<void(Profile*)> created,
-             bool exists) {
-            ProfileManager* manager = g_browser_process->profile_manager();
-            if (!exists || !manager) {
-              std::move(created).Run(nullptr);
-              return;
-            }
-            manager->CreateProfileAsync(path, std::move(created));
-          },
-          path, std::move(created)));
+  pane::OpenProfile(base::SysNSStringToUTF8(identifier),
+                    base::apple::NSDataToSpan(engineKey), std::move(created));
 }
 
 - (void)migrateContextWithIdentifier:(NSString*)identifier
@@ -468,8 +304,9 @@ class ProfileDestructionWaiter : public ProfileObserver,
       "call", "PaneBrowserApplication.migrateContext",
       base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
   ProfileManager* manager = g_browser_process->profile_manager();
-  RegisterEngineKey(manager->user_data_dir(),
-                    base::SysNSStringToUTF8(identifier), engineKey);
+  pane::RegisterEngineKey(manager->user_data_dir(),
+                          base::SysNSStringToUTF8(identifier),
+                          base::apple::NSDataToSpan(engineKey));
   // Resolved: Foundation has /var for /private/var, where the roots have both
   // only as the user data dir was given.
   const base::FilePath root =
@@ -523,8 +360,9 @@ class ProfileDestructionWaiter : public ProfileObserver,
       "call", "PaneBrowserApplication.restoreContext",
       base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
   ProfileManager* manager = g_browser_process->profile_manager();
-  RegisterEngineKey(manager->user_data_dir(),
-                    base::SysNSStringToUTF8(identifier), engineKey);
+  pane::RegisterEngineKey(manager->user_data_dir(),
+                          base::SysNSStringToUTF8(identifier),
+                          base::apple::NSDataToSpan(engineKey));
   // Resolved: Foundation has /var for /private/var, where the roots have both
   // only as the user data dir was given.
   const base::FilePath root =
@@ -554,8 +392,9 @@ class ProfileDestructionWaiter : public ProfileObserver,
       "call", "PaneBrowserApplication.repairContext",
       base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
   ProfileManager* manager = g_browser_process->profile_manager();
-  RegisterEngineKey(manager->user_data_dir(),
-                    base::SysNSStringToUTF8(identifier), engineKey);
+  pane::RegisterEngineKey(manager->user_data_dir(),
+                          base::SysNSStringToUTF8(identifier),
+                          base::apple::NSDataToSpan(engineKey));
   // Resolved: Foundation has /var for /private/var, where the roots have both
   // only as the user data dir was given.
   const base::FilePath root =

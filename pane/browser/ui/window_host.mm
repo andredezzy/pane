@@ -22,7 +22,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/tab_list/tab_removed_reason.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
@@ -42,6 +42,7 @@
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/web_contents_delegate.h"
 #import "pane/public/PaneBrowserWindow.h"
+#include "ui/base/hit_test.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -67,6 +68,16 @@ class HostClientView : public views::ClientView {
                  views::View* contents,
                  base::WeakPtr<WindowHost> host)
       : views::ClientView(widget, contents), host_(std::move(host)) {}
+
+  int NonClientHitTest(const gfx::Point& point) override {
+    if (host_ && host_->delegate()) {
+      if (const int hit = host_->delegate()->NonClientHitTest(point);
+          hit != HTNOWHERE) {
+        return hit;
+      }
+    }
+    return views::ClientView::NonClientHitTest(point);
+  }
 
   views::CloseRequestResult OnWindowCloseRequested() override {
     if (!host_ || host_->CanCloseWidget()) {
@@ -116,8 +127,59 @@ WindowHost* WindowHost::ForBrowser(const BrowserWindowInterface* browser) {
   return HostedBrowserWindow::HostOf(browser);
 }
 
+content::KeyboardEventProcessingResult
+WindowHost::Delegate::PreHandleKeyboardEvent(
+    const input::NativeWebKeyboardEvent& event) {
+  return content::KeyboardEventProcessingResult::NOT_HANDLED;
+}
+
+bool WindowHost::Delegate::HandleKeyboardEvent(
+    const input::NativeWebKeyboardEvent& event) {
+  return false;
+}
+
+views::NativeWidget* WindowHost::Delegate::CreateNativeWidget(
+    views::Widget* widget) {
+  return nullptr;
+}
+
+int WindowHost::Delegate::NonClientHitTest(const gfx::Point& point) {
+  return HTNOWHERE;
+}
+
+struct WindowHost::Cocoa {
+  __weak PaneBrowserWindow* owner;
+  PaneBrowserWindow* __strong owner_ref;
+  NSView* __strong host_view;
+};
+
 WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
-    : owner_(owner), owner_ref_(owner) {
+    : cocoa_(std::make_unique<Cocoa>()) {
+  cocoa_->owner = owner;
+  cocoa_->owner_ref = owner;
+  auto native_view_host = std::make_unique<views::NativeViewHost>();
+  views::NativeViewHost* holder = native_view_host.get();
+  InitWidget(bounds, std::move(native_view_host));
+
+  // The app's view fills the widget, as a WebView would hold a page: Views
+  // routes clicks and assistive technologies to it.
+  NSView* content = ns_window().contentView;
+  NSView* host_view = [[NSView alloc] initWithFrame:content.bounds];
+  host_view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+  host_view.wantsLayer = YES;
+  cocoa_->host_view = host_view;
+  holder->Attach(gfx::NativeView(host_view));
+}
+
+WindowHost::WindowHost(Delegate* delegate,
+                       const gfx::Rect& bounds,
+                       std::unique_ptr<views::View> contents)
+    : delegate_(delegate) {
+  InitWidget(bounds, std::move(contents));
+}
+
+void WindowHost::InitWidget(const gfx::Rect& bounds,
+                            std::unique_ptr<views::View> contents) {
   Hosts().push_back(this);
 
   widget_delegate_ = std::make_unique<views::WidgetDelegate>();
@@ -126,8 +188,7 @@ WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
   widget_delegate_->SetCanMinimize(true);
   widget_delegate_->SetCanFullscreen(true);
   widget_delegate_->SetTitle(u"Pane");
-  auto* native_view_host = widget_delegate_->SetContentsView(
-      std::make_unique<views::NativeViewHost>());
+  widget_delegate_->SetContentsView(std::move(contents));
   widget_delegate_->SetClientViewFactory(base::BindOnce(
       [](base::WeakPtr<WindowHost> host, views::Widget* widget,
          views::View* contents) -> std::unique_ptr<views::ClientView> {
@@ -140,18 +201,13 @@ WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
       views::Widget::InitParams::CLIENT_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW);
   params.delegate = widget_delegate_.get();
+  if (delegate_) {
+    params.native_widget = delegate_->CreateNativeWidget(widget_.get());
+  }
   params.bounds = bounds;
   params.name = "PaneWindow";
   widget_->Init(std::move(params));
   widget_->AddObserver(this);
-
-  // The app's view fills the widget, as a WebView would hold a page: Views
-  // routes clicks and assistive technologies to it.
-  NSView* content = ns_window().contentView;
-  host_view_ = [[NSView alloc] initWithFrame:content.bounds];
-  host_view_.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-  host_view_.wantsLayer = YES;
-  native_view_host->Attach(gfx::NativeView(host_view_));
 }
 
 WindowHost::~WindowHost() {
@@ -174,6 +230,14 @@ WindowHost::~WindowHost() {
     widget_->RemoveObserver(this);
   }
   widget_.reset();
+}
+
+NSView* WindowHost::host_view() const {
+  return cocoa_ ? cocoa_->host_view : nil;
+}
+
+PaneBrowserWindow* WindowHost::owner() const {
+  return cocoa_ ? cocoa_->owner : nil;
 }
 
 NSWindow* WindowHost::ns_window() const {
@@ -367,7 +431,11 @@ void WindowHost::NotifyWillClose() {
     return;
   }
   notified_will_close_ = true;
-  PaneBrowserWindow* owner = owner_;
+  if (delegate_) {
+    delegate_->WindowWillClose();
+    return;
+  }
+  PaneBrowserWindow* owner = this->owner();
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   if ([delegate respondsToSelector:@selector(browserWindowWillClose:)]) {
     [delegate browserWindowWillClose:owner];
@@ -388,8 +456,10 @@ void WindowHost::CloseWidget() {
     widget_->Close();
   }
   std::erase(Hosts(), this);
-  PaneBrowserWindow* owner = owner_ref_;
-  owner_ref_ = nil;
+  PaneBrowserWindow* owner = cocoa_ ? cocoa_->owner_ref : nil;
+  if (cocoa_) {
+    cocoa_->owner_ref = nil;
+  }
   // Released on the next turn, outside the widget's own close call.
   dispatch_async(dispatch_get_main_queue(), ^{
     (void)owner;
@@ -431,7 +501,7 @@ void WindowHost::OnTabStripModelChanged(
     const TabStripModelChange& change,
     const TabStripSelectionChange& selection) {
   ScopedAppCallback callback;
-  PaneBrowserWindow* owner = owner_;
+  PaneBrowserWindow* owner = this->owner();
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
 
   if (change.type() == TabStripModelChange::kInserted) {
@@ -457,6 +527,10 @@ void WindowHost::OnTabStripModelChanged(
           source ? TabBridge::GetOrCreate(source)->tab() : nil;
       PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didInsertTab",
                      base::DictValue().Set("foreground", foreground));
+      if (delegate_) {
+        delegate_->TabInserted(inserted.contents, source, foreground);
+        continue;
+      }
       if ([delegate respondsToSelector:@selector(browserWindow:didInsertTab:
                                                  opener:foreground:)]) {
         [delegate browserWindow:owner
@@ -494,6 +568,10 @@ void WindowHost::OnTabStripModelChanged(
         continue;
       }
       PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didRemoveTab");
+      if (delegate_) {
+        delegate_->TabRemoved(removed.contents);
+        continue;
+      }
       if ([delegate
               respondsToSelector:@selector(browserWindow:didRemoveTab:)]) {
         [delegate browserWindow:owner didRemoveTab:bridge->tab()];
@@ -506,7 +584,11 @@ void WindowHost::ShowExclusiveAccessHint(const std::u16string& marked_hint) {
   // Chrome marks the key to style it ("press |Esc|"); the app gets plain text.
   std::u16string hint;
   base::RemoveChars(marked_hint, u"|", &hint);
-  PaneBrowserWindow* owner = owner_;
+  if (delegate_) {
+    delegate_->ShowExclusiveAccessHint(hint);
+    return;
+  }
+  PaneBrowserWindow* owner = this->owner();
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   PANE_TRACE("callback", "PaneBrowserWindowDelegate.showExclusiveAccessHint",
              base::DictValue().Set("hint", base::UTF16ToUTF8(hint)));
@@ -528,7 +610,11 @@ void WindowHost::ActiveTabChanged(Browser* browser,
   ScopedAppCallback callback;
   TabBridge* bridge = TabBridge::GetOrCreate(contents);
   PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didActivateTab");
-  PaneBrowserWindow* owner = owner_;
+  if (delegate_) {
+    delegate_->ActiveTabChanged(browser, contents);
+    return;
+  }
+  PaneBrowserWindow* owner = this->owner();
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   if ([delegate respondsToSelector:@selector(browserWindow:didActivateTab:)]) {
     [delegate browserWindow:owner didActivateTab:bridge->tab()];
@@ -541,7 +627,11 @@ void WindowHost::FullscreenChanged(content::WebContents* contents,
   TabBridge* bridge = TabBridge::GetOrCreate(contents);
   PANE_TRACE_TAB(bridge, "PaneBrowserWindowDelegate.didChangeFullscreen",
                  base::DictValue().Set("fullscreen", fullscreen));
-  PaneBrowserWindow* owner = owner_;
+  if (delegate_) {
+    delegate_->FullscreenChanged(contents, fullscreen);
+    return;
+  }
+  PaneBrowserWindow* owner = this->owner();
   id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   if ([delegate
           respondsToSelector:@selector(
@@ -555,16 +645,27 @@ void WindowHost::FullscreenChanged(content::WebContents* contents,
 // MARK: web_modal::WebContentsModalDialogHost (window-modal dialogs)
 
 gfx::NativeView WindowHost::GetHostView() const {
-  return gfx::NativeView(host_view_);
+  if (delegate_) {
+    return widget_ ? widget_->GetNativeView() : gfx::NativeView();
+  }
+  return gfx::NativeView(host_view());
 }
 
 gfx::Point WindowHost::GetDialogPosition(const gfx::Size& size) {
+  if (delegate_) {
+    // Centered on the page, at its top, inside the window.
+    const gfx::Rect page = delegate_->PageBounds();
+    const int width = widget_ ? widget_->GetRootView()->width() : page.right();
+    const int x = std::clamp(page.x() + (page.width() - size.width()) / 2, 0,
+                             std::max(width - size.width(), 0));
+    return gfx::Point(x, page.y());
+  }
   Browser* browser =
       active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr;
   content::WebContents* contents =
       browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
   return DialogPositionInHostView(
-      host_view_, PageRectInHostView(host_view_, contents), size);
+      host_view(), PageRectInHostView(host_view(), contents), size);
 }
 
 bool WindowHost::ShouldActivateDialog() const {
@@ -572,11 +673,14 @@ bool WindowHost::ShouldActivateDialog() const {
 }
 
 gfx::Size WindowHost::GetMaximumDialogSize() {
+  if (delegate_) {
+    return delegate_->PageBounds().size();
+  }
   Browser* browser =
       active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr;
   content::WebContents* contents =
       browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
-  return PageRectInHostView(host_view_, contents).size();
+  return PageRectInHostView(host_view(), contents).size();
 }
 
 void WindowHost::AddObserver(web_modal::ModalDialogHostObserver* observer) {

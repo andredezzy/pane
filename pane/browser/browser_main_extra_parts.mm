@@ -19,9 +19,11 @@
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
+#include "pane/app/views_launch.h"
 #import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
-#include "pane/browser/ui/window_host.h"
+#include "pane/browser/ui/install_hooks.h"
+#include "pane/ui/app/ui_app.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 
 namespace pane {
@@ -91,6 +93,11 @@ void BrowserMainExtraParts::OnProfileManagerDestroying() {
 
 void BrowserMainExtraParts::PostBrowserStart() {
   InstallUIHooks();
+  // Launched by Chromium's loader, not the Swift app: Pane's UI is the
+  // engine's own.
+  if (IsViewsLaunch()) {
+    UiApp::Start();
+  }
   // ⌘Q quits at once, as it did in the Electron app. Chrome asks to hold it
   // (the "Warn Before Quitting" pref, on by default), in a panel of its own.
   g_browser_process->local_state()->SetBoolean(prefs::kConfirmToQuitEnabled,

@@ -1,1912 +1,1912 @@
 {
- "what": "The PGO engine (0.19.2's candidate) against the published 0.19.1, each stripped, taking turns: three rounds of every benchmark, then five of unlock alone.",
- "threeRounds": {
-  "binaries": {},
-  "rounds": 3,
-  "runs": [
-   {
-    "round": 1,
-    "benchmark": "launch",
-    "side": "base",
-    "ok": true,
-    "ms": 109181
-   },
-   {
-    "round": 1,
-    "benchmark": "launch",
-    "side": "candidate",
-    "ok": true,
-    "ms": 108343
-   },
-   {
-    "round": 1,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 18084
-   },
-   {
-    "round": 1,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 18004
-   },
-   {
-    "round": 1,
-    "benchmark": "memory",
-    "side": "base",
-    "ok": true,
-    "ms": 293634
-   },
-   {
-    "round": 1,
-    "benchmark": "memory",
-    "side": "candidate",
-    "ok": true,
-    "ms": 293723
-   },
-   {
-    "round": 1,
-    "benchmark": "stores",
-    "side": "base",
-    "ok": true,
-    "ms": 42058
-   },
-   {
-    "round": 1,
-    "benchmark": "stores",
-    "side": "candidate",
-    "ok": true,
-    "ms": 43084
-   },
-   {
-    "round": 1,
-    "benchmark": "pages",
-    "side": "base",
-    "ok": true,
-    "ms": 100442
-   },
-   {
-    "round": 1,
-    "benchmark": "pages",
-    "side": "candidate",
-    "ok": true,
-    "ms": 101429
-   },
-   {
-    "round": 1,
-    "benchmark": "scroll",
-    "side": "base",
-    "ok": true,
-    "ms": 70296
-   },
-   {
-    "round": 1,
-    "benchmark": "scroll",
-    "side": "candidate",
-    "ok": true,
-    "ms": 69668
-   },
-   {
-    "round": 2,
-    "benchmark": "launch",
-    "side": "candidate",
-    "ok": true,
-    "ms": 104831
-   },
-   {
-    "round": 2,
-    "benchmark": "launch",
-    "side": "base",
-    "ok": true,
-    "ms": 107176
-   },
-   {
-    "round": 2,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 19789
-   },
-   {
-    "round": 2,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 18355
-   },
-   {
-    "round": 2,
-    "benchmark": "memory",
-    "side": "candidate",
-    "ok": true,
-    "ms": 293549
-   },
-   {
-    "round": 2,
-    "benchmark": "memory",
-    "side": "base",
-    "ok": true,
-    "ms": 293687
-   },
-   {
-    "round": 2,
-    "benchmark": "stores",
-    "side": "candidate",
-    "ok": true,
-    "ms": 44161
-   },
-   {
-    "round": 2,
-    "benchmark": "stores",
-    "side": "base",
-    "ok": true,
-    "ms": 41670
-   },
-   {
-    "round": 2,
-    "benchmark": "pages",
-    "side": "candidate",
-    "ok": true,
-    "ms": 100564
-   },
-   {
-    "round": 2,
-    "benchmark": "pages",
-    "side": "base",
-    "ok": true,
-    "ms": 101137
-   },
-   {
-    "round": 2,
-    "benchmark": "scroll",
-    "side": "candidate",
-    "ok": true,
-    "ms": 69575
-   },
-   {
-    "round": 2,
-    "benchmark": "scroll",
-    "side": "base",
-    "ok": true,
-    "ms": 69760
-   },
-   {
-    "round": 3,
-    "benchmark": "launch",
-    "side": "base",
-    "ok": true,
-    "ms": 106947
-   },
-   {
-    "round": 3,
-    "benchmark": "launch",
-    "side": "candidate",
-    "ok": true,
-    "ms": 104676
-   },
-   {
-    "round": 3,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 22651
-   },
-   {
-    "round": 3,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 24301
-   },
-   {
-    "round": 3,
-    "benchmark": "memory",
-    "side": "base",
-    "ok": true,
-    "ms": 293680
-   },
-   {
-    "round": 3,
-    "benchmark": "memory",
-    "side": "candidate",
-    "ok": true,
-    "ms": 293705
-   },
-   {
-    "round": 3,
-    "benchmark": "stores",
-    "side": "base",
-    "ok": true,
-    "ms": 43747
-   },
-   {
-    "round": 3,
-    "benchmark": "stores",
-    "side": "candidate",
-    "ok": true,
-    "ms": 44006
-   },
-   {
-    "round": 3,
-    "benchmark": "pages",
-    "side": "base",
-    "ok": true,
-    "ms": 100766
-   },
-   {
-    "round": 3,
-    "benchmark": "pages",
-    "side": "candidate",
-    "ok": true,
-    "ms": 100067
-   },
-   {
-    "round": 3,
-    "benchmark": "scroll",
-    "side": "base",
-    "ok": true,
-    "ms": 70062
-   },
-   {
-    "round": 3,
-    "benchmark": "scroll",
-    "side": "candidate",
-    "ok": true,
-    "ms": 70002
-   }
-  ],
-  "benchmarks": [
-   {
-    "benchmark": "launch",
-    "rows": [
-     {
-      "path": "summary.cold.window.median",
-      "base": 278.6435546875,
-      "candidate": 283.641845703125,
-      "difference": 4.998291015625,
-      "percent": 1.7937938744826183,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.devTools.median",
-      "base": 292.300048828125,
-      "candidate": 293.234375,
-      "difference": 0.934326171875,
-      "percent": 0.31964625925341256,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.pageFirstContentfulPaint.median",
-      "base": 1930.708984375,
-      "candidate": 1947.916015625,
-      "difference": 17.20703125,
-      "percent": 0.8912286309979636,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.pageLoaded.median",
-      "base": 1899.009033203125,
-      "candidate": 1915.650390625,
-      "difference": 16.641357421875,
-      "percent": 0.8763179706315266,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.window.median",
-      "base": 289.8564453125,
-      "candidate": 284.43310546875,
-      "difference": -5.42333984375,
-      "percent": -1.8710433842183465,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.devTools.median",
-      "base": 283.21240234375,
-      "candidate": 295.3544921875,
-      "difference": 12.14208984375,
-      "percent": 4.28727334794205,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.pageFirstContentfulPaint.median",
-      "base": 585.2568359375,
-      "candidate": 587.44189453125,
-      "difference": 2.18505859375,
-      "percent": 0.3733503753527014,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.pageLoaded.median",
-      "base": 556.956787109375,
-      "candidate": 556.172607421875,
-      "difference": -0.7841796875,
-      "percent": -0.14079722263012892,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     }
-    ],
-    "failures": []
-   },
-   {
-    "benchmark": "unlock",
-    "rows": [
-     {
-      "path": "withoutPin.median",
-      "base": 576.89990234375,
-      "candidate": 575.699951171875,
-      "difference": -1.199951171875,
-      "percent": -0.2079998916623148,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "fromPin.median",
-      "base": 464.199951171875,
-      "candidate": 496.39990234375,
-      "difference": 32.199951171875,
-      "percent": 6.936655441385995,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "attach.withoutPin.started.median",
-      "base": 254.123291015625,
-      "candidate": 263.812255859375,
-      "difference": 9.68896484375,
-      "percent": 3.8127024111120402,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "attach.withoutPin.ended.median",
-      "base": 483.512939453125,
-      "candidate": 487.6650390625,
-      "difference": 4.152099609375,
-      "percent": 0.8587359862739584,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "attach.fromPin.started.median",
-      "base": 158.31298828125,
-      "candidate": 159.222900390625,
-      "difference": 0.909912109375,
-      "percent": 0.5747551854422084,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "attach.fromPin.ended.median",
-      "base": 375.52099609375,
-      "candidate": 396.85693359375,
-      "difference": 21.3359375,
-      "percent": 5.681689631722594,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     }
-    ],
-    "failures": []
-   },
-   {
-    "benchmark": "memory",
-    "rows": [
-     {
-      "path": "summary.1.footprintSumBytes.median",
-      "base": 159047840,
-      "candidate": 156638912,
-      "difference": -2408928,
-      "percent": -1.5145933449960716,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.footprintTotalBytes.median",
-      "base": 155050144,
-      "candidate": 152706752,
-      "difference": -2343392,
-      "percent": -1.5113768614107188,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.rssSumBytes.median",
-      "base": 572784640,
-      "candidate": 616644608,
-      "difference": 43859968,
-      "percent": 7.657322654462242,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.processes.median",
-      "base": 7,
-      "candidate": 6,
-      "difference": -1,
-      "percent": -14.285714285714285,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.browser.count.median",
-      "base": 2,
-      "candidate": 1,
-      "difference": -1,
-      "percent": -50,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.browser.footprintBytes.median",
-      "base": 74745920,
-      "candidate": 74565456,
-      "difference": -180464,
-      "percent": -0.2414365894486281,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.gpu-process.count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.gpu-process.footprintBytes.median",
-      "base": 30983392,
-      "candidate": 29967512,
-      "difference": -1015880,
-      "percent": -3.2787888427451715,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.utility (network.mojom.NetworkService).count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
-      "base": 13239472,
-      "candidate": 13386928,
-      "difference": 147456,
-      "percent": 1.1137604279083033,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.utility (storage.mojom.StorageService).count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
-      "base": 6947848,
-      "candidate": 6947824,
-      "difference": -24,
-      "percent": -0.00034543070026862995,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.renderer.count.median",
-      "base": 2,
-      "candidate": 2,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.1.byType.renderer.footprintBytes.median",
-      "base": 32246352,
-      "candidate": 32279120,
-      "difference": 32768,
-      "percent": 0.10161769616606556,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.footprintSumBytes.median",
-      "base": 251409968,
-      "candidate": 243856488,
-      "difference": -7553480,
-      "percent": -3.004447301787175,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.footprintTotalBytes.median",
-      "base": 245593648,
-      "candidate": 238040168,
-      "difference": -7553480,
-      "percent": -3.0756007174908695,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.rssSumBytes.median",
-      "base": 1002143744,
-      "candidate": 1054965760,
-      "difference": 52822016,
-      "percent": 5.270902135173135,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.processes.median",
-      "base": 11,
-      "candidate": 10,
-      "difference": -1,
-      "percent": -9.090909090909092,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.browser.count.median",
-      "base": 2,
-      "candidate": 1,
-      "difference": -1,
-      "percent": -50,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.browser.footprintBytes.median",
-      "base": 78874640,
-      "candidate": 78497616,
-      "difference": -377024,
-      "percent": -0.4780040834417755,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.gpu-process.count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.gpu-process.footprintBytes.median",
-      "base": 48661776,
-      "candidate": 43468024,
-      "difference": -5193752,
-      "percent": -10.673165730736995,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.utility (network.mojom.NetworkService).count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
-      "base": 13550768,
-      "candidate": 13763784,
-      "difference": 213016,
-      "percent": 1.5719847022692734,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.utility (storage.mojom.StorageService).count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
-      "base": 7193536,
-      "candidate": 7193584,
-      "difference": 48,
-      "percent": 0.0006672657230046531,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.renderer.count.median",
-      "base": 6,
-      "candidate": 6,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.5.byType.renderer.footprintBytes.median",
-      "base": 101834648,
-      "candidate": 101965792,
-      "difference": 131144,
-      "percent": 0.12878131615872035,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.footprintSumBytes.median",
-      "base": 370790416,
-      "candidate": 358960616,
-      "difference": -11829800,
-      "percent": -3.190427661970637,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.footprintTotalBytes.median",
-      "base": 362074128,
-      "candidate": 350244328,
-      "difference": -11829800,
-      "percent": -3.2672315101177296,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.rssSumBytes.median",
-      "base": 1521549312,
-      "candidate": 1586987008,
-      "difference": 65437696,
-      "percent": 4.3007279148899515,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.processes.median",
-      "base": 16,
-      "candidate": 15,
-      "difference": -1,
-      "percent": -6.25,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.browser.count.median",
-      "base": 2,
-      "candidate": 1,
-      "difference": -1,
-      "percent": -50,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.browser.footprintBytes.median",
-      "base": 85821528,
-      "candidate": 85706552,
-      "difference": -114976,
-      "percent": -0.13397104745093796,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.gpu-process.count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.gpu-process.footprintBytes.median",
-      "base": 71156984,
-      "candidate": 60834992,
-      "difference": -10321992,
-      "percent": -14.505943647077565,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.utility (network.mojom.NetworkService).count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
-      "base": 14058648,
-      "candidate": 14320768,
-      "difference": 262120,
-      "percent": 1.8644751614806772,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.utility (storage.mojom.StorageService).count.median",
-      "base": 1,
-      "candidate": 1,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
-      "base": 7652360,
-      "candidate": 7652336,
-      "difference": -24,
-      "percent": -0.00031362873675571984,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.renderer.count.median",
-      "base": 11,
-      "candidate": 11,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.10.byType.renderer.footprintBytes.median",
-      "base": 191380024,
-      "candidate": 191166792,
-      "difference": -213232,
-      "percent": -0.11141810704339758,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     }
-    ],
-    "failures": []
-   },
-   {
-    "benchmark": "stores",
-    "rows": [
-     {
-      "path": "historyQueryMs.median",
-      "base": 10,
-      "candidate": 9.699999988079071,
-      "difference": -0.30000001192092896,
-      "percent": -3.0000001192092896,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "historyQueryMs.p95",
-      "base": 11.099999964237213,
-      "candidate": 10.699999988079071,
-      "difference": -0.3999999761581421,
-      "percent": -3.603603400422442,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "firstRequestWithCookiesMs.median",
-      "base": 16.69999998807907,
-      "candidate": 16.799999952316284,
-      "difference": 0.09999996423721313,
-      "percent": 0.5988021814885983,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "firstRequestWithCookiesMs.p95",
-      "base": 18.5,
-      "candidate": 19.099999964237213,
-      "difference": 0.5999999642372131,
-      "percent": 3.2432430499308813,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "localStorageFirstReadMs.median",
-      "base": 2.300000011920929,
-      "candidate": 2.300000011920929,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "localStorageFirstReadMs.p95",
-      "base": 2.400000035762787,
-      "candidate": 2.400000035762787,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "repeatVisitMs.https://en.wikipedia.org/wiki/Web_browser.median",
-      "base": 131.60000002384186,
-      "candidate": 131.20000004768372,
-      "difference": -0.3999999761581421,
-      "percent": -0.30395134960917514,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "repeatVisitMs.https://en.wikipedia.org/wiki/Web_browser.p95",
-      "base": 202.19999998807907,
-      "candidate": 211.10000002384186,
-      "difference": 8.900000035762787,
-      "percent": 4.4015826094399095,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "repeatVisitMs.https://www.apple.com/.median",
-      "base": 1032.800000011921,
-      "candidate": 1036.199999988079,
-      "difference": 3.399999976158142,
-      "percent": 0.32920216654908,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "repeatVisitMs.https://www.apple.com/.p95",
-      "base": 1201.199999988079,
-      "candidate": 1107.6000000238419,
-      "difference": -93.59999996423721,
-      "percent": -7.792207789307868,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "repeatVisitMs.https://github.com/.median",
-      "base": 404.89999997615814,
-      "candidate": 450,
-      "difference": 45.10000002384186,
-      "percent": 11.138552735613114,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "repeatVisitMs.https://github.com/.p95",
-      "base": 495,
-      "candidate": 505.19999998807907,
-      "difference": 10.199999988079071,
-      "percent": 2.060606058197792,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     }
-    ],
-    "failures": []
-   },
-   {
-    "benchmark": "pages",
-    "rows": [
-     {
-      "path": "summary.cold.smoke.html.loadEventEnd.median",
-      "base": 7.099999964237213,
-      "candidate": 6.5,
-      "difference": -0.5999999642372131,
-      "percent": -8.450703764217188,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.smoke.html.firstContentfulPaint.median",
-      "base": 16,
-      "candidate": 16,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.smoke.html.firstContentfulPaintPainted.median",
-      "base": 11.300000011920929,
-      "candidate": 10.800000011920929,
-      "difference": -0.5,
-      "percent": -4.424778756394029,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.smoke.html.largestContentfulPaint.median",
-      "base": 16,
-      "candidate": 16,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.smoke.html.responseStart.median",
-      "base": 0.9000000357627869,
-      "candidate": 0.9000000357627869,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.find.html.loadEventEnd.median",
-      "base": 6.600000023841858,
-      "candidate": 6.099999964237213,
-      "difference": -0.5000000596046448,
-      "percent": -7.575758451491564,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.find.html.firstContentfulPaint.median",
-      "base": 20,
-      "candidate": 20,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.find.html.firstContentfulPaintPainted.median",
-      "base": 11.800000011920929,
-      "candidate": 11.099999964237213,
-      "difference": -0.7000000476837158,
-      "percent": -5.932203787936797,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.find.html.largestContentfulPaint.median",
-      "base": 20,
-      "candidate": 20,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.find.html.responseStart.median",
-      "base": 1.100000023841858,
-      "candidate": 1,
-      "difference": -0.10000002384185791,
-      "percent": -9.090911061310528,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.nav-a.html.loadEventEnd.median",
-      "base": 7.199999988079071,
-      "candidate": 6.100000023841858,
-      "difference": -1.0999999642372131,
-      "percent": -15.277777306367584,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.nav-a.html.firstContentfulPaint.median",
-      "base": 28,
-      "candidate": 24,
-      "difference": -4,
-      "percent": -14.285714285714285,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.nav-a.html.firstContentfulPaintPainted.median",
-      "base": 13.900000035762787,
-      "candidate": 12.400000035762787,
-      "difference": -1.5,
-      "percent": -10.791366878710118,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.nav-a.html.largestContentfulPaint.median",
-      "base": 28,
-      "candidate": 24,
-      "difference": -4,
-      "percent": -14.285714285714285,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.nav-a.html.responseStart.median",
-      "base": 1.199999988079071,
-      "candidate": 1.199999988079071,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
-      "base": 301.80000001192093,
-      "candidate": 299.39999997615814,
-      "difference": -2.400000035762787,
-      "percent": -0.7952286400490352,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
-      "base": 268,
-      "candidate": 264,
-      "difference": -4,
-      "percent": -1.4925373134328357,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
-      "base": 208.69999998807907,
-      "candidate": 222.79999995231628,
-      "difference": 14.099999964237213,
-      "percent": 6.756109230973936,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
-      "base": 268,
-      "candidate": 264,
-      "difference": -4,
-      "percent": -1.4925373134328357,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
-      "base": 103.19999998807907,
-      "candidate": 90.59999996423721,
-      "difference": -12.600000023841858,
-      "percent": -12.209302350094301,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://www.apple.com/.loadEventEnd.median",
-      "base": 1494.4000000357628,
-      "candidate": 1461.699999988079,
-      "difference": -32.700000047683716,
-      "percent": -2.1881691680206883,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://www.apple.com/.firstContentfulPaint.median",
-      "base": 332,
-      "candidate": 260,
-      "difference": -72,
-      "percent": -21.686746987951807,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://www.apple.com/.firstContentfulPaintPainted.median",
-      "base": 303.0999999642372,
-      "candidate": 236.19999998807907,
-      "difference": -66.89999997615814,
-      "percent": -22.071923452343015,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://www.apple.com/.largestContentfulPaint.median",
-      "base": 416,
-      "candidate": 360,
-      "difference": -56,
-      "percent": -13.461538461538462,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://www.apple.com/.responseStart.median",
-      "base": 143.5999999642372,
-      "candidate": 158.5999999642372,
-      "difference": 15,
-      "percent": 10.445682453854921,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://github.com/.loadEventEnd.median",
-      "base": 707.6000000238419,
-      "candidate": 630.5,
-      "difference": -77.10000002384186,
-      "percent": -10.89598643601527,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://github.com/.firstContentfulPaint.median",
-      "base": 436,
-      "candidate": 384,
-      "difference": -52,
-      "percent": -11.926605504587156,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://github.com/.firstContentfulPaintPainted.median",
-      "base": 414.60000002384186,
-      "candidate": 362.5999999642372,
-      "difference": -52.000000059604645,
-      "percent": -12.542209372072927,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://github.com/.largestContentfulPaint.median",
-      "base": 1436,
-      "candidate": 1364,
-      "difference": -72,
-      "percent": -5.013927576601671,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.cold.https://github.com/.responseStart.median",
-      "base": 82.09999996423721,
-      "candidate": 119.40000003576279,
-      "difference": 37.300000071525574,
-      "percent": 45.432399619699716,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.smoke.html.loadEventEnd.median",
-      "base": 5.199999988079071,
-      "candidate": 4.699999988079071,
-      "difference": -0.5,
-      "percent": -9.615384637427752,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.smoke.html.firstContentfulPaint.median",
-      "base": 16,
-      "candidate": 16,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.smoke.html.firstContentfulPaintPainted.median",
-      "base": 12.5,
-      "candidate": 12,
-      "difference": -0.5,
-      "percent": -4,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.smoke.html.largestContentfulPaint.median",
-      "base": 16,
-      "candidate": 16,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.smoke.html.responseStart.median",
-      "base": 1.2000000476837158,
-      "candidate": 1.399999976158142,
-      "difference": 0.19999992847442627,
-      "percent": 16.666660043928623,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.find.html.loadEventEnd.median",
-      "base": 7.5,
-      "candidate": 6.800000011920929,
-      "difference": -0.699999988079071,
-      "percent": -9.333333174387613,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.find.html.firstContentfulPaint.median",
-      "base": 24,
-      "candidate": 20,
-      "difference": -4,
-      "percent": -16.666666666666664,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.find.html.firstContentfulPaintPainted.median",
-      "base": 14.299999952316284,
-      "candidate": 12.600000023841858,
-      "difference": -1.6999999284744263,
-      "percent": -11.888111427574263,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.find.html.largestContentfulPaint.median",
-      "base": 24,
-      "candidate": 20,
-      "difference": -4,
-      "percent": -16.666666666666664,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.find.html.responseStart.median",
-      "base": 1.199999988079071,
-      "candidate": 1.100000023841858,
-      "difference": -0.09999996423721313,
-      "percent": -8.333330435885294,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.nav-a.html.loadEventEnd.median",
-      "base": 8.100000023841858,
-      "candidate": 7.800000011920929,
-      "difference": -0.30000001192092896,
-      "percent": -3.7037038399740387,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.nav-a.html.firstContentfulPaint.median",
-      "base": 20,
-      "candidate": 20,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.nav-a.html.firstContentfulPaintPainted.median",
-      "base": 14.300000011920929,
-      "candidate": 14.5,
-      "difference": 0.19999998807907104,
-      "percent": 1.398601314072341,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.nav-a.html.largestContentfulPaint.median",
-      "base": 20,
-      "candidate": 20,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.nav-a.html.responseStart.median",
-      "base": 1.199999988079071,
-      "candidate": 1.199999988079071,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
-      "base": 249,
-      "candidate": 253.19999998807907,
-      "difference": 4.199999988079071,
-      "percent": 1.6867469831642854,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
-      "base": 116,
-      "candidate": 112,
-      "difference": -4,
-      "percent": -3.4482758620689653,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
-      "base": 78.90000003576279,
-      "candidate": 82.19999998807907,
-      "difference": 3.299999952316284,
-      "percent": 4.182509443371993,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
-      "base": 116,
-      "candidate": 112,
-      "difference": -4,
-      "percent": -3.4482758620689653,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
-      "base": 22.5,
-      "candidate": 25.30000001192093,
-      "difference": 2.800000011920929,
-      "percent": 12.44444449742635,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://www.apple.com/.loadEventEnd.median",
-      "base": 560.7000000476837,
-      "candidate": 617.1999999880791,
-      "difference": 56.499999940395355,
-      "percent": 10.076689840483398,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://www.apple.com/.firstContentfulPaint.median",
-      "base": 172,
-      "candidate": 164,
-      "difference": -8,
-      "percent": -4.651162790697675,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://www.apple.com/.firstContentfulPaintPainted.median",
-      "base": 149.19999998807907,
-      "candidate": 144.19999998807907,
-      "difference": -5,
-      "percent": -3.351206434584112,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://www.apple.com/.largestContentfulPaint.median",
-      "base": 356,
-      "candidate": 408,
-      "difference": 52,
-      "percent": 14.606741573033707,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://www.apple.com/.responseStart.median",
-      "base": 0.8999999761581421,
-      "candidate": 52.10000002384186,
-      "difference": 51.200000047683716,
-      "percent": 5688.889044891173,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://github.com/.loadEventEnd.median",
-      "base": 360,
-      "candidate": 370.10000002384186,
-      "difference": 10.100000023841858,
-      "percent": 2.8055555621782937,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://github.com/.firstContentfulPaint.median",
-      "base": 148,
-      "candidate": 144,
-      "difference": -4,
-      "percent": -2.7027027027027026,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://github.com/.firstContentfulPaintPainted.median",
-      "base": 125.19999998807907,
-      "candidate": 124.60000002384186,
-      "difference": -0.5999999642372131,
-      "percent": -0.4792331983181647,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://github.com/.largestContentfulPaint.median",
-      "base": 1096,
-      "candidate": 1092,
-      "difference": -4,
-      "percent": -0.36496350364963503,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.warm.https://github.com/.responseStart.median",
-      "base": 23.900000035762787,
-      "candidate": 23.900000035762787,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     }
-    ],
-    "failures": []
-   },
-   {
-    "benchmark": "scroll",
-    "rows": [
-     {
-      "path": "summary.dropped.median",
-      "base": 0,
-      "candidate": 0,
-      "difference": 0,
-      "percent": null,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.partial.median",
-      "base": 12,
-      "candidate": 12,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.presented.median",
-      "base": 467,
-      "candidate": 467,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.affectingSmoothness.median",
-      "base": 0,
-      "candidate": 0,
-      "difference": 0,
-      "percent": null,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     },
-     {
-      "path": "summary.onCompositorThread.median",
-      "base": 480,
-      "candidate": 480,
-      "difference": 0,
-      "percent": 0,
-      "rounds": {
-       "base": 3,
-       "candidate": 3
-      }
-     }
-    ],
-    "failures": []
-   }
-  ]
- },
- "unlockFiveRounds": {
-  "binaries": {},
-  "rounds": 5,
-  "runs": [
-   {
-    "round": 1,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 18337
-   },
-   {
-    "round": 1,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 18582
-   },
-   {
-    "round": 2,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 22136
-   },
-   {
-    "round": 2,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 20361
-   },
-   {
-    "round": 3,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 18365
-   },
-   {
-    "round": 3,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 18139
-   },
-   {
-    "round": 4,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 17774
-   },
-   {
-    "round": 4,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 20072
-   },
-   {
-    "round": 5,
-    "benchmark": "unlock",
-    "side": "base",
-    "ok": true,
-    "ms": 18748
-   },
-   {
-    "round": 5,
-    "benchmark": "unlock",
-    "side": "candidate",
-    "ok": true,
-    "ms": 18154
-   }
-  ],
-  "benchmarks": [
-   {
-    "benchmark": "unlock",
-    "rows": [
-     {
-      "path": "withoutPin.median",
-      "base": 613.800048828125,
-      "candidate": 619.800048828125,
-      "difference": 6,
-      "percent": 0.9775170287873515,
-      "rounds": {
-       "base": 5,
-       "candidate": 5
-      }
-     },
-     {
-      "path": "fromPin.median",
-      "base": 474.800048828125,
-      "candidate": 485,
-      "difference": 10.199951171875,
-      "percent": 2.1482624521732783,
-      "rounds": {
-       "base": 5,
-       "candidate": 5
-      }
-     },
-     {
-      "path": "attach.withoutPin.started.median",
-      "base": 279.60302734375,
-      "candidate": 280.416015625,
-      "difference": 0.81298828125,
-      "percent": 0.2907651926996107,
-      "rounds": {
-       "base": 5,
-       "candidate": 5
-      }
-     },
-     {
-      "path": "attach.withoutPin.ended.median",
-      "base": 501.132080078125,
-      "candidate": 515.829833984375,
-      "difference": 14.69775390625,
-      "percent": 2.9329102028269003,
-      "rounds": {
-       "base": 5,
-       "candidate": 5
-      }
-     },
-     {
-      "path": "attach.fromPin.started.median",
-      "base": 158.02099609375,
-      "candidate": 158.683837890625,
-      "difference": 0.662841796875,
-      "percent": 0.41946438337963143,
-      "rounds": {
-       "base": 5,
-       "candidate": 5
-      }
-     },
-     {
-      "path": "attach.fromPin.ended.median",
-      "base": 381.47998046875,
-      "candidate": 390.09814453125,
-      "difference": 8.6181640625,
-      "percent": 2.259139274336306,
-      "rounds": {
-       "base": 5,
-       "candidate": 5
-      }
-     }
-    ],
-    "failures": []
-   }
-  ]
- }
+	"what": "The PGO engine (0.19.2's candidate) against the published 0.19.1, each stripped, taking turns: three rounds of every benchmark, then five of unlock alone.",
+	"threeRounds": {
+		"binaries": {},
+		"rounds": 3,
+		"runs": [
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 109181
+			},
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 108343
+			},
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 18084
+			},
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 18004
+			},
+			{
+				"round": 1,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 293634
+			},
+			{
+				"round": 1,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 293723
+			},
+			{
+				"round": 1,
+				"benchmark": "stores",
+				"side": "base",
+				"ok": true,
+				"ms": 42058
+			},
+			{
+				"round": 1,
+				"benchmark": "stores",
+				"side": "candidate",
+				"ok": true,
+				"ms": 43084
+			},
+			{
+				"round": 1,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 100442
+			},
+			{
+				"round": 1,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 101429
+			},
+			{
+				"round": 1,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 70296
+			},
+			{
+				"round": 1,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69668
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 104831
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 107176
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 19789
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 18355
+			},
+			{
+				"round": 2,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 293549
+			},
+			{
+				"round": 2,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 293687
+			},
+			{
+				"round": 2,
+				"benchmark": "stores",
+				"side": "candidate",
+				"ok": true,
+				"ms": 44161
+			},
+			{
+				"round": 2,
+				"benchmark": "stores",
+				"side": "base",
+				"ok": true,
+				"ms": 41670
+			},
+			{
+				"round": 2,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 100564
+			},
+			{
+				"round": 2,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 101137
+			},
+			{
+				"round": 2,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69575
+			},
+			{
+				"round": 2,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 69760
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 106947
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 104676
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 22651
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 24301
+			},
+			{
+				"round": 3,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 293680
+			},
+			{
+				"round": 3,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 293705
+			},
+			{
+				"round": 3,
+				"benchmark": "stores",
+				"side": "base",
+				"ok": true,
+				"ms": 43747
+			},
+			{
+				"round": 3,
+				"benchmark": "stores",
+				"side": "candidate",
+				"ok": true,
+				"ms": 44006
+			},
+			{
+				"round": 3,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 100766
+			},
+			{
+				"round": 3,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 100067
+			},
+			{
+				"round": 3,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 70062
+			},
+			{
+				"round": 3,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 70002
+			}
+		],
+		"benchmarks": [
+			{
+				"benchmark": "launch",
+				"rows": [
+					{
+						"path": "summary.cold.window.median",
+						"base": 278.6435546875,
+						"candidate": 283.641845703125,
+						"difference": 4.998291015625,
+						"percent": 1.7937938744826183,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.devTools.median",
+						"base": 292.300048828125,
+						"candidate": 293.234375,
+						"difference": 0.934326171875,
+						"percent": 0.31964625925341256,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.pageFirstContentfulPaint.median",
+						"base": 1930.708984375,
+						"candidate": 1947.916015625,
+						"difference": 17.20703125,
+						"percent": 0.8912286309979636,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.pageLoaded.median",
+						"base": 1899.009033203125,
+						"candidate": 1915.650390625,
+						"difference": 16.641357421875,
+						"percent": 0.8763179706315266,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.window.median",
+						"base": 289.8564453125,
+						"candidate": 284.43310546875,
+						"difference": -5.42333984375,
+						"percent": -1.8710433842183465,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.devTools.median",
+						"base": 283.21240234375,
+						"candidate": 295.3544921875,
+						"difference": 12.14208984375,
+						"percent": 4.28727334794205,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.pageFirstContentfulPaint.median",
+						"base": 585.2568359375,
+						"candidate": 587.44189453125,
+						"difference": 2.18505859375,
+						"percent": 0.3733503753527014,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.pageLoaded.median",
+						"base": 556.956787109375,
+						"candidate": 556.172607421875,
+						"difference": -0.7841796875,
+						"percent": -0.14079722263012892,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "unlock",
+				"rows": [
+					{
+						"path": "withoutPin.median",
+						"base": 576.89990234375,
+						"candidate": 575.699951171875,
+						"difference": -1.199951171875,
+						"percent": -0.2079998916623148,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "fromPin.median",
+						"base": 464.199951171875,
+						"candidate": 496.39990234375,
+						"difference": 32.199951171875,
+						"percent": 6.936655441385995,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.withoutPin.started.median",
+						"base": 254.123291015625,
+						"candidate": 263.812255859375,
+						"difference": 9.68896484375,
+						"percent": 3.8127024111120402,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.withoutPin.ended.median",
+						"base": 483.512939453125,
+						"candidate": 487.6650390625,
+						"difference": 4.152099609375,
+						"percent": 0.8587359862739584,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.fromPin.started.median",
+						"base": 158.31298828125,
+						"candidate": 159.222900390625,
+						"difference": 0.909912109375,
+						"percent": 0.5747551854422084,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.fromPin.ended.median",
+						"base": 375.52099609375,
+						"candidate": 396.85693359375,
+						"difference": 21.3359375,
+						"percent": 5.681689631722594,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "memory",
+				"rows": [
+					{
+						"path": "summary.1.footprintSumBytes.median",
+						"base": 159047840,
+						"candidate": 156638912,
+						"difference": -2408928,
+						"percent": -1.5145933449960716,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.footprintTotalBytes.median",
+						"base": 155050144,
+						"candidate": 152706752,
+						"difference": -2343392,
+						"percent": -1.5113768614107188,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.rssSumBytes.median",
+						"base": 572784640,
+						"candidate": 616644608,
+						"difference": 43859968,
+						"percent": 7.657322654462242,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.processes.median",
+						"base": 7,
+						"candidate": 6,
+						"difference": -1,
+						"percent": -14.285714285714285,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.browser.footprintBytes.median",
+						"base": 74745920,
+						"candidate": 74565456,
+						"difference": -180464,
+						"percent": -0.2414365894486281,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.gpu-process.footprintBytes.median",
+						"base": 30983392,
+						"candidate": 29967512,
+						"difference": -1015880,
+						"percent": -3.2787888427451715,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 13239472,
+						"candidate": 13386928,
+						"difference": 147456,
+						"percent": 1.1137604279083033,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 6947848,
+						"candidate": 6947824,
+						"difference": -24,
+						"percent": -0.00034543070026862995,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.renderer.count.median",
+						"base": 2,
+						"candidate": 2,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.renderer.footprintBytes.median",
+						"base": 32246352,
+						"candidate": 32279120,
+						"difference": 32768,
+						"percent": 0.10161769616606556,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.footprintSumBytes.median",
+						"base": 251409968,
+						"candidate": 243856488,
+						"difference": -7553480,
+						"percent": -3.004447301787175,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.footprintTotalBytes.median",
+						"base": 245593648,
+						"candidate": 238040168,
+						"difference": -7553480,
+						"percent": -3.0756007174908695,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.rssSumBytes.median",
+						"base": 1002143744,
+						"candidate": 1054965760,
+						"difference": 52822016,
+						"percent": 5.270902135173135,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.processes.median",
+						"base": 11,
+						"candidate": 10,
+						"difference": -1,
+						"percent": -9.090909090909092,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.browser.footprintBytes.median",
+						"base": 78874640,
+						"candidate": 78497616,
+						"difference": -377024,
+						"percent": -0.4780040834417755,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.gpu-process.footprintBytes.median",
+						"base": 48661776,
+						"candidate": 43468024,
+						"difference": -5193752,
+						"percent": -10.673165730736995,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 13550768,
+						"candidate": 13763784,
+						"difference": 213016,
+						"percent": 1.5719847022692734,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 7193536,
+						"candidate": 7193584,
+						"difference": 48,
+						"percent": 0.0006672657230046531,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.renderer.count.median",
+						"base": 6,
+						"candidate": 6,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.renderer.footprintBytes.median",
+						"base": 101834648,
+						"candidate": 101965792,
+						"difference": 131144,
+						"percent": 0.12878131615872035,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.footprintSumBytes.median",
+						"base": 370790416,
+						"candidate": 358960616,
+						"difference": -11829800,
+						"percent": -3.190427661970637,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.footprintTotalBytes.median",
+						"base": 362074128,
+						"candidate": 350244328,
+						"difference": -11829800,
+						"percent": -3.2672315101177296,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.rssSumBytes.median",
+						"base": 1521549312,
+						"candidate": 1586987008,
+						"difference": 65437696,
+						"percent": 4.3007279148899515,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.processes.median",
+						"base": 16,
+						"candidate": 15,
+						"difference": -1,
+						"percent": -6.25,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.browser.footprintBytes.median",
+						"base": 85821528,
+						"candidate": 85706552,
+						"difference": -114976,
+						"percent": -0.13397104745093796,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.gpu-process.footprintBytes.median",
+						"base": 71156984,
+						"candidate": 60834992,
+						"difference": -10321992,
+						"percent": -14.505943647077565,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 14058648,
+						"candidate": 14320768,
+						"difference": 262120,
+						"percent": 1.8644751614806772,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 7652360,
+						"candidate": 7652336,
+						"difference": -24,
+						"percent": -0.00031362873675571984,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.renderer.count.median",
+						"base": 11,
+						"candidate": 11,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.renderer.footprintBytes.median",
+						"base": 191380024,
+						"candidate": 191166792,
+						"difference": -213232,
+						"percent": -0.11141810704339758,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "stores",
+				"rows": [
+					{
+						"path": "historyQueryMs.median",
+						"base": 10,
+						"candidate": 9.699999988079071,
+						"difference": -0.30000001192092896,
+						"percent": -3.0000001192092896,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "historyQueryMs.p95",
+						"base": 11.099999964237213,
+						"candidate": 10.699999988079071,
+						"difference": -0.3999999761581421,
+						"percent": -3.603603400422442,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "firstRequestWithCookiesMs.median",
+						"base": 16.69999998807907,
+						"candidate": 16.799999952316284,
+						"difference": 0.09999996423721313,
+						"percent": 0.5988021814885983,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "firstRequestWithCookiesMs.p95",
+						"base": 18.5,
+						"candidate": 19.099999964237213,
+						"difference": 0.5999999642372131,
+						"percent": 3.2432430499308813,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "localStorageFirstReadMs.median",
+						"base": 2.300000011920929,
+						"candidate": 2.300000011920929,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "localStorageFirstReadMs.p95",
+						"base": 2.400000035762787,
+						"candidate": 2.400000035762787,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "repeatVisitMs.https://en.wikipedia.org/wiki/Web_browser.median",
+						"base": 131.60000002384186,
+						"candidate": 131.20000004768372,
+						"difference": -0.3999999761581421,
+						"percent": -0.30395134960917514,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "repeatVisitMs.https://en.wikipedia.org/wiki/Web_browser.p95",
+						"base": 202.19999998807907,
+						"candidate": 211.10000002384186,
+						"difference": 8.900000035762787,
+						"percent": 4.4015826094399095,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "repeatVisitMs.https://www.apple.com/.median",
+						"base": 1032.800000011921,
+						"candidate": 1036.199999988079,
+						"difference": 3.399999976158142,
+						"percent": 0.32920216654908,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "repeatVisitMs.https://www.apple.com/.p95",
+						"base": 1201.199999988079,
+						"candidate": 1107.6000000238419,
+						"difference": -93.59999996423721,
+						"percent": -7.792207789307868,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "repeatVisitMs.https://github.com/.median",
+						"base": 404.89999997615814,
+						"candidate": 450,
+						"difference": 45.10000002384186,
+						"percent": 11.138552735613114,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "repeatVisitMs.https://github.com/.p95",
+						"base": 495,
+						"candidate": 505.19999998807907,
+						"difference": 10.199999988079071,
+						"percent": 2.060606058197792,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "pages",
+				"rows": [
+					{
+						"path": "summary.cold.smoke.html.loadEventEnd.median",
+						"base": 7.099999964237213,
+						"candidate": 6.5,
+						"difference": -0.5999999642372131,
+						"percent": -8.450703764217188,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.firstContentfulPaint.median",
+						"base": 16,
+						"candidate": 16,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.firstContentfulPaintPainted.median",
+						"base": 11.300000011920929,
+						"candidate": 10.800000011920929,
+						"difference": -0.5,
+						"percent": -4.424778756394029,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.largestContentfulPaint.median",
+						"base": 16,
+						"candidate": 16,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.responseStart.median",
+						"base": 0.9000000357627869,
+						"candidate": 0.9000000357627869,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.loadEventEnd.median",
+						"base": 6.600000023841858,
+						"candidate": 6.099999964237213,
+						"difference": -0.5000000596046448,
+						"percent": -7.575758451491564,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.firstContentfulPaint.median",
+						"base": 20,
+						"candidate": 20,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.firstContentfulPaintPainted.median",
+						"base": 11.800000011920929,
+						"candidate": 11.099999964237213,
+						"difference": -0.7000000476837158,
+						"percent": -5.932203787936797,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.largestContentfulPaint.median",
+						"base": 20,
+						"candidate": 20,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.responseStart.median",
+						"base": 1.100000023841858,
+						"candidate": 1,
+						"difference": -0.10000002384185791,
+						"percent": -9.090911061310528,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.loadEventEnd.median",
+						"base": 7.199999988079071,
+						"candidate": 6.100000023841858,
+						"difference": -1.0999999642372131,
+						"percent": -15.277777306367584,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.firstContentfulPaint.median",
+						"base": 28,
+						"candidate": 24,
+						"difference": -4,
+						"percent": -14.285714285714285,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.firstContentfulPaintPainted.median",
+						"base": 13.900000035762787,
+						"candidate": 12.400000035762787,
+						"difference": -1.5,
+						"percent": -10.791366878710118,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.largestContentfulPaint.median",
+						"base": 28,
+						"candidate": 24,
+						"difference": -4,
+						"percent": -14.285714285714285,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.responseStart.median",
+						"base": 1.199999988079071,
+						"candidate": 1.199999988079071,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+						"base": 301.80000001192093,
+						"candidate": 299.39999997615814,
+						"difference": -2.400000035762787,
+						"percent": -0.7952286400490352,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+						"base": 268,
+						"candidate": 264,
+						"difference": -4,
+						"percent": -1.4925373134328357,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+						"base": 208.69999998807907,
+						"candidate": 222.79999995231628,
+						"difference": 14.099999964237213,
+						"percent": 6.756109230973936,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+						"base": 268,
+						"candidate": 264,
+						"difference": -4,
+						"percent": -1.4925373134328357,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+						"base": 103.19999998807907,
+						"candidate": 90.59999996423721,
+						"difference": -12.600000023841858,
+						"percent": -12.209302350094301,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.loadEventEnd.median",
+						"base": 1494.4000000357628,
+						"candidate": 1461.699999988079,
+						"difference": -32.700000047683716,
+						"percent": -2.1881691680206883,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.firstContentfulPaint.median",
+						"base": 332,
+						"candidate": 260,
+						"difference": -72,
+						"percent": -21.686746987951807,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.firstContentfulPaintPainted.median",
+						"base": 303.0999999642372,
+						"candidate": 236.19999998807907,
+						"difference": -66.89999997615814,
+						"percent": -22.071923452343015,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.largestContentfulPaint.median",
+						"base": 416,
+						"candidate": 360,
+						"difference": -56,
+						"percent": -13.461538461538462,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.responseStart.median",
+						"base": 143.5999999642372,
+						"candidate": 158.5999999642372,
+						"difference": 15,
+						"percent": 10.445682453854921,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.loadEventEnd.median",
+						"base": 707.6000000238419,
+						"candidate": 630.5,
+						"difference": -77.10000002384186,
+						"percent": -10.89598643601527,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.firstContentfulPaint.median",
+						"base": 436,
+						"candidate": 384,
+						"difference": -52,
+						"percent": -11.926605504587156,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.firstContentfulPaintPainted.median",
+						"base": 414.60000002384186,
+						"candidate": 362.5999999642372,
+						"difference": -52.000000059604645,
+						"percent": -12.542209372072927,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.largestContentfulPaint.median",
+						"base": 1436,
+						"candidate": 1364,
+						"difference": -72,
+						"percent": -5.013927576601671,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.responseStart.median",
+						"base": 82.09999996423721,
+						"candidate": 119.40000003576279,
+						"difference": 37.300000071525574,
+						"percent": 45.432399619699716,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.loadEventEnd.median",
+						"base": 5.199999988079071,
+						"candidate": 4.699999988079071,
+						"difference": -0.5,
+						"percent": -9.615384637427752,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.firstContentfulPaint.median",
+						"base": 16,
+						"candidate": 16,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.firstContentfulPaintPainted.median",
+						"base": 12.5,
+						"candidate": 12,
+						"difference": -0.5,
+						"percent": -4,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.largestContentfulPaint.median",
+						"base": 16,
+						"candidate": 16,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.responseStart.median",
+						"base": 1.2000000476837158,
+						"candidate": 1.399999976158142,
+						"difference": 0.19999992847442627,
+						"percent": 16.666660043928623,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.loadEventEnd.median",
+						"base": 7.5,
+						"candidate": 6.800000011920929,
+						"difference": -0.699999988079071,
+						"percent": -9.333333174387613,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.firstContentfulPaint.median",
+						"base": 24,
+						"candidate": 20,
+						"difference": -4,
+						"percent": -16.666666666666664,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.firstContentfulPaintPainted.median",
+						"base": 14.299999952316284,
+						"candidate": 12.600000023841858,
+						"difference": -1.6999999284744263,
+						"percent": -11.888111427574263,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.largestContentfulPaint.median",
+						"base": 24,
+						"candidate": 20,
+						"difference": -4,
+						"percent": -16.666666666666664,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.responseStart.median",
+						"base": 1.199999988079071,
+						"candidate": 1.100000023841858,
+						"difference": -0.09999996423721313,
+						"percent": -8.333330435885294,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.loadEventEnd.median",
+						"base": 8.100000023841858,
+						"candidate": 7.800000011920929,
+						"difference": -0.30000001192092896,
+						"percent": -3.7037038399740387,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.firstContentfulPaint.median",
+						"base": 20,
+						"candidate": 20,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.firstContentfulPaintPainted.median",
+						"base": 14.300000011920929,
+						"candidate": 14.5,
+						"difference": 0.19999998807907104,
+						"percent": 1.398601314072341,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.largestContentfulPaint.median",
+						"base": 20,
+						"candidate": 20,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.responseStart.median",
+						"base": 1.199999988079071,
+						"candidate": 1.199999988079071,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+						"base": 249,
+						"candidate": 253.19999998807907,
+						"difference": 4.199999988079071,
+						"percent": 1.6867469831642854,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+						"base": 116,
+						"candidate": 112,
+						"difference": -4,
+						"percent": -3.4482758620689653,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+						"base": 78.90000003576279,
+						"candidate": 82.19999998807907,
+						"difference": 3.299999952316284,
+						"percent": 4.182509443371993,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+						"base": 116,
+						"candidate": 112,
+						"difference": -4,
+						"percent": -3.4482758620689653,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+						"base": 22.5,
+						"candidate": 25.30000001192093,
+						"difference": 2.800000011920929,
+						"percent": 12.44444449742635,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.loadEventEnd.median",
+						"base": 560.7000000476837,
+						"candidate": 617.1999999880791,
+						"difference": 56.499999940395355,
+						"percent": 10.076689840483398,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.firstContentfulPaint.median",
+						"base": 172,
+						"candidate": 164,
+						"difference": -8,
+						"percent": -4.651162790697675,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.firstContentfulPaintPainted.median",
+						"base": 149.19999998807907,
+						"candidate": 144.19999998807907,
+						"difference": -5,
+						"percent": -3.351206434584112,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.largestContentfulPaint.median",
+						"base": 356,
+						"candidate": 408,
+						"difference": 52,
+						"percent": 14.606741573033707,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.responseStart.median",
+						"base": 0.8999999761581421,
+						"candidate": 52.10000002384186,
+						"difference": 51.200000047683716,
+						"percent": 5688.889044891173,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.loadEventEnd.median",
+						"base": 360,
+						"candidate": 370.10000002384186,
+						"difference": 10.100000023841858,
+						"percent": 2.8055555621782937,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.firstContentfulPaint.median",
+						"base": 148,
+						"candidate": 144,
+						"difference": -4,
+						"percent": -2.7027027027027026,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.firstContentfulPaintPainted.median",
+						"base": 125.19999998807907,
+						"candidate": 124.60000002384186,
+						"difference": -0.5999999642372131,
+						"percent": -0.4792331983181647,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.largestContentfulPaint.median",
+						"base": 1096,
+						"candidate": 1092,
+						"difference": -4,
+						"percent": -0.36496350364963503,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.responseStart.median",
+						"base": 23.900000035762787,
+						"candidate": 23.900000035762787,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "scroll",
+				"rows": [
+					{
+						"path": "summary.dropped.median",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.partial.median",
+						"base": 12,
+						"candidate": 12,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.presented.median",
+						"base": 467,
+						"candidate": 467,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.affectingSmoothness.median",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.onCompositorThread.median",
+						"base": 480,
+						"candidate": 480,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			}
+		]
+	},
+	"unlockFiveRounds": {
+		"binaries": {},
+		"rounds": 5,
+		"runs": [
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 18337
+			},
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 18582
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 22136
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 20361
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 18365
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 18139
+			},
+			{
+				"round": 4,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 17774
+			},
+			{
+				"round": 4,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 20072
+			},
+			{
+				"round": 5,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 18748
+			},
+			{
+				"round": 5,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 18154
+			}
+		],
+		"benchmarks": [
+			{
+				"benchmark": "unlock",
+				"rows": [
+					{
+						"path": "withoutPin.median",
+						"base": 613.800048828125,
+						"candidate": 619.800048828125,
+						"difference": 6,
+						"percent": 0.9775170287873515,
+						"rounds": {
+							"base": 5,
+							"candidate": 5
+						}
+					},
+					{
+						"path": "fromPin.median",
+						"base": 474.800048828125,
+						"candidate": 485,
+						"difference": 10.199951171875,
+						"percent": 2.1482624521732783,
+						"rounds": {
+							"base": 5,
+							"candidate": 5
+						}
+					},
+					{
+						"path": "attach.withoutPin.started.median",
+						"base": 279.60302734375,
+						"candidate": 280.416015625,
+						"difference": 0.81298828125,
+						"percent": 0.2907651926996107,
+						"rounds": {
+							"base": 5,
+							"candidate": 5
+						}
+					},
+					{
+						"path": "attach.withoutPin.ended.median",
+						"base": 501.132080078125,
+						"candidate": 515.829833984375,
+						"difference": 14.69775390625,
+						"percent": 2.9329102028269003,
+						"rounds": {
+							"base": 5,
+							"candidate": 5
+						}
+					},
+					{
+						"path": "attach.fromPin.started.median",
+						"base": 158.02099609375,
+						"candidate": 158.683837890625,
+						"difference": 0.662841796875,
+						"percent": 0.41946438337963143,
+						"rounds": {
+							"base": 5,
+							"candidate": 5
+						}
+					},
+					{
+						"path": "attach.fromPin.ended.median",
+						"base": 381.47998046875,
+						"candidate": 390.09814453125,
+						"difference": 8.6181640625,
+						"percent": 2.259139274336306,
+						"rounds": {
+							"base": 5,
+							"candidate": 5
+						}
+					}
+				],
+				"failures": []
+			}
+		]
+	}
 }

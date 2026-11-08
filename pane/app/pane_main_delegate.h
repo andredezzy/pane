@@ -4,6 +4,7 @@
 #define PANE_APP_PANE_MAIN_DELEGATE_H_
 
 #include <memory>
+#include <optional>
 
 #include "chrome/app/chrome_main_delegate.h"  // nogncheck: lives in chrome_dll
 
@@ -23,6 +24,7 @@ class PaneMainDelegate : public ChromeMainDelegate {
 
  protected:
   // ChromeMainDelegate:
+  std::optional<int> BasicStartupComplete() override;
   content::ContentBrowserClient* CreateContentBrowserClient() override;
 };
 

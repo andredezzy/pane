@@ -7,7 +7,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/browser_window.h"

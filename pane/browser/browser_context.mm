@@ -12,7 +12,6 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
-#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -20,25 +19,18 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/autofill/core/common/autofill_prefs.h"
-#include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/content_settings/core/common/content_settings.h"
-#include "components/content_settings/core/common/content_settings_types.h"
 #include "components/crx_file/id_util.h"
 #include "components/language/core/browser/language_prefs.h"
 #include "components/language/core/browser/pref_names.h"
-#include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_dictionary.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/proxy_config/proxy_prefs.h"
-#include "components/signin/public/base/signin_pref_names.h"
-#include "components/translate/core/browser/translate_pref_names.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_registrar.h"
@@ -61,6 +53,7 @@
 #include "pane/browser/extensions/extensions_bridge.h"
 #import "pane/browser/extensions/extensions_internal.h"
 #include "pane/browser/fingerprints.h"
+#include "pane/browser/profiles.h"
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/window_host.h"
 #import "pane/public/PaneBrowserContext.h"
@@ -127,33 +120,7 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
         profile, ProfileKeepAliveOrigin::kBrowserWindow);
     _downloads = std::make_unique<pane::DownloadsBridge>(self, profile);
     _extensions = std::make_unique<pane::ExtensionsBridge>(self, profile);
-    PrefService* prefs = profile->GetPrefs();
-    // Downloads go straight to the download directory, never to a dialog.
-    prefs->SetBoolean(prefs::kPromptForDownload, false);
-    // Device choosers stay closed, as in the Electron app: a page's
-    // requestDevice() is declined at once, with no UI (ADR 0022).
-    HostContentSettingsMap* settings =
-        HostContentSettingsMapFactory::GetForProfile(profile);
-    for (const ContentSettingsType guard :
-         {ContentSettingsType::USB_GUARD, ContentSettingsType::HID_GUARD,
-          ContentSettingsType::SERIAL_GUARD,
-          ContentSettingsType::BLUETOOTH_GUARD}) {
-      settings->SetDefaultContentSetting(guard, CONTENT_SETTING_BLOCK);
-    }
-    // Chrome's password manager and autofill stay off: Pane relies on
-    // extension password managers, so their bubbles never appear.
-    prefs->SetBoolean(password_manager::prefs::kCredentialsEnableService,
-                      false);
-    prefs->SetBoolean(password_manager::prefs::kCredentialsEnableAutosignin,
-                      false);
-    prefs->SetBoolean(autofill::prefs::kAutofillProfileEnabled, false);
-    prefs->SetBoolean(autofill::prefs::kAutofillCreditCardEnabled, false);
-    // No browser sign-in (its account list goes to accounts.google.com with
-    // the profile's cookies) and no Translate (its ranker model downloads
-    // from gstatic): Pane has neither, as the Electron app had neither.
-    // Signing in to Google's websites is unaffected.
-    prefs->SetBoolean(prefs::kSigninAllowed, false);
-    prefs->SetBoolean(translate::prefs::kOfferTranslateEnabled, false);
+    pane::ApplyProfileDefaults(profile);
     [self applyFingerprint];
   }
   return self;

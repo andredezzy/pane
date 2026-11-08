@@ -30,7 +30,7 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/autofill/save_address_bubble_controller.h"
 #include "chrome/browser/ui/autofill/update_address_bubble_controller.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
@@ -665,6 +665,9 @@ HostedBrowserWindow::PreHandleKeyboardEvent(
       manager && manager->HandleUserKeyEvent(event)) {
     return content::KeyboardEventProcessingResult::HANDLED;
   }
+  if (WindowHost::Delegate* delegate = host_ ? host_->delegate() : nullptr) {
+    return delegate->PreHandleKeyboardEvent(event);
+  }
   NSEvent* ns_event = event.os_event.Get();
   if (!ns_event || ns_event.type != NSEventTypeKeyDown || !host_) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
@@ -678,6 +681,9 @@ HostedBrowserWindow::PreHandleKeyboardEvent(
 
 bool HostedBrowserWindow::HandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
+  if (WindowHost::Delegate* delegate = host_ ? host_->delegate() : nullptr) {
+    return delegate->HandleKeyboardEvent(event);
+  }
   NSEvent* ns_event = UnhandledKeyDown(event);
   if (!ns_event || !host_) {
     return false;

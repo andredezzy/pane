@@ -20,13 +20,17 @@
 #include "base/observer_list.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
+#include "content/public/browser/keyboard_event_processing_result.h"
+#include "pane/browser/ui/install_hooks.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/widget/widget_observer.h"
 
+#if defined(__OBJC__)
 @class NSView;
 @class NSWindow;
 @class PaneBrowserWindow;
+#endif
 
 class Browser;
 class BrowserWindowInterface;
@@ -36,7 +40,13 @@ namespace content {
 class WebContents;
 }
 
+namespace input {
+struct NativeWebKeyboardEvent;
+}
+
 namespace views {
+class NativeWidget;
+class View;
 class Widget;
 class WidgetDelegate;
 }  // namespace views
@@ -61,19 +71,66 @@ class WindowHost : public TabStripModelObserver,
     base::WeakPtr<content::WebContents> source;
   };
 
+  // Pane's Views UI, told what the window's Browsers do, as the Swift app is
+  // told through PaneBrowserWindow's delegate until it goes.
+  class Delegate {
+   public:
+    virtual ~Delegate() = default;
+
+    // A tab joined one of the window's Browsers, opened by `opener` (or
+    // none), to show at once or behind.
+    virtual void TabInserted(content::WebContents* contents,
+                             content::WebContents* opener,
+                             bool foreground) {}
+    // A tab left, closed rather than carried off by a closing window.
+    virtual void TabRemoved(content::WebContents* contents) {}
+    virtual void ActiveTabChanged(Browser* browser,
+                                  content::WebContents* contents) {}
+    virtual void FullscreenChanged(content::WebContents* contents,
+                                   bool fullscreen) {}
+    // What to say while a page has fullscreen or a lock (empty: nothing).
+    virtual void ShowExclusiveAccessHint(const std::u16string& hint) {}
+    virtual void WindowWillClose() {}
+    // Where the page is, in the widget's root view, for tab-modal dialogs.
+    virtual gfx::Rect PageBounds() const = 0;
+    // A key on its way to the page, which the app may take first (⌘T, ⌘L).
+    virtual content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
+        const input::NativeWebKeyboardEvent& event);
+    // A key the page left unhandled.
+    virtual bool HandleKeyboardEvent(
+        const input::NativeWebKeyboardEvent& event);
+    // The widget's native widget, framed as the platform frames Pane's
+    // windows; null for the default.
+    virtual views::NativeWidget* CreateNativeWidget(views::Widget* widget);
+    // What a point of the window is, as Windows' WM_NCHITTEST names it:
+    // HTCAPTION drags the window, on the Mac too; HTNOWHERE defers to Views.
+    virtual int NonClientHitTest(const gfx::Point& point);
+  };
+
+#if defined(__OBJC__)
+  // A window of the Swift app's, which holds its view (PaneBrowserWindow).
   WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds);
+#endif
+  // A window of Pane's Views UI: `contents` fills the widget, and `delegate`
+  // outlives the WindowHost.
+  WindowHost(Delegate* delegate,
+             const gfx::Rect& bounds,
+             std::unique_ptr<views::View> contents);
   WindowHost(const WindowHost&) = delete;
   WindowHost& operator=(const WindowHost&) = delete;
   ~WindowHost() override;
 
   static const std::vector<WindowHost*>& All();
-  static WindowHost* ForNSWindow(NSWindow* window);
   static WindowHost* ForBrowser(const BrowserWindowInterface* browser);
 
+#if defined(__OBJC__)
+  static WindowHost* ForNSWindow(NSWindow* window);
   NSWindow* ns_window() const;
-  NSView* host_view() const { return host_view_; }
+  NSView* host_view() const;
+  PaneBrowserWindow* owner() const;
+#endif
   views::Widget* widget() const { return widget_.get(); }
-  PaneBrowserWindow* owner() const { return owner_; }
+  Delegate* delegate() const { return delegate_; }
 
   // Tells the app what to say while a page has fullscreen or a lock (empty:
   // nothing).
@@ -137,6 +194,8 @@ class WindowHost : public TabStripModelObserver,
  private:
   enum class CloseState { kOpen, kAsking, kClosing };
 
+  void InitWidget(const gfx::Rect& bounds,
+                  std::unique_ptr<views::View> contents);
   void AddBrowser(Browser* browser);
   void ContinueClose();
   void ContinueCloseAttempt(int attempt);
@@ -146,12 +205,14 @@ class WindowHost : public TabStripModelObserver,
   void CloseWidget();
   void NotifyWillClose();
 
-  __weak PaneBrowserWindow* owner_;
-  // Keeps the app's object alive until the widget closes.
-  PaneBrowserWindow* __strong owner_ref_;
+  // The Swift app's objects, Objective-C, until it goes: its window object,
+  // kept alive until the widget closes, and the view it draws in.
+  struct Cocoa;
+
+  raw_ptr<Delegate> delegate_ = nullptr;
+  std::unique_ptr<Cocoa> cocoa_;
   std::unique_ptr<views::WidgetDelegate> widget_delegate_;
   std::unique_ptr<views::Widget> widget_;
-  NSView* __strong host_view_;
   std::map<Profile*, raw_ptr<Browser>> browsers_;
   raw_ptr<Profile> active_profile_ = nullptr;
   CloseState close_state_ = CloseState::kOpen;
@@ -165,14 +226,6 @@ class WindowHost : public TabStripModelObserver,
   bool dialog_position_update_scheduled_ = false;
   base::WeakPtrFactory<WindowHost> weak_factory_{this};
 };
-
-// Sets the hooks of pane/browser/ui/hooks.h. Called once, before the first
-// Browser exists.
-void InstallBrowserHooks();
-
-// Routes Chrome's dialogs and bubbles for Pane's tabs to the app
-// (ui_hooks.mm). Runs as the browser starts, before any tab exists.
-void InstallUIHooks();
 
 }  // namespace pane
 
