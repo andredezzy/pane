@@ -24,6 +24,10 @@ export type ScenarioContext = {
 	// and CI, where no one works): keys a panel takes, a page's fullscreen,
 	// Quit Pane?. Otherwise a scenario defers what needs it.
 	foreground: boolean;
+	// The system appearance Pane's launches take (--appearance), in place of
+	// the Mac's, which a scenario can't change on a Mac in use: renders of
+	// either one, the Lock's included. Undefined leaves the Mac's.
+	appearance: "light" | "dark" | undefined;
 	launch: (options?: LaunchOptions) => Promise<Browser>;
 	// A new directory in $TMPDIR for the scenario alone. It is removed when
 	// the scenario ends, pass or fail, after every process still using it
@@ -55,6 +59,7 @@ const { values, positionals } = parseArgs({
 		out: { type: "string" },
 		timeout: { type: "string", default: "600" },
 		foreground: { type: "boolean", default: false },
+		appearance: { type: "string" },
 	},
 });
 
@@ -64,10 +69,13 @@ if (
 	!values.binary ||
 	!values.out ||
 	positionals.length === 0 ||
-	!(timeoutMs > 0)
+	!(timeoutMs > 0) ||
+	(values.appearance !== undefined &&
+		values.appearance !== "light" &&
+		values.appearance !== "dark")
 ) {
 	console.error(
-		"usage: run.ts --binary <path> --out <dir> [--timeout <seconds>] [--foreground] <scenario>...",
+		"usage: run.ts --binary <path> --out <dir> [--timeout <seconds>] [--foreground] [--appearance light|dark] <scenario>...",
 	);
 
 	process.exit(2);
@@ -124,6 +132,7 @@ for (const given of positionals) {
 		fixtures,
 		out,
 		foreground: values.foreground || process.env.CI === "true",
+		appearance: values.appearance as ScenarioContext["appearance"],
 		launch: async (options) => {
 			if (ended) {
 				throw new Error("the scenario has ended");

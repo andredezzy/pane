@@ -532,6 +532,9 @@ export async function launchPane(
 			PANE_AUTOMATION_DIR: automationDir,
 			// Only then does the app take the front from the app in use.
 			...(context.foreground && { PANE_AUTOMATION_FOREGROUND: "1" }),
+			...(context.appearance && {
+				PANE_SYSTEM_APPEARANCE: context.appearance,
+			}),
 			// Every launch checks for updates: against the fixtures, never
 			// GitHub.
 			PANE_UPDATE_URL: context.fixtures.url("releases/latest"),
