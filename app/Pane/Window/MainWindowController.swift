@@ -21,12 +21,19 @@ final class MainWindowController {
 		window.contentMinSize = NSSize(width: 900, height: 600)
 		window.isRestorable = false
 
-		// 1280 × 800 the first time; then where the user left it.
-		if UserDefaults.standard.string(forKey: "NSWindow Frame PaneMainWindow") == nil {
+		// 1280 × 800 the first time; then where the user left it. A scenario's
+		// copy shares the user's preferences, since cfprefsd ignores the home
+		// it is given, so it neither reads nor saves the user's frame: 1280 ×
+		// 800 at every launch, so its renders and timings have one size.
+		if TestHooks.enabled {
 			window.setContentSize(NSSize(width: 1280, height: 800))
-		}
+		} else {
+			if UserDefaults.standard.string(forKey: "NSWindow Frame PaneMainWindow") == nil {
+				window.setContentSize(NSSize(width: 1280, height: 800))
+			}
 
-		window.setFrameAutosaveName("PaneMainWindow")
+			window.setFrameAutosaveName("PaneMainWindow")
+		}
 
 		let hostView = controller.browserWindow.hostView
 		let root = NSHostingView(rootView: RootView(controller: controller))
