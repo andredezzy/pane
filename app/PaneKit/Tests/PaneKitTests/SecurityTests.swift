@@ -78,6 +78,17 @@ struct SecurityStateTests {
 		#expect(SecurityState.recover(from: Data("\u{0}\u{0}garbage".utf8)) == nil)
 		#expect(SecurityState.recover(from: Data(#"{"state":{"pin":{"hash":"$2b$10$short","length":4}}}"#.utf8)) == nil)
 	}
+
+	@Test("a damaged file from 0.13.1 gives back its PIN, its slashes escaped")
+	func recoverEscapedSlashes() throws {
+		// bcrypt's alphabet holds "/", which 0.13.1's JSONEncoder wrote as "\/".
+		let hash = "$2b$10$" + String(repeating: "a/", count: 26) + "b"
+		let written = try #require(String(data: JSONEncoder().encode(["hash": hash]), encoding: .utf8))
+		#expect(written.contains(#"\/"#))
+
+		let truncated = #"{"state":{"failedAttempts":2,"pin":{"length":4,"# + written.dropFirst().dropLast()
+		#expect(SecurityState.recover(from: Data(truncated.utf8)) == SecurityState(pin: Pin(hash: hash, length: 4), failedAttempts: 2))
+	}
 }
 
 @Suite("PinEntry")

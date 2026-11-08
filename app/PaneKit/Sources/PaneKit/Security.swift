@@ -64,7 +64,9 @@ public struct SecurityState: Codable, Hashable, Sendable {
 	// it. A sealed key is not read back from the pieces: its copy beside the
 	// volume stands in (ADR 0113).
 	public static func recover(from data: Data) -> SecurityState? {
-		let text = String(decoding: data, as: UTF8.self)
+		// 0.13.1 and before wrote the hash through JSONEncoder, which escapes
+		// each "/" of bcrypt's alphabet as "\/".
+		let text = String(decoding: data, as: UTF8.self).replacingOccurrences(of: #"\/"#, with: "/")
 
 		guard
 			let hash = text.firstMatch(of: /\$2[aby]\$\d\d\$[.\/A-Za-z0-9]{53}/)?.output,
