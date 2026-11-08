@@ -12,7 +12,7 @@
 # the release)
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
 APP="$APP_DIR/build/Pane.app"
 RELEASE="$APP_DIR/release"
@@ -26,7 +26,7 @@ DMGBUILD_SHA256="a785f2a385c8c31996a089ef8e26361904b40c772d5ea65a36001212f1fc25e
 DMGBUILD_DIR="$APP_DIR/build/dmgbuild-75c8a6c"
 
 if [ "${PANE_SKIP_PACKAGE:-}" != 1 ]; then
-	PANE_STRIP=1 "$ROOT_DIR/engine/scripts/package.sh"
+	PANE_STRIP=1 "$ROOT_DIR/scripts/package.sh"
 fi
 
 [ -d "$APP" ] || { echo "error: no $APP to put in the dmg" >&2; exit 1; }

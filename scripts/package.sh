@@ -7,7 +7,7 @@
 # PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc)
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
 ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
 SWIFT_APP="$APP_DIR/build/DerivedData/Build/Products/Release/Pane.app"
@@ -48,7 +48,7 @@ ditto "$ROOT_DIR/third_party" "$LICENSES/third_party"
 CRLSET="$APP_DIR/build/crl-set"
 
 if [ -z "$(find "$CRLSET" -mtime -1 2>/dev/null)" ]; then
-	if "$ROOT_DIR/engine/scripts/fetch-crlset.sh" "$CRLSET.new"; then
+	if "$ROOT_DIR/scripts/fetch-crlset.sh" "$CRLSET.new"; then
 		mv "$CRLSET.new" "$CRLSET"
 	else
 		rm -f "$CRLSET.new"
@@ -107,7 +107,7 @@ for strings in resources.glob("*.lproj/InfoPlist.strings"):
     strings.write_bytes(text.encode(encoding))
 PY
 plutil -replace PaneCommit -string "$(git -C "$ROOT_DIR" rev-parse HEAD)" "$PLIST"
-ENGINE_KEY="$(cat "$ENGINE_OUT/pane-engine.key" 2>/dev/null || "$ROOT_DIR/engine/scripts/engine-key.sh" --worktree)"
+ENGINE_KEY="$(cat "$ENGINE_OUT/pane-engine.key" 2>/dev/null || "$ROOT_DIR/scripts/engine-key.sh" --worktree)"
 plutil -replace PaneEngineKey -string "$ENGINE_KEY" "$PLIST"
 plutil -remove NSBonjourServices "$PLIST" 2>/dev/null || true
 

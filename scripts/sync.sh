@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Brings ~/chromium/src to the tag in CHROMIUM_VERSION, with all deps and hooks,
-# for the Mac and Windows, and links //pane to engine/pane. Safe to re-run:
+# for the Mac and Windows, and links //pane to pane. Safe to re-run:
 # finished steps are skipped, so a second run on a synced checkout changes
 # nothing, and a change to .gclient syncs again.
 #
@@ -10,9 +10,9 @@
 # it, the Mac's build syncs as before and the toolchain's hook does nothing.
 set -euo pipefail
 
-ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
-VERSION="$(tr -d '[:space:]' < "$ENGINE_DIR/CHROMIUM_VERSION")"
+VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/chromium/CHROMIUM_VERSION")"
 DEPOT_TOOLS="$CHROMIUM_ROOT/depot_tools"
 SRC_URL="https://chromium.googlesource.com/chromium/src.git"
 
@@ -93,8 +93,8 @@ if [ ! -f "$CHROMIUM_ROOT/.hooks-$VERSION" ]; then
 	touch "$CHROMIUM_ROOT/.hooks-$VERSION"
 fi
 
-if [ "$(readlink src/pane 2>/dev/null || true)" != "$ENGINE_DIR/pane" ]; then
-	ln -sfn "$ENGINE_DIR/pane" src/pane
+if [ "$(readlink src/pane 2>/dev/null || true)" != "$ROOT_DIR/pane" ]; then
+	ln -sfn "$ROOT_DIR/pane" src/pane
 fi
 
 echo "synced $VERSION"

@@ -4,8 +4,8 @@ name: Release
 # reads, when a v* tag is pushed on main, or on the swift branch the Swift
 # line ships its fixes from until the Views cutover (AGENTS.md). The app
 # builds on the prebuilt engine its engine sources name
-# (engine/prebuilt-engines.tsv): an engine change publishes its
-# engine-<key> prerelease first (engine/UPGRADING.md). CI runs no
+# (chromium/prebuilt-engines.tsv): an engine change publishes its
+# engine-<key> prerelease first (chromium/UPGRADING.md). CI runs no
 # scenarios: they run on a developer's Mac before each push and tag.
 
 on:
@@ -90,19 +90,19 @@ jobs:
           unzip -q "$zip" -d "$dir"
           echo "$dir/xcodegen/bin" >> "$GITHUB_PATH"
 
-      # The engine its engine sources name (engine/prebuilt-engines.tsv),
+      # The engine its engine sources name (chromium/prebuilt-engines.tsv),
       # into a variable first: within echo's arguments a failed fetch left
       # the step green and PANE_ENGINE_OUT empty.
       - name: Fetch the prebuilt engine
         run: |
-          engine="$(engine/scripts/fetch-engine.sh)"
+          engine="$(scripts/fetch-engine.sh)"
           echo "PANE_ENGINE_OUT=$engine" >> "$GITHUB_ENV"
 
       # Ad-hoc signed, as every release so far: Developer ID signing and
       # notarization (PANE_SIGN_IDENTITY, PANE_NOTARY_PROFILE) wait for an
       # identity (docs/human-checklist.md, 6.2).
       - name: Build the dmg
-        run: engine/scripts/dist.sh
+        run: scripts/dist.sh
 
       - name: Keep the dmg
         if: github.ref_type != 'tag'
@@ -122,7 +122,7 @@ jobs:
       # The notes open with the Chromium the release is built on.
       - name: Chromium version
         id: chromium
-        run: echo "version=$(tr -d '[:space:]' < engine/CHROMIUM_VERSION)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(tr -d '[:space:]' < chromium/CHROMIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
         if: github.ref_type == 'tag'

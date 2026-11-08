@@ -70,7 +70,7 @@ diskutil eject /tmp/bench-int/mnt
 
 # The code before, with the marks: built beside the checkout's own app.
 git show 3d85ef7:app/Pane/Browser/BrowserController.swift > app/Pane/Browser/BrowserController.swift
-PANE_APP_OUT=/tmp/bench-int/before/Pane.app engine/scripts/package.sh
+PANE_APP_OUT=/tmp/bench-int/before/Pane.app scripts/package.sh
 git checkout -- app/Pane/Browser/BrowserController.swift
 
 # Each run takes about 25 seconds; alternate the two.

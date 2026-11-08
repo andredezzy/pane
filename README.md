@@ -59,8 +59,8 @@ Updates need none of this: Pane installs them itself.
 ```bash
 git clone https://github.com/andredezzy/pane.git
 cd pane
-export PANE_ENGINE_OUT="$(engine/scripts/fetch-engine.sh)"   # or build the engine: docs/building.md
-engine/scripts/package.sh                                    # → app/build/Pane.app
+export PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)"   # or build the engine: docs/building.md
+scripts/package.sh                                    # → app/build/Pane.app
 open app/build/Pane.app
 ```
 
@@ -68,7 +68,9 @@ open app/build/Pane.app
 
 ```text
 app/           # the Swift app (AppKit + SwiftUI), the PaneKit package, the volume's watchdog, VERSION, signing and dmg resources
-engine/        # Pane Framework.framework: the pinned Chromium tag, gn args, patches, //pane, scripts
+pane/          # the //pane tree, linked into Pane Framework.framework
+chromium/      # what Pane does to Chromium: the pinned tag, gn args, patches, the engine archives' keys, UPGRADING.md
+scripts/       # sync, build, patch, package, and publish the engine and the app
 tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
 docs/          # building.md, human-checklist.md, adr/ (one record per subject), benchmarks/, growth/, qa/
 third_party/   # the license and origin of each project Pane takes code from (NOTICE)
@@ -94,10 +96,10 @@ bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane --out <dir> <sc
 To produce a distributable:
 
 ```bash
-engine/scripts/dist.sh    # dmg → app/release/Pane-<version>-arm64.dmg
+scripts/dist.sh    # dmg → app/release/Pane-<version>-arm64.dmg
 ```
 
-Chromium upgrades follow `engine/UPGRADING.md`.
+Chromium upgrades follow `chromium/UPGRADING.md`.
 
 ## Security
 

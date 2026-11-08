@@ -17,7 +17,7 @@ import { expect, type Scenario } from "../run";
 // name gives a site away, in clear or as an unkeyed hash.
 //
 // It also lists every file, with its kind, what wrote it, and whether it reads
-// as plain, in files-inventory-list.json: engine/UPGRADING.md reads the result's
+// as plain, in files-inventory-list.json: chromium/UPGRADING.md reads the result's
 // `unknown` at each new Chromium, to see the stores a milestone adds.
 const filesEncrypted: Scenario = async (context) => {
 	const session = await richSession(context);

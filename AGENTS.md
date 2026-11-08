@@ -24,7 +24,7 @@ git tag "v<version>"
 git push && git push origin "v<version>"
 ```
 
-CI verifies the tag matches `app/VERSION` and runs PaneKit's tests. It then builds the app on the prebuilt engine that `engine/prebuilt-engines.tsv` names for the tagged commit, packages the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. When a release changes the engine (`engine/`: `CHROMIUM_VERSION`, `args`, `patches`, `pane`), build it locally first and publish it with `engine/scripts/publish-engine.sh`: its archive becomes the `engine-<key>` prerelease, and its line goes in `prebuilt-engines.tsv` (`engine/UPGRADING.md`, step 6).
+CI verifies the tag matches `app/VERSION` and runs PaneKit's tests. It then builds the app on the prebuilt engine that `chromium/prebuilt-engines.tsv` names for the tagged commit, packages the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. When a release changes the engine (`chromium/`'s `CHROMIUM_VERSION`, `args`, or `patches`, or `pane/`), build it locally first and publish it with `scripts/publish-engine.sh`: its archive becomes the `engine-<key>` prerelease, and its line goes in `prebuilt-engines.tsv` (`chromium/UPGRADING.md`, step 6).
 
 **The Swift line ships from `swift`, the one exception to working and tagging on `main`.** `main` is the Views line (`docs/plans/views-migration.md`, D1) until its first release. A fix the Swift app still takes, for data loss or security only, goes on the `swift` branch, cut from `v0.19.1`, whose engine archive is `46b8f8b35c24`; it is released from there with a tag on `swift`, by the steps above, and goes into `main` as well while `main` still holds the code it fixes.
 
@@ -33,16 +33,16 @@ CI verifies the tag matches `app/VERSION` and runs PaneKit's tests. It then buil
 ```bash
 # 1. Bump app/VERSION (per the judgement above).
 # 2. Build the engine (docs/building.md), or fetch the prebuilt one:
-export PANE_ENGINE_OUT="$(engine/scripts/fetch-engine.sh)"
+export PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)"
 # 3. Package the dmg → app/release/Pane-<version>-arm64.dmg
-engine/scripts/dist.sh
+scripts/dist.sh
 ```
 
 The dmg is ad-hoc signed and not notarized (no Apple Developer ID is configured): it runs locally and for testing, but Gatekeeper will warn on other machines. With a Developer ID, `PANE_SIGN_IDENTITY` and `PANE_NOTARY_PROFILE` sign and notarize it (`docs/human-checklist.md`).
 
 ## Tooling
 
-- **The app is native**: Swift (AppKit and SwiftUI) in `app/`, on Pane's own Chromium framework built from `engine/`. `docs/building.md` covers the checkout, the engine build, the patches, and the scenarios. Chromium upgrades follow `engine/UPGRADING.md`.
+- **The app is native**: Swift (AppKit and SwiftUI) in `app/`, on Pane's own Chromium framework built from `pane/` (`//pane`) and `chromium/` (the pinned tag, its args, and its patches). `docs/building.md` covers the checkout, the engine build, the patches, and the scenarios. Chromium upgrades follow `chromium/UPGRADING.md`.
 - **The engine stays as faithful to Chromium as it can be** (ADR 0004): a change goes in `//pane` first, through a seam Chromium already has second, and into a Chromium file only when neither can do it.
 - **The product's words** are in `CONTEXT.md`: use its terms, and avoid what it says to avoid, in code, docs, and what Pane shows.
 - **Package manager: Bun** — a `bun.lock` is present. Use `bun` / `bunx`; never npm, pnpm, or yarn. Bun runs the scenario runner (`tests/`) and the linters.

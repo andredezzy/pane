@@ -12,14 +12,14 @@ curl -s "https://versionhistory.googleapis.com/v1/chrome/platforms/mac_arm64/cha
 
 A milestone often reaches the stable channel on other platforms first, during its staged rollout (`platforms/win/channels/stable`). Any stable release's tag builds for the Mac.
 
-Then see what the move takes, in under a minute and with no sync: `engine/scripts/preflight.sh <tag>` fetches each file `patches/MANIFEST` names at the tag from Chromium's gitiles and applies every patch to them. It names each patch that no longer applies, with git's reasons; step 3 merges those. The watch's issue carries its output.
+Then see what the move takes, in under a minute and with no sync: `scripts/preflight.sh <tag>` fetches each file `patches/MANIFEST` names at the tag from Chromium's gitiles and applies every patch to them. It names each patch that no longer applies, with git's reasons; step 3 merges those. The watch's issue carries its output.
 
 ## 2. Move the checkout
 
 ```bash
-engine/scripts/apply-patches.sh --reverse   # the pristine tag; sync.sh refuses to move otherwise
-echo <tag> > engine/CHROMIUM_VERSION
-engine/scripts/sync.sh                      # fetch the tag, check it out, gclient sync, hooks
+scripts/apply-patches.sh --reverse   # the pristine tag; sync.sh refuses to move otherwise
+echo <tag> > chromium/CHROMIUM_VERSION
+scripts/sync.sh                      # fetch the tag, check it out, gclient sync, hooks
 ```
 
 `sync.sh` keeps the checkout shallow. A patch release syncs in minutes. A new milestone moves most dependencies and toolchains, so it downloads several GB.
@@ -27,41 +27,41 @@ engine/scripts/sync.sh                      # fetch the tag, check it out, gclie
 ## 3. Put the patches back
 
 ```bash
-engine/scripts/apply-patches.sh
+scripts/apply-patches.sh
 ```
 
 A patch that no longer applies is merged three ways from the blobs it was made against (the old tag's, still in the checkout). A conflict stops the run and lists the files that have conflict markers. For each:
 
 1. Resolve the markers. Keep the patch's intent, which the ADRs record for each hook and seam (ADR 0010 for the startup seam, 0021 for the UI hooks), against the new code. If the hooked function moved or was renamed, follow it in the new tag.
-2. Regenerate that patch: `engine/scripts/make-patch.sh <patch>`. This also records it as applied.
+2. Regenerate that patch: `scripts/make-patch.sh <patch>`. This also records it as applied.
 3. Run `apply-patches.sh` again: it continues after the patches already applied.
 
 Then rebase every patch onto the new tag, so none applies with offsets:
 
 ```bash
-grep -v '^#' engine/patches/series | xargs -n1 engine/scripts/make-patch.sh
+grep -v '^#' chromium/patches/series | xargs -n1 scripts/make-patch.sh
 ```
 
 ## 4. Build
 
 ```bash
 mkdir -p evidence/logs
-nohup engine/scripts/build.sh > evidence/logs/build-<tag>.log 2>&1 &
+nohup scripts/build.sh > evidence/logs/build-<tag>.log 2>&1 &
 ```
 
-A new milestone's build is the one to change what most of Chromium compiles in, such as `engine/pane/BRANDING` (its `branding_file_path` in `engine/args/release.gn`): `chrome_version.h` carries its names into most of the build (ADR 0114). A new `BRANDING` key at a milestone comes from `chrome/app/theme/chromium/BRANDING` at the new tag: take any it adds, and keep Pane's names. A patch release leaves it alone, for its own, cheaper build.
+A new milestone's build is the one to change what most of Chromium compiles in, such as `pane/BRANDING` (its `branding_file_path` in `chromium/args/release.gn`): `chrome_version.h` carries its names into most of the build (ADR 0114). A new `BRANDING` key at a milestone comes from `chrome/app/theme/chromium/BRANDING` at the new tag: take any it adds, and keep Pane's names. A patch release leaves it alone, for its own, cheaper build.
 
 A new milestone rebuilds almost everything: 157 took 1h44m here (about 45,600 objects at 12 of 18 cores, on an idle Mac), and the sync before it about 25 minutes. `build.sh` runs 6 jobs by default, which leaves the Mac usable; 12 reset it by watchdog while it was in use (ADR 0007), so pass `PANE_BUILD_JOBS=12` only when nobody is using it. Run one Chromium build at a time, and keep the checkout out of Spotlight (`docs/building.md`).
 
 What usually breaks, and where to fix it:
 
-- **`//pane` no longer compiles**: Chrome's internal APIs drift between milestones (renamed methods, moved headers, changed callbacks). Fix `engine/pane`, not Chromium.
+- **`//pane` no longer compiles**: Chrome's internal APIs drift between milestones (renamed methods, moved headers, changed callbacks). Fix `pane`, not Chromium.
 - **A patched file failed to compile**: the merge in step 3 kept something the new code no longer has. Fix the file, then `make-patch.sh` its patch.
 
 ## 5. Prove it
 
 ```bash
-engine/scripts/package.sh
+scripts/package.sh
 (cd app/PaneKit && swift test)
 bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane \
   --out evidence/upgrade-<tag> tests/scenarios/*.ts
@@ -78,5 +78,5 @@ Then audit the stores (ADR 0121): a milestone adds some. `files-encrypted`, amon
 ## 6. Ship it
 
 1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>", with `README.md`'s `Chromium-<milestone>` badge at a new milestone. Push it.
-2. Publish the engine for CI and other machines: `engine/scripts/publish-engine.sh`. It archives the engine unless `app/release` holds its archive, publishes it as the `engine-<key:12>` prerelease, checks GitHub's copy against the archive's SHA-256, and overwrites `prebuilt-engines.tsv`'s line with its own. Commit that line. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
+2. Publish the engine for CI and other machines: `scripts/publish-engine.sh`. It archives the engine unless `app/release` holds its archive, publishes it as the `engine-<key:12>` prerelease, checks GitHub's copy against the archive's SHA-256, and overwrites `prebuilt-engines.tsv`'s line with its own. Commit that line. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
 3. Release the app as usual (`AGENTS.md`, Releasing).

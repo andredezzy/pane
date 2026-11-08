@@ -11,7 +11,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-SOURCES=(CHROMIUM_VERSION args patches pane)
+SOURCES=(chromium/CHROMIUM_VERSION chromium/args chromium/patches pane)
 
 if [ "${1:-}" = --worktree ]; then
 	# The trees `git add --all` then a commit would make, written through an

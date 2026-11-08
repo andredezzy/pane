@@ -6,7 +6,7 @@ Comparing Pane's Extensions page with Aside's (the user's request: keep parity w
 
 Running them:
 
-- **The engine:** `pane::ExtensionShortcuts` (`engine/pane/browser/extensions/extension_shortcuts.mm`) is Chrome's `ExtensionKeybindingRegistry`, one per Browser, made when the Browser attaches to its window (`HostedBrowserWindow`).
+- **The engine:** `pane::ExtensionShortcuts` (`pane/browser/extensions/extension_shortcuts.mm`) is Chrome's `ExtensionKeybindingRegistry`, one per Browser, made when the Browser attaches to its window (`HostedBrowserWindow`).
   - It keeps every enabled extension's active shortcuts as Chrome's views registry does, and the action's beside them. Chrome's toolbar keeps the action's itself, and Pane's app has no toolbar views.
   - `PaneBrowserContext`'s `runExtensionShortcut:inWindow:` runs one. A command goes through the registry, which grants the active tab, as Chrome does. The action goes through `runActionOfExtension:inWindow:`, the toolbar's click.
 - **The app:** `KeyRouter`, the one key monitor, sees each key before any view, the page's included. A key the overlays leave goes to `ExtensionsController.runShortcut` when it is a chord (⌘, ⌃, or ⌥), for the active profile. A shortcut goes before the page, as in Chrome.

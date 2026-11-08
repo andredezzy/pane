@@ -13,7 +13,7 @@
 # publish-engine.sh checks before it archives the engine.
 set -euo pipefail
 
-ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
 TARGETS=("${@:-chrome}")
 JOBS="${PANE_BUILD_JOBS:-$(( $(sysctl -n hw.ncpu) / 3 ))}"
@@ -32,16 +32,16 @@ mkdir -p "$OUT_DIR"
 # the working tree's, so a build before the commit matches it after.
 built_key() {
 	local version
-	version="$(tr -d '[:space:]' < "$ENGINE_DIR/CHROMIUM_VERSION")"
+	version="$(tr -d '[:space:]' < "$ROOT_DIR/chromium/CHROMIUM_VERSION")"
 
 	if [ "$(git describe --tags --exact-match HEAD 2>/dev/null || true)" != "$version" ]; then
 		echo "the checkout is not at $version (sync.sh)" >&2
-	elif [ "$(readlink pane 2>/dev/null || true)" != "$ENGINE_DIR/pane" ]; then
-		echo "src/pane does not link to $ENGINE_DIR/pane (sync.sh)" >&2
-	elif ! CHROMIUM_ROOT="$CHROMIUM_ROOT" "$ENGINE_DIR/scripts/apply-patches.sh" --check; then
+	elif [ "$(readlink pane 2>/dev/null || true)" != "$ROOT_DIR/pane" ]; then
+		echo "src/pane does not link to $ROOT_DIR/pane (sync.sh)" >&2
+	elif ! CHROMIUM_ROOT="$CHROMIUM_ROOT" "$ROOT_DIR/scripts/apply-patches.sh" --check; then
 		echo "the patches applied are not patches/series (apply-patches.sh)" >&2
 	else
-		"$ENGINE_DIR/scripts/engine-key.sh" --worktree
+		"$ROOT_DIR/scripts/engine-key.sh" --worktree
 	fi
 }
 
@@ -59,8 +59,8 @@ if $records_key; then
 fi
 
 # Rewriting an unchanged args.gn would force gn to regenerate every ninja file.
-if ! cmp -s "$ENGINE_DIR/args/release.gn" "$OUT_DIR/args.gn"; then
-	cp "$ENGINE_DIR/args/release.gn" "$OUT_DIR/args.gn"
+if ! cmp -s "$ROOT_DIR/chromium/args/release.gn" "$OUT_DIR/args.gn"; then
+	cp "$ROOT_DIR/chromium/args/release.gn" "$OUT_DIR/args.gn"
 	gn gen "$OUT_DIR"
 fi
 

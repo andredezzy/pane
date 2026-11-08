@@ -28,7 +28,7 @@ How it works:
 What the engine opens on its own:
 
 - **Chromium starts on its Default profile.** At startup it opens the profile Local State names as used last (`GetStartupProfile`, `chrome_browser_main.cc`), and the ones open last as its fallback: Pane's, before the PIN, outside every gate of Pane's. With an earlier Pane's plain data, it opened the profile the move was copying. Before the engine starts, Pane names Default instead and no profiles open last (PaneKit `LocalState`); Pane restores its own session.
-- **The segmentation platform is off** (`SegmentationPlatform`, `SegmentationPlatformUkmEngine`, in `engine/pane/browser/browser_application.mm`). Its database at the user data dir's root (`segmentation_platform/ukm_db`) kept the addresses of the pages visited, outside the volume: the `security` scenario found a page's address there. An earlier engine's copy is erased at launch, as the panic wipe erases.
+- **The segmentation platform is off** (`SegmentationPlatform`, `SegmentationPlatformUkmEngine`, in `pane/browser/browser_application.mm`). Its database at the user data dir's root (`segmentation_platform/ukm_db`) kept the addresses of the pages visited, outside the volume: the `security` scenario found a page's address there. An earlier engine's copy is erased at launch, as the panic wipe erases.
 - **Everything else at the engine's root holds none of the browsing**: `Local State` names no profile and no site outside Google's infrastructure, and the `Default` profile, where Pane never browses, has no history, downloads, or favicons (counted on this Mac, 2026-10-30). The `security` scenario's search for a page's address and a value it stored covers the whole data root.
 
 Launch and unlock:

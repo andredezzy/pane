@@ -4,12 +4,13 @@ Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `Pane Frame
 
 ## Layout
 
-- `engine/` — everything that becomes `Pane Framework.framework`
+- `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`, linked into `Pane Framework.framework`
+- `chromium/` — what Pane does to Chromium
   - `CHROMIUM_VERSION` — the pinned Chromium stable tag
   - `args/` — gn args per build config
   - `patches/` — `series` (apply order), `MANIFEST` (each touched Chromium file → its owning patch), the patches
-  - `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`
-  - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `preflight.sh`, `fetch-crlset.sh`, `package.sh`, `dist.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
+  - `prebuilt-engines.tsv` — the engine archive each engine key names, and `UPGRADING.md`, the upgrade routine
+- `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `preflight.sh`, `fetch-crlset.sh`, `package.sh`, `dist.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
 - `app/` — the Swift app, the `PaneKit` package, the volume's watchdog (`VolumeWatch/`), `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon's sources (`icon/`: the window's renders, and `make-icons.swift`, which makes the app's icons from them)
 - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios that check (`scenarios/`), what measures and never judges (`benchmarks/`), and a held test copy for a pass by hand (`rigs/`)
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
@@ -21,21 +22,21 @@ Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `Pane Frame
 The checkout lives outside the repo, at `~/chromium` (override with `CHROMIUM_ROOT`): `depot_tools/` and `src/`. Keep it out of Spotlight — here `~/chromium` is a symlink to `~/chromium.noindex`, which Spotlight skips; indexing a fresh checkout during a build starved the system into a kernel panic once. It needs full Xcode plus its Metal toolchain (`xcodebuild -downloadComponent MetalToolchain`), an APFS volume, and ~100 GB free.
 
 ```bash
-engine/scripts/sync.sh            # depot_tools, src at CHROMIUM_VERSION, deps, hooks, //pane link
-engine/scripts/apply-patches.sh   # apply patches/series (no-op when unchanged)
-engine/scripts/build.sh           # out/Release, target `chrome` (args/release.gn)
+scripts/sync.sh            # depot_tools, src at CHROMIUM_VERSION, deps, hooks, //pane link
+scripts/apply-patches.sh   # apply patches/series (no-op when unchanged)
+scripts/build.sh           # out/Release, target `chrome` (args/release.gn)
 ```
 
-Every script is safe to re-run. The first sync and the first build take hours; later builds are incremental. The checkout syncs Windows' dependencies and Chrome's PGO profiles too (ADR 0007); to compile for Windows, sync once with `PANE_WIN_TOOLCHAIN_DIR` naming the folder that holds the toolchain's zip, packaged from a Visual Studio install (Chromium's `docs/windows_build_instructions.md`, Packaging), which stays outside the repo. Moving to a newer Chromium is a routine: `engine/UPGRADING.md`.
+Every script is safe to re-run. The first sync and the first build take hours; later builds are incremental. The checkout syncs Windows' dependencies and Chrome's PGO profiles too (ADR 0007); to compile for Windows, sync once with `PANE_WIN_TOOLCHAIN_DIR` naming the folder that holds the toolchain's zip, packaged from a Visual Studio install (Chromium's `docs/windows_build_instructions.md`, Packaging), which stays outside the repo. Moving to a newer Chromium is a routine: `chromium/UPGRADING.md`.
 
 ## Patches
 
-Edit files in `~/chromium/src`, list each touched file in `patches/MANIFEST` with its owning patch, then regenerate the patch with `engine/scripts/make-patch.sh <patch-name>`. A file belongs to exactly one patch, so a patch is the diff of its own files against the pinned tag.
+Edit files in `~/chromium/src`, list each touched file in `patches/MANIFEST` with its owning patch, then regenerate the patch with `scripts/make-patch.sh <patch-name>`. A file belongs to exactly one patch, so a patch is the diff of its own files against the pinned tag.
 
 ## Engine unit tests
 
 ```bash
-engine/scripts/build.sh pane_unittests
+scripts/build.sh pane_unittests
 ~/chromium/src/out/Release/pane_unittests
 ```
 
@@ -92,8 +93,8 @@ The rig: cua-driver (`tests/lib/cua.ts`), `screencapture -l <window id>` for sti
 ## App
 
 ```bash
-engine/scripts/package.sh   # app/build/Pane.app: the engine bundle with the Swift app inside, signed
-engine/scripts/dist.sh      # app/release/Pane-<version>-arm64.dmg: package.sh (stripped), then the dmg
+scripts/package.sh   # app/build/Pane.app: the engine bundle with the Swift app inside, signed
+scripts/dist.sh      # app/release/Pane-<version>-arm64.dmg: package.sh (stripped), then the dmg
 (cd app/PaneKit && swift test)
 ```
 
@@ -104,10 +105,10 @@ The app's version lives in `app/VERSION`, its only source: the bundle's version 
 The app builds without a Chromium checkout on a prebuilt engine, as Ardia's does:
 
 ```bash
-PANE_ENGINE_OUT="$(engine/scripts/fetch-engine.sh)" engine/scripts/package.sh
+PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)" scripts/package.sh
 ```
 
-`engine/prebuilt-engines.tsv` names the engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`) of the `engine-<key:12>` release that carries `PaneCore-<chromium>-<key:12>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `app/build/engines/`. A checkout whose engine sources changed has no prebuilt: build the engine. `publish-engine.sh` archives the engine into `app/release/`, publishes it as the prerelease, and overwrites that line. Archiving refuses an engine that `build.sh` did not record the current key for (`out/Release/pane-engine.key`): one built before a change to the engine's sources, or from a checkout whose tag, patches, or `//pane` were not this repo's.
+`chromium/prebuilt-engines.tsv` names the engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`) of the `engine-<key:12>` release that carries `PaneCore-<chromium>-<key:12>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `app/build/engines/`. A checkout whose engine sources changed has no prebuilt: build the engine. `publish-engine.sh` archives the engine into `app/release/`, publishes it as the prerelease, and overwrites that line. Archiving refuses an engine that `build.sh` did not record the current key for (`out/Release/pane-engine.key`): one built before a change to the engine's sources, or from a checkout whose tag, patches, or `//pane` were not this repo's.
 
 ## Reading a crash report
 

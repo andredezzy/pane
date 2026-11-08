@@ -2,7 +2,7 @@
 # Tells, in under a minute and with no Chromium checkout, whether
 # patches/series still applies to a Chromium tag: fetches each file
 # patches/MANIFEST names at that tag from Chromium's gitiles, and applies
-# every patch to them, in order. A move to a new tag (engine/UPGRADING.md)
+# every patch to them, in order. A move to a new tag (chromium/UPGRADING.md)
 # then starts knowing which patches need work, before a sync and an engine
 # build of hours.
 # Usage: preflight.sh <tag>   (exit 0 when every patch applies, 1 when one
@@ -10,7 +10,7 @@
 # answer)
 set -euo pipefail
 
-ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAG="${1:?usage: preflight.sh <tag>}"
 GITILES="https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG"
 
@@ -37,7 +37,7 @@ fetch() {
 export -f fetch
 export work GITILES TAG
 
-if ! grep -v '^\s*\(#\|$\)' "$ENGINE_DIR/patches/MANIFEST" | cut -f1 |
+if ! grep -v '^\s*\(#\|$\)' "$ROOT_DIR/chromium/patches/MANIFEST" | cut -f1 |
 	xargs -P 4 -I {} bash -c 'fetch "$1"' _ {}; then
 	exit 2
 fi
@@ -45,13 +45,13 @@ fi
 failed=0
 
 while read -r name; do
-	if output="$(git -C "$work" apply --whitespace=nowarn "$ENGINE_DIR/patches/$name" 2>&1)"; then
+	if output="$(git -C "$work" apply --whitespace=nowarn "$ROOT_DIR/chromium/patches/$name" 2>&1)"; then
 		echo "applies: $name"
 	else
 		echo "does not apply: $name"
 		sed 's/^/  /' <<< "$output"
 		failed=1
 	fi
-done < <(grep -v '^\s*\(#\|$\)' "$ENGINE_DIR/patches/series")
+done < <(grep -v '^\s*\(#\|$\)' "$ROOT_DIR/chromium/patches/series")
 
 exit "$failed"

@@ -19,7 +19,7 @@ What was rejected:
 
 How it is checked:
 
-- **The count of what the patches edit** (`engine/patches/*.patch`, each `diff --git` that is not a new file): 121 Chromium files and 1,363 changed lines, with 11 files added, at 0.18.0, and 93, 1,035, and 9 after the review of 0.18.0 cut what `//pane` or a seam could carry. A change that raises it says why.
+- **The count of what the patches edit** (`chromium/patches/*.patch`, each `diff --git` that is not a new file): 121 Chromium files and 1,363 changed lines, with 11 files added, at 0.18.0, and 93, 1,035, and 9 after the review of 0.18.0 cut what `//pane` or a seam could carry. A change that raises it says why.
 - **What stays, and why no seam does it** (that review read every hunk):
   - **0001:** `//pane` in `chrome_dll`, the exports, the order check off, and the Keychain's names, which have no gn arg.
   - **0002:** `ChromeMain`'s delegate, and the `AppController` methods (a reopen, opened URLs, the last profile, Handoff) and the main menu, which AppKit's delegate owns.

@@ -4,15 +4,15 @@
 # Usage: make-patch.sh <patch-file-name>
 set -euo pipefail
 
-ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
 NAME="$1"
-VERSION="$(tr -d '[:space:]' < "$ENGINE_DIR/CHROMIUM_VERSION")"
+VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/chromium/CHROMIUM_VERSION")"
 
 files=()
 while IFS=$'\t' read -r path patch; do
 	[ "$patch" = "$NAME" ] && files+=("$path")
-done < <(grep -v '^\s*\(#\|$\)' "$ENGINE_DIR/patches/MANIFEST")
+done < <(grep -v '^\s*\(#\|$\)' "$ROOT_DIR/chromium/patches/MANIFEST")
 
 if [ "${#files[@]}" -eq 0 ]; then
 	echo "no MANIFEST entries for $NAME" >&2
@@ -20,7 +20,7 @@ if [ "${#files[@]}" -eq 0 ]; then
 fi
 
 git -C "$CHROMIUM_ROOT/src" add -N -- "${files[@]}"
-git -C "$CHROMIUM_ROOT/src" diff "refs/tags/$VERSION" -- "${files[@]}" > "$ENGINE_DIR/patches/$NAME"
+git -C "$CHROMIUM_ROOT/src" diff "refs/tags/$VERSION" -- "${files[@]}" > "$ROOT_DIR/chromium/patches/$NAME"
 git -C "$CHROMIUM_ROOT/src" reset -q -- "${files[@]}"
 echo "wrote patches/$NAME (${#files[@]} files)"
 
@@ -30,8 +30,8 @@ echo "wrote patches/$NAME (${#files[@]} files)"
 # series order, as apply-patches.sh writes it.
 APPLIED="$CHROMIUM_ROOT/.applied"
 mkdir -p "$APPLIED"
-cp "$ENGINE_DIR/patches/$NAME" "$APPLIED/$NAME"
-grep -v '^\s*\(#\|$\)' "$ENGINE_DIR/patches/series" | while read -r name; do
+cp "$ROOT_DIR/chromium/patches/$NAME" "$APPLIED/$NAME"
+grep -v '^\s*\(#\|$\)' "$ROOT_DIR/chromium/patches/series" | while read -r name; do
 	if [ -f "$APPLIED/$name" ]; then
 		printf '%s %s\n' "$(shasum -a 256 "$APPLIED/$name" | cut -d' ' -f1)" "$name"
 	fi

@@ -8,20 +8,20 @@
 # Usage: PANE_ENGINE_OUT="$(fetch-engine.sh)" package.sh
 set -euo pipefail
 
-ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ASSETS="https://github.com/andredezzy/pane/releases/download"
-STORE="$(cd "$ENGINE_DIR/.." && pwd)/app/build/engines"
+STORE="$ROOT_DIR/app/build/engines"
 
 die() {
 	echo "error: $*" >&2
 	exit 1
 }
 
-key="$("$ENGINE_DIR/scripts/engine-key.sh")"
-version="$(tr -d '[:space:]' < "$ENGINE_DIR/CHROMIUM_VERSION")"
-entry="$(awk -v key="$key" '$1 == key { print; exit }' "$ENGINE_DIR/prebuilt-engines.tsv")"
+key="$("$ROOT_DIR/scripts/engine-key.sh")"
+version="$(tr -d '[:space:]' < "$ROOT_DIR/chromium/CHROMIUM_VERSION")"
+entry="$(awk -v key="$key" '$1 == key { print; exit }' "$ROOT_DIR/chromium/prebuilt-engines.tsv")"
 
-[ -n "$entry" ] || die "no prebuilt engine for this checkout's engine sources ($key): build the engine (docs/building.md), then publish it as engine-${key:0:12} with engine/scripts/publish-engine.sh (engine/UPGRADING.md, step 6)"
+[ -n "$entry" ] || die "no prebuilt engine for this checkout's engine sources ($key): build the engine (docs/building.md), then publish it as engine-${key:0:12} with scripts/publish-engine.sh (chromium/UPGRADING.md, step 6)"
 read -r _ sha256 <<< "$entry"
 release="engine-${key:0:12}"
 

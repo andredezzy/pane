@@ -6,7 +6,7 @@ Patch 0002 has a hosted engine's AppController post `PANE_OPEN_URLS_NOTIFICATION
 
 Chrome opens them in the last profile used; Pane's profile in use is the one whose tab is selected, and on a first launch with none, the "Personal" profile it makes.
 
-**Another app's sign-in is not handed over.** Pane's bundle does not say it supports `ASWebAuthenticationSession` (`ASWebAuthenticationSessionWebBrowserSupportCapabilities`, which Chromium's Info.plist sets and `engine/scripts/package.sh` removes). An app that signs its user in through one (Slack, Zoom, Notion, and others) gets macOS's own sign-in sheet, whatever the default browser, as with Dia, which leaves the key out too.
+**Another app's sign-in is not handed over.** Pane's bundle does not say it supports `ASWebAuthenticationSession` (`ASWebAuthenticationSessionWebBrowserSupportCapabilities`, which Chromium's Info.plist sets and `scripts/package.sh` removes). An app that signs its user in through one (Slack, Zoom, Notion, and others) gets macOS's own sign-in sheet, whatever the default browser, as with Dia, which leaves the key out too.
 
 With the key, macOS handed such a sign-in to the default browser, and Chrome's `AuthSessionRequest` (`chrome/browser/mac/auth_session_request.mm`) opened it in a popup Browser of its own. Pane's window hosts every popup Browser by moving its tab into the profile's Browser and closing the popup (ADR 0014, `ForwardToPaneWindow`), but the request keeps the popup's Browser to close the page when the sign-in ends: by then it is gone, so a completed or cancelled sign-in reached a freed Browser. The same research found it, reading the code; no scenario had covered it.
 

@@ -112,7 +112,7 @@ Read over CDP (`Browser.getVersion`) and from the first tab (`navigator.userAgen
 | Chromium | 157.0.8103.15 | 146.0.7680.216 |
 | V8 | 15.7.112.9 | 14.6.202.34 |
 | Electron | — | 41.4.0 |
-| Built as | `engine/args/release.gn`: `is_debug = false`, and no `is_official_build`, the switch Chromium's own releases are built with | Electron's own release build |
+| Built as | `chromium/args/release.gn`: `is_debug = false`, and no `is_official_build`, the switch Chromium's own releases are built with | Electron's own release build |
 | `navigator.userAgent` | `… Chrome/157.0.0.0 Safari/537.36` | `… Chrome/146.0.7680.216 Safari/537.36` |
 | `fullVersionList` | Chromium 157.0.8103.15, Not-A.Brand 99.0.0.0 | Not-A.Brand 24.0.0.0, Chromium 146.0.7680.216 |
 
@@ -231,7 +231,7 @@ JetStream, JavaScript and WebAssembly, scores 10% higher on the native app, in b
 
 ## Caveats
 
-- **Two engines.** Chromium 157 against 146, V8 15.7 against 14.6, and two builds: Pane's `engine/args/release.gn`, which sets no `is_official_build`, and Electron's release build. Wherever the work is the engine's, a change can be the engine's as much as the shell's: JetStream, Speedometer, a page's own loading, a renderer's memory. Telling the two apart would take the same benchmarks on a stock Chromium 157 built from `release.gn` and on Electron 41.4.0 alone, which were not run here; the `Chromium.app` in the local engine checkout is a 156 build from an earlier sync.
+- **Two engines.** Chromium 157 against 146, V8 15.7 against 14.6, and two builds: Pane's `chromium/args/release.gn`, which sets no `is_official_build`, and Electron's release build. Wherever the work is the engine's, a change can be the engine's as much as the shell's: JetStream, Speedometer, a page's own loading, a renderer's memory. Telling the two apart would take the same benchmarks on a stock Chromium 157 built from `release.gn` and on Electron 41.4.0 alone, which were not run here; the `Chromium.app` in the local engine checkout is a 156 build from an earlier sync.
 - **Two architectures.** The native app's UI is AppKit and SwiftUI, in its browser process. The Electron app's is two web pages in renderers of their own: its UI, and the overlay its tab switcher draws in. Those are the Electron app's two extra renderers, and its window waits for the UI page to load. What each costs is in the launch and memory sections, and comes from the shells as much as the engines.
 - **Different windows.** Each app opened its own default window, so the native app's tab viewport is 42% larger in area (1244×890 against 1052×741). Rendering-bound work, such as Speedometer's, ran on more pixels there.
 - **A Mac in use.** The load average ran from 2.29 to 5.32, not a quiet machine. Memory and the browser benchmarks hardly moved from run to run (memory within 4 MB, Speedometer within 0.5 points, JetStream within 2%); launch times (ranges up to 122 ms wide), idle CPU, and the real sites are where the noise shows.

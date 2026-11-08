@@ -19,7 +19,7 @@ Every Pane published since 0.3.0 asks GitHub for one thing, `releases/latest`, a
 
 ## What it costs
 
-The code stays, with its tests, against Chromium's changes too: `engine/UPGRADING.md` runs `files-migration` from a published build at every upgrade. Dropping the paths would have taken about 3,000 lines of Swift, 2,500 of the engine's, 1,900 of tests, 1,085 of C, and `electron` with 66 of the lockfile's 244 packages. The review's targets for those measures (Swift 26,000, engine sources 15,000, TypeScript 19,500, C 0) counted on it, and no longer hold.
+The code stays, with its tests, against Chromium's changes too: `chromium/UPGRADING.md` runs `files-migration` from a published build at every upgrade. Dropping the paths would have taken about 3,000 lines of Swift, 2,500 of the engine's, 1,900 of tests, 1,085 of C, and `electron` with 66 of the lockfile's 244 packages. The review's targets for those measures (Swift 26,000, engine sources 15,000, TypeScript 19,500, C 0) counted on it, and no longer hold.
 
 Launch does what 0.18.2 does: each path is a look at a file or two when there is nothing to move.
 

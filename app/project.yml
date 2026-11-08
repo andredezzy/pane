@@ -1,6 +1,6 @@
 # XcodeGen spec for the Pane app. Generate with `xcodegen generate` (the
 # .xcodeproj is gitignored). The app links Pane Framework.framework from the engine
-# build in PANE_ENGINE_OUT; engine/scripts/package.sh assembles the
+# build in PANE_ENGINE_OUT; scripts/package.sh assembles the
 # shippable bundle.
 name: Pane
 options:
@@ -36,7 +36,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: xyz.roundedcorners.pane
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_NSPrincipalClass: BrowserCrApplication
-        SWIFT_INCLUDE_PATHS: $(SRCROOT)/../engine/pane/public
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/../pane/public
         OTHER_LDFLAGS: '"$(PANE_ENGINE_OUT)/Pane Framework.framework/Versions/Current/Pane Framework"'
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual

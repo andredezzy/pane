@@ -11,10 +11,9 @@
 # Usage: publish-engine.sh   (gh, signed in with write access to the repo)
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-ENGINE_DIR="$ROOT_DIR/engine"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RELEASE="$ROOT_DIR/app/release"
-TSV="$ENGINE_DIR/prebuilt-engines.tsv"
+TSV="$ROOT_DIR/chromium/prebuilt-engines.tsv"
 
 ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
 
@@ -61,9 +60,9 @@ archive_engine() {
 	echo "symbols $symbols"
 }
 
-key="$("$ENGINE_DIR/scripts/engine-key.sh")"
+key="$("$ROOT_DIR/scripts/engine-key.sh")"
 short="${key:0:12}"
-version="$(tr -d '[:space:]' < "$ENGINE_DIR/CHROMIUM_VERSION")"
+version="$(tr -d '[:space:]' < "$ROOT_DIR/chromium/CHROMIUM_VERSION")"
 tag="engine-$short"
 name="PaneCore-$version-$short.zip"
 archive="$RELEASE/$name"
@@ -74,7 +73,7 @@ if [ "$(grep -v '^#' "$TSV" | cut -f1)" = "$key" ]; then
 fi
 
 # The tag marks the commit that last changed the engine's sources, on GitHub.
-commit="$(git -C "$ROOT_DIR" log -1 --format=%H -- engine/CHROMIUM_VERSION engine/args engine/patches engine/pane)"
+commit="$(git -C "$ROOT_DIR" log -1 --format=%H -- chromium/CHROMIUM_VERSION chromium/args chromium/patches pane)"
 git -C "$ROOT_DIR" fetch --quiet origin
 git -C "$ROOT_DIR" branch -r --contains "$commit" | grep -q . ||
 	die "$(git -C "$ROOT_DIR" log -1 --format='%h %s' "$commit") changed the engine and is not on GitHub: push it first"
@@ -98,7 +97,7 @@ else
 		--latest=false \
 		--target "$commit" \
 		--title "Engine $short" \
-		--notes "PaneCore $version for the engine sources $key, built from $(git -C "$ROOT_DIR" log -1 --format=%h "$commit"). The engine CI and the release workflow fetch (engine/scripts/fetch-engine.sh); not an app release."
+		--notes "PaneCore $version for the engine sources $key, built from $(git -C "$ROOT_DIR" log -1 --format=%h "$commit"). The engine CI and the release workflow fetch (scripts/fetch-engine.sh); not an app release."
 fi
 
 uploaded="$(gh release view "$tag" --json assets --jq ".assets[] | select(.name == \"$name\") | .digest")"

@@ -8,7 +8,7 @@
 # A patch that no longer applies (a Chromium upgrade moved its context) is
 # merged three ways from the blobs it was made against. Conflicts stop the run
 # with their markers in the files: resolve them, regenerate that patch
-# (make-patch.sh), and run this again. engine/UPGRADING.md has the
+# (make-patch.sh), and run this again. chromium/UPGRADING.md has the
 # whole routine.
 #
 # Usage: apply-patches.sh             apply the series
@@ -18,9 +18,9 @@
 #                                     series, as it is now (build.sh asks)
 set -euo pipefail
 
-ENGINE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
-PATCHES="$ENGINE_DIR/patches"
+PATCHES="$ROOT_DIR/chromium/patches"
 APPLIED="$CHROMIUM_ROOT/.applied"
 SRC="$CHROMIUM_ROOT/src"
 

@@ -6,7 +6,7 @@ https://github.com/andredezzy/pane.
 Pane Framework.framework is built from the Chromium project (BSD-3-Clause and the
 licenses of its third-party components, see chrome://credits in the built app).
 
-Patches in engine/patches that originate in other projects are listed
+Patches in chromium/patches that originate in other projects are listed
 below with their origin and license. Patches not listed are Pane's own
 (GPL-3.0-only, like the rest of this repository).
 

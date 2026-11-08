@@ -18,7 +18,7 @@ ID="hfnkpimlhhgieaddgfemjhofmfblmnib"
 KEY_SHA256="75daf8cb77684033654c97e5c51bcd817b1eeb112ce1a4338cf5725eedb84397"
 
 curl -fsS --retry 3 -o "$work/answer.xml" \
-	"https://clients2.google.com/service/update2/crx?acceptformat=crx3&prodversion=$(tr -d '[:space:]' < "$(dirname "$0")/../CHROMIUM_VERSION")&x=id%3D$ID%26v%3D%26uc"
+	"https://clients2.google.com/service/update2/crx?acceptformat=crx3&prodversion=$(tr -d '[:space:]' < "$(dirname "$0")/../chromium/CHROMIUM_VERSION")&x=id%3D$ID%26v%3D%26uc"
 
 # It names the CRX by an http URL as often as by an https one; the download
 # goes over https either way, and its SHA-256 and signature are checked.
