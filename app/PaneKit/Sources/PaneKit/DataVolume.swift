@@ -148,7 +148,8 @@ public struct DataVolume: Sendable {
 	// A disk just made is ready a moment after the tool that made it returns, on a
 	// loaded Mac: on CI, newfs_apfs found no /dev/disk5, then could not open a
 	// /dev/disk7 just detached and given again; diskutil found no container after
-	// it, and no APFS volume to unlock, for over 3 s once; each in one of a few runs.
+	// it, no APFS volume to unlock, for over 3 s once, and DiskArbitration no disk to
+	// mount; each in one of a few runs.
 	// `body` is asked again for up to 10 s while `notYet` takes its failure for that.
 	private static func whenReady<T>(_ body: () throws -> T, notYet: (Error) -> Bool = { _ in true }) throws -> T {
 		let deadline = Date().addingTimeInterval(10)
@@ -324,7 +325,6 @@ public struct DataVolume: Sendable {
 		DASessionSetDispatchQueue(session, queue)
 		defer { DASessionSetDispatchQueue(session, nil) }
 
-		let result = MountResult()
 		let arguments = UnsafeMutablePointer<Unmanaged<CFString>?>.allocate(capacity: 2)
 		arguments[0] = Unmanaged.passRetained("nobrowse" as CFString)
 		arguments[1] = nil
@@ -333,15 +333,22 @@ public struct DataVolume: Sendable {
 			arguments.deallocate()
 		}
 
-		DADiskMountWithArguments(disk, mountPoint as CFURL, DADiskMountOptions(kDADiskMountOptionDefault), { _, dissenter, context in
-			let result = Unmanaged<MountResult>.fromOpaque(context!).takeUnretainedValue()
-			result.status = dissenter.map(DADissenterGetStatus) ?? 0
-			result.done.signal()
-		}, Unmanaged.passUnretained(result).toOpaque(), arguments)
+		// A volume just made can reach DiskArbitration a moment after diskutil
+		// unlocked it, on a loaded Mac, which then refuses it as a bad argument
+		// (whenReady); anything else fails at once.
+		try Self.whenReady({
+			let result = MountResult()
 
-		guard result.done.wait(timeout: .now() + 30) == .success, result.status == 0 else {
-			throw Failure(command: "mount \(devices.volume)", status: result.status ?? -1, output: "")
-		}
+			DADiskMountWithArguments(disk, mountPoint as CFURL, DADiskMountOptions(kDADiskMountOptionDefault), { _, dissenter, context in
+				let result = Unmanaged<MountResult>.fromOpaque(context!).takeUnretainedValue()
+				result.status = dissenter.map(DADissenterGetStatus) ?? 0
+				result.done.signal()
+			}, Unmanaged.passUnretained(result).toOpaque(), arguments)
+
+			guard result.done.wait(timeout: .now() + 30) == .success, result.status == 0 else {
+				throw Failure(command: "mount \(devices.volume)", status: result.status ?? -1, output: "")
+			}
+		}, notYet: { ($0 as? Failure)?.status == Int32(bitPattern: 0xF8DA_0003) })
 
 		// The volume's root, the user's alone.
 		chmod(mountPoint.path, 0o700)
