@@ -5,7 +5,40 @@ Measured comparisons of Pane builds, each with its raw measurements beside it.
 - [interactions.md](interactions.md) — how much sooner 0.13.1 answers a tab switch (−38%), a new tab (−45%), and the address field (−55%), from input to the frame, against the code before. Raw data: [interactions.json](interactions.json).
 - [native-vs-electron.md](native-vs-electron.md) — how much the native app (0.11.2) improved on the last Electron release (0.6.0), its baseline: what improved, what did not, then size, launch, memory, idle CPU, page loads, Speedometer and JetStream, and the engines, each with its method, the native app first. Raw data: [native-vs-electron.json](native-vs-electron.json).
 
+- [pgo-vs-0.19.1.json](pgo-vs-0.19.1.json) — the raw medians behind "0.19.2's PGO engine against the published 0.19.1" below.
 - [engine-encryption.md](engine-encryption.md) — what encrypting every profile file costs, against 0.15.2, by the budgets of the plan behind ADR 0121.
+
+## 0.19.2's PGO engine against the published 0.19.1
+
+The same Pane on an engine built with Chrome's PGO profile for its branch (`chrome_pgo_phase = 2`, no official build), against the published 0.19.1. Each stripped, taking turns over three rounds of every benchmark on an M5 Pro on 2026-11-08, then five rounds of unlock alone, since the first three put PIN to page 32 ms apart. Medians. Raw data: [pgo-vs-0.19.1.json](pgo-vs-0.19.1.json).
+
+| Measure | 0.19.1 | PGO | Change |
+|---|---:|---:|---:|
+| Launch to first window, cold | 278.6 ms | 283.6 ms | +5.0 ms |
+| Launch to first window, warm | 289.9 ms | 284.4 ms | −5.4 ms |
+| PIN to first page painted (five rounds) | 474.8 ms | 485.0 ms | +10.2 ms |
+| No PIN, launch to first page painted (five rounds) | 613.8 ms | 619.8 ms | +6.0 ms |
+| Cold load, Apple, first paint | 332 ms | 260 ms | −21.7% |
+| Cold load, GitHub | 707.6 ms | 630.5 ms | −10.9% |
+| Cold load, Wikipedia, first paint | 268 ms | 264 ms | −1.5% |
+| Cold load, `nav-a.html` | 7.2 ms | 6.1 ms | −15.3% |
+| Warm load, `find.html`, first paint | 24 ms | 20 ms | −16.7% |
+| Warm load, GitHub | 360.0 ms | 370.1 ms | +2.8% |
+| Warm load, Apple | 560.7 ms | 617.2 ms | +10.1%, its first byte 51 ms later |
+| History query, p95 | 11.1 ms | 10.7 ms | −3.6% |
+| First request with 3,000 cookies, p95 | 18.5 ms | 19.1 ms | +3.2% |
+| Memory, 1 tab | 159.0 MB | 156.6 MB | −1.5% |
+| Memory, 10 tabs | 370.8 MB | 359.0 MB | −3.2% |
+| GPU process, 10 tabs | 71.2 MB | 60.8 MB | −14.5% |
+| Browser process, 10 tabs | 85.8 MB | 85.7 MB | −0.1% |
+| Scroll, frames dropped of 480 | 0 | 0 | 0 |
+| The framework, stripped | 274.2 MB | 260.6 MB | −5.0% |
+
+**What PGO buys is page work.** First paint and load fall wherever the page's own work dominates: 10 to 22% on Apple's and GitHub's cold loads, and a millisecond or so on the fixtures, which are 5 to 17% faster. Warm loads of real sites move with the network: Apple's warm load came 51 ms later to its first byte, before any of the engine's work. Memory falls 1.5 to 3.2%, most of it the GPU process; Pane's own browser process is unchanged.
+
+**Launch and unlock are the system's.** Launch moves 5 ms either way, as it does between rounds. PIN to page, 32 ms apart over three rounds, is 10 ms over five, 8.6 of them the volume's attach (`hdiutil`), which the engine has no part in; one build's rounds spread over 72 ms.
+
+A build from the scratchpad started no volume watchdog: run from the repository, as the published one is, it starts it as 0.19.1 does, so the first memory runs counted one process fewer on that side, the watchdog's 0.1 MB.
 
 ## 0.19.0's candidate against the published 0.18.0
 
