@@ -1,5 +1,5 @@
-import { launchPane } from "../lib/pane";
-import type { Scenario } from "../run";
+import { launchPane, trafficLightsInPlace } from "../lib/pane";
+import { expect, type Scenario } from "../run";
 
 // The Views prototype's run (docs/plans/views-migration.md, Phase 1): two
 // profiles, a page each, a switch between them, the sheet over the page, a
@@ -16,6 +16,11 @@ const viewsPrototype: Scenario = async (context) => {
 	const b = await app.openPage(home, context.fixtures.url("dark.html?home"));
 	const log: unknown[] = [];
 	let { state } = await app.send("state");
+
+	expect(
+		trafficLightsInPlace(state.window.trafficLightFrames),
+		`the traffic lights at ${JSON.stringify(state.window.trafficLightFrames)}`,
+	);
 
 	log.push({
 		afterOpen: state.activeTabID === b.tab,

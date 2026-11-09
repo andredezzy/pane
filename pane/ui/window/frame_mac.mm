@@ -138,4 +138,18 @@ PressTarget PressTargetAt(views::Widget* widget, const gfx::Point& point) {
   return PressTarget::kOther;
 }
 
+std::vector<gfx::Rect> WindowControlFrames(views::Widget* widget) {
+  NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
+  std::vector<gfx::Rect> frames;
+  for (NSWindowButton type :
+       {NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton}) {
+    if (NSButton* button = [window standardWindowButton:type]) {
+      const NSRect frame = [button convertRect:button.bounds toView:nil];
+      frames.emplace_back(NSMinX(frame), NSHeight(window.frame) - NSMaxY(frame),
+                          NSWidth(frame), NSHeight(frame));
+    }
+  }
+  return frames;
+}
+
 }  // namespace pane

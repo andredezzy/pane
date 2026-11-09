@@ -22,6 +22,7 @@
 #include "pane/automation/automation.h"
 #include "pane/browser/profiles.h"
 #include "pane/ui/tabs/tab_id.h"
+#include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
 #include "ui/display/display.h"
@@ -34,6 +35,23 @@ namespace pane {
 namespace {
 
 UiApp* g_app = nullptr;
+
+// The window's controls, as the Swift app's snapshot gave them: x, y, width,
+// height from the window's top left.
+base::ListValue ControlFrames(views::Widget* widget) {
+  base::ListValue frames;
+  if (!widget) {
+    return frames;
+  }
+  for (const gfx::Rect& frame : WindowControlFrames(widget)) {
+    frames.Append(base::ListValue()
+                      .Append(frame.x())
+                      .Append(frame.y())
+                      .Append(frame.width())
+                      .Append(frame.height()));
+  }
+  return frames;
+}
 
 // A new window's size, as the Swift app's first one (ADR 0016).
 constexpr gfx::Size kWindowSize(1280, 800);
@@ -231,6 +249,7 @@ base::DictValue UiApp::Snapshot() const {
       .Set("address", window_->root().address())
       .Set("focus", window_->root().focus())
       .Set("window", base::DictValue()
+                         .Set("trafficLightFrames", ControlFrames(widget))
                          .Set("visible", widget && widget->IsVisible())
                          .Set("key", widget && widget->IsActive())
                          .Set("fullScreen", widget && widget->IsFullscreen()))

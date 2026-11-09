@@ -3,6 +3,10 @@
 #ifndef PANE_UI_WINDOW_FRAME_H_
 #define PANE_UI_WINDOW_FRAME_H_
 
+#include <vector>
+
+#include "ui/gfx/geometry/rect.h"
+
 namespace gfx {
 class Point;
 }
@@ -25,6 +29,11 @@ views::NativeWidget* CreateFrame(views::Widget* widget);
 // as a sheet or its scrim over a page (bridged_content_view.mm, -hitTest:).
 enum class PressTarget { kPage, kViews, kOther };
 PressTarget PressTargetAt(views::Widget* widget, const gfx::Point& point);
+
+// The window's own controls (the Mac's traffic lights, Windows' caption
+// buttons), each from the window's top left, in their order: what a
+// scenario reads to check where the frame put them.
+std::vector<gfx::Rect> WindowControlFrames(views::Widget* widget);
 
 }  // namespace pane
 
