@@ -93,6 +93,7 @@ test("pane_unittests") {
     "//base/test:run_all_unittests",
     "//base/test:test_support",
     "//net",
+    "//pane/model:unit_tests",
     "//services/network:network_service",
     "//sql",
     "//sql:test_support",

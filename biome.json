@@ -7,7 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**/*", "!**/*.html", "!**/*.md"]
+		"includes": ["**/*", "!**/*.html", "!**/*.md", "!pane/model/test_data"]
 	},
 	"formatter": {
 		"enabled": true,

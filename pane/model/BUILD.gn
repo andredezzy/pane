@@ -1,0 +1,52 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# Pane's model and data, in plain C++ (docs/plans/views-migration.md, Phase
+# 2): the formats every Pane wrote, and the rules over them, ported from the
+# Swift PaneKit test by test. It depends on //base and //crypto alone, so its
+# tests run under the sanitizers apart from the engine.
+
+source_set("model") {
+  sources = [
+    "app_settings.cc",
+    "app_settings.h",
+    "data_key.cc",
+    "data_key.h",
+    "persisted_file.cc",
+    "persisted_file.h",
+    "profile.cc",
+    "profile.h",
+    "sealed_file.cc",
+    "sealed_file.h",
+    "security.cc",
+    "security.h",
+  ]
+
+  deps = [
+    "//base",
+    "//crypto",
+    "//third_party/boringssl",
+    "//third_party/re2",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "data_key_unittest.cc",
+    "persistence_unittest.cc",
+    "security_unittest.cc",
+  ]
+
+  # The files the Swift Pane wrote (SwiftVectorsTests.swift), which these read
+  # byte for byte.
+  data = [ "test_data/" ]
+
+  deps = [
+    ":model",
+    "//base",
+    "//base/test:test_support",
+    "//crypto",
+    "//testing/gtest",
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "dataKey" : "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+  "engineKey" : "095fb86a06d3e7f7b357b5166b2f83a7e9764eda45d155dcdad6c102bd354fc2",
+  "filesKey" : "dcefdb2c47244bc49fee6db26bee2bc01bedd38c4eb0ab05c97fb94a3309ff2e",
+  "formerVolumePassphrase" : "4NDwk04KI+NKLKxPxyIjQP4xpR5R36pG3jdzhNwG778=",
+  "pin" : "908172",
+  "profile" : "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f02",
+  "sealedWithPin" : {
+    "box" : "0FOWuWOvHVm6bakDpWZnq56EYhuxb2YnTD\/apd9C9BcIcjW8vhEJYofrD9nGNJMLAIBllhoGUhlNCeki",
+    "pin" : {
+      "rounds" : 600000,
+      "salt" : "dDpz3Nnp5H\/LxNRA3rW\/uA=="
+    },
+    "secret" : "RQ2bBEkDarmMRVqrv9ctlQ=="
+  },
+  "sealedWithoutPin" : {
+    "box" : "QZS+eUJsldU+gppwVazNrFF3QUElQVnPF\/snjaAtPXnNnzUsRRgXUGNhznTGiRyal+pV1Q9fqF2iVIYX",
+    "secret" : "RQ2bBEkDarmMRVqrv9ctlQ=="
+  },
+  "secret" : "B5u8Rrq0X0E2h3dPl5M1cQ==",
+  "volumePassphrase" : "HM2Z8VMbhR2XdQKS77YP1YZm8KbLSVAzQSULLBfOUQ0="
+}
