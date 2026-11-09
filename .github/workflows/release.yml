@@ -75,21 +75,6 @@ jobs:
           swift test --sanitize=address --scratch-path .build-asan
           swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict
 
-      # A release zip rather than Homebrew's latest: two builds of one tag
-      # generate the same project.
-      - name: Install XcodeGen
-        env:
-          XCODEGEN_VERSION: "2.46.0"
-          XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
-        run: |
-          zip="$RUNNER_TEMP/xcodegen.zip"
-          dir="$RUNNER_TEMP/xcodegen-$XCODEGEN_VERSION"
-          curl -fsSL --retry 3 -o "$zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
-          echo "$XCODEGEN_SHA256  $zip" | shasum -a 256 -c --quiet
-          mkdir -p "$dir"
-          unzip -q "$zip" -d "$dir"
-          echo "$dir/xcodegen/bin" >> "$GITHUB_PATH"
-
       # The engine its engine sources name (chromium/prebuilt-engines.tsv),
       # into a variable first: within echo's arguments a failed fetch left
       # the step green and PANE_ENGINE_OUT empty.
@@ -135,7 +120,6 @@ jobs:
           generate_release_notes: true
           files: |
             app/release/Pane-*-arm64.dmg
-            app/release/Pane-*-arm64.dSYM.zip
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -13,7 +13,7 @@ import { parseArgs } from "node:util";
 import { type Browser, type LaunchOptions, launch } from "./lib/browser";
 import { isScreenLocked } from "./lib/cua";
 import { type Fixtures, serveFixtures } from "./lib/fixtures";
-import { detachImagesIn, killUsing } from "./lib/processes";
+import { detachImagesIn, forgetBundle, killUsing } from "./lib/processes";
 import { swiftTool } from "./lib/tools";
 
 export type ScenarioContext = {
@@ -242,6 +242,7 @@ for (const given of positionals) {
 }
 
 fixtures.stop();
+await forgetBundle(binary);
 
 const report = {
 	binary,

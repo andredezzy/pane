@@ -61,8 +61,9 @@ git clone https://github.com/andredezzy/pane.git
 cd pane
 export PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)"   # or build the engine: docs/building.md
 scripts/package.sh                                    # → app/build/Pane.app
-open app/build/Pane.app
 ```
+
+`main` is the Views line, part way through `docs/plans/views-migration.md`: until its data's port, its app opens only a scenario's throwaway data (`bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane …`). The released app is built from the `swift` branch.
 
 ## Project structure
 

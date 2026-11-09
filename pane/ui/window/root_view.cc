@@ -3,9 +3,15 @@
 #include "pane/ui/window/root_view.h"
 
 #include <algorithm>
+#include <cmath>
+#include <map>
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
+#include "base/functional/bind.h"
+#include "cc/paint/paint_flags.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/interaction_log.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -13,9 +19,16 @@
 #include "ui/compositor/layer.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/font.h"
+#include "ui/gfx/font_list.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
+#include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
+#include "ui/views/controls/label.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
@@ -39,6 +52,117 @@ constexpr float kPageCornerRadius = 18 * 0.57f;
 constexpr SkColor kScrim = SkColorSetARGB(0x40, 0, 0, 0);
 constexpr int kSheetWidth = 400;
 constexpr int kSheetInset = 8;
+
+// The text of a profile's row: the profile shown's, and the others'.
+constexpr SkColor kRowText = SkColorSetRGB(0x18, 0x18, 0x1B);
+constexpr SkColor kMutedText = SkColorSetRGB(0x6B, 0x6B, 0x70);
+
+// A profile's mark, in its color: a bar 4 points wide while another profile
+// is shown, growing into a 16-point square while it's the one shown, on the
+// spring an indicator's own change of shape takes (Motion.morph), as the
+// Swift sidebar's ProfileHeaderContent.
+class ProfileMark : public views::View {
+  METADATA_HEADER(ProfileMark, views::View)
+
+ public:
+  ProfileMark(SkColor color, bool active)
+      : color_(color),
+        active_(active),
+        morph_(active ? 1 : 0,
+               base::BindRepeating(&ProfileMark::Morphed,
+                                   base::Unretained(this))) {}
+
+  void SetActive(bool active) {
+    if (active == active_) {
+      return;
+    }
+    active_ = active;
+    morph_.MoveTo(active ? 1 : 0, motion::Morph(),
+                  GetWidget() ? GetWidget()->GetCompositor() : nullptr);
+  }
+
+  // views::View:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
+    return gfx::Size(std::ceil(Width()), kSize);
+  }
+
+  void OnPaint(gfx::Canvas* canvas) override {
+    cc::PaintFlags flags;
+    flags.setAntiAlias(true);
+    flags.setColor(color_);
+    canvas->DrawRoundRect(gfx::RectF(0, 0, Width(), kSize),
+                          2 + 2 * morph_.value(), flags);
+  }
+
+ private:
+  static constexpr int kSize = 16;
+
+  // 4 points at 0, 16 at 1, a spring's overshoot past it.
+  float Width() const { return 4 + 12 * morph_.value(); }
+
+  void Morphed(double value) {
+    PreferredSizeChanged();
+    SchedulePaint();
+  }
+
+  const SkColor color_;
+  bool active_;
+  ValueMotion morph_;
+};
+
+BEGIN_METADATA(ProfileMark)
+END_METADATA
+
+// A profile's row: its mark and its name, 36 points tall.
+class ProfileRow : public views::Button {
+  METADATA_HEADER(ProfileRow, views::Button)
+
+ public:
+  ProfileRow(PressedCallback pressed, const SidebarRow& row)
+      : views::Button(std::move(pressed)) {
+    auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
+        views::BoxLayout::Orientation::kHorizontal, gfx::Insets::VH(0, 8), 8));
+    layout->set_cross_axis_alignment(
+        views::BoxLayout::CrossAxisAlignment::kCenter);
+    mark_ =
+        AddChildView(std::make_unique<ProfileMark>(row.color, row.selected));
+    label_ = AddChildView(std::make_unique<views::Label>());
+    label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+    label_->SetFontList(views::Label::GetDefaultFontList()
+                            .DeriveWithSizeDelta(-1)
+                            .DeriveWithWeight(gfx::Font::Weight::MEDIUM));
+    layout->SetFlexForView(label_, 1);
+    Update(row);
+  }
+
+  void Update(const SidebarRow& row) {
+    if (label_->GetText() != row.title) {
+      label_->SetText(row.title);
+      GetViewAccessibility().SetName(row.title);
+    }
+    label_->SetEnabledColor(row.selected ? kRowText : kMutedText);
+    mark_->SetActive(row.selected);
+  }
+
+  // views::View:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
+    return gfx::Size(
+        views::Button::CalculatePreferredSize(available_size).width(), 36);
+  }
+
+ private:
+  raw_ptr<ProfileMark> mark_ = nullptr;
+  raw_ptr<views::Label> label_ = nullptr;
+};
+
+BEGIN_METADATA(ProfileRow)
+END_METADATA
+
+std::string KeyOf(const SidebarRow& row) {
+  return row.profile_id + "/" + row.tab_id;
+}
 
 class SheetView : public views::View {
   METADATA_HEADER(SheetView, views::View)
@@ -134,21 +258,53 @@ RootView::RootView(RowPressed row_pressed, AddressEntered address_entered)
 RootView::~RootView() = default;
 
 void RootView::SetRows(const std::vector<SidebarRow>& rows) {
-  sidebar_->RemoveAllChildViews();
+  std::vector<std::string> keys;
   for (const SidebarRow& row : rows) {
-    auto button = std::make_unique<views::LabelButton>(
-        base::BindRepeating(row_pressed_, row), row.title);
-    button->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    if (row.selected) {
-      button->SetBackground(
-          views::CreateRoundedRectBackground(SkColorSetARGB(0x14, 0, 0, 0), 7));
-    }
-    if (row.tab_id.empty()) {
-      button->SetEnabledTextColors(SkColorSetRGB(0x6B, 0x6B, 0x70));
-    }
-    sidebar_->AddChildView(std::move(button));
+    keys.push_back(KeyOf(row));
   }
-  sidebar_->InvalidateLayout();
+  // Rows came, went, or moved: each keeps its view, found by its profile and
+  // tab, so what moves keeps moving (a profile's mark, mid-morph).
+  if (keys != row_keys_) {
+    std::map<std::string, std::unique_ptr<views::View>> kept;
+    for (const std::string& key : row_keys_) {
+      kept[key] = sidebar_->RemoveChildViewT(sidebar_->children().front());
+    }
+    for (size_t i = 0; i < rows.size(); ++i) {
+      std::unique_ptr<views::View>& view = kept[keys[i]];
+      sidebar_->AddChildView(view ? std::move(view) : MakeRow(rows[i]));
+    }
+    row_keys_ = std::move(keys);
+    sidebar_->InvalidateLayout();
+  }
+  for (size_t i = 0; i < rows.size(); ++i) {
+    views::View* view = sidebar_->children()[i];
+    const SidebarRow& row = rows[i];
+    if (row.tab_id.empty()) {
+      static_cast<ProfileRow*>(view)->Update(row);
+      continue;
+    }
+    // A selection moves at once (DESIGN.md).
+    auto* button = static_cast<views::LabelButton*>(view);
+    if (button->GetText() != row.title) {
+      button->SetText(row.title);
+    }
+    if (row.selected != !!button->GetBackground()) {
+      button->SetBackground(row.selected ? views::CreateRoundedRectBackground(
+                                               SkColorSetARGB(0x14, 0, 0, 0), 7)
+                                         : nullptr);
+    }
+  }
+}
+
+std::unique_ptr<views::View> RootView::MakeRow(const SidebarRow& row) {
+  if (row.tab_id.empty()) {
+    return std::make_unique<ProfileRow>(base::BindRepeating(row_pressed_, row),
+                                        row);
+  }
+  auto button = std::make_unique<views::LabelButton>(
+      base::BindRepeating(row_pressed_, row), row.title);
+  button->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  return button;
 }
 
 void RootView::ShowPage(content::WebContents* contents) {

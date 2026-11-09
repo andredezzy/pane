@@ -1,3 +1,4 @@
+import { framesDuring, statesByProcess } from "../lib/frames";
 import { launchPane, trafficLightsInPlace } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
@@ -27,11 +28,26 @@ const viewsPrototype: Scenario = async (context) => {
 		profiles: state.profiles.length,
 	});
 
-	({ state } = await app.send("select", { tab: a.tab }));
+	// The switch to the other profile morphs its mark on the spring (G5):
+	// the window's own frames, the browser process's, all presented in full.
+	const reports = await framesDuring(app.browser.cdp, async () => {
+		({ state } = await app.send("select", { tab: a.tab }));
+		await Bun.sleep(600);
+	});
+
+	const morph = statesByProcess(reports)[app.browser.pid] ?? {};
+
+	expect(
+		(morph.STATE_PRESENTED_ALL ?? 0) > 10 &&
+			!morph.STATE_DROPPED &&
+			!morph.STATE_PRESENTED_PARTIAL,
+		`the morph's frames: ${JSON.stringify(morph)}`,
+	);
 
 	log.push({
 		selectedA: state.activeTabID === a.tab,
 		activeProfile: state.activeProfileID === work,
+		morph,
 	});
 
 	await app.render("window-a.png");

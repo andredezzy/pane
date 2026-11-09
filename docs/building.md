@@ -93,7 +93,7 @@ The rig: cua-driver (`tests/lib/cua.ts`), `screencapture -l <window id>` for sti
 ## App
 
 ```bash
-scripts/package.sh   # app/build/Pane.app: the engine bundle with the Swift app inside, signed
+scripts/package.sh   # app/build/Pane.app: the engine's bundle, Chromium's loader and Pane's UI in its framework, signed
 scripts/dist.sh      # app/release/Pane-<version>-arm64.dmg: package.sh (stripped), then the dmg
 (cd app/PaneKit && swift test)
 ```
@@ -112,7 +112,7 @@ PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)" scripts/package.sh
 
 ## Reading a crash report
 
-A release strips its executables, so a crash report (`~/Library/Logs/DiagnosticReports/Pane-*.ips`) names addresses, not functions. Its symbols are published: the app's beside the dmg in the release (`Pane-<version>-arm64.dSYM.zip`), and PaneCore's beside the engine archive in the `engine-<key:12>` prerelease (`PaneCore-<chromium>-<key:12>.dSYM.zip`), where `<key>` is the copy's `PaneEngineKey` (`plutil -extract PaneEngineKey raw Pane.app/Contents/Info.plist`). Unzip both, check that their UUIDs (`dwarfdump --uuid`) are the report's images', and resolve each frame against its image's load address:
+A release strips its executables, so a crash report (`~/Library/Logs/DiagnosticReports/Pane-*.ips`) names addresses, not functions. Its symbols are published: PaneCore's, beside the engine archive in the `engine-<key:12>` prerelease (`PaneCore-<chromium>-<key:12>.dSYM.zip`), where `<key>` is the copy's `PaneEngineKey` (`plutil -extract PaneEngineKey raw Pane.app/Contents/Info.plist`). Unzip it, check that its UUID (`dwarfdump --uuid`) is the report's `Pane Framework` image's, and resolve each frame against that image's load address:
 
 ```bash
 atos -arch arm64 -o "Pane Framework.dSYM/Contents/Resources/DWARF/Pane Framework" -l <load address> <address>...

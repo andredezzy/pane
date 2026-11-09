@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Assembles app/build/Pane.app: the engine's bundle ("Pane Framework.framework",
-# helpers, resources, Info.plist) with the Swift app's executable in place of
-# Chrome's launcher, then signs the nested code inside-out.
+# Assembles app/build/Pane.app: the engine's bundle as Chromium builds it, its
+# loader, "Pane Framework.framework" (Pane's UI is in it, //pane/ui), helpers,
+# resources, and Info.plist, with Pane's identity over Chromium's, its
+# licenses, and its CRLSet, then signs the nested code inside-out.
 # Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir;
 # PANE_STRIP=1 strips the engine's local symbols, as dist.sh does;
 # PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc)
@@ -10,29 +11,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
 ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
-SWIFT_APP="$APP_DIR/build/DerivedData/Build/Products/Release/Pane.app"
 # PANE_APP_OUT puts it elsewhere, beside a build that is running.
 OUT="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
-
-echo "== swift app"
-(cd "$APP_DIR" && xcodegen generate --quiet)
-xcodebuild -project "$APP_DIR/Pane.xcodeproj" -scheme Pane -configuration Release \
-	-derivedDataPath "$APP_DIR/build/DerivedData" PANE_ENGINE_OUT="$ENGINE_OUT" \
-	-quiet build
 
 echo "== assemble"
 rm -rf "$OUT"
 ditto "$ENGINE_OUT/Pane.app" "$OUT"
-cp "$SWIFT_APP/Contents/MacOS/Pane" "$OUT/Contents/MacOS/Pane"
-
-# The volume's watchdog (ADR 0113, app/VolumeWatch): it detaches the
-# encrypted volume once Pane's process ends, a crash included.
-xcrun swiftc -O -target "arm64-apple-macos$(plutil -extract LSMinimumSystemVersion raw "$SWIFT_APP/Contents/Info.plist")" \
-	"$APP_DIR/VolumeWatch/main.swift" -o "$OUT/Contents/MacOS/pane-volume-watch"
-
-if [ -d "$SWIFT_APP/Contents/Resources" ]; then
-	ditto "$SWIFT_APP/Contents/Resources" "$OUT/Contents/Resources"
-fi
 
 # The licenses that go with every copy: Pane's own (GPL-3.0), NOTICE, and the
 # license of each project Pane takes code from (third_party), laid out as in
@@ -62,23 +46,14 @@ fi
 
 # Pane's identity over Chromium's: its version (app/VERSION, the one version
 # source), which Finder, the About panel, Settings, and the update check
-# show, and its icon (the Swift app's asset catalog, which replaced
-# Chromium's Assets.car above).
+# show. Its minimum macOS is the engine's own (release.gn's
+# mac_min_system_version).
 PANE_VERSION="$(tr -d '[:space:]' < "$APP_DIR/VERSION")"
 PLIST="$OUT/Contents/Info.plist"
 
 for key in PaneVersion CFBundleShortVersionString CFBundleVersion; do
 	plutil -replace "$key" -string "$PANE_VERSION" "$PLIST"
 done
-
-# The Swift app's minimum macOS (project.yml), over Chromium's older one: the
-# executable does not start on an older macOS, and Finder says so only when
-# the bundle names it.
-plutil -replace LSMinimumSystemVersion -string \
-	"$(plutil -extract LSMinimumSystemVersion raw "$SWIFT_APP/Contents/Info.plist")" "$PLIST"
-
-plutil -replace CFBundleIconFile -string AppIcon "$PLIST"
-rm -f "$OUT/Contents/Resources/app.icns"
 
 # Pane's name where macOS shows the bundle's own words, in every language:
 # the permission prompts (camera, microphone, location, Bluetooth, passkeys),
@@ -127,22 +102,22 @@ strip_local() {
 	strip -x "$@" 2> >(grep -v 'will invalidate the code signature' >&2)
 }
 
-# The notification helpers post Pane's notifications under their own icon:
-# Pane's too, from a catalog of the icon alone (3 MB), not the app's, whose
-# skies for the Dock would add 4.5 MB to each.
-ICON_ONLY="$(mktemp -d)"
-xcrun actool "$APP_DIR/Pane/AppIcon.icon" --compile "$ICON_ONLY" --platform macosx \
+# Pane's icon over Chromium's, compiled from Icon Composer's file (3 MB of
+# catalog): the app's, and the notification helpers', which post Pane's
+# notifications under their own icon.
+ICON="$(mktemp -d)"
+xcrun actool "$APP_DIR/Pane/AppIcon.icon" --compile "$ICON" --platform macosx \
 	--minimum-deployment-target "$(plutil -extract LSMinimumSystemVersion raw "$PLIST")" \
-	--app-icon AppIcon --output-partial-info-plist "$ICON_ONLY/partial.plist" \
+	--app-icon AppIcon --output-partial-info-plist "$ICON/partial.plist" \
 	--output-format human-readable-text --errors > /dev/null
 
-for helper in "$VERSION_DIR"/Helpers/*Alerts*.app; do
-	cp "$ICON_ONLY/Assets.car" "$ICON_ONLY/AppIcon.icns" "$helper/Contents/Resources/"
-	plutil -replace CFBundleIconFile -string AppIcon "$helper/Contents/Info.plist"
-	plutil -replace CFBundleIconName -string AppIcon "$helper/Contents/Info.plist"
-	rm -f "$helper/Contents/Resources/app.icns"
+for bundle in "$OUT" "$VERSION_DIR"/Helpers/*Alerts*.app; do
+	cp "$ICON/Assets.car" "$ICON/AppIcon.icns" "$bundle/Contents/Resources/"
+	plutil -replace CFBundleIconFile -string AppIcon "$bundle/Contents/Info.plist"
+	plutil -replace CFBundleIconName -string AppIcon "$bundle/Contents/Info.plist"
+	rm -f "$bundle/Contents/Resources/app.icns"
 done
-rm -rf "$ICON_ONLY"
+rm -rf "$ICON"
 
 # A release (dist.sh) drops the engine's local symbols, as Chrome's official
 # builds do: the framework shrinks from ~480 MB to ~270 MB, with its exports, which
@@ -209,7 +184,6 @@ for library in "$VERSION_DIR"/Libraries/*.dylib; do
 done
 
 sign "$FRAMEWORK"
-sign "$OUT/Contents/MacOS/pane-volume-watch" restrict,library,runtime,kill
 sign "$OUT" restrict,library,runtime,kill app.entitlements
 codesign --verify --deep --strict "$OUT"
 

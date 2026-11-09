@@ -152,3 +152,20 @@ export async function detachImagesIn(path: string): Promise<void> {
 		await Bun.$`hdiutil detach ${device} -force -quiet`.quiet().nothrow();
 	}
 }
+
+const LSREGISTER =
+	"/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+
+// A launch registers the bundle with LaunchServices, which opens the newest
+// copy of a bundle identifier it knows: a test copy newer than the installed
+// Pane would be the one a link opens, on the user's own data. A run forgets
+// the copy it ran when it ends; one in /Applications is the user's.
+export async function forgetBundle(binary: string): Promise<void> {
+	const bundle = binary.replace(/\/Contents\/MacOS\/[^/]+$/, "");
+
+	if (bundle === binary || bundle.startsWith("/Applications/")) {
+		return;
+	}
+
+	await Bun.$`${LSREGISTER} -u ${bundle}`.quiet().nothrow();
+}

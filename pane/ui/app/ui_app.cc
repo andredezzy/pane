@@ -3,6 +3,7 @@
 #include "pane/ui/app/ui_app.h"
 
 #include <array>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <utility>
@@ -27,6 +28,7 @@
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/views/widget/widget.h"
@@ -37,6 +39,16 @@ namespace pane {
 namespace {
 
 UiApp* g_app = nullptr;
+
+// The profiles' colors, in the order new profiles take them, until the
+// model carries each profile's (ProfileColor's swatches, fixed in both
+// appearances).
+constexpr SkColor kProfileColors[] = {
+    SkColorSetRGB(0x60, 0xA5, 0xFA), SkColorSetRGB(0xFB, 0x71, 0x85),
+    SkColorSetRGB(0x34, 0xD3, 0x99), SkColorSetRGB(0xFB, 0xBF, 0x24),
+    SkColorSetRGB(0xA7, 0x8B, 0xFA), SkColorSetRGB(0xF9, 0x73, 0x16),
+    SkColorSetRGB(0x2D, 0xD4, 0xBF), SkColorSetRGB(0xE8, 0x79, 0xF9),
+    SkColorSetRGB(0xA1, 0xA1, 0xAA)};
 
 // The window's controls, as the Swift app's snapshot gave them: x, y, width,
 // height from the window's top left.
@@ -192,9 +204,13 @@ Profile* UiApp::ProfileWithId(const std::string& id) const {
 
 std::vector<SidebarRow> UiApp::Rows(Window& window) const {
   std::vector<SidebarRow> rows;
-  for (const ProfileEntry& entry : profiles_) {
+  for (size_t place = 0; place < profiles_.size(); ++place) {
+    const ProfileEntry& entry = profiles_[place];
     rows.push_back(
-        {.profile_id = entry.id, .title = base::UTF8ToUTF16(entry.name)});
+        {.profile_id = entry.id,
+         .title = base::UTF8ToUTF16(entry.name),
+         .selected = entry.profile == window.host().active_profile(),
+         .color = kProfileColors[place % std::size(kProfileColors)]});
     Browser* browser = window.host().ExistingBrowserFor(entry.profile);
     if (!browser) {
       continue;

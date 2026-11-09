@@ -5,7 +5,8 @@
 # by dmgbuild, the same pinned build electron-builder runs: Pane and a link to
 # /Applications on Pane's own background (app/dmg/make-background.swift),
 # as Hark's installer is laid out (ADR 0046).
-# Its debug symbols go beside it (Pane-<version>-arm64.dSYM.zip).
+# Its code's symbols are the engine's, beside the engine archive
+# (publish-engine.sh): Chromium's loader in Contents/MacOS has none to keep.
 # Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses app/build/Pane.app;
 # PANE_DMG_OUT puts the dmg elsewhere, one to install from, the release's
 # left as it is; PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize
@@ -105,23 +106,6 @@ if [ "${PANE_SIGN_IDENTITY:--}" != - ]; then
 		xcrun stapler staple "$DMG"
 		spctl --assess --type open --context context:primary-signature --verbose "$DMG"
 	fi
-fi
-
-# The app's debug symbols beside it, as Pane-<version>-arm64.dSYM.zip: a
-# crash report from any copy (~/Library/Logs/DiagnosticReports) reads with
-# them, since the release strips its executable. Only the dSYM of the
-# executable in the dmg, told by its UUID.
-DSYM="$APP_DIR/build/DerivedData/Build/Products/Release/Pane.app.dSYM"
-SYMBOLS="${DMG%.dmg}.dSYM.zip"
-rm -f "$SYMBOLS"
-
-uuid() { dwarfdump --uuid "$1" | awk '{ print $2 }'; }
-
-if [ -d "$DSYM" ] && [ "$(uuid "$DSYM")" = "$(uuid "$APP/Contents/MacOS/Pane")" ]; then
-	ditto -c -k --keepParent "$DSYM" "$SYMBOLS"
-	echo "symbols $SYMBOLS"
-else
-	echo "warning: no dSYM matches $APP's executable: the release has no symbols" >&2
 fi
 
 shasum -a 256 "$DMG"

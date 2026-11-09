@@ -17,3 +17,7 @@ disable_fieldtrial_testing_config = true
 # build; ThinLTO, which is_official_build turns on, waits for its link to be
 # timed (docs/plans/views-migration.md, B6).
 chrome_pgo_phase = 2
+# The oldest macOS Pane runs on, which its Info.plist names, so Finder says so
+# on an older one: 14.0, as the published Panes require, over Chromium's 13.0.
+# It sets the plist alone; the code targets mac_deployment_target.
+mac_min_system_version = "14.0"

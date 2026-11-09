@@ -8,6 +8,7 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/view.h"
 
@@ -29,7 +30,10 @@ struct SidebarRow {
   // Empty for the profile's own row.
   std::string tab_id;
   std::u16string title;
+  // A tab's: the one shown. A profile's: the profile shown.
   bool selected = false;
+  // A profile's row: the profile's color, its mark's.
+  SkColor color = SK_ColorTRANSPARENT;
 };
 
 // Everything a Pane window draws (Paper's main window): the sidebar on the
@@ -77,8 +81,12 @@ class RootView : public views::View, public views::TextfieldController {
                       const ui::KeyEvent& key_event) override;
 
  private:
+  std::unique_ptr<views::View> MakeRow(const SidebarRow& row);
+
   RowPressed row_pressed_;
   AddressEntered address_entered_;
+  // Each row's profile and tab, in the sidebar's order.
+  std::vector<std::string> row_keys_;
   raw_ptr<views::View> sidebar_ = nullptr;
   raw_ptr<views::View> panel_ = nullptr;
   raw_ptr<views::Textfield> address_ = nullptr;

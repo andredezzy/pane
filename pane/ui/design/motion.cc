@@ -200,4 +200,61 @@ void LayerMotion::End() {
   }
 }
 
+ValueMotion::ValueMotion(double value,
+                         base::RepeatingCallback<void(double)> step)
+    : value_(value), step_(std::move(step)) {}
+
+ValueMotion::~ValueMotion() {
+  Stop();
+}
+
+void ValueMotion::MoveTo(double target,
+                         const Curve& curve,
+                         ::ui::Compositor* compositor) {
+  Stop();
+  if (!compositor || motion::IsReduced()) {
+    Set(target);
+    return;
+  }
+  curve_.emplace(curve);
+  from_ = value_;
+  to_ = target;
+  start_.reset();
+  compositor_ = compositor;
+  compositor_->AddAnimationObserver(this);
+}
+
+void ValueMotion::OnAnimationStep(base::TimeTicks timestamp) {
+  if (!start_) {
+    start_ = timestamp;
+  }
+  const base::TimeDelta elapsed = timestamp - *start_;
+  if (elapsed >= curve_->total()) {
+    const double to = to_;
+    Stop();
+    Set(to);
+    return;
+  }
+  Set(from_ + (to_ - from_) * curve_->Progress(elapsed));
+}
+
+void ValueMotion::OnCompositingShuttingDown(::ui::Compositor* compositor) {
+  // The window is closing: the value lands, with nothing left to lay out.
+  Stop();
+  value_ = to_;
+}
+
+void ValueMotion::Set(double value) {
+  value_ = value;
+  step_.Run(value);
+}
+
+void ValueMotion::Stop() {
+  if (compositor_ && compositor_->HasAnimationObserver(this)) {
+    compositor_->RemoveAnimationObserver(this);
+  }
+  compositor_ = nullptr;
+  curve_.reset();
+}
+
 }  // namespace pane

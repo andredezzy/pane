@@ -1,5 +1,7 @@
 # A release strips its local symbols, and publishes them beside it
 
+> **On the Views line** (`docs/plans/views-migration.md`, G1), the bundle's executable is Chromium's loader, whose code is the framework's: `dist.sh` makes no app dSYM, and PaneCore's is the release's whole symbols.
+
 A release drops the local symbols of the engine and of every executable in the bundle, which took PaneCore from 484 to 269 MB and the dmg from 195 to 161 MB, while development builds keep them for stack traces. `scripts/dist.sh` packages with `PANE_STRIP=1`, and `scripts/package.sh` then runs `strip -x` on PaneCore and the framework's dylibs, and since 0.13.0 on the app's executable, `chrome_crashpad_handler`, `app_mode_loader`, and each helper's executable too. The exports the app links are unchanged (the same `dyld_info -exports`). The prebuilt engine's archive strips PaneCore and its dylibs the same way (ADR 0049).
 
 The symbols are published, so a crash report from any copy reads to function and line (`docs/building.md`, Reading a crash report):

@@ -123,6 +123,39 @@ class LayerMotion : public ::ui::CompositorAnimationObserver,
       this};
 };
 
+// Moves a value toward a target along a curve, a step on each of a
+// compositor's frames, for what a layer's opacity and transform can't carry
+// (a width, a corner's radius): `step` lays out and paints at each value.
+// Its view owns it; a new target starts from the value reached, so a change
+// of mind mid-way doesn't jump.
+class ValueMotion : public ::ui::CompositorAnimationObserver {
+ public:
+  ValueMotion(double value, base::RepeatingCallback<void(double)> step);
+  ValueMotion(const ValueMotion&) = delete;
+  ValueMotion& operator=(const ValueMotion&) = delete;
+  ~ValueMotion() override;
+
+  // At once when `compositor` is null or less motion is asked for.
+  void MoveTo(double target, const Curve& curve, ::ui::Compositor* compositor);
+  double value() const { return value_; }
+
+  // ui::CompositorAnimationObserver:
+  void OnAnimationStep(base::TimeTicks timestamp) override;
+  void OnCompositingShuttingDown(::ui::Compositor* compositor) override;
+
+ private:
+  void Set(double value);
+  void Stop();
+
+  double value_;
+  base::RepeatingCallback<void(double)> step_;
+  std::optional<Curve> curve_;
+  double from_ = 0;
+  double to_ = 0;
+  std::optional<base::TimeTicks> start_;
+  raw_ptr<::ui::Compositor> compositor_ = nullptr;
+};
+
 }  // namespace pane
 
 #endif  // PANE_UI_DESIGN_MOTION_H_

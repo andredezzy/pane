@@ -1,4 +1,5 @@
 import { benchmarkedApp, conditions, launchApp, stats } from "../lib/benchmark";
+import { type FrameReport, framesDuring } from "../lib/frames";
 import type { Scenario } from "../run";
 
 // Scroll: a steady wheel scroll down a long page of text and images
@@ -18,16 +19,6 @@ const ROUNDS = 3;
 const DISTANCE = 6_000;
 const SPEED = 1_500;
 
-type Reporter = {
-	pid: number;
-	state: string;
-	scroll_state: string;
-	affects_smoothness: boolean;
-	layer_tree_host_id: number;
-	frame_source: number;
-	frame_sequence: number;
-};
-
 // Worst first, as COUNTS names them.
 const STATES = [
 	"STATE_DROPPED",
@@ -45,16 +36,10 @@ const COUNTS = [
 
 type Round = Record<(typeof COUNTS)[number], number>;
 
-type TraceEvent = {
-	name: string;
-	pid: number;
-	args?: { frame_reporter?: Omit<Reporter, "pid"> };
-};
-
 // The scroll's frames. One whose main thread missed it forks and reports
 // twice; it counts once, as its worse part, as cc/metrics/frame_info.cc
 // merges them.
-function count(reporters: Reporter[]): Round {
+function count(reporters: FrameReport[]): Round {
 	const frames = Map.groupBy(
 		reporters.filter((frame) => frame.scroll_state !== "SCROLL_NONE"),
 		(frame) =>
@@ -64,7 +49,9 @@ function count(reporters: Reporter[]): Round {
 	const round = Object.fromEntries(COUNTS.map((key) => [key, 0])) as Round;
 
 	for (const parts of frames.values()) {
-		const has = (test: (part: Reporter) => boolean) => Number(parts.some(test));
+		const has = (test: (part: FrameReport) => boolean) =>
+			Number(parts.some(test));
+
 		const states = new Set(parts.map((part) => part.state));
 		const key = COUNTS[STATES.findIndex((state) => states.has(state))];
 
@@ -102,51 +89,24 @@ const benchmarkScroll: Scenario = async (context) => {
 		for (let round = 0; round < ROUNDS; round++) {
 			await page.evaluate("scrollTo(0, 0)");
 			await Bun.sleep(1_000);
-			const reporters: Reporter[] = [];
 
-			const off = cdp.on(({ method, params, sessionId }) => {
-				if (method !== "Tracing.dataCollected" || sessionId) {
-					return;
-				}
+			const reporters = await framesDuring(cdp, async () => {
+				await cdp.send(
+					"Input.synthesizeScrollGesture",
+					{
+						...center,
+						yDistance: -DISTANCE,
+						speed: SPEED,
+						gestureSourceType: "mouse",
+					},
+					page.sessionId,
+					60_000,
+				);
 
-				for (const { name, pid, args } of params.value as TraceEvent[]) {
-					if (name === "PipelineReporter" && args?.frame_reporter) {
-						reporters.push({ ...args.frame_reporter, pid });
-					}
-				}
+				// Its last frames reach the screen, and report, after it ends.
+				await Bun.sleep(500);
 			});
 
-			// The reporter's category ("cc" too, which would add a hundred
-			// thousand other events a round).
-			await cdp.send("Tracing.start", {
-				transferMode: "ReportEvents",
-				traceConfig: { includedCategories: ["benchmark"] },
-			});
-
-			await cdp.send(
-				"Input.synthesizeScrollGesture",
-				{
-					...center,
-					yDistance: -DISTANCE,
-					speed: SPEED,
-					gestureSourceType: "mouse",
-				},
-				page.sessionId,
-				60_000,
-			);
-
-			// Its last frames reach the screen, and report, after it ends.
-			await Bun.sleep(500);
-
-			const complete = cdp.waitFor(
-				"Tracing.tracingComplete",
-				undefined,
-				60_000,
-			);
-
-			await cdp.send("Tracing.end");
-			await complete;
-			off();
 			rounds.push(count(reporters));
 		}
 

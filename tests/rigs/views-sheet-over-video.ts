@@ -1,3 +1,4 @@
+import { framesDuring, statesByProcess } from "../lib/frames";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
@@ -8,8 +9,6 @@ import { expect, type Scenario } from "../run";
 // input is needed in the background); the frames of the sheet's animation
 // are counted from Chromium's PipelineReporter while the video plays. With
 // the front (run.ts --foreground), real clicks and keys go to the sheet too.
-
-type Reporter = { state: string; frame_source: number };
 
 const viewsSheetOverVideo: Scenario = async (context) => {
 	const app = await launchPane(context);
@@ -40,55 +39,22 @@ const viewsSheetOverVideo: Scenario = async (context) => {
 	const bare = await hit(middle);
 	expect(bare.target === "page", `the page's own press went to ${bare.target}`);
 
-	const reporters: Reporter[] = [];
-	const cdp = app.browser.cdp;
+	let overScrim: Awaited<ReturnType<typeof hit>> | undefined;
+	let overCard: typeof overScrim;
 
-	const off = cdp.on(({ method, params, sessionId }) => {
-		if (method !== "Tracing.dataCollected" || sessionId) {
-			return;
-		}
-
-		for (const event of params.value as {
-			name: string;
-			args?: { frame_reporter?: Reporter };
-		}[]) {
-			if (event.name === "PipelineReporter" && event.args?.frame_reporter) {
-				reporters.push(event.args.frame_reporter);
-			}
-		}
+	const reports = await framesDuring(app.browser.cdp, async () => {
+		await app.send("openProfileSheet");
+		await Bun.sleep(400);
+		overScrim = await hit(scrim);
+		overCard = await hit(card);
+		await app.send("closeProfileSheet");
+		await Bun.sleep(400);
 	});
-
-	await cdp.send("Tracing.start", {
-		transferMode: "ReportEvents",
-		traceConfig: { includedCategories: ["benchmark"] },
-	});
-
-	await app.send("openProfileSheet");
-	await Bun.sleep(400);
-
-	const overScrim = await hit(scrim);
-	const overCard = await hit(card);
 
 	expect(
-		overScrim.target === "views" && overCard.target === "views",
+		overScrim?.target === "views" && overCard?.target === "views",
 		`a press on the sheet reached the page: ${JSON.stringify({ overScrim, overCard })}`,
 	);
-
-	await app.send("closeProfileSheet");
-	await Bun.sleep(400);
-
-	const complete = cdp.waitFor("Tracing.tracingComplete", undefined, 30_000);
-	await cdp.send("Tracing.end");
-	await complete;
-	off();
-
-	const bySource = new Map<number, Record<string, number>>();
-
-	for (const { frame_source, state } of reporters) {
-		const counts = bySource.get(frame_source) ?? {};
-		counts[state] = (counts[state] ?? 0) + 1;
-		bySource.set(frame_source, counts);
-	}
 
 	if (context.foreground) {
 		await app.send("openProfileSheet");
@@ -114,7 +80,7 @@ const viewsSheetOverVideo: Scenario = async (context) => {
 
 	return {
 		handlers: { bare, overScrim, overCard },
-		framesBySource: Object.fromEntries(bySource),
+		framesByProcess: statesByProcess(reports),
 	};
 };
 

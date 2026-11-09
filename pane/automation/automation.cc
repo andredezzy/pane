@@ -14,6 +14,7 @@
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/time/time.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "content/public/browser/web_contents.h"
@@ -301,6 +302,15 @@ void Automation::Dispatch(const std::string& name,
     const views::View* handler =
         widget->GetRootView()->GetEventHandlerForPoint(point);
     const PressTarget target = PressTargetAt(widget, point);
+    // The platform's own search for who takes a press there, as each mouse
+    // event runs it: the median of a hundred and one, in microseconds.
+    std::vector<base::TimeDelta> times;
+    for (int i = 0; i < 101; ++i) {
+      const base::TimeTicks start = base::TimeTicks::Now();
+      PressTargetAt(widget, point);
+      times.push_back(base::TimeTicks::Now() - start);
+    }
+    std::nth_element(times.begin(), times.begin() + 50, times.end());
     std::move(reply).Run(
         base::Value(base::DictValue()
                         .Set("handler",
@@ -308,7 +318,41 @@ void Automation::Dispatch(const std::string& name,
                         .Set("target", target == PressTarget::kPage ? "page"
                                        : target == PressTarget::kViews
                                            ? "views"
-                                           : "other")),
+                                           : "other")
+                        .Set("micros", times[50].InMicrosecondsF())),
+        std::string());
+    return;
+  }
+
+  // The window at a new size, as one step of a live resize sets it: how long
+  // the step took, in milliseconds, and where the page went.
+  if (name == "resizeWindow") {
+    const std::optional<int> width = command.FindInt("width");
+    const std::optional<int> height = command.FindInt("height");
+    views::Widget* widget = window->host().widget();
+    if (!width || !height || !widget) {
+      std::move(reply).Run(base::Value(),
+                           "resizeWindow needs width and height");
+      return;
+    }
+    gfx::Rect bounds = widget->GetWindowBoundsInScreen();
+    bounds.set_size(gfx::Size(*width, *height));
+    const base::TimeTicks start = base::TimeTicks::Now();
+    widget->SetBounds(bounds);
+    const base::TimeDelta took = base::TimeTicks::Now() - start;
+    const gfx::Rect page = window->PageBounds();
+    const gfx::Rect client = widget->GetClientAreaBoundsInScreen();
+    std::move(reply).Run(
+        base::Value(base::DictValue()
+                        .Set("ms", took.InMillisecondsF())
+                        .Set("window", base::ListValue()
+                                           .Append(client.width())
+                                           .Append(client.height()))
+                        .Set("page", base::ListValue()
+                                         .Append(page.x())
+                                         .Append(page.y())
+                                         .Append(page.width())
+                                         .Append(page.height()))),
         std::string());
     return;
   }
