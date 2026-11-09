@@ -2,23 +2,39 @@
 
 # Pane's model and data, in plain C++ (docs/plans/views-migration.md, Phase
 # 2): the formats every Pane wrote, and the rules over them, ported from the
-# Swift PaneKit test by test. It depends on //base and //crypto alone, so its
-# tests run under the sanitizers apart from the engine.
+# Swift PaneKit test by test. It depends on //base, //crypto, //url, and RE2
+# alone, so its tests run under the sanitizers apart from the engine.
 
 source_set("model") {
   sources = [
+    "address_input.cc",
+    "address_input.h",
     "app_settings.cc",
     "app_settings.h",
+    "crash_loop.cc",
+    "crash_loop.h",
     "data_key.cc",
     "data_key.h",
+    "extension_text.cc",
+    "extension_text.h",
     "persisted_file.cc",
     "persisted_file.h",
     "profile.cc",
     "profile.h",
+    "proxy_route.cc",
+    "proxy_route.h",
+    "reorder.cc",
+    "reorder.h",
     "sealed_file.cc",
     "sealed_file.h",
     "security.cc",
     "security.h",
+    "tab_history.cc",
+    "tab_history.h",
+    "tab_switcher.cc",
+    "tab_switcher.h",
+    "versions.cc",
+    "versions.h",
   ]
 
   deps = [
@@ -26,6 +42,7 @@ source_set("model") {
     "//crypto",
     "//third_party/boringssl",
     "//third_party/re2",
+    "//url",
   ]
 }
 
@@ -35,7 +52,10 @@ source_set("unit_tests") {
   sources = [
     "data_key_unittest.cc",
     "persistence_unittest.cc",
+    "proxy_route_unittest.cc",
+    "rules_unittest.cc",
     "security_unittest.cc",
+    "tab_switcher_unittest.cc",
   ]
 
   # The files the Swift Pane wrote (SwiftVectorsTests.swift), which these read
@@ -48,5 +68,6 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//crypto",
     "//testing/gtest",
+    "//url",
   ]
 }
