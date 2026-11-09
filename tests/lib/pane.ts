@@ -7,9 +7,10 @@ import {
 	readFileSync,
 	renameSync,
 	rmSync,
+	watch,
 	writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { ScenarioContext } from "../run";
 import type { Browser } from "./browser";
 import { openPage, type Page } from "./cdp";
@@ -261,6 +262,38 @@ type Reply = { ok: boolean; result?: unknown; error?: string; state: AppState };
 
 let nextCommand = 0;
 
+// Whether `file` exists by the deadline: its folder watched, so a reply is
+// read the moment the app moves it into place, with a slower look behind the
+// watch in case an event goes missing.
+function fileAppears(file: string, timeoutMs: number): Promise<boolean> {
+	return new Promise((resolve) => {
+		let done = false;
+
+		const finish = (found: boolean) => {
+			if (done) {
+				return;
+			}
+
+			done = true;
+			watcher.close();
+			clearInterval(look);
+			clearTimeout(deadline);
+			resolve(found);
+		};
+
+		const seen = () => {
+			if (existsSync(file)) {
+				finish(true);
+			}
+		};
+
+		const watcher = watch(dirname(file), seen);
+		const look = setInterval(seen, 250);
+		const deadline = setTimeout(() => finish(existsSync(file)), timeoutMs);
+		seen();
+	});
+}
+
 export class PaneApp {
 	constructor(
 		readonly browser: Browser,
@@ -282,21 +315,15 @@ export class PaneApp {
 		writeFileSync(temporary, JSON.stringify({ command, ...args }));
 		renameSync(temporary, join(inbox, name));
 
-		const deadline = Date.now() + 15_000;
+		if (await fileAppears(reply, 15_000)) {
+			const parsed = JSON.parse(readFileSync(reply, "utf8")) as Reply;
+			rmSync(reply, { force: true });
 
-		while (Date.now() < deadline) {
-			if (existsSync(reply)) {
-				const parsed = JSON.parse(readFileSync(reply, "utf8")) as Reply;
-				rmSync(reply, { force: true });
-
-				if (!parsed.ok) {
-					throw new Error(`${command}: ${parsed.error}`);
-				}
-
-				return { result: parsed.result as T, state: parsed.state };
+			if (!parsed.ok) {
+				throw new Error(`${command}: ${parsed.error}`);
 			}
 
-			await Bun.sleep(50);
+			return { result: parsed.result as T, state: parsed.state };
 		}
 
 		// A stuck app: record where its main thread is before failing.
