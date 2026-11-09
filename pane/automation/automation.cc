@@ -37,8 +37,8 @@ class Automation::Files {
       base::RepeatingCallback<void(std::string name, base::DictValue command)>;
 
   Files(const base::FilePath& directory, Received received)
-      : in_(directory.Append("in")),
-        out_(directory.Append("out")),
+      : in_(directory.AppendASCII("in")),
+        out_(directory.AppendASCII("out")),
         received_(std::move(received)) {
     base::CreateDirectory(in_);
     base::CreateDirectory(out_);
@@ -55,8 +55,9 @@ class Automation::Files {
   }
 
   void Write(const std::string& name, const std::string& json) {
-    const base::FilePath reply = out_.Append(name);
-    const base::FilePath temporary = reply.AddExtension("tmp");
+    const base::FilePath reply =
+        out_.Append(base::FilePath::FromUTF8Unsafe(name));
+    const base::FilePath temporary = reply.AddExtensionASCII("tmp");
     if (base::WriteFile(temporary, json)) {
       base::ReplaceFile(temporary, reply, nullptr);
     }
@@ -80,7 +81,7 @@ class Automation::Files {
       std::optional<base::Value> command =
           read ? base::JSONReader::Read(text, base::JSON_PARSE_RFC)
                : std::nullopt;
-      received_.Run(file.BaseName().value(),
+      received_.Run(file.BaseName().AsUTF8Unsafe(),
                     command && command->is_dict()
                         ? std::move(*command).TakeDict()
                         : base::DictValue());
@@ -226,7 +227,7 @@ void Automation::Dispatch(const std::string& name,
     // Written before the reply, so the file is there when the runner reads
     // the reply.
     files_.AsyncCall(&Files::WriteRender)
-        .WithArgs(base::FilePath(*path), std::move(*png))
+        .WithArgs(base::FilePath::FromUTF8Unsafe(*path), std::move(*png))
         .Then(base::BindOnce(
             [](Reply reply) {
               std::move(reply).Run(base::Value(), std::string());

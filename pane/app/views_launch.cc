@@ -33,8 +33,7 @@ std::optional<int> StartViewsLaunch(base::CommandLine& command_line) {
     return kRefused;
   }
 
-  command_line.InitFromArgv(
-      EngineCommandLine(command_line.argv(), base::FilePath(data)));
+  SetEngineSwitches(command_line, base::FilePath::FromUTF8Unsafe(data));
   g_views_launch = true;
   AllowTracing();
   // Before the first Browser exists: Pane's windows host Chrome's Browsers.

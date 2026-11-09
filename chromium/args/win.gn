@@ -1,0 +1,12 @@
+# The Windows engine, cross-built from the Mac (docs/plans/views-migration.md,
+# G7 and W1): release.gn's args for x64. G7 compiles //pane's objects in it
+# before each push; no full Windows build yet.
+is_debug = false
+dcheck_always_on = false
+symbol_level = 1
+target_os = "win"
+target_cpu = "x64"
+proprietary_codecs = true
+ffmpeg_branding = "Chrome"
+branding_file_path = "//pane/BRANDING"
+disable_fieldtrial_testing_config = true

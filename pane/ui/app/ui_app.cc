@@ -82,8 +82,8 @@ UiApp::UiApp() {
   if (std::optional<std::string> directory =
           environment->GetVar("PANE_AUTOMATION_DIR");
       directory && !directory->empty()) {
-    automation_ =
-        std::make_unique<Automation>(base::FilePath(*directory), this);
+    automation_ = std::make_unique<Automation>(
+        base::FilePath::FromUTF8Unsafe(*directory), this);
   }
 }
 

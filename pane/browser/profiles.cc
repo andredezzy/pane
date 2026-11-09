@@ -2,8 +2,6 @@
 
 #include "pane/browser/profiles.h"
 
-#include <limits.h>
-
 #include <utility>
 #include <vector>
 
@@ -32,10 +30,17 @@
 
 namespace pane {
 
+namespace {
+
+// The longest file name APFS and NTFS take, in bytes and UTF-16 units.
+constexpr size_t kMaxNameLength = 255;
+
+}  // namespace
+
 bool IsValidProfileIdentifier(std::string_view identifier) {
   return !identifier.empty() && identifier != "." && identifier != ".." &&
-         identifier.size() <= NAME_MAX &&
-         identifier.find_first_of("/:") == std::string_view::npos;
+         identifier.size() <= kMaxNameLength &&
+         identifier.find_first_of("/\\:") == std::string_view::npos;
 }
 
 void RegisterEngineKey(const base::FilePath& user_data_dir,
@@ -45,7 +50,7 @@ void RegisterEngineKey(const base::FilePath& user_data_dir,
   network::enterprise_encryption::InstallPaneCacheHook();
 
   std::vector<base::FilePath> roots = {user_data_dir,
-                                       user_data_dir.Append("Volume")};
+                                       user_data_dir.AppendASCII("Volume")};
 
   // Their resolved forms: /var is /private/var, and the caches' folder links
   // into the volume too. A realpath, once per open.
@@ -53,11 +58,13 @@ void RegisterEngineKey(const base::FilePath& user_data_dir,
 
   if (!resolved.empty()) {
     roots.push_back(resolved);
-    roots.push_back(resolved.Append("Volume"));
+    roots.push_back(resolved.AppendASCII("Volume"));
   }
 
   base::FilePath caches;
-  chrome::GetUserCacheDirectory(user_data_dir.Append(identifier), &caches);
+  chrome::GetUserCacheDirectory(
+      user_data_dir.Append(base::FilePath::FromUTF8Unsafe(identifier)),
+      &caches);
 
   if (!caches.empty() && caches.DirName() != user_data_dir) {
     roots.push_back(caches.DirName());
@@ -77,7 +84,8 @@ void OpenProfile(const std::string& identifier,
     return;
   }
 
-  const base::FilePath path = manager->user_data_dir().Append(identifier);
+  const base::FilePath path = manager->user_data_dir().Append(
+      base::FilePath::FromUTF8Unsafe(identifier));
 
   // Before anything of the profile opens, in this process or another.
   RegisterEngineKey(manager->user_data_dir(), identifier, engine_key);

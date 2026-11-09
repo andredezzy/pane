@@ -7,6 +7,7 @@
 
 #include "base/apple/foundation_util.h"
 #include "base/barrier_closure.h"
+#include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -187,7 +188,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
       [[PaneBrowserApplication alloc] initWithDelegate:delegate
                                          dataDirectory:dataDirectory];
 
-  // What Pane's engine starts with (EngineCommandLine): the switches the
+  // What Pane's engine starts with (SetEngineSwitches): the switches the
   // launch may keep, then the ones every launch runs with.
   NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
   const bool scenario = [arguments containsObject:@"--use-mock-keychain"];
@@ -195,8 +196,10 @@ class ProfileDestructionWaiter : public ProfileObserver,
   for (NSString* arg in arguments) {
     given.push_back(base::SysNSStringToUTF8(arg));
   }
-  std::vector<std::string> args = pane::EngineCommandLine(
-      given, base::apple::NSURLToFilePath(dataDirectory));
+  base::CommandLine command_line(given);
+  pane::SetEngineSwitches(command_line,
+                          base::apple::NSURLToFilePath(dataDirectory));
+  const std::vector<std::string>& args = command_line.argv();
 
   std::vector<const char*> argv;
   for (const std::string& arg : args) {

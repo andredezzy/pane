@@ -41,7 +41,7 @@ base::File* TraceFile() {
     if (!path || path->empty() || !Allowed()) {
       return base::File();
     }
-    return base::File(base::FilePath(*path),
+    return base::File(base::FilePath::FromUTF8Unsafe(*path),
                       base::File::FLAG_OPEN_ALWAYS | base::File::FLAG_APPEND);
   }());
   return file->IsValid() ? file.get() : nullptr;

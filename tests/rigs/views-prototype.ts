@@ -16,21 +16,27 @@ const viewsPrototype: Scenario = async (context) => {
 	const b = await app.openPage(home, context.fixtures.url("dark.html?home"));
 	const log: unknown[] = [];
 	let { state } = await app.send("state");
+
 	log.push({
 		afterOpen: state.activeTabID === b.tab,
 		profiles: state.profiles.length,
 	});
+
 	({ state } = await app.send("select", { tab: a.tab }));
+
 	log.push({
 		selectedA: state.activeTabID === a.tab,
 		activeProfile: state.activeProfileID === work,
 	});
+
 	await app.render("window-a.png");
 	({ state } = await app.send("select", { tab: b.tab }));
+
 	log.push({
 		selectedB: state.activeTabID === b.tab,
 		activeProfile: state.activeProfileID === home,
 	});
+
 	await app.render("window-b.png");
 	await app.send("openProfileSheet");
 	await Bun.sleep(400);
@@ -39,9 +45,11 @@ const viewsPrototype: Scenario = async (context) => {
 	await app.send("menu", { path: ["File", "New Tab"] });
 	await Bun.sleep(500);
 	({ state } = await app.send("state"));
+
 	log.push({
 		tabsInHome: state.profiles.find((p) => p.id === home)?.tabs.length,
 	});
+
 	await app.send("menu", { path: ["Navigate", "Focus Address Bar"] });
 	await app.quit();
 

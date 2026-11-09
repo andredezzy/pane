@@ -1,10 +1,10 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# The //pane tree: Pane's embedding layer over Chromium's chrome/ layer. It is
-# linked into Pane Framework.framework through //chrome:chrome_dll, and its public/
-# headers are the Objective-C API the Pane app builds against.
-
-assert(is_mac, "Pane's engine is macOS only.")
+# The //pane tree: Pane's embedding layer over Chromium's chrome/ layer, and
+# its UI in Views. It is linked into Pane Framework.framework through
+# //chrome:chrome_dll; its public/ headers are the Objective-C API the Swift
+# app builds against until it goes. On Windows it compiles, not yet links:
+# `gn gen out/Win --root-target=//pane` loads it alone (G7).
 
 # A property's ivar and getter come from the compiler, as Objective-C's default:
 # Chromium's build asks for them spelled out, which here was 100 lines of nothing.
@@ -27,32 +27,13 @@ source_set("pane") {
     "automation/automation.h",
     "browser/app_callback.cc",
     "browser/app_callback.h",
-    "browser/browser_application.mm",
-    "browser/browser_application_internal.h",
-    "browser/browser_context.mm",
-    "browser/browser_context_internal.h",
     "browser/browser_main_extra_parts.h",
-    "browser/browser_main_extra_parts.mm",
-    "browser/browser_window_api.mm",
     "browser/content_browser_client.cc",
     "browser/content_browser_client.h",
-    "browser/cookies.mm",
-    "browser/downloads.h",
-    "browser/downloads.mm",
     "browser/engine_trace.cc",
-    "browser/extensions/action_popup.h",
-    "browser/extensions/action_popup.mm",
     "browser/extensions/extension_hooks.h",
-    "browser/extensions/extension_menu.h",
-    "browser/extensions/extension_menu.mm",
     "browser/extensions/extension_shortcuts.h",
-    "browser/extensions/extension_shortcuts.mm",
-    "browser/extensions/extension_objects.mm",
     "browser/extensions/extension_ui.h",
-    "browser/extensions/extension_ui.mm",
-    "browser/extensions/extensions_bridge.h",
-    "browser/extensions/extensions_bridge.mm",
-    "browser/extensions/extensions_internal.h",
     "browser/caches_in_memory.cc",
     "browser/caches_in_memory.h",
     "browser/fingerprints.cc",
@@ -60,36 +41,15 @@ source_set("pane") {
     "browser/profiles.cc",
     "browser/profiles.h",
     "browser/engine_trace.h",
-    "browser/ui/browser_window.h",
-    "browser/ui/browser_window.mm",
     "browser/ui/devtools_window_host.h",
-    "browser/ui/devtools_window_host.mm",
-    "browser/ui/dialogs.mm",
-    "browser/ui/dialogs_internal.h",
     "browser/ui/hooks.h",
     "browser/ui/install_hooks.h",
-    "browser/ui/javascript_dialog_manager.h",
-    "browser/ui/javascript_dialog_manager.mm",
-    "browser/ui/login_handler.h",
-    "browser/ui/login_handler.mm",
-    "browser/ui/modal_dialog_host.h",
-    "browser/ui/modal_dialog_host.mm",
-    "browser/ui/permission_prompt.h",
-    "browser/ui/permission_prompt.mm",
     "browser/ui/select_file_dialog.h",
-    "browser/ui/select_file_dialog.mm",
-    "browser/ui/tab_bridge.h",
-    "browser/ui/tab_bridge.mm",
     "browser/ui/ui_hooks.h",
-    "browser/ui/ui_hooks.mm",
     "browser/ui/web_contents_delegate.h",
-    "browser/ui/web_contents_delegate.mm",
     "browser/ui/window_host.h",
-    "browser/ui/window_host.mm",
     "browser/site_data.cc",
     "browser/site_data.h",
-    "browser/web_contents.mm",
-    "browser/web_contents_internal.h",
     "browser/web_store.cc",
     "browser/web_store.h",
     "common/host.cc",
@@ -100,27 +60,74 @@ source_set("pane") {
     "ui/render.h",
     "ui/interaction_log.cc",
     "ui/interaction_log.h",
-    "ui/interaction_log_mac.mm",
     "ui/app/ui_app.cc",
     "ui/app/ui_app.h",
     "ui/tabs/tab_id.cc",
     "ui/tabs/tab_id.h",
     "ui/window/frame.h",
-    "ui/window/frame_mac.mm",
     "ui/window/root_view.cc",
     "ui/window/root_view.h",
     "ui/window/window.cc",
     "ui/window/window.h",
-    "public/PaneBrowserApplication.h",
-    "public/PaneBrowserContext.h",
-    "public/PaneBrowserWindow.h",
-    "public/PaneCookies.h",
-    "public/PaneCore.h",
-    "public/PaneDialogs.h",
-    "public/PaneExtensions.h",
-    "public/PaneExport.h",
-    "public/PaneWebContents.h",
   ]
+
+  # The Swift app's Objective-C API and what drives it, and the Mac's own
+  # platform files: none of it builds anywhere else.
+  if (is_mac) {
+    sources += [
+      "browser/browser_application.mm",
+      "browser/browser_application_internal.h",
+      "browser/browser_context.mm",
+      "browser/browser_context_internal.h",
+      "browser/browser_main_extra_parts.mm",
+      "browser/browser_window_api.mm",
+      "browser/cookies.mm",
+      "browser/downloads.h",
+      "browser/downloads.mm",
+      "browser/extensions/action_popup.h",
+      "browser/extensions/action_popup.mm",
+      "browser/extensions/extension_menu.h",
+      "browser/extensions/extension_menu.mm",
+      "browser/extensions/extension_shortcuts.mm",
+      "browser/extensions/extension_objects.mm",
+      "browser/extensions/extension_ui.mm",
+      "browser/extensions/extensions_bridge.h",
+      "browser/extensions/extensions_bridge.mm",
+      "browser/extensions/extensions_internal.h",
+      "browser/ui/browser_window.h",
+      "browser/ui/browser_window.mm",
+      "browser/ui/devtools_window_host.mm",
+      "browser/ui/dialogs.mm",
+      "browser/ui/dialogs_internal.h",
+      "browser/ui/javascript_dialog_manager.h",
+      "browser/ui/javascript_dialog_manager.mm",
+      "browser/ui/login_handler.h",
+      "browser/ui/login_handler.mm",
+      "browser/ui/modal_dialog_host.h",
+      "browser/ui/modal_dialog_host.mm",
+      "browser/ui/permission_prompt.h",
+      "browser/ui/permission_prompt.mm",
+      "browser/ui/select_file_dialog.mm",
+      "browser/ui/tab_bridge.h",
+      "browser/ui/tab_bridge.mm",
+      "browser/ui/ui_hooks.mm",
+      "browser/ui/web_contents_delegate.mm",
+      "browser/ui/window_host.mm",
+      "browser/web_contents.mm",
+      "browser/web_contents_internal.h",
+      "ui/interaction_log_mac.mm",
+      "ui/window/frame_mac.mm",
+      "public/PaneBrowserApplication.h",
+      "public/PaneBrowserContext.h",
+      "public/PaneBrowserWindow.h",
+      "public/PaneCookies.h",
+      "public/PaneCore.h",
+      "public/PaneDialogs.h",
+      "public/PaneExtensions.h",
+      "public/PaneExport.h",
+      "public/PaneWebContents.h",
+    ]
+  }
 
   # gn check passes over //pane (AGENTS.md's gates). chrome/browser/ui/browser.h
   # is included with nogncheck: Chrome keeps its target to its own UI, and
@@ -177,8 +184,6 @@ source_set("pane") {
     "//components/permissions",
     "//components/prefs",
     "//components/proxy_config",
-    "//components/remote_cocoa/app_shim",
-    "//components/remote_cocoa/common:mojo",
     "//components/sessions",
     "//components/signin/public/base",
     "//components/spellcheck/browser",
@@ -216,8 +221,14 @@ source_set("pane") {
     "//url",
   ]
 
-  frameworks = [
-    "AppKit.framework",
-    "Foundation.framework",
-  ]
+  if (is_mac) {
+    deps += [
+      "//components/remote_cocoa/app_shim",
+      "//components/remote_cocoa/common:mojo",
+    ]
+    frameworks = [
+      "AppKit.framework",
+      "Foundation.framework",
+    ]
+  }
 }
