@@ -51,6 +51,9 @@ enum PaneColorIds : ui::ColorId {
   kPaneColorOutlineHover,
   // A selected sidebar row's fill: the foreground at 5%.
   kPaneColorRowSelected,
+  // The rule between the sidebar footer's New and Settings: the foreground
+  // at 4%.
+  kPaneColorSidebarRule,
   // A popover's ring (the switcher, the extensions menus): the foreground
   // at 10%; a popup's Cancel border, at 8%.
   kPaneColorPopoverRing,

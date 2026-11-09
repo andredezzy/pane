@@ -6,9 +6,11 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkPaint.h"
+#include "third_party/skia/include/core/SkRect.h"
 #include "ui/compositor/canvas_painter.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/paint_info.h"
 #include "ui/views/view.h"
@@ -68,6 +70,16 @@ void DrawLayered(SkCanvas* canvas,
   if (view->layer()) {
     const gfx::Vector2dF moved = view->layer()->transform().To2dTranslation();
     origin += gfx::Vector2d(moved.x(), moved.y());
+  }
+  // A layer that clips what it holds (a scroll view's viewport) clips here
+  // too, as the compositor does.
+  SkAutoCanvasRestore restore(canvas, /*doSave=*/true);
+  if (view->layer() && view->layer()->GetMasksToBounds()) {
+    const gfx::Rect bounds =
+        views::View::ConvertRectToTarget(view, root, view->GetLocalBounds());
+    canvas->clipRect(SkRect::MakeXYWH(bounds.x() * scale, bounds.y() * scale,
+                                      bounds.width() * scale,
+                                      bounds.height() * scale));
   }
   const SkBitmap own = PaintOwn(view, scale);
   SkPaint paint;

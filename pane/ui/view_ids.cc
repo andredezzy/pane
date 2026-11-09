@@ -28,6 +28,18 @@ std::string_view ViewIdName(int id) {
       return "pane.empty";
     case kViewIdProfileSheet:
       return "pane.profileSheet";
+    case kViewIdProfileRow:
+      return "pane.profile";
+    case kViewIdTabRow:
+      return "pane.tab";
+    case kViewIdNewTabRow:
+      return "pane.sidebar.newTab";
+    case kViewIdSidebarNew:
+      return "pane.sidebar.new";
+    case kViewIdSidebarSettings:
+      return "pane.sidebar.settings";
+    case kViewIdSidebarResize:
+      return "pane.sidebar.resize";
     default:
       return std::string_view();
   }

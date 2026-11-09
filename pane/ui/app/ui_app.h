@@ -20,6 +20,7 @@
 #include "pane/browser/profile_contexts.h"
 #include "pane/model/browser_model.h"
 #include "pane/model/crash_loop.h"
+#include "pane/ui/tabs/favicons.h"
 #include "pane/ui/window/window.h"
 #include "url/gurl.h"
 
@@ -29,11 +30,14 @@ namespace content {
 class WebContents;
 }
 
+namespace gfx {
+class Image;
+}
+
 namespace pane {
 
 class AppEvents;
 class Automation;
-struct SidebarRow;
 
 namespace model {
 struct AppSettings;
@@ -50,7 +54,8 @@ struct ProfileDraft;
 // earlier Pane's have moved in, nothing opens, loads, or shows.
 class UiApp : public AppData::Client,
               public Window::Controller,
-              public model::BrowserModel::Observer {
+              public model::BrowserModel::Observer,
+              public Favicons::Observer {
  public:
   // Starts it, once the browser has started and the data opened (OpenData).
   static void Start();
@@ -75,7 +80,13 @@ class UiApp : public AppData::Client,
   std::string OpenTab(const std::string& profile_id, std::optional<GURL> url);
   // Selects a tab: its page shows at once, or is made after the frame that
   // answers the input when it has none.
-  void Select(const std::string& tab_id);
+  void Select(const std::string& tab_id) override;
+  // A profile collapses, and its pages go; its tabs stay (CONTEXT.md:
+  // Unload).
+  void CollapseProfile(const std::string& profile_id);
+  // The browser, or Settings: under Settings no tab is selected, and no
+  // profile shows as active (ADR 0064).
+  void ShowPage(model::BrowserModel::Page page);
   // A theme reaches the app, its menus, and its pages at once (ADR 0001).
   void ChangeSettings(base::FunctionRef<void(model::AppSettings&)> change);
   // What changed is written; `written` runs once it is on the disk.
@@ -103,18 +114,32 @@ class UiApp : public AppData::Client,
 
   // What shows, for the channel's replies, in the Swift app's shape.
   base::DictValue Snapshot() const;
+  // Deleted profiles the engine hasn't confirmed yet.
+  size_t pending_profile_deletions() const { return deleting_.size(); }
 
   // AppData::Client:
   void AccessDidOpen() override;
   void LockRequested() override;
 
   // Window::Controller:
-  std::vector<SidebarRow> Rows() override;
+  SidebarContent Sidebar() override;
   RootView::Shows Shows() override;
-  void RowPressed(const SidebarRow& row) override;
+  void ToggleProfile(const std::string& profile_id) override;
+  void CloseTab(const std::string& tab_id) override;
+  void NewTabIn(const std::string& profile_id) override;
+  void EditProfile(const std::string& profile_id) override;
+  void SetKeepLoaded(const std::string& profile_id, bool keep_loaded) override;
+  // The profile, its tabs, and its pages go now; its data once the engine
+  // confirms (ADR 0020), recorded in deletions.json until then.
+  void DeleteProfile(const std::string& profile_id) override;
+  void CollapseAll() override;
+  void NewProfile() override;
+  void ToggleSettings() override;
+  void ResizeSidebar(double width) override;
+  void EndSidebarResize() override;
+  void ResetSidebarWidth() override;
   void AddressEntered(const std::u16string& text) override;
   void Back() override;
-  void CollapseAll() override;
   void NewTab() override;
   void SelectTabAt(int number) override;
   void TabInserted(content::WebContents* contents,
@@ -130,6 +155,11 @@ class UiApp : public AppData::Client,
   void OnExpandedProfilesChanged() override;
   void OnActiveTabChanged() override;
   void OnActiveProfileChanged() override;
+  void OnProxyStatusChanged() override;
+  void OnPageChanged() override;
+
+  // Favicons::Observer:
+  void OnFaviconChanged(const std::string& tab_id) override;
 
  private:
   // A tab's page, as the model hears of it.
@@ -157,10 +187,19 @@ class UiApp : public AppData::Client,
   // The profile's most recent tab takes the place of the one that closed.
   void SelectAfterClosing(const std::optional<std::string>& profile_id);
   void ExpandProfile(const std::string& profile_id);
-  void ToggleProfile(const std::string& profile_id);
+  // The tab goes from the model; when it was selected, its profile's most
+  // recent tab takes its place.
+  void RemoveTabAndReselect(const std::string& tab_id);
+  // The engine answered a delete: the folder goes now, unless a lock came.
+  void ProfileDeleted(const std::string& profile_id, bool removes_folder);
+  // The profile sheet (N1's), for New and Edit profile: the prototype's sheet
+  // stands in.
+  void PresentProfileSheet();
 
   // From a page.
   void PageTitleChanged(const std::string& tab_id);
+  // Its favicon came: drawn at once, saved with the tab once encoded.
+  void PageFaviconChanged(const std::string& tab_id, const gfx::Image& image);
   // It went somewhere: its history changed.
   void PageNavigated(const std::string& tab_id);
   void PageURLChanged(const std::string& tab_id);
@@ -194,8 +233,18 @@ class UiApp : public AppData::Client,
   // The tabs that show the sad tab's place until they reload: a page that
   // died and stayed dead, or one whose profile would not open.
   std::set<std::string> crashed_tab_ids_;
+  // Each tab's favicon as the sidebar draws it.
+  Favicons favicons_;
+  // The saved favicons were decoded ahead, since the profiles last loaded.
+  bool favicons_warmed_ = false;
+  // Profiles deleted whose engine data hasn't gone yet.
+  std::set<std::string> deleting_;
+  // The sidebar's width as it shows: a drag's, saved as it ends.
+  double sidebar_width_ = 0;
   base::ScopedObservation<model::BrowserModel, model::BrowserModel::Observer>
       model_observation_{this};
+  base::ScopedObservation<Favicons, Favicons::Observer> favicons_observation_{
+      this};
   base::WeakPtrFactory<UiApp> weak_factory_{this};
 };
 

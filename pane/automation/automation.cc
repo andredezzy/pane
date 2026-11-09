@@ -3,6 +3,7 @@
 #include "pane/automation/automation.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -29,15 +30,106 @@
 #include "pane/model/profile_draft.h"
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/render.h"
+#include "pane/ui/sidebar/profile_row.h"
+#include "pane/ui/sidebar/sidebar_view.h"
+#include "pane/ui/sidebar/tab_row.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
 #include "ui/compositor/compositor.h"
+#include "ui/events/event.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/event_utils.h"
+#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/menus/simple_menu_model.h"
+#include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
 namespace pane {
+
+namespace {
+
+// A view's frame in the window, from its top left: x, y, width, height.
+base::ListValue FrameIn(const views::View* view, const views::View* root) {
+  const gfx::Rect frame =
+      views::View::ConvertRectToTarget(view, root, view->GetLocalBounds());
+  return base::ListValue()
+      .Append(frame.x())
+      .Append(frame.y())
+      .Append(frame.width())
+      .Append(frame.height());
+}
+
+// A row's menu as it shows: each item's title, whether it's enabled, checked,
+// and has its icon; a separator as one titled "-".
+base::ListValue MenuItems(const ui::SimpleMenuModel& menu) {
+  base::ListValue items;
+  for (size_t index = 0; index < menu.GetItemCount(); ++index) {
+    if (menu.GetTypeAt(index) == ui::MenuModel::TYPE_SEPARATOR) {
+      items.Append(base::DictValue().Set("title", "-"));
+      continue;
+    }
+    items.Append(base::DictValue()
+                     .Set("title", menu.GetLabelAt(index))
+                     .Set("enabled", menu.IsEnabledAt(index))
+                     .Set("checked", menu.IsItemCheckedAt(index))
+                     .Set("icon", !menu.GetIconAt(index).IsEmpty()));
+  }
+  return items;
+}
+
+// A drag from one point of the window to another (from its top left), in
+// `steps` moves: the press, each move, and the release go to the window's
+// root view as Views' own mouse events, which hit-tests and hands them to
+// what is under the press, as a drag with the trackpad reaches it. Not
+// through the platform: a widget takes the moves to the pressed view only
+// while a real button is down (Widget::OnMouseEvent, the Mac's
+// [NSEvent pressedMouseButtons]), which no posted event sets. Each move is
+// timed from its dispatch to the window's layout at it, the work before the
+// next frame: the times, in milliseconds.
+std::vector<double> Drag(views::Widget* widget,
+                         const gfx::Point& from,
+                         const gfx::Point& to,
+                         int steps) {
+  views::View* root = widget->GetRootView();
+  const auto event = [](ui::EventType type, const gfx::Point& at) {
+    return ui::MouseEvent(type, at, at, ui::EventTimeForNow(),
+                          ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  };
+  std::vector<double> times;
+  root->OnMousePressed(event(ui::EventType::kMousePressed, from));
+  steps = std::max(steps, 1);
+  for (int step = 1; step <= steps; ++step) {
+    const double share = static_cast<double>(step) / steps;
+    const gfx::Point at(std::lround(from.x() + (to.x() - from.x()) * share),
+                        std::lround(from.y() + (to.y() - from.y()) * share));
+    const base::TimeTicks start = base::TimeTicks::Now();
+    root->OnMouseDragged(event(ui::EventType::kMouseDragged, at));
+    widget->LayoutRootViewIfNecessary();
+    times.push_back((base::TimeTicks::Now() - start).InMillisecondsF());
+  }
+  root->OnMouseReleased(event(ui::EventType::kMouseReleased, to));
+  return times;
+}
+
+std::optional<model::BrowserModel::ProxyStatus> ProxyStatusNamed(
+    std::string_view name) {
+  if (name == "testing") {
+    return model::BrowserModel::ProxyStatus::kTesting;
+  }
+  if (name == "connected") {
+    return model::BrowserModel::ProxyStatus::kConnected;
+  }
+  if (name == "failed") {
+    return model::BrowserModel::ProxyStatus::kFailed;
+  }
+  return std::nullopt;
+}
+
+}  // namespace
 
 // The channel's files, on a sequence that may block: commands as they
 // arrive, read, removed, and handed to the UI; replies written whole, under
@@ -136,6 +228,8 @@ void Automation::Run(std::string name, base::DictValue command) {
                  base::DictValue state = automation->app_->Snapshot();
                  state.Set("nativeWindows",
                            NativeWindows(automation->app_->window()->widget()));
+                 state.Set("alert",
+                           SheetAlert(automation->app_->window()->widget()));
                  reply.Set("state", std::move(state));
                  automation->files_.AsyncCall(&Files::Write)
                      .WithArgs(name, base::WriteJson(reply).value_or("{}"));
@@ -151,7 +245,8 @@ void Automation::Dispatch(const std::string& name,
   // An edit of the profiles before they load, or behind the lock, would edit
   // a model that holds none of them, and the load would take it back.
   if ((name == "createProfile" || name == "openTab" || name == "moveTab" ||
-       name == "moveProfile") &&
+       name == "moveProfile" || name == "deleteProfile" ||
+       name == "setKeepLoaded" || name == "setProxyStatus") &&
       !AppData::Get()->store().profiles_loaded()) {
     std::move(reply).Run(base::Value(), name + ": the profiles are not open");
     return;
@@ -168,7 +263,9 @@ void Automation::Dispatch(const std::string& name,
        name == "clickPage" || name == "hoverWindow" ||
        name == "holdModifiers" || name == "releaseModifiers" ||
        name == "hitTest" || name == "resizeWindow" || name == "pageLayout" ||
-       name == "openProfileSheet" || name == "closeProfileSheet")) {
+       name == "openProfileSheet" || name == "closeProfileSheet" ||
+       name == "scrollWindow" || name == "dragWindow" || name == "frames" ||
+       name == "rowMenu" || name == "clickModalButton")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -264,6 +361,84 @@ void Automation::Dispatch(const std::string& name,
     } else {
       app_->model().MoveProfile(*from, *to);
     }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The sidebar's header on an expanded profile: it collapses, its pages
+  // unloading.
+  if (name == "unloadProfile" || name == "deleteProfile") {
+    const std::string* profile_id = command.FindString("profile");
+    if (!profile_id) {
+      std::move(reply).Run(base::Value(), name + " needs profile");
+      return;
+    }
+    if (name == "unloadProfile") {
+      app_->CollapseProfile(*profile_id);
+    } else {
+      // The alert's Delete, past the alert, which `rowMenu` and
+      // `clickModalButton` press.
+      app_->DeleteProfile(*profile_id);
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A profile's menu's Keep loaded: { profile, keepLoaded? }.
+  if (name == "setKeepLoaded") {
+    const std::string* profile_id = command.FindString("profile");
+    if (!profile_id) {
+      std::move(reply).Run(base::Value(), "setKeepLoaded needs profile");
+      return;
+    }
+    app_->SetKeepLoaded(*profile_id,
+                        command.FindBool("keepLoaded").value_or(true));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A proxy test's answer, for the sidebar's dot: { profile, status:
+  // "testing" | "connected" | "failed" | null }. It stands in for the test
+  // itself until the proxy's port (N2) runs one.
+  if (name == "setProxyStatus") {
+    const std::string* profile_id = command.FindString("profile");
+    const std::string* status = command.FindString("status");
+    if (!profile_id) {
+      std::move(reply).Run(base::Value(), "setProxyStatus needs profile");
+      return;
+    }
+    const std::optional<model::BrowserModel::ProxyStatus> named =
+        status ? ProxyStatusNamed(*status) : std::nullopt;
+    if (status && !named) {
+      std::move(reply).Run(base::Value(), "unknown proxy status");
+      return;
+    }
+    app_->model().SetProxyStatus(*profile_id, named);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A tab's X, or its menu's Close tab: its page asks first (beforeunload).
+  if (name == "closeTab") {
+    const std::string* tab = command.FindString("tab");
+    if (!tab) {
+      std::move(reply).Run(base::Value(), "closeTab needs tab");
+      return;
+    }
+    app_->CloseTab(*tab);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // { page: "browser" | "settings" }: the sidebar's Settings, or back.
+  if (name == "showPage") {
+    const std::string* page = command.FindString("page");
+    if (!page || (*page != "browser" && *page != "settings")) {
+      std::move(reply).Run(base::Value(), "unknown page");
+      return;
+    }
+    app_->ShowPage(*page == "settings" ? model::BrowserModel::Page::kSettings
+                                       : model::BrowserModel::Page::kBrowser);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -546,6 +721,127 @@ void Automation::Dispatch(const std::string& name,
                                                                       : "other")
                         .Set("micros", times[50].InMicrosecondsF())),
         std::string());
+    return;
+  }
+
+  // A trackpad scroll at a point of the window (from its top left), by `dy`
+  // points: negative moves the content up, as a swipe up does.
+  if (name == "scrollWindow") {
+    const std::optional<double> x = command.FindDouble("x");
+    const std::optional<double> y = command.FindDouble("y");
+    const std::optional<double> dy = command.FindDouble("dy");
+    if (!x || !y || !dy) {
+      std::move(reply).Run(base::Value(), "scrollWindow needs x, y, and dy");
+      return;
+    }
+    PostScroll(widget, *x, *y, *dy);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A drag from one point of the window to another, { from: [x, y], to:
+  // [x, y], steps }, through Views' own dispatch (Drag): each step timed from
+  // its event to the window's layout, and the page's width after it.
+  if (name == "dragWindow") {
+    const base::ListValue* from = command.FindList("from");
+    const base::ListValue* to = command.FindList("to");
+    const auto point =
+        [](const base::ListValue* pair) -> std::optional<gfx::Point> {
+      const std::optional<double> x =
+          pair && pair->size() == 2 ? (*pair)[0].GetIfDouble() : std::nullopt;
+      const std::optional<double> y =
+          pair && pair->size() == 2 ? (*pair)[1].GetIfDouble() : std::nullopt;
+      if (!x || !y) {
+        return std::nullopt;
+      }
+      return gfx::Point(*x, *y);
+    };
+    const std::optional<gfx::Point> start = point(from);
+    const std::optional<gfx::Point> end = point(to);
+    if (!start || !end) {
+      std::move(reply).Run(base::Value(), "dragWindow needs from and to");
+      return;
+    }
+    base::ListValue steps;
+    for (double ms :
+         Drag(widget, *start, *end, command.FindInt("steps").value_or(10))) {
+      steps.Append(ms);
+    }
+    std::move(reply).Run(
+        base::Value(base::DictValue()
+                        .Set("stepMs", std::move(steps))
+                        .Set("pageWidth", window->PageBounds().width())),
+        std::string());
+    return;
+  }
+
+  // Where the sidebar's parts and rows are, each by what the Swift app named
+  // it ("pane.sidebar.profiles", "pane.tab.<id>"), from the window's top left:
+  // x, y, width, height. A row scrolled out of view lies outside the list's.
+  if (name == "frames") {
+    const std::string* prefix = command.FindString("prefix");
+    base::DictValue frames;
+    const views::View* root = widget->GetRootView();
+    if (SidebarView* sidebar = window->root()->sidebar()) {
+      for (const auto& [view_name, view] : sidebar->NamedViews()) {
+        if (!prefix || view_name.starts_with(*prefix)) {
+          frames.Set(view_name, FrameIn(view, root));
+        }
+      }
+    }
+    std::move(reply).Run(base::Value(std::move(frames)), std::string());
+    return;
+  }
+
+  // A row's right-click menu, as its model holds what the Mac's menu shows:
+  // { profile } or { tab }, its items; with `choose`, the item of that title
+  // chosen, as a click in the menu chooses it, after the menu has gone. The
+  // menu itself, which runs with the app's tasks held, is the front's.
+  if (name == "rowMenu") {
+    const std::string* profile_id = command.FindString("profile");
+    const std::string* tab_id = command.FindString("tab");
+    SidebarView* sidebar = window->root()->sidebar();
+    ProfileRow* profile_row =
+        profile_id ? sidebar->FindProfileRow(*profile_id) : nullptr;
+    TabRow* tab_row = tab_id ? sidebar->FindTabRow(*tab_id) : nullptr;
+    ui::SimpleMenuModel* menu = profile_row ? &profile_row->menu_model()
+                                : tab_row   ? &tab_row->menu_model()
+                                            : nullptr;
+    if (!menu) {
+      std::move(reply).Run(base::Value(),
+                           "rowMenu needs a row the sidebar shows");
+      return;
+    }
+    base::ListValue items = MenuItems(*menu);
+    if (const std::string* choose = command.FindString("choose")) {
+      std::optional<size_t> chosen;
+      for (size_t index = 0; index < menu->GetItemCount(); ++index) {
+        if (menu->GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
+            base::UTF16ToUTF8(menu->GetLabelAt(index)) == *choose) {
+          chosen = index;
+        }
+      }
+      if (!chosen || !menu->IsEnabledAt(*chosen)) {
+        std::move(reply).Run(base::Value(), "no menu item " + *choose);
+        return;
+      }
+      menu->ActivatedAt(*chosen);
+    }
+    std::move(reply).Run(base::Value(std::move(items)), std::string());
+    return;
+  }
+
+  // A button of the alert the window shows as a sheet, { title }, pressed as
+  // a click on it does.
+  if (name == "clickModalButton") {
+    const std::string* title = command.FindString("title");
+    if (!title || !PressSheetButton(widget, *title)) {
+      std::move(reply).Run(base::Value(), "no button " +
+                                              (title ? *title : std::string()) +
+                                              " in the window's sheet");
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
     return;
   }
 

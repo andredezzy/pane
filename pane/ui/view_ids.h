@@ -36,6 +36,16 @@ enum ViewId : int {
   kViewIdEmpty,
   // The profile sheet, over the window.
   kViewIdProfileSheet,
+  // The sidebar's rows: a profile's header, a tab, a profile's New tab; and
+  // its footer's New and Settings, and its edge, which resizes it. The
+  // channel names a profile's and a tab's by their ids
+  // ("pane.profile.<id>", "pane.tab.<id>").
+  kViewIdProfileRow,
+  kViewIdTabRow,
+  kViewIdNewTabRow,
+  kViewIdSidebarNew,
+  kViewIdSidebarSettings,
+  kViewIdSidebarResize,
 
   kViewIdsEnd,
 };

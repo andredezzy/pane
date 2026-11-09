@@ -65,6 +65,8 @@ void AddPaneColors(ui::ColorProvider* provider,
       ui::SetAlpha(kPaneColorForeground, AlphaOf(0.04));
   mixer[kPaneColorRowSelected] =
       ui::SetAlpha(kPaneColorForeground, AlphaOf(0.05));
+  mixer[kPaneColorSidebarRule] =
+      ui::SetAlpha(kPaneColorForeground, AlphaOf(0.04));
   mixer[kPaneColorPopoverRing] =
       ui::SetAlpha(kPaneColorForeground, AlphaOf(0.1));
   mixer[kPaneColorPopupBorder] =

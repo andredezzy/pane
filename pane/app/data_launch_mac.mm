@@ -21,6 +21,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -356,6 +357,15 @@ class PaneData : public AppData,
 
   void ProfileDidOpen(const std::string& profile_id) override {
     vault_.ProfileDidOpen(profile_id);
+  }
+
+  void RecordDeletion(const std::string& profile_id,
+                      base::OnceClosure recorded) override {
+    vault_.RecordDeletion(profile_id, std::move(recorded));
+  }
+
+  void RemoveDeleted(const std::string& profile_id) override {
+    vault_.Remove(profile_id, base::DoNothing());
   }
 
   void LockScreen() override { lock_.LockNow(); }

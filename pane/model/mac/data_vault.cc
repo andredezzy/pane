@@ -24,6 +24,7 @@
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "base/task/bind_post_task.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/thread_annotations.h"
 #include "base/threading/platform_thread.h"
@@ -1189,6 +1190,22 @@ void DataVault::SafetyCopyCountsOpen(const std::string& profile_id) {
                      volume_, profile_id));
 }
 
+void DataVault::RecordDeletion(const std::string& profile_id,
+                               base::OnceClosure recorded) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  volume_sequence_->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](const base::FilePath& directory, const std::string& id,
+             scoped_refptr<base::SequencedTaskRunner> reply,
+             base::OnceClosure recorded) {
+            ProfileDeletions(directory).Add(id);
+            reply->PostTask(FROM_HERE, std::move(recorded));
+          },
+          data_directory_, profile_id,
+          base::SequencedTaskRunner::GetCurrentDefault(), std::move(recorded)));
+}
+
 void DataVault::Remove(const std::string& profile_id,
                        base::OnceClosure removed) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -1207,13 +1224,28 @@ void DataVault::Remove(const std::string& profile_id,
               },
               volume_, profile_id),
           base::BindOnce(&DataVault::Removed, weak_factory_.GetWeakPtr(),
-                         std::move(removed)));
+                         profile_id, std::move(removed)));
 }
 
-void DataVault::Removed(base::OnceClosure removed, bool gone) {
-  if (gone) {
-    std::move(removed).Run();
+void DataVault::Removed(const std::string& profile_id,
+                        base::OnceClosure removed,
+                        bool gone) {
+  if (!gone) {
+    return;
   }
+  // The record goes on the sequence the purge writes it on, then the caller
+  // hears.
+  volume_sequence_->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](const base::FilePath& directory, const std::string& id,
+             scoped_refptr<base::SequencedTaskRunner> reply,
+             base::OnceClosure removed) {
+            ProfileDeletions(directory).Remove(id);
+            reply->PostTask(FROM_HERE, std::move(removed));
+          },
+          data_directory_, profile_id,
+          base::SequencedTaskRunner::GetCurrentDefault(), std::move(removed)));
 }
 
 base::OnceCallback<void(bool every_closed)> DataVault::Lock() {

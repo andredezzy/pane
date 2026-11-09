@@ -61,15 +61,40 @@ void Window::Open() {
   if (host_) {
     return;
   }
+  // The controller outlives the window.
+  Controller* controller = controller_.get();
   RootView::Callbacks callbacks;
-  callbacks.row_pressed = base::BindRepeating(
-      &Controller::RowPressed, base::Unretained(controller_.get()));
-  callbacks.address_entered = base::BindRepeating(
-      &Controller::AddressEntered, base::Unretained(controller_.get()));
-  callbacks.back = base::BindRepeating(&Controller::Back,
-                                       base::Unretained(controller_.get()));
-  callbacks.collapse_all = base::BindRepeating(
-      &Controller::CollapseAll, base::Unretained(controller_.get()));
+  SidebarView::Callbacks& sidebar = callbacks.sidebar;
+  sidebar.toggle_profile = base::BindRepeating(&Controller::ToggleProfile,
+                                               base::Unretained(controller));
+  sidebar.select_tab =
+      base::BindRepeating(&Controller::Select, base::Unretained(controller));
+  sidebar.close_tab =
+      base::BindRepeating(&Controller::CloseTab, base::Unretained(controller));
+  sidebar.new_tab =
+      base::BindRepeating(&Controller::NewTabIn, base::Unretained(controller));
+  sidebar.edit_profile = base::BindRepeating(&Controller::EditProfile,
+                                             base::Unretained(controller));
+  sidebar.set_keep_loaded = base::BindRepeating(&Controller::SetKeepLoaded,
+                                                base::Unretained(controller));
+  sidebar.delete_profile = base::BindRepeating(&Controller::DeleteProfile,
+                                               base::Unretained(controller));
+  sidebar.collapse_all = base::BindRepeating(&Controller::CollapseAll,
+                                             base::Unretained(controller));
+  sidebar.new_profile = base::BindRepeating(&Controller::NewProfile,
+                                            base::Unretained(controller));
+  sidebar.toggle_settings = base::BindRepeating(&Controller::ToggleSettings,
+                                                base::Unretained(controller));
+  callbacks.resize.resize = base::BindRepeating(&Controller::ResizeSidebar,
+                                                base::Unretained(controller));
+  callbacks.resize.end = base::BindRepeating(&Controller::EndSidebarResize,
+                                             base::Unretained(controller));
+  callbacks.resize.reset = base::BindRepeating(&Controller::ResetSidebarWidth,
+                                               base::Unretained(controller));
+  callbacks.address_entered = base::BindRepeating(&Controller::AddressEntered,
+                                                  base::Unretained(controller));
+  callbacks.back =
+      base::BindRepeating(&Controller::Back, base::Unretained(controller));
   auto root = std::make_unique<RootView>(std::move(callbacks));
   root_ = root.get();
   host_ = std::make_unique<WindowHost>(this, gfx::Rect(kWindowSize),
@@ -201,8 +226,14 @@ void Window::FocusAddress() {
 
 void Window::Refresh() {
   if (root_) {
-    root_->SetRows(controller_->Rows());
+    root_->SetSidebar(controller_->Sidebar());
     root_->SetShows(controller_->Shows());
+  }
+}
+
+void Window::SetSidebarWidth(double width) {
+  if (root_) {
+    root_->SetSidebarWidth(width);
   }
 }
 

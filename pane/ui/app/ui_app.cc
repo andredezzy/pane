@@ -33,8 +33,11 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/download/public/common/download_item.h"
+#include "components/favicon/content/content_favicon_driver.h"
+#include "components/favicon/core/favicon_driver_observer.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
@@ -57,6 +60,7 @@
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
 #include "pane/ui/interaction_log.h"
+#include "pane/ui/sidebar/sidebar_content.h"
 #include "pane/ui/tabs/tab_id.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
@@ -213,12 +217,39 @@ std::optional<std::string> ProfileIdOf(content::WebContents* contents) {
 
 // A tab's page, as the model hears of it: its title and its address, saved
 // with the tab (the Swift's didChangeTitle and didChangeURL).
-class UiApp::Page : public content::WebContentsObserver {
+class UiApp::Page : public content::WebContentsObserver,
+                    public favicon::FaviconDriverObserver {
  public:
   Page(UiApp* app, std::string tab_id, content::WebContents* contents)
       : content::WebContentsObserver(contents),
         app_(app),
-        tab_id_(std::move(tab_id)) {}
+        tab_id_(std::move(tab_id)) {
+    // Its favicon, from Chrome's driver, as it comes.
+    if (auto* driver =
+            favicon::ContentFaviconDriver::FromWebContents(contents)) {
+      favicon_observation_.Observe(driver);
+    }
+  }
+
+  // The favicon the driver has now, which a page opened by another may have
+  // before this heard of it.
+  gfx::Image Favicon() const {
+    auto* driver =
+        favicon::ContentFaviconDriver::FromWebContents(web_contents());
+    return driver && driver->FaviconIsValid() ? driver->GetFavicon()
+                                              : gfx::Image();
+  }
+
+  // favicon::FaviconDriverObserver:
+  void OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
+                        NotificationIconType notification_icon_type,
+                        const GURL& icon_url,
+                        bool icon_url_changed,
+                        const gfx::Image& image) override {
+    if (notification_icon_type == NON_TOUCH_16_DIP && !image.IsEmpty()) {
+      app_->PageFaviconChanged(tab_id_, image);
+    }
+  }
 
   // content::WebContentsObserver:
   void TitleWasSet(content::NavigationEntry* entry) override {
@@ -262,6 +293,9 @@ class UiApp::Page : public content::WebContentsObserver {
  private:
   const raw_ptr<UiApp> app_;
   const std::string tab_id_;
+  base::ScopedObservation<favicon::FaviconDriver,
+                          favicon::FaviconDriverObserver>
+      favicon_observation_{this};
 };
 
 // static
@@ -299,6 +333,8 @@ UiApp::UiApp()
       /*keeps_frame=*/!base::CommandLine::ForCurrentProcess()->HasSwitch(
           "use-mock-keychain"));
   model_observation_.Observe(&model());
+  favicons_observation_.Observe(&favicons_);
+  sidebar_width_ = model().settings().sidebar_width;
   window_->Open();
   window_->Show(/*activate=*/true);
   events_ = AppEvents::Listen(
@@ -391,8 +427,11 @@ void UiApp::LockNow() {
   for (const std::string& profile_id : profile_ids) {
     UnloadProfile(profile_id);
   }
-  // What changed is written, and the profiles leave memory.
+  // What changed is written, and the profiles leave memory, what their pages
+  // showed with them.
   data_->store().UnloadProfiles();
+  favicons_.Clear();
+  favicons_warmed_ = false;
 
   // Every profile closes in the engine; the volume detaches once each has.
   // Still open, a profile keeps its files on the volume: Pane quits, which
@@ -605,9 +644,15 @@ void UiApp::AdoptOpeningTab(content::WebContents* contents) {
 }
 
 void UiApp::AddPage(const std::string& tab_id, content::WebContents* contents) {
-  pages_[tab_id] = std::make_unique<Page>(this, tab_id, contents);
-  // A page of its own again, its profile open.
+  auto page = std::make_unique<Page>(this, tab_id, contents);
+  const gfx::Image favicon = page->Favicon();
+  pages_[tab_id] = std::move(page);
+  // A page of its own again, its profile open: its row brightens.
   crashed_tab_ids_.erase(tab_id);
+  if (!favicon.IsEmpty()) {
+    PageFaviconChanged(tab_id, favicon);
+  }
+  window_->Refresh();
 }
 
 content::WebContents* UiApp::PageOf(const std::string& tab_id) const {
@@ -642,9 +687,10 @@ void UiApp::Release(const std::string& tab_id) {
   content::WebContents* contents = found->second->web_contents();
   // Unmapped first: its removal is no tab closing.
   pages_.erase(found);
-  // A released tab's next page starts over.
+  // A released tab's next page starts over; its row dims.
   crashes_.Forget(tab_id);
   crashed_tab_ids_.erase(tab_id);
+  window_->Refresh();
   if (window_->selected() == contents) {
     window_->ClearPage();
   }
@@ -706,8 +752,7 @@ void UiApp::ExpandProfile(const std::string& profile_id) {
 void UiApp::CollapseAll() {
   const std::set<std::string> expanded = model().expanded_profile_ids();
   for (const std::string& profile_id : expanded) {
-    model().SetExpanded(profile_id, false);
-    UnloadProfile(profile_id);
+    CollapseProfile(profile_id);
   }
 }
 
@@ -744,11 +789,140 @@ void UiApp::OpenHandedURLs(std::vector<GURL> urls) {
 // pages go, its tabs stay).
 void UiApp::ToggleProfile(const std::string& profile_id) {
   if (model().expanded_profile_ids().contains(profile_id)) {
-    model().SetExpanded(profile_id, false);
-    UnloadProfile(profile_id);
+    CollapseProfile(profile_id);
   } else {
     ExpandProfile(profile_id);
   }
+}
+
+void UiApp::CollapseProfile(const std::string& profile_id) {
+  model().SetExpanded(profile_id, false);
+  UnloadProfile(profile_id);
+}
+
+void UiApp::ShowPage(model::BrowserModel::Page page) {
+  model().SetPage(page);
+  // Back on the browser, its page takes the keys again.
+  if (RootView* root = window_->root();
+      root && page == model::BrowserModel::Page::kBrowser) {
+    root->FocusPage();
+  }
+}
+
+void UiApp::ToggleSettings() {
+  ShowPage(model().page() == model::BrowserModel::Page::kSettings
+               ? model::BrowserModel::Page::kBrowser
+               : model::BrowserModel::Page::kSettings);
+}
+
+// A loaded tab goes once its page agrees to close (beforeunload may keep it);
+// the strip's removal then takes it from the model (TabRemoved). One without
+// a page goes at once.
+void UiApp::CloseTab(const std::string& tab_id) {
+  if (!InteractionAllowed() || !model().FindTab(tab_id)) {
+    return;
+  }
+  if (content::WebContents* page = PageOf(tab_id)) {
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(page);
+    TabStripModel* strip = browser ? browser->GetTabStripModel() : nullptr;
+    const int index =
+        strip ? strip->GetIndexOfWebContents(page) : TabStripModel::kNoTab;
+    if (index != TabStripModel::kNoTab) {
+      // No historical tab: Pane's Reopen closed tab keeps its own list, and
+      // tab restore's names every page closed (ADR 0121).
+      strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE);
+      return;
+    }
+  }
+  RemoveTabAndReselect(tab_id);
+}
+
+void UiApp::RemoveTabAndReselect(const std::string& tab_id) {
+  const bool was_active = model().active_tab_id() == tab_id;
+  const std::optional<std::string> profile_id = model().ProfileIdOfTab(tab_id);
+  crashes_.Forget(tab_id);
+  model().RemoveTab(tab_id);
+  if (was_active) {
+    SelectAfterClosing(profile_id);
+  }
+}
+
+void UiApp::NewTabIn(const std::string& profile_id) {
+  if (InteractionAllowed() && model().FindProfile(profile_id)) {
+    OpenTab(profile_id, std::nullopt);
+  }
+}
+
+void UiApp::EditProfile(const std::string& profile_id) {
+  PresentProfileSheet();
+}
+
+void UiApp::NewProfile() {
+  PresentProfileSheet();
+}
+
+void UiApp::PresentProfileSheet() {
+  if (RootView* root = window_->root(); root && InteractionAllowed()) {
+    root->ShowSheet(true);
+  }
+}
+
+void UiApp::SetKeepLoaded(const std::string& profile_id, bool keep_loaded) {
+  model().UpdateProfile(profile_id, [&](model::BrowserProfile& profile) {
+    profile.keep_loaded = keep_loaded;
+  });
+}
+
+// Removed from the model at once and recorded in deletions.json before the
+// engine starts on its data, so a quit, a crash, or a lock on the way leaves
+// its folder to the next open (ADR 0020). A profile not open this session
+// opens first, so the data of earlier ones goes too.
+void UiApp::DeleteProfile(const std::string& profile_id) {
+  if (!InteractionAllowed() || !model().FindProfile(profile_id)) {
+    return;
+  }
+  UnloadProfile(profile_id);
+  model().RemoveProfile(profile_id);
+  deleting_.insert(profile_id);
+  data_->RecordDeletion(
+      profile_id,
+      base::BindOnce(
+          [](base::WeakPtr<UiApp> app, std::string profile_id) {
+            if (!app) {
+              return;
+            }
+            app->contexts_.Delete(
+                profile_id,
+                base::BindOnce(&UiApp::ProfileDeleted,
+                               app->weak_factory_.GetWeakPtr(), profile_id));
+          },
+          weak_factory_.GetWeakPtr(), profile_id));
+}
+
+void UiApp::ProfileDeleted(const std::string& profile_id, bool removes_folder) {
+  deleting_.erase(profile_id);
+  if (removes_folder) {
+    data_->RemoveDeleted(profile_id);
+  }
+}
+
+// Each step of a drag of the sidebar's edge lays the window out at the new
+// width; settings.json waits for the drag to end.
+void UiApp::ResizeSidebar(double width) {
+  sidebar_width_ = model::ClampedSidebarWidth(width);
+  window_->SetSidebarWidth(sidebar_width_);
+}
+
+void UiApp::EndSidebarResize() {
+  ChangeSettings([&](model::AppSettings& settings) {
+    settings.sidebar_width = sidebar_width_;
+  });
+}
+
+void UiApp::ResetSidebarWidth() {
+  ResizeSidebar(model::kSidebarWidth);
+  EndSidebarResize();
 }
 
 void UiApp::PageTitleChanged(const std::string& tab_id) {
@@ -761,6 +935,22 @@ void UiApp::PageTitleChanged(const std::string& tab_id) {
   if (window_->selected() == contents) {
     window_->UpdateTitle();
   }
+}
+
+void UiApp::PageFaviconChanged(const std::string& tab_id,
+                               const gfx::Image& image) {
+  favicons_.Update(tab_id, image,
+                   base::BindOnce(
+                       [](base::WeakPtr<UiApp> app, std::string tab_id,
+                          const std::string& data_url) {
+                         if (app) {
+                           app->model().UpdateTab(tab_id, [&](model::Tab& tab) {
+                             tab.favicon = data_url;
+                           });
+                         }
+                       },
+                       weak_factory_.GetWeakPtr(), tab_id));
+  window_->Refresh();
 }
 
 void UiApp::PageNavigated(const std::string& tab_id) {
@@ -781,6 +971,7 @@ void UiApp::PageURLChanged(const std::string& tab_id) {
 
 void UiApp::PageDestroyed(const std::string& tab_id) {
   pages_.erase(tab_id);
+  window_->Refresh();
 }
 
 // The first crash reloads the page, as a slept tab wakes. A page that dies
@@ -813,26 +1004,40 @@ void UiApp::PageCameBack(const std::string& tab_id) {
 
 // MARK: Window::Controller
 
-std::vector<SidebarRow> UiApp::Rows() {
-  std::vector<SidebarRow> rows;
+// What the sidebar shows, from the model: no profile shows as active, and
+// no tab as selected, off the browser page (ADR 0064).
+SidebarContent UiApp::Sidebar() {
   const model::BrowserModel& model = this->model();
+  const bool browser = model.page() == model::BrowserModel::Page::kBrowser;
+  SidebarContent content;
+  content.settings_shown = model.page() == model::BrowserModel::Page::kSettings;
   for (const model::BrowserProfile& profile : model.profiles()) {
-    rows.push_back({.profile_id = profile.id,
-                    .title = base::UTF8ToUTF16(profile.name),
-                    .selected = model.active_profile_id() == profile.id,
-                    .color = ColorOf(profile.color)});
-    if (!model.expanded_profile_ids().contains(profile.id)) {
-      continue;
+    SidebarProfile row;
+    row.id = profile.id;
+    row.name = base::UTF8ToUTF16(profile.name);
+    row.color = ColorOf(profile.color);
+    row.shown = browser && model.active_profile_id() == profile.id;
+    row.expanded = model.expanded_profile_ids().contains(profile.id);
+    if (const auto status = model.proxy_status().find(profile.id);
+        status != model.proxy_status().end()) {
+      row.proxy = status->second;
     }
-    for (const model::Tab& tab : profile.tabs) {
-      rows.push_back(
-          {.profile_id = profile.id,
-           .tab_id = tab.id,
-           .title = base::UTF8ToUTF16(tab.title.empty() ? tab.url : tab.title),
-           .selected = model.active_tab_id() == tab.id});
+    row.tab_count = static_cast<int>(profile.tabs.size());
+    row.keep_loaded = profile.keep_loaded;
+    if (row.expanded) {
+      for (const model::Tab& tab : profile.tabs) {
+        SidebarTab tab_row;
+        tab_row.id = tab.id;
+        tab_row.title = base::UTF8ToUTF16(tab.title);
+        tab_row.favicon = favicons_.Image(tab.id, tab.favicon);
+        tab_row.selected = row.shown && model.active_tab_id() == tab.id;
+        tab_row.loaded = PageOf(tab.id) != nullptr;
+        row.tabs.push_back(std::move(tab_row));
+      }
     }
+    content.profiles.push_back(std::move(row));
   }
-  return rows;
+  return content;
 }
 
 RootView::Shows UiApp::Shows() {
@@ -843,7 +1048,7 @@ RootView::Shows UiApp::Shows() {
                      ? RootView::Content::kOther
                  : model.active_tab_id() ? RootView::Content::kPage
                                          : RootView::Content::kEmpty,
-      .sidebar_width = model.settings().sidebar_width,
+      .sidebar_width = sidebar_width_,
       .can_go_back = page && page->GetController().CanGoBack(),
       .can_collapse_all = !model.expanded_profile_ids().empty(),
   };
@@ -853,14 +1058,6 @@ RootView::Shows UiApp::Shows() {
 // selected one's page is made again when the window shows.
 void UiApp::WindowClosed() {
   focuses_address_.reset();
-}
-
-void UiApp::RowPressed(const SidebarRow& row) {
-  if (row.tab_id.empty()) {
-    ToggleProfile(row.profile_id);
-    return;
-  }
-  Select(row.tab_id);
 }
 
 // What the address field loads (the Swift's navigate): the selected page goes
@@ -1015,6 +1212,18 @@ void UiApp::OnProfilesChanged() {
   std::erase_if(crashed_tab_ids_, [&](const std::string& tab_id) {
     return !model().FindTab(tab_id);
   });
+  // The saved favicons decode as the profiles load, before a profile expands
+  // to show them.
+  if (!favicons_warmed_ && !model().profiles().empty()) {
+    favicons_warmed_ = true;
+    std::vector<std::pair<std::string, std::string>> saved;
+    for (const model::BrowserProfile& profile : model().profiles()) {
+      for (const model::Tab& tab : profile.tabs) {
+        saved.emplace_back(tab.id, tab.favicon);
+      }
+    }
+    favicons_.Warm(saved);
+  }
   window_->Refresh();
 }
 
@@ -1033,6 +1242,18 @@ void UiApp::OnActiveTabChanged() {
 }
 
 void UiApp::OnActiveProfileChanged() {
+  window_->Refresh();
+}
+
+void UiApp::OnProxyStatusChanged() {
+  window_->Refresh();
+}
+
+void UiApp::OnPageChanged() {
+  window_->Refresh();
+}
+
+void UiApp::OnFaviconChanged(const std::string& tab_id) {
   window_->Refresh();
 }
 
@@ -1133,7 +1354,10 @@ base::DictValue UiApp::Snapshot() const {
       .Set("page", PageName(model.page()))
       .Set("theme", model::ThemeName(model.settings().theme))
       .Set("appIcon", model::AppIconName(model.settings().app_icon))
-      .Set("sidebarWidth", model.settings().sidebar_width)
+      .Set("sidebarWidth", sidebar_width_)
+      .Set("pendingProfileDeletions", static_cast<int>(deleting_.size()))
+      // A page's dialog: none drawn until "What Chrome asks for" ports them.
+      .Set("sheet", base::Value())
       .Set("closedTabs", static_cast<int>(model.history().closed().size()))
       .Set("extensions", std::move(extensions))
       .Set("downloads", std::move(downloads))

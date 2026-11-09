@@ -10,6 +10,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -22,10 +23,12 @@
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
+#include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -96,6 +99,38 @@ class ProfileDestructionWaiter : public ProfileObserver,
   base::ScopedObservation<ProfileManager, ProfileManagerObserver>
       manager_observation_{this};
   base::WeakPtrFactory<ProfileDestructionWaiter> weak_factory_{this};
+};
+
+// Calls back once Chrome has marked a profile for permanent deletion: its
+// browsing data is being removed, and its directory goes when the profile is
+// destroyed or, at the latest, at the next start. Deletes itself.
+class ProfileDeletionWaiter : public ProfileManagerObserver {
+ public:
+  ProfileDeletionWaiter(base::FilePath path,
+                        base::OnceCallback<void(bool)> done)
+      : path_(std::move(path)), done_(std::move(done)) {
+    observation_.Observe(g_browser_process->profile_manager());
+  }
+
+  void OnProfileMarkedForPermanentDeletion(Profile* profile) override {
+    if (profile->GetPath() == path_) {
+      Finish(true);
+    }
+  }
+
+  void OnProfileManagerDestroying() override { Finish(false); }
+
+ private:
+  void Finish(bool deleted) {
+    observation_.Reset();
+    std::move(done_).Run(deleted);
+    delete this;
+  }
+
+  const base::FilePath path_;
+  base::OnceCallback<void(bool)> done_;
+  base::ScopedObservation<ProfileManager, ProfileManagerObserver> observation_{
+      this};
 };
 
 // What each process answered of its keys.
@@ -321,6 +356,36 @@ void CloseProfile(Profile* profile,
   keep_alive.reset();
   CloseEveryPage(profile);
   chrome::CloseAllBrowsersWithProfile(profile);
+}
+
+void DeleteProfile(Profile* profile,
+                   std::unique_ptr<ScopedProfileKeepAlive> keep_alive,
+                   base::OnceCallback<void(bool deleted)> done) {
+  const std::string identifier = profile->GetBaseName().AsUTF8Unsafe();
+  PANE_TRACE("call", "PaneBrowserApplication.deleteContext",
+             base::DictValue().Set("identifier", identifier));
+  const base::FilePath path = profile->GetPath();
+  keep_alive.reset();
+  // Without beforeunload: Chrome's deletion asks each page that has one, and
+  // a page that answers "Stay" (or never gets its dialog shown) would cancel
+  // the deletion and leave the profile loaded.
+  CloseEveryPage(profile);
+  new ProfileDeletionWaiter(
+      path, base::BindOnce(
+                [](std::string identifier, base::OnceCallback<void(bool)> done,
+                   bool deleted) {
+                  PANE_TRACE("callback",
+                             "PaneBrowserApplication.didDeleteContext",
+                             base::DictValue()
+                                 .Set("identifier", identifier)
+                                 .Set("deleted", deleted));
+                  std::move(done).Run(deleted);
+                },
+                identifier, std::move(done)));
+  g_browser_process->profile_manager()
+      ->GetDeleteProfileHelper()
+      .MaybeScheduleProfileForDeletion(
+          path, base::DoNothing(), ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
 }
 
 void DropEngineKeys(

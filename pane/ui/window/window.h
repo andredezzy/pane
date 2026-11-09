@@ -41,18 +41,43 @@ class Window : public WindowHost::Delegate,
    public:
     virtual ~Controller() = default;
 
-    // The sidebar's rows: each profile, then its tabs while it is open.
-    virtual std::vector<SidebarRow> Rows() = 0;
+    // What the sidebar shows: each profile, then its tabs while it is open.
+    virtual SidebarContent Sidebar() = 0;
     // The rest of what the window shows.
     virtual RootView::Shows Shows() = 0;
-    virtual void RowPressed(const SidebarRow& row) = 0;
+
+    // The sidebar's presses.
+
+    // A profile's header: it opens, or collapsing unloads it (its pages go,
+    // its tabs stay).
+    virtual void ToggleProfile(const std::string& profile_id) = 0;
+    virtual void Select(const std::string& tab_id) = 0;
+    // A tab's X, or its menu's Close tab.
+    virtual void CloseTab(const std::string& tab_id) = 0;
+    // A profile's New tab.
+    virtual void NewTabIn(const std::string& profile_id) = 0;
+    // A profile's menu: Edit profile, Keep loaded, and Delete profile, once
+    // its alert's Delete is chosen.
+    virtual void EditProfile(const std::string& profile_id) = 0;
+    virtual void SetKeepLoaded(const std::string& profile_id,
+                               bool keep_loaded) = 0;
+    virtual void DeleteProfile(const std::string& profile_id) = 0;
+    // The header's Collapse all: every profile collapses, its pages
+    // unloading.
+    virtual void CollapseAll() = 0;
+    // The footer's New and Settings.
+    virtual void NewProfile() = 0;
+    virtual void ToggleSettings() = 0;
+    // The sidebar's edge: each step of a drag, its end (the width saved),
+    // and a double-click (the standard width).
+    virtual void ResizeSidebar(double width) = 0;
+    virtual void EndSidebarResize() = 0;
+    virtual void ResetSidebarWidth() = 0;
+
     // Return in the address field, with what it holds.
     virtual void AddressEntered(const std::u16string& text) = 0;
     // The toolbar's Back.
     virtual void Back() = 0;
-    // The sidebar header's Collapse all: every profile collapses, its pages
-    // unloading.
-    virtual void CollapseAll() = 0;
     // ⌘T.
     virtual void NewTab() = 0;
     // ⌘1 to ⌘8: the profile's tab at that place; ⌘9, its last.
@@ -121,6 +146,8 @@ class Window : public WindowHost::Delegate,
   void FocusAddress();
   // The sidebar's rows, and the rest of what shows, again from the app.
   void Refresh();
+  // The sidebar at `width`, a step of a drag of its edge, laid out at once.
+  void SetSidebarWidth(double width);
 
   // ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;

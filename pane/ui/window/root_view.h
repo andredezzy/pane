@@ -4,11 +4,11 @@
 #define PANE_UI_WINDOW_ROOT_VIEW_H_
 
 #include <string>
-#include <vector>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "third_party/skia/include/core/SkColor.h"
+#include "pane/ui/sidebar/resize_handle.h"
+#include "pane/ui/sidebar/sidebar_view.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/view.h"
@@ -20,7 +20,6 @@ class WebContents;
 }  // namespace content
 
 namespace views {
-class Label;
 class Textfield;
 class WebView;
 }  // namespace views
@@ -29,18 +28,6 @@ namespace pane {
 
 class EmptyStateView;
 class IconButton;
-
-// What the sidebar lists: each profile, then its tabs.
-struct SidebarRow {
-  std::string profile_id;
-  // Empty for the profile's own row.
-  std::string tab_id;
-  std::u16string title;
-  // A tab's: the one shown. A profile's: the profile shown.
-  bool selected = false;
-  // A profile's row: the profile's color, its mark's.
-  SkColor color = SK_ColorTRANSPARENT;
-};
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
 // as the Electron app laid it out: the sidebar's column on the left, 260
@@ -54,7 +41,6 @@ class RootView : public views::View, public views::TextfieldController {
   METADATA_HEADER(RootView, views::View)
 
  public:
-  using RowPressed = base::RepeatingCallback<void(const SidebarRow&)>;
   // Return in the address field, with what it holds.
   using AddressEntered = base::RepeatingCallback<void(const std::u16string&)>;
 
@@ -64,10 +50,10 @@ class RootView : public views::View, public views::TextfieldController {
     Callbacks& operator=(Callbacks&&);
     ~Callbacks();
 
-    RowPressed row_pressed;
+    SidebarView::Callbacks sidebar;
+    ResizeHandle::Callbacks resize;
     AddressEntered address_entered;
     base::RepeatingClosure back;
-    base::RepeatingClosure collapse_all;
   };
 
   // What the content panel shows: the browser page with a tab selected,
@@ -77,7 +63,7 @@ class RootView : public views::View, public views::TextfieldController {
   // The rest of what the window shows, from the app.
   struct Shows {
     Content content = Content::kEmpty;
-    // The settings' width, in points (ADR 0061).
+    // The sidebar's width, in points (ADR 0061): the settings', or a drag's.
     double sidebar_width = 260;
     // The shown page has somewhere to go back to.
     bool can_go_back = false;
@@ -90,8 +76,11 @@ class RootView : public views::View, public views::TextfieldController {
   RootView& operator=(const RootView&) = delete;
   ~RootView() override;
 
-  void SetRows(const std::vector<SidebarRow>& rows);
+  void SetSidebar(const SidebarContent& content);
   void SetShows(const Shows& shows);
+  // The sidebar at `width`, as a drag of its edge lays it out, step by step.
+  void SetSidebarWidth(double width);
+  SidebarView* sidebar() { return sidebar_; }
   // The page fills the window, or leaves it.
   void SetPageFullscreen(bool fullscreen);
   bool page_fullscreen() const { return page_fullscreen_; }
@@ -129,7 +118,6 @@ class RootView : public views::View, public views::TextfieldController {
                       const ui::KeyEvent& key_event) override;
 
  private:
-  std::unique_ptr<views::View> MakeRow(const SidebarRow& row);
   // The content panel's shape, where the window draws its card.
   SkPath PanelPath() const;
   // The page's corners, as its layer rounds them.
@@ -143,13 +131,8 @@ class RootView : public views::View, public views::TextfieldController {
   bool page_fullscreen_ = false;
   // Where the content panel is, as last laid out.
   gfx::Rect panel_bounds_;
-  // Each row's profile and tab, in the sidebar's order.
-  std::vector<std::string> row_keys_;
-  raw_ptr<views::View> sidebar_ = nullptr;
-  raw_ptr<views::View> header_ = nullptr;
-  raw_ptr<views::Label> title_ = nullptr;
-  raw_ptr<IconButton> collapse_all_ = nullptr;
-  raw_ptr<views::View> list_ = nullptr;
+  raw_ptr<SidebarView> sidebar_ = nullptr;
+  raw_ptr<ResizeHandle> resize_ = nullptr;
   raw_ptr<views::View> toolbar_ = nullptr;
   raw_ptr<IconButton> back_ = nullptr;
   raw_ptr<views::Textfield> address_ = nullptr;

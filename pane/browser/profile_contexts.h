@@ -57,6 +57,14 @@ class ProfileContexts {
   // volume's detach waits for.
   void CloseForLock(base::OnceCallback<void(bool every_closed)> closed);
 
+  // The profile's data goes in the engine (ADR 0020), a profile not open this
+  // session opened first, so the data of earlier ones goes too. `done` says
+  // whether its folder in the volume goes now: not when it would not open,
+  // nor once a lock came first, which waits for the engine's answer and
+  // leaves the folder to the next open (ProfileDeletions).
+  void Delete(const std::string& profile_id,
+              base::OnceCallback<void(bool removes_folder)> done);
+
  private:
   // A profile open in the engine, and its hold.
   struct Open {
@@ -88,6 +96,12 @@ class ProfileContexts {
               scoped_refptr<Work> work,
               Profile* profile,
               std::unique_ptr<ScopedProfileKeepAlive> keep_alive);
+  void DeleteOpened(const std::string& profile_id,
+                    base::OnceCallback<void(bool)> done,
+                    Profile* profile);
+  void Deleted(scoped_refptr<Work> work,
+               base::OnceCallback<void(bool)> done,
+               bool deleted);
 
   const raw_ref<AppData> data_;
   const raw_ref<model::BrowserModel> model_;

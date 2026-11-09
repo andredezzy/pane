@@ -200,6 +200,46 @@ void ProfileContexts::Opened(
   }
 }
 
+void ProfileContexts::Delete(const std::string& profile_id,
+                             base::OnceCallback<void(bool)> done) {
+  With(profile_id,
+       base::BindOnce(&ProfileContexts::DeleteOpened,
+                      weak_factory_.GetWeakPtr(), profile_id, std::move(done)));
+}
+
+void ProfileContexts::DeleteOpened(const std::string& profile_id,
+                                   base::OnceCallback<void(bool)> done,
+                                   Profile* profile) {
+  if (!profile) {
+    std::move(done).Run(false);
+    return;
+  }
+  std::unique_ptr<ScopedProfileKeepAlive> keep_alive;
+  if (const auto open = open_.find(profile_id); open != open_.end()) {
+    keep_alive = std::move(open->second.keep_alive);
+    open_.erase(open);
+  }
+  // A lock that comes meanwhile waits for the engine's answer.
+  auto work = base::MakeRefCounted<Work>();
+  under_way_.insert(work);
+  DeleteProfile(
+      profile, std::move(keep_alive),
+      base::BindOnce(&ProfileContexts::Deleted, weak_factory_.GetWeakPtr(),
+                     std::move(work), std::move(done)));
+}
+
+void ProfileContexts::Deleted(scoped_refptr<Work> work,
+                              base::OnceCallback<void(bool)> done,
+                              bool deleted) {
+  under_way_.erase(work);
+  if (work->locked) {
+    std::move(work->lock).Run(deleted);
+    std::move(done).Run(false);
+    return;
+  }
+  std::move(done).Run(deleted);
+}
+
 void ProfileContexts::CloseForLock(
     base::OnceCallback<void(bool every_closed)> closed) {
   auto closing = base::MakeRefCounted<Closing>(std::move(closed));

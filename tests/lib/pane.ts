@@ -193,7 +193,12 @@ export type AppState = {
 		class: string;
 		title: string;
 		frame: string;
+		// The window's number, for `screencapture -l` (the Views build's).
+		number?: number;
 	}[];
+	// The alert the window shows as a sheet (the Views build's): its title,
+	// its message, and its buttons from left to right.
+	alert?: { title: string; message: string; buttons: string[] } | null;
 	pageFullscreen: boolean;
 	// The address bar's load progress as drawn: started, the share filled,
 	// the opacity, and whether the slow mode's shimmer runs.
@@ -356,6 +361,14 @@ export class PaneApp {
 
 	async hitTest(x: number, y: number): Promise<Hit> {
 		return (await this.send<Hit>("hitTest", { x, y })).result;
+	}
+
+	// Where the sidebar's parts and rows are, each by name
+	// ("pane.sidebar.profiles", "pane.tab.<id>"), from the window's top left:
+	// x, y, width, height. A row scrolled out of view lies outside the list's.
+	async frames(prefix = "pane."): Promise<Record<string, number[]>> {
+		return (await this.send<Record<string, number[]>>("frames", { prefix }))
+			.result;
 	}
 
 	// Polls the app's state until `predicate` holds.

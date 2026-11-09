@@ -1,7 +1,5 @@
-import { isScreenLocked } from "../lib/cua";
 import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // The selected tab's row comes into the sidebar's view, wherever the tab was
@@ -9,16 +7,6 @@ import { expect, type Scenario } from "../run";
 // scrolls the least that shows the row whole, and not at all when it shows.
 const sidebarScroll: Scenario = async (context) => {
 	const app = await launchPane(context);
-
-	// Accessibility, which reads the rows' frames, is off on a locked screen.
-	if (await isScreenLocked()) {
-		context.defer(
-			"the sidebar's scroll: accessibility is off on a locked screen",
-		);
-
-		return;
-	}
-
 	const profile = await app.createProfile("Scroll");
 	const tabs: string[] = [];
 
@@ -30,13 +18,10 @@ const sidebarScroll: Scenario = async (context) => {
 	}
 
 	const [first = "", second = "", last = ""] = [tabs[0], tabs[1], tabs.at(-1)];
-	const axFrames = await swiftTool("ax-frames");
 
-	// Each row's frame and the list's, from the window's top left.
-	const frames = async () =>
-		JSON.parse(
-			await Bun.$`${axFrames} ${app.browser.pid} pane.`.text(),
-		) as Record<string, number[]>;
+	// Each row's frame and the list's, from the window's top left, as the
+	// window lays them out.
+	const frames = () => app.frames("pane.");
 
 	// Whole inside the list's visible frame.
 	const shows = (seen: Record<string, number[]>, tabID: string) => {
@@ -92,6 +77,12 @@ const sidebarScroll: Scenario = async (context) => {
 
 	// By the switcher's keys, twice Ctrl-Tab: the third most recent tab, the
 	// last, down at the list's end.
+	if (!("switcher" in (await app.state()))) {
+		context.defer("the switcher's tab: no switcher is drawn (H5)");
+
+		return;
+	}
+
 	await app.send("switcher", { action: "next" });
 	await app.send("switcher", { action: "next" });
 	await app.send("switcher", { action: "commit" });

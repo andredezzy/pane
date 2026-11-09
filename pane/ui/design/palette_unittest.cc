@@ -75,6 +75,8 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
        Swift(0xFAFAFA, 0.04)},
       {"rowSelected", kPaneColorRowSelected, Swift(0x18181B, 0.05),
        Swift(0xFAFAFA, 0.05)},
+      {"sidebarRule", kPaneColorSidebarRule, Swift(0x18181B, 0.04),
+       Swift(0xFAFAFA, 0.04)},
       {"popoverRing", kPaneColorPopoverRing, Swift(0x18181B, 0.1),
        Swift(0xFAFAFA, 0.1)},
       {"popupBorder", kPaneColorPopupBorder, Swift(0x18181B, 0.08),

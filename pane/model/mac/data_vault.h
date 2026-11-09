@@ -308,8 +308,15 @@ class DataVault {
   // inside them closed the open, so its timer counts nothing.
   void ProfileDidOpen(const std::string& profile_id);
 
-  // A deleted profile's data: its links, and its folder in the volume.
-  // `removed` runs once it is all gone: until then the deletion's record
+  // A deleted profile's record (deletions.json, ADR 0020), written on the
+  // volume's sequence, where the open's purge reads and writes the file too:
+  // `recorded` runs once it is on the disk, before the engine's data starts
+  // going, so a quit, a crash, or a lock on the way leaves its folder named.
+  void RecordDeletion(const std::string& profile_id,
+                      base::OnceClosure recorded);
+
+  // A deleted profile's data: its links, and its folder in the volume, then
+  // its record. `removed` runs once it is all gone: until then the record
   // stays, so a quit on the way leaves no folder that nothing names.
   void Remove(const std::string& profile_id, base::OnceClosure removed);
 
@@ -378,7 +385,9 @@ class DataVault {
   void ShowMigrationPastASecond(const std::string& profile_id);
   void ShowMigration(const std::string& profile_id);
   void SafetyCopyCountsOpen(const std::string& profile_id);
-  void Removed(base::OnceClosure removed, bool gone);
+  void Removed(const std::string& profile_id,
+               base::OnceClosure removed,
+               bool gone);
 
   void LockFenced(scoped_refptr<PendingLock> pending);
   void LockClosed(scoped_refptr<PendingLock> pending, bool every_closed);

@@ -38,10 +38,82 @@ base::ListValue NativeWindows(views::Widget* main) {
                        .Set("role", role)
                        .Set("class", base::SysNSStringToUTF8(type))
                        .Set("title", base::SysNSStringToUTF8(window.title))
+                       // What `screencapture -l` takes, for a picture of the
+                       // window alone.
+                       .Set("number", static_cast<int>(window.windowNumber))
                        .Set("frame", base::SysNSStringToUTF8(
                                          NSStringFromRect(window.frame))));
   }
   return windows;
+}
+
+namespace {
+
+NSWindow* AttachedSheet(views::Widget* main) {
+  return main && !main->IsClosed()
+             ? main->GetNativeWindow().GetNativeNSWindow().attachedSheet
+             : nil;
+}
+
+// The sheet's labels and buttons, in the order AppKit lays them out.
+void Collect(NSView* view,
+             NSMutableArray<NSString*>* texts,
+             NSMutableArray<NSButton*>* buttons) {
+  if ([view isKindOfClass:[NSButton class]]) {
+    [buttons addObject:(NSButton*)view];
+    return;
+  }
+  if ([view isKindOfClass:[NSTextField class]] && !view.hidden &&
+      ((NSTextField*)view).stringValue.length) {
+    [texts addObject:((NSTextField*)view).stringValue];
+    return;
+  }
+  for (NSView* subview in view.subviews) {
+    Collect(subview, texts, buttons);
+  }
+}
+
+}  // namespace
+
+base::Value SheetAlert(views::Widget* main) {
+  NSWindow* sheet = AttachedSheet(main);
+  if (!sheet) {
+    return base::Value();
+  }
+  NSMutableArray<NSString*>* texts = [NSMutableArray array];
+  NSMutableArray<NSButton*>* buttons = [NSMutableArray array];
+  Collect(sheet.contentView, texts, buttons);
+  base::ListValue titles;
+  for (NSButton* button in buttons) {
+    titles.Append(base::SysNSStringToUTF8(button.title));
+  }
+  return base::Value(
+      base::DictValue()
+          .Set("title", texts.count ? base::SysNSStringToUTF8(texts[0]) : "")
+          .Set("message",
+               texts.count > 1
+                   ? base::SysNSStringToUTF8([[texts
+                         subarrayWithRange:NSMakeRange(1, texts.count - 1)]
+                         componentsJoinedByString:@"\n"])
+                   : "")
+          .Set("buttons", std::move(titles)));
+}
+
+bool PressSheetButton(views::Widget* main, std::string_view title) {
+  NSWindow* sheet = AttachedSheet(main);
+  if (!sheet) {
+    return false;
+  }
+  NSMutableArray<NSString*>* texts = [NSMutableArray array];
+  NSMutableArray<NSButton*>* buttons = [NSMutableArray array];
+  Collect(sheet.contentView, texts, buttons);
+  for (NSButton* button in buttons) {
+    if (base::SysNSStringToUTF8(button.title) == title) {
+      [button performClick:nil];
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace pane

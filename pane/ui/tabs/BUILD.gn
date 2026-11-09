@@ -1,0 +1,41 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# What the sidebar and the switcher draw of a tab and share: its favicon,
+# decoded and encoded off the UI thread. A target of its own so its tests run
+# in pane_unittests, apart from the engine.
+
+source_set("favicons") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "favicons.cc",
+    "favicons.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//skia",
+    "//ui/gfx",
+  ]
+
+  deps = [ "//ui/gfx/codec" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  visibility = [ "//pane/encryption:pane_unittests" ]
+
+  sources = [ "favicons_unittest.cc" ]
+
+  deps = [
+    ":favicons",
+    "//base",
+    "//base/test:test_support",
+    "//skia",
+    "//testing/gtest",
+    "//ui/gfx",
+  ]
+}

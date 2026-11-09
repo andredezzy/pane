@@ -10,7 +10,6 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
-#include "base/scoped_observation.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -20,10 +19,8 @@
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
-#include "chrome/browser/profiles/delete_profile_helper.h"
+#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/profiles/profile_manager_observer.h"
-#include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "components/embedder_support/user_agent_utils.h"
 #include "pane/app/engine_switches.h"
@@ -59,38 +56,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
                              code:code
                          userInfo:@{NSLocalizedDescriptionKey : description}];
 }
-
-// Calls back once Chrome has marked a profile for permanent deletion: its
-// browsing data is being removed, and its directory goes when the profile is
-// destroyed or, at the latest, at the next start. Deletes itself.
-class ProfileDeletionWaiter : public ProfileManagerObserver {
- public:
-  ProfileDeletionWaiter(base::FilePath path,
-                        base::OnceCallback<void(bool)> done)
-      : path_(std::move(path)), done_(std::move(done)) {
-    observation_.Observe(g_browser_process->profile_manager());
-  }
-
-  void OnProfileMarkedForPermanentDeletion(Profile* profile) override {
-    if (profile->GetPath() == path_) {
-      Finish(true);
-    }
-  }
-
-  void OnProfileManagerDestroying() override { Finish(false); }
-
- private:
-  void Finish(bool deleted) {
-    observation_.Reset();
-    std::move(done_).Run(deleted);
-    delete this;
-  }
-
-  const base::FilePath path_;
-  base::OnceCallback<void(bool)> done_;
-  base::ScopedObservation<ProfileManager, ProfileManagerObserver> observation_{
-      this};
-};
 
 }  // namespace
 
@@ -376,40 +341,20 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
     });
     return;
   }
-  PANE_TRACE("call", "PaneBrowserApplication.deleteContext",
-             base::DictValue().Set(
-                 "identifier", base::SysNSStringToUTF8(context.identifier)));
   Profile* profile = context.profile;
   if (!profile || _contexts[context.identifier] != context) {
+    PANE_TRACE("call", "PaneBrowserApplication.deleteContext",
+               base::DictValue().Set(
+                   "identifier", base::SysNSStringToUTF8(context.identifier)));
     completion(NO);
     return;
   }
-  const base::FilePath path = profile->GetPath();
   [_contexts removeObjectForKey:context.identifier];
   [context shutDown];
-  // Without beforeunload: Chrome's deletion asks each page that has one, and
-  // a page that answers "Stay" (or never gets its dialog shown) would cancel
-  // the deletion and leave the profile loaded.
-  pane::CloseEveryPage(profile);
-  // Chrome closes the profile's Browsers (Pane's included), then marks the
-  // profile for deletion and removes its data; the directory goes once nothing
-  // holds the profile, or at the next start.
-  new ProfileDeletionWaiter(
-      path,
-      base::BindOnce(
-          [](void (^completion)(BOOL), NSString* identifier, bool deleted) {
-            PANE_TRACE(
-                "callback", "PaneBrowserApplication.didDeleteContext",
-                base::DictValue()
-                    .Set("identifier", base::SysNSStringToUTF8(identifier))
-                    .Set("deleted", deleted));
-            completion(deleted);
-          },
-          completion, context.identifier));
-  g_browser_process->profile_manager()
-      ->GetDeleteProfileHelper()
-      .MaybeScheduleProfileForDeletion(
-          path, base::DoNothing(), ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
+  pane::DeleteProfile(profile, nullptr,
+                      base::BindOnce([](void (^completion)(BOOL),
+                                        bool deleted) { completion(deleted); },
+                                     [completion copy]));
 }
 
 - (void)closeContext:(PaneBrowserContext*)context

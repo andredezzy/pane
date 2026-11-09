@@ -678,11 +678,18 @@ TEST_F(DataVaultTest, RemovesADeletedProfilesData) {
   ASSERT_TRUE(base::CreateSymbolicLink(
       Volume().Folder("beta").Append("Profile"), link));
 
+  base::test::TestFuture<void> recorded;
+  vault->RecordDeletion("beta", recorded.GetCallback());
+  ASSERT_TRUE(WaitFor([&] { return recorded.IsReady(); }));
+  EXPECT_EQ(ProfileDeletions(data_).Pending(),
+            std::vector<std::string>{"beta"});
+
   base::test::TestFuture<void> removed;
   vault->Remove("beta", removed.GetCallback());
   ASSERT_TRUE(WaitFor([&] { return removed.IsReady(); }));
   EXPECT_FALSE(base::PathExists(Volume().Folder("beta")));
   EXPECT_FALSE(ItemExists(link));
+  EXPECT_TRUE(ProfileDeletions(data_).Pending().empty());
 
   bool removed_parent = false;
   vault->Remove("..",

@@ -109,6 +109,15 @@ class AppData {
   // The profile came up in the engine.
   virtual void ProfileDidOpen(const std::string& profile_id) = 0;
 
+  // A deleted profile is named in deletions.json before its data starts
+  // going in the engine, so a quit, a crash, or a lock on the way leaves its
+  // folder to the next open (ADR 0020): `recorded` runs once it is on the
+  // disk.
+  virtual void RecordDeletion(const std::string& profile_id,
+                              base::OnceClosure recorded) = 0;
+  // The engine marked it: its folder in the volume goes, then its record.
+  virtual void RemoveDeleted(const std::string& profile_id) = 0;
+
   // Pane locks while open (ADR 0116): the PIN screen, at once.
   virtual void LockScreen() = 0;
   // Then, once what changed is written and the profiles have left the model,

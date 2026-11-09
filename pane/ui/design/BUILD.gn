@@ -24,6 +24,8 @@ source_set("design") {
     "icon_button.h",
     "icons.cc",
     "icons.h",
+    "menu_icon.cc",
+    "menu_icon.h",
     "motion.cc",
     "motion.h",
     "palette.cc",
@@ -60,6 +62,12 @@ source_set("design") {
     "//ui/gfx/animation",
     "//ui/native_theme",
   ]
+
+  # A menu's template icon, which only the Mac's menus tint.
+  if (is_mac) {
+    sources += [ "menu_icon_mac.mm" ]
+    frameworks = [ "AppKit.framework" ]
+  }
 }
 
 source_set("unit_tests") {

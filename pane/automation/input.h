@@ -31,6 +31,11 @@ void PostClick(views::Widget* widget, int x, int y, int clicks);
 // where it is.
 void PostMove(views::Widget* widget, int x, int y);
 
+// A trackpad scroll by `dy` points at a point of the window (from its top
+// left), dispatched through the window to the view under it: negative moves
+// the content up, as a swipe up does.
+void PostScroll(views::Widget* widget, int x, int y, double dy);
+
 // The modifiers going down, or up with none, with no key yet.
 void PostModifiers(views::Widget* widget,
                    const std::vector<std::string>& modifiers);

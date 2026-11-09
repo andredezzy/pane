@@ -4,11 +4,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <map>
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "base/functional/bind.h"
 #include "cc/paint/draw_looper.h"
@@ -19,13 +17,11 @@
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
-#include "pane/ui/design/text.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/empty_state_view.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
@@ -38,7 +34,6 @@
 #include "ui/views/background.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
-#include "ui/views/controls/label.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
@@ -51,23 +46,6 @@ namespace {
 
 // The window's least size, as the Electron app's (ADR 0036).
 constexpr gfx::Size kMinimumSize(900, 600);
-
-// The sidebar's header: the traffic lights' row, 39 points, its title 82 in,
-// after them, and Collapse all, a 28-point circle, 8 from the column's edge,
-// as the rows below. The title is centered a point above the row's bottom,
-// on the lights' line (ADR 0036).
-constexpr int kHeaderHeight = 39;
-constexpr int kHeaderLeading = 82;
-constexpr int kHeaderTrailing = 8;
-constexpr int kHeaderBottom = 1;
-constexpr int kCollapseAllSize = 28;
-constexpr TextStyle kTitle{12, weight::kSemibold, 0};
-
-// The list under it: 8 in from the column's sides, 4 from its ends, its rows
-// 4 apart.
-constexpr int kListInset = 8;
-constexpr int kListEnds = 4;
-constexpr int kRowSpacing = 4;
 
 // The content panel: flush with the sidebar, 8 from the window's other edges
 // (m-2 ml-0), rounded at the panel's 18; its ring a point outside it, rounded
@@ -95,117 +73,6 @@ constexpr float kPageCornerRadius = radius::kPanel * kCircularEquivalent;
 // 05), over its scrim.
 constexpr int kSheetWidth = 400;
 constexpr int kSheetInset = 8;
-
-// A profile's name: 12 points, medium (ADR 0060).
-constexpr TextStyle kProfileName{12, weight::kMedium, 16};
-
-// A profile's mark, in its color: a bar 4 points wide while another profile
-// is shown, growing into a 16-point square while it's the one shown, on the
-// spring an indicator's own change of shape takes (Motion.morph), as the
-// Swift sidebar's ProfileHeaderContent.
-class ProfileMark : public views::View {
-  METADATA_HEADER(ProfileMark, views::View)
-
- public:
-  ProfileMark(SkColor color, bool active)
-      : color_(color),
-        active_(active),
-        morph_(active ? 1 : 0,
-               base::BindRepeating(&ProfileMark::Morphed,
-                                   base::Unretained(this))) {}
-
-  void SetActive(bool active) {
-    if (active == active_) {
-      return;
-    }
-    active_ = active;
-    morph_.MoveTo(active ? 1 : 0, motion::Morph(),
-                  GetWidget() ? GetWidget()->GetCompositor() : nullptr);
-  }
-
-  // views::View:
-  gfx::Size CalculatePreferredSize(
-      const views::SizeBounds& available_size) const override {
-    return gfx::Size(std::ceil(Width()), kSize);
-  }
-
-  // A squircle whose radius grows with it, 2 to 4 (ADR 0064).
-  void OnPaint(gfx::Canvas* canvas) override {
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setColor(color_);
-    canvas->DrawPath(
-        SquirclePath(gfx::RectF(0, 0, Width(), kSize), 2 + 2 * morph_.value()),
-        flags);
-  }
-
- private:
-  static constexpr int kSize = 16;
-
-  // 4 points at 0, 16 at 1, a spring's overshoot past it.
-  float Width() const { return 4 + 12 * morph_.value(); }
-
-  void Morphed(double value) {
-    PreferredSizeChanged();
-    SchedulePaint();
-  }
-
-  const SkColor color_;
-  bool active_;
-  ValueMotion morph_;
-};
-
-BEGIN_METADATA(ProfileMark)
-END_METADATA
-
-// A profile's row: its mark and its name, 36 points tall.
-class ProfileRow : public views::Button {
-  METADATA_HEADER(ProfileRow, views::Button)
-
- public:
-  ProfileRow(PressedCallback pressed, const SidebarRow& row)
-      : views::Button(std::move(pressed)) {
-    auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
-        views::BoxLayout::Orientation::kHorizontal, gfx::Insets::VH(0, 8), 8));
-    layout->set_cross_axis_alignment(
-        views::BoxLayout::CrossAxisAlignment::kCenter);
-    mark_ =
-        AddChildView(std::make_unique<ProfileMark>(row.color, row.selected));
-    label_ =
-        AddChildView(MakeLabel(u"", kProfileName, kPaneColorMutedForeground));
-    label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    layout->SetFlexForView(label_, 1);
-    Update(row);
-  }
-
-  void Update(const SidebarRow& row) {
-    if (label_->GetText() != row.title) {
-      label_->SetText(row.title);
-      GetViewAccessibility().SetName(row.title);
-    }
-    label_->SetEnabledColor(row.selected ? kPaneColorAccentForeground
-                                         : kPaneColorMutedForeground);
-    mark_->SetActive(row.selected);
-  }
-
-  // views::View:
-  gfx::Size CalculatePreferredSize(
-      const views::SizeBounds& available_size) const override {
-    return gfx::Size(
-        views::Button::CalculatePreferredSize(available_size).width(), 36);
-  }
-
- private:
-  raw_ptr<ProfileMark> mark_ = nullptr;
-  raw_ptr<views::Label> label_ = nullptr;
-};
-
-BEGIN_METADATA(ProfileRow)
-END_METADATA
-
-std::string KeyOf(const SidebarRow& row) {
-  return row.profile_id + "/" + row.tab_id;
-}
 
 class SheetView : public views::View {
   METADATA_HEADER(SheetView, views::View)
@@ -292,28 +159,10 @@ RootView::Callbacks::~Callbacks() = default;
 RootView::RootView(Callbacks callbacks) : callbacks_(std::move(callbacks)) {
   SetBackground(views::CreateSolidBackground(kPaneColorWindowBackground));
 
-  // The sidebar's column: its header, the lights' row, then its list.
-  sidebar_ = AddChildView(std::make_unique<views::View>());
-  sidebar_->SetID(kViewIdSidebar);
-  sidebar_->GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
-  sidebar_->GetViewAccessibility().SetName(u"Sidebar");
-  header_ = sidebar_->AddChildView(std::make_unique<views::View>());
-  header_->SetID(kViewIdSidebarHeader);
-  title_ = header_->AddChildView(
-      MakeLabel(u"Pane", kTitle, kPaneColorMutedForeground));
-  // The title moves the window, as the rest of the header does.
-  title_->SetCanProcessEventsWithinSubtree(false);
-  title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  collapse_all_ = header_->AddChildView(std::make_unique<IconButton>(
-      callbacks_.collapse_all, kCollapseAllSize,
-      IconButton::Glyph{Icon::kChevronsDownUp, 16}, u"Collapse all profiles"));
-  collapse_all_->SetID(kViewIdCollapseAll);
-  collapse_all_->SetEnabled(false);
-  list_ = sidebar_->AddChildView(std::make_unique<views::View>());
-  list_->SetID(kViewIdSidebarProfiles);
-  list_->SetLayoutManager(std::make_unique<views::BoxLayout>(
-      views::BoxLayout::Orientation::kVertical,
-      gfx::Insets::VH(kListEnds, kListInset), kRowSpacing));
+  // The sidebar's column, and its edge over it and the panel's, under every
+  // overlay that comes after.
+  sidebar_ = AddChildView(
+      std::make_unique<SidebarView>(std::move(callbacks_.sidebar)));
 
   // The toolbar's row, at the panel's top while a tab shows.
   toolbar_ = AddChildView(std::make_unique<views::View>());
@@ -334,59 +183,15 @@ RootView::RootView(Callbacks callbacks) : callbacks_(std::move(callbacks)) {
   page_->SetID(kViewIdContent);
   page_->GetViewAccessibility().SetName(u"Web content");
   empty_ = AddChildView(std::make_unique<EmptyStateView>());
+  resize_ = AddChildView(
+      std::make_unique<ResizeHandle>(std::move(callbacks_.resize)));
   ShowPlaces();
 }
 
 RootView::~RootView() = default;
 
-void RootView::SetRows(const std::vector<SidebarRow>& rows) {
-  std::vector<std::string> keys;
-  for (const SidebarRow& row : rows) {
-    keys.push_back(KeyOf(row));
-  }
-  // Rows came, went, or moved: each keeps its view, found by its profile and
-  // tab, so what moves keeps moving (a profile's mark, mid-morph).
-  if (keys != row_keys_) {
-    std::map<std::string, std::unique_ptr<views::View>> kept;
-    for (const std::string& key : row_keys_) {
-      kept[key] = list_->RemoveChildViewT(list_->children().front());
-    }
-    for (size_t i = 0; i < rows.size(); ++i) {
-      std::unique_ptr<views::View>& view = kept[keys[i]];
-      list_->AddChildView(view ? std::move(view) : MakeRow(rows[i]));
-    }
-    row_keys_ = std::move(keys);
-    list_->InvalidateLayout();
-  }
-  for (size_t i = 0; i < rows.size(); ++i) {
-    views::View* view = list_->children()[i];
-    const SidebarRow& row = rows[i];
-    if (row.tab_id.empty()) {
-      static_cast<ProfileRow*>(view)->Update(row);
-      continue;
-    }
-    // A selection moves at once (DESIGN.md).
-    auto* button = static_cast<views::LabelButton*>(view);
-    if (button->GetText() != row.title) {
-      button->SetText(row.title);
-    }
-    if (row.selected != !!button->GetBackground()) {
-      button->SetBackground(row.selected ? std::make_unique<ControlBackground>(
-                                               RowLook(true), nullptr)
-                                         : nullptr);
-    }
-  }
-}
-
-std::unique_ptr<views::View> RootView::MakeRow(const SidebarRow& row) {
-  if (row.tab_id.empty()) {
-    return std::make_unique<ProfileRow>(
-        base::BindRepeating(callbacks_.row_pressed, row), row);
-  }
-  auto button = std::make_unique<views::LabelButton>(
-      base::BindRepeating(callbacks_.row_pressed, row), row.title);
-  button->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  return button;
+void RootView::SetSidebar(const SidebarContent& content) {
+  sidebar_->SetContent(content);
 }
 
 void RootView::SetShows(const Shows& shows) {
@@ -395,10 +200,21 @@ void RootView::SetShows(const Shows& shows) {
       std::round(shows.sidebar_width) != std::round(shows_.sidebar_width);
   shows_ = shows;
   back_->SetEnabled(shows.can_go_back);
-  collapse_all_->SetEnabled(shows.can_collapse_all);
+  sidebar_->SetCanCollapseAll(shows.can_collapse_all);
+  resize_->SetWidth(shows.sidebar_width);
   if (laid_out_again) {
     ShowPlaces();
   }
+}
+
+void RootView::SetSidebarWidth(double width) {
+  if (std::round(width) == std::round(shows_.sidebar_width)) {
+    return;
+  }
+  shows_.sidebar_width = width;
+  resize_->SetWidth(width);
+  InvalidateLayout();
+  SchedulePaint();
 }
 
 // What shows goes or comes at once, not at the next layout: a new tab's
@@ -407,8 +223,12 @@ void RootView::ShowPlaces() {
   // The sidebar steps aside while a page fills the window, as the toolbar
   // does, which shows over a tab's page on the browser page.
   sidebar_->SetVisible(!page_fullscreen_);
+  resize_->SetVisible(!page_fullscreen_);
   toolbar_->SetVisible(shows_.content == Content::kPage && !page_fullscreen_);
   empty_->SetVisible(shows_.content == Content::kEmpty && !page_fullscreen_);
+  // A page of the app's (Settings) takes the panel: the page leaves it, as
+  // the Swift's did (ADR 0073), until Settings' surface (H6) draws there.
+  page_->SetVisible(shows_.content == Content::kPage);
   InvalidateLayout();
   SchedulePaint();
 }
@@ -535,7 +355,7 @@ bool RootView::IsDragArea(const gfx::Point& point) {
   views::View* hit = GetEventHandlerForPoint(point);
   // The header's background and its title; the window's own around the
   // panel, which takes its presses as the panel's card did.
-  return hit == header_ ||
+  return hit == sidebar_->header() ||
          (hit == this && !PanelPath().contains(point.x(), point.y()));
 }
 
@@ -547,16 +367,8 @@ void RootView::Layout(PassKey) {
   const int sidebar_width = static_cast<int>(std::round(shows_.sidebar_width));
 
   sidebar_->SetBounds(0, 0, sidebar_width, height());
-  header_->SetBounds(0, 0, sidebar_width, kHeaderHeight);
-  const int header_row = kHeaderHeight - kHeaderBottom;
-  collapse_all_->SetBounds(
-      std::max(sidebar_width - kHeaderTrailing - kCollapseAllSize, 0),
-      (header_row - kCollapseAllSize) / 2, kCollapseAllSize, kCollapseAllSize);
-  title_->SetBounds(kHeaderLeading, 0,
-                    std::max(collapse_all_->x() - 8 - kHeaderLeading, 0),
-                    header_row);
-  list_->SetBounds(0, kHeaderHeight, sidebar_width,
-                   std::max(height() - kHeaderHeight, 0));
+  resize_->SetBounds(sidebar_width - ResizeHandle::kOverSidebar, 0,
+                     ResizeHandle::kWidth, height());
 
   panel_bounds_ =
       page_fullscreen_

@@ -78,6 +78,16 @@ void CloseProfile(Profile* profile,
                   std::unique_ptr<ScopedProfileKeepAlive> keep_alive,
                   base::OnceCallback<void(bool closed)> done);
 
+// A profile's data goes in the engine (ADR 0020): `keep_alive`, if any,
+// goes, every page closes at once without beforeunload, then Chrome closes
+// the profile's Browsers, Pane's included, marks it for deletion, and removes
+// its data, its folder once nothing holds the profile, or at the next start.
+// `done` says whether Chrome marked it, which a quit first leaves undone. Never
+// from inside a tab strip notification: it closes the profile's pages.
+void DeleteProfile(Profile* profile,
+                   std::unique_ptr<ScopedProfileKeepAlive> keep_alive,
+                   base::OnceCallback<void(bool deleted)> done);
+
 // Every process forgets every engine key, once a lock's detach has left no
 // profile's file open (ADR 0121). `done` gets how many each still holds: the
 // browser's, the network service's, and the Storage Service's.

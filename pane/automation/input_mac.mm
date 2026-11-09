@@ -119,9 +119,10 @@ void PostClick(views::Widget* widget, int x, int y, int clicks) {
 
 void PostMove(views::Widget* widget, int x, int y) {
   NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
+  const NSPoint location = NSMakePoint(x, NSHeight(window.frame) - y);
   NSEvent* event =
       [NSEvent mouseEventWithType:NSEventTypeMouseMoved
-                         location:NSMakePoint(x, NSHeight(window.frame) - y)
+                         location:location
                     modifierFlags:0
                         timestamp:NSProcessInfo.processInfo.systemUptime
                      windowNumber:window.windowNumber
@@ -130,6 +131,32 @@ void PostMove(views::Widget* widget, int x, int y) {
                        clickCount:0
                          pressure:0];
   [window sendEvent:event];
+  // Views hears the pointer move through its content view's tracking area,
+  // which AppKit runs only while the app is active, as a scenario's copy in
+  // the background isn't: the move goes to that view as the area would hand
+  // it, where the pointer is over it.
+  NSView* content = window.contentView;
+  if ([content.superview hitTest:location] == content) {
+    [content mouseMoved:event];
+  }
+}
+
+void PostScroll(views::Widget* widget, int x, int y, double dy) {
+  NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
+  const NSPoint on_screen =
+      [window convertPointToScreen:NSMakePoint(x, NSHeight(window.frame) - y)];
+  const CGFloat top = NSMaxY(NSScreen.screens.firstObject.frame);
+  CGEventRef scroll = CGEventCreateScrollWheelEvent2(
+      nullptr, kCGScrollEventUnitPixel, 1, static_cast<int32_t>(dy), 0, 0);
+  if (!scroll) {
+    return;
+  }
+  CGEventSetLocation(scroll, CGPointMake(on_screen.x, top - on_screen.y));
+  NSEvent* event = [NSEvent eventWithCGEvent:scroll];
+  CFRelease(scroll);
+  if (event) {
+    [window sendEvent:event];
+  }
 }
 
 void PostModifiers(views::Widget* widget,
