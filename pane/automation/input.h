@@ -22,6 +22,10 @@ bool PostKey(views::Widget* widget,
              const std::string& key,
              const std::vector<std::string>& modifiers);
 
+// A click at `point` of the window (from its top left), down then up,
+// `clicks` times, as the trackpad's.
+void PostClick(views::Widget* widget, int x, int y, int clicks);
+
 // The modifiers going down, or up with none, with no key yet.
 void PostModifiers(views::Widget* widget,
                    const std::vector<std::string>& modifiers);

@@ -21,6 +21,7 @@
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/render.h"
 #include "pane/ui/tabs/tab_id.h"
+#include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
 #include "ui/compositor/compositor.h"
@@ -256,6 +257,20 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
+  // A real click at a point of the window (from its top left).
+  if (name == "clickWindow") {
+    const std::optional<double> x = command.FindDouble("x");
+    const std::optional<double> y = command.FindDouble("y");
+    if (!x || !y) {
+      std::move(reply).Run(base::Value(), "clickWindow needs x and y");
+      return;
+    }
+    PostClick(window->host().widget(), *x, *y,
+              command.FindInt("clicks").value_or(1));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
   if (name == "releaseModifiers" || name == "holdModifiers") {
     std::vector<std::string> modifiers;
     if (const base::ListValue* names = command.FindList("modifiers");
@@ -268,6 +283,33 @@ void Automation::Dispatch(const std::string& name,
     }
     PostModifiers(window->host().widget(), modifiers);
     std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // What a press at a point of the window (from its top left) would reach:
+  // the view Views would hand it, and whether the page or Views takes it
+  // (frame.h). A question, not input: it runs without the front.
+  if (name == "hitTest") {
+    const std::optional<double> x = command.FindDouble("x");
+    const std::optional<double> y = command.FindDouble("y");
+    views::Widget* widget = window->host().widget();
+    if (!x || !y || !widget) {
+      std::move(reply).Run(base::Value(), "hitTest needs x and y");
+      return;
+    }
+    const gfx::Point point(*x, *y);
+    const views::View* handler =
+        widget->GetRootView()->GetEventHandlerForPoint(point);
+    const PressTarget target = PressTargetAt(widget, point);
+    std::move(reply).Run(
+        base::Value(base::DictValue()
+                        .Set("handler",
+                             handler ? handler->GetClassName() : std::string())
+                        .Set("target", target == PressTarget::kPage ? "page"
+                                       : target == PressTarget::kViews
+                                           ? "views"
+                                           : "other")),
+        std::string());
     return;
   }
 

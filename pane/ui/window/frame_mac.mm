@@ -8,9 +8,6 @@
 #include "components/remote_cocoa/common/native_widget_ns_window.mojom.h"
 #include "ui/base/cocoa/window_size_constants.h"
 #include "ui/gfx/geometry/point.h"
-#include "ui/views/controls/native/native_view_host.h"
-#include "ui/views/view.h"
-#include "ui/views/view_utils.h"
 #include "ui/views/widget/native_widget_mac.h"
 #include "ui/views/widget/widget.h"
 
@@ -31,38 +28,6 @@ namespace {
 // The traffic lights' corner: 12 points from the window's left and top,
 // in the sidebar's header row.
 constexpr CGFloat kLightsInset = 12;
-
-// Whether a press at `location` falls on a page's NSView that a view of
-// Pane's covers (a sheet, its scrim, the find bar). The page draws in the
-// window's compositor, under Views' layers (SetParentUiLayer), but AppKit
-// gives a press to the frontmost NSView, the page's, whatever Views draws
-// over it there: Views' own answer for the point is then the one to keep.
-bool ViewsCoverPageAt(NSWindow* window, NSPoint location) {
-  NSView* content = window.contentView;
-  NSView* hit = [content.superview
-      hitTest:[content.superview convertPoint:location fromView:nil]];
-  if (!hit || hit == content || ![hit isDescendantOf:content]) {
-    return false;
-  }
-  views::Widget* widget =
-      views::Widget::GetWidgetForNativeWindow(gfx::NativeWindow(window));
-  if (!widget || !widget->GetRootView()) {
-    return false;
-  }
-  const NSPoint in_content = [content convertPoint:location fromView:nil];
-  const gfx::Point point(in_content.x,
-                         content.isFlipped
-                             ? in_content.y
-                             : NSHeight(content.bounds) - in_content.y);
-  for (views::View* view =
-           widget->GetRootView()->GetEventHandlerForPoint(point);
-       view; view = view->parent()) {
-    if (views::IsViewClass<views::NativeViewHost>(view)) {
-      return false;
-    }
-  }
-  return true;
-}
 
 }  // namespace
 
@@ -102,67 +67,7 @@ bool ViewsCoverPageAt(NSWindow* window, NSPoint location) {
 @interface ViewsWindowForPane : NativeWidgetMacNSWindow
 @end
 
-@implementation ViewsWindowForPane {
-  // A press Views took over a page, until its release.
-  BOOL _viewsHasMouse;
-}
-
-// Presses, moves, and scrolls over a page that Views covers go to Views, as
-// they would where no page is.
-- (void)sendEvent:(NSEvent*)event {
-  NSView* content = self.contentView;
-  switch (event.type) {
-    case NSEventTypeLeftMouseDown:
-    case NSEventTypeRightMouseDown:
-    case NSEventTypeOtherMouseDown:
-      _viewsHasMouse = ViewsCoverPageAt(self, event.locationInWindow);
-      if (_viewsHasMouse) {
-        event.type == NSEventTypeLeftMouseDown ? [content mouseDown:event]
-        : event.type == NSEventTypeRightMouseDown
-            ? [content rightMouseDown:event]
-            : [content otherMouseDown:event];
-        return;
-      }
-      break;
-    case NSEventTypeLeftMouseDragged:
-    case NSEventTypeRightMouseDragged:
-    case NSEventTypeOtherMouseDragged:
-      if (_viewsHasMouse) {
-        event.type == NSEventTypeLeftMouseDragged ? [content mouseDragged:event]
-        : event.type == NSEventTypeRightMouseDragged
-            ? [content rightMouseDragged:event]
-            : [content otherMouseDragged:event];
-        return;
-      }
-      break;
-    case NSEventTypeLeftMouseUp:
-    case NSEventTypeRightMouseUp:
-    case NSEventTypeOtherMouseUp:
-      if (_viewsHasMouse) {
-        _viewsHasMouse = NO;
-        event.type == NSEventTypeLeftMouseUp    ? [content mouseUp:event]
-        : event.type == NSEventTypeRightMouseUp ? [content rightMouseUp:event]
-                                                : [content otherMouseUp:event];
-        return;
-      }
-      break;
-    case NSEventTypeMouseMoved:
-      if (ViewsCoverPageAt(self, event.locationInWindow)) {
-        [content mouseMoved:event];
-        return;
-      }
-      break;
-    case NSEventTypeScrollWheel:
-      if (ViewsCoverPageAt(self, event.locationInWindow)) {
-        [content scrollWheel:event];
-        return;
-      }
-      break;
-    default:
-      break;
-  }
-  [super sendEvent:event];
-}
+@implementation ViewsWindowForPane
 
 + (Class)frameViewClassForStyleMask:(NSUInteger)windowStyle {
   // NSThemeFrame's subclasses are nil if AppKit no longer has it.
@@ -210,6 +115,27 @@ class Frame : public views::NativeWidgetMac {
 
 views::NativeWidget* CreateFrame(views::Widget* widget) {
   return new Frame(widget);
+}
+
+PressTarget PressTargetAt(views::Widget* widget, const gfx::Point& point) {
+  NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSView* content = window.contentView;
+  // -hitTest: takes a point in its receiver's superview's coordinates, as
+  // NSWindow asks it.
+  NSView* hit = [content
+      hitTest:[content.superview
+                  convertPoint:NSMakePoint(point.x(),
+                                           NSHeight(window.frame) - point.y())
+                      fromView:nil]];
+  if (hit == content) {
+    return PressTarget::kViews;
+  }
+  for (NSView* view = hit; view; view = view.superview) {
+    if ([view isKindOfClass:NSClassFromString(@"RenderWidgetHostViewCocoa")]) {
+      return PressTarget::kPage;
+    }
+  }
+  return PressTarget::kOther;
 }
 
 }  // namespace pane

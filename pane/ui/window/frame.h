@@ -3,6 +3,10 @@
 #ifndef PANE_UI_WINDOW_FRAME_H_
 #define PANE_UI_WINDOW_FRAME_H_
 
+namespace gfx {
+class Point;
+}
+
 namespace views {
 class NativeWidget;
 class Widget;
@@ -15,6 +19,12 @@ namespace pane {
 // bar, the traffic lights at (12, 12) (ADR 0036); on Windows, the caption
 // buttons. Owned by `widget`.
 views::NativeWidget* CreateFrame(views::Widget* widget);
+
+// Who takes a press at `point` (in the window, from its top left): a page,
+// or Pane's views, Views having first say over what a view of its covers,
+// as a sheet or its scrim over a page (bridged_content_view.mm, -hitTest:).
+enum class PressTarget { kPage, kViews, kOther };
+PressTarget PressTargetAt(views::Widget* widget, const gfx::Point& point);
 
 }  // namespace pane
 

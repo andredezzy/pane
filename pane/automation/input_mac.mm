@@ -5,6 +5,7 @@
 #import <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
 
+#include <algorithm>
 #include <map>
 
 #include "base/no_destructor.h"
@@ -93,6 +94,27 @@ bool PostKey(views::Widget* widget,
     [NSApp postEvent:event atStart:NO];
   }
   return true;
+}
+
+void PostClick(views::Widget* widget, int x, int y, int clicks) {
+  NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
+  const NSPoint location = NSMakePoint(x, NSHeight(window.frame) - y);
+  for (int count = 1; count <= std::max(clicks, 1); ++count) {
+    for (NSEventType type :
+         {NSEventTypeLeftMouseDown, NSEventTypeLeftMouseUp}) {
+      NSEvent* event =
+          [NSEvent mouseEventWithType:type
+                             location:location
+                        modifierFlags:0
+                            timestamp:NSProcessInfo.processInfo.systemUptime
+                         windowNumber:window.windowNumber
+                              context:nil
+                          eventNumber:0
+                           clickCount:count
+                             pressure:type == NSEventTypeLeftMouseUp ? 0 : 1];
+      [NSApp postEvent:event atStart:NO];
+    }
+  }
 }
 
 void PostModifiers(views::Widget* widget,
