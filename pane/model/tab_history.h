@@ -28,7 +28,7 @@ class TabHistory {
   TabHistory& operator=(const TabHistory&);
   ~TabHistory();
 
-  void Use(const std::string& tab_id);
+  void Use(std::string tab_id);
   void Forget(const std::string& tab_id);
   void PushClosed(ClosedTab tab);
   std::optional<ClosedTab> PopClosed();

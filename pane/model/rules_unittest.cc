@@ -327,6 +327,26 @@ TEST(TabHistoryTest, EmptyPop) {
   EXPECT_EQ(history.PopClosed(), std::nullopt);
 }
 
+// Not in PaneKit, whose ids were values: an id the history holds itself names
+// what it moves or forgets, though the change moves it.
+TEST(TabHistoryTest, ItsOwnIds) {
+  TabHistory history;
+  history.Use("a");
+  history.Use("b");
+  history.Use("c");
+  history.Use(history.mru()[1]);
+
+  EXPECT_EQ(history.mru(), (std::vector<std::string>{"b", "c", "a"}));
+
+  history.PushClosed({.url = "https://1.test/", .profile_id = "p"});
+  history.PushClosed({.url = "https://2.test/", .profile_id = "q"});
+  history.PushClosed({.url = "https://3.test/", .profile_id = "p"});
+  history.ForgetClosed(history.closed().front().profile_id);
+
+  ASSERT_EQ(history.closed().size(), 1u);
+  EXPECT_EQ(history.closed().front().profile_id, "q");
+}
+
 // Ported from PaneKit's ExtensionShortcutTests.
 
 using enum KeyModifier;

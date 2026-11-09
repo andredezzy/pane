@@ -11,6 +11,8 @@ source_set("model") {
     "address_input.h",
     "app_settings.cc",
     "app_settings.h",
+    "browser_model.cc",
+    "browser_model.h",
     "client_hints.cc",
     "client_hints.h",
     "crash_loop.cc",
@@ -81,6 +83,7 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "browser_model_unittest.cc",
     "client_hints_unittest.cc",
     "data_key_unittest.cc",
     "persistence_unittest.cc",

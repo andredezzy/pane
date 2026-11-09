@@ -12,9 +12,9 @@ TabHistory::TabHistory(const TabHistory&) = default;
 TabHistory& TabHistory::operator=(const TabHistory&) = default;
 TabHistory::~TabHistory() = default;
 
-void TabHistory::Use(const std::string& tab_id) {
+void TabHistory::Use(std::string tab_id) {
   Forget(tab_id);
-  mru_.insert(mru_.begin(), tab_id);
+  mru_.insert(mru_.begin(), std::move(tab_id));
 }
 
 void TabHistory::Forget(const std::string& tab_id) {
@@ -38,7 +38,8 @@ std::optional<ClosedTab> TabHistory::PopClosed() {
 }
 
 void TabHistory::ForgetClosed(const std::string& profile_id) {
-  std::erase_if(closed_, [&](const ClosedTab& tab) {
+  // By a copy: `profile_id` may be a closed tab's own, which the erase moves.
+  std::erase_if(closed_, [profile_id](const ClosedTab& tab) {
     return tab.profile_id == profile_id;
   });
 }
