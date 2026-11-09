@@ -18,6 +18,11 @@ const std::string& TabIdOf(content::WebContents* contents);
 // The live tab with that id, or null.
 content::WebContents* TabWithId(const std::string& id);
 
+// An id for a tab whose page doesn't exist yet, which `SetTabId` gives it
+// once it does: its row is the same before and after.
+std::string NewTabId();
+void SetTabId(content::WebContents* contents, std::string id);
+
 }  // namespace pane
 
 #endif  // PANE_UI_TABS_TAB_ID_H_

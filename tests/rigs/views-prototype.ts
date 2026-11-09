@@ -47,13 +47,39 @@ const viewsPrototype: Scenario = async (context) => {
 	await Bun.sleep(400);
 	await app.render("sheet.png");
 	await app.send("closeProfileSheet");
-	await app.send("menu", { path: ["File", "New Tab"] });
+
+	// ⌘T answers before the engine makes its page (the Swift app's
+	// AfterFrame): the tab, selected, and the address field are in the
+	// state at once; a second ⌘T right behind gives the first its page
+	// behind the second; each page keeps the id its row showed before it.
+	const tabsInHome = () =>
+		state.profiles.find((p) => p.id === home)?.tabs ?? [];
+
+	({ state } = await app.send("menu", { path: ["File", "New Tab"] }));
+	const first = state.activeTabID;
+
+	expect(
+		tabsInHome().length === 2 &&
+			tabsInHome().at(-1)?.id === first &&
+			state.focus === "address",
+		`⌘T's tab and address field at once: ${JSON.stringify(state)}`,
+	);
+
+	({ state } = await app.send("menu", { path: ["File", "New Tab"] }));
+	const second = state.activeTabID;
 	await Bun.sleep(500);
 	({ state } = await app.send("state"));
 
-	log.push({
-		tabsInHome: state.profiles.find((p) => p.id === home)?.tabs.length,
-	});
+	expect(
+		JSON.stringify(tabsInHome().map((tab) => tab.id)) ===
+			JSON.stringify([b.tab, first, second]) &&
+			state.activeTabID === second &&
+			second !== first &&
+			state.focus === "address",
+		`two ⌘T in a row, each page under its row's id: ${JSON.stringify(state)}`,
+	);
+
+	log.push({ tabsInHome: tabsInHome().length });
 
 	await app.send("menu", { path: ["Navigate", "Focus Address Bar"] });
 	await app.quit();

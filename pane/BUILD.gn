@@ -55,6 +55,8 @@ source_set("pane") {
     "browser/web_store.h",
     "common/host.cc",
     "common/host.h",
+    "ui/after_frame.cc",
+    "ui/after_frame.h",
     "ui/app/ui_app.cc",
     "ui/app/ui_app.h",
     "ui/design/motion.cc",

@@ -3,6 +3,8 @@
 #include "pane/ui/app/ui_app.h"
 
 #include <array>
+#include <optional>
+#include <string>
 #include <utility>
 
 #include "base/command_line.h"
@@ -209,6 +211,14 @@ std::vector<SidebarRow> UiApp::Rows(Window& window) const {
                       .title = title,
                       .selected = contents == window.selected()});
     }
+    // ⌘T's tab, before its page: titled as its page will be until it loads.
+    const std::optional<Window::PendingTab>& pending = window.pending_tab();
+    if (pending && pending->profile == entry.profile) {
+      rows.push_back({.profile_id = entry.id,
+                      .tab_id = pending->id,
+                      .title = base::UTF8ToUTF16(pending->url),
+                      .selected = pending->foreground});
+    }
   }
   return rows;
 }
@@ -229,6 +239,14 @@ base::DictValue UiApp::Snapshot() const {
                         .Set("loading", contents->IsLoading()));
       }
     }
+    const std::optional<Window::PendingTab>& pending = window_->pending_tab();
+    if (pending && pending->profile == entry.profile) {
+      tabs.Append(base::DictValue()
+                      .Set("id", pending->id)
+                      .Set("url", pending->url)
+                      .Set("title", "")
+                      .Set("loading", true));
+    }
     if (window_->host().active_profile() == entry.profile) {
       active_profile = entry.id;
     }
@@ -237,12 +255,12 @@ base::DictValue UiApp::Snapshot() const {
                         .Set("name", entry.name)
                         .Set("tabs", std::move(tabs)));
   }
-  content::WebContents* selected = window_->selected();
+  const std::string selected = window_->selected_id();
   views::Widget* widget = window_->host().widget();
   return base::DictValue()
       .Set("profiles", std::move(profiles))
       .Set("activeTabID",
-           selected ? base::Value(TabIdOf(selected)) : base::Value())
+           selected.empty() ? base::Value() : base::Value(selected))
       .Set("activeProfileID",
            active_profile.empty() ? base::Value() : base::Value(active_profile))
       .Set("page", "browser")

@@ -4,11 +4,13 @@
 #define PANE_UI_WINDOW_WINDOW_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "pane/browser/ui/window_host.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
@@ -30,6 +32,17 @@ struct SidebarRow;
 // sidebar, the toolbar, and the selected tab's page.
 class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
  public:
+  // ⌘T's tab between the frame that answers the key and its page: its row
+  // and the address field show at once, and the engine makes the page (11
+  // ms) after that frame, as the Swift app's AfterFrame orders it.
+  struct PendingTab {
+    std::string id;
+    raw_ptr<Profile> profile;
+    std::string url;
+    // Still the tab shown: nothing else was chosen meanwhile.
+    bool foreground = true;
+  };
+
   // The sidebar's rows, from the app, which knows the profiles.
   using Rows = base::RepeatingCallback<std::vector<SidebarRow>(Window&)>;
   // Told whenever what the window shows changes: a tab came or went, or
@@ -53,6 +66,9 @@ class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
   // Shows `contents`, a tab of one of the window's profiles, and its profile.
   void Select(content::WebContents* contents);
   content::WebContents* selected() const;
+  // The tab shown's id, ⌘T's before its page exists; empty with none.
+  std::string selected_id() const;
+  const std::optional<PendingTab>& pending_tab() const { return pending_tab_; }
 
   // ⌘T: a new tab of the profile shown, at the new tab page.
   void NewTab();
@@ -81,6 +97,14 @@ class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
   int NonClientHitTest(const gfx::Point& point) override;
 
  private:
+  // Shows `contents` and its profile; a tab chosen takes the keyboard,
+  // where ⌘T's keeps it in the address field.
+  void ShowTab(content::WebContents* contents, bool chosen);
+  // Has the engine make ⌘T's tab `id`, at `url`, if it still waits.
+  void OpenPendingTab(const std::string& id, const GURL& url);
+  // Gives `contents`, the page OpenPendingTab made, the id its row showed
+  // before it existed, in whichever of Chrome's calls comes first.
+  void AdoptOpeningTab(content::WebContents* contents);
   void RowPressed(const SidebarRow& row);
   void AddressEntered(const std::u16string& text);
   void Refresh();
@@ -90,6 +114,10 @@ class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
   Changed changed_;
   raw_ptr<RootView> root_ = nullptr;
   std::unique_ptr<WindowHost> host_;
+  std::optional<PendingTab> pending_tab_;
+  // ⌘T's tab while the engine inserts it, inside OpenPendingTab.
+  std::optional<PendingTab> opening_tab_;
+  base::WeakPtrFactory<Window> weak_factory_{this};
 };
 
 }  // namespace pane

@@ -156,8 +156,12 @@ void RootView::ShowPage(content::WebContents* contents) {
     return;
   }
   page_->SetWebContents(contents);
-  page_->holder()->SetNativeViewCornerRadii(
-      gfx::RoundedCornersF(0, 0, kPageCornerRadius, kPageCornerRadius));
+  // The corners go on the page's own layer, which comes and goes with it
+  // (NativeViewHostMac has none to round with no page attached).
+  if (contents) {
+    page_->holder()->SetNativeViewCornerRadii(
+        gfx::RoundedCornersF(0, 0, kPageCornerRadius, kPageCornerRadius));
+  }
 }
 
 content::WebContents* RootView::page() const {

@@ -3,7 +3,9 @@
 #include "pane/ui/tabs/tab_id.h"
 
 #include <map>
+#include <utility>
 
+#include "base/check.h"
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/uuid.h"
@@ -31,8 +33,9 @@ class TabId : public content::WebContentsUserData<TabId> {
   friend WebContentsUserData;
 
   explicit TabId(content::WebContents* contents)
-      : WebContentsUserData(*contents),
-        id_(base::Uuid::GenerateRandomV4().AsLowercaseString()) {
+      : TabId(contents, NewTabId()) {}
+  TabId(content::WebContents* contents, std::string id)
+      : WebContentsUserData(*contents), id_(std::move(id)) {
     Live()[id_] = contents;
   }
 
@@ -48,6 +51,15 @@ WEB_CONTENTS_USER_DATA_KEY_IMPL(TabId);
 const std::string& TabIdOf(content::WebContents* contents) {
   TabId::CreateForWebContents(contents);
   return TabId::FromWebContents(contents)->id();
+}
+
+std::string NewTabId() {
+  return base::Uuid::GenerateRandomV4().AsLowercaseString();
+}
+
+void SetTabId(content::WebContents* contents, std::string id) {
+  CHECK(!TabId::FromWebContents(contents));
+  TabId::CreateForWebContents(contents, std::move(id));
 }
 
 content::WebContents* TabWithId(const std::string& id) {
