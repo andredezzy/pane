@@ -12,3 +12,8 @@ branding_file_path = "//pane/BRANDING"
 # experimental features (Omnibox Everywhere's menu bar item, among others), and
 # Pane ships Chromium's defaults, as official builds do.
 disable_fieldtrial_testing_config = true
+# Profile-guided optimization from Chrome's own profile for this branch, as
+# Chrome's releases are built (sync.sh fetches it). It needs no official
+# build; ThinLTO, which is_official_build turns on, waits for its link to be
+# timed (docs/plans/views-migration.md, B6).
+chrome_pgo_phase = 2
