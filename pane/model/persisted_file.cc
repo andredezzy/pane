@@ -9,6 +9,7 @@
 #include "base/files/important_file_writer.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/strings/string_util.h"
 #include "base/types/expected_macros.h"
 
 namespace pane::model {
@@ -38,8 +39,20 @@ bool PersistedFile::Save(base::Value state) const {
 
 // static
 std::optional<std::string> PersistedFile::Encode(base::Value state) {
-  return base::WriteJson(base::Value(
-      base::DictValue().Set("state", std::move(state)).Set("version", 0)));
+  // Spelled as every Swift Pane's JSONEncoder spells it, a whole number
+  // without `.0` (the sidebar's 260) and each `/` as `\/`: an earlier Pane
+  // that saves again the state it read (0.15.2 saves security.json and its
+  // copy at every launch) then writes the bytes this one wrote, and changes
+  // nothing. In JSON a `/` is only ever in a string, where `\/` is its
+  // escape.
+  std::optional<std::string> text = base::WriteJsonWithOptions(
+      base::Value(
+          base::DictValue().Set("state", std::move(state)).Set("version", 0)),
+      base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION);
+  if (text) {
+    base::ReplaceSubstringsAfterOffset(&*text, 0, "/", "\\/");
+  }
+  return text;
 }
 
 void KeepDamaged(const base::FilePath& path) {

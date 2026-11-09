@@ -15,6 +15,7 @@
 #include "base/json/json_reader.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "crypto/hash.h"
 #include "crypto/kdf.h"
 #include "pane/model/app_settings.h"
@@ -310,6 +311,40 @@ TEST(SwiftVectorsTest, Vectors) {
   EXPECT_EQ(security->failed_attempts, 2);
   EXPECT_EQ(security->key, with_pin);
   EXPECT_EQ(SecurityState::FromValue(security->ToValue()), security);
+}
+
+// The plain files the Swift Pane wrote, read and saved again here, are the
+// bytes it wrote: an earlier Pane that saves again what it read (0.15.2 saves
+// security.json and its copy at every launch) changes nothing of a file this
+// Pane wrote, as files-migration checks.
+TEST(SwiftVectorsTest, SavedAsSwiftSavesThem) {
+  base::FilePath root;
+  ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &root));
+  const base::FilePath directory =
+      root.AppendASCII("pane/model/test_data/swift");
+
+  std::string security_text;
+  ASSERT_TRUE(base::ReadFileToString(directory.AppendASCII("security.json"),
+                                     &security_text));
+  const std::optional<SecurityState> security = SecurityState::FromValue(
+      PersistedFile(directory, "security").Load().value().value());
+  ASSERT_TRUE(security);
+  EXPECT_EQ(PersistedFile::Encode(security->ToValue()), security_text);
+
+  std::string settings_text;
+  ASSERT_TRUE(base::ReadFileToString(directory.AppendASCII("settings.json"),
+                                     &settings_text));
+  const std::optional<AppSettings> settings = SettingsFromState(
+      PersistedFile(directory, "settings").Load().value().value());
+  ASSERT_TRUE(settings);
+  EXPECT_EQ(PersistedFile::Encode(SettingsState(*settings)), settings_text);
+
+  // The default width, a whole number, which Swift writes as one.
+  AppSettings whole = *settings;
+  whole.sidebar_width = 260;
+  std::string whole_text = settings_text;
+  base::ReplaceFirstSubstringAfterOffset(&whole_text, 0, "312.5", "260");
+  EXPECT_EQ(PersistedFile::Encode(SettingsState(whole)), whole_text);
 }
 
 // The same files, written by C++ from what the Swift wrote, for PaneKit's

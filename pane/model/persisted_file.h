@@ -38,7 +38,8 @@ class PersistedFile {
   bool Save(base::Value state) const;
 
   // The file's text for `state`, as Save writes it: its envelope, as JSON,
-  // keys sorted. nullopt for a value JSON can't hold.
+  // keys sorted, spelled as the Swift Panes' JSONEncoder spells it (a whole
+  // number without `.0`, `/` as `\/`). nullopt for a value JSON can't hold.
   static std::optional<std::string> Encode(base::Value state);
 
  private:

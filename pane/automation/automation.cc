@@ -16,6 +16,8 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
+#include "chrome/browser/download/download_prefs.h"
+#include "chrome/browser/profiles/profile.h"
 #include "pane/app/data_launch.h"
 #include "pane/automation/input.h"
 #include "pane/model/app_settings.h"
@@ -232,6 +234,28 @@ void Automation::Dispatch(const std::string& name,
       return;
     }
     app_->Select(*tab);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // { profile, path }: where an open profile's downloads go, as its download
+  // preferences hold it.
+  if (name == "setDownloadDirectory") {
+    const std::string* profile_id = command.FindString("profile");
+    const std::string* path = command.FindString("path");
+    if (!profile_id || !path) {
+      std::move(reply).Run(base::Value(),
+                           "setDownloadDirectory needs profile and path");
+      return;
+    }
+    Profile* profile = app_->ProfileIfOpen(*profile_id);
+    if (!profile) {
+      std::move(reply).Run(base::Value(),
+                           "profile " + *profile_id + " is not open");
+      return;
+    }
+    DownloadPrefs::FromBrowserContext(profile)->SetDownloadPath(
+        base::FilePath::FromUTF8Unsafe(*path));
     std::move(reply).Run(base::Value(), std::string());
     return;
   }

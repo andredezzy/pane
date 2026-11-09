@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,7 @@
 #include "pane/app/data_launch.h"
 #include "pane/browser/profile_contexts.h"
 #include "pane/model/browser_model.h"
+#include "pane/model/crash_loop.h"
 #include "pane/ui/window/window.h"
 #include "url/gurl.h"
 
@@ -91,6 +93,8 @@ class UiApp : public AppData::Client,
 
   // The tab's page, when it has one.
   content::WebContents* PageOf(const std::string& tab_id) const;
+  // The profile in the engine, while it is open.
+  Profile* ProfileIfOpen(const std::string& profile_id) const;
 
   // What shows, for the channel's replies, in the Swift app's shape.
   base::DictValue Snapshot() const;
@@ -149,6 +153,12 @@ class UiApp : public AppData::Client,
   void PageTitleChanged(const std::string& tab_id);
   void PageURLChanged(const std::string& tab_id);
   void PageDestroyed(const std::string& tab_id);
+  // Its renderer died: the first crash reloads it, and a second within a
+  // minute, or one behind another tab, leaves it crashed.
+  void PageCrashed(const std::string& tab_id);
+  // A page committed in place of one that died: the tab is back, and its
+  // crash loop starts over.
+  void PageCameBack(const std::string& tab_id);
 
   const raw_ref<AppData> data_;
   ProfileContexts contexts_;
@@ -166,6 +176,11 @@ class UiApp : public AppData::Client,
   // The URLs Pane was started with or handed, while they wait behind the
   // lock.
   std::vector<GURL> launch_urls_;
+  // When each tab's renderer last died, to tell a crash loop from a crash.
+  model::CrashLoop crashes_;
+  // The tabs that show the sad tab's place until they reload: a page that
+  // died and stayed dead, or one whose profile would not open.
+  std::set<std::string> crashed_tab_ids_;
   base::ScopedObservation<model::BrowserModel, model::BrowserModel::Observer>
       model_observation_{this};
   base::WeakPtrFactory<UiApp> weak_factory_{this};

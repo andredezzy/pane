@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { mainWindowOf } from "../lib/cua";
+import { earlierBuilds } from "../lib/earlier-builds";
 import { engineKey } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";
 import { launchPane, type PaneLaunch, tabOf } from "../lib/pane";
@@ -7,11 +8,11 @@ import { READ_BACK, type ReadBack, richSession } from "../lib/rich-session";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// A large profile an earlier Pane wrote (PANE_EARLIER_BUILDS, its first), opened
-// with this one: thousands of history entries, many cookies, hundreds of MB of
-// IndexedDB. It shows the move's panel past a second (Paper 07.5), goes on after
-// being killed at random points, and everything is still there. Reports the
-// migration's rate in MB/s.
+// A large profile an earlier Pane wrote (PANE_EARLIER_BUILDS, the first whose
+// files this one converts: before 0.18.0), opened with this one: thousands of
+// history entries, many cookies, hundreds of MB of IndexedDB. It shows the move's
+// panel past a second (Paper 07.5), goes on after being killed at random points,
+// and everything is still there. Reports the migration's rate in MB/s.
 const BLOB_BATCHES = Number(process.env.PANE_LARGE_BATCHES ?? 30);
 const BLOB_MB_PER_BATCH = 10;
 const HISTORY_ENTRIES = 10_000;
@@ -19,12 +20,12 @@ const COOKIES = 3_000;
 const KILLS = 6;
 
 const filesMigrationLarge: Scenario = async (context) => {
-	const earlier = (process.env.PANE_EARLIER_BUILDS ?? "")
-		.split(",")
-		.filter(Boolean)[0];
+	const earlier = earlierBuilds().find((build) => !build.encrypts)?.executable;
 
 	if (!earlier) {
-		context.defer("no earlier build named (PANE_EARLIER_BUILDS)");
+		context.defer(
+			"no earlier build whose files convert named (PANE_EARLIER_BUILDS)",
+		);
 
 		return {};
 	}

@@ -62,6 +62,8 @@ source_set("pane") {
     "common/host.h",
     "ui/after_frame.cc",
     "ui/after_frame.h",
+    "ui/app/installed_extensions.cc",
+    "ui/app/installed_extensions.h",
     "ui/app/ui_app.cc",
     "ui/app/ui_app.h",
     "ui/design/motion.cc",
@@ -144,6 +146,7 @@ source_set("pane") {
   # Pane's windows host Browsers (ADR 0014).
   deps = [
     "//base",
+    "//base:i18n",
     "//base/version_info",
     "//chrome/app:generated_resources",
     "//chrome/browser",
@@ -219,6 +222,7 @@ source_set("pane") {
     "//printing/buildflags",
     "//skia",
     "//third_party/blink/public/common",
+    "//third_party/icu",
     "//third_party/re2",
     "//ui/base",
     "//ui/compositor",

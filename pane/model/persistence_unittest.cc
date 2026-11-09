@@ -223,8 +223,8 @@ TEST_F(ProfilesPersistenceTest, ChosenTimeZone) {
 
   EXPECT_EQ(LoadProfiles()->front().fingerprint->timezone, "Asia/Tokyo");
   const std::string json = Read("profiles");
-  EXPECT_NE(json.find(R"("timeZone":"Asia/Tokyo")"), std::string::npos);
-  EXPECT_NE(json.find(R"("timezone":"Asia/Tokyo")"), std::string::npos);
+  EXPECT_NE(json.find(R"("timeZone":"Asia\/Tokyo")"), std::string::npos);
+  EXPECT_NE(json.find(R"("timezone":"Asia\/Tokyo")"), std::string::npos);
 }
 
 // A clear still owed outlives a quit.

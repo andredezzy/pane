@@ -12,10 +12,17 @@ import {
 import { dirname, join } from "node:path";
 import type { Page } from "../lib/cdp";
 import { mainWindowOf } from "../lib/cua";
+import { type EarlierBuild, earlierBuilds } from "../lib/earlier-builds";
 import { volumePassphrase } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";
 import { audit } from "../lib/file-audit";
-import { launchPane, type PaneApp, type PaneLaunch, tabOf } from "../lib/pane";
+import {
+	launchPane,
+	type PaneApp,
+	type PaneLaunch,
+	setUpPin,
+	tabOf,
+} from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import {
 	READ_BACK,
@@ -41,6 +48,13 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // A profile with no folder yet, made without a tab, migrates nothing: its missing
 // path resolved against the working directory, where the engine deleted a `Cache`
 // and looked through a `Profile`.
+//
+// A published Pane that encrypts its files itself (0.18.0 and later) has nothing
+// to convert: it and this one open each other's data instead, both ways, through
+// quits (the swap pass). This one reads everything the published one wrote, its
+// key sealed with a PIN; the published one reads it all again, and what this one
+// added; and it reads a session this one wrote from a new data folder, without a
+// PIN. Cookies included.
 //
 // PANE_EARLIER_BUILDS names the published Panes' executables, comma-separated:
 // each is the source of a pass.
@@ -329,6 +343,146 @@ async function pass(context: ScenarioContext, earlier: string) {
 		bytes: found.files.reduce((sum, file) => sum + file.size, 0),
 		fence: refused.security.data.failure?.slice(0, 200),
 		volumeFilesChecked: Object.keys(filesBefore).length,
+	};
+}
+
+// What this Pane adds to a published Pane's session, in its page: local storage,
+// a cookie, and IndexedDB, each holding `value`.
+const WRITE_SWAP = (value: string) => `(async () => {
+	const value = ${JSON.stringify(value)};
+	localStorage.setItem("swap", value);
+	document.cookie = "rich_swap=" + value + "; max-age=86400; path=/";
+	await new Promise((resolve, reject) => {
+		const opened = indexedDB.open("rich-session", 1);
+		opened.onerror = () => reject(opened.error);
+		opened.onsuccess = () => {
+			const tx = opened.result.transaction("items", "readwrite");
+			tx.objectStore("items").put(value, "swap");
+			tx.oncomplete = () => { opened.result.close(); resolve(); };
+			tx.onerror = () => reject(tx.error);
+		};
+	});
+})()`;
+
+const READ_SWAP = `(async () => ({
+	localStorage: localStorage.getItem("swap"),
+	cookie: document.cookie,
+	indexedDB: await new Promise((resolve, reject) => {
+		const opened = indexedDB.open("rich-session", 1);
+		opened.onerror = () => reject(opened.error);
+		opened.onsuccess = () => {
+			const read = opened.result.transaction("items").objectStore("items").get("swap");
+			read.onsuccess = () => { opened.result.close(); resolve(read.result ?? null); };
+			read.onerror = () => reject(read.error);
+		};
+	}),
+}))()`;
+
+// The PIN the published Pane's session is behind, in the swap pass.
+const SWAP_PIN = "2580";
+
+// The PIN screen's digits, as a user types them: the data opens after.
+async function unlock(app: PaneApp, pin: string) {
+	await app.send("pinKeys", { keys: pin });
+
+	await app.waitFor(
+		"unlocked, the data open",
+		(state) =>
+			!state.security.locked &&
+			state.security.data.phase === "open" &&
+			state.security.data.attached,
+		60_000,
+	);
+}
+
+// A published Pane that encrypts its files itself, and this one, each reading
+// what the other wrote (the swap pass, above). The published Pane's session is
+// behind a PIN, so its key opens here with a PIN it sealed; this one's is not.
+async function swap(context: ScenarioContext, earlier: string) {
+	const theirs = await richSession(context, earlier);
+	await setUpPin(theirs.app, SWAP_PIN);
+	await Bun.sleep(STORES_COMMITTED_MS);
+	await theirs.app.browser.close();
+
+	// Here, the published Pane's session, and this Pane's own values added.
+	const here = await launchPane(context, {
+		...theirs.launch,
+		binary: undefined,
+	});
+
+	await unlock(here, SWAP_PIN);
+
+	expectEverything(
+		await everything(here, theirs),
+		theirs,
+		"here, on the published Pane's data",
+	);
+
+	const value = crypto.randomUUID().replaceAll("-", "");
+	await (await here.page(theirs.tab, theirs.url)).evaluate(WRITE_SWAP(value));
+	await Bun.sleep(STORES_COMMITTED_MS);
+
+	const found = audit(theirs.roots, {
+		...theirs.planted,
+		values: { ...theirs.planted.values, swap: value },
+	});
+
+	expect(
+		found.plain.length === 0 &&
+			found.planted.length === 0 &&
+			found.named.length === 0,
+		`plain here, on the published Pane's data: ${JSON.stringify({ plain: found.plain, planted: found.planted, named: found.named })}`,
+	);
+
+	await here.browser.close();
+
+	// The published Pane again: everything it wrote, and what this one added.
+	const back = await launchPane(context, theirs.launch);
+	await unlock(back, SWAP_PIN);
+
+	expectEverything(
+		await everything(back, theirs),
+		theirs,
+		"the published Pane, after this one",
+	);
+
+	const added = await (await back.page(theirs.tab, theirs.url)).evaluate<{
+		localStorage: string | null;
+		cookie: string;
+		indexedDB: string | null;
+	}>(READ_SWAP);
+
+	expect(
+		added.localStorage === value &&
+			added.cookie.includes(`rich_swap=${value}`) &&
+			added.indexedDB === value,
+		`what this Pane wrote, in the published one: ${JSON.stringify(added)}`,
+	);
+
+	await back.browser.close();
+
+	// A session this Pane wrote from the start (its data folder, volume, and
+	// key), in the published one.
+	const ours = await richSession(context);
+	await Bun.sleep(STORES_COMMITTED_MS);
+	await ours.app.browser.close();
+
+	const there = await launchPane(context, { ...ours.launch, binary: earlier });
+
+	expectEverything(
+		await everything(there, ours),
+		ours,
+		"the published Pane, on this Pane's data",
+	);
+
+	await there.browser.close();
+
+	return {
+		earlier,
+		swap: "both ways",
+		theirsBehindPin: true,
+		files: found.files.length,
+		bytes: found.files.reduce((sum, file) => sum + file.size, 0),
 	};
 }
 
@@ -633,8 +787,9 @@ async function readPartitioned(
 
 // A site's IndexedDB stays its own, and a partitioned file system reads back. And
 // with PANE_REPAIR_FROM, a published Pane that got them wrong: what it left is
-// put right, for a profile with its safety copy.
-async function partitioned(context: ScenarioContext, earlier: string) {
+// put right, for a profile with its safety copy, which only a conversion makes.
+async function partitioned(context: ScenarioContext, build: EarlierBuild) {
+	const earlier = build.executable;
 	const migrated = await partitionedSession(context, earlier);
 
 	const app = await launchPane(context, {
@@ -652,7 +807,7 @@ async function partitioned(context: ScenarioContext, earlier: string) {
 
 	const wrong = process.env.PANE_REPAIR_FROM;
 
-	if (!wrong) {
+	if (!wrong || build.encrypts) {
 		return;
 	}
 
@@ -689,9 +844,7 @@ async function partitioned(context: ScenarioContext, earlier: string) {
 const filesMigration: Scenario = async (context) => {
 	await noFolder(context);
 
-	const builds = (process.env.PANE_EARLIER_BUILDS ?? "")
-		.split(",")
-		.filter(Boolean);
+	const builds = earlierBuilds();
 
 	if (builds.length === 0) {
 		context.defer("no earlier build named (PANE_EARLIER_BUILDS)");
@@ -699,11 +852,31 @@ const filesMigration: Scenario = async (context) => {
 		return {};
 	}
 
+	// The repair puts right what 0.18.0's conversion did to an earlier Pane's
+	// data: with no build whose files convert, it has nothing to repair.
+	if (process.env.PANE_REPAIR_FROM && builds.every((build) => build.encrypts)) {
+		context.defer(
+			"PANE_REPAIR_FROM needs an earlier build whose files convert (PANE_EARLIER_BUILDS)",
+		);
+	}
+
 	const passes = [];
 
 	for (const build of builds) {
-		passes.push(await pass(context, build));
-		await safetyCopy(context, build);
+		if (build.encrypts) {
+			passes.push({
+				version: build.version,
+				...(await swap(context, build.executable)),
+			});
+		} else {
+			passes.push({
+				version: build.version,
+				...(await pass(context, build.executable)),
+			});
+
+			await safetyCopy(context, build.executable);
+		}
+
 		await partitioned(context, build);
 	}
 

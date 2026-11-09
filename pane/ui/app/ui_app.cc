@@ -18,9 +18,11 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/process/kill.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/termination_notification.h"
@@ -31,11 +33,15 @@
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "components/download/public/common/download_item.h"
+#include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/reload_type.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/referrer.h"
 #include "pane/automation/automation.h"
+#include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
 #include "pane/model/address_input.h"
 #include "pane/model/app_settings.h"
@@ -45,13 +51,17 @@
 #include "pane/model/profile_form.h"
 #include "pane/model/tab_history.h"
 #include "pane/ui/after_frame.h"
+#include "pane/ui/app/installed_extensions.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/tabs/tab_id.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -112,6 +122,62 @@ std::string_view ProxyStatusName(model::BrowserModel::ProxyStatus status) {
   }
 }
 
+// How a renderer ended, as the engine's trace has always named it for the
+// scenarios (PaneRendererTermination): crashed, killed, out of memory, other.
+int TerminationOf(base::TerminationStatus status) {
+  switch (status) {
+    case base::TERMINATION_STATUS_PROCESS_CRASHED:
+    case base::TERMINATION_STATUS_ABNORMAL_TERMINATION:
+      return 0;
+    case base::TERMINATION_STATUS_PROCESS_WAS_KILLED:
+      return 1;
+    case base::TERMINATION_STATUS_OOM:
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+// The icon draws something at the toolbar's 16 points: a pixel at least 30%
+// opaque, as the Swift app's snapshot tells (hasVisiblePixels).
+bool HasVisiblePixels(const gfx::Image& icon) {
+  constexpr int kSize = 16;
+  if (icon.IsEmpty()) {
+    return false;
+  }
+  const gfx::ImageSkia& image = *icon.ToImageSkia();
+  if (image.isNull() || image.width() == 0 || image.height() == 0) {
+    return false;
+  }
+  gfx::Canvas canvas(gfx::Size(kSize, kSize), /*image_scale=*/1.0f,
+                     /*is_opaque=*/false);
+  canvas.DrawImageInt(image, 0, 0, image.width(), image.height(), 0, 0, kSize,
+                      kSize, /*filter=*/true);
+  const SkBitmap bitmap = canvas.GetBitmap();
+  for (int y = 0; y < bitmap.height(); ++y) {
+    for (int x = 0; x < bitmap.width(); ++x) {
+      if (SkColorGetA(bitmap.getColor(x, y)) > 0.3 * 255) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+std::string_view DownloadStateName(
+    download::DownloadItem::DownloadState state) {
+  switch (state) {
+    case download::DownloadItem::COMPLETE:
+      return "complete";
+    case download::DownloadItem::CANCELLED:
+      return "cancelled";
+    case download::DownloadItem::INTERRUPTED:
+      return "interrupted";
+    default:
+      return "inProgress";
+  }
+}
+
 // The profile a page of the window belongs to: its folder's name.
 std::optional<std::string> ProfileIdOf(content::WebContents* contents) {
   Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
@@ -139,6 +205,26 @@ class UiApp::Page : public content::WebContentsObserver {
 
   void PrimaryPageChanged(content::Page& page) override {
     app_->PageURLChanged(tab_id_);
+    app_->PageCameBack(tab_id_);
+  }
+
+  // The app hears of it once the process's other observers have, as the
+  // engine's TabBridge told the Swift app: a reload from in here would start
+  // a renderer mid-notification, before extensions forgot the old process.
+  void PrimaryMainFrameRenderProcessGone(
+      base::TerminationStatus status) override {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<UiApp> app, std::string tab_id, int termination) {
+              PANE_TRACE("callback",
+                         "PaneWebContentsDelegate.rendererDidTerminate",
+                         base::DictValue().Set("termination", termination));
+              if (app) {
+                app->PageCrashed(tab_id);
+              }
+            },
+            app_->weak_factory_.GetWeakPtr(), tab_id_, TerminationOf(status)));
   }
 
   // Destroyed with its page, which was not closed as a tab (the window's or
@@ -376,6 +462,7 @@ void UiApp::Select(const std::string& tab_id) {
                       // The profile would not open: the sad tab's place,
                       // which Phase 3 draws; selecting it tries again.
                       if (!profile) {
+                        app->crashed_tab_ids_.insert(tab_id);
                         return;
                       }
                       app->OpenPage(tab_id, profile, /*foreground=*/true);
@@ -490,11 +577,17 @@ void UiApp::AdoptOpeningTab(content::WebContents* contents) {
 
 void UiApp::AddPage(const std::string& tab_id, content::WebContents* contents) {
   pages_[tab_id] = std::make_unique<Page>(this, tab_id, contents);
+  // A page of its own again, its profile open.
+  crashed_tab_ids_.erase(tab_id);
 }
 
 content::WebContents* UiApp::PageOf(const std::string& tab_id) const {
   const auto page = pages_.find(tab_id);
   return page == pages_.end() ? nullptr : page->second->web_contents();
+}
+
+Profile* UiApp::ProfileIfOpen(const std::string& profile_id) const {
+  return contexts_.Get(profile_id);
 }
 
 // Never behind the lock: no page sits under the PIN screen.
@@ -520,6 +613,9 @@ void UiApp::Release(const std::string& tab_id) {
   content::WebContents* contents = found->second->web_contents();
   // Unmapped first: its removal is no tab closing.
   pages_.erase(found);
+  // A released tab's next page starts over.
+  crashes_.Forget(tab_id);
+  crashed_tab_ids_.erase(tab_id);
   if (window_->selected() == contents) {
     window_->root().ShowPage(nullptr);
   }
@@ -607,6 +703,34 @@ void UiApp::PageURLChanged(const std::string& tab_id) {
 
 void UiApp::PageDestroyed(const std::string& tab_id) {
   pages_.erase(tab_id);
+}
+
+// The first crash reloads the page, as a slept tab wakes. A page that dies
+// again within a minute stays crashed instead of looping, as does one behind
+// another tab, until it reloads (the Swift's rendererDidTerminate). Only a
+// renderer Chrome would show its sad tab for counts: not one that ended
+// normally, nor a page reloaded meanwhile.
+void UiApp::PageCrashed(const std::string& tab_id) {
+  content::WebContents* page = PageOf(tab_id);
+  if (!page || !page->IsCrashed()) {
+    return;
+  }
+  if (crashes_.Crashed(tab_id, base::Time::Now()) ||
+      model().active_tab_id() != tab_id) {
+    crashed_tab_ids_.insert(tab_id);
+    return;
+  }
+  page->GetController().Reload(content::ReloadType::NORMAL,
+                               /*check_for_repost=*/true);
+}
+
+// A crashed tab reloaded starts over, as the Swift's reloadCrashed: its next
+// crash is a first one. The automatic reload of a first crash, never marked,
+// keeps the loop's memory.
+void UiApp::PageCameBack(const std::string& tab_id) {
+  if (crashed_tab_ids_.erase(tab_id)) {
+    crashes_.Forget(tab_id);
+  }
 }
 
 // MARK: Window::Controller
@@ -746,6 +870,7 @@ void UiApp::TabRemoved(content::WebContents* contents) {
   // was selected, the next one is chosen once Chromium has left its tab strip.
   const std::string tab_id = found->first;
   pages_.erase(found);
+  crashes_.Forget(tab_id);
   const bool was_active = model().active_tab_id() == tab_id;
   const std::optional<std::string> profile_id = model().ProfileIdOfTab(tab_id);
   model().RemoveTab(tab_id);
@@ -788,6 +913,10 @@ void UiApp::ActiveTabChanged(content::WebContents* contents) {
 // MARK: model::BrowserModel::Observer
 
 void UiApp::OnProfilesChanged() {
+  // A tab that left the model, closed or behind the lock, is crashed no more.
+  std::erase_if(crashed_tab_ids_, [&](const std::string& tab_id) {
+    return !model().FindTab(tab_id);
+  });
   window_->Refresh();
 }
 
@@ -839,6 +968,55 @@ base::DictValue UiApp::Snapshot() const {
             .Set("savesHistory", profile.saves_history)
             .Set("tabs", std::move(tabs)));
   }
+  // Each open profile's extensions, their actions as for the profile's page
+  // the window shows (the Swift's ExtensionsController.lists), and its
+  // downloads, as the profile's download manager holds them.
+  base::DictValue extensions;
+  base::ListValue downloads;
+  content::WebContents* shown = window_->selected();
+  for (const model::BrowserProfile& profile : model.profiles()) {
+    Profile* open = contexts_.Get(profile.id);
+    if (!open) {
+      continue;
+    }
+    content::WebContents* tab =
+        shown && Profile::FromBrowserContext(shown->GetBrowserContext()) == open
+            ? shown
+            : nullptr;
+    base::ListValue installed;
+    for (const InstalledExtension& extension : InstalledExtensions(open, tab)) {
+      installed.Append(
+          base::DictValue()
+              .Set("id", extension.id)
+              .Set("name", extension.name)
+              .Set("version", extension.version)
+              .Set("enabled", extension.enabled)
+              .Set("pinned", extension.pinned)
+              .Set("actionTitle", extension.action_title)
+              .Set("iconVisible", HasVisiblePixels(extension.icon)));
+    }
+    extensions.Set(profile.id, std::move(installed));
+
+    download::SimpleDownloadManager::DownloadVector items;
+    open->GetDownloadManager()->GetAllDownloads(&items);
+    for (const download::DownloadItem* item : items) {
+      const base::FilePath& path = item->GetTargetFilePath();
+      downloads.Append(base::DictValue()
+                           .Set("id", item->GetGuid())
+                           .Set("url", item->GetURL().spec())
+                           .Set("path", path.empty()
+                                            ? base::Value()
+                                            : base::Value(path.AsUTF8Unsafe()))
+                           .Set("receivedBytes",
+                                static_cast<double>(item->GetReceivedBytes()))
+                           .Set("state", DownloadStateName(item->GetState())));
+    }
+  }
+  base::ListValue crashed;
+  for (const std::string& tab_id : crashed_tab_ids_) {
+    crashed.Append(tab_id);
+  }
+
   views::Widget* widget = window_->host().widget();
   const std::optional<std::string>& active_tab = model.active_tab_id();
   const std::optional<std::string>& active_profile = model.active_profile_id();
@@ -852,6 +1030,9 @@ base::DictValue UiApp::Snapshot() const {
       .Set("appIcon", model::AppIconName(model.settings().app_icon))
       .Set("sidebarWidth", model.settings().sidebar_width)
       .Set("closedTabs", static_cast<int>(model.history().closed().size()))
+      .Set("extensions", std::move(extensions))
+      .Set("downloads", std::move(downloads))
+      .Set("crashedTabs", std::move(crashed))
       .Set("address", window_->root().address())
       .Set("focus", window_->root().focus())
       .Set("window", base::DictValue()
