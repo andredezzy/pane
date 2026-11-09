@@ -228,13 +228,16 @@ void Window::AdoptOpeningTab(content::WebContents* contents) {
   }
 }
 
-void Window::OpenPendingTab(const std::string& id, const GURL& url) {
+void Window::OpenPendingTab(std::string id, const GURL& url) {
   if (!pending_tab_ || pending_tab_->id != id) {
     return;
   }
   base::AutoReset<std::optional<PendingTab>> opening(
       &opening_tab_, std::exchange(pending_tab_, std::nullopt));
-  OpenTab(opening_tab_->profile, url, opening_tab_->foreground);
+  // A page the engine couldn't make takes its row away.
+  if (!OpenTab(opening_tab_->profile, url, opening_tab_->foreground)) {
+    Refresh();
+  }
 }
 
 void Window::FocusAddress() {
@@ -244,6 +247,11 @@ void Window::FocusAddress() {
 }
 
 void Window::SelectTabAt(int number) {
+  // ⌘T's tab, still waiting for its frame, is the profile's last: it gets
+  // its page now, so the places count it.
+  if (pending_tab_) {
+    OpenPendingTab(pending_tab_->id, GURL(pending_tab_->url));
+  }
   Browser* browser = host_->active_profile()
                          ? host_->ExistingBrowserFor(host_->active_profile())
                          : nullptr;

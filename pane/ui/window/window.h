@@ -100,8 +100,9 @@ class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
   // Shows `contents` and its profile; a tab chosen takes the keyboard,
   // where ⌘T's keeps it in the address field.
   void ShowTab(content::WebContents* contents, bool chosen);
-  // Has the engine make ⌘T's tab `id`, at `url`, if it still waits.
-  void OpenPendingTab(const std::string& id, const GURL& url);
+  // Has the engine make ⌘T's tab `id`, at `url`, if it still waits. `id` is
+  // a copy: the pending tab it names goes as the page is made.
+  void OpenPendingTab(std::string id, const GURL& url);
   // Gives `contents`, the page OpenPendingTab made, the id its row showed
   // before it existed, in whichever of Chrome's calls comes first.
   void AdoptOpeningTab(content::WebContents* contents);
