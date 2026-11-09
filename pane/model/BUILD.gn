@@ -2,8 +2,8 @@
 
 # Pane's model and data, in plain C++ (docs/plans/views-migration.md, Phase
 # 2): the formats every Pane wrote, and the rules over them, ported from the
-# Swift PaneKit test by test. It depends on //base, //crypto, //url, and RE2
-# alone, so its tests run under the sanitizers apart from the engine.
+# Swift PaneKit test by test. It depends on //base, //crypto, //url, RE2, and
+# ICU alone, so its tests run under the sanitizers apart from the engine.
 
 source_set("model") {
   sources = [
@@ -11,16 +11,30 @@ source_set("model") {
     "address_input.h",
     "app_settings.cc",
     "app_settings.h",
+    "client_hints.cc",
+    "client_hints.h",
     "crash_loop.cc",
     "crash_loop.h",
     "data_key.cc",
     "data_key.h",
+    "engine_fingerprint.cc",
+    "engine_fingerprint.h",
+    "extension_shortcut.cc",
+    "extension_shortcut.h",
     "extension_text.cc",
     "extension_text.h",
+    "local_state.cc",
+    "local_state.h",
     "persisted_file.cc",
     "persisted_file.h",
     "profile.cc",
     "profile.h",
+    "profile_deletions.cc",
+    "profile_deletions.h",
+    "profile_form.cc",
+    "profile_form.h",
+    "proxy_passwords.cc",
+    "proxy_passwords.h",
     "proxy_route.cc",
     "proxy_route.h",
     "reorder.cc",
@@ -33,6 +47,14 @@ source_set("model") {
     "tab_history.h",
     "tab_switcher.cc",
     "tab_switcher.h",
+    "time_zones.cc",
+    "time_zones.h",
+    "update_install.cc",
+    "update_install.h",
+    "updates.cc",
+    "updates.h",
+    "value_reader.cc",
+    "value_reader.h",
     "versions.cc",
     "versions.h",
   ]
@@ -41,6 +63,7 @@ source_set("model") {
     "//base",
     "//crypto",
     "//third_party/boringssl",
+    "//third_party/icu",
     "//third_party/re2",
     "//url",
   ]
@@ -50,12 +73,14 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "client_hints_unittest.cc",
     "data_key_unittest.cc",
     "persistence_unittest.cc",
     "proxy_route_unittest.cc",
     "rules_unittest.cc",
     "security_unittest.cc",
     "tab_switcher_unittest.cc",
+    "updates_unittest.cc",
   ]
 
   # The files the Swift Pane wrote (SwiftVectorsTests.swift), which these read

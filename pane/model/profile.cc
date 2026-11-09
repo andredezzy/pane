@@ -2,12 +2,10 @@
 
 #include "pane/model/profile.h"
 
-#include <algorithm>
 #include <array>
-#include <iterator>
 #include <utility>
 
-#include "base/memory/raw_ptr.h"
+#include "pane/model/value_reader.h"
 
 namespace pane::model {
 
@@ -32,121 +30,12 @@ std::string_view NameOf(const std::array<std::string_view, N>& names,
   return names[static_cast<size_t>(value)];
 }
 
-// Reads a JSON object as Swift's Decodable does: a required key absent or
-// null fails, an optional one absent or null is nothing, and either of the
-// wrong type fails. Any failure fails the whole value.
-class Reader {
- public:
-  explicit Reader(const base::Value* value)
-      : dict_(value ? value->GetIfDict() : nullptr), ok_(dict_ != nullptr) {}
-
-  bool ok() const { return ok_; }
-
-  const base::Value* Present(std::string_view key) const {
-    const base::Value* value = dict_ ? dict_->Find(key) : nullptr;
-    return value && !value->is_none() ? value : nullptr;
-  }
-
-  const base::Value* Required(std::string_view key) {
-    const base::Value* value = Present(key);
-    ok_ = ok_ && value;
-    return value;
-  }
-
-  std::string String(std::string_view key) {
-    return Check(StringOf(Required(key))).value_or(std::string());
-  }
-
-  std::optional<std::string> OptionalString(std::string_view key) {
-    const base::Value* value = Present(key);
-    return value ? Check(StringOf(value)) : std::nullopt;
-  }
-
-  int Int(std::string_view key) {
-    const base::Value* value = Required(key);
-    return Check(value ? value->GetIfInt() : std::nullopt).value_or(0);
-  }
-
-  std::optional<int> OptionalInt(std::string_view key) {
-    const base::Value* value = Present(key);
-    return value ? Check(value->GetIfInt()) : std::nullopt;
-  }
-
-  double Double(std::string_view key) {
-    const base::Value* value = Required(key);
-    return Check(value ? value->GetIfDouble() : std::nullopt).value_or(0);
-  }
-
-  std::optional<bool> OptionalBool(std::string_view key) {
-    const base::Value* value = Present(key);
-    return value ? Check(value->GetIfBool()) : std::nullopt;
-  }
-
-  std::vector<std::string> Strings(std::string_view key) {
-    std::vector<std::string> strings;
-    const base::Value* value = Required(key);
-    const base::ListValue* list = value ? value->GetIfList() : nullptr;
-    ok_ = ok_ && list;
-    if (list) {
-      for (const base::Value& item : *list) {
-        strings.push_back(Check(StringOf(&item)).value_or(std::string()));
-      }
-    }
-    return strings;
-  }
-
-  template <typename Enum, size_t N>
-  std::optional<Enum> OptionalEnum(
-      std::string_view key,
-      const std::array<std::string_view, N>& names) {
-    const base::Value* value = Present(key);
-    if (!value) {
-      return std::nullopt;
-    }
-    const std::string* name = value->GetIfString();
-    const auto it = name ? std::ranges::find(names, *name) : names.end();
-    ok_ = ok_ && it != names.end();
-    return it == names.end() ? std::nullopt
-                             : std::make_optional(static_cast<Enum>(
-                                   std::distance(names.begin(), it)));
-  }
-
-  template <typename Enum, size_t N>
-  Enum RequiredEnum(std::string_view key,
-                    const std::array<std::string_view, N>& names) {
-    ok_ = ok_ && Present(key);
-    return OptionalEnum<Enum>(key, names).value_or(Enum());
-  }
-
-  // A value another reader takes, and fails with.
-  template <typename T>
-  T Take(std::optional<T> value) {
-    ok_ = ok_ && value.has_value();
-    return value ? std::move(*value) : T();
-  }
-
- private:
-  static std::optional<std::string> StringOf(const base::Value* value) {
-    const std::string* string = value ? value->GetIfString() : nullptr;
-    return string ? std::make_optional(*string) : std::nullopt;
-  }
-
-  template <typename T>
-  std::optional<T> Check(std::optional<T> value) {
-    ok_ = ok_ && value.has_value();
-    return value;
-  }
-
-  raw_ptr<const base::DictValue> dict_;
-  bool ok_;
-};
-
 base::Value OrNull(const std::optional<std::string>& value) {
   return value ? base::Value(*value) : base::Value();
 }
 
 std::optional<Fingerprint::Screen> ScreenFromValue(const base::Value* value) {
-  Reader reader(value);
+  ValueReader reader(value);
   Fingerprint::Screen screen{
       .width = reader.Int("width"),
       .height = reader.Int("height"),
@@ -155,7 +44,7 @@ std::optional<Fingerprint::Screen> ScreenFromValue(const base::Value* value) {
 }
 
 std::optional<Fingerprint::WebGL> WebGLFromValue(const base::Value* value) {
-  Reader reader(value);
+  ValueReader reader(value);
   Fingerprint::WebGL webgl{.vendor = reader.String("vendor"),
                            .renderer = reader.String("renderer")};
   return reader.ok() ? std::make_optional(webgl) : std::nullopt;
@@ -163,13 +52,13 @@ std::optional<Fingerprint::WebGL> WebGLFromValue(const base::Value* value) {
 
 // A noise switch, {"noise": true}.
 std::optional<bool> NoiseFromValue(const base::Value* value) {
-  Reader reader(value);
+  ValueReader reader(value);
   const std::optional<bool> noise = reader.OptionalBool("noise");
   return reader.ok() && noise ? noise : std::nullopt;
 }
 
 std::optional<Fingerprint> FingerprintFromValue(const base::Value* value) {
-  Reader reader(value);
+  ValueReader reader(value);
   Fingerprint fingerprint;
   fingerprint.user_agent = reader.String("userAgent");
   fingerprint.platform = reader.RequiredEnum<Platform>("platform", kPlatforms);
@@ -227,7 +116,7 @@ base::Value FingerprintToValue(const Fingerprint& fingerprint) {
 }
 
 std::optional<ProxyConfig> ProxyFromValue(const base::Value* value) {
-  Reader reader(value);
+  ValueReader reader(value);
   ProxyConfig proxy;
   proxy.type = reader.RequiredEnum<ProxyType>("proxyType", kProxyTypes);
   proxy.host = reader.String("host");
@@ -247,7 +136,7 @@ base::Value ProxyToValue(const ProxyConfig& proxy) {
 }
 
 std::optional<Tab> TabFromValue(const base::Value* value) {
-  Reader reader(value);
+  ValueReader reader(value);
   Tab tab{.id = reader.String("id"),
           .url = reader.String("url"),
           .title = reader.OptionalString("title").value_or(""),
@@ -293,7 +182,7 @@ BrowserProfile::~BrowserProfile() = default;
 // static
 std::optional<BrowserProfile> BrowserProfile::FromValue(
     const base::Value& value) {
-  Reader reader(&value);
+  ValueReader reader(&value);
   BrowserProfile profile;
   profile.id = reader.String("id");
   profile.name = reader.String("name");
@@ -354,7 +243,7 @@ void BrowserProfile::SetSavesHistory(bool saves) {
 
 std::optional<std::vector<BrowserProfile>> ProfilesFromState(
     const base::Value& state) {
-  Reader reader(&state);
+  ValueReader reader(&state);
   const base::Value* profiles = reader.Required("profiles");
   const base::ListValue* list = profiles ? profiles->GetIfList() : nullptr;
   if (!list) {

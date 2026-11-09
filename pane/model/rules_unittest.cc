@@ -1,6 +1,8 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
+#include <algorithm>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -8,9 +10,13 @@
 #include "base/time/time.h"
 #include "pane/model/address_input.h"
 #include "pane/model/crash_loop.h"
+#include "pane/model/extension_shortcut.h"
 #include "pane/model/extension_text.h"
+#include "pane/model/profile_form.h"
+#include "pane/model/proxy_passwords.h"
 #include "pane/model/reorder.h"
 #include "pane/model/tab_history.h"
+#include "pane/model/time_zones.h"
 #include "pane/model/versions.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -317,6 +323,226 @@ TEST(TabHistoryTest, EmptyPop) {
   TabHistory history;
 
   EXPECT_EQ(history.PopClosed(), std::nullopt);
+}
+
+// Ported from PaneKit's ExtensionShortcutTests.
+
+using enum KeyModifier;
+
+ShortcutRefusal Refusal(ShortcutRefusal::Reason reason) {
+  return {.reason = reason};
+}
+
+// Chrome's shortcut reads in the Mac's order, the key last.
+TEST(ExtensionShortcutsTest, Glyphs) {
+  EXPECT_EQ(ShortcutGlyphs("Command+Shift+Y"), "⇧⌘Y");
+  EXPECT_EQ(ShortcutGlyphs("Ctrl+Alt+Shift+Command+K"), "⌃⌥⇧⌘K");
+  EXPECT_EQ(ShortcutGlyphs("Alt+Shift+Comma"), "⌥⇧,");
+  EXPECT_EQ(ShortcutGlyphs("Ctrl+Up"), "⌃↑");
+  EXPECT_EQ(ShortcutGlyphs("Command+Space"), "⌘Space");
+  EXPECT_EQ(ShortcutGlyphs("Command+7"), "⌘7");
+  EXPECT_EQ(ShortcutGlyphs(""), "");
+}
+
+// Held modifiers read in the same order.
+TEST(ExtensionShortcutsTest, HeldModifiers) {
+  EXPECT_EQ(ModifierGlyphs({kCommand, kOption}), "⌥⌘");
+  EXPECT_EQ(ModifierGlyphs({kShift, kControl, kCapsLock}), "⌃⇧");
+  EXPECT_EQ(ModifierGlyphs({}), "");
+}
+
+// A key alone needs Ctrl, Alt, or ⌘; Shift is not one.
+TEST(ExtensionShortcutsTest, IncludeModifier) {
+  const ShortcutRefusal include =
+      Refusal(ShortcutRefusal::Reason::kIncludeModifier);
+
+  EXPECT_EQ(ShortcutRefusalFor({}), include);
+  EXPECT_EQ(ShortcutRefusalFor({kShift}), include);
+  EXPECT_EQ(ShortcutRefusalFor({kCapsLock}), include);
+  EXPECT_EQ(ShortcutRefusalFor({kCommand, kShift}), std::nullopt);
+  EXPECT_EQ(ShortcutRefusalFor({kControl}), std::nullopt);
+  EXPECT_EQ(ShortcutRefusalFor({kOption, kShift}), std::nullopt);
+  EXPECT_EQ(ShortcutRefusalFor({kControl, kCommand}), std::nullopt);
+}
+
+// ⌥ with ⌃ or ⌘, or three modifiers, is an invalid combination.
+TEST(ExtensionShortcutsTest, InvalidCombination) {
+  const ShortcutRefusal invalid =
+      Refusal(ShortcutRefusal::Reason::kInvalidCombination);
+
+  EXPECT_EQ(ShortcutRefusalFor({kOption, kCommand}), invalid);
+  EXPECT_EQ(ShortcutRefusalFor({kOption, kControl}), invalid);
+  EXPECT_EQ(ShortcutRefusalFor({kControl, kOption, kShift, kCommand}), invalid);
+  EXPECT_EQ(ShortcutRefusalFor({kControl, kShift, kCommand}), invalid);
+}
+
+// The messages are Chrome's macOS strings, and Pane's for its own keys.
+TEST(ExtensionShortcutsTest, Messages) {
+  EXPECT_EQ(Refusal(ShortcutRefusal::Reason::kIncludeModifier).Message(),
+            "Include Ctrl, Alt, or ⌘");
+  EXPECT_EQ(Refusal(ShortcutRefusal::Reason::kInvalidCombination).Message(),
+            "Invalid combination");
+  EXPECT_EQ(Refusal(ShortcutRefusal::Reason::kTypeALetter).Message(),
+            "Type a letter");
+  EXPECT_EQ((ShortcutRefusal{.reason = ShortcutRefusal::Reason::kPanes,
+                             .item = "New Tab",
+                             .shortcut = "Command+T"})
+                .Message(),
+            "⌘T is Pane’s New Tab");
+}
+
+// Ported from PaneKit's TimeZonesTests. Its known zones are ICU's, by their
+// IANA names: Foundation's list had a few older names beside or instead of
+// them (Asia/Calcutta for Asia/Kolkata, Europe/Kiev beside Europe/Kyiv).
+
+// 15 January 2027: New York on standard time.
+constexpr base::Time kJanuary =
+    base::Time::FromSecondsSinceUnixEpoch(1'800'000'000);
+
+std::vector<std::string> RegionNames(
+    const std::vector<TimeZoneRegion>& regions) {
+  std::vector<std::string> names;
+  for (const TimeZoneRegion& region : regions) {
+    names.push_back(region.name);
+  }
+  return names;
+}
+
+std::vector<std::string> Titles(const TimeZoneRegion& region) {
+  std::vector<std::string> titles;
+  for (const TimeZoneChoice& choice : region.choices) {
+    titles.push_back(choice.title);
+  }
+  return titles;
+}
+
+// The regions, in order, leave out what nobody would claim.
+TEST(TimeZonesTest, Regions) {
+  const std::vector<TimeZoneRegion> regions =
+      TimeZoneRegions({"Antarctica/Troll", "Arctic/Longyearbyen", "GMT",
+                       "Pacific/Fiji", "Africa/Lagos"},
+                      base::Time::Now());
+
+  EXPECT_EQ(RegionNames(regions),
+            (std::vector<std::string>{"Africa", "Pacific"}));
+}
+
+// Each choice names its place and its offset, sorted within its region.
+TEST(TimeZonesTest, Choices) {
+  const std::vector<TimeZoneRegion> regions =
+      TimeZoneRegions({"America/New_York", "America/Argentina/Buenos_Aires",
+                       "Asia/Kolkata", "Asia/Tokyo"},
+                      kJanuary);
+  ASSERT_EQ(RegionNames(regions),
+            (std::vector<std::string>{"America", "Asia"}));
+  const TimeZoneRegion& america = regions[0];
+  const TimeZoneRegion& asia = regions[1];
+
+  EXPECT_EQ(Titles(america),
+            (std::vector<std::string>{"Argentina, Buenos Aires (GMT−3)",
+                                      "New York (GMT−5)"}));
+  EXPECT_EQ(america.choices.back().identifier, "America/New_York");
+  EXPECT_EQ(Titles(asia),
+            (std::vector<std::string>{"Kolkata (GMT+5:30)", "Tokyo (GMT+9)"}));
+}
+
+// A zone's city, for the trigger and the note.
+TEST(TimeZonesTest, City) {
+  EXPECT_EQ(TimeZoneCity("America/Sao_Paulo"), "Sao Paulo");
+  EXPECT_EQ(TimeZoneCity("America/Argentina/Buenos_Aires"), "Buenos Aires");
+  EXPECT_EQ(TimeZoneCity(kUTCTimeZone), "UTC");
+}
+
+// Every region lists what this Mac knows.
+TEST(TimeZonesTest, Known) {
+  const std::vector<TimeZoneRegion> regions = TimeZoneRegions();
+
+  EXPECT_EQ(
+      RegionNames(regions),
+      (std::vector<std::string>{"Africa", "America", "Asia", "Atlantic",
+                                "Australia", "Europe", "Indian", "Pacific"}));
+  EXPECT_TRUE(std::ranges::any_of(regions, [](const TimeZoneRegion& region) {
+    return std::ranges::any_of(region.choices,
+                               [](const TimeZoneChoice& choice) {
+                                 return choice.identifier == "America/New_York";
+                               });
+  }));
+}
+
+// Ported from PaneKit's ProxyPasswordsTests.
+
+BrowserProfile ProxiedProfile(
+    const std::string& id,
+    std::optional<std::string> username = std::nullopt,
+    std::optional<std::string> password = std::nullopt,
+    bool proxied = true) {
+  BrowserProfile profile;
+  profile.id = id;
+  profile.name = id;
+  if (proxied) {
+    profile.proxy.emplace();
+    profile.proxy->type = ProxyType::kHttp;
+    profile.proxy->host = "proxy.example";
+    profile.proxy->port = 3128;
+    profile.proxy->username = std::move(username);
+    profile.proxy->password = std::move(password);
+  }
+  profile.created_at = "2026-10-27T00:00:00.000Z";
+  profile.updated_at = "2026-10-27T00:00:00.000Z";
+  return profile;
+}
+
+std::optional<std::string> PasswordOf(const BrowserProfile& profile) {
+  return profile.proxy ? profile.proxy->password : std::nullopt;
+}
+
+// The passwords an earlier Pane kept apart go back into its profiles.
+TEST(ProxyPasswordsTest, Filled) {
+  const std::vector<BrowserProfile> profiles = FillProxyPasswords(
+      {ProxiedProfile("a", "u"), ProxiedProfile("b", "u"),
+       ProxiedProfile("c", std::nullopt, std::nullopt, /*proxied=*/false)},
+      {{"a", "s3cret"}, {"c", "no proxy"}});
+
+  ASSERT_EQ(profiles.size(), 3u);
+  EXPECT_EQ(PasswordOf(profiles[0]), "s3cret");
+  EXPECT_EQ(PasswordOf(profiles[1]), std::nullopt);
+  EXPECT_EQ(PasswordOf(profiles[2]), std::nullopt);
+}
+
+// A password the file still holds is read, and wins.
+TEST(ProxyPasswordsTest, Legacy) {
+  const std::vector<BrowserProfile> legacy = {
+      ProxiedProfile("a", "u", "from-file")};
+
+  EXPECT_TRUE(NeedsProxyPasswordStore(legacy));
+  EXPECT_EQ(PasswordOf(FillProxyPasswords(legacy, {{"a", "stale"}}).front()),
+            "from-file");
+}
+
+// Only a proxy that signs in needs the store.
+TEST(ProxyPasswordsTest, NeedsStore) {
+  EXPECT_FALSE(NeedsProxyPasswordStore(
+      {ProxiedProfile("a"),
+       ProxiedProfile("b", std::nullopt, std::nullopt, /*proxied=*/false)}));
+  EXPECT_TRUE(NeedsProxyPasswordStore({ProxiedProfile("a", "u")}));
+}
+
+// Ported from PaneKit's ProfileFormTests: its presets, which the engine's
+// fingerprints start from.
+
+// Each platform's preset is the Electron app's.
+TEST(ProfileFormTest, Presets) {
+  EXPECT_EQ(
+      FingerprintPreset(Platform::kWindows).screen,
+      (Fingerprint::Screen{.width = 1920, .height = 1080, .color_depth = 24}));
+  EXPECT_EQ(
+      FingerprintPreset(Platform::kMacOS).screen,
+      (Fingerprint::Screen{.width = 1440, .height = 900, .color_depth = 30}));
+  EXPECT_EQ(FingerprintPreset(Platform::kLinux).hardware_concurrency, 4);
+  for (Platform platform :
+       {Platform::kWindows, Platform::kMacOS, Platform::kLinux}) {
+    EXPECT_EQ(FingerprintPreset(platform).platform, platform);
+  }
 }
 
 }  // namespace

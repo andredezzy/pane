@@ -2,14 +2,20 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
+#include "base/types/expected.h"
+#include "build/build_config.h"
 #include "pane/model/app_settings.h"
+#include "pane/model/local_state.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/profile.h"
+#include "pane/model/profile_deletions.h"
+#include "pane/model/profile_form.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace pane::model {
@@ -210,12 +216,7 @@ TEST_F(ProfilesPersistenceTest, RoundTrips) {
 // requires.
 TEST_F(ProfilesPersistenceTest, ChosenTimeZone) {
   BrowserProfile profile = Work();
-  profile.fingerprint.emplace();
-  profile.fingerprint->user_agent = "UA";
-  profile.fingerprint->platform = Platform::kMacOS;
-  profile.fingerprint->screen = {.width = 1512, .height = 982};
-  profile.fingerprint->language = "en-US";
-  profile.fingerprint->languages = {"en-US", "en"};
+  profile.fingerprint = FingerprintPreset(Platform::kMacOS);
   profile.fingerprint->timezone = "Asia/Tokyo";
 
   ASSERT_TRUE(File("profiles").Save(ProfilesState({profile})));
@@ -269,6 +270,116 @@ TEST_F(ProfilesPersistenceTest, WritesNulls) {
 // Reports a missing file as nothing.
 TEST_F(ProfilesPersistenceTest, MissingFile) {
   EXPECT_EQ(File("profiles").Load().value(), std::nullopt);
+}
+
+// Ported from PaneKit's ProfileDeletionsTests. The volume is the vault's:
+// here its removal of a profile is what it does, the profile's link or plain
+// folder in Engine and in the caches, and its folder in the volume.
+
+// Whether anything is at `path`, a link included, wherever it leads.
+bool Exists(const base::FilePath& path) {
+  return base::PathExists(path) || base::IsLink(path);
+}
+
+// A delete the engine never confirmed is finished at the next launch.
+TEST(ProfileDeletionsTest, Purge) {
+  base::ScopedTempDir directory;
+  ASSERT_TRUE(directory.CreateUniqueTempDir());
+  const base::FilePath root = directory.GetPath();
+  const base::FilePath data = root.AppendASCII("data");
+  const base::FilePath caches = root.AppendASCII("caches");
+  const auto at = [&](std::string_view path) { return root.AppendASCII(path); };
+
+  // "gone" as an earlier Pane left it, plain; "linked" behind its links into
+  // the volume.
+  for (std::string_view folder :
+       {"data/Engine/gone/Network", "caches/Engine/gone/Cache",
+        "data/Engine/kept", "outside", "data/Engine/Volume/linked/Profile",
+        "data/Engine/Volume/linked/Cache"}) {
+    ASSERT_TRUE(base::CreateDirectory(at(folder)));
+  }
+#if BUILDFLAG(IS_POSIX)
+  ASSERT_TRUE(base::CreateSymbolicLink(at("data/Engine/Volume/linked/Profile"),
+                                       at("data/Engine/linked")));
+  ASSERT_TRUE(base::CreateSymbolicLink(at("data/Engine/Volume/linked/Cache"),
+                                       at("caches/Engine/linked")));
+#endif
+
+  const auto remove_profile =
+      [&](const std::string& id) -> base::expected<void, std::string> {
+    for (const base::FilePath& path :
+         {data.AppendASCII("Engine").AppendASCII(id),
+          caches.AppendASCII("Engine").AppendASCII(id),
+          data.AppendASCII("Engine").AppendASCII("Volume").AppendASCII(id)}) {
+      if (!base::DeletePathRecursively(path)) {
+        return base::unexpected(path.AsUTF8Unsafe());
+      }
+    }
+    return base::ok();
+  };
+
+  ProfileDeletions deletions(data);
+  deletions.Add("gone");
+  deletions.Add("linked");
+  deletions.Add("confirmed");
+  deletions.Remove("confirmed");
+  // Never a path out of Engine.
+  deletions.Add("../../outside");
+
+  EXPECT_EQ(ProfileDeletions(data).Pending(),
+            (std::vector<std::string>{"gone", "linked", "../../outside"}));
+  EXPECT_TRUE(deletions.Purge(remove_profile).empty());
+
+  for (std::string_view gone :
+       {"data/Engine/gone", "caches/Engine/gone", "data/Engine/linked",
+        "caches/Engine/linked", "data/Engine/Volume/linked"}) {
+    EXPECT_FALSE(Exists(at(gone))) << gone << " is still there";
+  }
+  EXPECT_TRUE(Exists(at("data/Engine/kept")));
+  EXPECT_TRUE(Exists(at("outside")));
+  EXPECT_TRUE(deletions.Pending().empty());
+  EXPECT_FALSE(Exists(data.AppendASCII("deletions.json")));
+}
+
+// Ported from PaneKit's LocalStateTests, in its DataVolumeTests.
+
+std::optional<std::string> TextAt(const base::Value& value,
+                                  std::string_view path) {
+  const std::string* text = value.GetDict().FindStringByDottedPath(path);
+  return text ? std::make_optional(*text) : std::nullopt;
+}
+
+// The engine starts on its Default profile, with no profile of Pane's open
+// last, and keeps no time of use.
+TEST(LocalStateTest, StartsOnDefault) {
+  const std::optional<base::Value> state = base::JSONReader::Read(
+      R"({"profile":{"last_used":"0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e","last_active_profiles":["0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e"],"info_cache":{"Default":{"name":"Person 1"},"0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e":{"name":"Person 2","active_time":1793000000.5}}},"tab_stats":{"max_tabs_per_window":21},"browser":{"enabled_labs_experiments":[]},"profile_counts_reported":"13437866866342267"})",
+      base::JSON_PARSE_RFC);
+  ASSERT_TRUE(state);
+  const std::optional<base::Value> changed = StartingOnDefaultProfile(*state);
+  ASSERT_TRUE(changed);
+  const base::DictValue& json = changed->GetDict();
+
+  EXPECT_EQ(TextAt(*changed, "profile.last_used"), "Default");
+  const base::ListValue* last_active =
+      json.FindListByDottedPath("profile.last_active_profiles");
+  ASSERT_TRUE(last_active);
+  EXPECT_TRUE(last_active->empty());
+  // No time or count of use, outside the volume.
+  EXPECT_FALSE(json.FindByDottedPath(
+      "profile.info_cache.0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e.active_time"));
+  EXPECT_FALSE(json.Find("tab_stats"));
+  // Nothing else changes.
+  EXPECT_EQ(TextAt(*changed, "profile.info_cache.Default.name"), "Person 1");
+  EXPECT_EQ(
+      TextAt(*changed,
+             "profile.info_cache.0b1c3f2a-6a1d-4c1b-9d2e-1f0a2b3c4d5e.name"),
+      "Person 2");
+  EXPECT_EQ(TextAt(*changed, "profile_counts_reported"), "13437866866342267");
+  EXPECT_TRUE(json.Find("browser"));
+
+  // Once it does, nothing more is written.
+  EXPECT_EQ(StartingOnDefaultProfile(*changed), std::nullopt);
 }
 
 }  // namespace
