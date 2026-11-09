@@ -72,9 +72,20 @@ std::string SafeOpen(int count) {
 
 // `diskutil image`, where macOS has it (26 and later), since hdiutil's
 // attach is deprecated there.
+bool g_use_hdiutil_for_testing = false;
+
 bool HasDiskutilImage() {
-  return base::mac::MacOSMajorVersion() >= 26;
+  return !g_use_hdiutil_for_testing && base::mac::MacOSMajorVersion() >= 26;
 }
+
+}  // namespace
+
+// static
+void DataVolume::UseHdiutilForTesting(bool use) {
+  g_use_hdiutil_for_testing = use;
+}
+
+namespace {
 
 std::string Device(std::string_view name) {
   return name.starts_with("/dev/") ? std::string(name)

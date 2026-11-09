@@ -63,6 +63,10 @@ struct VolumeError {
 // it: they belong on the volume's sequence (MayBlock, WithBaseSyncPrimitives).
 class DataVolume {
  public:
+  // Makes and attaches images with hdiutil, as on the macOS versions before
+  // 26, on any macOS: the tests run that path on this one too.
+  static void UseHdiutilForTesting(bool use);
+
   // An attached image's devices: its own (/dev/diskN), which detaches it
   // whole, and its encrypted volume's.
   struct Devices {

@@ -61,6 +61,43 @@ class DataVolumeTest : public testing::Test {
 
   base::FilePath Root() const { return directory_.GetPath(); }
 
+  // An image made and opened, then opened again, still mounted.
+  void OpensTwice() {
+    SerializeImages();
+    const DataVolume volume(Root(), std::nullopt);
+    WillAttach(volume);
+    const base::expected<DataVolume::Devices, VolumeError> devices =
+        volume.AttachOrMake("pass");
+    ASSERT_TRUE(devices.has_value()) << devices.error().ToString();
+
+    const base::expected<void, VolumeError> opened =
+        volume.Open(*devices, "pass");
+    ASSERT_TRUE(opened.has_value()) << opened.error().ToString();
+    EXPECT_TRUE(volume.IsMounted());
+    const base::expected<void, VolumeError> again =
+        volume.Open(*devices, "pass");
+    ASSERT_TRUE(again.has_value()) << again.error().ToString();
+    EXPECT_TRUE(volume.IsMounted());
+  }
+
+  // An image made under a former passphrase, whose change fails, unopened.
+  void StopsAtAPassphraseThatWillNotChange() {
+    SerializeImages();
+    const DataVolume volume(Root(), std::nullopt);
+    WillAttach(volume);
+    const base::expected<DataVolume::Devices, VolumeError> devices =
+        volume.AttachOrMake("former");
+    ASSERT_TRUE(devices.has_value()) << devices.error().ToString();
+
+    // APFS refuses an empty passphrase, which fails the change.
+    const base::expected<void, VolumeError> opened =
+        volume.Open(*devices, "", "former");
+    ASSERT_FALSE(opened.has_value());
+    EXPECT_EQ(opened.error().kind, VolumeError::Kind::kTool)
+        << opened.error().ToString();
+    EXPECT_FALSE(volume.IsMounted());
+  }
+
   // One at a time, across the test launcher's processes: these attach real
   // images, and a cleanup that detached by device number would take another
   // test's image, given the same number a moment later. A lock on a file of
@@ -222,39 +259,27 @@ TEST_F(DataVolumeTest, HasFolder) {
 
 // A volume a lock could not detach opens as it is.
 TEST_F(DataVolumeTest, OpenTwice) {
-  SerializeImages();
-  const DataVolume volume(Root(), std::nullopt);
-  WillAttach(volume);
-  const base::expected<DataVolume::Devices, VolumeError> devices =
-      volume.AttachOrMake("pass");
-  ASSERT_TRUE(devices.has_value()) << devices.error().ToString();
+  OpensTwice();
+}
 
-  const base::expected<void, VolumeError> opened =
-      volume.Open(*devices, "pass");
-  ASSERT_TRUE(opened.has_value()) << opened.error().ToString();
-  EXPECT_TRUE(volume.IsMounted());
-  const base::expected<void, VolumeError> again = volume.Open(*devices, "pass");
-  ASSERT_TRUE(again.has_value()) << again.error().ToString();
-  EXPECT_TRUE(volume.IsMounted());
+// Not in PaneKit: the same through hdiutil, which macOS before 26 takes.
+TEST_F(DataVolumeTest, OpenTwiceWithHdiutil) {
+  DataVolume::UseHdiutilForTesting(true);
+  OpensTwice();
+  DataVolume::UseHdiutilForTesting(false);
 }
 
 // A passphrase that will not change stops the open: nothing converts while
 // the former one still opens the volume.
 TEST_F(DataVolumeTest, FormerPassphraseThatWillNotChange) {
-  SerializeImages();
-  const DataVolume volume(Root(), std::nullopt);
-  WillAttach(volume);
-  const base::expected<DataVolume::Devices, VolumeError> devices =
-      volume.AttachOrMake("former");
-  ASSERT_TRUE(devices.has_value()) << devices.error().ToString();
+  StopsAtAPassphraseThatWillNotChange();
+}
 
-  // APFS refuses an empty passphrase, which fails the change.
-  const base::expected<void, VolumeError> opened =
-      volume.Open(*devices, "", "former");
-  ASSERT_FALSE(opened.has_value());
-  EXPECT_EQ(opened.error().kind, VolumeError::Kind::kTool)
-      << opened.error().ToString();
-  EXPECT_FALSE(volume.IsMounted());
+// Not in PaneKit: the same through hdiutil, which macOS before 26 takes.
+TEST_F(DataVolumeTest, FormerPassphraseThatWillNotChangeWithHdiutil) {
+  DataVolume::UseHdiutilForTesting(true);
+  StopsAtAPassphraseThatWillNotChange();
+  DataVolume::UseHdiutilForTesting(false);
 }
 
 // A profile's engine folder and caches are links into the volume.
