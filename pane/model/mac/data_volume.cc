@@ -41,6 +41,7 @@
 #include "base/values.h"
 #include "pane/model/mac/file_operations.h"
 #include "pane/model/mac/panic_wipe.h"
+#include "pane/model/profile.h"
 
 namespace pane::model {
 
@@ -908,6 +909,10 @@ bool DataVolume::HasFolder(std::string_view profile_id) const {
 base::expected<void, VolumeError> DataVolume::Prepare(
     std::string_view profile_id,
     bool saves_history) const {
+  if (!IsProfileFolderName(profile_id)) {
+    return base::unexpected(VolumeError::File(
+        base::StrCat({"a profile id that isn't one folder: ", profile_id})));
+  }
   if (IsPlainFolder(EngineFolder(profile_id))) {
     RETURN_IF_ERROR(MoveIn({std::string(profile_id)}, [](double) {}));
   }
@@ -1049,6 +1054,10 @@ base::expected<void, VolumeError> DataVolume::MoveIn(
   std::vector<std::string> plain;
   int64_t total = 0;
   for (const std::string& id : profile_ids) {
+    if (!IsProfileFolderName(id)) {
+      return base::unexpected(VolumeError::File(
+          base::StrCat({"a profile id that isn't one folder: ", id})));
+    }
     if (IsPlainFolder(EngineFolder(id))) {
       plain.push_back(id);
       total += SizeOf(EngineFolder(id));
@@ -1115,6 +1124,10 @@ bool DataVolume::HasPlainProfiles() const {
 
 base::expected<void, VolumeError> DataVolume::Remove(
     std::string_view profile_id) const {
+  if (!IsProfileFolderName(profile_id)) {
+    return base::unexpected(VolumeError::File(
+        base::StrCat({"a profile id that isn't one folder: ", profile_id})));
+  }
   std::vector<base::FilePath> paths = {EngineFolder(profile_id)};
   if (std::optional<base::FilePath> caches = CacheFolder(profile_id)) {
     paths.push_back(std::move(*caches));

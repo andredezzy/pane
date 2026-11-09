@@ -382,5 +382,17 @@ TEST(LocalStateTest, StartsOnDefault) {
   EXPECT_EQ(StartingOnDefaultProfile(*changed), std::nullopt);
 }
 
+// Not in PaneKit: an id names one folder, the rule the volume, the
+// deletions, the migration, and the engine all check.
+TEST(ProfileFolderNameTest, OneFolder) {
+  EXPECT_TRUE(IsProfileFolderName("6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f02"));
+  EXPECT_TRUE(IsProfileFolderName(std::string(255, 'a')));
+  for (std::string_view id :
+       {"", ".", "..", "a/b", "a\\b", "a:b", "/", "../x"}) {
+    EXPECT_FALSE(IsProfileFolderName(id)) << id;
+  }
+  EXPECT_FALSE(IsProfileFolderName(std::string(256, 'a')));
+}
+
 }  // namespace
 }  // namespace pane::model

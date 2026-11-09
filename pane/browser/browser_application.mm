@@ -51,6 +51,7 @@
 #include "pane/encryption/engine_keys.h"
 #include "pane/encryption/handover.h"
 #include "pane/encryption/profile_migration.h"
+#include "pane/model/profile.h"
 #import "pane/public/PaneBrowserApplication.h"
 #include "services/network/enterprise/encryption/pane_cache_hook.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -258,7 +259,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
     return;
   }
 
-  if (!pane::IsValidProfileIdentifier(base::SysNSStringToUTF8(identifier))) {
+  if (!pane::model::IsProfileFolderName(base::SysNSStringToUTF8(identifier))) {
     completion(nil, ContextError(1, @"Invalid profile identifier."));
     return;
   }

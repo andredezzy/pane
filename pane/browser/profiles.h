@@ -18,11 +18,6 @@ class FilePath;
 
 namespace pane {
 
-// Whether `identifier` can name a profile: it becomes a directory under the
-// engine's user data dir, so it may not name anything else, nor be longer
-// than a file name can be (255 bytes on APFS).
-bool IsValidProfileIdentifier(std::string_view identifier);
-
 // The roots a profile's files live under, in each form a path reaches them,
 // and its key, for this process and, through ContentBrowserClient, the
 // others'. Before anything of the profile opens, in any process.

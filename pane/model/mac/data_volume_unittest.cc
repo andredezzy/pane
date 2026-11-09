@@ -4,6 +4,7 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include <algorithm>
 #include <optional>
@@ -15,9 +16,12 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "pane/model/mac/file_operations.h"
 #include "pane/model/mac/panic_wipe.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -441,6 +445,50 @@ TEST_F(DataVolumeTest, Wipe) {
   ASSERT_GE(targets.size(), 2u);
   EXPECT_EQ(targets[targets.size() - 2], "Data.security.json");
   EXPECT_EQ(targets.back(), "security.json");
+}
+
+// Not in PaneKit: an id that isn't one folder ("..", which names the data
+// root from Engine) is refused before anything is removed, prepared, or
+// moved in.
+TEST_F(DataVolumeTest, OutsideItsFolders) {
+  const DataVolume volume(Root(), std::nullopt);
+  ASSERT_TRUE(volume.Prepare("p").has_value());
+  ASSERT_TRUE(base::WriteFile(Root().Append("kept"), "kept"));
+
+  for (std::string_view id : {"..", ".", "", "a/b", "a\\b", "a:b"}) {
+    EXPECT_FALSE(volume.Remove(id).has_value()) << id;
+    EXPECT_FALSE(volume.Prepare(id).has_value()) << id;
+    EXPECT_FALSE(volume.MoveIn({std::string(id)}, [](double) {}).has_value())
+        << id;
+  }
+  EXPECT_TRUE(base::PathExists(Root().Append("kept")));
+  EXPECT_TRUE(volume.HasFolder("p"));
+}
+
+// Not in PaneKit: a plain folder holding one the move can't read stays where
+// it is, whole, never staged for the erase: FileManager's enumerator passed
+// over such a folder, and the erase then took what was never copied.
+TEST_F(DataVolumeTest, MoveInStopsAtWhatItCantRead) {
+  const base::FilePath data = Root().Append("data");
+  const DataVolume volume(data, std::nullopt);
+  const base::FilePath plain = data.Append("Engine").Append("p");
+  const base::FilePath unreadable = plain.Append("Locked");
+  ASSERT_TRUE(base::CreateDirectory(unreadable));
+  ASSERT_TRUE(base::WriteFile(unreadable.Append("only-copy"), "kept"));
+  ASSERT_TRUE(base::WriteFile(plain.Append("Cookies"), "cookie"));
+  ASSERT_EQ(chmod(unreadable.value().c_str(), 0), 0);
+  // Readable again whatever happens, so the temporary folder goes.
+  base::ScopedClosureRunner readable(base::BindOnce(
+      [](const base::FilePath& folder) { chmod(folder.value().c_str(), 0700); },
+      unreadable));
+
+  EXPECT_FALSE(volume.MoveIn({"p"}, [](double) {}).has_value());
+
+  readable.RunAndReset();
+  EXPECT_TRUE(IsPlainFolder(plain));
+  EXPECT_EQ(ReadText(unreadable.Append("only-copy")), "kept");
+  EXPECT_EQ(ReadText(plain.Append("Cookies")), "cookie");
+  EXPECT_TRUE(StagedWipes(data, std::nullopt).empty());
 }
 
 }  // namespace

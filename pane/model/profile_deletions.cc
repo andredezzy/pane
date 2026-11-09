@@ -9,19 +9,9 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/strings/strcat.h"
+#include "pane/model/profile.h"
 
 namespace pane::model {
-
-namespace {
-
-// An id names one folder of Engine, never a path out of it, with either
-// separator.
-bool NamesOneFolder(std::string_view profile_id) {
-  return !profile_id.empty() && profile_id != "." && profile_id != ".." &&
-         profile_id.find_first_of("/\\") == std::string_view::npos;
-}
-
-}  // namespace
 
 ProfileDeletions::ProfileDeletions(const base::FilePath& data_directory)
     : file_(data_directory, "deletions") {}
@@ -64,7 +54,7 @@ std::vector<std::string> ProfileDeletions::Purge(
         const std::string& profile_id)> remove_profile) {
   std::vector<std::string> failed;
   for (const std::string& profile_id : Pending()) {
-    if (!NamesOneFolder(profile_id)) {
+    if (!IsProfileFolderName(profile_id)) {
       Remove(profile_id);
       continue;
     }

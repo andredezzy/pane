@@ -26,22 +26,10 @@
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "pane/encryption/engine_keys.h"
 #include "pane/encryption/handover.h"
+#include "pane/model/profile.h"
 #include "services/network/enterprise/encryption/pane_cache_hook.h"
 
 namespace pane {
-
-namespace {
-
-// The longest file name APFS and NTFS take, in bytes and UTF-16 units.
-constexpr size_t kMaxNameLength = 255;
-
-}  // namespace
-
-bool IsValidProfileIdentifier(std::string_view identifier) {
-  return !identifier.empty() && identifier != "." && identifier != ".." &&
-         identifier.size() <= kMaxNameLength &&
-         identifier.find_first_of("/\\:") == std::string_view::npos;
-}
 
 void RegisterEngineKey(const base::FilePath& user_data_dir,
                        const std::string& identifier,
@@ -78,7 +66,7 @@ void OpenProfile(const std::string& identifier,
                  base::span<const uint8_t> engine_key,
                  base::OnceCallback<void(Profile*)> done) {
   ProfileManager* manager = g_browser_process->profile_manager();
-  if (!manager || !IsValidProfileIdentifier(identifier) ||
+  if (!manager || !model::IsProfileFolderName(identifier) ||
       engine_key.size() != encryption::kKeySize) {
     std::move(done).Run(nullptr);
     return;

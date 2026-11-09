@@ -273,6 +273,16 @@ base::expected<ElectronMigrationOutcome, std::string> MigrateElectronData(
     return base::unexpected(base::StrCat(
         {source.value(), ": profiles.json is not the Electron app's"}));
   }
+  // An id becomes a folder this deletes and replaces: one that names
+  // another place (".." would name the data root) stops the migration
+  // before anything is copied or deleted.
+  for (const BrowserProfile& profile : *profiles) {
+    if (!IsProfileFolderName(profile.id)) {
+      return base::unexpected(base::StrCat(
+          {source.value(),
+           ": profiles.json names a profile outside its folders"}));
+    }
+  }
 
   for (const BrowserProfile& profile : *profiles) {
     // Electron names a partition directory in lowercase.

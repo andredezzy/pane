@@ -405,5 +405,24 @@ TEST_F(ElectronMigrationTest, DropsPendingExtensions) {
   EXPECT_EQ(ReadText(record_path), before);
 }
 
+// Not in PaneKit: a profiles.json naming a profile outside its folders
+// ("..", which as a folder of Engine names the data root) stops the migration
+// before it copies or deletes anything.
+TEST_F(ElectronMigrationTest, OutsideItsFolders) {
+  const base::FilePath source = ElectronData();
+  std::string profiles = ReadText(source.Append("profiles.json"));
+  base::ReplaceSubstringsAfterOffset(&profiles, 0, kId, "..");
+  ASSERT_TRUE(base::WriteFile(source.Append("profiles.json"), profiles));
+  const base::FilePath data = NativeData();
+  ASSERT_TRUE(base::CreateDirectory(data));
+  ASSERT_TRUE(base::WriteFile(data.Append("kept"), "kept"));
+  const auto before = Snapshot(data);
+  const auto source_before = Snapshot(source);
+
+  EXPECT_FALSE(MigrateElectronData(source, data).has_value());
+  EXPECT_EQ(Snapshot(data), before);
+  EXPECT_EQ(Snapshot(source), source_before);
+}
+
 }  // namespace
 }  // namespace pane::model

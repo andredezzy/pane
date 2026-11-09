@@ -37,8 +37,8 @@ base::expected<void, std::string> CopyItem(const base::FilePath& from,
 
 // Everything under `from` into `to`, which is made if missing, file by file,
 // as a FileManager enumerator walks it: links as links, folders made as they
-// come, one it can't read passed over, and `copied` told each file's size
-// once it is copied.
+// come, and `copied` told each file's size once it is copied. A folder it
+// can't read fails it, where FileManager's enumerator passed over one.
 base::expected<void, std::string> CopyContents(
     const base::FilePath& from,
     const base::FilePath& to,

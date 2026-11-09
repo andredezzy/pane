@@ -138,9 +138,12 @@ base::expected<void, std::string> CopyContents(
     const base::FilePath& from,
     const base::FilePath& to,
     base::FunctionRef<void(int64_t size)> copied) {
-  // A folder it can't read is passed over, as FileManager's enumerator does.
+  // A folder it can't read fails the copy. FileManager's enumerator passed
+  // over one, and the move into the volume then staged the plain folder for
+  // the erase with that folder's files never copied: what can't be copied
+  // stays where it is.
   return CopyTree(from, to, copied,
-                  base::FileEnumerator::ErrorPolicy::IGNORE_ERRORS);
+                  base::FileEnumerator::ErrorPolicy::STOP_ENUMERATION);
 }
 
 base::expected<void, std::string> MoveItem(const base::FilePath& from,

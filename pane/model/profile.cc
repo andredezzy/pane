@@ -158,6 +158,11 @@ std::string_view HexOf(ProfileColor color) {
   return NameOf(kColorHexes, color);
 }
 
+bool IsProfileFolderName(std::string_view id) {
+  return !id.empty() && id != "." && id != ".." && id.size() <= 255 &&
+         id.find_first_of("/\\:") == std::string_view::npos;
+}
+
 std::string_view TitleOf(Platform platform) {
   return NameOf(kPlatformTitles, platform);
 }

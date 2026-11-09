@@ -148,6 +148,13 @@ struct BrowserProfile {
   std::string updated_at;
 };
 
+// Whether `id` can name a profile: it becomes a folder under the engine's
+// user data dir, the volume, and the caches, so it names that one folder and
+// nothing else, with either separator, and is no longer than a file name can
+// be (255 bytes on APFS). Every operation that deletes or moves a profile's
+// files checks it, whatever file the id came from.
+bool IsProfileFolderName(std::string_view id);
+
 // profiles.json's state: {"profiles": […]}. nullopt when one profile fails.
 std::optional<std::vector<BrowserProfile>> ProfilesFromState(
     const base::Value& state);

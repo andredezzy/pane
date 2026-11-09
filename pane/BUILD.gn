@@ -209,6 +209,7 @@ source_set("pane") {
     "//net",
     "//pane/encryption:handover",
     "//pane/encryption:migration",
+    "//pane/model",
     "//printing/buildflags",
     "//skia",
     "//third_party/blink/public/common",
