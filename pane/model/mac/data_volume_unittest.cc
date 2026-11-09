@@ -2,8 +2,6 @@
 
 #include "pane/model/mac/data_volume.h"
 
-#include <fcntl.h>
-#include <sys/file.h>
 #include <sys/stat.h>
 
 #include <algorithm>
@@ -18,11 +16,11 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/posix/eintr_wrapper.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "pane/model/mac/file_operations.h"
 #include "pane/model/mac/panic_wipe.h"
+#include "pane/model/mac/vault_test_support.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace pane::model {
@@ -99,18 +97,8 @@ class DataVolumeTest : public testing::Test {
   }
 
   // One at a time, across the test launcher's processes: these attach real
-  // images, and a cleanup that detached by device number would take another
-  // test's image, given the same number a moment later. A lock on a file of
-  // its own in the temporary folder, held until the test ends.
-  void SerializeImages() {
-    base::FilePath temp;
-    ASSERT_TRUE(base::GetTempDir(&temp));
-    images_lock_.reset(HANDLE_EINTR(
-        open(temp.Append("pane_unittests-data-volume.lock").value().c_str(),
-             O_RDWR | O_CREAT | O_CLOEXEC, 0600)));
-    ASSERT_TRUE(images_lock_.is_valid());
-    ASSERT_EQ(HANDLE_EINTR(flock(images_lock_.get(), LOCK_EX)), 0);
-  }
+  // images. Held until the test ends.
+  void SerializeImages() { images_lock_ = LockImagesForTesting(); }
 
   // The volume whose image the test attaches, so the teardown detaches it.
   void WillAttach(const DataVolume& volume) { attached_ = volume; }

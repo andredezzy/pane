@@ -8,6 +8,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/span.h"
@@ -44,6 +45,10 @@ SealedProxyPasswords SealProxyPasswords(const ProxyPasswords& passwords,
 std::optional<ProxyPasswords> OpenProxyPasswords(
     const SealedProxyPasswords& sealed,
     base::span<const uint8_t> secret);
+
+// The passwords as JSON keeps them, a dictionary of strings, as JSONDecoder
+// read it: nullopt for anything else.
+std::optional<ProxyPasswords> ProxyPasswordsFromJson(std::string_view json);
 
 // Where an earlier Pane kept the proxy passwords, apart from profiles.json:
 // sealed under the engine's key (ADR 0069), or, before that, in a Keychain

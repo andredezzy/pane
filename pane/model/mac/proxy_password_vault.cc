@@ -77,9 +77,13 @@ std::optional<ProxyPasswords> OpenProxyPasswords(
   if (!json) {
     return std::nullopt;
   }
+  return ProxyPasswordsFromJson(base::as_string_view(*json));
+}
+
+std::optional<ProxyPasswords> ProxyPasswordsFromJson(std::string_view json) {
   // A dictionary of strings, as JSONDecoder takes it: anything else fails.
   const std::optional<base::Value> value =
-      base::JSONReader::Read(base::as_string_view(*json), base::JSON_PARSE_RFC);
+      base::JSONReader::Read(json, base::JSON_PARSE_RFC);
   if (!value || !value->is_dict()) {
     return std::nullopt;
   }
