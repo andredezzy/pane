@@ -3,79 +3,171 @@
 #ifndef PANE_UI_APP_UI_APP_H_
 #define PANE_UI_APP_UI_APP_H_
 
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "base/functional/callback.h"
-#include "base/memory/raw_ptr.h"
+#include "base/functional/callback_forward.h"
+#include "base/functional/function_ref.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/values.h"
+#include "pane/app/data_launch.h"
+#include "pane/browser/profile_contexts.h"
+#include "pane/model/browser_model.h"
+#include "pane/ui/window/window.h"
+#include "url/gurl.h"
 
-class GURL;
 class Profile;
-class ScopedProfileKeepAlive;
+
+namespace content {
+class WebContents;
+}
 
 namespace pane {
 
 class Automation;
 struct SidebarRow;
-class Window;
+
+namespace model {
+struct AppSettings;
+struct ProfileDraft;
+}  // namespace model
 
 // Pane's Views UI, as a launch of Chromium's loader starts it
-// (StartViewsLaunch): the profiles, each a Chrome profile under its engine
-// key, and the window that shows them. For now the move to Views'
-// prototype (docs/plans/views-migration.md, Phase 1): profiles live as long
-// as the launch, and a scenario makes them through the channel.
-class UiApp {
+// (StartViewsLaunch): the model, the window that shows it, and the engine's
+// pages, joined as the Swift app's BrowserController joined them. The
+// profiles and their tabs are the model's, loaded once the data key opens and
+// saved as they change (ModelStore); a tab has a page (a WebContents in its
+// profile's hidden Browser) once it is selected, and keeps its place while it
+// has none. Behind the lock, and until the profiles have loaded and an
+// earlier Pane's have moved in, nothing opens, loads, or shows.
+class UiApp : public AppData::Client,
+              public Window::Controller,
+              public model::BrowserModel::Observer {
  public:
-  struct ProfileEntry {
-    ProfileEntry();
-    ProfileEntry(ProfileEntry&&);
-    ProfileEntry& operator=(ProfileEntry&&);
-    ~ProfileEntry();
-
-    std::string id;
-    std::string name;
-    raw_ptr<Profile> profile = nullptr;
-    std::unique_ptr<ScopedProfileKeepAlive> keep_alive;
-  };
-
-  // Starts it, once the browser has started.
+  // Starts it, once the browser has started and the data opened (OpenData).
   static void Start();
   static UiApp* Get();
 
   UiApp(const UiApp&) = delete;
   UiApp& operator=(const UiApp&) = delete;
-  ~UiApp();
+  ~UiApp() override;
 
   Window* window() { return window_.get(); }
-  const std::vector<ProfileEntry>& profiles() const { return profiles_; }
+  model::BrowserModel& model();
+  const model::BrowserModel& model() const;
 
-  // A new profile named `name`, with an engine key of its own; `done` gets
-  // its id once it opened, or nothing when it couldn't.
-  void CreateProfile(const std::string& name,
-                     base::OnceCallback<void(std::string)> done);
-  Profile* ProfileWithId(const std::string& id) const;
+  // What the user asks, from the window, the menus, and the channel alike
+  // (the Swift's intents).
 
-  // What Pane is started with (`Pane https://…`) opens as new tabs, in
-  // order, behind, in the profile in use, the first one, made on first
-  // launch when there is none, as Chrome opens them in the last one used.
-  // The last one is selected.
+  // The profile sheet's Create: the profile as the form has it, expanded; its
+  // id.
+  std::string CreateProfile(const model::ProfileDraft& draft);
+  // A new tab in the profile, selected: at `url`, or at the start page with
+  // the address field taking the keys. Its id.
+  std::string OpenTab(const std::string& profile_id, std::optional<GURL> url);
+  // Selects a tab: its page shows at once, or is made after the frame that
+  // answers the input when it has none.
+  void Select(const std::string& tab_id);
+  // A theme reaches the app, its menus, and its pages at once (ADR 0001).
+  void ChangeSettings(base::FunctionRef<void(model::AppSettings&)> change);
+  // What changed is written; `written` runs once it is on the disk.
+  void SaveNow(base::OnceClosure written);
+  // Saved, then closed, then the volume detaches (DataDidStop): `saved` runs
+  // once what changed is on the disk, before the window closes.
+  void Quit(base::OnceClosure saved);
+  // Lock Pane (ADR 0116): the PIN screen at once, and behind it every page
+  // closes, what changed is written, the profiles leave the model, each
+  // closes in the engine, and the volume detaches.
+  void LockNow();
+  // What Pane is started with or handed opens as new tabs, in order, in the
+  // profile in use (the first, made when there is none), once the lock is
+  // open. The last one is selected.
   void OpenLaunchURLs(std::vector<GURL> urls);
 
-  // What shows, for the channel's replies: the window, its profiles and
-  // tabs, and what is selected.
+  // The tab's page, when it has one.
+  content::WebContents* PageOf(const std::string& tab_id) const;
+
+  // What shows, for the channel's replies, in the Swift app's shape.
   base::DictValue Snapshot() const;
 
+  // AppData::Client:
+  void AccessDidOpen() override;
+  void LockRequested() override;
+
+  // Window::Controller:
+  std::vector<SidebarRow> Rows() override;
+  void RowPressed(const SidebarRow& row) override;
+  void AddressEntered(const std::u16string& text) override;
+  void NewTab() override;
+  void SelectTabAt(int number) override;
+  void TabInserted(content::WebContents* contents,
+                   content::WebContents* opener,
+                   bool foreground) override;
+  void TabRemoved(content::WebContents* contents) override;
+  void ActiveTabChanged(content::WebContents* contents) override;
+
+  // model::BrowserModel::Observer:
+  void OnProfilesChanged() override;
+  void OnExpandedProfilesChanged() override;
+  void OnActiveTabChanged() override;
+  void OnActiveProfileChanged() override;
+
  private:
+  // A tab's page, as the model hears of it.
+  class Page;
+
   UiApp();
 
-  std::vector<SidebarRow> Rows(Window& window) const;
+  // Behind the lock, and until the data has opened, nothing runs.
+  bool InteractionAllowed() const;
 
-  std::vector<ProfileEntry> profiles_;
+  // A tab whose page loads behind the selected one, after `anchor` or last.
+  std::string OpenTabBehind(const std::string& profile_id,
+                            const GURL& url,
+                            const std::optional<std::string>& anchor);
+  // The engine makes the tab's page, in its profile's Browser.
+  void OpenPage(const std::string& tab_id, Profile* profile, bool foreground);
+  // Gives `contents` the id its tab had before it existed.
+  void AdoptOpeningTab(content::WebContents* contents);
+  void AddPage(const std::string& tab_id, content::WebContents* contents);
+  // The selected tab's page, in the window: never behind the lock.
+  void Show(content::WebContents* contents);
+  // The page goes, its tab stays (CONTEXT.md: Unload).
+  void Release(const std::string& tab_id);
+  void UnloadProfile(const std::string& profile_id);
+  // The profile's most recent tab takes the place of the one that closed.
+  void SelectAfterClosing(const std::optional<std::string>& profile_id);
+  void ExpandProfile(const std::string& profile_id);
+  void ToggleProfile(const std::string& profile_id);
+
+  // From a page.
+  void PageTitleChanged(const std::string& tab_id);
+  void PageURLChanged(const std::string& tab_id);
+  void PageDestroyed(const std::string& tab_id);
+
+  const raw_ref<AppData> data_;
+  ProfileContexts contexts_;
   std::unique_ptr<Window> window_;
   std::unique_ptr<Automation> automation_;
+  // Each tab's page, by its id.
+  std::map<std::string, std::unique_ptr<Page>> pages_;
+  // The tab whose page the engine is making, while it inserts it.
+  std::optional<std::string> opening_tab_id_;
+  // A new tab with no page of the user's: its address field takes the keys
+  // once it shows, to type in, rather than its page.
+  std::optional<std::string> focuses_address_;
+  // The tab that showed when Pane locked, shown again once it opens.
+  std::optional<std::string> resume_tab_id_;
+  // The URLs Pane was started with or handed, while they wait behind the
+  // lock.
+  std::vector<GURL> launch_urls_;
+  base::ScopedObservation<model::BrowserModel, model::BrowserModel::Observer>
+      model_observation_{this};
   base::WeakPtrFactory<UiApp> weak_factory_{this};
 };
 

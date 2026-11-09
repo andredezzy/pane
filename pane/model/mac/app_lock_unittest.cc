@@ -55,7 +55,9 @@ base::span<const uint8_t> Bytes(std::string_view text) {
 
 class VaultDelegate : public DataVault::Delegate {
  public:
-  void DataKeyDidOpen() override {}
+  void DataKeyDidOpen(base::OnceClosure loaded) override {
+    std::move(loaded).Run();
+  }
   std::vector<std::string> ProfileIds() override { return {}; }
   void AccessDidOpen() override {}
   // As the app does: the lock says so.

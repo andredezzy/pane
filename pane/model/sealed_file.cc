@@ -53,9 +53,15 @@ base::expected<std::optional<base::Value>, FileError> SealedFile::Load(
 }
 
 bool SealedFile::Save(const base::Value& state, const Key& key) const {
+  const std::optional<std::string> text = Seal(state, key);
+  return text && WriteTextFile(path_, *text);
+}
+
+std::optional<std::string> SealedFile::Seal(const base::Value& state,
+                                            const Key& key) const {
   const std::optional<std::string> json = base::WriteJson(state);
   if (!json) {
-    return false;
+    return std::nullopt;
   }
   const auto nonce = crypto::RandBytesAsArray<kNonceSize>();
   std::vector<uint8_t> combined(nonce.begin(), nonce.end());
@@ -63,8 +69,8 @@ bool SealedFile::Save(const base::Value& state, const Key& key) const {
       crypto::aead::AES_256_GCM, key, base::as_byte_span(*json), nonce,
       base::as_byte_span(name_));
   combined.insert(combined.end(), sealed.begin(), sealed.end());
-  return WriteJsonFile(path_, base::Value(base::DictValue().Set(
-                                  "box", base::Base64Encode(combined))));
+  return base::WriteJson(
+      base::Value(base::DictValue().Set("box", base::Base64Encode(combined))));
 }
 
 }  // namespace pane::model

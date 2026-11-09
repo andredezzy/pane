@@ -160,4 +160,20 @@ base::Value SettingsState(const AppSettings& settings) {
   return base::Value(base::DictValue().Set("settings", settings.ToValue()));
 }
 
+std::string_view ThemeName(Theme theme) {
+  return NameOf(kThemes, theme);
+}
+
+std::optional<Theme> ThemeNamed(std::string_view name) {
+  const auto found = std::ranges::find(kThemes, name);
+  if (found == kThemes.end()) {
+    return std::nullopt;
+  }
+  return static_cast<Theme>(found - kThemes.begin());
+}
+
+std::string_view AppIconName(AppIcon icon) {
+  return NameOf(kAppIcons, icon);
+}
+
 }  // namespace pane::model

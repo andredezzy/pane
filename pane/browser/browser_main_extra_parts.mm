@@ -122,6 +122,9 @@ void BrowserMainExtraParts::PostBrowserStart() {
 
 void BrowserMainExtraParts::PostMainMessageLoopRun() {
   [PaneBrowserApplication.sharedApplication engineWillShutDown];
+  if (IsViewsLaunch()) {
+    DataWillStop();
+  }
 }
 
 }  // namespace pane

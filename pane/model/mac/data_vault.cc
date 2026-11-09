@@ -908,8 +908,12 @@ DataVault::Attacher DataVault::MakeAttacher() {
 void DataVault::Open(const Key& key) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   data_key_ = key;
-  delegate_->DataKeyDidOpen();
+  delegate_->DataKeyDidOpen(base::BindOnce(&DataVault::ProfilesLoaded,
+                                           open_weak_factory_.GetWeakPtr()));
+}
 
+void DataVault::ProfilesLoaded() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // An id that is no folder's name is no profile the engine opens, and never
   // reaches the disk.
   std::vector<std::string> ids = delegate_->ProfileIds();

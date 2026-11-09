@@ -19,15 +19,25 @@
 #include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/logging.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
 #include "base/strings/cstring_view.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
+#include "base/time/default_clock.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "pane/app/test_copy.h"
+#include "pane/browser/engine_trace.h"
+#include "pane/browser/profiles.h"
+#include "pane/encryption/profile_migration.h"
+#include "pane/model/app_settings.h"
 #include "pane/model/local_state.h"
 #include "pane/model/mac/app_lock.h"
 #include "pane/model/mac/bundle_identifier.h"
@@ -39,7 +49,9 @@
 #include "pane/model/mac/launch_migration.h"
 #include "pane/model/mac/panic_wipe.h"
 #include "pane/model/mac/panic_wipe_run.h"
+#include "pane/model/mac/proxy_password_store.h"
 #include "pane/model/mac/safe_storage.h"
+#include "pane/model/model_store.h"
 #include "pane/model/pin_entry.h"
 #include "pane/model/security.h"
 
@@ -114,6 +126,10 @@ struct Launched {
   // The Keychain's secret, as the launch looked for it: the lock never makes
   // one.
   AppLock::LaunchSecret secret;
+  // settings.json, read once: the model starts with them.
+  model::AppSettings settings;
+  // An earlier Pane's plain profile folders wait to move into the volume.
+  bool has_plain_profiles = false;
 };
 
 Launched* g_launched = nullptr;
@@ -175,17 +191,95 @@ base::Value Screen(const std::optional<model::PinEntry>& entry) {
                entry->error() ? base::Value(*entry->error()) : base::Value()));
 }
 
-// The vault and the lock, from the thread pool's start to the engine's stop,
-// and what each tells the app. The profiles, the model, and the Lock's UI come
-// in the next steps (docs/plans/views-migration.md, C6 and Phase 3): until
-// then the vault holds no profile, and the lock opens the data key without a
-// PIN alone. An earlier Pane's profiles moving in show from the first frame
-// (DataVault::ExpectMove) once the profiles load.
-class PaneData : public DataVault::Delegate, public AppLock::Delegate {
+// The engine's side of the vault's work on a profile's folder (ADR 0121),
+// run on the profile's sequence: the conversion of an earlier Pane's files,
+// the restore of its safety copy, and the repair after 0.18.0's migration,
+// each with the profile's key registered first, as the Swift's engine ran
+// them. Traced as the Swift app's engine traced them, for the scenarios.
+DataVault::FileMigrator MakeFileMigrator(const base::FilePath& user_data_dir) {
+  DataVault::FileMigrator migrator;
+  migrator.migrate = base::BindRepeating(
+      [](const base::FilePath& user_data_dir, const std::string& id,
+         const model::Key& key, const base::FilePath& folder,
+         base::RepeatingCallback<void(double)> progress) {
+        PANE_TRACE("call", "PaneBrowserApplication.migrateContext",
+                   base::DictValue().Set("identifier", id));
+        RegisterEngineKey(user_data_dir, id, key);
+        // Resolved: /var is /private/var, where the roots have both only as
+        // the user data dir was given. No folder: paths from an empty root
+        // would lead into the working directory.
+        const base::FilePath root = base::MakeAbsoluteFilePath(folder);
+        const bool migrated =
+            !root.empty() && MigrateProfileFolder(root, std::move(progress));
+        PANE_TRACE("callback",
+                   "PaneBrowserApplication.migrateContext.completion",
+                   base::DictValue().Set("migrated", migrated));
+        return migrated;
+      },
+      user_data_dir);
+  migrator.restore = base::BindRepeating(
+      [](const base::FilePath& user_data_dir, const std::string& id,
+         const model::Key& key, const base::FilePath& folder) {
+        PANE_TRACE("call", "PaneBrowserApplication.restoreContext",
+                   base::DictValue().Set("identifier", id));
+        RegisterEngineKey(user_data_dir, id, key);
+        const base::FilePath root = base::MakeAbsoluteFilePath(folder);
+        return !root.empty() &&
+               RestoreSafetyCopy(root.AppendASCII("Profile"),
+                                 root.AppendASCII("SafetyCopy"));
+      },
+      user_data_dir);
+  migrator.repair = base::BindRepeating(
+      [](const base::FilePath& user_data_dir, const std::string& id,
+         const model::Key& key, const base::FilePath& folder) {
+        PANE_TRACE("call", "PaneBrowserApplication.repairContext",
+                   base::DictValue().Set("identifier", id));
+        RegisterEngineKey(user_data_dir, id, key);
+        const base::FilePath root = base::MakeAbsoluteFilePath(folder);
+        const bool repaired =
+            !root.empty() &&
+            RepairMigratedProfile(root.AppendASCII("Profile"),
+                                  root.AppendASCII("SafetyCopy"));
+        PANE_TRACE("callback",
+                   "PaneBrowserApplication.repairContext.completion",
+                   base::DictValue().Set("repaired", repaired));
+        return repaired;
+      },
+      user_data_dir);
+  return migrator;
+}
+
+// The passwords an earlier Pane kept apart from its plain profiles.json, read
+// and removed on the store's sequence: the Keychain may ask first.
+model::ModelStore::KeptApart KeptApartPasswords(
+    const base::FilePath& data_directory) {
+  const model::ProxyPasswordStore passwords(data_directory,
+                                            model::SafeStorage::ForProcess());
+  model::ModelStore::KeptApart kept_apart;
+  kept_apart.read = base::BindRepeating(
+      [](const model::ProxyPasswordStore& passwords) {
+        return passwords.Read();
+      },
+      passwords);
+  kept_apart.remove = base::BindRepeating(
+      [](const model::ProxyPasswordStore& passwords) { passwords.Delete(); },
+      passwords);
+  return kept_apart;
+}
+
+// The vault, the lock, and the model's store, from the thread pool's start to
+// the engine's stop, and what each tells the app (the Swift's AppDelegate and
+// BrowserController's halves of it): the profiles load once the data key
+// opens, an earlier Pane's moving in show from the first frame
+// (DataVault::ExpectMove), and the lock's detach leaves the engine no key.
+class PaneData : public AppData,
+                 public DataVault::Delegate,
+                 public AppLock::Delegate {
  public:
   explicit PaneData(Launched launched)
       : data_directory_(launched.data_directory),
         erase_(std::move(launched.erase)),
+        has_plain_profiles_(launched.has_plain_profiles),
         vault_(launched.data_directory,
                launched.cache_directory,
                std::move(launched.tools),
@@ -197,20 +291,84 @@ class PaneData : public DataVault::Delegate, public AppLock::Delegate {
               vault_,
               model::SafeStorage::ForProcess(),
               this,
-              std::move(launched.secret)) {}
+              std::move(launched.secret)),
+        store_(launched.data_directory,
+               std::move(launched.settings),
+               base::DefaultClock::GetInstance(),
+               base::BindRepeating(&DataVault::FilesKey,
+                                   base::Unretained(&vault_)),
+               KeptApartPasswords(launched.data_directory)) {
+    // Not when the engine stopped before the browser started (DataDidStop),
+    // with nothing to convert.
+    if (ProfileManager* manager = g_browser_process
+                                      ? g_browser_process->profile_manager()
+                                      : nullptr) {
+      vault_.set_file_migrator(MakeFileMigrator(manager->user_data_dir()));
+    }
+  }
   PaneData(const PaneData&) = delete;
   PaneData& operator=(const PaneData&) = delete;
   ~PaneData() override = default;
 
   const base::FilePath& data_directory() const { return data_directory_; }
 
-  // Without a PIN the data key opens at once, off this sequence: the volume
-  // is made the first time, attached, and opened.
-  void Start() { lock_.Start(); }
-
   void EngineDidStop() { vault_.EngineDidStop(); }
 
-  base::DictValue State() const {
+  // AppData:
+  void Start(Client* client) override {
+    client_ = client;
+    // An earlier Pane's profiles move in at once, with no PIN to ask first:
+    // the panel shows from the first frame.
+    if (!lock_.is_locked() && has_plain_profiles_) {
+      vault_.ExpectMove();
+    }
+    // Without a PIN the data key opens at once, off this sequence: the volume
+    // is made the first time, attached, and opened.
+    lock_.Start();
+  }
+
+  void Stop() override { client_ = nullptr; }
+
+  model::ModelStore& store() override { return store_; }
+
+  bool IsLocked() const override { return lock_.is_locked(); }
+
+  bool IsOpen() const override {
+    return vault_.phase() == DataVault::Phase::kOpen;
+  }
+
+  bool HasPin() const override { return lock_.state().pin.has_value(); }
+
+  std::optional<model::Key> EngineKey(
+      std::string_view profile_id) const override {
+    return vault_.EngineKey(profile_id);
+  }
+
+  void WhenAttached(base::OnceCallback<void(bool)> body) override {
+    vault_.WhenAttached(std::move(body));
+  }
+
+  void Prepare(const std::string& profile_id,
+               bool saves_history,
+               base::OnceCallback<void(bool)> done) override {
+    vault_.Prepare(profile_id, saves_history, std::move(done));
+  }
+
+  void ProfileDidOpen(const std::string& profile_id) override {
+    vault_.ProfileDidOpen(profile_id);
+  }
+
+  void LockScreen() override { lock_.LockNow(); }
+
+  base::OnceCallback<void(bool)> CloseData() override { return vault_.Lock(); }
+
+  void ShowPinScreen(model::PinEntry::Mode mode) override { lock_.Show(mode); }
+  void PinDigit(char16_t digit) override { lock_.Digit(digit); }
+  void PinBackspace() override { lock_.Backspace(); }
+  void ContinueWithPin() override { lock_.ContinueWithPin(); }
+  void DismissPinScreen() override { lock_.Dismiss(); }
+
+  base::DictValue State() const override {
     const model::SecurityState& state = lock_.state();
     base::ListValue failures;
     if (erase_) {
@@ -244,22 +402,57 @@ class PaneData : public DataVault::Delegate, public AppLock::Delegate {
   }
 
   // DataVault::Delegate:
-  void DataKeyDidOpen() override {}
-  std::vector<std::string> ProfileIds() override { return {}; }
-  void AccessDidOpen() override {}
+  void DataKeyDidOpen(base::OnceClosure loaded) override {
+    store_.LoadProfiles(std::move(loaded));
+  }
+
+  std::vector<std::string> ProfileIds() override {
+    std::vector<std::string> ids;
+    for (const model::BrowserProfile& profile : store_.model().profiles()) {
+      ids.push_back(profile.id);
+    }
+    return ids;
+  }
+
+  void AccessDidOpen() override {
+    if (client_) {
+      client_->AccessDidOpen();
+    }
+  }
+
   void VolumeWontOpen() override { lock_.VolumeWontOpen(); }
+
   void QuitToCloseVolume() override { chrome::AttemptExit(); }
-  void VolumeDidDetachAtLock() override {}
+
+  // No process has a profile's file open: each forgets its keys (ADR 0121).
+  void VolumeDidDetachAtLock() override {
+    DropEngineKeys(
+        base::BindOnce([](size_t browser, uint32_t network, uint32_t storage) {
+          if (browser + network + storage > 0) {
+            LOG(ERROR) << "A process kept its keys through a lock: " << browser
+                       << ", " << network << ", " << storage;
+          }
+        }));
+  }
 
   // AppLock::Delegate:
-  void DidUnlock() override {}
-  void DidExhaustSettingsAttempts() override {}
+  void DidUnlock() override { AccessDidOpen(); }
+
+  void DidExhaustSettingsAttempts() override {
+    if (client_) {
+      client_->LockRequested();
+    }
+  }
 
  private:
   const base::FilePath data_directory_;
   const scoped_refptr<model::LaunchErase> erase_;
+  const bool has_plain_profiles_;
+  raw_ptr<Client> client_ = nullptr;
   DataVault vault_;
   AppLock lock_;
+  // After the vault, whose files key it reads.
+  model::ModelStore store_;
 };
 
 PaneData* g_data = nullptr;
@@ -420,6 +613,15 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
     secret.secret = safe_storage.DataSecret(/*makes_one=*/!loaded.state.key);
   }
 
+  // The model starts with its settings alone (ADR 0113): read here, after the
+  // Electron app's were brought over, while the disk may be read.
+  model::AppSettings settings = model::ModelStore::LoadSettings(data_directory);
+
+  // An earlier Pane's plain profile folders, which move into the volume
+  // behind the panel from the first frame when no PIN is asked first.
+  const bool has_plain_profiles =
+      model::DataVolume(data_directory, cache_directory).HasPlainProfiles();
+
   g_launched = new Launched{.data_directory = data_directory,
                             .cache_directory = cache_directory,
                             .tools = tools,
@@ -427,7 +629,9 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
                             .attach = std::move(attach),
                             .erase = std::move(erase),
                             .loaded = std::move(loaded),
-                            .secret = std::move(secret)};
+                            .secret = std::move(secret),
+                            .settings = std::move(settings),
+                            .has_plain_profiles = has_plain_profiles};
   return std::nullopt;
 }
 
@@ -436,11 +640,17 @@ void OpenData() {
   CHECK(!g_data);
   const std::unique_ptr<Launched> launched(std::exchange(g_launched, nullptr));
   g_data = new PaneData(std::move(*launched));
-  g_data->Start();
 }
 
-base::DictValue DataState() {
-  return g_data ? g_data->State() : base::DictValue();
+// static
+AppData* AppData::Get() {
+  return g_data;
+}
+
+void DataWillStop() {
+  if (g_data) {
+    g_data->store().model().SaveNow();
+  }
 }
 
 void DataDidStop() {

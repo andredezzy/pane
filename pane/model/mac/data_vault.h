@@ -156,9 +156,9 @@ class DataVault {
     virtual ~Delegate() = default;
 
     // The data key opened: the profiles load (they are sealed under its files
-    // key), so ProfileIds() has them once this returns, and what each owes
-    // runs.
-    virtual void DataKeyDidOpen() = 0;
+    // key), off the window's sequence, and `loaded` runs once ProfileIds()
+    // has them, when what each owes runs. A lock before then: neither.
+    virtual void DataKeyDidOpen(base::OnceClosure loaded) = 0;
 
     // The profiles' ids, as the model has them.
     virtual std::vector<std::string> ProfileIds() = 0;
@@ -348,6 +348,7 @@ class DataVault {
     kQuit,
   };
 
+  void ProfilesLoaded();
   void OpenWith(std::vector<std::string> ids, bool moving);
   void Finish(std::optional<std::vector<std::string>> moving);
   void Moved(int locks, double share);

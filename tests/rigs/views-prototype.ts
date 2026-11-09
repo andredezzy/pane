@@ -66,8 +66,9 @@ const viewsPrototype: Scenario = async (context) => {
 
 	// ⌘T answers before the engine makes its page (the Swift app's
 	// AfterFrame): the tab, selected, and the address field are in the
-	// state at once; a second ⌘T right behind gives the first its page
-	// behind the second; each page keeps the id its row showed before it.
+	// state at once; a second ⌘T right behind leaves the first without a
+	// page until it is chosen, as the Swift app's select does; each tab
+	// keeps its row's id.
 	const tabsInHome = () =>
 		state.profiles.find((p) => p.id === home)?.tabs ?? [];
 

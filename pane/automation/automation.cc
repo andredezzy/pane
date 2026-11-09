@@ -9,19 +9,22 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path_watcher.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
-#include "chrome/browser/lifetime/application_lifetime_desktop.h"
-#include "content/public/browser/web_contents.h"
+#include "pane/app/data_launch.h"
 #include "pane/automation/input.h"
+#include "pane/model/app_settings.h"
+#include "pane/model/model_store.h"
+#include "pane/model/pin_entry.h"
+#include "pane/model/profile.h"
+#include "pane/model/profile_draft.h"
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/render.h"
-#include "pane/ui/tabs/tab_id.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
@@ -137,54 +140,181 @@ void Automation::Dispatch(const std::string& name,
                           Reply reply) {
   Window* window = app_->window();
 
+  // An edit of the profiles before they load, or behind the lock, would edit
+  // a model that holds none of them, and the load would take it back.
+  if ((name == "createProfile" || name == "openTab" || name == "moveTab" ||
+       name == "moveProfile") &&
+      !AppData::Get()->store().profiles_loaded()) {
+    std::move(reply).Run(base::Value(), name + ": the profiles are not open");
+    return;
+  }
+
   if (name == "state") {
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
 
+  // The profile sheet's Create, as filled in: { name, color?, group?, spoof?,
+  // savesHistory? }. Scenarios' profiles spoof nothing unless asked, so pages
+  // see the engine's own values.
   if (name == "createProfile") {
     const std::string* profile_name = command.FindString("name");
-    app_->CreateProfile(
-        profile_name ? *profile_name : std::string(),
-        base::BindOnce(
-            [](Reply reply, std::string id) {
-              if (id.empty()) {
-                std::move(reply).Run(base::Value(),
-                                     "the profile could not be opened");
-              } else {
-                std::move(reply).Run(base::Value(id), std::string());
-              }
-            },
-            std::move(reply)));
+    if (!profile_name) {
+      std::move(reply).Run(base::Value(), "createProfile needs name");
+      return;
+    }
+    model::ProfileDraft draft;
+    draft.name = *profile_name;
+    if (const std::string* color = command.FindString("color")) {
+      draft.color =
+          model::ColorNamed(*color).value_or(model::ProfileColor::kBlue);
+    }
+    if (const std::string* group = command.FindString("group")) {
+      draft.group = *group;
+    }
+    draft.spoofing = command.FindBool("spoof").value_or(false);
+    draft.saves_history = command.FindBool("savesHistory").value_or(true);
+    if (draft.Validate()) {
+      std::move(reply).Run(base::Value(), "createProfile needs a name");
+      return;
+    }
+    std::move(reply).Run(base::Value(app_->CreateProfile(draft)),
+                         std::string());
     return;
   }
 
+  // A new tab, selected: { profile, url? }, at the start page without a URL.
   if (name == "openTab") {
     const std::string* profile_id = command.FindString("profile");
-    const std::string* url = command.FindString("url");
-    Profile* profile = profile_id ? app_->ProfileWithId(*profile_id) : nullptr;
-    if (!profile) {
-      std::move(reply).Run(base::Value(), "openTab needs a profile");
+    if (!profile_id) {
+      std::move(reply).Run(base::Value(), "openTab needs profile");
       return;
     }
-    content::WebContents* contents = window->OpenTab(
-        profile, GURL(url ? *url : "about:blank"), /*foreground=*/true);
-    if (!contents) {
-      std::move(reply).Run(base::Value(), "the tab could not be opened");
+    std::optional<GURL> url;
+    if (const std::string* spec = command.FindString("url")) {
+      if (GURL parsed(*spec); parsed.is_valid()) {
+        url = std::move(parsed);
+      }
+    }
+    std::move(reply).Run(base::Value(app_->OpenTab(*profile_id, url)),
+                         std::string());
+    return;
+  }
+
+  // A drag in the sidebar, as it lands: { profile, from, to } for a tab,
+  // { from, to } for a profile.
+  if (name == "moveTab" || name == "moveProfile") {
+    const std::string* profile_id = command.FindString("profile");
+    const std::optional<int> from = command.FindInt("from");
+    const std::optional<int> to = command.FindInt("to");
+    if (name == "moveTab" && !profile_id) {
+      std::move(reply).Run(base::Value(), "moveTab needs profile");
       return;
     }
-    std::move(reply).Run(base::Value(TabIdOf(contents)), std::string());
+    if (!from || !to) {
+      std::move(reply).Run(base::Value(),
+                           name + (from ? " needs to" : " needs from"));
+      return;
+    }
+    if (name == "moveTab") {
+      app_->model().MoveTab(*profile_id, *from, *to);
+    } else {
+      app_->model().MoveProfile(*from, *to);
+    }
+    std::move(reply).Run(base::Value(), std::string());
     return;
   }
 
   if (name == "select") {
     const std::string* tab = command.FindString("tab");
-    content::WebContents* contents = tab ? TabWithId(*tab) : nullptr;
-    if (!contents) {
-      std::move(reply).Run(base::Value(), "no such tab");
+    if (!tab) {
+      std::move(reply).Run(base::Value(), "select needs tab");
       return;
     }
-    window->Select(contents);
+    app_->Select(*tab);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // What changed, written: the reply comes once it is on the disk.
+  if (name == "save") {
+    app_->SaveNow(base::BindOnce(
+        [](Reply reply) { std::move(reply).Run(base::Value(), std::string()); },
+        std::move(reply)));
+    return;
+  }
+
+  if (name == "theme") {
+    const std::string* theme_name = command.FindString("theme");
+    if (!theme_name) {
+      std::move(reply).Run(base::Value(), "theme needs theme");
+      return;
+    }
+    const std::optional<model::Theme> theme = model::ThemeNamed(*theme_name);
+    if (!theme) {
+      std::move(reply).Run(base::Value(), "unknown theme");
+      return;
+    }
+    app_->ChangeSettings(
+        [&](model::AppSettings& settings) { settings.theme = *theme; });
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // Settings' Set up, Change, or Remove PIN.
+  if (name == "showPinScreen") {
+    const std::string* mode = command.FindString("mode");
+    if (!mode) {
+      std::move(reply).Run(base::Value(), "showPinScreen needs mode");
+      return;
+    }
+    AppData* data = AppData::Get();
+    if (*mode == "setup") {
+      data->ShowPinScreen(model::PinEntry::Mode::kSetup);
+    } else if (*mode == "change") {
+      data->ShowPinScreen(model::PinEntry::Mode::kChange);
+    } else if (*mode == "remove") {
+      data->ShowPinScreen(model::PinEntry::Mode::kRemove);
+    } else {
+      std::move(reply).Run(base::Value(), "unknown PIN screen mode");
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // { keys: "1234" }: the numpad's digits; "<" is Delete, ">" is Continue,
+  // "^" is the back arrow.
+  if (name == "pinKeys") {
+    const std::string* keys = command.FindString("keys");
+    if (!keys) {
+      std::move(reply).Run(base::Value(), "pinKeys needs keys");
+      return;
+    }
+    AppData* data = AppData::Get();
+    for (const char key : *keys) {
+      switch (key) {
+        case '<':
+          data->PinBackspace();
+          break;
+        case '>':
+          data->ContinueWithPin();
+          break;
+        case '^':
+          data->DismissPinScreen();
+          break;
+        default:
+          data->PinDigit(static_cast<char16_t>(key));
+          break;
+      }
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // Lock Pane (⌃⌘L, Paper 07.9).
+  if (name == "lockNow") {
+    app_->LockNow();
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -199,7 +329,7 @@ void Automation::Dispatch(const std::string& name,
       }
     }
     if (items == std::vector<std::string>{"File", "New Tab"}) {
-      window->NewTab();
+      app_->NewTab();
     } else if (items ==
                std::vector<std::string>{"Navigate", "Focus Address Bar"}) {
       window->FocusAddress();
@@ -364,9 +494,12 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
+  // Saved, then closed, then the volume detached: the reply comes once the
+  // save is on the disk, as the Swift app's did.
   if (name == "quit") {
-    std::move(reply).Run(base::Value(), std::string());
-    chrome::AttemptUserExit();
+    app_->Quit(base::BindOnce(
+        [](Reply reply) { std::move(reply).Run(base::Value(), std::string()); },
+        std::move(reply)));
     return;
   }
 

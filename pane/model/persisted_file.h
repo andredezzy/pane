@@ -4,6 +4,7 @@
 #define PANE_MODEL_PERSISTED_FILE_H_
 
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "base/files/file_path.h"
@@ -36,6 +37,10 @@ class PersistedFile {
   // Atomically, with sorted keys.
   bool Save(base::Value state) const;
 
+  // The file's text for `state`, as Save writes it: its envelope, as JSON,
+  // keys sorted. nullopt for a value JSON can't hold.
+  static std::optional<std::string> Encode(base::Value state);
+
  private:
   base::FilePath path_;
 };
@@ -50,6 +55,9 @@ base::expected<std::optional<base::Value>, FileError> ReadJsonFile(
 
 // Writes `value` as JSON to `path` atomically, making its directory.
 bool WriteJsonFile(const base::FilePath& path, const base::Value& value);
+
+// Writes `text` to `path` atomically, making its directory.
+bool WriteTextFile(const base::FilePath& path, std::string_view text);
 
 }  // namespace pane::model
 

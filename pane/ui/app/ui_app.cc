@@ -2,38 +2,57 @@
 
 #include "pane/ui/app/ui_app.h"
 
-#include <array>
-#include <iterator>
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <utility>
 
+#include "base/auto_reset.h"
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
+#include "base/location.h"
+#include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/uuid.h"
+#include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/termination_notification.h"
-#include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
-#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"  // nogncheck
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
-#include "crypto/random.h"
-#include "pane/app/data_launch.h"
+#include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/referrer.h"
 #include "pane/automation/automation.h"
 #include "pane/browser/profiles.h"
+#include "pane/model/address_input.h"
+#include "pane/model/app_settings.h"
+#include "pane/model/model_store.h"
+#include "pane/model/profile.h"
+#include "pane/model/profile_draft.h"
+#include "pane/model/profile_form.h"
+#include "pane/model/tab_history.h"
+#include "pane/ui/after_frame.h"
+#include "pane/ui/interaction_log.h"
 #include "pane/ui/tabs/tab_id.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
-#include "pane/ui/window/window.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/views/widget/widget.h"
-#include "url/gurl.h"
 
 namespace pane {
 
@@ -41,15 +60,8 @@ namespace {
 
 UiApp* g_app = nullptr;
 
-// The profiles' colors, in the order new profiles take them, until the
-// model carries each profile's (ProfileColor's swatches, fixed in both
-// appearances).
-constexpr SkColor kProfileColors[] = {
-    SkColorSetRGB(0x60, 0xA5, 0xFA), SkColorSetRGB(0xFB, 0x71, 0x85),
-    SkColorSetRGB(0x34, 0xD3, 0x99), SkColorSetRGB(0xFB, 0xBF, 0x24),
-    SkColorSetRGB(0xA7, 0x8B, 0xFA), SkColorSetRGB(0xF9, 0x73, 0x16),
-    SkColorSetRGB(0x2D, 0xD4, 0xBF), SkColorSetRGB(0xE8, 0x79, 0xF9),
-    SkColorSetRGB(0xA1, 0xA1, 0xAA)};
+// A new window's size, as the Swift app's first one (ADR 0016).
+constexpr gfx::Size kWindowSize(1280, 800);
 
 // The window's controls, as the Swift app's snapshot gave them: x, y, width,
 // height from the window's top left.
@@ -68,26 +80,91 @@ base::ListValue ControlFrames(views::Widget* widget) {
   return frames;
 }
 
-// A new window's size, as the Swift app's first one (ADR 0016).
-constexpr gfx::Size kWindowSize(1280, 800);
+// A profile's swatch, fixed in both appearances (ProfileColor).
+SkColor ColorOf(model::ProfileColor color) {
+  uint32_t rgb = 0;
+  const std::string_view hex = model::HexOf(color);
+  if (hex.size() != 7 || !base::HexStringToUInt(hex.substr(1), &rgb)) {
+    return SK_ColorGRAY;
+  }
+  return SkColorSetRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+}
+
+std::string_view PageName(model::BrowserModel::Page page) {
+  switch (page) {
+    case model::BrowserModel::Page::kBrowser:
+      return "browser";
+    case model::BrowserModel::Page::kSettings:
+      return "settings";
+    case model::BrowserModel::Page::kExtensions:
+      return "extensions";
+  }
+}
+
+std::string_view ProxyStatusName(model::BrowserModel::ProxyStatus status) {
+  switch (status) {
+    case model::BrowserModel::ProxyStatus::kTesting:
+      return "testing";
+    case model::BrowserModel::ProxyStatus::kConnected:
+      return "connected";
+    case model::BrowserModel::ProxyStatus::kFailed:
+      return "failed";
+  }
+}
+
+// The profile a page of the window belongs to: its folder's name.
+std::optional<std::string> ProfileIdOf(content::WebContents* contents) {
+  Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+  if (!profile) {
+    return std::nullopt;
+  }
+  return profile->GetOriginalProfile()->GetBaseName().AsUTF8Unsafe();
+}
 
 }  // namespace
 
-UiApp::ProfileEntry::ProfileEntry() = default;
-UiApp::ProfileEntry::ProfileEntry(ProfileEntry&&) = default;
-UiApp::ProfileEntry& UiApp::ProfileEntry::operator=(ProfileEntry&&) = default;
-UiApp::ProfileEntry::~ProfileEntry() = default;
+// A tab's page, as the model hears of it: its title and its address, saved
+// with the tab (the Swift's didChangeTitle and didChangeURL).
+class UiApp::Page : public content::WebContentsObserver {
+ public:
+  Page(UiApp* app, std::string tab_id, content::WebContents* contents)
+      : content::WebContentsObserver(contents),
+        app_(app),
+        tab_id_(std::move(tab_id)) {}
+
+  // content::WebContentsObserver:
+  void TitleWasSet(content::NavigationEntry* entry) override {
+    app_->PageTitleChanged(tab_id_);
+  }
+
+  void PrimaryPageChanged(content::Page& page) override {
+    app_->PageURLChanged(tab_id_);
+  }
+
+  // Destroyed with its page, which was not closed as a tab (the window's or
+  // the engine's going): its tab stays.
+  void WebContentsDestroyed() override { app_->PageDestroyed(tab_id_); }
+
+ private:
+  const raw_ptr<UiApp> app_;
+  const std::string tab_id_;
+};
 
 // static
 void UiApp::Start() {
   CHECK(!g_app);
   g_app = new UiApp();
-  // Profiles let go as quitting starts, while the message loop still runs,
-  // as Chrome's windows do when they close: they then unload with their
-  // processes.
+  // What changed is written as quitting starts, and the profiles let go while
+  // the message loop still runs, as Chrome's windows do when they close: they
+  // then unload with their processes. The write is waited for before the
+  // engine stops, and the volume detaches after (DataDidStop).
   static base::NoDestructor<base::CallbackListSubscription> terminating(
-      browser_shutdown::AddAppTerminatingCallback(
-          base::BindOnce([] { delete std::exchange(g_app, nullptr); })));
+      browser_shutdown::AddAppTerminatingCallback(base::BindOnce([] {
+        if (g_app) {
+          g_app->SaveNow(base::DoNothing());
+        }
+        delete std::exchange(g_app, nullptr);
+      })));
 }
 
 // static
@@ -95,16 +172,17 @@ UiApp* UiApp::Get() {
   return g_app;
 }
 
-UiApp::UiApp() {
+UiApp::UiApp()
+    : data_(*AppData::Get()), contexts_(*data_, data_->store().model()) {
   const gfx::Rect work_area =
       display::Screen::Get()->GetPrimaryDisplay().work_area();
   gfx::Rect bounds(kWindowSize);
   bounds.set_origin(
       work_area.CenterPoint() -
       gfx::Vector2d(kWindowSize.width() / 2, kWindowSize.height() / 2));
-  window_ = std::make_unique<Window>(
-      bounds, base::BindRepeating(&UiApp::Rows, base::Unretained(this)),
-      base::RepeatingClosure());
+  window_ = std::make_unique<Window>(bounds, this);
+  model_observation_.Observe(&model());
+
   std::unique_ptr<base::Environment> environment = base::Environment::Create();
   // A scenario's copy takes the front only when the runner allows it
   // (run.ts --foreground): otherwise the app in use keeps it, and its user's
@@ -121,6 +199,10 @@ UiApp::UiApp() {
         base::FilePath::FromUTF8Unsafe(*directory), this);
   }
 
+  // The lock starts once the window shows: without a PIN the data key opens
+  // at once, and the profiles load.
+  data_->Start(this);
+
   std::vector<GURL> urls;
   for (const base::CommandLine::StringType& arg :
        base::CommandLine::ForCurrentProcess()->GetArgs()) {
@@ -133,154 +215,643 @@ UiApp::UiApp() {
 }
 
 UiApp::~UiApp() {
+  data_->Stop();
   automation_.reset();
+  model_observation_.Reset();
+  // Their pages go with the window's Browsers, as quitting keeps their tabs.
+  pages_.clear();
   window_.reset();
-  profiles_.clear();
 }
 
-void UiApp::CreateProfile(const std::string& name,
-                          base::OnceCallback<void(std::string)> done) {
-  const std::string id = base::Uuid::GenerateRandomV4().AsLowercaseString();
-  std::array<uint8_t, 32> key;
-  crypto::RandBytes(key);
-  OpenProfile(
-      id, key,
+model::BrowserModel& UiApp::model() {
+  return data_->store().model();
+}
+
+const model::BrowserModel& UiApp::model() const {
+  return data_->store().model();
+}
+
+bool UiApp::InteractionAllowed() const {
+  return !data_->IsLocked() && data_->IsOpen();
+}
+
+// MARK: The data
+
+// The lock opened, or the data did: once both have, what waited behind them
+// goes on.
+void UiApp::AccessDidOpen() {
+  if (!InteractionAllowed()) {
+    return;
+  }
+  if (!launch_urls_.empty()) {
+    OpenLaunchURLs(std::exchange(launch_urls_, {}));
+  }
+  if (const std::optional<std::string>& active = model().active_tab_id()) {
+    if (content::WebContents* page = PageOf(*active)) {
+      Show(page);
+    }
+  }
+  if (resume_tab_id_ && model().FindTab(*resume_tab_id_)) {
+    Select(*std::exchange(resume_tab_id_, std::nullopt));
+  }
+}
+
+void UiApp::LockRequested() {
+  LockNow();
+}
+
+void UiApp::LockNow() {
+  if (!data_->HasPin() || data_->IsLocked()) {
+    return;
+  }
+  if (model().active_tab_id()) {
+    resume_tab_id_ = model().active_tab_id();
+  }
+  data_->LockScreen();
+
+  std::vector<std::string> profile_ids;
+  for (const model::BrowserProfile& profile : model().profiles()) {
+    profile_ids.push_back(profile.id);
+  }
+  for (const std::string& profile_id : profile_ids) {
+    UnloadProfile(profile_id);
+  }
+  // What changed is written, and the profiles leave memory.
+  data_->store().UnloadProfiles();
+
+  // Every profile closes in the engine; the volume detaches once each has.
+  // Still open, a profile keeps its files on the volume: Pane quits, which
+  // closes every one, and the volume detaches after (ADR 0116).
+  contexts_.CloseForLock(base::BindOnce(
+      [](base::WeakPtr<UiApp> app, base::OnceCallback<void(bool)> close_data,
+         bool every_closed) {
+        std::move(close_data).Run(every_closed);
+        if (!every_closed) {
+          LOG(ERROR) << "A profile was still open after Pane locked: Pane "
+                        "quits to close it";
+          if (app) {
+            app->Quit(base::DoNothing());
+          }
+        }
+      },
+      weak_factory_.GetWeakPtr(), data_->CloseData()));
+}
+
+// MARK: Intents
+
+std::string UiApp::CreateProfile(const model::ProfileDraft& draft) {
+  const std::string id =
+      model().CreateProfile([&](model::BrowserProfile& profile) {
+        draft.ApplyTo(profile, [&] {
+          return model::GeneratedFingerprint(draft.platform, HostWebGL());
+        });
+      });
+  ExpandProfile(id);
+  return id;
+}
+
+std::string UiApp::OpenTab(const std::string& profile_id,
+                           std::optional<GURL> url) {
+  ExpandProfile(profile_id);
+  const std::string tab_id = NewTabId();
+  model().InsertTab(
+      {.id = tab_id,
+       .url = url ? url->possibly_invalid_spec() : model::kNewTabURL},
+      profile_id);
+  if (!url) {
+    focuses_address_ = tab_id;
+  }
+  Select(tab_id);
+  return tab_id;
+}
+
+void UiApp::Select(const std::string& tab_id) {
+  const model::Tab* tab = model().FindTab(tab_id);
+  const std::optional<std::string> profile_id = model().ProfileIdOfTab(tab_id);
+  if (!InteractionAllowed() || !tab || !profile_id) {
+    return;
+  }
+  const std::u16string address = base::UTF8ToUTF16(tab->url);
+  // ⌘T's tab is timed as a new tab (NewTab).
+  const bool new_tab = focuses_address_ == tab_id;
+  if (model().active_tab_id() != tab_id && !new_tab) {
+    LogInteraction(Interaction::kSelectTab, window_->compositor());
+  }
+  model().SelectTab(tab_id);
+  model().SetPage(model::BrowserModel::Page::kBrowser);
+  model().SetExpanded(*profile_id, true);
+
+  // The window's one WebView swaps the page left for the one entered in the
+  // frame that answers the input.
+  if (content::WebContents* page = PageOf(tab_id)) {
+    Show(page);
+    return;
+  }
+
+  // The engine makes the page after the frame that answers the input (11 ms
+  // for a new tab's): the row selected, and a new tab's address field, don't
+  // wait for it.
+  window_->ShowNoPage(address);
+  if (new_tab) {
+    // A key typed right behind ⌘T goes in the field, not the page left.
+    window_->root().FocusAddress();
+  }
+  AfterFrame(
+      window_->compositor(),
       base::BindOnce(
-          [](base::WeakPtr<UiApp> app, std::string id, std::string name,
-             base::OnceCallback<void(std::string)> done, Profile* profile) {
-            if (!app || !profile) {
-              std::move(done).Run(std::string());
+          [](base::WeakPtr<UiApp> app, std::string tab_id,
+             std::string profile_id) {
+            if (!app) {
               return;
             }
-            ApplyProfileDefaults(profile);
-            ProfileEntry entry;
-            entry.id = id;
-            entry.name = name;
-            entry.profile = profile;
-            entry.keep_alive = std::make_unique<ScopedProfileKeepAlive>(
-                profile, ProfileKeepAliveOrigin::kBrowserWindow);
-            app->profiles_.push_back(std::move(entry));
-            app->window_->host().BrowserFor(profile);
-            std::move(done).Run(id);
+            app->contexts_.With(
+                profile_id,
+                base::BindOnce(
+                    [](base::WeakPtr<UiApp> app, std::string tab_id,
+                       Profile* profile) {
+                      if (!app || app->model().active_tab_id() != tab_id ||
+                          app->PageOf(tab_id) || !app->InteractionAllowed()) {
+                        return;
+                      }
+                      // The profile would not open: the sad tab's place,
+                      // which Phase 3 draws; selecting it tries again.
+                      if (!profile) {
+                        return;
+                      }
+                      app->OpenPage(tab_id, profile, /*foreground=*/true);
+                    },
+                    app, tab_id));
           },
-          weak_factory_.GetWeakPtr(), id, name, std::move(done)));
+          weak_factory_.GetWeakPtr(), tab_id, *profile_id));
+}
+
+void UiApp::ChangeSettings(
+    base::FunctionRef<void(model::AppSettings&)> change) {
+  model().ChangeSettings(change);
+}
+
+void UiApp::SaveNow(base::OnceClosure written) {
+  data_->store().SaveNow(std::move(written));
+}
+
+void UiApp::Quit(base::OnceClosure saved) {
+  // Saved, then closed: the window, its profiles, then the engine, after
+  // which the volume detaches.
+  SaveNow(std::move(saved).Then(base::BindOnce(&chrome::AttemptUserExit)));
 }
 
 void UiApp::OpenLaunchURLs(std::vector<GURL> urls) {
+  if (!InteractionAllowed()) {
+    launch_urls_.insert(launch_urls_.end(), urls.begin(), urls.end());
+    return;
+  }
   if (urls.empty()) {
     return;
   }
-  Profile* profile = window_->host().active_profile();
-  if (!profile && !profiles_.empty()) {
-    profile = profiles_.front().profile;
+  std::string profile_id;
+  if (model().active_profile_id()) {
+    profile_id = *model().active_profile_id();
+  } else if (!model().profiles().empty()) {
+    profile_id = model().profiles().front().id;
+  } else {
+    profile_id = model().CreateProfile("Personal", model::ProfileColor::kBlue,
+                                       std::nullopt);
   }
-  if (!profile) {
-    CreateProfile("Personal", base::BindOnce(
-                                  [](base::WeakPtr<UiApp> app,
-                                     std::vector<GURL> urls, std::string id) {
-                                    if (app && !id.empty()) {
-                                      app->OpenLaunchURLs(std::move(urls));
-                                    }
-                                  },
-                                  weak_factory_.GetWeakPtr(), std::move(urls)));
+  ExpandProfile(profile_id);
+  // Each loads at once, as Chrome loads every URL it is handed; then the last
+  // shows.
+  std::string last;
+  for (const GURL& url : urls) {
+    last = OpenTabBehind(profile_id, url, std::nullopt);
+  }
+  Select(last);
+}
+
+std::string UiApp::OpenTabBehind(const std::string& profile_id,
+                                 const GURL& url,
+                                 const std::optional<std::string>& anchor) {
+  const std::string tab_id = NewTabId();
+  model().InsertTab({.id = tab_id, .url = url.possibly_invalid_spec()},
+                    profile_id, anchor);
+  contexts_.With(
+      profile_id,
+      base::BindOnce(
+          [](base::WeakPtr<UiApp> app, std::string tab_id, Profile* profile) {
+            if (!app || !profile || !app->model().FindTab(tab_id) ||
+                app->PageOf(tab_id)) {
+              return;
+            }
+            app->OpenPage(tab_id, profile, /*foreground=*/false);
+          },
+          weak_factory_.GetWeakPtr(), tab_id));
+  return tab_id;
+}
+
+// MARK: Pages
+
+void UiApp::OpenPage(const std::string& tab_id,
+                     Profile* profile,
+                     bool foreground) {
+  const model::Tab* tab = model().FindTab(tab_id);
+  Browser* browser = window_->host().BrowserFor(profile);
+  if (!tab || !browser) {
     return;
   }
-  content::WebContents* last = nullptr;
-  for (const GURL& url : urls) {
-    last = window_->OpenTab(profile, url, /*foreground=*/false);
+  GURL url(tab->url);
+  if (!url.is_valid()) {
+    url = GURL(model::kNewTabURL);
   }
-  if (last) {
-    window_->Select(last);
+  NavigateParams params(browser, url, ui::PAGE_TRANSITION_TYPED);
+  params.disposition = foreground ? WindowOpenDisposition::kNewForegroundTab
+                                  : WindowOpenDisposition::kNewBackgroundTab;
+  params.window_action = NavigateParams::WindowAction::kNoAction;
+  {
+    base::AutoReset<WindowHost::PendingOpen> pending(
+        &window_->host().pending_open(),
+        WindowHost::PendingOpen{params.disposition, nullptr});
+    base::AutoReset<std::optional<std::string>> opening(&opening_tab_id_,
+                                                        tab_id);
+    Navigate(&params);
+  }
+  content::WebContents* contents = params.navigated_or_inserted_contents;
+  if (contents && !PageOf(tab_id)) {
+    AddPage(tab_id, contents);
+  }
+  if (contents && model().active_tab_id() == tab_id) {
+    Show(contents);
   }
 }
 
-Profile* UiApp::ProfileWithId(const std::string& id) const {
-  for (const ProfileEntry& entry : profiles_) {
-    if (entry.id == id) {
-      return entry.profile;
+void UiApp::AdoptOpeningTab(content::WebContents* contents) {
+  if (opening_tab_id_ && !TabWithId(*opening_tab_id_)) {
+    SetTabId(contents, *opening_tab_id_);
+  }
+}
+
+void UiApp::AddPage(const std::string& tab_id, content::WebContents* contents) {
+  pages_[tab_id] = std::make_unique<Page>(this, tab_id, contents);
+}
+
+content::WebContents* UiApp::PageOf(const std::string& tab_id) const {
+  const auto page = pages_.find(tab_id);
+  return page == pages_.end() ? nullptr : page->second->web_contents();
+}
+
+// Never behind the lock: no page sits under the PIN screen.
+void UiApp::Show(content::WebContents* contents) {
+  if (!InteractionAllowed()) {
+    return;
+  }
+  const std::string& tab_id = TabIdOf(contents);
+  // A new tab's address field takes the keys once it shows, to type in;
+  // what has been typed since ⌘T stays.
+  const bool new_tab = focuses_address_ == tab_id;
+  if (new_tab) {
+    focuses_address_.reset();
+  }
+  window_->ShowTab(contents, /*chosen=*/!new_tab);
+}
+
+void UiApp::Release(const std::string& tab_id) {
+  const auto found = pages_.find(tab_id);
+  if (found == pages_.end()) {
+    return;
+  }
+  content::WebContents* contents = found->second->web_contents();
+  // Unmapped first: its removal is no tab closing.
+  pages_.erase(found);
+  if (window_->selected() == contents) {
+    window_->root().ShowPage(nullptr);
+  }
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+  TabStripModel* strip = browser ? browser->GetTabStripModel() : nullptr;
+  const int index =
+      strip ? strip->GetIndexOfWebContents(contents) : TabStripModel::kNoTab;
+  if (index != TabStripModel::kNoTab) {
+    strip->DetachAndDeleteWebContentsAt(index);
+  }
+}
+
+// Releases every page of a profile; its tabs stay (CONTEXT.md: Unload).
+void UiApp::UnloadProfile(const std::string& profile_id) {
+  const model::BrowserProfile* profile = model().FindProfile(profile_id);
+  if (!profile) {
+    return;
+  }
+  std::vector<std::string> tab_ids;
+  for (const model::Tab& tab : profile->tabs) {
+    tab_ids.push_back(tab.id);
+  }
+  for (const std::string& tab_id : tab_ids) {
+    Release(tab_id);
+  }
+  if (model().active_profile_id() == profile_id) {
+    window_->root().ShowPage(nullptr);
+    model().SelectTab(std::nullopt);
+    model().SetActiveProfile(std::nullopt);
+  }
+}
+
+void UiApp::SelectAfterClosing(const std::optional<std::string>& profile_id) {
+  const model::BrowserProfile* profile =
+      profile_id ? model().FindProfile(*profile_id) : nullptr;
+  std::vector<std::string> tab_ids;
+  if (profile) {
+    for (const model::Tab& tab : profile->tabs) {
+      tab_ids.push_back(tab.id);
     }
   }
-  return nullptr;
+  if (const std::optional<std::string> next =
+          model::MostRecentTab(tab_ids, model().history().mru())) {
+    Select(*next);
+    return;
+  }
+  window_->ShowNoPage(std::u16string());
+  model().SelectTab(std::nullopt);
+  model().SetActiveProfile(profile_id);
 }
 
-std::vector<SidebarRow> UiApp::Rows(Window& window) const {
+void UiApp::ExpandProfile(const std::string& profile_id) {
+  model().SetExpanded(profile_id, true);
+}
+
+// A click on a profile's header: it opens, or collapsing unloads it (its
+// pages go, its tabs stay).
+void UiApp::ToggleProfile(const std::string& profile_id) {
+  if (model().expanded_profile_ids().contains(profile_id)) {
+    model().SetExpanded(profile_id, false);
+    UnloadProfile(profile_id);
+  } else {
+    ExpandProfile(profile_id);
+  }
+}
+
+void UiApp::PageTitleChanged(const std::string& tab_id) {
+  content::WebContents* contents = PageOf(tab_id);
+  if (!contents) {
+    return;
+  }
+  const std::string title = base::UTF16ToUTF8(contents->GetTitle());
+  model().UpdateTab(tab_id, [&](model::Tab& tab) { tab.title = title; });
+}
+
+void UiApp::PageURLChanged(const std::string& tab_id) {
+  content::WebContents* contents = PageOf(tab_id);
+  if (!contents) {
+    return;
+  }
+  const std::string url = contents->GetVisibleURL().spec();
+  model().UpdateTab(tab_id, [&](model::Tab& tab) { tab.url = url; });
+}
+
+void UiApp::PageDestroyed(const std::string& tab_id) {
+  pages_.erase(tab_id);
+}
+
+// MARK: Window::Controller
+
+std::vector<SidebarRow> UiApp::Rows() {
   std::vector<SidebarRow> rows;
-  for (size_t place = 0; place < profiles_.size(); ++place) {
-    const ProfileEntry& entry = profiles_[place];
-    rows.push_back(
-        {.profile_id = entry.id,
-         .title = base::UTF8ToUTF16(entry.name),
-         .selected = entry.profile == window.host().active_profile(),
-         .color = kProfileColors[place % std::size(kProfileColors)]});
-    Browser* browser = window.host().ExistingBrowserFor(entry.profile);
-    if (!browser) {
+  const model::BrowserModel& model = this->model();
+  for (const model::BrowserProfile& profile : model.profiles()) {
+    rows.push_back({.profile_id = profile.id,
+                    .title = base::UTF8ToUTF16(profile.name),
+                    .selected = model.active_profile_id() == profile.id,
+                    .color = ColorOf(profile.color)});
+    if (!model.expanded_profile_ids().contains(profile.id)) {
       continue;
     }
-    TabStripModel* model = browser->GetTabStripModel();
-    for (int i = 0; i < model->count(); ++i) {
-      content::WebContents* contents = model->GetWebContentsAt(i);
-      std::u16string title = contents->GetTitle();
-      if (title.empty()) {
-        title = base::UTF8ToUTF16(contents->GetVisibleURL().spec());
-      }
-      rows.push_back({.profile_id = entry.id,
-                      .tab_id = TabIdOf(contents),
-                      .title = title,
-                      .selected = contents == window.selected()});
-    }
-    // ⌘T's tab, before its page: titled as its page will be until it loads.
-    const std::optional<Window::PendingTab>& pending = window.pending_tab();
-    if (pending && pending->profile == entry.profile) {
-      rows.push_back({.profile_id = entry.id,
-                      .tab_id = pending->id,
-                      .title = base::UTF8ToUTF16(pending->url),
-                      .selected = pending->foreground});
+    for (const model::Tab& tab : profile.tabs) {
+      rows.push_back(
+          {.profile_id = profile.id,
+           .tab_id = tab.id,
+           .title = base::UTF8ToUTF16(tab.title.empty() ? tab.url : tab.title),
+           .selected = model.active_tab_id() == tab.id});
     }
   }
   return rows;
 }
 
-base::DictValue UiApp::Snapshot() const {
-  base::ListValue profiles;
-  std::string active_profile;
-  for (const ProfileEntry& entry : profiles_) {
-    base::ListValue tabs;
-    if (Browser* browser = window_->host().ExistingBrowserFor(entry.profile)) {
-      TabStripModel* model = browser->GetTabStripModel();
-      for (int i = 0; i < model->count(); ++i) {
-        content::WebContents* contents = model->GetWebContentsAt(i);
-        tabs.Append(base::DictValue()
-                        .Set("id", TabIdOf(contents))
-                        .Set("url", contents->GetVisibleURL().spec())
-                        .Set("title", contents->GetTitle())
-                        .Set("loading", contents->IsLoading()));
-      }
-    }
-    const std::optional<Window::PendingTab>& pending = window_->pending_tab();
-    if (pending && pending->profile == entry.profile) {
-      tabs.Append(base::DictValue()
-                      .Set("id", pending->id)
-                      .Set("url", pending->url)
-                      .Set("title", "")
-                      .Set("loading", true));
-    }
-    if (window_->host().active_profile() == entry.profile) {
-      active_profile = entry.id;
-    }
-    profiles.Append(base::DictValue()
-                        .Set("id", entry.id)
-                        .Set("name", entry.name)
-                        .Set("tabs", std::move(tabs)));
+void UiApp::RowPressed(const SidebarRow& row) {
+  if (row.tab_id.empty()) {
+    ToggleProfile(row.profile_id);
+    return;
   }
-  const std::string selected = window_->selected_id();
+  Select(row.tab_id);
+}
+
+// What the address field loads (the Swift's navigate): the selected page goes
+// there, or a tab with none yet is made there, or a new tab opens there.
+void UiApp::AddressEntered(const std::u16string& text) {
+  const GURL url = model::AddressURL(base::UTF16ToUTF8(text));
+  if (!url.is_valid() || !InteractionAllowed()) {
+    return;
+  }
+  const std::optional<std::string>& active = model().active_tab_id();
+  if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
+    page->GetController().LoadURL(url, content::Referrer(),
+                                  ui::PAGE_TRANSITION_TYPED, std::string());
+    page->Focus();
+    return;
+  }
+  if (active) {
+    const std::string tab_id = *active;
+    // Entered before ⌘T's page came: it is made at the address entered, and
+    // shows as a tab chosen.
+    if (focuses_address_ == tab_id) {
+      focuses_address_.reset();
+    }
+    model().UpdateTab(tab_id, [&](model::Tab& tab) { tab.url = url.spec(); });
+    Select(tab_id);
+    return;
+  }
+  if (const std::optional<std::string>& profile_id =
+          model().active_profile_id()) {
+    OpenTab(*profile_id, url);
+  } else if (!model().profiles().empty()) {
+    OpenTab(model().profiles().front().id, url);
+  }
+}
+
+// ⌘T: a new tab of the profile shown, at the start page.
+void UiApp::NewTab() {
+  LogInteraction(Interaction::kNewTab, window_->compositor());
+  std::optional<std::string> profile_id = model().active_profile_id();
+  if (!profile_id && !model().profiles().empty()) {
+    profile_id = model().profiles().front().id;
+  }
+  if (!profile_id || !InteractionAllowed()) {
+    return;
+  }
+  OpenTab(*profile_id, std::nullopt);
+}
+
+void UiApp::SelectTabAt(int number) {
+  const std::optional<std::string>& profile_id = model().active_profile_id();
+  const model::BrowserProfile* profile =
+      profile_id ? model().FindProfile(*profile_id) : nullptr;
+  if (!profile || profile->tabs.empty()) {
+    return;
+  }
+  const int count = static_cast<int>(profile->tabs.size());
+  const int index = number == 9 ? count - 1 : std::min(number, count) - 1;
+  Select(profile->tabs[index].id);
+}
+
+void UiApp::TabInserted(content::WebContents* contents,
+                        content::WebContents* opener,
+                        bool foreground) {
+  // The page the app had the engine make for one of its tabs.
+  if (opening_tab_id_) {
+    AdoptOpeningTab(contents);
+    if (!PageOf(*opening_tab_id_)) {
+      AddPage(*opening_tab_id_, contents);
+    }
+    return;
+  }
+
+  // A page opened it (a popup, a link in a new tab): a new tab after its
+  // opener, in the opener's profile.
+  const std::optional<std::string> profile_id = ProfileIdOf(contents);
+  if (!profile_id || !model().FindProfile(*profile_id)) {
+    return;
+  }
+  const std::string tab_id = TabIdOf(contents);
+  std::optional<std::string> after;
+  if (opener) {
+    after = TabIdOf(opener);
+  }
+  model().InsertTab({.id = tab_id, .url = contents->GetVisibleURL().spec()},
+                    *profile_id, after);
+  AddPage(tab_id, contents);
+  // Chromium is mid-call on its tab strip: selected on the next turn.
+  if (foreground) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&UiApp::Select, weak_factory_.GetWeakPtr(), tab_id));
+  }
+}
+
+void UiApp::TabRemoved(content::WebContents* contents) {
+  // A page the app released is no longer its tab's: the tab stays.
+  const auto found = std::ranges::find_if(pages_, [&](const auto& page) {
+    return page.second->web_contents() == contents;
+  });
+  if (found == pages_.end()) {
+    return;
+  }
+  // The page closed: the app closed it (once beforeunload agreed), or it
+  // closed itself (window.close()). Either way its tab goes too, and when it
+  // was selected, the next one is chosen once Chromium has left its tab strip.
+  const std::string tab_id = found->first;
+  pages_.erase(found);
+  const bool was_active = model().active_tab_id() == tab_id;
+  const std::optional<std::string> profile_id = model().ProfileIdOfTab(tab_id);
+  model().RemoveTab(tab_id);
+  if (was_active) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&UiApp::SelectAfterClosing,
+                                  weak_factory_.GetWeakPtr(), profile_id));
+  }
+}
+
+// Chrome made another tab active: an extension's tabs.update, say. The app
+// selects it too, on the next turn, unless the selection moved meanwhile.
+void UiApp::ActiveTabChanged(content::WebContents* contents) {
+  // Chrome tells its Browser, which tells this, before the insert.
+  AdoptOpeningTab(contents);
+  if (opening_tab_id_) {
+    return;
+  }
+  const auto found = std::ranges::find_if(pages_, [&](const auto& page) {
+    return page.second->web_contents() == contents;
+  });
+  if (found == pages_.end() || model().active_tab_id() == found->first) {
+    return;
+  }
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<UiApp> app, std::string tab_id,
+             std::optional<std::string> previous) {
+            if (!app || app->model().active_tab_id() != previous ||
+                (previous && !app->model().FindTab(*previous)) ||
+                !app->PageOf(tab_id)) {
+              return;
+            }
+            app->Select(tab_id);
+          },
+          weak_factory_.GetWeakPtr(), found->first, model().active_tab_id()));
+}
+
+// MARK: model::BrowserModel::Observer
+
+void UiApp::OnProfilesChanged() {
+  window_->Refresh();
+}
+
+void UiApp::OnExpandedProfilesChanged() {
+  window_->Refresh();
+}
+
+void UiApp::OnActiveTabChanged() {
+  window_->Refresh();
+}
+
+void UiApp::OnActiveProfileChanged() {
+  window_->Refresh();
+}
+
+// MARK: The channel
+
+base::DictValue UiApp::Snapshot() const {
+  const model::BrowserModel& model = this->model();
+  base::ListValue profiles;
+  for (const model::BrowserProfile& profile : model.profiles()) {
+    base::ListValue tabs;
+    for (const model::Tab& tab : profile.tabs) {
+      content::WebContents* page = PageOf(tab.id);
+      tabs.Append(
+          base::DictValue()
+              .Set("id", tab.id)
+              .Set("url", tab.url)
+              .Set("title", tab.title)
+              .Set("hasFavicon", !tab.favicon.empty())
+              .Set("loaded", page != nullptr)
+              .Set("loading", page && page->ShouldShowLoadingUI())
+              .Set("canGoBack", page && page->GetController().CanGoBack())
+              .Set("canGoForward",
+                   page && page->GetController().CanGoForward()));
+    }
+    const auto status = model.proxy_status().find(profile.id);
+    profiles.Append(
+        base::DictValue()
+            .Set("id", profile.id)
+            .Set("name", profile.name)
+            .Set("color", model::ColorName(profile.color))
+            .Set("expanded", model.expanded_profile_ids().contains(profile.id))
+            .Set("proxyStatus",
+                 status == model.proxy_status().end()
+                     ? base::Value()
+                     : base::Value(ProxyStatusName(status->second)))
+            .Set("keepLoaded", profile.keep_loaded)
+            .Set("savesHistory", profile.saves_history)
+            .Set("tabs", std::move(tabs)));
+  }
   views::Widget* widget = window_->host().widget();
+  const std::optional<std::string>& active_tab = model.active_tab_id();
+  const std::optional<std::string>& active_profile = model.active_profile_id();
   return base::DictValue()
       .Set("profiles", std::move(profiles))
-      .Set("activeTabID",
-           selected.empty() ? base::Value() : base::Value(selected))
+      .Set("activeTabID", active_tab ? base::Value(*active_tab) : base::Value())
       .Set("activeProfileID",
-           active_profile.empty() ? base::Value() : base::Value(active_profile))
-      .Set("page", "browser")
+           active_profile ? base::Value(*active_profile) : base::Value())
+      .Set("page", PageName(model.page()))
+      .Set("theme", model::ThemeName(model.settings().theme))
+      .Set("appIcon", model::AppIconName(model.settings().app_icon))
+      .Set("sidebarWidth", model.settings().sidebar_width)
+      .Set("closedTabs", static_cast<int>(model.history().closed().size()))
       .Set("address", window_->root().address())
       .Set("focus", window_->root().focus())
       .Set("window", base::DictValue()
@@ -288,7 +859,7 @@ base::DictValue UiApp::Snapshot() const {
                          .Set("visible", widget && widget->IsVisible())
                          .Set("key", widget && widget->IsActive())
                          .Set("fullScreen", widget && widget->IsFullscreen()))
-      .Set("security", DataState());
+      .Set("security", data_->State());
 }
 
 }  // namespace pane

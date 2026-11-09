@@ -5,6 +5,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/values.h"
 
@@ -30,6 +31,12 @@ enum class AppIcon {
   kNight,
   kMoonrise,
 };
+
+// As settings.json spells them: "system", "light", "dark"; "automatic",
+// "day", and the rest. nullopt for a name no Pane writes.
+std::string_view ThemeName(Theme theme);
+std::optional<Theme> ThemeNamed(std::string_view name);
+std::string_view AppIconName(AppIcon icon);
 
 // The window shown: automatic takes Day under a light appearance and Night
 // under a dark one, the app's own (Theme) or, for system, the Mac's.

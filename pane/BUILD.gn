@@ -43,6 +43,8 @@ source_set("pane") {
     "browser/extensions/extension_ui.h",
     "browser/fingerprints.cc",
     "browser/fingerprints.h",
+    "browser/profile_contexts.cc",
+    "browser/profile_contexts.h",
     "browser/profiles.cc",
     "browser/profiles.h",
     "browser/site_data.cc",

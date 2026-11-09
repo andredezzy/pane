@@ -32,10 +32,14 @@ base::expected<std::optional<base::Value>, FileError> PersistedFile::Load()
 }
 
 bool PersistedFile::Save(base::Value state) const {
-  return WriteJsonFile(
-      path_,
-      base::Value(
-          base::DictValue().Set("state", std::move(state)).Set("version", 0)));
+  const std::optional<std::string> text = Encode(std::move(state));
+  return text && WriteTextFile(path_, *text);
+}
+
+// static
+std::optional<std::string> PersistedFile::Encode(base::Value state) {
+  return base::WriteJson(base::Value(
+      base::DictValue().Set("state", std::move(state)).Set("version", 0)));
 }
 
 void KeepDamaged(const base::FilePath& path) {
@@ -64,8 +68,12 @@ base::expected<std::optional<base::Value>, FileError> ReadJsonFile(
 
 bool WriteJsonFile(const base::FilePath& path, const base::Value& value) {
   const std::optional<std::string> text = base::WriteJson(value);
-  return text && base::CreateDirectory(path.DirName()) &&
-         base::ImportantFileWriter::WriteFileAtomically(path, *text);
+  return text && WriteTextFile(path, *text);
+}
+
+bool WriteTextFile(const base::FilePath& path, std::string_view text) {
+  return base::CreateDirectory(path.DirName()) &&
+         base::ImportantFileWriter::WriteFileAtomically(path, text);
 }
 
 }  // namespace pane::model

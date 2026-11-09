@@ -57,7 +57,14 @@ Key TestKey() {
 // What the vault tells the app.
 class Delegate : public DataVault::Delegate {
  public:
-  void DataKeyDidOpen() override { events.push_back("key"); }
+  void DataKeyDidOpen(base::OnceClosure done) override {
+    events.push_back("key");
+    if (hold_loads) {
+      loaded = std::move(done);
+      return;
+    }
+    std::move(done).Run();
+  }
   std::vector<std::string> ProfileIds() override { return ids; }
   void AccessDidOpen() override { events.push_back("access"); }
   void VolumeWontOpen() override { events.push_back("wont-open"); }
@@ -66,6 +73,10 @@ class Delegate : public DataVault::Delegate {
 
   std::vector<std::string> ids;
   std::vector<std::string> events;
+  // The profiles load off the window's sequence: held here until the test
+  // says they have.
+  bool hold_loads = false;
+  base::OnceClosure loaded;
 };
 
 class DataVaultTest : public testing::Test {
@@ -158,6 +169,54 @@ TEST_F(DataVaultTest, OpensOnceAttached) {
   vault->WhenAttached(
       base::BindLambdaForTesting([&](bool yes) { again = yes; }));
   EXPECT_TRUE(again);
+}
+
+// The profiles load off the window's sequence: the vault goes on, with the
+// attach's outcome, the plain folders, and the profiles' own work, only once
+// they have.
+TEST_F(DataVaultTest, GoesOnOnceTheProfilesLoad) {
+  delegate_.ids = {"alpha"};
+  delegate_.hold_loads = true;
+  std::unique_ptr<DataVault> vault = MakeVault();
+  base::test::TestFuture<bool> attached;
+  vault->WhenAttached(attached.GetCallback());
+
+  Open(*vault);
+  ASSERT_TRUE(WaitFor([&] { return tools_->calls().size() == 3u; }));
+  RunFor(base::Milliseconds(50));
+  EXPECT_FALSE(attached.IsReady());
+  EXPECT_FALSE(vault->is_attached());
+  EXPECT_EQ(vault->phase(), Phase::kClosed);
+  EXPECT_EQ(delegate_.events, (std::vector<std::string>{"key"}));
+
+  std::move(delegate_.loaded).Run();
+  ASSERT_TRUE(WaitFor([&] { return attached.IsReady(); }));
+  EXPECT_TRUE(attached.Get());
+  EXPECT_EQ(vault->phase(), Phase::kOpen);
+  EXPECT_EQ(delegate_.events, (std::vector<std::string>{"key", "access"}));
+}
+
+// A lock before the profiles have loaded: nothing of that open goes on once
+// they do, and the image its key attached detaches behind the lock.
+TEST_F(DataVaultTest, ALockBeforeTheProfilesLoad) {
+  delegate_.ids = {"alpha"};
+  delegate_.hold_loads = true;
+  std::unique_ptr<DataVault> vault = MakeVault();
+  base::test::TestFuture<bool> attached;
+  vault->WhenAttached(attached.GetCallback());
+
+  Open(*vault);
+  ASSERT_TRUE(WaitFor([&] { return tools_->calls().size() == 3u; }));
+  base::OnceCallback<void(bool)> closed = vault->Lock();
+  EXPECT_FALSE(attached.Get());
+
+  std::move(delegate_.loaded).Run();
+  std::move(closed).Run(true);
+  ASSERT_TRUE(WaitFor([&] { return Contains(delegate_.events, "detached"); }));
+  EXPECT_EQ(vault->phase(), Phase::kClosed);
+  EXPECT_FALSE(vault->is_attached());
+  EXPECT_FALSE(Contains(delegate_.events, "access"));
+  EXPECT_FALSE(vault->FilesKey());
 }
 
 // The image the launch attached, its volume locked, is what the key unlocks:

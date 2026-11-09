@@ -4,22 +4,20 @@
 #define PANE_UI_WINDOW_WINDOW_H_
 
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
-#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "pane/browser/ui/window_host.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 
-class GURL;
-class Profile;
-
 namespace content {
 class WebContents;
+}
+
+namespace ui {
+class Compositor;
 }
 
 namespace pane {
@@ -29,27 +27,39 @@ struct SidebarRow;
 
 // One Pane window in Views: its widget, holding the hidden Browser of each
 // profile it shows (WindowHost, ADR 0014), and the root view that draws the
-// sidebar, the toolbar, and the selected tab's page.
+// sidebar, the toolbar, and the selected tab's page. What it shows is the
+// app's: the window draws it, takes the keys, and tells the app what its
+// Browsers do.
 class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
  public:
-  // ⌘T's tab between the frame that answers the key and its page: its row
-  // and the address field show at once, and the engine makes the page (11
-  // ms) after that frame, as the Swift app's AfterFrame orders it.
-  struct PendingTab {
-    std::string id;
-    raw_ptr<Profile> profile;
-    std::string url;
-    // Still the tab shown: nothing else was chosen meanwhile.
-    bool foreground = true;
+  // The app, which knows the profiles and their tabs.
+  class Controller {
+   public:
+    virtual ~Controller() = default;
+
+    // The sidebar's rows: each profile, then its tabs while it is open.
+    virtual std::vector<SidebarRow> Rows() = 0;
+    virtual void RowPressed(const SidebarRow& row) = 0;
+    // Return in the address field, with what it holds.
+    virtual void AddressEntered(const std::u16string& text) = 0;
+    // ⌘T.
+    virtual void NewTab() = 0;
+    // ⌘1 to ⌘8: the profile's tab at that place; ⌘9, its last.
+    virtual void SelectTabAt(int number) = 0;
+
+    // A page joined one of the window's Browsers, opened by `opener` (or
+    // none), to show at once or behind.
+    virtual void TabInserted(content::WebContents* contents,
+                             content::WebContents* opener,
+                             bool foreground) = 0;
+    // A page closed, rather than going with its window or the engine.
+    virtual void TabRemoved(content::WebContents* contents) = 0;
+    // Chrome made a page its Browser's active one.
+    virtual void ActiveTabChanged(content::WebContents* contents) = 0;
   };
 
-  // The sidebar's rows, from the app, which knows the profiles.
-  using Rows = base::RepeatingCallback<std::vector<SidebarRow>(Window&)>;
-  // Told whenever what the window shows changes: a tab came or went, or
-  // another was selected.
-  using Changed = base::RepeatingClosure;
-
-  Window(const gfx::Rect& bounds, Rows rows, Changed changed);
+  // `controller` outlives the window.
+  Window(const gfx::Rect& bounds, Controller* controller);
   Window(const Window&) = delete;
   Window& operator=(const Window&) = delete;
   ~Window() override;
@@ -58,24 +68,21 @@ class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
   void Show(bool activate);
   WindowHost& host() { return *host_; }
   RootView& root() { return *root_; }
+  ui::Compositor* compositor() const;
 
-  // A new tab of `profile` at `url`, selected at once when `foreground`.
-  content::WebContents* OpenTab(Profile* profile,
-                                const GURL& url,
-                                bool foreground);
-  // Shows `contents`, a tab of one of the window's profiles, and its profile.
-  void Select(content::WebContents* contents);
+  // Shows `contents`, a page of one of the window's profiles, and makes its
+  // profile the window's. A page chosen takes the keyboard, as a tab chosen
+  // in Chrome does; ⌘T's keeps it in the address field.
+  void ShowTab(content::WebContents* contents, bool chosen);
+  // No page shows: the selected tab's comes after the frame that answers the
+  // input, or none is selected. The address field shows `address`.
+  void ShowNoPage(const std::u16string& address);
   content::WebContents* selected() const;
-  // The tab shown's id, ⌘T's before its page exists; empty with none.
-  std::string selected_id() const;
-  const std::optional<PendingTab>& pending_tab() const { return pending_tab_; }
 
-  // ⌘T: a new tab of the profile shown, at the new tab page.
-  void NewTab();
   // ⌘L: the address field, its text selected.
   void FocusAddress();
-  // ⌘1 to ⌘8: the profile's tab at that place; ⌘9, its last.
-  void SelectTabAt(int number);
+  // The sidebar's rows again, from the app.
+  void Refresh();
 
   // ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
@@ -97,28 +104,13 @@ class Window : public WindowHost::Delegate, public ui::AcceleratorTarget {
   int NonClientHitTest(const gfx::Point& point) override;
 
  private:
-  // Shows `contents` and its profile; a tab chosen takes the keyboard,
-  // where ⌘T's keeps it in the address field.
-  void ShowTab(content::WebContents* contents, bool chosen);
-  // Has the engine make ⌘T's tab `id`, at `url`, if it still waits. `id` is
-  // a copy: the pending tab it names goes as the page is made.
-  void OpenPendingTab(std::string id, const GURL& url);
-  // Gives `contents`, the page OpenPendingTab made, the id its row showed
-  // before it existed, in whichever of Chrome's calls comes first.
-  void AdoptOpeningTab(content::WebContents* contents);
   void RowPressed(const SidebarRow& row);
   void AddressEntered(const std::u16string& text);
-  void Refresh();
 
   views::UnhandledKeyboardEventHandler unhandled_keys_;
-  Rows rows_;
-  Changed changed_;
+  const raw_ptr<Controller> controller_;
   raw_ptr<RootView> root_ = nullptr;
   std::unique_ptr<WindowHost> host_;
-  std::optional<PendingTab> pending_tab_;
-  // ⌘T's tab while the engine inserts it, inside OpenPendingTab.
-  std::optional<PendingTab> opening_tab_;
-  base::WeakPtrFactory<Window> weak_factory_{this};
 };
 
 }  // namespace pane

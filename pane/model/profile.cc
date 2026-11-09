@@ -2,6 +2,7 @@
 
 #include "pane/model/profile.h"
 
+#include <algorithm>
 #include <array>
 #include <utility>
 
@@ -156,6 +157,18 @@ base::Value TabToValue(const Tab& tab) {
 
 std::string_view HexOf(ProfileColor color) {
   return NameOf(kColorHexes, color);
+}
+
+std::string_view ColorName(ProfileColor color) {
+  return NameOf(kColors, color);
+}
+
+std::optional<ProfileColor> ColorNamed(std::string_view name) {
+  const auto found = std::ranges::find(kColors, name);
+  if (found == kColors.end()) {
+    return std::nullopt;
+  }
+  return static_cast<ProfileColor>(found - kColors.begin());
 }
 
 bool IsProfileFolderName(std::string_view id) {

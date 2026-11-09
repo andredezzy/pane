@@ -25,8 +25,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/crx_file/id_util.h"
-#include "components/language/core/browser/language_prefs.h"
-#include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_dictionary.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
@@ -52,7 +50,6 @@
 #include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/extensions/extensions_bridge.h"
 #import "pane/browser/extensions/extensions_internal.h"
-#include "pane/browser/fingerprints.h"
 #include "pane/browser/profiles.h"
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/window_host.h"
@@ -131,27 +128,9 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
 }
 
 - (void)applyFingerprint {
-  if (!_profile) {
-    return;
+  if (_profile) {
+    pane::ApplyFingerprintLanguages(_profile);
   }
-
-  // Chrome derives the Accept-Language list from the user's selected
-  // languages (LanguagePrefs), so both are set.
-  PrefService* prefs = _profile->GetPrefs();
-  const pane::Fingerprint* fingerprint =
-      pane::Fingerprints::Get().For(_profile);
-  if (fingerprint && !fingerprint->languages.empty()) {
-    const std::string languages = base::JoinString(fingerprint->languages, ",");
-    prefs->SetString(language::prefs::kSelectedLanguages, languages);
-    prefs->SetString(language::prefs::kAcceptLanguages, languages);
-  } else {
-    language::ResetLanguagePrefs(prefs);
-  }
-  PANE_TRACE("engine", "PaneBrowserContext.applyFingerprint",
-             base::DictValue()
-                 .Set("identifier", base::SysNSStringToUTF8(_identifier))
-                 .Set("acceptLanguages",
-                      prefs->GetString(language::prefs::kAcceptLanguages)));
 }
 
 - (id<PaneBrowserContextDelegate>)delegate {

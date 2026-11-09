@@ -6,15 +6,12 @@
 #include <vector>
 
 #include "base/apple/foundation_util.h"
-#include "base/barrier_closure.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
-#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/strings/sys_string_conversions.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/version_info/version_info.h"
@@ -27,17 +24,8 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_metrics.h"
-#include "chrome/browser/profiles/profile_observer.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "components/embedder_support/user_agent_utils.h"
-#include "content/public/browser/gpu_data_manager.h"
-#include "content/public/browser/network_service_instance.h"
-#include "content/public/browser/pane_storage_service.h"
-#include "gpu/config/gpu_info.h"
-#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "pane/app/engine_switches.h"
 #include "pane/browser/app_callback.h"
 #import "pane/browser/browser_application_internal.h"
@@ -54,7 +42,6 @@
 #include "pane/model/profile.h"
 #import "pane/public/PaneBrowserApplication.h"
 #include "services/network/enterprise/encryption/pane_cache_hook.h"
-#include "services/network/public/mojom/network_service.mojom.h"
 
 extern "C" int ChromeMain(int argc, const char** argv);
 
@@ -71,27 +58,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
   return [NSError errorWithDomain:kErrorDomain
                              code:code
                          userInfo:@{NSLocalizedDescriptionKey : description}];
-}
-
-// Closes every page of `profile`, in every window, without beforeunload:
-// Chrome's deletion asks each page that has one, and a page that answers
-// "Stay" (or never gets its dialog shown) would cancel the deletion and leave
-// the profile loaded.
-void CloseEveryPage(Profile* profile) {
-  std::vector<base::WeakPtr<BrowserWindowInterface>> browsers;
-  GlobalBrowserCollection::GetInstance()->ForEach(
-      [&](BrowserWindowInterface* browser) {
-        if (browser->GetProfile()->GetOriginalProfile() == profile) {
-          browsers.push_back(browser->GetWeakPtr());
-        }
-        return true;
-      });
-  for (const base::WeakPtr<BrowserWindowInterface>& browser : browsers) {
-    TabStripModel* model = browser ? browser->GetTabStripModel() : nullptr;
-    while (browser && model && !model->empty()) {
-      model->DetachAndDeleteWebContentsAt(model->count() - 1);
-    }
-  }
 }
 
 // Calls back once Chrome has marked a profile for permanent deletion: its
@@ -124,43 +90,6 @@ class ProfileDeletionWaiter : public ProfileManagerObserver {
   base::OnceCallback<void(bool)> done_;
   base::ScopedObservation<ProfileManager, ProfileManagerObserver> observation_{
       this};
-};
-
-// Calls back once Chrome destroys a profile, which closes its files, or with
-// false past `timeout` or when the profile manager goes first. Deletes
-// itself.
-class ProfileDestructionWaiter : public ProfileObserver,
-                                 public ProfileManagerObserver {
- public:
-  ProfileDestructionWaiter(Profile* profile,
-                           base::TimeDelta timeout,
-                           base::OnceCallback<void(bool)> done)
-      : done_(std::move(done)) {
-    profile_observation_.Observe(profile);
-    manager_observation_.Observe(g_browser_process->profile_manager());
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&ProfileDestructionWaiter::Finish,
-                       weak_factory_.GetWeakPtr(), false),
-        timeout);
-  }
-
-  void OnProfileWillBeDestroyed(Profile* profile) override { Finish(true); }
-  void OnProfileManagerDestroying() override { Finish(false); }
-
- private:
-  void Finish(bool destroyed) {
-    profile_observation_.Reset();
-    manager_observation_.Reset();
-    std::move(done_).Run(destroyed);
-    delete this;
-  }
-
-  base::OnceCallback<void(bool)> done_;
-  base::ScopedObservation<Profile, ProfileObserver> profile_observation_{this};
-  base::ScopedObservation<ProfileManager, ProfileManagerObserver>
-      manager_observation_{this};
-  base::WeakPtrFactory<ProfileDestructionWaiter> weak_factory_{this};
 };
 
 }  // namespace
@@ -329,21 +258,10 @@ class ProfileDestructionWaiter : public ProfileObserver,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(
           [](base::FilePath root, void (^progress)(double)) {
-            const base::FilePath profile = root.AppendASCII("Profile");
-            const base::FilePath archive = root.AppendASCII("SafetyCopy");
-
-            // A new profile has nothing to keep.
-            if (base::PathExists(profile.AppendASCII("Preferences")) &&
-                !base::PathExists(archive) &&
-                !pane::WriteSafetyCopy(profile, archive)) {
-              return false;
-            }
-
-            return pane::MigrateProfileFiles(
-                profile, root.AppendASCII("Cache"),
-                base::BindRepeating([](void (^progress)(double),
-                                       double share) { progress(share); },
-                                    progress));
+            return pane::MigrateProfileFolder(
+                root, base::BindRepeating([](void (^progress)(double),
+                                             double share) { progress(share); },
+                                          progress));
           },
           root, [progress copy]),
       base::BindOnce(
@@ -427,36 +345,16 @@ class ProfileDestructionWaiter : public ProfileObserver,
 
 - (void)dropEngineKeysWithCompletion:
     (void (^)(NSDictionary<NSString*, NSNumber*>* left))completion {
-  PANE_TRACE("call", "PaneBrowserApplication.dropEngineKeys");
-  pane::encryption::DropKeys();
-
-  // The network service and the Storage Service answer on their own.
-  __block uint32_t network = 0;
-  __block uint32_t storage = 0;
-  auto answered = base::BarrierClosure(
-      2, base::BindOnce(^{
-        const size_t browser = pane::encryption::KeyCount();
-        PANE_TRACE("callback", "PaneBrowserApplication.engineKeysDropped",
-                   base::DictValue()
-                       .Set("browser", static_cast<int>(browser))
-                       .Set("network", static_cast<int>(network))
-                       .Set("storage", static_cast<int>(storage)));
+  pane::DropEngineKeys(base::BindOnce(
+      [](void (^completion)(NSDictionary<NSString*, NSNumber*>*),
+         size_t browser, uint32_t network, uint32_t storage) {
         completion(@{
           @"browser" : @(browser),
           @"network" : @(network),
           @"storage" : @(storage),
         });
-      }));
-
-  content::GetNetworkService()->PaneDropEngineKeys(
-      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
-          base::BindOnce(^(uint32_t left) {
-            network = left;
-          }).Then(answered),
-          0u));
-  content::PaneDropStorageServiceKeys(base::BindOnce(^(uint32_t left) {
-                                        storage = left;
-                                      }).Then(answered));
+      },
+      [completion copy]));
 }
 
 - (PaneBrowserContext*)contextForProfile:(Profile*)profile {
@@ -489,7 +387,10 @@ class ProfileDestructionWaiter : public ProfileObserver,
   const base::FilePath path = profile->GetPath();
   [_contexts removeObjectForKey:context.identifier];
   [context shutDown];
-  CloseEveryPage(profile);
+  // Without beforeunload: Chrome's deletion asks each page that has one, and
+  // a page that answers "Stay" (or never gets its dialog shown) would cancel
+  // the deletion and leave the profile loaded.
+  pane::CloseEveryPage(profile);
   // Chrome closes the profile's Browsers (Pane's included), then marks the
   // profile for deletion and removes its data; the directory goes once nothing
   // holds the profile, or at the next start.
@@ -535,7 +436,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
   // shutdown, the Browsers' with the Browsers. A hosted Browser stays open
   // without tabs (Browser::TabStripEmpty), so each is closed once its pages
   // are gone; until then the profile kept every database on the volume open.
-  new ProfileDestructionWaiter(
+  pane::WaitForProfileDestruction(
       profile, base::Seconds(10),
       base::BindOnce(
           [](void (^completion)(BOOL), NSString* identifier, bool closed) {
@@ -552,7 +453,7 @@ class ProfileDestructionWaiter : public ProfileObserver,
   DownloadCoreServiceFactory::GetForBrowserContext(profile)->CancelDownloads(
       DownloadCoreService::CancelDownloadsTrigger::kShutdown);
   [context shutDown];
-  CloseEveryPage(profile);
+  pane::CloseEveryPage(profile);
   chrome::CloseAllBrowsersWithProfile(profile);
 }
 
@@ -574,26 +475,15 @@ class ProfileDestructionWaiter : public ProfileObserver,
 }
 
 - (NSString*)hostWebGLVendor {
-  const std::string vendor =
-      content::GpuDataManager::GetInstance()->GetGPUInfo().gl_vendor;
-  return vendor.empty() ? nil : base::SysUTF8ToNSString(vendor);
+  const std::optional<pane::model::Fingerprint::WebGL> webgl =
+      pane::HostWebGL();
+  return webgl ? base::SysUTF8ToNSString(webgl->vendor) : nil;
 }
 
-// ANGLE names its renderer "ANGLE (vendor, device, version)" and gives WebGL
-// "Unspecified Version" instead of the OS version Chrome's GPU info has
-// (DisplayMtl::getVersionString), so the version is swapped the same way.
 - (NSString*)hostWebGLRenderer {
-  std::string renderer =
-      content::GpuDataManager::GetInstance()->GetGPUInfo().gl_renderer;
-  if (renderer.empty()) {
-    return nil;
-  }
-  const size_t version = renderer.rfind(", ");
-  if (renderer.starts_with("ANGLE (") && renderer.ends_with(")") &&
-      version != std::string::npos) {
-    renderer = renderer.substr(0, version) + ", Unspecified Version)";
-  }
-  return base::SysUTF8ToNSString(renderer);
+  const std::optional<pane::model::Fingerprint::WebGL> webgl =
+      pane::HostWebGL();
+  return webgl ? base::SysUTF8ToNSString(webgl->renderer) : nil;
 }
 
 - (NSString*)chromiumVersion {

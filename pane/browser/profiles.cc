@@ -5,31 +5,110 @@
 #include <utility>
 #include <vector>
 
+#include "base/barrier_closure.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
+#include "base/strings/string_util.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/version_info/version_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/download/download_core_service.h"
+#include "chrome/browser/download/download_core_service_factory.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_manager_observer.h"
+#include "chrome/browser/profiles/profile_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/pref_names.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/embedder_support/user_agent_utils.h"
+#include "components/language/core/browser/language_prefs.h"
+#include "components/language/core/browser/pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
+#include "content/public/browser/gpu_data_manager.h"
+#include "content/public/browser/network_service_instance.h"
+#include "content/public/browser/pane_storage_service.h"
+#include "gpu/config/gpu_info.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "pane/browser/engine_trace.h"
+#include "pane/browser/fingerprints.h"
 #include "pane/encryption/engine_keys.h"
 #include "pane/encryption/handover.h"
+#include "pane/encryption/profile_migration.h"
+#include "pane/model/engine_fingerprint.h"
 #include "pane/model/profile.h"
 #include "services/network/enterprise/encryption/pane_cache_hook.h"
+#include "services/network/public/mojom/network_service.mojom.h"
 
 namespace pane {
+
+namespace {
+
+// Calls back once Chrome has destroyed a profile: true; false past the
+// timeout, or when the profile manager goes first. Deletes itself.
+class ProfileDestructionWaiter : public ProfileObserver,
+                                 public ProfileManagerObserver {
+ public:
+  ProfileDestructionWaiter(Profile* profile,
+                           base::TimeDelta timeout,
+                           base::OnceCallback<void(bool)> done)
+      : done_(std::move(done)) {
+    profile_observation_.Observe(profile);
+    manager_observation_.Observe(g_browser_process->profile_manager());
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&ProfileDestructionWaiter::Finish,
+                       weak_factory_.GetWeakPtr(), false),
+        timeout);
+  }
+
+  void OnProfileWillBeDestroyed(Profile* profile) override { Finish(true); }
+  void OnProfileManagerDestroying() override { Finish(false); }
+
+ private:
+  void Finish(bool destroyed) {
+    profile_observation_.Reset();
+    manager_observation_.Reset();
+    std::move(done_).Run(destroyed);
+    delete this;
+  }
+
+  base::OnceCallback<void(bool)> done_;
+  base::ScopedObservation<Profile, ProfileObserver> profile_observation_{this};
+  base::ScopedObservation<ProfileManager, ProfileManagerObserver>
+      manager_observation_{this};
+  base::WeakPtrFactory<ProfileDestructionWaiter> weak_factory_{this};
+};
+
+// What each process answered of its keys.
+struct KeysLeft : base::RefCountedThreadSafe<KeysLeft> {
+  uint32_t network = 0;
+  uint32_t storage = 0;
+
+ private:
+  friend class base::RefCountedThreadSafe<KeysLeft>;
+  ~KeysLeft() = default;
+};
+
+}  // namespace
 
 void RegisterEngineKey(const base::FilePath& user_data_dir,
                        const std::string& identifier,
@@ -131,6 +210,174 @@ void ApplyProfileDefaults(Profile* profile) {
   // Signing in to Google's websites is unaffected.
   prefs->SetBoolean(prefs::kSigninAllowed, false);
   prefs->SetBoolean(translate::prefs::kOfferTranslateEnabled, false);
+}
+
+bool SetProfileFingerprint(
+    const std::string& identifier,
+    const std::optional<model::Fingerprint>& fingerprint) {
+  PANE_TRACE("call", "PaneBrowserApplication.setFingerprint",
+             base::DictValue()
+                 .Set("identifier", identifier)
+                 .Set("set", fingerprint.has_value()));
+  std::string json;
+  if (fingerprint) {
+    json = model::EngineFingerprint::For(*fingerprint, identifier,
+                                         embedder_support::GetUserAgent(),
+                                         version_info::GetVersionNumber())
+               .ToJson();
+  }
+  std::string error;
+  return Fingerprints::Get().Set(identifier, json, &error);
+}
+
+void ApplyFingerprintLanguages(Profile* profile) {
+  // Chrome derives the Accept-Language list from the user's selected
+  // languages (LanguagePrefs), so both are set.
+  PrefService* prefs = profile->GetPrefs();
+  const Fingerprint* fingerprint = Fingerprints::Get().For(profile);
+  if (fingerprint && !fingerprint->languages.empty()) {
+    const std::string languages = base::JoinString(fingerprint->languages, ",");
+    prefs->SetString(language::prefs::kSelectedLanguages, languages);
+    prefs->SetString(language::prefs::kAcceptLanguages, languages);
+  } else {
+    language::ResetLanguagePrefs(prefs);
+  }
+  PANE_TRACE("engine", "PaneBrowserContext.applyFingerprint",
+             base::DictValue()
+                 .Set("identifier", profile->GetBaseName().AsUTF8Unsafe())
+                 .Set("acceptLanguages",
+                      prefs->GetString(language::prefs::kAcceptLanguages)));
+}
+
+// ANGLE names its renderer "ANGLE (vendor, device, version)" and gives WebGL
+// "Unspecified Version" instead of the OS version Chrome's GPU info has
+// (DisplayMtl::getVersionString), so the version is swapped the same way.
+std::optional<model::Fingerprint::WebGL> HostWebGL() {
+  const gpu::GPUInfo& info =
+      content::GpuDataManager::GetInstance()->GetGPUInfo();
+  std::string renderer = info.gl_renderer;
+  if (info.gl_vendor.empty() || renderer.empty()) {
+    return std::nullopt;
+  }
+  const size_t version = renderer.rfind(", ");
+  if (renderer.starts_with("ANGLE (") && renderer.ends_with(")") &&
+      version != std::string::npos) {
+    renderer = renderer.substr(0, version) + ", Unspecified Version)";
+  }
+  return model::Fingerprint::WebGL{.vendor = info.gl_vendor,
+                                   .renderer = std::move(renderer)};
+}
+
+void CloseEveryPage(Profile* profile) {
+  std::vector<base::WeakPtr<BrowserWindowInterface>> browsers;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        if (browser->GetProfile()->GetOriginalProfile() == profile) {
+          browsers.push_back(browser->GetWeakPtr());
+        }
+        return true;
+      });
+  for (const base::WeakPtr<BrowserWindowInterface>& browser : browsers) {
+    TabStripModel* model = browser ? browser->GetTabStripModel() : nullptr;
+    while (browser && model && !model->empty()) {
+      model->DetachAndDeleteWebContentsAt(model->count() - 1);
+    }
+  }
+}
+
+void WaitForProfileDestruction(Profile* profile,
+                               base::TimeDelta timeout,
+                               base::OnceCallback<void(bool)> done) {
+  new ProfileDestructionWaiter(profile, timeout, std::move(done));
+}
+
+void CloseProfile(Profile* profile,
+                  std::unique_ptr<ScopedProfileKeepAlive> keep_alive,
+                  base::OnceCallback<void(bool closed)> done) {
+  PANE_TRACE("call", "PaneBrowserApplication.closeContext",
+             base::DictValue().Set("identifier",
+                                   profile->GetBaseName().AsUTF8Unsafe()));
+  // Chrome destroys a profile once nothing holds it (its
+  // DestroyProfileOnBrowserClose): the hold goes here, the Browsers' with the
+  // Browsers. A hosted Browser stays open without tabs
+  // (Browser::TabStripEmpty), so each is closed once its pages are gone;
+  // until then the profile kept every database on the volume open.
+  WaitForProfileDestruction(
+      profile, base::Seconds(10),
+      base::BindOnce(
+          [](std::string identifier, base::OnceCallback<void(bool)> done,
+             bool closed) {
+            PANE_TRACE("callback", "PaneBrowserApplication.didCloseContext",
+                       base::DictValue()
+                           .Set("identifier", identifier)
+                           .Set("closed", closed));
+            std::move(done).Run(closed);
+          },
+          profile->GetBaseName().AsUTF8Unsafe(), std::move(done)));
+  // A download under way holds the profile too: it stops as at a quit, its
+  // partial file removed.
+  DownloadCoreServiceFactory::GetForBrowserContext(profile)->CancelDownloads(
+      DownloadCoreService::CancelDownloadsTrigger::kShutdown);
+  keep_alive.reset();
+  CloseEveryPage(profile);
+  chrome::CloseAllBrowsersWithProfile(profile);
+}
+
+void DropEngineKeys(
+    base::OnceCallback<void(size_t browser, uint32_t network, uint32_t storage)>
+        done) {
+  PANE_TRACE("call", "PaneBrowserApplication.dropEngineKeys");
+  encryption::DropKeys();
+
+  // The network service and the Storage Service answer on their own.
+  auto left = base::MakeRefCounted<KeysLeft>();
+  base::RepeatingClosure answered = base::BarrierClosure(
+      2, base::BindOnce(
+             [](scoped_refptr<KeysLeft> left,
+                base::OnceCallback<void(size_t, uint32_t, uint32_t)> done) {
+               const size_t browser = encryption::KeyCount();
+               PANE_TRACE("callback",
+                          "PaneBrowserApplication.engineKeysDropped",
+                          base::DictValue()
+                              .Set("browser", static_cast<int>(browser))
+                              .Set("network", static_cast<int>(left->network))
+                              .Set("storage", static_cast<int>(left->storage)));
+               std::move(done).Run(browser, left->network, left->storage);
+             },
+             left, std::move(done)));
+
+  content::GetNetworkService()->PaneDropEngineKeys(
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce(
+              [](scoped_refptr<KeysLeft> left, base::RepeatingClosure answered,
+                 uint32_t count) {
+                left->network = count;
+                answered.Run();
+              },
+              left, answered),
+          0u));
+  content::PaneDropStorageServiceKeys(base::BindOnce(
+      [](scoped_refptr<KeysLeft> left, base::RepeatingClosure answered,
+         uint32_t count) {
+        left->storage = count;
+        answered.Run();
+      },
+      left, answered));
+}
+
+bool MigrateProfileFolder(const base::FilePath& root,
+                          base::RepeatingCallback<void(double)> progress) {
+  const base::FilePath profile = root.AppendASCII("Profile");
+  const base::FilePath archive = root.AppendASCII("SafetyCopy");
+
+  // A new profile has nothing to keep.
+  if (base::PathExists(profile.AppendASCII("Preferences")) &&
+      !base::PathExists(archive) && !WriteSafetyCopy(profile, archive)) {
+    return false;
+  }
+
+  return MigrateProfileFiles(profile, root.AppendASCII("Cache"),
+                             std::move(progress));
 }
 
 }  // namespace pane

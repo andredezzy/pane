@@ -31,6 +31,11 @@ enum class ProfileColor {
 // Fixed-color swatches: they do not follow the theme (DESIGN.md).
 std::string_view HexOf(ProfileColor color);
 
+// As profiles.json spells it, "BLUE" to "ZINC"; nullopt for a name no Pane
+// writes.
+std::string_view ColorName(ProfileColor color);
+std::optional<ProfileColor> ColorNamed(std::string_view name);
+
 enum class Platform { kWindows, kMacOS, kLinux };
 
 // As each spells its own name.

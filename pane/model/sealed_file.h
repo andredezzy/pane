@@ -34,6 +34,11 @@ class SealedFile {
   // Atomically.
   bool Save(const base::Value& state, const Key& key) const;
 
+  // The file's text for `state`, as Save writes it: the box, as JSON, its
+  // nonce fresh. nullopt for a value JSON can't hold.
+  std::optional<std::string> Seal(const base::Value& state,
+                                  const Key& key) const;
+
  private:
   base::FilePath path_;
   std::string name_;
