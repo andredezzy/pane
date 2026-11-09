@@ -24,7 +24,7 @@ async function focusedPage(app: PaneApp, url: string): Promise<void> {
 
 	await app.waitFor(
 		"the page focused",
-		(state) => state.focus === "RenderWidgetHostViewCocoa",
+		(state) => state.focus === "pane.content",
 	);
 }
 
@@ -53,8 +53,7 @@ const quit: Scenario = async (context) => {
 
 	await app.waitFor(
 		"Quit Pane? gone, the page focused again",
-		(state) =>
-			!state.quitConfirmation && state.focus === "RenderWidgetHostViewCocoa",
+		(state) => !state.quitConfirmation && state.focus === "pane.content",
 	);
 
 	await app.send("key", { key: "q", modifiers: ["command"] });

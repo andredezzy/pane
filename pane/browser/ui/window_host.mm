@@ -580,6 +580,12 @@ void WindowHost::OnTabStripModelChanged(
   }
 }
 
+void WindowHost::SetTitle(const std::u16string& title) {
+  if (widget_delegate_) {
+    widget_delegate_->SetTitle(title);
+  }
+}
+
 void WindowHost::ShowExclusiveAccessHint(const std::u16string& marked_hint) {
   // Chrome marks the key to style it ("press |Esc|"); the app gets plain text.
   std::u16string hint;

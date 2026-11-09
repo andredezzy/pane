@@ -30,7 +30,7 @@ const viewsKeys: Scenario = async (context) => {
 		[];
 
 	// The page has the keyboard; ⌘T still opens a tab, before it sees the key.
-	expect((await app.state()).focus === "page", "the page has no focus");
+	expect((await app.state()).focus === "pane.content", "the page has no focus");
 	const before = (await tabs()).length;
 	await app.send("key", { key: "t", modifiers: ["command"] });
 	// A key queued right behind ⌘T lands in the new tab's address.
@@ -43,7 +43,7 @@ const viewsKeys: Scenario = async (context) => {
 
 			return (
 				(await tabs()).length === before + 1 &&
-				state.focus === "address" &&
+				state.focus === "pane.toolbar.address" &&
 				state.address === "a"
 			);
 		},
@@ -71,17 +71,26 @@ const viewsKeys: Scenario = async (context) => {
 	await app.send("select", { tab: pages[0]?.tab });
 	await app.send("key", { key: "l", modifiers: ["command"] });
 
-	await poll("⌘L", async () => (await app.state()).focus === "address", 5_000);
+	await poll(
+		"⌘L",
+		async () => (await app.state()).focus === "pane.toolbar.address",
+		5_000,
+	);
 
 	// Esc, then Return, close the sheet over the page.
 	for (const key of ["\u001b", "\r"]) {
 		await app.send("openProfileSheet");
-		expect((await app.state()).focus === "sheet", "the sheet has no focus");
+
+		expect(
+			(await app.state()).focus === "pane.profileSheet",
+			"the sheet has no focus",
+		);
+
 		await app.send("key", { key });
 
 		await poll(
 			`the sheet closing on ${key === "\r" ? "Return" : "Esc"}`,
-			async () => (await app.state()).focus !== "sheet",
+			async () => (await app.state()).focus !== "pane.profileSheet",
 			5_000,
 		);
 	}

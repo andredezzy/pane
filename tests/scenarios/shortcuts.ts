@@ -5,7 +5,7 @@ import { expect, type Scenario } from "../run";
 
 type Key = { key: string; modifiers?: string[] };
 
-const ADDRESS = "field: Search or enter URL";
+const ADDRESS = "pane.toolbar.address";
 const FIND = "field: Find in page";
 
 const ZOOM_CALLS = new Set([

@@ -1,5 +1,7 @@
 # Scenarios drive the app through a test-only automation channel
 
+> **On the Views line** (`docs/plans/views-migration.md`, H1): the channel names what has the keyboard, and what a press would reach, by Pane's view ids (`pane/ui/view_ids.h`: `pane.content`, `pane.toolbar.address`, `pane.profileSheet`), not AppKit's classes or a field's placeholder; `hitTest` also says who takes the press (the page, Pane's views, the frame, which moves the window, or the frame's own controls).
+
 > **Narrowed by [ADR 0115](0115-nothing-outside-the-volume-names-a-page.md)**: the channel opens only in a scenario's launch, on the mock keychain (`TestHooks`), where none of the user's data opens; a process of the user's starting Pane with `PANE_AUTOMATION_DIR` had read every tab of a launch without a PIN. The reason given below for not gating it, that whoever sets a launch's environment can read the data directory itself, ended with ADR 0113's encryption.
 
 Scenarios drive the app through an automation channel that exists only when `PANE_AUTOMATION_DIR` is set, so they exercise the app's own paths while a shipped Pane carries none of it. The runner drops JSON commands into `<dir>/in/`, and the app replies, with a snapshot of its state, in `<dir>/out/`. Commands call the same intents and actions the UI calls (ADR 0077). Key presses are real `NSEvent`s posted to the app's event queue, so they go through the key monitor (ADR 0079) and menu key equivalents as typed keys do. CDP stays for reading pages, and CUA for anything the screen must show (ADR 0012).

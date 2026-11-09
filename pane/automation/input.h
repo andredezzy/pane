@@ -26,6 +26,11 @@ bool PostKey(views::Widget* widget,
 // `clicks` times, as the trackpad's.
 void PostClick(views::Widget* widget, int x, int y, int clicks);
 
+// The pointer moving to `point` of the window (from its top left), as the
+// window dispatches a mouse move: what a hover answers. The real pointer stays
+// where it is.
+void PostMove(views::Widget* widget, int x, int y);
+
 // The modifiers going down, or up with none, with no key yet.
 void PostModifiers(views::Widget* widget,
                    const std::vector<std::string>& modifiers);

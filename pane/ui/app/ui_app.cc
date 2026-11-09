@@ -20,6 +20,7 @@
 #include "base/no_destructor.h"
 #include "base/process/kill.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
@@ -51,6 +52,7 @@
 #include "pane/model/profile_form.h"
 #include "pane/model/tab_history.h"
 #include "pane/ui/after_frame.h"
+#include "pane/ui/app/app_events.h"
 #include "pane/ui/app/installed_extensions.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
@@ -60,20 +62,16 @@
 #include "pane/ui/window/root_view.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/display/display.h"
-#include "ui/display/screen.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_delegate.h"
 
 namespace pane {
 
 namespace {
 
 UiApp* g_app = nullptr;
-
-// A new window's size, as the Swift app's first one (ADR 0016).
-constexpr gfx::Size kWindowSize(1280, 800);
 
 // The window's controls, as the Swift app's snapshot gave them: x, y, width,
 // height from the window's top left.
@@ -90,6 +88,28 @@ base::ListValue ControlFrames(views::Widget* widget) {
                       .Append(frame.height()));
   }
   return frames;
+}
+
+// The window, as the Swift app's snapshot gave it: its title, whether it
+// shows, has the keys, and fills the screen, its frame ("{{x, y}, {w, h}}",
+// from the screen's top left), and its controls' frames. A closed window
+// shows nothing.
+base::DictValue WindowState(views::Widget* widget) {
+  const bool open = widget && !widget->IsClosed();
+  const gfx::Rect bounds =
+      open ? widget->GetWindowBoundsInScreen() : gfx::Rect();
+  return base::DictValue()
+      .Set("title",
+           open && widget->widget_delegate()
+               ? base::UTF16ToUTF8(widget->widget_delegate()->GetWindowTitle())
+               : std::string())
+      .Set("visible", open && widget->IsVisible())
+      .Set("key", open && widget->IsActive())
+      .Set("fullScreen", open && widget->IsFullscreen())
+      .Set("frame",
+           base::StringPrintf("{{%d, %d}, {%d, %d}}", bounds.x(), bounds.y(),
+                              bounds.width(), bounds.height()))
+      .Set("trafficLightFrames", ControlFrames(open ? widget : nullptr));
 }
 
 // A profile's swatch, fixed in both appearances (ProfileColor).
@@ -205,6 +225,12 @@ class UiApp::Page : public content::WebContentsObserver {
     app_->PageTitleChanged(tab_id_);
   }
 
+  // Back's state follows the page's history.
+  void NavigationEntryCommitted(
+      const content::LoadCommittedDetails& details) override {
+    app_->PageNavigated(tab_id_);
+  }
+
   void PrimaryPageChanged(content::Page& page) override {
     app_->PageURLChanged(tab_id_);
     app_->PageCameBack(tab_id_);
@@ -266,24 +292,20 @@ UiApp::UiApp()
   // draws: settings.json is read before the lock, as the Swift's was.
   AddPaneColorMixer();
   ApplyTheme(model().settings().theme);
-  const gfx::Rect work_area =
-      display::Screen::Get()->GetPrimaryDisplay().work_area();
-  gfx::Rect bounds(kWindowSize);
-  bounds.set_origin(
-      work_area.CenterPoint() -
-      gfx::Vector2d(kWindowSize.width() / 2, kWindowSize.height() / 2));
-  window_ = std::make_unique<Window>(bounds, this);
+  // A scenario's copy shares the user's preferences, so its window neither
+  // reads nor saves the user's frame: 1280 × 800 at every launch (B0).
+  window_ = std::make_unique<Window>(
+      this,
+      /*keeps_frame=*/!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          "use-mock-keychain"));
   model_observation_.Observe(&model());
+  window_->Open();
+  window_->Show(/*activate=*/true);
+  events_ = AppEvents::Listen(
+      base::BindRepeating(&UiApp::ShowWindow, weak_factory_.GetWeakPtr()),
+      base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()));
 
   std::unique_ptr<base::Environment> environment = base::Environment::Create();
-  // A scenario's copy takes the front only when the runner allows it
-  // (run.ts --foreground): otherwise the app in use keeps it, and its user's
-  // keys stay theirs.
-  window_->Show(environment->GetVar("PANE_AUTOMATION_DIR").has_value()
-                    ? environment->GetVar("PANE_AUTOMATION_FOREGROUND") ==
-                          std::optional<std::string>("1")
-                    : true);
-
   if (std::optional<std::string> directory =
           environment->GetVar("PANE_AUTOMATION_DIR");
       directory && !directory->empty()) {
@@ -308,6 +330,7 @@ UiApp::UiApp()
 
 UiApp::~UiApp() {
   data_->Stop();
+  events_.reset();
   automation_.reset();
   model_observation_.Reset();
   // Their pages go with the window's Browsers, as quitting keeps their tabs.
@@ -444,9 +467,9 @@ void UiApp::Select(const std::string& tab_id) {
   // for a new tab's): the row selected, and a new tab's address field, don't
   // wait for it.
   window_->ShowNoPage(address);
-  if (new_tab) {
+  if (RootView* root = window_->root(); root && new_tab) {
     // A key typed right behind ⌘T goes in the field, not the page left.
-    window_->root().FocusAddress();
+    root->FocusAddress();
   }
   AfterFrame(
       window_->compositor(),
@@ -546,7 +569,7 @@ void UiApp::OpenPage(const std::string& tab_id,
                      Profile* profile,
                      bool foreground) {
   const model::Tab* tab = model().FindTab(tab_id);
-  Browser* browser = window_->host().BrowserFor(profile);
+  Browser* browser = window_->BrowserFor(profile);
   if (!tab || !browser) {
     return;
   }
@@ -560,7 +583,7 @@ void UiApp::OpenPage(const std::string& tab_id,
   params.window_action = NavigateParams::WindowAction::kNoAction;
   {
     base::AutoReset<WindowHost::PendingOpen> pending(
-        &window_->host().pending_open(),
+        &window_->host()->pending_open(),
         WindowHost::PendingOpen{params.disposition, nullptr});
     base::AutoReset<std::optional<std::string>> opening(&opening_tab_id_,
                                                         tab_id);
@@ -623,7 +646,7 @@ void UiApp::Release(const std::string& tab_id) {
   crashes_.Forget(tab_id);
   crashed_tab_ids_.erase(tab_id);
   if (window_->selected() == contents) {
-    window_->root().ShowPage(nullptr);
+    window_->ClearPage();
   }
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
@@ -649,7 +672,7 @@ void UiApp::UnloadProfile(const std::string& profile_id) {
     Release(tab_id);
   }
   if (model().active_profile_id() == profile_id) {
-    window_->root().ShowPage(nullptr);
+    window_->ClearPage();
     model().SelectTab(std::nullopt);
     model().SetActiveProfile(std::nullopt);
   }
@@ -678,6 +701,45 @@ void UiApp::ExpandProfile(const std::string& profile_id) {
   model().SetExpanded(profile_id, true);
 }
 
+// The sidebar header's Collapse all: every expanded profile collapses, its
+// pages unloading (the Swift's collapseAll).
+void UiApp::CollapseAll() {
+  const std::set<std::string> expanded = model().expanded_profile_ids();
+  for (const std::string& profile_id : expanded) {
+    model().SetExpanded(profile_id, false);
+    UnloadProfile(profile_id);
+  }
+}
+
+// The toolbar's Back: the shown page's history, a step back.
+void UiApp::Back() {
+  content::WebContents* page = window_->selected();
+  if (page && page->GetController().CanGoBack()) {
+    page->GetController().GoBack();
+  }
+}
+
+// The window shows again, in front (the Dock's reopen, an app handing over
+// URLs): a new one if it was closed, which shows what the app has, the
+// selected tab's page made again after the frame that answers.
+void UiApp::ShowWindow() {
+  const bool opened = !window_->is_open();
+  if (opened) {
+    window_->Open();
+  }
+  window_->Show(/*activate=*/true);
+  if (const std::optional<std::string> active = model().active_tab_id();
+      opened && active &&
+      model().page() == model::BrowserModel::Page::kBrowser) {
+    Select(*active);
+  }
+}
+
+void UiApp::OpenHandedURLs(std::vector<GURL> urls) {
+  ShowWindow();
+  OpenLaunchURLs(std::move(urls));
+}
+
 // A click on a profile's header: it opens, or collapsing unloads it (its
 // pages go, its tabs stay).
 void UiApp::ToggleProfile(const std::string& profile_id) {
@@ -696,6 +758,16 @@ void UiApp::PageTitleChanged(const std::string& tab_id) {
   }
   const std::string title = base::UTF16ToUTF8(contents->GetTitle());
   model().UpdateTab(tab_id, [&](model::Tab& tab) { tab.title = title; });
+  if (window_->selected() == contents) {
+    window_->UpdateTitle();
+  }
+}
+
+void UiApp::PageNavigated(const std::string& tab_id) {
+  if (content::WebContents* contents = PageOf(tab_id);
+      contents && window_->selected() == contents) {
+    window_->Refresh();
+  }
 }
 
 void UiApp::PageURLChanged(const std::string& tab_id) {
@@ -761,6 +833,26 @@ std::vector<SidebarRow> UiApp::Rows() {
     }
   }
   return rows;
+}
+
+RootView::Shows UiApp::Shows() {
+  const model::BrowserModel& model = this->model();
+  content::WebContents* page = window_->selected();
+  return {
+      .content = model.page() != model::BrowserModel::Page::kBrowser
+                     ? RootView::Content::kOther
+                 : model.active_tab_id() ? RootView::Content::kPage
+                                         : RootView::Content::kEmpty,
+      .sidebar_width = model.settings().sidebar_width,
+      .can_go_back = page && page->GetController().CanGoBack(),
+      .can_collapse_all = !model.expanded_profile_ids().empty(),
+  };
+}
+
+// The window's pages went with it (PageDestroyed); their tabs stay, and the
+// selected one's page is made again when the window shows.
+void UiApp::WindowClosed() {
+  focuses_address_.reset();
 }
 
 void UiApp::RowPressed(const SidebarRow& row) {
@@ -1029,7 +1121,8 @@ base::DictValue UiApp::Snapshot() const {
     crashed.Append(tab_id);
   }
 
-  views::Widget* widget = window_->host().widget();
+  views::Widget* widget = window_->widget();
+  RootView* root = window_->root();
   const std::optional<std::string>& active_tab = model.active_tab_id();
   const std::optional<std::string>& active_profile = model.active_profile_id();
   return base::DictValue()
@@ -1045,13 +1138,10 @@ base::DictValue UiApp::Snapshot() const {
       .Set("extensions", std::move(extensions))
       .Set("downloads", std::move(downloads))
       .Set("crashedTabs", std::move(crashed))
-      .Set("address", window_->root().address())
-      .Set("focus", window_->root().focus())
-      .Set("window", base::DictValue()
-                         .Set("trafficLightFrames", ControlFrames(widget))
-                         .Set("visible", widget && widget->IsVisible())
-                         .Set("key", widget && widget->IsActive())
-                         .Set("fullScreen", widget && widget->IsFullscreen()))
+      .Set("address", root ? root->address() : std::u16string())
+      .Set("focus", root ? root->focus() : std::string("none"))
+      .Set("pageFullscreen", window_->page_fullscreen())
+      .Set("window", WindowState(widget))
       .Set("security", data_->State());
 }
 

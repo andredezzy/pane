@@ -60,7 +60,7 @@ const windowChrome: Scenario = async (context) => {
 
 	await app.waitFor(
 		"the address field focused",
-		(state) => state.focus === "field: Search or enter URL",
+		(state) => state.focus === "pane.toolbar.address",
 	);
 
 	// Collapse all, a 28-point circle at the end of the sidebar's header.

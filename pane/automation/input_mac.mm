@@ -117,6 +117,21 @@ void PostClick(views::Widget* widget, int x, int y, int clicks) {
   }
 }
 
+void PostMove(views::Widget* widget, int x, int y) {
+  NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSEvent* event =
+      [NSEvent mouseEventWithType:NSEventTypeMouseMoved
+                         location:NSMakePoint(x, NSHeight(window.frame) - y)
+                    modifierFlags:0
+                        timestamp:NSProcessInfo.processInfo.systemUptime
+                     windowNumber:window.windowNumber
+                          context:nil
+                      eventNumber:0
+                       clickCount:0
+                         pressure:0];
+  [window sendEvent:event];
+}
+
 void PostModifiers(views::Widget* widget,
                    const std::vector<std::string>& modifiers) {
   NSEvent* event =

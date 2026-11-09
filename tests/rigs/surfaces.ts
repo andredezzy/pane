@@ -304,7 +304,7 @@ async function toolbar(
 
 	await app.waitFor(
 		"the address field focused",
-		(state) => state.focus.startsWith("field:"),
+		(state) => state.focus === "pane.toolbar.address",
 		5_000,
 	);
 
@@ -331,7 +331,7 @@ async function toolbar(
 
 	await app.waitFor(
 		"the address field left",
-		(state) => !state.focus.startsWith("field:"),
+		(state) => state.focus !== "pane.toolbar.address",
 		5_000,
 	);
 }
@@ -688,7 +688,7 @@ async function fullscreenHint({ context, app, renders }: Family, work: string) {
 
 	await app.waitFor(
 		"the page focused",
-		(state) => state.focus === "RenderWidgetHostViewCocoa",
+		(state) => state.focus === "pane.content",
 	);
 
 	await page.gesture("document.documentElement.requestFullscreen()", true);

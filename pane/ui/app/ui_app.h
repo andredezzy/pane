@@ -31,6 +31,7 @@ class WebContents;
 
 namespace pane {
 
+class AppEvents;
 class Automation;
 struct SidebarRow;
 
@@ -90,6 +91,10 @@ class UiApp : public AppData::Client,
   // profile in use (the first, made when there is none), once the lock is
   // open. The last one is selected.
   void OpenLaunchURLs(std::vector<GURL> urls);
+  // The window shows again, in front: a new one if it was closed.
+  void ShowWindow();
+  // What another app handed Pane opens, its window shown again (ADR 0109).
+  void OpenHandedURLs(std::vector<GURL> urls);
 
   // The tab's page, when it has one.
   content::WebContents* PageOf(const std::string& tab_id) const;
@@ -105,8 +110,11 @@ class UiApp : public AppData::Client,
 
   // Window::Controller:
   std::vector<SidebarRow> Rows() override;
+  RootView::Shows Shows() override;
   void RowPressed(const SidebarRow& row) override;
   void AddressEntered(const std::u16string& text) override;
+  void Back() override;
+  void CollapseAll() override;
   void NewTab() override;
   void SelectTabAt(int number) override;
   void TabInserted(content::WebContents* contents,
@@ -114,6 +122,7 @@ class UiApp : public AppData::Client,
                    bool foreground) override;
   void TabRemoved(content::WebContents* contents) override;
   void ActiveTabChanged(content::WebContents* contents) override;
+  void WindowClosed() override;
 
   // model::BrowserModel::Observer:
   void OnProfilesChanged() override;
@@ -152,6 +161,8 @@ class UiApp : public AppData::Client,
 
   // From a page.
   void PageTitleChanged(const std::string& tab_id);
+  // It went somewhere: its history changed.
+  void PageNavigated(const std::string& tab_id);
   void PageURLChanged(const std::string& tab_id);
   void PageDestroyed(const std::string& tab_id);
   // Its renderer died: the first crash reloads it, and a second within a
@@ -164,6 +175,7 @@ class UiApp : public AppData::Client,
   const raw_ref<AppData> data_;
   ProfileContexts contexts_;
   std::unique_ptr<Window> window_;
+  std::unique_ptr<AppEvents> events_;
   std::unique_ptr<Automation> automation_;
   // Each tab's page, by its id.
   std::map<std::string, std::unique_ptr<Page>> pages_;

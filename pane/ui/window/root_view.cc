@@ -11,21 +11,27 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/icon_button.h"
+#include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/interaction_log.h"
+#include "pane/ui/view_ids.h"
+#include "pane/ui/window/empty_state_view.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/core/SkPath.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/font.h"
-#include "ui/gfx/font_list.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -43,12 +49,46 @@ namespace pane {
 
 namespace {
 
-constexpr int kSidebarWidth = 260;
+// The window's least size, as the Electron app's (ADR 0036).
+constexpr gfx::Size kMinimumSize(900, 600);
+
+// The sidebar's header: the traffic lights' row, 39 points, its title 82 in,
+// after them, and Collapse all, a 28-point circle, 8 from the column's edge,
+// as the rows below. The title is centered a point above the row's bottom,
+// on the lights' line (ADR 0036).
+constexpr int kHeaderHeight = 39;
+constexpr int kHeaderLeading = 82;
+constexpr int kHeaderTrailing = 8;
+constexpr int kHeaderBottom = 1;
+constexpr int kCollapseAllSize = 28;
+constexpr TextStyle kTitle{12, weight::kSemibold, 0};
+
+// The list under it: 8 in from the column's sides, 4 from its ends, its rows
+// 4 apart.
+constexpr int kListInset = 8;
+constexpr int kListEnds = 4;
+constexpr int kRowSpacing = 4;
+
+// The content panel: flush with the sidebar, 8 from the window's other edges
+// (m-2 ml-0), rounded at the panel's 18; its ring a point outside it, rounded
+// a point more, and its shadow-panel, 0 2px 8px (a Gaussian of 4).
 constexpr int kPanelInset = 8;
+constexpr float kRingRadius = radius::kPanel + 1;
+constexpr gfx::Vector2dF kShadowOffset(0, 2);
+constexpr float kShadowSigma = 4;
+
+// The toolbar's row: the page starts 43 points down the panel, a pixel under
+// the toolbar's 42 (the Electron app's TOOLBAR_HEIGHT less its gutter). Its
+// buttons, 32-point circles, start 5 in.
 constexpr int kToolbarHeight = 43;
-// The content panel's squircle (18), as a layer draws it: a circle of the
-// radius that follows it within a fifth of a pixel (ADR 0057), so no mask
-// composites the page each frame.
+constexpr int kToolbarLeading = 5;
+constexpr int kToolbarButtonSize = 32;
+
+// The page's corners, the panel's, as a layer draws them: a circle of the
+// radius that follows the squircle within a fifth of a pixel (ADR 0057), so
+// no mask composites the page each frame. All four, as the Swift's page layer
+// rounds them, its top two under the toolbar too (Paper's 04.7 has those
+// square: the user's call).
 constexpr float kPageCornerRadius = radius::kPanel * kCircularEquivalent;
 
 // The sheet's card, at the window's right, as the profile sheet sits (Paper
@@ -172,6 +212,7 @@ class SheetView : public views::View {
 
  public:
   explicit SheetView(base::RepeatingClosure close) : close_(close) {
+    SetID(kViewIdProfileSheet);
     SetPaintToLayer();
     layer()->SetFillsBoundsOpaquely(false);
     SetBackground(views::CreateSolidBackground(kPaneColorSheetScrim));
@@ -243,24 +284,57 @@ END_METADATA
 
 }  // namespace
 
-RootView::RootView(RowPressed row_pressed, AddressEntered address_entered)
-    : row_pressed_(std::move(row_pressed)),
-      address_entered_(std::move(address_entered)) {
+RootView::Callbacks::Callbacks() = default;
+RootView::Callbacks::Callbacks(Callbacks&&) = default;
+RootView::Callbacks& RootView::Callbacks::operator=(Callbacks&&) = default;
+RootView::Callbacks::~Callbacks() = default;
+
+RootView::RootView(Callbacks callbacks) : callbacks_(std::move(callbacks)) {
   SetBackground(views::CreateSolidBackground(kPaneColorWindowBackground));
 
+  // The sidebar's column: its header, the lights' row, then its list.
   sidebar_ = AddChildView(std::make_unique<views::View>());
-  sidebar_->SetLayoutManager(std::make_unique<views::BoxLayout>(
-      views::BoxLayout::Orientation::kVertical, gfx::Insets::TLBR(44, 8, 8, 8),
-      2));
+  sidebar_->SetID(kViewIdSidebar);
+  sidebar_->GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
+  sidebar_->GetViewAccessibility().SetName(u"Sidebar");
+  header_ = sidebar_->AddChildView(std::make_unique<views::View>());
+  header_->SetID(kViewIdSidebarHeader);
+  title_ = header_->AddChildView(
+      MakeLabel(u"Pane", kTitle, kPaneColorMutedForeground));
+  // The title moves the window, as the rest of the header does.
+  title_->SetCanProcessEventsWithinSubtree(false);
+  title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  collapse_all_ = header_->AddChildView(std::make_unique<IconButton>(
+      callbacks_.collapse_all, kCollapseAllSize,
+      IconButton::Glyph{Icon::kChevronsDownUp, 16}, u"Collapse all profiles"));
+  collapse_all_->SetID(kViewIdCollapseAll);
+  collapse_all_->SetEnabled(false);
+  list_ = sidebar_->AddChildView(std::make_unique<views::View>());
+  list_->SetID(kViewIdSidebarProfiles);
+  list_->SetLayoutManager(std::make_unique<views::BoxLayout>(
+      views::BoxLayout::Orientation::kVertical,
+      gfx::Insets::VH(kListEnds, kListInset), kRowSpacing));
 
-  panel_ = AddChildView(std::make_unique<views::View>());
-  panel_->SetBackground(views::CreateSolidBackground(kPaneColorCard));
-
-  address_ = AddChildView(std::make_unique<views::Textfield>());
+  // The toolbar's row, at the panel's top while a tab shows.
+  toolbar_ = AddChildView(std::make_unique<views::View>());
+  toolbar_->SetID(kViewIdToolbar);
+  back_ = toolbar_->AddChildView(std::make_unique<IconButton>(
+      callbacks_.back, kToolbarButtonSize,
+      IconButton::Glyph{Icon::kChevronLeft, 24, /*stroke_width=*/1.5f},
+      u"Back"));
+  back_->SetID(kViewIdBack);
+  back_->SetEnabled(false);
+  address_ = toolbar_->AddChildView(std::make_unique<views::Textfield>());
+  address_->SetID(kViewIdAddress);
   address_->set_controller(this);
   address_->SetAccessibleName(u"Address");
 
+  // The page in its card, and what shows there with no tab selected.
   page_ = AddChildView(std::make_unique<views::WebView>(nullptr));
+  page_->SetID(kViewIdContent);
+  page_->GetViewAccessibility().SetName(u"Web content");
+  empty_ = AddChildView(std::make_unique<EmptyStateView>());
+  ShowPlaces();
 }
 
 RootView::~RootView() = default;
@@ -275,17 +349,17 @@ void RootView::SetRows(const std::vector<SidebarRow>& rows) {
   if (keys != row_keys_) {
     std::map<std::string, std::unique_ptr<views::View>> kept;
     for (const std::string& key : row_keys_) {
-      kept[key] = sidebar_->RemoveChildViewT(sidebar_->children().front());
+      kept[key] = list_->RemoveChildViewT(list_->children().front());
     }
     for (size_t i = 0; i < rows.size(); ++i) {
       std::unique_ptr<views::View>& view = kept[keys[i]];
-      sidebar_->AddChildView(view ? std::move(view) : MakeRow(rows[i]));
+      list_->AddChildView(view ? std::move(view) : MakeRow(rows[i]));
     }
     row_keys_ = std::move(keys);
-    sidebar_->InvalidateLayout();
+    list_->InvalidateLayout();
   }
   for (size_t i = 0; i < rows.size(); ++i) {
-    views::View* view = sidebar_->children()[i];
+    views::View* view = list_->children()[i];
     const SidebarRow& row = rows[i];
     if (row.tab_id.empty()) {
       static_cast<ProfileRow*>(view)->Update(row);
@@ -306,13 +380,46 @@ void RootView::SetRows(const std::vector<SidebarRow>& rows) {
 
 std::unique_ptr<views::View> RootView::MakeRow(const SidebarRow& row) {
   if (row.tab_id.empty()) {
-    return std::make_unique<ProfileRow>(base::BindRepeating(row_pressed_, row),
-                                        row);
+    return std::make_unique<ProfileRow>(
+        base::BindRepeating(callbacks_.row_pressed, row), row);
   }
   auto button = std::make_unique<views::LabelButton>(
-      base::BindRepeating(row_pressed_, row), row.title);
+      base::BindRepeating(callbacks_.row_pressed, row), row.title);
   button->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   return button;
+}
+
+void RootView::SetShows(const Shows& shows) {
+  const bool laid_out_again =
+      shows.content != shows_.content ||
+      std::round(shows.sidebar_width) != std::round(shows_.sidebar_width);
+  shows_ = shows;
+  back_->SetEnabled(shows.can_go_back);
+  collapse_all_->SetEnabled(shows.can_collapse_all);
+  if (laid_out_again) {
+    ShowPlaces();
+  }
+}
+
+// What shows goes or comes at once, not at the next layout: a new tab's
+// address field takes the keys in the same call that makes the toolbar show.
+void RootView::ShowPlaces() {
+  // The sidebar steps aside while a page fills the window, as the toolbar
+  // does, which shows over a tab's page on the browser page.
+  sidebar_->SetVisible(!page_fullscreen_);
+  toolbar_->SetVisible(shows_.content == Content::kPage && !page_fullscreen_);
+  empty_->SetVisible(shows_.content == Content::kEmpty && !page_fullscreen_);
+  InvalidateLayout();
+  SchedulePaint();
+}
+
+void RootView::SetPageFullscreen(bool fullscreen) {
+  if (fullscreen == page_fullscreen_) {
+    return;
+  }
+  page_fullscreen_ = fullscreen;
+  RoundPage();
+  ShowPlaces();
 }
 
 void RootView::ShowPage(content::WebContents* contents) {
@@ -320,12 +427,18 @@ void RootView::ShowPage(content::WebContents* contents) {
     return;
   }
   page_->SetWebContents(contents);
-  // The corners go on the page's own layer, which comes and goes with it
-  // (NativeViewHostMac has none to round with no page attached).
-  if (contents) {
-    page_->holder()->SetNativeViewCornerRadii(
-        gfx::RoundedCornersF(0, 0, kPageCornerRadius, kPageCornerRadius));
+  RoundPage();
+}
+
+// The corners go on the page's own layer, which comes and goes with it
+// (NativeViewHostMac has none to round with no page attached), and none while
+// the page fills the window.
+void RootView::RoundPage() {
+  if (!page_->web_contents()) {
+    return;
   }
+  page_->holder()->SetNativeViewCornerRadii(
+      gfx::RoundedCornersF(page_fullscreen_ ? 0 : kPageCornerRadius));
 }
 
 content::WebContents* RootView::page() const {
@@ -345,18 +458,10 @@ std::string RootView::focus() const {
       GetWidget() ? GetWidget()->GetFocusManager() : nullptr;
   const views::View* focused = manager ? manager->GetFocusedView() : nullptr;
   if (!focused) {
-    return "window";
+    return "none";
   }
-  if (focused == address_) {
-    return "address";
-  }
-  if (sheet_ && sheet_->Contains(focused)) {
-    return "sheet";
-  }
-  if (page_->Contains(focused)) {
-    return "page";
-  }
-  return "window";
+  const std::string_view name = NearestViewIdName(focused);
+  return std::string(name.empty() ? focused->GetClassName() : name);
 }
 
 void RootView::FocusPage() {
@@ -405,7 +510,7 @@ bool RootView::HandleKeyEvent(views::Textfield* sender,
       key_event.key_code() != ui::VKEY_RETURN) {
     return false;
   }
-  address_entered_.Run(std::u16string(sender->GetText()));
+  callbacks_.address_entered.Run(std::u16string(sender->GetText()));
   return true;
 }
 
@@ -413,27 +518,108 @@ gfx::Rect RootView::PageBounds() const {
   return page_->bounds();
 }
 
+gfx::RoundedCornersF RootView::PageCorners() const {
+  return page_->web_contents() ? page_->holder()->GetNativeViewCornerRadii()
+                               : gfx::RoundedCornersF();
+}
+
+SkPath RootView::PanelPath() const {
+  return SquirclePath(gfx::RectF(panel_bounds_),
+                      page_fullscreen_ ? 0 : radius::kPanel);
+}
+
 bool RootView::IsDragArea(const gfx::Point& point) {
-  if (point.y() >= kPanelInset + kToolbarHeight) {
+  if (page_fullscreen_) {
     return false;
   }
   views::View* hit = GetEventHandlerForPoint(point);
-  return hit == this || hit == sidebar_ || hit == panel_;
+  // The header's background and its title; the window's own around the
+  // panel, which takes its presses as the panel's card did.
+  return hit == header_ ||
+         (hit == this && !PanelPath().contains(point.x(), point.y()));
+}
+
+gfx::Size RootView::GetMinimumSize() const {
+  return kMinimumSize;
 }
 
 void RootView::Layout(PassKey) {
-  sidebar_->SetBounds(0, 0, kSidebarWidth, height());
-  const gfx::Rect panel(kSidebarWidth, kPanelInset,
-                        std::max(width() - kSidebarWidth - kPanelInset, 0),
-                        std::max(height() - 2 * kPanelInset, 0));
-  panel_->SetBoundsRect(panel);
-  address_->SetBounds(panel.x() + 92, panel.y() + 8,
-                      std::max(panel.width() - 184, 0), kToolbarHeight - 16);
-  page_->SetBounds(panel.x(), panel.y() + kToolbarHeight, panel.width(),
-                   std::max(panel.height() - kToolbarHeight, 0));
+  const int sidebar_width = static_cast<int>(std::round(shows_.sidebar_width));
+
+  sidebar_->SetBounds(0, 0, sidebar_width, height());
+  header_->SetBounds(0, 0, sidebar_width, kHeaderHeight);
+  const int header_row = kHeaderHeight - kHeaderBottom;
+  collapse_all_->SetBounds(
+      std::max(sidebar_width - kHeaderTrailing - kCollapseAllSize, 0),
+      (header_row - kCollapseAllSize) / 2, kCollapseAllSize, kCollapseAllSize);
+  title_->SetBounds(kHeaderLeading, 0,
+                    std::max(collapse_all_->x() - 8 - kHeaderLeading, 0),
+                    header_row);
+  list_->SetBounds(0, kHeaderHeight, sidebar_width,
+                   std::max(height() - kHeaderHeight, 0));
+
+  panel_bounds_ =
+      page_fullscreen_
+          ? GetLocalBounds()
+          : gfx::Rect(sidebar_width, kPanelInset,
+                      std::max(width() - sidebar_width - kPanelInset, 0),
+                      std::max(height() - 2 * kPanelInset, 0));
+
+  toolbar_->SetBounds(panel_bounds_.x(), panel_bounds_.y(),
+                      panel_bounds_.width(), kToolbarHeight);
+  const int button_top = (kToolbarHeight - 1 - kToolbarButtonSize) / 2;
+  back_->SetBounds(kToolbarLeading, button_top, kToolbarButtonSize,
+                   kToolbarButtonSize);
+  address_->SetBounds(92, 8, std::max(panel_bounds_.width() - 184, 0),
+                      kToolbarHeight - 16);
+
+  const int top = toolbar_->GetVisible() ? kToolbarHeight : 0;
+  page_->SetBounds(panel_bounds_.x(), panel_bounds_.y() + top,
+                   panel_bounds_.width(),
+                   std::max(panel_bounds_.height() - top, 0));
+
+  empty_->SetBoundsRect(panel_bounds_);
+
   if (sheet_) {
     sheet_->SetBoundsRect(GetLocalBounds());
   }
+}
+
+// The window's fill, then the content panel's card on its shadow, with its
+// ring: shadow-panel's 1-pixel ring and soft drop (Elevation.swift), both
+// outside the card as CSS's box-shadows are. A page filling the window has
+// the card square and bare.
+void RootView::OnPaint(gfx::Canvas* canvas) {
+  views::View::OnPaint(canvas);
+  const ui::ColorProvider* colors = GetColorProvider();
+  if (!colors || panel_bounds_.IsEmpty()) {
+    return;
+  }
+  const gfx::RectF card(panel_bounds_);
+  cc::PaintFlags flags;
+  flags.setAntiAlias(true);
+  flags.setColor(colors->GetColor(kPaneColorCard));
+  if (page_fullscreen_) {
+    canvas->DrawRect(card, flags);
+    return;
+  }
+  cc::DrawLooperBuilder shadow;
+  shadow.AddUnmodifiedContent();
+  shadow.AddShadow(
+      {kShadowOffset.x(), kShadowOffset.y()}, kShadowSigma,
+      SkColor4f::FromColor(colors->GetColor(kPaneColorPanelShadow)),
+      cc::DrawLooper::kOverrideAlphaFlag);
+  flags.setLooper(shadow.Detach());
+  canvas->DrawPath(SquirclePath(card, radius::kPanel), flags);
+
+  cc::PaintFlags ring;
+  ring.setAntiAlias(true);
+  ring.setStyle(cc::PaintFlags::kStroke_Style);
+  ring.setStrokeWidth(1);
+  ring.setColor(colors->GetColor(kPaneColorBorder));
+  gfx::RectF outside = card;
+  outside.Outset(1);
+  canvas->DrawPath(SquircleStrokePath(outside, kRingRadius, 1), ring);
 }
 
 BEGIN_METADATA(RootView)

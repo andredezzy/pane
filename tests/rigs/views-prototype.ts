@@ -78,7 +78,7 @@ const viewsPrototype: Scenario = async (context) => {
 	expect(
 		tabsInHome().length === 2 &&
 			tabsInHome().at(-1)?.id === first &&
-			state.focus === "address",
+			state.focus === "pane.toolbar.address",
 		`⌘T's tab and address field at once: ${JSON.stringify(state)}`,
 	);
 
@@ -92,7 +92,7 @@ const viewsPrototype: Scenario = async (context) => {
 			JSON.stringify([b.tab, first, second]) &&
 			state.activeTabID === second &&
 			second !== first &&
-			state.focus === "address",
+			state.focus === "pane.toolbar.address",
 		`two ⌘T in a row, each page under its row's id: ${JSON.stringify(state)}`,
 	);
 

@@ -4,6 +4,7 @@
 
 #import <AppKit/AppKit.h>
 
+#include "base/strings/sys_string_conversions.h"
 #include "components/remote_cocoa/app_shim/native_widget_mac_nswindow.h"
 #include "components/remote_cocoa/common/native_widget_ns_window.mojom.h"
 #include "ui/base/cocoa/window_size_constants.h"
@@ -103,11 +104,28 @@ class Frame : public views::NativeWidgetMac {
 
   NativeWidgetMacNSWindow* CreateNSWindow(
       const remote_cocoa::mojom::CreateWindowParams* params) override {
-    return [[ViewsWindowForPane alloc]
+    ViewsWindowForPane* window = [[ViewsWindowForPane alloc]
         initWithContentRect:ui::kWindowSizeDeterminedLater
                   styleMask:params->style_mask
                     backing:NSBackingStoreBuffered
                       defer:NO];
+    // What Chromium's own window creation sets from these params
+    // (NativeWidgetNSWindowBridge::CreateNSWindow), which a window class of
+    // Pane's goes without: the widget, not AppKit, releases the window; the
+    // title bar is transparent and its title hidden, so presses there reach
+    // the views under it, as the Swift app's did (ADR 0036); and the window
+    // animates in as a document's.
+    window.releasedWhenClosed = NO;
+    window.titlebarAppearsTransparent = params->titlebar_appears_transparent;
+    if (params->window_title_hidden) {
+      window.titleVisibility = NSWindowTitleHidden;
+    }
+    if (params->animation_enabled) {
+      window.animationBehavior = NSWindowAnimationBehaviorDocumentWindow;
+    }
+    // Pane restores its own session; AppKit's restoration is off (ADR 0016).
+    window.restorable = NO;
+    return window;
   }
 };
 
@@ -117,16 +135,27 @@ views::NativeWidget* CreateFrame(views::Widget* widget) {
   return new Frame(widget);
 }
 
+namespace {
+
+// As NSWindow asks it, of its frame view, the top of its views: a point in
+// the window's own coordinates, its title bar included.
+NSView* HitView(NSWindow* window, const gfx::Point& point) {
+  return [window.contentView.superview
+      hitTest:NSMakePoint(point.x(), NSHeight(window.frame) - point.y())];
+}
+
+}  // namespace
+
+std::string PlatformViewAt(views::Widget* widget, const gfx::Point& point) {
+  NSView* hit = HitView(widget->GetNativeWindow().GetNativeNSWindow(), point);
+  return hit ? base::SysNSStringToUTF8(NSStringFromClass([hit class]))
+             : std::string();
+}
+
 PressTarget PressTargetAt(views::Widget* widget, const gfx::Point& point) {
   NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
   NSView* content = window.contentView;
-  // -hitTest: takes a point in its receiver's superview's coordinates, as
-  // NSWindow asks it.
-  NSView* hit = [content
-      hitTest:[content.superview
-                  convertPoint:NSMakePoint(point.x(),
-                                           NSHeight(window.frame) - point.y())
-                      fromView:nil]];
+  NSView* hit = HitView(window, point);
   if (hit == content) {
     return PressTarget::kViews;
   }
@@ -135,7 +164,19 @@ PressTarget PressTargetAt(views::Widget* widget, const gfx::Point& point) {
       return PressTarget::kPage;
     }
   }
+  // Views passed it on (HTCAPTION): the frame view, or the title bar's own
+  // views over it, take it, and a press there moves the window
+  // (native_widget_mac_nswindow.mm, -cr_mouseDownOnFrameView:).
+  if (hit && ![hit isDescendantOf:content] &&
+      ![hit isKindOfClass:[NSControl class]]) {
+    return PressTarget::kDrag;
+  }
   return PressTarget::kOther;
+}
+
+void KeepFrame(views::Widget* widget) {
+  [widget->GetNativeWindow().GetNativeNSWindow()
+      setFrameAutosaveName:@"PaneMainWindow"];
 }
 
 std::vector<gfx::Rect> WindowControlFrames(views::Widget* widget) {

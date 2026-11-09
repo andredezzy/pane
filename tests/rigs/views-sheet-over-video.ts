@@ -68,7 +68,7 @@ const viewsSheetOverVideo: Scenario = async (context) => {
 		await app.send("key", { key: "a" });
 		const state = await app.state();
 		expect((await clicks()) === 0, "a click on the scrim reached the page");
-		expect(state.focus === "sheet", "the sheet lost the keyboard");
+		expect(state.focus === "pane.profileSheet", "the sheet lost the keyboard");
 		await app.send("closeProfileSheet");
 	} else {
 		context.defer(

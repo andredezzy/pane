@@ -25,7 +25,7 @@ const tabFocus: Scenario = async (context) => {
 
 	await app.waitFor(
 		"the page focused",
-		(state) => state.focus === "RenderWidgetHostViewCocoa",
+		(state) => state.focus === "pane.content",
 	);
 
 	// The first tab's row in the sidebar: under the profile's header, 32
@@ -43,7 +43,7 @@ const tabFocus: Scenario = async (context) => {
 	const selected = await app.state();
 
 	expect(
-		selected.focus === "RenderWidgetHostViewCocoa",
+		selected.focus === "pane.content",
 		`selecting a tab focused ${selected.focus}`,
 	);
 
@@ -60,7 +60,7 @@ const tabFocus: Scenario = async (context) => {
 	const switched = await app.state();
 
 	expect(
-		switched.focus === "RenderWidgetHostViewCocoa",
+		switched.focus === "pane.content",
 		`the switcher focused ${switched.focus}`,
 	);
 
@@ -71,7 +71,7 @@ const tabFocus: Scenario = async (context) => {
 	const back = await app.state();
 
 	expect(
-		back.focus === "RenderWidgetHostViewCocoa",
+		back.focus === "pane.content",
 		`back from Settings, ${back.focus} had the focus`,
 	);
 
@@ -81,7 +81,7 @@ const tabFocus: Scenario = async (context) => {
 	const fresh = await app.state();
 
 	expect(
-		fresh.focus === "field: Search or enter URL",
+		fresh.focus === "pane.toolbar.address",
 		`a new tab focused ${fresh.focus}`,
 	);
 };

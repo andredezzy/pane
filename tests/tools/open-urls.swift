@@ -1,17 +1,18 @@
 // Hands URLs to a running Pane as another app does: through Launch Services,
 // which sends them to the app as Apple Events (the way a link clicked in Mail
-// reaches the default browser), without activating it. Only the copy running
-// as <pid> from <app> may get them: Launch Services would start another copy
-// for a bundle that is not running, so the tool refuses then, and a copy it
-// started anyway gets a throwaway <home> and is stopped. Prints, as JSON, the
-// pid that got them.
-// Usage: open-urls <app> <pid> <home> <url>...
+// reaches the default browser), without activating it. With no URL, it opens
+// the app itself, as a click on its Dock icon does, which a running app gets
+// as a reopen. Only the copy running as <pid> from <app> may get them: Launch
+// Services would start another copy for a bundle that is not running, so the
+// tool refuses then, and a copy it started anyway gets a throwaway <home> and
+// is stopped. Prints, as JSON, the pid that got them.
+// Usage: open-urls <app> <pid> <home> [<url>...]
 import AppKit
 
 let arguments = CommandLine.arguments
 
-guard arguments.count >= 5, let pid = Int32(arguments[2]) else {
-	FileHandle.standardError.write(Data("usage: open-urls <app> <pid> <home> <url>...\n".utf8))
+guard arguments.count >= 4, let pid = Int32(arguments[2]) else {
+	FileHandle.standardError.write(Data("usage: open-urls <app> <pid> <home> [<url>...]\n".utf8))
 	exit(2)
 }
 
@@ -39,10 +40,16 @@ let done = DispatchSemaphore(value: 0)
 var receiver: NSRunningApplication?
 var failure: Error?
 
-NSWorkspace.shared.open(urls, withApplicationAt: app, configuration: configuration) { application, error in
+let opened: (NSRunningApplication?, Error?) -> Void = { application, error in
 	receiver = application
 	failure = error
 	done.signal()
+}
+
+if urls.isEmpty {
+	NSWorkspace.shared.openApplication(at: app, configuration: configuration, completionHandler: opened)
+} else {
+	NSWorkspace.shared.open(urls, withApplicationAt: app, configuration: configuration, completionHandler: opened)
 }
 
 if done.wait(timeout: .now() + 30) == .timedOut {

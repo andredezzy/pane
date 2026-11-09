@@ -20,6 +20,8 @@ source_set("design") {
     "field.h",
     "focus_ring.cc",
     "focus_ring.h",
+    "icon_button.cc",
+    "icon_button.h",
     "icons.cc",
     "icons.h",
     "motion.cc",

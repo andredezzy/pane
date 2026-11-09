@@ -260,6 +260,18 @@ export type ExtensionState = {
 
 type Reply = { ok: boolean; result?: unknown; error?: string; state: AppState };
 
+// What a press at a point of the window would reach, asked of the window
+// without input (hitTest): the view Views would hand it, by its id or the
+// nearest one around it ("pane.content"), and who takes it: the page, Pane's
+// views, the frame, which moves the window ("drag"), or the frame's own
+// controls ("other": the traffic lights).
+export type Hit = {
+	handler: string;
+	view: string;
+	target: "page" | "views" | "drag" | "other";
+	micros: number;
+};
+
 let nextCommand = 0;
 
 // Whether `file` exists by the deadline: its folder watched, so a reply is
@@ -340,6 +352,10 @@ export class PaneApp {
 
 	async state(): Promise<AppState> {
 		return (await this.send("state")).state;
+	}
+
+	async hitTest(x: number, y: number): Promise<Hit> {
+		return (await this.send<Hit>("hitTest", { x, y })).result;
 	}
 
 	// Polls the app's state until `predicate` holds.

@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "pane/app/data_launch.h"
 #include "pane/automation/input.h"
+#include "pane/automation/windows.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/model_store.h"
 #include "pane/model/pin_entry.h"
@@ -27,6 +29,7 @@
 #include "pane/model/profile_draft.h"
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/render.h"
+#include "pane/ui/view_ids.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
@@ -130,7 +133,10 @@ void Automation::Run(std::string name, base::DictValue command) {
                  } else {
                    reply.Set("error", error);
                  }
-                 reply.Set("state", automation->app_->Snapshot());
+                 base::DictValue state = automation->app_->Snapshot();
+                 state.Set("nativeWindows",
+                           NativeWindows(automation->app_->window()->widget()));
+                 reply.Set("state", std::move(state));
                  automation->files_.AsyncCall(&Files::Write)
                      .WithArgs(name, base::WriteJson(reply).value_or("{}"));
                },
@@ -152,6 +158,41 @@ void Automation::Dispatch(const std::string& name,
   }
 
   if (name == "state") {
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  views::Widget* widget = window->widget();
+  if (!widget &&
+      (name == "render" || name == "key" || name == "clickWindow" ||
+       name == "clickPage" || name == "hoverWindow" ||
+       name == "holdModifiers" || name == "releaseModifiers" ||
+       name == "hitTest" || name == "resizeWindow" || name == "pageLayout" ||
+       name == "openProfileSheet" || name == "closeProfileSheet")) {
+    std::move(reply).Run(base::Value(), name + ": the window is closed");
+    return;
+  }
+
+  // What the address field's Return does with `input`: the selected page goes
+  // there, or a new tab opens there (the Swift's navigate).
+  if (name == "navigate") {
+    const std::string* input = command.FindString("input");
+    if (!input) {
+      std::move(reply).Run(base::Value(), "navigate needs input");
+      return;
+    }
+    app_->AddressEntered(base::UTF8ToUTF16(*input));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // What a click on the window does first: it becomes the key window, the app
+  // in front, which a scenario's copy takes only when the runner allows it
+  // (run.ts --foreground); and a window closed opens again, as the Dock's
+  // click shows it.
+  if (name == "activate") {
+    app_->ShowWindow();
+    window->Activate();
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -369,14 +410,12 @@ void Automation::Dispatch(const std::string& name,
   // screen's scale.
   if (name == "render") {
     const std::string* path = command.FindString("path");
-    views::Widget* widget = window->host().widget();
     std::optional<std::vector<uint8_t>> png =
-        path && widget
-            ? RenderView(widget->GetRootView(),
-                         widget->GetCompositor()
-                             ? widget->GetCompositor()->device_scale_factor()
-                             : 2)
-            : std::nullopt;
+        path ? RenderView(widget->GetRootView(),
+                          widget->GetCompositor()
+                              ? widget->GetCompositor()->device_scale_factor()
+                              : 2)
+             : std::nullopt;
     if (!png) {
       std::move(reply).Run(base::Value(), "cannot render");
       return;
@@ -404,7 +443,7 @@ void Automation::Dispatch(const std::string& name,
         }
       }
     }
-    if (!key || !PostKey(window->host().widget(), *key, modifiers)) {
+    if (!key || !PostKey(widget, *key, modifiers)) {
       std::move(reply).Run(base::Value(), "no key code for that key");
       return;
     }
@@ -420,8 +459,37 @@ void Automation::Dispatch(const std::string& name,
       std::move(reply).Run(base::Value(), "clickWindow needs x and y");
       return;
     }
-    PostClick(window->host().widget(), *x, *y,
-              command.FindInt("clicks").value_or(1));
+    PostClick(widget, *x, *y, command.FindInt("clicks").value_or(1));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A real click on the shown page, at a point of its view (from its top
+  // left).
+  if (name == "clickPage") {
+    const std::optional<double> x = command.FindDouble("x");
+    const std::optional<double> y = command.FindDouble("y");
+    if (!x || !y || !window->selected()) {
+      std::move(reply).Run(base::Value(), !x || !y ? "clickPage needs x and y"
+                                                   : "clickPage needs a page");
+      return;
+    }
+    const gfx::Rect page = window->PageBounds();
+    PostClick(widget, page.x() + *x, page.y() + *y, 1);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The pointer over a point of the window (from its top left), as a mouse
+  // move the window dispatches; the real pointer stays where it is.
+  if (name == "hoverWindow") {
+    const std::optional<double> x = command.FindDouble("x");
+    const std::optional<double> y = command.FindDouble("y");
+    if (!x || !y) {
+      std::move(reply).Run(base::Value(), "hoverWindow needs x and y");
+      return;
+    }
+    PostMove(widget, *x, *y);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -436,7 +504,7 @@ void Automation::Dispatch(const std::string& name,
         }
       }
     }
-    PostModifiers(window->host().widget(), modifiers);
+    PostModifiers(widget, modifiers);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -447,8 +515,7 @@ void Automation::Dispatch(const std::string& name,
   if (name == "hitTest") {
     const std::optional<double> x = command.FindDouble("x");
     const std::optional<double> y = command.FindDouble("y");
-    views::Widget* widget = window->host().widget();
-    if (!x || !y || !widget) {
+    if (!x || !y) {
       std::move(reply).Run(base::Value(), "hitTest needs x and y");
       return;
     }
@@ -469,10 +536,14 @@ void Automation::Dispatch(const std::string& name,
         base::Value(base::DictValue()
                         .Set("handler",
                              handler ? handler->GetClassName() : std::string())
-                        .Set("target", target == PressTarget::kPage ? "page"
-                                       : target == PressTarget::kViews
-                                           ? "views"
-                                           : "other")
+                        // The view by its id, or the nearest one around it:
+                        // what a scenario names.
+                        .Set("view", std::string(NearestViewIdName(handler)))
+                        .Set("platform", PlatformViewAt(widget, point))
+                        .Set("target", target == PressTarget::kPage    ? "page"
+                                       : target == PressTarget::kViews ? "views"
+                                       : target == PressTarget::kDrag ? "drag"
+                                                                      : "other")
                         .Set("micros", times[50].InMicrosecondsF())),
         std::string());
     return;
@@ -483,8 +554,7 @@ void Automation::Dispatch(const std::string& name,
   if (name == "resizeWindow") {
     const std::optional<int> width = command.FindInt("width");
     const std::optional<int> height = command.FindInt("height");
-    views::Widget* widget = window->host().widget();
-    if (!width || !height || !widget) {
+    if (!width || !height) {
       std::move(reply).Run(base::Value(),
                            "resizeWindow needs width and height");
       return;
@@ -511,9 +581,31 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
+  // Where the page's card is, in the window's points from its top left, and
+  // the corners its layer rounds (top left, top right, bottom right, bottom
+  // left), which a render leaves out with the page.
+  if (name == "pageLayout") {
+    const gfx::Rect page = window->PageBounds();
+    const gfx::RoundedCornersF corners = window->root()->PageCorners();
+    std::move(reply).Run(
+        base::Value(base::DictValue()
+                        .Set("page", base::ListValue()
+                                         .Append(page.x())
+                                         .Append(page.y())
+                                         .Append(page.width())
+                                         .Append(page.height()))
+                        .Set("corners", base::ListValue()
+                                            .Append(corners.upper_left())
+                                            .Append(corners.upper_right())
+                                            .Append(corners.lower_right())
+                                            .Append(corners.lower_left()))),
+        std::string());
+    return;
+  }
+
   // The prototype's sheet stands in for the profile sheet (G4).
   if (name == "openProfileSheet" || name == "closeProfileSheet") {
-    window->root().ShowSheet(name == "openProfileSheet");
+    window->root()->ShowSheet(name == "openProfileSheet");
     std::move(reply).Run(base::Value(), std::string());
     return;
   }

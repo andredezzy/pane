@@ -113,33 +113,20 @@ const tabDiscard: Scenario = async (context) => {
 
 	// The page's own view, in the middle of the panel (as window-drag reads
 	// it), not the one Chrome destroyed.
-	const underPanel = await poll(
+	const underPanel = async () =>
+		(await app.hitTest(Math.round(width * 0.6), Math.round(height / 2))).target;
+
+	const shown = await poll(
 		"the reloaded page under the panel",
 		async () => {
-			const hit = (
-				await app.send<string | null>("hitTest", {
-					x: Math.round(width * 0.6),
-					y: Math.round(height / 2),
-				})
-			).result;
+			const target = await underPanel();
 
-			return hit === "RenderWidgetHostViewCocoa" ? hit : null;
+			return target === "page" ? target : null;
 		},
 		10_000,
-	).catch(
-		async () =>
-			(
-				await app.send<string | null>("hitTest", {
-					x: Math.round(width * 0.6),
-					y: Math.round(height / 2),
-				})
-			).result,
-	);
+	).catch(underPanel);
 
-	expect(
-		underPanel === "RenderWidgetHostViewCocoa",
-		`the panel shows ${underPanel}, not the reloaded page`,
-	);
+	expect(shown === "page", `the panel shows ${shown}, not the reloaded page`);
 
 	const final = await app.state();
 

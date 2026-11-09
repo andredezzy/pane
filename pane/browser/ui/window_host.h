@@ -136,6 +136,9 @@ class WindowHost : public TabStripModelObserver,
   // nothing).
   void ShowExclusiveAccessHint(const std::u16string& hint);
 
+  // The window's title, as the Window menu and Mission Control show it.
+  void SetTitle(const std::u16string& title);
+
   // The profile's Browser in this window, made on first use; nullptr while the
   // window or the profile is going away.
   Browser* BrowserFor(Profile* profile);

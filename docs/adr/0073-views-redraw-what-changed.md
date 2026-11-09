@@ -1,5 +1,7 @@
 # Views redraw only what changed and never mask the page
 
+> **On the Views line** (`docs/plans/views-migration.md`, H1): the root view paints the content panel's card, ring, and shadow under the page's `WebView`, whose page layer takes the panel's corners as radii, so nothing clips or masks it; the empty state shows only with no page in the panel.
+
 The app's views redraw only what changed, and nothing the app draws masks the page or animates it in, so the page keeps its own compositing and a covered page costs nothing. Three changes made it so: the sidebar's rows take values, nothing clips the page, and a page under Settings or Extensions is hidden, with no fade on a tab switch.
 
 The sidebar's sections and rows take what they show as values and compare them (`.equatable()`), so SwiftUI runs only the changed ones. A profile section had taken an edit closure SwiftUI cannot compare, and every tab row read the model's selection itself. Counted with each body logging itself, selecting a tab in another profile, of 24 tabs in three, ran 24 tab rows and 3 sections, and now runs 2 and 2; a tab navigating ran 6 sections, and now runs 2. The active profile's bar still morphs (16, 13.5, 5.5, then 4 points across screen captures; ADR 0064).

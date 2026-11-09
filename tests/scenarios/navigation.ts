@@ -155,7 +155,7 @@ const navigation: Scenario = async (context) => {
 
 	await app.waitFor(
 		"the address field focused",
-		(state) => state.focus === "field: Search or enter URL",
+		(state) => state.focus === "pane.toolbar.address",
 	);
 
 	const other = await app.createProfile("Other");

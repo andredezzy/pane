@@ -33,7 +33,7 @@ const fullscreen: Scenario = async (context) => {
 
 		await app.waitFor(
 			"the page focused",
-			(state) => state.focus === "RenderWidgetHostViewCocoa",
+			(state) => state.focus === "pane.content",
 		);
 
 		await page.gesture("document.documentElement.requestFullscreen()", true);
