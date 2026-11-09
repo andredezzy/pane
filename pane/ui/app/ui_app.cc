@@ -228,6 +228,8 @@ base::DictValue UiApp::Snapshot() const {
       .Set("activeProfileID",
            active_profile.empty() ? base::Value() : base::Value(active_profile))
       .Set("page", "browser")
+      .Set("address", window_->root().address())
+      .Set("focus", window_->root().focus())
       .Set("window", base::DictValue()
                          .Set("visible", widget && widget->IsVisible())
                          .Set("key", widget && widget->IsActive())

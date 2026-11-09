@@ -18,6 +18,7 @@
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/widget/widget.h"
 
@@ -165,6 +166,35 @@ content::WebContents* RootView::page() const {
 
 void RootView::SetAddress(const std::u16string& address) {
   address_->SetText(address);
+}
+
+std::u16string RootView::address() const {
+  return std::u16string(address_->GetText());
+}
+
+std::string RootView::focus() const {
+  const views::FocusManager* manager =
+      GetWidget() ? GetWidget()->GetFocusManager() : nullptr;
+  const views::View* focused = manager ? manager->GetFocusedView() : nullptr;
+  if (!focused) {
+    return "window";
+  }
+  if (focused == address_) {
+    return "address";
+  }
+  if (sheet_ && sheet_->Contains(focused)) {
+    return "sheet";
+  }
+  if (page_->Contains(focused)) {
+    return "page";
+  }
+  return "window";
+}
+
+void RootView::FocusPage() {
+  if (page_->web_contents()) {
+    page_->RequestFocus();
+  }
 }
 
 void RootView::FocusAddress() {

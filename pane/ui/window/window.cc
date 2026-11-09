@@ -126,6 +126,8 @@ void Window::Select(content::WebContents* contents) {
   }
   root_->ShowPage(contents);
   root_->SetAddress(base::UTF8ToUTF16(contents->GetVisibleURL().spec()));
+  // The page has the keyboard, as a tab chosen in Chrome does.
+  root_->FocusPage();
   Refresh();
 }
 
@@ -170,6 +172,9 @@ void Window::NewTab() {
   LogInteraction(Interaction::kNewTab, host_->widget()->GetCompositor());
   if (Profile* profile = host_->active_profile()) {
     OpenTab(profile, GURL(kNewTabURL), /*foreground=*/true);
+    // Typing goes to the address, as in Chrome: a key queued behind ⌘T
+    // lands there.
+    root_->FocusAddress();
   }
 }
 

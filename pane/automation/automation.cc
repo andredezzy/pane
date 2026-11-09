@@ -17,6 +17,7 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "content/public/browser/web_contents.h"
+#include "pane/automation/input.h"
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/render.h"
 #include "pane/ui/tabs/tab_id.h"
@@ -233,6 +234,40 @@ void Automation::Dispatch(const std::string& name,
               std::move(reply).Run(base::Value(), std::string());
             },
             std::move(reply)));
+    return;
+  }
+
+  // Real keys, through the window's event path (pane/automation/input.h).
+  if (name == "key") {
+    const std::string* key = command.FindString("key");
+    std::vector<std::string> modifiers;
+    if (const base::ListValue* names = command.FindList("modifiers")) {
+      for (const base::Value& modifier : *names) {
+        if (modifier.is_string()) {
+          modifiers.push_back(modifier.GetString());
+        }
+      }
+    }
+    if (!key || !PostKey(window->host().widget(), *key, modifiers)) {
+      std::move(reply).Run(base::Value(), "no key code for that key");
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  if (name == "releaseModifiers" || name == "holdModifiers") {
+    std::vector<std::string> modifiers;
+    if (const base::ListValue* names = command.FindList("modifiers");
+        names && name == "holdModifiers") {
+      for (const base::Value& modifier : *names) {
+        if (modifier.is_string()) {
+          modifiers.push_back(modifier.GetString());
+        }
+      }
+    }
+    PostModifiers(window->host().widget(), modifiers);
+    std::move(reply).Run(base::Value(), std::string());
     return;
   }
 

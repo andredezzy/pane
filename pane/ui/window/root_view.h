@@ -54,6 +54,11 @@ class RootView : public views::View, public views::TextfieldController {
   content::WebContents* page() const;
   void SetAddress(const std::u16string& address);
   void FocusAddress();
+  void FocusPage();
+  std::u16string address() const;
+  // What has the keyboard, for the channel: "address", "page", "sheet", or
+  // "window".
+  std::string focus() const;
   // The prototype's sheet over the page (G4): a scrim and a card with a
   // field, keys into it and not the page, Esc and Done closing it.
   void ShowSheet(bool show);
