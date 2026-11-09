@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/web_contents.h"
 #include "crypto/random.h"
+#include "pane/app/data_launch.h"
 #include "pane/automation/automation.h"
 #include "pane/browser/profiles.h"
 #include "pane/ui/tabs/tab_id.h"
@@ -287,12 +288,7 @@ base::DictValue UiApp::Snapshot() const {
                          .Set("visible", widget && widget->IsVisible())
                          .Set("key", widget && widget->IsActive())
                          .Set("fullScreen", widget && widget->IsFullscreen()))
-      .Set("security", base::DictValue()
-                           .Set("locked", false)
-                           .Set("data", base::DictValue()
-                                            .Set("phase", "open")
-                                            .Set("attached", true)
-                                            .Set("failure", base::Value())));
+      .Set("security", DataState());
 }
 
 }  // namespace pane

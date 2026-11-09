@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import {
 	activateWebAccessibility,
+	isScreenLocked,
 	mainWindowOf,
 	windowState,
 } from "../lib/cua";
@@ -65,6 +66,23 @@ const viewsPage: Scenario = async (context) => {
 
 	const times = steps.map((step) => step.ms).sort((a, b) => a - b);
 
+	const timing = {
+		hitTestMicros: { page: page.micros, sidebar: sidebar.micros },
+		resizeStepMs: {
+			median: times[Math.floor(times.length / 2)],
+			max: times.at(-1),
+			steps: times.length,
+		},
+	};
+
+	// While the screen is locked, macOS shows an assistive app no window of
+	// Pane's at all, only its menus.
+	if (await isScreenLocked()) {
+		context.defer("the accessibility tree: it needs the screen unlocked");
+
+		return timing;
+	}
+
 	// The tree as VoiceOver reads it, Chromium's web part turned on as an
 	// assistive app turns it on.
 	const { pid } = app.browser;
@@ -97,12 +115,7 @@ const viewsPage: Scenario = async (context) => {
 	);
 
 	return {
-		hitTestMicros: { page: page.micros, sidebar: sidebar.micros },
-		resizeStepMs: {
-			median: times[Math.floor(times.length / 2)],
-			max: times.at(-1),
-			steps: times.length,
-		},
+		...timing,
 		accessibility: { elements: elements.length, ...reads },
 	};
 };

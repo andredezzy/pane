@@ -2,6 +2,7 @@
 
 #include "pane/model/mac/panic_wipe_run.h"
 
+#include <crt_externs.h>
 #include <libproc.h>
 #include <signal.h>
 #include <unistd.h>
@@ -13,6 +14,7 @@
 #include <utility>
 
 #include "base/base_paths.h"
+#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
@@ -57,6 +59,18 @@ std::vector<std::string> Described(const std::vector<WipeFailure>& failures) {
 // "--pane-wipe-after=".
 std::string WipeAfterPrefix() {
   return base::StrCat({"--", kWipeAfterSwitch, "="});
+}
+
+// What this instance was started with, as the system gave it, as the Swift's
+// CommandLine.arguments: the command line Chromium reads carries the switches
+// Pane's launch adds to it (SetEngineSwitches, --pane-hosted among them), and
+// an instance started with those runs as a hosted engine, never Pane's launch,
+// which erases.
+std::vector<std::string> StartedWith() {
+  // SAFETY: the system gives `*_NSGetArgc()` arguments in `*_NSGetArgv()`.
+  const base::span<char*> arguments = UNSAFE_BUFFERS(
+      base::span(*_NSGetArgv(), static_cast<size_t>(*_NSGetArgc())));
+  return std::vector<std::string>(arguments.begin(), arguments.end());
 }
 
 // The pids the wiped instance's switch names, read as the Swift read them:
@@ -273,8 +287,7 @@ bool Relaunch(const std::vector<base::ProcessId>& processes) {
   }
 
   const std::string wiped = WipeAfterPrefix();
-  const base::CommandLine::StringVector& current =
-      base::CommandLine::ForCurrentProcess()->argv();
+  const std::vector<std::string> current = StartedWith();
   std::vector<std::string> argv = {executable.value()};
   for (const std::string& argument : base::span(current).subspan(1u)) {
     if (!argument.starts_with(wiped)) {

@@ -111,12 +111,26 @@ class AppLock {
     std::optional<SealedKey> made;
   };
 
-  // `vault` and `delegate` outlive it.
+  // The Keychain's secret as the launch looked for it, before the engine's
+  // OSCrypt first reads it (docs/plans/views-migration.md, C5): made there the
+  // first time, and only there, since Chromium's GetPassword updates an item
+  // that appears between its find and its add, so a second maker could leave
+  // the Keychain one secret and the key sealed under the other. The key opens
+  // with it, the Keychain asked nothing more; without one, the lock only looks
+  // for it, and says so when the Keychain gives none (Paper 07.7).
+  struct LaunchSecret {
+    std::optional<std::vector<uint8_t>> secret;
+  };
+
+  // `vault` and `delegate` outlive it. Without `launch_secret` (no launch
+  // looked: the tests), the lock finds the secret, or makes it, itself, as the
+  // Swift app's did.
   AppLock(const base::FilePath& data_directory,
           Loaded loaded,
           DataVault& vault,
           SafeStorage safe_storage,
-          Delegate* delegate);
+          Delegate* delegate,
+          std::optional<LaunchSecret> launch_secret = std::nullopt);
   AppLock(const AppLock&) = delete;
   AppLock& operator=(const AppLock&) = delete;
   ~AppLock();
@@ -181,6 +195,9 @@ class AppLock {
   const raw_ref<DataVault> vault_;
   const SafeStorage safe_storage_;
   const raw_ptr<Delegate> delegate_;
+  // Whether the lock may make the Keychain's secret: never once a launch
+  // looked for it (LaunchSecret).
+  const bool makes_secret_;
   // security.json and its copy, written in order, which a quit waits for.
   const scoped_refptr<base::SequencedTaskRunner> files_;
 

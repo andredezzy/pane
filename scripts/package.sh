@@ -2,7 +2,8 @@
 # Assembles app/build/Pane.app: the engine's bundle as Chromium builds it, its
 # loader, "Pane Framework.framework" (Pane's UI is in it, //pane/ui), helpers,
 # resources, and Info.plist, with Pane's identity over Chromium's, its
-# licenses, and its CRLSet, then signs the nested code inside-out.
+# licenses, its CRLSet, and the volume's watchdog, then signs the nested code
+# inside-out.
 # Usage: package.sh   (PANE_ENGINE_OUT overrides the engine build dir;
 # PANE_STRIP=1 strips the engine's local symbols, as dist.sh does;
 # PANE_SIGN_IDENTITY signs with a Developer ID instead of ad-hoc)
@@ -15,8 +16,15 @@ ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
 OUT="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
 
 echo "== assemble"
+WATCHDOG="$ENGINE_OUT/pane-volume-watch"
+[ -x "$WATCHDOG" ] || { echo "error: no pane-volume-watch in $ENGINE_OUT: build.sh builds it with the engine" >&2; exit 1; }
 rm -rf "$OUT"
 ditto "$ENGINE_OUT/Pane.app" "$OUT"
+
+# The volume's watchdog (ADR 0113, //pane/model/mac:pane-volume-watch): it
+# detaches the encrypted volume once Pane's process ends, a crash included.
+# Beside the loader, where DataVault::WatchdogPath finds it.
+cp "$WATCHDOG" "$OUT/Contents/MacOS/pane-volume-watch"
 
 # The licenses that go with every copy: Pane's own (GPL-3.0), NOTICE, and the
 # license of each project Pane takes code from (third_party), laid out as in
@@ -125,7 +133,8 @@ rm -rf "$ICON"
 if [ "${PANE_STRIP:-}" = 1 ]; then
 	echo "== strip"
 	strip_local "$VERSION_DIR/Pane Framework" "$VERSION_DIR"/Libraries/*.dylib \
-		"$OUT/Contents/MacOS/Pane" "$VERSION_DIR/Helpers/chrome_crashpad_handler" \
+		"$OUT/Contents/MacOS/Pane" "$OUT/Contents/MacOS/pane-volume-watch" \
+		"$VERSION_DIR/Helpers/chrome_crashpad_handler" \
 		"$VERSION_DIR/Helpers/app_mode_loader" "$VERSION_DIR"/Helpers/*.app/Contents/MacOS/*
 fi
 
@@ -184,6 +193,7 @@ for library in "$VERSION_DIR"/Libraries/*.dylib; do
 done
 
 sign "$FRAMEWORK"
+sign "$OUT/Contents/MacOS/pane-volume-watch" restrict,library,runtime,kill
 sign "$OUT" restrict,library,runtime,kill app.entitlements
 codesign --verify --deep --strict "$OUT"
 

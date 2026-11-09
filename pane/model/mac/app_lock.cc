@@ -40,17 +40,20 @@ std::optional<std::string_view> ViewOf(const std::optional<std::string>& pin) {
 // Opens the data key with the PIN, or, before any is sealed, makes it: sealed
 // with the PIN, which matches the bcrypt hash an earlier Pane kept. `known`:
 // the secret this session read already, so Change and Remove, and an unlock
-// after a lock, ask the Keychain nothing more. `attach`: the key opens the
-// data, and its volume starts unlocking at once, from here (MakeAttacher).
+// after a lock, ask the Keychain nothing more. `makes_secret`: whether the
+// Keychain's secret may be made here when none is found. `attach`: the key
+// opens the data, and its volume starts unlocking at once, from here
+// (MakeAttacher).
 AppLock::Opened OpenKey(std::optional<std::string> pin,
                         SecurityState state,
                         std::optional<std::vector<uint8_t>> known,
+                        bool makes_secret,
                         SafeStorage safe_storage,
                         DataVault::Attacher attach) {
   AppLock::Opened opened;
   std::optional<std::vector<uint8_t>> secret =
       known ? std::move(known)
-            : safe_storage.DataSecret(/*makes_one=*/!state.key);
+            : safe_storage.DataSecret(/*makes_one=*/makes_secret && !state.key);
   if (!secret) {
     opened.kind = AppLock::Opened::Kind::kNoSecret;
     return opened;
@@ -174,16 +177,19 @@ AppLock::AppLock(const base::FilePath& data_directory,
                  Loaded loaded,
                  DataVault& vault,
                  SafeStorage safe_storage,
-                 Delegate* delegate)
+                 Delegate* delegate,
+                 std::optional<LaunchSecret> launch_secret)
     : data_directory_(data_directory),
       vault_(vault),
       safe_storage_(safe_storage),
       delegate_(delegate),
+      makes_secret_(!launch_secret),
       files_(base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
       state_(std::move(loaded.state)),
-      is_locked_(state_.pin || loaded.unreadable || loaded.key_lost) {
+      is_locked_(state_.pin || loaded.unreadable || loaded.key_lost),
+      secret_(launch_secret ? std::move(launch_secret->secret) : std::nullopt) {
   CHECK(delegate_);
   if (loaded.unreadable || loaded.key_lost) {
     entry_ = PinEntry::Unreadable(kKeyUnreadable);
@@ -350,8 +356,8 @@ void AppLock::PostOpen(std::optional<std::string> pin, bool unlocking) {
       unlocking ? vault_->MakeAttacher() : DataVault::Attacher();
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, kKeyTraits,
-      base::BindOnce(&OpenKey, std::move(pin), state_, secret_, safe_storage_,
-                     std::move(attach)),
+      base::BindOnce(&OpenKey, std::move(pin), state_, secret_, makes_secret_,
+                     safe_storage_, std::move(attach)),
       base::BindOnce(&AppLock::OnOpened, weak_factory_.GetWeakPtr(), unlocking,
                      with_pin));
 }

@@ -10,7 +10,9 @@
 #
 # A build of `chrome` (the engine's bundle) records the engine key of its
 # sources in out/Release/pane-engine.key (engine-key.sh), which
-# publish-engine.sh checks before it archives the engine.
+# publish-engine.sh checks before it archives the engine, and builds the
+# volume's watchdog, pane-volume-watch, which the bundle carries beside its
+# loader (package.sh).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -50,7 +52,10 @@ built_key() {
 records_key=false
 
 case " ${TARGETS[*]} " in
-*" chrome "*) records_key=true ;;
+*" chrome "*)
+	records_key=true
+	TARGETS+=(pane-volume-watch)
+	;;
 esac
 
 if $records_key; then

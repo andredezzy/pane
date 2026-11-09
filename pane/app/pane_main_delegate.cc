@@ -8,6 +8,7 @@
 #include "base/command_line.h"
 #include "chrome/common/profiler/main_thread_stack_sampling_profiler.h"
 #include "content/public/common/content_switches.h"
+#include "pane/app/data_launch.h"
 #include "pane/app/views_launch.h"
 #include "pane/browser/content_browser_client.h"
 #include "pane/common/host.h"
@@ -30,6 +31,16 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
     }
   }
   return ChromeMainDelegate::BasicStartupComplete();
+}
+
+// The engine has stopped and let go of its singleton, as it had when the Swift
+// app's engineDidStop ran once ChromeMain returned: a Pane started now waits
+// for the data's lock, which this one lets go of once the volume detaches.
+void PaneMainDelegate::ProcessExiting(const std::string& process_type) {
+  ChromeMainDelegate::ProcessExiting(process_type);
+  if (process_type.empty() && IsViewsLaunch()) {
+    DataDidStop();
+  }
 }
 
 // Mirrors ChromeMainDelegate::CreateContentBrowserClient with Pane's client;

@@ -17,10 +17,13 @@ source_set("pane") {
   configs += [ ":autosynthesized_properties" ]
 
   sources = [
+    "app/data_launch.h",
     "app/engine_switches.cc",
     "app/engine_switches.h",
     "app/pane_main_delegate.cc",
     "app/pane_main_delegate.h",
+    "app/test_copy.cc",
+    "app/test_copy.h",
     "app/views_launch.cc",
     "app/views_launch.h",
     "automation/automation.cc",
@@ -78,6 +81,7 @@ source_set("pane") {
   # platform files: none of it builds anywhere else.
   if (is_mac) {
     sources += [
+      "app/data_launch_mac.mm",
       "automation/input_mac.mm",
       "browser/browser_application.mm",
       "browser/browser_application_internal.h",
@@ -231,6 +235,7 @@ source_set("pane") {
     deps += [
       "//components/remote_cocoa/app_shim",
       "//components/remote_cocoa/common:mojo",
+      "//pane/model/mac",
     ]
     frameworks = [
       "AppKit.framework",

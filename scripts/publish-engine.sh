@@ -4,7 +4,8 @@
 # prerelease, then its line in prebuilt-engines.tsv, which the caller
 # commits. CI never builds Chromium (release.yml), so an engine change is built
 # here first (build.sh) and published with this. The archive is the engine's
-# bundle, stripped, with its framework at its top for the linker, its SHA-256,
+# bundle, stripped, with its framework at its top for the linker and the
+# volume's watchdog beside it, which package.sh puts in the app; its SHA-256,
 # and PaneCore's dSYM beside it, made when missing and only from the engine
 # build.sh built from these sources; the upload is checked against its SHA-256.
 # A run for an engine already published changes nothing.
@@ -33,10 +34,12 @@ archive_engine() {
 
 	built="$(plutil -extract CFBundleShortVersionString raw "$ENGINE_OUT/Pane.app/Contents/Info.plist")"
 	[ "$built" = "$version" ] || die "the engine in $ENGINE_OUT is $built, not $version"
+	[ -x "$ENGINE_OUT/pane-volume-watch" ] || die "$ENGINE_OUT has no pane-volume-watch: build the engine with build.sh"
 
 	stage="$(mktemp -d)"
 	ditto "$ENGINE_OUT/Pane.app" "$stage/Pane.app"
 	ln -s "Pane.app/Contents/Frameworks/Pane Framework.framework" "$stage/Pane Framework.framework"
+	cp "$ENGINE_OUT/pane-volume-watch" "$stage/pane-volume-watch"
 	strip -x "$stage/Pane Framework.framework/Versions/Current/Pane Framework" "$stage/Pane Framework.framework/Versions/Current"/Libraries/*.dylib \
 		2> >(grep -v 'will invalidate the code signature' >&2)
 

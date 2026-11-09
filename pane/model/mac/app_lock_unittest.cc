@@ -106,15 +106,16 @@ class AppLockTest : public testing::Test {
   }
 
   // The vault and the lock, as the app makes them at launch, and the lock
-  // started.
-  AppLock& Launch() {
+  // started: with the Keychain's secret as the launch looked for it, or with
+  // no launch's look.
+  AppLock& Launch(std::optional<AppLock::LaunchSecret> secret = std::nullopt) {
     vault_ = std::make_unique<DataVault>(data_, std::nullopt, tools_,
                                          DataLock::Take(data_), nullptr,
                                          &vault_delegate_);
     vault_->set_file_migrator(migrator_->Get());
-    lock_ =
-        std::make_unique<AppLock>(data_, AppLock::Load(data_), *vault_,
-                                  keychain_.safe_storage(), &lock_delegate_);
+    lock_ = std::make_unique<AppLock>(data_, AppLock::Load(data_), *vault_,
+                                      keychain_.safe_storage(), &lock_delegate_,
+                                      std::move(secret));
     vault_delegate_.lock = lock_.get();
     lock_->SetWipeForTesting(base::BindLambdaForTesting([&] { ++wipes_; }));
     lock_->AddObserver(&shakes_);
@@ -440,6 +441,72 @@ TEST_F(AppLockTest, MakesTheKeyAtTheFirstLaunch) {
   ASSERT_TRUE(opened.has_value());
   EXPECT_EQ(*opened, vault_->data_key());
   EXPECT_EQ(Saved("Data.security"), saved);
+}
+
+// The launch finds the Keychain's secret, or makes it, once, before the
+// engine's own read (Chromium's GetPassword updates an item it finds between
+// its find and its add): the key opens with it, and the lock asks the
+// Keychain nothing, at launch or at the PIN.
+TEST_F(AppLockTest, OpensWithTheSecretTheLaunchFound) {
+  keychain_.SetEngineSecret(kSecret);
+  const Key key = SaveKey(std::nullopt);
+  const SafeStorage safe_storage = keychain_.safe_storage();
+  AppLock& lock = Launch(AppLock::LaunchSecret{
+      .secret = safe_storage.DataSecret(/*makes_one=*/false)});
+  EXPECT_FALSE(lock.is_locked());
+  ASSERT_TRUE(WaitFor([&] { return vault_->is_attached(); }));
+  EXPECT_EQ(vault_->data_key(), key);
+  EXPECT_EQ(keychain_.reads(), 1);
+}
+
+TEST_F(AppLockTest, UnlocksWithTheSecretTheLaunchFound) {
+  keychain_.SetEngineSecret(kSecret);
+  const Key key = SaveKey("1234");
+  const SafeStorage safe_storage = keychain_.safe_storage();
+  AppLock& lock = Launch(AppLock::LaunchSecret{
+      .secret = safe_storage.DataSecret(/*makes_one=*/false)});
+  EXPECT_TRUE(lock.is_locked());
+  ASSERT_TRUE(Ready());
+
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  EXPECT_EQ(vault_->data_key(), key);
+  ASSERT_TRUE(WaitFor([&] { return vault_->is_attached(); }));
+  EXPECT_EQ(keychain_.reads(), 1);
+}
+
+// A fresh install's launch makes the secret, and the key is sealed under it.
+TEST_F(AppLockTest, MakesTheKeyWithTheSecretTheLaunchMade) {
+  const SafeStorage safe_storage = keychain_.safe_storage();
+  const std::optional<std::vector<uint8_t>> made =
+      safe_storage.DataSecret(/*makes_one=*/true);
+  ASSERT_TRUE(made);
+  const int reads = keychain_.reads();
+  Launch(AppLock::LaunchSecret{.secret = made});
+  ASSERT_TRUE(WaitFor([&] { return vault_->is_attached(); }));
+  EXPECT_EQ(keychain_.reads(), reads);
+
+  const std::optional<SecurityState> saved = Saved();
+  ASSERT_TRUE(saved && saved->key);
+  const base::expected<Key, OpenError> opened =
+      OpenDataKey(*saved->key, *made, std::nullopt);
+  ASSERT_TRUE(opened.has_value());
+  EXPECT_EQ(*opened, vault_->data_key());
+}
+
+// A launch that found no secret, the Keychain failing it, leaves the lock to
+// look again, and never to make one, which could race the engine's own: the
+// lock says to allow the item (07.7), and the next launch makes it.
+TEST_F(AppLockTest, MakesNoSecretTheLaunchCouldNot) {
+  AppLock& lock = Launch(AppLock::LaunchSecret{.secret = std::nullopt});
+  ASSERT_TRUE(WaitFor([&] {
+    return lock.entry() && lock.entry()->is_unreadable() &&
+           lock.entry()->error() == AppLock::kKeychainDenied;
+  }));
+  EXPECT_TRUE(lock.is_locked());
+  EXPECT_FALSE(keychain_.EngineSecret());
+  EXPECT_FALSE(Saved());
+  EXPECT_FALSE(vault_->is_attached());
 }
 
 // 0.18.0 counted wrong PINs from Settings too: a fifth attempt with the key

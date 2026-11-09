@@ -19,6 +19,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
+#include "pane/app/data_launch.h"
 #include "pane/app/views_launch.h"
 #import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
@@ -94,8 +95,9 @@ void BrowserMainExtraParts::OnProfileManagerDestroying() {
 void BrowserMainExtraParts::PostBrowserStart() {
   InstallUIHooks();
   // Launched by Chromium's loader, not the Swift app: Pane's UI is the
-  // engine's own.
+  // engine's own, and the data opens with the thread pool, before it.
   if (IsViewsLaunch()) {
+    OpenData();
     UiApp::Start();
   }
   // ⌘Q quits at once, as it did in the Electron app. Chrome asks to hold it

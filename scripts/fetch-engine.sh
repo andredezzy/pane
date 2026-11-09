@@ -41,6 +41,7 @@ if [ ! -f "$dest/.complete" ]; then
 
 	ditto -x -k "$work/$name" "$work/engine"
 	[ -f "$work/engine/Pane Framework.framework/Versions/Current/Pane Framework" ] || die "$name holds no Pane Framework.framework"
+	[ -x "$work/engine/pane-volume-watch" ] || die "$name holds no pane-volume-watch"
 	touch "$work/engine/.complete"
 
 	# Only the engine in use is kept: each is ~300 MB.

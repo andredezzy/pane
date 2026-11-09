@@ -2,11 +2,13 @@
 
 #include "pane/model/mac/electron_migration.h"
 
+#include <Security/Security.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include <array>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -17,15 +19,22 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/test/bind.h"
 #include "base/time/time.h"
+#include "components/os_crypt/common/keychain_password_mac.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/mac/file_operations.h"
+#include "pane/model/mac/launch_alert.h"
+#include "pane/model/mac/launch_migration.h"
+#include "pane/model/mac/test_keychain.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/profile.h"
 #include "pane/model/security.h"
@@ -422,6 +431,192 @@ TEST_F(ElectronMigrationTest, OutsideItsFolders) {
   EXPECT_FALSE(MigrateElectronData(source, data).has_value());
   EXPECT_EQ(Snapshot(data), before);
   EXPECT_EQ(Snapshot(source), source_before);
+}
+
+// The launch's run of it (the Swift app's LaunchMigration, which PaneKit had
+// no tests for: the migration scenario ran it), on a Keychain in memory, with
+// the alerts the test answers.
+
+constexpr char kAppName[] = "@pane/veil";
+constexpr char kService[] = "@pane/veil Safe Storage";
+
+class AnsweredAlert : public LaunchAlert {
+ public:
+  using Answer = base::RepeatingCallback<Response(
+      const std::string& title,
+      base::RepeatingCallback<bool()> dismiss_when)>;
+
+  explicit AnsweredAlert(Answer answer) : answer_(std::move(answer)) {}
+
+  Response Show(const std::string& title,
+                const std::string& message,
+                const std::string& default_button,
+                const std::optional<std::string>& alternate_button,
+                base::RepeatingCallback<bool()> dismiss_when) override {
+    titles.push_back(title);
+    return answer_.Run(title, std::move(dismiss_when));
+  }
+
+  std::unique_ptr<Note> ShowNote(const std::string& title,
+                                 const std::string& message) override {
+    return nullptr;
+  }
+
+  std::vector<std::string> titles;
+
+ private:
+  const Answer answer_;
+};
+
+AnsweredAlert::Answer Unasked() {
+  return base::BindRepeating(
+      [](const std::string& title, base::RepeatingCallback<bool()>) {
+        ADD_FAILURE() << "asked " << title;
+        return LaunchAlert::Response::kDismissed;
+      });
+}
+
+// While the Electron app runs, the launch waits for it to quit, then
+// migrates.
+TEST_F(ElectronMigrationTest, LaunchWaitsForTheOldPaneToQuit) {
+  const base::FilePath source = ElectronData();
+  const base::FilePath data = NativeData();
+  base::Process electron = FakeElectron(source.Append("bundle"));
+  ASSERT_TRUE(electron.IsValid());
+  ASSERT_TRUE(base::CreateSymbolicLink(
+      base::FilePath(
+          base::StrCat({"host-", base::NumberToString(electron.Pid())})),
+      source.Append("SingletonLock")));
+
+  TestKeychain keychain;
+  AnsweredAlert alert(base::BindLambdaForTesting(
+      [&](const std::string& title,
+          base::RepeatingCallback<bool()> dismiss_when) {
+        EXPECT_FALSE(dismiss_when.Run());
+        EXPECT_FALSE(base::PathExists(data.Append("profiles.json")));
+        EXPECT_TRUE(electron.Terminate(0, /*wait=*/true));
+        EXPECT_TRUE(dismiss_when.Run());
+        return LaunchAlert::Response::kDismissed;
+      }));
+
+  EXPECT_EQ(RunLaunchMigration({.directory = source}, data,
+                               keychain.safe_storage(), alert),
+            std::nullopt);
+  EXPECT_EQ(alert.titles,
+            std::vector<std::string>{"Quit the old Pane to continue"});
+  const std::optional<std::vector<BrowserProfile>> profiles =
+      LoadProfiles(data);
+  ASSERT_TRUE(profiles);
+  EXPECT_EQ(profiles->size(), 1u);
+}
+
+// Asked to quit instead, Pane quits, having written nothing.
+TEST_F(ElectronMigrationTest, LaunchQuitsWhenTheUserCancels) {
+  const base::FilePath source = ElectronData();
+  const base::FilePath data = NativeData();
+  base::Process electron = FakeElectron(source.Append("bundle"));
+  ASSERT_TRUE(electron.IsValid());
+  ASSERT_TRUE(base::CreateSymbolicLink(
+      base::FilePath(
+          base::StrCat({"host-", base::NumberToString(electron.Pid())})),
+      source.Append("SingletonLock")));
+
+  TestKeychain keychain;
+  AnsweredAlert alert(base::BindRepeating(
+      [](const std::string&, base::RepeatingCallback<bool()>) {
+        return LaunchAlert::Response::kDefaultButton;
+      }));
+
+  EXPECT_EQ(RunLaunchMigration({.directory = source}, data,
+                               keychain.safe_storage(), alert),
+            0);
+  EXPECT_FALSE(base::PathExists(data.Append("profiles.json")));
+  EXPECT_FALSE(base::PathExists(data.Append("migration.json")));
+
+  EXPECT_TRUE(electron.Terminate(0, /*wait=*/true));
+}
+
+// The Electron app's cookie key goes to the engine's item with its data.
+TEST_F(ElectronMigrationTest, LaunchAdoptsTheCookieKey) {
+  const base::FilePath source = ElectronData();
+  const base::FilePath data = NativeData();
+  TestKeychain keychain;
+  keychain.SetItem(kService, kAppName, "electron key");
+  AnsweredAlert alert(Unasked());
+
+  EXPECT_EQ(RunLaunchMigration({.directory = source, .app_name = kAppName},
+                               data, keychain.safe_storage(), alert),
+            std::nullopt);
+  EXPECT_EQ(keychain.EngineSecret(), "electron key");
+  ASSERT_TRUE(LoadRecord(data));
+  EXPECT_EQ(LoadRecord(data)->cookie_key_pending, false);
+}
+
+// A Deny asks again; Try Again adopts it, Continue Signed Out goes on
+// without it, and neither is asked again.
+TEST_F(ElectronMigrationTest, LaunchAsksAgainForADeniedKey) {
+  for (const LaunchAlert::Response answer :
+       {LaunchAlert::Response::kDefaultButton,
+        LaunchAlert::Response::kAlternateButton}) {
+    const base::FilePath source = ElectronData();
+    const base::FilePath data = NativeData();
+    ASSERT_TRUE(base::DeletePathRecursively(data));
+    TestKeychain keychain;
+    keychain.SetItem(kService, kAppName, "electron key");
+    keychain.FailWith(errSecUserCanceled);
+    AnsweredAlert alert(base::BindLambdaForTesting(
+        [&](const std::string&, base::RepeatingCallback<bool()> dismiss_when) {
+          EXPECT_FALSE(dismiss_when);
+          keychain.FailWith(errSecSuccess);
+          return answer;
+        }));
+
+    EXPECT_EQ(RunLaunchMigration({.directory = source, .app_name = kAppName},
+                                 data, keychain.safe_storage(), alert),
+              std::nullopt);
+    EXPECT_EQ(alert.titles, std::vector<std::string>{"Keep your sign-ins?"});
+    EXPECT_EQ(keychain.EngineSecret(),
+              answer == LaunchAlert::Response::kDefaultButton
+                  ? std::make_optional<std::string>("electron key")
+                  : std::nullopt);
+    ASSERT_TRUE(LoadRecord(data));
+    EXPECT_EQ(LoadRecord(data)->cookie_key_pending, false);
+  }
+}
+
+// A key the Keychain could not ask for (a locked session) is asked for at a
+// later launch, while the engine has no key of its own, and only then.
+TEST_F(ElectronMigrationTest, LaunchRetriesAKeyItCouldNotAskFor) {
+  const base::FilePath source = ElectronData();
+  const base::FilePath data = NativeData();
+  TestKeychain keychain;
+  keychain.SetItem(kService, kAppName, "electron key");
+  keychain.FailWith(errSecInteractionNotAllowed);
+  AnsweredAlert alert(Unasked());
+  const ElectronSource electron{.directory = source, .app_name = kAppName};
+
+  EXPECT_EQ(RunLaunchMigration(electron, data, keychain.safe_storage(), alert),
+            std::nullopt);
+  ASSERT_TRUE(LoadRecord(data));
+  EXPECT_EQ(LoadRecord(data)->cookie_key_pending, true);
+  ASSERT_TRUE(LoadProfiles(data));
+  EXPECT_EQ(LoadProfiles(data)->size(), 1u);
+
+  keychain.FailWith(errSecSuccess);
+  keychain.SetEngineSecret("the engine's own");
+  EXPECT_EQ(RunLaunchMigration(electron, data, keychain.safe_storage(), alert),
+            std::nullopt);
+  EXPECT_EQ(keychain.EngineSecret(), "the engine's own");
+  EXPECT_EQ(LoadRecord(data)->cookie_key_pending, true);
+
+  ASSERT_EQ(
+      keychain.safe_storage().DeleteKey(KeychainPassword::GetServiceName(),
+                                        KeychainPassword::GetAccountName()),
+      errSecSuccess);
+  EXPECT_EQ(RunLaunchMigration(electron, data, keychain.safe_storage(), alert),
+            std::nullopt);
+  EXPECT_EQ(keychain.EngineSecret(), "electron key");
+  EXPECT_EQ(LoadRecord(data)->cookie_key_pending, false);
 }
 
 }  // namespace
