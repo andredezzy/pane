@@ -52,6 +52,8 @@
 #include "pane/model/tab_history.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/installed_extensions.h"
+#include "pane/ui/design/palette.h"
+#include "pane/ui/design/theme.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/tabs/tab_id.h"
 #include "pane/ui/window/frame.h"
@@ -260,6 +262,10 @@ UiApp* UiApp::Get() {
 
 UiApp::UiApp()
     : data_(*AppData::Get()), contexts_(*data_, data_->store().model()) {
+  // The design's colors, and the Theme the settings hold, before the window
+  // draws: settings.json is read before the lock, as the Swift's was.
+  AddPaneColorMixer();
+  ApplyTheme(model().settings().theme);
   const gfx::Rect work_area =
       display::Screen::Get()->GetPrimaryDisplay().work_area();
   gfx::Rect bounds(kWindowSize);
@@ -918,6 +924,12 @@ void UiApp::OnProfilesChanged() {
     return !model().FindTab(tab_id);
   });
   window_->Refresh();
+}
+
+void UiApp::OnSettingsChanged() {
+  // A Theme chosen reaches the app, its menus, and its pages at once (ADR
+  // 0001); the rest of the settings wait for Settings' port.
+  ApplyTheme(model().settings().theme);
 }
 
 void UiApp::OnExpandedProfilesChanged() {

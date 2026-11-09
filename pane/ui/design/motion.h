@@ -44,7 +44,9 @@ class Curve {
   // How far along the change is, `elapsed` after it began: 0 to 1, a spring
   // past 1 as it overshoots.
   double Progress(base::TimeDelta elapsed) const;
-  // When it has settled.
+  // How long it waits, then how long it moves, and when it has settled.
+  base::TimeDelta delay() const { return delay_; }
+  base::TimeDelta duration() const { return duration_; }
   base::TimeDelta total() const { return delay_ + duration_; }
 
  private:
@@ -61,14 +63,57 @@ class Curve {
   base::TimeDelta delay_;
 };
 
-// The curves Pane uses, from the Swift app's Motion table.
+// Every curve Pane moves by, by what it is for: the Swift app's Motion table,
+// all 16 (DESIGN.md › Motion). SwiftUI's easeOut, easeIn, and easeInOut are
+// CSS's (0, 0, 0.58, 1), (0.42, 0, 1, 1), and (0.42, 0, 0.58, 1). A driver
+// takes none while the system asks for less motion (IsReduced): every change
+// is then at once, so a view honors the setting with no check of its own.
 namespace motion {
-// Hover fills and presses: 0.15 s, easing out.
+// Hover fills, the tints that change with them, and presses: 0.15 s, easing
+// out.
 Curve Hover();
-// The profile sheet's scrim and slide: 0.2 s, easing out.
-Curve Sheet();
-// An indicator's own change of shape: a spring of 0.32 s, damped 0.86.
+// A hover change that waits its turn, so neither of two things sits over the
+// other (the update pill's dismiss button and its bar): the hover's, after
+// 0.08 s.
+Curve HoverTurn();
+// A switch's thumb crossing over, and what its row shows or hides: as quick
+// as a hover.
+Curve Toggle();
+// An indicator's own change of shape (the active profile's bar growing into
+// its square): a spring of 0.32 s, damped 0.86, with no overshoot to speak
+// of.
 Curve Morph();
+// Rows sliding aside for a dragged one, and its copy settling into place: a
+// spring of 0.28 s, damped 0.9.
+Curve Slide();
+// The sidebar scrolling to a tab chosen elsewhere that was out of its view: a
+// spring of 0.3 s, critically damped.
+Curve Reveal();
+// The copy of a dragged row going, once it has settled: 0.12 s, easing out.
+Curve Drop();
+// A dialog over the window appearing and going (Quit Pane?, a page's
+// dialog): 0.15 s, easing out.
+Curve Panel();
+// The profile sheet sliding in from the right as its scrim fades in, and
+// back out: 0.2 s, easing out.
+Curve Sheet();
+// The PIN screen rising, slowing hard as it lands (0.4 s), and sinking back
+// (0.35 s, easing in).
+Curve LockIn();
+Curve LockOut();
+// A quiet element coming and going (the update pill, the full screen hint):
+// 0.3 s, easing out.
+Curve Fade();
+// A status changing in place, the update's text crossfading: 0.2 s, easing
+// in and out.
+Curve Status();
+// A status taking the place of a bar going beside it: the same crossfade,
+// once the bar has gone (BarExit's 0.12 s).
+Curve StatusAfterBar();
+// A progress bar going once its work is done: 0.12 s, easing out.
+Curve BarExit();
+// A progress bar moving to its new share: 0.2 s, linear.
+Curve Progress();
 // Whether the system asks for less motion: every change is then at once.
 bool IsReduced();
 }  // namespace motion
@@ -138,6 +183,8 @@ class ValueMotion : public ::ui::CompositorAnimationObserver {
   // At once when `compositor` is null or less motion is asked for.
   void MoveTo(double target, const Curve& curve, ::ui::Compositor* compositor);
   double value() const { return value_; }
+  // Where it is heading, or where it rests.
+  double target() const { return curve_ ? to_ : value_; }
 
   // ui::CompositorAnimationObserver:
   void OnAnimationStep(base::TimeTicks timestamp) override;

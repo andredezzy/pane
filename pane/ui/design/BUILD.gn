@@ -1,0 +1,89 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# The design's primitives (docs/plans/views-migration.md, Phase 3), one source
+# each, as the Swift app's Theme and Controls had them: the palette and the
+# Theme, the squircle, motion, text, Lucide's icons, and the controls' looks.
+# A target of its own so their tests run in pane_unittests, apart from the
+# engine; it takes nothing of //content's or //chrome's but Chrome's color ids'
+# end, after which Pane's start.
+
+source_set("design") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "controls.cc",
+    "controls.h",
+    "field.cc",
+    "field.h",
+    "focus_ring.cc",
+    "focus_ring.h",
+    "icons.cc",
+    "icons.h",
+    "motion.cc",
+    "motion.h",
+    "palette.cc",
+    "palette.h",
+    "scroll_fade.cc",
+    "scroll_fade.h",
+    "squircle.cc",
+    "squircle.h",
+    "switch.cc",
+    "switch.h",
+    "text.cc",
+    "text.h",
+    "theme.cc",
+    "theme.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/color:color_headers",
+    "//pane/model",
+    "//skia",
+    "//ui/base",
+    "//ui/color",
+    "//ui/compositor",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/views",
+  ]
+
+  deps = [
+    "//cc/paint",
+    "//ui/accessibility:ax_base",
+    "//ui/events",
+    "//ui/gfx/animation",
+    "//ui/native_theme",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  visibility = [ "//pane/encryption:pane_unittests" ]
+
+  sources = [
+    "controls_unittest.cc",
+    "icons_unittest.cc",
+    "motion_unittest.cc",
+    "palette_unittest.cc",
+    "squircle_unittest.cc",
+    "theme_unittest.cc",
+  ]
+
+  deps = [
+    ":design",
+    "//base",
+    "//base/test:test_support",
+    "//pane/model",
+    "//skia",
+    "//testing/gtest",
+    "//ui/color",
+    "//ui/gfx",
+    "//ui/gfx/animation",
+    "//ui/gfx/geometry",
+    "//ui/native_theme",
+  ]
+}

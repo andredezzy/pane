@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/web_contents.h"
+#include "pane/ui/design/palette.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
@@ -42,6 +43,10 @@ Window::Window(const gfx::Rect& bounds, Controller* controller)
       base::BindRepeating(&Window::AddressEntered, base::Unretained(this)));
   root_ = root.get();
   host_ = std::make_unique<WindowHost>(this, bounds, std::move(root));
+  // The window's own fill, from the palette: each Theme change resolves it
+  // again, and the Mac's window takes its appearance from it, so the lights
+  // and the menus the window shows follow the Theme too.
+  host_->widget()->SetBackgroundColor(kPaneColorWindowBackground);
 
   // The one command table: the window's FocusManager's accelerators.
   views::FocusManager* focus = host_->widget()->GetFocusManager();

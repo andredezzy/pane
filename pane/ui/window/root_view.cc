@@ -12,7 +12,11 @@
 
 #include "base/functional/bind.h"
 #include "cc/paint/paint_flags.h"
+#include "pane/ui/design/controls.h"
 #include "pane/ui/design/motion.h"
+#include "pane/ui/design/palette.h"
+#include "pane/ui/design/squircle.h"
+#include "pane/ui/design/text.h"
 #include "pane/ui/interaction_log.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -45,17 +49,15 @@ constexpr int kToolbarHeight = 43;
 // The content panel's squircle (18), as a layer draws it: a circle of the
 // radius that follows it within a fifth of a pixel (ADR 0057), so no mask
 // composites the page each frame.
-constexpr float kPageCornerRadius = 18 * 0.57f;
+constexpr float kPageCornerRadius = radius::kPanel * kCircularEquivalent;
 
-// The sheet's scrim, black in both appearances, and its card, at the
-// window's right, as the profile sheet sits (Paper 05).
-constexpr SkColor kScrim = SkColorSetARGB(0x40, 0, 0, 0);
+// The sheet's card, at the window's right, as the profile sheet sits (Paper
+// 05), over its scrim.
 constexpr int kSheetWidth = 400;
 constexpr int kSheetInset = 8;
 
-// The text of a profile's row: the profile shown's, and the others'.
-constexpr SkColor kRowText = SkColorSetRGB(0x18, 0x18, 0x1B);
-constexpr SkColor kMutedText = SkColorSetRGB(0x6B, 0x6B, 0x70);
+// A profile's name: 12 points, medium (ADR 0060).
+constexpr TextStyle kProfileName{12, weight::kMedium, 16};
 
 // A profile's mark, in its color: a bar 4 points wide while another profile
 // is shown, growing into a 16-point square while it's the one shown, on the
@@ -87,12 +89,14 @@ class ProfileMark : public views::View {
     return gfx::Size(std::ceil(Width()), kSize);
   }
 
+  // A squircle whose radius grows with it, 2 to 4 (ADR 0064).
   void OnPaint(gfx::Canvas* canvas) override {
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     flags.setColor(color_);
-    canvas->DrawRoundRect(gfx::RectF(0, 0, Width(), kSize),
-                          2 + 2 * morph_.value(), flags);
+    canvas->DrawPath(
+        SquirclePath(gfx::RectF(0, 0, Width(), kSize), 2 + 2 * morph_.value()),
+        flags);
   }
 
  private:
@@ -127,11 +131,9 @@ class ProfileRow : public views::Button {
         views::BoxLayout::CrossAxisAlignment::kCenter);
     mark_ =
         AddChildView(std::make_unique<ProfileMark>(row.color, row.selected));
-    label_ = AddChildView(std::make_unique<views::Label>());
+    label_ =
+        AddChildView(MakeLabel(u"", kProfileName, kPaneColorMutedForeground));
     label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    label_->SetFontList(views::Label::GetDefaultFontList()
-                            .DeriveWithSizeDelta(-1)
-                            .DeriveWithWeight(gfx::Font::Weight::MEDIUM));
     layout->SetFlexForView(label_, 1);
     Update(row);
   }
@@ -141,7 +143,8 @@ class ProfileRow : public views::Button {
       label_->SetText(row.title);
       GetViewAccessibility().SetName(row.title);
     }
-    label_->SetEnabledColor(row.selected ? kRowText : kMutedText);
+    label_->SetEnabledColor(row.selected ? kPaneColorAccentForeground
+                                         : kPaneColorMutedForeground);
     mark_->SetActive(row.selected);
   }
 
@@ -171,12 +174,17 @@ class SheetView : public views::View {
   explicit SheetView(base::RepeatingClosure close) : close_(close) {
     SetPaintToLayer();
     layer()->SetFillsBoundsOpaquely(false);
-    SetBackground(views::CreateSolidBackground(kScrim));
+    SetBackground(views::CreateSolidBackground(kPaneColorSheetScrim));
     card_ = AddChildView(std::make_unique<views::View>());
     card_->SetPaintToLayer();
     card_->layer()->SetFillsBoundsOpaquely(false);
-    card_->SetBackground(
-        views::CreateRoundedRectBackground(SK_ColorWHITE, 18 * 0.57f));
+    card_->SetBackground(std::make_unique<ControlBackground>(
+        [] {
+          ControlLook look(ControlShape::Squircle(radius::kPanel));
+          look.fill = kPaneColorCard;
+          return look;
+        }(),
+        nullptr));
     card_->SetLayoutManager(std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kVertical, gfx::Insets(24), 12));
     field_ = card_->AddChildView(std::make_unique<views::Textfield>());
@@ -238,7 +246,7 @@ END_METADATA
 RootView::RootView(RowPressed row_pressed, AddressEntered address_entered)
     : row_pressed_(std::move(row_pressed)),
       address_entered_(std::move(address_entered)) {
-  SetBackground(views::CreateSolidBackground(SkColorSetRGB(0xF4, 0xF4, 0xF5)));
+  SetBackground(views::CreateSolidBackground(kPaneColorWindowBackground));
 
   sidebar_ = AddChildView(std::make_unique<views::View>());
   sidebar_->SetLayoutManager(std::make_unique<views::BoxLayout>(
@@ -246,7 +254,7 @@ RootView::RootView(RowPressed row_pressed, AddressEntered address_entered)
       2));
 
   panel_ = AddChildView(std::make_unique<views::View>());
-  panel_->SetBackground(views::CreateSolidBackground(SK_ColorWHITE));
+  panel_->SetBackground(views::CreateSolidBackground(kPaneColorCard));
 
   address_ = AddChildView(std::make_unique<views::Textfield>());
   address_->set_controller(this);
@@ -289,8 +297,8 @@ void RootView::SetRows(const std::vector<SidebarRow>& rows) {
       button->SetText(row.title);
     }
     if (row.selected != !!button->GetBackground()) {
-      button->SetBackground(row.selected ? views::CreateRoundedRectBackground(
-                                               SkColorSetARGB(0x14, 0, 0, 0), 7)
+      button->SetBackground(row.selected ? std::make_unique<ControlBackground>(
+                                               RowLook(true), nullptr)
                                          : nullptr);
     }
   }

@@ -94,17 +94,89 @@ double Curve::Progress(base::TimeDelta elapsed) const {
 
 namespace motion {
 
-// SwiftUI's easeOut is CSS's ease-out.
-Curve Hover() {
-  return Curve::Cubic(0, 0, 0.58, 1, base::Milliseconds(150));
+namespace {
+
+// SwiftUI's named curves, which are CSS's.
+Curve EaseOut(base::TimeDelta duration,
+              base::TimeDelta delay = base::TimeDelta()) {
+  return Curve::Cubic(0, 0, 0.58, 1, duration, delay);
 }
 
-Curve Sheet() {
-  return Curve::Cubic(0, 0, 0.58, 1, base::Milliseconds(200));
+Curve EaseIn(base::TimeDelta duration) {
+  return Curve::Cubic(0.42, 0, 1, 1, duration);
+}
+
+Curve EaseInOut(base::TimeDelta duration,
+                base::TimeDelta delay = base::TimeDelta()) {
+  return Curve::Cubic(0.42, 0, 0.58, 1, duration, delay);
+}
+
+constexpr base::TimeDelta kBarExit = base::Milliseconds(120);
+
+}  // namespace
+
+Curve Hover() {
+  return EaseOut(base::Milliseconds(150));
+}
+
+Curve HoverTurn() {
+  return EaseOut(base::Milliseconds(150), base::Milliseconds(80));
+}
+
+Curve Toggle() {
+  return EaseOut(base::Milliseconds(150));
 }
 
 Curve Morph() {
   return Curve::Spring(0.32, 0.86);
+}
+
+Curve Slide() {
+  return Curve::Spring(0.28, 0.9);
+}
+
+Curve Reveal() {
+  return Curve::Spring(0.3, 1);
+}
+
+Curve Drop() {
+  return EaseOut(base::Milliseconds(120));
+}
+
+Curve Panel() {
+  return EaseOut(base::Milliseconds(150));
+}
+
+Curve Sheet() {
+  return EaseOut(base::Milliseconds(200));
+}
+
+Curve LockIn() {
+  return Curve::Cubic(0.16, 1, 0.3, 1, base::Milliseconds(400));
+}
+
+Curve LockOut() {
+  return EaseIn(base::Milliseconds(350));
+}
+
+Curve Fade() {
+  return EaseOut(base::Milliseconds(300));
+}
+
+Curve Status() {
+  return EaseInOut(base::Milliseconds(200));
+}
+
+Curve StatusAfterBar() {
+  return EaseInOut(base::Milliseconds(200), kBarExit);
+}
+
+Curve BarExit() {
+  return EaseOut(kBarExit);
+}
+
+Curve Progress() {
+  return Curve::Cubic(0, 0, 1, 1, base::Milliseconds(200));
 }
 
 bool IsReduced() {

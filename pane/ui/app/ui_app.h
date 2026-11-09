@@ -117,6 +117,7 @@ class UiApp : public AppData::Client,
 
   // model::BrowserModel::Observer:
   void OnProfilesChanged() override;
+  void OnSettingsChanged() override;
   void OnExpandedProfilesChanged() override;
   void OnActiveTabChanged() override;
   void OnActiveProfileChanged() override;
