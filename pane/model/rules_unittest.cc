@@ -4,6 +4,8 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/strings/string_number_conversions.h"
@@ -527,8 +529,29 @@ TEST(ProxyPasswordsTest, NeedsStore) {
   EXPECT_TRUE(NeedsProxyPasswordStore({ProxiedProfile("a", "u")}));
 }
 
-// Ported from PaneKit's ProfileFormTests: its presets, which the engine's
-// fingerprints start from.
+// Ported from PaneKit's ProfileFormTests.
+
+// The Mac's own GPU, as the engine reads it.
+Fingerprint::WebGL HostGPU() {
+  return {.vendor = "Google Inc. (Apple)",
+          .renderer =
+              "ANGLE (Apple, ANGLE Metal Renderer: Apple M2, "
+              "Unspecified Version)"};
+}
+
+ProxyString HostAndPort(std::string host, int port) {
+  ProxyString shortcut;
+  shortcut.host = std::move(host);
+  shortcut.port = port;
+  return shortcut;
+}
+
+// The shortcut in `raw`, which must parse.
+ProxyString Parsed(std::string_view raw) {
+  std::optional<ProxyString> parsed = ProxyString::Parse(raw);
+  EXPECT_TRUE(parsed) << raw;
+  return parsed.value_or(ProxyString());
+}
 
 // Each platform's preset is the Electron app's.
 TEST(ProfileFormTest, Presets) {
@@ -543,6 +566,87 @@ TEST(ProfileFormTest, Presets) {
        {Platform::kWindows, Platform::kMacOS, Platform::kLinux}) {
     EXPECT_EQ(FingerprintPreset(platform).platform, platform);
   }
+}
+
+// The host's own platform claims the host's GPU; another keeps the preset's.
+TEST(ProfileFormTest, HostGPUClaim) {
+  EXPECT_EQ(GeneratedFingerprint(Platform::kMacOS, HostGPU()).webgl, HostGPU());
+  EXPECT_EQ(GeneratedFingerprint(Platform::kWindows, HostGPU()).webgl,
+            FingerprintPreset(Platform::kWindows).webgl);
+  EXPECT_EQ(GeneratedFingerprint(Platform::kMacOS, std::nullopt).webgl,
+            FingerprintPreset(Platform::kMacOS).webgl);
+}
+
+// An edit keeps the stored fingerprint unless spoofing or the platform
+// changed.
+TEST(ProfileFormTest, Edits) {
+  Fingerprint stored = FingerprintPreset(Platform::kWindows);
+  stored.timezone = "Europe/Lisbon";
+  const Fingerprint fresh = FingerprintPreset(Platform::kLinux);
+  const auto generate = [&] { return fresh; };
+
+  EXPECT_EQ(EditedFingerprint(stored, /*spoofing=*/true, Platform::kWindows,
+                              generate),
+            stored);
+  EXPECT_EQ(
+      EditedFingerprint(stored, /*spoofing=*/true, Platform::kLinux, generate),
+      fresh);
+  EXPECT_EQ(EditedFingerprint(stored, /*spoofing=*/false, Platform::kWindows,
+                              generate),
+            std::nullopt);
+  EXPECT_EQ(EditedFingerprint(std::nullopt, /*spoofing=*/true, Platform::kLinux,
+                              generate),
+            fresh);
+  EXPECT_EQ(EditedFingerprint(std::nullopt, /*spoofing=*/false,
+                              Platform::kLinux, generate),
+            std::nullopt);
+}
+
+// The proxy shortcut fills host, port, and the credentials it has.
+TEST(ProfileFormTest, ProxyString) {
+  // The Swift test built its expectation by parsing the same text again.
+  EXPECT_EQ(ProxyString::Parse("10.0.0.2:3128"), HostAndPort("10.0.0.2", 3128));
+  EXPECT_EQ(Parsed(" proxy.example:1080:user:p4ss ").username, "user");
+  EXPECT_EQ(Parsed("proxy.example:1080:user:p4ss").password, "p4ss");
+  EXPECT_EQ(Parsed("proxy.example:1080:user").password, std::nullopt);
+  EXPECT_EQ(ProxyString::Parse("proxy.example"), std::nullopt);
+  EXPECT_EQ(ProxyString::Parse("proxy.example:port"), std::nullopt);
+  EXPECT_EQ(ProxyString::Parse(":8080"), std::nullopt);
+}
+
+// An IPv6 host is no shortcut, and takes its brackets in one.
+TEST(ProfileFormTest, ProxyStringIPv6) {
+  EXPECT_EQ(ProxyString::Parse("[2606:4700:4700::1111]"), std::nullopt);
+  EXPECT_EQ(ProxyString::Parse("2606:4700:4700::1111"), std::nullopt);
+  EXPECT_EQ(ProxyString::Parse("::1"), std::nullopt);
+
+  const ProxyString bracketed = Parsed("[2606:4700:4700::1111]:1080:user:p:ss");
+  EXPECT_EQ(bracketed.host, "[2606:4700:4700::1111]");
+  EXPECT_EQ(bracketed.port, 1080);
+  EXPECT_EQ(bracketed.username, "user");
+  EXPECT_EQ(bracketed.password, "p:ss");
+
+  // Colons alone do not make an address: an all-hex name stays a shortcut.
+  EXPECT_EQ(Parsed("cafe:8080:abcd:1234").host, "cafe");
+}
+
+// A pasted password keeps its colons.
+TEST(ProfileFormTest, ProxyPasswordWithColons) {
+  EXPECT_EQ(Parsed("proxy.example:1080:user:p:ss").password, "p:ss");
+  EXPECT_EQ(Parsed("proxy.example:1080:user:p4ss:").password, "p4ss:");
+  EXPECT_EQ(Parsed("proxy.example:1080:user:").password, std::nullopt);
+}
+
+// A port outside 1–65535 is no port.
+TEST(ProfileFormTest, ProxyPorts) {
+  EXPECT_EQ(ProxyPort("1"), 1);
+  EXPECT_EQ(ProxyPort(" 65535 "), 65535);
+  EXPECT_EQ(ProxyPort("0"), std::nullopt);
+  EXPECT_EQ(ProxyPort("70000"), std::nullopt);
+  EXPECT_EQ(ProxyPort("-1"), std::nullopt);
+  EXPECT_EQ(ProxyPort(""), std::nullopt);
+  EXPECT_EQ(ProxyString::Parse("proxy.example:70000"), std::nullopt);
+  EXPECT_EQ(ProxyString::Parse("proxy.example:-1:user:pass"), std::nullopt);
 }
 
 }  // namespace
