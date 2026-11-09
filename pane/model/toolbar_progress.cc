@@ -43,55 +43,12 @@ double Fraction(base::TimeDelta elapsed, base::TimeDelta duration) {
 
 }  // namespace
 
-double UnitBezier::ValueAt(double x) const {
-  return SampleY(Solve(std::clamp(x, 0.0, 1.0)));
+gfx::CubicBezier LinearOutSlowIn() {
+  return gfx::CubicBezier(0, 0, 0.2, 1);
 }
 
-double UnitBezier::SampleX(double t) const {
-  return ((ax_ * t + bx_) * t + cx_) * t;
-}
-
-double UnitBezier::SampleY(double t) const {
-  return ((ay_ * t + by_) * t + cy_) * t;
-}
-
-double UnitBezier::SlopeX(double t) const {
-  return (3 * ax_ * t + 2 * bx_) * t + cx_;
-}
-
-double UnitBezier::Solve(double x) const {
-  double t = x;
-  for (int i = 0; i < 8; ++i) {
-    const double error = SampleX(t) - x;
-    if (std::abs(error) < 1e-7) {
-      return t;
-    }
-    const double slope = SlopeX(t);
-    if (std::abs(slope) < 1e-6) {
-      break;
-    }
-    t -= error / slope;
-  }
-
-  double low = 0;
-  double high = 1;
-  t = x;
-  while (low < high) {
-    const double value = SampleX(t);
-    if (std::abs(value - x) < 1e-7) {
-      return t;
-    }
-    if (x > value) {
-      low = t;
-    } else {
-      high = t;
-    }
-    t = (high - low) / 2 + low;
-    if (high - low < 1e-9) {
-      break;
-    }
-  }
-  return t;
+gfx::CubicBezier FastOutLinearIn() {
+  return gfx::CubicBezier(0.4, 0, 1, 1);
 }
 
 Fade::Fade(double value)
@@ -99,21 +56,29 @@ Fade::Fade(double value)
            value,
            base::TimeTicks(),
            base::TimeDelta(),
-           kLinearOutSlowIn) {}
+           LinearOutSlowIn()) {}
 
 Fade::Fade(double from,
            double to,
            base::TimeTicks start,
            base::TimeDelta duration,
-           const UnitBezier& curve)
-    : from_(from), to_(to), start_(start), duration_(duration), curve_(curve) {}
+           const gfx::CubicBezier& curve)
+    : from_(from),
+      to_(to),
+      start_(start),
+      duration_(duration),
+      x1_(curve.GetX1()),
+      y1_(curve.GetY1()),
+      x2_(curve.GetX2()),
+      y2_(curve.GetY2()) {}
 
 double Fade::ValueAt(base::TimeTicks now) const {
   if (!IsRunning(now)) {
     return to_;
   }
   const double fraction = std::max(now - start_, base::TimeDelta()) / duration_;
-  return from_ + (to_ - from_) * curve_.ValueAt(fraction);
+  return from_ +
+         (to_ - from_) * gfx::CubicBezier(x1_, y1_, x2_, y2_).Solve(fraction);
 }
 
 bool Fade::IsRunning(base::TimeTicks now) const {
@@ -185,7 +150,7 @@ void Shimmer::Start(base::TimeTicks now) {
   slow_ended_ = false;
   last_is_slow_ = true;
   last_fraction_ = 0;
-  fade_ = Fade(fade_.ValueAt(now), 1, now, kShimmerFadeIn, kLinearOutSlowIn);
+  fade_ = Fade(fade_.ValueAt(now), 1, now, kShimmerFadeIn, LinearOutSlowIn());
 }
 
 void Shimmer::Cancel() {
@@ -265,7 +230,7 @@ std::optional<Shimmer::Span> Shimmer::CurrentSpan() const {
   }
 
   const double fraction = last_fraction_;
-  const double interpolated = kFastOutLinearIn.ValueAt(fraction);
+  const double interpolated = FastOutLinearIn().Solve(fraction);
   double scale = kBarScale;
 
   if (last_is_slow_ && fraction <= kSmallBarExpansionComplete) {
@@ -483,7 +448,7 @@ void ToolbarProgress::AnimateAlpha(double value, base::TimeTicks now) {
                                        ? base::TimeDelta()
                                        : kFadeDuration * std::abs(difference);
   fade_ = Fade(current, value, now, duration,
-               difference > 0 ? kLinearOutSlowIn : kFastOutLinearIn);
+               difference > 0 ? LinearOutSlowIn() : FastOutLinearIn());
 }
 
 void ToolbarProgress::Frame(base::TimeTicks now) {

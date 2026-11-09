@@ -2,61 +2,40 @@
 
 #include "pane/model/versions.h"
 
-#include <algorithm>
 #include <vector>
 
-#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/types/expected_macros.h"
+#include "base/version.h"
 
 namespace pane::model {
 
 namespace {
 
-base::expected<std::vector<int>, InvalidVersion> VersionParts(
+// Chromium's version, from a tag: without a leading "v", and up to the first
+// "-" or "+" (empty pieces skipped, as Swift's split leaves them).
+base::expected<base::Version, InvalidVersion> VersionOf(
     std::string_view version) {
   if (version.starts_with('v') || version.starts_with('V')) {
     version.remove_prefix(1);
   }
-  // The first piece between "-" and "+", empty ones skipped, as Swift's
-  // split leaves them.
   const std::vector<std::string_view> pieces = base::SplitStringPiece(
       version, "-+", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-  const std::string_view core = pieces.empty() ? "" : pieces.front();
-  if (core.empty()) {
+  base::Version parsed(pieces.empty() ? std::string_view() : pieces.front());
+  if (!parsed.IsValid()) {
     return base::unexpected(InvalidVersion());
   }
-  std::vector<int> parts;
-  for (std::string_view part : base::SplitStringPiece(
-           core, ".", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL)) {
-    int value = 0;
-    if (!base::StringToInt(part, &value)) {
-      return base::unexpected(InvalidVersion());
-    }
-    parts.push_back(value);
-  }
-  return parts;
+  return parsed;
 }
 
 }  // namespace
 
 base::expected<bool, InvalidVersion> IsNewerVersion(std::string_view candidate,
                                                     std::string_view current) {
-  ASSIGN_OR_RETURN(const std::vector<int> candidate_parts,
-                   VersionParts(candidate));
-  ASSIGN_OR_RETURN(const std::vector<int> current_parts, VersionParts(current));
-  for (size_t index = 0;
-       index < std::max(candidate_parts.size(), current_parts.size());
-       ++index) {
-    const int candidate_part =
-        index < candidate_parts.size() ? candidate_parts[index] : 0;
-    const int current_part =
-        index < current_parts.size() ? current_parts[index] : 0;
-    if (candidate_part != current_part) {
-      return candidate_part > current_part;
-    }
-  }
-  return false;
+  ASSIGN_OR_RETURN(const base::Version candidate_version, VersionOf(candidate));
+  ASSIGN_OR_RETURN(const base::Version current_version, VersionOf(current));
+  // Missing trailing parts count as zero.
+  return candidate_version > current_version;
 }
 
 }  // namespace pane::model

@@ -7,41 +7,14 @@
 
 #include "base/functional/callback.h"
 #include "base/time/time.h"
+#include "ui/gfx/geometry/cubic_bezier.h"
 
 namespace pane::model {
 
-// A cubic Bézier timing curve, as CSS and Android's PathInterpolator take it.
-class UnitBezier {
- public:
-  constexpr UnitBezier(double x1, double y1, double x2, double y2)
-      : cx_(3 * x1),
-        bx_(3 * (x2 - x1) - cx_),
-        ax_(1 - cx_ - bx_),
-        cy_(3 * y1),
-        by_(3 * (y2 - y1) - cy_),
-        ay_(1 - cy_ - by_) {}
-
-  double ValueAt(double x) const;
-
- private:
-  double SampleX(double t) const;
-  double SampleY(double t) const;
-  double SlopeX(double t) const;
-  // The curve's parameter at `x`: Newton's method, then halving.
-  double Solve(double x) const;
-
-  double cx_;
-  double bx_;
-  double ax_;
-  double cy_;
-  double by_;
-  double ay_;
-};
-
 // Material's curves: Android's Interpolators.LINEAR_OUT_SLOW_IN and
-// FAST_OUT_LINEAR_IN.
-inline constexpr UnitBezier kLinearOutSlowIn(0, 0, 0.2, 1);
-inline constexpr UnitBezier kFastOutLinearIn(0.4, 0, 1, 1);
+// FAST_OUT_LINEAR_IN, as Chromium's own cubic Bézier solves them.
+gfx::CubicBezier LinearOutSlowIn();
+gfx::CubicBezier FastOutLinearIn();
 
 // An opacity animating from one value to another, or holding one.
 class Fade {
@@ -51,7 +24,7 @@ class Fade {
        double to,
        base::TimeTicks start,
        base::TimeDelta duration,
-       const UnitBezier& curve);
+       const gfx::CubicBezier& curve);
 
   double ValueAt(base::TimeTicks now) const;
   bool IsRunning(base::TimeTicks now) const;
@@ -61,7 +34,12 @@ class Fade {
   double to_;
   base::TimeTicks start_;
   base::TimeDelta duration_;
-  UnitBezier curve_;
+  // The curve's control points: gfx::CubicBezier can't be assigned, and a
+  // fade is.
+  double x1_;
+  double y1_;
+  double x2_;
+  double y2_;
 };
 
 // ProgressAnimationSmooth: a constant acceleration, then a constant

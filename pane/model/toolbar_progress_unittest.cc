@@ -178,10 +178,10 @@ TEST(ToolbarProgressTest, ShimmerSpan) {
 
 // Material's curves, as Android's interpolators draw them.
 TEST(ToolbarProgressTest, Curves) {
-  EXPECT_EQ(kLinearOutSlowIn.ValueAt(0), 0);
-  EXPECT_LT(std::abs(kLinearOutSlowIn.ValueAt(1) - 1), 1e-6);
-  EXPECT_GT(kLinearOutSlowIn.ValueAt(0.25), 0.5);
-  EXPECT_LT(kFastOutLinearIn.ValueAt(0.25), 0.1);
+  EXPECT_EQ(LinearOutSlowIn().Solve(0), 0);
+  EXPECT_LT(std::abs(LinearOutSlowIn().Solve(1) - 1), 1e-6);
+  EXPECT_GT(LinearOutSlowIn().Solve(0.25), 0.5);
+  EXPECT_LT(FastOutLinearIn().Solve(0.25), 0.1);
 }
 
 }  // namespace

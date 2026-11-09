@@ -2,8 +2,9 @@
 
 # Pane's model and data, in plain C++ (docs/plans/views-migration.md, Phase
 # 2): the formats every Pane wrote, and the rules over them, ported from the
-# Swift PaneKit test by test. It depends on //base, //crypto, //url, RE2, and
-# ICU alone, so its tests run under the sanitizers apart from the engine.
+# Swift PaneKit test by test. It depends on //base, //crypto, //url, RE2, ICU,
+# and gfx's geometry (its cubic Bézier) alone, so its tests run under the
+# sanitizers apart from the engine.
 
 source_set("model") {
   sources = [
@@ -75,6 +76,7 @@ source_set("model") {
     "//third_party/boringssl",
     "//third_party/icu",
     "//third_party/re2",
+    "//ui/gfx/geometry",
     "//url",
   ]
 }
