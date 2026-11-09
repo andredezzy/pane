@@ -12,6 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 
+class GURL;
 class Profile;
 class ScopedProfileKeepAlive;
 
@@ -56,6 +57,12 @@ class UiApp {
   void CreateProfile(const std::string& name,
                      base::OnceCallback<void(std::string)> done);
   Profile* ProfileWithId(const std::string& id) const;
+
+  // What Pane is started with (`Pane https://…`) opens as new tabs, in
+  // order, behind, in the profile in use, the first one, made on first
+  // launch when there is none, as Chrome opens them in the last one used.
+  // The last one is selected.
+  void OpenLaunchURLs(std::vector<GURL> urls);
 
   // What shows, for the channel's replies: the window, its profiles and
   // tabs, and what is selected.

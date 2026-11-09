@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "pane/ui/design/motion.h"
+#include "pane/ui/interaction_log.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
@@ -18,6 +19,7 @@
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/widget/widget.h"
 
 namespace pane {
 
@@ -54,12 +56,26 @@ class SheetView : public views::View {
         views::BoxLayout::Orientation::kVertical, gfx::Insets(24), 12));
     field_ = card_->AddChildView(std::make_unique<views::Textfield>());
     field_->SetAccessibleName(u"Name");
+    // The platform tiles interaction-timing presses, as the profile sheet's.
+    for (const char16_t* platform : {u"Windows", u"macOS"}) {
+      card_->AddChildView(std::make_unique<views::LabelButton>(
+          base::BindRepeating(&SheetView::ChoosePlatform,
+                              base::Unretained(this)),
+          platform));
+    }
     card_->AddChildView(std::make_unique<views::LabelButton>(close_, u"Done"));
     AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
     AddAccelerator(ui::Accelerator(ui::VKEY_RETURN, ui::EF_NONE));
   }
 
   void Focus() { field_->RequestFocus(); }
+
+  void ChoosePlatform() {
+    if (GetWidget()) {
+      LogInteraction(Interaction::kChoosePlatform,
+                     GetWidget()->GetCompositor());
+    }
+  }
 
   // The scrim fades in as the card slides in from the window's right
   // (Motion.sheet).
@@ -161,6 +177,10 @@ void RootView::ShowSheet(bool show) {
     return;
   }
   if (show) {
+    if (GetWidget()) {
+      LogInteraction(Interaction::kOpenProfileSheet,
+                     GetWidget()->GetCompositor());
+    }
     auto sheet = std::make_unique<SheetView>(base::BindRepeating(
         &RootView::ShowSheet, base::Unretained(this), false));
     SheetView* view = sheet.get();

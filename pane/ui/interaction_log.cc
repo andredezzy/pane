@@ -2,49 +2,26 @@
 
 #include "pane/ui/interaction_log.h"
 
-#include "base/scoped_observation.h"
+#include "base/functional/bind.h"
+#include "components/viz/common/frame_timing_details.h"
 #include "ui/compositor/compositor.h"
-#include "ui/compositor/compositor_observer.h"
 
 namespace pane {
 
-namespace {
-
-// Ends one interval at the compositor's next commit, then goes.
-class IntervalEnd : public ::ui::CompositorObserver {
- public:
-  IntervalEnd(Interaction interaction, ::ui::Compositor* compositor)
-      : interaction_(interaction),
-        interval_(BeginInteractionInterval(interaction)) {
-    observation_.Observe(compositor);
-    // A commit, even when the input changed nothing on screen.
-    compositor->ScheduleDraw();
-  }
-
-  void OnCompositingDidCommit(::ui::Compositor* compositor) override { End(); }
-
-  void OnCompositingShuttingDown(::ui::Compositor* compositor) override {
-    End();
-  }
-
- private:
-  void End() {
-    EndInteractionInterval(interaction_, interval_);
-    delete this;
-  }
-
-  const Interaction interaction_;
-  const uint64_t interval_;
-  base::ScopedObservation<::ui::Compositor, ::ui::CompositorObserver>
-      observation_{this};
-};
-
-}  // namespace
-
 void LogInteraction(Interaction interaction, ::ui::Compositor* compositor) {
-  if (compositor) {
-    new IntervalEnd(interaction, compositor);
+  if (!compositor) {
+    return;
   }
+  const uint64_t interval = BeginInteractionInterval(interaction);
+  // The frame built after the input, once it is on the screen.
+  compositor->RequestSuccessfulPresentationTimeForNextFrame(base::BindOnce(
+      [](Interaction interaction, uint64_t interval,
+         const viz::FrameTimingDetails& details) {
+        EndInteractionInterval(interaction, interval);
+      },
+      interaction, interval));
+  // A frame, even when the input changed nothing on the screen.
+  compositor->ScheduleDraw();
 }
 
 }  // namespace pane

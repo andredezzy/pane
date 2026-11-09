@@ -17,12 +17,15 @@ enum class Interaction {
   kSelectTab,
   kNewTab,
   kFocusAddressField,
+  kOpenProfileSheet,
+  kChoosePlatform,
 };
 
-// Times `interaction` from now, as its input is handled, to the commit of
-// the frame `compositor` builds next, the point the Swift app's interval
-// ended at (Core Animation's commit, AfterFrame): an interval in the
-// system's trace (Instruments' Points of Interest on the Mac).
+// Times `interaction` from now, as its input is handled, to the frame
+// `compositor` builds next reaching the screen: an interval in the system's
+// trace (Instruments' Points of Interest on the Mac). The Swift app's ended
+// at Core Animation's commit (AfterFrame), before its frame was on the
+// screen, so these run longer by that much for the same work.
 void LogInteraction(Interaction interaction, ::ui::Compositor* compositor);
 
 // The platform's half: an interval's begin and end, in the system's trace.

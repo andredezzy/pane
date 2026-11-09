@@ -5,6 +5,7 @@
 #include <array>
 #include <utility>
 
+#include "base/command_line.h"
 #include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/no_destructor.h"
@@ -26,6 +27,7 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/views/widget/widget.h"
+#include "url/gurl.h"
 
 namespace pane {
 
@@ -85,6 +87,16 @@ UiApp::UiApp() {
     automation_ = std::make_unique<Automation>(
         base::FilePath::FromUTF8Unsafe(*directory), this);
   }
+
+  std::vector<GURL> urls;
+  for (const base::CommandLine::StringType& arg :
+       base::CommandLine::ForCurrentProcess()->GetArgs()) {
+    const GURL url(base::FilePath(arg).AsUTF8Unsafe());
+    if (url.is_valid()) {
+      urls.push_back(url);
+    }
+  }
+  OpenLaunchURLs(std::move(urls));
 }
 
 UiApp::~UiApp() {
@@ -119,6 +131,34 @@ void UiApp::CreateProfile(const std::string& name,
             std::move(done).Run(id);
           },
           weak_factory_.GetWeakPtr(), id, name, std::move(done)));
+}
+
+void UiApp::OpenLaunchURLs(std::vector<GURL> urls) {
+  if (urls.empty()) {
+    return;
+  }
+  Profile* profile = window_->host().active_profile();
+  if (!profile && !profiles_.empty()) {
+    profile = profiles_.front().profile;
+  }
+  if (!profile) {
+    CreateProfile("Personal", base::BindOnce(
+                                  [](base::WeakPtr<UiApp> app,
+                                     std::vector<GURL> urls, std::string id) {
+                                    if (app && !id.empty()) {
+                                      app->OpenLaunchURLs(std::move(urls));
+                                    }
+                                  },
+                                  weak_factory_.GetWeakPtr(), std::move(urls)));
+    return;
+  }
+  content::WebContents* last = nullptr;
+  for (const GURL& url : urls) {
+    last = window_->OpenTab(profile, url, /*foreground=*/false);
+  }
+  if (last) {
+    window_->Select(last);
+  }
 }
 
 Profile* UiApp::ProfileWithId(const std::string& id) const {

@@ -31,6 +31,12 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kFocusAddressField:
       os_signpost_interval_begin(log, id, "Focus address field");
       break;
+    case Interaction::kOpenProfileSheet:
+      os_signpost_interval_begin(log, id, "Open profile sheet");
+      break;
+    case Interaction::kChoosePlatform:
+      os_signpost_interval_begin(log, id, "Choose platform");
+      break;
   }
   return id;
 }
@@ -46,6 +52,12 @@ void EndInteractionInterval(Interaction interaction, uint64_t interval) {
       break;
     case Interaction::kFocusAddressField:
       os_signpost_interval_end(log, interval, "Focus address field");
+      break;
+    case Interaction::kOpenProfileSheet:
+      os_signpost_interval_end(log, interval, "Open profile sheet");
+      break;
+    case Interaction::kChoosePlatform:
+      os_signpost_interval_end(log, interval, "Choose platform");
       break;
   }
 }
