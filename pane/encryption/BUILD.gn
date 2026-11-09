@@ -102,4 +102,10 @@ test("pane_unittests") {
     "//third_party/leveldatabase",
     "//third_party/sqlite",
   ]
+
+  # The Mac's own part of the model: the volume, the wipe, and the paths an
+  # earlier Pane on the Mac updates by.
+  if (is_mac) {
+    deps += [ "//pane/model/mac:unit_tests" ]
+  }
 }

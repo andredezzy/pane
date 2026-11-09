@@ -16,6 +16,11 @@ functions PaneKit calls. OpenBSD's libc internals the files use (`DEF_WEAK`,
 `WRAP`, `explicit_bzero`) are compiler defines in `Package.swift`, so the
 files stay as they came.
 
+The same three files, byte for byte, build in gn for the C++ model, on the
+Mac only, in `pane/model/mac/bcrypt/` (`docs/plans/views-migration.md`, C2):
+there `bcrypt.h` is Pane's header, and `pane/model/mac/BUILD.gn` holds the
+same defines.
+
 Licenses: `bcrypt.c` is ISC (Copyright (c) 2014 Ted Unangst, Copyright (c)
 1997 Niels Provos); `blowfish.c` and `blf.h` are BSD-3-Clause (Copyright 1997
 Niels Provos). The full texts are in each file's header and in `LICENSE`.

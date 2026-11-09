@@ -1,0 +1,105 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# The Mac's own part of Pane's model (docs/plans/views-migration.md, Phase 2,
+# C4 and C6), ported from the Swift PaneKit test by test: the encrypted
+# volume, the data's lock, the panic wipe, and the paths every earlier Pane on
+# the Mac updates by (ADR 0122). No Pane ever ran on Windows (U5), so none of
+# it builds there.
+
+assert(is_mac)
+
+# OpenBSD's bcrypt, copied unmodified (third_party/openbsd-bcrypt): these
+# defines stand in for OpenBSD's libc internals, so the files stay as they
+# came. Only the check is called (VerifyPinHash); the test makes hashes.
+config("bcrypt_config") {
+  visibility = [ ":*" ]
+  include_dirs = [ "bcrypt" ]
+  defines = [
+    "DEF_WEAK(x)=",
+    "WRAP(x)=x",
+    "explicit_bzero(p,n)=memset_s(p,n,0,n)",
+    "__STDC_WANT_LIB_EXT1__=1",
+  ]
+
+  # OpenBSD's libc builds it without -Wpointer-sign: its char and u_int8_t
+  # strings mix as they are.
+  cflags = [ "-Wno-pointer-sign" ]
+}
+
+source_set("bcrypt") {
+  visibility = [ ":*" ]
+  sources = [
+    "bcrypt/bcrypt.c",
+    "bcrypt/bcrypt.h",
+    "bcrypt/blf.h",
+    "bcrypt/blowfish.c",
+  ]
+
+  # Third-party C, kept as it came: the unsafe-buffer check, which Chromium
+  # leaves out of third_party/ by its path, is left out here too.
+  configs -= [
+    "//build/config/clang:unsafe_buffers",
+    "//build/config/compiler:chromium_code",
+  ]
+  configs += [
+    "//build/config/compiler:no_chromium_code",
+    ":bcrypt_config",
+  ]
+}
+
+source_set("mac") {
+  sources = [
+    "bundle_identifier.cc",
+    "bundle_identifier.h",
+    "data_lock.cc",
+    "data_lock.h",
+    "data_volume.cc",
+    "data_volume.h",
+    "electron_migration.cc",
+    "electron_migration.h",
+    "file_operations.cc",
+    "file_operations.h",
+    "panic_wipe.cc",
+    "panic_wipe.h",
+    "pin_hash.cc",
+    "pin_hash.h",
+    "proxy_password_vault.cc",
+    "proxy_password_vault.h",
+  ]
+
+  deps = [
+    ":bcrypt",
+    "//base",
+    "//crypto",
+    "//pane/model",
+    "//third_party/boringssl",
+  ]
+
+  frameworks = [
+    "CoreFoundation.framework",
+    "DiskArbitration.framework",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "bundle_identifier_unittest.cc",
+    "data_lock_unittest.cc",
+    "data_volume_unittest.cc",
+    "electron_migration_unittest.cc",
+    "panic_wipe_unittest.cc",
+    "pin_hash_unittest.cc",
+    "proxy_password_vault_unittest.cc",
+  ]
+
+  deps = [
+    ":bcrypt",
+    ":mac",
+    "//base",
+    "//base/test:test_support",
+    "//pane/model",
+    "//testing/gtest",
+  ]
+}
