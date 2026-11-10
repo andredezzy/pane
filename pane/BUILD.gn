@@ -129,6 +129,8 @@ source_set("pane") {
     "ui/window/empty_state_view.cc",
     "ui/window/empty_state_view.h",
     "ui/window/frame.h",
+    "ui/window/panel_frame.cc",
+    "ui/window/panel_frame.h",
     "ui/window/quit_dialog.cc",
     "ui/window/quit_dialog.h",
     "ui/window/root_view.cc",

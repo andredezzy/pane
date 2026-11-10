@@ -1,0 +1,5973 @@
+{
+	"what": "The Views build at the end of the shell, main at 3f62f15 with this work (PanelFrame and small layers, the rows sized, render.cc repainting after a render, Pane's views rastered on the CPU, two shadows cast by rounded rects), against the published 0.19.2 (PGO): three rounds of every benchmark taking turns (tests/ab.ts) on an M5 Pro on 2026-11-10, another session's iOS Simulator and the Mac's own media analysis running; then launch alone, three rounds more. Beside them, what each step measured on the way.",
+	"final": {
+		"binaries": {
+			"base": "0.19.2, published (PGO)",
+			"candidate": "Views shell, CPU raster (this work)"
+		},
+		"rounds": 3,
+		"runs": [
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 107468
+			},
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 106514
+			},
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 17876
+			},
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 13447
+			},
+			{
+				"round": 1,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 98988
+			},
+			{
+				"round": 1,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 98466
+			},
+			{
+				"round": 1,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 294796
+			},
+			{
+				"round": 1,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 290587
+			},
+			{
+				"round": 1,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 71188
+			},
+			{
+				"round": 1,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 70805
+			},
+			{
+				"round": 1,
+				"benchmark": "frame-latency",
+				"side": "base",
+				"ok": true,
+				"ms": 70877
+			},
+			{
+				"round": 1,
+				"benchmark": "frame-latency",
+				"side": "candidate",
+				"ok": true,
+				"ms": 70551
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 105379
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 106961
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 15637
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 18513
+			},
+			{
+				"round": 2,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 99812
+			},
+			{
+				"round": 2,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 99826
+			},
+			{
+				"round": 2,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 290975
+			},
+			{
+				"round": 2,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 295035
+			},
+			{
+				"round": 2,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 70344
+			},
+			{
+				"round": 2,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 70245
+			},
+			{
+				"round": 2,
+				"benchmark": "frame-latency",
+				"side": "candidate",
+				"ok": true,
+				"ms": 70051
+			},
+			{
+				"round": 2,
+				"benchmark": "frame-latency",
+				"side": "base",
+				"ok": true,
+				"ms": 70332
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 106119
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": false,
+				"ms": 113519,
+				"error": "Error: the app never served DevTools (still running after 60 s)"
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 21137
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 13821
+			},
+			{
+				"round": 3,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 98865
+			},
+			{
+				"round": 3,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 98458
+			},
+			{
+				"round": 3,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 294586
+			},
+			{
+				"round": 3,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 290285
+			},
+			{
+				"round": 3,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 70297
+			},
+			{
+				"round": 3,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69713
+			},
+			{
+				"round": 3,
+				"benchmark": "frame-latency",
+				"side": "base",
+				"ok": true,
+				"ms": 69873
+			},
+			{
+				"round": 3,
+				"benchmark": "frame-latency",
+				"side": "candidate",
+				"ok": true,
+				"ms": 70209
+			}
+		],
+		"benchmarks": [
+			{
+				"benchmark": "launch",
+				"rows": [
+					{
+						"path": "summary.cold.window.median",
+						"base": 292.494384765625,
+						"candidate": 285.1680908203125,
+						"difference": -7.3262939453125,
+						"percent": -2.504763963651145,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					},
+					{
+						"path": "summary.cold.devTools.median",
+						"base": 310.80908203125,
+						"candidate": 249.5457763671875,
+						"difference": -61.2633056640625,
+						"percent": -19.7109123271703,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					},
+					{
+						"path": "summary.cold.pageFirstContentfulPaint.median",
+						"base": 2032.09912109375,
+						"candidate": 1926.1876220703125,
+						"difference": -105.9114990234375,
+						"percent": -5.2119258319659165,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					},
+					{
+						"path": "summary.cold.pageLoaded.median",
+						"base": 2001.4990234375,
+						"candidate": 1892.0377197265625,
+						"difference": -109.4613037109375,
+						"percent": -5.468966131341987,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					},
+					{
+						"path": "summary.warm.window.median",
+						"base": 309.40087890625,
+						"candidate": 284.747314453125,
+						"difference": -24.653564453125,
+						"percent": -7.968162385406524,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					},
+					{
+						"path": "summary.warm.devTools.median",
+						"base": 293.103271484375,
+						"candidate": 254.510498046875,
+						"difference": -38.5927734375,
+						"percent": -13.166954173541981,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					},
+					{
+						"path": "summary.warm.pageFirstContentfulPaint.median",
+						"base": 630.084228515625,
+						"candidate": 609.718994140625,
+						"difference": -20.365234375,
+						"percent": -3.232144759912044,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					},
+					{
+						"path": "summary.warm.pageLoaded.median",
+						"base": 597.584228515625,
+						"candidate": 578.094970703125,
+						"difference": -19.4892578125,
+						"percent": -3.2613407252916504,
+						"rounds": {
+							"base": 3,
+							"candidate": 2
+						}
+					}
+				],
+				"failures": [
+					{
+						"round": 3,
+						"side": "candidate",
+						"error": "Error: the app never served DevTools (still running after 60 s)"
+					}
+				]
+			},
+			{
+				"benchmark": "unlock",
+				"rows": [
+					{
+						"path": "withoutPin.median",
+						"base": 647.39990234375,
+						"candidate": 611.199951171875,
+						"difference": -36.199951171875,
+						"percent": -5.591590459130763,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "fromPin.median",
+						"base": 526.60009765625,
+						"candidate": 389.10009765625,
+						"difference": -137.5,
+						"percent": -26.110895271758228,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.withoutPin.started.median",
+						"base": 285.15185546875,
+						"candidate": 221.0009765625,
+						"difference": -64.15087890625,
+						"percent": -22.49709327712242,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.withoutPin.ended.median",
+						"base": 543.203857421875,
+						"candidate": 495.388916015625,
+						"difference": -47.81494140625,
+						"percent": -8.80239356789304,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.fromPin.started.median",
+						"base": 180.51513671875,
+						"candidate": 41.93603515625,
+						"difference": -138.5791015625,
+						"percent": -76.76868770202464,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.fromPin.ended.median",
+						"base": 411.984130859375,
+						"candidate": 276.055908203125,
+						"difference": -135.92822265625,
+						"percent": -32.993557876297714,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "pages",
+				"rows": [
+					{
+						"path": "summary.cold.smoke.html.loadEventEnd.median",
+						"base": 7.100000008940697,
+						"candidate": 3.8999999910593033,
+						"difference": -3.2000000178813934,
+						"percent": -45.07042273030682,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.firstContentfulPaint.median",
+						"base": 16,
+						"candidate": 32,
+						"difference": 16,
+						"percent": 100,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.firstContentfulPaintPainted.median",
+						"base": 12.400000005960464,
+						"candidate": 8.200000002980232,
+						"difference": -4.200000002980232,
+						"percent": -33.87096774968843,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.largestContentfulPaint.median",
+						"base": 16,
+						"candidate": 32,
+						"difference": 16,
+						"percent": 100,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.responseStart.median",
+						"base": 0.8999999910593033,
+						"candidate": 0.8999999910593033,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.loadEventEnd.median",
+						"base": 7.199999988079071,
+						"candidate": 4.5,
+						"difference": -2.699999988079071,
+						"percent": -37.49999989651972,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.firstContentfulPaint.median",
+						"base": 24,
+						"candidate": 32,
+						"difference": 8,
+						"percent": 33.33333333333333,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.firstContentfulPaintPainted.median",
+						"base": 14.599999994039536,
+						"candidate": 8.700000002980232,
+						"difference": -5.899999991059303,
+						"percent": -40.41095885936976,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.largestContentfulPaint.median",
+						"base": 24,
+						"candidate": 32,
+						"difference": 8,
+						"percent": 33.33333333333333,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.responseStart.median",
+						"base": 1.1000000089406967,
+						"candidate": 1.5,
+						"difference": 0.3999999910593033,
+						"percent": 36.363635255285544,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.loadEventEnd.median",
+						"base": 8.600000008940697,
+						"candidate": 5.5,
+						"difference": -3.1000000089406967,
+						"percent": -36.04651169439404,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.firstContentfulPaint.median",
+						"base": 32,
+						"candidate": 36,
+						"difference": 4,
+						"percent": 12.5,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.firstContentfulPaintPainted.median",
+						"base": 16.5,
+						"candidate": 10,
+						"difference": -6.5,
+						"percent": -39.39393939393939,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.largestContentfulPaint.median",
+						"base": 32,
+						"candidate": 36,
+						"difference": 4,
+						"percent": 12.5,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.responseStart.median",
+						"base": 1.2000000029802322,
+						"candidate": 1.5,
+						"difference": 0.29999999701976776,
+						"percent": 24.999999689559143,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+						"base": 237.09999999403954,
+						"candidate": 251.20000000298023,
+						"difference": 14.100000008940697,
+						"percent": 5.946857869799729,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+						"base": 224,
+						"candidate": 224,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+						"base": 158.29999999701977,
+						"candidate": 183.20000000298023,
+						"difference": 24.900000005960464,
+						"percent": 15.72962729401721,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+						"base": 224,
+						"candidate": 224,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+						"base": 71.70000000298023,
+						"candidate": 100.1000000089407,
+						"difference": 28.400000005960464,
+						"percent": 39.60948396761508,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.loadEventEnd.median",
+						"base": 1025,
+						"candidate": 908.5,
+						"difference": -116.5,
+						"percent": -11.365853658536587,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.firstContentfulPaint.median",
+						"base": 356,
+						"candidate": 372,
+						"difference": 16,
+						"percent": 4.49438202247191,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.firstContentfulPaintPainted.median",
+						"base": 301.69999998807907,
+						"candidate": 286.20000000298023,
+						"difference": -15.499999985098839,
+						"percent": -5.137553856715706,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.largestContentfulPaint.median",
+						"base": 832,
+						"candidate": 812,
+						"difference": -20,
+						"percent": -2.403846153846154,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.responseStart.median",
+						"base": 185.79999999701977,
+						"candidate": 147.70000000298023,
+						"difference": -38.099999994039536,
+						"percent": -20.50592034157732,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.loadEventEnd.median",
+						"base": 604.7000000029802,
+						"candidate": 613.9000000059605,
+						"difference": 9.200000002980232,
+						"percent": 1.5214155784578949,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.firstContentfulPaint.median",
+						"base": 356,
+						"candidate": 420,
+						"difference": 64,
+						"percent": 17.97752808988764,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.firstContentfulPaintPainted.median",
+						"base": 334.3999999910593,
+						"candidate": 382.5,
+						"difference": 48.1000000089407,
+						"percent": 14.383971294924258,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.largestContentfulPaint.median",
+						"base": 1356,
+						"candidate": 1384,
+						"difference": 28,
+						"percent": 2.0648967551622417,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.responseStart.median",
+						"base": 106.8999999910593,
+						"candidate": 97,
+						"difference": -9.899999991059303,
+						"percent": -9.26099157332769,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.loadEventEnd.median",
+						"base": 5.199999988079071,
+						"candidate": 5.200000002980232,
+						"difference": 1.4901161193847656e-8,
+						"percent": 2.8656079284631467e-7,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.firstContentfulPaint.median",
+						"base": 16,
+						"candidate": 32,
+						"difference": 16,
+						"percent": 100,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.firstContentfulPaintPainted.median",
+						"base": 10.5,
+						"candidate": 10.200000002980232,
+						"difference": -0.29999999701976776,
+						"percent": -2.857142828759693,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.largestContentfulPaint.median",
+						"base": 16,
+						"candidate": 32,
+						"difference": 16,
+						"percent": 100,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.responseStart.median",
+						"base": 1.2999999970197678,
+						"candidate": 1.5,
+						"difference": 0.20000000298023224,
+						"percent": 15.38461564913304,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.loadEventEnd.median",
+						"base": 7.700000002980232,
+						"candidate": 4.899999991059303,
+						"difference": -2.800000011920929,
+						"percent": -36.36363650437933,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.firstContentfulPaint.median",
+						"base": 24,
+						"candidate": 32,
+						"difference": 8,
+						"percent": 33.33333333333333,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.firstContentfulPaintPainted.median",
+						"base": 15.700000002980232,
+						"candidate": 9.199999988079071,
+						"difference": -6.500000014901161,
+						"percent": -41.40127397240323,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.largestContentfulPaint.median",
+						"base": 24,
+						"candidate": 32,
+						"difference": 8,
+						"percent": 33.33333333333333,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.responseStart.median",
+						"base": 1.199999988079071,
+						"candidate": 1.2999999970197678,
+						"difference": 0.10000000894069672,
+						"percent": 8.33333416117563,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.loadEventEnd.median",
+						"base": 8.399999991059303,
+						"candidate": 6,
+						"difference": -2.3999999910593033,
+						"percent": -28.57142849540224,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.firstContentfulPaint.median",
+						"base": 24,
+						"candidate": 32,
+						"difference": 8,
+						"percent": 33.33333333333333,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.firstContentfulPaintPainted.median",
+						"base": 15.899999991059303,
+						"candidate": 11.200000002980232,
+						"difference": -4.699999988079071,
+						"percent": -29.559748369320243,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.largestContentfulPaint.median",
+						"base": 24,
+						"candidate": 32,
+						"difference": 8,
+						"percent": 33.33333333333333,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.responseStart.median",
+						"base": 1.2000000029802322,
+						"candidate": 1.2000000029802322,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+						"base": 107,
+						"candidate": 118.40000000596046,
+						"difference": 11.400000005960464,
+						"percent": 10.654205613047163,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+						"base": 116,
+						"candidate": 120,
+						"difference": 4,
+						"percent": 3.4482758620689653,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+						"base": 86.29999999701977,
+						"candidate": 87.5,
+						"difference": 1.2000000029802322,
+						"percent": 1.390498265378531,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+						"base": 116,
+						"candidate": 120,
+						"difference": 4,
+						"percent": 3.4482758620689653,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+						"base": 26.799999997019768,
+						"candidate": 29.5,
+						"difference": 2.7000000029802322,
+						"percent": 10.074626877912236,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.loadEventEnd.median",
+						"base": 410.59999999403954,
+						"candidate": 404.90000000596046,
+						"difference": -5.699999988079071,
+						"percent": -1.388212369255191,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.firstContentfulPaint.median",
+						"base": 216,
+						"candidate": 164,
+						"difference": -52,
+						"percent": -24.074074074074073,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.firstContentfulPaintPainted.median",
+						"base": 191.90000000596046,
+						"candidate": 145.20000000298023,
+						"difference": -46.70000000298023,
+						"percent": -24.335591454679374,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.largestContentfulPaint.median",
+						"base": 688,
+						"candidate": 744,
+						"difference": 56,
+						"percent": 8.13953488372093,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.responseStart.median",
+						"base": 1,
+						"candidate": 88.40000000596046,
+						"difference": 87.40000000596046,
+						"percent": 8740.000000596046,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.loadEventEnd.median",
+						"base": 381,
+						"candidate": 376.30000001192093,
+						"difference": -4.699999988079071,
+						"percent": -1.2335957973960816,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.firstContentfulPaint.median",
+						"base": 156,
+						"candidate": 156,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.firstContentfulPaintPainted.median",
+						"base": 131.79999999701977,
+						"candidate": 129,
+						"difference": -2.7999999970197678,
+						"percent": -2.1244309537807893,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.largestContentfulPaint.median",
+						"base": 1116,
+						"candidate": 1132,
+						"difference": 16,
+						"percent": 1.4336917562724014,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.responseStart.median",
+						"base": 31.599999994039536,
+						"candidate": 30.700000002980232,
+						"difference": -0.8999999910593033,
+						"percent": -2.848101238066656,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "memory",
+				"rows": [
+					{
+						"path": "summary.1.footprintSumBytes.median",
+						"base": 147988280,
+						"candidate": 145399848,
+						"difference": -2588432,
+						"percent": -1.7490790486922343,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.footprintTotalBytes.median",
+						"base": 146612024,
+						"candidate": 144023592,
+						"difference": -2588432,
+						"percent": -1.7654977602655564,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.rssSumBytes.median",
+						"base": 623116288,
+						"candidate": 933101568,
+						"difference": 309985280,
+						"percent": 49.74758098443416,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.processes.median",
+						"base": 7,
+						"candidate": 6,
+						"difference": -1,
+						"percent": -14.285714285714285,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.browser.footprintBytes.median",
+						"base": 69142496,
+						"candidate": 60622552,
+						"difference": -8519944,
+						"percent": -12.322297418941892,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.gpu-process.footprintBytes.median",
+						"base": 27149488,
+						"candidate": 32408920,
+						"difference": 5259432,
+						"percent": 19.372122229340015,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 13075608,
+						"candidate": 13042888,
+						"difference": -32720,
+						"percent": -0.2502369297091194,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 6947800,
+						"candidate": 6997024,
+						"difference": 49224,
+						"percent": 0.7084832608883387,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.renderer.count.median",
+						"base": 2,
+						"candidate": 2,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.renderer.footprintBytes.median",
+						"base": 31672816,
+						"candidate": 31820440,
+						"difference": 147624,
+						"percent": 0.46609054275439227,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.footprintSumBytes.median",
+						"base": 237040792,
+						"candidate": 230766176,
+						"difference": -6274616,
+						"percent": -2.647061692233968,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.footprintTotalBytes.median",
+						"base": 233845912,
+						"candidate": 227571296,
+						"difference": -6274616,
+						"percent": -2.6832267223897417,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.rssSumBytes.median",
+						"base": 1061306368,
+						"candidate": 1581940736,
+						"difference": 520634368,
+						"percent": 49.055992095959986,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.processes.median",
+						"base": 11,
+						"candidate": 10,
+						"difference": -1,
+						"percent": -9.090909090909092,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.browser.footprintBytes.median",
+						"base": 73238592,
+						"candidate": 61081328,
+						"difference": -12157264,
+						"percent": -16.599532661687434,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.gpu-process.footprintBytes.median",
+						"base": 40764592,
+						"candidate": 47072576,
+						"difference": 6307984,
+						"percent": 15.47417425397021,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 13370520,
+						"candidate": 13354184,
+						"difference": -16336,
+						"percent": -0.12217924209380038,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 7193536,
+						"candidate": 7226400,
+						"difference": 32864,
+						"percent": 0.45685459835051917,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.renderer.count.median",
+						"base": 6,
+						"candidate": 6,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.renderer.footprintBytes.median",
+						"base": 101293856,
+						"candidate": 101736512,
+						"difference": 442656,
+						"percent": 0.43700182565860657,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.footprintSumBytes.median",
+						"base": 351833720,
+						"candidate": 343511296,
+						"difference": -8322424,
+						"percent": -2.3654424027350194,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.footprintTotalBytes.median",
+						"base": 344985208,
+						"candidate": 337727744,
+						"difference": -7257464,
+						"percent": -2.1037029506494087,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.rssSumBytes.median",
+						"base": 1589362688,
+						"candidate": 2386411520,
+						"difference": 797048832,
+						"percent": 50.14895832259527,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.processes.median",
+						"base": 16,
+						"candidate": 15,
+						"difference": -1,
+						"percent": -6.25,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.browser.footprintBytes.median",
+						"base": 80136256,
+						"candidate": 67045128,
+						"difference": -13091128,
+						"percent": -16.336086377681532,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.gpu-process.footprintBytes.median",
+						"base": 58180784,
+						"candidate": 64947472,
+						"difference": 6766688,
+						"percent": 11.630451731279523,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 13993064,
+						"candidate": 13960368,
+						"difference": -32696,
+						"percent": -0.23365861829832266,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 7668672,
+						"candidate": 7701584,
+						"difference": 32912,
+						"percent": 0.4291746993482053,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.renderer.count.median",
+						"base": 11,
+						"candidate": 11,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.renderer.footprintBytes.median",
+						"base": 190462304,
+						"candidate": 189856864,
+						"difference": -605440,
+						"percent": -0.31787917466334964,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "scroll",
+				"rows": [
+					{
+						"path": "summary.dropped.median",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.partial.median",
+						"base": 12,
+						"candidate": 12,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.presented.median",
+						"base": 467,
+						"candidate": 467,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.affectingSmoothness.median",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.onCompositorThread.median",
+						"base": 480,
+						"candidate": 480,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "frame-latency",
+				"rows": [
+					{
+						"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.medianMs",
+						"base": 19.55,
+						"candidate": 19.51,
+						"difference": -0.03999999999999915,
+						"percent": -0.20460358056265548,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.p90Ms",
+						"base": 20.1,
+						"candidate": 26.96,
+						"difference": 6.859999999999999,
+						"percent": 34.12935323383084,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SubmitToReceiveCompositorFrame.medianMs",
+						"base": 0.12,
+						"candidate": 0.13,
+						"difference": 0.010000000000000009,
+						"percent": 8.333333333333341,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SubmitToReceiveCompositorFrame.p90Ms",
+						"base": 0.18,
+						"candidate": 0.25,
+						"difference": 0.07,
+						"percent": 38.88888888888889,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.ReceiveCompositorFrameToStartDraw.medianMs",
+						"base": 0.1,
+						"candidate": 0.12,
+						"difference": 0.01999999999999999,
+						"percent": 19.99999999999999,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.ReceiveCompositorFrameToStartDraw.p90Ms",
+						"base": 0.14,
+						"candidate": 0.17,
+						"difference": 0.03,
+						"percent": 21.428571428571423,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.StartDrawToSwapStart.medianMs",
+						"base": 0.09,
+						"candidate": 0.14,
+						"difference": 0.05000000000000002,
+						"percent": 55.55555555555558,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.StartDrawToSwapStart.p90Ms",
+						"base": 0.13,
+						"candidate": 0.2,
+						"difference": 0.07,
+						"percent": 53.846153846153854,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapStartToBufferAvailable.medianMs",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapStartToBufferAvailable.p90Ms",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferAvailableToBufferReady.medianMs",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferAvailableToBufferReady.p90Ms",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferReadyToLatch.medianMs",
+						"base": 7.8,
+						"candidate": 7.67,
+						"difference": -0.1299999999999999,
+						"percent": -1.6666666666666652,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferReadyToLatch.p90Ms",
+						"base": 8.28,
+						"candidate": 14.8,
+						"difference": 6.520000000000001,
+						"percent": 78.74396135265704,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.LatchToSwapEnd.medianMs",
+						"base": 0.08,
+						"candidate": 0.08,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.LatchToSwapEnd.p90Ms",
+						"base": 0.13,
+						"candidate": 0.14,
+						"difference": 0.010000000000000009,
+						"percent": 7.692307692307699,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapEndToPresentationCompositorFrame.medianMs",
+						"base": 11.38,
+						"candidate": 11.33,
+						"difference": -0.05000000000000071,
+						"percent": -0.43936731107206245,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapEndToPresentationCompositorFrame.p90Ms",
+						"base": 11.89,
+						"candidate": 11.88,
+						"difference": -0.009999999999999787,
+						"percent": -0.08410428931875347,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			}
+		]
+	},
+	"finalLaunch": {
+		"binaries": {
+			"base": "0.19.2, published (PGO)",
+			"candidate": "Views shell, CPU raster (this work)"
+		},
+		"rounds": 3,
+		"runs": [
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 105609
+			},
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 104550
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 120928
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 109456
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 107654
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 106828
+			}
+		],
+		"benchmarks": [
+			{
+				"benchmark": "launch",
+				"rows": [
+					{
+						"path": "summary.cold.window.median",
+						"base": 267.9375,
+						"candidate": 254.098388671875,
+						"difference": -13.839111328125,
+						"percent": -5.1650520468859344,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.devTools.median",
+						"base": 283.157470703125,
+						"candidate": 225.578369140625,
+						"difference": -57.5791015625,
+						"percent": -20.3346573973563,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.pageFirstContentfulPaint.median",
+						"base": 1953.422607421875,
+						"candidate": 1883.364013671875,
+						"difference": -70.05859375,
+						"percent": -3.586453514145782,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.pageLoaded.median",
+						"base": 1919.822509765625,
+						"candidate": 1851.878662109375,
+						"difference": -67.94384765625,
+						"percent": -3.539069227006027,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.window.median",
+						"base": 269.6826171875,
+						"candidate": 250.990234375,
+						"difference": -18.6923828125,
+						"percent": -6.931252376382828,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.devTools.median",
+						"base": 298.202880859375,
+						"candidate": 224.669189453125,
+						"difference": -73.53369140625,
+						"percent": -24.658947356355903,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.pageFirstContentfulPaint.median",
+						"base": 589.6181640625,
+						"candidate": 580.415283203125,
+						"difference": -9.202880859375,
+						"percent": -1.5608204462302635,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.pageLoaded.median",
+						"base": 559.515869140625,
+						"candidate": 548.819091796875,
+						"difference": -10.69677734375,
+						"percent": -1.9117915922884297,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			}
+		]
+	},
+	"gpuRaster": {
+		"binaries": {
+			"base": "0.19.2, published (PGO)",
+			"candidate": "Views shell, GPU raster, the window's tiles cut"
+		},
+		"rounds": 3,
+		"runs": [
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 109298
+			},
+			{
+				"round": 1,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 105118
+			},
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 17216
+			},
+			{
+				"round": 1,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 12894
+			},
+			{
+				"round": 1,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 97233
+			},
+			{
+				"round": 1,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 97702
+			},
+			{
+				"round": 1,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 303837
+			},
+			{
+				"round": 1,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 289779
+			},
+			{
+				"round": 1,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 69747
+			},
+			{
+				"round": 1,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69841
+			},
+			{
+				"round": 1,
+				"benchmark": "frame-latency",
+				"side": "base",
+				"ok": true,
+				"ms": 69840
+			},
+			{
+				"round": 1,
+				"benchmark": "frame-latency",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69521
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 105128
+			},
+			{
+				"round": 2,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 104774
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 19960
+			},
+			{
+				"round": 2,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 27213
+			},
+			{
+				"round": 2,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 98794
+			},
+			{
+				"round": 2,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 99147
+			},
+			{
+				"round": 2,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 289692
+			},
+			{
+				"round": 2,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 293959
+			},
+			{
+				"round": 2,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69721
+			},
+			{
+				"round": 2,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 69760
+			},
+			{
+				"round": 2,
+				"benchmark": "frame-latency",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69833
+			},
+			{
+				"round": 2,
+				"benchmark": "frame-latency",
+				"side": "base",
+				"ok": true,
+				"ms": 69847
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "base",
+				"ok": true,
+				"ms": 106653
+			},
+			{
+				"round": 3,
+				"benchmark": "launch",
+				"side": "candidate",
+				"ok": true,
+				"ms": 104918
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "base",
+				"ok": true,
+				"ms": 20244
+			},
+			{
+				"round": 3,
+				"benchmark": "unlock",
+				"side": "candidate",
+				"ok": true,
+				"ms": 15225
+			},
+			{
+				"round": 3,
+				"benchmark": "pages",
+				"side": "base",
+				"ok": true,
+				"ms": 97297
+			},
+			{
+				"round": 3,
+				"benchmark": "pages",
+				"side": "candidate",
+				"ok": true,
+				"ms": 97871
+			},
+			{
+				"round": 3,
+				"benchmark": "memory",
+				"side": "base",
+				"ok": true,
+				"ms": 293929
+			},
+			{
+				"round": 3,
+				"benchmark": "memory",
+				"side": "candidate",
+				"ok": true,
+				"ms": 289666
+			},
+			{
+				"round": 3,
+				"benchmark": "scroll",
+				"side": "base",
+				"ok": true,
+				"ms": 69838
+			},
+			{
+				"round": 3,
+				"benchmark": "scroll",
+				"side": "candidate",
+				"ok": true,
+				"ms": 71483
+			},
+			{
+				"round": 3,
+				"benchmark": "frame-latency",
+				"side": "base",
+				"ok": true,
+				"ms": 69683
+			},
+			{
+				"round": 3,
+				"benchmark": "frame-latency",
+				"side": "candidate",
+				"ok": true,
+				"ms": 69611
+			}
+		],
+		"benchmarks": [
+			{
+				"benchmark": "launch",
+				"rows": [
+					{
+						"path": "summary.cold.window.median",
+						"base": 263.9521484375,
+						"candidate": 273.63623046875,
+						"difference": 9.68408203125,
+						"percent": 3.668877896458209,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.devTools.median",
+						"base": 267.02978515625,
+						"candidate": 223.776611328125,
+						"difference": -43.253173828125,
+						"percent": -16.19788361916848,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.pageFirstContentfulPaint.median",
+						"base": 1969.596435546875,
+						"candidate": 1858.022216796875,
+						"difference": -111.57421875,
+						"percent": -5.664826394703567,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.pageLoaded.median",
+						"base": 1936.096435546875,
+						"candidate": 1828.822265625,
+						"difference": -107.274169921875,
+						"percent": -5.540745179440096,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.window.median",
+						"base": 265.636474609375,
+						"candidate": 266.457275390625,
+						"difference": 0.82080078125,
+						"percent": 0.30899400485456974,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.devTools.median",
+						"base": 267.208984375,
+						"candidate": 226.15283203125,
+						"difference": -41.05615234375,
+						"percent": -15.364809847161412,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.pageFirstContentfulPaint.median",
+						"base": 574.187255859375,
+						"candidate": 570.67333984375,
+						"difference": -3.513916015625,
+						"percent": -0.6119808441874576,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.pageLoaded.median",
+						"base": 545.787353515625,
+						"candidate": 543.51904296875,
+						"difference": -2.268310546875,
+						"percent": -0.41560335399197956,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "unlock",
+				"rows": [
+					{
+						"path": "withoutPin.median",
+						"base": 595.89990234375,
+						"candidate": 560.10009765625,
+						"difference": -35.7998046875,
+						"percent": -6.00768762449781,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "fromPin.median",
+						"base": 505.699951171875,
+						"candidate": 400.300048828125,
+						"difference": -105.39990234375,
+						"percent": -20.842379379215554,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.withoutPin.started.median",
+						"base": 247.241943359375,
+						"candidate": 180.987060546875,
+						"difference": -66.2548828125,
+						"percent": -26.797590211542772,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.withoutPin.ended.median",
+						"base": 491.841064453125,
+						"candidate": 451.593994140625,
+						"difference": -40.2470703125,
+						"percent": -8.182942259457425,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.fromPin.started.median",
+						"base": 182.823974609375,
+						"candidate": 43.93798828125,
+						"difference": -138.885986328125,
+						"percent": -75.96705335001676,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "attach.fromPin.ended.median",
+						"base": 415.4130859375,
+						"candidate": 293.0849609375,
+						"difference": -122.328125,
+						"percent": -29.447345098417195,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "pages",
+				"rows": [
+					{
+						"path": "summary.cold.smoke.html.loadEventEnd.median",
+						"base": 5.399999991059303,
+						"candidate": 3.5,
+						"difference": -1.8999999910593033,
+						"percent": -35.18518507787229,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.firstContentfulPaint.median",
+						"base": 16,
+						"candidate": 28,
+						"difference": 12,
+						"percent": 75,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.firstContentfulPaintPainted.median",
+						"base": 10.299999997019768,
+						"candidate": 7.600000008940697,
+						"difference": -2.699999988079071,
+						"percent": -26.213592124857254,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.largestContentfulPaint.median",
+						"base": 16,
+						"candidate": 28,
+						"difference": 12,
+						"percent": 75,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.smoke.html.responseStart.median",
+						"base": 0.7999999970197678,
+						"candidate": 0.7999999970197678,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.loadEventEnd.median",
+						"base": 4.800000011920929,
+						"candidate": 4,
+						"difference": -0.800000011920929,
+						"percent": -16.66666687362724,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.firstContentfulPaint.median",
+						"base": 20,
+						"candidate": 28,
+						"difference": 8,
+						"percent": 40,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.firstContentfulPaintPainted.median",
+						"base": 10.900000005960464,
+						"candidate": 8.299999997019768,
+						"difference": -2.6000000089406967,
+						"percent": -23.85321107815536,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.largestContentfulPaint.median",
+						"base": 20,
+						"candidate": 28,
+						"difference": 8,
+						"percent": 40,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.find.html.responseStart.median",
+						"base": 1,
+						"candidate": 1.2000000029802322,
+						"difference": 0.20000000298023224,
+						"percent": 20.000000298023224,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.loadEventEnd.median",
+						"base": 6.0999999940395355,
+						"candidate": 4.600000008940697,
+						"difference": -1.4999999850988388,
+						"percent": -24.59016371417257,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.firstContentfulPaint.median",
+						"base": 24,
+						"candidate": 36,
+						"difference": 12,
+						"percent": 50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.firstContentfulPaintPainted.median",
+						"base": 12.200000002980232,
+						"candidate": 9.100000008940697,
+						"difference": -3.0999999940395355,
+						"percent": -25.409836010510357,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.largestContentfulPaint.median",
+						"base": 24,
+						"candidate": 36,
+						"difference": 12,
+						"percent": 50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.nav-a.html.responseStart.median",
+						"base": 1.0999999940395355,
+						"candidate": 1.2000000029802322,
+						"difference": 0.10000000894069672,
+						"percent": 9.090909952959743,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+						"base": 215.90000000596046,
+						"candidate": 258.59999999403954,
+						"difference": 42.69999998807907,
+						"percent": 19.77767484339983,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+						"base": 200,
+						"candidate": 232,
+						"difference": 32,
+						"percent": 16,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+						"base": 155.79999999701977,
+						"candidate": 174.40000000596046,
+						"difference": 18.600000008940697,
+						"percent": 11.938382547687091,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+						"base": 200,
+						"candidate": 232,
+						"difference": 32,
+						"percent": 16,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+						"base": 75.70000000298023,
+						"candidate": 70.70000000298023,
+						"difference": -5,
+						"percent": -6.605019814799412,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.loadEventEnd.median",
+						"base": 881.2999999970198,
+						"candidate": 914.2000000029802,
+						"difference": 32.900000005960464,
+						"percent": 3.7331215257088073,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.firstContentfulPaint.median",
+						"base": 264,
+						"candidate": 244,
+						"difference": -20,
+						"percent": -7.575757575757576,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.firstContentfulPaintPainted.median",
+						"base": 233,
+						"candidate": 220.59999999403954,
+						"difference": -12.400000005960464,
+						"percent": -5.321888414575306,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.largestContentfulPaint.median",
+						"base": 720,
+						"candidate": 740,
+						"difference": 20,
+						"percent": 2.7777777777777777,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://www.apple.com/.responseStart.median",
+						"base": 130.70000000298023,
+						"candidate": 132.5,
+						"difference": 1.7999999970197678,
+						"percent": 1.3771996916440123,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.loadEventEnd.median",
+						"base": 623.3999999910593,
+						"candidate": 633.6999999880791,
+						"difference": 10.299999997019768,
+						"percent": 1.6522297075982497,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.firstContentfulPaint.median",
+						"base": 344,
+						"candidate": 352,
+						"difference": 8,
+						"percent": 2.3255813953488373,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.firstContentfulPaintPainted.median",
+						"base": 317.70000000298023,
+						"candidate": 333.3999999910593,
+						"difference": 15.699999988079071,
+						"percent": 4.941768960633238,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.largestContentfulPaint.median",
+						"base": 1332,
+						"candidate": 1344,
+						"difference": 12,
+						"percent": 0.9009009009009009,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.cold.https://github.com/.responseStart.median",
+						"base": 90.20000000298023,
+						"candidate": 90.90000000596046,
+						"difference": 0.7000000029802322,
+						"percent": 0.7760532183559912,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.loadEventEnd.median",
+						"base": 4.299999997019768,
+						"candidate": 4.5,
+						"difference": 0.20000000298023224,
+						"percent": 4.6511628632290165,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.firstContentfulPaint.median",
+						"base": 12,
+						"candidate": 28,
+						"difference": 16,
+						"percent": 133.33333333333331,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.firstContentfulPaintPainted.median",
+						"base": 9.099999994039536,
+						"candidate": 9,
+						"difference": -0.09999999403953552,
+						"percent": -1.098901034121265,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.largestContentfulPaint.median",
+						"base": 12,
+						"candidate": 28,
+						"difference": 16,
+						"percent": 133.33333333333331,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.smoke.html.responseStart.median",
+						"base": 1.1000000089406967,
+						"candidate": 1.2000000029802322,
+						"difference": 0.09999999403953552,
+						"percent": 9.090908475158633,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.loadEventEnd.median",
+						"base": 6.700000002980232,
+						"candidate": 4.9000000059604645,
+						"difference": -1.7999999970197678,
+						"percent": -26.865671585359824,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.firstContentfulPaint.median",
+						"base": 20,
+						"candidate": 28,
+						"difference": 8,
+						"percent": 40,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.firstContentfulPaintPainted.median",
+						"base": 12.899999991059303,
+						"candidate": 9,
+						"difference": -3.8999999910593033,
+						"percent": -30.232558091180657,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.largestContentfulPaint.median",
+						"base": 20,
+						"candidate": 28,
+						"difference": 8,
+						"percent": 40,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.find.html.responseStart.median",
+						"base": 1,
+						"candidate": 1.0999999940395355,
+						"difference": 0.09999999403953552,
+						"percent": 9.999999403953552,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.loadEventEnd.median",
+						"base": 7,
+						"candidate": 5.399999991059303,
+						"difference": -1.6000000089406967,
+						"percent": -22.857142984867096,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.firstContentfulPaint.median",
+						"base": 20,
+						"candidate": 32,
+						"difference": 12,
+						"percent": 60,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.firstContentfulPaintPainted.median",
+						"base": 13.5,
+						"candidate": 10,
+						"difference": -3.5,
+						"percent": -25.925925925925924,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.largestContentfulPaint.median",
+						"base": 20,
+						"candidate": 32,
+						"difference": 12,
+						"percent": 60,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.nav-a.html.responseStart.median",
+						"base": 1.0999999940395355,
+						"candidate": 1,
+						"difference": -0.09999999403953552,
+						"percent": -9.090908598308719,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+						"base": 103.29999999701977,
+						"candidate": 108.29999999701977,
+						"difference": 5,
+						"percent": 4.840271055318733,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+						"base": 108,
+						"candidate": 112,
+						"difference": 4,
+						"percent": 3.7037037037037033,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+						"base": 75.6000000089407,
+						"candidate": 79.6000000089407,
+						"difference": 4,
+						"percent": 5.29100529037956,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+						"base": 108,
+						"candidate": 116,
+						"difference": 8,
+						"percent": 7.4074074074074066,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+						"base": 25.599999994039536,
+						"candidate": 30.900000005960464,
+						"difference": 5.300000011920929,
+						"percent": 20.70312505138645,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.loadEventEnd.median",
+						"base": 289.20000000298023,
+						"candidate": 290.20000000298023,
+						"difference": 1,
+						"percent": 0.345781466109853,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.firstContentfulPaint.median",
+						"base": 108,
+						"candidate": 108,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.firstContentfulPaintPainted.median",
+						"base": 83.40000000596046,
+						"candidate": 90.69999998807907,
+						"difference": 7.299999982118607,
+						"percent": 8.752997579852382,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.largestContentfulPaint.median",
+						"base": 560,
+						"candidate": 564,
+						"difference": 4,
+						"percent": 0.7142857142857143,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://www.apple.com/.responseStart.median",
+						"base": 0.8999999910593033,
+						"candidate": 0.8999999910593033,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.loadEventEnd.median",
+						"base": 350.6000000089407,
+						"candidate": 398.5,
+						"difference": 47.8999999910593,
+						"percent": 13.662293208738676,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.firstContentfulPaint.median",
+						"base": 144,
+						"candidate": 144,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.firstContentfulPaintPainted.median",
+						"base": 119.70000000298023,
+						"candidate": 123.20000000298023,
+						"difference": 3.5,
+						"percent": 2.9239766081143346,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.largestContentfulPaint.median",
+						"base": 1080,
+						"candidate": 1120,
+						"difference": 40,
+						"percent": 3.7037037037037033,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.warm.https://github.com/.responseStart.median",
+						"base": 32,
+						"candidate": 35.20000000298023,
+						"difference": 3.2000000029802322,
+						"percent": 10.000000009313226,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "memory",
+				"rows": [
+					{
+						"path": "summary.1.footprintSumBytes.median",
+						"base": 146595616,
+						"candidate": 151003248,
+						"difference": 4407632,
+						"percent": 3.0066601718839943,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.footprintTotalBytes.median",
+						"base": 145219360,
+						"candidate": 149626992,
+						"difference": 4407632,
+						"percent": 3.035154541377954,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.rssSumBytes.median",
+						"base": 620478464,
+						"candidate": 934379520,
+						"difference": 313901056,
+						"percent": 50.590161337170926,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.processes.median",
+						"base": 7,
+						"candidate": 6,
+						"difference": -1,
+						"percent": -14.285714285714285,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.browser.footprintBytes.median",
+						"base": 68978680,
+						"candidate": 60491456,
+						"difference": -8487224,
+						"percent": -12.304126434428724,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.gpu-process.footprintBytes.median",
+						"base": 26018968,
+						"candidate": 38520320,
+						"difference": 12501352,
+						"percent": 48.04707089074402,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 12960896,
+						"candidate": 13042888,
+						"difference": 81992,
+						"percent": 0.6326105849472136,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 6931416,
+						"candidate": 6980616,
+						"difference": 49200,
+						"percent": 0.709811674843928,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.renderer.count.median",
+						"base": 2,
+						"candidate": 2,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.1.byType.renderer.footprintBytes.median",
+						"base": 31689224,
+						"candidate": 31836872,
+						"difference": 147648,
+						"percent": 0.46592494660014394,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.footprintSumBytes.median",
+						"base": 235926584,
+						"candidate": 234780400,
+						"difference": -1146184,
+						"percent": -0.4858223183530687,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.footprintTotalBytes.median",
+						"base": 232698936,
+						"candidate": 231585520,
+						"difference": -1113416,
+						"percent": -0.47847919682795625,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.rssSumBytes.median",
+						"base": 1057046528,
+						"candidate": 1581203456,
+						"difference": 524156928,
+						"percent": 49.58693057643722,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.processes.median",
+						"base": 11,
+						"candidate": 10,
+						"difference": -1,
+						"percent": -9.090909090909092,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.browser.footprintBytes.median",
+						"base": 73041960,
+						"candidate": 60851952,
+						"difference": -12190008,
+						"percent": -16.689048322361558,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.gpu-process.footprintBytes.median",
+						"base": 39814320,
+						"candidate": 52381256,
+						"difference": 12566936,
+						"percent": 31.56385943549959,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 13288576,
+						"candidate": 13370568,
+						"difference": 81992,
+						"percent": 0.6170111831395629,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 7160768,
+						"candidate": 7209992,
+						"difference": 49224,
+						"percent": 0.6874122999097304,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.renderer.count.median",
+						"base": 6,
+						"candidate": 6,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.5.byType.renderer.footprintBytes.median",
+						"base": 101097056,
+						"candidate": 101622040,
+						"difference": 524984,
+						"percent": 0.5192871293898015,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.footprintSumBytes.median",
+						"base": 349801744,
+						"candidate": 350081736,
+						"difference": 279992,
+						"percent": 0.0800430543307983,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.footprintTotalBytes.median",
+						"base": 343624976,
+						"candidate": 344281800,
+						"difference": 656824,
+						"percent": 0.19114559356127825,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.rssSumBytes.median",
+						"base": 1588477952,
+						"candidate": 2385592320,
+						"difference": 797114368,
+						"percent": 50.18101554361392,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.processes.median",
+						"base": 16,
+						"candidate": 15,
+						"difference": -1,
+						"percent": -6.25,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.browser.count.median",
+						"base": 2,
+						"candidate": 1,
+						"difference": -1,
+						"percent": -50,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.browser.footprintBytes.median",
+						"base": 80021568,
+						"candidate": 66717448,
+						"difference": -13304120,
+						"percent": -16.625667719982694,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.gpu-process.count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.gpu-process.footprintBytes.median",
+						"base": 57214104,
+						"candidate": 70403608,
+						"difference": 13189504,
+						"percent": 23.05288919669178,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (network.mojom.NetworkService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+						"base": 13894736,
+						"candidate": 13993136,
+						"difference": 98400,
+						"percent": 0.708181861101931,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (storage.mojom.StorageService).count.median",
+						"base": 1,
+						"candidate": 1,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+						"base": 7652288,
+						"candidate": 7701536,
+						"difference": 49248,
+						"percent": 0.6435722231050374,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.renderer.count.median",
+						"base": 11,
+						"candidate": 11,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.10.byType.renderer.footprintBytes.median",
+						"base": 189905032,
+						"candidate": 191282512,
+						"difference": 1377480,
+						"percent": 0.7253520275334252,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "scroll",
+				"rows": [
+					{
+						"path": "summary.dropped.median",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.partial.median",
+						"base": 12,
+						"candidate": 12,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.presented.median",
+						"base": 467,
+						"candidate": 466,
+						"difference": -1,
+						"percent": -0.21413276231263384,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.affectingSmoothness.median",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.onCompositorThread.median",
+						"base": 480,
+						"candidate": 480,
+						"difference": 0,
+						"percent": 0,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			},
+			{
+				"benchmark": "frame-latency",
+				"rows": [
+					{
+						"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.medianMs",
+						"base": 18.94,
+						"candidate": 18.83,
+						"difference": -0.11000000000000298,
+						"percent": -0.5807814149947359,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.p90Ms",
+						"base": 20.09,
+						"candidate": 26.68,
+						"difference": 6.59,
+						"percent": 32.80238924838228,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SubmitToReceiveCompositorFrame.medianMs",
+						"base": 0.12,
+						"candidate": 0.16,
+						"difference": 0.04000000000000001,
+						"percent": 33.33333333333334,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SubmitToReceiveCompositorFrame.p90Ms",
+						"base": 0.14,
+						"candidate": 0.2,
+						"difference": 0.06,
+						"percent": 42.85714285714285,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.ReceiveCompositorFrameToStartDraw.medianMs",
+						"base": 0.09,
+						"candidate": 0.16,
+						"difference": 0.07,
+						"percent": 77.77777777777779,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.ReceiveCompositorFrameToStartDraw.p90Ms",
+						"base": 0.13,
+						"candidate": 0.2,
+						"difference": 0.07,
+						"percent": 53.846153846153854,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.StartDrawToSwapStart.medianMs",
+						"base": 0.08,
+						"candidate": 0.15,
+						"difference": 0.06999999999999999,
+						"percent": 87.49999999999999,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.StartDrawToSwapStart.p90Ms",
+						"base": 0.12,
+						"candidate": 0.19,
+						"difference": 0.07,
+						"percent": 58.333333333333336,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapStartToBufferAvailable.medianMs",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapStartToBufferAvailable.p90Ms",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferAvailableToBufferReady.medianMs",
+						"base": 0,
+						"candidate": 0,
+						"difference": 0,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferAvailableToBufferReady.p90Ms",
+						"base": 0,
+						"candidate": 0.01,
+						"difference": 0.01,
+						"percent": null,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferReadyToLatch.medianMs",
+						"base": 7.87,
+						"candidate": 7.68,
+						"difference": -0.1900000000000004,
+						"percent": -2.4142312579415552,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.BufferReadyToLatch.p90Ms",
+						"base": 8.72,
+						"candidate": 14.14,
+						"difference": 5.42,
+						"percent": 62.15596330275229,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.LatchToSwapEnd.medianMs",
+						"base": 0.07,
+						"candidate": 0.1,
+						"difference": 0.03,
+						"percent": 42.85714285714285,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.LatchToSwapEnd.p90Ms",
+						"base": 0.11,
+						"candidate": 0.15,
+						"difference": 0.039999999999999994,
+						"percent": 36.36363636363636,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapEndToPresentationCompositorFrame.medianMs",
+						"base": 10.71,
+						"candidate": 10.6,
+						"difference": -0.11000000000000121,
+						"percent": -1.0270774976657442,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					},
+					{
+						"path": "summary.SwapEndToPresentationCompositorFrame.p90Ms",
+						"base": 11.75,
+						"candidate": 11.74,
+						"difference": -0.009999999999999787,
+						"percent": -0.0851063829787216,
+						"rounds": {
+							"base": 3,
+							"candidate": 3
+						}
+					}
+				],
+				"failures": []
+			}
+		]
+	},
+	"shellBefore": {
+		"launch": {
+			"summary.cold.window.median": {
+				"base": 264.43603515625,
+				"candidate": 266.99365234375,
+				"difference": 2.5576171875,
+				"percent": 0.9671969200372993,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.devTools.median": {
+				"base": 290.419677734375,
+				"candidate": 221.931640625,
+				"difference": -68.488037109375,
+				"percent": -23.582436852648755,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.pageFirstContentfulPaint.median": {
+				"base": 1934.045654296875,
+				"candidate": 1845.77392578125,
+				"difference": -88.271728515625,
+				"percent": -4.56409745651616,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.pageLoaded.median": {
+				"base": 1904.036865234375,
+				"candidate": 1821.400390625,
+				"difference": -82.636474609375,
+				"percent": -4.340066945038008,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.window.median": {
+				"base": 265.81689453125,
+				"candidate": 267.938720703125,
+				"difference": 2.121826171875,
+				"percent": 0.7982284856711972,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.devTools.median": {
+				"base": 293.479248046875,
+				"candidate": 224.12548828125,
+				"difference": -69.353759765625,
+				"percent": -23.631571985814716,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.pageFirstContentfulPaint.median": {
+				"base": 572.1162109375,
+				"candidate": 563.396728515625,
+				"difference": -8.719482421875,
+				"percent": -1.5240753985255535,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.pageLoaded.median": {
+				"base": 541.804931640625,
+				"candidate": 538.142822265625,
+				"difference": -3.662109375,
+				"percent": -0.6759091992593838,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			}
+		},
+		"unlock": {
+			"withoutPin.median": {
+				"base": 569.699951171875,
+				"candidate": 544.60009765625,
+				"difference": -25.099853515625,
+				"percent": -4.4058022936450145,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"fromPin.median": {
+				"base": 486.10009765625,
+				"candidate": 381.699951171875,
+				"difference": -104.400146484375,
+				"percent": -21.47708815277846,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"attach.withoutPin.started.median": {
+				"base": 254.22509765625,
+				"candidate": 180.35693359375,
+				"difference": -73.8681640625,
+				"percent": -29.056204420218457,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"attach.withoutPin.ended.median": {
+				"base": 478.628173828125,
+				"candidate": 442.7470703125,
+				"difference": -35.881103515625,
+				"percent": -7.4966551234633085,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"attach.fromPin.started.median": {
+				"base": 174.806884765625,
+				"candidate": 38.864990234375,
+				"difference": -135.94189453125,
+				"percent": -77.76689957807793,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"attach.fromPin.ended.median": {
+				"base": 393.760009765625,
+				"candidate": 274.9208984375,
+				"difference": -118.839111328125,
+				"percent": -30.18059436733069,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			}
+		},
+		"pages": {
+			"summary.cold.smoke.html.loadEventEnd.median": {
+				"base": 7.9000000059604645,
+				"candidate": 3.5999999940395355,
+				"difference": -4.300000011920929,
+				"percent": -54.43037985666614,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.smoke.html.firstContentfulPaint.median": {
+				"base": 20,
+				"candidate": 28,
+				"difference": 8,
+				"percent": 40,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.smoke.html.firstContentfulPaintPainted.median": {
+				"base": 14.299999997019768,
+				"candidate": 7.700000002980232,
+				"difference": -6.5999999940395355,
+				"percent": -46.15384612178341,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.smoke.html.largestContentfulPaint.median": {
+				"base": 20,
+				"candidate": 28,
+				"difference": 8,
+				"percent": 40,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.smoke.html.responseStart.median": {
+				"base": 0.7999999970197678,
+				"candidate": 0.800000011920929,
+				"difference": 1.4901161193847656e-8,
+				"percent": 1.862645156169851e-6,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.find.html.loadEventEnd.median": {
+				"base": 9.200000002980232,
+				"candidate": 4.0999999940395355,
+				"difference": -5.100000008940697,
+				"percent": -55.43478268791969,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.find.html.firstContentfulPaint.median": {
+				"base": 24,
+				"candidate": 32,
+				"difference": 8,
+				"percent": 33.33333333333333,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.find.html.firstContentfulPaintPainted.median": {
+				"base": 16.900000005960464,
+				"candidate": 8.100000008940697,
+				"difference": -8.799999997019768,
+				"percent": -52.07100588116032,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.find.html.largestContentfulPaint.median": {
+				"base": 24,
+				"candidate": 32,
+				"difference": 8,
+				"percent": 33.33333333333333,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.find.html.responseStart.median": {
+				"base": 1,
+				"candidate": 1.199999988079071,
+				"difference": 0.19999998807907104,
+				"percent": 19.999998807907104,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.nav-a.html.loadEventEnd.median": {
+				"base": 10.099999994039536,
+				"candidate": 4.699999988079071,
+				"difference": -5.4000000059604645,
+				"percent": -53.46534662522026,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.nav-a.html.firstContentfulPaint.median": {
+				"base": 28,
+				"candidate": 36,
+				"difference": 8,
+				"percent": 28.57142857142857,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.nav-a.html.firstContentfulPaintPainted.median": {
+				"base": 17.299999997019768,
+				"candidate": 9.400000005960464,
+				"difference": -7.899999991059303,
+				"percent": -45.6647398405793,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.nav-a.html.largestContentfulPaint.median": {
+				"base": 28,
+				"candidate": 36,
+				"difference": 8,
+				"percent": 28.57142857142857,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.nav-a.html.responseStart.median": {
+				"base": 1.0999999940395355,
+				"candidate": 1.1000000089406967,
+				"difference": 1.4901161193847656e-8,
+				"percent": 1.3546510249628318e-6,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median": {
+				"base": 271.29999999701977,
+				"candidate": 224.1000000089407,
+				"difference": -47.19999998807907,
+				"percent": -17.39771470276357,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median": {
+				"base": 228,
+				"candidate": 196,
+				"difference": -32,
+				"percent": -14.035087719298245,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median": {
+				"base": 182.1000000089407,
+				"candidate": 160.80000001192093,
+				"difference": -21.299999997019768,
+				"percent": -11.696869849518938,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median": {
+				"base": 228,
+				"candidate": 196,
+				"difference": -32,
+				"percent": -14.035087719298245,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://en.wikipedia.org/wiki/Web_browser.responseStart.median": {
+				"base": 100.1000000089407,
+				"candidate": 86.79999999701977,
+				"difference": -13.300000011920929,
+				"percent": -13.286713297435568,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://www.apple.com/.loadEventEnd.median": {
+				"base": 918.2000000029802,
+				"candidate": 842.5999999940395,
+				"difference": -75.6000000089407,
+				"percent": -8.2335003276732,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://www.apple.com/.firstContentfulPaint.median": {
+				"base": 256,
+				"candidate": 272,
+				"difference": 16,
+				"percent": 6.25,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://www.apple.com/.firstContentfulPaintPainted.median": {
+				"base": 230.20000000298023,
+				"candidate": 213.40000000596046,
+				"difference": -16.799999997019768,
+				"percent": -7.2980017362303515,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://www.apple.com/.largestContentfulPaint.median": {
+				"base": 772,
+				"candidate": 732,
+				"difference": -40,
+				"percent": -5.181347150259067,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://www.apple.com/.responseStart.median": {
+				"base": 135.29999999701977,
+				"candidate": 140.6000000089407,
+				"difference": 5.300000011920929,
+				"percent": 3.9172209992887446,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://github.com/.loadEventEnd.median": {
+				"base": 651.7000000029802,
+				"candidate": 840.9000000059605,
+				"difference": 189.20000000298023,
+				"percent": 29.03176308149686,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://github.com/.firstContentfulPaint.median": {
+				"base": 392,
+				"candidate": 496,
+				"difference": 104,
+				"percent": 26.53061224489796,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://github.com/.firstContentfulPaintPainted.median": {
+				"base": 373.80000001192093,
+				"candidate": 473.5,
+				"difference": 99.69999998807907,
+				"percent": 26.672017117415603,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://github.com/.largestContentfulPaint.median": {
+				"base": 1360,
+				"candidate": 1540,
+				"difference": 180,
+				"percent": 13.23529411764706,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.cold.https://github.com/.responseStart.median": {
+				"base": 100.20000000298023,
+				"candidate": 93,
+				"difference": -7.200000002980232,
+				"percent": -7.185628745275532,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.smoke.html.loadEventEnd.median": {
+				"base": 4.200000002980232,
+				"candidate": 4.5,
+				"difference": 0.29999999701976776,
+				"percent": 7.1428570668308105,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.smoke.html.firstContentfulPaint.median": {
+				"base": 16,
+				"candidate": 28,
+				"difference": 12,
+				"percent": 75,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.smoke.html.firstContentfulPaintPainted.median": {
+				"base": 12.799999997019768,
+				"candidate": 9.100000008940697,
+				"difference": -3.699999988079071,
+				"percent": -28.906249913598003,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.smoke.html.largestContentfulPaint.median": {
+				"base": 16,
+				"candidate": 28,
+				"difference": 12,
+				"percent": 75,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.smoke.html.responseStart.median": {
+				"base": 1.2000000029802322,
+				"candidate": 1.2000000029802322,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.find.html.loadEventEnd.median": {
+				"base": 4.300000011920929,
+				"candidate": 4.700000002980232,
+				"difference": 0.3999999910593033,
+				"percent": 9.302325347683249,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.find.html.firstContentfulPaint.median": {
+				"base": 20,
+				"candidate": 32,
+				"difference": 12,
+				"percent": 60,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.find.html.firstContentfulPaintPainted.median": {
+				"base": 12.799999997019768,
+				"candidate": 8.899999991059303,
+				"difference": -3.9000000059604645,
+				"percent": -30.468750053660187,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.find.html.largestContentfulPaint.median": {
+				"base": 20,
+				"candidate": 32,
+				"difference": 12,
+				"percent": 60,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.find.html.responseStart.median": {
+				"base": 1.1000000089406967,
+				"candidate": 1.199999988079071,
+				"difference": 0.09999997913837433,
+				"percent": 9.090907120507627,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.nav-a.html.loadEventEnd.median": {
+				"base": 4.9000000059604645,
+				"candidate": 5.4000000059604645,
+				"difference": 0.5,
+				"percent": 10.204081620240599,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.nav-a.html.firstContentfulPaint.median": {
+				"base": 20,
+				"candidate": 32,
+				"difference": 12,
+				"percent": 60,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.nav-a.html.firstContentfulPaintPainted.median": {
+				"base": 12.599999994039536,
+				"candidate": 10.100000008940697,
+				"difference": -2.499999985098839,
+				"percent": -19.841269732392625,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.nav-a.html.largestContentfulPaint.median": {
+				"base": 20,
+				"candidate": 32,
+				"difference": 12,
+				"percent": 60,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.nav-a.html.responseStart.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median": {
+				"base": 124.40000000596046,
+				"candidate": 109.69999998807907,
+				"difference": -14.700000017881393,
+				"percent": -11.816720271042655,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median": {
+				"base": 140,
+				"candidate": 108,
+				"difference": -32,
+				"percent": -22.857142857142858,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median": {
+				"base": 109.1000000089407,
+				"candidate": 86.09999999403954,
+				"difference": -23.00000001490116,
+				"percent": -21.08157654721936,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median": {
+				"base": 140,
+				"candidate": 116,
+				"difference": -24,
+				"percent": -17.142857142857142,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://en.wikipedia.org/wiki/Web_browser.responseStart.median": {
+				"base": 29.299999997019768,
+				"candidate": 33.599999994039536,
+				"difference": 4.299999997019768,
+				"percent": 14.675767909410034,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://www.apple.com/.loadEventEnd.median": {
+				"base": 418.19999998807907,
+				"candidate": 254.79999999701977,
+				"difference": -163.3999999910593,
+				"percent": -39.072214250530145,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://www.apple.com/.firstContentfulPaint.median": {
+				"base": 168,
+				"candidate": 100,
+				"difference": -68,
+				"percent": -40.476190476190474,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://www.apple.com/.firstContentfulPaintPainted.median": {
+				"base": 143.09999999403954,
+				"candidate": 79.59999999403954,
+				"difference": -63.5,
+				"percent": -44.37456324433608,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://www.apple.com/.largestContentfulPaint.median": {
+				"base": 732,
+				"candidate": 524,
+				"difference": -208,
+				"percent": -28.415300546448087,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://www.apple.com/.responseStart.median": {
+				"base": 0.800000011920929,
+				"candidate": 0.8999999910593033,
+				"difference": 0.09999997913837433,
+				"percent": 12.499997206032317,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://github.com/.loadEventEnd.median": {
+				"base": 394.90000000596046,
+				"candidate": 393.29999999701977,
+				"difference": -1.6000000089406967,
+				"percent": -0.40516586703381796,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://github.com/.firstContentfulPaint.median": {
+				"base": 144,
+				"candidate": 144,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://github.com/.firstContentfulPaintPainted.median": {
+				"base": 118.20000000298023,
+				"candidate": 127.20000000298023,
+				"difference": 9,
+				"percent": 7.614213197777563,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://github.com/.largestContentfulPaint.median": {
+				"base": 1112,
+				"candidate": 1124,
+				"difference": 12,
+				"percent": 1.079136690647482,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.warm.https://github.com/.responseStart.median": {
+				"base": 27.799999997019768,
+				"candidate": 37.6000000089407,
+				"difference": 9.800000011920929,
+				"percent": 35.2517986078112,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			}
+		},
+		"memory": {
+			"summary.1.footprintSumBytes.median": {
+				"base": 150134776,
+				"candidate": 172810280,
+				"difference": 22675504,
+				"percent": 15.103432132206333,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.footprintTotalBytes.median": {
+				"base": 148758520,
+				"candidate": 171434024,
+				"difference": 22675504,
+				"percent": 15.243163215122065,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.rssSumBytes.median": {
+				"base": 625459200,
+				"candidate": 945684480,
+				"difference": 320225280,
+				"percent": 51.19842829076621,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.processes.median": {
+				"base": 7,
+				"candidate": 6,
+				"difference": -1,
+				"percent": -14.285714285714285,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.browser.count.median": {
+				"base": 2,
+				"candidate": 1,
+				"difference": -1,
+				"percent": -50,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.browser.footprintBytes.median": {
+				"base": 72681656,
+				"candidate": 62113472,
+				"difference": -10568184,
+				"percent": -14.540373158256054,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.gpu-process.count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.gpu-process.footprintBytes.median": {
+				"base": 25887896,
+				"candidate": 58508752,
+				"difference": 32620856,
+				"percent": 126.00813909326583,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (network.mojom.NetworkService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median": {
+				"base": 12928152,
+				"candidate": 13092064,
+				"difference": 163912,
+				"percent": 1.2678687564935807,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (storage.mojom.StorageService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median": {
+				"base": 6947800,
+				"candidate": 6964232,
+				"difference": 16432,
+				"percent": 0.2365065200495121,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.renderer.count.median": {
+				"base": 2,
+				"candidate": 2,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.renderer.footprintBytes.median": {
+				"base": 31689248,
+				"candidate": 31836800,
+				"difference": 147552,
+				"percent": 0.4656216518612244,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.footprintSumBytes.median": {
+				"base": 240104792,
+				"candidate": 255817528,
+				"difference": 15712736,
+				"percent": 6.544115954170544,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.footprintTotalBytes.median": {
+				"base": 236811608,
+				"candidate": 252589880,
+				"difference": 15778272,
+				"percent": 6.6627950096094954,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.rssSumBytes.median": {
+				"base": 1068990464,
+				"candidate": 1590312960,
+				"difference": 521322496,
+				"percent": 48.7677405511449,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.processes.median": {
+				"base": 11,
+				"candidate": 10,
+				"difference": -1,
+				"percent": -9.090909090909092,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.browser.count.median": {
+				"base": 2,
+				"candidate": 1,
+				"difference": -1,
+				"percent": -50,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.browser.footprintBytes.median": {
+				"base": 77990120,
+				"candidate": 62506712,
+				"difference": -15483408,
+				"percent": -19.853037795043782,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.gpu-process.count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.gpu-process.footprintBytes.median": {
+				"base": 39683272,
+				"candidate": 70993336,
+				"difference": 31310064,
+				"percent": 78.89990522958892,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (network.mojom.NetworkService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median": {
+				"base": 13304960,
+				"candidate": 13436128,
+				"difference": 131168,
+				"percent": 0.9858579056231661,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (storage.mojom.StorageService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median": {
+				"base": 7177176,
+				"candidate": 7210016,
+				"difference": 32840,
+				"percent": 0.45756158132390795,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.renderer.count.median": {
+				"base": 6,
+				"candidate": 6,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.renderer.footprintBytes.median": {
+				"base": 102080144,
+				"candidate": 101671120,
+				"difference": -409024,
+				"percent": -0.4006890899370205,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.footprintSumBytes.median": {
+				"base": 353980096,
+				"candidate": 369742248,
+				"difference": 15762152,
+				"percent": 4.4528356758228576,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.footprintTotalBytes.median": {
+				"base": 347705024,
+				"candidate": 363942312,
+				"difference": 16237288,
+				"percent": 4.669845667803753,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.rssSumBytes.median": {
+				"base": 1603829760,
+				"candidate": 2392653824,
+				"difference": 788824064,
+				"percent": 49.183777709674125,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.processes.median": {
+				"base": 16,
+				"candidate": 15,
+				"difference": -1,
+				"percent": -6.25,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.browser.count.median": {
+				"base": 2,
+				"candidate": 1,
+				"difference": -1,
+				"percent": -50,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.browser.footprintBytes.median": {
+				"base": 84789456,
+				"candidate": 68519688,
+				"difference": -16269768,
+				"percent": -19.18843305233613,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.gpu-process.count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.gpu-process.footprintBytes.median": {
+				"base": 57132184,
+				"candidate": 88360376,
+				"difference": 31228192,
+				"percent": 54.65954530987298,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (network.mojom.NetworkService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median": {
+				"base": 14058600,
+				"candidate": 14058672,
+				"difference": 72,
+				"percent": 0.0005121420340574453,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (storage.mojom.StorageService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median": {
+				"base": 7652312,
+				"candidate": 7685152,
+				"difference": 32840,
+				"percent": 0.42915134667797133,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.renderer.count.median": {
+				"base": 11,
+				"candidate": 11,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.renderer.footprintBytes.median": {
+				"base": 190806176,
+				"candidate": 190446688,
+				"difference": -359488,
+				"percent": -0.18840480299757173,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			}
+		},
+		"scroll": {
+			"summary.dropped.median": {
+				"base": 0,
+				"candidate": 0,
+				"difference": 0,
+				"percent": null,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.partial.median": {
+				"base": 12,
+				"candidate": 12,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.presented.median": {
+				"base": 466,
+				"candidate": 467,
+				"difference": 1,
+				"percent": 0.2145922746781116,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.affectingSmoothness.median": {
+				"base": 0,
+				"candidate": 0,
+				"difference": 0,
+				"percent": null,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.onCompositorThread.median": {
+				"base": 480,
+				"candidate": 480,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			}
+		}
+	},
+	"gpuRasterWindowTilesCutOnlyMemory": {
+		"memory": {
+			"summary.1.footprintSumBytes.median": {
+				"base": 147251024,
+				"candidate": 151937064,
+				"difference": 4686040,
+				"percent": 3.182347988289711,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.footprintTotalBytes.median": {
+				"base": 145858384,
+				"candidate": 150544424,
+				"difference": 4686040,
+				"percent": 3.2127327010561144,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.rssSumBytes.median": {
+				"base": 620920832,
+				"candidate": 932937728,
+				"difference": 312016896,
+				"percent": 50.250672858726055,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.processes.median": {
+				"base": 7,
+				"candidate": 6,
+				"difference": -1,
+				"percent": -14.285714285714285,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.browser.count.median": {
+				"base": 2,
+				"candidate": 1,
+				"difference": -1,
+				"percent": -50,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.browser.footprintBytes.median": {
+				"base": 68962296,
+				"candidate": 60409536,
+				"difference": -8552760,
+				"percent": -12.40208127641226,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.gpu-process.count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.gpu-process.footprintBytes.median": {
+				"base": 25937072,
+				"candidate": 39781672,
+				"difference": 13844600,
+				"percent": 53.37765187990379,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (network.mojom.NetworkService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median": {
+				"base": 12862592,
+				"candidate": 13141192,
+				"difference": 278600,
+				"percent": 2.1659709022878126,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (storage.mojom.StorageService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median": {
+				"base": 6931416,
+				"candidate": 6997024,
+				"difference": 65608,
+				"percent": 0.9465309829910655,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.renderer.count.median": {
+				"base": 2,
+				"candidate": 2,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.1.byType.renderer.footprintBytes.median": {
+				"base": 32229992,
+				"candidate": 31804176,
+				"difference": -425816,
+				"percent": -1.3211793536901904,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.footprintSumBytes.median": {
+				"base": 235009056,
+				"candidate": 237631048,
+				"difference": 2621992,
+				"percent": 1.115698281856849,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.footprintTotalBytes.median": {
+				"base": 231797792,
+				"candidate": 234436168,
+				"difference": 2638376,
+				"percent": 1.138223094031888,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.rssSumBytes.median": {
+				"base": 1060421632,
+				"candidate": 1581744128,
+				"difference": 521322496,
+				"percent": 49.16181264774501,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.processes.median": {
+				"base": 11,
+				"candidate": 10,
+				"difference": -1,
+				"percent": -9.090909090909092,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.browser.count.median": {
+				"base": 2,
+				"candidate": 1,
+				"difference": -1,
+				"percent": -50,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.browser.footprintBytes.median": {
+				"base": 73205776,
+				"candidate": 60622480,
+				"difference": -12583296,
+				"percent": -17.18893875259242,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.gpu-process.count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.gpu-process.footprintBytes.median": {
+				"base": 39748784,
+				"candidate": 52938072,
+				"difference": 13189288,
+				"percent": 33.18161380735572,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (network.mojom.NetworkService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median": {
+				"base": 13190272,
+				"candidate": 13501664,
+				"difference": 311392,
+				"percent": 2.360770119069569,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (storage.mojom.StorageService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median": {
+				"base": 7160792,
+				"candidate": 7226400,
+				"difference": 65608,
+				"percent": 0.9162115028616946,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.renderer.count.median": {
+				"base": 6,
+				"candidate": 6,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.5.byType.renderer.footprintBytes.median": {
+				"base": 101785328,
+				"candidate": 101654640,
+				"difference": -130688,
+				"percent": -0.12839571534317795,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.footprintSumBytes.median": {
+				"base": 348949872,
+				"candidate": 349360432,
+				"difference": 410560,
+				"percent": 0.11765586777461262,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.footprintTotalBytes.median": {
+				"base": 342773104,
+				"candidate": 343576880,
+				"difference": 803776,
+				"percent": 0.2344921438176783,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.rssSumBytes.median": {
+				"base": 1589542912,
+				"candidate": 2385821696,
+				"difference": 796278784,
+				"percent": 50.0948277639201,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.processes.median": {
+				"base": 16,
+				"candidate": 15,
+				"difference": -1,
+				"percent": -6.25,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.browser.count.median": {
+				"base": 2,
+				"candidate": 1,
+				"difference": -1,
+				"percent": -50,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.browser.footprintBytes.median": {
+				"base": 80054336,
+				"candidate": 66504480,
+				"difference": -13549856,
+				"percent": -16.925823980352543,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.gpu-process.count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.gpu-process.footprintBytes.median": {
+				"base": 57148592,
+				"candidate": 70255912,
+				"difference": 13107320,
+				"percent": 22.935508192397812,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (network.mojom.NetworkService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median": {
+				"base": 13878328,
+				"candidate": 14042264,
+				"difference": 163936,
+				"percent": 1.1812373940146104,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (storage.mojom.StorageService).count.median": {
+				"base": 1,
+				"candidate": 1,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median": {
+				"base": 7635928,
+				"candidate": 7717920,
+				"difference": 81992,
+				"percent": 1.0737660176994859,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.renderer.count.median": {
+				"base": 11,
+				"candidate": 11,
+				"difference": 0,
+				"percent": 0,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			},
+			"summary.10.byType.renderer.footprintBytes.median": {
+				"base": 190281816,
+				"candidate": 190184544,
+				"difference": -97272,
+				"percent": -0.051119966187415405,
+				"rounds": {
+					"base": 3,
+					"candidate": 3
+				}
+			}
+		}
+	},
+	"firstFrame": {
+		"0.19.2-pgo": {
+			"loads": 24,
+			"firstContentfulPaintPresentedMs": 28.0,
+			"firstContentfulPaintPaintedMs": 23.049999997019768,
+			"pageFirstFrameStagesMedianMs": {
+				"BeginImplFrameToSendBeginMainFrame": 0.0,
+				"SendBeginMainFrameToCommit": 0.11,
+				"Commit": 0.03,
+				"EndCommitToActivation": 0.04,
+				"Activation": 0.01,
+				"EndActivateToSubmitCompositorFrame": 0.1,
+				"SubmitToReceiveCompositorFrame": 0.05,
+				"ReceiveCompositorFrameToStartDraw": 1.33,
+				"StartDrawToSwapStart": 0.64,
+				"BufferAvailableToBufferReady": 0.0,
+				"BufferReadyToLatch": 0.02,
+				"SubmitCompositorFrameToPresentationCompositorFrame": 2.41
+			}
+		},
+		"shell-3f62f15": {
+			"loads": 24,
+			"firstContentfulPaintPresentedMs": 36.0,
+			"firstContentfulPaintPaintedMs": 14.899999998509884,
+			"pageFirstFrameStagesMedianMs": {
+				"BeginImplFrameToSendBeginMainFrame": 0.0,
+				"SendBeginMainFrameToCommit": 0.72,
+				"Commit": 0.05,
+				"EndCommitToActivation": 1.21,
+				"Activation": 0.03,
+				"EndActivateToSubmitCompositorFrame": 0.15,
+				"SubmitToReceiveCompositorFrame": 0.07,
+				"ReceiveCompositorFrameToStartDraw": 4.65,
+				"StartDrawToSwapStart": 0.14,
+				"BufferAvailableToBufferReady": 0.0,
+				"BufferReadyToLatch": 0.05,
+				"LatchToSwapEnd": 0.16,
+				"SwapEndToPresentationCompositorFrame": 10.33,
+				"SubmitCompositorFrameToPresentationCompositorFrame": 16.82
+			}
+		},
+		"frame-1": {
+			"loads": 24,
+			"firstContentfulPaintPresentedMs": 36.0,
+			"firstContentfulPaintPaintedMs": 16.350000001490116,
+			"pageFirstFrameStagesMedianMs": {
+				"BeginImplFrameToSendBeginMainFrame": 0.0,
+				"SendBeginMainFrameToCommit": 0.73,
+				"Commit": 0.05,
+				"EndCommitToActivation": 1.3,
+				"Activation": 0.03,
+				"EndActivateToSubmitCompositorFrame": 0.15,
+				"SubmitToReceiveCompositorFrame": 0.06,
+				"ReceiveCompositorFrameToStartDraw": 4.31,
+				"StartDrawToSwapStart": 0.07,
+				"BufferAvailableToBufferReady": 0.0,
+				"BufferReadyToLatch": 0.06,
+				"LatchToSwapEnd": 0.12,
+				"SwapEndToPresentationCompositorFrame": 10.27,
+				"SubmitCompositorFrameToPresentationCompositorFrame": 16.58
+			}
+		},
+		"frame-sw2": {
+			"loads": 24,
+			"firstContentfulPaintPresentedMs": 36.0,
+			"firstContentfulPaintPaintedMs": 15.350000001490116,
+			"pageFirstFrameStagesMedianMs": {
+				"BeginImplFrameToSendBeginMainFrame": 0.0,
+				"SendBeginMainFrameToCommit": 0.69,
+				"Commit": 0.04,
+				"EndCommitToActivation": 1.23,
+				"Activation": 0.02,
+				"EndActivateToSubmitCompositorFrame": 0.14,
+				"SubmitToReceiveCompositorFrame": 0.06,
+				"ReceiveCompositorFrameToStartDraw": 3.15,
+				"StartDrawToSwapStart": 0.08,
+				"BufferAvailableToBufferReady": 0.0,
+				"BufferReadyToLatch": 0.07,
+				"LatchToSwapEnd": 0.15,
+				"SwapEndToPresentationCompositorFrame": 10.39,
+				"SubmitCompositorFrameToPresentationCompositorFrame": 15.83
+			}
+		}
+	},
+	"presentationStamp": {
+		"0.19.2-pgo": {
+			"0:0 swapper": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80550:6360439 PerfettoTrace": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6359914 CrGpuMain": {
+				"commits": 3,
+				"zero": 3,
+				"medianUs": 0,
+				"vsync": 25
+			},
+			"80487:6360377 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360378 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360037 VizCompositorThread": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80548:6360408 Compositor": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360035 Chrome_ChildIOThread": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80548:6360376 CrRendererMain": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80484:6359832 CrBrowserMain": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80548:6360395 ThreadPoolForegroundWorker": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360449 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360448 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360458 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360459 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360480 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:6360481 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80550:0 ?": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80484:0 ?": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80487:0 ?": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			}
+		},
+		"frame-1": {
+			"0:0 swapper": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"81039:6361448 PerfettoTrace": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6360945 CrGpuMain": {
+				"commits": 84,
+				"zero": 0,
+				"medianUs": 10441,
+				"vsync": 110
+			},
+			"81037:6361418 Compositor": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361009 Chrome_ChildIOThread": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"81037:6361390 CrRendererMain": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361426 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361391 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80815:6360885 CrBrowserMain": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80815:6360944 CompositorTileWorker1": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"81037:6361406 ThreadPoolForegroundWorker": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361011 VizCompositorThread": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361457 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361496 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361005 ThreadPoolForegroundWorker": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361497 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361504 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:6361505 CVDisplayLink": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"81039:0 ?": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80815:0 ?": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"80818:0 ?": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			},
+			"81037:0 ?": {
+				"commits": 0,
+				"zero": 0,
+				"medianUs": 0,
+				"vsync": 0
+			}
+		}
+	},
+	"inputToFrame": {
+		"gpuRaster": {
+			"keys": {
+				"Select tab": {
+					"count": 30,
+					"medianMs": 10.5,
+					"p10Ms": 7.7,
+					"p90Ms": 17.6
+				},
+				"New tab": {
+					"count": 30,
+					"medianMs": 27.3,
+					"p10Ms": 17.3,
+					"p90Ms": 28.8
+				},
+				"Focus address field": {
+					"count": 30,
+					"medianMs": 9.7,
+					"p10Ms": 4.1,
+					"p90Ms": 13
+				},
+				"Open switcher": {
+					"count": 30,
+					"medianMs": 8.5,
+					"p10Ms": 5.7,
+					"p90Ms": 12.9
+				},
+				"Open quit dialog": {
+					"count": 30,
+					"medianMs": 12.8,
+					"p10Ms": 9.3,
+					"p90Ms": 17.1
+				}
+			},
+			"settings": {
+				"Select tab": {
+					"median": 33.397216796875,
+					"min": 33.397216796875,
+					"max": 33.397216796875,
+					"runs": [33.397216796875]
+				},
+				"Open settings": {
+					"median": 12.337158203125,
+					"min": 8.39990234375,
+					"max": 43.036865234375,
+					"runs": [
+						43.036865234375, 10.738037109375, 12.337158203125, 17.89404296875,
+						10.218994140625, 17.70703125, 8.39990234375, 13.31494140625,
+						12.111083984375, 11.44091796875, 13.653076171875
+					]
+				},
+				"Change theme": {
+					"median": 22.466796875,
+					"min": 15.10302734375,
+					"max": 27.372802734375,
+					"runs": [
+						20.73193359375, 19.692138671875, 17.481201171875, 26.494873046875,
+						20.43798828125, 18.09912109375, 18.1708984375, 25.994873046875,
+						17.73095703125, 27.372802734375, 23.7451171875, 22.94384765625,
+						22.403076171875, 22.97705078125, 22.81298828125, 22.674072265625,
+						22.4169921875, 23.216796875, 23.047119140625, 22.466796875,
+						15.10302734375
+					]
+				},
+				"Open app icon picker": {
+					"median": 22.2874755859375,
+					"min": 10.7880859375,
+					"max": 31.804931640625,
+					"runs": [
+						31.804931640625, 26.4609375, 25.583984375, 18.125, 21.796142578125,
+						10.7880859375, 25.06103515625, 20.966064453125, 22.131103515625,
+						22.44384765625
+					]
+				},
+				"Choose app icon": {
+					"median": 13.5294189453125,
+					"min": 9.8798828125,
+					"max": 18.052001953125,
+					"runs": [
+						11.756103515625, 16.822021484375, 17.4677734375, 17.64794921875,
+						9.8798828125, 13.5869140625, 18.052001953125, 13.471923828125,
+						10.903076171875, 9.93994140625
+					]
+				}
+			}
+		},
+		"cpuRaster": {
+			"keys": {
+				"Select tab": {
+					"count": 30,
+					"medianMs": 9.2,
+					"p10Ms": 4.1,
+					"p90Ms": 14.1
+				},
+				"New tab": {
+					"count": 30,
+					"medianMs": 22,
+					"p10Ms": 15.6,
+					"p90Ms": 27.4
+				},
+				"Focus address field": {
+					"count": 30,
+					"medianMs": 9.3,
+					"p10Ms": 4.9,
+					"p90Ms": 12
+				},
+				"Open switcher": {
+					"count": 30,
+					"medianMs": 9.2,
+					"p10Ms": 6.4,
+					"p90Ms": 11.9
+				},
+				"Open quit dialog": {
+					"count": 30,
+					"medianMs": 20.7,
+					"p10Ms": 14.4,
+					"p90Ms": 31.2
+				}
+			},
+			"settings": {
+				"Select tab": {
+					"median": 47.717041015625,
+					"min": 47.717041015625,
+					"max": 47.717041015625,
+					"runs": [47.717041015625]
+				},
+				"Open settings": {
+					"median": 21.577880859375,
+					"min": 12.158935546875,
+					"max": 50.012939453125,
+					"runs": [
+						50.012939453125, 24.087890625, 12.158935546875, 18.44287109375,
+						15.14404296875, 21.577880859375, 25.0029296875, 20.06591796875,
+						22.02001953125, 19.7119140625, 35.08203125
+					]
+				},
+				"Change theme": {
+					"median": 23.828857421875,
+					"min": 9.8740234375,
+					"max": 29.045166015625,
+					"runs": [
+						26.41796875, 27.85693359375, 27.56201171875, 29.045166015625,
+						15.35498046875, 24.1220703125, 23.79296875, 23.839111328125,
+						24.990966796875, 26.9970703125, 28.586181640625, 22.036865234375,
+						21.98583984375, 21.64599609375, 22.27587890625, 22.416015625,
+						23.06396484375, 23.97705078125, 23.828857421875, 16.808837890625,
+						9.8740234375
+					]
+				},
+				"Open app icon picker": {
+					"median": 26.95703125,
+					"min": 18.406005859375,
+					"max": 34.43603515625,
+					"runs": [
+						34.43603515625, 26.388916015625, 18.572021484375, 27.65478515625,
+						28.984130859375, 26.551025390625, 27.363037109375, 26.34716796875,
+						30.197998046875, 18.406005859375
+					]
+				},
+				"Choose app icon": {
+					"median": 13.8131103515625,
+					"min": 11.3330078125,
+					"max": 17.9140625,
+					"runs": [
+						13.10009765625, 13.7431640625, 15.948974609375, 17.9140625,
+						17.10400390625, 13.623046875, 13.883056640625, 12.343994140625,
+						11.3330078125, 16.237060546875
+					]
+				}
+			}
+		}
+	}
+}

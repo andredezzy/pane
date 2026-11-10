@@ -9,8 +9,6 @@
 #include <utility>
 
 #include "base/functional/bind.h"
-#include "cc/paint/draw_looper.h"
-#include "cc/paint/paint_flags.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/dialog.h"
@@ -22,6 +20,7 @@
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/empty_state_view.h"
+#include "pane/ui/window/panel_frame.h"
 #include "pane/ui/window/quit_dialog.h"
 #include "pane/ui/window/sad_tab_view.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -51,12 +50,8 @@ namespace {
 constexpr gfx::Size kMinimumSize(900, 600);
 
 // The content panel: flush with the sidebar, 8 from the window's other edges
-// (m-2 ml-0), rounded at the panel's 18; its ring a point outside it, rounded
-// a point more, and its shadow-panel, 0 2px 8px (a Gaussian of 4).
+// (m-2 ml-0), rounded at the panel's 18 (PanelFrame draws it).
 constexpr int kPanelInset = 8;
-constexpr float kRingRadius = radius::kPanel + 1;
-constexpr gfx::Vector2dF kShadowOffset(0, 2);
-constexpr float kShadowSigma = 4;
 
 // The sheet's card, at the window's right, as the profile sheet sits (Paper
 // 05), over its scrim.
@@ -154,16 +149,24 @@ RootView::RootView(Callbacks callbacks,
                    model::ToolbarProgress* progress,
                    AppIconImages* images)
     : callbacks_(std::move(callbacks)), images_(images) {
+  // The window's own layer holds this color and nothing else, so it has no
+  // tiles: what draws over it draws on layers of its own, each as small as
+  // what it draws (ADR 0073).
   SetBackground(views::CreateSolidBackground(kPaneColorWindowBackground));
+
+  // The panel's card, on its shadow and in its ring, under everything.
+  frame_ = AddChildView(std::make_unique<PanelFrame>());
 
   // The sidebar's column, and its edge over it and the panel's, under every
   // overlay that comes after.
   sidebar_ = AddChildView(
       std::make_unique<SidebarView>(std::move(callbacks_.sidebar)));
 
-  // The toolbar's row, at the panel's top while a tab shows.
+  // The toolbar's row, at the panel's top while a tab shows, over the card.
   toolbar_ = AddChildView(
       std::make_unique<ToolbarView>(std::move(callbacks_.toolbar), progress));
+  toolbar_->SetPaintToLayer();
+  toolbar_->layer()->SetFillsBoundsOpaquely(false);
 
   // The page in its card, and what shows there with no tab selected.
   page_ = AddChildView(std::make_unique<views::WebView>(nullptr));
@@ -172,6 +175,12 @@ RootView::RootView(Callbacks callbacks,
   empty_ = AddChildView(std::make_unique<EmptyStateView>());
   sad_tab_ = AddChildView(
       std::make_unique<SadTabView>(std::move(callbacks_.reload_crashed)));
+  // Over the card's middle, a layer the compositor fills.
+  for (views::View* place : {static_cast<views::View*>(empty_.get()),
+                             static_cast<views::View*>(sad_tab_.get())}) {
+    place->SetPaintToLayer();
+    place->layer()->SetFillsBoundsOpaquely(false);
+  }
   // Settings, in the panel in the page's place: made now, so showing it
   // makes nothing.
   settings_ = AddChildView(
@@ -502,6 +511,8 @@ void RootView::Layout(PassKey) {
           : gfx::Rect(sidebar_width, kPanelInset,
                       std::max(width() - sidebar_width - kPanelInset, 0),
                       std::max(height() - 2 * kPanelInset, 0));
+  frame_->SetBoundsRect(GetLocalBounds());
+  frame_->SetPanel(panel_bounds_, page_fullscreen_);
 
   toolbar_->SetBounds(panel_bounds_.x(), panel_bounds_.y(),
                       panel_bounds_.width(), ToolbarView::kHeight);
@@ -524,43 +535,6 @@ void RootView::Layout(PassKey) {
     app_icon_dialog_->SetBoundsRect(GetLocalBounds());
   }
   quit_dialog_->SetBoundsRect(GetLocalBounds());
-}
-
-// The window's fill, then the content panel's card on its shadow, with its
-// ring: shadow-panel's 1-pixel ring and soft drop (Elevation.swift), both
-// outside the card as CSS's box-shadows are. A page filling the window has
-// the card square and bare.
-void RootView::OnPaint(gfx::Canvas* canvas) {
-  views::View::OnPaint(canvas);
-  const ui::ColorProvider* colors = GetColorProvider();
-  if (!colors || panel_bounds_.IsEmpty()) {
-    return;
-  }
-  const gfx::RectF card(panel_bounds_);
-  cc::PaintFlags flags;
-  flags.setAntiAlias(true);
-  flags.setColor(colors->GetColor(kPaneColorCard));
-  if (page_fullscreen_) {
-    canvas->DrawRect(card, flags);
-    return;
-  }
-  cc::DrawLooperBuilder shadow;
-  shadow.AddUnmodifiedContent();
-  shadow.AddShadow(
-      {kShadowOffset.x(), kShadowOffset.y()}, kShadowSigma,
-      SkColor4f::FromColor(colors->GetColor(kPaneColorPanelShadow)),
-      cc::DrawLooper::kOverrideAlphaFlag);
-  flags.setLooper(shadow.Detach());
-  canvas->DrawPath(SquirclePath(card, radius::kPanel), flags);
-
-  cc::PaintFlags ring;
-  ring.setAntiAlias(true);
-  ring.setStyle(cc::PaintFlags::kStroke_Style);
-  ring.setStrokeWidth(1);
-  ring.setColor(colors->GetColor(kPaneColorBorder));
-  gfx::RectF outside = card;
-  outside.Outset(1);
-  canvas->DrawPath(SquircleStrokePath(outside, kRingRadius, 1), ring);
 }
 
 BEGIN_METADATA(RootView)

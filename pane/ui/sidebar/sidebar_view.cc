@@ -27,6 +27,7 @@
 #include "pane/ui/view_ids.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
@@ -90,7 +91,12 @@ class SidebarView::ListContents : public views::View {
     }
   }
 
-  void Layout(PassKey) override { rows_->SetBoundsRect(GetLocalBounds()); }
+  // The rows only as tall as they are: the scroll view keeps its contents at
+  // least as tall as the list, and the rows draw on a layer of their own, so
+  // a short list holds tiles for its rows, not for the empty list under them.
+  void Layout(PassKey) override {
+    rows_->SetBounds(0, 0, width(), rows_->HeightOfRows());
+  }
 
  private:
   const raw_ptr<RowList> rows_;
@@ -111,8 +117,12 @@ SidebarView::SidebarView(Callbacks callbacks)
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
   GetViewAccessibility().SetName(u"Sidebar");
 
+  // The header and the footer each draw on a layer of their own, as small as
+  // they are, over the window's color, which holds no tiles (RootView).
   header_ = AddChildView(std::make_unique<views::View>());
   header_->SetID(kViewIdSidebarHeader);
+  header_->SetPaintToLayer();
+  header_->layer()->SetFillsBoundsOpaquely(false);
   title_ = header_->AddChildView(
       MakeLabel(u"Pane", kTitle, kPaneColorMutedForeground));
   // The title moves the window, as the rest of the header does.
@@ -132,6 +142,8 @@ SidebarView::SidebarView(Callbacks callbacks)
   list_->scroll_view()->SetUseContentsPreferredSize(true);
   auto rows = std::make_unique<RowList>();
   rows_ = rows.get();
+  rows_->SetPaintToLayer();
+  rows_->layer()->SetFillsBoundsOpaquely(false);
   auto contents = std::make_unique<ListContents>(rows_);
   contents->AddChildView(std::move(rows));
   contents_ = list_->scroll_view()->SetContents(std::move(contents));
@@ -150,6 +162,8 @@ SidebarView::SidebarView(Callbacks callbacks)
   rows_->AddPreTargetHandler(reorder_.get());
 
   footer_ = AddChildView(std::make_unique<views::View>());
+  footer_->SetPaintToLayer();
+  footer_->layer()->SetFillsBoundsOpaquely(false);
   pill_ = footer_->AddChildView(std::make_unique<UpdatePill>(
       callbacks_.update, callbacks_.dismiss_update));
   pill_->SetVisible(false);

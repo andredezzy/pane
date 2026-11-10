@@ -39,6 +39,7 @@ class AppIconImages;
 class AppIconPicker;
 class EmptyStateView;
 class ModalDialog;
+class PanelFrame;
 class SadTabView;
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
@@ -165,7 +166,6 @@ class RootView : public views::View {
   // views::View:
   gfx::Size GetMinimumSize() const override;
   void Layout(PassKey) override;
-  void OnPaint(gfx::Canvas* canvas) override;
 
  private:
   // The content panel's shape, where the window draws its card.
@@ -185,6 +185,7 @@ class RootView : public views::View {
   bool page_fullscreen_ = false;
   // Where the content panel is, as last laid out.
   gfx::Rect panel_bounds_;
+  raw_ptr<PanelFrame> frame_ = nullptr;
   raw_ptr<SidebarView> sidebar_ = nullptr;
   raw_ptr<ResizeHandle> resize_ = nullptr;
   raw_ptr<ToolbarView> toolbar_ = nullptr;

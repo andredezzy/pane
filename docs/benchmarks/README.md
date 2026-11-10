@@ -7,6 +7,7 @@ Measured comparisons of Pane builds, each with its raw measurements beside it.
 
 - [pgo-vs-0.19.1.json](pgo-vs-0.19.1.json) — the raw medians behind "0.19.2's PGO engine against the published 0.19.1" below.
 - [engine-encryption.md](engine-encryption.md) — what encrypting every profile file costs, against 0.15.2, by the budgets of the plan behind ADR 0121.
+- [views-shell.md](views-shell.md) — the Views build at the end of the shell against 0.19.2, by the budgets the plan sets there: launch, unlock, warm loads, memory at 1 and 10 tabs, scroll, and a painted frame's way to the screen; what the GPU process held for the window, what was cut, and why Pane's views raster on the CPU (ADR 0123). Raw data: [views-shell.json](views-shell.json).
 
 ## 0.19.2's PGO engine against the published 0.19.1
 
@@ -94,6 +95,8 @@ bun tests/run.ts --binary <copy of Pane>/Contents/MacOS/Pane --out <dir> --timeo
 | `benchmark-pages` | Three local fixtures and three real sites: load, first and largest contentful paint, first byte; empty and filled cache | 3 | 2 min |
 | `benchmark-memory` | Every process's physical footprint, summed, and the process count, with 1, 5, and 10 tabs, 30 s idle | 3 | 5 min |
 | `benchmark-stores` | History search, the first request with 3,000 cookies to load, IndexedDB, Local Storage's first read, and the repeat visit after a relaunch (`PANE_STORES_RELAUNCHES`, 5) | 5 | 1 min |
+| `benchmark-scroll` | A steady wheel scroll down a long page: the page's frames presented, in part, or dropped (cc's `PipelineReporter`) | 3 × 3 | 1 min |
+| `benchmark-frame-latency` | The same scroll: each of the page's frames from its compositor's submission to its presentation, and the stages under it | 3 × 3 | 1 min |
 | `interaction-timing` | The app's own signposted intervals, from an input to the frame it commits | 8 rounds | 1 min |
 
 `native-vs-electron.md` can't be rerun from this tree: its bundle, CPU, and suites benchmarks, its report, and the Electron app's half of `tests/lib/benchmark.ts` are gone. Commit `1a8b786` is the last able to rerun it, with its recipe in that commit's copy of this file.

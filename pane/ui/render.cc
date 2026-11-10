@@ -103,6 +103,19 @@ void DrawLayered(SkCanvas* canvas,
   DrawLayeredDescendants(canvas, view, root, scale, opacity);
 }
 
+// Views keeps what each view last recorded and replays it for a view its
+// layer's next paint leaves alone. Recorded here on a pixel canvas, where the
+// window's compositor records in points (pixel canvases are ChromeOS's), it
+// drew the view at twice its size in the window: the sidebar's New, once its
+// footer had a layer of its own. So everything a render painted records
+// again for the screen.
+void RepaintForScreen(views::View* view) {
+  view->SchedulePaint();
+  for (views::View* child : view->children()) {
+    RepaintForScreen(child);
+  }
+}
+
 }  // namespace
 
 std::optional<std::vector<uint8_t>> RenderView(views::View* root, float scale) {
@@ -115,6 +128,7 @@ std::optional<std::vector<uint8_t>> RenderView(views::View* root, float scale) {
   SkCanvas canvas(output);
   DrawLayered(&canvas, root, root, scale,
               root->layer() ? root->layer()->opacity() : 1);
+  RepaintForScreen(root);
   return gfx::PNGCodec::EncodeBGRASkBitmap(output,
                                            /*discard_transparency=*/false);
 }

@@ -87,6 +87,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0120](0120-profile-sheet-cards-and-platform-logos.md) The profile sheet holds its settings in cards, and picks a fingerprint's platform by its real logo
 - [0121](0121-every-profile-file-encrypted-under-its-own-key.md) Every file a profile writes is encrypted under a key only Pane's processes hold
 - [0122](0122-every-pane-updates-straight-to-the-newest.md) Every Pane updates straight to the newest, which carries every upgrade path itself
+- [0123](0123-panes-views-raster-on-the-cpu.md) Pane's views raster on the CPU
 
 ## Merged records
 

@@ -170,7 +170,12 @@ class ModalDialog::Shadow : public views::View {
     flags.setAntiAlias(true);
     flags.setColor(colors->GetColor(kPaneColorCard));
     flags.setLooper(shadow.Detach());
-    canvas->DrawPath(SquirclePath(card, radius::k2xl), flags);
+    // Cast by the card's shape as a layer rounds it, a circle of its radius's
+    // circular equivalent (ADR 0057): blurred 32 points, that is the
+    // squircle's shadow within a 255th, and Skia blurs a rounded rect once,
+    // a corner's worth, where it works a path's blur out again for each tile
+    // the window rasters (ADR 0123).
+    canvas->DrawRoundRect(card, radius::k2xl * kCircularEquivalent, flags);
   }
 };
 

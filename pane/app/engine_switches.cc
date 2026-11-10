@@ -95,6 +95,14 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard
   // still works, and the TabBridge follows the tab into its new WebContents.
   AddToSwitchList(command_line, "enable-features", "DisableTabDiscarding");
+  // Pane's own views raster on the CPU, in the browser, as AppKit drew the
+  // Swift app's and as pane/ui/render.cc paints a render; pages still raster
+  // on the GPU. Rastered on the GPU (Skia Graphite, on Dawn), the window's
+  // views brought the GPU process the pipelines a cold launch compiles before
+  // its first frame, the threads that compile them, and the caches that draw
+  // them: the window's first frame came 32 ms later, and the GPU process held
+  // about 8 MB more at rest (ADR 0123, docs/benchmarks/views-shell.md).
+  AddToSwitchList(command_line, "disable-features", "UiGpuRasterization");
 
   // An explicit --user-data-dir (scenarios use throwaway ones) wins.
   if (!command_line.HasSwitch("user-data-dir")) {

@@ -319,17 +319,23 @@ void TabSwitcherView::PaintPanel(gfx::Canvas* canvas) {
   if (!colors) {
     return;
   }
-  // The panel on its shadow.
+  // The panel on its shadow. The shadow is cast by the panel's shape as a
+  // layer rounds it, a circle of its radius's circular equivalent (ADR 0057):
+  // blurred 10 points, that is the squircle's shadow within a 255th, and Skia
+  // blurs a rounded rect once, a corner's worth, where it works a path's blur
+  // out again for each tile the window rasters (ADR 0123).
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
   flags.setColor(colors->GetColor(kPaneColorPopover));
   cc::DrawLooperBuilder shadow;
-  shadow.AddUnmodifiedContent();
   shadow.AddShadow(
       {kShadowOffset.x(), kShadowOffset.y()}, kShadowSigma,
       SkColor4f::FromColor(colors->GetColor(kPaneColorPopoverShadow)),
       cc::DrawLooper::kOverrideAlphaFlag);
-  flags.setLooper(shadow.Detach());
+  cc::PaintFlags shadow_flags = flags;
+  shadow_flags.setLooper(shadow.Detach());
+  canvas->DrawRoundRect(panel_, radius::kXl * kCircularEquivalent,
+                        shadow_flags);
   canvas->DrawPath(SquirclePath(panel_, radius::kXl), flags);
 
   // The selected row, in its profile's color.
