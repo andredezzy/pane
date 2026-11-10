@@ -1,4 +1,4 @@
-import { launchPane, type PaneApp } from "../lib/pane";
+import { launchPane, type PaneApp, pressWindowKey } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
@@ -8,25 +8,6 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // the app's event queue, so it takes the menu bar's real path, which needs
 // no front. Esc and Return are the window's keys: with the front, posted as
 // ⌘Q is; without it, through Views' own dispatch to what has the keys.
-
-// A key Quit Pane? takes, as the window gets it.
-async function press(
-	context: ScenarioContext,
-	app: PaneApp,
-	key: string,
-): Promise<void> {
-	if (!context.foreground) {
-		await app.send("dispatchKey", { key });
-
-		return;
-	}
-
-	// A key the panel takes needs the key window, as when the user is in
-	// Pane; another app may have taken it during the run.
-	await app.send("activate");
-	await app.waitFor("the key window", (state) => state.window.key, 10_000);
-	await app.send("key", { key });
-}
 
 async function focusedPage(
 	context: ScenarioContext,
@@ -62,7 +43,7 @@ const quit: Scenario = async (context) => {
 
 	await app.render("quit-light.png");
 
-	await press(context, app, "\u001b");
+	await pressWindowKey(context, app, "\u001b");
 
 	await app.waitFor(
 		"Quit Pane? gone, the page focused again",
@@ -71,7 +52,7 @@ const quit: Scenario = async (context) => {
 
 	await app.send("key", { key: "q", modifiers: ["command"] });
 	await app.waitFor("Quit Pane? again", (state) => state.quitConfirmation);
-	await press(context, app, "\r");
+	await pressWindowKey(context, app, "\r");
 	const quitByReturn = await waitForExit(app.browser.pid);
 
 	expect(quitByReturn, "Return did not quit");

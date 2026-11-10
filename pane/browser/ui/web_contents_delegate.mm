@@ -15,17 +15,15 @@
 #include "base/timer/elapsed_timer.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/media_stream_request.h"
-#include "content/public/browser/render_process_host.h"
-#include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/result_codes.h"
 #include "pane/browser/app_callback.h"
 #include "pane/browser/ui/browser_window.h"
 #import "pane/browser/ui/dialogs_internal.h"
-#include "pane/browser/ui/javascript_dialog_manager.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
 #import "pane/public/PaneWebContents.h"
+#include "pane/ui/dialogs/javascript_dialogs.h"
+#include "pane/ui/dialogs/unresponsive_page.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
@@ -117,12 +115,12 @@ content::WebContents* HostedWebContentsDelegate::AddNewContents(
 content::JavaScriptDialogManager*
 HostedWebContentsDelegate::GetJavaScriptDialogManager(
     content::WebContents* source) {
-  return JavaScriptDialogManager::GetInstance();
+  return JavaScriptDialogs::Get();
 }
 
 void HostedWebContentsDelegate::ShowRepostFormWarningDialog(
     content::WebContents* source) {
-  JavaScriptDialogManager::GetInstance()->RunFormResubmissionDialog(source);
+  JavaScriptDialogs::Get()->RunFormResubmissionDialog(source);
 }
 
 bool HostedWebContentsDelegate::HandleContextMenu(
@@ -161,46 +159,14 @@ void HostedWebContentsDelegate::RendererUnresponsive(
     content::WebContents* source,
     content::RenderWidgetHost* render_widget_host,
     base::RepeatingClosure hang_monitor_restarter) {
-  TabBridge* bridge = TabBridge::FromWebContents(source);
-  PaneWebContents* tab = bridge ? bridge->tab() : nil;
-  id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if (![delegate
-          respondsToSelector:@selector(webContents:becameUnresponsive:)]) {
-    // Nobody to ask: keep waiting, as Chrome does until the user decides.
-    return;
-  }
-  if (bridge->unresponsive_page() && !bridge->unresponsive_page().answered) {
-    return;
-  }
-  PaneUnresponsivePage* page = [[PaneUnresponsivePage alloc]
-      initWithTab:tab
-           answer:base::BindOnce(
-                      [](content::ChildProcessId process,
-                         base::RepeatingClosure restart_hang_monitor,
-                         bool terminate) {
-                        if (!terminate) {
-                          restart_hang_monitor.Run();
-                        } else if (content::RenderProcessHost* host =
-                                       content::RenderProcessHost::FromID(
-                                           process)) {
-                          host->Shutdown(content::RESULT_CODE_HUNG);
-                        }
-                      },
-                      render_widget_host->GetProcess()->GetID(),
-                      std::move(hang_monitor_restarter))];
-  bridge->set_unresponsive_page(page);
-  PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.becameUnresponsive");
-  ScopedAppCallback callback;
-  [delegate webContents:tab becameUnresponsive:page];
+  AskAboutUnresponsivePage(source, render_widget_host,
+                           std::move(hang_monitor_restarter));
 }
 
 void HostedWebContentsDelegate::RendererResponsive(
     content::WebContents* source,
     content::RenderWidgetHost* render_widget_host) {
-  if (TabBridge* bridge = TabBridge::FromWebContents(source)) {
-    [bridge->unresponsive_page() withdraw];
-    bridge->set_unresponsive_page(nil);
-  }
+  PageResponsiveAgain(source);
 }
 
 void HostedWebContentsDelegate::RequestMediaAccessPermission(

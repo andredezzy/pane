@@ -26,6 +26,7 @@
 #include "pane/ui/app/commands.h"
 #include "pane/ui/app/menu_bar.h"
 #include "pane/ui/app/sleep_controller.h"
+#include "pane/ui/dialogs/page_dialogs.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/tabs/favicons.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
@@ -66,6 +67,7 @@ struct ProfileDraft;
 class UiApp : public AppData::Client,
               public Window::Controller,
               public SleepController::Delegate,
+              public PageDialogs::Delegate,
               public model::BrowserModel::Observer,
               public Favicons::Observer,
               public Updater::Observer {
@@ -169,6 +171,11 @@ class UiApp : public AppData::Client,
     int selected = 0;
   };
   const std::optional<Switcher>& switcher() const { return switcher_; }
+
+  // PageDialogs::Delegate:
+  RootView* DialogRoot() override;
+  // The selected tab's page, where the user may act.
+  content::WebContents* PageForDialogs() override;
 
   // SleepController::Delegate:
   // The tab's page, when it has one.
@@ -340,6 +347,8 @@ class UiApp : public AppData::Client,
   // window, which shows them, and gone after it.
   std::unique_ptr<AppIconImages> app_icons_;
   std::unique_ptr<Window> window_;
+  // The page's dialogs, one at a time, the selected tab's (ADR 0021).
+  std::unique_ptr<PageDialogs> dialogs_;
   std::unique_ptr<AppEvents> events_;
   std::unique_ptr<Automation> automation_;
   // Each tab's page, by its id.

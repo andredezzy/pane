@@ -15,6 +15,7 @@
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
+#include "pane/ui/dialogs/page_dialog.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/panels/app_icon_picker.h"
 #include "pane/ui/panels/settings_view.h"
@@ -28,6 +29,8 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
+#include "ui/events/event.h"
+#include "ui/events/event_handler.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -133,6 +136,47 @@ class SheetView : public views::View {
 BEGIN_METADATA(SheetView)
 END_METADATA
 
+// Over the page while a page's dialog shows: the page takes no press, as
+// the Swift's clear shape over it took them, nor a scroll.
+class PageShield : public views::View {
+  METADATA_HEADER(PageShield, views::View)
+
+ public:
+  PageShield() { GetViewAccessibility().SetIsIgnored(true); }
+
+  // views::View:
+  bool OnMousePressed(const ui::MouseEvent& event) override { return true; }
+  bool OnMouseWheel(const ui::MouseWheelEvent& event) override { return true; }
+};
+
+BEGIN_METADATA(PageShield)
+END_METADATA
+
+// Esc and Return for a page's dialog, ahead of the focused view (a field of
+// its own, the address, the sidebar's), as the Swift's key monitor took
+// them: on the Mac, Views hands a key to the focused view before the
+// FocusManager's accelerators, and the address takes Esc and Return itself.
+class PageDialogKeys : public ui::EventHandler {
+ public:
+  explicit PageDialogKeys(RootView* root) : root_(root) {}
+
+  // ui::EventHandler:
+  void OnKeyEvent(ui::KeyEvent* event) override {
+    if (root_->PageDialogKey(*event)) {
+      event->SetHandled();
+    }
+  }
+
+ private:
+  const raw_ptr<RootView> root_;
+};
+
+// A page's dialog: its top at three eighths of the window, raised to leave
+// 16 under it, and never closer than 8 to the window's top (the Swift's
+// AlertPlacement).
+constexpr int kPageDialogMargin = 16;
+constexpr int kPageDialogTop = 8;
+
 }  // namespace
 
 RootView::Callbacks::Callbacks() = default;
@@ -185,6 +229,12 @@ RootView::RootView(Callbacks callbacks,
   // makes nothing.
   settings_ = AddChildView(
       std::make_unique<SettingsView>(std::move(callbacks_.settings), *images));
+  // Over the page's place while a page's dialog shows, under the sidebar's
+  // edge.
+  page_shield_ = AddChildView(std::make_unique<PageShield>());
+  page_shield_->SetVisible(false);
+  page_dialog_keys_ = std::make_unique<PageDialogKeys>(this);
+  AddPreTargetHandler(page_dialog_keys_.get());
   resize_ = AddChildView(
       std::make_unique<ResizeHandle>(std::move(callbacks_.resize)));
   // Over the rest, under the profile sheet; made now, so the first frame
@@ -204,7 +254,9 @@ RootView::RootView(Callbacks callbacks,
   ShowPlaces();
 }
 
-RootView::~RootView() = default;
+RootView::~RootView() {
+  RemovePreTargetHandler(page_dialog_keys_.get());
+}
 
 void RootView::SetSidebar(const SidebarContent& content) {
   sidebar_->SetContent(content);
@@ -425,6 +477,131 @@ bool RootView::TakesEveryKey() const {
   return quit_dialog_->takes_every_key();
 }
 
+void RootView::ShowPageDialog(std::unique_ptr<PageDialog> dialog) {
+  HidePageDialog();
+  PageDialog* content = dialog.get();
+  // Under the switcher, and what shows over the whole window after it.
+  page_dialog_ =
+      AddChildViewAt(std::make_unique<DialogCard>(PageDialog::AlertCardLook(),
+                                                  std::move(dialog)),
+                     GetIndexOf(switcher_).value());
+  page_shield_->SetVisible(true);
+  PlacePageDialogs();
+  page_dialog_->Settle(false);
+  page_dialog_entering_ = true;
+  page_dialog_->Move(true,
+                     base::BindOnce(
+                         [](base::WeakPtr<RootView> root, DialogCard* card) {
+                           if (root && root->page_dialog_ == card) {
+                             root->page_dialog_entering_ = false;
+                           }
+                         },
+                         weak_factory_.GetWeakPtr(), page_dialog_.get()));
+  // What had the keys gets them back once the dialogs are answered.
+  if (!focus_before_page_dialog_.view()) {
+    views::FocusManager* focus = GetFocusManager();
+    views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+    if (focused && !Contains(focused)) {
+      focused = nullptr;
+    }
+    focus_before_page_dialog_.SetView(focused);
+  }
+  content->TakeFocus();
+}
+
+void RootView::HidePageDialog() {
+  if (!page_dialog_) {
+    return;
+  }
+  DialogCard* card = std::exchange(page_dialog_, nullptr);
+  page_dialog_entering_ = false;
+  static_cast<PageDialog*>(card->content())->Retire();
+  card->SetCanProcessEventsWithinSubtree(false);
+  page_dialogs_leaving_.push_back(card);
+  page_shield_->SetVisible(false);
+  // It fades as it shrinks, then leaves the window.
+  card->Move(false, base::BindOnce(&RootView::PageDialogLeft,
+                                   weak_factory_.GetWeakPtr(), card));
+  // The keys go back to what had them, or to the page.
+  views::FocusManager* focus = GetFocusManager();
+  const views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+  if (!focused || card->Contains(focused)) {
+    views::View* before = focus_before_page_dialog_.view();
+    if (before && before->IsDrawn() && before->IsFocusable()) {
+      before->RequestFocus();
+    } else {
+      FocusPage();
+    }
+  }
+  focus_before_page_dialog_.SetView(nullptr);
+}
+
+PageDialog* RootView::page_dialog() {
+  return page_dialog_ ? static_cast<PageDialog*>(page_dialog_->content())
+                      : nullptr;
+}
+
+bool RootView::PageDialogKey(const ui::KeyEvent& event) {
+  PageDialog* dialog = page_dialog();
+  const ui::KeyboardCode code = event.key_code();
+  if (!dialog || event.type() != ui::EventType::kKeyPressed ||
+      (code != ui::VKEY_ESCAPE && code != ui::VKEY_RETURN) ||
+      (event.flags() &
+       (ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN | ui::EF_COMMAND_DOWN))) {
+    return false;
+  }
+  // What shows over this one has its keys first: the switcher, and a dialog
+  // over the whole window.
+  if (switcher_->GetVisible() || quit_dialog_->showing() ||
+      (app_icon_dialog_ && app_icon_dialog_->showing())) {
+    return false;
+  }
+  dialog->PressKey(code == ui::VKEY_ESCAPE);
+  return true;
+}
+
+void RootView::PlacePageDialogs() {
+  const int line = std::round(height() * 3 / 8.0);
+  std::vector<DialogCard*> cards(page_dialogs_leaving_.begin(),
+                                 page_dialogs_leaving_.end());
+  if (page_dialog_) {
+    cards.push_back(page_dialog_);
+  }
+  for (DialogCard* card : cards) {
+    auto* dialog = static_cast<PageDialog*>(card->content());
+    dialog->SetMostHeight(height() - line - kPageDialogMargin -
+                          PageDialog::AlertCardLook().padding.height());
+    const gfx::SizeF size = card->SizeFor(PageDialog::kWidth);
+    const float top = std::max<float>(
+        kPageDialogTop,
+        std::min<float>(line, height() - size.height() - kPageDialogMargin));
+    const bool moved = card->Place(gfx::RectF((width() - size.width()) / 2, top,
+                                              size.width(), size.height()));
+    // The window changed under the one showing: there at once, or on to
+    // the new place if it is on its way in.
+    if (moved && card == page_dialog_) {
+      if (page_dialog_entering_) {
+        card->Move(true,
+                   base::BindOnce(
+                       [](base::WeakPtr<RootView> root, DialogCard* card) {
+                         if (root && root->page_dialog_ == card) {
+                           root->page_dialog_entering_ = false;
+                         }
+                       },
+                       weak_factory_.GetWeakPtr(), card));
+      } else {
+        card->Settle(true);
+      }
+    }
+  }
+}
+
+void RootView::PageDialogLeft(DialogCard* card) {
+  if (std::erase(page_dialogs_leaving_, card)) {
+    std::unique_ptr<DialogCard> gone = RemoveChildViewT(card);
+  }
+}
+
 void RootView::ShowSheet(bool show) {
   if (show == sheet_visible()) {
     return;
@@ -526,7 +703,9 @@ void RootView::Layout(PassKey) {
   settings_->SetBoundsRect(panel_bounds_);
   // Where the page is, under the toolbar.
   sad_tab_->SetBoundsRect(page_->bounds());
+  page_shield_->SetBoundsRect(page_->bounds());
   switcher_->SetBoundsRect(GetLocalBounds());
+  PlacePageDialogs();
 
   if (sheet_) {
     sheet_->SetBoundsRect(GetLocalBounds());

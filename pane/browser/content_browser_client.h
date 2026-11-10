@@ -42,6 +42,10 @@ class ContentBrowserClient : public ChromeContentBrowserClient {
       content::BrowserContext* browser_context) override;
   blink::UserAgentMetadata GetUserAgentMetadataForBrowserContext(
       content::BrowserContext* browser_context) override;
+
+ protected:
+  // HTTP and proxy sign-in in Pane's window (pane/ui/dialogs/sign_in.h).
+  std::unique_ptr<HttpAuthCoordinator> CreateHttpAuthCoordinator() override;
 };
 
 }  // namespace pane

@@ -18,6 +18,7 @@
 #include "pane/ui/design/palette.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
+#include "pane/ui/view_ids.h"
 #include "pane/ui/window/frame.h"
 #include "ui/base/accelerators/accelerator_manager.h"
 #include "ui/base/hit_test.h"
@@ -71,6 +72,7 @@ Window::Window(Controller* controller, bool keeps_frame)
     : controller_(controller), keeps_frame_(keeps_frame) {}
 
 Window::~Window() {
+  page_observation_.Reset();
   // A widget still there, not yet going: the host closes it.
   if (views::Widget* widget = root_ ? this->widget() : nullptr) {
     widget->RemoveObserver(this);
@@ -192,6 +194,7 @@ void Window::Open() {
   }
   switcher_keys_ = std::make_unique<SwitcherKeys>(this);
   widget->GetRootView()->AddPreTargetHandler(switcher_keys_.get());
+  page_observation_.Observe(root_->GetViewByID(kViewIdContent));
   UpdateTitle();
 }
 
@@ -407,7 +410,14 @@ void Window::WindowWillClose() {
   ClearPage();
 }
 
+void Window::OnViewBoundsChanged(views::View* observed_view) {
+  if (host_) {
+    host_->ScheduleDialogPositionUpdate();
+  }
+}
+
 void Window::OnWidgetDestroying(views::Widget* widget) {
+  page_observation_.Reset();
   widget->RemoveObserver(this);
   if (views::FocusManager* focus = widget->GetFocusManager()) {
     focus->UnregisterAccelerators(this);

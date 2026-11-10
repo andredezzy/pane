@@ -26,6 +26,10 @@ const hungRenderer: Scenario = async (context) => {
 		(state) => tabOf(state, tab)?.title === "Hanging",
 	);
 
+	// The page loops 50 ms after renaming itself, which nothing outside it
+	// can see: a key sooner is answered before the loop, and nothing hangs.
+	await Bun.sleep(250);
+
 	await app.send("typeInPage", { key: "a" });
 
 	const sheet = await waitForSheet(app, "unresponsive", 60_000);

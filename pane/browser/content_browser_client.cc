@@ -16,6 +16,7 @@
 #include "pane/browser/fingerprints.h"
 #include "pane/common/host.h"
 #include "pane/encryption/handover.h"
+#include "pane/ui/dialogs/sign_in.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 
@@ -126,6 +127,11 @@ ContentBrowserClient::GetUserAgentMetadataForBrowserContext(
   const Fingerprint* fingerprint = Fingerprints::Get().For(browser_context);
   return fingerprint ? fingerprint->user_agent_metadata
                      : GetUserAgentMetadata();
+}
+
+std::unique_ptr<HttpAuthCoordinator>
+ContentBrowserClient::CreateHttpAuthCoordinator() {
+  return std::make_unique<SignInCoordinator>();
 }
 
 }  // namespace pane

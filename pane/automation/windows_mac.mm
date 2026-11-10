@@ -24,6 +24,11 @@ base::ListValue NativeWindows(views::Widget* main) {
       role = "main";
     } else if (pane && window == pane.attachedSheet) {
       role = "sheet";
+    } else if ([type isEqualToString:@"NSAccessoryViewWindow"]) {
+      // The open or save panel's own accessory (Chrome's Format menu), which
+      // macOS hosts in a window of its own beside the panel run out of
+      // process, a moment longer than the panel as it goes.
+      role = "sheet";
     } else if (window == NSApp.modalWindow) {
       role = "modal";
     } else if ([window.identifier isEqualToString:@"pane.devtools"]) {
@@ -100,20 +105,38 @@ base::Value SheetAlert(views::Widget* main) {
 }
 
 bool PressSheetButton(views::Widget* main, std::string_view title) {
-  NSWindow* sheet = AttachedSheet(main);
-  if (!sheet) {
-    return false;
-  }
-  NSMutableArray<NSString*>* texts = [NSMutableArray array];
-  NSMutableArray<NSButton*>* buttons = [NSMutableArray array];
-  Collect(sheet.contentView, texts, buttons);
-  for (NSButton* button in buttons) {
-    if (base::SysNSStringToUTF8(button.title) == title) {
-      [button performClick:nil];
-      return true;
+  for (NSWindow* window : {AttachedSheet(main), NSApp.modalWindow}) {
+    if (!window) {
+      continue;
+    }
+    NSMutableArray<NSString*>* texts = [NSMutableArray array];
+    NSMutableArray<NSButton*>* buttons = [NSMutableArray array];
+    Collect(window.contentView, texts, buttons);
+    for (NSButton* button in buttons) {
+      if (base::SysNSStringToUTF8(button.title) == title) {
+        [button performClick:nil];
+        return true;
+      }
     }
   }
   return false;
+}
+
+base::Value ModalPanel() {
+  NSWindow* modal = NSApp.modalWindow;
+  if (!modal) {
+    return base::Value();
+  }
+  NSMutableArray<NSString*>* texts = [NSMutableArray array];
+  NSMutableArray<NSButton*>* buttons = [NSMutableArray array];
+  Collect(modal.contentView, texts, buttons);
+  base::ListValue titles;
+  for (NSButton* button in buttons) {
+    titles.Append(base::SysNSStringToUTF8(button.title));
+  }
+  return base::Value(base::DictValue()
+                         .Set("title", base::SysNSStringToUTF8(modal.title))
+                         .Set("buttons", std::move(titles)));
 }
 
 }  // namespace pane

@@ -38,7 +38,6 @@
 #include "pane/browser/ui/browser_window.h"
 #include "pane/browser/ui/devtools_window_host.h"
 #include "pane/browser/ui/hooks.h"
-#include "pane/browser/ui/modal_dialog_host.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/web_contents_delegate.h"
 #import "pane/public/PaneBrowserWindow.h"
@@ -214,9 +213,6 @@ WindowHost::~WindowHost() {
   std::erase(Hosts(), this);
   for (auto& observer : modal_observers_) {
     observer.OnHostDestroying();
-  }
-  for ([[maybe_unused]] auto& observer : modal_observers_) {
-    DialogHostObserverRemoved();
   }
   for (auto& [profile, browser] : browsers_) {
     browser->GetTabStripModel()->RemoveObserver(this);
@@ -648,61 +644,45 @@ void WindowHost::FullscreenChanged(content::WebContents* contents,
   }
 }
 
-// MARK: web_modal::WebContentsModalDialogHost (window-modal dialogs)
+// MARK: web_modal::WebContentsModalDialogHost (tab-modal dialogs)
 
+// Chrome's own tab-modal dialogs show over the window's content area, where
+// the page is: centered on it, at its top, inside the window.
 gfx::NativeView WindowHost::GetHostView() const {
-  if (delegate_) {
-    return widget_ ? widget_->GetNativeView() : gfx::NativeView();
-  }
-  return gfx::NativeView(host_view());
+  return widget_ ? widget_->GetNativeView() : gfx::NativeView();
 }
 
 gfx::Point WindowHost::GetDialogPosition(const gfx::Size& size) {
-  if (delegate_) {
-    // Centered on the page, at its top, inside the window.
-    const gfx::Rect page = delegate_->PageBounds();
-    const int width = widget_ ? widget_->GetRootView()->width() : page.right();
-    const int x = std::clamp(page.x() + (page.width() - size.width()) / 2, 0,
-                             std::max(width - size.width(), 0));
-    return gfx::Point(x, page.y());
-  }
-  Browser* browser =
-      active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr;
-  content::WebContents* contents =
-      browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
-  return DialogPositionInHostView(
-      host_view(), PageRectInHostView(host_view(), contents), size);
+  const gfx::Rect page = ContentArea();
+  const int width = widget_ ? widget_->GetRootView()->width() : page.right();
+  const int x = std::clamp(page.x() + (page.width() - size.width()) / 2, 0,
+                           std::max(width - size.width(), 0));
+  return gfx::Point(x, page.y());
 }
 
 bool WindowHost::ShouldActivateDialog() const {
-  return WindowIsForeground(ns_window());
+  return widget_ && widget_->IsActive();
 }
 
 gfx::Size WindowHost::GetMaximumDialogSize() {
+  return ContentArea().size();
+}
+
+gfx::Rect WindowHost::ContentArea() const {
   if (delegate_) {
-    return delegate_->PageBounds().size();
+    return delegate_->PageBounds();
   }
-  Browser* browser =
-      active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr;
-  content::WebContents* contents =
-      browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
-  return PageRectInHostView(host_view(), contents).size();
+  return widget_ ? widget_->GetRootView()->GetLocalBounds() : gfx::Rect();
 }
 
 void WindowHost::AddObserver(web_modal::ModalDialogHostObserver* observer) {
-  if (modal_observers_.HasObserver(observer)) {
-    return;
+  if (!modal_observers_.HasObserver(observer)) {
+    modal_observers_.AddObserver(observer);
   }
-  modal_observers_.AddObserver(observer);
-  DialogHostObserverAdded();
 }
 
 void WindowHost::RemoveObserver(web_modal::ModalDialogHostObserver* observer) {
-  if (!modal_observers_.HasObserver(observer)) {
-    return;
-  }
   modal_observers_.RemoveObserver(observer);
-  DialogHostObserverRemoved();
 }
 
 void WindowHost::NotifyPositionRequiresUpdate() {

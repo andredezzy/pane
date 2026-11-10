@@ -9,6 +9,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "pane/browser/ui/window_host.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/pin_entry.h"
@@ -16,6 +17,7 @@
 #include "pane/ui/window/root_view.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
+#include "ui/views/view_observer.h"
 #include "ui/views/widget/widget_observer.h"
 
 namespace content {
@@ -43,6 +45,7 @@ class AppIconImages;
 // a new widget, shown as the app has it.
 class Window : public WindowHost::Delegate,
                public ui::AcceleratorTarget,
+               public views::ViewObserver,
                public views::WidgetObserver {
  public:
   // The app, which knows the profiles and their tabs, and runs the command
@@ -221,6 +224,11 @@ class Window : public WindowHost::Delegate,
   views::NativeWidget* CreateNativeWidget(views::Widget* widget) override;
   int NonClientHitTest(const gfx::Point& point) override;
 
+  // views::ViewObserver: the page moved, or changed size, as the sidebar's
+  // edge moves or the toolbar comes and goes; Chrome's own tab-modal
+  // dialogs over it follow.
+  void OnViewBoundsChanged(views::View* observed_view) override;
+
   // views::WidgetObserver:
   void OnWidgetShowStateChanged(views::Widget* widget) override;
   void OnWidgetDestroying(views::Widget* widget) override;
@@ -255,6 +263,8 @@ class Window : public WindowHost::Delegate,
   const bool keeps_frame_;
   raw_ptr<RootView> root_ = nullptr;
   std::unique_ptr<WindowHost> host_;
+  base::ScopedObservation<views::View, views::ViewObserver> page_observation_{
+      this};
   // The window is in full screen for the page, not the user.
   bool full_screen_for_page_ = false;
   // A title is owed once the frame under way is out.

@@ -1,9 +1,9 @@
-// Chrome's dialogs and menus, shown by the app. A sheet is answered by clicking
-// its real button: with cua-driver on an unlocked screen, else through the
-// automation channel, which presses the same NSButton (performClick).
+// What Chrome asks for, shown by the app (ADR 0021). A page's dialog is
+// answered by a real click on its button, through the automation channel,
+// in the background too, its fields filled first as a value set through
+// accessibility is; the system's panels by their own buttons.
 
 import { expect } from "../run";
-import { canDriveUI, clickButton, fillFields, mainWindowOf } from "./cua";
 import type { AppState, PaneApp } from "./pane";
 import { poll } from "./poll";
 
@@ -26,25 +26,12 @@ export async function answerSheet(
 	button: string,
 	texts: string[] = [],
 ): Promise<void> {
-	if (await canDriveUI()) {
-		const windowId = await mainWindowOf(app.browser.pid);
-
-		if (texts.length > 0) {
-			await fillFields(app.browser.pid, windowId, texts);
-		}
-
-		await clickButton(app.browser.pid, windowId, button);
-	} else {
-		await app.send("clickSheetButton", { title: button, texts });
-	}
+	await app.send("clickSheetButton", { title: button, texts });
 }
 
+// The system's print panel, app-modal, by its own button (performClick).
 export async function answerModal(app: PaneApp, button: string): Promise<void> {
-	if (await canDriveUI()) {
-		await clickButton(app.browser.pid, "any", button);
-	} else {
-		await app.send("clickModalButton", { title: button });
-	}
+	await app.send("clickModalButton", { title: button });
 }
 
 type NativeWindow = AppState["nativeWindows"][number];

@@ -36,6 +36,12 @@ void PostMove(views::Widget* widget, int x, int y);
 // the content up, as a swipe up does.
 void PostScroll(views::Widget* widget, int x, int y, double dy);
 
+// A key typed into what has the window's keyboard, sent to the window
+// itself as its key down and up, in the background too, where `PostKey`'s
+// queue needs the front: the page, focused first, takes it as the user's
+// (input a hung page leaves unanswered). False when the key has no code.
+bool SendKeyToWindow(views::Widget* widget, const std::string& key);
+
 // The modifiers going down, or up with none, with no key yet.
 void PostModifiers(views::Widget* widget,
                    const std::vector<std::string>& modifiers);

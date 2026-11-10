@@ -283,66 +283,11 @@ export function clickButton(
 	return clickControl(pid, window, { title, id });
 }
 
-// Types into the window's text fields, in order.
-export async function fillFields(
-	pid: number,
-	windowId: number,
-	texts: string[],
-): Promise<void> {
-	const { state, value: fields } = await readUntil(
-		pid,
-		windowId,
-		{ max_elements: 120 },
-		(tree) => {
-			const indices = tree
-				.split("\n")
-				.filter(
-					(line) =>
-						/AX(Secure)?TextField/.test(line) && !/pane\.address/.test(line),
-				)
-				.flatMap((line) => line.match(/\[(\d+)\]/)?.[1] ?? []);
-
-			return indices.length >= texts.length ? indices : undefined;
-		},
-		`${texts.length} text fields`,
-	);
-
-	for (const [position, text] of texts.entries()) {
-		await call("set_value", {
-			pid,
-			window_id: windowId,
-			element_token: `${state.snapshot_id}:${fields[position]}`,
-			value: text,
-		});
-	}
-}
-
 // Turns on the app's full accessibility, as VoiceOver does, then waits a
 // moment for Chrome to build its pages' trees.
 export async function activateWebAccessibility(pid: number): Promise<void> {
 	await Bun.$`${await swiftTool("ax-activate")} ${pid}`.quiet();
 	await Bun.sleep(1_000);
-}
-
-// The widths of a page's dialog's text fields. The dialog is modal to
-// accessibility, so the window shows only its controls while it is up.
-export async function dialogFieldWidths(
-	pid: number,
-	windowId: number,
-): Promise<number[]> {
-	type Element = { role: string; frame?: { w: number } };
-
-	const { elements } = await call<{ elements: Element[] }>("get_window_state", {
-		pid,
-		window_id: windowId,
-		tree_format: "elements",
-		max_elements: 500,
-		include_screenshot: false,
-	});
-
-	return elements
-		.filter((element) => /AX(Secure)?TextField/.test(element.role))
-		.map((element) => element.frame?.w ?? 0);
 }
 
 // A pressable control, by its label and role: its value, and its frame in

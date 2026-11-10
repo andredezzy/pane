@@ -3,6 +3,7 @@
 #ifndef PANE_UI_WINDOW_ROOT_VIEW_H_
 #define PANE_UI_WINDOW_ROOT_VIEW_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,11 @@ namespace content {
 class WebContents;
 }  // namespace content
 
+namespace ui {
+class EventHandler;
+class KeyEvent;
+}  // namespace ui
+
 namespace views {
 class WebView;
 }  // namespace views
@@ -37,8 +43,10 @@ class ToolbarProgress;
 
 class AppIconImages;
 class AppIconPicker;
+class DialogCard;
 class EmptyStateView;
 class ModalDialog;
+class PageDialog;
 class PanelFrame;
 class SadTabView;
 
@@ -143,6 +151,22 @@ class RootView : public views::View {
   // An overlay takes every key, the window's commands' included but the menu
   // bar's Quit: Quit Pane? (and the PIN screen, L1's).
   bool TakesEveryKey() const;
+  // A page's dialog over the window (PageDialogs, ADR 0021), under the tab
+  // switcher and what shows over the whole window, on the alert's card: in
+  // the window's middle, its top at three eighths of the window's height,
+  // raised to fit, as the Swift's AlertPlacement put it. It fades in as it
+  // grows from 0.97 (Motion.panel) and takes the keys; the page under it
+  // takes no press, as the sidebar and the toolbar still do, as with
+  // Chrome's tab-modal dialogs. Gone, it answers no more and fades as it
+  // shrinks, and the keys go back to what had them, else to the page.
+  void ShowPageDialog(std::unique_ptr<PageDialog> dialog);
+  void HidePageDialog();
+  // The one showing, not one on its way out.
+  PageDialog* page_dialog();
+  // Esc or Return, ahead of what has the window's keys: the page's dialog
+  // showing takes it, unless a dialog over the whole window shows over it.
+  // Whether it took it.
+  bool PageDialogKey(const ui::KeyEvent& event);
   // The prototype's sheet over the page (G4): a scrim and a card with a
   // field, keys into it and not the page, Esc and Done closing it.
   void ShowSheet(bool show);
@@ -179,6 +203,10 @@ class RootView : public views::View {
   // of its first showing, and kept.
   void ShowAppIconPicker(bool show);
   void PrepareAppIconPicker();
+  // Places the page's dialogs, the one showing and those on their way out.
+  void PlacePageDialogs();
+  // One gone: its card leaves the window.
+  void PageDialogLeft(DialogCard* card);
 
   Callbacks callbacks_;
   Shows shows_;
@@ -202,6 +230,16 @@ class RootView : public views::View {
   // Quit Pane?'s dialog, and what had the keys before it showed.
   raw_ptr<ModalDialog> quit_dialog_ = nullptr;
   views::ViewTracker focus_before_quit_;
+  // A page's dialog showing, whether it is on its way in, those on their
+  // way out, what took presses meant for the page under it, and what had
+  // the keys before the first showed.
+  raw_ptr<DialogCard> page_dialog_ = nullptr;
+  bool page_dialog_entering_ = false;
+  std::vector<raw_ptr<DialogCard>> page_dialogs_leaving_;
+  raw_ptr<views::View> page_shield_ = nullptr;
+  views::ViewTracker focus_before_page_dialog_;
+  // Hands a page's dialog its Esc and Return ahead of the focused view.
+  std::unique_ptr<ui::EventHandler> page_dialog_keys_;
   base::WeakPtrFactory<RootView> weak_factory_{this};
 };
 

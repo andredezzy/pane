@@ -82,8 +82,8 @@ NS_SWIFT_UI_ACTOR
 // The profile's proxy, as Chrome's fixed proxy rules: "http://host:port",
 // "https://…", "socks4://…", "socks5://…" (Chrome's "proxy" pref, fixed
 // servers). nil uses the system's settings. Loopback is never proxied.
-// A proxy asking for credentials reaches the tab's delegate
-// (webContents:authenticate: with a proxy challenge).
+// A proxy asking for credentials asks in the window's sign-in dialog
+// (pane/ui/dialogs/sign_in.h).
 @property(nullable, copy) NSString* proxyRules;
 
 // How WebRTC may use the network (Chrome's webrtc.ip_handling_policy):

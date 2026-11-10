@@ -92,6 +92,13 @@ enum ViewId : int {
   kViewIdQuit,
   kViewIdQuitConfirm,
   kViewIdQuitCancel,
+  // A page's dialog over the window (ADR 0021), as the Swift named its
+  // surface, and its fields and buttons, which the channel names by their
+  // places ("pane.dialog.field.0", "pane.dialog.button.1": the default
+  // button is the first).
+  kViewIdDialog,
+  kViewIdDialogField,
+  kViewIdDialogButton,
 
   kViewIdsEnd,
 };

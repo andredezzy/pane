@@ -129,6 +129,17 @@ ControlLook ButtonLook(ButtonVariant variant, float radius) {
       look.tint = kPaneColorForeground;
       look.lit_tint = kPaneColorAccentForeground;
       break;
+    case ButtonVariant::kAlert:
+    case ButtonVariant::kAlertDefault: {
+      const bool default_button = variant == ButtonVariant::kAlertDefault;
+      look.shape = ControlShape::Capsule();
+      look.fill =
+          default_button ? kPaneColorAlertDefaultButton : kPaneColorAlertButton;
+      look.press = kPaneColorAlertPress;
+      look.tint =
+          default_button ? kPaneColorAlertDefaultText : kPaneColorAlertText;
+      break;
+    }
   }
   return look;
 }

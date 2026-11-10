@@ -130,6 +130,8 @@ void AddPaneColors(ui::ColorProvider* provider,
   set(kPaneColorAlertButton, Rgb(0xDADADA), Rgb(0x48484A));
   set(kPaneColorAlertDefaultButton, Rgb(0x3478F6), Rgb(0x0A84FF));
   set(kPaneColorAlertShadow, Black(0.25), Black(0.25));
+  set(kPaneColorAlertDefaultText, White(1), White(1));
+  set(kPaneColorAlertPress, Black(0.12), Black(0.12));
 }
 
 void AddPaneColorMixer() {

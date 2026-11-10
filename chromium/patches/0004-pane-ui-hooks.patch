@@ -60,39 +60,3 @@ index b0d95981d6..dc4cbbc6eb 100644
    // Windowing system takes ownership.
    new ExternalProtocolDialog(web_contents, url, program_name, initiating_origin,
                               std::move(initiator_document));
-diff --git a/chrome/browser/ui/views/login_handler_views.cc b/chrome/browser/ui/views/login_handler_views.cc
-index f3becfac76..3ea069b5a8 100644
---- a/chrome/browser/ui/views/login_handler_views.cc
-+++ b/chrome/browser/ui/views/login_handler_views.cc
-@@ -21,6 +21,7 @@
- #include "ui/base/mojom/ui_base_types.mojom-shared.h"
- #include "ui/views/widget/widget.h"
- #include "ui/views/window/dialog_delegate.h"
-+#include "pane/browser/ui/ui_hooks.h"  // nogncheck
- 
- class LoginHandlerViewsDialog;
- 
-@@ -227,10 +228,23 @@ LoginHandlerViewsDialog::~LoginHandlerViewsDialog() {
- }
- 
- // static
-+// Pane: see pane/browser/ui/ui_hooks.h.
-+std::unique_ptr<LoginHandler> (*g_pane_create_login_handler)(
-+    const net::AuthChallengeInfo& auth_info,
-+    content::WebContents* web_contents,
-+    content::LoginDelegate::LoginAuthRequiredCallback& callback) = nullptr;
-+
- std::unique_ptr<LoginHandler> LoginHandler::Create(
-     const net::AuthChallengeInfo& auth_info,
-     content::WebContents* web_contents,
-     content::LoginDelegate::LoginAuthRequiredCallback auth_required_callback) {
-+  // Pane: one of its tabs asks the app for credentials.
-+  if (g_pane_create_login_handler) {
-+    if (auto handler = g_pane_create_login_handler(auth_info, web_contents,
-+                                                   auth_required_callback)) {
-+      return handler;
-+    }
-+  }
-   return std::make_unique<LoginHandlerViews>(auth_info, web_contents,
-                                              std::move(auth_required_callback));
- }

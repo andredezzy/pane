@@ -136,6 +136,10 @@ enum PaneColorIds : ui::ColorId {
   kPaneColorAlertButton,
   kPaneColorAlertDefaultButton,
   kPaneColorAlertShadow,
+  // The default button's title, white in both, and a button's press, black
+  // at 12% over its fill (the Swift's DialogButtonStyle).
+  kPaneColorAlertDefaultText,
+  kPaneColorAlertPress,
 
   kPaneColorsEnd,
 };

@@ -71,6 +71,12 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kOpenQuitDialog:
       os_signpost_interval_begin(log, id, "Open quit dialog");
       break;
+    case Interaction::kShowPageDialog:
+      os_signpost_interval_begin(log, id, "Page dialog");
+      break;
+    case Interaction::kShowPermissionPrompt:
+      os_signpost_interval_begin(log, id, "Permission prompt");
+      break;
   }
   return id;
 }
@@ -155,6 +161,16 @@ void EndInteractionInterval(Interaction interaction,
       break;
     case Interaction::kOpenQuitDialog:
       os_signpost_interval_end(log, interval, "Open quit dialog",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kShowPageDialog:
+      os_signpost_interval_end(log, interval, "Page dialog",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kShowPermissionPrompt:
+      os_signpost_interval_end(log, interval, "Permission prompt",
                                PANE_INTERVAL_END_FORMAT, late_us, committed_us,
                                presented_us);
       break;

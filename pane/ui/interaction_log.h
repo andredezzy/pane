@@ -18,7 +18,9 @@ namespace pane {
 // tab switcher's first frame, a tab without a page woken to its page's first
 // paint, Settings shown, a Theme chosen, a menu's trigger pressed (its
 // frame, up to the system's menu, which draws in a window of its own), the
-// App icon picker opened and a sky chosen in it, and Quit Pane? asked by ⌘Q.
+// App icon picker opened and a sky chosen in it, Quit Pane? asked by ⌘Q,
+// and a page's dialog and a permission prompt shown as the page asks, from
+// Chrome's hook (ADR 0021).
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -34,6 +36,8 @@ enum class Interaction {
   kOpenAppIconPicker,
   kChooseAppIcon,
   kOpenQuitDialog,
+  kShowPageDialog,
+  kShowPermissionPrompt,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame

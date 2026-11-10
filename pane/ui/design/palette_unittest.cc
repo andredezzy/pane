@@ -153,6 +153,9 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
       {"Alert.defaultButton", kPaneColorAlertDefaultButton, Swift(0x3478F6),
        Swift(0x0A84FF)},
       {"Alert.shadow", kPaneColorAlertShadow, Black(0.25), Black(0.25)},
+      // DialogButtonStyle's: the default's title, and a press over a fill.
+      {"Alert.defaultText", kPaneColorAlertDefaultText, White(1), White(1)},
+      {"Alert.press", kPaneColorAlertPress, Black(0.12), Black(0.12)},
   };
   // Every id of Pane's is checked.
   EXPECT_EQ(std::size(pairs),

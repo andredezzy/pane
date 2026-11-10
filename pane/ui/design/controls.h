@@ -95,17 +95,21 @@ struct ControlLook {
   float disabled_opacity = 0.5f;
 };
 
-// packages/ui's Button variants, as the Swift drew them.
+// packages/ui's Button variants, as the Swift drew them; and a page's
+// dialog's, as macOS draws an alert's (DialogButtonStyle): capsules, gray, or
+// blue for the default, a press darkening them at once, and no hover.
 enum class ButtonVariant {
   kPrimary,
   kDestructive,
   kOutline,
   kSecondary,
   kGhost,
+  kAlert,
+  kAlertDefault,
 };
 
 // A button of the variant (PaneButtonStyle), rounded at `radius`: 11, the
-// scale's md, unless a popup's or a dialog's 15.
+// scale's md, unless a popup's or a dialog's 15; an alert's is a capsule.
 ControlLook ButtonLook(ButtonVariant variant, float radius = radius::kMd);
 // An icon button (IconButtonStyle): the icon muted, darkening as the accent
 // fades in under it.

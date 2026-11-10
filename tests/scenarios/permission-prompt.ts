@@ -1,4 +1,4 @@
-import { launchPane } from "../lib/pane";
+import { launchPane, pressWindowKey } from "../lib/pane";
 import {
 	answerSheet,
 	pageResult,
@@ -7,7 +7,7 @@ import {
 } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
 
-// A site's permission request shows as the app's sheet; the answer reaches
+// A site's permission request shows in the app's window; the answer reaches
 // the page. Each of its answers: Don't Allow (notifications), Allow (window
 // management), and Allow This Time (idle detection), which grants the
 // request without keeping the permission, as Allow keeps it for the site's
@@ -59,8 +59,7 @@ const permissionPrompt: Scenario = async (context) => {
 	await page.gesture("askFonts()");
 
 	await waitForSheet(app, "permission");
-	await app.send("activate");
-	await app.send("key", { key: "\u001b" });
+	await pressWindowKey(context, app, "\u001b");
 	const dismissed = await pageResult<string>(evaluate);
 
 	const fontsAfterEscape = await page.evaluate<string>(

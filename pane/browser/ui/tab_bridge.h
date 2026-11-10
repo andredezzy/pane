@@ -21,9 +21,6 @@
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 
-@class NSHashTable;
-@class PaneExternalProtocolRequest;
-@class PaneUnresponsivePage;
 @class PaneWebContents;
 
 namespace pane {
@@ -68,16 +65,6 @@ class TabBridge : public content::WebContentsObserver,
 
   // Chrome's tab id: stable for the tab's life, and the id extensions see.
   int tab_id() const;
-
-  // The unresponsive-page request the app holds, if any.
-  PaneUnresponsivePage* unresponsive_page() const { return unresponsive_page_; }
-  void set_unresponsive_page(PaneUnresponsivePage* page) {
-    unresponsive_page_ = page;
-  }
-
-  // A request the app holds that nothing in Chrome takes back when the tab
-  // goes: withdrawn then, if still unanswered.
-  void WithdrawWhenClosed(PaneExternalProtocolRequest* request);
 
   // DevTools docked to this tab, and where the page sits over them, as last
   // told to the app.
@@ -139,13 +126,10 @@ class TabBridge : public content::WebContentsObserver,
   PaneWebContents* __strong tab_;
   PaneWebContents* __weak devtools_;
   gfx::Rect devtools_page_bounds_;
-  PaneUnresponsivePage* __strong unresponsive_page_;
-  NSHashTable* __strong pending_requests_;
   std::optional<WindowOpenDisposition> open_disposition_;
   base::WeakPtr<content::WebContents> open_source_;
   bool observing_favicon_ = false;
   bool observing_find_ = false;
-  bool asks_permissions_ = false;
   base::WeakPtrFactory<TabBridge> weak_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();

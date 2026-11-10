@@ -91,6 +91,7 @@ source_set("unit_tests") {
 
   sources = [
     "controls_unittest.cc",
+    "dialog_unittest.cc",
     "icons_unittest.cc",
     "motion_unittest.cc",
     "palette_unittest.cc",

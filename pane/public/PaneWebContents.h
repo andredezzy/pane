@@ -7,13 +7,8 @@
 
 #import "PaneExport.h"
 
-@class PaneAuthenticationChallenge;
 @class PaneBrowserContext;
 @class PaneContextMenu;
-@class PaneExternalProtocolRequest;
-@class PaneJavaScriptDialog;
-@class PanePermissionRequest;
-@class PaneUnresponsivePage;
 @class PaneWebContents;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -57,25 +52,6 @@ NS_SWIFT_UI_ACTOR
 // The page's renderer is gone; the page shows nothing until reloaded.
 - (void)webContents:(PaneWebContents*)webContents
     rendererDidTerminate:(PaneRendererTermination)termination;
-
-// What Chrome would show in its own dialogs and bubbles (PaneDialogs.h).
-// Each is answered through the request; one the delegate does not take is
-// cancelled (dialogs, authentication, external protocols), dismissed
-// (permissions), or waited on (an unresponsive page).
-- (void)webContents:(PaneWebContents*)webContents
-    runJavaScriptDialog:(PaneJavaScriptDialog*)dialog;
-- (void)webContents:(PaneWebContents*)webContents
-    requestPermission:(PanePermissionRequest*)request;
-- (void)webContents:(PaneWebContents*)webContents
-       authenticate:(PaneAuthenticationChallenge*)challenge;
-- (void)webContents:(PaneWebContents*)webContents
-    openExternalProtocol:(PaneExternalProtocolRequest*)request;
-- (void)webContents:(PaneWebContents*)webContents
-    becameUnresponsive:(PaneUnresponsivePage*)page;
-// The engine withdrew a request the app had not answered: the page
-// navigated, recovered, or closed (its tab closed, slept, or was
-// discarded). The app takes down its UI for it.
-- (void)webContents:(PaneWebContents*)webContents didDismissRequest:(id)request;
 
 // A right-click in the page. Not implemented: Chrome's own menu.
 - (void)webContents:(PaneWebContents*)webContents
@@ -175,9 +151,7 @@ NS_SWIFT_UI_ACTOR
 
 // Closes the tab at once, without beforeunload: for unloading a profile or a
 // tab the app keeps, whose page should simply go. Called from a delegate
-// callback, on the next turn. Requests the app holds for the page (a
-// JavaScript dialog, an unresponsive page, an external protocol) are
-// withdrawn as it goes (didDismissRequest:), as for any tab that closes.
+// callback, on the next turn.
 - (void)closeImmediately;
 
 @end

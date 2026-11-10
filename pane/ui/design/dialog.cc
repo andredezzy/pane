@@ -28,6 +28,7 @@
 #include "ui/gfx/geometry/transform.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/view_targeter.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -39,11 +40,8 @@ constexpr TextStyle kTitle{18, weight::kSemibold, 24};
 constexpr TextStyle kMessage{14, weight::kRegular, 20};
 constexpr int kHeadingSpacing = 6;
 
-// The card: its content 24 in, rounded 29, its ring a point outside it,
-// rounded a point more; its shadow 0 24px 64px, a Gaussian of 32
-// (surfaceBackground's blur over 2, as the content panel's).
+// ModalDialog's card: its content 24 in, its shadow 0 24px 64px.
 constexpr int kPadding = 24;
-constexpr int kRing = 1;
 constexpr gfx::Vector2dF kShadowOffset(0, 24);
 constexpr float kShadowSigma = 32;
 // How small the card starts, and goes.
@@ -93,14 +91,18 @@ void DialogHeading::Layout(PassKey) {
 BEGIN_METADATA(DialogHeading)
 END_METADATA
 
-// The card, painted in its shadow's layer, which grows as the dialog comes and
-// shrinks as it goes: its fill and its ring, outside it. A press on it stays
+DialogCard::Look::Look() = default;
+DialogCard::Look::Look(const Look&) = default;
+DialogCard::Look& DialogCard::Look::operator=(const Look&) = default;
+DialogCard::Look::~Look() = default;
+
+// The card in its shadow's layer: its fill and its edge. A press on it stays
 // with it.
-class ModalDialog::Card : public views::View {
-  METADATA_HEADER(Card, views::View)
+class DialogCard::Fill : public views::View {
+  METADATA_HEADER(Fill, views::View)
 
  public:
-  Card() = default;
+  explicit Fill(const Look& look) : look_(look) {}
 
   // views::View:
   void OnPaint(gfx::Canvas* canvas) override {
@@ -108,77 +110,159 @@ class ModalDialog::Card : public views::View {
     if (!colors) {
       return;
     }
-    gfx::RectF ring(GetLocalBounds());
-    gfx::RectF card = ring;
-    card.Inset(kRing);
+    const gfx::RectF bounds(GetLocalBounds());
+    gfx::RectF fill = bounds;
+    if (look_.edge_outside) {
+      fill.Inset(look_.edge_width);
+    }
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     // In pieces, so a tile inside the card rasters no path (ADR 0123).
-    flags.setColor(colors->GetColor(kPaneColorCard));
-    FillSquircle(*canvas, card, radius::k2xl, flags);
+    flags.setColor(look_.fill.ResolveToSkColor(colors));
+    FillSquircle(*canvas, fill, look_.radius, flags);
     flags.setStyle(cc::PaintFlags::kStroke_Style);
-    flags.setStrokeWidth(kRing);
-    flags.setColor(colors->GetColor(kPaneColorBorder));
-    StrokeSquircleBorder(*canvas, ring, radius::k2xl + kRing, kRing, flags);
+    flags.setStrokeWidth(look_.edge_width);
+    flags.setColor(look_.edge.ResolveToSkColor(colors));
+    if (look_.edge_outside) {
+      StrokeSquircleBorder(*canvas, bounds, look_.radius + look_.edge_width,
+                           look_.edge_width, flags);
+    } else {
+      StrokeSquircleBorder(*canvas, fill, look_.radius, look_.edge_width,
+                           flags);
+    }
   }
 
   bool OnMousePressed(const ui::MouseEvent& event) override { return true; }
+
+ private:
+  const Look look_;
 };
 
-BEGIN_METADATA(ModalDialog, Card)
+BEGIN_METADATA(DialogCard, Fill)
 END_METADATA
 
-// The card's shadow on a layer of its own, sized to how far the shadow
-// reaches around the card, so only that much is drawn as the dialog shows:
-// the scrim is a color the compositor draws, where it was a whole window
-// rastered at each showing. The card paints over it in the same layer, one
-// layer's tiles where two rastered its middle twice (ADR 0123). A press on
-// the shadow is the scrim's.
-class ModalDialog::Shadow : public views::View {
-  METADATA_HEADER(Shadow, views::View)
+DialogCard::DialogCard(const Look& look, std::unique_ptr<views::View> content)
+    : look_(look) {
+  // The shadow's layer, sized to how far the shadow reaches around the card,
+  // so only that much is drawn as the dialog shows. The card paints over it
+  // in the same layer, one layer's tiles where two rastered its middle twice
+  // (ADR 0123).
+  SetPaintToLayer();
+  layer()->SetFillsBoundsOpaquely(false);
+  layer()->SetOpacity(0);
+  SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
+  fill_ = AddChildView(std::make_unique<Fill>(look_));
+  content_ = fill_->AddChildView(std::move(content));
+}
 
- public:
-  Shadow() {
-    SetPaintToLayer();
-    layer()->SetFillsBoundsOpaquely(false);
+DialogCard::~DialogCard() = default;
+
+gfx::Insets DialogCard::Reach() const {
+  const int blur = std::ceil(3 * look_.shadow_sigma);
+  const int down = std::ceil(look_.shadow_offset.y());
+  return gfx::Insets::TLBR(std::max(blur - down, 0), blur, blur + down, blur);
+}
+
+gfx::SizeF DialogCard::SizeFor(int width) const {
+  const float outside = look_.edge_outside ? look_.edge_width : 0;
+  const int inner = width - look_.padding.width();
+  return gfx::SizeF(width + 2 * outside, content_->GetHeightForWidth(inner) +
+                                             look_.padding.height() +
+                                             2 * outside);
+}
+
+bool DialogCard::Place(const gfx::RectF& place) {
+  const gfx::Rect before = bounds();
+  const gfx::Vector2dF shift_before = shift_;
+  const gfx::Rect card(std::floor(place.x()), std::floor(place.y()),
+                       std::round(place.width()), std::round(place.height()));
+  const gfx::Insets reach = Reach();
+  gfx::Rect bounds = card;
+  bounds.Inset(-reach);
+  SetBoundsRect(bounds);
+  fill_->SetBounds(reach.left(), reach.top(), card.width(), card.height());
+  const int outside = look_.edge_outside ? std::ceil(look_.edge_width) : 0;
+  content_->SetBounds(
+      outside + look_.padding.left(), outside + look_.padding.top(),
+      std::max(card.width() - 2 * outside - look_.padding.width(), 0),
+      std::max(card.height() - 2 * outside - look_.padding.height(), 0));
+  // What the whole points leave of the card's place, on the screen's pixels.
+  const float scale = ScaleOf(GetWidget());
+  const auto rest = [&](float at, float whole) {
+    return std::round((at - whole) * scale) / scale;
+  };
+  shift_ = gfx::Vector2dF(rest(place.x(), card.x()), rest(place.y(), card.y()));
+  return this->bounds() != before || shift_ != shift_before;
+}
+
+gfx::Rect DialogCard::CardBounds() const {
+  return fill_->bounds() + bounds().OffsetFromOrigin();
+}
+
+gfx::Transform DialogCard::TransformOf(bool shown) const {
+  // The card's place, and its growth about its middle, its shadow's with it.
+  gfx::Transform transform =
+      gfx::Transform::MakeTranslation(shift_.x(), shift_.y());
+  if (!shown) {
+    const gfx::PointF middle = gfx::RectF(fill_->bounds()).CenterPoint();
+    transform.Translate(middle.x(), middle.y());
+    transform.Scale(kScale, kScale);
+    transform.Translate(-middle.x(), -middle.y());
   }
+  return transform;
+}
 
-  // How far past the card, ring included, the shadow reaches: three of its
-  // Gaussian's deviations, moved down by its offset.
-  static gfx::Insets Reach() {
-    const int blur = std::ceil(3 * kShadowSigma);
-    const int down = std::ceil(kShadowOffset.y());
-    return gfx::Insets::TLBR(blur - down, blur, blur + down, blur);
+void DialogCard::Settle(bool shown) {
+  layer()->SetOpacity(shown ? 1 : 0);
+  layer()->SetTransform(TransformOf(shown));
+}
+
+void DialogCard::Move(bool shown, base::OnceClosure done) {
+  // The card and its shadow grow, or shrink, as they fade: on the
+  // compositor's animation, from where they stand.
+  CompositorMotion::Start(
+      layer(), motion::Panel(),
+      {.opacity = shown ? 1.0f : 0.0f, .transform = TransformOf(shown)},
+      std::move(done));
+}
+
+void DialogCard::OnPaint(gfx::Canvas* canvas) {
+  const ui::ColorProvider* colors = GetColorProvider();
+  if (!colors) {
+    return;
   }
-
-  // views::View:
-  void OnPaint(gfx::Canvas* canvas) override {
-    const ui::ColorProvider* colors = GetColorProvider();
-    if (!colors) {
-      return;
-    }
-    gfx::RectF card(GetLocalBounds());
-    card.Inset(gfx::InsetsF(Reach()));
-    card.Inset(kRing);
-    cc::DrawLooperBuilder shadow;
-    shadow.AddShadow(
-        {kShadowOffset.x(), kShadowOffset.y()}, kShadowSigma,
-        SkColor4f::FromColor(colors->GetColor(kPaneColorDialogShadow)),
-        cc::DrawLooper::kOverrideAlphaFlag);
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setColor(colors->GetColor(kPaneColorCard));
-    flags.setLooper(shadow.Detach());
-    // Cast by the card's shape as a layer rounds it, a circle of its radius's
-    // circular equivalent (ADR 0057): blurred 32 points, that is the
-    // squircle's shadow within a 255th, and Skia blurs a rounded rect once,
-    // a corner's worth, where it works a path's blur out again for each tile
-    // the window rasters (ADR 0123).
-    canvas->DrawRoundRect(card, radius::k2xl * kCircularEquivalent, flags);
+  gfx::RectF card(GetLocalBounds());
+  card.Inset(gfx::InsetsF(Reach()));
+  if (look_.edge_outside) {
+    card.Inset(look_.edge_width);
   }
-};
+  // What a translucent fill covers casts its shadow as much lighter.
+  const SkColor fill = look_.fill.ResolveToSkColor(colors);
+  const SkColor shadow_color = look_.shadow.ResolveToSkColor(colors);
+  const SkColor shadow = SkColorSetA(
+      shadow_color, SkColorGetA(shadow_color) * SkColorGetA(fill) / 255);
+  cc::DrawLooperBuilder looper;
+  looper.AddShadow({look_.shadow_offset.x(), look_.shadow_offset.y()},
+                   look_.shadow_sigma, SkColor4f::FromColor(shadow),
+                   cc::DrawLooper::kOverrideAlphaFlag);
+  cc::PaintFlags flags;
+  flags.setAntiAlias(true);
+  flags.setColor(fill);
+  flags.setLooper(looper.Detach());
+  // Cast by the card's shape as a layer rounds it, a circle of its radius's
+  // circular equivalent (ADR 0057): blurred this wide, that is the
+  // squircle's shadow within a 255th, and Skia blurs a rounded rect once, a
+  // corner's worth, where it works a path's blur out again for each tile the
+  // window rasters (ADR 0123).
+  canvas->DrawRoundRect(card, look_.radius * kCircularEquivalent, flags);
+}
 
-BEGIN_METADATA(ModalDialog, Shadow)
+bool DialogCard::DoesIntersectRect(const views::View* target,
+                                   const gfx::Rect& rect) const {
+  return fill_->bounds().Intersects(rect);
+}
+
+BEGIN_METADATA(DialogCard)
 END_METADATA
 
 ModalDialog::Callbacks::Callbacks() = default;
@@ -211,49 +295,28 @@ ModalDialog::ModalDialog(int width,
   scrim_->layer()->SetFillsBoundsOpaquely(false);
   scrim_->layer()->SetOpacity(0);
   scrim_->SetCanProcessEventsWithinSubtree(false);
-  shadow_ = AddChildView(std::make_unique<Shadow>());
-  shadow_->layer()->SetOpacity(0);
-  card_ = shadow_->AddChildView(std::make_unique<Card>());
-  content_ = card_->AddChildView(std::move(content));
+  // The card: its content 24 in, rounded 29, on a 1-point ring outside it
+  // and its shadow, 0 24px 64px, a Gaussian of 32 (surfaceBackground's blur
+  // over 2, as the content panel's).
+  DialogCard::Look look;
+  look.fill = kPaneColorCard;
+  look.edge = kPaneColorBorder;
+  look.padding = gfx::Insets(kPadding);
+  look.shadow = kPaneColorDialogShadow;
+  look.shadow_offset = kShadowOffset;
+  look.shadow_sigma = kShadowSigma;
+  card_ = AddChildView(std::make_unique<DialogCard>(look, std::move(content)));
 }
 
 ModalDialog::~ModalDialog() = default;
 
-gfx::RectF ModalDialog::CardPlace() const {
-  const int inner = width_ - 2 * kPadding;
-  const float height = content_->GetHeightForWidth(inner) + 2 * kPadding;
-  // In the middle, as SwiftUI centers it: to the half point at 2×.
-  gfx::RectF card((this->width() - width_) / 2.0f,
-                  (this->height() - height) / 2.0f, width_, height);
-  card.Outset(kRing);
-  return card;
-}
-
-gfx::Rect ModalDialog::CardBounds() const {
-  return card_->bounds() + shadow_->bounds().OffsetFromOrigin();
-}
-
 bool ModalDialog::Place() {
   scrim_->SetBoundsRect(GetLocalBounds());
-  const gfx::Rect shadow_before = shadow_->bounds();
-  const gfx::Vector2dF shift_before = shift_;
-  const gfx::RectF place = CardPlace();
-  const gfx::Rect card(std::floor(place.x()), std::floor(place.y()),
-                       std::round(place.width()), std::round(place.height()));
-  const gfx::Insets reach = Shadow::Reach();
-  gfx::Rect shadow = card;
-  shadow.Inset(-reach);
-  shadow_->SetBoundsRect(shadow);
-  card_->SetBounds(reach.left(), reach.top(), card.width(), card.height());
-  content_->SetBounds(kRing + kPadding, kRing + kPadding, width_ - 2 * kPadding,
-                      card.height() - 2 * (kRing + kPadding));
-  // What the whole points leave of the card's place, on the screen's pixels.
-  const float scale = ScaleOf(GetWidget());
-  const auto rest = [&](float at, float whole) {
-    return std::round((at - whole) * scale) / scale;
-  };
-  shift_ = gfx::Vector2dF(rest(place.x(), card.x()), rest(place.y(), card.y()));
-  return shadow_->bounds() != shadow_before || shift_ != shift_before;
+  // In the middle, as SwiftUI centers it: to the half point at 2×.
+  const gfx::SizeF size = card_->SizeFor(width_);
+  return card_->Place(gfx::RectF((width() - size.width()) / 2,
+                                 (height() - size.height()) / 2, size.width(),
+                                 size.height()));
 }
 
 void ModalDialog::Layout(PassKey) {
@@ -266,37 +329,18 @@ void ModalDialog::Layout(PassKey) {
   }
 }
 
-gfx::Transform ModalDialog::TransformOf(bool shown) const {
-  // The card's place, and its growth about its middle, its shadow's with it.
-  gfx::Transform transform =
-      gfx::Transform::MakeTranslation(shift_.x(), shift_.y());
-  if (!shown) {
-    const gfx::PointF middle = gfx::RectF(card_->bounds()).CenterPoint();
-    transform.Translate(middle.x(), middle.y());
-    transform.Scale(kScale, kScale);
-    transform.Translate(-middle.x(), -middle.y());
-  }
-  return transform;
-}
-
 void ModalDialog::Settle() {
   scrim_->layer()->SetOpacity(shown_ ? 1 : 0);
-  shadow_->layer()->SetOpacity(shown_ ? 1 : 0);
-  shadow_->layer()->SetTransform(TransformOf(shown_));
+  card_->Settle(shown_);
 }
 
 void ModalDialog::Move(bool shown) {
   shown_ = shown;
   moving_ = true;
-  // The card and its shadow grow, or shrink, as they fade and the scrim
-  // fades with them: on the compositor's animation, from where they stand.
-  const Curve curve = motion::Panel();
-  const float opacity = shown ? 1 : 0;
+  // The card grows, or shrinks, as it fades, and the scrim fades with it.
+  card_->Move(shown);
   CompositorMotion::Start(
-      shadow_->layer(), curve,
-      {.opacity = opacity, .transform = TransformOf(shown)});
-  CompositorMotion::Start(
-      scrim_->layer(), curve, {.opacity = opacity},
+      scrim_->layer(), motion::Panel(), {.opacity = shown ? 1.0f : 0.0f},
       base::BindOnce(&ModalDialog::Moved, weak_factory_.GetWeakPtr()));
 }
 
@@ -346,7 +390,7 @@ void ModalDialog::OnThemeChanged() {
 }
 
 bool ModalDialog::OnMousePressed(const ui::MouseEvent& event) {
-  // A press on the scrim, the card's taking its own.
+  // A press on the scrim, or on the card's shadow; the card takes its own.
   if (callbacks_.dismiss) {
     callbacks_.dismiss.Run();
   }

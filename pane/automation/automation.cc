@@ -20,11 +20,17 @@
 #include "base/time/time.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "components/tabs/public/tab_interface.h"
+#include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_constants.h"
 #include "pane/app/data_launch.h"
+#include "pane/automation/file_panels.h"
 #include "pane/automation/input.h"
 #include "pane/automation/windows.h"
 #include "pane/browser/profile_cache.h"
@@ -37,6 +43,7 @@
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/menu_button.h"
+#include "pane/ui/dialogs/page_dialog.h"
 #include "pane/ui/panels/app_icon_picker.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/render.h"
@@ -50,6 +57,9 @@
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "ui/accessibility/ax_enum_util.h"
+#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/compositor/compositor.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
@@ -59,6 +69,9 @@
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/menus/simple_menu_model.h"
+#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/controls/button/button.h"
+#include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -334,6 +347,8 @@ class Automation::Files {
 
 Automation::Automation(const base::FilePath& directory, UiApp* app)
     : app_(app) {
+  // The system's file panels, as a scenario sees and answers them.
+  WatchFilePanels();
   files_ = base::SequenceBound<Files>(
       base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_BLOCKING}),
@@ -366,6 +381,12 @@ void Automation::Run(std::string name, base::DictValue command) {
                            NativeWindows(automation->app_->window()->widget()));
                  state.Set("alert",
                            SheetAlert(automation->app_->window()->widget()));
+                 // A file panel shows as the window's sheet, over any dialog;
+                 // the system's print panel runs app-modal.
+                 if (base::Value panel = FilePanelShown(); !panel.is_none()) {
+                   state.Set("sheet", std::move(panel));
+                 }
+                 state.Set("modal", ModalPanel());
                  reply.Set("state", std::move(state));
                  automation->files_.AsyncCall(&Files::Write)
                      .WithArgs(name, base::WriteJson(reply).value_or("{}"));
@@ -426,7 +447,9 @@ void Automation::Dispatch(const std::string& name,
        name == "scrollWindow" || name == "dragWindow" ||
        name == "pointerWindow" || name == "frames" || name == "rowMenu" ||
        name == "clickModalButton" || name == "settingsMenu" ||
-       name == "dispatchKey")) {
+       name == "dispatchKey" || name == "clickSheetButton" ||
+       name == "typeInPage" || name == "modalHost" ||
+       name == "dialogAccessibility" || name == "fillSheet")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -1183,6 +1206,13 @@ void Automation::Dispatch(const std::string& name,
                                   .Append(card.height()));
       }
     }
+    // A page's dialog: its card's content as "pane.dialog", its fields, and
+    // its buttons.
+    if (PageDialog* dialog = window->root()->page_dialog()) {
+      for (auto& entry : dialog->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
     for (const auto& [view_name, view] : named) {
       if (view->IsDrawn() && (!prefix || view_name.starts_with(*prefix))) {
         frames.Set(view_name, FrameIn(view, root));
@@ -1309,14 +1339,189 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // A button of the alert the window shows as a sheet, { title }, pressed as
-  // a click on it does.
+  // A button of the page's dialog showing, by its title, { title, texts }:
+  // its fields take `texts` first, in order, as a value set through
+  // accessibility does, and the button takes a real click at its middle.
+  if (name == "clickSheetButton") {
+    const std::string* title = command.FindString("title");
+    PageDialog* dialog =
+        window->root() ? window->root()->page_dialog() : nullptr;
+    if (!title || !dialog) {
+      std::move(reply).Run(base::Value(), "no dialog");
+      return;
+    }
+    const std::vector<std::u16string>& buttons = dialog->content().buttons;
+    const auto found = std::ranges::find(buttons, base::UTF8ToUTF16(*title));
+    if (found == buttons.end()) {
+      std::move(reply).Run(base::Value(), "no button " + *title);
+      return;
+    }
+    if (const base::ListValue* texts = command.FindList("texts")) {
+      std::vector<std::u16string> fields;
+      for (const base::Value& text : *texts) {
+        fields.push_back(text.is_string() ? base::UTF8ToUTF16(text.GetString())
+                                          : std::u16string());
+      }
+      dialog->SetFieldTexts(fields);
+    }
+    const views::View* button = dialog->button(found - buttons.begin());
+    const gfx::Rect frame = views::View::ConvertRectToTarget(
+        button, widget->GetRootView(), button->GetLocalBounds());
+    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The page's dialog's fields given `texts`, in order, as a value set
+  // through accessibility gives them (VoiceOver, Voice Control), with no
+  // button pressed: { texts }.
+  if (name == "fillSheet") {
+    PageDialog* dialog =
+        window->root() ? window->root()->page_dialog() : nullptr;
+    const base::ListValue* texts = command.FindList("texts");
+    if (!dialog || !texts) {
+      std::move(reply).Run(base::Value(),
+                           !dialog ? "no dialog" : "fillSheet needs texts");
+      return;
+    }
+    std::vector<std::u16string> fields;
+    for (const base::Value& text : *texts) {
+      fields.push_back(text.is_string() ? base::UTF8ToUTF16(text.GetString())
+                                        : std::u16string());
+    }
+    dialog->SetFieldTexts(fields);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // What assistive technologies read of the page's dialog showing (ADR
+  // 0071), from Views' own accessibility data, as VoiceOver gets it: the
+  // dialog's role, name, and modality, and each field's and button's name,
+  // with the default button marked.
+  if (name == "dialogAccessibility") {
+    PageDialog* dialog =
+        window->root() ? window->root()->page_dialog() : nullptr;
+    if (!dialog) {
+      std::move(reply).Run(base::Value(), "no dialog");
+      return;
+    }
+    const auto describe = [](const views::View* view) {
+      ui::AXNodeData data;
+      view->GetViewAccessibility().GetAccessibleNodeData(&data);
+      return base::DictValue()
+          .Set("role", ui::ToString(data.role))
+          .Set("name",
+               data.GetStringAttribute(ax::mojom::StringAttribute::kName))
+          .Set("modal", data.GetBoolAttribute(ax::mojom::BoolAttribute::kModal))
+          .Set("default", data.HasState(ax::mojom::State::kDefault))
+          .Set("protected", data.HasState(ax::mojom::State::kProtected));
+    };
+    base::ListValue fields;
+    for (size_t index = 0; index < dialog->field_count(); ++index) {
+      fields.Append(describe(dialog->field(index)));
+    }
+    base::ListValue buttons;
+    for (size_t index = 0; index < dialog->button_count(); ++index) {
+      buttons.Append(describe(dialog->button(index)));
+    }
+    std::move(reply).Run(base::Value(describe(dialog)
+                                         .Set("fields", std::move(fields))
+                                         .Set("buttons", std::move(buttons))),
+                         std::string());
+    return;
+  }
+
+  // The system's file panel showing answered as its own buttons would,
+  // { paths } chosen or { cancel: true }, and taken down: a panel run out of
+  // process takes no choice from here (file_panels.h).
+  if (name == "answerFileChooser") {
+    std::optional<std::vector<base::FilePath>> paths;
+    if (!command.FindBool("cancel").value_or(false)) {
+      paths.emplace();
+      if (const base::ListValue* chosen = command.FindList("paths")) {
+        for (const base::Value& path : *chosen) {
+          if (path.is_string()) {
+            paths->push_back(base::FilePath::FromUTF8Unsafe(path.GetString()));
+          }
+        }
+      }
+    }
+    if (!AnswerFilePanel(std::move(paths))) {
+      std::move(reply).Run(base::Value(), "no file chooser");
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A key typed into the selected page, { key }: the page takes the
+  // keyboard, and the window hands it the key as the user's (input a hung
+  // page leaves unanswered), in the background too.
+  if (name == "typeInPage") {
+    const std::string* key = command.FindString("key");
+    if (!window->selected() || !window->root()) {
+      std::move(reply).Run(base::Value(), "no page");
+      return;
+    }
+    window->root()->FocusPage();
+    if (!key || !SendKeyToWindow(widget, *key)) {
+      std::move(reply).Run(base::Value(), "no key code for that key");
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // Where Chrome's own tab-modal dialogs of the selected tab show, asked of
+  // its Browser as Chrome asks it, for one { width, height } big: the
+  // dialog's place, the most it may take, and where the page is, each from
+  // the window's top left.
+  if (name == "modalHost") {
+    content::WebContents* page = window->selected();
+    BrowserWindowInterface* browser =
+        page ? GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(page)
+             : nullptr;
+    tabs::TabInterface* tab =
+        page ? tabs::TabInterface::MaybeGetFromContents(page) : nullptr;
+    web_modal::WebContentsModalDialogHost* host =
+        browser && tab ? browser->GetWebContentsModalDialogHostForTab(tab)
+                       : nullptr;
+    if (!host) {
+      std::move(reply).Run(base::Value(), "no tab-modal host");
+      return;
+    }
+    const gfx::Size size(command.FindInt("width").value_or(260),
+                         command.FindInt("height").value_or(100));
+    const gfx::Point at = host->GetDialogPosition(size);
+    const gfx::Size most = host->GetMaximumDialogSize();
+    const gfx::Rect bounds = window->PageBounds();
+    std::move(reply).Run(
+        base::Value(base::DictValue()
+                        .Set("position",
+                             base::ListValue().Append(at.x()).Append(at.y()))
+                        .Set("maximum", base::ListValue()
+                                            .Append(most.width())
+                                            .Append(most.height()))
+                        .Set("page", base::ListValue()
+                                         .Append(bounds.x())
+                                         .Append(bounds.y())
+                                         .Append(bounds.width())
+                                         .Append(bounds.height()))
+                        .Set("hostView", static_cast<bool>(host->GetHostView()))
+                        .Set("activates", host->ShouldActivateDialog())),
+        std::string());
+    return;
+  }
+
+  // A button of the alert the window shows as a sheet, or of the app-modal
+  // panel (the system's print panel), { title }, pressed as a click on it
+  // does.
   if (name == "clickModalButton") {
     const std::string* title = command.FindString("title");
     if (!title || !PressSheetButton(widget, *title)) {
-      std::move(reply).Run(base::Value(), "no button " +
-                                              (title ? *title : std::string()) +
-                                              " in the window's sheet");
+      std::move(reply).Run(base::Value(),
+                           "no button " + (title ? *title : std::string()) +
+                               " in the window's sheet or modal panel");
       return;
     }
     std::move(reply).Run(base::Value(), std::string());

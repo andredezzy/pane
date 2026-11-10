@@ -91,7 +91,8 @@ class WindowHost : public TabStripModelObserver,
     // What to say while a page has fullscreen or a lock (empty: nothing).
     virtual void ShowExclusiveAccessHint(const std::u16string& hint) {}
     virtual void WindowWillClose() {}
-    // Where the page is, in the widget's root view, for tab-modal dialogs.
+    // Where the page is, in the widget's root view: Chrome's tab-modal
+    // dialogs show over it. It moved: NotifyPositionRequiresUpdate.
     virtual gfx::Rect PageBounds() const = 0;
     // A key on its way to the page, which the app may take first (⌘T, ⌘L).
     virtual content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
@@ -170,6 +171,8 @@ class WindowHost : public TabStripModelObserver,
   void ActiveTabChanged(Browser* browser, content::WebContents* contents);
   void FullscreenChanged(content::WebContents* contents, bool fullscreen);
 
+  // The content area moved or changed size: Chrome's tab-modal dialogs over
+  // it follow, on the next turn.
   void ScheduleDialogPositionUpdate();
 
   base::WeakPtr<WindowHost> GetWeakPtr() { return weak_factory_.GetWeakPtr(); }
@@ -199,6 +202,9 @@ class WindowHost : public TabStripModelObserver,
 
   void InitWidget(const gfx::Rect& bounds,
                   std::unique_ptr<views::View> contents);
+  // Where tab-modal dialogs show: the page's place, or the whole window
+  // (the Swift app's).
+  gfx::Rect ContentArea() const;
   void AddBrowser(Browser* browser);
   void ContinueClose();
   void ContinueCloseAttempt(int attempt);

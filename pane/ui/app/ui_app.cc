@@ -71,6 +71,7 @@
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
+#include "pane/ui/dialogs/permission_prompt.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/panels/app_icon_images.h"
 #include "pane/ui/panels/settings_view.h"
@@ -343,6 +344,8 @@ class UiApp::Page : public content::WebContentsObserver,
       : content::WebContentsObserver(contents),
         app_(app),
         tab_id_(std::move(tab_id)) {
+    // Its permission requests ask in the window's own dialog.
+    PermissionPrompt::Install(contents);
     // Its favicon, from Chrome's driver, as it comes.
     if (auto* driver =
             favicon::ContentFaviconDriver::FromWebContents(contents)) {
@@ -450,6 +453,7 @@ class UiApp::Page : public content::WebContentsObserver,
 
   // The empty page is in the tab strip, with its tab helpers.
   void WasDiscarded() override {
+    PermissionPrompt::Install(web_contents());
     if (auto* driver =
             favicon::ContentFaviconDriver::FromWebContents(web_contents())) {
       favicon_observation_.Observe(driver);
@@ -542,6 +546,7 @@ UiApp::UiApp()
       this,
       /*keeps_frame=*/!base::CommandLine::ForCurrentProcess()->HasSwitch(
           "use-mock-keychain"));
+  dialogs_ = std::make_unique<PageDialogs>(this);
   model_observation_.Observe(&model());
   favicons_observation_.Observe(&favicons_);
   sleep_ = std::make_unique<SleepController>(model(), *this);
@@ -603,6 +608,7 @@ UiApp::~UiApp() {
   menu_bar_.reset();
   // Their pages go with the window's Browsers, as quitting keeps their tabs.
   pages_.clear();
+  dialogs_.reset();
   window_.reset();
   dock_icon_.reset();
   app_icons_.reset();
@@ -777,6 +783,8 @@ void UiApp::Select(const std::string& tab_id) {
                .interval = BeginInteractionInterval(Interaction::kWakeTab)};
   }
   window_->ShowNoPage();
+  // The tab left's dialog waits for it.
+  dialogs_->Update();
   if (RootView* root = window_->root(); root && new_tab) {
     // A key typed right behind ⌘T goes in the field, not the page left.
     root->FocusAddress();
@@ -949,6 +957,8 @@ void UiApp::Show(content::WebContents* contents) {
     focuses_address_.reset();
   }
   window_->ShowTab(contents, /*chosen=*/!new_tab);
+  // Its dialog shows over it, taking the keys, and another tab's waits.
+  dialogs_->Update();
   // Chrome's empty page in a discarded one's place loads as it shows.
   if (const auto page = pages_.find(tab_id); page != pages_.end()) {
     page->second->LoadIfDiscarded();
@@ -1525,6 +1535,22 @@ void UiApp::SleepTab(const std::string& tab_id) {
   Release(tab_id);
 }
 
+// MARK: PageDialogs::Delegate
+
+RootView* UiApp::DialogRoot() {
+  return window_ ? window_->root() : nullptr;
+}
+
+content::WebContents* UiApp::PageForDialogs() {
+  if (!InteractionAllowed() || !window_->root()) {
+    return nullptr;
+  }
+  const std::optional<std::string>& active = model().active_tab_id();
+  content::WebContents* page = active ? PageOf(*active) : nullptr;
+  // The page the window shows, not one still being made.
+  return page && window_->selected() == page ? page : nullptr;
+}
+
 // MARK: The tab switcher
 
 // The open profiles' tabs, by recent use: a collapsed profile's are left out,
@@ -1730,6 +1756,8 @@ void UiApp::WindowClosed() {
   focuses_address_.reset();
   switcher_.reset();
   quit_confirming_ = false;
+  // A dialog shown goes back in line, for the window opened again.
+  dialogs_->Update();
 }
 
 // What the address field loads (the Swift's navigate): the selected page goes
@@ -2303,8 +2331,9 @@ base::DictValue UiApp::Snapshot() const {
       .Set("quitConfirmation", quit_confirming_)
       .Set("sidebarWidth", sidebar_width_)
       .Set("pendingProfileDeletions", static_cast<int>(deleting_.size()))
-      // A page's dialog: none drawn until "What Chrome asks for" ports them.
-      .Set("sheet", base::Value())
+      // A page's dialog showing, and how many wait their turn.
+      .Set("sheet", dialogs_->Shown())
+      .Set("pendingRequests", dialogs_->waiting())
       .Set("closedTabs", static_cast<int>(model.history().closed().size()))
       .Set("extensions", std::move(extensions))
       .Set("downloads", std::move(downloads))

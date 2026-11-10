@@ -683,6 +683,28 @@ export async function setUpPin(app: PaneApp, pin: string) {
 	);
 }
 
+// A key the window takes (Esc, Return), as the user's key reaches it: with
+// the front (run.ts --foreground), posted to the app's event queue once its
+// window is key; without it, through Views' own dispatch to what has the
+// window's keys (dispatchKey), so the app in use keeps the front.
+export async function pressWindowKey(
+	context: ScenarioContext,
+	app: PaneApp,
+	key: string,
+): Promise<void> {
+	if (!context.foreground) {
+		await app.send("dispatchKey", { key });
+
+		return;
+	}
+
+	// A key the window takes needs it key, as when the user is in Pane;
+	// another app may have taken it during the run.
+	await app.send("activate");
+	await app.waitFor("the key window", (state) => state.window.key, 10_000);
+	await app.send("key", { key });
+}
+
 // Brings the app in front with its window key, for a check that needs it
 // (keys a panel takes, a page's fullscreen): true once it is. Without
 // --foreground the app in use keeps the front, and the check is deferred.

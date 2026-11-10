@@ -51,7 +51,6 @@
 #include "pane/browser/app_callback.h"
 #include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extension_shortcuts.h"
-#include "pane/browser/ui/modal_dialog_host.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
 #import "pane/public/PaneBrowserWindow.h"
@@ -749,12 +748,11 @@ HostedBrowserWindow::GetWebContentsModalDialogHost() {
   return host_.get();
 }
 
+// One for the window, over its content area, as WebUIBrowserWindow's: a
+// tab's dialogs show over the page shown, the tab's own while it is selected.
 web_modal::WebContentsModalDialogHost*
 HostedBrowserWindow::GetWebContentsModalDialogHostFor(
     content::WebContents* web_contents) {
-  if (web_contents && tabs::TabInterface::MaybeGetFromContents(web_contents)) {
-    return TabDialogHost::GetOrCreateForWebContents(web_contents);
-  }
   return host_.get();
 }
 

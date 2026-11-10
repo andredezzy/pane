@@ -18,14 +18,10 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
-#include "components/permissions/permission_request_manager.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/app_callback.h"
-#import "pane/browser/ui/dialogs_internal.h"
-#include "pane/browser/ui/javascript_dialog_manager.h"
-#include "pane/browser/ui/permission_prompt.h"
 #include "pane/browser/ui/window_host.h"
 #import "pane/browser/web_contents_internal.h"
 #include "pane/browser/web_store.h"
@@ -55,8 +51,7 @@ TabBridge::TabBridge(content::WebContents* contents)
 TabBridge::TabBridge(content::WebContents* contents, PaneWebContents* tab)
     : content::WebContentsObserver(contents),
       content::WebContentsUserData<TabBridge>(*contents),
-      tab_(tab),
-      pending_requests_([NSHashTable weakObjectsHashTable]) {}
+      tab_(tab) {}
 
 TabBridge::~TabBridge() {
   [tab_ contentsDestroyed];
@@ -69,16 +64,9 @@ void TabBridge::WebContentsDestroyed() {
   StopObservingHelpers();
 
   // The page is gone, and its frames with it: the app's object for it is
-  // done, and so is every request it holds for the page that Chrome does
-  // not take back itself. Nothing answers the page.
+  // done. The page's dialogs go with it in the window's own
+  // (pane/ui/dialogs).
   [tab_ contentsDestroyed];
-  ScopedAppCallback callback;
-  JavaScriptDialogManager::GetInstance()->TabClosed(web_contents());
-  [std::exchange(unresponsive_page_, nil) withdraw];
-  for (PaneExternalProtocolRequest* request in pending_requests_.allObjects) {
-    [request withdraw];
-  }
-  [pending_requests_ removeAllObjects];
 }
 
 void TabBridge::StopObservingHelpers() {
@@ -124,14 +112,6 @@ void TabBridge::Observe() {
       observing_find_ = true;
     }
   }
-  if (!asks_permissions_) {
-    if (auto* requests = permissions::PermissionRequestManager::FromWebContents(
-            web_contents())) {
-      requests->set_view_factory_for_testing(
-          base::BindRepeating(&PermissionPrompt::Create));
-      asks_permissions_ = true;
-    }
-  }
 }
 
 void TabBridge::set_open(WindowOpenDisposition disposition,
@@ -146,10 +126,6 @@ std::optional<WindowOpenDisposition> TabBridge::TakeOpenDisposition() {
 
 int TabBridge::tab_id() const {
   return sessions::SessionTabHelper::IdForTab(&GetWebContents()).id();
-}
-
-void TabBridge::WithdrawWhenClosed(PaneExternalProtocolRequest* request) {
-  [pending_requests_ addObject:request];
 }
 
 void TabBridge::TraceCallback(std::string_view name, base::DictValue args) {

@@ -1,4 +1,4 @@
-import { launchPane, tabOf } from "../lib/pane";
+import { launchPane, pressWindowKey, tabOf } from "../lib/pane";
 import {
 	answerSheet,
 	pageResult,
@@ -8,10 +8,11 @@ import {
 import { clickAt } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// A page's dialogs show as the app's sheets, on one launch, each page in a tab
-// of its own: alert() continues on OK; confirm() returns the button clicked, or
-// Return's or Esc's; prompt() returns what was typed, or null; beforeunload asks
-// before its tab closes; and reloading what was posted asks first.
+// A page's dialogs show in the app's window (ADR 0021), on one launch, each
+// page in a tab of its own: alert() continues on OK; confirm() returns the
+// button clicked, or Return's or Esc's; prompt() returns what was typed, or
+// null; beforeunload asks before its tab closes; and reloading what was
+// posted asks first.
 const dialogs: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
@@ -65,8 +66,8 @@ const dialogs: Scenario = async (context) => {
 	await answerSheet(app, "Cancel");
 	const refused = await confirm.result<{ value: boolean }>();
 
-	// Return presses OK and Esc dismisses, as Chrome's dialogs take them.
-	// The keys reach the app's key monitor without the key window.
+	// Return presses OK and Esc dismisses, as Chrome's dialogs take them: the
+	// dialog's own keys, as the window hands them to it.
 	const keys: Record<string, boolean> = {};
 
 	for (const [name, key] of [
@@ -75,8 +76,7 @@ const dialogs: Scenario = async (context) => {
 	] as const) {
 		await confirm.page.evaluate("runConfirm()");
 		await waitForSheet(app, "javaScript");
-		await app.send("activate");
-		await app.send("key", { key });
+		await pressWindowKey(context, app, key);
 		keys[name] = (await confirm.result<{ value: boolean }>()).value;
 	}
 

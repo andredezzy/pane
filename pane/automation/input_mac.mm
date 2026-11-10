@@ -113,6 +113,30 @@ bool PostKey(views::Widget* widget,
   return true;
 }
 
+bool SendKeyToWindow(views::Widget* widget, const std::string& key) {
+  const auto code = KeyCodes().find(key);
+  if (code == KeyCodes().end()) {
+    return false;
+  }
+  NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSString* characters = base::SysUTF8ToNSString(key);
+  for (NSEventType type : {NSEventTypeKeyDown, NSEventTypeKeyUp}) {
+    NSEvent* event =
+        [NSEvent keyEventWithType:type
+                               location:NSZeroPoint
+                          modifierFlags:0
+                              timestamp:NSProcessInfo.processInfo.systemUptime
+                           windowNumber:window.windowNumber
+                                context:nil
+                             characters:characters
+            charactersIgnoringModifiers:characters
+                              isARepeat:NO
+                                keyCode:code->second];
+    [window sendEvent:event];
+  }
+  return true;
+}
+
 void PostClick(views::Widget* widget, int x, int y, int clicks) {
   NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
   const NSPoint location = NSMakePoint(x, NSHeight(window.frame) - y);

@@ -35,6 +35,8 @@ namespace button_size {
 inline constexpr ButtonSize kRegular{36, 16, 16, text::kButton};
 // h-8 px-3 text-xs: Settings' PIN and update buttons.
 inline constexpr ButtonSize kSmall{32, 12, 12, text::kButtonSmall};
+// A page's dialog's (DialogButtonStyle): 28 points, 10 in, at 13.
+inline constexpr ButtonSize kAlert{28, 10, 10, {13, weight::kRegular, 16}};
 }  // namespace button_size
 
 // A button with a title (the Swift's PaneButtonStyle): packages/ui's

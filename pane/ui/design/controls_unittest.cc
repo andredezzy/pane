@@ -121,6 +121,30 @@ TEST_F(ControlsTest, DisabledOpacitiesAreTheSwifts) {
   EXPECT_FLOAT_EQ(RowLook(false).disabled_opacity, 1);
 }
 
+// A page's dialog's buttons, as macOS draws an alert's (DialogButtonStyle):
+// capsules, gray or the default's blue, black at 12% over either pressed, and
+// no hover; the default's title white, the other's the alert's text.
+TEST_F(ControlsTest, AlertButtonsPressAndNeverLight) {
+  for (const ButtonVariant variant :
+       {ButtonVariant::kAlert, ButtonVariant::kAlertDefault}) {
+    const ControlLook look = ButtonLook(variant);
+    const SkColor fill = colors_.GetColor(
+        variant == ButtonVariant::kAlertDefault ? kPaneColorAlertDefaultButton
+                                                : kPaneColorAlertButton);
+    ExpectNear(Painted(look, 0, 0, 32, 16), fill);
+    ExpectNear(Painted(look, 1, 0, 32, 16), fill);
+    ExpectNear(Painted(look, 0, 1, 32, 16),
+               Over(colors_.GetColor(kPaneColorAlertPress), fill));
+    // A capsule: its round end clear at the corner.
+    EXPECT_EQ(Painted(look, 0, 0, 0, 0),
+              colors_.GetColor(kPaneColorWindowBackground));
+  }
+  EXPECT_EQ(TintOf(ButtonLook(ButtonVariant::kAlertDefault), colors_, 1),
+            SK_ColorWHITE);
+  EXPECT_EQ(TintOf(ButtonLook(ButtonVariant::kAlert), colors_, 1),
+            colors_.GetColor(kPaneColorAlertText));
+}
+
 // Circles and capsules stay round; a squircle ring grows its radius with its
 // offset.
 TEST(ControlShapeTest, ShapesStayTheirKind) {
