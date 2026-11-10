@@ -13,6 +13,8 @@
 #include "base/functional/bind.h"
 #include "base/process/kill.h"
 #include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
@@ -24,11 +26,27 @@
 #import "pane/browser/ui/dialogs_internal.h"
 #include "pane/browser/ui/javascript_dialog_manager.h"
 #include "pane/browser/ui/permission_prompt.h"
+#include "pane/browser/ui/window_host.h"
 #import "pane/browser/web_contents_internal.h"
 #include "pane/browser/web_store.h"
 #include "ui/gfx/image/image.h"
 
 namespace pane {
+
+namespace {
+
+// A tab of a window of Pane's Views UI, which follows its tabs into the page
+// Chrome puts in a discarded one's place, and shows and loads that page
+// itself (pane/ui/app/ui_app.cc): the bridge does so only for the Swift
+// app's.
+bool InViewsWindow(content::WebContents* contents) {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+  const WindowHost* host = browser ? WindowHost::ForBrowser(browser) : nullptr;
+  return host && host->delegate();
+}
+
+}  // namespace
 
 TabBridge::TabBridge(content::WebContents* contents)
     : TabBridge(contents, [[PaneWebContents alloc] initWithContents:contents]) {
@@ -246,7 +264,8 @@ void TabBridge::AboutToBeDiscarded(content::WebContents* new_contents) {
                             base::WrapUnique(new TabBridge(new_contents, tab)));
   [tab bridgeDidMoveToContents:new_contents];
   NSView* new_view = new_contents->GetNativeView().GetNativeNSView();
-  if (old_view.superview && new_view && new_view != old_view) {
+  if (old_view.superview && new_view && new_view != old_view &&
+      !InViewsWindow(web_contents())) {
     new_view.frame = old_view.frame;
     new_view.autoresizingMask = old_view.autoresizingMask;
     new_view.hidden = old_view.hidden;
@@ -258,7 +277,8 @@ void TabBridge::AboutToBeDiscarded(content::WebContents* new_contents) {
 // once, as Chrome does for the selected tab of its focused window; one in
 // the background waits until the app shows it (PaneWebContents -setVisible:).
 void TabBridge::WasDiscarded() {
-  if (web_contents()->GetVisibility() == content::Visibility::HIDDEN) {
+  if (web_contents()->GetVisibility() == content::Visibility::HIDDEN ||
+      InViewsWindow(web_contents())) {
     return;
   }
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(

@@ -140,7 +140,8 @@ class ControlHighlight {
   double hover() const { return hover_.value(); }
   double press() const { return press_.value(); }
   // Holds the hover's look while what the control opens shows (an
-  // extension's popup, a menu), as IconButtonStyle's isOn.
+  // extension's popup, a menu), as IconButtonStyle's isOn. Let go, the look
+  // follows the pointer again, fading as a hover does if it left.
   void SetHeld(bool held);
   // While a drag carries the control's row (the Swift's isDraggedRow), it
   // shows no hover or press of its own: the drag's copy over it has them.

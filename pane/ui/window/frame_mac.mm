@@ -45,9 +45,14 @@ constexpr CGFloat kLightsInset = 12;
   if (_inFullScreen) {
     return [super _titlebarHeight];
   }
-  NSButton* close = [NSWindow standardWindowButton:NSWindowCloseButton
-                                      forStyleMask:NSWindowStyleMaskTitled];
-  return 2 * kLightsInset + NSHeight(close.frame);
+  // Measured once: AppKit asks at every title and every step of a resize,
+  // and each measure builds a close button (a tenth of a millisecond).
+  static const CGFloat height = [] {
+    NSButton* close = [NSWindow standardWindowButton:NSWindowCloseButton
+                                        forStyleMask:NSWindowStyleMaskTitled];
+    return 2 * kLightsInset + NSHeight(close.frame);
+  }();
+  return height;
 }
 
 - (CGFloat)_minXTitlebarWidgetInset {

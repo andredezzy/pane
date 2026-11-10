@@ -14,10 +14,10 @@
 #include "net/cookies/cookie_constants.h"
 #import "pane/browser/browser_context_internal.h"
 #include "pane/browser/engine_trace.h"
+#include "pane/browser/profile_cache.h"
 #include "pane/browser/site_data.h"
 #import "pane/public/PaneCookies.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
-#include "services/network/public/mojom/network_context.mojom.h"
 
 namespace {
 
@@ -107,37 +107,15 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
 }
 
 - (void)getCacheSizeWithCompletion:(void (^)(int64_t))completion {
-  if (!self.profile) {
-    completion(0);
-    return;
-  }
-
-  self.profile->GetDefaultStoragePartition()
-      ->GetNetworkContext()
-      ->ComputeHttpCacheSize(
-          base::Time(), base::Time::Max(),
-          mojo::WrapCallbackWithDefaultInvokeIfNotRun(
-              base::BindOnce(^(bool is_upper_bound, int64_t size_or_error) {
-                completion(size_or_error < 0 ? 0 : size_or_error);
-              }),
-              false, int64_t{0}));
+  pane::ComputeCacheSize(self.profile, base::BindOnce(^(int64_t bytes) {
+                           completion(bytes);
+                         }));
 }
 
 - (void)trimCacheWithCompletion:(void (^)(void))completion {
-  PANE_TRACE("call", "PaneBrowserContext.trimCache");
-  if (!self.profile) {
-    completion();
-    return;
-  }
-
-  pane::RemoveSiteData(
-      self.profile,
-      content::BrowsingDataRemover::DATA_TYPE_CACHE |
-          content::BrowsingDataRemover::DATA_TYPE_CACHE_STORAGE |
-          content::BrowsingDataRemover::DATA_TYPE_SERVICE_WORKERS,
-      {}, base::BindOnce(^{
-        completion();
-      }));
+  pane::TrimCache(self.profile, base::BindOnce(^{
+                    completion();
+                  }));
 }
 
 // MARK: History

@@ -10,7 +10,6 @@
 #include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/command_line.h"
-#include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -25,6 +24,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/termination_notification.h"
@@ -39,6 +39,7 @@
 #include "components/download/public/common/download_item.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver_observer.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
@@ -56,6 +57,7 @@
 #include "pane/model/profile_draft.h"
 #include "pane/model/profile_form.h"
 #include "pane/model/tab_history.h"
+#include "pane/model/test_hooks.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/app/installed_extensions.h"
@@ -358,6 +360,51 @@ class UiApp::Page : public content::WebContentsObserver,
   // the engine's going): its tab stays.
   void WebContentsDestroyed() override { app_->PageDestroyed(tab_id_); }
 
+  // Chrome discards a tab (an extension's chrome.tabs.discard) by putting an
+  // empty page in its place, which keeps its history, and destroying this
+  // one: the tab follows it from now on, as its id does, and loads it when
+  // shown (ADR 0041). Reporting the discard as a closing was rejected: the
+  // tab would leave the sidebar.
+  void AboutToBeDiscarded(content::WebContents* new_contents) override {
+    favicon_observation_.Reset();
+    SetTabId(new_contents, tab_id_);
+    Observe(new_contents);
+    loading_.reset();
+    discarded_ = true;
+  }
+
+  // The empty page is in the tab strip, with its tab helpers.
+  void WasDiscarded() override {
+    if (auto* driver =
+            favicon::ContentFaviconDriver::FromWebContents(web_contents())) {
+      favicon_observation_.Observe(driver);
+    }
+    app_->PageReplaced(tab_id_);
+  }
+
+  // A discarded page loads once, when the app shows it: Chrome loads one
+  // only as its focused window's active tab, which a Pane window behind the
+  // app in use never is. Once, since Chrome's mark of a discard stays for the
+  // page's life (FrameTreeNode::was_discarded_), where the Swift's bridge
+  // read it and loaded the page again at every show.
+  void LoadIfDiscarded() {
+    if (!std::exchange(discarded_, false)) {
+      return;
+    }
+    PANE_TRACE(
+        "call", "PaneWebContents.reloadDiscarded",
+        base::DictValue().Set(
+            "tab", sessions::SessionTabHelper::IdForTab(web_contents()).id()));
+    content::NavigationController& controller = web_contents()->GetController();
+    controller.SetNeedsReload();
+    controller.LoadIfNecessary();
+  }
+
+  // Its first paint with something to see (a woken tab's timing).
+  void DidFirstVisuallyNonEmptyPaint() override {
+    app_->PageFirstPaint(tab_id_);
+  }
+
  private:
   void ReportLoading(double progress) {
     const std::optional<double> from = loading_;
@@ -370,6 +417,8 @@ class UiApp::Page : public content::WebContentsObserver,
   const raw_ptr<UiApp> app_;
   const std::string tab_id_;
   std::optional<double> loading_;
+  // Chrome's empty page, in a discarded one's place, not yet loaded.
+  bool discarded_ = false;
   base::ScopedObservation<favicon::FaviconDriver,
                           favicon::FaviconDriverObserver>
       favicon_observation_{this};
@@ -411,6 +460,7 @@ UiApp::UiApp()
           "use-mock-keychain"));
   model_observation_.Observe(&model());
   favicons_observation_.Observe(&favicons_);
+  sleep_ = std::make_unique<SleepController>(model(), *this);
   sidebar_width_ = model().settings().sidebar_width;
   window_->Open();
   window_->Show(/*activate=*/true);
@@ -432,10 +482,9 @@ UiApp::UiApp()
       base::BindRepeating(&UiApp::ShowWindow, weak_factory_.GetWeakPtr()),
       base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()));
 
-  std::unique_ptr<base::Environment> environment = base::Environment::Create();
+  // The channel, in a scenario's run alone (ADR 0115).
   if (std::optional<std::string> directory =
-          environment->GetVar("PANE_AUTOMATION_DIR");
-      directory && !directory->empty()) {
+          model::TestHook("PANE_AUTOMATION_DIR")) {
     automation_ = std::make_unique<Automation>(
         base::FilePath::FromUTF8Unsafe(*directory), this);
   }
@@ -460,6 +509,7 @@ UiApp::~UiApp() {
   events_.reset();
   automation_.reset();
   model_observation_.Reset();
+  sleep_.reset();
   updater_observation_.Reset();
   updater_.reset();
   // Their pages go with the window's Browsers, as quitting keeps their tabs.
@@ -474,6 +524,11 @@ model::BrowserModel& UiApp::model() {
 const model::BrowserModel& UiApp::model() const {
   return data_->store().model();
 }
+
+UiApp::Switcher::Switcher() = default;
+UiApp::Switcher::Switcher(const Switcher&) = default;
+UiApp::Switcher& UiApp::Switcher::operator=(const Switcher&) = default;
+UiApp::Switcher::~Switcher() = default;
 
 bool UiApp::InteractionAllowed() const {
   return !data_->IsLocked() && data_->IsOpen();
@@ -512,6 +567,8 @@ void UiApp::LockNow() {
     resume_tab_id_ = model().active_tab_id();
   }
   data_->LockScreen();
+  // Nothing of the window's stays over the PIN screen.
+  CancelSwitcher();
 
   std::vector<std::string> profile_ids;
   for (const model::BrowserProfile& profile : model().profiles()) {
@@ -547,6 +604,9 @@ void UiApp::LockNow() {
 // MARK: Intents
 
 std::string UiApp::CreateProfile(const model::ProfileDraft& draft) {
+  if (!InteractionAllowed()) {
+    return std::string();
+  }
   const std::string id =
       model().CreateProfile([&](model::BrowserProfile& profile) {
         draft.ApplyTo(profile, [&] {
@@ -559,6 +619,9 @@ std::string UiApp::CreateProfile(const model::ProfileDraft& draft) {
 
 std::string UiApp::OpenTab(const std::string& profile_id,
                            std::optional<GURL> url) {
+  if (!InteractionAllowed() || !model().FindProfile(profile_id)) {
+    return std::string();
+  }
   ExpandProfile(profile_id);
   const std::string tab_id = NewTabId();
   model().InsertTab(
@@ -569,6 +632,10 @@ std::string UiApp::OpenTab(const std::string& profile_id,
     focuses_address_ = tab_id;
   }
   Select(tab_id);
+  // A tab just opened at an address loads; it wakes from nothing.
+  if (waking_ && waking_->tab_id == tab_id) {
+    waking_.reset();
+  }
   return tab_id;
 }
 
@@ -577,6 +644,10 @@ void UiApp::Select(const std::string& tab_id) {
   const std::optional<std::string> profile_id = model().ProfileIdOfTab(tab_id);
   if (!InteractionAllowed() || !tab || !profile_id) {
     return;
+  }
+  // Another tab chosen before the one woken painted: its time is no wake's.
+  if (waking_ && waking_->tab_id != tab_id) {
+    waking_.reset();
   }
   // ⌘T's tab is timed as a new tab (NewTab).
   const bool new_tab = focuses_address_ == tab_id;
@@ -600,7 +671,12 @@ void UiApp::Select(const std::string& tab_id) {
 
   // The engine makes the page after the frame that answers the input (11 ms
   // for a new tab's): the row selected, and a new tab's address field, don't
-  // wait for it.
+  // wait for it. A tab woken, timed until its page first paints.
+  if (!new_tab) {
+    waking_ =
+        Waking{.tab_id = tab_id,
+               .interval = BeginInteractionInterval(Interaction::kWakeTab)};
+  }
   window_->ShowNoPage();
   if (RootView* root = window_->root(); root && new_tab) {
     // A key typed right behind ⌘T goes in the field, not the page left.
@@ -623,10 +699,11 @@ void UiApp::Select(const std::string& tab_id) {
                           app->PageOf(tab_id) || !app->InteractionAllowed()) {
                         return;
                       }
-                      // The profile would not open: the sad tab's place,
-                      // which Phase 3 draws; selecting it tries again.
+                      // The profile would not open: the sad tab, whose
+                      // Reload tries again.
                       if (!profile) {
                         app->crashed_tab_ids_.insert(tab_id);
+                        app->window_->Refresh();
                         return;
                       }
                       app->OpenPage(tab_id, profile, /*foreground=*/true);
@@ -773,6 +850,10 @@ void UiApp::Show(content::WebContents* contents) {
     focuses_address_.reset();
   }
   window_->ShowTab(contents, /*chosen=*/!new_tab);
+  // Chrome's empty page in a discarded one's place loads as it shows.
+  if (const auto page = pages_.find(tab_id); page != pages_.end()) {
+    page->second->LoadIfDiscarded();
+  }
 }
 
 void UiApp::Release(const std::string& tab_id) {
@@ -851,6 +932,9 @@ void UiApp::ExpandProfile(const std::string& profile_id) {
 // The sidebar header's Collapse all: every expanded profile collapses, its
 // pages unloading (the Swift's collapseAll).
 void UiApp::CollapseAll() {
+  if (!InteractionAllowed()) {
+    return;
+  }
   const std::set<std::string> expanded = model().expanded_profile_ids();
   for (const std::string& profile_id : expanded) {
     CollapseProfile(profile_id);
@@ -859,6 +943,9 @@ void UiApp::CollapseAll() {
 
 // The toolbar's Back and Forward: the selected tab's history, a step.
 void UiApp::Back() {
+  if (!InteractionAllowed()) {
+    return;
+  }
   const std::optional<std::string>& active = model().active_tab_id();
   content::WebContents* page = active ? PageOf(*active) : nullptr;
   if (page && page->GetController().CanGoBack()) {
@@ -867,6 +954,9 @@ void UiApp::Back() {
 }
 
 void UiApp::Forward() {
+  if (!InteractionAllowed()) {
+    return;
+  }
   const std::optional<std::string>& active = model().active_tab_id();
   content::WebContents* page = active ? PageOf(*active) : nullptr;
   if (page && page->GetController().CanGoForward()) {
@@ -895,6 +985,9 @@ void UiApp::Reload() {
 }
 
 void UiApp::Stop() {
+  if (!InteractionAllowed()) {
+    return;
+  }
   const std::optional<std::string>& active = model().active_tab_id();
   if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
     page->Stop();
@@ -902,6 +995,9 @@ void UiApp::Stop() {
 }
 
 void UiApp::ReloadCrashed(const std::string& tab_id) {
+  if (!InteractionAllowed()) {
+    return;
+  }
   crashed_tab_ids_.erase(tab_id);
   crashes_.Forget(tab_id);
   window_->Refresh();
@@ -952,6 +1048,9 @@ void UiApp::OpenHandedURLs(std::vector<GURL> urls) {
 // A click on a profile's header: it opens, or collapsing unloads it (its
 // pages go, its tabs stay).
 void UiApp::ToggleProfile(const std::string& profile_id) {
+  if (!InteractionAllowed()) {
+    return;
+  }
   if (model().expanded_profile_ids().contains(profile_id)) {
     CollapseProfile(profile_id);
   } else {
@@ -960,11 +1059,17 @@ void UiApp::ToggleProfile(const std::string& profile_id) {
 }
 
 void UiApp::CollapseProfile(const std::string& profile_id) {
+  if (!InteractionAllowed()) {
+    return;
+  }
   model().SetExpanded(profile_id, false);
   UnloadProfile(profile_id);
 }
 
 void UiApp::ShowPage(model::BrowserModel::Page page) {
+  if (!InteractionAllowed()) {
+    return;
+  }
   model().SetPage(page);
   // Back on the browser, its page takes the keys again.
   if (RootView* root = window_->root();
@@ -976,11 +1081,15 @@ void UiApp::ShowPage(model::BrowserModel::Page page) {
 // A drag's drop, as the Swift's moveProfile and moveTab: the model's order,
 // saved as any change is (BrowserModel::ScheduleSave).
 void UiApp::MoveProfile(int from, int to) {
-  model().MoveProfile(from, to);
+  if (InteractionAllowed()) {
+    model().MoveProfile(from, to);
+  }
 }
 
 void UiApp::MoveTab(const std::string& profile_id, int from, int to) {
-  model().MoveTab(profile_id, from, to);
+  if (InteractionAllowed()) {
+    model().MoveTab(profile_id, from, to);
+  }
 }
 
 void UiApp::DownloadUpdate() {
@@ -992,6 +1101,7 @@ void UiApp::DismissUpdate() {
 }
 
 void UiApp::ToggleSettings() {
+  // ShowPage asks InteractionAllowed().
   ShowPage(model().page() == model::BrowserModel::Page::kSettings
                ? model::BrowserModel::Page::kBrowser
                : model::BrowserModel::Page::kSettings);
@@ -1051,6 +1161,9 @@ void UiApp::PresentProfileSheet() {
 }
 
 void UiApp::SetKeepLoaded(const std::string& profile_id, bool keep_loaded) {
+  if (!InteractionAllowed()) {
+    return;
+  }
   model().UpdateProfile(profile_id, [&](model::BrowserProfile& profile) {
     profile.keep_loaded = keep_loaded;
   });
@@ -1092,17 +1205,24 @@ void UiApp::ProfileDeleted(const std::string& profile_id, bool removes_folder) {
 // Each step of a drag of the sidebar's edge lays the window out at the new
 // width; settings.json waits for the drag to end.
 void UiApp::ResizeSidebar(double width) {
+  if (!InteractionAllowed()) {
+    return;
+  }
   sidebar_width_ = model::ClampedSidebarWidth(width);
   window_->SetSidebarWidth(sidebar_width_);
 }
 
 void UiApp::EndSidebarResize() {
+  if (!InteractionAllowed()) {
+    return;
+  }
   ChangeSettings([&](model::AppSettings& settings) {
     settings.sidebar_width = sidebar_width_;
   });
 }
 
 void UiApp::ResetSidebarWidth() {
+  // Each asks InteractionAllowed().
   ResizeSidebar(model::kSidebarWidth);
   EndSidebarResize();
 }
@@ -1178,20 +1298,20 @@ void UiApp::PageDestroyed(const std::string& tab_id) {
 // normally, nor a page reloaded meanwhile.
 void UiApp::PageCrashed(const std::string& tab_id) {
   content::WebContents* page = PageOf(tab_id);
-  if (page && model().active_tab_id() == tab_id) {
+  const bool active = model().active_tab_id() == tab_id;
+  if (page && active) {
     progress_.Crashed(base::TimeTicks::Now());
-    window_->Refresh();
   }
-  if (!page || !page->IsCrashed()) {
-    return;
+  if (page && page->IsCrashed()) {
+    if (crashes_.Crashed(tab_id, base::Time::Now()) || !active) {
+      // The sad tab, in the selected tab's place or once it is selected.
+      crashed_tab_ids_.insert(tab_id);
+    } else {
+      page->GetController().Reload(content::ReloadType::NORMAL,
+                                   /*check_for_repost=*/true);
+    }
   }
-  if (crashes_.Crashed(tab_id, base::Time::Now()) ||
-      model().active_tab_id() != tab_id) {
-    crashed_tab_ids_.insert(tab_id);
-    return;
-  }
-  page->GetController().Reload(content::ReloadType::NORMAL,
-                               /*check_for_repost=*/true);
+  window_->Refresh();
 }
 
 // A crashed tab reloaded starts over, as the Swift's reloadCrashed: its next
@@ -1200,7 +1320,150 @@ void UiApp::PageCrashed(const std::string& tab_id) {
 void UiApp::PageCameBack(const std::string& tab_id) {
   if (crashed_tab_ids_.erase(tab_id)) {
     crashes_.Forget(tab_id);
+    window_->Refresh();
   }
+}
+
+// The selected tab shows Chrome's empty page where the old one was, in the
+// same turn, so no frame shows the place empty, and loads it on the next, as
+// a page's own calls wait for (ADR 0017). Another waits for its selection.
+void UiApp::PageReplaced(const std::string& tab_id) {
+  window_->Refresh();
+  content::WebContents* page = PageOf(tab_id);
+  if (!page || model().active_tab_id() != tab_id || !InteractionAllowed()) {
+    return;
+  }
+  window_->ShowTab(page, /*chosen=*/false);
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<UiApp> app, std::string tab_id) {
+                       if (!app) {
+                         return;
+                       }
+                       if (const auto page = app->pages_.find(tab_id);
+                           page != app->pages_.end()) {
+                         page->second->LoadIfDiscarded();
+                       }
+                     },
+                     weak_factory_.GetWeakPtr(), tab_id));
+}
+
+void UiApp::PageFirstPaint(const std::string& tab_id) {
+  if (waking_ && waking_->tab_id == tab_id) {
+    EndInteractionAtNextFrame(Interaction::kWakeTab,
+                              std::exchange(waking_, std::nullopt)->interval,
+                              window_->compositor());
+  }
+}
+
+void UiApp::SleepTab(const std::string& tab_id) {
+  Release(tab_id);
+}
+
+// MARK: The tab switcher
+
+// The open profiles' tabs, by recent use: a collapsed profile's are left out,
+// as the Swift's were.
+void UiApp::SwitchTab(bool backward) {
+  if (!InteractionAllowed()) {
+    return;
+  }
+  if (switcher_) {
+    int count = 0;
+    for (const model::SwitcherGroup& group : switcher_->groups) {
+      count += static_cast<int>(group.tabs.size());
+    }
+    switcher_->selected =
+        model::SwitcherCycle(switcher_->selected, backward ? -1 : 1, count);
+    if (RootView* root = window_->root()) {
+      root->SelectInSwitcher(switcher_->selected);
+    }
+    return;
+  }
+
+  const std::set<std::string>& expanded = model().expanded_profile_ids();
+  std::set<std::string> open_tabs;
+  for (const model::BrowserProfile& profile : model().profiles()) {
+    if (expanded.contains(profile.id)) {
+      for (const model::Tab& tab : profile.tabs) {
+        open_tabs.insert(tab.id);
+      }
+    }
+  }
+  const std::vector<std::string>& mru = model().history().mru();
+  std::vector<std::string> recent;
+  for (const std::string& tab_id : mru) {
+    if (open_tabs.contains(tab_id)) {
+      recent.push_back(tab_id);
+    }
+  }
+  Switcher switcher;
+  switcher.groups = model::SwitcherGroups(recent, model().profiles());
+  std::vector<model::SwitcherTab> flattened;
+  for (const model::SwitcherGroup& group : switcher.groups) {
+    flattened.insert(flattened.end(), group.tabs.begin(), group.tabs.end());
+  }
+  RootView* root = window_->root();
+  if (flattened.empty() || !root) {
+    return;
+  }
+  LogInteraction(Interaction::kOpenSwitcher, window_->compositor());
+  switcher.selected = model::SwitcherInitialSelectedIndex(
+      flattened, mru.size() > 1 ? std::optional(mru[1]) : std::nullopt);
+  if (backward) {
+    switcher.selected =
+        model::SwitcherCycle(0, -1, static_cast<int>(flattened.size()));
+  }
+  switcher_ = std::move(switcher);
+  root->ShowSwitcher(SwitcherGroupsToShow(), switcher_->selected);
+}
+
+void UiApp::CommitSwitcher() {
+  if (!switcher_) {
+    return;
+  }
+  std::optional<std::string> chosen;
+  int index = 0;
+  for (const model::SwitcherGroup& group : switcher_->groups) {
+    for (const model::SwitcherTab& tab : group.tabs) {
+      if (index++ == switcher_->selected) {
+        chosen = tab.id;
+      }
+    }
+  }
+  CancelSwitcher();
+  if (chosen) {
+    Select(*chosen);
+  }
+}
+
+void UiApp::CancelSwitcher() {
+  if (!std::exchange(switcher_, std::nullopt)) {
+    return;
+  }
+  if (RootView* root = window_->root()) {
+    root->HideSwitcher();
+  }
+}
+
+std::vector<TabSwitcherView::Group> UiApp::SwitcherGroupsToShow() {
+  std::vector<TabSwitcherView::Group> groups;
+  if (!switcher_) {
+    return groups;
+  }
+  for (const model::SwitcherGroup& group : switcher_->groups) {
+    TabSwitcherView::Group shown;
+    shown.name = base::UTF8ToUTF16(group.name);
+    shown.color = ColorOf(group.color);
+    for (const model::SwitcherTab& tab : group.tabs) {
+      shown.tabs.push_back({.id = tab.id,
+                            .title = base::UTF8ToUTF16(tab.title),
+                            .favicon = favicons_.Image(
+                                tab.id, tab.favicon.value_or(std::string()))});
+    }
+    groups.push_back(std::move(shown));
+  }
+  return groups;
 }
 
 // MARK: Window::Controller
@@ -1253,9 +1516,12 @@ RootView::Shows UiApp::Shows() {
   const model::BrowserModel& model = this->model();
   const bool browser = model.page() == model::BrowserModel::Page::kBrowser;
   RootView::Shows shows;
-  shows.content = !browser                ? RootView::Content::kOther
-                  : model.active_tab_id() ? RootView::Content::kPage
-                                          : RootView::Content::kEmpty;
+  const std::optional<std::string>& selected = model.active_tab_id();
+  shows.content = !browser    ? RootView::Content::kOther
+                  : !selected ? RootView::Content::kEmpty
+                  : crashed_tab_ids_.contains(*selected)
+                      ? RootView::Content::kSadTab
+                      : RootView::Content::kPage;
   shows.sidebar_width = sidebar_width_;
   shows.can_collapse_all = !model.expanded_profile_ids().empty();
 
@@ -1289,6 +1555,7 @@ RootView::Shows UiApp::Shows() {
 // selected one's page is made again when the window shows.
 void UiApp::WindowClosed() {
   focuses_address_.reset();
+  switcher_.reset();
 }
 
 // What the address field loads (the Swift's navigate): the selected page goes
@@ -1328,6 +1595,9 @@ void UiApp::AddressEntered(const std::u16string& text) {
 
 // Esc in the address: the page takes the keys (the Swift's onExitCommand).
 void UiApp::AddressLeft() {
+  if (!InteractionAllowed()) {
+    return;
+  }
   if (RootView* root = window_->root()) {
     root->FocusPage();
   }
@@ -1335,18 +1605,29 @@ void UiApp::AddressLeft() {
 
 // ⌘T: a new tab of the profile shown, at the start page.
 void UiApp::NewTab() {
+  if (!InteractionAllowed()) {
+    return;
+  }
   LogInteraction(Interaction::kNewTab, window_->compositor());
   std::optional<std::string> profile_id = model().active_profile_id();
   if (!profile_id && !model().profiles().empty()) {
     profile_id = model().profiles().front().id;
   }
-  if (!profile_id || !InteractionAllowed()) {
-    return;
+  if (profile_id) {
+    OpenTab(*profile_id, std::nullopt);
   }
-  OpenTab(*profile_id, std::nullopt);
+}
+
+void UiApp::FocusAddressField() {
+  if (InteractionAllowed()) {
+    window_->FocusAddress();
+  }
 }
 
 void UiApp::SelectTabAt(int number) {
+  if (!InteractionAllowed()) {
+    return;
+  }
   const std::optional<std::string>& profile_id = model().active_profile_id();
   const model::BrowserProfile* profile =
       profile_id ? model().FindProfile(*profile_id) : nullptr;
@@ -1477,11 +1758,15 @@ void UiApp::OnExpandedProfilesChanged() {
   window_->Refresh();
 }
 
+// The sleep clocks follow the selection: the tab and profile left start
+// theirs.
 void UiApp::OnActiveTabChanged() {
+  sleep_->SelectionChanged();
   window_->Refresh();
 }
 
 void UiApp::OnActiveProfileChanged() {
+  sleep_->SelectionChanged();
   window_->Refresh();
 }
 
@@ -1585,6 +1870,37 @@ base::DictValue UiApp::Snapshot() const {
   for (const std::string& tab_id : crashed_tab_ids_) {
     crashed.Append(tab_id);
   }
+  // What keeps a tab from sleeping, as its page has it.
+  base::ListValue picture_in_picture;
+  base::ListValue devtools;
+  for (const auto& [tab_id, page] : pages_) {
+    content::WebContents* contents = page->web_contents();
+    if (contents->HasPictureInPictureVideo() ||
+        contents->HasPictureInPictureDocument()) {
+      picture_in_picture.Append(tab_id);
+    }
+    if (DevToolsWindow::GetInstanceForInspectedWebContents(contents)) {
+      devtools.Append(tab_id);
+    }
+  }
+  // The tab switcher as it shows: each group's profile, name, and tabs.
+  base::DictValue switcher;
+  switcher.Set("visible", switcher_.has_value());
+  switcher.Set("selectedIndex", switcher_ ? switcher_->selected : 0);
+  base::ListValue groups;
+  if (switcher_) {
+    for (const model::SwitcherGroup& group : switcher_->groups) {
+      base::ListValue tabs;
+      for (const model::SwitcherTab& tab : group.tabs) {
+        tabs.Append(tab.id);
+      }
+      groups.Append(base::DictValue()
+                        .Set("profileID", group.id)
+                        .Set("name", group.name)
+                        .Set("tabs", std::move(tabs)));
+    }
+  }
+  switcher.Set("groups", std::move(groups));
 
   // The address's load bar as drawn now: started, the share filled, its
   // opacity, and whether the slow mode's shimmer runs.
@@ -1616,6 +1932,9 @@ base::DictValue UiApp::Snapshot() const {
       .Set("extensions", std::move(extensions))
       .Set("downloads", std::move(downloads))
       .Set("crashedTabs", std::move(crashed))
+      .Set("pictureInPictureTabs", std::move(picture_in_picture))
+      .Set("devToolsTabs", std::move(devtools))
+      .Set("switcher", std::move(switcher))
       .Set("address", root ? root->address() : std::u16string())
       .Set("progressBar", std::move(progress_bar))
       .Set("update", UpdateState(*updater_))

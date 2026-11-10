@@ -40,6 +40,12 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kChoosePlatform:
       os_signpost_interval_begin(log, id, "Choose platform");
       break;
+    case Interaction::kOpenSwitcher:
+      os_signpost_interval_begin(log, id, "Open switcher");
+      break;
+    case Interaction::kWakeTab:
+      os_signpost_interval_begin(log, id, "Wake tab");
+      break;
   }
   return id;
 }
@@ -64,6 +70,12 @@ void EndInteractionInterval(Interaction interaction, uint64_t interval) {
       break;
     case Interaction::kChoosePlatform:
       os_signpost_interval_end(log, interval, "Choose platform");
+      break;
+    case Interaction::kOpenSwitcher:
+      os_signpost_interval_end(log, interval, "Open switcher");
+      break;
+    case Interaction::kWakeTab:
+      os_signpost_interval_end(log, interval, "Wake tab");
       break;
   }
 }

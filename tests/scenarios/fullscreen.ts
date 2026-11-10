@@ -173,10 +173,12 @@ const fullscreen: Scenario = async (context) => {
 		context.defer(
 			"the user's full screen from View › Enter Full Screen: the menu bar is H7's",
 		);
+
 		await watcher.stop();
 
 		return;
 	}
+
 	await settled(true, "the user's full screen");
 	await requestFullscreen();
 	await pressEscape();

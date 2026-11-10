@@ -58,6 +58,12 @@ enum ViewId : int {
   kViewIdUpdatePill,
   kViewIdUpdate,
   kViewIdUpdateDismiss,
+  // The sad tab in the page's place, and its Reload.
+  kViewIdSadTab,
+  kViewIdSadTabReload,
+  // The tab switcher over the window; the channel names its rows by their
+  // tabs' ids ("pane.switcher.tab.<id>").
+  kViewIdSwitcher,
 
   kViewIdsEnd,
 };

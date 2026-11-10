@@ -20,9 +20,14 @@
 #include "base/time/time.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/profiles/profile.h"
+#include "content/public/browser/storage_partition.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_constants.h"
 #include "pane/app/data_launch.h"
 #include "pane/automation/input.h"
 #include "pane/automation/windows.h"
+#include "pane/browser/profile_cache.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/model_store.h"
 #include "pane/model/pin_entry.h"
@@ -33,11 +38,13 @@
 #include "pane/ui/sidebar/profile_row.h"
 #include "pane/ui/sidebar/sidebar_view.h"
 #include "pane/ui/sidebar/tab_row.h"
+#include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/toolbar/toolbar_view.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
+#include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "ui/compositor/compositor.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
@@ -137,6 +144,36 @@ std::vector<double> Drag(views::Widget* widget,
   }
   Pointer(widget, ui::EventType::kMouseReleased, gfx::PointF(to));
   return times;
+}
+
+// A cookie without its value: where it applies, and its attributes, as the
+// Swift app's channel described one.
+base::DictValue DescribeCookie(const net::CanonicalCookie& cookie) {
+  std::string_view same_site = "unspecified";
+  switch (cookie.SameSite()) {
+    case net::CookieSameSite::NO_RESTRICTION:
+      same_site = "none";
+      break;
+    case net::CookieSameSite::LAX_MODE:
+      same_site = "lax";
+      break;
+    case net::CookieSameSite::STRICT_MODE:
+      same_site = "strict";
+      break;
+    case net::CookieSameSite::UNSPECIFIED:
+      break;
+  }
+  return base::DictValue()
+      .Set("name", cookie.Name())
+      .Set("domain", cookie.Domain())
+      .Set("path", cookie.Path())
+      .Set("secure", cookie.SecureAttribute())
+      .Set("httpOnly", cookie.IsHttpOnly())
+      .Set("sameSite", same_site)
+      .Set("expires",
+           cookie.IsPersistent()
+               ? base::Value(cookie.ExpiryDate().InSecondsFSinceUnixEpoch())
+               : base::Value());
 }
 
 std::optional<model::BrowserModel::ProxyStatus> ProxyStatusNamed(
@@ -250,6 +287,7 @@ void Automation::Run(std::string name, base::DictValue command) {
                    reply.Set("error", error);
                  }
                  base::DictValue state = automation->app_->Snapshot();
+                 automation->AddProfileReads(state);
                  state.Set("nativeWindows",
                            NativeWindows(automation->app_->window()->widget()));
                  state.Set("alert",
@@ -259,6 +297,29 @@ void Automation::Run(std::string name, base::DictValue command) {
                      .WithArgs(name, base::WriteJson(reply).value_or("{}"));
                },
                weak_factory_.GetWeakPtr(), std::move(name)));
+}
+
+void Automation::AddProfileReads(base::DictValue& state) const {
+  base::ListValue* profiles = state.FindList("profiles");
+  if (!profiles) {
+    return;
+  }
+  for (base::Value& profile : *profiles) {
+    base::DictValue& entry = profile.GetDict();
+    const std::string* id = entry.FindString("id");
+    if (!id) {
+      continue;
+    }
+    const auto size = cache_sizes_.find(*id);
+    entry.Set("cacheSize",
+              size == cache_sizes_.end()
+                  ? base::Value()
+                  : base::Value(static_cast<double>(size->second)));
+    const auto cookies = cookies_.find(*id);
+    entry.Set("cookies", cookies == cookies_.end()
+                             ? base::Value()
+                             : base::Value(cookies->second.Clone()));
+  }
 }
 
 void Automation::Dispatch(const std::string& name,
@@ -414,10 +475,11 @@ void Automation::Dispatch(const std::string& name,
                            name + (from ? " needs to" : " needs from"));
       return;
     }
+    // The drop's intents, as a drag's lands.
     if (name == "moveTab") {
-      app_->model().MoveTab(*profile_id, *from, *to);
+      app_->MoveTab(*profile_id, *from, *to);
     } else {
-      app_->model().MoveProfile(*from, *to);
+      app_->MoveProfile(*from, *to);
     }
     std::move(reply).Run(base::Value(), std::string());
     return;
@@ -508,6 +570,100 @@ void Automation::Dispatch(const std::string& name,
       return;
     }
     app_->Select(*tab);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The sad tab's Reload, for { tab }.
+  if (name == "reloadCrashed") {
+    const std::string* tab = command.FindString("tab");
+    if (!tab) {
+      std::move(reply).Run(base::Value(), "reloadCrashed needs tab");
+      return;
+    }
+    app_->ReloadCrashed(*tab);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The tab switcher's keys, as the window's command table will run them
+  // (H7): { action: "next" | "previous" } opens it or moves its selection,
+  // "commit" is Ctrl's release, "cancel" is Esc.
+  if (name == "switcher") {
+    const std::string* action = command.FindString("action");
+    if (!action || (*action != "next" && *action != "previous" &&
+                    *action != "commit" && *action != "cancel")) {
+      std::move(reply).Run(base::Value(), "unknown switcher action");
+      return;
+    }
+    if (*action == "next" || *action == "previous") {
+      app_->SwitchTab(/*backward=*/*action == "previous");
+    } else if (*action == "commit") {
+      app_->CommitSwitcher();
+    } else {
+      app_->CancelSwitcher();
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // Settings' Sleep: { tabSleepAfterMinutes, profileUnloadAfterMinutes,
+  // cacheBudgetMB }, each a number, or null for off.
+  if (name == "setSleepSettings") {
+    app_->ChangeSettings([&](model::AppSettings& settings) {
+      settings.tab_sleep_after_minutes =
+          command.FindInt("tabSleepAfterMinutes");
+      settings.profile_unload_after_minutes =
+          command.FindInt("profileUnloadAfterMinutes");
+      settings.cache_budget_mb = command.FindInt("cacheBudgetMB");
+    });
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // { profile }: an open profile's HTTP cache's bytes, or its cookies, read
+  // in the background; the replies' profiles[].cacheSize and
+  // profiles[].cookies hold them once read.
+  if (name == "readCacheSize" || name == "readCookies") {
+    const std::string* profile_id = command.FindString("profile");
+    Profile* profile = profile_id ? app_->ProfileIfOpen(*profile_id) : nullptr;
+    if (!profile) {
+      std::move(reply).Run(
+          base::Value(), profile_id ? "profile " + *profile_id + " is not open"
+                                    : name + " needs profile");
+      return;
+    }
+    if (name == "readCacheSize") {
+      cache_sizes_.erase(*profile_id);
+      ComputeCacheSize(profile, base::BindOnce(
+                                    [](base::WeakPtr<Automation> automation,
+                                       std::string profile_id, int64_t bytes) {
+                                      if (automation) {
+                                        automation->cache_sizes_[profile_id] =
+                                            bytes;
+                                      }
+                                    },
+                                    weak_factory_.GetWeakPtr(), *profile_id));
+    } else {
+      cookies_.erase(*profile_id);
+      profile->GetDefaultStoragePartition()
+          ->GetCookieManagerForBrowserProcess()
+          ->GetAllCookies(mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+              base::BindOnce(
+                  [](base::WeakPtr<Automation> automation,
+                     std::string profile_id, const net::CookieList& cookies) {
+                    if (!automation) {
+                      return;
+                    }
+                    base::ListValue described;
+                    for (const net::CanonicalCookie& cookie : cookies) {
+                      described.Append(DescribeCookie(cookie));
+                    }
+                    automation->cookies_[profile_id] = std::move(described);
+                  },
+                  weak_factory_.GetWeakPtr(), *profile_id),
+              net::CookieList()));
+    }
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -626,19 +782,23 @@ void Automation::Dispatch(const std::string& name,
         items.push_back(item.is_string() ? item.GetString() : std::string());
       }
     }
+    // Whether it ran, as a click on it in the menu bar: behind the Lock,
+    // only Check for Updates… does (the Swift's menu validation).
+    bool ran = app_->InteractionAllowed();
     if (items == std::vector<std::string>{"File", "New Tab"}) {
       app_->NewTab();
     } else if (items ==
                std::vector<std::string>{"Navigate", "Focus Address Bar"}) {
-      window->FocusAddress();
+      app_->FocusAddressField();
     } else if (items ==
                std::vector<std::string>{"Pane", "Check for Updates…"}) {
       app_->updater().Check();
+      ran = true;
     } else {
       std::move(reply).Run(base::Value(), "no such menu item");
       return;
     }
-    std::move(reply).Run(base::Value(), std::string());
+    std::move(reply).Run(base::Value(ran), std::string());
     return;
   }
 
@@ -876,9 +1036,29 @@ void Automation::Dispatch(const std::string& name,
     for (auto& entry : window->root()->toolbar()->NamedViews()) {
       named.push_back(std::move(entry));
     }
+    for (const int id : {kViewIdSadTab, kViewIdSadTabReload}) {
+      if (const views::View* view = window->root()->GetViewByID(id)) {
+        named.emplace_back(std::string(ViewIdName(id)), view);
+      }
+    }
     for (const auto& [view_name, view] : named) {
       if (view->IsDrawn() && (!prefix || view_name.starts_with(*prefix))) {
         frames.Set(view_name, FrameIn(view, root));
+      }
+    }
+    // The switcher's panel and rows, which it draws itself.
+    if (TabSwitcherView* switcher = window->root()->switcher();
+        switcher && switcher->IsDrawn()) {
+      for (const auto& [row_name, row] : switcher->NamedFrames()) {
+        if (!prefix || row_name.starts_with(*prefix)) {
+          const gfx::Rect frame =
+              views::View::ConvertRectToTarget(switcher, root, row);
+          frames.Set(row_name, base::ListValue()
+                                   .Append(frame.x())
+                                   .Append(frame.y())
+                                   .Append(frame.width())
+                                   .Append(frame.height()));
+        }
       }
     }
     std::move(reply).Run(base::Value(std::move(frames)), std::string());
@@ -991,9 +1171,14 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // The prototype's sheet stands in for the profile sheet (G4).
+  // The prototype's sheet stands in for the profile sheet (G4): the
+  // footer's New opens it.
   if (name == "openProfileSheet" || name == "closeProfileSheet") {
-    window->root()->ShowSheet(name == "openProfileSheet");
+    if (name == "openProfileSheet") {
+      app_->NewProfile();
+    } else {
+      window->root()->ShowSheet(false);
+    }
     std::move(reply).Run(base::Value(), std::string());
     return;
   }

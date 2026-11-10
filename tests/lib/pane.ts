@@ -157,8 +157,12 @@ export type AppState = {
 		matches: number;
 		activeMatch: number;
 	};
+	// The tab switcher: its selection, counting down through its groups, and
+	// each group's profile and tabs.
 	switcher: {
 		visible: boolean;
+		selectedIndex: number;
+		groups: { profileID: string; name: string; tabs: string[] }[];
 	};
 	downloads: DownloadState[];
 	// The address field's text.

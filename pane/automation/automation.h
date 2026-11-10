@@ -3,6 +3,8 @@
 #ifndef PANE_AUTOMATION_AUTOMATION_H_
 #define PANE_AUTOMATION_AUTOMATION_H_
 
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -40,8 +42,14 @@ class Automation {
                 const base::DictValue& command,
                 Reply reply);
 
+  // Each profile's state a command read, for the replies' profiles: its HTTP
+  // cache's bytes, and its cookies without their values.
+  void AddProfileReads(base::DictValue& state) const;
+
   raw_ptr<UiApp> app_;
   base::SequenceBound<Files> files_;
+  std::map<std::string, int64_t> cache_sizes_;
+  std::map<std::string, base::ListValue> cookies_;
   base::WeakPtrFactory<Automation> weak_factory_{this};
 };
 

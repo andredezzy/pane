@@ -12,7 +12,9 @@ class Compositor;
 namespace pane {
 
 // The interactions interaction-timing times, by the names the Swift app
-// gave them, and a click into the address, which the Swift didn't time.
+// gave them, and what the Swift didn't time: a click into the address, the
+// tab switcher's first frame, and a tab without a page woken to its page's
+// first paint.
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -20,6 +22,8 @@ enum class Interaction {
   kClickAddressField,
   kOpenProfileSheet,
   kChoosePlatform,
+  kOpenSwitcher,
+  kWakeTab,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame
@@ -28,6 +32,12 @@ enum class Interaction {
 // at Core Animation's commit (AfterFrame), before its frame was on the
 // screen, so these run longer by that much for the same work.
 void LogInteraction(Interaction interaction, ::ui::Compositor* compositor);
+
+// Ends an interval begun earlier (BeginInteractionInterval) once the frame
+// `compositor` builds next is on the screen.
+void EndInteractionAtNextFrame(Interaction interaction,
+                               uint64_t interval,
+                               ::ui::Compositor* compositor);
 
 // The platform's half: an interval's begin and end, in the system's trace.
 uint64_t BeginInteractionInterval(Interaction interaction);

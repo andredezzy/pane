@@ -26,7 +26,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
-#include "base/strings/cstring_view.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
@@ -55,6 +54,7 @@
 #include "pane/model/model_store.h"
 #include "pane/model/pin_entry.h"
 #include "pane/model/security.h"
+#include "pane/model/test_hooks.h"
 
 namespace pane {
 
@@ -62,19 +62,7 @@ namespace {
 
 using model::AppLock;
 using model::DataVault;
-
-// A scenario's variable: on the mock keychain alone, whose secret opens none
-// of the user's data (ADR 0115), as the Swift app's TestHooks read them.
-std::optional<std::string> TestHook(base::cstring_view name) {
-  if (!model::SafeStorage::UsesMockKeychain()) {
-    return std::nullopt;
-  }
-  std::optional<std::string> value = base::Environment::Create()->GetVar(name);
-  if (!value || value->empty()) {
-    return std::nullopt;
-  }
-  return value;
-}
+using model::TestHook;
 
 // One of the user's folders, as Foundation names it: a fixed home's
 // (CFFIXED_USER_HOME), a scenario's, when there is one.

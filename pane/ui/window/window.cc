@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/web_contents.h"
+#include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/interaction_log.h"
@@ -111,6 +112,10 @@ void Window::Open() {
                                                 base::Unretained(controller));
   toolbar.address_left = base::BindRepeating(&Controller::AddressLeft,
                                              base::Unretained(controller));
+  // The sad tab's Reload is the toolbar's, which makes a crashed tab's page
+  // again.
+  callbacks.reload_crashed =
+      base::BindRepeating(&Controller::Reload, base::Unretained(controller));
   auto root = std::make_unique<RootView>(std::move(callbacks),
                                          &controller->LoadProgress());
   root_ = root.get();
@@ -195,7 +200,7 @@ void Window::ShowTab(content::WebContents* contents, bool chosen) {
     // The page has the keyboard, as a tab chosen in Chrome does.
     root_->FocusPage();
   }
-  UpdateTitle();
+  UpdateTitleAfterFrame();
   Refresh();
 }
 
@@ -225,6 +230,29 @@ void Window::UpdateTitle() {
   if (host_) {
     host_->SetTitle(title.empty() ? u"Pane" : title);
   }
+}
+
+void Window::UpdateTitleAfterFrame() {
+  if (title_owed_) {
+    return;
+  }
+  title_owed_ = true;
+  // After what the frame let go, too: a tab's page made after it comes
+  // first, which the title would hold back by as much.
+  AfterFrame(compositor(),
+             base::BindOnce(
+                 [](base::WeakPtr<Window> window) {
+                   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+                       FROM_HERE, base::BindOnce(
+                                      [](base::WeakPtr<Window> window) {
+                                        if (window) {
+                                          window->title_owed_ = false;
+                                          window->UpdateTitle();
+                                        }
+                                      },
+                                      window));
+                 },
+                 weak_factory_.GetWeakPtr()));
 }
 
 bool Window::page_fullscreen() const {
@@ -347,7 +375,7 @@ bool Window::AcceleratorPressed(const ui::Accelerator& accelerator) {
       controller_->NewTab();
       return true;
     case ui::VKEY_L:
-      FocusAddress();
+      controller_->FocusAddressField();
       return true;
     default:
       if (accelerator.key_code() >= ui::VKEY_1 &&

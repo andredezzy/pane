@@ -30,6 +30,8 @@ source_set("design") {
     "motion.h",
     "palette.cc",
     "palette.h",
+    "placement.cc",
+    "placement.h",
     "scroll_fade.cc",
     "scroll_fade.h",
     "squircle.cc",
@@ -38,6 +40,8 @@ source_set("design") {
     "switch.h",
     "text.cc",
     "text.h",
+    "text_button.cc",
+    "text_button.h",
     "theme.cc",
     "theme.h",
   ]
@@ -83,6 +87,7 @@ source_set("unit_tests") {
     "icons_unittest.cc",
     "motion_unittest.cc",
     "palette_unittest.cc",
+    "placement_unittest.cc",
     "squircle_unittest.cc",
     "theme_unittest.cc",
   ]
@@ -94,10 +99,13 @@ source_set("unit_tests") {
     "//pane/model",
     "//skia",
     "//testing/gtest",
+    "//ui/accessibility:test_support",
     "//ui/color",
     "//ui/gfx",
+    "//ui/gfx:test_support",
     "//ui/gfx/animation",
     "//ui/gfx/geometry",
     "//ui/native_theme",
+    "//ui/views",
   ]
 }

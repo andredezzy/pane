@@ -12,15 +12,24 @@ void LogInteraction(Interaction interaction, ::ui::Compositor* compositor) {
   if (!compositor) {
     return;
   }
-  const uint64_t interval = BeginInteractionInterval(interaction);
-  // The frame built after the input, once it is on the screen.
+  EndInteractionAtNextFrame(interaction, BeginInteractionInterval(interaction),
+                            compositor);
+}
+
+void EndInteractionAtNextFrame(Interaction interaction,
+                               uint64_t interval,
+                               ::ui::Compositor* compositor) {
+  if (!compositor) {
+    return;
+  }
+  // The frame built after now, once it is on the screen.
   compositor->RequestSuccessfulPresentationTimeForNextFrame(base::BindOnce(
       [](Interaction interaction, uint64_t interval,
          const viz::FrameTimingDetails& details) {
         EndInteractionInterval(interaction, interval);
       },
       interaction, interval));
-  // A frame, even when the input changed nothing on the screen.
+  // A frame, even when nothing changed on the screen.
   compositor->ScheduleDraw();
 }
 

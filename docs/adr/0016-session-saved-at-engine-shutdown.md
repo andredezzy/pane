@@ -1,5 +1,7 @@
 # Pane restores its own session: the app saves it when the engine shuts down, and AppKit's window restoration is off
 
+> **On the Views line** (`docs/plans/views-migration.md`, H5): the save is `UiApp::Start`'s terminating callback, as quitting starts, waited for before the engine stops, and AppKit's restoration stays off, in the defaults (`ApplePersistenceIgnoreState`) and on the window itself (`restorable`, `frame_mac.mm`). `restore` passes on it.
+
 Session restore is the app's, as it was the Electron app's: Pane persists its own `profiles.json`, and brings its profiles and tabs back from it. It saves at `browserApplicationWillShutDown:`, rather than at `NSApplicationWillTerminateNotification`, which Chromium's quit path does not reliably post. The engine calls that optional delegate method once as it shuts down: as quitting starts, or after the message loop (`PostMainMessageLoopRun`) at the latest, before it releases the profiles. There the app's `saveNow` writes what changed and waits for the write (ADR 0068).
 
 The session saved is the one the user left, because a closing window or a quitting engine does not report its tabs as removed. `WindowHost` skips `didRemoveTab` while a tab strip closes all its tabs, the window closes, or the engine quits; before, the app saw every tab leave at ⌘Q and saved empty profiles. `didRemoveTab` means "this tab closed", by the app once beforeunload agreed or by the page itself, and the tabs of a closing window or a quitting engine stay the app's.

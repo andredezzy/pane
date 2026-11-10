@@ -22,22 +22,14 @@ class MenuRunner;
 
 namespace gfx {
 class Canvas;
-class ImageSkia;
-class RectF;
 }  // namespace gfx
 
 namespace pane {
 
 // What a tab's row and a drag's copy of it (H3) show: its title, or
-// "Loading..." before it has one; and its favicon in its 16-point place,
-// rounded as a favicon is (ADR 0057), at `opacity`, or the globe in `tint`
-// without one.
+// "Loading..." before it has one, beside its favicon (PaintFavicon) or the
+// globe.
 std::u16string TabTitle(const SidebarTab& tab);
-void PaintFavicon(gfx::Canvas& canvas,
-                  const gfx::RectF& place,
-                  const gfx::ImageSkia& favicon,
-                  SkColor tint,
-                  float opacity);
 
 // A tab's row (the Swift's TabRow): its 16-point favicon, or a globe, 7 in,
 // its title 10 after it at 12, and a close X that fades in with the row's

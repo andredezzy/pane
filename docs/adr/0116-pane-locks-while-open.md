@@ -2,6 +2,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, Phase 2): a Lock saves what changed, unloads the pages, empties the model, calls the vault's Lock, closes every engine profile, and detaches once every one has closed; after the detach every process drops its engine keys. A profile still opening answers only the first Lock that came, so a second Lock never leaves the volume attached.
 
+> **On the Views line** (`docs/plans/views-migration.md`, H5): a Lock closes the tab switcher, and behind it no intent acts, each asking `InteractionAllowed()`; the channel's `menu` answers whether an item ran, only Check for Updates… behind the Lock.
+
 ADR 0113 put every profile's data in an encrypted volume the PIN opens, and Pane locked only at launch: once open, the data stayed readable until Pane quit, by anyone at the Mac and by any process of the user's. The user's requirement (2026-10-31) is that none of Pane's content can be seen without the PIN, and their call, of the options drawn in Paper (06.4, 07.9), was the command, the Mac's own sleep and lock, and an idle time.
 
 What changes:

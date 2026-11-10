@@ -18,6 +18,7 @@
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/empty_state_view.h"
+#include "pane/ui/window/sad_tab_view.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -55,8 +56,8 @@ constexpr float kShadowSigma = 4;
 // The page's corners, the panel's, as a layer draws them: a circle of the
 // radius that follows the squircle within a fifth of a pixel (ADR 0057), so
 // no mask composites the page each frame. All four, as the Swift's page layer
-// rounds them, its top two under the toolbar too (Paper's 04.7 has those
-// square: the user's call).
+// rounds them, its top two under the toolbar too: the user's call over
+// Paper's square ones, and 04.7 now draws them so.
 constexpr float kPageCornerRadius = radius::kPanel * kCircularEquivalent;
 
 // The sheet's card, at the window's right, as the profile sheet sits (Paper
@@ -169,8 +170,14 @@ RootView::RootView(Callbacks callbacks, model::ToolbarProgress* progress)
   page_->SetID(kViewIdContent);
   page_->GetViewAccessibility().SetName(u"Web content");
   empty_ = AddChildView(std::make_unique<EmptyStateView>());
+  sad_tab_ = AddChildView(
+      std::make_unique<SadTabView>(std::move(callbacks_.reload_crashed)));
   resize_ = AddChildView(
       std::make_unique<ResizeHandle>(std::move(callbacks_.resize)));
+  // Over the rest, under the profile sheet; made now, so the first frame
+  // that shows it makes nothing.
+  switcher_ = AddChildView(std::make_unique<TabSwitcherView>());
+  switcher_->SetVisible(false);
   ShowPlaces();
 }
 
@@ -181,15 +188,23 @@ void RootView::SetSidebar(const SidebarContent& content) {
 }
 
 void RootView::SetShows(const Shows& shows) {
+  const bool content_changed = shows.content != shows_.content;
   const bool laid_out_again =
-      shows.content != shows_.content ||
+      content_changed ||
       std::round(shows.sidebar_width) != std::round(shows_.sidebar_width);
+  // The page's place had the keys: the sad tab takes them in it, and the
+  // page back from it.
+  const bool place_focused = page_->HasFocus() || sad_tab_->HasFocus();
   shows_ = shows;
   toolbar_->SetShows(shows.toolbar);
   sidebar_->SetCanCollapseAll(shows.can_collapse_all);
   resize_->SetWidth(shows.sidebar_width);
   if (laid_out_again) {
     ShowPlaces();
+  }
+  if (content_changed && place_focused &&
+      (shows.content == Content::kPage || shows.content == Content::kSadTab)) {
+    FocusPage();
   }
 }
 
@@ -210,8 +225,13 @@ void RootView::ShowPlaces() {
   // does, which shows over a tab's page on the browser page.
   sidebar_->SetVisible(!page_fullscreen_);
   resize_->SetVisible(!page_fullscreen_);
-  toolbar_->SetVisible(shows_.content == Content::kPage && !page_fullscreen_);
+  const bool tab =
+      shows_.content == Content::kPage || shows_.content == Content::kSadTab;
+  toolbar_->SetVisible(tab && !page_fullscreen_);
   empty_->SetVisible(shows_.content == Content::kEmpty && !page_fullscreen_);
+  // The sad tab takes the page's place, on the panel's card: the page that
+  // died leaves it.
+  sad_tab_->SetVisible(shows_.content == Content::kSadTab && !page_fullscreen_);
   // A page of the app's (Settings) takes the panel: the page leaves it, as
   // the Swift's did (ADR 0073), until Settings' surface (H6) draws there.
   page_->SetVisible(shows_.content == Content::kPage);
@@ -267,7 +287,9 @@ std::string RootView::focus() const {
 }
 
 void RootView::FocusPage() {
-  if (page_->web_contents()) {
+  if (sad_tab_->GetVisible()) {
+    sad_tab_->RequestFocus();
+  } else if (page_->web_contents()) {
     page_->RequestFocus();
   }
 }
@@ -303,6 +325,21 @@ void RootView::ShowSheet(bool show) {
 
 bool RootView::sheet_visible() const {
   return sheet_ != nullptr;
+}
+
+void RootView::ShowSwitcher(std::vector<TabSwitcherView::Group> groups,
+                            int selected) {
+  switcher_->SetGroups(std::move(groups), selected);
+  switcher_->SetBoundsRect(GetLocalBounds());
+  switcher_->SetVisible(true);
+}
+
+void RootView::SelectInSwitcher(int selected) {
+  switcher_->SetSelected(selected);
+}
+
+void RootView::HideSwitcher() {
+  switcher_->SetVisible(false);
 }
 
 gfx::Rect RootView::PageBounds() const {
@@ -357,6 +394,9 @@ void RootView::Layout(PassKey) {
                    std::max(panel_bounds_.height() - top, 0));
 
   empty_->SetBoundsRect(panel_bounds_);
+  // Where the page is, under the toolbar.
+  sad_tab_->SetBoundsRect(page_->bounds());
+  switcher_->SetBoundsRect(GetLocalBounds());
 
   if (sheet_) {
     sheet_->SetBoundsRect(GetLocalBounds());

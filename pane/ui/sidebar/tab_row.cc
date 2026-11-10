@@ -9,18 +9,16 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/task/sequenced_task_runner.h"
-#include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/focus_ring.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
-#include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
+#include "pane/ui/tabs/tab_favicon.h"
 #include "pane/ui/view_ids.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
-#include "ui/gfx/scoped_canvas.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/controls/label.h"
@@ -41,25 +39,6 @@ constexpr char16_t kLoading[] = u"Loading...";
 
 std::u16string TabTitle(const SidebarTab& tab) {
   return tab.title.empty() ? kLoading : tab.title;
-}
-
-void PaintFavicon(gfx::Canvas& canvas,
-                  const gfx::RectF& place,
-                  const gfx::ImageSkia& favicon,
-                  SkColor tint,
-                  float opacity) {
-  if (favicon.isNull()) {
-    PaintIcon(canvas, Icon::kGlobe, place, 2, tint);
-    return;
-  }
-  gfx::ScopedCanvas scoped(&canvas);
-  canvas.ClipPath(SquirclePath(place, radius::kXs), true);
-  cc::PaintFlags flags;
-  flags.setAlphaf(opacity);
-  canvas.DrawImageInt(favicon, 0, 0, favicon.width(), favicon.height(),
-                      std::round(place.x()), std::round(place.y()),
-                      std::round(place.width()), std::round(place.height()),
-                      /*filter=*/true, flags);
 }
 
 // A tab's close X (the Swift's TabCloseButton), in the row's text color,
@@ -154,7 +133,7 @@ void TabRow::PaintButtonContents(gfx::Canvas* canvas) {
   PaintFavicon(
       *canvas,
       gfx::RectF(kLeading, (height() - kIconSize) / 2, kIconSize, kIconSize),
-      tab_.favicon, Tint(), ContentsOpacity());
+      tab_.favicon, FaviconPlaceholder::kGlobe, Tint(), ContentsOpacity());
 }
 
 void TabRow::LookChanged() {
@@ -171,8 +150,17 @@ void TabRow::ShowContextMenuForViewImpl(views::View* source,
   if (!GetWidget()) {
     return;
   }
+  // The row stays lit under its menu, as the Swift's did.
+  SetMenuShowing(true);
   menu_runner_ = std::make_unique<views::MenuRunner>(
-      &menu_model_, views::MenuRunner::CONTEXT_MENU);
+      &menu_model_, views::MenuRunner::CONTEXT_MENU,
+      base::BindRepeating(
+          [](base::WeakPtr<TabRow> row) {
+            if (row) {
+              row->SetMenuShowing(false);
+            }
+          },
+          weak_factory_.GetWeakPtr()));
   menu_runner_->RunMenuAt(GetWidget(), nullptr, gfx::Rect(point, gfx::Size()),
                           views::MenuAnchorPosition::kTopLeft, source_type);
 }

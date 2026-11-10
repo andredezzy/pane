@@ -9,6 +9,7 @@
 #include "third_party/skia/include/core/SkRect.h"
 #include "ui/compositor/canvas_painter.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_solid_color.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -80,6 +81,19 @@ void DrawLayered(SkCanvas* canvas,
     canvas->clipRect(SkRect::MakeXYWH(bounds.x() * scale, bounds.y() * scale,
                                       bounds.width() * scale,
                                       bounds.height() * scale));
+  }
+  // A solid layer (a scrim) has nothing to paint: the compositor draws its
+  // color over its bounds.
+  if (view->layer() && view->layer()->type() == ::ui::LAYER_SOLID_COLOR) {
+    const gfx::Rect bounds =
+        views::View::ConvertRectToTarget(view, root, view->GetLocalBounds());
+    SkPaint fill;
+    fill.setColor(view->layer()->AsSolidColor()->background_color());
+    fill.setAlphaf(fill.getAlphaf() * opacity);
+    canvas->drawRect(
+        SkRect::MakeXYWH(bounds.x() * scale, bounds.y() * scale,
+                         bounds.width() * scale, bounds.height() * scale),
+        fill);
   }
   const SkBitmap own = PaintOwn(view, scale);
   SkPaint paint;

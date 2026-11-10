@@ -8,8 +8,11 @@ import { expect, type Scenario } from "../run";
 // log as the app runs: selecting a tab among five loaded ones, a new tab
 // from the File menu, focusing the address field, a click into it (the
 // Views build's), opening the profile sheet (the first time draws the
-// platforms' logos), and choosing a platform. It times; it does not judge,
-// so a change is measured before and after.
+// platforms' logos), and choosing a platform. The Views build also times the
+// tab switcher's first frame, and a tab without a page woken to the frame
+// that shows its page's first paint (its profile unloaded, then the tab
+// selected). It times; it does not judge, so a change is measured before
+// and after.
 // /usr/bin/log, by its path: zsh has a builtin of the same name.
 
 type Signpost = {
@@ -90,6 +93,57 @@ const interactionTiming: Scenario = async (context) => {
 			await app.click("pane.toolbar.address");
 			await Bun.sleep(150);
 		}
+	}
+
+	// The tab switcher, opened and closed (the Views build's channel).
+	const switcher = await app
+		.send("switcher", { action: "next" })
+		.then(() => app.send("switcher", { action: "cancel" }))
+		.then(
+			() => true,
+			() => false,
+		);
+
+	if (switcher) {
+		for (let i = 0; i < ROUNDS * 2; i++) {
+			await Bun.sleep(150);
+			await app.send("switcher", { action: "next" });
+			await Bun.sleep(150);
+			await app.send("switcher", { action: "cancel" });
+		}
+	}
+
+	// A tab woken: its profile unloaded, its page gone, then the tab chosen,
+	// until its page has loaded again.
+	const waking = await app.createProfile("Waking");
+
+	const asleep = await app.openTab(
+		waking,
+		context.fixtures.url("switcher.html?name=Asleep"),
+	);
+
+	await app.waitFor("the tab to wake loaded", (state) =>
+		state.profiles.some((profile) =>
+			profile.tabs.some(
+				(tab) => tab.id === asleep && tab.loaded && !tab.loading,
+			),
+		),
+	);
+
+	for (let i = 0; i < ROUNDS * 2; i++) {
+		await app.send("unloadProfile", { profile: waking });
+		await Bun.sleep(150);
+		await app.send("select", { tab: asleep });
+
+		await app.waitFor("the tab awake", (state) =>
+			state.profiles.some((profile) =>
+				profile.tabs.some(
+					(tab) => tab.id === asleep && tab.loaded && !tab.loading,
+				),
+			),
+		);
+
+		await Bun.sleep(300);
 	}
 
 	for (let round = 0; round < ROUNDS; round++) {

@@ -46,6 +46,9 @@ class RowButton : public views::Button {
   // A drag carries the row (H3): it shows no hover or press of its own, the
   // copy over it has them (ADR 0066).
   void SetDragged(bool dragged);
+  // Holds the row lit while its menu shows, as the Swift's row stayed under
+  // its context menu; once the menu goes, the row follows the pointer.
+  void SetMenuShowing(bool showing);
   // What the row's losing the mouse mid-press ends: a drag from it, as a
   // release would.
   void SetCaptureLost(base::RepeatingClosure capture_lost);

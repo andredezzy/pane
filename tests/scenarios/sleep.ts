@@ -53,6 +53,11 @@ const sleep: Scenario = async (context) => {
 	await app.send("setKeepLoaded", { profile: k, keepLoaded: true });
 	const k1 = await app.openTab(k, context.fixtures.url("nav-a.html?kept"));
 
+	// Each tab has its page before another is chosen: a tab chosen only in
+	// passing, within the frame that answers it, never makes one (AfterFrame).
+	// The Swift app's channel, polled every 100 ms, left each the time.
+	await app.waitFor("k1 loaded", (state) => loaded(state, k1));
+
 	// A: a background tab, one with DevTools, and the selected one.
 	const a = await app.createProfile("Active", "BLUE");
 
@@ -60,6 +65,8 @@ const sleep: Scenario = async (context) => {
 		a,
 		context.fixtures.url("nav-a.html?background"),
 	);
+
+	await app.waitFor("a1 loaded", (state) => loaded(state, a1));
 
 	// a3 opens selected, which starts a1's clock. Timed from a2, most of a
 	// second later, the check passed or failed on where the ticks fell.
@@ -71,11 +78,29 @@ const sleep: Scenario = async (context) => {
 		(state) => loaded(state, a3) && !tabOf(state, a3)?.loading,
 	);
 
-	await app.send("toggleDevTools");
+	// The Views build docks DevTools with "What Chrome asks for"
+	// (docs/plans/views-migration.md), until which a3 is one more background
+	// tab.
+	const devTools = await app.send("toggleDevTools").then(
+		() => true,
+		(error: Error) => {
+			if (!error.message.includes("unknown command")) {
+				throw error;
+			}
 
-	await app.waitFor("DevTools on a3", (state) =>
-		state.devToolsTabs.includes(a3),
+			context.defer(
+				"a tab with DevTools open stays loaded: DevTools wait for What Chrome asks for",
+			);
+
+			return false;
+		},
 	);
+
+	if (devTools) {
+		await app.waitFor("DevTools on a3", (state) =>
+			state.devToolsTabs.includes(a3),
+		);
+	}
 
 	// A tone no one hears, which Chrome counts as sound.
 	const audioURL = context.fixtures.url("audio.html");
@@ -118,7 +143,9 @@ const sleep: Scenario = async (context) => {
 	const settled = await app.state();
 
 	expect(loaded(settled, a2), "the selected tab slept");
-	expect(loaded(settled, a3), "the tab with DevTools open slept");
+
+	expect(!devTools || loaded(settled, a3), "the tab with DevTools open slept");
+
 	expect(loaded(settled, a4), "the tab playing sound slept");
 	expect(loaded(settled, k1), "a Keep loaded profile's tab slept");
 

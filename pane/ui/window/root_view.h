@@ -4,11 +4,13 @@
 #define PANE_UI_WINDOW_ROOT_VIEW_H_
 
 #include <string>
+#include <vector>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "pane/ui/sidebar/resize_handle.h"
 #include "pane/ui/sidebar/sidebar_view.h"
+#include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/toolbar/toolbar_view.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/view.h"
@@ -30,6 +32,7 @@ class ToolbarProgress;
 }
 
 class EmptyStateView;
+class SadTabView;
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
 // as the Electron app laid it out: the sidebar's column on the left, 260
@@ -52,11 +55,15 @@ class RootView : public views::View {
     SidebarView::Callbacks sidebar;
     ResizeHandle::Callbacks resize;
     ToolbarView::Callbacks toolbar;
+    // The sad tab's Reload, and Return on it.
+    base::RepeatingClosure reload_crashed;
   };
 
   // What the content panel shows: the browser page with a tab selected,
-  // with none (the empty state), or a page of the app's (Settings).
-  enum class Content { kPage, kEmpty, kOther };
+  // the sad tab in that tab's place (a crash loop, or a profile that would
+  // not open), with none selected (the empty state), or a page of the app's
+  // (Settings).
+  enum class Content { kPage, kSadTab, kEmpty, kOther };
 
   // The rest of what the window shows, from the app.
   struct Shows {
@@ -93,6 +100,7 @@ class RootView : public views::View {
   void ShowPage(content::WebContents* contents);
   content::WebContents* page() const;
   void FocusAddress();
+  // The page takes the keys, or the sad tab in its place.
   void FocusPage();
   std::u16string address() const;
   // What has the keyboard, for the channel: the focused view's id, or the
@@ -103,6 +111,13 @@ class RootView : public views::View {
   // field, keys into it and not the page, Esc and Done closing it.
   void ShowSheet(bool show);
   bool sheet_visible() const;
+  // The tab switcher over the window, at once, its selection on the tab at
+  // `selected`; moved, at once; gone, at once.
+  void ShowSwitcher(std::vector<TabSwitcherView::Group> groups, int selected);
+  void SelectInSwitcher(int selected);
+  void HideSwitcher();
+  // While it shows.
+  TabSwitcherView* switcher() { return switcher_; }
   // Where the page is, in this view, and its layer's corners.
   gfx::Rect PageBounds() const;
   gfx::RoundedCornersF PageCorners() const;
@@ -136,6 +151,8 @@ class RootView : public views::View {
   raw_ptr<ToolbarView> toolbar_ = nullptr;
   raw_ptr<views::WebView> page_ = nullptr;
   raw_ptr<EmptyStateView> empty_ = nullptr;
+  raw_ptr<SadTabView> sad_tab_ = nullptr;
+  raw_ptr<TabSwitcherView> switcher_ = nullptr;
   raw_ptr<views::View> sheet_ = nullptr;
 };
 

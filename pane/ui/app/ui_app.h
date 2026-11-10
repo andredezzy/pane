@@ -3,6 +3,7 @@
 #ifndef PANE_UI_APP_UI_APP_H_
 #define PANE_UI_APP_UI_APP_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -20,8 +21,11 @@
 #include "pane/browser/profile_contexts.h"
 #include "pane/model/browser_model.h"
 #include "pane/model/crash_loop.h"
+#include "pane/model/tab_switcher.h"
 #include "pane/model/toolbar_progress.h"
+#include "pane/ui/app/sleep_controller.h"
 #include "pane/ui/tabs/favicons.h"
+#include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/window/window.h"
 #include "pane/updates/updater.h"
 #include "url/gurl.h"
@@ -56,6 +60,7 @@ struct ProfileDraft;
 // earlier Pane's have moved in, nothing opens, loads, or shows.
 class UiApp : public AppData::Client,
               public Window::Controller,
+              public SleepController::Delegate,
               public model::BrowserModel::Observer,
               public Favicons::Observer,
               public Updater::Observer {
@@ -73,8 +78,21 @@ class UiApp : public AppData::Client,
   model::BrowserModel& model();
   const model::BrowserModel& model() const;
 
+  // Whether the user may act on the browser (the Swift's
+  // interactionAllowed): behind the Lock nothing opens, loads, or shows, nor
+  // until the data key has opened the profiles and an earlier Pane's have
+  // moved in. Every way in asks this one question, as it reaches the
+  // intents below: the window's presses and keys, the menus, the switcher,
+  // a URL handed over, and the channel, which stands in for them. Only the
+  // update's check, download, and dismiss, the window shown again, and Quit
+  // go on behind it, as the Swift's menu let them.
+  bool InteractionAllowed() const;
+
   // What the user asks, from the window, the menus, and the channel alike
-  // (the Swift's intents).
+  // (the Swift's intents). Each that acts on the browser asks
+  // InteractionAllowed() first and does nothing without it; a URL handed
+  // over waits for it, and Quit, the window shown again, and a Lock (which
+  // needs a PIN) go on.
 
   // The profile sheet's Create: the profile as the form has it, expanded; its
   // id.
@@ -88,10 +106,16 @@ class UiApp : public AppData::Client,
   // A profile collapses, and its pages go; its tabs stay (CONTEXT.md:
   // Unload).
   void CollapseProfile(const std::string& profile_id);
+  // The sad tab's Reload, or any reload of a crashed tab: its page loads
+  // again, or is made again, its crash loop starting over (ADR 0027).
+  void ReloadCrashed(const std::string& tab_id);
   // The browser, or Settings: under Settings no tab is selected, and no
   // profile shows as active (ADR 0064).
   void ShowPage(model::BrowserModel::Page page);
   // A theme reaches the app, its menus, and its pages at once (ADR 0001).
+  // Settings changes them, and shows only where interaction is allowed
+  // (ShowPage); the channel stands in for it at any time, as the Swift's
+  // did, so a scenario sees the Lock's panel in either theme.
   void ChangeSettings(base::FunctionRef<void(model::AppSettings&)> change);
   // What changed is written; `written` runs once it is on the disk.
   void SaveNow(base::OnceClosure written);
@@ -111,10 +135,27 @@ class UiApp : public AppData::Client,
   // What another app handed Pane opens, its window shown again (ADR 0109).
   void OpenHandedURLs(std::vector<GURL> urls);
 
+  // The tab switcher, while it shows: its groups, and the tab selected in
+  // them, counting down through the groups.
+  struct Switcher {
+    Switcher();
+    Switcher(const Switcher&);
+    Switcher& operator=(const Switcher&);
+    ~Switcher();
+
+    std::vector<model::SwitcherGroup> groups;
+    int selected = 0;
+  };
+  const std::optional<Switcher>& switcher() const { return switcher_; }
+
+  // SleepController::Delegate:
   // The tab's page, when it has one.
-  content::WebContents* PageOf(const std::string& tab_id) const;
+  content::WebContents* PageOf(const std::string& tab_id) const override;
   // The profile in the engine, while it is open.
-  Profile* ProfileIfOpen(const std::string& profile_id) const;
+  Profile* ProfileIfOpen(const std::string& profile_id) const override;
+  void SleepTab(const std::string& tab_id) override;
+  // Releases every page of a profile; its tabs stay (CONTEXT.md: Unload).
+  void UnloadProfile(const std::string& profile_id) override;
 
   // What shows, for the channel's replies, in the Swift app's shape.
   base::DictValue Snapshot() const;
@@ -155,7 +196,15 @@ class UiApp : public AppData::Client,
   void Stop() override;
   model::ToolbarProgress& LoadProgress() override;
   void NewTab() override;
+  void FocusAddressField() override;
   void SelectTabAt(int number) override;
+  // Opens the switcher on the tab used before (the Swift's nextTabMRU), or
+  // moves its selection on; Shift-Tab's goes backward.
+  void SwitchTab(bool backward) override;
+  // The tab the switcher shows selected comes forward, as Ctrl's release
+  // chooses it.
+  void CommitSwitcher() override;
+  void CancelSwitcher() override;
   void TabInserted(content::WebContents* contents,
                    content::WebContents* opener,
                    bool foreground) override;
@@ -184,9 +233,6 @@ class UiApp : public AppData::Client,
 
   UiApp();
 
-  // Behind the lock, and until the data has opened, nothing runs.
-  bool InteractionAllowed() const;
-
   // A tab whose page loads behind the selected one, after `anchor` or last.
   std::string OpenTabBehind(const std::string& profile_id,
                             const GURL& url,
@@ -200,7 +246,6 @@ class UiApp : public AppData::Client,
   void Show(content::WebContents* contents);
   // The page goes, its tab stays (CONTEXT.md: Unload).
   void Release(const std::string& tab_id);
-  void UnloadProfile(const std::string& profile_id);
   // The profile's most recent tab takes the place of the one that closed.
   void SelectAfterClosing(const std::optional<std::string>& profile_id);
   void ExpandProfile(const std::string& profile_id);
@@ -209,9 +254,6 @@ class UiApp : public AppData::Client,
   void RemoveTabAndReselect(const std::string& tab_id);
   // The engine answered a delete: the folder goes now, unless a lock came.
   void ProfileDeleted(const std::string& profile_id, bool removes_folder);
-  // A crashed tab's page reloads, or is made again, its crash loop starting
-  // over (the Swift's reloadCrashed).
-  void ReloadCrashed(const std::string& tab_id);
   // How far the tab's page has loaded a new document in its main frame, or
   // nullopt while it doesn't (ADR 0081).
   std::optional<double> LoadingOf(const std::string& tab_id) const;
@@ -240,6 +282,14 @@ class UiApp : public AppData::Client,
   // A page committed in place of one that died: the tab is back, and its
   // crash loop starts over.
   void PageCameBack(const std::string& tab_id);
+  // Chrome put an empty page in the tab's place (an extension's
+  // chrome.tabs.discard): the tab shows it, and the selected one loads it.
+  void PageReplaced(const std::string& tab_id);
+  // The page's first paint with something to see: a woken tab's interval
+  // ends with the frame that shows it.
+  void PageFirstPaint(const std::string& tab_id);
+  // The switcher's tabs, as its view draws them.
+  std::vector<TabSwitcherView::Group> SwitcherGroupsToShow();
 
   const raw_ref<AppData> data_;
   ProfileContexts contexts_;
@@ -263,6 +313,14 @@ class UiApp : public AppData::Client,
   // The tabs that show the sad tab's place until they reload: a page that
   // died and stayed dead, or one whose profile would not open.
   std::set<std::string> crashed_tab_ids_;
+  // The tab switcher, while it shows.
+  std::optional<Switcher> switcher_;
+  // A tab selected without a page, timed until its page first paints.
+  struct Waking {
+    std::string tab_id;
+    uint64_t interval = 0;
+  };
+  std::optional<Waking> waking_;
   // Each tab's favicon as the sidebar draws it.
   Favicons favicons_;
   // The selected tab's load, as the address's bar draws it (the Swift's
@@ -278,6 +336,8 @@ class UiApp : public AppData::Client,
       model_observation_{this};
   base::ScopedObservation<Favicons, Favicons::Observer> favicons_observation_{
       this};
+  // Sleep, Unload, and Trim, over the open profiles.
+  std::unique_ptr<SleepController> sleep_;
   // The update check and download, which the pill reads.
   std::unique_ptr<Updater> updater_;
   base::ScopedObservation<Updater, Updater::Observer> updater_observation_{

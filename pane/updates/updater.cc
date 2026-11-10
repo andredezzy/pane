@@ -8,16 +8,13 @@
 #include <utility>
 #include <vector>
 
-#include "base/command_line.h"
 #include "base/containers/span.h"
-#include "base/environment.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/path_service.h"
-#include "base/strings/cstring_view.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -29,6 +26,7 @@
 #include "net/base/request_priority.h"
 #include "net/http/http_request_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "pane/model/test_hooks.h"
 #include "pane/updates/update_files.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -75,15 +73,6 @@ constexpr net::NetworkTrafficAnnotationTag kUpdateDownload =
         setting: "None."
         policy_exception_justification: "Pane has no enterprise policy."
       })");
-
-// A scenario's stand-in, on the mock keychain alone, as the Swift app's
-// TestHooks read them.
-std::optional<std::string> TestHook(base::cstring_view name) {
-  if (!base::CommandLine::ForCurrentProcess()->HasSwitch("use-mock-keychain")) {
-    return std::nullopt;
-  }
-  return base::Environment::Create()->GetVar(name);
-}
 
 // The file's SHA-256, in lowercase hex, read a megabyte at a time.
 std::optional<std::string> Sha256Of(const base::FilePath& path) {
@@ -153,17 +142,16 @@ Updater::Config::~Config() = default;
 // static
 Updater::Config Updater::Config::FromEnvironment() {
   Config config;
-  const std::optional<std::string> url = TestHook("PANE_UPDATE_URL");
+  const std::optional<std::string> url = model::TestHook("PANE_UPDATE_URL");
   config.releases_url =
       url && GURL(*url).is_valid() ? GURL(*url) : model::ReleasesURL();
   if (const std::optional<std::string> downloads =
-          TestHook("PANE_UPDATE_DOWNLOADS");
-      downloads && !downloads->empty()) {
+          model::TestHook("PANE_UPDATE_DOWNLOADS")) {
     config.downloads = base::FilePath::FromUTF8Unsafe(*downloads);
   } else {
     base::PathService::Get(chrome::DIR_DEFAULT_DOWNLOADS, &config.downloads);
   }
-  config.opens_download = TestHook("PANE_UPDATE_OPEN") != "0";
+  config.opens_download = model::TestHook("PANE_UPDATE_OPEN") != "0";
   return config;
 }
 

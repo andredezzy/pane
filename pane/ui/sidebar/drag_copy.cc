@@ -16,6 +16,7 @@
 #include "pane/ui/sidebar/profile_row.h"
 #include "pane/ui/sidebar/row_button.h"
 #include "pane/ui/sidebar/tab_row.h"
+#include "pane/ui/tabs/tab_favicon.h"
 #include "pane/ui/view_ids.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
@@ -117,7 +118,8 @@ class DragCopy::Contents : public views::View {
           *canvas,
           gfx::RectF(RowButton::kLeading, (height() - RowButton::kIconSize) / 2,
                      RowButton::kIconSize, RowButton::kIconSize),
-          tab_->favicon, colors->GetColor(kPaneColorAccentForeground), 1);
+          tab_->favicon, FaviconPlaceholder::kGlobe,
+          colors->GetColor(kPaneColorAccentForeground));
     }
   }
 

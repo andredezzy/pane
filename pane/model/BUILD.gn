@@ -58,6 +58,8 @@ source_set("model") {
     "tab_history.h",
     "tab_switcher.cc",
     "tab_switcher.h",
+    "test_hooks.cc",
+    "test_hooks.h",
     "time_zones.cc",
     "time_zones.h",
     "toolbar_progress.cc",
@@ -98,6 +100,7 @@ source_set("unit_tests") {
     "security_unittest.cc",
     "sleep_scheduler_unittest.cc",
     "tab_switcher_unittest.cc",
+    "test_hooks_unittest.cc",
     "toolbar_progress_unittest.cc",
     "updates_unittest.cc",
   ]

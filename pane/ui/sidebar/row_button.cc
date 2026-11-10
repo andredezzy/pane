@@ -51,6 +51,14 @@ void RowButton::SetDragged(bool dragged) {
   highlight_->SetDragged(dragged);
 }
 
+void RowButton::SetMenuShowing(bool showing) {
+  // The menu had the pointer's events: the row hears where it is now.
+  if (!showing && GetState() != STATE_DISABLED) {
+    SetState(IsMouseHovered() ? STATE_HOVERED : STATE_NORMAL);
+  }
+  highlight_->SetHeld(showing);
+}
+
 void RowButton::SetCaptureLost(base::RepeatingClosure capture_lost) {
   capture_lost_ = std::move(capture_lost);
 }

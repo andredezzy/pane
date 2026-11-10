@@ -1,4 +1,3 @@
-import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
@@ -7,8 +6,9 @@ import { expect, type Scenario } from "../run";
 
 // The selected tab's renderer dies: the app hears of it and reloads the page,
 // which comes back new and working. A page that crashes again right after that
-// reload shows the app's sad tab, not Chrome's; its Reload, or the toolbar's,
-// brings it back.
+// reload shows the app's sad tab, not Chrome's, in the page's place, with the
+// keys; its Reload, or the toolbar's, pressed by a real click where it shows,
+// brings it back, and the page has the keys again.
 const sadTab: Scenario = async (context) => {
 	const { app, trace } = await launchTraced(context, "sad-tab");
 	const watcher = new WindowWatcher(app).start();
@@ -75,40 +75,41 @@ const sadTab: Scenario = async (context) => {
 		return back;
 	};
 
-	await crashTwice();
+	// The sad tab shows in the page's place, and takes the keys from the page
+	// that died.
+	const shown = async () => {
+		const sad = await app.waitFor(
+			"the sad tab with the keys",
+			(state) => state.focus === "pane.sadTab",
+		);
 
+		const frames = await app.frames("pane.sadTab");
+
+		expect(
+			(frames["pane.sadTab.reload"]?.[2] ?? 0) > 0,
+			`the sad tab's Reload does not show: ${JSON.stringify(frames)}`,
+		);
+
+		return sad;
+	};
+
+	await crashTwice();
+	await shown();
 	await watcher.sample();
 
-	const locked = !(await canDriveUI());
-
 	// The sad tab's own Reload.
-	if (locked) {
-		await app.send("reloadCrashed", { tab });
-	} else {
-		await clickButton(
-			app.browser.pid,
-			await mainWindowOf(app.browser.pid),
-			"Reload",
-			"pane.sadTab.reload",
-		);
-	}
+	await app.click("pane.sadTab.reload");
+	const back = await pageIsBack();
 
-	await pageIsBack();
+	expect(
+		back.focus === "pane.content",
+		`back from the sad tab, ${back.focus} had the keys`,
+	);
 
 	// The toolbar's Reload (and ⌘R) bring a sad tab back too.
 	await crashTwice();
-
-	if (locked) {
-		await app.send("reload");
-	} else {
-		await clickButton(
-			app.browser.pid,
-			await mainWindowOf(app.browser.pid),
-			"Reload",
-			"pane.toolbar.reload",
-		);
-	}
-
+	await shown();
+	await app.click("pane.toolbar.reload");
 	await pageIsBack();
 
 	await watcher.stop();

@@ -1,5 +1,7 @@
 # Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
 
+> **On the Views line** (`docs/plans/views-migration.md`, H5): one function reads every scenario hook (`model::TestHook`, `pane/model/test_hooks.h`), on the mock keychain alone, where four copies did; the automation channel's directory and the foreground hook had been read off the mock keychain too.
+
 > **Extended by [ADR 0121](0121-every-profile-file-encrypted-under-its-own-key.md)**: what this lists as readable by another process while Pane is unlocked, the profiles' files, no longer is. What it keeps outside the volume stays as it is here.
 
 The user's requirement (2026-10-31): all of Pane's content is encrypted under the PIN, and none of it can be seen without it, whether by another process of the user's, by someone with a copy of the disk, or by someone at the Mac while Pane is locked. Two audits looked for what still could be:

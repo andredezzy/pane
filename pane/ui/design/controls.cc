@@ -195,8 +195,10 @@ ControlHighlight::~ControlHighlight() = default;
 void ControlHighlight::SetHeld(bool held) {
   if (held_ != held) {
     held_ = held;
-    // What the control opened shows or goes: its look follows at once.
-    Update(std::nullopt, /*press_fades=*/false);
+    // What the control opened shows: lit at once. Gone, the pointer's place
+    // decides, on the hover's curve.
+    Update(held ? std::nullopt : std::optional<Curve>(motion::Hover()),
+           /*press_fades=*/false);
   }
 }
 

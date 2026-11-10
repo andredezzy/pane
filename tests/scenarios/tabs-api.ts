@@ -14,7 +14,9 @@ type TabInfo = { id: number; url: string; windowId: number } | null;
 // tabs.create opens a Pane tab in the same profile; windows.create opens a
 // tab too, as in the Electron app. chrome.action.openPopup shows the popup in
 // the app's popover, as the extension's button does. A popup open as its
-// profile is deleted closes with the profile's Browser.
+// profile is deleted closes with the profile's Browser. A build with no
+// extension popup yet (the Views line before X2) asks the worker alone, and
+// defers the rest.
 const tabsApi: Scenario = async (context) => {
 	const { app, trace } = await launchTraced(context, "tabs-api", {
 		args: [`--load-extension=${PROBE}`],
@@ -26,35 +28,56 @@ const tabsApi: Scenario = async (context) => {
 	const { tab } = await app.openPage(profile, url);
 
 	const id = await extensionId(app, profile, "Pane tabs API probe");
+	const worker = await workerPage(app, id, url);
 
 	// From the popup, which also asks the worker.
-	await app.send("runExtensionAction", { id });
+	const hasPopups = await app.send("runExtensionAction", { id }).then(
+		() => true,
+		(error: Error) => {
+			if (!error.message.includes("unknown command")) {
+				throw error;
+			}
 
-	await app.waitFor(
-		"the popup",
-		(state) => state.extensionPopup?.open === true,
+			context.defer(
+				"the popup's view of the active tab, chrome.action.openPopup, and a popup closing with its profile: the extension's popup waits for X2",
+			);
+
+			return false;
+		},
 	);
 
-	const popup = await popupPage(app, id);
+	if (hasPopups) {
+		await app.waitFor(
+			"the popup",
+			(state) => state.extensionPopup?.open === true,
+		);
 
-	const fromPopup = await pageResult<{ popup: TabInfo; worker: TabInfo }>(
-		(expression) => popup.evaluate(expression),
-	);
+		const popup = await popupPage(app, id);
 
-	await app.send("closeExtensionPopup");
+		const fromPopup = await pageResult<{ popup: TabInfo; worker: TabInfo }>(
+			(expression) => popup.evaluate(expression),
+		);
 
-	expect(
-		fromPopup.popup?.url === url,
-		`popup saw ${JSON.stringify(fromPopup.popup)}`,
-	);
+		await app.send("closeExtensionPopup");
 
-	expect(
-		fromPopup.worker?.url === url,
-		`worker saw ${JSON.stringify(fromPopup.worker)}`,
-	);
+		expect(
+			fromPopup.popup?.url === url,
+			`popup saw ${JSON.stringify(fromPopup.popup)}`,
+		);
+
+		expect(
+			fromPopup.worker?.url === url,
+			`worker saw ${JSON.stringify(fromPopup.worker)}`,
+		);
+	} else {
+		const fromWorker = await worker.evaluate<TabInfo>(
+			`chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => tab ? { id: tab.id, url: tab.url, windowId: tab.windowId } : null)`,
+		);
+
+		expect(fromWorker?.url === url, `worker saw ${JSON.stringify(fromWorker)}`);
+	}
 
 	// From the worker directly: tabs.create, then windows.create.
-	const worker = await workerPage(app, id, url);
 	const created = context.fixtures.url("nav-b.html?created-by-extension");
 
 	await worker.evaluate(
@@ -90,6 +113,12 @@ const tabsApi: Scenario = async (context) => {
 		"the first tab selected by the extension",
 		(state) => state.activeTabID === tab,
 	);
+
+	if (!hasPopups) {
+		await watcher.stop();
+
+		return;
+	}
 
 	// chrome.action.openPopup, which asks for an active window: the app's,
 	// brought forward. Its popup opens where the toolbar button's does

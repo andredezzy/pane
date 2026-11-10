@@ -290,8 +290,17 @@ void ProfileRow::ShowContextMenuForViewImpl(
   if (!GetWidget()) {
     return;
   }
+  // The row stays lit under its menu, as the Swift's did.
+  SetMenuShowing(true);
   menu_runner_ = std::make_unique<views::MenuRunner>(
-      &menu_model_, views::MenuRunner::CONTEXT_MENU);
+      &menu_model_, views::MenuRunner::CONTEXT_MENU,
+      base::BindRepeating(
+          [](base::WeakPtr<ProfileRow> row) {
+            if (row) {
+              row->SetMenuShowing(false);
+            }
+          },
+          weak_factory_.GetWeakPtr()));
   menu_runner_->RunMenuAt(GetWidget(), nullptr, gfx::Rect(point, gfx::Size()),
                           views::MenuAnchorPosition::kTopLeft, source_type);
 }

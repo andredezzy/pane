@@ -56,6 +56,12 @@ std::string_view ViewIdName(int id) {
       return "pane.sidebar.update";
     case kViewIdUpdateDismiss:
       return "pane.sidebar.update.dismiss";
+    case kViewIdSadTab:
+      return "pane.sadTab";
+    case kViewIdSadTabReload:
+      return "pane.sadTab.reload";
+    case kViewIdSwitcher:
+      return "pane.switcher";
     default:
       return std::string_view();
   }

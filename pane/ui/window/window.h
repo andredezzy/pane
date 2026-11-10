@@ -98,8 +98,16 @@ class Window : public WindowHost::Delegate,
     virtual model::ToolbarProgress& LoadProgress() = 0;
     // ⌘T.
     virtual void NewTab() = 0;
+    // ⌘L: the address field, its text selected.
+    virtual void FocusAddressField() = 0;
     // ⌘1 to ⌘8: the profile's tab at that place; ⌘9, its last.
     virtual void SelectTabAt(int number) = 0;
+    // The tab switcher's keys (H7 binds them): Ctrl-Tab opens it on the tab
+    // used before, or moves its selection on, Shift backward; letting go of
+    // Ctrl selects the tab it shows selected; Esc closes it.
+    virtual void SwitchTab(bool backward) = 0;
+    virtual void CommitSwitcher() = 0;
+    virtual void CancelSwitcher() = 0;
 
     // A page joined one of the window's Browsers, opened by `opener` (or
     // none), to show at once or behind.
@@ -157,6 +165,12 @@ class Window : public WindowHost::Delegate,
   // The window's title follows the shown page's, as the Window menu and
   // Mission Control show it: Pane without one, and so behind the Lock.
   void UpdateTitle();
+  // The same, once the frame that shows a tab's page is out: AppKit lays the
+  // title bar out again at each new title, though Pane's is hidden, which
+  // took 1.7 of a tab switch's 2 ms of work ahead of its frame. A tab without
+  // a page yet takes "Pane" at once, so no title lands among its page's first
+  // frames.
+  void UpdateTitleAfterFrame();
   // The shown page fills the window (ADR 0025).
   bool page_fullscreen() const;
 
@@ -208,6 +222,8 @@ class Window : public WindowHost::Delegate,
   std::unique_ptr<WindowHost> host_;
   // The window is in full screen for the page, not the user.
   bool full_screen_for_page_ = false;
+  // A title is owed once the frame under way is out.
+  bool title_owed_ = false;
   base::WeakPtrFactory<Window> weak_factory_{this};
 };
 
