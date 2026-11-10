@@ -2,12 +2,17 @@ import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
-// G6 on the Views prototype (docs/plans/views-migration.md, Phase 1): keys
-// with no router, through the window's FocusManager and the page's
-// PreHandleKeyboardEvent. ⌘T and ⌘L go ahead of the page; a key typed right
-// behind ⌘T lands in the new tab's address; ⌘1 to ⌘9 choose a profile's tab
-// by its place; Esc and Return close the sheet. Real keys, posted through the
-// window's event path, so the window must be in front (run.ts --foreground).
+// G6 and H7 on the Views build (docs/plans/views-migration.md, Phases 1 and
+// 3): keys with no router, through the menu bar's key equivalents, the
+// window's FocusManager, and the page's PreHandleKeyboardEvent. ⌘T goes
+// ahead of the page and ⌘L to the page first, as the Swift ordered them (ADR
+// 0019): a page that takes ⌘L keeps it, and one that would take ⌘T never
+// sees it. A key typed right behind ⌘T lands in the new tab's address; ⌘1 to
+// ⌘9 choose a profile's tab by its place, none past its last (the Swift's
+// selectTab(atIndex:)); Esc and Return close the sheet; Quit Pane? takes
+// every key, the menu bar's included, but ⌘Q; the switcher opens on Ctrl-Tab
+// and chooses on Ctrl's release. Real keys, posted through the window's event
+// path, so the window must be in front (run.ts --foreground).
 const viewsKeys: Scenario = async (context) => {
 	if (!context.foreground) {
 		context.defer("every key: it needs Pane in front (run.ts --foreground)");
@@ -16,8 +21,9 @@ const viewsKeys: Scenario = async (context) => {
 	}
 
 	const app = await launchPane(context);
+
 	const profile = await app.createProfile("Keys");
-	const pages = [];
+	const pages: Awaited<ReturnType<typeof app.openPage>>[] = [];
 
 	for (const name of ["one", "two", "three"]) {
 		pages.push(
@@ -50,15 +56,14 @@ const viewsKeys: Scenario = async (context) => {
 		10_000,
 	);
 
-	// ⌘1 and ⌘3 choose by place, ⌘9 the last.
+	// ⌘1 and ⌘3 choose by place; ⌘9, with four tabs, chooses none.
 	for (const [key, index] of [
 		["1", 0],
 		["3", 2],
-		["9", -1],
+		["9", 2],
 	] as const) {
 		await app.send("key", { key, modifiers: ["command"] });
-		const list = await tabs();
-		const want = index < 0 ? list[list.length - 1] : list[index];
+		const want = (await tabs())[index];
 
 		await poll(
 			`⌘${key}`,
@@ -75,6 +80,51 @@ const viewsKeys: Scenario = async (context) => {
 		"⌘L",
 		async () => (await app.state()).focus === "pane.toolbar.address",
 		5_000,
+	);
+
+	// A page that takes ⌘L and ⌘T: ⌘L stays with it, ⌘T opens a tab and the
+	// page never hears of it.
+	await app.send("select", { tab: pages[0]?.tab });
+
+	await poll(
+		"the page",
+		async () => (await app.state()).focus === "pane.content",
+		5_000,
+	);
+
+	await pages[0]?.page.evaluate(`(() => {
+		window.taken = [];
+		addEventListener("keydown", (event) => {
+			if (event.metaKey && (event.key === "l" || event.key === "t")) {
+				window.taken.push(event.key);
+				event.preventDefault();
+			}
+		});
+	})()`);
+
+	await app.send("key", { key: "l", modifiers: ["command"] });
+
+	await poll(
+		"⌘L taken by the page",
+		async () =>
+			JSON.stringify(await pages[0]?.page.evaluate("window.taken")) === '["l"]',
+		5_000,
+	);
+
+	await Bun.sleep(300);
+	expect((await app.state()).focus === "pane.content", "⌘L left the page");
+	const count = (await tabs()).length;
+	await app.send("key", { key: "t", modifiers: ["command"] });
+
+	await poll(
+		"⌘T ahead of the page",
+		async () => (await tabs()).length === count + 1,
+		5_000,
+	);
+
+	expect(
+		JSON.stringify(await pages[0]?.page.evaluate("window.taken")) === '["l"]',
+		"the page heard ⌘T",
 	);
 
 	// Esc, then Return, close the sheet over the page.
@@ -94,6 +144,62 @@ const viewsKeys: Scenario = async (context) => {
 			5_000,
 		);
 	}
+
+	// Quit Pane? takes every key: ⌘T, a menu bar's key, opens no tab; Esc
+	// goes back.
+	await app.send("select", { tab: pages[1]?.tab });
+	await app.send("key", { key: "q", modifiers: ["command"] });
+
+	await poll(
+		"Quit Pane?",
+		async () => (await app.state()).quitConfirmation,
+		5_000,
+	);
+
+	const asking = (await tabs()).length;
+	await app.send("key", { key: "t", modifiers: ["command"] });
+	await app.send("key", { key: "a" });
+	await Bun.sleep(500);
+
+	expect(
+		(await tabs()).length === asking &&
+			(await app.state()).focus === "pane.quit",
+		"a key reached past Quit Pane?",
+	);
+
+	await app.send("key", { key: "\u001b" });
+
+	await poll(
+		"Quit Pane? gone, the page focused",
+		async () => {
+			const state = await app.state();
+
+			return !state.quitConfirmation && state.focus === "pane.content";
+		},
+		5_000,
+	);
+
+	// Ctrl-Tab opens the switcher, Ctrl's release chooses.
+	const shown = (await app.state()).activeTabID;
+	await app.send("key", { key: "\t", modifiers: ["control"] });
+
+	await poll(
+		"the switcher",
+		async () => (await app.state()).switcher.visible,
+		5_000,
+	);
+
+	await app.send("releaseModifiers");
+
+	await poll(
+		"the switcher's choice",
+		async () => {
+			const state = await app.state();
+
+			return !state.switcher.visible && state.activeTabID !== shown;
+		},
+		5_000,
+	);
 
 	await app.quit();
 };

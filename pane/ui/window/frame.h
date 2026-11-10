@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "base/functional/callback.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace gfx {
@@ -22,8 +23,19 @@ namespace pane {
 // A Pane window's native widget, framed as the platform frames Pane's
 // windows: on the Mac, a full-size content view under a transparent title
 // bar, the traffic lights at (12, 12) (ADR 0036); on Windows, the caption
-// buttons. Owned by `widget`.
-views::NativeWidget* CreateFrame(views::Widget* widget);
+// buttons. Owned by `widget`. While `takes_every_key` answers true (Quit
+// Pane? shows), a key of the menu bar's goes nowhere unless it is Quit's: on
+// the Mac, the window drops it before the menu bar sees it, as the Swift's
+// key monitor swallowed it, so the overlay keeps Esc and Return.
+// `control_changed` hears Ctrl go down or up, ahead of the page and Pane's
+// views, as the Swift's key monitor did: the switcher's commit on Ctrl's
+// release, which a page with the keys never passes on after a key the
+// window took (Ctrl-Tab: RenderWidgetHostImpl drops the key-ups that follow
+// a key its delegate handled).
+views::NativeWidget* CreateFrame(
+    views::Widget* widget,
+    base::RepeatingCallback<bool()> takes_every_key,
+    base::RepeatingCallback<void(bool control_down)> control_changed);
 
 // Who takes a press at `point` (in the window, from its top left): a page,
 // or Pane's views, Views having first say over what a view of its covers,

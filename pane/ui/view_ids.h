@@ -88,6 +88,10 @@ enum ViewId : int {
   kViewIdAppIconPicker,
   kViewIdAppIconDone,
   kViewIdAppIconTile,
+  // Quit Pane? over the window (ADR 0053), its Quit, and its Cancel.
+  kViewIdQuit,
+  kViewIdQuitConfirm,
+  kViewIdQuitCancel,
 
   kViewIdsEnd,
 };

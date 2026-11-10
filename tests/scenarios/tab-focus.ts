@@ -7,6 +7,7 @@ import { expect, type Scenario } from "../run";
 // with no page focuses the address field, as before.
 const tabFocus: Scenario = async (context) => {
 	const app = await launchPane(context);
+
 	const profile = await app.createProfile("Focus");
 	const a = context.fixtures.url("nav-a.html");
 	const b = context.fixtures.url("nav-b.html");
@@ -47,28 +48,28 @@ const tabFocus: Scenario = async (context) => {
 		`selecting a tab focused ${selected.focus}`,
 	);
 
-	// Back by the switcher's keys, as Ctrl-Tab does.
-	if ("switcher" in (await app.state())) {
-		await app.send("switcher", { action: "next" });
-		await app.send("switcher", { action: "commit" });
+	// Back by the switcher's keys: Ctrl-Tab, posted through AppKit's queue,
+	// which the menu bar takes, then Ctrl's release (through Views' own
+	// dispatch without the front).
+	await app.send("key", { key: "\t", modifiers: ["control"] });
+	await app.waitFor("the switcher", (state) => state.switcher.visible);
 
-		await app.waitFor(
-			"the second tab selected",
-			(state) => state.activeTabID === second,
-		);
+	await (context.foreground
+		? app.send("releaseModifiers")
+		: app.send("dispatchKey", { key: "control", phase: "release" }));
 
-		await Bun.sleep(400);
-		const switched = await app.state();
+	await app.waitFor(
+		"the second tab selected",
+		(state) => !state.switcher.visible && state.activeTabID === second,
+	);
 
-		expect(
-			switched.focus === "pane.content",
-			`the switcher focused ${switched.focus}`,
-		);
-	} else {
-		context.defer(
-			"the switcher's tab focusing its page: no switcher is drawn (H5)",
-		);
-	}
+	await Bun.sleep(400);
+	const switched = await app.state();
+
+	expect(
+		switched.focus === "pane.content",
+		`the switcher focused ${switched.focus}`,
+	);
 
 	// Settings, then back to the browser: the page again.
 	await app.send("showPage", { page: "settings" });

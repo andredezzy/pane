@@ -626,6 +626,9 @@ export async function launchPane(
 			// user's, which lives at the default path. The migration scenario
 			// names its own.
 			PANE_ELECTRON_DATA_DIR: join(dataDir, "no-electron-app"),
+			// A new tab opens the fixtures' page, not Google's: nothing leaves
+			// this Mac but what a scenario opens itself.
+			PANE_NEW_TAB_URL: context.fixtures.url("smoke.html?new-tab"),
 			...options.env,
 		},
 	});

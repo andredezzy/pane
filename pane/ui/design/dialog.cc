@@ -17,9 +17,12 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_solid_color.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/insets_f.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/transform.h"
@@ -127,6 +130,53 @@ class ModalDialog::Card : public views::View {
 BEGIN_METADATA(ModalDialog, Card)
 END_METADATA
 
+// The card's shadow on a layer of its own, under the card, sized to how far
+// the shadow reaches around it, so only that much is drawn as the dialog
+// shows: the scrim is a color the compositor draws, where it was a whole
+// window rastered at each showing. It grows and shrinks with the card.
+class ModalDialog::Shadow : public views::View {
+  METADATA_HEADER(Shadow, views::View)
+
+ public:
+  Shadow() {
+    SetPaintToLayer();
+    layer()->SetFillsBoundsOpaquely(false);
+    SetCanProcessEventsWithinSubtree(false);
+  }
+
+  // How far past the card, ring included, the shadow reaches: three of its
+  // Gaussian's deviations, moved down by its offset.
+  static gfx::Insets Reach() {
+    const int blur = std::ceil(3 * kShadowSigma);
+    const int down = std::ceil(kShadowOffset.y());
+    return gfx::Insets::TLBR(blur - down, blur, blur + down, blur);
+  }
+
+  // views::View:
+  void OnPaint(gfx::Canvas* canvas) override {
+    const ui::ColorProvider* colors = GetColorProvider();
+    if (!colors) {
+      return;
+    }
+    gfx::RectF card(GetLocalBounds());
+    card.Inset(gfx::InsetsF(Reach()));
+    card.Inset(kRing);
+    cc::DrawLooperBuilder shadow;
+    shadow.AddShadow(
+        {kShadowOffset.x(), kShadowOffset.y()}, kShadowSigma,
+        SkColor4f::FromColor(colors->GetColor(kPaneColorDialogShadow)),
+        cc::DrawLooper::kOverrideAlphaFlag);
+    cc::PaintFlags flags;
+    flags.setAntiAlias(true);
+    flags.setColor(colors->GetColor(kPaneColorCard));
+    flags.setLooper(shadow.Detach());
+    canvas->DrawPath(SquirclePath(card, radius::k2xl), flags);
+  }
+};
+
+BEGIN_METADATA(ModalDialog, Shadow)
+END_METADATA
+
 ModalDialog::Callbacks::Callbacks() = default;
 ModalDialog::Callbacks::Callbacks(Callbacks&&) = default;
 ModalDialog::Callbacks& ModalDialog::Callbacks::operator=(Callbacks&&) =
@@ -135,12 +185,15 @@ ModalDialog::Callbacks::~Callbacks() = default;
 
 ModalDialog::ModalDialog(int width,
                          std::unique_ptr<views::View> content,
-                         Callbacks callbacks)
+                         Callbacks callbacks,
+                         Keys keys)
     : width_(width),
       callbacks_(std::move(callbacks)),
+      keys_(keys),
       motion_(0,
               base::BindRepeating(&ModalDialog::Step, base::Unretained(this))) {
-  SetPaintToLayer();
+  // The scrim: a color the compositor draws, with nothing to paint.
+  SetPaintToLayer(ui::LAYER_SOLID_COLOR);
   layer()->SetFillsBoundsOpaquely(false);
   // Unseen until it comes in, and made ahead of it.
   layer()->SetOpacity(0);
@@ -150,6 +203,7 @@ ModalDialog::ModalDialog(int width,
   SetFocusBehavior(FocusBehavior::ALWAYS);
   GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);
   GetViewAccessibility().SetIsModal(true);
+  shadow_ = AddChildView(std::make_unique<Shadow>());
   card_ = AddChildView(std::make_unique<Card>());
   content_ = card_->AddChildView(std::move(content));
 }
@@ -174,6 +228,9 @@ void ModalDialog::Layout(PassKey) {
   const gfx::RectF place = CardPlace();
   card_->SetBounds(std::floor(place.x()), std::floor(place.y()),
                    std::round(place.width()), std::round(place.height()));
+  gfx::Rect shadow = card_->bounds();
+  shadow.Inset(-Shadow::Reach());
+  shadow_->SetBoundsRect(shadow);
   content_->SetBounds(kRing + kPadding, kRing + kPadding, width_ - 2 * kPadding,
                       card_->height() - 2 * (kRing + kPadding));
   // What the whole points leave of the card's place, on the screen's pixels.
@@ -188,17 +245,24 @@ void ModalDialog::Layout(PassKey) {
 
 void ModalDialog::Step(double shown) {
   layer()->SetOpacity(shown);
-  // The card's place, and its growth about its middle.
-  gfx::Transform transform =
-      gfx::Transform::MakeTranslation(shift_.x(), shift_.y());
+  // The card's place, and its growth about its middle, its shadow's with it.
   const float grown = kScale + (1 - kScale) * shown;
-  if (grown != 1) {
-    const gfx::PointF middle(card_->width() / 2.0f, card_->height() / 2.0f);
-    transform.Translate(middle.x(), middle.y());
-    transform.Scale(grown, grown);
-    transform.Translate(-middle.x(), -middle.y());
+  const gfx::Insets reach = Shadow::Reach();
+  for (views::View* view : {static_cast<views::View*>(shadow_.get()),
+                            static_cast<views::View*>(card_.get())}) {
+    gfx::Transform transform =
+        gfx::Transform::MakeTranslation(shift_.x(), shift_.y());
+    if (grown != 1) {
+      gfx::PointF middle(card_->width() / 2.0f, card_->height() / 2.0f);
+      if (view == shadow_) {
+        middle.Offset(reach.left(), reach.top());
+      }
+      transform.Translate(middle.x(), middle.y());
+      transform.Scale(grown, grown);
+      transform.Translate(-middle.x(), -middle.y());
+    }
+    view->layer()->SetTransform(transform);
   }
-  card_->layer()->SetTransform(transform);
   if (closing_ && shown == 0 && !motion_.is_moving()) {
     SetVisible(false);
   }
@@ -231,25 +295,11 @@ void ModalDialog::AnimateOut() {
                  GetWidget() ? GetWidget()->GetCompositor() : nullptr);
 }
 
-void ModalDialog::OnPaint(gfx::Canvas* canvas) {
-  const ui::ColorProvider* colors = GetColorProvider();
-  if (!colors) {
-    return;
-  }
-  canvas->DrawColor(colors->GetColor(kPaneColorModalScrim));
-  // The card's shadow, under where the card's layer draws it.
-  gfx::RectF card(card_->bounds());
-  card.Inset(kRing);
-  cc::DrawLooperBuilder shadow;
-  shadow.AddShadow(
-      {kShadowOffset.x(), kShadowOffset.y()}, kShadowSigma,
-      SkColor4f::FromColor(colors->GetColor(kPaneColorDialogShadow)),
-      cc::DrawLooper::kOverrideAlphaFlag);
-  cc::PaintFlags flags;
-  flags.setAntiAlias(true);
-  flags.setColor(colors->GetColor(kPaneColorCard));
-  flags.setLooper(shadow.Detach());
-  canvas->DrawPath(SquirclePath(card, radius::k2xl), flags);
+void ModalDialog::OnThemeChanged() {
+  views::View::OnThemeChanged();
+  // Black in both appearances, darker on dark.
+  layer()->AsSolidColor()->SetColor(
+      SkColor4f::FromColor(GetColorProvider()->GetColor(kPaneColorModalScrim)));
 }
 
 bool ModalDialog::OnMousePressed(const ui::MouseEvent& event) {
@@ -268,6 +318,30 @@ bool ModalDialog::AcceleratorPressed(const ui::Accelerator& accelerator) {
     run.Run();
   }
   return true;
+}
+
+// Taking every key, it holds the focus: the FocusManager neither moves it by
+// Tab nor runs an accelerator with it, and the keys come here.
+bool ModalDialog::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
+  return takes_every_key();
+}
+
+bool ModalDialog::OnKeyPressed(const ui::KeyEvent& event) {
+  if (!takes_every_key()) {
+    return false;
+  }
+  // Esc, whatever modifier is down, as the Swift's KeyRouting matched it;
+  // Return, or the keypad's Enter. Any other key stops here.
+  if (event.key_code() == ui::VKEY_ESCAPE) {
+    AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
+  } else if (event.key_code() == ui::VKEY_RETURN) {
+    AcceleratorPressed(ui::Accelerator(ui::VKEY_RETURN, ui::EF_NONE));
+  }
+  return true;
+}
+
+bool ModalDialog::OnKeyReleased(const ui::KeyEvent& event) {
+  return takes_every_key();
 }
 
 BEGIN_METADATA(ModalDialog)

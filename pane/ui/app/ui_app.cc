@@ -30,6 +30,7 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/termination_notification.h"
+#include "chrome/browser/printing/print_view_manager_common.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -42,11 +43,14 @@
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver_observer.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/zoom/page_zoom.h"
+#include "components/zoom/zoom_controller.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/page_zoom.h"
 #include "content/public/common/referrer.h"
 #include "pane/app/version.h"
 #include "pane/automation/automation.h"
@@ -91,6 +95,15 @@ namespace pane {
 namespace {
 
 UiApp* g_app = nullptr;
+
+// The start page a new tab opens at (the Swift's AddressInput.newTabURL):
+// Google's, or in a scenario's run the page it names (PANE_NEW_TAB_URL), so
+// its new tabs load from its own server.
+const std::string& NewTabURL() {
+  static const base::NoDestructor<std::string> url(
+      model::TestHook("PANE_NEW_TAB_URL").value_or(model::kNewTabURL));
+  return *url;
+}
 
 // The window's controls, as the Swift app's snapshot gave them: x, y, width,
 // height from the window's top left.
@@ -533,6 +546,9 @@ UiApp::UiApp()
   favicons_observation_.Observe(&favicons_);
   sleep_ = std::make_unique<SleepController>(model(), *this);
   sidebar_width_ = model().settings().sidebar_width;
+  // The menu bar, from the same command table as the window's keys, before
+  // the window shows, as the Swift's: the Window menu lists it.
+  menu_bar_ = std::make_unique<MenuBar>(*this);
   window_->Open();
   window_->Show(/*activate=*/true);
   // The update check at launch, then every six hours (ADR 0002): the pill
@@ -584,6 +600,7 @@ UiApp::~UiApp() {
   sleep_.reset();
   updater_observation_.Reset();
   updater_.reset();
+  menu_bar_.reset();
   // Their pages go with the window's Browsers, as quitting keeps their tabs.
   pages_.clear();
   window_.reset();
@@ -648,6 +665,7 @@ void UiApp::LockNow() {
   data_->LockScreen();
   // Nothing of the window's stays over the PIN screen.
   CancelSwitcher();
+  CancelQuit();
 
   std::vector<std::string> profile_ids;
   for (const model::BrowserProfile& profile : model().profiles()) {
@@ -704,8 +722,7 @@ std::string UiApp::OpenTab(const std::string& profile_id,
   ExpandProfile(profile_id);
   const std::string tab_id = NewTabId();
   model().InsertTab(
-      {.id = tab_id,
-       .url = url ? url->possibly_invalid_spec() : model::kNewTabURL},
+      {.id = tab_id, .url = url ? url->possibly_invalid_spec() : NewTabURL()},
       profile_id);
   if (!url) {
     focuses_address_ = tab_id;
@@ -866,7 +883,7 @@ void UiApp::OpenPage(const std::string& tab_id,
   }
   GURL url(tab->url);
   if (!url.is_valid()) {
-    url = GURL(model::kNewTabURL);
+    url = GURL(NewTabURL());
   }
   NavigateParams params(browser, url, ui::PAGE_TRANSITION_TYPED);
   params.disposition = foreground ? WindowOpenDisposition::kNewForegroundTab
@@ -1709,6 +1726,7 @@ RootView::Shows UiApp::Shows() {
 void UiApp::WindowClosed() {
   focuses_address_.reset();
   switcher_.reset();
+  quit_confirming_ = false;
 }
 
 // What the address field loads (the Swift's navigate): the selected page goes
@@ -1777,6 +1795,8 @@ void UiApp::FocusAddressField() {
   }
 }
 
+// The Swift's selectTab(atIndex:): the tab at that place, or nothing when
+// the profile has fewer; ⌘9 is the ninth, not the last, as the Swift's.
 void UiApp::SelectTabAt(int number) {
   if (!InteractionAllowed()) {
     return;
@@ -1784,12 +1804,179 @@ void UiApp::SelectTabAt(int number) {
   const std::optional<std::string>& profile_id = model().active_profile_id();
   const model::BrowserProfile* profile =
       profile_id ? model().FindProfile(*profile_id) : nullptr;
-  if (!profile || profile->tabs.empty()) {
+  if (!profile || number < 1 ||
+      number > static_cast<int>(profile->tabs.size())) {
     return;
   }
-  const int count = static_cast<int>(profile->tabs.size());
-  const int index = number == 9 ? count - 1 : std::min(number, count) - 1;
-  Select(profile->tabs[index].id);
+  Select(profile->tabs[number - 1].id);
+}
+
+// MARK: Quit Pane? (ADR 0053)
+
+void UiApp::ConfirmQuit() {
+  RootView* root = window_->root();
+  // From Quit Pane? (⌘Q again), or at the PIN screen, where nothing is open
+  // to lose; with no window, there is nowhere to ask.
+  if (quit_confirming_ || data_->IsLocked() || !root) {
+    QuitNow();
+    return;
+  }
+  quit_confirming_ = true;
+  LogInteraction(Interaction::kOpenQuitDialog, window_->compositor());
+  root->ShowQuitDialog(true);
+}
+
+void UiApp::CancelQuit() {
+  if (!std::exchange(quit_confirming_, false)) {
+    return;
+  }
+  if (RootView* root = window_->root()) {
+    root->ShowQuitDialog(false);
+  }
+}
+
+void UiApp::QuitNow() {
+  quit_confirming_ = false;
+  Quit(base::DoNothing());
+}
+
+// MARK: The command table (commands.h)
+
+bool UiApp::IsCommandEnabled(Command command) {
+  switch (command) {
+    // Behind the Lock too, as the Swift's menu let them.
+    case Command::kQuit:
+    case Command::kCheckForUpdates:
+      return true;
+    // Only a PIN locks Pane.
+    case Command::kLock:
+      return InteractionAllowed() && data_->HasPin();
+    default:
+      return InteractionAllowed();
+  }
+}
+
+std::optional<std::u16string> UiApp::CommandTitle(Command command) {
+  if (command == Command::kFullScreen) {
+    return window_->IsFullScreen() ? u"Exit Full Screen" : u"Enter Full Screen";
+  }
+  return std::nullopt;
+}
+
+void UiApp::RunCommand(Command command) {
+  if (!IsCommandEnabled(command)) {
+    return;
+  }
+  const std::optional<std::string>& active = model().active_tab_id();
+  switch (command) {
+    case Command::kCheckForUpdates:
+      CheckForUpdates();
+      return;
+    case Command::kSettings:
+      ShowPage(model::BrowserModel::Page::kSettings);
+      return;
+    case Command::kLock:
+      LockNow();
+      return;
+    case Command::kQuit:
+      ConfirmQuit();
+      return;
+    case Command::kNewTab:
+      NewTab();
+      return;
+    case Command::kCloseTab:
+      if (active) {
+        CloseTab(*active);
+      }
+      return;
+    case Command::kReopenClosedTab:
+      ReopenClosedTab();
+      return;
+    case Command::kPrint:
+      PrintPage();
+      return;
+    case Command::kReload:
+      Reload();
+      return;
+    case Command::kActualSize:
+    case Command::kZoomIn:
+    case Command::kZoomOut:
+      ZoomPage(command);
+      return;
+    case Command::kFullScreen:
+      window_->ToggleFullScreen();
+      return;
+    case Command::kBack:
+      Back();
+      return;
+    case Command::kForward:
+      Forward();
+      return;
+    case Command::kFocusAddress:
+      FocusAddressField();
+      return;
+    case Command::kNextTab:
+      SwitchTab(/*backward=*/false);
+      return;
+    case Command::kPreviousTab:
+      SwitchTab(/*backward=*/true);
+      return;
+    // The find bar and DevTools are What Chrome asks for's, the Extensions
+    // page X4's (chrome://extensions in the profile's tab, D3): their items
+    // run nothing until those land.
+    case Command::kFind:
+    case Command::kDeveloperTools:
+    case Command::kExtensions:
+      return;
+    default:
+      if (const int number = TabNumberOf(command)) {
+        SelectTabAt(number);
+      }
+      // The platform's own run where the platform sends them (menu_bar.h).
+      return;
+  }
+}
+
+void UiApp::ReopenClosedTab() {
+  std::optional<model::ClosedTab> closed = model().PopClosedTab();
+  if (!closed || !model().FindProfile(closed->profile_id)) {
+    return;
+  }
+  const GURL url(closed->url);
+  OpenTab(closed->profile_id,
+          url.is_valid() ? std::optional<GURL>(url) : std::nullopt);
+}
+
+void UiApp::ZoomPage(Command command) {
+  const std::optional<std::string>& active = model().active_tab_id();
+  content::WebContents* page = active ? PageOf(*active) : nullptr;
+  if (!page) {
+    return;
+  }
+  auto* controller = zoom::ZoomController::FromWebContents(page);
+  const double before = controller ? controller->GetZoomLevel() : 0;
+  const content::PageZoom zoom =
+      command == Command::kZoomIn    ? content::PAGE_ZOOM_IN
+      : command == Command::kZoomOut ? content::PAGE_ZOOM_OUT
+                                     : content::PAGE_ZOOM_RESET;
+  zoom::PageZoom::Zoom(page, zoom);
+  // The Swift's engine's names, which shortcuts reads.
+  PANE_TRACE("call",
+             command == Command::kZoomIn    ? "PaneWebContents.zoomIn"
+             : command == Command::kZoomOut ? "PaneWebContents.zoomOut"
+                                            : "PaneWebContents.resetZoom",
+             base::DictValue()
+                 .Set("before", before)
+                 .Set("after", controller ? controller->GetZoomLevel() : 0));
+}
+
+void UiApp::PrintPage() {
+  const std::optional<std::string>& active = model().active_tab_id();
+  if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
+    PANE_TRACE("call", "PaneWebContents.print");
+    printing::StartPrint(page, /*print_preview_disabled=*/true,
+                         /*has_selection=*/false);
+  }
 }
 
 void UiApp::TabInserted(content::WebContents* contents,
@@ -2100,6 +2287,7 @@ base::DictValue UiApp::Snapshot() const {
                            ? model::AppIconName(*dock_icon_->shown())
                            : std::string_view())
       .Set("appIconPicker", app_icon_picker_)
+      .Set("quitConfirmation", quit_confirming_)
       .Set("sidebarWidth", sidebar_width_)
       .Set("pendingProfileDeletions", static_cast<int>(deleting_.size()))
       // A page's dialog: none drawn until "What Chrome asks for" ports them.

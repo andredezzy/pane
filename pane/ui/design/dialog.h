@@ -55,9 +55,7 @@ class DialogHeading : public views::View {
 // its content 24 in, rounded 29, on a 1-point ring outside it and its shadow
 // (0 24px 64px, black 16%, 50% on dark). They fade in as the card grows from
 // 0.97 (Motion.panel), and go the same way. A click on the scrim and Esc
-// dismiss it; Return accepts it. Its content has the keys' focus to move
-// in, and the dialog the rest: the window's other keys go on, as the
-// Swift's KeyRouting let them.
+// dismiss it; Return accepts it. Which other keys it takes is its `keys`.
 class ModalDialog : public views::View {
   METADATA_HEADER(ModalDialog, views::View)
 
@@ -72,9 +70,17 @@ class ModalDialog : public views::View {
     base::RepeatingClosure accept;
   };
 
+  // Esc and Return alone, the window's other keys going on, and its content
+  // having the keys' focus to move in (the App icon picker's, as the Swift's
+  // KeyRouting let them); or every key, none reaching what is under it or the
+  // window's commands (Quit Pane?'s, as the PIN screen's): only the menu
+  // bar's Quit goes on, which the window lets through (TakesEveryKey).
+  enum class Keys { kEscapeAndReturn, kEvery };
+
   ModalDialog(int width,
               std::unique_ptr<views::View> content,
-              Callbacks callbacks);
+              Callbacks callbacks,
+              Keys keys = Keys::kEscapeAndReturn);
   ModalDialog(const ModalDialog&) = delete;
   ModalDialog& operator=(const ModalDialog&) = delete;
   ~ModalDialog() override;
@@ -89,15 +95,21 @@ class ModalDialog : public views::View {
   void AnimateOut();
   // Shown and not on its way out.
   bool showing() const;
+  // Shown, and taking every key.
+  bool takes_every_key() const { return keys_ == Keys::kEvery && showing(); }
 
   // views::View:
   void Layout(PassKey) override;
-  void OnPaint(gfx::Canvas* canvas) override;
+  void OnThemeChanged() override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
+  bool SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) override;
+  bool OnKeyPressed(const ui::KeyEvent& event) override;
+  bool OnKeyReleased(const ui::KeyEvent& event) override;
 
  private:
   class Card;
+  class Shadow;
 
   // The card's place, ring included, to the fraction of a point, as SwiftUI
   // centers it.
@@ -107,6 +119,8 @@ class ModalDialog : public views::View {
 
   const int width_;
   Callbacks callbacks_;
+  const Keys keys_;
+  raw_ptr<Shadow> shadow_ = nullptr;
   raw_ptr<Card> card_ = nullptr;
   raw_ptr<views::View> content_ = nullptr;
   bool closing_ = false;

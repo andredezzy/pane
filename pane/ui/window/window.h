@@ -12,6 +12,7 @@
 #include "pane/browser/ui/window_host.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/pin_entry.h"
+#include "pane/ui/app/commands.h"
 #include "pane/ui/window/root_view.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
@@ -44,10 +45,11 @@ class Window : public WindowHost::Delegate,
                public ui::AcceleratorTarget,
                public views::WidgetObserver {
  public:
-  // The app, which knows the profiles and their tabs.
-  class Controller {
+  // The app, which knows the profiles and their tabs, and runs the command
+  // table's commands, the window's keys' as the menu bar's.
+  class Controller : public CommandRunner {
    public:
-    virtual ~Controller() = default;
+    ~Controller() override = default;
 
     // What the sidebar shows: each profile, then its tabs while it is open.
     virtual SidebarContent Sidebar() = 0;
@@ -102,18 +104,14 @@ class Window : public WindowHost::Delegate,
     virtual model::ToolbarProgress& LoadProgress() = 0;
     // The skies of the app's icon, as Settings and its picker show them.
     virtual AppIconImages& AppIcons() = 0;
-    // ⌘T.
-    virtual void NewTab() = 0;
-    // ⌘L: the address field, its text selected.
-    virtual void FocusAddressField() = 0;
-    // ⌘1 to ⌘8: the profile's tab at that place; ⌘9, its last.
-    virtual void SelectTabAt(int number) = 0;
-    // The tab switcher's keys (H7 binds them): Ctrl-Tab opens it on the tab
-    // used before, or moves its selection on, Shift backward; letting go of
-    // Ctrl selects the tab it shows selected; Esc closes it.
-    virtual void SwitchTab(bool backward) = 0;
+    // The tab switcher's keys but Ctrl-Tab, a command's (Next Tab): letting
+    // go of Ctrl selects the tab it shows selected; Esc closes it.
     virtual void CommitSwitcher() = 0;
     virtual void CancelSwitcher() = 0;
+    // Quit Pane?'s Cancel, Esc, or a click outside it; and its Quit or
+    // Return.
+    virtual void CancelQuit() = 0;
+    virtual void QuitNow() = 0;
 
     // Settings: a choice in its menus, as the settings take it; the App icon
     // row's press, a sky in the picker it opens, and the picker's Done; the
@@ -191,6 +189,10 @@ class Window : public WindowHost::Delegate,
   void UpdateTitleAfterFrame();
   // The shown page fills the window (ADR 0025).
   bool page_fullscreen() const;
+  // The window in full screen, or on its way in; View › Enter or Exit Full
+  // Screen toggles it, the page's fullscreen leaving with it (ADR 0025).
+  bool IsFullScreen() const;
+  void ToggleFullScreen();
 
   // ⌘L: the address field, its text selected.
   void FocusAddress();
@@ -225,6 +227,21 @@ class Window : public WindowHost::Delegate,
   void OnWidgetDestroying(views::Widget* widget) override;
 
  private:
+  // The switcher's keys while it shows, from Pane's views (the page's come
+  // through PreHandleKeyboardEvent): Esc, and Ctrl's release.
+  class SwitcherKeys;
+
+  // While the switcher shows, a key from Views or the page: Esc closes it.
+  // Whether the key stops here.
+  bool SwitcherEscape(bool pressed, int key_code);
+  // Ctrl let go while the switcher shows: the tab it shows selected comes
+  // forward, as the Swift's key monitor had it. Heard from the frame, in the
+  // order the keys came, and from Views: never from a page, whose own key
+  // events reach the window late (a key-up from before the switcher showed
+  // would arrive after it), and none at all after a key the window took
+  // (RenderWidgetHostImpl drops them).
+  void ControlReleased();
+
   // The window's full screen follows the page's: it enters with the page and
   // leaves with it, unless the user had it in full screen already, which
   // stays (ADR 0025). Chromium's fullscreen controller takes a request made
@@ -234,6 +251,7 @@ class Window : public WindowHost::Delegate,
   void Closed();
 
   views::UnhandledKeyboardEventHandler unhandled_keys_;
+  std::unique_ptr<SwitcherKeys> switcher_keys_;
   const raw_ptr<Controller> controller_;
   const bool keeps_frame_;
   raw_ptr<RootView> root_ = nullptr;

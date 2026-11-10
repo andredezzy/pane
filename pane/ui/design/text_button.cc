@@ -94,22 +94,58 @@ constexpr int kChipPadding = 6;
 constexpr int kChipHeight = 20;
 constexpr TextStyle kKeyText{12, weight::kMedium, kChipHeight};
 
+// `.keyed(role)`'s style: Cancel ghost on the card with a strong hairline,
+// Quit destructive, Done primary, each rounded 15.
+ControlLook KeyedLook(KeyedButton::Role role) {
+  switch (role) {
+    case KeyedButton::Role::kCancel: {
+      ControlLook look = ButtonLook(ButtonVariant::kGhost, radius::kLg);
+      look.border = kPaneColorHairlineStrong;
+      return look;
+    }
+    case KeyedButton::Role::kDestructive:
+      return ButtonLook(ButtonVariant::kDestructive, radius::kLg);
+    case KeyedButton::Role::kPrimary:
+      return ButtonLook(ButtonVariant::kPrimary, radius::kLg);
+  }
+}
+
+// KeyedLabel's colors: its title's, its key's, and the key's chip.
+struct KeyedColors {
+  ui::ColorVariant title;
+  ui::ColorVariant key;
+  ui::ColorVariant chip;
+};
+
+KeyedColors KeyedColorsOf(KeyedButton::Role role) {
+  switch (role) {
+    case KeyedButton::Role::kCancel:
+      return {kPaneColorForeground, kPaneColorMutedLifted, kPaneColorSecondary};
+    case KeyedButton::Role::kDestructive:
+      return {kPaneColorDestructiveForeground, kPaneColorDestructiveKey,
+              kPaneColorDestructiveKeyChip};
+    case KeyedButton::Role::kPrimary:
+      return {kPaneColorPrimaryForeground, kPaneColorPrimaryKey,
+              kPaneColorPrimaryKeyChip};
+  }
+}
+
 }  // namespace
 
 KeyedButton::KeyedButton(PressedCallback pressed,
                          const std::u16string& title,
-                         const std::u16string& key)
-    : views::Button(std::move(pressed)),
-      look_(ButtonLook(ButtonVariant::kPrimary, radius::kLg)) {
+                         const std::u16string& key,
+                         Role role)
+    : views::Button(std::move(pressed)), role_(role), look_(KeyedLook(role)) {
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&views::View::SchedulePaint, base::Unretained(this)));
   SetBackground(std::make_unique<ControlBackground>(look_, highlight_.get()));
+  const KeyedColors colors = KeyedColorsOf(role);
   // The title keeps its color under the pointer, as KeyedLabel's set its own.
-  title_ = AddChildView(
-      MakeLabel(title, text::kButton, kPaneColorPrimaryForeground));
+  title_ = AddChildView(MakeLabel(title, text::kButton, colors.title));
   title_->SetCanProcessEventsWithinSubtree(false);
-  key_ = AddChildView(MakeLabel(key, kKeyText, kPaneColorPrimaryKey));
+  key_ = AddChildView(MakeLabel(key, kKeyText, colors.key));
   key_->SetCanProcessEventsWithinSubtree(false);
   // The key is the chip's, which assistive technologies don't read.
   key_->GetViewAccessibility().SetIsIgnored(true);
@@ -150,7 +186,7 @@ void KeyedButton::PaintButtonContents(gfx::Canvas* canvas) {
   }
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
-  flags.setColor(colors->GetColor(kPaneColorPrimaryKeyChip));
+  flags.setColor(KeyedColorsOf(role_).chip.ResolveToSkColor(colors));
   canvas->DrawPath(SquirclePath(ChipBounds(), radius::kTab), flags);
 }
 

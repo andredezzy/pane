@@ -98,6 +98,8 @@ void AddPaneColors(ui::ColorProvider* provider,
       ui::SetAlpha(kPaneColorForeground, AlphaOf(0.7));
   set(kPaneColorPrimaryKey, Rgba(0xFAFAFA, 0.85), Rgba(0x18181B, 0.7));
   set(kPaneColorPrimaryKeyChip, Rgba(0xFAFAFA, 0.18), Rgba(0x18181B, 0.12));
+  set(kPaneColorDestructiveKey, White(0.85), White(0.85));
+  set(kPaneColorDestructiveKeyChip, White(0.18), White(0.18));
   set(kPaneColorAddressDivider, Rgb(0x858587), Rgb(0x606068));
   mixer[kPaneColorAddressHover] =
       ui::SetAlpha(kPaneColorForeground, AlphaOf(0.03));

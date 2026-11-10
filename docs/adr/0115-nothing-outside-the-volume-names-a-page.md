@@ -4,6 +4,8 @@
 
 > **Extended by [ADR 0121](0121-every-profile-file-encrypted-under-its-own-key.md)**: what this lists as readable by another process while Pane is unlocked, the profiles' files, no longer is. What it keeps outside the volume stays as it is here.
 
+> **On the Views line** (`docs/plans/views-migration.md`, H7): `PANE_NEW_TAB_URL`, a scenario's new tabs' start page, so its runs load nothing from Google, is one more hook through the same function.
+
 The user's requirement (2026-10-31): all of Pane's content is encrypted under the PIN, and none of it can be seen without it, whether by another process of the user's, by someone with a copy of the disk, or by someone at the Mac while Pane is locked. Two audits looked for what still could be:
 
 - **Four auditors on 0.14.1**, two on Claude Opus and two on Fable, each pair covering the data at rest and the runtime, read the code and ran throwaway scenarios.

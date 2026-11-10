@@ -79,17 +79,22 @@ class TextButton : public views::Button {
 // A dialog's button with the key that presses it on a chip beside its title
 // (the Swift's KeyedLabel in its `.keyed` style): 36 points, the title 14 in
 // at 14 medium, then 8, then the key at 12 medium on a chip 20 tall, 6 in on
-// either side and rounded 9, 8 from the end; rounded 15. The primary's, on
-// its fill, with the title in its foreground and the key faint on a faint
-// chip: the App icon picker's Done (↩). Quit Pane?'s Cancel and Quit (H7)
-// add their roles here.
+// either side and rounded 9, 8 from the end; rounded 15. Its role picks the
+// look (KeyedLabel.Role): Cancel's, on the card with a hairline, the accent
+// under the pointer, its key muted on the secondary chip (Quit Pane?'s Esc);
+// the destructive one's, filled, its key white on a faint white chip (⌘Q);
+// the primary's, filled, its key faint on a faint chip (the App icon
+// picker's Done, ↩). The title keeps its color under the pointer.
 class KeyedButton : public views::Button {
   METADATA_HEADER(KeyedButton, views::Button)
 
  public:
+  enum class Role { kCancel, kDestructive, kPrimary };
+
   KeyedButton(PressedCallback pressed,
               const std::u16string& title,
-              const std::u16string& key);
+              const std::u16string& key,
+              Role role = Role::kPrimary);
   KeyedButton(const KeyedButton&) = delete;
   KeyedButton& operator=(const KeyedButton&) = delete;
   ~KeyedButton() override;
@@ -104,6 +109,7 @@ class KeyedButton : public views::Button {
   // The chip, around the key's label.
   gfx::RectF ChipBounds() const;
 
+  const Role role_;
   const ControlLook look_;
   std::unique_ptr<ControlHighlight> highlight_;
   raw_ptr<views::Label> title_ = nullptr;

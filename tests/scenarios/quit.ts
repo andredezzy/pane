@@ -1,25 +1,46 @@
 import { launchPane, type PaneApp } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // ⌘Q asks first, as Aside does (Paper: 04.5 Quit Pane). From a focused page:
 // ⌘Q shows Quit Pane?, Esc goes back and gives the page its focus again, and
-// ⌘Q then Return quits. On the Dark theme, ⌘Q twice quits. Keys are posted
-// into the app's event queue, so they take the menu's real path.
+// ⌘Q then Return quits. On the Dark theme, ⌘Q twice quits. ⌘Q is posted into
+// the app's event queue, so it takes the menu bar's real path, which needs
+// no front. Esc and Return are the window's keys: with the front, posted as
+// ⌘Q is; without it, through Views' own dispatch to what has the keys.
 
-// A key the panel takes needs the key window, as when the user is in Pane;
-// another app may have taken it during the run.
-async function press(app: PaneApp, key: string): Promise<void> {
+// A key Quit Pane? takes, as the window gets it.
+async function press(
+	context: ScenarioContext,
+	app: PaneApp,
+	key: string,
+): Promise<void> {
+	if (!context.foreground) {
+		await app.send("dispatchKey", { key });
+
+		return;
+	}
+
+	// A key the panel takes needs the key window, as when the user is in
+	// Pane; another app may have taken it during the run.
 	await app.send("activate");
 	await app.waitFor("the key window", (state) => state.window.key, 10_000);
 	await app.send("key", { key });
 }
 
-async function focusedPage(app: PaneApp, url: string): Promise<void> {
+async function focusedPage(
+	context: ScenarioContext,
+	app: PaneApp,
+	url: string,
+): Promise<void> {
 	const profile = await app.createProfile("Quit");
 	await app.openPage(profile, url);
-	await app.send("activate");
-	await app.waitFor("the key window", (state) => state.window.key, 10_000);
+
+	if (context.foreground) {
+		await app.send("activate");
+		await app.waitFor("the key window", (state) => state.window.key, 10_000);
+	}
+
 	await app.send("clickPage", { x: 20, y: 20 });
 
 	await app.waitFor(
@@ -29,19 +50,11 @@ async function focusedPage(app: PaneApp, url: string): Promise<void> {
 }
 
 const quit: Scenario = async (context) => {
-	// Every check here needs Pane in front, which the app in use keeps
-	// unless the runner allows it.
-	if (!context.foreground) {
-		context.defer("every check: it needs Pane in front (run.ts --foreground)");
-
-		return;
-	}
-
 	const url = context.fixtures.url("smoke.html?quit");
 
 	// ⌘Q, Esc, then ⌘Q and Return.
 	const app = await launchPane(context);
-	await focusedPage(app, url);
+	await focusedPage(context, app, url);
 
 	await app.send("key", { key: "q", modifiers: ["command"] });
 
@@ -49,7 +62,7 @@ const quit: Scenario = async (context) => {
 
 	await app.render("quit-light.png");
 
-	await press(app, "\u001b");
+	await press(context, app, "\u001b");
 
 	await app.waitFor(
 		"Quit Pane? gone, the page focused again",
@@ -58,7 +71,7 @@ const quit: Scenario = async (context) => {
 
 	await app.send("key", { key: "q", modifiers: ["command"] });
 	await app.waitFor("Quit Pane? again", (state) => state.quitConfirmation);
-	await press(app, "\r");
+	await press(context, app, "\r");
 	const quitByReturn = await waitForExit(app.browser.pid);
 
 	expect(quitByReturn, "Return did not quit");
@@ -66,7 +79,7 @@ const quit: Scenario = async (context) => {
 	// The Dark theme, ⌘Q twice.
 	const dark = await launchPane(context);
 	await dark.send("theme", { theme: "dark" });
-	await focusedPage(dark, url);
+	await focusedPage(context, dark, url);
 
 	await dark.send("key", { key: "q", modifiers: ["command"] });
 	await dark.waitFor("Quit Pane?", (state) => state.quitConfirmation);

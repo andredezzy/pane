@@ -1,7 +1,8 @@
 import { stats } from "../lib/benchmark";
 import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { launchPane } from "../lib/pane";
-import { expect, type Scenario } from "../run";
+import { signpostIntervals } from "../lib/signposts";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // How long each signposted interaction (Log.interaction) takes, from the
 // input to the frame Core Animation commits for it, read from the unified
@@ -13,46 +14,15 @@ import { expect, type Scenario } from "../run";
 // that shows its page's first paint (its profile unloaded, then the tab
 // selected). It times; it does not judge, so a change is measured before
 // and after.
-// /usr/bin/log, by its path: zsh has a builtin of the same name.
-
-type Signpost = {
-	eventType?: string;
-	signpostType?: "begin" | "end" | "event";
-	signpostName?: string;
-	signpostID?: number;
-	processID?: number;
-	timestamp?: string;
-};
 
 const ROUNDS = 8;
 
-// The log's "2026-10-30 15:41:02.123456-0300", in milliseconds.
-function millisecondsOf(timestamp: string): number {
-	const [date, time] = timestamp.split(" ");
-	const [clock = "", fraction = "0"] = (time ?? "").slice(0, 15).split(".");
-
-	return Date.parse(`${date}T${clock}Z`) + Number(`0.${fraction}`) * 1000;
-}
-
-const interactionTiming: Scenario = async (context) => {
-	const stream = Bun.spawn(
-		[
-			"/usr/bin/log",
-			"stream",
-			"--signpost",
-			"--style",
-			"ndjson",
-			"--predicate",
-			'subsystem == "xyz.roundedcorners.pane" AND category == "PointsOfInterest"',
-		],
-		{ stdout: "pipe", stderr: "ignore" },
-	);
-
-	// The stream opens before the app starts its first interval.
-	await Bun.sleep(1_000);
-
+// The app driven through each interaction, round after round; its process.
+async function drive(context: ScenarioContext): Promise<number> {
 	const driveUI = await canDriveUI();
+
 	const app = await launchPane(context);
+
 	const profile = await app.createProfile("Timing");
 	const tabs: string[] = [];
 
@@ -162,48 +132,11 @@ const interactionTiming: Scenario = async (context) => {
 		await Bun.sleep(400);
 	}
 
-	await Bun.sleep(1_000);
-	stream.kill();
+	return app.browser.pid;
+}
 
-	const pid = app.browser.pid;
-	const begins = new Map<number, { name: string; at: number }>();
-	const durations: Record<string, number[]> = {};
-
-	for (const line of (await new Response(stream.stdout).text()).split("\n")) {
-		const text = line.trim().replace(/,$/, "");
-
-		if (!text.startsWith("{")) {
-			continue;
-		}
-
-		const event = JSON.parse(text) as Signpost;
-
-		if (
-			event.eventType !== "signpostEvent" ||
-			event.processID !== pid ||
-			event.signpostID === undefined ||
-			!event.timestamp
-		) {
-			continue;
-		}
-
-		const at = millisecondsOf(event.timestamp);
-
-		if (event.signpostType === "begin" && event.signpostName) {
-			begins.set(event.signpostID, { name: event.signpostName, at });
-		} else if (event.signpostType === "end") {
-			const begin = begins.get(event.signpostID);
-
-			if (begin) {
-				begins.delete(event.signpostID);
-
-				durations[begin.name] = [
-					...(durations[begin.name] ?? []),
-					at - begin.at,
-				];
-			}
-		}
-	}
+const interactionTiming: Scenario = async (context) => {
+	const durations = await signpostIntervals(() => drive(context));
 
 	expect(
 		[

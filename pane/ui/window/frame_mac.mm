@@ -4,10 +4,19 @@
 
 #import <AppKit/AppKit.h>
 
+#include <optional>
+#include <utility>
+
+#include "base/apple/owned_objc.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/remote_cocoa/app_shim/native_widget_mac_nswindow.h"
 #include "components/remote_cocoa/common/native_widget_ns_window.mojom.h"
+#include "pane/ui/app/commands.h"
+#include "ui/base/accelerators/accelerator.h"
+#import "ui/base/cocoa/command_dispatcher.h"
+#import "ui/base/cocoa/default_command_dispatcher_delegate.h"
 #include "ui/base/cocoa/window_size_constants.h"
+#include "ui/events/event.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/views/widget/native_widget_mac.h"
 #include "ui/views/widget/widget.h"
@@ -70,10 +79,66 @@ constexpr CGFloat kLightsInset = 12;
 
 @end
 
-@interface ViewsWindowForPane : NativeWidgetMacNSWindow
+// The window's key equivalents, ahead of its views and the menu bar: while
+// an overlay takes every key, a key the menu bar would run goes nowhere, Quit
+// but; any other key goes on to the overlay. Otherwise, as Views' own.
+@interface KeyEquivalentsForPane : DefaultCommandDispatcherDelegate
+- (instancetype)initWithTakesEveryKey:
+    (base::RepeatingCallback<bool()>)takesEveryKey;
 @end
 
-@implementation ViewsWindowForPane
+@implementation KeyEquivalentsForPane {
+  base::RepeatingCallback<bool()> _takesEveryKey;
+}
+
+- (instancetype)initWithTakesEveryKey:
+    (base::RepeatingCallback<bool()>)takesEveryKey {
+  if ((self = [super init])) {
+    _takesEveryKey = std::move(takesEveryKey);
+  }
+  return self;
+}
+
+- (ui::PerformKeyEquivalentResult)prePerformKeyEquivalent:(NSEvent*)event
+                                                   window:(NSWindow*)window {
+  if (_takesEveryKey.Run()) {
+    const std::optional<pane::Command> command = pane::CommandForAccelerator(
+        ui::Accelerator(ui::KeyEvent(base::apple::OwnedNSEvent(event))));
+    if (command && command != pane::Command::kQuit) {
+      return ui::PerformKeyEquivalentResult::kDrop;
+    }
+  }
+  return [super prePerformKeyEquivalent:event window:window];
+}
+
+@end
+
+@interface ViewsWindowForPane : NativeWidgetMacNSWindow
+- (void)setControlChanged:
+    (base::RepeatingCallback<void(bool controlDown)>)controlChanged;
+@end
+
+@implementation ViewsWindowForPane {
+  base::RepeatingCallback<void(bool controlDown)> _controlChanged;
+}
+
+- (void)setControlChanged:
+    (base::RepeatingCallback<void(bool controlDown)>)controlChanged {
+  _controlChanged = std::move(controlChanged);
+}
+
+// Every modifier change passes here before the page or Pane's views take it,
+// once: one a page left, which Chromium sends back through the window later
+// (redispatchKeyEvent:), is no new change, and a Command released before a
+// Ctrl-Tab would otherwise come back after it as Ctrl's release.
+- (void)sendEvent:(NSEvent*)event {
+  if (event.type == NSEventTypeFlagsChanged && _controlChanged &&
+      ![[self commandDispatcher] isEventBeingRedispatched:event]) {
+    _controlChanged.Run((event.modifierFlags & NSEventModifierFlagControl) !=
+                        0);
+  }
+  [super sendEvent:event];
+}
 
 + (Class)frameViewClassForStyleMask:(NSUInteger)windowStyle {
   // NSThemeFrame's subclasses are nil if AppKit no longer has it.
@@ -91,7 +156,13 @@ namespace {
 
 class Frame : public views::NativeWidgetMac {
  public:
-  explicit Frame(views::Widget* widget) : views::NativeWidgetMac(widget) {}
+  Frame(views::Widget* widget,
+        base::RepeatingCallback<bool()> takes_every_key,
+        base::RepeatingCallback<void(bool)> control_changed)
+      : views::NativeWidgetMac(widget),
+        key_equivalents_([[KeyEquivalentsForPane alloc]
+            initWithTakesEveryKey:std::move(takes_every_key)]),
+        control_changed_(std::move(control_changed)) {}
 
  protected:
   // views::NativeWidgetMac:
@@ -130,14 +201,25 @@ class Frame : public views::NativeWidgetMac {
     }
     // Pane restores its own session; AppKit's restoration is off (ADR 0016).
     window.restorable = NO;
+    // The window holds its dispatcher's delegate weakly; this frame keeps it.
+    [window setCommandDispatcherDelegate:key_equivalents_];
+    [window setControlChanged:control_changed_];
     return window;
   }
+
+ private:
+  KeyEquivalentsForPane* __strong key_equivalents_;
+  const base::RepeatingCallback<void(bool)> control_changed_;
 };
 
 }  // namespace
 
-views::NativeWidget* CreateFrame(views::Widget* widget) {
-  return new Frame(widget);
+views::NativeWidget* CreateFrame(
+    views::Widget* widget,
+    base::RepeatingCallback<bool()> takes_every_key,
+    base::RepeatingCallback<void(bool control_down)> control_changed) {
+  return new Frame(widget, std::move(takes_every_key),
+                   std::move(control_changed));
 }
 
 namespace {

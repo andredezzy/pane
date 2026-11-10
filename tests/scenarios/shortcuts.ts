@@ -14,13 +14,29 @@ const ZOOM_CALLS = new Set([
 	"PaneWebContents.resetZoom",
 ]);
 
-// Every app shortcut, sent as key events through AppKit's queue (event
-// monitors, then menu key equivalents), and its effect on the app.
+// Every app shortcut, sent as key events through AppKit's queue (the menu
+// bar's key equivalents, then the window), and its effect on the app. The
+// menu bar takes a posted key without the front; a key the window itself
+// takes (typing, Esc, Ctrl's release) needs it, so without the front those go
+// through Views' own dispatch (dispatchKey), and the checks of a key queued
+// behind another defer.
 const shortcuts: Scenario = async (context) => {
 	const { app, trace } = await launchTraced(context, "shortcuts");
 
 	const press = (key: string, ...modifiers: string[]) =>
 		app.send("key", { key, modifiers } satisfies Key);
+
+	// A key the window takes, not the menu bar.
+	const type = (key: string, ...modifiers: string[]) =>
+		app.send(context.foreground ? "key" : "dispatchKey", {
+			key,
+			modifiers,
+		} satisfies Key);
+
+	const releaseControl = () =>
+		context.foreground
+			? app.send("releaseModifiers")
+			: app.send("dispatchKey", { key: "control", phase: "release" });
 
 	const profile = await app.createProfile("Keys");
 	const a = context.fixtures.url("nav-a.html");
@@ -42,40 +58,47 @@ const shortcuts: Scenario = async (context) => {
 
 	const tabNew = opened.activeTabID as string;
 
-	// What is typed replaces the address that came after the field took the focus,
-	// and ⌘L selects it again while the field has the focus.
-	await app.waitFor("the new tab's address", (state) => state.address !== "");
-	await Bun.sleep(100);
-	await press("a");
-	const typed = await app.waitFor("the key", (state) => state.address !== "");
-
-	expect(
-		typed.address === "a",
-		`typing in a new tab's address field gave "${typed.address}"`,
-	);
-
-	// A key already in the queue behind ⌘L acts on what ⌘L did: it replaces the
-	// text. Both land in one of the automation's polls, so no front is needed.
-	await Promise.all([press("l", "command"), press("q")]);
-
-	const queued = await app.waitFor(
-		"the key queued behind ⌘L",
-		(state) => state.address !== "a",
-	);
-
-	expect(
-		queued.address === "q",
-		`a key queued behind ⌘L in the field gave "${queued.address}"`,
-	);
-
-	await press("a");
-	await app.waitFor("the field back to a", (state) => state.address !== "q");
-	await press("l", "command");
-	await press("a");
-	await app.waitFor("the field holding a", (state) => state.address === "a");
-
-	// Behind the app in use its window isn't key, so nothing takes the select.
+	// What is typed replaces the address that came after the field took the
+	// focus, and ⌘L selects it again while the field has the focus. Typing
+	// goes through the window's queue, which needs Pane in front.
 	if (context.foreground) {
+		const { address: shown } = await app.waitFor(
+			"the new tab's address",
+			(state) => state.address !== "",
+		);
+
+		await Bun.sleep(100);
+		await press("a");
+
+		const typed = await app.waitFor(
+			"the key",
+			(state) => state.address !== shown,
+		);
+
+		expect(
+			typed.address === "a",
+			`typing in a new tab's address field gave "${typed.address}"`,
+		);
+
+		// A key already in the queue behind ⌘L acts on what ⌘L did: it
+		// replaces the text.
+		await Promise.all([press("l", "command"), press("q")]);
+
+		const queued = await app.waitFor(
+			"the key queued behind ⌘L",
+			(state) => state.address !== "a",
+		);
+
+		expect(
+			queued.address === "q",
+			`a key queued behind ⌘L in the field gave "${queued.address}"`,
+		);
+
+		await press("a");
+		await app.waitFor("the field back to a", (state) => state.address !== "q");
+		await press("l", "command");
+		await press("a");
+		await app.waitFor("the field holding a", (state) => state.address === "a");
 		await press("l", "command");
 		await Bun.sleep(100);
 		await press("p");
@@ -90,10 +113,12 @@ const shortcuts: Scenario = async (context) => {
 			`typing after ⌘L in the focused field gave "${retyped.address}"`,
 		);
 	} else {
-		context.defer("⌘L selecting again: it needs Pane in front");
+		context.defer(
+			"typing in the new tab's address, a key queued behind ⌘L, and ⌘L selecting again: they need Pane in front",
+		);
 	}
 
-	await press("\u001b");
+	await type("\u001b");
 
 	// ⌘1: the profile's first tab.
 	await press("1", "command");
@@ -119,16 +144,22 @@ const shortcuts: Scenario = async (context) => {
 	await press("1", "command");
 	await app.waitFor("⌘1 again", (state) => state.activeTabID === tabA);
 
-	// ⌘F opens the find bar with its field focused; Escape closes it.
-	await press("f", "command");
+	// ⌘F opens the find bar with its field focused; Escape closes it. The
+	// Views build draws no find bar until What Chrome asks for's, and its
+	// state has no such key until then.
+	if ("find" in (await app.state())) {
+		await press("f", "command");
 
-	await app.waitFor(
-		"⌘F",
-		(state) => state.find.visible && state.focus === FIND,
-	);
+		await app.waitFor(
+			"⌘F",
+			(state) => state.find.visible && state.focus === FIND,
+		);
 
-	await press("\u001b");
-	await app.waitFor("Escape", (state) => !state.find.visible);
+		await type("\u001b");
+		await app.waitFor("Escape", (state) => !state.find.visible);
+	} else {
+		context.defer("⌘F's find bar: no find bar is drawn (What Chrome asks for)");
+	}
 
 	// ⌘L focuses the address field.
 	await press("l", "command");
@@ -267,7 +298,7 @@ const shortcuts: Scenario = async (context) => {
 	await press("\t", "control");
 	await app.waitFor("⌃⇥", (state) => state.switcher.visible);
 	await app.render("switcher.png");
-	await app.send("releaseModifiers");
+	await releaseControl();
 
 	const switched = await app.waitFor(
 		"Control released",
@@ -283,14 +314,14 @@ const shortcuts: Scenario = async (context) => {
 	const activeBefore = (await app.state()).activeTabID;
 	await press("\t", "control", "shift");
 	await app.waitFor("⌃⇧⇥", (state) => state.switcher.visible);
-	await press("\u001b", "control");
+	await type("\u001b", "control");
 
 	const cancelled = await app.waitFor(
 		"Escape in the switcher",
 		(state) => !state.switcher.visible,
 	);
 
-	await app.send("releaseModifiers");
+	await releaseControl();
 
 	expect(
 		cancelled.activeTabID === activeBefore,

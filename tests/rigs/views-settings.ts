@@ -3,6 +3,7 @@ import * as net from "node:net";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
 import { launchPane, type PaneApp, setUpPin, tabOf } from "../lib/pane";
+import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
 
 // H6, the panels (docs/plans/views-migration.md, Phase 3), on the Views
@@ -499,23 +500,6 @@ async function neverChecked(
 	}
 }
 
-type Signpost = {
-	eventType?: string;
-	signpostType?: "begin" | "end" | "event";
-	signpostName?: string;
-	signpostID?: number;
-	processID?: number;
-	timestamp?: string;
-};
-
-// The log's "2026-10-30 15:41:02.123456-0300", in milliseconds.
-function millisecondsOf(timestamp: string): number {
-	const [date, time] = timestamp.split(" ");
-	const [clock = "", fraction = "0"] = (time ?? "").slice(0, 15).split(".");
-
-	return Date.parse(`${date}T${clock}Z`) + Number(`0.${fraction}`) * 1000;
-}
-
 // From each input to the frame on screen (the app's signposts, Instruments'
 // Points of Interest): Settings shown by the sidebar's press, a Theme chosen
 // in its menu, the picker opened by the App icon's press, and a sky chosen
@@ -524,108 +508,67 @@ async function timing(
 	context: Parameters<Scenario>[0],
 	log: Record<string, unknown>,
 ) {
-	const stream = Bun.spawn(
-		[
-			"/usr/bin/log",
-			"stream",
-			"--signpost",
-			"--style",
-			"ndjson",
-			"--predicate",
-			'subsystem == "xyz.roundedcorners.pane" AND category == "PointsOfInterest"',
-		],
-		{ stdout: "pipe", stderr: "ignore" },
-	);
-
-	await Bun.sleep(1_000);
-	const app = await launchPane(context);
 	const rounds = 10;
 
-	try {
-		const work = await app.createProfile("Timing", "BLUE");
-		await loadTab(app, work, context.fixtures.url("nav-a.html?timing"));
-		await Bun.sleep(1_000);
+	const intervals = await signpostIntervals(async () => {
+		const app = await launchPane(context);
 
-		for (let round = 0; round < rounds; round++) {
+		try {
+			const work = await app.createProfile("Timing", "BLUE");
+			await loadTab(app, work, context.fixtures.url("nav-a.html?timing"));
+			await Bun.sleep(1_000);
+
+			for (let round = 0; round < rounds; round++) {
+				await press(app, "pane.sidebar.settings");
+				await app.waitFor("Settings", (state) => state.page === "settings");
+				await Bun.sleep(250);
+				await press(app, "pane.sidebar.settings");
+				await app.waitFor("the page", (state) => state.page === "browser");
+				await Bun.sleep(250);
+			}
+
 			await press(app, "pane.sidebar.settings");
 			await app.waitFor("Settings", (state) => state.page === "settings");
-			await Bun.sleep(250);
-			await press(app, "pane.sidebar.settings");
-			await app.waitFor("the page", (state) => state.page === "browser");
-			await Bun.sleep(250);
-		}
 
-		await press(app, "pane.sidebar.settings");
-		await app.waitFor("Settings", (state) => state.page === "settings");
+			for (let round = 0; round < rounds; round++) {
+				for (const theme of ["Dark", "Light"]) {
+					await menu(app, "pane.settings.theme", theme);
 
-		for (let round = 0; round < rounds; round++) {
-			for (const theme of ["Dark", "Light"]) {
-				await menu(app, "pane.settings.theme", theme);
+					await app.waitFor(
+						theme,
+						(state) => state.theme === theme.toLowerCase(),
+					);
 
-				await app.waitFor(
-					theme,
-					(state) => state.theme === theme.toLowerCase(),
+					await Bun.sleep(300);
+				}
+			}
+
+			await menu(app, "pane.settings.theme", "System");
+
+			for (let round = 0; round < rounds; round++) {
+				await press(app, "pane.settings.appIcon");
+				await app.waitFor("the picker", (state) => state.appIconPicker);
+				await Bun.sleep(300);
+
+				await press(
+					app,
+					`pane.settings.appIcon.${round % 2 ? "dusk" : "night"}`,
 				);
 
 				await Bun.sleep(300);
+				await app.send("dispatchKey", { key: "\u001b" });
+				await app.waitFor("the picker closed", (state) => !state.appIconPicker);
+				await Bun.sleep(300);
 			}
+
+			await app.send("appIcon", { appIcon: "automatic" });
+			await Bun.sleep(1_000);
+		} finally {
+			await app.browser.close();
 		}
 
-		await menu(app, "pane.settings.theme", "System");
-
-		for (let round = 0; round < rounds; round++) {
-			await press(app, "pane.settings.appIcon");
-			await app.waitFor("the picker", (state) => state.appIconPicker);
-			await Bun.sleep(300);
-			await press(app, `pane.settings.appIcon.${round % 2 ? "dusk" : "night"}`);
-			await Bun.sleep(300);
-			await app.send("dispatchKey", { key: "\u001b" });
-			await app.waitFor("the picker closed", (state) => !state.appIconPicker);
-			await Bun.sleep(300);
-		}
-
-		await app.send("appIcon", { appIcon: "automatic" });
-		await Bun.sleep(1_000);
-	} finally {
-		await app.browser.close();
-	}
-
-	stream.kill();
-	const text = await new Response(stream.stdout).text();
-	const begins = new Map<string, number>();
-	const intervals: Record<string, number[]> = {};
-
-	for (const line of text.split("\n")) {
-		if (!line.startsWith("{")) {
-			continue;
-		}
-
-		let event: Signpost;
-
-		try {
-			event = JSON.parse(line);
-		} catch {
-			continue;
-		}
-
-		if (!event.signpostName || !event.timestamp) {
-			continue;
-		}
-
-		const key = `${event.processID}:${event.signpostID}`;
-
-		if (event.signpostType === "begin") {
-			begins.set(key, millisecondsOf(event.timestamp));
-		} else if (event.signpostType === "end" && begins.has(key)) {
-			const began = begins.get(key) ?? 0;
-			begins.delete(key);
-			intervals[event.signpostName] ??= [];
-
-			intervals[event.signpostName]?.push(
-				millisecondsOf(event.timestamp) - began,
-			);
-		}
-	}
+		return undefined;
+	});
 
 	log.timing = Object.fromEntries(
 		Object.entries(intervals).map(([name, values]) => [name, stats(values)]),

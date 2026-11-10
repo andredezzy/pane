@@ -33,7 +33,9 @@
 #include "pane/model/pin_entry.h"
 #include "pane/model/profile.h"
 #include "pane/model/profile_draft.h"
+#include "pane/ui/app/menu_bar.h"
 #include "pane/ui/app/ui_app.h"
+#include "pane/ui/design/dialog.h"
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/panels/app_icon_picker.h"
 #include "pane/ui/panels/settings_view.h"
@@ -194,6 +196,27 @@ std::optional<ui::KeyboardCode> KeyCodeOf(std::string_view key) {
   }
   if (key == " ") {
     return ui::VKEY_SPACE;
+  }
+  if (key == "control") {
+    return ui::VKEY_CONTROL;
+  }
+  if (key == "shift") {
+    return ui::VKEY_SHIFT;
+  }
+  if (key == ",") {
+    return ui::VKEY_OEM_COMMA;
+  }
+  if (key == "[") {
+    return ui::VKEY_OEM_4;
+  }
+  if (key == "]") {
+    return ui::VKEY_OEM_6;
+  }
+  if (key == "=") {
+    return ui::VKEY_OEM_PLUS;
+  }
+  if (key == "-") {
+    return ui::VKEY_OEM_MINUS;
   }
   if (key.size() == 1 && key[0] >= 'a' && key[0] <= 'z') {
     return static_cast<ui::KeyboardCode>(ui::VKEY_A + (key[0] - 'a'));
@@ -857,32 +880,38 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // The menu bar's items, by path, as the Swift app's menu command reads them.
+  // An item of the menu bar chosen by its path, { path: ["File", "New
+  // Tab"] }, as a click on it chooses it: through the platform's own menu
+  // bar, its enabled states and titles brought up to date first, as when it
+  // opens. Whether it ran: false where the menu disables it (behind the
+  // Lock, all but Quit and Check for Updates…).
   if (name == "menu") {
     const base::ListValue* path = command.FindList("path");
-    std::vector<std::string> items;
+    std::vector<std::u16string> items;
     if (path) {
       for (const base::Value& item : *path) {
-        items.push_back(item.is_string() ? item.GetString() : std::string());
+        items.push_back(item.is_string() ? base::UTF8ToUTF16(item.GetString())
+                                         : std::u16string());
       }
     }
-    // Whether it ran, as a click on it in the menu bar: behind the Lock,
-    // only Check for Updates… does (the Swift's menu validation).
-    bool ran = app_->InteractionAllowed();
-    if (items == std::vector<std::string>{"File", "New Tab"}) {
-      app_->NewTab();
-    } else if (items ==
-               std::vector<std::string>{"Navigate", "Focus Address Bar"}) {
-      app_->FocusAddressField();
-    } else if (items ==
-               std::vector<std::string>{"Pane", "Check for Updates…"}) {
-      app_->updater().Check();
-      ran = true;
-    } else {
+    MenuBar::Native* menu_bar = app_->menu_bar().native();
+    const std::optional<bool> ran =
+        menu_bar ? menu_bar->Choose(items) : std::nullopt;
+    if (!ran) {
       std::move(reply).Run(base::Value(), "no such menu item");
       return;
     }
-    std::move(reply).Run(base::Value(ran), std::string());
+    std::move(reply).Run(base::Value(*ran), std::string());
+    return;
+  }
+
+  // The menu bar as it shows now: each menu's items, with their titles,
+  // keys, and whether each is enabled, hidden, or checked.
+  if (name == "menuBar") {
+    MenuBar::Native* menu_bar = app_->menu_bar().native();
+    std::move(reply).Run(
+        base::Value(menu_bar ? menu_bar->Describe() : base::ListValue()),
+        std::string());
     return;
   }
 
@@ -1133,6 +1162,27 @@ void Automation::Dispatch(const std::string& name,
         named.push_back(std::move(entry));
       }
     }
+    // Quit Pane?'s buttons, while it asks, and its card as "pane.quit", as
+    // the Swift's dialog surface was named.
+    if (window->root()->quit_dialog_showing()) {
+      for (const int id : {kViewIdQuitConfirm, kViewIdQuitCancel}) {
+        if (const views::View* view = window->root()->GetViewByID(id)) {
+          named.emplace_back(std::string(ViewIdName(id)), view);
+        }
+      }
+      const auto* dialog = static_cast<const ModalDialog*>(
+          window->root()->GetViewByID(kViewIdQuit));
+      const std::string_view card_name = ViewIdName(kViewIdQuit);
+      if (dialog && (!prefix || card_name.starts_with(*prefix))) {
+        const gfx::Rect card = views::View::ConvertRectToTarget(
+            dialog, root, dialog->CardBounds());
+        frames.Set(card_name, base::ListValue()
+                                  .Append(card.x())
+                                  .Append(card.y())
+                                  .Append(card.width())
+                                  .Append(card.height()));
+      }
+    }
     for (const auto& [view_name, view] : named) {
       if (view->IsDrawn() && (!prefix || view_name.starts_with(*prefix))) {
         frames.Set(view_name, FrameIn(view, root));
@@ -1191,10 +1241,11 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // A key through Views' own dispatch, { key, modifiers }, as the platform
-  // hands the window a key: the window's accelerators, then the focused
-  // view, in the background too, where `key` (AppKit's path) needs the
-  // front.
+  // A key through Views' own dispatch, { key, modifiers, phase }, as the
+  // platform hands the window a key: the window's accelerators, then the
+  // focused view, in the background too, where `key` (AppKit's path) needs
+  // the front. `phase` is "press" or "release" for one half alone ("control"
+  // let go, with no modifier left, is Ctrl's release); both by default.
   if (name == "dispatchKey") {
     const std::string* key = command.FindString("key");
     const std::optional<ui::KeyboardCode> code =
@@ -1204,8 +1255,15 @@ void Automation::Dispatch(const std::string& name,
       return;
     }
     const int flags = FlagsOf(command.FindList("modifiers"));
-    for (const ui::EventType type :
-         {ui::EventType::kKeyPressed, ui::EventType::kKeyReleased}) {
+    const std::string* phase = command.FindString("phase");
+    std::vector<ui::EventType> types;
+    if (!phase || *phase != "release") {
+      types.push_back(ui::EventType::kKeyPressed);
+    }
+    if (!phase || *phase != "press") {
+      types.push_back(ui::EventType::kKeyReleased);
+    }
+    for (const ui::EventType type : types) {
       ui::KeyEvent event(type, *code, flags);
       widget->OnKeyEvent(&event);
     }

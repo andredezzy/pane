@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/no_destructor.h"
+#include "base/time/time.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/animation/tween.h"
@@ -286,6 +287,21 @@ bool IsReduced() {
 
 }  // namespace motion
 
+namespace {
+
+// Where a motion's clock starts, at its first frame: one frame back, so the
+// frame shows one frame's progress, as Core Animation's first frame of a
+// change did, and a change answers its input in the next frame. Started at
+// the frame itself, the first frame showed the start again, nothing to see,
+// and the change came a frame later.
+base::TimeTicks FirstFrameStart(base::TimeTicks timestamp,
+                                const ::ui::Compositor* compositor) {
+  const float rate = compositor ? compositor->refresh_rate() : 0;
+  return rate > 0 ? timestamp - base::Seconds(1) / rate : timestamp;
+}
+
+}  // namespace
+
 // static
 void LayerMotion::Start(::ui::Layer* layer,
                         const Curve& curve,
@@ -326,7 +342,7 @@ LayerMotion::~LayerMotion() = default;
 
 void LayerMotion::OnAnimationStep(base::TimeTicks timestamp) {
   if (!start_) {
-    start_ = timestamp;
+    start_ = FirstFrameStart(timestamp, compositor_);
   }
   const base::TimeDelta elapsed = timestamp - *start_;
   if (elapsed >= curve_.total()) {
@@ -404,7 +420,7 @@ void ValueMotion::MoveTo(double target,
 
 void ValueMotion::OnAnimationStep(base::TimeTicks timestamp) {
   if (!start_) {
-    start_ = timestamp;
+    start_ = FirstFrameStart(timestamp, compositor_);
   }
   const base::TimeDelta elapsed = timestamp - *start_;
   if (curve_->Settled(from_, to_, velocity_, elapsed)) {

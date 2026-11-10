@@ -23,6 +23,8 @@
 #include "pane/model/crash_loop.h"
 #include "pane/model/tab_switcher.h"
 #include "pane/model/toolbar_progress.h"
+#include "pane/ui/app/commands.h"
+#include "pane/ui/app/menu_bar.h"
 #include "pane/ui/app/sleep_controller.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/tabs/favicons.h"
@@ -138,6 +140,22 @@ class UiApp : public AppData::Client,
   void ShowWindow();
   // What another app handed Pane opens, its window shown again (ADR 0109).
   void OpenHandedURLs(std::vector<GURL> urls);
+  // ⌘T: a new tab of the profile shown, at the start page, its address
+  // field taking the keys.
+  void NewTab();
+  // ⌘L: the address field, its text selected.
+  void FocusAddressField();
+  // ⌘1 to ⌘9: the active profile's tab at that place, when it has one (the
+  // Swift's selectTab(atIndex:)).
+  void SelectTabAt(int number);
+  // Opens the switcher on the tab used before (the Swift's nextTabMRU), or
+  // moves its selection on; Shift-Tab's goes backward.
+  void SwitchTab(bool backward);
+  // ⌘Q (ADR 0053): Quit Pane? over the window, or, from it (⌘Q again), at
+  // the PIN screen, or with no window to ask in, quitting at once.
+  void ConfirmQuit();
+  // The menu bar, while the app runs.
+  MenuBar& menu_bar() { return *menu_bar_; }
 
   // The tab switcher, while it shows: its groups, and the tab selected in
   // them, counting down through the groups.
@@ -210,16 +228,19 @@ class UiApp : public AppData::Client,
   // The Lock's PIN screen (L1 draws it), where interaction is allowed.
   void ShowPinScreen(model::PinEntry::Mode mode) override;
   void CheckForUpdates() override;
-  void NewTab() override;
-  void FocusAddressField() override;
-  void SelectTabAt(int number) override;
-  // Opens the switcher on the tab used before (the Swift's nextTabMRU), or
-  // moves its selection on; Shift-Tab's goes backward.
-  void SwitchTab(bool backward) override;
   // The tab the switcher shows selected comes forward, as Ctrl's release
   // chooses it.
   void CommitSwitcher() override;
   void CancelSwitcher() override;
+  void CancelQuit() override;
+  void QuitNow() override;
+
+  // CommandRunner, for the menu bar and the window's keys alike: what the
+  // Swift's menu enabled (behind the Lock, Quit and Check for Updates…
+  // alone; Lock Pane with a PIN), and each command's intent.
+  bool IsCommandEnabled(Command command) override;
+  void RunCommand(Command command) override;
+  std::optional<std::u16string> CommandTitle(Command command) override;
   void TabInserted(content::WebContents* contents,
                    content::WebContents* opener,
                    bool foreground) override;
@@ -305,6 +326,13 @@ class UiApp : public AppData::Client,
   void PageFirstPaint(const std::string& tab_id);
   // The switcher's tabs, as its view draws them.
   std::vector<TabSwitcherView::Group> SwitcherGroupsToShow();
+  // ⇧⌘T: the last tab closed opens again, in its profile, at its address.
+  void ReopenClosedTab();
+  // ⌘= and ⌘+, ⌘-, ⌘0: the selected page's zoom, traced as the Swift's
+  // engine traced it.
+  void ZoomPage(Command command);
+  // ⌘P: the system's print panel for the selected page (ADR 0021).
+  void PrintPage();
 
   const raw_ref<AppData> data_;
   ProfileContexts contexts_;
@@ -358,6 +386,10 @@ class UiApp : public AppData::Client,
   SettingsUpdate settings_update_;
   // Pane's icon in the Dock.
   std::unique_ptr<DockIcon> dock_icon_;
+  // The menu bar, from the command table.
+  std::unique_ptr<MenuBar> menu_bar_;
+  // Quit Pane? shows.
+  bool quit_confirming_ = false;
   base::ScopedObservation<model::BrowserModel, model::BrowserModel::Observer>
       model_observation_{this};
   base::ScopedObservation<Favicons, Favicons::Observer> favicons_observation_{

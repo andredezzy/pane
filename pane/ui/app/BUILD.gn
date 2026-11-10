@@ -1,0 +1,48 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# The command table the menu bar and the window's keys share, and the menu
+# bar made from it (docs/plans/views-migration.md, H7). A target of its own so
+# its tests run in pane_unittests, apart from the engine.
+
+source_set("commands") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "menu_bar.cc",
+    "menu_bar.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//ui/base",
+    "//ui/menus",
+  ]
+
+  deps = [ "//ui/events" ]
+
+  if (is_mac) {
+    sources += [ "menu_bar_mac.mm" ]
+    frameworks = [ "AppKit.framework" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  visibility = [ "//pane/encryption:pane_unittests" ]
+
+  sources = [ "commands_unittest.cc" ]
+
+  deps = [
+    ":commands",
+    "//base",
+    "//testing/gtest",
+    "//ui/base",
+    "//ui/events",
+    "//ui/menus",
+  ]
+}

@@ -56,6 +56,23 @@ NSEventModifierFlags Flags(const std::vector<std::string>& modifiers) {
   return flags;
 }
 
+// The key a modifier is, as a flagsChanged event names it.
+unsigned short ModifierKeyCode(const std::string& modifier) {
+  if (modifier == "command") {
+    return kVK_Command;
+  }
+  if (modifier == "shift") {
+    return kVK_Shift;
+  }
+  if (modifier == "option") {
+    return kVK_Option;
+  }
+  if (modifier == "capsLock") {
+    return kVK_CapsLock;
+  }
+  return kVK_Control;
+}
+
 NSInteger WindowNumber(views::Widget* widget) {
   return widget ? widget->GetNativeWindow().GetNativeNSWindow().windowNumber
                 : 0;
@@ -161,18 +178,40 @@ void PostScroll(views::Widget* widget, int x, int y, double dy) {
 
 void PostModifiers(views::Widget* widget,
                    const std::vector<std::string>& modifiers) {
-  NSEvent* event =
-      [NSEvent keyEventWithType:NSEventTypeFlagsChanged
-                             location:NSZeroPoint
-                        modifierFlags:Flags(modifiers)
-                            timestamp:NSProcessInfo.processInfo.systemUptime
-                         windowNumber:WindowNumber(widget)
-                              context:nil
-                           characters:@""
-          charactersIgnoringModifiers:@""
-                            isARepeat:NO
-                              keyCode:0];
-  [NSApp postEvent:event atStart:NO];
+  // What the channel holds down, as fingers would: a key posted with
+  // modifiers leaves them down (a Ctrl-Tab's Ctrl), holdModifiers adds to
+  // them, and releaseModifiers lets each go, the last pressed first.
+  static base::NoDestructor<std::vector<std::string>> held;
+  // Each change names its own key, as a real one does: Chromium drops a
+  // flagsChanged that names none (keyCode 0, crbug.com/889618), so a release
+  // that named none never reached the page or Views.
+  const auto post = [widget](const std::string& modifier) {
+    NSEvent* event =
+        [NSEvent keyEventWithType:NSEventTypeFlagsChanged
+                               location:NSZeroPoint
+                          modifierFlags:Flags(*held)
+                              timestamp:NSProcessInfo.processInfo.systemUptime
+                           windowNumber:WindowNumber(widget)
+                                context:nil
+                             characters:@""
+            charactersIgnoringModifiers:@""
+                              isARepeat:NO
+                                keyCode:ModifierKeyCode(modifier)];
+    [NSApp postEvent:event atStart:NO];
+  };
+  for (size_t i = held->size(); i-- > 0;) {
+    if (!std::ranges::contains(modifiers, (*held)[i])) {
+      const std::string modifier = (*held)[i];
+      held->erase(held->begin() + i);
+      post(modifier);
+    }
+  }
+  for (const std::string& modifier : modifiers) {
+    if (!std::ranges::contains(*held, modifier)) {
+      held->push_back(modifier);
+      post(modifier);
+    }
+  }
 }
 
 }  // namespace pane

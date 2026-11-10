@@ -14,13 +14,17 @@
 #include "content/public/browser/web_contents.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
+#include "pane/ui/app/commands.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/interaction_log.h"
+#include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/window/frame.h"
 #include "ui/base/accelerators/accelerator_manager.h"
 #include "ui/base/hit_test.h"
 #include "ui/content_accelerators/accelerator_util.h"
+#include "ui/events/event.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/event_handler.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/widget/widget.h"
@@ -32,15 +36,36 @@ namespace {
 // A new window's size, as the Swift app's (ADR 0036).
 constexpr gfx::Size kWindowSize(1280, 800);
 
-// The keys the window takes before the page sees them: a page can't keep a
-// user from a new tab or the address field (ADR 0019).
-bool IsAppFirst(const ui::Accelerator& accelerator) {
-  return accelerator.modifiers() == ui::EF_COMMAND_DOWN &&
-         (accelerator.key_code() == ui::VKEY_T ||
-          accelerator.key_code() == ui::VKEY_L);
-}
-
 }  // namespace
+
+// Ahead of the focused view and its own handling, the switcher's Esc, and
+// Ctrl's own release, while it shows: Views' events come in order (the
+// frame hears a real release first, and this one then finds the switcher
+// gone; the channel's dispatch, with the window in the background, comes
+// only here).
+class Window::SwitcherKeys : public ui::EventHandler {
+ public:
+  explicit SwitcherKeys(Window* window) : window_(window) {}
+
+  // ui::EventHandler:
+  void OnKeyEvent(ui::KeyEvent* event) override {
+    if (window_->SwitcherEscape(event->type() == ui::EventType::kKeyPressed,
+                                event->key_code())) {
+      event->SetHandled();
+      return;
+    }
+    const ui::KeyboardCode code = event->key_code();
+    if (event->type() == ui::EventType::kKeyReleased &&
+        !event->IsControlDown() &&
+        (code == ui::VKEY_CONTROL || code == ui::VKEY_LCONTROL ||
+         code == ui::VKEY_RCONTROL)) {
+      window_->ControlReleased();
+    }
+  }
+
+ private:
+  const raw_ptr<Window> window_;
+};
 
 Window::Window(Controller* controller, bool keeps_frame)
     : controller_(controller), keeps_frame_(keeps_frame) {}
@@ -51,6 +76,9 @@ Window::~Window() {
     widget->RemoveObserver(this);
     if (views::FocusManager* focus = widget->GetFocusManager()) {
       focus->UnregisterAccelerators(this);
+    }
+    if (switcher_keys_) {
+      widget->GetRootView()->RemovePreTargetHandler(switcher_keys_.get());
     }
   }
   root_ = nullptr;
@@ -131,6 +159,10 @@ void Window::Open() {
                                                   base::Unretained(controller));
   callbacks.close_app_icon_picker = base::BindRepeating(
       &Controller::CloseAppIconPicker, base::Unretained(controller));
+  callbacks.cancel_quit = base::BindRepeating(&Controller::CancelQuit,
+                                              base::Unretained(controller));
+  callbacks.quit =
+      base::BindRepeating(&Controller::QuitNow, base::Unretained(controller));
   auto root = std::make_unique<RootView>(std::move(callbacks),
                                          &controller->LoadProgress(),
                                          &controller->AppIcons());
@@ -150,20 +182,16 @@ void Window::Open() {
     KeepFrame(widget);
   }
 
-  // The one command table: the window's FocusManager's accelerators.
+  // The one command table (commands.h): its keys are the window's
+  // FocusManager's accelerators, as the menu bar's items show them. The
+  // switcher's Esc and Ctrl's release come ahead of the focused view.
   views::FocusManager* focus = widget->GetFocusManager();
-  std::vector<ui::Accelerator> accelerators = {
-      ui::Accelerator(ui::VKEY_T, ui::EF_COMMAND_DOWN),
-      ui::Accelerator(ui::VKEY_L, ui::EF_COMMAND_DOWN)};
-  for (int number = 1; number <= 9; ++number) {
-    accelerators.emplace_back(
-        static_cast<ui::KeyboardCode>(ui::VKEY_0 + number),
-        ui::EF_COMMAND_DOWN);
-  }
-  for (const ui::Accelerator& accelerator : accelerators) {
+  for (const ui::Accelerator& accelerator : WindowAccelerators()) {
     focus->RegisterAccelerator(accelerator,
                                ui::AcceleratorManager::kNormalPriority, this);
   }
+  switcher_keys_ = std::make_unique<SwitcherKeys>(this);
+  widget->GetRootView()->AddPreTargetHandler(switcher_keys_.get());
   UpdateTitle();
 }
 
@@ -275,6 +303,21 @@ bool Window::page_fullscreen() const {
   return root_ && root_->page_fullscreen();
 }
 
+bool Window::IsFullScreen() const {
+  views::Widget* widget = this->widget();
+  return widget && widget->IsFullscreen();
+}
+
+// The user's full screen: a page's fullscreen in it leaves it as it was, and
+// leaving it takes the page out of its fullscreen (OnWidgetShowStateChanged).
+void Window::ToggleFullScreen() {
+  views::Widget* widget = this->widget();
+  if (!widget || host_->closing()) {
+    return;
+  }
+  widget->SetFullscreen(!widget->IsFullscreen());
+}
+
 void Window::FocusAddress() {
   if (!root_) {
     return;
@@ -366,6 +409,10 @@ void Window::OnWidgetDestroying(views::Widget* widget) {
   if (views::FocusManager* focus = widget->GetFocusManager()) {
     focus->UnregisterAccelerators(this);
   }
+  if (switcher_keys_) {
+    widget->GetRootView()->RemovePreTargetHandler(switcher_keys_.get());
+    switcher_keys_.reset();
+  }
   // Its views go with it.
   root_ = nullptr;
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -386,48 +433,77 @@ gfx::Rect Window::PageBounds() const {
 }
 
 bool Window::AcceleratorPressed(const ui::Accelerator& accelerator) {
-  switch (accelerator.key_code()) {
-    case ui::VKEY_T:
-      controller_->NewTab();
-      return true;
-    case ui::VKEY_L:
-      controller_->FocusAddressField();
-      return true;
-    default:
-      if (accelerator.key_code() >= ui::VKEY_1 &&
-          accelerator.key_code() <= ui::VKEY_9) {
-        controller_->SelectTabAt(accelerator.key_code() - ui::VKEY_0);
-        return true;
-      }
-      return false;
+  const std::optional<Command> command = CommandForAccelerator(accelerator);
+  if (!command || IsPlatformCommand(*command) ||
+      !controller_->IsCommandEnabled(*command)) {
+    return false;
+  }
+  controller_->RunCommand(*command);
+  return true;
+}
+
+// While an overlay takes every key (Quit Pane?), none of the window's
+// commands runs from its key.
+bool Window::CanHandleAccelerators() const {
+  views::Widget* widget = this->widget();
+  return widget && widget->IsActive() && root_ && !root_->TakesEveryKey();
+}
+
+bool Window::SwitcherEscape(bool pressed, int key_code) {
+  TabSwitcherView* switcher = root_ ? root_->switcher() : nullptr;
+  // Esc, with whatever modifier is down: it closes, taking the key.
+  if (!switcher || !switcher->GetVisible() || !pressed ||
+      key_code != ui::VKEY_ESCAPE) {
+    return false;
+  }
+  controller_->CancelSwitcher();
+  return true;
+}
+
+void Window::ControlReleased() {
+  TabSwitcherView* switcher = root_ ? root_->switcher() : nullptr;
+  if (switcher && switcher->GetVisible()) {
+    controller_->CommitSwitcher();
   }
 }
 
-bool Window::CanHandleAccelerators() const {
-  views::Widget* widget = this->widget();
-  return widget && widget->IsActive();
-}
-
+// A key reaches the page after the window has seen it: the switcher's Esc
+// while it shows, then a command that goes ahead of the page, which the page
+// never sees: what Chrome reserves (IsAppFirst, ADR 0019; on the Mac the menu
+// bar takes Ctrl-Tab first). Any other key of the table goes to the page
+// first, as a shortcut: unless the page takes it, HandleKeyboardEvent runs
+// it.
 content::KeyboardEventProcessingResult Window::PreHandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
   views::Widget* widget = this->widget();
-  if (!widget) {
+  if (!widget || !root_) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
-  views::FocusManager* focus = widget->GetFocusManager();
+  const bool pressed =
+      event.GetType() == input::NativeWebKeyboardEvent::Type::kRawKeyDown;
+  if (SwitcherEscape(pressed, event.windows_key_code)) {
+    return content::KeyboardEventProcessingResult::HANDLED;
+  }
+  if (!pressed) {
+    return content::KeyboardEventProcessingResult::NOT_HANDLED;
+  }
   const ui::Accelerator accelerator =
       ui::GetAcceleratorFromNativeWebKeyboardEvent(event);
-  if (!focus->IsAcceleratorRegistered(accelerator)) {
+  const std::optional<Command> command = CommandForAccelerator(accelerator);
+  if (!command) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
-  if (IsAppFirst(accelerator)) {
-    return focus->ProcessAccelerator(accelerator)
+  if (IsAppFirst(*command, page_fullscreen())) {
+    return widget->GetFocusManager()->ProcessAccelerator(accelerator)
                ? content::KeyboardEventProcessingResult::HANDLED
                : content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
   return content::KeyboardEventProcessingResult::NOT_HANDLED_IS_SHORTCUT;
 }
 
+// A key the page left: the window's command for it, else, on the Mac, the
+// menu bar's (the Edit menu's Copy, the window's Minimize) through the
+// window's own dispatch.
 bool Window::HandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) {
   views::Widget* widget = this->widget();
   return widget &&
@@ -435,7 +511,20 @@ bool Window::HandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) {
 }
 
 views::NativeWidget* Window::CreateNativeWidget(views::Widget* widget) {
-  return CreateFrame(widget);
+  return CreateFrame(widget,
+                     base::BindRepeating(
+                         [](base::WeakPtr<Window> window) {
+                           return window && window->root_ &&
+                                  window->root_->TakesEveryKey();
+                         },
+                         weak_factory_.GetWeakPtr()),
+                     base::BindRepeating(
+                         [](base::WeakPtr<Window> window, bool control_down) {
+                           if (window && !control_down) {
+                             window->ControlReleased();
+                           }
+                         },
+                         weak_factory_.GetWeakPtr()));
 }
 
 int Window::NonClientHitTest(const gfx::Point& point) {

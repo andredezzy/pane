@@ -22,6 +22,7 @@
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/empty_state_view.h"
+#include "pane/ui/window/quit_dialog.h"
 #include "pane/ui/window/sad_tab_view.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -181,6 +182,16 @@ RootView::RootView(Callbacks callbacks,
   // that shows it makes nothing.
   switcher_ = AddChildView(std::make_unique<TabSwitcherView>());
   switcher_->SetVisible(false);
+  // Quit Pane?, over everything else; made now, so the first ⌘Q makes
+  // nothing. It takes every key while it shows.
+  ModalDialog::Callbacks quit;
+  quit.dismiss = callbacks_.cancel_quit;
+  quit.accept = callbacks_.quit;
+  quit_dialog_ = AddChildView(std::make_unique<ModalDialog>(
+      QuitDialog::kWidth,
+      std::make_unique<QuitDialog>(callbacks_.cancel_quit, callbacks_.quit),
+      std::move(quit), ModalDialog::Keys::kEvery));
+  quit_dialog_->SetID(kViewIdQuit);
   ShowPlaces();
 }
 
@@ -369,6 +380,42 @@ void RootView::ShowAppIconPicker(bool show) {
   app_icon_dialog_->AnimateIn();
 }
 
+void RootView::ShowQuitDialog(bool show) {
+  if (!show) {
+    if (!quit_dialog_->showing()) {
+      return;
+    }
+    // It fades as it goes, taking nothing meanwhile; the keys go back to
+    // what had them, or to the page.
+    quit_dialog_->AnimateOut();
+    views::View* before = focus_before_quit_.view();
+    focus_before_quit_.SetView(nullptr);
+    if (before && before->IsDrawn() && before->IsFocusable()) {
+      before->RequestFocus();
+    } else {
+      FocusPage();
+    }
+    return;
+  }
+  if (quit_dialog_->showing()) {
+    return;
+  }
+  views::FocusManager* focus = GetFocusManager();
+  focus_before_quit_.SetView(focus ? focus->GetFocusedView() : nullptr);
+  // Over whatever came after it: the App icon picker, the switcher.
+  ReorderChildView(quit_dialog_, children().size());
+  quit_dialog_->SetBoundsRect(GetLocalBounds());
+  quit_dialog_->AnimateIn();
+}
+
+bool RootView::quit_dialog_showing() const {
+  return quit_dialog_->showing();
+}
+
+bool RootView::TakesEveryKey() const {
+  return quit_dialog_->takes_every_key();
+}
+
 void RootView::ShowSheet(bool show) {
   if (show == sheet_visible()) {
     return;
@@ -476,6 +523,7 @@ void RootView::Layout(PassKey) {
   if (app_icon_dialog_) {
     app_icon_dialog_->SetBoundsRect(GetLocalBounds());
   }
+  quit_dialog_->SetBoundsRect(GetLocalBounds());
 }
 
 // The window's fill, then the content panel's card on its shadow, with its

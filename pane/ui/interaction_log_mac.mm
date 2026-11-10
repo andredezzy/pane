@@ -61,6 +61,9 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kChooseAppIcon:
       os_signpost_interval_begin(log, id, "Choose app icon");
       break;
+    case Interaction::kOpenQuitDialog:
+      os_signpost_interval_begin(log, id, "Open quit dialog");
+      break;
   }
   return id;
 }
@@ -106,6 +109,9 @@ void EndInteractionInterval(Interaction interaction, uint64_t interval) {
       break;
     case Interaction::kChooseAppIcon:
       os_signpost_interval_end(log, interval, "Choose app icon");
+      break;
+    case Interaction::kOpenQuitDialog:
+      os_signpost_interval_end(log, interval, "Open quit dialog");
       break;
   }
 }

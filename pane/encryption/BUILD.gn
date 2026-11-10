@@ -94,6 +94,7 @@ test("pane_unittests") {
     "//base/test:test_support",
     "//net",
     "//pane/model:unit_tests",
+    "//pane/ui/app:unit_tests",
     "//pane/ui/design:unit_tests",
     "//pane/ui/tabs:unit_tests",
     "//services/network:network_service",

@@ -115,6 +115,10 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
        Swift(0x18181B, 0.7)},
       {"primaryKeyChip", kPaneColorPrimaryKeyChip, Swift(0xFAFAFA, 0.18),
        Swift(0x18181B, 0.12)},
+      // KeyedLabel's on the destructive fill: Color.white at 85% and 18%.
+      {"destructiveKey", kPaneColorDestructiveKey, White(0.85), White(0.85)},
+      {"destructiveKeyChip", kPaneColorDestructiveKeyChip, White(0.18),
+       White(0.18)},
       {"addressDivider", kPaneColorAddressDivider, Swift(0x858587),
        Swift(0x606068)},
       // AddressField's hover, ToolbarProgressBar's colors, and UpdatePill's

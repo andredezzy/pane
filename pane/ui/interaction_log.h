@@ -15,8 +15,8 @@ namespace pane {
 // gave them, and what the Swift didn't time: a click into the address, the
 // tab switcher's first frame, a tab without a page woken to its page's first
 // paint, Settings shown, a Theme chosen, a menu's trigger pressed (its
-// frame, up to the system's menu, which draws in a window of its own), and
-// the App icon picker opened and a sky chosen in it.
+// frame, up to the system's menu, which draws in a window of its own), the
+// App icon picker opened and a sky chosen in it, and Quit Pane? asked by ⌘Q.
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -31,6 +31,7 @@ enum class Interaction {
   kOpenMenu,
   kOpenAppIconPicker,
   kChooseAppIcon,
+  kOpenQuitDialog,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame

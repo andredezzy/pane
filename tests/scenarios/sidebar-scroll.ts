@@ -75,21 +75,26 @@ const sidebarScroll: Scenario = async (context) => {
 		`selecting a tab in view scrolled the list: ${up[`pane.tab.${first}`]?.[1]} to ${still[`pane.tab.${first}`]?.[1]}`,
 	);
 
-	// By the switcher's keys, twice Ctrl-Tab: the third most recent tab, the
-	// last, down at the list's end.
-	if (!("switcher" in (await app.state()))) {
-		context.defer("the switcher's tab: no switcher is drawn (H5)");
+	// By the switcher's keys, twice Ctrl-Tab, posted through AppKit's queue,
+	// which the menu bar takes, then Ctrl's release (through Views' own
+	// dispatch without the front): the third most recent tab, the last, down
+	// at the list's end.
+	await app.send("key", { key: "\t", modifiers: ["control"] });
+	await app.waitFor("the switcher", (state) => state.switcher.visible);
+	await app.send("key", { key: "\t", modifiers: ["control"] });
 
-		return;
-	}
+	await app.waitFor(
+		"the switcher's selection moved on",
+		(state) => state.switcher.selectedIndex === 2,
+	);
 
-	await app.send("switcher", { action: "next" });
-	await app.send("switcher", { action: "next" });
-	await app.send("switcher", { action: "commit" });
+	await (context.foreground
+		? app.send("releaseModifiers")
+		: app.send("dispatchKey", { key: "control", phase: "release" }));
 
 	await app.waitFor(
 		"the switcher's tab",
-		(state) => state.activeTabID === last,
+		(state) => !state.switcher.visible && state.activeTabID === last,
 	);
 
 	await inView(last, "the switcher's tab, in view");

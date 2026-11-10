@@ -17,6 +17,7 @@
 #include "pane/ui/toolbar/toolbar_view.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/view.h"
+#include "ui/views/view_tracker.h"
 
 class SkPath;
 
@@ -68,6 +69,9 @@ class RootView : public views::View {
     // outside it.
     base::RepeatingCallback<void(model::AppIcon)> choose_app_icon;
     base::RepeatingClosure close_app_icon_picker;
+    // Quit Pane?'s Cancel (Esc, a click outside it) and Quit (Return).
+    base::RepeatingClosure cancel_quit;
+    base::RepeatingClosure quit;
   };
 
   // What the content panel shows: the browser page with a tab selected,
@@ -129,6 +133,15 @@ class RootView : public views::View {
   // nearest one's around it ("pane.toolbar.address", "pane.content"), else
   // its class; "none" when nothing has it.
   std::string focus() const;
+  // Quit Pane? over the window (ADR 0053), fading in as its card grows and
+  // taking the keys; gone, the keys go back to what had them. Made with the
+  // view, so its first showing makes nothing.
+  void ShowQuitDialog(bool show);
+  // Shown, and not on its way out.
+  bool quit_dialog_showing() const;
+  // An overlay takes every key, the window's commands' included but the menu
+  // bar's Quit: Quit Pane? (and the PIN screen, L1's).
+  bool TakesEveryKey() const;
   // The prototype's sheet over the page (G4): a scrim and a card with a
   // field, keys into it and not the page, Esc and Done closing it.
   void ShowSheet(bool show);
@@ -185,6 +198,9 @@ class RootView : public views::View {
   // The picker's dialog over the window, and its content, once made.
   raw_ptr<ModalDialog> app_icon_dialog_ = nullptr;
   raw_ptr<AppIconPicker> app_icon_picker_ = nullptr;
+  // Quit Pane?'s dialog, and what had the keys before it showed.
+  raw_ptr<ModalDialog> quit_dialog_ = nullptr;
+  views::ViewTracker focus_before_quit_;
   base::WeakPtrFactory<RootView> weak_factory_{this};
 };
 

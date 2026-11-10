@@ -217,14 +217,13 @@ const updates: Scenario = async (context) => {
 		"an old release was offered",
 	);
 
-	// The app menu's Check for Updates… checks again (the checking state
-	// holds 0.8s at least): the menu item's own action, until the menu bar
-	// (H7) gives accessibility one to choose as a user does.
-	context.defer(
-		"Check for Updates… chosen in the menu bar through accessibility: the menu bar is H7's",
-	);
+	// The app menu's Check for Updates…, chosen in the menu bar as a click
+	// chooses it, checks again (the checking state holds 0.8s at least).
+	const chosen = await current.send<boolean>("menu", {
+		path: ["Pane", "Check for Updates…"],
+	});
 
-	await current.send("menu", { path: ["Pane", "Check for Updates…"] });
+	expect(chosen.result, "Check for Updates… did not run");
 
 	await current.waitFor(
 		"checking from the menu",

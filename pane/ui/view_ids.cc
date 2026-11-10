@@ -96,6 +96,12 @@ std::string_view ViewIdName(int id) {
       return "pane.appIcon.done";
     case kViewIdAppIconTile:
       return "pane.appIcon.tile";
+    case kViewIdQuit:
+      return "pane.quit";
+    case kViewIdQuitConfirm:
+      return "pane.quit.confirm";
+    case kViewIdQuitCancel:
+      return "pane.quit.cancel";
     default:
       return std::string_view();
   }

@@ -97,9 +97,12 @@ enum PaneColorIds : ui::ColorId {
   // 70% (DialogHeading's own, the App icon picker's).
   kPaneColorDialogMessage,
   kPaneColorHeadingMessage,
-  // The key on a primary button's chip, and the chip.
+  // The key on a primary button's chip, and the chip; on a destructive
+  // one's, white at 85% on white at 18%, the same in both.
   kPaneColorPrimaryKey,
   kPaneColorPrimaryKeyChip,
+  kPaneColorDestructiveKey,
+  kPaneColorDestructiveKeyChip,
   // The rule between the address's host and path.
   kPaneColorAddressDivider,
   // The address field under the pointer: the foreground at 3%.

@@ -1,47 +1,9 @@
 import SwiftUI
 
-// What ⌘Q asks first (Paper: 04.5 Quit Pane, and Quit confirmation in
-// 03.5 Overlays): an icon tile, the title and what quitting does, then Cancel
-// (Esc) and the destructive Quit (⌘Q again, or Return). The controller takes
-// the keys while it shows (BrowserController.confirmQuit).
-struct QuitConfirmationView: View {
-	let cancel: () -> Void
-	let quit: () -> Void
-
-	var body: some View {
-		VStack(alignment: .leading, spacing: 16) {
-			Image(nsImage: Lucide.circleDashedX.image(strokeWidth: 1.75, size: 22))
-				.renderingMode(.template)
-				.foregroundStyle(Palette.foreground)
-				.frame(width: 40, height: 40)
-				.background(Palette.iconTile, in: Squircle(cornerRadius: 18))
-				.accessibilityHidden(true)
-
-			DialogHeading(
-				title: "Quit Pane?",
-				message: "Your profiles and tabs will be here when you open Pane again. Downloads in progress will stop.",
-				messageColor: Palette.dialogMessage
-			)
-
-			HStack(spacing: 8) {
-				Spacer()
-
-				Button(action: cancel) {
-					KeyedLabel(title: "Cancel", key: "Esc", role: .cancel)
-				}
-				.buttonStyle(.keyed(.cancel))
-
-				Button(action: quit) {
-					KeyedLabel(title: "Quit", key: "⌘Q", role: .destructive)
-				}
-				.buttonStyle(.keyed(.destructive))
-				.accessibilityIdentifier("pane.quit.confirm")
-			}
-			.padding(.top, 8)
-		}
-		.dialogSurface(width: 480, identifier: "pane.quit")
-	}
-}
+// What the Swift app's dialogs share, which the extensions' dialogs (X3, X4,
+// X5) still read until their Views twins: the heading, the card, and the
+// keyed buttons' labels. Quit Pane?, which they first drew, is Views' own
+// (pane/ui/window/quit_dialog, H7).
 
 // A dialog's title, and what it says under it, in the app's dialogs (Paper: 03.5
 // Overlays).
