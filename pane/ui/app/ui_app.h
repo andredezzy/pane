@@ -135,6 +135,8 @@ class UiApp : public AppData::Client,
   void CollapseAll() override;
   void NewProfile() override;
   void ToggleSettings() override;
+  void MoveProfile(int from, int to) override;
+  void MoveTab(const std::string& profile_id, int from, int to) override;
   void ResizeSidebar(double width) override;
   void EndSidebarResize() override;
   void ResetSidebarWidth() override;

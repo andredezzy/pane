@@ -44,6 +44,29 @@ class Curve {
   // How far along the change is, `elapsed` after it began: 0 to 1, a spring
   // past 1 as it overshoots.
   double Progress(base::TimeDelta elapsed) const;
+
+  // Where a change from `from` to `to` stands `elapsed` after it began, and
+  // how fast it moves then, per second. A spring may begin already moving at
+  // `velocity`, as SwiftUI merges a spring into a change under way, which
+  // keeps its speed; a cubic begins at rest.
+  struct Point {
+    double value = 0;
+    double velocity = 0;
+  };
+  Point At(double from,
+           double to,
+           double velocity,
+           base::TimeDelta elapsed) const;
+  // Whether that change has settled by `elapsed`: a cubic at its end, a
+  // spring from rest when `total()` has passed, and one that began moving
+  // once it stays within a thousandth of the change (or of how far its speed
+  // would carry it) and has all but stopped.
+  bool Settled(double from,
+               double to,
+               double velocity,
+               base::TimeDelta elapsed) const;
+
+  bool is_spring() const { return !bezier_.has_value(); }
   // How long it waits, then how long it moves, and when it has settled.
   base::TimeDelta delay() const { return delay_; }
   base::TimeDelta duration() const { return duration_; }
@@ -170,9 +193,11 @@ class LayerMotion : public ::ui::CompositorAnimationObserver,
 
 // Moves a value toward a target along a curve, a step on each of a
 // compositor's frames, for what a layer's opacity and transform can't carry
-// (a width, a corner's radius): `step` lays out and paints at each value.
-// Its view owns it; a new target starts from the value reached, so a change
-// of mind mid-way doesn't jump.
+// (a width, a corner's radius, where a sliding row stands): `step` lays out,
+// paints, or moves a layer at each value. Its view owns it; a new target
+// starts from the value reached, so a change of mind mid-way doesn't jump,
+// and a spring keeps the speed it had, as SwiftUI's does, so it doesn't stop
+// dead either.
 class ValueMotion : public ::ui::CompositorAnimationObserver {
  public:
   ValueMotion(double value, base::RepeatingCallback<void(double)> step);
@@ -185,6 +210,8 @@ class ValueMotion : public ::ui::CompositorAnimationObserver {
   double value() const { return value_; }
   // Where it is heading, or where it rests.
   double target() const { return curve_ ? to_ : value_; }
+  // Whether it is on its way.
+  bool is_moving() const { return curve_.has_value(); }
 
   // ui::CompositorAnimationObserver:
   void OnAnimationStep(base::TimeTicks timestamp) override;
@@ -199,6 +226,9 @@ class ValueMotion : public ::ui::CompositorAnimationObserver {
   std::optional<Curve> curve_;
   double from_ = 0;
   double to_ = 0;
+  // The speed it began with, and the one at the value reached, per second.
+  double velocity_ = 0;
+  double speed_ = 0;
   std::optional<base::TimeTicks> start_;
   raw_ptr<::ui::Compositor> compositor_ = nullptr;
 };

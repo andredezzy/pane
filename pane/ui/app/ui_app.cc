@@ -809,6 +809,16 @@ void UiApp::ShowPage(model::BrowserModel::Page page) {
   }
 }
 
+// A drag's drop, as the Swift's moveProfile and moveTab: the model's order,
+// saved as any change is (BrowserModel::ScheduleSave).
+void UiApp::MoveProfile(int from, int to) {
+  model().MoveProfile(from, to);
+}
+
+void UiApp::MoveTab(const std::string& profile_id, int from, int to) {
+  model().MoveTab(profile_id, from, to);
+}
+
 void UiApp::ToggleSettings() {
   ShowPage(model().page() == model::BrowserModel::Page::kSettings
                ? model::BrowserModel::Page::kBrowser

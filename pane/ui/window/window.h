@@ -68,6 +68,10 @@ class Window : public WindowHost::Delegate,
     // The footer's New and Settings.
     virtual void NewProfile() = 0;
     virtual void ToggleSettings() = 0;
+    // A drag's drop in the sidebar: the profile at `from` moved to `to`, or
+    // a profile's tab, kept as the model keeps any change.
+    virtual void MoveProfile(int from, int to) = 0;
+    virtual void MoveTab(const std::string& profile_id, int from, int to) = 0;
     // The sidebar's edge: each step of a drag, its end (the width saved),
     // and a double-click (the standard width).
     virtual void ResizeSidebar(double width) = 0;

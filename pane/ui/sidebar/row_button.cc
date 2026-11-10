@@ -47,6 +47,21 @@ void RowButton::SetDimmed(bool dimmed) {
   }
 }
 
+void RowButton::SetDragged(bool dragged) {
+  highlight_->SetDragged(dragged);
+}
+
+void RowButton::SetCaptureLost(base::RepeatingClosure capture_lost) {
+  capture_lost_ = std::move(capture_lost);
+}
+
+void RowButton::OnMouseCaptureLost() {
+  views::Button::OnMouseCaptureLost();
+  if (capture_lost_) {
+    capture_lost_.Run();
+  }
+}
+
 void RowButton::SetLook(const ControlLook& look) {
   own_look_ = look;
   UpdateLook();

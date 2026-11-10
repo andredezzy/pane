@@ -1,15 +1,15 @@
-import { isScreenLocked } from "../lib/cua";
 import { type AppState, launchPane } from "../lib/pane";
-import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // Profiles and tabs reorder by dragging, as the Electron app's sortable lists
 // did (Paper: 03.11): the drag follows the pointer up and down only and stays
-// inside the list, and the order is kept on release. Each drag is paced
-// through the event queue. Before the release the rows already stand where
-// the drop would put them (the user's report: nothing moved until the
-// release), and a release on the dragged row is no click. Where the drop
-// lands among rows of any height is PaneKit's ReorderTests.
+// inside the list, and the order is kept on release. Each drag is paced a
+// phase at a time through the window's own dispatch (pointerWindow), as a
+// hand's moves reach the pressed row. Before the release the rows already
+// stand where the drop would put them (the user's report: nothing moved until
+// the release), the copy riding the pointer held inside the list, and a
+// release on the dragged row is no click. Where the drop lands among rows of
+// any height is ReorderTest (pane_unittests).
 const sidebarReorder: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const names = ["Alpha", "Bravo", "Charlie", "Delta"];
@@ -45,15 +45,10 @@ const sidebarReorder: Scenario = async (context) => {
 	// sidebar's 39-point header.
 	const rowY = (index: number) => 39 + 4 + index * 40 + 18;
 
-	// The rows' tops as the window lays them out, read through accessibility
-	// (hidden from it while the screen is locked), by the ids after `prefix`.
-	const locked = await isScreenLocked();
-	const axFrames = await swiftTool("ax-frames");
-
+	// The rows' tops as the window draws them, read through the channel, by
+	// the ids after `prefix`.
 	const tops = async (prefix: string) => {
-		const frames = JSON.parse(
-			await Bun.$`${axFrames} ${app.browser.pid} ${prefix}`.text(),
-		) as Record<string, number[]>;
+		const frames = await app.frames(prefix);
 
 		return Object.fromEntries(
 			Object.entries(frames).map(([id, frame]) => [
@@ -75,10 +70,6 @@ const sidebarReorder: Scenario = async (context) => {
 			pitch: number,
 		) =>
 		async () => {
-			if (locked) {
-				return;
-			}
-
 			// The rows slide aside on a 0.28-second spring.
 			await Bun.sleep(400);
 			const seen = await tops(prefix);
@@ -160,12 +151,32 @@ const sidebarReorder: Scenario = async (context) => {
 	);
 
 	// Delta up and far out of the sidebar, to the right and above the
-	// window: the copy stays in the list, and Delta lands first.
+	// window: the copy stays in the list, its top at the first row's, as wide
+	// as the rows, and Delta lands first.
+	const heldInside = async () => {
+		const copy = (await app.frames("pane.sidebar.dragCopy"))[
+			"pane.sidebar.dragCopy"
+		];
+
+		const [x = 0, y = 0, width = 0, height = 0] = copy ?? [];
+
+		expect(
+			copy !== undefined &&
+				x === 8 &&
+				Math.abs(y - (rowY(0) - 18)) <= 1 &&
+				width === 244 &&
+				height === 36,
+			`the copy out of the window: ${JSON.stringify(copy)}`,
+		);
+	};
+
 	const out = order(
 		(
 			await drag(
 				rowY(3),
 				steps(rowY(3), -200, 100).map(([, y], step) => [100 + step * 120, y]),
+				order,
+				heldInside,
 			)
 		).after,
 	);
@@ -244,9 +255,13 @@ const sidebarReorder: Scenario = async (context) => {
 		`the release on the dragged tab selected it: ${tabDrag.settled.activeTabID}`,
 	);
 
-	if (locked) {
-		context.defer("the rows mid-drag: accessibility is off on a locked screen");
-	}
+	// The copy goes once its drop is kept.
+	const gone = await app.frames("pane.sidebar.dragCopy");
+
+	expect(
+		Object.keys(gone).length === 0,
+		`the copy stayed after the drop: ${JSON.stringify(gone)}`,
+	);
 };
 
 export default sidebarReorder;

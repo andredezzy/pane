@@ -85,6 +85,10 @@ void Window::Open() {
                                             base::Unretained(controller));
   sidebar.toggle_settings = base::BindRepeating(&Controller::ToggleSettings,
                                                 base::Unretained(controller));
+  sidebar.move_profile = base::BindRepeating(&Controller::MoveProfile,
+                                             base::Unretained(controller));
+  sidebar.move_tab =
+      base::BindRepeating(&Controller::MoveTab, base::Unretained(controller));
   callbacks.resize.resize = base::BindRepeating(&Controller::ResizeSidebar,
                                                 base::Unretained(controller));
   callbacks.resize.end = base::BindRepeating(&Controller::EndSidebarResize,

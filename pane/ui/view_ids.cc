@@ -40,6 +40,8 @@ std::string_view ViewIdName(int id) {
       return "pane.sidebar.settings";
     case kViewIdSidebarResize:
       return "pane.sidebar.resize";
+    case kViewIdDragCopy:
+      return "pane.sidebar.dragCopy";
     default:
       return std::string_view();
   }

@@ -44,9 +44,6 @@ constexpr float kDot = 6;
 // The row's tint of its color while its page shows.
 constexpr float kTint = 0.04f;
 
-// A profile's name: 12 points, medium (ADR 0060); its count: 12, regular.
-constexpr TextStyle kName{12, weight::kMedium, 16};
-
 using ProxyStatus = model::BrowserModel::ProxyStatus;
 
 ui::ColorId DotColor(ProxyStatus status) {
@@ -97,6 +94,54 @@ ControlLook LookOf(const SidebarProfile& profile) {
 
 }  // namespace
 
+ProfileHeaderPlaces PlaceProfileHeader(const gfx::Size& size,
+                                       float mark_width,
+                                       int count_width,
+                                       bool has_dot) {
+  ProfileHeaderPlaces places;
+  int end = size.width() - kInset;
+  if (count_width > 0) {
+    places.count = gfx::Rect(end - count_width, 0, count_width, size.height());
+    end -= count_width + kSpacing;
+  }
+  if (has_dot) {
+    places.dot_x = end - kDot;
+    end -= kDot + kSpacing;
+  }
+  const int start = std::round(kInset + mark_width + kSpacing);
+  places.name = gfx::Rect(start, 0, std::max(end - start, 0), size.height());
+  return places;
+}
+
+float ProfileMarkWidth(double morph) {
+  return kBarWidth + (kSquareWidth - kBarWidth) * morph;
+}
+
+void PaintProfileMark(gfx::Canvas& canvas,
+                      int height,
+                      SkColor color,
+                      double morph) {
+  // The bar, rounding off as it widens: 2 to 4.
+  cc::PaintFlags flags;
+  flags.setAntiAlias(true);
+  flags.setColor(color);
+  canvas.DrawPath(SquirclePath(gfx::RectF(kInset, (height - kMarkHeight) / 2.0f,
+                                          ProfileMarkWidth(morph), kMarkHeight),
+                               2 + 2 * static_cast<float>(morph)),
+                  flags);
+}
+
+void PaintProxyDot(gfx::Canvas& canvas,
+                   const ui::ColorProvider& colors,
+                   float x,
+                   int height,
+                   ProxyStatus status) {
+  cc::PaintFlags flags;
+  flags.setAntiAlias(true);
+  flags.setColor(colors.GetColor(DotColor(status)));
+  canvas.DrawCircle(gfx::PointF(x + kDot / 2, height / 2.0f), kDot / 2, flags);
+}
+
 ProfileRow::Actions::Actions() = default;
 ProfileRow::Actions::Actions(Actions&&) = default;
 ProfileRow::Actions& ProfileRow::Actions::operator=(Actions&&) = default;
@@ -110,7 +155,7 @@ ProfileRow::ProfileRow(const SidebarProfile& profile, Actions actions)
           base::BindRepeating(&ProfileRow::Morphed, base::Unretained(this))) {
   SetID(kViewIdProfileRow);
   set_context_menu_controller(this);
-  name_ = AddChildView(MakeLabel(u"", kName, kPaneColorMutedForeground));
+  name_ = AddChildView(MakeLabel(u"", kProfileName, kPaneColorMutedForeground));
   name_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   name_->SetCanProcessEventsWithinSubtree(false);
   count_ =
@@ -180,7 +225,7 @@ void ProfileRow::Update(const SidebarProfile& profile) {
 }
 
 float ProfileRow::MarkWidth() const {
-  return kBarWidth + (kSquareWidth - kBarWidth) * morph_.value();
+  return ProfileMarkWidth(morph_.value());
 }
 
 double ProfileRow::Shown() const {
@@ -193,18 +238,15 @@ gfx::Size ProfileRow::CalculatePreferredSize(
 }
 
 void ProfileRow::Layout(PassKey) {
-  int end = width() - kInset;
+  const ProfileHeaderPlaces places = PlaceProfileHeader(
+      size(), MarkWidth(),
+      count_->GetVisible() ? count_->GetPreferredSize().width() : 0,
+      profile_.proxy.has_value());
   if (count_->GetVisible()) {
-    const int count_width = count_->GetPreferredSize().width();
-    count_->SetBounds(end - count_width, 0, count_width, height());
-    end -= count_width + kSpacing;
+    count_->SetBoundsRect(places.count);
   }
-  if (profile_.proxy) {
-    dot_x_ = end - kDot;
-    end -= kDot + kSpacing;
-  }
-  const int start = std::round(kInset + MarkWidth() + kSpacing);
-  name_->SetBounds(start, 0, std::max(end - start, 0), height());
+  dot_x_ = places.dot_x;
+  name_->SetBoundsRect(places.name);
 }
 
 void ProfileRow::PaintButtonContents(gfx::Canvas* canvas) {
@@ -217,19 +259,10 @@ void ProfileRow::PaintButtonContents(gfx::Canvas* canvas) {
     canvas->DrawPath(SquirclePath(gfx::RectF(GetLocalBounds()), radius::kLg),
                      flags);
   }
-  // The bar, rounding off as it widens: 2 to 4.
-  flags.setColor(profile_.color);
-  canvas->DrawPath(
-      SquirclePath(gfx::RectF(kInset, (height() - kMarkHeight) / 2.0f,
-                              MarkWidth(), kMarkHeight),
-                   2 + 2 * static_cast<float>(morph_.value())),
-      flags);
-  // The proxy's dot, in its status's color, the same in both appearances.
+  PaintProfileMark(*canvas, height(), profile_.color, morph_.value());
   if (const ui::ColorProvider* colors = GetColorProvider();
       colors && profile_.proxy) {
-    flags.setColor(colors->GetColor(DotColor(*profile_.proxy)));
-    canvas->DrawCircle(gfx::PointF(dot_x_ + kDot / 2, height() / 2.0f),
-                       kDot / 2, flags);
+    PaintProxyDot(*canvas, *colors, dot_x_, height(), *profile_.proxy);
   }
 }
 

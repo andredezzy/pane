@@ -2,6 +2,8 @@
 
 #include "pane/ui/design/motion.h"
 
+#include <algorithm>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -134,6 +136,64 @@ TEST(MotionTest, SpringsAreSwiftUIs) {
     highest = std::max(highest, motion::Morph().Progress(t));
   }
   EXPECT_LT(highest, 1.006);
+}
+
+// From rest, a change goes where its progress says, a spring included.
+TEST(MotionTest, AChangeFromRestFollowsItsProgress) {
+  for (const Curve& curve :
+       {motion::Slide(), motion::Morph(), motion::Reveal(), motion::Hover()}) {
+    for (int ms = 0; ms <= 500; ms += 7) {
+      const base::TimeDelta t = Milliseconds(ms);
+      EXPECT_NEAR(curve.At(40, 120, 0, t).value, 40 + 80 * curve.Progress(t),
+                  1e-9);
+    }
+  }
+}
+
+// A spring that takes over a change under way starts where it stood and as
+// fast as it moved, as SwiftUI merges one into another: the dragged row
+// heading for one place, then for the next, never stops dead between them.
+TEST(MotionTest, ASpringKeepsTheSpeedOfTheChangeItTakesOver) {
+  const Curve slide = motion::Slide();
+  // 60 ms into a slide 40 points down, the target moves 40 more.
+  const Curve::Point midway = slide.At(0, 40, 0, Milliseconds(60));
+  ASSERT_GT(midway.velocity, 100);
+  const double from = midway.value;
+  const double speed = midway.velocity;
+  const Curve::Point start = slide.At(from, 80, speed, base::TimeDelta());
+  EXPECT_DOUBLE_EQ(start.value, from);
+  EXPECT_NEAR(start.velocity, speed, 1e-9);
+  // Its speed is its value's change, a millisecond on.
+  const Curve::Point later = slide.At(from, 80, speed, Milliseconds(1));
+  EXPECT_NEAR((later.value - from) / 0.001, speed, speed * 0.05);
+  // Each point's speed, against the change in its value around it.
+  for (int ms = 1; ms < 400; ms += 13) {
+    const double before =
+        slide.At(from, 80, speed, Milliseconds(ms) - base::Microseconds(50))
+            .value;
+    const double after =
+        slide.At(from, 80, speed, Milliseconds(ms) + base::Microseconds(50))
+            .value;
+    EXPECT_NEAR(slide.At(from, 80, speed, Milliseconds(ms)).velocity,
+                (after - before) / 0.0001, 0.05);
+  }
+  // It settles where it's going, within a thousandth, and stays.
+  base::TimeDelta settled;
+  while (!slide.Settled(from, 80, speed, settled)) {
+    settled += Milliseconds(1);
+    ASSERT_LT(settled, base::Seconds(2));
+  }
+  EXPECT_GT(settled, Milliseconds(200));
+  EXPECT_LT(settled, Milliseconds(600));
+  const double near =
+      0.001 * std::max(80 - from, speed / (2 * std::numbers::pi / 0.28));
+  for (base::TimeDelta t = settled; t < base::Seconds(2);
+       t += Milliseconds(1)) {
+    EXPECT_NEAR(slide.At(from, 80, speed, t).value, 80, near);
+  }
+  // A cubic takes over at rest.
+  EXPECT_DOUBLE_EQ(motion::Hover().At(10, 20, 500, base::TimeDelta()).velocity,
+                   0);
 }
 
 // With less motion asked for, the drivers move nothing: a value lands at once.

@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "pane/ui/sidebar/sidebar_content.h"
+#include "pane/ui/sidebar/vertical_reorder.h"
 #include "ui/views/view.h"
 
 namespace views {
@@ -21,9 +22,11 @@ class Label;
 
 namespace pane {
 
+class DragCopy;
 class FadingScrollView;
 class IconButton;
 class ProfileRow;
+class RowList;
 class SidebarButton;
 class TabRow;
 class ValueMotion;
@@ -35,6 +38,7 @@ class ValueMotion;
 // chosen (ADR 0084), then its footer (New, a rule, Settings). Rows keep their
 // views by profile and tab, so what moves keeps moving (a profile's bar,
 // mid-morph), and only a row whose value changed redraws (ADR 0073).
+// Profiles, and each profile's tabs, reorder by dragging (ADR 0066, H3).
 class SidebarView : public views::View {
   METADATA_HEADER(SidebarView, views::View)
 
@@ -59,6 +63,10 @@ class SidebarView : public views::View {
     base::RepeatingClosure collapse_all;
     base::RepeatingClosure new_profile;
     base::RepeatingClosure toggle_settings;
+    // A drag's drop: the profile at `from` moved to `to`, or a profile's tab.
+    base::RepeatingCallback<void(int from, int to)> move_profile;
+    base::RepeatingCallback<void(const std::string& profile_id, int, int)>
+        move_tab;
   };
 
   explicit SidebarView(Callbacks callbacks);
@@ -73,8 +81,9 @@ class SidebarView : public views::View {
   // The header, the traffic lights' row, which moves the window.
   views::View* header() { return header_; }
   // The rows, each by what the channel names it ("pane.profile.<id>",
-  // "pane.tab.<id>"), and the list's visible frame ("pane.sidebar.profiles"),
-  // for a scenario's read of where each is.
+  // "pane.tab.<id>"), the list's visible frame ("pane.sidebar.profiles"),
+  // and a drag's copy's card ("pane.sidebar.dragCopy"), for a scenario's
+  // read of where each is.
   std::vector<std::pair<std::string, const views::View*>> NamedViews() const;
   // A row's menu, for the channel.
   ProfileRow* FindProfileRow(const std::string& profile_id);
@@ -92,7 +101,7 @@ class SidebarView : public views::View {
   void Layout(PassKey) override;
 
  private:
-  class RowList;
+  class ListContents;
 
   // Rows came, went, or moved: each keeps its view by its key.
   void SetRows(const SidebarContent& content);
@@ -104,6 +113,16 @@ class SidebarView : public views::View {
   // so a profile that opened for it has laid its rows out.
   void RevealSelected(bool animated);
   void Revealed(double offset);
+  // A press's action, which a drag's release skips (the Swift's
+  // isDragging).
+  base::RepeatingClosure UnlessDragging(base::RepeatingClosure action);
+  // What a drag from `row` reorders: the profiles, each with its rows, or
+  // the tabs of the row's profile.
+  std::optional<VerticalReorder::List> ListAt(views::View* row);
+  void FillCopy(DragCopy& copy,
+                const VerticalReorder::List& list,
+                const std::string& id);
+  void MoveRows(const VerticalReorder::List& list, int from, int to);
 
   Callbacks callbacks_;
   SidebarContent content_;
@@ -111,7 +130,10 @@ class SidebarView : public views::View {
   raw_ptr<views::Label> title_ = nullptr;
   raw_ptr<IconButton> collapse_all_ = nullptr;
   raw_ptr<FadingScrollView> list_ = nullptr;
+  // The list's contents: the rows, and a drag's copy over them.
+  raw_ptr<ListContents> contents_ = nullptr;
   raw_ptr<RowList> rows_ = nullptr;
+  std::unique_ptr<VerticalReorder> reorder_;
   raw_ptr<views::View> footer_ = nullptr;
   raw_ptr<SidebarButton> new_ = nullptr;
   raw_ptr<views::View> rule_ = nullptr;

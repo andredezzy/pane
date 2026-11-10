@@ -46,6 +46,8 @@ enum ViewId : int {
   kViewIdSidebarNew,
   kViewIdSidebarSettings,
   kViewIdSidebarResize,
+  // The copy of a dragged row that rides the pointer (H3).
+  kViewIdDragCopy,
 
   kViewIdsEnd,
 };

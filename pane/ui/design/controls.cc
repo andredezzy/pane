@@ -185,8 +185,9 @@ ControlHighlight::ControlHighlight(views::Button* button,
   button->SetInstallFocusRingOnFocus(false);
   ring_ = FocusRing::Install(button, shape);
   state_subscription_ = button->AddStateChangedCallback(base::BindRepeating(
-      &ControlHighlight::Update, base::Unretained(this), /*animate=*/true));
-  Update(/*animate=*/false);
+      &ControlHighlight::Update, base::Unretained(this),
+      std::optional<Curve>(motion::Hover()), /*press_fades=*/true));
+  Update(std::nullopt, /*press_fades=*/false);
 }
 
 ControlHighlight::~ControlHighlight() = default;
@@ -195,15 +196,28 @@ void ControlHighlight::SetHeld(bool held) {
   if (held_ != held) {
     held_ = held;
     // What the control opened shows or goes: its look follows at once.
-    Update(/*animate=*/false);
+    Update(std::nullopt, /*press_fades=*/false);
   }
 }
 
-void ControlHighlight::Update(bool animate) {
+void ControlHighlight::SetDragged(bool dragged) {
+  if (dragged_ != dragged) {
+    dragged_ = dragged;
+    // Taken, the hover goes at once as the press fades (PressLayer's);
+    // given back with the drop, the hover returns on its curve.
+    Update(dragged ? std::nullopt : std::optional<Curve>(motion::Drop()),
+           /*press_fades=*/true);
+  }
+}
+
+void ControlHighlight::Update(std::optional<Curve> hover_curve,
+                              bool press_fades) {
   const views::Button::ButtonState state = button_->GetState();
   const bool enabled = state != views::Button::STATE_DISABLED;
 
-  // Disabled, the control dims as one, at once.
+  // Disabled, the control dims as one, at once; enabled again, it undoes
+  // only its own dimming, and leaves a layer another gave it (a dragged
+  // row's) as it is.
   if (!enabled && disabled_opacity_ < 1) {
     if (!button_->layer()) {
       button_->SetPaintToLayer();
@@ -211,7 +225,8 @@ void ControlHighlight::Update(bool animate) {
       made_layer_ = true;
     }
     button_->layer()->SetOpacity(disabled_opacity_);
-  } else if (button_->layer()) {
+    dimmed_ = true;
+  } else if (std::exchange(dimmed_, false) && button_->layer()) {
     if (std::exchange(made_layer_, false)) {
       button_->DestroyLayer();
     } else {
@@ -220,19 +235,22 @@ void ControlHighlight::Update(bool animate) {
   }
 
   // Only the pointer's coming and going fades: disabled, the hover goes at
-  // once.
-  ui::Compositor* compositor =
-      animate && enabled ? CompositorOf(button_) : nullptr;
-  const bool lit = enabled && (held_ || state == views::Button::STATE_HOVERED ||
-                               state == views::Button::STATE_PRESSED);
+  // once. A row a drag carries shows neither.
+  ui::Compositor* compositor = enabled ? CompositorOf(button_) : nullptr;
+  const bool lit = enabled && !dragged_ &&
+                   (held_ || state == views::Button::STATE_HOVERED ||
+                    state == views::Button::STATE_PRESSED);
   const double hover = lit ? 1 : 0;
   if (hover != hover_.target()) {
-    hover_.MoveTo(hover, motion::Hover(), compositor);
+    hover_.MoveTo(hover, hover_curve.value_or(motion::Hover()),
+                  hover_curve ? compositor : nullptr);
   }
   // A press shows at once, and fades as it lets go.
-  const double press = enabled && state == views::Button::STATE_PRESSED ? 1 : 0;
+  const double press =
+      enabled && !dragged_ && state == views::Button::STATE_PRESSED ? 1 : 0;
   if (press != press_.target()) {
-    press_.MoveTo(press, motion::Hover(), press ? nullptr : compositor);
+    press_.MoveTo(press, motion::Hover(),
+                  press || !press_fades ? nullptr : compositor);
   }
 }
 

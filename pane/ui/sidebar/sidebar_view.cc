@@ -18,7 +18,9 @@
 #include "pane/ui/design/scroll_fade.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/dialogs/system_alert.h"
+#include "pane/ui/sidebar/drag_copy.h"
 #include "pane/ui/sidebar/profile_row.h"
+#include "pane/ui/sidebar/row_list.h"
 #include "pane/ui/sidebar/sidebar_button.h"
 #include "pane/ui/sidebar/tab_row.h"
 #include "pane/ui/view_ids.h"
@@ -46,11 +48,6 @@ constexpr int kHeaderBottom = 1;
 constexpr int kCollapseAllSize = 28;
 constexpr TextStyle kTitle{12, weight::kSemibold, 0};
 
-// The list: its rows 8 in from the column's sides, 4 from its ends, 4 apart.
-constexpr int kListInset = 8;
-constexpr int kListEnds = 4;
-constexpr int kRowSpacing = 4;
-
 // The footer (px-2 pb-2): New, a rule, Settings, 6 apart.
 constexpr int kFooterInset = 8;
 constexpr int kFooterSpacing = 6;
@@ -71,43 +68,33 @@ std::string NewTabKey(const std::string& profile_id) {
 
 }  // namespace
 
-// The list's rows, stacked: 4 apart, 8 in, 4 from the ends. A row's place is
-// the list's to give it, so a drag's slide can move it later (H3).
-class SidebarView::RowList : public views::View {
-  METADATA_HEADER(RowList, views::View)
+// The list's contents: its rows from their top left, as tall as they are,
+// and a drag's copy over them (H3), which rides in the rows' coordinates.
+class SidebarView::ListContents : public views::View {
+  METADATA_HEADER(ListContents, views::View)
 
  public:
-  RowList() = default;
-
-  // Rows came or went: the list's height changes.
-  void RowsChanged() { PreferredSizeChanged(); }
-
-  int HeightOfRows() const {
-    int height = 2 * kListEnds;
-    for (const views::View* row : children()) {
-      height += row->GetPreferredSize({}).height();
-    }
-    return height + kRowSpacing * std::max(int(children().size()) - 1, 0);
-  }
+  explicit ListContents(RowList* rows) : rows_(rows) {}
 
   // views::View:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override {
-    return gfx::Size(available_size.width().value_or(width()), HeightOfRows());
+    return rows_->GetPreferredSize(available_size);
   }
 
-  void Layout(PassKey) override {
-    int y = kListEnds;
-    for (views::View* row : children()) {
-      const int row_height = row->GetPreferredSize({}).height();
-      row->SetBounds(kListInset, y, std::max(width() - 2 * kListInset, 0),
-                     row_height);
-      y += row_height + kRowSpacing;
+  void ChildPreferredSizeChanged(views::View* child) override {
+    if (child == rows_) {
+      PreferredSizeChanged();
     }
   }
+
+  void Layout(PassKey) override { rows_->SetBoundsRect(GetLocalBounds()); }
+
+ private:
+  const raw_ptr<RowList> rows_;
 };
 
-BEGIN_METADATA(SidebarView, RowList)
+BEGIN_METADATA(SidebarView, ListContents)
 END_METADATA
 
 SidebarView::Callbacks::Callbacks() = default;
@@ -141,7 +128,24 @@ SidebarView::SidebarView(Callbacks callbacks)
       kPaneColorWindowBackground, /*fades_top=*/true, /*fades_bottom=*/true));
   list_->SetID(kViewIdSidebarProfiles);
   list_->scroll_view()->SetUseContentsPreferredSize(true);
-  rows_ = list_->scroll_view()->SetContents(std::make_unique<RowList>());
+  auto rows = std::make_unique<RowList>();
+  rows_ = rows.get();
+  auto contents = std::make_unique<ListContents>(rows_);
+  contents->AddChildView(std::move(rows));
+  contents_ = list_->scroll_view()->SetContents(std::move(contents));
+
+  // Profiles and tabs reorder by dragging, as the Electron app's did: the
+  // reorder watches the rows' presses ahead of them.
+  VerticalReorder::Callbacks reorder;
+  reorder.list_at =
+      base::BindRepeating(&SidebarView::ListAt, base::Unretained(this));
+  reorder.fill_copy =
+      base::BindRepeating(&SidebarView::FillCopy, base::Unretained(this));
+  reorder.move =
+      base::BindRepeating(&SidebarView::MoveRows, base::Unretained(this));
+  reorder_ =
+      std::make_unique<VerticalReorder>(rows_, contents_, std::move(reorder));
+  rows_->AddPreTargetHandler(reorder_.get());
 
   footer_ = AddChildView(std::make_unique<views::View>());
   new_ = footer_->AddChildView(std::make_unique<SidebarButton>(
@@ -156,9 +160,15 @@ SidebarView::SidebarView(Callbacks callbacks)
   settings_->SetID(kViewIdSidebarSettings);
 }
 
-SidebarView::~SidebarView() = default;
+SidebarView::~SidebarView() {
+  // The reorder goes before the rows it watches.
+  rows_->RemovePreTargetHandler(reorder_.get());
+  reorder_.reset();
+}
 
 void SidebarView::SetContent(const SidebarContent& content) {
+  // Before the rows, which a drag's copy reads as they change.
+  content_ = content;
   SetRows(content);
   settings_->SetSelected(content.settings_shown);
   settings_->GetViewAccessibility().SetIsSelected(content.settings_shown);
@@ -181,7 +191,6 @@ void SidebarView::SetContent(const SidebarContent& content) {
                                   weak_factory_.GetWeakPtr(), animated));
   }
   selected_tab_ = std::move(selected);
-  content_ = content;
 }
 
 void SidebarView::SetCanCollapseAll(bool can_collapse_all) {
@@ -201,8 +210,10 @@ void SidebarView::SetRows(const SidebarContent& content) {
     keys.push_back(NewTabKey(profile.id));
   }
 
-  // Rows came, went, or moved: each keeps its view, found by its key.
+  // Rows came, went, or moved: each keeps its view, found by its key. A drag
+  // under way ends first, unless this is its own drop.
   if (keys != keys_) {
+    reorder_->RowsChanging();
     std::map<std::string, std::unique_ptr<views::View>> kept;
     for (const std::string& key : keys_) {
       kept[key] = rows_->RemoveChildViewT(rows_->children().front());
@@ -240,16 +251,25 @@ void SidebarView::SetRows(const SidebarContent& content) {
     }
     ++index;
   }
+  // A drag's copy shows its row as it is now.
+  reorder_->RowsChanged();
 }
 
 std::unique_ptr<views::View> SidebarView::MakeRow(const std::string& key,
                                                   const SidebarProfile& profile,
                                                   const SidebarTab* tab) {
+  // A release that ends a drag is no click, on the row or its X.
+  const base::RepeatingClosure capture_lost = base::BindRepeating(
+      &VerticalReorder::CaptureLost, reorder_->GetWeakPtr());
   if (tab) {
     TabRow::Actions actions;
-    actions.select = base::BindRepeating(callbacks_.select_tab, tab->id);
-    actions.close = base::BindRepeating(callbacks_.close_tab, tab->id);
-    return std::make_unique<TabRow>(*tab, std::move(actions));
+    actions.select =
+        UnlessDragging(base::BindRepeating(callbacks_.select_tab, tab->id));
+    actions.close =
+        UnlessDragging(base::BindRepeating(callbacks_.close_tab, tab->id));
+    auto row = std::make_unique<TabRow>(*tab, std::move(actions));
+    row->SetCaptureLost(capture_lost);
+    return row;
   }
   if (key == NewTabKey(profile.id)) {
     auto row = std::make_unique<SidebarButton>(
@@ -259,13 +279,100 @@ std::unique_ptr<views::View> SidebarView::MakeRow(const std::string& key,
     return row;
   }
   ProfileRow::Actions actions;
-  actions.toggle = base::BindRepeating(callbacks_.toggle_profile, profile.id);
+  actions.toggle = UnlessDragging(
+      base::BindRepeating(callbacks_.toggle_profile, profile.id));
   actions.edit = base::BindRepeating(callbacks_.edit_profile, profile.id);
   actions.set_keep_loaded =
       base::BindRepeating(callbacks_.set_keep_loaded, profile.id);
   actions.ask_delete = base::BindRepeating(
       &SidebarView::AskToDelete, weak_factory_.GetWeakPtr(), profile.id);
-  return std::make_unique<ProfileRow>(profile, std::move(actions));
+  auto row = std::make_unique<ProfileRow>(profile, std::move(actions));
+  row->SetCaptureLost(capture_lost);
+  return row;
+}
+
+base::RepeatingClosure SidebarView::UnlessDragging(
+    base::RepeatingClosure action) {
+  return base::BindRepeating(
+      [](base::WeakPtr<SidebarView> sidebar,
+         const base::RepeatingClosure& action) {
+        if (sidebar && !sidebar->reorder_->is_dragging()) {
+          action.Run();
+        }
+      },
+      weak_factory_.GetWeakPtr(), std::move(action));
+}
+
+std::optional<VerticalReorder::List> SidebarView::ListAt(views::View* row) {
+  // The rows by their keys, in the model's order.
+  std::map<std::string, views::View*> rows;
+  for (size_t index = 0; index < keys_.size(); ++index) {
+    rows[keys_[index]] = rows_->children()[index];
+  }
+  VerticalReorder::List list;
+  if (row->GetID() == kViewIdProfileRow) {
+    // Each profile with its rows: its header, and while it is open its tabs
+    // and New tab.
+    list.copy_height = ProfileRow::kHeight;
+    for (const SidebarProfile& profile : content_.profiles) {
+      std::vector<raw_ptr<views::View>> group = {rows[ProfileKey(profile.id)]};
+      if (profile.expanded) {
+        for (const SidebarTab& tab : profile.tabs) {
+          group.push_back(rows[TabKey(tab.id)]);
+        }
+        group.push_back(rows[NewTabKey(profile.id)]);
+      }
+      list.ids.push_back(profile.id);
+      list.rows.push_back(std::move(group));
+    }
+    return list;
+  }
+  if (row->GetID() != kViewIdTabRow) {
+    return std::nullopt;
+  }
+  // The tabs of the row's profile, among themselves.
+  const std::string& tab_id = static_cast<TabRow*>(row)->tab().id;
+  for (const SidebarProfile& profile : content_.profiles) {
+    if (std::ranges::find(profile.tabs, tab_id, &SidebarTab::id) ==
+        profile.tabs.end()) {
+      continue;
+    }
+    list.profile_id = profile.id;
+    list.copy_height = RowButton::kHeight;
+    for (const SidebarTab& tab : profile.tabs) {
+      list.ids.push_back(tab.id);
+      list.rows.push_back({rows[TabKey(tab.id)]});
+    }
+    return list;
+  }
+  return std::nullopt;
+}
+
+void SidebarView::FillCopy(DragCopy& copy,
+                           const VerticalReorder::List& list,
+                           const std::string& id) {
+  for (const SidebarProfile& profile : content_.profiles) {
+    if (list.profile_id.empty() && profile.id == id) {
+      copy.SetProfile(profile);
+      return;
+    }
+    for (const SidebarTab& tab : profile.tabs) {
+      if (!list.profile_id.empty() && tab.id == id) {
+        copy.SetTab(tab);
+        return;
+      }
+    }
+  }
+}
+
+void SidebarView::MoveRows(const VerticalReorder::List& list,
+                           int from,
+                           int to) {
+  if (list.profile_id.empty()) {
+    callbacks_.move_profile.Run(from, to);
+  } else {
+    callbacks_.move_tab.Run(list.profile_id, from, to);
+  }
 }
 
 void SidebarView::AskToDelete(const std::string& profile_id) {
@@ -300,6 +407,9 @@ SidebarView::NamedViews() const {
       {"pane.sidebar.new", new_},
       {"pane.sidebar.settings", settings_},
   };
+  if (const DragCopy* copy = reorder_->copy()) {
+    named.emplace_back("pane.sidebar.dragCopy", copy->card_view());
+  }
   for (const views::View* row : rows_->children()) {
     if (row->GetID() == kViewIdProfileRow) {
       named.emplace_back(
@@ -416,7 +526,7 @@ void SidebarView::Layout(PassKey) {
                    std::max(footer_->y() - kHeaderHeight, 0));
   // The list's rows at their height and the list's width, as the scroll view
   // without layers (Windows) takes them.
-  rows_->SetSize(
+  contents_->SetSize(
       gfx::Size(width(), std::max(rows_->HeightOfRows(), list_->height())));
 }
 

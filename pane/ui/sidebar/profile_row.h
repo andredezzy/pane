@@ -10,8 +10,11 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "pane/ui/design/motion.h"
+#include "pane/ui/design/text.h"
 #include "pane/ui/sidebar/row_button.h"
 #include "pane/ui/sidebar/sidebar_content.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/context_menu_controller.h"
 
@@ -20,7 +23,50 @@ class Label;
 class MenuRunner;
 }  // namespace views
 
+namespace gfx {
+class Canvas;
+}
+
+namespace ui {
+class ColorProvider;
+}
+
 namespace pane {
+
+// A profile header's contents (the Swift's ProfileHeaderContent), which its
+// row and a drag's copy of it (H3) both draw: its color as a mark, 4 by 16
+// points as a bar, rounded 2, grown into a 16-point square, rounded 4; its
+// name at 12 medium; its proxy's dot; and, collapsed, how many tabs it has,
+// muted. 8 in, its parts 8 apart.
+inline constexpr TextStyle kProfileName{12, weight::kMedium, 16};
+
+// Where the name, the count, and the dot sit in a header of `size`, with its
+// mark `mark_width` wide, a count `count_width` wide (0: none), and a dot or
+// not.
+struct ProfileHeaderPlaces {
+  gfx::Rect name;
+  gfx::Rect count;
+  float dot_x = 0;
+};
+ProfileHeaderPlaces PlaceProfileHeader(const gfx::Size& size,
+                                       float mark_width,
+                                       int count_width,
+                                       bool has_dot);
+// The mark's width `morph` of the way from the bar to the square, the
+// spring's overshoot included.
+float ProfileMarkWidth(double morph);
+// The mark, `morph` of the way, in `color`, in a header `height` tall.
+void PaintProfileMark(gfx::Canvas& canvas,
+                      int height,
+                      SkColor color,
+                      double morph);
+// The proxy's dot from `x`, in its status's color, the same in both
+// appearances.
+void PaintProxyDot(gfx::Canvas& canvas,
+                   const ui::ColorProvider& colors,
+                   float x,
+                   int height,
+                   model::BrowserModel::ProxyStatus status);
 
 // A profile's header (the Swift's ProfileSection header and
 // ProfileHeaderContent), 36 points: its color as a 4-point bar, grown into a

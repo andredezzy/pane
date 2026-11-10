@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/functional/callback.h"
 #include "pane/ui/design/controls.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/views/controls/button/button.h"
@@ -42,9 +43,16 @@ class RowButton : public views::Button {
   void SetTintsOnHover(bool tints_on_hover);
   // A tab without a page shows its contents at 60%.
   void SetDimmed(bool dimmed);
+  // A drag carries the row (H3): it shows no hover or press of its own, the
+  // copy over it has them (ADR 0066).
+  void SetDragged(bool dragged);
+  // What the row's losing the mouse mid-press ends: a drag from it, as a
+  // release would.
+  void SetCaptureLost(base::RepeatingClosure capture_lost);
 
   // views::Button:
   void OnThemeChanged() override;
+  void OnMouseCaptureLost() override;
 
   // How lit the row is, 0 to 1, as its hover fades.
   double hover() const;
@@ -71,6 +79,7 @@ class RowButton : public views::Button {
   ControlLook look_;
   std::unique_ptr<ControlHighlight> highlight_;
   raw_ptr<ControlBackground> background_ = nullptr;
+  base::RepeatingClosure capture_lost_;
 };
 
 }  // namespace pane

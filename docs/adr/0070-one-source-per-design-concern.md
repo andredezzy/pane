@@ -1,5 +1,7 @@
 # The view layer has one source per concern
 
+> **On the Views line** (`docs/plans/views-migration.md`, H3): a spring that takes over a change under way starts as fast as it was moving, as SwiftUI merges one spring into another, so a dragged row heading for a new place never stops dead (`Curve::At`, `ValueMotion`, `pane/ui/design/motion.cc`); the three springs are each worked out once, where each use had worked its settle time out again (0.15 ms).
+
 Each design concern in the app's views has one source that every view uses (the colors, the shapes, the shadows, the icons, the motion, and one style per kind of control), so controls of one kind look and behave alike and a change lands once. A review of the view layer made it so, and rendered every surface before and after, light and dark (the automation's `render`, and screen captures where a mask or the page matters).
 
 The former `Theme.swift` and `Style.swift` are split by concern. `app/Pane/Views/Theme/` holds the palette (`Palette.swift`), the squircle (`Squircle.swift`, ADR 0057), the elevations (`Elevation.swift`, ADR 0055), the icons (`Icons.swift`), and `Motion` (`Motion.swift`). `app/Pane/Views/Controls/` holds the buttons, fields, menus, switch, labels, hairline, and hover fill, and `app/Pane/Views/Components/` the favicon, the fading scroll view, and since then the reorder and the window's drag area (ADR 0077) and the toolbar's progress bar (ADR 0081).

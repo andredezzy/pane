@@ -2,10 +2,12 @@
 
 #include "pane/ui/design/motion.h"
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <utility>
 
+#include "base/no_destructor.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/animation/tween.h"
@@ -14,33 +16,80 @@ namespace pane {
 
 namespace {
 
-// Where a spring stands `t` seconds into a change from 0 to 1, at rest at
-// first: SwiftUI's spring, its natural frequency 2π over the response.
-double SpringAt(double response, double damping, double t) {
-  const double omega = 2 * std::numbers::pi / response;
+// A spring's natural frequency: SwiftUI's, 2π over the response.
+double Omega(double response) {
+  return 2 * std::numbers::pi / response;
+}
+
+// How far a spring stands from its target `t` seconds into a change that
+// began `offset` from it, moving at `velocity` per second, and how fast it
+// moves then: the damped oscillator SwiftUI's springs are.
+Curve::Point SpringState(double response,
+                         double damping,
+                         double offset,
+                         double velocity,
+                         double t) {
+  const double omega = Omega(response);
   if (damping < 1) {
     const double damped = omega * std::sqrt(1 - damping * damping);
-    return 1 - std::exp(-damping * omega * t) *
-                   (std::cos(damped * t) +
-                    damping * omega / damped * std::sin(damped * t));
+    const double decay = damping * omega;
+    const double sine = (velocity + decay * offset) / damped;
+    const double envelope = std::exp(-decay * t);
+    const double c = std::cos(damped * t);
+    const double s = std::sin(damped * t);
+    return {envelope * (offset * c + sine * s),
+            envelope * ((sine * damped - decay * offset) * c -
+                        (offset * damped + decay * sine) * s)};
   }
   if (damping == 1) {
-    return 1 - std::exp(-omega * t) * (1 + omega * t);
+    const double rate = velocity + omega * offset;
+    const double envelope = std::exp(-omega * t);
+    return {envelope * (offset + rate * t),
+            envelope * (rate - omega * (offset + rate * t))};
   }
   const double root = std::sqrt(damping * damping - 1);
   const double r1 = -omega * (damping - root);
   const double r2 = -omega * (damping + root);
-  return 1 - (r2 * std::exp(r1 * t) - r1 * std::exp(r2 * t)) / (r2 - r1);
+  const double c1 = (velocity - r2 * offset) / (r1 - r2);
+  const double c2 = offset - c1;
+  return {c1 * std::exp(r1 * t) + c2 * std::exp(r2 * t),
+          c1 * r1 * std::exp(r1 * t) + c2 * r2 * std::exp(r2 * t)};
+}
+
+// Where a spring stands `t` seconds into a change from 0 to 1, at rest at
+// first.
+double SpringAt(double response, double damping, double t) {
+  return 1 + SpringState(response, damping, -1, 0, t).value;
+}
+
+// The farthest a spring standing `offset` from its target, moving at
+// `velocity`, will stand from it from then on, or more: an underdamped one's
+// envelope, and for the others a bound on theirs.
+double SpringReach(double response,
+                   double damping,
+                   double offset,
+                   double velocity) {
+  const double omega = Omega(response);
+  if (damping < 1) {
+    const double damped = omega * std::sqrt(1 - damping * damping);
+    return std::hypot(offset, (velocity + damping * omega * offset) / damped);
+  }
+  return 2 * std::abs(offset) + std::abs(velocity) / omega;
 }
 
 // When a spring has settled: within a thousandth of its target, from then
-// on, as SwiftUI ends one.
+// on, as SwiftUI ends one. Read a millisecond at a time until it can't leave
+// that thousandth again.
 base::TimeDelta SpringDuration(double response, double damping) {
   constexpr double kStep = 0.001;
   double settled = 0;
   for (double t = 0; t < 10; t += kStep) {
-    if (std::abs(1 - SpringAt(response, damping, t)) >= 0.001) {
+    const Curve::Point state = SpringState(response, damping, -1, 0, t);
+    if (std::abs(state.value) >= 0.001) {
       settled = t + kStep;
+    }
+    if (SpringReach(response, damping, state.value, state.velocity) < 0.001) {
+      break;
     }
   }
   return base::Seconds(settled);
@@ -92,6 +141,50 @@ double Curve::Progress(base::TimeDelta elapsed) const {
   return SpringAt(response_, damping_, into.InSecondsF());
 }
 
+Curve::Point Curve::At(double from,
+                       double to,
+                       double velocity,
+                       base::TimeDelta elapsed) const {
+  const base::TimeDelta into = elapsed - delay_;
+  // Waiting, nothing moves; a spring begins at the speed it took on.
+  if (into < base::TimeDelta() || (into.is_zero() && bezier_)) {
+    return {from, 0};
+  }
+  // Settled from rest, as Progress has it.
+  if ((bezier_ || velocity == 0) && into >= duration_) {
+    return {to, 0};
+  }
+  if (bezier_) {
+    const double x = into / duration_;
+    return {from + (to - from) * bezier_->Solve(x),
+            (to - from) * bezier_->Slope(x) / duration_.InSecondsF()};
+  }
+  const Point state =
+      SpringState(response_, damping_, from - to, velocity, into.InSecondsF());
+  return {to + state.value, state.velocity};
+}
+
+bool Curve::Settled(double from,
+                    double to,
+                    double velocity,
+                    base::TimeDelta elapsed) const {
+  if (bezier_ || velocity == 0) {
+    return elapsed >= total();
+  }
+  if (elapsed <= delay_) {
+    return false;
+  }
+  if (elapsed - delay_ >= base::Seconds(10)) {
+    return true;
+  }
+  // Never again farther from its target than a thousandth of the change, or
+  // of how far its speed alone would carry it.
+  const double near = 0.001 * std::max(std::abs(from - to),
+                                       std::abs(velocity) / Omega(response_));
+  const Point now = At(from, to, velocity, elapsed);
+  return SpringReach(response_, damping_, now.value - to, now.velocity) <= near;
+}
+
 namespace motion {
 
 namespace {
@@ -127,16 +220,20 @@ Curve Toggle() {
   return EaseOut(base::Milliseconds(150));
 }
 
+// The springs, each worked out once: a drag's every move can ask for one.
 Curve Morph() {
-  return Curve::Spring(0.32, 0.86);
+  static const base::NoDestructor<Curve> morph(Curve::Spring(0.32, 0.86));
+  return *morph;
 }
 
 Curve Slide() {
-  return Curve::Spring(0.28, 0.9);
+  static const base::NoDestructor<Curve> slide(Curve::Spring(0.28, 0.9));
+  return *slide;
 }
 
 Curve Reveal() {
-  return Curve::Spring(0.3, 1);
+  static const base::NoDestructor<Curve> reveal(Curve::Spring(0.3, 1));
+  return *reveal;
 }
 
 Curve Drop() {
@@ -283,6 +380,9 @@ ValueMotion::~ValueMotion() {
 void ValueMotion::MoveTo(double target,
                          const Curve& curve,
                          ::ui::Compositor* compositor) {
+  // A spring takes on the speed of the change under way, as SwiftUI merges
+  // one into it.
+  const double velocity = curve_ && curve.is_spring() ? speed_ : 0;
   Stop();
   if (!compositor || motion::IsReduced()) {
     Set(target);
@@ -291,6 +391,8 @@ void ValueMotion::MoveTo(double target,
   curve_.emplace(curve);
   from_ = value_;
   to_ = target;
+  velocity_ = velocity;
+  speed_ = velocity;
   start_.reset();
   compositor_ = compositor;
   compositor_->AddAnimationObserver(this);
@@ -301,13 +403,15 @@ void ValueMotion::OnAnimationStep(base::TimeTicks timestamp) {
     start_ = timestamp;
   }
   const base::TimeDelta elapsed = timestamp - *start_;
-  if (elapsed >= curve_->total()) {
+  if (curve_->Settled(from_, to_, velocity_, elapsed)) {
     const double to = to_;
     Stop();
     Set(to);
     return;
   }
-  Set(from_ + (to_ - from_) * curve_->Progress(elapsed));
+  const Curve::Point point = curve_->At(from_, to_, velocity_, elapsed);
+  speed_ = point.velocity;
+  Set(point.value);
 }
 
 void ValueMotion::OnCompositingShuttingDown(::ui::Compositor* compositor) {
@@ -327,6 +431,7 @@ void ValueMotion::Stop() {
   }
   compositor_ = nullptr;
   curve_.reset();
+  speed_ = 0;
 }
 
 }  // namespace pane

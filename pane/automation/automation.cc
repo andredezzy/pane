@@ -42,6 +42,7 @@
 #include "ui/events/event_constants.h"
 #include "ui/events/event_utils.h"
 #include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/view.h"
@@ -81,37 +82,59 @@ base::ListValue MenuItems(const ui::SimpleMenuModel& menu) {
   return items;
 }
 
+// One phase of a drag at a point of the window (from its top left): the
+// press, a move, or the release, the left button's, to the window's root
+// view as Views' own mouse event, which hit-tests it and hands it to what is
+// under the press, as a drag with the trackpad reaches it. Not through the
+// widget: it takes the moves to the pressed view only while a real button is
+// down (Widget::OnMouseEvent, the Mac's [NSEvent pressedMouseButtons]),
+// which no posted event sets, and a press it takes while the user's own
+// button happens to be down captures the mouse, and with it the user's
+// release elsewhere. The pointer moves to the press through the widget
+// first, as a hand's gets there before it presses, so the widget knows
+// where it is and what is under it hears when it leaves. Timed from its
+// dispatch to the window's layout at it, the work before the next frame:
+// the time, in milliseconds.
+double Pointer(views::Widget* widget,
+               ui::EventType type,
+               const gfx::PointF& at) {
+  views::View* root = widget->GetRootView();
+  if (type == ui::EventType::kMousePressed) {
+    ui::MouseEvent move(ui::EventType::kMouseMoved, at, at,
+                        ui::EventTimeForNow(), ui::EF_NONE, ui::EF_NONE);
+    widget->OnMouseEvent(&move);
+  }
+  const ui::MouseEvent event(type, at, at, ui::EventTimeForNow(),
+                             ui::EF_LEFT_MOUSE_BUTTON,
+                             ui::EF_LEFT_MOUSE_BUTTON);
+  const base::TimeTicks start = base::TimeTicks::Now();
+  if (type == ui::EventType::kMousePressed) {
+    root->OnMousePressed(event);
+  } else if (type == ui::EventType::kMouseDragged) {
+    root->OnMouseDragged(event);
+  } else {
+    root->OnMouseReleased(event);
+  }
+  widget->LayoutRootViewIfNecessary();
+  return (base::TimeTicks::Now() - start).InMillisecondsF();
+}
+
 // A drag from one point of the window to another (from its top left), in
-// `steps` moves: the press, each move, and the release go to the window's
-// root view as Views' own mouse events, which hit-tests and hands them to
-// what is under the press, as a drag with the trackpad reaches it. Not
-// through the platform: a widget takes the moves to the pressed view only
-// while a real button is down (Widget::OnMouseEvent, the Mac's
-// [NSEvent pressedMouseButtons]), which no posted event sets. Each move is
-// timed from its dispatch to the window's layout at it, the work before the
-// next frame: the times, in milliseconds.
+// `steps` moves, each a Pointer phase: the moves' times, in milliseconds.
 std::vector<double> Drag(views::Widget* widget,
                          const gfx::Point& from,
                          const gfx::Point& to,
                          int steps) {
-  views::View* root = widget->GetRootView();
-  const auto event = [](ui::EventType type, const gfx::Point& at) {
-    return ui::MouseEvent(type, at, at, ui::EventTimeForNow(),
-                          ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
-  };
   std::vector<double> times;
-  root->OnMousePressed(event(ui::EventType::kMousePressed, from));
+  Pointer(widget, ui::EventType::kMousePressed, gfx::PointF(from));
   steps = std::max(steps, 1);
   for (int step = 1; step <= steps; ++step) {
     const double share = static_cast<double>(step) / steps;
-    const gfx::Point at(std::lround(from.x() + (to.x() - from.x()) * share),
-                        std::lround(from.y() + (to.y() - from.y()) * share));
-    const base::TimeTicks start = base::TimeTicks::Now();
-    root->OnMouseDragged(event(ui::EventType::kMouseDragged, at));
-    widget->LayoutRootViewIfNecessary();
-    times.push_back((base::TimeTicks::Now() - start).InMillisecondsF());
+    const gfx::PointF at(std::lround(from.x() + (to.x() - from.x()) * share),
+                         std::lround(from.y() + (to.y() - from.y()) * share));
+    times.push_back(Pointer(widget, ui::EventType::kMouseDragged, at));
   }
-  root->OnMouseReleased(event(ui::EventType::kMouseReleased, to));
+  Pointer(widget, ui::EventType::kMouseReleased, gfx::PointF(to));
   return times;
 }
 
@@ -264,8 +287,9 @@ void Automation::Dispatch(const std::string& name,
        name == "holdModifiers" || name == "releaseModifiers" ||
        name == "hitTest" || name == "resizeWindow" || name == "pageLayout" ||
        name == "openProfileSheet" || name == "closeProfileSheet" ||
-       name == "scrollWindow" || name == "dragWindow" || name == "frames" ||
-       name == "rowMenu" || name == "clickModalButton")) {
+       name == "scrollWindow" || name == "dragWindow" ||
+       name == "pointerWindow" || name == "frames" || name == "rowMenu" ||
+       name == "clickModalButton")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -772,6 +796,33 @@ void Automation::Dispatch(const std::string& name,
                         .Set("stepMs", std::move(steps))
                         .Set("pageWidth", window->PageBounds().width())),
         std::string());
+    return;
+  }
+
+  // One phase of a drag at a point of the window (from its top left),
+  // { phase: "down" | "drag" | "up", x, y }, through Views' own dispatch
+  // (Pointer), so a scenario paces a drag as a hand does and reads the rows
+  // between its moves, in the background too: the step's time to the
+  // window's layout, in milliseconds.
+  if (name == "pointerWindow") {
+    const std::string* phase = command.FindString("phase");
+    const std::optional<double> x = command.FindDouble("x");
+    const std::optional<double> y = command.FindDouble("y");
+    const std::optional<ui::EventType> type =
+        !phase             ? std::nullopt
+        : *phase == "down" ? std::optional(ui::EventType::kMousePressed)
+        : *phase == "drag" ? std::optional(ui::EventType::kMouseDragged)
+        : *phase == "up"   ? std::optional(ui::EventType::kMouseReleased)
+                           : std::nullopt;
+    if (!type || !x || !y) {
+      std::move(reply).Run(base::Value(),
+                           !type ? "pointerWindow's phase is down, drag, or up"
+                                 : "pointerWindow needs x and y");
+      return;
+    }
+    const double ms = Pointer(widget, *type, gfx::PointF(*x, *y));
+    std::move(reply).Run(base::Value(base::DictValue().Set("ms", ms)),
+                         std::string());
     return;
   }
 

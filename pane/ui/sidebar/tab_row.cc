@@ -39,6 +39,29 @@ constexpr char16_t kLoading[] = u"Loading...";
 
 }  // namespace
 
+std::u16string TabTitle(const SidebarTab& tab) {
+  return tab.title.empty() ? kLoading : tab.title;
+}
+
+void PaintFavicon(gfx::Canvas& canvas,
+                  const gfx::RectF& place,
+                  const gfx::ImageSkia& favicon,
+                  SkColor tint,
+                  float opacity) {
+  if (favicon.isNull()) {
+    PaintIcon(canvas, Icon::kGlobe, place, 2, tint);
+    return;
+  }
+  gfx::ScopedCanvas scoped(&canvas);
+  canvas.ClipPath(SquirclePath(place, radius::kXs), true);
+  cc::PaintFlags flags;
+  flags.setAlphaf(opacity);
+  canvas.DrawImageInt(favicon, 0, 0, favicon.width(), favicon.height(),
+                      std::round(place.x()), std::round(place.y()),
+                      std::round(place.width()), std::round(place.height()),
+                      /*filter=*/true, flags);
+}
+
 // A tab's close X (the Swift's TabCloseButton), in the row's text color,
 // shown as the row's hover fades in, and with no fill of its own.
 class TabRow::CloseButton : public views::Button {
@@ -99,7 +122,7 @@ void TabRow::Update(const SidebarTab& tab) {
     return;
   }
   tab_ = tab;
-  const std::u16string& title = tab.title.empty() ? kLoading : tab.title;
+  const std::u16string title = TabTitle(tab);
   if (title_->GetText() != title) {
     title_->SetText(title);
   }
@@ -126,20 +149,12 @@ void TabRow::Layout(PassKey) {
 }
 
 void TabRow::PaintButtonContents(gfx::Canvas* canvas) {
-  const gfx::Rect place(kLeading, (height() - kIconSize) / 2, kIconSize,
-                        kIconSize);
-  if (tab_.favicon.isNull()) {
-    PaintIcon(*canvas, Icon::kGlobe, gfx::RectF(place), 2, Tint());
-    return;
-  }
-  // Rounded as a favicon is (ADR 0057), at the contents' opacity.
-  gfx::ScopedCanvas scoped(canvas);
-  canvas->ClipPath(SquirclePath(gfx::RectF(place), radius::kXs), true);
-  cc::PaintFlags flags;
-  flags.setAlphaf(ContentsOpacity());
-  canvas->DrawImageInt(tab_.favicon, 0, 0, tab_.favicon.width(),
-                       tab_.favicon.height(), place.x(), place.y(),
-                       place.width(), place.height(), /*filter=*/true, flags);
+  // The globe in the row's tint, which dims with its contents; a favicon at
+  // the contents' opacity.
+  PaintFavicon(
+      *canvas,
+      gfx::RectF(kLeading, (height() - kIconSize) / 2, kIconSize, kIconSize),
+      tab_.favicon, Tint(), ContentsOpacity());
 }
 
 void TabRow::LookChanged() {

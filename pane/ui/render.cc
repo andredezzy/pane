@@ -11,6 +11,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/paint_info.h"
 #include "ui/views/view.h"
@@ -65,12 +66,11 @@ void DrawLayered(SkCanvas* canvas,
                  views::View* root,
                  float scale,
                  float opacity) {
-  gfx::Point origin;
-  views::View::ConvertPointToTarget(view, root, &origin);
-  if (view->layer()) {
-    const gfx::Vector2dF moved = view->layer()->transform().To2dTranslation();
-    origin += gfx::Vector2d(moved.x(), moved.y());
-  }
+  // Where its layer puts it, a transform's fraction of a point included (a
+  // sliding row, a drag's copy): the conversion takes each view's transform,
+  // its own too.
+  const gfx::PointF origin =
+      views::View::ConvertRectToTarget(view, root, gfx::RectF()).origin();
   // A layer that clips what it holds (a scroll view's viewport) clips here
   // too, as the compositor does.
   SkAutoCanvasRestore restore(canvas, /*doSave=*/true);
@@ -85,7 +85,7 @@ void DrawLayered(SkCanvas* canvas,
   SkPaint paint;
   paint.setAlphaf(opacity);
   canvas->drawImage(own.asImage(), origin.x() * scale, origin.y() * scale,
-                    SkSamplingOptions(), &paint);
+                    SkSamplingOptions(SkFilterMode::kLinear), &paint);
   DrawLayeredDescendants(canvas, view, root, scale, opacity);
 }
 

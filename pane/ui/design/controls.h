@@ -142,19 +142,28 @@ class ControlHighlight {
   // Holds the hover's look while what the control opens shows (an
   // extension's popup, a menu), as IconButtonStyle's isOn.
   void SetHeld(bool held);
+  // While a drag carries the control's row (the Swift's isDraggedRow), it
+  // shows no hover or press of its own: the drag's copy over it has them.
+  // The hover goes at once and a press fades as it lets go; given back, the
+  // hover returns on the drop's curve.
+  void SetDragged(bool dragged);
   // The ring shown while the control has the keyboard.
   FocusRing* ring() { return ring_; }
 
  private:
-  // From the button's state: the pointer's changes fade unless `animate` is
-  // false.
-  void Update(bool animate);
+  // From the button's state: the hover fades on `hover_curve`, or changes at
+  // once without one; a press shows at once and, if `press_fades`, fades as
+  // it lets go.
+  void Update(std::optional<Curve> hover_curve, bool press_fades);
 
   const raw_ptr<views::Button> button_;
   raw_ptr<FocusRing> ring_ = nullptr;
   const float disabled_opacity_;
   bool held_ = false;
-  // Whether the dimming layer is this one's, to take away once enabled.
+  bool dragged_ = false;
+  // Whether the control is dimmed, and the dimming layer is this one's, to
+  // take away once enabled.
+  bool dimmed_ = false;
   bool made_layer_ = false;
   ValueMotion hover_;
   ValueMotion press_;
