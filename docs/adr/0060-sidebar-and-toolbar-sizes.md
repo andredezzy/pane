@@ -4,6 +4,8 @@
 
 > **UI text on the Views line is smoothed,** by the user's call (2026-11-09): Skia smooths CoreText's glyphs whenever the hinting isn't none, `ui/gfx/font_render_params_mac.cc` sets it to medium with no seam, and `AppleFontSmoothing` reaches no Views text, so Views' text is 10 to 18% heavier than the Swift's. The user accepted that rather than a patch to that file (ADR 0004's count). It stays grayscale rather than subpixel.
 
+> **Tracking and tabular digits on the Views line,** by the user's call on Paper 10.6 (2026-11-09, no patches for now): Views has neither without a `ui/gfx` edit, so the 9 texts that used them are drawn without them, as the board shows, except the find bar's match count, whose digits Pane lays out in cells of one width so the count doesn't shift as it changes.
+
 The sidebar and the toolbar take Aside's sizes, at the user's request (Aside's and Dia's font sizes "and everything else"), with their text at 12 points, the Electron app's size, by the user's call. The content panel keeps Pane's own frame, at the user's correction: the panel is Pane's, not Aside's. Aside set the numbers because its layout is Pane's, a sidebar and then a panel with the toolbar inside. Its window was captured alone, measured at 2×, and the capture deleted; Dia was not open, and was not opened. Paper took the sizes first, on every window board (ADR 0058).
 
 **The sidebar** is 260 points wide, Aside's width, and the resizable sidebar's default (ADR 0061). Tab rows, New tab, New, and Settings are 32 points, 4 apart, on Aside's 36-point pitch; profile headers are 36. All round at 15. The favicon is 16 points, 7 in, and the title starts 10 after it, 41 points from the window's edge (Aside's: 40.5). Collapse all is a 28-point circle.
