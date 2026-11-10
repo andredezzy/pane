@@ -276,6 +276,10 @@ Curve Progress() {
   return Curve::Cubic(0, 0, 1, 1, base::Milliseconds(200));
 }
 
+Curve Pulse() {
+  return EaseInOut(base::Seconds(1));
+}
+
 bool IsReduced() {
   return gfx::Animation::PrefersReducedMotion();
 }

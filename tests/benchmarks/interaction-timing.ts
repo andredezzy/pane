@@ -6,9 +6,10 @@ import { expect, type Scenario } from "../run";
 // How long each signposted interaction (Log.interaction) takes, from the
 // input to the frame Core Animation commits for it, read from the unified
 // log as the app runs: selecting a tab among five loaded ones, a new tab
-// from the File menu, focusing the address field, opening the profile sheet
-// (the first time draws the platforms' logos), and choosing a platform. It
-// times; it does not judge, so a change is measured before and after.
+// from the File menu, focusing the address field, a click into it (the
+// Views build's), opening the profile sheet (the first time draws the
+// platforms' logos), and choosing a platform. It times; it does not judge,
+// so a change is measured before and after.
 // /usr/bin/log, by its path: zsh has a builtin of the same name.
 
 type Signpost = {
@@ -74,6 +75,21 @@ const interactionTiming: Scenario = async (context) => {
 		await Bun.sleep(150);
 		await app.send("menu", { path: ["Navigate", "Focus Address Bar"] });
 		await Bun.sleep(150);
+	}
+
+	// A real click into the address, a tab's page having the keys before it
+	// (the Views build's toolbar names it; the Swift's timed no click).
+	const address = await app
+		.frames("pane.toolbar.address")
+		.catch(() => ({}) as Record<string, number[]>);
+
+	if (address["pane.toolbar.address"]) {
+		for (let i = 0; i < ROUNDS * 2; i++) {
+			await app.send("select", { tab: tabs[i % tabs.length] });
+			await Bun.sleep(150);
+			await app.click("pane.toolbar.address");
+			await Bun.sleep(150);
+		}
 	}
 
 	for (let round = 0; round < ROUNDS; round++) {

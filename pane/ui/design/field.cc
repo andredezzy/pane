@@ -31,6 +31,41 @@ constexpr float kDisabledOpacity = 0.5f;
 
 }  // namespace
 
+SelectionFollowsWindow::SelectionFollowsWindow(views::Textfield* field)
+    : field_(field) {
+  view_observation_.Observe(field);
+  Follow(field->GetWidget());
+}
+
+SelectionFollowsWindow::~SelectionFollowsWindow() = default;
+
+void SelectionFollowsWindow::OnViewAddedToWidget(views::View* view) {
+  Follow(view->GetWidget());
+}
+
+void SelectionFollowsWindow::OnViewRemovedFromWidget(views::View* view) {
+  widget_observation_.Reset();
+}
+
+void SelectionFollowsWindow::OnWidgetActivationChanged(views::Widget* widget,
+                                                       bool active) {
+  field_->SetSelectionBackgroundColorId(
+      active ? kPaneColorTextSelection : kPaneColorTextSelectionInactive);
+}
+
+void SelectionFollowsWindow::OnWidgetDestroying(views::Widget* widget) {
+  widget_observation_.Reset();
+}
+
+void SelectionFollowsWindow::Follow(views::Widget* widget) {
+  widget_observation_.Reset();
+  if (!widget) {
+    return;
+  }
+  widget_observation_.Observe(widget);
+  OnWidgetActivationChanged(widget, widget->IsActive());
+}
+
 Field::Field(ui::ColorVariant fill, const TextStyle& style)
     : fill_(std::move(fill)),
       problem_shown_(0,
@@ -51,7 +86,7 @@ Field::Field(ui::ColorVariant fill, const TextStyle& style)
   SetFontList(SystemFont(style.size, style.weight));
   SetTextColorId(kPaneColorForeground);
   SetPlaceholderTextColorId(kPaneColorMutedForeground);
-  // No font smoothing (ADR 0060): Skia smooths only subpixel text on the Mac.
+  // Grayscale rather than subpixel text, as StyleLabel's (ADR 0060).
   GetRenderText()->set_subpixel_rendering_suppressed(true);
 
   enabled_subscription_ = AddEnabledChangedCallback(

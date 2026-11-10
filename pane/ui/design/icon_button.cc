@@ -16,17 +16,17 @@ namespace pane {
 IconButton::IconButton(PressedCallback pressed,
                        int size,
                        const Glyph& glyph,
-                       const std::u16string& name)
+                       const std::u16string& name,
+                       const ControlLook& look)
     : views::Button(std::move(pressed)),
       size_(size),
       glyph_(glyph),
-      look_(IconButtonLook()) {
+      look_(look) {
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&IconButton::SchedulePaint, base::Unretained(this)));
   SetBackground(std::make_unique<ControlBackground>(look_, highlight_.get()));
-  SetTooltipText(name);
-  GetViewAccessibility().SetName(name);
+  SetName(name);
 }
 
 IconButton::~IconButton() = default;
@@ -34,6 +34,11 @@ IconButton::~IconButton() = default;
 void IconButton::SetGlyph(const Glyph& glyph) {
   glyph_ = glyph;
   SchedulePaint();
+}
+
+void IconButton::SetName(const std::u16string& name) {
+  SetTooltipText(name);
+  GetViewAccessibility().SetName(name);
 }
 
 gfx::Size IconButton::CalculatePreferredSize(

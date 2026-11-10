@@ -16,7 +16,8 @@ namespace pane {
 // circle `size` points across, muted, turning to the accent's foreground as
 // the accent fades in under it (Motion.hover); a press at once; 40% while
 // disabled. `name` is what assistive technologies read, and its tooltip, as
-// the Swift's .help.
+// the Swift's .help. Another look takes another shape or none of the fill,
+// as the update pill's dismiss (a 4-point squircle, its tint alone lit).
 class IconButton : public views::Button {
   METADATA_HEADER(IconButton, views::Button)
 
@@ -32,13 +33,15 @@ class IconButton : public views::Button {
   IconButton(PressedCallback pressed,
              int size,
              const Glyph& glyph,
-             const std::u16string& name);
+             const std::u16string& name,
+             const ControlLook& look = IconButtonLook());
   IconButton(const IconButton&) = delete;
   IconButton& operator=(const IconButton&) = delete;
   ~IconButton() override;
 
-  // Another icon, as Reload turns to Stop.
+  // Another icon, as Reload turns to Stop, and the name it reads then.
   void SetGlyph(const Glyph& glyph);
+  void SetName(const std::u16string& name);
 
   // views::Button:
   gfx::Size CalculatePreferredSize(

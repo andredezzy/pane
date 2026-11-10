@@ -5,6 +5,7 @@
 #include <string>
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_key.h"
 
@@ -113,6 +114,24 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
        Swift(0x18181B, 0.12)},
       {"addressDivider", kPaneColorAddressDivider, Swift(0x858587),
        Swift(0x606068)},
+      // AddressField's hover, ToolbarProgressBar's colors, and UpdatePill's
+      // fill and track.
+      {"addressHover", kPaneColorAddressHover, Swift(0x18181B, 0.03),
+       Swift(0xFAFAFA, 0.03)},
+      {"loadBarStart", kPaneColorLoadBarStart, Swift(0x3B82F6),
+       Swift(0x3B82F6)},
+      {"loadBarEnd", kPaneColorLoadBarEnd, Swift(0x60A5FA), Swift(0x60A5FA)},
+      {"loadShimmer", kPaneColorLoadShimmer, Swift(0x89B4FA), Swift(0x89B4FA)},
+      {"updatePill", kPaneColorUpdatePill, Swift(0x18181B, 0.05),
+       Swift(0xFAFAFA, 0.05)},
+      {"updateTrack", kPaneColorUpdateTrack, Swift(0x18181B, 0.1),
+       Swift(0xFAFAFA, 0.1)},
+      // NSTextView's selection, which follows the system's Highlight color:
+      // the system's own, in each appearance, key and not.
+      {"textSelection", kPaneColorTextSelection,
+       SystemTextSelection(false, true), SystemTextSelection(true, true)},
+      {"textSelectionInactive", kPaneColorTextSelectionInactive,
+       SystemTextSelection(false, false), SystemTextSelection(true, false)},
       {"panelTint", kPaneColorPanelTint, Swift(0x18181B, 0.04),
        Swift(0xFAFAFA, 0.05)},
       {"Alert.panel", kPaneColorAlertPanel, Swift(0xEBEBEB, 0.95),
@@ -141,6 +160,16 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
     EXPECT_EQ(light.GetColor(pair.id), pair.light);
     EXPECT_EQ(dark.GetColor(pair.id), pair.dark);
   }
+  // Every field's selection is the system's, as the Mac draws a text view's.
+  EXPECT_EQ(light.GetColor(ui::kColorTextfieldSelectionBackground),
+            light.GetColor(kPaneColorTextSelection));
+  EXPECT_EQ(dark.GetColor(ui::kColorTextfieldSelectionBackground),
+            dark.GetColor(kPaneColorTextSelection));
+  // The Mac's default Highlight color, opaque, and the selection dimmed
+  // while the window isn't key differs from it.
+  EXPECT_EQ(SkColorGetA(light.GetColor(kPaneColorTextSelection)), 0xFFu);
+  EXPECT_NE(light.GetColor(kPaneColorTextSelection),
+            light.GetColor(kPaneColorTextSelectionInactive));
 }
 
 // Pane's ids come after Chrome's, which the engine's own views resolve.

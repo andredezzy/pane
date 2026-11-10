@@ -543,9 +543,9 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
 
   // Pane restores its own session (profiles.json), so AppKit's window
   // restoration stays off, along with its "reopen windows?" alert after a
-  // crash. And the app's text as the Electron app drew its UI (CSS
-  // -webkit-font-smoothing: antialiased): no font smoothing. Registered, so
-  // in memory only.
+  // crash. And AppKit's text as the Electron app drew its UI (CSS
+  // -webkit-font-smoothing: antialiased): no font smoothing, which Views'
+  // text doesn't read (ADR 0060). Registered, so in memory only.
   [NSUserDefaults.standardUserDefaults registerDefaults:@{
     @"ApplePersistenceIgnoreState" : @YES,
     @"AppleFontSmoothing" : @0,

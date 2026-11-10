@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "ui/color/color_id.h"
 #include "ui/color/color_mixer.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_key.h"
@@ -96,6 +97,24 @@ void AddPaneColors(ui::ColorProvider* provider,
   set(kPaneColorPrimaryKey, Rgba(0xFAFAFA, 0.85), Rgba(0x18181B, 0.7));
   set(kPaneColorPrimaryKeyChip, Rgba(0xFAFAFA, 0.18), Rgba(0x18181B, 0.12));
   set(kPaneColorAddressDivider, Rgb(0x858587), Rgb(0x606068));
+  mixer[kPaneColorAddressHover] =
+      ui::SetAlpha(kPaneColorForeground, AlphaOf(0.03));
+  set(kPaneColorLoadBarStart, Rgb(0x3B82F6), Rgb(0x3B82F6));
+  set(kPaneColorLoadBarEnd, Rgb(0x60A5FA), Rgb(0x60A5FA));
+  // NSColor's blended(withFraction: 0.4, of: .white), rounded.
+  set(kPaneColorLoadShimmer, Rgb(0x89B4FA), Rgb(0x89B4FA));
+  mixer[kPaneColorUpdatePill] =
+      ui::SetAlpha(kPaneColorForeground, AlphaOf(0.05));
+  mixer[kPaneColorUpdateTrack] =
+      ui::SetAlpha(kPaneColorForeground, AlphaOf(0.1));
+  set(kPaneColorTextSelection, SystemTextSelection(false, true),
+      SystemTextSelection(true, true));
+  set(kPaneColorTextSelectionInactive, SystemTextSelection(false, false),
+      SystemTextSelection(true, false));
+  // Every field's selection, as AppKit's text views draw it: the system's
+  // highlight in the appearance shown, where Chromium's own mixers end on
+  // Material's tonal container in dark.
+  mixer[ui::kColorTextfieldSelectionBackground] = {kPaneColorTextSelection};
   // NSColor(white: 0.98) on dark.
   set(kPaneColorPanelTint, Rgba(0x18181B, 0.04), Rgba(0xFAFAFA, 0.05));
   set(kPaneColorAlertPanel, Rgba(0xEBEBEB, 0.95), Rgba(0x2C2C2E, 0.95));

@@ -345,23 +345,6 @@ export async function dialogFieldWidths(
 		.map((element) => element.frame?.w ?? 0);
 }
 
-// Whether a control can be pressed: a disabled one lists no press.
-export async function controlEnabled(
-	pid: number,
-	windowId: number,
-	control: Control,
-): Promise<boolean> {
-	const { value: row } = await readUntil(
-		pid,
-		windowId,
-		{ query: control.title, max_elements: 500 },
-		(tree) => findRow(tree, control),
-		`control "${control.title}"`,
-	);
-
-	return /actions=\[[^\]]*\bpress\b/.test(row);
-}
-
 // A pressable control, by its label and role: its value, and its frame in
 // the window's points from its top left (clickWindow's), for a real click at
 // a part of it.

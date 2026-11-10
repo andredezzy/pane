@@ -200,6 +200,16 @@ export type AppState = {
 	// its message, and its buttons from left to right.
 	alert?: { title: string; message: string; buttons: string[] } | null;
 	pageFullscreen: boolean;
+	// The toolbar as drawn (the Views build's): each control by its view's
+	// name, whether it takes presses, shows, and what it reads as; and
+	// whether the address shows the page's domain and title over its text.
+	toolbar?: {
+		controls: Record<
+			string,
+			{ enabled: boolean; visible: boolean; name: string }
+		>;
+		addressLabel: boolean;
+	};
 	// The address bar's load progress as drawn: started, the share filled,
 	// the opacity, and whether the slow mode's shimmer runs.
 	progressBar: {
@@ -363,12 +373,26 @@ export class PaneApp {
 		return (await this.send<Hit>("hitTest", { x, y })).result;
 	}
 
-	// Where the sidebar's parts and rows are, each by name
-	// ("pane.sidebar.profiles", "pane.tab.<id>"), from the window's top left:
-	// x, y, width, height. A row scrolled out of view lies outside the list's.
+	// Where the sidebar's and the toolbar's parts are, each shown one by name
+	// ("pane.sidebar.profiles", "pane.tab.<id>", "pane.toolbar.back"), from
+	// the window's top left: x, y, width, height. A row scrolled out of view
+	// lies outside the list's.
 	async frames(prefix = "pane."): Promise<Record<string, number[]>> {
 		return (await this.send<Record<string, number[]>>("frames", { prefix }))
 			.result;
+	}
+
+	// A real click at the middle of a part shown by that name (frames), as a
+	// press of it reaches it.
+	async click(name: string) {
+		const [x = 0, y = 0, width = 0, height = 0] =
+			(await this.frames(name))[name] ?? [];
+
+		if (width === 0 || height === 0) {
+			throw new Error(`click: nothing named ${name} shows`);
+		}
+
+		await this.send("clickWindow", { x: x + width / 2, y: y + height / 2 });
 	}
 
 	// Polls the app's state until `predicate` holds.

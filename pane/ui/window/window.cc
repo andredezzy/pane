@@ -7,7 +7,6 @@
 
 #include "base/functional/bind.h"
 #include "base/location.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -85,6 +84,10 @@ void Window::Open() {
                                             base::Unretained(controller));
   sidebar.toggle_settings = base::BindRepeating(&Controller::ToggleSettings,
                                                 base::Unretained(controller));
+  sidebar.update = base::BindRepeating(&Controller::DownloadUpdate,
+                                       base::Unretained(controller));
+  sidebar.dismiss_update = base::BindRepeating(&Controller::DismissUpdate,
+                                               base::Unretained(controller));
   sidebar.move_profile = base::BindRepeating(&Controller::MoveProfile,
                                              base::Unretained(controller));
   sidebar.move_tab =
@@ -95,11 +98,21 @@ void Window::Open() {
                                              base::Unretained(controller));
   callbacks.resize.reset = base::BindRepeating(&Controller::ResetSidebarWidth,
                                                base::Unretained(controller));
-  callbacks.address_entered = base::BindRepeating(&Controller::AddressEntered,
-                                                  base::Unretained(controller));
-  callbacks.back =
+  ToolbarView::Callbacks& toolbar = callbacks.toolbar;
+  toolbar.back =
       base::BindRepeating(&Controller::Back, base::Unretained(controller));
-  auto root = std::make_unique<RootView>(std::move(callbacks));
+  toolbar.forward =
+      base::BindRepeating(&Controller::Forward, base::Unretained(controller));
+  toolbar.reload =
+      base::BindRepeating(&Controller::Reload, base::Unretained(controller));
+  toolbar.stop =
+      base::BindRepeating(&Controller::Stop, base::Unretained(controller));
+  toolbar.address_entered = base::BindRepeating(&Controller::AddressEntered,
+                                                base::Unretained(controller));
+  toolbar.address_left = base::BindRepeating(&Controller::AddressLeft,
+                                             base::Unretained(controller));
+  auto root = std::make_unique<RootView>(std::move(callbacks),
+                                         &controller->LoadProgress());
   root_ = root.get();
   host_ = std::make_unique<WindowHost>(this, gfx::Rect(kWindowSize),
                                        std::move(root));
@@ -179,7 +192,6 @@ void Window::ShowTab(content::WebContents* contents, bool chosen) {
   }
   root_->ShowPage(contents);
   if (chosen) {
-    root_->SetAddress(base::UTF8ToUTF16(contents->GetVisibleURL().spec()));
     // The page has the keyboard, as a tab chosen in Chrome does.
     root_->FocusPage();
   }
@@ -187,12 +199,11 @@ void Window::ShowTab(content::WebContents* contents, bool chosen) {
   Refresh();
 }
 
-void Window::ShowNoPage(const std::u16string& address) {
+void Window::ShowNoPage() {
   if (!root_) {
     return;
   }
   ClearPage();
-  root_->SetAddress(address);
   Refresh();
 }
 

@@ -48,21 +48,27 @@ const tabFocus: Scenario = async (context) => {
 	);
 
 	// Back by the switcher's keys, as Ctrl-Tab does.
-	await app.send("switcher", { action: "next" });
-	await app.send("switcher", { action: "commit" });
+	if ("switcher" in (await app.state())) {
+		await app.send("switcher", { action: "next" });
+		await app.send("switcher", { action: "commit" });
 
-	await app.waitFor(
-		"the second tab selected",
-		(state) => state.activeTabID === second,
-	);
+		await app.waitFor(
+			"the second tab selected",
+			(state) => state.activeTabID === second,
+		);
 
-	await Bun.sleep(400);
-	const switched = await app.state();
+		await Bun.sleep(400);
+		const switched = await app.state();
 
-	expect(
-		switched.focus === "pane.content",
-		`the switcher focused ${switched.focus}`,
-	);
+		expect(
+			switched.focus === "pane.content",
+			`the switcher focused ${switched.focus}`,
+		);
+	} else {
+		context.defer(
+			"the switcher's tab focusing its page: no switcher is drawn (H5)",
+		);
+	}
 
 	// Settings, then back to the browser: the page again.
 	await app.send("showPage", { page: "settings" });

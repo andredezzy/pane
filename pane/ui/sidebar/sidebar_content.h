@@ -65,6 +65,21 @@ struct SidebarProfile {
   std::vector<SidebarTab> tabs;
 };
 
+// The footer's update pill, while an update is on offer and not dismissed
+// (the updater's ShowsPill).
+struct SidebarUpdate {
+  bool operator==(const SidebarUpdate&) const = default;
+
+  // Its status line: Update available, Downloading update, Restart to
+  // update, or Quit and install.
+  std::u16string label;
+  // The dmg downloads: the dot pulses, and the bar shows the share done.
+  bool downloading = false;
+  double progress = 0;
+  // Downloaded: the text waits for the bar to go.
+  bool downloaded = false;
+};
+
 struct SidebarContent {
   SidebarContent();
   SidebarContent(const SidebarContent&);
@@ -74,6 +89,7 @@ struct SidebarContent {
   std::vector<SidebarProfile> profiles;
   // Settings shows: its row is selected.
   bool settings_shown = false;
+  std::optional<SidebarUpdate> update;
 };
 
 }  // namespace pane

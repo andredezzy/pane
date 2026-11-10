@@ -24,6 +24,8 @@ source_set("pane") {
     "app/pane_main_delegate.h",
     "app/test_copy.cc",
     "app/test_copy.h",
+    "app/version.cc",
+    "app/version.h",
     "app/views_launch.cc",
     "app/views_launch.h",
     "automation/automation.cc",
@@ -93,10 +95,18 @@ source_set("pane") {
     "ui/sidebar/sidebar_view.h",
     "ui/sidebar/tab_row.cc",
     "ui/sidebar/tab_row.h",
+    "ui/sidebar/update_pill.cc",
+    "ui/sidebar/update_pill.h",
     "ui/sidebar/vertical_reorder.cc",
     "ui/sidebar/vertical_reorder.h",
     "ui/tabs/tab_id.cc",
     "ui/tabs/tab_id.h",
+    "ui/toolbar/address_field.cc",
+    "ui/toolbar/address_field.h",
+    "ui/toolbar/toolbar_progress_bar.cc",
+    "ui/toolbar/toolbar_progress_bar.h",
+    "ui/toolbar/toolbar_view.cc",
+    "ui/toolbar/toolbar_view.h",
     "ui/view_ids.cc",
     "ui/view_ids.h",
     "ui/window/empty_state_view.cc",
@@ -106,6 +116,9 @@ source_set("pane") {
     "ui/window/root_view.h",
     "ui/window/window.cc",
     "ui/window/window.h",
+    "updates/update_files.h",
+    "updates/updater.cc",
+    "updates/updater.h",
   ]
 
   # The Swift app's Objective-C API and what drives it, and the Mac's own
@@ -113,6 +126,7 @@ source_set("pane") {
   if (is_mac) {
     sources += [
       "app/data_launch_mac.mm",
+      "app/version_mac.mm",
       "automation/input_mac.mm",
       "automation/windows_mac.mm",
       "browser/browser_application.mm",
@@ -169,6 +183,7 @@ source_set("pane") {
       "ui/interaction_log_mac.mm",
       "ui/sidebar/resize_cursor_mac.mm",
       "ui/window/frame_mac.mm",
+      "updates/update_files_mac.mm",
     ]
   }
 
@@ -253,6 +268,8 @@ source_set("pane") {
     "//pane/ui/design",
     "//pane/ui/tabs:favicons",
     "//printing/buildflags",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
     "//skia",
     "//third_party/blink/public/common",
     "//third_party/icu",

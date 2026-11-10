@@ -2,6 +2,8 @@
 
 > **Partly replaced by [ADR 0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md)** — the update to the new identifier does not install itself from 0.13.1 and before, whose check wants the identifier they have: their update opens the dmg.
 
+> **On the Views line** (`docs/plans/views-migration.md`, H4): the pill (`pane/ui/sidebar/update_pill.cc`) runs its bar out to 7 points from its end and draws it back under the pointer, the dismiss button showing once the bar has cleared it (`Motion.hover`, `Motion.hoverTurn`). Staging, the swap at quit, and Restart to update are K1's installer: until then a download ends on Quit and install.
+
 Pane installs a downloaded update itself, at quit, so the user no longer drags it from the dmg. The user asked for it after an update from 0.7.0 ended on "Pane Not Opened". ADR 0002 had left installing to the user until a Developer ID, and DESIGN.md said Pane, ad-hoc signed, "can't safely replace itself in place". It can, through these steps:
 
 1. **Check.** Once the dmg matches the release's SHA-256 and leaves quarantine (ADR 0002), Pane mounts it at a folder of its own: with `diskutil image attach` on macOS 27, which deprecates hdiutil's attach and detach, and with hdiutil on earlier systems. The Pane inside must carry this app's identifier (`xyz.roundedcorners.pane` since ADR 0114) at the offered version, with its signature whole (`codesign --verify --deep --strict`).

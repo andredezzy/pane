@@ -23,6 +23,7 @@
 #include "pane/ui/sidebar/row_list.h"
 #include "pane/ui/sidebar/sidebar_button.h"
 #include "pane/ui/sidebar/tab_row.h"
+#include "pane/ui/sidebar/update_pill.h"
 #include "pane/ui/view_ids.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -48,7 +49,8 @@ constexpr int kHeaderBottom = 1;
 constexpr int kCollapseAllSize = 28;
 constexpr TextStyle kTitle{12, weight::kSemibold, 0};
 
-// The footer (px-2 pb-2): New, a rule, Settings, 6 apart.
+// The footer (px-2 pb-2): the update pill while it shows, New, a rule,
+// Settings, 6 apart.
 constexpr int kFooterInset = 8;
 constexpr int kFooterSpacing = 6;
 constexpr int kRuleHeight = 1;
@@ -148,6 +150,9 @@ SidebarView::SidebarView(Callbacks callbacks)
   rows_->AddPreTargetHandler(reorder_.get());
 
   footer_ = AddChildView(std::make_unique<views::View>());
+  pill_ = footer_->AddChildView(std::make_unique<UpdatePill>(
+      callbacks_.update, callbacks_.dismiss_update));
+  pill_->SetVisible(false);
   new_ = footer_->AddChildView(std::make_unique<SidebarButton>(
       callbacks_.new_profile, SidebarButton::Mark::kPlus, u"New"));
   new_->SetID(kViewIdSidebarNew);
@@ -170,6 +175,7 @@ void SidebarView::SetContent(const SidebarContent& content) {
   // Before the rows, which a drag's copy reads as they change.
   content_ = content;
   SetRows(content);
+  SetUpdate(content.update);
   settings_->SetSelected(content.settings_shown);
   settings_->GetViewAccessibility().SetIsSelected(content.settings_shown);
 
@@ -191,6 +197,31 @@ void SidebarView::SetContent(const SidebarContent& content) {
                                   weak_factory_.GetWeakPtr(), animated));
   }
   selected_tab_ = std::move(selected);
+}
+
+void SidebarView::SetUpdate(const std::optional<SidebarUpdate>& update) {
+  if (update) {
+    pill_->Set(*update);
+    if (!pill_->shown()) {
+      pill_->SetVisible(true);
+      pill_->Show(true, base::OnceClosure());
+      InvalidateLayout();
+    }
+    return;
+  }
+  if (pill_->shown()) {
+    pill_->Show(false, base::BindOnce(
+                           [](SidebarView* sidebar) {
+                             sidebar->pill_->SetVisible(false);
+                             sidebar->InvalidateLayout();
+                           },
+                           base::Unretained(this)));
+  }
+}
+
+int SidebarView::FooterHeight() const {
+  return kFooterHeight +
+         (pill_->GetVisible() ? UpdatePill::kHeight + kFooterSpacing : 0);
 }
 
 void SidebarView::SetCanCollapseAll(bool can_collapse_all) {
@@ -407,6 +438,11 @@ SidebarView::NamedViews() const {
       {"pane.sidebar.new", new_},
       {"pane.sidebar.settings", settings_},
   };
+  if (pill_->GetVisible()) {
+    named.emplace_back("pane.sidebar.updatePill", pill_);
+    named.emplace_back("pane.sidebar.update", pill_->button());
+    named.emplace_back("pane.sidebar.update.dismiss", pill_->dismiss());
+  }
   if (const DragCopy* copy = reorder_->copy()) {
     named.emplace_back("pane.sidebar.dragCopy", copy->card_view());
   }
@@ -513,10 +549,16 @@ void SidebarView::Layout(PassKey) {
                     std::max(collapse_all_->x() - 8 - kHeaderLeading, 0),
                     header_row);
 
-  footer_->SetBounds(0, std::max(height() - kFooterHeight, kHeaderHeight),
-                     width(), kFooterHeight);
+  const int footer_height = FooterHeight();
+  footer_->SetBounds(0, std::max(height() - footer_height, kHeaderHeight),
+                     width(), footer_height);
   const int row_width = std::max(width() - 2 * kFooterInset, 0);
-  new_->SetBounds(kFooterInset, 0, row_width, RowButton::kHeight);
+  int top = 0;
+  if (pill_->GetVisible()) {
+    pill_->SetBounds(kFooterInset, top, row_width, UpdatePill::kHeight);
+    top = pill_->bounds().bottom() + kFooterSpacing;
+  }
+  new_->SetBounds(kFooterInset, top, row_width, RowButton::kHeight);
   rule_->SetBounds(kFooterInset, new_->bounds().bottom() + kFooterSpacing,
                    row_width, kRuleHeight);
   settings_->SetBounds(kFooterInset, rule_->bounds().bottom() + kFooterSpacing,

@@ -9,8 +9,8 @@
 #include "base/memory/raw_ptr.h"
 #include "pane/ui/sidebar/resize_handle.h"
 #include "pane/ui/sidebar/sidebar_view.h"
+#include "pane/ui/toolbar/toolbar_view.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
-#include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/view.h"
 
 class SkPath;
@@ -20,14 +20,16 @@ class WebContents;
 }  // namespace content
 
 namespace views {
-class Textfield;
 class WebView;
 }  // namespace views
 
 namespace pane {
 
+namespace model {
+class ToolbarProgress;
+}
+
 class EmptyStateView;
-class IconButton;
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
 // as the Electron app laid it out: the sidebar's column on the left, 260
@@ -37,13 +39,10 @@ class IconButton;
 // its card; with no tab selected, the empty state. A page's fullscreen fills
 // the window, the sidebar and the toolbar stepping aside (ADR 0025). The
 // window moves by its background, the sidebar's header included (ADR 0036).
-class RootView : public views::View, public views::TextfieldController {
+class RootView : public views::View {
   METADATA_HEADER(RootView, views::View)
 
  public:
-  // Return in the address field, with what it holds.
-  using AddressEntered = base::RepeatingCallback<void(const std::u16string&)>;
-
   struct Callbacks {
     Callbacks();
     Callbacks(Callbacks&&);
@@ -52,8 +51,7 @@ class RootView : public views::View, public views::TextfieldController {
 
     SidebarView::Callbacks sidebar;
     ResizeHandle::Callbacks resize;
-    AddressEntered address_entered;
-    base::RepeatingClosure back;
+    ToolbarView::Callbacks toolbar;
   };
 
   // What the content panel shows: the browser page with a tab selected,
@@ -62,16 +60,22 @@ class RootView : public views::View, public views::TextfieldController {
 
   // The rest of what the window shows, from the app.
   struct Shows {
+    Shows();
+    Shows(const Shows&);
+    Shows& operator=(const Shows&);
+    ~Shows();
+
     Content content = Content::kEmpty;
     // The sidebar's width, in points (ADR 0061): the settings', or a drag's.
     double sidebar_width = 260;
-    // The shown page has somewhere to go back to.
-    bool can_go_back = false;
     // Some profile is expanded.
     bool can_collapse_all = false;
+    // The selected tab's toolbar.
+    ToolbarView::Shows toolbar;
   };
 
-  explicit RootView(Callbacks callbacks);
+  // `progress`, the app's, outlives the view.
+  RootView(Callbacks callbacks, model::ToolbarProgress* progress);
   RootView(const RootView&) = delete;
   RootView& operator=(const RootView&) = delete;
   ~RootView() override;
@@ -81,13 +85,13 @@ class RootView : public views::View, public views::TextfieldController {
   // The sidebar at `width`, as a drag of its edge lays it out, step by step.
   void SetSidebarWidth(double width);
   SidebarView* sidebar() { return sidebar_; }
+  ToolbarView* toolbar() { return toolbar_; }
   // The page fills the window, or leaves it.
   void SetPageFullscreen(bool fullscreen);
   bool page_fullscreen() const { return page_fullscreen_; }
 
   void ShowPage(content::WebContents* contents);
   content::WebContents* page() const;
-  void SetAddress(const std::u16string& address);
   void FocusAddress();
   void FocusPage();
   std::u16string address() const;
@@ -113,10 +117,6 @@ class RootView : public views::View, public views::TextfieldController {
   void Layout(PassKey) override;
   void OnPaint(gfx::Canvas* canvas) override;
 
-  // views::TextfieldController:
-  bool HandleKeyEvent(views::Textfield* sender,
-                      const ui::KeyEvent& key_event) override;
-
  private:
   // The content panel's shape, where the window draws its card.
   SkPath PanelPath() const;
@@ -133,9 +133,7 @@ class RootView : public views::View, public views::TextfieldController {
   gfx::Rect panel_bounds_;
   raw_ptr<SidebarView> sidebar_ = nullptr;
   raw_ptr<ResizeHandle> resize_ = nullptr;
-  raw_ptr<views::View> toolbar_ = nullptr;
-  raw_ptr<IconButton> back_ = nullptr;
-  raw_ptr<views::Textfield> address_ = nullptr;
+  raw_ptr<ToolbarView> toolbar_ = nullptr;
   raw_ptr<views::WebView> page_ = nullptr;
   raw_ptr<EmptyStateView> empty_ = nullptr;
   raw_ptr<views::View> sheet_ = nullptr;

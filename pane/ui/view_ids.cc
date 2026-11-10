@@ -20,8 +20,16 @@ std::string_view ViewIdName(int id) {
       return "pane.toolbar";
     case kViewIdBack:
       return "pane.toolbar.back";
+    case kViewIdForward:
+      return "pane.toolbar.forward";
+    case kViewIdReload:
+      return "pane.toolbar.reload";
     case kViewIdAddress:
       return "pane.toolbar.address";
+    case kViewIdLoadBar:
+      return "pane.toolbar.loadBar";
+    case kViewIdProfileChip:
+      return "pane.toolbar.profile";
     case kViewIdContent:
       return "pane.content";
     case kViewIdEmpty:
@@ -42,6 +50,12 @@ std::string_view ViewIdName(int id) {
       return "pane.sidebar.resize";
     case kViewIdDragCopy:
       return "pane.sidebar.dragCopy";
+    case kViewIdUpdatePill:
+      return "pane.sidebar.updatePill";
+    case kViewIdUpdate:
+      return "pane.sidebar.update";
+    case kViewIdUpdateDismiss:
+      return "pane.sidebar.update.dismiss";
     default:
       return std::string_view();
   }

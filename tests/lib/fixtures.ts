@@ -70,12 +70,13 @@ async function route(
 	}
 
 	// A stand-in for GitHub's latest release (every launch checks it):
-	// `?tag=v99.0.0` offers that version, else an old one. Each dmg carries
-	// its SHA-256 as GitHub gives it; `?digest=wrong` gives another, and
-	// `?digest=none` none.
+	// `?tag=v99.0.0` offers that version, else 0.0.0, which no build is
+	// behind: a build that isn't packaged carries no version and reads
+	// 0.0.0. Each dmg carries its SHA-256 as GitHub gives it;
+	// `?digest=wrong` gives another, and `?digest=none` none.
 	if (pathname === "/releases/latest") {
 		const { searchParams } = new URL(request.url);
-		const tag = searchParams.get("tag") ?? "v0.0.1";
+		const tag = searchParams.get("tag") ?? "v0.0.0";
 		const version = tag.replace(/^v/, "");
 		const digest = searchParams.get("digest");
 		const downloads = await slowDownloads();

@@ -20,8 +20,10 @@
 #include "pane/browser/profile_contexts.h"
 #include "pane/model/browser_model.h"
 #include "pane/model/crash_loop.h"
+#include "pane/model/toolbar_progress.h"
 #include "pane/ui/tabs/favicons.h"
 #include "pane/ui/window/window.h"
+#include "pane/updates/updater.h"
 #include "url/gurl.h"
 
 class Profile;
@@ -55,7 +57,8 @@ struct ProfileDraft;
 class UiApp : public AppData::Client,
               public Window::Controller,
               public model::BrowserModel::Observer,
-              public Favicons::Observer {
+              public Favicons::Observer,
+              public Updater::Observer {
  public:
   // Starts it, once the browser has started and the data opened (OpenData).
   static void Start();
@@ -66,6 +69,7 @@ class UiApp : public AppData::Client,
   ~UiApp() override;
 
   Window* window() { return window_.get(); }
+  Updater& updater() { return *updater_; }
   model::BrowserModel& model();
   const model::BrowserModel& model() const;
 
@@ -135,13 +139,21 @@ class UiApp : public AppData::Client,
   void CollapseAll() override;
   void NewProfile() override;
   void ToggleSettings() override;
+  void DownloadUpdate() override;
+  void DismissUpdate() override;
   void MoveProfile(int from, int to) override;
   void MoveTab(const std::string& profile_id, int from, int to) override;
   void ResizeSidebar(double width) override;
   void EndSidebarResize() override;
   void ResetSidebarWidth() override;
   void AddressEntered(const std::u16string& text) override;
+  void AddressLeft() override;
   void Back() override;
+  void Forward() override;
+  // Reload, or a crashed tab's page made again (the sad tab's Reload).
+  void Reload() override;
+  void Stop() override;
+  model::ToolbarProgress& LoadProgress() override;
   void NewTab() override;
   void SelectTabAt(int number) override;
   void TabInserted(content::WebContents* contents,
@@ -162,6 +174,9 @@ class UiApp : public AppData::Client,
 
   // Favicons::Observer:
   void OnFaviconChanged(const std::string& tab_id) override;
+
+  // Updater::Observer:
+  void OnUpdaterChanged() override;
 
  private:
   // A tab's page, as the model hears of it.
@@ -194,6 +209,15 @@ class UiApp : public AppData::Client,
   void RemoveTabAndReselect(const std::string& tab_id);
   // The engine answered a delete: the folder goes now, unless a lock came.
   void ProfileDeleted(const std::string& profile_id, bool removes_folder);
+  // A crashed tab's page reloads, or is made again, its crash loop starting
+  // over (the Swift's reloadCrashed).
+  void ReloadCrashed(const std::string& tab_id);
+  // How far the tab's page has loaded a new document in its main frame, or
+  // nullopt while it doesn't (ADR 0081).
+  std::optional<double> LoadingOf(const std::string& tab_id) const;
+  // Another tab came forward, or the selected one's page went: the bar shows
+  // its load as it stands, or hides at once.
+  void ShowLoadOf(const std::optional<std::string>& tab_id);
   // The profile sheet (N1's), for New and Edit profile: the prototype's sheet
   // stands in.
   void PresentProfileSheet();
@@ -204,6 +228,10 @@ class UiApp : public AppData::Client,
   void PageFaviconChanged(const std::string& tab_id, const gfx::Image& image);
   // It went somewhere: its history changed.
   void PageNavigated(const std::string& tab_id);
+  // A new document started or stopped loading in its main frame, or went on.
+  void PageLoadingChanged(const std::string& tab_id,
+                          std::optional<double> from,
+                          std::optional<double> to);
   void PageURLChanged(const std::string& tab_id);
   void PageDestroyed(const std::string& tab_id);
   // Its renderer died: the first crash reloads it, and a second within a
@@ -237,6 +265,9 @@ class UiApp : public AppData::Client,
   std::set<std::string> crashed_tab_ids_;
   // Each tab's favicon as the sidebar draws it.
   Favicons favicons_;
+  // The selected tab's load, as the address's bar draws it (the Swift's
+  // progressBar): one for the app, whichever window draws it.
+  model::ToolbarProgress progress_;
   // The saved favicons were decoded ahead, since the profiles last loaded.
   bool favicons_warmed_ = false;
   // Profiles deleted whose engine data hasn't gone yet.
@@ -246,6 +277,10 @@ class UiApp : public AppData::Client,
   base::ScopedObservation<model::BrowserModel, model::BrowserModel::Observer>
       model_observation_{this};
   base::ScopedObservation<Favicons, Favicons::Observer> favicons_observation_{
+      this};
+  // The update check and download, which the pill reads.
+  std::unique_ptr<Updater> updater_;
+  base::ScopedObservation<Updater, Updater::Observer> updater_observation_{
       this};
   base::WeakPtrFactory<UiApp> weak_factory_{this};
 };

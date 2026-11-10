@@ -25,6 +25,10 @@ class Compositor;
 
 namespace pane {
 
+namespace model {
+class ToolbarProgress;
+}
+
 // Pane's window in Views: its widget, holding the hidden Browser of each
 // profile it shows (WindowHost, ADR 0014), and the root view that draws the
 // sidebar, the toolbar, and the selected tab's page. What it shows is the
@@ -65,9 +69,12 @@ class Window : public WindowHost::Delegate,
     // The header's Collapse all: every profile collapses, its pages
     // unloading.
     virtual void CollapseAll() = 0;
-    // The footer's New and Settings.
+    // The footer's New and Settings, and its update pill's click and
+    // dismiss.
     virtual void NewProfile() = 0;
     virtual void ToggleSettings() = 0;
+    virtual void DownloadUpdate() = 0;
+    virtual void DismissUpdate() = 0;
     // A drag's drop in the sidebar: the profile at `from` moved to `to`, or
     // a profile's tab, kept as the model keeps any change.
     virtual void MoveProfile(int from, int to) = 0;
@@ -80,8 +87,15 @@ class Window : public WindowHost::Delegate,
 
     // Return in the address field, with what it holds.
     virtual void AddressEntered(const std::u16string& text) = 0;
-    // The toolbar's Back.
+    // Esc in the address field: the page takes the keys back.
+    virtual void AddressLeft() = 0;
+    // The toolbar's Back, Forward, Reload, and Stop.
     virtual void Back() = 0;
+    virtual void Forward() = 0;
+    virtual void Reload() = 0;
+    virtual void Stop() = 0;
+    // The selected tab's load, as the address's bar draws it.
+    virtual model::ToolbarProgress& LoadProgress() = 0;
     // ⌘T.
     virtual void NewTab() = 0;
     // ⌘1 to ⌘8: the profile's tab at that place; ⌘9, its last.
@@ -135,8 +149,8 @@ class Window : public WindowHost::Delegate,
   // in Chrome does; ⌘T's keeps it in the address field.
   void ShowTab(content::WebContents* contents, bool chosen);
   // No page shows: the selected tab's comes after the frame that answers the
-  // input, or none is selected. The address field shows `address`.
-  void ShowNoPage(const std::u16string& address);
+  // input, or none is selected.
+  void ShowNoPage();
   // The page leaves the window, as its tab unloads.
   void ClearPage();
   content::WebContents* selected() const;

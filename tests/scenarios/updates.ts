@@ -1,6 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { canDriveUI, invokeMenu } from "../lib/cua";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
@@ -219,18 +218,13 @@ const updates: Scenario = async (context) => {
 	);
 
 	// The app menu's Check for Updates… checks again (the checking state
-	// holds 0.8s at least). Accessibility, which chooses it as a user does,
-	// is off on a locked screen or without cua-driver: the menu item's own
-	// action runs instead.
-	if (!(await canDriveUI())) {
-		context.defer(
-			"Check for Updates… chosen through accessibility: off on a locked screen or without cua-driver",
-		);
+	// holds 0.8s at least): the menu item's own action, until the menu bar
+	// (H7) gives accessibility one to choose as a user does.
+	context.defer(
+		"Check for Updates… chosen in the menu bar through accessibility: the menu bar is H7's",
+	);
 
-		await current.send("menu", { path: ["Pane", "Check for Updates…"] });
-	} else {
-		await invokeMenu(current.browser.pid, ["Pane", "Check for Updates…"]);
-	}
+	await current.send("menu", { path: ["Pane", "Check for Updates…"] });
 
 	await current.waitFor(
 		"checking from the menu",

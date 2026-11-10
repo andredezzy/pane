@@ -3,20 +3,54 @@
 #ifndef PANE_UI_DESIGN_FIELD_H_
 #define PANE_UI_DESIGN_FIELD_H_
 
+#include <memory>
 #include <optional>
 #include <string>
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/scoped_observation.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/text.h"
 #include "ui/color/color_variant.h"
 #include "ui/views/controls/textfield/textfield.h"
+#include "ui/views/view_observer.h"
+#include "ui/views/widget/widget_observer.h"
 
 namespace pane {
 
 class FocusRing;
+
+// A field's selection as the platform's own text views draw theirs: the
+// system's highlight while the field's window has the keys, and its
+// unemphasized one while it doesn't (an NSTextField's, which the Swift's
+// fields were). The field owns it.
+class SelectionFollowsWindow : public views::ViewObserver,
+                               public views::WidgetObserver {
+ public:
+  explicit SelectionFollowsWindow(views::Textfield* field);
+  SelectionFollowsWindow(const SelectionFollowsWindow&) = delete;
+  SelectionFollowsWindow& operator=(const SelectionFollowsWindow&) = delete;
+  ~SelectionFollowsWindow() override;
+
+  // views::ViewObserver:
+  void OnViewAddedToWidget(views::View* view) override;
+  void OnViewRemovedFromWidget(views::View* view) override;
+
+  // views::WidgetObserver:
+  void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
+  void OnWidgetDestroying(views::Widget* widget) override;
+
+ private:
+  void Follow(views::Widget* widget);
+
+  const raw_ptr<views::Textfield> field_;
+  base::ScopedObservation<views::View, views::ViewObserver> view_observation_{
+      this};
+  base::ScopedObservation<views::Widget, views::WidgetObserver>
+      widget_observation_{this};
+};
 
 // Pane's text field (Fields.swift's PaneTextField): Chromium's Textfield,
 // which brings IME, undo, Cut/Copy/Paste, Services, and accessibility, drawn
@@ -63,6 +97,7 @@ class Field : public views::Textfield {
   raw_ptr<FocusRing> ring_ = nullptr;
   bool made_layer_ = false;
   base::CallbackListSubscription enabled_subscription_;
+  SelectionFollowsWindow selection_{this};
 };
 
 }  // namespace pane

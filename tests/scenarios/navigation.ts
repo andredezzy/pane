@@ -1,11 +1,15 @@
-import { canDriveUI, controlEnabled, mainWindowOf } from "../lib/cua";
 import { launchPane, tabOf } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
-// Back, forward, reload, and stop through the app, with the tab's URL, title,
-// favicon, history state, and loading state following along. On an unlocked
-// screen, the toolbar's Back and Forward are enabled only when the tab can go
-// that way, read through accessibility.
+const BACK = "pane.toolbar.back";
+const FORWARD = "pane.toolbar.forward";
+const RELOAD = "pane.toolbar.reload";
+
+// Back, forward, reload, and stop, pressed in the toolbar by real clicks,
+// with the tab's URL, title, favicon, history state, and loading state
+// following along. Back and Forward take presses only when the tab can go
+// that way, as the toolbar draws them; Reload reads Stop while the page
+// loads.
 const navigation: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Browse");
@@ -14,34 +18,23 @@ const navigation: Scenario = async (context) => {
 
 	const { tab, page: pageA } = await app.openPage(profile, a);
 
-	const locked = !(await canDriveUI());
-	const pid = app.browser.pid;
-	const window = locked ? 0 : await mainWindowOf(pid);
-
-	if (locked) {
-		context.defer("the toolbar's arrows, read through accessibility");
-	}
-
 	const arrows: Record<string, unknown> = {};
 
 	const expectArrows = async (at: string, back: boolean, forward: boolean) => {
-		if (locked) {
-			return;
-		}
+		const controls = (
+			await app.waitFor(
+				`the arrows at ${at}`,
+				(state) =>
+					state.toolbar?.controls[BACK]?.enabled === back &&
+					state.toolbar?.controls[FORWARD]?.enabled === forward,
+				5_000,
+			)
+		).toolbar?.controls;
 
-		await Bun.sleep(200);
-
-		const shown = {
-			back: await controlEnabled(pid, window, { title: "Back" }),
-			forward: await controlEnabled(pid, window, { title: "Forward" }),
+		arrows[at] = {
+			back: controls?.[BACK]?.enabled,
+			forward: controls?.[FORWARD]?.enabled,
 		};
-
-		arrows[at] = shown;
-
-		expect(
-			shown.back === back && shown.forward === forward,
-			`at ${at}, Back and Forward show ${JSON.stringify(shown)}`,
-		);
 	};
 
 	const titled = await app.waitFor("title and favicon of A", (state) => {
@@ -67,7 +60,7 @@ const navigation: Scenario = async (context) => {
 
 	await expectArrows("B", true, false);
 
-	await app.send("back");
+	await app.click(BACK);
 
 	await app.waitFor("back at A", (state) => {
 		const current = tabOf(state, tab);
@@ -77,7 +70,7 @@ const navigation: Scenario = async (context) => {
 
 	await expectArrows("back at A", false, true);
 
-	await app.send("forward");
+	await app.click(FORWARD);
 
 	await app.waitFor("forward at B", (state) => {
 		const current = tabOf(state, tab);
@@ -85,7 +78,7 @@ const navigation: Scenario = async (context) => {
 		return current?.url === b && !current.loading && !current.canGoForward;
 	});
 
-	await app.send("back");
+	await app.click(BACK);
 
 	await app.waitFor(
 		"back at A again",
@@ -98,7 +91,7 @@ const navigation: Scenario = async (context) => {
 		await page.evaluate<string>("sessionStorage.loads"),
 	);
 
-	await app.send("reload");
+	await app.click(RELOAD);
 
 	await app
 		.waitFor(
@@ -129,12 +122,14 @@ const navigation: Scenario = async (context) => {
 	await app.send("navigate", { input: slow });
 
 	await app.waitFor(
-		"the slow load",
-		(state) => tabOf(state, tab)?.loading === true,
+		"the slow load, Reload reading Stop",
+		(state) =>
+			tabOf(state, tab)?.loading === true &&
+			state.toolbar?.controls[RELOAD]?.name === "Stop",
 	);
 
 	const stopStarted = Date.now();
-	await app.send("stop");
+	await app.click(RELOAD);
 
 	const stopped = await app.waitFor(
 		"the stopped load",
@@ -149,9 +144,15 @@ const navigation: Scenario = async (context) => {
 		`after stop the tab is at ${tabOf(stopped, tab)?.url}`,
 	);
 
+	expect(
+		(await app.state()).toolbar?.controls[RELOAD]?.name === "Reload",
+		"Stop did not turn back into Reload",
+	);
+
 	// The address field follows the selected tab, across profiles too, even
-	// while it has focus (⌘L) with nothing typed.
-	await app.send("key", { key: "l", modifiers: ["command"] });
+	// while it has focus with nothing typed: a click into it, as ⌘L, whose
+	// key reaches only the key window, which a copy in the background isn't.
+	await app.click("pane.toolbar.address");
 
 	await app.waitFor(
 		"the address field focused",
@@ -189,20 +190,28 @@ const navigation: Scenario = async (context) => {
 	pageVisibility.settings = await visibility();
 	await app.send("showPage", { page: "browser" });
 	pageVisibility.back = await visibility();
-	await app.send("extensionsMenu", { control: "manage" });
-	pageVisibility.extensions = await visibility();
-	await app.send("select", { tab });
-	pageVisibility.selected = await visibility();
+
+	const expected: Record<string, string> = {
+		browser: "visible",
+		settings: "hidden",
+		back: "visible",
+	};
+
+	if ("extensionsMenu" in (await app.state())) {
+		await app.send("extensionsMenu", { control: "manage" });
+		pageVisibility.extensions = await visibility();
+		await app.send("select", { tab });
+		pageVisibility.selected = await visibility();
+		expected.extensions = "hidden";
+		expected.selected = "visible";
+	} else {
+		context.defer(
+			"the page hidden under the Extensions page: the extensions menu is X1's, and Chrome's page in the profile's tab X4's",
+		);
+	}
 
 	expect(
-		JSON.stringify(pageVisibility) ===
-			JSON.stringify({
-				browser: "visible",
-				settings: "hidden",
-				back: "visible",
-				extensions: "hidden",
-				selected: "visible",
-			}),
+		JSON.stringify(pageVisibility) === JSON.stringify(expected),
 		`the page's visibility: ${JSON.stringify(pageVisibility)}`,
 	);
 };

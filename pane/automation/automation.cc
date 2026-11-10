@@ -33,6 +33,7 @@
 #include "pane/ui/sidebar/profile_row.h"
 #include "pane/ui/sidebar/sidebar_view.h"
 #include "pane/ui/sidebar/tab_row.h"
+#include "pane/ui/toolbar/toolbar_view.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
@@ -303,6 +304,39 @@ void Automation::Dispatch(const std::string& name,
       return;
     }
     app_->AddressEntered(base::UTF8ToUTF16(*input));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The toolbar's Back, Forward, Reload (a crashed tab's too), and Stop, as
+  // their presses run them.
+  if (name == "back" || name == "forward" || name == "reload" ||
+      name == "stop") {
+    if (name == "back") {
+      app_->Back();
+    } else if (name == "forward") {
+      app_->Forward();
+    } else if (name == "reload") {
+      app_->Reload();
+    } else {
+      app_->Stop();
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The update check (the app menu's, Settings'), the pill's click, its
+  // dismiss, and Restart to update, which waits for a staged update (K1's
+  // installer) and does nothing without one, as the Swift's did.
+  if (name == "checkUpdates" || name == "downloadUpdate" ||
+      name == "dismissUpdate" || name == "restartToUpdate") {
+    if (name == "checkUpdates") {
+      app_->updater().Check();
+    } else if (name == "downloadUpdate") {
+      app_->DownloadUpdate();
+    } else if (name == "dismissUpdate") {
+      app_->DismissUpdate();
+    }
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -597,6 +631,9 @@ void Automation::Dispatch(const std::string& name,
     } else if (items ==
                std::vector<std::string>{"Navigate", "Focus Address Bar"}) {
       window->FocusAddress();
+    } else if (items ==
+               std::vector<std::string>{"Pane", "Check for Updates…"}) {
+      app_->updater().Check();
     } else {
       std::move(reply).Run(base::Value(), "no such menu item");
       return;
@@ -826,18 +863,22 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // Where the sidebar's parts and rows are, each by what the Swift app named
-  // it ("pane.sidebar.profiles", "pane.tab.<id>"), from the window's top left:
-  // x, y, width, height. A row scrolled out of view lies outside the list's.
+  // Where the sidebar's and the toolbar's parts are, each shown one by what
+  // the Swift app named it ("pane.sidebar.profiles", "pane.tab.<id>",
+  // "pane.toolbar.back"), from the window's top left: x, y, width, height. A
+  // row scrolled out of view lies outside the list's.
   if (name == "frames") {
     const std::string* prefix = command.FindString("prefix");
     base::DictValue frames;
     const views::View* root = widget->GetRootView();
-    if (SidebarView* sidebar = window->root()->sidebar()) {
-      for (const auto& [view_name, view] : sidebar->NamedViews()) {
-        if (!prefix || view_name.starts_with(*prefix)) {
-          frames.Set(view_name, FrameIn(view, root));
-        }
+    std::vector<std::pair<std::string, const views::View*>> named =
+        window->root()->sidebar()->NamedViews();
+    for (auto& entry : window->root()->toolbar()->NamedViews()) {
+      named.push_back(std::move(entry));
+    }
+    for (const auto& [view_name, view] : named) {
+      if (view->IsDrawn() && (!prefix || view_name.starts_with(*prefix))) {
+        frames.Set(view_name, FrameIn(view, root));
       }
     }
     std::move(reply).Run(base::Value(std::move(frames)), std::string());

@@ -12,8 +12,6 @@
 #include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
-#include "pane/ui/design/icon_button.h"
-#include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
@@ -25,7 +23,6 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
-#include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -54,13 +51,6 @@ constexpr int kPanelInset = 8;
 constexpr float kRingRadius = radius::kPanel + 1;
 constexpr gfx::Vector2dF kShadowOffset(0, 2);
 constexpr float kShadowSigma = 4;
-
-// The toolbar's row: the page starts 43 points down the panel, a pixel under
-// the toolbar's 42 (the Electron app's TOOLBAR_HEIGHT less its gutter). Its
-// buttons, 32-point circles, start 5 in.
-constexpr int kToolbarHeight = 43;
-constexpr int kToolbarLeading = 5;
-constexpr int kToolbarButtonSize = 32;
 
 // The page's corners, the panel's, as a layer draws them: a circle of the
 // radius that follows the squircle within a fifth of a pixel (ADR 0057), so
@@ -156,7 +146,13 @@ RootView::Callbacks::Callbacks(Callbacks&&) = default;
 RootView::Callbacks& RootView::Callbacks::operator=(Callbacks&&) = default;
 RootView::Callbacks::~Callbacks() = default;
 
-RootView::RootView(Callbacks callbacks) : callbacks_(std::move(callbacks)) {
+RootView::Shows::Shows() = default;
+RootView::Shows::Shows(const Shows&) = default;
+RootView::Shows& RootView::Shows::operator=(const Shows&) = default;
+RootView::Shows::~Shows() = default;
+
+RootView::RootView(Callbacks callbacks, model::ToolbarProgress* progress)
+    : callbacks_(std::move(callbacks)) {
   SetBackground(views::CreateSolidBackground(kPaneColorWindowBackground));
 
   // The sidebar's column, and its edge over it and the panel's, under every
@@ -165,18 +161,8 @@ RootView::RootView(Callbacks callbacks) : callbacks_(std::move(callbacks)) {
       std::make_unique<SidebarView>(std::move(callbacks_.sidebar)));
 
   // The toolbar's row, at the panel's top while a tab shows.
-  toolbar_ = AddChildView(std::make_unique<views::View>());
-  toolbar_->SetID(kViewIdToolbar);
-  back_ = toolbar_->AddChildView(std::make_unique<IconButton>(
-      callbacks_.back, kToolbarButtonSize,
-      IconButton::Glyph{Icon::kChevronLeft, 24, /*stroke_width=*/1.5f},
-      u"Back"));
-  back_->SetID(kViewIdBack);
-  back_->SetEnabled(false);
-  address_ = toolbar_->AddChildView(std::make_unique<views::Textfield>());
-  address_->SetID(kViewIdAddress);
-  address_->set_controller(this);
-  address_->SetAccessibleName(u"Address");
+  toolbar_ = AddChildView(
+      std::make_unique<ToolbarView>(std::move(callbacks_.toolbar), progress));
 
   // The page in its card, and what shows there with no tab selected.
   page_ = AddChildView(std::make_unique<views::WebView>(nullptr));
@@ -199,7 +185,7 @@ void RootView::SetShows(const Shows& shows) {
       shows.content != shows_.content ||
       std::round(shows.sidebar_width) != std::round(shows_.sidebar_width);
   shows_ = shows;
-  back_->SetEnabled(shows.can_go_back);
+  toolbar_->SetShows(shows.toolbar);
   sidebar_->SetCanCollapseAll(shows.can_collapse_all);
   resize_->SetWidth(shows.sidebar_width);
   if (laid_out_again) {
@@ -265,12 +251,8 @@ content::WebContents* RootView::page() const {
   return page_->web_contents();
 }
 
-void RootView::SetAddress(const std::u16string& address) {
-  address_->SetText(address);
-}
-
 std::u16string RootView::address() const {
-  return std::u16string(address_->GetText());
+  return toolbar_->address();
 }
 
 std::string RootView::focus() const {
@@ -291,8 +273,7 @@ void RootView::FocusPage() {
 }
 
 void RootView::FocusAddress() {
-  address_->RequestFocus();
-  address_->SelectAll(false);
+  toolbar_->FocusAddress();
 }
 
 void RootView::ShowSheet(bool show) {
@@ -322,16 +303,6 @@ void RootView::ShowSheet(bool show) {
 
 bool RootView::sheet_visible() const {
   return sheet_ != nullptr;
-}
-
-bool RootView::HandleKeyEvent(views::Textfield* sender,
-                              const ui::KeyEvent& key_event) {
-  if (key_event.type() != ui::EventType::kKeyPressed ||
-      key_event.key_code() != ui::VKEY_RETURN) {
-    return false;
-  }
-  callbacks_.address_entered.Run(std::u16string(sender->GetText()));
-  return true;
 }
 
 gfx::Rect RootView::PageBounds() const {
@@ -378,14 +349,9 @@ void RootView::Layout(PassKey) {
                       std::max(height() - 2 * kPanelInset, 0));
 
   toolbar_->SetBounds(panel_bounds_.x(), panel_bounds_.y(),
-                      panel_bounds_.width(), kToolbarHeight);
-  const int button_top = (kToolbarHeight - 1 - kToolbarButtonSize) / 2;
-  back_->SetBounds(kToolbarLeading, button_top, kToolbarButtonSize,
-                   kToolbarButtonSize);
-  address_->SetBounds(92, 8, std::max(panel_bounds_.width() - 184, 0),
-                      kToolbarHeight - 16);
+                      panel_bounds_.width(), ToolbarView::kHeight);
 
-  const int top = toolbar_->GetVisible() ? kToolbarHeight : 0;
+  const int top = toolbar_->GetVisible() ? ToolbarView::kHeight : 0;
   page_->SetBounds(panel_bounds_.x(), panel_bounds_.y() + top,
                    panel_bounds_.width(),
                    std::max(panel_bounds_.height() - top, 0));

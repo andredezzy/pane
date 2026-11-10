@@ -12,11 +12,12 @@ class Compositor;
 namespace pane {
 
 // The interactions interaction-timing times, by the names the Swift app
-// gave them.
+// gave them, and a click into the address, which the Swift didn't time.
 enum class Interaction {
   kSelectTab,
   kNewTab,
   kFocusAddressField,
+  kClickAddressField,
   kOpenProfileSheet,
   kChoosePlatform,
 };

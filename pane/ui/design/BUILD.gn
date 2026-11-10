@@ -63,9 +63,13 @@ source_set("design") {
     "//ui/native_theme",
   ]
 
-  # A menu's template icon, which only the Mac's menus tint.
+  # A menu's template icon, which only the Mac's menus tint, and the Mac's
+  # selected-text colors.
   if (is_mac) {
-    sources += [ "menu_icon_mac.mm" ]
+    sources += [
+      "menu_icon_mac.mm",
+      "palette_mac.mm",
+    ]
     frameworks = [ "AppKit.framework" ]
   }
 }

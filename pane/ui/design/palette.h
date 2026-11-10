@@ -100,6 +100,25 @@ enum PaneColorIds : ui::ColorId {
   kPaneColorPrimaryKeyChip,
   // The rule between the address's host and path.
   kPaneColorAddressDivider,
+  // The address field under the pointer: the foreground at 3%.
+  kPaneColorAddressHover,
+  // The address's load bar, the same in both: blue-500 to blue-400 across
+  // what it has filled, and Chrome's shimmer over it, blue-500 with 40%
+  // white (ADR 0081).
+  kPaneColorLoadBarStart,
+  kPaneColorLoadBarEnd,
+  kPaneColorLoadShimmer,
+  // The update pill's fill, the foreground at 5%, and its bar's track, at
+  // 10%.
+  kPaneColorUpdatePill,
+  kPaneColorUpdateTrack,
+  // Selected text in a field, as the platform's own text views draw it: the
+  // system's highlight while the window has the keys, and its unemphasized
+  // one while it doesn't (the Mac's selectedTextBackgroundColor and
+  // unemphasizedSelectedTextBackgroundColor, which follow the user's
+  // Highlight color).
+  kPaneColorTextSelection,
+  kPaneColorTextSelectionInactive,
   // A panel on a dialog's card.
   kPaneColorPanelTint,
   // A page's dialog, drawn as macOS draws an alert (Paper 04.15 to 04.23).
@@ -120,6 +139,10 @@ enum PaneColorIds : ui::ColorId {
 constexpr SkAlpha AlphaOf(float alpha) {
   return static_cast<SkAlpha>(alpha * 255 + 0.5f);
 }
+
+// The platform's selected-text fill in its light or dark appearance, while
+// the window has the keys or doesn't.
+SkColor SystemTextSelection(bool dark, bool key_window);
 
 // Pane's colors for a provider of `key`'s appearance: added once at startup,
 // after Chrome's mixers (AddPaneColorMixer).

@@ -24,6 +24,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/termination_notification.h"
@@ -44,6 +45,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/referrer.h"
+#include "pane/app/version.h"
 #include "pane/automation/automation.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
@@ -57,17 +59,21 @@
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/app/installed_extensions.h"
+#include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/sidebar/sidebar_content.h"
 #include "pane/ui/tabs/tab_id.h"
+#include "pane/ui/toolbar/address_field.h"
+#include "pane/ui/toolbar/toolbar_view.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 
@@ -204,6 +210,42 @@ std::string_view DownloadStateName(
   }
 }
 
+// The toolbar as it shows (the Swift's read it through accessibility): its
+// controls, whether each takes presses and what it reads as, and whether the
+// address shows the page's domain and title over its text.
+base::DictValue ToolbarState(ToolbarView& toolbar) {
+  base::DictValue controls;
+  for (const auto& [name, view] : toolbar.NamedViews()) {
+    controls.Set(
+        name,
+        base::DictValue()
+            .Set("enabled", view->GetEnabled())
+            .Set("visible", view->IsDrawn())
+            .Set("name", base::UTF16ToUTF8(
+                             view->GetViewAccessibility().GetCachedName())));
+  }
+  return base::DictValue()
+      .Set("controls", std::move(controls))
+      .Set("addressLabel", toolbar.address_field()->label_shown());
+}
+
+// The update as the pill, Settings, and the Lock show it, in the Swift app's
+// snapshot's shape.
+base::DictValue UpdateState(const Updater& updater) {
+  const std::optional<model::AvailableUpdate>& available = updater.available();
+  const std::optional<double> progress = updater.download_progress();
+  return base::DictValue()
+      .Set("status", UpdateStatusName(updater.status()))
+      .Set("available",
+           available ? base::Value(available->version) : base::Value())
+      .Set("progress", progress ? base::Value(*progress) : base::Value())
+      .Set("pill", updater.ShowsPill())
+      .Set("label", base::UTF16ToUTF8(updater.Label()))
+      // Staged beside the app, to install at quit (ADR 0092).
+      .Set("installsItself", updater.staged())
+      .Set("checked", updater.checked());
+}
+
 // The profile a page of the window belongs to: its folder's name.
 std::optional<std::string> ProfileIdOf(content::WebContents* contents) {
   Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
@@ -256,11 +298,35 @@ class UiApp::Page : public content::WebContentsObserver,
     app_->PageTitleChanged(tab_id_);
   }
 
-  // Back's state follows the page's history.
+  // How far the page has loaded a new document in its main frame, nullopt
+  // while it doesn't.
+  std::optional<double> loading() const { return loading_; }
+
+  // The page is loading only while a new document loads in its main frame,
+  // as Chrome's own tab and toolbar show it (ShouldShowLoadingUI, ADR 0081).
+  // A frame tree that loads only iframes starts and stops loading too, under
+  // a page already shown. These three cover every change between the two: a
+  // main frame's load reports its progress as it starts and as it ends,
+  // each after its state changed, and the frame tree's start and stop cover
+  // the rest.
+  void DidStartLoading() override { ReportLoading(0); }
+  void DidStopLoading() override { ReportLoading(1); }
+  void LoadProgressChanged(double progress) override {
+    ReportLoading(progress);
+  }
+
+  // Back's and Forward's states follow the page's history.
   void NavigationEntryCommitted(
       const content::LoadCommittedDetails& details) override {
     app_->PageNavigated(tab_id_);
   }
+
+  void NavigationListPruned(
+      const content::PrunedDetails& pruned_details) override {
+    app_->PageNavigated(tab_id_);
+  }
+
+  void NavigationEntriesDeleted() override { app_->PageNavigated(tab_id_); }
 
   void PrimaryPageChanged(content::Page& page) override {
     app_->PageURLChanged(tab_id_);
@@ -272,6 +338,8 @@ class UiApp::Page : public content::WebContentsObserver,
   // a renderer mid-notification, before extensions forgot the old process.
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override {
+    // A dead page loads nothing.
+    loading_.reset();
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(
@@ -291,8 +359,17 @@ class UiApp::Page : public content::WebContentsObserver,
   void WebContentsDestroyed() override { app_->PageDestroyed(tab_id_); }
 
  private:
+  void ReportLoading(double progress) {
+    const std::optional<double> from = loading_;
+    loading_ = web_contents()->ShouldShowLoadingUI()
+                   ? std::optional<double>(progress)
+                   : std::nullopt;
+    app_->PageLoadingChanged(tab_id_, from, loading_);
+  }
+
   const raw_ptr<UiApp> app_;
   const std::string tab_id_;
+  std::optional<double> loading_;
   base::ScopedObservation<favicon::FaviconDriver,
                           favicon::FaviconDriverObserver>
       favicon_observation_{this};
@@ -337,6 +414,20 @@ UiApp::UiApp()
   sidebar_width_ = model().settings().sidebar_width;
   window_->Open();
   window_->Show(/*activate=*/true);
+  // The update check at launch, then every six hours (ADR 0002): the pill
+  // shows what it finds, behind the Lock too.
+  updater_ = std::make_unique<Updater>(
+      PaneVersion(), Updater::Config::FromEnvironment(),
+      g_browser_process->shared_url_loader_factory(),
+      base::BindRepeating(
+          [](base::WeakPtr<UiApp> app) {
+            if (app) {
+              app->Quit(base::DoNothing());
+            }
+          },
+          weak_factory_.GetWeakPtr()));
+  updater_observation_.Observe(updater_.get());
+  updater_->Schedule();
   events_ = AppEvents::Listen(
       base::BindRepeating(&UiApp::ShowWindow, weak_factory_.GetWeakPtr()),
       base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()));
@@ -369,6 +460,8 @@ UiApp::~UiApp() {
   events_.reset();
   automation_.reset();
   model_observation_.Reset();
+  updater_observation_.Reset();
+  updater_.reset();
   // Their pages go with the window's Browsers, as quitting keeps their tabs.
   pages_.clear();
   window_.reset();
@@ -485,15 +578,18 @@ void UiApp::Select(const std::string& tab_id) {
   if (!InteractionAllowed() || !tab || !profile_id) {
     return;
   }
-  const std::u16string address = base::UTF8ToUTF16(tab->url);
   // ⌘T's tab is timed as a new tab (NewTab).
   const bool new_tab = focuses_address_ == tab_id;
-  if (model().active_tab_id() != tab_id && !new_tab) {
+  const bool another = model().active_tab_id() != tab_id;
+  if (another && !new_tab) {
     LogInteraction(Interaction::kSelectTab, window_->compositor());
   }
   model().SelectTab(tab_id);
   model().SetPage(model::BrowserModel::Page::kBrowser);
   model().SetExpanded(*profile_id, true);
+  if (another) {
+    ShowLoadOf(tab_id);
+  }
 
   // The window's one WebView swaps the page left for the one entered in the
   // frame that answers the input.
@@ -505,7 +601,7 @@ void UiApp::Select(const std::string& tab_id) {
   // The engine makes the page after the frame that answers the input (11 ms
   // for a new tab's): the row selected, and a new tab's address field, don't
   // wait for it.
-  window_->ShowNoPage(address);
+  window_->ShowNoPage();
   if (RootView* root = window_->root(); root && new_tab) {
     // A key typed right behind ⌘T goes in the field, not the page left.
     root->FocusAddress();
@@ -694,6 +790,10 @@ void UiApp::Release(const std::string& tab_id) {
   if (window_->selected() == contents) {
     window_->ClearPage();
   }
+  // The selected tab's page went with its load.
+  if (model().active_tab_id() == tab_id) {
+    ShowLoadOf(tab_id);
+  }
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
   TabStripModel* strip = browser ? browser->GetTabStripModel() : nullptr;
@@ -738,7 +838,8 @@ void UiApp::SelectAfterClosing(const std::optional<std::string>& profile_id) {
     Select(*next);
     return;
   }
-  window_->ShowNoPage(std::u16string());
+  window_->ShowNoPage();
+  ShowLoadOf(std::nullopt);
   model().SelectTab(std::nullopt);
   model().SetActiveProfile(profile_id);
 }
@@ -756,12 +857,75 @@ void UiApp::CollapseAll() {
   }
 }
 
-// The toolbar's Back: the shown page's history, a step back.
+// The toolbar's Back and Forward: the selected tab's history, a step.
 void UiApp::Back() {
-  content::WebContents* page = window_->selected();
+  const std::optional<std::string>& active = model().active_tab_id();
+  content::WebContents* page = active ? PageOf(*active) : nullptr;
   if (page && page->GetController().CanGoBack()) {
     page->GetController().GoBack();
   }
+}
+
+void UiApp::Forward() {
+  const std::optional<std::string>& active = model().active_tab_id();
+  content::WebContents* page = active ? PageOf(*active) : nullptr;
+  if (page && page->GetController().CanGoForward()) {
+    page->GetController().GoForward();
+  }
+}
+
+// A crashed tab comes back; one with no page is selected again, which makes
+// it; any other reloads, asking before it posts a form again.
+void UiApp::Reload() {
+  const std::optional<std::string> active = model().active_tab_id();
+  if (!active || !InteractionAllowed()) {
+    return;
+  }
+  if (crashed_tab_ids_.contains(*active)) {
+    ReloadCrashed(*active);
+    return;
+  }
+  content::WebContents* page = PageOf(*active);
+  if (!page) {
+    Select(*active);
+    return;
+  }
+  page->GetController().Reload(content::ReloadType::NORMAL,
+                               /*check_for_repost=*/true);
+}
+
+void UiApp::Stop() {
+  const std::optional<std::string>& active = model().active_tab_id();
+  if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
+    page->Stop();
+  }
+}
+
+void UiApp::ReloadCrashed(const std::string& tab_id) {
+  crashed_tab_ids_.erase(tab_id);
+  crashes_.Forget(tab_id);
+  window_->Refresh();
+  if (content::WebContents* page = PageOf(tab_id)) {
+    page->GetController().Reload(content::ReloadType::NORMAL,
+                                 /*check_for_repost=*/true);
+  } else if (model().active_tab_id() == tab_id) {
+    Select(tab_id);
+  }
+}
+
+model::ToolbarProgress& UiApp::LoadProgress() {
+  return progress_;
+}
+
+std::optional<double> UiApp::LoadingOf(const std::string& tab_id) const {
+  const auto page = pages_.find(tab_id);
+  return page == pages_.end() ? std::nullopt : page->second->loading();
+}
+
+void UiApp::ShowLoadOf(const std::optional<std::string>& tab_id) {
+  progress_.set_reduces_motion(motion::IsReduced());
+  progress_.TabChanged(tab_id ? LoadingOf(*tab_id) : std::nullopt,
+                       base::TimeTicks::Now());
 }
 
 // The window shows again, in front (the Dock's reopen, an app handing over
@@ -817,6 +981,14 @@ void UiApp::MoveProfile(int from, int to) {
 
 void UiApp::MoveTab(const std::string& profile_id, int from, int to) {
   model().MoveTab(profile_id, from, to);
+}
+
+void UiApp::DownloadUpdate() {
+  updater_->DownloadUpdate();
+}
+
+void UiApp::DismissUpdate() {
+  updater_->DismissPill();
 }
 
 void UiApp::ToggleSettings() {
@@ -970,6 +1142,21 @@ void UiApp::PageNavigated(const std::string& tab_id) {
   }
 }
 
+// The selected tab's load moves the bar (the Swift's didChangeLoading); its
+// start and end also turn Reload into Stop and back.
+void UiApp::PageLoadingChanged(const std::string& tab_id,
+                               std::optional<double> from,
+                               std::optional<double> to) {
+  if (model().active_tab_id() != tab_id || !PageOf(tab_id)) {
+    return;
+  }
+  progress_.set_reduces_motion(motion::IsReduced());
+  progress_.LoadingChanged(from, to, base::TimeTicks::Now());
+  if (from.has_value() != to.has_value()) {
+    window_->Refresh();
+  }
+}
+
 void UiApp::PageURLChanged(const std::string& tab_id) {
   content::WebContents* contents = PageOf(tab_id);
   if (!contents) {
@@ -991,6 +1178,10 @@ void UiApp::PageDestroyed(const std::string& tab_id) {
 // normally, nor a page reloaded meanwhile.
 void UiApp::PageCrashed(const std::string& tab_id) {
   content::WebContents* page = PageOf(tab_id);
+  if (page && model().active_tab_id() == tab_id) {
+    progress_.Crashed(base::TimeTicks::Now());
+    window_->Refresh();
+  }
   if (!page || !page->IsCrashed()) {
     return;
   }
@@ -1021,6 +1212,14 @@ SidebarContent UiApp::Sidebar() {
   const bool browser = model.page() == model::BrowserModel::Page::kBrowser;
   SidebarContent content;
   content.settings_shown = model.page() == model::BrowserModel::Page::kSettings;
+  if (updater_ && updater_->ShowsPill()) {
+    content.update = SidebarUpdate{
+        .label = updater_->Label(),
+        .downloading = updater_->status() == Updater::Status::kDownloading,
+        .progress = updater_->download_progress().value_or(0),
+        .downloaded = updater_->status() == Updater::Status::kDownloaded,
+    };
+  }
   for (const model::BrowserProfile& profile : model.profiles()) {
     SidebarProfile row;
     row.id = profile.id;
@@ -1052,16 +1251,38 @@ SidebarContent UiApp::Sidebar() {
 
 RootView::Shows UiApp::Shows() {
   const model::BrowserModel& model = this->model();
-  content::WebContents* page = window_->selected();
-  return {
-      .content = model.page() != model::BrowserModel::Page::kBrowser
-                     ? RootView::Content::kOther
-                 : model.active_tab_id() ? RootView::Content::kPage
-                                         : RootView::Content::kEmpty,
-      .sidebar_width = sidebar_width_,
-      .can_go_back = page && page->GetController().CanGoBack(),
-      .can_collapse_all = !model.expanded_profile_ids().empty(),
-  };
+  const bool browser = model.page() == model::BrowserModel::Page::kBrowser;
+  RootView::Shows shows;
+  shows.content = !browser                ? RootView::Content::kOther
+                  : model.active_tab_id() ? RootView::Content::kPage
+                                          : RootView::Content::kEmpty;
+  shows.sidebar_width = sidebar_width_;
+  shows.can_collapse_all = !model.expanded_profile_ids().empty();
+
+  // The selected tab's toolbar, on the browser page: off it, the toolbar
+  // goes, and coming back shows the tab's address again, as the Swift's
+  // toolbar, made again, did.
+  ToolbarView::Shows& toolbar = shows.toolbar;
+  const std::optional<std::string>& active = model.active_tab_id();
+  if (const model::Tab* tab =
+          browser && active ? model.FindTab(*active) : nullptr) {
+    toolbar.tab_id = tab->id;
+    toolbar.url = base::UTF8ToUTF16(tab->url);
+    toolbar.title = base::UTF8ToUTF16(tab->title);
+    if (content::WebContents* page = PageOf(tab->id)) {
+      toolbar.can_go_back = page->GetController().CanGoBack();
+      toolbar.can_go_forward = page->GetController().CanGoForward();
+      toolbar.loading = LoadingOf(tab->id).has_value();
+    }
+  }
+  if (const std::optional<std::string>& profile_id = model.active_profile_id();
+      browser && profile_id) {
+    if (const model::BrowserProfile* profile = model.FindProfile(*profile_id)) {
+      toolbar.profile_name = base::UTF8ToUTF16(profile->name);
+      toolbar.profile_color = ColorOf(profile->color);
+    }
+  }
+  return shows;
 }
 
 // The window's pages went with it (PageDestroyed); their tabs stay, and the
@@ -1081,7 +1302,9 @@ void UiApp::AddressEntered(const std::u16string& text) {
   if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
     page->GetController().LoadURL(url, content::Referrer(),
                                   ui::PAGE_TRANSITION_TYPED, std::string());
-    page->Focus();
+    if (RootView* root = window_->root()) {
+      root->FocusPage();
+    }
     return;
   }
   if (active) {
@@ -1100,6 +1323,13 @@ void UiApp::AddressEntered(const std::u16string& text) {
     OpenTab(*profile_id, url);
   } else if (!model().profiles().empty()) {
     OpenTab(model().profiles().front().id, url);
+  }
+}
+
+// Esc in the address: the page takes the keys (the Swift's onExitCommand).
+void UiApp::AddressLeft() {
+  if (RootView* root = window_->root()) {
+    root->FocusPage();
   }
 }
 
@@ -1267,6 +1497,10 @@ void UiApp::OnFaviconChanged(const std::string& tab_id) {
   window_->Refresh();
 }
 
+void UiApp::OnUpdaterChanged() {
+  window_->Refresh();
+}
+
 // MARK: The channel
 
 base::DictValue UiApp::Snapshot() const {
@@ -1283,7 +1517,7 @@ base::DictValue UiApp::Snapshot() const {
               .Set("title", tab.title)
               .Set("hasFavicon", !tab.favicon.empty())
               .Set("loaded", page != nullptr)
-              .Set("loading", page && page->ShouldShowLoadingUI())
+              .Set("loading", LoadingOf(tab.id).has_value())
               .Set("canGoBack", page && page->GetController().CanGoBack())
               .Set("canGoForward",
                    page && page->GetController().CanGoForward()));
@@ -1352,6 +1586,16 @@ base::DictValue UiApp::Snapshot() const {
     crashed.Append(tab_id);
   }
 
+  // The address's load bar as drawn now: started, the share filled, its
+  // opacity, and whether the slow mode's shimmer runs.
+  const base::TimeTicks now = base::TimeTicks::Now();
+  base::DictValue progress_bar =
+      base::DictValue()
+          .Set("started", progress_.is_started())
+          .Set("progress", progress_.progress())
+          .Set("alpha", progress_.AlphaAt(now))
+          .Set("shimmer", progress_.ShimmerAt(now).has_value());
+
   views::Widget* widget = window_->widget();
   RootView* root = window_->root();
   const std::optional<std::string>& active_tab = model.active_tab_id();
@@ -1373,6 +1617,9 @@ base::DictValue UiApp::Snapshot() const {
       .Set("downloads", std::move(downloads))
       .Set("crashedTabs", std::move(crashed))
       .Set("address", root ? root->address() : std::u16string())
+      .Set("progressBar", std::move(progress_bar))
+      .Set("update", UpdateState(*updater_))
+      .Set("toolbar", root ? ToolbarState(*root->toolbar()) : base::DictValue())
       .Set("focus", root ? root->focus() : std::string("none"))
       .Set("pageFullscreen", window_->page_fullscreen())
       .Set("window", WindowState(widget))

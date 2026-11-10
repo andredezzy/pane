@@ -29,13 +29,15 @@ class ProfileRow;
 class RowList;
 class SidebarButton;
 class TabRow;
+class UpdatePill;
 class ValueMotion;
 
 // The sidebar's column (the Swift's SidebarView): its header in the traffic
 // lights' row (the title, Collapse all), then each profile and, while it is
 // open, its tabs and New tab, in a list that fades at its edges as it scrolls
 // (ADR 0061) and scrolls the selected tab's row into view wherever it was
-// chosen (ADR 0084), then its footer (New, a rule, Settings). Rows keep their
+// chosen (ADR 0084), then its footer (the update pill while an update is on
+// offer, New, a rule, Settings). Rows keep their
 // views by profile and tab, so what moves keeps moving (a profile's bar,
 // mid-morph), and only a row whose value changed redraws (ADR 0073).
 // Profiles, and each profile's tabs, reorder by dragging (ADR 0066, H3).
@@ -63,6 +65,9 @@ class SidebarView : public views::View {
     base::RepeatingClosure collapse_all;
     base::RepeatingClosure new_profile;
     base::RepeatingClosure toggle_settings;
+    // The update pill's click, and its dismiss.
+    base::RepeatingClosure update;
+    base::RepeatingClosure dismiss_update;
     // A drag's drop: the profile at `from` moved to `to`, or a profile's tab.
     base::RepeatingCallback<void(int from, int to)> move_profile;
     base::RepeatingCallback<void(const std::string& profile_id, int, int)>
@@ -87,6 +92,7 @@ class SidebarView : public views::View {
   std::vector<std::pair<std::string, const views::View*>> NamedViews() const;
   // A row's menu, for the channel.
   ProfileRow* FindProfileRow(const std::string& profile_id);
+  UpdatePill* update_pill() { return pill_; }
   TabRow* FindTabRow(const std::string& tab_id);
 
   // Asks before deleting the profile (the system's alert, a sheet on the
@@ -105,6 +111,11 @@ class SidebarView : public views::View {
 
   // Rows came, went, or moved: each keeps its view by its key.
   void SetRows(const SidebarContent& content);
+  // The update pill comes into the footer, or goes from it (Motion.fade);
+  // the footer makes room for it as it comes and gives it back once it has
+  // gone.
+  void SetUpdate(const std::optional<SidebarUpdate>& update);
+  int FooterHeight() const;
   std::unique_ptr<views::View> MakeRow(const std::string& key,
                                        const SidebarProfile& profile,
                                        const SidebarTab* tab);
@@ -135,6 +146,7 @@ class SidebarView : public views::View {
   raw_ptr<RowList> rows_ = nullptr;
   std::unique_ptr<VerticalReorder> reorder_;
   raw_ptr<views::View> footer_ = nullptr;
+  raw_ptr<UpdatePill> pill_ = nullptr;
   raw_ptr<SidebarButton> new_ = nullptr;
   raw_ptr<views::View> rule_ = nullptr;
   raw_ptr<SidebarButton> settings_ = nullptr;

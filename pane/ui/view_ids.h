@@ -26,10 +26,15 @@ enum ViewId : int {
   kViewIdSidebarHeader,
   kViewIdCollapseAll,
   kViewIdSidebarProfiles,
-  // The toolbar's row over the page, its Back, and the address field.
+  // The toolbar's row over the page, its Back, Forward, Reload (Stop while
+  // the page loads), the address field, its load bar, and the profile's chip.
   kViewIdToolbar,
   kViewIdBack,
+  kViewIdForward,
+  kViewIdReload,
   kViewIdAddress,
+  kViewIdLoadBar,
+  kViewIdProfileChip,
   // The selected tab's page, in its card.
   kViewIdContent,
   // What the content panel shows with no tab selected.
@@ -48,6 +53,11 @@ enum ViewId : int {
   kViewIdSidebarResize,
   // The copy of a dragged row that rides the pointer (H3).
   kViewIdDragCopy,
+  // The update pill in the sidebar's footer, its button (download, restart,
+  // or quit and install), and its dismiss.
+  kViewIdUpdatePill,
+  kViewIdUpdate,
+  kViewIdUpdateDismiss,
 
   kViewIdsEnd,
 };

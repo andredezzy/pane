@@ -76,8 +76,9 @@ const gfx::FontList& SystemFont(int size, gfx::Font::Weight weight);
 
 // Sets `label` in Pane's text: the style's font and line box, `color` (a
 // ui::ColorVariant, so a Theme change resolves it again), taken as it is
-// rather than shifted for contrast, and no subpixel rendering, as Pane's UI
-// text is drawn without font smoothing (ADR 0060).
+// rather than shifted for contrast, and grayscale rather than subpixel, as
+// the Swift's was. Skia still smooths it on the Mac, heavier than the
+// Swift's text, as the user accepted (ADR 0060).
 void StyleLabel(views::Label& label,
                 const TextStyle& style,
                 ui::ColorVariant color);
