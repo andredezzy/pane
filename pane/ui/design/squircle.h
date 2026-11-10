@@ -38,6 +38,10 @@ inline constexpr float k2xl = 29;
 // composite.
 inline constexpr float kCircularEquivalent = 0.57f;
 
+// The content panel's corners as a layer draws them: they clip the page, and
+// Settings, which scrolls in the page's place.
+inline constexpr float kPanelLayerRadius = radius::kPanel * kCircularEquivalent;
+
 // Every rounded corner in Pane: in each corner's radius box, the quarter of
 // |x|⁴ + |y|⁴ = 1 (Paper's `corner-shape: superellipse(2)`), each corner two
 // cubics as Blink draws one (path_builder.cc), clockwise from the top left

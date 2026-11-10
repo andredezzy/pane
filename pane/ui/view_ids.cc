@@ -62,6 +62,40 @@ std::string_view ViewIdName(int id) {
       return "pane.sadTab.reload";
     case kViewIdSwitcher:
       return "pane.switcher";
+    case kViewIdSettings:
+      return "pane.settings";
+    case kViewIdSettingsTheme:
+      return "pane.settings.theme";
+    case kViewIdSettingsAppIcon:
+      return "pane.settings.appIcon";
+    case kViewIdSettingsTabSleep:
+      return "pane.settings.tabSleep";
+    case kViewIdSettingsProfileUnload:
+      return "pane.settings.profileUnload";
+    case kViewIdSettingsCacheBudget:
+      return "pane.settings.cacheBudget";
+    case kViewIdSettingsSetUpPin:
+      return "pane.settings.setUpPIN";
+    case kViewIdSettingsChangePin:
+      return "pane.settings.changePIN";
+    case kViewIdSettingsRemovePin:
+      return "pane.settings.removePIN";
+    case kViewIdSettingsLockAfter:
+      return "pane.settings.lockAfter";
+    case kViewIdSettingsUpdates:
+      return "pane.settings.updates";
+    case kViewIdSettingsUpToDate:
+      return "pane.settings.upToDate";
+    case kViewIdSettingsCheckUpdates:
+      return "pane.settings.checkUpdates";
+    case kViewIdSettingsDownloadUpdate:
+      return "pane.settings.downloadUpdate";
+    case kViewIdAppIconPicker:
+      return "pane.appIcon";
+    case kViewIdAppIconDone:
+      return "pane.appIcon.done";
+    case kViewIdAppIconTile:
+      return "pane.appIcon.tile";
     default:
       return std::string_view();
   }

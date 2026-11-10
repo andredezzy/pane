@@ -8,6 +8,9 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "pane/model/app_settings.h"
+#include "pane/ui/panels/settings_view.h"
 #include "pane/ui/sidebar/resize_handle.h"
 #include "pane/ui/sidebar/sidebar_view.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
@@ -31,7 +34,10 @@ namespace model {
 class ToolbarProgress;
 }
 
+class AppIconImages;
+class AppIconPicker;
 class EmptyStateView;
+class ModalDialog;
 class SadTabView;
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
@@ -57,13 +63,18 @@ class RootView : public views::View {
     ToolbarView::Callbacks toolbar;
     // The sad tab's Reload, and Return on it.
     base::RepeatingClosure reload_crashed;
+    SettingsView::Callbacks settings;
+    // The App icon picker's sky, and its Done, Return, Esc, or a click
+    // outside it.
+    base::RepeatingCallback<void(model::AppIcon)> choose_app_icon;
+    base::RepeatingClosure close_app_icon_picker;
   };
 
   // What the content panel shows: the browser page with a tab selected,
   // the sad tab in that tab's place (a crash loop, or a profile that would
-  // not open), with none selected (the empty state), or a page of the app's
-  // (Settings).
-  enum class Content { kPage, kSadTab, kEmpty, kOther };
+  // not open), with none selected (the empty state), or Settings, in the
+  // page's place, which leaves the panel (ADR 0073).
+  enum class Content { kPage, kSadTab, kEmpty, kSettings };
 
   // The rest of what the window shows, from the app.
   struct Shows {
@@ -79,10 +90,16 @@ class RootView : public views::View {
     bool can_collapse_all = false;
     // The selected tab's toolbar.
     ToolbarView::Shows toolbar;
+    // Settings' values, and whether the App icon picker shows over the
+    // window.
+    SettingsView::Shows settings;
+    bool app_icon_picker = false;
   };
 
-  // `progress`, the app's, outlives the view.
-  RootView(Callbacks callbacks, model::ToolbarProgress* progress);
+  // `progress` and `images`, the app's, outlive the view.
+  RootView(Callbacks callbacks,
+           model::ToolbarProgress* progress,
+           AppIconImages* images);
   RootView(const RootView&) = delete;
   RootView& operator=(const RootView&) = delete;
   ~RootView() override;
@@ -93,6 +110,9 @@ class RootView : public views::View {
   void SetSidebarWidth(double width);
   SidebarView* sidebar() { return sidebar_; }
   ToolbarView* toolbar() { return toolbar_; }
+  SettingsView* settings() { return settings_; }
+  // While it shows.
+  AppIconPicker* app_icon_picker();
   // The page fills the window, or leaves it.
   void SetPageFullscreen(bool fullscreen);
   bool page_fullscreen() const { return page_fullscreen_; }
@@ -102,6 +122,8 @@ class RootView : public views::View {
   void FocusAddress();
   // The page takes the keys, or the sad tab in its place.
   void FocusPage();
+  // Settings takes the keys, in the page's place.
+  void FocusSettings();
   std::u16string address() const;
   // What has the keyboard, for the channel: the focused view's id, or the
   // nearest one's around it ("pane.toolbar.address", "pane.content"), else
@@ -140,6 +162,10 @@ class RootView : public views::View {
   // The sidebar, the toolbar, and the empty state shown or hidden for what
   // the window shows.
   void ShowPlaces();
+  // The App icon picker comes over the window, or goes; made hidden ahead
+  // of its first showing, and kept.
+  void ShowAppIconPicker(bool show);
+  void PrepareAppIconPicker();
 
   Callbacks callbacks_;
   Shows shows_;
@@ -154,6 +180,12 @@ class RootView : public views::View {
   raw_ptr<SadTabView> sad_tab_ = nullptr;
   raw_ptr<TabSwitcherView> switcher_ = nullptr;
   raw_ptr<views::View> sheet_ = nullptr;
+  const raw_ptr<AppIconImages> images_;
+  raw_ptr<SettingsView> settings_ = nullptr;
+  // The picker's dialog over the window, and its content, once made.
+  raw_ptr<ModalDialog> app_icon_dialog_ = nullptr;
+  raw_ptr<AppIconPicker> app_icon_picker_ = nullptr;
+  base::WeakPtrFactory<RootView> weak_factory_{this};
 };
 
 }  // namespace pane

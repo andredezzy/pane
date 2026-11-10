@@ -108,6 +108,9 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
       {"mutedLifted", kPaneColorMutedLifted, Swift(0x71717A), Swift(0xA1A1AA)},
       {"dialogMessage", kPaneColorDialogMessage, Swift(0x18181B, 0.72),
        Swift(0xFAFAFA, 0.68)},
+      // DialogHeading's own message, the foreground at 70%.
+      {"headingMessage", kPaneColorHeadingMessage, Swift(0x18181B, 0.7),
+       Swift(0xFAFAFA, 0.7)},
       {"primaryKey", kPaneColorPrimaryKey, Swift(0xFAFAFA, 0.85),
        Swift(0x18181B, 0.7)},
       {"primaryKeyChip", kPaneColorPrimaryKeyChip, Swift(0xFAFAFA, 0.18),

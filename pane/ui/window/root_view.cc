@@ -11,11 +11,15 @@
 #include "base/functional/bind.h"
 #include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
+#include "pane/ui/after_frame.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/dialog.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/interaction_log.h"
+#include "pane/ui/panels/app_icon_picker.h"
+#include "pane/ui/panels/settings_view.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/empty_state_view.h"
 #include "pane/ui/window/sad_tab_view.h"
@@ -52,13 +56,6 @@ constexpr int kPanelInset = 8;
 constexpr float kRingRadius = radius::kPanel + 1;
 constexpr gfx::Vector2dF kShadowOffset(0, 2);
 constexpr float kShadowSigma = 4;
-
-// The page's corners, the panel's, as a layer draws them: a circle of the
-// radius that follows the squircle within a fifth of a pixel (ADR 0057), so
-// no mask composites the page each frame. All four, as the Swift's page layer
-// rounds them, its top two under the toolbar too: the user's call over
-// Paper's square ones, and 04.7 now draws them so.
-constexpr float kPageCornerRadius = radius::kPanel * kCircularEquivalent;
 
 // The sheet's card, at the window's right, as the profile sheet sits (Paper
 // 05), over its scrim.
@@ -152,8 +149,10 @@ RootView::Shows::Shows(const Shows&) = default;
 RootView::Shows& RootView::Shows::operator=(const Shows&) = default;
 RootView::Shows::~Shows() = default;
 
-RootView::RootView(Callbacks callbacks, model::ToolbarProgress* progress)
-    : callbacks_(std::move(callbacks)) {
+RootView::RootView(Callbacks callbacks,
+                   model::ToolbarProgress* progress,
+                   AppIconImages* images)
+    : callbacks_(std::move(callbacks)), images_(images) {
   SetBackground(views::CreateSolidBackground(kPaneColorWindowBackground));
 
   // The sidebar's column, and its edge over it and the panel's, under every
@@ -172,6 +171,10 @@ RootView::RootView(Callbacks callbacks, model::ToolbarProgress* progress)
   empty_ = AddChildView(std::make_unique<EmptyStateView>());
   sad_tab_ = AddChildView(
       std::make_unique<SadTabView>(std::move(callbacks_.reload_crashed)));
+  // Settings, in the panel in the page's place: made now, so showing it
+  // makes nothing.
+  settings_ = AddChildView(
+      std::make_unique<SettingsView>(std::move(callbacks_.settings), *images));
   resize_ = AddChildView(
       std::make_unique<ResizeHandle>(std::move(callbacks_.resize)));
   // Over the rest, under the profile sheet; made now, so the first frame
@@ -197,6 +200,18 @@ void RootView::SetShows(const Shows& shows) {
   const bool place_focused = page_->HasFocus() || sad_tab_->HasFocus();
   shows_ = shows;
   toolbar_->SetShows(shows.toolbar);
+  settings_->SetShows(shows.settings);
+  ShowAppIconPicker(shows.app_icon_picker);
+  if (app_icon_picker_) {
+    app_icon_picker_->SetSelection(shows.settings.settings.app_icon);
+  }
+  // The picker, made once Settings' first frame is out, so its first
+  // showing makes nothing.
+  if (shows.content == Content::kSettings && !app_icon_dialog_ && GetWidget()) {
+    AfterFrame(GetWidget()->GetCompositor(),
+               base::BindOnce(&RootView::PrepareAppIconPicker,
+                              weak_factory_.GetWeakPtr()));
+  }
   sidebar_->SetCanCollapseAll(shows.can_collapse_all);
   resize_->SetWidth(shows.sidebar_width);
   if (laid_out_again) {
@@ -232,8 +247,10 @@ void RootView::ShowPlaces() {
   // The sad tab takes the page's place, on the panel's card: the page that
   // died leaves it.
   sad_tab_->SetVisible(shows_.content == Content::kSadTab && !page_fullscreen_);
-  // A page of the app's (Settings) takes the panel: the page leaves it, as
-  // the Swift's did (ADR 0073), until Settings' surface (H6) draws there.
+  // Settings takes the panel, and the page leaves it, hidden, so it draws
+  // nothing under Settings, which never masks it (ADR 0073).
+  settings_->SetVisible(shows_.content == Content::kSettings &&
+                        !page_fullscreen_);
   page_->SetVisible(shows_.content == Content::kPage);
   InvalidateLayout();
   SchedulePaint();
@@ -258,13 +275,17 @@ void RootView::ShowPage(content::WebContents* contents) {
 
 // The corners go on the page's own layer, which comes and goes with it
 // (NativeViewHostMac has none to round with no page attached), and none while
-// the page fills the window.
+// the page fills the window: the panel's, as a circle that follows the
+// squircle within a fifth of a pixel (ADR 0057), so no mask composites the
+// page each frame. All four, as the Swift's page layer rounds them, its top
+// two under the toolbar too: the user's call over Paper's square ones, and
+// 04.7 now draws them so.
 void RootView::RoundPage() {
   if (!page_->web_contents()) {
     return;
   }
   page_->holder()->SetNativeViewCornerRadii(
-      gfx::RoundedCornersF(page_fullscreen_ ? 0 : kPageCornerRadius));
+      gfx::RoundedCornersF(page_fullscreen_ ? 0 : kPanelLayerRadius));
 }
 
 content::WebContents* RootView::page() const {
@@ -294,8 +315,58 @@ void RootView::FocusPage() {
   }
 }
 
+void RootView::FocusSettings() {
+  if (settings_->GetVisible()) {
+    settings_->RequestFocus();
+  }
+}
+
 void RootView::FocusAddress() {
   toolbar_->FocusAddress();
+}
+
+void RootView::PrepareAppIconPicker() {
+  if (app_icon_dialog_) {
+    return;
+  }
+  auto picker = std::make_unique<AppIconPicker>(
+      *images_, shows_.settings.settings.app_icon, callbacks_.choose_app_icon,
+      callbacks_.close_app_icon_picker);
+  app_icon_picker_ = picker.get();
+  ModalDialog::Callbacks dialog;
+  dialog.dismiss = callbacks_.close_app_icon_picker;
+  dialog.accept = callbacks_.close_app_icon_picker;
+  app_icon_dialog_ = AddChildView(std::make_unique<ModalDialog>(
+      AppIconPicker::kWidth, std::move(picker), std::move(dialog)));
+  app_icon_dialog_->SetID(kViewIdAppIconPicker);
+  app_icon_dialog_->SetBoundsRect(GetLocalBounds());
+}
+
+AppIconPicker* RootView::app_icon_picker() {
+  return app_icon_dialog_ && app_icon_dialog_->showing()
+             ? app_icon_picker_.get()
+             : nullptr;
+}
+
+void RootView::ShowAppIconPicker(bool show) {
+  if (!show) {
+    // It fades as it goes, taking nothing meanwhile; Settings has the keys
+    // again.
+    if (app_icon_dialog_ && app_icon_dialog_->showing()) {
+      app_icon_dialog_->AnimateOut();
+      FocusSettings();
+    }
+    return;
+  }
+  PrepareAppIconPicker();
+  if (app_icon_dialog_->showing()) {
+    return;
+  }
+  app_icon_picker_->SetSelection(shows_.settings.settings.app_icon);
+  // Over whatever came after it.
+  ReorderChildView(app_icon_dialog_, children().size());
+  app_icon_dialog_->SetBoundsRect(GetLocalBounds());
+  app_icon_dialog_->AnimateIn();
 }
 
 void RootView::ShowSheet(bool show) {
@@ -394,12 +465,16 @@ void RootView::Layout(PassKey) {
                    std::max(panel_bounds_.height() - top, 0));
 
   empty_->SetBoundsRect(panel_bounds_);
+  settings_->SetBoundsRect(panel_bounds_);
   // Where the page is, under the toolbar.
   sad_tab_->SetBoundsRect(page_->bounds());
   switcher_->SetBoundsRect(GetLocalBounds());
 
   if (sheet_) {
     sheet_->SetBoundsRect(GetLocalBounds());
+  }
+  if (app_icon_dialog_) {
+    app_icon_dialog_->SetBoundsRect(GetLocalBounds());
   }
 }
 

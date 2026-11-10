@@ -93,8 +93,10 @@ enum PaneColorIds : ui::ColorId {
   // Muted, lighter on dark: the key on Cancel's chip, a platform's name, an
   // embedded menu's chevrons.
   kPaneColorMutedLifted,
-  // A dialog's message under its title.
+  // A dialog's message under its title: Quit Pane?'s, and the foreground at
+  // 70% (DialogHeading's own, the App icon picker's).
   kPaneColorDialogMessage,
+  kPaneColorHeadingMessage,
   // The key on a primary button's chip, and the chip.
   kPaneColorPrimaryKey,
   kPaneColorPrimaryKeyChip,

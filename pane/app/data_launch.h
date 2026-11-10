@@ -72,6 +72,10 @@ class AppData {
 
     // The fifth wrong PIN in Settings: Pane locks.
     virtual void LockRequested() = 0;
+
+    // The lock changed: a PIN set, changed, or removed (Settings' rows
+    // follow), its screen shown or gone, or Pane locked or open.
+    virtual void SecurityChanged() = 0;
   };
 
   static AppData* Get();

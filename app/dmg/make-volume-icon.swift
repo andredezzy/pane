@@ -10,7 +10,7 @@ import ImageIO
 import UniformTypeIdentifiers
 
 let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let source = directory.appendingPathComponent("../Pane/Assets.xcassets/AppIconDay.imageset/AppIconDay.png").standardizedFileURL
+let source = directory.appendingPathComponent("../../pane/ui/panels/app_icons/AppIconDay.png").standardizedFileURL
 let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
 
 // How far the 16-point art drops, in points.

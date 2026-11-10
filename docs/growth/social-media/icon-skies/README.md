@@ -10,7 +10,7 @@ A 10-second loop for X that shows Pane's ten app-icon skies. A Liquid Glass dock
 docs/growth/social-media/icon-skies/source/render.sh
 ```
 
-The source lives in `source/`. It writes `source/out/pane-icon-skies-4k.mp4` and `source/out/pane-icon-skies-1080p.mp4` in about 40 seconds. It reads the icons from `app/Pane/Assets.xcassets/AppIcon<Sky>`, so after the skies change, running it again makes the video with the new ones. It needs ffmpeg (`brew install ffmpeg`), Xcode's Swift, and Paper.app, whose icon sits in the dock. `source/build/` and `source/out/` stay out of git.
+The source lives in `source/`. It writes `source/out/pane-icon-skies-4k.mp4` and `source/out/pane-icon-skies-1080p.mp4` in about 40 seconds. It reads the icons from `pane/ui/panels/app_icons/AppIcon<Sky>.png`, so after the skies change, running it again makes the video with the new ones. It needs ffmpeg (`brew install ffmpeg`), Xcode's Swift, and Paper.app, whose icon sits in the dock. `source/build/` and `source/out/` stay out of git.
 
 - `rhythm.swift`: which sky each of the 600 frames shows, and the sound. 100 swaps; the first lasts 25 frames and each next one 7% less, down to 3 frames (20 swaps a second); the last lands on Day at 9.2 s. A swap is a knock that rises from 140 to 340 Hz as the swaps speed up, over a 2.4 kHz click; the landing is a boom falling from 90 to 45 Hz under a burst of air. All synthesized, no samples.
 - `app-icons.swift`: Finder's and Paper's icons as macOS draws them, at 1024 pixels.

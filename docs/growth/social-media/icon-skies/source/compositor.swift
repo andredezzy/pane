@@ -100,7 +100,7 @@ let content = layer(CGRect(x: 0, y: 0, width: W, height: 1240)) { ctx in
 // Per sky, Pane's icon in the middle, as the app's Dock shows it.
 let skyLayers = skies.map { sky in
 	layer(CGRect(x: 1700, y: 740, width: 440, height: 760)) { ctx in
-		drawImage(ctx, load("\(repo)/app/Pane/Assets.xcassets/AppIcon\(sky).imageset/AppIcon\(sky).png"), iconRect(iconX[1]))
+		drawImage(ctx, load("\(repo)/pane/ui/panels/app_icons/AppIcon\(sky).png"), iconRect(iconX[1]))
 	}
 }
 

@@ -10,6 +10,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "pane/browser/ui/window_host.h"
+#include "pane/model/app_settings.h"
+#include "pane/model/pin_entry.h"
 #include "pane/ui/window/root_view.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
@@ -28,6 +30,8 @@ namespace pane {
 namespace model {
 class ToolbarProgress;
 }
+
+class AppIconImages;
 
 // Pane's window in Views: its widget, holding the hidden Browser of each
 // profile it shows (WindowHost, ADR 0014), and the root view that draws the
@@ -96,6 +100,8 @@ class Window : public WindowHost::Delegate,
     virtual void Stop() = 0;
     // The selected tab's load, as the address's bar draws it.
     virtual model::ToolbarProgress& LoadProgress() = 0;
+    // The skies of the app's icon, as Settings and its picker show them.
+    virtual AppIconImages& AppIcons() = 0;
     // ⌘T.
     virtual void NewTab() = 0;
     // ⌘L: the address field, its text selected.
@@ -108,6 +114,18 @@ class Window : public WindowHost::Delegate,
     virtual void SwitchTab(bool backward) = 0;
     virtual void CommitSwitcher() = 0;
     virtual void CancelSwitcher() = 0;
+
+    // Settings: a choice in its menus, as the settings take it; the App icon
+    // row's press, a sky in the picker it opens, and the picker's Done; the
+    // PIN's buttons, which open the Lock's PIN screen; and Check for updates
+    // (the row's download is the pill's).
+    virtual void EditSettings(
+        base::RepeatingCallback<void(model::AppSettings&)> edit) = 0;
+    virtual void OpenAppIconPicker() = 0;
+    virtual void ChooseAppIcon(model::AppIcon icon) = 0;
+    virtual void CloseAppIconPicker() = 0;
+    virtual void ShowPinScreen(model::PinEntry::Mode mode) = 0;
+    virtual void CheckForUpdates() = 0;
 
     // A page joined one of the window's Browsers, opened by `opener` (or
     // none), to show at once or behind.

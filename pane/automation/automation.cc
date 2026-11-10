@@ -34,6 +34,9 @@
 #include "pane/model/profile.h"
 #include "pane/model/profile_draft.h"
 #include "pane/ui/app/ui_app.h"
+#include "pane/ui/design/menu_button.h"
+#include "pane/ui/panels/app_icon_picker.h"
+#include "pane/ui/panels/settings_view.h"
 #include "pane/ui/render.h"
 #include "pane/ui/sidebar/profile_row.h"
 #include "pane/ui/sidebar/sidebar_view.h"
@@ -49,6 +52,7 @@
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/event_utils.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
@@ -174,6 +178,53 @@ base::DictValue DescribeCookie(const net::CanonicalCookie& cookie) {
            cookie.IsPersistent()
                ? base::Value(cookie.ExpiryDate().InSecondsFSinceUnixEpoch())
                : base::Value());
+}
+
+// The key a scenario names, as PostKey takes it ("\x1b" for Esc, "\r" for
+// Return, "\t" for Tab, " ", a letter or a digit), as Views codes it.
+std::optional<ui::KeyboardCode> KeyCodeOf(std::string_view key) {
+  if (key == "\x1b") {
+    return ui::VKEY_ESCAPE;
+  }
+  if (key == "\r") {
+    return ui::VKEY_RETURN;
+  }
+  if (key == "\t") {
+    return ui::VKEY_TAB;
+  }
+  if (key == " ") {
+    return ui::VKEY_SPACE;
+  }
+  if (key.size() == 1 && key[0] >= 'a' && key[0] <= 'z') {
+    return static_cast<ui::KeyboardCode>(ui::VKEY_A + (key[0] - 'a'));
+  }
+  if (key.size() == 1 && key[0] >= '0' && key[0] <= '9') {
+    return static_cast<ui::KeyboardCode>(ui::VKEY_0 + (key[0] - '0'));
+  }
+  return std::nullopt;
+}
+
+int FlagsOf(const base::ListValue* modifiers) {
+  int flags = ui::EF_NONE;
+  if (!modifiers) {
+    return flags;
+  }
+  for (const base::Value& modifier : *modifiers) {
+    const std::string* name = modifier.GetIfString();
+    if (!name) {
+      continue;
+    }
+    if (*name == "command") {
+      flags |= ui::EF_COMMAND_DOWN;
+    } else if (*name == "shift") {
+      flags |= ui::EF_SHIFT_DOWN;
+    } else if (*name == "control") {
+      flags |= ui::EF_CONTROL_DOWN;
+    } else if (*name == "option") {
+      flags |= ui::EF_ALT_DOWN;
+    }
+  }
+  return flags;
 }
 
 std::optional<model::BrowserModel::ProxyStatus> ProxyStatusNamed(
@@ -351,7 +402,8 @@ void Automation::Dispatch(const std::string& name,
        name == "openProfileSheet" || name == "closeProfileSheet" ||
        name == "scrollWindow" || name == "dragWindow" ||
        name == "pointerWindow" || name == "frames" || name == "rowMenu" ||
-       name == "clickModalButton")) {
+       name == "clickModalButton" || name == "settingsMenu" ||
+       name == "dispatchKey")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -715,6 +767,38 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
+  // { appIcon: "automatic" | "day" | … }: the App icon, as the picker's sky
+  // sets it, at any time, as the theme's.
+  if (name == "appIcon") {
+    const std::string* icon_name = command.FindString("appIcon");
+    std::optional<model::AppIcon> icon;
+    for (const model::AppIcon each : AllAppIcons()) {
+      if (icon_name && model::AppIconName(each) == *icon_name) {
+        icon = each;
+      }
+    }
+    if (!icon) {
+      std::move(reply).Run(base::Value(), "unknown app icon");
+      return;
+    }
+    app_->ChangeSettings(
+        [&](model::AppSettings& settings) { settings.app_icon = *icon; });
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // { open }: Settings' App icon, as its press opens the picker, or the
+  // picker's Done.
+  if (name == "appIconPicker") {
+    if (command.FindBool("open").value_or(true)) {
+      app_->OpenAppIconPicker();
+    } else {
+      app_->CloseAppIconPicker();
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
   // Settings' Set up, Change, or Remove PIN.
   if (name == "showPinScreen") {
     const std::string* mode = command.FindString("mode");
@@ -1041,6 +1125,14 @@ void Automation::Dispatch(const std::string& name,
         named.emplace_back(std::string(ViewIdName(id)), view);
       }
     }
+    for (auto& entry : window->root()->settings()->NamedViews()) {
+      named.push_back(std::move(entry));
+    }
+    if (AppIconPicker* picker = window->root()->app_icon_picker()) {
+      for (auto& entry : picker->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
     for (const auto& [view_name, view] : named) {
       if (view->IsDrawn() && (!prefix || view_name.starts_with(*prefix))) {
         frames.Set(view_name, FrameIn(view, root));
@@ -1062,6 +1154,62 @@ void Automation::Dispatch(const std::string& name,
       }
     }
     std::move(reply).Run(base::Value(std::move(frames)), std::string());
+    return;
+  }
+
+  // A menu of Settings' (its name, "pane.settings.theme"), as its model holds
+  // what the Mac's menu shows: its items; with `choose`, the item of that
+  // title chosen, as a click in the menu chooses it. The menu itself, which
+  // runs with the app's tasks held, is the front's.
+  if (name == "settingsMenu") {
+    const std::string* menu_name = command.FindString("menu");
+    SettingsView* settings = window->root()->settings();
+    MenuButton* menu = menu_name && settings->IsDrawn()
+                           ? settings->FindMenu(*menu_name)
+                           : nullptr;
+    if (!menu || !menu->IsDrawn()) {
+      std::move(reply).Run(base::Value(),
+                           "settingsMenu needs a menu Settings shows");
+      return;
+    }
+    ui::SimpleMenuModel& model = menu->menu_model();
+    base::ListValue items = MenuItems(model);
+    if (const std::string* choose = command.FindString("choose")) {
+      std::optional<size_t> chosen;
+      for (size_t index = 0; index < model.GetItemCount(); ++index) {
+        if (base::UTF16ToUTF8(model.GetLabelAt(index)) == *choose) {
+          chosen = index;
+        }
+      }
+      if (!chosen) {
+        std::move(reply).Run(base::Value(), "no menu item " + *choose);
+        return;
+      }
+      model.ActivatedAt(*chosen);
+    }
+    std::move(reply).Run(base::Value(std::move(items)), std::string());
+    return;
+  }
+
+  // A key through Views' own dispatch, { key, modifiers }, as the platform
+  // hands the window a key: the window's accelerators, then the focused
+  // view, in the background too, where `key` (AppKit's path) needs the
+  // front.
+  if (name == "dispatchKey") {
+    const std::string* key = command.FindString("key");
+    const std::optional<ui::KeyboardCode> code =
+        key ? KeyCodeOf(*key) : std::nullopt;
+    if (!code) {
+      std::move(reply).Run(base::Value(), "no key code for that key");
+      return;
+    }
+    const int flags = FlagsOf(command.FindList("modifiers"));
+    for (const ui::EventType type :
+         {ui::EventType::kKeyPressed, ui::EventType::kKeyReleased}) {
+      ui::KeyEvent event(type, *code, flags);
+      widget->OnKeyEvent(&event);
+    }
+    std::move(reply).Run(base::Value(), std::string());
     return;
   }
 

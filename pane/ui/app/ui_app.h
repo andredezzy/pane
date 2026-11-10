@@ -24,6 +24,7 @@
 #include "pane/model/tab_switcher.h"
 #include "pane/model/toolbar_progress.h"
 #include "pane/ui/app/sleep_controller.h"
+#include "pane/ui/panels/settings_view.h"
 #include "pane/ui/tabs/favicons.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/window/window.h"
@@ -43,7 +44,9 @@ class Image;
 namespace pane {
 
 class AppEvents;
+class AppIconImages;
 class Automation;
+class DockIcon;
 
 namespace model {
 struct AppSettings;
@@ -112,10 +115,11 @@ class UiApp : public AppData::Client,
   // The browser, or Settings: under Settings no tab is selected, and no
   // profile shows as active (ADR 0064).
   void ShowPage(model::BrowserModel::Page page);
-  // A theme reaches the app, its menus, and its pages at once (ADR 0001).
-  // Settings changes them, and shows only where interaction is allowed
-  // (ShowPage); the channel stands in for it at any time, as the Swift's
-  // did, so a scenario sees the Lock's panel in either theme.
+  // A theme reaches the app, its menus, and its pages at once (ADR 0001),
+  // and an App icon the Dock (ADR 0089); each is saved as the model saves a
+  // change. Settings changes them, and shows only where interaction is
+  // allowed (ShowPage); the channel stands in for it at any time, as the
+  // Swift's did, so a scenario sees the Lock's panel in either theme.
   void ChangeSettings(base::FunctionRef<void(model::AppSettings&)> change);
   // What changed is written; `written` runs once it is on the disk.
   void SaveNow(base::OnceClosure written);
@@ -165,6 +169,7 @@ class UiApp : public AppData::Client,
   // AppData::Client:
   void AccessDidOpen() override;
   void LockRequested() override;
+  void SecurityChanged() override;
 
   // Window::Controller:
   SidebarContent Sidebar() override;
@@ -195,6 +200,16 @@ class UiApp : public AppData::Client,
   void Reload() override;
   void Stop() override;
   model::ToolbarProgress& LoadProgress() override;
+  AppIconImages& AppIcons() override;
+  void EditSettings(
+      base::RepeatingCallback<void(model::AppSettings&)> edit) override;
+  // The picker over the window, on Settings alone.
+  void OpenAppIconPicker() override;
+  void ChooseAppIcon(model::AppIcon icon) override;
+  void CloseAppIconPicker() override;
+  // The Lock's PIN screen (L1 draws it), where interaction is allowed.
+  void ShowPinScreen(model::PinEntry::Mode mode) override;
+  void CheckForUpdates() override;
   void NewTab() override;
   void FocusAddressField() override;
   void SelectTabAt(int number) override;
@@ -293,6 +308,9 @@ class UiApp : public AppData::Client,
 
   const raw_ref<AppData> data_;
   ProfileContexts contexts_;
+  // The skies of the app's icon, for the Dock and Settings: made before the
+  // window, which shows them, and gone after it.
+  std::unique_ptr<AppIconImages> app_icons_;
   std::unique_ptr<Window> window_;
   std::unique_ptr<AppEvents> events_;
   std::unique_ptr<Automation> automation_;
@@ -332,6 +350,14 @@ class UiApp : public AppData::Client,
   std::set<std::string> deleting_;
   // The sidebar's width as it shows: a drag's, saved as it ends.
   double sidebar_width_ = 0;
+  // The Theme the app shows, and the App icon picker over Settings.
+  std::optional<model::Theme> applied_theme_;
+  bool app_icon_picker_ = false;
+  // Pane's own version, and the update row, as Settings shows them.
+  const std::u16string version_;
+  SettingsUpdate settings_update_;
+  // Pane's icon in the Dock.
+  std::unique_ptr<DockIcon> dock_icon_;
   base::ScopedObservation<model::BrowserModel, model::BrowserModel::Observer>
       model_observation_{this};
   base::ScopedObservation<Favicons, Favicons::Observer> favicons_observation_{

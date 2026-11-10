@@ -90,8 +90,9 @@ class Updater {
   // settles.
   std::optional<double> download_progress() const { return download_progress_; }
   std::optional<int> download_eta() const { return download_eta_; }
-  // A check completed this launch.
+  // A check completed this launch, and when the last one did.
   bool checked() const { return last_checked_at_.has_value(); }
+  std::optional<base::Time> last_checked_at() const { return last_checked_at_; }
   // The new version waits beside the app, to install at quit (K1).
   bool staged() const { return false; }
   // The status line the pill and the Lock show.

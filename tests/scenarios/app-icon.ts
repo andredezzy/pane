@@ -1,5 +1,4 @@
-import { join } from "node:path";
-import { launchPane } from "../lib/pane";
+import { bringToFront, launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
 // The App icon setting (ADR 0089): the Dock shows the sky it names, whatever
@@ -36,13 +35,21 @@ const appIcon: Scenario = async (context) => {
 	}
 
 	// Settings' row (the chosen icon) and the picker it opens, in each theme:
-	// the window's app UI drawn into a PNG, which a locked screen allows. A
-	// sky picked with the picker open reaches the Dock, and Esc or Return
-	// closes it.
+	// the window's app UI drawn into a PNG, which a locked screen allows. The
+	// row's click opens the picker; a sky clicked in it reaches the Dock with
+	// the picker open; Esc or Return closes it: a real key with the front,
+	// and without it the same key through Views' own dispatch, where AppKit's
+	// path needs the window key.
 	await app.send("showPage", { page: "settings" });
 
-	const render = (file: string) =>
-		app.send("render", { path: join(context.out, file) });
+	await app.waitFor("Settings", (state) => state.page === "settings", 5_000);
+
+	// Once the picker's fade (Motion.panel, 0.15 s) has settled.
+	const render = (file: string) => app.render(file, 400);
+
+	const front =
+		context.foreground &&
+		(await bringToFront(context, app, "Esc and Return by real keys"));
 
 	for (const [theme, appIcon, close] of [
 		["light", "fuchsia", "\u001b"],
@@ -50,9 +57,15 @@ const appIcon: Scenario = async (context) => {
 	] as const) {
 		await app.send("theme", { theme });
 		await app.send("appIcon", { appIcon: "automatic" });
-		await render(`app-icon-settings-${theme}.png`);
 
-		await app.send("appIconPicker", { open: true });
+		await app.waitFor(
+			`automatic under the ${theme} theme`,
+			(state) => state.dockIcon === (theme === "dark" ? "night" : "day"),
+			5_000,
+		);
+
+		await render(`app-icon-settings-${theme}.png`);
+		await app.click("pane.settings.appIcon");
 
 		await app.waitFor(
 			`the picker over ${theme}`,
@@ -60,11 +73,11 @@ const appIcon: Scenario = async (context) => {
 			5_000,
 		);
 
-		await app.send("appIcon", { appIcon });
+		await app.click(`pane.settings.appIcon.${appIcon}`);
 
 		const picked = await app.waitFor(
 			`${appIcon} from the picker`,
-			(state) => state.dockIcon === appIcon,
+			(state) => state.appIcon === appIcon && state.dockIcon === appIcon,
 			5_000,
 		);
 
@@ -75,7 +88,7 @@ const appIcon: Scenario = async (context) => {
 
 		await render(`app-icon-picker-${theme}.png`);
 
-		await app.send("key", { key: close });
+		await app.send(front ? "key" : "dispatchKey", { key: close });
 
 		await app.waitFor(
 			`the picker closed by ${close === "\r" ? "Return" : "Esc"}`,

@@ -3,6 +3,7 @@
 #include "pane/ui/app/ui_app.h"
 
 #include <algorithm>
+#include <cmath>
 #include <optional>
 #include <string>
 #include <utility>
@@ -18,6 +19,7 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/process/kill.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -60,11 +62,15 @@
 #include "pane/model/test_hooks.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
+#include "pane/ui/app/dock_icon.h"
 #include "pane/ui/app/installed_extensions.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
 #include "pane/ui/interaction_log.h"
+#include "pane/ui/panels/app_icon_images.h"
+#include "pane/ui/panels/settings_view.h"
+#include "pane/ui/panels/time_of_day.h"
 #include "pane/ui/sidebar/sidebar_content.h"
 #include "pane/ui/tabs/tab_id.h"
 #include "pane/ui/toolbar/address_field.h"
@@ -75,6 +81,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -246,6 +253,61 @@ base::DictValue UpdateState(const Updater& updater) {
       // Staged beside the app, to install at quit (ADR 0092).
       .Set("installsItself", updater.staged())
       .Set("checked", updater.checked());
+}
+
+// The update row as Settings shows it (the Swift's UpdateRow): what the last
+// check found, or the version on offer, and the row's button.
+SettingsUpdate SettingsUpdateOf(const Updater& updater) {
+  SettingsUpdate update;
+  if (const std::optional<model::AvailableUpdate>& available =
+          updater.available()) {
+    const std::u16string version = base::UTF8ToUTF16(available->version);
+    update.downloads = true;
+    switch (updater.status()) {
+      case Updater::Status::kDownloaded:
+        // Staged, it restarts into the update (ADR 0092); otherwise it shows
+        // the installer and quits, for the user to drag Pane in (Paper
+        // 06.3.1).
+        update.status =
+            updater.staged()
+                ? base::StrCat({u"Version ", version,
+                                u" is ready. Pane restarts into it."})
+                : base::StrCat({u"Version ", version,
+                                u" is downloaded. It installs by hand."});
+        update.button = updater.Label();
+        break;
+      case Updater::Status::kDownloading: {
+        update.status = base::StrCat({u"Version ", version, u" is available."});
+        const int percent = static_cast<int>(
+            std::lround(updater.download_progress().value_or(0) * 100));
+        update.button = base::StrCat(
+            {u"Downloading\u2026 ", base::NumberToString16(percent), u"%",
+             updater.download_eta()
+                 ? base::StrCat(
+                       {u" \u00B7 ", base::UTF8ToUTF16(model::FormatETA(
+                                         *updater.download_eta()))})
+                 : std::u16string()});
+        update.button_enabled = false;
+        break;
+      }
+      default:
+        update.status = base::StrCat({u"Version ", version, u" is available."});
+        update.button = u"Download update";
+        break;
+    }
+    return update;
+  }
+  if (const std::optional<base::Time> checked = updater.last_checked_at()) {
+    update.status = base::StrCat(
+        {u"Pane is up to date \u00B7 checked at ", TimeOfDay(*checked)});
+    update.up_to_date = true;
+  } else {
+    update.status = u"Pane checks for a new version on its own.";
+  }
+  const bool checking = updater.status() == Updater::Status::kChecking;
+  update.button = checking ? u"Checking\u2026" : u"Check for updates";
+  update.button_enabled = !checking;
+  return update;
 }
 
 // The profile a page of the window belongs to: its folder's name.
@@ -447,11 +509,20 @@ UiApp* UiApp::Get() {
 }
 
 UiApp::UiApp()
-    : data_(*AppData::Get()), contexts_(*data_, data_->store().model()) {
+    : data_(*AppData::Get()),
+      contexts_(*data_, data_->store().model()),
+      app_icons_(std::make_unique<AppIconImages>()),
+      version_(base::UTF8ToUTF16(PaneVersion())) {
   // The design's colors, and the Theme the settings hold, before the window
   // draws: settings.json is read before the lock, as the Swift's was.
   AddPaneColorMixer();
-  ApplyTheme(model().settings().theme);
+  applied_theme_ = model().settings().theme;
+  ApplyTheme(*applied_theme_);
+  // The Dock shows the App icon from the start, and Settings' row has it to
+  // show the first time.
+  dock_icon_ = std::make_unique<DockIcon>(*app_icons_);
+  dock_icon_->Show(model().settings().app_icon);
+  app_icons_->Load({model().settings().app_icon});
   // A scenario's copy shares the user's preferences, so its window neither
   // reads nor saves the user's frame: 1280 × 800 at every launch (B0).
   window_ = std::make_unique<Window>(
@@ -477,6 +548,7 @@ UiApp::UiApp()
           },
           weak_factory_.GetWeakPtr()));
   updater_observation_.Observe(updater_.get());
+  settings_update_ = SettingsUpdateOf(*updater_);
   updater_->Schedule();
   events_ = AppEvents::Listen(
       base::BindRepeating(&UiApp::ShowWindow, weak_factory_.GetWeakPtr()),
@@ -515,6 +587,8 @@ UiApp::~UiApp() {
   // Their pages go with the window's Browsers, as quitting keeps their tabs.
   pages_.clear();
   window_.reset();
+  dock_icon_.reset();
+  app_icons_.reset();
 }
 
 model::BrowserModel& UiApp::model() {
@@ -553,6 +627,11 @@ void UiApp::AccessDidOpen() {
   if (resume_tab_id_ && model().FindTab(*resume_tab_id_)) {
     Select(*std::exchange(resume_tab_id_, std::nullopt));
   }
+}
+
+// A PIN set or removed: Settings' Security rows follow.
+void UiApp::SecurityChanged() {
+  window_->Refresh();
 }
 
 void UiApp::LockRequested() {
@@ -1009,6 +1088,10 @@ void UiApp::ReloadCrashed(const std::string& tab_id) {
   }
 }
 
+AppIconImages& UiApp::AppIcons() {
+  return *app_icons_;
+}
+
 model::ToolbarProgress& UiApp::LoadProgress() {
   return progress_;
 }
@@ -1070,10 +1153,26 @@ void UiApp::ShowPage(model::BrowserModel::Page page) {
   if (!InteractionAllowed()) {
     return;
   }
+  const bool settings = page == model::BrowserModel::Page::kSettings;
+  if (settings && model().page() != page) {
+    LogInteraction(Interaction::kOpenSettings, window_->compositor());
+    // Every sky's tile, decoded before the picker can open.
+    app_icons_->LoadAll();
+  }
+  // The picker is Settings'.
+  if (!settings) {
+    app_icon_picker_ = false;
+  }
   model().SetPage(page);
-  // Back on the browser, its page takes the keys again.
-  if (RootView* root = window_->root();
-      root && page == model::BrowserModel::Page::kBrowser) {
+  RootView* root = window_->root();
+  if (!root) {
+    return;
+  }
+  // Back on the browser, its page takes the keys again; Settings takes them
+  // in its place.
+  if (settings) {
+    root->FocusSettings();
+  } else if (page == model::BrowserModel::Page::kBrowser) {
     root->FocusPage();
   }
 }
@@ -1098,6 +1197,52 @@ void UiApp::DownloadUpdate() {
 
 void UiApp::DismissUpdate() {
   updater_->DismissPill();
+}
+
+// Settings' update row, as the app menu's Check for Updates…, behind the Lock
+// too.
+void UiApp::CheckForUpdates() {
+  updater_->Check();
+}
+
+void UiApp::EditSettings(
+    base::RepeatingCallback<void(model::AppSettings&)> edit) {
+  if (InteractionAllowed()) {
+    ChangeSettings([&](model::AppSettings& settings) { edit.Run(settings); });
+  }
+}
+
+void UiApp::OpenAppIconPicker() {
+  if (!InteractionAllowed() || app_icon_picker_ ||
+      model().page() != model::BrowserModel::Page::kSettings) {
+    return;
+  }
+  LogInteraction(Interaction::kOpenAppIconPicker, window_->compositor());
+  app_icon_picker_ = true;
+  window_->Refresh();
+}
+
+// A sky applies at once, and the Dock follows; the picker stays open to
+// compare.
+void UiApp::ChooseAppIcon(model::AppIcon icon) {
+  if (!InteractionAllowed()) {
+    return;
+  }
+  LogInteraction(Interaction::kChooseAppIcon, window_->compositor());
+  ChangeSettings(
+      [&](model::AppSettings& settings) { settings.app_icon = icon; });
+}
+
+void UiApp::CloseAppIconPicker() {
+  if (std::exchange(app_icon_picker_, false)) {
+    window_->Refresh();
+  }
+}
+
+void UiApp::ShowPinScreen(model::PinEntry::Mode mode) {
+  if (InteractionAllowed()) {
+    data_->ShowPinScreen(mode);
+  }
 }
 
 void UiApp::ToggleSettings() {
@@ -1517,13 +1662,21 @@ RootView::Shows UiApp::Shows() {
   const bool browser = model.page() == model::BrowserModel::Page::kBrowser;
   RootView::Shows shows;
   const std::optional<std::string>& selected = model.active_tab_id();
-  shows.content = !browser    ? RootView::Content::kOther
+  shows.content = model.page() == model::BrowserModel::Page::kSettings
+                      ? RootView::Content::kSettings
+                  : !browser  ? RootView::Content::kEmpty
                   : !selected ? RootView::Content::kEmpty
                   : crashed_tab_ids_.contains(*selected)
                       ? RootView::Content::kSadTab
                       : RootView::Content::kPage;
   shows.sidebar_width = sidebar_width_;
   shows.can_collapse_all = !model.expanded_profile_ids().empty();
+  shows.settings.settings = model.settings();
+  shows.settings.has_pin = data_->HasPin();
+  shows.settings.update = settings_update_;
+  shows.settings.version = version_;
+  shows.app_icon_picker =
+      app_icon_picker_ && model.page() == model::BrowserModel::Page::kSettings;
 
   // The selected tab's toolbar, on the browser page: off it, the toolbar
   // goes, and coming back shows the tab's address again, as the Swift's
@@ -1750,8 +1903,17 @@ void UiApp::OnProfilesChanged() {
 
 void UiApp::OnSettingsChanged() {
   // A Theme chosen reaches the app, its menus, and its pages at once (ADR
-  // 0001); the rest of the settings wait for Settings' port.
-  ApplyTheme(model().settings().theme);
+  // 0001), timed to the frame that shows it.
+  const model::AppSettings& settings = model().settings();
+  if (settings.theme != applied_theme_) {
+    LogInteraction(Interaction::kChangeTheme, window_->compositor());
+    applied_theme_ = settings.theme;
+    ApplyTheme(settings.theme);
+  }
+  // An App icon reaches the Dock (ADR 0089); Settings shows every change.
+  // Sleep, Unload, and Trim are the scheduler's at its next tick.
+  dock_icon_->Show(settings.app_icon);
+  window_->Refresh();
 }
 
 void UiApp::OnExpandedProfilesChanged() {
@@ -1783,6 +1945,9 @@ void UiApp::OnFaviconChanged(const std::string& tab_id) {
 }
 
 void UiApp::OnUpdaterChanged() {
+  // Written once a change, not at each refresh: its time takes the system's
+  // formatter.
+  settings_update_ = SettingsUpdateOf(*updater_);
   window_->Refresh();
 }
 
@@ -1923,7 +2088,18 @@ base::DictValue UiApp::Snapshot() const {
            active_profile ? base::Value(*active_profile) : base::Value())
       .Set("page", PageName(model.page()))
       .Set("theme", model::ThemeName(model.settings().theme))
+      // What the window shows, its views and the menus it opens: light or
+      // dark, as the Theme has it or, under System, the Mac.
+      .Set("appearance",
+           widget && widget->GetNativeTheme()->preferred_color_scheme() ==
+                         ui::NativeTheme::PreferredColorScheme::kDark
+               ? "dark"
+               : "light")
       .Set("appIcon", model::AppIconName(model.settings().app_icon))
+      .Set("dockIcon", dock_icon_ && dock_icon_->shown()
+                           ? model::AppIconName(*dock_icon_->shown())
+                           : std::string_view())
+      .Set("appIconPicker", app_icon_picker_)
       .Set("sidebarWidth", sidebar_width_)
       .Set("pendingProfileDeletions", static_cast<int>(deleting_.size()))
       // A page's dialog: none drawn until "What Chrome asks for" ports them.

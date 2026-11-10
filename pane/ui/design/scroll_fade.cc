@@ -78,6 +78,9 @@ FadingScrollView::FadingScrollView(ui::ColorVariant behind,
   scroll_view_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kDisabled);
   scroll_view_->SetBackgroundColor(std::nullopt);
+  // The fades are its edges' only mark: Views' separator where the content
+  // runs past an edge, Material's blue, stays off (it sat under the fade).
+  scroll_view_->SetDrawOverflowIndicator(false);
   scrolled_ = scroll_view_->AddContentsScrolledCallback(base::BindRepeating(
       &FadingScrollView::UpdateFades, base::Unretained(this)));
   if (fades_top) {

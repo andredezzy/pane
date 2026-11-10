@@ -16,6 +16,8 @@ source_set("design") {
   sources = [
     "controls.cc",
     "controls.h",
+    "dialog.cc",
+    "dialog.h",
     "field.cc",
     "field.h",
     "focus_ring.cc",
@@ -24,6 +26,8 @@ source_set("design") {
     "icon_button.h",
     "icons.cc",
     "icons.h",
+    "menu_button.cc",
+    "menu_button.h",
     "menu_icon.cc",
     "menu_icon.h",
     "motion.cc",
@@ -56,6 +60,7 @@ source_set("design") {
     "//ui/compositor",
     "//ui/gfx",
     "//ui/gfx/geometry",
+    "//ui/menus",
     "//ui/views",
   ]
 

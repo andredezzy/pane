@@ -263,7 +263,8 @@ model::ModelStore::KeptApart KeptApartPasswords(
 // (DataVault::ExpectMove), and the lock's detach leaves the engine no key.
 class PaneData : public AppData,
                  public DataVault::Delegate,
-                 public AppLock::Delegate {
+                 public AppLock::Delegate,
+                 public AppLock::Observer {
  public:
   explicit PaneData(Launched launched)
       : data_directory_(launched.data_directory),
@@ -306,6 +307,7 @@ class PaneData : public AppData,
   // AppData:
   void Start(Client* client) override {
     client_ = client;
+    lock_.AddObserver(this);
     // An earlier Pane's profiles move in at once, with no PIN to ask first:
     // the panel shows from the first frame.
     if (!lock_.is_locked() && has_plain_profiles_) {
@@ -316,7 +318,10 @@ class PaneData : public AppData,
     lock_.Start();
   }
 
-  void Stop() override { client_ = nullptr; }
+  void Stop() override {
+    lock_.RemoveObserver(this);
+    client_ = nullptr;
+  }
 
   model::ModelStore& store() override { return store_; }
 
@@ -431,6 +436,13 @@ class PaneData : public AppData,
                        << ", " << network << ", " << storage;
           }
         }));
+  }
+
+  // AppLock::Observer:
+  void OnAppLockChanged() override {
+    if (client_) {
+      client_->SecurityChanged();
+    }
   }
 
   // AppLock::Delegate:

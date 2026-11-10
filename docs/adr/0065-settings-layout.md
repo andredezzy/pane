@@ -1,5 +1,7 @@
 # Settings take Aside's layout
 
+> **On the Views line** (`docs/plans/views-migration.md`, H6): Settings is `pane/ui/panels/settings_view.cc`, in the content panel in the page's place, to the Swift's measures (cards 40 in and at most 640 wide, rows 60 tall, the App icon's 64, the version's 56); its pop-up buttons are the app's one `MenuButton` (`pane/ui/design/menu_button.cc`), which opens the system's menu through `views::MenuRunner` as the press goes down, just under it, the option checked. The version is drawn without tabular digits (Paper 10.6).
+
 Settings are laid out as Aside's Appearance page, at the user's request: a title, then each section as a card of rows, each row with its title, a muted description, and its control at the end. Aside's page was measured at 2× from the user's screenshot and set at Pane's type scale, a point under Aside's 14. Paper drew it first (06.1 Settings, light and dark; ADR 0058).
 
 The page has "Settings" at 22, then each section's muted label at 13 over a card. Cards are rounded 22 with a 1-point border, and their rows are at least 56 points tall, with a hairline between. A row's title is 13 and its description 12, muted, and its control sits 10 points from the card's edge. The version is the Updates card's last row.

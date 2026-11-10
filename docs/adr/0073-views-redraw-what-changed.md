@@ -6,6 +6,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, H3): a drag repaints no row: the rows it reorders slide by their layers' transforms, its copy moves on a layer of its own, and a new order restacks their layers; once the drop's fade ends, the rows paint into the list again.
 
+> **On the Views line** (`docs/plans/views-migration.md`, H6): Settings draws in the panel with no fill of its own over the panel's card, the page's view hidden under it and its renderer told so (`navigation` reads "hidden"), so nothing draws under Settings and nothing clips or masks either; the App icon picker's scrim and card are layers of the window's one compositor.
+
 The app's views redraw only what changed, and nothing the app draws masks the page or animates it in, so the page keeps its own compositing and a covered page costs nothing. Three changes made it so: the sidebar's rows take values, nothing clips the page, and a page under Settings or Extensions is hidden, with no fade on a tab switch.
 
 The sidebar's sections and rows take what they show as values and compare them (`.equatable()`), so SwiftUI runs only the changed ones. A profile section had taken an edit closure SwiftUI cannot compare, and every tab row read the model's selection itself. Counted with each body logging itself, selecting a tab in another profile, of 24 tabs in three, ran 24 tab rows and 3 sections, and now runs 2 and 2; a tab navigating ran 6 sections, and now runs 2. The active profile's bar still morphs (16, 13.5, 5.5, then 4 points across screen captures; ADR 0064).

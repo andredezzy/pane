@@ -64,6 +64,30 @@ enum ViewId : int {
   // The tab switcher over the window; the channel names its rows by their
   // tabs' ids ("pane.switcher.tab.<id>").
   kViewIdSwitcher,
+  // Settings in the content panel, and its controls by the Swift app's names:
+  // Theme's menu, the App icon, Sleep, Unload, and Trim's menus, the PIN's
+  // buttons and Lock after's menu, the update row ("pane.settings.updates",
+  // or "pane.settings.upToDate" once a check found nothing newer) and its
+  // button, Check for updates or the download's.
+  kViewIdSettings,
+  kViewIdSettingsTheme,
+  kViewIdSettingsAppIcon,
+  kViewIdSettingsTabSleep,
+  kViewIdSettingsProfileUnload,
+  kViewIdSettingsCacheBudget,
+  kViewIdSettingsSetUpPin,
+  kViewIdSettingsChangePin,
+  kViewIdSettingsRemovePin,
+  kViewIdSettingsLockAfter,
+  kViewIdSettingsUpdates,
+  kViewIdSettingsUpToDate,
+  kViewIdSettingsCheckUpdates,
+  kViewIdSettingsDownloadUpdate,
+  // The App icon picker over the window, its Done, and its tiles, which the
+  // channel names by their skies ("pane.settings.appIcon.dusk").
+  kViewIdAppIconPicker,
+  kViewIdAppIconDone,
+  kViewIdAppIconTile,
 
   kViewIdsEnd,
 };

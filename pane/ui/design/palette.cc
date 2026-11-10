@@ -94,6 +94,8 @@ void AddPaneColors(ui::ColorProvider* provider,
   set(kPaneColorIconTile, Rgba(0xE9E9EB, 0.7), Rgb(0x232326));
   set(kPaneColorMutedLifted, Rgb(0x71717A), Rgb(0xA1A1AA));
   set(kPaneColorDialogMessage, Rgba(0x18181B, 0.72), Rgba(0xFAFAFA, 0.68));
+  mixer[kPaneColorHeadingMessage] =
+      ui::SetAlpha(kPaneColorForeground, AlphaOf(0.7));
   set(kPaneColorPrimaryKey, Rgba(0xFAFAFA, 0.85), Rgba(0x18181B, 0.7));
   set(kPaneColorPrimaryKeyChip, Rgba(0xFAFAFA, 0.18), Rgba(0x18181B, 0.12));
   set(kPaneColorAddressDivider, Rgb(0x858587), Rgb(0x606068));

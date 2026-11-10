@@ -69,6 +69,8 @@ source_set("pane") {
     "ui/after_frame.h",
     "ui/app/app_events.cc",
     "ui/app/app_events.h",
+    "ui/app/dock_icon.cc",
+    "ui/app/dock_icon.h",
     "ui/app/installed_extensions.cc",
     "ui/app/installed_extensions.h",
     "ui/app/sleep_controller.cc",
@@ -78,6 +80,13 @@ source_set("pane") {
     "ui/dialogs/system_alert.h",
     "ui/interaction_log.cc",
     "ui/interaction_log.h",
+    "ui/panels/app_icon_images.cc",
+    "ui/panels/app_icon_images.h",
+    "ui/panels/app_icon_picker.cc",
+    "ui/panels/app_icon_picker.h",
+    "ui/panels/settings_view.cc",
+    "ui/panels/settings_view.h",
+    "ui/panels/time_of_day.h",
     "ui/render.cc",
     "ui/render.h",
     "ui/sidebar/drag_copy.cc",
@@ -189,8 +198,10 @@ source_set("pane") {
       "public/PaneExtensions.h",
       "public/PaneWebContents.h",
       "ui/app/app_events_mac.mm",
+      "ui/app/dock_icon_mac.mm",
       "ui/dialogs/system_alert_mac.mm",
       "ui/interaction_log_mac.mm",
+      "ui/panels/time_of_day_mac.mm",
       "ui/sidebar/resize_cursor_mac.mm",
       "ui/window/frame_mac.mm",
       "updates/update_files_mac.mm",
@@ -290,6 +301,7 @@ source_set("pane") {
     "//ui/display",
     "//ui/events",
     "//ui/gfx",
+    "//ui/gfx/codec",
     "//ui/menus",
     "//ui/shell_dialogs",
     "//ui/views",
@@ -299,6 +311,7 @@ source_set("pane") {
 
   if (is_mac) {
     deps += [
+      ":app_icons",
       "//components/remote_cocoa/app_shim",
       "//components/remote_cocoa/common:mojo",
       "//pane/model/mac",
@@ -308,5 +321,26 @@ source_set("pane") {
       "Carbon.framework",
       "Foundation.framework",
     ]
+  }
+}
+
+# The ten skies of Pane's icon (ADR 0089), as the Dock shows each, which the
+# framework carries in its Resources (base::DIR_ASSETS): app/icon/
+# make-icons.swift makes them.
+if (is_mac) {
+  bundle_data("app_icons") {
+    sources = [
+      "ui/panels/app_icons/AppIconAfterglow.png",
+      "ui/panels/app_icons/AppIconClouds.png",
+      "ui/panels/app_icons/AppIconDay.png",
+      "ui/panels/app_icons/AppIconDusk.png",
+      "ui/panels/app_icons/AppIconFuchsia.png",
+      "ui/panels/app_icons/AppIconMoonrise.png",
+      "ui/panels/app_icons/AppIconMorning.png",
+      "ui/panels/app_icons/AppIconNight.png",
+      "ui/panels/app_icons/AppIconSunset.png",
+      "ui/panels/app_icons/AppIconTwilight.png",
+    ]
+    outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
   }
 }

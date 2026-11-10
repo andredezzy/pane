@@ -116,8 +116,24 @@ void Window::Open() {
   // again.
   callbacks.reload_crashed =
       base::BindRepeating(&Controller::Reload, base::Unretained(controller));
+  SettingsView::Callbacks& settings = callbacks.settings;
+  settings.change = base::BindRepeating(&Controller::EditSettings,
+                                        base::Unretained(controller));
+  settings.choose_app_icon = base::BindRepeating(&Controller::OpenAppIconPicker,
+                                                 base::Unretained(controller));
+  settings.pin = base::BindRepeating(&Controller::ShowPinScreen,
+                                     base::Unretained(controller));
+  settings.check_updates = base::BindRepeating(&Controller::CheckForUpdates,
+                                               base::Unretained(controller));
+  settings.download_update = base::BindRepeating(&Controller::DownloadUpdate,
+                                                 base::Unretained(controller));
+  callbacks.choose_app_icon = base::BindRepeating(&Controller::ChooseAppIcon,
+                                                  base::Unretained(controller));
+  callbacks.close_app_icon_picker = base::BindRepeating(
+      &Controller::CloseAppIconPicker, base::Unretained(controller));
   auto root = std::make_unique<RootView>(std::move(callbacks),
-                                         &controller->LoadProgress());
+                                         &controller->LoadProgress(),
+                                         &controller->AppIcons());
   root_ = root.get();
   host_ = std::make_unique<WindowHost>(this, gfx::Rect(kWindowSize),
                                        std::move(root));

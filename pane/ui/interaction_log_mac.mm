@@ -46,6 +46,21 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kWakeTab:
       os_signpost_interval_begin(log, id, "Wake tab");
       break;
+    case Interaction::kOpenSettings:
+      os_signpost_interval_begin(log, id, "Open settings");
+      break;
+    case Interaction::kChangeTheme:
+      os_signpost_interval_begin(log, id, "Change theme");
+      break;
+    case Interaction::kOpenMenu:
+      os_signpost_interval_begin(log, id, "Open menu");
+      break;
+    case Interaction::kOpenAppIconPicker:
+      os_signpost_interval_begin(log, id, "Open app icon picker");
+      break;
+    case Interaction::kChooseAppIcon:
+      os_signpost_interval_begin(log, id, "Choose app icon");
+      break;
   }
   return id;
 }
@@ -76,6 +91,21 @@ void EndInteractionInterval(Interaction interaction, uint64_t interval) {
       break;
     case Interaction::kWakeTab:
       os_signpost_interval_end(log, interval, "Wake tab");
+      break;
+    case Interaction::kOpenSettings:
+      os_signpost_interval_end(log, interval, "Open settings");
+      break;
+    case Interaction::kChangeTheme:
+      os_signpost_interval_end(log, interval, "Change theme");
+      break;
+    case Interaction::kOpenMenu:
+      os_signpost_interval_end(log, interval, "Open menu");
+      break;
+    case Interaction::kOpenAppIconPicker:
+      os_signpost_interval_end(log, interval, "Open app icon picker");
+      break;
+    case Interaction::kChooseAppIcon:
+      os_signpost_interval_end(log, interval, "Choose app icon");
       break;
   }
 }

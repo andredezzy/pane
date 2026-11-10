@@ -16,11 +16,12 @@
 //   the dark icon style. Each window becomes a full-bleed layer, scaled so the
 //   frame's outer edge sits 12 points past the canvas, so the system's squircle
 //   mask cuts inside the frame and the icon conforms to its shape.
-// - AppIcon<Sky> in Assets.xcassets, one per render: what the Dock shows while
-//   Pane runs (applicationIconImage), and Settings' tiles. Each is macOS's own
-//   drawing of an app whose icon is that window alone, so it matches the
+// - pane/ui/panels/app_icons/AppIcon<Sky>.png, one per render: what the Dock
+//   shows while Pane runs (applicationIconImage), and Settings' tiles, which
+//   the framework carries in its Resources (pane/BUILD.gn). Each is macOS's
+//   own drawing of an app whose icon is that window alone, so it matches the
 //   bundle's icon to the pixel: the same 824-pixel body on a 1024 canvas, the
-//   same shadow, the same tone.
+//   same shadow, the same tone, 512 points at 2×.
 // - Icon.iconset in Assets.xcassets: the document icon, Day's.
 // - .github/assets/logo.png and logo-dark.png: the README's, Day's and Night's.
 import AppKit
@@ -31,6 +32,7 @@ let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
 let renders = repo.appendingPathComponent("app/icon/renders")
 let pane = repo.appendingPathComponent("app/Pane")
 let assets = pane.appendingPathComponent("Assets.xcassets")
+let skies = repo.appendingPathComponent("pane/ui/panels/app_icons")
 // In the order Settings shows them: the sky through a day.
 let variants = ["day", "clouds", "morning", "dusk", "fuchsia", "sunset", "twilight", "afterglow", "night", "moonrise"]
 let fm = FileManager.default
@@ -352,13 +354,7 @@ writeIcon(pane.appendingPathComponent("AppIcon.icon"), images: [(nil, "day.png",
 for variant in variants {
 	let icon = systemIcon([(nil, "\(variant).png", layers[variant]!)])
 
-	let name = "AppIcon\(variant.capitalized)"
-	let set = assets.appendingPathComponent("\(name).imageset")
-	try? fm.removeItem(at: set)
-	save(icon, set.appendingPathComponent("\(name).png"))
-	// At 2x, so the image is 512 points, as an app icon is.
-	let contents = #"{"images":[{"filename":"\#(name).png","idiom":"universal","scale":"2x"}],"info":{"author":"xcode","version":1}}"#
-	try! Data(contents.utf8).write(to: set.appendingPathComponent("Contents.json"))
+	save(icon, skies.appendingPathComponent("AppIcon\(variant.capitalized).png"))
 
 	if variant == "day" {
 		save(resized(icon, 256), assets.appendingPathComponent("Icon.iconset/icon_256x256.png"))
