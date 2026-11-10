@@ -21,11 +21,26 @@ function millisecondsOf(timestamp: string): number {
 	return Date.parse(`${date}T${clock}Z`) + Number(`0.${fraction}`) * 1000;
 }
 
-// Each interval's durations, in milliseconds, by its name, of the process
-// `run` returns (every process's when it returns none).
-export async function signpostIntervals(
+// One interval, from its input, in milliseconds: to the frame that answers
+// it, and, where the build says, to when that frame went out.
+export type FrameInterval = {
+	// The Views build ends an interval when the UI thread hears its frame
+	// reached the screen, and says how long before that was (late=, in
+	// microseconds), when the GPU process's prediction of the screen is
+	// already past: the interval ends at the earlier of the two.
+	ms: number;
+	// To the frame's commit to Core Animation, the frame handed to the
+	// window server (commit=), where the Swift app's intervals end.
+	committedMs?: number;
+	// To the screen as the GPU process predicts it, ahead or past (glass=).
+	presentedMs?: number;
+};
+
+// Each interval by its name, of the process `run` returns (every process's
+// when it returns none).
+export async function signpostFrameIntervals(
 	run: () => Promise<number | undefined>,
-): Promise<Record<string, number[]>> {
+): Promise<Record<string, FrameInterval[]>> {
 	const stream = Bun.spawn(
 		[
 			"/usr/bin/log",
@@ -51,7 +66,14 @@ export async function signpostIntervals(
 	}
 
 	const begins = new Map<string, { name: string; at: number }>();
-	const intervals: Record<string, number[]> = {};
+	const intervals: Record<string, FrameInterval[]> = {};
+
+	// A field of the end's message, in milliseconds.
+	const field = (message: string, name: string) => {
+		const value = new RegExp(`${name}=(-?\\d+)`).exec(message)?.[1];
+
+		return value === undefined ? undefined : Number(value) / 1000;
+	};
 
 	for (const line of (await new Response(stream.stdout).text()).split("\n")) {
 		const text = line.trim().replace(/,$/, "");
@@ -86,18 +108,41 @@ export async function signpostIntervals(
 			const begin = begins.get(key);
 
 			if (begin) {
-				// The Views build ends an interval when the UI thread hears its
-				// frame reached the screen, and says how long before that was
-				// (late=, in microseconds): the interval ends at the frame.
-				const late =
-					Number(/late=(\d+)/.exec(event.eventMessage ?? "")?.[1] ?? 0) / 1000;
+				const message = event.eventMessage ?? "";
+				const heard = at - begin.at;
+				const committed = field(message, "commit");
+				const presented = field(message, "glass");
 
 				begins.delete(key);
 				intervals[begin.name] ??= [];
-				intervals[begin.name]?.push(at - late - begin.at);
+
+				intervals[begin.name]?.push({
+					ms: heard - (field(message, "late") ?? 0),
+					// A frame the GPU process didn't time says 0.
+					committedMs: committed ? heard - committed : undefined,
+					presentedMs: presented ? heard - presented : undefined,
+				});
 			}
 		}
 	}
 
 	return intervals;
+}
+
+// Each interval's durations, in milliseconds, by its name, of the process
+// `run` returns (every process's when it returns none): to the frame's commit
+// to Core Animation where the build names it, where the Swift app's intervals
+// end, the like-for-like point the shell's budgets compare
+// (docs/benchmarks/views-shell.md); else to the interval's end.
+export async function signpostIntervals(
+	run: () => Promise<number | undefined>,
+): Promise<Record<string, number[]>> {
+	const intervals = await signpostFrameIntervals(run);
+
+	return Object.fromEntries(
+		Object.entries(intervals).map(([name, values]) => [
+			name,
+			values.map((value) => value.committedMs ?? value.ms),
+		]),
+	);
 }

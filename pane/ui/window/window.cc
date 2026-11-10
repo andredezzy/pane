@@ -252,7 +252,10 @@ void Window::ShowNoPage() {
   if (!root_) {
     return;
   }
-  ClearPage();
+  // The title follows the frame that answers the input, as ShowTab's does:
+  // AppKit lays its hidden title bar out again for each title.
+  root_->ShowPage(nullptr);
+  UpdateTitleAfterFrame();
   Refresh();
 }
 

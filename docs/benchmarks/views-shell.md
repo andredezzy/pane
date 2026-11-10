@@ -147,6 +147,55 @@ On the three local fixtures, the first contentful paint read 8 to 12 ms later on
 - **About 3 ms is real:** the window's display starts drawing the page's first frame 2 to 3 ms later (`ReceiveCompositorFrameToStartDraw`), since it waits for the window's own frame, which a navigation changes too. The page paints 8 ms sooner, so its first frame reaches the screen about when 0.19.2's did.
 - **A real site shows neither,** its first paint coming 100 ms and more after the navigation, when 0.19.2's page display has its timing too.
 
+## ⌘T's first frame
+
+⌘T read 20 to 24 ms from its key to its frame on the screen (16 to 28 by run), where a tab switch read 10.6 and ⌘L 8.4. It was traced from a test copy in the background (the browser's and the GPU process's threads, cut at the app's signpost), sampled (`sample` over 40 ⌘Ts and 60 tab switches), and timed again by `views-key-timing`, which now reads three ends for each frame (`evidence/views-migration/cmdt-probe`):
+
+- **Most of it was where the interval ended.** An interval ends when the UI thread hears its frame reached the screen, less how late it heard it (`late=`), and on the Mac the GPU process stamps a frame with its display link's prediction of the screen, about a refresh and a half after it commits the frame to Core Animation (A page's first frame, above). A tab switch's and ⌘L's ends are heard before that prediction, about a refresh after the commit, so they ended when heard; ⌘T's is heard after the page it makes once its frame is out, so it ended at the prediction, about 10 ms later for a frame that was no later. By its commit to Core Animation, the point 0.19.2's own intervals end at (`AfterFrame.committed`, just after Core Animation's commit), ⌘T's frame on `82e9748` came 7.2 ms after its key, a tab switch's 6.1 and ⌘L's 2.7 (the table after next).
+- **Every page Chrome made asked LocalAuthentication** whether the Mac can authenticate its user: Chrome's autofill client, made with each page, asks it for Autofill AI's Google Wallet passes, which need the browser sign-in Pane turns off, through a synchronous call to the system's daemon. In the sample it was 162 of the page's 267 samples, on the UI thread, in every new, woken, and restored tab's page. It is off now (`pane/app/engine_switches.cc`, ADR 0022).
+- **The key's own work cost the frame a refresh, often.** Asked for frames, the display compositor answers at once with a frame due at the next refresh, which cc drops when the UI thread reads it after that. ⌘T's 4.6 ms on the UI thread, about 1 of them AppKit laying the hidden title bar out for "Pane", outlasted it in 9 of 14 traced rounds, and a tab switch's in 4 of 6, and the frame then waited for the display link's next call, 6 to 12 ms away when it had stopped while the window was still. "Pane" follows the frame now, as a shown tab's title already did, and the frame that answers a command or a tab's choice is asked for once it is handled (`FrameHold`, `pane/ui/after_frame.h`): none dropped in 22 traced rounds.
+
+From the key to the frame, in the background, the median of five runs' medians (and of their p90s), taking turns with `82e9748`, 30 rounds a run (`views-key-timing`, `evidence/views-migration/cmdt-probe/final-ab`). The first two columns are the rigs' reading, `late=`; the last two are the same frames' commit to Core Animation and the screen as the GPU process predicts it, which `82e9748` doesn't say:
+
+| | `82e9748` | Now | Now, to its commit | Now, to the screen, predicted |
+|---|---:|---:|---:|---:|
+| New tab (⌘T) | 21.3 ms (23.7) | 17.0 ms (19.5) | 6.2 ms (7.5) | 19.6 ms (23.5) |
+| A tab switch (⌘1, ⌘2) | 11.1 ms (15.2) | 11.3 ms (15.9) | 6.5 ms (8.1) | 20.6 ms (23.3) |
+| Address field (⌘L) | 8.3 ms (12.4) | 8.5 ms (12.6) | 3.3 ms (4.0) | 15.2 ms (21.1) |
+| Tab switcher (⌃⇥) | 9.6 ms (12.7) | 9.7 ms (13.4) | 4.6 ms (5.5) | 18.5 ms (22.3) |
+| Quit Pane? (⌘Q) | 13.2 ms (18.0) | 12.3 ms (16.4) | 7.2 ms (8.7) | 21.0 ms (23.7) |
+
+Against 0.19.2, in the background, taking turns, three runs each of 30 rounds (16 wakes), the median of the runs' medians (and of their p90s) (`evidence/views-migration/cmdt-probe/ab-key-timing.ts`, the same keys through either build's channel). 0.19.2's intervals end at its commit to Core Animation; `82e9748` is read through a build of it that also says its frames' commits (`meas`: the signposts' fields alone). A woken tab is timed to its page's first paint, which 0.19.2 doesn't time:
+
+| | 0.19.2, to its commit | `82e9748`, `late=` | … to its commit | Now, `late=` | … to its commit |
+|---|---:|---:|---:|---:|---:|
+| New tab (⌘T) | 21.6 ms (31.4) | 21.4 ms (27.8) | 7.2 ms (11.0) | 16.5 ms (18.5) | 5.6 ms (7.2) |
+| A tab switch (⌘1, ⌘2) | 16.0 ms (16.6) | 11.0 ms (15.7) | 6.1 ms (8.2) | 9.1 ms (12.8) | 6.0 ms (7.4) |
+| Address field (⌘L) | 13.1 ms (20.7) | 7.4 ms (11.2) | 2.7 ms (4.4) | 7.6 ms (11.9) | 2.9 ms (7.2) |
+| A tab woken | | 64.6 ms (70.7) | 56.8 ms (63.1) | 54.2 ms (57.8) | 45.5 ms (49.6) |
+
+0.19.2's ⌘T read 31.1, 21.4, and 21.6 ms by run, as it read 12 to 21 by session before. ⌘L's p90 to its commit is a few slow rounds of thirty: 4.0, 7.2, and 7.2 by run here, 4.0 over the five runs above. The woken tab's 10 ms are the page made without LocalAuthentication's call; a new tab's are the same, after its frame.
+
+What each end is for: 0.19.2's intervals end at its commit to Core Animation, so the budget's comparison is by the commit, the same point on both, after which both builds' frames take the same WindowServer to the screen. The predicted screen is read the same way for every interval of the Views build: when, by its display link, the frame reaches the glass, a refresh and a half after its commit. `late=` ends at the earlier of that prediction and when the UI thread hears of the frame, so it reads ⌘T, whose UI thread makes a page right after the frame, later than the others for a frame of the same age; `views-key-timing` now prints all three, and the other rigs still read `late=`.
+
+What stays: hiding the page left (its NSView hidden, Chrome's WasHidden, the view removed) is about 1.2 ms of a tab switch's 2.7 ms on the UI thread and 0.8 to 1 of ⌘T's, which the Swift put after the frame and Views does in Chromium's swap; H5 read 0.18 ms a switch from a sample it took at 1 ms a sample, where `sample` ran at 2 to 3 here. A row added to the sidebar rasters the rows' layer whole (a layer whose size changes paints again), 8 to 12 tiles, about 1 ms on the one raster thread. And the display link, stopped after 20 still refreshes, takes 6 to 12 ms to call back, which `late=` waits on for ⌘T's presentation to be heard.
+
+The budgets hold on this tree, against 0.19.2, three rounds taking turns (`tests/ab.ts`): launch to the first window −20.2 ms cold and −16.5 warm; memory −2.0% at one tab and −2.5% at ten, the browser process 8.3 and 14.9 MB lighter, the GPU process 5.1 and 6.5 heavier. The renders are `82e9748`'s but where runs differ: the fixtures' port in the address, the update row's clock, which tabs had loaded, a drag's and a slide's frame, a progress bar, and the time of day's sky.
+
+## The interactions, with Pane in front
+
+`interaction-timing` takes the front, so it ran apart, with the user's go (2026-11-10, `tests/ab.ts`, 5 rounds taking turns, every run passing, `evidence/views-migration/shell-interactions3/`). Each interval runs from the input to its frame's commit to Core Animation, where 0.19.2's end: the like-for-like point the budgets compare, which `tests/lib/signposts.ts` takes where the build names it (`commit=`).
+
+| Interaction | 0.19.2 | Views | Budget | |
+|---|---:|---:|---:|---|
+| Tab switch, median (p90) | 12.7 (23.5) ms | 4.0 (12.1) ms | ≤ 0.19.2's | ✓ |
+| ⌘T | 14.6 (25.1) ms | 7.4 (9.6) ms | ≤ 0.19.2's | ✓ |
+| ⌘L | 13.8 (21.0) ms | 3.3 (7.8) ms | ≤ 0.19.2's | ✓ |
+| Open the profile sheet | 40.6 (49.1) ms | 8.1 (30.5) ms | | |
+| Choose a platform | 4.5 (13.2) ms | 1.7 (2.1) ms | | |
+
+The Views build also timed a click into the address (3.3 ms), the switcher by Ctrl-Tab (6.2), and a sleeping tab woken to its first paint (45.1), which 0.19.2 doesn't mark.
+
 ## Found on the way
 
 - **A render left its recording behind.** `pane/ui/render.cc` paints views on a pixel canvas, and Views keeps each view's last recording and replays it for a view its layer's next paint leaves alone; the window's compositor records in points (pixel canvases are ChromeOS's), so a view painted for a render could then draw at twice its size: with the sidebar's footer on a layer of its own, `views-sidebar`'s capture showed its New at 2×. The channel's `render`, a test copy's alone, now has every view it painted record again for the screen.
@@ -162,3 +211,9 @@ bun tests/ab.ts --base <0.19.2>/Contents/MacOS/Pane --candidate <Views build>/Co
 ```
 
 `benchmark-frame-latency` is the gate's measure, tracked now: `benchmark-scroll`'s scroll, and each of the page's frames from its compositor's submission to its presentation, with the stages under it. The rest of what this document cites (the memory dumps, cc's layer snapshots, the traced loads and launches) came from probes kept with the evidence, not in the tree.
+
+The keys' timings come from the rig, in the background, on a build of each, taking turns; each interval prints `late=`'s reading (`medianMs`, `p90Ms`) and, where the build says them, `committed` and `presented`:
+
+```bash
+bun tests/run.ts --binary <Views build>/Contents/MacOS/Pane --out <dir> tests/rigs/views-key-timing.ts
+```

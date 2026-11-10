@@ -741,6 +741,9 @@ void UiApp::Select(const std::string& tab_id) {
   if (!InteractionAllowed() || !tab || !profile_id) {
     return;
   }
+  // The frame that answers the choice, a row's click as a command's, is asked
+  // for once it is handled.
+  FrameHold hold(window_->compositor());
   // Another tab chosen before the one woken painted: its time is no wake's.
   if (waking_ && waking_->tab_id != tab_id) {
     waking_.reset();
@@ -1875,6 +1878,8 @@ void UiApp::RunCommand(Command command) {
   if (!IsCommandEnabled(command)) {
     return;
   }
+  // The frame that answers the command is asked for once it is handled.
+  FrameHold hold(window_->compositor());
   const std::optional<std::string>& active = model().active_tab_id();
   switch (command) {
     case Command::kCheckForUpdates:

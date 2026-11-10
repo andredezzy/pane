@@ -88,6 +88,14 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // replace them (ADR 0121).
   AddToSwitchList(command_line, "disable-features",
                   "EncryptBookmarks,EncryptSessionStorage");
+  // Autofill AI's Google Wallet passes, which come only with the browser
+  // sign-in and autofill each profile turns off (profiles.cc): with them on,
+  // every page Chrome makes asks LocalAuthentication whether this Mac can
+  // authenticate its user (ChromeAutofillClient's constructor), a synchronous
+  // call to the system's daemon that held the UI thread about 10 ms of each
+  // new tab's or woken tab's page.
+  AddToSwitchList(command_line, "disable-features",
+                  "AutofillAiWalletPrivatePasses");
   // Its histograms (BrowserMetrics) Chrome sets up before it reads the
   // features: patch 0008 keeps them off.
   // Chrome discards background tabs under memory pressure (its urgent

@@ -7023,5 +7023,483 @@
 				}
 			]
 		}
+	},
+	"cmdT": {
+		"what": "⌘T's first frame (views-shell.md, ⌘T's first frame), on an M5 Pro in use on 2026-11-10, in the background. keys: views-key-timing, 30 rounds a run, five runs each taking turns (order flipped each round): 82e9748, the final tree (fix2), and the final tree without FrameHold (fix2-nohold). against0192: evidence/views-migration/cmdt-probe/ab-key-timing.ts (the same keys through either build's channel, 16 wakes), three runs each taking turns: 0.19.2 (PGO), 82e9748 with the signposts' fields alone (meas), and the final tree. Per interval: late (the rigs' reading), committed (the frame's commit to Core Animation, latch_timestamp, where 0.19.2's intervals end), presented (the GPU process's prediction of the screen); each the run medians and p90s, their median.",
+		"keys": {
+			"base-82e9748": {
+				"Select tab": {
+					"late": {
+						"runMedians": [11.1, 10.4, 11.2, 12.2, 8.5],
+						"runP90s": [15.2, 12.9, 17.8, 16.9, 12.8],
+						"medianOfRuns": 11.1,
+						"medianP90": 15.2
+					}
+				},
+				"New tab": {
+					"late": {
+						"runMedians": [19.9, 21.5, 22.1, 21.3, 18.9],
+						"runP90s": [28.1, 25.5, 23.6, 23.7, 23.7],
+						"medianOfRuns": 21.3,
+						"medianP90": 23.7
+					}
+				},
+				"Focus address field": {
+					"late": {
+						"runMedians": [8.3, 8.3, 8, 9.7, 6.2],
+						"runP90s": [11.2, 12.4, 12.5, 13.2, 12],
+						"medianOfRuns": 8.3,
+						"medianP90": 12.4
+					}
+				},
+				"Open switcher": {
+					"late": {
+						"runMedians": [9.7, 9.6, 8.6, 10.2, 7.8],
+						"runP90s": [14.1, 12.5, 12.8, 12.7, 10.9],
+						"medianOfRuns": 9.6,
+						"medianP90": 12.7
+					}
+				},
+				"Open quit dialog": {
+					"late": {
+						"runMedians": [13.5, 13.3, 12.6, 12.5, 13.2],
+						"runP90s": [18.9, 16.2, 17.9, 18.1, 18],
+						"medianOfRuns": 13.2,
+						"medianP90": 18
+					}
+				}
+			},
+			"fix2": {
+				"Select tab": {
+					"late": {
+						"runMedians": [11.8, 11.3, 10.6, 11.9, 10.2],
+						"runP90s": [15.9, 13.2, 14.5, 16.3, 16.5],
+						"medianOfRuns": 11.3,
+						"medianP90": 15.9
+					},
+					"committed": {
+						"runMedians": [6.5, 6.6, 6.2, 6.8, 4],
+						"runP90s": [7.6, 8.1, 7.1, 8.2, 8.4],
+						"medianOfRuns": 6.5,
+						"medianP90": 8.1
+					},
+					"presented": {
+						"runMedians": [20.3, 21.7, 20.6, 20.6, 18.9],
+						"runP90s": [23.3, 23.4, 23.2, 23.3, 23.4],
+						"medianOfRuns": 20.6,
+						"medianP90": 23.3
+					}
+				},
+				"New tab": {
+					"late": {
+						"runMedians": [17.1, 16.8, 17, 18.3, 13.3],
+						"runP90s": [19.5, 19.5, 19.1, 19.5, 19.1],
+						"medianOfRuns": 17,
+						"medianP90": 19.5
+					},
+					"committed": {
+						"runMedians": [6.2, 6.4, 6, 6.6, 4.3],
+						"runP90s": [7.5, 8.4, 7.1, 8.1, 7.4],
+						"medianOfRuns": 6.2,
+						"medianP90": 7.5
+					},
+					"presented": {
+						"runMedians": [20.8, 19.4, 19.6, 21.1, 18.7],
+						"runP90s": [23.5, 23.6, 23.5, 23.6, 23.5],
+						"medianOfRuns": 19.6,
+						"medianP90": 23.5
+					}
+				},
+				"Focus address field": {
+					"late": {
+						"runMedians": [7.6, 8.5, 8.8, 8.7, 8],
+						"runP90s": [13, 12.6, 12.4, 12.9, 12.6],
+						"medianOfRuns": 8.5,
+						"medianP90": 12.6
+					},
+					"committed": {
+						"runMedians": [3.4, 3.4, 3.3, 3.2, 2.4],
+						"runP90s": [4.2, 4, 5, 3.9, 4],
+						"medianOfRuns": 3.3,
+						"medianP90": 4
+					},
+					"presented": {
+						"runMedians": [17.7, 18.1, 15.1, 15.2, 15],
+						"runP90s": [20.5, 21.2, 22.4, 21.1, 19.5],
+						"medianOfRuns": 15.2,
+						"medianP90": 21.1
+					}
+				},
+				"Open switcher": {
+					"late": {
+						"runMedians": [9.7, 10, 10, 8.5, 8.8],
+						"runP90s": [12.6, 13.4, 13.2, 13.5, 13.9],
+						"medianOfRuns": 9.7,
+						"medianP90": 13.4
+					},
+					"committed": {
+						"runMedians": [4.4, 4.6, 4.6, 4.6, 3.3],
+						"runP90s": [5.1, 6.1, 5.7, 5.5, 5.3],
+						"medianOfRuns": 4.6,
+						"medianP90": 5.5
+					},
+					"presented": {
+						"runMedians": [18.7, 18.8, 18.5, 18.3, 16.5],
+						"runP90s": [22.3, 22.7, 22.7, 22.3, 20.2],
+						"medianOfRuns": 18.5,
+						"medianP90": 22.3
+					}
+				},
+				"Open quit dialog": {
+					"late": {
+						"runMedians": [13.2, 11.6, 12.3, 13, 11.9],
+						"runP90s": [16.9, 15.8, 16.4, 17, 16.1],
+						"medianOfRuns": 12.3,
+						"medianP90": 16.4
+					},
+					"committed": {
+						"runMedians": [7.2, 7.2, 7.3, 7.2, 5.5],
+						"runP90s": [9.2, 10.1, 8.3, 8.7, 7.6],
+						"medianOfRuns": 7.2,
+						"medianP90": 8.7
+					},
+					"presented": {
+						"runMedians": [20.9, 21, 21.3, 22.6, 18.9],
+						"runP90s": [26.5, 23.9, 23.5, 23.7, 23.6],
+						"medianOfRuns": 21,
+						"medianP90": 23.7
+					}
+				}
+			},
+			"fix2-nohold": {
+				"Select tab": {
+					"late": {
+						"runMedians": [12.4, 11.7, 11.4, 10.7, 9.1],
+						"runP90s": [15.3, 16.8, 16.5, 18.6, 15.7],
+						"medianOfRuns": 11.4,
+						"medianP90": 16.5
+					},
+					"committed": {
+						"runMedians": [7.1, 7.1, 6.9, 6.8, 3.9],
+						"runP90s": [9.5, 9.6, 8.6, 10.7, 9.1],
+						"medianOfRuns": 6.9,
+						"medianP90": 9.5
+					},
+					"presented": {
+						"runMedians": [21.7, 20.7, 21.7, 20.9, 17.7],
+						"runP90s": [23.2, 27.1, 24.9, 25.5, 23.3],
+						"medianOfRuns": 20.9,
+						"medianP90": 24.9
+					}
+				},
+				"New tab": {
+					"late": {
+						"runMedians": [16.1, 18.2, 17.3, 16.8, 13.6],
+						"runP90s": [19.5, 19, 19.5, 19.8, 19.6],
+						"medianOfRuns": 16.8,
+						"medianP90": 19.5
+					},
+					"committed": {
+						"runMedians": [5.9, 6.4, 6.6, 6.4, 4.6],
+						"runP90s": [7.7, 8.4, 7.4, 7.5, 7.6],
+						"medianOfRuns": 6.4,
+						"medianP90": 7.6
+					},
+					"presented": {
+						"runMedians": [20.1, 21.9, 20, 20.3, 18.5],
+						"runP90s": [23.6, 23.6, 23.6, 23.6, 23.5],
+						"medianOfRuns": 20.1,
+						"medianP90": 23.6
+					}
+				},
+				"Focus address field": {
+					"late": {
+						"runMedians": [5.6, 8.7, 8.3, 9.3, 6.9],
+						"runP90s": [12.8, 13.7, 12.6, 12.9, 10.6],
+						"medianOfRuns": 8.3,
+						"medianP90": 12.8
+					},
+					"committed": {
+						"runMedians": [3.3, 3.2, 3.3, 3.3, 2.8],
+						"runP90s": [5.1, 3.9, 4.3, 7.4, 4.3],
+						"medianOfRuns": 3.3,
+						"medianP90": 4.3
+					},
+					"presented": {
+						"runMedians": [15, 15.3, 17.9, 18.1, 17.3],
+						"runP90s": [20, 21.2, 20.8, 23, 19.2],
+						"medianOfRuns": 17.3,
+						"medianP90": 20.8
+					}
+				},
+				"Open switcher": {
+					"late": {
+						"runMedians": [9.6, 9.6, 10, 9.8, 9.3],
+						"runP90s": [13.4, 13.4, 13.9, 13.5, 13.7],
+						"medianOfRuns": 9.6,
+						"medianP90": 13.5
+					},
+					"committed": {
+						"runMedians": [4.5, 4.5, 4.6, 4.6, 3.5],
+						"runP90s": [6, 7.2, 5.4, 6.6, 6.2],
+						"medianOfRuns": 4.5,
+						"medianP90": 6.2
+					},
+					"presented": {
+						"runMedians": [17.9, 18.2, 18.1, 18.3, 18],
+						"runP90s": [22.7, 23.2, 22.8, 22.9, 22.6],
+						"medianOfRuns": 18.1,
+						"medianP90": 22.8
+					}
+				},
+				"Open quit dialog": {
+					"late": {
+						"runMedians": [13.6, 13.7, 13.5, 13.6, 12],
+						"runP90s": [17.8, 20.2, 21, 18.1, 17.5],
+						"medianOfRuns": 13.6,
+						"medianP90": 18.1
+					},
+					"committed": {
+						"runMedians": [7.5, 7.4, 7.2, 7.7, 6.7],
+						"runP90s": [14.4, 15.7, 14.7, 15.7, 12.3],
+						"medianOfRuns": 7.4,
+						"medianP90": 14.7
+					},
+					"presented": {
+						"runMedians": [20.9, 23.1, 22.2, 23.3, 21.3],
+						"runP90s": [28.1, 30.6, 28.2, 28, 27.8],
+						"medianOfRuns": 22.2,
+						"medianP90": 28.1
+					}
+				}
+			}
+		},
+		"against0192": {
+			"0.19.2-pgo": {
+				"Select tab": {
+					"late": {
+						"runMedians": [16, 11.5, 16.2],
+						"runP90s": [17.7, 15.3, 16.6],
+						"medianOfRuns": 16,
+						"medianP90": 16.6
+					}
+				},
+				"New tab": {
+					"late": {
+						"runMedians": [31.1, 21.4, 21.6],
+						"runP90s": [33.7, 29.6, 31.4],
+						"medianOfRuns": 21.6,
+						"medianP90": 31.4
+					}
+				},
+				"Focus address field": {
+					"late": {
+						"runMedians": [18, 13.1, 11.8],
+						"runP90s": [20.7, 19.6, 22.6],
+						"medianOfRuns": 13.1,
+						"medianP90": 20.7
+					}
+				}
+			},
+			"fix2": {
+				"Select tab": {
+					"late": {
+						"runMedians": [10.8, 9.1, 8.8],
+						"runP90s": [12.8, 16, 12],
+						"medianOfRuns": 9.1,
+						"medianP90": 12.8
+					},
+					"committed": {
+						"runMedians": [6.1, 6, 5.3],
+						"runP90s": [7.4, 8.1, 7.3],
+						"medianOfRuns": 6,
+						"medianP90": 7.4
+					},
+					"presented": {
+						"runMedians": [21.5, 19.8, 19.6],
+						"runP90s": [23.4, 23.5, 22.7],
+						"medianOfRuns": 19.8,
+						"medianP90": 23.4
+					}
+				},
+				"New tab": {
+					"late": {
+						"runMedians": [16.5, 16.1, 16.8],
+						"runP90s": [18.6, 18.2, 18.5],
+						"medianOfRuns": 16.5,
+						"medianP90": 18.5
+					},
+					"committed": {
+						"runMedians": [5.6, 5.5, 5.8],
+						"runP90s": [7.4, 7.2, 7.2],
+						"medianOfRuns": 5.6,
+						"medianP90": 7.2
+					},
+					"presented": {
+						"runMedians": [19.3, 19.2, 19.9],
+						"runP90s": [23.7, 23.6, 23.6],
+						"medianOfRuns": 19.3,
+						"medianP90": 23.6
+					}
+				},
+				"Wake tab": {
+					"late": {
+						"runMedians": [56.7, 54.2, 52.4],
+						"runP90s": [61.3, 57.8, 55.3],
+						"medianOfRuns": 54.2,
+						"medianP90": 57.8
+					},
+					"committed": {
+						"runMedians": [47.7, 45.5, 44.3],
+						"runP90s": [53.2, 49.6, 47.6],
+						"medianOfRuns": 45.5,
+						"medianP90": 49.6
+					},
+					"presented": {
+						"runMedians": [60.6, 56.6, 61.2],
+						"runP90s": [68, 66.3, 65.6],
+						"medianOfRuns": 60.6,
+						"medianP90": 66.3
+					}
+				},
+				"Focus address field": {
+					"late": {
+						"runMedians": [7.6, 6.8, 7.8],
+						"runP90s": [11.9, 9.7, 12.7],
+						"medianOfRuns": 7.6,
+						"medianP90": 11.9
+					},
+					"committed": {
+						"runMedians": [2.9, 2.8, 3.1],
+						"runP90s": [4, 7.2, 7.2],
+						"medianOfRuns": 2.9,
+						"medianP90": 7.2
+					},
+					"presented": {
+						"runMedians": [17.8, 17.8, 15.3],
+						"runP90s": [20.4, 20.4, 20.4],
+						"medianOfRuns": 17.8,
+						"medianP90": 20.4
+					}
+				}
+			},
+			"meas": {
+				"Select tab": {
+					"late": {
+						"runMedians": [11, 11.5, 9.9],
+						"runP90s": [17.1, 12.9, 15.7],
+						"medianOfRuns": 11,
+						"medianP90": 15.7
+					},
+					"committed": {
+						"runMedians": [7, 6.1, 6],
+						"runP90s": [10.7, 7.2, 8.2],
+						"medianOfRuns": 6.1,
+						"medianP90": 8.2
+					},
+					"presented": {
+						"runMedians": [21.5, 21.8, 20.3],
+						"runP90s": [27.7, 23.5, 26],
+						"medianOfRuns": 21.5,
+						"medianP90": 26
+					}
+				},
+				"New tab": {
+					"late": {
+						"runMedians": [21.5, 21.4, 20.1],
+						"runP90s": [28.5, 27.8, 23.7],
+						"medianOfRuns": 21.4,
+						"medianP90": 27.8
+					},
+					"committed": {
+						"runMedians": [7.9, 7.2, 6.8],
+						"runP90s": [12.3, 11, 8.5],
+						"medianOfRuns": 7.2,
+						"medianP90": 11
+					},
+					"presented": {
+						"runMedians": [21.9, 22.1, 21],
+						"runP90s": [28.5, 27.8, 23.7],
+						"medianOfRuns": 21.9,
+						"medianP90": 27.8
+					}
+				},
+				"Wake tab": {
+					"late": {
+						"runMedians": [64.6, 65.1, 62.4],
+						"runP90s": [66.3, 70.7, 73.2],
+						"medianOfRuns": 64.6,
+						"medianP90": 70.7
+					},
+					"committed": {
+						"runMedians": [56.8, 57, 54.1],
+						"runP90s": [58.7, 63.1, 65.2],
+						"medianOfRuns": 56.8,
+						"medianP90": 63.1
+					},
+					"presented": {
+						"runMedians": [67.1, 73.6, 69.7],
+						"runP90s": [75.4, 78.7, 76.2],
+						"medianOfRuns": 69.7,
+						"medianP90": 76.2
+					}
+				},
+				"Focus address field": {
+					"late": {
+						"runMedians": [8.1, 6.5, 7.4],
+						"runP90s": [16.6, 10.6, 11.2],
+						"medianOfRuns": 7.4,
+						"medianP90": 11.2
+					},
+					"committed": {
+						"runMedians": [2.7, 1.8, 2.9],
+						"runP90s": [8.1, 3.8, 4.4],
+						"medianOfRuns": 2.7,
+						"medianP90": 4.4
+					},
+					"presented": {
+						"runMedians": [18.3, 15.7, 15.5],
+						"runP90s": [20.6, 20.2, 19.8],
+						"medianOfRuns": 15.7,
+						"medianP90": 20.2
+					}
+				}
+			}
+		},
+		"traced": {
+			"what": "Chrome traces of a test copy (cc, viz, benchmark, gpu; toplevel, views, ui for the UI thread): rounds whose MISSED BeginFrame cc dropped (Scheduler::MissedBeginFrameDropped) before the main frame, and the commit to Core Animation's median.",
+			"82e9748": {
+				"newTabDropped": "9 of 14",
+				"newTabCommitMedianMs": [10.04, 13.29],
+				"tabSwitchDropped": "4 of 6",
+				"tabSwitchCommitMedianMs": 14.38
+			},
+			"fix1": {
+				"newTabDropped": "0 of 14",
+				"newTabCommitMedianMs": [7.28, 7.74],
+				"tabSwitchDropped": "0 of 8",
+				"tabSwitchCommitMedianMs": 8.2
+			}
+		},
+		"sampled": {
+			"what": "sample(1) of the browser over 40 ⌘Ts (82e9748; about 2.75 ms a sample) and 60 tab switches (fix2; about 1.9 ms a sample).",
+			"newTabKey": {
+				"samples": 48,
+				"showNoPageDetach": 15,
+				"title": 13,
+				"toolbar": 8,
+				"sidebarRow": 9
+			},
+			"pageMaking": {
+				"samples": 267,
+				"localAuthentication": 162
+			},
+			"tabSwitch": {
+				"samples": 85,
+				"pageLeftDetach": 38,
+				"activateTabObservers": 18,
+				"addressSetText": 8
+			}
+		}
 	}
 }

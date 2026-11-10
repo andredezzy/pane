@@ -173,7 +173,7 @@ class Window : public WindowHost::Delegate,
   // in Chrome does; ⌘T's keeps it in the address field.
   void ShowTab(content::WebContents* contents, bool chosen);
   // No page shows: the selected tab's comes after the frame that answers the
-  // input, or none is selected.
+  // input, or none is selected. The title follows that frame.
   void ShowNoPage();
   // The page leaves the window, as its tab unloads.
   void ClearPage();
@@ -181,11 +181,10 @@ class Window : public WindowHost::Delegate,
   // The window's title follows the shown page's, as the Window menu and
   // Mission Control show it: Pane without one, and so behind the Lock.
   void UpdateTitle();
-  // The same, once the frame that shows a tab's page is out: AppKit lays the
-  // title bar out again at each new title, though Pane's is hidden, which
-  // took 1.7 of a tab switch's 2 ms of work ahead of its frame. A tab without
-  // a page yet takes "Pane" at once, so no title lands among its page's first
-  // frames.
+  // The same, once the frame that shows a tab, or none, is out, and after
+  // the page made after that frame: AppKit lays the title bar out again at
+  // each new title, though Pane's is hidden, which took 1.7 of a tab
+  // switch's 2 ms of work ahead of its frame, and 1 of ⌘T's 4.
   void UpdateTitleAfterFrame();
   // The shown page fills the window (ADR 0025).
   bool page_fullscreen() const;

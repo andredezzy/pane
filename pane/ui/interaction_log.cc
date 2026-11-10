@@ -2,12 +2,11 @@
 
 #include "pane/ui/interaction_log.h"
 
-#include <algorithm>
-
 #include "base/functional/bind.h"
 #include "base/time/time.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "ui/compositor/compositor.h"
+#include "ui/gfx/presentation_feedback.h"
 
 namespace pane {
 
@@ -29,13 +28,19 @@ void EndInteractionAtNextFrame(Interaction interaction,
   compositor->RequestSuccessfulPresentationTimeForNextFrame(base::BindOnce(
       [](Interaction interaction, uint64_t interval,
          const viz::FrameTimingDetails& details) {
-        const base::TimeTicks presented =
-            details.presentation_feedback.timestamp;
-        EndInteractionInterval(
-            interaction, interval,
-            presented.is_null() ? base::TimeDelta()
-                                : std::max(base::TimeTicks::Now() - presented,
-                                           base::TimeDelta()));
+        const base::TimeTicks now = base::TimeTicks::Now();
+        const gfx::PresentationFeedback& feedback =
+            details.presentation_feedback;
+        FrameTimes frame;
+        // On the Mac the latch is the frame's commit to Core Animation
+        // (CALayerTreeCoordinator::CommitPresentedFrameToCA).
+        if (!feedback.latch_timestamp.is_null()) {
+          frame.committed = now - feedback.latch_timestamp;
+        }
+        if (!feedback.timestamp.is_null()) {
+          frame.presented = now - feedback.timestamp;
+        }
+        EndInteractionInterval(interaction, interval, frame);
       },
       interaction, interval));
   // A frame, even when nothing changed on the screen.

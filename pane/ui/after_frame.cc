@@ -6,12 +6,14 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/scoped_observation.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "ui/compositor/compositor.h"
+#include "ui/compositor/compositor_lock.h"
 #include "ui/compositor/compositor_observer.h"
 
 namespace pane {
@@ -20,6 +22,10 @@ namespace {
 
 // Past a frame's usual time, at 60 Hz, several times over.
 constexpr base::TimeDelta kLongestWait = base::Milliseconds(100);
+
+// Past any input's own work many times over (⌘T's is 3 ms): a hold left on
+// by an input that runs a nested loop (a system panel) lets frames go then.
+constexpr base::TimeDelta kLongestHold = base::Milliseconds(50);
 
 // Waits for the frame `compositor` builds from now: one that takes a commit
 // made after the wait began, once it is handed to the display compositor
@@ -75,6 +81,21 @@ class FrameWaiter : public ui::CompositorObserver {
 };
 
 }  // namespace
+
+FrameHold::FrameHold(::ui::Compositor* compositor)
+    : lock_(compositor ? compositor->GetCompositorLock(/*client=*/nullptr,
+                                                       kLongestHold)
+                       : nullptr) {}
+
+FrameHold::~FrameHold() {
+  if (!lock_) {
+    return;
+  }
+  // After the tasks the input posted (a row brought into view, a layout),
+  // which the frame then holds too.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::DoNothingWithBoundArgs(std::move(lock_)));
+}
 
 void AfterFrame(::ui::Compositor* compositor, base::OnceClosure work) {
   if (!compositor || !compositor->IsVisible()) {

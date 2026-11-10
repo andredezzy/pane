@@ -1,6 +1,6 @@
 import { stats } from "../lib/benchmark";
 import { type AppState, launchPane } from "../lib/pane";
-import { signpostIntervals } from "../lib/signposts";
+import { signpostFrameIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
 
 // H7's keys to their frames (docs/plans/views-migration.md, Phase 3), on the
@@ -9,8 +9,10 @@ import { expect, type Scenario } from "../run";
 // runs to the frame on screen, by the app's signposts: ⌘1 and ⌘2 between two
 // tabs ("Select tab"), ⌘T ("New tab", each closed again by ⌘W), ⌘L ("Focus
 // address field", from the page), Ctrl-Tab ("Open switcher", chosen by Ctrl's
-// release), and ⌘Q ("Open quit dialog", Esc going back). For the Views
-// build, from out/Release:
+// release), and ⌘Q ("Open quit dialog", Esc going back). Each also to its
+// frame's commit to Core Animation, where the Swift app's intervals end, and
+// to the screen as the GPU process predicts it, where the build says. For
+// the Views build, from out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> tests/rigs/views-key-timing.ts
@@ -123,24 +125,37 @@ const viewsKeyTiming: Scenario = async (context) => {
 	const round = (value: number) => Math.round(value * 10) / 10;
 	const timings: Record<string, unknown> = {};
 
+	// The median, p10, and p90 of some durations.
+	const summary = (values: number[]) => {
+		const sorted = [...values].sort((a, b) => a - b);
+		const { median } = stats(sorted);
+
+		return {
+			medianMs: round(median),
+			p10Ms: round(sorted[Math.floor(sorted.length * 0.1)] ?? median),
+			p90Ms: round(sorted[Math.floor(sorted.length * 0.9)] ?? median),
+		};
+	};
+
 	for (const [name, phase] of phases) {
-		const intervals = await signpostIntervals(async () => {
+		const intervals = await signpostFrameIntervals(async () => {
 			await phase();
 
 			return app.browser.pid;
 		});
 
-		const values = [...(intervals[name] ?? [])].sort((a, b) => a - b);
+		const values = intervals[name] ?? [];
 
 		expect(values.length >= ROUNDS, `${name}: ${values.length} intervals`);
 
-		const { median } = stats(values);
+		const committed = values.flatMap((value) => value.committedMs ?? []);
+		const presented = values.flatMap((value) => value.presentedMs ?? []);
 
 		timings[name] = {
 			count: values.length,
-			medianMs: round(median),
-			p10Ms: round(values[Math.floor(values.length * 0.1)] ?? median),
-			p90Ms: round(values[Math.floor(values.length * 0.9)] ?? median),
+			...summary(values.map((value) => value.ms)),
+			...(committed.length > 0 && { committed: summary(committed) }),
+			...(presented.length > 0 && { presented: summary(presented) }),
 		};
 	}
 
