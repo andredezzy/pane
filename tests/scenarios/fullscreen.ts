@@ -84,16 +84,29 @@ const fullscreen: Scenario = async (context) => {
 	};
 
 	// View › Enter or Exit Full Screen, as the user's click: the item's
-	// title follows the window's state when the menu opens.
+	// title follows the window's state when the menu opens. False when the
+	// menu bar has neither item, as the Views build's until H7's menu bar.
 	const toggleFromMenu = async () => {
+		let missing = 0;
+
 		for (const title of ["Exit Full Screen", "Enter Full Screen"]) {
 			const ran = await app
 				.send<boolean>("menu", { path: ["View", title] })
-				.catch(() => null);
+				.catch((error: unknown) => {
+					if (String(error).includes("no such menu item")) {
+						missing += 1;
+					}
+
+					return null;
+				});
 
 			if (ran?.result) {
-				return;
+				return true;
 			}
+		}
+
+		if (missing === 2) {
+			return false;
 		}
 
 		throw new Error("View › Enter or Exit Full Screen did not run");
@@ -139,16 +152,31 @@ const fullscreen: Scenario = async (context) => {
 
 	expect(element === "HTML", `fullscreen element ${element}`);
 
-	expect(
-		entered.exclusiveAccessHint?.includes("Esc"),
-		`hint ${entered.exclusiveAccessHint}`,
-	);
+	// The Views build draws no hint until What Chrome asks for's full screen
+	// (ADR 0025), and its state has no such key until then.
+	if ("exclusiveAccessHint" in entered) {
+		expect(
+			entered.exclusiveAccessHint?.includes("Esc"),
+			`hint ${entered.exclusiveAccessHint}`,
+		);
+	} else {
+		context.defer(
+			"the Esc hint: no hint is drawn (What Chrome asks for's full screen)",
+		);
+	}
 
 	expect(after === null, "Esc did not leave fullscreen");
 
 	// The user's own full screen, then the page's fullscreen in it: leaving
 	// the page's keeps the window in full screen.
-	await toggleFromMenu();
+	if (!(await toggleFromMenu())) {
+		context.defer(
+			"the user's full screen from View › Enter Full Screen: the menu bar is H7's",
+		);
+		await watcher.stop();
+
+		return;
+	}
 	await settled(true, "the user's full screen");
 	await requestFullscreen();
 	await pressEscape();
