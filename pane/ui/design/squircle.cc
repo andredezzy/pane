@@ -5,11 +5,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <optional>
 #include <tuple>
 
 #include "base/containers/lru_cache.h"
 #include "base/no_destructor.h"
+#include "cc/paint/paint_flags.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
+#include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/insets_f.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -91,6 +94,76 @@ SkPath MakeSquircle(float width, float height, float r) {
   return path.detach();
 }
 
+// The corner box's side, in pixels, past which Skia fills a corner's path
+// the way it fills the whole path's: up to 32 pixels wide, it accumulates a
+// small path's coverage in a mask (SkScan_AAAPath.cpp, MaskAdditiveBlitter),
+// which differs by up to 4/255 along the curve.
+constexpr float kPieceMinimumPixels = 33;
+
+// Whether pieces of the squircle `rect`, its corners' boxes `side` square,
+// meet on whole pixels on `canvas`, which draws them as the whole path does:
+// whole points at a whole scale, and boxes big enough.
+bool DrawsInPieces(const gfx::Canvas& canvas,
+                   const gfx::RectF& rect,
+                   float side) {
+  const auto whole = [](float value) { return value == std::round(value); };
+  const float scale = canvas.image_scale();
+  return side > 0 && !rect.IsEmpty() && whole(scale) && whole(rect.x()) &&
+         whole(rect.y()) && whole(rect.width()) && whole(rect.height()) &&
+         whole(side) && side * scale >= kPieceMinimumPixels &&
+         2 * side <= std::min(rect.width(), rect.height());
+}
+
+// The squircle's corners `width` by `height` at the origin, rounded `r`, each
+// in its radius box, as MakeSquircle draws them: closed along the box's inner
+// sides to fill, or, `open`, the curve alone to stroke.
+std::array<SkPath, 4> MakeCorners(float width,
+                                  float height,
+                                  float r,
+                                  bool open) {
+  const std::array<std::array<gfx::PointF, 4>, 4> corners = {{
+      {{{0, r}, {0, 0}, {r, 0}, {r, r}}},
+      {{{width - r, 0}, {width, 0}, {width, r}, {width - r, r}}},
+      {{{width, height - r},
+        {width, height},
+        {width - r, height},
+        {width - r, height - r}}},
+      {{{r, height}, {0, height}, {0, height - r}, {r, height - r}}},
+  }};
+  std::array<SkPath, 4> paths;
+  for (size_t index = 0; index < corners.size(); ++index) {
+    const auto& [start, outer, end, center] = corners[index];
+    SkPathBuilder path;
+    path.moveTo(start.x(), start.y());
+    AddCorner(path, start, outer, end, center);
+    if (!open) {
+      path.lineTo(center.x(), center.y());
+      path.close();
+    }
+    paths[index] = path.detach();
+  }
+  return paths;
+}
+
+// The corners of the squircle `rect` rounded `r` (within half its shorter
+// side), cached by size and radius as the whole path is, and placed as it is
+// (the same offset of the same points).
+std::array<SkPath, 4> Corners(const gfx::RectF& rect, float r, bool open) {
+  using Key = std::tuple<float, float, float, bool>;
+  static base::NoDestructor<base::LRUCache<Key, std::array<SkPath, 4>>> cache(
+      kCachedPaths);
+  const Key key(rect.width(), rect.height(), r, open);
+  auto found = cache->Get(key);
+  if (found == cache->end()) {
+    found = cache->Put(key, MakeCorners(rect.width(), rect.height(), r, open));
+  }
+  std::array<SkPath, 4> corners;
+  for (size_t index = 0; index < corners.size(); ++index) {
+    corners[index] = found->second[index].makeOffset(rect.x(), rect.y());
+  }
+  return corners;
+}
+
 }  // namespace
 
 SkPath SquirclePath(const gfx::RectF& rect, float radius) {
@@ -113,6 +186,68 @@ SkPath SquircleStrokePath(const gfx::RectF& rect, float radius, float width) {
   gfx::RectF inner = rect;
   inner.Inset(width / 2);
   return SquirclePath(inner, std::max(radius - width / 2, 0.0f));
+}
+
+void FillSquircle(gfx::Canvas& canvas,
+                  const gfx::RectF& rect,
+                  float radius,
+                  const cc::PaintFlags& flags) {
+  const float r = std::min(radius, std::min(rect.width(), rect.height()) / 2);
+  if (!DrawsInPieces(canvas, rect, r)) {
+    canvas.DrawPath(SquirclePath(rect, radius), flags);
+    return;
+  }
+  // Between the corners: the band across the middle, and the stretches above
+  // and below it.
+  for (const gfx::RectF& part :
+       {gfx::RectF(rect.x(), rect.y() + r, rect.width(), rect.height() - 2 * r),
+        gfx::RectF(rect.x() + r, rect.y(), rect.width() - 2 * r, r),
+        gfx::RectF(rect.x() + r, rect.bottom() - r, rect.width() - 2 * r, r)}) {
+    if (!part.IsEmpty()) {
+      canvas.DrawRect(part, flags);
+    }
+  }
+  for (const SkPath& corner : Corners(rect, r, /*open=*/false)) {
+    canvas.DrawPath(corner, flags);
+  }
+}
+
+void StrokeSquircleBorder(gfx::Canvas& canvas,
+                          const gfx::RectF& rect,
+                          float radius,
+                          float width,
+                          const cc::PaintFlags& flags) {
+  gfx::RectF line = rect;
+  line.Inset(width / 2);
+  const float r = std::min(std::max(radius - width / 2, 0.0f),
+                           std::min(line.width(), line.height()) / 2);
+  // The corners' boxes end where the sides begin: the line's radius and half
+  // its width in from the edge.
+  const float side = r + width / 2;
+  if (r <= 0 || width != std::round(width) ||
+      !DrawsInPieces(canvas, rect, side)) {
+    canvas.DrawPath(SquircleStrokePath(rect, radius, width), flags);
+    return;
+  }
+  cc::PaintFlags sides = flags;
+  sides.setStyle(cc::PaintFlags::kFill_Style);
+  for (const gfx::RectF& part :
+       {gfx::RectF(rect.x() + side, rect.y(), rect.width() - 2 * side, width),
+        gfx::RectF(rect.right() - width, rect.y() + side, width,
+                   rect.height() - 2 * side),
+        gfx::RectF(rect.x() + side, rect.bottom() - width,
+                   rect.width() - 2 * side, width),
+        gfx::RectF(rect.x(), rect.y() + side, width,
+                   rect.height() - 2 * side)}) {
+    if (!part.IsEmpty()) {
+      canvas.DrawRect(part, sides);
+    }
+  }
+  cc::PaintFlags corners = flags;
+  corners.setStrokeCap(cc::PaintFlags::kButt_Cap);
+  for (const SkPath& corner : Corners(line, r, /*open=*/true)) {
+    canvas.DrawPath(corner, corners);
+  }
 }
 
 }  // namespace pane

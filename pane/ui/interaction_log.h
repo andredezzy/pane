@@ -5,6 +5,8 @@
 
 #include <cstdint>
 
+#include "base/time/time.h"
+
 namespace ui {
 class Compositor;
 }
@@ -48,8 +50,14 @@ void EndInteractionAtNextFrame(Interaction interaction,
                                ::ui::Compositor* compositor);
 
 // The platform's half: an interval's begin and end, in the system's trace.
+// `late` is how long before the end the frame it answers with reached the
+// screen, which the trace's reader takes off (tests/lib/signposts.ts): the
+// end is heard on the UI thread, which work after the frame can hold past it
+// (a new tab's page is made right after the frame that answers ⌘T).
 uint64_t BeginInteractionInterval(Interaction interaction);
-void EndInteractionInterval(Interaction interaction, uint64_t interval);
+void EndInteractionInterval(Interaction interaction,
+                            uint64_t interval,
+                            base::TimeDelta late = base::TimeDelta());
 
 }  // namespace pane
 

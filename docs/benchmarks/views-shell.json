@@ -5969,5 +5969,1059 @@
 				}
 			}
 		}
+	},
+	"firstFramesBack": {
+		"what": "The first frames CPU raster cost, won back (ADR 0123). From the input to the frame on the screen, in the background, on an M5 Pro in use on 2026-11-10 (another session's iOS Simulator): the final tree (ff-final4) against 30653a9 taking turns, views-key-timing three runs each (30 rounds a run) and views-settings eight (10 rounds a run, pooled); the session before, two runs each of both rigs, the tree with the Dock's beat out (ff-final) against 30653a9; the Dock's beat (ff-final2) against ff-final, two views-settings runs each. Then memory (the tree before the Dock's beat came out and the at-once path, which hold no memory) and launch (the final tree) against 0.19.2 (PGO), three rounds each, taking turns (tests/ab.ts).",
+		"final": {
+			"base-30653a9": {
+				"keys": {
+					"Select tab": {
+						"medianOfRunsMs": 10,
+						"runMediansMs": [10.2, 9.7, 10]
+					},
+					"New tab": {
+						"medianOfRunsMs": 25.3,
+						"runMediansMs": [18.8, 25.3, 27.6]
+					},
+					"Focus address field": {
+						"medianOfRunsMs": 7.2,
+						"runMediansMs": [7.2, 9, 5.4]
+					},
+					"Open switcher": {
+						"medianOfRunsMs": 8.4,
+						"runMediansMs": [7.1, 8.4, 8.9]
+					},
+					"Open quit dialog": {
+						"medianOfRunsMs": 15.6,
+						"runMediansMs": [14.8, 17.7, 15.6]
+					}
+				},
+				"settings": {
+					"Select tab": {
+						"medianMs": 32.8,
+						"count": 8
+					},
+					"Open settings": {
+						"medianMs": 20.4,
+						"count": 88
+					},
+					"Change theme": {
+						"medianMs": 22.5,
+						"count": 168
+					},
+					"Open app icon picker": {
+						"medianMs": 26.8,
+						"count": 80
+					},
+					"Choose app icon": {
+						"medianMs": 13.9,
+						"count": 80
+					}
+				}
+			},
+			"ff-final4": {
+				"keys": {
+					"Select tab": {
+						"medianOfRunsMs": 10.6,
+						"runMediansMs": [10.7, 10.6, 9.8]
+					},
+					"New tab": {
+						"medianOfRunsMs": 23.6,
+						"runMediansMs": [23.6, 16.2, 27.2]
+					},
+					"Focus address field": {
+						"medianOfRunsMs": 8.4,
+						"runMediansMs": [8.5, 8.4, 7.5]
+					},
+					"Open switcher": {
+						"medianOfRunsMs": 8.5,
+						"runMediansMs": [9.8, 8.5, 7.4]
+					},
+					"Open quit dialog": {
+						"medianOfRunsMs": 11.8,
+						"runMediansMs": [11.8, 11.6, 13.3]
+					}
+				},
+				"settings": {
+					"Select tab": {
+						"medianMs": 32.0,
+						"count": 8
+					},
+					"Open settings": {
+						"medianMs": 16.0,
+						"count": 88
+					},
+					"Change theme": {
+						"medianMs": 22.7,
+						"count": 168
+					},
+					"Open app icon picker": {
+						"medianMs": 17.7,
+						"count": 80
+					},
+					"Choose app icon": {
+						"medianMs": 13.6,
+						"count": 80
+					}
+				}
+			}
+		},
+		"sessionBefore": {
+			"base-30653a9": {
+				"keys": {
+					"Select tab": {
+						"medianOfRunsMs": 11.8,
+						"runMediansMs": [12.2, 11.4]
+					},
+					"New tab": {
+						"medianOfRunsMs": 27.0,
+						"runMediansMs": [27.4, 26.6]
+					},
+					"Focus address field": {
+						"medianOfRunsMs": 8.4,
+						"runMediansMs": [8.1, 8.8]
+					},
+					"Open switcher": {
+						"medianOfRunsMs": 10.9,
+						"runMediansMs": [11.8, 9.9]
+					},
+					"Open quit dialog": {
+						"medianOfRunsMs": 19.5,
+						"runMediansMs": [19.3, 19.7]
+					}
+				},
+				"settings": {
+					"Select tab": {
+						"medianMs": 22.0,
+						"count": 4
+					},
+					"Open settings": {
+						"medianMs": 20.6,
+						"count": 22
+					},
+					"Change theme": {
+						"medianMs": 22.7,
+						"count": 42
+					},
+					"Open app icon picker": {
+						"medianMs": 27.7,
+						"count": 20
+					},
+					"Choose app icon": {
+						"medianMs": 12.3,
+						"count": 20
+					}
+				}
+			},
+			"ff-final": {
+				"keys": {
+					"Select tab": {
+						"medianOfRunsMs": 11.2,
+						"runMediansMs": [11, 11.4]
+					},
+					"New tab": {
+						"medianOfRunsMs": 25.8,
+						"runMediansMs": [27.8, 23.7]
+					},
+					"Focus address field": {
+						"medianOfRunsMs": 8.6,
+						"runMediansMs": [7.9, 9.2]
+					},
+					"Open switcher": {
+						"medianOfRunsMs": 9.7,
+						"runMediansMs": [9.4, 10]
+					},
+					"Open quit dialog": {
+						"medianOfRunsMs": 13.4,
+						"runMediansMs": [13.8, 12.9]
+					}
+				},
+				"settings": {
+					"Select tab": {
+						"medianMs": 35.4,
+						"count": 3
+					},
+					"Open settings": {
+						"medianMs": 16.5,
+						"count": 22
+					},
+					"Change theme": {
+						"medianMs": 24.9,
+						"count": 42
+					},
+					"Open app icon picker": {
+						"medianMs": 15.4,
+						"count": 20
+					},
+					"Choose app icon": {
+						"medianMs": 13.4,
+						"count": 20
+					}
+				}
+			}
+		},
+		"docksBeat": {
+			"ff-final": {
+				"Select tab": {
+					"medianMs": 35.1,
+					"count": 2
+				},
+				"Open settings": {
+					"medianMs": 13.0,
+					"count": 22
+				},
+				"Change theme": {
+					"medianMs": 17.9,
+					"count": 42
+				},
+				"Open app icon picker": {
+					"medianMs": 15.7,
+					"count": 20
+				},
+				"Choose app icon": {
+					"medianMs": 12.8,
+					"count": 20
+				}
+			},
+			"ff-final2": {
+				"Select tab": {
+					"medianMs": 36.5,
+					"count": 2
+				},
+				"Open settings": {
+					"medianMs": 14.0,
+					"count": 22
+				},
+				"Change theme": {
+					"medianMs": 18.4,
+					"count": 42
+				},
+				"Open app icon picker": {
+					"medianMs": 15.7,
+					"count": 20
+				},
+				"Choose app icon": {
+					"medianMs": 13.1,
+					"count": 20
+				}
+			}
+		},
+		"memory": {
+			"binaries": {
+				"base": "0.19.2, published (PGO)",
+				"candidate": "Views, the first frames back, with the Dock's beat (ff-final2)"
+			},
+			"rounds": 3,
+			"runs": [
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 294256
+				},
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 290195
+				},
+				{
+					"round": 1,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 106021
+				},
+				{
+					"round": 1,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 107006
+				},
+				{
+					"round": 2,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 290138
+				},
+				{
+					"round": 2,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 294711
+				},
+				{
+					"round": 2,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 105292
+				},
+				{
+					"round": 2,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 105614
+				},
+				{
+					"round": 3,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 294087
+				},
+				{
+					"round": 3,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 290279
+				},
+				{
+					"round": 3,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 107010
+				},
+				{
+					"round": 3,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 107261
+				}
+			],
+			"benchmarks": [
+				{
+					"benchmark": "memory",
+					"rows": [
+						{
+							"path": "summary.1.footprintSumBytes.median",
+							"base": 150610032,
+							"candidate": 146743408,
+							"difference": -3866624,
+							"percent": -2.5673083981550446,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.footprintTotalBytes.median",
+							"base": 149217392,
+							"candidate": 145383536,
+							"difference": -3833856,
+							"percent": -2.56930907893096,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.rssSumBytes.median",
+							"base": 623312896,
+							"candidate": 936329216,
+							"difference": 313016320,
+							"percent": 50.21816843654716,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.processes.median",
+							"base": 7,
+							"candidate": 6,
+							"difference": -1,
+							"percent": -14.285714285714285,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.browser.count.median",
+							"base": 2,
+							"candidate": 1,
+							"difference": -1,
+							"percent": -50,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.browser.footprintBytes.median",
+							"base": 69617704,
+							"candidate": 61294320,
+							"difference": -8323384,
+							"percent": -11.955843875575098,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.gpu-process.footprintBytes.median",
+							"base": 27051232,
+							"candidate": 32310640,
+							"difference": 5259408,
+							"percent": 19.442397300056427,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 13354088,
+							"candidate": 13436128,
+							"difference": 82040,
+							"percent": 0.6143437125770026,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 6931440,
+							"candidate": 6997024,
+							"difference": 65584,
+							"percent": 0.9461814572440935,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.renderer.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.renderer.footprintBytes.median",
+							"base": 31820344,
+							"candidate": 31984328,
+							"difference": 163984,
+							"percent": 0.5153432659307516,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.footprintSumBytes.median",
+							"base": 238335488,
+							"candidate": 232584752,
+							"difference": -5750736,
+							"percent": -2.412874410041697,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.footprintTotalBytes.median",
+							"base": 235124224,
+							"candidate": 229389872,
+							"difference": -5734352,
+							"percent": -2.4388605744000245,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.rssSumBytes.median",
+							"base": 1062240256,
+							"candidate": 1584807936,
+							"difference": 522567680,
+							"percent": 49.194866890828884,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.processes.median",
+							"base": 11,
+							"candidate": 10,
+							"difference": -1,
+							"percent": -9.090909090909092,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.browser.count.median",
+							"base": 2,
+							"candidate": 1,
+							"difference": -1,
+							"percent": -50,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.browser.footprintBytes.median",
+							"base": 73353280,
+							"candidate": 61327112,
+							"difference": -12026168,
+							"percent": -16.394860597917365,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.gpu-process.footprintBytes.median",
+							"base": 40813816,
+							"candidate": 47072624,
+							"difference": 6258808,
+							"percent": 15.33502282658402,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 13829224,
+							"candidate": 13878472,
+							"difference": 49248,
+							"percent": 0.3561154262885611,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 7177176,
+							"candidate": 7242784,
+							"difference": 65608,
+							"percent": 0.9141199825669595,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.renderer.count.median",
+							"base": 6,
+							"candidate": 6,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.renderer.footprintBytes.median",
+							"base": 102473528,
+							"candidate": 101802192,
+							"difference": -671336,
+							"percent": -0.6551311476267314,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.footprintSumBytes.median",
+							"base": 351833960,
+							"candidate": 345657648,
+							"difference": -6176312,
+							"percent": -1.7554621503848007,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.footprintTotalBytes.median",
+							"base": 345706344,
+							"candidate": 339874096,
+							"difference": -5832248,
+							"percent": -1.687052639103435,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.rssSumBytes.median",
+							"base": 1594589184,
+							"candidate": 2386903040,
+							"difference": 792313856,
+							"percent": 49.6876476994842,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.processes.median",
+							"base": 16,
+							"candidate": 15,
+							"difference": -1,
+							"percent": -6.25,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.browser.count.median",
+							"base": 2,
+							"candidate": 1,
+							"difference": -1,
+							"percent": -50,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.browser.footprintBytes.median",
+							"base": 80250968,
+							"candidate": 67127048,
+							"difference": -13123920,
+							"percent": -16.35359713044209,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.gpu-process.footprintBytes.median",
+							"base": 58164376,
+							"candidate": 64914776,
+							"difference": 6750400,
+							"percent": 11.605729252558302,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 13976824,
+							"candidate": 14402736,
+							"difference": 425912,
+							"percent": 3.047273114407107,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 7652312,
+							"candidate": 7717920,
+							"difference": 65608,
+							"percent": 0.8573618012438593,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.renderer.count.median",
+							"base": 11,
+							"candidate": 11,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.renderer.footprintBytes.median",
+							"base": 190970136,
+							"candidate": 189316072,
+							"difference": -1654064,
+							"percent": -0.8661375200570627,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						}
+					],
+					"failures": []
+				},
+				{
+					"benchmark": "launch",
+					"rows": [
+						{
+							"path": "summary.cold.window.median",
+							"base": 300.1083984375,
+							"candidate": 293.656494140625,
+							"difference": -6.451904296875,
+							"percent": -2.1498579614787623,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.devTools.median",
+							"base": 289.1103515625,
+							"candidate": 255.9462890625,
+							"difference": -33.1640625,
+							"percent": -11.471074045174955,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.pageFirstContentfulPaint.median",
+							"base": 1985.383544921875,
+							"candidate": 1894.95703125,
+							"difference": -90.426513671875,
+							"percent": -4.554611823149431,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.pageLoaded.median",
+							"base": 1951.283447265625,
+							"candidate": 1864.741455078125,
+							"difference": -86.5419921875,
+							"percent": -4.435131774872233,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.window.median",
+							"base": 310.134033203125,
+							"candidate": 290.935791015625,
+							"difference": -19.1982421875,
+							"percent": -6.190304878576787,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.devTools.median",
+							"base": 303.17138671875,
+							"candidate": 256.21875,
+							"difference": -46.95263671875,
+							"percent": -15.487159664677602,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.pageFirstContentfulPaint.median",
+							"base": 614.462158203125,
+							"candidate": 595.751708984375,
+							"difference": -18.71044921875,
+							"percent": -3.0450124501507245,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.pageLoaded.median",
+							"base": 580.8193359375,
+							"candidate": 566.151611328125,
+							"difference": -14.667724609375,
+							"percent": -2.525350604194304,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						}
+					],
+					"failures": []
+				}
+			]
+		},
+		"launch": {
+			"binaries": {
+				"base": "0.19.2, published (PGO)",
+				"candidate": "Views, the first frames back (ff-final4)"
+			},
+			"rounds": 3,
+			"runs": [
+				{
+					"round": 1,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 105686
+				},
+				{
+					"round": 1,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 104564
+				},
+				{
+					"round": 2,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": false,
+					"ms": 142955,
+					"error": "Error: the app never served DevTools (still running after 60 s)"
+				},
+				{
+					"round": 2,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 106222
+				},
+				{
+					"round": 3,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": false,
+					"ms": 139527,
+					"error": "Error: the app never served DevTools (still running after 60 s)"
+				},
+				{
+					"round": 3,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 104784
+				}
+			],
+			"benchmarks": [
+				{
+					"benchmark": "launch",
+					"rows": [
+						{
+							"path": "summary.cold.window.median",
+							"base": 270.1199951171875,
+							"candidate": 253.2708740234375,
+							"difference": -16.84912109375,
+							"percent": -6.237643046913377,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.cold.devTools.median",
+							"base": 282.32568359375,
+							"candidate": 217.30615234375,
+							"difference": -65.01953125,
+							"percent": -23.029973901899506,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.cold.pageFirstContentfulPaint.median",
+							"base": 1969.93212890625,
+							"candidate": 1857.967041015625,
+							"difference": -111.965087890625,
+							"percent": -5.683702816339693,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.cold.pageLoaded.median",
+							"base": 1936.732177734375,
+							"candidate": 1822.76708984375,
+							"difference": -113.965087890625,
+							"percent": -5.8844010132543705,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.warm.window.median",
+							"base": 275.8026123046875,
+							"candidate": 249.0709228515625,
+							"difference": -26.731689453125,
+							"percent": -9.692326417704011,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.warm.devTools.median",
+							"base": 296.6005859375,
+							"candidate": 221.368408203125,
+							"difference": -75.232177734375,
+							"percent": -25.36481089428057,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.warm.pageFirstContentfulPaint.median",
+							"base": 580.9544677734375,
+							"candidate": 577.397216796875,
+							"difference": -3.5572509765625,
+							"percent": -0.6123114932218351,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.warm.pageLoaded.median",
+							"base": 549.483642578125,
+							"candidate": 547.75439453125,
+							"difference": -1.729248046875,
+							"percent": -0.31470419005769357,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						}
+					],
+					"failures": [
+						{
+							"round": 2,
+							"side": "candidate",
+							"error": "Error: the app never served DevTools (still running after 60 s)"
+						},
+						{
+							"round": 3,
+							"side": "base",
+							"error": "Error: the app never served DevTools (still running after 60 s)"
+						}
+					]
+				}
+			]
+		}
 	}
 }

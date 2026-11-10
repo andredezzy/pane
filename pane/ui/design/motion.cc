@@ -5,13 +5,26 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "base/no_destructor.h"
 #include "base/time/time.h"
+#include "cc/animation/keyframe_model.h"
+#include "ui/compositor/callback_layer_animation_observer.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animation_delegate.h"
+#include "ui/compositor/layer_animation_element.h"
+#include "ui/compositor/layer_animation_sequence.h"
+#include "ui/compositor/layer_animator.h"
+#include "ui/compositor/layer_threaded_animation_delegate.h"
+#include "ui/compositor/property_change_reason.h"
 #include "ui/gfx/animation/animation.h"
+#include "ui/gfx/animation/keyframe/animation_curve.h"
 #include "ui/gfx/animation/tween.h"
+#include "ui/gfx/geometry/transform_operations.h"
+#include "ui/gfx/geometry/transform_util.h"
 
 namespace pane {
 
@@ -387,6 +400,263 @@ void LayerMotion::End() {
   if (done) {
     std::move(done).Run();
   }
+}
+
+namespace {
+
+// How long one of `compositor`'s frames lasts, nothing when it can't tell.
+base::TimeDelta FrameOf(const ::ui::Compositor* compositor) {
+  const float rate = compositor ? compositor->refresh_rate() : 0;
+  return rate > 0 ? base::Seconds(1) / rate : base::TimeDelta();
+}
+
+// Pane's curves for cc: a value from `from` to `to` along `curve`, exactly,
+// at any time cc asks for (no samples between which to blend).
+class FloatCurve : public gfx::FloatAnimationCurve {
+ public:
+  FloatCurve(const Curve& curve, float from, float to)
+      : curve_(curve), from_(from), to_(to) {}
+
+  // gfx::FloatAnimationCurve:
+  base::TimeDelta Duration() const override { return curve_.total(); }
+  std::unique_ptr<gfx::AnimationCurve> Clone() const override {
+    return std::make_unique<FloatCurve>(curve_, from_, to_);
+  }
+  float GetValue(base::TimeDelta t) const override {
+    return from_ + (to_ - from_) * curve_.Progress(t);
+  }
+  float GetTransformedValue(
+      base::TimeDelta t,
+      gfx::TimingFunction::LimitDirection) const override {
+    return GetValue(t);
+  }
+
+ private:
+  const Curve curve_;
+  const float from_;
+  const float to_;
+};
+
+class TransformCurve : public gfx::TransformAnimationCurve {
+ public:
+  TransformCurve(const Curve& curve,
+                 const gfx::Transform& from,
+                 const gfx::Transform& to)
+      : curve_(curve), from_(from), to_(to) {}
+
+  // gfx::TransformAnimationCurve:
+  base::TimeDelta Duration() const override { return curve_.total(); }
+  std::unique_ptr<gfx::AnimationCurve> Clone() const override {
+    return std::make_unique<TransformCurve>(curve_, from_, to_);
+  }
+  gfx::TransformOperations GetValue(base::TimeDelta t) const override {
+    // As LayerMotion blends one, through its decomposition.
+    gfx::TransformOperations operations;
+    operations.AppendMatrix(
+        gfx::Tween::TransformValueBetween(curve_.Progress(t), from_, to_));
+    return operations;
+  }
+  gfx::TransformOperations GetTransformedValue(
+      base::TimeDelta t,
+      gfx::TimingFunction::LimitDirection) const override {
+    return GetValue(t);
+  }
+  bool PreservesAxisAlignment() const override {
+    return from_.IsScaleOrTranslation() && to_.IsScaleOrTranslation();
+  }
+  // What cc rasters the layer at while it moves: the larger end's scale.
+  bool MaximumScale(float* max_scale) const override {
+    const gfx::Vector2dF from =
+        gfx::ComputeTransform2dScaleComponents(from_, 0);
+    const gfx::Vector2dF to = gfx::ComputeTransform2dScaleComponents(to_, 0);
+    *max_scale = std::max({from.x(), from.y(), to.x(), to.y()});
+    return *max_scale != 0;
+  }
+
+ private:
+  const Curve curve_;
+  const gfx::Transform from_;
+  const gfx::Transform to_;
+};
+
+// One property of a layer moving along a curve on cc's animation, through
+// the layer's own animator, as Chromium's threaded elements do: the layer
+// holds the value it starts from, cc moves it to the target, and once cc is
+// done the layer takes the target. cc begins one frame in (a start delay of
+// minus a frame), so the first frame shows a frame's progress; the animator
+// ends it as cc does, a frame before the curve's whole time from cc's start,
+// so the layer never shows the value it holds once cc lets go.
+class CurveElement : public ::ui::LayerAnimationElement {
+ public:
+  CurveElement(AnimatableProperty property,
+               const Curve& curve,
+               base::TimeDelta frame,
+               std::optional<float> opacity,
+               std::optional<gfx::Transform> transform)
+      : ::ui::LayerAnimationElement(property, curve.total() - frame),
+        curve_(curve),
+        frame_(frame),
+        target_opacity_(opacity.value_or(0)),
+        target_transform_(transform.value_or(gfx::Transform())) {}
+
+  CurveElement(const CurveElement&) = delete;
+  CurveElement& operator=(const CurveElement&) = delete;
+  ~CurveElement() override = default;
+
+  // ui::LayerAnimationElement:
+  bool IsThreaded(::ui::LayerAnimationDelegate* delegate) const override {
+    return duration().is_positive();
+  }
+
+ protected:
+  std::string DebugName() const override { return "pane::CurveElement"; }
+
+  void OnStart(::ui::LayerAnimationDelegate* delegate) override {
+    from_opacity_ = delegate->GetOpacityForAnimation();
+    from_transform_ = delegate->GetTransformForAnimation();
+    Set(delegate, from_opacity_, from_transform_);
+  }
+
+  void RequestEffectiveStart(::ui::LayerAnimationDelegate* delegate) override {
+    if (!IsThreaded(delegate)) {
+      set_effective_start_time(requested_start_time());
+      return;
+    }
+    set_effective_start_time(base::TimeTicks());
+    // A new id, so a model taken off and one put on in one frame differ.
+    UpdateKeyframeModelId();
+    std::unique_ptr<gfx::AnimationCurve> curve;
+    cc::TargetProperty::Type property;
+    if (properties() == OPACITY) {
+      curve =
+          std::make_unique<FloatCurve>(curve_, from_opacity_, target_opacity_);
+      property = cc::TargetProperty::OPACITY;
+    } else {
+      curve = std::make_unique<TransformCurve>(curve_, from_transform_,
+                                               target_transform_);
+      property = cc::TargetProperty::TRANSFORM;
+    }
+    std::unique_ptr<cc::KeyframeModel> model = cc::KeyframeModel::Create(
+        std::move(curve), keyframe_model_id(), animation_group_id(),
+        cc::KeyframeModel::TargetPropertyId(property));
+    model->set_needs_synchronized_start_time(true);
+    model->set_start_delay(-frame_);
+    delegate->GetThreadedAnimationDelegate()->AddThreadedAnimation(
+        std::move(model));
+  }
+
+  bool OnProgress(double t, ::ui::LayerAnimationDelegate* delegate) override {
+    if (t < 1) {
+      return false;
+    }
+    StopModel(delegate);
+    Set(delegate, target_opacity_, target_transform_);
+    return true;
+  }
+
+  void OnGetTarget(TargetValue* target) const override {
+    if (properties() == OPACITY) {
+      target->opacity = target_opacity_;
+    } else {
+      target->transform = target_transform_;
+    }
+  }
+
+  // Another motion takes over: the layer keeps where cc had it.
+  void OnAbort(::ui::LayerAnimationDelegate* delegate) override {
+    if (!delegate || !Started()) {
+      return;
+    }
+    StopModel(delegate);
+    const base::TimeTicks start = effective_start_time();
+    const base::TimeDelta elapsed =
+        start.is_null() ? frame_ : base::TimeTicks::Now() - start + frame_;
+    const double progress = curve_.Progress(elapsed);
+    Set(delegate, from_opacity_ + (target_opacity_ - from_opacity_) * progress,
+        gfx::Tween::TransformValueBetween(progress, from_transform_,
+                                          target_transform_));
+  }
+
+ private:
+  void StopModel(::ui::LayerAnimationDelegate* delegate) {
+    if (Started() && IsThreaded(delegate)) {
+      delegate->GetThreadedAnimationDelegate()->RemoveThreadedAnimation(
+          keyframe_model_id());
+    }
+  }
+
+  void Set(::ui::LayerAnimationDelegate* delegate,
+           float opacity,
+           const gfx::Transform& transform) {
+    if (properties() == OPACITY) {
+      delegate->SetOpacityFromAnimation(
+          opacity, ::ui::PropertyChangeReason::FROM_ANIMATION);
+    } else {
+      delegate->SetTransformFromAnimation(
+          transform, ::ui::PropertyChangeReason::FROM_ANIMATION);
+    }
+  }
+
+  const Curve curve_;
+  const base::TimeDelta frame_;
+  const float target_opacity_;
+  const gfx::Transform target_transform_;
+  float from_opacity_ = 0;
+  gfx::Transform from_transform_;
+};
+
+}  // namespace
+
+// static
+void CompositorMotion::Start(::ui::Layer* layer,
+                             const Curve& curve,
+                             const LayerMotion::Target& target,
+                             base::OnceClosure done) {
+  ::ui::Compositor* compositor = layer->GetCompositor();
+  const base::TimeDelta frame = FrameOf(compositor);
+  // With less motion asked for, nothing drawing it, or a curve no longer
+  // than a frame, the change is at once, still through the animator, so it
+  // takes over a motion of the same property as a motion would, and no other.
+  const bool at_once =
+      !compositor || motion::IsReduced() || curve.total() <= frame;
+  ::ui::LayerAnimator* animator = layer->GetAnimator();
+  animator->set_preemption_strategy(
+      ::ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
+  // Runs `done` once every property has reached its target, never when one
+  // is taken over; deletes itself.
+  auto* observer = new ::ui::CallbackLayerAnimationObserver(base::BindRepeating(
+      [](base::OnceClosure* done,
+         const ::ui::CallbackLayerAnimationObserver& observer) {
+        if (observer.aborted_count() == 0 && *done) {
+          std::move(*done).Run();
+        }
+        return true;
+      },
+      base::Owned(std::make_unique<base::OnceClosure>(std::move(done)))));
+  std::vector<::ui::LayerAnimationSequence*> sequences;
+  if (target.opacity) {
+    sequences.push_back(new ::ui::LayerAnimationSequence(
+        at_once ? ::ui::LayerAnimationElement::CreateOpacityElement(
+                      *target.opacity, base::TimeDelta())
+                : std::make_unique<CurveElement>(
+                      ::ui::LayerAnimationElement::OPACITY, curve, frame,
+                      target.opacity, std::nullopt)));
+  }
+  if (target.transform) {
+    sequences.push_back(new ::ui::LayerAnimationSequence(
+        at_once ? ::ui::LayerAnimationElement::CreateTransformElement(
+                      *target.transform, base::TimeDelta())
+                : std::make_unique<CurveElement>(
+                      ::ui::LayerAnimationElement::TRANSFORM, curve, frame,
+                      std::nullopt, target.transform)));
+  }
+  for (::ui::LayerAnimationSequence* sequence : sequences) {
+    sequence->AddObserver(observer);
+  }
+  animator->StartTogether(sequences);
+  // Only now may it run `done` and go: a sequence that ends at once ends
+  // inside StartTogether.
+  observer->SetActive();
 }
 
 ValueMotion::ValueMotion(double value,

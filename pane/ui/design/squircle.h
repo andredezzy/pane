@@ -5,9 +5,14 @@
 
 #include "third_party/skia/include/core/SkPath.h"
 
-namespace gfx {
-class RectF;
+namespace cc {
+class PaintFlags;
 }
+
+namespace gfx {
+class Canvas;
+class RectF;
+}  // namespace gfx
 
 namespace pane {
 
@@ -55,6 +60,31 @@ SkPath SquirclePath(const gfx::RectF& rect, float radius);
 // shrinking with it, to stroke at `width`. A border's, and a ring's outside
 // a shape when given the ring's own bounds and radius.
 SkPath SquircleStrokePath(const gfx::RectF& rect, float radius, float width);
+
+// Fills SquirclePath(rect, radius) with `flags` in pieces a tile's raster
+// takes cheaply: rectangles between the corners, and each corner a path of
+// its own in its radius box. Skia works a path's edges out for every tile it
+// rasters, so a card painted as one path cost each tile under it the whole
+// path (Settings' first frame rastered in 5.0 ms, and in pieces 4.0: ADR
+// 0123); a tile away from the corners now fills rectangles. The pieces meet
+// on whole pixels and cover each one as the whole path does
+// (squircle_unittest.cc); where they wouldn't, a corner under 33 pixels
+// (which Skia antialiases another way) or off whole pixels, it fills the one
+// path.
+void FillSquircle(gfx::Canvas& canvas,
+                  const gfx::RectF& rect,
+                  float radius,
+                  const cc::PaintFlags& flags);
+
+// Strokes SquircleStrokePath(rect, radius, width) at `width` with `flags`, a
+// border just inside the squircle's edge, in the same pieces: its sides as
+// rectangles, and each corner's curve stroked alone, its ends cut square
+// where the sides begin.
+void StrokeSquircleBorder(gfx::Canvas& canvas,
+                          const gfx::RectF& rect,
+                          float radius,
+                          float width,
+                          const cc::PaintFlags& flags);
 
 }  // namespace pane
 

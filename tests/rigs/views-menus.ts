@@ -60,9 +60,12 @@ const SWIFT: Record<string, string[]> = {
 		"Next Tab (Recent) ⌃⇥",
 		"Previous Tab (Recent) ⌃⇧⇥",
 		...Array.from(
-			{ length: 9 },
+			{ length: 8 },
 			(_, index) => `Tab ${index + 1} ⌘${index + 1}`,
 		),
+		// The Swift's Tab 9, now the last tab, as Chrome's and Safari's (the
+		// user's call).
+		"Last Tab ⌘9",
 	],
 	Window: ["Minimize ⌘M", "Zoom", "Extensions"],
 };
@@ -172,8 +175,8 @@ const viewsMenus: Scenario = async (context) => {
 		`enabled with the profiles open: ${JSON.stringify(open)}`,
 	);
 
-	// Items chosen through the menu bar. Tab 2 is the second tab; Tab 9,
-	// with three, chooses none (the Swift's selectTab(atIndex:)).
+	// Items chosen through the menu bar. Tab 2 is the second tab; Last Tab
+	// (⌘9), with three, the third, as Chrome's and Safari's.
 	const profile = await app.createProfile("Menus", "BLUE");
 	const tabs: string[] = [];
 
@@ -188,13 +191,8 @@ const viewsMenus: Scenario = async (context) => {
 
 	expect(await choose(["Tab", "Tab 2"]), "Tab 2 did not run");
 	await app.waitFor("Tab 2", (state) => state.activeTabID === tabs[1]);
-	expect(await choose(["Tab", "Tab 9"]), "Tab 9 did not run");
-	await Bun.sleep(300);
-
-	expect(
-		(await app.state()).activeTabID === tabs[1],
-		"Tab 9 chose a tab of three",
-	);
+	expect(await choose(["Tab", "Last Tab"]), "Last Tab did not run");
+	await app.waitFor("Last Tab", (state) => state.activeTabID === tabs[2]);
 
 	// Next Tab (Recent) opens the switcher on the tab used before; Previous
 	// moves its selection back; Ctrl's release, through Views' dispatch,

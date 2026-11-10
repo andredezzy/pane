@@ -2,7 +2,10 @@
 
 #include "pane/ui/interaction_log.h"
 
+#include <algorithm>
+
 #include "base/functional/bind.h"
+#include "base/time/time.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "ui/compositor/compositor.h"
 
@@ -26,7 +29,13 @@ void EndInteractionAtNextFrame(Interaction interaction,
   compositor->RequestSuccessfulPresentationTimeForNextFrame(base::BindOnce(
       [](Interaction interaction, uint64_t interval,
          const viz::FrameTimingDetails& details) {
-        EndInteractionInterval(interaction, interval);
+        const base::TimeTicks presented =
+            details.presentation_feedback.timestamp;
+        EndInteractionInterval(
+            interaction, interval,
+            presented.is_null() ? base::TimeDelta()
+                                : std::max(base::TimeTicks::Now() - presented,
+                                           base::TimeDelta()));
       },
       interaction, interval));
   // A frame, even when nothing changed on the screen.

@@ -8,6 +8,7 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "ui/color/color_variant.h"
@@ -54,8 +55,11 @@ class DialogHeading : public views::View {
 // 14%, 45% on dark, and the dialog's card in its middle, `width` points wide,
 // its content 24 in, rounded 29, on a 1-point ring outside it and its shadow
 // (0 24px 64px, black 16%, 50% on dark). They fade in as the card grows from
-// 0.97 (Motion.panel), and go the same way. A click on the scrim and Esc
-// dismiss it; Return accepts it. Which other keys it takes is its `keys`.
+// 0.97 (Motion.panel), and go the same way, the scrim and the card each
+// fading on its own as the Swift's did, on the compositor's own animation, so
+// the card and its shadow raster once, at their end's scale (ADR 0123). A click
+// on the scrim and Esc dismiss it; Return accepts it. Which other keys it takes
+// is its `keys`.
 class ModalDialog : public views::View {
   METADATA_HEADER(ModalDialog, views::View)
 
@@ -114,20 +118,34 @@ class ModalDialog : public views::View {
   // The card's place, ring included, to the fraction of a point, as SwiftUI
   // centers it.
   gfx::RectF CardPlace() const;
-  // The dialog `shown` of the way in: its opacity, and the card's size.
-  void Step(double shown);
+  // Lays out the card, its shadow, and its content; whether the card's place
+  // changed.
+  bool Place();
+  // Where the layer of the card and its shadow stands with the dialog shown,
+  // or gone: the card's place past whole points, grown to its size or 0.97
+  // of it about its middle.
+  gfx::Transform TransformOf(bool shown) const;
+  // The dialog at rest where it is heading: its opacity, and the card's size.
+  void Settle();
+  // Heads in, or out, from where it stands.
+  void Move(bool shown);
+  // It has arrived; gone, it hides.
+  void Moved();
 
   const int width_;
   Callbacks callbacks_;
   const Keys keys_;
+  raw_ptr<views::View> scrim_ = nullptr;
   raw_ptr<Shadow> shadow_ = nullptr;
   raw_ptr<Card> card_ = nullptr;
   raw_ptr<views::View> content_ = nullptr;
   bool closing_ = false;
   // The card's place past its whole points, on the screen's pixels.
   gfx::Vector2dF shift_;
-  // How far in it is: 0 gone, 1 shown.
-  ValueMotion motion_;
+  // Where it is heading, and whether it is on its way.
+  bool shown_ = false;
+  bool moving_ = false;
+  base::WeakPtrFactory<ModalDialog> weak_factory_{this};
 };
 
 }  // namespace pane

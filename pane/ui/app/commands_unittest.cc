@@ -118,7 +118,7 @@ TEST(CommandsTest, MenusAreTheSwifts) {
       {"Tab",
        {"Next Tab (Recent) ⌃⇥", "Previous Tab (Recent) ⌃⇧⇥", "-", "Tab 1 ⌘1",
         "Tab 2 ⌘2", "Tab 3 ⌘3", "Tab 4 ⌘4", "Tab 5 ⌘5", "Tab 6 ⌘6", "Tab 7 ⌘7",
-        "Tab 8 ⌘8", "Tab 9 ⌘9"}},
+        "Tab 8 ⌘8", "Last Tab ⌘9"}},
       {"Window", {"Minimize ⌘M", "Zoom", "-", "Extensions"}},
   };
   const std::vector<Menu>& menus = MenuBarMenus();

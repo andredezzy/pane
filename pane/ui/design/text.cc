@@ -11,6 +11,27 @@
 
 namespace pane {
 
+namespace {
+
+// A label that keeps its laid-out text while hidden. views::Label drops it at
+// every hide, which saves a hidden window's labels their memory, but Pane's
+// panels and dialogs hide and show again: each showing shaped every label
+// over on the UI thread in its first frame, Settings' 30 of them, and the
+// App icon picker's ↩ through 41 fallback fonts for 2 ms. Kept, the next
+// showing draws them as they were laid out; any change to the text, its
+// style, or its bounds lays it out again, as before.
+class KeptLabel : public views::Label {
+ public:
+  using views::Label::Label;
+
+ protected:
+  // views::View:
+  void VisibilityChanged(views::View* starting_from, bool is_visible) override {
+  }
+};
+
+}  // namespace
+
 const gfx::FontList& SystemFont(int size, gfx::Font::Weight weight) {
   static base::NoDestructor<
       std::map<std::pair<int, gfx::Font::Weight>, gfx::FontList>>
@@ -43,7 +64,7 @@ void StyleLabel(views::Label& label,
 std::unique_ptr<views::Label> MakeLabel(const std::u16string& text,
                                         const TextStyle& style,
                                         ui::ColorVariant color) {
-  auto label = std::make_unique<views::Label>(text);
+  auto label = std::make_unique<KeptLabel>(text);
   StyleLabel(*label, style, std::move(color));
   return label;
 }

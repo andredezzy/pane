@@ -133,9 +133,9 @@ class CardBorder : public views::View {
     flags.setStyle(cc::PaintFlags::kStroke_Style);
     flags.setStrokeWidth(kBorder);
     flags.setColor(colors->GetColor(kPaneColorBorder));
-    canvas->DrawPath(
-        SquircleStrokePath(gfx::RectF(GetLocalBounds()), radius::kXl, kBorder),
-        flags);
+    // In pieces, so a tile inside the card rasters no path (ADR 0123).
+    StrokeSquircleBorder(*canvas, gfx::RectF(GetLocalBounds()), radius::kXl,
+                         kBorder, flags);
   }
 };
 
@@ -369,8 +369,8 @@ class SettingsView::Card : public views::View {
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     flags.setColor(colors->GetColor(kPaneColorCard));
-    canvas->DrawPath(SquirclePath(gfx::RectF(GetLocalBounds()), radius::kXl),
-                     flags);
+    // In pieces, so a tile inside the card rasters no path (ADR 0123).
+    FillSquircle(*canvas, gfx::RectF(GetLocalBounds()), radius::kXl, flags);
   }
 
  private:

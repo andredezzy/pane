@@ -1795,8 +1795,10 @@ void UiApp::FocusAddressField() {
   }
 }
 
-// The Swift's selectTab(atIndex:): the tab at that place, or nothing when
-// the profile has fewer; ⌘9 is the ninth, not the last, as the Swift's.
+// ⌘1 to ⌘8: the tab at that place, or nothing when the profile has fewer,
+// as the Swift's selectTab(atIndex:). ⌘9: the last, as Chrome's and
+// Safari's, by the user's call (2026-11-10), where the Swift's was the
+// ninth.
 void UiApp::SelectTabAt(int number) {
   if (!InteractionAllowed()) {
     return;
@@ -1804,8 +1806,14 @@ void UiApp::SelectTabAt(int number) {
   const std::optional<std::string>& profile_id = model().active_profile_id();
   const model::BrowserProfile* profile =
       profile_id ? model().FindProfile(*profile_id) : nullptr;
-  if (!profile || number < 1 ||
-      number > static_cast<int>(profile->tabs.size())) {
+  if (!profile || profile->tabs.empty() || number < 1) {
+    return;
+  }
+  if (number == 9) {
+    Select(profile->tabs.back().id);
+    return;
+  }
+  if (number > static_cast<int>(profile->tabs.size())) {
     return;
   }
   Select(profile->tabs[number - 1].id);

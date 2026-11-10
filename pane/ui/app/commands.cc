@@ -118,10 +118,14 @@ std::vector<Menu> MakeMenus() {
            kControl | kShift),
       Separator(),
   };
+  // ⌘1 to ⌘8 by place; ⌘9 the last, as Chrome's and Safari's (the user's
+  // call, where the Swift's was the ninth).
   for (int number = 1; number <= 9; ++number) {
     tabs.push_back(Item(
         static_cast<Command>(static_cast<int>(Command::kTab1) + number - 1),
-        u"Tab " + std::u16string(1, static_cast<char16_t>(u'0' + number)),
+        number == 9
+            ? std::u16string(u"Last Tab")
+            : u"Tab " + std::u16string(1, static_cast<char16_t>(u'0' + number)),
         static_cast<ui::KeyboardCode>(ui::VKEY_0 + number), kCommand));
   }
   menus.push_back(MenuOf(u"Tab", std::move(tabs)));

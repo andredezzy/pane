@@ -84,6 +84,53 @@ Quit Pane?'s first frame took 37.8 ms on the CPU until its shadow and the switch
 
 On the screen, CPU raster draws what a render paints: the renders (`pane/ui/render.cc`, which every surface was compared with the Swift's and Paper by) are CPU raster. On the GPU an icon's or the panel's corner's edge pixels differed from the render by up to 47/255 (616 of the toolbar's pixels by more than 2); on the CPU 100 do, by at most 5, at the profile chip. Between the two rasters, 1,218 of the window's pixels differ by more than 2/255 in light and 1,235 in dark, all at paths' edges, none in text.
 
+## The first frames back
+
+What CPU raster cost four surfaces' first frames, and what won it back (ADR 0123), on `30653a9` and after. Each first showing was traced from a test copy in the background: a Chrome trace of the browser and GPU processes cut at the app's own signpost for it, cc's snapshot of each frame, and sample(1) (`evidence/views-migration/first-frames-probe`). The timings and budgets below are `firstFramesBack` in [views-shell.json](views-shell.json).
+
+A frame shows a refresh later once the work from its BeginFrame to Core Animation outgrows one refresh, 8.33 ms at 120 Hz. Rastered on the GPU that work took about 6 ms, on the CPU 10 to 11, which is the 8 to 9 ms the surfaces lost. Settings on `30653a9`, from its BeginFrame: the main frame 2.5 ms (painting its contents 2.0, a third of it shaping text again), the commit and its tiles' priorities 1.2, raster 4.6 (44 tiles of its contents on the one raster thread), the draw 0.5, and the display compositor 1.3.
+
+From the input to the frame on the screen, medians, in the background, the final tree against `30653a9`, taking turns, on an M5 Pro in use on 2026-11-10 (another session's iOS Simulator; the one-minute load 2.0 to 8.8): `views-settings` (10 rounds a run), its rounds pooled over eight runs of each, and `views-key-timing` (30 rounds), the median of three runs' medians (`evidence/views-migration/first-frames-probe/final-ab`).
+
+| | GPU raster | CPU raster, `30653a9` | Now |
+|---|---:|---:|---:|
+| Settings | 12.3 ms | 20.4 ms | 16.0 ms |
+| Quit Pane? (⌘Q) | 12.8 ms | 15.6 ms | 11.8 ms |
+| App icon picker | 22.3 ms | 26.8 ms | 17.7 ms |
+| A Theme change | 22.5 ms | 22.5 ms | 22.7 ms |
+| A sky chosen | 13.5 ms | 13.9 ms | 13.6 ms |
+| A tab switch (⌘1, ⌘2) | 10.5 ms | 10.0 ms | 10.6 ms |
+| New tab (⌘T) | 27.3 ms | 25.3 ms | 23.6 ms |
+| Address field (⌘L) | 9.7 ms | 7.2 ms | 8.4 ms |
+| Tab switcher (⌃⇥) | 8.5 ms | 8.4 ms | 8.5 ms |
+
+A run's median moves more than some of these differences: over the eight pairs, `30653a9`'s Settings read 12.4 to 23.9 ms and the final tree's 13.6 to 21.6, a Theme change 17.0 to 24.8 and 19.0 to 24.5. Pair by pair, the App icon picker was faster in all eight (by 3.7 to 15.2 ms) and Settings in six (by 2.8 ms on average); a Theme change and a sky were level (+0.4 and −0.2 ms on average). Quit Pane? was faster in each of its three pairs; the four holds stayed within their runs' swing (⌘L 5.4 to 9.0 ms on `30653a9`, 7.5 to 8.5 now), and none of the changes runs in them but the labels', which only takes work away. An hour earlier, two runs each of the tree before its last edit read Settings 20.6 → 16.5 ms, Quit Pane? 19.3 and 19.7 → 13.8 and 12.9, the picker 27.7 → 15.4, and a Theme 22.7 → 24.9.
+
+| Change | What it saved |
+|---|---|
+| Pane's labels keep their laid-out text while hidden (`pane/ui/design/text.cc`): Views drops it at every hide | Settings' paint 2.0 → 0.3 ms; the picker's 2.7–3.6 → 0.3, its ↩ shaped through 41 fallback fonts at each showing |
+| A dialog grows and fades on cc's own animation (`CompositorMotion`, `pane/ui/design/motion.cc`): Pane's curves exactly, the first frame a frame in, the raster scale its end's | Quit Pane?'s entrance 64–96 raster tasks → 32; one tiling at scale 2, where two (17 MB) were held mid-entrance |
+| Settings' cards and a dialog's card paint their squircle in pieces (`FillSquircle`, `StrokeSquircleBorder`) | Settings' raster 5.0 → 4.0 ms |
+| The card paints in its shadow's layer | Quit Pane? 32 → 24 tiles; the picker 46–49 → 34–36 |
+| The scrim and the card fade apart, as the Swift's `modal()` faded them | the display compositor's first frame 1.2–2.8 → 0.4–0.7 ms, no pass the window's size |
+
+What stays: Settings' first frame rasters 44 tiles in about 4 ms on the one raster thread, which content makes (`VizProcessTransportFactory`) with no seam for more; a tile whose memory the GPU last held clears in up to 110 µs where a warm one takes 10. Its chain from the BeginFrame is now about 7 ms, at the refresh's edge: the median falls on one side or the other from run to run (13.6 to 21.6 ms over the final tree's eight runs).
+
+The shell's budgets hold, against 0.19.2, taking turns (`tests/ab.ts`) on the same Mac in use: launch on the final tree, three rounds, of which one launch of each build never served DevTools, as one of 0.19.2's did at the shell's end, so two each; memory on the tree before its last two edits (the Dock's beat out, the at-once path), which hold no memory, three rounds. Both builds' launches ran slower than in the table at the top.
+
+| Measure | 0.19.2 | Now | Change | Budget | |
+|---|---:|---:|---:|---:|---|
+| Launch to first window, cold | 270.1 ms | 253.3 ms | −16.8 ms | ≤ +5 ms | ✓ |
+| Launch to first window, warm | 275.8 ms | 249.1 ms | −26.7 ms | ≤ +5 ms | ✓ |
+| Memory, 1 tab | 150.6 MB | 146.7 MB | −2.6% | ≤ +1% | ✓ |
+| … the browser process | 69.6 MB | 61.3 MB | −8.3 MB | ≤ 0.19.2's | ✓ |
+| … the GPU process | 27.1 MB | 32.3 MB | +5.3 MB | | |
+| Memory, 10 tabs | 351.8 MB | 345.7 MB | −1.8% | ≤ +1% | ✓ |
+| … the browser process | 80.3 MB | 67.1 MB | −13.1 MB | ≤ 0.19.2's | ✓ |
+| … the GPU process | 58.2 MB | 64.9 MB | +6.8 MB | | |
+
+The renders are those of `30653a9` within 1/255 but for the update row's clock, which runs on, and two shapes now rastered 192 × 144 pixels further into their layer: the bottom row of Quit Pane?'s icon tile (7 to 11 pixels, 3 to 7/255) and the top of the picker's chosen tile in light (6, 3 to 5/255), where Skia's coverage along a curve's near-flat stretch moves with its place, as a tile's edge moves it on the screen. Against the Swift's renders the share of pixels over 2/255 is the same or smaller on every Settings and picker surface (`surfaces-updates-available` 2.13 → 1.89%), and Quit Pane?'s 2.63 → 2.64%. The final tree's captures, light and dark, are pixel for pixel those of the tree these were compared on, but for the clock, the overlay scroll bar's fade, and a download's progress.
+
 ## A page's first frame
 
 On the three local fixtures, the first contentful paint read 8 to 12 ms later on the Views build, though the page painted 3 to 9 ms sooner; real sites didn't show it. Traced over 24 loads a build (8 rounds of the three fixtures, as `benchmark-pages` loads them, the `benchmark` category, and `gpu`'s `CommitPresentedFrameToCA`), medians:
@@ -103,8 +150,8 @@ On the three local fixtures, the first contentful paint read 8 to 12 ms later on
 ## Found on the way
 
 - **A render left its recording behind.** `pane/ui/render.cc` paints views on a pixel canvas, and Views keeps each view's last recording and replays it for a view its layer's next paint leaves alone; the window's compositor records in points (pixel canvases are ChromeOS's), so a view painted for a render could then draw at twice its size: with the sidebar's footer on a layer of its own, `views-sidebar`'s capture showed its New at 2×. The channel's `render`, a test copy's alone, now has every view it painted record again for the screen.
-- **Quit Pane? re-rasters at every frame of its entrance,** on either raster: its card grows by a scale the UI thread steps, and cc rasters each new scale (68 to 72 raster tasks an entrance on the GPU, 512 to 608 on the CPU, 17 to 19 frames presented and none or one dropped on both). A scale the compositor drives, the plan's sampled curve, would raster it once.
-- **Settings' cards paint a path across the panel,** so every tile under them rasters when Settings shows: 145 tiles, 11 to 17 ms on the CPU.
+- **Quit Pane? re-rasters at every frame of its entrance,** on either raster: its card grows by a scale the UI thread steps, and cc rasters each new scale (68 to 72 raster tasks an entrance on the GPU, 512 to 608 on the CPU, 17 to 19 frames presented and none or one dropped on both). A scale the compositor drives, the plan's sampled curve, would raster it once. It now does (The first frames back).
+- **Settings' cards paint a path across the panel,** so every tile under them rasters when Settings shows: 145 tiles, 11 to 17 ms on the CPU. Traced again, a showing rasters 44 tiles in 4 to 5 ms, about half of it clearing them and most of the rest the cards' paths; in pieces, 4.0 ms where it took 5.0 (The first frames back).
 - **The capture `sidebar-resize` names `list-top` raced its reveal once:** the list still at the end it was scrolled to, in 1 of 11 runs of this work's builds and none of 5 of `3f62f15`'s; the scenario checks nothing in it.
 
 ## Rerunning

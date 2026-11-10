@@ -3,13 +3,20 @@
 #include "pane/ui/design/motion.h"
 
 #include <algorithm>
+#include <memory>
 #include <numbers>
 #include <string>
 #include <vector>
 
 #include "base/test/bind.h"
+#include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animation_element.h"
+#include "ui/compositor/layer_animation_sequence.h"
+#include "ui/compositor/layer_animator.h"
 #include "ui/gfx/animation/animation.h"
+#include "ui/gfx/geometry/transform.h"
 
 namespace pane {
 
@@ -208,6 +215,34 @@ TEST(MotionTest, LessMotionLandsAtOnce) {
   EXPECT_EQ(steps, std::vector<double>{1});
   gfx::Animation::SetPrefersReducedMotionForTesting(false);
   EXPECT_FALSE(motion::IsReduced());
+}
+
+// With nothing drawing the layer, a compositor motion lands at once and runs
+// `done`, taking over what moved the property it sets and nothing else.
+TEST(MotionTest, ACompositorMotionWithNothingDrawingLandsAtOnce) {
+  std::unique_ptr<::ui::Layer> layer =
+      ::ui::Layer::Create(::ui::LAYER_NOT_DRAWN);
+  ::ui::LayerAnimator* animator = layer->GetAnimator();
+  // Something moving the transform for a second.
+  animator->StartAnimation(new ::ui::LayerAnimationSequence(
+      ::ui::LayerAnimationElement::CreatePauseElement(
+          ::ui::LayerAnimationElement::TRANSFORM, base::Seconds(1))));
+  int done = 0;
+
+  CompositorMotion::Start(layer.get(), motion::Sheet(), {.opacity = 0.5f},
+                          base::BindLambdaForTesting([&] { ++done; }));
+  EXPECT_EQ(layer->opacity(), 0.5f);
+  EXPECT_EQ(done, 1);
+  EXPECT_TRUE(
+      animator->IsAnimatingProperty(::ui::LayerAnimationElement::TRANSFORM));
+
+  gfx::Transform grown;
+  grown.Scale(2, 2);
+  CompositorMotion::Start(layer.get(), motion::Sheet(), {.transform = grown},
+                          base::BindLambdaForTesting([&] { ++done; }));
+  EXPECT_EQ(layer->transform(), grown);
+  EXPECT_EQ(done, 2);
+  EXPECT_FALSE(animator->is_animating());
 }
 
 }  // namespace pane

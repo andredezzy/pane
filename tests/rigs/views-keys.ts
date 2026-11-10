@@ -8,8 +8,9 @@ import { expect, type Scenario } from "../run";
 // ahead of the page and ⌘L to the page first, as the Swift ordered them (ADR
 // 0019): a page that takes ⌘L keeps it, and one that would take ⌘T never
 // sees it. A key typed right behind ⌘T lands in the new tab's address; ⌘1 to
-// ⌘9 choose a profile's tab by its place, none past its last (the Swift's
-// selectTab(atIndex:)); Esc and Return close the sheet; Quit Pane? takes
+// ⌘8 choose a profile's tab by its place, none past its last (the Swift's
+// selectTab(atIndex:)), and ⌘9 its last (Chrome's and Safari's, the user's
+// call); Esc and Return close the sheet; Quit Pane? takes
 // every key, the menu bar's included, but ⌘Q; the switcher opens on Ctrl-Tab
 // and chooses on Ctrl's release. Real keys, posted through the window's event
 // path, so the window must be in front (run.ts --foreground).
@@ -56,11 +57,11 @@ const viewsKeys: Scenario = async (context) => {
 		10_000,
 	);
 
-	// ⌘1 and ⌘3 choose by place; ⌘9, with four tabs, chooses none.
+	// ⌘1 and ⌘3 choose by place; ⌘9, with four tabs, the last.
 	for (const [key, index] of [
 		["1", 0],
 		["3", 2],
-		["9", 2],
+		["9", 3],
 	] as const) {
 		await app.send("key", { key, modifiers: ["command"] });
 		const want = (await tabs())[index];

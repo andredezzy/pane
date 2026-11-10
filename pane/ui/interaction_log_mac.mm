@@ -68,50 +68,67 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
   return id;
 }
 
-void EndInteractionInterval(Interaction interaction, uint64_t interval) {
+void EndInteractionInterval(Interaction interaction,
+                            uint64_t interval,
+                            base::TimeDelta late) {
   os_log_t log = InteractionsLog();
+  const long long late_us = late.InMicroseconds();
   switch (interaction) {
     case Interaction::kSelectTab:
-      os_signpost_interval_end(log, interval, "Select tab");
+      os_signpost_interval_end(log, interval, "Select tab", "late=%{public}lld",
+                               late_us);
       break;
     case Interaction::kNewTab:
-      os_signpost_interval_end(log, interval, "New tab");
+      os_signpost_interval_end(log, interval, "New tab", "late=%{public}lld",
+                               late_us);
       break;
     case Interaction::kFocusAddressField:
-      os_signpost_interval_end(log, interval, "Focus address field");
+      os_signpost_interval_end(log, interval, "Focus address field",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kClickAddressField:
-      os_signpost_interval_end(log, interval, "Click address field");
+      os_signpost_interval_end(log, interval, "Click address field",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kOpenProfileSheet:
-      os_signpost_interval_end(log, interval, "Open profile sheet");
+      os_signpost_interval_end(log, interval, "Open profile sheet",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kChoosePlatform:
-      os_signpost_interval_end(log, interval, "Choose platform");
+      os_signpost_interval_end(log, interval, "Choose platform",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kOpenSwitcher:
-      os_signpost_interval_end(log, interval, "Open switcher");
+      os_signpost_interval_end(log, interval, "Open switcher",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kWakeTab:
-      os_signpost_interval_end(log, interval, "Wake tab");
+      os_signpost_interval_end(log, interval, "Wake tab", "late=%{public}lld",
+                               late_us);
       break;
     case Interaction::kOpenSettings:
-      os_signpost_interval_end(log, interval, "Open settings");
+      os_signpost_interval_end(log, interval, "Open settings",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kChangeTheme:
-      os_signpost_interval_end(log, interval, "Change theme");
+      os_signpost_interval_end(log, interval, "Change theme",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kOpenMenu:
-      os_signpost_interval_end(log, interval, "Open menu");
+      os_signpost_interval_end(log, interval, "Open menu", "late=%{public}lld",
+                               late_us);
       break;
     case Interaction::kOpenAppIconPicker:
-      os_signpost_interval_end(log, interval, "Open app icon picker");
+      os_signpost_interval_end(log, interval, "Open app icon picker",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kChooseAppIcon:
-      os_signpost_interval_end(log, interval, "Choose app icon");
+      os_signpost_interval_end(log, interval, "Choose app icon",
+                               "late=%{public}lld", late_us);
       break;
     case Interaction::kOpenQuitDialog:
-      os_signpost_interval_end(log, interval, "Open quit dialog");
+      os_signpost_interval_end(log, interval, "Open quit dialog",
+                               "late=%{public}lld", late_us);
       break;
   }
 }

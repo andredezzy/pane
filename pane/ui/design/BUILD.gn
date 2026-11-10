@@ -65,10 +65,12 @@ source_set("design") {
   ]
 
   deps = [
+    "//cc/animation",
     "//cc/paint",
     "//ui/accessibility:ax_base",
     "//ui/events",
     "//ui/gfx/animation",
+    "//ui/gfx/animation/keyframe",
     "//ui/native_theme",
   ]
 
@@ -101,11 +103,13 @@ source_set("unit_tests") {
     ":design",
     "//base",
     "//base/test:test_support",
+    "//cc/paint",
     "//pane/model",
     "//skia",
     "//testing/gtest",
     "//ui/accessibility:test_support",
     "//ui/color",
+    "//ui/compositor",
     "//ui/gfx",
     "//ui/gfx:test_support",
     "//ui/gfx/animation",

@@ -10,6 +10,7 @@ type Signpost = {
 	signpostID?: number;
 	processID?: number;
 	timestamp?: string;
+	eventMessage?: string;
 };
 
 // The log's "2026-10-30 15:41:02.123456-0300", in milliseconds.
@@ -85,9 +86,15 @@ export async function signpostIntervals(
 			const begin = begins.get(key);
 
 			if (begin) {
+				// The Views build ends an interval when the UI thread hears its
+				// frame reached the screen, and says how long before that was
+				// (late=, in microseconds): the interval ends at the frame.
+				const late =
+					Number(/late=(\d+)/.exec(event.eventMessage ?? "")?.[1] ?? 0) / 1000;
+
 				begins.delete(key);
 				intervals[begin.name] ??= [];
-				intervals[begin.name]?.push(at - begin.at);
+				intervals[begin.name]?.push(at - late - begin.at);
 			}
 		}
 	}

@@ -8,10 +8,15 @@
 #include <numbers>
 #include <vector>
 
+#include "cc/paint/paint_flags.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPathMeasure.h"
 #include "third_party/skia/include/core/SkRect.h"
+#include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/size.h"
 
 namespace pane {
 
@@ -170,6 +175,97 @@ TEST(SquircleTest, AStrokeRunsInsideTheEdge) {
   inset.Inset(0.5f);
   EXPECT_EQ(SquircleStrokePath(field, radius::kMd, 1),
             SquirclePath(inset, radius::kMd - 0.5f));
+}
+
+namespace {
+
+// The most any channel of two images of one size differs by.
+int MostApart(const SkBitmap& a, const SkBitmap& b) {
+  int most = 0;
+  for (int y = 0; y < a.height(); ++y) {
+    for (int x = 0; x < a.width(); ++x) {
+      const SkColor p = a.getColor(x, y);
+      const SkColor q = b.getColor(x, y);
+      for (const int shift : {0, 8, 16, 24}) {
+        most = std::max(most, std::abs(static_cast<int>((p >> shift) & 0xFF) -
+                                       static_cast<int>((q >> shift) & 0xFF)));
+      }
+    }
+  }
+  return most;
+}
+
+// What `paint` draws on a clear canvas `size` points big at `scale`.
+template <typename Paint>
+SkBitmap Painted(const gfx::Size& size, float scale, Paint paint) {
+  gfx::Canvas canvas(size, scale, /*is_opaque=*/false);
+  canvas.DrawColor(SK_ColorTRANSPARENT, SkBlendMode::kSrc);
+  paint(canvas);
+  return canvas.GetBitmap();
+}
+
+}  // namespace
+
+// Settings' cards and a dialog's card and ring in pieces, so a tile inside
+// them rasters no path: what the one path draws, at 1x and 2x, in colors that
+// show a pixel covered twice; the border's corner caps within a 255th.
+TEST(SquircleTest, PiecesDrawWhatThePathDraws) {
+  const struct {
+    gfx::RectF rect;
+    float radius;
+  } shapes[] = {
+      // Settings' cards (a row, three, two), at their places.
+      {gfx::RectF(40, 116, 640, 126), radius::kXl},
+      {gfx::RectF(40, 298, 640, 182), radius::kXl},
+      {gfx::RectF(40, 536, 640, 62), radius::kXl},
+      // Quit Pane?'s and the App icon picker's cards in their layers.
+      {gfx::RectF(1, 1, 480, 234), radius::k2xl},
+      {gfx::RectF(1, 1, 480, 366), radius::k2xl},
+      // A control's, under the size where pieces are drawn.
+      {gfx::RectF(3, 7, 200, 36), radius::kMd},
+  };
+  cc::PaintFlags fill;
+  fill.setAntiAlias(true);
+  fill.setColor(SkColorSetARGB(0x80, 0x1C, 0x1C, 0x1F));
+  cc::PaintFlags border;
+  border.setAntiAlias(true);
+  border.setStyle(cc::PaintFlags::kStroke_Style);
+  border.setStrokeWidth(1);
+  border.setColor(SkColorSetARGB(0x14, 0, 0, 0));
+  for (const auto& [rect, radius] : shapes) {
+    const gfx::Size size(rect.right() + 4, rect.bottom() + 4);
+    for (const float scale : {1.0f, 2.0f}) {
+      SCOPED_TRACE(testing::Message() << rect.ToString() << " r" << radius
+                                      << " at " << scale << "x");
+      EXPECT_EQ(0, MostApart(Painted(size, scale,
+                                     [&](gfx::Canvas& canvas) {
+                                       canvas.DrawPath(
+                                           SquirclePath(rect, radius), fill);
+                                     }),
+                             Painted(size, scale, [&](gfx::Canvas& canvas) {
+                               FillSquircle(canvas, rect, radius, fill);
+                             })));
+      // A ring around the card, as a dialog's: its radius a point more.
+      for (const auto& [line, line_radius] :
+           {std::pair(rect, radius),
+            std::pair(gfx::RectF(rect.x() - 1, rect.y() - 1, rect.width() + 2,
+                                 rect.height() + 2),
+                      radius + 1)}) {
+        EXPECT_LE(MostApart(Painted(size + gfx::Size(2, 2), scale,
+                                    [&](gfx::Canvas& canvas) {
+                                      canvas.DrawPath(SquircleStrokePath(
+                                                          line, line_radius, 1),
+                                                      border);
+                                    }),
+                            Painted(size + gfx::Size(2, 2), scale,
+                                    [&](gfx::Canvas& canvas) {
+                                      StrokeSquircleBorder(
+                                          canvas, line, line_radius, 1, border);
+                                    })),
+                  1);
+      }
+    }
+  }
 }
 
 }  // namespace pane
