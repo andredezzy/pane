@@ -19,9 +19,11 @@ import { expect, type Scenario } from "../run";
 // set, Pane locks by itself once it has gone that long without use (a minute
 // a second here), and so it does when the displays sleep or another user takes
 // the session. A lock that comes as the profile is still opening detaches as
-// well. One watchdog serves a Pane through every lock, and still
-// detaches the image when Pane is killed. A file something else holds open is never
-// pulled away: the lock waits, and past 10 s Pane quits.
+// well, and Chrome's background work for that profile, held past the detach
+// by a busy Mac or by Chrome's own startup, runs first, the keys still there.
+// One watchdog serves a Pane through every lock, and still detaches the image
+// when Pane is killed. A file something else holds open is never pulled away:
+// the lock waits, and past 10 s Pane quits.
 
 // bcryptjs 3.0.3, hashSync("1234", 10): a PIN as the Electron app set it.
 const PIN_1234 = {
@@ -289,6 +291,64 @@ const lockWhileOpen: Scenario = async (context) => {
 		`locks as the profile opens, detached after (ms): ${JSON.stringify(atOpen)}`,
 	);
 
+	// Chrome posts BEST_EFFORT work that reaches a profile's files as the
+	// profile is created (the bounce-tracking database's open) and as it is
+	// destroyed (the bookmarks' ordering written), and that work waits while
+	// the Mac is busy, or while Chrome's startup holds it: a lock that came as
+	// the profile opened dropped the keys before it ran, and the encryption's
+	// check of a profile's file with no key ended Pane (ADR 0121). The thread
+	// pool holds that work here, 1.5 s from before the PIN, past where each
+	// lock detached before; the Lock lets it run while the keys are there, and
+	// once it has, Pane is still there.
+	const workHeld: (number | null)[] = [];
+	const workRan: boolean[] = [];
+
+	for (let round = 0; round < 3; round++) {
+		await app.send("holdBackgroundWork", { ms: 1_500 });
+		await app.send("pinKeys", { keys: "1234" });
+
+		await app.waitFor(
+			"unlocked, the profile opening, its background work held",
+			(state) => !state.security.locked && state.security.data.attached,
+			60_000,
+		);
+
+		const lockedAt = Date.now();
+		await app.send("lockNow");
+
+		workHeld.push(
+			await poll(
+				"the detach of a lock with the background work held",
+				async () => (await imagesAttachedIn(dataDir)).length === 0,
+				15_000,
+			).then(
+				() => Date.now() - lockedAt,
+				() => null,
+			),
+		);
+
+		try {
+			workRan.push(
+				(await app.send<boolean>("waitForBackgroundWork", { ms: 10_000 }))
+					.result,
+			);
+		} catch (error) {
+			throw new Error(
+				`once the held background work ran, after locks detached at ${JSON.stringify(workHeld)} ms: ${error}`,
+			);
+		}
+	}
+
+	writeFileSync(
+		join(context.out, "locks-with-the-background-work-held.json"),
+		JSON.stringify({ detachedAfterMs: workHeld, workRan }),
+	);
+
+	expect(
+		workHeld.every((ms) => ms !== null) && workRan.every(Boolean),
+		`locks with the background work held, detached after (ms): ${JSON.stringify(workHeld)}, the work run since: ${JSON.stringify(workRan)}`,
+	);
+
 	// Once more through a lock: the image on whichever device it has now.
 	await app.send("pinKeys", { keys: "1234" });
 
@@ -354,8 +414,45 @@ const lockWhileOpen: Scenario = async (context) => {
 
 	expect(detachedAfterKill, "a kill after two locks left the image attached");
 
-	// Held past the wait: Pane quits, and the volume detaches after the engine.
+	// A launch's first lock, the moment its first unlock attaches, before any
+	// page has loaded: Chrome holds every BEST_EFFORT task until its startup
+	// is over, once a visible page has loaded, else 3 minutes after launch,
+	// and the profile's work stayed held behind the lock, to run when the 3
+	// minutes ran out, its key gone. The lock ends the startup and lets that
+	// work run first: once the volume has detached, the thread pool holds
+	// nothing.
 	const last = await launchPane(context, { dataDir });
+	await last.send("pinKeys", { keys: "1234" });
+
+	await last.waitFor(
+		"unlocked, the launch's first",
+		(state) => !state.security.locked && state.security.data.attached,
+		60_000,
+	);
+
+	const firstLockedAt = Date.now();
+	await last.send("lockNow");
+
+	const firstDetached = await poll(
+		"the detach of the launch's first lock",
+		async () => (await imagesAttachedIn(dataDir)).length === 0,
+		15_000,
+	).then(
+		() => Date.now() - firstLockedAt,
+		() => null,
+	);
+
+	const { result: poolEmptied } = await last.send<boolean>(
+		"waitForBackgroundWork",
+		{ ms: 10_000 },
+	);
+
+	expect(
+		firstDetached !== null && poolEmptied,
+		`the launch's first lock, before a page loaded: detached after ${firstDetached} ms, the thread pool emptied ${poolEmptied}`,
+	);
+
+	// Held past the wait: Pane quits, and the volume detaches after the engine.
 	await last.send("pinKeys", { keys: "1234" });
 
 	await last.waitFor(

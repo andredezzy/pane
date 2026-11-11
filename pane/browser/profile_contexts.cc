@@ -11,11 +11,14 @@
 #include "base/memory/ref_counted.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "chrome/browser/after_startup_task_utils.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "pane/app/data_launch.h"
+#include "pane/browser/background_work.h"
 #include "pane/browser/browser_context.h"
 #include "pane/browser/caches_in_memory.h"
+#include "pane/browser/engine_trace.h"
 #include "pane/browser/profile_network.h"
 #include "pane/browser/profiles.h"
 #include "pane/model/browser_model.h"
@@ -29,6 +32,57 @@ namespace {
 // How long a clear's deletion takes to reach the disk: the engine commits
 // within 10 s of a change.
 constexpr base::TimeDelta kHistoryClearSettles = base::Seconds(15);
+
+// How long a lock lets Chrome's background work run before its detach: past
+// it, the lock goes on as before (ADR 0116).
+constexpr base::TimeDelta kBackgroundWorkCap = base::Seconds(5);
+
+// Every profile has closed for a lock. As each was created and as it was
+// destroyed, Chrome left work in the thread pool that reaches its files, much
+// of it BEST_EFFORT (ADR 0116): it runs now, while the volume is there and the
+// keys are held, and the detach and the drop come after. Held past the drop,
+// it met the encryption's check of a profile's file with no key, which ends
+// Pane (ADR 0121). Chrome holds every BEST_EFFORT task until its startup is
+// over, once a visible page has loaded or 3 minutes after launch: a lock that
+// came first, right after an unlock or with no page loading, left that work
+// held behind it until the 3 minutes ran out, so a lock ends the startup.
+// Each close answers as its profile's destruction begins, which posts work of
+// its own as the profile's services go, so the wait starts once that has
+// ended. A profile still open makes Pane quit, which needs no wait.
+void LetBackgroundWorkRun(base::OnceCallback<void(bool)> closed,
+                          bool every_closed) {
+  if (!every_closed) {
+    std::move(closed).Run(false);
+    return;
+  }
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::OnceCallback<void(bool)> closed) {
+            if (!AfterStartupTaskUtils::IsBrowserStartupComplete()) {
+              // Chromium's own call, as Android's startup ends it; its pages
+              // went behind the Lock.
+              AfterStartupTaskUtils::SetBrowserStartupIsCompleteForTesting(
+                  StartupIsCompleteReason::kVisiblePagesHidden);
+            }
+            WaitForBackgroundWork(
+                kBackgroundWorkCap,
+                base::BindOnce(
+                    [](base::TimeTicks started,
+                       base::OnceCallback<void(bool)> closed, bool ran) {
+                      PANE_TRACE(
+                          "callback",
+                          "PaneBrowserApplication.backgroundWorkRan",
+                          base::DictValue()
+                              .Set("ran", ran)
+                              .Set("ms", (base::TimeTicks::Now() - started)
+                                             .InMillisecondsF()));
+                      std::move(closed).Run(true);
+                    },
+                    base::TimeTicks::Now(), std::move(closed)));
+          },
+          std::move(closed)));
+}
 
 }  // namespace
 
@@ -464,7 +518,8 @@ void ProfileContexts::Deleted(scoped_refptr<Work> work,
 
 void ProfileContexts::CloseForLock(
     base::OnceCallback<void(bool every_closed)> closed) {
-  auto closing = base::MakeRefCounted<Closing>(std::move(closed));
+  auto closing = base::MakeRefCounted<Closing>(
+      base::BindOnce(&LetBackgroundWorkRun, std::move(closed)));
   std::map<std::string, std::unique_ptr<BrowserContext>> open =
       std::exchange(open_, {});
   for (auto& [id, context] : open) {

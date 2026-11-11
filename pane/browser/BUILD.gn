@@ -1,8 +1,23 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# What Chrome's stores hold of a profile, let go of as the profile goes, which
-# a lock's detach waits for (ADR 0116). A target of its own so its tests run
+# What Chrome's stores hold of a profile, let go of as the profile goes, and
+# the background work Chrome left for the thread pool, run first, which a
+# lock's detach waits for (ADR 0116). Targets of their own so their tests run
 # in pane_unittests, apart from the engine.
+
+source_set("background_work") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "background_work.cc",
+    "background_work.h",
+  ]
+
+  deps = [ "//base" ]
+}
 
 source_set("proto_databases") {
   visibility = [
@@ -25,14 +40,19 @@ source_set("unit_tests") {
   testonly = true
   visibility = [ "//pane/encryption:pane_unittests" ]
 
-  sources = [ "proto_databases_unittest.cc" ]
+  sources = [
+    "background_work_unittest.cc",
+    "proto_databases_unittest.cc",
+  ]
 
   deps = [
+    ":background_work",
     ":proto_databases",
     "//base",
     "//base/test:test_support",
     "//components/leveldb_proto",
     "//components/leveldb_proto/testing/proto",
+    "//pane/encryption:core",
     "//testing/gtest",
     "//third_party/leveldatabase",
   ]

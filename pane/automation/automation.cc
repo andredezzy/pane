@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -17,6 +18,7 @@
 #include "base/json/json_writer.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
+#include "base/task/execution_fence.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -44,6 +46,7 @@
 #include "pane/automation/input.h"
 #include "pane/automation/system.h"
 #include "pane/automation/windows.h"
+#include "pane/browser/background_work.h"
 #include "pane/browser/browser_context.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profile_cache.h"
@@ -99,6 +102,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/textfield/textfield.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -304,6 +308,24 @@ std::optional<model::BrowserModel::ProxyStatus> ProxyStatusNamed(
   return std::nullopt;
 }
 
+// A user's keys reach the window only while it is key, and as it becomes key
+// Views gives the focus to the view it kept as the window last resigned key,
+// or that asked for the focus while the window wasn't key
+// (FocusManager::RestoreFocusedView, from NativeWidgetMac's key status). A
+// scenario's copy in the background is not key: it was for a moment as it
+// launched, AppKit making it active, until it gave the front back, or a view's
+// request for the focus asked to activate it (Views does, while the app is
+// active) and the app in use kept the front; either way Views left the focus
+// on no view, kept for when the window is key. So the channel gives it back
+// as becoming key would, without the front, and its keys then go where a
+// user's would, through the window's own dispatch.
+void FocusAsKeyWindow(views::Widget* widget) {
+  views::FocusManager* focus = widget ? widget->GetFocusManager() : nullptr;
+  if (focus && !widget->IsActive() && !focus->GetFocusedView()) {
+    focus->RestoreFocusedView();
+  }
+}
+
 }  // namespace
 
 // The channel's files, on a sequence that may block: commands as they
@@ -494,12 +516,13 @@ void Automation::Dispatch(const std::string& name,
        name == "scrollWindow" || name == "dragWindow" ||
        name == "pointerWindow" || name == "frames" || name == "rowMenu" ||
        name == "clickModalButton" || name == "settingsMenu" ||
-       name == "dispatchKey" || name == "clickSheetButton" ||
-       name == "typeInPage" || name == "modalHost" ||
-       name == "dialogAccessibility" || name == "fillSheet" ||
-       name == "extensionsMenu" || name == "extensionsAccessibility" ||
-       name == "sheetField" || name == "sheetMenu" || name == "accessibility" ||
-       name == "showPinScreen" || name == "pinKeys" ||
+       name == "dispatchKey" || name == "windowKey" ||
+       name == "clickSheetButton" || name == "typeInPage" ||
+       name == "modalHost" || name == "dialogAccessibility" ||
+       name == "fillSheet" || name == "extensionsMenu" ||
+       name == "extensionsAccessibility" || name == "sheetField" ||
+       name == "sheetMenu" || name == "accessibility" ||
+       name == "showPinScreen" || name == "pinKeys" || name == "resignKey" ||
        name == "downloadUpdate" || name == "restartToUpdate" ||
        name == "dismissUpdate")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
@@ -1208,6 +1231,7 @@ void Automation::Dispatch(const std::string& name,
       std::move(reply).Run(base::Value(), "pinKeys: no PIN screen shows");
       return;
     }
+    FocusAsKeyWindow(widget);
     if (window->root()->focus() != ViewIdName(kViewIdLockScreen)) {
       std::move(reply).Run(base::Value(),
                            "pinKeys: the PIN screen doesn't have the keys: " +
@@ -1224,6 +1248,17 @@ void Automation::Dispatch(const std::string& name,
                              "pinKeys: no key code for that key");
         return;
       }
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The window resigns key, as when the app in use takes the front back
+  // (ResignKey): Views clears its focus, kept for when the window is key.
+  if (name == "resignKey") {
+    if (!ResignKey(widget)) {
+      std::move(reply).Run(base::Value(), "resignKey: no window delegate");
+      return;
     }
     std::move(reply).Run(base::Value(), std::string());
     return;
@@ -1268,6 +1303,45 @@ void Automation::Dispatch(const std::string& name,
   if (name == "lockNow") {
     app_->LockNow();
     std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The thread pool's BEST_EFFORT work waits { ms } from now, as Chrome's
+  // startup or a loaded Mac holds it, Chrome's for a profile opening then
+  // among it: what the Lock must let run before it drops the keys
+  // (lock-while-open, ADR 0116). Chromium's own fence, the one its startup
+  // takes.
+  if (name == "holdBackgroundWork") {
+    const std::optional<int> ms = command.FindInt("ms");
+    if (!ms || *ms <= 0) {
+      std::move(reply).Run(base::Value(), "holdBackgroundWork needs ms");
+      return;
+    }
+    if (!background_held_) {
+      background_held_ =
+          std::make_unique<base::ScopedBestEffortExecutionFence>();
+    }
+    // The timer is this channel's: it goes with it, the fence too.
+    background_release_.Start(FROM_HERE, base::Milliseconds(*ms),
+                              base::BindOnce(
+                                  [](Automation* automation) {
+                                    automation->background_held_.reset();
+                                  },
+                                  base::Unretained(this)));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // Replies once the thread pool has run all it holds, as the Lock waits for
+  // it before its detach: { ran }, false past { ms } (30 s by default).
+  if (name == "waitForBackgroundWork") {
+    WaitForBackgroundWork(
+        base::Milliseconds(command.FindInt("ms").value_or(30'000)),
+        base::BindOnce(
+            [](Reply reply, bool ran) {
+              std::move(reply).Run(base::Value(ran), std::string());
+            },
+            std::move(reply)));
     return;
   }
 
@@ -1738,6 +1812,7 @@ void Automation::Dispatch(const std::string& name,
       std::move(reply).Run(base::Value(), "no key code for that key");
       return;
     }
+    FocusAsKeyWindow(widget);
     const int flags = FlagsOf(command.FindList("modifiers"));
     const std::string* phase = command.FindString("phase");
     std::vector<ui::EventType> types;
@@ -1953,6 +2028,7 @@ void Automation::Dispatch(const std::string& name,
   // Pane's (the address being edited), its shortcuts' paths and all.
   if (name == "windowKey") {
     const std::string* key = command.FindString("key");
+    FocusAsKeyWindow(widget);
     if (!key || !SendKeyToWindow(widget, *key, Modifiers(command))) {
       std::move(reply).Run(base::Value(), "no key code for that key");
       return;

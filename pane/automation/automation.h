@@ -15,10 +15,15 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/sequence_bound.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/values.h"
 #include "pane/model/pin_entry.h"
 
 class ExtensionInstallPrompt;
+
+namespace base {
+class ScopedBestEffortExecutionFence;
+}  // namespace base
 
 namespace pane {
 
@@ -65,6 +70,10 @@ class Automation {
   std::unique_ptr<ExtensionInstallPrompt> asked_to_add_;
   std::map<std::string, int64_t> cache_sizes_;
   std::map<std::string, base::ListValue> cookies_;
+  // The thread pool's BEST_EFFORT work held (holdBackgroundWork), until the
+  // timer lets it go.
+  std::unique_ptr<base::ScopedBestEffortExecutionFence> background_held_;
+  base::OneShotTimer background_release_;
   base::WeakPtrFactory<Automation> weak_factory_{this};
 };
 

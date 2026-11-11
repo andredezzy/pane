@@ -87,7 +87,8 @@ class ProfileContexts {
   // Pane locks while open (ADR 0116): every profile closes in the engine, one
   // still opening once it has opened, and what waited for one gets none.
   // `closed` says whether every one closed, its files with it, which the
-  // volume's detach waits for.
+  // volume's detach waits for; once they have, the background work Chrome
+  // left for them in the thread pool has run first, 5 s at most.
   void CloseForLock(base::OnceCallback<void(bool every_closed)> closed);
 
   // The profile's data goes in the engine (ADR 0020), a profile not open this

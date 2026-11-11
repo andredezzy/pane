@@ -37,6 +37,12 @@ bool PressSheetButton(views::Widget* main, std::string_view title);
 // snapshot read it: { title, buttons }; none without one.
 base::Value ModalPanel();
 
+// The window resigns key as AppKit tells it when the app in use takes the
+// front back, a scenario's launch handing it back at once among them: through
+// its delegate, Views' own path, with the front left as it is. False without
+// the window.
+bool ResignKey(views::Widget* main);
+
 }  // namespace pane
 
 #endif  // PANE_AUTOMATION_WINDOWS_H_

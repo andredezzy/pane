@@ -240,6 +240,35 @@ async function lockScreens(context: Parameters<Scenario>[0], log: Log) {
 		await app.render("surfaces-lock-typing.png");
 		await keys(app, "<<", "none", (s) => screen(s)?.entered === 0);
 
+		// The window resigns key, as when the app in use takes the front back
+		// (a launch in the background hands it back at once, and a user typing
+		// elsewhere keeps it): Views leaves the focus on no view, keeping the
+		// PIN screen for when the window is key again. The PIN still reaches
+		// it, as a user's keys do once they are in Pane.
+		// In front, the key window ignores it (Views' delegate), so this needs
+		// the background.
+		if ((await app.state()).window.key) {
+			context.defer("the PIN after the window resigned key (in front)");
+		} else {
+			await app.send("resignKey");
+			log.focusAfterResigningKey = (await app.state()).focus;
+
+			expect(
+				log.focusAfterResigningKey === "none",
+				`the focus once the window resigned key: ${log.focusAfterResigningKey}`,
+			);
+
+			await keys(
+				app,
+				"12",
+				"two digits, the window having resigned key",
+				(s) => screen(s)?.entered === 2,
+			);
+
+			log.focusAfterTheKeys = (await app.state()).focus;
+			await keys(app, "<<", "none again", (s) => screen(s)?.entered === 0);
+		}
+
 		for (let attempt = 1; attempt <= 4; attempt++) {
 			// The numpad's keys, by presses, the first time.
 			if (attempt === 1) {

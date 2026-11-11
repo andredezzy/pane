@@ -146,4 +146,20 @@ base::Value ModalPanel() {
                          .Set("buttons", std::move(titles)));
 }
 
+bool ResignKey(views::Widget* main) {
+  if (!main || main->IsClosed()) {
+    return false;
+  }
+  NSWindow* window = main->GetNativeWindow().GetNativeNSWindow();
+  id<NSWindowDelegate> delegate = window.delegate;
+  if (![delegate respondsToSelector:@selector(windowDidResignKey:)]) {
+    return false;
+  }
+  [delegate
+      windowDidResignKey:
+          [NSNotification notificationWithName:NSWindowDidResignKeyNotification
+                                        object:window]];
+  return true;
+}
+
 }  // namespace pane
