@@ -24,6 +24,7 @@ source_set("model") {
     "engine_fingerprint.h",
     "extension_text.cc",
     "extension_text.h",
+    "host_platform.h",
     "local_state.cc",
     "local_state.h",
     "model_store.cc",
@@ -71,6 +72,14 @@ source_set("model") {
     "versions.cc",
     "versions.h",
   ]
+
+  # The platform Pane runs on, from its own file.
+  if (is_mac) {
+    sources += [ "host_platform_mac.mm" ]
+  }
+  if (is_win) {
+    sources += [ "host_platform_win.cc" ]
+  }
 
   deps = [
     "//base",

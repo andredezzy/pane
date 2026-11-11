@@ -128,20 +128,40 @@ const viewsKeys: Scenario = async (context) => {
 		"the page heard ⌘T",
 	);
 
-	// Esc, then Return, close the sheet over the page.
+	// The sheet over the page takes the keys: Esc closes it, and Return
+	// creates, which a name missing stops, its field ringed, then Esc closes
+	// it.
 	for (const key of ["\u001b", "\r"]) {
 		await app.send("openProfileSheet");
 
-		expect(
-			(await app.state()).focus === "pane.profileSheet",
-			"the sheet has no focus",
+		await poll(
+			"the sheet's name taking the keys",
+			async () => (await app.state()).focus === "pane.profile.name",
+			5_000,
 		);
 
 		await app.send("key", { key });
 
+		if (key === "\r") {
+			await poll(
+				"Return stopped by the missing name",
+				async () =>
+					(
+						await app.send<Record<string, { description: string }>>(
+							"accessibility",
+							{ prefix: "pane.profile.name" },
+						)
+					).result["pane.profile.name"]?.description ===
+					"Profile name is required",
+				5_000,
+			);
+
+			await app.send("key", { key: "\u001b" });
+		}
+
 		await poll(
-			`the sheet closing on ${key === "\r" ? "Return" : "Esc"}`,
-			async () => (await app.state()).focus !== "pane.profileSheet",
+			`the sheet closing on ${key === "\r" ? "Return, then Esc" : "Esc"}`,
+			async () => (await app.state()).profileSheet === null,
 			5_000,
 		);
 	}

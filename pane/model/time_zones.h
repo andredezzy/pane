@@ -49,6 +49,10 @@ std::vector<TimeZoneRegion> TimeZoneRegions();
 // "America/Sao_Paulo": Sao Paulo. What the trigger and the note show.
 std::string TimeZoneCity(std::string_view identifier);
 
+// The computer's zone now, by its name in IANA's database, as ICU has it:
+// what a profile on Automatic follows, and pages without a fingerprint.
+std::string CurrentTimeZone();
+
 }  // namespace pane::model
 
 #endif  // PANE_MODEL_TIME_ZONES_H_

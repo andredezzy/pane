@@ -104,7 +104,7 @@ export async function windowState(
 // What to click: a control by its title, of `role` (buttons, links, and
 // menu items by default); `id` picks one of several with the same title, and
 // `inSheet` one in the window's sheet.
-export type Control = {
+type Control = {
 	title: string;
 	role?: RegExp;
 	id?: string;
@@ -233,7 +233,7 @@ async function readUntil<T>(
 // element: a real press, as a user's. SwiftUI may build the element anew
 // between the read and the press (kAXErrorInvalidUIElement, -25202): it is
 // read again, up to three times.
-export async function clickControl(
+async function clickControl(
 	pid: number,
 	window: number | "any",
 	control: Control,
@@ -288,78 +288,6 @@ export function clickButton(
 export async function activateWebAccessibility(pid: number): Promise<void> {
 	await Bun.$`${await swiftTool("ax-activate")} ${pid}`.quiet();
 	await Bun.sleep(1_000);
-}
-
-// A pressable control, by its label and role: its value, and its frame in
-// the window's points from its top left (clickWindow's), for a real click at
-// a part of it.
-export async function readControl(
-	pid: number,
-	windowId: number,
-	label: string,
-	role: RegExp,
-): Promise<{ x: number; y: number; w: number; h: number; value?: string }> {
-	type Element = {
-		role: string;
-		label?: string;
-		value?: string;
-		frame?: { x: number; y: number; w: number; h: number };
-	};
-
-	const { elements } = await call<{ elements: Element[] }>("get_window_state", {
-		pid,
-		window_id: windowId,
-		tree_format: "elements",
-		max_elements: 500,
-		include_screenshot: false,
-	});
-
-	const element = elements.find(
-		(each) => each.label === label && role.test(each.role),
-	);
-
-	const window = (await windowList(pid)).find(
-		(each) => each.window_id === windowId,
-	);
-
-	if (!element?.frame || !window) {
-		throw new Error(`no ${role} "${label}" in window ${windowId}`);
-	}
-
-	return {
-		...element.frame,
-		x: element.frame.x - window.bounds.x,
-		y: element.frame.y - window.bounds.y,
-		value: element.value,
-	};
-}
-
-// Types `text` into the text field with identifier `id`, as typing does (a
-// SwiftUI field takes typed text, not a value set from outside).
-export async function typeIntoField(
-	pid: number,
-	windowId: number,
-	id: string,
-	text: string,
-): Promise<void> {
-	const { state, value: index } = await readUntil(
-		pid,
-		windowId,
-		{ max_elements: 500 },
-		(tree) =>
-			tree
-				.split("\n")
-				.find((line) => /AXTextField/.test(line) && line.includes(`id=${id} `))
-				?.match(/\[(\d+)\]/)?.[1],
-		`field ${id}`,
-	);
-
-	await call("type_text", {
-		pid,
-		window_id: windowId,
-		element_token: `${state.snapshot_id}:${index}`,
-		text,
-	});
 }
 
 // Runs an item of the app's menu bar through accessibility (as choosing it).

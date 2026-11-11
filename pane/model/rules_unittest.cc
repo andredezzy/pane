@@ -13,6 +13,7 @@
 #include "pane/model/address_input.h"
 #include "pane/model/crash_loop.h"
 #include "pane/model/extension_text.h"
+#include "pane/model/host_platform.h"
 #include "pane/model/profile_form.h"
 #include "pane/model/proxy_passwords.h"
 #include "pane/model/reorder.h"
@@ -511,11 +512,11 @@ TEST(ProfileFormTest, Presets) {
 
 // The host's own platform claims the host's GPU; another keeps the preset's.
 TEST(ProfileFormTest, HostGPUClaim) {
-  EXPECT_EQ(GeneratedFingerprint(Platform::kMacOS, HostGPU()).webgl, HostGPU());
-  EXPECT_EQ(GeneratedFingerprint(Platform::kWindows, HostGPU()).webgl,
-            FingerprintPreset(Platform::kWindows).webgl);
-  EXPECT_EQ(GeneratedFingerprint(Platform::kMacOS, std::nullopt).webgl,
-            FingerprintPreset(Platform::kMacOS).webgl);
+  EXPECT_EQ(GeneratedFingerprint(HostPlatform(), HostGPU()).webgl, HostGPU());
+  EXPECT_EQ(GeneratedFingerprint(Platform::kLinux, HostGPU()).webgl,
+            FingerprintPreset(Platform::kLinux).webgl);
+  EXPECT_EQ(GeneratedFingerprint(HostPlatform(), std::nullopt).webgl,
+            FingerprintPreset(HostPlatform()).webgl);
 }
 
 // An edit keeps the stored fingerprint unless spoofing or the platform

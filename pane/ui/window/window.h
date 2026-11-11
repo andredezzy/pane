@@ -144,6 +144,11 @@ class Window : public WindowHost::Delegate,
     virtual void ShowPinScreen(model::PinEntry::Mode mode) = 0;
     virtual void CheckForUpdates() = 0;
 
+    // The profile sheet's Create or Save, with the form as filled in; and
+    // its closing (Cancel, its X, Esc, a press beside it, and once saved).
+    virtual void SaveProfileSheet(const model::ProfileDraft& draft) = 0;
+    virtual void CloseProfileSheet() = 0;
+
     // A page joined one of the window's Browsers, opened by `opener` (or
     // none), to show at once or behind.
     virtual void TabInserted(content::WebContents* contents,

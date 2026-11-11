@@ -51,7 +51,8 @@ struct EngineFingerprint {
     std::optional<std::string> timezone;
     // The default locale of Intl.
     std::string locale;
-    // The host's voices (macOS ones) would contradict another platform.
+    // The host's own voices would contradict another platform
+    // (HostPlatform).
     bool hide_speech_voices = false;
   };
 

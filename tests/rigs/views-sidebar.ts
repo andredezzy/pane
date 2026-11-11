@@ -390,13 +390,22 @@ const viewsSidebar: Scenario = async (context) => {
 
 	await app.render("sidebar-collapsed.png", 800);
 
-	// New: the profile sheet (N1's; the prototype's stands in).
+	// New: the profile sheet, its name taking the keys.
 	frames = await app.frames();
 	await app.send("clickWindow", middle(frames["pane.sidebar.new"]));
 
 	await app.waitFor(
 		"the profile sheet",
-		(shown) => shown.focus === "pane.profileSheet",
+		(shown) =>
+			shown.profileSheet === "new" && shown.focus === "pane.profile.name",
+		5_000,
+	);
+
+	await app.send("closeProfileSheet");
+
+	await app.waitFor(
+		"the profile sheet closed",
+		(shown) => shown.profileSheet === null,
 		5_000,
 	);
 

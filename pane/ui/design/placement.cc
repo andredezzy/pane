@@ -7,7 +7,9 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/transform.h"
+#include "ui/compositor/compositor.h"
 #include "ui/views/view.h"
+#include "ui/views/widget/widget.h"
 
 namespace pane {
 
@@ -29,6 +31,12 @@ void PlaceOnPixels(views::View& view, const gfx::RectF& bounds, float scale) {
     view.layer()->SetFillsBoundsOpaquely(false);
   }
   view.SetTransform(shift);
+}
+
+float ScaleOf(const views::Widget* widget) {
+  return widget && widget->GetCompositor()
+             ? widget->GetCompositor()->device_scale_factor()
+             : 1;
 }
 
 }  // namespace pane

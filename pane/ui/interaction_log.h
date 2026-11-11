@@ -29,9 +29,10 @@ namespace pane {
 // chrome.action.openPopup, to the first frame of its popup, which shows once
 // its page has loaded, in a window of its own (ADR 0031); a prompt that adds
 // or removes an extension, from Chrome's ask or the menu's press to its
-// frame (ADR 0056); and Chrome's extensions page opened in the profile's
-// tab, to the frame that shows the tab, and on to the page's first paint
-// (D3).
+// frame (ADR 0056); Chrome's extensions page opened in the profile's tab,
+// to the frame that shows the tab, and on to the page's first paint (D3);
+// and the profile sheet's Test connection pressed, to the frame showing its
+// answer (N2).
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -58,6 +59,7 @@ enum class Interaction {
   kShowExtensionPrompt,
   kOpenExtensionsPage,
   kPaintExtensionsPage,
+  kTestProxy,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame

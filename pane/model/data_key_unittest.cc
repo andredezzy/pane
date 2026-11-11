@@ -19,8 +19,11 @@
 #include "crypto/hash.h"
 #include "crypto/kdf.h"
 #include "pane/model/app_settings.h"
+#include "pane/model/host_platform.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/profile.h"
+#include "pane/model/profile_draft.h"
+#include "pane/model/profile_form.h"
 #include "pane/model/sealed_file.h"
 #include "pane/model/security.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -311,6 +314,43 @@ TEST(SwiftVectorsTest, Vectors) {
   EXPECT_EQ(security->failed_attempts, 2);
   EXPECT_EQ(security->key, with_pin);
   EXPECT_EQ(SecurityState::FromValue(security->ToValue()), security);
+}
+
+// The profiles a Mac Pane saved go through the sheet untouched as they were,
+// byte for byte (docs/plans/views-migration.md, N4): the platform defaults
+// are the one Pane runs on, which changes nothing a Mac profile holds, and
+// the sheet's missing Group keeps the saved one.
+TEST(SwiftVectorsTest, SheetKeepsWhatAMacSaved) {
+  base::FilePath root;
+  ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &root));
+  const base::FilePath directory =
+      root.AppendASCII("pane/model/test_data/swift");
+  std::string text;
+  ASSERT_TRUE(
+      base::ReadFileToString(directory.AppendASCII("vectors.json"), &text));
+  const base::DictValue vectors =
+      std::move(base::JSONReader::Read(text, base::JSON_PARSE_RFC)->GetDict());
+  Key key;
+  const std::vector<uint8_t> data_key =
+      base::Base64Decode(*vectors.FindString("dataKey")).value();
+  ASSERT_EQ(data_key.size(), kKeySize);
+  std::ranges::copy(data_key, key.begin());
+  const std::optional<std::vector<BrowserProfile>> profiles = ProfilesFromState(
+      SealedFile(directory, "profiles").Load(FilesKey(key)).value().value());
+  ASSERT_TRUE(profiles);
+
+  std::vector<BrowserProfile> edited = *profiles;
+  for (BrowserProfile& profile : edited) {
+    ProfileDraft(profile).ApplyTo(profile, [] {
+      ADD_FAILURE() << "regenerated a fingerprint";
+      return FingerprintPreset(Platform::kLinux);
+    });
+  }
+
+  EXPECT_EQ(edited, *profiles);
+  EXPECT_EQ(PersistedFile::Encode(ProfilesState(edited)),
+            PersistedFile::Encode(ProfilesState(*profiles)));
+  EXPECT_EQ(ProfileDraft().platform, HostPlatform());
 }
 
 // The plain files the Swift Pane wrote, read and saved again here, are the

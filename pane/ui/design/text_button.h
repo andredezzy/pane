@@ -39,6 +39,9 @@ inline constexpr ButtonSize kSmall{32, 12, 12, text::kButtonSmall};
 inline constexpr ButtonSize kAlert{28, 10, 10, {13, weight::kRegular, 16}};
 // Aside's popups': h-8, 14 in, at 13 (an extension's Remove).
 inline constexpr ButtonSize kPopup{32, 14, 14, text::kButtonPopup};
+// h-7, 10 in, at 12: a form's secondary action (the profile sheet's Test
+// connection).
+inline constexpr ButtonSize kCompact{28, 10, 10, text::kButtonSmall};
 }  // namespace button_size
 
 // A button with a title (the Swift's PaneButtonStyle): packages/ui's
@@ -54,6 +57,13 @@ class TextButton : public views::Button {
              const std::u16string& title,
              ButtonVariant variant,
              const ButtonSize& size = button_size::kRegular);
+  // In a look of its own: a variant's at another radius (the profile sheet's
+  // Test connection, an outline rounded 9). Its border, when it has one,
+  // adds to its width.
+  TextButton(PressedCallback pressed,
+             const std::u16string& title,
+             const ControlLook& look,
+             const ButtonSize& size);
   TextButton(const TextButton&) = delete;
   TextButton& operator=(const TextButton&) = delete;
   ~TextButton() override;

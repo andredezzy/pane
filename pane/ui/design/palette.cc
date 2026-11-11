@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/strings/string_number_conversions.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_mixer.h"
 #include "ui/color/color_provider.h"
@@ -35,6 +36,15 @@ constexpr SkColor White(float alpha) {
 }
 
 }  // namespace
+
+SkColor ProfileColorOf(model::ProfileColor color) {
+  uint32_t rgb = 0;
+  const std::string_view hex = model::HexOf(color);
+  if (hex.size() != 7 || !base::HexStringToUInt(hex.substr(1), &rgb)) {
+    return SK_ColorGRAY;
+  }
+  return SkColorSetRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+}
 
 void AddPaneColors(ui::ColorProvider* provider,
                    const ui::ColorProviderKey& key) {

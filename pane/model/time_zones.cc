@@ -114,6 +114,18 @@ std::vector<TimeZoneRegion> TimeZoneRegions() {
   return TimeZoneRegions(KnownTimeZones(), base::Time::Now());
 }
 
+std::string CurrentTimeZone() {
+  const std::unique_ptr<icu::TimeZone> zone(icu::TimeZone::createDefault());
+  icu::UnicodeString id;
+  zone->getID(id);
+  icu::UnicodeString iana;
+  UErrorCode status = U_ZERO_ERROR;
+  icu::TimeZone::getIanaID(id, iana, status);
+  std::string identifier;
+  (U_SUCCESS(status) ? iana : id).toUTF8String(identifier);
+  return identifier;
+}
+
 std::string TimeZoneCity(std::string_view identifier) {
   const std::vector<std::string_view> parts = base::SplitStringPiece(
       identifier, "/", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);

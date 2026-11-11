@@ -13,6 +13,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "pane/model/engine_fingerprint.h"
+#include "pane/model/host_platform.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace pane::model {
@@ -331,7 +332,8 @@ TEST(EngineFingerprintTest, NoiseSeed) {
   EXPECT_EQ(NoiseSeed(""), 0u);
 }
 
-// Pixel ratio and voices follow the claimed platform, on a Mac host.
+// The pixel ratio follows the claimed computer's display; the voices hide on
+// every platform but the one Pane runs on, whose own they are.
 TEST(EngineFingerprintTest, PlatformDerived) {
   const EngineFingerprint windows =
       Engine(MakeFingerprint(Platform::kWindows, kRealUA));
@@ -339,10 +341,14 @@ TEST(EngineFingerprintTest, PlatformDerived) {
       Engine(MakeFingerprint(Platform::kMacOS, kRealUA));
 
   EXPECT_EQ(windows.renderer.device_pixel_ratio, 1);
-  EXPECT_TRUE(windows.renderer.hide_speech_voices);
   EXPECT_EQ(mac_os.renderer.device_pixel_ratio, 2);
-  EXPECT_FALSE(mac_os.renderer.hide_speech_voices);
   EXPECT_EQ(mac_os.renderer.platform, "MacIntel");
+  for (const Platform platform :
+       {Platform::kWindows, Platform::kMacOS, Platform::kLinux}) {
+    EXPECT_EQ(Engine(MakeFingerprint(platform, kRealUA))
+                  .renderer.hide_speech_voices,
+              platform != HostPlatform());
+  }
 }
 
 // Languages fall back to the language, and an empty timezone to none.

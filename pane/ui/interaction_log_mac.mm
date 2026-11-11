@@ -104,6 +104,9 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kPaintExtensionsPage:
       os_signpost_interval_begin(log, id, "Extensions page painted");
       break;
+    case Interaction::kTestProxy:
+      os_signpost_interval_begin(log, id, "Test proxy");
+      break;
   }
   return id;
 }
@@ -243,6 +246,11 @@ void EndInteractionInterval(Interaction interaction,
       break;
     case Interaction::kPaintExtensionsPage:
       os_signpost_interval_end(log, interval, "Extensions page painted",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kTestProxy:
+      os_signpost_interval_end(log, interval, "Test proxy",
                                PANE_INTERVAL_END_FORMAT, late_us, committed_us,
                                presented_us);
       break;

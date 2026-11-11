@@ -168,6 +168,48 @@ std::string_view ViewIdName(int id) {
       return "pane.extensionPopup.cancel";
     case kViewIdExtensionPopupReportAbuse:
       return "pane.extensionPopup.reportAbuse";
+    case kViewIdProfileClose:
+      return "pane.profile.close";
+    case kViewIdProfileBody:
+      return "pane.profile.body";
+    case kViewIdProfileName:
+      return "pane.profile.name";
+    case kViewIdProfileColor:
+      return "pane.profile.color";
+    case kViewIdProfileSwatch:
+      return "pane.profile.swatch";
+    case kViewIdProfileHistory:
+      return "pane.profile.history";
+    case kViewIdProfileSpoof:
+      return "pane.profile.spoof";
+    case kViewIdProfilePlatform:
+      return "pane.profile.platform";
+    case kViewIdProfilePlatformTile:
+      return "pane.profile.platformTile";
+    case kViewIdProfileWarning:
+      return "pane.profile.warning";
+    case kViewIdProfileTimeZone:
+      return "pane.profile.timeZone";
+    case kViewIdProfileProxy:
+      return "pane.profile.proxy";
+    case kViewIdProfileProxyType:
+      return "pane.profile.proxyType";
+    case kViewIdProfileProxyHost:
+      return "pane.profile.proxyHost";
+    case kViewIdProfileProxyPort:
+      return "pane.profile.proxyPort";
+    case kViewIdProfileProxyUsername:
+      return "pane.profile.proxyUsername";
+    case kViewIdProfileProxyPassword:
+      return "pane.profile.proxyPassword";
+    case kViewIdProfileTestProxy:
+      return "pane.profile.testProxy";
+    case kViewIdProfileProxyStatus:
+      return "pane.profile.proxyStatus";
+    case kViewIdProfileCancel:
+      return "pane.profile.cancel";
+    case kViewIdProfileSave:
+      return "pane.profile.save";
     default:
       return std::string_view();
   }

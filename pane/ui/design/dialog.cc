@@ -10,6 +10,7 @@
 #include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/motion.h"
+#include "pane/ui/design/placement.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -46,12 +47,6 @@ constexpr gfx::Vector2dF kShadowOffset(0, 24);
 constexpr float kShadowSigma = 32;
 // How small the card starts, and goes.
 constexpr float kScale = 0.97f;
-
-float ScaleOf(const views::Widget* widget) {
-  return widget && widget->GetCompositor()
-             ? widget->GetCompositor()->device_scale_factor()
-             : 1;
-}
 
 }  // namespace
 

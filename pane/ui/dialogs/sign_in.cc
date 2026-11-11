@@ -10,10 +10,13 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/login/login_handler.h"
 #include "chrome/browser/ui/login/login_tab_helper.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/auth.h"
+#include "pane/browser/profile_network.h"
 #include "pane/ui/dialogs/page_dialogs.h"
 
 namespace pane {
@@ -61,6 +64,28 @@ class SignIn : public LoginHandler {
                     .Set("host", info.challenger.Serialize())
                     .Set("realm", info.realm)
                     .Set("proxy", info.is_proxy));
+    // The profile's own proxy signs in with its stored credentials, once,
+    // without a word (ADR 0037); asked again at once, they were wrong, and
+    // the user is asked instead.
+    if (std::optional<net::AuthCredentials> credentials = ProxyCredentials()) {
+      // The password is never traced.
+      TraceDialog("call", "PaneAuthenticationChallenge.provide", nullptr,
+                  base::DictValue().Set(
+                      "username", base::UTF16ToUTF8(credentials->username())));
+      // On a turn of its own: an answer ends this handler, whose building is
+      // still under way.
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(
+                         [](base::WeakPtr<SignIn> handler,
+                            net::AuthCredentials credentials) {
+                           if (handler) {
+                             handler->SetAuth(credentials.username(),
+                                              credentials.password());
+                           }
+                         },
+                         weak_factory_.GetWeakPtr(), *credentials));
+      return true;
+    }
     id_ = dialogs->Ask(
         web_contents(), PageDialogs::Kind::kAuthentication, std::move(content),
         base::BindOnce(
@@ -99,6 +124,20 @@ class SignIn : public LoginHandler {
   void CloseDialog() override { Withdraw(); }
 
  private:
+  // The page's profile's proxy credentials, for a challenge of its own
+  // proxy's.
+  std::optional<net::AuthCredentials> ProxyCredentials() {
+    ProfileNetwork* network = ProfileNetwork::Get();
+    if (!auth_info().is_proxy || !network || !web_contents()) {
+      return std::nullopt;
+    }
+    const Profile* profile =
+        Profile::FromBrowserContext(web_contents()->GetBrowserContext())
+            ->GetOriginalProfile();
+    return network->CredentialsFor(profile->GetBaseName().AsUTF8Unsafe(),
+                                   auth_info());
+  }
+
   void Withdraw() {
     if (PageDialogs* dialogs = PageDialogs::Get(); dialogs && id_) {
       dialogs->Withdraw(*std::exchange(id_, std::nullopt));

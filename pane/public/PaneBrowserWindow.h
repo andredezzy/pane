@@ -7,7 +7,6 @@
 
 #import "PaneExport.h"
 
-@class PaneBrowserContext;
 @class PaneBrowserWindow;
 @class PaneWebContents;
 
@@ -59,23 +58,11 @@ NS_SWIFT_UI_ACTOR
 @property(readonly) NSView* hostView;
 @property(nullable, weak) id<PaneBrowserWindowDelegate> delegate;
 
-// The profile the app shows. Chrome treats its tabs as the window's.
-@property(nullable) PaneBrowserContext* activeContext;
-
 - (instancetype)initWithContentRect:(NSRect)rect;
 - (instancetype)init NS_UNAVAILABLE;
 
-// Opens a tab in `context` (about:blank without a URL). The delegate hears
-// of it as an inserted tab first.
-- (nullable PaneWebContents*)openTabWithURL:(nullable NSURL*)URL
-                                  inContext:(PaneBrowserContext*)context
-                                 foreground:(BOOL)foreground
-    NS_SWIFT_NAME(openTab(url:context:foreground:));
-
 // Makes `tab` its profile's active tab in Chrome's model.
 - (void)activateTab:(PaneWebContents*)tab;
-
-- (NSArray<PaneWebContents*>*)tabsInContext:(PaneBrowserContext*)context;
 
 // Closes the window, running every page's beforeunload first.
 - (void)close;

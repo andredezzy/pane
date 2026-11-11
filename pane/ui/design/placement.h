@@ -9,6 +9,7 @@ class RectF;
 
 namespace views {
 class View;
+class Widget;
 }
 
 namespace pane {
@@ -20,6 +21,9 @@ namespace pane {
 // pixels at `scale`, so it draws as crisply as at a whole point and takes
 // presses where it shows. The layer, once made, stays.
 void PlaceOnPixels(views::View& view, const gfx::RectF& bounds, float scale);
+
+// The screen's pixels per point where `widget` shows, 1 without one.
+float ScaleOf(const views::Widget* widget);
 
 }  // namespace pane
 

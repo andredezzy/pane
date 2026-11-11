@@ -30,11 +30,10 @@ ProfileDraft::ProfileDraft() = default;
 ProfileDraft::ProfileDraft(const BrowserProfile& profile)
     : name(profile.name),
       color(profile.color),
-      group(profile.group.value_or("")),
       saves_history(profile.saves_history),
       spoofing(profile.fingerprint.has_value()),
       platform(profile.fingerprint ? profile.fingerprint->platform
-                                   : kHostPlatform),
+                                   : HostPlatform()),
       time_zone(profile.fingerprint ? profile.fingerprint->timezone : ""),
       proxy_enabled(profile.proxy.has_value()) {
   if (profile.proxy) {
@@ -120,7 +119,6 @@ void ProfileDraft::ApplyTo(BrowserProfile& profile,
                            base::FunctionRef<Fingerprint()> generate) const {
   profile.name = std::string(TrimmedName());
   profile.color = color;
-  profile.group = UnlessEmpty(TrimSpaces(group));
   profile.SetSavesHistory(saves_history);
   profile.fingerprint =
       EditedFingerprint(profile.fingerprint, spoofing, platform, generate);

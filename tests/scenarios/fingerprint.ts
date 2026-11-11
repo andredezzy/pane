@@ -179,6 +179,13 @@ const fingerprint: Scenario = async (context) => {
 	for (const key of ["a", "b", "c"] as const) {
 		const url = context.fixtures.url(`fingerprint.html?profile=${key}`);
 		const { page } = await app.openPage(profiles[key], url);
+
+		// The page has committed, its scripts maybe still loading: collectAll
+		// comes after fingerprint.js.
+		await poll("the fixture's collectAll", () =>
+			page.evaluate<boolean>("typeof collectAll === 'function'"),
+		);
+
 		collected[key] = await page.evaluate<Collected>("collectAll()");
 	}
 

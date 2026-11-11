@@ -135,7 +135,7 @@ Fingerprint GeneratedFingerprint(
     Platform platform,
     const std::optional<Fingerprint::WebGL>& host_webgl) {
   Fingerprint fingerprint = FingerprintPreset(platform);
-  if (platform == kHostPlatform && host_webgl) {
+  if (platform == HostPlatform() && host_webgl) {
     fingerprint.webgl = host_webgl;
   }
   return fingerprint;

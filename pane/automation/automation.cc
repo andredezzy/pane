@@ -38,7 +38,9 @@
 #include "pane/app/data_launch.h"
 #include "pane/automation/file_panels.h"
 #include "pane/automation/input.h"
+#include "pane/automation/system.h"
 #include "pane/automation/windows.h"
+#include "pane/browser/browser_context.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profile_cache.h"
 #include "pane/model/app_settings.h"
@@ -62,6 +64,7 @@
 #include "pane/ui/panels/app_icon_picker.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/render.h"
+#include "pane/ui/sheets/profile_sheet.h"
 #include "pane/ui/sidebar/profile_row.h"
 #include "pane/ui/sidebar/sidebar_view.h"
 #include "pane/ui/sidebar/tab_row.h"
@@ -72,6 +75,7 @@
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_enum_util.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -460,7 +464,10 @@ void Automation::Dispatch(const std::string& name,
   // a model that holds none of them, and the load would take it back.
   if ((name == "createProfile" || name == "openTab" || name == "moveTab" ||
        name == "moveProfile" || name == "deleteProfile" ||
-       name == "setKeepLoaded" || name == "setProxyStatus") &&
+       name == "setKeepLoaded" || name == "setProxyStatus" ||
+       name == "setProfileProxy" || name == "setProfileFingerprint" ||
+       name == "setSavesHistory" || name == "setClearsHistory" ||
+       name == "readProfile") &&
       !AppData::Get()->store().profiles_loaded()) {
     std::move(reply).Run(base::Value(), name + ": the profiles are not open");
     return;
@@ -484,7 +491,9 @@ void Automation::Dispatch(const std::string& name,
        name == "dispatchKey" || name == "clickSheetButton" ||
        name == "typeInPage" || name == "modalHost" ||
        name == "dialogAccessibility" || name == "fillSheet" ||
-       name == "extensionsMenu" || name == "extensionsAccessibility")) {
+       name == "extensionsMenu" || name == "extensionsAccessibility" ||
+       name == "sheetField" || name == "sheetMenu" ||
+       name == "accessibility")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -546,9 +555,9 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // The profile sheet's Create, as filled in: { name, color?, group?, spoof?,
+  // The profile sheet's Create, as filled in: { name, color?, spoof?,
   // savesHistory? }. Scenarios' profiles spoof nothing unless asked, so pages
-  // see the engine's own values.
+  // see the engine's own values. The sheet has no Group (N1).
   if (name == "createProfile") {
     const std::string* profile_name = command.FindString("name");
     if (!profile_name) {
@@ -560,9 +569,6 @@ void Automation::Dispatch(const std::string& name,
     if (const std::string* color = command.FindString("color")) {
       draft.color =
           model::ColorNamed(*color).value_or(model::ProfileColor::kBlue);
-    }
-    if (const std::string* group = command.FindString("group")) {
-      draft.group = *group;
     }
     draft.spoofing = command.FindBool("spoof").value_or(false);
     draft.saves_history = command.FindBool("savesHistory").value_or(true);
@@ -650,9 +656,91 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // A proxy test's answer, for the sidebar's dot: { profile, status:
-  // "testing" | "connected" | "failed" | null }. It stands in for the test
-  // itself until the proxy's port (N2) runs one.
+  // { profile }: the profile as the sealed profiles.json holds it.
+  if (name == "readProfile") {
+    const std::string* profile_id = command.FindString("profile");
+    const model::BrowserProfile* profile =
+        profile_id ? app_->model().FindProfile(*profile_id) : nullptr;
+    if (!profile) {
+      std::move(reply).Run(base::Value(), "no such profile");
+      return;
+    }
+    std::move(reply).Run(profile->ToValue(), std::string());
+    return;
+  }
+
+  // A profile's proxy, { profile, proxy: { proxyType, host, port, username?,
+  // password? } | null }, or its fingerprint, { profile, fingerprint:
+  // profiles.json's | null }, read as profiles.json is, then applied as an
+  // edit applies it: a proxy applied to the open profile and tested, a
+  // fingerprint set and its pages made again.
+  if (name == "setProfileProxy" || name == "setProfileFingerprint") {
+    const std::string* profile_id = command.FindString("profile");
+    const model::BrowserProfile* profile =
+        profile_id ? app_->model().FindProfile(*profile_id) : nullptr;
+    const std::string key = name == "setProfileProxy" ? "proxy" : "fingerprint";
+    const base::Value* value = command.Find(key);
+    if (!profile || !value) {
+      std::move(reply).Run(base::Value(), name + " needs profile and " + key);
+      return;
+    }
+    base::Value edited = profile->ToValue();
+    edited.GetDict().Set(key, value->Clone());
+    const std::optional<model::BrowserProfile> read =
+        model::BrowserProfile::FromValue(edited);
+    if (!read) {
+      std::move(reply).Run(base::Value(),
+                           "a " + key + " profiles.json can't read");
+      return;
+    }
+    app_->UpdateProfile(*profile_id, [&](model::BrowserProfile& updated) {
+      if (key == "proxy") {
+        updated.proxy = read->proxy;
+      } else {
+        updated.fingerprint = read->fingerprint;
+      }
+    });
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The profile sheet's Save history, as Save applies it: { profile,
+  // savesHistory }; and a clear still owed, as a lock or a quit leaves one:
+  // { profile }.
+  if (name == "setSavesHistory" || name == "setClearsHistory") {
+    const std::string* profile_id = command.FindString("profile");
+    if (!profile_id || !app_->model().FindProfile(*profile_id)) {
+      std::move(reply).Run(base::Value(), name + " needs profile");
+      return;
+    }
+    const bool saves = command.FindBool("savesHistory").value_or(true);
+    app_->UpdateProfile(*profile_id, [&](model::BrowserProfile& profile) {
+      if (name == "setSavesHistory") {
+        profile.SetSavesHistory(saves);
+      } else {
+        profile.clears_history = true;
+      }
+    });
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // { zone }: the computer's zone changes, as far as the engine can tell
+  // (system.h).
+  if (name == "changeSystemTimeZone") {
+    const std::string* zone = command.FindString("zone");
+    if (!zone) {
+      std::move(reply).Run(base::Value(), "changeSystemTimeZone needs zone");
+      return;
+    }
+    ChangeSystemTimeZone(*zone);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The sidebar's dot in a state of the proxy test's, { profile, status:
+  // "testing" | "connected" | "failed" | null }, for its renders: the test
+  // itself (ProfileNetwork) sets it as it runs and answers.
   if (name == "setProxyStatus") {
     const std::string* profile_id = command.FindString("profile");
     const std::string* status = command.FindString("status");
@@ -1443,6 +1531,25 @@ void Automation::Dispatch(const std::string& name,
         }
       }
     }
+    // The profile sheet, while it shows: its controls, and its panel as
+    // "pane.profileSheet", as the Swift named the sheet.
+    if (ProfileSheet* sheet = window->root()->profile_sheet()) {
+      for (auto& entry : sheet->NamedViews()) {
+        if (entry.second != sheet) {
+          named.push_back(std::move(entry));
+          continue;
+        }
+        if (!prefix || entry.first.starts_with(*prefix)) {
+          const gfx::Rect card = views::View::ConvertRectToTarget(
+              window->root(), root, window->root()->ProfileSheetBounds());
+          frames.Set(entry.first, base::ListValue()
+                                      .Append(card.x())
+                                      .Append(card.y())
+                                      .Append(card.width())
+                                      .Append(card.height()));
+        }
+      }
+    }
     // The page, DevTools docked beside it, and the full screen's hint.
     for (const int id :
          {kViewIdContent, kViewIdDevTools, kViewIdExclusiveAccessHint}) {
@@ -1930,24 +2037,209 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // The prototype's sheet stands in for the profile sheet (G4): the
-  // footer's New opens it.
+  // The profile sheet, as a user opens it, { profile? }: New, by a real
+  // click on the sidebar's New; Edit, as the profile's row's menu chooses
+  // Edit profile (rowMenu's). Closed by a real click on its Cancel.
   if (name == "openProfileSheet" || name == "closeProfileSheet") {
-    if (name == "openProfileSheet") {
-      app_->NewProfile();
-    } else {
-      window->root()->ShowSheet(false);
+    RootView* root = window->root();
+    if (name == "closeProfileSheet") {
+      ProfileSheet* sheet = root->profile_sheet();
+      const views::View* cancel =
+          sheet ? sheet->GetViewByID(kViewIdProfileCancel) : nullptr;
+      if (!cancel) {
+        std::move(reply).Run(base::Value(), std::string());
+        return;
+      }
+      // Pressed where it rests: a sheet still sliding in is pressed once it
+      // stops, as a hand reaches the button then.
+      root->WhenProfileSheetRests(base::BindOnce(
+          [](views::Widget* widget, const views::View* cancel) {
+            const gfx::Rect frame = views::View::ConvertRectToTarget(
+                cancel, widget->GetRootView(), cancel->GetLocalBounds());
+            PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(),
+                      1);
+          },
+          base::Unretained(widget), base::Unretained(cancel)));
+      std::move(reply).Run(base::Value(), std::string());
+      return;
     }
+    if (const std::string* profile_id = command.FindString("profile")) {
+      ProfileRow* row = root->sidebar()->FindProfileRow(*profile_id);
+      if (!row) {
+        std::move(reply).Run(base::Value(),
+                             "openProfileSheet needs a row the sidebar shows");
+        return;
+      }
+      ui::SimpleMenuModel& menu = row->menu_model();
+      for (size_t index = 0; index < menu.GetItemCount(); ++index) {
+        if (menu.GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
+            menu.GetLabelAt(index) == u"Edit profile") {
+          menu.ActivatedAt(index);
+          break;
+        }
+      }
+      std::move(reply).Run(base::Value(), std::string());
+      return;
+    }
+    const views::View* add = root->GetViewByID(kViewIdSidebarNew);
+    if (!add || !add->IsDrawn()) {
+      std::move(reply).Run(base::Value(), "the sidebar shows no New");
+      return;
+    }
+    const gfx::Rect frame = views::View::ConvertRectToTarget(
+        add, widget->GetRootView(), add->GetLocalBounds());
+    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
 
-  // The toolbar's extensions controls, by the Swift's names: { control,
-  // id }. Each is a real click at the middle of its view, as a hand's, in
-  // the background too: the puzzle, the menu's Manage all extensions, Visit
-  // Chrome Web Store, an extension's row ("run"), pin, and more, and the more
-  // menu's rows; and View Web Permissions, a pinned action's right-click
-  // menu's, chosen as a click in the system's menu chooses it.
+  // A field of the profile sheet given `text`, { field: "name" | "proxyHost"
+  // | "proxyPort" | "proxyUsername" | "proxyPassword", text }, as a value
+  // set through accessibility gives it (VoiceOver, Voice Control): the field
+  // takes the keys, then its whole text is `text`, a paste's way.
+  if (name == "sheetField") {
+    ProfileSheet* sheet = window->root()->profile_sheet();
+    const std::string* field_name = command.FindString("field");
+    const std::string* text = command.FindString("text");
+    views::Textfield* field =
+        sheet && field_name ? sheet->FindField(*field_name) : nullptr;
+    if (!field || !text || !field->IsDrawn()) {
+      std::move(reply).Run(
+          base::Value(), "sheetField needs a field the sheet shows, and text");
+      return;
+    }
+    ui::AXActionData focus;
+    focus.action = ax::mojom::Action::kFocus;
+    field->HandleAccessibleAction(focus);
+    ui::AXActionData value;
+    value.action = ax::mojom::Action::kSetValue;
+    value.value = *text;
+    field->HandleAccessibleAction(value);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A menu of the profile sheet's, { menu: "timeZone" | "proxyType", choose?:
+  // [titles] }, as its model holds what the Mac's menu shows: its items, a
+  // submenu's under its own; with `choose`, the item at that path chosen, as
+  // a click in the menu chooses it. The menu itself, which runs with the
+  // app's tasks held, is the front's.
+  if (name == "sheetMenu") {
+    ProfileSheet* sheet = window->root()->profile_sheet();
+    const std::string* menu_name = command.FindString("menu");
+    MenuButton* menu =
+        sheet && menu_name ? sheet->FindMenu(*menu_name) : nullptr;
+    if (!menu || !menu->IsDrawn()) {
+      std::move(reply).Run(base::Value(),
+                           "sheetMenu needs a menu the sheet shows");
+      return;
+    }
+    const auto describe = [](const ui::MenuModel& model,
+                             auto& self) -> base::ListValue {
+      base::ListValue items;
+      for (size_t index = 0; index < model.GetItemCount(); ++index) {
+        if (model.GetTypeAt(index) == ui::MenuModel::TYPE_SEPARATOR) {
+          items.Append(base::DictValue().Set("title", "-"));
+          continue;
+        }
+        base::DictValue item =
+            base::DictValue()
+                .Set("title", model.GetLabelAt(index))
+                .Set("checked", model.IsItemCheckedAt(index));
+        if (const ui::MenuModel* submenu = model.GetSubmenuModelAt(index)) {
+          item.Set("submenu", self(*submenu, self));
+        }
+        items.Append(std::move(item));
+      }
+      return items;
+    };
+    base::ListValue items = describe(menu->menu_model(), describe);
+    if (const base::ListValue* path = command.FindList("choose")) {
+      ui::MenuModel* model = &menu->menu_model();
+      std::optional<size_t> chosen;
+      for (size_t step = 0; step < path->size() && model; ++step) {
+        const base::Value& title = (*path)[step];
+        chosen.reset();
+        for (size_t index = 0; index < model->GetItemCount(); ++index) {
+          if (model->GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
+              title.is_string() &&
+              base::UTF16ToUTF8(model->GetLabelAt(index)) ==
+                  title.GetString()) {
+            chosen = index;
+          }
+        }
+        if (!chosen) {
+          std::move(reply).Run(
+              base::Value(),
+              "no menu item " +
+                  (title.is_string() ? title.GetString() : std::string()));
+          return;
+        }
+        if (step + 1 < path->size()) {
+          model = model->GetSubmenuModelAt(*chosen);
+        }
+      }
+      if (!model || !chosen) {
+        std::move(reply).Run(base::Value(), "sheetMenu needs a path to choose");
+        return;
+      }
+      model->ActivatedAt(*chosen);
+    }
+    std::move(reply).Run(base::Value(std::move(items)), std::string());
+    return;
+  }
+
+  // What assistive technologies read of the window's controls (ADR 0071),
+  // from Views' own accessibility data, as VoiceOver gets it, { prefix? }:
+  // the sidebar's, the toolbar's, Settings', and the profile sheet's, by
+  // their names ("pane.profile.name"), each with its role, its name to the
+  // screen reader, its value, its description (a problem's words, a
+  // switch's note), whether it is checked or chosen, and whether it is
+  // modal.
+  if (name == "accessibility") {
+    const std::string* prefix = command.FindString("prefix");
+    RootView* root = window->root();
+    std::vector<std::pair<std::string, const views::View*>> named =
+        root->sidebar()->NamedViews();
+    for (auto& entry : root->toolbar()->NamedViews()) {
+      named.push_back(std::move(entry));
+    }
+    for (auto& entry : root->settings()->NamedViews()) {
+      named.push_back(std::move(entry));
+    }
+    if (ProfileSheet* sheet = root->profile_sheet()) {
+      for (auto& entry : sheet->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
+    base::DictValue controls;
+    for (const auto& [control_name, view] : named) {
+      if (!view->IsDrawn() || (prefix && !control_name.starts_with(*prefix))) {
+        continue;
+      }
+      ui::AXNodeData data;
+      view->GetViewAccessibility().GetAccessibleNodeData(&data);
+      controls.Set(
+          control_name,
+          base::DictValue()
+              .Set("role", ui::ToString(data.role))
+              .Set("name",
+                   data.GetStringAttribute(ax::mojom::StringAttribute::kName))
+              .Set("value",
+                   data.GetStringAttribute(ax::mojom::StringAttribute::kValue))
+              .Set("description", data.GetStringAttribute(
+                                      ax::mojom::StringAttribute::kDescription))
+              .Set("checked",
+                   data.GetCheckedState() == ax::mojom::CheckedState::kTrue)
+              .Set("selected",
+                   data.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected))
+              .Set("modal",
+                   data.GetBoolAttribute(ax::mojom::BoolAttribute::kModal)));
+    }
+    std::move(reply).Run(base::Value(std::move(controls)), std::string());
+    return;
+  }
+
   if (name == "extensionsMenu") {
     const std::string* control = command.FindString("control");
     const std::string* id = command.FindString("id");

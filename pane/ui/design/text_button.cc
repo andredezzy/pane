@@ -22,13 +22,16 @@ TextButton::TextButton(PressedCallback pressed,
                        const std::u16string& title,
                        ButtonVariant variant,
                        const ButtonSize& size)
+    : TextButton(std::move(pressed), title, ButtonLook(variant), size) {}
+
+TextButton::TextButton(PressedCallback pressed,
+                       const std::u16string& title,
+                       const ControlLook& look,
+                       const ButtonSize& size)
     : views::Button(std::move(pressed)),
-      look_(ButtonLook(variant)),
+      look_(look),
       size_(size),
-      border_(variant == ButtonVariant::kOutline ||
-                      variant == ButtonVariant::kPopupCancel
-                  ? 1
-                  : 0) {
+      border_(look.border ? 1 : 0) {
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&TextButton::Tint, base::Unretained(this)));

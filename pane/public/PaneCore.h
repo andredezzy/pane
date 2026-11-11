@@ -3,8 +3,6 @@
 // The embedding API of Pane Framework.framework.
 
 #import "PaneBrowserApplication.h"
-#import "PaneBrowserContext.h"
 #import "PaneBrowserWindow.h"
-#import "PaneCookies.h"
 #import "PaneExport.h"
 #import "PaneWebContents.h"

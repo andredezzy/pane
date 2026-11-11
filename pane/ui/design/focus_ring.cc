@@ -12,6 +12,7 @@
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/view_class_properties.h"
@@ -57,8 +58,18 @@ void FocusRing::UpdateBounds() {
   SetBoundsRect(bounds);
 }
 
+void FocusRing::SetFocusWithin(bool within) {
+  within_ = within;
+  Refresh();
+}
+
 void FocusRing::Refresh() {
-  const bool shows = control_->GetWidget() && control_->HasFocus() &&
+  const views::FocusManager* focus_manager = control_->GetFocusManager();
+  const views::View* focused =
+      focus_manager ? focus_manager->GetFocusedView() : nullptr;
+  const bool has_focus = within_ ? focused && control_->Contains(focused)
+                                 : control_->HasFocus();
+  const bool shows = control_->GetWidget() && has_focus &&
                      (!shows_when_ || shows_when_.Run(control_));
   if (shows == GetVisible()) {
     return;

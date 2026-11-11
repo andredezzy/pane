@@ -1,6 +1,7 @@
 import { stats } from "../lib/benchmark";
 import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
 import { launchPane } from "../lib/pane";
+import { startHttpProxy } from "../lib/proxies";
 import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
@@ -10,18 +11,37 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // from the File menu, focusing the address field, a click into it (the
 // Views build's), opening the profile sheet (the first time draws the
 // platforms' logos), and choosing a platform. The Views build also times the
-// tab switcher's first frame, and a tab without a page woken to the frame
-// that shows its page's first paint (its profile unloaded, then the tab
-// selected). It times; it does not judge, so a change is measured before
-// and after.
+// tab switcher's first frame, a tab without a page woken to the frame that
+// shows its page's first paint (its profile unloaded, then the tab
+// selected), and the profile sheet's Test connection to the frame showing
+// its answer, through the run's own proxy. It times; it does not judge, so a
+// change is measured before and after.
 
 const ROUNDS = 8;
+
+const CREDENTIALS = { username: "pane", password: "proxy-secret" };
 
 // The app driven through each interaction, round after round; its process.
 async function drive(context: ScenarioContext): Promise<number> {
 	const driveUI = await canDriveUI();
+	const fixturePort = Number(new URL(context.fixtures.origin).port);
+	const proxy = await startHttpProxy(fixturePort, CREDENTIALS);
 
-	const app = await launchPane(context);
+	try {
+		return await driveWith(context, driveUI, proxy.port);
+	} finally {
+		proxy.stop();
+	}
+}
+
+async function driveWith(
+	context: ScenarioContext,
+	driveUI: boolean,
+	proxyPort: number,
+): Promise<number> {
+	const app = await launchPane(context, {
+		env: { PANE_PROXY_TEST_URL: "http://check.pane.test/ip" },
+	});
 
 	const profile = await app.createProfile("Timing");
 	const tabs: string[] = [];
@@ -120,8 +140,21 @@ async function drive(context: ScenarioContext): Promise<number> {
 		await app.send("openProfileSheet");
 		await Bun.sleep(400);
 
-		// A press on a tile, where accessibility can reach it.
-		if (driveUI) {
+		// A press on a tile: a real click where the Views build names it,
+		// else where accessibility can reach it (the Swift's).
+		const tile =
+			round % 2 === 0
+				? "pane.profile.platform.windows"
+				: "pane.profile.platform.macos";
+
+		const tiles = await app
+			.frames(tile)
+			.catch(() => ({}) as Record<string, number[]>);
+
+		if (tiles[tile]) {
+			await app.click(tile);
+			await Bun.sleep(150);
+		} else if (driveUI) {
 			const pid = app.browser.pid;
 			const window = await mainWindowOf(pid);
 			await clickButton(pid, window, round % 2 === 0 ? "Windows" : "macOS");
@@ -131,6 +164,37 @@ async function drive(context: ScenarioContext): Promise<number> {
 		await app.send("closeProfileSheet");
 		await Bun.sleep(400);
 	}
+
+	// Test connection pressed in a proxied profile's sheet, each answer
+	// waited for (the Views build's, which names the button).
+	const proxied = await app.createProfile("Proxied");
+
+	await app.send("setProfileProxy", {
+		profile: proxied,
+		proxy: {
+			proxyType: "HTTP",
+			host: "127.0.0.1",
+			port: proxyPort,
+			...CREDENTIALS,
+		},
+	});
+
+	await app.send("openProfileSheet", { profile: proxied });
+	await Bun.sleep(400);
+
+	const test = await app
+		.frames("pane.profile.testProxy")
+		.catch(() => ({}) as Record<string, number[]>);
+
+	if (test["pane.profile.testProxy"]) {
+		for (let round = 0; round < ROUNDS; round++) {
+			await app.click("pane.profile.testProxy");
+			await Bun.sleep(1_000);
+		}
+	}
+
+	await app.send("closeProfileSheet");
+	await Bun.sleep(400);
 
 	return app.browser.pid;
 }

@@ -203,6 +203,10 @@ void Window::Open() {
   callbacks.find_bar.close =
       base::BindRepeating(&Controller::CloseFind, base::Unretained(controller));
   callbacks.extensions = &controller->Extensions();
+  callbacks.profile_sheet.save = base::BindRepeating(
+      &Controller::SaveProfileSheet, base::Unretained(controller));
+  callbacks.profile_sheet.close = base::BindRepeating(
+      &Controller::CloseProfileSheet, base::Unretained(controller));
   auto root = std::make_unique<RootView>(std::move(callbacks),
                                          &controller->LoadProgress(),
                                          &controller->AppIcons());

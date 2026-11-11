@@ -8,7 +8,6 @@
 #import "PaneExport.h"
 
 @class PaneBrowserApplication;
-@class PaneBrowserContext;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -74,20 +73,6 @@ NS_SWIFT_UI_ACTOR
 
 - (instancetype)init NS_UNAVAILABLE;
 
-// Opens, creating on first use, the profile named `identifier`. Calls
-// `completion` on the main thread with the context, or nil and an error: for
-// an identifier that cannot be one folder name (empty, ".", "..", a "/" or
-// ":", longer than 255 bytes), a profile whose folder cannot be made or that
-// does not load, or once the engine started shutting down. `engineKey`, 32
-// bytes, encrypts every file the profile writes (docs/adr/0121): it stays in
-// Pane's processes' memory, until -dropEngineKeysWithCompletion:.
-- (void)openContextWithIdentifier:(NSString*)identifier
-                        engineKey:(NSData*)engineKey
-                       completion:
-                           (void (^)(PaneBrowserContext* _Nullable context,
-                                     NSError* _Nullable error))completion
-    NS_SWIFT_NAME(openContext(identifier:engineKey:completion:));
-
 // Encrypts a closed profile's files written by an earlier Pane, in place, off
 // the main thread, before its context opens (docs/adr/0121). `folder` is its
 // folder in the volume, its Profile and Cache inside. A safety copy goes there
@@ -124,22 +109,6 @@ NS_SWIFT_UI_ACTOR
 - (void)dropEngineKeysWithCompletion:
     (void (^)(NSDictionary<NSString*, NSNumber*>* left))completion
     NS_SWIFT_NAME(dropEngineKeys(completion:));
-
-// Deletes the profile: closes its tabs in every window, without asking their
-// pages (no beforeunload), then removes its data (cookies, storage, cache,
-// extensions) from disk. `completion` gets NO when the profile is unknown or
-// already being deleted.
-- (void)deleteContext:(PaneBrowserContext*)context
-           completion:(void (^)(BOOL deleted))completion
-    NS_SWIFT_NAME(deleteContext(_:completion:));
-
-// Closes the profile and keeps its data: closes its tabs in every window,
-// without asking their pages, and lets Chrome destroy the profile, which
-// closes its files (Pane's lock, ADR 0116). `completion` gets NO when the
-// profile is unknown, or still held after ten seconds.
-- (void)closeContext:(PaneBrowserContext*)context
-          completion:(void (^)(BOOL closed))completion
-    NS_SWIFT_NAME(closeContext(_:completion:));
 
 // Starts an orderly engine shutdown, as Quit does.
 - (void)terminate;

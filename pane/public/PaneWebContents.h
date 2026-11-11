@@ -7,7 +7,6 @@
 
 #import "PaneExport.h"
 
-@class PaneBrowserContext;
 @class PaneWebContents;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -66,8 +65,6 @@ NS_SWIFT_NAME(WebContents)
 NS_SWIFT_UI_ACTOR
 @interface PaneWebContents : NSObject
 
-// Nil once the tab closed.
-@property(readonly, nullable) PaneBrowserContext* context;
 @property(nullable, weak) id<PaneWebContentsDelegate> delegate;
 
 // The page's view. Add it to a window; it sizes with its superview through

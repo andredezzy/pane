@@ -239,7 +239,16 @@ const proxy: Scenario = async (context) => {
 				},
 			});
 
+			// A tab's page is made once its profile opens, if it is still the tab
+			// shown, so each is opened once the one before it shows its page.
 			const tabE = await app.openTab(e, "http://e.pane.test/proxy-check.html");
+
+			await app.waitFor(
+				"E's page through its IPv6 proxy",
+				(state) => tabOf(state, tabE)?.title === "Proxy check",
+				30_000,
+			);
+
 			const tabF = await app.openTab(f, "http://f.pane.test/proxy-check.html");
 
 			const ipv6 = await app.waitFor(

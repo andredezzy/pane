@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
 #include "base/task/sequenced_task_runner.h"
@@ -36,6 +37,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_solid_color.h"
 #include "ui/events/event.h"
 #include "ui/events/event_handler.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -63,85 +65,13 @@ constexpr gfx::Size kMinimumSize(900, 600);
 // (m-2 ml-0), rounded at the panel's 18 (PanelFrame draws it).
 constexpr int kPanelInset = 8;
 
-// The sheet's card, at the window's right, as the profile sheet sits (Paper
-// 05), over its scrim.
-constexpr int kSheetWidth = 400;
+// The profile sheet's panel: 8 from the window's top, right, and bottom
+// (Paper 05.4); its ring outside it, its shadow 0 8px 40px, black at 50% in
+// both appearances (the Swift's surfaceBackground).
 constexpr int kSheetInset = 8;
-
-class SheetView : public views::View {
-  METADATA_HEADER(SheetView, views::View)
-
- public:
-  explicit SheetView(base::RepeatingClosure close) : close_(close) {
-    SetID(kViewIdProfileSheet);
-    SetPaintToLayer();
-    layer()->SetFillsBoundsOpaquely(false);
-    SetBackground(views::CreateSolidBackground(kPaneColorSheetScrim));
-    card_ = AddChildView(std::make_unique<views::View>());
-    card_->SetPaintToLayer();
-    card_->layer()->SetFillsBoundsOpaquely(false);
-    card_->SetBackground(std::make_unique<ControlBackground>(
-        [] {
-          ControlLook look(ControlShape::Squircle(radius::kPanel));
-          look.fill = kPaneColorCard;
-          return look;
-        }(),
-        nullptr));
-    card_->SetLayoutManager(std::make_unique<views::BoxLayout>(
-        views::BoxLayout::Orientation::kVertical, gfx::Insets(24), 12));
-    field_ = card_->AddChildView(std::make_unique<views::Textfield>());
-    field_->SetAccessibleName(u"Name");
-    // The platform tiles interaction-timing presses, as the profile sheet's.
-    for (const char16_t* platform : {u"Windows", u"macOS"}) {
-      card_->AddChildView(std::make_unique<views::LabelButton>(
-          base::BindRepeating(&SheetView::ChoosePlatform,
-                              base::Unretained(this)),
-          platform));
-    }
-    card_->AddChildView(std::make_unique<views::LabelButton>(close_, u"Done"));
-    AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
-    AddAccelerator(ui::Accelerator(ui::VKEY_RETURN, ui::EF_NONE));
-  }
-
-  void Focus() { field_->RequestFocus(); }
-
-  void ChoosePlatform() {
-    if (GetWidget()) {
-      LogInteraction(Interaction::kChoosePlatform,
-                     GetWidget()->GetCompositor());
-    }
-  }
-
-  // The scrim fades in as the card slides in from the window's right
-  // (Motion.sheet).
-  void AnimateIn() {
-    layer()->SetOpacity(0);
-    card_->layer()->SetTransform(
-        gfx::Transform::MakeTranslation(kSheetWidth + kSheetInset, 0));
-    LayerMotion::Start(layer(), motion::Sheet(), {.opacity = 1.0f});
-    LayerMotion::Start(card_->layer(), motion::Sheet(),
-                       {.transform = gfx::Transform()});
-  }
-
-  // views::View:
-  void Layout(PassKey) override {
-    card_->SetBounds(width() - kSheetWidth - kSheetInset, kSheetInset,
-                     kSheetWidth, std::max(height() - 2 * kSheetInset, 0));
-  }
-
-  bool AcceleratorPressed(const ui::Accelerator& accelerator) override {
-    close_.Run();
-    return true;
-  }
-
- private:
-  base::RepeatingClosure close_;
-  raw_ptr<views::View> card_ = nullptr;
-  raw_ptr<views::Textfield> field_ = nullptr;
-};
-
-BEGIN_METADATA(SheetView)
-END_METADATA
+constexpr float kSheetShadowSigma = 20;
+constexpr float kSheetShadowOffset = 8;
+constexpr SkColor kSheetShadow = SkColorSetA(SK_ColorBLACK, 0x80);
 
 // Over the page while a page's dialog shows: the page takes no press, as
 // the Swift's clear shape over it took them, nor a scroll.
@@ -216,6 +146,163 @@ constexpr int kMenuGap = 4;
 constexpr int kMenuMargin = 8;
 
 }  // namespace
+
+// The profile sheet over the window (the Swift's, ADR 0120): its scrim over
+// the whole window, a press on which closes it, and its panel at the
+// window's right on its ring and shadow, one DialogCard. It comes as the
+// scrim fades in and the panel slides in from the window's right as it fades
+// in (Motion.sheet, SwiftUI's move from the trailing edge by the width of
+// what it moves, the window's), and goes the same way; each on the
+// compositor's own animation. While it shows, Esc cancels and Return
+// creates, whatever in it has the keys.
+class ProfileSheetOverlay : public views::View {
+  METADATA_HEADER(ProfileSheetOverlay, views::View)
+
+ public:
+  explicit ProfileSheetOverlay(ProfileSheet::Callbacks callbacks) {
+    SetVisible(false);
+    scrim_ = AddChildView(std::make_unique<views::View>());
+    scrim_->SetPaintToLayer(::ui::LAYER_SOLID_COLOR);
+    scrim_->layer()->SetFillsBoundsOpaquely(false);
+    scrim_->layer()->SetOpacity(0);
+    scrim_->GetViewAccessibility().SetIsIgnored(true);
+    DialogCard::Look look;
+    look.radius = radius::kPanel;
+    look.fill = kPaneColorCard;
+    look.edge = kPaneColorBorder;
+    look.shadow = kSheetShadow;
+    look.shadow_offset = gfx::Vector2dF(0, kSheetShadowOffset);
+    look.shadow_sigma = kSheetShadowSigma;
+    auto sheet = std::make_unique<ProfileSheet>(std::move(callbacks));
+    sheet_ = sheet.get();
+    card_ = AddChildView(std::make_unique<DialogCard>(look, std::move(sheet)));
+  }
+
+  ProfileSheet* sheet() { return sheet_; }
+  bool showing() const { return GetVisible() && !closing_; }
+  gfx::Rect CardBounds() const { return card_->CardBounds(); }
+
+  // `rested` once the slide in ends, at once if the sheet is still; dropped
+  // when it goes instead.
+  void WhenRests(base::OnceClosure rested) {
+    if (!showing()) {
+      return;
+    }
+    if (!moving_) {
+      std::move(rested).Run();
+      return;
+    }
+    rested_.push_back(std::move(rested));
+  }
+
+  void AnimateIn() {
+    closing_ = false;
+    SetVisible(true);
+    SetCanProcessEventsWithinSubtree(true);
+    ResetAccelerators();
+    AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
+    AddAccelerator(ui::Accelerator(ui::VKEY_RETURN, ui::EF_NONE));
+    Place();
+    // From the window's right, faded, unless it is on its way out.
+    if (!moving_) {
+      scrim_->layer()->SetOpacity(0);
+      card_->layer()->SetOpacity(0);
+      card_->layer()->SetTransform(Away());
+    }
+    Move(true);
+  }
+
+  void AnimateOut() {
+    closing_ = true;
+    ResetAccelerators();
+    SetCanProcessEventsWithinSubtree(false);
+    Move(false);
+  }
+
+  // views::View:
+  void Layout(PassKey) override {
+    // A window resized under it: there at once.
+    if (Place() && !moving_ && showing()) {
+      card_->layer()->SetTransform(gfx::Transform());
+    }
+  }
+
+  void OnThemeChanged() override {
+    views::View::OnThemeChanged();
+    scrim_->layer()->AsSolidColor()->SetColor(SkColor4f::FromColor(
+        GetColorProvider()->GetColor(kPaneColorSheetScrim)));
+  }
+
+  bool OnMousePressed(const ui::MouseEvent& event) override {
+    // A press beside the panel, on the scrim, closes it.
+    if (showing()) {
+      sheet_->Cancel();
+    }
+    return true;
+  }
+
+  bool AcceleratorPressed(const ui::Accelerator& accelerator) override {
+    if (!showing()) {
+      return false;
+    }
+    if (accelerator.key_code() == ui::VKEY_ESCAPE) {
+      sheet_->Cancel();
+    } else {
+      sheet_->Submit();
+    }
+    return true;
+  }
+
+ private:
+  // The panel's place, its ring included; whether it moved.
+  bool Place() {
+    scrim_->SetBoundsRect(GetLocalBounds());
+    return card_->Place(gfx::RectF(
+        width() - ProfileSheet::kWidth - kSheetInset - 1, kSheetInset - 1,
+        ProfileSheet::kWidth + 2, std::max(height() - 2 * kSheetInset, 0) + 2));
+  }
+
+  // Off past the window's right, by the window's width.
+  gfx::Transform Away() const {
+    return gfx::Transform::MakeTranslation(width(), 0);
+  }
+
+  void Move(bool shown) {
+    moving_ = true;
+    CompositorMotion::Start(scrim_->layer(), motion::Sheet(),
+                            {.opacity = shown ? 1.0f : 0.0f});
+    CompositorMotion::Start(card_->layer(), motion::Sheet(),
+                            {.opacity = shown ? 1.0f : 0.0f,
+                             .transform = shown ? gfx::Transform() : Away()},
+                            base::BindOnce(&ProfileSheetOverlay::Moved,
+                                           weak_factory_.GetWeakPtr(), shown));
+  }
+
+  void Moved(bool shown) {
+    moving_ = false;
+    if (!shown && closing_) {
+      SetVisible(false);
+    }
+    std::vector<base::OnceClosure> rested = std::exchange(rested_, {});
+    if (showing()) {
+      for (base::OnceClosure& each : rested) {
+        std::move(each).Run();
+      }
+    }
+  }
+
+  raw_ptr<views::View> scrim_ = nullptr;
+  raw_ptr<DialogCard> card_ = nullptr;
+  raw_ptr<ProfileSheet> sheet_ = nullptr;
+  bool closing_ = false;
+  bool moving_ = false;
+  // What waits for the slide in to end.
+  std::vector<base::OnceClosure> rested_;
+  base::WeakPtrFactory<ProfileSheetOverlay> weak_factory_{this};
+};
+
+BEGIN_METADATA(ProfileSheetOverlay)
+END_METADATA
 
 RootView::Callbacks::Callbacks() = default;
 RootView::Callbacks::Callbacks(Callbacks&&) = default;
@@ -744,33 +831,65 @@ void RootView::PageDialogLeft(DialogCard* card) {
   }
 }
 
-void RootView::ShowSheet(bool show) {
-  if (show == sheet_visible()) {
+void RootView::PrepareProfileSheet() {
+  if (profile_sheet_) {
     return;
   }
-  if (show) {
-    if (GetWidget()) {
-      LogInteraction(Interaction::kOpenProfileSheet,
-                     GetWidget()->GetCompositor());
-    }
-    auto sheet = std::make_unique<SheetView>(base::BindRepeating(
-        &RootView::ShowSheet, base::Unretained(this), false));
-    SheetView* view = sheet.get();
-    sheet_ = AddChildView(std::move(sheet));
-    sheet_->SetBoundsRect(GetLocalBounds());
-    view->AnimateIn();
-    view->Focus();
-    return;
-  }
-  // Gone at once; its exit animates once G5's motion driver lands.
-  std::unique_ptr<views::View> sheet = RemoveChildViewT(sheet_.get());
-  sheet_ = nullptr;
-  sheet.reset();
-  FocusAddress();
+  // Over the switcher, under Quit Pane?, the App icon picker, and the hint.
+  profile_sheet_ = AddChildViewAt(std::make_unique<ProfileSheetOverlay>(
+                                      std::move(callbacks_.profile_sheet)),
+                                  GetIndexOf(switcher_).value() + 1);
+  profile_sheet_->SetBoundsRect(GetLocalBounds());
 }
 
-bool RootView::sheet_visible() const {
-  return sheet_ != nullptr;
+void RootView::ShowProfileSheet(const model::BrowserProfile* profile) {
+  PrepareProfileSheet();
+  if (GetWidget()) {
+    LogInteraction(Interaction::kOpenProfileSheet,
+                   GetWidget()->GetCompositor());
+  }
+  // What had the keys has them back once it goes.
+  if (!profile_sheet_->showing()) {
+    views::FocusManager* focus = GetFocusManager();
+    views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+    focus_before_sheet_.SetView(
+        focused && !profile_sheet_->Contains(focused) ? focused : nullptr);
+  }
+  profile_sheet_->sheet()->Begin(profile);
+  profile_sheet_->SetBoundsRect(GetLocalBounds());
+  profile_sheet_->AnimateIn();
+  profile_sheet_->sheet()->FocusName();
+}
+
+void RootView::HideProfileSheet() {
+  if (!profile_sheet_ || !profile_sheet_->showing()) {
+    return;
+  }
+  profile_sheet_->AnimateOut();
+  views::View* before = focus_before_sheet_.view();
+  focus_before_sheet_.SetView(nullptr);
+  if (before && before->IsDrawn() && before->IsFocusable()) {
+    before->RequestFocus();
+  } else {
+    FocusPage();
+  }
+}
+
+ProfileSheet* RootView::profile_sheet() {
+  return profile_sheet_ && profile_sheet_->showing() ? profile_sheet_->sheet()
+                                                     : nullptr;
+}
+
+void RootView::WhenProfileSheetRests(base::OnceClosure rested) {
+  if (profile_sheet_) {
+    profile_sheet_->WhenRests(std::move(rested));
+  }
+}
+
+gfx::Rect RootView::ProfileSheetBounds() const {
+  return profile_sheet_ ? profile_sheet_->CardBounds() +
+                              profile_sheet_->bounds().OffsetFromOrigin()
+                        : gfx::Rect();
 }
 
 void RootView::ShowSwitcher(std::vector<TabSwitcherView::Group> groups,
@@ -1087,8 +1206,8 @@ void RootView::Layout(PassKey) {
   hint_->SetBounds((width() - hint.width()) / 2, ExclusiveAccessHint::kTop,
                    hint.width(), hint.height());
 
-  if (sheet_) {
-    sheet_->SetBoundsRect(GetLocalBounds());
+  if (profile_sheet_) {
+    profile_sheet_->SetBoundsRect(GetLocalBounds());
   }
   if (app_icon_dialog_) {
     app_icon_dialog_->SetBoundsRect(GetLocalBounds());

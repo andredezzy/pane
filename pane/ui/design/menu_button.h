@@ -23,15 +23,21 @@ class MenuRunner;
 
 namespace pane {
 
-// The app's one menu of a flat list of options (the Swift's PaneMenuButton
-// and its trigger, ADR 0065 and 0070): the option chosen, with its icon if it
-// has one, then up and down chevrons, 32 points tall, in a 1-point border
+// The app's one menu of options (the Swift's PaneMenuButton and its
+// trigger, ADR 0065 and 0070): the option chosen, with its icon if it has
+// one, then up and down chevrons, 32 points tall, in a 1-point border
 // rounded 11, with no fill but the outline's hover (ADR 0063); 13 in from its
-// start and 11 from its end, 8 between its parts. A press opens the system's
-// menu of the options just under it, its leading edge on the trigger's, the
-// option chosen checked, and the trigger keeps its hover's look while the
-// menu shows. Assistive technologies read `label` as its name and the option
-// as its value (ADR 0071).
+// start and 11 from its end, 8 between its parts. Embedded, it is a segment
+// of a field, as tall as the field, in the field's border and corners (the
+// profile sheet's proxy type): 12 in and 10 from its end, 6 between its
+// parts, its chevrons 12 points and lighter, and as wide as its longest
+// option, so what follows it in the field stays put as the choice changes. A
+// press opens the system's menu of the options just under it, its leading
+// edge on the trigger's, the option chosen checked, and the trigger keeps its
+// hover's look while the menu shows. The options are a flat list, or grouped
+// into submenus between separators (the profile sheet's time zones).
+// Assistive technologies read `label` as its name and the option as its
+// value (ADR 0071).
 class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
   METADATA_HEADER(MenuButton, views::Button)
 
@@ -41,12 +47,44 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
     // Shown in the trigger beside the title, 14 points, its lines 1.75 of
     // the grid (Theme's), not in the menu.
     std::optional<Icon> icon;
+    // What the trigger shows for it, when not its title: a zone's city
+    // ("Tokyo"), where the menu has "Tokyo (GMT+9)".
+    std::u16string shown;
   };
+
+  // An item of a menu laid out by hand: an option, by its place, a
+  // separator, or a submenu of options.
+  struct Entry {
+    static Entry OptionAt(size_t index);
+    static Entry Separator();
+    static Entry Submenu(std::u16string title, std::vector<size_t> options);
+
+    Entry();
+    Entry(const Entry&);
+    Entry& operator=(const Entry&);
+    Entry(Entry&&);
+    Entry& operator=(Entry&&);
+    ~Entry();
+
+    enum class Kind { kOption, kSeparator, kSubmenu } kind = Kind::kOption;
+    size_t option = 0;
+    std::u16string title;
+    std::vector<size_t> options;
+  };
+
+  enum class Style { kSmall, kEmbedded };
 
   // `chosen` hears the option's place once the menu has gone.
   MenuButton(std::u16string label,
              std::vector<Option> options,
-             base::RepeatingCallback<void(size_t index)> chosen);
+             base::RepeatingCallback<void(size_t index)> chosen,
+             Style style = Style::kSmall);
+
+  // Other options, laid out as `entries` (or one after another without),
+  // the choice kept by its place while one is there.
+  void SetOptions(std::vector<Option> options,
+                  std::vector<Entry> entries = {});
+  const std::vector<Option>& options() const { return options_; }
   MenuButton(const MenuButton&) = delete;
   MenuButton& operator=(const MenuButton&) = delete;
   ~MenuButton() override;
@@ -55,7 +93,7 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
   void SetSelected(std::optional<size_t> index);
   std::optional<size_t> selected() const { return selected_; }
   // What the menu shows, for the channel to read and choose in, as a click
-  // in the menu chooses.
+  // in the menu chooses; a submenu is the model of its item.
   ui::SimpleMenuModel& menu_model() { return menu_model_; }
   // For a timing of a press to the system's menu: told as the press asks
   // for the menu, and as the menu is about to show.
@@ -85,14 +123,19 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
  private:
   void ShowMenu(const ui::Event& event);
   void MenuGone();
+  // The menu, from the options and their entries.
+  void BuildMenu(const std::vector<Entry>& entries);
+  // What the trigger shows for the option.
+  const std::u16string& ShownTitle(size_t index) const;
   // The title's and the chevron's tints, as lit as the hover is.
   void Tint();
   // Where the icon, when it shows, and the chevron go.
   gfx::RectF IconBounds() const;
   gfx::RectF ChevronBounds() const;
 
-  const std::vector<Option> options_;
+  std::vector<Option> options_;
   base::RepeatingCallback<void(size_t)> chosen_;
+  const Style style_;
   std::optional<size_t> selected_;
   // SetSelected has run: an option, or none, shows.
   bool shown_once_ = false;
@@ -100,6 +143,9 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
   std::unique_ptr<ControlHighlight> highlight_;
   raw_ptr<views::Label> title_ = nullptr;
   ui::SimpleMenuModel menu_model_{this};
+  std::vector<std::unique_ptr<ui::SimpleMenuModel>> submenus_;
+  // Embedded, the widest option's title, whose room it keeps.
+  int widest_title_ = 0;
   std::unique_ptr<views::MenuRunner> menu_runner_;
   Opening opening_;
   base::WeakPtrFactory<MenuButton> weak_factory_{this};

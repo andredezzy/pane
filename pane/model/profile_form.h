@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "base/functional/function_ref.h"
+#include "pane/model/host_platform.h"
 #include "pane/model/profile.h"
 
 namespace pane::model {
@@ -15,9 +16,6 @@ namespace pane::model {
 // The profile sheet's rules (the Electron app's profile-sheet.tsx and
 // default-fingerprints.ts): the fingerprint a platform gets, the proxy string
 // shortcut, and when an edit keeps the stored fingerprint.
-
-// Pane runs on macOS only: the host's platform.
-inline constexpr Platform kHostPlatform = Platform::kMacOS;
 
 // The fingerprint each platform starts from, default-fingerprints.ts's. The
 // engine replaces the Chrome version it claims with its own.

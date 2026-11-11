@@ -4,6 +4,7 @@
 #define PANE_UI_DESIGN_PALETTE_H_
 
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "pane/model/profile.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/color/color_id.h"
 
@@ -169,6 +170,9 @@ enum PaneColorIds : ui::ColorId {
 constexpr SkAlpha AlphaOf(float alpha) {
   return static_cast<SkAlpha>(alpha * 255 + 0.5f);
 }
+
+// A profile's swatch, the same in both appearances (DESIGN.md › Theme).
+SkColor ProfileColorOf(model::ProfileColor color);
 
 // The platform's selected-text fill in its light or dark appearance, while
 // the window has the keys or doesn't.

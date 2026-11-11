@@ -26,7 +26,6 @@
 #include "pane/app/engine_switches.h"
 #include "pane/browser/app_callback.h"
 #import "pane/browser/browser_application_internal.h"
-#import "pane/browser/browser_context_internal.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/fingerprints.h"
@@ -51,12 +50,6 @@ PaneBrowserApplication* g_application = nil;
 
 NSString* const kErrorDomain = @"PaneBrowserApplication";
 
-NSError* ContextError(NSInteger code, NSString* description) {
-  return [NSError errorWithDomain:kErrorDomain
-                             code:code
-                         userInfo:@{NSLocalizedDescriptionKey : description}];
-}
-
 }  // namespace
 
 @implementation PaneBrowserApplication {
@@ -66,7 +59,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
   // What other apps asked to open before the engine started.
   NSMutableArray<NSURL*>* _pendingURLs;
   NSURL* _dataDirectory;
-  NSMutableDictionary<NSString*, PaneBrowserContext*>* _contexts;
 }
 
 + (PaneBrowserApplication*)sharedApplication {
@@ -120,7 +112,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
   if ((self = [super init])) {
     _delegate = delegate;
     _dataDirectory = [dataDirectory copy];
-    _contexts = [NSMutableDictionary dictionary];
     _pendingURLs = [NSMutableArray array];
     // From the start: Launch Services hands over the URLs it launched the
     // app for before the engine has started.
@@ -130,67 +121,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
                                              object:nil];
   }
   return self;
-}
-
-- (void)openContextWithIdentifier:(NSString*)identifier
-                        engineKey:(NSData*)engineKey
-                       completion:
-                           (void (^)(PaneBrowserContext* _Nullable context,
-                                     NSError* _Nullable error))completion {
-  PANE_TRACE(
-      "call", "PaneBrowserApplication.openContext",
-      base::DictValue().Set("identifier", base::SysNSStringToUTF8(identifier)));
-
-  // Once quitting started, every context was released, and one opened now
-  // would hold its profile past the engine's teardown.
-  if (_shutDown) {
-    completion(nil, ContextError(4, @"The engine is shutting down."));
-    return;
-  }
-
-  if (PaneBrowserContext* open = _contexts[identifier]) {
-    completion(open, nil);
-    return;
-  }
-
-  if (!pane::model::IsProfileFolderName(base::SysNSStringToUTF8(identifier))) {
-    completion(nil, ContextError(1, @"Invalid profile identifier."));
-    return;
-  }
-
-  if (engineKey.length != pane::encryption::kKeySize) {
-    completion(nil, ContextError(5, @"The profile's key is not a key."));
-    return;
-  }
-
-  NSString* key = [identifier copy];
-  __weak PaneBrowserApplication* weakSelf = self;
-
-  auto created = base::BindOnce(^(Profile* profile) {
-    PaneBrowserApplication* strongSelf = weakSelf;
-    if (!strongSelf || strongSelf->_shutDown || !profile) {
-      completion(nil,
-                 ContextError(2, strongSelf && strongSelf->_shutDown
-                                     ? @"The engine is shutting down."
-                                     : @"The profile could not be loaded."));
-      return;
-    }
-
-    PaneBrowserContext* context = strongSelf->_contexts[key];
-    if (!context) {
-      context = [[PaneBrowserContext alloc] initWithProfile:profile
-                                                 identifier:key];
-      strongSelf->_contexts[key] = context;
-    }
-
-    PANE_TRACE(
-        "callback", "PaneBrowserApplication.openContext.completion",
-        base::DictValue().Set("identifier", base::SysNSStringToUTF8(key)));
-    completion(context, nil);
-  });
-
-  pane::OpenProfile(base::SysNSStringToUTF8(identifier),
-                    base::apple::NSDataToSpan(engineKey), std::move(created));
 }
 
 - (void)migrateContextWithIdentifier:(NSString*)identifier
@@ -322,86 +252,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
       [completion copy]));
 }
 
-- (PaneBrowserContext*)contextForProfile:(Profile*)profile {
-  for (PaneBrowserContext* context in _contexts.allValues) {
-    if (context.profile == profile) {
-      return context;
-    }
-  }
-  return nil;
-}
-
-- (void)deleteContext:(PaneBrowserContext*)context
-           completion:(void (^)(BOOL deleted))completion {
-  // Deleting closes the profile's pages: never from inside a tab strip
-  // notification or a tab's callback.
-  if (pane::InAppCallback()) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [self deleteContext:context completion:completion];
-    });
-    return;
-  }
-  Profile* profile = context.profile;
-  if (!profile || _contexts[context.identifier] != context) {
-    PANE_TRACE("call", "PaneBrowserApplication.deleteContext",
-               base::DictValue().Set(
-                   "identifier", base::SysNSStringToUTF8(context.identifier)));
-    completion(NO);
-    return;
-  }
-  [_contexts removeObjectForKey:context.identifier];
-  [context shutDown];
-  pane::DeleteProfile(profile, nullptr,
-                      base::BindOnce([](void (^completion)(BOOL),
-                                        bool deleted) { completion(deleted); },
-                                     [completion copy]));
-}
-
-- (void)closeContext:(PaneBrowserContext*)context
-          completion:(void (^)(BOOL closed))completion {
-  // Closing closes the profile's pages: never from inside a tab strip
-  // notification or a tab's callback.
-  if (pane::InAppCallback()) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [self closeContext:context completion:completion];
-    });
-    return;
-  }
-  PANE_TRACE("call", "PaneBrowserApplication.closeContext",
-             base::DictValue().Set(
-                 "identifier", base::SysNSStringToUTF8(context.identifier)));
-  Profile* profile = context.profile;
-  if (!profile || _contexts[context.identifier] != context) {
-    completion(NO);
-    return;
-  }
-  [_contexts removeObjectForKey:context.identifier];
-  // Chrome destroys a profile once nothing holds it (its
-  // DestroyProfileOnBrowserClose): the context's hold goes with its
-  // shutdown, the Browsers' with the Browsers. A hosted Browser stays open
-  // without tabs (Browser::TabStripEmpty), so each is closed once its pages
-  // are gone; until then the profile kept every database on the volume open.
-  pane::WaitForProfileDestruction(
-      profile, base::Seconds(10),
-      base::BindOnce(
-          [](void (^completion)(BOOL), NSString* identifier, bool closed) {
-            PANE_TRACE(
-                "callback", "PaneBrowserApplication.didCloseContext",
-                base::DictValue()
-                    .Set("identifier", base::SysNSStringToUTF8(identifier))
-                    .Set("closed", closed));
-            completion(closed);
-          },
-          completion, context.identifier));
-  // A download under way holds the profile too: it stops as at a quit, its
-  // partial file removed.
-  DownloadCoreServiceFactory::GetForBrowserContext(profile)->CancelDownloads(
-      DownloadCoreService::CancelDownloadsTrigger::kShutdown);
-  [context shutDown];
-  pane::CloseEveryPage(profile);
-  chrome::CloseAllBrowsersWithProfile(profile);
-}
-
 - (void)terminate {
   PANE_TRACE("call", "PaneBrowserApplication.terminate");
   // Quitting closes every Browser: never from inside a tab strip
@@ -467,7 +317,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
     return NO;
   }
 
-  [_contexts[identifier] applyFingerprint];
   return YES;
 }
 
@@ -519,10 +368,6 @@ NSError* ContextError(NSInteger code, NSString* description) {
           respondsToSelector:@selector(browserApplicationWillShutDown:)]) {
     [_delegate browserApplicationWillShutDown:self];
   }
-  for (PaneBrowserContext* context in _contexts.allValues) {
-    [context shutDown];
-  }
-  [_contexts removeAllObjects];
 }
 
 @end

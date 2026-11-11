@@ -42,6 +42,10 @@ class FocusRing : public views::View, public views::ViewObserver {
   void SetShape(ControlShape shape);
   void SetShowsWhen(ShowsWhen shows_when);
   void SetAround(Around around);
+  // Shows while a view inside the control has the keys, the control having
+  // none of its own (a field of parts: the profile sheet's proxy address),
+  // which tells it of each change (Refresh).
+  void SetFocusWithin(bool within);
   // Shows or hides it again, after what ShowsWhen reads changed.
   void Refresh();
 
@@ -67,6 +71,7 @@ class FocusRing : public views::View, public views::ViewObserver {
   ControlShape shape_;
   ShowsWhen shows_when_;
   Around around_;
+  bool within_ = false;
   base::ScopedObservation<views::View, views::ViewObserver> observation_{this};
 };
 

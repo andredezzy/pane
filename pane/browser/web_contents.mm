@@ -77,13 +77,6 @@
 
 // MARK: Properties
 
-- (PaneBrowserContext*)context {
-  return _contents ? [PaneBrowserApplication.sharedApplication
-                         contextForProfile:Profile::FromBrowserContext(
-                                               _contents->GetBrowserContext())]
-                   : nil;
-}
-
 - (id<PaneWebContentsDelegate>)delegate {
   return _delegate;
 }

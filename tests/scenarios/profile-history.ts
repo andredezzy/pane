@@ -216,10 +216,14 @@ const historyScenario: Scenario = async (context) => {
 		"history-probe",
 	);
 
-	const { app, has } = await launchTraced(context, "profile-history-first", {
-		dataDir,
-		args: [RESOLVER, `--load-extension=${PROBE}`],
-	});
+	const { app, has, trace } = await launchTraced(
+		context,
+		"profile-history-first",
+		{
+			dataDir,
+			args: [RESOLVER, `--load-extension=${PROBE}`],
+		},
+	);
 
 	// Off from the start, browsing first; then the one that keeps.
 	const off = (
@@ -337,8 +341,24 @@ const historyScenario: Scenario = async (context) => {
 	await app.send("select", { tab: keepsTab });
 
 	// Turned off: it opens again, to keep its caches in memory, the selected tab
-	// with it, and what it kept goes.
+	// with it, and what it kept goes. Its context closes once the clear is
+	// done, before the tab's page is made again: the channel answers before
+	// that (the Swift's polled every 100 ms, past it), so the wait follows it.
+	const closesOfKeeps = () =>
+		trace().filter(
+			(entry) =>
+				entry.name === "PaneBrowserApplication.didCloseContext" &&
+				entry.args.identifier === keeps,
+		).length;
+
+	const closedBefore = closesOfKeeps();
 	await app.send("setSavesHistory", { profile: keeps, savesHistory: false });
+
+	await poll(
+		"its context closed, to open again caching in memory",
+		() => closesOfKeeps() > closedBefore,
+		30_000,
+	);
 
 	await app.waitFor(
 		"the tab back in a context that caches in memory",

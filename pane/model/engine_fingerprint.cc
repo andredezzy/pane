@@ -12,6 +12,7 @@
 #include "base/json/json_writer.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "pane/model/host_platform.h"
 #include "pane/model/value_reader.h"
 
 namespace pane::model {
@@ -206,6 +207,8 @@ EngineFingerprint EngineFingerprint::For(const Fingerprint& fingerprint,
       .device_memory = ApproximatedDeviceMemory(fingerprint.device_memory),
       .max_touch_points = fingerprint.max_touch_points,
       .screen = EngineScreen(fingerprint),
+      // The claimed computer's display, whatever runs Pane: a Mac's Retina
+      // panel, a PC's 1080p one (the presets' screens).
       .device_pixel_ratio =
           fingerprint.platform == Platform::kMacOS ? 2.0 : 1.0,
       .webgl_vendor = fingerprint.webgl
@@ -221,7 +224,8 @@ EngineFingerprint EngineFingerprint::For(const Fingerprint& fingerprint,
                       ? std::nullopt
                       : std::make_optional(fingerprint.timezone),
       .locale = fingerprint.language,
-      .hide_speech_voices = fingerprint.platform != Platform::kMacOS};
+      // The computer's own voices would contradict another platform's.
+      .hide_speech_voices = fingerprint.platform != HostPlatform()};
   return engine;
 }
 

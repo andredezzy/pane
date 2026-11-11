@@ -49,7 +49,7 @@ TEST(ProfileDraftTest, NewForm) {
   EXPECT_TRUE(draft.name.empty());
   EXPECT_TRUE(draft.saves_history);
   EXPECT_TRUE(draft.spoofing);
-  EXPECT_EQ(draft.platform, kHostPlatform);
+  EXPECT_EQ(draft.platform, HostPlatform());
   EXPECT_FALSE(draft.proxy_enabled);
   EXPECT_EQ(draft.proxy_port, "8080");
 }
@@ -77,7 +77,6 @@ TEST(ProfileDraftTest, FillsForm) {
 
   EXPECT_EQ(draft.name, "Work");
   EXPECT_EQ(draft.color, ProfileColor::kEmerald);
-  EXPECT_EQ(draft.group, "Clients");
   EXPECT_TRUE(draft.spoofing);
   EXPECT_EQ(draft.platform, Platform::kLinux);
   EXPECT_TRUE(draft.proxy_enabled);
@@ -327,18 +326,34 @@ TEST(ProfileDraftTest, NewFingerprint) {
   EXPECT_EQ(created.fingerprint, std::nullopt);
 }
 
-// Changing the platform regenerates the fingerprint; a group of spaces is
-// none.
+// Changing the platform regenerates the fingerprint.
 TEST(ProfileDraftTest, EditedFingerprint) {
   BrowserProfile saved = MakeProfile(FingerprintPreset(Platform::kWindows));
   ProfileDraft draft(saved);
   draft.platform = Platform::kLinux;
-  draft.group = "  ";
 
   draft.ApplyTo(saved, [] { return FingerprintPreset(Platform::kLinux); });
 
   EXPECT_EQ(saved.fingerprint, FingerprintPreset(Platform::kLinux));
-  EXPECT_EQ(saved.group, std::nullopt);
+}
+
+// The sheet shows no Group: a saved one stays as it is, spaces and all, and a
+// new profile has none (the user's answer, 2026-11-11).
+TEST(ProfileDraftTest, GroupKept) {
+  BrowserProfile saved = MakeProfile();
+  saved.group = " Clients ";
+  ProfileDraft draft(saved);
+  draft.name = "Renamed";
+  draft.color = ProfileColor::kRose;
+
+  draft.ApplyTo(saved, [] { return FingerprintPreset(Platform::kLinux); });
+
+  EXPECT_EQ(saved.group, " Clients ");
+  EXPECT_EQ(saved.ToValue().GetDict().Find("group")->GetString(), " Clients ");
+
+  BrowserProfile created;
+  ProfileDraft().ApplyTo(created, [] { return FingerprintPreset(Platform::kLinux); });
+  EXPECT_EQ(created.group, std::nullopt);
 }
 
 // Each ring stays until its field can save.

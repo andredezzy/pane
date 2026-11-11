@@ -1,5 +1,7 @@
 # The profile sheet holds its settings in cards, and picks a fingerprint's platform by its real logo
 
+> **On the Views line** (`docs/plans/views-migration.md`, N1): the sheet is `pane::ProfileSheet` (`pane/ui/sheets/profile_sheet.cc`) over the page (G4), at the Swift's measures, its logos drawn from their SVG paths (`platform_logo.cc`); it shows no Group, and a saved `group` stays in the data as it is, for 0.19.1 to read back.
+
 The sheet had grown a field at a time from the Electron app's (ADR 0034): a column of switches and fields with no explanation of what each did. Adding Save history (ADR 0119) was the moment to lay it out again. Paper's 05.4 (New) and 05.5 (Edit) draw it, in light and dark, 05.6 and 03.7 the states those leave out, and 05.1 to 05.3, which drew the sheet before it, were redrawn to it. The user approved them on 2026-11-04, after asking for the platform's real logos ("um seletor com a logo real das plataformas") in place of a segmented control of words, and for more vertical padding on the tiles.
 
 What changes (`app/Pane/Views/ProfileSheet.swift`):

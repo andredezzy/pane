@@ -60,6 +60,7 @@
 #include "pane/app/version.h"
 #include "pane/automation/automation.h"
 #include "pane/browser/engine_trace.h"
+#include "pane/browser/browser_context.h"
 #include "pane/browser/profiles.h"
 #include "pane/model/address_input.h"
 #include "pane/model/app_settings.h"
@@ -154,14 +155,13 @@ base::DictValue WindowState(views::Widget* widget) {
       .Set("trafficLightFrames", ControlFrames(open ? widget : nullptr));
 }
 
-// A profile's swatch, fixed in both appearances (ProfileColor).
-SkColor ColorOf(model::ProfileColor color) {
-  uint32_t rgb = 0;
-  const std::string_view hex = model::HexOf(color);
-  if (hex.size() != 7 || !base::HexStringToUInt(hex.substr(1), &rgb)) {
-    return SK_ColorGRAY;
-  }
-  return SkColorSetRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+// The computer's WebGL strings, as a fingerprint on its platform claims them.
+base::Value HostWebGLState() {
+  const std::optional<model::Fingerprint::WebGL> webgl = HostWebGL();
+  return webgl ? base::Value(base::DictValue()
+                                 .Set("vendor", webgl->vendor)
+                                 .Set("renderer", webgl->renderer))
+               : base::Value();
 }
 
 std::string_view PageName(model::BrowserModel::Page page) {
@@ -588,7 +588,8 @@ UiApp* UiApp::Get() {
 
 UiApp::UiApp()
     : data_(*AppData::Get()),
-      contexts_(*data_, data_->store().model()),
+      network_(data_->store().model()),
+      contexts_(*data_, data_->store().model(), network_, *this),
       app_icons_(std::make_unique<AppIconImages>()),
       version_(base::UTF8ToUTF16(PaneVersion())) {
   // The design's colors, and the Theme the settings hold, before the window
@@ -713,6 +714,35 @@ void UiApp::AccessDidOpen() {
   if (!InteractionAllowed()) {
     return;
   }
+  // Once per opening of the data, as the Swift's dataKeyDidOpen: the sidebar
+  // shows each proxy's state from then, as the Electron app tested them at
+  // launch, and a clear still owed runs now, rather than whenever its
+  // profile next opens. The profile sheet is made behind the first frame
+  // that shows the profiles, so its first showing makes nothing.
+  if (!std::exchange(profiles_ready_, true)) {
+    for (const model::BrowserProfile& profile : model().profiles()) {
+      if (profile.proxy) {
+        network_.Test(profile.id);
+      }
+    }
+    std::vector<std::string> owed;
+    for (const model::BrowserProfile& profile : model().profiles()) {
+      if (profile.clears_history) {
+        owed.push_back(profile.id);
+      }
+    }
+    for (const std::string& profile_id : owed) {
+      contexts_.HistoryDidChange(profile_id);
+    }
+    AfterFrame(window_->compositor(),
+               base::BindOnce(
+                   [](base::WeakPtr<UiApp> app) {
+                     if (app && app->window_->root()) {
+                       app->window_->root()->PrepareProfileSheet();
+                     }
+                   },
+                   weak_factory_.GetWeakPtr()));
+  }
   if (!launch_urls_.empty()) {
     OpenLaunchURLs(std::exchange(launch_urls_, {}));
   }
@@ -743,6 +773,7 @@ void UiApp::LockNow() {
     resume_tab_id_ = model().active_tab_id();
   }
   data_->LockScreen();
+  profiles_ready_ = false;
   // Nothing of the window's stays over the PIN screen.
   CancelSwitcher();
   CancelQuit();
@@ -791,8 +822,90 @@ std::string UiApp::CreateProfile(const model::ProfileDraft& draft) {
           return model::GeneratedFingerprint(draft.platform, HostWebGL());
         });
       });
+  const model::BrowserProfile* profile = model().FindProfile(id);
+  model::BrowserModel::ProfileChanges changes;
+  changes.PutOrRemove(model::BrowserModel::ProfileChange::kProxy,
+                      profile && profile->proxy);
+  changes.PutOrRemove(model::BrowserModel::ProfileChange::kFingerprint,
+                      profile && profile->fingerprint);
+  ApplyProfileChanges(id, changes);
   ExpandProfile(id);
   return id;
+}
+
+void UiApp::SaveProfile(const std::string& profile_id,
+                        const model::ProfileDraft& draft) {
+  UpdateProfile(profile_id, [&](model::BrowserProfile& profile) {
+    draft.ApplyTo(profile, [&] {
+      return model::GeneratedFingerprint(draft.platform, HostWebGL());
+    });
+  });
+}
+
+void UiApp::UpdateProfile(
+    const std::string& profile_id,
+    base::FunctionRef<void(model::BrowserProfile&)> change) {
+  if (!InteractionAllowed()) {
+    return;
+  }
+  ApplyProfileChanges(profile_id, model().UpdateProfile(profile_id, change));
+}
+
+void UiApp::ApplyProfileChanges(const std::string& profile_id,
+                                model::BrowserModel::ProfileChanges changes) {
+  if (changes.Has(model::BrowserModel::ProfileChange::kProxy)) {
+    ProxyDidChange(profile_id);
+  }
+  if (changes.Has(model::BrowserModel::ProfileChange::kFingerprint)) {
+    FingerprintDidChange(profile_id);
+  }
+  if (changes.Has(model::BrowserModel::ProfileChange::kHistory)) {
+    contexts_.HistoryDidChange(profile_id);
+  }
+}
+
+void UiApp::ProxyDidChange(const std::string& profile_id) {
+  if (BrowserContext* context = contexts_.GetContext(profile_id)) {
+    network_.Apply(*context, base::DoNothing());
+  }
+  network_.Test(profile_id);
+}
+
+void UiApp::FingerprintDidChange(const std::string& profile_id) {
+  contexts_.ApplyFingerprint(profile_id);
+  if (!contexts_.Get(profile_id)) {
+    return;
+  }
+  const std::optional<std::string> selected = model().active_tab_id();
+  ReleasePages(profile_id);
+  if (selected && model().ProfileIdOfTab(*selected) == profile_id) {
+    Select(*selected);
+  }
+}
+
+void UiApp::ReleasePages(const std::string& profile_id) {
+  const model::BrowserProfile* profile = model().FindProfile(profile_id);
+  if (!profile) {
+    return;
+  }
+  std::vector<std::string> tab_ids;
+  for (const model::Tab& tab : profile->tabs) {
+    tab_ids.push_back(tab.id);
+  }
+  for (const std::string& tab_id : tab_ids) {
+    Release(tab_id);
+  }
+}
+
+bool UiApp::HasPages(const std::string& profile_id) const {
+  const model::BrowserProfile* profile = model().FindProfile(profile_id);
+  return profile && std::ranges::any_of(profile->tabs, [&](const model::Tab& tab) {
+           return PageOf(tab.id) != nullptr;
+         });
+}
+
+void UiApp::ShowAgain(const std::string& tab_id) {
+  Select(tab_id);
 }
 
 std::string UiApp::OpenTab(const std::string& profile_id,
@@ -1398,16 +1511,37 @@ void UiApp::NewTabIn(const std::string& profile_id) {
 }
 
 void UiApp::EditProfile(const std::string& profile_id) {
-  PresentProfileSheet();
+  if (model().FindProfile(profile_id)) {
+    PresentProfileSheet(profile_id);
+  }
 }
 
 void UiApp::NewProfile() {
-  PresentProfileSheet();
+  PresentProfileSheet(std::nullopt);
 }
 
-void UiApp::PresentProfileSheet() {
-  if (RootView* root = window_->root(); root && InteractionAllowed()) {
-    root->ShowSheet(true);
+void UiApp::PresentProfileSheet(std::optional<std::string> profile_id) {
+  RootView* root = window_->root();
+  if (!root || !InteractionAllowed()) {
+    return;
+  }
+  root->ShowProfileSheet(profile_id ? model().FindProfile(*profile_id)
+                                    : nullptr);
+  profile_sheet_ = profile_id.value_or("new");
+}
+
+void UiApp::SaveProfileSheet(const model::ProfileDraft& draft) {
+  if (!profile_sheet_ || *profile_sheet_ == "new") {
+    CreateProfile(draft);
+  } else {
+    SaveProfile(*profile_sheet_, draft);
+  }
+}
+
+void UiApp::CloseProfileSheet() {
+  profile_sheet_.reset();
+  if (RootView* root = window_->root()) {
+    root->HideProfileSheet();
   }
 }
 
@@ -1727,7 +1861,7 @@ std::vector<TabSwitcherView::Group> UiApp::SwitcherGroupsToShow() {
   for (const model::SwitcherGroup& group : switcher_->groups) {
     TabSwitcherView::Group shown;
     shown.name = base::UTF8ToUTF16(group.name);
-    shown.color = ColorOf(group.color);
+    shown.color = ProfileColorOf(group.color);
     for (const model::SwitcherTab& tab : group.tabs) {
       shown.tabs.push_back({.id = tab.id,
                             .title = base::UTF8ToUTF16(tab.title),
@@ -1760,7 +1894,7 @@ SidebarContent UiApp::Sidebar() {
     SidebarProfile row;
     row.id = profile.id;
     row.name = base::UTF8ToUTF16(profile.name);
-    row.color = ColorOf(profile.color);
+    row.color = ProfileColorOf(profile.color);
     row.shown = browser && model.active_profile_id() == profile.id;
     row.expanded = model.expanded_profile_ids().contains(profile.id);
     if (const auto status = model.proxy_status().find(profile.id);
@@ -1826,7 +1960,7 @@ RootView::Shows UiApp::Shows() {
       browser && profile_id) {
     if (const model::BrowserProfile* profile = model.FindProfile(*profile_id)) {
       toolbar.profile_name = base::UTF8ToUTF16(profile->name);
-      toolbar.profile_color = ColorOf(profile->color);
+      toolbar.profile_color = ProfileColorOf(profile->color);
     }
   }
   return shows;
@@ -2508,6 +2642,7 @@ base::DictValue UiApp::Snapshot() const {
                    page && page->GetController().CanGoForward()));
     }
     const auto status = model.proxy_status().find(profile.id);
+    const BrowserContext* context = contexts_.GetContext(profile.id);
     profiles.Append(
         base::DictValue()
             .Set("id", profile.id)
@@ -2520,6 +2655,10 @@ base::DictValue UiApp::Snapshot() const {
                      : base::Value(ProxyStatusName(status->second)))
             .Set("keepLoaded", profile.keep_loaded)
             .Set("savesHistory", profile.saves_history)
+            // What the engine has of the choice, while the profile is open.
+            .Set("engineSavesHistory", context
+                                           ? base::Value(context->SavesHistory())
+                                           : base::Value())
             .Set("tabs", std::move(tabs)));
   }
   // Each open profile's extensions, their actions as for the profile's page
@@ -2642,6 +2781,11 @@ base::DictValue UiApp::Snapshot() const {
                            ? model::AppIconName(*dock_icon_->shown())
                            : std::string_view())
       .Set("appIconPicker", app_icon_picker_)
+      // The profile sheet: "new", or the edited profile's id.
+      .Set("profileSheet", profile_sheet_ ? base::Value(*profile_sheet_)
+                                          : base::Value())
+      // The Mac's WebGL strings, from Chrome's GPU info.
+      .Set("hostWebGL", HostWebGLState())
       .Set("quitConfirmation", quit_confirming_)
       .Set("sidebarWidth", sidebar_width_)
       .Set("pendingProfileDeletions", static_cast<int>(deleting_.size()))

@@ -19,6 +19,7 @@
 #include "base/values.h"
 #include "pane/app/data_launch.h"
 #include "pane/browser/profile_contexts.h"
+#include "pane/browser/profile_network.h"
 #include "pane/model/browser_model.h"
 #include "pane/model/crash_loop.h"
 #include "pane/model/tab_switcher.h"
@@ -68,6 +69,7 @@ struct ProfileDraft;
 // earlier Pane's have moved in, nothing opens, loads, or shows.
 class UiApp : public AppData::Client,
               public Window::Controller,
+              public ProfileContexts::Delegate,
               public SleepController::Delegate,
               public PageDialogs::Delegate,
               public ExtensionsUi::Delegate,
@@ -107,6 +109,21 @@ class UiApp : public AppData::Client,
   // The profile sheet's Create: the profile as the form has it, expanded; its
   // id.
   std::string CreateProfile(const model::ProfileDraft& draft);
+  // The profile sheet's Save.
+  void SaveProfile(const std::string& profile_id,
+                   const model::ProfileDraft& draft);
+  // Any edit of a profile; a new proxy, fingerprint, or history choice
+  // reaches the engine.
+  void UpdateProfile(const std::string& profile_id,
+                     base::FunctionRef<void(model::BrowserProfile&)> change);
+  // The profile sheet, for a new profile or the edited one: its scrim fades
+  // in as it slides in from the window's right (the Swift's
+  // presentProfileSheet), timed to its first frame.
+  void PresentProfileSheet(std::optional<std::string> profile_id);
+  // "new", or the edited profile's id, while it shows.
+  const std::optional<std::string>& profile_sheet() const {
+    return profile_sheet_;
+  }
   // A new tab in the profile, selected: at `url`, or at the start page with
   // the address field taking the keys. Its id.
   std::string OpenTab(const std::string& profile_id, std::optional<GURL> url);
@@ -172,6 +189,10 @@ class UiApp : public AppData::Client,
   Profile* OpenProfile(const std::string& profile_id) const {
     return contexts_.Get(profile_id);
   }
+  // Its context, while open: what the engine has of its history choice.
+  BrowserContext* OpenContext(const std::string& profile_id) const {
+    return contexts_.GetContext(profile_id);
+  }
   // Runs `body` with the profile, opening it in the engine first if needed;
   // with null when it would not open (the Swift's contexts.with).
   void WithProfile(const std::string& profile_id,
@@ -211,6 +232,11 @@ class UiApp : public AppData::Client,
   RootView* DialogRoot() override;
   // The selected tab's page, where the user may act.
   content::WebContents* PageForDialogs() override;
+
+  // ProfileContexts::Delegate:
+  void ReleasePages(const std::string& profile_id) override;
+  bool HasPages(const std::string& profile_id) const override;
+  void ShowAgain(const std::string& tab_id) override;
 
   // SleepController::Delegate:
   // The tab's page, when it has one.
@@ -271,6 +297,8 @@ class UiApp : public AppData::Client,
   // The Lock's PIN screen (L1 draws it), where interaction is allowed.
   void ShowPinScreen(model::PinEntry::Mode mode) override;
   void CheckForUpdates() override;
+  void SaveProfileSheet(const model::ProfileDraft& draft) override;
+  void CloseProfileSheet() override;
   // The tab the switcher shows selected comes forward, as Ctrl's release
   // chooses it.
   void CommitSwitcher() override;
@@ -344,9 +372,16 @@ class UiApp : public AppData::Client,
   // Another tab came forward, or the selected one's page went: the bar shows
   // its load as it stands, or hides at once.
   void ShowLoadOf(const std::optional<std::string>& tab_id);
-  // The profile sheet (N1's), for New and Edit profile: the prototype's sheet
-  // stands in.
-  void PresentProfileSheet();
+  // What an edit changed reaches the engine: a proxy applied and tested, a
+  // fingerprint set and the profile's pages made again, a history choice
+  // (the Swift's apply(_:to:)).
+  void ApplyProfileChanges(const std::string& profile_id,
+                           model::BrowserModel::ProfileChanges changes);
+  // A proxy changed: applied to the open profile, and tested for the dot.
+  void ProxyDidChange(const std::string& profile_id);
+  // A fingerprint changed: the profile's open pages start again in new
+  // renderers, which take it; the selected tab loads again.
+  void FingerprintDidChange(const std::string& profile_id);
 
   // From a page.
   void PageTitleChanged(const std::string& tab_id);
@@ -390,7 +425,15 @@ class UiApp : public AppData::Client,
   void OpenExtensionsTab(const std::string& profile_id, const GURL& url);
 
   const raw_ref<AppData> data_;
+  // Each profile's proxy, relay, and test, before the contexts, which apply
+  // it as each opens.
+  ProfileNetwork network_;
   ProfileContexts contexts_;
+  // The profile sheet: "new", or the edited profile's id, while it shows.
+  std::optional<std::string> profile_sheet_;
+  // What the data's opening does once per opening: each proxy tested, each
+  // clear still owed run (the Swift's dataKeyDidOpen).
+  bool profiles_ready_ = false;
   // The skies of the app's icon, for the Dock and Settings: made before the
   // window, which shows them, and gone after it.
   std::unique_ptr<AppIconImages> app_icons_;

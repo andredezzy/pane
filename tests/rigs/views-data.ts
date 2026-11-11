@@ -310,7 +310,9 @@ const viewsData: Scenario = async (context) => {
 		`the keys left after the lock: ${JSON.stringify(dropped.args)}`,
 	);
 
-	// The PIN brings back the tab that showed.
+	// The PIN brings back the tab that showed, its page loaded again and its
+	// title its script's (set while the page parses, which can reach the app
+	// just after its load ends, the <title>'s "Switcher" showing until then).
 	await app.send("pinKeys", { keys: PIN });
 
 	const resumed = await app.waitFor(
@@ -321,7 +323,11 @@ const viewsData: Scenario = async (context) => {
 			state.activeTabID === tabs.News &&
 			state.profiles.some((profile) =>
 				profile.tabs.some(
-					(tab) => tab.id === tabs.News && tab.loaded && !tab.loading,
+					(tab) =>
+						tab.id === tabs.News &&
+						tab.loaded &&
+						!tab.loading &&
+						tab.title === "News",
 				),
 			),
 		30_000,

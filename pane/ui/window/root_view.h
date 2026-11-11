@@ -14,6 +14,7 @@
 #include "pane/ui/extensions/extensions_menu_view.h"
 #include "pane/ui/page/find_bar_view.h"
 #include "pane/ui/panels/settings_view.h"
+#include "pane/ui/sheets/profile_sheet.h"
 #include "pane/ui/sidebar/resize_handle.h"
 #include "pane/ui/sidebar/sidebar_view.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
@@ -55,6 +56,7 @@ struct ExtensionPrompt;
 class ModalDialog;
 class PageDialog;
 class PanelFrame;
+class ProfileSheetOverlay;
 class SadTabView;
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
@@ -94,6 +96,8 @@ class RootView : public views::View {
     // The window's extensions, the app's, which outlive the view: the
     // toolbar's actions and puzzle, and the menus they open.
     raw_ptr<ExtensionsUi> extensions = nullptr;
+    // The profile sheet's Create or Save, and its closing.
+    ProfileSheet::Callbacks profile_sheet;
   };
 
   // What the content panel shows: the browser page with a tab selected,
@@ -224,10 +228,24 @@ class RootView : public views::View {
   // dialog showing takes either, unless what shows over them (the switcher,
   // a dialog over the whole window) has the keys. Whether one took it.
   bool OverlayKey(const ui::KeyEvent& event);
-  // The prototype's sheet over the page (G4): a scrim and a card with a
-  // field, keys into it and not the page, Esc and Done closing it.
-  void ShowSheet(bool show);
-  bool sheet_visible() const;
+  // The profile sheet over the window (ADR 0120): the form for a new
+  // profile, or for `profile` as it is. Its scrim fades in as its panel
+  // slides in from the window's right (Motion.sheet), and its name field
+  // takes the keys; Esc closes it, Return creates. Made hidden once the
+  // window's first frame with the profiles is out (PrepareProfileSheet), so
+  // its first showing makes nothing.
+  void ShowProfileSheet(const model::BrowserProfile* profile);
+  // It goes the way it came, and what had the keys before has them again, or
+  // the page.
+  void HideProfileSheet();
+  void PrepareProfileSheet();
+  // While it shows, not on its way out.
+  ProfileSheet* profile_sheet();
+  // Its panel, its ring included, in this view.
+  gfx::Rect ProfileSheetBounds() const;
+  // Runs `rested` once the sheet stops sliding in, at once if it is still,
+  // and never if it goes meanwhile.
+  void WhenProfileSheetRests(base::OnceClosure rested);
   // The tab switcher over the window, at once, its selection on the tab at
   // `selected`; moved, at once; gone, at once.
   void ShowSwitcher(std::vector<TabSwitcherView::Group> groups, int selected);
@@ -293,7 +311,10 @@ class RootView : public views::View {
   raw_ptr<EmptyStateView> empty_ = nullptr;
   raw_ptr<SadTabView> sad_tab_ = nullptr;
   raw_ptr<TabSwitcherView> switcher_ = nullptr;
-  raw_ptr<views::View> sheet_ = nullptr;
+  // The profile sheet over the window, once made, and what had the keys
+  // before it showed.
+  raw_ptr<ProfileSheetOverlay> profile_sheet_ = nullptr;
+  views::ViewTracker focus_before_sheet_;
   const raw_ptr<AppIconImages> images_;
   raw_ptr<SettingsView> settings_ = nullptr;
   // The picker's dialog over the window, and its content, once made.
