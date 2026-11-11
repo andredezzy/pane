@@ -132,6 +132,10 @@ void AddPaneColors(ui::ColorProvider* provider,
   set(kPaneColorAlertShadow, Black(0.25), Black(0.25));
   set(kPaneColorAlertDefaultText, White(1), White(1));
   set(kPaneColorAlertPress, Black(0.12), Black(0.12));
+  set(kPaneColorFindBarShadow, Black(0.25), Black(0.4));
+  set(kPaneColorFindBarRing, White(0), White(0.1));
+  set(kPaneColorHint, Black(0.75), Black(0.75));
+  set(kPaneColorHintText, White(1), White(1));
 }
 
 void AddPaneColorMixer() {

@@ -44,11 +44,6 @@ NS_SWIFT_UI_ACTOR
 // Every page agreed to close; the window is about to go.
 - (void)browserWindowWillClose:(PaneBrowserWindow*)window;
 
-// While a page has fullscreen, or locks the pointer or keyboard, what to tell
-// the user ("Press Esc to exit full screen"); nil when it ends.
-- (void)browserWindow:(PaneBrowserWindow*)window
-    showExclusiveAccessHint:(nullable NSString*)hint;
-
 @end
 
 // One window of the app. The engine makes the NSWindow (a Chrome Views

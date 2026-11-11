@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "pane/model/app_settings.h"
+#include "pane/ui/page/find_bar_view.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/sidebar/resize_handle.h"
 #include "pane/ui/sidebar/sidebar_view.h"
@@ -45,6 +46,7 @@ class AppIconImages;
 class AppIconPicker;
 class DialogCard;
 class EmptyStateView;
+class ExclusiveAccessHint;
 class ModalDialog;
 class PageDialog;
 class PanelFrame;
@@ -81,6 +83,9 @@ class RootView : public views::View {
     // Quit Pane?'s Cancel (Esc, a click outside it) and Quit (Return).
     base::RepeatingClosure cancel_quit;
     base::RepeatingClosure quit;
+    // Find in page's bar: what is typed, a step, and close (also a press
+    // anywhere else in the window).
+    FindBarView::Callbacks find_bar;
   };
 
   // What the content panel shows: the browser page with a tab selected,
@@ -132,6 +137,27 @@ class RootView : public views::View {
 
   void ShowPage(content::WebContents* contents);
   content::WebContents* page() const;
+  // DevTools docked to the page shown came, went, or moved their splitter:
+  // they fill the page's place, and the page sits over them where their
+  // splitter puts it (ADR 0024), its corners rounded where they meet the
+  // panel's.
+  void UpdateDevTools();
+  content::WebContents* devtools() const;
+  // Find in page's bar (ADR 0067): shown as `state` has it, over the window
+  // at its top right, while the browser page shows, with a shield under it
+  // over the rest of the window, which a press closes it from and goes
+  // nowhere else (the Swift's FindOverlay). It comes and goes at once.
+  void ShowFind(const FindBarView::State& state);
+  const FindBarView::State& find_state() const { return find_state_; }
+  // Its field takes the keys, its text selected, while it shows.
+  void FocusFind();
+  bool FindHasFocus() const;
+  // While it shows: the bar, and its card in this view, its ring included.
+  FindBarView* find_bar();
+  gfx::Rect FindBarBounds() const;
+  // The full screen's Esc hint (ADR 0025), or none for an empty one.
+  void ShowExclusiveAccessHint(const std::u16string& hint);
+  std::u16string exclusive_access_hint() const;
   void FocusAddress();
   // The page takes the keys, or the sad tab in its place.
   void FocusPage();
@@ -194,8 +220,10 @@ class RootView : public views::View {
  private:
   // The content panel's shape, where the window draws its card.
   SkPath PanelPath() const;
-  // The page's corners, as its layer rounds them.
+  // The page's corners, and docked DevTools', as their layers round them.
   void RoundPage();
+  // The find bar shows or hides for what the window shows.
+  void ShowFindPlaces();
   // The sidebar, the toolbar, and the empty state shown or hidden for what
   // the window shows.
   void ShowPlaces();
@@ -218,6 +246,8 @@ class RootView : public views::View {
   raw_ptr<ResizeHandle> resize_ = nullptr;
   raw_ptr<ToolbarView> toolbar_ = nullptr;
   raw_ptr<views::WebView> page_ = nullptr;
+  // DevTools docked to the page, under it.
+  raw_ptr<views::WebView> devtools_ = nullptr;
   raw_ptr<EmptyStateView> empty_ = nullptr;
   raw_ptr<SadTabView> sad_tab_ = nullptr;
   raw_ptr<TabSwitcherView> switcher_ = nullptr;
@@ -238,6 +268,13 @@ class RootView : public views::View {
   std::vector<raw_ptr<DialogCard>> page_dialogs_leaving_;
   raw_ptr<views::View> page_shield_ = nullptr;
   views::ViewTracker focus_before_page_dialog_;
+  // Find in page's bar on its card, the shield under it, and what it shows.
+  raw_ptr<views::View> find_shield_ = nullptr;
+  raw_ptr<DialogCard> find_card_ = nullptr;
+  raw_ptr<FindBarView> find_bar_ = nullptr;
+  FindBarView::State find_state_;
+  // The full screen's Esc hint, over everything.
+  raw_ptr<ExclusiveAccessHint> hint_ = nullptr;
   // Hands a page's dialog its Esc and Return ahead of the focused view.
   std::unique_ptr<ui::EventHandler> page_dialog_keys_;
   base::WeakPtrFactory<RootView> weak_factory_{this};

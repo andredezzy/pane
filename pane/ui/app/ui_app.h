@@ -27,6 +27,7 @@
 #include "pane/ui/app/menu_bar.h"
 #include "pane/ui/app/sleep_controller.h"
 #include "pane/ui/dialogs/page_dialogs.h"
+#include "pane/ui/page/page_context_menu.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/tabs/favicons.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
@@ -156,6 +157,14 @@ class UiApp : public AppData::Client,
   // ⌘Q (ADR 0053): Quit Pane? over the window, or, from it (⌘Q again), at
   // the PIN screen, or with no window to ask in, quitting at once.
   void ConfirmQuit();
+  // ⌘F: find in page's bar over the selected tab's page, its field taking
+  // the keys (ADR 0067), timed to its first frame.
+  void ShowFind();
+  // ⇧⌘I: DevTools for the selected tab's page, docked as they last were, or
+  // closed (ADR 0024).
+  void ToggleDevTools();
+  // The page's menu shown last, until it closes (the channel's).
+  PageContextMenus& context_menus() { return *context_menus_; }
   // The menu bar, while the app runs.
   MenuBar& menu_bar() { return *menu_bar_; }
 
@@ -241,6 +250,11 @@ class UiApp : public AppData::Client,
   void CancelSwitcher() override;
   void CancelQuit() override;
   void QuitNow() override;
+  void Find(const std::u16string& text) override;
+  void FindStep(bool forward) override;
+  void CloseFind() override;
+  void ShowContextMenu(content::RenderFrameHost& frame,
+                       const content::ContextMenuParams& params) override;
 
   // CommandRunner, for the menu bar and the window's keys alike: what the
   // Swift's menu enabled (behind the Lock, Quit and Check for Updates…
@@ -349,6 +363,8 @@ class UiApp : public AppData::Client,
   std::unique_ptr<Window> window_;
   // The page's dialogs, one at a time, the selected tab's (ADR 0021).
   std::unique_ptr<PageDialogs> dialogs_;
+  // The page's right-click menu, Chrome's own (U2).
+  std::unique_ptr<PageContextMenus> context_menus_;
   std::unique_ptr<AppEvents> events_;
   std::unique_ptr<Automation> automation_;
   // Each tab's page, by its id.

@@ -11,17 +11,11 @@
 
 #include "base/auto_reset.h"
 #include "base/functional/bind.h"
-#include "base/strings/utf_string_conversions.h"
-#include "base/timer/elapsed_timer.h"
-#include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/web_contents.h"
-#include "pane/browser/app_callback.h"
 #include "pane/browser/ui/browser_window.h"
-#import "pane/browser/ui/dialogs_internal.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
-#import "pane/public/PaneWebContents.h"
 #include "pane/ui/dialogs/javascript_dialogs.h"
 #include "pane/ui/dialogs/unresponsive_page.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
@@ -123,36 +117,13 @@ void HostedWebContentsDelegate::ShowRepostFormWarningDialog(
   JavaScriptDialogs::Get()->RunFormResubmissionDialog(source);
 }
 
+// The page's menu is the window's (pane/ui/page/page_context_menu.h):
+// Chrome's own, filtered, shown by Pane; Chrome's view shows none.
 bool HostedWebContentsDelegate::HandleContextMenu(
     content::RenderFrameHost& render_frame_host,
     const content::ContextMenuParams& params) {
-  content::WebContents* contents =
-      content::WebContents::FromRenderFrameHost(&render_frame_host);
-  TabBridge* bridge = TabBridge::FromWebContents(contents);
-  PaneWebContents* tab = bridge ? bridge->tab() : nil;
-  id<PaneWebContentsDelegate> delegate = tab.delegate;
-  if (![delegate respondsToSelector:@selector(webContents:showContextMenu:)]) {
-    return false;
-  }
-  // How long the menu takes to make, the extensions' items with it.
-  base::ElapsedTimer made;
-  PaneContextMenu* menu =
-      [[PaneContextMenu alloc] initWithParams:params frame:render_frame_host];
-  PANE_TRACE_TAB(
-      bridge, "PaneWebContentsDelegate.showContextMenu",
-      base::DictValue()
-          .Set("madeMs", made.Elapsed().InMillisecondsF())
-          .Set("x", params.x)
-          .Set("y", params.y)
-          .Set("link", params.link_url.spec())
-          .Set("editable", params.is_editable)
-          .Set("misspelled", base::UTF16ToUTF8(params.misspelled_word))
-          .Set("spellcheck", params.spellcheck_enabled)
-          .Set("suggestions",
-               static_cast<int>(params.dictionary_suggestions.size())));
-  ScopedAppCallback callback;
-  [delegate webContents:tab showContextMenu:menu];
-  return true;
+  WindowHost::Delegate* delegate = host_ ? host_->delegate() : nullptr;
+  return delegate && delegate->HandleContextMenu(render_frame_host, params);
 }
 
 void HostedWebContentsDelegate::RendererUnresponsive(

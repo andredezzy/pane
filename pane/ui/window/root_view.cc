@@ -17,6 +17,8 @@
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/dialogs/page_dialog.h"
 #include "pane/ui/interaction_log.h"
+#include "pane/ui/page/devtools.h"
+#include "pane/ui/page/exclusive_access_hint.h"
 #include "pane/ui/panels/app_icon_picker.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/view_ids.h"
@@ -171,6 +173,32 @@ class PageDialogKeys : public ui::EventHandler {
   const raw_ptr<RootView> root_;
 };
 
+// Under find in page's bar while it shows, over the rest of the window: a
+// press anywhere else closes the bar, and reaches nothing under it, nor
+// does a scroll (the Swift's FindOverlay, a clear shape over the window
+// that took the tap).
+class FindShield : public views::View {
+  METADATA_HEADER(FindShield, views::View)
+
+ public:
+  explicit FindShield(base::RepeatingClosure close) : close_(std::move(close)) {
+    GetViewAccessibility().SetIsIgnored(true);
+  }
+
+  // views::View:
+  bool OnMousePressed(const ui::MouseEvent& event) override {
+    close_.Run();
+    return true;
+  }
+  bool OnMouseWheel(const ui::MouseWheelEvent& event) override { return true; }
+
+ private:
+  base::RepeatingClosure close_;
+};
+
+BEGIN_METADATA(FindShield)
+END_METADATA
+
 // A page's dialog: its top at three eighths of the window, raised to leave
 // 16 under it, and never closer than 8 to the window's top (the Swift's
 // AlertPlacement).
@@ -212,6 +240,11 @@ RootView::RootView(Callbacks callbacks,
   toolbar_->SetPaintToLayer();
   toolbar_->layer()->SetFillsBoundsOpaquely(false);
 
+  // DevTools docked to the page, under it in its card (ADR 0024).
+  devtools_ = AddChildView(std::make_unique<views::WebView>(nullptr));
+  devtools_->SetID(kViewIdDevTools);
+  devtools_->GetViewAccessibility().SetName(u"Developer tools");
+  devtools_->SetVisible(false);
   // The page in its card, and what shows there with no tab selected.
   page_ = AddChildView(std::make_unique<views::WebView>(nullptr));
   page_->SetID(kViewIdContent);
@@ -237,6 +270,17 @@ RootView::RootView(Callbacks callbacks,
   AddPreTargetHandler(page_dialog_keys_.get());
   resize_ = AddChildView(
       std::make_unique<ResizeHandle>(std::move(callbacks_.resize)));
+  // Find in page's bar over the sidebar's edge, and its shield, under a
+  // page's dialogs and what shows over the whole window; made now, so ⌘F
+  // makes nothing.
+  find_shield_ =
+      AddChildView(std::make_unique<FindShield>(callbacks_.find_bar.close));
+  find_shield_->SetVisible(false);
+  auto find_bar = std::make_unique<FindBarView>(std::move(callbacks_.find_bar));
+  find_bar_ = find_bar.get();
+  find_card_ = AddChildView(std::make_unique<DialogCard>(
+      FindBarView::CardLook(), std::move(find_bar)));
+  find_card_->SetVisible(false);
   // Over the rest, under the profile sheet; made now, so the first frame
   // that shows it makes nothing.
   switcher_ = AddChildView(std::make_unique<TabSwitcherView>());
@@ -251,6 +295,8 @@ RootView::RootView(Callbacks callbacks,
       std::make_unique<QuitDialog>(callbacks_.cancel_quit, callbacks_.quit),
       std::move(quit), ModalDialog::Keys::kEvery));
   quit_dialog_->SetID(kViewIdQuit);
+  // The full screen's Esc hint, over everything.
+  hint_ = AddChildView(std::make_unique<ExclusiveAccessHint>());
   ShowPlaces();
 }
 
@@ -324,6 +370,9 @@ void RootView::ShowPlaces() {
   settings_->SetVisible(shows_.content == Content::kSettings &&
                         !page_fullscreen_);
   page_->SetVisible(shows_.content == Content::kPage);
+  devtools_->SetVisible(shows_.content == Content::kPage &&
+                        devtools_->web_contents());
+  ShowFindPlaces();
   InvalidateLayout();
   SchedulePaint();
 }
@@ -342,7 +391,33 @@ void RootView::ShowPage(content::WebContents* contents) {
     return;
   }
   page_->SetWebContents(contents);
+  // Another page's DevTools go, and this one's come.
+  UpdateDevTools();
   RoundPage();
+}
+
+void RootView::UpdateDevTools() {
+  content::WebContents* devtools =
+      DockedDevToolsFor(page_->web_contents(), gfx::Rect()).devtools;
+  if (devtools_->web_contents() != devtools) {
+    // They had the keys: the page takes them as they go.
+    const bool had_focus =
+        devtools_->HasFocus() ||
+        (GetFocusManager() &&
+         devtools_->Contains(GetFocusManager()->GetFocusedView()));
+    devtools_->SetWebContents(devtools);
+    if (!devtools && had_focus) {
+      FocusPage();
+    }
+  }
+  devtools_->SetVisible(devtools && shows_.content == Content::kPage);
+  RoundPage();
+  InvalidateLayout();
+  SchedulePaint();
+}
+
+content::WebContents* RootView::devtools() const {
+  return devtools_->web_contents();
 }
 
 // The corners go on the page's own layer, which comes and goes with it
@@ -351,13 +426,37 @@ void RootView::ShowPage(content::WebContents* contents) {
 // squircle within a fifth of a pixel (ADR 0057), so no mask composites the
 // page each frame. All four, as the Swift's page layer rounds them, its top
 // two under the toolbar too: the user's call over Paper's square ones, and
-// 04.7 now draws them so.
+// 04.7 now draws them so. With DevTools docked, they fill the card and take
+// its four, and the page those of the card's it meets, as the Swift's
+// rounded host clipped both.
 void RootView::RoundPage() {
+  // Only as they change: each layout reaches here.
+  const auto round = [](views::WebView* view,
+                        const gfx::RoundedCornersF& corners) {
+    if (view->holder()->GetNativeViewCornerRadii() != corners) {
+      view->holder()->SetNativeViewCornerRadii(corners);
+    }
+  };
+  const float radius = page_fullscreen_ ? 0 : kPanelLayerRadius;
+  if (devtools_->web_contents()) {
+    round(devtools_, gfx::RoundedCornersF(radius));
+  }
   if (!page_->web_contents()) {
     return;
   }
-  page_->holder()->SetNativeViewCornerRadii(
-      gfx::RoundedCornersF(page_fullscreen_ ? 0 : kPanelLayerRadius));
+  if (!devtools_->web_contents()) {
+    round(page_, gfx::RoundedCornersF(radius));
+    return;
+  }
+  const gfx::Rect place = devtools_->bounds();
+  const gfx::Rect page = page_->bounds();
+  const bool top = page.y() == place.y();
+  const bool bottom = page.bottom() == place.bottom();
+  const bool left = page.x() == place.x();
+  const bool right = page.right() == place.right();
+  round(page_, gfx::RoundedCornersF(
+                   top && left ? radius : 0, top && right ? radius : 0,
+                   bottom && right ? radius : 0, bottom && left ? radius : 0));
 }
 
 content::WebContents* RootView::page() const {
@@ -655,6 +754,62 @@ gfx::RoundedCornersF RootView::PageCorners() const {
                                : gfx::RoundedCornersF();
 }
 
+void RootView::ShowFind(const FindBarView::State& state) {
+  find_state_ = state;
+  find_bar_->SetState(state);
+  ShowFindPlaces();
+}
+
+// While the browser page shows: Settings, which takes the page's place,
+// hides it, as the Swift drew it only over the browser page.
+void RootView::ShowFindPlaces() {
+  const bool shown =
+      find_state_.visible && shows_.content != Content::kSettings;
+  if (find_card_->GetVisible() == shown) {
+    return;
+  }
+  const bool had_focus = find_bar_->field()->HasFocus();
+  find_shield_->SetVisible(shown);
+  find_card_->SetVisible(shown);
+  if (shown) {
+    find_card_->Settle(true);
+    InvalidateLayout();
+  } else if (had_focus) {
+    FocusPage();
+  }
+}
+
+void RootView::FocusFind() {
+  if (find_card_->GetVisible()) {
+    find_bar_->FocusField();
+  }
+}
+
+bool RootView::FindHasFocus() const {
+  return find_bar_->field()->HasFocus();
+}
+
+FindBarView* RootView::find_bar() {
+  return find_card_->GetVisible() ? find_bar_.get() : nullptr;
+}
+
+gfx::Rect RootView::FindBarBounds() const {
+  return find_card_->CardBounds();
+}
+
+void RootView::ShowExclusiveAccessHint(const std::u16string& hint) {
+  hint_->SetHint(hint);
+  if (!hint.empty()) {
+    // Over whatever came after it.
+    ReorderChildView(hint_, children().size());
+    InvalidateLayout();
+  }
+}
+
+std::u16string RootView::exclusive_access_hint() const {
+  return hint_->hint();
+}
+
 SkPath RootView::PanelPath() const {
   return SquirclePath(gfx::RectF(panel_bounds_),
                       page_fullscreen_ ? 0 : radius::kPanel);
@@ -695,9 +850,14 @@ void RootView::Layout(PassKey) {
                       panel_bounds_.width(), ToolbarView::kHeight);
 
   const int top = toolbar_->GetVisible() ? ToolbarView::kHeight : 0;
-  page_->SetBounds(panel_bounds_.x(), panel_bounds_.y() + top,
-                   panel_bounds_.width(),
-                   std::max(panel_bounds_.height() - top, 0));
+  // The page's place, which docked DevTools share (ADR 0024).
+  const gfx::Rect place(panel_bounds_.x(), panel_bounds_.y() + top,
+                        panel_bounds_.width(),
+                        std::max(panel_bounds_.height() - top, 0));
+  const DockedDevTools docked = DockedDevToolsFor(page_->web_contents(), place);
+  devtools_->SetBoundsRect(docked.devtools ? docked.devtools_bounds : place);
+  page_->SetBoundsRect(docked.page_bounds);
+  RoundPage();
 
   empty_->SetBoundsRect(panel_bounds_);
   settings_->SetBoundsRect(panel_bounds_);
@@ -706,6 +866,18 @@ void RootView::Layout(PassKey) {
   page_shield_->SetBoundsRect(page_->bounds());
   switcher_->SetBoundsRect(GetLocalBounds());
   PlacePageDialogs();
+  // The find bar 64 down the window and 24 in from its right.
+  find_shield_->SetBoundsRect(GetLocalBounds());
+  if (find_card_->GetVisible() &&
+      find_card_->Place(gfx::RectF(
+          width() - FindBarView::kRightInset - FindBarView::kWidth,
+          FindBarView::kTop, FindBarView::kWidth, FindBarView::kHeight))) {
+    find_card_->Settle(true);
+  }
+  // The hint 24 down, in the window's middle.
+  const gfx::Size hint = hint_->GetPreferredSize();
+  hint_->SetBounds((width() - hint.width()) / 2, ExclusiveAccessHint::kTop,
+                   hint.width(), hint.height());
 
   if (sheet_) {
     sheet_->SetBoundsRect(GetLocalBounds());

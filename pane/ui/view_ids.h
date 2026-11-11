@@ -99,6 +99,18 @@ enum ViewId : int {
   kViewIdDialog,
   kViewIdDialogField,
   kViewIdDialogButton,
+  // Find in page's bar (ADR 0067), as the Swift named it, its field and
+  // count, and its chevrons and close.
+  kViewIdFind,
+  kViewIdFindField,
+  kViewIdFindCount,
+  kViewIdFindPrevious,
+  kViewIdFindNext,
+  kViewIdFindClose,
+  // DevTools docked beside the page (ADR 0024).
+  kViewIdDevTools,
+  // The full screen's Esc hint (ADR 0025).
+  kViewIdExclusiveAccessHint,
 
   kViewIdsEnd,
 };

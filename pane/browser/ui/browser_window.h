@@ -20,7 +20,6 @@
 #include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
-#include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -163,44 +162,6 @@ class HostedAutofillBubbleHandler : public autofill::AutofillBubbleHandler {
       content::WebContents* web_contents,
       autofill::WalletReminderNoticeBubbleController* controller,
       bool is_user_gesture) override;
-};
-
-class HostedFindBar : public FindBar {
- public:
-  HostedFindBar();
-  ~HostedFindBar() override;
-
-  FindBarController* GetFindBarController() const override;
-  void SetFindBarController(FindBarController* controller) override;
-  void Show(bool animate, bool focus) override;
-  void Hide(bool animate) override;
-  void SetFocusAndSelection() override {}
-  void ClearResults(
-      const find_in_page::FindNotificationDetails& results) override {}
-  void StopAnimation() override {}
-  void MoveWindowIfNecessary() override {}
-  void SetFindTextAndSelectedRange(const std::u16string& find_text,
-                                   const gfx::Range& selected_range) override;
-  std::u16string_view GetFindText() const override;
-  gfx::Range GetSelectedRange() const override;
-  void UpdateUIForFindResult(
-      const find_in_page::FindNotificationDetails& result,
-      const std::u16string& find_text) override {}
-  void AudibleAlert() override {}
-  bool IsFindBarVisible() const override;
-  void RestoreSavedFocus() override {}
-  bool HasGlobalFindPasteboard() const override;
-  void UpdateFindBarForChangedWebContents() override {}
-  bool CanPopulateFromSelectedText() override;
-  const FindBarTesting* GetFindBarTesting() const override;
-  bool HasFocus() const override;
-  void CloseOverlappingBubbles() override {}
-  views::Widget* GetHostWidget() override;
-
- private:
-  raw_ptr<FindBarController> controller_ = nullptr;
-  std::u16string find_text_;
-  bool visible_ = false;
 };
 
 class HostedBrowserWindow : public BrowserWindow,

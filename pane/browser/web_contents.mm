@@ -6,15 +6,12 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/strings/sys_string_conversions.h"
-#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/printing/print_view_manager_common.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/favicon/content/content_favicon_driver.h"
-#include "components/find_in_page/find_tab_helper.h"
-#include "components/find_in_page/find_types.h"
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/host_zoom_map.h"
@@ -51,7 +48,6 @@
   base::WeakPtr<content::WebContents> _contents;
   __weak id<PaneWebContentsDelegate> _delegate;
   // The last text searched, so a repeated search moves to the next match.
-  std::u16string _findText;
 }
 
 - (instancetype)initWithContents:(content::WebContents*)contents {
@@ -214,37 +210,7 @@
   }
 }
 
-// MARK: Find, zoom, focus
-
-- (void)findText:(NSString*)text forward:(BOOL)forward {
-  PANE_TRACE_CALL("PaneWebContents.findText",
-                  base::DictValue()
-                      .Set("text", base::SysNSStringToUTF8(text))
-                      .Set("forward", static_cast<bool>(forward)));
-  auto* finder =
-      _contents ? find_in_page::FindTabHelper::FromWebContents(_contents.get())
-                : nullptr;
-  if (!finder) {
-    return;
-  }
-  pane::TabBridge::GetOrCreate(_contents.get())->Observe();
-  std::u16string query = base::SysNSStringToUTF16(text);
-  // A new query starts at the first match; the same one moves on.
-  const bool find_next = query == _findText;
-  _findText = query;
-  finder->StartFinding(query, forward, /*case_sensitive=*/false,
-                       /*find_match=*/find_next || !query.empty());
-}
-
-- (void)stopFinding {
-  PANE_TRACE_CALL("PaneWebContents.stopFinding");
-  _findText.clear();
-  if (auto* finder = _contents ? find_in_page::FindTabHelper::FromWebContents(
-                                     _contents.get())
-                               : nullptr) {
-    finder->StopFinding(find_in_page::SelectionAction::kKeep);
-  }
-}
+// MARK: Zoom, focus
 
 - (void)zoomIn {
   [self zoom:content::PAGE_ZOOM_IN name:"PaneWebContents.zoomIn"];
@@ -299,41 +265,6 @@
   }
 }
 
-- (BOOL)isDevToolsOpen {
-  return _contents &&
-         DevToolsWindow::GetInstanceForInspectedWebContents(_contents.get());
-}
-
-- (NSRect)devToolsPageBounds {
-  pane::TabBridge* bridge =
-      _contents ? pane::TabBridge::FromWebContents(_contents.get()) : nullptr;
-  if (!bridge) {
-    return NSZeroRect;
-  }
-  const gfx::Rect& bounds = bridge->devtools_page_bounds();
-  return NSMakeRect(bounds.x(), bounds.y(), bounds.width(), bounds.height());
-}
-
-- (void)showDevTools {
-  PANE_TRACE_CALL("PaneWebContents.showDevTools");
-  if (_contents) {
-    DevToolsWindow::OpenDevToolsWindow(
-        _contents.get(), DevToolsToggleAction::Show(),
-        DevToolsOpenedByAction::kMainMenuOrMainShortcut);
-  }
-}
-
-- (void)closeDevTools {
-  PANE_TRACE_CALL("PaneWebContents.closeDevTools");
-  // Closes the DevTools page as its own close button does.
-  content::WebContents* devtools =
-      _contents ? DevToolsWindow::GetInTabWebContents(_contents.get(), nullptr)
-                : nullptr;
-  if (devtools) {
-    devtools->ClosePage();
-  }
-}
-
 - (void)close {
   PANE_TRACE_CALL("PaneWebContents.close");
   [self closeRunningBeforeUnload:YES];
@@ -385,7 +316,6 @@
 
 - (void)bridgeDidMoveToContents:(content::WebContents*)contents {
   _contents = contents->GetWeakPtr();
-  _findText.clear();
 }
 
 - (void)bridgeDidChangeTitle {
@@ -438,23 +368,6 @@
   PANE_TRACE_CALLBACK("PaneWebContentsDelegate.didUpdateFavicon");
   if ([_delegate respondsToSelector:@selector(webContents:didUpdateFavicon:)]) {
     [_delegate webContents:self didUpdateFavicon:favicon];
-  }
-}
-
-- (void)bridgeDidFindMatches:(NSInteger)count
-                 activeMatch:(NSInteger)activeMatch
-                       final:(BOOL)final {
-  PANE_TRACE_CALLBACK("PaneWebContentsDelegate.didFindMatches",
-                      base::DictValue()
-                          .Set("count", static_cast<int>(count))
-                          .Set("activeMatch", static_cast<int>(activeMatch))
-                          .Set("final", static_cast<bool>(final)));
-  if ([_delegate respondsToSelector:@selector(webContents:didFindMatches:
-                                              activeMatch:final:)]) {
-    [_delegate webContents:self
-            didFindMatches:count
-               activeMatch:activeMatch
-                     final:final];
   }
 }
 

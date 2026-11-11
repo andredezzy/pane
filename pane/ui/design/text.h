@@ -5,13 +5,16 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "ui/color/color_variant.h"
 #include "ui/gfx/font.h"
+#include "ui/views/view.h"
 
 namespace gfx {
 class FontList;
-}
+class RenderText;
+}  // namespace gfx
 
 namespace views {
 class Label;
@@ -85,6 +88,57 @@ void StyleLabel(views::Label& label,
 std::unique_ptr<views::Label> MakeLabel(const std::u16string& text,
                                         const TextStyle& style,
                                         ui::ColorVariant color);
+
+// A count in Pane's text whose digits each sit in a cell as wide as the
+// font's figures (its zero), centered in it, so it holds still as it counts,
+// as SwiftUI's .monospacedDigit() held it: the find bar's match count, the one
+// text that keeps its tabular digits (Paper 10.6, option 1). Views shapes
+// with HarfBuzz's default features alone (render_text_harfbuzz.cc), so the
+// cells are Pane's, with no ui/gfx edit; what isn't a digit takes its own
+// width, and the kerning beside a digit goes, as everywhere (ADR 0060).
+class DigitCellsLabel : public views::View {
+  METADATA_HEADER(DigitCellsLabel, views::View)
+
+ public:
+  DigitCellsLabel(const TextStyle& style, ui::ColorVariant color);
+  DigitCellsLabel(const DigitCellsLabel&) = delete;
+  DigitCellsLabel& operator=(const DigitCellsLabel&) = delete;
+  ~DigitCellsLabel() override;
+
+  void SetText(const std::u16string& text);
+  const std::u16string& text() const { return text_; }
+  void SetColor(ui::ColorVariant color);
+
+  // views::View:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
+  void OnPaint(gfx::Canvas* canvas) override;
+  void OnThemeChanged() override;
+
+ private:
+  // Each character's own text, laid out once per text, and where it starts
+  // in the label, in points.
+  struct Glyph {
+    Glyph();
+    Glyph(Glyph&&);
+    Glyph& operator=(Glyph&&);
+    ~Glyph();
+
+    std::unique_ptr<gfx::RenderText> text;
+    float x = 0;
+    float width = 0;
+  };
+
+  void Shape();
+  // Each character's text in the color, as the view's provider resolves it.
+  void ApplyColor();
+
+  const TextStyle style_;
+  ui::ColorVariant color_;
+  std::u16string text_;
+  std::vector<Glyph> glyphs_;
+  float width_ = 0;
+};
 
 }  // namespace pane
 

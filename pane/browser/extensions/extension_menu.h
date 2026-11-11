@@ -31,16 +31,12 @@ class Origin;
 
 namespace pane {
 
-// The items extensions add to a context menu (chrome.contextMenus), laid out
-// by Chrome's ContextMenuMatcher as Chrome's own menus lay them out: a page's
-// right-click menu, or an action's.
+// The items extensions add to an action's context menu (chrome.contextMenus),
+// laid out by Chrome's ContextMenuMatcher as Chrome's own menu lays them out;
+// a page's right-click menu is Chrome's own now (pane/ui/page). The Swift's
+// extensions menu reads it until X1.
 class ExtensionMenu : public ui::SimpleMenuModel::Delegate {
  public:
-  // Every extension's items for a right-click with `params`, as Chrome's
-  // RenderViewContextMenu.
-  static std::unique_ptr<ExtensionMenu> ForPage(
-      content::BrowserContext* context,
-      const content::ContextMenuParams& params);
   // `extension`'s items in its action's context, as Chrome's
   // ExtensionContextMenuModel: no page was clicked.
   static std::unique_ptr<ExtensionMenu> ForAction(

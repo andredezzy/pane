@@ -20,7 +20,11 @@ namespace pane {
 // frame, up to the system's menu, which draws in a window of its own), the
 // App icon picker opened and a sky chosen in it, Quit Pane? asked by ⌘Q,
 // and a page's dialog and a permission prompt shown as the page asks, from
-// Chrome's hook (ADR 0021).
+// Chrome's hook (ADR 0021); find in page's bar shown by ⌘F, and a step to
+// another match (Return, a chevron) to the frame showing its count (ADR
+// 0067); the page's context menu, from Chrome's hook to the system's menu
+// tracking (the menu draws in a window of its own); and DevTools opened, to
+// the frame that shows their first paint (ADR 0024).
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -38,6 +42,10 @@ enum class Interaction {
   kOpenQuitDialog,
   kShowPageDialog,
   kShowPermissionPrompt,
+  kShowFindBar,
+  kFindStep,
+  kShowContextMenu,
+  kOpenDevTools,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame

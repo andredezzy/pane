@@ -16,8 +16,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "components/favicon/content/content_favicon_driver.h"
-#include "components/find_in_page/find_notification_details.h"
-#include "components/find_in_page/find_tab_helper.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
@@ -77,13 +75,6 @@ void TabBridge::StopObservingHelpers() {
     }
     observing_favicon_ = false;
   }
-  if (observing_find_) {
-    if (auto* finder =
-            find_in_page::FindTabHelper::FromWebContents(web_contents())) {
-      finder->RemoveObserver(this);
-    }
-    observing_find_ = false;
-  }
 }
 
 PaneWebContents* TabFor(content::WebContents* web_contents) {
@@ -103,13 +94,6 @@ void TabBridge::Observe() {
             favicon::ContentFaviconDriver::FromWebContents(web_contents())) {
       driver->AddObserver(this);
       observing_favicon_ = true;
-    }
-  }
-  if (!observing_find_) {
-    if (auto* finder =
-            find_in_page::FindTabHelper::FromWebContents(web_contents())) {
-      finder->AddObserver(this);
-      observing_find_ = true;
     }
   }
 }
@@ -292,23 +276,6 @@ void TabBridge::OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
   }
   ScopedAppCallback callback;
   [tab_ bridgeDidUpdateFavicon:image.ToNSImage()];
-}
-
-void TabBridge::OnFindResultAvailable(content::WebContents* web_contents) {
-  auto* finder = find_in_page::FindTabHelper::FromWebContents(web_contents);
-  if (!finder) {
-    return;
-  }
-  const find_in_page::FindNotificationDetails& result = finder->find_result();
-  ScopedAppCallback callback;
-  [tab_ bridgeDidFindMatches:result.number_of_matches()
-                 activeMatch:result.active_match_ordinal()
-                       final:result.final_update()];
-}
-
-void TabBridge::OnFindTabHelperDestroyed(find_in_page::FindTabHelper* helper) {
-  helper->RemoveObserver(this);
-  observing_find_ = false;
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(TabBridge);

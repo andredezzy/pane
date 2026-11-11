@@ -35,7 +35,6 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
-#include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
@@ -49,12 +48,12 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/app_callback.h"
+#include "pane/browser/engine_trace.h"
 #include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extension_shortcuts.h"
-#include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/window_host.h"
 #import "pane/public/PaneBrowserWindow.h"
-#import "pane/public/PaneWebContents.h"
+#include "pane/ui/page/find_in_page.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
@@ -263,50 +262,33 @@ HostedAutofillBubbleHandler::ShowSaveIbanConfirmationBubble(
                                     namespace {
 
   // Chrome docks DevTools in the BrowserView, and Pane's Browsers have none:
-  // the app places the DevTools page beside the inspected tab instead.
+  // the window places the DevTools page beside the inspected tab instead
+  // (pane/ui/window/root_view.h), told by the one edit ADR 0024 takes, its
+  // UpdateDevtools made virtual.
   class DockingDevtoolsController final : public DevtoolsUIController {
    public:
-    using DevtoolsUIController::DevtoolsUIController;
+    DockingDevtoolsController(BrowserWindowInterface* browser,
+                              base::WeakPtr<WindowHost> host)
+        : DevtoolsUIController(
+              browser,
+              std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>()),
+          host_(std::move(host)) {}
 
     bool UpdateDevtools(content::WebContents* inspected,
-                        bool update_devtools_web_contents) override;
+                        bool update_devtools_web_contents) override {
+      PANE_TRACE("callback", "PaneWebContentsDelegate.didChangeDevTools",
+                 base::DictValue().Set(
+                     "open", inspected && DevToolsWindow::GetInTabWebContents(
+                                              inspected, nullptr) != nullptr));
+      if (host_) {
+        host_->DevToolsChanged(inspected);
+      }
+      return false;
+    }
+
+   private:
+    base::WeakPtr<WindowHost> host_;
   };
-
-  void UpdateDockedDevTools(content::WebContents * inspected) {
-    TabBridge* bridge = TabBridge::FromWebContents(inspected);
-    if (!bridge) {
-      return;
-    }
-    DevToolsContentsResizingStrategy strategy;
-    content::WebContents* devtools =
-        DevToolsWindow::GetInTabWebContents(inspected, &strategy);
-    PaneWebContents* devtools_tab =
-        devtools ? TabBridge::GetOrCreate(devtools)->tab() : nil;
-    // Chrome lays the page over the DevTools view at these bounds (the
-    // splitter); empty when DevTools covers it.
-    const gfx::Rect page_bounds =
-        strategy.hide_inspected_contents() ? gfx::Rect() : strategy.bounds();
-    if (devtools_tab == bridge->devtools() &&
-        page_bounds == bridge->devtools_page_bounds()) {
-      return;
-    }
-    bridge->set_devtools(devtools_tab, page_bounds);
-    PANE_TRACE_TAB(bridge, "PaneWebContentsDelegate.didChangeDevTools",
-                   base::DictValue().Set("open", devtools != nullptr));
-    PaneWebContents* tab = bridge->tab();
-    id<PaneWebContentsDelegate> delegate = tab.delegate;
-    if ([delegate
-            respondsToSelector:@selector(webContents:didChangeDevTools:)]) {
-      ScopedAppCallback callback;
-      [delegate webContents:tab didChangeDevTools:devtools_tab];
-    }
-  }
-
-  bool DockingDevtoolsController::UpdateDevtools(
-      content::WebContents * inspected, bool update_devtools_web_contents) {
-    UpdateDockedDevTools(inspected);
-    return false;
-  }
 
   std::set<const BrowserWindow*>& LiveWindows() {
     static base::NoDestructor<std::set<const BrowserWindow*>> windows;
@@ -379,9 +361,8 @@ void HostedBrowserWindow::AttachBrowser(Browser* browser) {
   autofill_bubble_handler_registration_.emplace(
       browser->GetUnownedUserDataHost(), autofill_bubble_handler_);
   location_bar_->set_browser(browser);
-  devtools_ui_controller_ = std::make_unique<DockingDevtoolsController>(
-      browser,
-      std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>());
+  devtools_ui_controller_ =
+      std::make_unique<DockingDevtoolsController>(browser, host_);
   extension_shortcuts_ = std::make_unique<ExtensionShortcuts>(
       browser->GetProfile(), TabListInterface::From(browser));
 }
@@ -441,6 +422,12 @@ namespace {
 void RequestShow(WindowHost* host, bool active) {
   NSWindow* window = host ? host->ns_window() : nil;
   if (!window || window.visible) {
+    return;
+  }
+  // Pane's Views windows show as Pane shows them (in front only where it may
+  // take the front).
+  if (host->delegate()) {
+    host->delegate()->ShowRequested(active);
     return;
   }
   if (active) {
@@ -695,52 +682,15 @@ bool HostedBrowserWindow::HandleKeyboardEvent(
   return [NSApp.mainMenu performKeyEquivalent:ns_event];
 }
 
+// Find in page is the window's (pane/ui/page/find_in_page.h), or, in a
+// window with no bar of its own, one that shows nowhere.
 std::unique_ptr<FindBar> HostedBrowserWindow::CreateFindBar() {
-  return std::make_unique<HostedFindBar>();
-}
-
-HostedFindBar::HostedFindBar() = default;
-HostedFindBar::~HostedFindBar() = default;
-FindBarController* HostedFindBar::GetFindBarController() const {
-  return controller_;
-}
-void HostedFindBar::SetFindBarController(FindBarController* controller) {
-  controller_ = controller;
-}
-void HostedFindBar::Show(bool animate, bool focus) {
-  visible_ = true;
-}
-void HostedFindBar::Hide(bool animate) {
-  visible_ = false;
-}
-void HostedFindBar::SetFindTextAndSelectedRange(
-    const std::u16string& find_text,
-    const gfx::Range& selected_range) {
-  find_text_ = find_text;
-}
-std::u16string_view HostedFindBar::GetFindText() const {
-  return find_text_;
-}
-gfx::Range HostedFindBar::GetSelectedRange() const {
-  return gfx::Range();
-}
-bool HostedFindBar::IsFindBarVisible() const {
-  return visible_;
-}
-bool HostedFindBar::HasGlobalFindPasteboard() const {
-  return true;
-}
-bool HostedFindBar::CanPopulateFromSelectedText() {
-  return true;
-}
-const FindBarTesting* HostedFindBar::GetFindBarTesting() const {
-  return nullptr;
-}
-bool HostedFindBar::HasFocus() const {
-  return false;
-}
-views::Widget* HostedFindBar::GetHostWidget() {
-  return nullptr;
+  if (WindowHost::Delegate* delegate = host_ ? host_->delegate() : nullptr) {
+    if (std::unique_ptr<FindBar> bar = delegate->CreateFindBar(browser_)) {
+      return bar;
+    }
+  }
+  return std::make_unique<FindInPage>(nullptr, *browser_);
 }
 
 web_modal::WebContentsModalDialogHost*

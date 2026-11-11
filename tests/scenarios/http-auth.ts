@@ -21,6 +21,10 @@ const httpAuth: Scenario = async (context) => {
 	await app.send("reload");
 	await waitForSheet(app, "authentication");
 
+	// The card grows from 0.97 as it comes (Motion.panel, 0.15 s), and its
+	// frames take that scale: measured once it has.
+	await Bun.sleep(250);
+
 	// Both fields at their full width, and a picture of the dialog, drawn by
 	// the app, not captured from the screen: macOS's AutoFill can float a
 	// one-time code from the user's Messages over the field.

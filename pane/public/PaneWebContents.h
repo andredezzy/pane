@@ -8,7 +8,6 @@
 #import "PaneExport.h"
 
 @class PaneBrowserContext;
-@class PaneContextMenu;
 @class PaneWebContents;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -43,29 +42,14 @@ NS_SWIFT_UI_ACTOR
 // canGoBack / canGoForward may have changed.
 - (void)webContentsDidChangeNavigationState:(PaneWebContents*)webContents;
 
-// Find in page results; `final` is the last update for the current search.
-- (void)webContents:(PaneWebContents*)webContents
-     didFindMatches:(NSInteger)count
-        activeMatch:(NSInteger)activeMatch
-              final:(BOOL)final;
-
 // The page's renderer is gone; the page shows nothing until reloaded.
 - (void)webContents:(PaneWebContents*)webContents
     rendererDidTerminate:(PaneRendererTermination)termination;
-
-// A right-click in the page. Not implemented: Chrome's own menu.
-- (void)webContents:(PaneWebContents*)webContents
-    showContextMenu:(PaneContextMenu*)menu;
 
 // Video picture-in-picture started or ended. The floating player is
 // Chromium's own window.
 - (void)webContents:(PaneWebContents*)webContents
     didChangePictureInPicture:(BOOL)active;
-
-// DevTools docked to this tab appeared (`devTools` is its page, to show
-// with this one at devToolsPageBounds over it), moved, or went away (nil).
-- (void)webContents:(PaneWebContents*)webContents
-    didChangeDevTools:(nullable PaneWebContents*)devTools;
 
 @end
 
@@ -116,11 +100,6 @@ NS_SWIFT_UI_ACTOR
 - (void)reload;
 - (void)stopLoading;
 
-// Finds `text`, moving to the next (or previous) match on repeated calls
-// with the same text. Results arrive through the delegate.
-- (void)findText:(NSString*)text forward:(BOOL)forward;
-- (void)stopFinding;
-
 - (void)zoomIn;
 - (void)zoomOut;
 - (void)resetZoom;
@@ -133,15 +112,6 @@ NS_SWIFT_UI_ACTOR
 
 // Prints with the system print panel.
 - (void)print NS_SWIFT_NAME(printPage());
-
-// DevTools for this tab, docked beside it (see the delegate).
-@property(readonly, getter=isDevToolsOpen) BOOL devToolsOpen;
-// While DevTools are docked, where this page sits over the DevTools page, in
-// its coordinates (origin at the top left); empty while DevTools cover it.
-// The delegate hears didChangeDevTools: whenever it moves.
-@property(readonly) NSRect devToolsPageBounds;
-- (void)showDevTools;
-- (void)closeDevTools;
 
 // Closes the tab, running the page's beforeunload first: the page may ask to
 // stay (a JavaScript dialog). The delegate hears didRemoveTab when it goes.

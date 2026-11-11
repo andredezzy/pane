@@ -108,6 +108,22 @@ std::string_view ViewIdName(int id) {
       return "pane.dialog.field";
     case kViewIdDialogButton:
       return "pane.dialog.button";
+    case kViewIdFind:
+      return "pane.find";
+    case kViewIdFindField:
+      return "pane.find.field";
+    case kViewIdFindCount:
+      return "pane.find.count";
+    case kViewIdFindPrevious:
+      return "pane.find.previous";
+    case kViewIdFindNext:
+      return "pane.find.next";
+    case kViewIdFindClose:
+      return "pane.find.close";
+    case kViewIdDevTools:
+      return "pane.devtools";
+    case kViewIdExclusiveAccessHint:
+      return "pane.exclusiveAccessHint";
     default:
       return std::string_view();
   }

@@ -8,8 +8,10 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/ui/after_frame.h"
@@ -165,6 +167,12 @@ void Window::Open() {
                                               base::Unretained(controller));
   callbacks.quit =
       base::BindRepeating(&Controller::QuitNow, base::Unretained(controller));
+  callbacks.find_bar.find =
+      base::BindRepeating(&Controller::Find, base::Unretained(controller));
+  callbacks.find_bar.step =
+      base::BindRepeating(&Controller::FindStep, base::Unretained(controller));
+  callbacks.find_bar.close =
+      base::BindRepeating(&Controller::CloseFind, base::Unretained(controller));
   auto root = std::make_unique<RootView>(std::move(callbacks),
                                          &controller->LoadProgress(),
                                          &controller->AppIcons());
@@ -247,6 +255,8 @@ void Window::ShowTab(content::WebContents* contents, bool chosen) {
     // The page has the keyboard, as a tab chosen in Chrome does.
     root_->FocusPage();
   }
+  // The tab's own find session, or none (Chrome's FindBarController).
+  ShowFind();
   UpdateTitleAfterFrame();
   Refresh();
 }
@@ -258,6 +268,7 @@ void Window::ShowNoPage() {
   // The title follows the frame that answers the input, as ShowTab's does:
   // AppKit lays its hidden title bar out again for each title.
   root_->ShowPage(nullptr);
+  ShowFind();
   UpdateTitleAfterFrame();
   Refresh();
 }
@@ -267,7 +278,29 @@ void Window::ClearPage() {
     return;
   }
   root_->ShowPage(nullptr);
+  ShowFind();
   UpdateTitle();
+}
+
+FindInPage* Window::ShownFind() const {
+  content::WebContents* page = selected();
+  BrowserWindowInterface* browser =
+      page ? GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(page)
+           : nullptr;
+  FindInPage* find = FindInPage::From(browser);
+  // Its controller finds in the Browser's active tab, which the window shows.
+  return find && find->GetFindBarController() &&
+                 find->GetFindBarController()->web_contents() == page
+             ? find
+             : nullptr;
+}
+
+void Window::ShowFind() {
+  if (!root_) {
+    return;
+  }
+  const FindInPage* find = ShownFind();
+  root_->ShowFind(find ? find->state() : FindBarView::State());
 }
 
 content::WebContents* Window::selected() const {
@@ -404,6 +437,68 @@ void Window::OnWidgetShowStateChanged(views::Widget* widget) {
   if (content::WebContents* page = selected(); page && page_fullscreen()) {
     page->ExitFullscreen(/*will_cause_resize=*/true);
   }
+}
+
+void Window::ShowExclusiveAccessHint(const std::u16string& hint) {
+  if (root_) {
+    root_->ShowExclusiveAccessHint(hint);
+  }
+}
+
+std::unique_ptr<FindBar> Window::CreateFindBar(Browser* browser) {
+  return std::make_unique<FindInPage>(weak_factory_.GetWeakPtr(), *browser);
+}
+
+// At each step of DevTools' splitter too: the page and DevTools are laid out
+// again, and nothing else of the window's changes.
+void Window::DevToolsChanged(content::WebContents* inspected) {
+  if (root_ && inspected && selected() == inspected) {
+    root_->UpdateDevTools();
+  }
+}
+
+bool Window::HandleContextMenu(content::RenderFrameHost& frame,
+                               const content::ContextMenuParams& params) {
+  controller_->ShowContextMenu(frame, params);
+  return true;
+}
+
+void Window::ShowRequested(bool active) {
+  Show(active);
+}
+
+void Window::FindChanged(FindInPage* find) {
+  if (root_ && find == ShownFind()) {
+    root_->ShowFind(find->state());
+  }
+}
+
+void Window::FocusFind(FindInPage* find) {
+  if (root_ && find == ShownFind()) {
+    root_->FocusFind();
+  }
+}
+
+// The bar closed: the page takes the keys back, as the Swift's closeFind
+// gave them, unless they went elsewhere meanwhile.
+void Window::FindClosed(FindInPage* find) {
+  if (!root_ || find != ShownFind()) {
+    return;
+  }
+  views::FocusManager* focus = widget() ? widget()->GetFocusManager() : nullptr;
+  const views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+  if (!focused || root_->FindHasFocus() ||
+      focused->GetID() == kViewIdFindClose) {
+    root_->FocusPage();
+  }
+}
+
+bool Window::FindHasFocus(const FindInPage* find) const {
+  return root_ && find == ShownFind() && root_->FindHasFocus();
+}
+
+::ui::Compositor* Window::FindCompositor() {
+  return compositor();
 }
 
 void Window::WindowWillClose() {

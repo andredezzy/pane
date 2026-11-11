@@ -14,12 +14,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "components/favicon/core/favicon_driver_observer.h"
-#include "components/find_in_page/find_result_observer.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "pane/browser/engine_trace.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/gfx/geometry/rect.h"
 
 @class PaneWebContents;
 
@@ -36,7 +34,6 @@ PaneWebContents* TabFor(content::WebContents* web_contents);
 
 class TabBridge : public content::WebContentsObserver,
                   public favicon::FaviconDriverObserver,
-                  public find_in_page::FindResultObserver,
                   public content::WebContentsUserData<TabBridge> {
  public:
   TabBridge(const TabBridge&) = delete;
@@ -50,7 +47,7 @@ class TabBridge : public content::WebContentsObserver,
   PaneWebContents* tab() const { return tab_; }
 
   // Starts the observers that need the tab helpers Chrome attaches when the
-  // tab joins a tab strip (favicons, find in page).
+  // tab joins a tab strip (favicons).
   void Observe();
 
   // A discarded page (Chrome's empty stand-in for it) loads again: the app
@@ -65,17 +62,6 @@ class TabBridge : public content::WebContentsObserver,
 
   // Chrome's tab id: stable for the tab's life, and the id extensions see.
   int tab_id() const;
-
-  // DevTools docked to this tab, and where the page sits over them, as last
-  // told to the app.
-  PaneWebContents* devtools() const { return devtools_; }
-  const gfx::Rect& devtools_page_bounds() const {
-    return devtools_page_bounds_;
-  }
-  void set_devtools(PaneWebContents* devtools, const gfx::Rect& page_bounds) {
-    devtools_ = devtools;
-    devtools_page_bounds_ = page_bounds;
-  }
 
   // Use through PANE_TRACE_TAB, which builds `args` only while tracing.
   void TraceCallback(std::string_view name, base::DictValue args = {});
@@ -107,10 +93,6 @@ class TabBridge : public content::WebContentsObserver,
                         bool icon_url_changed,
                         const gfx::Image& image) override;
 
-  // find_in_page::FindResultObserver:
-  void OnFindResultAvailable(content::WebContents* web_contents) override;
-  void OnFindTabHelperDestroyed(find_in_page::FindTabHelper* helper) override;
-
  private:
   friend class content::WebContentsUserData<TabBridge>;
   explicit TabBridge(content::WebContents* contents);
@@ -124,12 +106,9 @@ class TabBridge : public content::WebContentsObserver,
   void StopObservingHelpers();
 
   PaneWebContents* __strong tab_;
-  PaneWebContents* __weak devtools_;
-  gfx::Rect devtools_page_bounds_;
   std::optional<WindowOpenDisposition> open_disposition_;
   base::WeakPtr<content::WebContents> open_source_;
   bool observing_favicon_ = false;
-  bool observing_find_ = false;
   base::WeakPtrFactory<TabBridge> weak_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();

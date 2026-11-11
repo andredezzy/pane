@@ -14,6 +14,7 @@
 #include "pane/model/app_settings.h"
 #include "pane/model/pin_entry.h"
 #include "pane/ui/app/commands.h"
+#include "pane/ui/page/find_in_page.h"
 #include "pane/ui/window/root_view.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
@@ -44,6 +45,7 @@ class AppIconImages;
 // and Browsers go and the tabs stay the app's (ADR 0016); opened again, it is
 // a new widget, shown as the app has it.
 class Window : public WindowHost::Delegate,
+               public FindInPage::Host,
                public ui::AcceleratorTarget,
                public views::ViewObserver,
                public views::WidgetObserver {
@@ -115,6 +117,16 @@ class Window : public WindowHost::Delegate,
     // Return.
     virtual void CancelQuit() = 0;
     virtual void QuitNow() = 0;
+
+    // Find in page's bar: what is typed in it, a step (Return, a chevron),
+    // and close (Esc, its close, a press anywhere else in the window).
+    virtual void Find(const std::u16string& text) = 0;
+    virtual void FindStep(bool forward) = 0;
+    virtual void CloseFind() = 0;
+    // A right-click in a page of the window's: the page's menu, Chrome's
+    // own (U2), shown for the selected tab's page.
+    virtual void ShowContextMenu(content::RenderFrameHost& frame,
+                                 const content::ContextMenuParams& params) = 0;
 
     // Settings: a choice in its menus, as the settings take it; the App icon
     // row's press, a sky in the picker it opens, and the picker's Done; the
@@ -198,6 +210,8 @@ class Window : public WindowHost::Delegate,
 
   // ⌘L: the address field, its text selected.
   void FocusAddress();
+  // Find in page for the page shown, once Chrome's controller has made it.
+  FindInPage* ShownFind() const;
   // The sidebar's rows, and the rest of what shows, again from the app.
   void Refresh();
   // The sidebar at `width`, a step of a drag of its edge, laid out at once.
@@ -216,6 +230,12 @@ class Window : public WindowHost::Delegate,
                         content::WebContents* contents) override;
   void FullscreenChanged(content::WebContents* contents,
                          bool fullscreen) override;
+  void ShowExclusiveAccessHint(const std::u16string& hint) override;
+  std::unique_ptr<FindBar> CreateFindBar(Browser* browser) override;
+  void DevToolsChanged(content::WebContents* inspected) override;
+  bool HandleContextMenu(content::RenderFrameHost& frame,
+                         const content::ContextMenuParams& params) override;
+  void ShowRequested(bool active) override;
   void WindowWillClose() override;
   gfx::Rect PageBounds() const override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
@@ -223,6 +243,13 @@ class Window : public WindowHost::Delegate,
   bool HandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) override;
   views::NativeWidget* CreateNativeWidget(views::Widget* widget) override;
   int NonClientHitTest(const gfx::Point& point) override;
+
+  // FindInPage::Host:
+  void FindChanged(FindInPage* find) override;
+  void FocusFind(FindInPage* find) override;
+  void FindClosed(FindInPage* find) override;
+  bool FindHasFocus(const FindInPage* find) const override;
+  ::ui::Compositor* FindCompositor() override;
 
   // views::ViewObserver: the page moved, or changed size, as the sidebar's
   // edge moves or the toolbar comes and goes; Chrome's own tab-modal
@@ -256,6 +283,8 @@ class Window : public WindowHost::Delegate,
   void FollowPage();
   // The closed widget's host goes, once its widget has.
   void Closed();
+  // The find bar shows the page shown's, or none.
+  void ShowFind();
 
   views::UnhandledKeyboardEventHandler unhandled_keys_;
   std::unique_ptr<SwitcherKeys> switcher_keys_;

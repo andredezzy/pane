@@ -97,6 +97,7 @@ source_set("unit_tests") {
     "palette_unittest.cc",
     "placement_unittest.cc",
     "squircle_unittest.cc",
+    "text_unittest.cc",
     "theme_unittest.cc",
   ]
 

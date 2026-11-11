@@ -34,11 +34,14 @@
 
 class Browser;
 class BrowserWindowInterface;
+class FindBar;
 class Profile;
 
 namespace content {
+class RenderFrameHost;
 class WebContents;
-}
+struct ContextMenuParams;
+}  // namespace content
 
 namespace input {
 struct NativeWebKeyboardEvent;
@@ -90,6 +93,19 @@ class WindowHost : public TabStripModelObserver,
                                    bool fullscreen) {}
     // What to say while a page has fullscreen or a lock (empty: nothing).
     virtual void ShowExclusiveAccessHint(const std::u16string& hint) {}
+    // Find in page for `browser`, one of the window's (FindBarController's
+    // FindBar); none for no bar of the window's.
+    virtual std::unique_ptr<FindBar> CreateFindBar(Browser* browser);
+    // DevTools docked to `inspected`, a page of the window's Browsers, came,
+    // went, or moved their splitter (DevtoolsUIController::UpdateDevtools).
+    virtual void DevToolsChanged(content::WebContents* inspected) {}
+    // A right-click in one of the window's pages: whether the window showed
+    // its menu, which Chrome's own view then doesn't.
+    virtual bool HandleContextMenu(content::RenderFrameHost& frame,
+                                   const content::ContextMenuParams& params);
+    // Chrome asks to show the window, hidden (a Browser it made shows):
+    // brought in front if `active`, where it may be.
+    virtual void ShowRequested(bool active) {}
     virtual void WindowWillClose() {}
     // Where the page is, in the widget's root view: Chrome's tab-modal
     // dialogs show over it. It moved: NotifyPositionRequiresUpdate.
@@ -113,10 +129,12 @@ class WindowHost : public TabStripModelObserver,
   WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds);
 #endif
   // A window of Pane's Views UI: `contents` fills the widget, and `delegate`
-  // outlives the WindowHost.
+  // outlives the WindowHost. The widget goes by `name` (Pane's own window,
+  // undocked DevTools' "PaneDevTools").
   WindowHost(Delegate* delegate,
              const gfx::Rect& bounds,
-             std::unique_ptr<views::View> contents);
+             std::unique_ptr<views::View> contents,
+             const char* name = "PaneWindow");
   WindowHost(const WindowHost&) = delete;
   WindowHost& operator=(const WindowHost&) = delete;
   ~WindowHost() override;
@@ -147,8 +165,8 @@ class WindowHost : public TabStripModelObserver,
   std::vector<Browser*> browsers() const;
 
   // Hosts a Browser Chrome made itself (undocked DevTools): as BrowserFor's,
-  // once it is fully built. With `close_when_empty`, the window goes when its
-  // last Browser does.
+  // once it is fully built, the delegate told of its active tab. With
+  // `close_when_empty`, the window goes when its last Browser does.
   void AdoptBrowser(Browser* browser, bool close_when_empty);
 
   // The profile the app shows: its Browser is the window's active one.
@@ -170,6 +188,7 @@ class WindowHost : public TabStripModelObserver,
   void BrowserWindowDestroyed(HostedBrowserWindow* window);
   void ActiveTabChanged(Browser* browser, content::WebContents* contents);
   void FullscreenChanged(content::WebContents* contents, bool fullscreen);
+  void DevToolsChanged(content::WebContents* inspected);
 
   // The content area moved or changed size: Chrome's tab-modal dialogs over
   // it follow, on the next turn.
@@ -201,7 +220,8 @@ class WindowHost : public TabStripModelObserver,
   enum class CloseState { kOpen, kAsking, kClosing };
 
   void InitWidget(const gfx::Rect& bounds,
-                  std::unique_ptr<views::View> contents);
+                  std::unique_ptr<views::View> contents,
+                  const char* name);
   // Where tab-modal dialogs show: the page's place, or the whole window
   // (the Swift app's).
   gfx::Rect ContentArea() const;

@@ -1,5 +1,7 @@
 # Extensions' own menu items and site access show where Chrome shows them, and Chrome's reload prompt after a change is declined without a dialog
 
+> **On the Views line** (`docs/plans/views-migration.md`, What Chrome asks for): the page's right-click menu is Chrome's own (U2), so its extensions' items are Chrome's `ContextMenuMatcher`'s in their slot, each with its icon; `ExtensionMenu::ForPage` is gone, and `ForAction` stays for the action's menu until X1.
+
 **An extension's own items.** The items an extension adds with `chrome.contextMenus` show in the page's right-click menu and in its pinned action's, laid out by Chrome's own `ContextMenuMatcher`. The order, the grouping (an extension with several items gets one submenu under its name), titles cut at 75 characters with the selection in them, radio groups, separators, and the action menu's limit of six top-level items are all Chrome's. Until then neither menu showed them: an extension such as a password manager that saves or fills from the right-click menu had no way in.
 
 - **The engine:** `pane::ExtensionMenu` (`pane/browser/extensions/extension_menu.mm`) fills a `ui::SimpleMenuModel` through the matcher.

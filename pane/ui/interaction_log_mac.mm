@@ -77,6 +77,18 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kShowPermissionPrompt:
       os_signpost_interval_begin(log, id, "Permission prompt");
       break;
+    case Interaction::kShowFindBar:
+      os_signpost_interval_begin(log, id, "Show find bar");
+      break;
+    case Interaction::kFindStep:
+      os_signpost_interval_begin(log, id, "Find step");
+      break;
+    case Interaction::kShowContextMenu:
+      os_signpost_interval_begin(log, id, "Context menu");
+      break;
+    case Interaction::kOpenDevTools:
+      os_signpost_interval_begin(log, id, "Open developer tools");
+      break;
   }
   return id;
 }
@@ -171,6 +183,26 @@ void EndInteractionInterval(Interaction interaction,
       break;
     case Interaction::kShowPermissionPrompt:
       os_signpost_interval_end(log, interval, "Permission prompt",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kShowFindBar:
+      os_signpost_interval_end(log, interval, "Show find bar",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kFindStep:
+      os_signpost_interval_end(log, interval, "Find step",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kShowContextMenu:
+      os_signpost_interval_end(log, interval, "Context menu",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kOpenDevTools:
+      os_signpost_interval_end(log, interval, "Open developer tools",
                                PANE_INTERVAL_END_FORMAT, late_us, committed_us,
                                presented_us);
       break;

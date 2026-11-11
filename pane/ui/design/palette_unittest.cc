@@ -156,6 +156,12 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
       // DialogButtonStyle's: the default's title, and a press over a fill.
       {"Alert.defaultText", kPaneColorAlertDefaultText, White(1), White(1)},
       {"Alert.press", kPaneColorAlertPress, Black(0.12), Black(0.12)},
+      // FindBar.swift's shadow and dark ring, and ExclusiveAccessHint.swift's
+      // capsule and text.
+      {"FindBar.shadow", kPaneColorFindBarShadow, Black(0.25), Black(0.4)},
+      {"FindBar.ring", kPaneColorFindBarRing, White(0), White(0.1)},
+      {"hint", kPaneColorHint, Black(0.75), Black(0.75)},
+      {"hintText", kPaneColorHintText, White(1), White(1)},
   };
   // Every id of Pane's is checked.
   EXPECT_EQ(std::size(pairs),

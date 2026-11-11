@@ -140,6 +140,14 @@ enum PaneColorIds : ui::ColorId {
   // at 12% over its fill (the Swift's DialogButtonStyle).
   kPaneColorAlertDefaultText,
   kPaneColorAlertPress,
+  // The find bar's shadow, black at 25%, 40% on dark, and its hairline ring,
+  // which only dark draws, white at 10% (ADR 0067).
+  kPaneColorFindBarShadow,
+  kPaneColorFindBarRing,
+  // The full screen's Esc hint: white on black at 75%, the same in both
+  // (ADR 0025).
+  kPaneColorHint,
+  kPaneColorHintText,
 
   kPaneColorsEnd,
 };

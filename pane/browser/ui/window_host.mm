@@ -36,11 +36,11 @@
 #include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/browser_window.h"
-#include "pane/browser/ui/devtools_window_host.h"
 #include "pane/browser/ui/hooks.h"
 #include "pane/browser/ui/tab_bridge.h"
 #include "pane/browser/ui/web_contents_delegate.h"
 #import "pane/public/PaneBrowserWindow.h"
+#include "pane/ui/page/devtools_window.h"
 #include "ui/base/hit_test.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/widget/widget.h"
@@ -146,6 +146,16 @@ int WindowHost::Delegate::NonClientHitTest(const gfx::Point& point) {
   return HTNOWHERE;
 }
 
+std::unique_ptr<FindBar> WindowHost::Delegate::CreateFindBar(Browser* browser) {
+  return nullptr;
+}
+
+bool WindowHost::Delegate::HandleContextMenu(
+    content::RenderFrameHost& frame,
+    const content::ContextMenuParams& params) {
+  return false;
+}
+
 struct WindowHost::Cocoa {
   __weak PaneBrowserWindow* owner;
   PaneBrowserWindow* __strong owner_ref;
@@ -158,7 +168,7 @@ WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
   cocoa_->owner_ref = owner;
   auto native_view_host = std::make_unique<views::NativeViewHost>();
   views::NativeViewHost* holder = native_view_host.get();
-  InitWidget(bounds, std::move(native_view_host));
+  InitWidget(bounds, std::move(native_view_host), "PaneWindow");
 
   // The app's view fills the widget, as a WebView would hold a page: Views
   // routes clicks and assistive technologies to it.
@@ -172,13 +182,15 @@ WindowHost::WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds)
 
 WindowHost::WindowHost(Delegate* delegate,
                        const gfx::Rect& bounds,
-                       std::unique_ptr<views::View> contents)
+                       std::unique_ptr<views::View> contents,
+                       const char* name)
     : delegate_(delegate) {
-  InitWidget(bounds, std::move(contents));
+  InitWidget(bounds, std::move(contents), name);
 }
 
 void WindowHost::InitWidget(const gfx::Rect& bounds,
-                            std::unique_ptr<views::View> contents) {
+                            std::unique_ptr<views::View> contents,
+                            const char* name) {
   Hosts().push_back(this);
 
   widget_delegate_ = std::make_unique<views::WidgetDelegate>();
@@ -204,7 +216,7 @@ void WindowHost::InitWidget(const gfx::Rect& bounds,
     params.native_widget = delegate_->CreateNativeWidget(widget_.get());
   }
   params.bounds = bounds;
-  params.name = "PaneWindow";
+  params.name = name;
   widget_->Init(std::move(params));
   widget_->AddObserver(this);
 }
@@ -283,6 +295,11 @@ Browser* WindowHost::BrowserFor(Profile* profile) {
 void WindowHost::AdoptBrowser(Browser* browser, bool close_when_empty) {
   close_when_empty_ = close_when_empty;
   AddBrowser(browser);
+  // Its tabs came before it joined the window, which hears of none of them.
+  if (delegate_) {
+    delegate_->ActiveTabChanged(
+        browser, browser->GetTabStripModel()->GetActiveWebContents());
+  }
 }
 
 void WindowHost::AddBrowser(Browser* browser) {
@@ -583,24 +600,20 @@ void WindowHost::SetTitle(const std::u16string& title) {
 }
 
 void WindowHost::ShowExclusiveAccessHint(const std::u16string& marked_hint) {
-  // Chrome marks the key to style it ("press |Esc|"); the app gets plain text.
+  // Chrome marks the key to style it ("press |Esc|"); the window gets plain
+  // text.
   std::u16string hint;
   base::RemoveChars(marked_hint, u"|", &hint);
-  if (delegate_) {
-    delegate_->ShowExclusiveAccessHint(hint);
-    return;
-  }
-  PaneBrowserWindow* owner = this->owner();
-  id<PaneBrowserWindowDelegate> delegate = owner.delegate;
   PANE_TRACE("callback", "PaneBrowserWindowDelegate.showExclusiveAccessHint",
              base::DictValue().Set("hint", base::UTF16ToUTF8(hint)));
-  if ([delegate
-          respondsToSelector:@selector(
-                                 browserWindow:showExclusiveAccessHint:)]) {
-    ScopedAppCallback callback;
-    [delegate browserWindow:owner
-        showExclusiveAccessHint:hint.empty() ? nil
-                                             : base::SysUTF16ToNSString(hint)];
+  if (delegate_) {
+    delegate_->ShowExclusiveAccessHint(hint);
+  }
+}
+
+void WindowHost::DevToolsChanged(content::WebContents* inspected) {
+  if (delegate_) {
+    delegate_->DevToolsChanged(inspected);
   }
 }
 
@@ -716,8 +729,8 @@ namespace {
 WindowHost* PaneWindowFor(Profile* profile) {
   WindowHost* first = nullptr;
   for (WindowHost* host : WindowHost::All()) {
-    if (host->closing() ||
-        [host->ns_window().identifier isEqualToString:@"pane.devtools"]) {
+    if (host->closing() || !host->widget() ||
+        host->widget()->GetName() == kDevToolsWindowName) {
       continue;
     }
     if (host->ExistingBrowserFor(profile)) {
@@ -776,9 +789,25 @@ BrowserWindow* HostChromeBrowser(BrowserWindowInterface* interface) {
   auto* browser = static_cast<Browser*>(interface);
 
   switch (browser->GetType()) {
-    // Undocked DevTools get a window of Pane's (devtools_window_host.mm).
-    case BrowserWindowInterface::TYPE_DEVTOOLS:
-      return CreateDevToolsWindow(browser);
+    // Undocked DevTools get a window of Pane's (pane/ui/page/devtools_window),
+    // which the Browser, still being built, joins a task later.
+    case BrowserWindowInterface::TYPE_DEVTOOLS: {
+      PANE_TRACE("call", "DevToolsWindow.undock");
+      WindowHost* host = MakeDevToolsWindow();
+      auto* window = new HostedBrowserWindow(host->GetWeakPtr());
+      window->AttachBrowser(browser);
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(
+              [](base::WeakPtr<WindowHost> host,
+                 base::WeakPtr<BrowserWindowInterface> alive, Browser* built) {
+                if (host && alive) {
+                  host->AdoptBrowser(built, /*close_when_empty=*/true);
+                }
+              },
+              host->GetWeakPtr(), browser->GetWeakPtr(), browser));
+      return window;
+    }
     case BrowserWindowInterface::TYPE_NORMAL:
     case BrowserWindowInterface::TYPE_POPUP:
     case BrowserWindowInterface::TYPE_APP:

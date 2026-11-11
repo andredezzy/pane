@@ -105,9 +105,11 @@ type UpdateState = {
 	installsItself: boolean;
 };
 
-// An item of a page's right-click menu; a submenu lists its own.
+// An item of a page's right-click menu; a submenu lists its own. The Views
+// build's, Chrome's own menu, name each item's command too.
 export type MenuItemState = {
 	title: string;
+	command?: number;
 	enabled: boolean;
 	checked: boolean;
 	submenu?: MenuItemState[];

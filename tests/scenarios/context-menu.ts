@@ -12,11 +12,16 @@ import { expect, type Scenario } from "../run";
 
 type Point = { x: number; y: number };
 
-// Right-clicks build the app's menu, in the Electron app's order: a link's
-// items, spelling suggestions in a text field, navigation and Inspect on
-// plain text. Each chosen item does its job: opening the link, Copy Link
-// Address, the field's Select All, Copy, Cut, and Paste, a suggestion, and
-// Inspect. The copies go to the Mac's clipboard, which is put back after.
+// Right-clicks build Chrome's own menu (U2), with what Pane can't support
+// taken off (Paper 10.4 and 10.4.1): a link's items, spelling suggestions in
+// a text field, navigation, Save As…, Print…, View Page Source, and Inspect
+// on plain text, and never a link opened in a new window, in Split View, in
+// an incognito window, or as another of Chrome's profiles. Each chosen item
+// does its job: opening the link, Copy Link Address, the field's Select All,
+// Copy, Cut, and Paste, a suggestion, and Inspect. The copies go to the Mac's
+// clipboard, which is put back after. The menu the system draws is the
+// front's: in the background, the channel chooses from Chrome's menu model as
+// a click does.
 const contextMenu: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
@@ -64,6 +69,17 @@ const contextMenu: Scenario = async (context) => {
 			"Open Link in New Tab|Save Link As…|Copy Link Address",
 		`link menu ${linkMenu}`,
 	);
+
+	// What Pane can't support shows nowhere.
+	const unsupported = linkMenu.filter(
+		(title) =>
+			title === "Open Link in New Window" ||
+			title === "Open Link in Split View" ||
+			title === "Open Link in Incognito Window" ||
+			title.startsWith("Open Link as"),
+	);
+
+	expect(unsupported.length === 0, `link menu offers ${unsupported}`);
 
 	await app.send("chooseContextMenuItem", { title: "Open Link in New Tab" });
 
@@ -131,8 +147,9 @@ const contextMenu: Scenario = async (context) => {
 		);
 
 		expect(
-			editMenu.join("|") ===
-				"Emoji & Symbols|Undo|Redo|Cut|Copy|Paste|Delete|Select All|Inspect",
+			["Undo", "Redo", "Cut", "Copy", "Paste", "Select All", "Inspect"].every(
+				(title) => editMenu.includes(title),
+			),
 			`edit menu ${editMenu}`,
 		);
 
@@ -198,8 +215,8 @@ const contextMenu: Scenario = async (context) => {
 		await choose("Copy Link Address");
 		await copied(link, "the link's address copied");
 
-		// Pane's menu writes the clipboard itself, never through Chrome's
-		// menu and its "Link copied" toast (patch 0003's toast hunks).
+		// Chrome's menu copies with no "Link copied" toast (patch 0003's toast
+		// hunks): Pane's window shows no toasts of Chrome's.
 		const toasts = await app.browser.cdp
 			.send<{ histogram: { count: number } }>("Browser.getHistogram", {
 				name: "Toast.TriggeredToShow",
@@ -223,7 +240,8 @@ const contextMenu: Scenario = async (context) => {
 	);
 
 	expect(
-		plainMenu.join("|") === "Back|Forward|Reload|Inspect",
+		plainMenu.join("|") ===
+			"Back|Forward|Reload|Save As…|Print…|View Page Source|Inspect",
 		`plain menu ${plainMenu}`,
 	);
 

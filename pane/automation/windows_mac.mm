@@ -5,6 +5,7 @@
 #import <AppKit/AppKit.h>
 
 #include "base/strings/sys_string_conversions.h"
+#include "pane/ui/page/devtools_window.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -31,7 +32,9 @@ base::ListValue NativeWindows(views::Widget* main) {
       role = "sheet";
     } else if (window == NSApp.modalWindow) {
       role = "modal";
-    } else if ([window.identifier isEqualToString:@"pane.devtools"]) {
+    } else if (views::Widget* widget = views::Widget::GetWidgetForNativeWindow(
+                   gfx::NativeWindow(window));
+               widget && widget->GetName() == kDevToolsWindowName) {
       role = "devtools";
     } else if ([type hasPrefix:@"_NSFullScreenTransition"] ||
                [type hasPrefix:@"NSToolbarFullScreenWindow"]) {

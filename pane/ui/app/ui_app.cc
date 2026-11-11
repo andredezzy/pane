@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
@@ -73,6 +74,8 @@
 #include "pane/ui/design/theme.h"
 #include "pane/ui/dialogs/permission_prompt.h"
 #include "pane/ui/interaction_log.h"
+#include "pane/ui/page/devtools.h"
+#include "pane/ui/page/find_in_page.h"
 #include "pane/ui/panels/app_icon_images.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/panels/time_of_day.h"
@@ -324,6 +327,17 @@ SettingsUpdate SettingsUpdateOf(const Updater& updater) {
   return update;
 }
 
+// Find in page's bar as it shows, in the Swift app's snapshot's shape.
+base::DictValue FindState(RootView* root) {
+  const FindBarView::State state =
+      root ? root->find_state() : FindBarView::State();
+  return base::DictValue()
+      .Set("visible", state.visible)
+      .Set("text", state.text)
+      .Set("matches", state.matches.value_or(0))
+      .Set("activeMatch", state.active);
+}
+
 // The profile a page of the window belongs to: its folder's name.
 std::optional<std::string> ProfileIdOf(content::WebContents* contents) {
   Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
@@ -547,6 +561,7 @@ UiApp::UiApp()
       /*keeps_frame=*/!base::CommandLine::ForCurrentProcess()->HasSwitch(
           "use-mock-keychain"));
   dialogs_ = std::make_unique<PageDialogs>(this);
+  context_menus_ = std::make_unique<PageContextMenus>();
   model_observation_.Observe(&model());
   favicons_observation_.Observe(&favicons_);
   sleep_ = std::make_unique<SleepController>(model(), *this);
@@ -608,6 +623,7 @@ UiApp::~UiApp() {
   menu_bar_.reset();
   // Their pages go with the window's Browsers, as quitting keeps their tabs.
   pages_.clear();
+  context_menus_.reset();
   dialogs_.reset();
   window_.reset();
   dock_icon_.reset();
@@ -1962,11 +1978,14 @@ void UiApp::RunCommand(Command command) {
     case Command::kPreviousTab:
       SwitchTab(/*backward=*/true);
       return;
-    // The find bar and DevTools are What Chrome asks for's, the Extensions
-    // page X4's (chrome://extensions in the profile's tab, D3): their items
-    // run nothing until those land.
     case Command::kFind:
+      ShowFind();
+      return;
     case Command::kDeveloperTools:
+      ToggleDevTools();
+      return;
+    // The Extensions page is X4's (chrome://extensions in the profile's tab,
+    // D3): its item runs nothing until then.
     case Command::kExtensions:
       return;
     default:
@@ -1976,6 +1995,74 @@ void UiApp::RunCommand(Command command) {
       // The platform's own run where the platform sends them (menu_bar.h).
       return;
   }
+}
+
+// MARK: Find in page (ADR 0067)
+
+void UiApp::ShowFind() {
+  content::WebContents* page = window_->selected();
+  if (!InteractionAllowed() || !page ||
+      model().page() != model::BrowserModel::Page::kBrowser) {
+    return;
+  }
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(page);
+  FindBarController* controller = FindBarController::From(browser);
+  if (!controller) {
+    return;
+  }
+  LogInteraction(Interaction::kShowFindBar, window_->compositor());
+  // Made the first time, for the tab the Browser shows: the window's bar.
+  controller->find_bar();
+  if (FindInPage* find = FindInPage::From(browser)) {
+    find->Open();
+  }
+}
+
+void UiApp::Find(const std::u16string& text) {
+  if (FindInPage* find =
+          InteractionAllowed() ? window_->ShownFind() : nullptr) {
+    find->Find(text);
+  }
+}
+
+void UiApp::FindStep(bool forward) {
+  if (FindInPage* find =
+          InteractionAllowed() ? window_->ShownFind() : nullptr) {
+    find->Step(forward);
+  }
+}
+
+void UiApp::CloseFind() {
+  if (FindInPage* find = window_->ShownFind()) {
+    find->Close();
+  }
+}
+
+// MARK: The page's context menu (U2) and DevTools (ADR 0024)
+
+// The selected tab's page alone shows its menu, as the Swift's did.
+void UiApp::ShowContextMenu(content::RenderFrameHost& frame,
+                            const content::ContextMenuParams& params) {
+  content::WebContents* contents =
+      content::WebContents::FromRenderFrameHost(&frame);
+  if (!InteractionAllowed() || !contents || contents != window_->selected()) {
+    return;
+  }
+  context_menus_->Show(frame, params);
+}
+
+void UiApp::ToggleDevTools() {
+  content::WebContents* page = window_->selected();
+  if (!InteractionAllowed() || !page) {
+    return;
+  }
+  ::pane::ToggleDevTools(
+      page, base::BindRepeating(
+                [](base::WeakPtr<UiApp> app) -> ::ui::Compositor* {
+                  return app ? app->window_->compositor() : nullptr;
+                },
+                weak_factory_.GetWeakPtr()));
 }
 
 void UiApp::ReopenClosedTab() {
@@ -2272,7 +2359,13 @@ base::DictValue UiApp::Snapshot() const {
         contents->HasPictureInPictureDocument()) {
       picture_in_picture.Append(tab_id);
     }
-    if (DevToolsWindow::GetInstanceForInspectedWebContents(contents)) {
+    // DevTools showing for the tab, as the Swift's model had them: docked
+    // beside it once their page settled where it docks, or in their own
+    // window; not while Chrome is still making them.
+    if (DevToolsWindow* window =
+            DevToolsWindow::GetInstanceForInspectedWebContents(contents);
+        window && (!window->IsDocked() ||
+                   DevToolsWindow::GetInTabWebContents(contents, nullptr))) {
       devtools.Append(tab_id);
     }
   }
@@ -2341,6 +2434,19 @@ base::DictValue UiApp::Snapshot() const {
       .Set("pictureInPictureTabs", std::move(picture_in_picture))
       .Set("devToolsTabs", std::move(devtools))
       .Set("switcher", std::move(switcher))
+      // Find in page's bar, the page shown's (the Swift's WindowState.find).
+      .Set("find", FindState(root))
+      // The page's menu shown last, until it closes, and how many have.
+      .Set("contextMenu", context_menus_->model()
+                              ? base::Value(PageContextMenus::Describe(
+                                    *context_menus_->model()))
+                              : base::Value())
+      .Set("contextMenusShown", context_menus_->shown())
+      // What the full screen's hint says, while it does.
+      .Set("exclusiveAccessHint",
+           root && !root->exclusive_access_hint().empty()
+               ? base::Value(root->exclusive_access_hint())
+               : base::Value())
       .Set("address", root ? root->address() : std::u16string())
       .Set("progressBar", std::move(progress_bar))
       .Set("update", UpdateState(*updater_))

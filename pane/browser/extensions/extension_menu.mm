@@ -11,7 +11,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
-#include "chrome/browser/extensions/context_menu_helpers.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/extensions/permissions_url_constants.h"
@@ -159,19 +158,6 @@ ExtensionMenu::ExtensionMenu(
     : params_(params), matcher_(context, this, &model_, std::move(filter)) {}
 
 ExtensionMenu::~ExtensionMenu() = default;
-
-// static
-std::unique_ptr<ExtensionMenu> ExtensionMenu::ForPage(
-    content::BrowserContext* context,
-    const content::ContextMenuParams& params) {
-  auto menu = base::WrapUnique(new ExtensionMenu(
-      context, params,
-      base::BindRepeating(
-          &extensions::context_menu_helpers::MenuItemMatchesParams, params)));
-  extensions::context_menu_helpers::PopulateExtensionItems(context, params,
-                                                           menu->matcher_);
-  return menu;
-}
 
 // static
 std::unique_ptr<ExtensionMenu> ExtensionMenu::ForAction(

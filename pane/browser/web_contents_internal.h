@@ -27,9 +27,6 @@ class WebContents;
 - (void)bridgeDidChangeNavigationState;
 - (void)bridgeDidChangeLoading:(BOOL)isLoading progress:(double)progress;
 - (void)bridgeDidUpdateFavicon:(NSImage*)favicon;
-- (void)bridgeDidFindMatches:(NSInteger)count
-                 activeMatch:(NSInteger)activeMatch
-                       final:(BOOL)final;
 - (void)bridgeRendererDidTerminate:(PaneRendererTermination)termination;
 - (void)bridgeDidChangePictureInPicture:(BOOL)active;
 

@@ -44,6 +44,8 @@
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/dialogs/page_dialog.h"
+#include "pane/ui/page/find_bar_view.h"
+#include "pane/ui/page/page_context_menu.h"
 #include "pane/ui/panels/app_icon_picker.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/render.h"
@@ -672,6 +674,105 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
+  // Find in page, as the Swift's channel: { text, forward } shows the bar
+  // (⌘F's own path) and finds `text` as typed into its field, or, the text it
+  // holds already, steps to the next match, or the previous one (Return,
+  // Shift-Return).
+  if (name == "find") {
+    const std::string* text = command.FindString("text");
+    if (!text) {
+      std::move(reply).Run(base::Value(), "find needs text");
+      return;
+    }
+    RootView* root = window->root();
+    const bool opens = root && !root->find_state().visible;
+    if (opens) {
+      app_->ShowFind();
+    }
+    if (!root || !root->find_bar()) {
+      std::move(reply).Run(base::Value(), "find needs a page");
+      return;
+    }
+    const std::u16string query = base::UTF8ToUTF16(*text);
+    if (root->find_state().text == query) {
+      app_->FindStep(command.FindBool("forward").value_or(true));
+    } else {
+      root->find_bar()->Type(query);
+    }
+    // The Swift's channel found, then showed the bar: a field taking the keys
+    // then had all of its text selected.
+    if (opens) {
+      root->find_bar()->field()->SelectAll(false);
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The find bar's close.
+  if (name == "closeFind") {
+    app_->CloseFind();
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // What VoiceOver reads of find in page's bar while it shows (ADR 0071):
+  // each part's role and name.
+  if (name == "findAccessibility") {
+    FindBarView* find = window->root() ? window->root()->find_bar() : nullptr;
+    if (!find) {
+      std::move(reply).Run(base::Value(), "no find bar");
+      return;
+    }
+    base::DictValue parts;
+    for (const auto& [part, view] : find->NamedViews()) {
+      ui::AXNodeData data;
+      view->GetViewAccessibility().GetAccessibleNodeData(&data);
+      parts.Set(
+          part,
+          base::DictValue()
+              .Set("role", ui::ToString(data.role))
+              .Set("name",
+                   data.GetStringAttribute(ax::mojom::StringAttribute::kName))
+              .Set("ignored", view->GetViewAccessibility().GetIsIgnored()));
+    }
+    std::move(reply).Run(base::Value(std::move(parts)), std::string());
+    return;
+  }
+
+  // The full screen's hint as Chrome's hook shows it (WindowHost's
+  // ShowExclusiveAccessHint), { hint }, empty for none: its look and fade,
+  // drawn without the front a page's fullscreen needs.
+  if (name == "showExclusiveAccessHint") {
+    const std::string* hint = command.FindString("hint");
+    if (!hint) {
+      std::move(reply).Run(base::Value(), "showExclusiveAccessHint needs hint");
+      return;
+    }
+    window->ShowExclusiveAccessHint(base::UTF8ToUTF16(*hint));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // View › Developer Tools (⇧⌘I).
+  if (name == "toggleDevTools") {
+    app_->ToggleDevTools();
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // An item of the page's menu shown last, by its title, as a click in the
+  // menu chooses it: the platform's menu closes, and the menu is let go.
+  if (name == "chooseContextMenuItem") {
+    const std::string* title = command.FindString("title");
+    if (!title || !app_->context_menus().Choose(base::UTF8ToUTF16(*title))) {
+      std::move(reply).Run(base::Value(), "no context menu item " +
+                                              (title ? *title : std::string()));
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
   // The sad tab's Reload, for { tab }.
   if (name == "reloadCrashed") {
     const std::string* tab = command.FindString("tab");
@@ -1211,6 +1312,30 @@ void Automation::Dispatch(const std::string& name,
     if (PageDialog* dialog = window->root()->page_dialog()) {
       for (auto& entry : dialog->NamedViews()) {
         named.push_back(std::move(entry));
+      }
+    }
+    // Find in page's bar, its field, count, and buttons, while it shows,
+    // and its card as "pane.find", as the Swift named the bar.
+    if (FindBarView* find = window->root()->find_bar()) {
+      for (auto& entry : find->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+      const std::string_view card_name = ViewIdName(kViewIdFind);
+      if (!prefix || card_name.starts_with(*prefix)) {
+        const gfx::Rect card = views::View::ConvertRectToTarget(
+            window->root(), root, window->root()->FindBarBounds());
+        frames.Set(card_name, base::ListValue()
+                                  .Append(card.x())
+                                  .Append(card.y())
+                                  .Append(card.width())
+                                  .Append(card.height()));
+      }
+    }
+    // The page, DevTools docked beside it, and the full screen's hint.
+    for (const int id :
+         {kViewIdContent, kViewIdDevTools, kViewIdExclusiveAccessHint}) {
+      if (const views::View* view = window->root()->GetViewByID(id)) {
+        named.emplace_back(std::string(ViewIdName(id)), view);
       }
     }
     for (const auto& [view_name, view] : named) {

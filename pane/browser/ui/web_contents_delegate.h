@@ -55,7 +55,7 @@ class HostedWebContentsDelegate : public BrowserWebContentsDelegate {
       bool* was_blocked) override;
 
   // Chrome's dialogs for the tab, in the window's own (pane/ui/dialogs), and
-  // its menu, shown by the app (PaneDialogs.h).
+  // its menu, the window's (pane/ui/page).
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
   void ShowRepostFormWarningDialog(content::WebContents* source) override;

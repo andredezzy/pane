@@ -2,11 +2,23 @@
 
 #include "pane/ui/design/text.h"
 
+#include <algorithm>
+#include <cmath>
 #include <map>
 #include <utility>
 
 #include "base/no_destructor.h"
+#include "base/strings/string_util.h"
+#include "third_party/skia/include/core/SkCanvas.h"
+#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/color/color_provider.h"
+#include "ui/gfx/canvas.h"
 #include "ui/gfx/font_list.h"
+#include "ui/gfx/render_text.h"
+#include "ui/gfx/scoped_canvas.h"
+#include "ui/gfx/text_utils.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
 
 namespace pane {
@@ -68,5 +80,112 @@ std::unique_ptr<views::Label> MakeLabel(const std::u16string& text,
   StyleLabel(*label, style, std::move(color));
   return label;
 }
+
+DigitCellsLabel::Glyph::Glyph() = default;
+DigitCellsLabel::Glyph::Glyph(Glyph&&) = default;
+DigitCellsLabel::Glyph& DigitCellsLabel::Glyph::operator=(Glyph&&) = default;
+DigitCellsLabel::Glyph::~Glyph() = default;
+
+DigitCellsLabel::DigitCellsLabel(const TextStyle& style, ui::ColorVariant color)
+    : style_(style), color_(std::move(color)) {
+  GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
+  // Text that changes as it counts, read by its name.
+  GetViewAccessibility().SetName(
+      std::u16string(), ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
+}
+
+DigitCellsLabel::~DigitCellsLabel() = default;
+
+void DigitCellsLabel::SetText(const std::u16string& text) {
+  if (text == text_) {
+    return;
+  }
+  text_ = text;
+  if (text_.empty()) {
+    GetViewAccessibility().SetName(
+        std::u16string(), ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
+  } else {
+    GetViewAccessibility().SetName(text_);
+  }
+  Shape();
+  PreferredSizeChanged();
+  SchedulePaint();
+}
+
+void DigitCellsLabel::SetColor(ui::ColorVariant color) {
+  color_ = std::move(color);
+  ApplyColor();
+}
+
+// Each character on its own, as a label would draw it alone: a digit
+// centered in a cell as wide as a figure, the zero's width, as a font draws
+// its tabular figures (SF Pro's are its zero's 7.559 points at 12, where its
+// widest digit, the four, is 7.723), anything else at its own width.
+void DigitCellsLabel::Shape() {
+  glyphs_.clear();
+  const gfx::FontList& font = SystemFont(style_.size, style_.weight);
+  const float cell = gfx::GetStringWidthF(u"0", font);
+  float x = 0;
+  for (const char16_t character : text_) {
+    const std::u16string one(1, character);
+    const float width = gfx::GetStringWidthF(one, font);
+    Glyph glyph;
+    glyph.text = gfx::RenderText::CreateRenderText();
+    glyph.text->SetFontList(font);
+    glyph.text->SetText(one);
+    glyph.text->SetMinLineHeight(style_.line_height);
+    glyph.text->set_subpixel_rendering_suppressed(true);
+    glyph.width = width;
+    const bool digit = base::IsAsciiDigit(character);
+    glyph.x = digit ? x + (cell - width) / 2 : x;
+    x += digit ? cell : width;
+    glyphs_.push_back(std::move(glyph));
+  }
+  width_ = x;
+  ApplyColor();
+}
+
+gfx::Size DigitCellsLabel::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  const gfx::FontList& font = SystemFont(style_.size, style_.weight);
+  return gfx::Size(std::ceil(width_),
+                   std::max(style_.line_height, font.GetHeight()));
+}
+
+void DigitCellsLabel::OnThemeChanged() {
+  views::View::OnThemeChanged();
+  ApplyColor();
+}
+
+void DigitCellsLabel::ApplyColor() {
+  const ui::ColorProvider* colors = GetColorProvider();
+  if (!colors) {
+    return;
+  }
+  const SkColor color = color_.ResolveToSkColor(colors);
+  for (Glyph& glyph : glyphs_) {
+    glyph.text->SetColor(color);
+  }
+  SchedulePaint();
+}
+
+void DigitCellsLabel::OnPaint(gfx::Canvas* canvas) {
+  views::View::OnPaint(canvas);
+  // On the screen's pixels: a glyph's place past whole points stays, at the
+  // scale the canvas draws.
+  const float scale = canvas->image_scale();
+  for (Glyph& glyph : glyphs_) {
+    const float x = std::round(glyph.x * scale) / scale;
+    const float whole = std::floor(x);
+    glyph.text->SetDisplayRect(gfx::Rect(static_cast<int>(whole), 0,
+                                         std::ceil(glyph.width) + 1, height()));
+    gfx::ScopedCanvas scoped(canvas);
+    canvas->sk_canvas()->translate(x - whole, 0);
+    glyph.text->Draw(canvas);
+  }
+}
+
+BEGIN_METADATA(DigitCellsLabel)
+END_METADATA
 
 }  // namespace pane

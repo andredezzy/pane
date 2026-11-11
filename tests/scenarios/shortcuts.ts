@@ -6,7 +6,7 @@ import { expect, type Scenario } from "../run";
 type Key = { key: string; modifiers?: string[] };
 
 const ADDRESS = "pane.toolbar.address";
-const FIND = "field: Find in page";
+const FIND = "pane.find.field";
 
 const ZOOM_CALLS = new Set([
 	"PaneWebContents.zoomIn",
@@ -144,22 +144,16 @@ const shortcuts: Scenario = async (context) => {
 	await press("1", "command");
 	await app.waitFor("⌘1 again", (state) => state.activeTabID === tabA);
 
-	// ⌘F opens the find bar with its field focused; Escape closes it. The
-	// Views build draws no find bar until What Chrome asks for's, and its
-	// state has no such key until then.
-	if ("find" in (await app.state())) {
-		await press("f", "command");
+	// ⌘F opens the find bar with its field focused; Escape closes it.
+	await press("f", "command");
 
-		await app.waitFor(
-			"⌘F",
-			(state) => state.find.visible && state.focus === FIND,
-		);
+	await app.waitFor(
+		"⌘F",
+		(state) => state.find.visible && state.focus === FIND,
+	);
 
-		await type("\u001b");
-		await app.waitFor("Escape", (state) => !state.find.visible);
-	} else {
-		context.defer("⌘F's find bar: no find bar is drawn (What Chrome asks for)");
-	}
+	await type("\u001b");
+	await app.waitFor("Escape", (state) => !state.find.visible);
 
 	// ⌘L focuses the address field.
 	await press("l", "command");
