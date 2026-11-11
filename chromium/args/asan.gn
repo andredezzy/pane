@@ -1,0 +1,16 @@
+# The model's tests under AddressSanitizer, with DCHECKs on (out/ASan,
+# pane_model_unittests: docs/building.md, Engine unit tests): release.gn's args
+# where they apply. Chrome's PGO profile stays off, since it was made from a
+# build without DCHECKs (build/config/compiler/pgo/pgo.gni), and ThreadSanitizer
+# doesn't build on the Mac.
+is_debug = false
+is_asan = true
+dcheck_always_on = true
+symbol_level = 1
+target_cpu = "arm64"
+proprietary_codecs = true
+ffmpeg_branding = "Chrome"
+# Pane's names, in //pane (ADR 0009): the Keychain item's among them.
+branding_file_path = "//pane/BRANDING"
+disable_fieldtrial_testing_config = true
+mac_min_system_version = "14.0"

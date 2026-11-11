@@ -430,7 +430,9 @@ int64_t SizeOf(const base::FilePath& folder) {
                                    base::FileEnumerator::SHOW_SYM_LINKS);
   for (base::FilePath entry = entries.Next(); !entry.empty();
        entry = entries.Next()) {
-    const base::stat_wrapper_t& info = entries.GetInfo().stat();
+    // GetInfo() answers a copy: the stat is read from one that lives on.
+    const base::FileEnumerator::FileInfo found = entries.GetInfo();
+    const base::stat_wrapper_t& info = found.stat();
     if (S_ISREG(info.st_mode)) {
       total += info.st_size;
     }

@@ -31,16 +31,23 @@ class ModelStore;
 // encrypted volume and every earlier Pane's data are there (ADR 0113, 0114,
 // 0122), and no Pane ever ran on Windows (U5).
 
-// Pane's data folder: a scenario's (PANE_DATA_DIR), or xyz.roundedcorners.pane
-// in the user's Application Support (ADR 0114).
+// Pane's data folder: a scenario's (PANE_DATA_DIR), or the one under the
+// home (DefaultDataDirectory).
 base::FilePath DataDirectory();
+
+// xyz.roundedcorners.pane in the user's Application Support (ADR 0114), or in
+// a home of a scenario's own (CFFIXED_USER_HOME).
+base::FilePath DefaultDataDirectory();
 
 // Before the engine starts, from PaneMainDelegate::BasicStartupComplete, with
 // no thread pool yet: Chromium's InitializeUserDataDir, right after, makes the
 // engine's folder, and an earlier Pane's data must have moved by then. An exit
-// code ends the launch there: the Quit of the Electron migration's alert.
+// code ends the launch there: the Quit of the Electron migration's alert. A
+// `test_copy` (test_copy.h) reads and writes nothing outside the temporary
+// folder.
 std::optional<int> PrepareData(const base::FilePath& data_directory,
-                               const base::CommandLine& command_line);
+                               const base::CommandLine& command_line,
+                               bool test_copy);
 
 // Once the browser has started, the thread pool running: the vault, the lock,
 // and the model's store, with its settings. The lock starts with the UI

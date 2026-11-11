@@ -18,6 +18,8 @@
 #include "base/values.h"
 #include "pane/model/pin_entry.h"
 
+class ExtensionInstallPrompt;
+
 namespace pane {
 
 class UiApp;
@@ -59,6 +61,8 @@ class Automation {
 
   raw_ptr<UiApp> app_;
   base::SequenceBound<Files> files_;
+  // Chrome's prompt askToAddExtension made, until the next.
+  std::unique_ptr<ExtensionInstallPrompt> asked_to_add_;
   std::map<std::string, int64_t> cache_sizes_;
   std::map<std::string, base::ListValue> cookies_;
   base::WeakPtrFactory<Automation> weak_factory_{this};

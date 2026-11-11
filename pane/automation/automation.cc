@@ -12,6 +12,7 @@
 #include "base/files/file_path_watcher.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/strings/utf_string_conversions.h"
@@ -20,6 +21,7 @@
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "chrome/browser/download/download_prefs.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/webstore_install_with_prompt.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -31,6 +33,8 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_registrar.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/install_prompt_data.h"
 #include "extensions/browser/uninstall_reason.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "net/cookies/canonical_cookie.h"
@@ -2005,6 +2009,54 @@ void Automation::Dispatch(const std::string& name,
               std::move(reply).Run(base::Value(), std::string());
             },
             *id, widget ? widget->GetWeakPtr() : base::WeakPtr<views::Widget>(),
+            std::move(reply)));
+    return;
+  }
+
+  // Chrome asking to add an extension, as a store's install asks before it
+  // adds one, with no store to reach: Chrome's own prompt for one loaded
+  // already, { id, profile }, which shows Pane's dialog (AskToAddExtension)
+  // over the window. Its answer is traced (PaneExtensionInstallRequest), and
+  // adds nothing.
+  if (name == "askToAddExtension") {
+    const std::string* id = command.FindString("id");
+    const std::string* profile_id = command.FindString("profile");
+    if (!id || !profile_id || !app_->model().FindProfile(*profile_id)) {
+      std::move(reply).Run(
+          base::Value(),
+          "askToAddExtension needs an extension's id and a profile");
+      return;
+    }
+    app_->WithProfile(
+        *profile_id,
+        base::BindOnce(
+            [](base::WeakPtr<Automation> self, std::string id,
+               base::WeakPtr<views::Widget> window, Reply reply,
+               Profile* profile) {
+              const extensions::Extension* extension =
+                  profile ? extensions::ExtensionRegistry::Get(profile)
+                                ->enabled_extensions()
+                                .GetByID(id)
+                          : nullptr;
+              if (!self || !extension) {
+                std::move(reply).Run(base::Value(),
+                                     "askToAddExtension: no such extension "
+                                     "on in the profile");
+                return;
+              }
+              // Kept until the next ask: it loads the icon before it asks.
+              self->asked_to_add_ = std::make_unique<ExtensionInstallPrompt>(
+                  profile,
+                  window ? window->GetNativeWindow() : gfx::NativeWindow(),
+                  std::make_unique<extensions::InstallPromptData>(
+                      extensions::InstallPromptData::INSTALL_PROMPT));
+              self->asked_to_add_->ShowDialog(
+                  base::DoNothing(), extension, /*icon=*/nullptr,
+                  ExtensionInstallPrompt::GetDefaultShowDialogCallback());
+              std::move(reply).Run(base::Value(), std::string());
+            },
+            weak_factory_.GetWeakPtr(), *id,
+            widget ? widget->GetWeakPtr() : base::WeakPtr<views::Widget>(),
             std::move(reply)));
     return;
   }

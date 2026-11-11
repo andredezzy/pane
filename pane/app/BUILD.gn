@@ -1,0 +1,38 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# Which launch may open which data, and on which Keychain: the user's, or a
+# test copy's on the mock keychain (ADR 0012, ADR 0115). A target of its own so
+# its tests run in pane_unittests, apart from the engine.
+
+source_set("test_copy") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "test_copy.cc",
+    "test_copy.h",
+  ]
+
+  deps = [ "//base" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  visibility = [ "//pane/encryption:pane_unittests" ]
+
+  sources = [ "test_copy_unittest.cc" ]
+
+  # Links, which only the Mac's tests make.
+  if (is_mac) {
+    sources += [ "test_copy_mac_unittest.cc" ]
+  }
+
+  deps = [
+    ":test_copy",
+    "//base",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
+}

@@ -76,7 +76,9 @@ base::expected<void, std::string> CopyTree(
       return base::unexpected(
           base::StrCat({entry.value(), ": outside ", from.value()}));
     }
-    const base::stat_wrapper_t& info = entries.GetInfo().stat();
+    // GetInfo() answers a copy: the stat is read from one that lives on.
+    const base::FileEnumerator::FileInfo found = entries.GetInfo();
+    const base::stat_wrapper_t& info = found.stat();
     if (S_ISLNK(info.st_mode)) {
       RETURN_IF_ERROR(CopyLink(entry, target));
     } else if (S_ISDIR(info.st_mode)) {

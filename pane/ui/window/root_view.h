@@ -298,6 +298,11 @@ class RootView : public views::View {
   // The PIN screen shows what `shows` holds, taking the keys or giving them
   // back.
   void ShowLock(const LockScreenView::Shows& shows);
+  // An overlay going gives the keys back to `before`, what had them as it
+  // came, else to the page; never while the PIN screen holds them, as at a
+  // Lock, which dismisses what showed (UiApp::LockNow): it gives them back
+  // itself as it goes (ShowLock).
+  void ReturnKeys(views::View* before);
   // The PIN screen, and the full screen's hint over it, over everything else.
   void RaiseTopOverlays();
   void PrepareAppIconPicker();

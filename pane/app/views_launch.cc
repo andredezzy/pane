@@ -2,7 +2,10 @@
 
 #include "pane/app/views_launch.h"
 
+#include <string>
+
 #include "base/command_line.h"
+#include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "pane/app/data_launch.h"
@@ -23,22 +26,35 @@ constexpr int kRefused = 1;
 }  // namespace
 
 std::optional<int> StartViewsLaunch(base::CommandLine& command_line) {
-  // A scenario names its data folder, or a home of its own (CFFIXED_USER_HOME),
-  // whose Application Support holds Pane's data as a Mac's does; either lies in
-  // the temporary folder, as the runner makes them, so this launch never
-  // writes beside the user's data (test_copy.h).
-  const base::FilePath data = DataDirectory();
-  if (!command_line.HasSwitch("use-mock-keychain") ||
-      !InTemporaryFolder(data)) {
-    LOG(ERROR) << "Pane's Views UI runs only as a test copy for now: "
-                  "--use-mock-keychain, and a data folder in the temporary "
-                  "folder (PANE_DATA_DIR, or a home of its own)";
-    return kRefused;
+  // The user's data, or a test copy's on the mock keychain (test_copy.h).
+  // PANE_DATA_DIR is read here whether or not the hooks are on, so a test copy
+  // started without the switch is known by it too.
+  const LaunchKind kind =
+      KindOfLaunch(command_line.HasSwitch("use-mock-keychain"),
+                   base::FilePath::FromUTF8Unsafe(base::Environment::Create()
+                                                      ->GetVar("PANE_DATA_DIR")
+                                                      .value_or(std::string())),
+                   DefaultDataDirectory());
+  switch (kind) {
+    case LaunchKind::kUser:
+    case LaunchKind::kTestCopy:
+      break;
+    case LaunchKind::kTestCopyWithoutMockKeychain:
+      LOG(ERROR) << "Pane refused a test copy without --use-mock-keychain: its "
+                    "data lies in the temporary folder";
+      return kRefused;
+    case LaunchKind::kMockKeychainOutsideTest:
+      LOG(ERROR) << "Pane refused --use-mock-keychain on data outside the "
+                    "temporary folder";
+      return kRefused;
   }
 
   // What main.swift did before Chromium ran, in its order, and then the
   // engine.
-  if (std::optional<int> exit_code = PrepareData(data, command_line)) {
+  const base::FilePath data = DataDirectory();
+  if (std::optional<int> exit_code =
+          PrepareData(data, command_line,
+                      /*test_copy=*/kind == LaunchKind::kTestCopy)) {
     return exit_code;
   }
   SetEngineSwitches(command_line, data);

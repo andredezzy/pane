@@ -1,6 +1,6 @@
 # The fingerprint lives in Blink and the browser, not in script
 
-> **On the Views line** (`docs/plans/views-migration.md`, N4): what named the Mac names the platform Pane runs on (`model::HostPlatform()`, `host_platform_mac.mm`, macOS there): a new profile claims it, the computer's own GPU is claimed on it, and the voices are hidden when the claimed platform is another; the device pixel ratio stays the claimed computer's (a Mac's 2, a PC's 1). A profile saved on the Mac reads back byte for byte (`SwiftVectorsTest.SheetKeepsWhatAMacSaved`).
+> **On the Views line** (`docs/plans/views-migration.md`, N4): what named the Mac names the platform Pane runs on (`model::HostPlatform()`, `host_platform_mac.cc`, macOS there): a new profile claims it, the computer's own GPU is claimed on it, and the voices are hidden when the claimed platform is another; the device pixel ratio stays the claimed computer's (a Mac's 2, a PC's 1). A profile saved on the Mac reads back byte for byte (`SwiftVectorsTest.SheetKeepsWhatAMacSaved`).
 
 > **On the Views line** (`docs/plans/views-migration.md`, K3): PaneKit is gone with the Swift app; `ClientHintsTests` run as their twins in `pane_unittests` (`pane/model/client_hints_unittest.cc`, `docs/benchmarks/panekit-tests.md`).
 

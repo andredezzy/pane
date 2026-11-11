@@ -4,7 +4,9 @@
 # 2): the formats every Pane wrote, and the rules over them, ported from the
 # Swift PaneKit test by test. It depends on //base, //crypto, //url, RE2, ICU,
 # and gfx's geometry (its cubic Bézier) alone, so its tests run under the
-# sanitizers apart from the engine.
+# sanitizers apart from the engine (pane_model_unittests).
+
+import("//testing/test.gni")
 
 source_set("model") {
   sources = [
@@ -75,7 +77,7 @@ source_set("model") {
 
   # The platform Pane runs on, from its own file.
   if (is_mac) {
-    sources += [ "host_platform_mac.mm" ]
+    sources += [ "host_platform_mac.cc" ]
   }
   if (is_win) {
     sources += [ "host_platform_win.cc" ]
@@ -124,4 +126,19 @@ source_set("unit_tests") {
     "//testing/gtest",
     "//url",
   ]
+}
+
+# The model's tests alone, the Mac's vault's with them, apart from the engine
+# and pane_unittests' network stack: what runs under AddressSanitizer, in
+# out/ASan (chromium/args/asan.gn, docs/building.md). pane_unittests runs the
+# same tests in the release build.
+test("pane_model_unittests") {
+  deps = [
+    ":unit_tests",
+    "//base/test:run_all_unittests",
+  ]
+
+  if (is_mac) {
+    deps += [ "//pane/model/mac:unit_tests" ]
+  }
 }

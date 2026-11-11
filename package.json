@@ -8,6 +8,7 @@
 		"lint": "eslint --fix tests && biome check --write --max-diagnostics 500",
 		"typecheck": "tsc -p tsconfig.json",
 		"test": "scripts/build.sh pane_unittests && \"${CHROMIUM_ROOT:-$HOME/chromium}/src/out/Release/pane_unittests\"",
+		"test:asan": "scripts/test-asan.sh",
 		"knip": "knip"
 	},
 	"engines": {

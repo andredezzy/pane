@@ -7,6 +7,23 @@
 
 namespace pane {
 
+LaunchKind KindOfLaunch(bool mock_keychain,
+                        const base::FilePath& named,
+                        const base::FilePath& derived) {
+  if (!mock_keychain) {
+    // Either name in the temporary folder makes it a test copy: a relaunch
+    // without the switch reads PANE_DATA_DIR no more, and opens the data
+    // under its home.
+    const bool in_temporary = (!named.empty() && InTemporaryFolder(named)) ||
+                              InTemporaryFolder(derived);
+    return in_temporary ? LaunchKind::kTestCopyWithoutMockKeychain
+                        : LaunchKind::kUser;
+  }
+  return InTemporaryFolder(named.empty() ? derived : named)
+             ? LaunchKind::kTestCopy
+             : LaunchKind::kMockKeychainOutsideTest;
+}
+
 bool InTemporaryFolder(const base::FilePath& path) {
   base::FilePath temporary;
   if (!path.IsAbsolute() || path.ReferencesParent() ||

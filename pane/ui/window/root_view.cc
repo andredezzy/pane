@@ -461,6 +461,17 @@ void RootView::SetShows(const Shows& shows) {
   ShowLock(shows.lock);
 }
 
+void RootView::ReturnKeys(views::View* before) {
+  if (lock_->takes_every_key()) {
+    return;
+  }
+  if (before && before->IsDrawn() && before->IsFocusable()) {
+    before->RequestFocus();
+  } else {
+    FocusPage();
+  }
+}
+
 void RootView::ShowLock(const LockScreenView::Shows& shows) {
   // What the window shows before its first frame is out is there in it, the
   // PIN screen at launch included; after, the screen rises and sinks.
@@ -692,7 +703,9 @@ void RootView::ShowAppIconPicker(bool show) {
     // again.
     if (app_icon_dialog_ && app_icon_dialog_->showing()) {
       app_icon_dialog_->AnimateOut();
-      FocusSettings();
+      if (!lock_->takes_every_key()) {
+        FocusSettings();
+      }
     }
     return;
   }
@@ -718,11 +731,7 @@ void RootView::ShowQuitDialog(bool show) {
     quit_dialog_->AnimateOut();
     views::View* before = focus_before_quit_.view();
     focus_before_quit_.SetView(nullptr);
-    if (before && before->IsDrawn() && before->IsFocusable()) {
-      before->RequestFocus();
-    } else {
-      FocusPage();
-    }
+    ReturnKeys(before);
     return;
   }
   if (quit_dialog_->showing()) {
@@ -924,11 +933,7 @@ void RootView::HideProfileSheet() {
   profile_sheet_->AnimateOut();
   views::View* before = focus_before_sheet_.view();
   focus_before_sheet_.SetView(nullptr);
-  if (before && before->IsDrawn() && before->IsFocusable()) {
-    before->RequestFocus();
-  } else {
-    FocusPage();
-  }
+  ReturnKeys(before);
 }
 
 ProfileSheet* RootView::profile_sheet() {
@@ -1091,12 +1096,11 @@ void RootView::HideExtensionPrompt() {
                                 weak_factory_.GetWeakPtr(), overlay));
   views::View* before = focus_before_prompt_.view();
   focus_before_prompt_.SetView(nullptr);
-  if (before && before->IsDrawn() && before->IsFocusable()) {
-    before->RequestFocus();
-  } else if (page_dialog()) {
+  if ((!before || !before->IsDrawn() || !before->IsFocusable()) &&
+      page_dialog() && !lock_->takes_every_key()) {
     page_dialog()->TakeFocus();
   } else {
-    FocusPage();
+    ReturnKeys(before);
   }
 }
 

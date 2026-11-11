@@ -1,5 +1,5 @@
 import { stats } from "../lib/benchmark";
-import { launchPane, type PaneApp, tabOf } from "../lib/pane";
+import { launchPane, type PaneApp, pressWindowKey, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { signpostFrameIntervals } from "../lib/signposts";
 import { pageResult, waitForSheet } from "../lib/surfaces";
@@ -15,7 +15,9 @@ import { expect, type Scenario } from "../run";
 // (ADR 0071); where Chrome's own tab-modal dialogs would show; and, timed by
 // the app's signposts from Chrome's hook to the frame, a JavaScript alert's
 // first frame ("Page dialog") and a permission prompt's ("Permission
-// prompt"). For the Views build, from out/Release:
+// prompt"); and the switcher over a page's dialog, which takes Esc first, the
+// dialog's Esc then (Views' own dispatch in the background, posted with
+// --foreground). For the Views build, from out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir>/light --appearance light tests/rigs/views-dialogs.ts
@@ -150,6 +152,51 @@ const viewsDialogs: Scenario = async (context) => {
 	const waited = await waitForSheet(app, "javaScript");
 	expect(waited.tabID === behind, `the alert of ${waited.tabID} showed`);
 	await answer(app, "OK");
+
+	// The switcher over a page's dialog takes Esc first, Control held; the
+	// dialog's then, which a confirm answers with false (KeyRoutingTests.
+	// swift's dialogOrder).
+	await behindPage.evaluate("runConfirm()");
+	await waitForSheet(app, "javaScript");
+	await app.send("key", { key: "\t", modifiers: ["control"] });
+
+	await app.waitFor(
+		"the switcher over the dialog",
+		(state) => state.switcher.visible,
+	);
+
+	await app.send(context.foreground ? "key" : "dispatchKey", {
+		key: "\u001b",
+		modifiers: ["control"],
+	});
+
+	const underSwitcher = await app.waitFor(
+		"the switcher gone, the dialog still there",
+		(state) => !state.switcher.visible && state.sheet?.kind === "javaScript",
+	);
+
+	await (context.foreground
+		? app.send("releaseModifiers")
+		: app.send("dispatchKey", { key: "control", phase: "release" }));
+
+	expect(
+		underSwitcher.activeTabID === behind,
+		"Esc in the switcher switched tabs",
+	);
+
+	await pressWindowKey(context, app, "\u001b");
+
+	const dismissed = await pageResult<{ value: boolean }>((expression) =>
+		behindPage.evaluate(expression),
+	);
+
+	expect(
+		dismissed.value === false,
+		`Esc after the switcher gave ${dismissed.value}`,
+	);
+
+	await app.waitFor("the confirm gone", (state) => state.sheet === null);
+	result.switcherOverDialog = "the switcher, then the dialog";
 	await app.send("closeTab", { tab: behind });
 	await app.send("select", { tab });
 

@@ -1,7 +1,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
-import { type AppState, launchPane, type PaneApp, setUpPin } from "../lib/pane";
+import {
+	type AppState,
+	launchPane,
+	type PaneApp,
+	pressWindowKey,
+	setUpPin,
+} from "../lib/pane";
 import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
 
@@ -472,6 +478,56 @@ async function timing(context: Parameters<Scenario>[0], log: Log) {
 	);
 }
 
+// A Lock takes Quit Pane?'s place, as it takes the switcher's
+// (UiApp::LockNow): nothing of the window waits under the PIN screen, which
+// alone takes the keys. Esc at it leaves it up, and the PIN brings no Quit
+// Pane? back. The Swift's drew the PIN screen over Quit Pane?, which waited
+// under it (KeyRoutingTests.swift's pinOverQuit). Through Views' own dispatch
+// in the background, posted as real keys with --foreground.
+async function lockOverQuit(context: Parameters<Scenario>[0], log: Log) {
+	const app = await launchPane(context);
+
+	try {
+		await setUpPin(app, "1234");
+		await app.send("key", { key: "q", modifiers: ["command"] });
+		await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
+		await app.send("lockNow");
+
+		await app.waitFor(
+			"the Lock in Quit Pane?'s place",
+			(state) => state.security.locked && !state.quitConfirmation,
+		);
+
+		await pressWindowKey(context, app, "\u001b");
+		await Bun.sleep(500);
+		const held = await app.state();
+
+		expect(
+			held.security.locked &&
+				screen(held)?.mode === "unlock" &&
+				!held.quitConfirmation,
+			`Esc at the Lock: ${JSON.stringify({
+				locked: held.security.locked,
+				screen: screen(held),
+				quit: held.quitConfirmation,
+			})}`,
+		);
+
+		await keys(app, "1234", "unlocked", (state) => !state.security.locked);
+		await Bun.sleep(500);
+		const after = await app.state();
+		expect(!after.quitConfirmation, "Quit Pane? came back after the PIN");
+
+		log.lockOverQuit = {
+			quitAtTheLock: "dismissed",
+			escAtTheLock: "held",
+			afterThePin: after.focus,
+		};
+	} finally {
+		await app.browser.close();
+	}
+}
+
 type Log = Record<string, unknown>;
 
 const viewsLock: Scenario = async (context) => {
@@ -480,6 +536,7 @@ const viewsLock: Scenario = async (context) => {
 	await pinScreens(context, log);
 	await lockScreens(context, log);
 	await updateAtTheLock(context);
+	await lockOverQuit(context, log);
 	await unreadable(context, log);
 	await dataMove(context, log);
 

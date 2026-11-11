@@ -267,5 +267,19 @@ export async function workerPage(
 		},
 	);
 
-	return new Page(app.browser.cdp, sessionId, target.targetId);
+	const worker = new Page(app.browser.cdp, sessionId, target.targetId);
+
+	// A worker just started can take an evaluation before its extension's
+	// API is bound to it ("chrome is not defined", views-extensions in dark
+	// on 2026-11-11), and answers once it is.
+	await poll(
+		`the worker of ${id} with its API`,
+		() =>
+			worker
+				.evaluate<boolean>("typeof chrome === 'object' && !!chrome.runtime?.id")
+				.catch(() => false),
+		10_000,
+	);
+
+	return worker;
 }

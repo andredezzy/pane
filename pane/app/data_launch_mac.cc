@@ -2,7 +2,6 @@
 
 #include "pane/app/data_launch.h"
 
-#import <Foundation/Foundation.h>
 #include <stdint.h>
 
 #include <memory>
@@ -33,6 +32,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "pane/app/app_defaults.h"
 #include "pane/app/test_copy.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
@@ -84,15 +84,16 @@ void LogFailures(std::string_view what, size_t count) {
 }
 
 // The Electron app's data: a scenario's (PANE_ELECTRON_DATA_DIR), or its
-// folder used last in Application Support, which, under the Views launch's
-// guard (test_copy.h), is looked at only in the temporary folder.
+// folder used last in Application Support, which a test copy looks at only in
+// the temporary folder.
 std::optional<model::ElectronSource> ElectronSourceFor(
-    const base::FilePath& application_support) {
+    const base::FilePath& application_support,
+    bool test_copy) {
   if (const std::optional<std::string> named =
           TestHook("PANE_ELECTRON_DATA_DIR")) {
     return model::ElectronSource{.directory = base::FilePath(*named)};
   }
-  if (!InTemporaryFolder(application_support)) {
+  if (test_copy && !InTemporaryFolder(application_support)) {
     return std::nullopt;
   }
   return model::DefaultElectronSource(application_support);
@@ -499,35 +500,45 @@ base::FilePath DataDirectory() {
   if (const std::optional<std::string> named = TestHook("PANE_DATA_DIR")) {
     return base::FilePath(*named);
   }
+  return DefaultDataDirectory();
+}
+
+base::FilePath DefaultDataDirectory() {
   return UserDirectory(base::DIR_APP_DATA).Append(model::kBundleIdentifier);
 }
 
 // The order is main.swift's, step by step.
 std::optional<int> PrepareData(const base::FilePath& data_directory,
-                               const base::CommandLine& command_line) {
+                               const base::CommandLine& command_line,
+                               bool test_copy) {
   CHECK(!g_launched);
   const base::FilePath application_support = UserDirectory(base::DIR_APP_DATA);
   const base::FilePath caches = UserDirectory(base::DIR_CACHE);
   const model::SafeStorage safe_storage = model::SafeStorage::ForProcess();
 
+  // A test copy reads and writes nothing outside the temporary folder: what
+  // the launch does beside the data, it does there alone. The user's launch
+  // does all of it, as the Swift's main.swift did.
+  const auto may_touch = [test_copy](const base::FilePath& path) {
+    return !test_copy || InTemporaryFolder(path);
+  };
+
   // The profiles' caches' folder, when the data root is in Application
-  // Support. The guard put the data root in the temporary folder, and its
-  // caches go there too, or the launch ends here.
+  // Support. A test copy's lie in its home in the temporary folder too, or
+  // the launch ends here.
   const std::optional<base::FilePath> cache_directory =
       model::ProfileCacheDirectory(data_directory);
-  if (cache_directory && !InTemporaryFolder(*cache_directory)) {
-    LOG(ERROR) << "Pane's Views UI runs only as a test copy for now: its "
-                  "caches outside the temporary folder";
+  if (cache_directory && !may_touch(*cache_directory)) {
+    LOG(ERROR) << "A test copy's caches lie outside the temporary folder";
     return 1;
   }
 
   // An earlier Pane's data, under its former identifier's folders, moves to
   // this one's before anything reads it (ADR 0114). Scenarios name their own
   // data, or a home of their own (CFFIXED_USER_HOME), whose preferences are
-  // still the user's: those stay. Under the guard, only in a home in the
-  // temporary folder, and never otherwise.
-  if (!TestHook("PANE_DATA_DIR") && InTemporaryFolder(application_support) &&
-      InTemporaryFolder(caches)) {
+  // still the user's: those stay.
+  if (!TestHook("PANE_DATA_DIR") && may_touch(application_support) &&
+      may_touch(caches)) {
     const bool fixed_home =
         base::Environment::Create()->HasVar("CFFIXED_USER_HOME");
     LogFailures(
@@ -540,19 +551,18 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
   }
 
   // What an earlier Pane's URL sessions kept in the clear goes (ADR 0113).
-  // Under the guard, only in a home in the temporary folder.
   if (const base::FilePath library = base::apple::GetUserLibraryPath();
-      InTemporaryFolder(library)) {
+      may_touch(library)) {
     LogFailures("Could not remove an earlier Pane's session caches",
                 model::RemoveSessionCaches(library).size());
   }
 
   // And what the system kept for the former identifier in the user's cache
   // folder (ADR 0115). That folder is the system's, beside the temporary
-  // folder, not in it: under the guard this is skipped, every time.
+  // folder, not in it: a test copy skips this, every time.
   if (const std::optional<base::FilePath> user_caches =
           model::UserCacheDirectory();
-      user_caches && InTemporaryFolder(*user_caches)) {
+      user_caches && may_touch(*user_caches)) {
     LogFailures("Could not remove an earlier Pane's caches",
                 model::RemoveFormerUserCaches(*user_caches).size());
   }
@@ -567,16 +577,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
     }
   }
 
-  // Pane restores its own session (profiles.json), so AppKit's window
-  // restoration stays off, along with its "reopen windows?" alert after a
-  // crash. And AppKit's text as the Electron app drew its UI (CSS
-  // -webkit-font-smoothing: antialiased): no font smoothing, which Views'
-  // text doesn't read (ADR 0060). Registered, so in memory only.
-  [NSUserDefaults.standardUserDefaults registerDefaults:@{
-    @"ApplePersistenceIgnoreState" : @YES,
-    @"AppleFontSmoothing" : @0,
-    @"NSQuitAlwaysKeepsWindows" : @NO,
-  }];
+  RegisterAppDefaults();
 
   // What an earlier engine kept in the clear, which it keeps off now (ADR
   // 0113, 0115), goes with the erase below.
@@ -591,11 +592,11 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
       data_directory, command_line, *tools, safe_storage);
 
   // The first launch after the Electron app brings its data over, from a
-  // copy, before anything here reads the data directory. Under the guard,
-  // only from the temporary folder.
+  // copy, before anything here reads the data directory: a test copy's, only
+  // from the temporary folder.
   if (const std::optional<model::ElectronSource> electron =
-          ElectronSourceFor(application_support);
-      electron && InTemporaryFolder(electron->directory)) {
+          ElectronSourceFor(application_support, test_copy);
+      electron && may_touch(electron->directory)) {
     const std::unique_ptr<model::LaunchAlert> alert =
         model::LaunchAlert::Create(
             /*silent=*/TestHook("PANE_AUTOMATION_DIR").has_value());

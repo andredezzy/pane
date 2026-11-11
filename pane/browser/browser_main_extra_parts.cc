@@ -2,11 +2,9 @@
 
 #include "pane/browser/browser_main_extra_parts.h"
 
-#import <Foundation/Foundation.h>
-
+#include <optional>
 #include <string>
 
-#include "base/apple/foundation_util.h"
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -20,6 +18,7 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
 #include "pane/app/data_launch.h"
+#include "pane/browser/bundled_crl_set.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/install_hooks.h"
 #include "pane/ui/app/ui_app.h"
@@ -37,7 +36,7 @@ namespace {
 // the certificate verifier before any profile loads. The verifier parses it
 // once startup is over (a best-effort task), as it does Chrome's component.
 void LoadBundledCRLSet() {
-  NSString* path = [NSBundle.mainBundle pathForResource:@"crl-set" ofType:nil];
+  const std::optional<base::FilePath> path = BundledCRLSet();
   if (!path) {
     return;
   }
@@ -50,7 +49,7 @@ void LoadBundledCRLSet() {
             base::ReadFileToString(file, &bytes);
             return bytes;
           },
-          base::apple::NSStringToFilePath(path)),
+          *path),
       base::BindOnce([](const std::string& bytes) {
         if (!bytes.empty()) {
           content::GetCertVerifierServiceFactory()->UpdateCRLSet(

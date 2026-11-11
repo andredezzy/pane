@@ -27,10 +27,13 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // the image as it starts and opens it with the key the first one sealed. A
 // data root derived from a home of the run's own takes an earlier
 // identifier's folder and drops the session caches there, and nowhere else.
-// A data folder outside the temporary folder is refused, as any launch is
-// until the Lock's UI exists. With a watchdog beside the binary (a packaged
-// bundle's), it runs while Pane does, goes at the quit, and after a kill
-// detaches the image itself. For the Views build:
+// The launch's guard (pane/app/test_copy.h): a test copy, its data in the
+// temporary folder by PANE_DATA_DIR or by a home of its own, is refused
+// without --use-mock-keychain, as 0.19.1's installer relaunches one, and the
+// mock keychain is refused on data outside the temporary folder; each exits
+// with 1 before it makes its data folder. With a watchdog beside the binary
+// (a packaged bundle's), it runs while Pane does, goes at the quit, and after
+// a kill detaches the image itself. For the Views build:
 //
 //   bun tests/run.ts --binary <Pane.app>/Contents/MacOS/Pane --out <dir> \
 //     tests/rigs/views-start.ts
@@ -162,9 +165,119 @@ async function quit(
 	return after;
 }
 
+// What the launch's guard says when it refuses a test copy without the mock
+// keychain (pane/app/views_launch.cc).
+const REFUSED_WITHOUT_MOCK =
+	"Pane refused a test copy without --use-mock-keychain";
+
+// The Keychain out of reach, for a launch without --use-mock-keychain: its
+// services, and the user's and the system's keychain files. The guard refuses
+// such a launch before any of it; under this sandbox, a guard that let one
+// through would still find no Keychain to read or write.
+const NO_KEYCHAIN = [
+	"(version 1)",
+	"(allow default)",
+	'(deny mach-lookup (global-name "com.apple.SecurityServer")',
+	'  (global-name-regex #"^com\\.apple\\.securityd")',
+	'  (global-name-regex #"^com\\.apple\\.security\\."))',
+	"(deny file-read* file-write*",
+	'  (subpath "/Library/Keychains")',
+	`  (subpath ${JSON.stringify(join(homedir(), "Library", "Keychains"))}))`,
+].join("\n");
+
+// A test copy started as 0.19.1's installer relaunches one: the binary with
+// the run's variables and home, and no --use-mock-keychain. Its exit code and
+// what it logged, within 30 s.
+async function launchWithoutMockKeychain(
+	context: ScenarioContext,
+	env: Record<string, string>,
+): Promise<{ code: number | null; refused: boolean; ms: number }> {
+	const started = Date.now();
+
+	const child = Bun.spawn(
+		[
+			"/usr/bin/sandbox-exec",
+			"-p",
+			NO_KEYCHAIN,
+			context.binary,
+			"--no-first-run",
+			"--no-default-browser-check",
+		],
+		{
+			env: { ...process.env, ...env },
+			stdout: "ignore",
+			stderr: "pipe",
+		},
+	);
+
+	const exited = await Promise.race([
+		child.exited.then(() => true),
+		Bun.sleep(30_000).then(() => false),
+	]);
+
+	if (!exited) {
+		child.kill("SIGKILL");
+		await child.exited;
+	}
+
+	const log = await new Response(child.stderr).text();
+
+	return {
+		code: exited ? child.exitCode : null,
+		refused: log.includes(REFUSED_WITHOUT_MOCK),
+		ms: Date.now() - started,
+	};
+}
+
 const viewsStart: Scenario = async (context) => {
-	// Refused: a data folder outside the temporary folder, which a launch can't
-	// write either, so a wrong guard writes nothing.
+	// Refused: a test copy without the mock keychain, by its PANE_DATA_DIR
+	// and its home, as 0.19.1's installer relaunches one, and by a home of
+	// its own alone; neither makes its data folder.
+	const relaunchHome = realpathSync(context.tempDir("pane-views-start-home-"));
+
+	const relaunchData = join(
+		realpathSync(context.tempDir("pane-views-start-")),
+		"data",
+	);
+
+	const relaunched = await launchWithoutMockKeychain(context, {
+		HOME: relaunchHome,
+		CFFIXED_USER_HOME: relaunchHome,
+		PANE_DATA_DIR: relaunchData,
+		PANE_ELECTRON_DATA_DIR: join(relaunchData, "no-electron-app"),
+	});
+
+	const homeOnly = realpathSync(context.tempDir("pane-views-start-home-"));
+
+	const ownHome = await launchWithoutMockKeychain(context, {
+		HOME: homeOnly,
+		CFFIXED_USER_HOME: homeOnly,
+	});
+
+	const derivedIn = (home: string) =>
+		join(home, "Library", "Application Support", "xyz.roundedcorners.pane");
+
+	const withoutMock = {
+		relaunched,
+		ownHome,
+		dataMade:
+			existsSync(relaunchData) ||
+			existsSync(derivedIn(relaunchHome)) ||
+			existsSync(derivedIn(homeOnly)),
+	};
+
+	expect(
+		relaunched.code === 1 &&
+			relaunched.refused &&
+			ownHome.code === 1 &&
+			ownHome.refused &&
+			!withoutMock.dataMade,
+		`a test copy without the mock keychain: ${JSON.stringify(withoutMock)}`,
+	);
+
+	// Refused: the mock keychain on a data folder outside the temporary
+	// folder, which a launch can't write either, so a wrong guard writes
+	// nothing.
 	const outside = "/var/empty/pane-views-start";
 
 	const refused = await context
@@ -185,7 +298,7 @@ const viewsStart: Scenario = async (context) => {
 
 	expect(
 		refused.includes("exit code 1") && !existsSync(outside),
-		`a data folder outside the temporary folder: ${refused}`,
+		`the mock keychain outside the temporary folder: ${refused}`,
 	);
 
 	// A fresh data folder: the volume made, attached, and opened; the quit
@@ -308,6 +421,7 @@ const viewsStart: Scenario = async (context) => {
 	);
 
 	return {
+		withoutMock,
 		refused,
 		first: { open: firstOpen, quit: firstQuit },
 		second: { open: secondOpen, quit: secondQuit },

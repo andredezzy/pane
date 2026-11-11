@@ -9,13 +9,12 @@ source_set("pane") {
   visibility = [ "//chrome:chrome_dll" ]
 
   sources = [
+    "app/app_defaults.h",
     "app/data_launch.h",
     "app/engine_switches.cc",
     "app/engine_switches.h",
     "app/pane_main_delegate.cc",
     "app/pane_main_delegate.h",
-    "app/test_copy.cc",
-    "app/test_copy.h",
     "app/version.cc",
     "app/version.h",
     "app/views_launch.cc",
@@ -30,6 +29,7 @@ source_set("pane") {
     "browser/browser_context.cc",
     "browser/browser_context.h",
     "browser/browser_main_extra_parts.h",
+    "browser/bundled_crl_set.h",
     "browser/caches_in_memory.cc",
     "browser/caches_in_memory.h",
     "browser/content_browser_client.cc",
@@ -207,12 +207,16 @@ source_set("pane") {
   # (docs/plans/views-migration.md).
   if (is_mac) {
     sources += [
-      "app/data_launch_mac.mm",
-      "app/version_mac.mm",
-      "automation/input_mac.mm",
+      "app/app_defaults_mac.mm",
+      "app/data_launch_mac.cc",
+      "app/version_mac.cc",
+      "automation/input_mac.cc",
+      "automation/native_input_mac.h",
+      "automation/native_input_mac.mm",
       "automation/system_mac.mm",
       "automation/windows_mac.mm",
-      "browser/browser_main_extra_parts.mm",
+      "browser/browser_main_extra_parts.cc",
+      "browser/bundled_crl_set_mac.cc",
       "browser/ui/browser_window.cc",
       "browser/ui/browser_window.h",
       "browser/ui/hosted_tab.cc",
@@ -223,13 +227,13 @@ source_set("pane") {
       "ui/app/app_events_mac.mm",
       "ui/app/dock_icon_mac.mm",
       "ui/dialogs/system_alert_mac.mm",
-      "ui/interaction_log_mac.mm",
+      "ui/interaction_log_mac.cc",
       "ui/page/page_context_menu_mac.mm",
-      "ui/panels/time_of_day_mac.mm",
+      "ui/panels/time_of_day_mac.cc",
       "ui/sidebar/resize_cursor_mac.mm",
       "ui/window/frame_mac.mm",
-      "updates/update_files_mac.mm",
-      "updates/update_installer_mac.mm",
+      "updates/update_files_mac.cc",
+      "updates/update_installer_mac.cc",
     ]
   }
 
@@ -320,6 +324,7 @@ source_set("pane") {
     "//gpu/config",
     "//mojo/public/cpp/bindings",
     "//net",
+    "//pane/app:test_copy",
     "//pane/encryption:handover",
     "//pane/encryption:migration",
     "//pane/model",
@@ -361,6 +366,8 @@ source_set("pane") {
     frameworks = [
       "AppKit.framework",
       "Carbon.framework",
+      "CoreFoundation.framework",
+      "CoreServices.framework",
       "Foundation.framework",
     ]
   }

@@ -2,9 +2,10 @@
 # Compiles //pane's shared code for Windows x64, cross-built from the Mac in
 # out/Win (chromium/args/win.gn), with no full Windows build: the sources
 # pane/BUILD.gn builds on every OS, and those of the targets beside it that do
-# (pane/model, pane/ui/app, pane/ui/design, pane/ui/lock, pane/ui/tabs). Each
-# object compiles alone (`autoninja -C out/Win ../../<file>^`), so code that
-# builds only on the Mac shows before Windows' turn comes (ADR 0124). A gate
+# (pane/app, pane/model, pane/ui/app, pane/ui/design, pane/ui/lock,
+# pane/ui/tabs), but the Mac's own files and tests (_mac.cc, _mac_unittest.cc).
+# Each object compiles alone (`autoninja -C out/Win ../../<file>^`), so code
+# that builds only on the Mac shows before Windows' turn comes (ADR 0124). A gate
 # before each push of an engine change, beside `gn check out/Win '//pane/*'`
 # (AGENTS.md).
 #
@@ -40,9 +41,9 @@ build = (root / "pane/BUILD.gn").read_text()
 start = build.index("  sources = [")
 shared = re.findall(r'"([^"]+\.cc)"', build[start:build.index("  ]", start)])
 files = ["pane/" + name for name in shared]
-for folder in ("pane/model", "pane/ui/app", "pane/ui/design", "pane/ui/lock", "pane/ui/tabs"):
+for folder in ("pane/app", "pane/model", "pane/ui/app", "pane/ui/design", "pane/ui/lock", "pane/ui/tabs"):
     files += [str(path.relative_to(root)) for path in sorted((root / folder).glob("*.cc"))
-              if not path.name.endswith("_mac.cc")]
+              if not path.name.endswith(("_mac.cc", "_mac_unittest.cc"))]
 for name in dict.fromkeys(files):
     print(f"../../{name}^")
 PY

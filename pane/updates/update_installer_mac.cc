@@ -2,17 +2,22 @@
 
 #include "pane/updates/update_installer.h"
 
-#import <Foundation/Foundation.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <crt_externs.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <map>
+#include <string_view>
 #include <utility>
 
 #include "base/apple/bundle_locations.h"
 #include "base/apple/foundation_util.h"
+#include "base/apple/scoped_cftyperef.h"
+#include "base/compiler_specific.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback_helpers.h"
@@ -61,6 +66,24 @@ void Unmount(const base::FilePath& mount, bool quietly) {
   }
 }
 
+// This process's environment, by name in order: the first of a name that
+// repeats, as getenv reads it.
+std::map<std::string, std::string> Environment() {
+  std::map<std::string, std::string> environment;
+  char** entries = *_NSGetEnviron();
+  // SAFETY: the environment ends at its first null entry, as POSIX lays it
+  // out.
+  for (size_t index = 0; entries && UNSAFE_BUFFERS(entries[index]); ++index) {
+    const std::string_view variable(UNSAFE_BUFFERS(entries[index]));
+    const size_t equals = variable.find('=');
+    if (equals != std::string_view::npos && equals > 0) {
+      environment.emplace(variable.substr(0, equals),
+                          variable.substr(equals + 1));
+    }
+  }
+  return environment;
+}
+
 // The new Pane's `open`: behind the app in use when it may not take the
 // front, with Pane's own PANE_ variables, and a home of its own
 // (CFFIXED_USER_HOME, with HOME), which only scenarios set, so it opens on
@@ -72,18 +95,13 @@ std::vector<std::string> OpenArguments(
   if (!relaunch.in_front) {
     arguments.push_back("-g");
   }
-  NSDictionary<NSString*, NSString*>* environment =
-      NSProcessInfo.processInfo.environment;
-  const bool fixed_home = environment[@"CFFIXED_USER_HOME"] != nil;
-  NSArray<NSString*>* names =
-      [environment.allKeys sortedArrayUsingSelector:@selector(compare:)];
-  for (NSString* name in names) {
-    if ([name hasPrefix:@"PANE_"] ||
-        (fixed_home && ([name isEqualToString:@"CFFIXED_USER_HOME"] ||
-                        [name isEqualToString:@"HOME"]))) {
+  const std::map<std::string, std::string> environment = Environment();
+  const bool fixed_home = environment.contains("CFFIXED_USER_HOME");
+  for (const auto& [name, value] : environment) {
+    if (name.starts_with("PANE_") ||
+        (fixed_home && (name == "CFFIXED_USER_HOME" || name == "HOME"))) {
       arguments.push_back("--env");
-      arguments.push_back(base::SysNSStringToUTF8(name) + "=" +
-                          base::SysNSStringToUTF8(environment[name]));
+      arguments.push_back(name + "=" + value);
     }
   }
   arguments.push_back(app.value());
@@ -93,6 +111,39 @@ std::vector<std::string> OpenArguments(
                      relaunch.switches.end());
   }
   return arguments;
+}
+
+// A bundle's Info.plist, as a dictionary, or null.
+base::apple::ScopedCFTypeRef<CFDictionaryRef> InfoDictionary(
+    const base::FilePath& app) {
+  std::string bytes;
+  if (!base::ReadFileToString(app.Append("Contents/Info.plist"), &bytes)) {
+    return base::apple::ScopedCFTypeRef<CFDictionaryRef>();
+  }
+  const base::apple::ScopedCFTypeRef<CFDataRef> data(CFDataCreate(
+      kCFAllocatorDefault, reinterpret_cast<const UInt8*>(bytes.data()),
+      static_cast<CFIndex>(bytes.size())));
+  base::apple::ScopedCFTypeRef<CFPropertyListRef> list(
+      data ? CFPropertyListCreateWithData(kCFAllocatorDefault, data.get(),
+                                          kCFPropertyListImmutable, nullptr,
+                                          nullptr)
+           : nullptr);
+  if (!base::apple::CFCast<CFDictionaryRef>(list.get())) {
+    return base::apple::ScopedCFTypeRef<CFDictionaryRef>();
+  }
+  return base::apple::ScopedCFTypeRef<CFDictionaryRef>(
+      static_cast<CFDictionaryRef>(list.release()));
+}
+
+// A string of `info`'s, or nullopt.
+std::optional<std::string> InfoString(CFDictionaryRef info, CFStringRef key) {
+  CFStringRef value =
+      info ? base::apple::GetValueFromDictionary<CFStringRef>(info, key)
+           : nullptr;
+  if (!value) {
+    return std::nullopt;
+  }
+  return base::SysCFStringRefToUTF8(value);
 }
 
 }  // namespace
@@ -106,18 +157,21 @@ UpdateInstaller::~UpdateInstaller() = default;
 
 // static
 std::optional<UpdateInstaller> UpdateInstaller::ForRunningApp() {
-  NSBundle* bundle = base::apple::OuterBundle();
+  const base::FilePath bundle_path = base::apple::OuterBundlePath();
   const std::optional<std::string> target =
-      model::UpdateInstallTarget(base::SysNSStringToUTF8(bundle.bundlePath));
-  NSString* identifier = bundle.bundleIdentifier;
-  if (!target || !identifier.length) {
+      model::UpdateInstallTarget(bundle_path.value());
+  const base::apple::ScopedCFTypeRef<CFBundleRef> bundle(CFBundleCreate(
+      kCFAllocatorDefault, base::apple::FilePathToCFURL(bundle_path).get()));
+  CFStringRef identifier =
+      bundle ? CFBundleGetIdentifier(bundle.get()) : nullptr;
+  if (!target || !identifier || !CFStringGetLength(identifier)) {
     return std::nullopt;
   }
   const base::FilePath path(*target);
   if (access(path.DirName().value().c_str(), W_OK) != 0) {
     return std::nullopt;
   }
-  return UpdateInstaller(path, base::SysNSStringToUTF8(identifier));
+  return UpdateInstaller(path, base::SysCFStringRefToUTF8(identifier));
 }
 
 std::optional<base::FilePath> UpdateInstaller::Stage(
@@ -150,16 +204,10 @@ std::optional<base::FilePath> UpdateInstaller::Stage(
       base::BindOnce(&Unmount, mount, /*quietly=*/false));
 
   const base::FilePath app = mount.Append("Pane.app");
-  NSDictionary* info = [NSDictionary
-      dictionaryWithContentsOfURL:base::apple::FilePathToNSURL(
-                                      app.Append("Contents/Info.plist"))];
-  NSString* found_identifier =
-      base::apple::ObjCCast<NSString>(info[@"CFBundleIdentifier"]);
-  NSString* found_version =
-      base::apple::ObjCCast<NSString>(info[@"PaneVersion"]);
-  if (!found_identifier || !found_version ||
-      base::SysNSStringToUTF8(found_identifier) != identifier_ ||
-      base::SysNSStringToUTF8(found_version) != version) {
+  const base::apple::ScopedCFTypeRef<CFDictionaryRef> info =
+      InfoDictionary(app);
+  if (InfoString(info.get(), CFSTR("CFBundleIdentifier")) != identifier_ ||
+      InfoString(info.get(), CFSTR("PaneVersion")) != version) {
     LOG(ERROR) << "The update's dmg holds no Pane " << version;
     return std::nullopt;
   }
