@@ -103,6 +103,13 @@ plutil -remove ASWebAuthenticationSessionWebBrowserSupportCapabilities "$PLIST" 
 FRAMEWORK="$OUT/Contents/Frameworks/Pane Framework.framework"
 VERSION_DIR="$FRAMEWORK/Versions/Current"
 
+# The ten skies of the App icon are read from the framework's Resources
+# (base::DIR_ASSETS, //pane:app_icons). GN copies a bundle_data into every
+# bundle whose code links the framework's library too: the app, and the
+# Aperitif helpers, which Chromium builds nested on it. Those copies, 35 MB
+# that no one reads, go, so they never reach a dmg.
+rm -f "$OUT"/Contents/Resources/AppIcon*.png "$VERSION_DIR"/Helpers/*.app/Contents/Resources/AppIcon*.png
+
 # Drops local symbols. strip warns, for each file, that its signature no
 # longer holds (the bundle is signed again after); only that is silenced, so
 # a wrong path or a file that is no Mach-O still says so.

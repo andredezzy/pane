@@ -69,7 +69,7 @@ Downloading fetches the dmg; once it checks out, Pane stages the new version bes
 
 Implementation notes:
 
-- The pill, the Settings section, and the lock screen all read the one `Updater` (`app/Pane/Updates/Updater.swift`) — never introduce a second source of truth for update state.
+- The pill, the Settings section, and the lock screen all read the one `Updater` (`pane/updates/updater.h`) — never introduce a second source of truth for update state.
 - A check never takes down what is on offer: the pill stays while it runs, and a downloaded update stays downloaded, its click restarting into it (or, where Pane can't install it, showing the installer and quitting).
 - Dismissing the pill is in-memory only (no persistence); it resets on relaunch.
 - While it downloads, the pill's bar runs out to 7 from the pill's end, as the dot sits 7 from its start, and under the pointer draws back to about 14 from the dismiss button, within room it always keeps, so the text never moves (ADR 0092).

@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
@@ -27,6 +28,7 @@
 #include "net/http/http_request_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "pane/model/test_hooks.h"
+#include "pane/updates/dmg_download.h"
 #include "pane/updates/update_files.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -58,21 +60,8 @@ constexpr net::NetworkTrafficAnnotationTag kUpdateCheck =
         policy_exception_justification: "Pane has no enterprise policy."
       })");
 
-constexpr net::NetworkTrafficAnnotationTag kUpdateDownload =
-    net::DefineNetworkTrafficAnnotation("pane_update_download", R"(
-      semantics {
-        sender: "Pane's update download"
-        description: "Downloads the offered release's dmg."
-        trigger: "The user's click on the update pill or in Settings."
-        data: "None: a plain GET with Pane's user agent."
-        destination: OTHER
-        destination_other: "github.com"
-      }
-      policy {
-        cookies_allowed: NO
-        setting: "None."
-        policy_exception_justification: "Pane has no enterprise policy."
-      })");
+// The download's progress, at most this often: once a frame.
+constexpr base::TimeDelta kProgressInterval = base::Hertz(60);
 
 // The file's SHA-256, in lowercase hex, read a megabyte at a time.
 std::optional<std::string> Sha256Of(const base::FilePath& path) {
@@ -152,6 +141,11 @@ Updater::Config Updater::Config::FromEnvironment() {
     base::PathService::Get(chrome::DIR_DEFAULT_DOWNLOADS, &config.downloads);
   }
   config.opens_download = model::TestHook("PANE_UPDATE_OPEN") != "0";
+  config.installs = model::TestHook("PANE_UPDATE_INSTALL") != "0";
+  // A scenario's copy opens the new Pane as a scenario's copy again.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("use-mock-keychain")) {
+    config.relaunch.switches.push_back("--use-mock-keychain");
+  }
   return config;
 }
 
@@ -162,7 +156,24 @@ Updater::Updater(std::string current_version,
     : current_version_(std::move(current_version)),
       config_(std::move(config)),
       loader_factory_(std::move(loader_factory)),
-      quit_(std::move(quit)) {}
+      quit_(std::move(quit)),
+      installer_(config_.installs ? UpdateInstaller::ForRunningApp()
+                                  : std::nullopt),
+      // It reads whole apps, and a quit never waits for it: what a staging
+      // a quit cut short leaves, the next launch removes.
+      install_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})) {
+  // What an earlier install left beside the app, off the launch's path.
+  if (installer_) {
+    install_runner_->PostTask(FROM_HERE,
+                              base::BindOnce(
+                                  [](const UpdateInstaller& installer) {
+                                    installer.RemoveLeftovers();
+                                  },
+                                  *installer_));
+  }
+}
 
 Updater::~Updater() = default;
 
@@ -304,6 +315,10 @@ void Updater::DismissPill() {
 }
 
 void Updater::DownloadUpdate() {
+  if (status_ == Status::kDownloaded && staged()) {
+    RestartToUpdate();
+    return;
+  }
   // Downloaded already: its installer, as long as the dmg is still there.
   if (status_ == Status::kDownloaded && !downloaded_file_.empty()) {
     base::ThreadPool::PostTaskAndReplyWithResult(
@@ -340,8 +355,6 @@ void Updater::StartDownload(model::AvailableUpdate update) {
   status_ = Status::kDownloading;
   download_progress_ = 0;
   download_eta_.reset();
-  download_total_ = -1;
-  eta_.emplace();
   Notify();
 
   // The user's own request, its progress in view: the file it writes isn't
@@ -351,50 +364,43 @@ void Updater::StartDownload(model::AvailableUpdate update) {
   std::unique_ptr<network::ResourceRequest> request =
       RequestFor(update.dmg_url);
   request->priority = net::LOW;
-  download_loader_ =
-      network::SimpleURLLoader::Create(std::move(request), kUpdateDownload);
-  download_loader_->SetOnResponseStartedCallback(base::BindOnce(
-      [](base::WeakPtr<Updater> updater, const GURL& final_url,
-         const network::mojom::URLResponseHead& head) {
-        if (updater) {
-          updater->DownloadStarted(head.content_length);
-        }
-      },
-      weak_factory_.GetWeakPtr()));
-  download_loader_->SetOnDownloadProgressCallback(base::BindRepeating(
-      &Updater::DownloadProgressed, weak_factory_.GetWeakPtr()));
-  download_loader_->DownloadToTempFile(
-      loader_factory_.get(),
+  download_ = std::make_unique<DmgDownload>(
+      *request, loader_factory_,
+      base::BindRepeating(&Updater::DownloadProgressed,
+                          weak_factory_.GetWeakPtr()),
       base::BindOnce(&Updater::Downloaded, weak_factory_.GetWeakPtr(),
                      std::move(update)));
 }
 
-void Updater::DownloadStarted(int64_t total) {
-  download_total_ = total;
-}
-
-void Updater::DownloadProgressed(uint64_t received) {
-  if (download_total_ <= 0) {
+void Updater::DownloadProgressed(double share, std::optional<int> seconds) {
+  download_progress_ = share;
+  download_eta_ = seconds;
+  if (progress_timer_.IsRunning()) {
+    progress_pending_ = true;
     return;
   }
-  const int64_t bytes = static_cast<int64_t>(received);
-  download_progress_ =
-      std::min(static_cast<double>(bytes) / download_total_, 1.0);
-  download_eta_ = eta_->Update(bytes, download_total_, base::Time::Now());
   Notify();
+  progress_timer_.Start(
+      FROM_HERE, kProgressInterval,
+      base::BindOnce(&Updater::ProgressSettled, base::Unretained(this)));
 }
 
-void Updater::Downloaded(model::AvailableUpdate update, base::FilePath file) {
-  const int error = download_loader_->NetError();
-  download_loader_.reset();
+void Updater::ProgressSettled() {
+  if (!progress_pending_) {
+    return;
+  }
+  Notify();
+  progress_timer_.Start(
+      FROM_HERE, kProgressInterval,
+      base::BindOnce(&Updater::ProgressSettled, base::Unretained(this)));
+}
+
+void Updater::Downloaded(model::AvailableUpdate update,
+                         std::optional<base::FilePath> file) {
+  download_.reset();
   download_eta_.reset();
-  eta_.reset();
-  if (file.empty() || error != 0) {
-    LOG(ERROR) << "The update download failed: " << error;
-    if (!file.empty()) {
-      base::ThreadPool::PostTask(FROM_HERE, {base::MayBlock()},
-                                 base::GetDeleteFileCallback(file));
-    }
+  if (!file) {
+    LOG(ERROR) << "The update download failed";
     download_progress_.reset();
     status_ = Status::kAvailable;
     Notify();
@@ -410,27 +416,88 @@ void Updater::Downloaded(model::AvailableUpdate update, base::FilePath file) {
   // The digest reads the whole dmg: off the UI thread.
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
-      base::BindOnce(&CheckAndSave, std::move(file), destination,
+      base::BindOnce(&CheckAndSave, std::move(*file), destination,
                      update.sha256),
       base::BindOnce(&Updater::Verified, weak_factory_.GetWeakPtr(),
                      update.version));
 }
 
-// Saved: without the installer (K1) the dmg opens for the user to drag, and
+// Saved and checked: its Pane is staged beside this one while the pill holds
+// its full bar; without an installer the dmg opens for the user to drag, and
 // the pill offers Quit and install. Refused: offered again.
 void Updater::Verified(std::string version,
                        std::optional<base::FilePath> file) {
-  download_progress_.reset();
   if (!file) {
+    download_progress_.reset();
     status_ = Status::kAvailable;
     Notify();
     return;
   }
-  downloaded_version_ = std::move(version);
+  downloaded_version_ = version;
   downloaded_file_ = *file;
-  status_ = Status::kDownloaded;
+  if (!installer_) {
+    download_progress_.reset();
+    status_ = Status::kDownloaded;
+    Notify();
+    Open(*file);
+    return;
+  }
+  download_progress_ = 1;
   Notify();
-  Open(*file);
+  install_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(
+          [](const UpdateInstaller& installer, const base::FilePath& dmg,
+             const std::string& version) {
+            return installer.Stage(dmg, version);
+          },
+          *installer_, *file, std::move(version)),
+      base::BindOnce(&Updater::Staged, weak_factory_.GetWeakPtr(), *file));
+}
+
+// Staged, the pill, Settings, and the Lock offer Restart to update; when a
+// step failed, the dmg opens for the user to drag, as where Pane can't
+// install it.
+void Updater::Staged(base::FilePath file,
+                     std::optional<base::FilePath> staged) {
+  download_progress_.reset();
+  status_ = Status::kDownloaded;
+  if (staged) {
+    staged_ = std::move(*staged);
+  } else {
+    LOG(ERROR) << "The update did not stage";
+  }
+  Notify();
+  if (!staged) {
+    Open(file);
+  }
+}
+
+void Updater::RestartToUpdate() {
+  if (status_ != Status::kDownloaded || !staged()) {
+    return;
+  }
+  relaunches_ = true;
+  quit_.Run();
+}
+
+void Updater::InstallAtQuit() {
+  if (!installer_ || !staged()) {
+    return;
+  }
+  std::optional<UpdateInstaller::Relaunch> relaunch;
+  if (relaunches_) {
+    relaunch = config_.relaunch;
+  }
+  if (installer_->Install(staged_, downloaded_file_, relaunch)) {
+    return;
+  }
+  LOG(ERROR) << "The update did not install";
+  base::DeletePathRecursively(staged_);
+  staged_.clear();
+  if (!downloaded_file_.empty()) {
+    Open(downloaded_file_);
+  }
 }
 
 void Updater::Open(const base::FilePath& file) {
@@ -448,6 +515,8 @@ void Updater::SetStatus(Status status) {
 }
 
 void Updater::Notify() {
+  // What it tells carries the latest progress.
+  progress_pending_ = false;
   for (Observer& observer : observers_) {
     observer.OnUpdaterChanged();
   }

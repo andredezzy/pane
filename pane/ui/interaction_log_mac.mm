@@ -119,6 +119,12 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kLock:
       os_signpost_interval_begin(log, id, "Lock");
       break;
+    case Interaction::kShowUpdate:
+      os_signpost_interval_begin(log, id, "Show update");
+      break;
+    case Interaction::kDownloadProgress:
+      os_signpost_interval_begin(log, id, "Download progress");
+      break;
   }
   return id;
 }
@@ -284,6 +290,16 @@ void EndInteractionInterval(Interaction interaction,
     case Interaction::kLock:
       os_signpost_interval_end(log, interval, "Lock", PANE_INTERVAL_END_FORMAT,
                                late_us, committed_us, presented_us);
+      break;
+    case Interaction::kShowUpdate:
+      os_signpost_interval_end(log, interval, "Show update",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kDownloadProgress:
+      os_signpost_interval_end(log, interval, "Download progress",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
       break;
   }
 }

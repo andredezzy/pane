@@ -610,6 +610,8 @@ void UiApp::Start() {
       browser_shutdown::AddAppTerminatingCallback(base::BindOnce([] {
         if (g_app) {
           g_app->SaveNow(base::DoNothing());
+          // Saved first: a staged update swaps in now (ADR 0092).
+          g_app->updater_->InstallAtQuit();
         }
         delete std::exchange(g_app, nullptr);
       })));
@@ -663,16 +665,20 @@ UiApp::UiApp()
   window_->Show(/*activate=*/true);
   // The update check at launch, then every six hours (ADR 0002): the pill
   // shows what it finds, behind the Lock too.
-  updater_ = std::make_unique<Updater>(
-      PaneVersion(), Updater::Config::FromEnvironment(),
-      g_browser_process->shared_url_loader_factory(),
-      base::BindRepeating(
-          [](base::WeakPtr<UiApp> app) {
-            if (app) {
-              app->Quit(base::DoNothing());
-            }
-          },
-          weak_factory_.GetWeakPtr()));
+  Updater::Config updates = Updater::Config::FromEnvironment();
+  // Restart to update opens the new Pane in front, but for a scenario's copy
+  // that may not take it.
+  updates.relaunch.in_front = MayTakeFront();
+  updater_ =
+      std::make_unique<Updater>(PaneVersion(), std::move(updates),
+                                g_browser_process->shared_url_loader_factory(),
+                                base::BindRepeating(
+                                    [](base::WeakPtr<UiApp> app) {
+                                      if (app) {
+                                        app->Quit(base::DoNothing());
+                                      }
+                                    },
+                                    weak_factory_.GetWeakPtr()));
   updater_observation_.Observe(updater_.get());
   settings_update_ = SettingsUpdateOf(*updater_);
   updater_->Schedule();
@@ -2644,6 +2650,19 @@ void UiApp::OnUpdaterChanged() {
   // formatter.
   settings_update_ = SettingsUpdateOf(*updater_);
   window_->Refresh();
+  // An offer's pill, and each share downloaded, to the frame that shows it.
+  const bool pill = updater_->ShowsPill();
+  const std::optional<double> progress =
+      updater_->status() == Updater::Status::kDownloading
+          ? updater_->download_progress()
+          : std::nullopt;
+  if (pill && !pill_shown_) {
+    LogInteraction(Interaction::kShowUpdate, window_->compositor());
+  } else if (progress && progress != shown_progress_) {
+    LogInteraction(Interaction::kDownloadProgress, window_->compositor());
+  }
+  pill_shown_ = pill;
+  shown_progress_ = progress;
 }
 
 // MARK: The channel

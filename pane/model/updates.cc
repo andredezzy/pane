@@ -24,6 +24,7 @@ namespace {
 constexpr double kSlowBytesPerSecond = 1'000'000;
 constexpr base::TimeDelta kFirstWindow = base::Seconds(5);
 constexpr int kSwitchesInARow = 4;
+constexpr int kDropsInARow = 3;
 
 constexpr base::TimeDelta kSettle = base::Seconds(1);
 constexpr base::TimeDelta kIncreaseHold = base::Seconds(5);
@@ -171,6 +172,35 @@ bool DownloadPace::ShouldSwitch(int64_t received,
   }
   ++switches_;
   return true;
+}
+
+bool CanResume(const DownloadAnswer& answer, bool refused) {
+  return !refused && answer.offers_ranges && answer.validated;
+}
+
+bool CanLeaveConnection(bool resumed,
+                        const DownloadAnswer& answer,
+                        bool refused,
+                        int64_t received,
+                        int64_t total) {
+  return (resumed && answer.status == 0) || CanResume(answer, refused) ||
+         received == 0 || (total > 0 && received * 20 < total);
+}
+
+RangeAnswer ReadRangeAnswer(int status,
+                            std::optional<int64_t> range_start,
+                            int64_t asked) {
+  if (status == 206 && range_start == asked) {
+    return RangeAnswer::kRest;
+  }
+  return status == 200 ? RangeAnswer::kWhole : RangeAnswer::kRefused;
+}
+
+std::optional<base::TimeDelta> DropRetryDelay(int drops) {
+  if (drops < 0 || drops >= kDropsInARow) {
+    return std::nullopt;
+  }
+  return base::Seconds(2 << drops);
 }
 
 DownloadETA::DownloadETA() = default;

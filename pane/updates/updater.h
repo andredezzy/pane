@@ -14,9 +14,11 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "pane/model/updates.h"
+#include "pane/updates/update_installer.h"
 #include "url/gurl.h"
 
 namespace network {
@@ -27,18 +29,17 @@ struct ResourceRequest;
 
 namespace pane {
 
-// The update check and the download (the Swift's Updater, ADR 0002;
-// DESIGN.md › Updates; CONTEXT.md: update check): the repo's latest GitHub
-// Release at launch and every six hours, with retries after a failure; a
-// click downloads its dmg to Downloads, which, once it checks out against the
-// release's SHA-256, leaves quarantine. Never a modal, never a forced
-// restart. The pill, Settings, and the Lock read this one source.
-//
-// Staging the new version beside the app, the swap at quit, and Restart to
-// update are the installer's (UpdateInstaller, ADR 0092), which K1 ports
-// with the download's connection rules (DmgDownload): until then a download
-// is Quit and install, the dmg opening for the user to drag, as the Swift's
-// was where Pane can't install itself.
+class DmgDownload;
+
+// The update check, download, and install (the Swift's Updater, ADR 0002 and
+// 0092; DESIGN.md › Updates; CONTEXT.md: update check): the repo's latest
+// GitHub Release at launch and every six hours, with retries after a failure;
+// a click downloads its dmg to Downloads (DmgDownload), and once it checks
+// out against the release's SHA-256 it leaves quarantine and Pane stages the
+// new version beside itself (UpdateInstaller). Restart to update quits into
+// it, and any quit installs it. Where Pane can't replace itself, the dmg
+// opens and the user drags Pane in (Quit and install). Never a modal, never a
+// forced restart. The pill, Settings, and the Lock read this one source.
 class Updater {
  public:
   enum class Status {
@@ -55,10 +56,11 @@ class Updater {
     virtual void OnUpdaterChanged() = 0;
   };
 
-  // Where it looks and saves, and whether it opens what it saved: GitHub's
-  // latest release, the user's Downloads, and yes, unless a scenario's copy
-  // (the mock keychain) points them elsewhere (PANE_UPDATE_URL,
-  // PANE_UPDATE_DOWNLOADS, PANE_UPDATE_OPEN=0), as the Swift's TestHooks.
+  // Where it looks and saves, whether it opens what it saved, and whether it
+  // installs it: GitHub's latest release, the user's Downloads, and yes,
+  // unless a scenario's copy (the mock keychain) points them elsewhere
+  // (PANE_UPDATE_URL, PANE_UPDATE_DOWNLOADS, PANE_UPDATE_OPEN=0,
+  // PANE_UPDATE_INSTALL=0), as the Swift's TestHooks.
   struct Config {
     Config();
     Config(const Config&);
@@ -68,11 +70,15 @@ class Updater {
     GURL releases_url;
     base::FilePath downloads;
     bool opens_download = true;
+    bool installs = true;
+    // How Restart to update opens the new Pane.
+    UpdateInstaller::Relaunch relaunch;
 
     static Config FromEnvironment();
   };
 
-  // `quit` quits Pane, as Quit and install does once the installer is open.
+  // `quit` quits Pane: Quit and install once the installer is open, and
+  // Restart to update.
   Updater(std::string current_version,
           Config config,
           scoped_refptr<network::SharedURLLoaderFactory> loader_factory,
@@ -93,8 +99,8 @@ class Updater {
   // A check completed this launch, and when the last one did.
   bool checked() const { return last_checked_at_.has_value(); }
   std::optional<base::Time> last_checked_at() const { return last_checked_at_; }
-  // The new version waits beside the app, to install at quit (K1).
-  bool staged() const { return false; }
+  // The new version waits beside the app, to install at quit.
+  bool staged() const { return !staged_.empty(); }
   // The status line the pill and the Lock show.
   std::u16string Label() const;
   // The pill shows while an update is on offer and not dismissed.
@@ -109,11 +115,17 @@ class Updater {
   void Check(base::OnceCallback<void(bool completed)> done = {});
   // The pill's dismiss: hidden for this version until relaunch.
   void DismissPill();
-  // The pill's click and Settings' Download update: downloads the dmg; once
-  // downloaded, opens it and quits for the user to install (Quit and
-  // install). A failure returns to available, so the user can try again
-  // from the same place.
+  // The pill's click, Settings' button, and the Lock's action: downloads the
+  // dmg; once downloaded, restarts into it, or, where Pane can't install it
+  // itself, opens it and quits for the user to (Quit and install). A failure
+  // returns to available, so the user can try again from the same place.
   void DownloadUpdate();
+  // Restart to update: quits, and the quit swaps the staged Pane in and
+  // opens it.
+  void RestartToUpdate();
+  // At every quit, a staged update swaps in. A swap macOS refuses leaves the
+  // app as it was, and the dmg opens instead.
+  void InstallAtQuit();
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -132,10 +144,14 @@ class Updater {
   void Offer(std::optional<model::AvailableUpdate> update);
 
   void StartDownload(model::AvailableUpdate update);
-  void DownloadStarted(int64_t total);
-  void DownloadProgressed(uint64_t received);
-  void Downloaded(model::AvailableUpdate update, base::FilePath file);
+  void DownloadProgressed(double share, std::optional<int> seconds);
+  // What was pending of the progress, at most once a frame.
+  void ProgressSettled();
+  void Downloaded(model::AvailableUpdate update,
+                  std::optional<base::FilePath> file);
   void Verified(std::string version, std::optional<base::FilePath> file);
+  // The checked dmg's Pane, copied beside this one or not.
+  void Staged(base::FilePath file, std::optional<base::FilePath> staged);
   // The downloaded dmg is still where it was saved: open it and quit.
   void QuitAndInstall(bool exists);
   void Open(const base::FilePath& file);
@@ -165,9 +181,21 @@ class Updater {
   base::OneShotTimer schedule_timer_;
   size_t retry_ = 0;
 
-  std::unique_ptr<network::SimpleURLLoader> download_loader_;
-  int64_t download_total_ = -1;
-  std::optional<model::DownloadETA> eta_;
+  std::unique_ptr<DmgDownload> download_;
+  // The download's progress, told at most once a frame: a fast download
+  // brings more pieces than the screen shows.
+  base::OneShotTimer progress_timer_;
+  bool progress_pending_ = false;
+
+  // Nullopt where Pane can't replace itself, and in scenarios that turn it
+  // off. Its work runs on a sequence of its own, an earlier install's
+  // leftovers removed before anything is staged.
+  const std::optional<UpdateInstaller> installer_;
+  const scoped_refptr<base::SequencedTaskRunner> install_runner_;
+  // The downloaded version's Pane, staged beside this one to swap in at quit.
+  base::FilePath staged_;
+  // Restart to update: the quit opens the new Pane too.
+  bool relaunches_ = false;
 
   base::ObserverList<Observer> observers_;
   base::WeakPtrFactory<Updater> weak_factory_{this};

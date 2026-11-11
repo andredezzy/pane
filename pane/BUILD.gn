@@ -205,7 +205,10 @@ source_set("pane") {
     "ui/window/sad_tab_view.h",
     "ui/window/window.cc",
     "ui/window/window.h",
+    "updates/dmg_download.cc",
+    "updates/dmg_download.h",
     "updates/update_files.h",
+    "updates/update_installer.h",
     "updates/updater.cc",
     "updates/updater.h",
   ]
@@ -245,7 +248,13 @@ source_set("pane") {
       "ui/sidebar/resize_cursor_mac.mm",
       "ui/window/frame_mac.mm",
       "updates/update_files_mac.mm",
+      "updates/update_installer_mac.mm",
     ]
+  }
+
+  # Windows' platform files, for G7's compile (it links at Phase 5).
+  if (is_win) {
+    sources += [ "updates/update_installer_win.cc" ]
   }
 
   # gn check passes over //pane (AGENTS.md's gates). chrome/browser/ui/browser.h

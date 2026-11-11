@@ -8,6 +8,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, L3): `PANE_MOCK_KEYCHAIN_DENIES`, the mock keychain refusing the engine's item as a denied one (Paper 07.7), is one more hook through the same function. The audit ran again on the Views build packaged with the hardened runtime, and on the published 0.19.2 as a test copy on the same Mac: `private-traces`, `volume-unindexed`, `files-encrypted`, `memory-guarded` (lldb's attach refused, no task port), and `security` pass on both, the same files by kind, and behind the Lock `views-lock-disk` finds nothing of a session in any of either's 151 files, a value planted as its control found.
 
+> **On the Views line** (`docs/plans/views-migration.md`, K1): Restart to update opens the new Pane with the mock keychain when this one has it, so a scenario's copy opens again as one, on the same throwaway data and with no Keychain of the user's; the user's Pane opens with no switch, as before.
+
 The user's requirement (2026-10-31): all of Pane's content is encrypted under the PIN, and none of it can be seen without it, whether by another process of the user's, by someone with a copy of the disk, or by someone at the Mac while Pane is locked. Two audits looked for what still could be:
 
 - **Four auditors on 0.14.1**, two on Claude Opus and two on Fable, each pair covering the data at rest and the runtime, read the code and ran throwaway scenarios.

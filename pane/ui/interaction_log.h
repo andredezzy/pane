@@ -35,7 +35,9 @@ namespace pane {
 // answer (N2); and the PIN screen's (L1): a digit to the frame showing its
 // dot, the digit that completes a PIN to the frame that answers it, a wrong
 // one's shake or the Lock's first frame sinking away, and Lock Pane to the
-// first frame of the PIN screen rising.
+// first frame of the PIN screen rising; and the update's (K1): a check's
+// offer to the pill's first frame, and a download's progress to the frame
+// showing it.
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -67,6 +69,8 @@ enum class Interaction {
   kWrongPin,
   kUnlock,
   kLock,
+  kShowUpdate,
+  kDownloadProgress,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame

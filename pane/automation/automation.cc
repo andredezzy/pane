@@ -69,6 +69,7 @@
 #include "pane/ui/sidebar/profile_row.h"
 #include "pane/ui/sidebar/sidebar_view.h"
 #include "pane/ui/sidebar/tab_row.h"
+#include "pane/ui/sidebar/update_pill.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/toolbar/toolbar_view.h"
 #include "pane/ui/view_ids.h"
@@ -494,7 +495,9 @@ void Automation::Dispatch(const std::string& name,
        name == "dialogAccessibility" || name == "fillSheet" ||
        name == "extensionsMenu" || name == "extensionsAccessibility" ||
        name == "sheetField" || name == "sheetMenu" || name == "accessibility" ||
-       name == "showPinScreen" || name == "pinKeys")) {
+       name == "showPinScreen" || name == "pinKeys" ||
+       name == "downloadUpdate" || name == "restartToUpdate" ||
+       name == "dismissUpdate")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -529,18 +532,67 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // The update check (the app menu's, Settings'), the pill's click, its
-  // dismiss, and Restart to update, which waits for a staged update (K1's
-  // installer) and does nothing without one, as the Swift's did.
-  if (name == "checkUpdates" || name == "downloadUpdate" ||
-      name == "dismissUpdate" || name == "restartToUpdate") {
-    if (name == "checkUpdates") {
-      app_->updater().Check();
-    } else if (name == "downloadUpdate") {
-      app_->DownloadUpdate();
-    } else if (name == "dismissUpdate") {
-      app_->DismissUpdate();
+  // The app menu's Check for Updates…, chosen as a click chooses it.
+  if (name == "checkUpdates") {
+    MenuBar::Native* menu_bar = app_->menu_bar().native();
+    if (!menu_bar || !menu_bar->Choose({u"Pane", u"Check for Updates\u2026"})
+                          .value_or(false)) {
+      std::move(reply).Run(base::Value(),
+                           "checkUpdates: the app menu's item did not run");
+      return;
     }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The update's control, pressed as a user presses it, with a real click at
+  // its middle: the Lock's action while the Lock shows, which fades in under
+  // the pointer, else the pill's (Download, Restart to update, or Quit and
+  // install), else Settings' button; and the pill's dismiss, under the
+  // pointer too. Restart to update waits for a staged update and does
+  // nothing without one, as the Swift's did.
+  if (name == "downloadUpdate" || name == "restartToUpdate" ||
+      name == "dismissUpdate") {
+    if (name == "restartToUpdate" && !app_->updater().staged()) {
+      std::move(reply).Run(base::Value(), std::string());
+      return;
+    }
+    RootView* root = window->root();
+    const bool locked = root->lock_screen()->showing();
+    std::vector<int> ids;
+    if (name == "dismissUpdate") {
+      ids = {kViewIdUpdateDismiss};
+    } else if (locked) {
+      ids = {kViewIdLockScreenDownloadUpdate, kViewIdLockScreenRestartToUpdate,
+             kViewIdLockScreenQuitAndInstall};
+    } else {
+      ids = {kViewIdUpdate, kViewIdSettingsDownloadUpdate};
+    }
+    // A pill on its way out takes no press.
+    const UpdatePill* pill = root->sidebar()->update_pill();
+    const bool pill_shown = pill && pill->GetVisible() && pill->shown();
+    const views::View* control = nullptr;
+    for (const int id : ids) {
+      const views::View* view = root->GetViewByID(id);
+      if (view && view->IsDrawn() && view->GetEnabled() &&
+          (pill_shown || (id != kViewIdUpdate && id != kViewIdUpdateDismiss))) {
+        control = view;
+        break;
+      }
+    }
+    if (!control) {
+      std::move(reply).Run(base::Value(), name + ": no update control shows");
+      return;
+    }
+    const gfx::Point middle =
+        views::View::ConvertRectToTarget(control, widget->GetRootView(),
+                                         control->GetLocalBounds())
+            .CenterPoint();
+    // The pointer over it first, which shows what shows only under it.
+    if (name == "dismissUpdate" || locked) {
+      PostMove(widget, middle.x(), middle.y());
+    }
+    PostClick(widget, middle.x(), middle.y(), 1);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }

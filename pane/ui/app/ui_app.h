@@ -525,8 +525,12 @@ class UiApp : public AppData::Client,
       this};
   // Sleep, Unload, and Trim, over the open profiles.
   std::unique_ptr<SleepController> sleep_;
-  // The update check and download, which the pill reads.
+  // The update check, download, and install, which the pill reads.
   std::unique_ptr<Updater> updater_;
+  // What the pill showed last: whether it was up, and the share downloaded,
+  // so an offer and a download's progress are timed to their frames.
+  bool pill_shown_ = false;
+  std::optional<double> shown_progress_;
   // What locks Pane by itself.
   std::unique_ptr<LockTriggers> lock_triggers_;
   // The intervals of the digit that completed a PIN, until it is answered:

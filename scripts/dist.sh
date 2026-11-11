@@ -8,6 +8,7 @@
 # Its code's symbols are the engine's, beside the engine archive
 # (publish-engine.sh): Chromium's loader in Contents/MacOS has none to keep.
 # Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses app/build/Pane.app;
+# PANE_APP_OUT packages the app elsewhere, as package.sh does, and
 # PANE_DMG_OUT puts the dmg elsewhere, one to install from, the release's
 # left as it is; PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize
 # the release)
@@ -15,7 +16,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
-APP="$APP_DIR/build/Pane.app"
+APP="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
 RELEASE="$APP_DIR/release"
 VERSION="$(tr -d '[:space:]' < "$APP_DIR/VERSION")"
 DMG="${PANE_DMG_OUT:-$RELEASE/Pane-$VERSION-arm64.dmg}"

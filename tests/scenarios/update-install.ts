@@ -1,15 +1,15 @@
-import { createHash } from "node:crypto";
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { launchPane, type PaneApp } from "../lib/pane";
 import { pollValue } from "../lib/poll";
-import { waitForExit } from "../lib/processes";
+import { isRunning, pgrep, waitForExit } from "../lib/processes";
+import { swiftTool } from "../lib/tools";
+import {
+	launchCopy,
+	type StandInDmg,
+	standInDmg,
+	bundleVersion as version,
+} from "../lib/update-copies";
 import { expect, type Scenario } from "../run";
 
 // Pane installing its own update (ADR 0092), against a stand-in release whose
@@ -19,7 +19,16 @@ import { expect, type Scenario } from "../run";
 // A dmg whose Pane is another version stays the user's to install; one that
 // checks out is staged beside the app, swapped in at quit, and opened again
 // by Restart to update, its old bundle and its dmg removed.
+//
+// PANE_UPDATE_DMG names a real dmg instead, as scripts/dist.sh builds it: the
+// run's Pane installs it the same way (installRelease below).
 const updateInstall: Scenario = async (context) => {
+	const release = process.env.PANE_UPDATE_DMG;
+
+	if (release) {
+		return installRelease(context, release);
+	}
+
 	const work = context.tempDir("pane-update-install-");
 
 	const dmgs = {
@@ -188,83 +197,7 @@ const updateInstall: Scenario = async (context) => {
 	}
 };
 
-type StandInDmg = {
-	name: string;
-	version: string;
-	path: string;
-	sha256: string;
-};
-
-// A dmg offered as `offered`, holding a stand-in Pane that says `holds`.
-async function standInDmg(
-	work: string,
-	holds: string,
-	offered: string,
-): Promise<StandInDmg> {
-	const root = join(work, `dmg-${offered}`);
-	const contents = join(root, "Pane.app", "Contents");
-	mkdirSync(join(contents, "MacOS"), { recursive: true });
-
-	const keys = {
-		CFBundleExecutable: "Pane",
-		CFBundleIdentifier: "xyz.roundedcorners.pane",
-		CFBundlePackageType: "APPL",
-		CFBundleShortVersionString: holds,
-		PaneVersion: holds,
-	};
-
-	const entries = Object.entries(keys).map(
-		([key, value]) => `<key>${key}</key><string>${value}</string>`,
-	);
-
-	writeFileSync(
-		join(contents, "Info.plist"),
-		`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>${entries.join("")}</dict></plist>`,
-	);
-
-	const source = join(work, "reopened.c");
-
-	writeFileSync(
-		source,
-		'#include <stdio.h>\n#include <stdlib.h>\nint main(void) { const char *d = getenv("PANE_DATA_DIR"); char p[4096]; FILE *f; if (!d) return 1; snprintf(p, sizeof p, "%s/reopened", d); f = fopen(p, "w"); if (!f) return 1; fputs(VERSION, f); fclose(f); return 0; }\n',
-	);
-
-	await Bun.$`clang -O2 -DVERSION=${`"${holds}"`} -o ${join(contents, "MacOS", "Pane")} ${source}`.quiet();
-	await Bun.$`codesign --force --sign - ${join(root, "Pane.app")}`.quiet();
-
-	const name = `Pane-${offered}-arm64.dmg`;
-	const path = join(work, name);
-	await Bun.$`hdiutil create -quiet -ov -fs HFS+ -volname Pane -srcfolder ${root} ${path}`.quiet();
-
-	return {
-		name,
-		version: offered,
-		path,
-		sha256: createHash("sha256").update(readFileSync(path)).digest("hex"),
-	};
-}
-
-// A copy of the run's Pane in a folder of its own, checking `releases`.
-async function launchCopy(context: Parameters<Scenario>[0], releases: string) {
-	const folder = context.tempDir("pane-apps-");
-	const bundle = join(folder, "Pane.app");
-	await Bun.$`ditto ${context.binary.replace(/\/Contents\/MacOS\/Pane$/, "")} ${bundle}`.quiet();
-
-	const downloads = context.tempDir("pane-downloads-");
-
-	const app = await launchPane(context, {
-		binary: join(bundle, "Contents", "MacOS", "Pane"),
-		env: {
-			PANE_UPDATE_URL: releases,
-			PANE_UPDATE_DOWNLOADS: downloads,
-			PANE_UPDATE_OPEN: "0",
-		},
-	});
-
-	return { app, bundle, downloads };
-}
-
-async function download(app: PaneApp) {
+async function download(app: PaneApp, timeoutMs = 30_000) {
 	await app.waitFor(
 		"an update on offer",
 		(state) => state.update.status === "available",
@@ -276,16 +209,7 @@ async function download(app: PaneApp) {
 	await app.waitFor(
 		"the update downloaded",
 		(state) => state.update.status === "downloaded",
-		30_000,
-	);
-}
-
-function version(bundle: string): string {
-	const plist = readFileSync(join(bundle, "Contents", "Info.plist"), "utf8");
-
-	return (
-		plist.match(/<key>PaneVersion<\/key>\s*<string>([^<]*)<\/string>/)?.[1] ??
-		""
+		timeoutMs,
 	);
 }
 
@@ -300,5 +224,253 @@ const exited = async (pid: number) =>
 
 // The shell removes the old bundle once Pane has exited: a moment after.
 const settle = (done: () => boolean) => pollValue(done, (gone) => gone, 5_000);
+
+// A real release's dmg (scripts/dist.sh's), installed by the run's Pane, as a
+// published Pane installs the next release (ADR 0092, ADR 0122;
+// docs/plans/views-migration.md, K1): the published 0.19.1 installs the Views
+// release, and a Views build the next. Its Pane has the run's identifier, and
+// the copy reports an older version than it. A profile and its tab go before
+// the update, and come back after it. Restart to update swaps it in and opens
+// it on the same data; a Pane that opens it as a scenario's copy again (the
+// Views app passes the mock keychain on) is read on the same channel, and
+// timed from the press to its first window. A published Pane passes nothing:
+// a test copy of the Views app opened that way refuses to start, and the
+// runner opens it on the same data instead.
+async function installRelease(context: Parameters<Scenario>[0], path: string) {
+	const dmg = await releaseDmg(context, path);
+	let origin = "";
+
+	const server = Bun.serve({
+		hostname: "127.0.0.1",
+		port: 0,
+		fetch(request): Response {
+			const { pathname } = new URL(request.url);
+
+			if (pathname === "/releases/latest") {
+				return Response.json({
+					tag_name: `v${dmg.version}`,
+					published_at: "2026-11-11T00:00:00Z",
+					assets: [
+						{
+							name: dmg.name,
+							browser_download_url: `${origin}/download/${dmg.name}`,
+							digest: `sha256:${dmg.sha256}`,
+						},
+					],
+				});
+			}
+
+			return pathname === `/download/${dmg.name}`
+				? new Response(Bun.file(dmg.path))
+				: new Response("not found", { status: 404 });
+		},
+	});
+
+	origin = server.url.origin;
+	let reopenedPid: number | undefined;
+
+	try {
+		const copy = await launchCopy(
+			context,
+			`${origin}/releases/latest`,
+			dmg.version,
+		);
+
+		const from = version(copy.bundle) || "0.0.0";
+		const profile = await copy.app.createProfile("Kept");
+		const page = context.fixtures.url("smoke.html?kept");
+		await copy.app.send("openTab", { profile, url: page });
+
+		await copy.app.waitFor(
+			"the kept tab",
+			(state) =>
+				state.profiles.some(
+					(each) =>
+						each.id === profile && each.tabs.some((tab) => tab.url === page),
+				),
+			15_000,
+		);
+
+		const downloadStarted = Date.now();
+		await download(copy.app, 120_000);
+		const downloadMs = Date.now() - downloadStarted;
+		const staged = await copy.app.state();
+
+		expect(
+			staged.update.installsItself &&
+				staged.update.label === "Restart to update" &&
+				leftovers(copy.bundle).includes(`.Pane-${dmg.version}.app`),
+			`${dmg.version} was not staged: ${JSON.stringify(staged.update)}, beside: ${leftovers(copy.bundle).join(", ")}`,
+		);
+
+		// Restart to update, pressed: the swap, then the new Pane.
+		const executable = join(copy.bundle, "Contents", "MacOS", "Pane");
+		const pid = copy.app.browser.pid;
+		const pressed = Date.now();
+		await copy.app.send("restartToUpdate").catch(() => undefined);
+
+		await pollValue(
+			() => isRunning(pid),
+			(running) => !running,
+			30_000,
+			5,
+		);
+
+		expect(!isRunning(pid), `Pane (${pid}) did not quit`);
+		const quitMs = Date.now() - pressed;
+
+		expect(
+			version(copy.bundle) === dmg.version,
+			`the bundle is ${version(copy.bundle)} after Restart to update`,
+		);
+
+		// Opened again, by the shell the swap left: its first window.
+		const started = await pollValue(
+			() => pgrep("-f", executable),
+			(pids) => pids.length > 0,
+			10_000,
+			5,
+		);
+
+		reopenedPid = started[0];
+		const startedMs = reopenedPid === undefined ? null : Date.now() - pressed;
+		let firstWindowMs: number | null = null;
+
+		if (reopenedPid !== undefined) {
+			const waiter = await swiftTool("window-wait");
+
+			const seen = JSON.parse(
+				await Bun.$`${waiter} ${String(reopenedPid)} 15000`
+					.quiet()
+					.nothrow()
+					.text(),
+			) as { seenAt: number | null };
+
+			firstWindowMs = seen.seenAt === null ? null : seen.seenAt - pressed;
+		}
+
+		await settle(() => leftovers(copy.bundle).length === 0);
+
+		expect(
+			leftovers(copy.bundle).length === 0,
+			`left beside the app: ${leftovers(copy.bundle).join(", ")}`,
+		);
+
+		expect(
+			!existsSync(join(copy.downloads, dmg.name)),
+			"the installed update's dmg stayed in Downloads",
+		);
+
+		// The new Pane on the channel, or else opened by the runner.
+		const reopened = firstWindowMs !== null;
+		let app = copy.app;
+
+		if (!reopened) {
+			app = await launchPane(context, {
+				binary: executable,
+				dataDir: copy.app.dataDir,
+				env: {
+					PANE_UPDATE_URL: `${origin}/releases/latest`,
+					PANE_UPDATE_DOWNLOADS: copy.downloads,
+					PANE_UPDATE_OPEN: "0",
+				},
+			});
+		}
+
+		const opened = await app.waitFor(
+			"the new Pane with the profiles open",
+			(state) =>
+				state.security.data.phase === "open" && state.security.data.attached,
+			60_000,
+		);
+
+		const kept = opened.profiles.find((each) => each.id === profile);
+
+		expect(
+			kept?.tabs.some((tab) => tab.url === page),
+			`the profile or its tab is gone: ${JSON.stringify(opened.profiles)}`,
+		);
+
+		const checked = await app.waitFor(
+			"the new Pane's check",
+			(state) => state.update.checked,
+			15_000,
+		);
+
+		expect(
+			checked.update.status === "idle" && !checked.update.pill,
+			`the new Pane still offers an update: ${JSON.stringify(checked.update)}`,
+		);
+
+		if (reopened) {
+			await app.send("quit").catch(() => undefined);
+
+			expect(
+				reopenedPid !== undefined && (await waitForExit(reopenedPid, 30_000)),
+				"the reopened Pane did not quit",
+			);
+		}
+
+		return {
+			from,
+			to: dmg.version,
+			downloadMs,
+			quitMs,
+			startedMs,
+			firstWindowMs,
+			reopened,
+		};
+	} finally {
+		// One the shell opened is the runner's to stop, not the user's.
+		if (reopenedPid !== undefined && isRunning(reopenedPid)) {
+			process.kill(reopenedPid, "SIGTERM");
+			await waitForExit(reopenedPid, 15_000);
+		}
+
+		server.stop(true);
+	}
+}
+
+// The release's dmg, read where it is: its Pane's version and identifier,
+// from the dmg attached read-only at a folder of the scenario's, then
+// detached; and its SHA-256, as GitHub gives it.
+async function releaseDmg(
+	context: Parameters<Scenario>[0],
+	path: string,
+): Promise<StandInDmg & { identifier: string }> {
+	const mount = join(context.tempDir("pane-release-"), "mount");
+	mkdirSync(mount);
+	await Bun.$`diskutil image attach --readOnly --nobrowse --mountPoint ${mount} ${path}`.quiet();
+
+	let plist: string;
+
+	try {
+		plist = readFileSync(
+			join(mount, "Pane.app", "Contents", "Info.plist"),
+			"utf8",
+		);
+	} finally {
+		await Bun.$`diskutil eject ${mount}`.quiet().nothrow();
+	}
+
+	const value = (key: string) =>
+		plist.match(
+			new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`),
+		)?.[1] ?? "";
+
+	const hasher = new Bun.CryptoHasher("sha256");
+	hasher.update(await Bun.file(path).arrayBuffer());
+	const released = value("PaneVersion");
+
+	expect(released !== "", "the dmg holds no Pane with a version");
+
+	return {
+		name: `Pane-${released}-arm64.dmg`,
+		version: released,
+		identifier: value("CFBundleIdentifier"),
+		path,
+		sha256: hasher.digest("hex"),
+	};
+}
 
 export default updateInstall;

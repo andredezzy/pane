@@ -11,8 +11,9 @@ import { expect, type Scenario } from "../run";
 // the release's SHA-256 leaves quarantine (ADR 0002); one that differs is
 // deleted, and the update offered again. Once downloaded it stays downloaded,
 // dismissing hides the pill, and one Pane can't install itself quits for the
-// user to (Quit and install). Offered nothing newer, Settings says Pane is
-// up to date. Nothing reaches GitHub.
+// user to, from Settings' Quit and install. Offered nothing newer, Settings
+// says Pane is up to date. Nothing reaches GitHub. The update's controls are
+// pressed as a user presses them, so what they do shows a moment after.
 
 const VERSION = "99.0.0";
 const DMG = `Pane-${VERSION}-arm64.dmg`;
@@ -137,18 +138,23 @@ const updates: Scenario = async (context) => {
 	);
 
 	await app.send("dismissUpdate");
-	const dismissed = await app.state();
 
-	expect(!dismissed.update.pill, "dismissing did not hide the pill");
+	const dismissed = await app.waitFor(
+		"the pill dismissed",
+		(state) => !state.update.pill,
+		5_000,
+	);
 
 	// The stand-in holds no Pane to stage, so Pane installs it by hand:
-	// Quit and install (Paper 06.3.1) shows the installer and quits, and
-	// downloads nothing again.
+	// Settings' Quit and install (Paper 06.3.1) shows the installer and
+	// quits, and downloads nothing again.
 	expect(
 		dismissed.update.label === "Quit and install",
 		`the pill says ${dismissed.update.label}`,
 	);
 
+	await app.send("showPage", { page: "settings" });
+	await app.waitFor("Settings", (state) => state.page === "settings");
 	const pid = app.browser.pid;
 	await app.send("downloadUpdate").catch(() => undefined);
 	const quit = await waitForExit(pid, 30_000);
@@ -165,7 +171,13 @@ const updates: Scenario = async (context) => {
 	const mismatchDownloads = context.tempDir("pane-updates-");
 	const mismatch = await offerFor("&digest=wrong", mismatchDownloads);
 	await offerOf(mismatch);
-	const started = await mismatch.send("downloadUpdate");
+	await mismatch.send("downloadUpdate");
+
+	await mismatch.waitFor(
+		"the mismatched download under way",
+		(state) => state.update.status === "downloading",
+		5_000,
+	);
 
 	const refused = await mismatch.waitFor(
 		"the mismatch refused",
@@ -176,9 +188,7 @@ const updates: Scenario = async (context) => {
 	const kept = readdirSync(mismatchDownloads);
 
 	expect(
-		started.state.update.status === "downloading" &&
-			refused.update.pill &&
-			kept.length === 0,
+		refused.update.pill && kept.length === 0,
 		`kept ${JSON.stringify(kept)}`,
 	);
 

@@ -114,6 +114,51 @@ class DownloadPace {
   int64_t window_bytes_ = 0;
 };
 
+// What a download's connection answered, as far as going on from where it got
+// to on another is concerned (ADR 0002).
+struct DownloadAnswer {
+  // The HTTP status, or 0 before the connection has answered.
+  int status = 0;
+  // It takes ranges: a 206, or Accept-Ranges: bytes.
+  bool offers_ranges = false;
+  // It names the file's version, an ETag or a Last-Modified, which a range
+  // request sends back (If-Range), so a file that changed comes whole.
+  bool validated = false;
+};
+
+// Whether the rest can come from where a connection got to: its server takes
+// ranges and names the file's version, and has not refused to go on from
+// there before.
+bool CanResume(const DownloadAnswer& answer, bool refused);
+
+// Whether a connection judged slow can be left. One that can resume loses
+// nothing, and nor does a resumed one that has not answered yet, where the
+// last one stopped still standing. One that cannot gives up what it brought,
+// so it is left only while that is nothing, or under a twentieth of the
+// file's `total` (below 0 while unknown).
+bool CanLeaveConnection(bool resumed,
+                        const DownloadAnswer& answer,
+                        bool refused,
+                        int64_t received,
+                        int64_t total);
+
+// How the answer to a request for the rest from `asked` on reads: the rest
+// (206 from there), the whole file again (200), or a refusal (anything else,
+// an expired signed link's 403 among them).
+enum class RangeAnswer {
+  kRest,
+  kWhole,
+  kRefused,
+};
+RangeAnswer ReadRangeAnswer(int status,
+                            std::optional<int64_t> range_start,
+                            int64_t asked);
+
+// A connection that drops goes on from where it got to after 2, 4, then 8 s,
+// `drops` being those in a row with nothing brought since: long enough for a
+// Wi-Fi switch, which would fail each at once. Nullopt after the third.
+std::optional<base::TimeDelta> DropRetryDelay(int drops);
+
 // A download's time left (updater.ts): the average rate since the first
 // bytes, which bursts and stalls cannot spike, with hysteresis on top. None in
 // the first second: the connection's setup would weigh on the rate, and a 160

@@ -331,6 +331,62 @@ TEST(DownloadPaceTest, Resumed) {
   EXPECT_TRUE(pace.ShouldSwitch(101 * kMegabyte, start + base::Seconds(6)));
 }
 
+// DmgDownload's rules, which the Swift kept in the download itself.
+
+// The rest comes from where a connection got to only where its server takes
+// ranges and names the file's version, and has not refused before.
+TEST(DownloadConnectionTest, Resumes) {
+  const DownloadAnswer ranges{
+      .status = 200, .offers_ranges = true, .validated = true};
+  EXPECT_TRUE(CanResume(ranges, /*refused=*/false));
+  EXPECT_FALSE(CanResume(ranges, /*refused=*/true));
+  EXPECT_FALSE(CanResume({.status = 200, .offers_ranges = true},
+                         /*refused=*/false));
+  EXPECT_FALSE(
+      CanResume({.status = 200, .validated = true}, /*refused=*/false));
+}
+
+// A slow connection that cannot resume is left only while it has brought
+// nothing, or under a twentieth of the file; a resumed one that has not
+// answered yet gives up nothing.
+TEST(DownloadConnectionTest, Leaves) {
+  const DownloadAnswer plain{.status = 200};
+  const DownloadAnswer ranges{
+      .status = 206, .offers_ranges = true, .validated = true};
+  constexpr int64_t kTotal = 40 * kMegabyte;
+
+  EXPECT_TRUE(CanLeaveConnection(false, ranges, false, kTotal / 2, kTotal));
+  EXPECT_FALSE(CanLeaveConnection(false, ranges, true, kTotal / 2, kTotal));
+  EXPECT_TRUE(CanLeaveConnection(false, plain, false, 0, kTotal));
+  EXPECT_TRUE(CanLeaveConnection(false, plain, false, kTotal / 20 - 1, kTotal));
+  EXPECT_FALSE(CanLeaveConnection(false, plain, false, kTotal / 20, kTotal));
+  // Of unknown length, far enough in to say nothing.
+  EXPECT_FALSE(CanLeaveConnection(false, plain, false, kMegabyte, -1));
+  EXPECT_TRUE(CanLeaveConnection(true, DownloadAnswer(), true, kTotal / 2,
+                                 /*total=*/-1));
+  EXPECT_FALSE(
+      CanLeaveConnection(false, DownloadAnswer(), false, kTotal / 2, kTotal));
+}
+
+// The rest comes as a 206 from where it was asked; a 200 is the whole file
+// again, and anything else refuses.
+TEST(DownloadConnectionTest, RangeAnswers) {
+  EXPECT_EQ(ReadRangeAnswer(206, 1000, 1000), RangeAnswer::kRest);
+  EXPECT_EQ(ReadRangeAnswer(206, 0, 1000), RangeAnswer::kRefused);
+  EXPECT_EQ(ReadRangeAnswer(206, std::nullopt, 1000), RangeAnswer::kRefused);
+  EXPECT_EQ(ReadRangeAnswer(200, std::nullopt, 1000), RangeAnswer::kWhole);
+  EXPECT_EQ(ReadRangeAnswer(403, std::nullopt, 1000), RangeAnswer::kRefused);
+  EXPECT_EQ(ReadRangeAnswer(416, std::nullopt, 1000), RangeAnswer::kRefused);
+}
+
+// A dropped connection goes on after 2, 4, then 8 s, and no more.
+TEST(DownloadConnectionTest, Drops) {
+  EXPECT_EQ(DropRetryDelay(0), base::Seconds(2));
+  EXPECT_EQ(DropRetryDelay(1), base::Seconds(4));
+  EXPECT_EQ(DropRetryDelay(2), base::Seconds(8));
+  EXPECT_EQ(DropRetryDelay(3), std::nullopt);
+}
+
 // Ported from PaneKit's UpdateInstallTests.
 
 // Installs over a bundle Pane runs from in place, never a translocated or
