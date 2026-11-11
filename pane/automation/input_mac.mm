@@ -50,6 +50,8 @@ const std::map<std::string, uint16_t>& KeyCodes() {
       {"\t", kVK_Tab},
       {"\r", kVK_Return},
       {"\x1b", kVK_Escape},
+      // Delete, back a character, as the key types it (NSDeleteCharacter).
+      {"\x7f", kVK_Delete},
   });
   return *codes;
 }
@@ -196,9 +198,11 @@ void PostMove(views::Widget* widget, int x, int y) {
   // Views hears the pointer move through its content view's tracking area,
   // which AppKit runs only while the app is active, as a scenario's copy in
   // the background isn't: the move goes to that view as the area would hand
-  // it, where the pointer is over it.
+  // it, where the pointer is over it, a part the frame moves the window by
+  // included (the area covers the whole view), the frame's own buttons not.
   NSView* content = window.contentView;
-  if ([content.superview hitTest:location] == content) {
+  NSView* hit = [content.superview hitTest:location];
+  if (hit == content || hit == content.superview) {
     [content mouseMoved:event];
   }
 }

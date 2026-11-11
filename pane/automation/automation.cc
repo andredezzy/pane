@@ -59,6 +59,7 @@
 #include "pane/ui/extensions/extension_actions_view.h"
 #include "pane/ui/extensions/extensions_menu_view.h"
 #include "pane/ui/extensions/extensions_ui.h"
+#include "pane/ui/lock/lock_screen_view.h"
 #include "pane/ui/page/find_bar_view.h"
 #include "pane/ui/page/page_context_menu.h"
 #include "pane/ui/panels/app_icon_picker.h"
@@ -492,8 +493,8 @@ void Automation::Dispatch(const std::string& name,
        name == "typeInPage" || name == "modalHost" ||
        name == "dialogAccessibility" || name == "fillSheet" ||
        name == "extensionsMenu" || name == "extensionsAccessibility" ||
-       name == "sheetField" || name == "sheetMenu" ||
-       name == "accessibility")) {
+       name == "sheetField" || name == "sheetMenu" || name == "accessibility" ||
+       name == "showPinScreen" || name == "pinKeys")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -1107,52 +1108,101 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // Settings' Set up, Change, or Remove PIN.
+  // Settings' Set up, Change, or Remove PIN, { mode }, as a user opens the
+  // PIN screen: Settings shown by a real click on the sidebar's Settings
+  // where it isn't, its button scrolled into view and pressed by a real
+  // click. The reply comes once the PIN screen shows.
   if (name == "showPinScreen") {
     const std::string* mode = command.FindString("mode");
-    if (!mode) {
-      std::move(reply).Run(base::Value(), "showPinScreen needs mode");
+    std::optional<model::PinEntry::Mode> pin_mode;
+    if (mode && *mode == "setup") {
+      pin_mode = model::PinEntry::Mode::kSetup;
+    } else if (mode && *mode == "change") {
+      pin_mode = model::PinEntry::Mode::kChange;
+    } else if (mode && *mode == "remove") {
+      pin_mode = model::PinEntry::Mode::kRemove;
+    }
+    if (!pin_mode) {
+      std::move(reply).Run(
+          base::Value(), "showPinScreen needs mode: setup, change, or remove");
       return;
     }
-    AppData* data = AppData::Get();
-    if (*mode == "setup") {
-      data->ShowPinScreen(model::PinEntry::Mode::kSetup);
-    } else if (*mode == "change") {
-      data->ShowPinScreen(model::PinEntry::Mode::kChange);
-    } else if (*mode == "remove") {
-      data->ShowPinScreen(model::PinEntry::Mode::kRemove);
-    } else {
-      std::move(reply).Run(base::Value(), "unknown PIN screen mode");
+    if (AppData::Get()->PinScreen() || !app_->InteractionAllowed()) {
+      std::move(reply).Run(base::Value(),
+                           "showPinScreen: the PIN screen shows already, or "
+                           "Pane is locked");
       return;
     }
-    std::move(reply).Run(base::Value(), std::string());
+    OpenPinScreen(*pin_mode, base::TimeTicks::Now(), /*step=*/0,
+                  std::move(reply));
     return;
   }
 
-  // { keys: "1234" }: the numpad's digits; "<" is Delete, ">" is Continue,
-  // "^" is the back arrow.
+  // { keys: "1234" }, typed as a user types them, through the window to the
+  // PIN screen that has its keys, in the background too: digits, "<" Delete,
+  // ">" Return (Continue), "^" Esc (back).
   if (name == "pinKeys") {
     const std::string* keys = command.FindString("keys");
     if (!keys) {
       std::move(reply).Run(base::Value(), "pinKeys needs keys");
       return;
     }
-    AppData* data = AppData::Get();
+    LockScreenView* lock = window->root()->lock_screen();
+    if (!lock->takes_every_key()) {
+      std::move(reply).Run(base::Value(), "pinKeys: no PIN screen shows");
+      return;
+    }
+    if (window->root()->focus() != ViewIdName(kViewIdLockScreen)) {
+      std::move(reply).Run(base::Value(),
+                           "pinKeys: the PIN screen doesn't have the keys: " +
+                               window->root()->focus());
+      return;
+    }
     for (const char key : *keys) {
-      switch (key) {
-        case '<':
-          data->PinBackspace();
-          break;
-        case '>':
-          data->ContinueWithPin();
-          break;
-        case '^':
-          data->DismissPinScreen();
-          break;
-        default:
-          data->PinDigit(static_cast<char16_t>(key));
-          break;
+      const std::string typed = key == '<'   ? "\x7f"
+                                : key == '>' ? "\r"
+                                : key == '^' ? "\x1b"
+                                             : std::string(1, key);
+      if (!SendKeyToWindow(widget, typed)) {
+        std::move(reply).Run(base::Value(),
+                             "pinKeys: no key code for that key");
+        return;
       }
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // Lock after, { minutes }: a number, or null for Never, as Settings' menu
+  // sets it; the channel stands in for the menu, as the Swift's did.
+  if (name == "setLockAfter") {
+    const std::optional<int> minutes = command.FindInt("minutes");
+    app_->ChangeSettings([&](model::AppSettings& settings) {
+      settings.lock_after_minutes = minutes;
+    });
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // What an assistive app sets on the application to ask for the whole
+  // accessibility tree (data-volume: Chromium answers it on a timer).
+  if (name == "requestEnhancedUserInterface") {
+    RequestEnhancedUserInterface();
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // What the system says that locks Pane by itself, { event }: "screensSleep"
+  // or "sessionResign", posted as the system posts it, to Pane alone
+  // (NSWorkspace's own center). The screen's lock and the computer's sleep
+  // reach every app, the user's own Pane among them, so no scenario posts
+  // them; pane_unittests covers them.
+  if (name == "systemEvent") {
+    const std::string* event = command.FindString("event");
+    if (!event || !PostSystemEvent(*event)) {
+      std::move(reply).Run(base::Value(),
+                           "systemEvent needs screensSleep or sessionResign");
+      return;
     }
     std::move(reply).Run(base::Value(), std::string());
     return;
@@ -1549,6 +1599,10 @@ void Automation::Dispatch(const std::string& name,
                                       .Append(card.height()));
         }
       }
+    }
+    // The PIN screen, while it shows: its panel, dots, keys, and buttons.
+    for (auto& entry : window->root()->lock_screen()->NamedViews()) {
+      named.push_back(std::move(entry));
     }
     // The page, DevTools docked beside it, and the full screen's hint.
     for (const int id :
@@ -2400,6 +2454,78 @@ void Automation::Dispatch(const std::string& name,
   }
 
   std::move(reply).Run(base::Value(), "unknown command " + name);
+}
+
+void Automation::OpenPinScreen(model::PinEntry::Mode mode,
+                               base::TimeTicks started,
+                               int step,
+                               Reply reply) {
+  Window* window = app_->window();
+  views::Widget* widget = window ? window->widget() : nullptr;
+  RootView* root = window ? window->root() : nullptr;
+  if (!widget || !root) {
+    std::move(reply).Run(base::Value(), "showPinScreen: the window is closed");
+    return;
+  }
+  if (const std::optional<model::PinEntry>& entry = AppData::Get()->PinScreen();
+      entry && entry->mode() == mode) {
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+  if (base::TimeTicks::Now() - started > base::Seconds(5)) {
+    std::move(reply).Run(base::Value(),
+                         "showPinScreen: the PIN screen did not open");
+    return;
+  }
+  const int button_id =
+      mode == model::PinEntry::Mode::kSetup    ? kViewIdSettingsSetUpPin
+      : mode == model::PinEntry::Mode::kChange ? kViewIdSettingsChangePin
+                                               : kViewIdSettingsRemovePin;
+  // A real click in the middle of `view`, where it shows.
+  const auto click = [widget](const views::View* view) {
+    const gfx::Rect frame = views::View::ConvertRectToTarget(
+        view, widget->GetRootView(), view->GetLocalBounds());
+    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+  };
+  SettingsView* settings = root->settings();
+  views::View* button = settings->GetViewByID(button_id);
+  int next = step;
+  if (step == 0) {
+    // Settings, as the sidebar's own button shows it.
+    if (!settings->IsDrawn()) {
+      const views::View* open = root->GetViewByID(kViewIdSidebarSettings);
+      if (!open || !open->IsDrawn()) {
+        std::move(reply).Run(base::Value(),
+                             "showPinScreen: the sidebar shows no Settings");
+        return;
+      }
+      click(open);
+    }
+    next = 1;
+  } else if (step == 1 && settings->IsDrawn()) {
+    // The button where a user scrolls to it.
+    if (!button || !button->IsDrawn()) {
+      std::move(reply).Run(base::Value(),
+                           "showPinScreen: Settings shows no such button");
+      return;
+    }
+    button->ScrollViewToVisible();
+    next = 2;
+  } else if (step == 2) {
+    if (!button || !button->IsDrawn()) {
+      std::move(reply).Run(base::Value(),
+                           "showPinScreen: Settings shows no such button");
+      return;
+    }
+    click(button);
+    next = 3;
+  }
+  // A frame on, what the step changed is laid out where it shows.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&Automation::OpenPinScreen, weak_factory_.GetWeakPtr(),
+                     mode, started, next, std::move(reply)),
+      base::Milliseconds(16));
 }
 
 }  // namespace pane

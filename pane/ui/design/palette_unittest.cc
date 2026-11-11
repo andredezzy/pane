@@ -176,6 +176,15 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
       // ExtensionsMenu.swift's TrailingButton: Palette.foreground at 8%.
       {"menuButtonHover", kPaneColorMenuButtonHover, Swift(0x18181B, 0.08),
        Swift(0xFAFAFA, 0.08)},
+      // LockScreenView.swift's Palette.foreground at 50%, 30%, 60%, and 80%.
+      {"pinTitle", kPaneColorPinTitle, Swift(0x18181B, 0.5),
+       Swift(0xFAFAFA, 0.5)},
+      {"pinQuiet", kPaneColorPinQuiet, Swift(0x18181B, 0.3),
+       Swift(0xFAFAFA, 0.3)},
+      {"pinHint", kPaneColorPinHint, Swift(0x18181B, 0.6),
+       Swift(0xFAFAFA, 0.6)},
+      {"pinHintLit", kPaneColorPinHintLit, Swift(0x18181B, 0.8),
+       Swift(0xFAFAFA, 0.8)},
   };
   // Every id of Pane's is checked.
   EXPECT_EQ(std::size(pairs),

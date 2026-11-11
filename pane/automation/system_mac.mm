@@ -2,8 +2,8 @@
 
 #include "pane/automation/system.h"
 
+#import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
-
 #include <stdlib.h>
 
 namespace pane {
@@ -15,6 +15,31 @@ void ChangeSystemTimeZone(const std::string& zone) {
   [NSNotificationCenter.defaultCenter
       postNotificationName:NSSystemTimeZoneDidChangeNotification
                     object:nil];
+}
+
+void RequestEnhancedUserInterface() {
+  // Deprecated, and what the engine's application overrides to hear of it.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  [NSApp accessibilitySetValue:@YES forAttribute:@"AXEnhancedUserInterface"];
+#pragma clang diagnostic pop
+}
+
+bool PostSystemEvent(const std::string& event) {
+  NSNotificationName name = nil;
+  if (event == "screensSleep") {
+    name = NSWorkspaceScreensDidSleepNotification;
+  } else if (event == "sessionResign") {
+    name = NSWorkspaceSessionDidResignActiveNotification;
+  } else {
+    return false;
+  }
+  // NSWorkspace's center is the process's own: the user's apps hear none of
+  // it.
+  [NSWorkspace.sharedWorkspace.notificationCenter
+      postNotificationName:name
+                    object:NSWorkspace.sharedWorkspace];
+  return true;
 }
 
 }  // namespace pane

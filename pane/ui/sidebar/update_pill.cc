@@ -8,8 +8,6 @@
 #include <utility>
 
 #include "base/functional/bind.h"
-#include "base/location.h"
-#include "base/task/sequenced_task_runner.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/focus_ring.h"
@@ -18,20 +16,19 @@
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
+#include "pane/ui/design/update_status.h"
 #include "pane/ui/view_ids.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/geometry/insets_f.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/animation/ink_drop_host.h"
-#include "ui/views/background.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/label.h"
@@ -43,7 +40,7 @@ namespace {
 
 // The dot, 6 points, 7 in; the text 10 after it (sidebar.tsx's gap-2.5).
 constexpr int kDotInset = 7;
-constexpr int kDotSize = 6;
+constexpr int kDotSize = UpdateDot::kSize;
 constexpr int kTextX = kDotInset + kDotSize + 10;
 // The text clear of the dismiss button (sidebar.tsx's pr-6).
 constexpr int kTextTrailing = 24;
@@ -55,77 +52,14 @@ constexpr int kBarGap = 14;
 constexpr int kBarEdge = 7;
 constexpr int kBarMinimum = 24;
 constexpr double kBarBack = 25;
-constexpr int kBarHeight = 4;
+constexpr int kBarHeight = UpdateBar::kHeight;
 // The dismiss button: a 12-point X in 16 points, 6 from the pill's end.
 constexpr int kDismissSize = 16;
 constexpr int kDismissEdge = 6;
 // Coming and going, it rises from 4 points lower.
 constexpr float kAppearOffset = 4;
-// The dot at half, at the bottom of its breath.
-constexpr double kPulseLow = 0.5;
 
 }  // namespace
-
-// The download's bar: a 4-point track, the foreground at 10%, with the
-// emerald share downloaded, moving to each new share on Motion.progress.
-class UpdatePill::Bar : public views::View {
-  METADATA_HEADER(Bar, views::View)
-
- public:
-  Bar()
-      : share_(
-            0,
-            base::BindRepeating([](Bar* bar, double) { bar->SchedulePaint(); },
-                                base::Unretained(this))) {
-    SetPaintToLayer();
-    layer()->SetFillsBoundsOpaquely(false);
-    layer()->SetOpacity(0);
-  }
-
-  void SetShare(double share, ui::Compositor* compositor) {
-    share_.MoveTo(std::clamp(share, 0.0, 1.0), motion::Progress(), compositor);
-  }
-  // Where the track starts within the view, to the fraction of a point the
-  // text before it ends at, as SwiftUI lays it out.
-  void SetLeading(float leading) {
-    if (leading != leading_) {
-      leading_ = leading;
-      SchedulePaint();
-    }
-  }
-  // A new download starts empty.
-  void Reset() { share_.MoveTo(0, motion::Progress(), nullptr); }
-
-  // views::View:
-  void OnPaint(gfx::Canvas* canvas) override {
-    const ui::ColorProvider* colors = GetColorProvider();
-    if (!colors) {
-      return;
-    }
-    const ControlShape capsule = ControlShape::Capsule();
-    gfx::RectF track(GetLocalBounds());
-    track.Inset(gfx::InsetsF::TLBR(0, leading_, 0, 0));
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setColor(colors->GetColor(kPaneColorUpdateTrack));
-    canvas->DrawPath(capsule.PathIn(track), flags);
-    if (share_.value() <= 0) {
-      return;
-    }
-    flags.setColor(colors->GetColor(kPaneColorSuccess));
-    canvas->DrawPath(capsule.PathIn(gfx::RectF(track.x(), track.y(),
-                                               track.width() * share_.value(),
-                                               track.height())),
-                     flags);
-  }
-
- private:
-  ValueMotion share_;
-  float leading_ = 0;
-};
-
-BEGIN_METADATA(UpdatePill, Bar)
-END_METADATA
 
 // The pill's click, under its dot, text, and bar: a plain button, its look
 // the pill's own (the Swift's .plain style).
@@ -144,8 +78,6 @@ UpdatePill::UpdatePill(base::RepeatingClosure press,
     : appear_(
           0,
           base::BindRepeating(&UpdatePill::Appeared, base::Unretained(this))),
-      pulse_(1,
-             base::BindRepeating(&UpdatePill::Pulsed, base::Unretained(this))),
       label_in_(1,
                 base::BindRepeating(
                     [](UpdatePill* pill, double share) {
@@ -192,12 +124,7 @@ UpdatePill::UpdatePill(base::RepeatingClosure press,
   FocusRing::Install(button_, ControlShape::Squircle(radius::kLg));
 
   // The emerald dot, the same in both appearances.
-  dot_ = button_->AddChildView(std::make_unique<views::View>());
-  dot_->SetBackground(
-      views::CreateRoundedRectBackground(kPaneColorSuccess, kDotSize / 2.0f));
-  dot_->SetPaintToLayer();
-  dot_->layer()->SetFillsBoundsOpaquely(false);
-  dot_->SetCanProcessEventsWithinSubtree(false);
+  dot_ = button_->AddChildView(std::make_unique<UpdateDot>());
 
   for (raw_ptr<views::Label>* label : {&leaving_label_, &label_}) {
     *label = button_->AddChildView(MakeLabel(std::u16string(), text::kSidebar,
@@ -210,8 +137,8 @@ UpdatePill::UpdatePill(base::RepeatingClosure press,
   leaving_label_->SetVisible(false);
   leaving_label_->GetViewAccessibility().SetIsIgnored(true);
 
-  bar_ = button_->AddChildView(std::make_unique<Bar>());
-  bar_->SetCanProcessEventsWithinSubtree(false);
+  bar_ = button_->AddChildView(std::make_unique<UpdateBar>());
+  bar_->layer()->SetOpacity(0);
   bar_->SetVisible(false);
 
   ControlLook dismiss_look =
@@ -276,7 +203,7 @@ void UpdatePill::Set(const SidebarUpdate& update) {
   if (update.downloading) {
     bar_->SetShare(update.progress, compositor);
   }
-  UpdatePulse();
+  dot_->SetPulsing(update.downloading);
   InvalidateLayout();
 }
 
@@ -293,33 +220,6 @@ void UpdatePill::Appeared(double share) {
   if (!shown_ && share <= 0 && gone_) {
     std::move(gone_).Run();
   }
-}
-
-bool UpdatePill::Pulses() {
-  return update_.downloading && compositor() && !motion::IsReduced();
-}
-
-void UpdatePill::UpdatePulse() {
-  if (Pulses()) {
-    if (!pulse_.is_moving()) {
-      pulse_.MoveTo(pulse_.value() < 1 ? 1 : kPulseLow, motion::Pulse(),
-                    compositor());
-    }
-    return;
-  }
-  pulse_.MoveTo(1, motion::Pulse(), nullptr);
-}
-
-// Tailwind's animate-pulse: to half and back, every two seconds, for as long
-// as the download runs. Each half starts once the last has landed.
-void UpdatePill::Pulsed(double opacity) {
-  dot_->layer()->SetOpacity(opacity);
-  if (pulse_.is_moving() || !Pulses()) {
-    return;
-  }
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&UpdatePill::UpdatePulse, weak_factory_.GetWeakPtr()));
 }
 
 void UpdatePill::SetHovered(bool hovered) {
@@ -344,10 +244,6 @@ void UpdatePill::OnMouseEntered(const ui::MouseEvent& event) {
 
 void UpdatePill::OnMouseExited(const ui::MouseEvent& event) {
   SetHovered(false);
-}
-
-void UpdatePill::AddedToWidget() {
-  UpdatePulse();
 }
 
 void UpdatePill::Layout(PassKey) {

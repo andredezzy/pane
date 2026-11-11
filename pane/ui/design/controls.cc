@@ -273,12 +273,13 @@ void ControlHighlight::Update(std::optional<Curve> hover_curve,
     hover_.MoveTo(hover, hover_curve.value_or(motion::Hover()),
                   hover_curve ? compositor : nullptr);
   }
-  // A press shows at once, and fades as it lets go.
+  // A press shows at once, and fades as it lets go; or fades both ways.
   const double press =
       enabled && !dragged_ && state == views::Button::STATE_PRESSED ? 1 : 0;
   if (press != press_.target()) {
-    press_.MoveTo(press, motion::Hover(),
-                  press || !press_fades ? nullptr : compositor);
+    press_.MoveTo(
+        press, motion::Hover(),
+        (press && !press_fades_in_) || !press_fades ? nullptr : compositor);
   }
 }
 

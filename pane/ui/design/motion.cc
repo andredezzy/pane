@@ -3,6 +3,7 @@
 #include "pane/ui/design/motion.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <numbers>
 #include <string>
@@ -292,6 +293,29 @@ Curve Progress() {
 
 Curve Pulse() {
   return EaseInOut(base::Seconds(1));
+}
+
+Curve Dot() {
+  return EaseInOut(base::Milliseconds(150));
+}
+
+Curve Smooth() {
+  static const base::NoDestructor<Curve> smooth(Curve::Spring(0.5, 1));
+  return *smooth;
+}
+
+double ShakeOffset(base::TimeDelta elapsed) {
+  // Each step's end, from 0: -8, 8, -6, 6, then 0 again.
+  constexpr std::array<double, 5> kSteps = {-8, 8, -6, 6, 0};
+  constexpr base::TimeDelta kStep = kShakeDuration / kSteps.size();
+  if (elapsed <= base::TimeDelta() || elapsed >= kShakeDuration) {
+    return 0;
+  }
+  static const base::NoDestructor<Curve> step(EaseInOut(kStep));
+  const size_t index = static_cast<size_t>(elapsed / kStep);
+  const double from = index == 0 ? 0 : kSteps[index - 1];
+  const double share = step->Progress(elapsed - kStep * index);
+  return from + (kSteps[index] - from) * share;
 }
 
 bool IsReduced() {

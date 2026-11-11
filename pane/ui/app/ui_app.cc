@@ -59,8 +59,8 @@
 #include "content/public/common/url_constants.h"
 #include "pane/app/version.h"
 #include "pane/automation/automation.h"
-#include "pane/browser/engine_trace.h"
 #include "pane/browser/browser_context.h"
+#include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
 #include "pane/model/address_input.h"
 #include "pane/model/app_settings.h"
@@ -70,6 +70,7 @@
 #include "pane/model/profile_form.h"
 #include "pane/model/tab_history.h"
 #include "pane/model/test_hooks.h"
+#include "pane/model/updates.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/app/dock_icon.h"
@@ -90,6 +91,7 @@
 #include "pane/ui/tabs/tab_id.h"
 #include "pane/ui/toolbar/address_field.h"
 #include "pane/ui/toolbar/toolbar_view.h"
+#include "pane/ui/view_ids.h"
 #include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -274,6 +276,38 @@ base::DictValue UpdateState(const Updater& updater) {
       // Staged beside the app, to install at quit (ADR 0092).
       .Set("installsItself", updater.staged())
       .Set("checked", updater.checked());
+}
+
+// The update on offer as the Lock shows it beside its status (the Swift's
+// LockUpdateStatus): available, downloading, or downloaded, with its action,
+// Download, Restart once staged, or Quit where Pane can't install it.
+std::optional<LockUpdateStatus::Shows> LockUpdateOf(const Updater& updater) {
+  if (!updater.available()) {
+    return std::nullopt;
+  }
+  LockUpdateStatus::Shows shows;
+  switch (updater.status()) {
+    case Updater::Status::kAvailable:
+      shows.action = u"Download";
+      shows.action_id = kViewIdLockScreenDownloadUpdate;
+      break;
+    case Updater::Status::kDownloading:
+      shows.downloading = true;
+      shows.progress = updater.download_progress().value_or(0);
+      if (const std::optional<int> eta = updater.download_eta()) {
+        shows.eta = base::UTF8ToUTF16(model::FormatETA(*eta));
+      }
+      break;
+    case Updater::Status::kDownloaded:
+      shows.action = updater.staged() ? u"Restart" : u"Quit";
+      shows.action_id = updater.staged() ? kViewIdLockScreenRestartToUpdate
+                                         : kViewIdLockScreenQuitAndInstall;
+      break;
+    default:
+      return std::nullopt;
+  }
+  shows.label = updater.Label();
+  return shows;
 }
 
 // The update row as Settings shows it (the Swift's UpdateRow): what the last
@@ -656,6 +690,10 @@ UiApp::UiApp()
   // The lock starts once the window shows: without a PIN the data key opens
   // at once, and the profiles load.
   data_->Start(this);
+  was_locked_ = data_->IsLocked();
+  // What locks Pane by itself, its clock a scenario's when it scales time.
+  lock_triggers_ =
+      std::make_unique<LockTriggers>(*this, model::TestTimeScale());
 
   std::vector<GURL> urls;
   for (const base::CommandLine::StringType& arg :
@@ -669,6 +707,7 @@ UiApp::UiApp()
 }
 
 UiApp::~UiApp() {
+  lock_triggers_.reset();
   data_->Stop();
   events_.reset();
   automation_.reset();
@@ -756,9 +795,60 @@ void UiApp::AccessDidOpen() {
   }
 }
 
-// A PIN set or removed: Settings' Security rows follow.
+// A PIN set or removed: Settings' Security rows follow. The PIN screen shows
+// what changed, and the digit that completed a PIN is answered: the Lock
+// sinking once it opens; a check that ended otherwise (Change's current PIN
+// right) answers in the screen's own change.
 void UiApp::SecurityChanged() {
+  const bool locked = data_->IsLocked();
+  if (pin_answer_) {
+    const std::optional<model::PinEntry>& entry = data_->PinScreen();
+    if (std::exchange(was_locked_, locked) && !locked) {
+      EndInteractionAtNextFrame(Interaction::kUnlock, pin_answer_->unlock,
+                                window_->compositor());
+      pin_answer_.reset();
+    } else if (!entry || !entry->busy()) {
+      pin_answer_.reset();
+    }
+  }
+  was_locked_ = locked;
   window_->Refresh();
+}
+
+// A wrong PIN: its shake is the answer.
+void UiApp::PinShook() {
+  if (pin_answer_) {
+    EndInteractionAtNextFrame(Interaction::kWrongPin, pin_answer_->wrong,
+                              window_->compositor());
+    pin_answer_.reset();
+  }
+  if (RootView* root = window_->root()) {
+    root->ShakePin();
+  }
+}
+
+void UiApp::LockFromSystem() {
+  LockNow();
+}
+
+std::optional<base::TimeDelta> UiApp::LockAfter() const {
+  const std::optional<int>& minutes = model().settings().lock_after_minutes;
+  if (!minutes || !data_->HasPin() || data_->IsLocked()) {
+    return std::nullopt;
+  }
+  return base::Minutes(*minutes);
+}
+
+bool UiApp::InUse() const {
+  for (const auto& [tab_id, page] : pages_) {
+    content::WebContents* contents = page->web_contents();
+    if (contents->IsCurrentlyAudible() ||
+        contents->HasPictureInPictureVideo() ||
+        contents->HasPictureInPictureDocument()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void UiApp::LockRequested() {
@@ -769,6 +859,10 @@ void UiApp::LockNow() {
   if (!data_->HasPin() || data_->IsLocked()) {
     return;
   }
+  // The PIN screen's first frame rising, asked for once the Lock is
+  // handled.
+  FrameHold hold(window_->compositor());
+  LogInteraction(Interaction::kLock, window_->compositor());
   if (model().active_tab_id()) {
     resume_tab_id_ = model().active_tab_id();
   }
@@ -899,7 +993,8 @@ void UiApp::ReleasePages(const std::string& profile_id) {
 
 bool UiApp::HasPages(const std::string& profile_id) const {
   const model::BrowserProfile* profile = model().FindProfile(profile_id);
-  return profile && std::ranges::any_of(profile->tabs, [&](const model::Tab& tab) {
+  return profile &&
+         std::ranges::any_of(profile->tabs, [&](const model::Tab& tab) {
            return PageOf(tab.id) != nullptr;
          });
 }
@@ -1460,8 +1555,43 @@ void UiApp::CloseAppIconPicker() {
 
 void UiApp::ShowPinScreen(model::PinEntry::Mode mode) {
   if (InteractionAllowed()) {
+    FrameHold hold(window_->compositor());
     data_->ShowPinScreen(mode);
   }
+}
+
+void UiApp::PinDigit(char16_t digit) {
+  const std::optional<model::PinEntry>& entry = data_->PinScreen();
+  // A key while a check runs or the dots shake goes nowhere, as the entry
+  // takes none; nor does what is no digit.
+  if (!entry || entry->busy() || digit < u'0' || digit > u'9') {
+    return;
+  }
+  FrameHold hold(window_->compositor());
+  LogInteraction(Interaction::kPinDigit, window_->compositor());
+  // The digit that completes the PIN asked for: its answer is timed too.
+  if (entry->step() != model::PinEntry::Step::kEnter &&
+      entry->entered().size() + 1 == static_cast<size_t>(entry->Dots())) {
+    pin_answer_ =
+        PinAnswer{.wrong = BeginInteractionInterval(Interaction::kWrongPin),
+                  .unlock = BeginInteractionInterval(Interaction::kUnlock)};
+  }
+  data_->PinDigit(digit);
+}
+
+void UiApp::PinBackspace() {
+  FrameHold hold(window_->compositor());
+  data_->PinBackspace();
+}
+
+void UiApp::ContinueWithPin() {
+  FrameHold hold(window_->compositor());
+  data_->ContinueWithPin();
+}
+
+void UiApp::DismissPinScreen() {
+  FrameHold hold(window_->compositor());
+  data_->DismissPinScreen();
 }
 
 void UiApp::ToggleSettings() {
@@ -1939,6 +2069,7 @@ RootView::Shows UiApp::Shows() {
   shows.settings.version = version_;
   shows.app_icon_picker =
       app_icon_picker_ && model.page() == model::BrowserModel::Page::kSettings;
+  shows.lock = LockShows();
 
   // The selected tab's toolbar, on the browser page: off it, the toolbar
   // goes, and coming back shows the tab's address again, as the Swift's
@@ -1964,6 +2095,21 @@ RootView::Shows UiApp::Shows() {
     }
   }
   return shows;
+}
+
+LockScreenView::Shows UiApp::LockShows() const {
+  LockScreenView::Shows lock;
+  lock.entry = data_->PinScreen();
+  lock.failed_attempts = data_->FailedAttempts();
+  lock.move_share = data_->DataMoveShare();
+  // At the lock, while its key can be read, the update on offer shows
+  // beside its status (Paper 07.1).
+  if (updater_ && lock.entry &&
+      lock.entry->mode() == model::PinEntry::Mode::kUnlock &&
+      !lock.entry->is_unreadable()) {
+    lock.update = LockUpdateOf(*updater_);
+  }
+  return lock;
 }
 
 // The window's pages went with it (PageDestroyed); their tabs stay, and the
@@ -2070,9 +2216,10 @@ void UiApp::SelectTabAt(int number) {
 
 void UiApp::ConfirmQuit() {
   RootView* root = window_->root();
-  // From Quit Pane? (⌘Q again), or at the PIN screen, where nothing is open
-  // to lose; with no window, there is nowhere to ask.
-  if (quit_confirming_ || data_->IsLocked() || !root) {
+  // From Quit Pane? (⌘Q again), or at the PIN screen, the Lock's or
+  // Settings', as the Swift's quit at once where the screen showed; with no
+  // window, there is nowhere to ask.
+  if (quit_confirming_ || data_->IsLocked() || data_->PinScreen() || !root) {
     QuitNow();
     return;
   }
@@ -2656,9 +2803,8 @@ base::DictValue UiApp::Snapshot() const {
             .Set("keepLoaded", profile.keep_loaded)
             .Set("savesHistory", profile.saves_history)
             // What the engine has of the choice, while the profile is open.
-            .Set("engineSavesHistory", context
-                                           ? base::Value(context->SavesHistory())
-                                           : base::Value())
+            .Set("engineSavesHistory",
+                 context ? base::Value(context->SavesHistory()) : base::Value())
             .Set("tabs", std::move(tabs)));
   }
   // Each open profile's extensions, their actions as for the profile's page
@@ -2782,8 +2928,8 @@ base::DictValue UiApp::Snapshot() const {
                            : std::string_view())
       .Set("appIconPicker", app_icon_picker_)
       // The profile sheet: "new", or the edited profile's id.
-      .Set("profileSheet", profile_sheet_ ? base::Value(*profile_sheet_)
-                                          : base::Value())
+      .Set("profileSheet",
+           profile_sheet_ ? base::Value(*profile_sheet_) : base::Value())
       // The Mac's WebGL strings, from Chrome's GPU info.
       .Set("hostWebGL", HostWebGLState())
       .Set("quitConfirmation", quit_confirming_)

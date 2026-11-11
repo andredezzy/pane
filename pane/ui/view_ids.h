@@ -172,6 +172,24 @@ enum ViewId : int {
   kViewIdProfileProxyStatus,
   kViewIdProfileCancel,
   kViewIdProfileSave,
+  // The PIN screen over the window (ADR 0042), by the Swift's names: its
+  // panel ("pane.lockScreen"), its dots, the numpad's digits, which the
+  // channel names by their digit ("pane.lockScreen.digit.4"), Delete, the
+  // back arrow, Continue, the attempts left, the data's move (Paper 07.5),
+  // and the update on offer beside its status, with its action: Download,
+  // Restart, or Quit and install.
+  kViewIdLockScreen,
+  kViewIdLockScreenDots,
+  kViewIdLockScreenDigit,
+  kViewIdLockScreenBackspace,
+  kViewIdLockScreenBack,
+  kViewIdLockScreenContinue,
+  kViewIdLockScreenAttempts,
+  kViewIdLockScreenMove,
+  kViewIdLockScreenUpdate,
+  kViewIdLockScreenDownloadUpdate,
+  kViewIdLockScreenRestartToUpdate,
+  kViewIdLockScreenQuitAndInstall,
 
   kViewIdsEnd,
 };

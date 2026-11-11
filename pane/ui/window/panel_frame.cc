@@ -39,14 +39,18 @@ constexpr int kBelow = 14;
 constexpr int kSide = 14;
 constexpr int kCorner = static_cast<int>(radius::kPanel);
 
-// The window's fill, then the card on its shadow, with its ring: shadow-panel's
-// 1-pixel ring and soft drop, both outside the card as CSS's box-shadows are.
-// A page filling the window has the card square and bare.
+// The window's fill, on the window, then the card on its shadow, with its
+// ring: shadow-panel's 1-pixel ring and soft drop, both outside the card as
+// CSS's box-shadows are. A page filling the window has the card square and
+// bare.
 void PaintFrame(gfx::Canvas* canvas,
                 const ui::ColorProvider& colors,
                 const gfx::RectF& card,
-                bool square) {
-  canvas->DrawColor(colors.GetColor(kPaneColorWindowBackground));
+                bool square,
+                bool on_window) {
+  if (on_window) {
+    canvas->DrawColor(colors.GetColor(kPaneColorWindowBackground));
+  }
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
   flags.setColor(colors.GetColor(kPaneColorCard));
@@ -75,14 +79,14 @@ void PaintFrame(gfx::Canvas* canvas,
 }  // namespace
 
 // One band of the frame: the whole frame painted in the frame's coordinates,
-// clipped to the band, on an opaque layer of its own.
+// clipped to the band, on a layer of its own, opaque on the window.
 class PanelFrame::Band : public views::View {
   METADATA_HEADER(Band, views::View)
 
  public:
   explicit Band(const PanelFrame* frame) : frame_(frame) {
     SetPaintToLayer();
-    layer()->SetFillsBoundsOpaquely(true);
+    layer()->SetFillsBoundsOpaquely(frame->on_window_);
   }
 
   // views::View:
@@ -92,7 +96,8 @@ class PanelFrame::Band : public views::View {
       return;
     }
     canvas->Translate(-bounds().OffsetFromOrigin());
-    PaintFrame(canvas, *colors, gfx::RectF(frame_->panel_), frame_->square_);
+    PaintFrame(canvas, *colors, gfx::RectF(frame_->panel_), frame_->square_,
+               frame_->on_window_);
   }
 
  private:
@@ -102,7 +107,7 @@ class PanelFrame::Band : public views::View {
 BEGIN_METADATA(PanelFrame, Band)
 END_METADATA
 
-PanelFrame::PanelFrame() {
+PanelFrame::PanelFrame(bool on_window) : on_window_(on_window) {
   // Not a place a press or VoiceOver finds: the window's own background
   // under it takes the presses, and moves the window (ADR 0036).
   SetCanProcessEventsWithinSubtree(false);

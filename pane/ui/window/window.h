@@ -142,6 +142,12 @@ class Window : public WindowHost::Delegate,
     virtual void ChooseAppIcon(model::AppIcon icon) = 0;
     virtual void CloseAppIconPicker() = 0;
     virtual void ShowPinScreen(model::PinEntry::Mode mode) = 0;
+    // The PIN screen's keys, typed or pressed: a digit, Delete, Continue,
+    // and Esc or the back arrow.
+    virtual void PinDigit(char16_t digit) = 0;
+    virtual void PinBackspace() = 0;
+    virtual void ContinueWithPin() = 0;
+    virtual void DismissPinScreen() = 0;
     virtual void CheckForUpdates() = 0;
 
     // The profile sheet's Create or Save, with the form as filled in; and

@@ -25,10 +25,12 @@
 #include "pane/model/tab_switcher.h"
 #include "pane/model/toolbar_progress.h"
 #include "pane/ui/app/commands.h"
+#include "pane/ui/app/lock_triggers.h"
 #include "pane/ui/app/menu_bar.h"
 #include "pane/ui/app/sleep_controller.h"
 #include "pane/ui/dialogs/page_dialogs.h"
 #include "pane/ui/extensions/extensions_ui.h"
+#include "pane/ui/lock/lock_screen_view.h"
 #include "pane/ui/page/page_context_menu.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/tabs/favicons.h"
@@ -75,7 +77,8 @@ class UiApp : public AppData::Client,
               public ExtensionsUi::Delegate,
               public model::BrowserModel::Observer,
               public Favicons::Observer,
-              public Updater::Observer {
+              public Updater::Observer,
+              public LockTriggers::Delegate {
  public:
   // Starts it, once the browser has started and the data opened (OpenData).
   static void Start();
@@ -256,6 +259,13 @@ class UiApp : public AppData::Client,
   void AccessDidOpen() override;
   void LockRequested() override;
   void SecurityChanged() override;
+  void PinShook() override;
+
+  // LockTriggers::Delegate: what locks Pane by itself (L2, ADR 0116).
+  void LockFromSystem() override;
+  std::optional<base::TimeDelta> LockAfter() const override;
+  // A page plays sound or shows in picture-in-picture.
+  bool InUse() const override;
 
   // Window::Controller:
   SidebarContent Sidebar() override;
@@ -294,8 +304,16 @@ class UiApp : public AppData::Client,
   void OpenAppIconPicker() override;
   void ChooseAppIcon(model::AppIcon icon) override;
   void CloseAppIconPicker() override;
-  // The Lock's PIN screen (L1 draws it), where interaction is allowed.
+  // Settings' Set up, Change, and Remove PIN: the PIN screen, where
+  // interaction is allowed.
   void ShowPinScreen(model::PinEntry::Mode mode) override;
+  // The PIN screen's keys, typed or pressed, each answered in the next frame:
+  // a digit timed to the frame that shows its dot, and the one that completes
+  // a PIN to the frame that answers it (a shake, or the Lock sinking).
+  void PinDigit(char16_t digit) override;
+  void PinBackspace() override;
+  void ContinueWithPin() override;
+  void DismissPinScreen() override;
   void CheckForUpdates() override;
   void SaveProfileSheet(const model::ProfileDraft& draft) override;
   void CloseProfileSheet() override;
@@ -418,6 +436,9 @@ class UiApp : public AppData::Client,
   void PrintPage();
   // The model's id of `profile`, one of Pane's open in the engine.
   std::optional<std::string> ProfileIdFor(Profile& profile) const;
+  // What the PIN screen shows: the lock's entry, its attempts, the data's
+  // move, and at the lock the update on offer.
+  LockScreenView::Shows LockShows() const;
   // Chrome's extensions page at `url` in a tab of the profile: the tab that
   // shows the page already, at any of its places (the list, an extension's
   // Details, the shortcuts), going there, else a new one, as Chrome shows it
@@ -506,6 +527,17 @@ class UiApp : public AppData::Client,
   std::unique_ptr<SleepController> sleep_;
   // The update check and download, which the pill reads.
   std::unique_ptr<Updater> updater_;
+  // What locks Pane by itself.
+  std::unique_ptr<LockTriggers> lock_triggers_;
+  // The intervals of the digit that completed a PIN, until it is answered:
+  // as a wrong PIN, or as the Lock opening.
+  struct PinAnswer {
+    uint64_t wrong = 0;
+    uint64_t unlock = 0;
+  };
+  std::optional<PinAnswer> pin_answer_;
+  // Pane was locked when the lock last changed.
+  bool was_locked_ = false;
   base::ScopedObservation<Updater, Updater::Observer> updater_observation_{
       this};
   base::WeakPtrFactory<UiApp> weak_factory_{this};

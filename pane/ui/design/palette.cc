@@ -153,6 +153,11 @@ void AddPaneColors(ui::ColorProvider* provider,
   set(kPaneColorBadgeDefault, Rgb(0xFF3B30), Rgb(0xFF453A));
   set(kPaneColorBadgeDefaultText, White(1), White(1));
   set(kPaneColorMenuButtonHover, Rgba(0x18181B, 0.08), Rgba(0xFAFAFA, 0.08));
+  mixer[kPaneColorPinTitle] = ui::SetAlpha(kPaneColorForeground, AlphaOf(0.5));
+  mixer[kPaneColorPinQuiet] = ui::SetAlpha(kPaneColorForeground, AlphaOf(0.3));
+  mixer[kPaneColorPinHint] = ui::SetAlpha(kPaneColorForeground, AlphaOf(0.6));
+  mixer[kPaneColorPinHintLit] =
+      ui::SetAlpha(kPaneColorForeground, AlphaOf(0.8));
 }
 
 void AddPaneColorMixer() {

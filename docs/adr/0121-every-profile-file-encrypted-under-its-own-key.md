@@ -1,5 +1,7 @@
 # Every file a profile writes is encrypted under a key only Pane's processes hold
 
+> **On the Views line** (`docs/plans/views-migration.md`, L3): `files-encrypted` and `engine-keys` pass on the Views build, whose session writes the same 297 files by kind as the published 0.19.2's, none plain, planted, or named; and once a Lock has detached the volume every process has forgotten its keys.
+
 The user's requirement (2026-10-31): none of Pane's content can be seen without the PIN. ADR 0113 encrypted every profile at rest, and ADR 0116 locked Pane while open, but while Pane is unlocked the volume is mounted, and any process running as the user read the profiles' files: history, site storage, caches, preferences. ADR 0115 listed that gap. This closes it inside the engine: a process that reads files, even with Full Disk Access, finds only ciphertext, while Pane is unlocked as much as while it is locked. It reverses ADR 0113's rejection of encrypting each of Chromium's stores, which weighed a patch in every storage layer against an upgrade's cost; `docs/qa/engine-file-encryption/` has what its passes found.
 
 Without a PIN the files are just as encrypted: the data key then opens with the Keychain's secret alone, and macOS asks the user before any other process reads that item.

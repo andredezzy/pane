@@ -142,6 +142,19 @@ Curve Progress();
 // A dot breathing while its work runs (the update's, Tailwind's
 // animate-pulse): to half and back, each way 1 s, easing in and out.
 Curve Pulse();
+// The PIN's dots filling and emptying as digits come and go, and sliding
+// aside as a new PIN's grow or shrink in number (the Swift's PinDots): 0.15
+// s, easing in and out.
+Curve Dot();
+// SwiftUI's own default since macOS 14, which the PIN screen's crossfade into
+// the data's move took (Paper 07.5): a critically damped spring of 0.5 s.
+Curve Smooth();
+// A wrong PIN's shake (the Electron app's @keyframes shake, the Swift's
+// keyframes): left 8 points, right 8, left 6, right 6, and back, each step
+// 0.08 s easing in and out. Where the dots stand `elapsed` into it; 0 from
+// its end on.
+inline constexpr base::TimeDelta kShakeDuration = base::Milliseconds(400);
+double ShakeOffset(base::TimeDelta elapsed);
 // Whether the system asks for less motion: every change is then at once.
 bool IsReduced();
 }  // namespace motion

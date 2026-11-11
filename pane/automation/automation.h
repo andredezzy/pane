@@ -14,7 +14,9 @@
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/sequence_bound.h"
+#include "base/time/time.h"
 #include "base/values.h"
+#include "pane/model/pin_entry.h"
 
 namespace pane {
 
@@ -45,6 +47,15 @@ class Automation {
   // Each profile's state a command read, for the replies' profiles: its HTTP
   // cache's bytes, and its cookies without their values.
   void AddProfileReads(base::DictValue& state) const;
+
+  // Opens the PIN screen in `mode` as a user does (showPinScreen), a step at
+  // a time: Settings shown by the sidebar's Settings where it isn't, the
+  // mode's button scrolled into view, then pressed; then waits for the
+  // screen, 5 s from `started` at most.
+  void OpenPinScreen(model::PinEntry::Mode mode,
+                     base::TimeTicks started,
+                     int step,
+                     Reply reply);
 
   raw_ptr<UiApp> app_;
   base::SequenceBound<Files> files_;

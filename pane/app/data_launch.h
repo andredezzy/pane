@@ -74,8 +74,12 @@ class AppData {
     virtual void LockRequested() = 0;
 
     // The lock changed: a PIN set, changed, or removed (Settings' rows
-    // follow), its screen shown or gone, or Pane locked or open.
+    // follow), its screen shown, changed, or gone, Pane locked or open, or
+    // the data's one-time move under way or done.
     virtual void SecurityChanged() = 0;
+
+    // A wrong PIN: the dots shake, and the entry starts over 0.6 s on.
+    virtual void PinShook() = 0;
   };
 
   static AppData* Get();
@@ -130,6 +134,13 @@ class AppData {
   // must run.
   [[nodiscard]] virtual base::OnceCallback<void(bool every_closed)>
   CloseData() = 0;
+
+  // What the PIN screen shows (L1): its entry while it shows, the wrong
+  // PINs at the lock in a row, on disk, and how far the data's one-time move
+  // has come while it moves (Paper 07.5).
+  virtual const std::optional<model::PinEntry>& PinScreen() const = 0;
+  virtual int FailedAttempts() const = 0;
+  virtual std::optional<double> DataMoveShare() const = 0;
 
   // The PIN screen: Settings' Set up, Change, and Remove PIN, and its keys,
   // which a PIN screen alone takes.

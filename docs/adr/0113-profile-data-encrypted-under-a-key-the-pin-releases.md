@@ -4,6 +4,8 @@
 
 > **Extended by [ADR 0115](0115-nothing-outside-the-volume-names-a-page.md)**: what the engine and macOS kept outside the volume goes, what earlier Panes left there is erased at launch, and only a scenario's launch takes Pane's test hooks; **by [ADR 0116](0116-pane-locks-while-open.md)**: Pane also locks while open, and the volume detaches behind the PIN screen; **by [ADR 0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md)**: the data root and the caches are under `xyz.roundedcorners.pane`; **and by [ADR 0121](0121-every-profile-file-encrypted-under-its-own-key.md)**: inside the volume every file a profile writes is encrypted again, under a key only Pane's processes hold, which closes "Code running as the user while Pane is unlocked" below and reverses "Encrypting each of Chromium's stores" under what was rejected; the volume's passphrase moves on from the one derived here, which keeps an earlier Pane out.
 
+> **On the Views line** (`docs/plans/views-migration.md`, L1): 07.5's move, and 07.6 to 07.8's lines over the dots and the numpad at 40%, show on the PIN screen's panel (`pane/ui/lock/lock_screen_view`), the move's bar the update's (`pane/ui/design/update_status`); after the PIN the screen crossfades into the move, as SwiftUI's default spring did, and sinks once it ends.
+
 Everything Pane keeps of a profile is encrypted on disk: its tabs, cookies, site data, and caches. Without the data key nothing of it reads from the disk, and with a PIN set the key opens only with the PIN. It was the user's call (2026-10-30), after a test listed every profile's name and open tabs from `profiles.json` while the lock was set and no PIN had been typed.
 
 What the test found, before this decision:

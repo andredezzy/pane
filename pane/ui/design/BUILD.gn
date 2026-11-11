@@ -50,6 +50,8 @@ source_set("design") {
     "text_button.h",
     "theme.cc",
     "theme.h",
+    "update_status.cc",
+    "update_status.h",
   ]
 
   public_deps = [

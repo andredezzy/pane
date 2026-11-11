@@ -263,6 +263,7 @@ model::ModelStore::KeptApart KeptApartPasswords(
 // (DataVault::ExpectMove), and the lock's detach leaves the engine no key.
 class PaneData : public AppData,
                  public DataVault::Delegate,
+                 public DataVault::Observer,
                  public AppLock::Delegate,
                  public AppLock::Observer {
  public:
@@ -308,6 +309,7 @@ class PaneData : public AppData,
   void Start(Client* client) override {
     client_ = client;
     lock_.AddObserver(this);
+    vault_.AddObserver(this);
     // An earlier Pane's profiles move in at once, with no PIN to ask first:
     // the panel shows from the first frame.
     if (!lock_.is_locked() && has_plain_profiles_) {
@@ -320,6 +322,7 @@ class PaneData : public AppData,
 
   void Stop() override {
     lock_.RemoveObserver(this);
+    vault_.RemoveObserver(this);
     client_ = nullptr;
   }
 
@@ -364,6 +367,16 @@ class PaneData : public AppData,
   void LockScreen() override { lock_.LockNow(); }
 
   base::OnceCallback<void(bool)> CloseData() override { return vault_.Lock(); }
+
+  const std::optional<model::PinEntry>& PinScreen() const override {
+    return lock_.entry();
+  }
+
+  int FailedAttempts() const override { return lock_.state().failed_attempts; }
+
+  std::optional<double> DataMoveShare() const override {
+    return vault_.share();
+  }
 
   void ShowPinScreen(model::PinEntry::Mode mode) override { lock_.Show(mode); }
   void PinDigit(char16_t digit) override { lock_.Digit(digit); }
@@ -438,10 +451,23 @@ class PaneData : public AppData,
         }));
   }
 
+  // DataVault::Observer: the data's move shows on the PIN screen's panel.
+  void OnVaultPhaseChanged() override {
+    if (client_) {
+      client_->SecurityChanged();
+    }
+  }
+
   // AppLock::Observer:
   void OnAppLockChanged() override {
     if (client_) {
       client_->SecurityChanged();
+    }
+  }
+
+  void OnPinShake() override {
+    if (client_) {
+      client_->PinShook();
     }
   }
 

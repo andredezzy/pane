@@ -157,6 +157,9 @@ class ControlHighlight {
   // The hover goes at once and a press fades as it lets go; given back, the
   // hover returns on the drop's curve.
   void SetDragged(bool dragged);
+  // A press that fades in as well as out, on the hover's curve, as the PIN
+  // screen's keys fill (the Swift's DigitKey animated its press both ways).
+  void SetPressFadesIn(bool fades_in) { press_fades_in_ = fades_in; }
   // The ring shown while the control has the keyboard.
   FocusRing* ring() { return ring_; }
 
@@ -171,6 +174,7 @@ class ControlHighlight {
   const float disabled_opacity_;
   bool held_ = false;
   bool dragged_ = false;
+  bool press_fades_in_ = false;
   // Whether the control is dimmed, and the dimming layer is this one's, to
   // take away once enabled.
   bool dimmed_ = false;

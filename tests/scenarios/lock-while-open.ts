@@ -17,7 +17,8 @@ import { expect, type Scenario } from "../run";
 // profile open in Chrome: the lock stops it, as a quit does, and the volume
 // still detaches whole, never forced from under the engine. With Lock after
 // set, Pane locks by itself once it has gone that long without use (a minute
-// a second here). One watchdog serves a Pane through every lock, and still
+// a second here), and so it does when the displays sleep or another user takes
+// the session. One watchdog serves a Pane through every lock, and still
 // detaches the image when Pane is killed. A file something else holds open is never
 // pulled away: the lock waits, and past 10 s Pane quits.
 
@@ -202,8 +203,42 @@ const lockWhileOpen: Scenario = async (context) => {
 
 	expect(idle, "Pane did not lock after a minute without use");
 
-	// Once more through a lock: the image on whichever device it has now.
+	// The displays sleeping, and another user taking the session, each lock
+	// it too, as the system tells Pane alone (its own NSWorkspace center);
+	// the screen's lock and the computer's sleep reach every app, the user's
+	// own Pane among them, so pane_unittests covers those (LockTriggers).
 	await app.send("setLockAfter", { minutes: null });
+	const bySystem: Record<string, boolean> = {};
+
+	for (const event of ["screensSleep", "sessionResign"]) {
+		await app.send("pinKeys", { keys: "1234" });
+
+		await app.waitFor(
+			`unlocked before ${event}`,
+			(state) => !state.security.locked && state.security.data.attached,
+			60_000,
+		);
+
+		await app.send("systemEvent", { event });
+
+		bySystem[event] = await app
+			.waitFor(
+				`locked by ${event}`,
+				(state) => state.security.locked && state.profiles.length === 0,
+				10_000,
+			)
+			.then(
+				() => true,
+				() => false,
+			);
+	}
+
+	expect(
+		Object.values(bySystem).every(Boolean),
+		`locks by the system: ${JSON.stringify(bySystem)}`,
+	);
+
+	// Once more through a lock: the image on whichever device it has now.
 	await app.send("pinKeys", { keys: "1234" });
 
 	await app.waitFor(
@@ -216,7 +251,7 @@ const lockWhileOpen: Scenario = async (context) => {
 
 	expect(
 		watchdogsAtTheEnd === 1,
-		`watchdogs after two locks: ${watchdogsAtTheEnd}`,
+		`watchdogs after the locks: ${watchdogsAtTheEnd}`,
 	);
 
 	// Something else keeps a file of the volume open: a lock never forces the

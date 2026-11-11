@@ -20,6 +20,7 @@
 #include "components/os_crypt/common/keychain_password_mac.h"
 #include "components/os_crypt/common/os_crypt_switches.h"
 #include "crypto/apple/keychain_v2.h"
+#include "pane/model/test_hooks.h"
 
 namespace pane::model {
 
@@ -32,6 +33,12 @@ constexpr std::string_view kMockSecret = "Pane mock keychain";
 bool IsEngineItem(std::string_view service, std::string_view account) {
   return service == KeychainPassword::GetServiceName() &&
          account == KeychainPassword::GetAccountName();
+}
+
+// A scenario's Keychain that won't give the engine's item, as one the user
+// denied (PANE_MOCK_KEYCHAIN_DENIES): the PIN screen's 07.7.
+bool MockDenies() {
+  return TestHook("PANE_MOCK_KEYCHAIN_DENIES").has_value();
 }
 
 // The Keychain under --use-mock-keychain: the engine's item holds the fixed
@@ -49,6 +56,9 @@ class MockKeychain : public crypto::apple::KeychainV2 {
   }
 
   OSStatus ItemCopyMatching(CFDictionaryRef query, CFTypeRef* result) override {
+    if (MockDenies()) {
+      return errSecAuthFailed;
+    }
     CFStringRef service = base::apple::GetValueFromDictionary<CFStringRef>(
         query, kSecAttrService);
     CFStringRef account = base::apple::GetValueFromDictionary<CFStringRef>(
@@ -80,6 +90,9 @@ class MockKeychain : public crypto::apple::KeychainV2 {
       std::string_view account_name) override {
     if (!IsEngineItem(service_name, account_name)) {
       return base::unexpected(errSecItemNotFound);
+    }
+    if (MockDenies()) {
+      return base::unexpected(errSecAuthFailed);
     }
     return base::ToVector(base::as_byte_span(kMockSecret));
   }

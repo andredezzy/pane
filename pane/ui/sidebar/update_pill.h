@@ -7,7 +7,6 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/sidebar/sidebar_content.h"
 #include "ui/views/view.h"
@@ -20,6 +19,8 @@ class Label;
 namespace pane {
 
 class IconButton;
+class UpdateBar;
+class UpdateDot;
 
 // The sidebar footer's update pill (the Swift's UpdatePill, the Electron
 // app's SidebarUpdatePill): quiet by design, no color beyond its status dot,
@@ -57,19 +58,12 @@ class UpdatePill : public views::View {
   void OnPaint(gfx::Canvas* canvas) override;
   void OnMouseEntered(const ui::MouseEvent& event) override;
   void OnMouseExited(const ui::MouseEvent& event) override;
-  void AddedToWidget() override;
 
  private:
-  class Bar;
   class Press;
 
   ui::Compositor* compositor();
   void SetHovered(bool hovered);
-  // The dot breathes while the dmg downloads, in a window that draws,
-  // unless the system asks for less motion.
-  bool Pulses();
-  void UpdatePulse();
-  void Pulsed(double opacity);
   void Appeared(double share);
 
   SidebarUpdate update_;
@@ -78,21 +72,20 @@ class UpdatePill : public views::View {
   base::OnceClosure gone_;
 
   raw_ptr<Press> button_ = nullptr;
-  raw_ptr<views::View> dot_ = nullptr;
+  // The dot breathes while the dmg downloads.
+  raw_ptr<UpdateDot> dot_ = nullptr;
   // The status line, and the one it replaces while they crossfade.
   raw_ptr<views::Label> label_ = nullptr;
   raw_ptr<views::Label> leaving_label_ = nullptr;
-  raw_ptr<Bar> bar_ = nullptr;
+  raw_ptr<UpdateBar> bar_ = nullptr;
   raw_ptr<IconButton> dismiss_ = nullptr;
 
   ValueMotion appear_;
-  ValueMotion pulse_;
   ValueMotion label_in_;
   ValueMotion bar_shown_;
   // How far the bar has drawn back from the pill's end, 0 to 25 points.
   ValueMotion bar_back_;
   ValueMotion dismiss_shown_;
-  base::WeakPtrFactory<UpdatePill> weak_factory_{this};
 };
 
 }  // namespace pane

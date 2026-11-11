@@ -4,6 +4,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, H5): a Lock closes the tab switcher, and behind it no intent acts, each asking `InteractionAllowed()`; the channel's `menu` answers whether an item ran, only Check for Updates… behind the Lock.
 
+> **On the Views line** (`docs/plans/views-migration.md`, L2): what locks Pane by itself is `pane/ui/app/lock_triggers`: the screen's lock from `ui::AddScreenLockCallback`; the computer's sleep, a lid closing too, from `base::PowerMonitor`'s suspend; the displays sleeping and another user taking the session from the platform's pair (`lock_triggers_mac.mm`, NSWorkspace's own notifications; `_win.cc`, the console display's power setting, a session switch locking through Chromium's); and Lock after's time without use from `ui::CalculateIdleTime` in front and the time since Pane left the front behind, on the Swift's 15-second tick. Each calls the Lock, so its order and its detach are this record's. `lock-while-open` posts the displays' sleep and the session's resign to Pane alone; the screen's lock and the sleep reach every app, the user's own Pane among them, so `pane_unittests` covers those.
+
 ADR 0113 put every profile's data in an encrypted volume the PIN opens, and Pane locked only at launch: once open, the data stayed readable until Pane quit, by anyone at the Mac and by any process of the user's. The user's requirement (2026-10-31) is that none of Pane's content can be seen without the PIN, and their call, of the options drawn in Paper (06.4, 07.9), was the command, the Mac's own sleep and lock, and an idle time.
 
 What changes:

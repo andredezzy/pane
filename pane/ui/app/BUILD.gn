@@ -31,15 +31,50 @@ source_set("commands") {
   }
 }
 
+# When Pane locks by itself (docs/plans/views-migration.md, L2; ADR 0116):
+# Chromium's screen lock, power, and idle time, and the platform's pair for
+# what nothing in Chromium hears. A target of its own so its tests run in
+# pane_unittests.
+source_set("lock_triggers") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "lock_triggers.cc",
+    "lock_triggers.h",
+  ]
+
+  public_deps = [ "//base" ]
+
+  deps = [ "//ui/base/idle" ]
+
+  if (is_mac) {
+    sources += [ "lock_triggers_mac.mm" ]
+    frameworks = [ "AppKit.framework" ]
+  }
+
+  if (is_win) {
+    sources += [ "lock_triggers_win.cc" ]
+    deps += [ "//ui/base" ]
+  }
+}
+
 source_set("unit_tests") {
   testonly = true
   visibility = [ "//pane/encryption:pane_unittests" ]
 
-  sources = [ "commands_unittest.cc" ]
+  sources = [
+    "commands_unittest.cc",
+    "lock_triggers_unittest.cc",
+  ]
 
   deps = [
     ":commands",
+    ":lock_triggers",
     "//base",
+    "//base/test:test_support",
     "//testing/gtest",
     "//ui/base",
     "//ui/events",

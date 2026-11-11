@@ -410,6 +410,10 @@ RootView::RootView(Callbacks callbacks,
       std::make_unique<QuitDialog>(callbacks_.cancel_quit, callbacks_.quit),
       std::move(quit), ModalDialog::Keys::kEvery));
   quit_dialog_->SetID(kViewIdQuit);
+  // The PIN screen, over everything else but the hint; made now, so a Lock
+  // makes nothing.
+  lock_ = AddChildView(
+      std::make_unique<LockScreenView>(std::move(callbacks_.lock)));
   // The full screen's Esc hint, over everything.
   hint_ = AddChildView(std::make_unique<ExclusiveAccessHint>());
   ShowPlaces();
@@ -454,6 +458,53 @@ void RootView::SetShows(const Shows& shows) {
       (shows.content == Content::kPage || shows.content == Content::kSadTab)) {
     FocusPage();
   }
+  ShowLock(shows.lock);
+}
+
+void RootView::ShowLock(const LockScreenView::Shows& shows) {
+  // What the window shows before its first frame is out is there in it, the
+  // PIN screen at launch included; after, the screen rises and sinks.
+  if (!first_frame_requested_ && GetWidget() && GetWidget()->GetCompositor()) {
+    first_frame_requested_ = true;
+    AfterFrame(GetWidget()->GetCompositor(),
+               base::BindOnce(
+                   [](base::WeakPtr<RootView> root) {
+                     if (root) {
+                       root->first_frame_out_ = true;
+                     }
+                   },
+                   weak_factory_.GetWeakPtr()));
+  }
+  const bool took_keys = lock_->takes_every_key();
+  lock_->SetShows(shows, /*animate=*/first_frame_out_);
+  const bool takes_keys = lock_->takes_every_key();
+  if (takes_keys && !took_keys) {
+    views::FocusManager* focus = GetFocusManager();
+    views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+    focus_before_lock_.SetView(lock_->Contains(focused) ? nullptr : focused);
+    RaiseTopOverlays();
+    lock_->TakeFocus();
+  } else if (took_keys && !takes_keys) {
+    // The keys go back to what had them, else to the page, or Settings.
+    views::View* before = focus_before_lock_.view();
+    focus_before_lock_.SetView(nullptr);
+    if (before && before->IsDrawn() && before->IsFocusable()) {
+      before->RequestFocus();
+    } else if (settings_->GetVisible()) {
+      FocusSettings();
+    } else {
+      FocusPage();
+    }
+  }
+}
+
+void RootView::RaiseTopOverlays() {
+  ReorderChildView(lock_, children().size());
+  ReorderChildView(hint_, children().size());
+}
+
+void RootView::ShakePin() {
+  lock_->Shake();
 }
 
 void RootView::SetSidebarWidth(double width) {
@@ -626,6 +677,7 @@ void RootView::PrepareAppIconPicker() {
       AppIconPicker::kWidth, std::move(picker), std::move(dialog)));
   app_icon_dialog_->SetID(kViewIdAppIconPicker);
   app_icon_dialog_->SetBoundsRect(GetLocalBounds());
+  RaiseTopOverlays();
 }
 
 AppIconPicker* RootView::app_icon_picker() {
@@ -649,8 +701,9 @@ void RootView::ShowAppIconPicker(bool show) {
     return;
   }
   app_icon_picker_->SetSelection(shows_.settings.settings.app_icon);
-  // Over whatever came after it.
+  // Over whatever came after it, under the PIN screen.
   ReorderChildView(app_icon_dialog_, children().size());
+  RaiseTopOverlays();
   app_icon_dialog_->SetBoundsRect(GetLocalBounds());
   app_icon_dialog_->AnimateIn();
 }
@@ -677,8 +730,10 @@ void RootView::ShowQuitDialog(bool show) {
   }
   views::FocusManager* focus = GetFocusManager();
   focus_before_quit_.SetView(focus ? focus->GetFocusedView() : nullptr);
-  // Over whatever came after it: the App icon picker, the switcher.
+  // Over whatever came after it: the App icon picker, the switcher; under the
+  // PIN screen.
   ReorderChildView(quit_dialog_, children().size());
+  RaiseTopOverlays();
   quit_dialog_->SetBoundsRect(GetLocalBounds());
   quit_dialog_->AnimateIn();
 }
@@ -688,7 +743,7 @@ bool RootView::quit_dialog_showing() const {
 }
 
 bool RootView::TakesEveryKey() const {
-  return quit_dialog_->takes_every_key();
+  return quit_dialog_->takes_every_key() || lock_->takes_every_key();
 }
 
 void RootView::ShowPageDialog(std::unique_ptr<PageDialog> dialog) {
@@ -764,10 +819,11 @@ bool RootView::OverlayKey(const ui::KeyEvent& event) {
        (ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN | ui::EF_COMMAND_DOWN))) {
     return false;
   }
-  // What shows over these has its keys first: the switcher, and a dialog
-  // over the whole window.
+  // What shows over these has its keys first: the switcher, a dialog over
+  // the whole window, and the PIN screen.
   if (switcher_->GetVisible() || quit_dialog_->showing() ||
-      (app_icon_dialog_ && app_icon_dialog_->showing())) {
+      (app_icon_dialog_ && app_icon_dialog_->showing()) ||
+      lock_->takes_every_key()) {
     return false;
   }
   // An extension's prompt, over the menu and a page's dialog: Return
@@ -1141,6 +1197,13 @@ SkPath RootView::PanelPath() const {
 }
 
 bool RootView::IsDragArea(const gfx::Point& point) {
+  // The PIN screen's panel moves the window around its controls, and so do
+  // the gutters around it, as the Swift's WindowDragArea under it did.
+  if (lock_->showing()) {
+    gfx::Point in_lock = point;
+    views::View::ConvertPointToTarget(this, lock_, &in_lock);
+    return lock_->IsDragArea(in_lock);
+  }
   if (page_fullscreen_) {
     return false;
   }
@@ -1213,6 +1276,7 @@ void RootView::Layout(PassKey) {
     app_icon_dialog_->SetBoundsRect(GetLocalBounds());
   }
   quit_dialog_->SetBoundsRect(GetLocalBounds());
+  lock_->SetBoundsRect(GetLocalBounds());
 }
 
 BEGIN_METADATA(RootView)

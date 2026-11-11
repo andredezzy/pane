@@ -12,6 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "pane/model/app_settings.h"
 #include "pane/ui/extensions/extensions_menu_view.h"
+#include "pane/ui/lock/lock_screen_view.h"
 #include "pane/ui/page/find_bar_view.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/sheets/profile_sheet.h"
@@ -98,6 +99,8 @@ class RootView : public views::View {
     raw_ptr<ExtensionsUi> extensions = nullptr;
     // The profile sheet's Create or Save, and its closing.
     ProfileSheet::Callbacks profile_sheet;
+    // The PIN screen's keys and presses, and its update's action.
+    LockScreenView::Callbacks lock;
   };
 
   // What the content panel shows: the browser page with a tab selected,
@@ -124,6 +127,8 @@ class RootView : public views::View {
     // window.
     SettingsView::Shows settings;
     bool app_icon_picker = false;
+    // The PIN screen over everything, or the data's move on its panel.
+    LockScreenView::Shows lock;
   };
 
   // `progress` and `images`, the app's, outlive the view.
@@ -209,8 +214,15 @@ class RootView : public views::View {
   // Shown, and not on its way out.
   bool quit_dialog_showing() const;
   // An overlay takes every key, the window's commands' included but the menu
-  // bar's Quit: Quit Pane? (and the PIN screen, L1's).
+  // bar's Quit: Quit Pane?, and the PIN screen.
   bool TakesEveryKey() const;
+  // The PIN screen over the window (ADR 0042): rising over it as it comes
+  // and sinking as it goes, in place at the window's first frame, over every
+  // other overlay but the full screen's hint. It takes the keys while a PIN
+  // shows, and gives them back to what had them, else to the page.
+  LockScreenView* lock_screen() { return lock_; }
+  // A wrong PIN: its dots shake.
+  void ShakePin();
   // A page's dialog over the window (PageDialogs, ADR 0021), under the tab
   // switcher and what shows over the whole window, on the alert's card: in
   // the window's middle, its top at three eighths of the window's height,
@@ -283,6 +295,11 @@ class RootView : public views::View {
   // The App icon picker comes over the window, or goes; made hidden ahead
   // of its first showing, and kept.
   void ShowAppIconPicker(bool show);
+  // The PIN screen shows what `shows` holds, taking the keys or giving them
+  // back.
+  void ShowLock(const LockScreenView::Shows& shows);
+  // The PIN screen, and the full screen's hint over it, over everything else.
+  void RaiseTopOverlays();
   void PrepareAppIconPicker();
   // Places the page's dialogs, the one showing and those on their way out.
   void PlacePageDialogs();
@@ -347,6 +364,13 @@ class RootView : public views::View {
   // keys before it.
   raw_ptr<ExtensionPromptOverlay> extension_prompt_ = nullptr;
   views::ViewTracker focus_before_prompt_;
+  // The PIN screen, over everything but the hint, and what had the keys
+  // before it took them.
+  raw_ptr<LockScreenView> lock_ = nullptr;
+  views::ViewTracker focus_before_lock_;
+  // The window's first frame has left: what comes after moves.
+  bool first_frame_requested_ = false;
+  bool first_frame_out_ = false;
   // The full screen's Esc hint, over everything.
   raw_ptr<ExclusiveAccessHint> hint_ = nullptr;
   // Hands the extensions menu its Esc, and a page's dialog its Esc and

@@ -207,6 +207,18 @@ void Window::Open() {
       &Controller::SaveProfileSheet, base::Unretained(controller));
   callbacks.profile_sheet.close = base::BindRepeating(
       &Controller::CloseProfileSheet, base::Unretained(controller));
+  LockScreenView::Callbacks& lock = callbacks.lock;
+  lock.digit =
+      base::BindRepeating(&Controller::PinDigit, base::Unretained(controller));
+  lock.backspace = base::BindRepeating(&Controller::PinBackspace,
+                                       base::Unretained(controller));
+  lock.continue_with_pin = base::BindRepeating(&Controller::ContinueWithPin,
+                                               base::Unretained(controller));
+  lock.back = base::BindRepeating(&Controller::DismissPinScreen,
+                                  base::Unretained(controller));
+  // Download, then Quit and install, as the pill's click.
+  lock.update = base::BindRepeating(&Controller::DownloadUpdate,
+                                    base::Unretained(controller));
   auto root = std::make_unique<RootView>(std::move(callbacks),
                                          &controller->LoadProgress(),
                                          &controller->AppIcons());

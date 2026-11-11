@@ -210,6 +210,30 @@ std::string_view ViewIdName(int id) {
       return "pane.profile.cancel";
     case kViewIdProfileSave:
       return "pane.profile.save";
+    case kViewIdLockScreen:
+      return "pane.lockScreen";
+    case kViewIdLockScreenDots:
+      return "pane.lockScreen.dots";
+    case kViewIdLockScreenDigit:
+      return "pane.lockScreen.digit";
+    case kViewIdLockScreenBackspace:
+      return "pane.lockScreen.backspace";
+    case kViewIdLockScreenBack:
+      return "pane.lockScreen.back";
+    case kViewIdLockScreenContinue:
+      return "pane.lockScreen.continue";
+    case kViewIdLockScreenAttempts:
+      return "pane.lockScreen.attempts";
+    case kViewIdLockScreenMove:
+      return "pane.lockScreen.move";
+    case kViewIdLockScreenUpdate:
+      return "pane.lockScreen.update";
+    case kViewIdLockScreenDownloadUpdate:
+      return "pane.lockScreen.downloadUpdate";
+    case kViewIdLockScreenRestartToUpdate:
+      return "pane.lockScreen.restartToUpdate";
+    case kViewIdLockScreenQuitAndInstall:
+      return "pane.lockScreen.quitAndInstall";
     default:
       return std::string_view();
   }

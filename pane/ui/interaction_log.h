@@ -32,7 +32,10 @@ namespace pane {
 // frame (ADR 0056); Chrome's extensions page opened in the profile's tab,
 // to the frame that shows the tab, and on to the page's first paint (D3);
 // and the profile sheet's Test connection pressed, to the frame showing its
-// answer (N2).
+// answer (N2); and the PIN screen's (L1): a digit to the frame showing its
+// dot, the digit that completes a PIN to the frame that answers it, a wrong
+// one's shake or the Lock's first frame sinking away, and Lock Pane to the
+// first frame of the PIN screen rising.
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -60,6 +63,10 @@ enum class Interaction {
   kOpenExtensionsPage,
   kPaintExtensionsPage,
   kTestProxy,
+  kPinDigit,
+  kWrongPin,
+  kUnlock,
+  kLock,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame

@@ -50,6 +50,8 @@ std::vector<Named> Table() {
        Milliseconds(200)},
       {"barExit", motion::BarExit(), {}, Milliseconds(120)},
       {"progress", motion::Progress(), {}, Milliseconds(200)},
+      // LockScreenView.swift's dots, .easeInOut(duration: 0.15).
+      {"dot", motion::Dot(), {}, Milliseconds(150)},
   };
 }
 
@@ -243,6 +245,26 @@ TEST(MotionTest, ACompositorMotionWithNothingDrawingLandsAtOnce) {
   EXPECT_EQ(layer->transform(), grown);
   EXPECT_EQ(done, 2);
   EXPECT_FALSE(animator->is_animating());
+}
+
+// A wrong PIN's shake goes as the Swift's keyframes did: each 0.08-second
+// step from the last one's end to its own, eased in and out, and back to
+// rest at 0.4 seconds.
+TEST(MotionTest, ShakeStepsAsTheSwiftsKeyframes) {
+  EXPECT_EQ(motion::ShakeOffset(base::TimeDelta()), 0);
+  EXPECT_DOUBLE_EQ(motion::ShakeOffset(Milliseconds(80)), -8);
+  EXPECT_DOUBLE_EQ(motion::ShakeOffset(Milliseconds(160)), 8);
+  EXPECT_DOUBLE_EQ(motion::ShakeOffset(Milliseconds(240)), -6);
+  EXPECT_DOUBLE_EQ(motion::ShakeOffset(Milliseconds(320)), 6);
+  EXPECT_EQ(motion::ShakeOffset(motion::kShakeDuration), 0);
+  EXPECT_EQ(motion::ShakeOffset(Milliseconds(1000)), 0);
+  // Halfway through a step, easeInOut is halfway too.
+  EXPECT_NEAR(motion::ShakeOffset(Milliseconds(40)), -4, 1e-9);
+  EXPECT_NEAR(motion::ShakeOffset(Milliseconds(120)), 0, 1e-9);
+  EXPECT_NEAR(motion::ShakeOffset(Milliseconds(360)), 3, 1e-9);
+  // Just inside the first step, it has barely left rest.
+  EXPECT_GT(motion::ShakeOffset(Milliseconds(4)), -0.1);
+  EXPECT_LT(motion::ShakeOffset(Milliseconds(4)), 0);
 }
 
 }  // namespace pane

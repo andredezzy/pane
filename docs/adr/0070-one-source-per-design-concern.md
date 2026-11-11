@@ -14,6 +14,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, X3): the system's checkbox is one control (`Checkbox`, `pane/ui/design/checkbox`: AppKit's own cell drawn offscreen on the Mac, the native theme's on Windows), and Aside's popup buttons are `TextButton`'s `kPopupPrimary` and `kPopupCancel` variants at `button_size::kPopup`, as the Swift's `.popup(isPrimary:)` was.
 
+> **On the Views line** (`docs/plans/views-migration.md`, L1): the update's dot and bar are one source, `pane/ui/design/update_status`, which the sidebar's pill, the Lock's update line, and the data's move on the Lock's panel take; the PIN's dots fill on one more curve (`motion::Dot`), and a wrong PIN shakes by `motion::ShakeOffset`.
+
 Each design concern in the app's views has one source that every view uses (the colors, the shapes, the shadows, the icons, the motion, and one style per kind of control), so controls of one kind look and behave alike and a change lands once. A review of the view layer made it so, and rendered every surface before and after, light and dark (the automation's `render`, and screen captures where a mask or the page matters).
 
 The former `Theme.swift` and `Style.swift` are split by concern. `app/Pane/Views/Theme/` holds the palette (`Palette.swift`), the squircle (`Squircle.swift`, ADR 0057), the elevations (`Elevation.swift`, ADR 0055), the icons (`Icons.swift`), and `Motion` (`Motion.swift`). `app/Pane/Views/Controls/` holds the buttons, fields, menus, switch, labels, hairline, and hover fill, and `app/Pane/Views/Components/` the favicon, the fading scroll view, and since then the reorder and the window's drag area (ADR 0077) and the toolbar's progress bar (ADR 0081).

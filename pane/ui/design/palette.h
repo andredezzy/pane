@@ -162,6 +162,14 @@ enum PaneColorIds : ui::ColorId {
   // The extensions menu's pin and more under the pointer: the foreground at
   // 8%.
   kPaneColorMenuButtonHover,
+  // The PIN screen's words (Paper 07): a step's title, the foreground at 50%;
+  // a quiet line (Enter at least 4 digits, the attempts left) and the back
+  // arrow at rest, at 30%; Continue at rest and the back arrow lit, at 60%;
+  // Continue lit, at 80% (the Swift's LockScreenView).
+  kPaneColorPinTitle,
+  kPaneColorPinQuiet,
+  kPaneColorPinHint,
+  kPaneColorPinHintLit,
 
   kPaneColorsEnd,
 };

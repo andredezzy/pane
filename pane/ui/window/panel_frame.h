@@ -20,11 +20,16 @@ namespace pane {
 // holds one color and no tiles: a painted layer is tiled across its bounds
 // wherever it draws a path, so the card painted on the window's layer kept
 // tiles the size of the window in the GPU process (ADR 0073).
+//
+// The PIN screen's panel is the same card over the window (the Swift's
+// LockScreenView took the panel's surfaceBackground): `on_window` false, its
+// bands paint the card's ring and shadow alone, over what the window shows
+// beside it.
 class PanelFrame : public views::View {
   METADATA_HEADER(PanelFrame, views::View)
 
  public:
-  PanelFrame();
+  explicit PanelFrame(bool on_window = true);
   PanelFrame(const PanelFrame&) = delete;
   PanelFrame& operator=(const PanelFrame&) = delete;
   ~PanelFrame() override;
@@ -41,6 +46,8 @@ class PanelFrame : public views::View {
  private:
   class Band;
 
+  // It sits on the window, whose fill it paints around the card.
+  const bool on_window_;
   gfx::Rect panel_;
   bool square_ = false;
   std::array<raw_ptr<Band>, 4> bands_;

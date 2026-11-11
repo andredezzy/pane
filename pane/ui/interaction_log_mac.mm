@@ -107,6 +107,18 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kTestProxy:
       os_signpost_interval_begin(log, id, "Test proxy");
       break;
+    case Interaction::kPinDigit:
+      os_signpost_interval_begin(log, id, "PIN digit");
+      break;
+    case Interaction::kWrongPin:
+      os_signpost_interval_begin(log, id, "Wrong PIN");
+      break;
+    case Interaction::kUnlock:
+      os_signpost_interval_begin(log, id, "Unlock");
+      break;
+    case Interaction::kLock:
+      os_signpost_interval_begin(log, id, "Lock");
+      break;
   }
   return id;
 }
@@ -253,6 +265,25 @@ void EndInteractionInterval(Interaction interaction,
       os_signpost_interval_end(log, interval, "Test proxy",
                                PANE_INTERVAL_END_FORMAT, late_us, committed_us,
                                presented_us);
+      break;
+    case Interaction::kPinDigit:
+      os_signpost_interval_end(log, interval, "PIN digit",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kWrongPin:
+      os_signpost_interval_end(log, interval, "Wrong PIN",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kUnlock:
+      os_signpost_interval_end(log, interval, "Unlock",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kLock:
+      os_signpost_interval_end(log, interval, "Lock", PANE_INTERVAL_END_FORMAT,
+                               late_us, committed_us, presented_us);
       break;
   }
 }

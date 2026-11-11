@@ -14,6 +14,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, N1): the profile sheet's controls keep the Swift's names and identifiers (`pane.profile.*`, `pane/ui/view_ids.cc`) in its focus order, each switch named by its title with its sentence as its description, the tiles by their platform, selected when chosen; a problem is its field's description, announced when Save is refused.
 
+> **On the Views line** (`docs/plans/views-migration.md`, L1): the PIN screen reads as a modal dialog (`pane.lockScreen`), its keys by their digits and Delete, the dots as "2 of 4 digits", the back arrow Back, Continue by its title, the attempts left as text, the data's move as "Encrypting your data" with its percent as its value, and the update's action by its title.
+
 Pane's own controls read to VoiceOver by what they are and what they hold, not by their placeholders or by the text drawn over them. The profile sheet's fields read their labels (`LabeledField`), not their placeholders. The proxy's fields, the address, find's field, and the Extensions page's search take names. Menu triggers read their option as their value ("Theme, System", "Profile, Alpha"). A profile's row keeps its name as its label and reads its state as its value ("3 tabs, collapsed, proxy connected"), selected when the profile is active. The profile sheet and the PIN screen are modal.
 
 The address field's name sits on the field itself: set on the whole view, it renamed the domain and the title drawn over the field at rest (ADR 0060). The find bar likewise shows no placeholder but keeps one, unseen, for VoiceOver (ADR 0067).

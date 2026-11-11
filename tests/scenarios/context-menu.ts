@@ -33,16 +33,19 @@ const contextMenu: Scenario = async (context) => {
 		page.send(method, params);
 
 	// The next menu the page shows, not the last one still held: each state
-	// is a new object, so only the count tells them apart.
-	const menuAt = async (point: Point, expected: string) => {
+	// is a new object, so only the count tells them apart. It shows one of the
+	// `expected` titles.
+	const menuAt = async (point: Point, ...expected: string[]) => {
 		const before = (await app.state()).contextMenusShown;
 		await clickAt(send, point.x, point.y, "right");
 
 		const state = await app.waitFor(
-			`a menu with ${expected}`,
+			`a menu with ${expected.join(" or ")}`,
 			(current) =>
 				current.contextMenusShown > before &&
-				(current.contextMenu ?? []).some((item) => item.title === expected),
+				(current.contextMenu ?? []).some((item) =>
+					expected.includes(item.title),
+				),
 		);
 
 		return (state.contextMenu ?? []).map((item) => item.title);
@@ -109,8 +112,10 @@ const contextMenu: Scenario = async (context) => {
 
 	// A misspelled word: the spellchecker's suggestions replace it. The word
 	// must be one macOS's spellchecker rejects ("helo", "teh", "speling" pass
-	// it). On a locked screen a plain edit menu is accepted: spelling there
-	// was only ever tried with "helo", so it is unproven either way.
+	// it). On a locked screen either menu is accepted: macOS's spellchecker
+	// has flagged "recieve" there (L1's regression, 2026-11-11), and earlier
+	// runs read it as not flagging words there, so the plain edit menu, with
+	// Select All, which Chromium leaves out on a flagged word, is accepted too.
 	await page.evaluate(
 		"(() => { const field = document.getElementById('text'); field.focus(); const range = document.createRange(); range.selectNodeContents(field); range.collapse(false); const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range); })()",
 	);
@@ -122,7 +127,7 @@ const contextMenu: Scenario = async (context) => {
 
 	const editMenu = await menuAt(
 		await page.evaluate<Point>("misspelledPoint()"),
-		locked ? "Select All" : "Add to Dictionary",
+		...(locked ? ["Select All", "Add to Dictionary"] : ["Add to Dictionary"]),
 	);
 
 	if (editMenu.includes("Add to Dictionary")) {
