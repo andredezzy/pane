@@ -111,8 +111,9 @@ ProxyTest::ProxyTest(const model::ProxyConfig& proxy, Done done)
   // drop it and go direct (ADR 0037).
   if (!model::IsProxyPort(proxy_.port)) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&ProxyTest::Finish, weak_factory_.GetWeakPtr(),
-                                  Outcome{.error = "bad port"}));
+        FROM_HERE,
+        base::BindOnce(&ProxyTest::Finish, weak_factory_.GetWeakPtr(),
+                       Outcome{.error = "bad port"}));
     return;
   }
   if (model::NeedsRelay(proxy_)) {
@@ -123,9 +124,8 @@ ProxyTest::ProxyTest(const model::ProxyConfig& proxy, Done done)
   }
   // Posted, so `done` never runs while this is made.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&ProxyTest::Fetch, weak_factory_.GetWeakPtr(),
-                     model::ProxyRules(proxy_, std::nullopt)));
+      FROM_HERE, base::BindOnce(&ProxyTest::Fetch, weak_factory_.GetWeakPtr(),
+                                model::ProxyRules(proxy_, std::nullopt)));
 }
 
 ProxyTest::~ProxyTest() = default;
@@ -184,8 +184,7 @@ void ProxyTest::Fetch(const std::string& rules) {
 
 void ProxyTest::Fetched(std::optional<std::string> body) {
   const network::mojom::URLResponseHead* head = loader_->ResponseInfo();
-  const int status =
-      head && head->headers ? head->headers->response_code() : 0;
+  const int status = head && head->headers ? head->headers->response_code() : 0;
   if (!body) {
     Finish({.error = ErrorText(loader_->NetError())});
     return;
@@ -253,9 +252,9 @@ void ProxyTest::OnAuthRequired(
     return;
   }
   answered_ = true;
-  responder->OnAuthCredentials(net::AuthCredentials(
-      base::UTF8ToUTF16(username),
-      base::UTF8ToUTF16(proxy_.password.value_or(""))));
+  responder->OnAuthCredentials(
+      net::AuthCredentials(base::UTF8ToUTF16(username),
+                           base::UTF8ToUTF16(proxy_.password.value_or(""))));
 }
 
 void ProxyTest::OnLocalNetworkAccessPermissionRequired(

@@ -8,10 +8,11 @@ import { expect, type Scenario } from "../run";
 
 const TITLE = "Pane hosted";
 
-// The Pane app hosts the engine. One window of the app's own, the
-// page reported as a DevTools page, the app↔engine traffic in the trace, and
-// — with an unlocked screen — the page visible in that window and Cmd+Q
-// shutting every helper down.
+// Pane's UI runs in the engine it hosts, with Chrome's own UI off (ADR 0010).
+// One window of Pane's own, the page it was launched with reported as a
+// DevTools page, Pane's window told of its tab in the trace, and — with an
+// unlocked screen — the page visible in that window and Quit Pane shutting
+// every helper down.
 const hosted: Scenario = async (context) => {
 	const url = context.fixtures.url("hosted.html");
 
@@ -32,14 +33,10 @@ const hosted: Scenario = async (context) => {
 	const windows = await settledWindowsOf(browser.pid, 1);
 
 	expect(windows.count === 1, `expected 1 window, got ${windows.count}`);
-	expect(has("PaneBrowserWindow.openTab"), "trace lacks openTab");
 
 	expect(
-		has(
-			"PaneWebContentsDelegate.didChangeTitle",
-			(args) => args.title === TITLE,
-		),
-		`trace lacks didChangeTitle(${TITLE})`,
+		has("PaneBrowserWindowDelegate.didInsertTab"),
+		"trace lacks the window told of its tab (didInsertTab)",
 	);
 
 	if (!(await canDriveUI())) {

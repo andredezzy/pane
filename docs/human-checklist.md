@@ -2,7 +2,7 @@
 
 What only a person can do or verify: each item says why it needs one, and the steps. An item leaves this file when it is done; what it found goes in its ADR.
 
-- **The Edit menu's Cut, Copy, and Paste.** They use the clipboard, and what is on it is yours: an agent neither reads nor overwrites it. Once: in Pane, copy a word from a page, and paste it in the address field. Its Select All and the rest of the pointer gestures ran by computer use on 0.19.0's candidate (`docs/qa/review-and-simplify/report.md`). cua-driver's background drag does not move SwiftUI's rows: a drag needs `delivery_mode: "foreground"`, which moves the pointer.
+- **The Edit menu's Cut, Copy, and Paste.** They use the clipboard, and what is on it is yours: an agent neither reads nor overwrites it. Once: in Pane, copy a word from a page, and paste it in the address field. Its Select All and the rest of the pointer gestures ran by computer use on 0.19.0's candidate (`docs/qa/review-and-simplify/report.md`). cua-driver's background drag did not move the Swift app's rows (SwiftUI): a drag there needed `delivery_mode: "foreground"`, which moves the pointer; the Views build's are untried.
 
 - **VoiceOver through a window, by ear.** The window's views changed for 0.19.0 (the live resize and the 23 accessibility elements match the build before, by machine), but what VoiceOver says and when is for a person to hear. Once: turn VoiceOver on, and walk a window from the sidebar to a page.
 

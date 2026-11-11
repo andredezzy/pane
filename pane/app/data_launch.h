@@ -23,8 +23,8 @@ namespace model {
 class ModelStore;
 }  // namespace model
 
-// Pane's data around the engine's life (docs/plans/views-migration.md, C5),
-// in the Swift app's order (app/Pane/main.swift, AppDelegate): what an
+// Pane's data around the engine's life (ADR 0113, 0122), in the order the
+// Swift app of 0.19.2 and before kept (its main.swift and AppDelegate): what an
 // earlier Pane left is brought up to date, and the data's lock taken, before
 // the engine starts; the vault and the lock open once the thread pool runs;
 // and the volume detaches once the engine has stopped. The Mac's alone: the

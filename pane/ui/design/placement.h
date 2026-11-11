@@ -10,7 +10,7 @@ class RectF;
 namespace views {
 class View;
 class Widget;
-}
+}  // namespace views
 
 namespace pane {
 

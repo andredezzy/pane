@@ -1,5 +1,5 @@
 diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
-index 06bfcf5a90..7dd35a8b5c 100644
+index 06bfcf5a90..915c9dc769 100644
 --- a/chrome/BUILD.gn
 +++ b/chrome/BUILD.gn
 @@ -1356,6 +1356,7 @@ if (is_win) {
@@ -10,31 +10,6 @@ index 06bfcf5a90..7dd35a8b5c 100644
        "//third_party/cld_3/src/src:cld_3",
      ]
  
-@@ -1462,7 +1463,9 @@ if (is_win) {
- 
-   # TOOD(crbug.com/40740432#comment9) - thakis@ look into why profile and
-   # coverage instrumentation adds these symbols in different orders
--  if (!is_component_build && chrome_pgo_phase != 1 && !using_sanitizer) {
-+  # Pane: its exports come after _ChromeMain, so nothing checks that it is last.
-+  if (false && !is_component_build && chrome_pgo_phase != 1 &&
-+      !using_sanitizer) {
-     action("verify_chrome_framework_order") {
-       script = "//chrome/tools/build/mac/verify_order.py"
-       stamp_file = "$target_out_dir/run_$target_name.stamp"
-diff --git a/chrome/app/framework.exports b/chrome/app/framework.exports
-index 37c881f5d2..fa344c6c5d 100644
---- a/chrome/app/framework.exports
-+++ b/chrome/app/framework.exports
-@@ -19,3 +19,9 @@
- _ChromeAppModeStart_v8
- _ChromeMain
- _ChromeWebAppShortcutCopierMain
-+
-+# Pane: the embedding API (Objective-C classes and C symbols) that the Pane app
-+# links against.
-+_OBJC_CLASS_$_Pane*
-+_OBJC_METACLASS_$_Pane*
-+_Pane*
 diff --git a/components/os_crypt/common/keychain_password_mac.mm b/components/os_crypt/common/keychain_password_mac.mm
 index 212b930952..7612479c08 100644
 --- a/components/os_crypt/common/keychain_password_mac.mm

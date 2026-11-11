@@ -186,21 +186,21 @@ void ProfileNetwork::Test(const std::string& profile_id) {
     model_->SetProxyStatus(profile_id, std::nullopt);
     return;
   }
-  model_->SetProxyStatus(profile_id, model::BrowserModel::ProxyStatus::kTesting);
+  model_->SetProxyStatus(profile_id,
+                         model::BrowserModel::ProxyStatus::kTesting);
   const model::ProxyConfig proxy = *profile->proxy;
   // A test of another proxy, still running, goes: its answer is no longer
   // the profile's.
   tests_[profile_id] = std::make_unique<ProxyTest>(
-      proxy, base::BindOnce(
-                 [](base::WeakPtr<ProfileNetwork> network, std::string id,
-                    model::ProxyConfig proxy,
-                    const ProxyTest::Outcome& outcome) {
-                   if (network) {
-                     network->Tested(id, proxy, outcome.ip.has_value(),
-                                     outcome.error);
-                   }
-                 },
-                 weak_factory_.GetWeakPtr(), profile_id, proxy));
+      proxy,
+      base::BindOnce(
+          [](base::WeakPtr<ProfileNetwork> network, std::string id,
+             model::ProxyConfig proxy, const ProxyTest::Outcome& outcome) {
+            if (network) {
+              network->Tested(id, proxy, outcome.ip.has_value(), outcome.error);
+            }
+          },
+          weak_factory_.GetWeakPtr(), profile_id, proxy));
 }
 
 void ProfileNetwork::Tested(const std::string& profile_id,
@@ -223,10 +223,9 @@ void ProfileNetwork::Tested(const std::string& profile_id,
   if (!connected) {
     LOG(WARNING) << "A profile's proxy failed its test: " << error;
   }
-  model_->SetProxyStatus(profile_id,
-                         connected
-                             ? model::BrowserModel::ProxyStatus::kConnected
-                             : model::BrowserModel::ProxyStatus::kFailed);
+  model_->SetProxyStatus(
+      profile_id, connected ? model::BrowserModel::ProxyStatus::kConnected
+                            : model::BrowserModel::ProxyStatus::kFailed);
 }
 
 }  // namespace pane

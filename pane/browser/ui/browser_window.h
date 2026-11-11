@@ -25,9 +25,6 @@
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "ui/base/accelerators/accelerator.h"
 
-@class NSEvent;
-@class NSMenu;
-
 class BrowserWindowInterface;
 class DevtoolsUIController;
 class ExclusiveAccessManager;
@@ -36,10 +33,6 @@ namespace pane {
 
 class HostedExtensionsContainer;
 class WindowHost;
-
-// Whether the menu bar, or `menu`'s submenus, has `event` as a key
-// equivalent.
-bool MenuHasKeyEquivalent(NSMenu* menu, NSEvent* event);
 
 class HostedLocationBar : public LocationBar {
  public:

@@ -22,7 +22,7 @@ class BrowserContext;
 namespace pane {
 
 // What a fingerprinted profile presents instead of Chrome's own: parsed from
-// the JSON the app builds (PaneKit's EngineFingerprint).
+// the JSON Pane builds (model::EngineFingerprint, pane/model).
 struct Fingerprint {
   Fingerprint();
   Fingerprint(const Fingerprint&);

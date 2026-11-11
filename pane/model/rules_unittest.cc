@@ -513,8 +513,14 @@ TEST(ProfileFormTest, Presets) {
 // The host's own platform claims the host's GPU; another keeps the preset's.
 TEST(ProfileFormTest, HostGPUClaim) {
   EXPECT_EQ(GeneratedFingerprint(HostPlatform(), HostGPU()).webgl, HostGPU());
-  EXPECT_EQ(GeneratedFingerprint(Platform::kLinux, HostGPU()).webgl,
-            FingerprintPreset(Platform::kLinux).webgl);
+  // Every other platform, the Swift's Windows on a Mac among them.
+  for (Platform other :
+       {Platform::kWindows, Platform::kMacOS, Platform::kLinux}) {
+    if (other != HostPlatform()) {
+      EXPECT_EQ(GeneratedFingerprint(other, HostGPU()).webgl,
+                FingerprintPreset(other).webgl);
+    }
+  }
   EXPECT_EQ(GeneratedFingerprint(HostPlatform(), std::nullopt).webgl,
             FingerprintPreset(HostPlatform()).webgl);
 }

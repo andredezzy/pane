@@ -1,5 +1,7 @@
 # Pane's identifier is xyz.roundedcorners.pane
 
+> **On the Views line** (`docs/plans/views-migration.md`, C5, C6, and K3): the identifier is `MAC_BUNDLE_ID` in `pane/BRANDING` alone (ADR 0009), and the move runs before the engine starts, in C++ (`pane::model::MoveFormerData`, `pane/model/mac/bundle_identifier.h`, from `PrepareData`); the Swift app, its `main.swift`, `app/project.yml`, and PaneKit are gone, and PaneKit's test runs as its twin in `pane_unittests` (`docs/benchmarks/panekit-tests.md`).
+
 Pane's bundle identifier is `xyz.roundedcorners.pane`, the reverse of its domain, pane.roundedcorners.xyz: Pane is a project of the studio Rounded Corners (the user's call, 2026-10-30). It was `com.pane.desktop` until 0.14.0.
 
 What it names:

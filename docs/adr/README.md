@@ -4,12 +4,12 @@ One record per subject, numbered in the order the subjects were first decided: t
 
 - [0001](0001-theme-drives-the-app-and-every-page.md) Theme drives the app and every page
 - [0002](0002-update-check-via-github-releases-api.md) Pane checks GitHub's latest release at launch and every six hours, and a dmg that matches the release's SHA-256 leaves quarantine
-- [0004](0004-native-shell-on-own-chromium-framework.md) Pane is a native Swift shell on its own Chromium framework, not Electron or Tauri
+- [0004](0004-native-shell-on-own-chromium-framework.md) Pane is its own build of Chromium, with its UI inside the engine, not Electron or Tauri
 - [0005](0005-pin-a-chromium-stable-tag.md) Pane pins a Chromium stable tag, and a watch tells it when Chrome's Mac stable moves
 - [0006](0006-data-root-and-engine-profiles.md) Pane's data root is its identifier's folder, with the engine's profiles under Engine
 - [0007](0007-chromium-checkout.md) The Chromium checkout is a shallow clone of the tag, kept out of Spotlight
 - [0008](0008-patches-from-saved-copies.md) Patches apply and reverse from saved copies
-- [0009](0009-panecore-framework.md) The engine is Chrome's own framework and layer, Pane's by its branding, with explicit exports
+- [0009](0009-panecore-framework.md) The engine is Chrome's own framework and layer, Pane's by its branding, and exports only Chrome's entry points
 - [0010](0010-host-mode.md) Host mode is one seam into Chrome's startup and the --pane-hosted switch, and Pane's quit outranks Chrome's keep-alives
 - [0011](0011-app-decides-page-visibility.md) The app decides page visibility, in a layer-backed view tree
 - [0012](0012-scenarios-on-a-locked-screen.md) Scenarios run unattended on the user's Mac: they never reach its apps or its login keychain or take its front, clean up after themselves, wait for conditions, and report what they could not prove
@@ -41,7 +41,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0046](0046-the-dmg.md) The dmg is built with dmgbuild, LZMA-compressed, and laid out as Hark's installer, its volume icon on the title's centre line
 - [0047](0047-releases-strip-the-engine.md) A release strips its local symbols, and publishes them beside it
 - [0048](0048-signing-waits-for-a-developer-id.md) Signing, notarization, and iCloud passkeys wait for a Developer ID
-- [0049](0049-prebuilt-engines.md) Prebuilt engines are matched by key and published as prereleases, and CI builds the app on them and never builds Chromium
+- [0049](0049-prebuilt-engines.md) Prebuilt engines are matched by key and published as prereleases, and CI packages the app from them and never builds Chromium
 - [0051](0051-native-release-retires-electron.md) Pane 0.7.0 is the first native release, and the Electron app is retired
 - [0053](0053-quit-asks-first.md) ⌘Q asks first
 - [0054](0054-toolbar-extensions-menu.md) The toolbar's extensions menu and pinned actions follow Aside's
@@ -88,6 +88,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0121](0121-every-profile-file-encrypted-under-its-own-key.md) Every file a profile writes is encrypted under a key only Pane's processes hold
 - [0122](0122-every-pane-updates-straight-to-the-newest.md) Every Pane updates straight to the newest, which carries every upgrade path itself
 - [0123](0123-panes-views-raster-on-the-cpu.md) Pane's views raster on the CPU
+- [0124](0124-one-ui-in-views-on-every-os.md) Pane's UI is one, in C++ Views inside its own Chromium, for the Mac and Windows, with no Swift
 
 ## Merged records
 

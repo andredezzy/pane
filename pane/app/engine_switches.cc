@@ -101,7 +101,7 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // Chrome discards background tabs under memory pressure (its urgent
   // discarding), swapping an empty WebContents into the tab. Pane's sleep
   // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard
-  // still works, and the TabBridge follows the tab into its new WebContents.
+  // still works, and Pane's UI follows the tab into its new WebContents.
   AddToSwitchList(command_line, "enable-features", "DisableTabDiscarding");
   // Pane's own views raster on the CPU, in the browser, as AppKit drew the
   // Swift app's and as pane/ui/render.cc paints a render; pages still raster

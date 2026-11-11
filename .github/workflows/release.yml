@@ -2,11 +2,13 @@ name: Release
 
 # Publishes Pane-<version>-arm64.dmg, the asset the in-app update check
 # reads, when a v* tag is pushed on main, or on the swift branch the Swift
-# line ships its fixes from until the Views cutover (AGENTS.md). The app
-# builds on the prebuilt engine its engine sources name
-# (chromium/prebuilt-engines.tsv): an engine change publishes its
-# engine-<key> prerelease first (chromium/UPGRADING.md). CI runs no
-# scenarios: they run on a developer's Mac before each push and tag.
+# line ships its fixes from until main's first release (AGENTS.md). The app is
+# packaged from the engine archive its engine sources name
+# (chromium/prebuilt-engines.tsv), which a developer's Mac built and
+# scripts/publish-engine.sh uploaded as the engine-<key> prerelease
+# (chromium/UPGRADING.md): CI builds no Chromium (ADR 0049). The engine's
+# unit tests (pane_unittests) and the scenarios run on that Mac before each
+# push and tag (AGENTS.md).
 
 on:
   push:
@@ -28,8 +30,8 @@ permissions:
 jobs:
   release:
     name: Build and publish
-    # macOS 27 with Xcode 27 on Apple Silicon: the toolchain the app is
-    # developed with.
+    # macOS 27 with Xcode 27 on Apple Silicon: what packaging runs (actool,
+    # codesign, hdiutil, dmgbuild), as on the Mac the engine is built on.
     runs-on: xcode-27
 
     steps:
@@ -65,20 +67,10 @@ jobs:
           echo "::error::Tag ${GITHUB_REF_NAME} is on neither main nor swift. Merge the release into one of them, then tag it there."
           exit 1
 
-      # PaneKit's tests under the Thread and Address Sanitizers, and built
-      # with warnings as errors: a release ran none of this until v0.17.1's
-      # strict build failed only in CI.
-      - name: PaneKit tests, sanitized and strict
-        working-directory: app/PaneKit
-        run: |
-          swift test --sanitize=thread --scratch-path .build-tsan
-          swift test --sanitize=address --scratch-path .build-asan
-          swift build -Xswiftc -warnings-as-errors --scratch-path .build-strict
-
-      # The engine its engine sources name (chromium/prebuilt-engines.tsv),
-      # into a variable first: within echo's arguments a failed fetch left
-      # the step green and PANE_ENGINE_OUT empty.
-      - name: Fetch the prebuilt engine
+      # The engine archive its engine sources name
+      # (chromium/prebuilt-engines.tsv), into a variable first: within echo's
+      # arguments a failed fetch left the step green and PANE_ENGINE_OUT empty.
+      - name: Fetch the engine archive
         run: |
           engine="$(scripts/fetch-engine.sh)"
           echo "PANE_ENGINE_OUT=$engine" >> "$GITHUB_ENV"

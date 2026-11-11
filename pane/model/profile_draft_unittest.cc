@@ -352,7 +352,8 @@ TEST(ProfileDraftTest, GroupKept) {
   EXPECT_EQ(saved.ToValue().GetDict().Find("group")->GetString(), " Clients ");
 
   BrowserProfile created;
-  ProfileDraft().ApplyTo(created, [] { return FingerprintPreset(Platform::kLinux); });
+  ProfileDraft().ApplyTo(created,
+                         [] { return FingerprintPreset(Platform::kLinux); });
   EXPECT_EQ(created.group, std::nullopt);
 }
 

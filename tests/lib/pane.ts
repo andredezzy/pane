@@ -1,6 +1,6 @@
 // Launches the Pane app with its data in a throwaway (or given) directory and
 // drives it through the automation channel (PANE_AUTOMATION_DIR, see
-// app/Pane/Automation/Automation.swift).
+// pane/automation/automation.h).
 import {
 	existsSync,
 	mkdirSync,

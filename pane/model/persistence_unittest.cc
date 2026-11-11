@@ -66,8 +66,16 @@ TEST_F(SettingsPersistenceTest, FillsDefaults) {
       "settings.json",
       R"({"state":{"settings":{"chromiumPath":"/Applications/Chromium.app"}},"version":0})");
 
+  // The Swift's defaults, spelled out, so a changed default fails here.
   AppSettings expected;
   expected.chromium_path = "/Applications/Chromium.app";
+  expected.theme = Theme::kSystem;
+  expected.tab_sleep_after_minutes = 15;
+  expected.profile_unload_after_minutes = 30;
+  expected.cache_budget_mb = 300;
+  expected.app_icon = AppIcon::kAutomatic;
+  expected.lock_after_minutes = 15;
+  expected.sidebar_width = 260;
   EXPECT_EQ(LoadSettings(), expected);
 }
 

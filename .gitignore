@@ -15,13 +15,8 @@ node_modules
 # Tools
 .claude/
 .sc/
-.swiftpm/
 
 # The app and the engine
 /evidence/
 app/build/
 app/release/
-app/*.xcodeproj
-app/DerivedData/
-app/PaneKit/.build/
-app/PaneKit/.build-*/

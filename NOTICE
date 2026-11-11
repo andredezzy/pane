@@ -18,14 +18,13 @@ file names its Ardia source and what changed; third_party/ardia/README.md
 lists them.
 
 Lucide (https://lucide.dev), ISC License, with portions from Feather (MIT)
-(third_party/lucide/LICENSE): the app's icons
-(app/Pane/Views/Theme/Icons.swift) are Lucide's SVG paths, as the Electron
-app used them through lucide-react.
+(third_party/lucide/LICENSE): the app's icons (pane/ui/design/icons.cc) are
+Lucide's SVG paths, as the Electron app used them through lucide-react.
 
-The platform logos in the profile sheet
-(app/Pane/Assets.xcassets/Platform*.imageset) name the platform a fingerprint
-claims; each mark belongs to its owner and implies no endorsement. Windows is
-Microsoft's, from Wikimedia Commons (Windows_logo_-_2021.svg, public domain).
+The platform logos in the profile sheet (pane/ui/sheets/platform_logo.cc)
+name the platform a fingerprint claims; each mark belongs to its owner and
+implies no endorsement. Windows is Microsoft's, from Wikimedia Commons
+(Windows_logo_-_2021.svg, public domain).
 Apple's and Tux are as drawn in gilbarbara/logos (https://github.com/gilbarbara/logos,
 CC0 1.0), Tux without its soft shadow. Tux is by Larry Ewing
 (lewing@isc.tamu.edu), made with The GIMP.
@@ -36,7 +35,7 @@ algorithms (apps/veil profile/fingerprint-preload.ts).
 
 OpenBSD bcrypt (lib/libc/crypt/bcrypt.c, blowfish.c, include/blf.h), ISC and
 BSD-3-Clause (third_party/openbsd-bcrypt/LICENSE): vendored unmodified
-in app/PaneKit/Sources/CBcrypt for the app lock's PIN hashes.
+in pane/model/mac/bcrypt to check the PIN hashes earlier Panes wrote.
 
 electron-builder (https://github.com/electron-userland/electron-builder), MIT
 License: the release script runs dmgbuild (https://github.com/dmgbuild/dmgbuild,

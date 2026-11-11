@@ -121,7 +121,7 @@ strip_local() {
 # catalog): the app's, and the notification helpers', which post Pane's
 # notifications under their own icon.
 ICON="$(mktemp -d)"
-xcrun actool "$APP_DIR/Pane/AppIcon.icon" --compile "$ICON" --platform macosx \
+xcrun actool "$APP_DIR/icon/AppIcon.icon" --compile "$ICON" --platform macosx \
 	--minimum-deployment-target "$(plutil -extract LSMinimumSystemVersion raw "$PLIST")" \
 	--app-icon AppIcon --output-partial-info-plist "$ICON/partial.plist" \
 	--output-format human-readable-text --errors > /dev/null
@@ -135,8 +135,8 @@ done
 rm -rf "$ICON"
 
 # A release (dist.sh) drops the engine's local symbols, as Chrome's official
-# builds do: the framework shrinks from ~480 MB to ~270 MB, with its exports, which
-# the app links, unchanged. Development builds keep them for stack traces.
+# builds do: the framework shrinks from ~480 MB to ~270 MB, with its exports
+# unchanged. Development builds keep them for stack traces.
 if [ "${PANE_STRIP:-}" = 1 ]; then
 	echo "== strip"
 	strip_local "$VERSION_DIR/Pane Framework" "$VERSION_DIR"/Libraries/*.dylib \

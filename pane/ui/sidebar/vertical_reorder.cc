@@ -207,7 +207,7 @@ void VerticalReorder::Move(double pointer) {
   const double top = CopyTop();
   // The copy rides the pointer at once.
   PlaceCard(copy_, rows_, drag_->list.copy_height, top);
-  // The place whose top is nearest the copy's (Reorder in PaneKit's port).
+  // The place whose top is nearest the copy's (pane/model/reorder.h).
   const int target =
       model::ReorderTarget(drag_->list.ids, drag_->heights, drag_->first_top,
                            drag_->id, top, RowList::kSpacing);

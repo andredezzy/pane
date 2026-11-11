@@ -148,8 +148,8 @@ class SocksRelay::Core {
   // Listens on 127.0.0.1, at a port the system picks: that port, or
   // nullopt.
   std::optional<int> Listen() {
-    server_ = std::make_unique<net::TCPServerSocket>(nullptr,
-                                                     net::NetLogSource());
+    server_ =
+        std::make_unique<net::TCPServerSocket>(nullptr, net::NetLogSource());
     net::IPEndPoint local;
     if (server_->Listen(net::IPEndPoint(net::IPAddress::IPv4Localhost(), 0),
                         kBacklog, /*ipv6_only=*/std::nullopt) != net::OK ||
@@ -197,8 +197,7 @@ class SocksRelay::Core {
   mojo::Remote<network::mojom::HostResolver> resolver_;
   std::unique_ptr<net::TCPServerSocket> server_;
   std::unique_ptr<net::StreamSocket> accepted_;
-  std::set<std::unique_ptr<Connection>, base::UniquePtrComparator>
-      connections_;
+  std::set<std::unique_ptr<Connection>, base::UniquePtrComparator> connections_;
   base::WeakPtrFactory<Core> weak_factory_{this};
 };
 
@@ -248,9 +247,9 @@ class SocksRelay::Core::Connection : public network::mojom::ResolveHostClient {
 
     void Run() {
       while (true) {
-        const int result =
-            from_->Read(chunk_.get(), kPipeChunk,
-                        base::BindOnce(&Pump::Received, base::Unretained(this)));
+        const int result = from_->Read(
+            chunk_.get(), kPipeChunk,
+            base::BindOnce(&Pump::Received, base::Unretained(this)));
         if (result == net::ERR_IO_PENDING) {
           return;
         }
@@ -324,8 +323,8 @@ class SocksRelay::Core::Connection : public network::mojom::ResolveHostClient {
     read_socket_ = socket;
     read_then_ = std::move(then);
     read_buffer_ = base::MakeRefCounted<net::IOBufferWithSize>(count);
-    reading_ = base::MakeRefCounted<net::DrainableIOBuffer>(read_buffer_,
-                                                           read_buffer_->size());
+    reading_ = base::MakeRefCounted<net::DrainableIOBuffer>(
+        read_buffer_, read_buffer_->size());
     ReadOn();
   }
 
@@ -502,8 +501,9 @@ class SocksRelay::Core::Connection : public network::mojom::ResolveHostClient {
             net::HostPortPair(host, static_cast<uint16_t>(upstream.port))),
         net::NetworkAnonymizationKey::CreateTransient(), nullptr,
         resolving_.BindNewPipeAndPassRemote());
-    resolving_.set_disconnect_handler(base::BindOnce(
-        &Connection::Refuse, base::Unretained(this), "the proxy's host was not found"));
+    resolving_.set_disconnect_handler(
+        base::BindOnce(&Connection::Refuse, base::Unretained(this),
+                       "the proxy's host was not found"));
   }
 
   void Connect(const net::AddressList& addresses) {

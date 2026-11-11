@@ -3,9 +3,8 @@
 // Modeled on Ardia's WindowHost (https://github.com/mantrakp04/ardia,
 // engine/ardiacore/src/ardia/core/ac_browser.{h,mm}, Copyright 2026 Mantra
 // Patel, Apache License 2.0; third_party/ardia): the window as a Chrome
-// Views widget with the app's view inside, one hidden Browser per profile, and
-// the close sequence. Rewritten for Pane's API, without Ardia's app-specific
-// features.
+// Views widget, one hidden Browser per profile, and the close sequence.
+// Rewritten for Pane's UI, without Ardia's app-specific features.
 
 #ifndef PANE_BROWSER_UI_WINDOW_HOST_H_
 #define PANE_BROWSER_UI_WINDOW_HOST_H_
@@ -16,6 +15,7 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
@@ -26,12 +26,6 @@
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/widget/widget_observer.h"
-
-#if defined(__OBJC__)
-@class NSView;
-@class NSWindow;
-@class PaneBrowserWindow;
-#endif
 
 class Browser;
 class BrowserWindowInterface;
@@ -67,11 +61,11 @@ class HostedExtensionsContainer : public ExtensionsContainer {
   virtual ~HostedExtensionsContainer() = default;
 };
 
-// One Pane window. Chrome sees a Views widget (so its own dialogs and bubbles
-// have a window to attach to) holding the app's view, and one Browser per
-// profile shown in the window, each with a HostedBrowserWindow: no
-// BrowserView, no tab strip or toolbar of Chrome's. A tab's view goes straight
-// into the app's views; switching profiles is a view swap in the app plus
+// One Pane window (ADR 0014). Chrome sees a Views widget (so its own dialogs
+// and bubbles have a window to attach to) holding Pane's views, and one
+// Browser per profile shown in the window, each with a HostedBrowserWindow: no
+// BrowserView, no tab strip or toolbar of Chrome's. A tab's page shows in
+// Pane's views; switching profiles is a change of page in them plus
 // SetActiveProfile here.
 class WindowHost : public TabStripModelObserver,
                    public views::WidgetObserver,
@@ -83,8 +77,7 @@ class WindowHost : public TabStripModelObserver,
     base::WeakPtr<content::WebContents> source;
   };
 
-  // Pane's Views UI, told what the window's Browsers do, as the Swift app is
-  // told through PaneBrowserWindow's delegate until it goes.
+  // Pane's UI, told what the window's Browsers do.
   class Delegate {
    public:
     virtual ~Delegate() = default;
@@ -124,7 +117,7 @@ class WindowHost : public TabStripModelObserver,
     // Where the page is, in the widget's root view: Chrome's tab-modal
     // dialogs show over it. It moved: NotifyPositionRequiresUpdate.
     virtual gfx::Rect PageBounds() const = 0;
-    // A key on its way to the page, which the app may take first (⌘T, ⌘L).
+    // A key on its way to the page, which Pane may take first (⌘T, ⌘L).
     virtual content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
         const input::NativeWebKeyboardEvent& event);
     // A key the page left unhandled.
@@ -138,13 +131,9 @@ class WindowHost : public TabStripModelObserver,
     virtual int NonClientHitTest(const gfx::Point& point);
   };
 
-#if defined(__OBJC__)
-  // A window of the Swift app's, which holds its view (PaneBrowserWindow).
-  WindowHost(PaneBrowserWindow* owner, const gfx::Rect& bounds);
-#endif
-  // A window of Pane's Views UI: `contents` fills the widget, and `delegate`
-  // outlives the WindowHost. The widget goes by `name` (Pane's own window,
-  // undocked DevTools' "PaneDevTools").
+  // A window of Pane's: `contents` fills the widget, and `delegate`, never
+  // null, outlives the WindowHost. The widget goes by `name` (Pane's own
+  // window, undocked DevTools' "PaneDevTools").
   WindowHost(Delegate* delegate,
              const gfx::Rect& bounds,
              std::unique_ptr<views::View> contents,
@@ -156,16 +145,10 @@ class WindowHost : public TabStripModelObserver,
   static const std::vector<WindowHost*>& All();
   static WindowHost* ForBrowser(const BrowserWindowInterface* browser);
 
-#if defined(__OBJC__)
-  static WindowHost* ForNSWindow(NSWindow* window);
-  NSWindow* ns_window() const;
-  NSView* host_view() const;
-  PaneBrowserWindow* owner() const;
-#endif
   views::Widget* widget() const { return widget_.get(); }
-  Delegate* delegate() const { return delegate_; }
+  Delegate& delegate() const { return *delegate_; }
 
-  // Tells the app what to say while a page has fullscreen or a lock (empty:
+  // Tells Pane's UI what to say while a page has fullscreen or a lock (empty:
   // nothing).
   void ShowExclusiveAccessHint(const std::u16string& hint);
 
@@ -183,7 +166,7 @@ class WindowHost : public TabStripModelObserver,
   // `close_when_empty`, the window goes when its last Browser does.
   void AdoptBrowser(Browser* browser, bool close_when_empty);
 
-  // The profile the app shows: its Browser is the window's active one.
+  // The profile Pane shows: its Browser is the window's active one.
   void SetActiveProfile(Profile* profile);
   Profile* active_profile() const { return active_profile_; }
   bool IsActiveBrowser(const Browser* browser) const;
@@ -236,8 +219,7 @@ class WindowHost : public TabStripModelObserver,
   void InitWidget(const gfx::Rect& bounds,
                   std::unique_ptr<views::View> contents,
                   const char* name);
-  // Where tab-modal dialogs show: the page's place, or the whole window
-  // (the Swift app's).
+  // Where tab-modal dialogs show: the page's place.
   gfx::Rect ContentArea() const;
   void AddBrowser(Browser* browser);
   void ContinueClose();
@@ -248,12 +230,7 @@ class WindowHost : public TabStripModelObserver,
   void CloseWidget();
   void NotifyWillClose();
 
-  // The Swift app's objects, Objective-C, until it goes: its window object,
-  // kept alive until the widget closes, and the view it draws in.
-  struct Cocoa;
-
-  raw_ptr<Delegate> delegate_ = nullptr;
-  std::unique_ptr<Cocoa> cocoa_;
+  const raw_ref<Delegate> delegate_;
   std::unique_ptr<views::WidgetDelegate> widget_delegate_;
   std::unique_ptr<views::Widget> widget_;
   std::map<Profile*, raw_ptr<Browser>> browsers_;
@@ -269,6 +246,12 @@ class WindowHost : public TabStripModelObserver,
   bool dialog_position_update_scheduled_ = false;
   base::WeakPtrFactory<WindowHost> weak_factory_{this};
 };
+
+// Brings `widget`'s window in front of Pane's other windows and makes it the
+// one that takes the keys, without taking the front from the app in use, as
+// AppKit's makeKeyAndOrderFront: does, where Widget::Activate would take it
+// (window_host_mac.mm).
+void MakeKeyAndOrderFront(views::Widget& widget);
 
 }  // namespace pane
 

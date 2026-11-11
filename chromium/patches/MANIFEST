@@ -1,6 +1,5 @@
 # <path relative to src>	<owning patch>
 chrome/BUILD.gn	0001-pane-framework.patch
-chrome/app/framework.exports	0001-pane-framework.patch
 chrome/app/chrome_main.cc	0002-pane-host-mode.patch
 chrome/browser/app_controller_mac.mm	0002-pane-host-mode.patch
 chrome/browser/chrome_browser_main_mac.mm	0002-pane-host-mode.patch

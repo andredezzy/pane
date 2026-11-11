@@ -508,9 +508,9 @@ class UiApp::Page : public content::WebContentsObserver,
     app_->PageCameBack(tab_id_);
   }
 
-  // The app hears of it once the process's other observers have, as the
-  // engine's TabBridge told the Swift app: a reload from in here would start
-  // a renderer mid-notification, before extensions forgot the old process.
+  // The app hears of it once the process's other observers have: a reload
+  // from in here would start a renderer mid-notification, before extensions
+  // forgot the old process.
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override {
     // A dead page loads nothing.

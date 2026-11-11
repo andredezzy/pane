@@ -8,6 +8,7 @@ Measured comparisons of Pane builds, each with its raw measurements beside it.
 - [pgo-vs-0.19.1.json](pgo-vs-0.19.1.json) — the raw medians behind "0.19.2's PGO engine against the published 0.19.1" below.
 - [engine-encryption.md](engine-encryption.md) — what encrypting every profile file costs, against 0.15.2, by the budgets of the plan behind ADR 0121.
 - [views-shell.md](views-shell.md) — the Views build at the end of the shell against 0.19.2, by the budgets the plan sets there: launch, unlock, warm loads, memory at 1 and 10 tabs, scroll, and a painted frame's way to the screen; what the GPU process held for the window, what was cut, and why Pane's views raster on the CPU (ADR 0123). Raw data: [views-shell.json](views-shell.json).
+- [panekit-tests.md](panekit-tests.md) — every test of the Swift app's PaneKit, 287 at the cutover, and the `pane_unittests` case that proves the same thing, with the same inputs and expectations (ADR 0124).
 
 ## 0.19.2's PGO engine against the published 0.19.1
 

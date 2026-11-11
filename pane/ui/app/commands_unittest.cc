@@ -2,6 +2,7 @@
 
 #include "pane/ui/app/commands.h"
 
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -193,6 +194,23 @@ TEST(CommandsTest, AppFirstAsChromeReserves) {
                                   Command::kNextTab, Command::kPreviousTab}));
   EXPECT_EQ(app_first(true),
             (std::vector<Command>{Command::kQuit, Command::kFullScreen}));
+}
+
+// Ported from PaneKit's KeyRoutingTests (newTab): ⌘T is New Tab, ahead of the
+// page, Caps Lock or not; ⇧⌘T is another command, and a typed t none.
+TEST(CommandsTest, NewTabKey) {
+  for (const int flags :
+       {ui::EF_COMMAND_DOWN, ui::EF_COMMAND_DOWN | ui::EF_CAPS_LOCK_ON}) {
+    const std::optional<Command> command =
+        CommandForAccelerator(ui::Accelerator(ui::VKEY_T, flags));
+    ASSERT_EQ(command, Command::kNewTab);
+    EXPECT_TRUE(IsAppFirst(*command, /*page_fullscreen=*/false));
+  }
+  EXPECT_EQ(CommandForAccelerator(ui::Accelerator(
+                ui::VKEY_T, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN)),
+            Command::kReopenClosedTab);
+  EXPECT_EQ(CommandForAccelerator(ui::Accelerator(ui::VKEY_T, ui::EF_NONE)),
+            std::nullopt);
 }
 
 TEST(CommandsTest, TabNumbers) {

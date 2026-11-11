@@ -20,8 +20,6 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
 #include "pane/app/data_launch.h"
-#include "pane/app/views_launch.h"
-#import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/install_hooks.h"
 #include "pane/ui/app/ui_app.h"
@@ -94,37 +92,23 @@ void BrowserMainExtraParts::OnProfileManagerDestroying() {
 
 void BrowserMainExtraParts::PostBrowserStart() {
   InstallUIHooks();
-  // Launched by Chromium's loader, not the Swift app: Pane's UI is the
-  // engine's own, and the data opens with the thread pool, before it.
-  if (IsViewsLaunch()) {
-    OpenData();
-    UiApp::Start();
-  }
+  // The data opens with the thread pool, before Pane's UI.
+  OpenData();
+  UiApp::Start();
   // ⌘Q quits at once, as it did in the Electron app. Chrome asks to hold it
   // (the "Warn Before Quitting" pref, on by default), in a panel of its own.
   g_browser_process->local_state()->SetBoolean(prefs::kConfirmToQuitEnabled,
                                                false);
-  // Contexts let go of their profiles as quitting starts, while the message
-  // loop still runs, as Chrome's windows do when they close: profiles then
-  // unload with their processes. Released after the loop, a profile could be
-  // left for teardown with a live service worker process.
-  //
-  // Quitting also outranks a remote debugging client: Chrome started without
-  // a window stays up for one until it closes the browser itself, but Pane's
-  // windows are the app's, and Quit is the user's call.
-  app_terminating_subscription_ =
-      browser_shutdown::AddAppTerminatingCallback(base::BindOnce([] {
-        ChromeDevToolsManagerDelegate::AllowBrowserToClose();
-        [PaneBrowserApplication.sharedApplication engineWillShutDown];
-      }));
-  [PaneBrowserApplication.sharedApplication engineDidStart];
+  // Quitting outranks a remote debugging client: Chrome started without a
+  // window stays up for one until it closes the browser itself, but Pane's
+  // windows are Pane's, and Quit is the user's call (ADR 0010). Pane's UI
+  // lets its profiles go as quitting starts (UiApp::Start).
+  app_terminating_subscription_ = browser_shutdown::AddAppTerminatingCallback(
+      base::BindOnce(&ChromeDevToolsManagerDelegate::AllowBrowserToClose));
 }
 
 void BrowserMainExtraParts::PostMainMessageLoopRun() {
-  [PaneBrowserApplication.sharedApplication engineWillShutDown];
-  if (IsViewsLaunch()) {
-    DataWillStop();
-  }
+  DataWillStop();
 }
 
 }  // namespace pane

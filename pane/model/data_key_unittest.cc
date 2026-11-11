@@ -196,6 +196,66 @@ TEST(SealedFileTest, Missing) {
             std::nullopt);
 }
 
+// The profiles the Swift Pane wrote into test_data/swift/profiles.json
+// (PaneKit's SwiftVectorsTests' `profiles`), every field spelled out, the
+// Swift's defaults included: a field a reader or a writer dropped fails here.
+std::vector<BrowserProfile> SwiftProfiles() {
+  BrowserProfile personal;
+  personal.id = "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f02";
+  personal.name = "Personal";
+  personal.tabs = {Tab{.id = "9b1f3c2e-1d4a-4f6b-8c7e-2a5d9e0f1b3c",
+                       .url = "https://www.google.com/"}};
+  personal.created_at = "2026-11-09T04:00:00.000Z";
+  personal.updated_at = "2026-11-09T04:00:00.000Z";
+
+  Fingerprint fingerprint;
+  fingerprint.user_agent =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, "
+      "like Gecko) Chrome/158.0.0.0 Safari/537.36";
+  fingerprint.platform = Platform::kWindows;
+  fingerprint.screen = {.width = 1920, .height = 1080};
+  fingerprint.language = "pt-BR";
+  fingerprint.languages = {"pt-BR", "pt", "en"};
+  fingerprint.timezone = "America/Sao_Paulo";
+  fingerprint.webgl =
+      Fingerprint::WebGL{.vendor = "Google Inc. (NVIDIA)",
+                         .renderer = "ANGLE (NVIDIA GeForce RTX 3060)"};
+  fingerprint.hardware_concurrency = 8;
+  fingerprint.device_memory = 8;
+  fingerprint.max_touch_points = 0;
+  fingerprint.canvas_noise = false;
+
+  ProxyConfig proxy;
+  proxy.type = ProxyType::kSocks5;
+  proxy.host = "proxy.example.com";
+  proxy.port = 1080;
+  proxy.username = "user";
+  proxy.password = "p@ss/<word>";
+
+  BrowserProfile work;
+  work.id = "0c4e8a2b-7f1d-4e3a-b6c9-5d2f8a1e7b40";
+  work.name = "Café <Work> / ✓";
+  work.color = ProfileColor::kViolet;
+  work.group = "Clients";
+  work.fingerprint = fingerprint;
+  work.proxy = proxy;
+  work.keep_loaded = true;
+  // Made with history off, it kept nothing, so owes no clear: Swift's didSet
+  // doesn't run in an initializer.
+  work.saves_history = false;
+  work.clears_history = false;
+  work.tabs = {
+      Tab{.id = "3e7a1c9d-2b4f-4a6e-8d1c-7f3b5a9e2c10",
+          .url = "https://example.com/a?b=c&d=</script>",
+          .title = "Example — “quoted”",
+          .favicon = "data:image/png;base64,iVBORw0KGgo="},
+      Tab{.id = "5c2e9a7b-1f3d-4b8e-a6c2-9d4f1b7e3a58", .url = "about:blank"}};
+  work.created_at = "2026-10-01T12:30:00.000Z";
+  work.updated_at = "2026-11-08T23:59:59.999Z";
+
+  return {personal, work};
+}
+
 // The files and keys the Swift Pane wrote (PaneKit's SwiftVectorsTests),
 // read byte for byte: its boxes open, its derived keys are these, and its
 // files decode to what it wrote (docs/plans/views-migration.md, C1).
@@ -285,6 +345,8 @@ TEST(SwiftVectorsTest, Vectors) {
   EXPECT_EQ(work.tabs[0].title, "Example — “quoted”");
   EXPECT_EQ(work.tabs[1].title, "");
   EXPECT_EQ(work.updated_at, "2026-11-08T23:59:59.999Z");
+  // Every field, as the Swift test compared the whole value.
+  EXPECT_EQ(*profiles, SwiftProfiles());
   // Decoded and encoded again, it reads the same.
   EXPECT_EQ(ProfilesFromState(ProfilesState(*profiles)), profiles);
 
@@ -387,10 +449,10 @@ TEST(SwiftVectorsTest, SavedAsSwiftSavesThem) {
   EXPECT_EQ(PersistedFile::Encode(SettingsState(whole)), whole_text);
 }
 
-// The same files, written by C++ from what the Swift wrote, for PaneKit's
-// SwiftVectorsTests to read back (pane/model/test_data/cpp/): the other way
+// The same files, written by C++ from what the Swift wrote, which PaneKit's
+// SwiftVectorsTests read back (pane/model/test_data/cpp/): the other way
 // across. PANE_WRITE_CPP_VECTORS=1 writes them again; otherwise they are read
-// here too.
+// here.
 TEST(SwiftVectorsTest, CppWrites) {
   base::FilePath root;
   ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &root));
@@ -423,6 +485,14 @@ TEST(SwiftVectorsTest, CppWrites) {
                               .ToValue()));
   }
 
+  // What PaneKit's SwiftVectorsTests read back of them, field by field, as
+  // the Swift did: every profile's field, the settings, and the PIN's length
+  // and the attempts beside the key it opens. Whether the published Swift
+  // Pane reads them is files-migration's swap pass, against 0.19.1.
+  EXPECT_EQ(
+      ProfilesFromState(
+          SealedFile(cpp, "profiles").Load(FilesKey(key)).value().value()),
+      SwiftProfiles());
   EXPECT_EQ(
       ProfilesFromState(
           SealedFile(cpp, "profiles").Load(FilesKey(key)).value().value()),
@@ -433,6 +503,8 @@ TEST(SwiftVectorsTest, CppWrites) {
   const std::optional<SecurityState> security = SecurityState::FromValue(
       PersistedFile(cpp, "security").Load().value().value());
   ASSERT_TRUE(security && security->key);
+  EXPECT_EQ(security->pin, (Pin{.length = 6}));
+  EXPECT_EQ(security->failed_attempts, 2);
   EXPECT_EQ(OpenDataKey(*security->key, Bytes(secret), pin), key);
 }
 

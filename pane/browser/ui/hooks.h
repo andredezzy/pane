@@ -5,10 +5,11 @@
 
 // Function pointers and flags that Pane's patches (chromium/patches)
 // define in Chrome's own files, and that //pane sets as the browser starts
-// (pane/browser/ui/hooks.mm). Unset, Chrome behaves as stock. Chrome's files
-// include this header (nogncheck), so a signature that drifts on either side
-// is a compile error, not a crash. The shape follows Ardia's hooks
-// (engine/ardiacore, Apache-2.0), which Pane's window layer is modeled on.
+// (InstallBrowserHooks, window_host.cc). Unset, Chrome behaves as stock.
+// Chrome's files include this header (nogncheck), so a signature that drifts
+// on either side is a compile error, not a crash. The shape follows Ardia's
+// hooks (engine/ardiacore, Apache-2.0), which Pane's window layer is modeled
+// on.
 
 #include <memory>
 

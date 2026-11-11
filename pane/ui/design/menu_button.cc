@@ -178,10 +178,9 @@ void MenuButton::BuildMenu(const std::vector<Entry>& entries) {
     for (const Option& option : options_) {
       widest_title_ = std::max(
           widest_title_,
-          gfx::GetStringWidth(option.shown.empty() ? option.title
-                                                   : option.shown,
-                              SystemFont(text::kMenuValue.size,
-                                         text::kMenuValue.weight)));
+          gfx::GetStringWidth(
+              option.shown.empty() ? option.title : option.shown,
+              SystemFont(text::kMenuValue.size, text::kMenuValue.weight)));
     }
   }
 }
@@ -259,10 +258,10 @@ void MenuButton::PaintButtonContents(gfx::Canvas* canvas) {
     PaintIcon(*canvas, *options_[*selected_].icon, IconBounds(), kIconStroke,
               colors->GetColor(kPaneColorForeground));
   }
-  PaintIcon(*canvas, Icon::kChevronsUpDown, ChevronBounds(), kChevronStroke,
-            colors->GetColor(style_ == Style::kEmbedded
-                                 ? kPaneColorMutedLifted
-                                 : kPaneColorMutedForeground));
+  PaintIcon(
+      *canvas, Icon::kChevronsUpDown, ChevronBounds(), kChevronStroke,
+      colors->GetColor(style_ == Style::kEmbedded ? kPaneColorMutedLifted
+                                                  : kPaneColorMutedForeground));
 }
 
 void MenuButton::OnThemeChanged() {

@@ -10,7 +10,7 @@ namespace pane {
 void InstallBrowserHooks();
 
 // Routes Chrome's dialogs and bubbles for Pane's tabs to Pane's UI
-// (ui_hooks.mm). Runs as the browser starts, before any tab exists.
+// (ui_hooks.cc). Runs as the browser starts, before any tab exists.
 void InstallUIHooks();
 
 }  // namespace pane

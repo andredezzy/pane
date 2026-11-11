@@ -1,17 +1,17 @@
 # Building Pane
 
-Pane is a Swift app (AppKit + SwiftUI) on Pane's own Chromium build, `Pane Framework.framework`, embedded in-process the way Arc and Dia embed theirs. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md`. What was decided, and why: the ADRs in `docs/adr/`, one per subject.
+Pane is its own build of Chromium: Chromium's loader and helpers, and `Pane Framework.framework`, which holds Chrome's `chrome/` layer and the `//pane` tree, Pane's code, its UI drawn in C++ with Views, as Chrome's own is. gn builds all of it. Why: `docs/adr/0004-native-shell-on-own-chromium-framework.md` and `docs/adr/0124-one-ui-in-views-on-every-os.md`. What was decided, and why: the ADRs in `docs/adr/`, one per subject.
 
 ## Layout
 
-- `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`, linked into `Pane Framework.framework`
+- `pane/` — the `//pane` tree, symlinked into the checkout as `src/pane`, linked into `Pane Framework.framework`: the launch (`app/`), the model and the data's formats and rules (`model/`, the Mac's vault in `model/mac/`), the files' encryption (`encryption/`), the layer over Chrome's Browsers (`browser/`), the UI (`ui/`), the update check and install (`updates/`), the scenarios' channel (`automation/`), and what a renderer runs (`renderer/`). A header's platform files sit beside it, `<thing>_mac.mm` and `<thing>_win.cc` (ADR 0124)
 - `chromium/` — what Pane does to Chromium
   - `CHROMIUM_VERSION` — the pinned Chromium stable tag
   - `args/` — gn args per build config
   - `patches/` — `series` (apply order), `MANIFEST` (each touched Chromium file → its owning patch), the patches
   - `prebuilt-engines.tsv` — the engine archive each engine key names, and `UPGRADING.md`, the upgrade routine
-- `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `preflight.sh`, `fetch-crlset.sh`, `package.sh`, `dist.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
-- `app/` — the Swift app, the `PaneKit` package, the volume's watchdog (`VolumeWatch/`), `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon's sources (`icon/`: the window's renders, and `make-icons.swift`, which makes the app's icons from them)
+- `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `preflight.sh`, `fetch-crlset.sh`, `package.sh`, `dist.sh`, the checks `check-os-flags.sh` and `compile-windows.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
+- `app/` — what packaging reads: `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon (`icon/`: `AppIcon.icon`, the bundle's, which `package.sh` compiles; the window's renders; and `make-icons.swift`, which makes the icons from them)
 - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios that check (`scenarios/`), what measures and never judges (`benchmarks/`), and a held test copy for a pass by hand (`rigs/`)
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
 - `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), `qa/`, reports of passes by computer use, `adr/`, one record per subject, `benchmarks/`, measured comparisons of Pane builds with their raw data and how to rerun them, and `growth/`, the media Pane is shown with outside the app
@@ -36,11 +36,10 @@ Edit files in `~/chromium/src`, list each touched file in `patches/MANIFEST` wit
 ## Engine unit tests
 
 ```bash
-scripts/build.sh pane_unittests
-~/chromium/src/out/Release/pane_unittests
+bun run test   # scripts/build.sh pane_unittests, then ~/chromium/src/out/Release/pane_unittests
 ```
 
-`pane_unittests` checks `//pane/encryption`, the formats every profile file is written in (ADR 0121): the key registry, the SQLite VFS through journals, WAL, kills, Raze and Recovery, and the stream and whole-file codecs. CI never builds Chromium, so these run locally, before committing an engine change.
+`pane_unittests` checks what `//pane` decides without a browser: the model (`pane/model`, with a twin of each of the Swift app's PaneKit tests that its code still has, `docs/benchmarks/panekit-tests.md`), the Mac's vault and every earlier Pane's data (`pane/model/mac`, with real disk images), the formats every profile file is written in (`pane/encryption`, ADR 0121: the key registry, the SQLite VFS through journals, WAL, kills, Raze and Recovery, and the stream and whole-file codecs), and the UI's own rules (`pane/ui`: the command table, the Lock's triggers, the design's curves, radii, and colors, the favicons). CI never builds Chromium, so these run locally, before committing an engine change.
 
 ## Scenarios
 
@@ -50,7 +49,7 @@ bun tests/run.ts --binary <path to browser executable> --out <dir> [--foreground
 
 The runner serves `tests/pages` on 127.0.0.1, launches the binary with remote debugging, runs each scenario, and writes `<scenario>.json` plus `report.json` into `--out`. `PANE_SCENARIO_STDERR=1` shows the binary's log. A scenario fails after `--timeout` seconds (600). Whatever it launched is quit, and the directories it took (`context.tempDir`) are removed, with any process still using them. Each entry records whether the screen was locked and the checks it deferred; `report.json`'s `complete` is true only when every check ran.
 
-Scenarios for the Pane app (`lib/pane.ts`) give it throwaway data (`PANE_DATA_DIR`) and a throwaway home (`HOME` and `CFFIXED_USER_HOME`, so its caches, HTTP storage, Downloads, and Crashpad's database are not the user's Pane's), and drive it through its automation channel (`PANE_AUTOMATION_DIR`, `app/Pane/Automation/`), which, with every `PANE_` hook, works only under `--use-mock-keychain` (`TestHooks`), where none of the user's data opens; the engine passes Chromium no switch of a launch without it but Pane's own: JSON commands that call the same controller methods the UI does, key presses posted as real `NSEvent`s, and a state snapshot with every reply. CDP reads pages; `lib/cua.ts` covers what only the screen shows, and needs an unlocked session and cua-driver's daemon (`canDriveUI()`), or the checks defer. Scenarios run on a Mac in use, so the app never takes the front from the app its user is in: what needs Pane in front (keys a panel takes, a page's fullscreen, Quit Pane?) defers unless `--foreground` allows it, which CI does and an idle Mac can. Preferences are the one thing they still share with the user's Pane: cfprefsd keeps them by bundle ID and ignores a fixed home, and a copy under another bundle ID would ask again for what macOS granted Pane (pasting from other apps), which closes its menus. So a run sets Chromium's `LastRunAppBundlePath` to the build, which the user's Pane resets when it next starts.
+Scenarios for the Pane app (`lib/pane.ts`) give it throwaway data (`PANE_DATA_DIR`) and a throwaway home (`HOME` and `CFFIXED_USER_HOME`, so its caches, HTTP storage, Downloads, and Crashpad's database are not the user's Pane's), and drive it through its automation channel (`PANE_AUTOMATION_DIR`, `pane/automation/`, ADR 0018), which, with every `PANE_` hook, works only under `--use-mock-keychain` (`pane/model/test_hooks.h`), where none of the user's data opens; the engine passes Chromium no switch of a launch without it but Pane's own: JSON commands that call what the UI calls, key presses and clicks posted through the platform's own event path, and a state snapshot with every reply. CDP reads pages; `lib/cua.ts` covers what only the screen shows, and needs an unlocked session and cua-driver's daemon (`canDriveUI()`), or the checks defer. Scenarios run on a Mac in use, so the app never takes the front from the app its user is in: what needs Pane in front (keys a panel takes, a page's fullscreen, Quit Pane?) defers unless `--foreground` allows it, which an idle Mac can, or the user's word (Rigs, below). Preferences are the one thing they still share with the user's Pane: cfprefsd keeps them by bundle ID and ignores a fixed home, and a copy under another bundle ID would ask again for what macOS granted Pane (pasting from other apps), which closes its menus. So a run sets Chromium's `LastRunAppBundlePath` to the build, which the user's Pane resets when it next starts.
 
 ## Rigs
 
@@ -95,14 +94,15 @@ The rig: cua-driver (`tests/lib/cua.ts`), `screencapture -l <window id>` for sti
 ```bash
 scripts/package.sh   # app/build/Pane.app: the engine's bundle, Chromium's loader and Pane's UI in its framework, signed
 scripts/dist.sh      # app/release/Pane-<version>-arm64.dmg: package.sh (stripped), then the dmg
-(cd app/PaneKit && swift test)
 ```
+
+For a pass of the edit loop, `~/chromium/src/out/Release/Pane.app` runs as built, without `package.sh`; `security`, `lock-while-open`, and `data-volume` need a package, which carries the volume's watchdog beside the loader.
 
 The app's version lives in `app/VERSION`, its only source: the bundle's version keys, Settings, the update check, and the dmg's name all come from it.
 
 ## Prebuilt engine
 
-The app builds without a Chromium checkout on a prebuilt engine, as Ardia's does:
+The app packages without a Chromium checkout from a prebuilt engine, as Ardia's does, for a commit whose engine archive is published:
 
 ```bash
 PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)" scripts/package.sh

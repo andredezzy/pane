@@ -11,7 +11,6 @@
 #include "pane/app/data_launch.h"
 #include "pane/app/views_launch.h"
 #include "pane/browser/content_browser_client.h"
-#include "pane/common/host.h"
 
 namespace pane {
 
@@ -20,12 +19,13 @@ PaneMainDelegate::PaneMainDelegate(const StartupTimestamps& timestamps)
 
 PaneMainDelegate::~PaneMainDelegate() = default;
 
-// The Swift app starts the engine hosted (--pane-hosted); Chromium's loader
-// starts it bare, and then Pane's own UI is the Views one (StartViewsLaunch),
-// set up before Chrome reads its command line.
+// The browser process starts Pane's UI (StartViewsLaunch), set up before
+// Chrome reads its command line. Every launch does, a relaunch too: one that
+// copied the engine's own command line, --pane-hosted in it, would otherwise
+// start the engine with no data and no window.
 std::optional<int> PaneMainDelegate::BasicStartupComplete() {
   base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
-  if (!command_line.HasSwitch(switches::kProcessType) && !IsHosted()) {
+  if (!command_line.HasSwitch(switches::kProcessType)) {
     if (std::optional<int> exit_code = StartViewsLaunch(command_line)) {
       return exit_code;
     }
@@ -33,9 +33,9 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
   return ChromeMainDelegate::BasicStartupComplete();
 }
 
-// The engine has stopped and let go of its singleton, as it had when the Swift
-// app's engineDidStop ran once ChromeMain returned: a Pane started now waits
-// for the data's lock, which this one lets go of once the volume detaches.
+// The engine has stopped and let go of its singleton: a Pane started now
+// waits for the data's lock, which this one lets go of once the volume
+// detaches.
 void PaneMainDelegate::ProcessExiting(const std::string& process_type) {
   ChromeMainDelegate::ProcessExiting(process_type);
   if (process_type.empty() && IsViewsLaunch()) {

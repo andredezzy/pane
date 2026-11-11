@@ -55,14 +55,15 @@ A new milestone rebuilds almost everything: 157 took 1h44m here (about 45,600 ob
 
 What usually breaks, and where to fix it:
 
-- **`//pane` no longer compiles**: Chrome's internal APIs drift between milestones (renamed methods, moved headers, changed callbacks). Fix `pane`, not Chromium.
+- **`//pane` no longer compiles**: Chrome's internal APIs drift between milestones (renamed methods, moved headers, changed callbacks), and Pane's UI calls them directly, as Chrome's own UI does (ADR 0124). Fix `pane`, not Chromium; count the files of `//pane` the move touched, the standing cost of that design.
 - **A patched file failed to compile**: the merge in step 3 kept something the new code no longer has. Fix the file, then `make-patch.sh` its patch.
 
 ## 5. Prove it
 
 ```bash
+bun run test        # pane_unittests
+scripts/compile-windows.sh
 scripts/package.sh
-(cd app/PaneKit && swift test)
 bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane \
   --out evidence/upgrade-<tag> tests/scenarios/*.ts
 ```
@@ -73,7 +74,7 @@ A scenario that fails may have caught Chrome changing its own behavior (157 star
 
 Then the data of earlier releases, which no other scenario reads across a move: `PANE_EARLIER_BUILDS=<published builds, comma-separated> PANE_REPAIR_FROM=<the published 0.18.0>` and `files-migration`, whose session has a cookie, every store, and a service worker. A new version can change what an old file means: 158 turned on `KeychainKeyProviderUserDataDirProtection`, which on a data directory other than Chrome's default makes the key every cookie is sealed under unavailable. Every test on its own build passed, and every user would have been signed out. So when this fails, read the milestone's diff of `chrome/browser/browser_process_impl.cc` and of what the failing store reads.
 
-Then audit the stores (ADR 0121): a milestone adds some. `files-encrypted`, among the scenarios above, fails on a new store with no hook, and its result in `files-encrypted.json` lists every `unknown` file (the whole list is `files-inventory-list.json`): give the store a hook in `pane/encryption`, or an entry in `tests/lib/file-audit.ts`' allow-list with why it is neither. Run `pane_unittests`: its VFS leans on `sqlite3`'s shapes of I/O, and an upgrade of SQLite can add one.
+Then audit the stores (ADR 0121): a milestone adds some. `files-encrypted`, among the scenarios above, fails on a new store with no hook, and its result in `files-encrypted.json` lists every `unknown` file (the whole list is `files-inventory-list.json`): give the store a hook in `pane/encryption`, or an entry in `tests/lib/file-audit.ts`' allow-list with why it is neither. `pane_unittests`, run above, proves the VFS too: it leans on `sqlite3`'s shapes of I/O, and an upgrade of SQLite can add one.
 
 ## 6. Ship it
 

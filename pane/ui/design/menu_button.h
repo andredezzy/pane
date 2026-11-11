@@ -82,8 +82,7 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
 
   // Other options, laid out as `entries` (or one after another without),
   // the choice kept by its place while one is there.
-  void SetOptions(std::vector<Option> options,
-                  std::vector<Entry> entries = {});
+  void SetOptions(std::vector<Option> options, std::vector<Entry> entries = {});
   const std::vector<Option>& options() const { return options_; }
   MenuButton(const MenuButton&) = delete;
   MenuButton& operator=(const MenuButton&) = delete;

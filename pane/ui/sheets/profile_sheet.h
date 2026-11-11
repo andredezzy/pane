@@ -43,7 +43,7 @@ class TextButton;
 // edit). The sheet shows no Group (N1, the user's answer of 2026-11-11): a
 // saved one stays as it is.
 //
-// The form is PaneKit's ProfileDraft, as the model checks and applies it.
+// The form is model::ProfileDraft, as the model checks and applies it.
 // Create with a problem saves nothing: the field that keeps it from saving is
 // ringed in red, with no words under it (memory field-problem-red-ring), and
 // brought into view, its words for the screen reader alone; the ring stays

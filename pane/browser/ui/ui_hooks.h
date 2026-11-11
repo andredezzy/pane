@@ -6,7 +6,7 @@
 // The hook that routes one of Chrome's own dialogs to Pane's window (patch
 // 0004-pane-ui-hooks), where Chromium has no seam for it. Like hooks.h,
 // Chrome's file defines it and includes this header (nogncheck); //pane sets
-// it at startup (ui_hooks.mm). Unset, or returning "not handled", Chrome
+// it at startup (ui_hooks.cc). Unset, or returning "not handled", Chrome
 // shows its own UI. Sign-in goes through Chromium's own seam instead
 // (pane/ui/dialogs/sign_in.h).
 

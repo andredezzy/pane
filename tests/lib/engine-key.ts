@@ -1,4 +1,4 @@
-// A profile's engine key, as the app derives it (PaneKit DataKey, ADR 0121), from
+// A profile's engine key, as Pane derives it (pane/model/data_key.h, ADR 0121), from
 // the sealed data key under the mock keychain's secret: for a scenario to look
 // for the key where it must not be. Only the mock keychain's key opens this way.
 import {
@@ -81,7 +81,7 @@ export function keyForms(key: Buffer): Buffer[] {
 	];
 }
 
-// What the volume's unlocked with, as PaneKit's DataKey derives it (ADR 0121).
+// What the volume's unlocked with, as pane/model/data_key.h derives it (ADR 0121).
 export function volumePassphrase(dataDir: string, pin: string | null): string {
 	return Buffer.from(
 		hkdfSync(

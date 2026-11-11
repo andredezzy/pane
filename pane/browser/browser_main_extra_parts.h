@@ -11,13 +11,13 @@
 
 namespace pane {
 
-// Tells the Pane app when a hosted engine is ready, and releases the app's
-// profiles and pages before Chrome tears profiles down. Process lifetime needs
-// nothing extra: Chrome's AppController already keeps the browser process
-// alive without windows on macOS, and releases that keep-alive when quitting.
-// Also brings up, for each profile as it is added, the services Chrome starts
-// through parts Pane does not run (sync), and hands the certificate verifier
-// the CRLSet the bundle carries.
+// Starts Pane's data and UI once the browser has started, and lets the data go
+// once its message loop has ended. Process lifetime needs nothing extra:
+// Chrome's AppController already keeps the browser process alive without
+// windows on macOS, and releases that keep-alive when quitting. Also brings
+// up, for each profile as it is added, the services Chrome starts through
+// parts Pane does not run (sync), and hands the certificate verifier the
+// CRLSet the bundle carries.
 class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
                               public ProfileManagerObserver {
  public:

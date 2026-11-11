@@ -2,6 +2,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, N3): the choice is applied by `pane::BrowserContext` (`SetSavesHistory`, `ClearHistory`) and `pane::ProfileContexts` (`HistoryDidChange`, the clear owed at the data's opening, a profile opened to clear and closed again, one reopened to keep its cache in memory with its selected tab shown again, the 15-second settle), in plain C++; `cookies.mm` and the bridge's context API are gone.
 
+> **On the Views line** (`docs/plans/views-migration.md`, K3): PaneKit is gone with the Swift app; `ProfileDraftTests`, `PersistenceTests`, and `BrowserModelTests` run as their twins in `pane_unittests` (`pane/model/profile_draft_unittest.cc`, `persistence_unittest.cc`, `browser_model_unittest.cc`), but for what the Views build no longer has, the Group field and the model's mirrors of a page, which `docs/benchmarks/panekit-tests.md` names.
+
 The user's request (2026-11-04): each profile chooses whether it saves its history. Aside and Chrome have no such control, only Chrome's `SavingBrowserHistoryDisabled` policy, so Firefox's "Remember browsing and download history" is the reference, and the user chose what it keeps out: pages and downloads, over pages alone.
 
 Save history is a switch in the profile sheet (ADR 0120), on by default. `BrowserProfile.savesHistory` holds the choice, and a profile from before it, which has none in its file, kept its history and still does.

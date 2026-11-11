@@ -345,9 +345,9 @@ TEST(EngineFingerprintTest, PlatformDerived) {
   EXPECT_EQ(mac_os.renderer.platform, "MacIntel");
   for (const Platform platform :
        {Platform::kWindows, Platform::kMacOS, Platform::kLinux}) {
-    EXPECT_EQ(Engine(MakeFingerprint(platform, kRealUA))
-                  .renderer.hide_speech_voices,
-              platform != HostPlatform());
+    EXPECT_EQ(
+        Engine(MakeFingerprint(platform, kRealUA)).renderer.hide_speech_voices,
+        platform != HostPlatform());
   }
 }
 

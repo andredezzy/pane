@@ -21,6 +21,7 @@
 #include "pane/model/mac/file_operations.h"
 #include "pane/model/mac/panic_wipe.h"
 #include "pane/model/mac/vault_test_support.h"
+#include "pane/model/profile_deletions.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace pane::model {
@@ -289,6 +290,64 @@ TEST_F(DataVolumeTest, Prepare) {
   EXPECT_TRUE(
       base::PathExists(volume.Folder("p").Append("Profile").Append("Cookies")));
   EXPECT_FALSE(volume.IsMounted());
+}
+
+// Ported from PaneKit's ProfileDeletionsTests, over the volume's own Prepare
+// and Remove, as the vault purges (persistence_unittest.cc's twin removes by
+// hand): a delete the engine never confirmed is finished at the next launch,
+// an earlier Pane's plain folders and the links Prepare made with it, and
+// nothing out of Engine.
+TEST_F(DataVolumeTest, PurgesDeletions) {
+  const base::FilePath data = Root().Append("data");
+  const base::FilePath caches = Root().Append("caches");
+  const DataVolume volume(data, caches);
+  const auto at = [&](std::string_view path) {
+    return Root().AppendASCII(path);
+  };
+
+  // "gone" as an earlier Pane left it, plain; "linked" behind the links into
+  // the volume that Prepare makes.
+  for (std::string_view folder :
+       {"data/Engine/gone/Network", "caches/Engine/gone/Cache",
+        "data/Engine/kept", "outside"}) {
+    ASSERT_TRUE(base::CreateDirectory(at(folder)));
+  }
+  ASSERT_TRUE(volume.Prepare("linked").has_value());
+
+  ProfileDeletions deletions(data);
+  deletions.Add("gone");
+  deletions.Add("linked");
+  deletions.Add("confirmed");
+  deletions.Remove("confirmed");
+  // Never a path out of Engine.
+  deletions.Add("../../outside");
+
+  EXPECT_EQ(ProfileDeletions(data).Pending(),
+            (std::vector<std::string>{"gone", "linked", "../../outside"}));
+  EXPECT_TRUE(
+      deletions
+          .Purge(
+              [&](const std::string& id) -> base::expected<void, std::string> {
+                const base::expected<void, VolumeError> removed =
+                    volume.Remove(id);
+                if (!removed.has_value()) {
+                  return base::unexpected(removed.error().ToString());
+                }
+                return base::ok();
+              })
+          .empty());
+
+  // Nothing is left there, a link included.
+  for (std::string_view gone :
+       {"data/Engine/gone", "caches/Engine/gone", "data/Engine/linked",
+        "caches/Engine/linked", "data/Engine/Volume/linked"}) {
+    EXPECT_FALSE(base::PathExists(at(gone)) || base::IsLink(at(gone)))
+        << gone << " is still there";
+  }
+  EXPECT_TRUE(base::PathExists(at("data/Engine/kept")));
+  EXPECT_TRUE(base::PathExists(at("outside")));
+  EXPECT_TRUE(deletions.Pending().empty());
+  EXPECT_FALSE(base::PathExists(data.Append("deletions.json")));
 }
 
 // A profile that saves no history opens without its earlier downloads' log or

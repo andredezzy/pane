@@ -6,13 +6,13 @@ Interaction and visual principles for Pane. Keep entries short and prescriptive.
 
 ### One knob, everything follows, instantly
 
-The theme (`system` / `light` / `dark`) sets the app's appearance (`NSApp.appearance`): Pane chrome, native menus, and web content flip together. Switches apply instantly — no cross-fade. Dialog and sheet scrims stay black-alpha in both themes; colors on fixed-color surfaces (profile swatches, status buttons) don't follow the theme.
+The theme (`system` / `light` / `dark`) sets Chromium's app-level color scheme (`ui::NativeTheme`'s override, `pane/ui/design/theme.cc`): Pane's chrome, native menus, and web content flip together (ADR 0001). Switches apply instantly — no cross-fade. Dialog and sheet scrims stay black-alpha in both themes; colors on fixed-color surfaces (profile swatches, status buttons) don't follow the theme.
 
 ## Shape
 
 ### Corners are superellipses
 
-Every rounded corner is a superellipse: `corner-shape: superellipse(2)` in Paper (CSS's squircle), `Squircle` in the app. The radii are 4, 7, 9, 11, 15, 18, 22, and 29, each 1.84× the circular radius it replaced, so a corner is as deep at 45° as the circle was and flatter where it meets the edges. Circles and capsules stay round: dots, PIN keys, switches, pill bars.
+Every rounded corner is a superellipse: `corner-shape: superellipse(2)` in Paper (CSS's squircle), `SquirclePath` in the app (`pane/ui/design/squircle.h`). The radii are 4, 7, 9, 11, 15, 18, 22, and 29, each 1.84× the circular radius it replaced, so a corner is as deep at 45° as the circle was and flatter where it meets the edges. Circles and capsules stay round: dots, PIN keys, switches, pill bars.
 
 Each radius has its uses (Paper's `--radius-*` tokens carry them too):
 
@@ -27,10 +27,10 @@ Each radius has its uses (Paper's `--radius-*` tokens carry them too):
 
 Implementation notes:
 
-- A view takes `Squircle(cornerRadius:)`, never a circular `RoundedRectangle`, and one of the scale's radii.
-- A ring around a shape is the one exception: it stays even all the way round by taking the shape's radius grown by its offset, through the circle (`Squircle.circularEquivalent`). The profile sheet's selected color swatch, 11, has its rings at 15 and 17.
-- A capsule takes `Capsule(style: .circular)`. The default style drew a flat stretch at each end of the 28-point profile chip.
-- A layer, which draws only circular or continuous corners (the page view), takes 0.57 of the radius as a circle: it follows the superellipse within a fifth of a point (0.4 pixels at 2×), with no mask to composite.
+- A view paints a squircle (`FillSquircle`, `StrokeSquircleBorder`, or a control's `ControlShape`), never a circular rounded rectangle, at one of the scale's radii (`radius::kXs` to `radius::k2xl`).
+- A ring around a shape is the one exception: it stays even all the way round by taking the shape's radius grown by its offset, through the circle (0.57 of the radius, `kCircularEquivalent`). The profile sheet's selected color swatch, 11, has its rings at 15 and 17.
+- A capsule is round at each end (`ControlShape::Capsule()`), with no flat stretch, as the 28-point profile chip shows.
+- A layer, which draws only circular corners (the page's), takes 0.57 of the radius as a circle (`kCircularEquivalent`): it follows the superellipse within a fifth of a point (0.4 pixels at 2×), with no mask to composite.
 
 ## Scroll edges
 
@@ -53,11 +53,11 @@ When an item becomes selected and its indicator changes shape, the shape morphs 
 Implementation notes:
 
 - Selection highlights (active/selected backgrounds and rings) carry no animation.
-- An indicator that changes shape with a selection animates its size and radius together (`Squircle`'s radius animates), with the spring `Motion.morph`.
-- Hover fills animate in 0.15 s, easing out, everywhere a hover shows: a fill that appears at once is a missing animation.
-- Two things that share a place under the pointer take turns rather than cross: the update pill's bar draws back at once and its dismiss button shows once the bar has cleared it, and on the way out the button goes first (`Motion.hoverTurn`, the hover's 0.15 s after 0.08 s).
-- A row's fill animates with its hover alone (`.animation(Motion.hover, value:)`, or `withAnimation(Motion.hover)` around the hover's change), never with its selection.
-- Every animation goes through `Motion` (`app/Pane/Views/Theme/Motion.swift`), named for what it is and nil while the Mac reduces motion, so a view honors the setting with no check of its own (ADR 0070).
+- An indicator that changes shape with a selection animates its size and radius together, with the spring `motion::Morph()`.
+- Hover fills animate in 0.15 s, easing out (`motion::Hover()`), everywhere a hover shows: a fill that appears at once is a missing animation.
+- Two things that share a place under the pointer take turns rather than cross: the update pill's bar draws back at once and its dismiss button shows once the bar has cleared it, and on the way out the button goes first (`motion::HoverTurn()`, the hover's 0.15 s after 0.08 s).
+- A row's fill animates with its hover alone, never with its selection.
+- Every animation is one of `pane/ui/design/motion.h`'s curves, named for what it is, moved on the compositor's frames (`LayerMotion`, `CompositorMotion`, `ValueMotion`), and at once while the system reduces motion, so a view honors the setting with no check of its own (ADR 0070).
 
 ## Updates
 

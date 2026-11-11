@@ -2,6 +2,8 @@
 
 > **Changed by the move to Views (the user, 2026-11-08, D1 and D2 in `docs/plans/views-migration.md`):** the App workflow is gone (ADR 0049), and `engine/` is gone: `pane/`, `chromium/`, and `scripts/` sit at the root, as the last paragraph says.
 
+> **On the Views line** (`docs/plans/views-migration.md`, K3): the Swift app, PaneKit, and the watchdog's Swift left `app/`, which keeps what packaging reads: `VERSION`, the icon (`icon/`, `AppIcon.icon` with its renders and `make-icons.swift`), the dmg's resources, the entitlements, and the build's caches (`build/`, `release/`). The last paragraph's move of them to `packaging/` is not made: it would rename paths that CI, the scripts, and ADR 0044 name, for nothing they do differently, so it waits for the user's word.
+
 The repo holds the native app alone, with its parts at the root as its peers keep theirs: `app/`, `engine/`, `tests/`, `third_party/`, `NOTICE`, and `docs/`. Both were the user's calls once the Electron app was retired (ADR 0051): the repo cleaned of what the Electron app left, then a layout chosen after a look at 15 peers.
 
 The Electron-era docs left the tree: 40 plans and specs (`docs/superpowers`), the extension-support doc, and the parity matrix and cutover report, whose open rows went to the checklist (`docs/human-checklist.md`). ADRs 0001 and 0002 now say how the native app does what they decided (`NSApp.appearance`; PaneKit's `Updates`), and the Electron-era record that ADR 0004 superseded stayed (it is folded into 0004 now). Lint settings for code the repo no longer has (Tailwind classes, JSX, CSS selectors, decorators) and the web build's ignores are gone. The `native-shell` branch is retired, its work all on `main`, and CI runs on `main` and pull requests.

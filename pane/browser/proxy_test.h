@@ -115,8 +115,7 @@ class ProxyTest : public network::mojom::URLLoaderNetworkServiceObserver {
   std::unique_ptr<SocksRelay> relay_;
   mojo::Remote<network::mojom::NetworkContext> context_;
   mojo::Remote<network::mojom::URLLoaderFactory> factory_;
-  mojo::ReceiverSet<network::mojom::URLLoaderNetworkServiceObserver>
-      observers_;
+  mojo::ReceiverSet<network::mojom::URLLoaderNetworkServiceObserver> observers_;
   std::unique_ptr<network::SimpleURLLoader> loader_;
   // The proxy asked for credentials, and had them.
   bool answered_ = false;

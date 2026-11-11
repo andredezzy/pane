@@ -192,10 +192,10 @@ void ProfileContexts::ProfileOpened(const std::string& profile_id,
   ApplyHistory(*context);
   // The proxy goes on before any page of the profile loads.
   BrowserContext& opening = *context;
-  network_->Apply(
-      opening, base::BindOnce(&ProfileContexts::NetworkApplied,
-                              weak_factory_.GetWeakPtr(), profile_id,
-                              std::move(work), std::move(context)));
+  network_->Apply(opening,
+                  base::BindOnce(&ProfileContexts::NetworkApplied,
+                                 weak_factory_.GetWeakPtr(), profile_id,
+                                 std::move(work), std::move(context)));
 }
 
 void ProfileContexts::NetworkApplied(const std::string& profile_id,
@@ -269,9 +269,8 @@ void ProfileContexts::HistoryDidChange(const std::string& profile_id) {
   if (!waiters_.contains(profile_id) && !closing_.contains(profile_id)) {
     opened_to_clear_history_.insert(profile_id);
   }
-  With(profile_id,
-       base::BindOnce(&ProfileContexts::OpenedToClear,
-                      weak_factory_.GetWeakPtr(), profile_id));
+  With(profile_id, base::BindOnce(&ProfileContexts::OpenedToClear,
+                                  weak_factory_.GetWeakPtr(), profile_id));
 }
 
 void ProfileContexts::OpenedToClear(const std::string& profile_id,

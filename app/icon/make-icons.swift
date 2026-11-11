@@ -12,8 +12,8 @@
 // render, 20 pixels in from their outer sides (past the rounded corners' frame)
 // and 3 from the mullion's, and stretched into Day's panes.
 //
-// - app/Pane/AppIcon.icon: the bundle's icon, Day by default and Night under
-//   the dark icon style. Each window becomes a full-bleed layer, scaled so the
+// - app/icon/AppIcon.icon: the bundle's icon, Day by default and Night under
+//   the dark icon style (package.sh compiles it). Each window becomes a full-bleed layer, scaled so the
 //   frame's outer edge sits 12 points past the canvas, so the system's squircle
 //   mask cuts inside the frame and the icon conforms to its shape.
 // - pane/ui/panels/app_icons/AppIcon<Sky>.png, one per render: what the Dock
@@ -22,7 +22,6 @@
 //   own drawing of an app whose icon is that window alone, so it matches the
 //   bundle's icon to the pixel: the same 824-pixel body on a 1024 canvas, the
 //   same shadow, the same tone, 512 points at 2×.
-// - Icon.iconset in Assets.xcassets: the document icon, Day's.
 // - .github/assets/logo.png and logo-dark.png: the README's, Day's and Night's.
 import AppKit
 import ImageIO
@@ -30,8 +29,7 @@ import UniformTypeIdentifiers
 
 let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 let renders = repo.appendingPathComponent("app/icon/renders")
-let pane = repo.appendingPathComponent("app/Pane")
-let assets = pane.appendingPathComponent("Assets.xcassets")
+let bundleIcon = repo.appendingPathComponent("app/icon/AppIcon.icon")
 let skies = repo.appendingPathComponent("pane/ui/panels/app_icons")
 // In the order Settings shows them: the sky through a day.
 let variants = ["day", "clouds", "morning", "dusk", "fuchsia", "sunset", "twilight", "afterglow", "night", "moonrise"]
@@ -349,7 +347,7 @@ func resized(_ image: CGImage, _ size: Int) -> CGImage {
 
 let layers = Dictionary(uniqueKeysWithValues: variants.map { ($0, layer(composite(load(renders.appendingPathComponent("\($0).png"))), box: masterBox)) })
 
-writeIcon(pane.appendingPathComponent("AppIcon.icon"), images: [(nil, "day.png", layers["day"]!), ("dark", "night.png", layers["night"]!)])
+writeIcon(bundleIcon, images: [(nil, "day.png", layers["day"]!), ("dark", "night.png", layers["night"]!)])
 
 for variant in variants {
 	let icon = systemIcon([(nil, "\(variant).png", layers[variant]!)])
@@ -357,12 +355,10 @@ for variant in variants {
 	save(icon, skies.appendingPathComponent("AppIcon\(variant.capitalized).png"))
 
 	if variant == "day" {
-		save(resized(icon, 256), assets.appendingPathComponent("Icon.iconset/icon_256x256.png"))
-		save(resized(icon, 512), assets.appendingPathComponent("Icon.iconset/icon_256x256@2x.png"))
 		save(resized(icon, 512), repo.appendingPathComponent(".github/assets/logo.png"))
 	} else if variant == "night" {
 		save(resized(icon, 512), repo.appendingPathComponent(".github/assets/logo-dark.png"))
 	}
 
-	print("\(name): ok")
+	print("\(variant): ok")
 }

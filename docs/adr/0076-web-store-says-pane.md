@@ -1,5 +1,7 @@
 # The Chrome Web Store's buttons say Pane
 
+> **On the Views line** (`docs/plans/views-migration.md`, K3): each tab of Pane's Browsers renames the buttons from `HostedTab` (`pane/browser/ui/hosted_tab.cc`), what is left of the TabBridge, from the moment the tab joins a window, as before.
+
 On the Chrome Web Store, an item's install and remove buttons say Pane where the store says Chrome, at the user's request: "Add to Pane", "Remove from Pane", and the same in the store's other languages ("Ajouter à Pane", "Pane に追加", "Usar no Pane", "Supprimer de Pane"). French says Google Chrome, which becomes Pane too; German and Russian name no browser.
 
 The store renders that text itself, client-side, so the engine renames it in the page (`pane/browser/web_store.cc`). As each store document commits (`chromewebstore.google.com`, the main frame), the engine runs a script in Chrome's internal isolated world, which shares the store's DOM and none of its scripts. The script finds the item's install and remove buttons by the names the store gives them (jsname `wQO0od` and `ajZLRd`, the buttons its install controller routes clicks to, which the server-rendered markup names in that controller's jsaction), renames Chrome in their text and labels, and keeps renaming with a MutationObserver as the store redraws them: on install, or for another item reached without a page load. Its callbacks run before the next frame. In every load (7 in the scenario), the script ran before the page's first contentful paint and before the parser reached the button.

@@ -60,6 +60,8 @@ The two builds alternated, the order flipped every round, so a trend in the Mac'
 
 ## Rerunning
 
+This measured the Swift app, which `main` no longer has (ADR 0124): rerun it from the `swift` branch, where the `scripts/package.sh` below is `engine/scripts/package.sh`.
+
 ```bash
 # 0.13.1, out of its dmg.
 mkdir -p /tmp/bench-int/{dl,mnt,after}

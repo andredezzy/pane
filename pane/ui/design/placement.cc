@@ -4,10 +4,10 @@
 
 #include <cmath>
 
+#include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/transform.h"
-#include "ui/compositor/compositor.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 

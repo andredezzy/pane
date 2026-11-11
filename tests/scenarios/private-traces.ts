@@ -37,7 +37,7 @@ const privateTraces: Scenario = async (context) => {
 
 	// A record 0.15.1 and before left, listing the extensions each profile
 	// had. Their histograms are not seeded: Chrome, finding some, empties the
-	// folder, its own file too (PaneKit's tests erase them).
+	// folder, its own file too (the volume's tests erase them).
 	const engine = join(dataDir, "Engine");
 	mkdirSync(dataDir, { recursive: true });
 

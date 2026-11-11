@@ -14,7 +14,6 @@
 #include "pane/browser/browser_main_extra_parts.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/fingerprints.h"
-#include "pane/common/host.h"
 #include "pane/encryption/handover.h"
 #include "pane/ui/dialogs/sign_in.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -31,10 +30,9 @@ ContentBrowserClient::CreateBrowserMainParts(bool is_integration_test) {
   std::unique_ptr<content::BrowserMainParts> parts =
       ChromeContentBrowserClient::CreateBrowserMainParts(is_integration_test);
 
-  if (IsHosted()) {
-    static_cast<ChromeBrowserMainParts*>(parts.get())
-        ->AddParts(std::make_unique<BrowserMainExtraParts>());
-  }
+  // Every browser process of Pane's runs its UI (pane/app/views_launch.h).
+  static_cast<ChromeBrowserMainParts*>(parts.get())
+      ->AddParts(std::make_unique<BrowserMainExtraParts>());
 
   return parts;
 }

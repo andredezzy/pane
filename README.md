@@ -11,7 +11,7 @@
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-000000?style=flat&colorA=000000&colorB=000000" />
-  <img alt="Swift" src="https://img.shields.io/badge/Swift-6-000000?style=flat&colorA=000000&colorB=000000" />
+  <img alt="C++" src="https://img.shields.io/badge/C%2B%2B-23-000000?style=flat&colorA=000000&colorB=000000" />
   <img alt="Chromium" src="https://img.shields.io/badge/Chromium-158-000000?style=flat&colorA=000000&colorB=000000" />
 </p>
 
@@ -22,7 +22,7 @@
 
 </div>
 
-Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser where every profile is a fully isolated identity with its own session, proxy, fingerprint, and Chrome extensions. Like Arc and Dia, it is a native app (Swift, AppKit and SwiftUI) on its own build of Chromium, embedded in the same process.
+Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser where every profile is a fully isolated identity with its own session, proxy, fingerprint, and Chrome extensions. It is its own build of Chromium, and its interface is part of it, drawn in C++ with Views, Chromium's own toolkit, as Chrome's own is: one code path for every window, sheet, and dialog, which already compiles for Windows, where Pane doesn't run yet.
 
 ## Features
 
@@ -50,9 +50,9 @@ Updates need none of this: Pane installs them itself.
 
 ### Requirements
 
-- macOS 14 or later on Apple Silicon, Xcode with Swift 6, and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+- macOS 14 or later on Apple Silicon, with Xcode (packaging compiles the icon and signs the bundle)
 - Bun >= 1.3.9 (scenarios and linters)
-- To build the engine yourself: a Chromium checkout (~100 GB; `docs/building.md`). Otherwise the app builds on a prebuilt engine.
+- To change Pane's code, its UI included: a Chromium checkout (~100 GB; `docs/building.md`), since Pane builds as part of Chromium. To package what `main` already holds: the prebuilt engine its commit names.
 
 ### Build and run
 
@@ -63,19 +63,19 @@ export PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)"   # or build the engine: doc
 scripts/package.sh                                    # → app/build/Pane.app
 ```
 
-`main` is the Views line, part way through `docs/plans/views-migration.md`: until its data's port, its app opens only a scenario's throwaway data (`bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane …`). The released app is built from the `swift` branch.
+Until `main`'s first release, its Pane opens only a scenario's throwaway data (`bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane …`), and the released app is built from the `swift` branch (AGENTS.md).
 
 ## Project structure
 
 ```text
-app/           # the Swift app (AppKit + SwiftUI), the PaneKit package, the volume's watchdog, VERSION, signing and dmg resources
-pane/          # the //pane tree, linked into Pane Framework.framework
+pane/          # the //pane tree, Pane's code, linked into Pane Framework.framework: its UI in ui/, its data and rules in model/
 chromium/      # what Pane does to Chromium: the pinned tag, gn args, patches, the engine archives' keys, UPGRADING.md
-scripts/       # sync, build, patch, package, and publish the engine and the app
+app/           # what packaging reads: VERSION, the icon and its sources, the dmg's resources, the entitlements
+scripts/       # sync, build, patch, check, package, and publish the engine and the app
 tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
 docs/          # building.md, human-checklist.md, adr/ (one record per subject), benchmarks/, growth/, qa/
 third_party/   # the license and origin of each project Pane takes code from (NOTICE)
-.github/       # CI: gates.yml (linters), release.yml (the dmg, on a v* tag), chromium-watch.yml (when Chrome's Mac stable moves)
+.github/       # CI: gates.yml (linters, the OS-flag check), release.yml (the dmg, on a v* tag), chromium-watch.yml (when Chrome's Mac stable moves)
 ```
 
 ## Scripts
@@ -84,7 +84,7 @@ third_party/   # the license and origin of each project Pane takes code from (NO
 bun install          # once: the linters, the typecheck, knip, and the migration scenario's Electron
 bun run lint         # ESLint --fix + Biome check --write
 bun run typecheck    # type-check the scenario runner
-bun run test         # PaneKit's tests (swift test)
+bun run test         # build and run pane_unittests, the engine's unit tests (a Chromium checkout)
 bun run knip         # check for unused files, deps, and exports
 ```
 

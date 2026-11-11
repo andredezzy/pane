@@ -1,20 +1,12 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# The //pane tree: Pane's embedding layer over Chromium's chrome/ layer, and
-# its UI in Views. It is linked into Pane Framework.framework through
-# //chrome:chrome_dll; its public/ headers are the Objective-C API the Swift
-# app builds against until it goes. On Windows it compiles, not yet links:
-# `gn gen out/Win --root-target=//pane` loads it alone (G7).
-
-# A property's ivar and getter come from the compiler, as Objective-C's default:
-# Chromium's build asks for them spelled out, which here was 100 lines of nothing.
-config("autosynthesized_properties") {
-  cflags_objcc = [ "-Wno-objc-missing-property-synthesis" ]
-}
+# The //pane tree: Pane's layer over Chromium's chrome/ layer, and its UI in
+# Views, linked into Pane Framework.framework through //chrome:chrome_dll. On
+# Windows it compiles, not yet links: `gn gen out/Win --root-target=//pane`
+# loads it alone (scripts/compile-windows.sh).
 
 source_set("pane") {
   visibility = [ "//chrome:chrome_dll" ]
-  configs += [ ":autosynthesized_properties" ]
 
   sources = [
     "app/data_launch.h",
@@ -35,8 +27,6 @@ source_set("pane") {
     "automation/input.h",
     "automation/system.h",
     "automation/windows.h",
-    "browser/app_callback.cc",
-    "browser/app_callback.h",
     "browser/browser_context.cc",
     "browser/browser_context.h",
     "browser/browser_main_extra_parts.h",
@@ -73,7 +63,6 @@ source_set("pane") {
     "browser/ui/window_host.h",
     "browser/web_store.cc",
     "browser/web_store.h",
-    "common/host.cc",
     "common/host.h",
     "ui/after_frame.cc",
     "ui/after_frame.h",
@@ -213,8 +202,9 @@ source_set("pane") {
     "updates/updater.h",
   ]
 
-  # The Swift app's Objective-C API and what drives it, and the Mac's own
-  # platform files: none of it builds anywhere else.
+  # The Mac's own platform files, and the window layer over Chrome's Browsers
+  # (browser/ui), which builds on the Mac until Windows' Phase 5
+  # (docs/plans/views-migration.md).
   if (is_mac) {
     sources += [
       "app/data_launch_mac.mm",
@@ -222,23 +212,14 @@ source_set("pane") {
       "automation/input_mac.mm",
       "automation/system_mac.mm",
       "automation/windows_mac.mm",
-      "browser/browser_application.mm",
-      "browser/browser_application_internal.h",
       "browser/browser_main_extra_parts.mm",
-      "browser/browser_window_api.mm",
+      "browser/ui/browser_window.cc",
       "browser/ui/browser_window.h",
-      "browser/ui/browser_window.mm",
-      "browser/ui/tab_bridge.h",
-      "browser/ui/tab_bridge.mm",
-      "browser/ui/web_contents_delegate.mm",
-      "browser/ui/window_host.mm",
-      "browser/web_contents.mm",
-      "browser/web_contents_internal.h",
-      "public/PaneBrowserApplication.h",
-      "public/PaneBrowserWindow.h",
-      "public/PaneCore.h",
-      "public/PaneExport.h",
-      "public/PaneWebContents.h",
+      "browser/ui/hosted_tab.cc",
+      "browser/ui/hosted_tab.h",
+      "browser/ui/web_contents_delegate.cc",
+      "browser/ui/window_host.cc",
+      "browser/ui/window_host_mac.mm",
       "ui/app/app_events_mac.mm",
       "ui/app/dock_icon_mac.mm",
       "ui/dialogs/system_alert_mac.mm",

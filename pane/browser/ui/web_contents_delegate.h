@@ -20,7 +20,7 @@ class WindowHost;
 // The WebContentsDelegate of Pane's Browsers: Chrome's own, except that a
 // page's popups and new windows (window.open, target=_blank, ⌘-click, POST
 // forms) become tabs of the same Browser, keeping Chrome's new WebContents
-// and its navigation (so POST bodies and openers survive). The app hears of
+// and its navigation (so POST bodies and openers survive). Pane's UI hears of
 // them as inserted tabs, with their opener.
 class HostedWebContentsDelegate : public BrowserWebContentsDelegate {
  public:

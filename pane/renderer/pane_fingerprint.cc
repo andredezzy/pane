@@ -23,8 +23,8 @@ namespace {
 
 constexpr char kFingerprintSwitch[] = "pane-fingerprint";
 
-// The renderer half of the fingerprint the app builds (PaneKit's
-// EngineFingerprint.Renderer).
+// The renderer half of the fingerprint Pane builds (model::EngineFingerprint's
+// renderer part, pane/model/engine_fingerprint.h).
 std::optional<PaneFingerprint> Parse(const std::string& json) {
   std::optional<base::DictValue> root =
       base::JSONReader::ReadDict(json, base::JSON_PARSE_RFC);

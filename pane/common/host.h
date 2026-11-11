@@ -3,32 +3,26 @@
 #ifndef PANE_COMMON_HOST_H_
 #define PANE_COMMON_HOST_H_
 
-// The contract between the Pane app hosting the engine and the Chrome code
-// patched to honor it. Header-only constants, so patched Chrome files can use
-// them without depending on //pane.
+// The contract between Pane's launch and the Chrome code patched to honor it
+// (chromium/patches, ADR 0010). Header-only constants, so patched Chrome files
+// can use them without depending on //pane.
 
-// Set by PaneBrowserApplication when the Pane app hosts the engine. Chrome's
-// own UI (startup windows, main menu, reopen windows) stays off under it.
+// Set by Pane's launch (pane/app/engine_switches.h) on the browser process it
+// runs Pane's UI in. Chrome's own UI (startup windows, the main menu, reopened
+// windows, Handoff) stays off under it; a Chromium binary run without it, such
+// as Chromium's own tests, keeps Chrome's.
 #define PANE_HOSTED_SWITCH "pane-hosted"
 
 // Posted by Chrome's AppController, instead of opening a window, when the user
-// re-activates a hosted engine (for example from the Dock).
+// re-activates Pane (for example from the Dock).
 #define PANE_SHOULD_REOPEN_NOTIFICATION \
   "PaneBrowserApplicationShouldReopenNotification"
 
 // Posted by Chrome's AppController, instead of opening them in a Browser of
-// its own, with the URLs another app hands a hosted engine (a link clicked
-// in Mail, a file opened with Pane, `open -a Pane <url>`), as an NSArray of
-// NSURL under PANE_OPEN_URLS_KEY.
+// its own, with the URLs another app hands Pane (a link clicked in Mail, a
+// file opened with Pane, `open -a Pane <url>`), as an NSArray of NSURL under
+// PANE_OPEN_URLS_KEY.
 #define PANE_OPEN_URLS_NOTIFICATION "PaneEngineOpenURLsNotification"
 #define PANE_OPEN_URLS_KEY "urls"
-
-namespace pane {
-
-// Whether this process runs under the Pane app rather than Chrome's own
-// executable.
-bool IsHosted();
-
-}  // namespace pane
 
 #endif  // PANE_COMMON_HOST_H_
