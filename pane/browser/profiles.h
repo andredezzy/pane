@@ -25,6 +25,11 @@ class FilePath;
 
 namespace pane {
 
+// Pane's own services of each profile, made with it: what Chrome holds of its
+// stores goes with it, which a lock's detach waits for (ADR 0116). Before the
+// first profile, as Chrome builds its own.
+void BuildProfileServices();
+
 // The roots a profile's files live under, in each form a path reaches them,
 // and its key, for this process and, through ContentBrowserClient, the
 // others'. Before anything of the profile opens, in any process. Thread-safe.

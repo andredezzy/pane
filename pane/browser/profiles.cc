@@ -11,8 +11,10 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/no_destructor.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
@@ -26,7 +28,9 @@
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
+#include "chrome/browser/profiles/pref_service_builder_utils.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/profiles/profile_metrics.h"
@@ -34,6 +38,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/pref_names.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -41,6 +46,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/embedder_support/user_agent_utils.h"
+#include "components/keyed_service/core/keyed_service.h"
 #include "components/language/core/browser/language_prefs.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -51,10 +57,12 @@
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/pane_storage_service.h"
+#include "content/public/browser/storage_partition.h"
 #include "gpu/config/gpu_info.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/fingerprints.h"
+#include "pane/browser/proto_databases.h"
 #include "pane/encryption/engine_keys.h"
 #include "pane/encryption/handover.h"
 #include "pane/encryption/profile_migration.h"
@@ -145,7 +153,68 @@ struct KeysLeft : base::RefCountedThreadSafe<KeysLeft> {
   ~KeysLeft() = default;
 };
 
+// What Chrome holds of a profile's stores goes with the profile, which a
+// lock's detach waits for (ADR 0116). Made with every profile; its Shutdown
+// comes with the profile's other services', the last of ~ProfileImpl's steps
+// before its storage partitions go, so a shared proto database opened at any
+// time before, however late, is covered.
+class ProfileStores : public KeyedService {
+ public:
+  explicit ProfileStores(Profile* profile) : profile_(profile) {}
+
+  void Shutdown() override {
+    LetSharedProtoDatabaseGo(
+        *profile_->GetDefaultStoragePartition()->GetProtoDatabaseProvider());
+  }
+
+ private:
+  const raw_ptr<Profile> profile_;
+};
+
+class ProfileStoresFactory : public ProfileKeyedServiceFactory {
+ public:
+  static ProfileStoresFactory* GetInstance() {
+    static base::NoDestructor<ProfileStoresFactory> instance;
+    return instance.get();
+  }
+
+ private:
+  friend base::NoDestructor<ProfileStoresFactory>;
+
+  ProfileStoresFactory() : ProfileKeyedServiceFactory("PaneProfileStores") {}
+  ~ProfileStoresFactory() override = default;
+
+  std::unique_ptr<KeyedService> BuildServiceInstanceForBrowserContext(
+      content::BrowserContext* context) const override {
+    return std::make_unique<ProfileStores>(
+        Profile::FromBrowserContext(context));
+  }
+
+  bool ServiceIsCreatedWithBrowserContext() const override { return true; }
+};
+
+// The profile's folder, and its README. Chrome writes the README as it creates
+// a profile that has none (CreateProfileDirectory, profile_impl.cc), in a
+// BEST_EFFORT task, which a loaded Mac held past a lock that had closed the
+// profile and dropped its keys: the encryption's check of a profile's file
+// with no key then ended Pane (ADR 0116). Written here, under the key
+// OpenProfile has just registered and before the profile loads, so that Chrome
+// posts none.
+bool MakeProfileDirectory(const base::FilePath& path) {
+  if (!base::CreateDirectory(path)) {
+    return false;
+  }
+  if (!base::PathExists(path.Append(chrome::kReadmeFilename))) {
+    CreateProfileReadme(path);
+  }
+  return true;
+}
+
 }  // namespace
+
+void BuildProfileServices() {
+  ProfileStoresFactory::GetInstance();
+}
 
 void RegisterEngineKey(const base::FilePath& user_data_dir,
                        const std::string& identifier,
@@ -206,7 +275,7 @@ void OpenProfile(const std::string& identifier,
   // off the main thread, and a profile that cannot have one fails.
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
-      base::BindOnce(&base::CreateDirectory, path),
+      base::BindOnce(&MakeProfileDirectory, path),
       base::BindOnce(
           [](base::FilePath path, base::OnceCallback<void(Profile*)> done,
              bool exists) {

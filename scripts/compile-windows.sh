@@ -2,8 +2,9 @@
 # Compiles //pane's shared code for Windows x64, cross-built from the Mac in
 # out/Win (chromium/args/win.gn), with no full Windows build: the sources
 # pane/BUILD.gn builds on every OS, and those of the targets beside it that do
-# (pane/app, pane/model, pane/ui/app, pane/ui/design, pane/ui/lock,
-# pane/ui/tabs), but the Mac's own files and tests (_mac.cc, _mac_unittest.cc).
+# (pane/app, pane/browser, pane/model, pane/ui/app, pane/ui/design,
+# pane/ui/lock, pane/ui/tabs), but the Mac's own files and tests (_mac.cc,
+# _mac_unittest.cc).
 # Each object compiles alone (`autoninja -C out/Win ../../<file>^`), so code
 # that builds only on the Mac shows before Windows' turn comes (ADR 0124). A gate
 # before each push of an engine change, beside `gn check out/Win '//pane/*'`
@@ -44,6 +45,9 @@ files = ["pane/" + name for name in shared]
 for folder in ("pane/app", "pane/model", "pane/ui/app", "pane/ui/design", "pane/ui/lock", "pane/ui/tabs"):
     files += [str(path.relative_to(root)) for path in sorted((root / folder).glob("*.cc"))
               if not path.name.endswith(("_mac.cc", "_mac_unittest.cc"))]
+# pane/browser's own targets, whose folder pane/BUILD.gn's Mac files share.
+browser = (root / "pane/browser/BUILD.gn").read_text()
+files += ["pane/browser/" + name for name in re.findall(r'"([^"]+\.cc)"', browser)]
 for name in dict.fromkeys(files):
     print(f"../../{name}^")
 PY

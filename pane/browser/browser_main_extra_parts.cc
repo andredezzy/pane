@@ -20,6 +20,7 @@
 #include "pane/app/data_launch.h"
 #include "pane/browser/bundled_crl_set.h"
 #include "pane/browser/engine_trace.h"
+#include "pane/browser/profiles.h"
 #include "pane/browser/ui/install_hooks.h"
 #include "pane/ui/app/ui_app.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
@@ -68,6 +69,7 @@ BrowserMainExtraParts::~BrowserMainExtraParts() = default;
 
 void BrowserMainExtraParts::PreProfileInit() {
   LoadBundledCRLSet();
+  BuildProfileServices();
 }
 
 void BrowserMainExtraParts::PostProfileInit(Profile* profile,

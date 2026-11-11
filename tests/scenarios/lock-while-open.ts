@@ -18,7 +18,8 @@ import { expect, type Scenario } from "../run";
 // still detaches whole, never forced from under the engine. With Lock after
 // set, Pane locks by itself once it has gone that long without use (a minute
 // a second here), and so it does when the displays sleep or another user takes
-// the session. One watchdog serves a Pane through every lock, and still
+// the session. A lock that comes as the profile is still opening detaches as
+// well. One watchdog serves a Pane through every lock, and still
 // detaches the image when Pane is killed. A file something else holds open is never
 // pulled away: the lock waits, and past 10 s Pane quits.
 
@@ -236,6 +237,56 @@ const lockWhileOpen: Scenario = async (context) => {
 	expect(
 		Object.values(bySystem).every(Boolean),
 		`locks by the system: ${JSON.stringify(bySystem)}`,
+	);
+
+	// A lock the moment the unlock has the volume, as the system's locks above
+	// come, while the profile is still opening behind the window: Chrome's
+	// shared proto database, which a profile opens as it starts, kept itself
+	// open two minutes past a profile that went before it had opened, so the
+	// detach gave up after 10 s and Pane quit, a lock in five to ten so timed.
+	// Each detaches within the lock's wait, and the PIN that follows, the next
+	// round's or the next step's, finds Pane still there: a quit detaches the
+	// volume as well.
+	const atOpen: (number | null)[] = [];
+
+	for (let round = 0; round < 8 && atOpen.at(-1) !== null; round++) {
+		try {
+			await app.send("pinKeys", { keys: "1234" });
+
+			await app.waitFor(
+				"unlocked, the profile opening",
+				(state) => !state.security.locked && state.security.data.attached,
+				60_000,
+			);
+		} catch (error) {
+			throw new Error(
+				`after the locks as the profile opens, ${JSON.stringify(atOpen)} ms: ${error}`,
+			);
+		}
+
+		const lockedAt = Date.now();
+		await app.send("lockNow");
+
+		atOpen.push(
+			await poll(
+				"the detach of a lock as the profile opens",
+				async () => (await imagesAttachedIn(dataDir)).length === 0,
+				15_000,
+			).then(
+				() => Date.now() - lockedAt,
+				() => null,
+			),
+		);
+	}
+
+	writeFileSync(
+		join(context.out, "locks-as-the-profile-opens.json"),
+		JSON.stringify(atOpen),
+	);
+
+	expect(
+		atOpen.length === 8 && atOpen.every((ms) => ms !== null),
+		`locks as the profile opens, detached after (ms): ${JSON.stringify(atOpen)}`,
 	);
 
 	// Once more through a lock: the image on whichever device it has now.
