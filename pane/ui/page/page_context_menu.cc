@@ -218,7 +218,18 @@ void PageContextMenus::FormatsRead(
                   *interval));
   if (self && menu_.get() == shown) {
     running_ = false;
-    Release();
+    // Let go a turn later: the platform's menu tells its model it closed on
+    // a task of its own (SimpleMenuModel::MenuWillClose), whose MenuClosed
+    // lets the page show its next menu (SetShowingContextMenu(false)), as
+    // Chrome's delegate keeps its menu until the next.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](base::WeakPtr<PageContextMenus> menus, int serial) {
+                         if (menus && menus->shown_ == serial) {
+                           menus->Release();
+                         }
+                       },
+                       self, shown_));
   }
 }
 
