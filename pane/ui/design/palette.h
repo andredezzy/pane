@@ -148,6 +148,19 @@ enum PaneColorIds : ui::ColorId {
   // (ADR 0025).
   kPaneColorHint,
   kPaneColorHintText,
+  // An action's popup, as NSPopover drew it and Paper 04.12 draws it: its
+  // material, white or #2C2C2E at 96%, and its hairline, black at 12% or
+  // white at 14% (ADR 0031); the extension's page sits on white in both.
+  kPaneColorActionPopup,
+  kPaneColorActionPopupEdge,
+  kPaneColorActionPopupCanvas,
+  // A pinned action's badge, where the extension set no color of its own:
+  // the system's red under white text, as the Swift meant them (ADR 0054).
+  kPaneColorBadgeDefault,
+  kPaneColorBadgeDefaultText,
+  // The extensions menu's pin and more under the pointer: the foreground at
+  // 8%.
+  kPaneColorMenuButtonHover,
 
   kPaneColorsEnd,
 };

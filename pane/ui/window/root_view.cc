@@ -16,6 +16,8 @@
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/dialogs/page_dialog.h"
+#include "pane/ui/extensions/extension_actions_view.h"
+#include "pane/ui/extensions/extensions_ui.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/page/devtools.h"
 #include "pane/ui/page/exclusive_access_hint.h"
@@ -28,6 +30,7 @@
 #include "pane/ui/window/sad_tab_view.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
@@ -154,17 +157,18 @@ class PageShield : public views::View {
 BEGIN_METADATA(PageShield)
 END_METADATA
 
-// Esc and Return for a page's dialog, ahead of the focused view (a field of
-// its own, the address, the sidebar's), as the Swift's key monitor took
-// them: on the Mac, Views hands a key to the focused view before the
-// FocusManager's accelerators, and the address takes Esc and Return itself.
+// The extensions menu's Esc, and Esc and Return for a page's dialog, ahead of
+// the focused view (a field of its own, the address, the sidebar's), as the
+// Swift's key monitor took them: on the Mac, Views hands a key to the focused
+// view before the FocusManager's accelerators, and the address takes Esc and
+// Return itself.
 class PageDialogKeys : public ui::EventHandler {
  public:
   explicit PageDialogKeys(RootView* root) : root_(root) {}
 
   // ui::EventHandler:
   void OnKeyEvent(ui::KeyEvent* event) override {
-    if (root_->PageDialogKey(*event)) {
+    if (root_->OverlayKey(*event)) {
       event->SetHandled();
     }
   }
@@ -173,10 +177,10 @@ class PageDialogKeys : public ui::EventHandler {
   const raw_ptr<RootView> root_;
 };
 
-// Under find in page's bar while it shows, over the rest of the window: a
-// press anywhere else closes the bar, and reaches nothing under it, nor
-// does a scroll (the Swift's FindOverlay, a clear shape over the window
-// that took the tap).
+// Under find in page's bar, or the extensions menu, while it shows, over the
+// rest of the window: a press anywhere else closes it, and reaches nothing
+// under it, nor does a scroll (the Swift's FindOverlay, and the clear shape
+// under its extensions menu, each over the window and taking the tap).
 class FindShield : public views::View {
   METADATA_HEADER(FindShield, views::View)
 
@@ -204,6 +208,10 @@ END_METADATA
 // AlertPlacement).
 constexpr int kPageDialogMargin = 16;
 constexpr int kPageDialogTop = 8;
+// The extensions menu: 4 under the puzzle, and 8 from the window's leading
+// edge at least.
+constexpr int kMenuGap = 4;
+constexpr int kMenuMargin = 8;
 
 }  // namespace
 
@@ -234,7 +242,9 @@ RootView::RootView(Callbacks callbacks,
   sidebar_ = AddChildView(
       std::make_unique<SidebarView>(std::move(callbacks_.sidebar)));
 
-  // The toolbar's row, at the panel's top while a tab shows, over the card.
+  // The toolbar's row, at the panel's top while a tab shows, over the card;
+  // its extensions are the app's.
+  callbacks_.toolbar.extensions = callbacks_.extensions;
   toolbar_ = AddChildView(
       std::make_unique<ToolbarView>(std::move(callbacks_.toolbar), progress));
   toolbar_->SetPaintToLayer();
@@ -281,6 +291,22 @@ RootView::RootView(Callbacks callbacks,
   find_card_ = AddChildView(std::make_unique<DialogCard>(
       FindBarView::CardLook(), std::move(find_bar)));
   find_card_->SetVisible(false);
+  // The extensions menu and the more menu, over a page's dialog and under
+  // the switcher; made now, so the puzzle's first press makes nothing.
+  extensions_shield_ = AddChildView(std::make_unique<FindShield>(
+      base::BindRepeating(&ExtensionsUi::CloseMenu,
+                          base::Unretained(callbacks_.extensions.get()))));
+  extensions_shield_->SetVisible(false);
+  auto menu = std::make_unique<ExtensionsMenuView>(*callbacks_.extensions);
+  extensions_menu_ = menu.get();
+  extensions_card_ = AddChildView(std::make_unique<DialogCard>(
+      ExtensionsMenuView::CardLook(), std::move(menu)));
+  extensions_card_->SetVisible(false);
+  auto more = std::make_unique<ExtensionMoreMenuView>(*callbacks_.extensions);
+  more_menu_ = more.get();
+  more_card_ = AddChildView(std::make_unique<DialogCard>(
+      ExtensionsMenuView::CardLook(), std::move(more)));
+  more_card_->SetVisible(false);
   // Over the rest, under the profile sheet; made now, so the first frame
   // that shows it makes nothing.
   switcher_ = AddChildView(std::make_unique<TabSwitcherView>());
@@ -579,11 +605,12 @@ bool RootView::TakesEveryKey() const {
 void RootView::ShowPageDialog(std::unique_ptr<PageDialog> dialog) {
   HidePageDialog();
   PageDialog* content = dialog.get();
-  // Under the switcher, and what shows over the whole window after it.
+  // Under the extensions menu, the switcher, and what shows over the whole
+  // window after them.
   page_dialog_ =
       AddChildViewAt(std::make_unique<DialogCard>(PageDialog::AlertCardLook(),
                                                   std::move(dialog)),
-                     GetIndexOf(switcher_).value());
+                     GetIndexOf(extensions_shield_).value());
   page_shield_->SetVisible(true);
   PlacePageDialogs();
   page_dialog_->Settle(false);
@@ -640,19 +667,27 @@ PageDialog* RootView::page_dialog() {
                       : nullptr;
 }
 
-bool RootView::PageDialogKey(const ui::KeyEvent& event) {
-  PageDialog* dialog = page_dialog();
+bool RootView::OverlayKey(const ui::KeyEvent& event) {
   const ui::KeyboardCode code = event.key_code();
-  if (!dialog || event.type() != ui::EventType::kKeyPressed ||
+  if (event.type() != ui::EventType::kKeyPressed ||
       (code != ui::VKEY_ESCAPE && code != ui::VKEY_RETURN) ||
       (event.flags() &
        (ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN | ui::EF_COMMAND_DOWN))) {
     return false;
   }
-  // What shows over this one has its keys first: the switcher, and a dialog
+  // What shows over these has its keys first: the switcher, and a dialog
   // over the whole window.
   if (switcher_->GetVisible() || quit_dialog_->showing() ||
       (app_icon_dialog_ && app_icon_dialog_->showing())) {
+    return false;
+  }
+  // The extensions menu, over a page's dialog: Esc closes its more menu,
+  // then it; the rest goes on.
+  if (extensions_card_->GetVisible()) {
+    return code == ui::VKEY_ESCAPE && callbacks_.extensions->Escape();
+  }
+  PageDialog* dialog = page_dialog();
+  if (!dialog) {
     return false;
   }
   dialog->PressKey(code == ui::VKEY_ESCAPE);
@@ -797,6 +832,82 @@ gfx::Rect RootView::FindBarBounds() const {
   return find_card_->CardBounds();
 }
 
+void RootView::ShowExtensionsMenu(const ExtensionsMenuView::Shows& shows) {
+  extensions_menu_->SetShows(shows);
+  const InstalledExtension* more = nullptr;
+  for (const InstalledExtension& extension : shows.extensions) {
+    if (shows.more == extension.id) {
+      more = &extension;
+    }
+  }
+  if (more) {
+    more_menu_->SetExtension(*more);
+  }
+  if (!extensions_card_->GetVisible()) {
+    AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
+  }
+  extensions_shield_->SetVisible(true);
+  extensions_card_->SetVisible(true);
+  more_card_->SetVisible(more != nullptr);
+  PlaceExtensionsMenu();
+  extensions_card_->Settle(true);
+  more_card_->Settle(more != nullptr);
+}
+
+void RootView::HideExtensionsMenu() {
+  if (!extensions_card_->GetVisible()) {
+    return;
+  }
+  RemoveAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
+  extensions_shield_->SetVisible(false);
+  extensions_card_->SetVisible(false);
+  more_card_->SetVisible(false);
+}
+
+bool RootView::AcceleratorPressed(const ui::Accelerator& accelerator) {
+  return OverlayKey(ui::KeyEvent(ui::EventType::kKeyPressed,
+                                 accelerator.key_code(),
+                                 accelerator.modifiers()));
+}
+
+ExtensionsMenuView* RootView::extensions_menu() {
+  return extensions_card_->GetVisible() ? extensions_menu_.get() : nullptr;
+}
+
+ExtensionMoreMenuView* RootView::extension_more_menu() {
+  return more_card_->GetVisible() ? more_menu_.get() : nullptr;
+}
+
+// The menu's trailing edge on the puzzle's, 4 under it, kept 8 from the
+// window's leading edge; the more menu beside it, over its edge by 10, level
+// with its extension's row (the Swift's extensionsOverlays).
+void RootView::PlaceExtensionsMenu() {
+  extensions_shield_->SetBoundsRect(GetLocalBounds());
+  if (!extensions_card_->GetVisible()) {
+    return;
+  }
+  const views::View* puzzle = toolbar_->extension_actions()->puzzle();
+  const gfx::Rect anchor =
+      views::View::ConvertRectToTarget(puzzle, this, puzzle->GetLocalBounds());
+  const gfx::SizeF size = extensions_card_->SizeFor(ExtensionsMenuView::kWidth);
+  const float menu_x =
+      std::max<float>(kMenuMargin, anchor.right() - size.width());
+  const float menu_y = anchor.bottom() + kMenuGap;
+  extensions_card_->Place(
+      gfx::RectF(menu_x, menu_y, size.width(), size.height()));
+  if (!more_card_->GetVisible()) {
+    return;
+  }
+  const std::optional<gfx::Rect> row =
+      extensions_menu_->RowBounds(more_menu_->extension_id());
+  const gfx::SizeF more = more_card_->SizeFor(ExtensionMoreMenuView::kWidth);
+  const float more_x =
+      std::max<float>(kMenuMargin, menu_x - ExtensionMoreMenuView::kWidth +
+                                       ExtensionMoreMenuView::kOverlap);
+  const float more_y = menu_y + (row ? row->y() : 0);
+  more_card_->Place(gfx::RectF(more_x, more_y, more.width(), more.height()));
+}
+
 void RootView::ShowExclusiveAccessHint(const std::u16string& hint) {
   hint_->SetHint(hint);
   if (!hint.empty()) {
@@ -874,6 +985,7 @@ void RootView::Layout(PassKey) {
           FindBarView::kTop, FindBarView::kWidth, FindBarView::kHeight))) {
     find_card_->Settle(true);
   }
+  PlaceExtensionsMenu();
   // The hint 24 down, in the window's middle.
   const gfx::Size hint = hint_->GetPreferredSize();
   hint_->SetBounds((width() - hint.width()) / 2, ExclusiveAccessHint::kTop,

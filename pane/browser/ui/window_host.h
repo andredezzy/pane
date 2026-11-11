@@ -18,6 +18,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
@@ -58,6 +59,14 @@ namespace pane {
 
 class HostedBrowserWindow;
 
+// The window's toolbar as Chrome's extensions see it, for one of its Browsers
+// (Chrome's ExtensionsContainer, whose destructor isn't virtual: its owner,
+// the Browser's HostedBrowserWindow, holds it as this one).
+class HostedExtensionsContainer : public ExtensionsContainer {
+ public:
+  virtual ~HostedExtensionsContainer() = default;
+};
+
 // One Pane window. Chrome sees a Views widget (so its own dialogs and bubbles
 // have a window to attach to) holding the app's view, and one Browser per
 // profile shown in the window, each with a HostedBrowserWindow: no
@@ -96,6 +105,11 @@ class WindowHost : public TabStripModelObserver,
     // Find in page for `browser`, one of the window's (FindBarController's
     // FindBar); none for no bar of the window's.
     virtual std::unique_ptr<FindBar> CreateFindBar(Browser* browser);
+    // The extensions' toolbar for `browser`, one of the window's (Chrome's
+    // ExtensionsContainer: chrome.action.openPopup shows through it); none
+    // for no toolbar of the window's.
+    virtual std::unique_ptr<HostedExtensionsContainer>
+    CreateExtensionsContainer(Browser* browser);
     // DevTools docked to `inspected`, a page of the window's Browsers, came,
     // went, or moved their splitter (DevtoolsUIController::UpdateDevtools).
     virtual void DevToolsChanged(content::WebContents* inspected) {}

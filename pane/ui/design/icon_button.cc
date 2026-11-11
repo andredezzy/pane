@@ -25,7 +25,10 @@ IconButton::IconButton(PressedCallback pressed,
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&IconButton::SchedulePaint, base::Unretained(this)));
-  SetBackground(std::make_unique<ControlBackground>(look_, highlight_.get()));
+  auto background =
+      std::make_unique<ControlBackground>(look_, highlight_.get());
+  background_ = background.get();
+  SetBackground(std::move(background));
   SetName(name);
 }
 
@@ -39,6 +42,21 @@ void IconButton::SetGlyph(const Glyph& glyph) {
 void IconButton::SetName(const std::u16string& name) {
   SetTooltipText(name);
   GetViewAccessibility().SetName(name);
+}
+
+void IconButton::SetLook(const ControlLook& look) {
+  look_ = look;
+  background_->SetLook(look);
+  SchedulePaint();
+}
+
+void IconButton::SetHeld(bool held) {
+  // What it opened had the pointer's events: it hears where the pointer is
+  // now.
+  if (!held && GetState() != STATE_DISABLED) {
+    SetState(IsMouseHovered() ? STATE_HOVERED : STATE_NORMAL);
+  }
+  highlight_->SetHeld(held);
 }
 
 gfx::Size IconButton::CalculatePreferredSize(

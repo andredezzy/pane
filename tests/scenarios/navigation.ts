@@ -198,7 +198,15 @@ const navigation: Scenario = async (context) => {
 	};
 
 	if ("extensionsMenu" in (await app.state())) {
+		await app.send("extensionsMenu", { control: "puzzle" });
+		await app.waitFor("the extensions menu", (state) => state.extensionsMenu);
 		await app.send("extensionsMenu", { control: "manage" });
+
+		await app.waitFor(
+			"the Extensions page",
+			(state) => state.page === "extensions",
+		);
+
 		pageVisibility.extensions = await visibility();
 		await app.send("select", { tab });
 		pageVisibility.selected = await visibility();

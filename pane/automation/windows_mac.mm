@@ -5,6 +5,7 @@
 #import <AppKit/AppKit.h>
 
 #include "base/strings/sys_string_conversions.h"
+#include "pane/ui/extensions/action_popup.h"
 #include "pane/ui/page/devtools_window.h"
 #include "ui/views/widget/widget.h"
 
@@ -36,6 +37,9 @@ base::ListValue NativeWindows(views::Widget* main) {
                    gfx::NativeWindow(window));
                widget && widget->GetName() == kDevToolsWindowName) {
       role = "devtools";
+    } else if (widget && widget->GetName() == kActionPopupWindowName) {
+      // An action's popup, as the Swift's NSPopover's window was named.
+      role = "popover";
     } else if ([type hasPrefix:@"_NSFullScreenTransition"] ||
                [type hasPrefix:@"NSToolbarFullScreenWindow"]) {
       // AppKit's own: the full screen animation, and the title bar it

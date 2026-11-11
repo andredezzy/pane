@@ -13,7 +13,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/download/download_prefs.h"
-#include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/webstore_install_with_prompt.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
@@ -45,10 +44,7 @@
 #import "pane/browser/browser_context_internal.h"
 #include "pane/browser/downloads.h"
 #include "pane/browser/engine_trace.h"
-#include "pane/browser/extensions/action_popup.h"
-#include "pane/browser/extensions/extension_menu.h"
 #include "pane/browser/extensions/extension_shortcuts.h"
-#include "pane/browser/extensions/extensions_bridge.h"
 #import "pane/browser/extensions/extensions_internal.h"
 #include "pane/browser/profiles.h"
 #include "pane/browser/ui/browser_window.h"
@@ -105,7 +101,6 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
   // not unload the profile while the app shows it.
   std::unique_ptr<ScopedProfileKeepAlive> _keepAlive;
   std::unique_ptr<pane::DownloadsBridge> _downloads;
-  std::unique_ptr<pane::ExtensionsBridge> _extensions;
 }
 
 - (instancetype)initWithProfile:(Profile*)profile
@@ -116,7 +111,6 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
     _keepAlive = std::make_unique<ScopedProfileKeepAlive>(
         profile, ProfileKeepAliveOrigin::kBrowserWindow);
     _downloads = std::make_unique<pane::DownloadsBridge>(self, profile);
-    _extensions = std::make_unique<pane::ExtensionsBridge>(self, profile);
     pane::ApplyProfileDefaults(profile);
     [self applyFingerprint];
   }
@@ -212,17 +206,12 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
 }
 
 - (void)shutDown {
-  _extensions.reset();
   _downloads.reset();
   _keepAlive.reset();
   _profile = nullptr;
 }
 
 // MARK: Extensions
-
-- (NSArray<PaneExtension*>*)extensions {
-  return _extensions ? _extensions->Snapshot() : @[];
-}
 
 - (const extensions::Extension*)installedExtension:(NSString*)identifier {
   return _profile
@@ -296,34 +285,6 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
       extensions::UNINSTALL_REASON_USER_INITIATED, &error);
 }
 
-- (void)runActionOfExtension:(NSString*)identifier
-                    inWindow:(PaneBrowserWindow*)window {
-  PANE_TRACE(
-      "call", "PaneBrowserContext.runAction",
-      base::DictValue().Set("extension", base::SysNSStringToUTF8(identifier)));
-  if (!_profile) {
-    return;
-  }
-  const extensions::Extension* extension =
-      extensions::ExtensionRegistry::Get(_profile)
-          ->enabled_extensions()
-          .GetByID(base::SysNSStringToUTF8(identifier));
-  pane::WindowHost* host = pane::WindowHost::ForNSWindow(window.window);
-  Browser* browser = host && extension ? host->BrowserFor(_profile) : nullptr;
-  content::WebContents* contents =
-      browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
-  auto* runner =
-      contents ? extensions::ExtensionActionRunner::GetForWebContents(contents)
-               : nullptr;
-  if (!runner) {
-    return;
-  }
-  if (runner->RunAction(extension, /*grant_tab_permissions=*/true) ==
-      extensions::ExtensionAction::ShowAction::kShowPopup) {
-    pane::ActionPopup::Show(browser, *extension, ShowPopupCallback());
-  }
-}
-
 // The extension shortcuts of this profile's Browser in `window`, once it has
 // one.
 - (pane::ExtensionShortcuts*)extensionShortcutsInWindow:
@@ -358,10 +319,10 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
   PANE_TRACE(
       "call", "PaneBrowserContext.runExtensionShortcut",
       base::DictValue().Set("extension", extension).Set("command", command));
+  // The action's runs in the Views window's ExtensionsUi (X1), which X5
+  // hands the shortcut to.
   if (extensions::Command::IsActionRelatedCommand(command)) {
-    [self runActionOfExtension:base::SysUTF8ToNSString(extension)
-                      inWindow:window];
-    return YES;
+    return NO;
   }
   return shortcuts->Notify(accelerator);
 }
@@ -428,29 +389,6 @@ std::optional<URLPattern> PatternOfSite(const std::string& site) {
     return nil;
   }
   return base::SysUTF8ToNSString(shortcut);
-}
-
-- (PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier
-                                         inWindow:(PaneBrowserWindow*)window {
-  if (!_profile) {
-    return nil;
-  }
-  const extensions::Extension* extension =
-      extensions::ExtensionRegistry::Get(_profile)
-          ->enabled_extensions()
-          .GetByID(base::SysNSStringToUTF8(identifier));
-  pane::WindowHost* host = pane::WindowHost::ForNSWindow(window.window);
-  Browser* browser = host && extension ? host->BrowserFor(_profile) : nullptr;
-  content::WebContents* contents =
-      browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
-  if (!contents) {
-    return nil;
-  }
-  PaneExtensionActionMenu* menu = [[PaneExtensionActionMenu alloc]
-      initWithMenu:pane::ExtensionMenu::ForAction(_profile, *extension)
-         extension:*extension
-          contents:*contents];
-  return menu.items.count || menu.siteAccessItems.count ? menu : nil;
 }
 
 - (PaneExtensionDetails*)detailsOfExtension:(NSString*)identifier {

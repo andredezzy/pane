@@ -67,6 +67,9 @@ inline constexpr TextStyle kSectionLabel{10, weight::kMedium, 15};
 // sheet's, 12 on 16; a note beside either is regular.
 inline constexpr TextStyle kFormLabel{11, weight::kMedium, 11};
 inline constexpr TextStyle kFormLabelRegular{12, weight::kMedium, 16};
+// A menu's row of Pane's own, 13 on SwiftUI's own line for it, 16 (the
+// extensions menus').
+inline constexpr TextStyle kMenuRow{13, weight::kRegular, 16};
 // A row's title, 13 on 18-point lines, and its description, 12 on 16
 // (Settings' rows, the profile sheet's).
 inline constexpr TextStyle kRowTitle{13, weight::kRegular, 18};

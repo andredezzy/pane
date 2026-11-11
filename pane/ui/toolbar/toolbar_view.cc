@@ -12,6 +12,7 @@
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/text.h"
+#include "pane/ui/extensions/extension_actions_view.h"
 #include "pane/ui/toolbar/address_field.h"
 #include "pane/ui/view_ids.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -149,7 +150,8 @@ ToolbarView::ToolbarView(Callbacks callbacks, model::ToolbarProgress* progress)
   address_ = AddChildView(std::make_unique<AddressField>(progress));
   address_->set_controller(this);
 
-  actions_ = AddChildView(std::make_unique<views::View>());
+  actions_ = AddChildView(
+      std::make_unique<ExtensionActionsView>(*callbacks_.extensions));
   chip_ = AddChildView(std::make_unique<ProfileChip>());
   chip_->SetVisible(false);
 }
@@ -205,7 +207,7 @@ std::u16string ToolbarView::address() const {
 
 std::vector<std::pair<std::string, const views::View*>>
 ToolbarView::NamedViews() const {
-  return {
+  std::vector<std::pair<std::string, const views::View*>> named = {
       {"pane.toolbar", this},
       {"pane.toolbar.back", back_},
       {"pane.toolbar.forward", forward_},
@@ -213,6 +215,10 @@ ToolbarView::NamedViews() const {
       {"pane.toolbar.address", address_},
       {"pane.toolbar.profile", chip_},
   };
+  for (auto& entry : actions_->NamedViews()) {
+    named.push_back(std::move(entry));
+  }
+  return named;
 }
 
 void ToolbarView::Layout(PassKey) {
@@ -233,8 +239,10 @@ void ToolbarView::Layout(PassKey) {
     right = chip_->x() - kSpacing;
   }
   if (actions_->GetVisible()) {
-    actions_->SetBounds(right - kButtonSize, button_top, kButtonSize,
-                        kButtonSize);
+    const gfx::Size actions = actions_->GetPreferredSize();
+    actions_->SetBounds(right - actions.width(),
+                        (kRowHeight - actions.height()) / 2, actions.width(),
+                        actions.height());
     right = actions_->x() - kSpacing;
   }
   address_->SetBounds(address_x, (kRowHeight - AddressField::kHeight) / 2,

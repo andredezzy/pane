@@ -1,0 +1,15 @@
+{
+	"manifest_version": 3,
+	"name": "Pane action probe",
+	"version": "1.0",
+	"description": "A toolbar action with an icon, a popup, a badge on request, and options, for Pane's extensions menu and popup scenarios.",
+	"icons": { "16": "icon16.png", "32": "icon32.png", "48": "icon48.png" },
+	"action": {
+		"default_popup": "popup.html",
+		"default_title": "Action probe",
+		"default_icon": { "16": "icon16.png", "32": "icon32.png" }
+	},
+	"background": { "service_worker": "worker.js" },
+	"options_page": "options.html",
+	"permissions": ["storage"]
+}

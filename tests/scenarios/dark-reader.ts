@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import {
+	asksBeforeInstall,
 	DARK_READER,
 	installFromWebStore,
 	openPopupFromToolbar,
@@ -14,6 +15,15 @@ import { expect, type Scenario } from "../run";
 // page in A and not in B; its toolbar popup opens.
 const darkReader: Scenario = async (context) => {
 	const app = await launchPane(context);
+
+	if (!(await asksBeforeInstall(app))) {
+		context.defer(
+			"every check: Dark Reader installs from the Web Store, which asks in the install prompt, X3's",
+		);
+
+		return;
+	}
+
 	const watcher = new WindowWatcher(app).start();
 	const a = await app.createProfile("A", "BLUE");
 	const b = await app.createProfile("B", "ROSE");

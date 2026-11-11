@@ -2,6 +2,7 @@
 // engine labels it "Add to Pane") and the app's install sheet, and reaching an
 // extension's popup or service worker over CDP.
 import { writeFileSync } from "node:fs";
+import { basename } from "node:path";
 import { openPage, Page } from "./cdp";
 import {
 	activateWebAccessibility,
@@ -16,6 +17,16 @@ import { answerSheet, waitForSheet } from "./surfaces";
 import { targets, waitForTarget } from "./targets";
 
 export const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
+
+// Whether the build asks before an install from the Web Store, in Pane's own
+// prompt (X3 on the Views line): without it, the Web Store's Add to Pane would
+// show Chrome's own dialog over the window, which nothing answers.
+export async function asksBeforeInstall(app: PaneApp): Promise<boolean> {
+	return app.send("installExtension", {}).then(
+		() => true,
+		(error: Error) => !error.message.includes("unknown command"),
+	);
+}
 
 // The id of the extension called `name`, once `profile` lists it.
 export async function extensionId(
@@ -167,8 +178,8 @@ async function screenshotPopup(page: Page, file: string): Promise<void> {
 }
 
 // Pins extension `id` to `profile`'s toolbar (what its Pin menu item does)
-// and presses its toolbar button: a CUA click on an unlocked screen, else
-// through the automation channel.
+// and presses its toolbar button: a real click at its middle, through the
+// channel, in the background too.
 export async function pressToolbarAction(
 	app: PaneApp,
 	profile: string,
@@ -176,26 +187,13 @@ export async function pressToolbarAction(
 ): Promise<void> {
 	await app.send("setExtensionPinned", { profile, id, pinned: true });
 
-	const pinned = await app.waitFor("the pinned action", (state) =>
+	await app.waitFor("the pinned action", (state) =>
 		(state.extensions[profile] ?? []).some(
 			(item) => item.id === id && item.pinned,
 		),
 	);
 
-	if (!(await canDriveUI())) {
-		await app.send("runExtensionAction", { id });
-
-		return;
-	}
-
-	const item = pinned.extensions[profile]?.find((each) => each.id === id);
-
-	await clickButton(
-		app.browser.pid,
-		await mainWindowOf(app.browser.pid),
-		item?.actionTitle || item?.name || id,
-		`pane.extension.${id}`,
-	);
+	await app.click(`pane.extension.${id}`);
 }
 
 // Presses extension `id`'s toolbar button and waits for the popover with
@@ -215,24 +213,15 @@ export async function openPopupFromToolbar(
 	);
 }
 
-// A screenshot of the popover with extension `id`'s popup: through CUA on
-// an unlocked screen, the main window with the popover over it (cua-driver
-// captures the popover's own window as a copy of the main one); else the
-// popup page through CDP.
+// A screenshot of the popup of extension `id`: its bubble as the app
+// renders it, and its page through CDP beside it.
 export async function screenshotPopover(
 	app: PaneApp,
 	id: string,
 	file: string,
 ): Promise<void> {
-	if (await canDriveUI()) {
-		await windowState(
-			app.browser.pid,
-			await mainWindowOf(app.browser.pid),
-			file,
-		);
-	} else {
-		await screenshotPopup(await popupPage(app, id), file);
-	}
+	await app.renderPopup(basename(file).replace(/\.png$/, "-bubble.png"));
+	await screenshotPopup(await popupPage(app, id), file);
 }
 
 // A screenshot of the app's window through CUA on an unlocked screen, else

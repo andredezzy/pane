@@ -36,6 +36,7 @@ class ToolbarProgress;
 }
 
 class AppIconImages;
+class ExtensionsUi;
 
 // Pane's window in Views: its widget, holding the hidden Browser of each
 // profile it shows (WindowHost, ADR 0014), and the root view that draws the
@@ -109,6 +110,9 @@ class Window : public WindowHost::Delegate,
     virtual model::ToolbarProgress& LoadProgress() = 0;
     // The skies of the app's icon, as Settings and its picker show them.
     virtual AppIconImages& AppIcons() = 0;
+    // The window's extensions: the toolbar's actions and puzzle, the menus
+    // they open, and an action's popup.
+    virtual ExtensionsUi& Extensions() = 0;
     // The tab switcher's keys but Ctrl-Tab, a command's (Next Tab): letting
     // go of Ctrl selects the tab it shows selected; Esc closes it.
     virtual void CommitSwitcher() = 0;
@@ -232,6 +236,8 @@ class Window : public WindowHost::Delegate,
                          bool fullscreen) override;
   void ShowExclusiveAccessHint(const std::u16string& hint) override;
   std::unique_ptr<FindBar> CreateFindBar(Browser* browser) override;
+  std::unique_ptr<HostedExtensionsContainer> CreateExtensionsContainer(
+      Browser* browser) override;
   void DevToolsChanged(content::WebContents* inspected) override;
   bool HandleContextMenu(content::RenderFrameHost& frame,
                          const content::ContextMenuParams& params) override;
@@ -257,6 +263,9 @@ class Window : public WindowHost::Delegate,
   void OnViewBoundsChanged(views::View* observed_view) override;
 
   // views::WidgetObserver:
+  // The window giving up the keys closes the extensions menu, as the Swift's
+  // closed when its window resigned key.
+  void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
   void OnWidgetShowStateChanged(views::Widget* widget) override;
   void OnWidgetDestroying(views::Widget* widget) override;
 

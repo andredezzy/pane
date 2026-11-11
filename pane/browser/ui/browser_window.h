@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
+#include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -34,6 +35,7 @@ class ExclusiveAccessManager;
 namespace pane {
 
 class ExtensionShortcuts;
+class HostedExtensionsContainer;
 class WindowHost;
 
 // Whether the menu bar, or `menu`'s submenus, has `event` as a key
@@ -348,6 +350,13 @@ class HostedBrowserWindow : public BrowserWindow,
   base::WeakPtr<content::WebContents> fullscreen_tab_;
   std::unique_ptr<DevtoolsUIController> devtools_ui_controller_;
   std::unique_ptr<ExtensionShortcuts> extension_shortcuts_;
+  // The window's toolbar as Chrome's extensions see it, for this Browser
+  // (WindowHost::Delegate::CreateExtensionsContainer), registered where
+  // ExtensionsContainer::From finds it, as Chrome's own windows register
+  // theirs.
+  std::unique_ptr<HostedExtensionsContainer> extensions_container_;
+  std::optional<ui::ScopedUnownedUserData<ExtensionsContainer>>
+      extensions_container_registration_;
   base::WeakPtrFactory<HostedBrowserWindow> weak_factory_{this};
 };
 

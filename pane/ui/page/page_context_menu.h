@@ -67,8 +67,12 @@ class PageContextMenus {
   // in the menu does; the menu then closes. Whether there was one.
   bool Choose(std::u16string_view title);
   // Each item, but separators and what doesn't show: its title, command,
-  // whether it is enabled and checked, and its submenu's items.
+  // whether it is enabled and checked, and its submenu's items; those of
+  // [begin, end) alone (a pinned action's menu's groups).
   static base::ListValue Describe(const ui::MenuModel& model);
+  static base::ListValue Describe(const ui::MenuModel& model,
+                                  size_t begin,
+                                  size_t end);
 
  private:
   // The menu Chrome would build, for the platform's menus.

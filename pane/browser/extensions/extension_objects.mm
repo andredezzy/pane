@@ -10,11 +10,8 @@
 #include "chrome/browser/extensions/api/developer_private/extension_info_generator.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/grit/generated_resources.h"
 #include "content/public/browser/web_contents.h"
-#include "extensions/browser/extension_action.h"
-#include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
@@ -33,58 +30,9 @@
 #include "net/base/apple/url_conversions.h"
 #include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
-#include "pane/browser/extensions/action_popup.h"
 #import "pane/browser/extensions/extensions_internal.h"
-#include "skia/ext/skia_utils_mac.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/image/image.h"
-
-// MARK: - PaneExtension
-
-@implementation PaneExtension
-
-- (instancetype)initWithExtension:(const extensions::Extension&)extension
-                          profile:(Profile*)profile
-                            tabID:(int)tabID
-                             icon:(NSImage*)icon {
-  if ((self = [super init])) {
-    _identifier = base::SysUTF8ToNSString(extension.id());
-    _name = base::SysUTF8ToNSString(extension.name());
-    _version = base::SysUTF8ToNSString(extension.VersionString());
-    const std::string* summary = extension.manifest()->FindStringPath(
-        extensions::manifest_keys::kDescription);
-    _summary = summary ? base::SysUTF8ToNSString(*summary) : @"";
-    _enabled = extensions::ExtensionRegistry::Get(profile)
-                   ->enabled_extensions()
-                   .Contains(extension.id());
-    ToolbarActionsModel* toolbar = ToolbarActionsModel::Get(profile);
-    _pinned = toolbar && toolbar->IsActionPinned(extension.id());
-    _icon = icon;
-    const GURL& options =
-        extensions::OptionsPageInfo::GetOptionsPage(&extension);
-    _optionsURL = options.is_valid() ? net::NSURLWithGURL(options) : nil;
-
-    extensions::ExtensionAction* action =
-        extensions::ExtensionActionManager::Get(profile)->GetExtensionAction(
-            extension);
-    _hasAction = action != nullptr;
-    _actionTitle =
-        action ? base::SysUTF8ToNSString(action->GetTitle(tabID)) : @"";
-    _badgeText =
-        action ? base::SysUTF8ToNSString(action->GetDisplayBadgeText(tabID))
-               : @"";
-    if (action && _badgeText.length > 0) {
-      _badgeBackgroundColor =
-          skia::SkColorToSRGBNSColor(action->GetBadgeBackgroundColor(tabID));
-      _badgeTextColor =
-          skia::SkColorToSRGBNSColor(action->GetBadgeTextColor(tabID));
-    }
-    _actionEnabled = action && action->GetIsVisible(tabID);
-  }
-  return self;
-}
-
-@end
 
 // MARK: - PaneExtensionDetails
 
@@ -305,101 +253,6 @@ NSURL* URLOrNil(const GURL& url) {
   _answered = YES;
   if (_answer) {
     std::move(_answer).Run(install);
-  }
-}
-
-@end
-
-// MARK: - PaneExtensionPopup
-
-@implementation PaneExtensionPopup {
-  std::unique_ptr<pane::ActionPopup> _popup;
-  NSString* _extensionIdentifier;
-  __weak id<PaneExtensionPopupDelegate> _delegate;
-  // Kept until closed, whether or not the app holds it.
-  PaneExtensionPopup* __strong _keepAlive;
-}
-
-- (instancetype)initWithPopup:(std::unique_ptr<pane::ActionPopup>)popup {
-  if ((self = [super init])) {
-    _popup = std::move(popup);
-    _keepAlive = self;
-  }
-  return self;
-}
-
-- (NSString*)extensionIdentifier {
-  if (!_extensionIdentifier && _popup && _popup->contents()) {
-    _extensionIdentifier = base::SysUTF8ToNSString(
-        _popup->contents()->GetLastCommittedURL().host());
-  }
-  return _extensionIdentifier ?: @"";
-}
-
-- (NSView*)nativeView {
-  return _popup && _popup->contents()
-             ? _popup->contents()->GetNativeView().GetNativeNSView()
-             : [[NSView alloc] init];
-}
-
-- (NSSize)preferredSize {
-  return _popup ? NSMakeSize(_popup->size().width(), _popup->size().height())
-                : NSZeroSize;
-}
-
-- (BOOL)isOpen {
-  return _popup != nullptr;
-}
-
-- (id<PaneExtensionPopupDelegate>)delegate {
-  return _delegate;
-}
-
-- (void)setDelegate:(id<PaneExtensionPopupDelegate>)delegate {
-  _delegate = delegate;
-}
-
-- (void)close {
-  if (!_popup) {
-    return;
-  }
-  PANE_TRACE("call", "PaneExtensionPopup.close");
-  (void)self.extensionIdentifier;
-  _popup.reset();
-  _keepAlive = nil;
-}
-
-- (void)popupDidResize:(NSSize)size {
-  if ([_delegate respondsToSelector:@selector(extensionPopup:didResize:)]) {
-    [_delegate extensionPopup:self didResize:size];
-  }
-}
-
-- (void)popupDidClose {
-  if (!_popup) {
-    return;
-  }
-  [self notifyDidClose];
-  // The host is mid-close: let it return first.
-  dispatch_async(dispatch_get_main_queue(), ^{
-    [self close];
-  });
-}
-
-- (void)browserDidClose {
-  if (!_popup) {
-    return;
-  }
-  [self notifyDidClose];
-  [self close];
-}
-
-- (void)notifyDidClose {
-  PANE_TRACE("callback", "PaneExtensionPopupDelegate.didClose");
-  (void)self.extensionIdentifier;
-  if ([_delegate respondsToSelector:@selector(extensionPopupDidClose:)]) {
-    pane::ScopedAppCallback callback;
-    [_delegate extensionPopupDidClose:self];
   }
 }
 

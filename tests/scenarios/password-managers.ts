@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { Page } from "../lib/cdp";
 import {
+	asksBeforeInstall,
 	installFromWebStore,
 	popupPage,
 	pressToolbarAction,
@@ -38,6 +39,15 @@ function firstWords(page: Page): Promise<string> {
 // Signing in stays with the user (HUMAN-CHECKLIST).
 const passwordManagers: Scenario = async (context) => {
 	const app = await launchPane(context);
+
+	if (!(await asksBeforeInstall(app))) {
+		context.defer(
+			"every check: the managers install from the Web Store, which asks in the install prompt, X3's",
+		);
+
+		return;
+	}
+
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Passwords");
 	const url = context.fixtures.url("password.html?managers");

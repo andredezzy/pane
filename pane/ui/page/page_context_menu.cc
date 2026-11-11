@@ -2,6 +2,7 @@
 
 #include "pane/ui/page/page_context_menu.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -284,8 +285,15 @@ void PageContextMenus::Release() {
 
 // static
 base::ListValue PageContextMenus::Describe(const ui::MenuModel& model) {
+  return Describe(model, 0, model.GetItemCount());
+}
+
+base::ListValue PageContextMenus::Describe(const ui::MenuModel& model,
+                                           size_t begin,
+                                           size_t end) {
   base::ListValue items;
-  for (size_t index = 0; index < model.GetItemCount(); ++index) {
+  for (size_t index = begin; index < std::min(end, model.GetItemCount());
+       ++index) {
     if (!Shows(model, index)) {
       continue;
     }

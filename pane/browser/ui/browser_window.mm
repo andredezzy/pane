@@ -49,7 +49,6 @@
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
-#include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/ui/window_host.h"
 #import "pane/public/PaneBrowserWindow.h"
@@ -334,14 +333,14 @@ HostedBrowserWindow::HostedBrowserWindow(base::WeakPtr<WindowHost> host)
   LiveWindows().insert(this);
 }
 
-// The Browser goes right after its window. An extension popup opened for it
-// goes first, and the Browser stops counting as Pane's last, so a later one
-// at the same address is not taken for it.
+// The Browser goes right after its window. Its extensions' toolbar goes
+// first, an action's popup for it with it (ADR 0031), and the Browser stops
+// counting as Pane's last, so a later one at the same address is not taken
+// for it.
 HostedBrowserWindow::~HostedBrowserWindow() {
   LiveWindows().erase(this);
-  if (browser_) {
-    ActionPopup::CloseAll(browser_);
-  }
+  extensions_container_registration_.reset();
+  extensions_container_.reset();
   devtools_ui_controller_.reset();
   autofill_bubble_handler_registration_.reset();
   if (browser_) {
@@ -365,6 +364,14 @@ void HostedBrowserWindow::AttachBrowser(Browser* browser) {
       std::make_unique<DockingDevtoolsController>(browser, host_);
   extension_shortcuts_ = std::make_unique<ExtensionShortcuts>(
       browser->GetProfile(), TabListInterface::From(browser));
+  if (host_ && host_->delegate()) {
+    extensions_container_ =
+        host_->delegate()->CreateExtensionsContainer(browser);
+  }
+  if (extensions_container_) {
+    extensions_container_registration_.emplace(
+        browser->GetUnownedUserDataHost(), *extensions_container_);
+  }
 }
 
 void HostedBrowserWindow::DeleteBrowserWindow() {
@@ -564,8 +571,11 @@ bool HostedBrowserWindow::IsTabStripEditable() const {
   return true;
 }
 
+// Pane's window shows its own toolbar for a Browser it gave extensions a
+// toolbar for: Chrome's chrome.action.openPopup asks before it shows a popup
+// through it (extension_action_api.cc's OpenPopupInBrowser).
 bool HostedBrowserWindow::IsToolbarVisible() const {
-  return false;
+  return extensions_container_ != nullptr;
 }
 
 bool HostedBrowserWindow::IsToolbarShowing() const {

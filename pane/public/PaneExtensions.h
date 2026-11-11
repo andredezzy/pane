@@ -8,41 +8,11 @@
 #import "PaneExport.h"
 
 // Chrome extensions, per profile (PaneBrowserContext): Chrome's extension
-// system runs them; the app shows their toolbar actions, popups, install
-// prompts, and management.
+// system runs them; the app shows their install prompts and management (X3
+// to X5 of docs/plans/views-migration.md); their toolbar actions and popups
+// are the Views window's (pane/ui/extensions).
 
 NS_ASSUME_NONNULL_BEGIN
-
-@class PaneExtensionPopup;
-
-// One installed extension, as of the last report. An action's title, badge,
-// and icon are the ones for the profile's active tab.
-PANE_EXPORT
-NS_SWIFT_NAME(Extension)
-NS_SWIFT_UI_ACTOR
-@interface PaneExtension : NSObject
-
-@property(readonly, copy) NSString* identifier;
-@property(readonly, copy) NSString* name;
-@property(readonly, copy) NSString* version;
-@property(readonly, copy) NSString* summary;
-@property(readonly, getter=isEnabled) BOOL enabled;
-// Shown in the toolbar (Chrome's pinned extensions).
-@property(readonly, getter=isPinned) BOOL pinned;
-@property(readonly, nullable) NSImage* icon;
-@property(readonly, copy, nullable) NSURL* optionsURL;
-
-// The toolbar action (chrome.action / browserAction / pageAction).
-@property(readonly) BOOL hasAction;
-@property(readonly, copy) NSString* actionTitle;
-@property(readonly, copy) NSString* badgeText;
-@property(readonly, nullable) NSColor* badgeBackgroundColor;
-@property(readonly, nullable) NSColor* badgeTextColor;
-@property(readonly, getter=isActionEnabled) BOOL actionEnabled;
-
-- (instancetype)init NS_UNAVAILABLE;
-
-@end
 
 // "Add <extension>?": Chrome asks before installing from the Web Store, or
 // for new permissions. Answered once.
@@ -69,91 +39,6 @@ NS_SWIFT_UI_ACTOR
 
 @end
 
-NS_SWIFT_NAME(ExtensionPopupDelegate)
-NS_SWIFT_UI_ACTOR
-@protocol PaneExtensionPopupDelegate <NSObject>
-@optional
-// The popup's page asked for a new size (it sizes to its content).
-- (void)extensionPopup:(PaneExtensionPopup*)popup didResize:(NSSize)size;
-// The popup closed itself (window.close()), or its extension went away.
-- (void)extensionPopupDidClose:(PaneExtensionPopup*)popup;
-@end
-
-// An extension action's popup page. The app shows `nativeView` (in a
-// popover, sized to `preferredSize`) and calls -close when it goes.
-PANE_EXPORT
-NS_SWIFT_NAME(ExtensionPopup)
-NS_SWIFT_UI_ACTOR
-@interface PaneExtensionPopup : NSObject
-
-@property(readonly, copy) NSString* extensionIdentifier;
-@property(readonly) NSView* nativeView;
-@property(readonly) NSSize preferredSize;
-@property(readonly, getter=isOpen) BOOL open;
-@property(nullable, weak) id<PaneExtensionPopupDelegate> delegate;
-
-- (instancetype)init NS_UNAVAILABLE;
-
-- (void)close;
-
-@end
-
-// MARK: - Extension menu items
-
-// What an extension's menu item draws as.
-typedef NS_ENUM(NSInteger, PaneExtensionMenuItemKind) {
-  PaneExtensionMenuItemKindNormal,
-  PaneExtensionMenuItemKindCheckbox,
-  PaneExtensionMenuItemKindRadio,
-  PaneExtensionMenuItemKindSeparator,
-  PaneExtensionMenuItemKindSubmenu,
-} NS_SWIFT_NAME(ExtensionMenuItemKind);
-
-// An item an extension adds to a context menu (chrome.contextMenus), as
-// Chrome's own menu would show it: an extension with several items gets one
-// submenu, under its name and icon. Choosing one goes back to the menu that
-// made it.
-PANE_EXPORT
-NS_SWIFT_NAME(ExtensionMenuItem)
-NS_SWIFT_UI_ACTOR
-@interface PaneExtensionMenuItem : NSObject
-
-@property(readonly) PaneExtensionMenuItemKind kind;
-@property(readonly, copy) NSString* title;
-@property(readonly, getter=isEnabled) BOOL enabled;
-@property(readonly, getter=isChecked) BOOL checked;
-@property(readonly, nullable) NSImage* icon;
-// A submenu's items.
-@property(readonly, copy) NSArray<PaneExtensionMenuItem*>* children;
-
-- (instancetype)init NS_UNAVAILABLE;
-
-@end
-
-// What the engine gives an extension action's right-click menu, as for the
-// window's active tab: the extension's own items (chrome.contextMenus in the
-// action's context) and its site access on the tab's page.
-PANE_EXPORT
-NS_SWIFT_NAME(ExtensionActionMenu)
-NS_SWIFT_UI_ACTOR
-@interface PaneExtensionActionMenu : NSObject
-
-@property(readonly, copy) NSArray<PaneExtensionMenuItem*>* items;
-// As Chrome's action menu offers it (ExtensionContextMenuModel's page
-// access items): This Can Read and Change Site Data, a submenu of When You
-// Click the Extension, On <site>, and On All Sites, the current one checked,
-// then Learn More About Site Access; or, where the extension can't run on
-// the page, Can't Read or Change Site's Data, disabled. Empty when the
-// extension asks for no site access (no host permissions, no activeTab).
-@property(readonly, copy) NSArray<PaneExtensionMenuItem*>* siteAccessItems;
-
-// Runs one of `items` or `siteAccessItems`.
-- (void)runItem:(PaneExtensionMenuItem*)item NS_SWIFT_NAME(run(_:));
-
-- (instancetype)init NS_UNAVAILABLE;
-
-@end
-
 // MARK: - Extension details
 
 // Where an extension may read and change sites' data, as the Site access
@@ -168,8 +53,8 @@ typedef NS_ENUM(NSInteger, PaneExtensionSiteAccess) {
   PaneExtensionSiteAccessOnAllSites,
 } NS_SWIFT_NAME(ExtensionSiteAccess);
 
-// What chrome://extensions' details page shows of an extension beyond its
-// snapshot (PaneExtension), as of when it was asked for.
+// What chrome://extensions' details page shows of an extension, as of when it
+// was asked for.
 PANE_EXPORT
 NS_SWIFT_NAME(ExtensionDetails)
 NS_SWIFT_UI_ACTOR

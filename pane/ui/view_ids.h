@@ -111,6 +111,32 @@ enum ViewId : int {
   kViewIdDevTools,
   // The full screen's Esc hint (ADR 0025).
   kViewIdExclusiveAccessHint,
+  // The toolbar's extensions (ADR 0054): the pinned actions' capsule, an
+  // action, which the channel names by its extension ("pane.extension.<id>"),
+  // and the puzzle, by the Swift's names.
+  kViewIdExtensionActions,
+  kViewIdExtensionAction,
+  kViewIdExtensions,
+  // The extensions menu under the puzzle, its rows, and an extension's pin
+  // and more, named by the extension ("pane.extensionsMenu.pin.<id>"); the
+  // more menu beside it and its rows.
+  kViewIdExtensionsMenu,
+  kViewIdExtensionsMenuManage,
+  kViewIdExtensionsMenuWebStore,
+  kViewIdExtensionsMenuExtension,
+  kViewIdExtensionsMenuPin,
+  kViewIdExtensionsMenuMore,
+  kViewIdExtensionMoreMenu,
+  kViewIdExtensionMoreMenuStorePage,
+  kViewIdExtensionMoreMenuRemove,
+  kViewIdExtensionMoreMenuPin,
+  kViewIdExtensionMoreMenuManage,
+  kViewIdExtensionMoreMenuOptions,
+  // An action's popup, its bubble in a window of its own (ADR 0031), and
+  // the extension's page in it. The Swift named none of them; its
+  // "pane.extensionPopup" is the prompt that removes an extension (X3).
+  kViewIdActionPopup,
+  kViewIdActionPopupPage,
 
   kViewIdsEnd,
 };

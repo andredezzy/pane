@@ -24,7 +24,10 @@ namespace pane {
 // another match (Return, a chevron) to the frame showing its count (ADR
 // 0067); the page's context menu, from Chrome's hook to the system's menu
 // tracking (the menu draws in a window of its own); and DevTools opened, to
-// the frame that shows their first paint (ADR 0024).
+// the frame that shows their first paint (ADR 0024); the toolbar's puzzle to
+// the frame showing the extensions menu (ADR 0054); and an action's press, or
+// chrome.action.openPopup, to the first frame of its popup, which shows once
+// its page has loaded, in a window of its own (ADR 0031).
 enum class Interaction {
   kSelectTab,
   kNewTab,
@@ -46,6 +49,8 @@ enum class Interaction {
   kFindStep,
   kShowContextMenu,
   kOpenDevTools,
+  kOpenExtensionsMenu,
+  kShowExtensionPopup,
 };
 
 // Times `interaction` from now, as its input is handled, to the frame

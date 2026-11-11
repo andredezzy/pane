@@ -18,10 +18,12 @@
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/app/commands.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/extensions/extensions_ui.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/frame.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/accelerators/accelerator_manager.h"
 #include "ui/base/hit_test.h"
 #include "ui/content_accelerators/accelerator_util.h"
@@ -173,6 +175,7 @@ void Window::Open() {
       base::BindRepeating(&Controller::FindStep, base::Unretained(controller));
   callbacks.find_bar.close =
       base::BindRepeating(&Controller::CloseFind, base::Unretained(controller));
+  callbacks.extensions = &controller->Extensions();
   auto root = std::make_unique<RootView>(std::move(callbacks),
                                          &controller->LoadProgress(),
                                          &controller->AppIcons());
@@ -426,6 +429,14 @@ void Window::FollowPage() {
   }
 }
 
+// The window leaving the front closes the extensions menu, as the Swift's
+// closed when its window resigned key.
+void Window::OnWidgetActivationChanged(views::Widget* widget, bool active) {
+  if (!active) {
+    controller_->Extensions().CloseMenu();
+  }
+}
+
 // A move into or out of full screen ended. Leaving it, the user's or the
 // page's, takes the page out of its fullscreen, which would otherwise fill a
 // window with no sidebar or toolbar (ADR 0025).
@@ -447,6 +458,11 @@ void Window::ShowExclusiveAccessHint(const std::u16string& hint) {
 
 std::unique_ptr<FindBar> Window::CreateFindBar(Browser* browser) {
   return std::make_unique<FindInPage>(weak_factory_.GetWeakPtr(), *browser);
+}
+
+std::unique_ptr<HostedExtensionsContainer> Window::CreateExtensionsContainer(
+    Browser* browser) {
+  return controller_->Extensions().MakeContainer(*browser);
 }
 
 // At each step of DevTools' splitter too: the page and DevTools are laid out
@@ -594,6 +610,19 @@ content::KeyboardEventProcessingResult Window::PreHandleKeyboardEvent(
   }
   if (!pressed) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED;
+  }
+  // The extensions menu's Esc, and a page's dialog's Esc and Return, ahead
+  // of the page as ahead of a focused view of Pane's.
+  if ((event.windows_key_code == ui::VKEY_ESCAPE ||
+       event.windows_key_code == ui::VKEY_RETURN) &&
+      !(event.GetModifiers() &
+        (blink::WebInputEvent::kControlKey | blink::WebInputEvent::kAltKey |
+         blink::WebInputEvent::kMetaKey)) &&
+      root_->OverlayKey(
+          ui::KeyEvent(ui::EventType::kKeyPressed,
+                       static_cast<ui::KeyboardCode>(event.windows_key_code),
+                       ui::EF_NONE))) {
+    return content::KeyboardEventProcessingResult::HANDLED;
   }
   const ui::Accelerator accelerator =
       ui::GetAcceleratorFromNativeWebKeyboardEvent(event);

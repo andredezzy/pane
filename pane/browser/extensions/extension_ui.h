@@ -6,7 +6,7 @@
 namespace pane {
 
 // Routes Chrome's extension UI for the app's profiles to the app: the install
-// prompt, the "added" bubble, and chrome.action.openPopup().
+// prompt and the "added" bubble; and declines Chrome's reload prompt.
 void InstallExtensionHooks();
 
 }  // namespace pane

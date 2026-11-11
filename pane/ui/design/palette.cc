@@ -136,6 +136,13 @@ void AddPaneColors(ui::ColorProvider* provider,
   set(kPaneColorFindBarRing, White(0), White(0.1));
   set(kPaneColorHint, Black(0.75), Black(0.75));
   set(kPaneColorHintText, White(1), White(1));
+  set(kPaneColorActionPopup, Rgba(0xFFFFFF, 0.96), Rgba(0x2C2C2E, 0.96));
+  set(kPaneColorActionPopupEdge, Black(0.12), White(0.14));
+  set(kPaneColorActionPopupCanvas, Rgb(0xFFFFFF), Rgb(0xFFFFFF));
+  // NSColor.systemRed in each appearance.
+  set(kPaneColorBadgeDefault, Rgb(0xFF3B30), Rgb(0xFF453A));
+  set(kPaneColorBadgeDefaultText, White(1), White(1));
+  set(kPaneColorMenuButtonHover, Rgba(0x18181B, 0.08), Rgba(0xFAFAFA, 0.08));
 }
 
 void AddPaneColorMixer() {

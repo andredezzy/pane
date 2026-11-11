@@ -1,57 +1,71 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#ifndef PANE_BROWSER_EXTENSIONS_EXTENSIONS_BRIDGE_H_
-#define PANE_BROWSER_EXTENSIONS_EXTENSIONS_BRIDGE_H_
+#ifndef PANE_UI_EXTENSIONS_BROWSER_EXTENSIONS_H_
+#define PANE_UI_EXTENSIONS_BROWSER_EXTENSIONS_H_
 
-#include <map>
-#include <memory>
 #include <string>
+#include <vector>
 
-#include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/extensions/extension_action_dispatcher.h"
-#include "chrome/browser/ui/browser_tab_strip_tracker.h"
-#include "chrome/browser/ui/browser_tab_strip_tracker_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
-#include "extensions/browser/extension_action_icon_factory.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_observer.h"
 #include "extensions/browser/permissions_manager.h"
+#include "pane/browser/ui/window_host.h"
+#include "pane/ui/extensions/installed_extensions.h"
 
-@class NSArray;
-@class PaneBrowserContext;
-@class PaneExtension;
-
-class Profile;
+class Browser;
 
 namespace pane {
 
-// Watches a profile's extensions (installs, enabling, pins, site access, and
-// each action's title, badge, and icon, which differ per tab) and the
-// profile's selected tab, and tells the PaneBrowserContext's delegate,
-// coalescing bursts into one report.
-class ExtensionsBridge
-    : public extensions::ExtensionRegistryObserver,
+class ExtensionsUi;
+
+// One of the window's Browsers as Chrome's extensions see its toolbar (the
+// ExtensionsContainer Chrome registers for its own windows, as
+// webui_browser_window.cc does for its WebUI one): chrome.action.openPopup
+// shows the popup through it, and what hides a popup or the menu (a media
+// picker, Chrome's own menus) asks it, where patch 0005's hook in
+// extension_action_api.cc did. It also watches the profile's extensions for
+// the window (the Swift's ExtensionsBridge): installs and removals, enabling,
+// pins, site access, each action's title, badge, and icon, and the
+// Browser's active tab, whose actions show. A burst of changes reports once.
+class BrowserExtensions
+    : public HostedExtensionsContainer,
+      public extensions::ExtensionRegistryObserver,
       public extensions::ExtensionActionDispatcher::Observer,
       public extensions::PermissionsManager::Observer,
       public ToolbarActionsModel::Observer,
-      public extensions::ExtensionActionIconFactory::Observer,
-      public TabStripModelObserver,
-      public BrowserTabStripTrackerDelegate {
+      public TabStripModelObserver {
  public:
-  ExtensionsBridge(PaneBrowserContext* context, Profile* profile);
-  ExtensionsBridge(const ExtensionsBridge&) = delete;
-  ExtensionsBridge& operator=(const ExtensionsBridge&) = delete;
-  ~ExtensionsBridge() override;
+  // `ui`, the window's extensions, hears of the changes.
+  BrowserExtensions(Browser& browser, base::WeakPtr<ExtensionsUi> ui);
+  BrowserExtensions(const BrowserExtensions&) = delete;
+  BrowserExtensions& operator=(const BrowserExtensions&) = delete;
+  // The Browser is going: its popup, if one shows, goes first.
+  ~BrowserExtensions() override;
 
-  // Every extension the user installed, as now, actions for the profile's
-  // active tab.
-  NSArray* Snapshot();
+  Browser& browser() const { return *browser_; }
+  // What the profile has installed, each action as for the Browser's active
+  // tab, its icons from this Browser's factories.
+  std::vector<InstalledExtension> List();
+  // The Browser's active tab, whose actions show.
+  content::WebContents* ActiveTab() const;
 
-  // The profile's active tab, or ExtensionAction::kDefaultTabId.
-  int ActiveTabID() const;
+  // ExtensionsContainer:
+  // Pane's toolbar is its own and keeps no ToolbarActionViewModel: Chrome's
+  // callers here are its own toolbar's, the web apps', and the WebUI
+  // browser's.
+  ToolbarActionViewModel* GetActionForId(const std::string& action_id) override;
+  void HideActivePopup() override;
+  void CloseExtensionsMenuIfOpen() override;
+  bool ShowToolbarActionPopupForAPICall(const std::string& action_id,
+                                        ShowPopupCallback callback) override;
+  void ToggleExtensionsMenu() override;
+  bool HasAnyExtensions() const override;
 
   // extensions::ExtensionRegistryObserver:
   void OnExtensionLoaded(content::BrowserContext* browser_context,
@@ -88,31 +102,22 @@ class ExtensionsBridge
   void OnToolbarPinnedActionsChanged() override;
   void OnToolbarActionsModelShutdown() override;
 
-  // extensions::ExtensionActionIconFactory::Observer:
-  void OnIconUpdated() override;
-
-  // TabStripModelObserver: another tab's actions show as it is selected.
+  // TabStripModelObserver: another tab's actions show as it becomes the
+  // active one, and an action's popup closes, as Chrome's does.
   void OnTabStripModelChanged(
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
 
-  // BrowserTabStripTrackerDelegate:
-  bool ShouldTrackBrowser(BrowserWindowInterface* browser) override;
-
  private:
-  // Reports a change once the current burst is over.
+  // Reports a change once the burst it is part of is over.
   void Changed();
   void Report();
-  extensions::ExtensionActionIconFactory* IconFactoryFor(
-      const extensions::Extension& extension);
 
-  __weak PaneBrowserContext* context_;
-  raw_ptr<Profile> profile_;
-  std::map<std::string, std::unique_ptr<extensions::ExtensionActionIconFactory>>
-      icon_factories_;
+  const raw_ref<Browser> browser_;
+  const base::WeakPtr<ExtensionsUi> ui_;
+  ActionIcons icons_;
   bool report_pending_ = false;
-  bool icons_loaded_ = false;
   base::ScopedObservation<extensions::ExtensionRegistry,
                           extensions::ExtensionRegistryObserver>
       registry_observation_{this};
@@ -124,10 +129,9 @@ class ExtensionsBridge
       permissions_observation_{this};
   base::ScopedObservation<ToolbarActionsModel, ToolbarActionsModel::Observer>
       toolbar_observation_{this};
-  BrowserTabStripTracker tab_strip_tracker_{this, this};
-  base::WeakPtrFactory<ExtensionsBridge> weak_factory_{this};
+  base::WeakPtrFactory<BrowserExtensions> weak_factory_{this};
 };
 
 }  // namespace pane
 
-#endif  // PANE_BROWSER_EXTENSIONS_EXTENSIONS_BRIDGE_H_
+#endif  // PANE_UI_EXTENSIONS_BROWSER_EXTENSIONS_H_

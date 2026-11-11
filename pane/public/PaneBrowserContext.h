@@ -46,21 +46,11 @@ NS_SWIFT_UI_ACTOR
 - (void)browserContext:(PaneBrowserContext*)context
      didUpdateDownload:(PaneDownload*)download;
 
-// Extensions (PaneExtensions.h) changed: installed, removed, enabled,
-// disabled, pinned, or an action's title, badge, or icon.
-- (void)browserContextDidChangeExtensions:(PaneBrowserContext*)context;
-
 // "Add <extension>?": Chrome asks before an install (the Web Store's "Add to
 // Chrome", or -installExtensionWithIdentifier:) or for new permissions. Not
 // implemented: Chrome's own dialog.
 - (void)browserContext:(PaneBrowserContext*)context
     confirmExtensionInstall:(PaneExtensionInstallRequest*)request;
-
-// An action's popup is ready to show: the user ran the action, or the
-// extension called chrome.action.openPopup().
-- (void)browserContext:(PaneBrowserContext*)context
-    showExtensionPopup:(PaneExtensionPopup*)popup
-              inWindow:(PaneBrowserWindow*)window;
 
 @end
 
@@ -93,9 +83,6 @@ NS_SWIFT_UI_ACTOR
 
 // MARK: Extensions
 
-// Every extension installed in this profile, actions as for its active tab.
-@property(readonly) NSArray<PaneExtension*>* extensions;
-
 // Installs from the Chrome Web Store, asking first
 // (browserContext:confirmExtensionInstall:).
 - (void)installExtensionWithIdentifier:(NSString*)identifier
@@ -108,15 +95,11 @@ NS_SWIFT_UI_ACTOR
      forExtension:(NSString*)identifier
     NS_SWIFT_NAME(setPinned(_:forExtension:));
 - (void)uninstallExtension:(NSString*)identifier;
-// A click on the extension's action in `window`: opens its popup
-// (browserContext:showExtensionPopup:inWindow:) or fires onClicked.
-- (void)runActionOfExtension:(NSString*)identifier
-                    inWindow:(PaneBrowserWindow*)window
-    NS_SWIFT_NAME(runAction(ofExtension:in:));
 // Runs the extension shortcut (chrome.commands) `event`, a key down, is in
-// `window`, as Chrome does: a command's onCommand, with the active tab, or
-// the action, as a click on it. NO when it is none, or when the menu bar
-// has the key: the browser's shortcuts stay its own.
+// `window`, as Chrome does: a command's onCommand, with the active tab. NO
+// when it is none, when it is the action's (the Views window's ExtensionsUi
+// runs actions, X1, and X5 hands it the shortcut), or when the menu bar has
+// the key: the browser's shortcuts stay its own.
 - (BOOL)runExtensionShortcut:(NSEvent*)event
                     inWindow:(PaneBrowserWindow*)window
     NS_SWIFT_NAME(runExtensionShortcut(_:in:));
@@ -144,12 +127,6 @@ NS_SWIFT_UI_ACTOR
 // end a shortcut.
 + (nullable NSString*)extensionShortcutForEvent:(NSEvent*)event
     NS_SWIFT_NAME(extensionShortcut(for:));
-// The extension's own items and site access for its action's right-click
-// menu, as for the active tab of `window`; nil when it has neither.
-- (nullable PaneExtensionActionMenu*)actionMenuOfExtension:(NSString*)identifier
-                                                  inWindow:
-                                                      (PaneBrowserWindow*)window
-    NS_SWIFT_NAME(actionMenu(ofExtension:in:));
 // The extension's details, as chrome://extensions shows them; nil when it is
 // not installed.
 - (nullable PaneExtensionDetails*)detailsOfExtension:(NSString*)identifier

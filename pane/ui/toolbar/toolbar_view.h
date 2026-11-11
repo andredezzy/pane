@@ -21,13 +21,15 @@ class ToolbarProgress;
 }
 
 class AddressField;
+class ExtensionActionsView;
+class ExtensionsUi;
 class IconButton;
 
 // The selected tab's toolbar at the top of the content panel (the Swift's
 // ToolbarView), at Aside's sizes (ADR 0060): Back, Forward, and Reload, or
 // Stop while the page loads, 32-point circles 2 apart; the address, which
-// takes what the row leaves; the extensions' pinned actions and puzzle,
-// whose place it keeps for X1; and the profile's chip. Back and Forward dim
+// takes what the row leaves; the extensions' pinned actions and the puzzle
+// (ExtensionActionsView); and the profile's chip. Back and Forward dim
 // to 40% while the tab has nowhere to go that way, as Chrome's and Aside's
 // do. The address follows the selected tab: another tab shows its own, and
 // the same tab's new address replaces the text unless the user is typing
@@ -55,6 +57,8 @@ class ToolbarView : public views::View, public views::TextfieldController {
     // Esc in the address: its text is the page's again, and the page takes
     // the keys.
     base::RepeatingClosure address_left;
+    // The window's extensions, the app's, which outlive the toolbar.
+    raw_ptr<ExtensionsUi> extensions = nullptr;
   };
 
   // What the toolbar shows, as values the app gives it (the Swift's read the
@@ -91,6 +95,8 @@ class ToolbarView : public views::View, public views::TextfieldController {
   // What the address holds.
   std::u16string address() const;
   AddressField* address_field() { return address_; }
+  // The shown profile's pinned actions and the puzzle.
+  ExtensionActionsView* extension_actions() { return actions_; }
   // The controls, by the names the channel reads them by.
   std::vector<std::pair<std::string, const views::View*>> NamedViews() const;
 
@@ -118,9 +124,9 @@ class ToolbarView : public views::View, public views::TextfieldController {
   raw_ptr<IconButton> forward_ = nullptr;
   raw_ptr<IconButton> reload_ = nullptr;
   raw_ptr<AddressField> address_ = nullptr;
-  // X1's: the extensions' pinned actions and the puzzle, 32 points while a
-  // profile shows (ADR 0054). Empty until X1 fills it.
-  raw_ptr<views::View> actions_ = nullptr;
+  // The extensions' pinned actions and the puzzle, while a profile shows
+  // (ADR 0054).
+  raw_ptr<ExtensionActionsView> actions_ = nullptr;
   raw_ptr<ProfileChip> chip_ = nullptr;
 };
 

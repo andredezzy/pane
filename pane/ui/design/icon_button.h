@@ -42,6 +42,11 @@ class IconButton : public views::Button {
   // Another icon, as Reload turns to Stop, and the name it reads then.
   void SetGlyph(const Glyph& glyph);
   void SetName(const std::u16string& name);
+  // Another look, as an extension's pin turns blue once pinned.
+  void SetLook(const ControlLook& look);
+  // Lit while what it opens shows (the puzzle's menu), as IconButtonStyle's
+  // isOn; once that goes, the pointer's place decides.
+  void SetHeld(bool held);
 
   // views::Button:
   gfx::Size CalculatePreferredSize(
@@ -53,6 +58,7 @@ class IconButton : public views::Button {
   Glyph glyph_;
   ControlLook look_;
   std::unique_ptr<ControlHighlight> highlight_;
+  raw_ptr<ControlBackground> background_ = nullptr;
 };
 
 }  // namespace pane

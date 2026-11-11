@@ -10,18 +10,14 @@
 #include "base/no_destructor.h"
 #include "chrome/browser/extensions/extension_install_prompt_show_params.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/extensions/extension_install_ui.h"
 #include "chrome/browser/ui/extensions/reload_page_dialog_controller.h"
-#include "extensions/browser/extension_action.h"
 #include "extensions/browser/install_prompt_data.h"
 #include "extensions/common/extension.h"
 #import "pane/browser/browser_application_internal.h"
 #include "pane/browser/engine_trace.h"
-#include "pane/browser/extensions/action_popup.h"
 #include "pane/browser/extensions/extension_hooks.h"
 #import "pane/browser/extensions/extensions_internal.h"
-#include "pane/browser/ui/browser_window.h"
 #import "pane/public/PaneBrowserContext.h"
 
 namespace pane {
@@ -65,23 +61,10 @@ bool ConfirmInstall(
   return true;
 }
 
-std::optional<bool> OpenActionPopup(BrowserWindowInterface& browser,
-                                    const extensions::Extension& extension,
-                                    ShowPopupCallback& callback,
-                                    std::string* error) {
-  if (!HostedBrowserWindow::IsOurs(&browser)) {
-    return std::nullopt;
-  }
-  ActionPopup::Show(static_cast<Browser*>(&browser), extension,
-                    std::move(callback));
-  return true;
-}
-
 }  // namespace
 
 void InstallExtensionHooks() {
   g_pane_extension_install_dialog = &ConfirmInstall;
-  g_pane_open_action_popup = &OpenActionPopup;
   // Chrome's "added" bubble and its "Reload this page to apply your updated
   // settings" have no place in Pane's tabs: the app hears of an install through
   // browserContextDidChangeExtensions:, and a page takes a change of site

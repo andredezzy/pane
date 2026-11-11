@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -26,6 +27,9 @@
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/disable_reason.h"
+#include "extensions/browser/extension_registrar.h"
+#include "extensions/browser/uninstall_reason.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_constants.h"
@@ -44,6 +48,11 @@
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/dialogs/page_dialog.h"
+#include "pane/ui/extensions/action_menu.h"
+#include "pane/ui/extensions/action_popup.h"
+#include "pane/ui/extensions/extension_actions_view.h"
+#include "pane/ui/extensions/extensions_menu_view.h"
+#include "pane/ui/extensions/extensions_ui.h"
 #include "pane/ui/page/find_bar_view.h"
 #include "pane/ui/page/page_context_menu.h"
 #include "pane/ui/panels/app_icon_picker.h"
@@ -451,7 +460,8 @@ void Automation::Dispatch(const std::string& name,
        name == "clickModalButton" || name == "settingsMenu" ||
        name == "dispatchKey" || name == "clickSheetButton" ||
        name == "typeInPage" || name == "modalHost" ||
-       name == "dialogAccessibility" || name == "fillSheet")) {
+       name == "dialogAccessibility" || name == "fillSheet" ||
+       name == "extensionsMenu" || name == "extensionsAccessibility")) {
     std::move(reply).Run(base::Value(), name + ": the window is closed");
     return;
   }
@@ -734,6 +744,46 @@ void Automation::Dispatch(const std::string& name,
               .Set("name",
                    data.GetStringAttribute(ax::mojom::StringAttribute::kName))
               .Set("ignored", view->GetViewAccessibility().GetIsIgnored()));
+    }
+    std::move(reply).Run(base::Value(std::move(parts)), std::string());
+    return;
+  }
+
+  // What VoiceOver reads of the toolbar's extensions and the menus showing
+  // (ADR 0071): each named view's role, name, and whether it is selected.
+  if (name == "extensionsAccessibility") {
+    std::vector<std::pair<std::string, const views::View*>> named;
+    for (auto& entry :
+         window->root()->toolbar()->extension_actions()->NamedViews()) {
+      named.push_back(std::move(entry));
+    }
+    if (ExtensionsMenuView* menu = window->root()->extensions_menu()) {
+      for (auto& entry : menu->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
+    if (ExtensionMoreMenuView* more = window->root()->extension_more_menu()) {
+      for (auto& entry : more->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
+    base::DictValue parts;
+    for (const auto& [part, view] : named) {
+      if (!view->IsDrawn()) {
+        continue;
+      }
+      ui::AXNodeData data;
+      view->GetViewAccessibility().GetAccessibleNodeData(&data);
+      parts.Set(
+          part,
+          base::DictValue()
+              .Set("role", ui::ToString(data.role))
+              .Set("name",
+                   data.GetStringAttribute(ax::mojom::StringAttribute::kName))
+              .Set("selected",
+                   data.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected))
+              .Set("enabled",
+                   data.GetRestriction() != ax::mojom::Restriction::kDisabled));
     }
     std::move(reply).Run(base::Value(std::move(parts)), std::string());
     return;
@@ -1043,12 +1093,20 @@ void Automation::Dispatch(const std::string& name,
   // screen's scale.
   if (name == "render") {
     const std::string* path = command.FindString("path");
+    // An action's popup renders from its own window: { target: "popup" }.
+    const std::string* target = command.FindString("target");
+    views::Widget* drawn = widget;
+    if (target && *target == "popup") {
+      ActionPopup* popup = app_->Extensions().popup();
+      drawn = popup && popup->shown() ? popup->widget() : nullptr;
+    }
     std::optional<std::vector<uint8_t>> png =
-        path ? RenderView(widget->GetRootView(),
-                          widget->GetCompositor()
-                              ? widget->GetCompositor()->device_scale_factor()
-                              : 2)
-             : std::nullopt;
+        path && drawn
+            ? RenderView(drawn->GetRootView(),
+                         drawn->GetCompositor()
+                             ? drawn->GetCompositor()->device_scale_factor()
+                             : 2)
+            : std::nullopt;
     if (!png) {
       std::move(reply).Run(base::Value(), "cannot render");
       return;
@@ -1329,6 +1387,17 @@ void Automation::Dispatch(const std::string& name,
                                   .Append(card.y())
                                   .Append(card.width())
                                   .Append(card.height()));
+      }
+    }
+    // The extensions menu and the more menu, while they show.
+    if (ExtensionsMenuView* menu = window->root()->extensions_menu()) {
+      for (auto& entry : menu->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
+    if (ExtensionMoreMenuView* more = window->root()->extension_more_menu()) {
+      for (auto& entry : more->NamedViews()) {
+        named.push_back(std::move(entry));
       }
     }
     // The page, DevTools docked beside it, and the full screen's hint.
@@ -1714,6 +1783,162 @@ void Automation::Dispatch(const std::string& name,
       app_->NewProfile();
     } else {
       window->root()->ShowSheet(false);
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The toolbar's extensions controls, by the Swift's names: { control,
+  // id }. Each is a real click at the middle of its view, as a hand's, in
+  // the background too: the puzzle, the menu's Manage all extensions, Visit
+  // Chrome Web Store, an extension's row ("run"), pin, and more, and the more
+  // menu's rows; and View Web Permissions, a pinned action's right-click
+  // menu's, chosen as a click in the system's menu chooses it.
+  if (name == "extensionsMenu") {
+    const std::string* control = command.FindString("control");
+    const std::string* id = command.FindString("id");
+    if (!control) {
+      std::move(reply).Run(base::Value(), "extensionsMenu needs a control");
+      return;
+    }
+    if (*control == "viewWebPermissions") {
+      ActionMenu* menu = id ? app_->Extensions().MakeActionMenu(*id) : nullptr;
+      if (!menu || !menu->Choose(u"View Web Permissions")) {
+        std::move(reply).Run(base::Value(),
+                             "no View Web Permissions for that extension");
+        return;
+      }
+      std::move(reply).Run(base::Value(), std::string());
+      return;
+    }
+    const std::string suffix = id ? "." + *id : std::string();
+    const std::map<std::string, std::string> names = {
+        {"puzzle", "pane.extensions"},
+        {"manage", "pane.extensionsMenu.manage"},
+        {"webStore", "pane.extensionsMenu.webStore"},
+        {"run", "pane.extensionsMenu.extension" + suffix},
+        {"pin", "pane.extensionsMenu.pin" + suffix},
+        {"more", "pane.extensionsMenu.more" + suffix},
+        {"storePage", "pane.extensionMoreMenu.storePage"},
+        {"remove", "pane.extensionMoreMenu.remove"},
+        {"morePin", "pane.extensionMoreMenu.pin"},
+        {"manageExtension", "pane.extensionMoreMenu.manage"},
+        {"options", "pane.extensionMoreMenu.options"},
+    };
+    const auto found = names.find(*control);
+    std::vector<std::pair<std::string, const views::View*>> named =
+        window->root()->toolbar()->NamedViews();
+    if (ExtensionsMenuView* menu = window->root()->extensions_menu()) {
+      for (auto& entry : menu->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
+    if (ExtensionMoreMenuView* more = window->root()->extension_more_menu()) {
+      for (auto& entry : more->NamedViews()) {
+        named.push_back(std::move(entry));
+      }
+    }
+    const views::View* view = nullptr;
+    for (const auto& [view_name, each] : named) {
+      if (found != names.end() && view_name == found->second &&
+          each->IsDrawn()) {
+        view = each;
+      }
+    }
+    if (!view) {
+      std::move(reply).Run(base::Value(),
+                           "extensionsMenu: no " + *control + " shows");
+      return;
+    }
+    const gfx::Rect frame = views::View::ConvertRectToTarget(
+        view, widget->GetRootView(), view->GetLocalBounds());
+    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // The shown profile's extension's action, as its button runs it: its
+  // popup, or chrome.action.onClicked (the Swift's runAction).
+  if (name == "runExtensionAction") {
+    const std::string* id = command.FindString("id");
+    if (!id) {
+      std::move(reply).Run(base::Value(), "runExtensionAction needs an id");
+      return;
+    }
+    app_->Extensions().RunAction(*id);
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  if (name == "closeExtensionPopup") {
+    app_->Extensions().ClosePopup();
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A shown extension's pinned action's right-click menu, made as a
+  // right-click makes it: the extension's own items and its site access, as
+  // the Swift's engine handed them over, and the whole menu; with `run`, the
+  // item of that title chosen, as a click in the system's menu chooses it.
+  if (name == "extensionActionMenu") {
+    const std::string* id = command.FindString("id");
+    ActionMenu* menu = id ? app_->Extensions().MakeActionMenu(*id) : nullptr;
+    if (!menu) {
+      std::move(reply).Run(base::Value(base::DictValue()
+                                           .Set("items", base::ListValue())
+                                           .Set("siteAccess", base::ListValue())
+                                           .Set("menu", base::ListValue())),
+                           std::string());
+      return;
+    }
+    const ui::SimpleMenuModel& model = menu->model();
+    base::DictValue described =
+        base::DictValue()
+            .Set("items", PageContextMenus::Describe(model, menu->items_begin(),
+                                                     menu->items_end()))
+            .Set("siteAccess", menu->site_access_index()
+                                   ? PageContextMenus::Describe(
+                                         model, *menu->site_access_index(),
+                                         *menu->site_access_index() + 1)
+                                   : base::ListValue())
+            .Set("menu", PageContextMenus::Describe(model));
+    if (const std::string* run = command.FindString("run")) {
+      if (!menu->Choose(base::UTF8ToUTF16(*run))) {
+        std::move(reply).Run(base::Value(), "no action menu item " + *run);
+        return;
+      }
+    }
+    std::move(reply).Run(base::Value(std::move(described)), std::string());
+    return;
+  }
+
+  // An extension's pin, its being on, and its removal, in a profile, as the
+  // Swift's channel set them in the engine: { id, profile, pinned | enabled }.
+  if (name == "setExtensionPinned" || name == "setExtensionEnabled" ||
+      name == "uninstallExtension") {
+    const std::string* id = command.FindString("id");
+    const std::string* profile_id = command.FindString("profile");
+    Profile* profile = profile_id ? app_->ProfileIfOpen(*profile_id) : nullptr;
+    if (!id || !profile) {
+      std::move(reply).Run(base::Value(),
+                           name + " needs an id and an open profile");
+      return;
+    }
+    if (name == "setExtensionPinned") {
+      app_->Extensions().SetPinned(*profile, *id,
+                                   command.FindBool("pinned").value_or(true));
+    } else if (name == "setExtensionEnabled") {
+      auto* registrar = extensions::ExtensionRegistrar::Get(profile);
+      if (command.FindBool("enabled").value_or(true)) {
+        registrar->EnableExtension(*id);
+      } else {
+        registrar->DisableExtension(
+            *id, {extensions::disable_reason::DISABLE_USER_ACTION});
+      }
+    } else {
+      std::u16string error;
+      extensions::ExtensionRegistrar::Get(profile)->UninstallExtension(
+          *id, extensions::UNINSTALL_REASON_USER_INITIATED, &error);
     }
     std::move(reply).Run(base::Value(), std::string());
     return;

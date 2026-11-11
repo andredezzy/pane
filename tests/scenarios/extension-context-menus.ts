@@ -27,8 +27,8 @@ type Click = {
 type ActionMenu = { items: MenuItemState[]; siteAccess: MenuItemState[] };
 
 // What an extension adds with chrome.contextMenus shows where Chrome shows
-// it. A page's menu has the probe's two page items in a submenu under its
-// name, before Inspect; choosing one runs onClicked with the page and its
+// it. A page's menu, Chrome's own, has the probe's two page items in a
+// submenu under its name, in Chrome's slot before View Page Source; choosing one runs onClicked with the page and its
 // tab, and the checkbox shows its new state the next time. The pinned
 // action's right-click menu reads the probe's action items, the checkbox
 // checked; choosing one runs onClicked for the active tab. Its site access
@@ -96,10 +96,13 @@ const extensionContextMenus: Scenario = async (context) => {
 	const first = await pageMenu();
 	const titles = first.map((item) => item.title);
 
+	// Chrome's own menu (U2, ADR 0096): the extensions' items in their slot,
+	// after the page's own (Print…) and before View Page Source and Inspect.
 	expect(
-		titles.indexOf("Reload") < titles.indexOf(NAME) &&
-			titles.indexOf(NAME) === titles.indexOf("Inspect") - 1,
-		`the probe's submenu is not between the page's items and Inspect: ${titles.join(", ")}`,
+		titles.indexOf("Print…") < titles.indexOf(NAME) &&
+			titles.indexOf(NAME) === titles.indexOf("View Page Source") - 1 &&
+			titles.indexOf("View Page Source") === titles.indexOf("Inspect") - 1,
+		`the probe's submenu is not in Chrome's slot for it: ${titles.join(", ")}`,
 	);
 
 	expect(
@@ -239,19 +242,37 @@ const extensionContextMenus: Scenario = async (context) => {
 			),
 	);
 
-	// The site joins its Details' list, On specific sites.
-	await app.send("showExtensionDetails", { id, profile });
+	// The site joins its Details' list, On specific sites: Pane's Details
+	// until X4 shows chrome://extensions' own.
+	const hasDetails = await app
+		.send("showExtensionDetails", { id, profile })
+		.then(
+			() => true,
+			(error: Error) => {
+				if (!error.message.includes("unknown command")) {
+					throw error;
+				}
 
-	await app.waitFor(
-		"the site in Details' list",
-		(state) =>
-			state.extensionDetails?.siteAccess === "onSpecificSites" &&
-			(state.extensionDetails.specificSites ?? []).some(
-				(each) => new URL(each.replace("*", "x")).hostname === site,
-			),
-	);
+				context.defer(
+					"the site in its Details' list: chrome://extensions/?id= in the profile's tab is X4's",
+				);
 
-	await app.send("showPage", { page: "browser" });
+				return false;
+			},
+		);
+
+	if (hasDetails) {
+		await app.waitFor(
+			"the site in Details' list",
+			(state) =>
+				state.extensionDetails?.siteAccess === "onSpecificSites" &&
+				(state.extensionDetails.specificSites ?? []).some(
+					(each) => new URL(each.replace("*", "x")).hostname === site,
+				),
+		);
+
+		await app.send("showPage", { page: "browser" });
+	}
 
 	await choose("On All Sites", (current) => current.includes("<all_urls>"));
 

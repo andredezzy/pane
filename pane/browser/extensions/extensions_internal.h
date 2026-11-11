@@ -19,54 +19,12 @@ class Extension;
 class InstallPromptData;
 }  // namespace extensions
 
-namespace pane {
-class ActionPopup;
-class ExtensionMenu;
-}  // namespace pane
-
 NS_ASSUME_NONNULL_BEGIN
-
-@interface PaneExtension ()
-// A snapshot of `extension` in `profile`, its action as for `tabID`.
-- (instancetype)initWithExtension:(const extensions::Extension&)extension
-                          profile:(Profile*)profile
-                            tabID:(int)tabID
-                             icon:(nullable NSImage*)icon;
-@end
 
 @interface PaneExtensionInstallRequest ()
 // `answer` gets YES to install.
 - (instancetype)initWithPrompt:(const extensions::InstallPromptData&)prompt
                         answer:(base::OnceCallback<void(bool)>)answer;
-@end
-
-@interface PaneExtensionPopup ()
-- (instancetype)initWithPopup:(std::unique_ptr<pane::ActionPopup>)popup;
-// From the ActionPopup.
-- (void)popupDidResize:(NSSize)size;
-- (void)popupDidClose;
-// Its Browser is going: the popup closes now, before the Browser it holds.
-- (void)browserDidClose;
-@end
-
-@interface PaneExtensionMenuItem ()
-// The item's command in the ExtensionMenu that made it, which runs it.
-@property(readonly) int commandID;
-- (instancetype)initWithKind:(PaneExtensionMenuItemKind)kind
-                   commandID:(int)commandID
-                       title:(NSString*)title
-                     enabled:(BOOL)enabled
-                     checked:(BOOL)checked
-                        icon:(nullable NSImage*)icon
-                    children:(NSArray<PaneExtensionMenuItem*>*)children;
-@end
-
-@interface PaneExtensionActionMenu ()
-// `menu`'s items and `extension`'s site access on `contents`'s page, run for
-// `contents` while it lasts.
-- (instancetype)initWithMenu:(std::unique_ptr<pane::ExtensionMenu>)menu
-                   extension:(const extensions::Extension&)extension
-                    contents:(content::WebContents&)contents;
 @end
 
 @interface PaneExtensionDetails ()

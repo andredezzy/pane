@@ -68,11 +68,12 @@
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/app/dock_icon.h"
-#include "pane/ui/app/installed_extensions.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
 #include "pane/ui/dialogs/permission_prompt.h"
+#include "pane/ui/extensions/action_popup.h"
+#include "pane/ui/extensions/installed_extensions.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/page/devtools.h"
 #include "pane/ui/page/find_in_page.h"
@@ -328,6 +329,20 @@ SettingsUpdate SettingsUpdateOf(const Updater& updater) {
 }
 
 // Find in page's bar as it shows, in the Swift app's snapshot's shape.
+// An action's popup as the channel reads it (the Swift's): its extension,
+// whether its page is up, and the page's size.
+base::Value ExtensionPopupState(const ActionPopup* popup) {
+  if (!popup) {
+    return base::Value();
+  }
+  const gfx::Size size = popup->page_size();
+  return base::Value(base::DictValue()
+                         .Set("extension", popup->extension_id())
+                         .Set("open", popup->shown())
+                         .Set("width", size.width())
+                         .Set("height", size.height()));
+}
+
 base::DictValue FindState(RootView* root) {
   const FindBarView::State state =
       root ? root->find_state() : FindBarView::State();
@@ -569,6 +584,7 @@ UiApp::UiApp()
   // The menu bar, from the same command table as the window's keys, before
   // the window shows, as the Swift's: the Window menu lists it.
   menu_bar_ = std::make_unique<MenuBar>(*this);
+  extensions_ = std::make_unique<ExtensionsUi>(*this);
   window_->Open();
   window_->Show(/*activate=*/true);
   // The update check at launch, then every six hours (ADR 0002): the pill
@@ -625,7 +641,10 @@ UiApp::~UiApp() {
   pages_.clear();
   context_menus_.reset();
   dialogs_.reset();
+  // The menus and an action's popup go before the window they show over.
+  extensions_->Lock();
   window_.reset();
+  extensions_.reset();
   dock_icon_.reset();
   app_icons_.reset();
 }
@@ -688,6 +707,7 @@ void UiApp::LockNow() {
   // Nothing of the window's stays over the PIN screen.
   CancelSwitcher();
   CancelQuit();
+  extensions_->Lock();
 
   std::vector<std::string> profile_ids;
   for (const model::BrowserProfile& profile : model().profiles()) {
@@ -1160,6 +1180,7 @@ void UiApp::ShowWindow() {
   const bool opened = !window_->is_open();
   if (opened) {
     window_->Open();
+    extensions_->Refresh();
   }
   window_->Show(/*activate=*/true);
   if (const std::optional<std::string> active = model().active_tab_id();
@@ -2237,14 +2258,20 @@ void UiApp::OnExpandedProfilesChanged() {
 
 // The sleep clocks follow the selection: the tab and profile left start
 // theirs.
+// The extensions menu closes as another tab or profile shows, and the
+// toolbar shows its actions (the Swift's onChange of the selection).
 void UiApp::OnActiveTabChanged() {
   sleep_->SelectionChanged();
   window_->Refresh();
+  extensions_->CloseMenu();
+  extensions_->Refresh();
 }
 
 void UiApp::OnActiveProfileChanged() {
   sleep_->SelectionChanged();
   window_->Refresh();
+  extensions_->CloseMenu();
+  extensions_->Refresh();
 }
 
 void UiApp::OnProxyStatusChanged() {
@@ -2253,6 +2280,8 @@ void UiApp::OnProxyStatusChanged() {
 
 void UiApp::OnPageChanged() {
   window_->Refresh();
+  extensions_->CloseMenu();
+  extensions_->Refresh();
 }
 
 void UiApp::OnFaviconChanged(const std::string& tab_id) {
@@ -2267,6 +2296,50 @@ void UiApp::OnUpdaterChanged() {
 }
 
 // MARK: The channel
+
+// MARK: Extensions (X1, X2)
+
+ExtensionsUi& UiApp::Extensions() {
+  return *extensions_;
+}
+
+Window& UiApp::ExtensionsWindow() {
+  return *window_;
+}
+
+bool UiApp::ExtensionsAllowed() const {
+  return InteractionAllowed();
+}
+
+// The browser page's profile, as the toolbar shows it.
+Profile* UiApp::ShownProfile() const {
+  const std::optional<std::string>& profile_id = model().active_profile_id();
+  return model().page() == model::BrowserModel::Page::kBrowser && profile_id
+             ? contexts_.Get(*profile_id)
+             : nullptr;
+}
+
+void UiApp::OpenExtensionTab(Profile& profile, const GURL& url) {
+  for (const model::BrowserProfile& each : model().profiles()) {
+    if (contexts_.Get(each.id) == &profile) {
+      OpenTab(each.id, url);
+      return;
+    }
+  }
+}
+
+void UiApp::ShowExtensionsPage(Profile& profile,
+                               const std::string& extension_id) {
+  PANE_TRACE("call", "ExtensionsController.showPage",
+             base::DictValue().Set("extension", extension_id));
+  ShowPage(model::BrowserModel::Page::kExtensions);
+}
+
+void UiApp::ConfirmUninstall(Profile& profile,
+                             const std::string& extension_id) {
+  PANE_TRACE("call", "ExtensionsController.confirmUninstall",
+             base::DictValue().Set("extension", extension_id));
+}
 
 base::DictValue UiApp::Snapshot() const {
   const model::BrowserModel& model = this->model();
@@ -2318,7 +2391,8 @@ base::DictValue UiApp::Snapshot() const {
             ? shown
             : nullptr;
     base::ListValue installed;
-    for (const InstalledExtension& extension : InstalledExtensions(open, tab)) {
+    for (const InstalledExtension& extension :
+         InstalledExtensions(open, tab, nullptr)) {
       installed.Append(
           base::DictValue()
               .Set("id", extension.id)
@@ -2429,6 +2503,13 @@ base::DictValue UiApp::Snapshot() const {
       .Set("pendingRequests", dialogs_->waiting())
       .Set("closedTabs", static_cast<int>(model.history().closed().size()))
       .Set("extensions", std::move(extensions))
+      // The toolbar's extensions menu, the extension whose more menu shows,
+      // and an action's popup while it shows or loads, its page's size.
+      .Set("extensionsMenu", extensions_->menu_open())
+      .Set("extensionMoreMenu", extensions_->more_menu()
+                                    ? base::Value(*extensions_->more_menu())
+                                    : base::Value())
+      .Set("extensionPopup", ExtensionPopupState(extensions_->popup()))
       .Set("downloads", std::move(downloads))
       .Set("crashedTabs", std::move(crashed))
       .Set("pictureInPictureTabs", std::move(picture_in_picture))

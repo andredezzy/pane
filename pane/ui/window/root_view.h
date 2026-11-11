@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "pane/model/app_settings.h"
+#include "pane/ui/extensions/extensions_menu_view.h"
 #include "pane/ui/page/find_bar_view.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/sidebar/resize_handle.h"
@@ -46,6 +47,7 @@ class AppIconImages;
 class AppIconPicker;
 class DialogCard;
 class EmptyStateView;
+class ExtensionsUi;
 class ExclusiveAccessHint;
 class ModalDialog;
 class PageDialog;
@@ -86,6 +88,9 @@ class RootView : public views::View {
     // Find in page's bar: what is typed, a step, and close (also a press
     // anywhere else in the window).
     FindBarView::Callbacks find_bar;
+    // The window's extensions, the app's, which outlive the view: the
+    // toolbar's actions and puzzle, and the menus they open.
+    raw_ptr<ExtensionsUi> extensions = nullptr;
   };
 
   // What the content panel shows: the browser page with a tab selected,
@@ -155,6 +160,16 @@ class RootView : public views::View {
   // While it shows: the bar, and its card in this view, its ring included.
   FindBarView* find_bar();
   gfx::Rect FindBarBounds() const;
+  // The extensions menu under the toolbar's puzzle, its trailing edge on the
+  // puzzle's and 4 under it, and an extension's more menu beside it, level
+  // with its row, both at once (the Swift showed them with no transition);
+  // over a page's dialog and under the switcher, on a shield over the rest
+  // of the window that a press closes them from and that goes nowhere else.
+  void ShowExtensionsMenu(const ExtensionsMenuView::Shows& shows);
+  void HideExtensionsMenu();
+  // While they show.
+  ExtensionsMenuView* extensions_menu();
+  ExtensionMoreMenuView* extension_more_menu();
   // The full screen's Esc hint (ADR 0025), or none for an empty one.
   void ShowExclusiveAccessHint(const std::u16string& hint);
   std::u16string exclusive_access_hint() const;
@@ -189,10 +204,11 @@ class RootView : public views::View {
   void HidePageDialog();
   // The one showing, not one on its way out.
   PageDialog* page_dialog();
-  // Esc or Return, ahead of what has the window's keys: the page's dialog
-  // showing takes it, unless a dialog over the whole window shows over it.
-  // Whether it took it.
-  bool PageDialogKey(const ui::KeyEvent& event);
+  // Esc or Return, ahead of what has the window's keys: the extensions menu
+  // takes Esc, its more menu first (the Swift's KeyRouting), then the page's
+  // dialog showing takes either, unless what shows over them (the switcher,
+  // a dialog over the whole window) has the keys. Whether one took it.
+  bool OverlayKey(const ui::KeyEvent& event);
   // The prototype's sheet over the page (G4): a scrim and a card with a
   // field, keys into it and not the page, Esc and Done closing it.
   void ShowSheet(bool show);
@@ -216,6 +232,10 @@ class RootView : public views::View {
   // views::View:
   gfx::Size GetMinimumSize() const override;
   void Layout(PassKey) override;
+  // Esc while the extensions menu shows and nothing has the keys: the
+  // window's accelerator for it, which the handler ahead of a focused view
+  // can't hear then.
+  bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
 
  private:
   // The content panel's shape, where the window draws its card.
@@ -235,6 +255,8 @@ class RootView : public views::View {
   void PlacePageDialogs();
   // One gone: its card leaves the window.
   void PageDialogLeft(DialogCard* card);
+  // The extensions menus under the puzzle, where the toolbar puts it.
+  void PlaceExtensionsMenu();
 
   Callbacks callbacks_;
   Shows shows_;
@@ -273,9 +295,17 @@ class RootView : public views::View {
   raw_ptr<DialogCard> find_card_ = nullptr;
   raw_ptr<FindBarView> find_bar_ = nullptr;
   FindBarView::State find_state_;
+  // The extensions menu and the more menu on their cards, and the shield
+  // under them.
+  raw_ptr<views::View> extensions_shield_ = nullptr;
+  raw_ptr<DialogCard> extensions_card_ = nullptr;
+  raw_ptr<ExtensionsMenuView> extensions_menu_ = nullptr;
+  raw_ptr<DialogCard> more_card_ = nullptr;
+  raw_ptr<ExtensionMoreMenuView> more_menu_ = nullptr;
   // The full screen's Esc hint, over everything.
   raw_ptr<ExclusiveAccessHint> hint_ = nullptr;
-  // Hands a page's dialog its Esc and Return ahead of the focused view.
+  // Hands the extensions menu its Esc, and a page's dialog its Esc and
+  // Return, ahead of the focused view.
   std::unique_ptr<ui::EventHandler> page_dialog_keys_;
   base::WeakPtrFactory<RootView> weak_factory_{this};
 };

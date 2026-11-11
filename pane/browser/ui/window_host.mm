@@ -150,6 +150,11 @@ std::unique_ptr<FindBar> WindowHost::Delegate::CreateFindBar(Browser* browser) {
   return nullptr;
 }
 
+std::unique_ptr<HostedExtensionsContainer>
+WindowHost::Delegate::CreateExtensionsContainer(Browser* browser) {
+  return nullptr;
+}
+
 bool WindowHost::Delegate::HandleContextMenu(
     content::RenderFrameHost& frame,
     const content::ContextMenuParams& params) {

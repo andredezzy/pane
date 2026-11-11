@@ -531,6 +531,13 @@ export class PaneApp {
 		await this.send("render", { path: join(this.out, file) });
 	}
 
+	// Draws an action's popup, its bubble from its own window, to `file`
+	// (the Views build's; the page itself is left out, as in render).
+	async renderPopup(file: string, settleMs = 300): Promise<void> {
+		await Bun.sleep(settleMs);
+		await this.send("render", { path: join(this.out, file), target: "popup" });
+	}
+
 	async quit(): Promise<void> {
 		await this.send("quit").catch(() => {});
 	}

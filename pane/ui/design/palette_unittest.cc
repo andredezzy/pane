@@ -162,6 +162,20 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
       {"FindBar.ring", kPaneColorFindBarRing, White(0), White(0.1)},
       {"hint", kPaneColorHint, Black(0.75), Black(0.75)},
       {"hintText", kPaneColorHintText, White(1), White(1)},
+      // An action's popup, as Paper 04.12 draws NSPopover's material and
+      // hairline, and ExtensionPopover.swift's white canvas under the page.
+      {"ActionPopup.material", kPaneColorActionPopup, Swift(0xFFFFFF, 0.96),
+       Swift(0x2C2C2E, 0.96)},
+      {"ActionPopup.edge", kPaneColorActionPopupEdge, Black(0.12), White(0.14)},
+      {"ActionPopup.canvas", kPaneColorActionPopupCanvas, Swift(0xFFFFFF),
+       Swift(0xFFFFFF)},
+      // ExtensionActionsView.swift's badge defaults: .systemRed and .white.
+      {"badgeDefault", kPaneColorBadgeDefault, Swift(0xFF3B30),
+       Swift(0xFF453A)},
+      {"badgeDefaultText", kPaneColorBadgeDefaultText, White(1), White(1)},
+      // ExtensionsMenu.swift's TrailingButton: Palette.foreground at 8%.
+      {"menuButtonHover", kPaneColorMenuButtonHover, Swift(0x18181B, 0.08),
+       Swift(0xFAFAFA, 0.08)},
   };
   // Every id of Pane's is checked.
   EXPECT_EQ(std::size(pairs),

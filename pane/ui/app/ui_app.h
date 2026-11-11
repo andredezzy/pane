@@ -27,6 +27,7 @@
 #include "pane/ui/app/menu_bar.h"
 #include "pane/ui/app/sleep_controller.h"
 #include "pane/ui/dialogs/page_dialogs.h"
+#include "pane/ui/extensions/extensions_ui.h"
 #include "pane/ui/page/page_context_menu.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/tabs/favicons.h"
@@ -69,6 +70,7 @@ class UiApp : public AppData::Client,
               public Window::Controller,
               public SleepController::Delegate,
               public PageDialogs::Delegate,
+              public ExtensionsUi::Delegate,
               public model::BrowserModel::Observer,
               public Favicons::Observer,
               public Updater::Observer {
@@ -165,6 +167,10 @@ class UiApp : public AppData::Client,
   void ToggleDevTools();
   // The page's menu shown last, until it closes (the channel's).
   PageContextMenus& context_menus() { return *context_menus_; }
+  // The profile `profile_id` is, while it is open in the engine.
+  Profile* OpenProfile(const std::string& profile_id) const {
+    return contexts_.Get(profile_id);
+  }
   // The menu bar, while the app runs.
   MenuBar& menu_bar() { return *menu_bar_; }
 
@@ -180,6 +186,20 @@ class UiApp : public AppData::Client,
     int selected = 0;
   };
   const std::optional<Switcher>& switcher() const { return switcher_; }
+
+  // ExtensionsUi::Delegate:
+  Window& ExtensionsWindow() override;
+  bool ExtensionsAllowed() const override;
+  Profile* ShownProfile() const override;
+  void OpenExtensionTab(Profile& profile, const GURL& url) override;
+  // Until X4 opens chrome://extensions in the profile's tab, the Swift's own
+  // target: Pane's Extensions page.
+  void ShowExtensionsPage(Profile& profile,
+                          const std::string& extension_id) override;
+  // X3 asks first, in the popup ADR 0056 draws; until then nothing is
+  // removed from the menus.
+  void ConfirmUninstall(Profile& profile,
+                        const std::string& extension_id) override;
 
   // PageDialogs::Delegate:
   RootView* DialogRoot() override;
@@ -235,6 +255,7 @@ class UiApp : public AppData::Client,
   void Stop() override;
   model::ToolbarProgress& LoadProgress() override;
   AppIconImages& AppIcons() override;
+  ExtensionsUi& Extensions() override;
   void EditSettings(
       base::RepeatingCallback<void(model::AppSettings&)> edit) override;
   // The picker over the window, on Settings alone.
@@ -365,6 +386,10 @@ class UiApp : public AppData::Client,
   std::unique_ptr<PageDialogs> dialogs_;
   // The page's right-click menu, Chrome's own (U2).
   std::unique_ptr<PageContextMenus> context_menus_;
+  // The window's extensions: the toolbar's actions and puzzle, the menus,
+  // an action's popup (X1, X2). Made before the window, which shows them,
+  // and gone after it.
+  std::unique_ptr<ExtensionsUi> extensions_;
   std::unique_ptr<AppEvents> events_;
   std::unique_ptr<Automation> automation_;
   // Each tab's page, by its id.

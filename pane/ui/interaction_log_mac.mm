@@ -89,6 +89,12 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kOpenDevTools:
       os_signpost_interval_begin(log, id, "Open developer tools");
       break;
+    case Interaction::kOpenExtensionsMenu:
+      os_signpost_interval_begin(log, id, "Open extensions menu");
+      break;
+    case Interaction::kShowExtensionPopup:
+      os_signpost_interval_begin(log, id, "Show extension popup");
+      break;
   }
   return id;
 }
@@ -203,6 +209,16 @@ void EndInteractionInterval(Interaction interaction,
       break;
     case Interaction::kOpenDevTools:
       os_signpost_interval_end(log, interval, "Open developer tools",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kOpenExtensionsMenu:
+      os_signpost_interval_end(log, interval, "Open extensions menu",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kShowExtensionPopup:
+      os_signpost_interval_end(log, interval, "Show extension popup",
                                PANE_INTERVAL_END_FORMAT, late_us, committed_us,
                                presented_us);
       break;

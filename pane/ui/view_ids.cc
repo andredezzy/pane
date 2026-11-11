@@ -124,6 +124,40 @@ std::string_view ViewIdName(int id) {
       return "pane.devtools";
     case kViewIdExclusiveAccessHint:
       return "pane.exclusiveAccessHint";
+    case kViewIdExtensionActions:
+      return "pane.extensionActions";
+    case kViewIdExtensionAction:
+      return "pane.extension";
+    case kViewIdExtensions:
+      return "pane.extensions";
+    case kViewIdExtensionsMenu:
+      return "pane.extensionsMenu";
+    case kViewIdExtensionsMenuManage:
+      return "pane.extensionsMenu.manage";
+    case kViewIdExtensionsMenuWebStore:
+      return "pane.extensionsMenu.webStore";
+    case kViewIdExtensionsMenuExtension:
+      return "pane.extensionsMenu.extension";
+    case kViewIdExtensionsMenuPin:
+      return "pane.extensionsMenu.pin";
+    case kViewIdExtensionsMenuMore:
+      return "pane.extensionsMenu.more";
+    case kViewIdExtensionMoreMenu:
+      return "pane.extensionMoreMenu";
+    case kViewIdExtensionMoreMenuStorePage:
+      return "pane.extensionMoreMenu.storePage";
+    case kViewIdExtensionMoreMenuRemove:
+      return "pane.extensionMoreMenu.remove";
+    case kViewIdExtensionMoreMenuPin:
+      return "pane.extensionMoreMenu.pin";
+    case kViewIdExtensionMoreMenuManage:
+      return "pane.extensionMoreMenu.manage";
+    case kViewIdExtensionMoreMenuOptions:
+      return "pane.extensionMoreMenu.options";
+    case kViewIdActionPopup:
+      return "pane.actionPopup";
+    case kViewIdActionPopupPage:
+      return "pane.actionPopup.page";
     default:
       return std::string_view();
   }

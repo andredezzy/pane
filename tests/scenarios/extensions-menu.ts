@@ -1,160 +1,64 @@
 import { join } from "node:path";
-import {
-	canDriveUI,
-	clickControl,
-	mainWindowOf,
-	windowState,
-} from "../lib/cua";
-import { DARK_READER } from "../lib/extensions";
+import { extensionId } from "../lib/extensions";
 import {
 	type AppState,
 	bringToFront,
 	launchPane,
 	type PaneApp,
 } from "../lib/pane";
-import { answerSheet, waitForSheet } from "../lib/surfaces";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
-// The toolbar's puzzle opens the extensions menu, as Aside's (Paper: 03.9
-// Browser · Extensions): Manage all extensions opens the Extensions page,
-// Visit Chrome Web Store opens it in a new tab, and each extension's row runs
-// its action, its pin pins and unpins it with the menu still open, and its
-// more menu manages or removes it. Esc and a click outside close the menu.
-// On an unlocked screen each control is pressed with CUA; else the same
-// controller calls run through the automation channel.
-type Control = {
-	// The automation channel's name for it, for a locked screen.
-	name: string;
-	title: string;
-	id: string;
-	extension?: string;
-};
+const PROBE = join(
+	import.meta.dir,
+	"..",
+	"pages",
+	"extensions",
+	"action-probe",
+);
 
-const puzzle: Control = {
-	name: "puzzle",
-	title: "Extensions",
-	id: "pane.extensions",
-};
+const NAME = "Pane action probe";
 
-const manage: Control = {
-	name: "manage",
-	title: "Manage all extensions",
-	id: "pane.extensionsMenu.manage",
-};
-
-const webStore: Control = {
-	name: "webStore",
-	title: "Visit Chrome Web Store",
-	id: "pane.extensionsMenu.webStore",
-};
-
-const row = (title: string): Control => ({
-	name: "run",
-	title,
-	id: `pane.extensionsMenu.extension.${DARK_READER}`,
-	extension: DARK_READER,
-});
-
-const pin = (pinned: boolean): Control => ({
-	name: "pin",
-	title: pinned ? "Unpin from toolbar" : "Pin to toolbar",
-	id: `pane.extensionsMenu.pin.${DARK_READER}`,
-	extension: DARK_READER,
-});
-
-// A row of the more menu.
-const moreItem = (name: string, title: string, id: string): Control => ({
-	name,
-	title,
-	id: `pane.extensionMoreMenu.${id}`,
-	extension: DARK_READER,
-});
-
-const more: Control = {
-	name: "more",
-	title: "More",
-	id: `pane.extensionsMenu.more.${DARK_READER}`,
-	extension: DARK_READER,
-};
-
+// The toolbar's puzzle opens the extensions menu, as Aside's (Paper 03.9
+// Browser · Extensions, 04.6; ADR 0054): Manage all extensions opens the
+// Extensions page, Visit Chrome Web Store opens it in a new tab, and each
+// extension's row runs its action, its pin pins and unpins it with the menu
+// still open, and its more menu opens beside it, where Manage Extension opens
+// the Extensions page and Remove from Pane asks first. Esc and a click outside
+// close the menu. Each control is a real click at its view's middle through
+// the channel (extensionsMenu), in the background too; Esc is Views' own
+// dispatch there, a real key with Pane in front. The extension is a local
+// probe with an icon, a popup, and options, loaded from the command line:
+// one from the Web Store asks in X3's install prompt, its removal asks in
+// X3's popup, and its Details are X4's.
 async function press(
 	app: PaneApp,
-	locked: boolean,
-	control: Control,
+	control: string,
+	id?: string,
 ): Promise<void> {
-	if (locked) {
-		await app.send("extensionsMenu", {
-			control: control.name,
-			id: control.extension,
-		});
-
-		return;
-	}
-
-	const pid = app.browser.pid;
-	await clickControl(pid, await mainWindowOf(pid), control);
+	await app.send("extensionsMenu", { control, id });
 }
 
-// The menu closes as the window gives up key status (another app frontmost
-// a moment, as in pressInMoreMenu), so a press that left it shut is pressed
-// again.
-async function openMenu(app: PaneApp, locked: boolean): Promise<AppState> {
-	for (let attempt = 1; ; attempt++) {
-		await press(app, locked, puzzle);
-
-		try {
-			return await app.waitFor(
-				"the extensions menu",
-				(state) => state.extensionsMenu,
-				5_000,
-			);
-		} catch (error) {
-			if (attempt === 3) {
-				throw error;
-			}
-		}
-	}
-}
-
-// A row of the more menu, the menu reopened first if it closed: the window
-// giving up key status (an extension's popup or tab taking it while the app
-// is not frontmost) closes it, as leaving the window does.
-async function pressInMoreMenu(
+async function pressEscape(
+	context: ScenarioContext,
 	app: PaneApp,
-	locked: boolean,
-	control: Control,
 ): Promise<void> {
-	for (let attempt = 1; ; attempt++) {
-		if ((await app.state()).extensionMoreMenu !== DARK_READER) {
-			if (!(await app.state()).extensionsMenu) {
-				await openMenu(app, locked);
-			}
-
-			await press(app, locked, more);
-
-			await app.waitFor(
-				"the more menu",
-				(state) => state.extensionMoreMenu === DARK_READER,
-			);
-		}
-
-		try {
-			await press(app, locked, control);
-
-			return;
-		} catch (error) {
-			const closed = (await app.state()).extensionMoreMenu !== DARK_READER;
-
-			if (attempt === 3 || !closed) {
-				throw error;
-			}
-		}
+	if (context.foreground) {
+		await app.send("key", { key: "\u001b" });
+	} else {
+		await app.send("dispatchKey", { key: "\u001b" });
 	}
+}
+
+async function openMenu(app: PaneApp): Promise<AppState> {
+	await press(app, "puzzle");
+
+	return app.waitFor("the extensions menu", (state) => state.extensionsMenu);
 }
 
 const extensionsMenu: Scenario = async (context) => {
-	const locked = !(await canDriveUI());
-	const app = await launchPane(context);
+	const app = await launchPane(context, {
+		args: [`--load-extension=${PROBE}`],
+	});
 
 	// Allowed the front, it takes it now: asked for only once the run is under way,
 	// it doesn't always win it from the app in use.
@@ -165,23 +69,35 @@ const extensionsMenu: Scenario = async (context) => {
 	const profile = await app.createProfile("Extensions");
 	const url = context.fixtures.url("light.html?extensions-menu");
 	const { tab } = await app.openPage(profile, url);
+	const id = await extensionId(app, profile, NAME);
 
 	const item = (state: AppState) =>
-		(state.extensions[profile] ?? []).find((each) => each.id === DARK_READER);
+		(state.extensions[profile] ?? []).find((each) => each.id === id);
 
-	// None installed: the puzzle still shows, and the menu says so.
-	await openMenu(app, locked);
+	// None on: the puzzle still shows, and the menu says so.
+	await app.send("setExtensionEnabled", { id, profile, enabled: false });
+	await app.waitFor("the probe off", (state) => item(state)?.enabled === false);
+	await openMenu(app);
 	await app.render("menu-empty.png");
 
+	const empty = await app.frames("pane.extensionsMenu");
+
+	expect(
+		!Object.keys(empty).some((name) =>
+			name.startsWith("pane.extensionsMenu.extension."),
+		),
+		`the empty menu lists ${JSON.stringify(Object.keys(empty))}`,
+	);
+
 	// Esc closes it.
-	await app.send("key", { key: "\u001b" });
+	await pressEscape(context, app);
 	await app.waitFor("the menu closed by Esc", (state) => !state.extensionsMenu);
 
-	// Visit Chrome Web Store: a new tab in the profile.
-	await openMenu(app, locked);
-	await press(app, locked, webStore);
+	// Visit Chrome Web Store: a new tab in the profile, and the menu closes.
+	await openMenu(app);
+	await press(app, "webStore");
 
-	await app.waitFor(
+	const store = await app.waitFor(
 		"the Web Store tab",
 		(state) =>
 			!state.extensionsMenu &&
@@ -190,58 +106,53 @@ const extensionsMenu: Scenario = async (context) => {
 			),
 	);
 
-	// Manage all extensions: the Extensions page.
+	const storeTab = (
+		store.profiles.find((each) => each.id === profile)?.tabs ?? []
+	).find((each) => each.url.startsWith("https://chromewebstore.google.com/"));
+
+	if (storeTab) {
+		await app.send("closeTab", { tab: storeTab.id });
+	}
+
+	// Manage all extensions: the Extensions page (Pane's, the Swift's target,
+	// until X4 opens chrome://extensions in the profile's tab).
 	await app.send("select", { tab });
-	await openMenu(app, locked);
-	await press(app, locked, manage);
+	await openMenu(app);
+	await press(app, "manage");
 
 	await app.waitFor(
 		"the Extensions page",
 		(state) => state.page === "extensions" && !state.extensionsMenu,
 	);
 
-	// Dark Reader, installed by its Web Store ID: pinned, as Chrome pins a new
-	// extension.
-	await app.send("installExtension", { id: DARK_READER, profile });
+	// The probe on and pinned: its button in the toolbar, in the capsule.
+	await app.send("select", { tab });
+	await app.send("setExtensionEnabled", { id, profile, enabled: true });
+	await app.send("setExtensionPinned", { id, profile, pinned: true });
 
-	// The install popup, under the puzzle (the extension has no button yet).
-	const adding = await waitForSheet(app, "extensionInstall", 60_000);
-	await app.render("install-popup.png");
-	await answerSheet(app, adding.buttons?.[0] ?? "Add extension");
-
-	const installed = await app.waitFor(
-		"Dark Reader installed",
-		(state) => item(state)?.enabled === true,
-		120_000,
-	);
-
-	const name = item(installed)?.name ?? "Dark Reader";
-
-	// Dark Reader opens its help page once installed, and the new tab takes
-	// the window's key status a moment, which closes the menu, as leaving the
-	// window does: the menu is used after it.
 	await app.waitFor(
-		"Dark Reader's help tab",
-		(state) =>
-			(state.profiles.find((each) => each.id === profile)?.tabs ?? []).some(
-				(each) => each.url.startsWith("https://darkreader.org/"),
-			),
+		"the probe pinned",
+		(state) => item(state)?.enabled === true && item(state)?.pinned === true,
 		30_000,
 	);
 
-	await Bun.sleep(1_000);
+	const toolbar = await app.frames("pane.extension");
+
+	expect(
+		(toolbar[`pane.extension.${id}`]?.[2] ?? 0) === 32,
+		`the pinned action's button: ${JSON.stringify(toolbar)}`,
+	);
 
 	// Its pin unpins it and pins it again, the menu open throughout.
-	await app.send("select", { tab });
-	await openMenu(app, locked);
-	await press(app, locked, pin(true));
+	await openMenu(app);
+	await press(app, "pin", id);
 
 	await app.waitFor(
 		"unpinned from the menu",
 		(state) => item(state)?.pinned === false && state.extensionsMenu,
 	);
 
-	await press(app, locked, pin(false));
+	await press(app, "pin", id);
 
 	await app.waitFor(
 		"pinned again from the menu",
@@ -250,29 +161,24 @@ const extensionsMenu: Scenario = async (context) => {
 
 	await app.render("menu-light.png");
 
-	// As the screen shows it, over the page: a picture, which nothing reads.
-	if (!locked) {
-		const pid = app.browser.pid;
-
-		await windowState(
-			pid,
-			await mainWindowOf(pid),
-			join(context.out, "menu-window.png"),
-		);
-	}
-
 	// Its row runs its action: the popup, and the menu closes.
-	await press(app, locked, row(name));
+	await press(app, "run", id);
 
-	await app.waitFor(
+	const shown = await app.waitFor(
 		"its popup",
 		(state) =>
-			state.extensionPopup?.extension === DARK_READER && !state.extensionsMenu,
+			state.extensionPopup?.extension === id &&
+			state.extensionPopup.open &&
+			!state.extensionsMenu,
 		30_000,
 	);
 
-	// Its popover gone: the window it gives key back to, while the app is
-	// not frontmost, resigns at once, and that closes the menu.
+	expect(
+		shown.extensionPopup?.width === 300 && shown.extensionPopup.height === 180,
+		`the popup's page sized itself to ${JSON.stringify(shown.extensionPopup)}`,
+	);
+
+	await app.renderPopup("popup-light.png", 500);
 	await app.send("closeExtensionPopup");
 
 	await app.waitFor(
@@ -280,87 +186,104 @@ const extensionsMenu: Scenario = async (context) => {
 		(state) => state.extensionPopup === null,
 	);
 
-	await Bun.sleep(500);
+	// More: Pane's own menu beside the row, its Options as the probe has a
+	// page; Manage Extension opens the Extensions page.
+	await openMenu(app);
+	await press(app, "more", id);
 
-	// More: Pane's own menu beside the row; Manage Extension opens the
-	// Extensions page at its Details.
-	await openMenu(app, locked);
-	await press(app, locked, more);
+	await app.waitFor("the more menu", (state) => state.extensionMoreMenu === id);
 
-	await app.waitFor(
-		"the more menu",
-		(state) => state.extensionMoreMenu === DARK_READER,
+	const more = await app.frames("pane.extensionMoreMenu");
+
+	expect(
+		[
+			"pane.extensionMoreMenu.storePage",
+			"pane.extensionMoreMenu.remove",
+			"pane.extensionMoreMenu.pin",
+			"pane.extensionMoreMenu.manage",
+			"pane.extensionMoreMenu.options",
+		].every((name) => name in more),
+		`the more menu's rows: ${JSON.stringify(Object.keys(more))}`,
 	);
 
 	await app.render("more-menu.png");
 
-	await pressInMoreMenu(
-		app,
-		locked,
-		moreItem("manageExtension", "Manage Extension", "manage"),
-	);
+	// Esc closes the more menu first, then the menu.
+	await pressEscape(context, app);
 
 	await app.waitFor(
-		"the Extensions page again, at its Details",
+		"Esc: the more menu closed, the menu still open",
+		(state) => state.extensionMoreMenu === null && state.extensionsMenu,
+	);
+
+	await press(app, "more", id);
+
+	await app.waitFor(
+		"the more menu again",
+		(state) => state.extensionMoreMenu === id,
+	);
+
+	await press(app, "manageExtension");
+
+	await app.waitFor(
+		"the Extensions page again",
 		(state) =>
 			state.page === "extensions" &&
-			state.extensionDetails?.extension === DARK_READER &&
 			!state.extensionsMenu &&
 			state.extensionMoreMenu === null,
 	);
 
-	// The Dark theme, then a click outside closes the menu.
+	context.defer(
+		"Manage Extension opening the probe's Details: chrome://extensions/?id= in the profile's tab is X4's",
+	);
+
+	// The Dark theme: the menu and the popup.
 	await app.send("theme", { theme: "dark" });
 	await app.send("select", { tab });
-	const opened = await openMenu(app, locked);
+	const opened = await openMenu(app);
 	await app.render("menu-dark.png");
 
-	// A click lands in the key window, as the user's would: the app comes
-	// forward first (pressing with CUA does not make it key). While another
-	// app keeps it, as when someone works on this Mac during the run, Esc
-	// closes the menu instead.
-	if (await bringToFront(context, app, "a click outside closing the menu")) {
-		const height = Number(
-			opened.window.frame.match(/([\d.]+)\}\}$/)?.[1] ?? 800,
-		);
-
-		await app.send("clickWindow", { x: 600, y: height - 100 });
-	} else {
-		await app.send("key", { key: "\u001b" });
-	}
-
-	await app.waitFor("the menu closed", (state) => !state.extensionsMenu);
-
-	// More › Remove from Pane asks first, in the popup under the puzzle.
-	await openMenu(app, locked);
-	await press(app, locked, more);
+	// A click outside closes it, and goes nowhere else: the page under it
+	// keeps its tab.
+	const height = Number(opened.window.frame.match(/([\d.]+)\}\}$/)?.[1] ?? 800);
+	await app.send("clickWindow", { x: 600, y: height - 100 });
 
 	await app.waitFor(
-		"the more menu",
-		(state) => state.extensionMoreMenu === DARK_READER,
+		"the menu closed by a click outside",
+		(state) => !state.extensionsMenu,
 	);
 
-	await pressInMoreMenu(
-		app,
-		locked,
-		moreItem("remove", "Remove from Pane", "remove"),
+	await app.send("runExtensionAction", { id });
+
+	await app.waitFor(
+		"its popup, dark",
+		(state) => state.extensionPopup?.open === true,
+		30_000,
 	);
 
-	const removing = await waitForSheet(app, "extensionRemove");
-	await app.render("remove-popup.png");
+	await app.renderPopup("popup-dark.png", 500);
+	await app.send("closeExtensionPopup");
+
+	await app.waitFor(
+		"the popup closed",
+		(state) => state.extensionPopup === null,
+	);
+
+	// More › Remove from Pane asks first, in X3's popup: until it lands, the
+	// probe stays.
+	await openMenu(app);
+	await press(app, "more", id);
+	await app.waitFor("the more menu", (state) => state.extensionMoreMenu === id);
+	await press(app, "remove");
+	await app.waitFor("the menus closed", (state) => !state.extensionsMenu);
 
 	expect(
-		removing.title === `Remove \u201C${name}\u201D?` &&
-			JSON.stringify(removing.buttons) === JSON.stringify(["Remove", "Cancel"]),
-		`remove popup: ${JSON.stringify(removing)}`,
+		item(await app.state()) !== undefined,
+		"Remove from Pane removed the probe without asking",
 	);
 
-	await answerSheet(app, removing.buttons?.[0] ?? "Remove");
-
-	await app.waitFor(
-		"Dark Reader removed",
-		(state) => item(state) === undefined,
-		30_000,
+	context.defer(
+		"Remove from Pane's popup, and Report abuse in it: the extension prompts are X3's",
 	);
 };
 

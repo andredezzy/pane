@@ -13,7 +13,7 @@ type TabInfo = { id: number; url: string; windowId: number } | null;
 // is the selected Pane tab, from a popup and from a service worker;
 // tabs.create opens a Pane tab in the same profile; windows.create opens a
 // tab too, as in the Electron app. chrome.action.openPopup shows the popup in
-// the app's popover, as the extension's button does. A popup open as its
+// the app's bubble, as the extension's button does. A popup open as its
 // profile is deleted closes with the profile's Browser. A build with no
 // extension popup yet (the Views line before X2) asks the worker alone, and
 // defers the rest.
@@ -121,12 +121,11 @@ const tabsApi: Scenario = async (context) => {
 	}
 
 	// chrome.action.openPopup, which asks for an active window: the app's,
-	// brought forward. Its popup opens where the toolbar button's does
-	// (patch 0005's hook in extension_action_api.cc).
+	// brought forward. Its popup opens where the toolbar button's does,
+	// through the ExtensionsContainer Pane registers for each Browser it
+	// hosts, as Chrome's windows register theirs.
 	const popups = () =>
-		trace().filter(
-			(entry) => entry.name === "PaneBrowserContextDelegate.showExtensionPopup",
-		).length;
+		trace().filter((entry) => entry.name === "ExtensionPopup.show").length;
 
 	const popupsBefore = popups();
 
@@ -162,6 +161,15 @@ const tabsApi: Scenario = async (context) => {
 		(state) => state.extensionPopup?.open === true,
 	);
 
+	const closes = () =>
+		trace().filter(
+			(entry) =>
+				entry.name === "ExtensionPopup.closeWithBrowser" ||
+				entry.name === "ExtensionPopup.close",
+		).length;
+
+	const closesBefore = closes();
+
 	await app.send("deleteProfile", { profile });
 
 	await app.waitFor(
@@ -170,10 +178,9 @@ const tabsApi: Scenario = async (context) => {
 			state.extensionPopup === null && state.pendingProfileDeletions === 0,
 	);
 
-	expect(
-		trace().some((entry) => entry.name === "ExtensionPopup.closeWithBrowser"),
-		"the popup outlived its profile's Browser",
-	);
+	// It closed as its profile's tabs went, before their Browser: as its
+	// active tab changed, as Chrome's popup closes, else with the Browser.
+	expect(closes() > closesBefore, "the popup outlived its profile's Browser");
 
 	await watcher.stop();
 };

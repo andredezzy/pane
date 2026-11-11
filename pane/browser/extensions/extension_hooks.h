@@ -3,30 +3,20 @@
 #ifndef PANE_BROWSER_EXTENSIONS_EXTENSION_HOOKS_H_
 #define PANE_BROWSER_EXTENSIONS_EXTENSION_HOOKS_H_
 
-// Hooks for Chrome's extension UI (patch 0005-pane-extensions). Like
-// ui_hooks.h: Chrome's files define them and include this header (nogncheck);
-// //pane sets them as the browser starts (extension_ui.mm). They only take
-// over for profiles the app has open.
+// The hook for Chrome's extension install prompt (patch 0005-pane-extensions).
+// Like ui_hooks.h: Chrome's file defines it and includes this header
+// (nogncheck); //pane sets it as the browser starts (extension_ui.mm). It
+// only takes over for profiles the app has open. chrome.action.openPopup
+// needs no hook: Pane registers an ExtensionsContainer for each Browser it
+// hosts (pane/ui/extensions/browser_extensions.h).
 
 #include <memory>
-#include <optional>
-#include <string>
 
-#include "base/memory/scoped_refptr.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
-#include "chrome/browser/ui/extensions/extension_popup_types.h"
 
-class BrowserWindowInterface;
 class ExtensionInstallPromptShowParams;
-class Profile;
-class SkBitmap;
-
-namespace content {
-class WebContents;
-}  // namespace content
 
 namespace extensions {
-class Extension;
 class InstallPromptData;
 }  // namespace extensions
 
@@ -36,14 +26,5 @@ extern bool (*g_pane_extension_install_dialog)(
     std::unique_ptr<ExtensionInstallPromptShowParams>& show_params,
     ExtensionInstallPrompt::DoneCallback& done_callback,
     std::unique_ptr<extensions::InstallPromptData>& prompt);
-
-// extension_action_api.cc: chrome.action.openPopup() for a Browser Pane
-// hosts. Empty: not Pane's; true: shown (`callback` runs once it is); false:
-// refused, with `error`.
-extern std::optional<bool> (*g_pane_open_action_popup)(
-    BrowserWindowInterface& browser,
-    const extensions::Extension& extension,
-    ShowPopupCallback& callback,
-    std::string* error);
 
 #endif  // PANE_BROWSER_EXTENSIONS_EXTENSION_HOOKS_H_

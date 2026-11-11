@@ -4,6 +4,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, What Chrome asks for): sign-in goes through the seam Chromium keeps for it, `ChromeContentBrowserClient::CreateHttpAuthCoordinator` (`pane/ui/dialogs/sign_in.h`), so patch 0004 drops its `login_handler_views.cc` hunk and keeps DevTools' virtual and the external protocol dialog's hook: the patches edit 92 Chromium files and change 1,020 lines, with 9 files added (93 and 1,034 before).
 
+> **On the Views line** (`docs/plans/views-migration.md`, X1): chrome.action.openPopup reaches Pane's popup through the `ExtensionsContainer` Pane registers for each Browser it hosts (`pane/ui/extensions/browser_extensions.h`), as `webui_browser_window.cc` registers its own, so patch 0005 drops its `extension_action_api.cc` hunk and keeps the install dialog's hook, X3's: the patches edit 91 Chromium files and change 1,004 lines, with 9 files added (92 and 1,020 before).
+
 Pane moves off Electron to the architecture Arc and Dia use: a pure-Swift app (AppKit + SwiftUI) that links Pane's own Chromium build, `PaneCore.framework`, in the same process through an Objective-C embedding API. The app's `main` calls `ChromeMain` and Chromium owns the run loop; each tab's native view sits in the app's own view hierarchy, so tabs of several profiles share one window; Chrome's `Browser` objects still exist behind every window but stay hidden, so extension APIs and Chrome internals keep working while every Chrome-owned UI surface is routed to the app as a delegate callback and drawn natively.
 
 The framework is built from Chromium's `chrome/` layer plus a `//pane` tree, with a small patch series for the framework layout (ADR 0009), a host mode in which Chrome creates no UI of its own (ADR 0010), and the hook seams.
