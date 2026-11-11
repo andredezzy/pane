@@ -558,10 +558,12 @@ export async function launchPane(
 	mkdirSync(join(automationDir, "in"), { recursive: true });
 	mkdirSync(join(automationDir, "out"), { recursive: true });
 
-	// macOS reports the window occluded while the screen is locked, and
-	// Chromium then hides its pages: no visual updates, no hang monitor.
-	// Chromium's own switch for this keeps pages visible.
-	const locked = await isScreenLocked();
+	// macOS reports the window occluded while the screen is locked, and in
+	// the background on an unlocked one, the user's windows over it: Chromium
+	// then hides its pages (no visual updates, no hang monitor, a chooser
+	// ended, an external app's prompt never asked). Chromium's own switch for
+	// this keeps pages visible; in front the window is the user's to see.
+	const occluded = !context.foreground || (await isScreenLocked());
 
 	// A home of its own, kept with the data so a relaunch finds it (see
 	// browser.ts's launch).
@@ -574,7 +576,7 @@ export async function launchPane(
 		derivedDataRoot: options.derivedDataRoot,
 		cwd: options.cwd,
 		args: [
-			...(locked ? ["--disable-backgrounding-occluded-windows"] : []),
+			...(occluded ? ["--disable-backgrounding-occluded-windows"] : []),
 			...(options.args ?? []),
 		],
 		env: {

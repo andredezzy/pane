@@ -37,8 +37,10 @@ export async function answerModal(app: PaneApp, button: string): Promise<void> {
 type NativeWindow = AppState["nativeWindows"][number];
 
 // Samples the app's windows through a scenario: every visible window must be
-// the app's own (its window, a sheet on it, an app-modal panel). Anything else
-// is Chrome's UI showing through, which stop() fails on, but for what
+// the app's own (its window, a sheet on it, an app-modal panel) or a menu the
+// system draws (NSPopupMenuWindow: the page's menu, Chrome's own as U2 keeps
+// it, and Pane's through MenuRunner, which show with Pane in front). Anything
+// else is Chrome's UI showing through, which stop() fails on, but for what
 // `expected` allows.
 export class WindowWatcher {
 	private readonly others: NativeWindow[] = [];
@@ -62,7 +64,10 @@ export class WindowWatcher {
 
 		this.others.push(
 			...nativeWindows.filter(
-				(window) => window.role === "other" && !this.expected(window),
+				(window) =>
+					window.role === "other" &&
+					window.class !== "NSPopupMenuWindow" &&
+					!this.expected(window),
 			),
 		);
 	}

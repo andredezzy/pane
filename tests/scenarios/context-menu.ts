@@ -48,6 +48,16 @@ const contextMenu: Scenario = async (context) => {
 		return (state.contextMenu ?? []).map((item) => item.title);
 	};
 
+	// Runs the item titled `title`, as a click in the menu; in front, the
+	// system's menu then goes before the next right-click, as a user's does.
+	const run = async (title: string) => {
+		await app.send("chooseContextMenuItem", { title });
+
+		if (context.foreground) {
+			await app.waitFor("the menu gone", (state) => state.contextMenu === null);
+		}
+	};
+
 	// Chooses an item the menu shows enabled.
 	const choose = async (title: string) => {
 		const item = (await app.state()).contextMenu?.find(
@@ -55,7 +65,7 @@ const contextMenu: Scenario = async (context) => {
 		);
 
 		expect(item?.enabled, `${title} is not enabled`);
-		await app.send("chooseContextMenuItem", { title });
+		await run(title);
 	};
 
 	// A link: open it in a new tab beside this one.
@@ -81,7 +91,7 @@ const contextMenu: Scenario = async (context) => {
 
 	expect(unsupported.length === 0, `link menu offers ${unsupported}`);
 
-	await app.send("chooseContextMenuItem", { title: "Open Link in New Tab" });
+	await run("Open Link in New Tab");
 
 	const opened = await app.waitFor(
 		"the link's tab",
@@ -125,7 +135,7 @@ const contextMenu: Scenario = async (context) => {
 			`spelling menu ${editMenu}`,
 		);
 
-		await app.send("chooseContextMenuItem", { title: suggestion });
+		await run(suggestion);
 
 		const text = await pollValue(
 			() =>
@@ -245,7 +255,7 @@ const contextMenu: Scenario = async (context) => {
 		`plain menu ${plainMenu}`,
 	);
 
-	await app.send("chooseContextMenuItem", { title: "Inspect" });
+	await run("Inspect");
 	await app.waitFor("DevTools", (state) => state.devToolsTabs.includes(tab));
 	await app.send("toggleDevTools");
 

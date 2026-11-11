@@ -254,12 +254,23 @@ void PageContextMenus::Filter(RenderViewContextMenuBase& menu) {
 }
 
 const ui::MenuModel* PageContextMenus::model() const {
-  return menu_ && page_ ? &menu_->menu_model() : nullptr;
+  return Open() ? &menu_->menu_model() : nullptr;
+}
+
+// The platform's menu opens inside its own loop, which runs other tasks
+// before it (ui::ShowContextMenu's nested tasks): until it has, there is
+// nothing to choose in nor to close (MenuControllerCocoa's cancel), and
+// none shows.
+bool PageContextMenus::Open() const {
+  return menu_ && page_ && (!running_ || page_->IsShowingContextMenu());
 }
 
 bool PageContextMenus::Choose(std::u16string_view title) {
   if (!menu_ || !page_) {
     Release();
+    return false;
+  }
+  if (!Open()) {
     return false;
   }
   const ui::MenuModel& model = menu_->menu_model();

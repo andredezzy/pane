@@ -59,8 +59,12 @@ class PageContextMenus {
   // read first for Paste's items, then shown.
   void Show(content::RenderFrameHost& frame,
             const content::ContextMenuParams& params);
-  // The menu shown last, until it closes or an item is chosen.
+  // The menu shown last, while an item may be chosen in it: until it closes
+  // or one is, and the platform's from when it has opened.
   const ui::MenuModel* model() const;
+  // A menu is held: on its way, shown, or going. Until none is, Pane shows
+  // no other right-click's menu.
+  bool held() const { return menu_ != nullptr; }
   // How many menus have shown.
   int shown() const { return shown_; }
   // Chooses the enabled item titled `title`, in a submenu too, as a click
@@ -101,6 +105,9 @@ class PageContextMenus {
   static void Filter(RenderViewContextMenuBase& menu);
   // The menu shown goes.
   void Release();
+  // An item may be chosen in the menu held: the platform's once it has
+  // opened.
+  bool Open() const;
 
   std::unique_ptr<RenderViewContextMenuBase> menu_;
   // The page the menu is for: gone, none of its items runs any more.

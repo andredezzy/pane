@@ -2668,11 +2668,14 @@ base::DictValue UiApp::Snapshot() const {
       .Set("switcher", std::move(switcher))
       // Find in page's bar, the page shown's (the Swift's WindowState.find).
       .Set("find", FindState(root))
-      // The page's menu shown last, until it closes, and how many have.
-      .Set("contextMenu", context_menus_->model()
-                              ? base::Value(PageContextMenus::Describe(
-                                    *context_menus_->model()))
-                              : base::Value())
+      // The page's menu shown last, while it may be chosen in; none of its
+      // items while it comes or goes, nothing once it has gone; and how
+      // many have shown.
+      .Set("contextMenu",
+           context_menus_->model()  ? base::Value(PageContextMenus::Describe(
+                                          *context_menus_->model()))
+           : context_menus_->held() ? base::Value(base::ListValue())
+                                    : base::Value())
       .Set("contextMenusShown", context_menus_->shown())
       // What the full screen's hint says, while it does.
       .Set("exclusiveAccessHint",

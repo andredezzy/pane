@@ -2,8 +2,11 @@ import { launchPane, type PaneApp } from "../lib/pane";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The overlay on top takes a key first (ADR 0079): Quit Pane? sits over the
-// extensions menu and over Settings' App icon picker, whichever opened
-// first, so Esc closes Quit Pane? first and the one under it with the next.
+// extensions menu and over Settings' App icon picker, so Esc closes Quit
+// Pane? first and the one under it with the next. Either can only open
+// first: Quit Pane?'s scrim takes a press, as its card every key, as the
+// Swift's modal did, so the press on the puzzle closes Quit Pane? and opens
+// nothing under it.
 // Four monitors used to decide in AppKit's order, which is not the drawing
 // order: one Esc closed the menu hidden under the panel. In Views the
 // overlay on top holds the keys. ⌘Q is posted through AppKit's queue, which
@@ -47,22 +50,19 @@ async function pressEscape(
 	return { quit: after.quitConfirmation, menu: after.extensionsMenu };
 }
 
-async function openBoth(app: PaneApp, first: "menu" | "quit"): Promise<void> {
-	const openMenu = () => app.send("extensionsMenu", { control: "puzzle" });
-	const openQuit = () => app.send("key", { key: "q", modifiers: ["command"] });
+const openMenu = (app: PaneApp) =>
+	app.send("extensionsMenu", { control: "puzzle" });
 
+const openQuit = (app: PaneApp) =>
+	app.send("key", { key: "q", modifiers: ["command"] });
+
+// The menu, then ⌘Q: Quit Pane? over it.
+async function openBoth(app: PaneApp): Promise<void> {
 	await app.send("activate");
 	await app.waitFor("the key window", (state) => state.window.key, 10_000);
-
-	if (first === "menu") {
-		await openMenu();
-		await app.waitFor("the menu", (state) => state.extensionsMenu);
-		await openQuit();
-	} else {
-		await openQuit();
-		await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
-		await openMenu();
-	}
+	await openMenu(app);
+	await app.waitFor("the menu", (state) => state.extensionsMenu);
+	await openQuit(app);
 
 	await app.waitFor(
 		"Quit Pane? over the menu",
@@ -134,27 +134,37 @@ const keyPrecedence: Scenario = async (context) => {
 		return;
 	}
 
-	const orders: Record<string, Showing[]> = {};
+	await openBoth(app);
 
-	for (const first of ["menu", "quit"] as const) {
-		await openBoth(app, first);
+	const steps = [
+		await pressEscape(context, app),
+		await pressEscape(context, app),
+	];
 
-		orders[first] = [
-			await pressEscape(context, app),
-			await pressEscape(context, app),
-		];
-	}
+	expect(
+		JSON.stringify(steps) ===
+			JSON.stringify([
+				{ quit: false, menu: true },
+				{ quit: false, menu: false },
+			]),
+		`Quit Pane? over the menu: Esc, then Esc, left ${JSON.stringify(steps)}`,
+	);
 
-	for (const [first, steps] of Object.entries(orders)) {
-		expect(
-			JSON.stringify(steps) ===
-				JSON.stringify([
-					{ quit: false, menu: true },
-					{ quit: false, menu: false },
-				]),
-			`the ${first} first: Esc, then Esc, left ${JSON.stringify(steps)}`,
-		);
-	}
+	// Quit Pane? first: the press on the puzzle lands on its scrim.
+	await openQuit(app);
+	await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
+	await openMenu(app);
+
+	const pressed = await app.waitFor(
+		"the press on Quit Pane?'s scrim",
+		(state) => !state.quitConfirmation,
+		5_000,
+	);
+
+	expect(
+		!pressed.extensionsMenu,
+		"the press under Quit Pane? opened the extensions menu",
+	);
 };
 
 export default keyPrecedence;
