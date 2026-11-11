@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <map>
 #include <string_view>
-#include <utility>
 
 #include "base/apple/bundle_locations.h"
 #include "base/apple/foundation_util.h"
@@ -147,13 +146,6 @@ std::optional<std::string> InfoString(CFDictionaryRef info, CFStringRef key) {
 }
 
 }  // namespace
-
-UpdateInstaller::UpdateInstaller(base::FilePath bundle, std::string identifier)
-    : bundle_(std::move(bundle)), identifier_(std::move(identifier)) {}
-
-UpdateInstaller::UpdateInstaller(const UpdateInstaller&) = default;
-UpdateInstaller& UpdateInstaller::operator=(const UpdateInstaller&) = default;
-UpdateInstaller::~UpdateInstaller() = default;
 
 // static
 std::optional<UpdateInstaller> UpdateInstaller::ForRunningApp() {

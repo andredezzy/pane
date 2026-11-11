@@ -406,15 +406,7 @@ int ExtensionPromptView::ArrangeInstall(int width, bool place) const {
     y += panel;
   }
   y += kInstallButtonsTop;
-  const gfx::Size accept = accept_->GetPreferredSize();
-  const gfx::Size cancel = cancel_->GetPreferredSize();
-  if (place) {
-    accept_->SetBounds(width - accept.width(), y, accept.width(),
-                       accept.height());
-    cancel_->SetBounds(accept_->x() - kButtonSpacing - cancel.width(), y,
-                       cancel.width(), cancel.height());
-  }
-  return y + std::max(accept.height(), cancel.height());
+  return ArrangeButtons(width, y, place);
 }
 
 int ExtensionPromptView::ArrangeRemove(int width, bool place) const {
@@ -433,6 +425,10 @@ int ExtensionPromptView::ArrangeRemove(int width, bool place) const {
     report_abuse_->SetBounds(0, y, std::min(box.width(), width), box.height());
   }
   y += box.height() + kRemoveSpacing + kRemoveButtonsTop;
+  return ArrangeButtons(width, y, place);
+}
+
+int ExtensionPromptView::ArrangeButtons(int width, int y, bool place) const {
   const gfx::Size accept = accept_->GetPreferredSize();
   const gfx::Size cancel = cancel_->GetPreferredSize();
   if (place) {

@@ -130,6 +130,17 @@ const profileSheet: Scenario = async (context) => {
 		};
 
 		const newSheet = async () => {
+			// A hand is over New before it presses it, so the window knows the
+			// pointer is there and the sheet's scrim takes it from New as it
+			// shows (pointerAway): a click with no move before it left New lit
+			// under the scrim in every render.
+			const button = await frame("pane.sidebar.new");
+
+			await app.send("hoverWindow", {
+				x: button.x + button.w / 2,
+				y: button.y + button.h / 2,
+			});
+
 			await press("pane.sidebar.new");
 
 			await app.waitFor(

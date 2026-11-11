@@ -17,7 +17,6 @@
 
 namespace views {
 class Label;
-class MenuRunner;
 }  // namespace views
 
 namespace gfx {
@@ -63,10 +62,6 @@ class TabRow : public RowButton,
 
   void Update(const SidebarTab& tab);
   const SidebarTab& tab() const { return tab_; }
-  // The menu its right click shows, which the channel reads and chooses
-  // from.
-  ui::SimpleMenuModel& menu_model() { return menu_model_; }
-
   // views::Button:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
@@ -96,8 +91,6 @@ class TabRow : public RowButton,
   const Actions actions_;
   raw_ptr<views::Label> title_ = nullptr;
   raw_ptr<CloseButton> close_ = nullptr;
-  ui::SimpleMenuModel menu_model_{this};
-  std::unique_ptr<views::MenuRunner> menu_runner_;
   base::WeakPtrFactory<TabRow> weak_factory_{this};
 };
 

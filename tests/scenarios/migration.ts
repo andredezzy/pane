@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { join, relative } from "node:path";
 import { launchTraced } from "../lib/traced";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The first launch after the Electron app. Electron itself (41.4.0, the
 // version the Electron app shipped, kept as a dev dependency for this) writes
@@ -23,7 +23,9 @@ import { expect, type Scenario } from "../run";
 // settings are there, and the profile's pages see the Electron app's cookie
 // and storage. The extension, which the Electron app installed once for
 // every profile, reinstalls in none: each profile adds its own. The Electron
-// data the migration reads is byte for byte as it was.
+// data the migration reads is byte for byte as it was. Once behind the
+// Electron app's PIN, and once from an Electron app that had none, which
+// Pane opens unlocked (ADR 0122).
 
 const ELECTRON = join(
 	import.meta.dir,
@@ -101,9 +103,7 @@ function snapshot(root: string): Record<string, string> {
 	return files;
 }
 
-const migration: Scenario = async (context) => {
-	expect(existsSync(ELECTRON), `no Electron at ${ELECTRON}`);
-
+async function migrate(context: ScenarioContext, pin: boolean) {
 	// The Electron app's data.
 	const source = context.tempDir("pane-electron-");
 
@@ -211,14 +211,16 @@ const migration: Scenario = async (context) => {
 		}),
 	);
 
-	// bcryptjs 3.0.3, hashSync("1234", 10).
+	// bcryptjs 3.0.3, hashSync("1234", 10); with no PIN, the store's null.
 	writeFileSync(
 		join(source, "security.json"),
 		json({
-			pin: {
-				hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
-				length: 4,
-			},
+			pin: pin
+				? {
+						hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
+						length: 4,
+					}
+				: null,
 			failedAttempts: 0,
 		}),
 	);
@@ -264,10 +266,14 @@ const migration: Scenario = async (context) => {
 
 	const dataDir = context.tempDir("pane-data-");
 
-	const launching = launchTraced(context, "migration", {
-		dataDir,
-		env: { PANE_ELECTRON_DATA_DIR: source },
-	});
+	const launching = launchTraced(
+		context,
+		pin ? "migration" : "migration-no-pin",
+		{
+			dataDir,
+			env: { PANE_ELECTRON_DATA_DIR: source },
+		},
+	);
 
 	await Bun.sleep(3_000);
 
@@ -292,15 +298,22 @@ const migration: Scenario = async (context) => {
 
 	const launched = await app.state();
 
-	expect(
-		launched.security.locked && launched.security.pinLength === 4,
-		`not locked behind the migrated PIN: ${JSON.stringify(launched.security)}`,
-	);
+	if (pin) {
+		expect(
+			launched.security.locked && launched.security.pinLength === 4,
+			`not locked behind the migrated PIN: ${JSON.stringify(launched.security)}`,
+		);
 
-	await app.send("pinKeys", { keys: "1234" });
+		await app.send("pinKeys", { keys: "1234" });
+	} else {
+		expect(
+			!launched.security.locked && launched.security.pinLength === null,
+			`locked with no PIN migrated: ${JSON.stringify(launched.security)}`,
+		);
+	}
 
-	// The PIN opens the data key; the Electron app's profiles then move into
-	// the data volume (ADR 0113), and Pane opens.
+	// The PIN, if any, opens the data key; the Electron app's profiles then
+	// move into the data volume (ADR 0113), and Pane opens.
 	const unlocked = await app.waitFor(
 		"unlocked, its data moved in",
 		(state) => !state.security.locked && state.security.data.phase === "open",
@@ -400,12 +413,21 @@ const migration: Scenario = async (context) => {
 		whileElectronRan: waited,
 		pin: {
 			lockedAtLaunch: launched.security.locked,
-			unlockedWith: "the Electron app's bcryptjs hash",
+			unlockedWith: pin ? "the Electron app's bcryptjs hash" : null,
 		},
 		profiles,
 		settings: { theme: unlocked.theme },
 		siteData: seen,
 		extensions: { electron: [EXTENSION], reinstalled: extensions },
+	};
+}
+
+const migration: Scenario = async (context) => {
+	expect(existsSync(ELECTRON), `no Electron at ${ELECTRON}`);
+
+	return {
+		withPin: await migrate(context, true),
+		withoutPin: await migrate(context, false),
 	};
 };
 

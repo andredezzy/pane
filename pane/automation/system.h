@@ -3,7 +3,10 @@
 #ifndef PANE_AUTOMATION_SYSTEM_H_
 #define PANE_AUTOMATION_SYSTEM_H_
 
+#include <optional>
 #include <string>
+
+#include "base/types/expected.h"
 
 namespace pane {
 
@@ -22,6 +25,14 @@ void RequestEnhancedUserInterface();
 // as the system posts it: "screensSleep" (the displays sleeping) or
 // "sessionResign" (another user taking the session). False for another.
 bool PostSystemEvent(const std::string& event);
+
+// `source` run as AppleScript in the app, against itself (`tell current
+// application`, with the dictionary's raw codes), as a launcher reaches a
+// browser from outside, but asking the Mac's user for no Apple Events
+// permission (applescript, ADR 0112): its result as text, none when it gives
+// none, or what went wrong.
+base::expected<std::optional<std::string>, std::string> RunAppleScript(
+    const std::string& source);
 
 }  // namespace pane
 

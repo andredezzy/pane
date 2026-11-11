@@ -357,7 +357,7 @@ SettingsUpdate SettingsUpdateOf(const Updater& updater) {
         {u"Pane is up to date \u00B7 checked at ", TimeOfDay(*checked)});
     update.up_to_date = true;
   } else {
-    update.status = u"Pane checks for a new version on its own.";
+    update.status = SettingsUpdate::kChecksOnItsOwn;
   }
   const bool checking = updater.status() == Updater::Status::kChecking;
   update.button = checking ? u"Checking\u2026" : u"Check for updates";
@@ -1285,17 +1285,10 @@ void UiApp::Release(const std::string& tab_id) {
 
 // Releases every page of a profile; its tabs stay (CONTEXT.md: Unload).
 void UiApp::UnloadProfile(const std::string& profile_id) {
-  const model::BrowserProfile* profile = model().FindProfile(profile_id);
-  if (!profile) {
+  if (!model().FindProfile(profile_id)) {
     return;
   }
-  std::vector<std::string> tab_ids;
-  for (const model::Tab& tab : profile->tabs) {
-    tab_ids.push_back(tab.id);
-  }
-  for (const std::string& tab_id : tab_ids) {
-    Release(tab_id);
-  }
+  ReleasePages(profile_id);
   if (model().active_profile_id() == profile_id) {
     window_->ClearPage();
     model().SelectTab(std::nullopt);

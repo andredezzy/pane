@@ -197,6 +197,7 @@ source_set("pane") {
     "updates/dmg_download.cc",
     "updates/dmg_download.h",
     "updates/update_files.h",
+    "updates/update_installer.cc",
     "updates/update_installer.h",
     "updates/updater.cc",
     "updates/updater.h",

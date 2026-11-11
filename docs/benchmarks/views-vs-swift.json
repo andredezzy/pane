@@ -1,0 +1,6174 @@
+{
+	"what": "K2b (docs/plans/views-migration.md, Phase 4): the final tree's Views build (main at 1f2ea43 with K2b's fixes) against the published 0.19.2, on an M5 Pro on 2026-11-11, by Phase 1's budgets (tests/ab.ts, 3 rounds taking turns: launch, unlock, pages, memory, scroll, frame-latency); the keys in the background by the cmdt-probe's ab-key-timing, three runs each, taking turns; the scenarios' runs; the renders against the Swift's.",
+	"budgets": [
+		{
+			"measure": "Launch to first window, cold",
+			"benchmark": "launch",
+			"leaf": "summary.cold.window.median",
+			"base": 399.628662109375,
+			"candidate": 362.5146484375,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +5 ms",
+			"holds": true
+		},
+		{
+			"measure": "Launch to first window, warm",
+			"benchmark": "launch",
+			"leaf": "summary.warm.window.median",
+			"base": 402.558837890625,
+			"candidate": 375.758544921875,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +5 ms",
+			"holds": true
+		},
+		{
+			"measure": "PIN to first page painted",
+			"benchmark": "unlock",
+			"leaf": "fromPin.median",
+			"base": 564.300048828125,
+			"candidate": 431.300048828125,
+			"rounds": {
+				"base": 6,
+				"candidate": 6
+			},
+			"budget": "\u2264 +25 ms",
+			"holds": true
+		},
+		{
+			"measure": "No PIN, launch to first page painted",
+			"benchmark": "unlock",
+			"leaf": "withoutPin.median",
+			"base": 711.050048828125,
+			"candidate": 628.9000244140625,
+			"rounds": {
+				"base": 6,
+				"candidate": 6
+			},
+			"budget": "\u2264 +25 ms",
+			"holds": true
+		},
+		{
+			"measure": "Memory, 1 tab",
+			"benchmark": "memory",
+			"leaf": "summary.1.footprintSumBytes.median",
+			"base": 143.33599853515625,
+			"candidate": 146.89081192016602,
+			"rounds": {
+				"base": 3,
+				"candidate": 4
+			},
+			"budget": "\u2264 +1%",
+			"holds": false
+		},
+		{
+			"measure": "\u2026 the browser process (with the watchdog)",
+			"benchmark": "memory",
+			"leaf": "summary.1.byType.browser.footprintBytes.median",
+			"base": 68.12712860107422,
+			"candidate": 65.37710571289062,
+			"rounds": {
+				"base": 3,
+				"candidate": 4
+			},
+			"budget": "\u2264 0.19.2's",
+			"holds": true
+		},
+		{
+			"measure": "\u2026 the GPU process",
+			"benchmark": "memory",
+			"leaf": "summary.1.byType.gpu-process.footprintBytes.median",
+			"base": 25.92304229736328,
+			"candidate": 30.969940185546875,
+			"rounds": {
+				"base": 3,
+				"candidate": 4
+			},
+			"budget": "",
+			"holds": null
+		},
+		{
+			"measure": "Memory, 10 tabs",
+			"benchmark": "memory",
+			"leaf": "summary.10.footprintSumBytes.median",
+			"base": 337.7381362915039,
+			"candidate": 337.49581146240234,
+			"rounds": {
+				"base": 3,
+				"candidate": 4
+			},
+			"budget": "\u2264 +1%",
+			"holds": true
+		},
+		{
+			"measure": "\u2026 the browser process (with the watchdog)",
+			"benchmark": "memory",
+			"leaf": "summary.10.byType.browser.footprintBytes.median",
+			"base": 78.5334243774414,
+			"candidate": 71.31460571289062,
+			"rounds": {
+				"base": 3,
+				"candidate": 4
+			},
+			"budget": "\u2264 0.19.2's",
+			"holds": true
+		},
+		{
+			"measure": "\u2026 the GPU process",
+			"benchmark": "memory",
+			"leaf": "summary.10.byType.gpu-process.footprintBytes.median",
+			"base": 55.594940185546875,
+			"candidate": 61.98551940917969,
+			"rounds": {
+				"base": 3,
+				"candidate": 4
+			},
+			"budget": "",
+			"holds": null
+		},
+		{
+			"measure": "Warm load, `smoke.html`",
+			"benchmark": "pages",
+			"leaf": "summary.warm.smoke.html.loadEventEnd.median",
+			"base": 5.799999982118607,
+			"candidate": 6.0,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +3%",
+			"holds": false
+		},
+		{
+			"measure": "Warm load, `find.html`",
+			"benchmark": "pages",
+			"leaf": "summary.warm.find.html.loadEventEnd.median",
+			"base": 9.299999982118607,
+			"candidate": 6.0,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +3%",
+			"holds": true
+		},
+		{
+			"measure": "Warm load, `nav-a.html`",
+			"benchmark": "pages",
+			"leaf": "summary.warm.nav-a.html.loadEventEnd.median",
+			"base": 9.700000017881393,
+			"candidate": 6.4000000059604645,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +3%",
+			"holds": true
+		},
+		{
+			"measure": "Warm load, Wikipedia",
+			"benchmark": "pages",
+			"leaf": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+			"base": 195.69999998807907,
+			"candidate": 183.30000001192093,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +3%",
+			"holds": true
+		},
+		{
+			"measure": "Warm load, Apple",
+			"benchmark": "pages",
+			"leaf": "summary.warm.https://www.apple.com/.loadEventEnd.median",
+			"base": 754.8999999761581,
+			"candidate": 427.5,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +3%",
+			"holds": true
+		},
+		{
+			"measure": "Warm load, GitHub",
+			"benchmark": "pages",
+			"leaf": "summary.warm.https://github.com/.loadEventEnd.median",
+			"base": 619.0,
+			"candidate": 613.7999999821186,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +3%",
+			"holds": true
+		},
+		{
+			"measure": "Scroll, frames dropped of 480",
+			"benchmark": "scroll",
+			"leaf": "summary.dropped.median",
+			"base": 0.0,
+			"candidate": 0.0,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 0.19.2's",
+			"holds": true
+		},
+		{
+			"measure": "A painted frame reaching the screen, median",
+			"benchmark": "frame-latency",
+			"leaf": "summary.SubmitCompositorFrameToPresentationCompositorFrame.medianMs",
+			"base": 18.98,
+			"candidate": 18.9,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "\u2264 +1 ms",
+			"holds": true
+		},
+		{
+			"measure": "\u2026 p90",
+			"benchmark": "frame-latency",
+			"leaf": "summary.SubmitCompositorFrameToPresentationCompositorFrame.p90Ms",
+			"base": 20.36,
+			"candidate": 19.93,
+			"rounds": {
+				"base": 3,
+				"candidate": 3
+			},
+			"budget": "",
+			"holds": null
+		}
+	],
+	"abRuns": {
+		"ab": {
+			"binaries": {
+				"base": "evidence/views-migration/apps.noindex/published/0.19.2/Pane.app/Contents/MacOS/Pane",
+				"candidate": "evidence/views-migration/apps.noindex/k2b/bench/Pane.app/Contents/MacOS/Pane"
+			},
+			"rounds": 3,
+			"runs": [
+				{
+					"round": 1,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 112985
+				},
+				{
+					"round": 1,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 110014
+				},
+				{
+					"round": 1,
+					"benchmark": "unlock",
+					"side": "base",
+					"ok": true,
+					"ms": 19673
+				},
+				{
+					"round": 1,
+					"benchmark": "unlock",
+					"side": "candidate",
+					"ok": true,
+					"ms": 17206
+				},
+				{
+					"round": 1,
+					"benchmark": "pages",
+					"side": "base",
+					"ok": true,
+					"ms": 112796
+				},
+				{
+					"round": 1,
+					"benchmark": "pages",
+					"side": "candidate",
+					"ok": true,
+					"ms": 109700
+				},
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 296069
+				},
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 291372
+				},
+				{
+					"round": 1,
+					"benchmark": "scroll",
+					"side": "base",
+					"ok": true,
+					"ms": 72716
+				},
+				{
+					"round": 1,
+					"benchmark": "scroll",
+					"side": "candidate",
+					"ok": true,
+					"ms": 72411
+				},
+				{
+					"round": 1,
+					"benchmark": "frame-latency",
+					"side": "base",
+					"ok": true,
+					"ms": 72423
+				},
+				{
+					"round": 1,
+					"benchmark": "frame-latency",
+					"side": "candidate",
+					"ok": true,
+					"ms": 72109
+				},
+				{
+					"round": 2,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 110252
+				},
+				{
+					"round": 2,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 110149
+				},
+				{
+					"round": 2,
+					"benchmark": "unlock",
+					"side": "candidate",
+					"ok": true,
+					"ms": 16164
+				},
+				{
+					"round": 2,
+					"benchmark": "unlock",
+					"side": "base",
+					"ok": true,
+					"ms": 19161
+				},
+				{
+					"round": 2,
+					"benchmark": "pages",
+					"side": "candidate",
+					"ok": true,
+					"ms": 108315
+				},
+				{
+					"round": 2,
+					"benchmark": "pages",
+					"side": "base",
+					"ok": true,
+					"ms": 111038
+				},
+				{
+					"round": 2,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 291512
+				},
+				{
+					"round": 2,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 296131
+				},
+				{
+					"round": 2,
+					"benchmark": "scroll",
+					"side": "candidate",
+					"ok": false,
+					"ms": 646066,
+					"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+				},
+				{
+					"round": 2,
+					"benchmark": "scroll",
+					"side": "base",
+					"ok": false,
+					"ms": 1018871,
+					"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+				},
+				{
+					"round": 2,
+					"benchmark": "frame-latency",
+					"side": "candidate",
+					"ok": false,
+					"ms": 197210,
+					"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+				},
+				{
+					"round": 2,
+					"benchmark": "frame-latency",
+					"side": "base",
+					"ok": false,
+					"ms": 601521,
+					"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+				},
+				{
+					"round": 3,
+					"benchmark": "launch",
+					"side": "base",
+					"ok": true,
+					"ms": 120586
+				},
+				{
+					"round": 3,
+					"benchmark": "launch",
+					"side": "candidate",
+					"ok": true,
+					"ms": 108372
+				},
+				{
+					"round": 3,
+					"benchmark": "unlock",
+					"side": "base",
+					"ok": true,
+					"ms": 19449
+				},
+				{
+					"round": 3,
+					"benchmark": "unlock",
+					"side": "candidate",
+					"ok": true,
+					"ms": 16553
+				},
+				{
+					"round": 3,
+					"benchmark": "pages",
+					"side": "base",
+					"ok": true,
+					"ms": 103505
+				},
+				{
+					"round": 3,
+					"benchmark": "pages",
+					"side": "candidate",
+					"ok": true,
+					"ms": 102329
+				},
+				{
+					"round": 3,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": false,
+					"ms": 92728,
+					"error": "Error: no page at http://127.0.0.1:50689/find.html?tab=2"
+				},
+				{
+					"round": 3,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 291680
+				},
+				{
+					"round": 3,
+					"benchmark": "scroll",
+					"side": "base",
+					"ok": true,
+					"ms": 72443
+				},
+				{
+					"round": 3,
+					"benchmark": "scroll",
+					"side": "candidate",
+					"ok": true,
+					"ms": 71995
+				},
+				{
+					"round": 3,
+					"benchmark": "frame-latency",
+					"side": "base",
+					"ok": true,
+					"ms": 74601
+				},
+				{
+					"round": 3,
+					"benchmark": "frame-latency",
+					"side": "candidate",
+					"ok": true,
+					"ms": 72553
+				}
+			],
+			"benchmarks": [
+				{
+					"benchmark": "launch",
+					"rows": [
+						{
+							"path": "summary.cold.window.median",
+							"base": 399.628662109375,
+							"candidate": 362.5146484375,
+							"difference": -37.114013671875,
+							"percent": -9.287125071553854,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.devTools.median",
+							"base": 393.994140625,
+							"candidate": 312.936279296875,
+							"difference": -81.057861328125,
+							"percent": -20.573367207832447,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.pageFirstContentfulPaint.median",
+							"base": 2144.716064453125,
+							"candidate": 2041.1083984375,
+							"difference": -103.607666015625,
+							"percent": -4.830833681569109,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.pageLoaded.median",
+							"base": 2102.916015625,
+							"candidate": 2004.00830078125,
+							"difference": -98.90771484375,
+							"percent": -4.703360196453399,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.window.median",
+							"base": 402.558837890625,
+							"candidate": 375.758544921875,
+							"difference": -26.80029296875,
+							"percent": -6.657484682035878,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.devTools.median",
+							"base": 373.3984375,
+							"candidate": 312.093017578125,
+							"difference": -61.305419921875,
+							"percent": -16.41823150957213,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.pageFirstContentfulPaint.median",
+							"base": 711.650146484375,
+							"candidate": 645.5322265625,
+							"difference": -66.117919921875,
+							"percent": -9.290789898450008,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.pageLoaded.median",
+							"base": 676.550048828125,
+							"candidate": 612.13232421875,
+							"difference": -64.417724609375,
+							"percent": -9.52150173087048,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						}
+					],
+					"failures": []
+				},
+				{
+					"benchmark": "unlock",
+					"rows": [
+						{
+							"path": "withoutPin.median",
+							"base": 686.800048828125,
+							"candidate": 725.699951171875,
+							"difference": 38.89990234375,
+							"percent": 5.6639341261149045,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "fromPin.median",
+							"base": 560.60009765625,
+							"candidate": 439.60009765625,
+							"difference": -121,
+							"percent": -21.584013364584724,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.withoutPin.started.median",
+							"base": 325.66796875,
+							"candidate": 303.826904296875,
+							"difference": -21.841064453125,
+							"percent": -6.706543642273692,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.withoutPin.ended.median",
+							"base": 568.776123046875,
+							"candidate": 583.467041015625,
+							"difference": 14.69091796875,
+							"percent": 2.582899909731138,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.fromPin.started.median",
+							"base": 197.31494140625,
+							"candidate": 59.799072265625,
+							"difference": -137.515869140625,
+							"percent": -69.69359145362174,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.fromPin.ended.median",
+							"base": 439.01904296875,
+							"candidate": 300.470947265625,
+							"difference": -138.548095703125,
+							"percent": -31.558561734869222,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						}
+					],
+					"failures": []
+				},
+				{
+					"benchmark": "pages",
+					"rows": [
+						{
+							"path": "summary.cold.smoke.html.loadEventEnd.median",
+							"base": 9,
+							"candidate": 4.800000011920929,
+							"difference": -4.199999988079071,
+							"percent": -46.6666665342119,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.smoke.html.firstContentfulPaint.median",
+							"base": 20,
+							"candidate": 32,
+							"difference": 12,
+							"percent": 60,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.smoke.html.firstContentfulPaintPainted.median",
+							"base": 15,
+							"candidate": 10.200000017881393,
+							"difference": -4.799999982118607,
+							"percent": -31.999999880790707,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.smoke.html.largestContentfulPaint.median",
+							"base": 20,
+							"candidate": 32,
+							"difference": 12,
+							"percent": 60,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.smoke.html.responseStart.median",
+							"base": 1.199999988079071,
+							"candidate": 1.0999999940395355,
+							"difference": -0.09999999403953552,
+							"percent": -8.333332919412186,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.find.html.loadEventEnd.median",
+							"base": 8,
+							"candidate": 5,
+							"difference": -3,
+							"percent": -37.5,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.find.html.firstContentfulPaint.median",
+							"base": 28,
+							"candidate": 32,
+							"difference": 4,
+							"percent": 14.285714285714285,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.find.html.firstContentfulPaintPainted.median",
+							"base": 16.69999998807907,
+							"candidate": 9.899999976158142,
+							"difference": -6.800000011920929,
+							"percent": -40.718562974700355,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.find.html.largestContentfulPaint.median",
+							"base": 28,
+							"candidate": 32,
+							"difference": 4,
+							"percent": 14.285714285714285,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.find.html.responseStart.median",
+							"base": 1.4000000059604645,
+							"candidate": 1.2999999821186066,
+							"difference": -0.10000002384185791,
+							"percent": -7.142858815436454,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.nav-a.html.loadEventEnd.median",
+							"base": 8.200000017881393,
+							"candidate": 6,
+							"difference": -2.2000000178813934,
+							"percent": -26.829268452243248,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.nav-a.html.firstContentfulPaint.median",
+							"base": 36,
+							"candidate": 44,
+							"difference": 8,
+							"percent": 22.22222222222222,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.nav-a.html.firstContentfulPaintPainted.median",
+							"base": 16,
+							"candidate": 11.899999976158142,
+							"difference": -4.100000023841858,
+							"percent": -25.625000149011612,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.nav-a.html.largestContentfulPaint.median",
+							"base": 36,
+							"candidate": 44,
+							"difference": 8,
+							"percent": 22.22222222222222,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.nav-a.html.responseStart.median",
+							"base": 1.2999999821186066,
+							"candidate": 1.5,
+							"difference": 0.20000001788139343,
+							"percent": 15.384616971721332,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+							"base": 579.3000000119209,
+							"candidate": 510.59999999403954,
+							"difference": -68.7000000178814,
+							"percent": -11.859140344634502,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+							"base": 452,
+							"candidate": 392,
+							"difference": -60,
+							"percent": -13.274336283185843,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+							"base": 400.80000001192093,
+							"candidate": 321.80000001192093,
+							"difference": -79,
+							"percent": -19.71057884172912,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+							"base": 452,
+							"candidate": 392,
+							"difference": -60,
+							"percent": -13.274336283185843,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+							"base": 234,
+							"candidate": 149.2999999821186,
+							"difference": -84.7000000178814,
+							"percent": -36.19658120422282,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://www.apple.com/.loadEventEnd.median",
+							"base": 1922.800000011921,
+							"candidate": 1653,
+							"difference": -269.80000001192093,
+							"percent": -14.031620553892669,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://www.apple.com/.firstContentfulPaint.median",
+							"base": 576,
+							"candidate": 432,
+							"difference": -144,
+							"percent": -25,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://www.apple.com/.firstContentfulPaintPainted.median",
+							"base": 540.0999999940395,
+							"candidate": 402.69999998807907,
+							"difference": -137.40000000596046,
+							"percent": -25.43973338409124,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://www.apple.com/.largestContentfulPaint.median",
+							"base": 1492,
+							"candidate": 1108,
+							"difference": -384,
+							"percent": -25.737265415549597,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://www.apple.com/.responseStart.median",
+							"base": 350.09999999403954,
+							"candidate": 250.30000001192093,
+							"difference": -99.7999999821186,
+							"percent": -28.50614109791994,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://github.com/.loadEventEnd.median",
+							"base": 1694.5999999940395,
+							"candidate": 1805.199999988079,
+							"difference": 110.59999999403954,
+							"percent": 6.52661394986596,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://github.com/.firstContentfulPaint.median",
+							"base": 1172,
+							"candidate": 1232,
+							"difference": 60,
+							"percent": 5.1194539249146755,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://github.com/.firstContentfulPaintPainted.median",
+							"base": 1130.5,
+							"candidate": 1208.699999988079,
+							"difference": 78.19999998807907,
+							"percent": 6.917293232028224,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://github.com/.largestContentfulPaint.median",
+							"base": 2484,
+							"candidate": 2548,
+							"difference": 64,
+							"percent": 2.576489533011272,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.cold.https://github.com/.responseStart.median",
+							"base": 617.5,
+							"candidate": 609,
+							"difference": -8.5,
+							"percent": -1.376518218623482,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.smoke.html.loadEventEnd.median",
+							"base": 5.799999982118607,
+							"candidate": 6,
+							"difference": 0.20000001788139343,
+							"percent": 3.448276180999884,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.smoke.html.firstContentfulPaint.median",
+							"base": 16,
+							"candidate": 36,
+							"difference": 20,
+							"percent": 125,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.smoke.html.firstContentfulPaintPainted.median",
+							"base": 11.600000023841858,
+							"candidate": 11.799999982118607,
+							"difference": 0.19999995827674866,
+							"percent": 1.7241375678076054,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.smoke.html.largestContentfulPaint.median",
+							"base": 16,
+							"candidate": 36,
+							"difference": 20,
+							"percent": 125,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.smoke.html.responseStart.median",
+							"base": 1.800000011920929,
+							"candidate": 1.7000000178813934,
+							"difference": -0.09999999403953552,
+							"percent": -5.555555187625652,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.find.html.loadEventEnd.median",
+							"base": 9.299999982118607,
+							"candidate": 6,
+							"difference": -3.2999999821186066,
+							"percent": -35.48387084369481,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.find.html.firstContentfulPaint.median",
+							"base": 28,
+							"candidate": 36,
+							"difference": 8,
+							"percent": 28.57142857142857,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.find.html.firstContentfulPaintPainted.median",
+							"base": 18.599999994039536,
+							"candidate": 11.099999994039536,
+							"difference": -7.5,
+							"percent": -40.32258065808287,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.find.html.largestContentfulPaint.median",
+							"base": 28,
+							"candidate": 36,
+							"difference": 8,
+							"percent": 28.57142857142857,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.find.html.responseStart.median",
+							"base": 1.4000000059604645,
+							"candidate": 1.300000011920929,
+							"difference": -0.09999999403953552,
+							"percent": -7.142856686699149,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.nav-a.html.loadEventEnd.median",
+							"base": 9.700000017881393,
+							"candidate": 6.4000000059604645,
+							"difference": -3.300000011920929,
+							"percent": -34.020618616882146,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.nav-a.html.firstContentfulPaint.median",
+							"base": 28,
+							"candidate": 36,
+							"difference": 8,
+							"percent": 28.57142857142857,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.nav-a.html.firstContentfulPaintPainted.median",
+							"base": 20.400000005960464,
+							"candidate": 11.799999982118607,
+							"difference": -8.600000023841858,
+							"percent": -42.15686284965251,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.nav-a.html.largestContentfulPaint.median",
+							"base": 28,
+							"candidate": 36,
+							"difference": 8,
+							"percent": 28.57142857142857,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.nav-a.html.responseStart.median",
+							"base": 1.300000011920929,
+							"candidate": 1.300000011920929,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.loadEventEnd.median",
+							"base": 195.69999998807907,
+							"candidate": 183.30000001192093,
+							"difference": -12.399999976158142,
+							"percent": -6.336228910022218,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaint.median",
+							"base": 136,
+							"candidate": 152,
+							"difference": 16,
+							"percent": 11.76470588235294,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.firstContentfulPaintPainted.median",
+							"base": 100.59999999403954,
+							"candidate": 112.59999999403954,
+							"difference": 12,
+							"percent": 11.928429424165994,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.largestContentfulPaint.median",
+							"base": 136,
+							"candidate": 152,
+							"difference": 16,
+							"percent": 11.76470588235294,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://en.wikipedia.org/wiki/Web_browser.responseStart.median",
+							"base": 37.400000005960464,
+							"candidate": 46.5,
+							"difference": 9.099999994039536,
+							"percent": 24.33155078232423,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://www.apple.com/.loadEventEnd.median",
+							"base": 754.8999999761581,
+							"candidate": 427.5,
+							"difference": -327.39999997615814,
+							"percent": -43.36998277738752,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://www.apple.com/.firstContentfulPaint.median",
+							"base": 368,
+							"candidate": 132,
+							"difference": -236,
+							"percent": -64.13043478260869,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://www.apple.com/.firstContentfulPaintPainted.median",
+							"base": 348.7000000178814,
+							"candidate": 109.7000000178814,
+							"difference": -239,
+							"percent": -68.54029251154117,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://www.apple.com/.largestContentfulPaint.median",
+							"base": 872,
+							"candidate": 732,
+							"difference": -140,
+							"percent": -16.055045871559635,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://www.apple.com/.responseStart.median",
+							"base": 1.0999999940395355,
+							"candidate": 66.59999999403954,
+							"difference": 65.5,
+							"percent": 5954.545486810779,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://github.com/.loadEventEnd.median",
+							"base": 619,
+							"candidate": 613.7999999821186,
+							"difference": -5.200000017881393,
+							"percent": -0.840064623244167,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://github.com/.firstContentfulPaint.median",
+							"base": 280,
+							"candidate": 312,
+							"difference": 32,
+							"percent": 11.428571428571429,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://github.com/.firstContentfulPaintPainted.median",
+							"base": 258.60000002384186,
+							"candidate": 286.10000002384186,
+							"difference": 27.5,
+							"percent": 10.634184067078351,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://github.com/.largestContentfulPaint.median",
+							"base": 1420,
+							"candidate": 1432,
+							"difference": 12,
+							"percent": 0.8450704225352111,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.warm.https://github.com/.responseStart.median",
+							"base": 140.80000001192093,
+							"candidate": 153.40000000596046,
+							"difference": 12.599999994039536,
+							"percent": 8.94886363137269,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						}
+					],
+					"failures": []
+				},
+				{
+					"benchmark": "memory",
+					"rows": [
+						{
+							"path": "summary.1.footprintSumBytes.median",
+							"base": 149389208,
+							"candidate": 154706104,
+							"difference": 5316896,
+							"percent": 3.55908975700574,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.footprintTotalBytes.median",
+							"base": 148004760,
+							"candidate": 153313464,
+							"difference": 5308704,
+							"percent": 3.5868468014136843,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.rssSumBytes.median",
+							"base": 626253824,
+							"candidate": 623509504,
+							"difference": -2744320,
+							"percent": -0.43821209465381245,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.processes.median",
+							"base": 7,
+							"candidate": 7,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.browser.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.browser.footprintBytes.median",
+							"base": 70813784,
+							"candidate": 69240992,
+							"difference": -1572792,
+							"percent": -2.2210252173503395,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.gpu-process.footprintBytes.median",
+							"base": 27165872,
+							"candidate": 32539872,
+							"difference": 5374000,
+							"percent": 19.782173750947514,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 12911708,
+							"candidate": 12993688,
+							"difference": 81980,
+							"percent": 0.6349276176319972,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 6947788,
+							"candidate": 6898624,
+							"difference": -49164,
+							"percent": -0.7076209003498668,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.renderer.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.1.byType.renderer.footprintBytes.median",
+							"base": 31771204,
+							"candidate": 32508568,
+							"difference": 737364,
+							"percent": 2.32085633267156,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.footprintSumBytes.median",
+							"base": 238294276,
+							"candidate": 239875536,
+							"difference": 1581260,
+							"percent": 0.6635744788095539,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.footprintTotalBytes.median",
+							"base": 235074820,
+							"candidate": 236631504,
+							"difference": 1556684,
+							"percent": 0.6622078876844402,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.rssSumBytes.median",
+							"base": 1064984576,
+							"candidate": 1050689536,
+							"difference": -14295040,
+							"percent": -1.3422767166911533,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.processes.median",
+							"base": 11,
+							"candidate": 11,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.browser.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.browser.footprintBytes.median",
+							"base": 75122812,
+							"candidate": 69028000,
+							"difference": -6094812,
+							"percent": -8.11313080239861,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.gpu-process.footprintBytes.median",
+							"base": 40936648,
+							"candidate": 46974176,
+							"difference": 6037528,
+							"percent": 14.748466948246472,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 13255772,
+							"candidate": 13321368,
+							"difference": 65596,
+							"percent": 0.4948485836962193,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 7185356,
+							"candidate": 7128024,
+							"difference": -57332,
+							"percent": -0.7979006189811612,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.renderer.count.median",
+							"base": 6,
+							"candidate": 6,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.5.byType.renderer.footprintBytes.median",
+							"base": 101703588,
+							"candidate": 101981816,
+							"difference": 278228,
+							"percent": 0.27356753628003766,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.footprintSumBytes.median",
+							"base": 353791680,
+							"candidate": 354913984,
+							"difference": 1122304,
+							"percent": 0.31722170515711395,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.footprintTotalBytes.median",
+							"base": 347295424,
+							"candidate": 349081280,
+							"difference": 1785856,
+							"percent": 0.5142181199600258,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.rssSumBytes.median",
+							"base": 1599832064,
+							"candidate": 1583202304,
+							"difference": -16629760,
+							"percent": -1.039469102677017,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.processes.median",
+							"base": 16,
+							"candidate": 16,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.browser.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.browser.footprintBytes.median",
+							"base": 82167956,
+							"candidate": 74893472,
+							"difference": -7274484,
+							"percent": -8.85318846193521,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.gpu-process.footprintBytes.median",
+							"base": 58254488,
+							"candidate": 65045680,
+							"difference": 6791192,
+							"percent": 11.657800511438706,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 13911084,
+							"candidate": 13960296,
+							"difference": 49212,
+							"percent": 0.353761072825094,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 7660492,
+							"candidate": 7619520,
+							"difference": -40972,
+							"percent": -0.5348481533562074,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.renderer.count.median",
+							"base": 11,
+							"candidate": 11,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "summary.10.byType.renderer.footprintBytes.median",
+							"base": 191822236,
+							"candidate": 191560104,
+							"difference": -262132,
+							"percent": -0.1366536046425817,
+							"rounds": {
+								"base": 2,
+								"candidate": 3
+							}
+						}
+					],
+					"failures": [
+						{
+							"round": 3,
+							"side": "base",
+							"error": "Error: no page at http://127.0.0.1:50689/find.html?tab=2"
+						}
+					]
+				},
+				{
+					"benchmark": "scroll",
+					"rows": [
+						{
+							"path": "summary.dropped.median",
+							"base": 0.5,
+							"candidate": 0,
+							"difference": -0.5,
+							"percent": -100,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.partial.median",
+							"base": 12,
+							"candidate": 12,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.presented.median",
+							"base": 467,
+							"candidate": 467,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.affectingSmoothness.median",
+							"base": 0.5,
+							"candidate": 0,
+							"difference": -0.5,
+							"percent": -100,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.onCompositorThread.median",
+							"base": 480,
+							"candidate": 479.5,
+							"difference": -0.5,
+							"percent": -0.10416666666666667,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						}
+					],
+					"failures": [
+						{
+							"round": 2,
+							"side": "candidate",
+							"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+						},
+						{
+							"round": 2,
+							"side": "base",
+							"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+						}
+					]
+				},
+				{
+					"benchmark": "frame-latency",
+					"rows": [
+						{
+							"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.medianMs",
+							"base": 19.310000000000002,
+							"candidate": 19.189999999999998,
+							"difference": -0.12000000000000455,
+							"percent": -0.6214396685655336,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.p90Ms",
+							"base": 24.08,
+							"candidate": 23.825,
+							"difference": -0.254999999999999,
+							"percent": -1.05897009966777,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.SubmitToReceiveCompositorFrame.medianMs",
+							"base": 0.12,
+							"candidate": 0.12000000000000001,
+							"difference": 1.3877787807814457e-17,
+							"percent": 1.1564823173178714e-14,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.SubmitToReceiveCompositorFrame.p90Ms",
+							"base": 0.16999999999999998,
+							"candidate": 0.185,
+							"difference": 0.015000000000000013,
+							"percent": 8.823529411764715,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.ReceiveCompositorFrameToStartDraw.medianMs",
+							"base": 0.095,
+							"candidate": 0.115,
+							"difference": 0.020000000000000004,
+							"percent": 21.052631578947373,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.ReceiveCompositorFrameToStartDraw.p90Ms",
+							"base": 0.14,
+							"candidate": 0.165,
+							"difference": 0.024999999999999994,
+							"percent": 17.85714285714285,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.StartDrawToSwapStart.medianMs",
+							"base": 0.08499999999999999,
+							"candidate": 0.12,
+							"difference": 0.035,
+							"percent": 41.176470588235304,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.StartDrawToSwapStart.p90Ms",
+							"base": 0.13,
+							"candidate": 0.19,
+							"difference": 0.06,
+							"percent": 46.15384615384615,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.SwapStartToBufferAvailable.medianMs",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.SwapStartToBufferAvailable.p90Ms",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.BufferAvailableToBufferReady.medianMs",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.BufferAvailableToBufferReady.p90Ms",
+							"base": 0,
+							"candidate": 0.005,
+							"difference": 0.005,
+							"percent": null,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.BufferReadyToLatch.medianMs",
+							"base": 7.86,
+							"candidate": 7.65,
+							"difference": -0.20999999999999996,
+							"percent": -2.6717557251908395,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.BufferReadyToLatch.p90Ms",
+							"base": 12.35,
+							"candidate": 12.239999999999998,
+							"difference": -0.11000000000000121,
+							"percent": -0.8906882591093216,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.LatchToSwapEnd.medianMs",
+							"base": 0.085,
+							"candidate": 0.08,
+							"difference": -0.0050000000000000044,
+							"percent": -5.8823529411764754,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.LatchToSwapEnd.p90Ms",
+							"base": 0.135,
+							"candidate": 0.14,
+							"difference": 0.0050000000000000044,
+							"percent": 3.703703703703707,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.SwapEndToPresentationCompositorFrame.medianMs",
+							"base": 11.075,
+							"candidate": 11.04,
+							"difference": -0.03500000000000014,
+							"percent": -0.3160270880361187,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						},
+						{
+							"path": "summary.SwapEndToPresentationCompositorFrame.p90Ms",
+							"base": 12.055,
+							"candidate": 11.99,
+							"difference": -0.0649999999999995,
+							"percent": -0.539195354624633,
+							"rounds": {
+								"base": 2,
+								"candidate": 2
+							}
+						}
+					],
+					"failures": [
+						{
+							"round": 2,
+							"side": "candidate",
+							"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+						},
+						{
+							"round": 2,
+							"side": "base",
+							"error": "Error: Input.synthesizeScrollGesture timed out after 60000 ms"
+						}
+					]
+				}
+			]
+		},
+		"ab-unlock": {
+			"binaries": {
+				"base": "evidence/views-migration/apps.noindex/published/0.19.2/Pane.app/Contents/MacOS/Pane",
+				"candidate": "evidence/views-migration/apps.noindex/k2b/bench/Pane.app/Contents/MacOS/Pane"
+			},
+			"rounds": 3,
+			"runs": [
+				{
+					"round": 1,
+					"benchmark": "unlock",
+					"side": "base",
+					"ok": true,
+					"ms": 19601
+				},
+				{
+					"round": 1,
+					"benchmark": "unlock",
+					"side": "candidate",
+					"ok": true,
+					"ms": 14756
+				},
+				{
+					"round": 2,
+					"benchmark": "unlock",
+					"side": "candidate",
+					"ok": true,
+					"ms": 14883
+				},
+				{
+					"round": 2,
+					"benchmark": "unlock",
+					"side": "base",
+					"ok": true,
+					"ms": 19430
+				},
+				{
+					"round": 3,
+					"benchmark": "unlock",
+					"side": "base",
+					"ok": true,
+					"ms": 19605
+				},
+				{
+					"round": 3,
+					"benchmark": "unlock",
+					"side": "candidate",
+					"ok": true,
+					"ms": 14277
+				}
+			],
+			"benchmarks": [
+				{
+					"benchmark": "unlock",
+					"rows": [
+						{
+							"path": "withoutPin.median",
+							"base": 712.60009765625,
+							"candidate": 623,
+							"difference": -89.60009765625,
+							"percent": -12.573685851425754,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "fromPin.median",
+							"base": 568,
+							"candidate": 425.800048828125,
+							"difference": -142.199951171875,
+							"percent": -25.035202671104756,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.withoutPin.started.median",
+							"base": 344.73486328125,
+							"candidate": 256.68310546875,
+							"difference": -88.0517578125,
+							"percent": -25.541877886793095,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.withoutPin.ended.median",
+							"base": 588.412109375,
+							"candidate": 507.089111328125,
+							"difference": -81.322998046875,
+							"percent": -13.820755343266935,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.fromPin.started.median",
+							"base": 196.48095703125,
+							"candidate": 61.033935546875,
+							"difference": -135.447021484375,
+							"percent": -68.9364626124212,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						},
+						{
+							"path": "attach.fromPin.ended.median",
+							"base": 438.23876953125,
+							"candidate": 308.406982421875,
+							"difference": -129.831787109375,
+							"percent": -29.625810433943577,
+							"rounds": {
+								"base": 3,
+								"candidate": 3
+							}
+						}
+					],
+					"failures": []
+				}
+			]
+		},
+		"ab-extra": {
+			"binaries": {
+				"base": "evidence/views-migration/apps.noindex/published/0.19.2/Pane.app/Contents/MacOS/Pane",
+				"candidate": "evidence/views-migration/apps.noindex/k2b/bench/Pane.app/Contents/MacOS/Pane"
+			},
+			"rounds": 1,
+			"runs": [
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 306312
+				},
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 291991
+				},
+				{
+					"round": 1,
+					"benchmark": "scroll",
+					"side": "base",
+					"ok": true,
+					"ms": 72483
+				},
+				{
+					"round": 1,
+					"benchmark": "scroll",
+					"side": "candidate",
+					"ok": true,
+					"ms": 72265
+				},
+				{
+					"round": 1,
+					"benchmark": "frame-latency",
+					"side": "base",
+					"ok": true,
+					"ms": 72467
+				},
+				{
+					"round": 1,
+					"benchmark": "frame-latency",
+					"side": "candidate",
+					"ok": true,
+					"ms": 72630
+				}
+			],
+			"benchmarks": [
+				{
+					"benchmark": "memory",
+					"rows": [
+						{
+							"path": "summary.1.footprintSumBytes.median",
+							"base": 150298688,
+							"candidate": 153165912,
+							"difference": 2867224,
+							"percent": 1.9076839845734384,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.footprintTotalBytes.median",
+							"base": 148906048,
+							"candidate": 151740504,
+							"difference": 2834456,
+							"percent": 1.903519728090561,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.rssSumBytes.median",
+							"base": 627720192,
+							"candidate": 621101056,
+							"difference": -6619136,
+							"percent": -1.0544723723018297,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.processes.median",
+							"base": 7,
+							"candidate": 7,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.browser.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.browser.footprintBytes.median",
+							"base": 71436472,
+							"candidate": 67618976,
+							"difference": -3817496,
+							"percent": -5.3439033215414105,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.gpu-process.footprintBytes.median",
+							"base": 27296992,
+							"candidate": 32408800,
+							"difference": 5111808,
+							"percent": 18.72663478818472,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 12960944,
+							"candidate": 12944536,
+							"difference": -16408,
+							"percent": -0.12659571710208764,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 6980592,
+							"candidate": 6882264,
+							"difference": -98328,
+							"percent": -1.4085911338178767,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.renderer.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.1.byType.renderer.footprintBytes.median",
+							"base": 31803984,
+							"candidate": 33376992,
+							"difference": 1573008,
+							"percent": 4.9459463946403694,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.footprintSumBytes.median",
+							"base": 239564264,
+							"candidate": 237352016,
+							"difference": -2212248,
+							"percent": -0.9234465788269657,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.footprintTotalBytes.median",
+							"base": 236369384,
+							"candidate": 234124368,
+							"difference": -2245016,
+							"percent": -0.9497913655348867,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.rssSumBytes.median",
+							"base": 1065648128,
+							"candidate": 1047625728,
+							"difference": -18022400,
+							"percent": -1.6912149072906737,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.processes.median",
+							"base": 11,
+							"candidate": 11,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.browser.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.browser.footprintBytes.median",
+							"base": 75516136,
+							"candidate": 67602592,
+							"difference": -7913544,
+							"percent": -10.479275581579014,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.gpu-process.footprintBytes.median",
+							"base": 40928456,
+							"candidate": 46925048,
+							"difference": 5996592,
+							"percent": 14.651400482832774,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 13321392,
+							"candidate": 13288600,
+							"difference": -32792,
+							"percent": -0.24616046130914848,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 7209944,
+							"candidate": 7127976,
+							"difference": -81968,
+							"percent": -1.1368742947240644,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.renderer.count.median",
+							"base": 6,
+							"candidate": 6,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.5.byType.renderer.footprintBytes.median",
+							"base": 102604600,
+							"candidate": 102326000,
+							"difference": -278600,
+							"percent": -0.2715277872532031,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.footprintSumBytes.median",
+							"base": 354963328,
+							"candidate": 351669952,
+							"difference": -3293376,
+							"percent": -0.9278073931062536,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.footprintTotalBytes.median",
+							"base": 348491648,
+							"candidate": 345853632,
+							"difference": -2638016,
+							"percent": -0.7569811256997471,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.rssSumBytes.median",
+							"base": 1595965440,
+							"candidate": 1580138496,
+							"difference": -15826944,
+							"percent": -0.9916846319679704,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.processes.median",
+							"base": 16,
+							"candidate": 16,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.browser.count.median",
+							"base": 2,
+							"candidate": 2,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.browser.footprintBytes.median",
+							"base": 82446568,
+							"candidate": 73484448,
+							"difference": -8962120,
+							"percent": -10.870215968237757,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.gpu-process.count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.gpu-process.footprintBytes.median",
+							"base": 58295520,
+							"candidate": 64783440,
+							"difference": 6487920,
+							"percent": 11.129362942469678,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (network.mojom.NetworkService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+							"base": 13943912,
+							"candidate": 13911144,
+							"difference": -32768,
+							"percent": -0.23499861444908715,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (storage.mojom.StorageService).count.median",
+							"base": 1,
+							"candidate": 1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+							"base": 7701488,
+							"candidate": 7586776,
+							"difference": -114712,
+							"percent": -1.4894783969020013,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.renderer.count.median",
+							"base": 11,
+							"candidate": 11,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.10.byType.renderer.footprintBytes.median",
+							"base": 192575912,
+							"candidate": 191084704,
+							"difference": -1491208,
+							"percent": -0.7743481438114649,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						}
+					],
+					"failures": []
+				},
+				{
+					"benchmark": "scroll",
+					"rows": [
+						{
+							"path": "summary.dropped.median",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.partial.median",
+							"base": 12,
+							"candidate": 12,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.presented.median",
+							"base": 467,
+							"candidate": 467,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.affectingSmoothness.median",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.onCompositorThread.median",
+							"base": 480,
+							"candidate": 479,
+							"difference": -1,
+							"percent": -0.20833333333333334,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						}
+					],
+					"failures": []
+				},
+				{
+					"benchmark": "frame-latency",
+					"rows": [
+						{
+							"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.medianMs",
+							"base": 18.92,
+							"candidate": 18.9,
+							"difference": -0.020000000000003126,
+							"percent": -0.10570824524314547,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.SubmitCompositorFrameToPresentationCompositorFrame.p90Ms",
+							"base": 19.84,
+							"candidate": 19.9,
+							"difference": 0.05999999999999872,
+							"percent": 0.30241935483870325,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.SubmitToReceiveCompositorFrame.medianMs",
+							"base": 0.1,
+							"candidate": 0.1,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.SubmitToReceiveCompositorFrame.p90Ms",
+							"base": 0.16,
+							"candidate": 0.17,
+							"difference": 0.010000000000000009,
+							"percent": 6.250000000000005,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.ReceiveCompositorFrameToStartDraw.medianMs",
+							"base": 0.07,
+							"candidate": 0.09,
+							"difference": 0.01999999999999999,
+							"percent": 28.57142857142855,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.ReceiveCompositorFrameToStartDraw.p90Ms",
+							"base": 0.12,
+							"candidate": 0.14,
+							"difference": 0.020000000000000018,
+							"percent": 16.666666666666682,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.StartDrawToSwapStart.medianMs",
+							"base": 0.07,
+							"candidate": 0.1,
+							"difference": 0.03,
+							"percent": 42.85714285714285,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.StartDrawToSwapStart.p90Ms",
+							"base": 0.11,
+							"candidate": 0.16,
+							"difference": 0.05,
+							"percent": 45.45454545454546,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.SwapStartToBufferAvailable.medianMs",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.SwapStartToBufferAvailable.p90Ms",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.BufferAvailableToBufferReady.medianMs",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.BufferAvailableToBufferReady.p90Ms",
+							"base": 0,
+							"candidate": 0,
+							"difference": 0,
+							"percent": null,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.BufferReadyToLatch.medianMs",
+							"base": 7.9,
+							"candidate": 7.87,
+							"difference": -0.03000000000000025,
+							"percent": -0.3797468354430411,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.BufferReadyToLatch.p90Ms",
+							"base": 8.68,
+							"candidate": 8.75,
+							"difference": 0.07000000000000028,
+							"percent": 0.8064516129032291,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.LatchToSwapEnd.medianMs",
+							"base": 0.07,
+							"candidate": 0.07,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.LatchToSwapEnd.p90Ms",
+							"base": 0.12,
+							"candidate": 0.12,
+							"difference": 0,
+							"percent": 0,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.SwapEndToPresentationCompositorFrame.medianMs",
+							"base": 10.69,
+							"candidate": 10.65,
+							"difference": -0.03999999999999915,
+							"percent": -0.3741814780168302,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						},
+						{
+							"path": "summary.SwapEndToPresentationCompositorFrame.p90Ms",
+							"base": 11.58,
+							"candidate": 11.61,
+							"difference": 0.02999999999999936,
+							"percent": 0.25906735751294785,
+							"rounds": {
+								"base": 1,
+								"candidate": 1
+							}
+						}
+					],
+					"failures": []
+				}
+			]
+		}
+	},
+	"keys": {
+		"base": [
+			{
+				"run": "base-1",
+				"ok": true,
+				"result": {
+					"Select tab": {
+						"count": 30,
+						"medianMs": 21.1,
+						"p10Ms": 16.9,
+						"p90Ms": 22.9
+					},
+					"New tab": {
+						"count": 30,
+						"medianMs": 25.2,
+						"p10Ms": 23.8,
+						"p90Ms": 27.3
+					},
+					"Focus address field": {
+						"count": 30,
+						"medianMs": 17.5,
+						"p10Ms": 13.7,
+						"p90Ms": 22.8
+					}
+				},
+				"error": null
+			},
+			{
+				"run": "base-2",
+				"ok": true,
+				"result": {
+					"Select tab": {
+						"count": 30,
+						"medianMs": 11.3,
+						"p10Ms": 9.7,
+						"p90Ms": 13.7
+					},
+					"New tab": {
+						"count": 30,
+						"medianMs": 25.2,
+						"p10Ms": 23.6,
+						"p90Ms": 27.6
+					},
+					"Focus address field": {
+						"count": 30,
+						"medianMs": 14.9,
+						"p10Ms": 13.3,
+						"p90Ms": 23.5
+					}
+				},
+				"error": null
+			},
+			{
+				"run": "base-3",
+				"ok": true,
+				"result": {
+					"Select tab": {
+						"count": 30,
+						"medianMs": 12.5,
+						"p10Ms": 10.2,
+						"p90Ms": 14.4
+					},
+					"New tab": {
+						"count": 30,
+						"medianMs": 24.8,
+						"p10Ms": 22.8,
+						"p90Ms": 28.4
+					},
+					"Focus address field": {
+						"count": 30,
+						"medianMs": 14.5,
+						"p10Ms": 12.9,
+						"p90Ms": 22.3
+					}
+				},
+				"error": null
+			}
+		],
+		"candidate": [
+			{
+				"run": "candidate-1",
+				"ok": true,
+				"result": {
+					"Select tab": {
+						"count": 30,
+						"medianMs": 9.7,
+						"p10Ms": 6.2,
+						"p90Ms": 13.4,
+						"committed": {
+							"medianMs": 4.9,
+							"p10Ms": 3.7,
+							"p90Ms": 7.1
+						},
+						"presented": {
+							"medianMs": 19.8,
+							"p10Ms": 15.8,
+							"p90Ms": 21.7
+						}
+					},
+					"New tab": {
+						"count": 30,
+						"medianMs": 14.5,
+						"p10Ms": 12.2,
+						"p90Ms": 17.2,
+						"committed": {
+							"medianMs": 4.4,
+							"p10Ms": 3.2,
+							"p90Ms": 6.5
+						},
+						"presented": {
+							"medianMs": 20.3,
+							"p10Ms": 16.8,
+							"p90Ms": 21.9
+						}
+					},
+					"Wake tab": {
+						"count": 16,
+						"medianMs": 54.2,
+						"p10Ms": 50.1,
+						"p90Ms": 58.4,
+						"committed": {
+							"medianMs": 46.1,
+							"p10Ms": 41.1,
+							"p90Ms": 50.7
+						},
+						"presented": {
+							"medianMs": 56.5,
+							"p10Ms": 52.2,
+							"p90Ms": 60.7
+						}
+					},
+					"Focus address field": {
+						"count": 30,
+						"medianMs": 9.3,
+						"p10Ms": 6.2,
+						"p90Ms": 12.5,
+						"committed": {
+							"medianMs": 2.6,
+							"p10Ms": 1.9,
+							"p90Ms": 6.1
+						},
+						"presented": {
+							"medianMs": 17.5,
+							"p10Ms": 13.1,
+							"p90Ms": 21.9
+						}
+					}
+				},
+				"error": null
+			},
+			{
+				"run": "candidate-2",
+				"ok": true,
+				"result": {
+					"Select tab": {
+						"count": 30,
+						"medianMs": 7.9,
+						"p10Ms": 5.3,
+						"p90Ms": 12.7,
+						"committed": {
+							"medianMs": 4.1,
+							"p10Ms": 3.3,
+							"p90Ms": 6
+						},
+						"presented": {
+							"medianMs": 18.6,
+							"p10Ms": 16.1,
+							"p90Ms": 21.9
+						}
+					},
+					"New tab": {
+						"count": 30,
+						"medianMs": 13.1,
+						"p10Ms": 11.8,
+						"p90Ms": 16.3,
+						"committed": {
+							"medianMs": 3.6,
+							"p10Ms": 3.1,
+							"p90Ms": 5
+						},
+						"presented": {
+							"medianMs": 17.3,
+							"p10Ms": 13.8,
+							"p90Ms": 22.1
+						}
+					},
+					"Wake tab": {
+						"count": 16,
+						"medianMs": 55.8,
+						"p10Ms": 50.8,
+						"p90Ms": 64.3,
+						"committed": {
+							"medianMs": 46.8,
+							"p10Ms": 41.9,
+							"p90Ms": 55.1
+						},
+						"presented": {
+							"medianMs": 57.8,
+							"p10Ms": 53.1,
+							"p90Ms": 66.3
+						}
+					},
+					"Focus address field": {
+						"count": 30,
+						"medianMs": 8.4,
+						"p10Ms": 4.8,
+						"p90Ms": 10.7,
+						"committed": {
+							"medianMs": 2.4,
+							"p10Ms": 1.7,
+							"p90Ms": 4.7
+						},
+						"presented": {
+							"medianMs": 16.6,
+							"p10Ms": 13.1,
+							"p90Ms": 21.4
+						}
+					}
+				},
+				"error": null
+			},
+			{
+				"run": "candidate-3",
+				"ok": true,
+				"result": {
+					"Select tab": {
+						"count": 30,
+						"medianMs": 9.7,
+						"p10Ms": 5.6,
+						"p90Ms": 11.6,
+						"committed": {
+							"medianMs": 3.5,
+							"p10Ms": 3.1,
+							"p90Ms": 6.3
+						},
+						"presented": {
+							"medianMs": 17.3,
+							"p10Ms": 14.6,
+							"p90Ms": 22.9
+						}
+					},
+					"New tab": {
+						"count": 30,
+						"medianMs": 14.1,
+						"p10Ms": 12.6,
+						"p90Ms": 17,
+						"committed": {
+							"medianMs": 4,
+							"p10Ms": 3.2,
+							"p90Ms": 6.1
+						},
+						"presented": {
+							"medianMs": 18.4,
+							"p10Ms": 14.2,
+							"p90Ms": 22.7
+						}
+					},
+					"Wake tab": {
+						"count": 16,
+						"medianMs": 54.5,
+						"p10Ms": 51.3,
+						"p90Ms": 58,
+						"committed": {
+							"medianMs": 46.9,
+							"p10Ms": 43.7,
+							"p90Ms": 49.3
+						},
+						"presented": {
+							"medianMs": 60.7,
+							"p10Ms": 54.6,
+							"p90Ms": 66.4
+						}
+					},
+					"Focus address field": {
+						"count": 30,
+						"medianMs": 8.4,
+						"p10Ms": 4,
+						"p90Ms": 12.3,
+						"committed": {
+							"medianMs": 2.2,
+							"p10Ms": 1.6,
+							"p90Ms": 4.6
+						},
+						"presented": {
+							"medianMs": 17,
+							"p10Ms": 14.2,
+							"p90Ms": 20.9
+						}
+					}
+				},
+				"error": null
+			}
+		]
+	},
+	"load": [
+		"17:56:55 ab start load 8.18 7.57 8.16",
+		"19:53:54 ab exit 1 load 6.21 5.66 5.93",
+		"19:53:54 keys base 1 load 6.21 5.66 5.93",
+		"19:55:07 keys candidate 1 load 4.25 5.19 5.73",
+		"19:55:57 keys candidate 2 load 3.94 4.91 5.59",
+		"19:56:47 keys base 2 load 4.44 4.89 5.55",
+		"19:57:59 keys base 3 load 6.12 5.49 5.73",
+		"19:59:12 keys candidate 3 load 4.80 5.35 5.67",
+		"20:00:01 keys done load 5.56 5.45 5.68",
+		"20:00:42 ab-unlock start load 5.45 5.46 5.68",
+		"20:02:26 ab-unlock exit load 7.97 6.16 5.91",
+		"20:10:48 ab-extra start load 4.66 4.86 5.30",
+		"20:25:38 ab-extra exit 0 load 5.72 5.06 4.96"
+	],
+	"loadSamples": [
+		"17:56:55 8.18",
+		"17:57:25 13.94",
+		"17:57:55 10.28",
+		"17:58:25 9.27",
+		"17:58:55 8.58",
+		"17:59:25 7.42",
+		"17:59:55 7.08",
+		"18:00:26 6.34",
+		"18:00:56 6.84",
+		"18:01:26 9.73",
+		"18:01:56 10.06",
+		"18:02:26 7.86",
+		"18:02:56 7.06",
+		"18:03:26 6.88",
+		"18:03:56 6.97",
+		"18:04:26 6.51",
+		"18:04:56 6.80",
+		"18:05:26 6.58",
+		"18:05:56 5.89",
+		"18:06:26 5.91",
+		"18:06:57 5.55",
+		"18:07:27 5.59",
+		"18:07:57 5.57",
+		"18:08:27 4.92",
+		"18:08:57 3.77",
+		"18:09:27 3.90",
+		"18:09:57 3.55",
+		"18:10:27 2.94",
+		"18:10:57 2.77",
+		"18:11:27 3.11",
+		"18:11:57 3.41",
+		"18:12:27 4.01",
+		"18:12:58 3.39",
+		"18:13:28 3.65",
+		"18:13:58 3.55",
+		"18:14:28 3.43",
+		"18:14:58 3.18",
+		"18:15:28 2.91",
+		"18:15:58 2.93",
+		"18:16:28 3.47",
+		"18:16:58 3.12",
+		"18:17:28 3.29",
+		"18:17:58 3.68",
+		"18:18:28 3.28",
+		"18:18:58 5.23",
+		"18:19:29 4.73",
+		"18:19:59 5.20",
+		"18:20:29 4.71",
+		"18:20:59 4.17",
+		"18:21:29 3.46",
+		"18:21:59 3.22",
+		"18:22:29 12.85",
+		"18:22:59 8.87",
+		"18:23:29 7.32",
+		"18:23:59 7.22",
+		"18:24:29 7.20",
+		"18:24:59 5.21",
+		"18:25:29 4.20",
+		"18:26:00 4.05",
+		"18:26:30 3.50",
+		"18:27:00 3.83",
+		"18:27:30 3.93",
+		"18:28:00 25.28",
+		"18:28:30 17.56",
+		"18:29:00 11.97",
+		"18:29:30 9.27",
+		"18:30:00 7.35",
+		"18:30:30 6.17",
+		"18:31:00 5.10",
+		"18:31:30 4.98",
+		"18:32:00 4.89",
+		"18:32:31 4.96",
+		"18:33:01 4.00",
+		"18:33:31 4.10",
+		"18:34:01 3.47",
+		"18:34:31 5.52",
+		"18:35:01 5.08",
+		"18:35:31 4.49",
+		"18:36:01 4.76",
+		"18:36:31 5.08",
+		"18:37:01 4.61",
+		"18:37:31 4.61",
+		"18:38:01 4.99",
+		"18:48:23 5.49",
+		"19:24:47 18.46",
+		"19:35:06 12.70",
+		"19:35:36 8.82",
+		"19:36:06 7.10",
+		"19:36:36 5.89",
+		"19:37:06 6.82",
+		"19:37:36 6.31",
+		"19:38:06 4.72",
+		"19:38:36 5.27",
+		"19:39:06 5.94",
+		"19:39:36 5.58",
+		"19:40:06 8.47",
+		"19:40:36 8.84",
+		"19:41:07 7.02",
+		"19:41:37 6.31",
+		"19:42:07 6.06",
+		"19:42:37 5.78",
+		"19:43:07 7.89",
+		"19:43:37 5.74",
+		"19:44:07 5.71",
+		"19:44:37 4.95",
+		"19:45:07 5.01",
+		"19:45:37 5.51",
+		"19:46:07 5.64",
+		"19:46:37 5.27",
+		"19:47:07 5.08",
+		"19:47:38 5.17",
+		"19:48:08 5.02",
+		"19:48:38 4.79",
+		"19:49:08 5.02",
+		"19:49:38 6.13",
+		"19:50:08 7.68",
+		"19:50:38 6.79",
+		"19:51:08 5.96",
+		"19:51:38 5.46",
+		"19:52:08 4.95",
+		"19:52:38 4.39",
+		"19:53:08 5.19",
+		"19:53:38 4.89",
+		"19:54:09 6.06",
+		"19:54:39 4.67",
+		"19:55:09 4.25",
+		"19:55:39 3.54",
+		"19:56:09 3.80",
+		"19:56:39 4.83",
+		"19:57:09 8.07",
+		"19:57:39 6.57",
+		"19:58:09 7.33",
+		"19:58:39 6.01",
+		"19:59:09 4.80",
+		"19:59:39 4.85"
+	],
+	"scenarioRuns": {
+		"k2b-final-light": {
+			"passed": false,
+			"complete": false,
+			"results": [
+				{
+					"name": "app-icon",
+					"ok": true,
+					"ms": 10085,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "applescript",
+					"ok": true,
+					"ms": 7684,
+					"deferred": [
+						"the front window after a switch to another profile: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "certificate-interstitial",
+					"ok": true,
+					"ms": 2578,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "context-menu",
+					"ok": true,
+					"ms": 5095,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "cookies",
+					"ok": true,
+					"ms": 2443,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "dark-reader",
+					"ok": true,
+					"ms": 11625,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "device-chooser",
+					"ok": true,
+					"ms": 2513,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "devtools-undocked",
+					"ok": true,
+					"ms": 3383,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "devtools",
+					"ok": true,
+					"ms": 3768,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "dialog-tab-closed",
+					"ok": true,
+					"ms": 5693,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "dialogs",
+					"ok": true,
+					"ms": 5369,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "downloads",
+					"ok": true,
+					"ms": 2313,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extension-auto-update",
+					"ok": true,
+					"ms": 20324,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extension-context-menus",
+					"ok": true,
+					"ms": 2634,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extension-details",
+					"ok": true,
+					"ms": 4986,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extension-management",
+					"ok": false,
+					"ms": 125954,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extension-shortcuts",
+					"ok": true,
+					"ms": 7935,
+					"deferred": [
+						"\u2318T opening a tab once the page leaves it: the menu bar's key needs Pane in front"
+					],
+					"locked": false
+				},
+				{
+					"name": "extensions-menu",
+					"ok": true,
+					"ms": 7009,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extensions-page-profile",
+					"ok": true,
+					"ms": 2920,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extensions-per-profile",
+					"ok": true,
+					"ms": 13640,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "external-protocol",
+					"ok": true,
+					"ms": 3358,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "file-chooser",
+					"ok": true,
+					"ms": 6674,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "find",
+					"ok": false,
+					"ms": 2089,
+					"deferred": [],
+					"locked": true
+				},
+				{
+					"name": "fingerprint",
+					"ok": true,
+					"ms": 12621,
+					"deferred": [],
+					"locked": true
+				},
+				{
+					"name": "fullscreen",
+					"ok": true,
+					"ms": 1,
+					"deferred": [
+						"every check: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "google",
+					"ok": true,
+					"ms": 16555,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "hosted",
+					"ok": true,
+					"ms": 3706,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "http-auth",
+					"ok": true,
+					"ms": 3213,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "hung-renderer",
+					"ok": true,
+					"ms": 35763,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "key-precedence",
+					"ok": true,
+					"ms": 2508,
+					"deferred": [
+						"Quit Pane? over the extensions menu: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "navigation",
+					"ok": true,
+					"ms": 3347,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "open-urls",
+					"ok": true,
+					"ms": 2083,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "page-loading",
+					"ok": true,
+					"ms": 5463,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "password-manager-off",
+					"ok": true,
+					"ms": 4451,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "password-managers",
+					"ok": true,
+					"ms": 32906,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "permission-prompt",
+					"ok": true,
+					"ms": 2502,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "picture-in-picture",
+					"ok": true,
+					"ms": 2301,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "popup-new-tab",
+					"ok": true,
+					"ms": 2623,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "print",
+					"ok": true,
+					"ms": 3248,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "profile-history",
+					"ok": true,
+					"ms": 70710,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "profile-lifecycle",
+					"ok": true,
+					"ms": 17097,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "profile-sheet",
+					"ok": true,
+					"ms": 34922,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "profiles-isolation",
+					"ok": true,
+					"ms": 2455,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "progress-bar",
+					"ok": true,
+					"ms": 5389,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "proxy-auth",
+					"ok": true,
+					"ms": 2301,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "quiet",
+					"ok": true,
+					"ms": 32360,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "quit",
+					"ok": true,
+					"ms": 5837,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "restore",
+					"ok": true,
+					"ms": 3714,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "sad-tab",
+					"ok": true,
+					"ms": 3530,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "screen-capture",
+					"ok": true,
+					"ms": 2310,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "shortcuts",
+					"ok": true,
+					"ms": 4128,
+					"deferred": [
+						"typing in the new tab's address, a key queued behind \u2318L, and \u2318L selecting again: they need Pane in front"
+					],
+					"locked": false
+				},
+				{
+					"name": "sidebar-reorder",
+					"ok": true,
+					"ms": 6842,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "sidebar-resize",
+					"ok": true,
+					"ms": 5004,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "sidebar-scroll",
+					"ok": true,
+					"ms": 4938,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "sleep",
+					"ok": true,
+					"ms": 11500,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "smoke",
+					"ok": true,
+					"ms": 451,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "tab-discard",
+					"ok": true,
+					"ms": 3159,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "tab-focus",
+					"ok": true,
+					"ms": 4015,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "tabs-api",
+					"ok": true,
+					"ms": 7923,
+					"deferred": [
+						"chrome.action.openPopup: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "theme",
+					"ok": true,
+					"ms": 2397,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "ubol",
+					"ok": true,
+					"ms": 10821,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "update-connection",
+					"ok": true,
+					"ms": 102018,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "update-install",
+					"ok": true,
+					"ms": 35875,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "updates",
+					"ok": true,
+					"ms": 24355,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "web-store-labels",
+					"ok": true,
+					"ms": 19547,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "window-chrome",
+					"ok": true,
+					"ms": 2720,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "window-drag",
+					"ok": true,
+					"ms": 2724,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-browsing",
+					"ok": true,
+					"ms": 46772,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-data",
+					"ok": true,
+					"ms": 6785,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-dialogs",
+					"ok": true,
+					"ms": 59750,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-extension-pages",
+					"ok": true,
+					"ms": 83406,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-extensions",
+					"ok": true,
+					"ms": 26805,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-key-timing",
+					"ok": true,
+					"ms": 78207,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-keys",
+					"ok": true,
+					"ms": 1,
+					"deferred": [
+						"every key: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "views-lock-disk",
+					"ok": true,
+					"ms": 43458,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-lock",
+					"ok": true,
+					"ms": 71870,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-menus",
+					"ok": true,
+					"ms": 6302,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-page",
+					"ok": true,
+					"ms": 7019,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-profile-sheet",
+					"ok": true,
+					"ms": 27282,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-prototype",
+					"ok": true,
+					"ms": 5367,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-reorder",
+					"ok": true,
+					"ms": 23343,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-settings",
+					"ok": true,
+					"ms": 63486,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-sheet-over-video",
+					"ok": true,
+					"ms": 3199,
+					"deferred": [
+						"real clicks and keys into the sheet: they need Pane in front"
+					],
+					"locked": false
+				},
+				{
+					"name": "views-sidebar",
+					"ok": true,
+					"ms": 16332,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-tabs",
+					"ok": true,
+					"ms": 5844,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-toolbar",
+					"ok": true,
+					"ms": 21276,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-window",
+					"ok": true,
+					"ms": 3377,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "update-states",
+					"ok": true,
+					"ms": 66251,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "update-timing",
+					"ok": true,
+					"ms": 98952,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "surfaces",
+					"ok": true,
+					"ms": 78838,
+					"deferred": [
+						"the address field typed in: it needs Pane in front (run.ts --foreground)",
+						"the fullscreen hint: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				}
+			]
+		},
+		"k2b-final-light-rerun1": {
+			"passed": true,
+			"complete": true,
+			"results": [
+				{
+					"name": "find",
+					"ok": true,
+					"ms": 3451,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extension-management",
+					"ok": true,
+					"ms": 8362,
+					"deferred": [],
+					"locked": false
+				}
+			]
+		},
+		"k2b-dark": {
+			"passed": false,
+			"complete": false,
+			"results": [
+				{
+					"name": "app-icon",
+					"ok": true,
+					"ms": 4899,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extensions-menu",
+					"ok": true,
+					"ms": 6810,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "http-auth",
+					"ok": true,
+					"ms": 3221,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "profile-lifecycle",
+					"ok": true,
+					"ms": 15109,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "profile-sheet",
+					"ok": true,
+					"ms": 34084,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "quit",
+					"ok": true,
+					"ms": 5743,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "shortcuts",
+					"ok": true,
+					"ms": 4056,
+					"deferred": [
+						"typing in the new tab's address, a key queued behind \u2318L, and \u2318L selecting again: they need Pane in front"
+					],
+					"locked": false
+				},
+				{
+					"name": "updates",
+					"ok": true,
+					"ms": 23586,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "theme",
+					"ok": true,
+					"ms": 2104,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "extension-details",
+					"ok": true,
+					"ms": 4669,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "find",
+					"ok": true,
+					"ms": 2391,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "dark-reader",
+					"ok": true,
+					"ms": 9396,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "password-managers",
+					"ok": true,
+					"ms": 21224,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "web-store-labels",
+					"ok": true,
+					"ms": 14574,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "sidebar-resize",
+					"ok": true,
+					"ms": 4726,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-browsing",
+					"ok": true,
+					"ms": 46646,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-data",
+					"ok": true,
+					"ms": 6701,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-dialogs",
+					"ok": true,
+					"ms": 59310,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-extension-pages",
+					"ok": true,
+					"ms": 29903,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-extensions",
+					"ok": true,
+					"ms": 26996,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-keys",
+					"ok": true,
+					"ms": 1,
+					"deferred": [
+						"every key: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "views-lock",
+					"ok": true,
+					"ms": 65876,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-menus",
+					"ok": true,
+					"ms": 5649,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-page",
+					"ok": true,
+					"ms": 6619,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-profile-sheet",
+					"ok": false,
+					"ms": 13722,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-prototype",
+					"ok": true,
+					"ms": 5135,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-reorder",
+					"ok": true,
+					"ms": 22922,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-settings",
+					"ok": true,
+					"ms": 59340,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-sheet-over-video",
+					"ok": true,
+					"ms": 3018,
+					"deferred": [
+						"real clicks and keys into the sheet: they need Pane in front"
+					],
+					"locked": false
+				},
+				{
+					"name": "views-sidebar",
+					"ok": true,
+					"ms": 15150,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-tabs",
+					"ok": true,
+					"ms": 5409,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-toolbar",
+					"ok": true,
+					"ms": 20528,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-window",
+					"ok": true,
+					"ms": 2835,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "update-states",
+					"ok": true,
+					"ms": 61050,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "surfaces",
+					"ok": true,
+					"ms": 76920,
+					"deferred": [
+						"the address field typed in: it needs Pane in front (run.ts --foreground)",
+						"the fullscreen hint: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				}
+			]
+		},
+		"k2b-dark-rerun1": {
+			"passed": true,
+			"complete": true,
+			"results": [
+				{
+					"name": "views-profile-sheet",
+					"ok": true,
+					"ms": 27141,
+					"deferred": [],
+					"locked": false
+				}
+			]
+		},
+		"k2b-package/light": {
+			"passed": true,
+			"complete": false,
+			"results": [
+				{
+					"name": "security",
+					"ok": true,
+					"ms": 41792,
+					"deferred": [
+						"\u2318Q with Caps Lock on: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "lock-while-open",
+					"ok": true,
+					"ms": 38081,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "data-volume",
+					"ok": true,
+					"ms": 33145,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "crlset",
+					"ok": true,
+					"ms": 4674,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "memory-guarded",
+					"ok": true,
+					"ms": 18413,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "files-encrypted",
+					"ok": true,
+					"ms": 39252,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "private-traces",
+					"ok": true,
+					"ms": 4505,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "volume-unindexed",
+					"ok": true,
+					"ms": 2058,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "engine-keys",
+					"ok": true,
+					"ms": 40707,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "views-start",
+					"ok": true,
+					"ms": 6482,
+					"deferred": [],
+					"locked": false
+				}
+			]
+		},
+		"k2b-package/dark": {
+			"passed": true,
+			"complete": false,
+			"results": [
+				{
+					"name": "security",
+					"ok": true,
+					"ms": 38824,
+					"deferred": [
+						"\u2318Q with Caps Lock on: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				},
+				{
+					"name": "data-volume",
+					"ok": true,
+					"ms": 35035,
+					"deferred": [],
+					"locked": false
+				}
+			]
+		},
+		"k2b-package/data": {
+			"passed": true,
+			"complete": true,
+			"results": [
+				{
+					"name": "migration",
+					"ok": true,
+					"ms": 31118,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "identifier-move",
+					"ok": true,
+					"ms": 4152,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "proxy",
+					"ok": true,
+					"ms": 11222,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "files-migration-large",
+					"ok": true,
+					"ms": 72057,
+					"deferred": [],
+					"locked": false
+				},
+				{
+					"name": "files-migration",
+					"ok": true,
+					"ms": 851068,
+					"deferred": [],
+					"locked": false
+				}
+			]
+		},
+		"k2b-applescript": {
+			"passed": true,
+			"complete": false,
+			"results": [
+				{
+					"name": "applescript",
+					"ok": true,
+					"ms": 10912,
+					"deferred": [
+						"the front window after a switch to another profile: it needs Pane in front (run.ts --foreground)"
+					],
+					"locked": false
+				}
+			]
+		}
+	},
+	"rendersAgainstSwift": [
+		{
+			"appearance": "dark",
+			"render": "data-volume-07.8-dark.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.28%"
+		},
+		{
+			"appearance": "dark",
+			"render": "data-volume-07.8-light.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.29%"
+		},
+		{
+			"appearance": "dark",
+			"render": "empty-state.png",
+			"outsidePage": "0.20%",
+			"pageFillNormalized": "0.13%"
+		},
+		{
+			"appearance": "dark",
+			"render": "http-auth-sheet.png",
+			"outsidePage": "2.71%",
+			"pageFillNormalized": "8.22%"
+		},
+		{
+			"appearance": "dark",
+			"render": "menu-dark.png",
+			"outsidePage": "3.67%",
+			"pageFillNormalized": "1.98%"
+		},
+		{
+			"appearance": "dark",
+			"render": "menu-empty.png",
+			"outsidePage": "2.96%",
+			"pageFillNormalized": "2.29%"
+		},
+		{
+			"appearance": "dark",
+			"render": "menu-light.png",
+			"outsidePage": "3.58%",
+			"pageFillNormalized": "2.01%"
+		},
+		{
+			"appearance": "dark",
+			"render": "more-menu.png",
+			"outsidePage": "3.54%",
+			"pageFillNormalized": "3.02%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-cross-os-dark.png",
+			"outsidePage": "3.33%",
+			"pageFillNormalized": "17.68%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-cross-os-light.png",
+			"outsidePage": "1.25%",
+			"pageFillNormalized": "14.66%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-missing-again-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.41%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-missing-again-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.32%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-missing-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "6.32%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-missing-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "3.22%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-missing-once-more-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.41%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-missing-once-more-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.32%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-unreadable-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "6.35%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-host-unreadable-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "3.26%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-name-missing-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "15.41%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-name-missing-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "12.38%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-new-dark.png",
+			"outsidePage": "2.91%",
+			"pageFillNormalized": "15.26%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-new-light.png",
+			"outsidePage": "0.82%",
+			"pageFillNormalized": "12.23%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-port-invalid-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.37%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-port-invalid-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.28%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-proxy-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.37%"
+		},
+		{
+			"appearance": "dark",
+			"render": "profile-sheet-proxy-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.28%"
+		},
+		{
+			"appearance": "dark",
+			"render": "remove-popup.png",
+			"outsidePage": "3.67%",
+			"pageFillNormalized": "2.20%"
+		},
+		{
+			"appearance": "dark",
+			"render": "security-damaged-garbage.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.28%"
+		},
+		{
+			"appearance": "dark",
+			"render": "security-damaged-truncated.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.17%"
+		},
+		{
+			"appearance": "dark",
+			"render": "security-last-attempt.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.27%"
+		},
+		{
+			"appearance": "dark",
+			"render": "security-lock.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.17%"
+		},
+		{
+			"appearance": "dark",
+			"render": "security-wrong-pin.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.23%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-app-icon-picker-automatic.png",
+			"outsidePage": "0.61%",
+			"pageFillNormalized": "2.15%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-app-icon-picker-dusk.png",
+			"outsidePage": "0.61%",
+			"pageFillNormalized": "2.15%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-alert.png",
+			"outsidePage": "3.74%",
+			"pageFillNormalized": "6.76%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-confirm.png",
+			"outsidePage": "3.74%",
+			"pageFillNormalized": "6.82%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-external-app.png",
+			"outsidePage": "3.88%",
+			"pageFillNormalized": "7.40%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-form-resubmission.png",
+			"outsidePage": "1.60%",
+			"pageFillNormalized": "0.89%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-hung-page.png",
+			"outsidePage": "3.74%",
+			"pageFillNormalized": "7.33%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-leave-site.png",
+			"outsidePage": "3.88%",
+			"pageFillNormalized": "7.39%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-permission.png",
+			"outsidePage": "3.79%",
+			"pageFillNormalized": "8.06%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-prompt.png",
+			"outsidePage": "3.74%",
+			"pageFillNormalized": "7.51%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-reload-site.png",
+			"outsidePage": "3.88%",
+			"pageFillNormalized": "7.39%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-sign-in-proxy.png",
+			"outsidePage": "3.91%",
+			"pageFillNormalized": "8.55%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-sign-in-refused.png",
+			"outsidePage": "3.63%",
+			"pageFillNormalized": "8.49%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-dialog-sign-in.png",
+			"outsidePage": "3.63%",
+			"pageFillNormalized": "8.47%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-find-matches.png",
+			"outsidePage": "3.64%",
+			"pageFillNormalized": "1.93%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-find-no-match.png",
+			"outsidePage": "3.64%",
+			"pageFillNormalized": "1.95%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-lock-last-attempt.png",
+			"outsidePage": "0.01%",
+			"pageFillNormalized": "0.27%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-lock-typing.png",
+			"outsidePage": "0.01%",
+			"pageFillNormalized": "0.17%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-lock-unlock.png",
+			"outsidePage": "0.01%",
+			"pageFillNormalized": "0.17%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-lock-update-available.png",
+			"outsidePage": "0.01%",
+			"pageFillNormalized": "0.21%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-lock-wrong-pin.png",
+			"outsidePage": "0.01%",
+			"pageFillNormalized": "0.22%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-change-confirm.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.20%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-change-current.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.21%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-change-new.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.26%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-remove-current.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.21%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-setup-confirm.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.20%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-setup-continue.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.27%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-setup-empty.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.26%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-setup-mismatch.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.24%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-pin-setup-typing.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.26%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-quit-confirm.png",
+			"outsidePage": "3.78%",
+			"pageFillNormalized": "10.01%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-sad-tab-crashed.png",
+			"outsidePage": "1.63%",
+			"pageFillNormalized": "0.65%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-settings-app-icon-dusk.png",
+			"outsidePage": "0.64%",
+			"pageFillNormalized": "1.38%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-settings-end.png",
+			"outsidePage": "0.69%",
+			"pageFillNormalized": "1.90%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-settings-pin-set.png",
+			"outsidePage": "0.97%",
+			"pageFillNormalized": "4.02%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-settings-top.png",
+			"outsidePage": "0.46%",
+			"pageFillNormalized": "1.38%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-settings-updates-checking.png",
+			"outsidePage": "0.69%",
+			"pageFillNormalized": "1.87%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-sidebar-overflow-end.png",
+			"outsidePage": "5.66%",
+			"pageFillNormalized": "1.55%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-sidebar-overflow-middle.png",
+			"outsidePage": "5.66%",
+			"pageFillNormalized": "1.55%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-sidebar-reorder-dragging.png",
+			"outsidePage": "3.69%",
+			"pageFillNormalized": "1.01%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-switcher-open.png",
+			"outsidePage": "3.66%",
+			"pageFillNormalized": "3.10%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-toolbar-address-focused.png",
+			"outsidePage": "3.89%",
+			"pageFillNormalized": "1.07%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-toolbar-loading-slow.png",
+			"outsidePage": "3.68%",
+			"pageFillNormalized": "1.01%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-toolbar-loading-start.png",
+			"outsidePage": "3.66%",
+			"pageFillNormalized": "1.00%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-update-pill-available.png",
+			"outsidePage": "0.36%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-updates-available.png",
+			"outsidePage": "0.63%",
+			"pageFillNormalized": "1.87%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-updates-downloaded.png",
+			"outsidePage": "0.43%",
+			"pageFillNormalized": "1.64%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-updates-downloading.png",
+			"outsidePage": "0.52%",
+			"pageFillNormalized": "1.61%"
+		},
+		{
+			"appearance": "dark",
+			"render": "surfaces-window-two-profiles.png",
+			"outsidePage": "3.75%",
+			"pageFillNormalized": "1.03%"
+		},
+		{
+			"appearance": "dark",
+			"render": "switcher.png",
+			"outsidePage": "2.27%",
+			"pageFillNormalized": "0.76%"
+		},
+		{
+			"appearance": "dark",
+			"render": "update-pill.png",
+			"outsidePage": "0.36%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "dark",
+			"render": "update-settings.png",
+			"outsidePage": "0.24%",
+			"pageFillNormalized": "1.32%"
+		},
+		{
+			"appearance": "light",
+			"render": "data-volume-07.8-dark.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.28%"
+		},
+		{
+			"appearance": "light",
+			"render": "data-volume-07.8-light.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.29%"
+		},
+		{
+			"appearance": "light",
+			"render": "empty-state.png",
+			"outsidePage": "0.20%",
+			"pageFillNormalized": "0.14%"
+		},
+		{
+			"appearance": "light",
+			"render": "http-auth-sheet.png",
+			"outsidePage": "0.60%",
+			"pageFillNormalized": "0.44%"
+		},
+		{
+			"appearance": "light",
+			"render": "menu-dark.png",
+			"outsidePage": "3.67%",
+			"pageFillNormalized": "1.98%"
+		},
+		{
+			"appearance": "light",
+			"render": "menu-empty.png",
+			"outsidePage": "0.86%",
+			"pageFillNormalized": "0.48%"
+		},
+		{
+			"appearance": "light",
+			"render": "menu-light.png",
+			"outsidePage": "3.59%",
+			"pageFillNormalized": "2.23%"
+		},
+		{
+			"appearance": "light",
+			"render": "more-menu.png",
+			"outsidePage": "3.55%",
+			"pageFillNormalized": "3.52%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-cross-os-dark.png",
+			"outsidePage": "3.33%",
+			"pageFillNormalized": "17.68%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-cross-os-light.png",
+			"outsidePage": "1.25%",
+			"pageFillNormalized": "14.66%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-missing-again-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.41%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-missing-again-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.32%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-missing-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "6.32%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-missing-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "3.22%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-missing-once-more-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.41%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-missing-once-more-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.32%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-unreadable-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "6.35%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-host-unreadable-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "3.26%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-name-missing-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "15.41%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-name-missing-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "12.38%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-new-dark.png",
+			"outsidePage": "2.91%",
+			"pageFillNormalized": "15.26%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-new-light.png",
+			"outsidePage": "0.82%",
+			"pageFillNormalized": "12.23%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-port-invalid-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.37%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-port-invalid-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.28%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-proxy-dark.png",
+			"outsidePage": "3.32%",
+			"pageFillNormalized": "4.36%"
+		},
+		{
+			"appearance": "light",
+			"render": "profile-sheet-proxy-light.png",
+			"outsidePage": "1.24%",
+			"pageFillNormalized": "1.27%"
+		},
+		{
+			"appearance": "light",
+			"render": "remove-popup.png",
+			"outsidePage": "3.67%",
+			"pageFillNormalized": "2.20%"
+		},
+		{
+			"appearance": "light",
+			"render": "security-damaged-garbage.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.29%"
+		},
+		{
+			"appearance": "light",
+			"render": "security-damaged-truncated.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "light",
+			"render": "security-last-attempt.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.28%"
+		},
+		{
+			"appearance": "light",
+			"render": "security-lock.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "light",
+			"render": "security-wrong-pin.png",
+			"outsidePage": "0.02%",
+			"pageFillNormalized": "0.24%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-app-icon-picker-automatic.png",
+			"outsidePage": "0.63%",
+			"pageFillNormalized": "2.27%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-app-icon-picker-dusk.png",
+			"outsidePage": "0.63%",
+			"pageFillNormalized": "2.27%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-alert.png",
+			"outsidePage": "1.64%",
+			"pageFillNormalized": "0.54%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-confirm.png",
+			"outsidePage": "1.64%",
+			"pageFillNormalized": "0.56%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-external-app.png",
+			"outsidePage": "1.79%",
+			"pageFillNormalized": "0.70%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-form-resubmission.png",
+			"outsidePage": "1.61%",
+			"pageFillNormalized": "0.89%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-hung-page.png",
+			"outsidePage": "1.65%",
+			"pageFillNormalized": "0.69%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-leave-site.png",
+			"outsidePage": "1.79%",
+			"pageFillNormalized": "0.67%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-permission.png",
+			"outsidePage": "1.70%",
+			"pageFillNormalized": "0.68%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-prompt.png",
+			"outsidePage": "1.64%",
+			"pageFillNormalized": "0.60%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-reload-site.png",
+			"outsidePage": "1.78%",
+			"pageFillNormalized": "0.68%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-sign-in-proxy.png",
+			"outsidePage": "1.82%",
+			"pageFillNormalized": "0.80%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-sign-in-refused.png",
+			"outsidePage": "1.54%",
+			"pageFillNormalized": "0.72%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-dialog-sign-in.png",
+			"outsidePage": "1.54%",
+			"pageFillNormalized": "0.69%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-find-matches.png",
+			"outsidePage": "1.55%",
+			"pageFillNormalized": "0.45%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-find-no-match.png",
+			"outsidePage": "1.55%",
+			"pageFillNormalized": "0.47%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-lock-last-attempt.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.28%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-lock-typing.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-lock-unlock.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-lock-update-available.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.22%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-lock-wrong-pin.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.24%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-change-confirm.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.21%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-change-current.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.22%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-change-new.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.27%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-remove-current.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.22%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-setup-confirm.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.21%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-setup-continue.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.28%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-setup-empty.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.27%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-setup-mismatch.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.25%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-pin-setup-typing.png",
+			"outsidePage": "0.03%",
+			"pageFillNormalized": "0.27%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-quit-confirm.png",
+			"outsidePage": "1.73%",
+			"pageFillNormalized": "1.08%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-sad-tab-crashed.png",
+			"outsidePage": "1.65%",
+			"pageFillNormalized": "0.66%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-settings-app-icon-dusk.png",
+			"outsidePage": "0.64%",
+			"pageFillNormalized": "1.40%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-settings-end.png",
+			"outsidePage": "0.69%",
+			"pageFillNormalized": "1.92%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-settings-pin-set.png",
+			"outsidePage": "0.53%",
+			"pageFillNormalized": "1.65%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-settings-top.png",
+			"outsidePage": "0.46%",
+			"pageFillNormalized": "1.40%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-settings-updates-checking.png",
+			"outsidePage": "0.69%",
+			"pageFillNormalized": "1.89%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-sidebar-overflow-end.png",
+			"outsidePage": "3.61%",
+			"pageFillNormalized": "0.99%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-sidebar-overflow-middle.png",
+			"outsidePage": "3.67%",
+			"pageFillNormalized": "1.00%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-sidebar-reorder-dragging.png",
+			"outsidePage": "1.83%",
+			"pageFillNormalized": "0.50%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-switcher-open.png",
+			"outsidePage": "1.58%",
+			"pageFillNormalized": "0.63%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-toolbar-address-focused.png",
+			"outsidePage": "1.85%",
+			"pageFillNormalized": "0.51%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-toolbar-loading-slow.png",
+			"outsidePage": "1.60%",
+			"pageFillNormalized": "0.44%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-toolbar-loading-start.png",
+			"outsidePage": "1.57%",
+			"pageFillNormalized": "0.43%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-update-pill-available.png",
+			"outsidePage": "0.36%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-updates-available.png",
+			"outsidePage": "0.63%",
+			"pageFillNormalized": "1.89%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-updates-downloaded.png",
+			"outsidePage": "0.43%",
+			"pageFillNormalized": "1.67%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-updates-downloading.png",
+			"outsidePage": "0.53%",
+			"pageFillNormalized": "1.69%"
+		},
+		{
+			"appearance": "light",
+			"render": "surfaces-window-two-profiles.png",
+			"outsidePage": "1.66%",
+			"pageFillNormalized": "0.45%"
+		},
+		{
+			"appearance": "light",
+			"render": "switcher.png",
+			"outsidePage": "2.27%",
+			"pageFillNormalized": "0.76%"
+		},
+		{
+			"appearance": "light",
+			"render": "update-pill.png",
+			"outsidePage": "0.36%",
+			"pageFillNormalized": "0.18%"
+		},
+		{
+			"appearance": "light",
+			"render": "update-settings.png",
+			"outsidePage": "0.24%",
+			"pageFillNormalized": "1.34%"
+		}
+	],
+	"memoryProbe": {
+		"what": "one tab, idle 30 s, every process's footprint, three launches: package = the bench candidate, dev = out/Release, shell = candidates/shell-3f62f15 (the shell's end, GPU raster), swift = published 0.19.2",
+		"runs": {
+			"package": [
+				{
+					"run": 0,
+					"processes": [
+						{
+							"pid": 37473,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 62.2,
+							"main": true
+						},
+						{
+							"pid": 37500,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 31.1,
+							"main": false
+						},
+						{
+							"pid": 37501,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.3,
+							"main": false
+						},
+						{
+							"pid": 37502,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.6,
+							"main": false
+						},
+						{
+							"pid": 37529,
+							"type": "browser",
+							"util": "",
+							"exe": "pane-volume-watch",
+							"mb": 2.6,
+							"main": false
+						},
+						{
+							"pid": 37536,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 12,
+							"main": false
+						},
+						{
+							"pid": 37537,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.7,
+							"main": false
+						}
+					]
+				},
+				{
+					"run": 1,
+					"processes": [
+						{
+							"pid": 37600,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 62.2,
+							"main": true
+						},
+						{
+							"pid": 37602,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 31.2,
+							"main": false
+						},
+						{
+							"pid": 37603,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.4,
+							"main": false
+						},
+						{
+							"pid": 37604,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.6,
+							"main": false
+						},
+						{
+							"pid": 37627,
+							"type": "browser",
+							"util": "",
+							"exe": "pane-volume-watch",
+							"mb": 2.6,
+							"main": false
+						},
+						{
+							"pid": 37634,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 12.1,
+							"main": false
+						},
+						{
+							"pid": 37635,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.7,
+							"main": false
+						}
+					]
+				},
+				{
+					"run": 2,
+					"processes": [
+						{
+							"pid": 37691,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 62,
+							"main": true
+						},
+						{
+							"pid": 37695,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 30.7,
+							"main": false
+						},
+						{
+							"pid": 37696,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.2,
+							"main": false
+						},
+						{
+							"pid": 37697,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.6,
+							"main": false
+						},
+						{
+							"pid": 37719,
+							"type": "browser",
+							"util": "",
+							"exe": "pane-volume-watch",
+							"mb": 2.6,
+							"main": false
+						},
+						{
+							"pid": 37727,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 12,
+							"main": false
+						},
+						{
+							"pid": 37728,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.7,
+							"main": false
+						}
+					]
+				}
+			],
+			"dev": [
+				{
+					"run": 0,
+					"processes": [
+						{
+							"pid": 38150,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 61.8,
+							"main": true
+						}
+					]
+				},
+				{
+					"run": 1,
+					"processes": [
+						{
+							"pid": 38337,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 63.5,
+							"main": true
+						}
+					]
+				},
+				{
+					"run": 2,
+					"processes": [
+						{
+							"pid": 38461,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 65.2,
+							"main": true
+						}
+					]
+				}
+			],
+			"shell": [
+				{
+					"run": 0,
+					"processes": [
+						{
+							"pid": 38636,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 61,
+							"main": true
+						},
+						{
+							"pid": 38651,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 57.3,
+							"main": false
+						},
+						{
+							"pid": 38652,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.4,
+							"main": false
+						},
+						{
+							"pid": 38653,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.6,
+							"main": false
+						},
+						{
+							"pid": 38686,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 12,
+							"main": false
+						},
+						{
+							"pid": 38687,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.6,
+							"main": false
+						}
+					]
+				},
+				{
+					"run": 1,
+					"processes": [
+						{
+							"pid": 38784,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 57.5,
+							"main": true
+						},
+						{
+							"pid": 38788,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 56.1,
+							"main": false
+						},
+						{
+							"pid": 38789,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.4,
+							"main": false
+						},
+						{
+							"pid": 38790,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.6,
+							"main": false
+						},
+						{
+							"pid": 38821,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 12.4,
+							"main": false
+						},
+						{
+							"pid": 38822,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.7,
+							"main": false
+						}
+					]
+				},
+				{
+					"run": 2,
+					"processes": [
+						{
+							"pid": 38931,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 57.6,
+							"main": true
+						},
+						{
+							"pid": 38933,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 54.7,
+							"main": false
+						},
+						{
+							"pid": 38934,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.5,
+							"main": false
+						},
+						{
+							"pid": 38935,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.7,
+							"main": false
+						},
+						{
+							"pid": 38962,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 13.9,
+							"main": false
+						},
+						{
+							"pid": 38963,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.7,
+							"main": false
+						}
+					]
+				}
+			],
+			"swift": [
+				{
+					"run": 0,
+					"processes": [
+						{
+							"pid": 39067,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 64.6,
+							"main": true
+						},
+						{
+							"pid": 39070,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 26,
+							"main": false
+						},
+						{
+							"pid": 39071,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.3,
+							"main": false
+						},
+						{
+							"pid": 39072,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.6,
+							"main": false
+						},
+						{
+							"pid": 39095,
+							"type": "browser",
+							"util": "",
+							"exe": "pane-volume-watch",
+							"mb": 2,
+							"main": false
+						},
+						{
+							"pid": 39102,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 11.9,
+							"main": false
+						},
+						{
+							"pid": 39103,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.5,
+							"main": false
+						}
+					]
+				},
+				{
+					"run": 1,
+					"processes": [
+						{
+							"pid": 39254,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 64.6,
+							"main": true
+						},
+						{
+							"pid": 39257,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 28.1,
+							"main": false
+						},
+						{
+							"pid": 39258,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.5,
+							"main": false
+						},
+						{
+							"pid": 39259,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.7,
+							"main": false
+						},
+						{
+							"pid": 39281,
+							"type": "browser",
+							"util": "",
+							"exe": "pane-volume-watch",
+							"mb": 2,
+							"main": false
+						},
+						{
+							"pid": 39288,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 12.1,
+							"main": false
+						},
+						{
+							"pid": 39289,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.6,
+							"main": false
+						}
+					]
+				},
+				{
+					"run": 2,
+					"processes": [
+						{
+							"pid": 39409,
+							"type": "browser",
+							"util": "",
+							"exe": "Pane",
+							"mb": 64.6,
+							"main": true
+						},
+						{
+							"pid": 39413,
+							"type": "gpu-process",
+							"util": "",
+							"exe": "Pane",
+							"mb": 26.1,
+							"main": false
+						},
+						{
+							"pid": 39414,
+							"type": "utility",
+							"util": "network.mojom.NetworkService",
+							"exe": "Pane",
+							"mb": 12.3,
+							"main": false
+						},
+						{
+							"pid": 39415,
+							"type": "utility",
+							"util": "storage.mojom.StorageService",
+							"exe": "Pane",
+							"mb": 6.6,
+							"main": false
+						},
+						{
+							"pid": 39436,
+							"type": "browser",
+							"util": "",
+							"exe": "pane-volume-watch",
+							"mb": 2,
+							"main": false
+						},
+						{
+							"pid": 39449,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 12.1,
+							"main": false
+						},
+						{
+							"pid": 39450,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 17.8,
+							"main": false
+						},
+						{
+							"pid": 39451,
+							"type": "renderer",
+							"util": "",
+							"exe": "Pane",
+							"mb": 0.9,
+							"main": false
+						}
+					]
+				}
+			]
+		}
+	},
+	"loadSamplesNote": "time and the one-minute load average, every 30 s, during the A/B runs"
+}

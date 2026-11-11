@@ -6,6 +6,8 @@
 #import <Foundation/Foundation.h>
 #include <stdlib.h>
 
+#include "base/strings/sys_string_conversions.h"
+
 namespace pane {
 
 void ChangeSystemTimeZone(const std::string& zone) {
@@ -40,6 +42,28 @@ bool PostSystemEvent(const std::string& event) {
       postNotificationName:name
                     object:NSWorkspace.sharedWorkspace];
   return true;
+}
+
+base::expected<std::optional<std::string>, std::string> RunAppleScript(
+    const std::string& source) {
+  NSAppleScript* script =
+      [[NSAppleScript alloc] initWithSource:base::SysUTF8ToNSString(source)];
+  NSDictionary<NSString*, id>* error = nil;
+  NSAppleEventDescriptor* result =
+      script ? [script executeAndReturnError:&error] : nil;
+  if (!result) {
+    id message = error[NSAppleScriptErrorMessage];
+    return base::unexpected(
+        "AppleScript: " +
+        base::SysNSStringToUTF8(
+            message ? [message description]
+                    : (error ? error.description : @"no script")));
+  }
+  NSString* text = result.stringValue;
+  if (!text) {
+    return std::nullopt;
+  }
+  return std::optional<std::string>(base::SysNSStringToUTF8(text));
 }
 
 }  // namespace pane

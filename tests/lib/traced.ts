@@ -65,13 +65,24 @@ export async function launchTraced(
 }
 
 // Presses the left (or right) mouse button over a point of the page, as a
-// user would: input that counts as a user gesture.
+// user would: input that counts as a user gesture. A person clicks a page
+// they see, so the press waits for the page to have drawn a frame: a press
+// sent the moment a page loaded, before its first frame, reached no part of
+// it (surfaces' maps: link, 3 runs of 5 on 2026-11-11, the page's own click
+// listener never called), the input router having no frame of it yet to find
+// its target in. A page that draws none (hidden) gets its press after 2 s.
 export async function clickAt(
 	send: (method: string, params?: Record<string, unknown>) => Promise<unknown>,
 	x: number,
 	y: number,
 	button: "left" | "right" = "left",
 ): Promise<void> {
+	await send("Runtime.evaluate", {
+		expression:
+			"new Promise((done) => { requestAnimationFrame(() => requestAnimationFrame(done)); setTimeout(done, 2000); })",
+		awaitPromise: true,
+	});
+
 	for (const type of ["mousePressed", "mouseReleased"]) {
 		await send("Input.dispatchMouseEvent", {
 			type,

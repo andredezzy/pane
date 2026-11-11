@@ -56,6 +56,10 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // added; and it reads a session this one wrote from a new data folder, without a
 // PIN. Cookies included.
 //
+// A converting Pane's session behind a PIN converts too, once the PIN opens the
+// key that Pane sealed with it, and the repair runs behind one: ADR 0122's rows
+// each with a PIN and without.
+//
 // PANE_EARLIER_BUILDS names the published Panes' executables, comma-separated:
 // each is the source of a pass.
 
@@ -395,6 +399,75 @@ async function unlock(app: PaneApp, pin: string) {
 	);
 }
 
+// The PIN a converting Pane's session is behind, in its pass behind a PIN, and
+// in the repair's.
+const CONVERT_PIN = "1470";
+
+// The conversion again, the earlier Pane's session behind a PIN: Pane starts
+// locked, the PIN opens the key the earlier Pane sealed with it, and only then
+// does the volume open on its former passphrase and the profile's files
+// convert. Everything reads back, nothing is left plain, the safety copy is
+// made, and the PIN opens it all again after a relaunch.
+async function behindPin(context: ScenarioContext, earlier: string) {
+	const session = await richSession(context, earlier);
+	await setUpPin(session.app, CONVERT_PIN);
+	await Bun.sleep(STORES_COMMITTED_MS);
+	await session.app.browser.close();
+
+	const launch: PaneLaunch = { ...session.launch, binary: undefined };
+	const app = await launchPane(context, launch);
+	const launched = await app.state();
+
+	expect(
+		launched.security.locked &&
+			launched.security.pinLength === CONVERT_PIN.length,
+		`not locked behind the earlier Pane's PIN: ${JSON.stringify(launched.security)}`,
+	);
+
+	await unlock(app, CONVERT_PIN);
+
+	expectEverything(
+		await everything(app, session),
+		session,
+		"after the migration behind a PIN",
+	);
+
+	await Bun.sleep(STORES_COMMITTED_MS);
+	const found = audit(session.roots, session.planted);
+
+	expect(
+		found.plain.length === 0 &&
+			found.planted.length === 0 &&
+			found.named.length === 0,
+		`left after the migration behind a PIN: ${JSON.stringify({ plain: found.plain, planted: found.planted, named: found.named })}`,
+	);
+
+	const volume = join(session.roots.dataRoot, "Engine", "Volume");
+
+	expect(
+		existsSync(join(volume, session.profile, "SafetyCopy")),
+		"no safety copy behind a PIN",
+	);
+
+	await app.browser.close();
+
+	const again = await launchPane(context, launch);
+	await unlock(again, CONVERT_PIN);
+
+	expectEverything(
+		await everything(again, session),
+		session,
+		"relaunched behind the PIN",
+	);
+
+	await again.browser.close();
+
+	return {
+		files: found.files.length,
+		bytes: found.files.reduce((sum, file) => sum + file.size, 0),
+	};
+}
+
 // A published Pane that encrypts its files itself, and this one, each reading
 // what the other wrote (the swap pass, above). The published Pane's session is
 // behind a PIN, so its key opens here with a PIN it sealed; this one's is not.
@@ -717,7 +790,11 @@ async function safetyCopy(context: ScenarioContext, earlier: string) {
 
 // A page of a site, and the same site inside another site's page, whose storage
 // is partitioned: a row of its own in the quota database, for the same origin.
-async function partitionedSession(context: ScenarioContext, earlier: string) {
+async function partitionedSession(
+	context: ScenarioContext,
+	earlier: string,
+	pin?: string,
+) {
 	const folders = sessionFolders(context, earlier);
 	const { port } = new URL(context.fixtures.origin);
 	const id = crypto.randomUUID().slice(0, 8);
@@ -737,6 +814,10 @@ async function partitionedSession(context: ScenarioContext, earlier: string) {
 		kind: "opfs",
 		value: "the embed's own",
 	});
+
+	if (pin) {
+		await setUpPin(app, pin);
+	}
 
 	await app.browser.close();
 
@@ -811,14 +892,33 @@ async function partitioned(context: ScenarioContext, build: EarlierBuild) {
 		return;
 	}
 
-	const repaired = await partitionedSession(context, earlier);
+	await repair(context, earlier, wrong);
+	await repair(context, earlier, wrong, CONVERT_PIN);
+}
+
+// What `wrong` (0.18.0) left of an earlier Pane's partitioned session, put
+// right by this one; with `pin`, the session is behind it, and each Pane opens
+// it with the PIN first.
+async function repair(
+	context: ScenarioContext,
+	earlier: string,
+	wrong: string,
+	pin?: string,
+) {
+	const say = pin ? " behind a PIN" : "";
+	const repaired = await partitionedSession(context, earlier, pin);
 	const left = await launchPane(context, { ...repaired.launch, binary: wrong });
+
+	if (pin) {
+		await unlock(left, pin);
+	}
+
 	const before = await readPartitioned(left, repaired);
 	await left.browser.close();
 
 	expect(
 		before.own !== "the site's own" && before.embed !== "the embed's own",
-		`${wrong} got these right: ${JSON.stringify(before)}`,
+		`${wrong} got these right${say}: ${JSON.stringify(before)}`,
 	);
 
 	const fixed = await launchPane(context, {
@@ -826,18 +926,22 @@ async function partitioned(context: ScenarioContext, build: EarlierBuild) {
 		binary: undefined,
 	});
 
+	if (pin) {
+		await unlock(fixed, pin);
+	}
+
 	const after = await readPartitioned(fixed, repaired);
 	await fixed.browser.close();
 
 	expect(
 		after.embed === "the embed's own",
-		`a partitioned file system after the repair: ${JSON.stringify(after)}`,
+		`a partitioned file system after the repair${say}: ${JSON.stringify(after)}`,
 	);
 
 	// The site made a new store when the earlier Pane read it, so both stay.
 	expect(
 		after.own === before.own,
-		`a site's store after the repair: ${JSON.stringify({ before, after })}`,
+		`a site's store after the repair${say}: ${JSON.stringify({ before, after })}`,
 	);
 }
 
@@ -872,6 +976,7 @@ const filesMigration: Scenario = async (context) => {
 			passes.push({
 				version: build.version,
 				...(await pass(context, build.executable)),
+				behindPin: await behindPin(context, build.executable),
 			});
 
 			await safetyCopy(context, build.executable);

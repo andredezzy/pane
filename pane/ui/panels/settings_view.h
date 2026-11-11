@@ -33,6 +33,10 @@ class TextButton;
 // check found, or the version on offer and its download; and the button,
 // Check for updates (Checking…, disabled, while it runs), or the download's.
 struct SettingsUpdate {
+  // The status before any check has answered.
+  static constexpr char16_t kChecksOnItsOwn[] =
+      u"Pane checks for a new version on its own.";
+
   std::u16string status;
   std::u16string button;
   bool button_enabled = true;

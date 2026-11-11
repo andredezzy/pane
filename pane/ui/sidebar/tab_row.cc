@@ -22,7 +22,6 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -89,7 +88,7 @@ TabRow::TabRow(const SidebarTab& tab, Actions actions)
   title_->SetCanProcessEventsWithinSubtree(false);
   close_ = AddChildView(std::make_unique<CloseButton>(
       base::BindRepeating(&TabRow::Close, base::Unretained(this)), this));
-  menu_model_.AddItem(kCloseTab, u"Close tab");
+  MakeContextMenu(this).AddItem(kCloseTab, u"Close tab");
   Update(tab);
 }
 
@@ -147,22 +146,7 @@ void TabRow::LookChanged() {
 void TabRow::ShowContextMenuForViewImpl(views::View* source,
                                         const gfx::Point& point,
                                         ui::mojom::MenuSourceType source_type) {
-  if (!GetWidget()) {
-    return;
-  }
-  // The row stays lit under its menu, as the Swift's did.
-  SetMenuShowing(true);
-  menu_runner_ = std::make_unique<views::MenuRunner>(
-      &menu_model_, views::MenuRunner::CONTEXT_MENU,
-      base::BindRepeating(
-          [](base::WeakPtr<TabRow> row) {
-            if (row) {
-              row->SetMenuShowing(false);
-            }
-          },
-          weak_factory_.GetWeakPtr()));
-  menu_runner_->RunMenuAt(GetWidget(), nullptr, gfx::Rect(point, gfx::Size()),
-                          views::MenuAnchorPosition::kTopLeft, source_type);
+  RunContextMenu(point, source_type);
 }
 
 void TabRow::ExecuteCommand(int command_id, int event_flags) {

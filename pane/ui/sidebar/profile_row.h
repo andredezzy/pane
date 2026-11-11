@@ -20,7 +20,6 @@
 
 namespace views {
 class Label;
-class MenuRunner;
 }  // namespace views
 
 namespace gfx {
@@ -111,10 +110,6 @@ class ProfileRow : public RowButton,
   const SidebarProfile& profile() const { return profile_; }
   // The bar's width now, 4 to 16 points, as the spring carries it.
   float MarkWidth() const;
-  // The menu its right click shows, which the channel reads and chooses
-  // from.
-  ui::SimpleMenuModel& menu_model() { return menu_model_; }
-
   // views::Button:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
@@ -147,8 +142,6 @@ class ProfileRow : public RowButton,
   // Where the proxy's dot sits, as last laid out.
   float dot_x_ = 0;
   ValueMotion morph_;
-  ui::SimpleMenuModel menu_model_{this};
-  std::unique_ptr<views::MenuRunner> menu_runner_;
   base::WeakPtrFactory<ProfileRow> weak_factory_{this};
 };
 

@@ -7,9 +7,20 @@
 #include <optional>
 
 #include "base/functional/callback.h"
+#include "base/memory/weak_ptr.h"
 #include "pane/ui/design/controls.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/controls/button/button.h"
+
+namespace gfx {
+class Point;
+}  // namespace gfx
+
+namespace views {
+class MenuRunner;
+}  // namespace views
 
 namespace pane {
 
@@ -63,6 +74,9 @@ class RowButton : public views::Button {
   SkColor Tint() const;
   // The contents' opacity: 0.6 dimmed, else 1.
   float ContentsOpacity() const { return dimmed_ ? 0.6f : 1.0f; }
+  // The row's right-click menu, which the channel reads and chooses from:
+  // the rows that have one (MakeContextMenu).
+  ui::SimpleMenuModel& menu_model() { return *menu_model_; }
 
  protected:
   // The row's look changed: a hover step, a press, the selection. Each row
@@ -71,6 +85,14 @@ class RowButton : public views::Button {
 
   // A look of the row's own, for the profile's header (no fill when shown).
   void SetLook(const ControlLook& look);
+
+  // The row's right-click menu, its commands answered by `delegate` (the row
+  // itself): made once, for the row to fill.
+  ui::SimpleMenuModel& MakeContextMenu(ui::SimpleMenuModel::Delegate* delegate);
+  // Shows the menu at `point`, the row held lit under it until it goes
+  // (SetMenuShowing).
+  void RunContextMenu(const gfx::Point& point,
+                      ui::mojom::MenuSourceType source_type);
 
  private:
   void UpdateLook();
@@ -83,6 +105,12 @@ class RowButton : public views::Button {
   std::unique_ptr<ControlHighlight> highlight_;
   raw_ptr<ControlBackground> background_ = nullptr;
   base::RepeatingClosure capture_lost_;
+  // The model before its runner, so a row deleted under its open menu cancels
+  // the menu while the model stands, as the menu's controller requires
+  // (ui/menus/cocoa/menu_controller.h; MenuModelAdapter likewise).
+  std::unique_ptr<ui::SimpleMenuModel> menu_model_;
+  std::unique_ptr<views::MenuRunner> menu_runner_;
+  base::WeakPtrFactory<RowButton> weak_factory_{this};
 };
 
 }  // namespace pane

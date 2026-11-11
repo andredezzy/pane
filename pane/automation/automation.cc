@@ -1283,6 +1283,24 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
+  // { source }: a script run in the app, against itself (system.h), its
+  // result as text or null (applescript, ADR 0112).
+  if (name == "appleScript") {
+    const std::string* source = command.FindString("source");
+    if (!source) {
+      std::move(reply).Run(base::Value(), "appleScript needs source");
+      return;
+    }
+    const auto ran = RunAppleScript(*source);
+    if (!ran.has_value()) {
+      std::move(reply).Run(base::Value(), ran.error());
+      return;
+    }
+    std::move(reply).Run(
+        ran.value() ? base::Value(*ran.value()) : base::Value(), std::string());
+    return;
+  }
+
   // What the system says that locks Pane by itself, { event }: "screensSleep"
   // or "sessionResign", posted as the system posts it, to Pane alone
   // (NSWorkspace's own center). The screen's lock and the computer's sleep
@@ -1417,15 +1435,7 @@ void Automation::Dispatch(const std::string& name,
   // Real keys, through the window's event path (pane/automation/input.h).
   if (name == "key") {
     const std::string* key = command.FindString("key");
-    std::vector<std::string> modifiers;
-    if (const base::ListValue* names = command.FindList("modifiers")) {
-      for (const base::Value& modifier : *names) {
-        if (modifier.is_string()) {
-          modifiers.push_back(modifier.GetString());
-        }
-      }
-    }
-    if (!key || !PostKey(widget, *key, modifiers)) {
+    if (!key || !PostKey(widget, *key, Modifiers(command))) {
       std::move(reply).Run(base::Value(), "no key code for that key");
       return;
     }

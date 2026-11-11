@@ -8,15 +8,31 @@ import {
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { launchPane } from "../lib/pane";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // An earlier Pane's data, under its former identifier's folders
 // (com.pane.desktop), moves to this one's (xyz.roundedcorners.pane) at launch,
 // before anything reads it (ADR 0114): its profiles show, profiles.json is
 // sealed (ADR 0113), and the former folders are gone. Pane derives the data
 // root from a throwaway home of the scenario's own, as on a Mac; the user's
-// folders are checked untouched.
-const identifierMove: Scenario = async (context) => {
+// folders are checked untouched. Once without a PIN, and once behind the PIN
+// such a Pane kept as a bcrypt hash (0.13.1 and before, ADR 0122): Pane
+// starts locked behind it, and the PIN opens the moved data.
+
+// bcryptjs 3.0.3, hashSync("1234", 10), in the format 0.13.1 and the Electron
+// app wrote it.
+const FORMER_SECURITY = {
+	state: {
+		pin: {
+			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
+			length: 4,
+		},
+		failedAttempts: 0,
+	},
+	version: 0,
+};
+
+async function move(context: ScenarioContext, pin: boolean) {
 	const user = join(homedir(), "Library");
 
 	const userFolders = () =>
@@ -61,16 +77,41 @@ const identifierMove: Scenario = async (context) => {
 		}),
 	);
 
+	if (pin) {
+		writeFileSync(
+			join(former, "security.json"),
+			JSON.stringify(FORMER_SECURITY),
+		);
+	}
+
 	const app = await launchPane(context, {
 		dataDir,
 		derivedDataRoot: true,
 		env: { HOME: home, CFFIXED_USER_HOME: home },
 	});
 
-	const state = await app.state();
+	const launched = await app.state();
+
+	if (pin) {
+		expect(
+			launched.security.locked && launched.security.pinLength === 4,
+			`not locked behind the moved PIN: ${JSON.stringify(launched.security)}`,
+		);
+
+		await app.send("pinKeys", { keys: "1234" });
+	}
+
+	const state = await app.waitFor(
+		"the moved data open",
+		(current) =>
+			!current.security.locked && current.security.data.phase === "open",
+		60_000,
+	);
+
 	await app.send("save");
 
 	const moved = {
+		pin,
 		profiles: state.profiles.map((profile) => profile.name),
 		formerData: existsSync(former),
 		formerCaches: existsSync(join(caches, "com.pane.desktop")),
@@ -101,6 +142,11 @@ const identifierMove: Scenario = async (context) => {
 	);
 
 	return moved;
-};
+}
+
+const identifierMove: Scenario = async (context) => ({
+	withoutPin: await move(context, false),
+	withPin: await move(context, true),
+});
 
 export default identifierMove;

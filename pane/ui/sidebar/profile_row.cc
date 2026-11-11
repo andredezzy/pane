@@ -25,7 +25,6 @@
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -164,14 +163,14 @@ ProfileRow::ProfileRow(const SidebarProfile& profile, Actions actions)
   count_->SetCanProcessEventsWithinSubtree(false);
 
   // The Electron app's menu, with its Lucide icons.
-  menu_model_.AddItemWithIcon(kEditProfile, u"Edit profile",
-                              MenuIcon(Icon::kPencil));
-  menu_model_.AddCheckItem(kKeepLoaded, u"Keep loaded");
-  menu_model_.SetIcon(menu_model_.GetIndexOfCommandId(kKeepLoaded).value(),
-                      MenuIcon(Icon::kTimerOff));
-  menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
-  menu_model_.AddItemWithIcon(kDeleteProfile, u"Delete profile",
-                              MenuIcon(Icon::kTrash2));
+  ui::SimpleMenuModel& menu = MakeContextMenu(this);
+  menu.AddItemWithIcon(kEditProfile, u"Edit profile", MenuIcon(Icon::kPencil));
+  menu.AddCheckItem(kKeepLoaded, u"Keep loaded");
+  menu.SetIcon(menu.GetIndexOfCommandId(kKeepLoaded).value(),
+               MenuIcon(Icon::kTimerOff));
+  menu.AddSeparator(ui::NORMAL_SEPARATOR);
+  menu.AddItemWithIcon(kDeleteProfile, u"Delete profile",
+                       MenuIcon(Icon::kTrash2));
 
   profile_.shown = profile.shown;
   SetLook(LookOf(profile));
@@ -287,22 +286,7 @@ void ProfileRow::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
     ui::mojom::MenuSourceType source_type) {
-  if (!GetWidget()) {
-    return;
-  }
-  // The row stays lit under its menu, as the Swift's did.
-  SetMenuShowing(true);
-  menu_runner_ = std::make_unique<views::MenuRunner>(
-      &menu_model_, views::MenuRunner::CONTEXT_MENU,
-      base::BindRepeating(
-          [](base::WeakPtr<ProfileRow> row) {
-            if (row) {
-              row->SetMenuShowing(false);
-            }
-          },
-          weak_factory_.GetWeakPtr()));
-  menu_runner_->RunMenuAt(GetWidget(), nullptr, gfx::Rect(point, gfx::Size()),
-                          views::MenuAnchorPosition::kTopLeft, source_type);
+  RunContextMenu(point, source_type);
 }
 
 bool ProfileRow::IsCommandIdChecked(int command_id) const {

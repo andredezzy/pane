@@ -2,21 +2,12 @@
 
 #include "pane/updates/update_installer.h"
 
-#include <utility>
-
 #include "base/notreached.h"
 
 namespace pane {
 
 // No install of its own yet (docs/plans/views-migration.md, W7): Pane says it
 // cannot replace itself, and the user installs the new version by hand.
-
-UpdateInstaller::UpdateInstaller(base::FilePath bundle, std::string identifier)
-    : bundle_(std::move(bundle)), identifier_(std::move(identifier)) {}
-
-UpdateInstaller::UpdateInstaller(const UpdateInstaller&) = default;
-UpdateInstaller& UpdateInstaller::operator=(const UpdateInstaller&) = default;
-UpdateInstaller::~UpdateInstaller() = default;
 
 // static
 std::optional<UpdateInstaller> UpdateInstaller::ForRunningApp() {

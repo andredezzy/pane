@@ -5,9 +5,14 @@
 #include <cmath>
 #include <utility>
 
+#include "base/check.h"
 #include "base/functional/bind.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
+#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/widget/widget.h"
 
 namespace pane {
 
@@ -57,6 +62,33 @@ void RowButton::SetMenuShowing(bool showing) {
     SetState(IsMouseHovered() ? STATE_HOVERED : STATE_NORMAL);
   }
   highlight_->SetHeld(showing);
+}
+
+ui::SimpleMenuModel& RowButton::MakeContextMenu(
+    ui::SimpleMenuModel::Delegate* delegate) {
+  CHECK(!menu_model_);
+  menu_model_ = std::make_unique<ui::SimpleMenuModel>(delegate);
+  return *menu_model_;
+}
+
+void RowButton::RunContextMenu(const gfx::Point& point,
+                               ui::mojom::MenuSourceType source_type) {
+  if (!GetWidget() || !menu_model_) {
+    return;
+  }
+  // The row stays lit under its menu, as the Swift's did.
+  SetMenuShowing(true);
+  menu_runner_ = std::make_unique<views::MenuRunner>(
+      menu_model_.get(), views::MenuRunner::CONTEXT_MENU,
+      base::BindRepeating(
+          [](base::WeakPtr<RowButton> row) {
+            if (row) {
+              row->SetMenuShowing(false);
+            }
+          },
+          weak_factory_.GetWeakPtr()));
+  menu_runner_->RunMenuAt(GetWidget(), nullptr, gfx::Rect(point, gfx::Size()),
+                          views::MenuAnchorPosition::kTopLeft, source_type);
 }
 
 void RowButton::SetCaptureLost(base::RepeatingClosure capture_lost) {

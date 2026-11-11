@@ -120,6 +120,9 @@ class ExtensionPromptView : public views::View {
   int Arrange(int width, bool place) const;
   int ArrangeInstall(int width, bool place) const;
   int ArrangeRemove(int width, bool place) const;
+  // Both prompts' buttons from `y`, the accepting one at the trailing edge
+  // and Cancel before it: the bottom they reach.
+  int ArrangeButtons(int width, int y, bool place) const;
 
   const ExtensionPrompt::Kind kind_;
   raw_ptr<Icons> icons_ = nullptr;

@@ -659,8 +659,8 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
   ShowPinRows(false);
 
   Card* updates = contents_->AddGroup(u"Updates");
-  update_row_ = updates->AddRow(std::make_unique<Row>(
-      u"Updates", u"Pane checks for a new version on its own."));
+  update_row_ = updates->AddRow(
+      std::make_unique<Row>(u"Updates", SettingsUpdate::kChecksOnItsOwn));
   update_row_->SetID(kViewIdSettingsUpdates);
   update_button_ = update_row_->AddControl(std::make_unique<TextButton>(
       base::BindRepeating(
