@@ -210,6 +210,16 @@ class AppLock {
   // Wrong PINs in Settings in a row, in memory only: the count on disk is the
   // lock's alone, where its fifth erases everything.
   int settings_attempts_ = 0;
+  // The launch's find-only read of the Keychain's secret, while it is under
+  // way, and a PIN typed meanwhile, which waits for it rather than asking the
+  // Keychain again: where the Keychain asks the user first, a second ask is a
+  // second prompt.
+  struct WaitingOpen {
+    std::string pin;
+    bool unlocking = false;
+  };
+  bool finding_secret_ = false;
+  std::optional<WaitingOpen> waiting_open_;
   base::RepeatingClosure wipe_for_testing_;
 
   base::ObserverList<Observer> observers_;

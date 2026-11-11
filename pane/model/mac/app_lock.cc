@@ -215,6 +215,7 @@ void AppLock::Start() {
   if (is_locked_) {
     // Found now, and never made here: the PIN's open makes one if it must.
     if (entry_ && !entry_->is_unreadable() && !secret_) {
+      finding_secret_ = true;
       base::ThreadPool::PostTaskAndReplyWithResult(
           FROM_HERE, kKeyTraits,
           base::BindOnce(
@@ -230,8 +231,12 @@ void AppLock::Start() {
 }
 
 void AppLock::SecretFound(std::optional<std::vector<uint8_t>> secret) {
+  finding_secret_ = false;
   if (!secret_ && secret) {
     secret_ = std::move(secret);
+  }
+  if (std::optional<WaitingOpen> open = std::exchange(waiting_open_, {})) {
+    PostOpen(std::move(open->pin), open->unlocking);
   }
 }
 
@@ -346,8 +351,13 @@ void AppLock::Shook() {
 // reset the count. A key that cannot be read at all is not the PIN's fault,
 // and counts nothing.
 void AppLock::Verify(const std::string& pin) {
-  PostOpen(pin,
-           /*unlocking=*/entry_ && entry_->mode() == PinEntry::Mode::kUnlock);
+  const bool unlocking = entry_ && entry_->mode() == PinEntry::Mode::kUnlock;
+  // The launch's read is on its way: the open takes its secret when it comes.
+  if (finding_secret_ && !secret_) {
+    waiting_open_ = WaitingOpen{pin, unlocking};
+    return;
+  }
+  PostOpen(pin, unlocking);
 }
 
 void AppLock::PostOpen(std::optional<std::string> pin, bool unlocking) {

@@ -17,6 +17,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -231,6 +232,28 @@ TEST_F(AppLockTest, UnlocksWithTheRightPin) {
   ASSERT_TRUE(WaitFor([&] { return vault_->is_attached(); }));
   EXPECT_EQ(keychain_.reads(), 1);
   EXPECT_EQ(Saved()->failed_attempts, 0);
+}
+
+// A PIN typed while the launch's Keychain read is still on its way waits for
+// its answer: the unlock asks the Keychain nothing more, so one that asks the
+// user first asks once.
+TEST_F(AppLockTest, APinTypedBeforeTheKeychainAnswersWaitsForIt) {
+  keychain_.SetEngineSecret(kSecret);
+  const Key key = SaveKey("1234");
+  base::WaitableEvent answer;
+  keychain_.HoldReadsUntil(&answer);
+  AppLock& lock = Launch();
+  ASSERT_TRUE(lock.entry());
+
+  Type("1234");
+  RunFor(base::Milliseconds(200));
+  EXPECT_TRUE(lock.is_locked());
+
+  answer.Signal();
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  keychain_.HoldReadsUntil(nullptr);
+  EXPECT_EQ(vault_->data_key(), key);
+  EXPECT_EQ(keychain_.reads(), 1);
 }
 
 // A wrong PIN at the lock counts at once, on disk, in both files, so a quit

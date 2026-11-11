@@ -12,6 +12,10 @@
 
 #include "pane/model/mac/safe_storage.h"
 
+namespace base {
+class WaitableEvent;
+}  // namespace base
+
 namespace pane::model {
 
 // A Keychain in memory for the tests, through KeychainV2, the seam Chromium's
@@ -42,6 +46,10 @@ class TestKeychain {
 
   // How many times an item's secret was read.
   int reads() const;
+
+  // Every read from now waits for `gate`, as a Keychain that asks the user
+  // first does; null answers at once again. The gate outlives the reads.
+  void HoldReadsUntil(base::WaitableEvent* gate);
 
  private:
   class Fake;

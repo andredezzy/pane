@@ -14,9 +14,12 @@
 #include "base/apple/scoped_cftyperef.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/synchronization/lock.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/thread_annotations.h"
+#include "base/threading/thread_restrictions.h"
 #include "components/os_crypt/common/keychain_password_mac.h"
 #include "crypto/apple/keychain_v2.h"
 
@@ -56,6 +59,11 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
     return reads_;
   }
 
+  void HoldReadsUntil(base::WaitableEvent* gate) {
+    base::AutoLock lock(lock_);
+    gate_ = gate;
+  }
+
   // KeychainV2:
   OSStatus ItemAdd(CFDictionaryRef attributes, CFTypeRef* result) override {
     base::AutoLock lock(lock_);
@@ -76,6 +84,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
   }
 
   OSStatus ItemCopyMatching(CFDictionaryRef query, CFTypeRef* result) override {
+    WaitForTheGate();
     base::AutoLock lock(lock_);
     if (failure_ != errSecSuccess) {
       return failure_;
@@ -126,6 +135,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
   base::expected<std::vector<uint8_t>, OSStatus> FindGenericPassword(
       std::string_view service_name,
       std::string_view account_name) override {
+    WaitForTheGate();
     base::AutoLock lock(lock_);
     if (failure_ != errSecSuccess) {
       return base::unexpected(failure_);
@@ -139,6 +149,20 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
   }
 
  private:
+  // A read waits here while a test holds the Keychain's answers, the lock
+  // let go meanwhile.
+  void WaitForTheGate() {
+    base::WaitableEvent* gate;
+    {
+      base::AutoLock lock(lock_);
+      gate = gate_;
+    }
+    if (gate) {
+      base::ScopedAllowBaseSyncPrimitivesForTesting allow;
+      gate->Wait();
+    }
+  }
+
   static std::pair<std::string, std::string> Key(std::string_view service,
                                                  std::string_view account) {
     return {std::string(service), std::string(account)};
@@ -158,6 +182,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
       GUARDED_BY(lock_);
   OSStatus failure_ GUARDED_BY(lock_) = errSecSuccess;
   int reads_ GUARDED_BY(lock_) = 0;
+  raw_ptr<base::WaitableEvent> gate_ GUARDED_BY(lock_) = nullptr;
 };
 
 TestKeychain::TestKeychain() : fake_(std::make_unique<Fake>()) {}
@@ -191,6 +216,10 @@ std::optional<std::string> TestKeychain::EngineSecret() const {
 
 void TestKeychain::FailWith(OSStatus status) {
   fake_->FailWith(status);
+}
+
+void TestKeychain::HoldReadsUntil(base::WaitableEvent* gate) {
+  fake_->HoldReadsUntil(gate);
 }
 
 int TestKeychain::reads() const {
