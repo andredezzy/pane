@@ -6,4 +6,6 @@ DevTools dock beside their tab in the app's window, and undocked they open in a 
 
 A tab with DevTools open does not sleep (ADR 0041). The undocked window is the engine's, which the PIN screen does not cover, so behind the PIN lock the menu cannot open DevTools (ADR 0042).
 
+⌥⌘I, Chrome's and Safari's key for the page's tools, opens and closes them as the Swift's ⇧⌘I does, which the menu still shows: a hidden item of View's that keeps its key, as ⌘= is Zoom In's (the user's call, 2026-11-10).
+
 The `devtools` scenario docks DevTools with ⇧⌘I, watches for any window of Chrome's while they are open, and closes them with ⇧⌘I again. `devtools-undocked` undocks them into Pane's window and docks them again, which closes it.

@@ -36,7 +36,9 @@ Menu MenuOf(std::u16string title, std::vector<MenuItem> items) {
 }
 
 // The Swift's MainMenu, item for item: its titles, its keys (an uppercase
-// key there is Shift's: ⇧⌘T, ⇧⌘Z, ⇧⌘I), its separators.
+// key there is Shift's: ⇧⌘T, ⇧⌘Z, ⇧⌘I), its separators; and what the user
+// added from Chrome's: Find Next and Find Previous (⌘G, ⇧⌘G), and ⌥⌘I for
+// Developer Tools beside the Swift's ⇧⌘I.
 std::vector<Menu> MakeMenus() {
   std::vector<Menu> menus;
   menus.push_back(MenuOf(
@@ -82,10 +84,18 @@ std::vector<Menu> MakeMenus() {
   MenuItem zoom_in_typed =
       Item(Command::kZoomIn, u"Zoom In", ui::VKEY_OEM_PLUS, kCommand);
   zoom_in_typed.hidden = true;
+  // Chrome's and Safari's key for the page's tools, its key alone.
+  MenuItem developer_tools_chrome =
+      Item(Command::kDeveloperTools, u"Developer Tools", ui::VKEY_I,
+           kCommand | kOption);
+  developer_tools_chrome.hidden = true;
   menus.push_back(MenuOf(
       u"View",
       {
           Item(Command::kFind, u"Find in Page", ui::VKEY_F, kCommand),
+          Item(Command::kFindNext, u"Find Next", ui::VKEY_G, kCommand),
+          Item(Command::kFindPrevious, u"Find Previous", ui::VKEY_G,
+               kCommand | kShift),
           Separator(),
           Item(Command::kReload, u"Reload", ui::VKEY_R, kCommand),
           Separator(),
@@ -102,6 +112,7 @@ std::vector<Menu> MakeMenus() {
           Separator(),
           Item(Command::kDeveloperTools, u"Developer Tools", ui::VKEY_I,
                kCommand | kShift),
+          developer_tools_chrome,
       }));
   menus.push_back(
       MenuOf(u"Navigate",

@@ -162,6 +162,7 @@ class UiApp : public AppData::Client,
   // ⌘F: find in page's bar over the selected tab's page, its field taking
   // the keys (ADR 0067), timed to its first frame.
   void ShowFind();
+  void FindNext(bool forward);
   // ⇧⌘I: DevTools for the selected tab's page, docked as they last were, or
   // closed (ADR 0024).
   void ToggleDevTools();

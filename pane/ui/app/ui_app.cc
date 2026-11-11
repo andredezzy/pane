@@ -2002,6 +2002,10 @@ void UiApp::RunCommand(Command command) {
     case Command::kFind:
       ShowFind();
       return;
+    case Command::kFindNext:
+    case Command::kFindPrevious:
+      FindNext(/*forward=*/command == Command::kFindNext);
+      return;
     case Command::kDeveloperTools:
       ToggleDevTools();
       return;
@@ -2038,6 +2042,19 @@ void UiApp::ShowFind() {
   if (FindInPage* find = FindInPage::From(browser)) {
     find->Open();
   }
+}
+
+// ⌘G and ⇧⌘G, as Chrome's FindBarController::Show(find_next): the bar
+// shows, its field taking the keys, and what it holds is found forward or
+// back. The bar opens empty (ADR 0067), so a closed bar's only opens.
+void UiApp::FindNext(bool forward) {
+  FindInPage* find = InteractionAllowed() ? window_->ShownFind() : nullptr;
+  if (!find) {
+    ShowFind();
+    return;
+  }
+  find->SetFocusAndSelection();
+  find->Step(forward);
 }
 
 void UiApp::Find(const std::u16string& text) {

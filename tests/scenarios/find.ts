@@ -23,6 +23,15 @@ const find: Scenario = async (context) => {
 
 	await app.waitFor("match 1", (state) => state.find.activeMatch === 1);
 
+	// ⌘G and ⇧⌘G, the menu bar's keys, step as Return and ⇧Return do.
+	await app.send("key", { key: "g", modifiers: ["command"] });
+
+	await app.waitFor("⌘G", (state) => state.find.activeMatch === 2);
+
+	await app.send("key", { key: "g", modifiers: ["command", "shift"] });
+
+	await app.waitFor("⇧⌘G", (state) => state.find.activeMatch === 1);
+
 	await app.send("find", { text: "haystack" });
 
 	await app.waitFor("1 match", (state) => state.find.matches === 1);

@@ -3,7 +3,8 @@ import { WindowWatcher } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
 import { expect, type Scenario } from "../run";
 
-// ⇧⌘I docks DevTools beside the tab, inside the app's window; again closes them.
+// ⇧⌘I docks DevTools beside the tab, inside the app's window; again closes
+// them; ⌥⌘I, Chrome's key, does both too.
 const devtools: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
@@ -33,6 +34,18 @@ const devtools: Scenario = async (context) => {
 	);
 
 	expect(frontend, "no DevTools frontend target");
+
+	// ⌥⌘I, Chrome's and Safari's key, opens and closes them too.
+	await app.send("key", { key: "i", modifiers: ["command", "option"] });
+
+	await app.waitFor("⌥⌘I", (state) => state.devToolsTabs.includes(tab));
+
+	await app.send("key", { key: "i", modifiers: ["command", "option"] });
+
+	await app.waitFor(
+		"⌥⌘I to close",
+		(state) => !state.devToolsTabs.includes(tab),
+	);
 
 	await watcher.stop();
 };

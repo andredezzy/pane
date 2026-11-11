@@ -111,9 +111,10 @@ TEST(CommandsTest, MenusAreTheSwifts) {
        {"Undo ⌘Z", "Redo ⇧⌘Z", "-", "Cut ⌘X", "Copy ⌘C", "Paste ⌘V",
         "Select All ⌘A"}},
       {"View",
-       {"Find in Page ⌘F", "-", "Reload ⌘R", "-", "Actual Size ⌘0",
-        "Zoom In ⌘+", "Zoom In ⌘= (hidden)", "Zoom Out ⌘-", "-",
-        "Enter Full Screen ⌃⌘F", "-", "Developer Tools ⇧⌘I"}},
+       {"Find in Page ⌘F", "Find Next ⌘G", "Find Previous ⇧⌘G", "-",
+        "Reload ⌘R", "-", "Actual Size ⌘0", "Zoom In ⌘+", "Zoom In ⌘= (hidden)",
+        "Zoom Out ⌘-", "-", "Enter Full Screen ⌃⌘F", "-", "Developer Tools ⇧⌘I",
+        "Developer Tools ⌥⌘I (hidden)"}},
       {"Navigate", {"Back ⌘[", "Forward ⌘]", "-", "Focus Address Bar ⌘L"}},
       {"Tab",
        {"Next Tab (Recent) ⌃⇥", "Previous Tab (Recent) ⌃⇧⇥", "-", "Tab 1 ⌘1",
@@ -166,9 +167,9 @@ TEST(CommandsTest, WindowKeysLeaveThePlatformsOwn) {
         ui::VKEY_M}) {
     EXPECT_FALSE(window.contains(ui::Accelerator(key, ui::EF_COMMAND_DOWN)));
   }
-  // 29 of the menu bar's 38 keys: Hide, Hide Others, the Edit menu's six,
+  // 32 of the menu bar's 41 keys: Hide, Hide Others, the Edit menu's six,
   // and Minimize left out.
-  EXPECT_EQ(keys.size(), 29u);
+  EXPECT_EQ(keys.size(), 32u);
 }
 
 // Ahead of the page, what Chrome reserves (ADR 0019): ⌘Q, ⌘T, ⌘W, ⇧⌘T,
@@ -216,7 +217,7 @@ TEST(CommandsTest, MenuBarModelsFromTheTable) {
   ui::MenuModel* view = root.GetSubmenuModelAt(3);
   ASSERT_EQ(root.GetLabelAt(3), u"View");
   ui::Accelerator key;
-  size_t hidden = 0;
+  std::vector<ui::Accelerator> hidden;
   size_t full_screen = 0;
   for (size_t index = 0; index < view->GetItemCount(); ++index) {
     if (view->GetTypeAt(index) == ui::MenuModel::TYPE_SEPARATOR) {
@@ -224,15 +225,18 @@ TEST(CommandsTest, MenuBarModelsFromTheTable) {
     }
     EXPECT_TRUE(view->GetForceShowAcceleratorForItemAt(index));
     if (!view->IsVisibleAt(index)) {
-      ++hidden;
       ASSERT_TRUE(view->GetAcceleratorAt(index, &key));
-      EXPECT_EQ(key, ui::Accelerator(ui::VKEY_OEM_PLUS, ui::EF_COMMAND_DOWN));
+      hidden.push_back(key);
     }
     if (view->GetCommandIdAt(index) == static_cast<int>(Command::kFullScreen)) {
       full_screen = index;
     }
   }
-  EXPECT_EQ(hidden, 1u);
+  EXPECT_EQ(
+      hidden,
+      (std::vector<ui::Accelerator>{
+          ui::Accelerator(ui::VKEY_OEM_PLUS, ui::EF_COMMAND_DOWN),
+          ui::Accelerator(ui::VKEY_I, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN)}));
   ASSERT_TRUE(view->IsItemDynamicAt(full_screen));
   EXPECT_EQ(view->GetLabelAt(full_screen), u"Enter Full Screen");
   runner.full_screen = true;

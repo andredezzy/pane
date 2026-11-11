@@ -24,8 +24,9 @@ class FocusRing;
 
 // A field's selection as the platform's own text views draw theirs: the
 // system's highlight while the field's window has the keys, and its
-// unemphasized one while it doesn't (an NSTextField's, which the Swift's
-// fields were). The field owns it.
+// unemphasized one while it doesn't, under the field's own text color (an
+// NSTextField's, which the Swift's fields were). The field owns it, its text
+// color set first.
 class SelectionFollowsWindow : public views::ViewObserver,
                                public views::WidgetObserver {
  public:

@@ -39,6 +39,8 @@ enum class Command {
   kSelectAll,
   // View.
   kFind,
+  kFindNext,
+  kFindPrevious,
   kReload,
   kActualSize,
   kZoomIn,

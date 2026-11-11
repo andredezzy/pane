@@ -51,6 +51,9 @@ void SelectionFollowsWindow::OnWidgetActivationChanged(views::Widget* widget,
                                                        bool active) {
   field_->SetSelectionBackgroundColorId(
       active ? kPaneColorTextSelection : kPaneColorTextSelectionInactive);
+  // The selected text keeps the field's own color, as an NSTextField's does,
+  // where Chromium's takes its own (kColorTextfieldSelectionForeground).
+  field_->SetSelectionTextColorId(field_->text_color_id());
 }
 
 void SelectionFollowsWindow::OnWidgetDestroying(views::Widget* widget) {

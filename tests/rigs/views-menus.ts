@@ -48,6 +48,9 @@ const SWIFT: Record<string, string[]> = {
 	],
 	View: [
 		"Find in Page ⌘F",
+		// Chrome's and Safari's, which the Swift lacked (the user's call).
+		"Find Next ⌘G",
+		"Find Previous ⇧⌘G",
 		"Reload ⌘R",
 		"Actual Size ⌘0",
 		"Zoom In ⌘+",
@@ -135,7 +138,7 @@ const viewsMenus: Scenario = async (context) => {
 	const app = await launchPane(context);
 
 	// Item for item, as the Swift's showed them; ⌘= is Zoom In's hidden
-	// twin, its key kept.
+	// twin, and ⌥⌘I Developer Tools', their keys kept.
 	const bar = await menuBar(app);
 
 	expect(
@@ -155,13 +158,16 @@ const viewsMenus: Scenario = async (context) => {
 		);
 	}
 
-	const hiddenZoom = bar
-		.find((menu) => menu.title === "View")
-		?.submenu?.find((item) => item.hidden);
+	const hidden = (
+		bar
+			.find((menu) => menu.title === "View")
+			?.submenu?.filter((item) => item.hidden) ?? []
+	).map(line);
 
 	expect(
-		hiddenZoom?.title === "Zoom In" && hiddenZoom.key === "⌘=",
-		`View's hidden item: ${JSON.stringify(hiddenZoom)}`,
+		JSON.stringify(hidden) ===
+			JSON.stringify(["Zoom In ⌘=", "Developer Tools ⌥⌘I"]),
+		`View's hidden items: ${JSON.stringify(hidden)}`,
 	);
 
 	// Every item of the app's enabled once the profiles are open, but Lock
