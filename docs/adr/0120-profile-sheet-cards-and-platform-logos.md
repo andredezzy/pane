@@ -1,6 +1,6 @@
 # The profile sheet holds its settings in cards, and picks a fingerprint's platform by its real logo
 
-> **On the Views line** (`docs/plans/views-migration.md`, N1): the sheet is `pane::ProfileSheet` (`pane/ui/sheets/profile_sheet.cc`) over the page (G4), at the Swift's measures, its logos drawn from their SVG paths (`platform_logo.cc`); it shows no Group, and a saved `group` stays in the data as it is, for 0.19.1 to read back.
+> **On the Views line** (`docs/plans/views-migration.md`, N1): the sheet is `pane::ProfileSheet` (`pane/ui/sheets/profile_sheet.cc`) over the page (G4), at the Swift's measures, its logos drawn from their SVG paths (`platform_logo.cc`); it shows no Group, and a saved `group` stays in the data as it is, for 0.19.1 to read back. The proxy test's error reads "Connection refused" and "Connection timed out" as Paper words them, and otherwise Chrome's error name as a phrase ("Tunnel connection failed"), the same words on every OS, where the Swift showed the system's message: the user's call (2026-11-11).
 
 > **On the Views line** (`docs/plans/views-migration.md`, K3): the Swift build's asset catalog is gone, so the logos' paths live in `pane/ui/sheets/platform_logo.cc` alone (`NOTICE` gives their origins).
 
