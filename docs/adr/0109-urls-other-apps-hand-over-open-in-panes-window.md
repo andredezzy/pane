@@ -22,6 +22,6 @@ What was rejected:
 How it is checked:
 
 - **The open-urls scenario** hands a running Pane a page and a file through Launch Services (`tests/tools/open-urls.swift`, without activating it), which sends them as an Apple Event each: both open in the profile in use, the last one selected, and no other window shows.
-- **A cold launch** (`open -n -g -a app/build/Pane.app <url>` with a throwaway home and data directory) delivered the URL while the engine started; it opened after `didStart`, in the "Personal" profile made for it.
+- **A cold launch** (`open -n -g -a packaging/build/Pane.app <url>` with a throwaway home and data directory) delivered the URL while the engine started; it opened after `didStart`, in the "Personal" profile made for it.
 - **The security scenario** hands one over behind the PIN lock: nothing opens until the PIN does, then it opens after the launch URL.
 - **`plutil -p Pane.app/Contents/Info.plist`** of a packaged app lists no `ASWebAuthenticationSessionWebBrowserSupportCapabilities`.

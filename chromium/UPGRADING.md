@@ -64,7 +64,7 @@ What usually breaks, and where to fix it:
 bun run test        # pane_unittests
 scripts/compile-windows.sh
 scripts/package.sh
-bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane \
+bun tests/run.ts --binary packaging/build/Pane.app/Contents/MacOS/Pane \
   --out evidence/upgrade-<tag> tests/scenarios/*.ts
 ```
 
@@ -79,5 +79,5 @@ Then audit the stores (ADR 0121): a milestone adds some. `files-encrypted`, amon
 ## 6. Ship it
 
 1. Commit `CHROMIUM_VERSION`, the patches, and the `//pane` fixes together: "Upgrade Chromium to <tag>", with `README.md`'s `Chromium-<milestone>` badge at a new milestone. Push it.
-2. Publish the engine for CI and other machines: `scripts/publish-engine.sh`. It archives the engine unless `app/release` holds its archive, publishes it as the `engine-<key:12>` prerelease, checks GitHub's copy against the archive's SHA-256, and overwrites `prebuilt-engines.tsv`'s line with its own. Commit that line. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
+2. Publish the engine for CI and other machines: `scripts/publish-engine.sh`. It archives the engine unless `packaging/release` holds its archive, publishes it as the `engine-<key:12>` prerelease, checks GitHub's copy against the archive's SHA-256, and overwrites `prebuilt-engines.tsv`'s line with its own. Commit that line. It archives only an engine `build.sh` built from the committed sources: each build of `chrome` records their key in `out/Release/pane-engine.key`, the working tree's, so a build made before step 1's commit counts if nothing changed since. After any later change to them, build again.
 3. Release the app as usual (`AGENTS.md`, Releasing).

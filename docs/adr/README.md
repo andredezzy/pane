@@ -37,7 +37,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0041](0041-tab-sleep.md) Idle tabs sleep and hidden profiles unload on PaneKit's scheduler, with Chrome's discarding off
 - [0042](0042-pin-lock-and-panic-wipe.md) The PIN lock and the panic wipe are the Electron app's
 - [0043](0043-electron-migration.md) The Electron app's data migrates once, from a copy, before anything loads
-- [0044](0044-one-version-source.md) app/VERSION is the one version source
+- [0044](0044-one-version-source.md) packaging/VERSION is the one version source
 - [0046](0046-the-dmg.md) The dmg is built with dmgbuild, LZMA-compressed, and laid out as Hark's installer, its volume icon on the title's centre line
 - [0047](0047-releases-strip-the-engine.md) A release strips its local symbols, and publishes them beside it
 - [0048](0048-signing-waits-for-a-developer-id.md) Signing, notarization, and iCloud passkeys wait for a Developer ID

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assembles app/build/Pane.app: the engine's bundle as Chromium builds it, its
+# Assembles packaging/build/Pane.app: the engine's bundle as Chromium builds it, its
 # loader, "Pane Framework.framework" (Pane's UI is in it, //pane/ui), helpers,
 # resources, and Info.plist, with Pane's identity over Chromium's, its
 # licenses, its CRLSet, and the volume's watchdog, then signs the nested code
@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/app"
+APP_DIR="$ROOT_DIR/packaging"
 ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
 # PANE_APP_OUT puts it elsewhere, beside a build that is running.
 OUT="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
@@ -36,7 +36,7 @@ ditto "$ROOT_DIR/third_party" "$LICENSES/third_party"
 
 # Chrome's CRLSet, which the engine hands its certificate verifier at start
 # (ADR 0040): fetched as the app is built, with a day's copy kept in
-# app/build for builds without the network. dist.sh requires it.
+# packaging/build for builds without the network. dist.sh requires it.
 CRLSET="$APP_DIR/build/crl-set"
 
 if [ -z "$(find "$CRLSET" -mtime -1 2>/dev/null)" ]; then
@@ -52,7 +52,7 @@ if [ -f "$CRLSET" ]; then
 	cp "$CRLSET" "$OUT/Contents/Resources/crl-set"
 fi
 
-# Pane's identity over Chromium's: its version (app/VERSION, the one version
+# Pane's identity over Chromium's: its version (packaging/VERSION, the one version
 # source), which Finder, the About panel, Settings, and the update check
 # show. Its minimum macOS is the engine's own (release.gn's
 # mac_min_system_version).

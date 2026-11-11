@@ -5,7 +5,7 @@
 // under it in the system font, as Finder's labels are, and a hand-drawn
 // arrow between where Finder draws Pane and the Applications link (dist.sh
 // puts them there). Writes background.tiff beside this file, at 1x and 2x.
-// Usage: swift app/dmg/make-background.swift
+// Usage: swift packaging/dmg/make-background.swift
 import AppKit
 
 // The window shows 720 by 560 points under Finder's title bar (dist.sh). The

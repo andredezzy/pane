@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-RELEASE="$ROOT_DIR/app/release"
+RELEASE="$ROOT_DIR/packaging/release"
 TSV="$ROOT_DIR/chromium/prebuilt-engines.tsv"
 
 ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"

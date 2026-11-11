@@ -2,7 +2,7 @@
 
 Pane's name, wherever it stands as the brand (beside the icon, in the installer's headline, on the site), is set in Funnel Display Medium (500), tracked −3%. It is the user's pick from three rounds drawn in Paper (01 · Brand: 01.12, 01.13, 01.14): eight families of every kind, fourteen modern sans in the vein of the one the user liked, and fifteen serifs. Its open, geometric shapes read as modern without being cold, and they sit well beside the window icon's white frame.
 
-In the lockup, the name's capitals stand almost as tall as the icon's body (the user's call: at first the name stood taller than the icon), 0.26 of the type size from it. A headline pairs Regular (400) with the Medium name, as "Install **Pane**" does; the installer's, drawn by `app/dmg/make-background.swift`, tracks both −2% (−0.64 at 32 points), as Paper's 08.1 draws it (−0.02 em). Paper's 01.11 Wordmark board draws both, on light and on dark. Funnel Display is under the SIL Open Font License, so the app, the dmg, and the site can carry it.
+In the lockup, the name's capitals stand almost as tall as the icon's body (the user's call: at first the name stood taller than the icon), 0.26 of the type size from it. A headline pairs Regular (400) with the Medium name, as "Install **Pane**" does; the installer's, drawn by `packaging/dmg/make-background.swift`, tracks both −2% (−0.64 at 32 points), as Paper's 08.1 draws it (−0.02 em). Paper's 01.11 Wordmark board draws both, on light and on dark. Funnel Display is under the SIL Open Font License, so the app, the dmg, and the site can carry it.
 
 The interface keeps the system font, as Finder's labels and macOS's controls do. The wordmark is the brand's alone.
 

@@ -4,7 +4,7 @@ Guidance for agents (and humans) working in this repo.
 
 ## Releasing — bump the version, then push a tag
 
-**Every release starts with a version bump.** The app version lives in `app/VERSION`, its only source, and is embedded in the artifact name (`Pane-<version>-arm64.dmg`). CI refuses to publish unless the pushed tag equals `v<version>`, and a local build without a bump silently overwrites the previous artifact.
+**Every release starts with a version bump.** The app version lives in `packaging/VERSION`, its only source, and is embedded in the artifact name (`Pane-<version>-arm64.dmg`). CI refuses to publish unless the pushed tag equals `v<version>`, and a local build without a bump silently overwrites the previous artifact.
 
 Pick the bump with judgement, following semver:
 
@@ -15,7 +15,7 @@ Pick the bump with judgement, following semver:
 **Publishing is driven by tags.** GitHub Actions (`.github/workflows/release.yml`) publishes a release whenever a `v*` tag on `main` is pushed, or on `swift` (below); a tag on any other branch fails:
 
 ```bash
-# 1. Bump app/VERSION (per the judgement above).
+# 1. Bump packaging/VERSION (per the judgement above).
 # 2. Commit the bump.
 git commit -am "Release <version>"
 # 3. Tag it — the tag MUST equal v<version>, or CI fails fast.
@@ -24,17 +24,17 @@ git tag "v<version>"
 git push && git push origin "v<version>"
 ```
 
-CI verifies the tag matches `app/VERSION` and is on `main` or `swift`. It then packages the app from the engine archive that `chromium/prebuilt-engines.tsv` names for the tagged commit, makes the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. Pane's code, its UI included, is part of the engine (`chromium/`'s `CHROMIUM_VERSION`, `args`, or `patches`, and `pane/`), so a release whose engine changed is built here first and published with `scripts/publish-engine.sh`: its archive becomes the `engine-<key>` prerelease, and its line goes in `prebuilt-engines.tsv` (`chromium/UPGRADING.md`, step 6).
+CI verifies the tag matches `packaging/VERSION` and is on `main` or `swift`. It then packages the app from the engine archive that `chromium/prebuilt-engines.tsv` names for the tagged commit, makes the dmg, and creates the GitHub Release for the tag, with generated notes and the `Pane-<version>-arm64.dmg` the in-app update check reads. CI never builds Chromium. Pane's code, its UI included, is part of the engine (`chromium/`'s `CHROMIUM_VERSION`, `args`, or `patches`, and `pane/`), so a release whose engine changed is built here first and published with `scripts/publish-engine.sh`: its archive becomes the `engine-<key>` prerelease, and its line goes in `prebuilt-engines.tsv` (`chromium/UPGRADING.md`, step 6).
 
 **The Swift line ships from `swift`, the one exception to working and tagging on `main`,** until `main`'s first release (ADR 0124, D1). A fix the Swift app still takes, for data loss or security only, goes on the `swift` branch, cut from `v0.19.1`, whose engine archive is `46b8f8b35c24`, and is released from there with a tag on `swift`, by the steps above; `main` takes the same fix in its own code where that code has the defect too.
 
 **Building locally is for testing.** To produce a distributable on your own machine without cutting a release:
 
 ```bash
-# 1. Bump app/VERSION (per the judgement above).
+# 1. Bump packaging/VERSION (per the judgement above).
 # 2. Build the engine (docs/building.md), or fetch the prebuilt one:
 export PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)"
-# 3. Package the dmg → app/release/Pane-<version>-arm64.dmg
+# 3. Package the dmg → packaging/release/Pane-<version>-arm64.dmg
 scripts/dist.sh
 ```
 
@@ -42,7 +42,7 @@ The dmg is ad-hoc signed and not notarized (no Apple Developer ID is configured)
 
 ## Tooling
 
-- **Pane is its own build of Chromium**: its code is `pane/` (`//pane`), C++ with Views, its UI in `pane/ui` and its data and rules in `pane/model`, linked into `Pane Framework.framework`; `chromium/` holds the pinned tag, its args, and its patches. One code path for every OS (ADR 0124): what differs goes in a header's platform files (`<thing>_mac.mm`, `<thing>_win.cc`) or `BUILD.gn`, the only places that test for the OS, and Objective-C++ only where the OS leaves no choice. `app/` holds what packaging reads: `VERSION`, the icon, the dmg's resources, and the entitlements. `docs/building.md` covers the checkout, the build, the patches, and the scenarios. Chromium upgrades follow `chromium/UPGRADING.md`.
+- **Pane is its own build of Chromium**: its code is `pane/` (`//pane`), C++ with Views, its UI in `pane/ui` and its data and rules in `pane/model`, linked into `Pane Framework.framework`; `chromium/` holds the pinned tag, its args, and its patches. One code path for every OS (ADR 0124): what differs goes in a header's platform files (`<thing>_mac.mm`, `<thing>_win.cc`) or `BUILD.gn`, the only places that test for the OS, and Objective-C++ only where the OS leaves no choice. `packaging/` holds what packaging reads: `VERSION`, the icon, the dmg's resources, and the entitlements. `docs/building.md` covers the checkout, the build, the patches, and the scenarios. Chromium upgrades follow `chromium/UPGRADING.md`.
 - **The engine stays as faithful to Chromium as it can be** (ADR 0004): a change goes in `//pane` first, through a seam Chromium already has second, and into a Chromium file only when neither can do it.
 - **The product's words** are in `CONTEXT.md`: use its terms, and avoid what it says to avoid, in code, docs, and what Pane shows.
 - **Package manager: Bun** — a `bun.lock` is present. Use `bun` / `bunx`; never npm, pnpm, or yarn. Bun runs the scenario runner (`tests/`) and the linters.

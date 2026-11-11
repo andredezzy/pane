@@ -367,7 +367,7 @@ source_set("pane") {
 }
 
 # The ten skies of Pane's icon (ADR 0089), as the Dock shows each, which the
-# framework carries in its Resources (base::DIR_ASSETS): app/icon/
+# framework carries in its Resources (base::DIR_ASSETS): packaging/icon/
 # make-icons.swift makes them.
 if (is_mac) {
   bundle_data("app_icons") {

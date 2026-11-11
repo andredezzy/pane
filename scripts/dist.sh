@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Packages the app (package.sh) and builds its dmg, as electron-builder built
-# the Electron app's: app/release/Pane-<version>-arm64.dmg, the name
+# the Electron app's: packaging/release/Pane-<version>-arm64.dmg, the name
 # the in-app update check looks for in a GitHub release. The dmg is laid out
 # by dmgbuild, the same pinned build electron-builder runs: Pane and a link to
-# /Applications on Pane's own background (app/dmg/make-background.swift),
+# /Applications on Pane's own background (packaging/dmg/make-background.swift),
 # as Hark's installer is laid out (ADR 0046).
 # Its code's symbols are the engine's, beside the engine archive
 # (publish-engine.sh): Chromium's loader in Contents/MacOS has none to keep.
-# Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses app/build/Pane.app;
+# Usage: dist.sh   (PANE_SKIP_PACKAGE=1 reuses packaging/build/Pane.app;
 # PANE_APP_OUT packages the app elsewhere, as package.sh does, and
 # PANE_DMG_OUT puts the dmg elsewhere, one to install from, the release's
 # left as it is; PANE_SIGN_IDENTITY and PANE_NOTARY_PROFILE sign and notarize
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/app"
+APP_DIR="$ROOT_DIR/packaging"
 APP="${PANE_APP_OUT:-$APP_DIR/build/Pane.app}"
 RELEASE="$APP_DIR/release"
 VERSION="$(tr -d '[:space:]' < "$APP_DIR/VERSION")"
@@ -63,7 +63,7 @@ settings="$work/settings.json"
 # the window's title, is "Pane Installer", as Hark's is "Hark Installer"; the
 # updater mounts the dmg at a path of its own, so the name is the window's
 # alone. The title bar shows the volume's icon beside it,
-# app/dmg/make-volume-icon.swift's: Pane's, its 16-point art lowered to the
+# packaging/dmg/make-volume-icon.swift's: Pane's, its 16-point art lowered to the
 # title's centre line (ADR 0046).
 background="$APP_DIR/dmg/background.tiff"
 volume_icon="$APP_DIR/dmg/VolumeIcon.icns"

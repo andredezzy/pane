@@ -61,7 +61,7 @@ func text(_ string: String, _ font: CTFont, white: CGFloat, kern: CGFloat = 0) -
 
 // The wordmark's type (ADR 0099) from the repo's own file, never a fallback:
 // Funnel Display Medium, tracked −3%.
-CTFontManagerRegisterFontsForURL(URL(fileURLWithPath: "\(repo)/app/dmg/fonts/FunnelDisplay[wght].ttf") as CFURL, .process, nil)
+CTFontManagerRegisterFontsForURL(URL(fileURLWithPath: "\(repo)/packaging/dmg/fonts/FunnelDisplay[wght].ttf") as CFURL, .process, nil)
 func funnelDisplay(size: CGFloat, weight: CGFloat) -> CTFont {
 	let wght = 0x7767_6874 // 'wght'
 	let descriptor = CTFontDescriptorCreateWithAttributes([

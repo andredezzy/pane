@@ -1,8 +1,8 @@
 // Makes Pane's icons from the window renders in renders/ (Magnific, ADR 0089):
 // one per sky, named for it.
-// Usage: swift app/icon/make-icons.swift   (needs Xcode; run it under the
+// Usage: swift packaging/icon/make-icons.swift   (needs Xcode; run it under the
 // Default icon style, System Settings › Appearance), then bun run lint, which
-// formats the JSON it writes, then swift app/dmg/make-volume-icon.swift, whose
+// formats the JSON it writes, then swift packaging/dmg/make-volume-icon.swift, whose
 // volume icon is AppIconDay.
 //
 // Every icon has the one frame, Day's, whitened: each render gives only its
@@ -12,7 +12,7 @@
 // render, 20 pixels in from their outer sides (past the rounded corners' frame)
 // and 3 from the mullion's, and stretched into Day's panes.
 //
-// - app/icon/AppIcon.icon: the bundle's icon, Day by default and Night under
+// - packaging/icon/AppIcon.icon: the bundle's icon, Day by default and Night under
 //   the dark icon style (package.sh compiles it). Each window becomes a full-bleed layer, scaled so the
 //   frame's outer edge sits 12 points past the canvas, so the system's squircle
 //   mask cuts inside the frame and the icon conforms to its shape.
@@ -28,8 +28,8 @@ import ImageIO
 import UniformTypeIdentifiers
 
 let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-let renders = repo.appendingPathComponent("app/icon/renders")
-let bundleIcon = repo.appendingPathComponent("app/icon/AppIcon.icon")
+let renders = repo.appendingPathComponent("packaging/icon/renders")
+let bundleIcon = repo.appendingPathComponent("packaging/icon/AppIcon.icon")
 let skies = repo.appendingPathComponent("pane/ui/panels/app_icons")
 // In the order Settings shows them: the sky through a day.
 let variants = ["day", "clouds", "morning", "dusk", "fuchsia", "sunset", "twilight", "afterglow", "night", "moonrise"]

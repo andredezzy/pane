@@ -60,17 +60,17 @@ Updates need none of this: Pane installs them itself.
 git clone https://github.com/andredezzy/pane.git
 cd pane
 export PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)"   # or build the engine: docs/building.md
-scripts/package.sh                                    # → app/build/Pane.app
+scripts/package.sh                                    # → packaging/build/Pane.app
 ```
 
-Until `main`'s first release, its Pane opens only a scenario's throwaway data (`bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane …`), and the released app is built from the `swift` branch (AGENTS.md).
+Until `main`'s first release, its Pane opens only a scenario's throwaway data (`bun tests/run.ts --binary packaging/build/Pane.app/Contents/MacOS/Pane …`), and the released app is built from the `swift` branch (AGENTS.md).
 
 ## Project structure
 
 ```text
 pane/          # the //pane tree, Pane's code, linked into Pane Framework.framework: its UI in ui/, its data and rules in model/
 chromium/      # what Pane does to Chromium: the pinned tag, gn args, patches, the engine archives' keys, UPGRADING.md
-app/           # what packaging reads: VERSION, the icon and its sources, the dmg's resources, the entitlements
+packaging/     # what packaging reads: VERSION, the icon and its sources, the dmg's resources, the entitlements
 scripts/       # sync, build, patch, check, package, and publish the engine and the app
 tests/         # the scenario runner: scenarios that drive the built app, and their fixtures
 docs/          # building.md, human-checklist.md, adr/ (one record per subject), benchmarks/, growth/, qa/
@@ -91,13 +91,13 @@ bun run knip         # check for unused files, deps, and exports
 Scenarios drive the packaged app (`docs/building.md`, Scenarios):
 
 ```bash
-bun tests/run.ts --binary app/build/Pane.app/Contents/MacOS/Pane --out <dir> <scenario>...
+bun tests/run.ts --binary packaging/build/Pane.app/Contents/MacOS/Pane --out <dir> <scenario>...
 ```
 
 To produce a distributable:
 
 ```bash
-scripts/dist.sh    # dmg → app/release/Pane-<version>-arm64.dmg
+scripts/dist.sh    # dmg → packaging/release/Pane-<version>-arm64.dmg
 ```
 
 Chromium upgrades follow `chromium/UPGRADING.md`.

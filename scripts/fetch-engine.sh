@@ -13,7 +13,7 @@ ASSETS="https://github.com/andredezzy/pane/releases/download"
 # Out of Spotlight (.noindex): it would register each engine's bundle with
 # LaunchServices, which opens the newest copy of Pane's identifier for a link,
 # and an engine carries Chromium's version, newer than any Pane's.
-STORE="$ROOT_DIR/app/build/engines.noindex"
+STORE="$ROOT_DIR/packaging/build/engines.noindex"
 
 die() {
 	echo "error: $*" >&2

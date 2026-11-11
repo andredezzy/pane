@@ -18,5 +18,5 @@ node_modules
 
 # The app and the engine
 /evidence/
-app/build/
-app/release/
+packaging/build/
+packaging/release/

@@ -8,7 +8,7 @@
 
 namespace pane {
 
-// Pane's own version (app/VERSION, its one source), as a packaged bundle
+// Pane's own version (packaging/VERSION, its one source), as a packaged bundle
 // carries it (PaneVersion, which scripts/package.sh writes): what the update
 // check compares the latest release against. A build that isn't packaged
 // carries none and reads 0.0.0, the Swift app's fallback.

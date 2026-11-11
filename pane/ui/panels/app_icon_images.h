@@ -21,7 +21,7 @@ namespace pane {
 // shows it, and as Settings shows it, at the row's 36 points and a tile's
 // 56, at 1× and 2×, each from macOS's own drawing of an app whose icon is
 // that window (its body and shadow on a 1024-pixel canvas, made by
-// app/icon/make-icons.swift). Automatic's is Night with Day over
+// packaging/icon/make-icons.swift). Automatic's is Night with Day over
 // its upper left half, as the Swift's DockIcon drew it. The images ship with
 // the app (pane/ui/panels/app_icons, in the framework's Resources on the
 // Mac), and each is read and decoded off the UI thread once asked for: the

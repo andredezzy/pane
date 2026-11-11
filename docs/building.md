@@ -11,7 +11,7 @@ Pane is its own build of Chromium: Chromium's loader and helpers, and `Pane Fram
   - `patches/` — `series` (apply order), `MANIFEST` (each touched Chromium file → its owning patch), the patches
   - `prebuilt-engines.tsv` — the engine archive each engine key names, and `UPGRADING.md`, the upgrade routine
 - `scripts/` — `sync.sh`, `apply-patches.sh`, `build.sh`, `make-patch.sh`, `preflight.sh`, `fetch-crlset.sh`, `package.sh`, `dist.sh`, the checks `check-os-flags.sh` and `compile-windows.sh`, and the prebuilt engine's `engine-key.sh`, `fetch-engine.sh`, `publish-engine.sh`
-- `app/` — what packaging reads: `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon (`icon/`: `AppIcon.icon`, the bundle's, which `package.sh` compiles; the window's renders; and `make-icons.swift`, which makes the icons from them)
+- `packaging/` — what packaging reads: `VERSION`, the entitlements (`signing/`), the dmg's resources (`dmg/`, with `make-background.swift` and `make-volume-icon.swift`, which make its background and volume icon), and the icon (`icon/`: `AppIcon.icon`, the bundle's, which `package.sh` compiles; the window's renders; and `make-icons.swift`, which makes the icons from them)
 - `tests/` — the scenario runner (`run.ts`), fixtures (`pages/`), scenarios that check (`scenarios/`), what measures and never judges (`benchmarks/`), and a held test copy for a pass by hand (`rigs/`)
 - `third_party/` — code Pane adapts; `NOTICE` gives origins and licenses
 - `docs/` — this guide, `human-checklist.md` (what only a person can do or verify), `qa/`, reports of passes by computer use, `adr/`, one record per subject, `benchmarks/`, measured comparisons of Pane builds with their raw data and how to rerun them, and `growth/`, the media Pane is shown with outside the app
@@ -92,13 +92,13 @@ The rig: cua-driver (`tests/lib/cua.ts`), `screencapture -l <window id>` for sti
 ## App
 
 ```bash
-scripts/package.sh   # app/build/Pane.app: the engine's bundle, Chromium's loader and Pane's UI in its framework, signed
-scripts/dist.sh      # app/release/Pane-<version>-arm64.dmg: package.sh (stripped), then the dmg
+scripts/package.sh   # packaging/build/Pane.app: the engine's bundle, Chromium's loader and Pane's UI in its framework, signed
+scripts/dist.sh      # packaging/release/Pane-<version>-arm64.dmg: package.sh (stripped), then the dmg
 ```
 
 For a pass of the edit loop, `~/chromium/src/out/Release/Pane.app` runs as built, without `package.sh`; `security`, `lock-while-open`, and `data-volume` need a package, which carries the volume's watchdog beside the loader.
 
-The app's version lives in `app/VERSION`, its only source: the bundle's version keys, Settings, the update check, and the dmg's name all come from it.
+The app's version lives in `packaging/VERSION`, its only source: the bundle's version keys, Settings, the update check, and the dmg's name all come from it.
 
 ## Prebuilt engine
 
@@ -108,7 +108,7 @@ The app packages without a Chromium checkout from a prebuilt engine, as Ardia's 
 PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)" scripts/package.sh
 ```
 
-`chromium/prebuilt-engines.tsv` names the engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`) of the `engine-<key:12>` release that carries `PaneCore-<chromium>-<key:12>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `app/build/engines.noindex/`, out of Spotlight, which would register its bundle, carrying Chromium's version, as the newest copy of Pane's identifier. A checkout whose engine sources changed has no prebuilt: build the engine. `publish-engine.sh` archives the engine into `app/release/`, publishes it as the prerelease, and overwrites that line. Archiving refuses an engine that `build.sh` did not record the current key for (`out/Release/pane-engine.key`): one built before a change to the engine's sources, or from a checkout whose tag, patches, or `//pane` were not this repo's.
+`chromium/prebuilt-engines.tsv` names the engine key (`engine-key.sh`: the git trees of `CHROMIUM_VERSION`, `args`, `patches`, and `pane`) of the `engine-<key:12>` release that carries `PaneCore-<chromium>-<key:12>.zip`, and its SHA-256. `fetch-engine.sh` downloads and verifies it into `packaging/build/engines.noindex/`, out of Spotlight, which would register its bundle, carrying Chromium's version, as the newest copy of Pane's identifier. A checkout whose engine sources changed has no prebuilt: build the engine. `publish-engine.sh` archives the engine into `packaging/release/`, publishes it as the prerelease, and overwrites that line. Archiving refuses an engine that `build.sh` did not record the current key for (`out/Release/pane-engine.key`): one built before a change to the engine's sources, or from a checkout whose tag, patches, or `//pane` were not this repo's.
 
 ## Reading a crash report
 
