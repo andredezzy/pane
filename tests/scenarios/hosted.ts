@@ -58,15 +58,22 @@ const hosted: Scenario = async (context) => {
 
 	expect(!state.degraded, `window state degraded: ${state.degraded_reason}`);
 
-	// The app's own controls, by their accessibility identifiers.
+	// The app's own controls, by the names VoiceOver reads (ADR 0071): the
+	// sidebar's, and the address field showing the page. Views publishes no
+	// identifier of Pane's names (each view's id goes out as its DOM
+	// identifier, `view_<n>`); the Swift's identifiers were SwiftUI's.
 	expect(
-		/id=pane\.sidebar\./.test(tree),
+		[
+			'AXButton "New tab"',
+			'AXButton "Settings"',
+			'AXSplitter "Sidebar width"',
+		].every((control) => tree.includes(control)),
 		`accessibility tree lacks the sidebar:\n${tree}`,
 	);
 
 	expect(
-		tree.includes(`AXTextField = "${url}"`),
-		"the address field does not show the page",
+		tree.includes(`AXTextField "Address" = "${url}"`),
+		`the address field does not show the page:\n${tree}`,
 	);
 
 	// The page drawn in the window: its content area is not a flat color.
