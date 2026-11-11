@@ -12,7 +12,6 @@
 #include "base/time/time.h"
 #include "pane/model/address_input.h"
 #include "pane/model/crash_loop.h"
-#include "pane/model/extension_shortcut.h"
 #include "pane/model/extension_text.h"
 #include "pane/model/profile_form.h"
 #include "pane/model/proxy_passwords.h"
@@ -67,18 +66,6 @@ TEST(AddressInputTest, Label) {
       "");
   EXPECT_EQ(AddressLabelFor("data:text/html,a", "a"), std::nullopt);
   EXPECT_EQ(AddressLabelFor("pane browser", ""), std::nullopt);
-}
-
-// Ported from PaneKit's ExtensionSiteTests.
-
-// A site reads without the list's path, and without its scheme when any.
-TEST(ExtensionSiteTest, Title) {
-  EXPECT_EQ(ExtensionSiteTitle("*://portal.northwind-studio.com/*"),
-            "portal.northwind-studio.com");
-  EXPECT_EQ(ExtensionSiteTitle("*://*.example.com/*"), "*.example.com");
-  EXPECT_EQ(ExtensionSiteTitle("https://example.com/*"), "https://example.com");
-  EXPECT_EQ(ExtensionSiteTitle("http://127.0.0.1:8080/*"),
-            "http://127.0.0.1:8080");
 }
 
 // Ported from PaneKit's ExtensionPromptTextTests.
@@ -345,72 +332,6 @@ TEST(TabHistoryTest, ItsOwnIds) {
 
   ASSERT_EQ(history.closed().size(), 1u);
   EXPECT_EQ(history.closed().front().profile_id, "q");
-}
-
-// Ported from PaneKit's ExtensionShortcutTests.
-
-using enum KeyModifier;
-
-ShortcutRefusal Refusal(ShortcutRefusal::Reason reason) {
-  return {.reason = reason};
-}
-
-// Chrome's shortcut reads in the Mac's order, the key last.
-TEST(ExtensionShortcutsTest, Glyphs) {
-  EXPECT_EQ(ShortcutGlyphs("Command+Shift+Y"), "⇧⌘Y");
-  EXPECT_EQ(ShortcutGlyphs("Ctrl+Alt+Shift+Command+K"), "⌃⌥⇧⌘K");
-  EXPECT_EQ(ShortcutGlyphs("Alt+Shift+Comma"), "⌥⇧,");
-  EXPECT_EQ(ShortcutGlyphs("Ctrl+Up"), "⌃↑");
-  EXPECT_EQ(ShortcutGlyphs("Command+Space"), "⌘Space");
-  EXPECT_EQ(ShortcutGlyphs("Command+7"), "⌘7");
-  EXPECT_EQ(ShortcutGlyphs(""), "");
-}
-
-// Held modifiers read in the same order.
-TEST(ExtensionShortcutsTest, HeldModifiers) {
-  EXPECT_EQ(ModifierGlyphs({kCommand, kOption}), "⌥⌘");
-  EXPECT_EQ(ModifierGlyphs({kShift, kControl, kCapsLock}), "⌃⇧");
-  EXPECT_EQ(ModifierGlyphs({}), "");
-}
-
-// A key alone needs Ctrl, Alt, or ⌘; Shift is not one.
-TEST(ExtensionShortcutsTest, IncludeModifier) {
-  const ShortcutRefusal include =
-      Refusal(ShortcutRefusal::Reason::kIncludeModifier);
-
-  EXPECT_EQ(ShortcutRefusalFor({}), include);
-  EXPECT_EQ(ShortcutRefusalFor({kShift}), include);
-  EXPECT_EQ(ShortcutRefusalFor({kCapsLock}), include);
-  EXPECT_EQ(ShortcutRefusalFor({kCommand, kShift}), std::nullopt);
-  EXPECT_EQ(ShortcutRefusalFor({kControl}), std::nullopt);
-  EXPECT_EQ(ShortcutRefusalFor({kOption, kShift}), std::nullopt);
-  EXPECT_EQ(ShortcutRefusalFor({kControl, kCommand}), std::nullopt);
-}
-
-// ⌥ with ⌃ or ⌘, or three modifiers, is an invalid combination.
-TEST(ExtensionShortcutsTest, InvalidCombination) {
-  const ShortcutRefusal invalid =
-      Refusal(ShortcutRefusal::Reason::kInvalidCombination);
-
-  EXPECT_EQ(ShortcutRefusalFor({kOption, kCommand}), invalid);
-  EXPECT_EQ(ShortcutRefusalFor({kOption, kControl}), invalid);
-  EXPECT_EQ(ShortcutRefusalFor({kControl, kOption, kShift, kCommand}), invalid);
-  EXPECT_EQ(ShortcutRefusalFor({kControl, kShift, kCommand}), invalid);
-}
-
-// The messages are Chrome's macOS strings, and Pane's for its own keys.
-TEST(ExtensionShortcutsTest, Messages) {
-  EXPECT_EQ(Refusal(ShortcutRefusal::Reason::kIncludeModifier).Message(),
-            "Include Ctrl, Alt, or ⌘");
-  EXPECT_EQ(Refusal(ShortcutRefusal::Reason::kInvalidCombination).Message(),
-            "Invalid combination");
-  EXPECT_EQ(Refusal(ShortcutRefusal::Reason::kTypeALetter).Message(),
-            "Type a letter");
-  EXPECT_EQ((ShortcutRefusal{.reason = ShortcutRefusal::Reason::kPanes,
-                             .item = "New Tab",
-                             .shortcut = "Command+T"})
-                .Message(),
-            "⌘T is Pane’s New Tab");
 }
 
 // Ported from PaneKit's TimeZonesTests. Its known zones are ICU's, by their

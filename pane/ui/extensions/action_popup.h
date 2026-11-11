@@ -46,14 +46,15 @@ inline constexpr char kActionPopupWindowName[] = "PaneActionPopup";
 // tip touches the toolbar button it points at, its middle under it, and the
 // page in a 6-point frame of the material, on white, its corners rounded 9.
 // The page sizes itself within Chrome's limits, 25 × 25 to 800 × 600, cut to
-// the room the screen leaves under the button; the bubble keeps on the
-// screen, the arrow at the button. Chrome's own popup host (an
-// ExtensionViewHost) runs the page; the bubble shows once its first load has
-// finished, as Chrome's does, and fades in and out as AppKit's popover did,
-// at once under Reduce Motion. A click outside it, or the window giving up
-// the keys to another app, closes it, as NSPopover's transient behavior did,
-// unless DevTools inspect its page or the page shows a dialog; so does Esc in
-// its page, and the page's own window.close().
+// the room the screen leaves under the button, or above it where the
+// screen leaves more room there, its arrow then at its bottom, as NSPopover
+// chose; the bubble keeps on the screen, the arrow at the button. Chrome's own
+// popup host (an ExtensionViewHost) runs the page; the bubble shows once its
+// first load has finished, as Chrome's does, and fades in and out as AppKit's
+// popover did, at once under Reduce Motion. A click outside it, or the window
+// giving up the keys to another app, closes it, as NSPopover's transient
+// behavior did, unless DevTools inspect its page or the page shows a dialog; so
+// does Esc in its page, and the page's own window.close().
 class ActionPopup : public views::WidgetObserver {
  public:
   struct Callbacks {
@@ -92,6 +93,8 @@ class ActionPopup : public views::WidgetObserver {
   Browser* browser() const { return browser_; }
   // Its page has loaded, and it shows.
   bool shown() const { return shown_; }
+  // It shows above its button, its arrow at its bottom.
+  bool above() const { return above_; }
   // The page's size, as it sized itself (the Swift's preferredSize).
   gfx::Size page_size() const;
   views::Widget* widget() const { return widget_.get(); }
@@ -125,7 +128,9 @@ class ActionPopup : public views::WidgetObserver {
   const raw_ptr<views::Widget> parent_;
   const gfx::Rect anchor_;
   const bool activate_;
-  // The biggest page the screen has room for under the anchor.
+  // Whether it shows above the anchor, where the screen leaves more room
+  // than under it, and the biggest page the screen has room for there.
+  bool above_ = false;
   gfx::Size max_page_;
   std::optional<uint64_t> interval_;
   ShowPopupCallback shown_callback_;

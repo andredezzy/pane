@@ -1,61 +1,76 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
-	canDriveUI,
-	clickButton,
-	clickControl,
-	mainWindowOf,
-	windowState,
-} from "../lib/cua";
+	DETAILS,
+	detailsShown,
+	EXTENSIONS_PAGE,
+	extensionsPage,
+	ITEMS,
+	listed,
+	press,
+} from "../lib/chrome-extensions";
 import { DARK_READER, installById } from "../lib/extensions";
 import type { AppState, ExtensionState } from "../lib/pane";
 import { launchPane } from "../lib/pane";
+import { poll } from "../lib/poll";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
 
-// The Extensions page manages a profile's extensions: an install declined
-// at its prompt installs nothing; install by Web Store ID (pinned to the
-// toolbar), disable and enable, unpin and pin, and remove after asking.
-// Updates need no control: extension-auto-update checks them.
-// On an unlocked screen each control is clicked with CUA; else the same
-// controller calls run through the automation channel.
+// A profile's extensions are managed on Chrome's own page in its tab (D3,
+// ADR 0062): the extensions menu's Manage all extensions opens
+// chrome://extensions there, and opens it again in the same tab. Adding
+// asks in Pane's dialog (ADR 0056): declined, nothing is installed, on the
+// page or on disk; accepted, the extension lists on the page, pinned to the
+// toolbar. The card's switch turns it off and on, Details' Pin to toolbar
+// unpins and pins it, and Remove from Pane, in the extensions menu's more
+// menu, asks in Pane's popup and takes it off the page. Updates need no
+// control: extension-auto-update checks them. Chrome's page is pressed with
+// real clicks on it (CDP's Input), Pane's views with real clicks through
+// the channel, in the background too.
 const extensionManagement: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Manage");
 	const url = context.fixtures.url("light.html?manage");
-	await app.openPage(profile, url);
-
-	const locked = !(await canDriveUI());
-	const pid = app.browser.pid;
+	const { tab: fixture } = await app.openPage(profile, url);
 
 	const item = (state: AppState): ExtensionState | undefined =>
 		(state.extensions[profile] ?? []).find((each) => each.id === DARK_READER);
 
-	// The Extensions page, as the extensions menu's Manage all extensions
-	// opens it (the extensions-menu scenario clicks that).
-	const showExtensions = async () => {
-		if ((await app.state()).page !== "extensions") {
-			await app.send("extensionsMenu", { control: "manage" });
-		}
+	// Chrome's page, as the extensions menu's Manage all extensions opens
+	// it, from the profile's page.
+	const manage = async () => {
+		await app.send("select", { tab: fixture });
+		await app.send("extensionsMenu", { control: "puzzle" });
+		await app.waitFor("the extensions menu", (state) => state.extensionsMenu);
+		await app.send("extensionsMenu", { control: "manage" });
 
-		await app.waitFor(
-			"the Extensions page",
-			(state) => state.page === "extensions",
-		);
+		return extensionsPage(app, profile, EXTENSIONS_PAGE);
 	};
 
-	await showExtensions();
+	const opened = await manage();
 
-	// Declined: the prompt's Cancel leaves the profile without it, on its
-	// list and on disk.
+	expect(
+		(await opened.page.evaluate<string>("document.title")) === "Extensions",
+		"Chrome's page is not titled Extensions",
+	);
+
+	// Declined: Cancel in Pane's dialog leaves the profile without it, on
+	// its list, on Chrome's page, and on disk.
 	await app.send("installExtension", { id: DARK_READER, profile });
 	const offered = await waitForSheet(app, "extensionInstall", 60_000);
-	const cancelTitle = offered.buttons?.[1] ?? "Cancel";
-	await answerSheet(app, cancelTitle);
+
+	expect(
+		offered.title === "Add “Dark Reader” to Pane?" &&
+			JSON.stringify(offered.buttons) ===
+				JSON.stringify(["Add to Pane", "Cancel"]),
+		`the install dialog: ${JSON.stringify(offered)}`,
+	);
+
+	await answerSheet(app, offered.buttons?.[1] ?? "Cancel");
 
 	await app.waitFor(
-		"the install prompt gone",
+		"the install dialog gone",
 		(state) => state.sheet?.kind !== "extensionInstall",
 	);
 
@@ -72,24 +87,23 @@ const extensionManagement: Scenario = async (context) => {
 	const afterDecline = await app.state();
 
 	expect(
-		item(afterDecline) === undefined && !existsSync(extensionDirectory),
+		item(afterDecline) === undefined &&
+			!existsSync(extensionDirectory) &&
+			!(await listed(opened.page)).some((each) => each.id === DARK_READER),
 		`declined, yet installed: ${JSON.stringify({ listed: item(afterDecline), onDisk: existsSync(extensionDirectory) })}`,
 	);
 
-	// Install by its Web Store ID, as the Web Store's install button (Add to Pane) does (the
-	// page has no field for it; dark-reader presses the store's own button),
-	// then accept the app's install sheet.
+	// Accepted: installed, and pinned (Chromium's default since 157), so its
+	// button shows in the toolbar.
 	const installed = await installById(app, profile, DARK_READER);
 
-	// A new extension is pinned (Chromium's default since 157), so its button
-	// shows in the toolbar as every extension's did in the Electron app.
 	expect(
 		item(installed)?.pinned === true,
 		`installed unpinned: ${JSON.stringify(item(installed))}`,
 	);
 
-	// Its welcome tab takes the window; back to the Extensions page once it
-	// has.
+	// Its welcome tab takes the window; Manage all extensions comes back to
+	// the page's own tab.
 	await app
 		.waitFor(
 			"Dark Reader's help tab",
@@ -101,93 +115,100 @@ const extensionManagement: Scenario = async (context) => {
 		)
 		.catch(() => {});
 
-	await showExtensions();
+	const again = await manage();
 
-	// Its switch and its pin: a CUA click on its card, or the same call.
-	const toggle = async (
-		title: "Enabled" | "Pinned",
-		command: string,
-		value: boolean,
-	) => {
-		if (locked) {
-			await app.send(command, {
-				id: DARK_READER,
-				profile,
-				[title === "Enabled" ? "enabled" : "pinned"]: value,
-			});
-		} else if (title === "Enabled") {
-			await clickControl(pid, await mainWindowOf(pid), {
-				title,
-				role: /AX(CheckBox|Switch)/,
-			});
-		} else {
-			await clickButton(
-				pid,
-				await mainWindowOf(pid),
-				value ? "Pin to toolbar" : "Unpin from toolbar",
-				`pane.extensions.pin.${DARK_READER}`,
-			);
-		}
+	expect(
+		again.tab === opened.tab,
+		`Manage all extensions opened ${again.tab}, not the page's tab ${opened.tab}`,
+	);
 
-		return app.waitFor(`${title} ${value}`, (state) =>
-			title === "Enabled"
-				? item(state)?.enabled === value
-				: item(state)?.pinned === value,
+	const page = again.page;
+
+	const card = `${ITEMS}.querySelector("extensions-item#${DARK_READER}")`;
+
+	await poll(
+		"Dark Reader on Chrome's page, on",
+		async () =>
+			(await listed(page)).find((each) => each.id === DARK_READER)?.on === true,
+		10_000,
+	);
+
+	// Its switch, off and on.
+	const toggleSwitch = async (on: boolean) => {
+		await press(
+			page,
+			`${card}.shadowRoot.querySelector("#enableToggle")`,
+			"Dark Reader's switch",
+		);
+
+		await app.waitFor(
+			`Dark Reader ${on ? "on" : "off"}`,
+			(state) => item(state)?.enabled === on,
 		);
 	};
 
-	// The extension's card, for the design record.
-	if (!locked) {
-		await Bun.sleep(500);
+	await toggleSwitch(false);
+	await toggleSwitch(true);
 
-		await windowState(
-			pid,
-			await mainWindowOf(pid),
-			join(context.out, "extensions-page.png"),
-		);
-	}
+	// Details' Pin to toolbar, off and on.
+	await press(
+		page,
+		`${card}.shadowRoot.querySelector("#detailsButton")`,
+		"Dark Reader's Details",
+	);
 
-	await toggle("Enabled", "setExtensionEnabled", false);
-	await toggle("Enabled", "setExtensionEnabled", true);
-	await toggle("Pinned", "setExtensionPinned", false);
-	await toggle("Pinned", "setExtensionPinned", true);
+	const details = await poll(
+		"Dark Reader's Details",
+		async () => {
+			const shown = await detailsShown(page).catch(() => null);
 
-	// Remove asks first, in the extension's removal popup.
-	if (locked) {
-		await app.send("uninstallExtension", { id: DARK_READER, profile });
-	} else {
-		const window = await mainWindowOf(pid);
+			return shown?.name === "Dark Reader" && shown;
+		},
+		10_000,
+	);
 
-		await clickButton(
-			pid,
-			window,
-			"Remove",
-			`pane.extensions.remove.${DARK_READER}`,
-		);
+	// Pane has no incognito: no Allow in Incognito, which Dark Reader would
+	// have in Chrome.
+	expect(
+		details.pinRow && details.pinned && !details.incognitoRow,
+		`Dark Reader's Details: ${JSON.stringify(details)}`,
+	);
 
-		await waitForSheet(app, "extensionRemove");
-		await Bun.sleep(500);
+	const pin = `${DETAILS}.querySelector("#pin-to-toolbar")`;
 
-		await windowState(
-			pid,
-			window,
-			join(context.out, "extension-uninstall.png"),
-		);
+	await press(page, pin, "Pin to toolbar");
+	await app.waitFor("unpinned", (state) => item(state)?.pinned === false);
+	await press(page, pin, "Pin to toolbar");
+	await app.waitFor("pinned", (state) => item(state)?.pinned === true);
 
-		// The press removes it, and its uninstall page opens in a new tab
-		// before the press returns: accessibility can give up waiting
-		// (-25204) though the press took. The removal below is the check.
-		await clickButton(
-			pid,
-			window,
-			"Remove",
-			"pane.extensionPopup.accept",
-		).catch((error: unknown) => {
-			if (!String(error).includes("-25204")) {
-				throw error;
-			}
-		});
-	}
+	await press(
+		page,
+		`${DETAILS}.querySelector("#closeButton")`,
+		"the back arrow",
+	);
+
+	// Remove from Pane, in the extensions menu's more menu, asks first in
+	// Pane's popup, under its button.
+	await app.send("select", { tab: fixture });
+	await app.send("extensionsMenu", { control: "puzzle" });
+	await app.waitFor("the extensions menu", (state) => state.extensionsMenu);
+	await app.send("extensionsMenu", { control: "more", id: DARK_READER });
+
+	await app.waitFor(
+		"the more menu",
+		(state) => state.extensionMoreMenu === DARK_READER,
+	);
+
+	await app.send("extensionsMenu", { control: "remove" });
+	const removing = await waitForSheet(app, "extensionRemove");
+
+	expect(
+		removing.title === "Remove “Dark Reader”?" &&
+			JSON.stringify(removing.buttons) === JSON.stringify(["Remove", "Cancel"]),
+		`the remove popup: ${JSON.stringify(removing)}`,
+	);
+
+	await answerSheet(app, removing.buttons?.[0] ?? "Remove");
 
 	await app.waitFor(
 		"Dark Reader removed",
@@ -195,8 +216,16 @@ const extensionManagement: Scenario = async (context) => {
 		30_000,
 	);
 
-	await watcher.sample();
+	// Chrome's page lists it no more.
+	await app.send("select", { tab: again.tab });
 
+	await poll(
+		"Dark Reader gone from Chrome's page",
+		async () => !(await listed(page)).some((each) => each.id === DARK_READER),
+		10_000,
+	);
+
+	await watcher.sample();
 	await watcher.stop();
 };
 

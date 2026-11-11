@@ -5,6 +5,7 @@
 
 #include <optional>
 
+#include "base/functional/callback.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -29,7 +30,8 @@ class AppIconImages;
 // after it.
 class DockIcon : public ui::NativeThemeObserver {
  public:
-  explicit DockIcon(AppIconImages& images);
+  // `shown` runs each time the Dock takes another sky's image.
+  DockIcon(AppIconImages& images, base::RepeatingClosure shown);
   DockIcon(const DockIcon&) = delete;
   DockIcon& operator=(const DockIcon&) = delete;
   ~DockIcon() override;
@@ -50,6 +52,7 @@ class DockIcon : public ui::NativeThemeObserver {
   static void SetImage(const gfx::ImageSkia& image);
 
   const raw_ref<AppIconImages> images_;
+  const base::RepeatingClosure shown_changed_;
   model::AppIcon setting_ = model::AppIcon::kAutomatic;
   // The sky asked for last, and the one the Dock shows.
   std::optional<model::AppIcon> wanted_;

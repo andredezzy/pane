@@ -4,6 +4,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, What Chrome asks for, second half): the page's context menu is no request: `HostedWebContentsDelegate::HandleContextMenu` hands it to the window, which builds Chrome's own `RenderViewContextMenu` (U2), the Mac's NSMenu, and takes off its model what Pane can't support before it shows (`pane/ui/page/page_context_menu`, ADR 0058); `dialogs.mm`, `dialogs_internal.h`, and `PaneDialogs.h` are gone.
 
+> **On the Views line** (`docs/plans/views-migration.md`, X3): adding an extension is no request either: Chrome's install hook (patch 0005) calls Pane's dialog (`AskToAddExtension`, ADR 0056), which takes over for Pane's profiles alone.
+
 Every dialog, bubble, and menu Chrome would show for a Pane tab reaches the app as a request object, and the app answers it: in host mode Chrome shows no UI of its own (ADR 0004), so the app decides how each request looks. The requests are declared in `pane/public/PaneDialogs.h`: JavaScript dialogs (beforeunload and form resubmission among them), permission requests, HTTP and proxy authentication, context menus, file choosers, external protocols, and unresponsive pages. Each reaches the app through a delegate method and is answered once. The engine withdraws a request (`didDismissRequest:`) when Chrome takes it back, and when its page goes (ADR 0017). The few surfaces that stay Chrome's are ADR 0022's.
 
 The app shows the requests one at a time, and only for the selected tab, as Chrome's tab-modal dialogs do (`app/Pane/Browser/DialogPresenter.swift`): switching tabs puts a dialog back in line, and behind the PIN lock they wait (ADR 0042). A lock while Pane is open closes every page, which withdraws its requests (ADR 0116).

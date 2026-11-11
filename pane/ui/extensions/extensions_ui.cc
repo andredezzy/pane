@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/profiles/profile.h"
@@ -15,10 +16,16 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/uninstall_reason.h"
+#include "extensions/common/command.h"
 #include "extensions/common/extension.h"
 #include "pane/browser/engine_trace.h"
+#include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/ui/window_host.h"
+#include "pane/model/extension_text.h"
+#include "pane/ui/app/commands.h"
 #include "pane/ui/extensions/action_menu.h"
 #include "pane/ui/extensions/action_popup.h"
 #include "pane/ui/extensions/browser_extensions.h"
@@ -28,6 +35,7 @@
 #include "pane/ui/toolbar/toolbar_view.h"
 #include "pane/ui/window/root_view.h"
 #include "pane/ui/window/window.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view.h"
@@ -60,6 +68,10 @@ constexpr int kFallbackSize = 26;
 ExtensionsUi::ExtensionsUi(Delegate& delegate) : delegate_(delegate) {}
 
 ExtensionsUi::~ExtensionsUi() {
+  // A prompt still asking is answered no.
+  if (prompt_ && prompt_->answer) {
+    std::move(prompt_->answer).Run(false, false);
+  }
   action_menu_runner_.reset();
   action_menu_.reset();
   popup_.reset();
@@ -190,7 +202,7 @@ void ExtensionsUi::PressRemove(const std::string& extension_id) {
   CloseMenu();
   if (Profile* profile = delegate_->ShownProfile();
       profile && delegate_->ExtensionsAllowed()) {
-    delegate_->ConfirmUninstall(*profile, extension_id);
+    ConfirmUninstall(*profile, extension_id);
   }
 }
 
@@ -497,6 +509,146 @@ void ExtensionsUi::Lock() {
   CloseMenu();
   ClosePopupNow(/*animate=*/false);
   closing_.clear();
+  // Nothing is added or removed behind the Lock: a prompt asking is
+  // answered no.
+  AnswerPrompt(false);
+}
+
+// MARK: Prompts (ADR 0056)
+
+void ExtensionsUi::Ask(ExtensionPrompt prompt) {
+  RootView* root = delegate_->ExtensionsWindow().root();
+  if (!delegate_->ExtensionsAllowed() || !root) {
+    if (prompt.answer) {
+      std::move(prompt.answer).Run(false, false);
+    }
+    return;
+  }
+  // From the ask to the frame that shows it.
+  LogInteraction(Interaction::kShowExtensionPrompt,
+                 delegate_->ExtensionsWindow().compositor());
+  PANE_TRACE("event", "ExtensionsController.present",
+             base::DictValue()
+                 .Set("kind", ExtensionPromptKindName(prompt.kind))
+                 .Set("extension", prompt.extension_id));
+  CloseMenu();
+  std::optional<ExtensionPrompt> previous =
+      std::exchange(prompt_, std::move(prompt));
+  root->ShowExtensionPrompt(*prompt_, delegate_->AppIcon());
+  // The one it took the place of answers no.
+  if (previous && previous->answer) {
+    std::move(previous->answer).Run(false, false);
+  }
+}
+
+void ExtensionsUi::ConfirmUninstall(Profile& profile,
+                                    const std::string& extension_id) {
+  PANE_TRACE("call", "ExtensionsController.confirmUninstall",
+             base::DictValue().Set("extension", extension_id));
+  const extensions::Extension* extension =
+      extensions::ExtensionRegistry::Get(&profile)->GetInstalledExtension(
+          extension_id);
+  if (!extension) {
+    return;
+  }
+  ExtensionPrompt prompt;
+  prompt.kind = ExtensionPrompt::Kind::kRemove;
+  prompt.extension_id = extension_id;
+  prompt.title =
+      base::UTF8ToUTF16(model::ExtensionRemoveTitle(extension->name()));
+  // Its icon, as its button shows it.
+  for (const InstalledExtension& shown : shown_) {
+    if (shown.id == extension_id) {
+      prompt.icon = shown.icon;
+    }
+  }
+  prompt.accept_title = u"Remove";
+  prompt.cancel_title = u"Cancel";
+  prompt.answer = base::BindOnce(
+      [](base::WeakPtr<ExtensionsUi> ui, base::WeakPtr<Profile> profile,
+         std::string id, bool accepted, bool report_abuse) {
+        if (!accepted || !ui || !profile) {
+          return;
+        }
+        ui->Uninstall(*profile, id);
+        if (report_abuse) {
+          ui->delegate_->OpenExtensionTab(*profile, model::ReportAbuseURL(id));
+        }
+      },
+      weak_factory_.GetWeakPtr(), profile.GetWeakPtr(), extension_id);
+  Ask(std::move(prompt));
+}
+
+void ExtensionsUi::AnswerPrompt(bool accepted) {
+  if (!prompt_) {
+    return;
+  }
+  RootView* root = delegate_->ExtensionsWindow().root();
+  ExtensionPromptView* view = root ? root->extension_prompt() : nullptr;
+  const bool report_abuse = accepted && view && view->report_abuse();
+  ExtensionPrompt prompt = std::move(*prompt_);
+  prompt_.reset();
+  if (root) {
+    root->HideExtensionPrompt();
+  }
+  if (prompt.answer) {
+    std::move(prompt.answer).Run(accepted, report_abuse);
+  }
+}
+
+void ExtensionsUi::AppIconChanged() {
+  RootView* root = prompt_ ? delegate_->ExtensionsWindow().root() : nullptr;
+  if (ExtensionPromptView* view = root ? root->extension_prompt() : nullptr) {
+    view->SetAppIcon(delegate_->AppIcon());
+  }
+}
+
+void ExtensionsUi::Uninstall(Profile& profile,
+                             const std::string& extension_id) {
+  PANE_TRACE("call", "PaneBrowserContext.uninstallExtension",
+             base::DictValue().Set("extension", extension_id));
+  if (!extensions::ExtensionRegistry::Get(&profile)->GetInstalledExtension(
+          extension_id)) {
+    return;
+  }
+  std::u16string error;
+  extensions::ExtensionRegistrar::Get(&profile)->UninstallExtension(
+      extension_id, extensions::UNINSTALL_REASON_USER_INITIATED, &error);
+}
+
+// MARK: Shortcuts (ADR 0098)
+
+bool ExtensionsUi::RunShortcut(const ui::Accelerator& accelerator) {
+  // Extensions take chords alone, and the menu bar's keys stay Pane's.
+  if (!(accelerator.modifiers() &
+        (ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN)) ||
+      CommandForAccelerator(accelerator) || !delegate_->ExtensionsAllowed()) {
+    return false;
+  }
+  BrowserExtensions* shown = Shown();
+  if (!shown || shown->shortcuts().shortcut_handling_suspended()) {
+    return false;
+  }
+  extensions::ExtensionId extension;
+  std::string command;
+  if (!shown->shortcuts().Find(accelerator, &extension, &command)) {
+    return false;
+  }
+  PANE_TRACE(
+      "call", "PaneBrowserContext.runExtensionShortcut",
+      base::DictValue().Set("extension", extension).Set("command", command));
+  // The action's runs as a press of its button: its popup, at its button
+  // or the puzzle, or onClicked.
+  if (extensions::Command::IsActionRelatedCommand(command)) {
+    RunAction(extension);
+    return true;
+  }
+  return shown->shortcuts().Notify(accelerator);
+}
+
+bool ExtensionsUi::ShortcutsSuspended() const {
+  BrowserExtensions* shown = Shown();
+  return shown && shown->shortcuts().shortcut_handling_suspended();
 }
 
 void ExtensionsUi::ShowState() {

@@ -34,7 +34,6 @@ class ExclusiveAccessManager;
 
 namespace pane {
 
-class ExtensionShortcuts;
 class HostedExtensionsContainer;
 class WindowHost;
 
@@ -176,10 +175,6 @@ class HostedBrowserWindow : public BrowserWindow,
 
   void AttachBrowser(Browser* browser);
   Browser* browser() const { return browser_; }
-  // Its Browser's extension shortcuts, once it has one.
-  ExtensionShortcuts* extension_shortcuts() const {
-    return extension_shortcuts_.get();
-  }
   base::WeakPtr<WindowHost> host_weak() const { return host_; }
 
   static HostedBrowserWindow* FromWindow(const BrowserWindow* window);
@@ -349,7 +344,6 @@ class HostedBrowserWindow : public BrowserWindow,
   void PostWindowFullscreenStateChanged();
   base::WeakPtr<content::WebContents> fullscreen_tab_;
   std::unique_ptr<DevtoolsUIController> devtools_ui_controller_;
-  std::unique_ptr<ExtensionShortcuts> extension_shortcuts_;
   // The window's toolbar as Chrome's extensions see it, for this Browser
   // (WindowHost::Delegate::CreateExtensionsContainer), registered where
   // ExtensionsContainer::From finds it, as Chrome's own windows register

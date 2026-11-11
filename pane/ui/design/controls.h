@@ -95,9 +95,12 @@ struct ControlLook {
   float disabled_opacity = 0.5f;
 };
 
-// packages/ui's Button variants, as the Swift drew them; and a page's
-// dialog's, as macOS draws an alert's (DialogButtonStyle): capsules, gray, or
-// blue for the default, a press darkening them at once, and no hover.
+// packages/ui's Button variants, as the Swift drew them; a page's dialog's,
+// as macOS draws an alert's (DialogButtonStyle): capsules, gray, or blue for
+// the default, a press darkening them at once, and no hover; and Aside's
+// popups' (the Swift's .popup(isPrimary:)): the primary, and Cancel on the
+// secondary fill with the foreground's 8% just inside its edge, each rounded
+// 15.
 enum class ButtonVariant {
   kPrimary,
   kDestructive,
@@ -106,6 +109,8 @@ enum class ButtonVariant {
   kGhost,
   kAlert,
   kAlertDefault,
+  kPopupPrimary,
+  kPopupCancel,
 };
 
 // A button of the variant (PaneButtonStyle), rounded at `radius`: 11, the

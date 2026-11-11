@@ -21,6 +21,7 @@
 #include "base/process/kill.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -40,6 +41,7 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/download/public/common/download_item.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver_observer.h"
@@ -48,11 +50,13 @@
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_details.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/referrer.h"
+#include "content/public/common/url_constants.h"
 #include "pane/app/version.h"
 #include "pane/automation/automation.h"
 #include "pane/browser/engine_trace.h"
@@ -71,6 +75,7 @@
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
+#include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/permission_prompt.h"
 #include "pane/ui/extensions/action_popup.h"
 #include "pane/ui/extensions/installed_extensions.h"
@@ -165,8 +170,6 @@ std::string_view PageName(model::BrowserModel::Page page) {
       return "browser";
     case model::BrowserModel::Page::kSettings:
       return "settings";
-    case model::BrowserModel::Page::kExtensions:
-      return "extensions";
   }
 }
 
@@ -340,7 +343,31 @@ base::Value ExtensionPopupState(const ActionPopup* popup) {
                          .Set("extension", popup->extension_id())
                          .Set("open", popup->shown())
                          .Set("width", size.width())
-                         .Set("height", size.height()));
+                         .Set("height", size.height())
+                         .Set("above", popup->above()));
+}
+
+// A prompt asking, as the Swift's channel answered a sheet: its kind, its
+// title, what it says, and its buttons, the accept first; and Report abuse,
+// ticked or not, as `view` shows it.
+base::Value PromptState(const ExtensionPrompt& prompt,
+                        const ExtensionPromptView* view) {
+  std::vector<std::u16string> lines;
+  if (!prompt.permissions_heading.empty()) {
+    lines.push_back(prompt.permissions_heading);
+  }
+  lines.insert(lines.end(), prompt.permissions.begin(),
+               prompt.permissions.end());
+  return base::Value(base::DictValue()
+                         .Set("kind", ExtensionPromptKindName(prompt.kind))
+                         .Set("tabID", base::Value())
+                         .Set("title", prompt.title)
+                         .Set("message", base::JoinString(lines, u"\n"))
+                         .Set("buttons", base::ListValue()
+                                             .Append(prompt.accept_title)
+                                             .Append(prompt.cancel_title))
+                         .Set("fields", base::ListValue())
+                         .Set("reportAbuse", view && view->report_abuse()));
 }
 
 base::DictValue FindState(RootView* root) {
@@ -424,10 +451,15 @@ class UiApp::Page : public content::WebContentsObserver,
     ReportLoading(progress);
   }
 
-  // Back's and Forward's states follow the page's history.
+  // Back's and Forward's states follow the page's history, and the tab's
+  // address follows the page as it moves in place too (history.pushState, a
+  // fragment), as Chrome's address does, where only a new document moved it.
   void NavigationEntryCommitted(
       const content::LoadCommittedDetails& details) override {
     app_->PageNavigated(tab_id_);
+    if (details.is_same_document) {
+      app_->PageURLChanged(tab_id_);
+    }
   }
 
   void NavigationListPruned(
@@ -566,7 +598,14 @@ UiApp::UiApp()
   ApplyTheme(*applied_theme_);
   // The Dock shows the App icon from the start, and Settings' row has it to
   // show the first time.
-  dock_icon_ = std::make_unique<DockIcon>(*app_icons_);
+  dock_icon_ = std::make_unique<DockIcon>(
+      *app_icons_, base::BindRepeating(
+                       [](UiApp* app) {
+                         if (app->extensions_) {
+                           app->extensions_->AppIconChanged();
+                         }
+                       },
+                       base::Unretained(this)));
   dock_icon_->Show(model().settings().app_icon);
   app_icons_->Load({model().settings().app_icon});
   // A scenario's copy shares the user's preferences, so its window neither
@@ -1566,6 +1605,12 @@ void UiApp::PageFirstPaint(const std::string& tab_id) {
                               std::exchange(waking_, std::nullopt)->interval,
                               window_->compositor());
   }
+  if (extensions_page_ && extensions_page_->tab_id == tab_id) {
+    EndInteractionAtNextFrame(
+        Interaction::kPaintExtensionsPage,
+        std::exchange(extensions_page_, std::nullopt)->interval,
+        window_->compositor());
+  }
 }
 
 void UiApp::SleepTab(const std::string& tab_id) {
@@ -2009,10 +2054,18 @@ void UiApp::RunCommand(Command command) {
     case Command::kDeveloperTools:
       ToggleDevTools();
       return;
-    // The Extensions page is X4's (chrome://extensions in the profile's tab,
-    // D3): its item runs nothing until then.
-    case Command::kExtensions:
+    // Chrome's extensions page in a tab of the profile shown, or of the
+    // first one off the browser page (D3).
+    case Command::kExtensions: {
+      const std::optional<std::string>& shown = model().active_profile_id();
+      if (shown) {
+        OpenExtensionsTab(*shown, GURL(chrome::kChromeUIExtensionsURL));
+      } else if (!model().profiles().empty()) {
+        OpenExtensionsTab(model().profiles().front().id,
+                          GURL(chrome::kChromeUIExtensionsURL));
+      }
       return;
+    }
     default:
       if (const int number = TabNumberOf(command)) {
         SelectTabAt(number);
@@ -2349,13 +2402,90 @@ void UiApp::ShowExtensionsPage(Profile& profile,
                                const std::string& extension_id) {
   PANE_TRACE("call", "ExtensionsController.showPage",
              base::DictValue().Set("extension", extension_id));
-  ShowPage(model::BrowserModel::Page::kExtensions);
+  const std::optional<std::string> profile_id = ProfileIdFor(profile);
+  if (!profile_id) {
+    return;
+  }
+  // An extension's Details, as Chrome's ShowExtensions asks for them.
+  GURL url(chrome::kChromeUIExtensionsURL);
+  if (!extension_id.empty()) {
+    GURL::Replacements replacements;
+    const std::string query = "id=" + extension_id;
+    replacements.SetQueryStr(query);
+    url = url.ReplaceComponents(replacements);
+  }
+  OpenExtensionsTab(*profile_id, url);
 }
 
-void UiApp::ConfirmUninstall(Profile& profile,
-                             const std::string& extension_id) {
-  PANE_TRACE("call", "ExtensionsController.confirmUninstall",
-             base::DictValue().Set("extension", extension_id));
+void UiApp::OpenExtensionsTab(const std::string& profile_id, const GURL& url) {
+  const model::BrowserProfile* profile = model().FindProfile(profile_id);
+  if (!InteractionAllowed() || !profile) {
+    return;
+  }
+  LogInteraction(Interaction::kOpenExtensionsPage, window_->compositor());
+  std::optional<std::string> found;
+  for (const model::Tab& tab : profile->tabs) {
+    const GURL at(tab.url);
+    if (at.SchemeIs(content::kChromeUIScheme) &&
+        at.host() == chrome::kChromeUIExtensionsHost) {
+      found = tab.id;
+      break;
+    }
+  }
+  if (!found) {
+    const std::string tab_id = OpenTab(profile_id, url);
+    if (!tab_id.empty()) {
+      extensions_page_ = Waking{.tab_id = tab_id,
+                                .interval = BeginInteractionInterval(
+                                    Interaction::kPaintExtensionsPage)};
+    }
+    return;
+  }
+  // There already: it goes where it is asked to, unless it is there, as its
+  // page has it, which may have moved in place.
+  content::WebContents* page = PageOf(*found);
+  const model::Tab* tab = model().FindTab(*found);
+  const GURL at = page ? page->GetVisibleURL() : GURL(tab ? tab->url : "");
+  if (at != url) {
+    extensions_page_ = Waking{.tab_id = *found,
+                              .interval = BeginInteractionInterval(
+                                  Interaction::kPaintExtensionsPage)};
+    if (page) {
+      page->GetController().LoadURL(url, content::Referrer(),
+                                    ui::PAGE_TRANSITION_AUTO_BOOKMARK,
+                                    std::string());
+    } else {
+      model().UpdateTab(*found,
+                        [&](model::Tab& each) { each.url = url.spec(); });
+    }
+  }
+  Select(*found);
+  // A tab without a page woken here is timed as the page opened, not as a
+  // wake.
+  if (waking_ && waking_->tab_id == *found) {
+    waking_.reset();
+  }
+}
+
+std::optional<std::string> UiApp::ProfileIdFor(Profile& profile) const {
+  for (const model::BrowserProfile& each : model().profiles()) {
+    if (contexts_.Get(each.id) == &profile) {
+      return each.id;
+    }
+  }
+  return std::nullopt;
+}
+
+bool UiApp::IsPaneProfile(Profile& profile) const {
+  return ProfileIdFor(profile).has_value();
+}
+
+gfx::ImageSkia UiApp::AppIcon() const {
+  const std::optional<model::AppIcon> shown =
+      dock_icon_ ? dock_icon_->shown() : std::nullopt;
+  return shown && app_icons_
+             ? app_icons_->Thumbnail(*shown, AppIconImages::kRowSize)
+             : gfx::ImageSkia();
 }
 
 base::DictValue UiApp::Snapshot() const {
@@ -2515,8 +2645,12 @@ base::DictValue UiApp::Snapshot() const {
       .Set("quitConfirmation", quit_confirming_)
       .Set("sidebarWidth", sidebar_width_)
       .Set("pendingProfileDeletions", static_cast<int>(deleting_.size()))
-      // A page's dialog showing, and how many wait their turn.
-      .Set("sheet", dialogs_->Shown())
+      // An extension's prompt asking, over a page's dialog, else a page's
+      // dialog showing, and how many wait their turn.
+      .Set("sheet", extensions_->prompt()
+                        ? PromptState(*extensions_->prompt(),
+                                      root ? root->extension_prompt() : nullptr)
+                        : dialogs_->Shown())
       .Set("pendingRequests", dialogs_->waiting())
       .Set("closedTabs", static_cast<int>(model.history().closed().size()))
       .Set("extensions", std::move(extensions))

@@ -1,4 +1,4 @@
-import { asksBeforeInstall, installFromWebStore } from "../lib/extensions";
+import { installFromWebStore } from "../lib/extensions";
 import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
@@ -17,18 +17,10 @@ type Failed = { requestId: string; errorText: string; blockedReason?: string };
 const ubol: Scenario = async (context) => {
 	const app = await launchPane(context);
 
-	if (!(await asksBeforeInstall(app))) {
-		context.defer(
-			"every check: uBlock Origin Lite installs from the Web Store, which asks in the install prompt, X3's",
-		);
-
-		return;
-	}
-
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Blocking");
 
-	await installFromWebStore(app, profile, UBLOCK_LITE);
+	await installFromWebStore(app, profile, UBLOCK_LITE, context.foreground);
 
 	const blank = context.fixtures.url("isolation.html?ubol");
 	const { page } = await app.openPage(profile, blank);

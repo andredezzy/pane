@@ -4,6 +4,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, X1): `ExtensionMenu::ForAction` and `PaneExtensionActionMenu` are gone: a pinned action's right-click menu is one `ui::SimpleMenuModel` (`pane/ui/extensions/action_menu`), its extension's items through Chrome's `ContextMenuMatcher` and its site access as before, run as Chrome's model runs them; the channel's `extensionActionMenu` reads its groups from that model.
 
+> **On the Views line** (`docs/plans/views-migration.md`, X4): View Web Permissions and Manage Extension open Chrome's own Details, chrome://extensions/?id=, in the profile's tab (ADR 0062), whose site list holds the site On <site> grants. The seam below, and Chrome's "added" bubble's, are held in `pane/browser/ui/ui_hooks.cc` since X3 took `extension_ui.mm` away.
+
 **An extension's own items.** The items an extension adds with `chrome.contextMenus` show in the page's right-click menu and in its pinned action's, laid out by Chrome's own `ContextMenuMatcher`. The order, the grouping (an extension with several items gets one submenu under its name), titles cut at 75 characters with the selection in them, radio groups, separators, and the action menu's limit of six top-level items are all Chrome's. Until then neither menu showed them: an extension such as a password manager that saves or fills from the right-click menu had no way in.
 
 - **The engine:** `pane::ExtensionMenu` (`pane/browser/extensions/extension_menu.mm`) fills a `ui::SimpleMenuModel` through the matcher.

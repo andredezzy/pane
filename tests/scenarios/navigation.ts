@@ -197,26 +197,27 @@ const navigation: Scenario = async (context) => {
 		back: "visible",
 	};
 
-	if ("extensionsMenu" in (await app.state())) {
-		await app.send("extensionsMenu", { control: "puzzle" });
-		await app.waitFor("the extensions menu", (state) => state.extensionsMenu);
-		await app.send("extensionsMenu", { control: "manage" });
+	// Chrome's extensions page opens in a tab of the profile (D3): the page
+	// behind it is hidden until its tab is selected again.
+	await app.send("extensionsMenu", { control: "puzzle" });
+	await app.waitFor("the extensions menu", (state) => state.extensionsMenu);
+	await app.send("extensionsMenu", { control: "manage" });
 
-		await app.waitFor(
-			"the Extensions page",
-			(state) => state.page === "extensions",
-		);
+	await app.waitFor("Chrome's extensions page in a tab", (state) =>
+		state.profiles.some((profile) =>
+			profile.tabs.some(
+				(each) =>
+					each.id === state.activeTabID &&
+					each.url.startsWith("chrome://extensions"),
+			),
+		),
+	);
 
-		pageVisibility.extensions = await visibility();
-		await app.send("select", { tab });
-		pageVisibility.selected = await visibility();
-		expected.extensions = "hidden";
-		expected.selected = "visible";
-	} else {
-		context.defer(
-			"the page hidden under the Extensions page: the extensions menu is X1's, and Chrome's page in the profile's tab X4's",
-		);
-	}
+	pageVisibility.extensions = await visibility();
+	await app.send("select", { tab });
+	pageVisibility.selected = await visibility();
+	expected.extensions = "hidden";
+	expected.selected = "visible";
 
 	expect(
 		JSON.stringify(pageVisibility) === JSON.stringify(expected),

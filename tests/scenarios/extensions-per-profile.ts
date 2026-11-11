@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { asksBeforeInstall, DARK_READER } from "../lib/extensions";
+import { DARK_READER } from "../lib/extensions";
 import type { AppState, ExtensionState } from "../lib/pane";
 import { waitForSheet } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
@@ -14,14 +14,6 @@ import { expect, type Scenario } from "../run";
 // is clicked.
 const extensionsPerProfile: Scenario = async (context) => {
 	const { app, trace } = await launchTraced(context, "extensions-per-profile");
-
-	if (!(await asksBeforeInstall(app))) {
-		context.defer(
-			"every check: each profile installs Dark Reader from the Web Store, which asks in the install prompt, X3's",
-		);
-
-		return;
-	}
 
 	const first = await app.createProfile("First");
 	const second = await app.createProfile("Second", "EMERALD");

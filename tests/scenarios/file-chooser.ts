@@ -9,7 +9,17 @@ import { expect, type Scenario } from "../run";
 // panels on the window; the files chosen reach the page, and Cancel reaches
 // it as a cancel.
 const fileChooser: Scenario = async (context) => {
-	const app = await launchPane(context);
+	// In the background, the user's windows cover most of the test window,
+	// and the system's panel, out of process, covers the rest: macOS reports
+	// it occluded, Chromium hides the page and doesn't show it again once the
+	// panel goes, and Chrome's FileSelectHelper ends the next chooser of a
+	// page that isn't visible. As on a locked screen (ADR 0012), the page is
+	// kept from occlusion's backgrounding; the panels are this scenario's
+	// subject, not occlusion.
+	const app = await launchPane(context, {
+		args: ["--disable-backgrounding-occluded-windows"],
+	});
+
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Files");
 	const url = context.fixtures.url("files.html");

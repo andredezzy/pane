@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import {
-	asksBeforeInstall,
 	DARK_READER,
 	installFromWebStore,
 	openPopupFromToolbar,
@@ -16,19 +15,11 @@ import { expect, type Scenario } from "../run";
 const darkReader: Scenario = async (context) => {
 	const app = await launchPane(context);
 
-	if (!(await asksBeforeInstall(app))) {
-		context.defer(
-			"every check: Dark Reader installs from the Web Store, which asks in the install prompt, X3's",
-		);
-
-		return;
-	}
-
 	const watcher = new WindowWatcher(app).start();
 	const a = await app.createProfile("A", "BLUE");
 	const b = await app.createProfile("B", "ROSE");
 
-	await installFromWebStore(app, a, DARK_READER);
+	await installFromWebStore(app, a, DARK_READER, context.foreground);
 	await watcher.sample();
 
 	const urlA = context.fixtures.url("light.html?profile=a");

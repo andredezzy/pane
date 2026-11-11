@@ -4,7 +4,7 @@
 // engine/ardiacore/src/ardia/core/ac_browser_window.mm, Copyright 2026 Mantra
 // Patel, licensed under the Apache License 2.0 (third_party/ardia). Changed for
 // Pane: names and namespace, and without Ardia's extension shortcuts (Pane's
-// are extension_shortcuts.mm), autofill prompts and background-run eye dropper;
+// are extension_shortcuts.cc), autofill prompts and background-run eye dropper;
 // Chrome's own shutdown checks for its lifetime helpers.
 
 #include "pane/browser/ui/browser_window.h"
@@ -26,7 +26,6 @@
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/autofill/save_address_bubble_controller.h"
 #include "chrome/browser/ui/autofill/update_address_bubble_controller.h"
@@ -49,7 +48,6 @@
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/app_callback.h"
 #include "pane/browser/engine_trace.h"
-#include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/ui/window_host.h"
 #import "pane/public/PaneBrowserWindow.h"
 #include "pane/ui/page/find_in_page.h"
@@ -362,8 +360,6 @@ void HostedBrowserWindow::AttachBrowser(Browser* browser) {
   location_bar_->set_browser(browser);
   devtools_ui_controller_ =
       std::make_unique<DockingDevtoolsController>(browser, host_);
-  extension_shortcuts_ = std::make_unique<ExtensionShortcuts>(
-      browser->GetProfile(), TabListInterface::From(browser));
   if (host_ && host_->delegate()) {
     extensions_container_ =
         host_->delegate()->CreateExtensionsContainer(browser);

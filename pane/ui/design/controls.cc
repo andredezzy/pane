@@ -97,6 +97,18 @@ ControlLook& ControlLook::operator=(const ControlLook&) = default;
 ControlLook::~ControlLook() = default;
 
 ControlLook ButtonLook(ButtonVariant variant, float radius) {
+  // A popup's are the primary and the secondary at its own 15.
+  if (variant == ButtonVariant::kPopupPrimary ||
+      variant == ButtonVariant::kPopupCancel) {
+    const bool primary = variant == ButtonVariant::kPopupPrimary;
+    ControlLook look = ButtonLook(
+        primary ? ButtonVariant::kPrimary : ButtonVariant::kSecondary,
+        radius::kLg);
+    if (!primary) {
+      look.border = kPaneColorPopupBorder;
+    }
+    return look;
+  }
   ControlLook look(ControlShape::Squircle(radius));
   switch (variant) {
     case ButtonVariant::kPrimary:
@@ -128,6 +140,9 @@ ControlLook ButtonLook(ButtonVariant variant, float radius) {
       look.hover_fill = kPaneColorAccent;
       look.tint = kPaneColorForeground;
       look.lit_tint = kPaneColorAccentForeground;
+      break;
+    case ButtonVariant::kPopupPrimary:
+    case ButtonVariant::kPopupCancel:
       break;
     case ButtonVariant::kAlert:
     case ButtonVariant::kAlertDefault: {

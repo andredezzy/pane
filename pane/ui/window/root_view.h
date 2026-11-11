@@ -47,8 +47,11 @@ class AppIconImages;
 class AppIconPicker;
 class DialogCard;
 class EmptyStateView;
+class ExtensionPromptOverlay;
+class ExtensionPromptView;
 class ExtensionsUi;
 class ExclusiveAccessHint;
+struct ExtensionPrompt;
 class ModalDialog;
 class PageDialog;
 class PanelFrame;
@@ -170,6 +173,18 @@ class RootView : public views::View {
   // While they show.
   ExtensionsMenuView* extensions_menu();
   ExtensionMoreMenuView* extension_more_menu();
+  // Adding or removing an extension asks over the window (ADR 0056): over a
+  // page's dialog and the extensions menu, under the switcher and what shows
+  // over the whole window, at once, as the Swift's showed it. Removing hangs
+  // from the extension's pinned button, else the puzzle, while the toolbar
+  // shows. It takes the keys while it shows, and gives them back to what had
+  // them as it goes, at once.
+  void ShowExtensionPrompt(const ExtensionPrompt& prompt,
+                           const gfx::ImageSkia& app_icon);
+  void HideExtensionPrompt();
+  // While one asks: its view, and its card in this view, its edge included.
+  ExtensionPromptView* extension_prompt();
+  gfx::Rect ExtensionPromptBounds() const;
   // The full screen's Esc hint (ADR 0025), or none for an empty one.
   void ShowExclusiveAccessHint(const std::u16string& hint);
   std::u16string exclusive_access_hint() const;
@@ -257,6 +272,11 @@ class RootView : public views::View {
   void PageDialogLeft(DialogCard* card);
   // The extensions menus under the puzzle, where the toolbar puts it.
   void PlaceExtensionsMenu();
+  // An extension's prompt, the removal's under its anchor.
+  void PlaceExtensionPrompt();
+  // A prompt gone: it leaves the window once the press that answered it is
+  // through.
+  void ExtensionPromptLeft(ExtensionPromptOverlay* overlay);
 
   Callbacks callbacks_;
   Shows shows_;
@@ -302,6 +322,10 @@ class RootView : public views::View {
   raw_ptr<ExtensionsMenuView> extensions_menu_ = nullptr;
   raw_ptr<DialogCard> more_card_ = nullptr;
   raw_ptr<ExtensionMoreMenuView> more_menu_ = nullptr;
+  // An extension's prompt over the window, while one asks, and what had the
+  // keys before it.
+  raw_ptr<ExtensionPromptOverlay> extension_prompt_ = nullptr;
+  views::ViewTracker focus_before_prompt_;
   // The full screen's Esc hint, over everything.
   raw_ptr<ExclusiveAccessHint> hint_ = nullptr;
   // Hands the extensions menu its Esc, and a page's dialog its Esc and

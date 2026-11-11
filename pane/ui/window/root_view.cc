@@ -9,12 +9,14 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/task/sequenced_task_runner.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
+#include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/page_dialog.h"
 #include "pane/ui/extensions/extension_actions_view.h"
 #include "pane/ui/extensions/extensions_ui.h"
@@ -681,6 +683,12 @@ bool RootView::OverlayKey(const ui::KeyEvent& event) {
       (app_icon_dialog_ && app_icon_dialog_->showing())) {
     return false;
   }
+  // An extension's prompt, over the menu and a page's dialog: Return
+  // accepts, Esc cancels.
+  if (extension_prompt_) {
+    callbacks_.extensions->AnswerPrompt(code == ui::VKEY_RETURN);
+    return true;
+  }
   // The extensions menu, over a page's dialog: Esc closes its more menu,
   // then it; the rest goes on.
   if (extensions_card_->GetVisible()) {
@@ -874,6 +882,93 @@ ExtensionsMenuView* RootView::extensions_menu() {
   return extensions_card_->GetVisible() ? extensions_menu_.get() : nullptr;
 }
 
+void RootView::ShowExtensionPrompt(const ExtensionPrompt& prompt,
+                                   const gfx::ImageSkia& app_icon) {
+  HideExtensionPrompt();
+  // Over the menus and a page's dialog, under the switcher and what shows
+  // over the whole window after it.
+  extension_prompt_ = AddChildViewAt(
+      std::make_unique<ExtensionPromptOverlay>(
+          prompt, app_icon,
+          base::BindRepeating(&ExtensionsUi::AnswerPrompt,
+                              base::Unretained(callbacks_.extensions.get()))),
+      GetIndexOf(switcher_).value());
+  PlaceExtensionPrompt();
+  // It takes the keys; what had them gets them back once it is answered.
+  views::FocusManager* focus = GetFocusManager();
+  views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+  focus_before_prompt_.SetView(focused && Contains(focused) ? focused
+                                                            : nullptr);
+  extension_prompt_->RequestFocus();
+}
+
+void RootView::HideExtensionPrompt() {
+  if (!extension_prompt_) {
+    return;
+  }
+  ExtensionPromptOverlay* overlay = std::exchange(extension_prompt_, nullptr);
+  // Gone at once, as the Swift's went; it leaves the window once the press
+  // that answered it is through.
+  overlay->SetVisible(false);
+  overlay->SetCanProcessEventsWithinSubtree(false);
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&RootView::ExtensionPromptLeft,
+                                weak_factory_.GetWeakPtr(), overlay));
+  views::View* before = focus_before_prompt_.view();
+  focus_before_prompt_.SetView(nullptr);
+  if (before && before->IsDrawn() && before->IsFocusable()) {
+    before->RequestFocus();
+  } else if (page_dialog()) {
+    page_dialog()->TakeFocus();
+  } else {
+    FocusPage();
+  }
+}
+
+void RootView::ExtensionPromptLeft(ExtensionPromptOverlay* overlay) {
+  for (views::View* child : children()) {
+    if (child == overlay) {
+      RemoveChildViewT(overlay);
+      return;
+    }
+  }
+}
+
+ExtensionPromptView* RootView::extension_prompt() {
+  return extension_prompt_ ? extension_prompt_->prompt() : nullptr;
+}
+
+gfx::Rect RootView::ExtensionPromptBounds() const {
+  return extension_prompt_ ? extension_prompt_->CardBounds() +
+                                 extension_prompt_->bounds().OffsetFromOrigin()
+                           : gfx::Rect();
+}
+
+// The removal's popup hangs from its extension's pinned button, else the
+// puzzle, while the toolbar shows; else it, as adding does, sits in the
+// window's middle (the Swift's extensionsOverlays).
+void RootView::PlaceExtensionPrompt() {
+  if (!extension_prompt_) {
+    return;
+  }
+  extension_prompt_->SetBoundsRect(GetLocalBounds());
+  std::optional<gfx::Rect> anchor;
+  if (const ExtensionPrompt* prompt = callbacks_.extensions->prompt();
+      prompt && prompt->kind == ExtensionPrompt::Kind::kRemove &&
+      toolbar_->GetVisible()) {
+    ExtensionActionsView* actions = toolbar_->extension_actions();
+    const views::View* button = actions->ActionButtonFor(prompt->extension_id);
+    if (!button || !button->IsDrawn()) {
+      button = actions->puzzle();
+    }
+    if (button && button->IsDrawn()) {
+      anchor = views::View::ConvertRectToTarget(button, this,
+                                                button->GetLocalBounds());
+    }
+  }
+  extension_prompt_->SetAnchor(anchor);
+}
+
 ExtensionMoreMenuView* RootView::extension_more_menu() {
   return more_card_->GetVisible() ? more_menu_.get() : nullptr;
 }
@@ -986,6 +1081,7 @@ void RootView::Layout(PassKey) {
     find_card_->Settle(true);
   }
   PlaceExtensionsMenu();
+  PlaceExtensionPrompt();
   // The hint 24 down, in the window's middle.
   const gfx::Size hint = hint_->GetPreferredSize();
   hint_->SetBounds((width() - hint.width()) / 2, ExclusiveAccessHint::kTop,

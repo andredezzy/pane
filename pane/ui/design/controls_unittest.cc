@@ -145,6 +145,27 @@ TEST_F(ControlsTest, AlertButtonsPressAndNeverLight) {
             colors_.GetColor(kPaneColorAlertText));
 }
 
+// Aside's popups' buttons (the Swift's .popup(isPrimary:)): the primary and
+// the secondary, each rounded 15, Cancel's border the foreground's 8% just
+// inside its edge; neither lights or presses otherwise than its variant.
+TEST_F(ControlsTest, PopupButtonsAreThePrimaryAndABorderedSecondary) {
+  const ControlLook primary = ButtonLook(ButtonVariant::kPopupPrimary);
+  const ControlLook cancel = ButtonLook(ButtonVariant::kPopupCancel);
+  for (const ControlLook* look : {&primary, &cancel}) {
+    EXPECT_TRUE(look->shape.is_squircle());
+    EXPECT_FLOAT_EQ(look->shape.radius(), radius::kLg);
+  }
+  EXPECT_EQ(primary.fill, ButtonLook(ButtonVariant::kPrimary).fill);
+  EXPECT_FALSE(primary.border.has_value());
+  EXPECT_EQ(cancel.fill, ButtonLook(ButtonVariant::kSecondary).fill);
+  EXPECT_EQ(cancel.border,
+            std::optional<ui::ColorVariant>(kPaneColorPopupBorder));
+  ExpectNear(Painted(primary, 0, 0, 32, 16),
+             colors_.GetColor(kPaneColorPrimary));
+  ExpectNear(Painted(cancel, 0, 0, 32, 16),
+             colors_.GetColor(kPaneColorSecondary));
+}
+
 // Circles and capsules stay round; a squircle ring grows its radius with its
 // offset.
 TEST(ControlShapeTest, ShapesStayTheirKind) {

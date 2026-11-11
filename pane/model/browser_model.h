@@ -41,7 +41,7 @@ namespace pane::model {
 // (docs/plans/views-migration.md, What never gets ported).
 class BrowserModel {
  public:
-  enum class Page { kBrowser, kSettings, kExtensions };
+  enum class Page { kBrowser, kSettings };
 
   enum class ProxyStatus { kTesting, kConnected, kFailed };
 

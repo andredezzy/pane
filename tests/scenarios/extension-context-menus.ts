@@ -1,4 +1,9 @@
 import { join } from "node:path";
+import {
+	detailsShown,
+	detailsURL,
+	extensionsPage,
+} from "../lib/chrome-extensions";
 import { extensionId, workerPage } from "../lib/extensions";
 import type { MenuItemState } from "../lib/pane";
 import { poll } from "../lib/poll";
@@ -43,7 +48,7 @@ const extensionContextMenus: Scenario = async (context) => {
 
 	const profile = await app.createProfile("Menus");
 	const url = context.fixtures.url("context.html?extension-context-menus");
-	const { page } = await app.openPage(profile, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	const id = await extensionId(app, profile, NAME);
 
@@ -242,37 +247,27 @@ const extensionContextMenus: Scenario = async (context) => {
 			),
 	);
 
-	// The site joins its Details' list, On specific sites: Pane's Details
-	// until X4 shows chrome://extensions' own.
-	const hasDetails = await app
-		.send("showExtensionDetails", { id, profile })
-		.then(
-			() => true,
-			(error: Error) => {
-				if (!error.message.includes("unknown command")) {
-					throw error;
-				}
+	// The site joins its Details' list, On specific sites: Chrome's own
+	// Details, in the profile's tab (D3), which the menu's Manage Extension
+	// opens.
+	await app.send("extensionActionMenu", { id, run: "Manage Extension" });
+	const details = await extensionsPage(app, profile, detailsURL(id));
 
-				context.defer(
-					"the site in its Details' list: chrome://extensions/?id= in the profile's tab is X4's",
-				);
+	const shown = await poll("the site in Details' list", async () => {
+		const current = await detailsShown(details.page);
 
-				return false;
-			},
-		);
+		return current.siteAccess === "On specific sites" &&
+			current.sites.some((each) => each.includes(site))
+			? current
+			: null;
+	});
 
-	if (hasDetails) {
-		await app.waitFor(
-			"the site in Details' list",
-			(state) =>
-				state.extensionDetails?.siteAccess === "onSpecificSites" &&
-				(state.extensionDetails.specificSites ?? []).some(
-					(each) => new URL(each.replace("*", "x")).hostname === site,
-				),
-		);
+	expect(
+		!shown.incognitoRow,
+		`Details shows Allow in Incognito: ${JSON.stringify(shown)}`,
+	);
 
-		await app.send("showPage", { page: "browser" });
-	}
+	await app.send("select", { tab });
 
 	await choose("On All Sites", (current) => current.includes("<all_urls>"));
 

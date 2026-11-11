@@ -1,4 +1,9 @@
 import { join } from "node:path";
+import {
+	detailsURL,
+	EXTENSIONS_PAGE,
+	selectedAt,
+} from "../lib/chrome-extensions";
 import { extensionId } from "../lib/extensions";
 import {
 	type AppState,
@@ -6,6 +11,7 @@ import {
 	launchPane,
 	type PaneApp,
 } from "../lib/pane";
+import { waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 const PROBE = join(
@@ -19,17 +25,17 @@ const PROBE = join(
 const NAME = "Pane action probe";
 
 // The toolbar's puzzle opens the extensions menu, as Aside's (Paper 03.9
-// Browser · Extensions, 04.6; ADR 0054): Manage all extensions opens the
-// Extensions page, Visit Chrome Web Store opens it in a new tab, and each
-// extension's row runs its action, its pin pins and unpins it with the menu
-// still open, and its more menu opens beside it, where Manage Extension opens
-// the Extensions page and Remove from Pane asks first. Esc and a click outside
+// Browser · Extensions, 04.6; ADR 0054): Manage all extensions opens
+// Chrome's extensions page in the profile's tab (D3), Visit Chrome Web Store
+// opens the store in a new tab, and each extension's row runs its action,
+// its pin pins and unpins it with the menu still open, and its more menu
+// opens beside it, where Manage Extension opens the extension's Details in
+// that same tab and Remove from Pane asks first, in the popup under the
+// extension's button (ADR 0056), with Report abuse. Esc and a click outside
 // close the menu. Each control is a real click at its view's middle through
 // the channel (extensionsMenu), in the background too; Esc is Views' own
 // dispatch there, a real key with Pane in front. The extension is a local
-// probe with an icon, a popup, and options, loaded from the command line:
-// one from the Web Store asks in X3's install prompt, its removal asks in
-// X3's popup, and its Details are X4's.
+// probe with an icon, a popup, and options, loaded from the command line.
 async function press(
 	app: PaneApp,
 	control: string,
@@ -114,16 +120,12 @@ const extensionsMenu: Scenario = async (context) => {
 		await app.send("closeTab", { tab: storeTab.id });
 	}
 
-	// Manage all extensions: the Extensions page (Pane's, the Swift's target,
-	// until X4 opens chrome://extensions in the profile's tab).
+	// Manage all extensions: Chrome's extensions page in the profile's tab.
 	await app.send("select", { tab });
 	await openMenu(app);
 	await press(app, "manage");
-
-	await app.waitFor(
-		"the Extensions page",
-		(state) => state.page === "extensions" && !state.extensionsMenu,
-	);
+	const { tab: pageTab } = await selectedAt(app, profile, EXTENSIONS_PAGE);
+	expect(pageTab !== tab, "Manage all extensions replaced the page's tab");
 
 	// The probe on and pinned: its button in the toolbar, in the capsule.
 	await app.send("select", { tab });
@@ -187,7 +189,7 @@ const extensionsMenu: Scenario = async (context) => {
 	);
 
 	// More: Pane's own menu beside the row, its Options as the probe has a
-	// page; Manage Extension opens the Extensions page.
+	// page; Manage Extension opens the probe's Details, in the page's tab.
 	await openMenu(app);
 	await press(app, "more", id);
 
@@ -224,17 +226,13 @@ const extensionsMenu: Scenario = async (context) => {
 	);
 
 	await press(app, "manageExtension");
+	const details = await selectedAt(app, profile, detailsURL(id));
 
-	await app.waitFor(
-		"the Extensions page again",
-		(state) =>
-			state.page === "extensions" &&
-			!state.extensionsMenu &&
-			state.extensionMoreMenu === null,
-	);
-
-	context.defer(
-		"Manage Extension opening the probe's Details: chrome://extensions/?id= in the profile's tab is X4's",
+	expect(
+		details.tab === pageTab &&
+			!details.state.extensionsMenu &&
+			details.state.extensionMoreMenu === null,
+		`Manage Extension opened ${details.tab}, the page's tab is ${pageTab}`,
 	);
 
 	// The Dark theme: the menu and the popup.
@@ -269,21 +267,64 @@ const extensionsMenu: Scenario = async (context) => {
 		(state) => state.extensionPopup === null,
 	);
 
-	// More › Remove from Pane asks first, in X3's popup: until it lands, the
-	// probe stays.
-	await openMenu(app);
-	await press(app, "more", id);
-	await app.waitFor("the more menu", (state) => state.extensionMoreMenu === id);
-	await press(app, "remove");
-	await app.waitFor("the menus closed", (state) => !state.extensionsMenu);
+	// More › Remove from Pane asks first, in the popup under the probe's
+	// button: Report abuse ticked, then Cancel, keeps it, and opens nothing.
+	const remove = async () => {
+		await openMenu(app);
+		await press(app, "more", id);
+
+		await app.waitFor(
+			"the more menu",
+			(state) => state.extensionMoreMenu === id,
+		);
+
+		await press(app, "remove");
+
+		return waitForSheet(app, "extensionRemove");
+	};
+
+	const asked = await remove();
+	const name = item(await app.state())?.name ?? NAME;
 
 	expect(
-		item(await app.state()) !== undefined,
-		"Remove from Pane removed the probe without asking",
+		asked.title === `Remove \u201C${name}\u201D?` &&
+			JSON.stringify(asked.buttons) === JSON.stringify(["Remove", "Cancel"]) &&
+			!(await app.state()).extensionsMenu,
+		`the remove popup: ${JSON.stringify(asked)}`,
 	);
 
-	context.defer(
-		"Remove from Pane's popup, and Report abuse in it: the extension prompts are X3's",
+	await app.render("remove-popup.png");
+	await app.click("pane.extensionPopup.reportAbuse");
+
+	await app.waitFor(
+		"Report abuse ticked",
+		(state) => state.sheet?.reportAbuse === true,
+	);
+
+	const tabsBefore = (await app.state()).profiles.find(
+		(each) => each.id === profile,
+	)?.tabs.length;
+
+	await app.click("pane.extensionPopup.cancel");
+	await app.waitFor("the popup gone", (state) => state.sheet === null);
+	await Bun.sleep(500);
+	const kept = await app.state();
+
+	expect(
+		item(kept) !== undefined &&
+			kept.profiles.find((each) => each.id === profile)?.tabs.length ===
+				tabsBefore,
+		"Cancel removed the probe, or opened a tab",
+	);
+
+	// Asked again, Remove takes it away.
+	await remove();
+	await app.click("pane.extensionPopup.accept");
+
+	await app.waitFor(
+		"the probe removed",
+		(state) => item(state) === undefined,
+		30_000,
 	);
 };
 

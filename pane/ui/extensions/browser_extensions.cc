@@ -7,6 +7,7 @@
 #include "base/functional/bind.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "extensions/browser/ui_util.h"
@@ -20,7 +21,11 @@ BrowserExtensions::BrowserExtensions(Browser& browser,
     : browser_(browser),
       ui_(std::move(ui)),
       icons_(base::BindRepeating(&BrowserExtensions::Changed,
-                                 base::Unretained(this))) {
+                                 base::Unretained(this))),
+      shortcuts_(std::make_unique<ExtensionShortcuts>(
+          browser.GetProfile(),
+          TabListInterface::From(&browser))),
+      refusal_(browser.GetProfile()) {
   Profile* profile = browser.GetProfile();
   registry_observation_.Observe(extensions::ExtensionRegistry::Get(profile));
   if (auto* dispatcher = extensions::ExtensionActionDispatcher::Get(profile)) {

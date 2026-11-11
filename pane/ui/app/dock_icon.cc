@@ -2,13 +2,16 @@
 
 #include "pane/ui/app/dock_icon.h"
 
+#include <utility>
+
 #include "base/functional/bind.h"
 #include "pane/ui/panels/app_icon_images.h"
 #include "ui/gfx/image/image_skia.h"
 
 namespace pane {
 
-DockIcon::DockIcon(AppIconImages& images) : images_(images) {
+DockIcon::DockIcon(AppIconImages& images, base::RepeatingClosure shown)
+    : images_(images), shown_changed_(std::move(shown)) {
   // The app's appearance follows its Theme and, under System, the Mac's.
   theme_observation_.Observe(ui::NativeTheme::GetInstanceForNativeUi());
 }
@@ -45,6 +48,9 @@ void DockIcon::Loaded(model::AppIcon sky, gfx::ImageSkia image) {
   }
   SetImage(image);
   shown_ = sky;
+  if (shown_changed_) {
+    shown_changed_.Run();
+  }
 }
 
 }  // namespace pane

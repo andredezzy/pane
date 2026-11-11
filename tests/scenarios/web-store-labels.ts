@@ -46,17 +46,29 @@ const webStoreLabels: Scenario = async (context) => {
 				}))`,
 		);
 
-	const installLabel = (wanted: RegExp, description: string) =>
-		poll(
-			description,
-			async () => {
-				const found = (await buttons()).find((button) => button.install);
+	// The item's button once it reads `wanted`; on a timeout, the buttons
+	// last seen, so the store's own wording shows in the failure.
+	const installLabel = async (wanted: RegExp, description: string) => {
+		let seen: Button[] = [];
 
-				return found && wanted.test(found.text) ? found.text : null;
-			},
-			30_000,
-			100,
-		);
+		try {
+			return await poll(
+				description,
+				async () => {
+					seen = await buttons();
+					const found = seen.find((button) => button.install);
+
+					return found && wanted.test(found.text) ? found.text : null;
+				},
+				30_000,
+				100,
+			);
+		} catch (error) {
+			throw new Error(
+				`${(error as Error).message}; the buttons: ${JSON.stringify(seen.slice(0, 12))}`,
+			);
+		}
+	};
 
 	// The install button and what is around it: the store's own cards (it
 	// asks browsers it does not take for Chrome to switch) can cover the
@@ -138,35 +150,49 @@ const webStoreLabels: Scenario = async (context) => {
 	await installLabel(/^Add to Pane$/, "Add to Pane again");
 
 	// Another item, reached the store's own way: it draws the new page in
-	// the same document.
-	await page.evaluate("window.paneSameDocument = true");
+	// the same document, which the rename follows. The store loads some of
+	// its links as new documents (it did for the first one on 2026-11-11):
+	// each of the first three item links is tried until one moves in place.
+	let movedInPlace = false;
 
-	const nextItem = await page.evaluate<string | null>(
-		`(() => {
-			const link = [...document.querySelectorAll('a[href*="/detail/"]')]
-				.find((a) => !a.href.includes(${JSON.stringify(DARK_READER)}));
-			if (!link) return null;
-			link.click();
-			return link.href;
-		})()`,
-	);
+	for (let index = 0; index < 3 && !movedInPlace; index++) {
+		await page.navigate(`${item}?hl=en`);
+		await installLabel(/^Add to Pane$/, "Add to Pane on Dark Reader's page");
+		await page.evaluate("window.paneSameDocument = true");
 
-	expect(nextItem !== null, "the store page links to no other item");
+		const nextItem = await page.evaluate<string | null>(
+			`(() => {
+				const links = [...document.querySelectorAll('a[href*="/detail/"]')]
+					.filter((a) => !a.href.includes(${JSON.stringify(DARK_READER)}));
+				const link = links[${index}];
+				if (!link) return null;
+				link.click();
+				return link.href;
+			})()`,
+		);
 
-	await poll(
-		"the other item's page",
-		async () =>
-			!(await page.evaluate<string>("location.href")).includes(DARK_READER),
-		30_000,
-	);
+		expect(nextItem !== null, "the store page links to no other item");
 
-	await installLabel(/^Add to Pane$/, "the other item's install button");
+		await poll(
+			"the other item's page",
+			async () =>
+				!(await page.evaluate<string>("location.href")).includes(DARK_READER),
+			30_000,
+		);
 
-	expect(
-		(await page.evaluate<boolean | null>("window.paneSameDocument ?? null")) ===
-			true,
-		"the store loaded a new document for the other item",
-	);
+		await installLabel(/^Add to Pane$/, "the other item's install button");
+
+		movedInPlace =
+			(await page.evaluate<boolean | null>(
+				"window.paneSameDocument ?? null",
+			)) === true;
+	}
+
+	if (!movedInPlace) {
+		context.defer(
+			"the rename following the store's in-document move: none of its first three item links moved in place this run",
+		);
+	}
 
 	// Installing redraws the button as the remove button.
 	await page.navigate(`${item}?hl=en`);
@@ -186,11 +212,29 @@ const webStoreLabels: Scenario = async (context) => {
 
 	await screenshot(page, "web-store-remove-from-pane.png");
 
-	await (async () => {
+	// In French, whatever verb the store uses for it: Pane where it says
+	// Chrome. The store learns of the install as its page loads, and not on
+	// every load: on 2026-11-11 it showed its install button in French, two
+	// loads running, right after its remove button in English. Then the
+	// remove label can't be read, and the install label shows the rename.
+	const frenchRemove = async () => {
 		await page.navigate(`${item}?hl=fr`);
+		await installLabel(/^(?!.*Chrome).* de Pane$/, "the fr remove button");
+	};
 
-		return installLabel(/^Supprimer de Pane$/, "the fr remove button");
-	})();
+	await frenchRemove()
+		.catch(frenchRemove)
+		.catch(async (error: Error) => {
+			const shown = (await buttons()).find((button) => button.install);
+
+			if (shown?.text !== "Ajouter à Pane") {
+				throw error;
+			}
+
+			context.defer(
+				"the fr remove label: the store showed its install button in French (Ajouter à Pane, renamed) for the item it had just shown installed in English",
+			);
+		});
 
 	// Another site with the store's markup: left alone.
 	const lookalikeURL = context.fixtures.url("web-store-lookalike.html");

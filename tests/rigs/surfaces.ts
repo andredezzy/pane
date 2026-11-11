@@ -26,7 +26,8 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 //
 // Three test copies, one after another, on throwaway data and the fixtures:
 // the window (sidebar, a drag, toolbar, find, the switcher, every page
-// dialog, the sad tab, the Extensions page, Quit Pane?), Settings and the
+// dialog, the sad tab, Quit Pane?; Chrome's extensions page is
+// views-extension-pages'), Settings and the
 // Lock, and an update on offer. Nothing takes the front: what needs it is
 // deferred unless the run allows it (--foreground). Text holding the fixtures' port,
 // and Settings' "checked at" time, differ from run to run, and the real
@@ -637,19 +638,6 @@ async function reorderDrag(
 	);
 }
 
-// The Extensions page with no extension in the profile, or no profile.
-async function extensionsPage({ app, renders }: Family, state: string) {
-	await app.send("showPage", { page: "extensions" });
-
-	await app.waitFor(
-		"the Extensions page",
-		(shown) => shown.page === "extensions",
-	);
-
-	await renders.take(app, `extensions-page-${state}`);
-	await app.send("showPage", { page: "browser" });
-}
-
 // More rows than the sidebar shows: scrolled to the last tab, which fades
 // the list's top edge, then a little back, which fades both.
 async function sidebarOverflow({ context, app, renders }: Family) {
@@ -770,8 +758,6 @@ async function browsing(context: ScenarioContext, renders: Renders) {
 		await reorderDrag(family, tabs.work, tabs.docs);
 		await requests(family, tabs.work, tabs.refused);
 		await brokenPages(family, tabs.work, crashes);
-		await app.send("select", { tab: tabs.home });
-		await extensionsPage(family, "empty");
 		await fullscreenHint(family, tabs.work);
 		await sidebarOverflow(family);
 		await app.send("select", { tab: tabs.home });
@@ -1007,7 +993,7 @@ async function settingsAndLock(context: ScenarioContext, renders: Renders) {
 // The third copy, offered 99.0.0, with no profile: the sidebar's pill, and
 // Settings' Updates; the Lock with the update beside its status; then the
 // download under way, and done (Quit and install: the fixtures' dmg holds no
-// Pane to stage). The Extensions page with no profile too.
+// Pane to stage).
 async function updates(context: ScenarioContext, renders: Renders) {
 	const app = await launchPane(context, {
 		env: {
@@ -1017,8 +1003,6 @@ async function updates(context: ScenarioContext, renders: Renders) {
 		},
 	});
 
-	const family = { context, app, renders };
-
 	await app.waitFor(
 		"the update offered",
 		(state) => state.update.status === "available" && state.update.pill,
@@ -1026,8 +1010,6 @@ async function updates(context: ScenarioContext, renders: Renders) {
 	);
 
 	await renders.take(app, "update-pill-available");
-
-	await extensionsPage(family, "no-profile");
 
 	await app.send("showPage", { page: "settings" });
 	await app.waitFor("Settings", (state) => state.page === "settings");

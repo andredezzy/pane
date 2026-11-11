@@ -3,6 +3,7 @@
 #ifndef PANE_UI_EXTENSIONS_BROWSER_EXTENSIONS_H_
 #define PANE_UI_EXTENSIONS_BROWSER_EXTENSIONS_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -15,8 +16,10 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_observer.h"
 #include "extensions/browser/permissions_manager.h"
+#include "pane/browser/extensions/extension_shortcuts.h"
 #include "pane/browser/ui/window_host.h"
 #include "pane/ui/extensions/installed_extensions.h"
+#include "pane/ui/extensions/shortcut_refusal.h"
 
 class Browser;
 
@@ -33,6 +36,8 @@ class ExtensionsUi;
 // the window (the Swift's ExtensionsBridge): installs and removals, enabling,
 // pins, site access, each action's title, badge, and icon, and the
 // Browser's active tab, whose actions show. A burst of changes reports once.
+// It keeps the Browser's extension shortcuts (ADR 0098), which the window
+// runs for the profile it shows, and refuses them Pane's menu bar keys.
 class BrowserExtensions
     : public HostedExtensionsContainer,
       public extensions::ExtensionRegistryObserver,
@@ -54,6 +59,8 @@ class BrowserExtensions
   std::vector<InstalledExtension> List();
   // The Browser's active tab, whose actions show.
   content::WebContents* ActiveTab() const;
+  // The extensions' keyboard shortcuts in this Browser.
+  ExtensionShortcuts& shortcuts() { return *shortcuts_; }
 
   // ExtensionsContainer:
   // Pane's toolbar is its own and keeps no ToolbarActionViewModel: Chrome's
@@ -117,6 +124,8 @@ class BrowserExtensions
   const raw_ref<Browser> browser_;
   const base::WeakPtr<ExtensionsUi> ui_;
   ActionIcons icons_;
+  std::unique_ptr<ExtensionShortcuts> shortcuts_;
+  ShortcutRefusal refusal_;
   bool report_pending_ = false;
   base::ScopedObservation<extensions::ExtensionRegistry,
                           extensions::ExtensionRegistryObserver>

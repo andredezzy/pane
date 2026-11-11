@@ -20,9 +20,11 @@
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "chrome/browser/download/download_prefs.h"
+#include "chrome/browser/extensions/webstore_install_with_prompt.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "components/crx_file/id_util.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/storage_partition.h"
@@ -37,6 +39,7 @@
 #include "pane/automation/file_panels.h"
 #include "pane/automation/input.h"
 #include "pane/automation/windows.h"
+#include "pane/browser/engine_trace.h"
 #include "pane/browser/profile_cache.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/model_store.h"
@@ -47,6 +50,7 @@
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/menu_button.h"
+#include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/page_dialog.h"
 #include "pane/ui/extensions/action_menu.h"
 #include "pane/ui/extensions/action_popup.h"
@@ -72,6 +76,8 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/compositor/compositor.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/event_utils.h"
@@ -355,6 +361,23 @@ class Automation::Files {
   Received received_;
   base::FilePathWatcher watcher_;
 };
+
+namespace {
+
+// A command's { modifiers }, by the names PostKey takes.
+std::vector<std::string> Modifiers(const base::DictValue& command) {
+  std::vector<std::string> modifiers;
+  if (const base::ListValue* names = command.FindList("modifiers")) {
+    for (const base::Value& modifier : *names) {
+      if (modifier.is_string()) {
+        modifiers.push_back(modifier.GetString());
+      }
+    }
+  }
+  return modifiers;
+}
+
+}  // namespace
 
 Automation::Automation(const base::FilePath& directory, UiApp* app)
     : app_(app) {
@@ -1400,6 +1423,26 @@ void Automation::Dispatch(const std::string& name,
         named.push_back(std::move(entry));
       }
     }
+    // An extension's prompt, while it asks: its card by its own name, as
+    // the Swift named the surface ("pane.extensionInstall",
+    // "pane.extensionPopup"), its buttons, and Report abuse.
+    if (ExtensionPromptView* prompt = window->root()->extension_prompt()) {
+      for (auto& entry : prompt->NamedViews()) {
+        if (entry.second != prompt) {
+          named.push_back(std::move(entry));
+          continue;
+        }
+        if (!prefix || entry.first.starts_with(*prefix)) {
+          const gfx::Rect card = views::View::ConvertRectToTarget(
+              window->root(), root, window->root()->ExtensionPromptBounds());
+          frames.Set(entry.first, base::ListValue()
+                                      .Append(card.x())
+                                      .Append(card.y())
+                                      .Append(card.width())
+                                      .Append(card.height()));
+        }
+      }
+    }
     // The page, DevTools docked beside it, and the full screen's hint.
     for (const int id :
          {kViewIdContent, kViewIdDevTools, kViewIdExclusiveAccessHint}) {
@@ -1538,6 +1581,28 @@ void Automation::Dispatch(const std::string& name,
   // accessibility does, and the button takes a real click at its middle.
   if (name == "clickSheetButton") {
     const std::string* title = command.FindString("title");
+    // An extension's prompt first, over a page's dialog: its accept or its
+    // Cancel.
+    if (const ExtensionPrompt* prompt = app_->Extensions().prompt();
+        prompt && title) {
+      ExtensionPromptView* view =
+          window->root() ? window->root()->extension_prompt() : nullptr;
+      const std::u16string asked = base::UTF8ToUTF16(*title);
+      const views::View* button =
+          !view                           ? nullptr
+          : asked == prompt->accept_title ? view->accept_button()
+          : asked == prompt->cancel_title ? view->cancel_button()
+                                          : nullptr;
+      if (!button) {
+        std::move(reply).Run(base::Value(), "no button " + *title);
+        return;
+      }
+      const gfx::Rect frame = views::View::ConvertRectToTarget(
+          button, widget->GetRootView(), button->GetLocalBounds());
+      PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+      std::move(reply).Run(base::Value(), std::string());
+      return;
+    }
     PageDialog* dialog =
         window->root() ? window->root()->page_dialog() : nullptr;
     if (!title || !dialog) {
@@ -1658,11 +1723,76 @@ void Automation::Dispatch(const std::string& name,
       return;
     }
     window->root()->FocusPage();
-    if (!key || !SendKeyToWindow(widget, *key)) {
+    if (!key || !SendKeyToWindow(widget, *key, Modifiers(command))) {
       std::move(reply).Run(base::Value(), "no key code for that key");
       return;
     }
     std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A key, with { modifiers }, typed into whatever has the window's keys, as
+  // the window hands it over, in the background too: the page, or a view of
+  // Pane's (the address being edited), its shortcuts' paths and all.
+  if (name == "windowKey") {
+    const std::string* key = command.FindString("key");
+    if (!key || !SendKeyToWindow(widget, *key, Modifiers(command))) {
+      std::move(reply).Run(base::Value(), "no key code for that key");
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // Installs from the Chrome Web Store by its id into a profile, opened in
+  // the engine first if needed, as the store's own button does, Pane's
+  // dialog asking first: { id, profile }. The reply comes once the install
+  // has begun.
+  if (name == "installExtension") {
+    const std::string* id = command.FindString("id");
+    const std::string* profile_id = command.FindString("profile");
+    if (!id || !profile_id || !crx_file::id_util::IdIsValid(*id) ||
+        !app_->model().FindProfile(*profile_id)) {
+      std::move(reply).Run(
+          base::Value(),
+          "installExtension needs an extension's id and a profile");
+      return;
+    }
+    PANE_TRACE("call", "PaneBrowserContext.installExtension",
+               base::DictValue().Set("extension", *id));
+    app_->WithProfile(
+        *profile_id,
+        base::BindOnce(
+            [](std::string id, base::WeakPtr<views::Widget> window, Reply reply,
+               Profile* profile) {
+              if (!profile) {
+                std::move(reply).Run(base::Value(),
+                                     "installExtension: the profile would "
+                                     "not open");
+                return;
+              }
+              auto installer =
+                  base::MakeRefCounted<extensions::WebstoreInstallWithPrompt>(
+                      id, profile,
+                      window ? window->GetNativeWindow() : gfx::NativeWindow(),
+                      base::BindOnce(
+                          [](const std::string& id, bool success,
+                             const std::string& error,
+                             extensions::webstore_install::Result result) {
+                            PANE_TRACE(
+                                "callback",
+                                "PaneBrowserContext.installExtensionDone",
+                                base::DictValue()
+                                    .Set("extension", id)
+                                    .Set("success", success)
+                                    .Set("error", error));
+                          },
+                          id));
+              installer->BeginInstall();
+              std::move(reply).Run(base::Value(), std::string());
+            },
+            *id, widget ? widget->GetWeakPtr() : base::WeakPtr<views::Widget>(),
+            std::move(reply)));
     return;
   }
 
@@ -1734,22 +1864,46 @@ void Automation::Dispatch(const std::string& name,
     }
     gfx::Rect bounds = widget->GetWindowBoundsInScreen();
     bounds.set_size(gfx::Size(*width, *height));
+    // Where on the screen, when asked: { x, y } from its work area's top
+    // left, or y "low", the window's top two thirds of the way down, where
+    // the screen leaves more room above the toolbar than under it.
+    const gfx::Rect work =
+        display::Screen::Get()
+            ->GetDisplayNearestWindow(widget->GetNativeWindow())
+            .work_area();
+    if (const std::optional<int> x = command.FindInt("x")) {
+      bounds.set_x(work.x() + *x);
+    }
+    if (const std::string* low = command.FindString("y");
+        low && *low == "low") {
+      bounds.set_y(work.y() + work.height() * 2 / 3);
+    } else if (const std::optional<int> y = command.FindInt("y")) {
+      bounds.set_y(work.y() + *y);
+    }
     const base::TimeTicks start = base::TimeTicks::Now();
     widget->SetBounds(bounds);
     const base::TimeDelta took = base::TimeTicks::Now() - start;
     const gfx::Rect page = window->PageBounds();
     const gfx::Rect client = widget->GetClientAreaBoundsInScreen();
     std::move(reply).Run(
-        base::Value(base::DictValue()
-                        .Set("ms", took.InMillisecondsF())
-                        .Set("window", base::ListValue()
-                                           .Append(client.width())
-                                           .Append(client.height()))
-                        .Set("page", base::ListValue()
-                                         .Append(page.x())
-                                         .Append(page.y())
-                                         .Append(page.width())
-                                         .Append(page.height()))),
+        base::Value(
+            base::DictValue()
+                .Set("ms", took.InMillisecondsF())
+                .Set("window", base::ListValue()
+                                   .Append(client.width())
+                                   .Append(client.height()))
+                .Set("screen", base::ListValue()
+                                   .Append(work.x())
+                                   .Append(work.y())
+                                   .Append(work.width())
+                                   .Append(work.height()))
+                .Set("frame",
+                     base::ListValue().Append(client.x()).Append(client.y()))
+                .Set("page", base::ListValue()
+                                 .Append(page.x())
+                                 .Append(page.y())
+                                 .Append(page.width())
+                                 .Append(page.height()))),
         std::string());
     return;
   }

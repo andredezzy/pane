@@ -95,6 +95,15 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kShowExtensionPopup:
       os_signpost_interval_begin(log, id, "Show extension popup");
       break;
+    case Interaction::kShowExtensionPrompt:
+      os_signpost_interval_begin(log, id, "Extension prompt");
+      break;
+    case Interaction::kOpenExtensionsPage:
+      os_signpost_interval_begin(log, id, "Open extensions page");
+      break;
+    case Interaction::kPaintExtensionsPage:
+      os_signpost_interval_begin(log, id, "Extensions page painted");
+      break;
   }
   return id;
 }
@@ -219,6 +228,21 @@ void EndInteractionInterval(Interaction interaction,
       break;
     case Interaction::kShowExtensionPopup:
       os_signpost_interval_end(log, interval, "Show extension popup",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kShowExtensionPrompt:
+      os_signpost_interval_end(log, interval, "Extension prompt",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kOpenExtensionsPage:
+      os_signpost_interval_end(log, interval, "Open extensions page",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
+      break;
+    case Interaction::kPaintExtensionsPage:
+      os_signpost_interval_end(log, interval, "Extensions page painted",
                                PANE_INTERVAL_END_FORMAT, late_us, committed_us,
                                presented_us);
       break;

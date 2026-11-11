@@ -10,11 +10,6 @@
 
 namespace pane::model {
 
-// A site an extension may read and change on, as its Details list writes it
-// (Paper: 09.16): Chrome's pattern ("*://example.com/*"), the list's constant
-// path dropped, and the scheme when it is any.
-std::string ExtensionSiteTitle(std::string_view pattern);
-
 // What the popups that add or remove an extension say. Adding names Pane, as
 // Dia's dialog names Dia; Chrome's other prompts (new permissions,
 // re-enabling) keep their titles, their quotes curled as Remove's are.

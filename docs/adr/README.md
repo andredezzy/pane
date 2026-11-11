@@ -51,7 +51,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0058](0058-paper-draws-every-state.md) Every design is drawn in Paper and approved before it is built, and Paper draws every state the app shows, reviewed against the app
 - [0060](0060-sidebar-and-toolbar-sizes.md) The sidebar and toolbar take Aside's sizes with 12-point text, UI text is drawn without font smoothing, and the content panel stays Pane's
 - [0061](0061-resizable-sidebar.md) The sidebar is resizable, and its list fades at the edges
-- [0062](0062-extensions-page.md) Extensions have their own page, whose Details list an extension's sites and change them as Chrome's details page does, and they update themselves
+- [0062](0062-extensions-page.md) Extensions are managed on Chrome's own extensions page, in the profile's tab, and they update themselves
 - [0063](0063-outline-controls.md) Outline controls have no fill, and their hover is the foreground at 4%
 - [0064](0064-active-profile-indicator.md) The active profile's bar morphs into a square, only on the browser page
 - [0065](0065-settings-layout.md) Settings take Aside's layout

@@ -15,16 +15,6 @@ constexpr std::string_view kCloseQuote = "”";
 
 }  // namespace
 
-std::string ExtensionSiteTitle(std::string_view pattern) {
-  if (pattern.starts_with("*://")) {
-    pattern.remove_prefix(4);
-  }
-  if (pattern.ends_with("/*")) {
-    pattern.remove_suffix(2);
-  }
-  return std::string(pattern);
-}
-
 std::string ExtensionPromptTitle(std::string_view accept_title,
                                  std::string_view extension_name,
                                  std::string_view chrome_title) {

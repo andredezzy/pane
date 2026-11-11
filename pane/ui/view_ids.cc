@@ -158,6 +158,16 @@ std::string_view ViewIdName(int id) {
       return "pane.actionPopup";
     case kViewIdActionPopupPage:
       return "pane.actionPopup.page";
+    case kViewIdExtensionInstall:
+      return "pane.extensionInstall";
+    case kViewIdExtensionPopup:
+      return "pane.extensionPopup";
+    case kViewIdExtensionPopupAccept:
+      return "pane.extensionPopup.accept";
+    case kViewIdExtensionPopupCancel:
+      return "pane.extensionPopup.cancel";
+    case kViewIdExtensionPopupReportAbuse:
+      return "pane.extensionPopup.reportAbuse";
     default:
       return std::string_view();
   }

@@ -23,6 +23,7 @@
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
@@ -43,6 +44,7 @@
 #include "components/language/core/browser/language_prefs.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
@@ -245,6 +247,13 @@ void ApplyProfileDefaults(Profile* profile) {
   // Signing in to Google's websites is unaffected.
   prefs->SetBoolean(prefs::kSigninAllowed, false);
   prefs->SetBoolean(translate::prefs::kOfferTranslateEnabled, false);
+  // No incognito: a profile is apart already (D3, Paper 10.2). Chrome's
+  // extensions page then hides Allow in Incognito, as it does wherever
+  // incognito is off (detail_view.ts), and Chrome's ways into an incognito
+  // window (an extension's windows.create, a link's menu item) stay shut. A
+  // pref the profile holds, not a policy's: nothing reads as managed.
+  IncognitoModePrefs::SetAvailability(
+      prefs, policy::IncognitoModeAvailability::kDisabled);
 }
 
 bool SetProfileFingerprint(

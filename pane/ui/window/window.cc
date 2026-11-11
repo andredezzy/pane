@@ -72,6 +72,30 @@ class Window::SwitcherKeys : public ui::EventHandler {
   const raw_ptr<Window> window_;
 };
 
+// An extension's shortcut ahead of the view of Pane's that has the keys (the
+// address being edited, ADR 0098), as Chrome's extension accelerators come
+// ahead of its toolbar's: the shown profile's, unless an overlay takes every
+// key (Quit Pane?).
+class Window::ExtensionKeys : public ui::EventHandler {
+ public:
+  explicit ExtensionKeys(Window* window) : window_(window) {}
+
+  // ui::EventHandler:
+  void OnKeyEvent(ui::KeyEvent* event) override {
+    if (event->type() != ui::EventType::kKeyPressed || !window_->root_ ||
+        window_->root_->TakesEveryKey()) {
+      return;
+    }
+    if (window_->controller_->Extensions().RunShortcut(
+            ui::Accelerator(*event))) {
+      event->SetHandled();
+    }
+  }
+
+ private:
+  const raw_ptr<Window> window_;
+};
+
 Window::Window(Controller* controller, bool keeps_frame)
     : controller_(controller), keeps_frame_(keeps_frame) {}
 
@@ -85,6 +109,9 @@ Window::~Window() {
     }
     if (switcher_keys_) {
       widget->GetRootView()->RemovePreTargetHandler(switcher_keys_.get());
+    }
+    if (extension_keys_) {
+      widget->GetRootView()->RemovePreTargetHandler(extension_keys_.get());
     }
   }
   root_ = nullptr;
@@ -205,6 +232,8 @@ void Window::Open() {
   }
   switcher_keys_ = std::make_unique<SwitcherKeys>(this);
   widget->GetRootView()->AddPreTargetHandler(switcher_keys_.get());
+  extension_keys_ = std::make_unique<ExtensionKeys>(this);
+  widget->GetRootView()->AddPreTargetHandler(extension_keys_.get());
   page_observation_.Observe(root_->GetViewByID(kViewIdContent));
   UpdateTitle();
 }
@@ -537,6 +566,10 @@ void Window::OnWidgetDestroying(views::Widget* widget) {
     widget->GetRootView()->RemovePreTargetHandler(switcher_keys_.get());
     switcher_keys_.reset();
   }
+  if (extension_keys_) {
+    widget->GetRootView()->RemovePreTargetHandler(extension_keys_.get());
+    extension_keys_.reset();
+  }
   // Its views go with it.
   root_ = nullptr;
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -594,9 +627,12 @@ void Window::ControlReleased() {
 // A key reaches the page after the window has seen it: the switcher's Esc
 // while it shows, then a command that goes ahead of the page, which the page
 // never sees: what Chrome reserves (IsAppFirst, ADR 0019; on the Mac the menu
-// bar takes Ctrl-Tab first). Any other key of the table goes to the page
-// first, as a shortcut: unless the page takes it, HandleKeyboardEvent runs
-// it.
+// bar takes Ctrl-Tab first); then an extension's shortcut, ahead of the page
+// as Chrome's extension accelerators are (ADR 0098). Any other key of the
+// table goes to the page first, as a shortcut: unless the page takes it,
+// HandleKeyboardEvent runs it. While Chrome's shortcuts page records a key,
+// the page has every key first, as Chrome's window lets it
+// (WillExecuteCommand): a command runs only if the page leaves it.
 content::KeyboardEventProcessingResult Window::PreHandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
   views::Widget* widget = this->widget();
@@ -627,10 +663,14 @@ content::KeyboardEventProcessingResult Window::PreHandleKeyboardEvent(
   const ui::Accelerator accelerator =
       ui::GetAcceleratorFromNativeWebKeyboardEvent(event);
   const std::optional<Command> command = CommandForAccelerator(accelerator);
+  ExtensionsUi& extensions = controller_->Extensions();
   if (!command) {
-    return content::KeyboardEventProcessingResult::NOT_HANDLED;
+    return !root_->TakesEveryKey() && extensions.RunShortcut(accelerator)
+               ? content::KeyboardEventProcessingResult::HANDLED
+               : content::KeyboardEventProcessingResult::NOT_HANDLED;
   }
-  if (IsAppFirst(*command, page_fullscreen())) {
+  if (IsAppFirst(*command, page_fullscreen()) &&
+      !extensions.ShortcutsSuspended()) {
     return widget->GetFocusManager()->ProcessAccelerator(accelerator)
                ? content::KeyboardEventProcessingResult::HANDLED
                : content::KeyboardEventProcessingResult::NOT_HANDLED;

@@ -27,11 +27,6 @@ struct ButtonSize: Equatable {
 	static let small = ButtonSize(height: 32, leading: 12, trailing: 12, fontSize: 12)
 	// h-7, 10 in: a form's secondary action (the profile sheet's Test connection).
 	static let compact = ButtonSize(height: 28, leading: 10, trailing: 10, fontSize: 12)
-	// Aside's popups: h-8, 14 in, at 13.
-	static let popup = ButtonSize(height: 32, leading: 14, trailing: 14, fontSize: 13)
-	// A title and its key's chip (KeyedLabel, which sets its own text): h-9,
-	// 14 in, the chip 8 from the end.
-	static let keyed = ButtonSize(height: 36, leading: 14, trailing: 8, fontSize: 14)
 }
 
 // rounded-md, font-medium; hover changes color, never selection
@@ -61,8 +56,8 @@ private struct PaneButtonBody: View {
 	var body: some View {
 		let shape = Squircle(cornerRadius: style.cornerRadius)
 		// An outline button's 1px border adds to its width (border-box, with
-		// the padding inside), as the popups' Cancel's does (Aside's border).
-		let outline: CGFloat = style.variant == .outline || (style.size == .popup && style.border != nil) ? 1 : 0
+		// the padding inside).
+		let outline: CGFloat = style.variant == .outline ? 1 : 0
 
 		configuration.label
 			.font(.system(size: style.size.fontSize, weight: .medium))
@@ -131,24 +126,6 @@ extension ButtonStyle where Self == PaneButtonStyle {
 		PaneButtonStyle(variant: variant, size: size, cornerRadius: cornerRadius, border: border)
 	}
 
-	// Aside's popups (rounded-lg, h-8, 13 points): the primary, and Cancel
-	// on the secondary fill with a hairline.
-	static func popup(isPrimary: Bool) -> PaneButtonStyle {
-		isPrimary
-			? .pane(.primary, size: .popup, cornerRadius: 15)
-			: .pane(.secondary, size: .popup, cornerRadius: 15, border: Palette.foreground.opacity(0.08))
-	}
-
-	// The dialogs' buttons with their key (KeyedLabel): Cancel on the card
-	// with a hairline, Quit in the destructive color, Add to Pane in the
-	// primary one. Ghost has no fill at rest: the dialog's card shows.
-	static func keyed(_ role: KeyedLabel.Role) -> PaneButtonStyle {
-		switch role {
-		case .cancel: .pane(.ghost, size: .keyed, cornerRadius: 15, border: Palette.hairlineStrong)
-		case .destructive: .pane(.destructive, size: .keyed, cornerRadius: 15)
-		case .primary: .pane(.primary, size: .keyed, cornerRadius: 15)
-		}
-	}
 }
 
 // An icon button, as the toolbar's: the icon in a `size`-point square, muted,

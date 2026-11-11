@@ -18,16 +18,6 @@ import { targets, waitForTarget } from "./targets";
 
 export const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
-// Whether the build asks before an install from the Web Store, in Pane's own
-// prompt (X3 on the Views line): without it, the Web Store's Add to Pane would
-// show Chrome's own dialog over the window, which nothing answers.
-export async function asksBeforeInstall(app: PaneApp): Promise<boolean> {
-	return app.send("installExtension", {}).then(
-		() => true,
-		(error: Error) => !error.message.includes("unknown command"),
-	);
-}
-
 // The id of the extension called `name`, once `profile` lists it.
 export async function extensionId(
 	app: PaneApp,
@@ -64,11 +54,15 @@ export async function installById(
 }
 
 // Opens the item's Web Store page in a tab of `profile`, presses "Add to
-// Pane", and accepts the app's install sheet: the extension's name.
+// Pane", and accepts Pane's dialog: the extension's name. With the front
+// (`foreground`), the button takes a real click through accessibility;
+// otherwise a click with a user gesture, in the page, which no other app
+// sees.
 export async function installFromWebStore(
 	app: PaneApp,
 	profile: string,
 	id: string,
+	foreground = false,
 ): Promise<string> {
 	const tab = await app.openTab(
 		profile,
@@ -97,10 +91,10 @@ export async function installFromWebStore(
 		500,
 	);
 
-	// The real button: a CUA click on an unlocked screen; else a click with a
-	// user gesture, which the Web Store's install API requires.
+	// The real button: a CUA click with the front on an unlocked screen; else
+	// a click with a user gesture, which the Web Store's install API requires.
 	const press = async () => {
-		if (!(await canDriveUI())) {
+		if (!foreground || !(await canDriveUI())) {
 			await page.gesture(`${button}.click()`);
 
 			return;

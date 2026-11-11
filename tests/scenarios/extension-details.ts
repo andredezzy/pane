@@ -1,45 +1,60 @@
 import { join } from "node:path";
-import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
+import {
+	DETAILS,
+	detailsShown,
+	detailsURL,
+	EXTENSIONS_PAGE,
+	extensionsPage,
+	ITEMS,
+	press,
+	selectedAt,
+	typeText,
+} from "../lib/chrome-extensions";
 import { extensionId, workerPage } from "../lib/extensions";
-import type { AppState } from "../lib/pane";
 import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { answerSheet, waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
 
 const PROBE = join(import.meta.dir, "..", "pages", "extensions", "details");
 const NAME = "Pane details probe";
 
-type Details = NonNullable<AppState["extensionDetails"]>;
+// The site access pop-up of the probe's Details.
+const HOST_ACCESS = `${DETAILS}.querySelector("extensions-runtime-host-permissions").shadowRoot.querySelector("#hostAccess, #newHostAccess")`;
+// The page's own Add a site dialog, and its field.
+const HOSTS = `${DETAILS}.querySelector("extensions-runtime-host-permissions").shadowRoot`;
+const ADD_SITE = `${HOSTS}.querySelector("extensions-runtime-hosts-dialog")?.shadowRoot`;
 
-// An extension's Details on the Extensions page, as chrome://extensions'
-// details page, with a probe that asks for every site, downloads, and
-// notifications, and has an options page and a homepage. Manage Extension
-// opens it at once: version, size, and source, the permissions in Chrome's
-// words, Site access On all sites, file access, and the homepage. Each Site
-// access choice changes the sites the probe has (chrome.permissions.getAll).
-// On specific sites, chosen with no site, asks for one first, as Chrome's
-// details page does: Cancel changes nothing, a site Chrome refuses gets its
-// message, and a site added joins the list with the probe granted it. The
-// action menu's On <site> joins the list too, Add a site under it adds
-// another, and each × takes one away, the last leaving the probe on click.
-// The back arrow returns to the list, and View Web Permissions and a card's
-// Details open it again. Allow access to file URLs sets Chrome's setting
-// both ways. Remove asks first, then leaves Details for the list.
+// An extension's Details are Chrome's own (chrome://extensions/?id=, D3,
+// Paper 10.2) in the profile's tab. Manage Extension, from the extensions
+// menu's more menu, opens them there: the probe (every site, downloads,
+// notifications, an options page, a homepage) reads its size, source, and
+// permissions in Chrome's words, Site access On all sites, Allow access to
+// file URLs, and no Allow in Incognito, which Pane has none of. Each Site
+// access choice changes the sites the probe has (chrome.permissions.getAll):
+// On click takes every site away; On specific sites, with none yet, asks
+// for one in the page's own dialog, which refuses what is no site and adds
+// one that is; that site's own menu removes it, the list empty and the
+// probe with no site;
+// the action's own menu's On All Sites gives every site back, and Details
+// follows it. Allow access to file URLs sets Chrome's setting both ways. The back arrow shows the list; View Web
+// Permissions and the list's Details open them again. The pop-up is chosen
+// with the keyboard, its options' first letter typed as a person types it:
+// a click on the page's own select opens the system's menu, which runs a
+// loop of its own no background run can choose in. Each other press is a
+// real click on the page (CDP's Input).
 const extensionDetails: Scenario = async (context) => {
 	const app = await launchPane(context, {
 		args: [`--load-extension=${PROBE}`],
 	});
 
-	// Light, whatever the Mac's appearance, for the light renders.
+	// Light, whatever the Mac's appearance, for the captures.
 	await app.send("theme", { theme: "light" });
 
 	const profile = await app.createProfile("Details");
 	const url = context.fixtures.url("light.html?extension-details");
-	await app.openPage(profile, url);
+	const { tab: fixture } = await app.openPage(profile, url);
 
 	const id = await extensionId(app, profile, NAME);
-
 	const worker = await workerPage(app, id, url);
 
 	const origins = () =>
@@ -47,317 +62,285 @@ const extensionDetails: Scenario = async (context) => {
 			"chrome.permissions.getAll().then((all) => all.origins)",
 		);
 
-	const details = (state: AppState) =>
-		state.extensionDetails?.extension === id
-			? state.extensionDetails
-			: undefined;
-
-	// Manage Extension, from the extensions menu's more menu.
-	await app.send("extensionsMenu", { control: "manageExtension", id });
-
-	const opened = await app.waitFor(
-		"Details, its size measured",
-		(state) => state.page === "extensions" && details(state)?.size != null,
-	);
-
-	const shown = details(opened) as Details;
-
-	expect(
-		shown.source === "Unpacked extension" && shown.size === "< 1 MB",
-		`Details reads source ${shown.source}, size ${shown.size}`,
-	);
-
-	expect(
-		JSON.stringify(shown.permissions) ===
-			JSON.stringify(["Display notifications", "Manage your downloads"]),
-		`Details lists ${JSON.stringify(shown.permissions)}`,
-	);
-
-	expect(
-		shown.siteAccess === "onAllSites" &&
-			shown.wantsFileAccess &&
-			shown.homepage === "https://example.com/pane-details-probe" &&
-			shown.webStore === null,
-		`Details reads ${JSON.stringify(shown)}`,
-	);
-
-	await app.render("extension-details-light.png");
-
-	// Site access, as its pop-up sets it.
-	const setAccess = async (
-		access: Details["siteAccess"],
-		check: (origins: string[]) => boolean,
-	) => {
-		await app.send("setExtensionSiteAccess", { id, profile, access });
-
-		await app.waitFor(
-			`Details at ${access}`,
-			(state) => details(state)?.siteAccess === access,
-		);
-
-		return poll(`the probe's sites at ${access}`, async () => {
-			const current = await origins();
-
-			return check(current) && current;
-		});
-	};
-
-	await setAccess("onClick", (current) => !current.includes("<all_urls>"));
-
-	// The probe's sites, once `check` holds.
 	const sitesWhen = (
 		description: string,
 		check: (origins: string[]) => boolean,
 	) =>
-		poll(`the probe's sites ${description}`, async () => {
-			const current = await origins();
+		poll(
+			`the probe's sites ${description}`,
+			async () => {
+				const current = await origins();
 
-			return check(current) && current;
+				return check(current) && current;
+			},
+			10_000,
+		);
+
+	// Manage Extension, from the extensions menu's more menu.
+	const manageExtension = async () => {
+		await app.send("extensionsMenu", { control: "puzzle" });
+		await app.waitFor("the extensions menu", (state) => state.extensionsMenu);
+		await app.send("extensionsMenu", { control: "more", id });
+
+		await app.waitFor(
+			"the more menu",
+			(state) => state.extensionMoreMenu === id,
+		);
+
+		await app.send("extensionsMenu", { control: "manageExtension" });
+	};
+
+	await manageExtension();
+	const { tab, page } = await extensionsPage(app, profile, detailsURL(id));
+
+	// Details once `check` holds; the last it showed, when it never does.
+	const details = async (
+		description: string,
+		check: (shown: Awaited<ReturnType<typeof detailsShown>>) => boolean,
+	) => {
+		let last: unknown = null;
+
+		return poll(
+			`Details ${description}`,
+			async () => {
+				const shown = await detailsShown(page).catch(() => null);
+				last = shown;
+
+				return shown && check(shown) ? shown : null;
+			},
+			10_000,
+		).catch((error: Error) => {
+			throw new Error(
+				`${error.message}; Details showed ${JSON.stringify(last)}`,
+			);
 		});
+	};
 
-	// On specific sites, from On click, asks for a site first, as Chrome's
-	// details page does; Cancel leaves the access as it was.
-	await app.send("setExtensionSiteAccess", {
-		id,
-		profile,
-		access: "onSpecificSites",
-	});
-
-	const asked = await app.waitFor(
-		"Add a site, from On specific sites",
-		(state) => state.addingSite?.extension === id,
+	const shown = await details(
+		"of the probe, its size measured",
+		(current) => current.name === NAME && current.size !== "",
 	);
 
 	expect(
-		details(asked)?.siteAccess === "onClick",
-		`asking for a site, Details reads ${details(asked)?.siteAccess}`,
-	);
-
-	await app.render("extension-details-add-site-light.png");
-
-	await app.send("cancelAddExtensionSite");
-
-	const cancelled = await app.waitFor(
-		"Add a site cancelled",
-		(state) => state.addingSite === null,
+		shown.size === "< 1 MB" &&
+			shown.source.includes("Unpacked extension") &&
+			shown.permissions.includes("Display notifications") &&
+			shown.permissions.includes("Manage your downloads"),
+		`Details reads ${JSON.stringify(shown)}`,
 	);
 
 	expect(
-		details(cancelled)?.siteAccess === "onClick",
-		`cancelled, Details reads ${details(cancelled)?.siteAccess}`,
+		shown.siteAccess === "On all sites" &&
+			shown.fileAccessRow &&
+			shown.homepage &&
+			!shown.webStore &&
+			shown.options,
+		`Details reads ${JSON.stringify(shown)}`,
 	);
 
-	// A site Chrome refuses keeps the dialog, with Chrome's message.
-	await app.send("setExtensionSiteAccess", {
-		id,
-		profile,
-		access: "onSpecificSites",
-	});
+	// Pane has no incognito: its row is hidden (Paper 10.2, the user's
+	// answer).
+	expect(!shown.incognitoRow, "Details shows Allow in Incognito");
 
-	await app.waitFor("Add a site again", (state) => state.addingSite !== null);
-	await app.send("addExtensionSite", { site: "not a site" });
+	// The tab is the profile's, titled as Chrome titles it.
+	const title = await page.evaluate<string>("document.title");
 
-	await app.waitFor(
-		"the refused site's message",
-		(state) => state.addingSite?.invalid === true,
+	expect(
+		title === `Extensions - ${NAME}`,
+		`the tab reads ${JSON.stringify(title)}`,
 	);
 
-	await app.render("extension-details-add-site-invalid-light.png");
+	// The pop-up, its next choice by its options' shared first letter, as a
+	// select cycles through them: On click, On specific sites, On all sites.
+	const nextChoice = async (from: string) => {
+		await page.evaluate(`${HOST_ACCESS}.focus()`);
+		// A new search: the last letter typed is more than a second old.
+		await Bun.sleep(1_100);
+		await typeText(page, "o");
 
-	// example.com is added, On specific sites: the probe has it, and no
-	// other site.
-	await app.send("addExtensionSite", { site: "example.com" });
+		return poll(
+			`the pop-up past ${from}`,
+			async () => {
+				const current = (await detailsShown(page)).siteAccess;
 
-	await app.waitFor(
-		"example.com in the list",
-		(state) =>
-			state.addingSite === null &&
-			details(state)?.siteAccess === "onSpecificSites" &&
-			JSON.stringify(details(state)?.specificSites) ===
-				JSON.stringify(["*://example.com/*"]),
-	);
+				return current !== from && current;
+			},
+			5_000,
+		).catch(() => from);
+	};
+
+	// On click: every site goes.
+	const onClick = await nextChoice("On all sites");
+
+	expect(onClick === "On click", `the pop-up went to ${onClick}`);
 
 	await sitesWhen(
-		"with example.com",
+		"without every site",
+		(current) => !current.includes("<all_urls>"),
+	);
+
+	// On specific sites, with none yet, asks for one in the page's dialog.
+	await nextChoice("On click");
+
+	await poll(
+		"the page's Add a site",
+		() => page.evaluate<boolean>(`!!${ADD_SITE}?.querySelector("#input")`),
+		5_000,
+	);
+
+	const field = `${ADD_SITE}.querySelector("#input")`;
+	const addButton = `${ADD_SITE}.querySelector("#submit")`;
+
+	await press(page, field, "the dialog's field");
+	await typeText(page, "not a site");
+	await press(page, addButton, "Add");
+
+	const refused = await poll(
+		"Add a site refusing what is no site",
+		() =>
+			page.evaluate<boolean>(`!!${ADD_SITE}?.querySelector("#input")?.invalid`),
+		5_000,
+	);
+
+	expect(refused, "Add a site took what is no site");
+
+	// The field's text selected and replaced, as a person retypes it.
+	await page.evaluate(`${field}.select()`);
+	await typeText(page, "example.com");
+	await press(page, addButton, "Add");
+
+	const withSite = await details(
+		"On specific sites, with example.com",
 		(current) =>
-			current.includes("*://example.com/*") && !current.includes("<all_urls>"),
-	);
-
-	// On <site> from the action's menu grants the page's site: it joins the
-	// list.
-	const site = new URL(url).hostname;
-
-	const ofPage = (sites: string[]) =>
-		sites.find((each) => new URL(each.replace("*", "x")).hostname === site);
-
-	await app.send("extensionActionMenu", { id, run: `On ${site}` });
-
-	const fromMenu = await app.waitFor(
-		"the page's site in the list",
-		(state) =>
-			details(state)?.siteAccess === "onSpecificSites" &&
-			details(state)?.specificSites.length === 2 &&
-			ofPage(details(state)?.specificSites ?? []) !== undefined,
-	);
-
-	const pageSite = ofPage(details(fromMenu)?.specificSites ?? []) as string;
-
-	await sitesWhen("with the page's site", (current) =>
-		current.includes(pageSite),
-	);
-
-	await app.render("extension-details-specific-light.png");
-
-	// The list and Add a site in the dark theme.
-	await app.send("theme", { theme: "dark" });
-	await app.waitFor("dark", (state) => /dark/i.test(state.appearance));
-	await app.render("extension-details-specific-dark.png");
-
-	await app.send("showAddExtensionSite", { id, profile });
-	await app.waitFor("Add a site, dark", (state) => state.addingSite !== null);
-	await app.render("extension-details-add-site-dark.png");
-
-	await app.send("cancelAddExtensionSite");
-	await app.send("theme", { theme: "light" });
-
-	// Add a site, under the list: a site of any subdomain; then its ×.
-	await app.send("showAddExtensionSite", { id, profile });
-
-	await app.waitFor(
-		"Add a site, under the list",
-		(state) => state.addingSite !== null,
-	);
-
-	await app.send("addExtensionSite", { site: "https://*.example.org" });
-
-	await app.waitFor(
-		"*.example.org in the list",
-		(state) =>
-			details(state)?.specificSites.includes("https://*.example.org/*") ===
-			true,
-	);
-
-	await sitesWhen("with *.example.org", (current) =>
-		current.includes("https://*.example.org/*"),
-	);
-
-	await app.send("removeExtensionSite", {
-		id,
-		profile,
-		site: "https://*.example.org/*",
-	});
-
-	await app.waitFor(
-		"*.example.org gone",
-		(state) =>
-			details(state)?.specificSites.includes("https://*.example.org/*") ===
-			false,
+			current.siteAccess === "On specific sites" &&
+			current.sites.some((site) => site.includes("example.com")),
 	);
 
 	await sitesWhen(
-		"without *.example.org",
-		(current) => !current.includes("https://*.example.org/*"),
+		"with example.com alone",
+		(current) =>
+			!current.includes("<all_urls>") &&
+			current.some((origin) => origin.includes("example.com")),
 	);
 
-	// The last site's × leaves it on click, as Chrome's.
-	for (const each of ["*://example.com/*", pageSite]) {
-		await app.send("removeExtensionSite", { id, profile, site: each });
+	// The site's own menu removes it; with none left, the probe is on click.
+	// Its ⋮, or its ×, whichever the page shows (the enhanced site controls
+	// show the ×).
+	await press(
+		page,
+		`[...${HOSTS}.querySelectorAll("#hosts li .open-edit-host, #hosts li .remove-host")].find((button) => button.getClientRects().length > 0)`,
+		"the site's menu",
+	);
+
+	const menuRemove = `${HOSTS}.querySelector("#action-menu-remove")`;
+
+	if (
+		await page.evaluate<boolean>(`!!${menuRemove}?.getClientRects().length`)
+	) {
+		await press(page, menuRemove, "Remove, in the site's menu");
 	}
-
-	await app.waitFor(
-		"no sites left, on click",
-		(state) => details(state)?.siteAccess === "onClick",
-	);
 
 	await sitesWhen(
 		"with no site",
-		(current) => !current.some((origin) => /example|127\.0\.0\.1/.test(origin)),
+		(current) => !current.some((origin) => origin.includes("example.com")),
 	);
 
-	await setAccess("onAllSites", (current) => current.includes("<all_urls>"));
+	// Chrome's page keeps On specific sites, its list empty, where Pane's own
+	// Details went On click.
+	await details("with no site left", (current) => current.sites.length === 0);
 
-	// The back arrow, then View Web Permissions, from the browser.
-	await app.send("closeExtensionDetails");
+	// On All Sites from the action's own menu, on the page: Details follows
+	// a change made elsewhere.
+	await app.send("select", { tab: fixture });
+	await app.send("extensionActionMenu", { id, run: "On All Sites" });
 
-	await app.waitFor(
+	await sitesWhen("with every site again", (current) =>
+		current.includes("<all_urls>"),
+	);
+
+	await app.send("select", { tab });
+
+	await details(
+		"On all sites again",
+		(current) => current.siteAccess === "On all sites",
+	);
+
+	// The back arrow: the list.
+	await press(
+		page,
+		`${DETAILS}.querySelector("#closeButton")`,
+		"the back arrow",
+	);
+
+	await poll(
 		"the list",
-		(state) => state.page === "extensions" && state.extensionDetails === null,
+		() =>
+			page.evaluate<boolean>(
+				`!!${ITEMS}?.querySelector("extensions-item")?.getClientRects().length`,
+			),
+		5_000,
 	);
 
-	await app.render("extension-details-list-light.png");
+	// The list's Details: the probe's again.
+	await press(
+		page,
+		`${ITEMS}.querySelector("extensions-item").shadowRoot.querySelector("#detailsButton")`,
+		"the card's Details",
+	);
 
-	await app.send("showPage", { page: "browser" });
+	await details("again, from the card", (current) => current.name === NAME);
+
+	// View Web Permissions, in a pinned action's right-click menu, opens them
+	// in the same tab.
+	await app.send("select", { tab: fixture });
+
+	await app.send("setExtensionPinned", { id, profile, pinned: true });
+
+	await app.waitFor("the probe pinned", (state) =>
+		(state.extensions[profile] ?? []).some(
+			(each) => each.id === id && each.pinned,
+		),
+	);
+
 	await app.send("extensionsMenu", { control: "viewWebPermissions", id });
+	const again = await selectedAt(app, profile, detailsURL(id));
 
-	await app.waitFor(
-		"Details from View Web Permissions",
-		(state) => state.page === "extensions" && details(state) !== undefined,
+	expect(
+		again.tab === tab,
+		`View Web Permissions opened ${again.tab}, not the page's tab ${tab}`,
 	);
 
-	// The card's Details, in the dark theme.
-	await app.send("closeExtensionDetails");
-	await app.send("showExtensionDetails", { id, profile });
-	await app.send("theme", { theme: "dark" });
+	// One tab of Chrome's page in the profile, whatever opened it.
+	const pages = (
+		again.state.profiles.find((each) => each.id === profile)?.tabs ?? []
+	).filter((each) => each.url.startsWith(EXTENSIONS_PAGE));
 
-	await app.waitFor(
-		"Details, dark",
-		(state) =>
-			state.appearance.toLowerCase().includes("dark") &&
-			details(state)?.size != null,
+	expect(
+		pages.length === 1,
+		`the profile has ${pages.length} tabs of Chrome's page`,
 	);
 
-	await app.render("extension-details-dark.png");
+	// Allow access to file URLs, both ways, last: Chrome reloads the
+	// extension each time, and an unpacked one, as the probe is, comes back
+	// off outside Developer mode, as in Chrome.
+	await selectedAt(app, profile, detailsURL(id));
+	const fileAccess = `${DETAILS}.querySelector("#allow-on-file-urls")`;
+	const before = (await detailsShown(page)).fileAccess;
+	await press(page, fileAccess, "Allow access to file URLs");
 
-	await app.send("theme", { theme: "light" });
+	await details(
+		"with file access changed",
+		(current) => current.fileAccess !== before,
+	);
 
-	// Allow access to file URLs, both ways, as Chrome holds it. Chrome
-	// reloads the extension for it, and reloads an unpacked one such as the
-	// probe as one it keeps disabled outside developer mode, so the probe's
-	// own view is not read.
-	const fileAccess = async (allowed: boolean) => {
-		await app.send("setExtensionFileAccess", { id, profile, allowed });
+	await press(page, fileAccess, "Allow access to file URLs");
 
-		await app.waitFor(
-			`Details with file access ${allowed ? "on" : "off"}`,
-			(state) => details(state)?.allowsFileAccess === allowed,
-		);
+	await details(
+		"with file access back",
+		(current) => current.fileAccess === before,
+	);
 
-		return allowed;
-	};
-
-	await fileAccess(!shown.allowsFileAccess);
-	await fileAccess(shown.allowsFileAccess);
-
-	// Remove extension asks first, in the popup; removed, the page shows the
-	// list.
-	if (!(await canDriveUI())) {
-		context.defer("Details' Remove, which a click on the screen presses");
-	} else {
-		await clickButton(
-			app.browser.pid,
-			await mainWindowOf(app.browser.pid),
-			"Remove",
-			"pane.extensionDetails.remove",
-		);
-
-		const asked = await waitForSheet(app, "extensionRemove");
-
-		expect(
-			asked.title === `Remove “${NAME}”?`,
-			`the removal popup reads ${JSON.stringify(asked)}`,
-		);
-
-		await answerSheet(app, asked.buttons?.[0] ?? "Remove");
-
-		await app.waitFor(
-			"removed, the list shows",
-			(state) =>
-				!(state.extensions[profile] ?? []).some((item) => item.id === id) &&
-				state.extensionDetails === null &&
-				state.page === "extensions",
-			30_000,
-		);
-	}
+	return { shown, withSite: withSite.sites };
 };
 
 export default extensionDetails;

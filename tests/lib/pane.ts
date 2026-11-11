@@ -115,20 +115,6 @@ export type MenuItemState = {
 	submenu?: MenuItemState[];
 };
 
-// An extension's commands, as the Keyboard shortcuts dialog lists them:
-// each shortcut as Chrome writes it ("Command+Shift+Y", empty when not set)
-// and as the dialog shows it (⇧⌘Y).
-export type ExtensionCommands = {
-	id: string;
-	name: string;
-	commands: {
-		name: string;
-		description: string;
-		shortcut: string;
-		glyphs: string;
-	}[];
-};
-
 export type AppState = {
 	// The profile sheet: "new", or the edited profile's id.
 	profileSheet: string | null;
@@ -145,7 +131,7 @@ export type AppState = {
 	profiles: ProfileState[];
 	activeTabID: string | null;
 	activeProfileID: string | null;
-	page: "browser" | "settings" | "extensions";
+	page: "browser" | "settings";
 	theme: string;
 	appearance: string;
 	// The App icon setting, and the window the Dock shows for it.
@@ -188,6 +174,8 @@ export type AppState = {
 		buttons?: string[];
 		fields?: string[];
 		panel?: "open" | "save";
+		// An extension's removal popup: Report abuse, ticked.
+		reportAbuse?: boolean;
 	} | null;
 	pendingRequests: number;
 	contextMenu: MenuItemState[] | null;
@@ -229,42 +217,13 @@ export type AppState = {
 	pictureInPictureTabs: string[];
 	devToolsTabs: string[];
 	extensions: Record<string, ExtensionState[]>;
-	// The extension the Extensions page shows the Details of.
-	extensionDetails: {
-		extension: string;
-		profile: string;
-		// Once measured.
-		size: string | null;
-		source: string | null;
-		permissions: string[];
-		siteAccess: "none" | "onClick" | "onSpecificSites" | "onAllSites";
-		// On specific sites, Chrome's patterns ("*://example.com/*").
-		specificSites: string[];
-		wantsFileAccess: boolean;
-		allowsFileAccess: boolean;
-		homepage: string | null;
-		webStore: string | null;
-	} | null;
-	// The Extensions page's Keyboard shortcuts dialog.
-	shortcutsDialog: {
-		profile: string;
-		extensions: ExtensionCommands[];
-		// The field recording a key, the modifiers held (⌃⌥⇧⌘), and why the
-		// last key was refused.
-		recording: { extension: string; command: string } | null;
-		held: string;
-		message: string | null;
-		// The field a key last moved to, and where it came from.
-		moved: { extension: string; command: string; from: string } | null;
-	} | null;
-	// Details' Add a site, open: what its field holds, and whether Chrome
-	// refused it.
-	addingSite: { extension: string; site: string; invalid: boolean } | null;
 	extensionPopup: {
 		extension: string;
 		open: boolean;
 		width: number;
 		height: number;
+		// It shows above its button, where the screen leaves more room.
+		above?: boolean;
 	} | null;
 };
 

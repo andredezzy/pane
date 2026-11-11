@@ -58,21 +58,29 @@ constexpr int kArrow = 10;
 // Kept from the screen's edges, as AppKit keeps a popover.
 constexpr int kScreenMargin = 8;
 
-// The bubble's outline, its arrow `arrow_x` along its top edge.
-SkPath Outline(const gfx::RectF& body, float arrow_x) {
+// The bubble's outline, its arrow `arrow_x` along its top edge, pointing up,
+// or along its bottom edge, pointing down, when it shows above its button.
+SkPath Outline(const gfx::RectF& body, float arrow_x, bool above) {
   const float left = body.x();
   const float top = body.y();
   const float right = body.right();
   const float bottom = body.bottom();
   SkPathBuilder path;
   path.moveTo(left + kRadius, top);
-  path.lineTo(arrow_x - kArrow, top);
-  path.lineTo(arrow_x, top - kArrow);
-  path.lineTo(arrow_x + kArrow, top);
+  if (!above) {
+    path.lineTo(arrow_x - kArrow, top);
+    path.lineTo(arrow_x, top - kArrow);
+    path.lineTo(arrow_x + kArrow, top);
+  }
   path.lineTo(right - kRadius, top);
   path.arcTo({right, top}, {right, top + kRadius}, kRadius);
   path.lineTo(right, bottom - kRadius);
   path.arcTo({right, bottom}, {right - kRadius, bottom}, kRadius);
+  if (above) {
+    path.lineTo(arrow_x + kArrow, bottom);
+    path.lineTo(arrow_x, bottom + kArrow);
+    path.lineTo(arrow_x - kArrow, bottom);
+  }
   path.lineTo(left + kRadius, bottom);
   path.arcTo({left, bottom}, {left, bottom - kRadius}, kRadius);
   path.lineTo(left, top + kRadius);
@@ -154,12 +162,13 @@ BEGIN_METADATA(ActionPopup, Page)
 END_METADATA
 
 // The window's contents: the bubble painted as Paper 04.12 draws it, its
-// arrow out of the top edge, and the page in its frame.
+// arrow out of the top edge, or out of the bottom one while it shows above
+// its button, and the page in its frame.
 class ActionPopup::Bubble : public views::View {
   METADATA_HEADER(Bubble, views::View)
 
  public:
-  explicit Bubble(std::unique_ptr<Page> page) {
+  Bubble(std::unique_ptr<Page> page, bool above) : above_(above) {
     SetID(kViewIdActionPopup);
     GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);
     page_ = AddChildView(std::move(page));
@@ -180,7 +189,8 @@ class ActionPopup::Bubble : public views::View {
   }
 
   gfx::Rect PageBounds() const {
-    return gfx::Rect(kFrame, kArrow + kFrame, std::max(width() - 2 * kFrame, 0),
+    return gfx::Rect(kFrame, (above_ ? 0 : kArrow) + kFrame,
+                     std::max(width() - 2 * kFrame, 0),
                      std::max(height() - kArrow - 2 * kFrame, 0));
   }
 
@@ -199,8 +209,8 @@ class ActionPopup::Bubble : public views::View {
     if (!colors) {
       return;
     }
-    const gfx::RectF body(0, kArrow, width(), height() - kArrow);
-    const SkPath outline = Outline(body, arrow_x_);
+    const gfx::RectF body(0, above_ ? 0 : kArrow, width(), height() - kArrow);
+    const SkPath outline = Outline(body, arrow_x_, above_);
     cc::PaintFlags fill;
     fill.setAntiAlias(true);
     fill.setColor(colors->GetColor(kPaneColorActionPopup));
@@ -226,6 +236,7 @@ class ActionPopup::Bubble : public views::View {
 
  private:
   raw_ptr<Page> page_ = nullptr;
+  const bool above_;
   float arrow_x_ = 0;
 };
 
@@ -259,14 +270,24 @@ ActionPopup::ActionPopup(Browser& browser,
                 base::Unretained(this))) {
   PANE_TRACE("call", "ExtensionPopup.open",
              base::DictValue().Set("extension", extension.id()));
-  // The room the screen leaves under the button, within Chrome's limits.
+  // Under the button, or above it where the screen leaves more room there,
+  // as NSPopover chose its edge; the room on that side, within Chrome's
+  // limits.
   const gfx::Rect work =
       display::Screen::Get()->GetDisplayMatching(anchor).work_area();
+  const int below = work.bottom() - anchor.bottom();
+  const int above = anchor.y() - work.y();
+  above_ = above > below;
   max_page_ = extensions::kExtensionPopupMaxSize;
   max_page_.SetToMin(gfx::Size(
       work.width() - 2 * kScreenMargin - 2 * kFrame,
-      work.bottom() - anchor.bottom() - kArrow - 2 * kFrame - kScreenMargin));
+      (above_ ? above : below) - kArrow - 2 * kFrame - kScreenMargin));
   max_page_.SetToMax(extensions::kExtensionPopupMinSize);
+  PANE_TRACE("event", "ExtensionPopup.edge",
+             base::DictValue()
+                 .Set("above", above_)
+                 .Set("roomAbove", above)
+                 .Set("roomBelow", below));
 
   host_ = extensions::ExtensionViewHostFactory::CreatePopupHost(extension, url,
                                                                 &browser);
@@ -275,7 +296,7 @@ ActionPopup::ActionPopup(Browser& browser,
   auto page =
       std::make_unique<Page>(browser.GetProfile(), *host_, *this, max_page_);
   page_ = page.get();
-  auto bubble = std::make_unique<Bubble>(std::move(page));
+  auto bubble = std::make_unique<Bubble>(std::move(page), above_);
   bubble_ = bubble.get();
 
   delegate_ = std::make_unique<views::WidgetDelegate>();
@@ -405,9 +426,9 @@ void ActionPopup::ClosedItself(bool by_click) {
           weak_factory_.GetWeakPtr(), by_click));
 }
 
-// Its middle under the anchor's, as NSPopover centers a popover on its
-// positioning rect, kept on the screen with the arrow still at the anchor,
-// away from the corners.
+// Its middle under the anchor's, or over it, as NSPopover centers a popover
+// on its positioning rect, kept on the screen with the arrow still at the
+// anchor, away from the corners; its arrow's tip on the anchor's edge.
 void ActionPopup::Place() {
   if (!widget_ || !page_) {
     return;
@@ -427,7 +448,9 @@ void ActionPopup::Place() {
       tip - x, kRadius + kArrow,
       std::max<float>(kRadius + kArrow, size.width() - kRadius - kArrow));
   bubble_->SetArrowX(arrow_x);
-  widget_->SetBounds(gfx::Rect(gfx::Point(x, anchor_.bottom()), size));
+  widget_->SetBounds(gfx::Rect(
+      gfx::Point(x, above_ ? anchor_.y() - size.height() : anchor_.bottom()),
+      size));
 }
 
 bool ActionPopup::KeptOpen() const {

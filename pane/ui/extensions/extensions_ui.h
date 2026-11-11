@@ -13,10 +13,12 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/extensions/extension_popup_types.h"
+#include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/extensions/installed_extensions.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/image/image_skia.h"
 #include "url/gurl.h"
 
 class Browser;
@@ -24,6 +26,10 @@ class Profile;
 
 namespace extensions {
 class Extension;
+}
+
+namespace ui {
+class Accelerator;
 }
 
 namespace views {
@@ -38,15 +44,18 @@ class BrowserExtensions;
 class HostedExtensionsContainer;
 class Window;
 
-// The window's extensions (the Swift's ExtensionsController, its toolbar part,
-// and ExtensionPopover): the shown profile's pinned actions and the puzzle in
-// the toolbar (ADR 0054), the extensions menu under the puzzle and an
-// extension's more menu beside it, a pinned action's right-click menu
-// (ADR 0096), and an action's popup (ADR 0031), each per profile: a profile's
-// extensions, pins, and actions are its own Chrome profile's. Every press
-// asks the app first (InteractionAllowed), as the Swift's did. Esc closes the
-// more menu, then the menu; so do a click outside them, another tab,
-// profile, or page, the window giving up the keys, and the Lock.
+// The window's extensions (the Swift's ExtensionsController and
+// ExtensionPopover): the shown profile's pinned actions and the puzzle in the
+// toolbar (ADR 0054), the extensions menu under the puzzle and an extension's
+// more menu beside it, a pinned action's right-click menu (ADR 0096), an
+// action's popup (ADR 0031), the prompts that add or remove one (ADR 0056),
+// and the extensions' keyboard shortcuts (ADR 0098), each per profile: a
+// profile's extensions, pins, actions, and shortcuts are its own Chrome
+// profile's. Every press asks the app first (InteractionAllowed), as the
+// Swift's did. Esc closes the more menu, then the menu; so do a click outside
+// them, another tab, profile, or page, the window giving up the keys, and the
+// Lock. Chrome's own pages manage the rest (chrome://extensions, in the
+// profile's tab, D3).
 class ExtensionsUi {
  public:
   // The app behind the window.
@@ -66,14 +75,16 @@ class ExtensionsUi {
     // an extension's Web Store page, its options.
     virtual void OpenExtensionTab(Profile& profile, const GURL& url) = 0;
     // Manage all extensions, and an extension's Manage Extension and View
-    // Web Permissions (its Details, `extension_id`): Pane's Extensions page,
-    // the Swift's target, until X4 opens chrome://extensions in the
-    // profile's tab.
+    // Web Permissions: Chrome's extensions page in a tab of `profile`'s,
+    // chrome://extensions, or the extension's Details
+    // (chrome://extensions/?id=), in the tab that shows the page already,
+    // else in a new one, as Chrome shows them (D3).
     virtual void ShowExtensionsPage(Profile& profile,
                                     const std::string& extension_id) = 0;
-    // Remove from Pane asks first, in the popup ADR 0056 draws (X3's).
-    virtual void ConfirmUninstall(Profile& profile,
-                                  const std::string& extension_id) = 0;
+    // Whether `profile` is one of Pane's, open in the engine.
+    virtual bool IsPaneProfile(Profile& profile) const = 0;
+    // Pane's icon, as the Dock shows it, for the dialog that adds one.
+    virtual gfx::ImageSkia AppIcon() const = 0;
   };
 
   explicit ExtensionsUi(Delegate& delegate);
@@ -132,6 +143,44 @@ class ExtensionsUi {
   void SetPinned(Profile& profile, const std::string& extension_id, bool pin);
   ActionMenu* MakeActionMenu(const std::string& extension_id);
 
+  // A prompt over the window (ADR 0056): adding, in Dia's dialog in its
+  // middle; removing, in Aside's popup under the extension's pinned button,
+  // else the puzzle. One at a time: a new one takes the place of the one
+  // asking, which answers no; behind the Lock it is answered no at once.
+  // Chrome's install prompts come here (AskToAddExtension), and Remove from
+  // Pane through ConfirmUninstall.
+  void Ask(ExtensionPrompt prompt);
+  // Remove from Pane, of an extension of `profile`'s: it asks first;
+  // accepted, the extension goes, and Report abuse, ticked, opens the Web
+  // Store's report page in a new tab of the profile, as Chrome's dialog does.
+  void ConfirmUninstall(Profile& profile, const std::string& extension_id);
+  // The prompt asking, answered: its buttons, Return and Esc, a press
+  // outside it.
+  void AnswerPrompt(bool accepted);
+  // The Dock shows another icon (the Theme changed it): adding's dialog,
+  // while it asks, shows that one, as the Swift's followed the Dock's.
+  void AppIconChanged();
+  // The prompt asking, while one does.
+  const ExtensionPrompt* prompt() const {
+    return prompt_ ? &*prompt_ : nullptr;
+  }
+  bool IsPaneProfile(Profile& profile) const {
+    return delegate_->IsPaneProfile(profile);
+  }
+
+  // The extension shortcut `accelerator` is in the profile the window shows,
+  // run as Chrome runs one (ADR 0098): a command's onCommand with the active
+  // tab, the action's as a press of its button (its popup, or onClicked).
+  // None for a key that is no chord (⌘, ⌃, or ⌥), for one of the window's
+  // or the system's commands (the menu bar's keys stay Pane's), behind the
+  // Lock, or while Chrome's shortcuts page records one. Whether one ran.
+  bool RunShortcut(const ui::Accelerator& accelerator);
+  // While Chrome's shortcuts page records a key in the shown profile's tab
+  // (developerPrivate.setShortcutHandlingSuspended): the page then has
+  // every key first, the window's reserved ones too, as Chrome's window
+  // lets it.
+  bool ShortcutsSuspended() const;
+
   // The window shows another tab, profile, or page, or what it shows
   // changed: the toolbar's actions and the menu show the shown profile's,
   // as for its tab.
@@ -185,6 +234,8 @@ class ExtensionsUi {
   gfx::Rect PopupAnchor(const std::string& extension_id) const;
   // The pinned action's right-click menu went.
   void ActionMenuGone();
+  // `extension_id` of `profile`'s goes, as the user removes it.
+  void Uninstall(Profile& profile, const std::string& extension_id);
   void Trace(std::string_view name, const std::string& extension_id) const;
 
   const raw_ref<Delegate> delegate_;
@@ -204,6 +255,8 @@ class ExtensionsUi {
   std::unique_ptr<ActionMenu> action_menu_;
   std::unique_ptr<views::MenuRunner> action_menu_runner_;
   std::optional<std::string> action_menu_extension_;
+  // The prompt asking, while one does.
+  std::optional<ExtensionPrompt> prompt_;
   base::WeakPtrFactory<ExtensionsUi> weak_factory_{this};
 };
 

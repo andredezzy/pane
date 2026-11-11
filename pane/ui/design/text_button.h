@@ -37,13 +37,15 @@ inline constexpr ButtonSize kRegular{36, 16, 16, text::kButton};
 inline constexpr ButtonSize kSmall{32, 12, 12, text::kButtonSmall};
 // A page's dialog's (DialogButtonStyle): 28 points, 10 in, at 13.
 inline constexpr ButtonSize kAlert{28, 10, 10, {13, weight::kRegular, 16}};
+// Aside's popups': h-8, 14 in, at 13 (an extension's Remove).
+inline constexpr ButtonSize kPopup{32, 14, 14, text::kButtonPopup};
 }  // namespace button_size
 
 // A button with a title (the Swift's PaneButtonStyle): packages/ui's
 // variants, its hover fading in 0.15 s with its title's tint, a press at once
 // that fades as it lets go, 50% while disabled, and Pane's ring while it has
 // the keyboard. An outline's 1-point border adds to its width, as CSS's
-// border-box does.
+// border-box does, and so does a popup's Cancel's.
 class TextButton : public views::Button {
   METADATA_HEADER(TextButton, views::Button)
 

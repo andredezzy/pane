@@ -134,9 +134,18 @@ enum ViewId : int {
   kViewIdExtensionMoreMenuOptions,
   // An action's popup, its bubble in a window of its own (ADR 0031), and
   // the extension's page in it. The Swift named none of them; its
-  // "pane.extensionPopup" is the prompt that removes an extension (X3).
+  // "pane.extensionPopup" is the prompt that removes an extension.
   kViewIdActionPopup,
   kViewIdActionPopupPage,
+  // Adding or removing an extension, as each asks (ADR 0056), by the Swift's
+  // names: Dia's dialog ("pane.extensionInstall"), Aside's popup
+  // ("pane.extensionPopup"), either one's accept and Cancel, and the popup's
+  // Report abuse.
+  kViewIdExtensionInstall,
+  kViewIdExtensionPopup,
+  kViewIdExtensionPopupAccept,
+  kViewIdExtensionPopupCancel,
+  kViewIdExtensionPopupReportAbuse,
 
   kViewIdsEnd,
 };

@@ -14,6 +14,8 @@ source_set("design") {
   ]
 
   sources = [
+    "checkbox.cc",
+    "checkbox.h",
     "controls.cc",
     "controls.h",
     "dialog.cc",
@@ -74,14 +76,20 @@ source_set("design") {
     "//ui/native_theme",
   ]
 
-  # A menu's template icon, which only the Mac's menus tint, and the Mac's
-  # selected-text colors.
+  # A menu's template icon, which only the Mac's menus tint, the Mac's
+  # selected-text colors, and the system's checkbox, AppKit's own cell.
   if (is_mac) {
     sources += [
+      "checkbox_mac.mm",
       "menu_icon_mac.mm",
       "palette_mac.mm",
     ]
     frameworks = [ "AppKit.framework" ]
+  }
+
+  # The system's checkbox, the native theme's.
+  if (is_win) {
+    sources += [ "checkbox_win.cc" ]
   }
 }
 

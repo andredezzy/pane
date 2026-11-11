@@ -1,7 +1,14 @@
 import { join } from "node:path";
-import { canDriveUI, mainWindowOf, readControl } from "../lib/cua";
+import {
+	EXTENSIONS_PAGE,
+	extensionsPage,
+	press,
+	SHORTCUTS,
+	SHORTCUTS_PAGE,
+	SIDEBAR,
+	typeKey,
+} from "../lib/chrome-extensions";
 import { extensionId, workerPage } from "../lib/extensions";
-import type { AppState, ExtensionCommands } from "../lib/pane";
 import { launchPane } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
@@ -21,18 +28,31 @@ const SECOND_NAME = "Pane second commands probe";
 
 type Command = { name: string; tabId: number | null };
 
-// An extension's keyboard shortcuts (chrome.commands) work as in Chrome:
-// with a page focused, the probe's ⌘⇧Y runs its command (onCommand) for
-// the active tab, and ⌘⇧U its action (_execute_action, onClicked); with
-// the address field being edited, ⌘⇧Y runs its command too.
-//
-// The Extensions page's Keyboard shortcuts (ADR 0098) lists them as
-// chrome://extensions/shortcuts does, and changes them through the dialog's
-// field, with keys typed as the user types them: a new key fires and the old
-// one no longer does; Chrome's refusals and a key of the menu bar's leave a
-// message, the field still recording; a key another extension had moves
-// here and says so; Clear empties one; and while a field records, no
-// shortcut runs.
+// One command as Chrome's shortcuts page lists it: its description, and its
+// key as the page writes it on the Mac ("⇧⌘Y"; empty when none).
+type Listed = {
+	extension: string;
+	commands: { description: string; shortcut: string }[];
+};
+
+// An extension's keyboard shortcuts (chrome.commands) work as in Chrome
+// (ADR 0098): with a page focused, the probe's ⌘⇧Y runs its command
+// (onCommand) for the active tab, and ⌘⇧U its action (_execute_action,
+// onClicked); with the address field being edited, ⌘⇧Y runs its command
+// too. They change on Chrome's own shortcuts page in the profile's tab
+// (chrome://extensions/shortcuts, D3, Paper 10.3), reached from the
+// extensions page's Keyboard shortcuts: it lists the probes' commands with
+// their keys; a key typed into a field sets it, and only the new key runs
+// the command; ⌥⇧K, the second probe's, typed into the probe's field while
+// it records moves there, runs nothing as it is typed (Chrome's page
+// suspends the shortcuts, Pane's window's with them), and from then on runs
+// the probe's command and not the second's; Clear empties one; and ⌘T, a
+// key of Pane's menu bar, typed there, is refused: the field gives back the
+// key it had, or none, and ⌘T stays Pane's in the window, where it opens a
+// tab and runs no extension's command. Keys on a page and in the address
+// go to Pane's window as the system hands them over, in the background too;
+// keys and clicks on Chrome's page go through its input path (CDP's Input),
+// which Pane's window sees first.
 const extensionShortcuts: Scenario = async (context) => {
 	const app = await launchPane(context, {
 		args: [`--load-extension=${PROBE},${SECOND}`],
@@ -72,7 +92,13 @@ const extensionShortcuts: Scenario = async (context) => {
 		expect(all.length === count, `${what}: ${JSON.stringify(all)}`);
 	};
 
-	await app.send("key", { key: "y", modifiers: ["command", "shift"] });
+	// A chord on the profile's page, as typed.
+	const onPage = async (key: string, modifiers: string[]) => {
+		await app.send("select", { tab });
+		await app.send("typeInPage", { key, modifiers });
+	};
+
+	await onPage("y", ["command", "shift"]);
 	const [command] = await commands(1);
 
 	expect(
@@ -80,7 +106,7 @@ const extensionShortcuts: Scenario = async (context) => {
 		`⌘⇧Y ran ${JSON.stringify(command)}`,
 	);
 
-	await app.send("key", { key: "u", modifiers: ["command", "shift"] });
+	await onPage("u", ["command", "shift"]);
 	const action = (await commands(2))[1];
 
 	expect(
@@ -88,15 +114,16 @@ const extensionShortcuts: Scenario = async (context) => {
 		`⌘⇧U ran ${JSON.stringify(action)}`,
 	);
 
-	// With the address field being edited, as with the page focused.
-	await app.send("key", { key: "l", modifiers: ["command"] });
+	// With the address field being edited, as with the page focused: a
+	// click on it, as ⌘L needs the front (shortcuts' own deferral).
+	await app.click("pane.toolbar.address");
 
 	await app.waitFor(
 		"the address field focused",
 		(state) => state.focus === "pane.toolbar.address",
 	);
 
-	await app.send("key", { key: "y", modifiers: ["command", "shift"] });
+	await app.send("windowKey", { key: "y", modifiers: ["command", "shift"] });
 	const fromField = (await commands(3))[2];
 
 	expect(
@@ -104,288 +131,241 @@ const extensionShortcuts: Scenario = async (context) => {
 		`⌘⇧Y in the address field ran ${JSON.stringify(fromField)}`,
 	);
 
-	await app.send("releaseModifiers");
+	// Chrome's shortcuts page, from the extensions page's Keyboard shortcuts.
+	await app.send("select", { tab });
+	await app.send("extensionsMenu", { control: "puzzle" });
+	await app.waitFor("the extensions menu", (state) => state.extensionsMenu);
+	await app.send("extensionsMenu", { control: "manage" });
+	const { page } = await extensionsPage(app, profile, EXTENSIONS_PAGE);
+	const shortcutsTab = (await app.state()).activeTabID as string;
 
-	// What the dialog lists, read through the same controller method.
-	const { result: listed } = await app.send<ExtensionCommands[]>(
-		"extensionShortcuts",
-		{ profile },
+	await press(
+		page,
+		`${SIDEBAR}.querySelector("#sectionsShortcuts")`,
+		"Keyboard shortcuts",
 	);
 
-	// In one order of keys, to compare.
-	const commandsOf = (all: ExtensionCommands[], extension: string) =>
-		(all.find((entry) => entry.id === extension)?.commands ?? []).map(
-			({ name, description, shortcut, glyphs }) => ({
-				name,
-				description,
-				shortcut,
-				glyphs,
-			}),
+	await poll(
+		"the shortcuts page",
+		() =>
+			page
+				.evaluate<boolean>(
+					`location.href === ${JSON.stringify(SHORTCUTS_PAGE)} && !!${SHORTCUTS}?.querySelector(".shortcut-card")`,
+				)
+				.catch(() => false),
+		10_000,
+	);
+
+	const listedNow = () =>
+		page.evaluate<Listed[]>(
+			`[...${SHORTCUTS}.querySelectorAll(".shortcut-card")].map((card) => ({
+				extension: card.querySelector('[role="heading"]').textContent.trim(),
+				commands: [...card.querySelectorAll(".command-entry")].map((entry) => ({
+					description: entry.querySelector(".command-name").textContent.trim(),
+					shortcut: entry.querySelector("cr-shortcut-input").shortcut ?? "",
+				})),
+			}))`,
 		);
+
+	const commandsOf = (all: Listed[], name: string) =>
+		all.find((each) => each.extension === name)?.commands ?? [];
+
+	const listed = await listedNow();
 
 	expect(
-		JSON.stringify(commandsOf(listed, id)) ===
+		JSON.stringify(commandsOf(listed, NAME)) ===
 			JSON.stringify([
-				{
-					name: "_execute_action",
-					description: "Activate the extension",
-					shortcut: "Command+Shift+U",
-					glyphs: "⇧⌘U",
-				},
-				{
-					name: "probe-command",
-					description: "Run the probe's command",
-					shortcut: "Command+Shift+Y",
-					glyphs: "⇧⌘Y",
-				},
+				{ description: "Activate the extension", shortcut: "⇧⌘U" },
+				{ description: "Run the probe's command", shortcut: "⇧⌘Y" },
 			]) &&
-			JSON.stringify(commandsOf(listed, secondID)) ===
+			JSON.stringify(commandsOf(listed, SECOND_NAME)) ===
 				JSON.stringify([
 					{
-						name: "probe-second-command",
 						description: "Run the second probe's command",
-						shortcut: "Alt+Shift+K",
-						glyphs: "⌥⇧K",
+						shortcut: "⌥⇧K",
 					},
 				]),
-		`the dialog lists ${JSON.stringify(listed)}`,
+		`the shortcuts page lists ${JSON.stringify(listed)}`,
 	);
 
-	const shortcutOf = (state: AppState, extension: string, name: string) =>
-		commandsOf(state.shortcutsDialog?.extensions ?? [], extension).find(
-			(item) => item.name === name,
-		)?.shortcut;
+	// A command's field on the page, by its extension and description.
+	const field = (extension: string, description: string) =>
+		`[...${SHORTCUTS}.querySelectorAll(".shortcut-card")]
+			.find((card) => card.querySelector('[role="heading"]').textContent.trim() === ${JSON.stringify(extension)})
+			.querySelectorAll(".command-entry")[
+				[...[...${SHORTCUTS}.querySelectorAll(".shortcut-card")]
+					.find((card) => card.querySelector('[role="heading"]').textContent.trim() === ${JSON.stringify(extension)})
+					.querySelectorAll(".command-name")]
+					.findIndex((name) => name.textContent.trim() === ${JSON.stringify(description)})
+			].querySelector("cr-shortcut-input")`;
 
-	const render = async (name: string) => {
-		// Past the hover's and the panel's 0.15 s.
-		await app.render(`extension-shortcuts-${name}.png`);
+	const shortcutOf = async (extension: string, description: string) =>
+		page.evaluate<string>(`${field(extension, description)}.shortcut ?? ""`);
+
+	const waitShortcut = (
+		extension: string,
+		description: string,
+		wanted: string,
+	) =>
+		poll(
+			`${description} at ${wanted || "none"}`,
+			async () => (await shortcutOf(extension, description)) === wanted,
+			5_000,
+		);
+
+	// The field's pencil starts a recording; the page then takes the keys.
+	const record = async (extension: string, description: string) => {
+		await press(
+			page,
+			`${field(extension, description)}.shadowRoot.querySelector("#edit")`,
+			`${description}'s pencil`,
+		);
+
+		await poll(
+			`${description} recording`,
+			() =>
+				page.evaluate<boolean>(
+					`!${field(extension, description)}.shadowRoot.querySelector("#input").readonly`,
+				),
+			5_000,
+		);
+
+		// The page asks the browser to suspend the shortcuts as it starts
+		// recording (developerPrivate.setShortcutHandlingSuspended), a call
+		// that lands a moment later.
+		await Bun.sleep(300);
 	};
 
-	// The header's Keyboard shortcuts, for the profile the page lists.
-	await app.send("showPage", { page: "extensions" });
-	await app.send("extensionShortcutsDialog", { control: "open", profile });
+	// ⌃⇧Y for the probe's command: the new key runs it, the old one nothing.
+	await record(NAME, "Run the probe's command");
+	await typeKey(page, "y", ["control", "shift"]);
+	await waitShortcut(NAME, "Run the probe's command", "⌃⇧Y");
 
-	await app.waitFor(
-		"the Keyboard shortcuts dialog",
-		(state) => state.shortcutsDialog?.profile === profile,
+	await onPage("y", ["control", "shift"]);
+	await commands(4);
+	await onPage("y", ["command", "shift"]);
+	await noMore(worker, 4, "⌘⇧Y, no longer the probe's key, still ran");
+
+	// ⌥⇧K, the second probe's, typed into the probe's field while it
+	// records: it runs nothing as it is typed, and moves here.
+	await app.send("select", { tab: shortcutsTab });
+	const secondBefore = (await kept(secondWorker)).length;
+	await record(NAME, "Run the probe's command");
+	await typeKey(page, "k", ["option", "shift"]);
+	await waitShortcut(NAME, "Run the probe's command", "⌥⇧K");
+	await waitShortcut(SECOND_NAME, "Run the second probe's command", "");
+
+	await noMore(
+		secondWorker,
+		secondBefore,
+		"⌥⇧K ran the second probe's command as it was typed",
 	);
 
-	await render("light");
-	await app.send("theme", { theme: "dark" });
-	await render("dark");
-	await app.send("theme", { theme: "light" });
+	await onPage("k", ["option", "shift"]);
+	await commands(5);
 
-	const record = async (extension: string, name: string) => {
-		await app.send("extensionShortcutsDialog", {
-			control: "record",
-			id: extension,
-			name,
+	await noMore(
+		secondWorker,
+		secondBefore,
+		"⌥⇧K ran the second probe's command",
+	);
+
+	// Clear empties the action's: ⌘⇧U runs nothing.
+	await app.send("select", { tab: shortcutsTab });
+
+	await press(
+		page,
+		`${field(NAME, "Activate the extension")}.shadowRoot.querySelector("#clear")`,
+		"the action's Clear",
+	);
+
+	await waitShortcut(NAME, "Activate the extension", "");
+	await onPage("u", ["command", "shift"]);
+	await noMore(worker, 5, "the cleared ⌘⇧U still ran");
+
+	// ⌘T, a key of Pane's menu bar, typed into a field as it records: the
+	// page takes it, no tab opens, and Pane refuses it (ADR 0098, Paper
+	// 10.3's note) with no message on the page: the field shows again the
+	// key it had, or none, and Chrome's own record of the command holds no
+	// ⌘T.
+	await app.send("select", { tab: shortcutsTab });
+
+	const tabsBefore =
+		(await app.state()).profiles.find((each) => each.id === profile)?.tabs
+			.length ?? 0;
+
+	const recorded = (command: string) =>
+		page.evaluate<string>(
+			`chrome.developerPrivate.getExtensionInfo(${JSON.stringify(id)}).then((info) => info.commands.find((each) => each.name === ${JSON.stringify(command)})?.keybinding ?? "")`,
+		);
+
+	const refused = async (description: string, command: string, had: string) => {
+		await record(NAME, description);
+		await typeKey(page, "t", ["command"]);
+
+		// The page took the key: the field records no more.
+		await poll(
+			`${description} done recording`,
+			() =>
+				page.evaluate<boolean>(
+					`${field(NAME, description)}.shadowRoot.querySelector("#input").readonly`,
+				),
+			5_000,
+		);
+
+		await waitShortcut(NAME, description, had).catch(async (error: Error) => {
+			throw new Error(
+				`${error.message}: the field reads ${JSON.stringify(await shortcutOf(NAME, description))}, Chrome's record ${JSON.stringify(await recorded(command))}`,
+			);
 		});
 
-		await app.waitFor(
-			`${name} recording`,
-			(state) => state.shortcutsDialog?.recording?.command === name,
+		const kept = await recorded(command);
+
+		expect(
+			kept === had,
+			`${description} holds ${JSON.stringify(kept)} after ⌘T, not ${JSON.stringify(had)}`,
 		);
 	};
 
-	// A real click on a field, in Pane's own window: pressed, the foreground
-	// at 6%; let go, it records. Where the field is, accessibility reads,
-	// which needs an unlocked screen. (Its hover needs the real pointer: a
-	// posted move reaches no tracking area.)
-	if (!(await canDriveUI())) {
-		context.defer(
-			"a click's press and recording: off on a locked screen or without cua-driver",
-		);
+	await refused("Activate the extension", "_execute_action", "");
+	await refused("Run the probe's command", "probe-command", "⌥⇧K");
 
-		await record(id, "probe-command");
-	} else {
-		const pid = app.browser.pid;
+	const tabsWhileTyped =
+		(await app.state()).profiles.find((each) => each.id === profile)?.tabs
+			.length ?? 0;
 
-		const frame = await readControl(
-			pid,
-			await mainWindowOf(pid),
-			"Run the probe's command shortcut",
-			/AXButton/,
-		);
+	expect(tabsWhileTyped === tabsBefore, "⌘T typed into the page opened a tab");
 
-		const field = { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 };
+	// The key given back still runs its command.
+	await onPage("k", ["option", "shift"]);
+	await commands(6);
 
-		await app.send("pointerWindow", { phase: "down", ...field });
-		await render("pressed");
-		await app.send("pointerWindow", { phase: "up", ...field });
+	// On the page, ⌘T stays Pane's: the action does not run. The tab it
+	// opens comes from the menu bar once the page has left the key, which
+	// takes Pane in front (shortcuts' own deferral).
+	if (context.foreground) {
+		await app.send("select", { tab });
+		await app.send("activate");
+		await app.waitFor("the key window", (state) => state.window.key, 10_000);
+		await app.send("key", { key: "t", modifiers: ["command"] });
 
 		await app.waitFor(
-			"recording from a click",
-			(state) => state.shortcutsDialog?.recording?.command === "probe-command",
+			"⌘T's new tab",
+			(state) =>
+				(state.profiles.find((each) => each.id === profile)?.tabs.length ?? 0) >
+				tabsBefore,
+		);
+	} else {
+		await onPage("t", ["command"]);
+
+		context.defer(
+			"⌘T opening a tab once the page leaves it: the menu bar's key needs Pane in front",
 		);
 	}
 
-	// Recording: Type a shortcut, then the modifiers as they go down.
-	await render("recording");
+	await noMore(worker, 6, "⌘T ran the probe's action");
 
-	await app.send("holdModifiers", { modifiers: ["option", "command"] });
-
-	await app.waitFor("⌥⌘ held", (state) => state.shortcutsDialog?.held === "⌥⌘");
-
-	await render("held");
-	await app.send("releaseModifiers");
-
-	// Each refusal leaves its message, and the field recording.
-	const tabCount = (state: AppState) =>
-		state.profiles.find((item) => item.id === profile)?.tabs.length;
-
-	const tabs = tabCount(await app.state());
-
-	const refuse = async (
-		key: string,
-		modifiers: string[],
-		message: string,
-		shot: string,
-	) => {
-		await app.send("key", { key, modifiers });
-
-		const state = await app.waitFor(
-			`refused with ${message}`,
-			(current) => current.shortcutsDialog?.message === message,
-		);
-
-		expect(
-			state.shortcutsDialog?.recording?.command === "probe-command" &&
-				shortcutOf(state, id, "probe-command") === "Command+Shift+Y",
-			`after ${message}, still recording, the shortcut kept`,
-		);
-
-		await app.send("releaseModifiers");
-		await render(shot);
-	};
-
-	await refuse("y", [], "Include Ctrl, Alt, or ⌘", "no-modifier");
-	await refuse("y", ["option", "command"], "Invalid combination", "too-many");
-	await refuse("-", ["command"], "Type a letter", "no-key");
-	await refuse("t", ["command"], "⌘T is Pane’s New Tab", "panes-key");
-
-	await app.send("theme", { theme: "dark" });
-	await render("panes-key-dark");
-	await app.send("theme", { theme: "light" });
-
-	expect(tabCount(await app.state()) === tabs, "⌘T, recorded, opened no tab");
-
-	// A new key: ⌃⇧Y.
-	await app.send("key", { key: "y", modifiers: ["control", "shift"] });
-	await app.send("releaseModifiers");
-
-	await app.waitFor(
-		"⌃⇧Y set",
-		(state) =>
-			state.shortcutsDialog?.recording === null &&
-			shortcutOf(state, id, "probe-command") === "Ctrl+Shift+Y",
-	);
-
-	await render("set");
-
-	// A key another extension had moves here, and says where from.
-	await record(id, "probe-command");
-	await app.send("key", { key: "k", modifiers: ["option", "shift"] });
-	await app.send("releaseModifiers");
-
-	const moved = await app.waitFor(
-		"⌥⇧K moved from the second probe",
-		(state) =>
-			shortcutOf(state, id, "probe-command") === "Alt+Shift+K" &&
-			shortcutOf(state, secondID, "probe-second-command") === "",
-	);
-
-	expect(
-		moved.shortcutsDialog?.moved?.from === SECOND_NAME &&
-			moved.shortcutsDialog.moved.command === "probe-command",
-		`the move reads ${JSON.stringify(moved.shortcutsDialog?.moved)}`,
-	);
-
-	await render("moved");
-
-	await app.send("theme", { theme: "dark" });
-	await render("moved-dark");
-	await app.send("theme", { theme: "light" });
-
-	// Clear: the action's key goes.
-	await app.send("extensionShortcutsDialog", {
-		control: "clear",
-		id,
-		name: "_execute_action",
-	});
-
-	await app.waitFor(
-		"the action's shortcut cleared",
-		(state) => shortcutOf(state, id, "_execute_action") === "",
-	);
-
-	// Esc stops a recording, then closes the dialog.
-	await record(id, "_execute_action");
-	await app.send("key", { key: "\u{1b}", modifiers: [] });
-
-	const stopped = await app.waitFor(
-		"the recording stopped",
-		(state) => state.shortcutsDialog?.recording === null,
-	);
-
-	expect(
-		stopped.shortcutsDialog !== null &&
-			shortcutOf(stopped, id, "_execute_action") === "",
-		"Esc stopped the recording, the dialog open",
-	);
-
-	await app.send("key", { key: "\u{1b}", modifiers: [] });
-
-	await app.waitFor(
-		"the dialog closed",
-		(state) => state.shortcutsDialog === null,
-	);
-
-	// On the page: the new keys fire, the old ones no longer do.
-	await app.send("showPage", { page: "browser" });
-	await app.page(tab, url);
-
-	await app.send("key", { key: "k", modifiers: ["option", "shift"] });
-	const byNewKey = (await commands(4))[3];
-	await app.send("releaseModifiers");
-
-	expect(
-		byNewKey?.name === "probe-command",
-		`⌥⇧K ran ${JSON.stringify(byNewKey)}`,
-	);
-
-	await noMore(secondWorker, 0, "⌥⇧K no longer reaches the second probe");
-
-	await app.send("key", { key: "y", modifiers: ["command", "shift"] });
-	await app.send("key", { key: "y", modifiers: ["control", "shift"] });
-	await app.send("key", { key: "u", modifiers: ["command", "shift"] });
-	await app.send("releaseModifiers");
-	await noMore(worker, 4, "⌘⇧Y, ⌃⇧Y, and the cleared ⌘⇧U run nothing");
-
-	// While a field records, no shortcut runs: ⌥⇧K is typed into the second
-	// probe's field, and moves back to it.
-	await app.send("showPage", { page: "extensions" });
-	await app.send("extensionShortcutsDialog", { control: "open", profile });
-	await record(secondID, "probe-second-command");
-	await app.send("key", { key: "k", modifiers: ["option", "shift"] });
-	await app.send("releaseModifiers");
-
-	const back = await app.waitFor(
-		"⌥⇧K back on the second probe",
-		(state) =>
-			shortcutOf(state, secondID, "probe-second-command") === "Alt+Shift+K",
-	);
-
-	expect(
-		back.shortcutsDialog?.moved?.from === NAME &&
-			shortcutOf(back, id, "probe-command") === "",
-		`the move back reads ${JSON.stringify(back.shortcutsDialog?.moved)}`,
-	);
-
-	await noMore(worker, 4, "⌥⇧K, recorded, ran nothing");
-	await noMore(secondWorker, 0, "⌥⇧K, recorded, ran nothing");
-
-	await app.send("extensionShortcutsDialog", { control: "done" });
+	return { listed };
 };
 
 export default extensionShortcuts;

@@ -273,6 +273,9 @@ class Window : public WindowHost::Delegate,
   // The switcher's keys while it shows, from Pane's views (the page's come
   // through PreHandleKeyboardEvent): Esc, and Ctrl's release.
   class SwitcherKeys;
+  // An extension's shortcut, typed while one of Pane's views has the keys
+  // (the page's come through PreHandleKeyboardEvent).
+  class ExtensionKeys;
 
   // While the switcher shows, a key from Views or the page: Esc closes it.
   // Whether the key stops here.
@@ -297,6 +300,7 @@ class Window : public WindowHost::Delegate,
 
   views::UnhandledKeyboardEventHandler unhandled_keys_;
   std::unique_ptr<SwitcherKeys> switcher_keys_;
+  std::unique_ptr<ExtensionKeys> extension_keys_;
   const raw_ptr<Controller> controller_;
   const bool keeps_frame_;
   raw_ptr<RootView> root_ = nullptr;

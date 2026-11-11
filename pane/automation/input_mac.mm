@@ -129,23 +129,28 @@ bool PostKey(views::Widget* widget,
   return true;
 }
 
-bool SendKeyToWindow(views::Widget* widget, const std::string& key) {
+bool SendKeyToWindow(views::Widget* widget,
+                     const std::string& key,
+                     const std::vector<std::string>& modifiers) {
   const auto code = KeyCodes().find(key);
   if (code == KeyCodes().end()) {
     return false;
   }
   NSWindow* window = widget->GetNativeWindow().GetNativeNSWindow();
-  NSString* characters = base::SysUTF8ToNSString(key);
+  const NSEventModifierFlags flags = Flags(modifiers);
+  NSString* ignoring = base::SysUTF8ToNSString(key);
+  NSString* characters =
+      (flags & NSEventModifierFlagShift) ? ignoring.uppercaseString : ignoring;
   for (NSEventType type : {NSEventTypeKeyDown, NSEventTypeKeyUp}) {
     NSEvent* event =
         [NSEvent keyEventWithType:type
                                location:NSZeroPoint
-                          modifierFlags:0
+                          modifierFlags:flags
                               timestamp:NSProcessInfo.processInfo.systemUptime
                            windowNumber:window.windowNumber
                                 context:nil
                              characters:characters
-            charactersIgnoringModifiers:characters
+            charactersIgnoringModifiers:ignoring
                               isARepeat:NO
                                 keyCode:code->second];
     [window sendEvent:event];

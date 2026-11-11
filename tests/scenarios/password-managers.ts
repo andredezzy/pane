@@ -1,7 +1,6 @@
 import { join } from "node:path";
 import type { Page } from "../lib/cdp";
 import {
-	asksBeforeInstall,
 	installFromWebStore,
 	popupPage,
 	pressToolbarAction,
@@ -40,20 +39,17 @@ function firstWords(page: Page): Promise<string> {
 const passwordManagers: Scenario = async (context) => {
 	const app = await launchPane(context);
 
-	if (!(await asksBeforeInstall(app))) {
-		context.defer(
-			"every check: the managers install from the Web Store, which asks in the install prompt, X3's",
-		);
-
-		return;
-	}
-
 	const watcher = new WindowWatcher(app).start();
 	const profile = await app.createProfile("Passwords");
 	const url = context.fixtures.url("password.html?managers");
 
 	for (const manager of MANAGERS) {
-		const name = await installFromWebStore(app, profile, manager.id);
+		const name = await installFromWebStore(
+			app,
+			profile,
+			manager.id,
+			context.foreground,
+		);
 
 		// Each may open a welcome tab after ours; the button is pressed on
 		// our page, selected again once no more tabs open.

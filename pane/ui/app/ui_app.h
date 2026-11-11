@@ -172,6 +172,12 @@ class UiApp : public AppData::Client,
   Profile* OpenProfile(const std::string& profile_id) const {
     return contexts_.Get(profile_id);
   }
+  // Runs `body` with the profile, opening it in the engine first if needed;
+  // with null when it would not open (the Swift's contexts.with).
+  void WithProfile(const std::string& profile_id,
+                   base::OnceCallback<void(Profile*)> body) {
+    contexts_.With(profile_id, std::move(body));
+  }
   // The menu bar, while the app runs.
   MenuBar& menu_bar() { return *menu_bar_; }
 
@@ -193,14 +199,13 @@ class UiApp : public AppData::Client,
   bool ExtensionsAllowed() const override;
   Profile* ShownProfile() const override;
   void OpenExtensionTab(Profile& profile, const GURL& url) override;
-  // Until X4 opens chrome://extensions in the profile's tab, the Swift's own
-  // target: Pane's Extensions page.
+  // Chrome's extensions page, chrome://extensions, in the profile's tab
+  // (D3), timed to the frame that shows the tab and to the page's first
+  // paint.
   void ShowExtensionsPage(Profile& profile,
                           const std::string& extension_id) override;
-  // X3 asks first, in the popup ADR 0056 draws; until then nothing is
-  // removed from the menus.
-  void ConfirmUninstall(Profile& profile,
-                        const std::string& extension_id) override;
+  bool IsPaneProfile(Profile& profile) const override;
+  gfx::ImageSkia AppIcon() const override;
 
   // PageDialogs::Delegate:
   RootView* DialogRoot() override;
@@ -376,6 +381,13 @@ class UiApp : public AppData::Client,
   void ZoomPage(Command command);
   // ⌘P: the system's print panel for the selected page (ADR 0021).
   void PrintPage();
+  // The model's id of `profile`, one of Pane's open in the engine.
+  std::optional<std::string> ProfileIdFor(Profile& profile) const;
+  // Chrome's extensions page at `url` in a tab of the profile: the tab that
+  // shows the page already, at any of its places (the list, an extension's
+  // Details, the shortcuts), going there, else a new one, as Chrome shows it
+  // in one tab (ShowSingletonTabOverwritingNTP, IGNORE_AND_NAVIGATE).
+  void OpenExtensionsTab(const std::string& profile_id, const GURL& url);
 
   const raw_ref<AppData> data_;
   ProfileContexts contexts_;
@@ -418,6 +430,8 @@ class UiApp : public AppData::Client,
     uint64_t interval = 0;
   };
   std::optional<Waking> waking_;
+  // Chrome's extensions page opened, timed until it first paints.
+  std::optional<Waking> extensions_page_;
   // Each tab's favicon as the sidebar draws it.
   Favicons favicons_;
   // The selected tab's load, as the address's bar draws it (the Swift's

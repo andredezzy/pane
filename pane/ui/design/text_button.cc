@@ -25,7 +25,10 @@ TextButton::TextButton(PressedCallback pressed,
     : views::Button(std::move(pressed)),
       look_(ButtonLook(variant)),
       size_(size),
-      border_(variant == ButtonVariant::kOutline ? 1 : 0) {
+      border_(variant == ButtonVariant::kOutline ||
+                      variant == ButtonVariant::kPopupCancel
+                  ? 1
+                  : 0) {
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&TextButton::Tint, base::Unretained(this)));

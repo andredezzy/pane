@@ -22,8 +22,6 @@ source_set("model") {
     "data_key.h",
     "engine_fingerprint.cc",
     "engine_fingerprint.h",
-    "extension_shortcut.cc",
-    "extension_shortcut.h",
     "extension_text.cc",
     "extension_text.h",
     "local_state.cc",

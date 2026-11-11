@@ -7,5 +7,4 @@
 #import "PaneBrowserWindow.h"
 #import "PaneCookies.h"
 #import "PaneExport.h"
-#import "PaneExtensions.h"
 #import "PaneWebContents.h"
