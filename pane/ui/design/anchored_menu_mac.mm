@@ -12,6 +12,7 @@
 #import "ui/menus/cocoa/menu_controller.h"
 #include "ui/views/controls/menu/menu_controller_cocoa_delegate_params.h"
 #include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -57,7 +58,7 @@ void AnchoredMenuMac::Run(views::Widget& widget,
       [window convertPointFromScreen:gfx::ScreenPointToNSPoint(anchor)];
   // The event Chromium's runner places the menu by, the press or release
   // under way or one it makes at the anchor, moved to the anchor.
-  RunAt(widget.GetNativeView().GetNativeNSView(),
+  RunAt(widget.GetRootView(), widget.GetNativeView().GetNativeNSView(),
         MenuEventAt(ui::EventForPositioningContextMenuRelativeToWindow(location,
                                                                        window),
                     location, window.windowNumber),
@@ -70,11 +71,19 @@ bool AnchoredMenuMac::IsRunning() const {
   return running_;
 }
 
-void AnchoredMenuMac::RunAt(NSView* view,
+void AnchoredMenuMac::RunAt(views::View* root,
+                            NSView* view,
                             NSEvent* event,
                             MenuControllerCocoaDelegateImpl* delegate,
                             ui::ElementContext context) {
   CHECK(!running_);
+  // As views::MenuRunner::RunMenuAt: the menu takes the release of the press
+  // that opened it, so the root view would keep the trigger as that press's
+  // handler and send it the next press wherever it lands, opening this menu
+  // again under it.
+  if (root) {
+    root->SetMouseAndGestureHandler(nullptr);
+  }
   delegate_ = delegate;
   controller_ = [[MenuControllerCocoa alloc] initWithModel:model_
                                              isContextMenu:YES

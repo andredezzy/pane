@@ -138,16 +138,29 @@ export async function checkMenuUnderTrigger(
 	const placement = { trigger, click, menu };
 	const anchor = { x: trigger.x, y: trigger.y + height };
 
-	// An edge of the screen the menu reaches has pushed it in.
+	// An edge of the screen the menu would come near at its anchor has pushed
+	// it in: AppKit keeps a menu a few points inside the screen's visible frame
+	// (the time zone's, 272 points tall under a trigger whose bottom stood 715
+	// down a 982-point screen, showed 11 higher, its bottom 6 short of the edge).
 	const edge = screen.visible;
-	const pushedLeft = menu.x + menu.width >= edge.X + edge.Width - 1;
-	const pushedUp = menu.y + menu.height >= edge.Y + edge.Height - 1;
+	const inset = 8;
+	const pushedLeft = anchor.x + menu.width > edge.X + edge.Width - inset;
+	const pushedUp = anchor.y + menu.height > edge.Y + edge.Height - inset;
 
-	const placed = (at: number, anchored: number, pushed: boolean) =>
-		Math.abs(at - anchored) <= 1 || (pushed && at < anchored);
+	// At the anchor, or pushed in only as far as the edge asks: against it.
+	const placed = (
+		at: number,
+		anchored: number,
+		pushed: boolean,
+		size: number,
+		end: number,
+	) =>
+		Math.abs(at - anchored) <= 1 ||
+		(pushed && at < anchored && at + size >= end - inset);
 
 	expect(
-		placed(menu.x, anchor.x, pushedLeft) && placed(menu.y, anchor.y, pushedUp),
+		placed(menu.x, anchor.x, pushedLeft, menu.width, edge.X + edge.Width) &&
+			placed(menu.y, anchor.y, pushedUp, menu.height, edge.Y + edge.Height),
 		`${name}'s menu at ${menu.x}, ${menu.y}, not under its trigger at ${anchor.x}, ${anchor.y}: ${JSON.stringify(placement)}`,
 	);
 

@@ -6,11 +6,13 @@
 
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/cocoa/menu_utils.h"
 #include "ui/menus/simple_menu_model.h"
+#include "ui/views/view.h"
 
 namespace pane {
 
@@ -59,6 +61,18 @@ NSEvent* PressAt(NSPoint point) {
                           clickCount:1
                             pressure:1];
 }
+
+// A widget's root view, which keeps the view a press went to as that press's
+// handler until its release, as Views' RootView does.
+class PressedRoot : public views::View {
+ public:
+  // views::View:
+  void SetMouseAndGestureHandler(views::View* new_handler) override {
+    handler = new_handler;
+  }
+
+  raw_ptr<views::View> handler = nullptr;
+};
 
 class AnchoredMenuMacTest : public testing::Test {
  protected:
@@ -123,11 +137,39 @@ TEST_F(AnchoredMenuMacTest, ClosingTellsTheTriggerOnce) {
             [shown.delegate menuDidClose:shown];
           }));
 
-  menu->RunAt(nil, PressAt(NSMakePoint(120, 300)), nil, ui::ElementContext());
+  menu->RunAt(nullptr, nil, PressAt(NSMakePoint(120, 300)), nil,
+              ui::ElementContext());
 
   EXPECT_EQ(gone, 1);
   EXPECT_EQ(model.closes, 1);
   EXPECT_FALSE(menu->IsRunning());
+}
+
+// The menu takes the release of the press that opened it, which never
+// reaches the window: the root view forgets the trigger as that press's
+// handler before the menu shows, as views::MenuRunner has it forget, or it
+// sends the trigger the next press wherever it lands, and the menu opens
+// again under the trigger (Settings' menus each opened Theme's).
+TEST_F(AnchoredMenuMacTest, TheRootViewForgetsThePressThatOpenedTheMenu) {
+  Options model;
+  views::View trigger;
+  PressedRoot root;
+  root.handler = &trigger;
+  bool shown_without_handler = false;
+  AnchoredMenuMac menu(
+      model, base::RepeatingClosure(),
+      base::BindLambdaForTesting(
+          [&](NSMenu* shown, NSEvent*, NSView*, ui::ElementContext) {
+            shown_without_handler = root.handler == nullptr;
+            [shown.delegate menuWillOpen:shown];
+            [shown.delegate menuDidClose:shown];
+          }));
+
+  menu.RunAt(&root, nil, PressAt(NSMakePoint(120, 300)), nil,
+             ui::ElementContext());
+
+  EXPECT_TRUE(shown_without_handler);
+  EXPECT_EQ(root.handler, nullptr);
 }
 
 // A trigger deleted under its open menu (the sheet closing as the Mac locks):
@@ -153,7 +195,7 @@ TEST_F(AnchoredMenuMacTest, ATriggerDeletedUnderItsMenuClosesItSafely) {
           }));
 
   AnchoredMenuMac* running = menu.get();
-  running->RunAt(nil, PressAt(NSMakePoint(120, 300)), nil,
+  running->RunAt(nullptr, nil, PressAt(NSMakePoint(120, 300)), nil,
                  ui::ElementContext());
 
   EXPECT_FALSE(menu);

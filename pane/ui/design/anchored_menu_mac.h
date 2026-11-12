@@ -14,6 +14,10 @@
 @class MenuControllerCocoa;
 @class MenuControllerCocoaDelegateImpl;
 
+namespace views {
+class View;
+}  // namespace views
+
 namespace pane {
 
 // `event` moved to `location`, a point of the window `window_number` names,
@@ -47,8 +51,10 @@ class AnchoredMenuMac : public AnchoredMenu {
   bool IsRunning() const override;
 
   // What Run does once the widget has given it these: the menu shown over
-  // `view` at `event`, its items given `delegate`'s look.
-  void RunAt(NSView* view,
+  // `view` at `event`, its items given `delegate`'s look, and `root`, the
+  // widget's root view, made to forget the press that opened it.
+  void RunAt(views::View* root,
+             NSView* view,
              NSEvent* event,
              MenuControllerCocoaDelegateImpl* delegate,
              ui::ElementContext context);
