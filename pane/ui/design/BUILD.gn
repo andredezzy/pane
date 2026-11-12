@@ -98,12 +98,15 @@ source_set("design") {
     frameworks = [ "AppKit.framework" ]
   }
 
-  # A menu at its anchor, Views' own, and the system's checkbox, the native
-  # theme's.
+  # A menu at its anchor, Views' own, the system's checkbox, the native
+  # theme's, a menu's icon in the menu's icon color, and the system's
+  # highlight.
   if (is_win) {
     sources += [
       "anchored_menu_win.cc",
       "checkbox_win.cc",
+      "menu_icon_win.cc",
+      "palette_win.cc",
     ]
   }
 }

@@ -27,16 +27,18 @@ class ModelStore;
 // Swift app of 0.19.2 and before kept (its main.swift and AppDelegate): what an
 // earlier Pane left is brought up to date, and the data's lock taken, before
 // the engine starts; the vault and the lock open once the thread pool runs;
-// and the volume detaches once the engine has stopped. The Mac's alone: the
-// encrypted volume and every earlier Pane's data are there (ADR 0113, 0114,
-// 0122), and no Pane ever ran on Windows (U5).
+// and the volume detaches once the engine has stopped. The encrypted volume
+// and every earlier Pane's data are the Mac's alone (ADR 0113, 0114, 0122): no
+// Pane ever ran on Windows (U5), whose data is W3's
+// (docs/plans/views-migration.md, data_launch_win.cc).
 
 // Pane's data folder: a scenario's (PANE_DATA_DIR), or the one under the
 // home (DefaultDataDirectory).
 base::FilePath DataDirectory();
 
 // xyz.roundedcorners.pane in the user's Application Support (ADR 0114), or in
-// a home of a scenario's own (CFFIXED_USER_HOME).
+// a home of a scenario's own (CFFIXED_USER_HOME); on Windows, Pane in the
+// user's local application data (W3).
 base::FilePath DefaultDataDirectory();
 
 // Before the engine starts, from PaneMainDelegate::BasicStartupComplete, with

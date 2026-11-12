@@ -14,8 +14,6 @@
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
-#include "chrome/common/pref_names.h"
-#include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
 #include "pane/app/data_launch.h"
 #include "pane/browser/bundled_crl_set.h"
@@ -96,10 +94,7 @@ void BrowserMainExtraParts::PostBrowserStart() {
   // The data opens with the thread pool, before Pane's UI.
   OpenData();
   UiApp::Start();
-  // ⌘Q quits at once, as it did in the Electron app. Chrome asks to hold it
-  // (the "Warn Before Quitting" pref, on by default), in a panel of its own.
-  g_browser_process->local_state()->SetBoolean(prefs::kConfirmToQuitEnabled,
-                                               false);
+  StartPlatform();
   // Quitting outranks a remote debugging client: Chrome started without a
   // window stays up for one until it closes the browser itself, but Pane's
   // windows are Pane's, and Quit is the user's call (ADR 0010). Pane's UI

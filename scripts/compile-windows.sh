@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Compiles //pane's shared code for Windows x64, cross-built from the Mac in
-# out/Win (chromium/args/win.gn), with no full Windows build: the sources
-# pane/BUILD.gn builds on every OS, and those of the targets beside it that do
-# (pane/app, pane/browser, pane/model, pane/ui/app, pane/ui/design,
-# pane/ui/lock, pane/ui/tabs), but the Mac's own files and tests (_mac.cc,
-# _mac_unittest.cc).
-# Each object compiles alone (`autoninja -C out/Win ../../<file>^`), so code
-# that builds only on the Mac shows before Windows' turn comes (ADR 0124). A gate
+# Compiles //pane's code for Windows x64, cross-built from the Mac in out/Win
+# (chromium/args/win.gn), with no full Windows build: every source of every
+# //pane target the Windows engine links (//chrome:chrome_dll's deps under
+# //pane, as gn's graph has them: the UI, the model, the channel, encryption,
+# and Windows' own platform files), and the shared unit tests beside them
+# (each //pane/...:unit_tests; encryption's own, pane_unittests' sources, come
+# with W2), so code that builds only on the Mac shows before Windows' turn
+# comes (ADR 0124).
+# Each object compiles alone (`autoninja -C out/Win ../../<file>^`). A gate
 # before each push of an engine change, beside `gn check out/Win '//pane/*'`
-# (AGENTS.md).
+# (AGENTS.md); the link itself is a full Windows build's
+# (docs/plans/views-migration.md, W1).
 #
 # It runs under nice with PANE_BUILD_JOBS jobs (default 6), and stops if the
 # Mac's 1-minute load stays over 18 for 2 minutes, as a build may never take
@@ -32,22 +34,24 @@ if ! cmp -s "$ROOT_DIR/chromium/args/win.gn" "$OUT_DIR/args.gn"; then
 	gn gen "$OUT_DIR" --root-target=//pane
 fi
 
+# The //pane targets chrome.dll links, the shared tests' targets, and each
+# one's C++ sources.
+gn desc "$OUT_DIR" //chrome:chrome_dll deps --all | grep '^//pane' > "$OUT_DIR/pane-engine-targets.txt"
+gn desc "$OUT_DIR" '//pane/*' sources --format=json > "$OUT_DIR/pane-sources.json"
+
 objects=()
 while IFS= read -r object; do
 	objects+=("$object")
-done < <(python3 -I - "$ROOT_DIR" <<'PY'
-import pathlib, re, sys
-root = pathlib.Path(sys.argv[1])
-build = (root / "pane/BUILD.gn").read_text()
-start = build.index("  sources = [")
-shared = re.findall(r'"([^"]+\.cc)"', build[start:build.index("  ]", start)])
-files = ["pane/" + name for name in shared]
-for folder in ("pane/app", "pane/model", "pane/ui/app", "pane/ui/design", "pane/ui/lock", "pane/ui/tabs"):
-    files += [str(path.relative_to(root)) for path in sorted((root / folder).glob("*.cc"))
-              if not path.name.endswith(("_mac.cc", "_mac_unittest.cc"))]
-# pane/browser's own targets, whose folder pane/BUILD.gn's Mac files share.
-browser = (root / "pane/browser/BUILD.gn").read_text()
-files += ["pane/browser/" + name for name in re.findall(r'"([^"]+\.cc)"', browser)]
+done < <(python3 -I - "$OUT_DIR/pane-engine-targets.txt" "$OUT_DIR/pane-sources.json" <<'PY'
+import json, sys
+targets = [line.strip() for line in open(sys.argv[1]) if line.strip()]
+described = json.load(open(sys.argv[2]))
+targets += [target for target in described if target.endswith(":unit_tests")]
+files = []
+for target in targets:
+    for source in described.get(target, {}).get("sources", []):
+        if source.startswith("//pane/") and source.endswith(".cc"):
+            files.append(source[2:])
 for name in dict.fromkeys(files):
     print(f"../../{name}^")
 PY

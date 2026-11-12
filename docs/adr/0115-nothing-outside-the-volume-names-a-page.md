@@ -1,5 +1,7 @@
 # Nothing outside the encrypted volume names a page, and only a scenario's launch takes Pane's test hooks
 
+> **On Windows** (`docs/plans/views-migration.md`, W1): no crash handler there either. `chrome_elf` starts Crashpad in every process, before `ChromeMain` and any switch of Pane's (`ChromeCrashReporterClient::InitializeCrashReportingForProcess`), and nothing outside Chromium's files stops it: `BREAKPAD_DUMP_LOCATION` moves the dumps, and `CHROME_HEADLESS` and policy stop only uploads. So patch 0008 leaves the Crashpad start out of `chrome_crash_reporter_client_win.cc`, in every process, keeping the client chrome_elf's exports read: no handler, and no child handing its dumps to another app's handler through a pipe left in its environment. Windows' own error reporting stays, as macOS's does. In the Windows VM no crashpad-handler ran beside Pane's processes, and no Crashpad database was made. The installer's and the notification helper's own clients wait for W7.
+
 > **On the Views line** (`docs/plans/views-migration.md`, H5): one function reads every scenario hook (`model::TestHook`, `pane/model/test_hooks.h`), on the mock keychain alone, where four copies did; the automation channel's directory and the foreground hook had been read off the mock keychain too.
 
 > **Extended by [ADR 0121](0121-every-profile-file-encrypted-under-its-own-key.md)**: what this lists as readable by another process while Pane is unlocked, the profiles' files, no longer is. What it keeps outside the volume stays as it is here.

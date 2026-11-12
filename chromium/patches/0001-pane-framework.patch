@@ -1,8 +1,16 @@
 diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
-index 06bfcf5a90..915c9dc769 100644
+index 06bfcf5a90..81e19e1752 100644
 --- a/chrome/BUILD.gn
 +++ b/chrome/BUILD.gn
-@@ -1356,6 +1356,7 @@ if (is_win) {
+@@ -463,6 +463,7 @@ if (is_win) {
+       "//content/public/app",
+       "//crypto",
+       "//net:net_resources",
++      "//pane",
+       "//sandbox/win:sandbox",
+       "//third_party/cld_3/src/src:cld_3",
+       "//third_party/wtl",
+@@ -1356,6 +1357,7 @@ if (is_win) {
        "//components/policy:generated",
        "//components/webapps/isolated_web_apps:scheme",
        "//content/public/app",

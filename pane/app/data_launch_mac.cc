@@ -181,6 +181,25 @@ base::Value Screen(const std::optional<model::PinEntry>& entry) {
                entry->error() ? base::Value(*entry->error()) : base::Value()));
 }
 
+// A profile's folder in the volume, `root` (resolved), converted in place by
+// //pane/encryption's migration (ADR 0121), its key registered: a safety copy
+// first, for a profile that has files. On a sequence that may block; a kill
+// at any point loses nothing. `progress` gets the share done.
+bool MigrateProfileFolder(const base::FilePath& root,
+                          base::RepeatingCallback<void(double)> progress) {
+  const base::FilePath profile = root.AppendASCII("Profile");
+  const base::FilePath archive = root.AppendASCII("SafetyCopy");
+
+  // A new profile has nothing to keep.
+  if (base::PathExists(profile.AppendASCII("Preferences")) &&
+      !base::PathExists(archive) && !WriteSafetyCopy(profile, archive)) {
+    return false;
+  }
+
+  return MigrateProfileFiles(profile, root.AppendASCII("Cache"),
+                             std::move(progress));
+}
+
 // The engine's side of the vault's work on a profile's folder (ADR 0121),
 // run on the profile's sequence: the conversion of an earlier Pane's files,
 // the restore of its safety copy, and the repair after 0.18.0's migration,
@@ -495,13 +514,6 @@ class PaneData : public AppData,
 PaneData* g_data = nullptr;
 
 }  // namespace
-
-base::FilePath DataDirectory() {
-  if (const std::optional<std::string> named = TestHook("PANE_DATA_DIR")) {
-    return base::FilePath(*named);
-  }
-  return DefaultDataDirectory();
-}
 
 base::FilePath DefaultDataDirectory() {
   return UserDirectory(base::DIR_APP_DATA).Append(model::kBundleIdentifier);

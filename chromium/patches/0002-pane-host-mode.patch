@@ -1,20 +1,28 @@
 diff --git a/chrome/app/chrome_main.cc b/chrome/app/chrome_main.cc
-index 199142d671..cc0dc365f3 100644
+index 199142d671..398b90a956 100644
 --- a/chrome/app/chrome_main.cc
 +++ b/chrome/app/chrome_main.cc
-@@ -34,6 +34,7 @@
- #if BUILDFLAG(IS_MAC)
- #include "chrome/app/chrome_main_mac.h"
+@@ -36,6 +36,10 @@
  #include "chrome/common/mac/detect_inappropriate_exit.h"
-+#include "pane/app/pane_main_delegate.h"
  #endif
  
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
++#include "pane/app/pane_main_delegate.h"
++#endif
++
  #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-@@ -130,7 +131,13 @@ int ChromeMain(int argc, const char** argv) {
+ #include "base/base_switches.h"
+ #endif
+@@ -129,8 +133,17 @@ int ChromeMain(int argc, const char** argv) {
+       base::TimeTicks::FromInternalValue(exe_entry_point_ticks),
        base::TimeTicks::FromInternalValue(preread_begin_ticks),
        base::TimeTicks::FromInternalValue(preread_end_ticks)};
-   ChromeMainDelegate chrome_main_delegate(timestamps);
+-  ChromeMainDelegate chrome_main_delegate(timestamps);
 -#else  // BUILDFLAG(IS_WIN)
++  // Pane: //pane supplies the main delegate, a ChromeMainDelegate subclass.
++  std::unique_ptr<ChromeMainDelegate> pane_main_delegate =
++      pane::CreateMainDelegate(timestamps);
++  ChromeMainDelegate& chrome_main_delegate = *pane_main_delegate;
 +#elif BUILDFLAG(IS_MAC)
 +  // Pane: //pane supplies the main delegate, a ChromeMainDelegate subclass.
 +  std::unique_ptr<ChromeMainDelegate> pane_main_delegate =

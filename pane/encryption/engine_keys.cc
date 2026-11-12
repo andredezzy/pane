@@ -34,7 +34,8 @@ Registry& GetRegistry() {
   return *registry;
 }
 
-constexpr std::string_view kVolumeRootName = "Volume";
+constexpr base::FilePath::CharType kVolumeRootName[] =
+    FILE_PATH_LITERAL("Volume");
 
 // A UUID, the only name Pane gives a profile's folder: what Chromium keeps
 // beside them in the user data dir (Default, Safe Browsing) is not one.
@@ -61,7 +62,7 @@ bool IsProfileName(std::string_view name) {
 struct Located {
   std::string id;
   // The path inside the profile's folder.
-  std::vector<std::string> inside;
+  std::vector<base::FilePath::StringType> inside;
 };
 
 // The profile `path` is in, under `root`, in the two shapes a root has:
@@ -76,7 +77,7 @@ std::optional<Located> LocateIn(const base::FilePath& root,
     return std::nullopt;
   }
 
-  std::vector<std::string> parts = relative.GetComponents();
+  std::vector<base::FilePath::StringType> parts = relative.GetComponents();
 
   if (parts.empty()) {
     return std::nullopt;
@@ -87,7 +88,7 @@ std::optional<Located> LocateIn(const base::FilePath& root,
     return std::nullopt;
   }
 
-  const std::string id = parts[0];
+  const std::string id = base::FilePath(parts[0]).AsUTF8Unsafe();
 
   if (!IsProfileName(id) && !known.contains(id)) {
     return std::nullopt;
@@ -96,7 +97,8 @@ std::optional<Located> LocateIn(const base::FilePath& root,
   parts.erase(parts.begin());
 
   if (root.BaseName().value() == kVolumeRootName && !parts.empty() &&
-      (parts[0] == "Profile" || parts[0] == "Cache")) {
+      (parts[0] == FILE_PATH_LITERAL("Profile") ||
+       parts[0] == FILE_PATH_LITERAL("Cache"))) {
     parts.erase(parts.begin());
   }
 
@@ -201,7 +203,8 @@ std::optional<ProfileKeys> KeysFor(const base::FilePath& path) {
       continue;
     }
 
-    if (!located->inside.empty() && located->inside[0] == "Extensions") {
+    if (!located->inside.empty() &&
+        located->inside[0] == FILE_PATH_LITERAL("Extensions")) {
       return std::nullopt;
     }
 

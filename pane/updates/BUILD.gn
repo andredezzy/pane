@@ -12,10 +12,14 @@ source_set("update_files") {
 
   sources = [ "update_files.h" ]
 
-  # Windows' part comes with W7 (docs/plans/views-migration.md).
   if (is_mac) {
     sources += [ "update_files_mac.cc" ]
     frameworks = [ "CoreServices.framework" ]
+  }
+
+  # A stand-in until W7 (docs/plans/views-migration.md).
+  if (is_win) {
+    sources += [ "update_files_win.cc" ]
   }
 
   deps = [ "//base" ]

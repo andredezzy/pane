@@ -1,3 +1,34 @@
+diff --git a/chrome/app/chrome_crash_reporter_client_win.cc b/chrome/app/chrome_crash_reporter_client_win.cc
+index 8a7a65bb2a..d894ed2131 100644
+--- a/chrome/app/chrome_crash_reporter_client_win.cc
++++ b/chrome/app/chrome_crash_reporter_client_win.cc
+@@ -52,21 +52,11 @@ void ChromeCrashReporterClient::InitializeCrashReportingForProcess() {
+       process_type != install_static::kFallbackHandler) {
+     crash_reporter::SetCrashReporterClient(instance);
+ 
+-    std::wstring user_data_dir;
+-    if (process_type.empty()) {
+-      install_static::GetUserDataDirectory(&user_data_dir, nullptr);
+-
+-      // Initialize the shared memory that contains the `SystemProfile` only in
+-      // the browser process. This must happen before Crashpad initialization
+-      // since Crashpad inherits a handle to the shared memory.
+-      metrics::SystemProfileUserStream::Get().Initialize();
+-    }
+-
+-    // TODO(wfh): Add a DCHECK for success. See https://crbug.com/40226723.
+-    std::ignore = crash_reporter::InitializeCrashpadWithEmbeddedHandler(
+-        /*initial_client=*/process_type.empty(),
+-        install_static::WideToUTF8(process_type),
+-        install_static::WideToUTF8(user_data_dir), base::FilePath());
++    // Pane: no crash handler, in any process, so no minidump: one held the
++    // page's address (url-chunk), in a database outside the encrypted data,
++    // and a child that found another app's handler's pipe in its environment
++    // would have handed it Pane's. Windows keeps its own crash reporting, as
++    // the Mac keeps macOS's (chrome_main_delegate.cc).
+   }
+ }
+ 
 diff --git a/chrome/app/chrome_main_delegate.cc b/chrome/app/chrome_main_delegate.cc
 index 33a3b3844a..f477d1d48d 100644
 --- a/chrome/app/chrome_main_delegate.cc

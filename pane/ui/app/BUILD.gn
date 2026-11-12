@@ -29,6 +29,10 @@ source_set("commands") {
     sources += [ "menu_bar_mac.mm" ]
     frameworks = [ "AppKit.framework" ]
   }
+
+  if (is_win) {
+    sources += [ "menu_bar_win.cc" ]
+  }
 }
 
 # When Pane locks by itself (docs/plans/views-migration.md, L2; ADR 0116):

@@ -8,7 +8,6 @@
 #include "pane/encryption/sqlite_vfs.h"
 
 #include <string.h>
-#include <sys/stat.h>
 
 #include <algorithm>
 #include <memory>
@@ -28,6 +27,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "pane/encryption/engine_keys.h"
+#include "sql/database.h"
 #include "sql/initialization.h"
 #include "third_party/boringssl/src/include/openssl/aead.h"
 #include "third_party/boringssl/src/include/openssl/rand.h"
@@ -210,9 +210,8 @@ int RealWrite(PaneFile* file,
 
 // Main file ------------------------------------------------------------------
 
-bool HasContent(const std::string& path) {
-  struct stat info;
-  return stat(path.c_str(), &info) == 0 && info.st_size > 0;
+bool HasContent(const base::FilePath& path) {
+  return base::GetFileSize(path).value_or(0) > 0;
 }
 
 // The page size in a Pane page 1's clear bytes, read from the file.
@@ -305,7 +304,8 @@ int ReadMain(PaneFile* file, void* out, int amount, sqlite3_int64 offset) {
     // error would fail the open, which Chromium's quota database answers by
     // erasing every store (patch 0010).
     if (rc == SQLITE_IOERR_AUTH && offset == 0 && amount == kSqliteHeaderRead &&
-        HasContent(std::string(file->name) + "-journal")) {
+        HasContent(sql::Database::JournalPath(
+            base::FilePath::FromUTF8Unsafe(file->name)))) {
       memset(out, 0, amount);
       return SQLITE_IOERR_SHORT_READ;
     }
@@ -723,8 +723,9 @@ void CheckMainAtOpen(PaneFile* file, const char* name) {
                                                      sizeof(file->key_id)) == 0;
 
   if (!same_key) {
-    const std::string main(name);
-    CHECK(HasContent(main + "-journal") || HasContent(main + "-wal"))
+    const base::FilePath main = base::FilePath::FromUTF8Unsafe(name);
+    CHECK(HasContent(sql::Database::JournalPath(main)) ||
+          HasContent(sql::Database::WriteAheadLogPath(main)))
         << "A database under another key.";
   }
 }
@@ -744,7 +745,7 @@ int Open(sqlite3_vfs* vfs,
   std::optional<ProfileKeys> keys;
 
   if (name && kinds) {
-    keys = KeysFor(base::FilePath(name));
+    keys = KeysFor(base::FilePath::FromUTF8Unsafe(name));
   }
 
   if (!keys) {
@@ -920,7 +921,7 @@ std::optional<std::array<char, 16>> MagicOf(const base::FilePath& path) {
 std::string UriOf(const base::FilePath& path) {
   std::string uri = "file:";
 
-  for (const char c : path.value()) {
+  for (const char c : path.AsUTF8Unsafe()) {
     if (base::IsAsciiAlpha(c) || base::IsAsciiDigit(c) ||
         std::string_view("/-_.~").find(c) != std::string_view::npos) {
       uri.push_back(c);
@@ -956,8 +957,8 @@ bool SqliteQuickCheckPasses(const base::FilePath& path, const char* vfs) {
   sqlite3* db = nullptr;
   bool passes = false;
 
-  if (sqlite3_open_v2(path.value().c_str(), &db, SQLITE_OPEN_READONLY, vfs) ==
-      SQLITE_OK) {
+  if (sqlite3_open_v2(path.AsUTF8Unsafe().c_str(), &db, SQLITE_OPEN_READONLY,
+                      vfs) == SQLITE_OK) {
     const int checked = sqlite3_exec(
         db, "PRAGMA quick_check(1)",
         [](void* said_ok, int columns, char** values, char**) {
@@ -982,15 +983,16 @@ SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
 
   CHECK(KeysFor(path).has_value());
 
-  base::FilePath temporary = path.AddExtension(".pane-migrating");
+  base::FilePath temporary =
+      path.AddExtension(FILE_PATH_LITERAL(".pane-migrating"));
   base::DeleteFile(temporary);
-  base::DeleteFile(temporary.InsertBeforeExtension("-journal"));
+  base::DeleteFile(
+      temporary.InsertBeforeExtension(FILE_PATH_LITERAL("-journal")));
 
   sqlite3* raw = nullptr;
-  const std::string name = path.value();
 
   // On Chromium's own VFS: the open settles a journal or WAL left in the clear.
-  if (sqlite3_open_v2(name.c_str(), &raw,
+  if (sqlite3_open_v2(path.AsUTF8Unsafe().c_str(), &raw,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_URI,
                       kParentVfsName) != SQLITE_OK) {
     sqlite3_close(raw);
@@ -1040,9 +1042,9 @@ SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
     return SqliteMigration::kFailed;
   }
 
-  base::DeleteFile(base::FilePath(name + "-journal"));
-  base::DeleteFile(base::FilePath(name + "-wal"));
-  base::DeleteFile(base::FilePath(name + "-shm"));
+  base::DeleteFile(sql::Database::JournalPath(path));
+  base::DeleteFile(sql::Database::WriteAheadLogPath(path));
+  base::DeleteFile(sql::Database::SharedMemoryFilePath(path));
 
   base::File directory(path.DirName(),
                        base::File::FLAG_OPEN | base::File::FLAG_READ);

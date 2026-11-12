@@ -65,7 +65,6 @@
 #include "pane/browser/proto_databases.h"
 #include "pane/encryption/engine_keys.h"
 #include "pane/encryption/handover.h"
-#include "pane/encryption/profile_migration.h"
 #include "pane/model/engine_fingerprint.h"
 #include "pane/model/profile.h"
 #include "services/network/enterprise/encryption/pane_cache_hook.h"
@@ -506,21 +505,6 @@ void DropEngineKeys(
         answered.Run();
       },
       left, answered));
-}
-
-bool MigrateProfileFolder(const base::FilePath& root,
-                          base::RepeatingCallback<void(double)> progress) {
-  const base::FilePath profile = root.AppendASCII("Profile");
-  const base::FilePath archive = root.AppendASCII("SafetyCopy");
-
-  // A new profile has nothing to keep.
-  if (base::PathExists(profile.AppendASCII("Preferences")) &&
-      !base::PathExists(archive) && !WriteSafetyCopy(profile, archive)) {
-    return false;
-  }
-
-  return MigrateProfileFiles(profile, root.AppendASCII("Cache"),
-                             std::move(progress));
 }
 
 }  // namespace pane

@@ -12,9 +12,10 @@
 namespace pane {
 
 // Starts Pane's data and UI once the browser has started, and lets the data go
-// once its message loop has ended. Process lifetime needs nothing extra:
-// Chrome's AppController already keeps the browser process alive without
-// windows on macOS, and releases that keep-alive when quitting. Also builds
+// once its message loop has ended. The process lives until Pane quits
+// (StartPlatform): on the Mac, Chrome's AppController keeps the browser
+// process alive without windows, and releases that keep-alive when quitting;
+// on Windows, a keep-alive of Pane's own does the same. Also builds
 // Pane's own services of each profile before the first one
 // (BuildProfileServices), brings up, for each profile as it is added, the
 // services Chrome starts through parts Pane does not run (sync), and hands the
@@ -38,6 +39,11 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   void OnProfileManagerDestroying() override;
 
  private:
+  // The platform's part of PostBrowserStart: Pane's process lives until it
+  // quits, with or without a window, and quits at once, with no warning of
+  // Chrome's.
+  static void StartPlatform();
+
   base::ScopedObservation<ProfileManager, ProfileManagerObserver>
       profile_manager_observation_{this};
   base::CallbackListSubscription app_terminating_subscription_;

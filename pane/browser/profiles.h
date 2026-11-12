@@ -100,13 +100,6 @@ void DropEngineKeys(
     base::OnceCallback<void(size_t browser, uint32_t network, uint32_t storage)>
         done);
 
-// A profile's folder in the volume, `root` (resolved), converted in place by
-// //pane/encryption's migration (ADR 0121), its key registered: a safety copy
-// first, for a profile that has files. On a sequence that may block; a kill
-// at any point loses nothing. `progress` gets the share done.
-bool MigrateProfileFolder(const base::FilePath& root,
-                          base::RepeatingCallback<void(double)> progress);
-
 }  // namespace pane
 
 #endif  // PANE_BROWSER_PROFILES_H_

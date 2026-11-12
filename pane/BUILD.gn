@@ -1,15 +1,15 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
 # The //pane tree: Pane's layer over Chromium's chrome/ layer, and its UI in
-# Views, linked into Pane Framework.framework through //chrome:chrome_dll. On
-# Windows it compiles, not yet links: `gn gen out/Win --root-target=//pane`
-# loads it alone (scripts/compile-windows.sh).
+# Views, linked through //chrome:chrome_dll into Pane Framework.framework on
+# the Mac, and into chrome.dll on Windows (docs/plans/views-migration.md, W1).
 
 source_set("pane") {
   visibility = [ "//chrome:chrome_dll" ]
 
   sources = [
     "app/app_defaults.h",
+    "app/data_launch.cc",
     "app/data_launch.h",
     "app/pane_main_delegate.cc",
     "app/pane_main_delegate.h",
@@ -26,6 +26,7 @@ source_set("pane") {
     "automation/windows.h",
     "browser/browser_context.cc",
     "browser/browser_context.h",
+    "browser/browser_main_extra_parts.cc",
     "browser/browser_main_extra_parts.h",
     "browser/bundled_crl_set.h",
     "browser/caches_in_memory.cc",
@@ -53,11 +54,17 @@ source_set("pane") {
     "browser/site_data.h",
     "browser/socks_relay.cc",
     "browser/socks_relay.h",
+    "browser/ui/browser_window.cc",
+    "browser/ui/browser_window.h",
     "browser/ui/hooks.h",
+    "browser/ui/hosted_tab.cc",
+    "browser/ui/hosted_tab.h",
     "browser/ui/install_hooks.h",
     "browser/ui/ui_hooks.cc",
     "browser/ui/ui_hooks.h",
+    "browser/ui/web_contents_delegate.cc",
     "browser/ui/web_contents_delegate.h",
+    "browser/ui/window_host.cc",
     "browser/ui/window_host.h",
     "browser/web_store.cc",
     "browser/web_store.h",
@@ -199,9 +206,7 @@ source_set("pane") {
     "updates/updater.h",
   ]
 
-  # The Mac's own platform files, and the window layer over Chrome's Browsers
-  # (browser/ui), which builds on the Mac until Windows' Phase 5
-  # (docs/plans/views-migration.md).
+  # The Mac's own platform files.
   if (is_mac) {
     sources += [
       "app/app_defaults_mac.mm",
@@ -212,14 +217,8 @@ source_set("pane") {
       "automation/native_input_mac.mm",
       "automation/system_mac.mm",
       "automation/windows_mac.mm",
-      "browser/browser_main_extra_parts.cc",
+      "browser/browser_main_extra_parts_mac.cc",
       "browser/bundled_crl_set_mac.cc",
-      "browser/ui/browser_window.cc",
-      "browser/ui/browser_window.h",
-      "browser/ui/hosted_tab.cc",
-      "browser/ui/hosted_tab.h",
-      "browser/ui/web_contents_delegate.cc",
-      "browser/ui/window_host.cc",
       "browser/ui/window_host_mac.mm",
       "ui/app/app_events_mac.mm",
       "ui/app/dock_icon_mac.mm",
@@ -233,9 +232,28 @@ source_set("pane") {
     ]
   }
 
-  # Windows' platform files, for G7's compile (it links at Phase 5).
+  # Windows' platform files: each says which item of Phase 5 fills it, where
+  # it is not done yet (docs/plans/views-migration.md).
   if (is_win) {
-    sources += [ "updates/update_installer_win.cc" ]
+    sources += [
+      "app/data_launch_win.cc",
+      "app/version_win.cc",
+      "automation/input_win.cc",
+      "automation/system_win.cc",
+      "automation/windows_win.cc",
+      "browser/browser_main_extra_parts_win.cc",
+      "browser/bundled_crl_set_win.cc",
+      "browser/ui/window_host_win.cc",
+      "ui/app/app_events_win.cc",
+      "ui/app/dock_icon_win.cc",
+      "ui/dialogs/system_alert_win.cc",
+      "ui/interaction_log_win.cc",
+      "ui/page/page_context_menu_win.cc",
+      "ui/panels/time_of_day_win.cc",
+      "ui/sidebar/resize_cursor_win.cc",
+      "ui/window/frame_win.cc",
+      "updates/update_installer_win.cc",
+    ]
   }
 
   # gn check passes over //pane (AGENTS.md's gates). chrome/browser/ui/browser.h
@@ -328,7 +346,6 @@ source_set("pane") {
     "//pane/browser:background_work",
     "//pane/browser:proto_databases",
     "//pane/encryption:handover",
-    "//pane/encryption:migration",
     "//pane/model",
     "//pane/ui/app:commands",
     "//pane/ui/app:lock_triggers",
@@ -364,6 +381,7 @@ source_set("pane") {
       "//chrome/browser/ui/cocoa",
       "//components/remote_cocoa/app_shim",
       "//components/remote_cocoa/common:mojo",
+      "//pane/encryption:migration",
       "//pane/model/mac",
     ]
     frameworks = [
@@ -372,6 +390,13 @@ source_set("pane") {
       "CoreFoundation.framework",
       "CoreServices.framework",
       "Foundation.framework",
+    ]
+  }
+
+  if (is_win) {
+    deps += [
+      "//chrome/browser/ui/views/renderer_context_menu",
+      "//components/keep_alive_registry",
     ]
   }
 }
