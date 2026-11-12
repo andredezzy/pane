@@ -9,6 +9,7 @@
 #include "base/location.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
+#include "pane/ui/design/anchored_menu.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
@@ -16,12 +17,13 @@
 #include "ui/base/menu_source_utils.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
+#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/button_controller.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -293,7 +295,7 @@ void MenuButton::OnMenuWillShow(ui::SimpleMenuModel* source) {
 }
 
 void MenuButton::ShowMenu(const ui::Event& event) {
-  if (!GetWidget() || (menu_runner_ && menu_runner_->IsRunning())) {
+  if (!GetWidget() || (menu_ && menu_->IsRunning())) {
     return;
   }
   if (opening_.asked) {
@@ -303,16 +305,13 @@ void MenuButton::ShowMenu(const ui::Event& event) {
   // release, so the press's own look goes now.
   SetState(STATE_HOVERED);
   highlight_->SetHeld(true);
-  menu_runner_ = std::make_unique<views::MenuRunner>(
-      &menu_model_, views::MenuRunner::CONTEXT_MENU,
+  menu_ = AnchoredMenu::Make(
+      menu_model_,
       base::BindRepeating(&MenuButton::MenuGone, weak_factory_.GetWeakPtr()));
-  // Just under the trigger, its leading edge on the trigger's: the system's
-  // menu shows a context menu's top left at the point it is given.
-  gfx::Point anchor = GetLocalBounds().bottom_left();
-  views::View::ConvertPointToScreen(this, &anchor);
-  menu_runner_->RunMenuAt(GetWidget(), nullptr, gfx::Rect(anchor, gfx::Size()),
-                          views::MenuAnchorPosition::kTopLeft,
-                          ui::GetMenuSourceTypeForEvent(event));
+  // On the Mac it returns once the menu has closed, this perhaps deleted by
+  // then: nothing follows it.
+  menu_->Run(*GetWidget(), MenuAnchorUnder(GetBoundsInScreen()),
+             ui::GetMenuSourceTypeForEvent(event));
 }
 
 void MenuButton::MenuGone() {

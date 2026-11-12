@@ -12,10 +12,32 @@ export type WindowList = {
 };
 
 // On-screen, normal-layer windows owned by the given processes.
-async function windowsOf(...pids: number[]): Promise<WindowList> {
+export async function windowsOf(...pids: number[]): Promise<WindowList> {
 	const binary = await swiftTool("windows");
 
 	return JSON.parse(await Bun.$`${binary} ${pids.map(String)}`.text());
+}
+
+type Bounds = { X: number; Y: number; Width: number; Height: number };
+
+export type MenuWindow = {
+	bounds: Bounds;
+	// The screen the menu's top left is on: all of it, and what the menu bar
+	// and the Dock leave.
+	screen: { frame: Bounds; visible: Bounds };
+};
+
+// The process's open menus, the system's (NSMenu), on screen: their windows'
+// bounds, in points from the main display's top left, as the window list
+// writes them.
+export async function menusOf(pid: number): Promise<MenuWindow[]> {
+	const binary = await swiftTool("windows");
+
+	return (
+		JSON.parse(await Bun.$`${binary} --menus ${String(pid)}`.text()) as {
+			windows: MenuWindow[];
+		}
+	).windows;
 }
 
 // The windows once their count reaches `expected`, or the last list seen

@@ -18,10 +18,11 @@
 
 namespace views {
 class Label;
-class MenuRunner;
 }  // namespace views
 
 namespace pane {
+
+class AnchoredMenu;
 
 // The app's one menu of options (the Swift's PaneMenuButton and its
 // trigger, ADR 0065 and 0070): the option chosen, with its icon if it has
@@ -32,10 +33,11 @@ namespace pane {
 // profile sheet's proxy type): 12 in and 10 from its end, 6 between its
 // parts, its chevrons 12 points and lighter, and as wide as its longest
 // option, so what follows it in the field stays put as the choice changes. A
-// press opens the system's menu of the options just under it, its leading
-// edge on the trigger's, the option chosen checked, and the trigger keeps its
-// hover's look while the menu shows. The options are a flat list, or grouped
-// into submenus between separators (the profile sheet's time zones).
+// press, a key, or an assistive technology opens the system's menu of the
+// options just under it, its leading edge on the trigger's (AnchoredMenu),
+// the option chosen checked, and the trigger keeps its hover's look while the
+// menu shows. The options are a flat list, or grouped into submenus between
+// separators (the profile sheet's time zones).
 // Assistive technologies read `label` as its name and the option as its
 // value (ADR 0071).
 class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
@@ -145,7 +147,10 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
   std::vector<std::unique_ptr<ui::SimpleMenuModel>> submenus_;
   // Embedded, the widest option's title, whose room it keeps.
   int widest_title_ = 0;
-  std::unique_ptr<views::MenuRunner> menu_runner_;
+  // After the models it shows, so a trigger deleted under its open menu
+  // closes the menu while they stand, as the menu's controller requires
+  // (ui/menus/cocoa/menu_controller.h; MenuModelAdapter likewise).
+  std::unique_ptr<AnchoredMenu> menu_;
   Opening opening_;
   base::WeakPtrFactory<MenuButton> weak_factory_{this};
 };

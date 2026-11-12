@@ -1,3 +1,4 @@
+import { checkMenuUnderTrigger } from "../lib/menu-button";
 import { launchPane } from "../lib/pane";
 import { poll, pollValue } from "../lib/poll";
 import { startSocks5Proxy } from "../lib/proxies";
@@ -11,7 +12,9 @@ import { expect, type Scenario } from "../run";
 // proxy that never answers (Testing…) until it times out; spoofing off; Linux
 // chosen. Driven as a hand does: real clicks on the sheet's controls, text
 // set as a screen reader sets it, and the zone and the proxy's type chosen in
-// their menus' models (the system's menus need the front).
+// their menus' models. In front, the system's menus too, each opened by a
+// click under its trigger (Paper 05.7), the proxy's type chosen in it by keys
+// (checkMenuUnderTrigger).
 
 const CREDENTIALS = { username: "travel-user", password: "proxy-secret" };
 
@@ -60,9 +63,9 @@ const viewsProfileSheet: Scenario = async (context) => {
 		// Views' overlay scroller has gone (0.5 s after the scroll).
 		const swipe = (dy: number) => swipeBy(dy, 1_200);
 
-		// A control of the body brought into view first, as a hand swipes to
-		// what it reaches for; the header's and footer's are always in view.
-		const press = async (name: string) => {
+		// A control of the body brought into view, as a hand swipes to what it
+		// reaches for; the header's and footer's are always in view.
+		const reveal = async (name: string) => {
 			if (name.startsWith("pane.profile.") && !/cancel|save|close/.test(name)) {
 				const body = await frame("pane.profile.body");
 				const target = await frame(name);
@@ -75,7 +78,10 @@ const viewsProfileSheet: Scenario = async (context) => {
 					await swipeBy(above);
 				}
 			}
+		};
 
+		const press = async (name: string) => {
+			await reveal(name);
 			await app.click(name);
 			await Bun.sleep(400);
 		};
@@ -137,13 +143,34 @@ const viewsProfileSheet: Scenario = async (context) => {
 
 		expect(newYork !== undefined, `no New York: ${JSON.stringify(zones)}`);
 
+		await reveal("pane.profile.timeZone");
+
+		const timeZone = await checkMenuUnderTrigger(
+			app,
+			context,
+			"pane.profile.timeZone",
+		);
+
 		await app.send("sheetMenu", {
 			menu: "timeZone",
 			choose: ["America", newYork],
 		});
 
+		// SOCKS5, the fourth type, by keys in its menu in front.
 		await press("pane.profile.proxy");
-		await app.send("sheetMenu", { menu: "proxyType", choose: ["SOCKS5"] });
+		await reveal("pane.profile.proxyType");
+
+		const proxyType = await checkMenuUnderTrigger(
+			app,
+			context,
+			"pane.profile.proxyType",
+			{ downs: 4, chosen: "SOCKS5" },
+		);
+
+		if (!proxyType) {
+			await app.send("sheetMenu", { menu: "proxyType", choose: ["SOCKS5"] });
+		}
+
 		await type("proxyHost", "127.0.0.1");
 		await type("proxyPort", String(socks.port));
 		await type("proxyUsername", CREDENTIALS.username);
@@ -259,6 +286,9 @@ const viewsProfileSheet: Scenario = async (context) => {
 		await app.waitFor("the sheet closed", (each) => each.profileSheet === null);
 
 		await app.quit();
+
+		// Where the system's menus showed, in front.
+		return { menus: { timeZone, proxyType } };
 	} finally {
 		socks.stop();
 	}

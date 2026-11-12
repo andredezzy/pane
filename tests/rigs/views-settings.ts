@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import * as net from "node:net";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
+import { checkMenuUnderTrigger, type MenuPlacement } from "../lib/menu-button";
 import { launchPane, type PaneApp, setUpPin, tabOf } from "../lib/pane";
 import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
@@ -12,8 +13,9 @@ import { expect, type Scenario } from "../run";
 // app-icon-picker-automatic and -dusk, settings-app-icon-dusk,
 // settings-pin-set, updates-available, -downloading, and -downloaded) and for
 // what they miss: the picker on every sky, each menu's trigger under the
-// pointer, and each menu's items as its model holds them (the system's menu
-// itself shows on screen, which only a session with the front may open).
+// pointer, and each menu's items as its model holds them; in front, the
+// system's menus too, each opened by a click under its trigger (Paper 05.7),
+// Dark chosen in Theme's by keys (checkMenuUnderTrigger).
 // settings.json as the menus left it, and the update row before any check.
 // Then how long Settings, a Theme, the picker, and a sky take from their
 // input to the frame on screen, read from the app's signposts. For the Views
@@ -324,6 +326,29 @@ async function settings(
 		await menu(app, "pane.settings.tabSleep", "15 min");
 		await menu(app, "pane.settings.profileUnload", "30 min");
 		await menu(app, "pane.settings.cacheBudget", "300 MB");
+
+		// In front, each system menu under its trigger; Dark, Theme's third,
+		// by keys, then System again.
+		const placements: Record<string, MenuPlacement | undefined> = {};
+
+		for (const name of MENUS) {
+			placements[name] = await checkMenuUnderTrigger(
+				app,
+				context,
+				name,
+				name === "pane.settings.theme"
+					? { downs: 3, chosen: "Dark" }
+					: undefined,
+			);
+		}
+
+		log.menuPlacements = placements;
+
+		if (placements["pane.settings.theme"]) {
+			await app.waitFor("Dark", (state) => state.theme === "dark");
+			await menu(app, "pane.settings.theme", "System");
+			await app.waitFor("System again", (state) => state.theme === "system");
+		}
 
 		// Each trigger under the pointer: the foreground at 4% (ADR 0063),
 		// which it keeps while its menu shows.

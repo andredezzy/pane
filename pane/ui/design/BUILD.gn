@@ -14,6 +14,8 @@ source_set("design") {
   ]
 
   sources = [
+    "anchored_menu.cc",
+    "anchored_menu.h",
     "checkbox.cc",
     "checkbox.h",
     "controls.cc",
@@ -79,19 +81,30 @@ source_set("design") {
   ]
 
   # A menu's template icon, which only the Mac's menus tint, the Mac's
-  # selected-text colors, and the system's checkbox, AppKit's own cell.
+  # selected-text colors, the system's checkbox, AppKit's own cell, and a menu
+  # at its anchor, Chromium's own runner's pieces.
   if (is_mac) {
     sources += [
+      "anchored_menu_mac.h",
+      "anchored_menu_mac.mm",
       "checkbox_mac.mm",
       "menu_icon_mac.mm",
       "palette_mac.mm",
     ]
+    deps += [
+      "//components/remote_cocoa/app_shim",
+      "//components/remote_cocoa/common:mojo",
+    ]
     frameworks = [ "AppKit.framework" ]
   }
 
-  # The system's checkbox, the native theme's.
+  # A menu at its anchor, Views' own, and the system's checkbox, the native
+  # theme's.
   if (is_win) {
-    sources += [ "checkbox_win.cc" ]
+    sources += [
+      "anchored_menu_win.cc",
+      "checkbox_win.cc",
+    ]
   }
 }
 
@@ -100,6 +113,7 @@ source_set("unit_tests") {
   visibility = [ "//pane/encryption:pane_unittests" ]
 
   sources = [
+    "anchored_menu_unittest.cc",
     "controls_unittest.cc",
     "dialog_unittest.cc",
     "icons_unittest.cc",
@@ -126,7 +140,14 @@ source_set("unit_tests") {
     "//ui/gfx:test_support",
     "//ui/gfx/animation",
     "//ui/gfx/geometry",
+    "//ui/menus",
     "//ui/native_theme",
     "//ui/views",
   ]
+
+  # The Mac's menu at its anchor, its event and its loop.
+  if (is_mac) {
+    sources += [ "anchored_menu_mac_unittest.mm" ]
+    frameworks = [ "AppKit.framework" ]
+  }
 }

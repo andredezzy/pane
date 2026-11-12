@@ -39,7 +39,8 @@ type NativeWindow = AppState["nativeWindows"][number];
 // Samples the app's windows through a scenario: every visible window must be
 // the app's own (its window, a sheet on it, an app-modal panel) or a menu the
 // system draws (NSPopupMenuWindow: the page's menu, Chrome's own as U2 keeps
-// it, and Pane's through MenuRunner, which show with Pane in front). Anything
+// it, and Pane's through MenuRunner and AnchoredMenu, which show with Pane in
+// front). Anything
 // else is Chrome's UI showing through, which stop() fails on, but for what
 // `expected` allows.
 export class WindowWatcher {
