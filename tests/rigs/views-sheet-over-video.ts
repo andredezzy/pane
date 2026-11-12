@@ -8,7 +8,8 @@ import { expect, type Scenario } from "../run";
 // through `hitTest`, which reports who the platform hands a press, so no
 // input is needed in the background); the frames of the sheet's animation
 // are counted from Chromium's PipelineReporter while the video plays. With
-// the front (run.ts --foreground), real clicks and keys go to the sheet too.
+// the front (run.ts --foreground), a real key goes to the sheet, and a real
+// click on its scrim reaches no part of the page and closes it.
 
 const viewsSheetOverVideo: Scenario = async (context) => {
 	const app = await launchPane(context);
@@ -57,24 +58,34 @@ const viewsSheetOverVideo: Scenario = async (context) => {
 	);
 
 	if (context.foreground) {
-		await app.send("openProfileSheet");
 		const clicks = () => page.evaluate<number>("window.clicks ?? 0");
 
 		await page.evaluate(
 			"window.clicks = 0; addEventListener('click', () => window.clicks++)",
 		);
 
-		await app.send("clickWindow", scrim);
+		// A real key goes to the sheet, whose name field has the keys as it
+		// opens (ADR 0120), not to the page under it.
+		await app.send("openProfileSheet");
 		await app.send("key", { key: "a" });
-		const state = await app.state();
-		expect((await clicks()) === 0, "a click on the scrim reached the page");
+		const typing = await app.state();
 
 		expect(
-			state.focus.startsWith("pane.profile"),
-			"the sheet lost the keyboard",
+			typing.focus.startsWith("pane.profile"),
+			`the sheet lost the keyboard: ${typing.focus}`,
 		);
 
-		await app.send("closeProfileSheet");
+		// A real click on the scrim reaches no part of the page and closes the
+		// sheet, as the Swift's tap on its scrim did (N1).
+		await app.send("clickWindow", scrim);
+
+		await app.waitFor(
+			"the sheet closed by a click on its scrim",
+			(state) => state.profileSheet === null,
+			5_000,
+		);
+
+		expect((await clicks()) === 0, "a click on the scrim reached the page");
 	} else {
 		context.defer(
 			"real clicks and keys into the sheet: they need Pane in front",

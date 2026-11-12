@@ -119,7 +119,7 @@ Together they allocate 2.7 MB, under 2% of 0.19.2's 149 MB at one tab; if the fo
 
 Found and not taken, at no frame's cost: the volume's watchdog reads 2.6 MB where 0.19.2's Swift one read 2.0. The C++ one is linked against `pane/model/mac` whole, so its code reaches AppKit (`NSWorkspace`), LocalAuthentication, CryptoTokenKit, and Security, and 18 libraries load with it, which a narrower dependency may leave out: not tried here.
 
-## The keys, in the background
+## The keys, in the background and in front
 
 From the key to the frame, three runs of 30 rounds each, taking turns, the same keys through either build's channel (the cmdt-probe's `ab-key-timing.ts`): the median of the runs' medians (and of their p90s). 0.19.2's intervals end at its commit to Core Animation, so the budget compares the Views build's at the same point; `late=` is when its UI thread heard of the frame, and the screen is when its GPU process predicts the frame reaches it.
 
@@ -130,7 +130,25 @@ From the key to the frame, three runs of 30 rounds each, taking turns, the same 
 | Address field (⌘L) | 14.9 ms (22.8) | 2.4 ms (4.7) | 8.4 ms (12.3) | 17.0 ms | ≤ 0.19.2's | ✓ |
 | A tab woken, to its first paint | — | 46.8 ms (50.7) | 54.5 ms (58.4) | 57.8 ms | | |
 
-The gate measured these with Pane in front (`interaction-timing`, ADR 0012), which waits for a session that may take the front; in the background the keys reach the window through AppKit's queue and Views' own dispatch, the Swift's through its own.
+In the background the keys reach the window through AppKit's queue and Views' own dispatch, the Swift's through its own; the gate measured them with Pane in front, below.
+
+### With Pane in front
+
+The gate's own measure (`interaction-timing`, ADR 0012), each build taking the front for its runs: five rounds taking turns, 10 runs of 10, on 2026-11-12 from 04:01 to 04:11, the Mac idle (no one at it), a stripped package of `main` at `dd7f1fd` against the published 0.19.2, the one-minute load 5.1 to 9.3 (6.7 at the median: another session's iOS Simulator and its UI tests). From each interaction's input to the frame Core Animation commits for it, the median of the five rounds' medians (and of their p90s).
+
+| | 0.19.2 | Views | Change | Budget | |
+|---|---:|---:|---:|---|---|
+| A tab switch | 12.8 ms (21.1) | 4.5 ms (10.2) | −8.3 ms | ≤ 0.19.2's | ✓ |
+| New tab (File › New Tab) | 14.2 ms (18.5) | 5.0 ms (6.5) | −9.2 ms | ≤ 0.19.2's | ✓ |
+| Focus the address field | 13.3 ms (17.5) | 2.5 ms (6.4) | −10.8 ms | ≤ 0.19.2's | ✓ |
+| Open the profile sheet | 46.6 ms (88.9) | 3.3 ms (10.0) | −43.3 ms | | |
+| Choose a platform tile | 3.1 ms (16.1) | 3.9 ms (12.1) | +0.8 ms | | |
+| A click into the address | — | 2.2 ms (3.0) | | | |
+| The tab switcher | — | 3.7 ms (4.9) | | | |
+| A tab woken, to its first paint | — | 44.4 ms (49.2) | | | |
+| Test connection, to its answer | — | 16.3 ms (19.7) | | | |
+
+A platform tile is pressed through accessibility on 0.19.2 (its channel names no frames) and by a real click on the Views build, so that row compares two inputs, not two builds. The rows with no 0.19.2 value are the Views build's alone.
 
 ## Nothing that worked broke
 
@@ -209,7 +227,7 @@ By the plan's table's commands, on the final tree (`main` at `1f2ea43` with K2b'
 
 - **The Mac was in use.** Its user's apps ran throughout, one of them a renderer at a full core, and another session's iOS Simulator with its test runner: the one-minute load is in the raw data, sampled every 30 s. Taking turns puts a trend on both builds alike; it doesn't remove the noise, which is largest in what a real site's network decides.
 - **Both builds stripped and signed, neither notarized:** 0.19.2 as its dmg shipped it, the candidate as `dist.sh` packages one (`PANE_STRIP=1`), ad hoc, with the hardened runtime.
-- **The keys are timed in the background.** With Pane behind the app in use, a key reaches the window through AppKit's queue and Views' own dispatch (ADR 0012): the Swift's intervals end at its commit to Core Animation, the Views build's at the same point (`committed`), and at the screen as its GPU process predicts it (`presented`). The gate's own measure takes the front (`interaction-timing`), which waits for a session that can take it.
+- **The keys are timed in the background.** With Pane behind the app in use, a key reaches the window through AppKit's queue and Views' own dispatch (ADR 0012): the Swift's intervals end at its commit to Core Animation, the Views build's at the same point (`committed`), and at the screen as its GPU process predicts it (`presented`). The gate's own measure, which takes the front (`interaction-timing`), ran in a session that could take it (The keys, in the background and in front › With Pane in front).
 - **Renders leave the page out,** in both builds: the page's own pixels are Chromium's, and the A/B's page loads measure them.
 - **Memory's rows ran again on AC power,** three rounds from 22:35, the final tree against 0.19.2. A run from 21:36, on battery, lost its candidate's first two rounds to the Mac: the screen locked under the first, and the Mac slept with its lid closed from 21:55 to 22:30 under the second. It is left out (its one 0.19.2 round read 151.2 MB at one tab, these three 149.4 by their median).
 
@@ -223,10 +241,10 @@ bun tests/ab.ts --base <0.19.2>/Contents/MacOS/Pane --candidate <dir>/Pane.app/C
 	--out <out> --rounds 3 launch unlock pages memory scroll frame-latency
 ```
 
-The keys in the background, on either build, through its own channel (`evidence/views-migration/cmdt-probe/ab-key-timing.ts`, kept with the evidence), three runs each, taking turns; and with Pane in front, as the gate measured them, once the Mac's user allows it:
+The keys in the background, on either build, through its own channel (`evidence/views-migration/cmdt-probe/ab-key-timing.ts`, kept with the evidence), three runs each, taking turns; and with Pane in front, as the gate measured them, on an idle Mac or with its user's word (`CI=true` is what makes `run.ts` take the front for `ab.ts`'s runs; `run.ts:134`):
 
 ```bash
-bun tests/ab.ts --base <0.19.2> --candidate <Views> --out <out> --rounds 5 interaction-timing
+CI=true bun tests/ab.ts --base <0.19.2> --candidate <Views> --out <out> --rounds 5 interaction-timing
 ```
 
 The renders, light and dark, from the rigs (`tests/rigs/surfaces.ts` and `views-*.ts`, `--appearance light|dark`), and the boards from Paper's local MCP (`export`, 2×, read only).

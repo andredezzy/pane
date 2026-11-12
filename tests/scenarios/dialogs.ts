@@ -115,6 +115,38 @@ const dialogs: Scenario = async (context) => {
 		`Cancel gave ${JSON.stringify(cancelled.value)}`,
 	);
 
+	// Typed into the prompt by real keys, through AppKit's queue, its default
+	// text selected and replaced: the Mac hands each key to the views before
+	// the field's text input inserts it, and the dialog had kept every one.
+	if (context.foreground) {
+		await prompt.page.evaluate("runPrompt()");
+		await waitForSheet(app, "javaScript");
+		await app.send("activate");
+		await app.waitFor("the key window", (state) => state.window.key, 10_000);
+
+		for (const key of "quilt") {
+			await app.send("key", { key });
+		}
+
+		await app.waitFor(
+			"the typed text in the prompt's field",
+			(state) => state.sheet?.fields?.[0] === "quilt",
+			5_000,
+		);
+
+		await pressWindowKey(context, app, "\r");
+		const keyed = await prompt.result<{ value: string | null }>();
+
+		expect(
+			keyed.value === "quilt",
+			`the prompt typed into gave ${JSON.stringify(keyed.value)}`,
+		);
+	} else {
+		context.defer(
+			"typing into the prompt by real keys: it needs Pane in front (run.ts --foreground)",
+		);
+	}
+
 	// beforeunload: Cancel keeps the tab (and its page), Leave closes it. Chrome
 	// asks only on a page the user interacted with.
 	const leaving = await openDialogs("beforeunload");

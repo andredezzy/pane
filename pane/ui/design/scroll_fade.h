@@ -5,6 +5,7 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "ui/color/color_variant.h"
 #include "ui/views/view.h"
@@ -54,12 +55,21 @@ class FadingScrollView : public views::View, public views::ViewObserver {
 
   // Each fade's height from where the list stands.
   void UpdateFades();
+  // The list moved: its fades follow, and what the pointer is over now hears
+  // so once the scroll is through.
+  void Scrolled();
+  // The rows moved under a pointer that didn't: the window takes a move
+  // where it is (the Mac sends none, where Aura does), unless a press is
+  // under way, which keeps its own.
+  void RefreshHover();
 
   raw_ptr<views::ScrollView> scroll_view_ = nullptr;
   raw_ptr<Fade> top_ = nullptr;
   raw_ptr<Fade> bottom_ = nullptr;
   base::CallbackListSubscription scrolled_;
   base::ScopedObservation<views::View, views::ViewObserver> contents_{this};
+  bool hover_refresh_pending_ = false;
+  base::WeakPtrFactory<FadingScrollView> weak_factory_{this};
 };
 
 }  // namespace pane

@@ -456,6 +456,17 @@ bool PageDialog::OnKeyPressed(const ui::KeyEvent& event) {
   }
   if (event.key_code() == ui::VKEY_TAB) {
     MoveFocus(event.IsShiftDown());
+    return true;
+  }
+  // What is typed into a field is the field's: the Mac hands each key to the
+  // views before the field's text input inserts it, and a key taken here
+  // would never be typed (prompt(), a site's or a proxy's sign-in).
+  const views::FocusManager* focus = GetFocusManager();
+  const views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+  if (std::ranges::any_of(fields_, [focused](const raw_ptr<Field>& field) {
+        return field.get() == focused;
+      })) {
+    return false;
   }
   // No other key reaches what is under it.
   return true;

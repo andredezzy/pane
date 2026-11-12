@@ -8,6 +8,8 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/location.h"
+#include "base/task/sequenced_task_runner.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_shader.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -15,6 +17,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/controls/scroll_view.h"
+#include "ui/views/widget/widget.h"
 
 namespace pane {
 
@@ -81,8 +84,8 @@ FadingScrollView::FadingScrollView(ui::ColorVariant behind,
   // The fades are its edges' only mark: Views' separator where the content
   // runs past an edge, Material's blue, stays off (it sat under the fade).
   scroll_view_->SetDrawOverflowIndicator(false);
-  scrolled_ = scroll_view_->AddContentsScrolledCallback(base::BindRepeating(
-      &FadingScrollView::UpdateFades, base::Unretained(this)));
+  scrolled_ = scroll_view_->AddContentsScrolledCallback(
+      base::BindRepeating(&FadingScrollView::Scrolled, base::Unretained(this)));
   if (fades_top) {
     top_ = AddChildView(std::make_unique<Fade>(behind, /*from_top=*/true));
   }
@@ -114,6 +117,25 @@ void FadingScrollView::Layout(PassKey) {
 
 void FadingScrollView::OnViewBoundsChanged(views::View* view) {
   UpdateFades();
+}
+
+void FadingScrollView::Scrolled() {
+  UpdateFades();
+  // Once for the scroll's steps that one turn of the loop brings.
+  if (!std::exchange(hover_refresh_pending_, true)) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&FadingScrollView::RefreshHover,
+                                  weak_factory_.GetWeakPtr()));
+  }
+}
+
+void FadingScrollView::RefreshHover() {
+  hover_refresh_pending_ = false;
+  views::Widget* widget = GetWidget();
+  if (widget && widget->IsVisible() && !widget->IsMouseButtonDown() &&
+      IsMouseHovered()) {
+    widget->SynthesizeMouseMoveEvent();
+  }
 }
 
 void FadingScrollView::UpdateFades() {

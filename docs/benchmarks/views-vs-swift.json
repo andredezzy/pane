@@ -7130,5 +7130,334 @@
 				]
 			}
 		}
+	},
+	"interactionsInFront": {
+		"what": "interaction-timing with each build taking the front (CI=true bun tests/ab.ts --rounds 5 interaction-timing), 2026-11-12 04:01-04:11, the Mac idle; base: the published 0.19.2; candidate: a stripped package (PANE_STRIP=1 scripts/package.sh) of main at dd7f1fd. The median of the rounds' medians and p90s, input to the frame Core Animation commits, in ms. Choose platform compares an accessibility press (0.19.2) with a real click (Views).",
+		"runs": [
+			{
+				"round": 1,
+				"benchmark": "interaction-timing",
+				"side": "base",
+				"ok": true,
+				"ms": 65545
+			},
+			{
+				"round": 1,
+				"benchmark": "interaction-timing",
+				"side": "candidate",
+				"ok": true,
+				"ms": 59348
+			},
+			{
+				"round": 2,
+				"benchmark": "interaction-timing",
+				"side": "candidate",
+				"ok": true,
+				"ms": 57444
+			},
+			{
+				"round": 2,
+				"benchmark": "interaction-timing",
+				"side": "base",
+				"ok": true,
+				"ms": 64641
+			},
+			{
+				"round": 3,
+				"benchmark": "interaction-timing",
+				"side": "base",
+				"ok": true,
+				"ms": 64943
+			},
+			{
+				"round": 3,
+				"benchmark": "interaction-timing",
+				"side": "candidate",
+				"ok": true,
+				"ms": 57591
+			},
+			{
+				"round": 4,
+				"benchmark": "interaction-timing",
+				"side": "candidate",
+				"ok": true,
+				"ms": 57619
+			},
+			{
+				"round": 4,
+				"benchmark": "interaction-timing",
+				"side": "base",
+				"ok": true,
+				"ms": 65139
+			},
+			{
+				"round": 5,
+				"benchmark": "interaction-timing",
+				"side": "base",
+				"ok": true,
+				"ms": 64944
+			},
+			{
+				"round": 5,
+				"benchmark": "interaction-timing",
+				"side": "candidate",
+				"ok": true,
+				"ms": 57633
+			}
+		],
+		"rows": {
+			"Select tab.medianMs": {
+				"base": 12.8,
+				"candidate": 4.5,
+				"difference": -8.3,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Select tab.p90Ms": {
+				"base": 21.1,
+				"candidate": 10.2,
+				"difference": -10.900000000000002,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"New tab.medianMs": {
+				"base": 14.2,
+				"candidate": 5,
+				"difference": -9.2,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"New tab.p90Ms": {
+				"base": 18.5,
+				"candidate": 6.5,
+				"difference": -12,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Focus address field.medianMs": {
+				"base": 13.3,
+				"candidate": 2.5,
+				"difference": -10.8,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Focus address field.p90Ms": {
+				"base": 17.5,
+				"candidate": 6.4,
+				"difference": -11.1,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Open profile sheet.medianMs": {
+				"base": 46.6,
+				"candidate": 3.3,
+				"difference": -43.300000000000004,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Open profile sheet.p90Ms": {
+				"base": 88.9,
+				"candidate": 10,
+				"difference": -78.9,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Choose platform.medianMs": {
+				"base": 3.1,
+				"candidate": 3.9,
+				"difference": 0.7999999999999998,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Choose platform.p90Ms": {
+				"base": 16.1,
+				"candidate": 12.1,
+				"difference": -4.000000000000002,
+				"rounds": {
+					"base": 5,
+					"candidate": 5
+				}
+			},
+			"Click address field.medianMs": {
+				"base": null,
+				"candidate": 2.2,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			},
+			"Click address field.p90Ms": {
+				"base": null,
+				"candidate": 3,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			},
+			"Open switcher.medianMs": {
+				"base": null,
+				"candidate": 3.7,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			},
+			"Open switcher.p90Ms": {
+				"base": null,
+				"candidate": 4.9,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			},
+			"Wake tab.medianMs": {
+				"base": null,
+				"candidate": 44.4,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			},
+			"Wake tab.p90Ms": {
+				"base": null,
+				"candidate": 49.2,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			},
+			"Test proxy.medianMs": {
+				"base": null,
+				"candidate": 16.3,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			},
+			"Test proxy.p90Ms": {
+				"base": null,
+				"candidate": 19.7,
+				"difference": null,
+				"rounds": {
+					"base": 0,
+					"candidate": 5
+				}
+			}
+		},
+		"loadSamples": [
+			{
+				"at": "04:01:14",
+				"load1": 7.04
+			},
+			{
+				"at": "04:01:45",
+				"load1": 6.98
+			},
+			{
+				"at": "04:02:15",
+				"load1": 6.79
+			},
+			{
+				"at": "04:02:45",
+				"load1": 7.17
+			},
+			{
+				"at": "04:03:15",
+				"load1": 7.93
+			},
+			{
+				"at": "04:03:45",
+				"load1": 6.35
+			},
+			{
+				"at": "04:04:15",
+				"load1": 5.9
+			},
+			{
+				"at": "04:04:45",
+				"load1": 6.27
+			},
+			{
+				"at": "04:05:15",
+				"load1": 6.24
+			},
+			{
+				"at": "04:05:45",
+				"load1": 7.38
+			},
+			{
+				"at": "04:06:15",
+				"load1": 6.21
+			},
+			{
+				"at": "04:06:45",
+				"load1": 6.36
+			},
+			{
+				"at": "04:07:15",
+				"load1": 7.85
+			},
+			{
+				"at": "04:07:45",
+				"load1": 5.78
+			},
+			{
+				"at": "04:08:15",
+				"load1": 9.28
+			},
+			{
+				"at": "04:08:45",
+				"load1": 8.47
+			},
+			{
+				"at": "04:09:15",
+				"load1": 6.84
+			},
+			{
+				"at": "04:09:45",
+				"load1": 8.19
+			},
+			{
+				"at": "04:10:15",
+				"load1": 6.7
+			},
+			{
+				"at": "04:10:45",
+				"load1": 6.15
+			},
+			{
+				"at": "04:11:15",
+				"load1": 5.62
+			},
+			{
+				"at": "04:11:45",
+				"load1": 5.14
+			}
+		]
 	}
 }
