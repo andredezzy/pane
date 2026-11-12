@@ -18,6 +18,26 @@ export async function windowsOf(...pids: number[]): Promise<WindowList> {
 	return JSON.parse(await Bun.$`${binary} ${pids.map(String)}`.text());
 }
 
+// An element of a window's accessibility tree, as a screen reader reaches it.
+export type AccessibleElement = {
+	depth: number;
+	role: string;
+	subrole: string;
+	title: string;
+	description: string;
+	value: string;
+};
+
+// What a screen reader reaches of the process's windows, element by element
+// in VoiceOver's order. It reads only; a locked screen hides every window.
+export async function accessibilityTree(
+	pid: number,
+): Promise<AccessibleElement[]> {
+	const binary = await swiftTool("ax-tree");
+
+	return JSON.parse(await Bun.$`${binary} ${String(pid)}`.text());
+}
+
 type Bounds = { X: number; Y: number; Width: number; Height: number };
 
 export type MenuWindow = {

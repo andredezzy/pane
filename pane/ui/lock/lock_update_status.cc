@@ -98,6 +98,9 @@ LockUpdateStatus::LockUpdateStatus(base::RepeatingClosure action)
       MakeLabel(std::u16string(), kStatusText, kPaneColorMutedForeground));
   eta_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   eta_->SetCanProcessEventsWithinSubtree(false);
+  // Read under the PIN screen's panel, which holds the keys.
+  ExposeToScreenReaders(*label_);
+  ExposeToScreenReaders(*eta_);
   action_ = AddChildView(std::make_unique<Action>(std::move(action)));
 }
 

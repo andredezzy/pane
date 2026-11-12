@@ -281,8 +281,16 @@ class RootView : public views::View {
   // window's accelerator for it, which the handler ahead of a focused view
   // can't hear then.
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
+  // A layer showing, hiding, coming, or going changes what a screen reader
+  // reaches (UpdateAccessibleLayers).
+  void ChildVisibilityChanged(views::View* child) override;
+  void ViewHierarchyChanged(
+      const views::ViewHierarchyChangedDetails& details) override;
 
  private:
+  // A screen reader reaches the layers that show, and none under the PIN
+  // screen, a sheet, or a dialog that shows (UpdateAccessibleLayers).
+  void UpdateScreenReaderLayers();
   // The content panel's shape, where the window draws its card.
   SkPath PanelPath() const;
   // The page's corners, and docked DevTools', as their layers round them.

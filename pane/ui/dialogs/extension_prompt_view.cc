@@ -176,6 +176,9 @@ class ExtensionPromptView::Permissions : public views::View {
         MakeLabel(heading, kPermission, kPaneColorAccentForeground));
     heading_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     heading_->SetMultiLine(true);
+    // Read in the prompt, which holds the keys: the heading and each
+    // permission, not its bullet.
+    ExposeToScreenReaders(*heading_);
     for (const std::u16string& permission : permissions) {
       Row row;
       row.bullet = AddChildView(
@@ -185,6 +188,7 @@ class ExtensionPromptView::Permissions : public views::View {
           MakeLabel(permission, kPermission, kPaneColorAccentForeground));
       row.text->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       row.text->SetMultiLine(true);
+      ExposeToScreenReaders(*row.text);
       rows_.push_back(row);
     }
   }

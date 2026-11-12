@@ -1475,6 +1475,10 @@ ProfileSheet::ProfileSheet(Callbacks callbacks)
     auto zone = std::make_unique<Row>(kZoneSpacing);
     zone_labels_ = zone->Add(
         std::make_unique<RowLabels>(u"Time zone", gfx::Insets()), true);
+    // Read as the menu's own name and description, as a switch reads its
+    // row's labels: VoiceOver read the title, then the menu by the same name.
+    zone_labels_->GetViewAccessibility().SetIsLeaf(true);
+    zone_labels_->GetViewAccessibility().SetIsIgnored(true);
     zone_ =
         zone->Add(std::make_unique<MenuButton>(
                       u"Time zone",
@@ -1731,6 +1735,7 @@ void ProfileSheet::Show(bool animate) {
   }
   warning_->SetShown(cross_os, compositor);
   zone_labels_->SetNote(ZoneNote(), animate);
+  zone_->GetViewAccessibility().SetDescription(ZoneNote());
   const auto zone = std::ranges::find(zone_ids_, draft_.time_zone);
   zone_->SetSelected(zone == zone_ids_.end() ? std::nullopt
                                              : std::make_optional<size_t>(

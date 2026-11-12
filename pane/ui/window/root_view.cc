@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/task/sequenced_task_runner.h"
 #include "pane/ui/after_frame.h"
+#include "pane/ui/design/accessible_layers.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/motion.h"
@@ -512,6 +513,7 @@ void RootView::ShowLock(const LockScreenView::Shows& shows) {
 void RootView::RaiseTopOverlays() {
   ReorderChildView(lock_, children().size());
   ReorderChildView(hint_, children().size());
+  UpdateScreenReaderLayers();
 }
 
 void RootView::ShakePin() {
@@ -1058,6 +1060,27 @@ bool RootView::AcceleratorPressed(const ui::Accelerator& accelerator) {
                                  accelerator.modifiers()));
 }
 
+void RootView::ChildVisibilityChanged(views::View* child) {
+  views::View::ChildVisibilityChanged(child);
+  UpdateScreenReaderLayers();
+}
+
+void RootView::ViewHierarchyChanged(
+    const views::ViewHierarchyChangedDetails& details) {
+  views::View::ViewHierarchyChanged(details);
+  if (details.parent == this) {
+    UpdateScreenReaderLayers();
+  }
+}
+
+void RootView::UpdateScreenReaderLayers() {
+  UpdateAccessibleLayers(*this, [this](const views::View& child) {
+    return &child == lock_.get() || &child == quit_dialog_.get() ||
+           &child == app_icon_dialog_.get() || &child == profile_sheet_.get() ||
+           &child == extension_prompt_.get() || &child == page_dialog_.get();
+  });
+}
+
 ExtensionsMenuView* RootView::extensions_menu() {
   return extensions_card_->GetVisible() ? extensions_menu_.get() : nullptr;
 }
@@ -1074,6 +1097,7 @@ void RootView::ShowExtensionPrompt(const ExtensionPrompt& prompt,
                               base::Unretained(callbacks_.extensions.get()))),
       GetIndexOf(switcher_).value());
   PlaceExtensionPrompt();
+  UpdateScreenReaderLayers();
   // It takes the keys; what had them gets them back once it is answered.
   views::FocusManager* focus = GetFocusManager();
   views::View* focused = focus ? focus->GetFocusedView() : nullptr;
@@ -1187,6 +1211,7 @@ void RootView::ShowExclusiveAccessHint(const std::u16string& hint) {
   if (!hint.empty()) {
     // Over whatever came after it.
     ReorderChildView(hint_, children().size());
+    UpdateScreenReaderLayers();
     InvalidateLayout();
   }
 }

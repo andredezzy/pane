@@ -92,6 +92,14 @@ std::unique_ptr<views::Label> MakeLabel(const std::u16string& text,
                                         const TextStyle& style,
                                         ui::ColorVariant color);
 
+// Lets a screen reader reach `view`, text that says something inside a view
+// that holds the keys (the PIN screen, Settings, a dialog): outside ChromeOS,
+// Chromium leaves out every view that can't take the focus under one that can
+// (ViewAccessibility::UpdateIgnoredState), as a button's own label, so
+// VoiceOver read none of their text. It takes the focus in accessibility mode
+// alone, as the body text of Chromium's own dialogs does.
+void ExposeToScreenReaders(views::View& view);
+
 // A count in Pane's text whose digits each sit in a cell as wide as the
 // font's figures (its zero), centered in it, so it holds still as it counts,
 // as SwiftUI's .monospacedDigit() held it: the find bar's match count, the one

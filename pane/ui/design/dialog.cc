@@ -55,10 +55,14 @@ DialogHeading::DialogHeading(const std::u16string& title,
                              ui::ColorVariant message_color) {
   title_ = AddChildView(MakeLabel(title, kTitle, kPaneColorForeground));
   title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  title_->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
   message_ =
       AddChildView(MakeLabel(message, kMessage, std::move(message_color)));
   message_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   message_->SetMultiLine(true);
+  // Read in the dialog, which holds the keys (Quit Pane?'s).
+  ExposeToScreenReaders(*title_);
+  ExposeToScreenReaders(*message_);
 }
 
 DialogHeading::~DialogHeading() = default;

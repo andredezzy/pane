@@ -219,6 +219,8 @@ PageDialog::PageDialog(const PageDialogContent& content, Answer answer)
           MakeLabel(line, kMessage, kPaneColorAlertText));
       label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       label->SetMultiLine(true);
+      // What the page says, read in the dialog, which holds the keys.
+      ExposeToScreenReaders(*label);
       message_lines_.push_back(label);
     }
   }

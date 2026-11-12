@@ -81,6 +81,10 @@ std::unique_ptr<views::Label> MakeLabel(const std::u16string& text,
   return label;
 }
 
+void ExposeToScreenReaders(views::View& view) {
+  view.SetFocusBehavior(views::View::FocusBehavior::ACCESSIBLE_ONLY);
+}
+
 DigitCellsLabel::Glyph::Glyph() = default;
 DigitCellsLabel::Glyph::Glyph(Glyph&&) = default;
 DigitCellsLabel::Glyph& DigitCellsLabel::Glyph::operator=(Glyph&&) = default;

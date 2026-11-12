@@ -47,6 +47,9 @@ SadTabView::SadTabView(base::RepeatingClosure reload)
   message_ = AddChildView(
       MakeLabel(u"Something went wrong while displaying this page.", kMessage,
                 kPaneColorMutedForeground));
+  // Read after the name the title gives it, under the view that holds the
+  // keys; the title, its name, isn't read twice.
+  ExposeToScreenReaders(*message_);
   button_ = AddChildView(std::make_unique<TextButton>(
       base::BindRepeating([](SadTabView* view) { view->reload_.Run(); },
                           base::Unretained(this)),

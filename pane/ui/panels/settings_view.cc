@@ -165,10 +165,17 @@ class SettingsView::Row : public views::View {
       (*label)->SetMultiLine(true);
     }
     description_->SetVisible(!description.empty());
+    // Read before the row's controls, which carry its title as their names;
+    // the title itself stays out, so it isn't read twice.
+    ExposeToScreenReaders(*description_);
     outgoing_->SetVisible(false);
     outgoing_->GetViewAccessibility().SetIsIgnored(true);
     controls_ = AddChildView(std::make_unique<views::View>());
   }
+
+  // A row whose control is text, not named by the title (the version's):
+  // the title is read before it.
+  void ExposeTitle() { ExposeToScreenReaders(*title_); }
 
   // Each control after the one before, 8 apart.
   template <typename T>
@@ -391,12 +398,16 @@ class SettingsView::Contents : public views::View {
         MakeLabel(u"Settings", kPageTitle, kPaneColorAccentForeground));
     title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     title_->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+    ExposeToScreenReaders(*title_);
   }
 
   Card* AddGroup(const std::u16string& title) {
     views::Label* label =
         AddChildView(MakeLabel(title, kGroupLabel, kPaneColorMutedForeground));
     label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+    // Each section's label heads it, as the Swift's Form's sections were.
+    label->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+    ExposeToScreenReaders(*label);
     Card* card = AddChildView(std::make_unique<Card>());
     groups_.push_back({label, card});
     return card;
@@ -674,8 +685,9 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
   update_button_->SetID(kViewIdSettingsCheckUpdates);
   version_row_ =
       updates->AddRow(std::make_unique<Row>(u"Version", std::u16string()));
-  version_row_->AddControl(
-      MakeLabel(std::u16string(), kVersion, kPaneColorMutedForeground));
+  version_row_->ExposeTitle();
+  ExposeToScreenReaders(*version_row_->AddControl(
+      MakeLabel(std::u16string(), kVersion, kPaneColorMutedForeground)));
 
   images_observation_.Observe(&images);
   SetShows(shows_);

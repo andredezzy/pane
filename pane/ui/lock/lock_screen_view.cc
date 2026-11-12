@@ -5,11 +5,15 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "pane/model/security.h"
 #include "pane/ui/design/controls.h"
@@ -182,6 +186,13 @@ class LockScreenView::PinContent : public views::View {
     error_->SetMultiLine(true);
     attempts_ = AddChildView(Message(std::u16string(), kPaneColorPinQuiet));
     attempts_->SetID(kViewIdLockScreenAttempts);
+    // The panel holds the keys, so its text is read only exposed: the step's
+    // title, the dots (PinDots), the hint, the error, and the attempts left,
+    // as the Swift's PIN screen read them.
+    for (views::Label* text :
+         {title_.get(), hint_.get(), error_.get(), attempts_.get()}) {
+      ExposeToScreenReaders(*text);
+    }
   }
 
   PinDots* dots() { return dots_; }
@@ -206,6 +217,9 @@ class LockScreenView::PinContent : public views::View {
          base::NumberToString16(static_cast<int>(entry.entered().size())),
          u"-digit PIN"}));
 
+    const std::u16string error_before = error_->GetVisible()
+                                            ? std::u16string(error_->GetText())
+                                            : std::u16string();
     error_->SetVisible(entry.error().has_value());
     error_->SetText(entry.error() ? base::UTF8ToUTF16(*entry.error())
                                   : std::u16string());
@@ -220,6 +234,20 @@ class LockScreenView::PinContent : public views::View {
                                            u" attempts remaining"}));
     attempts_->SetEnabledColor(remaining == 1 ? kPaneColorDestructive
                                               : kPaneColorPinQuiet);
+
+    // A wrong PIN is said as it shows, which the dots' shake alone tells the
+    // eye: a new error, and the attempts left once one more has failed.
+    std::vector<std::u16string_view> said;
+    if (error_->GetVisible() && error_->GetText() != error_before) {
+      said.push_back(error_->GetText());
+    }
+    if (attempts_->GetVisible() && failed_attempts > failed_attempts_) {
+      said.push_back(attempts_->GetText());
+    }
+    failed_attempts_ = failed_attempts;
+    if (!said.empty()) {
+      GetViewAccessibility().AnnounceAlert(base::JoinString(said, u". "));
+    }
     InvalidateLayout();
   }
 
@@ -283,6 +311,8 @@ class LockScreenView::PinContent : public views::View {
   raw_ptr<TextButton> continue_ = nullptr;
   raw_ptr<views::Label> error_ = nullptr;
   raw_ptr<views::Label> attempts_ = nullptr;
+  // The failed attempts last shown, so each new one is said once.
+  int failed_attempts_ = 0;
 };
 
 BEGIN_METADATA(LockScreenView, PinContent)
@@ -304,6 +334,8 @@ class LockScreenView::MoveContent : public views::View {
     layer()->SetFillsBoundsOpaquely(false);
     GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
     GetViewAccessibility().SetName(u"Encrypting your data");
+    // Read, under the panel that holds the keys, as one element.
+    ExposeToScreenReaders(*this);
     title_ = AddChildView(Message(u"Encrypting your data", kPaneColorPinTitle));
     bar_ = AddChildView(std::make_unique<UpdateBar>());
     note_ =

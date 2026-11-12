@@ -14,6 +14,8 @@ source_set("design") {
   ]
 
   sources = [
+    "accessible_layers.cc",
+    "accessible_layers.h",
     "anchored_menu.cc",
     "anchored_menu.h",
     "checkbox.cc",
@@ -116,6 +118,7 @@ source_set("unit_tests") {
   visibility = [ "//pane/encryption:pane_unittests" ]
 
   sources = [
+    "accessible_layers_unittest.cc",
     "anchored_menu_unittest.cc",
     "controls_unittest.cc",
     "dialog_unittest.cc",

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
+import { isScreenLocked } from "../lib/cua";
 import {
 	type AppState,
 	launchPane,
@@ -9,6 +10,7 @@ import {
 	setUpPin,
 } from "../lib/pane";
 import { signpostIntervals } from "../lib/signposts";
+import { accessibilityTree } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
 // L1, the PIN screen (docs/plans/views-migration.md, Phase 3), on the Views
@@ -40,6 +42,52 @@ const PIN_1234 = {
 
 function screen(state: AppState) {
 	return state.security.screen;
+}
+
+// What VoiceOver reaches of the window at the Lock (ADR 0071): the PIN
+// screen alone, its dots and what it says read, and nothing under it, which
+// it reached until the Views build left the window's other layers out
+// (UpdateAccessibleLayers) and exposed the screen's text, which a view that
+// holds the keys hid (ExposeToScreenReaders). Undefined on a locked screen,
+// which hides every window from accessibility.
+async function readAtTheLock(
+	context: Parameters<Scenario>[0],
+	app: PaneApp,
+	said: string[],
+): Promise<string[] | undefined> {
+	if (await isScreenLocked()) {
+		context.defer(
+			"what a screen reader reaches at the Lock (the screen locked)",
+		);
+
+		return undefined;
+	}
+
+	const tree = await accessibilityTree(app.browser.pid);
+
+	const read = tree
+		.map((element) =>
+			[element.title, element.value].filter(Boolean).join(" = "),
+		)
+		.filter(Boolean);
+
+	const under = ["New", "Settings", "Sidebar width", "Back", "Address"].filter(
+		(name) => tree.some((element) => element.title === name),
+	);
+
+	expect(
+		under.length === 0,
+		`a screen reader reaches under the Lock: ${under.join(", ")}`,
+	);
+
+	for (const text of said) {
+		expect(
+			tree.some((element) => element.title === text || element.value === text),
+			`a screen reader doesn't read "${text}" at the Lock:\n${read.join("\n")}`,
+		);
+	}
+
+	return read;
 }
 
 // A frame's middle, from the window's top left.
@@ -235,6 +283,7 @@ async function lockScreens(context: Parameters<Scenario>[0], log: Log) {
 
 		log.focusAtLock = (await app.state()).focus;
 		await app.render("surfaces-lock-unlock.png", 800);
+		log.readAtTheLock = await readAtTheLock(context, app, ["0 of 4 digits"]);
 
 		await keys(app, "12", "two digits", (s) => screen(s)?.entered === 2);
 		await app.render("surfaces-lock-typing.png");
@@ -290,6 +339,10 @@ async function lockScreens(context: Parameters<Scenario>[0], log: Log) {
 
 			if (attempt === 1) {
 				await app.render("surfaces-lock-wrong-pin.png", 500);
+
+				log.readAfterAWrongPin = await readAtTheLock(context, app, [
+					"4 attempts remaining",
+				]);
 			}
 		}
 

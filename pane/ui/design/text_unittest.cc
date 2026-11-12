@@ -2,9 +2,15 @@
 
 #include "pane/ui/design/text.h"
 
+#include <memory>
+#include <string>
+
 #include "pane/ui/design/palette.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/platform/ax_platform_for_test.h"
+#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/view.h"
 
 namespace pane {
 
@@ -12,6 +18,11 @@ namespace {
 
 // Views need an accessibility platform to be made.
 class DigitCellsLabelTest : public testing::Test {
+ private:
+  ui::AXPlatformForTest ax_platform_;
+};
+
+class ScreenReaderTextTest : public testing::Test {
  private:
   ui::AXPlatformForTest ax_platform_;
 };
@@ -38,6 +49,30 @@ TEST_F(DigitCellsLabelTest, CountsOfAsManyDigitsAreAsWide) {
   EXPECT_GT(ten, WidthOf(label, u"9/12"));
   EXPECT_EQ(WidthOf(label, u""), 0);
   EXPECT_GT(label.GetPreferredSize().height(), 0);
+}
+
+// Text in a view that holds the keys, as the PIN screen's attempts left:
+// Chromium leaves it out of what a screen reader reaches, as a button's own
+// label, until it is exposed, which takes the focus in accessibility mode
+// alone, so Tab passes it by.
+TEST_F(ScreenReaderTextTest, TextUnderAViewHoldingTheKeysIsReadOnceExposed) {
+  views::View panel;
+  panel.SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
+  const auto add_text = [&panel](const std::u16string& text) {
+    views::View* view = panel.AddChildView(std::make_unique<views::View>());
+    view->GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
+    view->GetViewAccessibility().SetName(text);
+    return view;
+  };
+  views::View* left_out = add_text(u"Enter at least 4 digits");
+  views::View* read = add_text(u"4 attempts remaining");
+  ExposeToScreenReaders(*read);
+
+  EXPECT_TRUE(left_out->GetViewAccessibility().GetIsIgnored());
+  EXPECT_FALSE(read->GetViewAccessibility().GetIsIgnored());
+  EXPECT_EQ(read->GetFocusBehavior(),
+            views::View::FocusBehavior::ACCESSIBLE_ONLY);
+  EXPECT_FALSE(read->IsFocusable());
 }
 
 }  // namespace pane

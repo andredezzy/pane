@@ -121,8 +121,10 @@ PinDots::PinDots()
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
   SetCanProcessEventsWithinSubtree(false);
-  // One element, read as how many digits it holds of how many.
+  // One element, read as how many digits it holds of how many, under the
+  // PIN screen's panel, which holds the keys.
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
+  ExposeToScreenReaders(*this);
 }
 
 PinDots::~PinDots() = default;
