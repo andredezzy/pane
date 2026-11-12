@@ -57,79 +57,139 @@
 			"measure": "Memory, 1 tab",
 			"benchmark": "memory",
 			"leaf": "summary.1.footprintSumBytes.median",
-			"base": 143.33599853515625,
-			"candidate": 146.89081192016602,
+			"base": 149.364632,
+			"candidate": 146.071784,
 			"rounds": {
 				"base": 3,
-				"candidate": 4
+				"candidate": 3
 			},
 			"budget": "\u2264 +1%",
-			"holds": false
+			"holds": true,
+			"k2b": {
+				"base": 143.33599853515625,
+				"candidate": 146.89081192016602,
+				"rounds": {
+					"base": 3,
+					"candidate": 4
+				},
+				"holds": false
+			},
+			"note": "the final tree with ADR 0125's change, 3 rounds from 22:35 on AC power (memoryAtOneTab.ab); k2b: K2b's candidate"
 		},
 		{
 			"measure": "\u2026 the browser process (with the watchdog)",
 			"benchmark": "memory",
 			"leaf": "summary.1.byType.browser.footprintBytes.median",
-			"base": 68.12712860107422,
-			"candidate": 65.37710571289062,
+			"base": 69.240824,
+			"candidate": 58.39476,
 			"rounds": {
 				"base": 3,
-				"candidate": 4
+				"candidate": 3
 			},
 			"budget": "\u2264 0.19.2's",
-			"holds": true
+			"holds": true,
+			"k2b": {
+				"base": 68.12712860107422,
+				"candidate": 65.37710571289062,
+				"rounds": {
+					"base": 3,
+					"candidate": 4
+				},
+				"holds": true
+			},
+			"note": "the final tree with ADR 0125's change, 3 rounds from 22:35 on AC power (memoryAtOneTab.ab); k2b: K2b's candidate"
 		},
 		{
 			"measure": "\u2026 the GPU process",
 			"benchmark": "memory",
 			"leaf": "summary.1.byType.gpu-process.footprintBytes.median",
-			"base": 25.92304229736328,
-			"candidate": 30.969940185546875,
+			"base": 27.264176,
+			"candidate": 32.834688,
 			"rounds": {
 				"base": 3,
-				"candidate": 4
+				"candidate": 3
 			},
 			"budget": "",
-			"holds": null
+			"holds": null,
+			"k2b": {
+				"base": 25.92304229736328,
+				"candidate": 30.969940185546875,
+				"rounds": {
+					"base": 3,
+					"candidate": 4
+				},
+				"holds": null
+			},
+			"note": "the final tree with ADR 0125's change, 3 rounds from 22:35 on AC power (memoryAtOneTab.ab); k2b: K2b's candidate"
 		},
 		{
 			"measure": "Memory, 10 tabs",
 			"benchmark": "memory",
 			"leaf": "summary.10.footprintSumBytes.median",
-			"base": 337.7381362915039,
-			"candidate": 337.49581146240234,
+			"base": 352.046616,
+			"candidate": 345.837248,
 			"rounds": {
 				"base": 3,
-				"candidate": 4
+				"candidate": 3
 			},
 			"budget": "\u2264 +1%",
-			"holds": true
+			"holds": true,
+			"k2b": {
+				"base": 337.7381362915039,
+				"candidate": 337.49581146240234,
+				"rounds": {
+					"base": 3,
+					"candidate": 4
+				},
+				"holds": true
+			},
+			"note": "the final tree with ADR 0125's change, 3 rounds from 22:35 on AC power (memoryAtOneTab.ab); k2b: K2b's candidate"
 		},
 		{
 			"measure": "\u2026 the browser process (with the watchdog)",
 			"benchmark": "memory",
 			"leaf": "summary.10.byType.browser.footprintBytes.median",
-			"base": 78.5334243774414,
-			"candidate": 71.31460571289062,
+			"base": 80.349248,
+			"candidate": 65.587336,
 			"rounds": {
 				"base": 3,
-				"candidate": 4
+				"candidate": 3
 			},
 			"budget": "\u2264 0.19.2's",
-			"holds": true
+			"holds": true,
+			"k2b": {
+				"base": 78.5334243774414,
+				"candidate": 71.31460571289062,
+				"rounds": {
+					"base": 3,
+					"candidate": 4
+				},
+				"holds": true
+			},
+			"note": "the final tree with ADR 0125's change, 3 rounds from 22:35 on AC power (memoryAtOneTab.ab); k2b: K2b's candidate"
 		},
 		{
 			"measure": "\u2026 the GPU process",
 			"benchmark": "memory",
 			"leaf": "summary.10.byType.gpu-process.footprintBytes.median",
-			"base": 55.594940185546875,
-			"candidate": 61.98551940917969,
+			"base": 58.32824,
+			"candidate": 64.849072,
 			"rounds": {
 				"base": 3,
-				"candidate": 4
+				"candidate": 3
 			},
 			"budget": "",
-			"holds": null
+			"holds": null,
+			"k2b": {
+				"base": 55.594940185546875,
+				"candidate": 61.98551940917969,
+				"rounds": {
+					"base": 3,
+					"candidate": 4
+				},
+				"holds": null
+			},
+			"note": "the final tree with ADR 0125's change, 3 rounds from 22:35 on AC power (memoryAtOneTab.ab); k2b: K2b's candidate"
 		},
 		{
 			"measure": "Warm load, `smoke.html`",
@@ -6170,5 +6230,905 @@
 			]
 		}
 	},
-	"loadSamplesNote": "time and the one-minute load average, every 30 s, during the A/B runs"
+	"loadSamplesNote": "time and the one-minute load average, every 30 s, during the A/B runs",
+	"memoryAtOneTab": {
+		"what": "Memory at one tab, taken back (after K2b): where the Views build's memory goes at one tab against 0.19.2, from test copies through the runner (mem-1tab-probe: footprint and its categories, vmmap, memory-infra dumps, the browser's sampled live heap with stacks), the font tables' change (HarfBuzzZeroCopyFontTable, ADR 0125) measured with the feature off and on, and the memory budget again against 0.19.2 (tests/ab.ts, 3 rounds, a stripped package). On an M5 Pro on 2026-11-11 from 20:54, the Mac in use, on battery in Low Power Mode.",
+		"probes": {
+			"what": "one tab, 30 s idle, out/Release (no watchdog) and published 0.19.2 (its watchdog in browser), two rounds taking turns; footprint's dirty memory by category, MiB, 0.25 and over",
+			"runs": {
+				"0.19.2": [
+					{
+						"run": "r1-swift",
+						"totalMB": 150.89,
+						"byTypeMB": {
+							"browser": 69.57,
+							"gpu-process": 29.41,
+							"utility (network.mojom.NetworkService)": 13.01,
+							"utility (storage.mojom.StorageService)": 6.98,
+							"renderer": 31.92
+						},
+						"browserDirtyMiB": {
+							"App-Specific Tag 14": 38.0,
+							"CG Image": 8.17,
+							"__DATA": 3.91,
+							"__DATA_DIRTY": 2.66,
+							"Untagged": 2.64,
+							"Malloc Small": 1.94,
+							"Malloc Metadata": 1.59,
+							"Stack": 1.28,
+							"page table": 1.08,
+							"__AUTH": 0.87,
+							"unused dyld shared cache area": 0.65,
+							"Dispatch Continuations": 0.38,
+							"CoreUI Image Data": 0.27,
+							"TOTAL": 64.0
+						},
+						"gpuDirtyMiB": {
+							"App-Specific Tag 14": 12.0,
+							"Malloc Small": 3.88,
+							"IOSurface": 3.02,
+							"Malloc Metadata": 1.39,
+							"IOAccelerator (graphics)": 1.23,
+							"__DATA": 1.22,
+							"page table": 0.95,
+							"Stack": 0.94,
+							"__DATA_DIRTY": 0.77,
+							"Owned physical footprint (unmapped) (graphics)": 0.75,
+							"Untagged": 0.69,
+							"Dispatch Continuations": 0.25,
+							"TOTAL": 28.0
+						}
+					},
+					{
+						"run": "r2-swift",
+						"totalMB": 147.38,
+						"byTypeMB": {
+							"browser": 68.6,
+							"gpu-process": 27.07,
+							"utility (network.mojom.NetworkService)": 12.93,
+							"utility (storage.mojom.StorageService)": 6.9,
+							"renderer": 31.89
+						},
+						"browserDirtyMiB": {
+							"App-Specific Tag 14": 37.0,
+							"CG Image": 8.17,
+							"__DATA": 3.89,
+							"__DATA_DIRTY": 2.66,
+							"Untagged": 2.66,
+							"Malloc Small": 1.86,
+							"Malloc Metadata": 1.59,
+							"Stack": 1.23,
+							"page table": 1.11,
+							"__AUTH": 0.87,
+							"unused dyld shared cache area": 0.65,
+							"Dispatch Continuations": 0.38,
+							"CoreUI Image Data": 0.27,
+							"TOTAL": 63.0
+						},
+						"gpuDirtyMiB": {
+							"App-Specific Tag 14": 10.0,
+							"Malloc Small": 3.81,
+							"IOSurface": 3.02,
+							"Malloc Metadata": 1.39,
+							"IOAccelerator (graphics)": 1.23,
+							"__DATA": 1.22,
+							"Stack": 0.94,
+							"page table": 0.8,
+							"__DATA_DIRTY": 0.77,
+							"Owned physical footprint (unmapped) (graphics)": 0.75,
+							"Untagged": 0.69,
+							"TOTAL": 26.0
+						}
+					}
+				],
+				"views (out/Release, tables copied)": [
+					{
+						"run": "r1-views",
+						"totalMB": 148.41,
+						"byTypeMB": {
+							"browser": 64.11,
+							"gpu-process": 32.31,
+							"utility (network.mojom.NetworkService)": 12.83,
+							"utility (storage.mojom.StorageService)": 7.03,
+							"renderer": 32.13
+						},
+						"browserDirtyMiB": {
+							"App-Specific Tag 14": 46.0,
+							"__DATA": 2.77,
+							"Untagged": 2.23,
+							"__DATA_DIRTY": 2.09,
+							"Malloc Metadata": 1.58,
+							"Malloc Small": 1.31,
+							"Stack": 1.3,
+							"page table": 1.19,
+							"unused dyld shared cache area": 0.61,
+							"__AUTH": 0.52,
+							"CG Image": 0.52,
+							"Dispatch Continuations": 0.33,
+							"CoreUI Image Data": 0.27,
+							"TOTAL": 61.0
+						},
+						"gpuDirtyMiB": {
+							"App-Specific Tag 14": 11.0,
+							"IOSurface": 7.19,
+							"Malloc Small": 3.97,
+							"Malloc Metadata": 1.36,
+							"IOAccelerator (graphics)": 1.23,
+							"__DATA": 1.22,
+							"Stack": 0.94,
+							"page table": 0.91,
+							"__DATA_DIRTY": 0.75,
+							"Owned physical footprint (unmapped) (graphics)": 0.75,
+							"Untagged": 0.69,
+							"TOTAL": 31.0
+						}
+					},
+					{
+						"run": "r2-views",
+						"totalMB": 150.09,
+						"byTypeMB": {
+							"browser": 64.88,
+							"gpu-process": 33.21,
+							"utility (network.mojom.NetworkService)": 12.94,
+							"utility (storage.mojom.StorageService)": 7.05,
+							"renderer": 32.0
+						},
+						"browserDirtyMiB": {
+							"App-Specific Tag 14": 46.0,
+							"__DATA": 2.77,
+							"Untagged": 2.25,
+							"__DATA_DIRTY": 2.09,
+							"Malloc Metadata": 1.66,
+							"Stack": 1.31,
+							"Malloc Small": 1.28,
+							"page table": 1.21,
+							"unused dyld shared cache area": 0.61,
+							"Dispatch Continuations": 0.53,
+							"__AUTH": 0.52,
+							"CG Image": 0.52,
+							"CoreUI Image Data": 0.27,
+							"TOTAL": 62.0
+						},
+						"gpuDirtyMiB": {
+							"App-Specific Tag 14": 11.0,
+							"IOSurface": 7.44,
+							"Malloc Small": 3.98,
+							"Malloc Metadata": 1.42,
+							"__DATA": 1.24,
+							"IOAccelerator (graphics)": 1.23,
+							"Stack": 0.94,
+							"page table": 0.92,
+							"__DATA_DIRTY": 0.75,
+							"Owned physical footprint (unmapped) (graphics)": 0.75,
+							"Untagged": 0.69,
+							"Dispatch Continuations": 0.44,
+							"TOTAL": 32.0
+						}
+					}
+				],
+				"views, HarfBuzzZeroCopyFontTable": [
+					{
+						"run": "r1-zc",
+						"totalMB": 142.02,
+						"byTypeMB": {
+							"browser": 56.61,
+							"gpu-process": 32.34,
+							"utility (network.mojom.NetworkService)": 13.27,
+							"utility (storage.mojom.StorageService)": 6.96,
+							"renderer": 32.84
+						},
+						"browserDirtyMiB": {
+							"App-Specific Tag 14": 38.0,
+							"__DATA": 2.77,
+							"Untagged": 2.23,
+							"__DATA_DIRTY": 2.09,
+							"Malloc Metadata": 1.59,
+							"Malloc Small": 1.3,
+							"Stack": 1.3,
+							"page table": 1.17,
+							"unused dyld shared cache area": 0.61,
+							"__AUTH": 0.52,
+							"CG Image": 0.52,
+							"Dispatch Continuations": 0.48,
+							"CoreUI Image Data": 0.27,
+							"TOTAL": 54.0
+						},
+						"gpuDirtyMiB": {
+							"App-Specific Tag 14": 10.0,
+							"IOSurface": 7.19,
+							"Malloc Small": 4.03,
+							"Malloc Metadata": 1.41,
+							"IOAccelerator (graphics)": 1.23,
+							"__DATA": 1.22,
+							"Stack": 0.94,
+							"page table": 0.89,
+							"__DATA_DIRTY": 0.75,
+							"Owned physical footprint (unmapped) (graphics)": 0.75,
+							"Untagged": 0.69,
+							"Dispatch Continuations": 0.38,
+							"TOTAL": 31.0
+						}
+					},
+					{
+						"run": "r2-zc",
+						"totalMB": 141.44,
+						"byTypeMB": {
+							"browser": 56.15,
+							"gpu-process": 32.74,
+							"utility (network.mojom.NetworkService)": 12.93,
+							"utility (storage.mojom.StorageService)": 6.92,
+							"renderer": 32.71
+						},
+						"browserDirtyMiB": {
+							"App-Specific Tag 14": 38.0,
+							"__DATA": 2.77,
+							"Untagged": 2.23,
+							"__DATA_DIRTY": 2.11,
+							"Malloc Metadata": 1.58,
+							"Malloc Small": 1.31,
+							"Stack": 1.3,
+							"page table": 1.16,
+							"unused dyld shared cache area": 0.61,
+							"__AUTH": 0.52,
+							"CG Image": 0.52,
+							"Dispatch Continuations": 0.41,
+							"CoreUI Image Data": 0.27,
+							"TOTAL": 54.0
+						},
+						"gpuDirtyMiB": {
+							"App-Specific Tag 14": 10.0,
+							"IOSurface": 7.69,
+							"Malloc Small": 4.0,
+							"Malloc Metadata": 1.39,
+							"IOAccelerator (graphics)": 1.23,
+							"__DATA": 1.22,
+							"Stack": 0.94,
+							"page table": 0.92,
+							"__DATA_DIRTY": 0.75,
+							"Owned physical footprint (unmapped) (graphics)": 0.75,
+							"Untagged": 0.69,
+							"Dispatch Continuations": 0.27,
+							"TOTAL": 31.0
+						}
+					}
+				]
+			}
+		},
+		"browserHeap": {
+			"what": "the browser's live heap at one tab, out/Release with the tables copied: Chromium's SamplingHeapProfiler from launch (HeapProfilerReporting, one sample per 8 KB on average), Memory.getBrowserSamplingProfile, symbolized by atos against the unstripped framework; by subsystem (each sample to the first matching frame from the allocation outward), and by surface (the innermost //pane surface frame on its stack)",
+			"sampledMB": 32.08,
+			"samples": 2555,
+			"fontTables": {
+				"MB": 7.77,
+				"copies": [
+					{
+						"table": "GPOS",
+						"bytes": 407818,
+						"count": 11
+					},
+					{
+						"table": "GDEF",
+						"bytes": 269690,
+						"count": 11
+					}
+				],
+				"where": "gfx::GetFontTable (ui/gfx/harfbuzz_font_skia.cc), one HarfBuzz face per SkTypeface"
+			},
+			"bySubsystemMB": {
+				"hb font tables copied": 7.77,
+				"AppKit/Swift/ObjC": 7.43,
+				"prefs": 2.74,
+				"sqlite": 2.01,
+				"content": 1.9,
+				"mojo": 1.56,
+				"ui menus/base": 1.41,
+				"other": 1.07,
+				"net": 0.97,
+				"gfx RenderText (runs, glyphs)": 0.79,
+				"accessibility": 0.77,
+				"hb shaping (plans, caches)": 0.74,
+				"skia other": 0.73,
+				"cc": 0.69,
+				"icu": 0.6,
+				"extensions": 0.26,
+				"skia glyph/strike cache": 0.26,
+				"CoreText/FontParser": 0.21,
+				"views": 0.08,
+				"ui::Layer/compositor": 0.06,
+				"skia images/bitmaps": 0.02,
+				"viz": 0.01
+			},
+			"bySurface": {
+				"Settings": {
+					"heapMB": 0.67,
+					"fontTablesMB": 2.09
+				},
+				"App icon images": {
+					"heapMB": 0.7,
+					"fontTablesMB": 0.0
+				},
+				"Lock": {
+					"heapMB": 0.58,
+					"fontTablesMB": 1.43
+				},
+				"Find": {
+					"heapMB": 0.02,
+					"fontTablesMB": 0.0
+				},
+				"Extensions menus": {
+					"heapMB": 0.14,
+					"fontTablesMB": 0.0
+				},
+				"Switcher": {
+					"heapMB": 0.01,
+					"fontTablesMB": 0.0
+				},
+				"Quit Pane?": {
+					"heapMB": 0.07,
+					"fontTablesMB": 0.0
+				},
+				"Hint": {
+					"heapMB": 0.0,
+					"fontTablesMB": 0.0
+				},
+				"Profile sheet": {
+					"heapMB": 0.89,
+					"fontTablesMB": 0.0
+				},
+				"Sidebar": {
+					"heapMB": 0.61,
+					"fontTablesMB": 2.1
+				},
+				"Toolbar": {
+					"heapMB": 0.16,
+					"fontTablesMB": 0.0
+				},
+				"Sad tab / empty": {
+					"heapMB": 0.16,
+					"fontTablesMB": 0.74
+				},
+				"Panel frame": {
+					"heapMB": 0.02,
+					"fontTablesMB": 0.0
+				},
+				"Dialog card / heading": {
+					"heapMB": 0.29,
+					"fontTablesMB": 1.43
+				},
+				"RootView (other)": {
+					"heapMB": 0.02,
+					"fontTablesMB": 0.0
+				},
+				"Window": {
+					"heapMB": 2.9,
+					"fontTablesMB": 0.0
+				},
+				"UiApp (other)": {
+					"heapMB": 1.93,
+					"fontTablesMB": 0.0
+				},
+				"(no surface)": {
+					"heapMB": 15.12,
+					"fontTablesMB": 0.0
+				}
+			}
+		},
+		"gpuProcess": {
+			"what": "memory-infra dumps, b1 round 1",
+			"views": [
+				"client_0x0   VizBufferQueue               2560x1600    3   46.88 MB  DisplayRead|DisplayWrite|Scanout",
+				"client_0x7   GpuRasterTile                2048x384     1    3.00 MB  DisplayRead|Scanout|RasterWrite",
+				"client_0x1   ZeroCopyRasterTile           512x128      5    1.25 MB  DisplayRead|Scanout|CpuWriteOnly|CpuRead",
+				"client_0x1   ZeroCopyRasterTile           512x64      10    1.25 MB  DisplayRead|Scanout|CpuWriteOnly|CpuRead",
+				"client_0x1   ZeroCopyRasterTile           64x512       6    0.75 MB  DisplayRead|Scanout|CpuWriteOnly|CpuRead",
+				"client_0x1   ZeroCopyRasterTile           512x256      1    0.50 MB  DisplayRead|Scanout|CpuWriteOnly|CpuRead",
+				"client_0x1   ZeroCopyRasterTile           512x192      1    0.38 MB  DisplayRead|Scanout|CpuWriteOnly|CpuRead",
+				"client_0x1   ZeroCopyRasterTile           64x64        2    0.03 MB  DisplayRead|Scanout|CpuWriteOnly|CpuRead",
+				"{'VizBufferQueue': 46.88, 'GpuRasterTile': 3.0, 'ZeroCopyRasterTile': 4.16}",
+				"iosurface {'dirty_size': 7.19, 'effective_size': 54.06, 'nonpurgeable_size': 54.06, 'purgeable_size': 0.0, 'resident_size': 7.19, 'resident_swapped': 7.19, 'size': 54.06, 'swapped_out_size': 0.0, 'virtual_size': 54.06}",
+				"ioaccelerator {'dirty_size': 3.55, 'effective_size': 3.69, 'nonpurgeable_size': 1.34, 'purgeable_size': 2.34, 'resident_size': 3.55, 'resident_swapped': 3.55, 'size': 3.69, 'swapped_out_size': 0.0, 'virtual_size': 3.69}",
+				"gpu/angle {'effective_size': 4.25, 'size': 4.25}",
+				"malloc {'allocated_objects_size': 16.25, 'effective_size': 19.01, 'size': 19.02, 'syscalls_per_minute': 0.0, 'virtual_size': 38.0}",
+				"malloc/allocated_objects {'effective_size': 16.25, 'object_count': 0.06, 'size': 16.26}",
+				"gpu/transfer_memory {'effective_size': 0.01, 'size': 1.2}"
+			],
+			"swift": [
+				"client_0x0   VizBufferQueue               2560x1600    3   46.88 MB  DisplayRead|DisplayWrite|Scanout",
+				"client_0x0   VizBufferQueue               2024x1482    3   34.73 MB  DisplayRead|DisplayWrite|Scanout",
+				"client_0x7   GpuRasterTile                2048x384     1    3.00 MB  DisplayRead|Scanout|RasterWrite",
+				"{'VizBufferQueue': 81.61, 'GpuRasterTile': 3.0}",
+				"iosurface {'dirty_size': 3.02, 'effective_size': 84.62, 'nonpurgeable_size': 84.62, 'purgeable_size': 0.0, 'resident_size': 3.02, 'resident_swapped': 3.02, 'size': 84.62, 'swapped_out_size': 0.0, 'virtual_size': 84.62}",
+				"ioaccelerator {'dirty_size': 3.55, 'effective_size': 3.69, 'nonpurgeable_size': 1.34, 'purgeable_size': 2.34, 'resident_size': 3.55, 'resident_swapped': 3.55, 'size': 3.69, 'swapped_out_size': 0.0, 'virtual_size': 3.69}",
+				"gpu/angle {'effective_size': 4.25, 'size': 4.25}",
+				"malloc {'allocated_objects_size': 16.27, 'effective_size': 18.84, 'size': 18.86, 'syscalls_per_minute': 0.0, 'virtual_size': 38.0}",
+				"malloc/allocated_objects {'effective_size': 16.27, 'object_count': 0.06, 'size': 16.28}",
+				"gpu/transfer_memory {'effective_size': 0.01, 'size': 1.2}"
+			]
+		},
+		"fontTablesChange": {
+			"firstShowings": {
+				"what": "first-showings.ts, 3 rounds taking turns, 3 launches a run: each surface's first and second showing after a launch, input to the frame (late=), to its commit, to the screen as predicted; copy = --disable-features=HarfBuzzZeroCopyFontTable on build 2, zc = build 2",
+				"summary": [
+					"first showing, ms to late= (to commit) [to screen], median (n)",
+					"  Open app icon picker   copy  31.8 (25.3) [40.7] n=9 | zc  31.6 (24.3) [39.7] n=9",
+					"  Open quit dialog       copy  15.4 (8.9) [20.8] n=9 | zc  13.1 (9.2) [23.8] n=9",
+					"  Open settings          copy  39.1 (24.0) [39.1] n=9 | zc  39.8 (23.9) [39.8] n=9",
+					"  Open switcher          copy   9.8 (5.3) [19.1] n=9 | zc  10.2 (5.0) [19.0] n=9",
+					"  Select tab             copy  12.5 (7.6) [23.8] n=9 | zc  12.7 (7.7) [24.0] n=9",
+					"  Show find bar          copy  13.8 (6.9) [19.3] n=9 | zc  11.4 (6.7) [19.8] n=9",
+					"second showing",
+					"  Open app icon picker   copy  12.3 (8.2) n=9 | zc  13.0 (9.1) n=9",
+					"  Open quit dialog       copy  13.5 (6.3) n=9 | zc  11.3 (6.0) n=9",
+					"  Open settings          copy  14.2 (7.0) n=9 | zc  13.5 (7.1) n=9",
+					"  Open switcher          copy  11.8 (3.4) n=9 | zc  10.1 (3.7) n=9",
+					"  Select tab             copy  11.8 (7.2) n=9 | zc  10.3 (5.1) n=9",
+					"  Show find bar          copy  10.3 (6.0) n=9 | zc  11.7 (3.3) n=9"
+				]
+			},
+			"launch": {
+				"what": "benchmark-launch through with-args, 3 rounds taking turns",
+				"summary": [
+					"cold.devTools.median                     copy 342.4 (n=3, 335.9/342.4/385.6) | zc 358.2 (n=3, 334.4/398.4/358.2)",
+					"cold.pageFirstContentfulPaint.median     copy 2152.6 (n=3, 2089.4/2152.6/2161.0) | zc 2154.4 (n=3, 2118.9/2161.0/2154.4)",
+					"cold.pageLoaded.median                   copy 2112.4 (n=3, 2048.8/2112.4/2116.6) | zc 2112.6 (n=3, 2076.0/2117.8/2112.6)",
+					"cold.window.median                       copy 409.9 (n=3, 391.4/409.9/455.5) | zc 419.4 (n=3, 390.2/449.1/419.4)",
+					"warm.devTools.median                     copy 374.6 (n=3, 325.5/374.6/378.8) | zc 348.3 (n=3, 348.3/335.2/352.6)",
+					"warm.pageFirstContentfulPaint.median     copy 699.4 (n=3, 672.8/699.4/717.1) | zc 691.3 (n=3, 677.0/703.3/691.3)",
+					"warm.pageLoaded.median                   copy 665.5 (n=3, 640.3/665.5/683.3) | zc 656.5 (n=3, 638.2/656.5/657.2)",
+					"warm.window.median                       copy 440.4 (n=3, 397.9/440.4/445.6) | zc 408.2 (n=3, 393.4/408.2/432.9)"
+				]
+			}
+		},
+		"layoutAtLaunch": {
+			"what": "startup traces, 3 launches of build 2: View::LayoutImmediately by class, outermost, ms",
+			"summary": [
+				"RootView                       median   7.72 ms over 3 traces (7.49/7.72/9.49), events 21/21/19",
+				"NonClientView                  median   7.56 ms over 3 traces (7.34/7.56/9.32), events 34/28/27",
+				"NativeFrameViewMac             median   7.50 ms over 3 traces (7.27/7.50/9.23), events 22/22/20",
+				"ClientView                     median   7.45 ms over 3 traces (7.22/7.45/9.15), events 22/22/20",
+				"ScrollView                     median   5.10 ms over 3 traces (4.77/5.10/7.04), events 23/24/22",
+				"ScrollView::Viewport           median   2.62 ms over 3 traces (2.42/2.62/3.30), events 26/26/23",
+				"SettingsView                   median   2.55 ms over 3 traces (2.45/2.55/3.26), events 3/3/3",
+				"SettingsView::Contents         median   2.02 ms over 3 traces (1.95/2.02/2.18), events 11/11/11",
+				"SidebarView                    median   1.73 ms over 3 traces (1.73/1.73/2.15), events 17/18/16",
+				"ProfileSheetOverlay            median   1.63 ms over 3 traces (1.31/1.63/2.54), events 2/2/2",
+				"ProfileSheet                   median   1.58 ms over 3 traces (1.28/1.58/2.48), events 4/4/4",
+				"DialogCard::Fill               median   1.29 ms over 3 traces (1.08/1.29/1.90), events 5/5/5",
+				"DialogCard                     median   1.28 ms over 3 traces (1.08/1.28/1.89), events 3/3/3",
+				"FadingScrollView               median   1.25 ms over 3 traces (1.19/1.25/1.67), events 17/18/16",
+				"LockScreenView                 median   1.04 ms over 3 traces (1.00/1.04/1.18), events 2/2/2",
+				"SettingsView::Card             median   1.03 ms over 3 traces (1.00/1.03/1.08), events 10/10/10",
+				"Column                         median   1.03 ms over 3 traces (0.82/1.03/1.55), events 9/9/9",
+				"SettingsView::Row              median   0.92 ms over 3 traces (0.89/0.92/0.95), events 19/19/19",
+				"LockScreenView::Panel          median   0.86 ms over 3 traces (0.81/0.86/1.00), events 1/1/1",
+				"LockScreenView::PinContent     median   0.76 ms over 3 traces (0.72/0.76/0.87), events 2/2/2",
+				"ModalDialog                    median   0.70 ms over 3 traces (0.69/0.70/0.86), events 1/1/1",
+				"Numpad                         median   0.48 ms over 3 traces (0.45/0.48/0.52), events 2/1/1",
+				"SectionCard                    median   0.48 ms over 3 traces (0.38/0.48/0.65), events 7/7/7",
+				"Numpad::DigitKey               median   0.41 ms over 3 traces (0.39/0.41/0.44), events 10/10/10",
+				"SadTabView                     median   0.39 ms over 3 traces (0.38/0.39/0.55), events 3/3/3",
+				"QuitDialog                     median   0.37 ms over 3 traces (0.36/0.37/0.44), events 3/3/3",
+				"SidebarView::ListContents      median   0.29 ms over 3 traces (0.29/0.29/0.45), events 36/34/35",
+				"ProfileSheet::Reveal           median   0.28 ms over 3 traces (0.22/0.28/0.39), events 3/3/3",
+				"WebView                        median   0.26 ms over 3 traces (0.24/0.26/0.38), events 11/11/11",
+				"NativeViewHost                 median   0.25 ms over 3 traces (0.25/0.25/0.36), events 12/10/8",
+				"DialogHeading                  median   0.25 ms over 3 traces (0.24/0.25/0.32), events 2/2/2",
+				"RowList                        median   0.23 ms over 3 traces (0.22/0.23/0.33), events 18/19/16",
+				"FocusRing                      median   0.22 ms over 3 traces (0.22/0.22/0.37), events 86/73/69",
+				"View                           median   0.20 ms over 3 traces (0.19/0.20/0.23), events 24/20/21",
+				"PanelFrame                     median   0.19 ms over 3 traces (0.16/0.19/0.19), events 4/4/4",
+				"ToolbarView                    median   0.18 ms over 3 traces (0.18/0.18/0.28), events 3/3/3",
+				"ProfileSheet::TileRow          median   0.16 ms over 3 traces (0.12/0.16/0.23), events 2/2/2",
+				"SwitchRow                      median   0.15 ms over 3 traces (0.12/0.15/0.22), events 6/6/6",
+				"LockScreenView::MoveContent    median   0.14 ms over 3 traces (0.14/0.14/0.17), events 2/2/2",
+				"TextButton                     median   0.14 ms over 3 traces (0.14/0.14/0.19), events 12/13/10"
+			]
+		},
+		"ab": {
+			"what": "tests/ab.ts memory, 3 rounds taking turns, from 22:35 on AC power: base published 0.19.2, candidate the stripped package of the final tree (build 2). An earlier run from 21:36 was cut by the Mac's sleep (its lid) after round 1's 0.19.2: its candidate runs failed (a locked screen, then the sleep's timeout) and it is left out (mem-1tab-probe/ab-memory).",
+			"runs": [
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 294527
+				},
+				{
+					"round": 1,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 290086
+				},
+				{
+					"round": 2,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 289882
+				},
+				{
+					"round": 2,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 295721
+				},
+				{
+					"round": 3,
+					"benchmark": "memory",
+					"side": "base",
+					"ok": true,
+					"ms": 294246
+				},
+				{
+					"round": 3,
+					"benchmark": "memory",
+					"side": "candidate",
+					"ok": true,
+					"ms": 289977
+				}
+			],
+			"rows": [
+				{
+					"leaf": "summary.1.footprintSumBytes.median",
+					"baseMB": 149.36,
+					"candidateMB": 146.07,
+					"differenceMB": -3.29,
+					"percent": -2.2,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.1.byType.browser.footprintBytes.median",
+					"baseMB": 69.24,
+					"candidateMB": 58.39,
+					"differenceMB": -10.85,
+					"percent": -15.66,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.1.byType.gpu-process.footprintBytes.median",
+					"baseMB": 27.26,
+					"candidateMB": 32.83,
+					"differenceMB": 5.57,
+					"percent": 20.43,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.1.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+					"baseMB": 13.39,
+					"candidateMB": 13.45,
+					"differenceMB": 0.07,
+					"percent": 0.49,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.1.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+					"baseMB": 6.96,
+					"candidateMB": 6.92,
+					"differenceMB": -0.05,
+					"percent": -0.71,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.1.byType.renderer.footprintBytes.median",
+					"baseMB": 31.79,
+					"candidateMB": 32.44,
+					"differenceMB": 0.66,
+					"percent": 2.06,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.5.footprintSumBytes.median",
+					"baseMB": 238.04,
+					"candidateMB": 233.47,
+					"differenceMB": -4.57,
+					"percent": -1.92,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.5.byType.browser.footprintBytes.median",
+					"baseMB": 73.5,
+					"candidateMB": 59.57,
+					"differenceMB": -13.93,
+					"percent": -18.95,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.5.byType.gpu-process.footprintBytes.median",
+					"baseMB": 40.94,
+					"candidateMB": 47.4,
+					"differenceMB": 6.46,
+					"percent": 15.77,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.5.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+					"baseMB": 13.88,
+					"candidateMB": 14.08,
+					"differenceMB": 0.2,
+					"percent": 1.42,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.5.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+					"baseMB": 7.19,
+					"candidateMB": 7.14,
+					"differenceMB": -0.05,
+					"percent": -0.68,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.5.byType.renderer.footprintBytes.median",
+					"baseMB": 102.47,
+					"candidateMB": 103.59,
+					"differenceMB": 1.11,
+					"percent": 1.09,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.10.footprintSumBytes.median",
+					"baseMB": 352.05,
+					"candidateMB": 345.84,
+					"differenceMB": -6.21,
+					"percent": -1.76,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.10.byType.browser.footprintBytes.median",
+					"baseMB": 80.35,
+					"candidateMB": 65.59,
+					"differenceMB": -14.76,
+					"percent": -18.37,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.10.byType.gpu-process.footprintBytes.median",
+					"baseMB": 58.33,
+					"candidateMB": 64.85,
+					"differenceMB": 6.52,
+					"percent": 11.18,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.10.byType.utility (network.mojom.NetworkService).footprintBytes.median",
+					"baseMB": 14.45,
+					"candidateMB": 14.63,
+					"differenceMB": 0.18,
+					"percent": 1.25,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.10.byType.utility (storage.mojom.StorageService).footprintBytes.median",
+					"baseMB": 7.69,
+					"candidateMB": 7.62,
+					"differenceMB": -0.07,
+					"percent": -0.85,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				},
+				{
+					"leaf": "summary.10.byType.renderer.footprintBytes.median",
+					"baseMB": 191.22,
+					"candidateMB": 191.17,
+					"differenceMB": -0.05,
+					"percent": -0.03,
+					"rounds": {
+						"base": 3,
+						"candidate": 3
+					}
+				}
+			],
+			"failures": []
+		},
+		"renders": {
+			"what": "surfaces.ts on the final tree (zero-copy), light and dark, 49 renders each, against K2b's of the same tree with the tables copied (runs/k2b-final-light, runs/k2b-dark); byte-identical files, and the rest's difference mapped (image-diff, pixels over 2/255)",
+			"light": {
+				"same": 33,
+				"differ": 16,
+				"differOnly": "the update row's clock, the fixtures' port, the overlay scroll bar's fade, a spinner, a progress bar"
+			},
+			"dark": {
+				"same": 35,
+				"differ": 14,
+				"differOnly": "the same"
+			},
+			"control": "K2b's two light runs of one build: 31 the same, 21 apart, in the same files the same way",
+			"pairedRun": "surfaces through with-args with the feature disabled stopped before its first step, twice (no child, no output); left out"
+		},
+		"editLoopOnAC": {
+			"what": "sidebar_button.cc touched, chrome rebuilt (autoninja -j 6, niced), real seconds, on AC power, the load 5.3",
+			"seconds": [24.51, 24.05],
+			"budget": "<= 30 s"
+		},
+		"profileSheetExperiment": {
+			"what": "the profile sheet made at its first showing (the AfterFrame PrepareProfileSheet call removed, out/Release) against a copy of out/Release as it is, taking turns: memory by the probe (2 rounds), the sheet's first showing by first-showings.ts (2 rounds x 3 launches); reverted after",
+			"memory": [
+				"== after 2 runs",
+				"  r1-after total 140.0 {'browser': 55.1, 'gpu-process': 32.6, 'renderer': 32.1, 'utility (net': 13.3, 'utility (sto': 7.0}",
+				"     browser: App-Specific Tag 1 37.0, Malloc Small 1.3, Malloc Metadata 1.6, CG Image 0.5, __DATA 2.8, __DATA_DIRTY 2.1, Untagged 2.2, Stack 1.3, page table 1.2",
+				"     gpu:     App-Specific Tag 1 11.0, IOSurface 7.4, Malloc Small 4.0, Malloc Metadata 1.3, IOAccelerator (gra 1.2, __DATA 1.2, __DATA_DIRTY 0.8, Untagged 0.7, Stack 0.9, page table 0.9, Owned physical foo 0.8",
+				"  r2-after total 140.7 {'browser': 55.2, 'gpu-process': 32.2, 'renderer': 32.9, 'utility (net': 13.4, 'utility (sto': 6.9}",
+				"     browser: App-Specific Tag 1 37.0, Malloc Small 1.3, Malloc Metadata 1.6, CG Image 0.5, __DATA 2.8, __DATA_DIRTY 2.1, Untagged 2.2, Stack 1.3, page table 1.1",
+				"     gpu:     App-Specific Tag 1 10.0, IOSurface 7.2, Malloc Small 4.0, Malloc Metadata 1.4, IOAccelerator (gra 1.2, __DATA 1.2, __DATA_DIRTY 0.8, Untagged 0.7, Stack 0.9, page table 0.9, Owned physical foo 0.8",
+				"  median total 140.3, browser 55.1, gpu 32.4",
+				"== before 2 runs",
+				"  r1-before total 140.8 {'browser': 55.3, 'gpu-process': 32.9, 'renderer': 32.2, 'utility (net': 13.4, 'utility (sto': 6.9}",
+				"     browser: App-Specific Tag 1 37.0, Malloc Small 1.3, Malloc Metadata 1.6, CG Image 0.5, __DATA 2.8, __DATA_DIRTY 2.1, Untagged 2.2, Stack 1.3, page table 1.2",
+				"     gpu:     App-Specific Tag 1 11.0, IOSurface 7.4, Malloc Small 4.0, Malloc Metadata 1.4, IOAccelerator (gra 1.2, __DATA 1.2, __DATA_DIRTY 0.8, Untagged 0.7, Stack 1.0, page table 0.9, Owned physical foo 0.8",
+				"  r2-before total 139.8 {'browser': 55.2, 'gpu-process': 32.3, 'renderer': 31.9, 'utility (net': 13.4, 'utility (sto': 7.0}",
+				"     browser: App-Specific Tag 1 37.0, Malloc Small 1.3, Malloc Metadata 1.6, CG Image 0.5, __DATA 2.8, __DATA_DIRTY 2.1, Untagged 2.2, Stack 1.3, page table 1.2",
+				"     gpu:     App-Specific Tag 1 10.0, IOSurface 7.2, Malloc Small 4.0, Malloc Metadata 1.4, IOAccelerator (gra 1.2, __DATA 1.2, __DATA_DIRTY 0.8, Untagged 0.7, Stack 0.9, page table 0.9, Owned physical foo 0.8",
+				"  median total 140.3, browser 55.3, gpu 32.6"
+			],
+			"first": [
+				"first showing, ms to late= (to commit) [to screen], median (n)",
+				"  Open app icon picker   after  26.2 (21.4) [36.0] n=6 | before  28.7 (21.4) [37.8] n=6",
+				"  Open profile sheet     after  15.6 (9.6) [25.6] n=6 | before  14.5 (4.3) [19.0] n=6",
+				"  Open quit dialog       after  13.0 (9.2) [23.0] n=6 | before  14.0 (7.7) [23.9] n=6",
+				"  Open settings          after  38.6 (24.2) [38.6] n=6 | before  39.2 (24.4) [39.2] n=6",
+				"  Open switcher          after  10.0 (5.5) [20.7] n=6 | before   9.4 (5.6) [18.9] n=6",
+				"  Select tab             after  11.6 (7.3) [22.0] n=6 | before  15.5 (12.4) [25.9] n=6",
+				"  Show find bar          after  14.0 (6.9) [23.6] n=6 | before  12.0 (6.6) [21.3] n=6",
+				"second showing",
+				"  Open app icon picker   after  14.4 (8.0) n=6 | before  13.8 (10.3) n=6",
+				"  Open profile sheet     after  11.8 (3.6) n=6 | before  12.9 (3.5) n=6",
+				"  Open quit dialog       after  12.7 (6.2) n=6 | before  13.0 (5.6) n=6",
+				"  Open settings          after  16.1 (7.4) n=6 | before  14.2 (7.5) n=6",
+				"  Open switcher          after  11.2 (4.1) n=6 | before  10.2 (3.6) n=6",
+				"  Select tab             after  11.3 (6.4) n=6 | before  10.6 (5.6) n=6",
+				"  Show find bar          after  14.5 (7.2) n=6 | before  14.4 (7.3) n=6"
+			]
+		},
+		"heapProfiles": {
+			"shell-3f62f15": {
+				"buckets": [
+					"total 26.69 MB",
+					"  6.32 MB  hb font tables copied",
+					"  5.87 MB  AppKit/Swift/ObjC",
+					"  2.87 MB  prefs",
+					"  2.24 MB  sqlite",
+					"  1.40 MB  mojo",
+					"  1.36 MB  content",
+					"  1.15 MB  other",
+					"  1.09 MB  net",
+					"  1.08 MB  ui menus/base",
+					"  0.62 MB  skia other",
+					"  0.54 MB  icu",
+					"  0.49 MB  hb shaping (plans, caches)",
+					"  0.35 MB  gfx RenderText (runs, glyphs)",
+					"  0.34 MB  cc",
+					"  0.31 MB  accessibility",
+					"  0.29 MB  extensions",
+					"  0.11 MB  skia glyph/strike cache",
+					"  0.10 MB  CoreText/FontParser",
+					"  0.08 MB  views",
+					"  0.03 MB  ui::Layer/compositor",
+					"  0.02 MB  viz",
+					"  0.01 MB  skia images/bitmaps"
+				],
+				"surfaces": [
+					"surface                     heap    tables",
+					"Settings                  0.68 MB    2.11 MB",
+					"App icon images           0.72 MB    0.00 MB",
+					"Lock                      0.00 MB    0.00 MB",
+					"Find                      0.00 MB    0.00 MB",
+					"Extensions menus          0.00 MB    0.00 MB",
+					"Switcher                  0.00 MB    0.00 MB",
+					"Quit Pane?                0.10 MB    0.00 MB",
+					"Hint                      0.00 MB    0.00 MB",
+					"Profile sheet             0.00 MB    0.00 MB",
+					"Sidebar                   0.50 MB    2.13 MB",
+					"Toolbar                   0.11 MB    0.00 MB",
+					"Sad tab / empty           0.13 MB    0.68 MB",
+					"Panel frame               0.00 MB    0.00 MB",
+					"Dialog card / heading     0.17 MB    1.41 MB",
+					"RootView (other)          0.02 MB    0.00 MB",
+					"Window                    2.48 MB    0.00 MB",
+					"UiApp (other)             1.64 MB    0.00 MB",
+					"(no surface)             13.80 MB    0.00 MB",
+					"sum 20.36 MB, tables 6.33 MB"
+				]
+			},
+			"final tree": {
+				"buckets": [
+					"total 22.50 MB",
+					"  6.40 MB  AppKit/Swift/ObjC",
+					"  2.80 MB  prefs",
+					"  2.28 MB  sqlite",
+					"  1.49 MB  content",
+					"  1.44 MB  mojo",
+					"  1.26 MB  ui menus/base",
+					"  1.12 MB  net",
+					"  1.10 MB  other",
+					"  0.67 MB  skia other",
+					"  0.67 MB  hb shaping (plans, caches)",
+					"  0.63 MB  accessibility",
+					"  0.61 MB  icu",
+					"  0.59 MB  gfx RenderText (runs, glyphs)",
+					"  0.51 MB  cc",
+					"  0.32 MB  extensions",
+					"  0.22 MB  skia glyph/strike cache",
+					"  0.18 MB  CoreText/FontParser",
+					"  0.12 MB  views",
+					"  0.03 MB  viz",
+					"  0.03 MB  ui::Layer/compositor",
+					"  0.02 MB  skia images/bitmaps"
+				],
+				"surfaces": [
+					"surface                     heap    tables",
+					"Settings                  0.70 MB    0.00 MB",
+					"App icon images           0.76 MB    0.00 MB",
+					"Lock                      0.51 MB    0.00 MB",
+					"Find                      0.01 MB    0.00 MB",
+					"Extensions menus          0.11 MB    0.00 MB",
+					"Switcher                  0.01 MB    0.00 MB",
+					"Quit Pane?                0.02 MB    0.00 MB",
+					"Hint                      0.00 MB    0.00 MB",
+					"Profile sheet             0.72 MB    0.00 MB",
+					"Sidebar                   0.58 MB    0.00 MB",
+					"Toolbar                   0.10 MB    0.00 MB",
+					"Sad tab / empty           0.18 MB    0.00 MB",
+					"Panel frame               0.02 MB    0.00 MB",
+					"Dialog card / heading     0.28 MB    0.00 MB",
+					"RootView (other)          0.04 MB    0.00 MB",
+					"Window                    2.65 MB    0.00 MB",
+					"UiApp (other)             1.54 MB    0.00 MB",
+					"(no surface)             14.27 MB    0.00 MB",
+					"sum 22.50 MB, tables 0.00 MB"
+				]
+			}
+		}
+	}
 }

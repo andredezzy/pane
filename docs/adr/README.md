@@ -89,6 +89,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0122](0122-every-pane-updates-straight-to-the-newest.md) Every Pane updates straight to the newest, which carries every upgrade path itself
 - [0123](0123-panes-views-raster-on-the-cpu.md) Pane's views raster on the CPU
 - [0124](0124-one-ui-in-views-on-every-os.md) Pane's UI is one, in C++ Views inside its own Chromium, for the Mac and Windows, with no Swift
+- [0125](0125-pane-shapes-its-text-over-its-fonts-own-tables.md) Pane's views shape their text over their fonts' own tables
 
 ## Merged records
 

@@ -111,6 +111,14 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // them: the window's first frame came 32 ms later, and the GPU process held
   // about 8 MB more at rest (ADR 0123, docs/benchmarks/views-shell.md).
   AddToSwitchList(command_line, "disable-features", "UiGpuRasterization");
+  // Pane's views shape their text with HarfBuzz over each font table where
+  // CoreText keeps it, not over a copy: gfx copies every table a typeface's
+  // HarfBuzz face reads into the browser's heap, and the sizes and weights of
+  // the system font the UI draws make many typefaces of it: at one tab 11 of
+  // them held a copy each of SF's GPOS and GDEF, 7.8 MB, where the Swift's
+  // CoreText read the font's own (ADR 0125). The tables' bytes are the same,
+  // so the text shapes and draws the same.
+  AddToSwitchList(command_line, "enable-features", "HarfBuzzZeroCopyFontTable");
 
   // An explicit --user-data-dir (scenarios use throwaway ones) wins.
   if (!command_line.HasSwitch("user-data-dir")) {

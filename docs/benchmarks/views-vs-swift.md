@@ -4,6 +4,8 @@ The candidate for the first Views release (`docs/plans/views-migration.md`, Phas
 
 The Mac slept with its lid closed from 18:38 to 19:34, in the middle of the second round: the rounds or runs that sleep cut are left out, and the benchmarks they took from ran another round after it, so every row has three rounds or more.
 
+Memory at one tab was over its budget. It was taken back after (Memory at one tab, ADR 0125), and the memory rows below are the final tree's, measured again the same way, three rounds from 22:35, on AC power.
+
 ## What improved
 
 | | Views | 0.19.2 | Improvement |
@@ -17,7 +19,10 @@ The Mac slept with its lid closed from 18:38 to 19:34, in the middle of the seco
 | A tab switch, key to its commit (background) | 4.1 ms | 12.5 ms | 8.4 ms sooner |
 | Warm load, `find.html` and `nav-a.html` | 6.0 and 6.4 ms | 9.3 and 9.7 ms | 34 to 36% sooner |
 | Warm load, Apple and Wikipedia | 427.5 and 183.3 ms | 754.9 and 195.7 ms | 43% and 6% sooner, by the network as much as the build |
-| The browser process, 10 tabs | 71.3 MB | 78.5 MB | 7.2 MB lighter |
+| Memory, 1 tab | 146.1 MB | 149.4 MB | 3.3 MB lighter (−2.2%) |
+| The browser process, 1 tab | 58.4 MB | 69.2 MB | 10.8 MB lighter |
+| Memory, 10 tabs | 345.8 MB | 352.0 MB | 6.2 MB lighter (−1.8%) |
+| The browser process, 10 tabs | 65.6 MB | 80.3 MB | 14.8 MB lighter |
 
 - **Unlock is faster both ways:** the PIN opens the data 133 ms sooner, and a launch without a PIN reaches its page 82 ms sooner, its volume's attach starting 88 ms sooner, over six rounds (three more than the rest, below).
 - **Launch** reaches its first window 27 to 37 ms sooner. Both builds launched slower than at the shell's end (400 ms against 268), the Mac in use and on battery.
@@ -27,20 +32,19 @@ The Mac slept with its lid closed from 18:38 to 19:34, in the middle of the seco
 
 | | Views | 0.19.2 | Change | Budget |
 | --- | ---: | ---: | --- | --- |
-| Memory, 1 tab | 146.9 MB | 143.3 MB | +2.5% | ≤ +1%: **over** |
-| … the GPU process | 31.0 MB | 25.9 MB | +5.0 MB | |
+| The GPU process, 1 tab | 32.8 MB | 27.3 MB | +5.6 MB | |
+| The GPU process, 10 tabs | 64.8 MB | 58.3 MB | +6.5 MB | |
 | Warm load, `smoke.html` | 6.0 ms | 5.8 ms | +0.2 ms (+3.4%) | ≤ +3%: **over** |
-| Memory, 10 tabs | 337.5 MB | 337.7 MB | −0.1% | ≤ +1% |
 | A painted frame reaching the screen | 18.9 ms | 19.0 ms | −0.1 ms | ≤ +1 ms |
 | Scroll, frames dropped of 480 | 0 | 0 | the same | ≤ 0.19.2's |
 | Warm load, GitHub | 613.8 ms | 619.0 ms | −0.8% | ≤ +3% |
 
-- **Memory at one tab is over its budget, by 1.5 points.** The Views window composites in the GPU process, which holds 5.0 MB more than 0.19.2's (ADR 0123: 5.3 MB at the shell's end); the browser process, where the UI lives, is 2.8 MB lighter, where the shell's end measured it 8.5 MB lighter. Read by footprint's categories, three launches of each at one tab (the evidence's memory probe): the Views browser process holds 8.2 MB more of Chromium's allocator (47.1 against 38.9 MB), the UI's objects and their recordings, and 7.8 MB less of CoreGraphics' images (0.5 against 8.4), the Swift UI's backing stores; and 0.19.2's own browser process read 65 to 68 MB today, 69 to 70 on the shell's day. Nothing of it is packaging: the unpackaged build's browser process reads the same. What `//pane` could take back is the surfaces it makes at launch so their first frame makes nothing (Settings, the Lock, find, the extensions menus, the switcher, Quit Pane?, ADR 0123's trade): each would cost its first showing. That is the user's call, between this budget and the first frames; at ten tabs the budget holds (−0.1%).
+- **The GPU process holds 5.6 MB more at one tab:** the UI's tiles, 4.4 MB of IOSurfaces the browser rasters into on the CPU and the GPU process owns (ADR 0123), and the rest within its runs' swing; 0.19.2's AppKit kept the same pixels in the browser process, 8.2 MB of backing stores. The browser process holds less by more: at one tab the total is 3.3 MB under 0.19.2's (Memory at one tab), where K2b's candidate read 2.5% over, its allocator holding 7.8 MB of copied font tables that the font's own now replace (ADR 0125).
 - **`smoke.html`'s warm load** is 0.2 ms later, within the rounds' own swing (0.19.2 5.6 to 5.9 ms, Views 5.9 to 6.4); `find.html` and `nav-a.html` load 34 to 36% sooner on the same rounds.
 
 ## Summary
 
-Phase 1's budgets, each row the median of the build's rounds, three or more: launch and pages from the three rounds of every benchmark; unlock from six, three more alone after the first set's round 1 ran as the Mac's load rose to 14; memory, scroll, and a frame's way to the screen from three, the round the Mac's sleep cut run again.
+Phase 1's budgets, each row the median of the build's rounds, three or more: launch and pages from the three rounds of every benchmark; unlock from six, three more alone after the first set's round 1 ran as the Mac's load rose to 14; scroll and a frame's way to the screen from three, the round the Mac's sleep cut run again; memory from three rounds of the final tree, ADR 0125's change in it, from 22:35 on AC power (K2b's candidate: 146.9 against 143.3 MB at one tab, +2.5%, and 337.5 against 337.7 at ten).
 
 | Measure | 0.19.2 | Views | Change | Budget | |
 |---|---:|---:|---:|---:|---|
@@ -48,12 +52,12 @@ Phase 1's budgets, each row the median of the build's rounds, three or more: lau
 | Launch to first window, warm | 402.6 ms | 375.8 ms | -26.8 ms | ≤ +5 ms | ✓ |
 | PIN to first page painted | 564.3 ms | 431.3 ms | -133.0 ms | ≤ +25 ms | ✓ |
 | No PIN, launch to first page painted | 711.1 ms | 628.9 ms | -82.2 ms | ≤ +25 ms | ✓ |
-| Memory, 1 tab | 143.3 MB | 146.9 MB | +2.5% | ≤ +1% | **over** |
-| … the browser process (with the watchdog) | 68.1 MB | 65.4 MB | -2.8 MB | ≤ 0.19.2's | ✓ |
-| … the GPU process | 25.9 MB | 31.0 MB | +5.0 MB |  |  |
-| Memory, 10 tabs | 337.7 MB | 337.5 MB | -0.1% | ≤ +1% | ✓ |
-| … the browser process (with the watchdog) | 78.5 MB | 71.3 MB | -7.2 MB | ≤ 0.19.2's | ✓ |
-| … the GPU process | 55.6 MB | 62.0 MB | +6.4 MB |  |  |
+| Memory, 1 tab | 149.4 MB | 146.1 MB | -2.2% | ≤ +1% | ✓ |
+| … the browser process (with the watchdog) | 69.2 MB | 58.4 MB | -10.8 MB | ≤ 0.19.2's | ✓ |
+| … the GPU process | 27.3 MB | 32.8 MB | +5.6 MB |  |  |
+| Memory, 10 tabs | 352.0 MB | 345.8 MB | -1.8% | ≤ +1% | ✓ |
+| … the browser process (with the watchdog) | 80.3 MB | 65.6 MB | -14.8 MB | ≤ 0.19.2's | ✓ |
+| … the GPU process | 58.3 MB | 64.8 MB | +6.5 MB |  |  |
 | Warm load, `smoke.html` | 5.8 ms | 6.0 ms | +3.4% | ≤ +3% | **over** |
 | Warm load, `find.html` | 9.3 ms | 6.0 ms | -35.5% | ≤ +3% | ✓ |
 | Warm load, `nav-a.html` | 9.7 ms | 6.4 ms | -34.0% | ≤ +3% | ✓ |
@@ -64,7 +68,56 @@ Phase 1's budgets, each row the median of the build's rounds, three or more: lau
 | A painted frame reaching the screen, median | 19.0 ms | 18.9 ms | -0.1 ms | ≤ +1 ms | ✓ |
 | … p90 | 20.4 ms | 19.9 ms | -0.4 ms |  |  |
 
-The browser process's row counts the volume's watchdog with it, as the benchmark classes every process without a type. One UI edit to a running window, the gate's last row (≤ 30 s), read 34.0 s on battery (`sidebar_button.cc` touched, `chrome` rebuilt at 6 jobs), where B3 read 22.6 s on AC power.
+The browser process's row counts the volume's watchdog with it, as the benchmark classes every process without a type. One UI edit to a running window, the gate's last row (≤ 30 s), read 34.0 s on battery (`sidebar_button.cc` touched, `chrome` rebuilt at 6 jobs), where B3 read 22.6 s on AC power; on AC power, after the memory rows, it read 24.5 and 24.1 s, twice the same way, the Mac's load at 5.3: within the gate's 30 s.
+
+## Memory at one tab
+
+K2b's candidate read 146.9 MB at one tab against 0.19.2's 143.3, +2.5% against a budget of +1%. Where it went was read from test copies at one tab after the benchmark's 30 s idle, through the runner, in the background (`evidence/views-migration/mem-1tab-probe`): each process's footprint and footprint's categories, vmmap's summary, a detailed memory-infra dump of every process, and the browser's live heap with each sample's stack (Chromium's sampling heap profiler, a sample every 8 KB from launch, read by `Memory.getBrowserSamplingProfile` and symbolized against the unstripped framework); on `out/Release` and the published 0.19.2, taking turns, on battery.
+
+**The browser process.** Its allocator (PartitionAlloc, footprint's App-Specific Tag 14) held 46.0 MB against 0.19.2's 38.0, and CoreGraphics' images 0.5 against 8.2, AppKit's backing stores, which the Views build keeps as tiles in the GPU process. Of the 32.1 MB its live heap held, 7.8 MB were copies of one font's tables: gfx gives each typeface a HarfBuzz face of its own and copies every table the face reads into the heap (`GetFontTable`, `ui/gfx/harfbuzz_font_skia.cc`), and the system font's sizes and weights the UI draws make many typefaces of it, so at launch eleven held a copy each of SF's GPOS (408 KB) and GDEF (270 KB). Nothing else of Pane's own reaches a megabyte. The live heap at one tab, each sample by the first frame from its allocation outward:
+
+| What holds it | MB |
+|---|---:|
+| SF's GPOS and GDEF, copied for 11 typefaces | 7.8 |
+| AppKit and the system's frameworks: the window's NSWindow 1.6, the menu bar 0.5 | 7.4 |
+| Chrome's own: prefs 2.7, SQLite 2.0, content 1.9, mojo 1.6, net 1.0, ICU 0.6 | 9.8 |
+| ui (menus' models, color providers) | 1.4 |
+| Text's runs and glyphs (RenderText 0.8), HarfBuzz's plans (0.7) | 1.5 |
+| Skia 1.0, cc's layers 0.7, CoreText 0.2 | 1.9 |
+| Accessibility's nodes for every view | 0.8 |
+| The rest: extensions 0.3, views' own objects 0.1, and what no frame names | 1.5 |
+
+By the surface whose code is on a sample's stack, the surfaces made at launch hold 2.7 MB of it (below), the sidebar 0.6, the App icon's images 0.7 (the Dock's at 256 and 128 pixels, which its NSImage keeps, and Settings' row), the window's Widget and NSWindow 2.9, and the pages' Browsers 1.9.
+
+**The GPU process.** Its IOSurfaces held 7.4 MB against 0.19.2's 3.0: the page's tile on both, and beside it on the Views build the UI's tiles, 4.4 MB, which the browser rasters on the CPU into IOSurfaces the GPU process owns (ADR 0123). By the view that owns each layer, as cc counts them: the panel frame's four bands 2.0 MB (16 tiles), the toolbar 1.0 (4), the sidebar's header and footer 0.6 (2), its rows 0.5 (1), two icon buttons' 0.03. The rest is 0.19.2's to the megabyte: its allocator (16.3 MB of objects on both), ANGLE's Metal (4.25), the IOAccelerator's (3.7). The window's three output buffers (47 MB) are never drawn into, on either build, and count in no footprint. The Swift kept the same pixels in the browser process, as AppKit's backing stores, 8.2 MB.
+
+**Taken back: the font's own tables** (ADR 0125). `pane/app/engine_switches.cc` turns on Chromium's `HarfBuzzZeroCopyFontTable`, so each HarfBuzz face reads a table where CoreText keeps it. The browser's allocator then holds what 0.19.2's holds (38.0 MB against 38.0), and the browser process is 8.1 MB lighter: 64.1 and 64.9 MB with the tables copied, 56.6 and 56.2 over the font's own, the same build, two launches each, in turn. `EngineSwitchesTest` checks that every launch turns it on. No frame waits on it, the same build with the feature off and on, taking turns, nine launches each, medians:
+
+| From the input to the frame | Tables copied | The font's own |
+|---|---:|---:|
+| Settings, its first showing after a launch | 39.1 ms (24.0 to its commit) | 39.8 ms (23.9) |
+| The App icon picker, first | 31.8 ms (25.3) | 31.6 ms (24.3) |
+| Quit Pane?, first | 15.4 ms (8.9) | 13.1 ms (9.2) |
+| Find's bar, first | 13.8 ms (6.9) | 11.4 ms (6.7) |
+| The switcher, first | 9.8 ms (5.3) | 10.2 ms (5.0) |
+| Launch to the first window, cold, three rounds | 391.4, 455.5, 409.9 ms | 390.2, 449.1, 419.4 ms |
+| … warm | 397.9, 440.4, 445.6 ms | 393.4, 408.2, 432.9 ms |
+
+It changes no pixel. `surfaces`' 49 renders on the final tree, light and dark, against K2b's of the same tree with the tables copied: 33 in light and 35 in dark the same byte for byte, and the rest apart only where two runs of one build are, as K2b's two light runs were: the update row's clock, the fixtures' port in the address and in a sign-in dialog, the overlay scroll bar's fade, a spinner and a progress bar (each difference's pixels mapped and read). A paired run with the feature off on the same build, through `with-args`, stopped before its first step twice, so the tables' side is K2b's.
+
+**Left for the user.** What `//pane` could take back beyond it costs a first showing: the surfaces it makes at launch, so their first frame makes nothing (ADR 0123), made at their first showing instead. One was measured whole, the profile sheet made at its first showing against the same build as it is, taking turns (two rounds of the probe, six launches each for its first showing): the footprint at one tab 0.1 to 0.2 MB lighter (140.3 against 140.3 MB, the browser process 55.1 against 55.3), within the runs' own swing, and its first showing 5.3 ms later to its commit (4.3 → 9.6 ms) and 6.6 to the screen (19.0 → 25.6). Its objects take 0.89 MB of the sampled heap, but they fill slot spans the allocator holds anyway, so the footprint got back about a fifth of that. For the others, what each allocates (its share of the sampled heap, more than the footprint would get back) and the least its first showing would gain (its layout and text at launch, from a startup trace of three launches, `View::LayoutImmediately` by class, with its making on top, which no trace times):
+
+| Made at its first showing, not at launch | Allocates | Footprint back | First showing slower by |
+|---|---:|---:|---:|
+| The profile sheet, now made once the first frame is out | 0.89 MB | 0.1 to 0.2 MB (measured) | 5.3 ms to its commit (measured) |
+| Settings | 0.67 MB | | at least 2.6 ms |
+| The Lock, for a Pane without a PIN (with one, it shows at launch) | 0.58 MB | | at least 1.0 ms |
+| Find's bar and the extensions menus, in their cards | 0.45 MB | | at least 1.3 ms |
+| Quit Pane?, the switcher, and the full screen's hint | 0.08 MB | | at least 0.7 ms |
+
+Together they allocate 2.7 MB, under 2% of 0.19.2's 149 MB at one tab; if the footprint gets back what it did for the sheet, a fifth of that, about 0.5 MB, for first showings 1 to 5 ms later each, and a refresh later where that pushes a frame past one. With the font's own tables the budget holds without them.
+
+Found and not taken, at no frame's cost: the volume's watchdog reads 2.6 MB where 0.19.2's Swift one read 2.0. The C++ one is linked against `pane/model/mac` whole, so its code reaches AppKit (`NSWorkspace`), LocalAuthentication, CryptoTokenKit, and Security, and 18 libraries load with it, which a narrower dependency may leave out: not tried here.
 
 ## The keys, in the background
 
@@ -158,6 +211,7 @@ By the plan's table's commands, on the final tree (`main` at `1f2ea43` with K2b'
 - **Both builds stripped and signed, neither notarized:** 0.19.2 as its dmg shipped it, the candidate as `dist.sh` packages one (`PANE_STRIP=1`), ad hoc, with the hardened runtime.
 - **The keys are timed in the background.** With Pane behind the app in use, a key reaches the window through AppKit's queue and Views' own dispatch (ADR 0012): the Swift's intervals end at its commit to Core Animation, the Views build's at the same point (`committed`), and at the screen as its GPU process predicts it (`presented`). The gate's own measure takes the front (`interaction-timing`), which waits for a session that can take it.
 - **Renders leave the page out,** in both builds: the page's own pixels are Chromium's, and the A/B's page loads measure them.
+- **Memory's rows ran again on AC power,** three rounds from 22:35, the final tree against 0.19.2. A run from 21:36, on battery, lost its candidate's first two rounds to the Mac: the screen locked under the first, and the Mac slept with its lid closed from 21:55 to 22:30 under the second. It is left out (its one 0.19.2 round read 151.2 MB at one tab, these three 149.4 by their median).
 
 ## Rerunning
 
@@ -176,3 +230,12 @@ bun tests/ab.ts --base <0.19.2> --candidate <Views> --out <out> --rounds 5 inter
 ```
 
 The renders, light and dark, from the rigs (`tests/rigs/surfaces.ts` and `views-*.ts`, `--appearance light|dark`), and the boards from Paper's local MCP (`export`, 2×, read only).
+
+Where the memory goes at one tab, from a test copy through the runner (`evidence/views-migration/mem-1tab-probe/probe.ts`, kept with the evidence): footprint by process and its categories, vmmap, a detailed memory-infra dump of every process, and with `PROBE_HEAP` the browser's live heap with its stacks, from Chromium's sampling heap profiler started at launch; each surface's first showing after a launch (`first-showings.ts`); a feature turned off on the same build for an A/B (`PROBE_ARGS`):
+
+```bash
+PROBE_LABEL=views PROBE_HEAP=1 PROBE_ARGS="--enable-features=HeapProfilerReporting:stable-probability/1/browser-sampling-rate-bytes/8192" \
+	bun tests/run.ts --binary <Views build> --out <dir> evidence/views-migration/mem-1tab-probe/probe.ts
+PROBE_ARGS="--disable-features=HarfBuzzZeroCopyFontTable" PROBE_LAUNCHES=3 \
+	bun tests/run.ts --binary <Views build> --out <dir> evidence/views-migration/mem-1tab-probe/first-showings.ts
+```

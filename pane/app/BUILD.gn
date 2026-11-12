@@ -18,11 +18,32 @@ source_set("test_copy") {
   deps = [ "//base" ]
 }
 
+# The switches every launch hands the engine, and the contract between Pane's
+# launch and the Chrome code patched to honor it (ADR 0010). A target of its
+# own so its tests run in pane_unittests, apart from the engine.
+source_set("engine_switches") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "//pane/common/host.h",
+    "engine_switches.cc",
+    "engine_switches.h",
+  ]
+
+  deps = [ "//base" ]
+}
+
 source_set("unit_tests") {
   testonly = true
   visibility = [ "//pane/encryption:pane_unittests" ]
 
-  sources = [ "test_copy_unittest.cc" ]
+  sources = [
+    "engine_switches_unittest.cc",
+    "test_copy_unittest.cc",
+  ]
 
   # Links, which only the Mac's tests make.
   if (is_mac) {
@@ -30,6 +51,7 @@ source_set("unit_tests") {
   }
 
   deps = [
+    ":engine_switches",
     ":test_copy",
     "//base",
     "//base/test:test_support",
