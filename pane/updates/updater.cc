@@ -344,10 +344,10 @@ void Updater::QuitAndInstall(bool exists) {
     }
     return;
   }
-  // An update Pane can't install itself (Paper 06.3.1): its installer comes
-  // forward, and Pane quits, as the copy in Applications can only be
-  // replaced once it has. The user drags the new one in.
-  Open(downloaded_file_);
+  // An update Pane can't install itself (Paper 06.3.1): Pane quits, as the
+  // copy in Applications can only be replaced once it has, and its installer
+  // comes forward once it is gone. The user drags the new one in.
+  OpenAfterExit(downloaded_file_);
   quit_.Run();
 }
 
@@ -496,13 +496,19 @@ void Updater::InstallAtQuit() {
   base::DeletePathRecursively(staged_);
   staged_.clear();
   if (!downloaded_file_.empty()) {
-    Open(downloaded_file_);
+    OpenAfterExit(downloaded_file_);
   }
 }
 
 void Updater::Open(const base::FilePath& file) {
   if (config_.opens_download) {
     OpenUpdateFile(file);
+  }
+}
+
+void Updater::OpenAfterExit(const base::FilePath& file) {
+  if (config_.opens_download) {
+    OpenUpdateFileAfterExit(file);
   }
 }
 

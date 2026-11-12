@@ -99,6 +99,7 @@ test("pane_unittests") {
     "//pane/ui/app:unit_tests",
     "//pane/ui/design:unit_tests",
     "//pane/ui/tabs:unit_tests",
+    "//pane/updates:unit_tests",
     "//services/network:network_service",
     "//sql",
     "//sql:test_support",

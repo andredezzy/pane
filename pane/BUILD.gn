@@ -193,7 +193,6 @@ source_set("pane") {
     "ui/window/window.h",
     "updates/dmg_download.cc",
     "updates/dmg_download.h",
-    "updates/update_files.h",
     "updates/update_installer.cc",
     "updates/update_installer.h",
     "updates/updater.cc",
@@ -230,7 +229,6 @@ source_set("pane") {
       "ui/panels/time_of_day_mac.cc",
       "ui/sidebar/resize_cursor_mac.mm",
       "ui/window/frame_mac.mm",
-      "updates/update_files_mac.cc",
       "updates/update_installer_mac.cc",
     ]
   }
@@ -336,6 +334,7 @@ source_set("pane") {
     "//pane/ui/app:lock_triggers",
     "//pane/ui/design",
     "//pane/ui/tabs:favicons",
+    "//pane/updates:update_files",
     "//printing/buildflags",
     "//services/network/public/cpp",
     "//services/network/public/mojom",

@@ -10,6 +10,8 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, K3): PaneKit is gone with the Swift app; its install tests run as their twins in `pane_unittests` (`pane/model/updates_unittest.cc`, `docs/benchmarks/panekit-tests.md`).
 
+> **On the Views line** (2026-11-12): Quit and install opens the dmg once Pane has exited, from a shell of its own that waits for Pane's process (`OpenUpdateFileAfterExit`, `pane/updates/update_files_mac.cc`), as a failed install at quit does. Opened through LaunchServices as Pane quit, the dmg's DiskImageMounter, launched for Pane, could outlive it by a few milliseconds, and loginwindow, finding Pane's helper still running 20 seconds on, had Background Task Management add Pane and tell the user "Background Items Added"; 0.19.2 took the same path, quitting slower, so it met the race less. `UpdateFilesTest` checks the file opens only once the process has exited.
+
 Pane installs a downloaded update itself, at quit, so the user no longer drags it from the dmg. The user asked for it after an update from 0.7.0 ended on "Pane Not Opened". ADR 0002 had left installing to the user until a Developer ID, and DESIGN.md said Pane, ad-hoc signed, "can't safely replace itself in place". It can, through these steps:
 
 1. **Check.** Once the dmg matches the release's SHA-256 and leaves quarantine (ADR 0002), Pane mounts it at a folder of its own: with `diskutil image attach` on macOS 27, which deprecates hdiutil's attach and detach, and with hdiutil on earlier systems. The Pane inside must carry this app's identifier (`xyz.roundedcorners.pane` since ADR 0114) at the offered version, with its signature whole (`codesign --verify --deep --strict`).

@@ -155,6 +155,9 @@ class Updater {
   // The downloaded dmg is still where it was saved: open it and quit.
   void QuitAndInstall(bool exists);
   void Open(const base::FilePath& file);
+  // As Open, once Pane has exited: what opens as Pane quits
+  // (OpenUpdateFileAfterExit).
+  void OpenAfterExit(const base::FilePath& file);
 
   void SetStatus(Status status);
   void Notify();

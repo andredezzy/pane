@@ -1,0 +1,38 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# The platform's part of an update's file: opening the dmg, now or once Pane
+# has exited, and its quarantine (ADR 0002, ADR 0092). A target of its own so
+# its tests run in pane_unittests, apart from the engine.
+
+source_set("update_files") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [ "update_files.h" ]
+
+  # Windows' part comes with W7 (docs/plans/views-migration.md).
+  if (is_mac) {
+    sources += [ "update_files_mac.cc" ]
+    frameworks = [ "CoreServices.framework" ]
+  }
+
+  deps = [ "//base" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  visibility = [ "//pane/encryption:pane_unittests" ]
+
+  if (is_mac) {
+    sources = [ "update_files_mac_unittest.cc" ]
+  }
+
+  deps = [
+    ":update_files",
+    "//base",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
+}
