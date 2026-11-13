@@ -65,7 +65,7 @@ Implementation notes:
 
 Availability is announced, never enforced: a quiet pill in the sidebar footer and an "Updates" section in Settings — never a modal, never a forced restart. The pill is dismissible per launch per version, and reappears if a newer version ships later.
 
-Downloading fetches the dmg; once it checks out, Pane stages the new version beside itself and the pill and Settings offer Restart to update. Any quit installs it, and Restart to update quits on purpose and opens the new version. Where Pane can't replace itself (translocated, a folder its user can't write, a copy of another identifier, a step that fails), the dmg opens, and the pill, Settings, and the lock screen offer Quit and install: the click quits Pane, the installer comes forward once Pane has gone, and the user drags Pane to /Applications (ADR 0092, Paper 06.3.1).
+Downloading fetches the dmg; once it checks out, Pane stages the new version beside itself and the pill and Settings offer Restart to update. Any quit installs it, until a check finds a newer version, which replaces it: the pill offers that one, and nothing installs until it is staged in turn. Restart to update quits on purpose and opens the new version. Where Pane can't replace itself (translocated, a folder its user can't write, a copy of another identifier, a step that fails), the dmg opens, and the pill, Settings, and the lock screen offer Quit and install: the click quits Pane, the installer comes forward once Pane has gone, and the user drags Pane to /Applications (ADR 0092, Paper 06.3.1).
 
 Implementation notes:
 

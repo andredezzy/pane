@@ -37,9 +37,10 @@ class DmgDownload;
 // a click downloads its dmg to Downloads (DmgDownload), and once it checks
 // out against the release's SHA-256 it leaves quarantine and Pane stages the
 // new version beside itself (UpdateInstaller). Restart to update quits into
-// it, and any quit installs it. Where Pane can't replace itself, the dmg
-// opens and the user drags Pane in (Quit and install). Never a modal, never a
-// forced restart. The pill, Settings, and the Lock read this one source.
+// it, and any quit installs it, until a check finds a newer one, which
+// replaces it. Where Pane can't replace itself, the dmg opens and the user
+// drags Pane in (Quit and install). Never a modal, never a forced restart.
+// The pill, Settings, and the Lock read this one source.
 class Updater {
  public:
   enum class Status {
@@ -136,9 +137,13 @@ class Updater {
               bool completed,
               std::optional<model::AvailableUpdate> update);
   void Scheduled(bool completed);
-  // What a completed check found: a download under way runs on, and the
-  // version already downloaded stays downloaded.
+  // What a completed check found: a download under way runs on, and so does
+  // a quit for Restart to update; the version already downloaded stays
+  // downloaded, unless a newer one replaces what was staged.
   void Offer(std::optional<model::AvailableUpdate> update);
+  // The staged copy and its dmg, which a newer offer passed: they go, so no
+  // quit installs them.
+  void Unstage();
 
   void StartDownload(model::AvailableUpdate update);
   void DownloadProgressed(double share, std::optional<int> seconds);

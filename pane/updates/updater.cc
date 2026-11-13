@@ -28,6 +28,7 @@
 #include "net/http/http_request_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "pane/model/test_hooks.h"
+#include "pane/model/update_install.h"
 #include "pane/updates/dmg_download.h"
 #include "pane/updates/update_files.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -294,10 +295,18 @@ void Updater::Settle(base::OnceCallback<void(bool)> done,
 }
 
 void Updater::Offer(std::optional<model::AvailableUpdate> update) {
-  if (status_ == Status::kDownloading) {
+  // Restart to update, once pressed, quits into what it named.
+  if (status_ == Status::kDownloading || relaunches_) {
     return;
   }
   available_ = std::move(update);
+  // A newer version than the one staged replaces it (ADR 0092): offered as
+  // any is, it stages in turn once downloaded, and until then a quit
+  // installs nothing.
+  if (available_ && staged() && downloaded_version_ &&
+      model::ReplacesStagedUpdate(available_->version, *downloaded_version_)) {
+    Unstage();
+  }
   if (!available_) {
     status_ = Status::kIdle;
   } else {
@@ -305,6 +314,22 @@ void Updater::Offer(std::optional<model::AvailableUpdate> update) {
                                                          : Status::kAvailable;
   }
   Notify();
+}
+
+// On the installer's sequence, after the staging that made them and before
+// the next; the dmg first, since a quit doesn't wait: a copy it leaves, the
+// next launch removes (RemoveLeftovers).
+void Updater::Unstage() {
+  install_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](const base::FilePath& staged, const base::FilePath& dmg) {
+            base::DeleteFile(dmg);
+            base::DeletePathRecursively(staged);
+          },
+          std::exchange(staged_, base::FilePath()),
+          std::exchange(downloaded_file_, base::FilePath())));
+  downloaded_version_.reset();
 }
 
 void Updater::DismissPill() {

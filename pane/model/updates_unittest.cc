@@ -411,6 +411,19 @@ TEST(UpdateInstallTest, Staging) {
   EXPECT_FALSE(IsUpdateLeftover(".Pane-notes.txt"));
 }
 
+// A newer offer replaces what is staged, compared part by part; the staged
+// version itself, an older offer (a release rolled back), and a version that
+// doesn't parse leave it to install.
+TEST(UpdateInstallTest, NewerOfferReplacesStaged) {
+  EXPECT_TRUE(ReplacesStagedUpdate("0.20.0", "0.19.2"));
+  EXPECT_TRUE(ReplacesStagedUpdate("0.19.10", "0.19.9"));
+  EXPECT_TRUE(ReplacesStagedUpdate("1.0.0", "0.20.1"));
+  EXPECT_FALSE(ReplacesStagedUpdate("0.20.0", "0.20.0"));
+  EXPECT_FALSE(ReplacesStagedUpdate("0.19.2", "0.20.0"));
+  EXPECT_FALSE(ReplacesStagedUpdate("0.21.x", "0.20.0"));
+  EXPECT_FALSE(ReplacesStagedUpdate("0.21.0", ""));
+}
+
 // Mounts a dmg at a folder named for its process, and knows one whose process
 // is gone.
 TEST(UpdateInstallTest, Mounts) {

@@ -28,6 +28,15 @@ std::string StagedUpdateName(std::string_view version);
 // bundle swapped out.
 bool IsUpdateLeftover(std::string_view name);
 
+// Whether a check's offer of `offered` replaces the update staged as
+// `staged`: a newer version does, and the staged copy goes with its dmg, so
+// no quit installs a version the offer has passed (on 2026-11-12 a Pane with
+// 0.19.2 staged before 0.20.0 was published went to each in turn, two
+// updates and two Keychain prompts). The staged version itself still
+// installs, and so does a version newer than the offer (a release rolled
+// back).
+bool ReplacesStagedUpdate(std::string_view offered, std::string_view staged);
+
 // Where a dmg mounts, in the temporary folder, while the Pane in it is checked
 // and copied: named for the process that mounted it.
 std::string UpdateMountName(int32_t pid);

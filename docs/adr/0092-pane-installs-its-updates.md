@@ -20,6 +20,8 @@ Pane installs a downloaded update itself, at quit, so the user no longer drags i
 4. **Finish.** A detached shell waits for Pane to exit, then removes the old bundle and the dmg. For Restart to update it also opens the new Pane, passing on Pane's own `PANE_` variables and a fixed home (`CFFIXED_USER_HOME`, with `HOME`), which only scenarios set.
 5. **Clean.** A launch removes anything an earlier install left: a copy staged and never swapped in, an old bundle, and the mount point of a Pane that quit while staging.
 
+**A newer release replaces what is staged** (0.20.1). A check that finds a version newer than the one staged removes the staged copy and its dmg, on the sequence that stages, and the pill, Settings, and the lock screen offer the newer one as they offer any; its download stages it in turn, and a quit before then installs nothing. A check that completes while Restart to update quits changes nothing, so the restart opens the version it named. Until then the staged copy stayed, and the next quit installed it: on 2026-11-12 the user's Pane, with 0.19.2 staged before 0.20.0 was published, went to 0.19.2 at one quit and to 0.20.0 at the next, asking for the Keychain at each (ADR 0048). The published Panes, 0.19.x and 0.20.0, keep that rule, so one with an update staged before a newer release steps through both. What is staged for the version on offer installs as before, and so does a version newer than the offer, from a release rolled back. A dmg Pane could not install itself stays the user's.
+
 Staging v0.8.0 took 1.5 s (mount 0.13 s, signature 0.83 s, copy 0.46 s, detach 0.07 s), during which the pill holds its full bar.
 
 **Where Pane can't install it.** Pane installs only where it runs in place: not translocated, not from a disk image, not from a folder its user cannot write. There, and when the dmg holds a copy of another identifier or version, or a step fails, the old app stays and the dmg opens. The pill and the lock screen then say Quit and install; Settings says "Version 0.15.0 is downloaded. It installs by hand." beside an enabled Quit and install button (Paper 06.3.1; 03.3, 03.6, and 06.3 follow it). The click quits Pane, and the installer comes forward once Pane has gone (`Updater::QuitAndInstall`): the copy in Applications can only be replaced once it has quit, so the user's one step left is the drag. On the lock screen, the action that fades in under the pointer is Quit, as Restart is for a staged update. A swap macOS refuses at quit leaves the app as it was, and the dmg opens.
@@ -46,16 +48,20 @@ What was rejected:
 - **Keeping the bar 24 short at all times:** room for a button that is not there.
 - **Taking the button's room from the text under the pointer:** at narrow sidebars the text would cut differently as the pointer came and went.
 - **Letting the bar shrink to nothing under the pointer:** at the narrowest sidebar the download's only sign of progress would vanish while the user looks at it.
+- **Keeping what is staged until the newer one is staged:** a quit in between installs the older one, and the next launch offers the newer one: two updates, each asking for the Keychain.
+- **Downloading the newer one at once:** downloading stays the user's action (CONTEXT.md, update check).
 
 How it is checked:
 
 - **PaneKit's tests:** where Pane installs over itself, and what it leaves behind.
-- **The `update-install` scenario:** it uses a stand-in release whose dmg holds a stand-in Pane, run on two copies of the app.
+- **The `update-install` scenario:** it uses a stand-in release whose dmg holds a stand-in Pane, run on copies of the app, each in a folder of its own.
   - Offered a dmg whose Pane is another version, the pill says Quit and install, and its click quits the copy, which stays as it was and opens nothing.
   - A matching one is staged beside the app.
   - Restart to update swaps it in and opens it on the same data.
   - A plain quit swaps it in and opens nothing.
   - Neither leaves a staged or old bundle, and the installed dmg is gone.
+  - Staged 99.0.0, then offered 100.0.0: the staged copy and its dmg go, and the pill offers 100.0.0. A quit while it downloads leaves the copy as it was. Staged in turn, and kept by a check that offers it again, 100.0.0 installs at the next quit.
+- **`UpdateInstallTest.NewerOfferReplacesStaged`** (`pane_unittests`): a newer offer replaces what is staged, compared part by part; the same version, an older one, and one that doesn't parse leave it.
 - **The `updates` scenario:** its stand-in dmg is no disk image and holds no Pane to stage, so it says Quit and install, and its click quits Pane without downloading again.
 - **Against the real release:** a build reporting 0.7.9 found v0.8.0 on GitHub 0.9 s after launch. It downloaded, verified, and staged the 190 MB dmg by 26.4 s, and quit 0.2 s after Restart to update with the bundle already 0.8.0. The new Pane opened 2.0 s later with its profile kept, nothing left beside it, and the dmg gone.
 - 0.13.1 and before keep their text: they are published.

@@ -25,7 +25,9 @@ export const notOnWindows: NotOnWindows = {
 // run's Pane is a copy in a folder of its own, since the update replaces it.
 // A dmg whose Pane is another version stays the user's to install; one that
 // checks out is staged beside the app, swapped in at quit, and opened again
-// by Restart to update, its old bundle and its dmg removed.
+// by Restart to update, its old bundle and its dmg removed. A newer release
+// replaces what is staged: the copy and its dmg go, a quit while the newer
+// one downloads installs nothing, and the newer one, staged in turn, installs.
 //
 // PANE_UPDATE_DMG names a real dmg instead, as scripts/dist.sh builds it: the
 // run's Pane installs it the same way (installRelease below).
@@ -42,15 +44,19 @@ const updateInstall: Scenario = async (context) => {
 		// Offered as 98.0.0, holding a Pane that says 97.0.0.
 		mismatched: await standInDmg(work, "97.0.0", "98.0.0"),
 		good: await standInDmg(work, "99.0.0", "99.0.0"),
+		// Offered once 99.0.0 is staged.
+		newer: await standInDmg(work, "100.0.0", "100.0.0"),
 	};
 
 	let offer = dmgs.mismatched;
 	let origin = "";
+	// While set, the newer dmg's download waits for it: a quit comes mid-way.
+	let held: Promise<void> | undefined;
 
 	const server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
-		fetch(request): Response {
+		fetch(request): Response | Promise<Response> {
 			const { pathname } = new URL(request.url);
 
 			if (pathname === "/releases/latest") {
@@ -71,9 +77,13 @@ const updateInstall: Scenario = async (context) => {
 				(candidate) => pathname === `/download/${candidate.name}`,
 			);
 
-			return dmg
-				? new Response(Bun.file(dmg.path))
-				: new Response("not found", { status: 404 });
+			if (!dmg) {
+				return new Response("not found", { status: 404 });
+			}
+
+			const file = () => new Response(Bun.file(dmg.path));
+
+			return dmg === dmgs.newer && held ? held.then(file) : file();
 		},
 	});
 
@@ -198,6 +208,132 @@ const updateInstall: Scenario = async (context) => {
 			version(byHand.bundle) === before &&
 				!existsSync(join(byHand.app.dataDir, "reopened")),
 			`Quit and install left ${version(byHand.bundle)}, reopened: ${existsSync(join(byHand.app.dataDir, "reopened"))}`,
+		);
+
+		// A newer release replaces what is staged: staged 99.0.0, then offered
+		// 100.0.0, the staged copy and its dmg go, and 100.0.0 is offered as any
+		// update is. A quit while it downloads installs nothing. Opened again,
+		// the copy stages 100.0.0 in turn, which a check offering it again
+		// keeps, and a quit installs it.
+		offer = dmgs.good;
+		const newer = await launchCopy(context, `${origin}/releases/latest`);
+		const own = version(newer.bundle);
+
+		const stagedAs = (name: string) => {
+			const copy = join(dirname(newer.bundle), name);
+
+			return existsSync(copy) ? version(copy) : "";
+		};
+
+		const inDownloads = (dmg: StandInDmg) =>
+			existsSync(join(newer.downloads, dmg.name));
+
+		await download(newer.app);
+
+		expect(
+			(await newer.app.state()).update.installsItself &&
+				stagedAs(".Pane-99.0.0.app") === "99.0.0" &&
+				inDownloads(dmgs.good),
+			`99.0.0 was not staged: beside ${leftovers(newer.bundle).join(", ")}`,
+		);
+
+		let letGo = () => {};
+
+		held = new Promise((resolve) => {
+			letGo = resolve;
+		});
+
+		offer = dmgs.newer;
+		await newer.app.send("checkUpdates");
+
+		const offered = await newer.app.waitFor(
+			"v100.0.0 on offer",
+			(state) => state.update.available === "100.0.0",
+			10_000,
+		);
+
+		expect(
+			offered.update.status === "available" &&
+				offered.update.label === "Update available" &&
+				offered.update.pill &&
+				!offered.update.installsItself,
+			`the newer offer: ${JSON.stringify(offered.update)}`,
+		);
+
+		await settle(
+			() => leftovers(newer.bundle).length === 0 && !inDownloads(dmgs.good),
+		);
+
+		expect(
+			leftovers(newer.bundle).length === 0 && !inDownloads(dmgs.good),
+			`the replaced update left ${[...leftovers(newer.bundle), ...readdirSync(newer.downloads)].join(", ")}`,
+		);
+
+		await newer.app.send("downloadUpdate");
+
+		await newer.app.waitFor(
+			"v100.0.0 downloading",
+			(state) => state.update.status === "downloading",
+			5_000,
+		);
+
+		const newerPid = newer.app.browser.pid;
+		await newer.app.send("quit").catch(() => undefined);
+		await exited(newerPid);
+		held = undefined;
+		letGo();
+		await Bun.sleep(1_500);
+
+		expect(
+			version(newer.bundle) === own &&
+				!existsSync(join(newer.app.dataDir, "reopened")),
+			`a quit mid-download left the bundle at ${version(newer.bundle)}`,
+		);
+
+		expect(
+			leftovers(newer.bundle).length === 0 &&
+				readdirSync(newer.downloads).length === 0,
+			`a quit mid-download left ${[...leftovers(newer.bundle), ...readdirSync(newer.downloads)].join(", ")}`,
+		);
+
+		const again = await launchPane(context, {
+			binary: join(newer.bundle, "Contents", "MacOS", "Pane"),
+			dataDir: newer.app.dataDir,
+			env: {
+				PANE_UPDATE_URL: `${origin}/releases/latest`,
+				PANE_UPDATE_DOWNLOADS: newer.downloads,
+				PANE_UPDATE_OPEN: "0",
+			},
+		});
+
+		await download(again);
+		await again.send("checkUpdates");
+		await Bun.sleep(1_200);
+		const kept = (await again.state()).update;
+
+		expect(
+			kept.status === "downloaded" &&
+				kept.installsItself &&
+				kept.label === "Restart to update" &&
+				stagedAs(".Pane-100.0.0.app") === "100.0.0" &&
+				leftovers(newer.bundle).length === 1,
+			`100.0.0 staged: ${JSON.stringify(kept)}, beside ${leftovers(newer.bundle).join(", ")}`,
+		);
+
+		const againPid = again.browser.pid;
+		await again.send("quit").catch(() => undefined);
+		await exited(againPid);
+		await settle(() => leftovers(newer.bundle).length === 0);
+
+		expect(
+			version(newer.bundle) === "100.0.0" &&
+				!existsSync(join(newer.app.dataDir, "reopened")),
+			`the quit left the bundle at ${version(newer.bundle)}`,
+		);
+
+		expect(
+			leftovers(newer.bundle).length === 0 && !inDownloads(dmgs.newer),
+			`left after the install: ${[...leftovers(newer.bundle), ...readdirSync(newer.downloads)].join(", ")}`,
 		);
 	} finally {
 		server.stop(true);

@@ -6,6 +6,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/uuid.h"
+#include "pane/model/versions.h"
 
 namespace pane::model {
 
@@ -34,6 +35,10 @@ std::string StagedUpdateName(std::string_view version) {
 
 bool IsUpdateLeftover(std::string_view name) {
   return name.starts_with(".Pane-") && name.ends_with(".app");
+}
+
+bool ReplacesStagedUpdate(std::string_view offered, std::string_view staged) {
+  return IsNewerVersion(offered, staged).value_or(false);
 }
 
 std::string UpdateMountName(int32_t pid) {
