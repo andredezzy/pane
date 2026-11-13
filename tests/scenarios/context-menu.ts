@@ -1,5 +1,5 @@
 import { isScreenLocked } from "../lib/cua";
-import { launchPane } from "../lib/pane";
+import { launchPane, type PaneApp } from "../lib/pane";
 import {
 	clearClipboard,
 	clipboardText,
@@ -8,34 +8,26 @@ import {
 import { poll, pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { clickAt } from "../lib/traced";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 type Point = { x: number; y: number };
 
-// Right-clicks build Chrome's own menu (U2), with what Pane can't support
-// taken off (Paper 10.4 and 10.4.1): a link's items, spelling suggestions in
-// a text field, navigation, Save As…, Print…, View Page Source, and Inspect
-// on plain text, and never a link opened in a new window, in Split View, in
-// an incognito window, or as another of Chrome's profiles. Each chosen item
-// does its job: opening the link, Copy Link Address, the field's Select All,
-// Copy, Cut, and Paste, a suggestion, and Inspect. The copies go to the Mac's
-// clipboard, which is put back after. The menu the system draws is the
-// front's: in the background, the channel chooses from Chrome's menu model as
-// a click does.
-const contextMenu: Scenario = async (context) => {
-	const app = await launchPane(context);
-	const watcher = new WindowWatcher(app).start();
-	const profile = await app.createProfile("Menus");
-	const url = context.fixtures.url("context.html");
-	const { tab, page } = await app.openPage(profile, url);
+type Send = (
+	method: string,
+	params?: Record<string, unknown>,
+) => Promise<unknown>;
 
-	const send = (method: string, params?: Record<string, unknown>) =>
-		page.send(method, params);
+const PLAIN_MENU =
+	"Back|Forward|Reload|Save As…|Print…|View Page Source|Inspect";
 
-	// The next menu the page shows, not the last one still held: each state
-	// is a new object, so only the count tells them apart. It shows one of the
-	// `expected` titles.
-	const menuAt = async (point: Point, ...expected: string[]) => {
+// What Chrome adds to every menu while a screen reader runs.
+const IMAGE_DESCRIPTIONS = "Get Image Descriptions from Google";
+
+// The next menu `app`'s page shows, not the last one still held: each state
+// is a new object, so only the count tells them apart. It shows one of the
+// `expected` titles.
+function menusOf(app: PaneApp, send: Send) {
+	return async (point: Point, ...expected: string[]) => {
 		const before = (await app.state()).contextMenusShown;
 		await clickAt(send, point.x, point.y, "right");
 
@@ -50,6 +42,30 @@ const contextMenu: Scenario = async (context) => {
 
 		return (state.contextMenu ?? []).map((item) => item.title);
 	};
+}
+
+// Right-clicks build Chrome's own menu (U2), with what Pane can't support
+// taken off (Paper 10.4 and 10.4.1): a link's items, spelling suggestions in
+// a text field, navigation, Save As…, Print…, View Page Source, and Inspect
+// on plain text, and never a link opened in a new window, in Split View, in
+// an incognito window, or as another of Chrome's profiles. Each chosen item
+// does its job: opening the link, Copy Link Address, the field's Select All,
+// Copy, Cut, and Paste, a suggestion, and Inspect. The copies go to the Mac's
+// clipboard, which is put back after. The menu the system draws is the
+// front's: in the background, the channel chooses from Chrome's menu model as
+// a click does. With a screen reader on, the menus are the same: Google's
+// image descriptions, which Chrome adds to each then, show in none.
+const contextMenu: Scenario = async (context) => {
+	const app = await launchPane(context);
+	const watcher = new WindowWatcher(app).start();
+	const profile = await app.createProfile("Menus");
+	const url = context.fixtures.url("context.html");
+	const { tab, page } = await app.openPage(profile, url);
+
+	const send = (method: string, params?: Record<string, unknown>) =>
+		page.send(method, params);
+
+	const menuAt = menusOf(app, send);
 
 	// Runs the item titled `title`, as a click in the menu; in front, the
 	// system's menu then goes before the next right-click, as a user's does.
@@ -254,11 +270,7 @@ const contextMenu: Scenario = async (context) => {
 		"Inspect",
 	);
 
-	expect(
-		plainMenu.join("|") ===
-			"Back|Forward|Reload|Save As…|Print…|View Page Source|Inspect",
-		`plain menu ${plainMenu}`,
-	);
+	expect(plainMenu.join("|") === PLAIN_MENU, `plain menu ${plainMenu}`);
 
 	await run("Inspect");
 	await app.waitFor("DevTools", (state) => state.devToolsTabs.includes(tab));
@@ -290,6 +302,56 @@ const contextMenu: Scenario = async (context) => {
 	);
 
 	await watcher.stop();
+	await app.browser.close();
+	await screenReaderMenus(context, url);
 };
+
+// A copy with Chrome's screen reader mode on from its launch, whatever the
+// Mac's own VoiceOver is: `--force-renderer-accessibility` with no value is
+// Chrome's screen reader bundle (kAXModeComplete | kScreenReader), which
+// makes Chrome take a screen reader to be running, as VoiceOver does. The
+// link's and the plain text's menus, with no image descriptions.
+async function screenReaderMenus(context: ScenarioContext, url: string) {
+	const app = await launchPane(context, {
+		args: ["--force-renderer-accessibility"],
+	});
+
+	const profile = await app.createProfile("Reader");
+	const { page } = await app.openPage(profile, url);
+	const menuAt = menusOf(app, (method, params) => page.send(method, params));
+
+	// The switch reached Chrome: its accessibility was on from the launch
+	// (BrowserAccessibilityStateImpl records it once, true only so).
+	const forced = await app.browser.cdp
+		.send<{ histogram: { sum: number } }>("Browser.getHistogram", {
+			name: "Accessibility.ManuallyEnabled",
+		})
+		.then(
+			(reply) => reply.histogram.sum,
+			() => 0,
+		);
+
+	expect(forced > 0, "Chrome's accessibility was not on from the launch");
+
+	const linkMenu = await menuAt(
+		await page.evaluate<Point>("centerOf('link')"),
+		"Open Link in New Tab",
+	);
+
+	expect(
+		!linkMenu.includes(IMAGE_DESCRIPTIONS),
+		`link menu with a screen reader ${linkMenu}`,
+	);
+
+	const plainMenu = await menuAt(
+		await page.evaluate<Point>("centerOf('plain')"),
+		"Inspect",
+	);
+
+	expect(
+		plainMenu.join("|") === PLAIN_MENU,
+		`plain menu with a screen reader ${plainMenu}`,
+	);
+}
 
 export default contextMenu;

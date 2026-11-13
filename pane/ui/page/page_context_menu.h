@@ -40,8 +40,9 @@ namespace pane {
 // profiles open only through Pane, with their proxy, fingerprint, and keys,
 // and Chrome knows them by no name of theirs), and what needs Chrome's own
 // browser window (Lens, Reading Mode, QR codes), Chrome's language settings,
-// and Google's spelling service. Extensions' items are Chrome's, each in its
-// slot with its icon.
+// and Google's spelling service and image descriptions (the latter in every
+// menu while a screen reader runs). Extensions' items are Chrome's, each in
+// its slot with its icon.
 //
 // The menu runs its own loop and takes the keys while it shows, so it shows
 // only where Pane may take the front (MayTakeFront): a scenario's copy in the

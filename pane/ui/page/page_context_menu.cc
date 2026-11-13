@@ -56,6 +56,11 @@ constexpr int kHidden[] = {
     // Chrome's settings pages, and Google's spelling service.
     IDC_CONTENT_CONTEXT_LANGUAGE_SETTINGS,
     IDC_CONTENT_CONTEXT_SPELLING_TOGGLE,
+    // Google's image descriptions, which Chrome adds to every menu while a
+    // screen reader runs (a submenu, or a check item once on), its consent
+    // Chrome's own dialog: a VoiceOver user's menu is everyone's.
+    IDC_CONTENT_CONTEXT_ACCESSIBILITY_LABELS,
+    IDC_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_TOGGLE,
     // The password manager, which Pane turns off, though the menu doesn't
     // read that.
     IDC_CONTENT_CONTEXT_SHOWALLSAVEDPASSWORDS,

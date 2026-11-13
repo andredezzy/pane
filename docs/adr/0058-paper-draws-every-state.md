@@ -1,6 +1,6 @@
 # Every design is drawn in Paper and approved before it is built, and Paper draws every state the app shows, reviewed against the app
 
-> **On the Views line** (`docs/plans/views-migration.md`, What Chrome asks for): the page's right-click menu is Chrome's own `RenderViewContextMenu`, still the Mac's NSMenu, as the user approved on Paper 10.4 and 10.4.1; 04.14 and 04.14.1 draw `PageContextMenu`'s Electron order and are to follow it.
+> **On the Views line** (`docs/plans/views-migration.md`, What Chrome asks for): the page's right-click menu is Chrome's own `RenderViewContextMenu`, still the Mac's NSMenu, as the user approved on Paper 10.4 and 10.4.1; 04.14 and 04.14.1 draw `PageContextMenu`'s Electron order and are to follow it. While a screen reader runs, Chrome adds Google's image descriptions to every menu (a submenu, or a check item once on, its consent Chrome's own dialog), which no board draws: Pane takes it off as it takes off Google's spelling service, so a VoiceOver user's menu is everyone's, as the Swift's was (K4, 2026-11-12; `context-menu` checks it with Chrome's screen reader mode on).
 
 > **On the Views line** (`docs/plans/views-migration.md`, X4 and X5): the Extensions page, its Details, and its Keyboard shortcuts dialog are Chrome's own pages in the profile's tab, as 10.1 to 10.3 draw them; 09 · Extensions' boards draw the page that went.
 
