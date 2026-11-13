@@ -60,7 +60,7 @@ class WholeFileHooksTest : public testing::Test {
     Key key;
     key.fill(9);
     RegisterKey(kID, key);
-    profile_ = root_.Append(kID);
+    profile_ = root_.AppendASCII(kID);
     ASSERT_TRUE(base::CreateDirectory(profile_));
     InstallWholeFileCodec();
   }
@@ -84,8 +84,8 @@ class WholeFileHooksTest : public testing::Test {
 };
 
 TEST_F(WholeFileHooksTest, WriteFileAndImportantFileWriterSealAProfilesFile) {
-  const base::FilePath plain = profile_.Append("Written");
-  const base::FilePath atomic = profile_.Append("Preferences");
+  const base::FilePath plain = profile_.AppendASCII("Written");
+  const base::FilePath atomic = profile_.AppendASCII("Preferences");
   ASSERT_TRUE(base::WriteFile(plain, "secret one"));
   ASSERT_TRUE(
       base::ImportantFileWriter::WriteFileAtomically(atomic, "secret two"));
@@ -106,8 +106,9 @@ TEST_F(WholeFileHooksTest, WriteFileAndImportantFileWriterSealAProfilesFile) {
 }
 
 TEST_F(WholeFileHooksTest, AFileOutsideAProfileAndExtensionsCodeStayPlain) {
-  const base::FilePath outside = root_.Append("Local State");
-  const base::FilePath code = profile_.Append("Extensions/abc/manifest.json");
+  const base::FilePath outside = root_.AppendASCII("Local State");
+  const base::FilePath code =
+      profile_.AppendASCII("Extensions/abc/manifest.json");
   ASSERT_TRUE(base::CreateDirectory(code.DirName()));
   ASSERT_TRUE(base::WriteFile(outside, "plain"));
   ASSERT_TRUE(base::WriteFile(code, "plain"));
@@ -117,7 +118,7 @@ TEST_F(WholeFileHooksTest, AFileOutsideAProfileAndExtensionsCodeStayPlain) {
 
 TEST_F(WholeFileHooksTest, APlainFileInAProfilePassesAsItIs) {
   base::SetPaneFileCodec(nullptr);
-  const base::FilePath path = profile_.Append("Older");
+  const base::FilePath path = profile_.AppendASCII("Older");
   ASSERT_TRUE(base::WriteFile(path, "older"));
   InstallWholeFileCodec();
   std::string read;
@@ -126,7 +127,7 @@ TEST_F(WholeFileHooksTest, APlainFileInAProfilePassesAsItIs) {
 }
 
 TEST_F(WholeFileHooksTest, ASealedFileThatDoesNotOpenCrashesAndStays) {
-  const base::FilePath path = profile_.Append("Preferences");
+  const base::FilePath path = profile_.AppendASCII("Preferences");
   ASSERT_TRUE(base::WriteFile(path, "secret"));
   std::string raw = RawBytes(path);
   raw.back() ^= 1;

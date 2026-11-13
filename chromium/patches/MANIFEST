@@ -51,6 +51,7 @@ base/files/pane_file_codec.cc	0010-pane-encryption.patch
 base/files/important_file_writer.cc	0010-pane-encryption.patch
 base/files/file_util.cc	0010-pane-encryption.patch
 base/files/file_util_posix.cc	0010-pane-encryption.patch
+base/files/file_util_win.cc	0010-pane-encryption.patch
 services/network/BUILD.gn	0010-pane-encryption.patch
 services/network/network_context.cc	0010-pane-encryption.patch
 services/network/network_service.cc	0010-pane-encryption.patch
@@ -98,4 +99,5 @@ services/network/enterprise/encryption/encrypted_cache_file.cc	0010-pane-encrypt
 storage/browser/quota/quota_database.cc	0010-pane-encryption.patch
 chrome/browser/ui/views/frame/browser_window_factory.cc	0003-pane-hosted-browsers.patch
 components/services/quarantine/quarantine_mac.mm	0008-pane-private.patch
+components/services/quarantine/quarantine_win.cc	0008-pane-private.patch
 chrome/browser/devtools/devtools_ui_controller.h	0004-pane-ui-hooks.patch

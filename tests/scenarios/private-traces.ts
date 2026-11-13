@@ -15,7 +15,7 @@ import { expect, type Scenario } from "../run";
 // Where it runs (lib/platform.ts).
 export const notOnWindows: NotOnWindows = {
 	needsDesign:
-		"what Pane leaves outside the volume, as the Mac keeps it: a download's quarantine and Spotlight attributes, the data root's POSIX mode, Crashpad's folder; on Windows, a download's Mark of the Web, which writes its URLs (W2), and the data folder's ACL (W3)",
+		"what Pane leaves outside the volume, as the Mac keeps it: a download's quarantine and Spotlight attributes, the data root's POSIX mode, Crashpad's folder; on Windows, a download's Mark of the Web, which names no page (ADR 0115), and the data folder's ACL (W3)",
 };
 
 // What Pane leaves outside the encrypted volume (ADR 0113) names no page. A

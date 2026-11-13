@@ -22,9 +22,18 @@ namespace pane::encryption {
 
 namespace {
 
+struct RegisteredProfile {
+  std::string id;
+  // Its folder's name, as a path holds it.
+  base::FilePath::StringType name;
+};
+
 struct Registry {
   base::Lock lock;
   std::vector<base::FilePath> roots;
+  // Every profile registered, kept past DropKeys as the roots are, for the
+  // paths that name one in a form no root has.
+  std::vector<RegisteredProfile> profiles;
   std::map<std::string, Key> engine_keys;
   std::map<std::string, ProfileKeys> keys;
 };
@@ -59,46 +68,81 @@ bool IsProfileName(std::string_view name) {
   return true;
 }
 
+using Components = std::vector<base::FilePath::StringType>;
+
+// A path's components, its separators made the platform's own first: on
+// Windows `/` is one too.
+Components ComponentsOf(const base::FilePath& path) {
+  return path.NormalizePathSeparators().GetComponents();
+}
+
+// The id of the registered profile `component` names, as it was registered,
+// or null.
+const std::string* RegisteredId(const Registry& registry,
+                                base::FilePath::StringViewType component) {
+  for (const RegisteredProfile& profile : registry.profiles) {
+    if (SameComponent(component, profile.name)) {
+      return &profile.id;
+    }
+  }
+
+  return nullptr;
+}
+
+// What stays plain inside a profile's folder: its extensions' public code.
+bool IsExtensionsCode(base::span<const base::FilePath::StringType> inside) {
+  return !inside.empty() &&
+         SameComponent(inside[0], FILE_PATH_LITERAL("Extensions"));
+}
+
 struct Located {
   std::string id;
   // The path inside the profile's folder.
-  std::vector<base::FilePath::StringType> inside;
+  Components inside;
 };
 
-// The profile `path` is in, under `root`, in the two shapes a root has:
-// <root>/<id>/... for the links' roots, and, for the volume's mount point,
-// <root>/<id>/(Profile|Cache)/...
+// The profile a path of components `path` is in, under `root`, in the two
+// shapes a root has: <root>/<id>/... for the links' roots, and, for the
+// volume's mount point, <root>/<id>/(Profile|Cache)/... Each component
+// compares as the file system compares names (SameComponent).
 std::optional<Located> LocateIn(const base::FilePath& root,
-                                const base::FilePath& path,
-                                const std::map<std::string, Key>& known) {
-  base::FilePath relative;
+                                const Components& path,
+                                const Registry& registry) {
+  const Components root_parts = ComponentsOf(root);
 
-  if (!root.AppendRelativePath(path, &relative)) {
+  if (root_parts.empty() || root_parts.size() >= path.size()) {
     return std::nullopt;
   }
 
-  std::vector<base::FilePath::StringType> parts = relative.GetComponents();
-
-  if (parts.empty()) {
-    return std::nullopt;
+  for (size_t index = 0; index < root_parts.size(); index++) {
+    if (!SameComponent(root_parts[index], path[index])) {
+      return std::nullopt;
+    }
   }
+
+  Components parts(path.begin() + root_parts.size(), path.end());
 
   // Under the user data dir, the volume is a root of its own.
-  if (parts[0] == kVolumeRootName) {
+  if (SameComponent(parts[0], kVolumeRootName)) {
     return std::nullopt;
   }
 
-  const std::string id = base::FilePath(parts[0]).AsUTF8Unsafe();
+  // A registered profile's id as it was registered, whatever case the path
+  // gives it where names compare without case.
+  const std::string* registered = RegisteredId(registry, parts[0]);
+  const std::string id =
+      registered ? *registered : base::FilePath(parts[0]).AsUTF8Unsafe();
 
-  if (!IsProfileName(id) && !known.contains(id)) {
+  if (!registered && !IsProfileName(id)) {
     return std::nullopt;
   }
 
   parts.erase(parts.begin());
 
-  if (root.BaseName().value() == kVolumeRootName && !parts.empty() &&
-      (parts[0] == FILE_PATH_LITERAL("Profile") ||
-       parts[0] == FILE_PATH_LITERAL("Cache"))) {
+  if (SameComponent(root.BaseName().value(), kVolumeRootName) &&
+      !parts.empty() &&
+      (SameComponent(parts[0], FILE_PATH_LITERAL("Profile")) ||
+       SameComponent(parts[0], FILE_PATH_LITERAL("Cache")))) {
     parts.erase(parts.begin());
   }
 
@@ -160,6 +204,11 @@ void RegisterKey(const std::string& id,
   base::AutoLock lock(registry.lock);
   base::span(registry.engine_keys[id]).copy_from(key);
   registry.keys[id] = DeriveProfileKeys(key);
+
+  if (!std::ranges::contains(registry.profiles, id, &RegisteredProfile::id)) {
+    registry.profiles.push_back(
+        {.id = id, .name = base::FilePath::FromUTF8Unsafe(id).value()});
+  }
 }
 
 std::vector<std::pair<std::string, Key>> RegisteredKeys() {
@@ -193,18 +242,18 @@ size_t KeyCount() {
 }
 
 std::optional<ProfileKeys> KeysFor(const base::FilePath& path) {
+  const Components parts = ComponentsOf(path);
   Registry& registry = GetRegistry();
   base::AutoLock lock(registry.lock);
 
   for (const base::FilePath& root : registry.roots) {
-    std::optional<Located> located = LocateIn(root, path, registry.engine_keys);
+    std::optional<Located> located = LocateIn(root, parts, registry);
 
     if (!located) {
       continue;
     }
 
-    if (!located->inside.empty() &&
-        located->inside[0] == FILE_PATH_LITERAL("Extensions")) {
+    if (IsExtensionsCode(located->inside)) {
       return std::nullopt;
     }
 
@@ -217,6 +266,20 @@ std::optional<ProfileKeys> KeysFor(const base::FilePath& path) {
     }
 
     return key->second;
+  }
+
+  // Under no root, in no form: plain, unless the path names a registered
+  // profile's folder, reached in a form nothing registered (a short name, a
+  // link or junction, a \\?\ prefix), whose file would reach the disk in the
+  // clear. String compares alone, as above.
+  for (size_t index = 0; index < parts.size(); index++) {
+    if (RegisteredId(registry, parts[index])) {
+      if (IsExtensionsCode(base::span(parts).subspan(index + 1))) {
+        return std::nullopt;
+      }
+
+      LOG(FATAL) << "A profile's file in a form no root has.";
+    }
   }
 
   return std::nullopt;
@@ -245,6 +308,7 @@ void ResetForTesting() {
   Registry& registry = GetRegistry();
   base::AutoLock lock(registry.lock);
   registry.roots.clear();
+  registry.profiles.clear();
 }
 
 }  // namespace pane::encryption

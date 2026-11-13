@@ -36,6 +36,7 @@
 #include "pane/app/test_copy.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
+#include "pane/encryption/engine_keys.h"
 #include "pane/encryption/profile_migration.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/local_state.h"
@@ -313,6 +314,13 @@ class PaneData : public AppData,
                                       ? g_browser_process->profile_manager()
                                       : nullptr) {
       vault_.set_file_migrator(MakeFileMigrator(manager->user_data_dir()));
+      // The vault reaches the volume by the data directory as Pane was given
+      // it, where Chromium resolved its own: a link in it (/var is
+      // /private/var) makes two forms, and the registry refuses a form it
+      // doesn't hold (ADR 0121). The vault's markers in a profile's folder
+      // are then the profile's, as on a data directory with no link.
+      encryption::AddRoots(
+          encryption::RootsOf(EngineDirectory(data_directory_)));
     }
   }
   PaneData(const PaneData&) = delete;

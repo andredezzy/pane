@@ -248,17 +248,9 @@ void RegisterEngineKey(const base::FilePath& user_data_dir,
   encryption::InstallHooks();
   network::enterprise_encryption::InstallPaneCacheHook();
 
-  std::vector<base::FilePath> roots = {user_data_dir,
-                                       user_data_dir.AppendASCII("Volume")};
-
-  // Their resolved forms: /var is /private/var, and the caches' folder links
-  // into the volume too. A realpath, once per open.
-  const base::FilePath resolved = base::MakeAbsoluteFilePath(user_data_dir);
-
-  if (!resolved.empty()) {
-    roots.push_back(resolved);
-    roots.push_back(resolved.AppendASCII("Volume"));
-  }
+  // As given and as the file system resolves them, read from the disk once per
+  // open, here alone: the other processes get them with the keys.
+  std::vector<base::FilePath> roots = encryption::RootsOf(user_data_dir);
 
   base::FilePath caches;
   chrome::GetUserCacheDirectory(

@@ -94,6 +94,54 @@ index a393f9185c..59f7799194 100644
  
    std::move(callback).Run(QuarantineFileResult::OK);
  }
+diff --git a/components/services/quarantine/quarantine_win.cc b/components/services/quarantine/quarantine_win.cc
+index c7f22a0b7a..2add808fa2 100644
+--- a/components/services/quarantine/quarantine_win.cc
++++ b/components/services/quarantine/quarantine_win.cc
+@@ -203,20 +203,11 @@ QuarantineFileResult SetInternetZoneIdentifierDirectly(
+     return QuarantineFileResult::ANNOTATION_FAILED;
+   }
+ 
+-  static const char kReferrerUrlFormat[] = "ReferrerUrl=%s\r\n";
+-  static const char kHostUrlFormat[] = "HostUrl=%s\r\n";
+-
+-  std::string identifier = "[ZoneTransfer]\r\nZoneId=3\r\n";
+-  // Match what the InvokeAttachmentServices() function will output, including
+-  // the order of the values.
+-  if (IsValidUrlForAttachmentServices(referrer_url)) {
+-    identifier.append(
+-        base::StringPrintf(kReferrerUrlFormat, referrer_url.spec().c_str()));
+-  }
+-  identifier.append(base::StringPrintf(
+-      kHostUrlFormat, IsValidUrlForAttachmentServices(source_url)
+-                          ? source_url.spec().c_str()
+-                          : "about:internet"));
++  // Pane: the Internet zone with no address, as InvokeAttachmentServices()
++  // writes it for about:internet. ReferrerUrl and HostUrl named the page each
++  // download came from, outside the encrypted data.
++  const std::string identifier =
++      "[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=about:internet\r\n";
+ 
+   // Don't include trailing null in data written.
+   DWORD written = 0;
+@@ -252,12 +243,11 @@ void QuarantineFile(const base::FilePath& file,
+       guid = GUID_NULL;
+   }
+ 
+-  GURL source_url = SanitizeUrlForQuarantine(source_url_unsafe);
+-  if (source_url.is_empty() && request_initiator.has_value()) {
+-    source_url = SanitizeUrlForQuarantine(request_initiator->GetURL());
+-  }
+-
+-  GURL referrer_url = SanitizeUrlForQuarantine(referrer_url_unsafe);
++  // Pane: the zone and the scan with no address: Attachment Services marks
++  // the file as from about:internet, the Internet zone (SetSource), and the
++  // direct mark says the same (SetInternetZoneIdentifierDirectly).
++  const GURL source_url;
++  const GURL referrer_url;
+ 
+   if (file_size.value() == 0 || IsEqualGUID(guid, GUID_NULL)) {
+     // Calling InvokeAttachmentServices on an empty file can result in the file
 diff --git a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc b/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc
 index 92b4854771..bfe96dc029 100644
 --- a/components/signin/internal/identity_manager/gaia_cookie_manager_service.cc

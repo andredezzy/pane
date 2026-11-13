@@ -9,6 +9,10 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_split.h"
+#include "base/test/scoped_feature_list.h"
+#include "components/network_session_configurator/browser/network_session_configurator.h"
+#include "net/disk_cache/backend_experiment.h"
+#include "net/url_request/url_request_context_builder.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace pane {
@@ -47,6 +51,24 @@ TEST(EngineSwitchesTest, ViewsRasterOnTheCpuOverTheFontsOwnTables) {
                                       "HarfBuzzZeroCopyFontTable"));
     EXPECT_TRUE(std::ranges::contains(
         Features(command_line, "disable-features"), "UiGpuRasterization"));
+  }
+}
+
+// Every launch's HTTP cache is Simple's, the one format Pane encrypts
+// (docs/adr/0121), as Chromium's feature list reads the switches: on Windows,
+// whose default is Blockfile, too, so a feature or a param Chromium renames
+// fails here rather than leaving a cache plain.
+TEST(EngineSwitchesTest, EveryLaunchCachesInSimplesFormat) {
+  for (const base::CommandLine& command_line :
+       {Launch({}), Launch({"use-mock-keychain"})}) {
+    base::test::ScopedFeatureList features;
+    features.InitFromCommandLine(
+        command_line.GetSwitchValueASCII("enable-features"),
+        command_line.GetSwitchValueASCII("disable-features"));
+    // The experiment's Simple group, not a platform's default.
+    EXPECT_TRUE(disk_cache::InSimpleBackendExperimentGroup());
+    EXPECT_EQ(network_session_configurator::ChooseCacheType(),
+              net::URLRequestContextBuilder::HttpCacheParams::DISK_SIMPLE);
   }
 }
 

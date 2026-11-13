@@ -54,6 +54,9 @@ source_set("unit_tests") {
     ":engine_switches",
     ":test_copy",
     "//base",
+    "//base/test:test_support",
+    "//components/network_session_configurator/browser",
+    "//net",
     "//testing/gtest",
   ]
 }

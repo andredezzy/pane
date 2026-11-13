@@ -2,9 +2,7 @@
 
 #include "pane/encryption/sqlite_vfs.h"
 
-#include <signal.h>
 #include <stdint.h>
-#include <unistd.h>
 
 #include <string>
 #include <vector>
@@ -20,6 +18,8 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/test/gtest_util.h"
 #include "base/test/multiprocess_test.h"
+#include "base/threading/platform_thread.h"
+#include "base/time/time.h"
 #include "pane/encryption/engine_keys.h"
 #include "sql/database.h"
 #include "sql/error_delegate_util.h"
@@ -52,10 +52,10 @@ class SqliteVfsTest : public testing::Test {
     Key key;
     key.fill(5);
     RegisterKey(kID, key);
-    profile_ = root_.Append(kID);
+    profile_ = root_.AppendASCII(kID);
     ASSERT_TRUE(base::CreateDirectory(profile_));
     InstallSqliteVfs();
-    path_ = profile_.Append("History");
+    path_ = profile_.AppendASCII("History");
   }
 
   void TearDown() override { ResetForTesting(); }
@@ -117,7 +117,8 @@ TEST_F(SqliteVfsTest, ANewDatabaseIsEncryptedAndReads) {
 }
 
 TEST_F(SqliteVfsTest, EveryConnectionReservesItsBytes) {
-  for (const std::string& name : {path_.value(), std::string(":memory:")}) {
+  for (const std::string& name :
+       {path_.AsUTF8Unsafe(), std::string(":memory:")}) {
     sqlite3* db = nullptr;
     ASSERT_EQ(sqlite3_open(name.c_str(), &db), SQLITE_OK);
     ASSERT_EQ(sqlite3_exec(db, "CREATE TABLE t(id)", nullptr, nullptr, nullptr),
@@ -132,7 +133,7 @@ TEST_F(SqliteVfsTest, EveryConnectionReservesItsBytes) {
 }
 
 TEST_F(SqliteVfsTest, AFileOutsideAProfileStaysPlain) {
-  const base::FilePath plain = root_.Append("Local Data");
+  const base::FilePath plain = root_.AppendASCII("Local Data");
   {
     sql::Database db(Options(), sql::test::kTestTag);
     ASSERT_TRUE(db.Open(plain));
@@ -144,7 +145,8 @@ TEST_F(SqliteVfsTest, AFileOutsideAProfileStaysPlain) {
 
 TEST_F(SqliteVfsTest, ARollbackInEachJournalModeRestores) {
   for (const char* mode : {"TRUNCATE", "PERSIST", "DELETE"}) {
-    const base::FilePath path = profile_.Append(std::string("Journal") + mode);
+    const base::FilePath path =
+        profile_.AppendASCII(std::string("Journal") + mode);
     sql::Database db(Options(), sql::test::kTestTag);
     ASSERT_TRUE(db.Open(path));
     ASSERT_TRUE(db.Execute(std::string("PRAGMA journal_mode=") + mode));
@@ -165,7 +167,7 @@ TEST_F(SqliteVfsTest, ARollbackInEachJournalModeRestores) {
 TEST_F(SqliteVfsTest, WalWritesCheckpointsAndReopens) {
   for (const bool exclusive : {true, false}) {
     const base::FilePath path =
-        profile_.Append(exclusive ? "WalExclusive" : "WalNormal");
+        profile_.AppendASCII(exclusive ? "WalExclusive" : "WalNormal");
     {
       sql::Database db(
           sql::DatabaseOptions().set_exclusive_locking(exclusive).set_wal_mode(
@@ -176,7 +178,7 @@ TEST_F(SqliteVfsTest, WalWritesCheckpointsAndReopens) {
       ASSERT_TRUE(db.CheckpointDatabase());
       Fill(db, 300, 300);
       EXPECT_EQ(Count(db), 600);
-      const base::FilePath wal(path.value() + "-wal");
+      const base::FilePath wal = sql::Database::WriteAheadLogPath(path);
 
       if (base::PathExists(wal)) {
         EXPECT_EQ(Raw(wal).find(kSecret), std::string::npos);
@@ -327,10 +329,10 @@ TEST_F(SqliteVfsTest, AChangedPageIsAnIOErrorAndNothingIsDeleted) {
 
 TEST_F(SqliteVfsTest, APlainDatabaseMigratesWithAllItsRows) {
   // Written plain, through Chromium's own VFS, as an earlier Pane wrote it.
-  const base::FilePath plain = profile_.Append("Older");
+  const base::FilePath plain = profile_.AppendASCII("Older");
   {
     sqlite3* db = nullptr;
-    ASSERT_EQ(sqlite3_open_v2(plain.value().c_str(), &db,
+    ASSERT_EQ(sqlite3_open_v2(plain.AsUTF8Unsafe().c_str(), &db,
                               SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
                               "VFSWrapper"),
               SQLITE_OK);
@@ -360,10 +362,10 @@ TEST_F(SqliteVfsTest, APlainDatabaseMigratesWithAllItsRows) {
 }
 
 TEST_F(SqliteVfsTest, APlainDatabaseInAProfileCrashes) {
-  const base::FilePath plain = profile_.Append("Older");
+  const base::FilePath plain = profile_.AppendASCII("Older");
   {
     sqlite3* db = nullptr;
-    ASSERT_EQ(sqlite3_open_v2(plain.value().c_str(), &db,
+    ASSERT_EQ(sqlite3_open_v2(plain.AsUTF8Unsafe().c_str(), &db,
                               SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
                               "VFSWrapper"),
               SQLITE_OK);
@@ -385,9 +387,10 @@ TEST_F(SqliteVfsTest, APlainDatabaseInAProfileCrashes) {
 // commit.
 TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
   for (const bool wal : {false, true}) {
-    const base::FilePath path = profile_.Append(wal ? "HotWal" : "HotJournal");
+    const base::FilePath path =
+        profile_.AppendASCII(wal ? "HotWal" : "HotJournal");
     const base::FilePath copy =
-        profile_.Append(wal ? "CopyWal" : "CopyJournal");
+        profile_.AppendASCII(wal ? "CopyWal" : "CopyJournal");
     sql::Database db(sql::DatabaseOptions().set_wal_mode(wal),
                      sql::test::kTestTag);
     ASSERT_TRUE(db.Open(path));
@@ -398,8 +401,11 @@ TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
     ASSERT_TRUE(db.Execute("BEGIN"));
     ASSERT_TRUE(db.Execute("UPDATE t SET value = 'pane-changed-' || id"));
 
-    const std::string suffix = wal ? "-wal" : "-journal";
-    const base::FilePath log(path.value() + suffix);
+    const auto log_of = [wal](const base::FilePath& database) {
+      return wal ? sql::Database::WriteAheadLogPath(database)
+                 : sql::Database::JournalPath(database);
+    };
+    const base::FilePath log = log_of(path);
     ASSERT_TRUE(base::PathExists(log));
     std::string log_bytes = Raw(log);
     EXPECT_GT(log_bytes.size(), 4096u);
@@ -407,7 +413,7 @@ TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
     EXPECT_EQ(log_bytes.find("pane-changed"), std::string::npos);
 
     ASSERT_TRUE(base::CopyFile(path, copy));
-    ASSERT_TRUE(base::CopyFile(log, base::FilePath(copy.value() + suffix)));
+    ASSERT_TRUE(base::CopyFile(log, log_of(copy)));
 
     {
       sql::Database opened(sql::DatabaseOptions().set_wal_mode(wal),
@@ -432,7 +438,7 @@ TEST_F(SqliteVfsTest, ACrashMidTransactionRollsBackFromTheLogOnDisk) {
 // Chromium's quota database reset, erasing every store under WebStorage (patch
 // 0010).
 TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
-  const base::FilePath path = profile_.Append("Torn");
+  const base::FilePath path = profile_.AppendASCII("Torn");
   const base::FilePath copy = profile_.AppendASCII("WebStorage/QuotaManager");
   ASSERT_TRUE(base::CreateDirectory(copy.DirName()));
   const base::FilePath keep =
@@ -450,18 +456,16 @@ TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
   ASSERT_TRUE(db.Execute("CREATE TABLE more(value TEXT)"));
   ASSERT_TRUE(db.Execute("UPDATE t SET value = 'pane-changed-' || id"));
 
-  const base::FilePath journal(path.value() + "-journal");
+  const base::FilePath journal = sql::Database::JournalPath(path);
   ASSERT_TRUE(base::CopyFile(path, copy));
-  ASSERT_TRUE(
-      base::CopyFile(journal, base::FilePath(copy.value() + "-journal")));
+  ASSERT_TRUE(base::CopyFile(journal, sql::Database::JournalPath(copy)));
   ASSERT_TRUE(db.Execute("ROLLBACK"));
   db.Close();
 
   std::string raw = Raw(copy);
   raw[200] ^= 1;
   ASSERT_TRUE(base::WriteFile(copy, raw));
-  const std::string journal_bytes =
-      Raw(base::FilePath(copy.value() + "-journal"));
+  const std::string journal_bytes = Raw(sql::Database::JournalPath(copy));
 
   {
     sql::Database opened(sql::DatabaseOptions().set_wal_mode(false),
@@ -472,8 +476,7 @@ TEST_F(SqliteVfsTest, APageOneTornWithAJournalPlaysBack) {
 
   // Torn again, and opened as Chromium's quota database opens it.
   ASSERT_TRUE(base::WriteFile(copy, raw));
-  ASSERT_TRUE(base::WriteFile(base::FilePath(copy.value() + "-journal"),
-                              journal_bytes));
+  ASSERT_TRUE(base::WriteFile(sql::Database::JournalPath(copy), journal_bytes));
 
   {
     storage::QuotaDatabase quota(profile_);
@@ -497,7 +500,7 @@ TEST_F(SqliteVfsTest, APageOneTornWithNoJournalIsAnError) {
   ASSERT_TRUE(base::WriteFile(path_, raw));
 
   sqlite3* db = nullptr;
-  const int opened = sqlite3_open_v2(path_.value().c_str(), &db,
+  const int opened = sqlite3_open_v2(path_.AsUTF8Unsafe().c_str(), &db,
                                      SQLITE_OPEN_READWRITE, nullptr);
   const int read = opened == SQLITE_OK
                        ? sqlite3_exec(db, "SELECT COUNT(*) FROM t", nullptr,
@@ -513,7 +516,7 @@ TEST_F(SqliteVfsTest, APageOneTornWithNoJournalIsAnError) {
 TEST_F(SqliteVfsTest, AChangedWalPageIsAnError) {
   sqlite3* db = nullptr;
   ASSERT_EQ(
-      sqlite3_open_v2(path_.value().c_str(), &db,
+      sqlite3_open_v2(path_.AsUTF8Unsafe().c_str(), &db,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr),
       SQLITE_OK);
   ASSERT_EQ(sqlite3_exec(db,
@@ -523,12 +526,18 @@ TEST_F(SqliteVfsTest, AChangedWalPageIsAnError) {
                          nullptr, nullptr, nullptr),
             SQLITE_OK);
 
-  const base::FilePath wal(path_.value() + "-wal");
+  const base::FilePath wal = sql::Database::WriteAheadLogPath(path_);
   std::string raw = Raw(wal);
   ASSERT_GT(raw.size(), 8192u);
-  // The last frame's page: no later one takes its place.
-  raw[raw.size() - 4096 + 100] ^= 1;
-  ASSERT_TRUE(base::WriteFile(wal, raw));
+  // The last frame's page: no later one takes its place. Changed in place,
+  // beside SQLite's own handle, which Windows would refuse a rewrite of.
+  const size_t changed = raw.size() - 4096 + 100;
+  raw[changed] ^= 1;
+  base::File file(wal, base::File::FLAG_OPEN | base::File::FLAG_WRITE);
+  ASSERT_TRUE(file.IsValid());
+  ASSERT_TRUE(file.WriteAndCheck(changed,
+                                 base::as_byte_span(raw).subspan(changed, 1u)));
+  file.Close();
 
   // What it holds in memory goes, so the read reaches the file.
   sqlite3_db_release_memory(db);
@@ -581,11 +590,12 @@ void KillLoop(const base::FilePath& root,
 
     // It has started writing; then a moment, different every round.
     for (int wait = 0; wait < 2000 && !base::PathExists(told); wait++) {
-      usleep(1000);
+      base::PlatformThread::Sleep(base::Milliseconds(1));
     }
 
-    usleep((round * 613) % 8000);
-    kill(child.Pid(), SIGKILL);
+    base::PlatformThread::Sleep(base::Microseconds((round * 613) % 8000));
+    // At once, with no chance to finish a write: SIGKILL, or TerminateProcess.
+    child.Terminate(base::Process::kResultCodeKilledBadMessage, /*wait=*/false);
     int code = 0;
     child.WaitForExit(&code);
 

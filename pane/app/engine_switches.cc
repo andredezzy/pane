@@ -88,6 +88,12 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // replace them (ADR 0121).
   AddToSwitchList(command_line, "disable-features",
                   "EncryptBookmarks,EncryptSessionStorage");
+  // The HTTP cache in Simple's format on every OS, the one Pane encrypts (ADR
+  // 0121): the Mac's default, where Windows' is Blockfile, and the backend
+  // experiment's own default is SQL. Its group is spelled out, so a seed or a
+  // default can't pick another.
+  AddToSwitchList(command_line, "enable-features",
+                  "DiskCacheBackendExperiment:backend/simple");
   // Autofill AI's Google Wallet passes, which come only with the browser
   // sign-in and autofill each profile turns off (profiles.cc): with them on,
   // every page Chrome makes asks LocalAuthentication whether this Mac can

@@ -21,6 +21,15 @@ source_set("core") {
     "//base",
     "//third_party/boringssl",
   ]
+
+  # How each OS names the same folder two ways: its roots' forms, and how a
+  # path's names compare.
+  if (is_mac) {
+    sources += [ "engine_keys_mac.cc" ]
+  }
+  if (is_win) {
+    sources += [ "engine_keys_win.cc" ]
+  }
 }
 
 source_set("handover") {
@@ -112,12 +121,18 @@ test("pane_unittests") {
   # The Mac's own part of the model: the volume, the wipe, and the paths an
   # earlier Pane on the Mac updates by, and the conversion of an earlier
   # Pane's profiles, which no Windows Pane has (docs/plans/views-migration.md,
-  # W2).
+  # W2); and each OS's own forms of a root (engine_keys_<os>_unittest.cc).
   if (is_mac) {
-    sources += [ "profile_migration_unittest.cc" ]
+    sources += [
+      "engine_keys_mac_unittest.cc",
+      "profile_migration_unittest.cc",
+    ]
     deps += [
       ":migration",
       "//pane/model/mac:unit_tests",
     ]
+  }
+  if (is_win) {
+    sources += [ "engine_keys_win_unittest.cc" ]
   }
 }

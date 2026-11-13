@@ -7,9 +7,9 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 ## The key
 
 - **One per profile**, HKDF-SHA256 of the data key, the profile's id as salt and `Pane engine files` as info (`model::EngineFilesKey`, `pane/model/data_key.h`), apart from the key that seals Pane's own files. Nothing writes it to disk, a command line, or an environment (`engine-keys` looks for it in every form, in `ps -E` and in every file).
-- **It reaches the engine with the profile:** `pane::OpenProfile` (`pane/browser/profiles.cc`) registers it before Chromium creates the profile (`pane/encryption/engine_keys`), with the roots a profile's files live under, in each form a path reaches them: the links, and the resolved volume.
+- **It reaches the engine with the profile:** `pane::OpenProfile` (`pane/browser/profiles.cc`) registers it before Chromium creates the profile (`pane/encryption/engine_keys`), with the roots a profile's files live under, in each form a path reaches them (`RootsOf`, each OS's in `engine_keys_mac.cc` and `engine_keys_win.cc`): on the Mac the links, and the resolved volume, and the volume by the data directory as Pane was given it (`data_launch_mac.cc`), whose vault writes its markers there while Chromium resolves its own user data dir, so a link in the data directory's path (`/var` is `/private/var`) leaves no form unregistered; on Windows the user data dir as given and as NTFS resolves it (`base::NormalizeFilePath`: long names for short ones, junctions followed, the case on disk). The disk is read for them once per open, in the browser alone; the other processes get them with the keys, so each file's lookup stays string compares.
 - **Other processes get it in shared memory**, as os_crypt_async passes its keys, never in a mojo buffer: the network service with each `NetworkContextParams`, the Storage Service before each `Bind*StorageControl`. So each gets it back after a restart, which `engine-keys` checks by killing them.
-- **A protected path with no key stops the process.** Chromium deletes or razes a store that fails to open, and a crash loses nothing. So does a key that doesn't fit, and a plain SQLite or LevelDB file in a migrated profile.
+- **A protected path with no key stops the process.** Chromium deletes or razes a store that fails to open, and a crash loses nothing. So does a path that names a registered profile's folder in a form no root has (a short name, a link or junction, a `\\?\` prefix, a share): a form nothing registered is refused, never written plain. The profiles' ids stay registered past a lock's drop, as the roots do. So does a key that doesn't fit, and a plain SQLite or LevelDB file in a migrated profile.
 - **It stays until the lock's detach has succeeded,** profile unloads included: stores still flush as a profile is destroyed. Before that detach, the work Chrome left in its thread pool for the profiles has run (ADR 0116): a lock that came before Chrome's startup was over had left that work held behind it, and at the startup's 3 minutes it met this record's check of a profile's file with no key, which ended Pane. The check stays. Each process then forgets every key and says how many it has left, 0, in the engine's trace (`PaneBrowserApplication.engineKeysDropped`). At quit the keys go with the processes.
 
 ## What each store gets
@@ -18,8 +18,8 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 |---|---|---|
 | SQLite (browser, network service) | AES-256-GCM per page, in 32 reserved bytes: a random nonce, the tag, a format and key id | a VFS, `pane/encryption/sqlite_vfs.cc` |
 | LevelDB (browser, Storage Service) | AES-256-CTR, a key per file; no text log; no appends to a closed file | `third_party/leveldatabase/env_chromium.cc` |
-| Whole files: Preferences, Bookmarks, TransportSecurity, CacheStorage's `index.txt`, and the rest written and read whole | AES-256-GCM | `base/files/pane_file_codec.h`, through `ImportantFileWriter`, `WriteFile`, `ReadFileToString` |
-| Every Simple cache: HTTP, code, CacheStorage, service workers' scripts, shared dictionaries | Chromium's chunked AES-256-GCM-SIV, keyed entry names | `net/disk_cache/pane_cache_hook.h` |
+| Whole files: Preferences, Bookmarks, TransportSecurity, CacheStorage's `index.txt`, and the rest written and read whole | AES-256-GCM | `base/files/pane_file_codec.h`, through `ImportantFileWriter`, `WriteFile` (`file_util_posix.cc`, `file_util_win.cc`), `ReadFileToString` |
+| Every Simple cache: HTTP, code, CacheStorage, service workers' scripts, shared dictionaries; the HTTP cache Simple on every OS (below) | Chromium's chunked AES-256-GCM-SIV, keyed entry names | `net/disk_cache/pane_cache_hook.h` |
 | IndexedDB's blobs, the origin private file system | the same chunked format, since both are overwritten in place | `storage/browser/file_system/pane_encrypted_stream.cc` |
 | Sync access handles | through the browser, as Incognito's: no renderer holds a descriptor or a key | `file_system_access_*` |
 | Names | IndexedDB's default buckets by id (`WebStorage/<id>/IndexedDB`); CacheStorage's folders by an HMAC under the profile's key | `file_path_util.cc`, `cache_storage_manager.cc` |
@@ -35,6 +35,16 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 - **In a profile:** `Extensions/`, installed extensions' public code; empty files and folders; and the file system's `.usage` counts, a magic and a size.
 
 `files-encrypted` searches these too, for every value it planted.
+
+## On Windows
+
+The same formats and hooks, store by store, and what only Windows needs (ADR 0124; no volume there, U5):
+
+- **No volume, no conversion.** No Pane was ever published for Windows, so every profile there starts encrypted: the conversion of an earlier Pane's profiles (`//pane/encryption:migration`) and ADR 0122's paths build on the Mac alone, and no root names a volume.
+- **Names compare as NTFS compares them,** without case, and `/` separates as `\` does (`SameComponent`, `engine_keys_win.cc`): ASCII's case, folded by `base::EqualsCaseInsensitiveASCII`. `FilePath::CompareEqualIgnoreCase` folds all of Unicode, as NTFS does, but needs user32, which the Storage Service's sandbox there (`kService`, win32k locked down) doesn't have, and CHECKs it. A name differing only in another letter's case reads as another form, which the refusal above stops: it fails closed. The Mac compares byte for byte, as ever.
+- **`WriteFile` seals a profile's file** in `file_util_win.cc` as in `file_util_posix.cc` (patch 0010); the rest of `//base`'s hooks are in files both share.
+- **The HTTP cache is Simple's on every OS:** `--enable-features=DiskCacheBackendExperiment:backend/simple` (`pane/app/engine_switches.cc`). Windows' default is Blockfile (`ChooseCacheType`, `IsSimpleBackendEnabledByDefaultPlatform`) and the experiment's own default is SQL, neither of which Pane's hook reaches, so the group is spelled out. The Mac's default is Simple already. `EngineSwitchesTest.EveryLaunchCachesInSimplesFormat` reads the switches as Chromium does, and fails without the line. Every other cache asks for Simple itself, and the GPU's in a profile stay off.
+- **At the engine's root**, before the PIN: the GPU's shader caches are `GrShaderCache` and `ShaderCache` there, in Blockfile's format, and Chrome writes `Last Browser`, its executable's path. A site's notification image waits in `Notification Resources` there for the 12 s the system's toast reads it (Residuals: site notifications).
 
 ## An earlier Pane's data
 
@@ -65,7 +75,7 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 
 - **The data root:** Pane's own files: `settings.json`, readable at the user's call; `security.json` and `Data.security.json`, which hold the PIN's length and the sealed key; `profiles.json`, sealed; `deletions.json`, which names only ids; `Pane.lock`. The volume's image, `Data.sparsebundle`.
 - **macOS's in the volume:** `.fseventsd/no_log` and `fseventsd-uuid`. Its log, which names files that change, is off at every mount.
-- **The engine's root** (`Engine/`), which Chromium uses before the PIN: `Local State`, `Last Version`, `Variations`, `ChromeFeatureState`; the GPU's shader caches, `GraphiteDawnCache` and `GPUPersistentCache` (ADR 0115); `Safe Browsing`, `component_crx_cache`, `extensions_crx_cache`, `Webstore Downloads`, `NativeMessagingHosts`; the `Default` profile, holding only Chromium's defaults (ADR 0115), and its caches under `~/Library/Caches`.
+- **The engine's root** (`Engine/`), which Chromium uses before the PIN: `Local State`, `Last Version`, `Variations`, `ChromeFeatureState`, and on Windows `Last Browser`; the GPU's shader caches, `GraphiteDawnCache` and `GPUPersistentCache` (ADR 0115), and on Windows `GrShaderCache` and `ShaderCache`; `Safe Browsing`, `component_crx_cache`, `extensions_crx_cache`, `Webstore Downloads`, `NativeMessagingHosts`; the `Default` profile, holding only Chromium's defaults (ADR 0115), and its caches under `~/Library/Caches`.
 - **In a profile:** `Extensions/`, installed extensions' public code; empty files and folders; and the file system's `.usage` counts, a magic and a size: metadata, as a file's size is.
 
 ## Residuals
@@ -89,6 +99,10 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 - **Binding a stream file to its folder,** as the plan first had: it guards only against a process that writes, which is out of scope, and a rename across folders would have stopped a store.
 - **Caching page 1's plaintext per file,** as the plan first had: a whole-page read and decrypt costs microseconds, and a stale copy would hide another connection's write.
 - **The code cache and shared dictionaries off,** as the plan first had: through the same hook they read as ciphertext, and repeat visits keep them.
+- **Resolving each root in every process** (`AddRoots` itself): the sandboxed network service and Storage Service would read the disk for it, where they may not be let; the browser resolves once per open and hands both forms over.
+- **Comparing Windows' names with `FilePath::CompareEqualIgnoreCase`:** it CHECKs user32, which the Storage Service lacks there.
+- **A form of a path nothing registered passed through as plain, or keyed by the id it names:** a form the registry doesn't know means its model of paths is wrong; a crash shows that, and loses nothing.
+- **Windows' HTTP cache left in Blockfile's format,** or the experiment's SQL: a second hook in another backend, where Simple's is there already.
 
 ## How it is checked
 
@@ -96,6 +110,7 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 - **`files-encrypted`** also lists every file (`inventory.json`), for `chromium/UPGRADING.md`'s step at each new Chromium.
 - **`files-migration`**, from each published build it is given (0.15.2 and 0.17.2): killed three times in its first opens, everything still there, nothing plain, and the published build on the migrated data refused, the volume's files unchanged. **`files-migration-large`**: with its panel, and six kills at random points.
 - **`engine-keys`**, **`memory-guarded`**, **`volume-unindexed`** (Spotlight: `.metadata_never_index` at every mount, since `mdutil` can't tell on a volume out of the Finder).
+- **On Windows** (2026-11-13), in the test VM, the x64 engine under emulation: encryption's own tests on NTFS (the roots through a junction, an 8.3 name, and another case; `\\?\` and a share refused; `WriteFile` sealing; 200 kills mid-journal and mid-WAL, nothing committed lost). `files-encrypted`'s session in a test copy, its data given once by long names and once by 8.3 names, a form's field and a download added: it read back through every store, and `files-encrypted`'s audit (`tests/lib/file-audit.ts`) over the folder, laid out as a Mac's, found 294 files, every profile file in Pane's formats, no value and no name of the site; the HTTP cache Simple and encrypted (9 files, 30 KB); a scan of the user's whole AppData for every value in UTF-8 and UTF-16LE, 11,740 files: none. Controls: the same values written plain, found in both encodings; the VM's stock Chrome 157 with the same session, 15 of its 17 values found in the clear, its HTTP cache Blockfile.
 - **On the Views build** (2026-11-11): `files-encrypted` and `engine-keys` pass, its session writing the same 297 files by kind as the published 0.19.2's, none plain, planted, or named; and once a Lock has detached the volume every process has forgotten its keys.
 - **`pane_unittests`**, run locally since CI builds no Chromium: every I/O shape of a journal and a WAL, a mid-transaction crash rolled back from the log on disk, 200 kills in each with nothing committed lost, Raze, Recovery, VACUUM, a wrong key or none crashing and deleting nothing, LevelDB with repair, and the migration killed at any point.
 - **By hand, by computer use:** `docs/qa/engine-file-encryption/`, with their screenshots kept locally, against the published 0.15.2.

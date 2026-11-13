@@ -29,7 +29,7 @@ class LevelDBEnvTest : public testing::Test {
     root_ = base::MakeAbsoluteFilePath(temp_.GetPath());
     AddRoots({root_});
     Register(5);
-    path_ = root_.Append(kID).AppendASCII("Store");
+    path_ = root_.AppendASCII(kID).AppendASCII("Store");
     ASSERT_TRUE(base::CreateDirectory(path_));
   }
 
@@ -75,7 +75,7 @@ class LevelDBEnvTest : public testing::Test {
         EXPECT_TRUE(StreamCipher::HasMagic(base::as_byte_span(raw))) << file;
       }
 
-      EXPECT_NE(file.BaseName().value(), "LOG");
+      EXPECT_NE(file.BaseName().value(), FILE_PATH_LITERAL("LOG"));
     }
   }
 
