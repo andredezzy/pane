@@ -4,4 +4,4 @@
 # engine-<key:12> prerelease, which the update check, reading the latest release,
 # never sees. scripts/publish-engine.sh publishes it and overwrites the
 # line. A tag reads its own tree's, and every key shipped stays a prerelease.
-46b8f8b35c24ef70eb6c0d00170e507f220121ea	e75448a1dfa2e756efb1a96c8220d02b1fec6ba3ceb885732d6e0eb02eb110f5
+51e9046257e7ea9b0217c230afae4fecf8d47ce8	42ed44da72d5cce5c61109c35cd1d774f75f9f018ffe163c418802d30415ee82
