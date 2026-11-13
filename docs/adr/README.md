@@ -18,9 +18,9 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0016](0016-session-saved-at-engine-shutdown.md) Pane restores its own session: the app saves it when the engine shuts down, and AppKit's window restoration is off
 - [0017](0017-engine-callbacks-defer-reentrant-calls.md) Pane keeps Chromium's order and its word: what would re-enter Chromium from inside its notifications waits for the next turn, and every request completes or goes with its page
 - [0018](0018-automation-channel.md) Scenarios drive the app through a test-only automation channel
-- [0019](0019-menu-shortcuts-match-typed-keys.md) Menu shortcuts match the keys as typed
+- [0019](0019-menu-shortcuts-match-typed-keys.md) Menu shortcuts match the keys as typed, and what Chrome reserves goes ahead of the page
 - [0020](0020-deleting-a-profile.md) Deleting a profile is durable before it completes, and asks no page
-- [0021](0021-chrome-ui-as-requests.md) Every Chrome dialog, bubble, and menu of a tab is a request the app answers: a page's dialogs drawn in the window, file choosers and printing in the system's panels
+- [0021](0021-chrome-ui-as-requests.md) Every Chrome dialog of a tab is Pane's, drawn in its window through Chrome's own seams, and its menu, file choosers, and printing are Chrome's and the system's
 - [0022](0022-chrome-surfaces-kept-and-features-off.md) Some Chrome surfaces stay Chrome's, and some features stay off
 - [0024](0024-devtools-in-the-app-window.md) DevTools dock beside the tab in the app's window
 - [0025](0025-fullscreen-fills-the-app-window.md) Fullscreen fills the app's window, and the window follows the page
@@ -49,7 +49,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0056](0056-extension-prompts.md) Extensions ask in popups, and adding one asks in Dia's dialog
 - [0057](0057-superellipse-radius-scale.md) Every corner is a superellipse on the design's radius scale
 - [0058](0058-paper-draws-every-state.md) Every design is drawn in Paper and approved before it is built, and Paper draws every state the app shows, reviewed against the app
-- [0060](0060-sidebar-and-toolbar-sizes.md) The sidebar and toolbar take Aside's sizes with 12-point text, UI text is drawn without font smoothing, and the content panel stays Pane's
+- [0060](0060-sidebar-and-toolbar-sizes.md) The sidebar and toolbar take Aside's sizes with 12-point text, UI text is drawn as Chromium draws it on the Mac, and the content panel stays Pane's
 - [0061](0061-resizable-sidebar.md) The sidebar is resizable, and its list fades at the edges
 - [0062](0062-extensions-page.md) Extensions are managed on Chrome's own extensions page, in the profile's tab, and they update themselves
 - [0063](0063-outline-controls.md) Outline controls have no fill, and their hover is the foreground at 4%
@@ -59,9 +59,9 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0067](0067-find-bar.md) The find bar takes Aside's design
 - [0068](0068-saves-off-the-main-thread.md) Saves run off the main thread and write only what changed
 - [0070](0070-one-source-per-design-concern.md) The view layer has one source per concern
-- [0071](0071-voiceover-labels.md) VoiceOver names Pane's controls
+- [0071](0071-voiceover-labels.md) VoiceOver names Pane's controls, reads their text, and stays in the modal layer on top
 - [0072](0072-favicons.md) Favicons decode once, off the main thread, into a bounded cache
-- [0073](0073-views-redraw-what-changed.md) Views redraw only what changed and never mask the page
+- [0073](0073-views-redraw-what-changed.md) Pane's views redraw only what changed, never mask the page, and paint on layers no bigger than what they draw
 - [0075](0075-tracing-cost.md) Tracing costs one branch when off
 - [0076](0076-web-store-says-pane.md) The Chrome Web Store's buttons say Pane
 - [0077](0077-controllers-by-ownership.md) The model lives in pane/model and changes only through the controller's intents, and controllers are split by what they own

@@ -1,20 +1,16 @@
 # Every file a profile writes is encrypted under a key only Pane's processes hold
 
-> **On the Views line** (`docs/plans/views-migration.md`, L3): `files-encrypted` and `engine-keys` pass on the Views build, whose session writes the same 297 files by kind as the published 0.19.2's, none plain, planted, or named; and once a Lock has detached the volume every process has forgotten its keys.
-
-> **On the Views line** (2026-11-11, ADR 0116): a lock drops the keys once its detach has succeeded and, before that detach, the work Chrome left in its thread pool for the profiles has run. A lock that came before Chrome's startup was over left that work held behind it, and at the startup's 3 minutes it met this record's check of a profile's file with no key, which ended Pane; the check stays.
-
 The user's requirement (2026-10-31): none of Pane's content can be seen without the PIN. ADR 0113 encrypted every profile at rest, and ADR 0116 locked Pane while open, but while Pane is unlocked the volume is mounted, and any process running as the user read the profiles' files: history, site storage, caches, preferences. ADR 0115 listed that gap. This closes it inside the engine: a process that reads files, even with Full Disk Access, finds only ciphertext, while Pane is unlocked as much as while it is locked. It reverses ADR 0113's rejection of encrypting each of Chromium's stores, which weighed a patch in every storage layer against an upgrade's cost; `docs/qa/engine-file-encryption/` has what its passes found.
 
 Without a PIN the files are just as encrypted: the data key then opens with the Keychain's secret alone, and macOS asks the user before any other process reads that item.
 
 ## The key
 
-- **One per profile**, HKDF-SHA256 of the data key, the profile's id as salt and `Pane engine files` as info (PaneKit `DataKey.engineKey`), apart from the key that seals Pane's own files. Nothing writes it to disk, a command line, or an environment (`engine-keys` looks for it in every form, in `ps -E` and in every file).
-- **It reaches the engine with the profile:** `openContext(identifier:engineKey:)` registers it before Chromium creates the profile (`pane/encryption/engine_keys`), with the roots a profile's files live under, in each form a path reaches them: the links, and the resolved volume.
+- **One per profile**, HKDF-SHA256 of the data key, the profile's id as salt and `Pane engine files` as info (`model::EngineFilesKey`, `pane/model/data_key.h`), apart from the key that seals Pane's own files. Nothing writes it to disk, a command line, or an environment (`engine-keys` looks for it in every form, in `ps -E` and in every file).
+- **It reaches the engine with the profile:** `pane::OpenProfile` (`pane/browser/profiles.cc`) registers it before Chromium creates the profile (`pane/encryption/engine_keys`), with the roots a profile's files live under, in each form a path reaches them: the links, and the resolved volume.
 - **Other processes get it in shared memory**, as os_crypt_async passes its keys, never in a mojo buffer: the network service with each `NetworkContextParams`, the Storage Service before each `Bind*StorageControl`. So each gets it back after a restart, which `engine-keys` checks by killing them.
 - **A protected path with no key stops the process.** Chromium deletes or razes a store that fails to open, and a crash loses nothing. So does a key that doesn't fit, and a plain SQLite or LevelDB file in a migrated profile.
-- **It stays until the lock's detach has succeeded,** profile unloads included: stores still flush as a profile is destroyed. Each process then forgets every key and says how many it has left, 0, in the engine's trace (`PaneBrowserApplication.engineKeysDropped`). At quit the keys go with the processes.
+- **It stays until the lock's detach has succeeded,** profile unloads included: stores still flush as a profile is destroyed. Before that detach, the work Chrome left in its thread pool for the profiles has run (ADR 0116): a lock that came before Chrome's startup was over had left that work held behind it, and at the startup's 3 minutes it met this record's check of a profile's file with no key, which ended Pane. The check stays. Each process then forgets every key and says how many it has left, 0, in the engine's trace (`PaneBrowserApplication.engineKeysDropped`). At quit the keys go with the processes.
 
 ## What each store gets
 
@@ -96,10 +92,11 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 
 ## How it is checked
 
-- **`files-encrypted`** (in CI): a rich session, with Pane open and unlocked, then every file under the profile, its caches, the data root, the home, and `$TMPDIR`: each in a format of Pane's or on the allow-list, none holding a planted value, no name giving a site away, in clear or as an unkeyed hash. The session's values read back through it all.
+- **`files-encrypted`**, on this Mac before a push or a tag (CI runs no scenarios): a rich session, with Pane open and unlocked, then every file under the profile, its caches, the data root, the home, and `$TMPDIR`: each in a format of Pane's or on the allow-list, none holding a planted value, no name giving a site away, in clear or as an unkeyed hash. The session's values read back through it all.
 - **`files-encrypted`** also lists every file (`inventory.json`), for `chromium/UPGRADING.md`'s step at each new Chromium.
 - **`files-migration`**, from each published build it is given (0.15.2 and 0.17.2): killed three times in its first opens, everything still there, nothing plain, and the published build on the migrated data refused, the volume's files unchanged. **`files-migration-large`**: with its panel, and six kills at random points.
 - **`engine-keys`**, **`memory-guarded`**, **`volume-unindexed`** (Spotlight: `.metadata_never_index` at every mount, since `mdutil` can't tell on a volume out of the Finder).
+- **On the Views build** (2026-11-11): `files-encrypted` and `engine-keys` pass, its session writing the same 297 files by kind as the published 0.19.2's, none plain, planted, or named; and once a Lock has detached the volume every process has forgotten its keys.
 - **`pane_unittests`**, run locally since CI builds no Chromium: every I/O shape of a journal and a WAL, a mid-transaction crash rolled back from the log on disk, 200 kills in each with nothing committed lost, Raze, Recovery, VACUUM, a wrong key or none crashing and deleting nothing, LevelDB with repair, and the migration killed at any point.
 - **By hand, by computer use:** `docs/qa/engine-file-encryption/`, with their screenshots kept locally, against the published 0.15.2.
 - **A real update:** the published 0.15.2 took 0.18.0 from GitHub, swapped itself at quit, and the data it had written migrated and read back.

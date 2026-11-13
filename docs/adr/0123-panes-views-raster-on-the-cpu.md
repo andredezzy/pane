@@ -1,6 +1,6 @@
 # Pane's views raster on the CPU
 
-Pane's own views, the window's sidebar, toolbar, panels, and dialogs, raster on the CPU, in the browser's raster thread; the GPU composites them, as it does everything, and pages still raster on the GPU. `//pane` turns off Chromium's `UiGpuRasterization` feature (`pane/app/engine_switches.cc`), the seam Chromium keeps for drawing its UI where GPU raster is blocklisted. It was taken at the end of the shell (`docs/plans/views-migration.md`), on its budgets.
+Pane's own views, the window's sidebar, toolbar, panels, and dialogs, raster on the CPU, in the browser's raster thread; the GPU composites them, as it does everything, and pages still raster on the GPU. `//pane` turns off Chromium's `UiGpuRasterization` feature (`pane/app/engine_switches.cc`), the seam Chromium keeps for drawing its UI where GPU raster is blocklisted. It was taken as the Views shell was built (2026-11-10), on its budgets (`docs/benchmarks/views-shell.md`).
 
 ## Why
 

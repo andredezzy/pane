@@ -4,7 +4,7 @@ Every request Chrome made on its own, outside the pages, is off: some carried a 
 
 What is off:
 
-- **The component updater** (`update_client`), with `--disable-component-update`. The on-device AI model's manifest registers itself on demand regardless, and the updater refuses it (`component_updater_service.cc`), so the hunk that made it honor the switch went in the review of 0.18.0: `quiet` and `files-inventory` still hold.
+- **The component updater** (`update_client`), with `--disable-component-update`. The on-device AI model's manifest registers itself on demand regardless, and the updater refuses it (`component_updater_service.cc`), so the hunk that made it honor the switch went in the review of 0.18.0: `quiet` and `files-encrypted`'s inventory still hold.
 - **The network time check** (`network_time_component`), with the `NetworkTimeServiceQuerying` feature.
 - **AI Mode's eligibility check** (`aim_eligibility_fetch`), which carried a profile's Google cookies and country, with the `Aim*` features.
 - **The Translate ranker model** (`ranker_url_fetcher`), with the `TranslateRanker*` features. Translate itself is off per profile (`translate.enabled`).
