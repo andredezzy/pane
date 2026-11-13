@@ -168,7 +168,11 @@ export const processGroupOf = bySystem({
 			await Bun.$`/bin/ps -o pgid= -p ${pid ?? ""}`.quiet().nothrow().text()
 		).trim(),
 	windows: async (_pid: number | undefined): Promise<string> => {
-		throw noWindowsSide("a process group", "Windows has none");
+		throw noWindowsSide(
+			"a process group",
+			"W3",
+			"Windows has none: how the panic wipe's instance stands apart from Pane's is Windows' wipe's",
+		);
 	},
 });
 
@@ -180,7 +184,8 @@ export const commandLinesAndEnvironments = bySystem({
 	windows: async (): Promise<string[]> => {
 		throw noWindowsSide(
 			"another process's environment",
-			"Windows keeps it in the process's own memory",
+			"W3",
+			"engine-keys reads it once Windows has the PIN; Windows keeps it in the process's own memory",
 		);
 	},
 });
@@ -192,7 +197,9 @@ export const sampleProcess = bySystem({
 		await Bun.$`sample ${pid} 2 -file ${file}`.quiet().nothrow();
 	},
 	windows: async (_pid: number, _file: string): Promise<void> => {
-		throw noWindowsSide("a stuck process's stacks (the Mac's sample)");
+		throw new Error(
+			"Windows ships no sampler of a process's stacks (the Mac's sample)",
+		);
 	},
 });
 
@@ -204,7 +211,8 @@ export const holdOpen = bySystem({
 	windows: (_file: string): Subprocess => {
 		throw noWindowsSide(
 			"a file of the volume held open",
-			"Windows has no volume (U5)",
+			"U5",
+			"Windows has no volume",
 		);
 	},
 });
@@ -280,6 +288,10 @@ export const footprintsOf = bySystem({
 		return JSON.parse(readFileSync(file, "utf8")) as Footprints;
 	},
 	windows: async (_pids: number[], _file: string): Promise<Footprints> => {
-		throw noWindowsSide("the processes' footprint", "a real PC's numbers (U6)");
+		throw noWindowsSide(
+			"the processes' footprint",
+			"U6",
+			"a real PC's numbers",
+		);
 	},
 });

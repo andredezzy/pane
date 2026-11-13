@@ -12,6 +12,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_shader.h"
+#include "pane/ui/design/scroll.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
@@ -77,7 +78,7 @@ END_METADATA
 FadingScrollView::FadingScrollView(ui::ColorVariant behind,
                                    bool fades_top,
                                    bool fades_bottom) {
-  scroll_view_ = AddChildView(std::make_unique<views::ScrollView>());
+  scroll_view_ = AddChildView(LayeredScrollView());
   scroll_view_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kDisabled);
   scroll_view_->SetBackgroundColor(std::nullopt);

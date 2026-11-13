@@ -2,7 +2,8 @@
 // the Views build's pane/ui/interaction_log.h): each interval from its input
 // to the frame it answers with, read from the unified log while `run` drives
 // the app. /usr/bin/log by its path: zsh has a builtin of the same name.
-// Windows' trace (pane/ui/interaction_log_win.cc) is W6's.
+// Windows has no trace of them yet (pane/ui/interaction_log_win.cc): they time
+// frames, which are a real PC's (U6).
 import type { Subprocess } from "bun";
 import { bySystem, noWindowsSide } from "./platform";
 
@@ -55,7 +56,11 @@ const streamSignposts = bySystem({
 			{ stdout: "pipe", stderr: "ignore" },
 		),
 	windows: (): Subprocess<"ignore", "pipe", "ignore"> => {
-		throw noWindowsSide("the app's signposts");
+		throw noWindowsSide(
+			"the app's signposts",
+			"U6",
+			"they time frames, which are a real PC's",
+		);
 	},
 });
 

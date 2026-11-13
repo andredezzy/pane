@@ -5,6 +5,7 @@
 
 import { expect } from "../run";
 import type { AppState, PaneApp } from "./pane";
+import { bySystem } from "./platform";
 import { poll } from "./poll";
 
 export async function waitForSheet(
@@ -38,13 +39,16 @@ export async function answerModal(app: PaneApp, button: string): Promise<void> {
 
 type NativeWindow = AppState["nativeWindows"][number];
 
+// A menu's window: the system's on the Mac (NSPopupMenuWindow), Views' own on
+// Windows (its MenuHost widget).
+const MENU_WINDOW = bySystem({ mac: "NSPopupMenuWindow", windows: "MenuHost" });
+
 // Samples the app's windows through a scenario: every visible window must be
-// the app's own (its window, a sheet on it, an app-modal panel) or a menu the
-// system draws (NSPopupMenuWindow: the page's menu, Chrome's own as U2 keeps
-// it, and Pane's through MenuRunner and AnchoredMenu, which show with Pane in
-// front). Anything
-// else is Chrome's UI showing through, which stop() fails on, but for what
-// `expected` allows.
+// the app's own (its window, a sheet on it, an app-modal panel) or a menu
+// (MENU_WINDOW: the page's menu, Chrome's own as U2 keeps it, and Pane's
+// through MenuRunner and AnchoredMenu, which show with Pane in front).
+// Anything else is Chrome's UI showing through, which stop() fails on, but for
+// what `expected` allows.
 export class WindowWatcher {
 	private readonly others: NativeWindow[] = [];
 	private timer: ReturnType<typeof setInterval> | null = null;
@@ -69,7 +73,7 @@ export class WindowWatcher {
 			...nativeWindows.filter(
 				(window) =>
 					window.role === "other" &&
-					window.class !== "NSPopupMenuWindow" &&
+					window.class !== MENU_WINDOW &&
 					!this.expected(window),
 			),
 		);

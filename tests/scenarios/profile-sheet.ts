@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { type AppState, launchPane, type PaneApp, tabOf } from "../lib/pane";
+import { bySystem } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { startHttpProxy } from "../lib/proxies";
 import { captureWindow } from "../lib/tools";
@@ -50,6 +51,40 @@ type Read = {
 };
 
 const CREDENTIALS = { username: "pane", password: "proxy-secret" };
+
+// The computer's platform, which a new profile claims with the computer's
+// own GPU, and another, with its preset's (FingerprintPreset): each's card,
+// its name in the fingerprint, and what navigator.platform says of it.
+const PLATFORMS = bySystem({
+	mac: {
+		own: {
+			card: "macos",
+			title: "macOS",
+			name: "MACOS",
+			navigator: "MacIntel",
+		},
+		other: {
+			card: "windows",
+			name: "WINDOWS",
+			navigator: "Win32",
+			vendor: "Google Inc. (NVIDIA)",
+		},
+	},
+	windows: {
+		own: {
+			card: "windows",
+			title: "Windows",
+			name: "WINDOWS",
+			navigator: "Win32",
+		},
+		other: {
+			card: "macos",
+			name: "MACOS",
+			navigator: "MacIntel",
+			vendor: "Google Inc. (Apple)",
+		},
+	},
+});
 
 async function saved(app: PaneApp, id: string): Promise<Saved> {
 	return (await app.send<Saved>("readProfile", { profile: id })).result;
@@ -237,7 +272,7 @@ const profileSheet: Scenario = async (context) => {
 		// VoiceOver's names: the open profile's row reads its tabs and state.
 		const plainRow = (await read())[`pane.profile.${plain}`];
 
-		// New profile: spoofing on, the Mac's platform, by default.
+		// New profile: spoofing on, the computer's platform, by default.
 		let known = (await app.state()).profiles.map((profile) => profile.id);
 		await newSheet();
 
@@ -261,8 +296,9 @@ const profileSheet: Scenario = async (context) => {
 				names["pane.profile.history"]?.name === "Save history",
 			spoofing: names["pane.profile.spoof"]?.name === "Spoof fingerprint",
 			platform:
-				names["pane.profile.platform.macos"]?.name === "macOS" &&
-				names["pane.profile.platform.macos"]?.selected === true,
+				names[`pane.profile.platform.${PLATFORMS.own.card}`]?.name ===
+					PLATFORMS.own.title &&
+				names[`pane.profile.platform.${PLATFORMS.own.card}`]?.selected === true,
 			timeZone: names["pane.profile.timeZone"]?.name === "Time zone",
 			color:
 				names["pane.profile.color.blue"]?.name === "Blue" &&
@@ -287,10 +323,10 @@ const profileSheet: Scenario = async (context) => {
 
 		expect(
 			macSaved.savesHistory === true &&
-				macSaved.fingerprint?.platform === "MACOS" &&
+				macSaved.fingerprint?.platform === PLATFORMS.own.name &&
 				macSaved.fingerprint.webgl?.vendor === realWebGL.vendor &&
 				macSaved.fingerprint.webgl?.renderer === realWebGL.renderer,
-			`the Mac profile's fingerprint: ${JSON.stringify(macSaved.fingerprint)}`,
+			`the computer's platform's fingerprint: ${JSON.stringify(macSaved.fingerprint)}`,
 		);
 
 		// A page of it, to see the fingerprint change reach it.
@@ -319,7 +355,7 @@ const profileSheet: Scenario = async (context) => {
 		// Save history off with it, which the open profile's engine takes at
 		// once.
 		await editSheet(mac);
-		await press("pane.profile.platform.windows");
+		await press(`pane.profile.platform.${PLATFORMS.other.card}`);
 		await toggle("pane.profile.history");
 		await render("profile-sheet-cross-os");
 
@@ -327,9 +363,10 @@ const profileSheet: Scenario = async (context) => {
 
 		expect(
 			crossOS["pane.profile.warning"] !== undefined &&
-				crossOS["pane.profile.platform.windows"]?.selected === true &&
+				crossOS[`pane.profile.platform.${PLATFORMS.other.card}`]?.selected ===
+					true &&
 				crossOS["pane.profile.history"]?.checked === false,
-			`another platform: ${JSON.stringify({ warning: crossOS["pane.profile.warning"], windows: crossOS["pane.profile.platform.windows"], history: crossOS["pane.profile.history"] })}`,
+			`another platform: ${JSON.stringify({ warning: crossOS["pane.profile.warning"], other: crossOS[`pane.profile.platform.${PLATFORMS.other.card}`], history: crossOS["pane.profile.history"] })}`,
 		);
 
 		await closeWith("pane.profile.save");
@@ -337,9 +374,9 @@ const profileSheet: Scenario = async (context) => {
 		const windows = await saved(app, mac);
 
 		expect(
-			windows.fingerprint?.platform === "WINDOWS" &&
-				windows.fingerprint.webgl?.vendor === "Google Inc. (NVIDIA)",
-			`the Windows fingerprint: ${JSON.stringify(windows.fingerprint)}`,
+			windows.fingerprint?.platform === PLATFORMS.other.name &&
+				windows.fingerprint.webgl?.vendor === PLATFORMS.other.vendor,
+			`the other platform's fingerprint: ${JSON.stringify(windows.fingerprint)}`,
 		);
 
 		await app.waitFor(
@@ -361,7 +398,7 @@ const profileSheet: Scenario = async (context) => {
 		).evaluate<string>("navigator.platform");
 
 		expect(
-			before === "MacIntel" && after === "Win32",
+			before === PLATFORMS.own.navigator && after === PLATFORMS.other.navigator,
 			`the open tab saw ${before}, then ${after}`,
 		);
 
@@ -463,7 +500,7 @@ const profileSheet: Scenario = async (context) => {
 		);
 
 		// Another platform's warning takes the address past the body's end.
-		await press("pane.profile.platform.windows");
+		await press(`pane.profile.platform.${PLATFORMS.other.card}`);
 		await toggle("pane.profile.proxy");
 
 		// Where the body ends: the footer's rule, 16 over its buttons.

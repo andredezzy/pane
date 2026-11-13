@@ -213,6 +213,7 @@ source_set("pane") {
       "app/app_defaults_mac.mm",
       "app/data_launch_mac.cc",
       "app/version_mac.cc",
+      "automation/file_panels_mac.cc",
       "automation/input_mac.cc",
       "automation/native_input_mac.h",
       "automation/native_input_mac.mm",
@@ -239,6 +240,7 @@ source_set("pane") {
     sources += [
       "app/data_launch_win.cc",
       "app/version_win.cc",
+      "automation/file_panels_win.cc",
       "automation/input_win.cc",
       "automation/system_win.cc",
       "automation/windows_win.cc",
@@ -388,6 +390,7 @@ source_set("pane") {
     deps += [
       "//chrome/browser/ui/views/renderer_context_menu",
       "//components/keep_alive_registry",
+      "//ui/aura",
     ]
   }
 }

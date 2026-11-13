@@ -5,11 +5,13 @@
 // a signature, a plist, a dmg), a download's quarantine, and a search of
 // files' bytes.
 import {
+	closeSync,
 	type Dirent,
 	existsSync,
 	mkdirSync,
+	openSync,
 	readdirSync,
-	readFileSync,
+	readSync,
 	realpathSync,
 	statSync,
 } from "node:fs";
@@ -20,10 +22,113 @@ import { bySystem, noWindowsSide, powershell } from "./platform";
 
 const BINARIES = join(tmpdir(), "pane-tests");
 
+// Windows' desktop, for a PowerShell script of a Windows side: user32's
+// windows, input time, and a window's own drawing, through a class of C#
+// (PaneDesktop) the script can call. Coordinates are the screen's pixels: the
+// script's process is made DPI aware first.
+const DESKTOP = `
+Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class PaneDesktop {
+	public delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
+	[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+	[DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc proc, IntPtr lParam);
+	[DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
+	[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
+	[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+	[DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hwnd, int index);
+	[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int count);
+	[DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+	[DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+	[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+	[DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
+	[DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
+	public struct RECT { public int Left, Top, Right, Bottom; }
+	public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
+
+	// The visible top-level windows of a normal layer (no tool window: menus,
+	// tooltips), on screen (not minimized, not cloaked), of these processes.
+	public static List<object> WindowsOf(uint[] pids) {
+		var found = new List<object>();
+		EnumWindows((hwnd, lParam) => {
+			uint pid;
+			GetWindowThreadProcessId(hwnd, out pid);
+			int cloaked;
+			if (Array.IndexOf(pids, pid) < 0 || !IsWindowVisible(hwnd) || IsIconic(hwnd) ||
+					(GetWindowLong(hwnd, -20) & 0x80) != 0 ||
+					(DwmGetWindowAttribute(hwnd, 14, out cloaked, 4) == 0 && cloaked != 0)) {
+				return true;
+			}
+			var title = new StringBuilder(512);
+			GetWindowText(hwnd, title, title.Capacity);
+			RECT rect;
+			GetWindowRect(hwnd, out rect);
+			string owner = "";
+			try { owner = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch {}
+			found.Add(new Dictionary<string, object> {
+				{ "pid", pid }, { "owner", owner }, { "title", title.ToString() },
+				{ "bounds", new Dictionary<string, object> {
+					{ "X", rect.Left }, { "Y", rect.Top },
+					{ "Width", rect.Right - rect.Left }, { "Height", rect.Bottom - rect.Top } } } });
+			return true;
+		}, IntPtr.Zero);
+		return found;
+	}
+
+	// The window drawn by itself into a PNG, whatever covers it.
+	public static bool Capture(IntPtr hwnd, string file) {
+		RECT rect;
+		if (!GetWindowRect(hwnd, out rect) || rect.Right <= rect.Left || rect.Bottom <= rect.Top) {
+			return false;
+		}
+		using (var bitmap = new Bitmap(rect.Right - rect.Left, rect.Bottom - rect.Top, PixelFormat.Format32bppArgb)) {
+			using (var graphics = Graphics.FromImage(bitmap)) {
+				IntPtr hdc = graphics.GetHdc();
+				bool drawn = PrintWindow(hwnd, hdc, 2);
+				graphics.ReleaseHdc(hdc);
+				if (!drawn) {
+					return false;
+				}
+			}
+			bitmap.Save(file, ImageFormat.Png);
+		}
+		return true;
+	}
+
+	public static uint ForegroundPid() {
+		uint pid = 0;
+		GetWindowThreadProcessId(GetForegroundWindow(), out pid);
+		return pid;
+	}
+
+	public static double IdleSeconds() {
+		var info = new LASTINPUTINFO();
+		info.cbSize = (uint)Marshal.SizeOf(info);
+		GetLastInputInfo(ref info);
+		return unchecked((uint)Environment.TickCount - info.dwTime) / 1000.0;
+	}
+}
+'@
+[void][PaneDesktop]::SetProcessDPIAware()
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+`;
+
+// What `script` prints, with PaneDesktop (DESKTOP) to call.
+export function windowsDesktop(
+	script: string,
+	env: Record<string, string> = {},
+): Promise<string> {
+	return powershell(`${DESKTOP}\n${script}`, env);
+}
+
 // The Swift tool `name`'s binary, compiled on first use, and again once its
-// source is newer. They are the Mac's: what each reads or does on Windows
-// (the windows, the accessibility tree, the clipboard, a URL handed over) is
-// W6's.
+// source is newer. They are the Mac's: Windows' sides of what they read or
+// do sit in the modules that call them, or wait on the item named there.
 export const swiftTool = bySystem({
 	mac: async (name: string): Promise<string> => {
 		const source = join(import.meta.dir, "..", "tools", `${name}.swift`);
@@ -40,7 +145,7 @@ export const swiftTool = bySystem({
 		return binary;
 	},
 	windows: async (name: string): Promise<string> => {
-		throw noWindowsSide(`the Mac's tests/tools/${name}.swift`);
+		throw new Error(`tests/tools/${name}.swift is the Mac's`);
 	},
 });
 
@@ -53,8 +158,10 @@ export const capsLockIndicator = bySystem({
 	windows: async () => false,
 });
 
-// The window numbered `windowId` (the window server's number) drawn into the
-// PNG `file`, without its shadow, whatever covers it: whether it was.
+// The window numbered `windowId` (the window server's number on the Mac, the
+// window's handle on Windows) drawn into the PNG `file`, without its shadow,
+// whatever covers it: whether it was. Windows has the window draw itself
+// (PrintWindow, its full content).
 export const captureWindow = bySystem({
 	mac: async (windowId: number, file: string) =>
 		(
@@ -62,13 +169,18 @@ export const captureWindow = bySystem({
 				.quiet()
 				.nothrow()
 		).exitCode === 0,
-	windows: async (_windowId: number, _file: string): Promise<boolean> => {
-		throw noWindowsSide("a window's capture");
-	},
+	windows: async (windowId: number, file: string) =>
+		(
+			await windowsDesktop(
+				"[Console]::Write([PaneDesktop]::Capture([IntPtr][long]$env:PANE_WINDOW, $env:PANE_FILE))",
+				{ PANE_WINDOW: String(windowId), PANE_FILE: file },
+			).catch(() => "False")
+		).trim() === "True",
 });
 
 // The window recorded into the movie `file` for `seconds`, from now: the
-// process records until it exits.
+// process records until it exits. Frames are a real PC's on Windows (U6):
+// the VM has no GPU.
 export const recordWindow = bySystem({
 	mac: (windowId: number, seconds: string, file: string): Subprocess =>
 		Bun.spawn(
@@ -84,7 +196,7 @@ export const recordWindow = bySystem({
 			{ stdout: "ignore", stderr: "ignore" },
 		),
 	windows: (_windowId: number, _seconds: string, _file: string): Subprocess => {
-		throw noWindowsSide("a window's recording");
+		throw noWindowsSide("a window's recording", "U6", "a real PC's frames");
 	},
 });
 
@@ -97,9 +209,12 @@ export const idleSeconds = bySystem({
 
 		return Number(nanoseconds) / 1e9;
 	},
-	windows: async (): Promise<number> => {
-		throw noWindowsSide("the user's idle time");
-	},
+	windows: async () =>
+		Number(
+			(
+				await windowsDesktop("[Console]::Write([PaneDesktop]::IdleSeconds())")
+			).trim(),
+		),
 });
 
 // The pid of the app in front, which the user's keys reach.
@@ -113,9 +228,12 @@ export const frontmostPid = bySystem({
 
 		return Number(pid);
 	},
-	windows: async (): Promise<number> => {
-		throw noWindowsSide("the app in front");
-	},
+	windows: async () =>
+		Number(
+			(
+				await windowsDesktop("[Console]::Write([PaneDesktop]::ForegroundPid())")
+			).trim(),
+		),
 });
 
 // Whether the system's appearance is dark: the Mac's (AppleInterfaceStyle),
@@ -191,7 +309,8 @@ export const imagesAttachedIn = bySystem({
 	windows: async (_path: string): Promise<string[]> => {
 		throw noWindowsSide(
 			"the data volume's disk images",
-			"Windows has no volume (U5)",
+			"U5",
+			"Windows has no volume",
 		);
 	},
 });
@@ -238,7 +357,8 @@ export const mountedAt = bySystem({
 	windows: async (_path: string): Promise<boolean> => {
 		throw noWindowsSide(
 			"the data volume's mount",
-			"Windows has no volume (U5)",
+			"U5",
+			"Windows has no volume",
 		);
 	},
 });
@@ -268,7 +388,7 @@ export const forgetBundle = bySystem({
 
 // What makes a stand-in Pane, and a copy of one that reports another
 // version: the Mac's bundles and dmgs. Windows' install and update are W7's.
-const W7 = "W7 decides Windows' install and update";
+const INSTALL = "Windows' install and update decide it";
 
 // A copy of the bundle `from` made at `to`, as the Finder copies one.
 export const copyBundle = bySystem({
@@ -276,7 +396,7 @@ export const copyBundle = bySystem({
 		await Bun.$`ditto ${from} ${to}`.quiet();
 	},
 	windows: async (_from: string, _to: string): Promise<void> => {
-		throw noWindowsSide("a copy of an app bundle", W7);
+		throw noWindowsSide("a copy of an app bundle", "W7", INSTALL);
 	},
 });
 
@@ -287,7 +407,7 @@ export const signAdHoc = bySystem({
 		await Bun.$`codesign --force --sign - ${keep ? ["--preserve-metadata=identifier,entitlements,flags,runtime"] : []} ${bundle}`.quiet();
 	},
 	windows: async (_bundle: string, _keep = false): Promise<void> => {
-		throw noWindowsSide("an ad hoc signature", W7);
+		throw noWindowsSide("an ad hoc signature", "W7", INSTALL);
 	},
 });
 
@@ -309,7 +429,8 @@ export const plistString = bySystem({
 	windows: (_plist: string, _key: string): string | undefined => {
 		throw noWindowsSide(
 			"a bundle's plist",
-			"no Pane was published for Windows (W2)",
+			"W7",
+			"no Pane was published for Windows",
 		);
 	},
 });
@@ -324,7 +445,7 @@ export const setPlistString = bySystem({
 		_key: string,
 		_value: string,
 	): Promise<void> => {
-		throw noWindowsSide("a bundle's plist", W7);
+		throw noWindowsSide("a bundle's plist", "W7", INSTALL);
 	},
 });
 
@@ -338,7 +459,7 @@ export const compileC = bySystem({
 		_binary: string,
 		_defines: string[],
 	): Promise<void> => {
-		throw noWindowsSide("a stand-in Pane's executable", W7);
+		throw noWindowsSide("a stand-in Pane's executable", "W7", INSTALL);
 	},
 });
 
@@ -352,7 +473,7 @@ export const makeDmg = bySystem({
 		_path: string,
 		_name: string,
 	): Promise<void> => {
-		throw noWindowsSide("a dmg", W7);
+		throw noWindowsSide("a dmg", "W7", INSTALL);
 	},
 });
 
@@ -423,9 +544,7 @@ export const filesHolding = bySystem({
 
 		for (const file of filesUnder(root, skipFolders)) {
 			try {
-				const bytes = readFileSync(file);
-
-				if (needles.some((needle) => bytes.includes(needle))) {
+				if (holdsAny(file, needles)) {
 					found.push(file);
 				}
 			} catch {}
@@ -434,3 +553,41 @@ export const filesHolding = bySystem({
 		return found;
 	},
 });
+
+// Whether `file`'s bytes hold any of `needles`, read a megabyte at a time,
+// each read overlapping the last by a needle's length, as grep streams a
+// file: the temporary folder holds files of gigabytes.
+function holdsAny(file: string, needles: Buffer[]): boolean {
+	const overlap = Math.max(0, ...needles.map((needle) => needle.length - 1));
+	const buffer = Buffer.alloc(1 << 20);
+	const descriptor = openSync(file, "r");
+
+	try {
+		let kept = 0;
+
+		for (;;) {
+			const read = readSync(
+				descriptor,
+				buffer,
+				kept,
+				buffer.length - kept,
+				null,
+			);
+
+			if (read === 0) {
+				return false;
+			}
+
+			const window = buffer.subarray(0, kept + read);
+
+			if (needles.some((needle) => window.includes(needle))) {
+				return true;
+			}
+
+			kept = Math.min(overlap, window.length);
+			window.copyWithin(0, window.length - kept);
+		}
+	} finally {
+		closeSync(descriptor);
+	}
+}

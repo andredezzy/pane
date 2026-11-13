@@ -12,6 +12,7 @@
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/field.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/scroll.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/design/text_button.h"
@@ -331,7 +332,7 @@ void PageDialog::SetMostHeight(int height) {
       // this long.
       const size_t at = GetIndexOf(message_).value();
       std::unique_ptr<views::View> message = RemoveChildViewT(message_.get());
-      auto scroll = std::make_unique<views::ScrollView>();
+      std::unique_ptr<views::ScrollView> scroll = LayeredScrollView();
       scroll->SetBackgroundColor(std::nullopt);
       // An alert's message scrolls with no line at its edges.
       scroll->SetDrawOverflowIndicator(false);

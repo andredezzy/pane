@@ -3,26 +3,27 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import { Cdp } from "./cdp";
-import { bySystem, noWindowsSide } from "./platform";
-import { detachImagesIn } from "./tools";
+import { bySystem } from "./platform";
+import { detachImagesIn, swiftTool } from "./tools";
 
-// The environment that gives the app the throwaway folder `home` for its own:
-// on the Mac, HOME, and CFFIXED_USER_HOME for Foundation, so its caches, HTTP
-// storage, Downloads, Application Support, and Crashpad's database are not
-// the user's Pane's (its preferences stay the user's domain: cfprefsd ignores
-// a fixed home). Chromium on Windows reads its folders (AppData, Downloads)
-// from the shell, which no variable moves.
+// The variable that names the app's home, and the environment that gives it
+// the throwaway folder `home` for its own: on the Mac, HOME, and
+// CFFIXED_USER_HOME for Foundation, so its caches, HTTP storage, Downloads,
+// Application Support, and Crashpad's database are not the user's Pane's (its
+// preferences stay the user's domain: cfprefsd ignores a fixed home). Chromium
+// on Windows reads its folders (AppData, Downloads, Documents, the Desktop)
+// from the shell, which no variable moves, so a test copy takes them under
+// the folder PANE_HOME_DIR names (pane/app/data_launch_win.cc).
+const HOME_VARIABLE = bySystem({ mac: "HOME", windows: "PANE_HOME_DIR" });
+
 export const homeEnvironment = bySystem({
 	mac: (home: string): Record<string, string> => ({
 		HOME: home,
 		CFFIXED_USER_HOME: home,
 	}),
-	windows: (_home: string): Record<string, string> => {
-		throw noWindowsSide(
-			"a home of the app's own",
-			"Chromium reads Windows' folders from the shell, not the environment",
-		);
-	},
+	windows: (home: string): Record<string, string> => ({
+		PANE_HOME_DIR: home,
+	}),
 });
 
 // The app the executable `binary` runs: its bundle on the Mac (Pane.app, from
@@ -41,16 +42,66 @@ export const appOf = bySystem({
 	windows: (binary: string) => dirname(binary),
 });
 
-// The app's resource `name` (crl-set): in the bundle's Resources on the Mac.
-// Where Windows' app keeps its own, the CRLSet among them, is W7's.
+// The app's resource `name` (crl-set): in the bundle's Resources on the Mac;
+// beside chrome.exe on Windows, where Chromium's assets are (DIR_ASSETS, its
+// module's folder). Which resources Windows' package carries is W7's.
 export const appResource = bySystem({
 	mac: (binary: string, name: string) =>
 		join(appOf(binary), "Contents", "Resources", name),
-	windows: (_binary: string, _name: string): string => {
-		throw noWindowsSide(
-			"the app's resources",
-			"W7 decides where Windows' app keeps them",
+	windows: (binary: string, name: string) => join(appOf(binary), name),
+});
+
+// The running app, as another app finds it to hand it URLs: its executable,
+// its process, and its data.
+type RunningApp = { binary: string; pid: number; dataDir: string };
+
+// URLs handed to the running app as another app hands them, a link clicked
+// in Mail with Pane the default browser: on the Mac through Launch Services,
+// Apple Events to the copy running as `pid` from its bundle, without
+// activating it (tools/open-urls.swift, which gives a copy it had to start
+// anyway the throwaway `home`); on Windows as the shell hands its default
+// browser one, a launch of the app with them, whose process singleton passes
+// them to the copy running over the same profile folder and exits, a test
+// copy as that one is (its data, the mock keychain). What went wrong, or
+// nothing.
+export const handURLs = bySystem({
+	mac: async (app: RunningApp, home: string, urls: string[]) => {
+		const handed =
+			await Bun.$`${await swiftTool("open-urls")} ${appOf(app.binary)} ${app.pid} ${home} ${urls}`
+				.quiet()
+				.nothrow();
+
+		return handed.exitCode === 0
+			? null
+			: `open-urls failed: ${handed.stderr.toString().trim()}`;
+	},
+	windows: async (app: RunningApp, _home: string, urls: string[]) => {
+		const second = Bun.spawn(
+			[
+				app.binary,
+				"--use-mock-keychain",
+				`--user-data-dir=${join(app.dataDir, "Engine")}`,
+				...urls,
+			],
+			{
+				env: { ...process.env, PANE_DATA_DIR: app.dataDir },
+				stdout: "ignore",
+				stderr: "ignore",
+			},
 		);
+
+		const exited = await Promise.race([
+			second.exited.then(() => true),
+			Bun.sleep(30_000).then(() => false),
+		]);
+
+		if (!exited) {
+			second.kill("SIGKILL");
+
+			return "the second launch never handed its URLs to the running copy";
+		}
+
+		return null;
 	},
 });
 
@@ -132,7 +183,9 @@ export async function launch(
 
 	// The Pane app keeps its own data (PANE_DATA_DIR) and migrates the
 	// Electron app's on a first launch: unless a scenario names them, both
-	// are throwaway, never the user's at their default paths.
+	// are throwaway, never the user's at their default paths. A data root
+	// derived from the home is the Mac's alone: Windows' test copies name
+	// theirs.
 	if (options.derivedDataRoot) {
 		const fixed = options.env?.CFFIXED_USER_HOME;
 
@@ -155,7 +208,7 @@ export async function launch(
 	// A home of its own too, unless a scenario names one: under the real
 	// home the app would share the user's Pane's caches, HTTP storage, and
 	// Downloads, and Chromium's Crashpad database (homeEnvironment).
-	const home = options.env?.HOME
+	const home = options.env?.[HOME_VARIABLE]
 		? null
 		: mkdtempSync(join(tmpdir(), "pane-home-"));
 
@@ -174,17 +227,8 @@ export async function launch(
 		}
 	};
 
-	// What gives the app that home; a launch that can't give it one (Windows,
-	// for now) leaves nothing behind.
-	let homeVariables: Record<string, string> = {};
-
-	try {
-		homeVariables = home ? homeEnvironment(home) : {};
-	} catch (error) {
-		await removeDirs();
-
-		throw error;
-	}
+	// What gives the app that home.
+	const homeVariables = home ? homeEnvironment(home) : {};
 
 	// A reused directory still holds the last run's port.
 	rmSync(join(userDataDir, "DevToolsActivePort"), { force: true });

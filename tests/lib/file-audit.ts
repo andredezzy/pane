@@ -5,7 +5,8 @@
 // its content shows, and whether ADR 0121's allow-list lets it stay plain.
 import { createHash } from "node:crypto";
 import { type Dirent, readdirSync, readFileSync, realpathSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
+import { bySystem } from "./platform";
 
 export type Planted = {
 	// Exact strings the session planted, each random: found in no file.
@@ -62,12 +63,12 @@ const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 	],
 	[/^Data\.sparsebundle\//, "the volume's image"],
 	[
-		/^Engine\/(Local State|Last Version|Variations|ChromeFeatureState)$/,
+		/^Engine\/(Local State|Last Version|Last Browser|Variations|ChromeFeatureState)$/,
 		"the engine's root, before the PIN",
 	],
 	[/^Engine\/DevToolsActivePort$/, "the scenario's own port"],
 	[
-		/^Engine\/(GraphiteDawnCache|GPUPersistentCache|Safe Browsing|component_crx_cache|extensions_crx_cache|Webstore Downloads|NativeMessagingHosts|Default)\//,
+		/^Engine\/(GraphiteDawnCache|GPUPersistentCache|GrShaderCache|ShaderCache|Safe Browsing|component_crx_cache|extensions_crx_cache|Webstore Downloads|NativeMessagingHosts|Default)\//,
 		"the engine's root, before the PIN",
 	],
 	[/^automation\//, "the scenario's channel"],
@@ -366,6 +367,14 @@ function namedBy(
 	return found;
 }
 
+// A profile's own file, by its path in the data root, and its path in the
+// profile: on the Mac in the volume, its caches in a folder of their own
+// there; on Windows in the engine's folder by its id, its caches inside it.
+const PROFILE_FILE = bySystem({
+	mac: /^Engine\/Volume\/[^/]+\/(?:Profile|Cache)\/(.*)$/,
+	windows: /^Engine\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/(.*)$/i,
+});
+
 function* walk(root: string): Generator<{ path: string; entry: Dirent }> {
 	let entries: Dirent[];
 
@@ -408,7 +417,8 @@ function auditTree(
 	const directories: Audit["directories"] = [];
 
 	for (const { path, entry } of walk(root)) {
-		const name = relative(root, path);
+		// Separated by "/" on every system, as the allow-list reads it.
+		const name = relative(root, path).split(sep).join("/");
 
 		if (entry.isDirectory()) {
 			directories.push({
@@ -480,18 +490,16 @@ export function audit(roots: AuditRoots, planted: Planted): Audit {
 		directories.push(...tree.directories);
 	};
 
-	const inVolume = /^Engine\/Volume\/[^/]+\/(Profile|Cache)\/(.*)$/;
-
 	add(
 		auditTree(
 			dataRoot,
 			planted,
 			hashes,
 			(path) => {
-				const inProfile = inVolume.exec(path);
+				const inProfile = PROFILE_FILE.exec(path);
 
 				if (inProfile) {
-					const inside = inProfile[2] ?? "";
+					const inside = inProfile[1] ?? "";
 
 					return (
 						PROFILE_ALLOWED.find(([pattern]) => pattern.test(inside))?.[1] ??
@@ -504,10 +512,10 @@ export function audit(roots: AuditRoots, planted: Planted): Audit {
 				);
 			},
 			(path) => {
-				const inProfile = inVolume.exec(path);
+				const inProfile = PROFILE_FILE.exec(path);
 
 				if (inProfile) {
-					return classify(inProfile[2] ?? "");
+					return classify(inProfile[1] ?? "");
 				}
 
 				return { kind: "data root", writer: "Pane or the engine" };
@@ -520,7 +528,7 @@ export function audit(roots: AuditRoots, planted: Planted): Audit {
 	// folders, and the Downloads folder, the user's files (out of scope).
 	const isDataRoot = (path: string) =>
 		join(home, path) === dataRoot ||
-		join(home, path).startsWith(`${dataRoot}/`);
+		join(home, path).startsWith(`${dataRoot}${sep}`);
 
 	const homeTree = auditTree(
 		home,

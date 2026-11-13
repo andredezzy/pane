@@ -16,6 +16,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/execution_fence.h"
@@ -135,12 +136,14 @@ void ClickMiddle(views::Widget* widget, const views::View* view) {
   PostClick(widget, middle.x(), middle.y(), 1);
 }
 
-// The item of `menu` titled `title`; never a separator.
+// The item of `menu` titled `title`, in either case: Chromium title-cases
+// its menus' words on the Mac alone (its strings' use_titlecase). Never a
+// separator.
 std::optional<size_t> ItemTitled(const ui::MenuModel& menu,
                                  std::u16string_view title) {
   for (size_t index = 0; index < menu.GetItemCount(); ++index) {
     if (menu.GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
-        menu.GetLabelAt(index) == title) {
+        base::EqualsCaseInsensitiveASCII(menu.GetLabelAt(index), title)) {
       return index;
     }
   }
@@ -383,6 +386,12 @@ class Automation::Files {
   }
 
  private:
+  // How often, and for how long, a command that can't be read yet is looked
+  // at again: Windows can hold a file the runner just moved into `in` for a
+  // moment (the move's own handle, a scan), so the first read finds nothing.
+  static constexpr base::TimeDelta kReadAgainAfter = base::Milliseconds(20);
+  static constexpr int kReadsOfOneCommand = 100;
+
   void Changed(const base::FilePath& path, bool error) {
     std::vector<base::FilePath> files;
     base::FileEnumerator commands(in_, false, base::FileEnumerator::FILES,
@@ -395,7 +404,18 @@ class Automation::Files {
     std::ranges::sort(files);
     for (const base::FilePath& file : files) {
       std::string text;
-      const bool read = base::ReadFileToString(file, &text);
+      const bool read = base::ReadFileToString(file, &text) && !text.empty();
+      // A command is never empty: one not read yet waits, and so do those
+      // sent after it, which run in their order.
+      if (!read && ++reads_[file] < kReadsOfOneCommand) {
+        base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(&Files::Changed, weak_factory_.GetWeakPtr(), in_,
+                           false),
+            kReadAgainAfter);
+        return;
+      }
+      reads_.erase(file);
       base::DeleteFile(file);
       std::optional<base::Value> command =
           read ? base::JSONReader::Read(text, base::JSON_PARSE_RFC)
@@ -411,6 +431,9 @@ class Automation::Files {
   const base::FilePath out_;
   Received received_;
   base::FilePathWatcher watcher_;
+  // The commands not read yet, and how often each was tried.
+  std::map<base::FilePath, int> reads_;
+  base::WeakPtrFactory<Files> weak_factory_{this};
 };
 
 namespace {
@@ -822,7 +845,12 @@ void Automation::Dispatch(const std::string& name,
       std::move(reply).Run(base::Value(), "changeSystemTimeZone needs zone");
       return;
     }
-    ChangeSystemTimeZone(*zone);
+    if (!ChangeSystemTimeZone(*zone)) {
+      std::move(reply).Run(base::Value(),
+                           "changeSystemTimeZone: the system's zone is the "
+                           "computer's alone here, for no app to change");
+      return;
+    }
     std::move(reply).Run(base::Value(), std::string());
     return;
   }

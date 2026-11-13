@@ -15,6 +15,7 @@
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/scroll.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/design/text_button.h"
@@ -555,7 +556,7 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
   layer()->SetRoundedCornerRadius(gfx::RoundedCornersF(kPanelLayerRadius));
   layer()->SetIsFastRoundedCorner(true);
 
-  scroll_view_ = AddChildView(std::make_unique<views::ScrollView>());
+  scroll_view_ = AddChildView(LayeredScrollView());
   scroll_view_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kDisabled);
   // The panel's card shows through: nothing here fills past its corners,

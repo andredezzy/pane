@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/values.h"
+#include "ui/gfx/native_ui_types.h"
 
 namespace pane {
 
@@ -27,6 +29,18 @@ base::Value FilePanelShown();
 // Answers the panel showing with `paths`, or cancels it with none, as its
 // own buttons would, and takes it down: false with none showing.
 bool AnswerFilePanel(std::optional<std::vector<base::FilePath>> paths);
+
+// The platform's half: the stock panel on `owner` taken down as its own
+// Cancel takes it, once its listener has gone. The Mac's goes with its
+// bridge; Windows' runs on a thread of its own until its window closes.
+void TakeDownStockPanel(gfx::NativeWindow owner);
+
+// The platform's half: `start` once the stock panels let go of on `owner`
+// have ended: at once on the Mac; on Windows once the dialog Windows runs on
+// a thread of its own has closed and given its owner back, as Chromium shows
+// one at a time (AutoCloseDialogEventHandler CHECKs it), where the channel's
+// answer comes before the dialog has even shown.
+void WhenStockPanelsEnded(gfx::NativeWindow owner, base::OnceClosure start);
 
 }  // namespace pane
 

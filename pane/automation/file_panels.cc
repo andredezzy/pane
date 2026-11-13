@@ -2,10 +2,13 @@
 
 #include "pane/automation/file_panels.h"
 
+#include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
+#include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/strings/utf_string_conversions.h"
@@ -13,6 +16,7 @@
 #include "ui/shell_dialogs/select_file_dialog_factory.h"
 #include "ui/shell_dialogs/select_file_policy.h"
 #include "ui/shell_dialogs/selected_file_info.h"
+#include "url/gurl.h"
 
 namespace pane {
 
@@ -105,11 +109,17 @@ class WatchedPanel : public ui::SelectFileDialog,
                       const GURL* caller) override {
     type_ = type;
     title_ = title;
-    // The platform's own, as Chrome's when no factory is set.
-    stock_ = ui::CreateSelectFileDialog(this, nullptr);
+    owner_ = owning_window;
     Showing().push_back(this);
-    stock_->SelectFile(type, title, default_path, file_types, file_type_index,
-                       default_extension, owning_window, caller);
+    // The platform's own, as Chrome's when no factory is set, once the stock
+    // panels before it have ended.
+    WhenStockPanelsEnded(
+        owning_window,
+        base::BindOnce(&WatchedPanel::ShowStock, base::WrapRefCounted(this),
+                       type, title, default_path,
+                       file_types ? std::optional(*file_types) : std::nullopt,
+                       file_type_index, default_extension,
+                       caller ? std::optional(*caller) : std::nullopt));
   }
 
   bool HasMultipleFileTypeChoicesImpl() override {
@@ -119,16 +129,35 @@ class WatchedPanel : public ui::SelectFileDialog,
  private:
   ~WatchedPanel() override { Close(); }
 
+  // The stock panel shown, unless the panel was answered or let go first.
+  void ShowStock(Type type,
+                 const std::u16string& title,
+                 const base::FilePath& default_path,
+                 const std::optional<FileTypeInfo>& file_types,
+                 int file_type_index,
+                 const base::FilePath::StringType& default_extension,
+                 const std::optional<GURL>& caller) {
+    if (!std::ranges::contains(Showing(), this)) {
+      return;
+    }
+    stock_ = ui::CreateSelectFileDialog(this, nullptr);
+    stock_->SelectFile(type, title, default_path,
+                       file_types ? &*file_types : nullptr, file_type_index,
+                       default_extension, owner_, caller ? &*caller : nullptr);
+  }
+
   // The stock dialog goes, and with it the panel, answering no one.
   void Close() {
     std::erase(Showing(), this);
     if (scoped_refptr<ui::SelectFileDialog> stock = std::move(stock_)) {
       stock->ListenerDestroyed();
+      TakeDownStockPanel(owner_);
     }
   }
 
   Type type_ = SELECT_NONE;
   std::u16string title_;
+  gfx::NativeWindow owner_ = gfx::NativeWindow();
   scoped_refptr<ui::SelectFileDialog> stock_;
 };
 

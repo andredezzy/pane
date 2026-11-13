@@ -30,12 +30,17 @@ export function bySystem<T>(sides: Record<System, T>): T {
 	return sides[system];
 }
 
-// What a Windows side throws where it has none yet: the second part of W6
-// (docs/plans/views-migration.md) brings the channel's Windows side and the
-// runner's tools there; `why` says what else it waits on.
-export function noWindowsSide(what: string, why?: string): Error {
+// What a Windows side throws where it has none yet: `owner` is the item of
+// docs/plans/views-migration.md that brings it (W3 Windows' data, W4 its
+// platform files, W7 its install and update, W8 its audits) or the user's
+// decision it rests on (U5, U6), and `why` says what it waits on.
+export function noWindowsSide(
+	what: string,
+	owner: string,
+	why?: string,
+): Error {
 	return new Error(
-		`${what}: no Windows side yet (W6, docs/plans/views-migration.md)${why ? `; ${why}` : ""}`,
+		`${what}: no Windows side yet (${owner}, docs/plans/views-migration.md)${why ? `; ${why}` : ""}`,
 	);
 }
 

@@ -224,7 +224,10 @@ bool ActionMenu::Choose(std::u16string_view title) {
         self(self, *submenu);
         continue;
       }
-      if (gfx::RemoveAccelerator(model.GetLabelAt(index)) == title) {
+      // In either case: Chromium title-cases its menus' words on the Mac
+      // alone (its strings' use_titlecase).
+      if (base::EqualsCaseInsensitiveASCII(
+              gfx::RemoveAccelerator(model.GetLabelAt(index)), title)) {
         found_model = &model;
         found_index = index;
       }

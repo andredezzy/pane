@@ -1,17 +1,17 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { appOf } from "../lib/browser";
-import { swiftTool } from "../lib/tools";
+import { handURLs } from "../lib/browser";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // What another app hands Pane opens in Pane's window, as in Chrome: a link
 // clicked in Mail with Pane as the default browser, a file opened with it.
-// Launch Services sends the URLs to the running app (tools/open-urls.swift,
-// without activating it), a page and a file in an Apple Event each; the
-// engine passes them to the app rather than to a window of Chrome's, and
-// each opens as a new tab in the profile in use, the last one selected and
-// loaded.
+// The system hands the URLs to the running app (handURLs: on the Mac Launch
+// Services, a page and a file in an Apple Event each, without activating
+// it; on Windows a launch with them, which the running copy's process
+// singleton takes); the engine passes them to the app rather than to a
+// window of Chrome's, and each opens as a new tab in the profile in use, the
+// last one selected and loaded.
 const openURLs: Scenario = async (context) => {
 	const { app, trace, waitForEntry } = await launchTraced(context, "open-urls");
 
@@ -32,19 +32,13 @@ const openURLs: Scenario = async (context) => {
 		join(import.meta.dir, "..", "pages", "nav-b.html"),
 	).href;
 
-	const tool = await swiftTool("open-urls");
-	const bundle = appOf(context.binary);
-	const home = context.tempDir("pane-open-urls-home-");
-
-	const handed =
-		await Bun.$`${tool} ${bundle} ${app.browser.pid} ${home} ${link} ${file}`
-			.quiet()
-			.nothrow();
-
-	expect(
-		handed.exitCode === 0,
-		`open-urls failed: ${handed.stderr.toString().trim()}`,
+	const failed = await handURLs(
+		{ binary: context.binary, pid: app.browser.pid, dataDir: app.dataDir },
+		context.tempDir("pane-open-urls-home-"),
+		[link, file],
 	);
+
+	expect(failed === null, `${failed}`);
 
 	const opened = await app.waitFor(
 		"both URLs open in Personal, the last one selected",

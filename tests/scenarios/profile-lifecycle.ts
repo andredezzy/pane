@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchPane, tabOf } from "../lib/pane";
+import { dataOpen, launchPane, profileFolder, tabOf } from "../lib/pane";
 import { poll, pollValue } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { targets as targetsOf } from "../lib/targets";
@@ -127,14 +127,11 @@ const profileLifecycle: Scenario = async (context) => {
 
 	// Chrome removes a deleted profile's directory once nothing holds the
 	// profile, or else in a low-priority cleanup at the next start. Pane
-	// purges what deletions.json names once the data volume is attached
-	// (ADR 0113).
+	// purges what deletions.json names once the data is open, the Mac's
+	// volume attached (ADR 0113).
 	const relaunched = await launchPane(context, { dataDir });
 
-	const after = await relaunched.waitFor(
-		"the data volume attached",
-		(state) => state.security.data.attached,
-	);
+	const after = await relaunched.waitFor("the data open", dataOpen);
 
 	await pollValue(
 		() => existsSync(profileDir),
@@ -227,7 +224,7 @@ const profileLifecycle: Scenario = async (context) => {
 	const doomed = await killed.app.createProfile("Doomed", "ROSE");
 	const doomedURL = context.fixtures.url("nav-a.html?doomed");
 	await killed.app.openPage(doomed, doomedURL);
-	const doomedFolder = join(killedDir, "Engine", "Volume", doomed);
+	const doomedFolder = profileFolder(killedDir, doomed);
 	const filler = join(doomedFolder, "filler");
 	mkdirSync(filler);
 

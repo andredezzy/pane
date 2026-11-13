@@ -1,7 +1,17 @@
 import { cpus } from "node:os";
+import { bySystem } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
+
+// What the engine's own values say of the computer it runs on, which C, with
+// no fingerprint, reports: navigator.platform and the User-Agent Client
+// Hints' platform; and the fingerprint's name of that platform, whose
+// profiles keep the computer's own voices (a profile on another hides them).
+const COMPUTER = bySystem({
+	mac: { platform: "MacIntel", uaPlatform: "macOS", fingerprint: "MACOS" },
+	windows: { platform: "Win32", uaPlatform: "Windows", fingerprint: "WINDOWS" },
+});
 
 // Per-profile fingerprints inside the engine: profile A claims Windows, B
 // Linux, and C has none. The fixture reports what a main frame, an iframe,
@@ -9,7 +19,7 @@ import { expect, type Scenario } from "../run";
 // a fetch, a navigation, and a service worker's fetch. Each fingerprinted
 // profile must report exactly its configured values everywhere, as native
 // functions, with Client Hints headers that match navigator.userAgentData;
-// C must report the Mac it runs on.
+// C must report the computer it runs on.
 
 type Brand = { brand: string; version: string };
 
@@ -342,7 +352,17 @@ const fingerprint: Scenario = async (context) => {
 			`${key} maxTouchPoints ${frame.maxTouchPoints}`,
 		);
 
-		expect(frame.voices === 0, `${key} exposes ${frame.voices} host voices`);
+		// The computer's own voices would contradict another platform's; a
+		// profile claiming the computer's platform keeps them, as C does.
+		const voices =
+			configured.platform === COMPUTER.fingerprint
+				? collected.c.frame.voices
+				: 0;
+
+		expect(
+			frame.voices === voices,
+			`${key} exposes ${frame.voices} host voices, not ${voices}`,
+		);
 
 		expect(
 			frame.audio?.sum === frame.audio?.again &&
@@ -425,14 +445,14 @@ const fingerprint: Scenario = async (context) => {
 		"A and B share audio noise",
 	);
 
-	// C presents the Mac it runs on.
+	// C presents the computer it runs on.
 	for (const name of CONTEXTS) {
 		const report = collected.c[name];
 
 		expect(
-			report.platform === "MacIntel" &&
+			report.platform === COMPUTER.platform &&
 				report.hardwareConcurrency === cpus().length &&
-				report.userAgentData.platform === "macOS" &&
+				report.userAgentData.platform === COMPUTER.uaPlatform &&
 				report.canvas.noisyChannels === 0 &&
 				report.native.failures.length === 0,
 			`C ${name} reported ${JSON.stringify({ platform: report.platform, hardwareConcurrency: report.hardwareConcurrency, uaPlatform: report.userAgentData.platform, noisyChannels: report.canvas.noisyChannels })}`,
@@ -491,7 +511,27 @@ const fingerprint: Scenario = async (context) => {
 		`Automatic, before the change: ${JSON.stringify(macBefore)}`,
 	);
 
-	await app.send("changeSystemTimeZone", { zone: NEW_ZONE });
+	// Windows' engine reads the computer's zone alone, which no scenario
+	// changes: the channel says so, and the check waits for a computer whose
+	// zone may change.
+	const changed = await app
+		.send("changeSystemTimeZone", { zone: NEW_ZONE })
+		.then(
+			() => true,
+			(error: unknown) => {
+				if (!String(error).includes("the computer's alone")) {
+					throw error;
+				}
+
+				context.defer(`Automatic following the computer's zone: ${error}`);
+
+				return false;
+			},
+		);
+
+	if (!changed) {
+		return;
+	}
 
 	const afterChange = await poll(
 		"Automatic to follow the Mac",

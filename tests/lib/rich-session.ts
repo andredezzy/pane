@@ -12,6 +12,7 @@ import type { Page } from "./cdp";
 import { extensionId, workerPage } from "./extensions";
 import type { AuditRoots, Planted } from "./file-audit";
 import { launchPane, type PaneApp, type PaneLaunch } from "./pane";
+import { bySystem } from "./platform";
 import { filesHolding } from "./tools";
 
 const EXTENSION = join(
@@ -36,33 +37,60 @@ export type RichSession = {
 	launch: PaneLaunch;
 };
 
-// The data root under a throwaway home, so the caches' folder is the link a
-// Mac's is (`derivedDataRoot`), and a temporary folder of its own, so what
-// Pane's processes make there is theirs alone.
+// The data root under a throwaway home and a temporary folder of Pane's
+// own, so what Pane's processes make there is theirs alone. On the Mac the
+// data root is the one the home gives (`derivedDataRoot`), so the caches'
+// folder is the link a Mac's is, and the temporary folder is the home's
+// tmp. Windows' test copy names its data (PANE_DATA_DIR, where W3 puts a
+// user's: AppData\Local\Pane), which must lie in the temporary folder: the
+// home is that folder, its caches in each profile's folder.
 export function sessionFolders(context: ScenarioContext, binary?: string) {
 	const home = realpathSync(context.tempDir("pane-rich-home-"));
 
-	const dataDir = join(
-		home,
-		"Library",
-		"Application Support",
-		"xyz.roundedcorners.pane",
-	);
+	const { dataDir, temporary, launch } = bySystem<
+		() => { dataDir: string; temporary: string[]; launch: PaneLaunch }
+	>({
+		mac: () => {
+			const temporary = join(home, "tmp");
+
+			return {
+				dataDir: join(
+					home,
+					"Library",
+					"Application Support",
+					"xyz.roundedcorners.pane",
+				),
+				temporary: [temporary],
+				launch: {
+					derivedDataRoot: true,
+					env: { ...homeEnvironment(home), TMPDIR: `${temporary}/` },
+				},
+			};
+		},
+		windows: () => ({
+			dataDir: join(home, "AppData", "Local", "Pane"),
+			temporary: [],
+			launch: {
+				emptyData: true,
+				env: { ...homeEnvironment(home), TMP: home, TEMP: home },
+			},
+		}),
+	})();
 
 	mkdirSync(dataDir, { recursive: true });
 
-	const temporary = join(home, "tmp");
-	mkdirSync(temporary, { recursive: true });
+	for (const folder of temporary) {
+		mkdirSync(folder, { recursive: true });
+	}
 
-	const launch: PaneLaunch = {
+	const session: PaneLaunch = {
 		...(binary && { binary }),
 		dataDir,
-		derivedDataRoot: true,
-		env: { ...homeEnvironment(home), TMPDIR: `${temporary}/` },
+		...launch,
 		args: [`--load-extension=${EXTENSION}`],
 	};
 
-	return { home, dataDir, temporary, launch };
+	return { home, dataDir, temporary, launch: session };
 }
 
 // What the session's page does in the page, each value kept where its name says.
@@ -229,7 +257,7 @@ export async function richSession(
 		roots: {
 			dataRoot: folders.dataDir,
 			home: folders.home,
-			temporary: [folders.temporary],
+			temporary: folders.temporary,
 		},
 	};
 }

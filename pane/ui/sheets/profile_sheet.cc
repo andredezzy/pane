@@ -24,6 +24,7 @@
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/placement.h"
+#include "pane/ui/design/scroll.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/switch.h"
 #include "pane/ui/design/text.h"
@@ -1351,7 +1352,7 @@ ProfileSheet::ProfileSheet(Callbacks callbacks)
   header_rule_ = AddChildView(std::make_unique<Hairline>());
 
   // The body, ending hard at the two rules (DESIGN.md › Scroll edges).
-  scroll_ = AddChildView(std::make_unique<views::ScrollView>());
+  scroll_ = AddChildView(LayeredScrollView());
   scroll_->SetID(kViewIdProfileBody);
   scroll_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kDisabled);

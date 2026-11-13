@@ -15,8 +15,32 @@ import type { ScenarioContext } from "../run";
 import { type Browser, homeEnvironment } from "./browser";
 import { openPage, type Page } from "./cdp";
 import { isScreenLocked } from "./cua";
+import { bySystem } from "./platform";
 import { sampleProcess } from "./processes";
 import { targets } from "./targets";
+
+// Whether the data opens into a volume it attaches (ADR 0113): the Mac's
+// does; Windows has none (U5), its data open once its key is.
+const DATA_IN_A_VOLUME = bySystem({ mac: true, windows: false });
+
+// The folder that holds profile `id`'s own data, its caches with it: in the
+// Mac's volume (ADR 0113); on Windows, which has none (U5), the engine's own
+// folder by the profile's id.
+export function profileFolder(dataDir: string, id: string): string {
+	return bySystem({
+		mac: join(dataDir, "Engine", "Volume", id),
+		windows: join(dataDir, "Engine", id),
+	});
+}
+
+// Whether the data is open for the profiles: its key open, and on the Mac its
+// volume attached.
+export function dataOpen(state: AppState): boolean {
+	return (
+		state.security.data.phase === "open" &&
+		(state.security.data.attached || !DATA_IN_A_VOLUME)
+	);
+}
 
 export type TabState = {
 	id: string;
@@ -535,6 +559,14 @@ export class PaneApp {
 	}
 }
 
+// Whether two titles of a menu name one item, as either system spells
+// Chrome's words: Chromium title-cases its menus on the Mac alone (its
+// strings' use_titlecase), "View Page Source" there, "View page source" on
+// Windows. The channel chooses an item by its title in either case.
+export function sameTitle(a: string, b: string): boolean {
+	return a.toLowerCase() === b.toLowerCase();
+}
+
 export function tabOf(state: AppState, tabID: string): TabState | undefined {
 	return state.profiles
 		.flatMap((profile) => profile.tabs)
@@ -569,6 +601,10 @@ export type PaneLaunch = {
 	// automation channel and the home go beside it, so nothing is in it
 	// before the launch.
 	derivedDataRoot?: boolean;
+	// Nothing of the runner's in `dataDir`, which the launch names: the
+	// automation channel and the home go beside it, as an audit of the data
+	// root needs on Windows, whose test copies name their data.
+	emptyData?: boolean;
 	// The volume is meant not to attach (data-volume): the launch returns
 	// once it has failed, where it fails otherwise, saying why.
 	volumeFails?: boolean;
@@ -582,9 +618,10 @@ export async function launchPane(
 ): Promise<PaneApp> {
 	const dataDir = options.dataDir ?? context.tempDir("pane-data-");
 
-	const own = options.derivedDataRoot
-		? context.tempDir("pane-automation-")
-		: dataDir;
+	const own =
+		options.derivedDataRoot || options.emptyData
+			? context.tempDir("pane-automation-")
+			: dataDir;
 
 	const automationDir = join(own, "automation");
 	rmSync(automationDir, { recursive: true, force: true });
@@ -647,7 +684,7 @@ export async function launchPane(
 	const launched = await app.waitFor(
 		"the profiles open and the volume attached, or the PIN screen",
 		(state) =>
-			(state.security.data.phase === "open" && state.security.data.attached) ||
+			dataOpen(state) ||
 			state.security.locked ||
 			state.security.data.failure !== null,
 		60_000,

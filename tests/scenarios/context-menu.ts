@@ -1,5 +1,5 @@
 import { isScreenLocked } from "../lib/cua";
-import { launchPane, type PaneApp } from "../lib/pane";
+import { launchPane, type PaneApp, sameTitle } from "../lib/pane";
 import {
 	clearClipboard,
 	clipboardText,
@@ -25,7 +25,10 @@ const IMAGE_DESCRIPTIONS = "Get Image Descriptions from Google";
 
 // The next menu `app`'s page shows, not the last one still held: each state
 // is a new object, so only the count tells them apart. It shows one of the
-// `expected` titles.
+// `expected` titles, and every item has its title: Windows' spellchecker
+// answers after the menu is built, Chrome holding untitled places for its
+// suggestions until then (SpellingMenuObserver), where the Mac's are in the
+// menu as it is made.
 function menusOf(app: PaneApp, send: Send) {
 	return async (point: Point, ...expected: string[]) => {
 		const before = (await app.state()).contextMenusShown;
@@ -36,8 +39,9 @@ function menusOf(app: PaneApp, send: Send) {
 			(current) =>
 				current.contextMenusShown > before &&
 				(current.contextMenu ?? []).some((item) =>
-					expected.includes(item.title),
-				),
+					expected.some((title) => sameTitle(title, item.title)),
+				) &&
+				(current.contextMenu ?? []).every((item) => item.title !== ""),
 		);
 
 		return (state.contextMenu ?? []).map((item) => item.title);
@@ -79,8 +83,8 @@ const contextMenu: Scenario = async (context) => {
 
 	// Chooses an item the menu shows enabled.
 	const choose = async (title: string) => {
-		const item = (await app.state()).contextMenu?.find(
-			(each) => each.title === title,
+		const item = (await app.state()).contextMenu?.find((each) =>
+			sameTitle(each.title, title),
 		);
 
 		expect(item?.enabled, `${title} is not enabled`);
@@ -94,18 +98,20 @@ const contextMenu: Scenario = async (context) => {
 	);
 
 	expect(
-		linkMenu.slice(0, 3).join("|") ===
+		sameTitle(
+			linkMenu.slice(0, 3).join("|"),
 			"Open Link in New Tab|Save Link As…|Copy Link Address",
+		),
 		`link menu ${linkMenu}`,
 	);
 
 	// What Pane can't support shows nowhere.
 	const unsupported = linkMenu.filter(
 		(title) =>
-			title === "Open Link in New Window" ||
-			title === "Open Link in Split View" ||
-			title === "Open Link in Incognito Window" ||
-			title.startsWith("Open Link as"),
+			sameTitle(title, "Open Link in New Window") ||
+			sameTitle(title, "Open Link in Split View") ||
+			sameTitle(title, "Open Link in Incognito Window") ||
+			title.toLowerCase().startsWith("open link as"),
 	);
 
 	expect(unsupported.length === 0, `link menu offers ${unsupported}`);
@@ -146,13 +152,13 @@ const contextMenu: Scenario = async (context) => {
 		...(locked ? ["Select All", "Add to Dictionary"] : ["Add to Dictionary"]),
 	);
 
-	if (editMenu.includes("Add to Dictionary")) {
+	if (editMenu.some((title) => sameTitle(title, "Add to Dictionary"))) {
 		const suggestion = editMenu[0];
 
 		expect(
 			suggestion &&
-				suggestion !== "No Guesses Found" &&
-				suggestion !== "Add to Dictionary",
+				!sameTitle(suggestion, "No Guesses Found") &&
+				!sameTitle(suggestion, "Add to Dictionary"),
 			`spelling menu ${editMenu}`,
 		);
 
@@ -179,7 +185,7 @@ const contextMenu: Scenario = async (context) => {
 
 		expect(
 			["Undo", "Redo", "Cut", "Copy", "Paste", "Select All", "Inspect"].every(
-				(title) => editMenu.includes(title),
+				(title) => editMenu.some((shown) => sameTitle(shown, title)),
 			),
 			`edit menu ${editMenu}`,
 		);
@@ -270,7 +276,7 @@ const contextMenu: Scenario = async (context) => {
 		"Inspect",
 	);
 
-	expect(plainMenu.join("|") === PLAIN_MENU, `plain menu ${plainMenu}`);
+	expect(sameTitle(plainMenu.join("|"), PLAIN_MENU), `plain menu ${plainMenu}`);
 
 	await run("Inspect");
 	await app.waitFor("DevTools", (state) => state.devToolsTabs.includes(tab));
@@ -339,7 +345,7 @@ async function screenReaderMenus(context: ScenarioContext, url: string) {
 	);
 
 	expect(
-		!linkMenu.includes(IMAGE_DESCRIPTIONS),
+		!linkMenu.some((title) => sameTitle(title, IMAGE_DESCRIPTIONS)),
 		`link menu with a screen reader ${linkMenu}`,
 	);
 
@@ -349,7 +355,7 @@ async function screenReaderMenus(context: ScenarioContext, url: string) {
 	);
 
 	expect(
-		plainMenu.join("|") === PLAIN_MENU,
+		sameTitle(plainMenu.join("|"), PLAIN_MENU),
 		`plain menu with a screen reader ${plainMenu}`,
 	);
 }

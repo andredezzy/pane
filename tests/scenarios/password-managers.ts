@@ -7,7 +7,7 @@ import {
 	screenshotPopover,
 	screenshotWindow,
 } from "../lib/extensions";
-import { launchPane, tabOf } from "../lib/pane";
+import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForPage } from "../lib/targets";
@@ -29,6 +29,37 @@ function firstWords(page: Page): Promise<string> {
 		30_000,
 		500,
 	);
+}
+
+// The words of extension `id`'s popup, its picture in `file`; or null when
+// the extension closed its popup for a page of its own in a tab, which is
+// read instead: 1Password, pressed while it starts, shows its popup, then
+// closes it for its welcome page, as in Chrome.
+async function popupWords(
+	app: PaneApp,
+	id: string,
+	file: string,
+): Promise<string | null> {
+	try {
+		const text = await firstWords(await popupPage(app, id));
+		await Bun.sleep(1_000);
+		await screenshotPopover(app, id, file);
+
+		return text;
+	} catch (error) {
+		return app
+			.waitFor(
+				`${id}'s popup closed`,
+				(state) => state.extensionPopup?.open !== true,
+				5_000,
+			)
+			.then(
+				() => null,
+				() => {
+					throw error;
+				},
+			);
+	}
 }
 
 // 1Password and NordPass from the Chrome Web Store: their toolbar buttons
@@ -89,19 +120,21 @@ const passwordManagers: Scenario = async (context) => {
 			30_000,
 		);
 
-		if (pressed.extensionPopup?.open) {
-			const text = await firstWords(await popupPage(app, manager.id));
-			await Bun.sleep(1_000);
-			await screenshotPopover(app, manager.id, file);
+		const words = pressed.extensionPopup?.open
+			? await popupWords(app, manager.id, file)
+			: null;
+
+		if (words !== null) {
 			await watcher.sample();
 			await app.send("closeExtensionPopup");
 
-			expect(text.length > 0, `${name}'s popup rendered nothing`);
+			expect(words.length > 0, `${name}'s popup rendered nothing`);
 
 			continue;
 		}
 
-		// Its page routes itself (the URL changes as it starts).
+		// Its page, or the one it closed its popup for, routes itself (the
+		// URL changes as it starts).
 		const page = await waitForPage(app.browser.cdp, `${name}'s page`, (info) =>
 			info.url.startsWith(own),
 		);

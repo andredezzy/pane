@@ -8,6 +8,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/timer/elapsed_timer.h"
@@ -96,7 +97,9 @@ std::optional<Found> Find(const ui::MenuModel& model,
     if (!Shows(model, index)) {
       continue;
     }
-    if (ShownTitle(model, index) == title) {
+    // In either case: Chromium title-cases its menus' words on the Mac
+    // alone (its strings' use_titlecase).
+    if (base::EqualsCaseInsensitiveASCII(ShownTitle(model, index), title)) {
       return Found{.submenu = submenu,
                    .index = index,
                    .enabled = model.IsEnabledAt(index)};

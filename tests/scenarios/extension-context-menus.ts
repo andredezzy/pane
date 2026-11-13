@@ -5,7 +5,7 @@ import {
 	extensionsPage,
 } from "../lib/chrome-extensions";
 import { extensionId, workerPage } from "../lib/extensions";
-import type { MenuItemState } from "../lib/pane";
+import { type MenuItemState, sameTitle } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -101,12 +101,15 @@ const extensionContextMenus: Scenario = async (context) => {
 	const first = await pageMenu();
 	const titles = first.map((item) => item.title);
 
+	const at = (title: string) =>
+		titles.findIndex((each) => sameTitle(each, title));
+
 	// Chrome's own menu (U2, ADR 0096): the extensions' items in their slot,
 	// after the page's own (Print…) and before View Page Source and Inspect.
 	expect(
-		titles.indexOf("Print…") < titles.indexOf(NAME) &&
-			titles.indexOf(NAME) === titles.indexOf("View Page Source") - 1 &&
-			titles.indexOf("View Page Source") === titles.indexOf("Inspect") - 1,
+		at("Print…") < at(NAME) &&
+			at(NAME) === at("View Page Source") - 1 &&
+			at("View Page Source") === at("Inspect") - 1,
 		`the probe's submenu is not in Chrome's slot for it: ${titles.join(", ")}`,
 	);
 
@@ -179,7 +182,7 @@ const extensionContextMenus: Scenario = async (context) => {
 			.result.siteAccess;
 
 		expect(
-			menu.length === 1 && menu[0]?.title === submenu,
+			menu.length === 1 && sameTitle(menu[0]?.title ?? "", submenu),
 			`the action's site access reads ${described(menu)}`,
 		);
 
@@ -200,7 +203,7 @@ const extensionContextMenus: Scenario = async (context) => {
 	const initially = await siteAccess();
 
 	expect(
-		initially === choices("On All Sites"),
+		sameTitle(initially, choices("On All Sites")),
 		`the site access submenu reads ${initially}`,
 	);
 
@@ -216,7 +219,7 @@ const extensionContextMenus: Scenario = async (context) => {
 		const menu = await siteAccess();
 
 		expect(
-			menu === choices(title),
+			sameTitle(menu, choices(title)),
 			`after ${title}, the submenu reads ${menu}`,
 		);
 
@@ -279,8 +282,10 @@ const extensionContextMenus: Scenario = async (context) => {
 		.result.siteAccess;
 
 	expect(
-		described(cantAccess) ===
+		sameTitle(
+			described(cantAccess),
 			"Can\u2019t Read or Change Site\u2019s Data (disabled)",
+		),
 		`on a data: page, the site access reads ${described(cantAccess)}`,
 	);
 };

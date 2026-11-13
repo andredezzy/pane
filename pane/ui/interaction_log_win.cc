@@ -4,8 +4,9 @@
 
 namespace pane {
 
-// The interactions' intervals in Windows' own trace (ETW) are W6's
-// (docs/plans/views-migration.md): none is traced yet.
+// The interactions' intervals in Windows' own trace (ETW) time frames, whose
+// numbers are a real PC's, not the test VM's, which has no GPU (U6,
+// docs/plans/views-migration.md): none is traced yet.
 
 uint64_t BeginInteractionInterval(Interaction interaction) {
   return 0;

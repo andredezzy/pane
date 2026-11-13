@@ -1,8 +1,8 @@
 // Thin wrapper over the cua-driver CLI for checks only the native UI can
 // prove: window screenshots, the accessibility tree, real keystrokes. It
 // reads macOS's accessibility tree (AXButton, AXSheet): Windows' is UI
-// Automation's, whose reading is W6's, so there the UI is never driven
-// (canDriveUI) and a call to the driver throws.
+// Automation's, which W8 checks with Narrator (ADR 0071), so there the UI is
+// never driven (canDriveUI) and a call to the driver throws.
 import { bySystem, noWindowsSide } from "./platform";
 import { captureWindow, swiftTool } from "./tools";
 
@@ -54,7 +54,11 @@ export const call: <T>(
 ) => Promise<T> = bySystem({
 	mac: callOnMac,
 	windows: async (tool: string) => {
-		throw noWindowsSide(`cua-driver's ${tool} on macOS's accessibility tree`);
+		throw noWindowsSide(
+			`cua-driver's ${tool} on macOS's accessibility tree`,
+			"W8",
+			"Windows' is UI Automation's, checked with Narrator (ADR 0071)",
+		);
 	},
 });
 

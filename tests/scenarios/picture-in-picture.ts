@@ -1,17 +1,17 @@
-import { launchPane } from "../lib/pane";
+import { launchPane, sameTitle } from "../lib/pane";
 import { WindowWatcher } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
 
 // Video picture-in-picture: the app hears of it, and the floating player is
-// the one window besides the app's own (Chromium's PiP window, by design).
+// the one window besides the app's own (Chromium's PiP window, by design),
+// titled in Chrome's words: "Picture in picture" on Windows.
 const PLAYER = "Picture in Picture";
 
 const pictureInPicture: Scenario = async (context) => {
 	const app = await launchPane(context);
 
-	const watcher = new WindowWatcher(
-		app,
-		(window) => window.title === PLAYER,
+	const watcher = new WindowWatcher(app, (window) =>
+		sameTitle(window.title, PLAYER),
 	).start();
 
 	const profile = await app.createProfile("PiP");
@@ -32,7 +32,7 @@ const pictureInPicture: Scenario = async (context) => {
 
 	await app.waitFor("the floating player", (state) =>
 		state.nativeWindows.some(
-			(window) => window.role === "other" && window.title === PLAYER,
+			(window) => window.role === "other" && sameTitle(window.title, PLAYER),
 		),
 	);
 

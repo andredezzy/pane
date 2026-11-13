@@ -23,10 +23,13 @@
 #include "base/path_service.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/default_clock.h"
+#include "chrome/common/chrome_paths.h"
+#include "pane/app/test_copy.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/data_key.h"
 #include "pane/model/local_state.h"
 #include "pane/model/model_store.h"
+#include "pane/model/test_hooks.h"
 
 namespace pane {
 
@@ -175,6 +178,43 @@ class TestCopyData : public AppData {
 
 TestCopyData* g_data = nullptr;
 
+// A test copy's home: the user's folders, which Chromium reads from the
+// shell on Windows and no variable moves (Downloads, Documents, the Desktop,
+// AppData), under the folder PANE_HOME_DIR names in the temporary folder, as
+// a home of its own gives them on the Mac (HOME and CFFIXED_USER_HOME), so
+// a scenario's downloads and saves are never the user's. Its data and its
+// engine's stay where the launch names them.
+void TakeTestCopyHome() {
+  const std::optional<std::string> named = model::TestHook("PANE_HOME_DIR");
+  if (!named) {
+    return;
+  }
+  const base::FilePath home = base::FilePath::FromUTF8Unsafe(*named);
+  if (!InTemporaryFolder(home)) {
+    LOG(ERROR) << "A test copy's home lies outside the temporary folder";
+    return;
+  }
+  if (!base::PathService::Override(base::DIR_HOME, home)) {
+    LOG(ERROR) << "Could not give a test copy its home";
+  }
+  const std::pair<int, const base::FilePath::CharType*> folders[] = {
+      {base::DIR_USER_DESKTOP, FILE_PATH_LITERAL("Desktop")},
+      {base::DIR_ROAMING_APP_DATA, FILE_PATH_LITERAL("AppData\\Roaming")},
+      {base::DIR_LOCAL_APP_DATA, FILE_PATH_LITERAL("AppData\\Local")},
+      {chrome::DIR_USER_DOCUMENTS, FILE_PATH_LITERAL("Documents")},
+      {chrome::DIR_USER_MUSIC, FILE_PATH_LITERAL("Music")},
+      {chrome::DIR_USER_PICTURES, FILE_PATH_LITERAL("Pictures")},
+      {chrome::DIR_USER_VIDEOS, FILE_PATH_LITERAL("Videos")},
+      {chrome::DIR_DEFAULT_DOWNLOADS, FILE_PATH_LITERAL("Downloads")},
+      {chrome::DIR_DEFAULT_DOWNLOADS_SAFE, FILE_PATH_LITERAL("Downloads")},
+  };
+  for (const auto& [key, folder] : folders) {
+    if (!base::PathService::Override(key, home.Append(folder))) {
+      LOG(ERROR) << "Could not give a test copy's home folder " << key;
+    }
+  }
+}
+
 }  // namespace
 
 base::FilePath DefaultDataDirectory() {
@@ -195,6 +235,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
     LOG(ERROR) << "Could not make a test copy's data folder";
     return 1;
   }
+  TakeTestCopyHome();
   // Chromium opens the profile it used last at startup, before Pane gives it
   // its key: never one of Pane's.
   if (!model::StartOnDefaultProfile(EngineDirectory(data_directory))) {

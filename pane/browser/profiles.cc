@@ -371,8 +371,10 @@ void ApplyFingerprintLanguages(Profile* profile) {
 }
 
 // ANGLE names its renderer "ANGLE (vendor, device, version)" and gives WebGL
-// "Unspecified Version" instead of the OS version Chrome's GPU info has
-// (DisplayMtl::getVersionString), so the version is swapped the same way.
+// less of the version than Chrome's GPU info has: Metal's "Unspecified
+// Version" in place of the OS's (DisplayMtl::getVersionString), Direct3D's
+// without its driver's ("D3D11-31.0.15.3623" as "D3D11",
+// Renderer11::getVersionString). The version is cut the same way.
 std::optional<model::Fingerprint::WebGL> HostWebGL() {
   const gpu::GPUInfo& info =
       content::GpuDataManager::GetInstance()->GetGPUInfo();
@@ -383,7 +385,12 @@ std::optional<model::Fingerprint::WebGL> HostWebGL() {
   const size_t version = renderer.rfind(", ");
   if (renderer.starts_with("ANGLE (") && renderer.ends_with(")") &&
       version != std::string::npos) {
-    renderer = renderer.substr(0, version) + ", Unspecified Version)";
+    const std::string full =
+        renderer.substr(version + 2, renderer.size() - version - 3);
+    const std::string shown = full.starts_with("D3D")
+                                  ? full.substr(0, full.find('-'))
+                                  : std::string("Unspecified Version");
+    renderer = renderer.substr(0, version) + ", " + shown + ")";
   }
   return model::Fingerprint::WebGL{.vendor = info.gl_vendor,
                                    .renderer = std::move(renderer)};

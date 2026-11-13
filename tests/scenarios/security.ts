@@ -6,7 +6,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join, sep } from "node:path";
-import { appOf } from "../lib/browser";
+import { handURLs } from "../lib/browser";
 import {
 	type AppState,
 	bringToFront,
@@ -22,12 +22,7 @@ import {
 	processGroupOf,
 	waitForExit,
 } from "../lib/processes";
-import {
-	filesHolding,
-	imagesAttachedIn,
-	mountedAt,
-	swiftTool,
-} from "../lib/tools";
+import { filesHolding, imagesAttachedIn, mountedAt } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
@@ -304,15 +299,13 @@ const security: Scenario = async (context) => {
 	// A link clicked in another app, as Launch Services hands it over.
 	const handedURL = context.fixtures.url("nav-a.html?handed-behind-the-lock");
 
-	const handed =
-		await Bun.$`${await swiftTool("open-urls")} ${appOf(context.binary)} ${app.browser.pid} ${context.tempDir("pane-security-home-")} ${handedURL}`
-			.quiet()
-			.nothrow();
-
-	expect(
-		handed.exitCode === 0,
-		`open-urls failed: ${handed.stderr.toString().trim()}`,
+	const failed = await handURLs(
+		{ binary: context.binary, pid: app.browser.pid, dataDir: app.dataDir },
+		context.tempDir("pane-security-home-"),
+		[handedURL],
 	);
+
+	expect(failed === null, `${failed}`);
 
 	// Long enough for a tab to open and load, had one been let through.
 	await Bun.sleep(1_500);
