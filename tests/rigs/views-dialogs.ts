@@ -302,8 +302,8 @@ const viewsDialogs: Scenario = async (context) => {
 	await render(app, "dialog-sign-in");
 	result.signInAccessibility = (await app.send("dialogAccessibility")).result;
 
-	// The server turns the password down and asks again: the Swift's dialog
-	// has no error line, it asks again, empty.
+	// The server turns the password down and asks again: the dialog has no
+	// error line, as the Swift's had none: it asks again, empty.
 	await app.send("clickSheetButton", {
 		title: "Sign In",
 		texts: ["pane", "wrong"],

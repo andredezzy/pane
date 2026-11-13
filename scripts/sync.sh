@@ -5,7 +5,7 @@
 # nothing, and a change to .gclient syncs again.
 #
 # Windows' toolchain is Microsoft's files, packaged from a Visual Studio
-# install (docs/building.md, Windows) and kept outside the repo:
+# install (docs/building.md, Chromium checkout) and kept outside the repo:
 # PANE_WIN_TOOLCHAIN_DIR names the folder that holds its <hash>.zip. Without
 # it, the Mac's build syncs as before and the toolchain's hook does nothing.
 set -euo pipefail

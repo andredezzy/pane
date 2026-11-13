@@ -14,7 +14,7 @@ const viewsPrototype: Scenario = async (context) => {
 	const work = await app.createProfile("Work");
 	const home = await app.createProfile("Home");
 	const a = await app.openPage(work, context.fixtures.url("light.html?work"));
-	const b = await app.openPage(home, context.fixtures.url("dark.html?home"));
+	const b = await app.openPage(home, context.fixtures.url("theme.html?home"));
 	const log: unknown[] = [];
 	let { state } = await app.send("state");
 

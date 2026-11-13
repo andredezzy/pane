@@ -2,7 +2,7 @@
 // requests and CONNECT tunnels) and a SOCKS5 proxy with username and password
 // (RFC 1929). Each logs what it carried and for whom. Hosts under `.pane.test`
 // go to the fixture server, so a page can only be reached through a proxy;
-// other hosts are connected for real.
+// other hosts are connected for real. And a server that never answers.
 import * as net from "node:net";
 
 type ProxyLogEntry = {
@@ -32,6 +32,34 @@ function listen(server: net.Server, host: string): Promise<number> {
 			done((server.address() as net.AddressInfo).port);
 		});
 	});
+}
+
+// A server that takes a connection and never answers: a proxy whose test
+// stays "Testing…" until it times out, an update check, or a load that never
+// ends.
+export async function silentServer(): Promise<{
+	port: number;
+	stop: () => void;
+}> {
+	const sockets: net.Socket[] = [];
+
+	const server = net.createServer((socket) => {
+		socket.on("error", () => socket.destroy());
+		sockets.push(socket);
+	});
+
+	const port = await listen(server, "127.0.0.1");
+
+	return {
+		port,
+		stop: () => {
+			for (const socket of sockets) {
+				socket.destroy();
+			}
+
+			server.close();
+		},
+	};
 }
 
 // HTTP proxy: answers 407 until the request carries the credentials.

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import * as net from "node:net";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
 import { checkMenuUnderTrigger, type MenuPlacement } from "../lib/menu-button";
 import { launchPane, type PaneApp, setUpPin, tabOf } from "../lib/pane";
+import { silentServer } from "../lib/proxies";
 import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
 
@@ -452,33 +452,6 @@ async function updates(
 	} finally {
 		await app.browser.close();
 	}
-}
-
-// A server that takes a connection and never answers: a check that runs on.
-async function silentServer(): Promise<{ port: number; stop: () => void }> {
-	const sockets: net.Socket[] = [];
-
-	const server = net.createServer((socket) => {
-		socket.on("error", () => socket.destroy());
-		sockets.push(socket);
-	});
-
-	const port = await new Promise<number>((listening) => {
-		server.listen(0, "127.0.0.1", () => {
-			listening((server.address() as net.AddressInfo).port);
-		});
-	});
-
-	return {
-		port,
-		stop: () => {
-			for (const socket of sockets) {
-				socket.destroy();
-			}
-
-			server.close();
-		},
-	};
 }
 
 // Never checked (Paper 06.3's first rows): the release's server never answers,

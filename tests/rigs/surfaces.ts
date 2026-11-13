@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import * as net from "node:net";
 import { join } from "node:path";
 import {
 	type AppState,
@@ -10,16 +9,16 @@ import {
 	tabOf,
 } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { startHttpProxy } from "../lib/proxies";
-import { waitForSheet } from "../lib/surfaces";
+import { silentServer, startHttpProxy } from "../lib/proxies";
+import { answerSheet, waitForSheet } from "../lib/surfaces";
 import { clickAt } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
-// Every surface and state of Pane's own UI that the scenarios' renders miss
-// (docs/plans/views-migration.md, B2), drawn by the app as
-// `surfaces-<surface>-<state>.png`, the page left out, in the run's
-// appearance (run.ts --appearance light|dark, one --out folder each). The
-// same rig against the Views build gives the pairs Phase 3 compares.
+// Every surface and state of Pane's own UI that the scenarios' renders miss,
+// drawn by the app as `surfaces-<surface>-<state>.png`, the page left out, in
+// the run's appearance (run.ts --appearance light|dark, one --out folder
+// each): two builds' renders, made the same way, compare pixel for pixel (as
+// ADR 0125's did).
 //
 //   bun tests/run.ts --binary <Pane.app>/Contents/MacOS/Pane --out <dir>/light \
 //     --appearance light --timeout 1200 tests/rigs/surfaces.ts
@@ -36,25 +35,25 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // What no render here shows, and why; the report lists it.
 const SKIPPED = {
 	"delete-profile alert":
-		"a SwiftUI .alert on the profile's right-click menu: no channel command opens it, and it is a sheet window, which render does not draw",
+		"the system's alert, a sheet window of its own, which render does not draw; views-sidebar captures it (sidebar-delete-alert.png)",
 	"row menus, the Theme pop-up, the page's context menu":
-		"NSMenus: windows of their own, which render (the window's host view) does not draw, opened by a right click or a press the channel does not post",
+		"system menus, windows of their own, which render does not draw; views-sidebar and views-settings read their items from their models",
 	"device chooser":
-		"the Swift UI shows none: USB, HID, serial, and Bluetooth requests are declined (device-chooser)",
+		"Pane shows none: USB, HID, serial, and Bluetooth requests are declined (device-chooser)",
 	"extension install prompt":
-		"it installs from the Chrome Web Store, off the fixtures; extensions-menu renders it (install-popup.png)",
+		"it installs from the Chrome Web Store, off the fixtures; views-extension-pages renders it (install-popup-light.png, install-popup-dark.png)",
 	"print and file panels": "system panels, windows of their own",
 	"data move (Paper 07.5)":
-		"needs an earlier Pane's data (PANE_EARLIER_BUILDS, files-migration-large)",
+		"needs an earlier Pane's plain data; views-lock renders it",
 	"Restart to update":
-		"needs a dmg holding a stand-in Pane to stage (update-install); the fixtures' dmg installs by hand",
+		"needs a dmg holding a stand-in Pane to stage (update-install); update-states renders it",
 	"new tab's empty address field":
-		"a new tab opens https://www.google.com, off the fixtures",
+		"views-toolbar renders it (toolbar-new-tab.png)",
 	"certificate warning": "web content, which render leaves out",
 	"DevTools docked":
-		"a second web view in the page's place: web content, which render leaves out, so the render matched the window without them",
+		"a second web view in the page's place: web content, which render leaves out; views-browsing captures the window with them (capture-devtools-docked.png)",
 	"hovers (a sidebar row, the update pill's dismiss, the Lock's update action)":
-		"onHover follows the pointer's tracking areas, which hoverWindow's synthetic move reached once in three runs (the pill's), and a row's never; the real pointer is the user's",
+		"views-sidebar, views-toolbar (pill-dismiss-hover.png), and views-lock (lock-update-hover.png) render them under the pointer",
 };
 
 const PROXY_CREDENTIALS = { username: "pane", password: "proxy-secret" };
@@ -103,46 +102,8 @@ async function closeTab(app: PaneApp, tab: string): Promise<void> {
 	await app.waitFor("the tab closed", (state) => !tabOf(state, tab));
 }
 
-// A dialog's button, as clicked: the channel presses it, so no input goes
-// to the screen.
-async function answer(
-	app: PaneApp,
-	button: string,
-	texts: string[] = [],
-): Promise<void> {
-	await app.send("clickSheetButton", { title: button, texts });
-}
-
 function proxyStatusOf(state: AppState, profile: string) {
 	return state.profiles.find((each) => each.id === profile)?.proxyStatus;
-}
-
-// A server that takes a connection and never answers: a proxy whose test
-// stays "testing" for its 10 s, and a load that never ends.
-async function silentServer(): Promise<{ port: number; stop: () => void }> {
-	const sockets: net.Socket[] = [];
-
-	const server = net.createServer((socket) => {
-		socket.on("error", () => socket.destroy());
-		sockets.push(socket);
-	});
-
-	const port = await new Promise<number>((listening) => {
-		server.listen(0, "127.0.0.1", () => {
-			listening((server.address() as net.AddressInfo).port);
-		});
-	});
-
-	return {
-		port,
-		stop: () => {
-			for (const socket of sockets) {
-				socket.destroy();
-			}
-
-			server.close();
-		},
-	};
 }
 
 // The sidebar: five profiles. Work, selected and open, holds a loaded tab, a
@@ -409,7 +370,7 @@ async function pageDialogs({ context, app, renders }: Family, work: string) {
 		await page.evaluate(run);
 		await waitForSheet(app, "javaScript");
 		await renders.take(app, name);
-		await answer(app, button);
+		await answerSheet(app, button);
 		await gone();
 	}
 
@@ -421,14 +382,14 @@ async function pageDialogs({ context, app, renders }: Family, work: string) {
 	const reloading = await waitForSheet(app, "javaScript");
 	expect(reloading.title === "Reload site?", `sheet ${reloading.title}`);
 	await renders.take(app, "dialog-reload-site");
-	await answer(app, "Cancel");
+	await answerSheet(app, "Cancel");
 	await gone();
 
 	await app.send("closeTab", { tab });
 	const leaving = await waitForSheet(app, "javaScript");
 	expect(leaving.title === "Leave site?", `sheet ${leaving.title}`);
 	await renders.take(app, "dialog-leave-site");
-	await answer(app, "Leave");
+	await answerSheet(app, "Leave");
 	await app.waitFor("the tab closed", (state) => !tabOf(state, tab));
 
 	// A posted page, reloaded.
@@ -455,14 +416,14 @@ async function pageDialogs({ context, app, renders }: Family, work: string) {
 	);
 
 	await renders.take(app, "dialog-form-resubmission");
-	await answer(app, "Cancel");
+	await answerSheet(app, "Cancel");
 	await gone();
 	await closeTab(app, form);
 }
 
 // What a site asks of the user: a permission (notifications), another app
 // (a maps: link), and a sign-in, from the server, again once refused (the
-// Swift dialog has no error line: it asks again, empty), and from a proxy.
+// dialog has no error line: it asks again, empty), and from a proxy.
 async function requests(
 	{ context, app, renders }: Family,
 	work: string,
@@ -478,7 +439,7 @@ async function requests(
 	await permissions.gesture("askNotifications()");
 	await waitForSheet(app, "permission");
 	await renders.take(app, "dialog-permission");
-	await answer(app, "Don’t Allow");
+	await answerSheet(app, "Don’t Allow");
 	await closeTab(app, asking);
 
 	// Cancel only: Open would start Maps on this Mac.
@@ -499,14 +460,14 @@ async function requests(
 
 	await waitForSheet(app, "externalProtocol");
 	await renders.take(app, "dialog-external-app");
-	await answer(app, "Cancel");
+	await answerSheet(app, "Cancel");
 	await closeTab(app, linking);
 
 	const signIn = await app.openTab(work, fixtures.url("auth"));
 	await waitForSheet(app, "authentication");
 	await renders.take(app, "dialog-sign-in");
 
-	await answer(app, "Sign In", ["pane", "wrong"]);
+	await answerSheet(app, "Sign In", ["pane", "wrong"]);
 
 	await app
 		.waitFor("the sign-in sent", (state) => state.sheet === null, 3_000)
@@ -514,7 +475,7 @@ async function requests(
 
 	await waitForSheet(app, "authentication");
 	await renders.take(app, "dialog-sign-in-refused");
-	await answer(app, "Cancel");
+	await answerSheet(app, "Cancel");
 
 	await app.waitFor(
 		"the refusal",
@@ -537,7 +498,7 @@ async function requests(
 	);
 
 	await renders.take(app, "dialog-sign-in-proxy");
-	await answer(app, "Cancel");
+	await answerSheet(app, "Cancel");
 	await closeTab(app, proxied);
 	await app.send("unloadProfile", { profile: refused });
 }
@@ -573,7 +534,7 @@ async function brokenPages(
 	);
 
 	await renders.take(app, "dialog-hung-page");
-	await answer(app, "Exit Page");
+	await answerSheet(app, "Exit Page");
 	await closeTab(app, hung);
 
 	const url = fixtures.url("crash.html?sad");

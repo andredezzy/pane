@@ -1,7 +1,7 @@
 import { checkMenuUnderTrigger } from "../lib/menu-button";
 import { launchPane } from "../lib/pane";
 import { poll, pollValue } from "../lib/poll";
-import { startSocks5Proxy } from "../lib/proxies";
+import { silentServer, startSocks5Proxy } from "../lib/proxies";
 import { expect, type Scenario } from "../run";
 
 // The profile sheet's states that the Swift's renders (profile-sheet) don't
@@ -235,11 +235,7 @@ const viewsProfileSheet: Scenario = async (context) => {
 
 		// A proxy that takes the connection and never answers: the test shows
 		// its yellow dot while it waits, then times out on red.
-		const silent = Bun.listen({
-			hostname: "127.0.0.1",
-			port: 0,
-			socket: { data() {} },
-		});
+		const silent = await silentServer();
 
 		try {
 			await type("proxyPort", String(silent.port));
@@ -270,7 +266,7 @@ const viewsProfileSheet: Scenario = async (context) => {
 
 			await render("edit-timed-out");
 		} finally {
-			silent.stop(true);
+			silent.stop();
 		}
 
 		// Spoofing off (05.6), then on again with Linux chosen.

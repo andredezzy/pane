@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Publishes the engine this checkout's sources name, for CI and the release
-# workflow to fetch (fetch-engine.sh): its archive as the engine-<key> GitHub
+# Publishes the engine this checkout's sources name, for the release workflow
+# to fetch (fetch-engine.sh): its archive as the engine-<key> GitHub
 # prerelease, then its line in prebuilt-engines.tsv, which the caller
 # commits. CI never builds Chromium (release.yml), so an engine change is built
 # here first (build.sh) and published with this. The archive is the engine's
@@ -100,7 +100,7 @@ else
 		--latest=false \
 		--target "$commit" \
 		--title "Engine $short" \
-		--notes "PaneCore $version for the engine sources $key, built from $(git -C "$ROOT_DIR" log -1 --format=%h "$commit"). The engine CI and the release workflow fetch (scripts/fetch-engine.sh); not an app release."
+		--notes "PaneCore $version for the engine sources $key, built from $(git -C "$ROOT_DIR" log -1 --format=%h "$commit"). The engine the release workflow fetches (scripts/fetch-engine.sh); not an app release."
 fi
 
 uploaded="$(gh release view "$tag" --json assets --jq ".assets[] | select(.name == \"$name\") | .digest")"

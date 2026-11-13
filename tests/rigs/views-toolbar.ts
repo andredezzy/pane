@@ -1,5 +1,5 @@
-import * as net from "node:net";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
+import { silentServer } from "../lib/proxies";
 import { expect, type Scenario } from "../run";
 
 // H4, the toolbar (docs/plans/views-migration.md, Phase 3), on the Views
@@ -34,34 +34,6 @@ async function loadTab(
 	);
 
 	return tab;
-}
-
-// A server that takes a connection and never answers: a load that never
-// ends, as the surfaces rig holds one.
-async function silentServer(): Promise<{ port: number; stop: () => void }> {
-	const sockets: net.Socket[] = [];
-
-	const server = net.createServer((socket) => {
-		socket.on("error", () => socket.destroy());
-		sockets.push(socket);
-	});
-
-	const port = await new Promise<number>((listening) => {
-		server.listen(0, "127.0.0.1", () => {
-			listening((server.address() as net.AddressInfo).port);
-		});
-	});
-
-	return {
-		port,
-		stop: () => {
-			for (const socket of sockets) {
-				socket.destroy();
-			}
-
-			server.close();
-		},
-	};
 }
 
 // A frame's middle, from the window's top left.

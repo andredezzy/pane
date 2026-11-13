@@ -21,6 +21,8 @@ export async function waitForSheet(
 	return state.sheet as NonNullable<AppState["sheet"]>;
 }
 
+// A dialog's button, as clicked: the channel presses it, so no input goes to
+// the screen.
 export async function answerSheet(
 	app: PaneApp,
 	button: string,
