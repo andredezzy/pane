@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { type AppState, launchPane, type PaneApp, tabOf } from "../lib/pane";
+import { type AppState, launchPane, tabOf } from "../lib/pane";
 import { captureWindow } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
@@ -18,27 +18,6 @@ import { expect, type Scenario } from "../run";
 //     --out <dir> [--appearance light|dark] tests/rigs/views-sidebar.ts
 
 type Frames = Record<string, number[]>;
-
-// A tab at `url`, once loaded and titled.
-async function loadTab(
-	app: PaneApp,
-	profile: string,
-	url: string,
-): Promise<string> {
-	const tab = await app.openTab(profile, url);
-
-	await app.waitFor(
-		`${url} loaded`,
-		(state) => {
-			const shown = tabOf(state, tab);
-
-			return shown?.url === url && !shown.loading && shown.title !== "";
-		},
-		30_000,
-	);
-
-	return tab;
-}
 
 function profileOf(state: AppState, id: string) {
 	return state.profiles.find((profile) => profile.id === id);
@@ -80,34 +59,27 @@ const viewsSidebar: Scenario = async (context) => {
 	const silent = await app.createProfile("Silent proxy", "AMBER");
 	const personal = await app.createProfile("Personal", "VIOLET");
 
-	const calendar = await loadTab(
-		app,
+	const calendar = await app.loadTab(
 		work,
 		fixtures.url("switcher.html?name=Calendar"),
 	);
 
-	const docs = await loadTab(
-		app,
-		work,
-		fixtures.url("switcher.html?name=Docs"),
-	);
+	const docs = await app.loadTab(work, fixtures.url("switcher.html?name=Docs"));
 
-	const home = await loadTab(app, work, fixtures.url("nav-a.html?work"));
+	const home = await app.loadTab(work, fixtures.url("nav-a.html?work"));
 
-	const inbox = await loadTab(
-		app,
+	const inbox = await app.loadTab(
 		work,
 		fixtures.url("switcher.html?name=Inbox"),
 	);
 
-	const through = await loadTab(
-		app,
+	const through = await app.loadTab(
 		proxied,
 		fixtures.url("switcher.html?name=Through%20the%20proxy"),
 	);
 
 	for (const name of ["Notes", "Music"]) {
-		await loadTab(app, personal, fixtures.url(`switcher.html?name=${name}`));
+		await app.loadTab(personal, fixtures.url(`switcher.html?name=${name}`));
 	}
 
 	// The page's favicon, drawn as it came and saved with its tab once encoded
@@ -243,8 +215,7 @@ const viewsSidebar: Scenario = async (context) => {
 	const reading = await app.createProfile("Reading list", "TEAL");
 
 	for (let article = 1; article <= 12; article++) {
-		await loadTab(
-			app,
+		await app.loadTab(
 			reading,
 			fixtures.url(`switcher.html?name=Article%20${article}`),
 		);

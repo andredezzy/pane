@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
 import { checkMenuUnderTrigger, type MenuPlacement } from "../lib/menu-button";
-import { launchPane, type PaneApp, setUpPin, tabOf } from "../lib/pane";
+import { launchPane, type PaneApp, setUpPin } from "../lib/pane";
 import { silentServer } from "../lib/proxies";
 import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
@@ -52,47 +52,8 @@ type MenuItem = {
 	icon: boolean;
 };
 
-// A tab at `url`, once loaded and titled.
-async function loadTab(
-	app: PaneApp,
-	profile: string,
-	url: string,
-): Promise<string> {
-	const tab = await app.openTab(profile, url);
-
-	await app.waitFor(
-		`${url} loaded`,
-		(state) => {
-			const shown = tabOf(state, tab);
-
-			return shown?.url === url && !shown.loading && shown.title !== "";
-		},
-		30_000,
-	);
-
-	return tab;
-}
-
-// A frame's middle, from the window's top left.
-async function middleOf(app: PaneApp, name: string) {
-	const [x = 0, y = 0, width = 0, height = 0] =
-		(await app.frames(name))[name] ?? [];
-
-	expect(width > 0 && height > 0, `${name} does not show`);
-
-	return { x: x + width / 2, y: y + height / 2 };
-}
-
 // The pointer off every control: over the sidebar's list below its rows.
 const away = (app: PaneApp) => app.send("hoverWindow", { x: 130, y: 600 });
-
-// A press and its release at a control's middle, through Views' own
-// dispatch, which reaches the window in the background (pointerWindow).
-async function press(app: PaneApp, name: string) {
-	const at = await middleOf(app, name);
-	await app.send("pointerWindow", { phase: "down", ...at });
-	await app.send("pointerWindow", { phase: "up", ...at });
-}
 
 async function scrollToEnd(app: PaneApp) {
 	await app.send("scrollWindow", { x: 700, y: 400, dy: -2_000 });
@@ -128,7 +89,7 @@ async function settings(
 	try {
 		const work = await app.createProfile("Work", "BLUE");
 		const url = context.fixtures.url("nav-a.html?settings");
-		const tab = await loadTab(app, work, url);
+		const tab = await app.loadTab(work, url);
 
 		// The page counts its frames: under Settings it draws none (ADR 0073).
 		const page = await app.page(tab, url);
@@ -138,7 +99,7 @@ async function settings(
 		);
 
 		// The sidebar's Settings, pressed.
-		await press(app, "pane.sidebar.settings");
+		await app.press("pane.sidebar.settings");
 
 		const shown = await app.waitFor(
 			"Settings, after the launch's check",
@@ -189,7 +150,7 @@ async function settings(
 		// The App icon's press opens the picker over Settings at its end, as
 		// the Swift's rig had it; a sky pressed in it reaches the Dock with the
 		// picker open, which Esc closes.
-		await press(app, "pane.settings.appIcon");
+		await app.press("pane.settings.appIcon");
 		await app.waitFor("the picker", (state) => state.appIconPicker, 5_000);
 		await away(app);
 		await app.render("surfaces-app-icon-picker-automatic.png", 600);
@@ -204,7 +165,7 @@ async function settings(
 		};
 
 		for (const sky of SKIES) {
-			await press(app, `pane.settings.appIcon.${sky}`);
+			await app.press(`pane.settings.appIcon.${sky}`);
 
 			const picked = await app.waitFor(
 				`${sky} from the picker`,
@@ -225,7 +186,7 @@ async function settings(
 			);
 		}
 
-		await press(app, "pane.settings.appIcon.dusk");
+		await app.press("pane.settings.appIcon.dusk");
 		await app.waitFor("Dusk", (state) => state.dockIcon === "dusk", 5_000);
 		await app.send("dispatchKey", { key: "\u001b" });
 
@@ -238,7 +199,7 @@ async function settings(
 		await app.render("surfaces-settings-app-icon-dusk.png", 600);
 
 		// Return closes it too, and Done.
-		await press(app, "pane.settings.appIcon");
+		await app.press("pane.settings.appIcon");
 		await app.waitFor("the picker", (state) => state.appIconPicker, 5_000);
 		await app.send("dispatchKey", { key: "\r" });
 
@@ -248,9 +209,9 @@ async function settings(
 			5_000,
 		);
 
-		await press(app, "pane.settings.appIcon");
+		await app.press("pane.settings.appIcon");
 		await app.waitFor("the picker", (state) => state.appIconPicker, 5_000);
-		await press(app, "pane.appIcon.done");
+		await app.press("pane.appIcon.done");
 
 		await app.waitFor(
 			"the picker closed by Done",
@@ -259,7 +220,7 @@ async function settings(
 		);
 
 		// A click outside it, on the scrim.
-		await press(app, "pane.settings.appIcon");
+		await app.press("pane.settings.appIcon");
 		await app.waitFor("the picker", (state) => state.appIconPicker, 5_000);
 		await app.send("pointerWindow", { phase: "down", x: 40, y: 400 });
 		await app.send("pointerWindow", { phase: "up", x: 40, y: 400 });
@@ -353,11 +314,11 @@ async function settings(
 		// Each trigger under the pointer: the foreground at 4% (ADR 0063),
 		// which it keeps while its menu shows.
 		for (const name of MENUS) {
-			await app.send("hoverWindow", await middleOf(app, name));
+			await app.send("hoverWindow", await app.middleOf(name));
 			await app.render(`settings-${name.split(".").pop()}-hover.png`, 600);
 		}
 
-		await app.send("hoverWindow", await middleOf(app, "pane.settings.appIcon"));
+		await app.send("hoverWindow", await app.middleOf("pane.settings.appIcon"));
 		await app.render("settings-appIcon-hover.png", 600);
 		await away(app);
 
@@ -428,7 +389,7 @@ async function updates(
 		await scrollToEnd(app);
 
 		// Settings' Download update, pressed.
-		await press(app, "pane.settings.downloadUpdate");
+		await app.press("pane.settings.downloadUpdate");
 
 		// 4 MB in 16 chunks, 250 ms apart.
 		await app.waitFor(
@@ -513,19 +474,19 @@ async function timing(
 
 		try {
 			const work = await app.createProfile("Timing", "BLUE");
-			await loadTab(app, work, context.fixtures.url("nav-a.html?timing"));
+			await app.loadTab(work, context.fixtures.url("nav-a.html?timing"));
 			await Bun.sleep(1_000);
 
 			for (let round = 0; round < rounds; round++) {
-				await press(app, "pane.sidebar.settings");
+				await app.press("pane.sidebar.settings");
 				await app.waitFor("Settings", (state) => state.page === "settings");
 				await Bun.sleep(250);
-				await press(app, "pane.sidebar.settings");
+				await app.press("pane.sidebar.settings");
 				await app.waitFor("the page", (state) => state.page === "browser");
 				await Bun.sleep(250);
 			}
 
-			await press(app, "pane.sidebar.settings");
+			await app.press("pane.sidebar.settings");
 			await app.waitFor("Settings", (state) => state.page === "settings");
 
 			for (let round = 0; round < rounds; round++) {
@@ -544,12 +505,11 @@ async function timing(
 			await menu(app, "pane.settings.theme", "System");
 
 			for (let round = 0; round < rounds; round++) {
-				await press(app, "pane.settings.appIcon");
+				await app.press("pane.settings.appIcon");
 				await app.waitFor("the picker", (state) => state.appIconPicker);
 				await Bun.sleep(300);
 
-				await press(
-					app,
+				await app.press(
 					`pane.settings.appIcon.${round % 2 ? "dusk" : "night"}`,
 				);
 

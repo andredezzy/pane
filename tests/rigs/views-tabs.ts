@@ -1,4 +1,4 @@
-import { type PaneApp, tabOf } from "../lib/pane";
+import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -12,27 +12,6 @@ import { expect, type Scenario } from "../run";
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-tabs.ts
 
-// A tab at `url`, once loaded and titled.
-async function loadTab(
-	app: PaneApp,
-	profile: string,
-	url: string,
-): Promise<string> {
-	const tab = await app.openTab(profile, url);
-
-	await app.waitFor(
-		`${url} loaded`,
-		(state) => {
-			const shown = tabOf(state, tab);
-
-			return shown?.url === url && !shown.loading && shown.title !== "";
-		},
-		30_000,
-	);
-
-	return tab;
-}
-
 const viewsTabs: Scenario = async (context) => {
 	const { fixtures } = context;
 	const { app, trace } = await launchTraced(context, "views-tabs");
@@ -42,7 +21,7 @@ const viewsTabs: Scenario = async (context) => {
 
 	// One tab alone: selected, as there is no other.
 	const alone = await app.createProfile("Alone", "VIOLET");
-	await loadTab(app, alone, page("Only tab"));
+	await app.loadTab(alone, page("Only tab"));
 	await app.send("switcher", { action: "next" });
 
 	const one = await app.waitFor(
@@ -62,8 +41,8 @@ const viewsTabs: Scenario = async (context) => {
 
 	// One group of two, the other selected, as shortcuts' render.
 	const keys = await app.createProfile("Keys", "BLUE");
-	await loadTab(app, keys, fixtures.url("nav-b.html"));
-	await loadTab(app, keys, fixtures.url("nav-a.html?keys"));
+	await app.loadTab(keys, fixtures.url("nav-b.html"));
+	await app.loadTab(keys, fixtures.url("nav-a.html?keys"));
 	await app.send("switcher", { action: "next" });
 	await app.waitFor("the switcher on Keys", (state) => state.switcher.visible);
 	await app.render("switcher-one-group.png");
@@ -73,11 +52,11 @@ const viewsTabs: Scenario = async (context) => {
 	// Two groups, as surfaces' switcher-open: Work's Navigation A, then Docs,
 	// then Calendar; Proxied's one tab. It opens on Docs, the tab used before.
 	const work = await app.createProfile("Work", "BLUE");
-	const calendar = await loadTab(app, work, page("Calendar"));
-	const docs = await loadTab(app, work, page("Docs"));
+	const calendar = await app.loadTab(work, page("Calendar"));
+	const docs = await app.loadTab(work, page("Docs"));
 	const proxied = await app.createProfile("Proxied", "EMERALD");
-	const through = await loadTab(app, proxied, page("Through the proxy"));
-	const home = await loadTab(app, work, fixtures.url("nav-a.html?work"));
+	const through = await app.loadTab(proxied, page("Through the proxy"));
+	const home = await app.loadTab(work, fixtures.url("nav-a.html?work"));
 	await app.send("select", { tab: docs });
 	await app.send("select", { tab: home });
 

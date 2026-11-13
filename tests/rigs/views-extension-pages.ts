@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { stats } from "../lib/benchmark";
+import { frameTimes } from "../lib/benchmark";
 import type { Page } from "../lib/cdp";
 import {
 	DETAILS,
@@ -20,7 +20,7 @@ import {
 } from "../lib/extensions";
 import type { AppState, PaneApp } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { type FrameInterval, signpostFrameIntervals } from "../lib/signposts";
+import { signpostFrameIntervals } from "../lib/signposts";
 import { waitForSheet } from "../lib/surfaces";
 import { captureWindow, swiftTool } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
@@ -58,31 +58,6 @@ const PROBE = join(
 	"extensions",
 	"action-probe",
 );
-
-const round = (value: number) => Math.round(value * 10) / 10;
-
-function summary(values: number[]) {
-	const sorted = [...values].sort((a, b) => a - b);
-	const { median } = stats(sorted);
-
-	return {
-		medianMs: round(median),
-		p10Ms: round(sorted[Math.floor(sorted.length * 0.1)] ?? median),
-		p90Ms: round(sorted[Math.floor(sorted.length * 0.9)] ?? median),
-		runs: values.length,
-	};
-}
-
-function timed(intervals: FrameInterval[]) {
-	return {
-		toScreen: summary(intervals.map((value) => value.ms)),
-		toCommit: summary(
-			intervals.flatMap((value) =>
-				value.committedMs === undefined ? [] : [value.committedMs],
-			),
-		),
-	};
-}
 
 // The pointer over the page's place, off every control, so a render shows
 // no hover; a moment for the hover's fade.
@@ -405,7 +380,7 @@ const viewsExtensionPages: Scenario = async (context) => {
 		}
 
 		expect(each && each.length > 0, `${label}: no intervals`);
-		timings[label] = timed(each ?? []);
+		timings[label] = frameTimes(each ?? []);
 	}
 
 	result.timings = timings;

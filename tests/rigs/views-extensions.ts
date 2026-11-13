@@ -1,9 +1,9 @@
 import { join } from "node:path";
-import { stats } from "../lib/benchmark";
+import { frameTimes } from "../lib/benchmark";
 import { extensionId, workerPage } from "../lib/extensions";
 import { type AppState, type PaneApp, pressWindowKey } from "../lib/pane";
 import { PRIMARY } from "../lib/platform";
-import { type FrameInterval, signpostFrameIntervals } from "../lib/signposts";
+import { signpostFrameIntervals } from "../lib/signposts";
 import { waitForSheet } from "../lib/surfaces";
 import { launchTraced, type Traced } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
@@ -42,31 +42,6 @@ const PROBE = join(
 	"extensions",
 	"action-probe",
 );
-
-const round = (value: number) => Math.round(value * 10) / 10;
-
-function summary(values: number[]) {
-	const sorted = [...values].sort((a, b) => a - b);
-	const { median } = stats(sorted);
-
-	return {
-		medianMs: round(median),
-		p10Ms: round(sorted[Math.floor(sorted.length * 0.1)] ?? median),
-		p90Ms: round(sorted[Math.floor(sorted.length * 0.9)] ?? median),
-		runs: values.length,
-	};
-}
-
-function timed(intervals: FrameInterval[]) {
-	return {
-		toScreen: summary(intervals.map((value) => value.ms)),
-		toCommit: summary(
-			intervals.flatMap((value) =>
-				value.committedMs === undefined ? [] : [value.committedMs],
-			),
-		),
-	};
-}
 
 // The pointer off every control, over the page's place, so a render shows
 // no hover; a moment for the hover's fade.
@@ -410,7 +385,7 @@ const viewsExtensions: Scenario = async (context) => {
 	for (const name of ["Open extensions menu", "Show extension popup"]) {
 		const each = intervals[name] ?? [];
 		expect(each.length > 0, `${name}: no intervals`);
-		timings[name] = timed(each);
+		timings[name] = frameTimes(each);
 	}
 
 	result.timings = timings;

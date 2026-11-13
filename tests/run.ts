@@ -1,6 +1,6 @@
-// Scenario runner. Launches a Chromium-based binary (stock Chromium or Pane),
-// serves the fixtures in pages/, runs each scenario, and writes one JSON file
-// per scenario plus report.json into the output directory.
+// Scenario runner. Launches the Pane binary it is given, serves the fixtures
+// in pages/, runs each scenario, and writes one JSON file per scenario plus
+// report.json into the output directory.
 //
 // Usage: bun tests/run.ts --binary <path> --out <dir>
 //        [--timeout <seconds per scenario, 600>] <scenario>...
@@ -23,9 +23,9 @@ export type ScenarioContext = {
 	binary: string;
 	fixtures: Fixtures;
 	out: string;
-	// Whether the app may take the front from the app in use (--foreground,
-	// and CI, where no one works): keys a panel takes, a page's fullscreen,
-	// Quit Pane?. Otherwise a scenario defers what needs it.
+	// Whether the app may take the front from the app in use (--foreground):
+	// keys a panel takes, a page's fullscreen, Quit Pane?. Otherwise a
+	// scenario defers what needs it.
 	foreground: boolean;
 	// The system appearance Pane's launches take (--appearance), in place of
 	// the Mac's, which a scenario can't change on a Mac in use: renders of
@@ -134,7 +134,7 @@ for (const given of positionals) {
 		binary,
 		fixtures,
 		out,
-		foreground: values.foreground || process.env.CI === "true",
+		foreground: values.foreground,
 		appearance: values.appearance as ScenarioContext["appearance"],
 		launch: async (options) => {
 			if (ended) {

@@ -1,9 +1,9 @@
 import { join } from "node:path";
-import { stats } from "../lib/benchmark";
+import { frameTimes, percentiles } from "../lib/benchmark";
 import { type AppState, type PaneApp, tabOf } from "../lib/pane";
 import { PRIMARY } from "../lib/platform";
 import { poll } from "../lib/poll";
-import { type FrameInterval, signpostFrameIntervals } from "../lib/signposts";
+import { signpostFrameIntervals } from "../lib/signposts";
 import { waitForTarget } from "../lib/targets";
 import { captureWindow } from "../lib/tools";
 import { clickAt, launchTraced } from "../lib/traced";
@@ -36,31 +36,6 @@ type Point = { x: number; y: number };
 
 async function render(app: PaneApp, name: string) {
 	await app.render(`surfaces-${name}.png`, 400);
-}
-
-const round = (value: number) => Math.round(value * 10) / 10;
-
-function summary(values: number[]) {
-	const sorted = [...values].sort((a, b) => a - b);
-	const { median } = stats(sorted);
-
-	return {
-		medianMs: round(median),
-		p10Ms: round(sorted[Math.floor(sorted.length * 0.1)] ?? median),
-		p90Ms: round(sorted[Math.floor(sorted.length * 0.9)] ?? median),
-		runs: values.length,
-	};
-}
-
-function timed(intervals: FrameInterval[]) {
-	return {
-		toScreen: summary(intervals.map((value) => value.ms)),
-		toCommit: summary(
-			intervals.flatMap((value) =>
-				value.committedMs === undefined ? [] : [value.committedMs],
-			),
-		),
-	};
 }
 
 const viewsBrowsing: Scenario = async (context) => {
@@ -316,7 +291,7 @@ const viewsBrowsing: Scenario = async (context) => {
 	});
 
 	if (context.foreground) {
-		result.contextMenuToTracking = summary(
+		result.contextMenuToTracking = percentiles(
 			(menuIntervals["Context menu"] ?? []).map((value) => value.ms),
 		);
 	}
@@ -326,8 +301,8 @@ const viewsBrowsing: Scenario = async (context) => {
 	);
 
 	result.contextMenuTimes = {
-		madeMs: summary(made.map((entry) => Number(entry.args.madeMs))),
-		readyMs: summary(made.map((entry) => Number(entry.args.readyMs))),
+		madeMs: percentiles(made.map((entry) => Number(entry.args.madeMs))),
+		readyMs: percentiles(made.map((entry) => Number(entry.args.readyMs))),
 	};
 
 	// DevTools docked beside the page, by ⇧⌘I, as a key posted to the app.
@@ -486,7 +461,7 @@ const viewsBrowsing: Scenario = async (context) => {
 	for (const name of ["Show find bar", "Find step", "Open developer tools"]) {
 		const intervals = findIntervals[name] ?? [];
 		expect(intervals.length > 0, `${name}: no intervals`);
-		timings[name] = timed(intervals);
+		timings[name] = frameTimes(intervals);
 	}
 
 	result.timings = timings;

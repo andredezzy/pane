@@ -25,4 +25,15 @@ if [ -n "$found" ]; then
 	exit 1
 fi
 
-echo "no OS flag outside //pane's platform files"
+# The scenario runner's own form of the rule: one module picks a system's side
+# (tests/lib/platform.ts), and every other one asks it.
+runner="$(git -C "$ROOT_DIR" grep -n -E 'process\.platform|os\.platform\(' -- \
+	'tests/*.ts' ':!tests/lib/platform.ts' || true)"
+
+if [ -n "$runner" ]; then
+	echo "$runner"
+	echo "error: a runner file tests for the OS: pick the side through tests/lib/platform.ts (bySystem)" >&2
+	exit 1
+fi
+
+echo "no OS flag outside //pane's platform files and the runner's platform.ts"

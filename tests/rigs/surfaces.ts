@@ -75,28 +75,6 @@ type Family = {
 	renders: Renders;
 };
 
-// A tab at `url`, once loaded and titled, without attaching to its page (a
-// debugger attached keeps Chromium from seeing a hung page).
-async function loadTab(
-	app: PaneApp,
-	profile: string,
-	url: string,
-): Promise<string> {
-	const tab = await app.openTab(profile, url);
-
-	await app.waitFor(
-		`${url} loaded`,
-		(state) => {
-			const shown = tabOf(state, tab);
-
-			return shown?.url === url && !shown.loading && shown.title !== "";
-		},
-		30_000,
-	);
-
-	return tab;
-}
-
 async function closeTab(app: PaneApp, tab: string): Promise<void> {
 	await app.send("closeTab", { tab });
 	await app.waitFor("the tab closed", (state) => !tabOf(state, tab));
@@ -126,17 +104,12 @@ async function sidebar(
 
 	// Calendar sleeps behind Docs: a minute in the background is a second
 	// here (PANE_TIME_SCALE), and sleep goes off again once it has.
-	const calendar = await loadTab(
-		app,
+	const calendar = await app.loadTab(
 		work,
 		fixtures.url("switcher.html?name=Calendar"),
 	);
 
-	const docs = await loadTab(
-		app,
-		work,
-		fixtures.url("switcher.html?name=Docs"),
-	);
+	const docs = await app.loadTab(work, fixtures.url("switcher.html?name=Docs"));
 
 	await app.send("setSleepSettings", {
 		tabSleepAfterMinutes: 1,
@@ -155,7 +128,7 @@ async function sidebar(
 		cacheBudgetMB: null,
 	});
 
-	const home = await loadTab(app, work, fixtures.url("nav-a.html?work"));
+	const home = await app.loadTab(work, fixtures.url("nav-a.html?work"));
 
 	// The proxies, tested through the local one: the right password, and a
 	// wrong one, which also asks to sign in (requests, below).
@@ -177,8 +150,7 @@ async function sidebar(
 		proxy: proxyOf("wrong"),
 	});
 
-	await loadTab(
-		app,
+	await app.loadTab(
 		proxied,
 		"http://proxied.pane.test/switcher.html?name=Through%20the%20proxy",
 	);
@@ -192,7 +164,7 @@ async function sidebar(
 	);
 
 	for (const name of ["Notes", "Music"]) {
-		await loadTab(app, personal, fixtures.url(`switcher.html?name=${name}`));
+		await app.loadTab(personal, fixtures.url(`switcher.html?name=${name}`));
 	}
 
 	for (const profile of [refused, testing, personal]) {
@@ -201,8 +173,7 @@ async function sidebar(
 
 	// Inbox goes to a server that never answers, and is left loading behind
 	// Home. (The fixtures' server drops a request held past 10 s.)
-	const held = await loadTab(
-		app,
+	const held = await app.loadTab(
 		work,
 		fixtures.url("switcher.html?name=Inbox"),
 	);
@@ -316,7 +287,7 @@ async function bringToFrontIfAllowed(
 
 // Find in page: five matches, the first current; then a word with none.
 async function findBar({ context, app, renders }: Family, work: string) {
-	const tab = await loadTab(app, work, context.fixtures.url("find.html"));
+	const tab = await app.loadTab(work, context.fixtures.url("find.html"));
 
 	await app.send("find", { text: "needle" });
 
@@ -605,8 +576,7 @@ async function sidebarOverflow({ context, app, renders }: Family) {
 	const reading = await app.createProfile("Reading list", "TEAL");
 
 	for (let article = 1; article <= 12; article++) {
-		await loadTab(
-			app,
+		await app.loadTab(
 			reading,
 			context.fixtures.url(`switcher.html?name=Article%20${article}`),
 		);
@@ -944,7 +914,7 @@ async function settingsAndLock(context: ScenarioContext, renders: Renders) {
 	const app = await launchPane(context);
 	const family = { context, app, renders };
 	const work = await app.createProfile("Work", "BLUE");
-	await loadTab(app, work, context.fixtures.url("nav-a.html?settings"));
+	await app.loadTab(work, context.fixtures.url("nav-a.html?settings"));
 	await settings(family);
 	await pinScreens(family);
 	await lockScreens(family);

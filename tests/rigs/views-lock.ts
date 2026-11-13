@@ -91,24 +91,6 @@ async function readAtTheLock(
 	return read;
 }
 
-// A frame's middle, from the window's top left.
-async function middleOf(app: PaneApp, name: string) {
-	const [x = 0, y = 0, width = 0, height = 0] =
-		(await app.frames(name))[name] ?? [];
-
-	expect(width > 0 && height > 0, `${name} does not show`);
-
-	return { x: x + width / 2, y: y + height / 2 };
-}
-
-// A press and its release at a control's middle, through Views' own
-// dispatch, which reaches the window in the background.
-async function press(app: PaneApp, name: string) {
-	const at = await middleOf(app, name);
-	await app.send("pointerWindow", { phase: "down", ...at });
-	await app.send("pointerWindow", { phase: "up", ...at });
-}
-
 // The pointer off every control, over the panel's empty right.
 const away = (app: PaneApp) => app.send("hoverWindow", { x: 1200, y: 100 });
 
@@ -152,11 +134,11 @@ async function pinScreens(context: Parameters<Scenario>[0], log: Log) {
 
 		// A fifth and a sixth: the dots grow, and Delete takes one back, by
 		// presses.
-		await press(app, "pane.lockScreen.digit.5");
-		await press(app, "pane.lockScreen.digit.6");
+		await app.press("pane.lockScreen.digit.5");
+		await app.press("pane.lockScreen.digit.6");
 		const six = await app.waitFor("six", (s) => screen(s)?.entered === 6);
-		await press(app, "pane.lockScreen.backspace");
-		await press(app, "pane.lockScreen.backspace");
+		await app.press("pane.lockScreen.backspace");
+		await app.press("pane.lockScreen.backspace");
 		const back = await app.waitFor("four", (s) => screen(s)?.entered === 4);
 
 		log.pressed = {
@@ -170,7 +152,7 @@ async function pinScreens(context: Parameters<Scenario>[0], log: Log) {
 		);
 
 		// Continue, by a press.
-		await press(app, "pane.lockScreen.continue");
+		await app.press("pane.lockScreen.continue");
 		await app.waitFor("confirming", (s) => screen(s)?.step === "confirm");
 		await app.render("surfaces-pin-setup-confirm.png", 400);
 
@@ -184,7 +166,7 @@ async function pinScreens(context: Parameters<Scenario>[0], log: Log) {
 		await app.render("surfaces-pin-setup-mismatch.png", 500);
 
 		// A digit's key under the pointer, then held down (Paper 03.6).
-		const five = await middleOf(app, "pane.lockScreen.digit.5");
+		const five = await app.middleOf("pane.lockScreen.digit.5");
 		await app.send("hoverWindow", five);
 		await app.render("pin-key-hover.png", 400);
 		await app.send("pointerWindow", { phase: "down", ...five });
@@ -235,7 +217,7 @@ async function pinScreens(context: Parameters<Scenario>[0], log: Log) {
 		await app.send("showPinScreen", { mode: "remove" });
 		await app.waitFor("Remove", (s) => screen(s)?.mode === "remove");
 		await app.render("surfaces-pin-remove-current.png", 800);
-		await press(app, "pane.lockScreen.back");
+		await app.press("pane.lockScreen.back");
 		await app.waitFor("Back", (s) => screen(s) === null);
 		await app.send("showPinScreen", { mode: "remove" });
 		await app.waitFor("Remove", (s) => screen(s)?.mode === "remove");
@@ -323,7 +305,7 @@ async function lockScreens(context: Parameters<Scenario>[0], log: Log) {
 			// The numpad's keys, by presses, the first time.
 			if (attempt === 1) {
 				for (const digit of "0000") {
-					await press(app, `pane.lockScreen.digit.${digit}`);
+					await app.press(`pane.lockScreen.digit.${digit}`);
 				}
 			} else {
 				await app.send("pinKeys", { keys: "0000" });
@@ -385,10 +367,7 @@ async function updateAtTheLock(context: Parameters<Scenario>[0]) {
 		await app.render("surfaces-lock-update-available.png", 800);
 
 		// Its action under the pointer.
-		await app.send(
-			"hoverWindow",
-			await middleOf(app, "pane.lockScreen.update"),
-		);
+		await app.send("hoverWindow", await app.middleOf("pane.lockScreen.update"));
 
 		await app.render("lock-update-hover.png", 400);
 		await away(app);
@@ -623,9 +602,7 @@ const viewsLock: Scenario = async (context) => {
 	await unreadable(context, log);
 	await dataMove(context, log);
 
-	if (!process.env.PANE_LOCK_NO_TIMING) {
-		await timing(context, log);
-	}
+	await timing(context, log);
 
 	return log;
 };

@@ -1,4 +1,4 @@
-import { stats } from "../lib/benchmark";
+import { frameTimes } from "../lib/benchmark";
 import { launchPane, type PaneApp, pressWindowKey, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { signpostFrameIntervals } from "../lib/signposts";
@@ -350,20 +350,6 @@ const viewsDialogs: Scenario = async (context) => {
 	await app.send("closeTab", { tab: hung });
 
 	// The first frames, from Chrome's hook to the frame on the screen.
-	const round = (value: number) => Math.round(value * 10) / 10;
-
-	const summary = (values: number[]) => {
-		const sorted = [...values].sort((a, b) => a - b);
-		const { median } = stats(sorted);
-
-		return {
-			medianMs: round(median),
-			p10Ms: round(sorted[Math.floor(sorted.length * 0.1)] ?? median),
-			p90Ms: round(sorted[Math.floor(sorted.length * 0.9)] ?? median),
-			runs: values.length,
-		};
-	};
-
 	const { page: timed } = await app.openPage(
 		work,
 		fixtures.url("dialogs.html?timing"),
@@ -427,14 +413,7 @@ const viewsDialogs: Scenario = async (context) => {
 	] as const) {
 		expect(intervals.length > 0, `${name}: no intervals`);
 
-		timings[name] = {
-			toScreen: summary(intervals.map((value) => value.ms)),
-			toCommit: summary(
-				intervals.flatMap((value) =>
-					value.committedMs === undefined ? [] : [value.committedMs],
-				),
-			),
-		};
+		timings[name] = frameTimes(intervals);
 	}
 
 	result.timings = timings;

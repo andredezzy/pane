@@ -1,4 +1,4 @@
-import { launchPane, type PaneApp } from "../lib/pane";
+import { launchPane, type PaneApp, pressWindowKey } from "../lib/pane";
 import { PRIMARY } from "../lib/platform";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
@@ -16,29 +16,13 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 
 type Showing = { quit: boolean; menu: boolean };
 
-async function press(
-	context: ScenarioContext,
-	app: PaneApp,
-	key: string,
-): Promise<void> {
-	if (!context.foreground) {
-		await app.send("dispatchKey", { key });
-
-		return;
-	}
-
-	await app.send("activate");
-	await app.waitFor("the key window", (state) => state.window.key, 10_000);
-	await app.send("key", { key });
-}
-
 async function pressEscape(
 	context: ScenarioContext,
 	app: PaneApp,
 ): Promise<Showing> {
 	const before = await app.state();
 
-	await press(context, app, "\u001b");
+	await pressWindowKey(context, app, "\u001b");
 
 	const after = await app.waitFor(
 		"Esc taken",
@@ -93,7 +77,7 @@ const keyPrecedence: Scenario = async (context) => {
 
 	for (let step = 0; step < 2; step++) {
 		const before = await app.state();
-		await press(context, app, "\u001b");
+		await pressWindowKey(context, app, "\u001b");
 
 		const after = await app.waitFor(
 			"Esc taken",

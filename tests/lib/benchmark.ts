@@ -11,6 +11,7 @@ import { appOf, homeEnvironment } from "./browser";
 import { Cdp, openPage, type Page } from "./cdp";
 import { PaneApp } from "./pane";
 import { footprintsOf, processTable, waitForExit } from "./processes";
+import type { FrameInterval } from "./signposts";
 import { targets } from "./targets";
 import { swiftTool } from "./tools";
 
@@ -257,6 +258,33 @@ export function stats(values: number[]): Stats {
 		min: sorted[0] ?? Number.NaN,
 		max: sorted.at(-1) ?? Number.NaN,
 		runs: values,
+	};
+}
+
+// Durations' median, p10, and p90, in ms to a tenth, and how many.
+export function percentiles(values: number[]) {
+	const sorted = [...values].sort((a, b) => a - b);
+	const { median } = stats(sorted);
+	const round = (value: number) => Math.round(value * 10) / 10;
+
+	return {
+		medianMs: round(median),
+		p10Ms: round(sorted[Math.floor(sorted.length * 0.1)] ?? median),
+		p90Ms: round(sorted[Math.floor(sorted.length * 0.9)] ?? median),
+		runs: values.length,
+	};
+}
+
+// Frame intervals (signposts.ts) to the screen and to Core Animation's
+// commit.
+export function frameTimes(intervals: FrameInterval[]) {
+	return {
+		toScreen: percentiles(intervals.map((value) => value.ms)),
+		toCommit: percentiles(
+			intervals.flatMap((value) =>
+				value.committedMs === undefined ? [] : [value.committedMs],
+			),
+		),
 	};
 }
 

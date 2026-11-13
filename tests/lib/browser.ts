@@ -57,7 +57,8 @@ export const appResource = bySystem({
 export type LaunchOptions = {
 	args?: string[];
 	env?: Record<string, string>;
-	// Stock Chromium gets a throwaway profile; the Pane app manages its own data.
+	// Chromium's user data folder, where DevToolsActivePort is written: a
+	// throwaway one unless a launch names it (launchPane's is in its data).
 	userDataDir?: string;
 	// Another copy than the run's binary: a scenario that replaces the app's
 	// bundle (update-install) runs one of its own.

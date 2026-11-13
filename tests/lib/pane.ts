@@ -347,17 +347,32 @@ export class PaneApp {
 			.result;
 	}
 
-	// A real click at the middle of a part shown by that name (frames), as a
-	// press of it reaches it.
-	async click(name: string) {
+	// The middle of a part shown by that name (frames), from the window's top
+	// left.
+	async middleOf(name: string): Promise<{ x: number; y: number }> {
 		const [x = 0, y = 0, width = 0, height = 0] =
 			(await this.frames(name))[name] ?? [];
 
 		if (width === 0 || height === 0) {
-			throw new Error(`click: nothing named ${name} shows`);
+			throw new Error(`nothing named ${name} shows`);
 		}
 
-		await this.send("clickWindow", { x: x + width / 2, y: y + height / 2 });
+		return { x: x + width / 2, y: y + height / 2 };
+	}
+
+	// A real click at the middle of a part shown by that name, as a press of
+	// it reaches it.
+	async click(name: string) {
+		await this.send("clickWindow", await this.middleOf(name));
+	}
+
+	// A press and its release at the middle of a part shown by that name,
+	// through Views' own dispatch, which reaches the window in the
+	// background (pointerWindow).
+	async press(name: string) {
+		const at = await this.middleOf(name);
+		await this.send("pointerWindow", { phase: "down", ...at });
+		await this.send("pointerWindow", { phase: "up", ...at });
 	}
 
 	// Polls the app's state until `predicate` holds.
@@ -471,6 +486,24 @@ export class PaneApp {
 		}
 
 		throw new Error(`no page target for tab ${tabID} at ${url}`);
+	}
+
+	// A tab at `url`, once loaded and titled, without attaching to its page
+	// (a debugger attached keeps Chromium from seeing a hung page).
+	async loadTab(profile: string, url: string): Promise<string> {
+		const tab = await this.openTab(profile, url);
+
+		await this.waitFor(
+			`${url} loaded`,
+			(state) => {
+				const shown = tabOf(state, tab);
+
+				return shown?.url === url && !shown.loading && shown.title !== "";
+			},
+			30_000,
+		);
+
+		return tab;
 	}
 
 	// A tab at `url`, once loaded, and its page.

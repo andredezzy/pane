@@ -15,37 +15,6 @@ import { expect, type Scenario } from "../run";
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-toolbar.ts
 
-// A tab at `url`, once loaded and titled.
-async function loadTab(
-	app: PaneApp,
-	profile: string,
-	url: string,
-): Promise<string> {
-	const tab = await app.openTab(profile, url);
-
-	await app.waitFor(
-		`${url} loaded`,
-		(state) => {
-			const shown = tabOf(state, tab);
-
-			return shown?.url === url && !shown.loading && shown.title !== "";
-		},
-		30_000,
-	);
-
-	return tab;
-}
-
-// A frame's middle, from the window's top left.
-async function middleOf(app: PaneApp, name: string) {
-	const [x = 0, y = 0, width = 0, height = 0] =
-		(await app.frames(name))[name] ?? [];
-
-	expect(width > 0 && height > 0, `${name} does not show`);
-
-	return { x: x + width / 2, y: y + height / 2 };
-}
-
 // The pointer off every control: over the sidebar's list below its rows,
 // which Views draws (through the channel, a move over the page reaches the
 // page's view, not Views, and one at the window's edge its frame).
@@ -61,7 +30,7 @@ async function toolbar(
 
 	try {
 		const work = await app.createProfile("Work", "BLUE");
-		const home = await loadTab(app, work, fixtures.url("nav-a.html?work"));
+		const home = await app.loadTab(work, fixtures.url("nav-a.html?work"));
 
 		// At rest: the domain, the divider, and the title; Back and Forward
 		// with nowhere to go, at 40% (Paper 03.4's second row).
@@ -80,7 +49,7 @@ async function toolbar(
 		);
 
 		// The address under the pointer: the foreground at 3%.
-		await app.send("hoverWindow", await middleOf(app, "pane.toolbar.address"));
+		await app.send("hoverWindow", await app.middleOf("pane.toolbar.address"));
 		await app.render("toolbar-address-hover.png", 600);
 		await away(app);
 
@@ -112,7 +81,7 @@ async function toolbar(
 		);
 
 		await app.render("toolbar-back.png", 600);
-		const back = await middleOf(app, "pane.toolbar.back");
+		const back = await app.middleOf("pane.toolbar.back");
 		await app.send("hoverWindow", back);
 		await app.render("toolbar-back-hover.png", 600);
 		await app.send("pointerWindow", { phase: "down", ...back });
@@ -124,8 +93,7 @@ async function toolbar(
 		// A load the server holds: the bar at its start, fading in, and Stop
 		// in Reload's place (surfaces' toolbar-loading-start), then five
 		// seconds on, the slow mode's shimmer (toolbar-loading-slow).
-		const inbox = await loadTab(
-			app,
+		const inbox = await app.loadTab(
 			work,
 			fixtures.url("switcher.html?name=Inbox"),
 		);
@@ -214,12 +182,12 @@ async function pill(
 
 		await app.render("pill-available.png", 600);
 
-		await app.send("hoverWindow", await middleOf(app, "pane.sidebar.update"));
+		await app.send("hoverWindow", await app.middleOf("pane.sidebar.update"));
 		await app.render("pill-hover.png", 600);
 
 		await app.send(
 			"hoverWindow",
-			await middleOf(app, "pane.sidebar.update.dismiss"),
+			await app.middleOf("pane.sidebar.update.dismiss"),
 		);
 
 		await app.render("pill-dismiss-hover.png", 600);
@@ -238,7 +206,7 @@ async function pill(
 		);
 
 		await app.render("pill-downloading.png", 0);
-		await app.send("hoverWindow", await middleOf(app, "pane.sidebar.update"));
+		await app.send("hoverWindow", await app.middleOf("pane.sidebar.update"));
 		await app.render("pill-downloading-hover.png", 400);
 		await away(app);
 

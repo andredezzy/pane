@@ -258,9 +258,9 @@ async function readUntil<T>(
 
 // Clicks a control in the window, or in whichever of the app's windows has
 // it (an app-modal panel is a window of its own), by its accessibility
-// element: a real press, as a user's. SwiftUI may build the element anew
-// between the read and the press (kAXErrorInvalidUIElement, -25202): it is
-// read again, up to three times.
+// element: a real press, as a user's. The element can be built anew
+// between the read and the press (kAXErrorInvalidUIElement, -25202), as
+// SwiftUI's were and a page's can be: it is read again, up to three times.
 async function clickControl(
 	pid: number,
 	window: number | "any",
