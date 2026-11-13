@@ -16,7 +16,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0014](0014-hidden-browser-per-window-and-profile.md) One hidden Chrome Browser per window and profile
 - [0015](0015-popups-become-tabs.md) Popups become tabs in the opener's profile
 - [0016](0016-session-saved-at-engine-shutdown.md) Pane restores its own session: the app saves it when the engine shuts down, and AppKit's window restoration is off
-- [0017](0017-engine-callbacks-defer-reentrant-calls.md) The engine's API keeps Chromium's order and its word: calls made from inside a callback wait for the next turn, and every promised callback and request completes or goes with its tab
+- [0017](0017-engine-callbacks-defer-reentrant-calls.md) Pane keeps Chromium's order and its word: what would re-enter Chromium from inside its notifications waits for the next turn, and every request completes or goes with its page
 - [0018](0018-automation-channel.md) Scenarios drive the app through a test-only automation channel
 - [0019](0019-menu-shortcuts-match-typed-keys.md) Menu shortcuts match the keys as typed
 - [0020](0020-deleting-a-profile.md) Deleting a profile is durable before it completes, and asks no page
@@ -34,7 +34,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0038](0038-fingerprint-in-the-engine.md) The fingerprint lives in Blink and the browser, not in script
 - [0039](0039-no-google-sign-in-workaround.md) No Google sign-in workaround
 - [0040](0040-chrome-makes-no-requests.md) Chrome makes no request of its own but the extension updater's, and its CRLSet ships with the app
-- [0041](0041-tab-sleep.md) Idle tabs sleep and hidden profiles unload on PaneKit's scheduler, with Chrome's discarding off
+- [0041](0041-tab-sleep.md) Idle tabs sleep and hidden profiles unload on Pane's own scheduler, with Chrome's discarding off
 - [0042](0042-pin-lock-and-panic-wipe.md) The PIN lock and the panic wipe are the Electron app's
 - [0043](0043-electron-migration.md) The Electron app's data migrates once, from a copy, before anything loads
 - [0044](0044-one-version-source.md) packaging/VERSION is the one version source
@@ -64,8 +64,8 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0073](0073-views-redraw-what-changed.md) Views redraw only what changed and never mask the page
 - [0075](0075-tracing-cost.md) Tracing costs one branch when off
 - [0076](0076-web-store-says-pane.md) The Chrome Web Store's buttons say Pane
-- [0077](0077-controllers-by-ownership.md) The model lives in PaneKit and changes only through the controller's intents, and controllers are split by what they own
-- [0079](0079-one-key-monitor.md) One key monitor, in drawing order
+- [0077](0077-controllers-by-ownership.md) The model lives in pane/model and changes only through the controller's intents, and controllers are split by what they own
+- [0079](0079-one-key-monitor.md) The overlay on top takes a key first, and Chrome's order decides the rest
 - [0081](0081-loading-means-a-new-main-frame-document.md) A tab is loading only while its main frame loads a new document, and the address bar shows the selected tab's load as Chrome's toolbar progress bar
 - [0083](0083-entering-a-tab-focuses-the-page.md) Entering a tab gives its page the keys
 - [0084](0084-sidebar-scrolls-to-selected-tab.md) The sidebar scrolls to the selected tab
@@ -75,7 +75,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0089](0089-app-icon-is-a-window-the-user-picks-its-sky.md) Pane's icon is a window whose sky the user picks, and the bundle carries it in Chromium's place, dated so macOS cannot show Chromium's
 - [0092](0092-pane-installs-its-updates.md) Pane installs its updates itself at quit, and where it can't, says Quit and install and quits, and the update pill's bar runs to its end, drawing back for the dismiss button
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items and site access show where Chrome shows them, and Chrome's reload prompt after a change is declined without a dialog
-- [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed in a dialog of the Extensions page
+- [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed on Chrome's own shortcuts page
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
 - [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window, and their sign-ins stay in macOS's sheet
 - [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays

@@ -1,8 +1,8 @@
 # Phase 0: the QA rig's first pass, on the published 0.15.2
 
-**Build:** `Pane-0.15.2-arm64.dmg` from the v0.15.2 release (SHA-256 `87014e17…`, matching GitHub's digest), copied to a throwaway folder, run through `tests/scenarios/qa-hold.ts` on throwaway data. Nothing of the user's was touched.
+**Build:** `Pane-0.15.2-arm64.dmg` from the v0.15.2 release (SHA-256 `87014e17…`, matching GitHub's digest), copied to a throwaway folder, run through `tests/rigs/qa-hold.ts` on throwaway data. Nothing of the user's was touched.
 
-**The rig:** `qa-hold` holds a test copy open; `tests/tools/qa-send.ts` sends it setup commands through the automation channel; cua-driver presses its controls by accessibility, in the background; `screencapture -l` takes the window without the front.
+**The rig:** `qa-hold` holds a test copy open; `tests/rigs/qa-send.ts` sends it setup commands through the automation channel; cua-driver presses its controls by accessibility, in the background; `screencapture -l` takes the window without the front.
 
 | # | Item | Result on 0.15.2 | How |
 |---|---|---|---|

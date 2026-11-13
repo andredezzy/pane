@@ -28,7 +28,7 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 | Sync access handles | through the browser, as Incognito's: no renderer holds a descriptor or a key | `file_system_access_*` |
 | Names | IndexedDB's default buckets by id (`WebStorage/<id>/IndexedDB`); CacheStorage's folders by an HMAC under the profile's key | `file_path_util.cc`, `cache_storage_manager.cc` |
 | GPU caches in a profile, blob storage, the Download Service, Network Persistent State, SCT reports, No-Vary-Search's files | not on disk | one condition each |
-| Tab restore, Chromium's Keychain-encrypted bookmarks and sessions | off: they name what closed, or open without the PIN | `tab_restore_service_impl.cc`, `browser_application.mm` |
+| Tab restore, Chromium's Keychain-encrypted bookmarks and sessions | off: they name what closed, or open without the PIN | `tab_restore_service_impl.cc`, `engine_switches.cc` |
 
 `//pane/encryption` holds the formats, `core` depending on nothing but `//base` and BoringSSL so that `//sql`, LevelDB, and `//services` can use it.
 
@@ -101,6 +101,6 @@ Without a PIN the files are just as encrypted: the data key then opens with the 
 - **`files-migration`**, from each published build it is given (0.15.2 and 0.17.2): killed three times in its first opens, everything still there, nothing plain, and the published build on the migrated data refused, the volume's files unchanged. **`files-migration-large`**: with its panel, and six kills at random points.
 - **`engine-keys`**, **`memory-guarded`**, **`volume-unindexed`** (Spotlight: `.metadata_never_index` at every mount, since `mdutil` can't tell on a volume out of the Finder).
 - **`pane_unittests`**, run locally since CI builds no Chromium: every I/O shape of a journal and a WAL, a mid-transaction crash rolled back from the log on disk, 200 kills in each with nothing committed lost, Raze, Recovery, VACUUM, a wrong key or none crashing and deleting nothing, LevelDB with repair, and the migration killed at any point.
-- **By hand, by computer use:** `docs/qa/engine-file-encryption/`, with their screenshots kept locally,, against the published 0.15.2.
+- **By hand, by computer use:** `docs/qa/engine-file-encryption/`, with their screenshots kept locally, against the published 0.15.2.
 - **A real update:** the published 0.15.2 took 0.18.0 from GitHub, swapped itself at quit, and the data it had written migrated and read back.
 - **What it costs:** `docs/benchmarks/engine-encryption.md`. All budgets met but the first launch on new data, +12 ms over 0.15.2 where the budget is +10, which the user accepted (2026-11-06).

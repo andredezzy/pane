@@ -1,6 +1,6 @@
 # The whole checklist on the release candidate
 
-**Build:** the candidate, stripped as a release is (`PANE_STRIP=1 package.sh`), through `tests/scenarios/qa-hold.ts` on throwaway data, against Phase 0's pass on the published 0.15.2. The window taken by `screencapture -l`; recordings stayed local.
+**Build:** the candidate, stripped as a release is (`PANE_STRIP=1 package.sh`), through `tests/rigs/qa-hold.ts` on throwaway data, against Phase 0's pass on the published 0.15.2. The window taken by `screencapture -l`; recordings stayed local.
 
 **The rules for the screen:** the foreground items ran with the Mac idle for over 10 minutes (HIDIdleTime 2,234 s when the first began), screen unlocked, guarded by a script that stops at input it didn't send or another app in front, and the app in front put back after each. One broke them, below.
 

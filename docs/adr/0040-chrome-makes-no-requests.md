@@ -11,7 +11,7 @@ What is off:
 - **The Google account list** (`gaia_auth_list_accounts`), which sent a profile's Google cookies on every launch, from sign-in metrics among other callers: patch 0008 makes `TriggerListAccounts` do nothing when Pane hosts the engine (ADR 0010), and browser sign-in is off per profile (`signin.allowed`). Signing in to Google's websites is unaffected, as the `google` and `extension-management` scenarios show.
 - **The preconnect to the default search engine** (`PreconnectToSearch`): a net log of the `crlset` scenario showed connections to `www.google.com` that no page asked for, at start and again while a page showed. No request went out, so the requests in the log never named it.
 
-The switch and the features are set in `pane/browser/browser_application.mm`, the per-profile prefs in `pane/browser/browser_context.mm`. The component updater, the network time check, and the on-device AI model were the requests that went out from the browser itself.
+The switch and the features are set in `pane/app/engine_switches.cc`, the per-profile prefs in `pane/browser/profiles.cc`. The component updater, the network time check, and the on-device AI model were the requests that went out from the browser itself.
 
 The one request Chrome still makes of its own is the extension updater's: as each profile starts, and every five hours or so after, it asks Chrome's update service (`update.googleapis.com`) for newer versions of its Web Store extensions, as every browser does (ADR 0062).
 

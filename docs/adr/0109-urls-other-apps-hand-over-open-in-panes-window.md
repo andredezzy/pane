@@ -4,7 +4,7 @@
 
 What another app hands Pane opens as new tabs in its window, in the order given, in the profile in use, the last one selected: a link clicked in Mail or Slack with Pane as the default browser, a file opened with Pane, `open -a Pane <url>`. The bundle registers http, https, and file, and the HTML and image types, as Chrome's does. Until then only a URL on the command line opened (`Pane https://…`). Launch Services delivers the others to Chrome's AppController (`-application:openURLs:`), which opened them in a Browser of Chrome's, behind Pane's window and never seen. The research comparing Pane with Aside and Dia found it: both open such links in their own window.
 
-Patch 0002 has a hosted engine's AppController post `PANE_OPEN_URLS_NOTIFICATION` (`pane/common/host.h`) instead, as it already does for reopen. `PaneBrowserApplication` observes it from its start, holds what arrives before the engine started (the app launched to open them), and calls the delegate's new `-browserApplication:openURLs:`. The app opens the web pages and files among them through the path the command-line URL takes, so they wait behind the PIN lock as it does, and shows the window again if it was closed.
+Patch 0002 has a hosted engine's AppController post `PANE_OPEN_URLS_NOTIFICATION` (`pane/common/host.h`) instead, as it already does for reopen. Pane's UI hears it (`AppEvents`, `pane/ui/app/app_events_mac.mm`) and opens the web pages and files among them through the path the command-line URL takes, so they wait behind the PIN lock as it does, and shows the window again if it was closed.
 
 Chrome opens them in the last profile used; Pane's profile in use is the one whose tab is selected, and on a first launch with none, the "Personal" profile it makes.
 
