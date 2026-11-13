@@ -52,10 +52,9 @@ class Fingerprints {
   Fingerprints& operator=(const Fingerprints&) = delete;
 
   // Sets `identifier`'s fingerprint from `json`, or clears it for an empty
-  // `json`. False, with `error`, for JSON that is not a fingerprint.
-  bool Set(const std::string& identifier,
-           std::string_view json,
-           std::string* error);
+  // `json`. False for JSON that is not a fingerprint: it needs userAgent,
+  // userAgentMetadata, languages, and renderer.
+  bool Set(const std::string& identifier, std::string_view json);
 
   // The fingerprint of `browser_context`'s profile, or null.
   const Fingerprint* For(content::BrowserContext* browser_context) const;

@@ -10,7 +10,6 @@
 #include <string.h>
 
 #include <algorithm>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -22,7 +21,6 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr_exclusion.h"
-#include "base/numerics/byte_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -983,8 +981,7 @@ SqliteMigration MigrateSqliteDatabase(const base::FilePath& path) {
 
   CHECK(KeysFor(path).has_value());
 
-  base::FilePath temporary =
-      path.AddExtension(FILE_PATH_LITERAL(".pane-migrating"));
+  base::FilePath temporary = path.AddExtension(kMigratingSuffix);
   base::DeleteFile(temporary);
   base::DeleteFile(
       temporary.InsertBeforeExtension(FILE_PATH_LITERAL("-journal")));

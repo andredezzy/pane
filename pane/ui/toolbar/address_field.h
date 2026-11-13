@@ -53,7 +53,7 @@ class AddressField : public views::Textfield {
   // The page's title, for the field at rest.
   void SetTitle(const std::u16string& title);
   // Whether the domain and title show over the field, for the channel.
-  bool label_shown() const { return label_shown_; }
+  bool label_shown() const;
 
   // views::Textfield:
   bool OnMousePressed(const ui::MouseEvent& event) override;
@@ -78,7 +78,6 @@ class AddressField : public views::Textfield {
 
   std::u16string shown_;
   std::u16string title_;
-  bool label_shown_ = false;
   raw_ptr<Label> label_ = nullptr;
   raw_ptr<ToolbarProgressBar> bar_ = nullptr;
   // How lit the field is under the pointer, 0 to 1.

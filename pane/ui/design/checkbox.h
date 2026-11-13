@@ -5,7 +5,6 @@
 
 #include <string>
 
-#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/text.h"
@@ -56,19 +55,14 @@ class Checkbox : public views::Button {
   METADATA_HEADER(Checkbox, views::Button)
 
  public:
-  using Toggled = base::RepeatingCallback<void(bool checked)>;
-
   Checkbox(const std::u16string& label,
            const TextStyle& style,
-           ui::ColorVariant label_color,
-           Toggled toggled = Toggled());
+           ui::ColorVariant label_color);
   Checkbox(const Checkbox&) = delete;
   Checkbox& operator=(const Checkbox&) = delete;
   ~Checkbox() override;
 
   bool checked() const { return checked_; }
-  // From the model: no `toggled`.
-  void SetChecked(bool checked);
   // The box, in this view.
   gfx::Rect BoxBounds() const;
 
@@ -86,7 +80,6 @@ class Checkbox : public views::Button {
   void Pressed();
   void UpdateAccessibility();
 
-  Toggled toggled_;
   bool checked_ = false;
   raw_ptr<views::Label> label_ = nullptr;
   // Pane's ring around the box while it has the keyboard.

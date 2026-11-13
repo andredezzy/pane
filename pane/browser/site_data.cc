@@ -2,14 +2,12 @@
 
 #include "pane/browser/site_data.h"
 
-#include <memory>
 #include <utility>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/browsing_data_remover.h"
 
 namespace pane {
@@ -42,23 +40,14 @@ class RemovalObserver : public content::BrowsingDataRemover::Observer {
 
 void RemoveSiteData(content::BrowserContext* browser_context,
                     uint64_t remove_mask,
-                    const std::vector<url::Origin>& origins,
                     base::OnceClosure done) {
-  std::unique_ptr<content::BrowsingDataFilterBuilder> filter =
-      content::BrowsingDataFilterBuilder::Create(
-          origins.empty() ? content::BrowsingDataFilterBuilder::Mode::kPreserve
-                          : content::BrowsingDataFilterBuilder::Mode::kDelete);
-  for (const url::Origin& origin : origins) {
-    filter->AddOrigin(origin);
-  }
-
   content::BrowsingDataRemover* remover =
       browser_context->GetBrowsingDataRemover();
-  remover->RemoveWithFilterAndReply(
+  remover->RemoveAndReply(
       base::Time(), base::Time::Max(), remove_mask,
       content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
           content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB,
-      std::move(filter), new RemovalObserver(remover, std::move(done)));
+      new RemovalObserver(remover, std::move(done)));
 }
 
 }  // namespace pane

@@ -5,7 +5,6 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -211,11 +210,6 @@ class Window : public WindowHost::Delegate,
   // The window's title follows the shown page's, as the Window menu and
   // Mission Control show it: Pane without one, and so behind the Lock.
   void UpdateTitle();
-  // The same, once the frame that shows a tab, or none, is out, and after
-  // the page made after that frame: AppKit lays the title bar out again at
-  // each new title, though Pane's is hidden, which took 1.7 of a tab
-  // switch's 2 ms of work ahead of its frame, and 1 of ⌘T's 4.
-  void UpdateTitleAfterFrame();
   // The shown page fills the window (ADR 0025).
   bool page_fullscreen() const;
   // The window in full screen, or on its way in; View › Enter or Exit Full
@@ -304,6 +298,14 @@ class Window : public WindowHost::Delegate,
   // stays (ADR 0025). Chromium's fullscreen controller takes a request made
   // while the window is still moving in or out once the move ends.
   void FollowPage();
+  // The window's title, once the frame that shows a tab, or none, is out,
+  // and after the page made after that frame: AppKit lays the title bar out
+  // again at each new title, though Pane's is hidden, which took 1.7 of a
+  // tab switch's 2 ms of work ahead of its frame, and 1 of ⌘T's 4.
+  void UpdateTitleAfterFrame();
+  // What the window added to `widget` comes off it: its observer, its keys,
+  // and the page's view it watches.
+  void DetachFrom(views::Widget* widget);
   // The closed widget's host goes, once its widget has.
   void Closed();
   // The find bar shows the page shown's, or none.

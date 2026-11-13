@@ -12,10 +12,6 @@
 #include "pane/ui/design/motion.h"
 #include "ui/views/controls/button/button.h"
 
-namespace views {
-class Label;
-}
-
 namespace pane {
 
 // Pane's switch (Switch.swift; views::ToggleButton is 26 by 16): a 36-by-20
@@ -25,9 +21,8 @@ namespace pane {
 // color together, with Motion.toggle; a press darkens the track as a
 // button's fill. The whole row is the button, as a label's click toggles a
 // checkbox: a click on the label toggles it too, and so does Space. Its label
-// is a line of text, or a view of its own (a title over its note, the profile
-// sheet's), laid out at the row's width and as tall as it needs. Disabled,
-// all of it is at 50%.
+// is a view of its own (a title over its note, the profile sheet's), laid out
+// at the row's width and as tall as it needs. Disabled, all of it is at 50%.
 class Switch : public views::Button {
   METADATA_HEADER(Switch, views::Button)
 
@@ -36,8 +31,6 @@ class Switch : public views::Button {
 
   static constexpr gfx::Size kTrackSize{36, 20};
 
-  // `label`, when there is one, before the track, 8 points apart.
-  explicit Switch(Toggled toggled, const std::u16string& label = u"");
   // `label` before the track, 8 points apart, its height for the width the
   // track leaves it; what assistive technologies read is `name`.
   Switch(Toggled toggled,
@@ -49,7 +42,6 @@ class Switch : public views::Button {
 
   // From the model: at once, as a change outside the user's toggle is.
   void SetOn(bool on);
-  bool on() const { return on_; }
 
   // views::View:
   gfx::Size CalculatePreferredSize(

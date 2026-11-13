@@ -2,28 +2,21 @@
 
 #include "pane/model/mac/proxy_password_vault.h"
 
-#include <array>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include "base/base64.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
-#include "crypto/aead.h"
 #include "crypto/hash.h"
 #include "crypto/kdf.h"
-#include "crypto/random.h"
+#include "pane/model/data_key.h"
 
 namespace pane::model {
 
 namespace {
 
-// AES-GCM's, as CryptoKit seals.
-constexpr size_t kNonceSize = 12;
-constexpr size_t kKeySize = 32;
-
-std::array<uint8_t, kKeySize> SealingKey(base::span<const uint8_t> secret) {
+Key SealingKey(base::span<const uint8_t> secret) {
   return crypto::kdf::Hkdf<kKeySize>(
       crypto::hash::kSha256, secret, {},
       base::as_byte_span(std::string_view("Pane proxy passwords")));
@@ -54,27 +47,15 @@ SealedProxyPasswords SealProxyPasswords(const ProxyPasswords& passwords,
   }
   // A dictionary of strings always writes.
   const std::string json = base::WriteJson(dict).value();
-  const auto nonce = crypto::RandBytesAsArray<kNonceSize>();
-  std::vector<uint8_t> combined(nonce.begin(), nonce.end());
-  const std::vector<uint8_t> sealed =
-      crypto::aead::Seal(crypto::aead::AES_256_GCM, SealingKey(secret),
-                         base::as_byte_span(json), nonce, {});
-  combined.insert(combined.end(), sealed.begin(), sealed.end());
-  return {.box = base::Base64Encode(combined)};
+  return {.box = SealBox(SealingKey(secret), base::as_byte_span(json))};
 }
 
 std::optional<ProxyPasswords> OpenProxyPasswords(
     const SealedProxyPasswords& sealed,
     base::span<const uint8_t> secret) {
-  const std::optional<std::vector<uint8_t>> combined =
-      base::Base64Decode(sealed.box);
-  if (!combined || combined->size() < kNonceSize) {
-    return std::nullopt;
-  }
-  const auto [nonce, ciphertext] = base::span(*combined).split_at(kNonceSize);
-  const std::optional<std::vector<uint8_t>> json = crypto::aead::Open(
-      crypto::aead::AES_256_GCM, SealingKey(secret), ciphertext, nonce, {});
-  if (!json) {
+  const base::expected<std::vector<uint8_t>, BoxError> json =
+      OpenBox(SealingKey(secret), sealed.box);
+  if (!json.has_value()) {
     return std::nullopt;
   }
   return ProxyPasswordsFromJson(base::as_string_view(*json));

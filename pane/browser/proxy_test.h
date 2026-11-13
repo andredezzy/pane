@@ -47,8 +47,6 @@ class ProxyTest : public network::mojom::URLLoaderNetworkServiceObserver {
   ProxyTest& operator=(const ProxyTest&) = delete;
   ~ProxyTest() override;
 
-  const model::ProxyConfig& proxy() const { return proxy_; }
-
   // network::mojom::URLLoaderNetworkServiceObserver: a proxy asking for
   // credentials gets the profile's, once.
   void OnSSLCertificateError(const GURL& url,

@@ -60,8 +60,6 @@ bool AskToAddExtension(
             accepted ? Result::ACCEPTED : Result::USER_CANCELED));
       },
       std::move(done_callback));
-  PANE_TRACE("callback", "PaneBrowserContextDelegate.confirmExtensionInstall",
-             base::DictValue().Set("extension", id));
   app->Extensions().Ask(std::move(request));
   return true;
 }

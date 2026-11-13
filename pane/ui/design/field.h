@@ -12,6 +12,7 @@
 #include "base/scoped_observation.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "ui/color/color_variant.h"
 #include "ui/views/controls/textfield/textfield.h"
@@ -68,7 +69,7 @@ class Field : public views::Textfield {
 
  public:
   static constexpr int kHeight = 36;
-  static constexpr float kRadius = 11;
+  static constexpr float kRadius = radius::kMd;
   // From the outer edge: CSS's px-3 inside the 1-point border.
   static constexpr int kTextInset = 13;
 

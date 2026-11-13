@@ -6,7 +6,6 @@
 #include <array>
 #include <iterator>
 #include <string_view>
-#include <utility>
 
 namespace pane::model {
 

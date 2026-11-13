@@ -17,12 +17,13 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
 #include "pane/browser/engine_trace.h"
+#include "pane/common/host.h"
 
 namespace pane {
 
 namespace {
 
-constexpr char kFingerprintSwitch[] = "pane-fingerprint";
+constexpr char kFingerprintSwitch[] = PANE_FINGERPRINT_SWITCH;
 
 std::optional<blink::UserAgentBrandList> ParseBrands(
     const base::ListValue* list) {
@@ -120,9 +121,7 @@ Fingerprints& Fingerprints::Get() {
 Fingerprints::Fingerprints() = default;
 Fingerprints::~Fingerprints() = default;
 
-bool Fingerprints::Set(const std::string& identifier,
-                       std::string_view json,
-                       std::string* error) {
+bool Fingerprints::Set(const std::string& identifier, std::string_view json) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   if (json.empty()) {
@@ -145,9 +144,6 @@ bool Fingerprints::Set(const std::string& identifier,
   const base::DictValue* renderer = root ? root->FindDict("renderer") : nullptr;
   if (!user_agent || user_agent->empty() || !metadata || !languages ||
       !renderer) {
-    *error =
-        "Not a fingerprint: it needs userAgent, userAgentMetadata, "
-        "languages, and renderer.";
     return false;
   }
 

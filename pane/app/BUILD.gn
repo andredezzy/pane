@@ -54,7 +54,6 @@ source_set("unit_tests") {
     ":engine_switches",
     ":test_copy",
     "//base",
-    "//base/test:test_support",
     "//testing/gtest",
   ]
 }

@@ -32,6 +32,12 @@ enum class SqliteMigration {
   kCorrupt,
 };
 
+// What a conversion writes beside a file before it takes the file's place
+// (MigrateSqliteDatabase, and a profile's other files): a kill leaves it, and
+// the next conversion deletes it.
+inline constexpr base::FilePath::StringViewType kMigratingSuffix =
+    FILE_PATH_LITERAL(".pane-migrating");
+
 // Encrypts a plain database of a closed profile in place, surviving a kill at
 // any point: the raw open settles any journal left in the clear, VACUUM INTO
 // writes a temporary encrypted copy, which is verified and fsynced, then

@@ -163,18 +163,6 @@ PageDialogs::Id PageDialogs::Ask(content::WebContents* page,
   return id;
 }
 
-bool PageDialogs::Has(Id id) const {
-  if (shown_ && shown_->id() == id) {
-    return true;
-  }
-  for (const std::unique_ptr<Request>& request : waiting_) {
-    if (request->id() == id) {
-      return true;
-    }
-  }
-  return false;
-}
-
 std::unique_ptr<PageDialogs::Request> PageDialogs::Take(Id id) {
   if (shown_ && shown_->id() == id) {
     if (RootView* root = delegate_->DialogRoot()) {
@@ -313,17 +301,13 @@ base::Value PageDialogs::Shown() const {
       fields.Append(text);
     }
   }
-  std::vector<std::u16string> message;
-  for (const std::u16string& line : content.message) {
-    message.push_back(line);
-  }
   return base::Value(
       base::DictValue()
           .Set("kind", SheetKind(shown_->kind()))
           .Set("tabID", shown_->page() ? base::Value(TabIdOf(shown_->page()))
                                        : base::Value())
           .Set("title", content.title)
-          .Set("message", base::JoinString(message, u"\n"))
+          .Set("message", base::JoinString(content.message, u"\n"))
           .Set("buttons", std::move(buttons))
           .Set("fields", std::move(fields)));
 }

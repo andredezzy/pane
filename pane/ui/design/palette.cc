@@ -43,7 +43,7 @@ SkColor ProfileColorOf(model::ProfileColor color) {
   if (hex.size() != 7 || !base::HexStringToUInt(hex.substr(1), &rgb)) {
     return SK_ColorGRAY;
   }
-  return SkColorSetRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+  return Rgb(rgb);
 }
 
 void AddPaneColors(ui::ColorProvider* provider,

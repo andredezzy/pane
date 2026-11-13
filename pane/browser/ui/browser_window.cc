@@ -4,26 +4,19 @@
 // engine/ardiacore/src/ardia/core/ac_browser_window.mm, Copyright 2026 Mantra
 // Patel, licensed under the Apache License 2.0 (third_party/ardia). Changed for
 // Pane: names and namespace, and without Ardia's extension shortcuts (Pane's
-// are extension_shortcuts.cc), autofill prompts and background-run eye dropper;
-// Chrome's own shutdown checks for its lifetime helpers.
+// are extension_shortcuts.cc), autofill prompts and background-run eye
+// dropper.
 
 #include "pane/browser/ui/browser_window.h"
-
-#include <stdlib.h>
-#include <string.h>
 
 #include <map>
 #include <set>
 
 #include "base/functional/bind.h"
-#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "chrome/browser/devtools/devtools_ui_controller.h"
-#include "chrome/browser/devtools/devtools_window.h"
-#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/autofill/save_address_bubble_controller.h"
@@ -38,27 +31,21 @@
 #include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "components/input/native_web_keyboard_event.h"
-#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/eye_dropper.h"
 #include "content/public/browser/eye_dropper_listener.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
-#include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/window_host.h"
 #include "pane/ui/page/find_in_page.h"
-#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider_manager.h"
-#include "ui/content_accelerators/accelerator_util.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/gfx/range/range.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/widget/widget.h"
 
@@ -144,10 +131,6 @@ LocationBarTesting* HostedLocationBar::GetLocationBarForTesting() {
 HostedAutofillBubbleHandler::HostedAutofillBubbleHandler() = default;
 HostedAutofillBubbleHandler::~HostedAutofillBubbleHandler() = default;
 
-#define PANE_NO_BUBBLE(...) \
-  {                         \
-    return nullptr;         \
-  }
 autofill::AutofillBubbleBase*
 HostedAutofillBubbleHandler::ShowSaveCreditCardBubble(
     content::WebContents* web_contents,
@@ -172,17 +155,21 @@ HostedAutofillBubbleHandler::ShowOfferNotificationBubble(
 autofill::AutofillBubbleBase*
 HostedAutofillBubbleHandler::ShowSaveAutofillAiDataBubble(
     content::WebContents*,
-    autofill::AutofillAiImportDataController*)
-    PANE_NO_BUBBLE() autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-        ShowAutofillAiLocalSaveNotification(
-            content::WebContents*,
-            autofill::AutofillAiImportDataController*) PANE_NO_BUBBLE()
-            autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-                ShowSaveAddressProfileBubble(
-                    content::WebContents* web_contents,
-                    std::unique_ptr<autofill::SaveAddressBubbleController>
-                        controller,
-                    bool) {
+    autofill::AutofillAiImportDataController*) {
+  return nullptr;
+}
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowAutofillAiLocalSaveNotification(
+    content::WebContents*,
+    autofill::AutofillAiImportDataController*) {
+  return nullptr;
+}
+
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowSaveAddressProfileBubble(
+    content::WebContents* web_contents,
+    std::unique_ptr<autofill::SaveAddressBubbleController> controller,
+    bool) {
   return nullptr;
 }
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -204,97 +191,111 @@ autofill::AutofillBubbleBase*
 HostedAutofillBubbleHandler::ShowFilledCardInformationBubble(
     content::WebContents*,
     autofill::FilledCardInformationBubbleController*,
-    bool) PANE_NO_BUBBLE() autofill::
-    AutofillBubbleBase* HostedAutofillBubbleHandler::ShowVirtualCardEnrollBubble(
-        content::WebContents*,
-        autofill::VirtualCardEnrollBubbleController*,
-        bool) PANE_NO_BUBBLE()
-        autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-            ShowVirtualCardEnrollConfirmationBubble(
-                content::WebContents*,
-                autofill::VirtualCardEnrollBubbleController*) PANE_NO_BUBBLE()
-                autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-                    ShowMandatoryReauthBubble(
-                        content::WebContents*,
-                        autofill::MandatoryReauthBubbleController*,
-                        bool,
-                        autofill::MandatoryReauthBubbleType)
-                        PANE_NO_BUBBLE() autofill::
-                            AutofillBubbleBase* HostedAutofillBubbleHandler::
-                                ShowSaveCardConfirmationBubble(
-                                    content::WebContents* web_contents,
-                                    autofill::SaveCardBubbleController*
-                                        controller) {
+    bool) {
+  return nullptr;
+}
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowVirtualCardEnrollBubble(
+    content::WebContents*,
+    autofill::VirtualCardEnrollBubbleController*,
+    bool) {
+  return nullptr;
+}
+
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowVirtualCardEnrollConfirmationBubble(
+    content::WebContents*,
+    autofill::VirtualCardEnrollBubbleController*) {
+  return nullptr;
+}
+
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowMandatoryReauthBubble(
+    content::WebContents*,
+    autofill::MandatoryReauthBubbleController*,
+    bool,
+    autofill::MandatoryReauthBubbleType) {
+  return nullptr;
+}
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowSaveCardConfirmationBubble(
+    content::WebContents* web_contents,
+    autofill::SaveCardBubbleController* controller) {
   return nullptr;
 }
 autofill::AutofillBubbleBase*
 HostedAutofillBubbleHandler::ShowSaveIbanConfirmationBubble(
     content::WebContents*,
-    autofill::IbanBubbleController*) PANE_NO_BUBBLE() autofill::
-    AutofillBubbleBase* HostedAutofillBubbleHandler::ShowOmniboxAutofillBubble(
-        content::WebContents*,
-        autofill::OmniboxAutofillBubbleController*) PANE_NO_BUBBLE()
-        autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-            ShowPaymentsChurnedUsersBubble(
-                content::WebContents*,
-                autofill::PaymentsChurnedUsersBubbleController*,
-                bool) PANE_NO_BUBBLE()
-                autofill::AutofillBubbleBase* HostedAutofillBubbleHandler::
-                    ShowPaymentsChurnedUsersConfirmationBubble(
-                        content::WebContents*,
-                        autofill::PaymentsChurnedUsersBubbleController*)
-                        PANE_NO_BUBBLE() autofill::
-                            AutofillBubbleBase* HostedAutofillBubbleHandler::
-                                ShowWalletReminderNoticeBubble(
-                                    content::WebContents*,
-                                    autofill::
-                                        WalletReminderNoticeBubbleController*,
-                                    bool) PANE_NO_BUBBLE()
-#undef PANE_NO_BUBBLE
-
-                                    namespace {
-
-  // Chrome docks DevTools in the BrowserView, and Pane's Browsers have none:
-  // the window places the DevTools page beside the inspected tab instead
-  // (pane/ui/window/root_view.h), told by the one edit ADR 0024 takes, its
-  // UpdateDevtools made virtual.
-  class DockingDevtoolsController final : public DevtoolsUIController {
-   public:
-    DockingDevtoolsController(BrowserWindowInterface* browser,
-                              base::WeakPtr<WindowHost> host)
-        : DevtoolsUIController(
-              browser,
-              std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>()),
-          host_(std::move(host)) {}
-
-    bool UpdateDevtools(content::WebContents* inspected,
-                        bool update_devtools_web_contents) override {
-      PANE_TRACE("callback", "PaneWebContentsDelegate.didChangeDevTools",
-                 base::DictValue().Set(
-                     "open", inspected && DevToolsWindow::GetInTabWebContents(
-                                              inspected, nullptr) != nullptr));
-      if (host_) {
-        host_->DevToolsChanged(inspected);
-      }
-      return false;
-    }
-
-   private:
-    base::WeakPtr<WindowHost> host_;
-  };
-
-  std::set<const BrowserWindow*>& LiveWindows() {
-    static base::NoDestructor<std::set<const BrowserWindow*>> windows;
-    return *windows;
-  }
-  std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>&
-  Records() {
-    static base::NoDestructor<
-        std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>>
-        records;
-    return *records;
-  }
+    autofill::IbanBubbleController*) {
+  return nullptr;
 }
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowOmniboxAutofillBubble(
+    content::WebContents*,
+    autofill::OmniboxAutofillBubbleController*) {
+  return nullptr;
+}
+
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowPaymentsChurnedUsersBubble(
+    content::WebContents*,
+    autofill::PaymentsChurnedUsersBubbleController*,
+    bool) {
+  return nullptr;
+}
+
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowPaymentsChurnedUsersConfirmationBubble(
+    content::WebContents*,
+    autofill::PaymentsChurnedUsersBubbleController*) {
+  return nullptr;
+}
+autofill::AutofillBubbleBase*
+HostedAutofillBubbleHandler::ShowWalletReminderNoticeBubble(
+    content::WebContents*,
+    autofill::WalletReminderNoticeBubbleController*,
+    bool) {
+  return nullptr;
+}
+
+namespace {
+
+// Chrome docks DevTools in the BrowserView, and Pane's Browsers have none:
+// the window places the DevTools page beside the inspected tab instead
+// (pane/ui/window/root_view.h), told by the one edit ADR 0024 takes, its
+// UpdateDevtools made virtual.
+class DockingDevtoolsController final : public DevtoolsUIController {
+ public:
+  DockingDevtoolsController(BrowserWindowInterface* browser,
+                            base::WeakPtr<WindowHost> host)
+      : DevtoolsUIController(
+            browser,
+            std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>()),
+        host_(std::move(host)) {}
+
+  bool UpdateDevtools(content::WebContents* inspected,
+                      bool update_devtools_web_contents) override {
+    if (host_) {
+      host_->delegate().DevToolsChanged(inspected);
+    }
+    return false;
+  }
+
+ private:
+  base::WeakPtr<WindowHost> host_;
+};
+
+std::set<const BrowserWindow*>& LiveWindows() {
+  static base::NoDestructor<std::set<const BrowserWindow*>> windows;
+  return *windows;
+}
+std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>& Records() {
+  static base::NoDestructor<
+      std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>>
+      records;
+  return *records;
+}
+}  // namespace
 
 HostedBrowserWindow* HostedBrowserWindow::FromWindow(
     const BrowserWindow* window) {
@@ -306,10 +307,6 @@ HostedBrowserWindow* HostedBrowserWindow::FromWindow(
 
 void HostedBrowserWindow::Register(const BrowserWindowInterface* browser) {
   Records()[browser] = host_;
-}
-
-bool HostedBrowserWindow::IsOurs(const BrowserWindowInterface* browser) {
-  return browser && Records().contains(browser);
 }
 
 WindowHost* HostedBrowserWindow::HostOf(const BrowserWindowInterface* browser) {
@@ -692,7 +689,7 @@ void HostedBrowserWindow::PostWindowFullscreenStateChanged() {
 }
 
 // The "Press Esc to exit full screen" hint is Pane's to show
-// (browserWindow:showExclusiveAccessHint:), not Chrome's Views bubble.
+// (WindowHost::ShowExclusiveAccessHint), not Chrome's Views bubble.
 void HostedBrowserWindow::UpdateExclusiveAccessBubble(
     const ExclusiveAccessBubbleParams& params,
     ExclusiveAccessBubbleHideCallback first_hide_callback) {

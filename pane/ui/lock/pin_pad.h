@@ -43,7 +43,6 @@ class PinDots : public views::View {
   void Shake();
 
   int count() const { return static_cast<int>(dots_.size()); }
-  int filled() const { return filled_; }
 
   // views::View:
   gfx::Size CalculatePreferredSize(

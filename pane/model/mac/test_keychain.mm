@@ -2,16 +2,13 @@
 
 #include "pane/model/mac/test_keychain.h"
 
-#import <Foundation/Foundation.h>
 #import <Security/Security.h>
 
 #include <map>
 #include <utility>
 #include <vector>
 
-#include "base/apple/bridging.h"
 #include "base/apple/foundation_util.h"
-#include "base/apple/scoped_cftyperef.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/memory/raw_ptr.h"

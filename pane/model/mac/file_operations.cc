@@ -51,52 +51,6 @@ base::expected<void, std::string> CloneFile(const base::FilePath& from,
   return base::ok();
 }
 
-// Everything under `from` into `to`, made if missing, file by file: links as
-// links, folders made as they come, and `copied` told each file's size.
-base::expected<void, std::string> CopyTree(
-    const base::FilePath& from,
-    const base::FilePath& to,
-    base::FunctionRef<void(int64_t size)> copied,
-    base::FileEnumerator::ErrorPolicy error_policy) {
-  if (!base::CreateDirectory(to)) {
-    return Failed(to);
-  }
-  // Each path relative to `from`, as given, so a link on the way to it (/var
-  // to /private/var) never shifts it.
-  base::FileEnumerator entries(
-      from, /*recursive=*/true,
-      base::FileEnumerator::FILES | base::FileEnumerator::DIRECTORIES |
-          base::FileEnumerator::SHOW_SYM_LINKS,
-      base::FilePath::StringType(),
-      base::FileEnumerator::FolderSearchPolicy::MATCH_ONLY, error_policy);
-  for (base::FilePath entry = entries.Next(); !entry.empty();
-       entry = entries.Next()) {
-    base::FilePath target = to;
-    if (!from.AppendRelativePath(entry, &target)) {
-      return base::unexpected(
-          base::StrCat({entry.value(), ": outside ", from.value()}));
-    }
-    // GetInfo() answers a copy: the stat is read from one that lives on.
-    const base::FileEnumerator::FileInfo found = entries.GetInfo();
-    const base::stat_wrapper_t& info = found.stat();
-    if (S_ISLNK(info.st_mode)) {
-      RETURN_IF_ERROR(CopyLink(entry, target));
-    } else if (S_ISDIR(info.st_mode)) {
-      if (!base::CreateDirectory(target)) {
-        return Failed(target);
-      }
-    } else {
-      RETURN_IF_ERROR(CloneFile(entry, target));
-      copied(info.st_size);
-    }
-  }
-  if (entries.GetError() != base::File::FILE_OK) {
-    return base::unexpected(base::StrCat(
-        {from.value(), ": ", base::File::ErrorToString(entries.GetError())}));
-  }
-  return base::ok();
-}
-
 }  // namespace
 
 std::string LastFileError(const base::FilePath& path) {
@@ -129,9 +83,7 @@ base::expected<void, std::string> CopyItem(const base::FilePath& from,
   }
   if (S_ISDIR(info.st_mode)) {
     // A folder it can't read fails the copy, as FileManager's does.
-    return CopyTree(
-        from, to, [](int64_t) {},
-        base::FileEnumerator::ErrorPolicy::STOP_ENUMERATION);
+    return CopyContents(from, to, [](int64_t) {});
   }
   return CloneFile(from, to);
 }
@@ -140,12 +92,48 @@ base::expected<void, std::string> CopyContents(
     const base::FilePath& from,
     const base::FilePath& to,
     base::FunctionRef<void(int64_t size)> copied) {
-  // A folder it can't read fails the copy. FileManager's enumerator passed
-  // over one, and the move into the volume then staged the plain folder for
-  // the erase with that folder's files never copied: what can't be copied
-  // stays where it is.
-  return CopyTree(from, to, copied,
-                  base::FileEnumerator::ErrorPolicy::STOP_ENUMERATION);
+  if (!base::CreateDirectory(to)) {
+    return Failed(to);
+  }
+  // Each path relative to `from`, as given, so a link on the way to it (/var
+  // to /private/var) never shifts it.
+  base::FileEnumerator entries(
+      from, /*recursive=*/true,
+      base::FileEnumerator::FILES | base::FileEnumerator::DIRECTORIES |
+          base::FileEnumerator::SHOW_SYM_LINKS,
+      base::FilePath::StringType(),
+      // A folder it can't read fails the copy. FileManager's enumerator
+      // passed over one, and the move into the volume then staged the plain
+      // folder for the erase with that folder's files never copied: what
+      // can't be copied stays where it is.
+      base::FileEnumerator::FolderSearchPolicy::MATCH_ONLY,
+      base::FileEnumerator::ErrorPolicy::STOP_ENUMERATION);
+  for (base::FilePath entry = entries.Next(); !entry.empty();
+       entry = entries.Next()) {
+    base::FilePath target = to;
+    if (!from.AppendRelativePath(entry, &target)) {
+      return base::unexpected(
+          base::StrCat({entry.value(), ": outside ", from.value()}));
+    }
+    // GetInfo() answers a copy: the stat is read from one that lives on.
+    const base::FileEnumerator::FileInfo found = entries.GetInfo();
+    const base::stat_wrapper_t& info = found.stat();
+    if (S_ISLNK(info.st_mode)) {
+      RETURN_IF_ERROR(CopyLink(entry, target));
+    } else if (S_ISDIR(info.st_mode)) {
+      if (!base::CreateDirectory(target)) {
+        return Failed(target);
+      }
+    } else {
+      RETURN_IF_ERROR(CloneFile(entry, target));
+      copied(info.st_size);
+    }
+  }
+  if (entries.GetError() != base::File::FILE_OK) {
+    return base::unexpected(base::StrCat(
+        {from.value(), ": ", base::File::ErrorToString(entries.GetError())}));
+  }
+  return base::ok();
 }
 
 base::expected<void, std::string> MoveItem(const base::FilePath& from,

@@ -82,6 +82,5 @@ source_set("unit_tests") {
     "//testing/gtest",
     "//ui/base",
     "//ui/events",
-    "//ui/menus",
   ]
 }

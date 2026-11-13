@@ -47,7 +47,6 @@
 #include "pane/automation/system.h"
 #include "pane/automation/windows.h"
 #include "pane/browser/background_work.h"
-#include "pane/browser/browser_context.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profile_cache.h"
 #include "pane/model/app_settings.h"
@@ -88,6 +87,7 @@
 #include "ui/accessibility/ax_enum_util.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/base/models/menu_model.h"
 #include "ui/compositor/compositor.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -111,15 +111,40 @@ namespace pane {
 
 namespace {
 
-// A view's frame in the window, from its top left: x, y, width, height.
-base::ListValue FrameIn(const views::View* view, const views::View* root) {
-  const gfx::Rect frame =
-      views::View::ConvertRectToTarget(view, root, view->GetLocalBounds());
+// A rect as the channel gives one: x, y, width, height.
+base::ListValue RectList(const gfx::Rect& rect) {
   return base::ListValue()
-      .Append(frame.x())
-      .Append(frame.y())
-      .Append(frame.width())
-      .Append(frame.height());
+      .Append(rect.x())
+      .Append(rect.y())
+      .Append(rect.width())
+      .Append(rect.height());
+}
+
+// A view's frame in the window, from its top left.
+base::ListValue FrameIn(const views::View* view, const views::View* root) {
+  return RectList(
+      views::View::ConvertRectToTarget(view, root, view->GetLocalBounds()));
+}
+
+// A real click in the middle of `view`, where it shows.
+void ClickMiddle(views::Widget* widget, const views::View* view) {
+  const gfx::Point middle =
+      views::View::ConvertRectToTarget(view, widget->GetRootView(),
+                                       view->GetLocalBounds())
+          .CenterPoint();
+  PostClick(widget, middle.x(), middle.y(), 1);
+}
+
+// The item of `menu` titled `title`; never a separator.
+std::optional<size_t> ItemTitled(const ui::MenuModel& menu,
+                                 std::u16string_view title) {
+  for (size_t index = 0; index < menu.GetItemCount(); ++index) {
+    if (menu.GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
+        menu.GetLabelAt(index) == title) {
+      return index;
+    }
+  }
+  return std::nullopt;
 }
 
 // A row's menu as it shows: each item's title, whether it's enabled, checked,
@@ -226,8 +251,9 @@ base::DictValue DescribeCookie(const net::CanonicalCookie& cookie) {
                : base::Value());
 }
 
-// The key a scenario names, as PostKey takes it ("\x1b" for Esc, "\r" for
-// Return, "\t" for Tab, " ", a letter or a digit), as Views codes it.
+// The key a scenario names ("\x1b" for Esc, "\r" for Return, "\t" for Tab,
+// " ", "control", "shift", a letter, a digit, or the punctuation of Pane's
+// shortcuts), as Views codes it.
 std::optional<ui::KeyboardCode> KeyCodeOf(std::string_view key) {
   if (key == "\x1b") {
     return ui::VKEY_ESCAPE;
@@ -271,23 +297,16 @@ std::optional<ui::KeyboardCode> KeyCodeOf(std::string_view key) {
   return std::nullopt;
 }
 
-int FlagsOf(const base::ListValue* modifiers) {
+int FlagsOf(const std::vector<std::string>& modifiers) {
   int flags = ui::EF_NONE;
-  if (!modifiers) {
-    return flags;
-  }
-  for (const base::Value& modifier : *modifiers) {
-    const std::string* name = modifier.GetIfString();
-    if (!name) {
-      continue;
-    }
-    if (*name == "command") {
+  for (const std::string& name : modifiers) {
+    if (name == "command") {
       flags |= ui::EF_COMMAND_DOWN;
-    } else if (*name == "shift") {
+    } else if (name == "shift") {
       flags |= ui::EF_SHIFT_DOWN;
-    } else if (*name == "control") {
+    } else if (name == "control") {
       flags |= ui::EF_CONTROL_DOWN;
-    } else if (*name == "option") {
+    } else if (name == "option") {
       flags |= ui::EF_ALT_DOWN;
     }
   }
@@ -510,8 +529,8 @@ void Automation::Dispatch(const std::string& name,
   if (!widget &&
       (name == "render" || name == "key" || name == "clickWindow" ||
        name == "clickPage" || name == "hoverWindow" ||
-       name == "holdModifiers" || name == "releaseModifiers" ||
-       name == "hitTest" || name == "resizeWindow" || name == "pageLayout" ||
+       name == "releaseModifiers" || name == "hitTest" ||
+       name == "resizeWindow" || name == "pageLayout" ||
        name == "openProfileSheet" || name == "closeProfileSheet" ||
        name == "scrollWindow" || name == "dragWindow" ||
        name == "pointerWindow" || name == "frames" || name == "rowMenu" ||
@@ -542,19 +561,9 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // The toolbar's Back, Forward, Reload (a crashed tab's too), and Stop, as
-  // their presses run them.
-  if (name == "back" || name == "forward" || name == "reload" ||
-      name == "stop") {
-    if (name == "back") {
-      app_->Back();
-    } else if (name == "forward") {
-      app_->Forward();
-    } else if (name == "reload") {
-      app_->Reload();
-    } else {
-      app_->Stop();
-    }
+  // The toolbar's Reload (a crashed tab's too), as its press runs it.
+  if (name == "reload") {
+    app_->Reload();
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -1014,21 +1023,9 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // The sad tab's Reload, for { tab }.
-  if (name == "reloadCrashed") {
-    const std::string* tab = command.FindString("tab");
-    if (!tab) {
-      std::move(reply).Run(base::Value(), "reloadCrashed needs tab");
-      return;
-    }
-    app_->ReloadCrashed(*tab);
-    std::move(reply).Run(base::Value(), std::string());
-    return;
-  }
-
-  // The tab switcher's keys, as the window's command table will run them
-  // (H7): { action: "next" | "previous" } opens it or moves its selection,
-  // "commit" is Ctrl's release, "cancel" is Esc.
+  // The tab switcher, as its keys run it: { action: "next" | "previous" }
+  // opens it or moves its selection, "commit" is Ctrl's release, "cancel" is
+  // Esc.
   if (name == "switcher") {
     const std::string* action = command.FindString("action");
     if (!action || (*action != "next" && *action != "previous" &&
@@ -1486,17 +1483,9 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  if (name == "releaseModifiers" || name == "holdModifiers") {
-    std::vector<std::string> modifiers;
-    if (const base::ListValue* names = command.FindList("modifiers");
-        names && name == "holdModifiers") {
-      for (const base::Value& modifier : *names) {
-        if (modifier.is_string()) {
-          modifiers.push_back(modifier.GetString());
-        }
-      }
-    }
-    PostModifiers(widget, modifiers);
+  // Every modifier the channel holds down, let go (input.h).
+  if (name == "releaseModifiers") {
+    PostModifiers(widget, {});
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -1619,8 +1608,8 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // Where the sidebar's and the toolbar's parts are, each shown one by what
-  // the Swift app named it ("pane.sidebar.profiles", "pane.tab.<id>",
+  // Where each of the window's named parts that shows is, by its name
+  // (view_ids.h: "pane.sidebar.profiles", "pane.tab.<id>",
   // "pane.toolbar.back"), from the window's top left: x, y, width, height. A
   // row scrolled out of view lies outside the list's.
   if (name == "frames") {
@@ -1659,11 +1648,7 @@ void Automation::Dispatch(const std::string& name,
       if (dialog && (!prefix || card_name.starts_with(*prefix))) {
         const gfx::Rect card = views::View::ConvertRectToTarget(
             dialog, root, dialog->CardBounds());
-        frames.Set(card_name, base::ListValue()
-                                  .Append(card.x())
-                                  .Append(card.y())
-                                  .Append(card.width())
-                                  .Append(card.height()));
+        frames.Set(card_name, RectList(card));
       }
     }
     // A page's dialog: its card's content as "pane.dialog", its fields, and
@@ -1683,11 +1668,7 @@ void Automation::Dispatch(const std::string& name,
       if (!prefix || card_name.starts_with(*prefix)) {
         const gfx::Rect card = views::View::ConvertRectToTarget(
             window->root(), root, window->root()->FindBarBounds());
-        frames.Set(card_name, base::ListValue()
-                                  .Append(card.x())
-                                  .Append(card.y())
-                                  .Append(card.width())
-                                  .Append(card.height()));
+        frames.Set(card_name, RectList(card));
       }
     }
     // The extensions menu and the more menu, while they show.
@@ -1713,11 +1694,7 @@ void Automation::Dispatch(const std::string& name,
         if (!prefix || entry.first.starts_with(*prefix)) {
           const gfx::Rect card = views::View::ConvertRectToTarget(
               window->root(), root, window->root()->ExtensionPromptBounds());
-          frames.Set(entry.first, base::ListValue()
-                                      .Append(card.x())
-                                      .Append(card.y())
-                                      .Append(card.width())
-                                      .Append(card.height()));
+          frames.Set(entry.first, RectList(card));
         }
       }
     }
@@ -1732,11 +1709,7 @@ void Automation::Dispatch(const std::string& name,
         if (!prefix || entry.first.starts_with(*prefix)) {
           const gfx::Rect card = views::View::ConvertRectToTarget(
               window->root(), root, window->root()->ProfileSheetBounds());
-          frames.Set(entry.first, base::ListValue()
-                                      .Append(card.x())
-                                      .Append(card.y())
-                                      .Append(card.width())
-                                      .Append(card.height()));
+          frames.Set(entry.first, RectList(card));
         }
       }
     }
@@ -1763,11 +1736,7 @@ void Automation::Dispatch(const std::string& name,
         if (!prefix || row_name.starts_with(*prefix)) {
           const gfx::Rect frame =
               views::View::ConvertRectToTarget(switcher, root, row);
-          frames.Set(row_name, base::ListValue()
-                                   .Append(frame.x())
-                                   .Append(frame.y())
-                                   .Append(frame.width())
-                                   .Append(frame.height()));
+          frames.Set(row_name, RectList(frame));
         }
       }
     }
@@ -1793,12 +1762,8 @@ void Automation::Dispatch(const std::string& name,
     ui::SimpleMenuModel& model = menu->menu_model();
     base::ListValue items = MenuItems(model);
     if (const std::string* choose = command.FindString("choose")) {
-      std::optional<size_t> chosen;
-      for (size_t index = 0; index < model.GetItemCount(); ++index) {
-        if (base::UTF16ToUTF8(model.GetLabelAt(index)) == *choose) {
-          chosen = index;
-        }
-      }
+      const std::optional<size_t> chosen =
+          ItemTitled(model, base::UTF8ToUTF16(*choose));
       if (!chosen) {
         std::move(reply).Run(base::Value(), "no menu item " + *choose);
         return;
@@ -1823,7 +1788,7 @@ void Automation::Dispatch(const std::string& name,
       return;
     }
     FocusAsKeyWindow(widget);
-    const int flags = FlagsOf(command.FindList("modifiers"));
+    const int flags = FlagsOf(Modifiers(command));
     const std::string* phase = command.FindString("phase");
     std::vector<ui::EventType> types;
     if (!phase || *phase != "release") {
@@ -1861,13 +1826,8 @@ void Automation::Dispatch(const std::string& name,
     }
     base::ListValue items = MenuItems(*menu);
     if (const std::string* choose = command.FindString("choose")) {
-      std::optional<size_t> chosen;
-      for (size_t index = 0; index < menu->GetItemCount(); ++index) {
-        if (menu->GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
-            base::UTF16ToUTF8(menu->GetLabelAt(index)) == *choose) {
-          chosen = index;
-        }
-      }
+      const std::optional<size_t> chosen =
+          ItemTitled(*menu, base::UTF8ToUTF16(*choose));
       if (!chosen || !menu->IsEnabledAt(*chosen)) {
         std::move(reply).Run(base::Value(), "no menu item " + *choose);
         return;
@@ -1899,9 +1859,7 @@ void Automation::Dispatch(const std::string& name,
         std::move(reply).Run(base::Value(), "no button " + *title);
         return;
       }
-      const gfx::Rect frame = views::View::ConvertRectToTarget(
-          button, widget->GetRootView(), button->GetLocalBounds());
-      PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+      ClickMiddle(widget, button);
       std::move(reply).Run(base::Value(), std::string());
       return;
     }
@@ -1926,9 +1884,7 @@ void Automation::Dispatch(const std::string& name,
       dialog->SetFieldTexts(fields);
     }
     const views::View* button = dialog->button(found - buttons.begin());
-    const gfx::Rect frame = views::View::ConvertRectToTarget(
-        button, widget->GetRootView(), button->GetLocalBounds());
-    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+    ClickMiddle(widget, button);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -2081,15 +2037,7 @@ void Automation::Dispatch(const std::string& name,
                       base::BindOnce(
                           [](const std::string& id, bool success,
                              const std::string& error,
-                             extensions::webstore_install::Result result) {
-                            PANE_TRACE(
-                                "callback",
-                                "PaneBrowserContext.installExtensionDone",
-                                base::DictValue()
-                                    .Set("extension", id)
-                                    .Set("success", success)
-                                    .Set("error", error));
-                          },
+                             extensions::webstore_install::Result result) {},
                           id));
               installer->BeginInstall();
               std::move(reply).Run(base::Value(), std::string());
@@ -2177,11 +2125,7 @@ void Automation::Dispatch(const std::string& name,
                         .Set("maximum", base::ListValue()
                                             .Append(most.width())
                                             .Append(most.height()))
-                        .Set("page", base::ListValue()
-                                         .Append(bounds.x())
-                                         .Append(bounds.y())
-                                         .Append(bounds.width())
-                                         .Append(bounds.height()))
+                        .Set("page", RectList(bounds))
                         .Set("hostView", static_cast<bool>(host->GetHostView()))
                         .Set("activates", host->ShouldActivateDialog())),
         std::string());
@@ -2243,18 +2187,10 @@ void Automation::Dispatch(const std::string& name,
                 .Set("window", base::ListValue()
                                    .Append(client.width())
                                    .Append(client.height()))
-                .Set("screen", base::ListValue()
-                                   .Append(work.x())
-                                   .Append(work.y())
-                                   .Append(work.width())
-                                   .Append(work.height()))
+                .Set("screen", RectList(work))
                 .Set("frame",
                      base::ListValue().Append(client.x()).Append(client.y()))
-                .Set("page", base::ListValue()
-                                 .Append(page.x())
-                                 .Append(page.y())
-                                 .Append(page.width())
-                                 .Append(page.height()))),
+                .Set("page", RectList(page))),
         std::string());
     return;
   }
@@ -2267,11 +2203,7 @@ void Automation::Dispatch(const std::string& name,
     const gfx::RoundedCornersF corners = window->root()->PageCorners();
     std::move(reply).Run(
         base::Value(base::DictValue()
-                        .Set("page", base::ListValue()
-                                         .Append(page.x())
-                                         .Append(page.y())
-                                         .Append(page.width())
-                                         .Append(page.height()))
+                        .Set("page", RectList(page))
                         .Set("corners", base::ListValue()
                                             .Append(corners.upper_left())
                                             .Append(corners.upper_right())
@@ -2297,13 +2229,7 @@ void Automation::Dispatch(const std::string& name,
       // Pressed where it rests: a sheet still sliding in is pressed once it
       // stops, as a hand reaches the button then.
       root->WhenProfileSheetRests(base::BindOnce(
-          [](views::Widget* widget, const views::View* cancel) {
-            const gfx::Rect frame = views::View::ConvertRectToTarget(
-                cancel, widget->GetRootView(), cancel->GetLocalBounds());
-            PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(),
-                      1);
-          },
-          base::Unretained(widget), base::Unretained(cancel)));
+          &ClickMiddle, base::Unretained(widget), base::Unretained(cancel)));
       std::move(reply).Run(base::Value(), std::string());
       return;
     }
@@ -2315,12 +2241,9 @@ void Automation::Dispatch(const std::string& name,
         return;
       }
       ui::SimpleMenuModel& menu = row->menu_model();
-      for (size_t index = 0; index < menu.GetItemCount(); ++index) {
-        if (menu.GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
-            menu.GetLabelAt(index) == u"Edit profile") {
-          menu.ActivatedAt(index);
-          break;
-        }
+      if (const std::optional<size_t> edit =
+              ItemTitled(menu, u"Edit profile")) {
+        menu.ActivatedAt(*edit);
       }
       std::move(reply).Run(base::Value(), std::string());
       return;
@@ -2330,9 +2253,7 @@ void Automation::Dispatch(const std::string& name,
       std::move(reply).Run(base::Value(), "the sidebar shows no New");
       return;
     }
-    const gfx::Rect frame = views::View::ConvertRectToTarget(
-        add, widget->GetRootView(), add->GetLocalBounds());
-    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+    ClickMiddle(widget, add);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -2403,15 +2324,9 @@ void Automation::Dispatch(const std::string& name,
       std::optional<size_t> chosen;
       for (size_t step = 0; step < path->size() && model; ++step) {
         const base::Value& title = (*path)[step];
-        chosen.reset();
-        for (size_t index = 0; index < model->GetItemCount(); ++index) {
-          if (model->GetTypeAt(index) != ui::MenuModel::TYPE_SEPARATOR &&
-              title.is_string() &&
-              base::UTF16ToUTF8(model->GetLabelAt(index)) ==
-                  title.GetString()) {
-            chosen = index;
-          }
-        }
+        chosen = title.is_string()
+                     ? ItemTitled(*model, base::UTF8ToUTF16(title.GetString()))
+                     : std::nullopt;
         if (!chosen) {
           std::move(reply).Run(
               base::Value(),
@@ -2509,11 +2424,8 @@ void Automation::Dispatch(const std::string& name,
         {"run", "pane.extensionsMenu.extension" + suffix},
         {"pin", "pane.extensionsMenu.pin" + suffix},
         {"more", "pane.extensionsMenu.more" + suffix},
-        {"storePage", "pane.extensionMoreMenu.storePage"},
         {"remove", "pane.extensionMoreMenu.remove"},
-        {"morePin", "pane.extensionMoreMenu.pin"},
         {"manageExtension", "pane.extensionMoreMenu.manage"},
-        {"options", "pane.extensionMoreMenu.options"},
     };
     const auto found = names.find(*control);
     std::vector<std::pair<std::string, const views::View*>> named =
@@ -2540,9 +2452,7 @@ void Automation::Dispatch(const std::string& name,
                            "extensionsMenu: no " + *control + " shows");
       return;
     }
-    const gfx::Rect frame = views::View::ConvertRectToTarget(
-        view, widget->GetRootView(), view->GetLocalBounds());
-    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
+    ClickMiddle(widget, view);
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -2671,12 +2581,6 @@ void Automation::OpenPinScreen(model::PinEntry::Mode mode,
       mode == model::PinEntry::Mode::kSetup    ? kViewIdSettingsSetUpPin
       : mode == model::PinEntry::Mode::kChange ? kViewIdSettingsChangePin
                                                : kViewIdSettingsRemovePin;
-  // A real click in the middle of `view`, where it shows.
-  const auto click = [widget](const views::View* view) {
-    const gfx::Rect frame = views::View::ConvertRectToTarget(
-        view, widget->GetRootView(), view->GetLocalBounds());
-    PostClick(widget, frame.CenterPoint().x(), frame.CenterPoint().y(), 1);
-  };
   SettingsView* settings = root->settings();
   views::View* button = settings->GetViewByID(button_id);
   int next = step;
@@ -2689,7 +2593,7 @@ void Automation::OpenPinScreen(model::PinEntry::Mode mode,
                              "showPinScreen: the sidebar shows no Settings");
         return;
       }
-      click(open);
+      ClickMiddle(widget, open);
     }
     next = 1;
   } else if (step == 1 && settings->IsDrawn()) {
@@ -2707,7 +2611,7 @@ void Automation::OpenPinScreen(model::PinEntry::Mode mode,
                            "showPinScreen: Settings shows no such button");
       return;
     }
-    click(button);
+    ClickMiddle(widget, button);
     next = 3;
   }
   // A frame on, what the step changed is laid out where it shows.

@@ -43,7 +43,6 @@ class DragCopy : public views::View {
   // The card's place, in its parent's coordinates, to the fraction of a
   // point the pointer moved it to: its layer carries the fraction.
   void SetCard(const gfx::RectF& card);
-  gfx::RectF card() const;
   // The card itself, for a read of where it is.
   const views::View* card_view() const;
 

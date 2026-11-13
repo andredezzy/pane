@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/functional/bind.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/ui/browser_window.h"

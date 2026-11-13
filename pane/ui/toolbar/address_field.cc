@@ -193,8 +193,7 @@ void AddressField::UpdateLabel(bool editing) {
   if (label) {
     label_->Set(*label);
   }
-  if (shown != label_shown_) {
-    label_shown_ = shown;
+  if (shown != label_->GetVisible()) {
     label_->SetVisible(shown);
     // The field's own text hides under the label, and shows again.
     SchedulePaint();
@@ -266,10 +265,14 @@ void AddressField::OnBlur() {
   SchedulePaint();
 }
 
+bool AddressField::label_shown() const {
+  return label_->GetVisible();
+}
+
 // At rest under the label, the field draws its fill alone; its text, the
 // selection, and the placeholder only while they show.
 void AddressField::OnPaint(gfx::Canvas* canvas) {
-  if (label_shown_) {
+  if (label_shown()) {
     OnPaintBackground(canvas);
     OnPaintBorder(canvas);
     return;

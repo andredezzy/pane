@@ -117,9 +117,6 @@ class ProfileContexts {
   void ProfileOpened(const std::string& profile_id,
                      scoped_refptr<Work> work,
                      Profile* profile);
-  void NetworkApplied(const std::string& profile_id,
-                      scoped_refptr<Work> work,
-                      std::unique_ptr<BrowserContext> context);
   void Opened(const std::string& profile_id,
               scoped_refptr<Work> work,
               std::unique_ptr<BrowserContext> context);

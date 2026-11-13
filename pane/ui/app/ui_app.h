@@ -123,10 +123,6 @@ class UiApp : public AppData::Client,
   // in as it slides in from the window's right (the Swift's
   // presentProfileSheet), timed to its first frame.
   void PresentProfileSheet(std::optional<std::string> profile_id);
-  // "new", or the edited profile's id, while it shows.
-  const std::optional<std::string>& profile_sheet() const {
-    return profile_sheet_;
-  }
   // A new tab in the profile, selected: at `url`, or at the start page with
   // the address field taking the keys. Its id.
   std::string OpenTab(const std::string& profile_id, std::optional<GURL> url);
@@ -170,8 +166,8 @@ class UiApp : public AppData::Client,
   void NewTab();
   // ⌘L: the address field, its text selected.
   void FocusAddressField();
-  // ⌘1 to ⌘9: the active profile's tab at that place, when it has one (the
-  // Swift's selectTab(atIndex:)).
+  // ⌘1 to ⌘8: the active profile's tab at that place, when it has one; ⌘9:
+  // its last.
   void SelectTabAt(int number);
   // Opens the switcher on the tab used before (the Swift's nextTabMRU), or
   // moves its selection on; Shift-Tab's goes backward.
@@ -188,14 +184,6 @@ class UiApp : public AppData::Client,
   void ToggleDevTools();
   // The page's menu shown last, until it closes (the channel's).
   PageContextMenus& context_menus() { return *context_menus_; }
-  // The profile `profile_id` is, while it is open in the engine.
-  Profile* OpenProfile(const std::string& profile_id) const {
-    return contexts_.Get(profile_id);
-  }
-  // Its context, while open: what the engine has of its history choice.
-  BrowserContext* OpenContext(const std::string& profile_id) const {
-    return contexts_.GetContext(profile_id);
-  }
   // Runs `body` with the profile, opening it in the engine first if needed;
   // with null when it would not open (the Swift's contexts.with).
   void WithProfile(const std::string& profile_id,
@@ -204,19 +192,6 @@ class UiApp : public AppData::Client,
   }
   // The menu bar, while the app runs.
   MenuBar& menu_bar() { return *menu_bar_; }
-
-  // The tab switcher, while it shows: its groups, and the tab selected in
-  // them, counting down through the groups.
-  struct Switcher {
-    Switcher();
-    Switcher(const Switcher&);
-    Switcher& operator=(const Switcher&);
-    ~Switcher();
-
-    std::vector<model::SwitcherGroup> groups;
-    int selected = 0;
-  };
-  const std::optional<Switcher>& switcher() const { return switcher_; }
 
   // ExtensionsUi::Delegate:
   Window& ExtensionsWindow() override;
@@ -252,8 +227,6 @@ class UiApp : public AppData::Client,
 
   // What shows, for the channel's replies, in the Swift app's shape.
   base::DictValue Snapshot() const;
-  // Deleted profiles the engine hasn't confirmed yet.
-  size_t pending_profile_deletions() const { return deleting_.size(); }
 
   // AppData::Client:
   void AccessDidOpen() override;
@@ -378,12 +351,15 @@ class UiApp : public AppData::Client,
   void Release(const std::string& tab_id);
   // The profile's most recent tab takes the place of the one that closed.
   void SelectAfterClosing(const std::optional<std::string>& profile_id);
-  void ExpandProfile(const std::string& profile_id);
   // The tab goes from the model; when it was selected, its profile's most
   // recent tab takes its place.
   void RemoveTabAndReselect(const std::string& tab_id);
   // The engine answered a delete: the folder goes now, unless a lock came.
   void ProfileDeleted(const std::string& profile_id, bool removes_folder);
+  // The profile shown, else the first, else none.
+  std::optional<std::string> ProfileInUse() const;
+  // The selected tab's page, when it has one.
+  content::WebContents* ActivePage() const;
   // How far the tab's page has loaded a new document in its main frame, or
   // nullopt while it doesn't (ADR 0081).
   std::optional<double> LoadingOf(const std::string& tab_id) const;
@@ -486,7 +462,17 @@ class UiApp : public AppData::Client,
   // The tabs that show the sad tab's place until they reload: a page that
   // died and stayed dead, or one whose profile would not open.
   std::set<std::string> crashed_tab_ids_;
-  // The tab switcher, while it shows.
+  // The tab switcher, while it shows: its groups, and the tab selected in
+  // them, counting down through the groups.
+  struct Switcher {
+    Switcher();
+    Switcher(const Switcher&);
+    Switcher& operator=(const Switcher&);
+    ~Switcher();
+
+    std::vector<model::SwitcherGroup> groups;
+    int selected = 0;
+  };
   std::optional<Switcher> switcher_;
   // A tab selected without a page, timed until its page first paints.
   struct Waking {
@@ -508,7 +494,7 @@ class UiApp : public AppData::Client,
   // The sidebar's width as it shows: a drag's, saved as it ends.
   double sidebar_width_ = 0;
   // The Theme the app shows, and the App icon picker over Settings.
-  std::optional<model::Theme> applied_theme_;
+  model::Theme applied_theme_;
   bool app_icon_picker_ = false;
   // Pane's own version, and the update row, as Settings shows them.
   const std::u16string version_;

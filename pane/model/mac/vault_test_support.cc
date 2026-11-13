@@ -217,10 +217,6 @@ void FakeVolumeTools::DetachLeftovers() {
 FakeFileMigrator::Gate::Gate() = default;
 FakeFileMigrator::Gate::~Gate() = default;
 
-void FakeFileMigrator::Gate::WaitUntilHeld() {
-  held_.Wait();
-}
-
 void FakeFileMigrator::Gate::Release() {
   released_.Signal();
 }
@@ -284,17 +280,11 @@ void FakeFileMigrator::ReleaseAll() {
   }
 }
 
-void FakeFileMigrator::set_result(std::string_view kind, bool result) {
-  base::AutoLock lock(lock_);
-  results_[std::string(kind)] = result;
-}
-
 bool FakeFileMigrator::Run(std::string_view kind,
                            const std::string& profile_id,
                            base::RepeatingCallback<void(double)> progress) {
   const std::string call = base::StrCat({kind, " ", profile_id});
   scoped_refptr<Gate> gate;
-  bool result = true;
   {
     base::AutoLock lock(lock_);
     calls_.push_back(call);
@@ -303,19 +293,15 @@ bool FakeFileMigrator::Run(std::string_view kind,
       gate = std::move(held->second);
       holds_.erase(held);
     }
-    if (const auto set = results_.find(kind); set != results_.end()) {
-      result = set->second;
-    }
   }
   progress.Run(0.5);
   if (gate) {
-    gate->held_.Signal();
     gate->released_.Wait();
   }
   progress.Run(1);
   base::AutoLock lock(lock_);
   --running_[profile_id];
-  return result;
+  return true;
 }
 
 }  // namespace pane::model

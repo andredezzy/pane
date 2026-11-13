@@ -9,8 +9,6 @@
 
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "ui/base/models/image_model.h"
-#include "ui/color/color_variant.h"
 
 namespace gfx {
 class Canvas;
@@ -32,15 +30,11 @@ enum class Icon {
   kChevronsDownUp,
   kChevronsUpDown,
   kCircleDashedX,
-  kExternalLink,
   kGlobe,
-  kKeyboard,
   kMonitor,
   kMoon,
   kPencil,
-  kPlus,
   kRotateCw,
-  kSearch,
   kSettings,
   kSquareArrowOutUpRight,
   kSun,
@@ -91,15 +85,6 @@ void PaintIcon(gfx::Canvas& canvas,
                const gfx::RectF& bounds,
                float stroke_width,
                SkColor color);
-
-// The icon at `size` points square, for a view or a menu item, in `color`,
-// resolved by the provider of the view that shows it, so it follows the
-// Theme as text does. Each icon, size, stroke, and color is drawn once per
-// scale.
-ui::ImageModel IconImage(Icon icon,
-                         int size,
-                         float stroke_width,
-                         ui::ColorVariant color);
 
 }  // namespace pane
 

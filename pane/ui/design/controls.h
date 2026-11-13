@@ -201,7 +201,6 @@ class ControlBackground : public views::Background {
   ~ControlBackground() override;
 
   void SetLook(const ControlLook& look);
-  const ControlLook& look() const { return look_; }
 
   // views::Background:
   void Paint(gfx::Canvas* canvas, views::View* view) const override;

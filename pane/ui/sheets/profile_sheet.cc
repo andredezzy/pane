@@ -79,7 +79,7 @@ constexpr int kCloseSize = 24;
 // A form's label, 12 medium on a 16-point line, 8 over its field.
 constexpr int kLabelSpacing = 8;
 // A section's label, 13 on an 18-point line, 15 in, 8 over its card.
-constexpr TextStyle kSectionTitle{13, weight::kRegular, 18};
+constexpr TextStyle kSectionTitle = text::kSectionTitle;
 constexpr int kSectionTitleInset = 15;
 constexpr int kSectionTitleSpacing = 8;
 // A card: rounded 15, its rows inside its 1-point border.
@@ -129,7 +129,7 @@ constexpr int kDotSpacing = 6;
 constexpr int kCellPadding = 12;
 constexpr int kPortWidth = 65;
 constexpr TextStyle kFieldText{13, weight::kRegular, 18};
-constexpr TextStyle kNote{12, weight::kRegular, 16};
+constexpr TextStyle kNote = text::kRowDescription;
 constexpr TextStyle kFormLabel{12, weight::kMedium, 16};
 // What Save brings into view of the address: the field, and 12 clear of the
 // rules over and under it.
@@ -368,9 +368,6 @@ class ProfileSheet::Reveal : public views::View {
     SetVisible(false);
   }
 
-  views::View* content() { return content_; }
-  bool shown() const { return share_.target() > 0; }
-
   // At once without `compositor`, or less motion asked for.
   void SetShown(bool shown, ui::Compositor* compositor) {
     if (shown == (share_.target() > 0)) {
@@ -449,8 +446,6 @@ class ProfileSheet::RowLabels : public views::View {
     outgoing_->SetVisible(false);
     outgoing_->GetViewAccessibility().SetIsIgnored(true);
   }
-
-  std::u16string_view note() const { return note_->GetText(); }
 
   void SetNote(const std::u16string& note, bool crossfade) {
     if (note_->GetText() == note) {
@@ -987,8 +982,6 @@ class ProfileSheet::TestStatus : public views::View {
     PreferredSizeChanged();
     SchedulePaint();
   }
-
-  std::u16string_view text() const { return text_->GetText(); }
 
   int HeightFor(int width) const {
     return text_->GetHeightForWidth(std::max(width - kDot - kDotSpacing, 0));

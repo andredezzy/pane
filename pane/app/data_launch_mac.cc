@@ -241,8 +241,6 @@ DataVault::FileMigrator MakeFileMigrator(const base::FilePath& user_data_dir) {
   migrator.repair = base::BindRepeating(
       [](const base::FilePath& user_data_dir, const std::string& id,
          const model::Key& key, const base::FilePath& folder) {
-        PANE_TRACE("call", "PaneBrowserApplication.repairContext",
-                   base::DictValue().Set("identifier", id));
         RegisterEngineKey(user_data_dir, id, key);
         const base::FilePath root = base::MakeAbsoluteFilePath(folder);
         const bool repaired =

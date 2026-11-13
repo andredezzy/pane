@@ -6,7 +6,6 @@
 
 #include <utility>
 
-#include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "ui/base/models/menu_model.h"
 #import "ui/menus/cocoa/menu_controller.h"

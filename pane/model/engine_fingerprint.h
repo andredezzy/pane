@@ -71,8 +71,6 @@ struct EngineFingerprint {
                                std::string_view engine_user_agent,
                                std::string_view engine_version);
 
-  // nullopt for JSON missing a field, or with one of the wrong type.
-  static std::optional<EngineFingerprint> FromJson(std::string_view json);
   // The JSON the engine reads, keys sorted so equal fingerprints compare equal
   // as text.
   std::string ToJson() const;

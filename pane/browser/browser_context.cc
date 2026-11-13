@@ -18,7 +18,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_dictionary.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
-#include "components/proxy_config/proxy_prefs.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/download_manager.h"
 #include "pane/browser/engine_trace.h"
@@ -62,7 +61,7 @@ void BrowserContext::ClearHistory(base::OnceClosure done) {
                      chrome_browsing_data_remover::DATA_TYPE_SITE_USAGE_DATA |
                      content::BrowsingDataRemover::DATA_TYPE_DOWNLOADS |
                      content::BrowsingDataRemover::DATA_TYPE_CACHE,
-                 {}, std::move(done));
+                 std::move(done));
 }
 
 bool BrowserContext::HasRunningDownloads() const {
@@ -76,21 +75,7 @@ bool BrowserContext::HasRunningDownloads() const {
   return false;
 }
 
-std::optional<std::string> BrowserContext::ProxyRules() const {
-  ProxyConfigDictionary config(
-      profile_->GetPrefs()->GetDict(proxy_config::prefs::kProxy).Clone());
-  std::string server;
-  ProxyPrefs::ProxyMode mode;
-  if (!config.GetMode(&mode) || mode != ProxyPrefs::MODE_FIXED_SERVERS ||
-      !config.GetProxyServer(&server)) {
-    return std::nullopt;
-  }
-  return server;
-}
-
 void BrowserContext::SetProxyRules(const std::optional<std::string>& rules) {
-  PANE_TRACE("call", "PaneBrowserContext.setProxyRules",
-             base::DictValue().Set("rules", rules.value_or(std::string())));
   PrefService* prefs = profile_->GetPrefs();
   if (rules && !rules->empty()) {
     prefs->SetDict(
@@ -101,13 +86,7 @@ void BrowserContext::SetProxyRules(const std::optional<std::string>& rules) {
   }
 }
 
-std::string BrowserContext::WebRTCIPHandlingPolicy() const {
-  return profile_->GetPrefs()->GetString(prefs::kWebRTCIPHandlingPolicy);
-}
-
 void BrowserContext::SetWebRTCIPHandlingPolicy(std::string_view policy) {
-  PANE_TRACE("call", "PaneBrowserContext.setWebRTCIPHandlingPolicy",
-             base::DictValue().Set("policy", policy));
   profile_->GetPrefs()->SetString(prefs::kWebRTCIPHandlingPolicy, policy);
 }
 

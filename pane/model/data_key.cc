@@ -122,6 +122,34 @@ base::DictValue SealedKey::ToValue() const {
   return value;
 }
 
+std::string SealBox(base::span<const uint8_t> key,
+                    base::span<const uint8_t> plaintext,
+                    base::span<const uint8_t> aad) {
+  const auto nonce = crypto::RandBytesAsArray<kNonceSize>();
+  std::vector<uint8_t> combined(nonce.begin(), nonce.end());
+  const std::vector<uint8_t> sealed =
+      crypto::aead::Seal(crypto::aead::AES_256_GCM, key, plaintext, nonce, aad);
+  combined.insert(combined.end(), sealed.begin(), sealed.end());
+  return base::Base64Encode(combined);
+}
+
+base::expected<std::vector<uint8_t>, BoxError> OpenBox(
+    base::span<const uint8_t> key,
+    std::string_view box,
+    base::span<const uint8_t> aad) {
+  const std::optional<std::vector<uint8_t>> combined = base::Base64Decode(box);
+  if (!combined || combined->size() < kNonceSize) {
+    return base::unexpected(BoxError::kMalformed);
+  }
+  const auto [nonce, ciphertext] = base::span(*combined).split_at(kNonceSize);
+  std::optional<std::vector<uint8_t>> opened = crypto::aead::Open(
+      crypto::aead::AES_256_GCM, key, ciphertext, nonce, aad);
+  if (!opened) {
+    return base::unexpected(BoxError::kRefused);
+  }
+  return std::move(*opened);
+}
+
 Key MakeDataKey() {
   return crypto::RandBytesAsArray<kKeySize>();
 }
@@ -137,13 +165,7 @@ SealedKey SealDataKey(const Key& key,
   }
   // A salt just made and the rounds above always stretch.
   const Key sealing = SealingKey(secret, pin, stretch).value();
-  const auto nonce = crypto::RandBytesAsArray<kNonceSize>();
-  std::vector<uint8_t> combined(nonce.begin(), nonce.end());
-  const std::vector<uint8_t> sealed =
-      crypto::aead::Seal(crypto::aead::AES_256_GCM, sealing, key, nonce, {});
-  combined.insert(combined.end(), sealed.begin(), sealed.end());
-  return SealedKey(base::Base64Encode(combined), std::move(stretch),
-                   Check(secret));
+  return SealedKey(SealBox(sealing, key), std::move(stretch), Check(secret));
 }
 
 base::expected<Key, OpenError> OpenDataKey(
@@ -156,16 +178,13 @@ base::expected<Key, OpenError> OpenDataKey(
   if (sealed.pin.has_value() != pin.has_value()) {
     return base::unexpected(OpenError::kRefused);
   }
-  const std::optional<std::vector<uint8_t>> combined =
-      base::Base64Decode(sealed.box);
   const std::optional<Key> sealing = SealingKey(secret, pin, sealed.pin);
-  if (!combined || combined->size() < kNonceSize || !sealing) {
+  if (!sealing) {
     return base::unexpected(OpenError::kRefused);
   }
-  const auto [nonce, ciphertext] = base::span(*combined).split_at(kNonceSize);
-  const std::optional<std::vector<uint8_t>> opened = crypto::aead::Open(
-      crypto::aead::AES_256_GCM, *sealing, ciphertext, nonce, {});
-  if (!opened || opened->size() != kKeySize) {
+  const base::expected<std::vector<uint8_t>, BoxError> opened =
+      OpenBox(*sealing, sealed.box);
+  if (!opened.has_value() || opened->size() != kKeySize) {
     return base::unexpected(OpenError::kRefused);
   }
   Key key;

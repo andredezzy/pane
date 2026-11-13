@@ -120,9 +120,6 @@ class Updater {
   // itself, opens it and quits for the user to (Quit and install). A failure
   // returns to available, so the user can try again from the same place.
   void DownloadUpdate();
-  // Restart to update: quits, and the quit swaps the staged Pane in and
-  // opens it.
-  void RestartToUpdate();
   // At every quit, a staged update swaps in. A swap macOS refuses leaves the
   // app as it was, and the dmg opens instead.
   void InstallAtQuit();

@@ -2,7 +2,6 @@
 
 #include "pane/ui/window/quit_dialog.h"
 
-#include <algorithm>
 #include <utility>
 
 #include "cc/paint/paint_flags.h"

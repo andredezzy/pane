@@ -131,7 +131,7 @@ class CommandRunner {
   virtual void RunCommand(Command command) = 0;
   // The title its item shows now, where it follows the app (Enter or Exit
   // Full Screen); none keeps the table's.
-  virtual std::optional<std::u16string> CommandTitle(Command command);
+  virtual std::optional<std::u16string> CommandTitle(Command command) = 0;
 };
 
 }  // namespace pane

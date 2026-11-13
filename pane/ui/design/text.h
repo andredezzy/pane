@@ -45,11 +45,10 @@ struct TextStyle {
   int line_height = 0;
 };
 
-// The styles the Swift's controls share (Buttons.swift, Fields.swift,
-// Labels.swift, Menus.swift). Tracking and tabular digits have no Views path
-// (Chromium shapes with no OpenType features, render_text_harfbuzz.cc), so
-// the section label's 0.05 em goes without, as its four uses and the five of
-// monospacedDigit do until Paper decides them.
+// The styles Pane's controls share. Tracking and tabular digits have no
+// Views path (Chromium shapes with no OpenType features,
+// render_text_harfbuzz.cc): tracking goes without, and only the find bar's
+// count keeps its tabular digits (DigitCellsLabel, below).
 namespace text {
 // The sidebar's and the toolbar's text: 12 points (ADR 0060).
 inline constexpr TextStyle kSidebar{12, weight::kRegular, 16};
@@ -61,15 +60,12 @@ inline constexpr TextStyle kButtonPopup{13, weight::kMedium, 18};
 inline constexpr TextStyle kField{14, weight::kRegular, 20};
 // A menu trigger's value: 13.
 inline constexpr TextStyle kMenuValue{13, weight::kRegular, 18};
-// The Extensions page's list label: 10 medium caps on a 15-point line.
-inline constexpr TextStyle kSectionLabel{10, weight::kMedium, 15};
-// A form's label, 11 medium on an 11-point line (Paper 03.8), and the profile
-// sheet's, 12 on 16; a note beside either is regular.
-inline constexpr TextStyle kFormLabel{11, weight::kMedium, 11};
-inline constexpr TextStyle kFormLabelRegular{12, weight::kMedium, 16};
 // A menu's row of Pane's own, 13 on SwiftUI's own line for it, 16 (the
 // extensions menus').
 inline constexpr TextStyle kMenuRow{13, weight::kRegular, 16};
+// A section's title over its card, 13 on 18 (Settings' groups, the profile
+// sheet's sections).
+inline constexpr TextStyle kSectionTitle{13, weight::kRegular, 18};
 // A row's title, 13 on 18-point lines, and its description, 12 on 16
 // (Settings' rows, the profile sheet's).
 inline constexpr TextStyle kRowTitle{13, weight::kRegular, 18};

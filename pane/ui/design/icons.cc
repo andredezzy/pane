@@ -6,12 +6,9 @@
 #include <array>
 #include <map>
 #include <string>
-#include <tuple>
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/lru_cache.h"
-#include "base/functional/bind.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -21,8 +18,6 @@
 #include "third_party/skia/include/utils/SkParsePath.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
-#include "ui/gfx/image/canvas_image_source.h"
-#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/scoped_canvas.h"
 
 namespace pane {
@@ -31,10 +26,6 @@ namespace {
 
 // Lucide's grid.
 constexpr float kGrid = 24;
-
-// Icons drawn at a size, stroke, and color, kept while in use: a hover's tint
-// paints with PaintIcon, so this holds a window's few dozen.
-constexpr size_t kCachedImages = 128;
 
 // An element's tag and attributes, in order, as an icon's SVG writes them:
 // `<tag name="value" .../>`.
@@ -197,43 +188,6 @@ std::optional<IconShape> ShapeOf(const Element& element) {
   return std::nullopt;
 }
 
-// An icon drawn at one size, stroke, and color, at each scale asked for.
-class IconSource : public gfx::CanvasImageSource {
- public:
-  IconSource(Icon icon, int size, float stroke_width, SkColor color)
-      : gfx::CanvasImageSource(gfx::Size(size, size)),
-        icon_(icon),
-        stroke_width_(stroke_width),
-        color_(color) {}
-
-  // gfx::CanvasImageSource:
-  void Draw(gfx::Canvas* canvas) override {
-    PaintIcon(*canvas, icon_, gfx::RectF(gfx::SizeF(size())), stroke_width_,
-              color_);
-  }
-
- private:
-  const Icon icon_;
-  const float stroke_width_;
-  const SkColor color_;
-};
-
-gfx::ImageSkia CachedIcon(Icon icon,
-                          int size,
-                          float stroke_width,
-                          SkColor color) {
-  using Key = std::tuple<Icon, int, float, SkColor>;
-  static base::NoDestructor<base::LRUCache<Key, gfx::ImageSkia>> images(
-      kCachedImages);
-  const Key key(icon, size, stroke_width, color);
-  auto found = images->Get(key);
-  if (found == images->end()) {
-    found = images->Put(key, gfx::CanvasImageSource::MakeImageSkia<IconSource>(
-                                 icon, size, stroke_width, color));
-  }
-  return found->second;
-}
-
 }  // namespace
 
 IconShape::IconShape() = default;
@@ -260,18 +214,10 @@ std::string_view IconElements(Icon icon) {
       return R"(<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>)";
     case Icon::kChevronsUpDown:
       return R"(<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>)";
-    case Icon::kExternalLink:
-      return R"(<path d="M15 3h6v6"/><path d="M10 14 21 3"/>)"
-             R"(<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 )"
-             R"(2-2h6"/>)";
     case Icon::kGlobe:
       return R"(<circle cx="12" cy="12" r="10"/>)"
              R"(<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>)"
              R"(<path d="M2 12h20"/>)";
-    case Icon::kKeyboard:
-      return R"(<rect width="20" height="16" x="2" y="4" rx="2"/>)"
-             R"(<path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 )"
-             R"(12h.01M16 12h.01M7 16h10"/>)";
     case Icon::kMonitor:
       return R"(<rect width="20" height="14" x="2" y="3" rx="2"/>)"
              R"(<path d="M8 21h8"/><path d="M12 17v4"/>)";
@@ -282,13 +228,9 @@ std::string_view IconElements(Icon icon) {
       return R"(<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 )"
              R"(2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 )"
              R"(2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>)";
-    case Icon::kPlus:
-      return R"(<path d="M5 12h14"/><path d="M12 5v14"/>)";
     case Icon::kRotateCw:
       return R"(<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 )"
              R"(8"/><path d="M21 3v5h-5"/>)";
-    case Icon::kSearch:
-      return R"(<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>)";
     case Icon::kSettings:
       return R"(<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 )"
              R"(0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 )"
@@ -404,21 +346,6 @@ void PaintIcon(gfx::Canvas& canvas,
     }
     canvas.DrawPath(shape.path, flags);
   }
-}
-
-ui::ImageModel IconImage(Icon icon,
-                         int size,
-                         float stroke_width,
-                         ui::ColorVariant color) {
-  return ui::ImageModel::FromImageGenerator(
-      base::BindRepeating(
-          [](Icon icon, int size, float stroke_width, ui::ColorVariant color,
-             const ui::ColorProvider* provider) {
-            return CachedIcon(icon, size, stroke_width,
-                              color.ResolveToSkColor(provider));
-          },
-          icon, size, stroke_width, std::move(color)),
-      gfx::Size(size, size));
 }
 
 }  // namespace pane

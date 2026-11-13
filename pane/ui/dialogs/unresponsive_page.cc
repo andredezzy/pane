@@ -44,8 +44,6 @@ void AskAboutUnresponsivePage(content::WebContents* web_contents,
   content.message = {
       u"You can wait for it to become responsive, or exit the page."};
   content.buttons = {u"Wait", u"Exit Page"};
-  TraceDialog("callback", "PaneWebContentsDelegate.becameUnresponsive",
-              web_contents);
   Asked()[web_contents] = dialogs->Ask(
       web_contents, PageDialogs::Kind::kUnresponsive, std::move(content),
       base::BindOnce(
@@ -56,11 +54,9 @@ void AskAboutUnresponsivePage(content::WebContents* web_contents,
              const std::vector<std::u16string>& texts) {
             Asked().erase(web_contents);
             if (button != 1) {
-              TraceDialog("call", "PaneUnresponsivePage.wait", nullptr);
               restart_hang_monitor.Run();
               return;
             }
-            TraceDialog("call", "PaneUnresponsivePage.terminate", nullptr);
             if (content::RenderProcessHost* host =
                     content::RenderProcessHost::FromID(process)) {
               host->Shutdown(content::RESULT_CODE_HUNG);

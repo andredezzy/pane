@@ -11,7 +11,6 @@
 #include "chrome/browser/devtools/devtools_window.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "pane/browser/engine_trace.h"
 #include "pane/ui/interaction_log.h"
 
 namespace pane {
@@ -77,11 +76,9 @@ void ToggleDevTools(content::WebContents* page,
       DevToolsWindow::GetInstanceForInspectedWebContents(page);
   if (open && open->IsDocked() &&
       DevToolsWindow::GetInTabWebContents(page, nullptr)) {
-    PANE_TRACE("call", "PaneWebContents.closeDevTools");
     open->GetDevToolsWebContents()->ClosePage();
     return;
   }
-  PANE_TRACE("call", "PaneWebContents.showDevTools");
   const bool opening = !open;
   const uint64_t interval =
       BeginInteractionInterval(Interaction::kOpenDevTools);

@@ -25,7 +25,6 @@
 #include "base/numerics/byte_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
 #include "base/time/time.h"
@@ -47,10 +46,10 @@ namespace pane {
 
 namespace {
 
+using encryption::kMigratingSuffix;
 using encryption::ProfileKeys;
 using encryption::StreamCipher;
 
-constexpr std::string_view kTemporarySuffix = ".pane-migrating";
 constexpr size_t kBufferSize = 1 << 20;
 constexpr int64_t kLargestWholeFile = 1 << 30;
 
@@ -143,7 +142,7 @@ bool Replace(const base::FilePath& temporary, const base::FilePath& path) {
 }
 
 base::FilePath TemporaryFor(const base::FilePath& path) {
-  return base::FilePath(base::StrCat({path.value(), kTemporarySuffix}));
+  return base::FilePath(base::StrCat({path.value(), kMigratingSuffix}));
 }
 
 ProfileKeys KeysFor(const base::FilePath& path) {
@@ -728,7 +727,7 @@ bool MigrateProfileFiles(const base::FilePath& profile,
   uint64_t done = 0;
 
   for (const base::FilePath& file : files) {
-    if (file.value().ends_with(kTemporarySuffix)) {
+    if (file.value().ends_with(kMigratingSuffix)) {
       base::DeleteFile(file);
     } else if (!IsUnder(profile, file, "Extensions")) {
       total += base::GetFileSize(file).value_or(0);

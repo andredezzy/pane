@@ -125,19 +125,6 @@ TEST(InitialSelectedIndexTest, EmptyList) {
   EXPECT_EQ(SwitcherInitialSelectedIndex({}, std::nullopt), 0);
 }
 
-// Returns the running tab-count offset for each group.
-TEST(GroupOffsetsTest, RunningOffsets) {
-  const auto groups = SwitcherGroups({"w1", "w2", "p1"}, Profiles(), 8);
-  EXPECT_EQ(groups[0].tabs.size(), 2u);
-  EXPECT_EQ(groups[1].tabs.size(), 1u);
-  EXPECT_EQ(SwitcherGroupOffsets(groups), (std::vector<int>{0, 2}));
-}
-
-// Returns an empty array for no groups.
-TEST(GroupOffsetsTest, NoGroups) {
-  EXPECT_EQ(SwitcherGroupOffsets({}), std::vector<int>());
-}
-
 // Advances within range.
 TEST(CycleTest, Advances) {
   EXPECT_EQ(SwitcherCycle(0, 1, 3), 1);

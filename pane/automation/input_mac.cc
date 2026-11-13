@@ -131,8 +131,8 @@ bool SendKeyToWindow(views::Widget* widget,
 void PostModifiers(views::Widget* widget,
                    const std::vector<std::string>& modifiers) {
   // What the channel holds down, as fingers would: a key posted with
-  // modifiers leaves them down (a Ctrl-Tab's Ctrl), holdModifiers adds to
-  // them, and releaseModifiers lets each go, the last pressed first.
+  // modifiers leaves them down (a Ctrl-Tab's Ctrl), and releaseModifiers
+  // lets each go, the last pressed first.
   static base::NoDestructor<std::vector<std::string>> held;
   // Each change names its own key, as a real one does: Chromium drops a
   // flagsChanged that names none (keyCode 0, crbug.com/889618), so a release

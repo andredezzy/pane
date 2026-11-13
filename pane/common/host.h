@@ -15,14 +15,18 @@
 
 // Posted by Chrome's AppController, instead of opening a window, when the user
 // re-activates Pane (for example from the Dock).
-#define PANE_SHOULD_REOPEN_NOTIFICATION \
-  "PaneBrowserApplicationShouldReopenNotification"
+#define PANE_SHOULD_REOPEN_NOTIFICATION "PaneShouldReopenNotification"
 
 // Posted by Chrome's AppController, instead of opening them in a Browser of
 // its own, with the URLs another app hands Pane (a link clicked in Mail, a
 // file opened with Pane, `open -a Pane <url>`), as an NSArray of NSURL under
 // PANE_OPEN_URLS_KEY.
-#define PANE_OPEN_URLS_NOTIFICATION "PaneEngineOpenURLsNotification"
+#define PANE_OPEN_URLS_NOTIFICATION "PaneOpenURLsNotification"
 #define PANE_OPEN_URLS_KEY "urls"
+
+// The renderer's half of a profile's fingerprint, a JSON object, which Pane's
+// browser hands each of the profile's renderers (pane/browser/fingerprints.h)
+// and Blink reads (pane/renderer/pane_fingerprint.h).
+#define PANE_FINGERPRINT_SWITCH "pane-fingerprint"
 
 #endif  // PANE_COMMON_HOST_H_

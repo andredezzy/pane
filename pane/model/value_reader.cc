@@ -53,11 +53,6 @@ double ValueReader::Double(std::string_view key) {
   return Check(value ? value->GetIfDouble() : std::nullopt).value_or(0);
 }
 
-bool ValueReader::Bool(std::string_view key) {
-  const base::Value* value = Required(key);
-  return Check(value ? value->GetIfBool() : std::nullopt).value_or(false);
-}
-
 std::optional<bool> ValueReader::OptionalBool(std::string_view key) {
   const base::Value* value = Present(key);
   return value ? Check(value->GetIfBool()) : std::nullopt;

@@ -18,12 +18,9 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader_stream_consumer.h"
 
-class GURL;
-
 namespace network {
 class SharedURLLoaderFactory;
 class SimpleURLLoader;
-struct ResourceRequest;
 namespace mojom {
 class URLResponseHead;
 }  // namespace mojom

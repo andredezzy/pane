@@ -437,8 +437,8 @@ ExtensionMoreMenuView::ExtensionMoreMenuView(ExtensionsUi& ui) : ui_(ui) {
           Icon::kSquareArrowOutUpRight, std::u16string());
   remove_ = row(&ExtensionsUi::PressRemove, kViewIdExtensionMoreMenuRemove,
                 Icon::kTrash2, u"Remove from Pane");
-  pin_ = row(&ExtensionsUi::PressMorePin, kViewIdExtensionMoreMenuPin,
-             Icon::kPin, u"Pin");
+  pin_ = row(&ExtensionsUi::PressPin, kViewIdExtensionMoreMenuPin, Icon::kPin,
+             u"Pin");
   manage_ =
       row(&ExtensionsUi::PressManageExtension, kViewIdExtensionMoreMenuManage,
           Icon::kSettings, u"Manage Extension");

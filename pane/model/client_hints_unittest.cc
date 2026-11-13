@@ -366,16 +366,44 @@ TEST(EngineFingerprintTest, LanguagesAndTimezone) {
   EXPECT_EQ(engine.renderer.platform, "Linux x86_64");
 }
 
-// The JSON is stable and decodes back.
+// The JSON is stable, and holds every field the engine's readers take
+// (pane/browser/fingerprints.cc, pane/renderer/pane_fingerprint.cc), keys
+// sorted. The speech voices hide where the claimed platform isn't the host's.
 TEST(EngineFingerprintTest, Json) {
   const EngineFingerprint engine =
       Engine(MakeFingerprint(Platform::kWindows, kRealUA));
   const std::string text = engine.ToJson();
 
   EXPECT_EQ(engine.ToJson(), text);
-  EXPECT_TRUE(text.starts_with(
-      R"({"languages":["en-US","en"],"renderer":{"audioNoise":true)"));
-  EXPECT_EQ(EngineFingerprint::FromJson(text), engine);
+  EXPECT_EQ(
+      text,
+      base::StrCat(
+          {R"j({"languages":["en-US","en"],)j"
+           R"j("renderer":{"audioNoise":true,"canvasNoise":true,)j"
+           R"j("deviceMemory":8.0,"devicePixelRatio":1.0,)j"
+           R"j("hardwareConcurrency":8,"hideSpeechVoices":)j",
+           engine.renderer.hide_speech_voices ? "true" : "false",
+           R"j(,"locale":"en-US","maxTouchPoints":0,"noiseSeed":97,)j"
+           R"j("platform":"Win32",)j"
+           R"j("screen":{"availHeight":1032,"availLeft":0,"availTop":0,)j"
+           R"j("availWidth":1920,"colorDepth":24,"height":1080,"width":1920},)j"
+           R"j("timezone":"America/New_York",)j"
+           R"j("webglRenderer":"ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 )j"
+           R"j(Direct3D11 vs_5_0 ps_5_0, D3D11)",)j"
+           R"j("webglVendor":"Google Inc. (NVIDIA)"},)j"
+           R"j("userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) )j"
+           R"j(AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 )j"
+           R"j(Safari/537.36",)j"
+           R"j("userAgentMetadata":{"architecture":"x86","bitness":"64",)j"
+           R"j("brands":[{"brand":"Not:A-Brand","version":"8"},)j"
+           R"j({"brand":"Chromium","version":"156"},)j"
+           R"j({"brand":"Google Chrome","version":"156"}],)j"
+           R"j("formFactors":["Desktop"],"fullVersion":"156.0.8078.48",)j"
+           R"j("fullVersionList":[{"brand":"Not:A-Brand","version":"8.0.0.0"},)j"
+           R"j({"brand":"Chromium","version":"156.0.8078.48"},)j"
+           R"j({"brand":"Google Chrome","version":"156.0.8078.48"}],)j"
+           R"j("mobile":false,"model":"","platform":"Windows",)j"
+           R"j("platformVersion":"15.0.0","wow64":false}})j"}));
 }
 
 }  // namespace

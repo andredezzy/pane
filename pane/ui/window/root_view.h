@@ -159,13 +159,12 @@ class RootView : public views::View {
   // splitter puts it (ADR 0024), its corners rounded where they meet the
   // panel's.
   void UpdateDevTools();
-  content::WebContents* devtools() const;
   // Find in page's bar (ADR 0067): shown as `state` has it, over the window
   // at its top right, while the browser page shows, with a shield under it
   // over the rest of the window, which a press closes it from and goes
   // nowhere else (the Swift's FindOverlay). It comes and goes at once.
   void ShowFind(const FindBarView::State& state);
-  const FindBarView::State& find_state() const { return find_state_; }
+  const FindBarView::State& find_state() const { return find_bar_->state(); }
   // Its field takes the keys, its text selected, while it shows.
   void FocusFind();
   bool FindHasFocus() const;
@@ -316,6 +315,8 @@ class RootView : public views::View {
   void PrepareAppIconPicker();
   // Places the page's dialogs, the one showing and those on their way out.
   void PlacePageDialogs();
+  // The one showing has come in, unless another took its place.
+  void PageDialogEntered(DialogCard* card);
   // One gone: its card leaves the window.
   void PageDialogLeft(DialogCard* card);
   // The extensions menus under the puzzle, where the toolbar puts it.
@@ -365,7 +366,6 @@ class RootView : public views::View {
   raw_ptr<views::View> find_shield_ = nullptr;
   raw_ptr<DialogCard> find_card_ = nullptr;
   raw_ptr<FindBarView> find_bar_ = nullptr;
-  FindBarView::State find_state_;
   // The extensions menu and the more menu on their cards, and the shield
   // under them.
   raw_ptr<views::View> extensions_shield_ = nullptr;

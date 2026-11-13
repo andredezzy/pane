@@ -47,9 +47,6 @@ std::vector<SwitcherGroup> SwitcherGroups(
 int SwitcherInitialSelectedIndex(const std::vector<SwitcherTab>& flattened,
                                  const std::optional<std::string>& previous);
 
-// Each group's offset into the flattened tab list.
-std::vector<int> SwitcherGroupOffsets(const std::vector<SwitcherGroup>& groups);
-
 int SwitcherCycle(int current, int delta, int count);
 
 }  // namespace pane::model

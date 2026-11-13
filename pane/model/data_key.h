@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "base/containers/span.h"
 #include "base/types/expected.h"
@@ -70,6 +71,22 @@ enum class OpenError {
   // without one, or none for a key sealed with one.
   kRefused,
 };
+
+// AES-GCM's combined box, as CryptoKit seals one: the nonce, the ciphertext,
+// and the tag, in base64. What Pane seals is one: the data key, a sealed
+// file, the proxy passwords. `aad` is bound to it, unencrypted.
+std::string SealBox(base::span<const uint8_t> key,
+                    base::span<const uint8_t> plaintext,
+                    base::span<const uint8_t> aad = {});
+
+// Why a box doesn't open: it isn't one (not base64, or shorter than its
+// nonce), or it isn't sealed under this key and `aad`.
+enum class BoxError { kMalformed, kRefused };
+
+base::expected<std::vector<uint8_t>, BoxError> OpenBox(
+    base::span<const uint8_t> key,
+    std::string_view box,
+    base::span<const uint8_t> aad = {});
 
 Key MakeDataKey();
 

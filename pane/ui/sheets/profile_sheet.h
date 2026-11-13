@@ -82,7 +82,6 @@ class ProfileSheet : public views::View {
   // the UI thread, for today's offsets.
   void Begin(const model::BrowserProfile* profile);
   // nullopt for a new profile.
-  const std::optional<std::string>& profile_id() const { return profile_id_; }
   // The name field takes the keys, its text selected.
   void FocusName();
   // Esc, the X, Cancel.
@@ -91,7 +90,6 @@ class ProfileSheet : public views::View {
   // problem ringed and brought into view.
   void Submit();
 
-  const model::ProfileDraft& draft() const { return draft_; }
   // Its controls by the Swift's names ("pane.profile.name",
   // "pane.profile.platform.windows"), each that shows, for the channel.
   std::vector<std::pair<std::string, const views::View*>> NamedViews() const;
@@ -100,7 +98,6 @@ class ProfileSheet : public views::View {
   // A field by its name ("name", "proxyHost", "proxyPort", "proxyUsername",
   // "proxyPassword").
   views::Textfield* FindField(std::string_view name);
-  views::ScrollView* body() { return scroll_; }
 
   // views::View:
   void Layout(PassKey) override;

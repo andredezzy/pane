@@ -143,7 +143,6 @@ class WindowHost : public TabStripModelObserver,
   ~WindowHost() override;
 
   static const std::vector<WindowHost*>& All();
-  static WindowHost* ForBrowser(const BrowserWindowInterface* browser);
 
   views::Widget* widget() const { return widget_.get(); }
   Delegate& delegate() const { return *delegate_; }
@@ -168,7 +167,6 @@ class WindowHost : public TabStripModelObserver,
 
   // The profile Pane shows: its Browser is the window's active one.
   void SetActiveProfile(Profile* profile);
-  Profile* active_profile() const { return active_profile_; }
   bool IsActiveBrowser(const Browser* browser) const;
   void RequestActivation(Browser* browser);
 
@@ -177,7 +175,6 @@ class WindowHost : public TabStripModelObserver,
   void Close();
   bool closing() const { return close_state_ == CloseState::kClosing; }
   bool CanCloseWidget() const { return widget_close_allowed_; }
-  void CloseRequestedByUser();
 
   PendingOpen& pending_open() { return pending_open_; }
 
@@ -185,7 +182,6 @@ class WindowHost : public TabStripModelObserver,
   void BrowserWindowDestroyed(HostedBrowserWindow* window);
   void ActiveTabChanged(Browser* browser, content::WebContents* contents);
   void FullscreenChanged(content::WebContents* contents, bool fullscreen);
-  void DevToolsChanged(content::WebContents* inspected);
 
   // The content area moved or changed size: Chrome's tab-modal dialogs over
   // it follow, on the next turn.
@@ -216,11 +212,6 @@ class WindowHost : public TabStripModelObserver,
  private:
   enum class CloseState { kOpen, kAsking, kClosing };
 
-  void InitWidget(const gfx::Rect& bounds,
-                  std::unique_ptr<views::View> contents,
-                  const char* name);
-  // Where tab-modal dialogs show: the page's place.
-  gfx::Rect ContentArea() const;
   void AddBrowser(Browser* browser);
   void ContinueClose();
   void ContinueCloseAttempt(int attempt);

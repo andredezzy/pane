@@ -493,14 +493,6 @@ TabRow* SidebarView::FindTabRow(const std::string& tab_id) {
   return nullptr;
 }
 
-int SidebarView::top_fade() const {
-  return list_->top_fade();
-}
-
-int SidebarView::bottom_fade() const {
-  return list_->bottom_fade();
-}
-
 void SidebarView::RevealSelected(bool animated) {
   TabRow* row = selected_tab_ ? FindTabRow(*selected_tab_) : nullptr;
   if (!row || !GetWidget()) {

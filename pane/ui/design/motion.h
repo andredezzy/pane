@@ -7,11 +7,9 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/compositor_animation_observer.h"
-#include "ui/compositor/layer_observer.h"
 #include "ui/gfx/geometry/cubic_bezier.h"
 #include "ui/gfx/geometry/transform.h"
 
@@ -34,9 +32,7 @@ class Curve {
                      base::TimeDelta delay = base::TimeDelta());
   // `response` is the period of the undamped spring, `damping` its fraction
   // of critical damping (1: no overshoot).
-  static Curve Spring(double response,
-                      double damping,
-                      base::TimeDelta delay = base::TimeDelta());
+  static Curve Spring(double response, double damping);
 
   Curve(const Curve&);
   ~Curve();
@@ -159,70 +155,25 @@ double ShakeOffset(base::TimeDelta elapsed);
 bool IsReduced();
 }  // namespace motion
 
-// Moves a layer's opacity and transform along a curve, a step on each of
-// its compositor's frames, never repainting what it moves; ends at the
-// target, then runs `done`. The layer going ends it there.
-class LayerMotion : public ::ui::CompositorAnimationObserver,
-                    public ::ui::LayerObserver {
- public:
-  struct Target {
-    std::optional<float> opacity;
-    std::optional<gfx::Transform> transform;
-  };
-
-  // Starts at once from the layer's current values; deletes itself when it
-  // ends.
-  static void Start(::ui::Layer* layer,
-                    const Curve& curve,
-                    const Target& target,
-                    base::OnceClosure done = base::OnceClosure());
-
-  LayerMotion(const LayerMotion&) = delete;
-  LayerMotion& operator=(const LayerMotion&) = delete;
-  ~LayerMotion() override;
-
-  // ui::CompositorAnimationObserver:
-  void OnAnimationStep(base::TimeTicks timestamp) override;
-  void OnCompositingShuttingDown(::ui::Compositor* compositor) override;
-
-  // ui::LayerObserver:
-  void LayerDestroyed(::ui::Layer* layer) override;
-
- private:
-  LayerMotion(::ui::Layer* layer,
-              const Curve& curve,
-              const Target& target,
-              base::OnceClosure done);
-
-  void Apply(double progress);
-  void End();
-
-  raw_ptr<::ui::Layer> layer_;
-  raw_ptr<::ui::Compositor> compositor_;
-  const Curve curve_;
-  const float from_opacity_;
-  const gfx::Transform from_transform_;
-  const Target target_;
-  base::OnceClosure done_;
-  std::optional<base::TimeTicks> start_;
-  base::ScopedObservation<::ui::Layer, ::ui::LayerObserver> layer_observation_{
-      this};
-};
-
 // Moves a layer's opacity and transform along a curve on the compositor's
 // own animation, as Chromium's threaded layer animations run: cc steps it at
 // each of its frames with no step on the UI thread, and a layer that grows as
 // it shows rasters once, at its end's scale, where a scale the UI thread steps
 // is rastered again at each frame (ADR 0123). The curve is Pane's own, not a
 // gfx::Tween's, and the first frame shows one frame's progress, as
-// LayerMotion's does. Ends at the target, then runs `done`; another motion of
+// ValueMotion's does. Ends at the target, then runs `done`; another motion of
 // the same property takes over from where this one stands, and `done` then
 // never runs.
 class CompositorMotion {
  public:
+  struct Target {
+    std::optional<float> opacity;
+    std::optional<gfx::Transform> transform;
+  };
+
   static void Start(::ui::Layer* layer,
                     const Curve& curve,
-                    const LayerMotion::Target& target,
+                    const Target& target,
                     base::OnceClosure done = base::OnceClosure());
 };
 

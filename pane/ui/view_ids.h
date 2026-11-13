@@ -190,8 +190,6 @@ enum ViewId : int {
   kViewIdLockScreenDownloadUpdate,
   kViewIdLockScreenRestartToUpdate,
   kViewIdLockScreenQuitAndInstall,
-
-  kViewIdsEnd,
 };
 
 // What a view of `id` goes by ("pane.content"); empty for an id not Pane's.

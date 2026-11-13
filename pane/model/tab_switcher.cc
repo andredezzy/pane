@@ -66,17 +66,6 @@ int SwitcherInitialSelectedIndex(const std::vector<SwitcherTab>& flattened,
              : std::min(1, static_cast<int>(flattened.size()) - 1);
 }
 
-std::vector<int> SwitcherGroupOffsets(
-    const std::vector<SwitcherGroup>& groups) {
-  std::vector<int> offsets;
-  int running = 0;
-  for (const SwitcherGroup& group : groups) {
-    offsets.push_back(running);
-    running += static_cast<int>(group.tabs.size());
-  }
-  return offsets;
-}
-
 int SwitcherCycle(int current, int delta, int count) {
   return count == 0 ? 0 : (current + delta + count) % count;
 }

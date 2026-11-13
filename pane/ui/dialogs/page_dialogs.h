@@ -98,15 +98,13 @@ class PageDialogs {
   void AnswerWithout(Id id,
                      std::optional<size_t> button,
                      const std::vector<std::u16string>& texts);
-  bool Has(Id id) const;
   // The selected tab, the page shown, the Lock, or the window changed: a
   // dialog of a tab no longer shown goes back in line, first, and the next
   // due shows.
   void Update();
 
-  // For the channel, as the Swift's snapshot read them: the dialog shown
-  // ({ kind, tabID, title, message, buttons, fields }), or none; how many
-  // wait; and the one shown, to press.
+  // For the channel: the dialog shown ({ kind, tabID, title, message,
+  // buttons, fields }), or none; how many wait; and the one shown.
   base::Value Shown() const;
   int waiting() const { return static_cast<int>(waiting_.size()); }
   PageDialog* shown_dialog();

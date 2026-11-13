@@ -61,7 +61,6 @@ class ActionMenu : public ui::SimpleMenuModel::Delegate {
   ~ActionMenu() override;
 
   ui::SimpleMenuModel& model() { return model_; }
-  const extensions::ExtensionId& extension_id() const { return extension_id_; }
   // Where the extension's own items sit in the model, [begin, end), and the
   // place of its site access, for the channel, which reads them as the
   // Swift's engine handed them over.

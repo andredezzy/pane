@@ -134,11 +134,9 @@ class DataVolume {
   // a lock could not detach is still there.
   base::expected<void, VolumeError> Mount(const Devices& devices) const;
 
-  // By the image's device, which detaches it whole, or, for a crashed Pane's,
-  // the mount point.
-  base::expected<void, VolumeError> Detach(
-      std::optional<std::string_view> device = std::nullopt,
-      bool force = false) const;
+  // By the image's device, which detaches it whole.
+  base::expected<void, VolumeError> Detach(std::string_view device,
+                                           bool force) const;
 
   // Every attachment of this image hdiutil lists, by its device.
   void DetachLeftovers() const;

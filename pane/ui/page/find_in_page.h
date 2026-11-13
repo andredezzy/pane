@@ -8,7 +8,6 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "pane/ui/page/find_bar_view.h"
@@ -66,7 +65,6 @@ class FindInPage : public FindBar {
   // The Browser's, once Chrome's controller has made it.
   static FindInPage* From(BrowserWindowInterface* browser);
 
-  BrowserWindowInterface* browser() { return &browser_.get(); }
   const FindBarView::State& state() const { return state_; }
 
   // ⌘F: the bar shows over the tab, its field taking the keys, a session of
@@ -119,7 +117,6 @@ class FindInPage : public FindBar {
   void Changed();
 
   const base::WeakPtr<Host> host_;
-  const raw_ref<BrowserWindowInterface> browser_;
   raw_ptr<FindBarController> controller_ = nullptr;
   FindBarView::State state_;
   // A step under way, timed until its count shows.

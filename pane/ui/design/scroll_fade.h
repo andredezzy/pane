@@ -40,9 +40,6 @@ class FadingScrollView : public views::View, public views::ViewObserver {
   ~FadingScrollView() override;
 
   views::ScrollView* scroll_view() { return scroll_view_; }
-  // Each fade's height now, for a scenario's read.
-  int top_fade() const;
-  int bottom_fade() const;
 
   // views::View:
   void Layout(PassKey) override;

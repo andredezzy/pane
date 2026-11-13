@@ -32,8 +32,6 @@ bool AskToOpenExternalApp(const GURL& url,
           ? base::StrCat({HostOf(origin), u" wants to open this application."})
           : std::u16string(u"A website wants to open this application.")};
   content.buttons = {base::StrCat({u"Open ", program_name}), u"Cancel"};
-  TraceDialog("callback", "PaneWebContentsDelegate.openExternalProtocol",
-              web_contents, base::DictValue().Set("url", url.spec()));
   dialogs->Ask(
       web_contents, PageDialogs::Kind::kExternalProtocol, std::move(content),
       base::BindOnce(
@@ -42,8 +40,6 @@ bool AskToOpenExternalApp(const GURL& url,
              std::optional<size_t> button,
              const std::vector<std::u16string>& texts) {
             if (button != 0) {
-              TraceDialog("call", "PaneExternalProtocolRequest.cancel",
-                          nullptr);
               return;
             }
             TraceDialog("call", "PaneExternalProtocolRequest.open", nullptr);

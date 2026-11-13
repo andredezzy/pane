@@ -13,7 +13,6 @@
 
 #include <memory>
 
-class Browser;
 class BrowserUiController;
 class BrowserWebContentsDelegate;
 class BrowserWindow;

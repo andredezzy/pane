@@ -169,15 +169,6 @@ void DragCopy::SetCard(const gfx::RectF& card) {
   }
 }
 
-gfx::RectF DragCopy::card() const {
-  gfx::RectF card(bounds());
-  card.Inset(kShadowReach);
-  if (layer()) {
-    card.Offset(layer()->transform().To2dTranslation());
-  }
-  return card;
-}
-
 const views::View* DragCopy::card_view() const {
   return contents_;
 }

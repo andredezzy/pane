@@ -9,11 +9,9 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 
 #include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
-#include "base/time/time.h"
 #include "pane/model/profile.h"
 
 class Profile;
@@ -64,15 +62,6 @@ void ApplyFingerprintLanguages(Profile* profile);
 // The Mac's GPU as WebGL names it, for a fingerprint on the host's platform;
 // nullopt before the GPU's info has come.
 std::optional<model::Fingerprint::WebGL> HostWebGL();
-
-// Every page of the profile closes at once, without beforeunload.
-void CloseEveryPage(Profile* profile);
-
-// Runs `done` with true once Chrome has destroyed `profile`; with false past
-// `timeout`, or when the profile manager goes first.
-void WaitForProfileDestruction(Profile* profile,
-                               base::TimeDelta timeout,
-                               base::OnceCallback<void(bool)> done);
 
 // A profile closes in the engine for a lock (ADR 0116): its downloads under
 // way stop as at a quit, `keep_alive` goes, every page closes without

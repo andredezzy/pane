@@ -29,9 +29,6 @@ class QuitDialog : public views::View {
   QuitDialog& operator=(const QuitDialog&) = delete;
   ~QuitDialog() override;
 
-  KeyedButton* cancel() { return cancel_; }
-  KeyedButton* quit() { return quit_; }
-
   // views::View:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;

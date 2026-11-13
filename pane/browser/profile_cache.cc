@@ -49,7 +49,7 @@ void TrimCache(Profile* profile, base::OnceClosure done) {
                  content::BrowsingDataRemover::DATA_TYPE_CACHE |
                      content::BrowsingDataRemover::DATA_TYPE_CACHE_STORAGE |
                      content::BrowsingDataRemover::DATA_TYPE_SERVICE_WORKERS,
-                 {}, std::move(done));
+                 std::move(done));
 }
 
 }  // namespace pane

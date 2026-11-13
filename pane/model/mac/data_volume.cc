@@ -834,11 +834,10 @@ base::expected<std::string, VolumeError> DataVolume::VolumeNamed(
   return Device(*identifier);
 }
 
-base::expected<void, VolumeError> DataVolume::Detach(
-    std::optional<std::string_view> device,
-    bool force) const {
-  std::vector<std::string> arguments = {
-      "detach", device ? std::string(*device) : mount_point_.value(), "-quiet"};
+base::expected<void, VolumeError> DataVolume::Detach(std::string_view device,
+                                                     bool force) const {
+  std::vector<std::string> arguments = {"detach", std::string(device),
+                                        "-quiet"};
   if (force) {
     arguments.push_back("-force");
   }

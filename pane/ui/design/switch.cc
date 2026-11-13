@@ -11,7 +11,6 @@
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/focus_ring.h"
 #include "pane/ui/design/palette.h"
-#include "pane/ui/design/text.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -22,7 +21,6 @@
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/label.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -97,7 +95,9 @@ class Switch::Thumb : public views::View {
 BEGIN_METADATA(Switch, Thumb)
 END_METADATA
 
-Switch::Switch(Toggled toggled, const std::u16string& label)
+Switch::Switch(Toggled toggled,
+               std::unique_ptr<views::View> label,
+               const std::u16string& name)
     : views::Button(
           base::BindRepeating(&Switch::Pressed, base::Unretained(this))),
       toggled_(std::move(toggled)),
@@ -120,30 +120,14 @@ Switch::Switch(Toggled toggled, const std::u16string& label)
     return gfx::ToEnclosingRect(
         static_cast<const Switch*>(view)->TrackBounds());
   }));
-  if (!label.empty()) {
-    std::unique_ptr<views::Label> text =
-        MakeLabel(label, text::kRowTitle, kPaneColorForeground);
-    text->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    label_ = AddChildView(std::move(text));
-    label_->SetCanProcessEventsWithinSubtree(false);
-  }
-  thumb_ = AddChildView(std::make_unique<Thumb>(this));
-  GetViewAccessibility().SetRole(ax::mojom::Role::kSwitch);
-  if (!label.empty()) {
-    GetViewAccessibility().SetName(label);
-  }
-  UpdateAccessibility();
-}
-
-Switch::Switch(Toggled toggled,
-               std::unique_ptr<views::View> label,
-               const std::u16string& name)
-    : Switch(std::move(toggled)) {
   // Under the thumb, whose shadow may reach over it.
-  label_ = AddChildViewAt(std::move(label), 0);
+  label_ = AddChildView(std::move(label));
   // The whole row is the button: a press on the label is the switch's.
   label_->SetCanProcessEventsWithinSubtree(false);
+  thumb_ = AddChildView(std::make_unique<Thumb>(this));
+  GetViewAccessibility().SetRole(ax::mojom::Role::kSwitch);
   GetViewAccessibility().SetName(name);
+  UpdateAccessibility();
 }
 
 Switch::~Switch() = default;
@@ -159,9 +143,6 @@ void Switch::SetOn(bool on) {
 
 gfx::Size Switch::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
-  if (!label_) {
-    return kTrackSize;
-  }
   // At a width given, the label takes what the track leaves, as tall as it
   // needs there.
   if (available_size.width().is_bounded()) {
@@ -180,10 +161,8 @@ void Switch::ChildPreferredSizeChanged(views::View* child) {
 }
 
 void Switch::Layout(PassKey) {
-  if (label_) {
-    label_->SetBounds(
-        0, 0, std::max(width() - kSpacing - kTrackSize.width(), 0), height());
-  }
+  label_->SetBounds(0, 0, std::max(width() - kSpacing - kTrackSize.width(), 0),
+                    height());
   thumb_->Place();
 }
 

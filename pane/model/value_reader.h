@@ -37,7 +37,6 @@ class ValueReader {
   int Int(std::string_view key);
   std::optional<int> OptionalInt(std::string_view key);
   double Double(std::string_view key);
-  bool Bool(std::string_view key);
   std::optional<bool> OptionalBool(std::string_view key);
   std::vector<std::string> Strings(std::string_view key);
 

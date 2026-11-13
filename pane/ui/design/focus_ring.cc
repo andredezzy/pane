@@ -36,11 +36,6 @@ FocusRing::FocusRing(views::View* control, ControlShape shape)
 
 FocusRing::~FocusRing() = default;
 
-void FocusRing::SetShape(ControlShape shape) {
-  shape_ = shape;
-  SchedulePaint();
-}
-
 void FocusRing::SetShowsWhen(ShowsWhen shows_when) {
   shows_when_ = std::move(shows_when);
   Refresh();

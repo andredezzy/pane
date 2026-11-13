@@ -13,7 +13,6 @@
 #include "base/task/sequenced_task_runner.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/design/accessible_layers.h"
-#include "pane/ui/design/controls.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
@@ -42,17 +41,13 @@
 #include "ui/events/event.h"
 #include "ui/events/event_handler.h"
 #include "ui/events/keycodes/keyboard_codes.h"
-#include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
-#include "ui/views/controls/button/button.h"
-#include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
-#include "ui/views/layout/box_layout.h"
 #include "ui/views/widget/widget.h"
 
 namespace pane {
@@ -595,10 +590,6 @@ void RootView::UpdateDevTools() {
   SchedulePaint();
 }
 
-content::WebContents* RootView::devtools() const {
-  return devtools_->web_contents();
-}
-
 // The corners go on the page's own layer, which comes and goes with it
 // (NativeViewHostMac has none to round with no page attached), and none while
 // the page fills the window: the panel's, as a circle that follows the
@@ -770,14 +761,9 @@ void RootView::ShowPageDialog(std::unique_ptr<PageDialog> dialog) {
   PlacePageDialogs();
   page_dialog_->Settle(false);
   page_dialog_entering_ = true;
-  page_dialog_->Move(true,
-                     base::BindOnce(
-                         [](base::WeakPtr<RootView> root, DialogCard* card) {
-                           if (root && root->page_dialog_ == card) {
-                             root->page_dialog_entering_ = false;
-                           }
-                         },
-                         weak_factory_.GetWeakPtr(), page_dialog_.get()));
+  page_dialog_->Move(
+      true, base::BindOnce(&RootView::PageDialogEntered,
+                           weak_factory_.GetWeakPtr(), page_dialog_.get()));
   // What had the keys gets them back once the dialogs are answered.
   if (!focus_before_page_dialog_.view()) {
     views::FocusManager* focus = GetFocusManager();
@@ -877,18 +863,18 @@ void RootView::PlacePageDialogs() {
     // the new place if it is on its way in.
     if (moved && card == page_dialog_) {
       if (page_dialog_entering_) {
-        card->Move(true,
-                   base::BindOnce(
-                       [](base::WeakPtr<RootView> root, DialogCard* card) {
-                         if (root && root->page_dialog_ == card) {
-                           root->page_dialog_entering_ = false;
-                         }
-                       },
-                       weak_factory_.GetWeakPtr(), card));
+        card->Move(true, base::BindOnce(&RootView::PageDialogEntered,
+                                        weak_factory_.GetWeakPtr(), card));
       } else {
         card->Settle(true);
       }
     }
+  }
+}
+
+void RootView::PageDialogEntered(DialogCard* card) {
+  if (page_dialog_ == card) {
+    page_dialog_entering_ = false;
   }
 }
 
@@ -980,7 +966,6 @@ gfx::RoundedCornersF RootView::PageCorners() const {
 }
 
 void RootView::ShowFind(const FindBarView::State& state) {
-  find_state_ = state;
   find_bar_->SetState(state);
   ShowFindPlaces();
 }
@@ -989,7 +974,7 @@ void RootView::ShowFind(const FindBarView::State& state) {
 // hides it, as the Swift drew it only over the browser page.
 void RootView::ShowFindPlaces() {
   const bool shown =
-      find_state_.visible && shows_.content != Content::kSettings;
+      find_bar_->state().visible && shows_.content != Content::kSettings;
   if (find_card_->GetVisible() == shown) {
     return;
   }

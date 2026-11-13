@@ -23,15 +23,11 @@ constexpr Icon kIcons[] = {
     Icon::kChevronsDownUp,
     Icon::kChevronsUpDown,
     Icon::kCircleDashedX,
-    Icon::kExternalLink,
     Icon::kGlobe,
-    Icon::kKeyboard,
     Icon::kMonitor,
     Icon::kMoon,
     Icon::kPencil,
-    Icon::kPlus,
     Icon::kRotateCw,
-    Icon::kSearch,
     Icon::kSettings,
     Icon::kSquareArrowOutUpRight,
     Icon::kSun,
@@ -91,7 +87,7 @@ TEST(IconsTest, PathsAreParsedAsSvgDrawsThem) {
 }
 
 // Circles and rectangles are Skia's own shapes: the ellipsis's dots filled,
-// the dashed circle's dash kept, the keyboard's rectangle rounded at 2.
+// the dashed circle's dash kept, the monitor's rectangle rounded at 2.
 TEST(IconsTest, CirclesAndRectsKeepTheirAttributes) {
   const std::vector<IconShape>& dots = IconShapes(Icon::kEllipsis);
   ASSERT_EQ(dots.size(), 3u);
@@ -111,8 +107,8 @@ TEST(IconsTest, CirclesAndRectsKeepTheirAttributes) {
   EXPECT_FALSE(dashed[0].filled);
 
   SkRRect rect;
-  ASSERT_TRUE(IconShapes(Icon::kKeyboard)[0].path.isRRect(&rect));
-  EXPECT_EQ(rect.rect(), SkRect::MakeXYWH(2, 4, 20, 16));
+  ASSERT_TRUE(IconShapes(Icon::kMonitor)[0].path.isRRect(&rect));
+  EXPECT_EQ(rect.rect(), SkRect::MakeXYWH(2, 3, 20, 14));
   EXPECT_EQ(rect.getSimpleRadii(), SkVector::Make(2, 2));
 }
 
@@ -126,28 +122,30 @@ TEST(IconsTest, RefusesWhatItDoesNotDraw) {
   EXPECT_FALSE(ParseIconElements(""));
 }
 
-// Drawn, the plus is its two strokes at the width asked for, scaled from the
-// grid: at 24 points and a stroke of 2, the cross's middle is the color, a
-// point 1.5 off its line is clear, and the corners are clear.
+// Drawn, the back arrow's shaft (M19 12H5) is its stroke at the width asked
+// for, scaled from the grid: at 24 points and a stroke of 2, the shaft's
+// middle is the color, a pixel past its stroke's edge is clear, and the
+// corners are clear.
 TEST(IconsTest, PaintsStrokesAtTheWidthAskedFor) {
   gfx::Canvas canvas(gfx::Size(24, 24), /*image_scale=*/1, /*is_opaque=*/false);
   canvas.DrawColor(SK_ColorTRANSPARENT);
-  PaintIcon(canvas, Icon::kPlus, gfx::RectF(0, 0, 24, 24), 2, SK_ColorRED);
+  PaintIcon(canvas, Icon::kArrowLeft, gfx::RectF(0, 0, 24, 24), 2, SK_ColorRED);
   const SkBitmap bitmap = canvas.GetBitmap();
   EXPECT_EQ(bitmap.getColor(12, 12), SK_ColorRED);
-  EXPECT_EQ(bitmap.getColor(8, 12), SK_ColorRED);
-  EXPECT_EQ(SkColorGetA(bitmap.getColor(8, 14)), 0u);
+  EXPECT_EQ(bitmap.getColor(16, 12), SK_ColorRED);
+  EXPECT_EQ(SkColorGetA(bitmap.getColor(16, 14)), 0u);
   EXPECT_EQ(SkColorGetA(bitmap.getColor(1, 1)), 0u);
 
-  // At 12 points the grid's 4 is 2 points: the strokes cover the middle
-  // whole, and end their round caps a point past the line's ends.
+  // At 12 points the grid's 4 is 2 points: the shaft covers its pixels
+  // whole, and its round cap ends a point past the line's end, and no more.
   gfx::Canvas small(gfx::Size(12, 12), 1, false);
   small.DrawColor(SK_ColorTRANSPARENT);
-  PaintIcon(small, Icon::kPlus, gfx::RectF(0, 0, 12, 12), 4, SK_ColorRED);
+  PaintIcon(small, Icon::kArrowLeft, gfx::RectF(0, 0, 12, 12), 4, SK_ColorRED);
   EXPECT_EQ(small.GetBitmap().getColor(6, 6), SK_ColorRED);
   EXPECT_EQ(small.GetBitmap().getColor(5, 5), SK_ColorRED);
-  EXPECT_EQ(SkColorGetA(small.GetBitmap().getColor(4, 8)), 0u);
-  EXPECT_EQ(SkColorGetA(small.GetBitmap().getColor(0, 6)), 0u);
+  EXPECT_GT(SkColorGetA(small.GetBitmap().getColor(10, 6)), 0u);
+  EXPECT_EQ(SkColorGetA(small.GetBitmap().getColor(11, 6)), 0u);
+  EXPECT_EQ(SkColorGetA(small.GetBitmap().getColor(8, 8)), 0u);
 }
 
 }  // namespace pane

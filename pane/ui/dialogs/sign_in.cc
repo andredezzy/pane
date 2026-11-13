@@ -68,10 +68,6 @@ class SignIn : public LoginHandler {
     // without a word (ADR 0037); asked again at once, they were wrong, and
     // the user is asked instead.
     if (std::optional<net::AuthCredentials> credentials = ProxyCredentials()) {
-      // The password is never traced.
-      TraceDialog("call", "PaneAuthenticationChallenge.provide", nullptr,
-                  base::DictValue().Set(
-                      "username", base::UTF16ToUTF8(credentials->username())));
       // On a turn of its own: an answer ends this handler, whose building is
       // still under way.
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -96,15 +92,8 @@ class SignIn : public LoginHandler {
               }
               handler->id_.reset();
               if (button == 0 && texts.size() == 2) {
-                // The password is never traced.
-                TraceDialog("call", "PaneAuthenticationChallenge.provide",
-                            nullptr,
-                            base::DictValue().Set("username",
-                                                  base::UTF16ToUTF8(texts[0])));
                 handler->SetAuth(texts[0], texts[1]);
               } else {
-                TraceDialog("call", "PaneAuthenticationChallenge.cancel",
-                            nullptr);
                 handler->CancelAuth(/*notify_others=*/true);
               }
             },

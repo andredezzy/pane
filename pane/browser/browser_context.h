@@ -65,16 +65,14 @@ class BrowserContext {
 
   // MARK: Network (ADR 0037)
 
-  // The profile's proxy, as Chrome's fixed proxy rules ("http://host:port",
-  // "https://…", "socks4://…", "socks5://…", the "proxy" pref's fixed
-  // servers), or nullopt for the system's settings. Loopback is never
-  // proxied.
-  std::optional<std::string> ProxyRules() const;
+  // Sets the profile's proxy, as Chrome's fixed proxy rules
+  // ("http://host:port", "https://…", "socks4://…", "socks5://…", the
+  // "proxy" pref's fixed servers), or nullopt for the system's settings.
+  // Loopback is never proxied.
   void SetProxyRules(const std::optional<std::string>& rules);
   // How WebRTC may use the network (Chrome's webrtc.ip_handling_policy):
   // "default", "default_public_interface_only",
   // "default_public_and_private_interfaces", or "disable_non_proxied_udp".
-  std::string WebRTCIPHandlingPolicy() const;
   void SetWebRTCIPHandlingPolicy(std::string_view policy);
 
  private:

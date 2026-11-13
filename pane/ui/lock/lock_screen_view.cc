@@ -95,10 +95,6 @@ std::unique_ptr<views::Label> Message(const std::u16string& text,
   return label;
 }
 
-float ScaleOfView(const views::View* view) {
-  return ScaleOf(view->GetWidget());
-}
-
 }  // namespace
 
 // The panel's middle and its controls' parent: it holds the keys while a PIN
@@ -196,7 +192,6 @@ class LockScreenView::PinContent : public views::View {
   }
 
   PinDots* dots() { return dots_; }
-  const Numpad* numpad() const { return numpad_; }
 
   void Set(const model::PinEntry& entry, int failed_attempts, bool animate) {
     const std::optional<std::string_view> title = entry.Title();
@@ -574,7 +569,7 @@ void LockScreenView::Layout(PassKey) {
   // In the panel: the back arrow in the middle of its left column, the
   // middle column's content in the middle of the panel, to the fraction of a
   // point, as SwiftUI centers it, and the update 24 from its bottom.
-  const float scale = ScaleOfView(this);
+  const float scale = ScaleOf(GetWidget());
   back_->SetBounds((kSide - kBackSize) / 2, (panel.height() - kBackSize) / 2,
                    kBackSize, kBackSize);
   const int column = std::max(panel.width() - 2 * kSide, 0);

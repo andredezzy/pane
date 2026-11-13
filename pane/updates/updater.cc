@@ -315,8 +315,11 @@ void Updater::DismissPill() {
 }
 
 void Updater::DownloadUpdate() {
+  // Restart to update: quits, and the quit swaps the staged Pane in and
+  // opens it.
   if (status_ == Status::kDownloaded && staged()) {
-    RestartToUpdate();
+    relaunches_ = true;
+    quit_.Run();
     return;
   }
   // Downloaded already: its installer, as long as the dmg is still there.
@@ -471,14 +474,6 @@ void Updater::Staged(base::FilePath file,
   if (!staged) {
     Open(file);
   }
-}
-
-void Updater::RestartToUpdate() {
-  if (status_ != Status::kDownloaded || !staged()) {
-    return;
-  }
-  relaunches_ = true;
-  quit_.Run();
 }
 
 void Updater::InstallAtQuit() {

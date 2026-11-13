@@ -18,11 +18,8 @@
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/tab_list/tab_removed_reason.h"
 #include "chrome/browser/ui/browser.h"  // nogncheck
 #include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -78,7 +75,7 @@ class HostClientView : public views::ClientView {
       return views::CloseRequestResult::kCanClose;
     }
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&WindowHost::CloseRequestedByUser, host_));
+        FROM_HERE, base::BindOnce(&WindowHost::Close, host_));
     return views::CloseRequestResult::kCannotClose;
   }
 
@@ -106,10 +103,6 @@ void ActivateExclusively(Browser* browser) {
 
 const std::vector<WindowHost*>& WindowHost::All() {
   return Hosts();
-}
-
-WindowHost* WindowHost::ForBrowser(const BrowserWindowInterface* browser) {
-  return HostedBrowserWindow::HostOf(browser);
 }
 
 content::KeyboardEventProcessingResult
@@ -152,12 +145,6 @@ WindowHost::WindowHost(Delegate* delegate,
                        std::unique_ptr<views::View> contents,
                        const char* name)
     : delegate_(CHECK_DEREF(delegate)) {
-  InitWidget(bounds, std::move(contents), name);
-}
-
-void WindowHost::InitWidget(const gfx::Rect& bounds,
-                            std::unique_ptr<views::View> contents,
-                            const char* name) {
   Hosts().push_back(this);
 
   widget_delegate_ = std::make_unique<views::WidgetDelegate>();
@@ -317,18 +304,10 @@ void WindowHost::OnWidgetBoundsChanged(views::Widget* widget,
 
 // MARK: Closing (Ardia's sequence)
 
-void WindowHost::CloseRequestedByUser() {
-  if (close_state_ != CloseState::kOpen) {
-    return;
-  }
-  Close();
-}
-
 void WindowHost::Close() {
   if (close_state_ != CloseState::kOpen) {
     return;
   }
-  PANE_TRACE("call", "PaneBrowserWindow.close");
   close_state_ = CloseState::kAsking;
   ++close_attempt_;
   ContinueClose();
@@ -495,7 +474,6 @@ void WindowHost::OnTabStripModelChanged(
       if (!tab) {
         continue;
       }
-      PANE_TRACE_TAB(tab, "PaneBrowserWindowDelegate.didRemoveTab");
       delegate_->TabRemoved(removed.contents);
     }
   }
@@ -512,13 +490,7 @@ void WindowHost::ShowExclusiveAccessHint(const std::u16string& marked_hint) {
   // text.
   std::u16string hint;
   base::RemoveChars(marked_hint, u"|", &hint);
-  PANE_TRACE("callback", "PaneBrowserWindowDelegate.showExclusiveAccessHint",
-             base::DictValue().Set("hint", base::UTF16ToUTF8(hint)));
   delegate_->ShowExclusiveAccessHint(hint);
-}
-
-void WindowHost::DevToolsChanged(content::WebContents* inspected) {
-  delegate_->DevToolsChanged(inspected);
 }
 
 void WindowHost::ActiveTabChanged(Browser* browser,
@@ -526,16 +498,15 @@ void WindowHost::ActiveTabChanged(Browser* browser,
   if (!contents) {
     return;
   }
-  HostedTab* tab = HostedTab::GetOrCreate(contents);
-  PANE_TRACE_TAB(tab, "PaneBrowserWindowDelegate.didActivateTab");
+  // Every tab of a hosted Browser has Pane's record (ADR 0076's Web Store
+  // buttons go by it).
+  HostedTab::GetOrCreate(contents);
   delegate_->ActiveTabChanged(browser, contents);
 }
 
 void WindowHost::FullscreenChanged(content::WebContents* contents,
                                    bool fullscreen) {
-  HostedTab* tab = HostedTab::GetOrCreate(contents);
-  PANE_TRACE_TAB(tab, "PaneBrowserWindowDelegate.didChangeFullscreen",
-                 base::DictValue().Set("fullscreen", fullscreen));
+  HostedTab::GetOrCreate(contents);
   delegate_->FullscreenChanged(contents, fullscreen);
 }
 
@@ -548,7 +519,8 @@ gfx::NativeView WindowHost::GetHostView() const {
 }
 
 gfx::Point WindowHost::GetDialogPosition(const gfx::Size& size) {
-  const gfx::Rect page = ContentArea();
+  // Where tab-modal dialogs show: the page's place.
+  const gfx::Rect page = delegate_->PageBounds();
   const int width = widget_ ? widget_->GetRootView()->width() : page.right();
   const int x = std::clamp(page.x() + (page.width() - size.width()) / 2, 0,
                            std::max(width - size.width(), 0));
@@ -560,11 +532,7 @@ bool WindowHost::ShouldActivateDialog() const {
 }
 
 gfx::Size WindowHost::GetMaximumDialogSize() {
-  return ContentArea().size();
-}
-
-gfx::Rect WindowHost::ContentArea() const {
-  return delegate_->PageBounds();
+  return delegate_->PageBounds().size();
 }
 
 void WindowHost::AddObserver(web_modal::ModalDialogHostObserver* observer) {
@@ -705,7 +673,7 @@ bool KeepsWindowWithoutTabs(const BrowserWindowInterface* browser) {
     return false;
   }
   // Only the window's own Browsers stay; a forwarded one closes once emptied.
-  WindowHost* host = WindowHost::ForBrowser(browser);
+  WindowHost* host = HostedBrowserWindow::HostOf(browser);
   if (!host || host->closing()) {
     return false;
   }

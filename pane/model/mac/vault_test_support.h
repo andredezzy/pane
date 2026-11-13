@@ -114,8 +114,6 @@ class FakeFileMigrator : public base::RefCountedThreadSafe<FakeFileMigrator> {
    public:
     Gate();
 
-    // Blocks until the held call has begun.
-    void WaitUntilHeld();
     void Release();
 
    private:
@@ -123,7 +121,6 @@ class FakeFileMigrator : public base::RefCountedThreadSafe<FakeFileMigrator> {
     friend class FakeFileMigrator;
     ~Gate();
 
-    base::WaitableEvent held_;
     base::WaitableEvent released_;
   };
 
@@ -143,8 +140,6 @@ class FakeFileMigrator : public base::RefCountedThreadSafe<FakeFileMigrator> {
   // Lets every held call go, for the test's end.
   void ReleaseAll();
 
-  void set_result(std::string_view kind, bool result);
-
  private:
   friend class base::RefCountedThreadSafe<FakeFileMigrator>;
   ~FakeFileMigrator();
@@ -157,7 +152,6 @@ class FakeFileMigrator : public base::RefCountedThreadSafe<FakeFileMigrator> {
   std::vector<std::string> calls_ GUARDED_BY(lock_);
   std::map<std::string, int> running_ GUARDED_BY(lock_);
   int most_at_once_ GUARDED_BY(lock_) = 0;
-  std::map<std::string, bool, std::less<>> results_ GUARDED_BY(lock_);
   // By "<kind> <id>".
   std::map<std::string, scoped_refptr<Gate>, std::less<>> holds_
       GUARDED_BY(lock_);

@@ -3,7 +3,6 @@
 #include "pane/renderer/pane_fingerprint.h"
 
 #include <algorithm>
-#include <utility>
 
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
@@ -11,6 +10,7 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/values.h"
+#include "pane/common/host.h"  // nogncheck: header-only constants
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -21,7 +21,7 @@ namespace blink {
 
 namespace {
 
-constexpr char kFingerprintSwitch[] = "pane-fingerprint";
+constexpr char kFingerprintSwitch[] = PANE_FINGERPRINT_SWITCH;
 
 // The renderer half of the fingerprint Pane builds (model::EngineFingerprint's
 // renderer part, pane/model/engine_fingerprint.h).

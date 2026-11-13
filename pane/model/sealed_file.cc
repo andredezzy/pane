@@ -5,21 +5,11 @@
 #include <utility>
 #include <vector>
 
-#include "base/base64.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/types/expected_macros.h"
-#include "crypto/aead.h"
-#include "crypto/random.h"
 
 namespace pane::model {
-
-namespace {
-
-// AES-GCM's, as CryptoKit seals.
-constexpr size_t kNonceSize = 12;
-
-}  // namespace
 
 SealedFile::SealedFile(const base::FilePath& directory, std::string_view name)
     : path_(directory.AppendASCII(std::string(name) + ".json")), name_(name) {}
@@ -32,17 +22,15 @@ base::expected<std::optional<base::Value>, FileError> SealedFile::Load(
   }
   const std::string* box =
       disk->is_dict() ? disk->GetDict().FindString("box") : nullptr;
-  const std::optional<std::vector<uint8_t>> combined =
-      box ? base::Base64Decode(*box) : std::nullopt;
-  if (!combined || combined->size() < kNonceSize) {
+  if (!box) {
     return base::unexpected(FileError::kMalformed);
   }
-  const auto [nonce, ciphertext] = base::span(*combined).split_at(kNonceSize);
-  const std::optional<std::vector<uint8_t>> json =
-      crypto::aead::Open(crypto::aead::AES_256_GCM, key, ciphertext, nonce,
-                         base::as_byte_span(name_));
-  if (!json) {
-    return base::unexpected(FileError::kRefused);
+  const base::expected<std::vector<uint8_t>, BoxError> json =
+      OpenBox(key, *box, base::as_byte_span(name_));
+  if (!json.has_value()) {
+    return base::unexpected(json.error() == BoxError::kMalformed
+                                ? FileError::kMalformed
+                                : FileError::kRefused);
   }
   std::optional<base::Value> state =
       base::JSONReader::Read(base::as_string_view(*json), base::JSON_PARSE_RFC);
@@ -63,14 +51,9 @@ std::optional<std::string> SealedFile::Seal(const base::Value& state,
   if (!json) {
     return std::nullopt;
   }
-  const auto nonce = crypto::RandBytesAsArray<kNonceSize>();
-  std::vector<uint8_t> combined(nonce.begin(), nonce.end());
-  const std::vector<uint8_t> sealed = crypto::aead::Seal(
-      crypto::aead::AES_256_GCM, key, base::as_byte_span(*json), nonce,
-      base::as_byte_span(name_));
-  combined.insert(combined.end(), sealed.begin(), sealed.end());
-  return base::WriteJson(
-      base::Value(base::DictValue().Set("box", base::Base64Encode(combined))));
+  return base::WriteJson(base::Value(base::DictValue().Set(
+      "box",
+      SealBox(key, base::as_byte_span(*json), base::as_byte_span(name_)))));
 }
 
 }  // namespace pane::model

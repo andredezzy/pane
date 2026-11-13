@@ -246,16 +246,10 @@ void ProfileContexts::ProfileOpened(const std::string& profile_id,
   ApplyHistory(*context);
   // The proxy goes on before any page of the profile loads.
   BrowserContext& opening = *context;
-  network_->Apply(opening,
-                  base::BindOnce(&ProfileContexts::NetworkApplied,
-                                 weak_factory_.GetWeakPtr(), profile_id,
-                                 std::move(work), std::move(context)));
-}
-
-void ProfileContexts::NetworkApplied(const std::string& profile_id,
-                                     scoped_refptr<Work> work,
-                                     std::unique_ptr<BrowserContext> context) {
-  Opened(profile_id, std::move(work), std::move(context));
+  network_->Apply(
+      opening,
+      base::BindOnce(&ProfileContexts::Opened, weak_factory_.GetWeakPtr(),
+                     profile_id, std::move(work), std::move(context)));
 }
 
 // The open ended: what waited has the profile, or null when it would not

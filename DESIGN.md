@@ -57,7 +57,7 @@ Implementation notes:
 - Hover fills animate in 0.15 s, easing out (`motion::Hover()`), everywhere a hover shows: a fill that appears at once is a missing animation.
 - Two things that share a place under the pointer take turns rather than cross: the update pill's bar draws back at once and its dismiss button shows once the bar has cleared it, and on the way out the button goes first (`motion::HoverTurn()`, the hover's 0.15 s after 0.08 s).
 - A row's fill animates with its hover alone, never with its selection.
-- Every animation is one of `pane/ui/design/motion.h`'s curves, named for what it is, moved on the compositor's frames (`LayerMotion`, `CompositorMotion`, `ValueMotion`), and at once while the system reduces motion, so a view honors the setting with no check of its own (ADR 0070).
+- Every animation is one of `pane/ui/design/motion.h`'s curves, named for what it is, moved on the compositor's frames (`CompositorMotion`, `ValueMotion`), and at once while the system reduces motion, so a view honors the setting with no check of its own (ADR 0070).
 
 ## Updates
 

@@ -22,14 +22,11 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
-#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/printing/print_view_manager_common.h"
 #include "chrome/browser/profiles/profile.h"
@@ -42,13 +39,10 @@
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/webui_url_constants.h"
-#include "components/download/public/common/download_item.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver_observer.h"
-#include "components/sessions/content/session_tab_helper.h"
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
-#include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/reload_type.h"
@@ -77,10 +71,7 @@
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/theme.h"
-#include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/permission_prompt.h"
-#include "pane/ui/extensions/action_popup.h"
-#include "pane/ui/extensions/installed_extensions.h"
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/page/devtools.h"
 #include "pane/ui/page/find_in_page.h"
@@ -89,19 +80,10 @@
 #include "pane/ui/panels/time_of_day.h"
 #include "pane/ui/sidebar/sidebar_content.h"
 #include "pane/ui/tabs/tab_id.h"
-#include "pane/ui/toolbar/address_field.h"
 #include "pane/ui/toolbar/toolbar_view.h"
 #include "pane/ui/view_ids.h"
-#include "pane/ui/window/frame.h"
 #include "pane/ui/window/root_view.h"
-#include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/skia/include/core/SkColor.h"
-#include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image_skia.h"
-#include "ui/native_theme/native_theme.h"
-#include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/widget/widget.h"
-#include "ui/views/widget/widget_delegate.h"
 
 namespace pane {
 
@@ -116,166 +98,6 @@ const std::string& NewTabURL() {
   static const base::NoDestructor<std::string> url(
       model::TestHook("PANE_NEW_TAB_URL").value_or(model::kNewTabURL));
   return *url;
-}
-
-// The window's controls, as the Swift app's snapshot gave them: x, y, width,
-// height from the window's top left.
-base::ListValue ControlFrames(views::Widget* widget) {
-  base::ListValue frames;
-  if (!widget) {
-    return frames;
-  }
-  for (const gfx::Rect& frame : WindowControlFrames(widget)) {
-    frames.Append(base::ListValue()
-                      .Append(frame.x())
-                      .Append(frame.y())
-                      .Append(frame.width())
-                      .Append(frame.height()));
-  }
-  return frames;
-}
-
-// The window, as the Swift app's snapshot gave it: its title, whether it
-// shows, has the keys, and fills the screen, its frame ("{{x, y}, {w, h}}",
-// from the screen's top left), and its controls' frames. A closed window
-// shows nothing.
-base::DictValue WindowState(views::Widget* widget) {
-  const bool open = widget && !widget->IsClosed();
-  const gfx::Rect bounds =
-      open ? widget->GetWindowBoundsInScreen() : gfx::Rect();
-  return base::DictValue()
-      .Set("title",
-           open && widget->widget_delegate()
-               ? base::UTF16ToUTF8(widget->widget_delegate()->GetWindowTitle())
-               : std::string())
-      .Set("visible", open && widget->IsVisible())
-      .Set("key", open && widget->IsActive())
-      .Set("fullScreen", open && widget->IsFullscreen())
-      .Set("frame",
-           base::StringPrintf("{{%d, %d}, {%d, %d}}", bounds.x(), bounds.y(),
-                              bounds.width(), bounds.height()))
-      .Set("trafficLightFrames", ControlFrames(open ? widget : nullptr));
-}
-
-// The computer's WebGL strings, as a fingerprint on its platform claims them.
-base::Value HostWebGLState() {
-  const std::optional<model::Fingerprint::WebGL> webgl = HostWebGL();
-  return webgl ? base::Value(base::DictValue()
-                                 .Set("vendor", webgl->vendor)
-                                 .Set("renderer", webgl->renderer))
-               : base::Value();
-}
-
-std::string_view PageName(model::BrowserModel::Page page) {
-  switch (page) {
-    case model::BrowserModel::Page::kBrowser:
-      return "browser";
-    case model::BrowserModel::Page::kSettings:
-      return "settings";
-  }
-}
-
-std::string_view ProxyStatusName(model::BrowserModel::ProxyStatus status) {
-  switch (status) {
-    case model::BrowserModel::ProxyStatus::kTesting:
-      return "testing";
-    case model::BrowserModel::ProxyStatus::kConnected:
-      return "connected";
-    case model::BrowserModel::ProxyStatus::kFailed:
-      return "failed";
-  }
-}
-
-// How a renderer ended, as the engine's trace has always named it for the
-// scenarios (PaneRendererTermination): crashed, killed, out of memory, other.
-int TerminationOf(base::TerminationStatus status) {
-  switch (status) {
-    case base::TERMINATION_STATUS_PROCESS_CRASHED:
-    case base::TERMINATION_STATUS_ABNORMAL_TERMINATION:
-      return 0;
-    case base::TERMINATION_STATUS_PROCESS_WAS_KILLED:
-      return 1;
-    case base::TERMINATION_STATUS_OOM:
-      return 2;
-    default:
-      return 3;
-  }
-}
-
-// The icon draws something at the toolbar's 16 points: a pixel at least 30%
-// opaque, as the Swift app's snapshot tells (hasVisiblePixels).
-bool HasVisiblePixels(const gfx::Image& icon) {
-  constexpr int kSize = 16;
-  if (icon.IsEmpty()) {
-    return false;
-  }
-  const gfx::ImageSkia& image = *icon.ToImageSkia();
-  if (image.isNull() || image.width() == 0 || image.height() == 0) {
-    return false;
-  }
-  gfx::Canvas canvas(gfx::Size(kSize, kSize), /*image_scale=*/1.0f,
-                     /*is_opaque=*/false);
-  canvas.DrawImageInt(image, 0, 0, image.width(), image.height(), 0, 0, kSize,
-                      kSize, /*filter=*/true);
-  const SkBitmap bitmap = canvas.GetBitmap();
-  for (int y = 0; y < bitmap.height(); ++y) {
-    for (int x = 0; x < bitmap.width(); ++x) {
-      if (SkColorGetA(bitmap.getColor(x, y)) > 0.3 * 255) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-std::string_view DownloadStateName(
-    download::DownloadItem::DownloadState state) {
-  switch (state) {
-    case download::DownloadItem::COMPLETE:
-      return "complete";
-    case download::DownloadItem::CANCELLED:
-      return "cancelled";
-    case download::DownloadItem::INTERRUPTED:
-      return "interrupted";
-    default:
-      return "inProgress";
-  }
-}
-
-// The toolbar as it shows (the Swift's read it through accessibility): its
-// controls, whether each takes presses and what it reads as, and whether the
-// address shows the page's domain and title over its text.
-base::DictValue ToolbarState(ToolbarView& toolbar) {
-  base::DictValue controls;
-  for (const auto& [name, view] : toolbar.NamedViews()) {
-    controls.Set(
-        name,
-        base::DictValue()
-            .Set("enabled", view->GetEnabled())
-            .Set("visible", view->IsDrawn())
-            .Set("name", base::UTF16ToUTF8(
-                             view->GetViewAccessibility().GetCachedName())));
-  }
-  return base::DictValue()
-      .Set("controls", std::move(controls))
-      .Set("addressLabel", toolbar.address_field()->label_shown());
-}
-
-// The update as the pill, Settings, and the Lock show it, in the Swift app's
-// snapshot's shape.
-base::DictValue UpdateState(const Updater& updater) {
-  const std::optional<model::AvailableUpdate>& available = updater.available();
-  const std::optional<double> progress = updater.download_progress();
-  return base::DictValue()
-      .Set("status", UpdateStatusName(updater.status()))
-      .Set("available",
-           available ? base::Value(available->version) : base::Value())
-      .Set("progress", progress ? base::Value(*progress) : base::Value())
-      .Set("pill", updater.ShowsPill())
-      .Set("label", base::UTF16ToUTF8(updater.Label()))
-      // Staged beside the app, to install at quit (ADR 0092).
-      .Set("installsItself", updater.staged())
-      .Set("checked", updater.checked());
 }
 
 // The update on offer as the Lock shows it beside its status (the Swift's
@@ -365,53 +187,14 @@ SettingsUpdate SettingsUpdateOf(const Updater& updater) {
   return update;
 }
 
-// Find in page's bar as it shows, in the Swift app's snapshot's shape.
-// An action's popup as the channel reads it (the Swift's): its extension,
-// whether its page is up, and the page's size.
-base::Value ExtensionPopupState(const ActionPopup* popup) {
-  if (!popup) {
-    return base::Value();
-  }
-  const gfx::Size size = popup->page_size();
-  return base::Value(base::DictValue()
-                         .Set("extension", popup->extension_id())
-                         .Set("open", popup->shown())
-                         .Set("width", size.width())
-                         .Set("height", size.height())
-                         .Set("above", popup->above()));
-}
-
-// A prompt asking, as the Swift's channel answered a sheet: its kind, its
-// title, what it says, and its buttons, the accept first; and Report abuse,
-// ticked or not, as `view` shows it.
-base::Value PromptState(const ExtensionPrompt& prompt,
-                        const ExtensionPromptView* view) {
-  std::vector<std::u16string> lines;
-  if (!prompt.permissions_heading.empty()) {
-    lines.push_back(prompt.permissions_heading);
-  }
-  lines.insert(lines.end(), prompt.permissions.begin(),
-               prompt.permissions.end());
-  return base::Value(base::DictValue()
-                         .Set("kind", ExtensionPromptKindName(prompt.kind))
-                         .Set("tabID", base::Value())
-                         .Set("title", prompt.title)
-                         .Set("message", base::JoinString(lines, u"\n"))
-                         .Set("buttons", base::ListValue()
-                                             .Append(prompt.accept_title)
-                                             .Append(prompt.cancel_title))
-                         .Set("fields", base::ListValue())
-                         .Set("reportAbuse", view && view->report_abuse()));
-}
-
-base::DictValue FindState(RootView* root) {
-  const FindBarView::State state =
-      root ? root->find_state() : FindBarView::State();
-  return base::DictValue()
-      .Set("visible", state.visible)
-      .Set("text", state.text)
-      .Set("matches", state.matches.value_or(0))
-      .Set("activeMatch", state.active);
+// The tab strip holding `contents`, and its index there: kNoTab when no
+// Browser holds it.
+std::pair<TabStripModel*, int> StripIndexOf(content::WebContents* contents) {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+  TabStripModel* strip = browser ? browser->GetTabStripModel() : nullptr;
+  return {strip, strip ? strip->GetIndexOfWebContents(contents)
+                       : TabStripModel::kNoTab};
 }
 
 // The profile a page of the window belongs to: its folder's name.
@@ -516,17 +299,16 @@ class UiApp::Page : public content::WebContentsObserver,
     // A dead page loads nothing.
     loading_.reset();
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            [](base::WeakPtr<UiApp> app, std::string tab_id, int termination) {
-              PANE_TRACE("callback",
-                         "PaneWebContentsDelegate.rendererDidTerminate",
-                         base::DictValue().Set("termination", termination));
-              if (app) {
-                app->PageCrashed(tab_id);
-              }
-            },
-            app_->weak_factory_.GetWeakPtr(), tab_id_, TerminationOf(status)));
+        FROM_HERE, base::BindOnce(
+                       [](base::WeakPtr<UiApp> app, std::string tab_id) {
+                         PANE_TRACE(
+                             "callback",
+                             "PaneWebContentsDelegate.rendererDidTerminate");
+                         if (app) {
+                           app->PageCrashed(tab_id);
+                         }
+                       },
+                       app_->weak_factory_.GetWeakPtr(), tab_id_));
   }
 
   // Destroyed with its page, which was not closed as a tab (the window's or
@@ -565,10 +347,7 @@ class UiApp::Page : public content::WebContentsObserver,
     if (!std::exchange(discarded_, false)) {
       return;
     }
-    PANE_TRACE(
-        "call", "PaneWebContents.reloadDiscarded",
-        base::DictValue().Set(
-            "tab", sessions::SessionTabHelper::IdForTab(web_contents()).id()));
+    PANE_TRACE("call", "PaneWebContents.reloadDiscarded");
     content::NavigationController& controller = web_contents()->GetController();
     controller.SetNeedsReload();
     controller.LoadIfNecessary();
@@ -627,12 +406,13 @@ UiApp::UiApp()
       network_(data_->store().model()),
       contexts_(*data_, data_->store().model(), network_, *this),
       app_icons_(std::make_unique<AppIconImages>()),
+      // settings.json is read before the lock.
+      applied_theme_(data_->store().model().settings().theme),
       version_(base::UTF8ToUTF16(PaneVersion())) {
   // The design's colors, and the Theme the settings hold, before the window
-  // draws: settings.json is read before the lock, as the Swift's was.
+  // draws.
   AddPaneColorMixer();
-  applied_theme_ = model().settings().theme;
-  ApplyTheme(*applied_theme_);
+  ApplyTheme(applied_theme_);
   // The Dock shows the App icon from the start, and Settings' row has it to
   // show the first time.
   dock_icon_ = std::make_unique<DockIcon>(
@@ -929,7 +709,7 @@ std::string UiApp::CreateProfile(const model::ProfileDraft& draft) {
   changes.PutOrRemove(model::BrowserModel::ProfileChange::kFingerprint,
                       profile && profile->fingerprint);
   ApplyProfileChanges(id, changes);
-  ExpandProfile(id);
+  model().SetExpanded(id, /*expanded=*/true);
   return id;
 }
 
@@ -1014,7 +794,7 @@ std::string UiApp::OpenTab(const std::string& profile_id,
   if (!InteractionAllowed() || !model().FindProfile(profile_id)) {
     return std::string();
   }
-  ExpandProfile(profile_id);
+  model().SetExpanded(profile_id, /*expanded=*/true);
   const std::string tab_id = NewTabId();
   model().InsertTab(
       {.id = tab_id, .url = url ? url->possibly_invalid_spec() : NewTabURL()},
@@ -1141,7 +921,7 @@ void UiApp::OpenLaunchURLs(std::vector<GURL> urls) {
     profile_id = model().CreateProfile("Personal", model::ProfileColor::kBlue,
                                        std::nullopt);
   }
-  ExpandProfile(profile_id);
+  model().SetExpanded(profile_id, /*expanded=*/true);
   // Each loads at once, as Chrome loads every URL it is handed; then the last
   // shows.
   std::string last;
@@ -1229,6 +1009,20 @@ content::WebContents* UiApp::PageOf(const std::string& tab_id) const {
   return page == pages_.end() ? nullptr : page->second->web_contents();
 }
 
+std::optional<std::string> UiApp::ProfileInUse() const {
+  if (const std::optional<std::string>& shown = model().active_profile_id()) {
+    return shown;
+  }
+  return model().profiles().empty()
+             ? std::nullopt
+             : std::make_optional(model().profiles().front().id);
+}
+
+content::WebContents* UiApp::ActivePage() const {
+  const std::optional<std::string>& active = model().active_tab_id();
+  return active ? PageOf(*active) : nullptr;
+}
+
 Profile* UiApp::ProfileIfOpen(const std::string& profile_id) const {
   return contexts_.Get(profile_id);
 }
@@ -1273,12 +1067,8 @@ void UiApp::Release(const std::string& tab_id) {
   if (model().active_tab_id() == tab_id) {
     ShowLoadOf(tab_id);
   }
-  BrowserWindowInterface* browser =
-      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
-  TabStripModel* strip = browser ? browser->GetTabStripModel() : nullptr;
-  const int index =
-      strip ? strip->GetIndexOfWebContents(contents) : TabStripModel::kNoTab;
-  if (index != TabStripModel::kNoTab) {
+  if (const auto [strip, index] = StripIndexOf(contents);
+      index != TabStripModel::kNoTab) {
     strip->DetachAndDeleteWebContentsAt(index);
   }
 }
@@ -1316,10 +1106,6 @@ void UiApp::SelectAfterClosing(const std::optional<std::string>& profile_id) {
   model().SetActiveProfile(profile_id);
 }
 
-void UiApp::ExpandProfile(const std::string& profile_id) {
-  model().SetExpanded(profile_id, true);
-}
-
 // The sidebar header's Collapse all: every expanded profile collapses, its
 // pages unloading (the Swift's collapseAll).
 void UiApp::CollapseAll() {
@@ -1337,8 +1123,7 @@ void UiApp::Back() {
   if (!InteractionAllowed()) {
     return;
   }
-  const std::optional<std::string>& active = model().active_tab_id();
-  content::WebContents* page = active ? PageOf(*active) : nullptr;
+  content::WebContents* page = ActivePage();
   if (page && page->GetController().CanGoBack()) {
     page->GetController().GoBack();
   }
@@ -1348,8 +1133,7 @@ void UiApp::Forward() {
   if (!InteractionAllowed()) {
     return;
   }
-  const std::optional<std::string>& active = model().active_tab_id();
-  content::WebContents* page = active ? PageOf(*active) : nullptr;
+  content::WebContents* page = ActivePage();
   if (page && page->GetController().CanGoForward()) {
     page->GetController().GoForward();
   }
@@ -1379,8 +1163,7 @@ void UiApp::Stop() {
   if (!InteractionAllowed()) {
     return;
   }
-  const std::optional<std::string>& active = model().active_tab_id();
-  if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
+  if (content::WebContents* page = ActivePage()) {
     page->Stop();
   }
 }
@@ -1450,7 +1233,7 @@ void UiApp::ToggleProfile(const std::string& profile_id) {
   if (model().expanded_profile_ids().contains(profile_id)) {
     CollapseProfile(profile_id);
   } else {
-    ExpandProfile(profile_id);
+    model().SetExpanded(profile_id, /*expanded=*/true);
   }
 }
 
@@ -1485,7 +1268,7 @@ void UiApp::ShowPage(model::BrowserModel::Page page) {
   // in its place.
   if (settings) {
     root->FocusSettings();
-  } else if (page == model::BrowserModel::Page::kBrowser) {
+  } else {
     root->FocusPage();
   }
 }
@@ -1608,12 +1391,8 @@ void UiApp::CloseTab(const std::string& tab_id) {
     return;
   }
   if (content::WebContents* page = PageOf(tab_id)) {
-    BrowserWindowInterface* browser =
-        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(page);
-    TabStripModel* strip = browser ? browser->GetTabStripModel() : nullptr;
-    const int index =
-        strip ? strip->GetIndexOfWebContents(page) : TabStripModel::kNoTab;
-    if (index != TabStripModel::kNoTab) {
+    if (const auto [strip, index] = StripIndexOf(page);
+        index != TabStripModel::kNoTab) {
       // No historical tab: Pane's Reopen closed tab keeps its own list, and
       // tab restore's names every page closed (ADR 0121).
       strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE);
@@ -1890,8 +1669,7 @@ content::WebContents* UiApp::PageForDialogs() {
   if (!InteractionAllowed() || !window_->root()) {
     return nullptr;
   }
-  const std::optional<std::string>& active = model().active_tab_id();
-  content::WebContents* page = active ? PageOf(*active) : nullptr;
+  content::WebContents* page = ActivePage();
   // The page the window shows, not one still being made.
   return page && window_->selected() == page ? page : nullptr;
 }
@@ -2055,7 +1833,6 @@ RootView::Shows UiApp::Shows() {
   const std::optional<std::string>& selected = model.active_tab_id();
   shows.content = model.page() == model::BrowserModel::Page::kSettings
                       ? RootView::Content::kSettings
-                  : !browser  ? RootView::Content::kEmpty
                   : !selected ? RootView::Content::kEmpty
                   : crashed_tab_ids_.contains(*selected)
                       ? RootView::Content::kSadTab
@@ -2128,8 +1905,7 @@ void UiApp::AddressEntered(const std::u16string& text) {
   if (!url.is_valid() || !InteractionAllowed()) {
     return;
   }
-  const std::optional<std::string>& active = model().active_tab_id();
-  if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
+  if (content::WebContents* page = ActivePage()) {
     page->GetController().LoadURL(url, content::Referrer(),
                                   ui::PAGE_TRANSITION_TYPED, std::string());
     if (RootView* root = window_->root()) {
@@ -2137,7 +1913,7 @@ void UiApp::AddressEntered(const std::u16string& text) {
     }
     return;
   }
-  if (active) {
+  if (const std::optional<std::string>& active = model().active_tab_id()) {
     const std::string tab_id = *active;
     // Entered before ⌘T's page came: it is made at the address entered, and
     // shows as a tab chosen.
@@ -2148,11 +1924,8 @@ void UiApp::AddressEntered(const std::u16string& text) {
     Select(tab_id);
     return;
   }
-  if (const std::optional<std::string>& profile_id =
-          model().active_profile_id()) {
+  if (const std::optional<std::string> profile_id = ProfileInUse()) {
     OpenTab(*profile_id, url);
-  } else if (!model().profiles().empty()) {
-    OpenTab(model().profiles().front().id, url);
   }
 }
 
@@ -2172,11 +1945,7 @@ void UiApp::NewTab() {
     return;
   }
   LogInteraction(Interaction::kNewTab, window_->compositor());
-  std::optional<std::string> profile_id = model().active_profile_id();
-  if (!profile_id && !model().profiles().empty()) {
-    profile_id = model().profiles().front().id;
-  }
-  if (profile_id) {
+  if (const std::optional<std::string> profile_id = ProfileInUse()) {
     OpenTab(*profile_id, std::nullopt);
   }
 }
@@ -2336,16 +2105,11 @@ void UiApp::RunCommand(Command command) {
       return;
     // Chrome's extensions page in a tab of the profile shown, or of the
     // first one off the browser page (D3).
-    case Command::kExtensions: {
-      const std::optional<std::string>& shown = model().active_profile_id();
-      if (shown) {
-        OpenExtensionsTab(*shown, GURL(chrome::kChromeUIExtensionsURL));
-      } else if (!model().profiles().empty()) {
-        OpenExtensionsTab(model().profiles().front().id,
-                          GURL(chrome::kChromeUIExtensionsURL));
+    case Command::kExtensions:
+      if (const std::optional<std::string> profile_id = ProfileInUse()) {
+        OpenExtensionsTab(*profile_id, GURL(chrome::kChromeUIExtensionsURL));
       }
       return;
-    }
     default:
       if (const int number = TabNumberOf(command)) {
         SelectTabAt(number);
@@ -2447,8 +2211,7 @@ void UiApp::ReopenClosedTab() {
 }
 
 void UiApp::ZoomPage(Command command) {
-  const std::optional<std::string>& active = model().active_tab_id();
-  content::WebContents* page = active ? PageOf(*active) : nullptr;
+  content::WebContents* page = ActivePage();
   if (!page) {
     return;
   }
@@ -2470,9 +2233,7 @@ void UiApp::ZoomPage(Command command) {
 }
 
 void UiApp::PrintPage() {
-  const std::optional<std::string>& active = model().active_tab_id();
-  if (content::WebContents* page = active ? PageOf(*active) : nullptr) {
-    PANE_TRACE("call", "PaneWebContents.print");
+  if (content::WebContents* page = ActivePage()) {
     printing::StartPrint(page, /*print_preview_disabled=*/true,
                          /*has_selection=*/false);
   }
@@ -2607,9 +2368,8 @@ void UiApp::OnExpandedProfilesChanged() {
 }
 
 // The sleep clocks follow the selection: the tab and profile left start
-// theirs.
-// The extensions menu closes as another tab or profile shows, and the
-// toolbar shows its actions (the Swift's onChange of the selection).
+// theirs. The extensions menu closes as another tab or profile shows, and the
+// toolbar shows its actions.
 void UiApp::OnActiveTabChanged() {
   sleep_->SelectionChanged();
   window_->Refresh();
@@ -2618,10 +2378,7 @@ void UiApp::OnActiveTabChanged() {
 }
 
 void UiApp::OnActiveProfileChanged() {
-  sleep_->SelectionChanged();
-  window_->Refresh();
-  extensions_->CloseMenu();
-  extensions_->Refresh();
+  OnActiveTabChanged();
 }
 
 void UiApp::OnProxyStatusChanged() {
@@ -2658,8 +2415,6 @@ void UiApp::OnUpdaterChanged() {
   shown_progress_ = progress;
 }
 
-// MARK: The channel
-
 // MARK: Extensions (X1, X2)
 
 ExtensionsUi& UiApp::Extensions() {
@@ -2683,18 +2438,13 @@ Profile* UiApp::ShownProfile() const {
 }
 
 void UiApp::OpenExtensionTab(Profile& profile, const GURL& url) {
-  for (const model::BrowserProfile& each : model().profiles()) {
-    if (contexts_.Get(each.id) == &profile) {
-      OpenTab(each.id, url);
-      return;
-    }
+  if (const std::optional<std::string> profile_id = ProfileIdFor(profile)) {
+    OpenTab(*profile_id, url);
   }
 }
 
 void UiApp::ShowExtensionsPage(Profile& profile,
                                const std::string& extension_id) {
-  PANE_TRACE("call", "ExtensionsController.showPage",
-             base::DictValue().Set("extension", extension_id));
   const std::optional<std::string> profile_id = ProfileIdFor(profile);
   if (!profile_id) {
     return;
@@ -2779,219 +2529,6 @@ gfx::ImageSkia UiApp::AppIcon() const {
   return shown && app_icons_
              ? app_icons_->Thumbnail(*shown, AppIconImages::kRowSize)
              : gfx::ImageSkia();
-}
-
-base::DictValue UiApp::Snapshot() const {
-  const model::BrowserModel& model = this->model();
-  base::ListValue profiles;
-  for (const model::BrowserProfile& profile : model.profiles()) {
-    base::ListValue tabs;
-    for (const model::Tab& tab : profile.tabs) {
-      content::WebContents* page = PageOf(tab.id);
-      tabs.Append(
-          base::DictValue()
-              .Set("id", tab.id)
-              .Set("url", tab.url)
-              .Set("title", tab.title)
-              .Set("hasFavicon", !tab.favicon.empty())
-              .Set("loaded", page != nullptr)
-              .Set("loading", LoadingOf(tab.id).has_value())
-              .Set("canGoBack", page && page->GetController().CanGoBack())
-              .Set("canGoForward",
-                   page && page->GetController().CanGoForward()));
-    }
-    const auto status = model.proxy_status().find(profile.id);
-    const BrowserContext* context = contexts_.GetContext(profile.id);
-    profiles.Append(
-        base::DictValue()
-            .Set("id", profile.id)
-            .Set("name", profile.name)
-            .Set("color", model::ColorName(profile.color))
-            .Set("expanded", model.expanded_profile_ids().contains(profile.id))
-            .Set("proxyStatus",
-                 status == model.proxy_status().end()
-                     ? base::Value()
-                     : base::Value(ProxyStatusName(status->second)))
-            .Set("keepLoaded", profile.keep_loaded)
-            .Set("savesHistory", profile.saves_history)
-            // What the engine has of the choice, while the profile is open.
-            .Set("engineSavesHistory",
-                 context ? base::Value(context->SavesHistory()) : base::Value())
-            .Set("tabs", std::move(tabs)));
-  }
-  // Each open profile's extensions, their actions as for the profile's page
-  // the window shows (the Swift's ExtensionsController.lists), and its
-  // downloads, as the profile's download manager holds them.
-  base::DictValue extensions;
-  base::ListValue downloads;
-  content::WebContents* shown = window_->selected();
-  for (const model::BrowserProfile& profile : model.profiles()) {
-    Profile* open = contexts_.Get(profile.id);
-    if (!open) {
-      continue;
-    }
-    content::WebContents* tab =
-        shown && Profile::FromBrowserContext(shown->GetBrowserContext()) == open
-            ? shown
-            : nullptr;
-    base::ListValue installed;
-    for (const InstalledExtension& extension :
-         InstalledExtensions(open, tab, nullptr)) {
-      installed.Append(
-          base::DictValue()
-              .Set("id", extension.id)
-              .Set("name", extension.name)
-              .Set("version", extension.version)
-              .Set("enabled", extension.enabled)
-              .Set("pinned", extension.pinned)
-              .Set("actionTitle", extension.action_title)
-              .Set("iconVisible", HasVisiblePixels(extension.icon)));
-    }
-    extensions.Set(profile.id, std::move(installed));
-
-    download::SimpleDownloadManager::DownloadVector items;
-    open->GetDownloadManager()->GetAllDownloads(&items);
-    for (const download::DownloadItem* item : items) {
-      const base::FilePath& path = item->GetTargetFilePath();
-      downloads.Append(base::DictValue()
-                           .Set("id", item->GetGuid())
-                           .Set("url", item->GetURL().spec())
-                           .Set("path", path.empty()
-                                            ? base::Value()
-                                            : base::Value(path.AsUTF8Unsafe()))
-                           .Set("receivedBytes",
-                                static_cast<double>(item->GetReceivedBytes()))
-                           .Set("state", DownloadStateName(item->GetState())));
-    }
-  }
-  base::ListValue crashed;
-  for (const std::string& tab_id : crashed_tab_ids_) {
-    crashed.Append(tab_id);
-  }
-  // What keeps a tab from sleeping, as its page has it.
-  base::ListValue picture_in_picture;
-  base::ListValue devtools;
-  for (const auto& [tab_id, page] : pages_) {
-    content::WebContents* contents = page->web_contents();
-    if (contents->HasPictureInPictureVideo() ||
-        contents->HasPictureInPictureDocument()) {
-      picture_in_picture.Append(tab_id);
-    }
-    // DevTools showing for the tab, as the Swift's model had them: docked
-    // beside it once their page settled where it docks, or in their own
-    // window; not while Chrome is still making them.
-    if (DevToolsWindow* window =
-            DevToolsWindow::GetInstanceForInspectedWebContents(contents);
-        window && (!window->IsDocked() ||
-                   DevToolsWindow::GetInTabWebContents(contents, nullptr))) {
-      devtools.Append(tab_id);
-    }
-  }
-  // The tab switcher as it shows: each group's profile, name, and tabs.
-  base::DictValue switcher;
-  switcher.Set("visible", switcher_.has_value());
-  switcher.Set("selectedIndex", switcher_ ? switcher_->selected : 0);
-  base::ListValue groups;
-  if (switcher_) {
-    for (const model::SwitcherGroup& group : switcher_->groups) {
-      base::ListValue tabs;
-      for (const model::SwitcherTab& tab : group.tabs) {
-        tabs.Append(tab.id);
-      }
-      groups.Append(base::DictValue()
-                        .Set("profileID", group.id)
-                        .Set("name", group.name)
-                        .Set("tabs", std::move(tabs)));
-    }
-  }
-  switcher.Set("groups", std::move(groups));
-
-  // The address's load bar as drawn now: started, the share filled, its
-  // opacity, and whether the slow mode's shimmer runs.
-  const base::TimeTicks now = base::TimeTicks::Now();
-  base::DictValue progress_bar =
-      base::DictValue()
-          .Set("started", progress_.is_started())
-          .Set("progress", progress_.progress())
-          .Set("alpha", progress_.AlphaAt(now))
-          .Set("shimmer", progress_.ShimmerAt(now).has_value());
-
-  views::Widget* widget = window_->widget();
-  RootView* root = window_->root();
-  const std::optional<std::string>& active_tab = model.active_tab_id();
-  const std::optional<std::string>& active_profile = model.active_profile_id();
-  return base::DictValue()
-      .Set("profiles", std::move(profiles))
-      .Set("activeTabID", active_tab ? base::Value(*active_tab) : base::Value())
-      .Set("activeProfileID",
-           active_profile ? base::Value(*active_profile) : base::Value())
-      .Set("page", PageName(model.page()))
-      .Set("theme", model::ThemeName(model.settings().theme))
-      // What the window shows, its views and the menus it opens: light or
-      // dark, as the Theme has it or, under System, the Mac.
-      .Set("appearance",
-           widget && widget->GetNativeTheme()->preferred_color_scheme() ==
-                         ui::NativeTheme::PreferredColorScheme::kDark
-               ? "dark"
-               : "light")
-      .Set("appIcon", model::AppIconName(model.settings().app_icon))
-      .Set("dockIcon", dock_icon_ && dock_icon_->shown()
-                           ? model::AppIconName(*dock_icon_->shown())
-                           : std::string_view())
-      .Set("appIconPicker", app_icon_picker_)
-      // The profile sheet: "new", or the edited profile's id.
-      .Set("profileSheet",
-           profile_sheet_ ? base::Value(*profile_sheet_) : base::Value())
-      // The Mac's WebGL strings, from Chrome's GPU info.
-      .Set("hostWebGL", HostWebGLState())
-      .Set("quitConfirmation", quit_confirming_)
-      .Set("sidebarWidth", sidebar_width_)
-      .Set("pendingProfileDeletions", static_cast<int>(deleting_.size()))
-      // An extension's prompt asking, over a page's dialog, else a page's
-      // dialog showing, and how many wait their turn.
-      .Set("sheet", extensions_->prompt()
-                        ? PromptState(*extensions_->prompt(),
-                                      root ? root->extension_prompt() : nullptr)
-                        : dialogs_->Shown())
-      .Set("pendingRequests", dialogs_->waiting())
-      .Set("closedTabs", static_cast<int>(model.history().closed().size()))
-      .Set("extensions", std::move(extensions))
-      // The toolbar's extensions menu, the extension whose more menu shows,
-      // and an action's popup while it shows or loads, its page's size.
-      .Set("extensionsMenu", extensions_->menu_open())
-      .Set("extensionMoreMenu", extensions_->more_menu()
-                                    ? base::Value(*extensions_->more_menu())
-                                    : base::Value())
-      .Set("extensionPopup", ExtensionPopupState(extensions_->popup()))
-      .Set("downloads", std::move(downloads))
-      .Set("crashedTabs", std::move(crashed))
-      .Set("pictureInPictureTabs", std::move(picture_in_picture))
-      .Set("devToolsTabs", std::move(devtools))
-      .Set("switcher", std::move(switcher))
-      // Find in page's bar, the page shown's (the Swift's WindowState.find).
-      .Set("find", FindState(root))
-      // The page's menu shown last, while it may be chosen in; none of its
-      // items while it comes or goes, nothing once it has gone; and how
-      // many have shown.
-      .Set("contextMenu",
-           context_menus_->model()  ? base::Value(PageContextMenus::Describe(
-                                          *context_menus_->model()))
-           : context_menus_->held() ? base::Value(base::ListValue())
-                                    : base::Value())
-      .Set("contextMenusShown", context_menus_->shown())
-      // What the full screen's hint says, while it does.
-      .Set("exclusiveAccessHint",
-           root && !root->exclusive_access_hint().empty()
-               ? base::Value(root->exclusive_access_hint())
-               : base::Value())
-      .Set("address", root ? root->address() : std::u16string())
-      .Set("progressBar", std::move(progress_bar))
-      .Set("update", UpdateState(*updater_))
-      .Set("toolbar", root ? ToolbarState(*root->toolbar()) : base::DictValue())
-      .Set("focus", root ? root->focus() : std::string("none"))
-      .Set("pageFullscreen", window_->page_fullscreen())
-      .Set("window", WindowState(widget))
-      .Set("security", data_->State());
 }
 
 }  // namespace pane

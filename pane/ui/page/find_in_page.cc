@@ -21,7 +21,6 @@ DEFINE_USER_DATA(FindInPage);
 FindInPage::FindInPage(base::WeakPtr<Host> host,
                        BrowserWindowInterface& browser)
     : host_(std::move(host)),
-      browser_(browser),
       scoped_data_holder_(browser.GetUnownedUserDataHost(), *this) {}
 
 FindInPage::~FindInPage() = default;

@@ -6,7 +6,7 @@
 
 > **On the Views line** (`docs/plans/views-migration.md`, H4): a hover the channel posts over the page goes to the page's view, and one at the window's edge to its frame, not to Views, so a rig leaves the pointer over a part of Pane's own (the sidebar's empty list). The toolbar's controls and the update pill's are named in `frames`, and `state.toolbar` reads each control's state, where accessibility read them.
 
-> **On the Views line** (`docs/plans/views-migration.md`, H5): `switcher`, `reloadCrashed`, `setSleepSettings`, `readCacheSize`, and `readCookies` come over; `menu` answers whether an item ran; `frames` names the switcher's rows (`pane.switcher.tab.<id>`) and the sad tab's Reload; `state.switcher` lists the switcher's groups and selection.
+> **On the Views line** (`docs/plans/views-migration.md`, H5): `switcher`, `setSleepSettings`, `readCacheSize`, and `readCookies` come over; `menu` answers whether an item ran; `frames` names the switcher's rows (`pane.switcher.tab.<id>`) and the sad tab's Reload; `state.switcher` lists the switcher's groups and selection.
 
 > **On the Views line** (`docs/plans/views-migration.md`, H7): `menu` chooses an item through the real menu bar (the NSMenu brought up to date, then `performActionForItemAtIndex:`, as a click), `menuBar` reads every item's title, key, and state, and `dispatchKey` takes a half of a key (`phase`) and the modifiers as keys, so Ctrl's release reaches Views in the background.
 

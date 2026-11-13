@@ -109,13 +109,6 @@ void JavaScriptDialogs::RunJavaScriptDialog(
             const bool accepted = button == 0;
             const std::u16string text =
                 accepted ? TextOf(texts, given) : std::u16string();
-            if (accepted) {
-              TraceDialog(
-                  "call", "PaneJavaScriptDialog.accept", nullptr,
-                  base::DictValue().Set("text", base::UTF16ToUTF8(text)));
-            } else {
-              TraceDialog("call", "PaneJavaScriptDialog.cancel", nullptr);
-            }
             std::move(callback).Run(accepted, text);
           },
           std::move(callback),
@@ -142,10 +135,6 @@ void JavaScriptDialogs::RunBeforeUnloadDialog(
       base::BindOnce(
           [](DialogClosedCallback callback, std::optional<size_t> button,
              const std::vector<std::u16string>& texts) {
-            TraceDialog("call",
-                        button == 0 ? "PaneJavaScriptDialog.accept"
-                                    : "PaneJavaScriptDialog.cancel",
-                        nullptr);
             std::move(callback).Run(button == 0, std::u16string());
           },
           std::move(callback)));
@@ -196,10 +185,6 @@ void JavaScriptDialogs::RunFormResubmissionDialog(
           [](base::WeakPtr<content::WebContents> contents,
              std::optional<size_t> button,
              const std::vector<std::u16string>& texts) {
-            TraceDialog("call",
-                        button == 0 ? "PaneJavaScriptDialog.accept"
-                                    : "PaneJavaScriptDialog.cancel",
-                        nullptr);
             if (!contents) {
               return;
             }

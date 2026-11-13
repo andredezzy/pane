@@ -172,7 +172,6 @@ class HostedBrowserWindow : public BrowserWindow,
 
   static HostedBrowserWindow* FromWindow(const BrowserWindow* window);
   void Register(const BrowserWindowInterface* browser);
-  static bool IsOurs(const BrowserWindowInterface* browser);
   static WindowHost* HostOf(const BrowserWindowInterface* browser);
   static void Forget(const BrowserWindowInterface* browser);
 

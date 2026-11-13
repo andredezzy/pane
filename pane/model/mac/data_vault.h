@@ -260,9 +260,8 @@ class DataVault {
   // How far the move or the conversion the panel shows is, 0 to 1, while
   // moving.
   std::optional<double> share() const;
-  const DataVolume& volume() const { return volume_; }
   VolumeTools& tools() const { return *tools_; }
-  bool is_attached() const { return attached_; }
+  bool is_attached() const { return attached_at_.has_value(); }
   // Why the volume would not attach, for the security scenario: a tool's
   // output can name the image's path, so it is no log line.
   const std::optional<std::string>& failure() const { return failure_; }
@@ -413,7 +412,7 @@ class DataVault {
   double share_ = 0;
   std::optional<Key> data_key_;
   std::optional<std::string> failure_;
-  bool attached_ = false;
+  // Set while the volume is attached.
   std::optional<AttachTimes> attached_at_;
   std::vector<base::OnceCallback<void(bool)>> attach_waiters_;
 

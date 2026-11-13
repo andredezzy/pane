@@ -8,12 +8,10 @@
 #include <limits>
 #include <utility>
 
-#include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "pane/model/host_platform.h"
-#include "pane/model/value_reader.h"
 
 namespace pane::model {
 
@@ -37,24 +35,6 @@ base::ListValue BrandsToValue(const std::vector<UABrand>& brands) {
   return list;
 }
 
-std::optional<std::vector<UABrand>> BrandsFromValue(const base::Value* value) {
-  const base::ListValue* list = value ? value->GetIfList() : nullptr;
-  if (!list) {
-    return std::nullopt;
-  }
-  std::vector<UABrand> brands;
-  for (const base::Value& item : *list) {
-    ValueReader reader(&item);
-    UABrand brand{.brand = reader.String("brand"),
-                  .version = reader.String("version")};
-    if (!reader.ok()) {
-      return std::nullopt;
-    }
-    brands.push_back(std::move(brand));
-  }
-  return brands;
-}
-
 base::Value MetadataToValue(const UserAgentMetadata& metadata) {
   return base::Value(
       base::DictValue()
@@ -71,53 +51,11 @@ base::Value MetadataToValue(const UserAgentMetadata& metadata) {
           .Set("formFactors", StringsToValue(metadata.form_factors)));
 }
 
-std::optional<UserAgentMetadata> MetadataFromValue(const base::Value* value) {
-  ValueReader reader(value);
-  UserAgentMetadata metadata{
-      .brands = reader.Take(BrandsFromValue(reader.Required("brands"))),
-      .full_version_list =
-          reader.Take(BrandsFromValue(reader.Required("fullVersionList"))),
-      .full_version = reader.String("fullVersion"),
-      .platform = reader.String("platform"),
-      .platform_version = reader.String("platformVersion"),
-      .architecture = reader.String("architecture"),
-      .bitness = reader.String("bitness"),
-      .model = reader.String("model"),
-      .mobile = reader.Bool("mobile"),
-      .wow64 = reader.Bool("wow64"),
-      .form_factors = reader.Strings("formFactors")};
-  return reader.ok() ? std::make_optional(std::move(metadata)) : std::nullopt;
-}
-
-std::optional<EngineFingerprint::Screen> ScreenFromValue(
-    const base::Value* value) {
-  ValueReader reader(value);
-  const EngineFingerprint::Screen screen{
-      .width = reader.Int("width"),
-      .height = reader.Int("height"),
-      .avail_width = reader.Int("availWidth"),
-      .avail_height = reader.Int("availHeight"),
-      .avail_left = reader.Int("availLeft"),
-      .avail_top = reader.Int("availTop"),
-      .color_depth = reader.Int("colorDepth")};
-  return reader.ok() ? std::make_optional(screen) : std::nullopt;
-}
-
 // A seed past int's range is written as a double.
 base::Value SeedToValue(uint32_t seed) {
   return seed <= static_cast<uint32_t>(std::numeric_limits<int>::max())
              ? base::Value(static_cast<int>(seed))
              : base::Value(static_cast<double>(seed));
-}
-
-std::optional<uint32_t> SeedFromValue(const base::Value* value) {
-  const std::optional<double> seed =
-      value ? value->GetIfDouble() : std::nullopt;
-  if (!seed || *seed < 0 || *seed > std::numeric_limits<uint32_t>::max() ||
-      std::trunc(*seed) != *seed) {
-    return std::nullopt;
-  }
-  return static_cast<uint32_t>(*seed);
 }
 
 base::Value RendererToValue(const EngineFingerprint::Renderer& renderer) {
@@ -153,27 +91,6 @@ base::Value RendererToValue(const EngineFingerprint::Renderer& renderer) {
     dict.Set("timezone", *renderer.timezone);
   }
   return base::Value(std::move(dict));
-}
-
-std::optional<EngineFingerprint::Renderer> RendererFromValue(
-    const base::Value* value) {
-  ValueReader reader(value);
-  EngineFingerprint::Renderer renderer{
-      .platform = reader.String("platform"),
-      .hardware_concurrency = reader.Int("hardwareConcurrency"),
-      .device_memory = reader.Double("deviceMemory"),
-      .max_touch_points = reader.Int("maxTouchPoints"),
-      .screen = reader.Take(ScreenFromValue(reader.Required("screen"))),
-      .device_pixel_ratio = reader.Double("devicePixelRatio"),
-      .webgl_vendor = reader.OptionalString("webglVendor"),
-      .webgl_renderer = reader.OptionalString("webglRenderer"),
-      .canvas_noise = reader.Bool("canvasNoise"),
-      .audio_noise = reader.Bool("audioNoise"),
-      .noise_seed = reader.Take(SeedFromValue(reader.Required("noiseSeed"))),
-      .timezone = reader.OptionalString("timezone"),
-      .locale = reader.String("locale"),
-      .hide_speech_voices = reader.Bool("hideSpeechVoices")};
-  return reader.ok() ? std::make_optional(std::move(renderer)) : std::nullopt;
 }
 
 }  // namespace
@@ -227,21 +144,6 @@ EngineFingerprint EngineFingerprint::For(const Fingerprint& fingerprint,
       // The computer's own voices would contradict another platform's.
       .hide_speech_voices = fingerprint.platform != HostPlatform()};
   return engine;
-}
-
-// static
-std::optional<EngineFingerprint> EngineFingerprint::FromJson(
-    std::string_view json) {
-  const std::optional<base::Value> value =
-      base::JSONReader::Read(json, base::JSON_PARSE_RFC);
-  ValueReader reader(value ? &*value : nullptr);
-  EngineFingerprint engine;
-  engine.user_agent = reader.String("userAgent");
-  engine.user_agent_metadata =
-      reader.Take(MetadataFromValue(reader.Required("userAgentMetadata")));
-  engine.languages = reader.Strings("languages");
-  engine.renderer = reader.Take(RendererFromValue(reader.Required("renderer")));
-  return reader.ok() ? std::make_optional(std::move(engine)) : std::nullopt;
 }
 
 std::string EngineFingerprint::ToJson() const {

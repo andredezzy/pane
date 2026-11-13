@@ -68,8 +68,8 @@ class ExtensionsUi {
     // Whether the user may act (the app's InteractionAllowed).
     virtual bool ExtensionsAllowed() const = 0;
     // The profile the window shows, open in the engine: its toolbar shows
-    // its extensions. None off the browser page (Settings, the Extensions
-    // page), where the toolbar goes.
+    // its extensions. None off the browser page (Settings), where the toolbar
+    // goes.
     virtual Profile* ShownProfile() const = 0;
     // A new tab of `profile`'s, selected, at `url`: Visit Chrome Web Store,
     // an extension's Web Store page, its options.
@@ -101,8 +101,6 @@ class ExtensionsUi {
   bool menu_open() const { return menu_open_; }
   const std::optional<std::string>& more_menu() const { return more_menu_; }
   ActionPopup* popup() const { return popup_.get(); }
-  // The shown profile's extensions, as the toolbar and the menu show them.
-  const std::vector<InstalledExtension>& shown() const { return shown_; }
 
   // The toolbar's presses: the puzzle; a pinned action, which runs it, or
   // closes its popup; and a pinned action's right-click at `point` (in the
@@ -123,7 +121,6 @@ class ExtensionsUi {
   // or Unpin, Manage Extension, and Options.
   void PressStorePage(const std::string& extension_id);
   void PressRemove(const std::string& extension_id);
-  void PressMorePin(const std::string& extension_id);
   void PressManageExtension(const std::string& extension_id);
   void PressOptions(const std::string& extension_id);
   // The menu closes, and the more menu with it: a click outside, another

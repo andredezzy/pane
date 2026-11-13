@@ -46,7 +46,7 @@ constexpr int kSpacing = 28;
 constexpr int kMaxWidth = 640;
 constexpr TextStyle kPageTitle{22, weight::kMedium, 28};
 // A section's label, 13 on an 18-point line, 15 in, 10 over its card.
-constexpr TextStyle kGroupLabel{13, weight::kRegular, 18};
+constexpr TextStyle kGroupLabel = text::kSectionTitle;
 constexpr int kGroupLabelInset = 15;
 constexpr int kGroupLabelSpacing = 10;
 // A card: rounded 22, its rows inside its 1-point border.

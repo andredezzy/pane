@@ -96,14 +96,6 @@ FadingScrollView::FadingScrollView(ui::ColorVariant behind,
 
 FadingScrollView::~FadingScrollView() = default;
 
-int FadingScrollView::top_fade() const {
-  return top_ ? top_->height() : 0;
-}
-
-int FadingScrollView::bottom_fade() const {
-  return bottom_ ? bottom_->height() : 0;
-}
-
 void FadingScrollView::Layout(PassKey) {
   scroll_view_->SetBoundsRect(GetLocalBounds());
   // The list's contents can be set or swapped after: follow the one there.

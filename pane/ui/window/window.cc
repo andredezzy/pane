@@ -103,16 +103,7 @@ Window::~Window() {
   page_observation_.Reset();
   // A widget still there, not yet going: the host closes it.
   if (views::Widget* widget = root_ ? this->widget() : nullptr) {
-    widget->RemoveObserver(this);
-    if (views::FocusManager* focus = widget->GetFocusManager()) {
-      focus->UnregisterAccelerators(this);
-    }
-    if (switcher_keys_) {
-      widget->GetRootView()->RemovePreTargetHandler(switcher_keys_.get());
-    }
-    if (extension_keys_) {
-      widget->GetRootView()->RemovePreTargetHandler(extension_keys_.get());
-    }
+    DetachFrom(widget);
   }
   root_ = nullptr;
   host_.reset();
@@ -124,101 +115,61 @@ void Window::Open() {
   }
   // The controller outlives the window.
   Controller* controller = controller_.get();
+  const auto bind = [controller](auto method) {
+    return base::BindRepeating(method, base::Unretained(controller));
+  };
   RootView::Callbacks callbacks;
   SidebarView::Callbacks& sidebar = callbacks.sidebar;
-  sidebar.toggle_profile = base::BindRepeating(&Controller::ToggleProfile,
-                                               base::Unretained(controller));
-  sidebar.select_tab =
-      base::BindRepeating(&Controller::Select, base::Unretained(controller));
-  sidebar.close_tab =
-      base::BindRepeating(&Controller::CloseTab, base::Unretained(controller));
-  sidebar.new_tab =
-      base::BindRepeating(&Controller::NewTabIn, base::Unretained(controller));
-  sidebar.edit_profile = base::BindRepeating(&Controller::EditProfile,
-                                             base::Unretained(controller));
-  sidebar.set_keep_loaded = base::BindRepeating(&Controller::SetKeepLoaded,
-                                                base::Unretained(controller));
-  sidebar.delete_profile = base::BindRepeating(&Controller::DeleteProfile,
-                                               base::Unretained(controller));
-  sidebar.collapse_all = base::BindRepeating(&Controller::CollapseAll,
-                                             base::Unretained(controller));
-  sidebar.new_profile = base::BindRepeating(&Controller::NewProfile,
-                                            base::Unretained(controller));
-  sidebar.toggle_settings = base::BindRepeating(&Controller::ToggleSettings,
-                                                base::Unretained(controller));
-  sidebar.update = base::BindRepeating(&Controller::DownloadUpdate,
-                                       base::Unretained(controller));
-  sidebar.dismiss_update = base::BindRepeating(&Controller::DismissUpdate,
-                                               base::Unretained(controller));
-  sidebar.move_profile = base::BindRepeating(&Controller::MoveProfile,
-                                             base::Unretained(controller));
-  sidebar.move_tab =
-      base::BindRepeating(&Controller::MoveTab, base::Unretained(controller));
-  callbacks.resize.resize = base::BindRepeating(&Controller::ResizeSidebar,
-                                                base::Unretained(controller));
-  callbacks.resize.end = base::BindRepeating(&Controller::EndSidebarResize,
-                                             base::Unretained(controller));
-  callbacks.resize.reset = base::BindRepeating(&Controller::ResetSidebarWidth,
-                                               base::Unretained(controller));
+  sidebar.toggle_profile = bind(&Controller::ToggleProfile);
+  sidebar.select_tab = bind(&Controller::Select);
+  sidebar.close_tab = bind(&Controller::CloseTab);
+  sidebar.new_tab = bind(&Controller::NewTabIn);
+  sidebar.edit_profile = bind(&Controller::EditProfile);
+  sidebar.set_keep_loaded = bind(&Controller::SetKeepLoaded);
+  sidebar.delete_profile = bind(&Controller::DeleteProfile);
+  sidebar.collapse_all = bind(&Controller::CollapseAll);
+  sidebar.new_profile = bind(&Controller::NewProfile);
+  sidebar.toggle_settings = bind(&Controller::ToggleSettings);
+  sidebar.update = bind(&Controller::DownloadUpdate);
+  sidebar.dismiss_update = bind(&Controller::DismissUpdate);
+  sidebar.move_profile = bind(&Controller::MoveProfile);
+  sidebar.move_tab = bind(&Controller::MoveTab);
+  callbacks.resize.resize = bind(&Controller::ResizeSidebar);
+  callbacks.resize.end = bind(&Controller::EndSidebarResize);
+  callbacks.resize.reset = bind(&Controller::ResetSidebarWidth);
   ToolbarView::Callbacks& toolbar = callbacks.toolbar;
-  toolbar.back =
-      base::BindRepeating(&Controller::Back, base::Unretained(controller));
-  toolbar.forward =
-      base::BindRepeating(&Controller::Forward, base::Unretained(controller));
-  toolbar.reload =
-      base::BindRepeating(&Controller::Reload, base::Unretained(controller));
-  toolbar.stop =
-      base::BindRepeating(&Controller::Stop, base::Unretained(controller));
-  toolbar.address_entered = base::BindRepeating(&Controller::AddressEntered,
-                                                base::Unretained(controller));
-  toolbar.address_left = base::BindRepeating(&Controller::AddressLeft,
-                                             base::Unretained(controller));
+  toolbar.back = bind(&Controller::Back);
+  toolbar.forward = bind(&Controller::Forward);
+  toolbar.reload = bind(&Controller::Reload);
+  toolbar.stop = bind(&Controller::Stop);
+  toolbar.address_entered = bind(&Controller::AddressEntered);
+  toolbar.address_left = bind(&Controller::AddressLeft);
   // The sad tab's Reload is the toolbar's, which makes a crashed tab's page
   // again.
-  callbacks.reload_crashed =
-      base::BindRepeating(&Controller::Reload, base::Unretained(controller));
+  callbacks.reload_crashed = bind(&Controller::Reload);
   SettingsView::Callbacks& settings = callbacks.settings;
-  settings.change = base::BindRepeating(&Controller::EditSettings,
-                                        base::Unretained(controller));
-  settings.choose_app_icon = base::BindRepeating(&Controller::OpenAppIconPicker,
-                                                 base::Unretained(controller));
-  settings.pin = base::BindRepeating(&Controller::ShowPinScreen,
-                                     base::Unretained(controller));
-  settings.check_updates = base::BindRepeating(&Controller::CheckForUpdates,
-                                               base::Unretained(controller));
-  settings.download_update = base::BindRepeating(&Controller::DownloadUpdate,
-                                                 base::Unretained(controller));
-  callbacks.choose_app_icon = base::BindRepeating(&Controller::ChooseAppIcon,
-                                                  base::Unretained(controller));
-  callbacks.close_app_icon_picker = base::BindRepeating(
-      &Controller::CloseAppIconPicker, base::Unretained(controller));
-  callbacks.cancel_quit = base::BindRepeating(&Controller::CancelQuit,
-                                              base::Unretained(controller));
-  callbacks.quit =
-      base::BindRepeating(&Controller::QuitNow, base::Unretained(controller));
-  callbacks.find_bar.find =
-      base::BindRepeating(&Controller::Find, base::Unretained(controller));
-  callbacks.find_bar.step =
-      base::BindRepeating(&Controller::FindStep, base::Unretained(controller));
-  callbacks.find_bar.close =
-      base::BindRepeating(&Controller::CloseFind, base::Unretained(controller));
+  settings.change = bind(&Controller::EditSettings);
+  settings.choose_app_icon = bind(&Controller::OpenAppIconPicker);
+  settings.pin = bind(&Controller::ShowPinScreen);
+  settings.check_updates = bind(&Controller::CheckForUpdates);
+  settings.download_update = bind(&Controller::DownloadUpdate);
+  callbacks.choose_app_icon = bind(&Controller::ChooseAppIcon);
+  callbacks.close_app_icon_picker = bind(&Controller::CloseAppIconPicker);
+  callbacks.cancel_quit = bind(&Controller::CancelQuit);
+  callbacks.quit = bind(&Controller::QuitNow);
+  callbacks.find_bar.find = bind(&Controller::Find);
+  callbacks.find_bar.step = bind(&Controller::FindStep);
+  callbacks.find_bar.close = bind(&Controller::CloseFind);
   callbacks.extensions = &controller->Extensions();
-  callbacks.profile_sheet.save = base::BindRepeating(
-      &Controller::SaveProfileSheet, base::Unretained(controller));
-  callbacks.profile_sheet.close = base::BindRepeating(
-      &Controller::CloseProfileSheet, base::Unretained(controller));
+  callbacks.profile_sheet.save = bind(&Controller::SaveProfileSheet);
+  callbacks.profile_sheet.close = bind(&Controller::CloseProfileSheet);
   LockScreenView::Callbacks& lock = callbacks.lock;
-  lock.digit =
-      base::BindRepeating(&Controller::PinDigit, base::Unretained(controller));
-  lock.backspace = base::BindRepeating(&Controller::PinBackspace,
-                                       base::Unretained(controller));
-  lock.continue_with_pin = base::BindRepeating(&Controller::ContinueWithPin,
-                                               base::Unretained(controller));
-  lock.back = base::BindRepeating(&Controller::DismissPinScreen,
-                                  base::Unretained(controller));
+  lock.digit = bind(&Controller::PinDigit);
+  lock.backspace = bind(&Controller::PinBackspace);
+  lock.continue_with_pin = bind(&Controller::ContinueWithPin);
+  lock.back = bind(&Controller::DismissPinScreen);
   // Download, then Quit and install, as the pill's click.
-  lock.update = base::BindRepeating(&Controller::DownloadUpdate,
-                                    base::Unretained(controller));
+  lock.update = bind(&Controller::DownloadUpdate);
   auto root = std::make_unique<RootView>(std::move(callbacks),
                                          &controller->LoadProgress(),
                                          &controller->AppIcons());
@@ -573,6 +524,14 @@ void Window::OnViewBoundsChanged(views::View* observed_view) {
 }
 
 void Window::OnWidgetDestroying(views::Widget* widget) {
+  DetachFrom(widget);
+  // Its views go with it.
+  root_ = nullptr;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&Window::Closed, weak_factory_.GetWeakPtr()));
+}
+
+void Window::DetachFrom(views::Widget* widget) {
   page_observation_.Reset();
   widget->RemoveObserver(this);
   if (views::FocusManager* focus = widget->GetFocusManager()) {
@@ -586,10 +545,6 @@ void Window::OnWidgetDestroying(views::Widget* widget) {
     widget->GetRootView()->RemovePreTargetHandler(extension_keys_.get());
     extension_keys_.reset();
   }
-  // Its views go with it.
-  root_ = nullptr;
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&Window::Closed, weak_factory_.GetWeakPtr()));
 }
 
 void Window::Closed() {

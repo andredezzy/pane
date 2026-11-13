@@ -972,7 +972,6 @@ void DataVault::DidFinish(bool moved,
     return;
   }
 
-  attached_ = true;
   attached_at_ = *result;
   if (moved) {
     BecomeOpen();
@@ -1017,7 +1016,7 @@ void DataVault::SetPhase(Phase phase, double share) {
 
 void DataVault::WhenAttached(base::OnceCallback<void(bool)> body) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (attached_) {
+  if (attached_at_) {
     std::move(body).Run(true);
   } else if (failure_) {
     std::move(body).Run(false);
@@ -1257,7 +1256,6 @@ base::OnceCallback<void(bool every_closed)> DataVault::Lock() {
 
   data_key_.reset();
   failure_.reset();
-  attached_ = false;
   attached_at_.reset();
   SetPhase(Phase::kClosed, 0);
 

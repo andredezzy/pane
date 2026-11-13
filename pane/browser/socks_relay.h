@@ -7,7 +7,6 @@
 #include <optional>
 
 #include "base/functional/callback.h"
-#include "base/memory/weak_ptr.h"
 #include "base/threading/sequence_bound.h"
 #include "pane/model/profile.h"
 
@@ -41,7 +40,6 @@ class SocksRelay {
 
   const model::ProxyConfig upstream_;
   base::SequenceBound<Core> core_;
-  base::WeakPtrFactory<SocksRelay> weak_factory_{this};
 };
 
 }  // namespace pane

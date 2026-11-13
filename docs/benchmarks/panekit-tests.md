@@ -6,7 +6,7 @@ PaneKit, the Swift app's package for its model, rules, and data, held 287 tests 
 - **twin, but:** as a twin, with a part the note names that the Views build no longer has, and why.
 - **none:** no `pane_unittests` case can prove it, since the code it tested is gone from Pane's C++: the note says what replaced it and what checks it.
 
-In all: 260 twins, 6 twins but for a part, and 21 with none, of 287. KeyRouting's overlays, which no scenario stacked at the cutover, are pressed as the app stacks them since K2a (`views-extensions`, `views-dialogs`, `views-lock`). Six cases were added or widened at the cutover where a twin had left an input or an expectation out: `FillsDefaults`, `PurgesDeletions` (new), `HostGPUClaim`, `SwiftVectorsTest.Vectors` and `CppWrites`, and `NewTabKey` (new).
+In all: 257 twins, 6 twins but for a part, and 24 with none, of 287 (three twins went with what they tested after the cutover: below). KeyRouting's overlays, which no scenario stacked at the cutover, are pressed as the app stacks them since K2a (`views-extensions`, `views-dialogs`, `views-lock`). Six cases were added or widened at the cutover where a twin had left an input or an expectation out: `FillsDefaults`, `PurgesDeletions` (new), `HostGPUClaim`, `SwiftVectorsTest.Vectors` and `CppWrites`, and `NewTabKey` (new).
 
 ## AddressInputTests.swift
 
@@ -62,7 +62,7 @@ In all: 260 twins, 6 twins but for a part, and 21 with none, of 287. KeyRouting'
 | `noiseSeed`: the noise seed is the Electron app's hash of the profile ID | `pane/model/client_hints_unittest.cc` EngineFingerprintTest.NoiseSeed | twin | same five profile ids and seeds |
 | `platformDerived`: pixel ratio and voices follow the claimed platform, on a Mac host | `pane/model/client_hints_unittest.cc` EngineFingerprintTest.PlatformDerived | twin | same DPR 1 and 2 and "MacIntel"; voices checked as platform != HostPlatform() over Windows, macOS and Linux, which on the Mac (kMacOS) is the Swift's (Windows hides, macOS shows) plus Linux hides |
 | `languagesAndTimezone`: languages fall back to the language, and an empty timezone to none | `pane/model/client_hints_unittest.cc` EngineFingerprintTest.LanguagesAndTimezone | twin | same: languages ["pt-BR"], locale pt-BR, no timezone, "Linux x86_64" |
-| `json`: the JSON is stable and decodes back | `pane/model/client_hints_unittest.cc` EngineFingerprintTest.Json | twin | same: stable ToJson, same prefix, FromJson(text) == engine (the Swift JSONDecoder round trip) |
+| `json`: the JSON is stable and decodes back | `pane/model/client_hints_unittest.cc` EngineFingerprintTest.Json | twin, but | the JSON is checked byte for byte; `FromJson`, which only that test read, went after the cutover (nothing decodes it but the renderer's own reader) |
 
 ## CrashLoopTests.swift
 
@@ -348,7 +348,7 @@ In all: 260 twins, 6 twins but for a part, and 21 with none, of 287. KeyRouting'
 | Swift test | `pane_unittests` | | Note |
 |---|---|---|---|
 | `vectors`: the files and keys the Swift writes | `pane/model/data_key_unittest.cc` SwiftVectorsTest.Vectors; `pane/model/data_key_unittest.cc` SwiftVectorsTest.SavedAsSwiftSavesThem | twin | the whole profiles literal (SwiftProfiles()), every field, compared at the cutover |
-| `cppWrites`: the files the C++ port writes | `pane/model/data_key_unittest.cc` SwiftVectorsTest.CppWrites | twin, but | C++ reads test_data/cpp with the Swift test's expectations (every profile field, the settings, the PIN's length and attempts, the key opening); the published Swift Pane reading what the Views build wrote is `files-migration`'s swap pass, against 0.19.1 (ADR 0122) |
+| `cppWrites`: the files the C++ port writes | none | none | PaneKit read back what the C++ wrote; with PaneKit gone, nothing reads `test_data/cpp`, and `CppWrites` went with its fixtures after the cutover: the Swift-written files the C++ reads stay (`SwiftVectorsTest`) |
 
 ## TabSwitcherTests.swift
 
@@ -363,8 +363,8 @@ In all: 260 twins, 6 twins but for a part, and 21 with none, of 287. KeyRouting'
 | `previousGone`: falls back to the second item when the previous tab is gone | `pane/model/tab_switcher_unittest.cc` InitialSelectedIndexTest.PreviousGone | twin | same: previous "missing" gives 1 |
 | `singleTab`: falls back to 0 when only one tab is present | `pane/model/tab_switcher_unittest.cc` InitialSelectedIndexTest.SingleTab | twin | same: one tab "only", no previous, gives 0 |
 | `emptyList`: returns 0 for an empty list | `pane/model/tab_switcher_unittest.cc` InitialSelectedIndexTest.EmptyList | twin | same: empty list gives 0 |
-| `runningOffsets`: returns the running tab-count offset for each group | `pane/model/tab_switcher_unittest.cc` GroupOffsetsTest.RunningOffsets | twin | same: mru ["w1","w2","p1"]; tab counts [2, 1] as two size checks, offsets [0, 2] (which also fixes two groups) |
-| `noGroups`: returns an empty array for no groups | `pane/model/tab_switcher_unittest.cc` GroupOffsetsTest.NoGroups | twin | same: no groups gives no offsets |
+| `runningOffsets`: returns the running tab-count offset for each group | none | none | `SwitcherGroupOffsets` had no caller once the switcher drew its own groups, and went with its two tests after the cutover |
+| `noGroups`: returns an empty array for no groups | none | none | as `runningOffsets` |
 | `advances`: advances within range | `pane/model/tab_switcher_unittest.cc` CycleTest.Advances | twin | same: cycle(0, 1, 3) == 1 |
 | `wrapsForward`: wraps forward past the last index | `pane/model/tab_switcher_unittest.cc` CycleTest.WrapsForward | twin | same: cycle(2, 1, 3) == 0 |
 | `wrapsBackward`: wraps backward past the first index | `pane/model/tab_switcher_unittest.cc` CycleTest.WrapsBackward | twin | same: cycle(0, -1, 3) == 2 |

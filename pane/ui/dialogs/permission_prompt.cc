@@ -74,7 +74,6 @@ std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
   if (delegate->ShouldDropCurrentRequestIfCannotShowQuietly() || !dialogs) {
     return nullptr;
   }
-  base::ListValue traced;
   PageDialogContent content;
   const GURL origin = delegate->GetRequestingOrigin();
   content.title = base::StrCat({HostOf(origin), u" wants to"});
@@ -82,14 +81,8 @@ std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
     const std::string_view key =
         permissions::PermissionKeyForRequestType(request->request_type());
     content.message.push_back(Describe(key));
-    traced.Append(key);
   }
   content.buttons = {u"Allow", u"Allow This Time", u"Don’t Allow"};
-  TraceDialog("callback", "PaneWebContentsDelegate.requestPermission",
-              web_contents,
-              base::DictValue()
-                  .Set("permissions", std::move(traced))
-                  .Set("origin", origin.spec()));
 
   auto prompt = base::WrapUnique(new PermissionPrompt());
   prompt->id_ = dialogs->Ask(
@@ -106,18 +99,13 @@ std::unique_ptr<permissions::PermissionPrompt> PermissionPrompt::Create(
             }
             const PromptOptions options = std::monostate();
             if (button == 0) {
-              TraceDialog("call", "PanePermissionRequest.allow", nullptr);
               delegate->Accept(options);
             } else if (button == 1) {
-              TraceDialog("call", "PanePermissionRequest.allowThisTime",
-                          nullptr);
               delegate->AcceptThisTime(options);
             } else if (button == 2) {
-              TraceDialog("call", "PanePermissionRequest.deny", nullptr);
               delegate->Deny(options);
             } else {
               // Closed without a choice: the site may ask again.
-              TraceDialog("call", "PanePermissionRequest.dismiss", nullptr);
               delegate->Dismiss(options);
             }
           },

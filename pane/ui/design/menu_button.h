@@ -85,14 +85,12 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
   // Other options, laid out as `entries` (or one after another without),
   // the choice kept by its place while one is there.
   void SetOptions(std::vector<Option> options, std::vector<Entry> entries = {});
-  const std::vector<Option>& options() const { return options_; }
   MenuButton(const MenuButton&) = delete;
   MenuButton& operator=(const MenuButton&) = delete;
   ~MenuButton() override;
 
   // The option it shows, and the menu checks; none shows an empty title.
   void SetSelected(std::optional<size_t> index);
-  std::optional<size_t> selected() const { return selected_; }
   // What the menu shows, for the channel to read and choose in, as a click
   // in the menu chooses; a submenu is the model of its item.
   ui::SimpleMenuModel& menu_model() { return menu_model_; }

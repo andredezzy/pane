@@ -99,10 +99,6 @@ class SidebarView : public views::View {
   // window), and deletes it on Delete.
   void AskToDelete(const std::string& profile_id);
 
-  // The list's fades now, for a scenario's read.
-  int top_fade() const;
-  int bottom_fade() const;
-
   // views::View:
   void Layout(PassKey) override;
 

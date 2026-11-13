@@ -39,7 +39,6 @@ class FocusRing : public views::View, public views::ViewObserver {
   FocusRing& operator=(const FocusRing&) = delete;
   ~FocusRing() override;
 
-  void SetShape(ControlShape shape);
   void SetShowsWhen(ShowsWhen shows_when);
   void SetAround(Around around);
   // Shows while a view inside the control has the keys, the control having
@@ -68,7 +67,7 @@ class FocusRing : public views::View, public views::ViewObserver {
   void UpdateBounds();
 
   raw_ptr<views::View> control_;
-  ControlShape shape_;
+  const ControlShape shape_;
   ShowsWhen shows_when_;
   Around around_;
   bool within_ = false;

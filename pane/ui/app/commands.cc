@@ -227,8 +227,4 @@ int TabNumberOf(Command command) {
   return number >= 1 && number <= 9 ? number : 0;
 }
 
-std::optional<std::u16string> CommandRunner::CommandTitle(Command command) {
-  return std::nullopt;
-}
-
 }  // namespace pane

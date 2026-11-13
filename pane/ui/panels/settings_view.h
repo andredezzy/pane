@@ -108,7 +108,6 @@ class SettingsView : public views::View, public AppIconImages::Observer {
 
   // Only what changed changes.
   void SetShows(const Shows& shows);
-  views::ScrollView* scroll_view() { return scroll_view_; }
   // Its controls by the Swift's names ("pane.settings.theme"), each that
   // shows, for the channel.
   std::vector<std::pair<std::string, const views::View*>> NamedViews() const;

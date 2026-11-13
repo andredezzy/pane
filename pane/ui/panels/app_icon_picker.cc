@@ -135,7 +135,7 @@ class AppIconPicker::Tile : public views::Button {
 
  public:
   Tile(model::AppIcon icon, base::RepeatingClosure pressed)
-      : views::Button(std::move(pressed)), icon_(icon), look_(TileLook()) {
+      : views::Button(std::move(pressed)), look_(TileLook()) {
     SetID(kViewIdAppIconTile);
     highlight_ = std::make_unique<ControlHighlight>(
         this, look_.shape, look_.disabled_opacity,
@@ -148,8 +148,6 @@ class AppIconPicker::Tile : public views::Button {
     name_->SetElideBehavior(gfx::ELIDE_TAIL);
     GetViewAccessibility().SetName(AppIconTitle(icon));
   }
-
-  model::AppIcon icon() const { return icon_; }
 
   void SetSelected(bool selected) {
     if (selected_ == selected && name_color_set_) {
@@ -208,7 +206,6 @@ class AppIconPicker::Tile : public views::Button {
   }
 
  private:
-  const model::AppIcon icon_;
   const ControlLook look_;
   bool selected_ = false;
   bool name_color_set_ = false;

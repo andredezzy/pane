@@ -206,10 +206,6 @@ void ExtensionsUi::PressRemove(const std::string& extension_id) {
   }
 }
 
-void ExtensionsUi::PressMorePin(const std::string& extension_id) {
-  PressPin(extension_id);
-}
-
 void ExtensionsUi::PressManageExtension(const std::string& extension_id) {
   CloseMenu();
   if (Profile* profile = delegate_->ShownProfile();
@@ -263,7 +259,6 @@ void ExtensionsUi::SetMenuOpen(bool open) {
 // MARK: Actions and popups
 
 void ExtensionsUi::RunAction(const std::string& extension_id) {
-  Trace("PaneBrowserContext.runAction", extension_id);
   BrowserExtensions* shown = Shown();
   const extensions::Extension* extension = EnabledExtension(extension_id);
   content::WebContents* contents = shown ? shown->ActiveTab() : nullptr;
@@ -425,9 +420,6 @@ void ExtensionsUi::ToggleMenuOf(Browser& browser) {
 void ExtensionsUi::SetPinned(Profile& profile,
                              const std::string& extension_id,
                              bool pin) {
-  PANE_TRACE(
-      "call", "PaneBrowserContext.setExtensionPinned",
-      base::DictValue().Set("extension", extension_id).Set("pinned", pin));
   ToolbarActionsModel* toolbar = ToolbarActionsModel::Get(&profile);
   if (!toolbar || !toolbar->HasAction(extension_id) ||
       toolbar->IsActionPinned(extension_id) == pin) {
@@ -527,10 +519,6 @@ void ExtensionsUi::Ask(ExtensionPrompt prompt) {
   // From the ask to the frame that shows it.
   LogInteraction(Interaction::kShowExtensionPrompt,
                  delegate_->ExtensionsWindow().compositor());
-  PANE_TRACE("event", "ExtensionsController.present",
-             base::DictValue()
-                 .Set("kind", ExtensionPromptKindName(prompt.kind))
-                 .Set("extension", prompt.extension_id));
   CloseMenu();
   std::optional<ExtensionPrompt> previous =
       std::exchange(prompt_, std::move(prompt));
@@ -543,8 +531,6 @@ void ExtensionsUi::Ask(ExtensionPrompt prompt) {
 
 void ExtensionsUi::ConfirmUninstall(Profile& profile,
                                     const std::string& extension_id) {
-  PANE_TRACE("call", "ExtensionsController.confirmUninstall",
-             base::DictValue().Set("extension", extension_id));
   const extensions::Extension* extension =
       extensions::ExtensionRegistry::Get(&profile)->GetInstalledExtension(
           extension_id);
@@ -605,8 +591,6 @@ void ExtensionsUi::AppIconChanged() {
 
 void ExtensionsUi::Uninstall(Profile& profile,
                              const std::string& extension_id) {
-  PANE_TRACE("call", "PaneBrowserContext.uninstallExtension",
-             base::DictValue().Set("extension", extension_id));
   if (!extensions::ExtensionRegistry::Get(&profile)->GetInstalledExtension(
           extension_id)) {
     return;
@@ -634,9 +618,6 @@ bool ExtensionsUi::RunShortcut(const ui::Accelerator& accelerator) {
   if (!shown->shortcuts().Find(accelerator, &extension, &command)) {
     return false;
   }
-  PANE_TRACE(
-      "call", "PaneBrowserContext.runExtensionShortcut",
-      base::DictValue().Set("extension", extension).Set("command", command));
   // The action's runs as a press of its button: its popup, at its button
   // or the puzzle, or onClicked.
   if (extensions::Command::IsActionRelatedCommand(command)) {

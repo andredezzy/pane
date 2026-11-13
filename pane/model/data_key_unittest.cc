@@ -2,8 +2,6 @@
 
 #include "pane/model/data_key.h"
 
-#include <stdlib.h>
-
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -447,65 +445,6 @@ TEST(SwiftVectorsTest, SavedAsSwiftSavesThem) {
   std::string whole_text = settings_text;
   base::ReplaceFirstSubstringAfterOffset(&whole_text, 0, "312.5", "260");
   EXPECT_EQ(PersistedFile::Encode(SettingsState(whole)), whole_text);
-}
-
-// The same files, written by C++ from what the Swift wrote, which PaneKit's
-// SwiftVectorsTests read back (pane/model/test_data/cpp/): the other way
-// across. PANE_WRITE_CPP_VECTORS=1 writes them again; otherwise they are read
-// here.
-TEST(SwiftVectorsTest, CppWrites) {
-  base::FilePath root;
-  ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &root));
-  const base::FilePath swift = root.AppendASCII("pane/model/test_data/swift");
-  const base::FilePath cpp = root.AppendASCII("pane/model/test_data/cpp");
-  std::string text;
-  ASSERT_TRUE(base::ReadFileToString(swift.AppendASCII("vectors.json"), &text));
-  const base::DictValue vectors =
-      std::move(base::JSONReader::Read(text, base::JSON_PARSE_RFC)->GetDict());
-  Key key;
-  std::ranges::copy(base::Base64Decode(*vectors.FindString("dataKey")).value(),
-                    key.begin());
-  const std::string secret = *vectors.FindString("secret");
-  const std::string pin = *vectors.FindString("pin");
-
-  const std::optional<std::vector<BrowserProfile>> profiles = ProfilesFromState(
-      SealedFile(swift, "profiles").Load(FilesKey(key)).value().value());
-  const std::optional<AppSettings> settings = SettingsFromState(
-      PersistedFile(swift, "settings").Load().value().value());
-  ASSERT_TRUE(profiles && settings);
-
-  if (getenv("PANE_WRITE_CPP_VECTORS") &&
-      std::string_view(getenv("PANE_WRITE_CPP_VECTORS")) == "1") {
-    ASSERT_TRUE(SealedFile(cpp, "profiles")
-                    .Save(ProfilesState(*profiles), FilesKey(key)));
-    ASSERT_TRUE(PersistedFile(cpp, "settings").Save(SettingsState(*settings)));
-    ASSERT_TRUE(PersistedFile(cpp, "security")
-                    .Save(SecurityState(Pin{.length = 6}, 2,
-                                        SealDataKey(key, Bytes(secret), pin))
-                              .ToValue()));
-  }
-
-  // What PaneKit's SwiftVectorsTests read back of them, field by field, as
-  // the Swift did: every profile's field, the settings, and the PIN's length
-  // and the attempts beside the key it opens. Whether the published Swift
-  // Pane reads them is files-migration's swap pass, against 0.19.1.
-  EXPECT_EQ(
-      ProfilesFromState(
-          SealedFile(cpp, "profiles").Load(FilesKey(key)).value().value()),
-      SwiftProfiles());
-  EXPECT_EQ(
-      ProfilesFromState(
-          SealedFile(cpp, "profiles").Load(FilesKey(key)).value().value()),
-      profiles);
-  EXPECT_EQ(
-      SettingsFromState(PersistedFile(cpp, "settings").Load().value().value()),
-      settings);
-  const std::optional<SecurityState> security = SecurityState::FromValue(
-      PersistedFile(cpp, "security").Load().value().value());
-  ASSERT_TRUE(security && security->key);
-  EXPECT_EQ(security->pin, (Pin{.length = 6}));
-  EXPECT_EQ(security->failed_attempts, 2);
-  EXPECT_EQ(OpenDataKey(*security->key, Bytes(secret), pin), key);
 }
 
 }  // namespace

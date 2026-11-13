@@ -124,7 +124,6 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//crypto",
     "//testing/gtest",
-    "//url",
   ]
 }
 

@@ -137,9 +137,9 @@ Curve Curve::Cubic(double x1,
 }
 
 // static
-Curve Curve::Spring(double response, double damping, base::TimeDelta delay) {
+Curve Curve::Spring(double response, double damping) {
   return Curve(std::nullopt, response, damping,
-               SpringDuration(response, damping), delay);
+               SpringDuration(response, damping), base::TimeDelta());
 }
 
 double Curve::Progress(base::TimeDelta elapsed) const {
@@ -326,6 +326,12 @@ bool IsReduced() {
 
 namespace {
 
+// How long one of `compositor`'s frames lasts, nothing when it can't tell.
+base::TimeDelta FrameOf(const ::ui::Compositor* compositor) {
+  const float rate = compositor ? compositor->refresh_rate() : 0;
+  return rate > 0 ? base::Seconds(1) / rate : base::TimeDelta();
+}
+
 // Where a motion's clock starts, at its first frame: one frame back, so the
 // frame shows one frame's progress, as Core Animation's first frame of a
 // change did, and a change answers its input in the next frame. Started at
@@ -333,105 +339,7 @@ namespace {
 // and the change came a frame later.
 base::TimeTicks FirstFrameStart(base::TimeTicks timestamp,
                                 const ::ui::Compositor* compositor) {
-  const float rate = compositor ? compositor->refresh_rate() : 0;
-  return rate > 0 ? timestamp - base::Seconds(1) / rate : timestamp;
-}
-
-}  // namespace
-
-// static
-void LayerMotion::Start(::ui::Layer* layer,
-                        const Curve& curve,
-                        const Target& target,
-                        base::OnceClosure done) {
-  // With less motion asked for, or nothing drawing it, the change is at once.
-  if (!layer->GetCompositor() || motion::IsReduced()) {
-    if (target.opacity) {
-      layer->SetOpacity(*target.opacity);
-    }
-    if (target.transform) {
-      layer->SetTransform(*target.transform);
-    }
-    if (done) {
-      std::move(done).Run();
-    }
-    return;
-  }
-  new LayerMotion(layer, curve, target, std::move(done));
-}
-
-LayerMotion::LayerMotion(::ui::Layer* layer,
-                         const Curve& curve,
-                         const Target& target,
-                         base::OnceClosure done)
-    : layer_(layer),
-      compositor_(layer->GetCompositor()),
-      curve_(curve),
-      from_opacity_(layer->opacity()),
-      from_transform_(layer->transform()),
-      target_(target),
-      done_(std::move(done)) {
-  layer_observation_.Observe(layer);
-  compositor_->AddAnimationObserver(this);
-}
-
-LayerMotion::~LayerMotion() = default;
-
-void LayerMotion::OnAnimationStep(base::TimeTicks timestamp) {
-  if (!start_) {
-    start_ = FirstFrameStart(timestamp, compositor_);
-  }
-  const base::TimeDelta elapsed = timestamp - *start_;
-  if (elapsed >= curve_.total()) {
-    Apply(1);
-    End();
-    return;
-  }
-  Apply(curve_.Progress(elapsed));
-}
-
-void LayerMotion::OnCompositingShuttingDown(::ui::Compositor* compositor) {
-  Apply(1);
-  End();
-}
-
-void LayerMotion::LayerDestroyed(::ui::Layer* layer) {
-  layer_ = nullptr;
-  End();
-}
-
-void LayerMotion::Apply(double progress) {
-  if (!layer_) {
-    return;
-  }
-  if (target_.opacity) {
-    layer_->SetOpacity(from_opacity_ +
-                       (*target_.opacity - from_opacity_) * progress);
-  }
-  if (target_.transform) {
-    layer_->SetTransform(gfx::Tween::TransformValueBetween(
-        progress, from_transform_, *target_.transform));
-  }
-}
-
-void LayerMotion::End() {
-  if (compositor_ && compositor_->HasAnimationObserver(this)) {
-    compositor_->RemoveAnimationObserver(this);
-  }
-  layer_observation_.Reset();
-  base::OnceClosure done = std::move(done_);
-  delete this;
-  if (done) {
-    std::move(done).Run();
-  }
-}
-
-namespace {
-
-// How long one of `compositor`'s frames lasts, nothing when it can't tell.
-base::TimeDelta FrameOf(const ::ui::Compositor* compositor) {
-  const float rate = compositor ? compositor->refresh_rate() : 0;
-  return rate > 0 ? base::Seconds(1) / rate : base::TimeDelta();
+  return timestamp - FrameOf(compositor);
 }
 
 // Pane's curves for cc: a value from `from` to `to` along `curve`, exactly,
@@ -474,7 +382,7 @@ class TransformCurve : public gfx::TransformAnimationCurve {
     return std::make_unique<TransformCurve>(curve_, from_, to_);
   }
   gfx::TransformOperations GetValue(base::TimeDelta t) const override {
-    // As LayerMotion blends one, through its decomposition.
+    // Blended through its decomposition, as gfx::Tween blends one.
     gfx::TransformOperations operations;
     operations.AppendMatrix(
         gfx::Tween::TransformValueBetween(curve_.Progress(t), from_, to_));
@@ -634,7 +542,7 @@ class CurveElement : public ::ui::LayerAnimationElement {
 // static
 void CompositorMotion::Start(::ui::Layer* layer,
                              const Curve& curve,
-                             const LayerMotion::Target& target,
+                             const Target& target,
                              base::OnceClosure done) {
   ::ui::Compositor* compositor = layer->GetCompositor();
   const base::TimeDelta frame = FrameOf(compositor);

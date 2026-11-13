@@ -19,6 +19,7 @@
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/time/time.h"
 #include "base/version_info/version_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -209,6 +210,32 @@ bool MakeProfileDirectory(const base::FilePath& path) {
   return true;
 }
 
+// Every page of the profile closes at once, without beforeunload.
+void CloseEveryPage(Profile* profile) {
+  std::vector<base::WeakPtr<BrowserWindowInterface>> browsers;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        if (browser->GetProfile()->GetOriginalProfile() == profile) {
+          browsers.push_back(browser->GetWeakPtr());
+        }
+        return true;
+      });
+  for (const base::WeakPtr<BrowserWindowInterface>& browser : browsers) {
+    TabStripModel* model = browser ? browser->GetTabStripModel() : nullptr;
+    while (browser && model && !model->empty()) {
+      model->DetachAndDeleteWebContentsAt(model->count() - 1);
+    }
+  }
+}
+
+// Runs `done` with true once Chrome has destroyed `profile`; with false past
+// `timeout`, or when the profile manager goes first.
+void WaitForProfileDestruction(Profile* profile,
+                               base::TimeDelta timeout,
+                               base::OnceCallback<void(bool)> done) {
+  new ProfileDestructionWaiter(profile, timeout, std::move(done));
+}
+
 }  // namespace
 
 void BuildProfileServices() {
@@ -327,10 +354,6 @@ void ApplyProfileDefaults(Profile* profile) {
 bool SetProfileFingerprint(
     const std::string& identifier,
     const std::optional<model::Fingerprint>& fingerprint) {
-  PANE_TRACE("call", "PaneBrowserApplication.setFingerprint",
-             base::DictValue()
-                 .Set("identifier", identifier)
-                 .Set("set", fingerprint.has_value()));
   std::string json;
   if (fingerprint) {
     json = model::EngineFingerprint::For(*fingerprint, identifier,
@@ -338,8 +361,7 @@ bool SetProfileFingerprint(
                                          version_info::GetVersionNumber())
                .ToJson();
   }
-  std::string error;
-  return Fingerprints::Get().Set(identifier, json, &error);
+  return Fingerprints::Get().Set(identifier, json);
 }
 
 void ApplyFingerprintLanguages(Profile* profile) {
@@ -354,11 +376,6 @@ void ApplyFingerprintLanguages(Profile* profile) {
   } else {
     language::ResetLanguagePrefs(prefs);
   }
-  PANE_TRACE("engine", "PaneBrowserContext.applyFingerprint",
-             base::DictValue()
-                 .Set("identifier", profile->GetBaseName().AsUTF8Unsafe())
-                 .Set("acceptLanguages",
-                      prefs->GetString(language::prefs::kAcceptLanguages)));
 }
 
 // ANGLE names its renderer "ANGLE (vendor, device, version)" and gives WebGL
@@ -380,35 +397,9 @@ std::optional<model::Fingerprint::WebGL> HostWebGL() {
                                    .renderer = std::move(renderer)};
 }
 
-void CloseEveryPage(Profile* profile) {
-  std::vector<base::WeakPtr<BrowserWindowInterface>> browsers;
-  GlobalBrowserCollection::GetInstance()->ForEach(
-      [&](BrowserWindowInterface* browser) {
-        if (browser->GetProfile()->GetOriginalProfile() == profile) {
-          browsers.push_back(browser->GetWeakPtr());
-        }
-        return true;
-      });
-  for (const base::WeakPtr<BrowserWindowInterface>& browser : browsers) {
-    TabStripModel* model = browser ? browser->GetTabStripModel() : nullptr;
-    while (browser && model && !model->empty()) {
-      model->DetachAndDeleteWebContentsAt(model->count() - 1);
-    }
-  }
-}
-
-void WaitForProfileDestruction(Profile* profile,
-                               base::TimeDelta timeout,
-                               base::OnceCallback<void(bool)> done) {
-  new ProfileDestructionWaiter(profile, timeout, std::move(done));
-}
-
 void CloseProfile(Profile* profile,
                   std::unique_ptr<ScopedProfileKeepAlive> keep_alive,
                   base::OnceCallback<void(bool closed)> done) {
-  PANE_TRACE("call", "PaneBrowserApplication.closeContext",
-             base::DictValue().Set("identifier",
-                                   profile->GetBaseName().AsUTF8Unsafe()));
   // Chrome destroys a profile once nothing holds it (its
   // DestroyProfileOnBrowserClose): the hold goes here, the Browsers' with the
   // Browsers. A hosted Browser stays open without tabs
@@ -439,8 +430,6 @@ void DeleteProfile(Profile* profile,
                    std::unique_ptr<ScopedProfileKeepAlive> keep_alive,
                    base::OnceCallback<void(bool deleted)> done) {
   const std::string identifier = profile->GetBaseName().AsUTF8Unsafe();
-  PANE_TRACE("call", "PaneBrowserApplication.deleteContext",
-             base::DictValue().Set("identifier", identifier));
   const base::FilePath path = profile->GetPath();
   keep_alive.reset();
   // Without beforeunload: Chrome's deletion asks each page that has one, and
@@ -468,7 +457,6 @@ void DeleteProfile(Profile* profile,
 void DropEngineKeys(
     base::OnceCallback<void(size_t browser, uint32_t network, uint32_t storage)>
         done) {
-  PANE_TRACE("call", "PaneBrowserApplication.dropEngineKeys");
   encryption::DropKeys();
 
   // The network service and the Storage Service answer on their own.

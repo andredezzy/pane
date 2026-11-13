@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <utility>
 
 #include "base/functional/bind.h"
 #include "pane/ui/design/focus_ring.h"
@@ -27,11 +26,9 @@ constexpr int kLabelGap = 5;
 
 Checkbox::Checkbox(const std::u16string& label,
                    const TextStyle& style,
-                   ui::ColorVariant label_color,
-                   Toggled toggled)
+                   ui::ColorVariant label_color)
     : views::Button(
-          base::BindRepeating(&Checkbox::Pressed, base::Unretained(this))),
-      toggled_(std::move(toggled)) {
+          base::BindRepeating(&Checkbox::Pressed, base::Unretained(this))) {
   label_ = AddChildView(MakeLabel(label, style, label_color));
   label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   label_->SetCanProcessEventsWithinSubtree(false);
@@ -51,15 +48,6 @@ Checkbox::Checkbox(const std::u16string& label,
 }
 
 Checkbox::~Checkbox() = default;
-
-void Checkbox::SetChecked(bool checked) {
-  if (checked_ == checked) {
-    return;
-  }
-  checked_ = checked;
-  UpdateAccessibility();
-  SchedulePaint();
-}
 
 gfx::Rect Checkbox::BoxBounds() const {
   return gfx::Rect(0, (height() - kSystemCheckboxSize) / 2, kSystemCheckboxSize,
@@ -106,9 +94,6 @@ void Checkbox::Pressed() {
   checked_ = !checked_;
   UpdateAccessibility();
   SchedulePaint();
-  if (toggled_) {
-    toggled_.Run(checked_);
-  }
 }
 
 void Checkbox::UpdateAccessibility() {

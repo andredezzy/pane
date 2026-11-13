@@ -10,8 +10,7 @@
 
 namespace pane {
 
-// Chrome's browser client, plus the Pane parts that run when the Pane app
-// hosts the engine.
+// Chrome's browser client, with Pane's parts: every launch of Pane's uses it.
 class ContentBrowserClient : public ChromeContentBrowserClient {
  public:
   ContentBrowserClient();

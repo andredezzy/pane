@@ -49,7 +49,6 @@ class RowButton : public views::Button {
 
   // The selected row's look, at once.
   void SetSelected(bool selected);
-  bool selected() const { return selected_; }
   // New keeps its muted text under the pointer; the others darken.
   void SetTintsOnHover(bool tints_on_hover);
   // A tab without a page shows its contents at 60%.
