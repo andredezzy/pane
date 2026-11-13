@@ -16,14 +16,14 @@
 		"node": ">=20"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.3",
+		"@biomejs/biome": "2.6.6",
 		"@stylistic/eslint-plugin": "5.10.0",
 		"@types/bun": "1.4.4",
 		"@types/node": "^26",
-		"@typescript-eslint/parser": "^8.72.1",
+		"@typescript-eslint/parser": "^8.72.2",
 		"electron": "41.4.0",
-		"eslint": "^10.13.0",
-		"knip": "6.43.0",
+		"eslint": "^10.14.0",
+		"knip": "6.45.0",
 		"typescript": "5.9.3"
 	}
 }
