@@ -2,6 +2,9 @@
 // the Views build's pane/ui/interaction_log.h): each interval from its input
 // to the frame it answers with, read from the unified log while `run` drives
 // the app. /usr/bin/log by its path: zsh has a builtin of the same name.
+// Windows' trace (pane/ui/interaction_log_win.cc) is W6's.
+import type { Subprocess } from "bun";
+import { bySystem, noWindowsSide } from "./platform";
 
 type Signpost = {
 	eventType?: string;
@@ -36,23 +39,32 @@ export type FrameInterval = {
 	presentedMs?: number;
 };
 
+// The unified log's stream of Pane's signposts, one JSON object a line.
+const streamSignposts = bySystem({
+	mac: (): Subprocess<"ignore", "pipe", "ignore"> =>
+		Bun.spawn(
+			[
+				"/usr/bin/log",
+				"stream",
+				"--signpost",
+				"--style",
+				"ndjson",
+				"--predicate",
+				'subsystem == "xyz.roundedcorners.pane" AND category == "PointsOfInterest"',
+			],
+			{ stdout: "pipe", stderr: "ignore" },
+		),
+	windows: (): Subprocess<"ignore", "pipe", "ignore"> => {
+		throw noWindowsSide("the app's signposts");
+	},
+});
+
 // Each interval by its name, of the process `run` returns (every process's
 // when it returns none).
 export async function signpostFrameIntervals(
 	run: () => Promise<number | undefined>,
 ): Promise<Record<string, FrameInterval[]>> {
-	const stream = Bun.spawn(
-		[
-			"/usr/bin/log",
-			"stream",
-			"--signpost",
-			"--style",
-			"ndjson",
-			"--predicate",
-			'subsystem == "xyz.roundedcorners.pane" AND category == "PointsOfInterest"',
-		],
-		{ stdout: "pipe", stderr: "ignore" },
-	);
+	const stream = streamSignposts();
 
 	// The stream opens before the app starts its first interval.
 	await Bun.sleep(1_000);

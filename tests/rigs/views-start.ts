@@ -8,15 +8,18 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { homeEnvironment } from "../lib/browser";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
-import {
-	imagesAttachedIn,
-	mountedAt,
-	pgrep,
-	waitForExit,
-} from "../lib/processes";
-import { swiftTool } from "../lib/tools";
+import type { NotOnWindows } from "../lib/platform";
+import { pidsMatching, waitForExit } from "../lib/processes";
+import { imagesAttachedIn, mountedAt, swiftTool } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	macOnly:
+		"the Views build's start on the Mac: the volume, the data's flock, and the guard's refusals proved under sandbox-exec, the Keychain denied",
+};
 
 // The Views build's start (docs/plans/views-migration.md, C5): before the
 // engine, what main.swift did, in its order, and the data's lock; once the
@@ -90,7 +93,7 @@ async function whileOpen(
 ): Promise<Record<string, unknown>> {
 	const state: AppState = await app.state();
 	const { data } = state.security;
-	const watchdogs = await pgrep("-f", `pane-volume-watch ${app.browser.pid} `);
+	const watchdogs = await pidsMatching(`pane-volume-watch ${app.browser.pid} `);
 
 	const open = {
 		phase: data.phase,
@@ -147,7 +150,7 @@ async function quit(
 		attachedImages: (await imagesAttachedIn(dataDir)).length,
 		mounted: await mountedAt(join(dataDir, "Engine", "Volume")),
 		lock: await dataLock(dataDir),
-		watchdogs: (await pgrep("-f", `pane-volume-watch ${pid} `)).length,
+		watchdogs: (await pidsMatching(`pane-volume-watch ${pid} `)).length,
 		startsOnDefault: startsOnDefault(dataDir),
 	};
 
@@ -241,18 +244,17 @@ const viewsStart: Scenario = async (context) => {
 	);
 
 	const relaunched = await launchWithoutMockKeychain(context, {
-		HOME: relaunchHome,
-		CFFIXED_USER_HOME: relaunchHome,
+		...homeEnvironment(relaunchHome),
 		PANE_DATA_DIR: relaunchData,
 		PANE_ELECTRON_DATA_DIR: join(relaunchData, "no-electron-app"),
 	});
 
 	const homeOnly = realpathSync(context.tempDir("pane-views-start-home-"));
 
-	const ownHome = await launchWithoutMockKeychain(context, {
-		HOME: homeOnly,
-		CFFIXED_USER_HOME: homeOnly,
-	});
+	const ownHome = await launchWithoutMockKeychain(
+		context,
+		homeEnvironment(homeOnly),
+	);
 
 	const derivedIn = (home: string) =>
 		join(home, "Library", "Application Support", "xyz.roundedcorners.pane");
@@ -340,7 +342,7 @@ const viewsStart: Scenario = async (context) => {
 			detachedInMs: Date.now() - started,
 			attachedImages: (await imagesAttachedIn(dataDir)).length,
 			lock: await dataLock(dataDir),
-			watchdogs: (await pgrep("-f", `pane-volume-watch ${pid} `)).length,
+			watchdogs: (await pidsMatching(`pane-volume-watch ${pid} `)).length,
 		};
 
 		await killedApp.browser.close();
@@ -388,7 +390,7 @@ const viewsStart: Scenario = async (context) => {
 	const derivedApp = await launchPane(context, {
 		dataDir: derived,
 		derivedDataRoot: true,
-		env: { HOME: home, CFFIXED_USER_HOME: home },
+		env: homeEnvironment(home),
 	});
 
 	const derivedOpen = await whileOpen(context, derivedApp, derived);

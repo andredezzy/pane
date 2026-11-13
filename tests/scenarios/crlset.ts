@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { appResource } from "../lib/browser";
 import { tabOf } from "../lib/pane";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -16,7 +17,7 @@ type NetLog = {
 // self-signed one: the verifier runs either way) names that CRLSet's
 // sequence in the net log, not the empty built-in one's 0.
 const crlset: Scenario = async (context) => {
-	const file = join(dirname(dirname(context.binary)), "Resources", "crl-set");
+	const file = appResource(context.binary, "crl-set");
 
 	expect(existsSync(file), `the bundle carries no CRLSet at ${file}`);
 

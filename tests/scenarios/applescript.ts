@@ -1,6 +1,13 @@
 import { bringToFront, launchPane } from "../lib/pane";
+import type { NotOnWindows } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	macOnly:
+		"AppleScript is the Mac's (ADR 0112): Windows has no dictionary for a launcher to ask, and the channel's appleScript says there that it runs none",
+};
 
 // The AppleScript dictionary Pane keeps from Chromium (ADR 0112) answers for
 // Pane's window, as launchers and clipboard tools ask a browser: one window,

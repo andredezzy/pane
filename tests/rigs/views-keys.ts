@@ -1,4 +1,5 @@
 import { launchPane } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
@@ -39,7 +40,7 @@ const viewsKeys: Scenario = async (context) => {
 	// The page has the keyboard; ⌘T still opens a tab, before it sees the key.
 	expect((await app.state()).focus === "pane.content", "the page has no focus");
 	const before = (await tabs()).length;
-	await app.send("key", { key: "t", modifiers: ["command"] });
+	await app.send("key", { key: "t", modifiers: [PRIMARY] });
 	// A key queued right behind ⌘T lands in the new tab's address.
 	await app.send("key", { key: "a" });
 
@@ -63,7 +64,7 @@ const viewsKeys: Scenario = async (context) => {
 		["3", 2],
 		["9", 3],
 	] as const) {
-		await app.send("key", { key, modifiers: ["command"] });
+		await app.send("key", { key, modifiers: [PRIMARY] });
 		const want = (await tabs())[index];
 
 		await poll(
@@ -75,7 +76,7 @@ const viewsKeys: Scenario = async (context) => {
 
 	// ⌘L from the page.
 	await app.send("select", { tab: pages[0]?.tab });
-	await app.send("key", { key: "l", modifiers: ["command"] });
+	await app.send("key", { key: "l", modifiers: [PRIMARY] });
 
 	await poll(
 		"⌘L",
@@ -103,7 +104,7 @@ const viewsKeys: Scenario = async (context) => {
 		});
 	})()`);
 
-	await app.send("key", { key: "l", modifiers: ["command"] });
+	await app.send("key", { key: "l", modifiers: [PRIMARY] });
 
 	await poll(
 		"⌘L taken by the page",
@@ -115,7 +116,7 @@ const viewsKeys: Scenario = async (context) => {
 	await Bun.sleep(300);
 	expect((await app.state()).focus === "pane.content", "⌘L left the page");
 	const count = (await tabs()).length;
-	await app.send("key", { key: "t", modifiers: ["command"] });
+	await app.send("key", { key: "t", modifiers: [PRIMARY] });
 
 	await poll(
 		"⌘T ahead of the page",
@@ -169,7 +170,7 @@ const viewsKeys: Scenario = async (context) => {
 	// Quit Pane? takes every key: ⌘T, a menu bar's key, opens no tab; Esc
 	// goes back.
 	await app.send("select", { tab: pages[1]?.tab });
-	await app.send("key", { key: "q", modifiers: ["command"] });
+	await app.send("key", { key: "q", modifiers: [PRIMARY] });
 
 	await poll(
 		"Quit Pane?",
@@ -178,7 +179,7 @@ const viewsKeys: Scenario = async (context) => {
 	);
 
 	const asking = (await tabs()).length;
-	await app.send("key", { key: "t", modifiers: ["command"] });
+	await app.send("key", { key: "t", modifiers: [PRIMARY] });
 	await app.send("key", { key: "a" });
 	await Bun.sleep(500);
 

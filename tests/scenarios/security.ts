@@ -5,22 +5,29 @@ import {
 	readFileSync,
 	writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { join, sep } from "node:path";
+import { appOf } from "../lib/browser";
 import {
 	type AppState,
 	bringToFront,
 	launchPane,
 	type PaneApp,
 } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import {
-	imagesAttachedIn,
+	childrenOf,
 	isRunning,
-	mountedAt,
-	pgrep,
+	pidsMatching,
+	processGroupOf,
 	waitForExit,
 } from "../lib/processes";
-import { swiftTool } from "../lib/tools";
+import {
+	filesHolding,
+	imagesAttachedIn,
+	mountedAt,
+	swiftTool,
+} from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
@@ -94,9 +101,9 @@ function lexists(path: string): boolean {
 // Files under `root` whose bytes hold `text` in the clear, the automation
 // channel's own files aside.
 async function holding(root: string, text: string): Promise<string[]> {
-	return (await Bun.$`grep -rlaF ${text} ${root}`.quiet().nothrow().text())
-		.split("\n")
-		.filter((path) => path !== "" && !path.includes("/automation/"));
+	return (await filesHolding(root, [text])).filter(
+		(path) => !path.includes(`${sep}automation${sep}`),
+	);
 }
 
 function screen(state: AppState) {
@@ -298,7 +305,7 @@ const security: Scenario = async (context) => {
 	const handedURL = context.fixtures.url("nav-a.html?handed-behind-the-lock");
 
 	const handed =
-		await Bun.$`${await swiftTool("open-urls")} ${dirname(dirname(dirname(context.binary)))} ${app.browser.pid} ${context.tempDir("pane-security-home-")} ${handedURL}`
+		await Bun.$`${await swiftTool("open-urls")} ${appOf(context.binary)} ${app.browser.pid} ${context.tempDir("pane-security-home-")} ${handedURL}`
 			.quiet()
 			.nothrow();
 
@@ -582,7 +589,7 @@ const security: Scenario = async (context) => {
 
 	// The wiped instance's helpers (renderers, GPU, network service), which
 	// must not outlive it to write after the erase.
-	const helpers = await pgrep("-P", String(relaunched.browser.pid));
+	const helpers = await childrenOf(relaunched.browser.pid);
 
 	// The fifth: Pane erases its data and starts again. The new instance is
 	// no child of the runner, which stops it with whatever else still uses
@@ -664,7 +671,7 @@ const security: Scenario = async (context) => {
 	const caps = await launchPane(context, { dataDir: capsDir });
 
 	if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
-		await caps.send("key", { key: "q", modifiers: ["command", "capsLock"] });
+		await caps.send("key", { key: "q", modifiers: [PRIMARY, "capsLock"] });
 
 		expect(
 			await waitForExit(caps.browser.pid),
@@ -690,7 +697,9 @@ const security: Scenario = async (context) => {
 	// A quit that detached ends its watchdog, which would hold the data's lock
 	// through its hdiutil: a launch right behind it would attach its image only
 	// once the key opened, 250 ms later.
-	const watchdogsAfterQuit = await pgrep("-f", `pane-volume-watch ${quitPid} `);
+	const watchdogsAfterQuit = await pidsMatching(
+		`pane-volume-watch ${quitPid} `,
+	);
 
 	expect(
 		watchdogsAfterQuit.length === 0,
@@ -716,18 +725,12 @@ const security: Scenario = async (context) => {
 
 	// The watchdog is in a session of its own, apart from Pane's process
 	// group: a kill of that group had ended both and left the volume mounted.
-	const groupOf = async (pid: number | undefined) =>
-		(
-			await Bun.$`/bin/ps -o pgid= -p ${pid ?? ""}`.quiet().nothrow().text()
-		).trim();
-
-	const [watchdog] = await pgrep(
-		"-f",
+	const [watchdog] = await pidsMatching(
 		`pane-volume-watch ${killedApp.browser.pid} `,
 	);
 
-	const watchdogGroup = await groupOf(watchdog);
-	const paneGroup = await groupOf(killedApp.browser.pid);
+	const watchdogGroup = await processGroupOf(watchdog);
+	const paneGroup = await processGroupOf(killedApp.browser.pid);
 
 	expect(
 		watchdogGroup !== "" && watchdogGroup !== paneGroup,

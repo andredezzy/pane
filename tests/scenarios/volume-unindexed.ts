@@ -1,7 +1,14 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane } from "../lib/pane";
+import type { NotOnWindows } from "../lib/platform";
 import { expect, type Scenario } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	needsDesign:
+		"Spotlight's marker on the Mac's volume; Windows' data folder takes the not-indexed attribute in its place (W3)",
+};
 
 // Spotlight indexes nothing of the mounted volume (ADR 0121): it holds ciphertext
 // now, but its names are the store's, and an index outlives a lock. mdutil reads

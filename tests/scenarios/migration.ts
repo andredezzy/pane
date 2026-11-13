@@ -9,8 +9,15 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join, relative } from "node:path";
+import type { NotOnWindows } from "../lib/platform";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	macOnly:
+		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here the Electron app's, to 0.6.0",
+};
 
 // The first launch after the Electron app. Electron itself (41.4.0, the
 // version the Electron app shipped, kept as a dev dependency for this) writes

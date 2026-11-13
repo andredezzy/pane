@@ -2,11 +2,20 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ScenarioContext } from "../run";
+import { appOf } from "./browser";
 import { launchPane } from "./pane";
+import {
+	compileC,
+	copyBundle,
+	makeDmg,
+	setPlistString,
+	signAdHoc,
+} from "./tools";
 
 // What the update scenarios install from and into (ADR 0092): a stand-in
 // release's dmg, holding a stand-in Pane, and a copy of the run's Pane in a
-// folder of its own, since an update replaces the bundle it runs from.
+// folder of its own, since an update replaces the bundle it runs from. The
+// Mac's: Windows' install and update are W7's (tools.ts says so there).
 
 export type StandInDmg = {
 	name: string;
@@ -56,12 +65,15 @@ export async function standInDmg(
 		'#include <stdio.h>\n#include <stdlib.h>\nint main(void) { const char *d = getenv("PANE_DATA_DIR"); char p[4096]; FILE *f; if (!d) return 1; snprintf(p, sizeof p, "%s/reopened", d); f = fopen(p, "w"); if (!f) return 1; fputs(VERSION, f); fclose(f); return 0; }\n',
 	);
 
-	await Bun.$`clang -O2 -DVERSION=${`"${holds}"`} -o ${join(contents, "MacOS", "Pane")} ${source}`.quiet();
-	await Bun.$`codesign --force --sign - ${join(root, "Pane.app")}`.quiet();
+	await compileC(source, join(contents, "MacOS", "Pane"), [
+		`VERSION="${holds}"`,
+	]);
+
+	await signAdHoc(join(root, "Pane.app"));
 
 	const name = `Pane-${offered}-arm64.dmg`;
 	const path = join(work, name);
-	await Bun.$`hdiutil create -quiet -ov -fs HFS+ -volname Pane -srcfolder ${root} ${path}`.quiet();
+	await makeDmg(root, path, "Pane");
 
 	return {
 		name,
@@ -84,12 +96,12 @@ export async function launchCopy(
 ) {
 	const folder = context.tempDir("pane-apps-");
 	const bundle = join(folder, "Pane.app");
-	await Bun.$`ditto ${context.binary.replace(/\/Contents\/MacOS\/Pane$/, "")} ${bundle}`.quiet();
+	await copyBundle(appOf(context.binary), bundle);
 
 	if (olderThan && !isOlder(bundleVersion(bundle) || "0.0.0", olderThan)) {
 		const plist = join(bundle, "Contents", "Info.plist");
-		await Bun.$`/usr/libexec/PlistBuddy -c ${"Set :PaneVersion 0.0.1"} ${plist}`.quiet();
-		await Bun.$`codesign --force --sign - --preserve-metadata=identifier,entitlements,flags,runtime ${bundle}`.quiet();
+		await setPlistString(plist, "PaneVersion", "0.0.1");
+		await signAdHoc(bundle, true);
 	}
 
 	const downloads = context.tempDir("pane-downloads-");

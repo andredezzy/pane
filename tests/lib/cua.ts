@@ -1,6 +1,10 @@
 // Thin wrapper over the cua-driver CLI for checks only the native UI can
-// prove: window screenshots, the accessibility tree, real keystrokes.
-import { swiftTool } from "./tools";
+// prove: window screenshots, the accessibility tree, real keystrokes. It
+// reads macOS's accessibility tree (AXButton, AXSheet): Windows' is UI
+// Automation's, whose reading is W6's, so there the UI is never driven
+// (canDriveUI) and a call to the driver throws.
+import { bySystem, noWindowsSide } from "./platform";
+import { captureWindow, swiftTool } from "./tools";
 
 const SESSION = "pane-scenarios";
 
@@ -13,7 +17,7 @@ export type WindowState = {
 	screenshot_file_path?: string;
 };
 
-export async function call<T>(
+async function callOnMac<T>(
 	tool: string,
 	args: Record<string, unknown>,
 ): Promise<T> {
@@ -44,26 +48,52 @@ export async function call<T>(
 	}
 }
 
+export const call: <T>(
+	tool: string,
+	args: Record<string, unknown>,
+) => Promise<T> = bySystem({
+	mac: callOnMac,
+	windows: async (tool: string) => {
+		throw noWindowsSide(`cua-driver's ${tool} on macOS's accessibility tree`);
+	},
+});
+
 // macOS hides every window from accessibility and stops delivering input while
 // the screen is locked, so visual checks must wait for an unlocked session.
-export async function isScreenLocked(): Promise<boolean> {
-	const output = await Bun.$`ioreg -n Root -d1 -a`.quiet().text();
+// Windows shows its lock and sign-in screens through LogonUI.exe, which runs
+// only while one shows, and Chromium counts its windows occluded meanwhile.
+export const isScreenLocked = bySystem({
+	mac: async () => {
+		const output = await Bun.$`ioreg -n Root -d1 -a`.quiet().text();
 
-	return /<key>CGSSessionScreenIsLocked<\/key>\s*<true\/>/.test(output);
-}
+		return /<key>CGSSessionScreenIsLocked<\/key>\s*<true\/>/.test(output);
+	},
+	windows: async () => {
+		const list = Bun.spawn(
+			["tasklist", "/FI", "IMAGENAME eq LogonUI.exe", "/FO", "CSV", "/NH"],
+			{ stdout: "pipe", stderr: "ignore" },
+		);
+
+		return (await new Response(list.stdout).text()).includes('"LogonUI.exe"');
+	},
+});
 
 // Whether checks of the native UI can run: the screen unlocked, and
 // cua-driver installed (GitHub's runners have none) with its daemon up.
-export async function canDriveUI(): Promise<boolean> {
-	if (Bun.which("cua-driver") === null || (await isScreenLocked())) {
-		return false;
-	}
+// Never on Windows, whose tree this file doesn't read.
+export const canDriveUI = bySystem({
+	mac: async () => {
+		if (Bun.which("cua-driver") === null || (await isScreenLocked())) {
+			return false;
+		}
 
-	// It says so on stderr, and exits 0 either way.
-	const status = await Bun.$`cua-driver status`.quiet().nothrow();
+		// It says so on stderr, and exits 0 either way.
+		const status = await Bun.$`cua-driver status`.quiet().nothrow();
 
-	return !`${status.stdout}${status.stderr}`.includes("not running");
-}
+		return !`${status.stdout}${status.stderr}`.includes("not running");
+	},
+	windows: async () => false,
+});
 
 // The app's largest window. A sheet is a window of its own, and the windows
 // come in no fixed order; only the main window holds the sheet's controls.
@@ -93,9 +123,7 @@ export async function windowState(
 	// (`cua-driver permissions grant`): the system's takes the window as well,
 	// without the front.
 	if (!state.screenshot_file_path) {
-		await Bun.$`/usr/sbin/screencapture -x -o -l ${windowId} ${screenshot}`
-			.quiet()
-			.nothrow();
+		await captureWindow(windowId, screenshot);
 	}
 
 	return state;

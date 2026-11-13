@@ -9,6 +9,7 @@ import {
 	pressWindowKey,
 	setUpPin,
 } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { signpostIntervals } from "../lib/signposts";
 import { accessibilityTree } from "../lib/windows";
 import { expect, type Scenario } from "../run";
@@ -571,7 +572,7 @@ async function lockOverQuit(context: Parameters<Scenario>[0], log: Log) {
 
 	try {
 		await setUpPin(app, "1234");
-		await app.send("key", { key: "q", modifiers: ["command"] });
+		await app.send("key", { key: "q", modifiers: [PRIMARY] });
 		await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 		await app.send("lockNow");
 

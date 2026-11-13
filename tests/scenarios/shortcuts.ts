@@ -1,4 +1,5 @@
 import { tabOf } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -44,7 +45,7 @@ const shortcuts: Scenario = async (context) => {
 	const { tab: tabA } = await app.openPage(profile, a);
 
 	// ⌘T: a new tab in the active profile, with the address field focused.
-	await press("t", "command");
+	await press("t", PRIMARY);
 
 	const opened = await app.waitFor("⌘T", (state) => {
 		const tabs = state.profiles[0]?.tabs ?? [];
@@ -82,7 +83,7 @@ const shortcuts: Scenario = async (context) => {
 
 		// A key already in the queue behind ⌘L acts on what ⌘L did: it
 		// replaces the text.
-		await Promise.all([press("l", "command"), press("q")]);
+		await Promise.all([press("l", PRIMARY), press("q")]);
 
 		const queued = await app.waitFor(
 			"the key queued behind ⌘L",
@@ -96,10 +97,10 @@ const shortcuts: Scenario = async (context) => {
 
 		await press("a");
 		await app.waitFor("the field back to a", (state) => state.address !== "q");
-		await press("l", "command");
+		await press("l", PRIMARY);
 		await press("a");
 		await app.waitFor("the field holding a", (state) => state.address === "a");
-		await press("l", "command");
+		await press("l", PRIMARY);
 		await Bun.sleep(100);
 		await press("p");
 
@@ -121,31 +122,31 @@ const shortcuts: Scenario = async (context) => {
 	await type("\u001b");
 
 	// ⌘1: the profile's first tab.
-	await press("1", "command");
+	await press("1", PRIMARY);
 	await app.waitFor("⌘1", (state) => state.activeTabID === tabA);
 
 	// ⌘2, then ⌘W closes it; ⇧⌘T brings it back.
-	await press("2", "command");
+	await press("2", PRIMARY);
 	await app.waitFor("⌘2", (state) => state.activeTabID === tabNew);
-	await press("w", "command");
+	await press("w", PRIMARY);
 
 	await app.waitFor(
 		"⌘W",
 		(state) => state.profiles[0]?.tabs.length === 1 && state.closedTabs === 1,
 	);
 
-	await press("t", "command", "shift");
+	await press("t", PRIMARY, "shift");
 
 	await app.waitFor(
 		"⇧⌘T",
 		(state) => state.profiles[0]?.tabs.length === 2 && state.closedTabs === 0,
 	);
 
-	await press("1", "command");
+	await press("1", PRIMARY);
 	await app.waitFor("⌘1 again", (state) => state.activeTabID === tabA);
 
 	// ⌘F opens the find bar with its field focused; Escape closes it.
-	await press("f", "command");
+	await press("f", PRIMARY);
 
 	await app.waitFor(
 		"⌘F",
@@ -156,7 +157,7 @@ const shortcuts: Scenario = async (context) => {
 	await app.waitFor("Escape", (state) => !state.find.visible);
 
 	// ⌘L focuses the address field.
-	await press("l", "command");
+	await press("l", PRIMARY);
 
 	await app.waitFor("⌘L", (state) => state.focus === ADDRESS);
 
@@ -168,21 +169,21 @@ const shortcuts: Scenario = async (context) => {
 		(state) => tabOf(state, tabA)?.url === b && !tabOf(state, tabA)?.loading,
 	);
 
-	await press("[", "command");
+	await press("[", PRIMARY);
 
 	await app.waitFor(
 		"⌘[",
 		(state) => tabOf(state, tabA)?.url === a && !tabOf(state, tabA)?.loading,
 	);
 
-	await press("]", "command");
+	await press("]", PRIMARY);
 
 	await app.waitFor(
 		"⌘]",
 		(state) => tabOf(state, tabA)?.url === b && !tabOf(state, tabA)?.loading,
 	);
 
-	await press("[", "command");
+	await press("[", PRIMARY);
 
 	await app.waitFor(
 		"⌘[ again",
@@ -194,7 +195,7 @@ const shortcuts: Scenario = async (context) => {
 		await (await app.page(tabA, a)).evaluate<string>("sessionStorage.loads"),
 	);
 
-	await press("r", "command");
+	await press("r", PRIMARY);
 
 	// Reloaded once the page has counted another load.
 	const reloaded = await app.page(tabA, a);
@@ -243,7 +244,7 @@ const shortcuts: Scenario = async (context) => {
 		predicate: (level: number) => boolean,
 	) => {
 		const count = zoomLevels().length;
-		await press(key, "command");
+		await press(key, PRIMARY);
 
 		await pollValue(
 			() => zoomLevels().length,
@@ -323,7 +324,7 @@ const shortcuts: Scenario = async (context) => {
 	);
 
 	// ⌘, opens settings.
-	await press(",", "command");
+	await press(",", PRIMARY);
 
 	await app.waitFor("⌘,", (state) => state.page === "settings");
 };

@@ -1,5 +1,6 @@
 import { stats } from "../lib/benchmark";
 import { type AppState, launchPane } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { signpostFrameIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
 
@@ -47,7 +48,7 @@ const viewsKeyTiming: Scenario = async (context) => {
 			"Select tab",
 			async () => {
 				for (let round = 0; round < ROUNDS; round++) {
-					await key(round % 2 === 0 ? "1" : "2", "command");
+					await key(round % 2 === 0 ? "1" : "2", PRIMARY);
 
 					await app.waitFor(
 						"the tab chosen",
@@ -62,10 +63,10 @@ const viewsKeyTiming: Scenario = async (context) => {
 			"New tab",
 			async () => {
 				for (let round = 0; round < ROUNDS; round++) {
-					await key("t", "command");
+					await key("t", PRIMARY);
 					await app.waitFor("the new tab", tabCount(3));
 					await Bun.sleep(250);
-					await key("w", "command");
+					await key("w", PRIMARY);
 					await app.waitFor("the new tab closed", tabCount(2));
 					await Bun.sleep(150);
 				}
@@ -83,7 +84,7 @@ const viewsKeyTiming: Scenario = async (context) => {
 					);
 
 					await Bun.sleep(150);
-					await key("l", "command");
+					await key("l", PRIMARY);
 
 					await app.waitFor(
 						"the address",
@@ -111,7 +112,7 @@ const viewsKeyTiming: Scenario = async (context) => {
 			"Open quit dialog",
 			async () => {
 				for (let round = 0; round < ROUNDS; round++) {
-					await key("q", "command");
+					await key("q", PRIMARY);
 					await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 					await Bun.sleep(400);
 					await app.send("dispatchKey", { key: "\u001b" });

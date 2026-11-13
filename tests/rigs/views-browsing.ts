@@ -1,9 +1,11 @@
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
 import { type AppState, type PaneApp, tabOf } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { type FrameInterval, signpostFrameIntervals } from "../lib/signposts";
 import { waitForTarget } from "../lib/targets";
+import { captureWindow } from "../lib/tools";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -70,7 +72,7 @@ const viewsBrowsing: Scenario = async (context) => {
 	// Find in page: ⌘F through the menu bar, as a key posted to the app.
 	const { tab: findTab } = await app.openPage(work, fixtures.url("find.html"));
 
-	await app.send("key", { key: "f", modifiers: ["command"] });
+	await app.send("key", { key: "f", modifiers: [PRIMARY] });
 
 	await app.waitFor(
 		"⌘F's bar, its field taking the keys",
@@ -178,7 +180,7 @@ const viewsBrowsing: Scenario = async (context) => {
 		(state) => !state.find.visible && state.focus === "pane.content",
 	);
 
-	await app.send("key", { key: "f", modifiers: ["command"] });
+	await app.send("key", { key: "f", modifiers: [PRIMARY] });
 
 	const reopened = await app.waitFor("⌘F again", (state) => state.find.visible);
 
@@ -334,7 +336,7 @@ const viewsBrowsing: Scenario = async (context) => {
 		fixtures.url("nav-a.html?devtools"),
 	);
 
-	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
+	await app.send("key", { key: "i", modifiers: [PRIMARY, "shift"] });
 
 	await app.waitFor("DevTools", (state) =>
 		state.devToolsTabs.includes(inspected),
@@ -388,12 +390,10 @@ const viewsBrowsing: Scenario = async (context) => {
 	if (main?.number) {
 		const capture = join(context.out, "capture-devtools-docked.png");
 
-		await Bun.$`screencapture -x -o -l ${main.number} ${capture}`
-			.quiet()
-			.nothrow();
+		await captureWindow(main.number, capture);
 	}
 
-	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
+	await app.send("key", { key: "i", modifiers: [PRIMARY, "shift"] });
 
 	await app.waitFor(
 		"DevTools closed",
@@ -435,7 +435,7 @@ const viewsBrowsing: Scenario = async (context) => {
 
 	const findIntervals = await signpostFrameIntervals(async () => {
 		for (let round = 0; round < ROUNDS; round++) {
-			await app.send("key", { key: "f", modifiers: ["command"] });
+			await app.send("key", { key: "f", modifiers: [PRIMARY] });
 			await app.waitFor("the bar", (state) => state.find.visible);
 			await Bun.sleep(150);
 			await app.send("dispatchKey", { key: "\u001b" });
@@ -461,14 +461,14 @@ const viewsBrowsing: Scenario = async (context) => {
 		await app.send("closeFind");
 
 		for (let round = 0; round < ROUNDS / 2; round++) {
-			await app.send("key", { key: "i", modifiers: ["command", "shift"] });
+			await app.send("key", { key: "i", modifiers: [PRIMARY, "shift"] });
 
 			await app.waitFor("DevTools", (state) =>
 				state.devToolsTabs.includes(findTab),
 			);
 
 			await Bun.sleep(1_200);
-			await app.send("key", { key: "i", modifiers: ["command", "shift"] });
+			await app.send("key", { key: "i", modifiers: [PRIMARY, "shift"] });
 
 			await app.waitFor(
 				"DevTools closed",

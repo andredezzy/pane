@@ -1,4 +1,5 @@
 import { launchPane } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
 import { expect, type Scenario } from "../run";
@@ -12,7 +13,7 @@ const devtools: Scenario = async (context) => {
 	const url = context.fixtures.url("nav-a.html?devtools");
 	const { tab } = await app.openPage(profile, url);
 
-	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
+	await app.send("key", { key: "i", modifiers: [PRIMARY, "shift"] });
 
 	await app.waitFor("DevTools", (state) => state.devToolsTabs.includes(tab));
 
@@ -26,7 +27,7 @@ const devtools: Scenario = async (context) => {
 	await Bun.sleep(1_000);
 	await watcher.sample();
 
-	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
+	await app.send("key", { key: "i", modifiers: [PRIMARY, "shift"] });
 
 	await app.waitFor(
 		"DevTools to close",
@@ -36,11 +37,11 @@ const devtools: Scenario = async (context) => {
 	expect(frontend, "no DevTools frontend target");
 
 	// ⌥⌘I, Chrome's and Safari's key, opens and closes them too.
-	await app.send("key", { key: "i", modifiers: ["command", "option"] });
+	await app.send("key", { key: "i", modifiers: [PRIMARY, "option"] });
 
 	await app.waitFor("⌥⌘I", (state) => state.devToolsTabs.includes(tab));
 
-	await app.send("key", { key: "i", modifiers: ["command", "option"] });
+	await app.send("key", { key: "i", modifiers: [PRIMARY, "option"] });
 
 	await app.waitFor(
 		"⌥⌘I to close",

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { engineKey, keyForms } from "../lib/engine-key";
 import { tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { helperPid } from "../lib/processes";
+import { commandLinesAndEnvironments, helperPid } from "../lib/processes";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -66,9 +66,9 @@ const engineKeys: Scenario = async (context) => {
 	// The key, in every form, on no command line and in no environment.
 	const forms = keyForms(engineKey(dataDir, profile, "1234"));
 
-	const processes = (await Bun.$`ps -E -ww -axo pid=,command=`.text())
-		.split("\n")
-		.filter((row) => row.includes(dataDir.replace(/^\/private/, "")));
+	const processes = (await commandLinesAndEnvironments()).filter((row) =>
+		row.includes(dataDir.replace(/^\/private/, "")),
+	);
 
 	expect(processes.length >= 3, `only ${processes.length} processes found`);
 

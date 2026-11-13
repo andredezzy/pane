@@ -7,6 +7,7 @@
 //
 // Steps as in front.ts: ⌃⌘L is `hot:ctrl+cmd+l`, a reload `hot:cmd+r`.
 import { mainWindowOf } from "../lib/cua";
+import { recordWindow } from "../lib/tools";
 import { readSession, runSteps } from "./front";
 
 // A frame counts as changed past this mean difference of 0 to 255, in grey at
@@ -53,10 +54,7 @@ if (!sessionFile || !movie || !seconds || steps.length === 0) {
 
 const window = await mainWindowOf(readSession(sessionFile).pid);
 
-const recording = Bun.spawn(
-	["/usr/sbin/screencapture", "-x", "-v", "-V", seconds, `-l${window}`, movie],
-	{ stdout: "ignore", stderr: "ignore" },
-);
+const recording = recordWindow(window, seconds, movie);
 
 await Bun.sleep(LEAD_IN_MS);
 await runSteps(sessionFile, steps);

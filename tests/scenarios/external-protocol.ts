@@ -1,3 +1,4 @@
+import { isRunningNamed } from "../lib/processes";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -17,15 +18,13 @@ const externalProtocol: Scenario = async (context) => {
 
 	await clickAt((method, params) => page.send(method, params), box.x, box.y);
 
-	const mapsBefore =
-		(await Bun.$`pgrep -x Maps`.quiet().nothrow()).exitCode === 0;
+	const mapsBefore = await isRunningNamed("Maps");
 
 	const sheet = await waitForSheet(app, "externalProtocol");
 	await answerSheet(app, "Cancel");
 	await Bun.sleep(1_000);
 
-	const mapsAfter =
-		(await Bun.$`pgrep -x Maps`.quiet().nothrow()).exitCode === 0;
+	const mapsAfter = await isRunningNamed("Maps");
 
 	expect(mapsAfter === mapsBefore, "Maps opened");
 

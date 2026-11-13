@@ -1,4 +1,5 @@
 import { launchPane, type PaneApp } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The overlay on top takes a key first (ADR 0079): Quit Pane? sits over the
@@ -54,7 +55,7 @@ const openMenu = (app: PaneApp) =>
 	app.send("extensionsMenu", { control: "puzzle" });
 
 const openQuit = (app: PaneApp) =>
-	app.send("key", { key: "q", modifiers: ["command"] });
+	app.send("key", { key: "q", modifiers: [PRIMARY] });
 
 // The menu, then ⌘Q: Quit Pane? over it.
 async function openBoth(app: PaneApp): Promise<void> {
@@ -81,7 +82,7 @@ const keyPrecedence: Scenario = async (context) => {
 	await app.send("showPage", { page: "settings" });
 	await app.send("appIconPicker", { open: true });
 	await app.waitFor("the picker", (state) => state.appIconPicker);
-	await app.send("key", { key: "q", modifiers: ["command"] });
+	await app.send("key", { key: "q", modifiers: [PRIMARY] });
 
 	await app.waitFor(
 		"Quit Pane? over the picker",

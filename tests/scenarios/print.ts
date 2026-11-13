@@ -1,4 +1,5 @@
 import { launchPane } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { answerModal, WindowWatcher } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
 
@@ -23,7 +24,7 @@ const print: Scenario = async (context) => {
 		"window.printed",
 	);
 
-	await app.send("key", { key: "p", modifiers: ["command"] });
+	await app.send("key", { key: "p", modifiers: [PRIMARY] });
 
 	await app.waitFor(
 		"the print panel from ⌘P",

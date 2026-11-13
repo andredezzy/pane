@@ -1,9 +1,14 @@
-import { existsSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import type { Subprocess } from "bun";
+import { bySystem, noWindowsSide, powershell } from "./platform";
 
 // Waiting on processes by pid, and stopping those a scenario did not start
 // itself: an app that starts itself again (the panic wipe) is no child of the
-// runner, but its arguments still name the scenario's data directory.
+// runner, but its arguments still name the scenario's data directory. The
+// Mac's side asks ps and pgrep; Windows' asks its process table (Win32_Process,
+// through PowerShell) and stops a tree with taskkill.
 
+// Signal 0 tests that a process is there, on both systems.
 export function isRunning(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
@@ -34,39 +39,109 @@ export async function waitForExit(
 }
 
 // The pids pgrep lists for these arguments.
-export async function pgrep(...args: string[]): Promise<number[]> {
+async function pgrep(...args: string[]): Promise<number[]> {
 	const output = await Bun.$`/usr/bin/pgrep ${args}`.quiet().nothrow().text();
 
 	return output.split("\n").filter(Boolean).map(Number);
 }
 
+type WindowsProcess = {
+	ProcessId: number;
+	ParentProcessId: number;
+	Name: string;
+	ExecutablePath: string | null;
+	CommandLine: string | null;
+	WorkingSetSize: number;
+};
+
+// Windows' process table, every process with its command line (null where
+// Windows won't say: another user's).
+async function windowsProcesses(): Promise<WindowsProcess[]> {
+	return JSON.parse(
+		await powershell(
+			"ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine, WorkingSetSize)",
+		),
+	) as WindowsProcess[];
+}
+
+// The pids whose command line matches `pattern`, an extended regular
+// expression, as pgrep -f reads it.
+export const pidsMatching = bySystem({
+	mac: (pattern: string) => pgrep("-f", pattern),
+	windows: async (pattern: string) => {
+		const matches = new RegExp(pattern);
+
+		return (await windowsProcesses())
+			.filter((row) => matches.test(row.CommandLine ?? ""))
+			.map((row) => row.ProcessId);
+	},
+});
+
+// The pids of the processes `pid` started.
+export const childrenOf = bySystem({
+	mac: (pid: number) => pgrep("-P", String(pid)),
+	windows: async (pid: number) =>
+		(await windowsProcesses())
+			.filter((row) => row.ParentProcessId === pid)
+			.map((row) => row.ProcessId),
+});
+
+// Whether a process of the app named `name` runs ("Maps": Maps.exe on
+// Windows).
+export const isRunningNamed = bySystem({
+	mac: async (name: string) => (await pgrep("-x", name)).length > 0,
+	windows: async (name: string) =>
+		(await windowsProcesses()).some(
+			(row) => row.Name.toLowerCase() === `${name}.exe`.toLowerCase(),
+		),
+});
+
+// Each process's pid and command line.
+const commandLines = bySystem({
+	mac: async () =>
+		(await Bun.$`ps -axo pid=,args=`.text()).split("\n").flatMap((row) => {
+			const match = /^\s*(\d+)\s+(.*)$/.exec(row);
+
+			return match ? [{ pid: Number(match[1]), command: match[2] ?? "" }] : [];
+		}),
+	windows: async () =>
+		(await windowsProcesses()).map((row) => ({
+			pid: row.ProcessId,
+			command: row.CommandLine ?? "",
+		})),
+});
+
 // The pid of the app's helper of `kind` ("network.mojom"): the one process
-// whose arguments name it and the app's data.
+// whose arguments name it and the app's data. The Mac's temporary folder is
+// /private/var, which its helpers name /var.
 export async function helperPid(
 	dataDir: string,
 	kind: string,
 ): Promise<number> {
-	const rows = (await Bun.$`ps -axo pid=,args=`.text()).split("\n");
-
-	return Number(
-		rows
-			.find(
-				(row) =>
-					row.includes(kind) && row.includes(dataDir.replace(/^\/private/, "")),
-			)
-			?.trim()
-			.split(/\s+/)[0],
-	);
-}
-
-// Whether a volume is mounted at `path`, which the table may name under /private.
-export async function mountedAt(path: string): Promise<boolean> {
-	const table = await Bun.$`/sbin/mount`.text();
+	const data = dataDir.replace(/^\/private/, "");
 
 	return (
-		table.includes(` on ${path} `) || table.includes(` on /private${path} `)
+		(await commandLines()).find(
+			(row) => row.command.includes(kind) && row.command.includes(data),
+		)?.pid ?? Number.NaN
 	);
 }
+
+// Stops `pid` at once; on Windows, with the processes it started, which no
+// process group ends with it there.
+const kill = bySystem({
+	mac: async (pid: number) => {
+		try {
+			process.kill(pid, "SIGKILL");
+		} catch {}
+	},
+	windows: async (pid: number) => {
+		await Bun.spawn(["taskkill", "/F", "/T", "/PID", String(pid)], {
+			stdout: "ignore",
+			stderr: "ignore",
+		}).exited;
+	},
+});
 
 // Kills every process whose arguments contain `path`, and waits for them to
 // go, so nothing writes into the directory as it is removed. Returns their
@@ -74,98 +149,137 @@ export async function mountedAt(path: string): Promise<boolean> {
 export async function killUsing(path: string): Promise<number[]> {
 	const pattern = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-	const pids = (await pgrep("-f", pattern)).filter(
+	const pids = (await pidsMatching(pattern)).filter(
 		(pid) => pid !== process.pid,
 	);
 
-	for (const pid of pids) {
-		try {
-			process.kill(pid, "SIGKILL");
-		} catch {}
-	}
-
+	await Promise.all(pids.map((pid) => kill(pid)));
 	await Promise.all(pids.map((pid) => waitForExit(pid, 5_000)));
 
 	return pids;
 }
 
-// The devices of the disk images attached from inside `path`: a scenario's
-// data volume (ADR 0113). hdiutil names an image by the path it was attached
-// with, /var or /private/var, so both sides are resolved.
-export async function imagesAttachedIn(path: string): Promise<string[]> {
-	if (!existsSync(path)) {
-		return [];
-	}
-
-	const inside = `${realpathSync(path)}/`;
-
-	const resolved = (image: string) =>
-		existsSync(image) ? realpathSync(image) : image;
-
-	const info = await Bun.$`hdiutil info -plist | plutil -convert json -o - -`
-		.quiet()
-		.nothrow();
-
-	const images =
+// The process group `pid` is in, as ps writes it; empty when it is gone.
+// Windows has none: a process outlives its parent there unless a job holds
+// both.
+export const processGroupOf = bySystem({
+	mac: async (pid: number | undefined) =>
 		(
-			JSON.parse(info.stdout.toString() || "{}") as {
-				images?: {
-					"image-path"?: string;
-					"system-entities"?: {
-						"dev-entry"?: string;
-						"content-hint"?: string;
-					}[];
-				}[];
-			}
-		).images ?? [];
+			await Bun.$`/bin/ps -o pgid= -p ${pid ?? ""}`.quiet().nothrow().text()
+		).trim(),
+	windows: async (_pid: number | undefined): Promise<string> => {
+		throw noWindowsSide("a process group", "Windows has none");
+	},
+});
 
-	return images
-		.filter((image) => {
-			const imagePath = image["image-path"];
+// Every process's pid, command line, and environment, one row each, for
+// what must be on neither (engine-keys).
+export const commandLinesAndEnvironments = bySystem({
+	mac: async () =>
+		(await Bun.$`ps -E -ww -axo pid=,command=`.text()).split("\n"),
+	windows: async (): Promise<string[]> => {
+		throw noWindowsSide(
+			"another process's environment",
+			"Windows keeps it in the process's own memory",
+		);
+	},
+});
 
-			return imagePath !== undefined && resolved(imagePath).startsWith(inside);
-		})
-		.map((image) => imageDevice(image["system-entities"] ?? []))
-		.filter((device): device is string => device !== undefined);
-}
+// Where a stuck process's threads are, for 2 s, written to `file`; a sample
+// that fails writes nothing.
+export const sampleProcess = bySystem({
+	mac: async (pid: number, file: string) => {
+		await Bun.$`sample ${pid} 2 -file ${file}`.quiet().nothrow();
+	},
+	windows: async (_pid: number, _file: string): Promise<void> => {
+		throw noWindowsSide("a stuck process's stacks (the Mac's sample)");
+	},
+});
 
-// An attached image's own device: its whole disk, not its APFS container's,
-// a whole disk too. hdiutil lists them in no set order (DataVolume).
-export function imageDevice(
-	entities: { "dev-entry"?: string; "content-hint"?: string }[],
-): string | undefined {
-	return entities.find(
-		(entity) =>
-			/^\/dev\/disk\d+$/.test(entity["dev-entry"] ?? "") &&
-			![
-				"Apple_APFS_Container",
-				"EF57347C-0000-11AA-AA11-00306543ECAC",
-			].includes(entity["content-hint"] ?? ""),
-	)?.["dev-entry"];
-}
+// A process holding `file` open, as another app would, until it is killed: a
+// file of the volume kept busy (ADR 0113).
+export const holdOpen = bySystem({
+	mac: (file: string): Subprocess =>
+		Bun.spawn(["/usr/bin/tail", "-f", file], { stdout: "ignore" }),
+	windows: (_file: string): Subprocess => {
+		throw noWindowsSide(
+			"a file of the volume held open",
+			"Windows has no volume (U5)",
+		);
+	},
+});
 
-// Detaches them: a Pane killed leaves its volume attached until its
-// watchdog detaches it, and killUsing would kill that watchdog, whose
-// arguments name the image.
-export async function detachImagesIn(path: string): Promise<void> {
-	for (const device of await imagesAttachedIn(path)) {
-		await Bun.$`hdiutil detach ${device} -force -quiet`.quiet().nothrow();
-	}
-}
+export type ProcessRow = {
+	pid: number;
+	// The executable's full path.
+	executable: string;
+	command: string;
+	rssBytes: number;
+};
 
-const LSREGISTER =
-	"/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+// Every process, with its executable, command line, and resident memory
+// (Windows' working set).
+export const processTable = bySystem({
+	mac: async (): Promise<ProcessRow[]> => {
+		const commands = new Map(
+			(await Bun.$`ps -axww -o pid=,command=`.quiet().text())
+				.split("\n")
+				.flatMap((line) => {
+					const match = /^\s*(\d+)\s+(.*)$/.exec(line);
 
-// A launch registers the bundle with LaunchServices, which opens the newest
-// copy of a bundle identifier it knows: a test copy newer than the installed
-// Pane would be the one a link opens, on the user's own data. A run forgets
-// the copy it ran when it ends; one in /Applications is the user's.
-export async function forgetBundle(binary: string): Promise<void> {
-	const bundle = binary.replace(/\/Contents\/MacOS\/[^/]+$/, "");
+					return match ? [[Number(match[1]), match[2] ?? ""] as const] : [];
+				}),
+		);
 
-	if (bundle === binary || bundle.startsWith("/Applications/")) {
-		return;
-	}
+		return (await Bun.$`ps -axww -o pid=,rss=,comm=`.quiet().text())
+			.split("\n")
+			.flatMap((line) => {
+				const match = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
 
-	await Bun.$`${LSREGISTER} -u ${bundle}`.quiet().nothrow();
-}
+				if (!match) {
+					return [];
+				}
+
+				const pid = Number(match[1]);
+				const executable = match[3] ?? "";
+
+				return [
+					{
+						pid,
+						executable,
+						command: commands.get(pid) ?? executable,
+						rssBytes: Number(match[2]) * 1024,
+					},
+				];
+			});
+	},
+	windows: async (): Promise<ProcessRow[]> =>
+		(await windowsProcesses()).map((row) => ({
+			pid: row.ProcessId,
+			executable: row.ExecutablePath ?? row.Name,
+			command: row.CommandLine ?? row.ExecutablePath ?? row.Name,
+			rssBytes: row.WorkingSetSize,
+		})),
+});
+
+export type Footprints = {
+	"total footprint": number;
+	processes: { pid: number; footprint: number }[];
+	errors: unknown[];
+};
+
+// The processes' physical footprint, what Activity Monitor's Memory column
+// shows, through `file`. Windows has no such measure, and its numbers are a
+// real PC's (U6).
+export const footprintsOf = bySystem({
+	mac: async (pids: number[], file: string): Promise<Footprints> => {
+		await Bun.$`footprint --json ${file} ${pids.flatMap((pid) => ["-p", String(pid)])}`
+			.quiet()
+			.nothrow();
+
+		return JSON.parse(readFileSync(file, "utf8")) as Footprints;
+	},
+	windows: async (_pids: number[], _file: string): Promise<Footprints> => {
+		throw noWindowsSide("the processes' footprint", "a real PC's numbers (U6)");
+	},
+});

@@ -3,14 +3,16 @@
 // blobs, CacheStorage, a service worker, the origin private file system with a
 // sync access handle, a download, and an extension, each holding a value of its
 // own, random, for files-encrypted to look for on disk.
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ScenarioContext } from "../run";
+import { homeEnvironment } from "./browser";
 import type { Page } from "./cdp";
 import { extensionId, workerPage } from "./extensions";
 import type { AuditRoots, Planted } from "./file-audit";
 import { launchPane, type PaneApp, type PaneLaunch } from "./pane";
+import { filesHolding } from "./tools";
 
 const EXTENSION = join(
 	import.meta.dir,
@@ -56,7 +58,7 @@ export function sessionFolders(context: ScenarioContext, binary?: string) {
 		...(binary && { binary }),
 		dataDir,
 		derivedDataRoot: true,
-		env: { HOME: home, CFFIXED_USER_HOME: home, TMPDIR: `${temporary}/` },
+		env: { ...homeEnvironment(home), TMPDIR: `${temporary}/` },
 		args: [`--load-extension=${EXTENSION}`],
 	};
 
@@ -239,20 +241,12 @@ export const STORES_COMMITTED_MS = 35_000;
 // Any of the planted values in the Mac's own temporary folder, the scenarios'
 // folders aside: a helper can take it from macOS rather than from $TMPDIR. Only
 // a planted value is looked for: the rest there is other apps'.
-export async function plantedInRealTemporaryFolder(
+export function plantedInRealTemporaryFolder(
 	planted: Planted,
 ): Promise<string[]> {
-	const patterns = join(tmpdir(), `pane-audit-${crypto.randomUUID()}.txt`);
-	writeFileSync(patterns, Object.values(planted.values).join("\n"));
-	const root = realpathSync(tmpdir());
-
-	const found =
-		await Bun.$`/usr/bin/grep -rlaFf ${patterns} --exclude-dir=pane-* --exclude=pane-audit-* ${root}`
-			.quiet()
-			.nothrow()
-			.text();
-
-	rmSync(patterns, { force: true });
-
-	return found.split("\n").filter(Boolean);
+	return filesHolding(
+		realpathSync(tmpdir()),
+		Object.values(planted.values),
+		"pane-",
+	);
 }

@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { type AppState, launchPane, tabOf } from "../lib/pane";
 import { startHttpProxy, startSocks5Proxy } from "../lib/proxies";
 import { WindowWatcher } from "../lib/surfaces";
+import { filesHolding } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -27,13 +28,8 @@ async function passwordsAtRest(dataDir: string) {
 	) as { box?: string };
 
 	const inTheClear = (
-		await Bun.$`grep -rlaF ${CREDENTIALS.password} ${dataDir}`
-			.quiet()
-			.nothrow()
-			.text()
-	)
-		.split("\n")
-		.filter((path) => path !== "" && !path.includes("/automation/"));
+		await filesHolding(dataDir, [CREDENTIALS.password])
+	).filter((path) => !path.includes(`${sep}automation${sep}`));
 
 	return {
 		sealed: typeof profiles.box === "string",

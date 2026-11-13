@@ -2,12 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchPane, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
-import {
-	imagesAttachedIn,
-	mountedAt,
-	pgrep,
-	waitForExit,
-} from "../lib/processes";
+import { holdOpen, pidsMatching, waitForExit } from "../lib/processes";
+import { imagesAttachedIn, mountedAt } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // Pane locks while open (ADR 0116, Paper 06.4 and 07.9). Lock Pane shows the
@@ -138,7 +134,7 @@ const lockWhileOpen: Scenario = async (context) => {
 	);
 
 	const watchdogs = async () =>
-		(await pgrep("-f", `pane-volume-watch ${app.browser.pid} `)).length;
+		(await pidsMatching(`pane-volume-watch ${app.browser.pid} `)).length;
 
 	expect(
 		(await watchdogs()) === 1,
@@ -370,7 +366,7 @@ const lockWhileOpen: Scenario = async (context) => {
 	// it. It goes once the file closes.
 	const held = join(mountPoint, "held");
 	writeFileSync(held, "held");
-	const holder = Bun.spawn(["/usr/bin/tail", "-f", held], { stdout: "ignore" });
+	const holder = holdOpen(held);
 	await Bun.sleep(200);
 	await app.send("lockNow");
 	await Bun.sleep(3_000);
@@ -461,9 +457,7 @@ const lockWhileOpen: Scenario = async (context) => {
 		60_000,
 	);
 
-	const longHolder = Bun.spawn(["/usr/bin/tail", "-f", held], {
-		stdout: "ignore",
-	});
+	const longHolder = holdOpen(held);
 
 	await Bun.sleep(200);
 	await last.send("lockNow");

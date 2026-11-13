@@ -7,8 +7,16 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { homeEnvironment } from "../lib/browser";
 import { launchPane } from "../lib/pane";
+import type { NotOnWindows } from "../lib/platform";
 import { expect, type Scenario, type ScenarioContext } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	macOnly:
+		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here 0.7.0 to 0.13.1's, under the former identifier's folders (ADR 0114)",
+};
 
 // An earlier Pane's data, under its former identifier's folders
 // (com.pane.desktop), moves to this one's (xyz.roundedcorners.pane) at launch,
@@ -87,7 +95,7 @@ async function move(context: ScenarioContext, pin: boolean) {
 	const app = await launchPane(context, {
 		dataDir,
 		derivedDataRoot: true,
-		env: { HOME: home, CFFIXED_USER_HOME: home },
+		env: homeEnvironment(home),
 	});
 
 	const launched = await app.state();

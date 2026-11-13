@@ -1,13 +1,17 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { homeEnvironment } from "../lib/browser";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
-import {
-	imageDevice,
-	imagesAttachedIn,
-	mountedAt,
-	pgrep,
-} from "../lib/processes";
+import type { NotOnWindows } from "../lib/platform";
+import { pidsMatching } from "../lib/processes";
+import { imageDevice, imagesAttachedIn, mountedAt } from "../lib/tools";
 import { expect, type Scenario } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	macOnly:
+		"the encrypted volume is the Mac's (ADR 0113): Windows has none, since one needs elevation (U5)",
+};
 
 // The image Pane finds at launch, and which Pane holds it (ADR 0113). A
 // second Pane started on the same data, as from a terminal, hands over to the
@@ -83,8 +87,7 @@ const dataVolume: Scenario = async (context) => {
 		{
 			env: {
 				...process.env,
-				HOME: home,
-				CFFIXED_USER_HOME: home,
+				...homeEnvironment(home),
 				PANE_DATA_DIR: dataDir,
 				PANE_ELECTRON_DATA_DIR: join(dataDir, "no-electron-app"),
 			},
@@ -112,7 +115,7 @@ const dataVolume: Scenario = async (context) => {
 		exitCode: second.exitCode,
 		mounted: await mounted(),
 		loads: await loads(first, profile, "after"),
-		watchdogs: (await pgrep("-f", `pane-volume-watch ${first.browser.pid} `))
+		watchdogs: (await pidsMatching(`pane-volume-watch ${first.browser.pid} `))
 			.length,
 	};
 
@@ -246,8 +249,7 @@ const dataVolume: Scenario = async (context) => {
 		env: {
 			PANE_DATA_DIR: quitDir,
 			PANE_ELECTRON_DATA_DIR: join(quitDir, "no-electron-app"),
-			HOME: quitHome,
-			CFFIXED_USER_HOME: quitHome,
+			...homeEnvironment(quitHome),
 		},
 	});
 

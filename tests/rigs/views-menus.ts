@@ -1,4 +1,5 @@
 import { launchPane, type PaneApp, setUpPin, tabOf } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
@@ -244,7 +245,7 @@ const viewsMenus: Scenario = async (context) => {
 		(state) => state.focus === "pane.content",
 	);
 
-	await app.send("key", { key: "q", modifiers: ["command"] });
+	await app.send("key", { key: "q", modifiers: [PRIMARY] });
 
 	await app.waitFor(
 		"Quit Pane?",
@@ -259,7 +260,7 @@ const viewsMenus: Scenario = async (context) => {
 		?.tabs.length;
 
 	for (const key of [
-		{ key: "t", modifiers: ["command"] },
+		{ key: "t", modifiers: [PRIMARY] },
 		{ key: "a" },
 		{ key: "\t" },
 	]) {
@@ -295,7 +296,7 @@ const viewsMenus: Scenario = async (context) => {
 
 	// Cancel, and a click outside it, go back too.
 	for (const press of ["pane.quit.cancel", "scrim"]) {
-		await app.send("key", { key: "q", modifiers: ["command"] });
+		await app.send("key", { key: "q", modifiers: [PRIMARY] });
 		await app.waitFor("Quit Pane? again", (state) => state.quitConfirmation);
 		await Bun.sleep(400);
 
@@ -375,7 +376,7 @@ const viewsMenus: Scenario = async (context) => {
 	);
 
 	// ⌘Q at the PIN screen quits at once: nothing is open to lose there.
-	await app.send("key", { key: "q", modifiers: ["command"] });
+	await app.send("key", { key: "q", modifiers: [PRIMARY] });
 
 	expect(
 		await waitForExit(app.browser.pid),

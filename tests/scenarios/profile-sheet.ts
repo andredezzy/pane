@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { type AppState, launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { poll, pollValue } from "../lib/poll";
 import { startHttpProxy } from "../lib/proxies";
+import { captureWindow } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // The profile sheet (ADR 0120), filled as a user would: real clicks on its
@@ -630,9 +631,10 @@ const profileSheet: Scenario = async (context) => {
 			await Bun.sleep(300);
 
 			if (window) {
-				await Bun.$`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, `profile-sheet-scrolled-${theme}.png`)}`
-					.quiet()
-					.nothrow();
+				await captureWindow(
+					window,
+					join(context.out, `profile-sheet-scrolled-${theme}.png`),
+				);
 			}
 		}
 

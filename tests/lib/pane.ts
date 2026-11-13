@@ -12,9 +12,10 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ScenarioContext } from "../run";
-import type { Browser } from "./browser";
+import { type Browser, homeEnvironment } from "./browser";
 import { openPage, type Page } from "./cdp";
 import { isScreenLocked } from "./cua";
+import { sampleProcess } from "./processes";
 import { targets } from "./targets";
 
 export type TabState = {
@@ -321,13 +322,12 @@ export class PaneApp {
 		// A stuck app: record where its main thread is before failing.
 		const sampleFile = join(this.out, `pane-hang-${command}-${Date.now()}.txt`);
 
-		await Bun.$`sample ${this.browser.pid} 2 -file ${sampleFile}`
-			.quiet()
-			.nothrow();
-
-		throw new Error(
-			`${command}: no reply from the app (sample: ${sampleFile})`,
+		const sampled = await sampleProcess(this.browser.pid, sampleFile).then(
+			() => `sample: ${sampleFile}`,
+			(error: unknown) => `no sample: ${String(error)}`,
 		);
+
+		throw new Error(`${command}: no reply from the app (${sampled})`);
 	}
 
 	async state(): Promise<AppState> {
@@ -580,8 +580,7 @@ export async function launchPane(
 			...(options.args ?? []),
 		],
 		env: {
-			HOME: home,
-			CFFIXED_USER_HOME: home,
+			...homeEnvironment(home),
 			...(!options.derivedDataRoot && { PANE_DATA_DIR: dataDir }),
 			PANE_AUTOMATION_DIR: automationDir,
 			// Only then does the app take the front from the app in use.

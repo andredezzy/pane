@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { canDriveUI, invokeMenu, mainWindowOf, windowState } from "../lib/cua";
-import { isRunning, pgrep, waitForExit } from "../lib/processes";
+import { childrenOf, isRunning, waitForExit } from "../lib/processes";
 import { waitForTarget } from "../lib/targets";
 import { launchTraced } from "../lib/traced";
 import { imageDetail, settledWindowsOf } from "../lib/windows";
@@ -87,7 +87,7 @@ const hosted: Scenario = async (context) => {
 		`the page area is blank (luminance deviation ${detail.deviation})`,
 	);
 
-	const helpersBefore = await pgrep("-P", String(browser.pid));
+	const helpersBefore = await childrenOf(browser.pid);
 	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility. It
 	// asks first (Quit Pane?); choosing it again quits, as ⌘Q again does.
 	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);

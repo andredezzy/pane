@@ -23,6 +23,7 @@ import {
 	setUpPin,
 	tabOf,
 } from "../lib/pane";
+import type { NotOnWindows } from "../lib/platform";
 import { waitForExit } from "../lib/processes";
 import {
 	READ_BACK,
@@ -32,8 +33,15 @@ import {
 	STORES_COMMITTED_MS,
 	sessionFolders,
 } from "../lib/rich-session";
+import { captureWindow } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	macOnly:
+		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here the profiles 0.14.0 to 0.18.1 wrote, converted to ADR 0121's formats; no Pane was ever published for Windows, so every profile there starts encrypted (W2)",
+};
 
 // A profile an earlier Pane wrote, opened with this one (ADR 0121): everything it
 // held is still there, signed in, and nothing is left plain. Killed at points
@@ -309,9 +317,10 @@ async function pass(context: ScenarioContext, earlier: string) {
 		await fence.send("theme", { theme });
 		await Bun.sleep(500);
 
-		await Bun.$`/usr/sbin/screencapture -x -o -l ${window} ${join(context.out, `fence-${name}-${theme}.png`)}`
-			.quiet()
-			.nothrow();
+		await captureWindow(
+			window,
+			join(context.out, `fence-${name}-${theme}.png`),
+		);
 	}
 
 	await fence.browser.close();

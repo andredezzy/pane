@@ -2,6 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, launchPane, type PaneApp } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
+import { isQuarantined } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // The update check against a stand-in for GitHub's latest release (ADR 0002,
@@ -17,10 +18,6 @@ import { expect, type Scenario } from "../run";
 
 const VERSION = "99.0.0";
 const DMG = `Pane-${VERSION}-arm64.dmg`;
-
-// Pane quarantines what it writes (LSFileQuarantineEnabled).
-const quarantined = (file: string) =>
-	Bun.spawnSync(["xattr", "-p", "com.apple.quarantine", file]).exitCode === 0;
 
 // The update's state every 25 ms for `ms`: a blink shows between samples.
 async function sample(app: PaneApp, ms: number) {
@@ -121,9 +118,10 @@ const updates: Scenario = async (context) => {
 		`downloaded ${JSON.stringify(files)}`,
 	);
 
-	// It matched the release's SHA-256: out of quarantine, so the app copied
-	// from it opens without Gatekeeper's refusal.
-	expect(!quarantined(dmg), "the verified dmg is still quarantined");
+	// It matched the release's SHA-256: out of the quarantine Pane puts on
+	// what it writes (LSFileQuarantineEnabled), so the app copied from it
+	// opens without Gatekeeper's refusal.
+	expect(!(await isQuarantined(dmg)), "the verified dmg is still quarantined");
 	expect(downloaded.update.pill, "the pill went away while it still has news");
 
 	// A check once downloaded leaves it downloaded.
@@ -207,7 +205,9 @@ const updates: Scenario = async (context) => {
 		30_000,
 	);
 
-	const unverifiedQuarantined = quarantined(join(unverifiedDownloads, DMG));
+	const unverifiedQuarantined = await isQuarantined(
+		join(unverifiedDownloads, DMG),
+	);
 
 	expect(unverifiedQuarantined, "a dmg without a digest left quarantine");
 

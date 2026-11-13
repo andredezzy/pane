@@ -1,7 +1,14 @@
 import { launchPane } from "../lib/pane";
+import type { NotOnWindows } from "../lib/platform";
 import { helperPid } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	needsDesign:
+		"a same-user process's reach into Pane's memory, read on the Mac with lldb, task ports, and Apple's inspection tools; Windows lets one read it while Pane is unlocked (U5), so what is checked there comes with W3's promise",
+};
 
 // What a process of the same user reaches of Pane's processes' memory, where the
 // keys are (ADR 0121). The browser process, the network service, and the Storage

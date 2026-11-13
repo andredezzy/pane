@@ -1,6 +1,7 @@
 // The published Panes a scenario takes data from (PANE_EARLIER_BUILDS: their
 // executables, comma-separated), each with its version, read from its bundle.
 import { dirname, join } from "node:path";
+import { plistString } from "./tools";
 
 export type EarlierBuild = {
 	executable: string;
@@ -32,19 +33,9 @@ export function earlierBuilds(): EarlierBuild[] {
 		.map((executable) => {
 			const plist = join(dirname(executable), "..", "Info.plist");
 
-			const read = Bun.spawnSync([
-				"/usr/bin/plutil",
-				"-extract",
-				"CFBundleShortVersionString",
-				"raw",
-				"-o",
-				"-",
-				plist,
-			]);
+			const version = plistString(plist, "CFBundleShortVersionString") ?? "";
 
-			const version = read.stdout.toString().trim();
-
-			if (read.exitCode !== 0 || !/^\d+\.\d+\.\d+$/.test(version)) {
+			if (!/^\d+\.\d+\.\d+$/.test(version)) {
 				throw new Error(`no Pane version in ${plist}`);
 			}
 

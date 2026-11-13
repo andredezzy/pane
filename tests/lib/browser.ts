@@ -1,9 +1,58 @@
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import { Cdp } from "./cdp";
-import { detachImagesIn } from "./processes";
+import { bySystem, noWindowsSide } from "./platform";
+import { detachImagesIn } from "./tools";
+
+// The environment that gives the app the throwaway folder `home` for its own:
+// on the Mac, HOME, and CFFIXED_USER_HOME for Foundation, so its caches, HTTP
+// storage, Downloads, Application Support, and Crashpad's database are not
+// the user's Pane's (its preferences stay the user's domain: cfprefsd ignores
+// a fixed home). Chromium on Windows reads its folders (AppData, Downloads)
+// from the shell, which no variable moves.
+export const homeEnvironment = bySystem({
+	mac: (home: string): Record<string, string> => ({
+		HOME: home,
+		CFFIXED_USER_HOME: home,
+	}),
+	windows: (_home: string): Record<string, string> => {
+		throw noWindowsSide(
+			"a home of the app's own",
+			"Chromium reads Windows' folders from the shell, not the environment",
+		);
+	},
+});
+
+// The app the executable `binary` runs: its bundle on the Mac (Pane.app, from
+// Pane.app/Contents/MacOS/Pane); chrome.exe's folder on Windows, which holds
+// the version's folder and the rest of the app beside it.
+export const appOf = bySystem({
+	mac: (binary: string) => {
+		const bundle = binary.replace(/\/Contents\/MacOS\/[^/]+$/, "");
+
+		if (bundle === binary) {
+			throw new Error(`${binary} is not in an app bundle`);
+		}
+
+		return bundle;
+	},
+	windows: (binary: string) => dirname(binary),
+});
+
+// The app's resource `name` (crl-set): in the bundle's Resources on the Mac.
+// Where Windows' app keeps its own, the CRLSet among them, is W7's.
+export const appResource = bySystem({
+	mac: (binary: string, name: string) =>
+		join(appOf(binary), "Contents", "Resources", name),
+	windows: (_binary: string, _name: string): string => {
+		throw noWindowsSide(
+			"the app's resources",
+			"W7 decides where Windows' app keeps them",
+		);
+	},
+});
 
 export type LaunchOptions = {
 	args?: string[];
@@ -104,8 +153,7 @@ export async function launch(
 
 	// A home of its own too, unless a scenario names one: under the real
 	// home the app would share the user's Pane's caches, HTTP storage, and
-	// Downloads, and Chromium's Crashpad database. Its preferences stay the
-	// user's domain: cfprefsd ignores a fixed home (CFFIXED_USER_HOME).
+	// Downloads, and Chromium's Crashpad database (homeEnvironment).
 	const home = options.env?.HOME
 		? null
 		: mkdtempSync(join(tmpdir(), "pane-home-"));
@@ -124,6 +172,18 @@ export async function launch(
 			}
 		}
 	};
+
+	// What gives the app that home; a launch that can't give it one (Windows,
+	// for now) leaves nothing behind.
+	let homeVariables: Record<string, string> = {};
+
+	try {
+		homeVariables = home ? homeEnvironment(home) : {};
+	} catch (error) {
+		await removeDirs();
+
+		throw error;
+	}
 
 	// A reused directory still holds the last run's port.
 	rmSync(join(userDataDir, "DevToolsActivePort"), { force: true });
@@ -151,7 +211,7 @@ export async function launch(
 				PANE_DATA_DIR: appDataDir,
 				PANE_ELECTRON_DATA_DIR: join(appDataDir, "no-electron-app"),
 			}),
-			...(home && { HOME: home, CFFIXED_USER_HOME: home }),
+			...homeVariables,
 			...options.env,
 		},
 		stdout: output,

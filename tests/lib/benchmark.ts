@@ -2,21 +2,22 @@
 // docs/benchmarks): the window list for the window, the pages' own Performance
 // API for loads, and footprint for memory. On throwaway data, with one set of
 // flags, so two builds compare.
-import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { mkdirSync, realpathSync, rmSync } from "node:fs";
 import { loadavg } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import type { Subprocess } from "bun";
 import type { ScenarioContext } from "../run";
+import { appOf, homeEnvironment } from "./browser";
 import { Cdp, openPage, type Page } from "./cdp";
 import { PaneApp } from "./pane";
-import { waitForExit } from "./processes";
+import { footprintsOf, processTable, waitForExit } from "./processes";
 import { targets } from "./targets";
 import { swiftTool } from "./tools";
 
 export type BenchmarkedApp = {
 	executable: string;
-	// The bundle as given and as its helpers name it (/tmp is /private/tmp):
-	// a process of the app has its executable inside one.
+	// The app's folder (appOf) as given and as its helpers name it (/tmp is
+	// /private/tmp): a process of the app has its executable inside one.
 	paths: string[];
 };
 
@@ -39,18 +40,12 @@ export async function benchmarkedApp(
 	context: ScenarioContext,
 ): Promise<BenchmarkedApp> {
 	const executable = context.binary;
-	const end = executable.indexOf(".app/");
-
-	if (end < 0) {
-		throw new Error(`${executable} is not in an app bundle`);
-	}
-
-	const bundle = executable.slice(0, end + 4);
+	const folder = appOf(executable);
 
 	// Compiled now, not inside the first timed launch.
 	await swiftTool("window-wait");
 
-	return { executable, paths: [...new Set([bundle, realpathSync(bundle)])] };
+	return { executable, paths: [...new Set([folder, realpathSync(folder)])] };
 }
 
 export type LaunchTimes = {
@@ -163,46 +158,22 @@ function processType(command: string): string {
 	return command.includes("crashpad") ? "crashpad" : "browser";
 }
 
-// Every running process of the app, by its executable, inside the bundle:
-// the browser, its helpers, and those that left its tree (Crashpad's handler
-// is launchd's child). Never by its arguments, which the runner's own
+// Every running process of the app, by its executable, inside the app
+// (appOf): the browser, its helpers, and those that left its tree (Crashpad's
+// handler is launchd's child). Never by its arguments, which the runner's own
 // command line shares.
 async function processesOf(app: BenchmarkedApp): Promise<AppProcess[]> {
-	const commands = new Map(
-		(await Bun.$`ps -axww -o pid=,command=`.quiet().text())
-			.split("\n")
-			.flatMap((line) => {
-				const match = /^\s*(\d+)\s+(.*)$/.exec(line);
-
-				return match ? [[Number(match[1]), match[2] ?? ""] as const] : [];
-			}),
+	return (await processTable()).flatMap((row) =>
+		app.paths.some((path) => row.executable.startsWith(`${path}${sep}`))
+			? [
+					{
+						pid: row.pid,
+						type: processType(row.command),
+						rssBytes: row.rssBytes,
+					},
+				]
+			: [],
 	);
-
-	const lines = (await Bun.$`ps -axww -o pid=,rss=,comm=`.quiet().text()).split(
-		"\n",
-	);
-
-	return lines.flatMap((line) => {
-		const match = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
-		const executable = match?.[3] ?? "";
-
-		if (
-			!match ||
-			!app.paths.some((path) => executable.startsWith(`${path}/`))
-		) {
-			return [];
-		}
-
-		const pid = Number(match[1]);
-
-		return [
-			{
-				pid,
-				type: processType(commands.get(pid) ?? executable),
-				rssBytes: Number(match[2]) * 1024,
-			},
-		];
-	});
 }
 
 export type MemorySnapshot = {
@@ -216,12 +187,6 @@ export type MemorySnapshot = {
 	byType: Record<string, { count: number; footprintBytes: number }>;
 };
 
-type FootprintJSON = {
-	"total footprint": number;
-	processes: { pid: number; footprint: number }[];
-	errors: unknown[];
-};
-
 // The app's memory, read with footprint. A process that ends between the
 // list and the read fails the read: it is read again.
 export async function memoryOf(
@@ -230,13 +195,11 @@ export async function memoryOf(
 ): Promise<MemorySnapshot> {
 	for (let attempt = 0; attempt < 5; attempt++) {
 		const processes = await processesOf(app);
-		const file = join(scratch, `footprint-${Date.now()}.json`);
 
-		await Bun.$`footprint --json ${file} ${processes.flatMap((entry) => ["-p", String(entry.pid)])}`
-			.quiet()
-			.nothrow();
-
-		const read = JSON.parse(readFileSync(file, "utf8")) as FootprintJSON;
+		const read = await footprintsOf(
+			processes.map((entry) => entry.pid),
+			join(scratch, `footprint-${Date.now()}.json`),
+		);
 
 		if (read.errors.length > 0 || read.processes.length !== processes.length) {
 			await Bun.sleep(500);
@@ -400,15 +363,13 @@ export async function launchApp(
 	const port = freePort();
 	let automationDir: string | null = null;
 
-	// A home of its own, the one macOS gives a process that sets
-	// CFFIXED_USER_HOME: URLSession's cache and cookies and Crashpad's database
-	// would otherwise be the user's Pane's.
+	// A home of its own (homeEnvironment): URLSession's cache and cookies and
+	// Crashpad's database would otherwise be the user's Pane's.
 	const home = join(dataDir, "home");
 	mkdirSync(home, { recursive: true });
 
 	const env: Record<string, string> = {
-		HOME: home,
-		CFFIXED_USER_HOME: home,
+		...homeEnvironment(home),
 		PANE_DATA_DIR: dataDir,
 		PANE_UPDATE_URL: context.fixtures.url("releases/latest"),
 		PANE_ELECTRON_DATA_DIR: join(dataDir, "no-electron-app"),

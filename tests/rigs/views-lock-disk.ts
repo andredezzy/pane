@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { audit } from "../lib/file-audit";
 import { setUpPin } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { imagesAttachedIn, mountedAt } from "../lib/processes";
 import {
 	plantedInRealTemporaryFolder,
 	READ_BACK,
@@ -11,6 +10,7 @@ import {
 	richSession,
 	STORES_COMMITTED_MS,
 } from "../lib/rich-session";
+import { imagesAttachedIn, mountedAt } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // L3's disk check behind the Lock (docs/plans/views-migration.md, Phase 3;

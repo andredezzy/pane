@@ -1,22 +1,436 @@
-// The Swift tools in tools/, compiled on first use, and again once their
-// source is newer than the binary.
-import { existsSync, mkdirSync, statSync } from "node:fs";
+// The system's tools the runner calls, each with the Mac's side and Windows':
+// the Swift tools in tools/, Caps Lock, a window's capture and recording, the
+// user's idle time and front app, the system's appearance, the data volume's
+// disk images (ADR 0113), LaunchServices, what makes a stand-in Pane (a copy,
+// a signature, a plist, a dmg), a download's quarantine, and a search of
+// files' bytes.
+import {
+	type Dirent,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Subprocess } from "bun";
+import { bySystem, noWindowsSide, powershell } from "./platform";
 
 const BINARIES = join(tmpdir(), "pane-tests");
 
-export async function swiftTool(name: string): Promise<string> {
-	const source = join(import.meta.dir, "..", "tools", `${name}.swift`);
-	const binary = join(BINARIES, name);
+// The Swift tool `name`'s binary, compiled on first use, and again once its
+// source is newer. They are the Mac's: what each reads or does on Windows
+// (the windows, the accessibility tree, the clipboard, a URL handed over) is
+// W6's.
+export const swiftTool = bySystem({
+	mac: async (name: string): Promise<string> => {
+		const source = join(import.meta.dir, "..", "tools", `${name}.swift`);
+		const binary = join(BINARIES, name);
 
-	if (
-		!existsSync(binary) ||
-		statSync(binary).mtimeMs < statSync(source).mtimeMs
-	) {
-		mkdirSync(BINARIES, { recursive: true });
-		await Bun.$`swiftc -O ${source} -o ${binary}`.quiet();
+		if (
+			!existsSync(binary) ||
+			statSync(binary).mtimeMs < statSync(source).mtimeMs
+		) {
+			mkdirSync(BINARIES, { recursive: true });
+			await Bun.$`swiftc -O ${source} -o ${binary}`.quiet();
+		}
+
+		return binary;
+	},
+	windows: async (name: string): Promise<string> => {
+		throw noWindowsSide(`the Mac's tests/tools/${name}.swift`);
+	},
+});
+
+// Whether the system draws its Caps Lock indicator by a focused field, which
+// the window checks read as a stray window: the Mac does while Caps Lock is
+// on; Windows draws none by a field of Chromium's own.
+export const capsLockIndicator = bySystem({
+	mac: async () =>
+		(await Bun.$`${await swiftTool("caps-lock")}`.text()).trim() === "on",
+	windows: async () => false,
+});
+
+// The window numbered `windowId` (the window server's number) drawn into the
+// PNG `file`, without its shadow, whatever covers it: whether it was.
+export const captureWindow = bySystem({
+	mac: async (windowId: number, file: string) =>
+		(
+			await Bun.$`/usr/sbin/screencapture -x -o -l ${windowId} ${file}`
+				.quiet()
+				.nothrow()
+		).exitCode === 0,
+	windows: async (_windowId: number, _file: string): Promise<boolean> => {
+		throw noWindowsSide("a window's capture");
+	},
+});
+
+// The window recorded into the movie `file` for `seconds`, from now: the
+// process records until it exits.
+export const recordWindow = bySystem({
+	mac: (windowId: number, seconds: string, file: string): Subprocess =>
+		Bun.spawn(
+			[
+				"/usr/sbin/screencapture",
+				"-x",
+				"-v",
+				"-V",
+				seconds,
+				`-l${windowId}`,
+				file,
+			],
+			{ stdout: "ignore", stderr: "ignore" },
+		),
+	windows: (_windowId: number, _seconds: string, _file: string): Subprocess => {
+		throw noWindowsSide("a window's recording");
+	},
+});
+
+// Seconds since the user's last key, click, or move.
+export const idleSeconds = bySystem({
+	mac: async () => {
+		const nanoseconds = /"HIDIdleTime" = (\d+)/.exec(
+			await Bun.$`ioreg -c IOHIDSystem`.quiet().text(),
+		)?.[1];
+
+		return Number(nanoseconds) / 1e9;
+	},
+	windows: async (): Promise<number> => {
+		throw noWindowsSide("the user's idle time");
+	},
+});
+
+// The pid of the app in front, which the user's keys reach.
+export const frontmostPid = bySystem({
+	mac: async () => {
+		const front = (await Bun.$`lsappinfo front`.quiet().text()).trim();
+
+		const pid = /\bpid"?\s*=\s*(\d+)/.exec(
+			await Bun.$`lsappinfo info -only pid ${front}`.quiet().text(),
+		)?.[1];
+
+		return Number(pid);
+	},
+	windows: async (): Promise<number> => {
+		throw noWindowsSide("the app in front");
+	},
+});
+
+// Whether the system's appearance is dark: the Mac's (AppleInterfaceStyle),
+// or the mode Windows gives apps (AppsUseLightTheme 0).
+export const systemIsDark = bySystem({
+	mac: async () =>
+		(
+			await Bun.$`defaults read -g AppleInterfaceStyle`.quiet().nothrow().text()
+		).trim() === "Dark",
+	windows: async () => {
+		const query = Bun.spawn(
+			[
+				"reg",
+				"query",
+				"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+				"/v",
+				"AppsUseLightTheme",
+			],
+			{ stdout: "pipe", stderr: "ignore" },
+		);
+
+		return /AppsUseLightTheme\s+REG_DWORD\s+0x0\s*$/m.test(
+			await new Response(query.stdout).text(),
+		);
+	},
+});
+
+type AttachedImage = {
+	"image-path"?: string;
+	"system-entities"?: {
+		"dev-entry"?: string;
+		"content-hint"?: string;
+	}[];
+};
+
+// The devices of the disk images attached from inside `path`: a scenario's
+// data volume (ADR 0113). hdiutil names an image by the path it was attached
+// with, /var or /private/var, so both sides are resolved. Windows has no
+// volume (U5): what checks one there waits on its Windows design.
+export const imagesAttachedIn = bySystem({
+	mac: async (path: string): Promise<string[]> => {
+		if (!existsSync(path)) {
+			return [];
+		}
+
+		const inside = `${realpathSync(path)}/`;
+
+		const resolved = (image: string) =>
+			existsSync(image) ? realpathSync(image) : image;
+
+		const info = await Bun.$`hdiutil info -plist | plutil -convert json -o - -`
+			.quiet()
+			.nothrow();
+
+		const images =
+			(
+				JSON.parse(info.stdout.toString() || "{}") as {
+					images?: AttachedImage[];
+				}
+			).images ?? [];
+
+		return images
+			.filter((image) => {
+				const imagePath = image["image-path"];
+
+				return (
+					imagePath !== undefined && resolved(imagePath).startsWith(inside)
+				);
+			})
+			.map((image) => imageDevice(image["system-entities"] ?? []))
+			.filter((device): device is string => device !== undefined);
+	},
+	windows: async (_path: string): Promise<string[]> => {
+		throw noWindowsSide(
+			"the data volume's disk images",
+			"Windows has no volume (U5)",
+		);
+	},
+});
+
+// An attached image's own device, from hdiutil's entities: its whole disk,
+// not its APFS container's, a whole disk too. hdiutil lists them in no set
+// order (DataVolume).
+export function imageDevice(
+	entities: { "dev-entry"?: string; "content-hint"?: string }[],
+): string | undefined {
+	return entities.find(
+		(entity) =>
+			/^\/dev\/disk\d+$/.test(entity["dev-entry"] ?? "") &&
+			![
+				"Apple_APFS_Container",
+				"EF57347C-0000-11AA-AA11-00306543ECAC",
+			].includes(entity["content-hint"] ?? ""),
+	)?.["dev-entry"];
+}
+
+// Detaches them: a Pane killed leaves its volume attached until its
+// watchdog detaches it, and killUsing would kill that watchdog, whose
+// arguments name the image. Windows' Pane attaches none (U5), so a
+// teardown there has nothing to detach.
+export const detachImagesIn = bySystem({
+	mac: async (path: string) => {
+		for (const device of await imagesAttachedIn(path)) {
+			await Bun.$`hdiutil detach ${device} -force -quiet`.quiet().nothrow();
+		}
+	},
+	windows: async (_path: string) => {},
+});
+
+// Whether a volume is mounted at `path`, which the table may name under
+// /private. Windows has no volume (U5).
+export const mountedAt = bySystem({
+	mac: async (path: string) => {
+		const table = await Bun.$`/sbin/mount`.text();
+
+		return (
+			table.includes(` on ${path} `) || table.includes(` on /private${path} `)
+		);
+	},
+	windows: async (_path: string): Promise<boolean> => {
+		throw noWindowsSide(
+			"the data volume's mount",
+			"Windows has no volume (U5)",
+		);
+	},
+});
+
+const LSREGISTER =
+	"/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+
+// A launch registers the bundle with LaunchServices, which opens the newest
+// copy of a bundle identifier it knows: a test copy newer than the installed
+// Pane would be the one a link opens, on the user's own data. A run forgets
+// the copy it ran when it ends; one in /Applications is the user's. A launch
+// on Windows registers nothing a link opens: Chromium is registered there by
+// its installer (W7) or as the default browser (W8), neither of which a
+// scenario runs.
+export const forgetBundle = bySystem({
+	mac: async (binary: string) => {
+		const bundle = binary.replace(/\/Contents\/MacOS\/[^/]+$/, "");
+
+		if (bundle === binary || bundle.startsWith("/Applications/")) {
+			return;
+		}
+
+		await Bun.$`${LSREGISTER} -u ${bundle}`.quiet().nothrow();
+	},
+	windows: async (_binary: string) => {},
+});
+
+// What makes a stand-in Pane, and a copy of one that reports another
+// version: the Mac's bundles and dmgs. Windows' install and update are W7's.
+const W7 = "W7 decides Windows' install and update";
+
+// A copy of the bundle `from` made at `to`, as the Finder copies one.
+export const copyBundle = bySystem({
+	mac: async (from: string, to: string) => {
+		await Bun.$`ditto ${from} ${to}`.quiet();
+	},
+	windows: async (_from: string, _to: string): Promise<void> => {
+		throw noWindowsSide("a copy of an app bundle", W7);
+	},
+});
+
+// The bundle signed again, ad hoc; `keep` keeps its identifier, entitlements,
+// flags, and hardened runtime, as a release's signature has them.
+export const signAdHoc = bySystem({
+	mac: async (bundle: string, keep = false) => {
+		await Bun.$`codesign --force --sign - ${keep ? ["--preserve-metadata=identifier,entitlements,flags,runtime"] : []} ${bundle}`.quiet();
+	},
+	windows: async (_bundle: string, _keep = false): Promise<void> => {
+		throw noWindowsSide("an ad hoc signature", W7);
+	},
+});
+
+// The plist's string `key` (a dotted path, plutil's), or nothing.
+export const plistString = bySystem({
+	mac: (plist: string, key: string) => {
+		const read = Bun.spawnSync([
+			"/usr/bin/plutil",
+			"-extract",
+			key,
+			"raw",
+			"-o",
+			"-",
+			plist,
+		]);
+
+		return read.exitCode === 0 ? read.stdout.toString().trim() : undefined;
+	},
+	windows: (_plist: string, _key: string): string | undefined => {
+		throw noWindowsSide(
+			"a bundle's plist",
+			"no Pane was published for Windows (W2)",
+		);
+	},
+});
+
+// The plist's string `key` set to `value`.
+export const setPlistString = bySystem({
+	mac: async (plist: string, key: string, value: string) => {
+		await Bun.$`/usr/libexec/PlistBuddy -c ${`Set :${key} ${value}`} ${plist}`.quiet();
+	},
+	windows: async (
+		_plist: string,
+		_key: string,
+		_value: string,
+	): Promise<void> => {
+		throw noWindowsSide("a bundle's plist", W7);
+	},
+});
+
+// The C program `source` built into `binary`, with `defines` (-D).
+export const compileC = bySystem({
+	mac: async (source: string, binary: string, defines: string[]) => {
+		await Bun.$`clang -O2 ${defines.map((define) => `-D${define}`)} -o ${binary} ${source}`.quiet();
+	},
+	windows: async (
+		_source: string,
+		_binary: string,
+		_defines: string[],
+	): Promise<void> => {
+		throw noWindowsSide("a stand-in Pane's executable", W7);
+	},
+});
+
+// A dmg at `path` holding the folder `root`, its volume named `name`.
+export const makeDmg = bySystem({
+	mac: async (root: string, path: string, name: string) => {
+		await Bun.$`hdiutil create -quiet -ov -fs HFS+ -volname ${name} -srcfolder ${root} ${path}`.quiet();
+	},
+	windows: async (
+		_root: string,
+		_path: string,
+		_name: string,
+	): Promise<void> => {
+		throw noWindowsSide("a dmg", W7);
+	},
+});
+
+// Whether the system marks `file` as come from elsewhere: the Mac's
+// quarantine (com.apple.quarantine), Windows' Mark of the Web (its
+// Zone.Identifier stream).
+export const isQuarantined = bySystem({
+	mac: async (file: string) =>
+		(await Bun.$`xattr -p com.apple.quarantine ${file}`.quiet().nothrow())
+			.exitCode === 0,
+	windows: async (file: string) =>
+		(
+			await powershell(
+				"if (Get-Item -LiteralPath $env:PANE_FILE -Stream Zone.Identifier -ErrorAction SilentlyContinue) { 'marked' }",
+				{ PANE_FILE: file },
+			)
+		).trim() === "marked",
+});
+
+// Every file under `folder`, as grep -r walks it: no link followed, no folder
+// it can't read, and none whose name starts with `skipFolders`.
+function* filesUnder(folder: string, skipFolders?: string): Generator<string> {
+	let entries: Dirent[];
+
+	try {
+		entries = readdirSync(folder, { withFileTypes: true });
+	} catch {
+		return;
 	}
 
-	return binary;
+	for (const entry of entries) {
+		const path = join(folder, entry.name);
+
+		if (entry.isFile()) {
+			yield path;
+		} else if (
+			entry.isDirectory() &&
+			!(skipFolders !== undefined && entry.name.startsWith(skipFolders))
+		) {
+			yield* filesUnder(path, skipFolders);
+		}
+	}
 }
+
+// The files under `root` whose bytes hold any of `texts`, as grep -rlaF finds
+// them, but those in a folder whose name starts with `skipFolders`. Only
+// files: a FIFO, which another app's tools leave in the temporary folder
+// (Xcode's ibtoold), holds nothing at rest, and opening one waits for its
+// writer for good (-D skip). Windows reads each file itself, passing over one
+// it can't read (open in another app), as grep does.
+export const filesHolding = bySystem({
+	mac: async (root: string, texts: string[], skipFolders?: string) => {
+		const patterns = texts.flatMap((text) => ["-e", text]);
+		const skip = skipFolders ? [`--exclude-dir=${skipFolders}*`] : [];
+
+		return (
+			await Bun.$`/usr/bin/grep -rlaF -D skip ${patterns} ${skip} ${root}`
+				.quiet()
+				.nothrow()
+				.text()
+		)
+			.split("\n")
+			.filter(Boolean);
+	},
+	windows: async (root: string, texts: string[], skipFolders?: string) => {
+		const needles = texts.map((text) => Buffer.from(text));
+		const found: string[] = [];
+
+		for (const file of filesUnder(root, skipFolders)) {
+			try {
+				const bytes = readFileSync(file);
+
+				if (needles.some((needle) => bytes.includes(needle))) {
+					found.push(file);
+				}
+			} catch {}
+		}
+
+		return found;
+	},
+});

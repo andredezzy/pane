@@ -1,4 +1,5 @@
 import { launchPane } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { waitForTarget } from "../lib/targets";
@@ -13,7 +14,7 @@ const devtoolsUndocked: Scenario = async (context) => {
 	const url = context.fixtures.url("nav-a.html?undock");
 	const { tab } = await app.openPage(profile, url);
 
-	await app.send("key", { key: "i", modifiers: ["command", "shift"] });
+	await app.send("key", { key: "i", modifiers: [PRIMARY, "shift"] });
 
 	await app.waitFor("docked DevTools", (state) =>
 		state.devToolsTabs.includes(tab),

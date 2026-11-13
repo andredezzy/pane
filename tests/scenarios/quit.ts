@@ -1,4 +1,5 @@
 import { launchPane, type PaneApp, pressWindowKey } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
@@ -37,7 +38,7 @@ const quit: Scenario = async (context) => {
 	const app = await launchPane(context);
 	await focusedPage(context, app, url);
 
-	await app.send("key", { key: "q", modifiers: ["command"] });
+	await app.send("key", { key: "q", modifiers: [PRIMARY] });
 
 	await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 
@@ -50,7 +51,7 @@ const quit: Scenario = async (context) => {
 		(state) => !state.quitConfirmation && state.focus === "pane.content",
 	);
 
-	await app.send("key", { key: "q", modifiers: ["command"] });
+	await app.send("key", { key: "q", modifiers: [PRIMARY] });
 	await app.waitFor("Quit Pane? again", (state) => state.quitConfirmation);
 	await pressWindowKey(context, app, "\r");
 	const quitByReturn = await waitForExit(app.browser.pid);
@@ -62,11 +63,11 @@ const quit: Scenario = async (context) => {
 	await dark.send("theme", { theme: "dark" });
 	await focusedPage(context, dark, url);
 
-	await dark.send("key", { key: "q", modifiers: ["command"] });
+	await dark.send("key", { key: "q", modifiers: [PRIMARY] });
 	await dark.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 	await dark.render("quit-dark.png");
 
-	await dark.send("key", { key: "q", modifiers: ["command"] });
+	await dark.send("key", { key: "q", modifiers: [PRIMARY] });
 	const quitByCommandQ = await waitForExit(dark.browser.pid);
 
 	expect(quitByCommandQ, "⌘Q twice did not quit");

@@ -1,4 +1,4 @@
-import { dirname } from "node:path";
+import { appOf } from "../lib/browser";
 import {
 	launchPane,
 	type PaneApp,
@@ -29,7 +29,7 @@ async function handOver(
 	urls: string[],
 ): Promise<void> {
 	const handed =
-		await Bun.$`${await swiftTool("open-urls")} ${dirname(dirname(dirname(context.binary)))} ${app.browser.pid} ${context.tempDir("pane-window-home-")} ${urls}`
+		await Bun.$`${await swiftTool("open-urls")} ${appOf(context.binary)} ${app.browser.pid} ${context.tempDir("pane-window-home-")} ${urls}`
 			.quiet()
 			.nothrow();
 

@@ -1,5 +1,6 @@
 import { launchPane } from "../lib/pane";
 import { pollValue } from "../lib/poll";
+import { systemIsDark as systemAppearanceIsDark } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // The theme setting drives the app's appearance and the pages' color scheme.
@@ -13,15 +14,10 @@ const theme: Scenario = async (context) => {
 	const url = context.fixtures.url("theme.html");
 	const { page } = await app.openPage(profile, url);
 
-	// A run's --appearance stands in for the Mac's, which System follows.
+	// A run's --appearance stands in for the system's, which System follows.
 	const systemIsDark = context.appearance
 		? context.appearance === "dark"
-		: (
-				await Bun.$`defaults read -g AppleInterfaceStyle`
-					.quiet()
-					.nothrow()
-					.text()
-			).trim() === "Dark";
+		: await systemAppearanceIsDark();
 
 	await app.send("showPage", { page: "settings" });
 	await app.waitFor("Settings", (state) => state.page === "settings");

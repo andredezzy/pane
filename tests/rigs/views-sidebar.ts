@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { type AppState, launchPane, type PaneApp, tabOf } from "../lib/pane";
+import { captureWindow } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // H2, the sidebar (docs/plans/views-migration.md, Phase 3), on the Views
@@ -356,9 +357,10 @@ const viewsSidebar: Scenario = async (context) => {
 	if (main?.number) {
 		await Bun.sleep(600);
 
-		await Bun.$`screencapture -x -o -l ${main.number} ${join(context.out, "sidebar-delete-alert.png")}`
-			.quiet()
-			.nothrow();
+		await captureWindow(
+			main.number,
+			join(context.out, "sidebar-delete-alert.png"),
+		);
 	}
 
 	await app.send("clickModalButton", { title: "Cancel" });

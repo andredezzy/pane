@@ -1,7 +1,8 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { type AppState, launchPane, type PaneApp, setUpPin } from "../lib/pane";
-import { imagesAttachedIn, mountedAt, waitForExit } from "../lib/processes";
+import { waitForExit } from "../lib/processes";
+import { imagesAttachedIn, mountedAt } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 

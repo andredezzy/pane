@@ -5,7 +5,9 @@
 // Usage: bun tests/run.ts --binary <path> --out <dir>
 //        [--timeout <seconds per scenario, 600>] <scenario>...
 // A scenario is a name in scenarios/, or the path of a .ts file of its form
-// (benchmarks/, rigs/), which reports under its base name.
+// (benchmarks/, rigs/), which reports under its base name. A scenario runs on
+// the Mac and Windows unless it says otherwise (lib/platform.ts's
+// NotOnWindows): one kept off this system is reported, not run.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
@@ -13,8 +15,9 @@ import { parseArgs } from "node:util";
 import { type Browser, type LaunchOptions, launch } from "./lib/browser";
 import { isScreenLocked } from "./lib/cua";
 import { type Fixtures, serveFixtures } from "./lib/fixtures";
-import { detachImagesIn, forgetBundle, killUsing } from "./lib/processes";
-import { swiftTool } from "./lib/tools";
+import { keptOffThisSystem, type NotOnWindows } from "./lib/platform";
+import { killUsing } from "./lib/processes";
+import { capsLockIndicator, detachImagesIn, forgetBundle } from "./lib/tools";
 
 export type ScenarioContext = {
 	binary: string;
@@ -108,7 +111,7 @@ async function tearDown(browsers: Browser[], tempDirs: string[]) {
 
 // Caps Lock on draws macOS's indicator by every focused field, which the
 // window checks read as a stray window: say so before anything runs.
-if ((await Bun.$`${await swiftTool("caps-lock")}`.text()).trim() === "on") {
+if (await capsLockIndicator()) {
 	console.error(
 		"warning: Caps Lock is on; macOS's indicator by focused fields fails the window checks",
 	);
@@ -165,37 +168,56 @@ for (const given of positionals) {
 	};
 
 	try {
-		const scenario: Scenario = (
-			await import(
-				given.endsWith(".ts") ? resolve(given) : `./scenarios/${name}.ts`
-			)
-		).default;
+		const module = (await import(
+			given.endsWith(".ts") ? resolve(given) : `./scenarios/${name}.ts`
+		)) as { default: Scenario; notOnWindows?: NotOnWindows };
 
-		const running = scenario(context);
-		// Raced below; it can still fail after its deadline.
-		running.catch(() => {});
+		const keptOff = keptOffThisSystem(module.notOnWindows);
 
-		const result = await Promise.race([
-			running,
-			new Promise<never>((_, reject) => {
-				deadline = setTimeout(
-					() =>
-						reject(
-							new ScenarioFailure(
-								`timed out after ${timeoutMs / 1000} s (--timeout)`,
+		if (keptOff) {
+			// Reported, not run: what Windows does its own way, with no design
+			// yet, as checks not made; what is the Mac's alone, as nothing to
+			// check there.
+			if ("needsDesign" in keptOff) {
+				context.defer(`all of it, on Windows: ${keptOff.needsDesign}`);
+			}
+
+			entry = {
+				name,
+				ok: true,
+				ms: 0,
+				notRun:
+					"macOnly" in keptOff
+						? `the Mac's alone: ${keptOff.macOnly}`
+						: `Windows' own design to come: ${keptOff.needsDesign}`,
+			};
+		} else {
+			const running = module.default(context);
+			// Raced below; it can still fail after its deadline.
+			running.catch(() => {});
+
+			const result = await Promise.race([
+				running,
+				new Promise<never>((_, reject) => {
+					deadline = setTimeout(
+						() =>
+							reject(
+								new ScenarioFailure(
+									`timed out after ${timeoutMs / 1000} s (--timeout)`,
+								),
 							),
-						),
-					timeoutMs,
-				);
-			}),
-		]);
+						timeoutMs,
+					);
+				}),
+			]);
 
-		entry = {
-			name,
-			ok: true,
-			ms: Date.now() - startedAt,
-			...(result === undefined ? {} : { result }),
-		};
+			entry = {
+				name,
+				ok: true,
+				ms: Date.now() - startedAt,
+				...(result === undefined ? {} : { result }),
+			};
+		}
 	} catch (error) {
 		entry = {
 			name,
@@ -236,9 +258,13 @@ for (const given of positionals) {
 		...(deferred.length > 0 ? [`deferred: ${deferred.join("; ")}`] : []),
 	];
 
-	console.log(
-		`${entry.ok ? "PASS" : "FAIL"} ${name} (${entry.ms} ms${notes.length > 0 ? `; ${notes.join("; ")}` : ""})${entry.ok ? "" : ` — ${entry.error}`}`,
-	);
+	if (entry.notRun) {
+		console.log(`SKIP ${name} (${entry.notRun})`);
+	} else {
+		console.log(
+			`${entry.ok ? "PASS" : "FAIL"} ${name} (${entry.ms} ms${notes.length > 0 ? `; ${notes.join("; ")}` : ""})${entry.ok ? "" : ` — ${entry.error}`}`,
+		);
+	}
 }
 
 fixtures.stop();

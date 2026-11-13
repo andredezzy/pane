@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { stats } from "../lib/benchmark";
 import { extensionId, workerPage } from "../lib/extensions";
 import { type AppState, type PaneApp, pressWindowKey } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { type FrameInterval, signpostFrameIntervals } from "../lib/signposts";
 import { waitForSheet } from "../lib/surfaces";
 import { launchTraced, type Traced } from "../lib/traced";
@@ -195,7 +196,7 @@ async function promptKeys(
 	// Quit Pane? over the prompt takes Esc; the prompt, which stood aside, is
 	// next.
 	await askToAdd();
-	await app.send("key", { key: "q", modifiers: ["command"] });
+	await app.send("key", { key: "q", modifiers: [PRIMARY] });
 	await app.waitFor("Quit Pane? over the prompt", (s) => s.quitConfirmation);
 	before = [accepted(), cancelled()];
 	await esc();

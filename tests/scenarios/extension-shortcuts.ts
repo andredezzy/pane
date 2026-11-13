@@ -10,6 +10,7 @@ import {
 } from "../lib/chrome-extensions";
 import { extensionId, workerPage } from "../lib/extensions";
 import { launchPane } from "../lib/pane";
+import { PRIMARY } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
@@ -98,7 +99,7 @@ const extensionShortcuts: Scenario = async (context) => {
 		await app.send("typeInPage", { key, modifiers });
 	};
 
-	await onPage("y", ["command", "shift"]);
+	await onPage("y", [PRIMARY, "shift"]);
 	const [command] = await commands(1);
 
 	expect(
@@ -106,7 +107,7 @@ const extensionShortcuts: Scenario = async (context) => {
 		`⌘⇧Y ran ${JSON.stringify(command)}`,
 	);
 
-	await onPage("u", ["command", "shift"]);
+	await onPage("u", [PRIMARY, "shift"]);
 	const action = (await commands(2))[1];
 
 	expect(
@@ -123,7 +124,7 @@ const extensionShortcuts: Scenario = async (context) => {
 		(state) => state.focus === "pane.toolbar.address",
 	);
 
-	await app.send("windowKey", { key: "y", modifiers: ["command", "shift"] });
+	await app.send("windowKey", { key: "y", modifiers: [PRIMARY, "shift"] });
 	const fromField = (await commands(3))[2];
 
 	expect(
@@ -243,7 +244,7 @@ const extensionShortcuts: Scenario = async (context) => {
 
 	await onPage("y", ["control", "shift"]);
 	await commands(4);
-	await onPage("y", ["command", "shift"]);
+	await onPage("y", [PRIMARY, "shift"]);
 	await noMore(worker, 4, "⌘⇧Y, no longer the probe's key, still ran");
 
 	// ⌥⇧K, the second probe's, typed into the probe's field while it
@@ -280,7 +281,7 @@ const extensionShortcuts: Scenario = async (context) => {
 	);
 
 	await waitShortcut(NAME, "Activate the extension", "");
-	await onPage("u", ["command", "shift"]);
+	await onPage("u", [PRIMARY, "shift"]);
 	await noMore(worker, 5, "the cleared ⌘⇧U still ran");
 
 	// ⌘T, a key of Pane's menu bar, typed into a field as it records: the
@@ -301,7 +302,7 @@ const extensionShortcuts: Scenario = async (context) => {
 
 	const refused = async (description: string, command: string, had: string) => {
 		await record(NAME, description);
-		await typeKey(page, "t", ["command"]);
+		await typeKey(page, "t", [PRIMARY]);
 
 		// The page took the key: the field records no more.
 		await poll(
@@ -347,7 +348,7 @@ const extensionShortcuts: Scenario = async (context) => {
 		await app.send("select", { tab });
 		await app.send("activate");
 		await app.waitFor("the key window", (state) => state.window.key, 10_000);
-		await app.send("key", { key: "t", modifiers: ["command"] });
+		await app.send("key", { key: "t", modifiers: [PRIMARY] });
 
 		await app.waitFor(
 			"⌘T's new tab",
@@ -356,7 +357,7 @@ const extensionShortcuts: Scenario = async (context) => {
 				tabsBefore,
 		);
 	} else {
-		await onPage("t", ["command"]);
+		await onPage("t", [PRIMARY]);
 
 		context.defer(
 			"⌘T opening a tab once the page leaves it: the menu bar's key needs Pane in front",

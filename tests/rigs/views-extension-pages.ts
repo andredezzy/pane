@@ -22,7 +22,7 @@ import type { AppState, PaneApp } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { type FrameInterval, signpostFrameIntervals } from "../lib/signposts";
 import { waitForSheet } from "../lib/surfaces";
-import { swiftTool } from "../lib/tools";
+import { captureWindow, swiftTool } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -101,7 +101,10 @@ async function capture(state: AppState, file: string) {
 		`no number for the main window: ${JSON.stringify(state.nativeWindows)}`,
 	);
 
-	await Bun.$`/usr/sbin/screencapture -x -o -l ${main.number} ${file}`;
+	expect(
+		await captureWindow(main.number, file),
+		`the main window ${main.number} was not captured`,
+	);
 }
 
 // Pane's window as the channel renders it at 2×, with the page's own capture
@@ -428,7 +431,10 @@ const viewsExtensionPages: Scenario = async (context) => {
 
 	for (const [index, window] of asking.nativeWindows.entries()) {
 		if (window.role !== "main" && window.number) {
-			await Bun.$`/usr/sbin/screencapture -x -o -l ${window.number} ${join(context.out, `page-remove-window-${index}.png`)}`.nothrow();
+			await captureWindow(
+				window.number,
+				join(context.out, `page-remove-window-${index}.png`),
+			);
 		}
 	}
 

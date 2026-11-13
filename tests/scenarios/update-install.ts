@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { launchPane, type PaneApp } from "../lib/pane";
+import type { NotOnWindows } from "../lib/platform";
 import { pollValue } from "../lib/poll";
-import { isRunning, pgrep, waitForExit } from "../lib/processes";
+import { isRunning, pidsMatching, waitForExit } from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import {
 	launchCopy,
@@ -11,6 +12,12 @@ import {
 	bundleVersion as version,
 } from "../lib/update-copies";
 import { expect, type Scenario } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	needsDesign:
+		"Pane installing its update from a dmg (ADR 0092); Windows' install and update, Chromium's installer or a launcher of Pane's own, are W7's",
+};
 
 // Pane installing its own update (ADR 0092), against a stand-in release whose
 // dmg holds a stand-in Pane: a tiny app with Pane's identifier and the offered
@@ -326,7 +333,7 @@ async function installRelease(context: Parameters<Scenario>[0], path: string) {
 
 		// Opened again, by the shell the swap left: its first window.
 		const started = await pollValue(
-			() => pgrep("-f", executable),
+			() => pidsMatching(executable),
 			(pids) => pids.length > 0,
 			10_000,
 			5,

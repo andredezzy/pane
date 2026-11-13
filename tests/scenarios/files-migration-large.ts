@@ -1,12 +1,21 @@
 import { join } from "node:path";
+import { homeEnvironment } from "../lib/browser";
 import { mainWindowOf } from "../lib/cua";
 import { earlierBuilds } from "../lib/earlier-builds";
 import { engineKey } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";
 import { launchPane, type PaneLaunch, tabOf } from "../lib/pane";
+import type { NotOnWindows } from "../lib/platform";
 import { READ_BACK, type ReadBack, richSession } from "../lib/rich-session";
+import { captureWindow } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
+
+// Where it runs (lib/platform.ts).
+export const notOnWindows: NotOnWindows = {
+	macOnly:
+		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here a large profile one before 0.18.0 wrote; no Pane was ever published for Windows, so every profile there starts encrypted (W2)",
+};
 
 // A large profile an earlier Pane wrote (PANE_EARLIER_BUILDS, the first whose
 // files this one converts: before 0.18.0), opened with this one: thousands of
@@ -102,8 +111,7 @@ const filesMigrationLarge: Scenario = async (context) => {
 		),
 		derivedDataRoot: true,
 		env: {
-			HOME: killedHome,
-			CFFIXED_USER_HOME: killedHome,
+			...homeEnvironment(killedHome),
 			TMPDIR: `${join(killedHome, "tmp")}/`,
 		},
 		args: launch.args,
@@ -127,9 +135,10 @@ const filesMigrationLarge: Scenario = async (context) => {
 		if (moving) {
 			// Paper 07.5's panel, on screen, once.
 			if (!sawPanel) {
-				await Bun.$`/usr/sbin/screencapture -x -o -l ${await mainWindowOf(finishing.browser.pid)} ${join(context.out, "migration-panel.png")}`
-					.quiet()
-					.nothrow();
+				await captureWindow(
+					await mainWindowOf(finishing.browser.pid),
+					join(context.out, "migration-panel.png"),
+				);
 			}
 
 			sawPanel = true;

@@ -16,29 +16,12 @@ import { dirname } from "node:path";
 import type { Browser } from "../lib/browser";
 import { call, isScreenLocked, mainWindowOf } from "../lib/cua";
 import { PaneApp } from "../lib/pane";
+import { captureWindow, frontmostPid, idleSeconds } from "../lib/tools";
 
 const stop = (why: string): never => {
 	console.error(`STOP: ${why}`);
 	process.exit(3);
 };
-
-async function idleSeconds(): Promise<number> {
-	const nanoseconds = /"HIDIdleTime" = (\d+)/.exec(
-		await Bun.$`ioreg -c IOHIDSystem`.quiet().text(),
-	)?.[1];
-
-	return Number(nanoseconds) / 1e9;
-}
-
-async function frontmostPid(): Promise<number> {
-	const front = (await Bun.$`lsappinfo front`.quiet().text()).trim();
-
-	const pid = /\bpid"?\s*=\s*(\d+)/.exec(
-		await Bun.$`lsappinfo info -only pid ${front}`.quiet().text(),
-	)?.[1];
-
-	return Number(pid);
-}
 
 export type Session = { pid: number; dataDir: string; automation: string };
 
@@ -129,7 +112,10 @@ export async function runSteps(sessionFile: string, steps: string[]) {
 		} else if (kind === "shot") {
 			// A capture of the test copy's own window, never the screen.
 			const window = await mainWindowOf(session.pid);
-			await Bun.$`/usr/sbin/screencapture -x -o -l ${window} ${argument}`.quiet();
+
+			if (!(await captureWindow(window, argument))) {
+				throw new Error(`the window ${window} was not captured`);
+			}
 		} else if (kind === "send") {
 			const [command = "", json = "{}"] = argument.split(/:(.*)/s);
 

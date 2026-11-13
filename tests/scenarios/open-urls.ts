@@ -1,5 +1,6 @@
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { appOf } from "../lib/browser";
 import { swiftTool } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -32,7 +33,7 @@ const openURLs: Scenario = async (context) => {
 	).href;
 
 	const tool = await swiftTool("open-urls");
-	const bundle = dirname(dirname(dirname(context.binary)));
+	const bundle = appOf(context.binary);
 	const home = context.tempDir("pane-open-urls-home-");
 
 	const handed =
