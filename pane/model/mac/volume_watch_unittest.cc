@@ -15,7 +15,7 @@
 #include "base/process/process.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
-#include "pane/model/mac/data_lock.h"
+#include "pane/model/data_lock.h"
 #include "pane/model/mac/data_volume.h"
 #include "pane/model/mac/vault_test_support.h"
 #include "testing/gtest/include/gtest/gtest.h"

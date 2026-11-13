@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { extensionId } from "../lib/extensions";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
@@ -143,7 +143,9 @@ const historyScenario: Scenario = async (context) => {
 		const visit = (folder: string) => {
 			for (const entry of readdirSync(folder, { withFileTypes: true })) {
 				const path = join(folder, entry.name);
-				const file = path.slice(root.length);
+				// By "/", as the names below are written, whichever separator the
+				// system's paths take.
+				const file = path.slice(root.length).split(sep).join("/");
 
 				if (entry.isDirectory()) {
 					visit(path);
@@ -404,7 +406,12 @@ const historyScenario: Scenario = async (context) => {
 		`after the clear: ${JSON.stringify(afterTheClear)}`,
 	);
 
-	// Off, nothing new comes, and the tab still goes back within itself.
+	// Off, nothing new comes, and the tab still goes back within itself. Its
+	// page, made again, commits its address a moment after the state shows
+	// the tab loaded; a navigation before that takes its place, with nothing
+	// to go back to, as in Chrome.
+	await app.page(keepsTab, fixtureURL("nav-b.html", "keeps"));
+
 	await app.send("navigate", {
 		input: pageURL("within-the-tab"),
 	});

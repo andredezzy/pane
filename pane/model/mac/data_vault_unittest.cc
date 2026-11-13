@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/mac/data_vault.h"
+#include "pane/model/data_vault.h"
 
 #include <algorithm>
 #include <memory>
@@ -26,10 +26,11 @@
 #include "base/threading/thread.h"
 #include "base/time/time.h"
 #include "pane/model/data_key.h"
-#include "pane/model/mac/data_lock.h"
+#include "pane/model/data_lock.h"
 #include "pane/model/mac/data_volume.h"
 #include "pane/model/mac/file_operations.h"
 #include "pane/model/mac/vault_test_support.h"
+#include "pane/model/mac/volume_place.h"
 #include "pane/model/profile_deletions.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -104,14 +105,17 @@ class DataVaultTest : public testing::Test {
   std::unique_ptr<DataVault> MakeVault(
       scoped_refptr<LaunchAttach> launch = nullptr,
       bool holds_data_lock = true) {
-    DataVault::DetachWaits waits;
+    VolumePlace::DetachWaits waits;
     waits.at_lock = {base::TimeDelta(), base::Milliseconds(1),
                      base::Milliseconds(1)};
     waits.at_exit = {base::TimeDelta(), base::Milliseconds(1)};
     auto vault = std::make_unique<DataVault>(
-        data_, std::nullopt, tools_,
-        holds_data_lock ? DataLock::Take(data_) : nullptr, std::move(launch),
-        &delegate_, std::move(waits));
+        data_,
+        base::MakeRefCounted<VolumePlace>(
+            data_, std::nullopt, tools_,
+            holds_data_lock ? DataLock::Take(data_) : nullptr,
+            std::move(launch), std::move(waits)),
+        &delegate_);
     vault->set_file_migrator(migrator_->Get());
     return vault;
   }
@@ -224,7 +228,7 @@ TEST_F(DataVaultTest, ALockBeforeTheProfilesLoad) {
 TEST_F(DataVaultTest, UnlocksTheImageTheLaunchAttached) {
   ASSERT_TRUE(base::CreateDirectory(Volume().image()));
   scoped_refptr<LaunchAttach> launch =
-      LaunchAttach::Start(Volume(), tools_, DataVault::WatchdogPath());
+      LaunchAttach::Start(Volume(), tools_, VolumePlace::WatchdogPath());
   ASSERT_TRUE(launch->Wait(base::TimeDelta::Max()));
   ASSERT_TRUE(launch->devices());
 
@@ -239,7 +243,7 @@ TEST_F(DataVaultTest, UnlocksTheImageTheLaunchAttached) {
 // attaches nothing, and the key's open makes it.
 TEST_F(DataVaultTest, NoImageAttachesAtLaunch) {
   scoped_refptr<LaunchAttach> launch =
-      LaunchAttach::Start(Volume(), tools_, DataVault::WatchdogPath());
+      LaunchAttach::Start(Volume(), tools_, VolumePlace::WatchdogPath());
   ASSERT_TRUE(launch->Wait(base::TimeDelta::Max()));
   EXPECT_FALSE(launch->devices());
   EXPECT_TRUE(tools_->calls().empty());
@@ -639,7 +643,7 @@ TEST_F(DataVaultTest, TheQuitWaitsForTheAttachUnderWay) {
 TEST_F(DataVaultTest, TheQuitDetachesTheLaunchImage) {
   ASSERT_TRUE(base::CreateDirectory(Volume().image()));
   scoped_refptr<LaunchAttach> launch =
-      LaunchAttach::Start(Volume(), tools_, DataVault::WatchdogPath());
+      LaunchAttach::Start(Volume(), tools_, VolumePlace::WatchdogPath());
   ASSERT_TRUE(launch->Wait(base::TimeDelta::Max()));
   std::unique_ptr<DataVault> vault = MakeVault(launch);
 
@@ -655,7 +659,7 @@ TEST_F(DataVaultTest, TheQuitDetachesTheLaunchImage) {
 TEST_F(DataVaultTest, TheQuitLeavesADeviceThatNoLongerHoldsTheImage) {
   ASSERT_TRUE(base::CreateDirectory(Volume().image()));
   scoped_refptr<LaunchAttach> launch =
-      LaunchAttach::Start(Volume(), tools_, DataVault::WatchdogPath());
+      LaunchAttach::Start(Volume(), tools_, VolumePlace::WatchdogPath());
   ASSERT_TRUE(launch->Wait(base::TimeDelta::Max()));
   std::unique_ptr<DataVault> vault = MakeVault(launch);
   // Detached since, as a volume refused as not encrypted is.

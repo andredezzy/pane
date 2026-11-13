@@ -55,6 +55,11 @@ export const appResource = bySystem({
 // its process, and its data.
 type RunningApp = { binary: string; pid: number; dataDir: string };
 
+// Whether URLs a second launch hands over open in the copy running: the
+// Mac's; on Windows the process singleton passes them on and Pane hears none
+// yet, its AppEvents a stand-in (W4).
+export const HANDED_URLS_OPEN = bySystem({ mac: true, windows: false });
+
 // URLs handed to the running app as another app hands them, a link clicked
 // in Mail with Pane the default browser: on the Mac through Launch Services,
 // Apple Events to the copy running as `pid` from its bundle, without

@@ -2,10 +2,11 @@
 
 #include "pane/app/data_launch.h"
 
+#include <windows.h>
+
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 
 #include "base/base_paths.h"
@@ -14,29 +15,31 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback.h"
-#include "base/functional/callback_helpers.h"
-#include "base/location.h"
 #include "base/logging.h"
-#include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
-#include "base/task/sequenced_task_runner.h"
-#include "base/time/default_clock.h"
+#include "base/values.h"
 #include "chrome/common/chrome_paths.h"
 #include "pane/app/test_copy.h"
-#include "pane/model/app_settings.h"
-#include "pane/model/data_key.h"
+#include "pane/model/app_lock.h"
+#include "pane/model/data_lock.h"
+#include "pane/model/engine_secret.h"
+#include "pane/model/folder_place.h"
 #include "pane/model/local_state.h"
 #include "pane/model/model_store.h"
+#include "pane/model/panic_wipe_run.h"
+#include "pane/model/persisted_file.h"
+#include "pane/model/pin_guard.h"
 #include "pane/model/test_hooks.h"
 
 namespace pane {
 
-// Pane's data on Windows, its folder, the data key under DPAPI, the PIN, and
-// the lock, is W3's (docs/plans/views-migration.md, U5). Until then a launch
-// on the user's data ends at once, and a test copy's data lasts as long as
-// its process: a data key made at launch and sealed nowhere, no PIN, no lock.
+// Pane's data on Windows (U5): its folder in the user's local application
+// data, kept out of the index; the data key sealed under os_crypt's DPAPI key
+// and, with a PIN, a key the TPM holds; every profile at Engine\<id>, each
+// file encrypted under its Engine key (ADR 0121), with no volume around them,
+// which would need elevation. No Pane ran on Windows before, so there is no
+// earlier data to bring over.
 
 namespace {
 
@@ -44,139 +47,22 @@ base::FilePath EngineDirectory(const base::FilePath& data_directory) {
   return data_directory.Append(FILE_PATH_LITERAL("Engine"));
 }
 
-// What the launch kept for the data, which opens once the thread pool runs.
-struct Launched {
-  base::FilePath data_directory;
-  model::AppSettings settings;
-};
-
-Launched* g_launched = nullptr;
-
-// A test copy's data: the model's store in its folder, profiles.json sealed
-// under the files key of a data key no file keeps, and each profile's engine
-// key from it.
-class TestCopyData : public AppData {
- public:
-  explicit TestCopyData(Launched launched)
-      : data_directory_(launched.data_directory),
-        data_key_(model::MakeDataKey()),
-        store_(launched.data_directory,
-               std::move(launched.settings),
-               base::DefaultClock::GetInstance(),
-               base::BindRepeating(&TestCopyData::FilesKey,
-                                   base::Unretained(this)),
-               model::ModelStore::KeptApart()) {}
-  TestCopyData(const TestCopyData&) = delete;
-  TestCopyData& operator=(const TestCopyData&) = delete;
-  ~TestCopyData() override = default;
-
-  const base::FilePath& data_directory() const { return data_directory_; }
-
-  // AppData:
-  void Start(Client* client) override {
-    client_ = client;
-    // No PIN: the profiles load at once, as the Mac's do without one.
-    store_.LoadProfiles(
-        base::BindOnce(&TestCopyData::Loaded, weak_factory_.GetWeakPtr()));
+// Windows Search, and any indexer that honors it, skips the data: the folder
+// carries FILE_ATTRIBUTE_NOT_CONTENT_INDEXED, which NTFS gives everything
+// made in it after, in place of the Mac's Spotlight markers (ADR 0121).
+void KeepOutOfTheIndex(const base::FilePath& folder) {
+  const DWORD attributes = ::GetFileAttributesW(folder.value().c_str());
+  if (attributes == INVALID_FILE_ATTRIBUTES) {
+    PLOG(ERROR) << "Could not read the data folder's attributes";
+    return;
   }
-
-  void Stop() override { client_ = nullptr; }
-
-  model::ModelStore& store() override { return store_; }
-
-  bool IsLocked() const override { return false; }
-  bool IsOpen() const override { return open_; }
-  bool HasPin() const override { return false; }
-
-  std::optional<model::Key> EngineKey(
-      std::string_view profile_id) const override {
-    return model::EngineFilesKey(data_key_, profile_id);
+  if ((attributes & FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) ||
+      ::SetFileAttributesW(folder.value().c_str(),
+                           attributes | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)) {
+    return;
   }
-
-  // No volume to attach, and no earlier Pane's files to bring up to date.
-  void WhenAttached(base::OnceCallback<void(bool)> body) override {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(body), true));
-  }
-
-  void Prepare(const std::string& profile_id,
-               bool saves_history,
-               base::OnceCallback<void(bool)> done) override {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(done), true));
-  }
-
-  void ProfileDidOpen(const std::string& profile_id) override {}
-
-  // deletions.json and a deleted profile's folder are W3's.
-  void RecordDeletion(const std::string& profile_id,
-                      base::OnceClosure recorded) override {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, std::move(recorded));
-  }
-
-  void RemoveDeleted(const std::string& profile_id) override {}
-
-  // The PIN and the lock are W3's: with no PIN, nothing locks.
-  void LockScreen() override {}
-
-  base::OnceCallback<void(bool)> CloseData() override {
-    return base::DoNothing();
-  }
-
-  const std::optional<model::PinEntry>& PinScreen() const override {
-    return pin_screen_;
-  }
-
-  int FailedAttempts() const override { return 0; }
-
-  std::optional<double> DataMoveShare() const override { return std::nullopt; }
-
-  void ShowPinScreen(model::PinEntry::Mode mode) override {}
-  void PinDigit(char16_t digit) override {}
-  void PinBackspace() override {}
-  void ContinueWithPin() override {}
-  void DismissPinScreen() override {}
-
-  base::DictValue State() const override {
-    return base::DictValue()
-        .Set("pinLength", base::Value())
-        .Set("failedAttempts", 0)
-        .Set("locked", false)
-        .Set("wipe", base::DictValue()
-                         .Set("erasing", false)
-                         .Set("failures", base::ListValue()))
-        .Set("data", base::DictValue()
-                         .Set("phase", open_ ? "open" : "closed")
-                         .Set("attached", false)
-                         .Set("failure", base::Value())
-                         .Set("attachedAt", base::Value()))
-        .Set("screen", base::Value());
-  }
-
- private:
-  std::optional<model::Key> FilesKey() const {
-    return model::FilesKey(data_key_);
-  }
-
-  void Loaded() {
-    open_ = true;
-    if (client_) {
-      client_->AccessDidOpen();
-    }
-  }
-
-  const base::FilePath data_directory_;
-  const model::Key data_key_;
-  raw_ptr<Client> client_ = nullptr;
-  bool open_ = false;
-  const std::optional<model::PinEntry> pin_screen_;
-  // After the key, whose files key it reads.
-  model::ModelStore store_;
-  base::WeakPtrFactory<TestCopyData> weak_factory_{this};
-};
-
-TestCopyData* g_data = nullptr;
+  PLOG(ERROR) << "Could not keep the data folder out of the index";
+}
 
 // A test copy's home: the user's folders, which Chromium reads from the
 // shell on Windows and no variable moves (Downloads, Documents, the Desktop,
@@ -215,6 +101,35 @@ void TakeTestCopyHome() {
   }
 }
 
+// Whether profiles.json is sealed (its box): data a key opened, which no key
+// then reads. A plain one, as an earlier app wrote it, opens with none and is
+// sealed once read.
+bool HoldsSealedProfiles(const base::FilePath& data_directory) {
+  const base::expected<std::optional<base::Value>, model::FileError> read =
+      model::ReadJsonFile(
+          data_directory.Append(FILE_PATH_LITERAL("profiles.json")));
+  if (!read.has_value()) {
+    // There, but unreadable: kept shut rather than written over.
+    return true;
+  }
+  return *read && (*read)->is_dict() && (*read)->GetDict().FindString("box");
+}
+
+// What Windows' wipe takes besides the data's own files: every key the TPM
+// holds for this data's PIN, at once, so a copy of security.json made
+// earlier opens nothing.
+model::WipeExtras WindowsWipeExtras(scoped_refptr<model::PinGuard> guard) {
+  model::WipeExtras extras;
+  extras.at_once = base::BindRepeating(
+      [](scoped_refptr<model::PinGuard> guard) {
+        if (guard) {
+          guard->Forget(std::nullopt);
+        }
+      },
+      std::move(guard));
+  return extras;
+}
+
 }  // namespace
 
 base::FilePath DefaultDataDirectory() {
@@ -223,64 +138,74 @@ base::FilePath DefaultDataDirectory() {
   return local_app_data.Append(FILE_PATH_LITERAL("Pane"));
 }
 
+// The Mac's order, less what only the Mac has: an earlier Pane's data, its
+// caches apart, the volume.
 std::optional<int> PrepareData(const base::FilePath& data_directory,
                                const base::CommandLine& command_line,
                                bool test_copy) {
-  CHECK(!g_launched);
-  if (!test_copy) {
-    LOG(ERROR) << "Pane opens no data of the user's on Windows yet (W3)";
-    return 1;
-  }
+  // The data is the user's alone: %LOCALAPPDATA% is, and what is made in it
+  // takes its ACL.
   if (!base::CreateDirectory(data_directory)) {
-    LOG(ERROR) << "Could not make a test copy's data folder";
+    LOG(ERROR) << "Could not make the data folder";
     return 1;
   }
+  KeepOutOfTheIndex(data_directory);
   TakeTestCopyHome();
-  // Chromium opens the profile it used last at startup, before Pane gives it
-  // its key: never one of Pane's.
+
+  // The panic wipe's data goes before anything reads the data directory: the
+  // wiped instance started this one, or a wipe was cut short.
+  const scoped_refptr<model::PinGuard> guard =
+      model::PinGuard::ForData(data_directory);
+  scoped_refptr<model::LaunchErase> erase = model::PanicWipeAtLaunch(
+      data_directory, command_line, WindowsWipeExtras(guard));
+
+  // Chromium opens the profile it used last at startup, before the PIN:
+  // never one of Pane's.
   if (!model::StartOnDefaultProfile(EngineDirectory(data_directory))) {
     LOG(ERROR) << "Could not point Local State at the Default profile";
   }
-  g_launched =
-      new Launched{.data_directory = data_directory,
-                   .settings = model::ModelStore::LoadSettings(data_directory)};
+
+  // The Pane that runs on this data holds its lock until it ends. One started
+  // while it runs hands its URLs over through the engine's singleton and
+  // quits, making no secret of its own.
+  std::unique_ptr<model::DataLock> data_lock =
+      model::DataLock::Take(data_directory);
+
+  // os_crypt's key, found, or made the first time, here, before the engine's
+  // OSCrypt reads it: the data key is sealed under it. A sealed profiles.json
+  // with no key to open it is data lost: the lock stays shut.
+  model::AppLock::Loaded loaded = model::AppLock::Load(
+      data_directory, /*holds_data=*/HoldsSealedProfiles(data_directory));
+  model::AppLock::LaunchSecret secret;
+  if (data_lock && !loaded.unreadable && !loaded.key_lost) {
+    secret.secret = model::EngineSecret(EngineDirectory(data_directory),
+                                        /*makes_one=*/!loaded.state.key);
+  }
+
+  LaunchedData launched;
+  launched.data_directory = data_directory;
+  launched.place = base::MakeRefCounted<model::FolderPlace>(
+      data_directory, std::move(data_lock));
+  launched.erase = std::move(erase);
+  launched.loaded = std::move(loaded);
+  launched.secret = std::move(secret);
+  launched.lock_system.secret = base::BindRepeating(
+      &model::EngineSecret, EngineDirectory(data_directory));
+  launched.lock_system.guard = guard;
+  launched.lock_system.wipe = base::BindRepeating(
+      [](const base::FilePath& data_directory,
+         scoped_refptr<model::PinGuard> guard) {
+        model::WipeAndRelaunch(data_directory, WindowsWipeExtras(guard));
+      },
+      data_directory, guard);
+  launched.settings = model::ModelStore::LoadSettings(data_directory);
+  KeepLaunchedData(std::move(launched));
   return std::nullopt;
 }
 
-void OpenData() {
-  CHECK(g_launched);
-  CHECK(!g_data);
-  const std::unique_ptr<Launched> launched(std::exchange(g_launched, nullptr));
-  g_data = new TestCopyData(std::move(*launched));
-}
-
-// static
-AppData* AppData::Get() {
-  return g_data;
-}
-
-void DataWillStop() {
-  if (g_data) {
-    g_data->store().model().SaveNow();
-  }
-}
-
-void DataDidStop() {
-  base::FilePath data_directory;
-  if (g_launched) {
-    const std::unique_ptr<Launched> launched(
-        std::exchange(g_launched, nullptr));
-    data_directory = launched->data_directory;
-  }
-  if (g_data) {
-    data_directory = g_data->data_directory();
-    delete std::exchange(g_data, nullptr);
-  }
-  // Chromium wrote it as it quit: the profile used last.
-  if (!data_directory.empty() &&
-      !model::StartOnDefaultProfile(EngineDirectory(data_directory))) {
-    LOG(ERROR) << "Could not point Local State at the Default profile";
-  }
+// No Pane ran on Windows before: nothing to convert.
+model::FileMigrator MakeFileMigrator(const base::FilePath& user_data_dir) {
+  return model::FileMigrator();
 }
 
 }  // namespace pane

@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/mac/panic_wipe.h"
+#include "pane/model/panic_wipe.h"
 
 #include <unistd.h>
 
@@ -18,6 +18,7 @@
 #include "pane/model/mac/bundle_identifier.h"
 #include "pane/model/mac/electron_migration.h"
 #include "pane/model/mac/file_operations.h"
+#include "pane/model/mac/wipe_sources.h"
 #include "pane/model/persisted_file.h"
 #include "testing/gtest/include/gtest/gtest.h"
 

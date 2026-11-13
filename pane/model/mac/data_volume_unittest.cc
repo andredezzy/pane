@@ -19,8 +19,8 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "pane/model/mac/file_operations.h"
-#include "pane/model/mac/panic_wipe.h"
 #include "pane/model/mac/vault_test_support.h"
+#include "pane/model/panic_wipe.h"
 #include "pane/model/profile_deletions.h"
 #include "testing/gtest/include/gtest/gtest.h"
 

@@ -1,7 +1,7 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#ifndef PANE_MODEL_MAC_PANIC_WIPE_RUN_H_
-#define PANE_MODEL_MAC_PANIC_WIPE_RUN_H_
+#ifndef PANE_MODEL_PANIC_WIPE_RUN_H_
+#define PANE_MODEL_PANIC_WIPE_RUN_H_
 
 #include <optional>
 #include <string>
@@ -9,35 +9,42 @@
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/process/process_handle.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/thread_annotations.h"
-#include "pane/model/mac/panic_wipe.h"
-#include "pane/model/mac/safe_storage.h"
+#include "base/time/time.h"
+#include "pane/model/panic_wipe.h"
 
 namespace pane::model {
 
-class VolumeTools;
-
 // The panic wipe's process around PanicWipe's erase (ADR 0042): the wiped
 // instance's helpers, the instance it starts, and what that one does as it
-// starts.
+// starts. The order is one on every system; each system's processes are its
+// own (panic_wipe_run_mac.cc, panic_wipe_run_win.cc).
 
 // Names the wiped instance and its helpers, for the one it starts to wait out.
 inline constexpr char kWipeAfterSwitch[] = "pane-wipe-after";
 
-// Where the engine keeps the profiles' caches when apart from their data:
-// under ~/Library/Caches, for a data root under ~/Library/Application Support
-// (CacheDirectoryFor). nullopt anywhere else.
-std::optional<base::FilePath> ProfileCacheDirectory(
-    const base::FilePath& data_directory);
+// What a system's wipe takes besides the data's own files: on the Mac the
+// caches the engine keeps apart, the Electron app's data and its key, the
+// volume's leftovers, and the proxy passwords' store; on Windows the TPM's
+// keys of the PIN (PinGuard).
+struct WipeExtras {
+  WipeExtras();
+  WipeExtras(const WipeExtras&);
+  WipeExtras& operator=(const WipeExtras&);
+  ~WipeExtras();
 
-// The Electron app's data this Pane migrated from, which the wipe erases too
-// (ElectronData).
-std::optional<ElectronData> ElectronDataFor(
-    const base::FilePath& data_directory);
+  std::optional<base::FilePath> cache_directory;
+  std::optional<ElectronData> electron;
+  // At once, before the data moves aside.
+  base::RepeatingClosure at_once;
+  // Off the launch, once the moved data is erased: what may take its time.
+  base::RepeatingClosure off_the_launch;
+};
 
 // The erase at launch, on a thread of its own, and what it could not erase:
 // for the security scenario.
@@ -76,22 +83,11 @@ class LaunchErase : public base::RefCountedThreadSafe<LaunchErase> {
 scoped_refptr<LaunchErase> PanicWipeAtLaunch(
     const base::FilePath& data_directory,
     const base::CommandLine& command_line,
-    VolumeTools& tools,
-    SafeStorage safe_storage);
+    const WipeExtras& extras);
 
 // Whether security.json, or what is left of it, holds a PIN, the last failed
 // attempt, and no key: a wipe the wiped instance never finished.
 bool IsWipeDue(const base::FilePath& data_directory);
-
-// The Electron app's cookie key goes with its data, when macOS lets it go
-// without asking: a prompt would ask whoever typed the wrong PINs. Its data
-// erased, the key opens nothing anyway.
-void ForgetElectronKey(const std::optional<ElectronData>& electron,
-                       SafeStorage safe_storage);
-
-// The engine's helpers: renderers, the GPU and network services, and
-// Crashpad's handler.
-std::vector<base::ProcessId> ChildProcesses();
 
 // This instance starts again, with its arguments and environment, and waits
 // for `processes` to exit before it erases.
@@ -101,12 +97,36 @@ bool Relaunch(const std::vector<base::ProcessId>& processes);
 // disk: this instance ends. Its helpers go first, so none (the network
 // service, say) writes after, and the instance it starts erases once they are
 // all gone (PanicWipeAtLaunch). With none started, this one erases, its engine
-// still running. Never returns: not exit(), since nothing of the engine's
+// still running. Never returns: no exit(), since nothing of the engine's
 // shutdown may run, which would write.
 [[noreturn]] void WipeAndRelaunch(const base::FilePath& data_directory,
-                                  VolumeTools& tools,
-                                  SafeStorage safe_storage);
+                                  const WipeExtras& extras);
+
+// Each system's own processes (panic_wipe_run_mac.cc, panic_wipe_run_win.cc).
+
+// The engine's helpers: renderers, the GPU and network services, and
+// Crashpad's handler where it runs.
+std::vector<base::ProcessId> ChildProcesses();
+
+// Ends each at once, nothing of theirs run.
+void KillProcesses(const std::vector<base::ProcessId>& processes);
+
+// Until every one has exited, or `timeout`.
+void WaitForProcesses(const std::vector<base::ProcessId>& processes,
+                      base::TimeDelta timeout);
+
+// What this instance was started with, as the system gave it: the command
+// line Chromium reads carries the switches Pane's launch adds to it
+// (SetEngineSwitches, --pane-hosted among them), and an instance started with
+// those runs as a hosted engine, never Pane's launch, which erases.
+base::CommandLine::StringVector StartedWith();
+
+// Starts `argv`, with this instance's environment.
+bool Start(const base::CommandLine::StringVector& argv);
+
+// Ends this instance at once.
+[[noreturn]] void EndNow();
 
 }  // namespace pane::model
 
-#endif  // PANE_MODEL_MAC_PANIC_WIPE_RUN_H_
+#endif  // PANE_MODEL_PANIC_WIPE_RUN_H_

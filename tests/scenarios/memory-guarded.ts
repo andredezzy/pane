@@ -6,8 +6,8 @@ import { expect, type Scenario } from "../run";
 
 // Where it runs (lib/platform.ts).
 export const notOnWindows: NotOnWindows = {
-	needsDesign:
-		"a same-user process's reach into Pane's memory, read on the Mac with lldb, task ports, and Apple's inspection tools; Windows lets one read it while Pane is unlocked (U5), so what is checked there comes with W3's promise",
+	macOnly:
+		"a same-user process refused Pane's memory, by the hardened runtime, read with lldb, task ports, and Apple's inspection tools; Windows' promise lets a process of the user's read it while Pane is unlocked (U5, taken 2026-11-13), and a lock drops the keys there as here (engine-keys)",
 };
 
 // What a process of the same user reaches of Pane's processes' memory, where the

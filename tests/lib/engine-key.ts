@@ -1,6 +1,8 @@
 // A profile's engine key, as Pane derives it (pane/model/data_key.h, ADR 0121), from
 // the sealed data key under the mock keychain's secret: for a scenario to look
-// for the key where it must not be. Only the mock keychain's key opens this way.
+// for the key where it must not be. Only the mock keychain's key opens this way,
+// and on Windows, with a PIN, only with the share the computer's TPM gives back
+// for that PIN (pane/model/pin_guard.h, U5).
 import {
 	createDecipheriv,
 	createHash,
@@ -9,13 +11,133 @@ import {
 } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { bySystem, powershell, powershellSync } from "./platform";
 
 const MOCK_SECRET = Buffer.from("Pane mock keychain");
+
+type Guard = { key: string; share: string };
 
 type Sealed = {
 	box: string;
 	pin: { salt: string; rounds: number } | null;
+	tpm?: Guard;
 };
+
+// The share a key the TPM holds gives back with `pin`, as Pane's own
+// unseals it (pin_guard_win.cc): the Microsoft Platform Crypto Provider, the
+// key by its name, the PIN its own, RSA-OAEP with SHA-256. The right PIN
+// counts nothing in the chip's lockout.
+const TPM_UNSEAL = `Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class PaneTpm {
+  [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+  static extern int NCryptOpenStorageProvider(out IntPtr provider, string name, int flags);
+  [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+  static extern int NCryptOpenKey(IntPtr provider, out IntPtr key, string name, int legacySpec, int flags);
+  [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+  static extern int NCryptSetProperty(IntPtr handle, string property, byte[] value, int size, int flags);
+  [DllImport("ncrypt.dll")]
+  static extern int NCryptDecrypt(IntPtr key, byte[] input, int inputSize, IntPtr padding, byte[] output, int outputSize, out int written, int flags);
+  [DllImport("ncrypt.dll")]
+  static extern int NCryptFreeObject(IntPtr handle);
+
+  public static string Unseal(string name, string sealedShare, string pin) {
+    IntPtr provider;
+    IntPtr key;
+    int status = NCryptOpenStorageProvider(out provider, "Microsoft Platform Crypto Provider", 0);
+    if (status != 0) throw new Exception("provider " + status.ToString("X8"));
+    status = NCryptOpenKey(provider, out key, name, 0, 0x40);
+    if (status != 0) throw new Exception("key " + status.ToString("X8"));
+    byte[] value = Encoding.Unicode.GetBytes(pin + "\\0");
+    status = NCryptSetProperty(key, "SmartCardPin", value, value.Length, 0);
+    if (status != 0) throw new Exception("pin " + status.ToString("X8"));
+    IntPtr padding = Marshal.AllocHGlobal(IntPtr.Size * 2 + 4);
+    Marshal.WriteIntPtr(padding, 0, Marshal.StringToHGlobalUni("SHA256"));
+    Marshal.WriteIntPtr(padding, IntPtr.Size, IntPtr.Zero);
+    Marshal.WriteInt32(padding, IntPtr.Size * 2, 0);
+    byte[] input = Convert.FromBase64String(sealedShare);
+    byte[] output = new byte[input.Length];
+    int written;
+    status = NCryptDecrypt(key, input, input.Length, padding, output, output.Length, out written, 0x4 | 0x40);
+    NCryptFreeObject(key);
+    NCryptFreeObject(provider);
+    if (status != 0) throw new Exception("decrypt " + status.ToString("X8"));
+    byte[] share = new byte[written];
+    Array.Copy(output, share, written);
+    return Convert.ToBase64String(share);
+  }
+}
+'@
+[PaneTpm]::Unseal($env:PANE_TPM_KEY, $env:PANE_TPM_SHARE, $env:PANE_TPM_PIN)`;
+
+const unsealShare = bySystem({
+	mac: (_guard: Guard, _pin: string): Buffer => {
+		throw new Error("the Mac's seals take no TPM (ADR 0113)");
+	},
+	windows: (guard: Guard, pin: string): Buffer =>
+		Buffer.from(
+			powershellSync(TPM_UNSEAL, {
+				PANE_TPM_KEY: guard.key,
+				PANE_TPM_SHARE: guard.share,
+				PANE_TPM_PIN: pin,
+			}).trim(),
+			"base64",
+		),
+});
+
+// This user's keys in the Microsoft Platform Crypto Provider, by name.
+const TPM_KEYS = `Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class PaneTpmKeys {
+  [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+  static extern int NCryptOpenStorageProvider(out IntPtr provider, string name, int flags);
+  [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+  static extern int NCryptEnumKeys(IntPtr provider, string scope, out IntPtr keyName, ref IntPtr state, int flags);
+  [DllImport("ncrypt.dll")]
+  static extern int NCryptFreeBuffer(IntPtr buffer);
+  [DllImport("ncrypt.dll")]
+  static extern int NCryptFreeObject(IntPtr handle);
+
+  public static string Names() {
+    IntPtr provider;
+    if (NCryptOpenStorageProvider(out provider, "Microsoft Platform Crypto Provider", 0) != 0) return "";
+    IntPtr state = IntPtr.Zero;
+    IntPtr item;
+    var names = new System.Text.StringBuilder();
+    while (NCryptEnumKeys(provider, null, out item, ref state, 0x40) == 0) {
+      names.AppendLine(Marshal.PtrToStringUni(Marshal.ReadIntPtr(item)));
+      NCryptFreeBuffer(item);
+    }
+    if (state != IntPtr.Zero) NCryptFreeBuffer(state);
+    NCryptFreeObject(provider);
+    return names.ToString();
+  }
+}
+'@
+[PaneTpmKeys]::Names()`;
+
+// The keys the TPM holds for the PIN of the data in `dataDir`, by name, as
+// pin_guard_win.cc names them ("Pane data key <8 bytes of the folder's
+// SHA-256> <8 random bytes>"): what the panic wipe deletes. None on the Mac,
+// whose Keychain guards its secret (ADR 0113).
+export const pinGuardKeys = bySystem({
+	mac: async (_dataDir: string): Promise<string[]> => [],
+	windows: async (dataDir: string): Promise<string[]> => {
+		const folder = createHash("sha256")
+			.update(dataDir.toLowerCase())
+			.digest("hex")
+			.slice(0, 16);
+
+		return (await powershell(TPM_KEYS))
+			.split(/\r?\n/)
+			.filter((name) => name.startsWith(`Pane data key ${folder} `));
+	},
+});
 
 function dataKey(dataDir: string, pin: string | null): Buffer {
 	const sealed = (
@@ -35,8 +157,17 @@ function dataKey(dataDir: string, pin: string | null): Buffer {
 				)
 			: Buffer.alloc(0);
 
+	// A guarded seal takes the secret and the TPM's share, under its own info.
 	const sealing = Buffer.from(
-		hkdfSync("sha256", MOCK_SECRET, salt, "Pane data key", 32),
+		pin && sealed.tpm
+			? hkdfSync(
+					"sha256",
+					Buffer.concat([MOCK_SECRET, unsealShare(sealed.tpm, pin)]),
+					salt,
+					"Pane data key, its PIN guarded",
+					32,
+				)
+			: hkdfSync("sha256", MOCK_SECRET, salt, "Pane data key", 32),
 	);
 
 	const box = Buffer.from(sealed.box, "base64");

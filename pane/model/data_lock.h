@@ -1,12 +1,12 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#ifndef PANE_MODEL_MAC_DATA_LOCK_H_
-#define PANE_MODEL_MAC_DATA_LOCK_H_
+#ifndef PANE_MODEL_DATA_LOCK_H_
+#define PANE_MODEL_DATA_LOCK_H_
 
 #include <memory>
 
 #include "base/files/file_path.h"
-#include "base/files/scoped_file.h"
+#include "base/files/platform_file.h"
 #include "base/time/time.h"
 
 namespace pane::model {
@@ -19,8 +19,11 @@ namespace pane::model {
 // system lets go of with its process, a crash included, and which the
 // processes Pane starts do not inherit (the update's relaunch, the watchdog).
 //
-// It is flock(2) on Pane.lock, as every published Pane and its watchdog take
-// it, not base::File::Lock, which is fcntl's and would not keep them out.
+// On the Mac it is flock(2) on Pane.lock, as every published Pane and its
+// watchdog take it, not base::File::Lock, which is fcntl's there and would not
+// keep them out (data_lock_mac.cc). On Windows, which has no image, it is
+// LockFileEx's, through base::File::Lock (data_lock_win.cc): the Pane that
+// holds it alone makes the engine's secret, the first time (U5).
 class DataLock {
  public:
   DataLock(const DataLock&) = delete;
@@ -38,11 +41,11 @@ class DataLock {
                                         base::TimeDelta timeout);
 
  private:
-  explicit DataLock(base::ScopedFD descriptor);
+  explicit DataLock(base::ScopedPlatformFile file);
 
-  base::ScopedFD descriptor_;
+  base::ScopedPlatformFile file_;
 };
 
 }  // namespace pane::model
 
-#endif  // PANE_MODEL_MAC_DATA_LOCK_H_
+#endif  // PANE_MODEL_DATA_LOCK_H_

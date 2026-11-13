@@ -5,10 +5,16 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/strings/cstring_view.h"
 
 namespace pane::model {
+
+// The mock keychain's secret, which every scenario's data key is sealed under
+// (tests/lib/engine-key.ts): it opens none of the user's data, sealed under
+// the Keychain's on the Mac, or os_crypt's on Windows (ADR 0113).
+inline constexpr std::string_view kMockKeychainSecret = "Pane mock keychain";
 
 // What the scenarios set (tests/lib), read in a scenario's run alone: one on
 // the mock keychain, whose fixed secret opens none of the user's data (ADR

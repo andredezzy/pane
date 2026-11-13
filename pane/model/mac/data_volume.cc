@@ -40,7 +40,7 @@
 #include "base/uuid.h"
 #include "base/values.h"
 #include "pane/model/mac/file_operations.h"
-#include "pane/model/mac/panic_wipe.h"
+#include "pane/model/panic_wipe.h"
 #include "pane/model/profile.h"
 
 namespace pane::model {

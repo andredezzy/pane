@@ -121,6 +121,57 @@ TEST(DataKeyTest, Tampered) {
 }
 
 // Each use has a key of its own, the same for the same data key.
+// With the PIN's guard (U5): the seal takes the share only the TPM's key gives
+// back, so the secret and the right PIN open nothing without it; security.json
+// records the guard, and a seal without one keeps every byte it had (ADR
+// 0122).
+TEST(DataKeyTest, Guarded) {
+  const Key key = Sevens();
+  Guarded guarded;
+  guarded.share.fill(3);
+  guarded.kept = {.key = "Pane data key 0011223344556677 8899aabbccddeeff",
+                  .share = "c2hhcmU="};
+  const SealedKey sealed = SealDataKey(key, Bytes(kSecret), "1234", guarded);
+  ASSERT_TRUE(sealed.guard);
+  EXPECT_EQ(*sealed.guard, guarded.kept);
+  EXPECT_TRUE(IsSealedUnder(sealed, Bytes(kSecret)));
+  EXPECT_FALSE(IsSealedUnder(sealed, Bytes("another secret")));
+
+  EXPECT_EQ(OpenDataKey(sealed, Bytes(kSecret), "1234", guarded.share), key);
+  // The secret and the right PIN, without the share: what a copy of the files
+  // and DPAPI's secret give.
+  EXPECT_EQ(OpenDataKey(sealed, Bytes(kSecret), "1234").error(),
+            OpenError::kRefused);
+  Key other = guarded.share;
+  other[0] ^= 1;
+  EXPECT_EQ(OpenDataKey(sealed, Bytes(kSecret), "1234", other).error(),
+            OpenError::kRefused);
+  EXPECT_EQ(OpenDataKey(sealed, Bytes(kSecret), "4321", guarded.share).error(),
+            OpenError::kRefused);
+  EXPECT_EQ(OpenDataKey(sealed, Bytes("another secret"), "1234", guarded.share)
+                .error(),
+            OpenError::kOtherSecret);
+
+  // As security.json keeps it, and back.
+  const base::DictValue value = sealed.ToValue();
+  ASSERT_TRUE(value.FindDict("tpm"));
+  EXPECT_EQ(*value.FindDict("tpm")->FindString("key"), guarded.kept.key);
+  EXPECT_EQ(SealedKey::FromValue(value), sealed);
+
+  // An unguarded seal takes no share, and writes no "tpm".
+  const SealedKey plain = SealDataKey(key, Bytes(kSecret), "1234");
+  EXPECT_FALSE(plain.guard);
+  EXPECT_FALSE(plain.ToValue().Find("tpm"));
+  EXPECT_EQ(OpenDataKey(plain, Bytes(kSecret), "1234", guarded.share).error(),
+            OpenError::kRefused);
+  EXPECT_EQ(OpenDataKey(plain, Bytes(kSecret), "1234"), key);
+
+  // A "tpm" that isn't one is no seal.
+  base::DictValue broken = value.Clone();
+  broken.Set("tpm", base::DictValue().Set("key", "only a name"));
+  EXPECT_FALSE(SealedKey::FromValue(broken));
+}
+
 TEST(DataKeyTest, Derived) {
   const Key key = MakeDataKey();
   const std::string passphrase = VolumePassphrase(key);

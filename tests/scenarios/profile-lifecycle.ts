@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { dataOpen, launchPane, profileFolder, tabOf } from "../lib/pane";
 import { poll, pollValue } from "../lib/poll";
@@ -116,13 +116,22 @@ const profileLifecycle: Scenario = async (context) => {
 
 	await app.browser.close();
 
-	// A delete the engine never confirmed: deletions.json still names it.
+	// A delete the engine never confirmed: deletions.json still names it,
+	// beside any the file names already: on Windows a deleted profile's folder
+	// goes only once the engine has closed its files, and a quit before then
+	// leaves it named for the next open (ADR 0121).
 	const orphanDir = join(dataDir, "Engine", "orphan");
 	mkdirSync(join(orphanDir, "Network"), { recursive: true });
+	const deletionsFile = join(dataDir, "deletions.json");
+
+	const pending = existsSync(deletionsFile)
+		? (JSON.parse(readFileSync(deletionsFile, "utf8")) as { state: string[] })
+				.state
+		: [];
 
 	writeFileSync(
-		join(dataDir, "deletions.json"),
-		JSON.stringify({ state: ["orphan"], version: 0 }),
+		deletionsFile,
+		JSON.stringify({ state: [...pending, "orphan"], version: 0 }),
 	);
 
 	// Chrome removes a deleted profile's directory once nothing holds the

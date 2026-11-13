@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/mac/app_lock.h"
+#include "pane/model/app_lock.h"
 
 #include <string_view>
 #include <utility>
@@ -12,9 +12,6 @@
 #include "base/logging.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
-#include "pane/model/mac/data_volume.h"
-#include "pane/model/mac/panic_wipe_run.h"
-#include "pane/model/mac/pin_hash.h"
 #include "pane/model/persisted_file.h"
 
 namespace pane::model {
@@ -37,31 +34,71 @@ std::optional<std::string_view> ViewOf(const std::optional<std::string>& pin) {
   return *pin;
 }
 
+// What the PIN's guard gave back for a guarded seal, or why it gave nothing.
+base::expected<std::optional<Key>, AppLock::Opened::Kind> ReleasedShare(
+    const SealedKey& sealed,
+    const std::optional<std::string>& pin,
+    const scoped_refptr<PinGuard>& guard) {
+  // A seal without a guard, or the launch's open without a PIN, which the
+  // seal refuses on its own.
+  if (!sealed.guard || !pin) {
+    return std::nullopt;
+  }
+  if (!guard) {
+    return base::unexpected(AppLock::Opened::Kind::kGuardGone);
+  }
+  base::expected<Key, PinGuard::Refusal> released =
+      guard->Unseal(*sealed.guard, *pin);
+  if (released.has_value()) {
+    return std::make_optional(*released);
+  }
+  switch (released.error()) {
+    case PinGuard::Refusal::kWrongPin:
+      return base::unexpected(AppLock::Opened::Kind::kWrongPin);
+    case PinGuard::Refusal::kLockedOut:
+      return base::unexpected(AppLock::Opened::Kind::kLockedOut);
+    case PinGuard::Refusal::kGone:
+    case PinGuard::Refusal::kUnavailable:
+      return base::unexpected(AppLock::Opened::Kind::kGuardGone);
+  }
+}
+
 // Opens the data key with the PIN, or, before any is sealed, makes it: sealed
 // with the PIN, which matches the bcrypt hash an earlier Pane kept. `known`:
 // the secret this session read already, so Change and Remove, and an unlock
 // after a lock, ask the Keychain nothing more. `makes_secret`: whether the
 // Keychain's secret may be made here when none is found. `attach`: the key
 // opens the data, and its volume starts unlocking at once, from here
-// (MakeAttacher).
+// (MakeAttacher). A guarded seal asks its guard only once the secret is known
+// to be the seal's: another secret counts no attempt, the chip's included.
 AppLock::Opened OpenKey(std::optional<std::string> pin,
                         SecurityState state,
                         std::optional<std::vector<uint8_t>> known,
                         bool makes_secret,
-                        SafeStorage safe_storage,
+                        AppLock::System system,
                         DataVault::Attacher attach) {
   AppLock::Opened opened;
   std::optional<std::vector<uint8_t>> secret =
       known ? std::move(known)
-            : safe_storage.DataSecret(/*makes_one=*/makes_secret && !state.key);
+            : system.secret.Run(/*makes_one=*/makes_secret && !state.key);
   if (!secret) {
     opened.kind = AppLock::Opened::Kind::kNoSecret;
     return opened;
   }
 
   if (state.key) {
+    if (!IsSealedUnder(*state.key, *secret)) {
+      opened.kind = AppLock::Opened::Kind::kOtherSecret;
+      return opened;
+    }
+    const base::expected<std::optional<Key>, AppLock::Opened::Kind> share =
+        ReleasedShare(*state.key, pin, system.guard);
+    if (!share.has_value()) {
+      opened.kind = share.error();
+      return opened;
+    }
     const base::expected<Key, OpenError> key =
-        OpenDataKey(*state.key, *secret, ViewOf(pin));
+        OpenDataKey(*state.key, *secret, ViewOf(pin), *share);
     if (!key.has_value()) {
       opened.kind = key.error() == OpenError::kOtherSecret
                         ? AppLock::Opened::Kind::kOtherSecret
@@ -77,8 +114,8 @@ AppLock::Opened OpenKey(std::optional<std::string> pin,
     return opened;
   }
 
-  if (pin && (!state.pin || !state.pin->hash ||
-              !VerifyPinHash(*pin, *state.pin->hash))) {
+  if (pin && (!state.pin || !state.pin->hash || !system.matches_hash ||
+              !system.matches_hash.Run(*pin, *state.pin->hash))) {
     opened.kind = AppLock::Opened::Kind::kWrongPin;
     return opened;
   }
@@ -103,13 +140,12 @@ void WriteSecurityFiles(const base::FilePath& data_directory,
   }
 }
 
-void WipeNow(const base::FilePath& data_directory,
-             scoped_refptr<VolumeTools> tools,
-             SafeStorage safe_storage) {
-  WipeAndRelaunch(data_directory, *tools, safe_storage);
-}
-
 }  // namespace
+
+AppLock::System::System() = default;
+AppLock::System::System(const System&) = default;
+AppLock::System& AppLock::System::operator=(const System&) = default;
+AppLock::System::~System() = default;
 
 AppLock::Opened::Opened() = default;
 AppLock::Opened::Opened(const Opened&) = default;
@@ -117,7 +153,8 @@ AppLock::Opened& AppLock::Opened::operator=(const Opened&) = default;
 AppLock::Opened::~Opened() = default;
 
 // static
-AppLock::Loaded AppLock::Load(const base::FilePath& data_directory) {
+AppLock::Loaded AppLock::Load(const base::FilePath& data_directory,
+                              bool holds_data) {
   const PersistedFile file(data_directory, kSecurityName);
   Loaded loaded;
 
@@ -167,21 +204,20 @@ AppLock::Loaded AppLock::Load(const base::FilePath& data_directory) {
     loaded.state.failed_attempts = 0;
   }
 
-  // A volume no key opens: what it holds cannot be read.
-  loaded.key_lost =
-      !loaded.state.key && DataVolume(data_directory, std::nullopt).Exists();
+  // Data no key opens: what it holds cannot be read.
+  loaded.key_lost = !loaded.state.key && holds_data;
   return loaded;
 }
 
 AppLock::AppLock(const base::FilePath& data_directory,
                  Loaded loaded,
                  DataVault& vault,
-                 SafeStorage safe_storage,
+                 System system,
                  Delegate* delegate,
                  std::optional<LaunchSecret> launch_secret)
     : data_directory_(data_directory),
       vault_(vault),
-      safe_storage_(safe_storage),
+      system_(std::move(system)),
       delegate_(delegate),
       makes_secret_(!launch_secret),
       files_(base::ThreadPool::CreateSequencedTaskRunner(
@@ -218,11 +254,7 @@ void AppLock::Start() {
       finding_secret_ = true;
       base::ThreadPool::PostTaskAndReplyWithResult(
           FROM_HERE, kKeyTraits,
-          base::BindOnce(
-              [](SafeStorage safe_storage) {
-                return safe_storage.DataSecret(/*makes_one=*/false);
-              },
-              safe_storage_),
+          base::BindOnce(system_.secret, /*makes_one=*/false),
           base::BindOnce(&AppLock::SecretFound, weak_factory_.GetWeakPtr()));
     }
     return;
@@ -367,7 +399,7 @@ void AppLock::PostOpen(std::optional<std::string> pin, bool unlocking) {
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, kKeyTraits,
       base::BindOnce(&OpenKey, std::move(pin), state_, secret_, makes_secret_,
-                     safe_storage_, std::move(attach)),
+                     system_, std::move(attach)),
       base::BindOnce(&AppLock::OnOpened, weak_factory_.GetWeakPtr(), unlocking,
                      with_pin));
 }
@@ -387,6 +419,22 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
       Changed();
       return;
 
+    // The TPM's key gone, the chip cleared, or none for a seal that took one:
+    // the data behind the PIN is lost, as with a forgotten PIN, and the lock
+    // shows an unreadable key (Paper 07.6, in the Mac's words; Windows' are
+    // W5's).
+    case Opened::Kind::kGuardGone:
+      is_locked_ = true;
+      entry_ = PinEntry::Unreadable(kKeyUnreadable);
+      Changed();
+      return;
+
+    // The chip's lockout refuses every PIN, the right one too: none counts,
+    // at the lock or in Settings, and the dots shake (its words are W5's).
+    case Opened::Kind::kLockedOut:
+      Verified(false);
+      return;
+
     case Opened::Kind::kWrongPin:
       // The launch's open, without a PIN: a key sealed with a PIN
       // security.json no longer names. The Swift told it by the PIN screen
@@ -403,12 +451,19 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
         // The last attempt and the key go in one save: with the key gone,
         // nothing left opens the volume or the sealed files, wherever their
         // blocks are (ADR 0113), and a wipe is due (IsWipeDue). The answer,
-        // the shake or the wipe, comes once it is on the disk.
+        // the shake or the wipe, comes once it is on the disk. The PIN's
+        // guard goes before that save: a copy of security.json made earlier
+        // opens nothing once the TPM's key is gone.
+        base::OnceClosure answer =
+            base::BindOnce(&AppLock::SaveThen, weak_factory_.GetWeakPtr(),
+                           base::BindOnce(&AppLock::Verified,
+                                          weak_factory_.GetWeakPtr(), false));
         if (state_.failed_attempts >= SecurityState::kMaxAttempts) {
           state_.key.reset();
+          ForgetGuardThen(std::nullopt, std::move(answer));
+          return;
         }
-        SaveThen(base::BindOnce(&AppLock::Verified, weak_factory_.GetWeakPtr(),
-                                false));
+        std::move(answer).Run();
         return;
       }
       ++settings_attempts_;
@@ -477,22 +532,73 @@ void AppLock::Reseal(std::optional<std::string> pin) {
       FROM_HERE, kKeyTraits,
       base::BindOnce(
           [](const Key& key, const std::vector<uint8_t>& secret,
-             const std::optional<std::string>& pin) {
-            return SealDataKey(key, secret, ViewOf(pin));
+             const std::optional<std::string>& pin,
+             const scoped_refptr<PinGuard>& guard) -> std::optional<SealedKey> {
+            // With a PIN, the guard takes part when there is one, and a new
+            // key the chip holds has the new PIN for its own. Without a chip,
+            // or with the provider refusing, the PIN's stretch alone; but not
+            // in a lockout, which four wrong PINs bring about: the earlier
+            // seal stays.
+            std::optional<Guarded> guarded;
+            if (pin && guard) {
+              base::expected<Guarded, PinGuard::Refusal> made =
+                  guard->Guard(*pin);
+              if (made.has_value()) {
+                guarded = std::move(*made);
+              } else if (made.error() == PinGuard::Refusal::kLockedOut) {
+                return std::nullopt;
+              } else {
+                LOG(ERROR) << "The PIN is sealed without the TPM";
+              }
+            }
+            return SealDataKey(key, secret, ViewOf(pin), guarded);
           },
-          *key, *secret_, std::move(pin)),
+          *key, *secret_, std::move(pin), system_.guard),
       base::BindOnce(&AppLock::Resealed, weak_factory_.GetWeakPtr(), length));
 }
 
-void AppLock::Resealed(std::optional<int> length, SealedKey sealed) {
+void AppLock::Resealed(std::optional<int> length,
+                       std::optional<SealedKey> sealed) {
+  // The lockout made no key: nothing changes, and the dots shake (its words
+  // are W5's).
+  if (!sealed) {
+    Verified(false);
+    return;
+  }
   std::optional<Pin> pin;
   if (length) {
     pin = Pin{.length = *length};
   }
-  state_ = SecurityState(std::move(pin), 0, std::move(sealed));
-  Save();
+  std::optional<std::string> kept;
+  if (sealed->guard) {
+    kept = sealed->guard->key;
+  }
+  state_ = SecurityState(std::move(pin), 0, std::move(*sealed));
+  // The guard's earlier keys go once the new seal is on the disk: a quit
+  // before leaves the earlier seal, which they still open.
+  SaveThen(base::BindOnce(&AppLock::ForgetGuardThen, weak_factory_.GetWeakPtr(),
+                          std::move(kept), base::DoNothing()));
   entry_.reset();
   Changed();
+}
+
+// The guard's keys of this data's, but `kept`, deleted off this sequence,
+// then `then`.
+void AppLock::ForgetGuardThen(std::optional<std::string> kept,
+                              base::OnceClosure then) {
+  if (!system_.guard) {
+    std::move(then).Run();
+    return;
+  }
+  base::ThreadPool::PostTaskAndReply(
+      FROM_HERE, kKeyTraits,
+      base::BindOnce(
+          [](scoped_refptr<PinGuard> guard, std::optional<std::string> kept) {
+            guard->Forget(kept ? std::make_optional<std::string_view>(*kept)
+                               : std::nullopt);
+          },
+          system_.guard, std::move(kept)),
+      std::move(then));
 }
 
 void AppLock::Save() {
@@ -516,10 +622,7 @@ void AppLock::Wipe() {
     wipe_for_testing_.Run();
     return;
   }
-  base::ThreadPool::PostTask(
-      FROM_HERE, kKeyTraits,
-      base::BindOnce(&WipeNow, data_directory_,
-                     base::WrapRefCounted(&vault_->tools()), safe_storage_));
+  base::ThreadPool::PostTask(FROM_HERE, kKeyTraits, system_.wipe);
 }
 
 void AppLock::Changed() {

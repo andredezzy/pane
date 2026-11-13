@@ -40,10 +40,31 @@ struct Stretch {
   friend bool operator==(const Stretch&, const Stretch&) = default;
 };
 
+// What guards the PIN in a seal on Windows (pin_guard.h, U5), as security.json
+// keeps it under "key"'s "tpm": the key the TPM holds, by its name, and the
+// share only that key gives back, sealed under it. The Mac's seals have none.
+struct GuardedShare {
+  friend bool operator==(const GuardedShare&, const GuardedShare&) = default;
+
+  // The TPM key's name.
+  std::string key;
+  // The share, sealed under the TPM's key, in base64.
+  std::string share;
+};
+
+// What the guard gave a seal: the share, and how it is kept.
+struct Guarded {
+  GuardedShare kept;
+  Key share = {};
+};
+
 // The data key, sealed, as security.json keeps it under "key".
 struct SealedKey {
   SealedKey();
-  SealedKey(std::string box, std::optional<Stretch> pin, std::string secret);
+  SealedKey(std::string box,
+            std::optional<Stretch> pin,
+            std::string secret,
+            std::optional<GuardedShare> guard = std::nullopt);
   SealedKey(const SealedKey&);
   SealedKey& operator=(const SealedKey&);
   ~SealedKey();
@@ -61,6 +82,9 @@ struct SealedKey {
   // Tells another secret from a wrong PIN: without it, an engine key replaced
   // would make every PIN look wrong, and the fifth would wipe.
   std::string secret;
+  // The PIN's guard, when one took part in the seal: the share then opens
+  // the key with the secret and the PIN, and is given back only with the PIN.
+  std::optional<GuardedShare> guard;
 };
 
 enum class OpenError {
@@ -91,14 +115,25 @@ base::expected<std::vector<uint8_t>, BoxError> OpenBox(
 Key MakeDataKey();
 
 // `secret` is the Keychain item's stored bytes, its base64 text as it is, not
-// decoded. Each seal stretches the PIN with a salt of its own.
+// decoded (on Windows os_crypt's key, engine_secret.h). Each seal stretches
+// the PIN with a salt of its own. With `guarded`, what the PIN's guard gave,
+// the seal takes its share too, and keeps where it is.
 SealedKey SealDataKey(const Key& key,
                       base::span<const uint8_t> secret,
-                      std::optional<std::string_view> pin);
+                      std::optional<std::string_view> pin,
+                      const std::optional<Guarded>& guarded = std::nullopt);
 
-base::expected<Key, OpenError> OpenDataKey(const SealedKey& sealed,
-                                           base::span<const uint8_t> secret,
-                                           std::optional<std::string_view> pin);
+// Whether `sealed` was sealed under `secret`: asked first, so another secret
+// counts no attempt, the guard's chip included.
+bool IsSealedUnder(const SealedKey& sealed, base::span<const uint8_t> secret);
+
+// `share` is what the guard gave back for a guarded seal, with the PIN; a
+// guarded seal opens with nothing less, nor an unguarded one with a share.
+base::expected<Key, OpenError> OpenDataKey(
+    const SealedKey& sealed,
+    base::span<const uint8_t> secret,
+    std::optional<std::string_view> pin,
+    const std::optional<Key>& share = std::nullopt);
 
 // Pane's own files, sealed in place (SealedFile).
 Key FilesKey(const Key& data_key);

@@ -55,9 +55,12 @@ std::optional<Key> Stretched(std::string_view pin, const Stretch& stretch) {
   return stretched;
 }
 
+// With a guard's share, the derivation takes the secret and the share, under
+// an info of its own: nothing on disk alone gives it.
 std::optional<Key> SealingKey(base::span<const uint8_t> secret,
                               std::optional<std::string_view> pin,
-                              const std::optional<Stretch>& stretch) {
+                              const std::optional<Stretch>& stretch,
+                              const std::optional<Key>& share = std::nullopt) {
   std::optional<Key> salt;
   if (pin && stretch) {
     salt = Stretched(*pin, *stretch);
@@ -65,10 +68,14 @@ std::optional<Key> SealingKey(base::span<const uint8_t> secret,
       return std::nullopt;
     }
   }
-  return Hkdf(
-      secret,
-      salt ? base::span<const uint8_t>(*salt) : base::span<const uint8_t>(),
-      "Pane data key");
+  const base::span<const uint8_t> salt_bytes =
+      salt ? base::span<const uint8_t>(*salt) : base::span<const uint8_t>();
+  if (!share) {
+    return Hkdf(secret, salt_bytes, "Pane data key");
+  }
+  std::vector<uint8_t> material(secret.begin(), secret.end());
+  material.insert(material.end(), share->begin(), share->end());
+  return Hkdf(material, salt_bytes, "Pane data key, its PIN guarded");
 }
 
 std::string Passphrase(const Key& data_key, std::string_view label) {
@@ -81,8 +88,12 @@ SealedKey::SealedKey() = default;
 
 SealedKey::SealedKey(std::string box,
                      std::optional<Stretch> pin,
-                     std::string secret)
-    : box(std::move(box)), pin(std::move(pin)), secret(std::move(secret)) {}
+                     std::string secret,
+                     std::optional<GuardedShare> guard)
+    : box(std::move(box)),
+      pin(std::move(pin)),
+      secret(std::move(secret)),
+      guard(std::move(guard)) {}
 
 SealedKey::SealedKey(const SealedKey&) = default;
 SealedKey& SealedKey::operator=(const SealedKey&) = default;
@@ -106,7 +117,17 @@ std::optional<SealedKey> SealedKey::FromValue(const base::DictValue& value) {
     }
     stretch = Stretch{.salt = *salt, .rounds = *rounds};
   }
-  return SealedKey(*box, std::move(stretch), *secret);
+  std::optional<GuardedShare> guard;
+  if (const base::Value* tpm = value.Find("tpm"); tpm && !tpm->is_none()) {
+    const base::DictValue* dict = tpm->GetIfDict();
+    const std::string* key = dict ? dict->FindString("key") : nullptr;
+    const std::string* share = dict ? dict->FindString("share") : nullptr;
+    if (!key || !share) {
+      return std::nullopt;
+    }
+    guard = GuardedShare{.key = *key, .share = *share};
+  }
+  return SealedKey(*box, std::move(stretch), *secret, std::move(guard));
 }
 
 base::DictValue SealedKey::ToValue() const {
@@ -119,6 +140,12 @@ base::DictValue SealedKey::ToValue() const {
         base::DictValue().Set("rounds", pin->rounds).Set("salt", pin->salt));
   }
   value.Set("secret", secret);
+  // Absent without a guard: every seal of the Mac's.
+  if (guard) {
+    value.Set(
+        "tpm",
+        base::DictValue().Set("key", guard->key).Set("share", guard->share));
+  }
   return value;
 }
 
@@ -156,29 +183,42 @@ Key MakeDataKey() {
 
 SealedKey SealDataKey(const Key& key,
                       base::span<const uint8_t> secret,
-                      std::optional<std::string_view> pin) {
+                      std::optional<std::string_view> pin,
+                      const std::optional<Guarded>& guarded) {
   std::optional<Stretch> stretch;
   if (pin) {
     stretch = Stretch{
         .salt = base::Base64Encode(crypto::RandBytesAsArray<kSaltSize>()),
         .rounds = kPinRounds};
   }
+  std::optional<Key> share;
+  std::optional<GuardedShare> guard;
+  if (guarded) {
+    share = guarded->share;
+    guard = guarded->kept;
+  }
   // A salt just made and the rounds above always stretch.
-  const Key sealing = SealingKey(secret, pin, stretch).value();
-  return SealedKey(SealBox(sealing, key), std::move(stretch), Check(secret));
+  const Key sealing = SealingKey(secret, pin, stretch, share).value();
+  return SealedKey(SealBox(sealing, key), std::move(stretch), Check(secret),
+                   std::move(guard));
 }
 
-base::expected<Key, OpenError> OpenDataKey(
-    const SealedKey& sealed,
-    base::span<const uint8_t> secret,
-    std::optional<std::string_view> pin) {
-  if (sealed.secret != Check(secret)) {
+bool IsSealedUnder(const SealedKey& sealed, base::span<const uint8_t> secret) {
+  return sealed.secret == Check(secret);
+}
+
+base::expected<Key, OpenError> OpenDataKey(const SealedKey& sealed,
+                                           base::span<const uint8_t> secret,
+                                           std::optional<std::string_view> pin,
+                                           const std::optional<Key>& share) {
+  if (!IsSealedUnder(sealed, secret)) {
     return base::unexpected(OpenError::kOtherSecret);
   }
-  if (sealed.pin.has_value() != pin.has_value()) {
+  if (sealed.pin.has_value() != pin.has_value() ||
+      sealed.guard.has_value() != share.has_value()) {
     return base::unexpected(OpenError::kRefused);
   }
-  const std::optional<Key> sealing = SealingKey(secret, pin, sealed.pin);
+  const std::optional<Key> sealing = SealingKey(secret, pin, sealed.pin, share);
   if (!sealing) {
     return base::unexpected(OpenError::kRefused);
   }

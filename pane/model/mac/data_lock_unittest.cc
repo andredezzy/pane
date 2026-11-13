@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/mac/data_lock.h"
+#include "pane/model/data_lock.h"
 
 #include <memory>
 

@@ -312,6 +312,7 @@ source_set("pane") {
     "//components/favicon/content",
     "//components/favicon/core",
     "//components/find_in_page",
+    "//components/history/core/browser",
     "//components/history/core/common",
     "//components/javascript_dialogs",
     "//components/keyed_service/core",

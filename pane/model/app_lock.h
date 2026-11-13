@@ -1,27 +1,29 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#ifndef PANE_MODEL_MAC_APP_LOCK_H_
-#define PANE_MODEL_MAC_APP_LOCK_H_
+#ifndef PANE_MODEL_APP_LOCK_H_
+#define PANE_MODEL_APP_LOCK_H_
 
 #include <stdint.h>
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
 #include "pane/model/data_key.h"
-#include "pane/model/mac/data_vault.h"
-#include "pane/model/mac/safe_storage.h"
+#include "pane/model/data_vault.h"
 #include "pane/model/pin_entry.h"
+#include "pane/model/pin_guard.h"
 #include "pane/model/security.h"
 
 namespace pane::model {
@@ -33,12 +35,38 @@ namespace pane::model {
 // Pane fresh; the fifth in Settings only locks Pane (ADR 0042). The PIN opens
 // the data key (ADR 0113), sealed in security.json and in its copy beside the
 // volume, which the vault then opens the data with: without a PIN, the key
-// opens at launch.
+// opens at launch. On Windows a key the TPM holds guards the PIN in the seal
+// (PinGuard, U5): a wrong PIN there is the chip's refusal, counted by the chip
+// as well, and the panic wipe deletes that key with the data key.
 //
 // On the window's sequence. The files are read before it, where the disk may
 // be (Load), and written on a sequence of their own, which a quit waits for.
 class AppLock {
  public:
+  // What the lock asks of the system it runs on (ADR 0124).
+  struct System {
+    System();
+    System(const System&);
+    System& operator=(const System&);
+    ~System();
+
+    // The secret the data key is sealed under, found, or made where none is
+    // and `makes_one`: the Keychain's on the Mac (SafeStorage), os_crypt's
+    // under DPAPI on Windows (engine_secret.h). nullopt when the system gave
+    // none. Blocks, and may wait on the user: any sequence that may.
+    base::RepeatingCallback<std::optional<std::vector<uint8_t>>(bool makes_one)>
+        secret;
+    // Whether a PIN matches the bcrypt hash an earlier Pane kept, checked
+    // once (the Mac's, ADR 0042); null where no Pane kept one.
+    base::RepeatingCallback<bool(std::string_view pin, std::string_view hash)>
+        matches_hash;
+    // What guards the PIN in the seal: the TPM's on Windows; null on the Mac.
+    scoped_refptr<PinGuard> guard;
+    // The panic wipe, once the key is gone from disk: this instance ends,
+    // and the one it starts erases (PanicWipeAtLaunch). Never returns.
+    base::RepeatingClosure wipe;
+  };
+
   // The PIN screen's line when no key can be read (Paper 07.6), when the
   // Keychain gives no secret (07.7), and when the volume would not open (07.8).
   static constexpr char kKeyUnreadable[] =
@@ -56,16 +84,17 @@ class AppLock {
     SecurityState state;
     // No PIN or key reads from what is there: the lock stays shut.
     bool unreadable = false;
-    // No key, with a volume: what it holds cannot be read.
+    // No key, with data a key opened: what it holds cannot be read.
     bool key_lost = false;
   };
 
   // A security.json that does not decode never opens the lock: its PIN is
   // read from what is left when it can be, its key from the copy beside the
   // volume, and the lock stays shut when neither can. The file is kept aside,
-  // as security.json.damaged, before anything writes over it. Blocks on the
-  // disk.
-  static Loaded Load(const base::FilePath& data_directory);
+  // as security.json.damaged, before anything writes over it. `holds_data`:
+  // whether data a key opened is there, which no key then reads (the Mac's
+  // volume, Windows' sealed profiles.json). Blocks on the disk.
+  static Loaded Load(const base::FilePath& data_directory, bool holds_data);
 
   class Delegate {
    public:
@@ -96,6 +125,12 @@ class AppLock {
       kNoSecret,
       // The key does not open with the secret: another engine key.
       kOtherSecret,
+      // The PIN's guard took no PIN, the right one included: the chip's
+      // lockout. Nothing counts.
+      kLockedOut,
+      // The PIN's guard is gone: its key deleted, the chip cleared, or no
+      // chip for a seal that took one. What it guarded is lost.
+      kGuardGone,
     };
 
     Opened();
@@ -128,7 +163,7 @@ class AppLock {
   AppLock(const base::FilePath& data_directory,
           Loaded loaded,
           DataVault& vault,
-          SafeStorage safe_storage,
+          System system,
           Delegate* delegate,
           std::optional<LaunchSecret> launch_secret = std::nullopt);
   AppLock(const AppLock&) = delete;
@@ -172,7 +207,7 @@ class AppLock {
   void ContinueWithPin();
 
   // What the fifth wrong PIN at the lock does once the key is gone from
-  // disk, in place of WipeAndRelaunch, which never returns.
+  // disk, in place of the system's wipe, which never returns.
   void SetWipeForTesting(base::RepeatingClosure wipe);
 
  private:
@@ -184,7 +219,8 @@ class AppLock {
   void Verified(bool matches);
   void Shook();
   void Reseal(std::optional<std::string> pin);
-  void Resealed(std::optional<int> length, SealedKey sealed);
+  void Resealed(std::optional<int> length, std::optional<SealedKey> sealed);
+  void ForgetGuardThen(std::optional<std::string> kept, base::OnceClosure then);
   void SecretFound(std::optional<std::vector<uint8_t>> secret);
   void Save();
   void SaveThen(base::OnceClosure then);
@@ -193,7 +229,7 @@ class AppLock {
 
   const base::FilePath data_directory_;
   const raw_ref<DataVault> vault_;
-  const SafeStorage safe_storage_;
+  const System system_;
   const raw_ptr<Delegate> delegate_;
   // Whether the lock may make the Keychain's secret: never once a launch
   // looked for it (LaunchSecret).
@@ -231,4 +267,4 @@ class AppLock {
 
 }  // namespace pane::model
 
-#endif  // PANE_MODEL_MAC_APP_LOCK_H_
+#endif  // PANE_MODEL_APP_LOCK_H_

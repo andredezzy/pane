@@ -33,27 +33,6 @@ base::ScopedFD LockImagesForTesting() {
   return lock;
 }
 
-bool WaitFor(base::FunctionRef<bool()> condition) {
-  for (int round = 0; round < 30'000; ++round) {
-    base::RunLoop().RunUntilIdle();
-    if (condition()) {
-      return true;
-    }
-    base::PlatformThread::Sleep(base::Milliseconds(1));
-  }
-  return false;
-}
-
-void RunFor(base::TimeDelta duration) {
-  const base::TimeTicks end =
-      base::subtle::TimeTicksNowIgnoringOverride() + duration;
-  while (base::subtle::TimeTicksNowIgnoringOverride() < end) {
-    base::RunLoop().RunUntilIdle();
-    base::PlatformThread::Sleep(base::Milliseconds(1));
-  }
-  base::RunLoop().RunUntilIdle();
-}
-
 FakeVolumeTools::FakeVolumeTools(const DataVolume& volume) : volume_(volume) {}
 
 FakeVolumeTools::~FakeVolumeTools() {

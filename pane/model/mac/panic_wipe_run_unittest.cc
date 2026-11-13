@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/mac/panic_wipe_run.h"
+#include "pane/model/panic_wipe_run.h"
 
 #include <signal.h>
 
@@ -23,9 +23,10 @@
 #include "pane/model/data_key.h"
 #include "pane/model/mac/data_volume.h"
 #include "pane/model/mac/file_operations.h"
-#include "pane/model/mac/panic_wipe.h"
 #include "pane/model/mac/test_keychain.h"
 #include "pane/model/mac/vault_test_support.h"
+#include "pane/model/mac/wipe_sources.h"
+#include "pane/model/panic_wipe.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/security.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -71,8 +72,9 @@ class PanicWipeRunTest : public testing::Test {
       const std::vector<std::string>& arguments = {}) {
     std::vector<std::string> argv = {"pane"};
     argv.insert(argv.end(), arguments.begin(), arguments.end());
-    return PanicWipeAtLaunch(data_, base::CommandLine(argv), *tools_,
-                             keychain_.safe_storage());
+    return PanicWipeAtLaunch(
+        data_, base::CommandLine(argv),
+        MacWipeExtras(data_, tools_, keychain_.safe_storage()));
   }
 
   // Everything of the data's is gone, the root itself kept for a fresh Pane.

@@ -1,13 +1,10 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/mac/panic_wipe.h"
-
-#include <errno.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include "pane/model/panic_wipe.h"
 
 #include <algorithm>
 #include <array>
+#include <iterator>
 #include <string_view>
 #include <utility>
 
@@ -16,14 +13,9 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
-#include "base/posix/eintr_wrapper.h"
-#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/uuid.h"
 #include "crypto/random.h"
-#include "pane/model/mac/electron_migration.h"
-#include "pane/model/mac/file_operations.h"
-#include "pane/model/persisted_file.h"
 
 namespace pane::model {
 
@@ -41,24 +33,12 @@ std::string NewStageId() {
 }
 
 WipeFailure Failure(const base::FilePath& path, std::string reason) {
-  return {.path = path.value(), .reason = std::move(reason)};
+  return {.path = path.AsUTF8Unsafe(), .reason = std::move(reason)};
 }
 
-// errno's text for the call that just failed.
+// The system's text for the call that just failed.
 std::string LastError() {
   return logging::SystemErrorCodeToString(logging::GetLastSystemErrorCode());
-}
-
-// As URL.standardizedFileURL.pathComponents gives them: "/" first.
-std::vector<std::string> PathComponents(const base::FilePath& path) {
-  return StandardizedPath(path).GetComponents();
-}
-
-bool StartsWith(const std::vector<std::string>& components,
-                const std::vector<std::string>& prefix) {
-  return components.size() >= prefix.size() &&
-         std::ranges::equal(base::span(components).first(prefix.size()),
-                            prefix);
 }
 
 // Where staged data waits, each root with its passes: the data directory, the
@@ -110,9 +90,9 @@ std::vector<WipeFailure> Overwrite(const base::FilePath& path, int passes) {
       }
       offset += static_cast<int64_t>(chunk.size());
     }
-    // As FileHandle.synchronize, fsync(2), where base::File::Flush asks only
-    // for a barrier.
-    if (HANDLE_EINTR(fsync(file.GetPlatformFile())) != 0) {
+    // On the disk itself, as FileHandle.synchronize, where base::File::Flush
+    // asks only for a barrier on the Mac.
+    if (!wipe_files::Sync(file)) {
       return {Failure(path, LastError())};
     }
   }
@@ -132,10 +112,10 @@ std::vector<base::FilePath> WipeTargets(
   std::vector<base::FilePath> targets;
   for (std::string_view name : {"Engine", "Data.sparsebundle", "profiles.json",
                                 "settings.json", "deletions.json"}) {
-    targets.push_back(data_directory.Append(name));
+    targets.push_back(data_directory.AppendASCII(name));
   }
   if (cache_directory) {
-    targets.push_back(cache_directory->Append("Engine"));
+    targets.push_back(cache_directory->AppendASCII("Engine"));
   }
   if (electron) {
     targets.push_back(electron->directory);
@@ -144,55 +124,9 @@ std::vector<base::FilePath> WipeTargets(
     }
   }
   for (std::string_view name : {"Data.security.json", "security.json"}) {
-    targets.push_back(data_directory.Append(name));
+    targets.push_back(data_directory.AppendASCII(name));
   }
   return targets;
-}
-
-std::optional<ElectronData> ElectronDataToWipe(
-    const base::FilePath& data_directory,
-    const base::FilePath& application_support,
-    const base::FilePath& caches) {
-  const base::expected<std::optional<base::Value>, FileError> state =
-      PersistedFile(data_directory, kMigrationRecordName).Load();
-  const std::optional<MigrationRecord> record =
-      state.has_value() && *state ? MigrationRecord::FromValue(**state)
-                                  : std::nullopt;
-  if (!record || !record->source.starts_with("/")) {
-    return std::nullopt;
-  }
-
-  const base::FilePath source =
-      StandardizedPath(base::FilePath(record->source));
-  const std::vector<std::string> data = PathComponents(data_directory);
-  const std::vector<std::string> components = PathComponents(source);
-
-  // "/", a volume, a home folder: never a source to erase.
-  if (components.size() <= 4 || StartsWith(data, components) ||
-      StartsWith(components, data)) {
-    return std::nullopt;
-  }
-
-  return ElectronData{.directory = source,
-                      .cache_directory = CacheDirectoryFor(
-                          source, application_support, caches)};
-}
-
-std::optional<base::FilePath> CacheDirectoryFor(
-    const base::FilePath& data_directory,
-    const base::FilePath& application_support,
-    const base::FilePath& caches) {
-  const std::vector<std::string> data = PathComponents(data_directory);
-  const std::vector<std::string> support = PathComponents(application_support);
-  if (data.size() <= support.size() || !StartsWith(data, support)) {
-    return std::nullopt;
-  }
-  base::FilePath directory = caches;
-  for (const std::string& component :
-       base::span(data).subspan(support.size())) {
-    directory = directory.Append(component);
-  }
-  return directory;
 }
 
 std::vector<WipeFailure> StageWipe(
@@ -204,22 +138,24 @@ std::vector<WipeFailure> StageWipe(
 
   for (const base::FilePath& target :
        WipeTargets(data_directory, cache_directory, electron)) {
-    if (!base::PathExists(target) && !base::IsLink(target)) {
+    const base::expected<wipe_files::Kind, std::string> kind =
+        wipe_files::KindOf(target);
+    if (kind.has_value() && *kind == wipe_files::Kind::kMissing) {
       continue;
     }
     if (electron && target == electron->directory &&
-        !base::PathExists(target.Append("profiles.json"))) {
+        !base::PathExists(target.AppendASCII("profiles.json"))) {
       continue;
     }
 
     const base::FilePath folder =
-        target.DirName().Append(kWipeStagingName).Append(id);
+        target.DirName().AppendASCII(kWipeStagingName).AppendASCII(id);
     if (!base::CreateDirectory(folder)) {
-      failures.push_back(Failure(target, LastFileError(folder)));
+      failures.push_back(Failure(target, wipe_files::LastError(folder)));
       continue;
     }
     if (base::expected<void, std::string> moved =
-            MoveItem(target, folder.Append(target.BaseName()));
+            wipe_files::Move(target, folder.Append(target.BaseName()));
         !moved.has_value()) {
       failures.push_back(Failure(target, moved.error()));
     }
@@ -232,7 +168,8 @@ std::vector<WipeFailure> StageEngineTraces(
     const base::FilePath& data_directory) {
   std::vector<base::FilePath> traces;
   for (std::string_view trace : kEngineTraces) {
-    const base::FilePath path = data_directory.Append("Engine").Append(trace);
+    const base::FilePath path =
+        data_directory.AppendASCII("Engine").AppendASCII(trace);
     if (base::PathExists(path)) {
       traces.push_back(path);
     }
@@ -242,10 +179,10 @@ std::vector<WipeFailure> StageEngineTraces(
   }
 
   const base::FilePath folder =
-      data_directory.Append(kWipeStagingName).Append(NewStageId());
+      data_directory.AppendASCII(kWipeStagingName).AppendASCII(NewStageId());
   std::vector<WipeFailure> failures;
   if (!base::CreateDirectory(folder)) {
-    const std::string reason = LastFileError(folder);
+    const std::string reason = wipe_files::LastError(folder);
     for (const base::FilePath& trace : traces) {
       failures.push_back(Failure(trace, reason));
     }
@@ -254,7 +191,7 @@ std::vector<WipeFailure> StageEngineTraces(
 
   for (const base::FilePath& trace : traces) {
     if (base::expected<void, std::string> moved =
-            MoveItem(trace, folder.Append(trace.BaseName()));
+            wipe_files::Move(trace, folder.Append(trace.BaseName()));
         !moved.has_value()) {
       failures.push_back(Failure(trace, moved.error()));
     }
@@ -272,11 +209,8 @@ std::vector<StagedWipe> StagedWipes(
     if (!root) {
       continue;
     }
-    base::FileEnumerator wipes(root->Append(kWipeStagingName),
-                               /*recursive=*/false,
-                               base::FileEnumerator::FILES |
-                                   base::FileEnumerator::DIRECTORIES |
-                                   base::FileEnumerator::SHOW_SYM_LINKS);
+    base::FileEnumerator wipes(root->AppendASCII(kWipeStagingName),
+                               /*recursive=*/false, wipe_files::ListedTypes());
     for (base::FilePath wipe = wipes.Next(); !wipe.empty();
          wipe = wipes.Next()) {
       staged.push_back({.path = wipe, .passes = passes});
@@ -298,8 +232,8 @@ std::vector<WipeFailure> EraseStagedWipes(
 
   for (const auto& root : Roots(data_directory, cache_directory, electron)) {
     if (root.first) {
-      // Only once empty: a wipe staged meanwhile keeps its own.
-      rmdir(root.first->Append(kWipeStagingName).value().c_str());
+      // Only once empty, as rmdir(2): a wipe staged meanwhile keeps its own.
+      base::DeleteFile(root.first->AppendASCII(kWipeStagingName));
     }
   }
 
@@ -307,25 +241,24 @@ std::vector<WipeFailure> EraseStagedWipes(
 }
 
 std::vector<WipeFailure> EraseForWipe(const base::FilePath& path, int passes) {
-  if (path.FinalExtension() == ".sparsebundle") {
+  if (path.FinalExtension() == FILE_PATH_LITERAL(".sparsebundle")) {
     passes = 0;
   }
 
-  base::stat_wrapper_t info;
-  if (base::File::Lstat(path, &info) != 0) {
-    // Gone already: nothing to erase.
-    if (errno == ENOENT) {
-      return {};
-    }
-    return {Failure(path, LastError())};
+  const base::expected<wipe_files::Kind, std::string> kind =
+      wipe_files::KindOf(path);
+  if (!kind.has_value()) {
+    return {Failure(path, kind.error())};
+  }
+  // Gone already: nothing to erase.
+  if (*kind == wipe_files::Kind::kMissing) {
+    return {};
   }
 
   std::vector<WipeFailure> failures;
-  if (S_ISDIR(info.st_mode)) {
+  if (*kind == wipe_files::Kind::kFolder) {
     base::FileEnumerator entries(
-        path, /*recursive=*/false,
-        base::FileEnumerator::FILES | base::FileEnumerator::DIRECTORIES |
-            base::FileEnumerator::SHOW_SYM_LINKS,
+        path, /*recursive=*/false, wipe_files::ListedTypes(),
         base::FilePath::StringType(),
         base::FileEnumerator::FolderSearchPolicy::MATCH_ONLY,
         base::FileEnumerator::ErrorPolicy::STOP_ENUMERATION);
@@ -338,11 +271,11 @@ std::vector<WipeFailure> EraseForWipe(const base::FilePath& path, int passes) {
       failures.push_back(
           Failure(path, base::File::ErrorToString(entries.GetError())));
     }
-  } else if (S_ISREG(info.st_mode)) {
+  } else if (*kind == wipe_files::Kind::kFile) {
     std::ranges::move(Overwrite(path, passes), std::back_inserter(failures));
   }
 
-  if (base::expected<void, std::string> removed = RemoveItem(path);
+  if (base::expected<void, std::string> removed = wipe_files::Remove(path);
       !removed.has_value()) {
     failures.push_back(Failure(path, removed.error()));
   }

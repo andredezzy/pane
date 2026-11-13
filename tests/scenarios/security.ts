@@ -6,14 +6,21 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join, sep } from "node:path";
-import { handURLs } from "../lib/browser";
+import { HANDED_URLS_OPEN, handURLs } from "../lib/browser";
+import { pinGuardKeys } from "../lib/engine-key";
 import {
 	type AppState,
 	bringToFront,
+	cutShortSecurity,
+	DATA_IN_A_VOLUME,
+	EARLIER_APPS,
+	HAS_MENU_BAR,
 	launchPane,
 	type PaneApp,
+	setPinBeforeLaunch,
+	volumeShut,
 } from "../lib/pane";
-import { PRIMARY } from "../lib/platform";
+import { COMMAND_KEYS, PRIMARY } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import {
 	childrenOf,
@@ -22,7 +29,7 @@ import {
 	processGroupOf,
 	waitForExit,
 } from "../lib/processes";
-import { filesHolding, imagesAttachedIn, mountedAt } from "../lib/tools";
+import { filesHolding, imagesAttachedIn } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
@@ -48,18 +55,11 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // is in any file in the clear. The panic wipe destroys the key and erases the
 // volume: the fresh Pane seals a key of its own.
 // A quit detaches the volume, and so does its watchdog when Pane is killed.
-
-// bcryptjs 3.0.3, hashSync("1234", 10): what the Electron app wrote.
-const ELECTRON_SECURITY = {
-	state: {
-		pin: {
-			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
-			length: 4,
-		},
-		failedAttempts: 0,
-	},
-	version: 0,
-};
+//
+// On Windows (U5) the PIN is set up through its screen before the launch, no
+// Pane there having kept a hash; a key the TPM holds guards it, and the wipe
+// deletes that key too. Windows has no volume, no watchdog, and no earlier
+// app's data, and a home for the menu bar's commands is W5's.
 
 type Saved = {
 	state: {
@@ -262,12 +262,7 @@ const security: Scenario = async (context) => {
 	await settingsAttempts(context);
 
 	const dataDir = context.tempDir("pane-security-");
-	mkdirSync(dataDir, { recursive: true });
-
-	writeFileSync(
-		join(dataDir, "security.json"),
-		JSON.stringify(ELECTRON_SECURITY),
-	);
+	await setPinBeforeLaunch(context, dataDir, "1234");
 
 	const launchURL = context.fixtures.url("nav-b.html?behind-the-lock");
 
@@ -285,16 +280,24 @@ const security: Scenario = async (context) => {
 	const menu = async (path: string[]) =>
 		(await app.send<boolean>("menu", { path })).result;
 
-	const lockedMenu = {
-		newTab: await menu(["File", "New Tab"]),
-		reopenClosedTab: await menu(["File", "Reopen Closed Tab"]),
-		print: await menu(["File", "Print\u2026"]),
-		developerTools: await menu(["View", "Developer Tools"]),
-		tab1: await menu(["Tab", "Tab 1"]),
-		settings: await menu(["Pane", "Settings\u2026"]),
-		extensions: await menu(["Window", "Extensions"]),
-		checkForUpdates: await menu(["Pane", "Check for Updates\u2026"]),
-	};
+	const lockedMenu = HAS_MENU_BAR
+		? {
+				newTab: await menu(["File", "New Tab"]),
+				reopenClosedTab: await menu(["File", "Reopen Closed Tab"]),
+				print: await menu(["File", "Print\u2026"]),
+				developerTools: await menu(["View", "Developer Tools"]),
+				tab1: await menu(["Tab", "Tab 1"]),
+				settings: await menu(["Pane", "Settings\u2026"]),
+				extensions: await menu(["Window", "Extensions"]),
+				checkForUpdates: await menu(["Pane", "Check for Updates\u2026"]),
+			}
+		: {};
+
+	if (!HAS_MENU_BAR) {
+		context.defer(
+			"the menu bar behind the lock: Windows' home for its commands is W5's, Paper first",
+		);
+	}
 
 	// A link clicked in another app, as Launch Services hands it over.
 	const handedURL = context.fixtures.url("nav-a.html?handed-behind-the-lock");
@@ -315,7 +318,8 @@ const security: Scenario = async (context) => {
 	expect(
 		Object.entries(lockedMenu).every(
 			([item, ran]) => ran === (item === "checkForUpdates"),
-		),
+		) &&
+			(!HAS_MENU_BAR || "checkForUpdates" in lockedMenu),
 		`the menu behind the lock: ${JSON.stringify(lockedMenu)}`,
 	);
 
@@ -373,6 +377,12 @@ const security: Scenario = async (context) => {
 	);
 
 	// The URLs open once the lock is open, the handed one last.
+	if (!HANDED_URLS_OPEN) {
+		context.defer(
+			"the handed URL opened once the lock opened: Windows' second launch hands it to nothing yet (W4)",
+		);
+	}
+
 	await app.waitFor("the launch and handed URLs opened", (state) =>
 		state.profiles.some((entry) => {
 			const urls = entry.tabs.map((item) => item.url);
@@ -380,8 +390,9 @@ const security: Scenario = async (context) => {
 
 			return (
 				urls.indexOf(launchURL) >= 0 &&
-				urls.indexOf(handedURL) > urls.indexOf(launchURL) &&
-				handedTab?.loaded === true
+				(!HANDED_URLS_OPEN ||
+					(urls.indexOf(handedURL) > urls.indexOf(launchURL) &&
+						handedTab?.loaded === true))
 			);
 		}),
 	);
@@ -507,22 +518,16 @@ const security: Scenario = async (context) => {
 	// Behind the lock: the image attached, its volume locked and mounted
 	// nowhere, the profile's link leading nowhere, and the page's marker and
 	// address in no file in the clear.
-	const mountPoint = join(dataDir, "Engine", "Volume");
-
 	const lockedData = {
 		attached: locked.security.data.attached,
-		mounted: await mountedAt(mountPoint),
-		link: lexists(join(dataDir, "Engine", profile)),
-		leadsNowhere: !existsSync(join(dataDir, "Engine", profile)),
+		shut: await volumeShut(dataDir, profile),
 		marker: await holding(dataDir, marker),
 		address: await holding(dataDir, "nav-a.html?private"),
 	};
 
 	expect(
 		!lockedData.attached &&
-			!lockedData.mounted &&
-			lockedData.link &&
-			lockedData.leadsNowhere &&
+			lockedData.shut &&
 			lockedData.marker.length === 0 &&
 			lockedData.address.length === 0,
 		`behind the lock: ${JSON.stringify(lockedData)}`,
@@ -555,27 +560,34 @@ const security: Scenario = async (context) => {
 
 	const electronDir = join(electronParent, "veil");
 	const electronNeighbor = join(electronParent, "other", "kept.txt");
-	mkdirSync(join(electronDir, "Partitions", "profile-a"), { recursive: true });
-	mkdirSync(join(electronParent, "other"), { recursive: true });
-	writeFileSync(join(electronDir, "profiles.json"), "{}");
-	writeFileSync(join(electronDir, "Partitions", "profile-a", "Cookies"), "c");
-	writeFileSync(electronNeighbor, "kept");
 
-	writeFileSync(
-		join(dataDir, "migration.json"),
-		JSON.stringify({
-			state: { source: electronDir, migratedAt: "2026-10-28", profiles: [] },
-			version: 0,
-		}),
-	);
+	if (EARLIER_APPS) {
+		mkdirSync(join(electronDir, "Partitions", "profile-a"), {
+			recursive: true,
+		});
+
+		mkdirSync(join(electronParent, "other"), { recursive: true });
+		writeFileSync(join(electronDir, "profiles.json"), "{}");
+		writeFileSync(join(electronDir, "Partitions", "profile-a", "Cookies"), "c");
+		writeFileSync(electronNeighbor, "kept");
+
+		writeFileSync(
+			join(dataDir, "migration.json"),
+			JSON.stringify({
+				state: { source: electronDir, migratedAt: "2026-10-28", profiles: [] },
+				version: 0,
+			}),
+		);
+	}
 
 	const keyBefore = saved(dataDir)?.state.key?.box;
+	const guardBefore = await pinGuardKeys(dataDir);
 
 	expect(
 		existsSync(join(dataDir, "profiles.json")) &&
 			lexists(profileDir) &&
-			existsSync(join(dataDir, "Data.sparsebundle")) &&
-			existsSync(join(electronDir, "Partitions")) &&
+			(!DATA_IN_A_VOLUME || existsSync(join(dataDir, "Data.sparsebundle"))) &&
+			(!EARLIER_APPS || existsSync(join(electronDir, "Partitions"))) &&
 			!!keyBefore,
 		"nothing to wipe",
 	);
@@ -630,12 +642,23 @@ const security: Scenario = async (context) => {
 
 	// The Electron app's data goes, what stands beside it stays, and the record
 	// stays so a wiped Pane never looks for it again.
+	if (EARLIER_APPS) {
+		expect(
+			!existsSync(electronDir) &&
+				!existsSync(join(electronParent, "Wiping")) &&
+				existsSync(electronNeighbor) &&
+				existsSync(join(dataDir, "migration.json")),
+			"the wipe and the Electron app's data",
+		);
+	}
+
+	// The keys the TPM held for the PIN go with the data key: a copy of
+	// security.json made before opens nothing (U5). The Mac has none.
+	const guardAfter = await pinGuardKeys(dataDir);
+
 	expect(
-		!existsSync(electronDir) &&
-			!existsSync(join(electronParent, "Wiping")) &&
-			existsSync(electronNeighbor) &&
-			existsSync(join(dataDir, "migration.json")),
-		"the wipe and the Electron app's data",
+		guardAfter.length === 0,
+		`the TPM's keys after the wipe: ${guardBefore.length} before, ${guardAfter.length} after`,
 	);
 
 	expect(
@@ -655,15 +678,15 @@ const security: Scenario = async (context) => {
 
 	// ⌘Q at the PIN screen with Caps Lock on.
 	const capsDir = context.tempDir("pane-security-caps-");
-
-	writeFileSync(
-		join(capsDir, "security.json"),
-		JSON.stringify(ELECTRON_SECURITY),
-	);
+	await setPinBeforeLaunch(context, capsDir, "1234");
 
 	const caps = await launchPane(context, { dataDir: capsDir });
 
-	if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
+	if (!COMMAND_KEYS) {
+		context.defer(
+			"⌘Q with Caps Lock on at the PIN screen: Ctrl in Windows' command table is W4's",
+		);
+	} else if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
 		await caps.send("key", { key: "q", modifiers: [PRIMARY, "capsLock"] });
 
 		expect(
@@ -675,6 +698,73 @@ const security: Scenario = async (context) => {
 	await caps.browser.close();
 
 	// A quit detaches the volume; so does the watchdog when Pane is killed.
+	// Windows has neither (U5).
+	if (DATA_IN_A_VOLUME) {
+		await volumeAndWatchdog(context);
+	}
+
+	// A damaged security.json: cut short, its PIN still in it, then garbage.
+	const damaged = async (
+		name: string,
+		prepare: (directory: string) => Promise<void>,
+		keys: string,
+	) => {
+		const directory = context.tempDir("pane-security-damaged-");
+		await prepare(directory);
+
+		const damagedApp = await launchPane(context, { dataDir: directory });
+		const atLaunch = await damagedApp.state();
+
+		await damagedApp.render(`security-damaged-${name}.png`, 0);
+
+		await damagedApp.send("pinKeys", { keys });
+		await Bun.sleep(1_500);
+		const afterKeys = await damagedApp.state();
+
+		const result = {
+			lockedAtLaunch: atLaunch.security.locked,
+			error: screen(atLaunch)?.error ?? null,
+			lockedAfterKeys: afterKeys.security.locked,
+			keptAside: existsSync(join(directory, "security.json.damaged")),
+		};
+
+		await damagedApp.browser.close();
+
+		return result;
+	};
+
+	const truncated = await damaged(
+		"truncated",
+		(directory) => cutShortSecurity(context, directory),
+		"1234",
+	);
+
+	const garbage = await damaged(
+		"garbage",
+		async (directory) =>
+			writeFileSync(join(directory, "security.json"), '\u0000\u0000{"state":'),
+		"1234",
+	);
+
+	expect(
+		truncated.lockedAtLaunch &&
+			!truncated.lockedAfterKeys &&
+			truncated.keptAside,
+		`a damaged security.json with its PIN: ${JSON.stringify(truncated)}`,
+	);
+
+	expect(
+		garbage.lockedAtLaunch &&
+			garbage.lockedAfterKeys &&
+			!!garbage.error &&
+			garbage.keptAside,
+		`a damaged security.json without a PIN: ${JSON.stringify(garbage)}`,
+	);
+};
+
+// A quit detaches the volume; so does the watchdog when Pane is killed (ADR
+// 0113): the Mac's.
+async function volumeAndWatchdog(context: ScenarioContext) {
 	const detachDir = context.tempDir("pane-security-detach-");
 	const attachedApp = await launchPane(context, { dataDir: detachDir });
 	const detachProfile = await attachedApp.createProfile("Work", "BLUE");
@@ -740,55 +830,6 @@ const security: Scenario = async (context) => {
 	);
 
 	expect(afterKill === 0, `${afterKill} images attached after a kill`);
-
-	// A damaged security.json: cut short, its PIN still in it, then garbage.
-	const damaged = async (name: string, contents: string, keys: string) => {
-		const directory = context.tempDir("pane-security-damaged-");
-		writeFileSync(join(directory, "security.json"), contents);
-
-		const damagedApp = await launchPane(context, { dataDir: directory });
-		const atLaunch = await damagedApp.state();
-
-		await damagedApp.render(`security-damaged-${name}.png`, 0);
-
-		await damagedApp.send("pinKeys", { keys });
-		await Bun.sleep(1_500);
-		const afterKeys = await damagedApp.state();
-
-		const result = {
-			lockedAtLaunch: atLaunch.security.locked,
-			error: screen(atLaunch)?.error ?? null,
-			lockedAfterKeys: afterKeys.security.locked,
-			keptAside: existsSync(join(directory, "security.json.damaged")),
-		};
-
-		await damagedApp.browser.close();
-
-		return result;
-	};
-
-	const truncated = await damaged(
-		"truncated",
-		JSON.stringify(ELECTRON_SECURITY).slice(0, -12),
-		"1234",
-	);
-
-	const garbage = await damaged("garbage", '\u0000\u0000{"state":', "1234");
-
-	expect(
-		truncated.lockedAtLaunch &&
-			!truncated.lockedAfterKeys &&
-			truncated.keptAside,
-		`a damaged security.json with its PIN: ${JSON.stringify(truncated)}`,
-	);
-
-	expect(
-		garbage.lockedAtLaunch &&
-			garbage.lockedAfterKeys &&
-			!!garbage.error &&
-			garbage.keptAside,
-		`a damaged security.json without a PIN: ${JSON.stringify(garbage)}`,
-	);
-};
+}
 
 export default security;

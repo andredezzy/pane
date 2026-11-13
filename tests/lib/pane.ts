@@ -3,6 +3,7 @@
 // pane/automation/automation.h).
 import {
 	existsSync,
+	lstatSync,
 	mkdirSync,
 	readFileSync,
 	renameSync,
@@ -16,12 +17,138 @@ import { type Browser, homeEnvironment } from "./browser";
 import { openPage, type Page } from "./cdp";
 import { isScreenLocked } from "./cua";
 import { bySystem } from "./platform";
-import { sampleProcess } from "./processes";
+import { pidsMatching, sampleProcess } from "./processes";
 import { targets } from "./targets";
+import { imagesAttachedIn, mountedAt } from "./tools";
 
 // Whether the data opens into a volume it attaches (ADR 0113): the Mac's
 // does; Windows has none (U5), its data open once its key is.
-const DATA_IN_A_VOLUME = bySystem({ mac: true, windows: false });
+export const DATA_IN_A_VOLUME = bySystem({ mac: true, windows: false });
+
+// Whether earlier apps' data can be there, the Electron app's and every
+// earlier Pane's (ADR 0122): the Mac's alone, no Pane having run on Windows
+// before.
+export const EARLIER_APPS = bySystem({ mac: true, windows: false });
+
+// bcryptjs 3.0.3, hashSync("1234", 10): a PIN as the Electron app set it,
+// which the first unlock checks once and seals the data key with (ADR 0113).
+const ELECTRON_PIN_1234 = {
+	state: {
+		pin: {
+			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
+			length: 4,
+		},
+		failedAttempts: 0,
+	},
+	version: 0,
+};
+
+// A PIN on data that has none yet, set before Pane starts on it, so that it
+// starts locked: on the Mac the Electron app's hash of 1234 in security.json
+// (ADR 0042, 0113); on Windows, where no Pane kept a hash, a launch that sets
+// it up through the PIN screen and quits, the key then sealed with it and a
+// key the TPM holds (U5).
+export const setPinBeforeLaunch = bySystem({
+	mac: async (
+		_context: ScenarioContext,
+		dataDir: string,
+		pin: string,
+	): Promise<void> => {
+		if (pin !== "1234") {
+			throw new Error("the Electron app's hash is of 1234");
+		}
+
+		mkdirSync(dataDir, { recursive: true });
+
+		writeFileSync(
+			join(dataDir, "security.json"),
+			JSON.stringify(ELECTRON_PIN_1234),
+		);
+	},
+	windows: async (
+		context: ScenarioContext,
+		dataDir: string,
+		pin: string,
+	): Promise<void> => {
+		const app = await launchPane(context, { dataDir });
+		await setUpPin(app, pin);
+		// Gone before the next launch on the data, which would hand its URLs
+		// over to it through the engine's singleton.
+		await app.browser.close();
+	},
+});
+
+// A security.json cut short, the PIN still read from what is left, the key
+// from its copy (ADR 0042): on the Mac the Electron app's, its hash checked
+// once; on Windows one a launch sealed with the PIN, cut short after.
+export const cutShortSecurity = bySystem({
+	mac: async (_context: ScenarioContext, dataDir: string): Promise<void> => {
+		mkdirSync(dataDir, { recursive: true });
+
+		writeFileSync(
+			join(dataDir, "security.json"),
+			JSON.stringify(ELECTRON_PIN_1234).slice(0, -12),
+		);
+	},
+	windows: async (context: ScenarioContext, dataDir: string): Promise<void> => {
+		await setPinBeforeLaunch(context, dataDir, "1234");
+		const file = join(dataDir, "security.json");
+		writeFileSync(file, readFileSync(file, "utf8").slice(0, -12));
+	},
+});
+
+// The volume unmounted and its image detached (ADR 0113, 0116): the Mac's;
+// Windows has none (U5).
+export const volumeDetached = bySystem({
+	mac: async (dataDir: string) =>
+		!(await mountedAt(join(dataDir, "Engine", "Volume"))) &&
+		(await imagesAttachedIn(dataDir)).length === 0,
+	windows: async (_dataDir: string) => true,
+});
+
+// Whether a lock has closed the data: the browser holds no Engine key (ADR
+// 0121), and on the Mac its volume has detached.
+export async function dataClosed(app: PaneApp): Promise<boolean> {
+	return (
+		(await app.state()).security.data.keys === 0 &&
+		(await volumeDetached(app.dataDir))
+	);
+}
+
+// The volume's watchdogs serving the Pane of `pid`, and how many there are
+// meant to be: one through every lock on the Mac (ADR 0113), none on Windows,
+// which has no volume (U5).
+export async function volumeWatchdogs(pid: number): Promise<number> {
+	return (await pidsMatching(`pane-volume-watch ${pid} `)).length;
+}
+
+export const VOLUME_WATCHDOGS = bySystem({ mac: 1, windows: 0 });
+
+// Whether the app has a menu bar to choose from: the Mac's. On Windows a home
+// for its commands is W5's, drawn in Paper first.
+export const HAS_MENU_BAR = bySystem({ mac: true, windows: false });
+
+// Whether a profile's data is shut away behind the lock: on the Mac the
+// volume locked and mounted nowhere, the profile's link leading nowhere (ADR
+// 0113); Windows has no volume, every file encrypted alone (ADR 0121, U5).
+export const volumeShut = bySystem({
+	mac: async (dataDir: string, profile: string) => {
+		const link = join(dataDir, "Engine", profile);
+		let linked = false;
+
+		try {
+			lstatSync(link);
+			linked = true;
+		} catch {}
+
+		return (
+			!(await mountedAt(join(dataDir, "Engine", "Volume"))) &&
+			linked &&
+			!existsSync(link)
+		);
+	},
+	windows: async (_dataDir: string, _profile: string) => true,
+});
 
 // The folder that holds profile `id`'s own data, its caches with it: in the
 // Mac's volume (ADR 0113); on Windows, which has none (U5), the engine's own
@@ -102,6 +229,8 @@ type SecurityState = {
 	data: {
 		phase: string;
 		attached: boolean;
+		// The browser's Engine keys: none once a lock has closed the data.
+		keys: number;
 		failure: string | null;
 		// When the attach started and ended, in ms since 1970.
 		attachedAt: { started: number; ended: number } | null;

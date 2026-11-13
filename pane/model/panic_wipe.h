@@ -1,23 +1,30 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#ifndef PANE_MODEL_MAC_PANIC_WIPE_H_
-#define PANE_MODEL_MAC_PANIC_WIPE_H_
+#ifndef PANE_MODEL_PANIC_WIPE_H_
+#define PANE_MODEL_PANIC_WIPE_H_
 
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/types/expected.h"
+
+namespace base {
+class File;
+}
 
 namespace pane::model {
 
 // The panic wipe after the last failed PIN attempt (apps/veil
 // security/wipe.ts): every profile's engine data and the app's own files are
-// overwritten with random bytes, then deleted, and so is the Electron app's
-// data the migration copied them from. Nothing else is touched. The data
-// moves out of the app's way first (StageWipe), at once, so a fresh Pane
-// starts on nothing while the moved data is erased; a wipe cut short (a
-// crash, a quit) is found and finished at the next launch.
+// overwritten with random bytes, then deleted, and on the Mac so is the
+// Electron app's data the migration copied them from. Nothing else is
+// touched. The data moves out of the app's way first (StageWipe), at once, so
+// a fresh Pane starts on nothing while the moved data is erased; a wipe cut
+// short (a crash, a quit) is found and finished at the next launch. The order
+// is one on every system; what each does to a file is its own
+// (panic_wipe_mac.cc, panic_wipe_win.cc).
 
 // The Electron app's data this Pane migrated from (its migration record's
 // source), and that data's caches: every profile's cookies again, which the
@@ -56,30 +63,14 @@ struct StagedWipe {
 inline constexpr char kWipeStagingName[] = "Wiping";
 
 // What it erases: the engine's data (every profile, extensions and all), the
-// encrypted volume its profiles live in (ADR 0113), the app's JSON files, and
-// the engine's caches when they live apart. security.json comes last, after
-// its copy beside the volume: while it stays, with its count of failed
-// attempts, the wipe is still due.
+// Mac's encrypted volume its profiles live in (ADR 0113), the app's JSON
+// files, and the engine's caches when they live apart. security.json comes
+// last, after its copy beside the volume: while it stays, with its count of
+// failed attempts, the wipe is still due.
 std::vector<base::FilePath> WipeTargets(
     const base::FilePath& data_directory,
     const std::optional<base::FilePath>& cache_directory,
     const std::optional<ElectronData>& electron = std::nullopt);
-
-// The record's source, whether or not it is still there (a wipe cut short
-// finds its staged copy beside it); nullopt with no record, or one naming a
-// folder that holds the data directory or sits inside it.
-std::optional<ElectronData> ElectronDataToWipe(
-    const base::FilePath& data_directory,
-    const base::FilePath& application_support,
-    const base::FilePath& caches);
-
-// Chromium keeps a profile's caches under ~/Library/Caches when the profile is
-// under ~/Library/Application Support, at the same relative path
-// (chrome_paths_mac.mm GetUserCacheDirectory). nullopt otherwise.
-std::optional<base::FilePath> CacheDirectoryFor(
-    const base::FilePath& data_directory,
-    const base::FilePath& application_support,
-    const base::FilePath& caches);
 
 // Moves every target into `Wiping/<id>/` beside it, in WipeTargets's order.
 // The Electron app's folder goes only while it still looks like its data (its
@@ -118,6 +109,34 @@ std::vector<WipeFailure> EraseStagedWipes(
 std::vector<WipeFailure> EraseForWipe(const base::FilePath& path,
                                       int passes = 3);
 
+// What the wipe asks of each system's files: the Mac's (panic_wipe_mac.cc)
+// as Foundation's FileManager did it, Windows' (panic_wipe_win.cc).
+namespace wipe_files {
+
+// What is at a path: the item itself, never what a link leads to.
+enum class Kind { kMissing, kFolder, kFile, kOther };
+base::expected<Kind, std::string> KindOf(const base::FilePath& path);
+
+// What a folder's listing names (base::FileEnumerator's file types): its
+// files and folders, and on the Mac its links as links, never followed.
+int ListedTypes();
+
+// The file's bytes on the disk itself, not a barrier: fsync(2) on the Mac,
+// as FileHandle.synchronize did; FlushFileBuffers on Windows.
+bool Sync(base::File& file);
+
+// A rename beside the target, failing when something is at `to` already.
+base::expected<void, std::string> Move(const base::FilePath& from,
+                                       const base::FilePath& to);
+
+// The item: a file, a link (never what it leads to), or a folder once empty.
+base::expected<void, std::string> Remove(const base::FilePath& path);
+
+// "<path>: <why>", why being the system's text for the call that just failed.
+std::string LastError(const base::FilePath& path);
+
+}  // namespace wipe_files
+
 }  // namespace pane::model
 
-#endif  // PANE_MODEL_MAC_PANIC_WIPE_H_
+#endif  // PANE_MODEL_PANIC_WIPE_H_

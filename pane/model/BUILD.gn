@@ -12,6 +12,8 @@ source_set("model") {
   sources = [
     "address_input.cc",
     "address_input.h",
+    "app_lock.cc",
+    "app_lock.h",
     "app_settings.cc",
     "app_settings.h",
     "browser_model.cc",
@@ -22,19 +24,32 @@ source_set("model") {
     "crash_loop.h",
     "data_key.cc",
     "data_key.h",
+    "data_lock.cc",
+    "data_lock.h",
+    "data_place.cc",
+    "data_place.h",
+    "data_vault.cc",
+    "data_vault.h",
     "engine_fingerprint.cc",
     "engine_fingerprint.h",
     "extension_text.cc",
     "extension_text.h",
+    "folder_place.cc",
+    "folder_place.h",
     "host_platform.h",
     "local_state.cc",
     "local_state.h",
     "model_store.cc",
     "model_store.h",
+    "panic_wipe.cc",
+    "panic_wipe.h",
+    "panic_wipe_run.cc",
+    "panic_wipe_run.h",
     "persisted_file.cc",
     "persisted_file.h",
     "pin_entry.cc",
     "pin_entry.h",
+    "pin_guard.h",
     "profile.cc",
     "profile.h",
     "profile_deletions.cc",
@@ -75,12 +90,32 @@ source_set("model") {
     "versions.h",
   ]
 
-  # The platform Pane runs on, from its own file.
+  # Each system's own files: the platform Pane runs on, the data's lock, the
+  # wipe's files and processes, and the PIN's guard; on Windows, os_crypt's
+  # DPAPI key, the secret the data key is sealed under there (U5).
   if (is_mac) {
-    sources += [ "host_platform_mac.cc" ]
+    sources += [
+      "data_lock_mac.cc",
+      "host_platform_mac.cc",
+      "panic_wipe_mac.cc",
+      "panic_wipe_run_mac.cc",
+      "pin_guard_mac.cc",
+    ]
   }
   if (is_win) {
-    sources += [ "host_platform_win.cc" ]
+    sources += [
+      "data_lock_win.cc",
+      "engine_secret.h",
+      "engine_secret_win.cc",
+      "host_platform_win.cc",
+      "panic_wipe_run_win.cc",
+      "panic_wipe_win.cc",
+      "pin_guard_win.cc",
+    ]
+    libs = [
+      "crypt32.lib",
+      "ncrypt.lib",
+    ]
   }
 
   deps = [
@@ -92,15 +127,41 @@ source_set("model") {
     "//ui/gfx/geometry",
     "//url",
   ]
+
+  # FileManager's rules, which the Mac's wipe keeps (panic_wipe_mac.cc).
+  if (is_mac) {
+    deps += [ "//pane/model/mac:file_operations" ]
+  }
+}
+
+# What the model's tests and the Mac's share: waits on the thread pool's
+# work, and a TPM in memory for the PIN's guard.
+source_set("test_support") {
+  testonly = true
+
+  sources = [
+    "stand_in_pin_guard.cc",
+    "stand_in_pin_guard.h",
+    "test_waits.cc",
+    "test_waits.h",
+  ]
+
+  deps = [
+    ":model",
+    "//base",
+    "//crypto",
+  ]
 }
 
 source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "app_lock_unittest.cc",
     "browser_model_unittest.cc",
     "client_hints_unittest.cc",
     "data_key_unittest.cc",
+    "folder_place_unittest.cc",
     "model_store_unittest.cc",
     "persistence_unittest.cc",
     "profile_draft_unittest.cc",
@@ -114,17 +175,35 @@ source_set("unit_tests") {
     "updates_unittest.cc",
   ]
 
+  # Windows' own: os_crypt's key under DPAPI, and the TPM's guard.
+  if (is_win) {
+    sources += [
+      "engine_secret_win_unittest.cc",
+      "pin_guard_win_unittest.cc",
+    ]
+  }
+
   # The files the Swift Pane wrote (SwiftVectorsTests.swift), which these read
   # byte for byte.
   data = [ "test_data/" ]
 
   deps = [
     ":model",
+    ":test_support",
     "//base",
     "//base/test:test_support",
     "//crypto",
     "//testing/gtest",
   ]
+
+  # Chromium's own reading of os_crypt's key, which Pane's must be.
+  if (is_win) {
+    deps += [
+      "//components/os_crypt/async/browser",
+      "//components/prefs",
+      "//components/prefs:test_support",
+    ]
+  }
 }
 
 # The model's tests alone, the Mac's vault's with them, apart from the engine

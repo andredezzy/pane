@@ -17,6 +17,7 @@
 #include "base/no_destructor.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_util.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
@@ -47,6 +49,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/embedder_support/user_agent_utils.h"
+#include "components/history/core/browser/history_service.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/language/core/browser/language_prefs.h"
 #include "components/language/core/browser/pref_names.h"
@@ -75,8 +78,9 @@ namespace pane {
 
 namespace {
 
-// Calls back once Chrome has destroyed a profile: true; false past the
-// timeout, or when the profile manager goes first. Deletes itself.
+// Calls back once Chrome has destroyed a profile and closed its files: true;
+// false past the timeout, or when the profile manager goes first. Deletes
+// itself.
 class ProfileDestructionWaiter : public ProfileObserver,
                                  public ProfileManagerObserver {
  public:
@@ -93,7 +97,36 @@ class ProfileDestructionWaiter : public ProfileObserver,
         timeout);
   }
 
-  void OnProfileWillBeDestroyed(Profile* profile) override { Finish(true); }
+  // Chrome closes the profile's files after this, as it destroys it: the
+  // preferences' last write goes to the profile's file sequence, the history's
+  // databases close on the history's. A profile opened again at once, as one
+  // turned off opens again to cache in memory (ADR 0119), met them still open
+  // on Windows, whose files refuse that (a file being replaced, a database's
+  // exclusive lock), and Chrome then showed its profile error over the window,
+  // which waits for a click. Both are waited for, here alike.
+  void OnProfileWillBeDestroyed(Profile* profile) override {
+    profile_observation_.Reset();
+    base::RepeatingClosure closed = base::BarrierClosure(
+        2, base::BindOnce(&ProfileDestructionWaiter::Finish,
+                          weak_factory_.GetWeakPtr(), true));
+    if (history::HistoryService* history =
+            HistoryServiceFactory::GetForProfileWithoutCreating(profile)) {
+      // Run here once its databases have closed.
+      history->SetOnBackendDestroyTask(closed);
+    } else {
+      closed.Run();
+    }
+    // Posted past the destruction this is called from, which posts the
+    // preferences' last write.
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](scoped_refptr<base::SequencedTaskRunner> files,
+                          base::OnceClosure written) {
+                         files->PostTaskAndReply(FROM_HERE, base::DoNothing(),
+                                                 std::move(written));
+                       },
+                       profile->GetIOTaskRunner(), closed));
+  }
   void OnProfileManagerDestroying() override { Finish(false); }
 
  private:
@@ -228,8 +261,8 @@ void CloseEveryPage(Profile* profile) {
   }
 }
 
-// Runs `done` with true once Chrome has destroyed `profile`; with false past
-// `timeout`, or when the profile manager goes first.
+// Runs `done` with true once Chrome has destroyed `profile` and closed its
+// files; with false past `timeout`, or when the profile manager goes first.
 void WaitForProfileDestruction(Profile* profile,
                                base::TimeDelta timeout,
                                base::OnceCallback<void(bool)> done) {
@@ -457,14 +490,16 @@ void DropEngineKeys(
     base::OnceCallback<void(size_t browser, uint32_t network, uint32_t storage)>
         done) {
   encryption::DropKeys();
+  // Counted at the drop: an unlock right after it registers its profiles'
+  // keys again before the other processes answer.
+  const size_t browser = encryption::KeyCount();
 
   // The network service and the Storage Service answer on their own.
   auto left = base::MakeRefCounted<KeysLeft>();
   base::RepeatingClosure answered = base::BarrierClosure(
       2, base::BindOnce(
-             [](scoped_refptr<KeysLeft> left,
+             [](size_t browser, scoped_refptr<KeysLeft> left,
                 base::OnceCallback<void(size_t, uint32_t, uint32_t)> done) {
-               const size_t browser = encryption::KeyCount();
                PANE_TRACE("callback",
                           "PaneBrowserApplication.engineKeysDropped",
                           base::DictValue()
@@ -473,7 +508,7 @@ void DropEngineKeys(
                               .Set("storage", static_cast<int>(left->storage)));
                std::move(done).Run(browser, left->network, left->storage);
              },
-             left, std::move(done)));
+             browser, left, std::move(done)));
 
   content::GetNetworkService()->PaneDropEngineKeys(
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(

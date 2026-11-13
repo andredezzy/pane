@@ -26,10 +26,6 @@ namespace pane::model {
 
 namespace {
 
-// A scenario's secret: it opens none of the user's data, sealed under the
-// Keychain's (ADR 0113).
-constexpr std::string_view kMockSecret = "Pane mock keychain";
-
 bool IsEngineItem(std::string_view service, std::string_view account) {
   return service == KeychainPassword::GetServiceName() &&
          account == KeychainPassword::GetAccountName();
@@ -94,7 +90,7 @@ class MockKeychain : public crypto::apple::KeychainV2 {
     if (MockDenies()) {
       return base::unexpected(errSecAuthFailed);
     }
-    return base::ToVector(base::as_byte_span(kMockSecret));
+    return base::ToVector(base::as_byte_span(kMockKeychainSecret));
   }
 };
 

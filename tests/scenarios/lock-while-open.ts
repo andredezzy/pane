@@ -1,9 +1,18 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchPane, tabOf } from "../lib/pane";
+import {
+	DATA_IN_A_VOLUME,
+	dataClosed,
+	launchPane,
+	setPinBeforeLaunch,
+	tabOf,
+	VOLUME_WATCHDOGS,
+	volumeDetached,
+	volumeWatchdogs,
+} from "../lib/pane";
 import { poll } from "../lib/poll";
-import { holdOpen, pidsMatching, waitForExit } from "../lib/processes";
-import { imagesAttachedIn, mountedAt } from "../lib/tools";
+import { holdOpen, waitForExit } from "../lib/processes";
+import { imagesAttachedIn } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // Pane locks while open (ADR 0116, Paper 06.4 and 07.9). Lock Pane shows the
@@ -19,27 +28,14 @@ import { expect, type Scenario } from "../run";
 // by a busy Mac or by Chrome's own startup, runs first, the keys still there.
 // One watchdog serves a Pane through every lock, and still detaches the image
 // when Pane is killed. A file something else holds open is never pulled away:
-// the lock waits, and past 10 s Pane quits.
-
-// bcryptjs 3.0.3, hashSync("1234", 10): a PIN as the Electron app set it.
-const PIN_1234 = {
-	state: {
-		pin: {
-			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
-			length: 4,
-		},
-		failedAttempts: 0,
-	},
-	version: 0,
-};
+// the lock waits, and past 10 s Pane quits. Windows has no volume (U5): there
+// the data closes as the browser lets go of every Engine key, and what holds
+// a file open holds nothing up.
 
 const lockWhileOpen: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lock-");
-	mkdirSync(dataDir, { recursive: true });
-	writeFileSync(join(dataDir, "security.json"), JSON.stringify(PIN_1234));
+	await setPinBeforeLaunch(context, dataDir, "1234");
 	const mountPoint = join(dataDir, "Engine", "Volume");
-
-	const mounted = () => mountedAt(mountPoint);
 
 	const app = await launchPane(context, {
 		dataDir,
@@ -93,9 +89,8 @@ const lockWhileOpen: Scenario = async (context) => {
 	);
 
 	const detached = await poll(
-		"the volume detached",
-		async () =>
-			!(await mounted()) && (await imagesAttachedIn(dataDir)).length === 0,
+		"the data closed",
+		() => dataClosed(app),
 		30_000,
 	).then(
 		() => Date.now() - asked,
@@ -107,14 +102,14 @@ const lockWhileOpen: Scenario = async (context) => {
 		downloads: (await app.state()).downloads.map((item) => item.state),
 		profiles: locked.profiles.length,
 		phase: locked.security.data.phase,
-		mounted: await mounted(),
+		closed: await dataClosed(app),
 		detachedAfterMs: detached,
 	};
 
 	expect(
 		whileLocked.screen === "unlock" &&
 			whileLocked.profiles === 0 &&
-			!whileLocked.mounted &&
+			whileLocked.closed &&
 			whileLocked.detachedAfterMs !== null &&
 			whileLocked.detachedAfterMs < 5_000 &&
 			!whileLocked.downloads.includes("inProgress"),
@@ -133,11 +128,10 @@ const lockWhileOpen: Scenario = async (context) => {
 		60_000,
 	);
 
-	const watchdogs = async () =>
-		(await pidsMatching(`pane-volume-watch ${app.browser.pid} `)).length;
+	const watchdogs = () => volumeWatchdogs(app.browser.pid);
 
 	expect(
-		(await watchdogs()) === 1,
+		(await watchdogs()) === VOLUME_WATCHDOGS,
 		`watchdogs after a lock and an unlock: ${await watchdogs()}`,
 	);
 
@@ -268,7 +262,7 @@ const lockWhileOpen: Scenario = async (context) => {
 		atOpen.push(
 			await poll(
 				"the detach of a lock as the profile opens",
-				async () => (await imagesAttachedIn(dataDir)).length === 0,
+				() => dataClosed(app),
 				15_000,
 			).then(
 				() => Date.now() - lockedAt,
@@ -315,7 +309,7 @@ const lockWhileOpen: Scenario = async (context) => {
 		workHeld.push(
 			await poll(
 				"the detach of a lock with the background work held",
-				async () => (await imagesAttachedIn(dataDir)).length === 0,
+				() => dataClosed(app),
 				15_000,
 			).then(
 				() => Date.now() - lockedAt,
@@ -357,51 +351,54 @@ const lockWhileOpen: Scenario = async (context) => {
 	const watchdogsAtTheEnd = await watchdogs();
 
 	expect(
-		watchdogsAtTheEnd === 1,
+		watchdogsAtTheEnd === VOLUME_WATCHDOGS,
 		`watchdogs after the locks: ${watchdogsAtTheEnd}`,
 	);
 
 	// Something else keeps a file of the volume open: a lock never forces the
 	// detach, which pulled the files from under the engine, whose next flush stopped
-	// it. It goes once the file closes.
+	// it. It goes once the file closes. Windows has no volume to hold (U5).
 	const held = join(mountPoint, "held");
-	writeFileSync(held, "held");
-	const holder = holdOpen(held);
-	await Bun.sleep(200);
-	await app.send("lockNow");
-	await Bun.sleep(3_000);
-	const heldThrough = (await imagesAttachedIn(dataDir)).length;
-	holder.kill();
-	await holder.exited;
 
-	const detachedOnceFree = await poll(
-		"the lock's detach once the file closed",
-		async () => (await imagesAttachedIn(dataDir)).length === 0,
-		10_000,
-	).then(
-		() => true,
-		() => false,
-	);
+	if (DATA_IN_A_VOLUME) {
+		writeFileSync(held, "held");
+		const holder = holdOpen(held);
+		await Bun.sleep(200);
+		await app.send("lockNow");
+		await Bun.sleep(3_000);
+		const heldThrough = (await imagesAttachedIn(dataDir)).length;
+		holder.kill();
+		await holder.exited;
 
-	expect(
-		heldThrough === 1 && detachedOnceFree,
-		`a file held through a lock: attached ${heldThrough}, then detached ${detachedOnceFree}`,
-	);
+		const detachedOnceFree = await poll(
+			"the lock's detach once the file closed",
+			() => dataClosed(app),
+			10_000,
+		).then(
+			() => true,
+			() => false,
+		);
 
-	await app.send("pinKeys", { keys: "1234" });
+		expect(
+			heldThrough === 1 && detachedOnceFree,
+			`a file held through a lock: attached ${heldThrough}, then detached ${detachedOnceFree}`,
+		);
 
-	await app.waitFor(
-		"unlocked after the wait",
-		(state) => !state.security.locked && state.security.data.attached,
-		60_000,
-	);
+		await app.send("pinKeys", { keys: "1234" });
+
+		await app.waitFor(
+			"unlocked after the wait",
+			(state) => !state.security.locked && state.security.data.attached,
+			60_000,
+		);
+	}
 
 	process.kill(app.browser.pid, "SIGKILL");
 	await waitForExit(app.browser.pid);
 
 	const detachedAfterKill = await poll(
 		"the watchdog's detach after a kill",
-		async () => (await imagesAttachedIn(dataDir)).length === 0,
+		() => volumeDetached(dataDir),
 		10_000,
 	).then(
 		() => true,
@@ -431,7 +428,7 @@ const lockWhileOpen: Scenario = async (context) => {
 
 	const firstDetached = await poll(
 		"the detach of the launch's first lock",
-		async () => (await imagesAttachedIn(dataDir)).length === 0,
+		() => dataClosed(last),
 		15_000,
 	).then(
 		() => Date.now() - firstLockedAt,
@@ -449,6 +446,12 @@ const lockWhileOpen: Scenario = async (context) => {
 	);
 
 	// Held past the wait: Pane quits, and the volume detaches after the engine.
+	if (!DATA_IN_A_VOLUME) {
+		await last.quit();
+
+		return;
+	}
+
 	await last.send("pinKeys", { keys: "1234" });
 
 	await last.waitFor(

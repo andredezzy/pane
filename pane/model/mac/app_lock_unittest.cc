@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/mac/app_lock.h"
+#include "pane/model/app_lock.h"
 
 #include <Security/Security.h>
 
@@ -22,12 +22,14 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "pane/model/data_key.h"
-#include "pane/model/mac/data_lock.h"
-#include "pane/model/mac/data_vault.h"
+#include "pane/model/data_lock.h"
+#include "pane/model/data_vault.h"
 #include "pane/model/mac/data_volume.h"
-#include "pane/model/mac/panic_wipe_run.h"
+#include "pane/model/mac/pin_hash.h"
 #include "pane/model/mac/test_keychain.h"
 #include "pane/model/mac/vault_test_support.h"
+#include "pane/model/mac/volume_place.h"
+#include "pane/model/panic_wipe_run.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/pin_entry.h"
 #include "pane/model/security.h"
@@ -112,18 +114,36 @@ class AppLockTest : public testing::Test {
   // started: with the Keychain's secret as the launch looked for it, or with
   // no launch's look.
   AppLock& Launch(std::optional<AppLock::LaunchSecret> secret = std::nullopt) {
-    vault_ = std::make_unique<DataVault>(data_, std::nullopt, tools_,
-                                         DataLock::Take(data_), nullptr,
-                                         &vault_delegate_);
+    vault_ = std::make_unique<DataVault>(
+        data_,
+        base::MakeRefCounted<VolumePlace>(data_, std::nullopt, tools_,
+                                          DataLock::Take(data_), nullptr),
+        &vault_delegate_);
     vault_->set_file_migrator(migrator_->Get());
-    lock_ = std::make_unique<AppLock>(data_, AppLock::Load(data_), *vault_,
-                                      keychain_.safe_storage(), &lock_delegate_,
-                                      std::move(secret));
+    lock_ = std::make_unique<AppLock>(
+        data_, AppLock::Load(data_, DataVolume(data_, std::nullopt).Exists()),
+        *vault_, System(), &lock_delegate_, std::move(secret));
     vault_delegate_.lock = lock_.get();
     lock_->SetWipeForTesting(base::BindLambdaForTesting([&] { ++wipes_; }));
     lock_->AddObserver(&shakes_);
     lock_->Start();
     return *lock_;
+  }
+
+  // What the Mac's lock asks of its system: the Keychain's secret, and an
+  // earlier Pane's bcrypt hash.
+  AppLock::System System() {
+    AppLock::System system;
+    system.secret = base::BindRepeating(
+        [](SafeStorage safe_storage, bool makes_one) {
+          return safe_storage.DataSecret(makes_one);
+        },
+        keychain_.safe_storage());
+    system.matches_hash =
+        base::BindRepeating([](std::string_view pin, std::string_view hash) {
+          return VerifyPinHash(pin, hash);
+        });
+    return system;
   }
 
   void Save(const SecurityState& state, std::string_view name = "security") {

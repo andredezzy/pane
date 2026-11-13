@@ -1,27 +1,22 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { engineKey, keyForms } from "../lib/engine-key";
-import { tabOf } from "../lib/pane";
+import { setPinBeforeLaunch, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
-import { commandLinesAndEnvironments, helperPid } from "../lib/processes";
+import {
+	commandLinesAndEnvironments,
+	helperPid,
+	waitForExit,
+} from "../lib/processes";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A profile's engine key (ADR 0121) reaches the network service and the Storage
 // Service, a restart of either gets it back and loses nothing, it is on no
 // command line, in no environment, and in no file, and every process's registry
-// is empty once a lock has detached the volume; the PIN brings it all back.
-
-const PIN_1234 = {
-	state: {
-		pin: {
-			hash: "$2b$10$6RNvGASNquZ6f5LXjFap1eMcHOZTOzRYJVRe1DrjRG2juL90W5MNO",
-			length: 4,
-		},
-		failedAttempts: 0,
-	},
-	version: 0,
-};
+// is empty once a lock has closed the data; the PIN brings it all back. On
+// Windows the PIN's seal takes the TPM's share too (U5), which the key's
+// derivation here asks the chip for, with the PIN.
 
 function* filesUnder(root: string): Generator<string> {
 	for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -37,8 +32,7 @@ function* filesUnder(root: string): Generator<string> {
 
 const engineKeys: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-engine-keys-");
-	mkdirSync(dataDir, { recursive: true });
-	writeFileSync(join(dataDir, "security.json"), JSON.stringify(PIN_1234));
+	await setPinBeforeLaunch(context, dataDir, "1234");
 
 	const { app, trace } = await launchTraced(context, "engine-keys", {
 		dataDir,
@@ -72,6 +66,12 @@ const engineKeys: Scenario = async (context) => {
 
 	expect(processes.length >= 3, `only ${processes.length} processes found`);
 
+	// The environments are read: the browser's holds what the runner gave it.
+	expect(
+		processes.some((row) => row.includes("PANE_AUTOMATION_DIR=")),
+		"no process's environment was read",
+	);
+
 	for (const row of processes) {
 		for (const form of forms) {
 			expect(
@@ -84,8 +84,21 @@ const engineKeys: Scenario = async (context) => {
 	// In no file, once what is written has reached the disk.
 	await Bun.sleep(32_000); // The cookie store commits within 30 s.
 
+	// Windows refuses another process's open of a file a process of Pane's
+	// holds shut: Chromium locks the cookies' database there against other
+	// apps. Those are searched once Pane has quit.
+	const heldShut: string[] = [];
+
 	for (const file of filesUnder(dataDir)) {
-		const bytes = readFileSync(file);
+		let bytes: Buffer;
+
+		try {
+			bytes = readFileSync(file);
+		} catch {
+			heldShut.push(file);
+
+			continue;
+		}
 
 		for (const form of forms) {
 			expect(!bytes.includes(form), `the key is in ${file}`);
@@ -195,6 +208,15 @@ const engineKeys: Scenario = async (context) => {
 	);
 
 	await app.quit();
+	await waitForExit(app.browser.pid, 30_000);
+
+	for (const file of heldShut.filter((path) => existsSync(path))) {
+		const bytes = readFileSync(file);
+
+		for (const form of forms) {
+			expect(!bytes.includes(form), `the key is in ${file}`);
+		}
+	}
 };
 
 export default engineKeys;

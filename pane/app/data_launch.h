@@ -7,30 +7,34 @@
 #include <string>
 #include <string_view>
 
+#include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/values.h"
+#include "pane/model/app_lock.h"
+#include "pane/model/app_settings.h"
 #include "pane/model/data_key.h"
+#include "pane/model/data_place.h"
+#include "pane/model/model_store.h"
+#include "pane/model/panic_wipe_run.h"
 #include "pane/model/pin_entry.h"
 
 namespace base {
 class CommandLine;
-class FilePath;
 }  // namespace base
 
 namespace pane {
-
-namespace model {
-class ModelStore;
-}  // namespace model
 
 // Pane's data around the engine's life (ADR 0113, 0122), in the order the
 // Swift app of 0.19.2 and before kept (its main.swift and AppDelegate): what an
 // earlier Pane left is brought up to date, and the data's lock taken, before
 // the engine starts; the vault and the lock open once the thread pool runs;
-// and the volume detaches once the engine has stopped. The encrypted volume
-// and every earlier Pane's data are the Mac's alone (ADR 0113, 0114, 0122): no
-// Pane ever ran on Windows (U5), whose data is W3's
-// (docs/plans/views-migration.md, data_launch_win.cc).
+// and the data closes once the engine has stopped. The encrypted volume and
+// every earlier Pane's data are the Mac's alone (ADR 0113, 0114, 0122): no
+// Pane ever ran on Windows, whose data has no volume and is sealed under
+// os_crypt's DPAPI key, the PIN guarded by the TPM (U5). Each system's launch
+// is its own (data_launch_mac.cc, data_launch_win.cc); what the data does
+// once it opens is one (data_launch.cc).
 
 // Pane's data folder: a scenario's (PANE_DATA_DIR), or the one under the
 // home (DefaultDataDirectory).
@@ -55,6 +59,43 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
 // and the model's store, with its settings. The lock starts with the UI
 // (AppData::Start).
 void OpenData();
+
+// What each system's launch keeps for the data, which opens once the thread
+// pool runs (PrepareData, then OpenData).
+struct LaunchedData {
+  LaunchedData();
+  LaunchedData(LaunchedData&&);
+  LaunchedData& operator=(LaunchedData&&);
+  ~LaunchedData();
+
+  base::FilePath data_directory;
+  // Where the profiles' data lives: the Mac's volume, Windows' engine folder.
+  scoped_refptr<model::DataPlace> place;
+  // The panic wipe's erase at launch, while it runs; null with none.
+  scoped_refptr<model::LaunchErase> erase;
+  // security.json, read once.
+  model::AppLock::Loaded loaded;
+  // The secret, as the launch looked for it: the lock never makes one.
+  model::AppLock::LaunchSecret secret;
+  // What the lock asks of the system it runs on.
+  model::AppLock::System lock_system;
+  // settings.json, read once: the model starts with them.
+  model::AppSettings settings;
+  // The proxy passwords an earlier Pane kept apart from its plain
+  // profiles.json (the Mac's).
+  model::ModelStore::KeptApart kept_apart;
+  // An earlier Pane's plain profile folders wait to move into the volume
+  // (the Mac's).
+  bool has_plain_profiles = false;
+};
+
+// The end of PrepareData: kept until OpenData.
+void KeepLaunchedData(LaunchedData launched);
+
+// The engine's side of the vault's work on a profile's folder, the
+// conversion of an earlier Pane's files (ADR 0121, 0122): the Mac's, with
+// `user_data_dir` as Chromium resolved it; none on Windows.
+model::FileMigrator MakeFileMigrator(const base::FilePath& user_data_dir);
 
 // Once the browser's message loop has ended, while the thread pool still
 // runs: what changed since the quit's save (a write that failed, asked again)

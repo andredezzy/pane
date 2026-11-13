@@ -52,6 +52,10 @@ export const PRIMARY = bySystem({
 	windows: "control",
 } as const);
 
+// Whether Pane's command table answers PRIMARY's shortcuts: the Mac's; on
+// Windows the table's own modifier is still the Windows key, its Ctrl W4's.
+export const COMMAND_KEYS = bySystem({ mac: true, windows: false });
+
 // A scenario's own word that it doesn't run on Windows (`export const
 // notOnWindows`), which the runner reads; without it, a scenario runs on both.
 export type NotOnWindows =
@@ -105,4 +109,30 @@ export async function powershell(
 	}
 
 	return output;
+}
+
+// The same, waited for where the caller can't wait (a key derived for a
+// check, tests/lib/engine-key.ts).
+export function powershellSync(
+	script: string,
+	env: Record<string, string> = {},
+): string {
+	const child = Bun.spawnSync(
+		[
+			"powershell.exe",
+			"-NoProfile",
+			"-NonInteractive",
+			"-EncodedCommand",
+			Buffer.from(script, "utf16le").toString("base64"),
+		],
+		{ env: { ...process.env, ...env }, stdin: "ignore" },
+	);
+
+	if (child.exitCode !== 0) {
+		throw new Error(
+			`PowerShell exited with ${child.exitCode}: ${child.stderr.toString().trim()}`,
+		);
+	}
+
+	return child.stdout.toString();
 }

@@ -8,25 +8,27 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { launchPane, tabOf } from "../lib/pane";
-import type { NotOnWindows } from "../lib/platform";
+import { EARLIER_APPS, launchPane, tabOf } from "../lib/pane";
+import {
+	crashDumpsUnder,
+	crashpadKept,
+	dataFolderPrivacy,
+	downloadOrigin,
+} from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
-// Where it runs (lib/platform.ts).
-export const notOnWindows: NotOnWindows = {
-	needsDesign:
-		"what Pane leaves outside the volume, as the Mac keeps it: a download's quarantine and Spotlight attributes, the data root's POSIX mode, Crashpad's folder; on Windows, a download's Mark of the Web, which names no page (ADR 0115), and the data folder's ACL (W3)",
-};
-
-// What Pane leaves outside the encrypted volume (ADR 0113) names no page. A
+// What Pane leaves outside the encrypted volume (ADR 0113), and on Windows,
+// which has none, outside its files' encryption (U5), names no page. A
 // renderer's crash leaves no minidump: Chromium's Crashpad kept one, with the
 // page's address (url-chunk), under its default user data dir. A download
-// keeps its quarantine and no address: Chromium wrote the page and the file's
-// URLs into kMDItemWhereFroms, which Spotlight indexes. After a quit, Local
-// State names no profile of Pane's as used last, and keeps no time of use.
-// The data root is the user's alone, where it was 0755. The engine keeps no
-// histograms (BrowserMetrics), which counted the pages loaded and the tabs
-// open, and the extensions an earlier migration record listed go at launch
+// keeps its system's mark and no address: Chromium wrote the page and the
+// file's URLs into kMDItemWhereFroms, which Spotlight indexes, and into the
+// Mark of the Web on Windows (lib/tools.ts). After a quit, Local State names
+// no profile of Pane's as used last, and keeps no time of use. The data root
+// is the user's alone: on the Mac where it was 0755; on Windows by the ACL of
+// the user's profile it lies in. The engine keeps no histograms
+// (BrowserMetrics), which counted the pages loaded and the tabs open, and on
+// the Mac the extensions an earlier migration record listed go at launch
 // (ADR 0115).
 // What Chrome keeps of its histograms at the engine's root.
 const histogramFiles = (engine: string) =>
@@ -40,27 +42,32 @@ const histogramFiles = (engine: string) =>
 
 const privateTraces: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-traces-");
+	// Windows reads no mode but its read-only flag: its ACL is the profile's.
 	chmodSync(dataDir, 0o755);
 
 	// A record 0.15.1 and before left, listing the extensions each profile
-	// had. Their histograms are not seeded: Chrome, finding some, empties the
-	// folder, its own file too (the volume's tests erase them).
+	// had (an earlier app's: the Mac's alone). Their histograms are not
+	// seeded: Chrome, finding some, empties the folder, its own file too (the
+	// volume's tests erase them).
 	const engine = join(dataDir, "Engine");
 	mkdirSync(dataDir, { recursive: true });
 
-	writeFileSync(
-		join(dataDir, "migration.json"),
-		JSON.stringify({
-			state: {
-				source: "/nowhere/@pane/veil",
-				migratedAt: "2026-10-28T00:00:00Z",
-				profiles: [],
-				pendingExtensions: { a: ["cjpalhdlnbpafiamejdnhcphjbkeiagm"] },
-			},
-			version: 0,
-		}),
-	);
+	if (EARLIER_APPS) {
+		writeFileSync(
+			join(dataDir, "migration.json"),
+			JSON.stringify({
+				state: {
+					source: "/nowhere/@pane/veil",
+					migratedAt: "2026-10-28T00:00:00Z",
+					profiles: [],
+					pendingExtensions: { a: ["cjpalhdlnbpafiamejdnhcphjbkeiagm"] },
+				},
+				version: 0,
+			}),
+		);
+	}
 
+	const launched = Date.now();
 	const app = await launchPane(context, { dataDir });
 	// Chrome makes the histograms' file as it starts, and may delete it a
 	// few seconds on: it is looked for at once, and again before the quit.
@@ -83,12 +90,7 @@ const privateTraces: Scenario = async (context) => {
 		done.downloads.find((download) => download.state === "complete")?.path ??
 		"";
 
-	const attributes = (
-		await Bun.$`/usr/bin/xattr ${saved}`.quiet().nothrow().text()
-	)
-		.trim()
-		.split("\n")
-		.filter(Boolean);
+	const origin = await downloadOrigin(saved);
 
 	// A renderer's crash, which the app reloads.
 	const crashURL = context.fixtures.url("crash.html");
@@ -116,15 +118,7 @@ const privateTraces: Scenario = async (context) => {
 	const histogramsWhileOpen = histogramFiles(engine);
 	await app.browser.close();
 
-	const dumps = (
-		await Bun.$`/usr/bin/find ${home} ${dataDir} -name ${"*.dmp"}`
-			.quiet()
-			.nothrow()
-			.text()
-	)
-		.trim()
-		.split("\n")
-		.filter(Boolean);
+	const dumps = await crashDumpsUnder([home, dataDir]);
 
 	const localState = JSON.parse(
 		readFileSync(join(dataDir, "Engine", "Local State"), "utf8"),
@@ -136,22 +130,18 @@ const privateTraces: Scenario = async (context) => {
 		tab_stats?: unknown;
 	};
 
+	const privacy = await dataFolderPrivacy(dataDir);
+
 	const traces = {
-		downloadAttributes: attributes,
+		download: origin.kept,
 		dumps,
-		crashpad: existsSync(
-			join(home, "Library", "Application Support", "Chromium", "Crashpad"),
-		)
-			? readdirSync(
-					join(home, "Library", "Application Support", "Chromium", "Crashpad"),
-				)
-			: [],
+		crashpad: crashpadKept(home, launched),
 		lastUsed: localState.profile?.last_used,
 		timesOfUse: Object.values(localState.profile?.info_cache ?? {}).filter(
 			(entry) => entry.active_time !== undefined,
 		).length,
 		tabStats: localState.tab_stats !== undefined,
-		dataRootMode: (statSync(dataDir).mode & 0o777).toString(8),
+		dataRoot: privacy.kept,
 		histograms: [
 			...new Set([
 				...histogramsAtLaunch,
@@ -159,16 +149,16 @@ const privateTraces: Scenario = async (context) => {
 				...histogramFiles(engine),
 			]),
 		],
-		pendingExtensions: readFileSync(
-			join(dataDir, "migration.json"),
-			"utf8",
-		).includes("pendingExtensions"),
+		pendingExtensions:
+			EARLIER_APPS &&
+			readFileSync(join(dataDir, "migration.json"), "utf8").includes(
+				"pendingExtensions",
+			),
 	};
 
 	expect(
-		attributes.includes("com.apple.quarantine") &&
-			!attributes.includes("com.apple.metadata:kMDItemWhereFroms"),
-		`the download's attributes: ${JSON.stringify(attributes)}`,
+		origin.marked && !origin.namesAPage,
+		`what the download keeps of where it came from: ${JSON.stringify(origin.kept)}`,
 	);
 
 	expect(dumps.length === 0, `minidumps: ${JSON.stringify(dumps)}`);
@@ -180,10 +170,7 @@ const privateTraces: Scenario = async (context) => {
 		`Local State after the quit: ${JSON.stringify(traces)}`,
 	);
 
-	expect(
-		traces.dataRootMode === "700",
-		`the data root is ${traces.dataRootMode}`,
-	);
+	expect(privacy.alone, `the data root is ${privacy.kept}`);
 
 	expect(
 		traces.histograms.length === 0 && !traces.pendingExtensions,

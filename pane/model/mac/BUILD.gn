@@ -2,11 +2,12 @@
 
 # The Mac's own part of Pane's model (docs/plans/views-migration.md, Phase 2,
 # C4 and C6), ported from the Swift PaneKit test by test: the encrypted
-# volume, the data's lock, the panic wipe, and the paths every earlier Pane on
-# the Mac updates by (ADR 0122); and the app's side of the data vault, ported
-# from the Swift app: the vault, the app lock, the Keychain's secret through
-# Chromium's own code, and the volume's watchdog. No Pane ever ran on Windows
-# (U5), so none of it builds there.
+# volume, the vault's place in it, what the panic wipe takes besides the data,
+# and the paths every earlier Pane on the Mac updates by (ADR 0122); the
+# Keychain's secret through Chromium's own code, and the volume's watchdog.
+# The lock, the vault's sequences, the data's lock, and the wipe's order are
+# //pane/model's, shared with Windows (W3). No Pane ever ran on Windows (U5),
+# so none of this builds there.
 
 assert(is_mac)
 
@@ -49,30 +50,35 @@ source_set("bcrypt") {
   ]
 }
 
+# What the Swift ported here asked of Foundation's FileManager and URL: the
+# volume, the moves of an earlier Pane's data, and the Mac's half of the
+# panic wipe's files (//pane/model's panic_wipe_mac.cc) run on it.
+source_set("file_operations") {
+  visibility = [
+    ":*",
+    "//pane/model",
+  ]
+
+  sources = [
+    "file_operations.cc",
+    "file_operations.h",
+  ]
+
+  deps = [ "//base" ]
+}
+
 source_set("mac") {
   sources = [
-    "app_lock.cc",
-    "app_lock.h",
     "bundle_identifier.cc",
     "bundle_identifier.h",
-    "data_lock.cc",
-    "data_lock.h",
-    "data_vault.cc",
-    "data_vault.h",
     "data_volume.cc",
     "data_volume.h",
     "electron_migration.cc",
     "electron_migration.h",
-    "file_operations.cc",
-    "file_operations.h",
     "launch_alert.cc",
     "launch_alert.h",
     "launch_migration.cc",
     "launch_migration.h",
-    "panic_wipe.cc",
-    "panic_wipe.h",
-    "panic_wipe_run.cc",
-    "panic_wipe_run.h",
     "pin_hash.cc",
     "pin_hash.h",
     "proxy_password_store.cc",
@@ -81,7 +87,13 @@ source_set("mac") {
     "proxy_password_vault.h",
     "safe_storage.h",
     "safe_storage.mm",
+    "volume_place.cc",
+    "volume_place.h",
+    "wipe_sources.cc",
+    "wipe_sources.h",
   ]
+
+  public_deps = [ ":file_operations" ]
 
   deps = [
     ":bcrypt",
@@ -148,6 +160,7 @@ source_set("unit_tests") {
     "//components/os_crypt/common:keychain_password_mac",
     "//crypto",
     "//pane/model",
+    "//pane/model:test_support",
     "//testing/gtest",
   ]
 

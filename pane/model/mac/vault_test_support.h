@@ -19,8 +19,10 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
-#include "pane/model/mac/data_vault.h"
+#include "pane/model/data_vault.h"
 #include "pane/model/mac/data_volume.h"
+#include "pane/model/mac/volume_place.h"
+#include "pane/model/test_waits.h"
 
 namespace pane::model {
 
@@ -29,15 +31,6 @@ namespace pane::model {
 // test's image, given the same number a moment later. A lock on a file of its
 // own in the temporary folder, held while the returned descriptor is.
 base::ScopedFD LockImagesForTesting();
-
-// Runs the test's own sequence until `condition` holds, for up to 30 s of
-// real time: the thread pool works in real time, and a mock clock stays where
-// it is, so a timer fires only where a test advances it.
-[[nodiscard]] bool WaitFor(base::FunctionRef<bool()> condition);
-
-// Runs the test's own sequence for `duration` of real time: for what must not
-// happen meanwhile.
-void RunFor(base::TimeDelta duration);
 
 // Disk image tools in memory for the tests, as the Swift's scenarios faked
 // them: an attach gives a device, an open makes the mount point a plain

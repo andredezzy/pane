@@ -2,8 +2,9 @@
 // the Swift tools in tools/, Caps Lock, a window's capture and recording, the
 // user's idle time and front app, the system's appearance, the data volume's
 // disk images (ADR 0113), LaunchServices, what makes a stand-in Pane (a copy,
-// a signature, a plist, a dmg), a download's quarantine, and a search of
-// files' bytes.
+// a signature, a plist, a dmg), a download's quarantine and origin, a crash's
+// dumps and Crashpad's database, the data folder's privacy and its index, and
+// a search of files' bytes.
 import {
 	closeSync,
 	type Dirent,
@@ -491,6 +492,181 @@ export const isQuarantined = bySystem({
 				{ PANE_FILE: file },
 			)
 		).trim() === "marked",
+});
+
+// What a downloaded file keeps of where it came from: on the Mac its extended
+// attributes' names, com.apple.quarantine, and kMDItemWhereFroms where
+// Chromium wrote the page's and the file's URLs, which Spotlight indexes; on
+// Windows its Mark of the Web, the Zone.Identifier stream's lines (ZoneId,
+// HostUrl, ReferrerUrl), whose page Pane drops (ADR 0115). `marked`: the
+// system takes it as come from elsewhere; `namesAPage`: it keeps an address.
+export const downloadOrigin = bySystem({
+	mac: async (file: string) => {
+		const kept = (await Bun.$`/usr/bin/xattr ${file}`.quiet().nothrow().text())
+			.trim()
+			.split("\n")
+			.filter(Boolean);
+
+		return {
+			marked: kept.includes("com.apple.quarantine"),
+			namesAPage: kept.includes("com.apple.metadata:kMDItemWhereFroms"),
+			kept,
+		};
+	},
+	windows: async (file: string) => {
+		const kept = (
+			await powershell(
+				"Get-Content -LiteralPath $env:PANE_FILE -Stream Zone.Identifier -ErrorAction SilentlyContinue",
+				{ PANE_FILE: file },
+			)
+		)
+			.trim()
+			.split(/\r?\n/)
+			.filter(Boolean);
+
+		return {
+			marked: kept.includes("ZoneId=3"),
+			namesAPage: kept.some(
+				(line) =>
+					/^(HostUrl|ReferrerUrl)=/.test(line) &&
+					line !== "HostUrl=about:internet",
+			),
+			kept,
+		};
+	},
+});
+
+// The crash dumps (`*.dmp`) under `folders`.
+export const crashDumpsUnder = bySystem({
+	mac: async (folders: string[]) =>
+		(
+			await Bun.$`/usr/bin/find ${folders} -name ${"*.dmp"}`
+				.quiet()
+				.nothrow()
+				.text()
+		)
+			.trim()
+			.split("\n")
+			.filter(Boolean),
+	windows: async (folders: string[]) =>
+		folders.flatMap((folder) =>
+			[...filesUnder(folder)].filter((path) => path.endsWith(".dmp")),
+		),
+});
+
+// What Chromium's crash handler, Crashpad, keeps in its database since
+// `since` (ms): on the Mac under the home's Application Support, a test
+// copy's home its own, so all of it; on Windows, where chrome_elf would start
+// it before any code of Pane's, reading the user's own local application
+// data from the shell, in Chromium's user data folder there, which any
+// Chromium of the user's shares, so what is newer.
+export const crashpadKept = bySystem({
+	mac: (home: string, _since: number): string[] => {
+		const folder = join(
+			home,
+			"Library",
+			"Application Support",
+			"Chromium",
+			"Crashpad",
+		);
+
+		return existsSync(folder) ? readdirSync(folder) : [];
+	},
+	windows: (_home: string, since: number): string[] => {
+		const folder = join(
+			process.env.LOCALAPPDATA ?? "",
+			"Chromium",
+			"User Data",
+			"Crashpad",
+		);
+
+		return [...filesUnder(folder)].filter(
+			(path) => statSync(path).mtimeMs >= since,
+		);
+	},
+});
+
+// Whether the data folder is the user's alone: on the Mac by its mode, 0700,
+// which Pane sets; on Windows by its ACL, which it takes from the user's
+// profile it lies in, Pane setting none: the user, SYSTEM, and the
+// Administrators, who read every file anyway. `kept` is what was read.
+export const dataFolderPrivacy = bySystem({
+	mac: async (dataDir: string) => {
+		const kept = (statSync(dataDir).mode & 0o777).toString(8);
+
+		return { alone: kept === "700", kept };
+	},
+	windows: async (dataDir: string) => {
+		const rules = (
+			await powershell(
+				`$user = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+foreach ($rule in (Get-Acl -LiteralPath $env:PANE_DATA).Access) {
+	$sid = $rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
+	if ($sid -eq $user) { $sid = 'the user' }
+	"$($rule.AccessControlType) $sid"
+}`,
+				{ PANE_DATA: dataDir },
+			)
+		)
+			.trim()
+			.split(/\r?\n/)
+			.filter(Boolean);
+
+		// SYSTEM and the Administrators, by their well-known SIDs.
+		const allowed = ["Allow the user", "Allow S-1-5-18", "Allow S-1-5-32-544"];
+
+		return {
+			alone: rules.every(
+				(rule) => rule.startsWith("Deny ") || allowed.includes(rule),
+			),
+			kept: rules.join(", "),
+		};
+	},
+});
+
+// What of Pane's data an indexer may take (ADR 0121): on the Mac, the items
+// Spotlight has of the mounted volume, whose root says .metadata_never_index
+// at every mount (`refused`); on Windows, which has no volume (U5), the data
+// folder carries the not-indexed attribute, which NTFS gives what is made in
+// it after, and every item under it without it. The runner's own folders,
+// made before Pane's launch (`automation`, `home`), aren't Pane's.
+export const indexOfTheData = bySystem({
+	mac: async (dataDir: string) => {
+		const mount = join(dataDir, "Engine", "Volume");
+
+		return {
+			refused: existsSync(join(mount, ".metadata_never_index")),
+			indexable: (
+				await Bun.$`/usr/bin/mdfind -onlyin ${mount} kMDItemFSName == "*"`
+					.nothrow()
+					.quiet()
+					.text()
+			)
+				.split("\n")
+				.filter(Boolean),
+		};
+	},
+	windows: async (dataDir: string) => {
+		const [root = "", ...without] = (
+			await powershell(
+				`$flag = [IO.FileAttributes]::NotContentIndexed
+[bool]((Get-Item -LiteralPath $env:PANE_DATA -Force).Attributes -band $flag)
+Get-ChildItem -LiteralPath $env:PANE_DATA -Recurse -Force -ErrorAction SilentlyContinue |
+	Where-Object { -not ($_.Attributes -band $flag) } |
+	ForEach-Object { $_.FullName.Substring($env:PANE_DATA.Length + 1) }`,
+				{ PANE_DATA: dataDir },
+			)
+		)
+			.trim()
+			.split(/\r?\n/);
+
+		return {
+			refused: root === "True",
+			indexable: without.filter(
+				(path) => path && !/^(automation|home)(\\|$)/.test(path),
+			),
+		};
+	},
 });
 
 // Every file under `folder`, as grep -r walks it: no link followed, no folder
