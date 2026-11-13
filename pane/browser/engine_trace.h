@@ -9,19 +9,15 @@
 
 namespace pane {
 
-// Records the traffic between the Pane app and the engine: one JSON line per
-// embedding-API call (`kind` "call") and per delegate callback (`kind`
-// "callback"), appended to the file named by the PANE_ENGINE_TRACE
-// environment variable. Scenarios assert against this file.
+// Records what Pane does for the scenarios to check: one JSON line per event
+// (`kind` "call" for what Pane asks of the engine, "callback" for what the
+// engine tells it), appended to the file the PANE_ENGINE_TRACE environment
+// variable names, in a scenario's run alone (model::TestHook): the trace
+// names the pages.
 //
 // Without the variable, tracing costs one branch: call sites go through
 // PANE_TRACE (or test IsTracing() themselves), which builds a line's
 // arguments only while tracing.
-// A scenario's launch (the mock keychain) allows the trace, which names the
-// pages: before the first trace call, since Chrome's command line is not
-// there yet.
-void AllowTracing();
-
 bool IsTracing();
 
 void Trace(std::string_view kind,

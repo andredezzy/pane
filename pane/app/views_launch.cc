@@ -11,7 +11,6 @@
 #include "pane/app/data_launch.h"
 #include "pane/app/engine_switches.h"
 #include "pane/app/test_copy.h"
-#include "pane/browser/engine_trace.h"
 #include "pane/browser/ui/install_hooks.h"
 
 namespace pane {
@@ -59,7 +58,6 @@ std::optional<int> StartViewsLaunch(base::CommandLine& command_line) {
   }
   SetEngineSwitches(command_line, data);
   g_views_launch = true;
-  AllowTracing();
   // Before the first Browser exists: Pane's windows host Chrome's Browsers.
   InstallBrowserHooks();
   return std::nullopt;

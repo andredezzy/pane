@@ -2,43 +2,32 @@
 
 #include "pane/browser/engine_trace.h"
 
-#include <atomic>
 #include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
 
-#include "base/command_line.h"
 #include "base/containers/span.h"
-#include "base/environment.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/json/json_writer.h"
 #include "base/no_destructor.h"
 #include "base/time/time.h"
+#include "pane/model/test_hooks.h"
 
 namespace pane {
 
 namespace {
 
-std::atomic<bool> g_allowed{false};
-
-// A helper process has Chrome's command line before its first trace.
-bool Allowed() {
-  return g_allowed || (base::CommandLine::InitializedForCurrentProcess() &&
-                       base::CommandLine::ForCurrentProcess()->HasSwitch(
-                           "use-mock-keychain"));
-}
-
 // Opened once, on first use, and written through on every line so the trace
 // survives a crash right after the traced call. A test aid, not a hot path:
-// a scenario's, on the mock keychain alone, since the trace names the pages
-// (TestHooks in the app).
+// a scenario's, on the mock keychain alone (model::TestHook), since the trace
+// names the pages.
 base::File* TraceFile() {
   static base::NoDestructor<base::File> file([] {
-    std::optional<std::string> path =
-        base::Environment::Create()->GetVar("PANE_ENGINE_TRACE");
-    if (!path || path->empty() || !Allowed()) {
+    const std::optional<std::string> path =
+        model::TestHook("PANE_ENGINE_TRACE");
+    if (!path) {
       return base::File();
     }
     return base::File(base::FilePath::FromUTF8Unsafe(*path),
@@ -48,10 +37,6 @@ base::File* TraceFile() {
 }
 
 }  // namespace
-
-void AllowTracing() {
-  g_allowed = true;
-}
 
 bool IsTracing() {
   static const bool tracing = TraceFile() != nullptr;
