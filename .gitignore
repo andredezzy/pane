@@ -16,7 +16,9 @@ node_modules
 .claude/
 .sc/
 
-# The app and the engine
+# Checks' output
 /evidence/
+
+# Packaging's output
 packaging/build/
 packaging/release/
