@@ -4,17 +4,13 @@
 import { writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { openPage, Page } from "./cdp";
-import {
-	activateWebAccessibility,
-	canDriveUI,
-	clickButton,
-	mainWindowOf,
-	windowState,
-} from "./cua";
+import { canDriveUI, clickButton, mainWindowOf } from "./computer-use";
 import type { AppState, PaneApp } from "./pane";
 import { poll } from "./poll";
 import { answerSheet, waitForSheet } from "./surfaces";
 import { targets, waitForTarget } from "./targets";
+import { captureWindow } from "./tools";
+import { activateWebAccessibility } from "./windows";
 
 export const DARK_READER = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
 
@@ -218,19 +214,15 @@ export async function screenshotPopover(
 	await screenshotPopup(await popupPage(app, id), file);
 }
 
-// A screenshot of the app's window through CUA on an unlocked screen, else
-// of `page` through CDP.
+// A screenshot of the app's window on an unlocked screen, else of `page`
+// through CDP.
 export async function screenshotWindow(
 	app: PaneApp,
 	file: string,
 	page: Page,
 ): Promise<void> {
 	if (await canDriveUI()) {
-		await windowState(
-			app.browser.pid,
-			await mainWindowOf(app.browser.pid),
-			file,
-		);
+		await captureWindow(await mainWindowOf(app.browser.pid), file);
 	} else {
 		await screenshotPopup(page, file);
 	}

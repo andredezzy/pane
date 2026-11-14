@@ -1,11 +1,12 @@
 import { join } from "node:path";
-import {
-	activateWebAccessibility,
-	isScreenLocked,
-	mainWindowOf,
-	windowState,
-} from "../lib/cua";
+import { isScreenLocked, mainWindowOf } from "../lib/computer-use";
 import { launchPane } from "../lib/pane";
+import { captureWindow } from "../lib/tools";
+import {
+	accessibilityTree,
+	activateWebAccessibility,
+	describeElement,
+} from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
 // G3 on the Views prototype (docs/plans/views-migration.md, Phase 1): the
@@ -88,17 +89,13 @@ const viewsPage: Scenario = async (context) => {
 	const { pid } = app.browser;
 	await activateWebAccessibility(pid);
 
-	const state = await windowState(
-		pid,
+	await captureWindow(
 		await mainWindowOf(pid),
 		join(context.out, "views-page.png"),
 	);
 
-	const tree = state.tree_markdown ?? "";
-
-	const elements = tree
-		.split("\n")
-		.filter((line) => /^\s*- \[\d+\]/.test(line));
+	const elements = (await accessibilityTree(pid)).map(describeElement);
+	const tree = elements.join("\n");
 
 	const has = (pattern: RegExp) => elements.some((line) => pattern.test(line));
 

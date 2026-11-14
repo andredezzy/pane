@@ -6,7 +6,7 @@
 //   bun tests/rigs/frame-timing.ts <qa-session.json> <out.mov> <seconds> <step>...
 //
 // Steps as in front.ts: ⌃⌘L is `hot:ctrl+cmd+l`, a reload `hot:cmd+r`.
-import { mainWindowOf } from "../lib/cua";
+import { mainWindowOf } from "../lib/computer-use";
 import { recordWindow } from "../lib/tools";
 import { readSession, runSteps } from "./front";
 

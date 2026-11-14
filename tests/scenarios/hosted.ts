@@ -1,9 +1,15 @@
 import { join } from "node:path";
-import { canDriveUI, invokeMenu, mainWindowOf, windowState } from "../lib/cua";
+import { canDriveUI, invokeMenu, mainWindowOf } from "../lib/computer-use";
 import { childrenOf, isRunning, waitForExit } from "../lib/processes";
 import { waitForTarget } from "../lib/targets";
+import { captureWindow } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
-import { imageDetail, settledWindowsOf } from "../lib/windows";
+import {
+	accessibilityTree,
+	describeElement,
+	imageDetail,
+	settledWindowsOf,
+} from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
 const TITLE = "Pane hosted";
@@ -48,15 +54,14 @@ const hosted: Scenario = async (context) => {
 
 	const windowId = await mainWindowOf(browser.pid);
 
-	const state = await windowState(
-		browser.pid,
-		windowId,
-		join(out, "window.png"),
+	expect(
+		await captureWindow(windowId, join(out, "window.png")),
+		`the window ${windowId} was not captured`,
 	);
 
-	const tree = state.tree_markdown;
-
-	expect(!state.degraded, `window state degraded: ${state.degraded_reason}`);
+	const tree = (await accessibilityTree(browser.pid))
+		.map(describeElement)
+		.join("\n");
 
 	// The app's own controls, by the names VoiceOver reads (ADR 0071): the
 	// sidebar's, and the address field showing the page. Views publishes no

@@ -5,6 +5,8 @@ import { swiftTool, windowsDesktop } from "./tools";
 export type WindowList = {
 	count: number;
 	windows: {
+		// The window's number: its CGWindowID on the Mac, its HWND on Windows.
+		id: number;
 		pid: number;
 		owner: string;
 		title: string;
@@ -32,6 +34,27 @@ export const windowsOf: (...pids: number[]) => Promise<WindowList> = bySystem({
 		) as WindowList["windows"];
 
 		return { count: windows.length, windows };
+	},
+});
+
+// Every window the processes own, at any layer, on screen or not: what the
+// computer-use driver holds of an app is proved a test copy's against it.
+export const ownedWindowIds = bySystem({
+	mac: async (...pids: number[]): Promise<number[]> => {
+		const binary = await swiftTool("windows");
+
+		const list = JSON.parse(
+			await Bun.$`${binary} --owned ${pids.map(String)}`.text(),
+		) as WindowList;
+
+		return list.windows.map((window) => window.id);
+	},
+	windows: async (): Promise<number[]> => {
+		throw noWindowsSide(
+			"the windows a computer-use driver holds",
+			"W8",
+			"Windows' UI is driven through UI Automation, checked with Narrator (ADR 0071)",
+		);
 	},
 });
 
@@ -63,6 +86,23 @@ export async function accessibilityTree(
 	})();
 
 	return JSON.parse(await Bun.$`${binary} ${String(pid)}`.text());
+}
+
+// An element as one line: its role, the name a screen reader reads (its
+// title, else its description) in quotes, and its value: `AXButton "New
+// tab"`, `AXTextField "Address" = "https://…"`.
+export function describeElement(element: AccessibleElement): string {
+	const name = element.title || element.description;
+	const value = element.value ? ` = "${element.value}"` : "";
+
+	return `${element.role} "${name}"${value}`;
+}
+
+// Turns on the app's full accessibility, as VoiceOver does, then waits a
+// moment for Chrome to build its pages' trees.
+export async function activateWebAccessibility(pid: number): Promise<void> {
+	await Bun.$`${await swiftTool("ax-activate")} ${pid}`.quiet();
+	await Bun.sleep(1_000);
 }
 
 type Bounds = { X: number; Y: number; Width: number; Height: number };

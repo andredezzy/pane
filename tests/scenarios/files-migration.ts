@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Page } from "../lib/cdp";
-import { mainWindowOf } from "../lib/cua";
+import { mainWindowOf } from "../lib/computer-use";
 import { type EarlierBuild, earlierBuilds } from "../lib/earlier-builds";
 import { volumePassphrase } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";

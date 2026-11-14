@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import type { ScenarioContext } from "../run";
 import { type Browser, homeEnvironment } from "./browser";
 import { openPage, type Page } from "./cdp";
-import { isScreenLocked } from "./cua";
+import { isScreenLocked } from "./computer-use";
 import { bySystem } from "./platform";
 import { pidsMatching, sampleProcess } from "./processes";
 import { targets } from "./targets";

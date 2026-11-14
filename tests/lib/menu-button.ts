@@ -1,5 +1,5 @@
 import { expect, type ScenarioContext } from "../run";
-import { call, canDriveUI } from "./cua";
+import { canDriveUI, pressKey } from "./computer-use";
 import type { PaneApp } from "./pane";
 import { pollValue } from "./poll";
 import { type MenuWindow, menusOf, windowsOf } from "./windows";
@@ -28,8 +28,8 @@ const area = (bounds: Record<string, number>) =>
 // was. With `choice`, it opens again and keys choose: Down that many times,
 // then Return. The menu runs with the app's tasks held, so its window is read
 // from the window list, and its keys go to the copy's process alone, through
-// cua-driver. In the background the system's menu would show over the user's
-// apps: deferred.
+// Aside Computer Use. In the background the system's menu would show over
+// the user's apps: deferred.
 export async function checkMenuUnderTrigger(
 	app: PaneApp,
 	context: ScenarioContext,
@@ -38,7 +38,7 @@ export async function checkMenuUnderTrigger(
 ): Promise<MenuPlacement | undefined> {
 	if (!context.foreground || !(await canDriveUI())) {
 		context.defer(
-			`${name}'s menu under its trigger, by a click and by keys: it needs Pane in front (run.ts --foreground) and cua-driver`,
+			`${name}'s menu under its trigger, by a click and by keys: it needs Pane in front (run.ts --foreground) and Aside Computer Use`,
 		);
 
 		return undefined;
@@ -105,7 +105,7 @@ export async function checkMenuUnderTrigger(
 		expect(menus.length === 0, `${by} left ${name}'s menu open`);
 	};
 
-	const key = (key: string) => call("press_key", { pid, key });
+	const key = (key: string) => pressKey(pid, key);
 
 	const before = await shown();
 	const { bounds, screen } = await open();

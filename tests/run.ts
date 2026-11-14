@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, type LaunchOptions, launch } from "./lib/browser";
-import { isScreenLocked } from "./lib/cua";
+import { isScreenLocked } from "./lib/computer-use";
 import { type Fixtures, serveFixtures } from "./lib/fixtures";
 import { keptOffThisSystem, type NotOnWindows } from "./lib/platform";
 import { killUsing } from "./lib/processes";

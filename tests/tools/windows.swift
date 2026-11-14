@@ -1,18 +1,22 @@
-// Prints, as JSON, the on-screen normal-layer windows owned by the given PIDs;
-// with --menus, their windows on the system's pop-up menu layer instead (an
-// open NSMenu), each with the screen its top left is on: the whole screen,
-// and the part the menu bar and the Dock leave. Bounds are in points from the
-// top left of the main screen.
-// Usage: windows [--menus] <pid>...
+// Prints, as JSON, the on-screen normal-layer windows owned by the given PIDs,
+// each with its number (CGWindowID); with --menus, their windows on the
+// system's pop-up menu layer instead (an open NSMenu), each with the screen
+// its top left is on: the whole screen, and the part the menu bar and the Dock
+// leave; with --owned, every window they own, at any layer, on screen or not,
+// which proves a window the computer-use driver names is theirs. Bounds are in
+// points from the top left of the main screen.
+// Usage: windows [--menus | --owned] <pid>...
 import AppKit
 import CoreGraphics
 import Foundation
 
 let arguments = Array(CommandLine.arguments.dropFirst())
 let menus = arguments.first == "--menus"
-let pids = Set(arguments.dropFirst(menus ? 1 : 0).compactMap { Int32($0) })
+let owned = arguments.first == "--owned"
+let pids = Set(arguments.dropFirst(menus || owned ? 1 : 0).compactMap { Int32($0) })
 let wanted = menus ? Int(CGWindowLevelForKey(.popUpMenuWindow)) : 0
-let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+let options: CGWindowListOption =
+	owned ? [.optionAll] : [.optionOnScreenOnly, .excludeDesktopElements]
 let all = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] ?? []
 
 // A rect of AppKit's, from the main screen's bottom left, as a window's
@@ -38,13 +42,14 @@ func screen(at point: CGPoint) -> [String: Any] {
 let windows: [[String: Any]] = all.compactMap { info in
 	guard
 		let pid = info[kCGWindowOwnerPID as String] as? Int32, pids.contains(pid),
-		let layer = info[kCGWindowLayer as String] as? Int, layer == wanted
+		let layer = info[kCGWindowLayer as String] as? Int, owned || layer == wanted
 	else {
 		return nil
 	}
 
 	let bounds = info[kCGWindowBounds as String] as? [String: Double] ?? [:]
 	var window: [String: Any] = [
+		"id": info[kCGWindowNumber as String] as? Int ?? 0,
 		"pid": pid,
 		"owner": info[kCGWindowOwnerName as String] as? String ?? "",
 		"title": info[kCGWindowName as String] as? String ?? "",

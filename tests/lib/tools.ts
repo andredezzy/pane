@@ -72,7 +72,7 @@ public static class PaneDesktop {
 			string owner = "";
 			try { owner = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch {}
 			found.Add(new Dictionary<string, object> {
-				{ "pid", pid }, { "owner", owner }, { "title", title.ToString() },
+				{ "id", hwnd.ToInt64() }, { "pid", pid }, { "owner", owner }, { "title", title.ToString() },
 				{ "bounds", new Dictionary<string, object> {
 					{ "X", rect.Left }, { "Y", rect.Top },
 					{ "Width", rect.Right - rect.Left }, { "Height", rect.Bottom - rect.Top } } } });

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
-import { isScreenLocked } from "../lib/cua";
+import { isScreenLocked } from "../lib/computer-use";
 import {
 	type AppState,
 	launchPane,

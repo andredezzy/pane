@@ -1,8 +1,9 @@
 // Turns on an app's full accessibility as VoiceOver does when it starts: it
 // asks the app for its role and sets AXEnhancedUserInterface. Chrome then
 // builds its pages' accessibility trees with their actions (a web button
-// presses only in that mode). cua-driver reads windows without doing either,
-// so web content stays out of its reads until something does.
+// presses only in that mode). The runner's tree (ax-tree) and Aside Computer
+// Use read windows without doing either, so web content stays out of their
+// reads until something does.
 // Usage: ax-activate <pid>
 import ApplicationServices
 import Foundation

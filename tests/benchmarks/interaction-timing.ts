@@ -1,5 +1,5 @@
 import { stats } from "../lib/benchmark";
-import { canDriveUI, clickButton, mainWindowOf } from "../lib/cua";
+import { canDriveUI, clickButton, mainWindowOf } from "../lib/computer-use";
 import { launchPane } from "../lib/pane";
 import { startHttpProxy } from "../lib/proxies";
 import { signpostIntervals } from "../lib/signposts";

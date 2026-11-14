@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { homeEnvironment } from "../lib/browser";
-import { mainWindowOf } from "../lib/cua";
+import { mainWindowOf } from "../lib/computer-use";
 import { earlierBuilds } from "../lib/earlier-builds";
 import { engineKey } from "../lib/engine-key";
 import { workerPage } from "../lib/extensions";

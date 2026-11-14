@@ -1,4 +1,4 @@
-import { isScreenLocked } from "../lib/cua";
+import { isScreenLocked } from "../lib/computer-use";
 import { launchPane, type PaneApp, sameTitle } from "../lib/pane";
 import {
 	clearClipboard,

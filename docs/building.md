@@ -89,7 +89,7 @@ Taking the front needs the user's word in the session, or the Mac idle 10 minute
 
 Scenarios prove the mechanics; a person checks what they see and do. A release candidate gets this pass too, driven by computer use, in light and dark, with every finding fixed and checked again the same way. Reports go in `docs/qa/<subject>/`, naming their screenshots, which stay in `evidence/`.
 
-The rig: cua-driver (`tests/lib/cua.ts`), `screencapture -l <window id>` for stills, `screencapture -v` for motion, `tests/rigs/qa-hold.ts` to hold a test copy open, and `tests/rigs/qa-send.ts` for setup only, never in place of the input under test.
+The rig: Aside Computer Use for presses, keys, menus, and the front (`tests/lib/computer-use.ts`, one `aside mcp --computer-use` server per run, Pane's identifier alone allowed), the runner's own reads for the window list and the accessibility tree (`tests/lib/windows.ts`), `screencapture -l <window id>` for stills, `screencapture -v` for motion, `tests/rigs/qa-hold.ts` to hold a test copy open, and `tests/rigs/qa-send.ts` for setup only, never in place of the input under test. A test copy shares the user's Pane's name and identifier, so Aside is given its bundle's path, which binds that copy alone, and only while it runs: asked for an app that isn't running, Aside opens one, and LaunchServices may open another Pane. Before each action the windows Aside holds are proved the copy's (`windows --owned`), and what it prints of an app is never written out. Its background actions keep their own pointer, the user's still; `front`'s real input holds the user's mouse and keyboard until the steps end, so it follows the rules above for the front.
 
 **Taking the screen.** The Mac is in use, so:
 

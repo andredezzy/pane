@@ -1,6 +1,7 @@
 import { join } from "node:path";
-import { canDriveUI, mainWindowOf, windowState } from "../lib/cua";
+import { canDriveUI, mainWindowOf } from "../lib/computer-use";
 import { launchPane } from "../lib/pane";
+import { captureWindow } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 type Drag = { stepMs: number[]; pageWidth: number };
@@ -33,7 +34,7 @@ const sidebarResize: Scenario = async (context) => {
 	const shot = async (file: string) => {
 		if (await canDriveUI()) {
 			const pid = first.browser.pid;
-			await windowState(pid, await mainWindowOf(pid), join(context.out, file));
+			await captureWindow(await mainWindowOf(pid), join(context.out, file));
 		}
 	};
 
