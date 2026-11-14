@@ -13,6 +13,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/menu_icon.h"
 #include "pane/ui/design/palette.h"
@@ -119,15 +120,22 @@ float ProfileMarkWidth(double morph) {
 void PaintProfileMark(gfx::Canvas& canvas,
                       int height,
                       SkColor color,
-                      double morph) {
+                      double morph,
+                      SkColor edge) {
   // The bar, rounding off as it widens: 2 to 4.
+  const gfx::RectF mark(kInset, (height - kMarkHeight) / 2.0f,
+                        ProfileMarkWidth(morph), kMarkHeight);
+  const float radius = 2 + 2 * static_cast<float>(morph);
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
+  if (SkColorGetA(edge) != SK_AlphaTRANSPARENT) {
+    gfx::RectF outside = mark;
+    outside.Outset(1);
+    flags.setColor(edge);
+    canvas.DrawPath(SquirclePath(outside, radius + 1), flags);
+  }
   flags.setColor(color);
-  canvas.DrawPath(SquirclePath(gfx::RectF(kInset, (height - kMarkHeight) / 2.0f,
-                                          ProfileMarkWidth(morph), kMarkHeight),
-                               2 + 2 * static_cast<float>(morph)),
-                  flags);
+  canvas.DrawPath(SquirclePath(mark, radius), flags);
 }
 
 void PaintProxyDot(gfx::Canvas& canvas,
@@ -249,20 +257,39 @@ void ProfileRow::Layout(PassKey) {
 }
 
 void ProfileRow::PaintButtonContents(gfx::Canvas* canvas) {
+  const ui::ColorProvider* colors = GetColorProvider();
+  const SkColor forced_edge =
+      colors ? colors->GetColor(kPaneColorForcedEdge) : SK_ColorTRANSPARENT;
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
-  // The tint of its color, under its content.
-  if (const double shown = Shown(); shown > 0) {
+  // The tint of its color, under its content; none under a contrast theme,
+  // whose surfaces are one ground (Paper 11.10).
+  if (const double shown = Shown();
+      shown > 0 && SkColorGetA(forced_edge) == SK_AlphaTRANSPARENT) {
     flags.setColor(SkColorSetA(
         profile_.color, static_cast<U8CPU>(std::lround(255 * kTint * shown))));
     canvas->DrawPath(SquirclePath(gfx::RectF(GetLocalBounds()), radius::kLg),
                      flags);
   }
-  PaintProfileMark(*canvas, height(), profile_.color, morph_.value());
-  if (const ui::ColorProvider* colors = GetColorProvider();
-      colors && profile_.proxy) {
+  PaintProfileMark(*canvas, height(), profile_.color, morph_.value(),
+                   forced_edge);
+  if (colors && profile_.proxy) {
     PaintProxyDot(*canvas, *colors, dot_x_, height(), *profile_.proxy);
   }
+}
+
+// The tint of its color while its page shows, as PaintButtonContents draws
+// it, none under a contrast theme.
+SkColor ProfileRow::GroundOver(SkColor under) const {
+  const ui::ColorProvider* colors = GetColorProvider();
+  if (colors && SkColorGetA(colors->GetColor(kPaneColorForcedEdge)) !=
+                    SK_AlphaTRANSPARENT) {
+    return under;
+  }
+  return OverGround(
+      SkColorSetA(profile_.color,
+                  static_cast<U8CPU>(std::lround(255 * kTint * Shown()))),
+      1, under);
 }
 
 void ProfileRow::LookChanged() {

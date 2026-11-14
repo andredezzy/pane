@@ -16,6 +16,7 @@
 #include "pane/ui/page/find_in_page.h"
 #include "pane/ui/window/root_view.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/widget_observer.h"
@@ -148,6 +149,13 @@ class Window : public WindowHost::Delegate,
     virtual void ContinueWithPin() = 0;
     virtual void DismissPinScreen() = 0;
     virtual void CheckForUpdates() = 0;
+    // The app's menu of every command, under the sidebar's title, its top
+    // left at `anchor` (a point of the screen): Windows', where the menu bar's
+    // commands live (Paper 11.5). `closed` runs once it has gone; whether it
+    // showed.
+    virtual bool ShowAppMenu(const gfx::Point& anchor,
+                             ui::mojom::MenuSourceType source,
+                             base::OnceClosure closed) = 0;
 
     // The profile sheet's Create or Save, with the form as filled in; and
     // its closing (Cancel, its X, Esc, a press beside it, and once saved).
@@ -292,6 +300,11 @@ class Window : public WindowHost::Delegate,
   // would arrive after it), and none at all after a key the window took
   // (RenderWidgetHostImpl drops them).
   void ControlReleased();
+  // The app's menu under the sidebar's title (Windows' "Pane ⌄"), from its
+  // press, or from the system's menu key (Alt, F10), as the frame hears it.
+  void ShowAppMenu(const gfx::Rect& on_screen,
+                   ui::mojom::MenuSourceType source);
+  bool OpenAppMenuFromKeys();
 
   // The window's full screen follows the page's: it enters with the page and
   // leaves with it, unless the user had it in full screen already, which

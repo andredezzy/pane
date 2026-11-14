@@ -79,8 +79,12 @@ class RowButton : public views::Button {
 
  protected:
   // The row's look changed: a hover step, a press, the selection. Each row
-  // retints what it draws.
+  // retints what it draws, and its text's ground follows (ground.h).
   virtual void LookChanged();
+
+  // What the row paints of its own over its look where its text sits, on
+  // `under`: nothing but the profile's tint.
+  virtual SkColor GroundOver(SkColor under) const;
 
   // A look of the row's own, for the profile's header (no fill when shown).
   void SetLook(const ControlLook& look);

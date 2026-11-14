@@ -234,6 +234,14 @@ std::string_view ViewIdName(int id) {
       return "pane.lockScreen.restartToUpdate";
     case kViewIdLockScreenQuitAndInstall:
       return "pane.lockScreen.quitAndInstall";
+    case kViewIdWindowControls:
+      return "pane.windowControls";
+    case kViewIdWindowMinimize:
+      return "pane.windowControls.minimize";
+    case kViewIdWindowMaximize:
+      return "pane.windowControls.maximize";
+    case kViewIdWindowClose:
+      return "pane.windowControls.close";
     default:
       return std::string_view();
   }

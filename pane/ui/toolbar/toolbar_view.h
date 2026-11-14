@@ -90,6 +90,10 @@ class ToolbarView : public views::View, public views::TextfieldController {
   ~ToolbarView() override;
 
   void SetShows(const Shows& shows);
+  // Room kept at its end, `width` wide and 4 after its last control, where
+  // the window's own controls sit over it (Windows' caption buttons, Paper
+  // 11.1's B): none on the Mac, where it ends 6 from the panel's edge.
+  void SetEndReserve(int width);
   // ⌘L, and a new tab: the address takes the keys, all of it selected.
   void FocusAddress();
   // What the address holds.
@@ -102,6 +106,7 @@ class ToolbarView : public views::View, public views::TextfieldController {
 
   // views::View:
   void Layout(PassKey) override;
+  void OnPaint(gfx::Canvas* canvas) override;
 
   // views::TextfieldController:
   bool HandleKeyEvent(views::Textfield* sender,
@@ -128,6 +133,7 @@ class ToolbarView : public views::View, public views::TextfieldController {
   // (ADR 0054).
   raw_ptr<ExtensionActionsView> actions_ = nullptr;
   raw_ptr<ProfileChip> chip_ = nullptr;
+  int end_reserve_ = 0;
 };
 
 }  // namespace pane

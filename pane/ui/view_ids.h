@@ -190,6 +190,13 @@ enum ViewId : int {
   kViewIdLockScreenDownloadUpdate,
   kViewIdLockScreenRestartToUpdate,
   kViewIdLockScreenQuitAndInstall,
+  // The window's own controls where Pane draws them (Windows' caption
+  // buttons, Paper 11.1's B): the row, Minimize, Maximize or Restore, and
+  // Close.
+  kViewIdWindowControls,
+  kViewIdWindowMinimize,
+  kViewIdWindowMaximize,
+  kViewIdWindowClose,
 };
 
 // What a view of `id` goes by ("pane.content"); empty for an id not Pane's.

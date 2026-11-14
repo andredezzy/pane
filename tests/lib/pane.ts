@@ -124,15 +124,6 @@ export async function volumeWatchdogs(pid: number): Promise<number> {
 
 export const VOLUME_WATCHDOGS = bySystem({ mac: 1, windows: 0 });
 
-// Whether the app has a menu bar to choose from: the Mac's. On Windows a home
-// for its commands is W5's, drawn in Paper first.
-export const HAS_MENU_BAR = bySystem({ mac: true, windows: false });
-
-// Whether Pane places the window's own controls: the Mac's traffic lights,
-// at (12, 12); on Windows the caption buttons are the system frame's until
-// Paper draws Pane's (W5), and none is reported.
-export const PLACES_WINDOW_CONTROLS = bySystem({ mac: true, windows: false });
-
 // Whether a profile's data is shut away behind the lock: on the Mac the
 // volume locked and mounted nowhere, the profile's link leading nowhere (ADR
 // 0113); Windows has no volume, every file encrypted alone (ADR 0121, U5).
@@ -711,19 +702,58 @@ export function tabOf(state: AppState, tabID: string): TabState | undefined {
 		.find((tab) => tab.id === tabID);
 }
 
-// The traffic lights where the app puts them (state.window.trafficLightFrames):
-// all three on one line from (12, 12), evenly apart.
-export function trafficLightsInPlace(lights: number[][]): boolean {
-	const [close, miniaturize, zoom] = lights;
-	const spacing = (miniaturize?.[0] ?? 0) - (close?.[0] ?? 0);
+// The system's word for the app's going (Paper 11.7): Quit on the Mac, Exit
+// on Windows, as in "Quit and install" where Pane can't install itself.
+export const QUIT_WORD = bySystem({ mac: "Quit", windows: "Exit" });
 
-	return (
-		close?.[0] === 12 &&
-		lights.every((frame) => frame[1] === 12) &&
-		spacing > 0 &&
-		(zoom?.[0] ?? 0) - (miniaturize?.[0] ?? 0) === spacing
-	);
-}
+// Whether an update's downloaded file keeps the system's mark until it checks
+// out: the Mac's quarantine (ADR 0002); Windows' installer and its Mark of
+// the Web are W7's.
+export const UPDATE_FILE_MARKED = bySystem({ mac: true, windows: false });
+
+// The window's top edge, inside what it shows, that resizes it: none on the
+// Mac, where AppKit's is outside; Chrome's 5 points on Windows, where the
+// system's frame keeps no top border (pane/ui/window/frame_win.cc).
+export const TOP_RESIZE_EDGE = bySystem({ mac: 0, windows: 5 });
+
+// Where the window's own Close is, in a window `width` wide: the Mac's red
+// light; Windows' caption button, in the content panel's top-right corner.
+export const windowCloseAt = bySystem({
+	mac: (_width: number): [number, number] => [18, 18],
+	windows: (width: number): [number, number] => [width - 30, 29],
+});
+
+// The window's own controls where the app puts them
+// (state.window.trafficLightFrames): on the Mac the traffic lights, all three
+// on one line from (12, 12), evenly apart; on Windows the caption buttons,
+// Minimize, Maximize, and Close, each 45 by 42 and 46 apart, 8 from the
+// window's top at the content panel's top right, as a window neither
+// maximized nor full screen shows them (Paper 11.1's B).
+export const trafficLightsInPlace = bySystem({
+	mac: (lights: number[][]): boolean => {
+		const [close, miniaturize, zoom] = lights;
+		const spacing = (miniaturize?.[0] ?? 0) - (close?.[0] ?? 0);
+
+		return (
+			close?.[0] === 12 &&
+			lights.every((frame) => frame[1] === 12) &&
+			spacing > 0 &&
+			(zoom?.[0] ?? 0) - (miniaturize?.[0] ?? 0) === spacing
+		);
+	},
+	windows: (buttons: number[][]): boolean => {
+		const [minimize, maximize, close] = buttons;
+
+		return (
+			buttons.length === 3 &&
+			buttons.every(
+				(frame) => frame[1] === 8 && frame[2] === 45 && frame[3] === 42,
+			) &&
+			(maximize?.[0] ?? 0) - (minimize?.[0] ?? 0) === 46 &&
+			(close?.[0] ?? 0) - (maximize?.[0] ?? 0) === 46
+		);
+	},
+});
 
 export type PaneLaunch = {
 	// Reuse a data directory (for relaunch checks); a throwaway one otherwise,

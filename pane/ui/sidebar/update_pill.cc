@@ -11,6 +11,7 @@
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/focus_ring.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/icon_button.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
@@ -109,6 +110,9 @@ UpdatePill::UpdatePill(base::RepeatingClosure press,
                          },
                          base::Unretained(this))) {
   SetID(kViewIdUpdatePill);
+  // Its text cross-fades in layers of its own over the pill's fading fill:
+  // grayscale, on no ground (ground.h).
+  SetGround(*this, SK_ColorTRANSPARENT);
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
   // The pointer over the pill, its button and dismiss included.
   SetNotifyEnterExitOnChild(true);

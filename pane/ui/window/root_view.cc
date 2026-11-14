@@ -17,6 +17,8 @@
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
+#include "pane/ui/design/tab_order.h"
+#include "pane/ui/design/theme.h"
 #include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/page_dialog.h"
 #include "pane/ui/extensions/extension_actions_view.h"
@@ -29,12 +31,15 @@
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/view_ids.h"
 #include "pane/ui/window/empty_state_view.h"
+#include "pane/ui/window/focus_groups.h"
 #include "pane/ui/window/panel_frame.h"
 #include "pane/ui/window/quit_dialog.h"
 #include "pane/ui/window/sad_tab_view.h"
+#include "pane/ui/window/window_controls.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/base/hit_test.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
@@ -335,6 +340,11 @@ RootView::RootView(Callbacks callbacks,
       std::make_unique<ToolbarView>(std::move(callbacks_.toolbar), progress));
   toolbar_->SetPaintToLayer();
   toolbar_->layer()->SetFillsBoundsOpaquely(false);
+  // Their buttons take no Tab on Windows, as Chrome's toolbar's: F6,
+  // Alt+Shift+T, and the arrows reach them (tab_order.h, focus_groups.h).
+  KeepButtonsOutOfTab(*sidebar_);
+  KeepButtonsOutOfTab(*toolbar_);
+  focus_groups_ = FocusGroups::Make(*this);
 
   // DevTools docked to the page, under it in its card (ADR 0024).
   devtools_ = AddChildView(std::make_unique<PageWebView>(nullptr));
@@ -358,6 +368,14 @@ RootView::RootView(Callbacks callbacks,
   // makes nothing.
   settings_ = AddChildView(
       std::make_unique<SettingsView>(std::move(callbacks_.settings), *images));
+  // The window's own controls where Pane draws them (Windows' caption
+  // buttons): in the panel's top-right corner, over the toolbar's end and
+  // what shows with no toolbar, under the overlays but the PIN screen, whose
+  // panel they sit on while it shows (Paper 11.1's B, 07.x, 06.4.1).
+  if (std::unique_ptr<WindowControls> controls = WindowControls::Make()) {
+    window_controls_ = AddChildView(std::move(controls));
+    toolbar_->SetEndReserve(window_controls_->RowWidth());
+  }
   // Over the page's place while a page's dialog shows, under the sidebar's
   // edge.
   page_shield_ = AddChildView(std::make_unique<PageShield>());
@@ -486,6 +504,7 @@ void RootView::ShowLock(const LockScreenView::Shows& shows) {
   const bool took_keys = lock_->takes_every_key();
   lock_->SetShows(shows, /*animate=*/first_frame_out_);
   const bool takes_keys = lock_->takes_every_key();
+  PlaceWindowControls();
   if (takes_keys && !took_keys) {
     views::FocusManager* focus = GetFocusManager();
     views::View* focused = focus ? focus->GetFocusedView() : nullptr;
@@ -508,8 +527,32 @@ void RootView::ShowLock(const LockScreenView::Shows& shows) {
 
 void RootView::RaiseTopOverlays() {
   ReorderChildView(lock_, children().size());
+  PlaceWindowControls();
   ReorderChildView(hint_, children().size());
   UpdateScreenReaderLayers();
+}
+
+void RootView::PlaceWindowControls() {
+  if (!window_controls_) {
+    return;
+  }
+  if (lock_->showing()) {
+    ReorderChildView(window_controls_, GetIndexOf(lock_).value() + 1);
+  } else {
+    ReorderChildView(window_controls_, GetIndexOf(settings_).value() + 1);
+  }
+}
+
+int RootView::NonClientHitTest(const gfx::Point& point) {
+  if (window_controls_ && window_controls_->GetVisible()) {
+    gfx::Point in_controls = point;
+    views::View::ConvertPointToTarget(this, window_controls_, &in_controls);
+    if (const int component = window_controls_->ComponentAt(in_controls);
+        component != HTNOWHERE) {
+      return component;
+    }
+  }
+  return IsDragArea(point) ? HTCAPTION : HTNOWHERE;
 }
 
 void RootView::ShakePin() {
@@ -565,7 +608,16 @@ void RootView::ShowPage(content::WebContents* contents) {
   if (page_->web_contents() == contents) {
     return;
   }
+  // The page that had the keys goes, none in its place yet (a new tab's
+  // comes after it): Views hands them to the next Tab stop as the view
+  // stops taking them (WebView::LostMainFrame), a button on Windows, whose
+  // ring would show until the page comes and takes them. None holds them
+  // meanwhile.
+  const bool had_keys = !contents && page_->HasFocus();
   page_->SetWebContents(contents);
+  if (views::FocusManager* focus = GetFocusManager(); had_keys && focus) {
+    focus->ClearFocus();
+  }
   // Another page's DevTools go, and this one's come.
   UpdateDevTools();
   RoundPage();
@@ -1057,6 +1109,53 @@ void RootView::ViewHierarchyChanged(
   if (details.parent == this) {
     UpdateScreenReaderLayers();
   }
+  // A row or a button come to the toolbar or the sidebar takes no Tab on
+  // Windows either (tab_order.h).
+  if (details.is_add && toolbar_ && sidebar_ &&
+      (toolbar_->Contains(details.child) ||
+       sidebar_->Contains(details.child))) {
+    KeepButtonsOutOfTab(*details.child);
+  }
+}
+
+void RootView::RemovedFromWidget() {
+  if (focus_groups_) {
+    focus_groups_->Detach();
+  }
+}
+
+bool RootView::MoveFocusGroup(const ui::Accelerator& key) {
+  return focus_groups_ && !TakesEveryKey() && !page_fullscreen_ &&
+         focus_groups_->Move(key);
+}
+
+bool RootView::InContent(const views::View* view) const {
+  for (const views::View* place :
+       {static_cast<const views::View*>(page_.get()),
+        static_cast<const views::View*>(devtools_.get()),
+        static_cast<const views::View*>(sad_tab_.get()),
+        static_cast<const views::View*>(settings_.get()),
+        static_cast<const views::View*>(empty_.get())}) {
+    if (place->Contains(view)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool RootView::FocusContent() {
+  views::View* place = nullptr;
+  if (settings_->GetVisible()) {
+    FocusSettings();
+    place = settings_;
+  } else if (sad_tab_->GetVisible() ||
+             (page_->GetVisible() && page_->web_contents())) {
+    FocusPage();
+    place = sad_tab_->GetVisible() ? static_cast<views::View*>(sad_tab_)
+                                   : static_cast<views::View*>(page_);
+  }
+  const views::FocusManager* focus = GetFocusManager();
+  return place && focus && place->Contains(focus->GetFocusedView());
 }
 
 void RootView::UpdateScreenReaderLayers() {
@@ -1211,6 +1310,14 @@ SkPath RootView::PanelPath() const {
                       page_fullscreen_ ? 0 : radius::kPanel);
 }
 
+void RootView::OnThemeChanged() {
+  views::View::OnThemeChanged();
+  // Every view in the theme's colors, those on layers of their own too; a
+  // contrast theme's colors come in more than one change, its switch before
+  // its colors, and each one paints again.
+  PaintAgain(*this);
+}
+
 bool RootView::IsDragArea(const gfx::Point& point) {
   // The PIN screen's panel moves the window around its controls, and so do
   // the gutters around it, as the Swift's WindowDragArea under it did.
@@ -1292,6 +1399,38 @@ void RootView::Layout(PassKey) {
   }
   quit_dialog_->SetBoundsRect(GetLocalBounds());
   lock_->SetBoundsRect(GetLocalBounds());
+  LayOutWindowControls();
+}
+
+void RootView::LayOutWindowControls() {
+  if (!window_controls_) {
+    return;
+  }
+  // None while a page or the window fills the screen, as Windows' own
+  // caption goes then.
+  views::Widget* widget = GetWidget();
+  const bool shown = !page_fullscreen_ && !(widget && widget->IsFullscreen());
+  window_controls_->SetVisible(shown);
+  if (!shown) {
+    return;
+  }
+  // The panel's top-right corner, which the PIN screen's panel shares; in a
+  // maximized window the frame's gutter above and beside Close answers as
+  // Close, so the controls reach the window's top and right edges there.
+  const gfx::Rect panel(panel_bounds_.x(), kPanelInset, panel_bounds_.width(),
+                        std::max(height() - 2 * kPanelInset, 0));
+  const bool maximized = widget && widget->IsMaximized();
+  const int row = window_controls_->RowWidth();
+  gfx::Rect bounds(panel.right() - row, panel.y(), row,
+                   window_controls_->RowHeight());
+  if (maximized) {
+    bounds = gfx::Rect(panel.right() - row, 0, width() - (panel.right() - row),
+                       panel.y() + window_controls_->RowHeight());
+  }
+  window_controls_->SetBoundsRect(bounds);
+  gfx::Rect panel_in_controls = panel;
+  panel_in_controls.Offset(-bounds.x(), -bounds.y());
+  window_controls_->SetPanel(panel_in_controls);
 }
 
 BEGIN_METADATA(RootView)

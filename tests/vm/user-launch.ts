@@ -9,8 +9,10 @@
 // on ADR 0121's allow-list, and none holds a planted value
 // (lib/file-audit.ts); no file there, nor one the user's profile or Pane's
 // registry key changed meanwhile, holds or names a host or a value of the
-// visits, Local State and the Default profile included; Local State names no
-// profile of Pane's as used last; Crashpad kept nothing. Controls: two files
+// visits, Local State and the Default profile included; the profile's
+// preference MACs are under Pane's own registry key, as Chromium keeps them,
+// and no test copy's; Local State names no profile of Pane's as used last;
+// Crashpad kept nothing. Controls: two files
 // planted plain, found, and the profile's own files read through its keys,
 // which hold the hosts.
 //
@@ -36,6 +38,7 @@ import { audit, type Planted } from "../lib/file-audit";
 import { bySystem, ENGINE_FOLDER, powershell } from "../lib/platform";
 import { processTable, waitForExit } from "../lib/processes";
 import { plainContent, profileKeys } from "../lib/profile-files";
+import { preferenceMacs } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // The test VM, by its disk's serial (scripts/start.sh in the VM's folder:
@@ -247,6 +250,16 @@ const userLaunch: Scenario = async (context) => {
 	expect(
 		(await panesOf(context.binary)).length === 0,
 		"a Pane of this build is running",
+	);
+
+	// Chromium's preference MACs in the user's registry key, which a Pane's
+	// data there would have left: none, so what this launch writes is its own
+	// to read and remove.
+	const macsBefore = await preferenceMacs();
+
+	expect(
+		macsBefore !== null && macsBefore.users.length === 0,
+		`a Pane's preference MACs are in the registry already: ${JSON.stringify(macsBefore)}`,
 	);
 
 	// The user's own environment, as the shell starts Pane with it: none of
@@ -547,7 +560,11 @@ const userLaunch: Scenario = async (context) => {
 			/(^|[\\/])(pane|chromium)([\\/]|$)/i.test(relative(userProfile, path)),
 		);
 
-		// Pane's registry key, which a test copy shares with the user's Pane.
+		// The user's launch keeps its profiles' preference MACs where Chromium
+		// keeps them, under Pane's own key, the test copies' never (ADR 0121).
+		const macsAfter = await preferenceMacs();
+
+		// Pane's registry key, which the user's Pane alone writes.
 		const registry = await powershell(
 			"if (Test-Path 'HKCU:\\Software\\Pane') { reg query 'HKCU\\Software\\Pane' /s } else { 'none' }",
 		);
@@ -621,6 +638,7 @@ const userLaunch: Scenario = async (context) => {
 			panesElsewhere: panesElsewhere.map((path) => relative(userProfile, path)),
 			registry: registry.trim(),
 			inRegistry,
+			macsAfter,
 			atTheRoot,
 			localState: {
 				lastUsed: localState.profile?.last_used,
@@ -685,6 +703,13 @@ const userLaunch: Scenario = async (context) => {
 		);
 
 		expect(
+			!!macsAfter &&
+				macsAfter.users.includes(profile) &&
+				!macsAfter.testCopies.includes(profile),
+			`the user's launch's preference MACs: ${JSON.stringify({ profile, macsAfter })}`,
+		);
+
+		expect(
 			localState.profile?.last_used === "Default" &&
 				(found.localState as { timesOfUse: number }).timesOfUse === 0 &&
 				localState.tab_stats === undefined,
@@ -703,6 +728,13 @@ const userLaunch: Scenario = async (context) => {
 		for (const row of await panesOf(context.binary)) {
 			await Bun.$`taskkill /F /T /PID ${row.pid}`.quiet().nothrow();
 		}
+
+		// The preference MACs it made, which no other Pane's were beside.
+		await powershell(
+			"Remove-Item -LiteralPath 'HKCU:\\Software\\Pane\\PreferenceMACs' -Recurse -Force -ErrorAction SilentlyContinue",
+		);
+
+		found.macsLeft = await preferenceMacs();
 
 		for (const folder of [dataDir, controls]) {
 			for (let attempt = 0; attempt < 20 && existsSync(folder); attempt++) {

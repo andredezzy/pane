@@ -163,7 +163,21 @@ class ControlHighlight {
   // The ring shown while the control has the keyboard.
   FocusRing* ring() { return ring_; }
 
+  // The look the control's background paints (ControlBackground's): from
+  // it, the ground of the control's text follows each step (ground.h).
+  void SetGroundLook(const ControlLook* look);
+  // What the control paints of its own over its look where its text sits,
+  // given the color under it: a profile row's tint.
+  void SetGroundOver(base::RepeatingCallback<SkColor(SkColor)> over);
+  // Names the control the ground of its text again, its look as lit and
+  // pressed as it is over what it sits on: none while it is disabled, which
+  // dims it as one layer, or where what it sits on names none.
+  void UpdateGround();
+
  private:
+  // A step of the hover or the press.
+  void Stepped();
+
   // From the button's state: the hover fades on `hover_curve`, or changes at
   // once without one; a press shows at once and, if `press_fades`, fades as
   // it lets go.
@@ -179,6 +193,9 @@ class ControlHighlight {
   // take away once enabled.
   bool dimmed_ = false;
   bool made_layer_ = false;
+  base::RepeatingClosure changed_;
+  raw_ptr<const ControlLook> ground_look_ = nullptr;
+  base::RepeatingCallback<SkColor(SkColor)> ground_over_;
   ValueMotion hover_;
   ValueMotion press_;
   base::CallbackListSubscription state_subscription_;
@@ -197,23 +214,34 @@ void PaintControl(gfx::Canvas& canvas,
 // rest without one.
 class ControlBackground : public views::Background {
  public:
-  ControlBackground(const ControlLook& look, const ControlHighlight* highlight);
+  // The ground of the view's text follows its look, lit as `highlight`
+  // steps (ControlHighlight::SetGroundLook).
+  ControlBackground(const ControlLook& look, ControlHighlight* highlight);
   ~ControlBackground() override;
 
   void SetLook(const ControlLook& look);
 
   // views::Background:
   void Paint(gfx::Canvas* canvas, views::View* view) const override;
+  void OnViewThemeChanged(views::View* view) override;
 
  private:
   ControlLook look_;
-  raw_ptr<const ControlHighlight> highlight_;
+  raw_ptr<ControlHighlight> highlight_;
 };
 
 // The look's tint `hover` of the way to its lit one, resolved by `colors`.
 std::optional<SkColor> TintOf(const ControlLook& look,
                               const ui::ColorProvider& colors,
                               double hover);
+
+// The color a look paints over `ground` where it is flat, lit and pressed as
+// PaintControl paints them: the ground its text sits on (ground.h).
+SkColor GroundUnderControl(const ControlLook& look,
+                           const ui::ColorProvider& colors,
+                           double hover,
+                           double press,
+                           SkColor ground);
 
 }  // namespace pane
 

@@ -54,11 +54,13 @@ class ExtensionPromptView;
 class ExtensionsUi;
 class ExclusiveAccessHint;
 struct ExtensionPrompt;
+class FocusGroups;
 class ModalDialog;
 class PageDialog;
 class PanelFrame;
 class ProfileSheetOverlay;
 class SadTabView;
+class WindowControls;
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
 // as the Electron app laid it out: the sidebar's column on the left, 260
@@ -215,6 +217,16 @@ class RootView : public views::View {
   // An overlay takes every key, the window's commands' included but the menu
   // bar's Quit: Quit Pane?, and the PIN screen.
   bool TakesEveryKey() const;
+
+  // F6, Shift+F6, or Alt+Shift+T moving the keys between the window's
+  // groups (focus_groups.h): true when they moved, on Windows.
+  bool MoveFocusGroup(const ui::Accelerator& key);
+  // Whether `view` is in the page's place: the page, its DevTools, the
+  // crashed page's, Settings, or the empty state.
+  bool InContent(const views::View* view) const;
+  // The keys to what shows in the page's place, Settings or the page: true
+  // when it took them.
+  bool FocusContent();
   // The PIN screen over the window (ADR 0042): rising over it as it comes
   // and sinking as it goes, in place at the window's first frame, over every
   // other overlay but the full screen's hint. It takes the keys while a PIN
@@ -272,6 +284,10 @@ class RootView : public views::View {
   // the panel, and the sidebar's header, its title included), never the
   // panel, a control, the sidebar's list, or the page.
   bool IsDragArea(const gfx::Point& point);
+  // What the system's hit test answers at `point`: a window control's own
+  // (Windows' caption buttons, HTMAXBUTTON and the like, so Maximize opens
+  // Snap Layouts), else HTCAPTION where the window moves, else HTNOWHERE.
+  int NonClientHitTest(const gfx::Point& point);
 
   // views::View:
   gfx::Size GetMinimumSize() const override;
@@ -283,8 +299,13 @@ class RootView : public views::View {
   // A layer showing, hiding, coming, or going changes what a screen reader
   // reaches (UpdateAccessibleLayers).
   void ChildVisibilityChanged(views::View* child) override;
+  // A theme's change, light and dark's or a contrast theme's (Paper 11.10):
+  // every view paints again in its colors, those on layers of their own
+  // too, which a change of colors alone leaves as they were.
+  void OnThemeChanged() override;
   void ViewHierarchyChanged(
       const views::ViewHierarchyChangedDetails& details) override;
+  void RemovedFromWidget() override;
 
  private:
   // A screen reader reaches the layers that show, and none under the PIN
@@ -312,6 +333,10 @@ class RootView : public views::View {
   void ReturnKeys(views::View* before);
   // The PIN screen, and the full screen's hint over it, over everything else.
   void RaiseTopOverlays();
+  // The window's controls over the PIN screen's panel while it shows, else
+  // over the content panel's places alone; and where they sit.
+  void PlaceWindowControls();
+  void LayOutWindowControls();
   void PrepareAppIconPicker();
   // Places the page's dialogs, the one showing and those on their way out.
   void PlacePageDialogs();
@@ -347,7 +372,11 @@ class RootView : public views::View {
   raw_ptr<ProfileSheetOverlay> profile_sheet_ = nullptr;
   views::ViewTracker focus_before_sheet_;
   const raw_ptr<AppIconImages> images_;
+  // The keys between the window's groups, on Windows (focus_groups.h).
+  std::unique_ptr<FocusGroups> focus_groups_;
   raw_ptr<SettingsView> settings_ = nullptr;
+  // Windows' caption buttons; none on the Mac.
+  raw_ptr<WindowControls> window_controls_ = nullptr;
   // The picker's dialog over the window, and its content, once made.
   raw_ptr<ModalDialog> app_icon_dialog_ = nullptr;
   raw_ptr<AppIconPicker> app_icon_picker_ = nullptr;

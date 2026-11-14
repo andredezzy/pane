@@ -185,6 +185,14 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
        Swift(0xFAFAFA, 0.6)},
       {"pinHintLit", kPaneColorPinHintLit, Swift(0x18181B, 0.8),
        Swift(0xFAFAFA, 0.8)},
+      // A selected row's text, the accent's foreground; and the edge only a
+      // contrast theme draws, clear (Paper 11.10).
+      {"rowSelectedForeground", kPaneColorRowSelectedForeground,
+       Swift(0x27272A), Swift(0xE4E4E7)},
+      {"forcedEdge", kPaneColorForcedEdge, SK_ColorTRANSPARENT,
+       SK_ColorTRANSPARENT},
+      {"forcedGrayText", kPaneColorForcedGrayText, SK_ColorTRANSPARENT,
+       SK_ColorTRANSPARENT},
   };
   // Every id of Pane's is checked.
   EXPECT_EQ(std::size(pairs),

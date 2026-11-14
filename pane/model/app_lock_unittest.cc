@@ -17,7 +17,9 @@
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
+#include "base/threading/platform_thread.h"
 #include "base/time/time.h"
+#include "base/time/time_override.h"
 #include "pane/model/data_key.h"
 #include "pane/model/data_lock.h"
 #include "pane/model/data_vault.h"
@@ -106,6 +108,7 @@ class AppLockGuardTest : public testing::Test {
         });
     system.guard = guard_;
     system.no_secret = PinEntry::UnreadableReason::kDpapiRefused;
+    system.words = words_;
     lock_ = std::make_unique<AppLock>(
         data_,
         AppLock::Load(data_,
@@ -123,13 +126,22 @@ class AppLockGuardTest : public testing::Test {
     }
   }
 
+  // The file as saved. A save replaces it, which isn't atomic on Windows
+  // (ReplaceFileW moves the old file aside first): a read that meets one
+  // finds no file, or one it can't open, and tries again, for up to 5 s of
+  // real time, with the test's own sequence left as it is.
   std::optional<SecurityState> Saved(std::string_view name = "security") const {
-    const base::expected<std::optional<base::Value>, FileError> state =
-        PersistedFile(data_, name).Load();
-    if (!state.has_value() || !*state) {
-      return std::nullopt;
-    }
-    return SecurityState::FromValue(**state);
+    const base::TimeTicks end =
+        base::subtle::TimeTicksNowIgnoringOverride() + base::Seconds(5);
+    do {
+      const base::expected<std::optional<base::Value>, FileError> state =
+          PersistedFile(data_, name).Load();
+      if (state.has_value() && *state) {
+        return SecurityState::FromValue(**state);
+      }
+      base::PlatformThread::Sleep(base::Milliseconds(1));
+    } while (base::subtle::TimeTicksNowIgnoringOverride() < end);
+    return std::nullopt;
   }
 
   // A key sealed under kSecret with `pin`, the stand-in TPM guarding it, in
@@ -174,6 +186,19 @@ class AppLockGuardTest : public testing::Test {
   std::string secret_{kSecret};
   // DPAPI gives no secret.
   bool no_secret_ = false;
+  // The launch's words for each state, as Windows' gives its own
+  // (data_launch_win.cc): each its own here, so a test reads which shows.
+  AppLock::System::Words words_ = [] {
+    AppLock::System::Words words;
+    words.key_unreadable = "key unreadable";
+    words.no_secret = "no secret";
+    words.data_wont_open = "data won't open";
+    words.guard_gone = "guard gone";
+    words.guard_unavailable = "guard unavailable";
+    words.locked_out = "locked out";
+    words.pin_not_saved = "pin not saved";
+    return words;
+  }();
   scoped_refptr<StandInPinGuard> guard_;
   VaultDelegate vault_delegate_;
   LockDelegate lock_delegate_;
@@ -245,7 +270,8 @@ TEST_F(AppLockGuardTest, AWrongPinIsTheChipsRefusal) {
 
   Type("1111");
   Shook(1);
-  EXPECT_EQ(Saved()->failed_attempts, 1);
+  // Written behind the state.
+  EXPECT_TRUE(WaitFor([&] { return Saved()->failed_attempts == 1; }));
   EXPECT_EQ(guard_->wrong_pins(), 1);
 
   ASSERT_TRUE(Ready());
@@ -271,7 +297,8 @@ TEST_F(AppLockGuardTest, AnotherSecretAsksTheChipNothing) {
 }
 
 // The chip's lockout refuses every PIN, the right one too: nothing counts,
-// and the dots shake.
+// the dots shake, and the lockout's words show (Paper 07.1.1) until the next
+// digit, the pad live.
 TEST_F(AppLockGuardTest, TheChipsLockoutCountsNothing) {
   SaveGuardedKey("1234");
   const GuardedShare kept = *Saved()->key->guard;
@@ -284,13 +311,18 @@ TEST_F(AppLockGuardTest, TheChipsLockoutCountsNothing) {
   Shook(1);
   EXPECT_TRUE(lock.is_locked());
   EXPECT_FALSE(lock.entry()->is_unreadable());
+  EXPECT_EQ(lock.entry()->error(), words_.locked_out);
   EXPECT_EQ(Saved()->failed_attempts, 0);
   EXPECT_EQ(guard_->wrong_pins(), StandInPinGuard::kLockoutAt);
+
+  Type("1");
+  EXPECT_FALSE(lock.entry()->error());
+  EXPECT_EQ(lock.entry()->entered(), "1");
 }
 
 // The chip cleared, or its key gone: the data behind the PIN is lost, as with
-// a forgotten PIN, and the lock shows an unreadable key (07.6), counting
-// nothing.
+// a forgotten PIN, and the lock shows an unreadable key in its own words
+// (07.6.1), counting nothing.
 TEST_F(AppLockGuardTest, AKeyGoneIsAnUnreadableKey) {
   SaveGuardedKey("1234");
   guard_->Clear();
@@ -300,14 +332,13 @@ TEST_F(AppLockGuardTest, AKeyGoneIsAnUnreadableKey) {
   ASSERT_TRUE(Unreadable());
   EXPECT_EQ(lock_->entry()->unreadable_reason(),
             PinEntry::UnreadableReason::kGuardGone);
-  EXPECT_EQ(lock_->entry()->error(), AppLock::kKeyUnreadable);
+  EXPECT_EQ(lock_->entry()->error(), words_.guard_gone);
   EXPECT_EQ(Saved()->failed_attempts, 0);
 }
 
 // No chip now for a seal that took one (the TPM off in the firmware): a state
-// of its own, apart from a key gone, though its words are 07.6's until
-// Paper's 07.6.2. It counts nothing, loses nothing, and the PIN opens the
-// data once the chip is back.
+// of its own, apart from a key gone, in its own words (07.6.2). It counts
+// nothing, loses nothing, and the PIN opens the data once the chip is back.
 TEST_F(AppLockGuardTest, NoChipIsApartFromAKeyGone) {
   const Key key = SaveGuardedKey("1234");
   guard_->SetNoChip(true);
@@ -317,7 +348,7 @@ TEST_F(AppLockGuardTest, NoChipIsApartFromAKeyGone) {
   ASSERT_TRUE(Unreadable());
   EXPECT_EQ(lock_->entry()->unreadable_reason(),
             PinEntry::UnreadableReason::kGuardUnavailable);
-  EXPECT_EQ(lock_->entry()->error(), AppLock::kKeyUnreadable);
+  EXPECT_EQ(lock_->entry()->error(), words_.guard_unavailable);
   EXPECT_EQ(Saved()->failed_attempts, 0);
   EXPECT_EQ(guard_->keys().size(), 1u);
 
@@ -332,8 +363,7 @@ TEST_F(AppLockGuardTest, NoChipIsApartFromAKeyGone) {
 }
 
 // The system's store giving no secret says which store: on Windows DPAPI, a
-// state of its own, though its words are the Keychain's 07.7 until Paper's
-// 07.7.1.
+// state of its own, in its own words (07.7.1).
 TEST_F(AppLockGuardTest, NoSecretNamesItsStore) {
   SaveGuardedKey("1234");
   no_secret_ = true;
@@ -343,7 +373,7 @@ TEST_F(AppLockGuardTest, NoSecretNamesItsStore) {
   ASSERT_TRUE(Unreadable());
   EXPECT_EQ(lock_->entry()->unreadable_reason(),
             PinEntry::UnreadableReason::kDpapiRefused);
-  EXPECT_EQ(lock_->entry()->error(), AppLock::kKeychainDenied);
+  EXPECT_EQ(lock_->entry()->error(), words_.no_secret);
   EXPECT_EQ(Saved()->failed_attempts, 0);
 }
 
@@ -399,6 +429,8 @@ TEST_F(AppLockGuardTest, ALockoutKeepsTheEarlierSeal) {
   EXPECT_EQ(Saved(), before);
   EXPECT_FALSE(lock.state().pin);
   EXPECT_TRUE(lock.entry());
+  // The new PIN wasn't saved, and the screen says so (Paper 07.3.1).
+  EXPECT_EQ(lock.entry()->error(), words_.pin_not_saved);
 }
 
 // A chip that refuses to make a key, for a reason other than a lockout or
@@ -419,6 +451,7 @@ TEST_F(AppLockGuardTest, AChipThatRefusesSealsNothing) {
   EXPECT_EQ(Saved(), before);
   EXPECT_FALSE(lock.state().pin);
   EXPECT_TRUE(lock.entry());
+  EXPECT_EQ(lock.entry()->error(), words_.pin_not_saved);
   EXPECT_TRUE(guard_->keys().empty());
 }
 

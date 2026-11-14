@@ -62,24 +62,61 @@ export const PRIMARY = bySystem({
 // A key as the channel takes it.
 export type Shortcut = { key: string; modifiers: string[] };
 
+// A shortcut as Chrome's own pages write it on each system (its
+// cr_shortcut_util): on the Mac the modifiers' glyphs, ⌃⌥⇧⌘, then the key;
+// on Windows their words joined by +, Ctrl, Alt, Shift, then the key. The
+// modifiers by the channel's names ("command", "control", "option", "shift").
+export const chromeShortcutText = bySystem({
+	mac: (modifiers: string[], key: string): string =>
+		[
+			["control", "⌃"],
+			["option", "⌥"],
+			["shift", "⇧"],
+			["command", "⌘"],
+		]
+			.filter(([name]) => modifiers.includes(name as string))
+			.map(([, glyph]) => glyph)
+			.join("") + key.toUpperCase(),
+	windows: (modifiers: string[], key: string): string =>
+		[
+			...[
+				["control", "Ctrl"],
+				["option", "Alt"],
+				["shift", "Shift"],
+			]
+				.filter(([name]) => modifiers.includes(name as string))
+				.map(([, word]) => word as string),
+			key.toUpperCase(),
+		].join("+"),
+});
+
+// A second modifier for a key the user records in place of PRIMARY's: the
+// Mac's ⌃, beside ⌘; Windows' Alt, where Ctrl is PRIMARY, Chrome refusing
+// Ctrl+Alt there, which AltGr types with.
+export const OTHER_MODIFIER = bySystem({
+	mac: "control",
+	windows: "option",
+} as const);
+
 // Pane's keys that differ by more than PRIMARY, as the command table gives
 // each system its own (Chrome's own Windows keys there): Back and Forward,
-// Developer Tools' second key, Chrome's (⌥⌘I on the Mac, F12 on Windows), and
-// Full Screen (⌃⌘F, F11).
+// Developer Tools' second key, Chrome's (⌥⌘I on the Mac, F12 on Windows),
+// and Quit's, ⌘Q, and on Windows Exit's Alt+F4 alone, Ctrl+Q running
+// nothing there (`kCtrlQExitsOnWindows`).
 export const KEYS = bySystem<
-	Record<"back" | "forward" | "devToolsAgain" | "fullScreen", Shortcut>
+	Record<"back" | "forward" | "devToolsAgain" | "quit", Shortcut>
 >({
 	mac: {
 		back: { key: "[", modifiers: ["command"] },
 		forward: { key: "]", modifiers: ["command"] },
 		devToolsAgain: { key: "i", modifiers: ["command", "option"] },
-		fullScreen: { key: "f", modifiers: ["command", "control"] },
+		quit: { key: "q", modifiers: ["command"] },
 	},
 	windows: {
 		back: { key: "left", modifiers: ["option"] },
 		forward: { key: "right", modifiers: ["option"] },
 		devToolsAgain: { key: "f12", modifiers: [] },
-		fullScreen: { key: "f11", modifiers: [] },
+		quit: { key: "f4", modifiers: ["option"] },
 	},
 });
 

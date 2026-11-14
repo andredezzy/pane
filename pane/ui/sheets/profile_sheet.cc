@@ -19,6 +19,7 @@
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/field.h"
 #include "pane/ui/design/focus_ring.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/icon_button.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/menu_button.h"
@@ -270,7 +271,10 @@ class SectionCard : public Column {
   METADATA_HEADER(SectionCard, Column)
 
  public:
-  SectionCard() : Column(gfx::Insets(kCardBorder)) {}
+  SectionCard() : Column(gfx::Insets(kCardBorder)) {
+    // Its text's ground, the card's fill under it (ground.h).
+    SetGround(*this, kPaneColorSheetCard);
+  }
 
   // views::View:
   void OnPaint(gfx::Canvas* canvas) override {
@@ -631,6 +635,10 @@ class ProfileSheet::PlatformTile : public views::Button {
     name_->SetHorizontalAlignment(gfx::ALIGN_CENTER);
     name_->SetCanProcessEventsWithinSubtree(false);
     GetViewAccessibility().SetName(base::UTF8ToUTF16(model::TitleOf(platform)));
+    // Its name's ground follows its fill as PaintButtonContents draws it
+    // (ground.h).
+    UpdateGroundLook();
+    highlight_.SetGroundLook(&ground_look_);
   }
 
   model::Platform platform() const { return platform_; }
@@ -643,8 +651,16 @@ class ProfileSheet::PlatformTile : public views::Button {
     name_->SetEnabledColor(chosen ? kPaneColorForeground
                                   : kPaneColorMutedLifted);
     GetViewAccessibility().SetIsSelected(chosen);
+    UpdateGroundLook();
+    highlight_.UpdateGround();
     // At once: a selection never animates.
     SchedulePaint();
+  }
+
+  // views::View:
+  void OnThemeChanged() override {
+    views::Button::OnThemeChanged();
+    highlight_.UpdateGround();
   }
 
   // Where the tile is drawn in this view's bounds, on the screen's pixels:
@@ -710,9 +726,21 @@ class ProfileSheet::PlatformTile : public views::Button {
 
  private:
   const model::Platform platform_;
+  // The fill PaintButtonContents draws, as a look: the chosen one's, or the
+  // hover's.
+  void UpdateGroundLook() {
+    ground_look_ = ControlLook(ControlShape::Squircle(radius::kMd));
+    if (chosen_) {
+      ground_look_.fill = kPaneColorChosenTile;
+    } else {
+      ground_look_.hover_fill = kPaneColorOutlineHover;
+    }
+  }
+
   bool chosen_ = false;
   gfx::RectF tile_;
   raw_ptr<views::Label> name_ = nullptr;
+  ControlLook ground_look_{ControlShape::Squircle(radius::kMd)};
   ControlHighlight highlight_;
 };
 
@@ -1216,6 +1244,17 @@ class Warning : public views::View {
     SetID(kViewIdProfileWarning);
     text_ = AddChildView(
         Text(std::u16string(), kNote, kPaneColorAccentForeground, true));
+  }
+
+  // Its text's ground, its fill over the card's (ground.h).
+  void OnThemeChanged() override {
+    views::View::OnThemeChanged();
+    if (parent()) {
+      SetGround(*this,
+                OverGround(GetColorProvider()->GetColor(kPaneColorWarningFill),
+                           1, GroundOf(*parent())));
+      RefreshLabelGrounds(*this);
+    }
   }
 
   views::Label* text() { return text_; }

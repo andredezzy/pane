@@ -9,6 +9,7 @@
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
+#include "pane/ui/design/system_words.h"
 #include "pane/ui/design/text_button.h"
 #include "pane/ui/view_ids.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -53,6 +54,19 @@ class QuitDialog::Tile : public views::View {
     flags.setColor(colors->GetColor(kPaneColorIconTile));
     canvas->DrawPath(SquirclePath(gfx::RectF(GetLocalBounds()), kTileRadius),
                      flags);
+    // Under a contrast theme, its edge where its fill told it apart (Paper
+    // 11.10).
+    if (const SkColor edge = colors->GetColor(kPaneColorForcedEdge);
+        SkColorGetA(edge)) {
+      cc::PaintFlags stroke;
+      stroke.setAntiAlias(true);
+      stroke.setStyle(cc::PaintFlags::kStroke_Style);
+      stroke.setStrokeWidth(1);
+      stroke.setColor(edge);
+      canvas->DrawPath(
+          SquircleStrokePath(gfx::RectF(GetLocalBounds()), kTileRadius, 1),
+          stroke);
+    }
     const float inset = (kTileSize - kIconSize) / 2.0f;
     PaintIcon(*canvas, Icon::kCircleDashedX,
               gfx::RectF(inset, inset, kIconSize, kIconSize), kIconStroke,
@@ -66,8 +80,10 @@ END_METADATA
 QuitDialog::QuitDialog(base::RepeatingClosure cancel,
                        base::RepeatingClosure quit) {
   tile_ = AddChildView(std::make_unique<Tile>());
+  // Quit Pane? on the Mac, Exit Pane? on Windows, its key each system's
+  // (Paper 11.6, 11.7).
   heading_ = AddChildView(std::make_unique<DialogHeading>(
-      u"Quit Pane?",
+      std::u16string(Words().quit_question),
       u"Your profiles and tabs will be here when you open Pane again. "
       u"Downloads in progress will stop.",
       kPaneColorDialogMessage));
@@ -75,7 +91,8 @@ QuitDialog::QuitDialog(base::RepeatingClosure cancel,
       std::move(cancel), u"Cancel", u"Esc", KeyedButton::Role::kCancel));
   cancel_->SetID(kViewIdQuitCancel);
   quit_ = AddChildView(std::make_unique<KeyedButton>(
-      std::move(quit), u"Quit", u"⌘Q", KeyedButton::Role::kDestructive));
+      std::move(quit), std::u16string(Words().quit),
+      std::u16string(Words().quit_key), KeyedButton::Role::kDestructive));
   quit_->SetID(kViewIdQuitConfirm);
 }
 

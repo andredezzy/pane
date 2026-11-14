@@ -9,9 +9,11 @@
 #include "base/functional/bind.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/checkbox.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
+#include "pane/ui/design/system_words.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/design/text_button.h"
 #include "pane/ui/view_ids.h"
@@ -205,6 +207,17 @@ class ExtensionPromptView::Permissions : public views::View {
 
   void Layout(PassKey) override { Arrange(width(), /*place=*/true); }
 
+  // Its text's ground, its tint over the card's (ground.h).
+  void OnThemeChanged() override {
+    views::View::OnThemeChanged();
+    if (parent()) {
+      SetGround(*this,
+                OverGround(GetColorProvider()->GetColor(kPaneColorPanelTint), 1,
+                           GroundOf(*parent())));
+      RefreshLabelGrounds(*this);
+    }
+  }
+
   void OnPaint(gfx::Canvas* canvas) override {
     const ui::ColorProvider* colors = GetColorProvider();
     if (!colors) {
@@ -297,9 +310,8 @@ ExtensionPromptView::ExtensionPromptView(
         KeyedButton::Role::kCancel);
     accept = std::make_unique<KeyedButton>(
         base::BindRepeating(press, pressed, true), prompt.accept_title,
-        // Its text form, as the App icon picker's: bare, it falls back to the
-        // emoji.
-        u"↩\uFE0E", KeyedButton::Role::kPrimary);
+        // The system's word for the key, as the App icon picker's (Words).
+        std::u16string(Words().return_key), KeyedButton::Role::kPrimary);
   } else {
     cancel = std::make_unique<TextButton>(
         base::BindRepeating(press, pressed, false), prompt.cancel_title,

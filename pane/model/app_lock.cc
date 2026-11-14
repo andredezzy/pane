@@ -150,6 +150,12 @@ AppLock::System::System(const System&) = default;
 AppLock::System& AppLock::System::operator=(const System&) = default;
 AppLock::System::~System() = default;
 
+AppLock::System::Words::Words() = default;
+AppLock::System::Words::Words(const Words&) = default;
+AppLock::System::Words& AppLock::System::Words::operator=(const Words&) =
+    default;
+AppLock::System::Words::~Words() = default;
+
 AppLock::Opened::Opened() = default;
 AppLock::Opened::Opened(const Opened&) = default;
 AppLock::Opened& AppLock::Opened::operator=(const Opened&) = default;
@@ -231,8 +237,8 @@ AppLock::AppLock(const base::FilePath& data_directory,
       secret_(launch_secret ? std::move(launch_secret->secret) : std::nullopt) {
   CHECK(delegate_);
   if (loaded.unreadable || loaded.key_lost) {
-    entry_ =
-        PinEntry::Unreadable(PinEntry::UnreadableReason::kKey, kKeyUnreadable);
+    entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kKey,
+                                  system_.words.key_unreadable);
   } else if (state_.pin) {
     entry_ = PinEntry(PinEntry::Mode::kUnlock, state_.pin->length);
   }
@@ -301,7 +307,7 @@ void AppLock::VolumeWontOpen() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   is_locked_ = true;
   entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kDataWontOpen,
-                                kDataWontOpen);
+                                system_.words.data_wont_open);
   Changed();
 }
 
@@ -424,45 +430,45 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   switch (opened.kind) {
     // The system's store gave no secret: on the Mac the Keychain (07.7), on
-    // Windows DPAPI, which shows 07.7's words until Paper's 07.7.1.
+    // Windows DPAPI (07.7.1).
     case Opened::Kind::kNoSecret:
       is_locked_ = true;
-      entry_ = PinEntry::Unreadable(system_.no_secret, kKeychainDenied);
+      entry_ = PinEntry::Unreadable(system_.no_secret, system_.words.no_secret);
       Changed();
       return;
 
     case Opened::Kind::kOtherSecret:
       is_locked_ = true;
       entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kKey,
-                                    kKeyUnreadable);
+                                    system_.words.key_unreadable);
       Changed();
       return;
 
     // The TPM's key gone or the chip cleared: the data behind the PIN is
-    // lost, as with a forgotten PIN. The lock shows an unreadable key (Paper
-    // 07.6, in the Mac's words until Paper's 07.6.1).
+    // lost, as with a forgotten PIN (Paper 07.6.1).
     case Opened::Kind::kGuardGone:
       is_locked_ = true;
       entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kGuardGone,
-                                    kKeyUnreadable);
+                                    system_.words.guard_gone);
       Changed();
       return;
 
     // No chip now for a seal that took one, the TPM turned off in the
     // firmware say, or its provider refusing: nothing is lost, and the PIN
-    // opens the data once the chip is back. 07.6's words until Paper's
-    // 07.6.2.
+    // opens the data once the chip is back (Paper 07.6.2).
     case Opened::Kind::kGuardUnavailable:
       is_locked_ = true;
-      entry_ = PinEntry::Unreadable(
-          PinEntry::UnreadableReason::kGuardUnavailable, kKeyUnreadable);
+      entry_ =
+          PinEntry::Unreadable(PinEntry::UnreadableReason::kGuardUnavailable,
+                               system_.words.guard_unavailable);
       Changed();
       return;
 
     // The chip's lockout refuses every PIN, the right one too: none counts,
-    // at the lock or in Settings, and the dots shake (its words are W5's).
+    // at the lock or in Settings, the dots shake, and the lockout's words
+    // show until the next digit (Paper 07.1.1).
     case Opened::Kind::kLockedOut:
-      Verified(false);
+      Refused(system_.words.locked_out);
       return;
 
     case Opened::Kind::kWrongPin:
@@ -473,7 +479,7 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
       if (!with_pin) {
         is_locked_ = true;
         entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kKey,
-                                      kKeyUnreadable);
+                                      system_.words.key_unreadable);
         Changed();
         return;
       }
@@ -556,6 +562,15 @@ void AppLock::Verified(bool matches) {
   Perform(action);
 }
 
+void AppLock::Refused(const std::string& why) {
+  if (!entry_) {
+    return;
+  }
+  const PinEntry::Action action = entry_->Refused(why);
+  Changed();
+  Perform(action);
+}
+
 // Seals the open key again: with a new PIN (set up, changed), or none
 // (removed). Only the key's seal changes; the data stays as it is.
 void AppLock::Reseal(std::optional<std::string> pin) {
@@ -608,10 +623,10 @@ void AppLock::Reseal(std::optional<std::string> pin) {
 
 void AppLock::Resealed(std::optional<int> length,
                        std::optional<SealedKey> sealed) {
-  // The chip made no key: nothing changes, and the dots shake (the lockout's
-  // words are W5's).
+  // The chip made no key: nothing changes, the dots shake, and the screen
+  // says the new PIN wasn't saved (Paper 07.3.1).
   if (!sealed) {
-    Verified(false);
+    Refused(system_.words.pin_not_saved);
     return;
   }
   std::optional<Pin> pin;

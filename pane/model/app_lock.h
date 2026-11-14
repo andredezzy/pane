@@ -71,10 +71,38 @@ class AppLock {
     // The panic wipe, once the key is gone from disk: this instance ends,
     // and the one it starts erases (PanicWipeAtLaunch). Never returns.
     base::RepeatingClosure wipe;
+
+    // The PIN screen's lines, in the system's own words: the Mac's by
+    // default (Paper 07.6 to 07.8), Windows' from its launch (11.7's Exit
+    // and PC, and the chip's states, 07.1.1, 07.3.1, 07.6.1, 07.6.2, and
+    // 07.7.1). Two lines each, split at the newline.
+    struct Words {
+      Words();
+      Words(const Words&);
+      Words& operator=(const Words&);
+      ~Words();
+
+      // No key the secret opens (07.6).
+      std::string key_unreadable = kKeyUnreadable;
+      // The system's store gave no secret (07.7, 07.7.1).
+      std::string no_secret = kKeychainDenied;
+      // The data's place would not open (07.8).
+      std::string data_wont_open = kDataWontOpen;
+      // The PIN's guard lost its key (07.6.1), or has no chip now (07.6.2).
+      std::string guard_gone = kKeyUnreadable;
+      std::string guard_unavailable = kKeyUnreadable;
+      // The guard's lockout refuses every PIN (07.1.1), and a new PIN the
+      // guard wouldn't take (07.3.1): shown with the shake, until the next
+      // digit; none, the shake alone.
+      std::string locked_out;
+      std::string pin_not_saved;
+    };
+    Words words;
   };
 
   // The PIN screen's line when no key can be read (Paper 07.6), when the
-  // Keychain gives no secret (07.7), and when the volume would not open (07.8).
+  // Keychain gives no secret (07.7), and when the volume would not open (07.8),
+  // in the Mac's words, the System's own unless a launch gives others.
   static constexpr char kKeyUnreadable[] =
       "Pane can’t read the key to your data.\n"
       "Quit, then restore security.json.";
@@ -232,6 +260,9 @@ class AppLock {
   void OnOpened(bool unlocking, bool with_pin, Opened opened);
   void OpenVault(const Key& key);
   void Verified(bool matches);
+  // The guard refused whatever was typed: the dots shake, nothing counts,
+  // and `why` shows until the next digit.
+  void Refused(const std::string& why);
   void Shook();
   void Reseal(std::optional<std::string> pin);
   void Resealed(std::optional<int> length, std::optional<SealedKey> sealed);

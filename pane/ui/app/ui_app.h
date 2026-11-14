@@ -288,6 +288,9 @@ class UiApp : public AppData::Client,
   void ContinueWithPin() override;
   void DismissPinScreen() override;
   void CheckForUpdates() override;
+  bool ShowAppMenu(const gfx::Point& anchor,
+                   ui::mojom::MenuSourceType source,
+                   base::OnceClosure closed) override;
   void SaveProfileSheet(const model::ProfileDraft& draft) override;
   void CloseProfileSheet() override;
   // The tab the switcher shows selected comes forward, as Ctrl's release

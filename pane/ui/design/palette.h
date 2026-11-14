@@ -9,6 +9,7 @@
 #include "ui/color/color_id.h"
 
 namespace ui {
+class ColorMixer;
 class ColorProvider;
 struct ColorProviderKey;
 }  // namespace ui
@@ -170,6 +171,15 @@ enum PaneColorIds : ui::ColorId {
   kPaneColorPinQuiet,
   kPaneColorPinHint,
   kPaneColorPinHintLit,
+  // A selected sidebar row's text: the accent's foreground, the selection's
+  // text under a contrast theme.
+  kPaneColorRowSelectedForeground,
+  // The edge a control draws where its fill told it apart, under a contrast
+  // theme alone (Paper 11.10: edges, not fills); clear otherwise.
+  kPaneColorForcedEdge,
+  // What a sleeping tab's row shows in, in its place of a dimmed one, under
+  // a contrast theme alone (Paper 11.10: its GrayText); clear otherwise.
+  kPaneColorForcedGrayText,
 
   kPaneColorsEnd,
 };
@@ -190,6 +200,12 @@ SkColor SystemTextSelection(bool dark, bool key_window);
 // after Chrome's mixers (AddPaneColorMixer).
 void AddPaneColors(ui::ColorProvider* provider,
                    const ui::ColorProviderKey& key);
+
+// Pane's colors under the system's forced colors, which only Windows'
+// contrast themes bring (Paper 11.10): each takes one of the theme's roles,
+// a fill that told surfaces apart giving way to an edge, and shadows and
+// veils going (palette_win.cc). The Mac has none: nothing changes there.
+void AddForcedColors(ui::ColorMixer& mixer);
 
 // Adds Pane's colors to every color provider made from now on.
 void AddPaneColorMixer();

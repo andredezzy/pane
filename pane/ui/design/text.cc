@@ -9,12 +9,17 @@
 
 #include "base/no_destructor.h"
 #include "base/strings/string_util.h"
+#include "pane/ui/design/ground.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/base/class_properties.h"
+#include "ui/base/class_property.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font_list.h"
+#include "ui/gfx/geometry/outsets.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/render_text.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/text_utils.h"
@@ -32,6 +37,15 @@ namespace {
 // App icon picker's ↩ through 41 fallback fonts for 2 ms. Kept, the next
 // showing draws them as they were laid out; any change to the text, its
 // style, or its bounds lays it out again, as before.
+// The opaque ground a label of Pane's paints under its text and takes
+// ClearType against, where the system's text takes it (SetLabelGround): an
+// SkColor's bits, as the class properties hold ints.
+DEFINE_UI_CLASS_PROPERTY_KEY(int, kTextGroundKey, 0)
+
+SkColor TextGroundOf(const views::View& label) {
+  return static_cast<SkColor>(label.GetProperty(kTextGroundKey));
+}
+
 class KeptLabel : public views::Label {
  public:
   using views::Label::Label;
@@ -39,6 +53,27 @@ class KeptLabel : public views::Label {
  protected:
   // views::View:
   void VisibilityChanged(views::View* starting_from, bool is_visible) override {
+  }
+
+  // Its text's ground, the nearest up its parents, for this theme
+  // (ground.h).
+  void OnThemeChanged() override {
+    views::Label::OnThemeChanged();
+    SetLabelGround(*this, GroundOf(*this));
+  }
+
+  // Under its text, its ground where it takes one (SetLabelGround): the
+  // text's own box and a little past it, for ClearType's fringes, within the
+  // label, so a control's corners and borders around it keep their paint.
+  void OnPaintBackground(gfx::Canvas* canvas) override {
+    const SkColor ground = TextGroundOf(*this);
+    if (SkColorGetA(ground) == SK_AlphaOPAQUE) {
+      gfx::Rect text = GetTextBounds();
+      text.Outset(gfx::Outsets::VH(1, 2));
+      text.Intersect(GetLocalBounds());
+      canvas->FillRect(text, ground);
+    }
+    views::Label::OnPaintBackground(canvas);
   }
 };
 
@@ -51,16 +86,24 @@ const gfx::FontList& SystemFont(int size, gfx::Font::Weight weight) {
   const std::pair key(size, weight);
   auto found = fonts->find(key);
   if (found == fonts->end()) {
-    // From the platform's UI font, so the Mac's stays the system font (its
-    // optical sizes and weights), at the size asked for wherever its default
-    // size differs.
-    const gfx::FontList base;
-    found = fonts
-                ->emplace(key, base.Derive(size - base.GetFontSize(),
-                                           gfx::Font::NORMAL, weight))
-                .first;
+    found = fonts->emplace(key, PlatformSystemFont(size, weight)).first;
   }
   return found->second;
+}
+
+void SetLabelGround(views::Label& label, SkColor ground) {
+  const bool takes =
+      LabelsTakeClearType() && SkColorGetA(ground) == SK_AlphaOPAQUE;
+  const SkColor kept = takes ? ground : SK_ColorTRANSPARENT;
+  // Nothing changes where none is taken or kept: the Mac's labels, always.
+  if (TextGroundOf(label) == kept) {
+    return;
+  }
+  label.SetProperty(kTextGroundKey, static_cast<int>(kept));
+  label.SetBackgroundColor(kept);
+  label.SetSubpixelRenderingEnabled(takes);
+  label.SetSkipSubpixelRenderingOpacityCheck(true);
+  label.SchedulePaint();
 }
 
 void StyleLabel(views::Label& label,
@@ -70,6 +113,7 @@ void StyleLabel(views::Label& label,
   label.SetLineHeight(style.line_height);
   label.SetAutoColorReadabilityEnabled(false);
   label.SetEnabledColor(std::move(color));
+  // Grayscale until its ground is named (SetLabelGround).
   label.SetSubpixelRenderingEnabled(false);
 }
 

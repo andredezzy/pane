@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/callback_helpers.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -58,9 +59,14 @@ class FolderPlaceTest : public testing::Test {
 
   void TearDown() override { task_environment_.RunUntilIdle(); }
 
-  std::unique_ptr<DataVault> MakeVault(std::unique_ptr<DataLock> lock) {
+  std::unique_ptr<DataVault> MakeVault(
+      std::unique_ptr<DataLock> lock,
+      FolderPlace::ForgetOutside forget_outside =
+          FolderPlace::ForgetOutside()) {
     return std::make_unique<DataVault>(
-        data_, base::MakeRefCounted<FolderPlace>(data_, std::move(lock)),
+        data_,
+        base::MakeRefCounted<FolderPlace>(data_, std::move(lock),
+                                          std::move(forget_outside)),
         &delegate_);
   }
 
@@ -142,6 +148,38 @@ TEST_F(FolderPlaceTest, RemovesADeletedProfile) {
   RunFor(base::Milliseconds(100));
   EXPECT_FALSE(refused);
   EXPECT_TRUE(base::PathExists(Folder("Default")));
+}
+
+// What a profile left outside its folder (on Windows, Chromium's MACs of its
+// preferences in the registry) is forgotten once the folder has gone, by a
+// delete or the next open's purge, and nothing for an id that is no
+// profile's. Read once each remove has replied, after the forget ran.
+TEST_F(FolderPlaceTest, ForgetsWhatAProfileLeftOutsideItsFolder) {
+  constexpr char kOther[] = "2A5B8C3D-6E7F-4A1B-9C2D-3E4F5A6B7C8D";
+  MakeFolder(kProfile);
+  MakeFolder(kOther);
+  ProfileDeletions(data_).Add(kOther);
+  std::vector<std::string> forgotten;
+  std::vector<bool> folder_was_gone;
+  std::unique_ptr<DataVault> vault = MakeVault(
+      DataLock::Take(data_),
+      base::BindLambdaForTesting([&](const std::string& profile_id) {
+        folder_was_gone.push_back(!base::PathExists(Folder(profile_id)));
+        forgotten.push_back(profile_id);
+      }));
+  Open(*vault);
+  ASSERT_TRUE(WaitFor([&] { return vault->is_attached(); }));
+  EXPECT_EQ(forgotten, std::vector<std::string>{kOther});
+
+  bool removed = false;
+  vault->Remove(kProfile, base::BindLambdaForTesting([&] { removed = true; }));
+  ASSERT_TRUE(WaitFor([&] { return removed; }));
+  EXPECT_EQ(forgotten, (std::vector<std::string>{kOther, kProfile}));
+  EXPECT_EQ(folder_was_gone, (std::vector<bool>{true, true}));
+
+  vault->Remove("..", base::DoNothing());
+  RunFor(base::Milliseconds(100));
+  EXPECT_EQ(forgotten.size(), 2u);
 }
 
 // A file of the profile the engine still holds open (on Windows, where NTFS

@@ -16,8 +16,8 @@ namespace pane::model {
 // and Windows' on Windows, so what a Mac profile saved reads back the same.
 Platform HostPlatform();
 
-// What the profile sheet calls the computer Pane runs on: "Sites see this
-// Mac." Windows' words wait for Paper (W5).
+// What the profile sheet and Settings call the computer Pane runs on: "Sites
+// see this Mac.", and "PC" on Windows (Paper 11.7).
 std::string_view HostDeviceName();
 
 }  // namespace pane::model

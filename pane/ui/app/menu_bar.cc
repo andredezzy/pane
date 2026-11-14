@@ -4,6 +4,8 @@
 
 #include <utility>
 
+#include "base/functional/callback.h"
+
 namespace pane {
 
 MenuBar::MenuBar(CommandRunner& runner) : runner_(runner), root_(this) {
@@ -29,6 +31,17 @@ MenuBar::MenuBar(CommandRunner& runner) : runner_(runner), root_(this) {
     menus_.push_back(std::move(model));
   }
   native_ = Native::Show(root_);
+}
+
+bool MenuBar::Native::ShowAppMenu(views::Widget& widget,
+                                  const gfx::Point& anchor,
+                                  ui::mojom::MenuSourceType source,
+                                  base::OnceClosure closed) {
+  return false;
+}
+
+bool MenuBar::Native::IsAppMenuShowing() const {
+  return false;
 }
 
 MenuBar::~MenuBar() {

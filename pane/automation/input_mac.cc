@@ -49,6 +49,9 @@ const std::map<std::string, uint16_t>& KeyCodes() {
       {"\t", kVK_Tab},
       {"\r", kVK_Return},
       {"\x1b", kVK_Escape},
+      // F6, which moves the keys between groups on Windows alone: the Mac's
+      // check that it moves nothing (focus-groups).
+      {"f6", kVK_F6},
       // Delete, back a character, as the key types it (NSDeleteCharacter).
       {"\x7f", kVK_Delete},
   });

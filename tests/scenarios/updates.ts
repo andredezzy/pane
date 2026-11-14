@@ -1,6 +1,12 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { type AppState, launchPane, type PaneApp } from "../lib/pane";
+import {
+	type AppState,
+	launchPane,
+	type PaneApp,
+	QUIT_WORD,
+	UPDATE_FILE_MARKED,
+} from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { isQuarantined } from "../lib/tools";
 import { expect, type Scenario } from "../run";
@@ -147,7 +153,7 @@ const updates: Scenario = async (context) => {
 	// Settings' Quit and install (Paper 06.3.1) shows the installer and
 	// quits, and downloads nothing again.
 	expect(
-		dismissed.update.label === "Quit and install",
+		dismissed.update.label === `${QUIT_WORD} and install`,
 		`the pill says ${dismissed.update.label}`,
 	);
 
@@ -205,11 +211,17 @@ const updates: Scenario = async (context) => {
 		30_000,
 	);
 
-	const unverifiedQuarantined = await isQuarantined(
-		join(unverifiedDownloads, DMG),
-	);
+	if (UPDATE_FILE_MARKED) {
+		const unverifiedQuarantined = await isQuarantined(
+			join(unverifiedDownloads, DMG),
+		);
 
-	expect(unverifiedQuarantined, "a dmg without a digest left quarantine");
+		expect(unverifiedQuarantined, "a dmg without a digest left quarantine");
+	} else {
+		context.defer(
+			"the unverified download's mark: Windows' installer and its Mark of the Web are W7's",
+		);
+	}
 
 	await unverified.browser.close();
 

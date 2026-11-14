@@ -44,13 +44,29 @@ namespace {
 // user's real pointer: Views captures only while a real button is down.
 
 // The keys scenarios type, by Windows' virtual key codes on the US layout:
-// a character's, or the arrows and function keys Windows' shortcuts take.
+// a character's, or the arrows, Home, End, and the function keys Windows'
+// shortcuts and the keys between the window's groups take.
 std::optional<ui::KeyboardCode> KeyCodeOf(const std::string& key) {
   if (key == "left") {
     return ui::VKEY_LEFT;
   }
   if (key == "right") {
     return ui::VKEY_RIGHT;
+  }
+  if (key == "up") {
+    return ui::VKEY_UP;
+  }
+  if (key == "down") {
+    return ui::VKEY_DOWN;
+  }
+  if (key == "home") {
+    return ui::VKEY_HOME;
+  }
+  if (key == "end") {
+    return ui::VKEY_END;
+  }
+  if (key == "f6") {
+    return ui::VKEY_F6;
   }
   if (key == "f4") {
     return ui::VKEY_F4;

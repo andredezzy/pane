@@ -54,11 +54,14 @@ ProfileHeaderPlaces PlaceProfileHeader(const gfx::Size& size,
 // The mark's width `morph` of the way from the bar to the square, the
 // spring's overshoot included.
 float ProfileMarkWidth(double morph);
-// The mark, `morph` of the way, in `color`, in a header `height` tall.
+// The mark, `morph` of the way, in `color`, in a header `height` tall; under
+// a contrast theme, with a 1-point `edge` outside it so it shows on any
+// ground (Paper 11.10: profile colors stay, edged in CanvasText), else clear.
 void PaintProfileMark(gfx::Canvas& canvas,
                       int height,
                       SkColor color,
-                      double morph);
+                      double morph,
+                      SkColor edge = SK_ColorTRANSPARENT);
 // The proxy's dot from `x`, in its status's color, the same in both
 // appearances.
 void PaintProxyDot(gfx::Canvas& canvas,
@@ -129,6 +132,7 @@ class ProfileRow : public RowButton,
  private:
   // RowButton:
   void LookChanged() override;
+  SkColor GroundOver(SkColor under) const override;
 
   // A step of the morph.
   void Morphed(double value);

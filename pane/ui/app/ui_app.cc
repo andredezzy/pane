@@ -69,8 +69,10 @@
 #include "pane/ui/after_frame.h"
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/app/dock_icon.h"
+#include "pane/ui/app/platform_commands.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/system_words.h"
 #include "pane/ui/design/theme.h"
 #include "pane/ui/dialogs/permission_prompt.h"
 #include "pane/ui/interaction_log.h"
@@ -122,7 +124,8 @@ std::optional<LockUpdateStatus::Shows> LockUpdateOf(const Updater& updater) {
       }
       break;
     case Updater::Status::kDownloaded:
-      shows.action = updater.staged() ? u"Restart" : u"Quit";
+      shows.action = updater.staged() ? std::u16string(u"Restart")
+                                      : std::u16string(Words().quit);
       shows.action_id = updater.staged() ? kViewIdLockScreenRestartToUpdate
                                          : kViewIdLockScreenQuitAndInstall;
       break;
@@ -1302,6 +1305,17 @@ void UiApp::CheckForUpdates() {
   updater_->Check();
 }
 
+// Windows' menu of the menu bar's commands (Paper 11.5), each item enabled as
+// the menu bar's is: behind the Lock, Quit and Check for Updates… alone.
+bool UiApp::ShowAppMenu(const gfx::Point& anchor,
+                        ui::mojom::MenuSourceType source,
+                        base::OnceClosure closed) {
+  views::Widget* widget = window_->widget();
+  MenuBar::Native* native = menu_bar_ ? menu_bar_->native() : nullptr;
+  return widget && native &&
+         native->ShowAppMenu(*widget, anchor, source, std::move(closed));
+}
+
 void UiApp::EditSettings(
     base::RepeatingCallback<void(model::AppSettings&)> edit) {
   if (InteractionAllowed()) {
@@ -2019,6 +2033,10 @@ void UiApp::QuitNow() {
 // MARK: The command table (commands.h)
 
 bool UiApp::IsCommandEnabled(Command command) {
+  // Where Pane runs the platform's own (platform_commands.h).
+  if (IsPlatformCommand(command) && !PlatformCommandEnabled(command)) {
+    return false;
+  }
   switch (command) {
     // Behind the Lock too, as the Swift's menu let them.
     case Command::kQuit:
@@ -2120,7 +2138,11 @@ void UiApp::RunCommand(Command command) {
       if (const int number = TabNumberOf(command)) {
         SelectTabAt(number);
       }
-      // The platform's own run where the platform sends them (menu_bar.h).
+      // The platform's own run where the platform sends them (menu_bar.h):
+      // AppKit's on the Mac, Pane's from Windows' app menu.
+      if (IsPlatformCommand(command)) {
+        RunPlatformCommand(window_->widget(), command);
+      }
       return;
   }
 }

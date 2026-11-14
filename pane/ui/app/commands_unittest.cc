@@ -202,16 +202,17 @@ TEST(CommandsTest, MenusAreTheSwifts) {
 // The same table on Windows (ADR 0019): Ctrl where the Mac takes ⌘, and
 // Chrome's own Windows keys where Ctrl alone would collide (⌃⌘F, ⌃⌘L) or
 // Windows has its own: F11, Alt+Left and Alt+Right, F12, Ctrl+Y, Ctrl+= with
-// Ctrl++ and the numpad's keys, and Alt+F4 beside Ctrl+Q (ADR 0053). The
-// Mac's alone has no key there.
+// Ctrl++ and the numpad's keys, and Alt+F4 alone for Exit Pane, as Chrome's
+// (ADR 0053). Windows' Pane menu as Paper
+// 11.5.1 has it, with no Hide, Hide Others, or Show All, and Maximize for
+// Zoom; the Mac's alone has no key there.
 TEST(CommandsTest, WindowsTakesCtrlAndItsOwnKeys) {
   ExpectMenus(
       KeySystem::kWindows,
       {
           {"Pane",
-           {"About Pane", "-", "Check for Updates…", "-", "Settings… Ctrl+,",
-            "-", "Lock Pane Ctrl+Shift+L", "-", "Hide Pane", "Hide Others",
-            "Show All", "-", "Quit Pane Ctrl+Q", "Quit Pane Alt+F4 (hidden)"}},
+           {"About Pane", "Check for Updates…", "-", "Settings… Ctrl+,",
+            "Lock Pane Ctrl+Shift+L", "-", "Exit Pane Alt+F4"}},
           {"File",
            {"New Tab Ctrl+T", "Close Tab Ctrl+W",
             "Reopen Closed Tab Ctrl+Shift+T", "-", "Print… Ctrl+P"}},
@@ -234,7 +235,7 @@ TEST(CommandsTest, WindowsTakesCtrlAndItsOwnKeys) {
             "Previous Tab (Recent) Ctrl+Shift+Tab", "-", "Tab 1 Ctrl+1",
             "Tab 2 Ctrl+2", "Tab 3 Ctrl+3", "Tab 4 Ctrl+4", "Tab 5 Ctrl+5",
             "Tab 6 Ctrl+6", "Tab 7 Ctrl+7", "Tab 8 Ctrl+8", "Last Tab Ctrl+9"}},
-          {"Window", {"Minimize", "Zoom", "-", "Extensions"}},
+          {"Window", {"Minimize", "Maximize", "-", "Extensions"}},
       });
 }
 
@@ -299,19 +300,31 @@ TEST(CommandsTest, EachKeyRunsOneCommand) {
       }
     }
   }
-  // Caps Lock changes nothing: ⌘Q, Ctrl+Q on Windows, still quits (ADR
-  // 0019).
-  EXPECT_EQ(CommandForAccelerator(
-                ui::Accelerator(ui::VKEY_Q, Primary() | ui::EF_CAPS_LOCK_ON)),
-            Command::kQuit);
+  // Caps Lock changes nothing: ⌘Q, and Alt+F4 on Windows, still quits (ADR
+  // 0019); Ctrl+Q runs nothing there, as in Chrome (ADR 0053).
+  const bool mac = ThisKeySystem() == KeySystem::kMac;
+  EXPECT_EQ(
+      CommandForAccelerator(
+          mac ? ui::Accelerator(ui::VKEY_Q, Primary() | ui::EF_CAPS_LOCK_ON)
+              : ui::Accelerator(ui::VKEY_F4,
+                                ui::EF_ALT_DOWN | ui::EF_CAPS_LOCK_ON)),
+      Command::kQuit);
+  if (!mac) {
+    EXPECT_EQ(
+        CommandForAccelerator(ui::Accelerator(ui::VKEY_Q, ui::EF_CONTROL_DOWN)),
+        std::nullopt);
+  }
   EXPECT_EQ(CommandForAccelerator(ui::Accelerator(ui::VKEY_Q, ui::EF_NONE)),
             std::nullopt);
 }
 
 // The key a command's item shows: Exit Full Screen's in Chrome's own menus.
 TEST(CommandsTest, ShownKeys) {
+  // ⌘Q on the Mac; Alt+F4 on Windows, which Exit Pane shows (Paper 11.5.1).
   EXPECT_EQ(ShownAcceleratorOf(Command::kQuit),
-            ui::Accelerator(ui::VKEY_Q, Primary()));
+            ThisKeySystem() == KeySystem::kMac
+                ? ui::Accelerator(ui::VKEY_Q, Primary())
+                : ui::Accelerator(ui::VKEY_F4, ui::EF_ALT_DOWN));
   // ⌘+ on the Mac, Ctrl+= on Windows: what each shows, as people type it.
   EXPECT_EQ(ShownAcceleratorOf(Command::kZoomIn),
             ThisKeySystem() == KeySystem::kMac
@@ -330,17 +343,21 @@ TEST(CommandsTest, WindowKeysLeaveThePlatformsOwn) {
   EXPECT_TRUE(window.contains(ui::Accelerator(ui::VKEY_T, Primary())));
   EXPECT_TRUE(
       window.contains(ui::Accelerator(ui::VKEY_TAB, ui::EF_CONTROL_DOWN)));
-  EXPECT_TRUE(window.contains(ui::Accelerator(ui::VKEY_Q, Primary())));
+  // Quit's: ⌘Q on the Mac; Alt+F4 alone on Windows (ADR 0053).
+  const bool mac = ThisKeySystem() == KeySystem::kMac;
+  EXPECT_EQ(window.contains(ui::Accelerator(ui::VKEY_Q, Primary())), mac);
+  EXPECT_EQ(window.contains(ui::Accelerator(ui::VKEY_F4, ui::EF_ALT_DOWN)),
+            !mac);
   for (const ui::KeyboardCode key :
        {ui::VKEY_C, ui::VKEY_V, ui::VKEY_X, ui::VKEY_A, ui::VKEY_Z, ui::VKEY_H,
         ui::VKEY_M}) {
     EXPECT_FALSE(window.contains(ui::Accelerator(key, Primary())));
   }
   // On the Mac, 32 of the menu bar's 41 keys: Hide, Hide Others, the Edit
-  // menu's six, and Minimize left out. On Windows, the same 32, Alt+F4, and
-  // the zooms' Ctrl+Shift+- and numpad keys, of 42: the Edit menu's six left
-  // out.
-  EXPECT_EQ(keys.size(), ThisKeySystem() == KeySystem::kMac ? 32u : 36u);
+  // menu's six, and Minimize left out. On Windows, the same 32 but Quit's,
+  // Alt+F4, and the zooms' Ctrl+Shift+- and numpad keys, of 41: the Edit
+  // menu's six left out.
+  EXPECT_EQ(keys.size(), mac ? 32u : 35u);
 }
 
 // Ahead of the page, what Chrome reserves (ADR 0019): ⌘Q, ⌘T, ⌘W, ⇧⌘T,

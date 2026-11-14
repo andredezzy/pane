@@ -32,8 +32,11 @@ constexpr base::TimeDelta kRemoveWaits[] = {
 }  // namespace
 
 FolderPlace::FolderPlace(const base::FilePath& data_directory,
-                         std::unique_ptr<DataLock> data_lock)
-    : data_directory_(data_directory), data_lock_(std::move(data_lock)) {}
+                         std::unique_ptr<DataLock> data_lock,
+                         ForgetOutside forget_outside)
+    : data_directory_(data_directory),
+      forget_outside_(std::move(forget_outside)),
+      data_lock_(std::move(data_lock)) {}
 
 FolderPlace::~FolderPlace() = default;
 
@@ -135,8 +138,10 @@ void FolderPlace::ProfileCameUp(const std::string& profile_id) {}
 
 // The profile's folder in the engine's (EngineFolder), its caches in it, and
 // everything under it, tried again while the engine still holds a file of it
-// open. One still held past that stays named in deletions.json, for the next
-// open's purge. An id that isn't one folder's name is no profile's.
+// open; then what it left outside it, which the engine no longer writes once
+// its files have closed. One still held past that stays named in
+// deletions.json, for the next open's purge, which forgets both. An id that
+// isn't one folder's name is no profile's.
 bool FolderPlace::Remove(const std::string& profile_id) {
   if (!IsProfileFolderName(profile_id)) {
     return false;
@@ -146,6 +151,9 @@ bool FolderPlace::Remove(const std::string& profile_id) {
   for (base::TimeDelta wait : kRemoveWaits) {
     base::PlatformThread::Sleep(wait);
     if (base::DeletePathRecursively(folder)) {
+      if (forget_outside_) {
+        forget_outside_.Run(profile_id);
+      }
       return true;
     }
   }

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/placement.h"
 #include "pane/ui/design/text.h"
@@ -38,6 +39,8 @@ constexpr int kButtonSpacing = 12;
 SadTabView::SadTabView(base::RepeatingClosure reload)
     : reload_(std::move(reload)) {
   SetID(kViewIdSadTab);
+  // Its text's ground, the panel's card under it (ground.h).
+  SetGround(*this, kPaneColorCard);
   // It takes the keys in the page's place, with no ring of its own.
   SetFocusBehavior(FocusBehavior::ALWAYS);
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);

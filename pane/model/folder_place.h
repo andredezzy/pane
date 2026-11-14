@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "pane/model/data_place.h"
 
 namespace pane::model {
@@ -24,10 +25,17 @@ class DataLock;
 // the engine its keys only where a profile would not close.
 class FolderPlace : public DataPlace {
  public:
+  // What a profile leaves outside its folder, forgotten once its folder has
+  // gone: on Windows, Chromium's MACs of its preferences in the registry
+  // (preference_macs.h). On the data's sequence; it may block.
+  using ForgetOutside =
+      base::RepeatingCallback<void(const std::string& profile_id)>;
+
   // `data_lock`, held from launch, or null when another Pane held it then:
   // this one waits for it at its first open.
   FolderPlace(const base::FilePath& data_directory,
-              std::unique_ptr<DataLock> data_lock);
+              std::unique_ptr<DataLock> data_lock,
+              ForgetOutside forget_outside = ForgetOutside());
 
   // DataPlace:
   void Attach(const Key& key) override;
@@ -46,6 +54,7 @@ class FolderPlace : public DataPlace {
   ~FolderPlace() override;
 
   const base::FilePath data_directory_;
+  const ForgetOutside forget_outside_;
 
   // On the data's sequence: the data's lock, once this Pane holds it, whether
   // the data is open, and the last open's outcome, which its Finish reports.

@@ -124,8 +124,8 @@ export async function menusOf(pid: number): Promise<MenuWindow[]> {
 		windows: async (): Promise<string> => {
 			throw noWindowsSide(
 				"the system's menus on screen",
-				"W5",
-				"where Windows' menus show is drawn with the rest of its look",
+				"W8",
+				"Windows' menus are Views' own windows, read with the rest of its UI through UI Automation (ADR 0071)",
 			);
 		},
 	})();

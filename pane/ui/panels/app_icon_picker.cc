@@ -14,6 +14,7 @@
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
+#include "pane/ui/design/system_words.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/design/text_button.h"
 #include "pane/ui/view_ids.h"
@@ -230,10 +231,10 @@ AppIconPicker::AppIconPicker(
     tiles_[icon] = AddChildView(
         std::make_unique<Tile>(icon, base::BindRepeating(choose, icon)));
   }
-  // The key in its text form (VS15): without it, Return's arrow takes the
-  // emoji font's color glyph.
-  done_ = AddChildView(
-      std::make_unique<KeyedButton>(std::move(done), u"Done", u"↩\uFE0E"));
+  // The system's word for the key (Words), Return's arrow on the Mac in its
+  // text form (VS15): without it, the emoji font's color glyph.
+  done_ = AddChildView(std::make_unique<KeyedButton>(
+      std::move(done), u"Done", std::u16string(Words().return_key)));
   done_->SetID(kViewIdAppIconDone);
   SetSelection(selection);
   images_observation_.Observe(&images);

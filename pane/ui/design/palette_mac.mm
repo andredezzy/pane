@@ -8,6 +8,9 @@
 
 namespace pane {
 
+// No contrast theme forces the Mac's colors: it has none of Windows'.
+void AddForcedColors(ui::ColorMixer& mixer) {}
+
 SkColor SystemTextSelection(bool dark, bool key_window) {
   __block SkColor color = SK_ColorTRANSPARENT;
   NSAppearance* appearance = [NSAppearance

@@ -66,9 +66,14 @@ class AddressField : public views::Textfield {
   void OnPaintBackground(gfx::Canvas* canvas) override;
   void OnPaintBorder(gfx::Canvas* canvas) override;
   void Layout(PassKey) override;
+  void OnThemeChanged() override;
 
  private:
   class Label;
+
+  // The ground of the domain and title at rest: the field's fill, as lit as
+  // it is, over the toolbar's (ground.h).
+  void UpdateTextGround();
 
   // The domain and title over the field while it isn't being edited and its
   // text is a web address; the field's own text otherwise. `editing` says

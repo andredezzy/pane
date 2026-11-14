@@ -2,6 +2,7 @@
 
 #include "pane/ui/window/window.h"
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -22,6 +23,7 @@
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/tabs/tab_switcher_view.h"
 #include "pane/ui/view_ids.h"
+#include "pane/ui/window/focus_groups.h"
 #include "pane/ui/window/frame.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/accelerators/accelerator_manager.h"
@@ -134,6 +136,16 @@ void Window::Open() {
   sidebar.dismiss_update = bind(&Controller::DismissUpdate);
   sidebar.move_profile = bind(&Controller::MoveProfile);
   sidebar.move_tab = bind(&Controller::MoveTab);
+  // Windows' "Pane ⌄": the app's menu 2 under it, its look held while the
+  // menu shows (Paper 11.5).
+  sidebar.open_app_menu = base::BindRepeating(
+      [](base::WeakPtr<Window> window, const gfx::Rect& on_screen,
+         ui::mojom::MenuSourceType source) {
+        if (window) {
+          window->ShowAppMenu(on_screen, source);
+        }
+      },
+      weak_factory_.GetWeakPtr());
   callbacks.resize.resize = bind(&Controller::ResizeSidebar);
   callbacks.resize.end = bind(&Controller::EndSidebarResize);
   callbacks.resize.reset = bind(&Controller::ResetSidebarWidth);
@@ -204,6 +216,18 @@ void Window::Open() {
             ? ui::AcceleratorManager::kHighPriority
             : ui::AcceleratorManager::kNormalPriority,
         this);
+  }
+  // The system's keys for its menu bar, which open the app's menu where it
+  // has none (Windows' Alt and F10).
+  for (const ui::Accelerator& accelerator : AppMenuKeys()) {
+    focus->RegisterAccelerator(accelerator,
+                               ui::AcceleratorManager::kNormalPriority, this);
+  }
+  // And Windows' keys between the window's groups, as Chrome's between its
+  // panes (focus_groups.h): none on the Mac.
+  for (const ui::Accelerator& accelerator : FocusGroups::Keys()) {
+    focus->RegisterAccelerator(accelerator,
+                               ui::AcceleratorManager::kNormalPriority, this);
   }
   switcher_keys_ = std::make_unique<SwitcherKeys>(this);
   widget->GetRootView()->AddPreTargetHandler(switcher_keys_.get());
@@ -572,6 +596,13 @@ gfx::Rect Window::PageBounds() const {
 // window's commands runs from its key but Quit, which the overlay's own
 // keys leave to the window.
 bool Window::AcceleratorPressed(const ui::Accelerator& accelerator) {
+  // The system's key for its menu bar: Windows' app menu, from the keys.
+  if (std::ranges::contains(AppMenuKeys(), accelerator)) {
+    return OpenAppMenuFromKeys();
+  }
+  if (std::ranges::contains(FocusGroups::Keys(), accelerator)) {
+    return root_ && root_->MoveFocusGroup(accelerator);
+  }
   const std::optional<Command> command = CommandForAccelerator(accelerator);
   if (!command || IsPlatformCommand(*command) || !root_ ||
       (root_->TakesEveryKey() && *command != Command::kQuit) ||
@@ -685,8 +716,32 @@ views::NativeWidget* Window::CreateNativeWidget(views::Widget* widget) {
                          weak_factory_.GetWeakPtr()));
 }
 
+void Window::ShowAppMenu(const gfx::Rect& on_screen,
+                         ui::mojom::MenuSourceType source) {
+  if (!root_ || root_->TakesEveryKey()) {
+    return;
+  }
+  const bool shown = controller_->ShowAppMenu(
+      on_screen.bottom_left(), source,
+      base::BindOnce(
+          [](base::WeakPtr<Window> window) {
+            if (window && window->root_) {
+              window->root_->sidebar()->SetAppMenuShowing(false);
+            }
+          },
+          weak_factory_.GetWeakPtr()));
+  if (shown) {
+    root_->sidebar()->SetAppMenuShowing(true);
+  }
+}
+
+bool Window::OpenAppMenuFromKeys() {
+  return root_ && !root_->TakesEveryKey() && !root_->page_fullscreen() &&
+         root_->sidebar()->OpenAppMenuFromKeys();
+}
+
 int Window::NonClientHitTest(const gfx::Point& point) {
-  return root_ && root_->IsDragArea(point) ? HTCAPTION : HTNOWHERE;
+  return root_ ? root_->NonClientHitTest(point) : HTNOWHERE;
 }
 
 }  // namespace pane

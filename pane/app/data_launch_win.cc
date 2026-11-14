@@ -20,11 +20,17 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/no_destructor.h"
 #include "base/path_service.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/browser/prefs/profile_pref_store_manager.h"
 #include "chrome/chrome_elf/chrome_elf_main.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/install_static/install_util.h"
+#include "crypto/sha2.h"
 #include "pane/app/test_copy.h"
 #include "pane/model/app_lock.h"
 #include "pane/model/data_lock.h"
@@ -36,6 +42,7 @@
 #include "pane/model/panic_wipe_run.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/pin_guard.h"
+#include "pane/model/preference_macs.h"
 #include "pane/model/test_hooks.h"
 
 namespace pane {
@@ -182,19 +189,100 @@ bool HoldsSealedProfiles(const base::FilePath& data_directory) {
   return *read && (*read)->is_dict() && (*read)->GetDict().FindString("box");
 }
 
+// Where a test copy's engine keeps its preference MACs: a key of its own,
+// under this one, never the user's (PreferenceMacsKey).
+constexpr wchar_t kTestCopiesKey[] = L"Software\\Pane Test Copies";
+
+// The key the engine keeps its profiles' preference MACs under, in the
+// registry (preference_macs.h), from PrepareData on: the pointer Chromium is
+// handed for a test copy outlives every profile.
+std::wstring& PreferenceMacsKey() {
+  static base::NoDestructor<std::wstring> key;
+  return *key;
+}
+
+// The user's Pane: Chromium's own key, install_static's Software\Pane, as
+// Chromium names it with no word from Pane. A test copy: one of its own,
+// under Software\Pane Test Copies, named by its data folder, so a scenario's
+// profiles never reach the user's key and its deletes and wipes act on its
+// own (ADR 0121); the scenario runner removes it once the scenario ends
+// (tests/lib/tools.ts). It is named through the seam Chromium keeps for its
+// own tests, which names the key for every profile from then on
+// (ProfilePrefStoreManager::SetPreferenceValidationRegistryPathForTesting),
+// before the first profile opens; the user's launch never calls it.
+void NamePreferenceMacsKey(const base::FilePath& data_directory,
+                           bool test_copy) {
+  if (!test_copy) {
+    PreferenceMacsKey() = install_static::GetRegistryPath();
+    return;
+  }
+  const std::string name =
+      base::HexEncode(crypto::SHA256HashString(data_directory.AsUTF8Unsafe()))
+          .substr(0, 16);
+  PreferenceMacsKey() =
+      std::wstring(kTestCopiesKey) + L"\\" + base::ASCIIToWide(name);
+  ProfilePrefStoreManager::SetPreferenceValidationRegistryPathForTesting(
+      &PreferenceMacsKey());
+}
+
 // What Windows' wipe takes besides the data's own files: every key the TPM
-// holds for this data's PIN, at once, so a copy of security.json made
-// earlier opens nothing.
+// holds for this data's PIN, so a copy of security.json made earlier opens
+// nothing, and every profile's preference MACs in the registry, at once.
 model::WipeExtras WindowsWipeExtras(scoped_refptr<model::PinGuard> guard) {
   model::WipeExtras extras;
   extras.at_once = base::BindRepeating(
-      [](scoped_refptr<model::PinGuard> guard) {
+      [](scoped_refptr<model::PinGuard> guard, const std::wstring& macs) {
         if (guard) {
           guard->Forget(std::nullopt);
         }
+        if (!model::ForgetEveryPreferenceMacs(macs)) {
+          LOG(ERROR) << "Could not forget the preference MACs";
+        }
       },
-      std::move(guard));
+      std::move(guard), PreferenceMacsKey());
   return extras;
+}
+
+// The PIN screen's lines in Windows' words (Paper 11.7: Exit, and this PC),
+// the chip's own states as 07.10 chose them: its lockout (07.1.1), a new PIN
+// it wouldn't take (07.3.1), its key gone (07.6.1), the chip off (07.6.2),
+// and DPAPI's refusal (07.7.1).
+model::AppLock::System::Words WindowsLockWords() {
+  model::AppLock::System::Words words;
+  words.key_unreadable =
+      "Pane can’t read the key to your data.\n"
+      "Exit, then restore security.json.";
+  words.no_secret =
+      "Pane can’t read the key to your data.\n"
+      "Windows keeps it for the account that set Pane up: open Pane there.";
+  words.data_wont_open =
+      "Pane can’t open your encrypted data.\n"
+      "Exit, then open Pane again.";
+  words.guard_gone =
+      "Pane can’t read the key to your data.\n"
+      "This PC’s security chip no longer has it, and nothing can bring it "
+      "back.";
+  words.guard_unavailable =
+      "Pane can’t use this PC’s security chip.\n"
+      "Turn it back on if it was turned off, then open Pane again.";
+  words.locked_out =
+      "Pane can’t check your PIN right now.\n"
+      "Too many wrong PINs on this PC. Try again later.";
+  words.pin_not_saved =
+      "Pane couldn’t save the new PIN.\n"
+      "This PC’s security chip refused it. Try again later.";
+  return words;
+}
+
+// A deleted profile's preference MACs, once its folder has gone.
+model::FolderPlace::ForgetOutside ForgetProfileOutside() {
+  return base::BindRepeating(
+      [](const std::wstring& macs, const std::string& profile_id) {
+        if (!model::ForgetPreferenceMacs(macs, profile_id)) {
+          LOG(ERROR) << "Could not forget a deleted profile's preference MACs";
+        }
+      },
+      PreferenceMacsKey());
 }
 
 }  // namespace
@@ -231,6 +319,8 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
     KeepOutOfTheIndex(model::EngineFolder(data_directory));
   }
   TakeTestCopyHome();
+  // Before the wipe's at launch, which forgets them, and the first profile.
+  NamePreferenceMacsKey(data_directory, test_copy);
 
   // The panic wipe's data goes before anything reads the data directory: the
   // wiped instance started this one, or a wipe was cut short.
@@ -265,7 +355,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
   LaunchedData launched;
   launched.data_directory = data_directory;
   launched.place = base::MakeRefCounted<model::FolderPlace>(
-      data_directory, std::move(data_lock));
+      data_directory, std::move(data_lock), ForgetProfileOutside());
   launched.erase = std::move(erase);
   launched.loaded = std::move(loaded);
   launched.secret = std::move(secret);
@@ -274,6 +364,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
   launched.lock_system.guard = guard;
   launched.lock_system.no_secret =
       model::PinEntry::UnreadableReason::kDpapiRefused;
+  launched.lock_system.words = WindowsLockWords();
   launched.lock_system.wipe = base::BindRepeating(
       [](const base::FilePath& data_directory,
          scoped_refptr<model::PinGuard> guard) {

@@ -107,6 +107,10 @@ class PinEntry {
   void ContinueWithPin();
   // The app's answer to kVerify.
   Action Verified(bool success, int remaining);
+  // The PIN's guard refused whatever was typed (its lockout, or a new PIN it
+  // wouldn't take): the dots shake, nothing counts toward a wipe, and `why`,
+  // when there is one, shows until the next digit.
+  Action Refused(std::string why);
   // The dots stopped shaking: start over.
   void Shook();
 

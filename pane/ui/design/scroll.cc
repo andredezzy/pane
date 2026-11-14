@@ -7,8 +7,10 @@
 namespace pane {
 
 std::unique_ptr<views::ScrollView> LayeredScrollView() {
-  return std::make_unique<views::ScrollView>(
+  auto view = std::make_unique<views::ScrollView>(
       views::ScrollView::ScrollWithLayers::kEnabled);
+  TakeSystemScrollBars(*view);
+  return view;
 }
 
 }  // namespace pane

@@ -3,8 +3,10 @@
 #include "pane/ui/design/theme.h"
 
 #include <string>
+#include <vector>
 
 #include "pane/model/test_hooks.h"
+#include "ui/views/view.h"
 
 namespace pane {
 
@@ -34,6 +36,19 @@ void ApplyTheme(model::Theme theme) {
       model::TestHook("PANE_SYSTEM_APPEARANCE");
   ui::NativeTheme::SetPreferredColorSchemeOverride(
       PreferredColorSchemeFor(theme, system));
+}
+
+void PaintAgain(views::View& root) {
+  // Depth first, each view once: a theme changes rarely.
+  std::vector<views::View*> pending = {&root};
+  while (!pending.empty()) {
+    views::View* view = pending.back();
+    pending.pop_back();
+    view->SchedulePaint();
+    for (views::View* child : view->children()) {
+      pending.push_back(child);
+    }
+  }
 }
 
 }  // namespace pane

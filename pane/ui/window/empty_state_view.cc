@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "cc/paint/paint_flags.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/view_ids.h"
@@ -76,6 +77,8 @@ END_METADATA
 
 EmptyStateView::EmptyStateView() {
   SetID(kViewIdEmpty);
+  // Its text's ground, the panel's card under it (ground.h).
+  SetGround(*this, kPaneColorCard);
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
   mark_ = AddChildView(std::make_unique<PaneMark>());
   label_ = AddChildView(MakeLabel(u"Open a profile to start browsing", kLine,

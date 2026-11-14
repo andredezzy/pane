@@ -1,5 +1,5 @@
 import { launchPane, type PaneApp, pressWindowKey } from "../lib/pane";
-import { PRIMARY } from "../lib/platform";
+import { KEYS } from "../lib/platform";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
@@ -8,7 +8,8 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // ⌘Q then Return quits. On the Dark theme, ⌘Q twice quits. ⌘Q is posted into
 // the app's event queue, so it takes the menu bar's real path, which needs
 // no front. Esc and Return are the window's keys: with the front, posted as
-// ⌘Q is; without it, through Views' own dispatch to what has the keys.
+// ⌘Q is; without it, through Views' own dispatch to what has the keys. On
+// Windows the same with Exit Pane? and Alt+F4 (Paper 11.6, `KEYS.quit`).
 
 async function focusedPage(
 	context: ScenarioContext,
@@ -38,7 +39,7 @@ const quit: Scenario = async (context) => {
 	const app = await launchPane(context);
 	await focusedPage(context, app, url);
 
-	await app.send("key", { key: "q", modifiers: [PRIMARY] });
+	await app.send("key", KEYS.quit);
 
 	await app.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 
@@ -51,7 +52,7 @@ const quit: Scenario = async (context) => {
 		(state) => !state.quitConfirmation && state.focus === "pane.content",
 	);
 
-	await app.send("key", { key: "q", modifiers: [PRIMARY] });
+	await app.send("key", KEYS.quit);
 	await app.waitFor("Quit Pane? again", (state) => state.quitConfirmation);
 	await pressWindowKey(context, app, "\r");
 	const quitByReturn = await waitForExit(app.browser.pid);
@@ -63,11 +64,11 @@ const quit: Scenario = async (context) => {
 	await dark.send("theme", { theme: "dark" });
 	await focusedPage(context, dark, url);
 
-	await dark.send("key", { key: "q", modifiers: [PRIMARY] });
+	await dark.send("key", KEYS.quit);
 	await dark.waitFor("Quit Pane?", (state) => state.quitConfirmation);
 	await dark.render("quit-dark.png");
 
-	await dark.send("key", { key: "q", modifiers: [PRIMARY] });
+	await dark.send("key", KEYS.quit);
 	const quitByCommandQ = await waitForExit(dark.browser.pid);
 
 	expect(quitByCommandQ, "⌘Q twice did not quit");

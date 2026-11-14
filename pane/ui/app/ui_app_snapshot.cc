@@ -68,11 +68,12 @@ base::ListValue ControlFrames(views::Widget* widget) {
 // The window, as the Swift app's snapshot gave it: its title, whether it
 // shows, has the keys, and fills the screen, its frame ("{{x, y}, {w, h}}",
 // from the screen's top left), and its controls' frames. A closed window
-// shows nothing.
+// shows nothing. Its frame is what it shows: the whole window on the Mac;
+// on Windows, within the frame's resize edges, which show nothing.
 base::DictValue WindowState(views::Widget* widget) {
   const bool open = widget && !widget->IsClosed();
   const gfx::Rect bounds =
-      open ? widget->GetWindowBoundsInScreen() : gfx::Rect();
+      open ? widget->GetClientAreaBoundsInScreen() : gfx::Rect();
   return base::DictValue()
       .Set("title",
            open && widget->widget_delegate()

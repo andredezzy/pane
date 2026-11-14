@@ -6,15 +6,19 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/shell_integration_win.h"
+#include "pane/ui/view_ids.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/aura/window_targeter.h"
 #include "ui/aura/window_tree_host.h"
+#include "ui/base/hit_test.h"
+#include "ui/base/win/hwnd_metrics.h"
 #include "ui/base/win/shell.h"
 #include "ui/events/event.h"
 #include "ui/events/event_handler.h"
@@ -27,7 +31,11 @@
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
+#include "ui/views/widget/desktop_aura/desktop_window_tree_host_win.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_delegate.h"
+#include "ui/views/win/hwnd_message_handler_delegate.h"
+#include "ui/views/window/native_frame_view.h"
 
 namespace pane {
 
@@ -148,8 +156,91 @@ class KeysToTheWindow : public aura::WindowTargeter {
   const raw_ptr<aura::Window> content_;
 };
 
-// Pane's window on Windows: Views' own native widget, with the system's frame
-// (Pane's caption buttons and Snap Layouts are Paper's first, W5), Ctrl heard
+// The top edge of a window that is neither maximized nor full screen: it
+// resizes the window, where the system's frame has no top border, Pane's
+// window running to its top (Chrome's restored top resize area, 5 points,
+// its corners 16 wide, BrowserFrameViewWin::NonClientHitTest).
+constexpr int kTopResizeHeight = 5;
+constexpr int kTopResizeCorner = 16;
+
+// The frame's own view: the client's answer (a window control's own code,
+// HTCAPTION where the window moves), and the top edge's resize under it.
+class FrameView : public views::NativeFrameView {
+ public:
+  explicit FrameView(views::Widget* widget) : views::NativeFrameView(widget) {}
+
+  // views::NativeFrameView:
+  int NonClientHitTest(const gfx::Point& point) override {
+    const int hit = views::NativeFrameView::NonClientHitTest(point);
+    if (hit == HTMINBUTTON || hit == HTMAXBUTTON || hit == HTCLOSE ||
+        widget_->IsMaximized() || widget_->IsFullscreen() ||
+        !widget_->widget_delegate()->CanResize() ||
+        point.y() >= kTopResizeHeight) {
+      return hit;
+    }
+    if (point.x() < kTopResizeCorner) {
+      return HTTOPLEFT;
+    }
+    if (point.x() >= width() - kTopResizeCorner) {
+      return HTTOPRIGHT;
+    }
+    return HTTOP;
+  }
+};
+
+// The window's own place on the screen, as Chrome's browser window has it on
+// Windows (BrowserDesktopWindowTreeHostWin): the system's frame, whose resize
+// edges, Windows 11's rounded corners, hairline, and shadow it keeps, with no
+// title bar and no caption buttons of its own, Pane drawing its own in the
+// content panel's corner (Paper 11.1's B, WindowControls). Its client area
+// runs to the window's top; the frame keeps its sides and bottom, and, on a
+// maximized window, its top, which Windows puts off the screen's edge.
+class TreeHost : public views::DesktopWindowTreeHostWin {
+ public:
+  using views::DesktopWindowTreeHostWin::DesktopWindowTreeHostWin;
+
+  // views::DesktopWindowTreeHostWin:
+  views::FrameMode GetFrameMode() const override {
+    return views::FrameMode::SYSTEM_DRAWN_NO_CONTROLS;
+  }
+
+  bool GetClientAreaInsets(gfx::Insets* insets,
+                           int frame_thickness) const override {
+    if (GetWidget()->IsFullscreen()) {
+      *insets = gfx::Insets();
+      return true;
+    }
+    *insets =
+        gfx::Insets::TLBR(GetWidget()->IsMaximized() ? frame_thickness : 0,
+                          frame_thickness, frame_thickness, frame_thickness);
+    return true;
+  }
+
+  // No glass in the client area: what the window shows is Pane's own,
+  // solid (Paper 11.9).
+  bool GetDwmFrameInsetsInPixels(gfx::Insets* insets) const override {
+    *insets = gfx::Insets();
+    return true;
+  }
+
+  std::unique_ptr<views::FrameView> CreateFrameView() override {
+    return std::make_unique<FrameView>(GetWidget());
+  }
+
+  // `size` is what the window shows, 1280 by 800 as on the Mac (Paper
+  // 11.1.1): the frame's resize edges, which show nothing, go around its
+  // sides and bottom.
+  void CenterWindow(const gfx::Size& size) override {
+    const int edge = ui::GetResizableFrameThicknessFromMonitorInDIP(
+        ::MonitorFromWindow(GetHWND(), MONITOR_DEFAULTTONEAREST),
+        /*has_caption=*/true);
+    views::DesktopWindowTreeHostWin::CenterWindow(
+        gfx::Size(size.width() + 2 * edge, size.height() + edge));
+  }
+};
+
+// Pane's window on Windows: Views' own native widget, on the system's frame
+// with Pane's own caption buttons (TreeHost, WindowControls), Ctrl heard
 // ahead of the page, a key the focused window can't take heard by the
 // window's shortcuts, Views first over the page, and Pane's identity on the
 // taskbar.
@@ -164,6 +255,8 @@ class Frame : public views::DesktopNativeWidgetAura {
 
   // views::DesktopNativeWidgetAura:
   void InitNativeWidget(views::Widget::InitParams params) override {
+    // Owned by the window's dispatcher, as Chrome's browser window's is.
+    params.desktop_window_tree_host = new TreeHost(GetWidget(), this);
     views::DesktopNativeWidgetAura::InitNativeWidget(std::move(params));
     // Ahead of Views' own handlers on the root, the FocusManager's among
     // them.
@@ -222,16 +315,24 @@ class Frame : public views::DesktopNativeWidgetAura {
 
 }  // namespace
 
-// The system's frame, until Pane's caption buttons are drawn (W5): what the
-// Mac's frame does besides drawing is done here. While an overlay takes every
-// key, Quit's keys still reach the window's Quit (Window::AcceleratorPressed),
-// and the window's other commands don't run, so `takes_every_key` asks
-// nothing more here.
+// What the Mac's frame does besides drawing is done here, and the system's
+// frame keeps its edges (TreeHost). While an overlay takes every key, Quit's
+// keys still reach the window's Quit (Window::AcceleratorPressed), and the
+// window's other commands don't run, so `takes_every_key` asks nothing more
+// here.
 views::NativeWidget* CreateFrame(
     views::Widget* widget,
     base::RepeatingCallback<bool()> takes_every_key,
     base::RepeatingCallback<void(bool control_down)> control_changed) {
   return new Frame(widget, std::move(control_changed));
+}
+
+// Alt alone, which Windows hands the window as SC_KEYMENU and Views as an
+// accelerator (HWNDMessageHandler::OnSysCommand), and F10: Chrome's keys for
+// its menu there (IDC_FOCUS_MENU_BAR), Pane's app menu's (Paper 11.4's A).
+std::vector<ui::Accelerator> AppMenuKeys() {
+  return {ui::Accelerator(ui::VKEY_MENU, ui::EF_NONE),
+          ui::Accelerator(ui::VKEY_F10, ui::EF_NONE)};
 }
 
 // A page's own window (RenderWidgetHostViewAura) takes the press, or Views'
@@ -254,6 +355,9 @@ PressTarget PressTargetAt(views::Widget* widget, const gfx::Point& point) {
     case HTCLIENT:
     case HTNOWHERE:
       return PressTarget::kViews;
+    // The frame's own: its edges, and the window controls, which answer as
+    // Windows' own buttons for Snap Layouts (WindowControls), as the Mac's
+    // traffic lights are the frame's.
     default:
       return PressTarget::kOther;
   }
@@ -270,8 +374,22 @@ std::string PlatformViewAt(views::Widget* widget, const gfx::Point& point) {
 // is to decide): the window opens in the middle of the screen each time.
 void KeepFrame(views::Widget* widget) {}
 
+// Minimize, Maximize or Restore, and Close, where the window shows them: in
+// the panel's corner (WindowControls), from the window's top left.
 std::vector<gfx::Rect> WindowControlFrames(views::Widget* widget) {
-  return {};
+  std::vector<gfx::Rect> frames;
+  views::View* root = widget ? widget->GetRootView() : nullptr;
+  if (!root) {
+    return frames;
+  }
+  for (int id :
+       {kViewIdWindowMinimize, kViewIdWindowMaximize, kViewIdWindowClose}) {
+    views::View* control = root->GetViewByID(id);
+    if (control && control->IsDrawn()) {
+      frames.push_back(control->ConvertRectToWidget(control->GetLocalBounds()));
+    }
+  }
+  return frames;
 }
 
 }  // namespace pane

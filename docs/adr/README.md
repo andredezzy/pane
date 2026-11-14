@@ -90,6 +90,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0123](0123-panes-views-raster-on-the-cpu.md) Pane's views raster on the CPU
 - [0124](0124-one-ui-in-views-on-every-os.md) Pane's UI is one, in C++ Views inside its own Chromium, for the Mac and Windows, with no Swift
 - [0125](0125-pane-shapes-its-text-over-its-fonts-own-tables.md) Pane's views shape their text over their fonts' own tables
+- [0126](0126-pane-on-windows-looks-as-paper-page-11-draws-it.md) Pane on Windows looks as Paper's page 11 draws it: its own caption buttons in the panel's corner, the menu bar's commands under "Pane ⌄", and Windows' words
 
 ## Merged records
 

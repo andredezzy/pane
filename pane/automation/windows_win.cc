@@ -214,8 +214,8 @@ base::ListValue NativeWindows(views::Widget* main) {
   return windows;
 }
 
-// The system's alert (ShowSystemAlert) shows nothing on Windows yet, W5's:
-// no sheet shows on the window.
+// The system's alert (ShowSystemAlert) shows nothing on Windows yet, its
+// board not drawn: no sheet shows on the window.
 base::Value SheetAlert(views::Widget* main) {
   return base::Value();
 }

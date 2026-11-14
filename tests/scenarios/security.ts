@@ -14,13 +14,12 @@ import {
 	cutShortSecurity,
 	DATA_IN_A_VOLUME,
 	EARLIER_APPS,
-	HAS_MENU_BAR,
 	launchPane,
 	type PaneApp,
 	setPinBeforeLaunch,
 	volumeShut,
 } from "../lib/pane";
-import { ENGINE_FOLDER, PRIMARY } from "../lib/platform";
+import { ENGINE_FOLDER, KEYS } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import {
 	childrenOf,
@@ -29,7 +28,7 @@ import {
 	processGroupOf,
 	waitForExit,
 } from "../lib/processes";
-import { filesHolding, imagesAttachedIn } from "../lib/tools";
+import { filesHolding, imagesAttachedIn, preferenceMacs } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The PIN lock. Pane starts locked behind a PIN the Electron app set
@@ -62,8 +61,8 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // Pane there having kept a hash; a key the TPM holds guards it, and a seal it
 // guards never wipes, Windows' lockout making the guesses wait (ADR 0113): the
 // wipe's deleting the chip's keys is `pane_unittests`'. Windows has no volume,
-// no watchdog, and no earlier app's data, and a home for the menu bar's
-// commands is W5's.
+// no watchdog, and no earlier app's data; its menu bar's commands are under
+// the sidebar's "Pane ⌄" (Paper 11.4's A), chosen by the same paths.
 
 type Saved = {
 	state: {
@@ -286,24 +285,16 @@ const security: Scenario = async (context) => {
 	const menu = async (path: string[]) =>
 		(await app.send<boolean>("menu", { path })).result;
 
-	const lockedMenu = HAS_MENU_BAR
-		? {
-				newTab: await menu(["File", "New Tab"]),
-				reopenClosedTab: await menu(["File", "Reopen Closed Tab"]),
-				print: await menu(["File", "Print\u2026"]),
-				developerTools: await menu(["View", "Developer Tools"]),
-				tab1: await menu(["Tab", "Tab 1"]),
-				settings: await menu(["Pane", "Settings\u2026"]),
-				extensions: await menu(["Window", "Extensions"]),
-				checkForUpdates: await menu(["Pane", "Check for Updates\u2026"]),
-			}
-		: {};
-
-	if (!HAS_MENU_BAR) {
-		context.defer(
-			"the menu bar behind the lock: Windows' home for its commands is W5's, Paper first",
-		);
-	}
+	const lockedMenu = {
+		newTab: await menu(["File", "New Tab"]),
+		reopenClosedTab: await menu(["File", "Reopen Closed Tab"]),
+		print: await menu(["File", "Print\u2026"]),
+		developerTools: await menu(["View", "Developer Tools"]),
+		tab1: await menu(["Tab", "Tab 1"]),
+		settings: await menu(["Pane", "Settings\u2026"]),
+		extensions: await menu(["Window", "Extensions"]),
+		checkForUpdates: await menu(["Pane", "Check for Updates\u2026"]),
+	};
 
 	// A link clicked in another app, as Launch Services hands it over.
 	const handedURL = context.fixtures.url("nav-a.html?handed-behind-the-lock");
@@ -324,8 +315,7 @@ const security: Scenario = async (context) => {
 	expect(
 		Object.entries(lockedMenu).every(
 			([item, ran]) => ran === (item === "checkForUpdates"),
-		) &&
-			(!HAS_MENU_BAR || "checkForUpdates" in lockedMenu),
+		),
 		`the menu behind the lock: ${JSON.stringify(lockedMenu)}`,
 	);
 
@@ -431,8 +421,16 @@ const security: Scenario = async (context) => {
 		(state) => screen(state) === null && state.security.pinLength === 6,
 	);
 
-	// Sealed again with the new PIN: a salt of its own, and no hash.
-	const sealedAtChange = saved(dataDir)?.state;
+	// Sealed again with the new PIN: a salt of its own, and no hash. The lock
+	// says so as it starts the save (AppLock::Resealed), so the file comes a
+	// moment after; on Windows, with the chip, longer.
+	const sealedAtChange = (
+		await pollValue(
+			() => saved(dataDir),
+			(file) => file?.state.pin?.length === 6,
+			5_000,
+		)
+	)?.state;
 
 	expect(
 		sealedAtChange?.pin?.length === 6 &&
@@ -452,11 +450,18 @@ const security: Scenario = async (context) => {
 		(state) => screen(state) === null && state.security.pinLength === null,
 	);
 
+	// Saved a moment after the screen goes, as at the change.
+	const afterRemoval = await pollValue(
+		() => saved(dataDir),
+		(file) => file?.state.pin === null,
+		5_000,
+	);
+
 	expect(
-		saved(dataDir)?.state.pin === null &&
-			!!saved(dataDir)?.state.key &&
-			(saved(dataDir)?.state.key?.pin ?? null) === null,
-		`security.json after the removal: ${JSON.stringify(saved(dataDir))}`,
+		afterRemoval?.state.pin === null &&
+			!!afterRemoval.state.key &&
+			(afterRemoval.state.key.pin ?? null) === null,
+		`security.json after the removal: ${JSON.stringify(afterRemoval)}`,
 	);
 
 	// Set up: two PINs that differ, then the same twice.
@@ -573,7 +578,10 @@ const security: Scenario = async (context) => {
 	const caps = await launchPane(context, { dataDir: capsDir });
 
 	if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
-		await caps.send("key", { key: "q", modifiers: [PRIMARY, "capsLock"] });
+		await caps.send("key", {
+			...KEYS.quit,
+			modifiers: [...KEYS.quit.modifiers, "capsLock"],
+		});
 
 		expect(
 			await waitForExit(caps.browser.pid),
@@ -694,11 +702,18 @@ async function fifthKeeps(app: PaneApp, dataDir: string, profile: string) {
 		`the fifth wrong PIN on a seal the TPM guards: ${JSON.stringify(after)}`,
 	);
 
-	const opened = await type(
+	await type(
 		app,
 		"2468",
 		"the right PIN after the fifth wrong one",
 		(state) => !state.security.locked,
+	);
+
+	// The lock opens before the data does, and the profiles come with it.
+	const opened = await pollValue(
+		() => app.state(),
+		(state) => state.profiles.some((entry) => entry.id === profile),
+		10_000,
 	);
 
 	expect(
@@ -752,6 +767,9 @@ async function fifthWipes(
 
 	const keyBefore = saved(dataDir)?.state.key?.box;
 	const guardBefore = await pinGuardKeys(dataDir);
+	// On Windows, the profile's preference MACs in the test copy's own
+	// registry key, which the wipe takes too (ADR 0042).
+	const macsBefore = await preferenceMacs();
 
 	expect(
 		existsSync(join(dataDir, "profiles.json")) &&
@@ -829,6 +847,16 @@ async function fifthWipes(
 	expect(
 		guardAfter.length === 0,
 		`the TPM's keys after the wipe: ${guardBefore.length} before, ${guardAfter.length} after`,
+	);
+
+	const macsAfter = await preferenceMacs();
+
+	expect(
+		macsBefore === null ||
+			(macsBefore.testCopies.includes(profile) &&
+				!macsAfter?.testCopies.includes(profile) &&
+				!macsAfter?.users.includes(profile)),
+		`the profile's preference MACs and the wipe: ${JSON.stringify({ profile, macsBefore, macsAfter })}`,
 	);
 
 	expect(

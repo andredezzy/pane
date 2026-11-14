@@ -5,6 +5,7 @@ import { ENGINE_FOLDER } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { targets as targetsOf } from "../lib/targets";
+import { preferenceMacs } from "../lib/tools";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -15,7 +16,10 @@ import { expect, type Scenario } from "../run";
 // deleted without asking. A profile whose engine context will not open (an
 // id with a slash, or too long to be a folder) shows its tab as the sad
 // tab, and deleting it leaves nothing pending. A kill while a deleted profile's
-// folder is going leaves its record, and the next launch finishes it.
+// folder is going leaves its record, and the next launch finishes it. On
+// Windows a deleted profile's preference MACs leave the registry with its
+// folder, and a test copy keeps them under a key of its own, never the
+// user's.
 const profileLifecycle: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lifecycle-");
 
@@ -152,6 +156,22 @@ const profileLifecycle: Scenario = async (context) => {
 
 	await relaunched.browser.close();
 
+	// What the profiles left outside their folders: on Windows Chromium's
+	// MACs of their preferences, in the test copy's own registry key, never
+	// the user's, the deleted profile's gone with its folder (ADR 0121).
+	// Keep's, written at each quit, show the copy's key is the one written.
+	const macs = await preferenceMacs();
+
+	expect(
+		macs === null ||
+			(macs.testCopies.includes(keep) &&
+				!macs.testCopies.includes(gone) &&
+				!macs.testCopies.includes("orphan") &&
+				!macs.users.includes(keep) &&
+				!macs.users.includes(gone)),
+		`the profiles' preference MACs in the registry: ${JSON.stringify({ keep, gone, macs })}`,
+	);
+
 	const orphan = {
 		data: existsSync(orphanDir),
 		listed: existsSync(join(dataDir, "deletions.json")),
@@ -268,6 +288,15 @@ const profileLifecycle: Scenario = async (context) => {
 	);
 
 	await afterKill.browser.close();
+
+	const macsAfterKill = await preferenceMacs();
+
+	expect(
+		macsAfterKill === null ||
+			(!macsAfterKill.testCopies.includes(doomed) &&
+				!macsAfterKill.users.includes(doomed)),
+		`the killed delete left the profile's preference MACs: ${JSON.stringify(macsAfterKill)}`,
+	);
 
 	expect(
 		purged,

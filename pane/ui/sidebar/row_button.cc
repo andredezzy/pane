@@ -7,6 +7,8 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "pane/ui/design/palette.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/geometry/point.h"
@@ -21,6 +23,10 @@ RowButton::RowButton(PressedCallback pressed)
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&RowButton::LookChanged, base::Unretained(this)));
+  // What the row draws of its own over its look, under its text: a
+  // profile's tint (ground.h).
+  highlight_->SetGroundOver(
+      base::BindRepeating(&RowButton::GroundOver, base::Unretained(this)));
   auto background =
       std::make_unique<ControlBackground>(look_, highlight_.get());
   background_ = background.get();
@@ -119,6 +125,13 @@ double RowButton::hover() const {
 
 SkColor RowButton::Tint() const {
   const ui::ColorProvider* colors = GetColorProvider();
+  // Under a contrast theme a dimmed row takes its GrayText instead (Paper
+  // 11.10).
+  if (const SkColor gray = colors ? colors->GetColor(kPaneColorForcedGrayText)
+                                  : SK_ColorTRANSPARENT;
+      dimmed_ && SkColorGetA(gray) != SK_AlphaTRANSPARENT) {
+    return gray;
+  }
   const std::optional<SkColor> tint =
       colors ? TintOf(look_, *colors, hover()) : std::nullopt;
   if (!tint) {
@@ -128,7 +141,15 @@ SkColor RowButton::Tint() const {
                                                            ContentsOpacity())));
 }
 
+SkColor RowButton::GroundOver(SkColor under) const {
+  return under;
+}
+
 void RowButton::LookChanged() {
+  // Its text's ground follows what it draws (a profile's tint moving).
+  if (highlight_) {
+    highlight_->UpdateGround();
+  }
   SchedulePaint();
 }
 

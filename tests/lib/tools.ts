@@ -3,8 +3,9 @@
 // user's idle time and front app, the system's appearance, the data volume's
 // disk images (ADR 0113), LaunchServices, what makes a stand-in Pane (a copy,
 // a signature, a plist, a dmg), a download's quarantine and origin, a crash's
-// dumps and Crashpad's database, the data folder's privacy and its index, and
-// a search of files' bytes.
+// dumps and Crashpad's database, Chromium's preference MACs in Windows'
+// registry, the data folder's privacy and its index, and a search of files'
+// bytes.
 import {
 	closeSync,
 	type Dirent,
@@ -520,6 +521,9 @@ export const downloadOrigin = bySystem({
 				{ PANE_FILE: file },
 			)
 		)
+			// Windows' Attachment Manager ends the stream with a NUL at times,
+			// after its last line.
+			.replaceAll("\0", "")
 			.trim()
 			.split(/\r?\n/)
 			.filter(Boolean);
@@ -589,6 +593,59 @@ export const crashpadKept = bySystem({
 			),
 		].filter((path) => statSync(path).mtimeMs >= since),
 	],
+});
+
+// Chromium's MACs of each profile's tracked preferences, which on Windows it
+// keeps a second time in the registry (pane/model/preference_macs.h): a test
+// copy's under a key of its own, `HKCU\Software\Pane Test Copies\<its
+// data's name>`, the user's Pane's under `HKCU\Software\Pane`, which no test
+// copy writes (pane/app/data_launch_win.cc). The Mac keeps them in the
+// profile's folder alone.
+const TEST_COPIES_MACS = "HKCU\\Software\\Pane Test Copies";
+const USERS_MACS = "HKCU\\Software\\Pane\\PreferenceMACs";
+
+// The profile folders whose MACs `key` and its subkeys hold, by name.
+async function macProfilesUnder(key: string): Promise<string[]> {
+	const listed = await Bun.$`reg query ${key} /s`.quiet().nothrow();
+
+	if (listed.exitCode !== 0) {
+		return [];
+	}
+
+	return listed
+		.text()
+		.split(/\r?\n/)
+		.flatMap((line) => {
+			const match = /^HKEY_[^\\]+\\.*\\PreferenceMACs\\([^\\]+)$/i.exec(
+				line.trim(),
+			);
+
+			return match?.[1] ? [match[1]] : [];
+		});
+}
+
+// The profiles whose MACs test copies and the user's Pane keep outside their
+// folders; null on the Mac, which keeps none there.
+export const preferenceMacs = bySystem({
+	mac: async (): Promise<{ testCopies: string[]; users: string[] } | null> =>
+		null,
+	windows: async (): Promise<{
+		testCopies: string[];
+		users: string[];
+	} | null> => ({
+		testCopies: await macProfilesUnder(TEST_COPIES_MACS),
+		users: await macProfilesUnder(USERS_MACS),
+	}),
+});
+
+// What test copies left in the registry, removed once a scenario ends, as
+// their folders are: a copy killed, or a profile never deleted, keeps its
+// key until then.
+export const forgetTestCopiesMacs = bySystem({
+	mac: async () => {},
+	windows: async () => {
+		await Bun.$`reg delete ${TEST_COPIES_MACS} /f`.quiet().nothrow();
+	},
 });
 
 // Whether the data folder is the user's alone: on the Mac by its mode, 0700,

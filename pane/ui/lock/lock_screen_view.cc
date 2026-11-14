@@ -17,6 +17,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "pane/model/security.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/icon_button.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
@@ -394,6 +395,8 @@ LockScreenView::LockScreenView(Callbacks callbacks)
   SetVisible(false);
   frame_ = AddChildView(std::make_unique<PanelFrame>(/*on_window=*/false));
   panel_ = AddChildView(std::make_unique<Panel>(this));
+  // Its text's ground, the panel's card under it (ground.h).
+  SetGround(*panel_, kPaneColorCard);
   auto back = std::make_unique<IconButton>(
       callbacks_.back, kBackSize,
       IconButton::Glyph{.icon = Icon::kArrowLeft, .size = kBackSize}, u"Back",

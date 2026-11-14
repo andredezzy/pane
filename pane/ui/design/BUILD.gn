@@ -11,6 +11,7 @@ source_set("design") {
   visibility = [
     ":unit_tests",
     "//pane",
+    "//pane/ui/app:commands",
   ]
 
   sources = [
@@ -28,6 +29,8 @@ source_set("design") {
     "field.h",
     "focus_ring.cc",
     "focus_ring.h",
+    "ground.cc",
+    "ground.h",
     "icon_button.cc",
     "icon_button.h",
     "icons.cc",
@@ -50,6 +53,9 @@ source_set("design") {
     "squircle.h",
     "switch.cc",
     "switch.h",
+    "system_words.h",
+    "tab_order.cc",
+    "tab_order.h",
     "text.cc",
     "text.h",
     "text_button.cc",
@@ -85,8 +91,8 @@ source_set("design") {
   ]
 
   # A menu's template icon, which only the Mac's menus tint, the Mac's
-  # selected-text colors, the system's checkbox, AppKit's own cell, and a menu
-  # at its anchor, Chromium's own runner's pieces.
+  # selected-text colors, the system's checkbox, AppKit's own cell, a menu at
+  # its anchor, Chromium's own runner's pieces, and the Mac's words.
   if (is_mac) {
     sources += [
       "anchored_menu_mac.h",
@@ -94,6 +100,10 @@ source_set("design") {
       "checkbox_mac.mm",
       "menu_icon_mac.mm",
       "palette_mac.mm",
+      "scroll_mac.cc",
+      "system_words_mac.cc",
+      "tab_order_mac.cc",
+      "text_mac.cc",
     ]
     deps += [
       "//components/remote_cocoa/app_shim",
@@ -103,14 +113,18 @@ source_set("design") {
   }
 
   # A menu at its anchor, Views' own, the system's checkbox, the native
-  # theme's, a menu's icon in the menu's icon color, and the system's
-  # highlight.
+  # theme's, a menu's icon in the menu's icon color, the system's highlight,
+  # and Windows' words.
   if (is_win) {
     sources += [
       "anchored_menu_win.cc",
       "checkbox_win.cc",
       "menu_icon_win.cc",
       "palette_win.cc",
+      "scroll_win.cc",
+      "system_words_win.cc",
+      "tab_order_win.cc",
+      "text_win.cc",
     ]
   }
 }
@@ -130,6 +144,7 @@ source_set("unit_tests") {
     "placement_unittest.cc",
     "scroll_unittest.cc",
     "squircle_unittest.cc",
+    "tab_order_unittest.cc",
     "text_unittest.cc",
     "theme_unittest.cc",
   ]

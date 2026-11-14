@@ -144,7 +144,13 @@ const updateInstall: Scenario = async (context) => {
 		);
 
 		expect(reopened === "99.0.0", "the new Pane did not open on the same data");
-		await settle(() => leftovers(restart.bundle).length === 0);
+
+		// The installed one's dmg goes after the bundle's swap.
+		await settle(
+			() =>
+				leftovers(restart.bundle).length === 0 &&
+				!existsSync(join(restart.downloads, dmgs.good.name)),
+		);
 
 		expect(
 			leftovers(restart.bundle).length === 0,
@@ -323,7 +329,10 @@ const updateInstall: Scenario = async (context) => {
 		const againPid = again.browser.pid;
 		await again.send("quit").catch(() => undefined);
 		await exited(againPid);
-		await settle(() => leftovers(newer.bundle).length === 0);
+
+		await settle(
+			() => leftovers(newer.bundle).length === 0 && !inDownloads(dmgs.newer),
+		);
 
 		expect(
 			version(newer.bundle) === "100.0.0" &&

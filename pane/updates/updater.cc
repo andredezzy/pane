@@ -29,6 +29,7 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "pane/model/test_hooks.h"
 #include "pane/model/update_install.h"
+#include "pane/ui/design/system_words.h"
 #include "pane/updates/dmg_download.h"
 #include "pane/updates/update_files.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -182,8 +183,11 @@ std::u16string Updater::Label() const {
   switch (status_) {
     case Status::kDownloading:
       return u"Downloading update";
+    // Quit and install on the Mac, Exit and install on Windows, the system's
+    // word for the app's going (Paper 11.7).
     case Status::kDownloaded:
-      return staged() ? u"Restart to update" : u"Quit and install";
+      return staged() ? std::u16string(u"Restart to update")
+                      : base::StrCat({Words().quit, u" and install"});
     default:
       return u"Update available";
   }

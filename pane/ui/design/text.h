@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/color/color_variant.h"
 #include "ui/gfx/font.h"
 #include "ui/views/view.h"
@@ -75,6 +76,26 @@ inline constexpr TextStyle kRowDescription{12, weight::kRegular, 16};
 // The system font at `size` points and `weight`, as SwiftUI's .system: SF on
 // the Mac, the platform's UI font elsewhere. Each is made once.
 const gfx::FontList& SystemFont(int size, gfx::Font::Weight weight);
+
+// Each system's, which SystemFont makes once: the Mac's SF, its optical sizes
+// and weights; on Windows 11 Segoe UI Variable, each weight on its axis and
+// the optical size Windows gives each size, and on Windows 10 Segoe UI, as
+// the user chose (text_win.cc).
+gfx::FontList PlatformSystemFont(int size, gfx::Font::Weight weight);
+
+// Whether Pane's labels take the system's subpixel text where it sits on an
+// opaque ground: never on the Mac, where the Swift's was grayscale (ADR
+// 0060); on Windows, ClearType, as the user chose (Paper 11.8, text_win.cc).
+bool LabelsTakeClearType();
+
+// The opaque color under `label`'s text, what its surface and the fills
+// between paint there: where the system's text takes it (Windows), the label
+// draws ClearType against it, painting it under its text in its own layer,
+// which a transparent layer doesn't hold for ClearType to blend with. A
+// ground that isn't opaque leaves it grayscale. On the Mac nothing changes.
+// Pane's labels take the nearest ground up their parents themselves
+// (ground.h), each theme.
+void SetLabelGround(views::Label& label, SkColor ground);
 
 // Sets `label` in Pane's text: the style's font and line box, `color` (a
 // ui::ColorVariant, so a Theme change resolves it again), taken as it is

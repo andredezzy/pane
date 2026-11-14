@@ -1,4 +1,4 @@
-import { launchPane } from "../lib/pane";
+import { launchPane, TOP_RESIZE_EDGE, windowCloseAt } from "../lib/pane";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
@@ -27,13 +27,14 @@ const windowDrag: Scenario = async (context) => {
 
 	const hit = async (x: number, y: number) => (await app.hitTest(x, y)).target;
 
+	// The top gutter under the edge that resizes the window on Windows.
 	const points = {
 		headerGap: [150, 20],
 		headerTitle: [95, 20],
-		topGutter: [700, 4],
+		topGutter: [700, Math.max(4, TOP_RESIZE_EDGE + 2)],
 		rightGutter: [width - 4, height / 2],
 		bottomGutter: [700, height - 4],
-		closeButton: [18, 18],
+		closeButton: windowCloseAt(width),
 		page: [700, height / 2],
 		sidebarList: [110, 120],
 		settingsButton: [60, height - 22],
@@ -60,6 +61,13 @@ const windowDrag: Scenario = async (context) => {
 
 	for (const name of ["closeButton", "page", "sidebarList", "settingsButton"]) {
 		expect(hits[name] !== DRAG, `${name} moves the window: ${hits[name]}`);
+	}
+
+	// Windows' top edge resizes the window, as Chrome's does there.
+	if (TOP_RESIZE_EDGE > 0) {
+		const topEdge = await hit(700, 1);
+
+		expect(topEdge === "other", `the top edge: ${topEdge}`);
 	}
 
 	// The lock screen's panel, around its numpad.

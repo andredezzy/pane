@@ -8,10 +8,20 @@
 #include <string>
 #include <vector>
 
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ref.h"
 #include "base/values.h"
 #include "pane/ui/app/commands.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/menus/simple_menu_model.h"
+
+namespace gfx {
+class Point;
+}
+
+namespace views {
+class Widget;
+}
 
 namespace pane {
 
@@ -19,7 +29,9 @@ namespace pane {
 // from the command table, every item's state asked of the app (its runner)
 // each time the menu shows or a key looks it up. The platform shows it: on
 // the Mac as the app's main menu, through MenuControllerCocoa, the
-// platform's own items running AppKit's actions (menu_bar_mac.mm).
+// platform's own items running AppKit's actions (menu_bar_mac.mm); on
+// Windows, which has no menu bar, as one menu under the sidebar's "Pane ⌄",
+// Views' own (Paper 11.4's A, 11.5; menu_bar_win.cc).
 class MenuBar : public ui::SimpleMenuModel::Delegate {
  public:
   // The platform's menu bar, which shows the models.
@@ -38,6 +50,15 @@ class MenuBar : public ui::SimpleMenuModel::Delegate {
     // The menus as they show now: each item's title, its key, and whether
     // it is enabled, hidden, or checked.
     virtual base::ListValue Describe() = 0;
+    // Windows' one menu of the app's commands, over `widget`, its top left at
+    // `anchor` (a point of the screen), `closed` running once it has gone:
+    // whether it showed. The Mac's menu bar shows its own, and shows none.
+    virtual bool ShowAppMenu(views::Widget& widget,
+                             const gfx::Point& anchor,
+                             ui::mojom::MenuSourceType source,
+                             base::OnceClosure closed);
+    // While it shows.
+    virtual bool IsAppMenuShowing() const;
   };
 
   // `runner` outlives it.

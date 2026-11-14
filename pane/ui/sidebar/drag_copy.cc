@@ -10,6 +10,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
@@ -107,7 +108,8 @@ class DragCopy::Contents : public views::View {
     }
     if (profile_) {
       PaintProfileMark(*canvas, height(), profile_->color,
-                       profile_->shown ? 1 : 0);
+                       profile_->shown ? 1 : 0,
+                       colors->GetColor(kPaneColorForcedEdge));
       if (profile_->proxy) {
         PaintProxyDot(*canvas, *colors, dot_x_, height(), *profile_->proxy);
       }
@@ -136,6 +138,9 @@ END_METADATA
 
 DragCopy::DragCopy() {
   SetID(kViewIdDragCopy);
+  // It moves with the pointer, on a layer between points: grayscale, on no
+  // ground (ground.h).
+  SetGround(*this, SK_ColorTRANSPARENT);
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
   SetCanProcessEventsWithinSubtree(false);

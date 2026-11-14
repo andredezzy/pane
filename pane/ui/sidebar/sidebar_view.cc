@@ -11,6 +11,7 @@
 #include "base/location.h"
 #include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/icon_button.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
@@ -19,6 +20,7 @@
 #include "pane/ui/design/text.h"
 #include "pane/ui/dialogs/system_alert.h"
 #include "pane/ui/sidebar/drag_copy.h"
+#include "pane/ui/sidebar/header_title.h"
 #include "pane/ui/sidebar/profile_row.h"
 #include "pane/ui/sidebar/row_list.h"
 #include "pane/ui/sidebar/sidebar_button.h"
@@ -39,16 +41,14 @@ namespace pane {
 
 namespace {
 
-// The header: the traffic lights' row, 39 points, its title 82 in, after
-// them, and Collapse all, a 28-point circle, 8 from the column's edge, as the
-// rows below. The title is centered a point above the row's bottom, on the
-// lights' line (ADR 0036).
+// The header: the traffic lights' row, 39 points, its title (each system's,
+// header_title.h), and Collapse all, a 28-point circle, 8 from the column's
+// edge, as the rows below. The title is centered a point above the row's
+// bottom, on the lights' line (ADR 0036).
 constexpr int kHeaderHeight = 39;
-constexpr int kHeaderLeading = 82;
 constexpr int kHeaderTrailing = 8;
 constexpr int kHeaderBottom = 1;
 constexpr int kCollapseAllSize = 28;
-constexpr TextStyle kTitle{12, weight::kSemibold, 0};
 
 // The footer (px-2 pb-2): the update pill while it shows, New, a rule,
 // Settings, 6 apart.
@@ -116,6 +116,8 @@ SidebarView::SidebarView(Callbacks callbacks)
   SetID(kViewIdSidebar);
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
   GetViewAccessibility().SetName(u"Sidebar");
+  // Its text's ground, the window's color under it (ground.h).
+  SetGround(*this, kPaneColorWindowBackground);
 
   // The header and the footer each draw on a layer of their own, as small as
   // they are, over the window's color, which holds no tiles (RootView).
@@ -123,11 +125,14 @@ SidebarView::SidebarView(Callbacks callbacks)
   header_->SetID(kViewIdSidebarHeader);
   header_->SetPaintToLayer();
   header_->layer()->SetFillsBoundsOpaquely(false);
-  title_ = header_->AddChildView(
-      MakeLabel(u"Pane", kTitle, kPaneColorMutedForeground));
-  // The title moves the window, as the rest of the header does.
-  title_->SetCanProcessEventsWithinSubtree(false);
-  title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  title_ = header_->AddChildView(MakeHeaderTitle(base::BindRepeating(
+      [](SidebarView* sidebar, const gfx::Rect& on_screen,
+         ui::mojom::MenuSourceType source) {
+        if (sidebar->callbacks_.open_app_menu) {
+          sidebar->callbacks_.open_app_menu.Run(on_screen, source);
+        }
+      },
+      base::Unretained(this))));
   collapse_all_ = header_->AddChildView(std::make_unique<IconButton>(
       callbacks_.collapse_all, kCollapseAllSize,
       IconButton::Glyph{Icon::kChevronsDownUp, 16}, u"Collapse all profiles"));
@@ -442,11 +447,20 @@ void SidebarView::AskToDelete(const std::string& profile_id) {
                       weak_factory_.GetWeakPtr(), profile_id));
 }
 
+void SidebarView::SetAppMenuShowing(bool showing) {
+  SetHeaderMenuShowing(*title_, showing);
+}
+
+bool SidebarView::OpenAppMenuFromKeys() {
+  return OpenHeaderMenu(*title_);
+}
+
 std::vector<std::pair<std::string, const views::View*>>
 SidebarView::NamedViews() const {
   std::vector<std::pair<std::string, const views::View*>> named = {
       {"pane.sidebar", this},
       {"pane.sidebar.header", header_},
+      {"pane.sidebar.title", title_},
       {"pane.sidebar.collapseAll", collapse_all_},
       {"pane.sidebar.profiles", list_},
       {"pane.sidebar.new", new_},
@@ -551,9 +565,8 @@ void SidebarView::Layout(PassKey) {
   collapse_all_->SetBounds(
       std::max(width() - kHeaderTrailing - kCollapseAllSize, 0),
       (header_row - kCollapseAllSize) / 2, kCollapseAllSize, kCollapseAllSize);
-  title_->SetBounds(kHeaderLeading, 0,
-                    std::max(collapse_all_->x() - 8 - kHeaderLeading, 0),
-                    header_row);
+  title_->SetBoundsRect(
+      HeaderTitleBounds(*title_, header_row, collapse_all_->x()));
 
   const int footer_height = FooterHeight();
   footer_->SetBounds(0, std::max(height() - footer_height, kHeaderHeight),

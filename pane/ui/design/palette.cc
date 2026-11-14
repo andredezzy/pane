@@ -158,6 +158,12 @@ void AddPaneColors(ui::ColorProvider* provider,
   mixer[kPaneColorPinHint] = ui::SetAlpha(kPaneColorForeground, AlphaOf(0.6));
   mixer[kPaneColorPinHintLit] =
       ui::SetAlpha(kPaneColorForeground, AlphaOf(0.8));
+  mixer[kPaneColorRowSelectedForeground] = {kPaneColorAccentForeground};
+  mixer[kPaneColorForcedEdge] = {SK_ColorTRANSPARENT};
+  mixer[kPaneColorForcedGrayText] = {SK_ColorTRANSPARENT};
+  if (key.forced_colors != ui::ColorProviderKey::ForcedColors::kNone) {
+    AddForcedColors(mixer);
+  }
 }
 
 void AddPaneColorMixer() {

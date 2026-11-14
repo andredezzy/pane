@@ -9,9 +9,12 @@
 
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "cc/paint/paint_flags.h"
+#include "pane/model/host_platform.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
@@ -331,7 +334,11 @@ class SettingsView::Card : public views::View {
   METADATA_HEADER(Card, views::View)
 
  public:
-  Card() { border_ = AddChildView(std::make_unique<CardBorder>()); }
+  Card() {
+    // Its text's ground, the card's fill under it (ground.h).
+    SetGround(*this, kPaneColorCard);
+    border_ = AddChildView(std::make_unique<CardBorder>());
+  }
 
   Row* AddRow(std::unique_ptr<Row> row) {
     Row* added = AddChildViewAt(std::move(row), children().size() - 1);
@@ -543,6 +550,9 @@ SettingsView::Shows::~Shows() = default;
 SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
     : callbacks_(std::move(callbacks)), images_(images) {
   SetID(kViewIdSettings);
+  // Its text's ground, the panel's card under it, as under its cards
+  // (ground.h).
+  SetGround(*this, kPaneColorCard);
   // It takes the keys while it shows, with no ring of its own: the page
   // under it, hidden, has none.
   SetFocusBehavior(FocusBehavior::ALWAYS);
@@ -663,8 +673,9 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
   // Paper 06.4.
   lock_after_row_ = security->AddRow(std::make_unique<Row>(
       u"Lock after",
-      u"Pane locks after this long without use, and when the Mac sleeps or "
-      u"locks."));
+      base::StrCat({u"Pane locks after this long without use, and when the ",
+                    base::UTF8ToUTF16(model::HostDeviceName()),
+                    u" sleeps or locks."})));
   lock_after_ = preset_menu(lock_after_row_, u"Lock after", kLockAfter,
                             &model::AppSettings::lock_after_minutes,
                             kViewIdSettingsLockAfter);

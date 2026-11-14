@@ -347,8 +347,8 @@ export const invokeMenu = bySystem({
 	windows: async (_pid: number, path: string[]): Promise<void> => {
 		throw noWindowsSide(
 			`the menu bar's ${path.join(" › ")}`,
-			"W5",
-			"where Windows' menu bar commands live is drawn with the rest of its look",
+			"W8",
+			"Windows' menus are Views' own, under the sidebar's \"Pane ⌄\", and its UI is driven through UI Automation, checked with Narrator (ADR 0071)",
 		);
 	},
 });

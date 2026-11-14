@@ -9,6 +9,10 @@
 #include "pane/model/app_settings.h"
 #include "ui/native_theme/native_theme.h"
 
+namespace views {
+class View;
+}
+
 namespace pane {
 
 // The Theme (CONTEXT.md): one knob for Pane's chrome, the system's menus and
@@ -26,6 +30,14 @@ void ApplyTheme(model::Theme theme);
 std::optional<ui::NativeTheme::PreferredColorScheme> PreferredColorSchemeFor(
     model::Theme theme,
     std::optional<std::string_view> system_appearance);
+
+// Every view under `root`, `root` included, paints again, hidden ones once
+// they show: what a theme's change asks of a window (ADR 0001). A view on a
+// layer of its own keeps what it painted until it paints again, so one that
+// paints from the theme without repainting at its change kept the theme
+// before's colors, as the profile sheet's switch knob and the PIN screen's
+// Back and dots did, dark on dark.
+void PaintAgain(views::View& root);
 
 }  // namespace pane
 

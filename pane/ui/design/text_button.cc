@@ -8,6 +8,7 @@
 
 #include "base/functional/bind.h"
 #include "cc/paint/paint_flags.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/squircle.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
@@ -153,6 +154,9 @@ KeyedButton::KeyedButton(PressedCallback pressed,
   title_->SetCanProcessEventsWithinSubtree(false);
   key_ = AddChildView(MakeLabel(key, kKeyText, colors.key));
   key_->SetCanProcessEventsWithinSubtree(false);
+  // On its rounded chip, whose corners a ground under its text would square:
+  // grayscale (ground.h).
+  SetGround(*key_, SK_ColorTRANSPARENT);
   // The key is the chip's, which assistive technologies don't read.
   key_->GetViewAccessibility().SetIsIgnored(true);
   GetViewAccessibility().SetName(title);
@@ -194,6 +198,14 @@ void KeyedButton::PaintButtonContents(gfx::Canvas* canvas) {
   flags.setAntiAlias(true);
   flags.setColor(KeyedColorsOf(role_).chip.ResolveToSkColor(colors));
   canvas->DrawPath(SquirclePath(ChipBounds(), radius::kTab), flags);
+  // Under a contrast theme, the chip an edge in its key's color (Paper
+  // 11.10).
+  if (SkColorGetA(colors->GetColor(kPaneColorForcedEdge))) {
+    flags.setStyle(cc::PaintFlags::kStroke_Style);
+    flags.setStrokeWidth(1);
+    flags.setColor(KeyedColorsOf(role_).key.ResolveToSkColor(colors));
+    canvas->DrawPath(SquircleStrokePath(ChipBounds(), radius::kTab, 1), flags);
+  }
 }
 
 BEGIN_METADATA(KeyedButton)

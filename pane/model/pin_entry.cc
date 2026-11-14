@@ -140,6 +140,13 @@ PinEntry::Action PinEntry::Verified(bool success, int remaining) {
   }
 }
 
+PinEntry::Action PinEntry::Refused(std::string why) {
+  if (!why.empty()) {
+    error_ = std::move(why);
+  }
+  return {.kind = Action::Kind::kShake};
+}
+
 void PinEntry::Shook() {
   entered_.clear();
   busy_ = false;

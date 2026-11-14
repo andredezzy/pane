@@ -20,6 +20,11 @@ namespace pane {
 // were laid out 0 wide on Windows.
 std::unique_ptr<views::ScrollView> LayeredScrollView();
 
+// The system's scroll bars on `view`: the Mac's own, Views' CocoaScrollBar,
+// which a Mac scroll view has already; Windows 11's, over the content, which
+// Views has none of there (Paper 11.9's A, scroll_win.cc).
+void TakeSystemScrollBars(views::ScrollView& view);
+
 }  // namespace pane
 
 #endif  // PANE_UI_DESIGN_SCROLL_H_

@@ -17,7 +17,12 @@ import { isScreenLocked } from "./lib/computer-use";
 import { type Fixtures, serveFixtures } from "./lib/fixtures";
 import { keptOffThisSystem, type NotOnWindows } from "./lib/platform";
 import { killUsing } from "./lib/processes";
-import { capsLockIndicator, detachImagesIn, forgetBundle } from "./lib/tools";
+import {
+	capsLockIndicator,
+	detachImagesIn,
+	forgetBundle,
+	forgetTestCopiesMacs,
+} from "./lib/tools";
 
 export type ScenarioContext = {
 	binary: string;
@@ -103,7 +108,8 @@ const fixtures = serveFixtures();
 const results: Record<string, unknown>[] = [];
 
 // Quits what the scenario launched, stops whatever still uses its
-// directories (an app that started itself again), and removes them.
+// directories (an app that started itself again), and removes them, and what
+// its test copies kept in Windows' registry.
 async function tearDown(browsers: Browser[], tempDirs: string[]) {
 	await Promise.all(browsers.map((browser) => browser.close()));
 
@@ -112,6 +118,8 @@ async function tearDown(browsers: Browser[], tempDirs: string[]) {
 		await killUsing(directory);
 		rmSync(directory, { recursive: true, force: true });
 	}
+
+	await forgetTestCopiesMacs();
 }
 
 // Caps Lock on draws macOS's indicator by every focused field, which the

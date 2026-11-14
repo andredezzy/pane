@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "base/functional/callback.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace gfx {
@@ -36,6 +37,12 @@ views::NativeWidget* CreateFrame(
     views::Widget* widget,
     base::RepeatingCallback<bool()> takes_every_key,
     base::RepeatingCallback<void(bool control_down)> control_changed);
+
+// The system's keys for its menu bar, which open the app's menu where the
+// system has none: Windows' Alt alone (its SC_KEYMENU, which Views hands the
+// window as an accelerator) and F10, as Chrome's menu takes them there
+// (Paper 11.4's A). None on the Mac, whose menu bar takes its own.
+std::vector<ui::Accelerator> AppMenuKeys();
 
 // Who takes a press at `point` (in the window, from its top left): a page,
 // or Pane's views, Views having first say over what a view of its covers,

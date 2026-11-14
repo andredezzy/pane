@@ -10,6 +10,7 @@
 #include "base/functional/callback_helpers.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/focus_ring.h"
+#include "pane/ui/design/ground.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
@@ -174,7 +175,7 @@ ControlLook RowLook(bool selected, bool tints_on_hover) {
   look.disabled_opacity = 1;
   if (selected) {
     look.fill = kPaneColorRowSelected;
-    look.tint = kPaneColorAccentForeground;
+    look.tint = kPaneColorRowSelectedForeground;
     return look;
   }
   look.hover_fill = kPaneColorAccent;
@@ -202,8 +203,15 @@ ControlHighlight::ControlHighlight(views::Button* button,
                                    base::RepeatingClosure changed)
     : button_(button),
       disabled_opacity_(disabled_opacity),
-      hover_(0, base::IgnoreArgs<double>(changed)),
-      press_(0, base::IgnoreArgs<double>(changed)) {
+      changed_(std::move(changed)),
+      hover_(0,
+             base::IgnoreArgs<double>(
+                 base::BindRepeating(&ControlHighlight::Stepped,
+                                     base::Unretained(this)))),
+      press_(0,
+             base::IgnoreArgs<double>(
+                 base::BindRepeating(&ControlHighlight::Stepped,
+                                     base::Unretained(this)))) {
   // No ripple, and none of Button's own hover animation, which steps on a
   // timer of its own: the hover is this one's, on the compositor's frames.
   views::InkDrop::Get(button)->SetMode(views::InkDropHost::InkDropMode::OFF);
@@ -217,6 +225,40 @@ ControlHighlight::ControlHighlight(views::Button* button,
 }
 
 ControlHighlight::~ControlHighlight() = default;
+
+void ControlHighlight::SetGroundLook(const ControlLook* look) {
+  ground_look_ = look;
+  UpdateGround();
+}
+
+void ControlHighlight::SetGroundOver(
+    base::RepeatingCallback<SkColor(SkColor)> over) {
+  ground_over_ = std::move(over);
+  UpdateGround();
+}
+
+void ControlHighlight::UpdateGround() {
+  const ui::ColorProvider* colors = button_->GetColorProvider();
+  if (!ground_look_ || !colors || !button_->parent()) {
+    return;
+  }
+  const SkColor under = GroundOf(*button_->parent());
+  SkColor ground = SK_ColorTRANSPARENT;
+  if (button_->GetEnabled() && SkColorGetA(under) == SK_AlphaOPAQUE) {
+    ground =
+        GroundUnderControl(*ground_look_, *colors, hover(), press(), under);
+    if (ground_over_) {
+      ground = ground_over_.Run(ground);
+    }
+  }
+  SetGround(*button_, ground);
+  RefreshLabelGrounds(*button_);
+}
+
+void ControlHighlight::Stepped() {
+  UpdateGround();
+  changed_.Run();
+}
 
 void ControlHighlight::SetHeld(bool held) {
   if (held_ != held) {
@@ -281,6 +323,8 @@ void ControlHighlight::Update(std::optional<Curve> hover_curve,
         press, motion::Hover(),
         (press && !press_fades_in_) || !press_fades ? nullptr : compositor);
   }
+  // Disabled or enabled again, its text's ground follows.
+  UpdateGround();
 }
 
 void PaintControl(gfx::Canvas& canvas,
@@ -311,16 +355,40 @@ void PaintControl(gfx::Canvas& canvas,
     flags.setStrokeWidth(1);
     canvas.DrawPath(look.shape.StrokePathIn(bounds, 1), flags);
   }
+  // Under a contrast theme, the edge where a fill told the control apart:
+  // its fill at rest, or its hover or press (Paper 11.10). Clear otherwise.
+  const SkColor forced = colors.GetColor(kPaneColorForcedEdge);
+  if (SkColorGetA(forced) != SK_AlphaTRANSPARENT &&
+      (look.fill || (look.hover_fill && hover > 0) || press > 0)) {
+    flags.setColor(forced);
+    flags.setStyle(cc::PaintFlags::kStroke_Style);
+    flags.setStrokeWidth(1);
+    canvas.DrawPath(look.shape.StrokePathIn(bounds, 1), flags);
+  }
 }
 
 ControlBackground::ControlBackground(const ControlLook& look,
-                                     const ControlHighlight* highlight)
-    : look_(look), highlight_(highlight) {}
+                                     ControlHighlight* highlight)
+    : look_(look), highlight_(highlight) {
+  if (highlight_) {
+    highlight_->SetGroundLook(&look_);
+  }
+}
 
 ControlBackground::~ControlBackground() = default;
 
 void ControlBackground::SetLook(const ControlLook& look) {
   look_ = look;
+  if (highlight_) {
+    highlight_->UpdateGround();
+  }
+}
+
+void ControlBackground::OnViewThemeChanged(views::View* view) {
+  views::Background::OnViewThemeChanged(view);
+  if (highlight_) {
+    highlight_->UpdateGround();
+  }
 }
 
 void ControlBackground::Paint(gfx::Canvas* canvas, views::View* view) const {
@@ -331,6 +399,27 @@ void ControlBackground::Paint(gfx::Canvas* canvas, views::View* view) const {
   PaintControl(*canvas, *colors, look_, gfx::RectF(view->GetLocalBounds()),
                highlight_ ? highlight_->hover() : 0,
                highlight_ ? highlight_->press() : 0);
+}
+
+SkColor GroundUnderControl(const ControlLook& look,
+                           const ui::ColorProvider& colors,
+                           double hover,
+                           double press,
+                           SkColor ground) {
+  if (look.fill) {
+    ground = OverGround(Faded(look.fill->ResolveToSkColor(&colors),
+                              1 - (1 - look.lit_fill_opacity) * hover),
+                        1, ground);
+  }
+  if (look.hover_fill && hover > 0) {
+    ground = OverGround(
+        Faded(look.hover_fill->ResolveToSkColor(&colors), hover), 1, ground);
+  }
+  if (press > 0) {
+    ground = OverGround(Faded(look.press.ResolveToSkColor(&colors), press), 1,
+                        ground);
+  }
+  return ground;
 }
 
 std::optional<SkColor> TintOf(const ControlLook& look,

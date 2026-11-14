@@ -214,6 +214,11 @@ class Frame : public views::NativeWidgetMac {
 
 }  // namespace
 
+// The menu bar takes its own keys.
+std::vector<ui::Accelerator> AppMenuKeys() {
+  return {};
+}
+
 views::NativeWidget* CreateFrame(
     views::Widget* widget,
     base::RepeatingCallback<bool()> takes_every_key,

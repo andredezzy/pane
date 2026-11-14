@@ -85,6 +85,12 @@ MenuItem Separator() {
   return MenuItem();
 }
 
+// Whether Ctrl+Q exits on Windows beside Alt+F4, which Exit Pane shows: no,
+// the user's call (2026-11-14, Paper 11.5.1, 11.6), as Chrome, Edge, Dia,
+// and Arc have no Exit key there but Alt+F4. Either way Exit Pane? asks
+// first (ADR 0053).
+constexpr bool kCtrlQExitsOnWindows = false;
+
 Menu MenuOf(std::u16string title, std::vector<MenuItem> items) {
   Menu menu;
   menu.title = std::move(title);
@@ -101,35 +107,57 @@ Menu MenuOf(std::u16string title, std::vector<MenuItem> items) {
 // as Chrome's accelerator table gives them there: F11 for Full Screen,
 // Alt+Left and Alt+Right for Back and Forward, F12 beside Ctrl+Shift+I,
 // Ctrl+Y for Redo, Ctrl+= for Zoom In with Ctrl++ and the numpad's keys
-// beside the zooms, and Alt+F4 beside Ctrl+Q for Quit (ADR 0053); none for
-// what is the Mac's alone (Hide, Hide Others, Minimize). Lock Pane is
-// Ctrl+Shift+L there.
+// beside the zooms, and Alt+F4 alone for Exit Pane (kCtrlQExitsOnWindows,
+// ADR 0053); none for what is the Mac's alone
+// (Minimize's key), and no Hide, Hide Others, or Show All there (Paper
+// 11.5.1). Lock Pane is Ctrl+Shift+L there.
 std::vector<Menu> MakeMenus(KeySystem system) {
   const Builder b(system);
+  const bool windows = system == KeySystem::kWindows;
   std::vector<Menu> menus;
-  std::vector<MenuItem> app = {
-      b.Item(Command::kAbout, u"About Pane"),
-      Separator(),
-      b.Item(Command::kCheckForUpdates, u"Check for Updates…"),
-      Separator(),
-      b.Item(Command::kSettings, u"Settings…", Primary(ui::VKEY_OEM_COMMA)),
-      Separator(),
-      // Paper 07.9: every profile's data closes, and the PIN screen shows.
+  // Paper 07.9's Lock Pane: every profile's data closes, and the PIN screen
+  // shows.
+  const MenuItem lock =
       b.Item(Command::kLock, u"Lock Pane",
              Each(ui::Accelerator(ui::VKEY_L, kCommand | kControl),
-                  ui::Accelerator(ui::VKEY_L, kControl | kShift))),
-      Separator(),
-      b.Item(Command::kHide, u"Hide Pane", MacOnly(ui::VKEY_H, kCommand)),
-      b.Item(Command::kHideOthers, u"Hide Others",
-             MacOnly(ui::VKEY_H, kCommand | kOption)),
-      b.Item(Command::kShowAll, u"Show All"),
-      Separator(),
-      b.Item(Command::kQuit, u"Quit Pane", Primary(ui::VKEY_Q)),
-  };
-  // Windows' own key for closing an app's window, which quits Pane, as ⌘Q
-  // does: asking first (ADR 0053).
-  b.AddHidden(app, Command::kQuit, u"Quit Pane",
-              WindowsOnly(ui::VKEY_F4, kOption));
+                  ui::Accelerator(ui::VKEY_L, kControl | kShift)));
+  std::vector<MenuItem> app;
+  if (windows) {
+    // Windows' Pane menu (Paper 11.5.1): Pane's own items, two to a group,
+    // and Exit Pane with Windows' own key for closing an app's window,
+    // Alt+F4, which asks first as ⌘Q does (ADR 0053); Hide, Hide Others,
+    // and Show All are the Mac's alone.
+    app = {
+        b.Item(Command::kAbout, u"About Pane"),
+        b.Item(Command::kCheckForUpdates, u"Check for Updates…"),
+        Separator(),
+        b.Item(Command::kSettings, u"Settings…", Primary(ui::VKEY_OEM_COMMA)),
+        lock,
+        Separator(),
+        b.Item(Command::kQuit, u"Exit Pane", WindowsOnly(ui::VKEY_F4, kOption)),
+    };
+    if constexpr (kCtrlQExitsOnWindows) {
+      b.AddHidden(app, Command::kQuit, u"Exit Pane",
+                  WindowsOnly(ui::VKEY_Q, kControl));
+    }
+  } else {
+    app = {
+        b.Item(Command::kAbout, u"About Pane"),
+        Separator(),
+        b.Item(Command::kCheckForUpdates, u"Check for Updates…"),
+        Separator(),
+        b.Item(Command::kSettings, u"Settings…", Primary(ui::VKEY_OEM_COMMA)),
+        Separator(),
+        lock,
+        Separator(),
+        b.Item(Command::kHide, u"Hide Pane", MacOnly(ui::VKEY_H, kCommand)),
+        b.Item(Command::kHideOthers, u"Hide Others",
+               MacOnly(ui::VKEY_H, kCommand | kOption)),
+        b.Item(Command::kShowAll, u"Show All"),
+        Separator(),
+        b.Item(Command::kQuit, u"Quit Pane", Primary(ui::VKEY_Q)),
+    };
+  }
   menus.push_back(MenuOf(u"Pane", std::move(app)));
   menus.push_back(
       MenuOf(u"File",
@@ -227,12 +255,13 @@ std::vector<Menu> MakeMenus(KeySystem system) {
         Primary(static_cast<ui::KeyboardCode>(ui::VKEY_0 + number))));
   }
   menus.push_back(MenuOf(u"Tab", std::move(tabs)));
+  // Windows' word for the Mac's Zoom (Paper 11.5.1).
   menus.push_back(MenuOf(
       u"Window",
       {
           b.Item(Command::kMinimize, u"Minimize",
                  MacOnly(ui::VKEY_M, kCommand)),
-          b.Item(Command::kZoom, u"Zoom"),
+          b.Item(Command::kZoom, windows ? u"Maximize" : u"Zoom"),
           Separator(),
           // As Chrome's Window › Extensions. No key: pages use ⇧⌘E (Docs
           // centers text with it), and a menu's key would take it from them.

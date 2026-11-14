@@ -175,6 +175,11 @@ void PanelFrame::OnThemeChanged() {
   views::View::OnThemeChanged();
   middle_->layer()->AsSolidColor()->SetColor(
       SkColor4f::FromColor(GetColorProvider()->GetColor(kPaneColorCard)));
+  // Each band paints the frame's colors on a layer of its own: again, for a
+  // contrast theme's as for the appearance's.
+  for (Band* band : bands_) {
+    band->SchedulePaint();
+  }
 }
 
 BEGIN_METADATA(PanelFrame)

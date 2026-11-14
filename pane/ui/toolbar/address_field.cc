@@ -12,6 +12,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/model/address_input.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
@@ -136,7 +137,10 @@ END_METADATA
 AddressField::AddressField(model::ToolbarProgress* progress)
     : hover_(0,
              base::BindRepeating(
-                 [](AddressField* field, double) { field->SchedulePaint(); },
+                 [](AddressField* field, double) {
+                   field->UpdateTextGround();
+                   field->SchedulePaint();
+                 },
                  base::Unretained(this))) {
   SetID(kViewIdAddress);
   // On the field alone: the domain and title over it keep their own.
@@ -280,6 +284,21 @@ void AddressField::OnPaint(gfx::Canvas* canvas) {
   views::Textfield::OnPaint(canvas);
 }
 
+void AddressField::OnThemeChanged() {
+  views::Textfield::OnThemeChanged();
+  UpdateTextGround();
+}
+
+void AddressField::UpdateTextGround() {
+  const ui::ColorProvider* colors = GetColorProvider();
+  if (!colors || !parent()) {
+    return;
+  }
+  SetGround(*label_, OverGround(colors->GetColor(kPaneColorAddressHover),
+                                hover_.value(), GroundOf(*parent())));
+  RefreshLabelGrounds(*label_);
+}
+
 void AddressField::OnPaintBackground(gfx::Canvas* canvas) {
   const ui::ColorProvider* colors = GetColorProvider();
   if (!colors || hover_.value() <= 0) {
@@ -296,16 +315,23 @@ void AddressField::OnPaintBackground(gfx::Canvas* canvas) {
 
 // Being edited: the ring's 1-point line just inside the edge (SwiftUI's
 // strokeBorder).
+// Under a contrast theme, the edge where its fill told it apart, at rest
+// too (Paper 11.10).
 void AddressField::OnPaintBorder(gfx::Canvas* canvas) {
   const ui::ColorProvider* colors = GetColorProvider();
-  if (!colors || !HasFocus()) {
+  if (!colors) {
+    return;
+  }
+  const SkColor color = HasFocus() ? colors->GetColor(kPaneColorRing)
+                                   : colors->GetColor(kPaneColorForcedEdge);
+  if (SkColorGetA(color) == SK_AlphaTRANSPARENT) {
     return;
   }
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
   flags.setStyle(cc::PaintFlags::kStroke_Style);
   flags.setStrokeWidth(1);
-  flags.setColor(colors->GetColor(kPaneColorRing));
+  flags.setColor(color);
   canvas->DrawPath(
       SquircleStrokePath(gfx::RectF(GetLocalBounds()), radius::kTab, 1), flags);
 }

@@ -59,6 +59,21 @@ Implementation notes:
 - A row's fill animates with its hover alone, never with its selection.
 - Every animation is one of `pane/ui/design/motion.h`'s curves, named for what it is, moved on the compositor's frames (`CompositorMotion`, `ValueMotion`), and at once while the system reduces motion, so a view honors the setting with no check of its own (ADR 0070).
 
+## Windows
+
+### The Mac's window, with what Windows does its own way drawn first
+
+Pane looks the same on both systems. Where Windows has its own way, Paper's page "11 · Windows" draws it before the code does (ADR 0126), and the code keeps it in a platform file (`*_win.cc`), never a test of the system in shared code.
+
+- **Caption buttons** are Pane's own, in the content panel's top-right corner at the toolbar's end, with no band across the panel: 45 by 42, Chrome's `WindowsCaptionButton` glyphs and states (the glyph's color at 10% under the pointer, fading in on `motion::Hover()`; 20% pressed, at once; Close #E81123 with a white X; an inactive window's glyphs at 40%). They answer Windows' hit test as its own, so Maximize opens Snap Layouts.
+- **The menu bar's commands** are one Views menu under the sidebar header's "Pane ⌄"; Alt alone and F10 open it, and the button is no Tab stop, as Chrome's menu button isn't.
+- **Words and keys** are Windows': Exit where the Mac says Quit, PC where it says Mac, keys as Windows writes them (Alt+F4, Ctrl+Shift+L, Enter for ↩). Shared code takes them from `SystemWords` and `HostDeviceName`, never a literal.
+- **Text** is Segoe UI Variable, Windows 11's UI font, at the Mac's sizes, each weight on its axis (Medium 500) and the optical size Windows gives each size; Segoe UI on Windows 10. Labels take ClearType on the opaque ground under them, which each names (`SetGround`) and paints under its text; a label on no opaque ground stays grayscale, never ClearType on what it can't see.
+- **Tab** reaches fields and the page, as in Chrome; the toolbar's and the sidebar's buttons are reached by F6, Alt+Shift+T, and the arrows.
+- **Scroll bars** are Windows 11's overlay bars, over the content and taking none of its width: a line at rest, a thumb with arrows under the pointer, gone a second after nothing moves.
+- **Contrast themes** are followed: every color takes one of the theme's roles, a fill that told surfaces apart becomes a 1-point edge, a sleeping tab takes GrayText, shadows and scrims go, nothing is red, and a profile's color stays, edged.
+- **The backdrop** is solid, Pane's own colors; no Mica or Acrylic.
+
 ## Updates
 
 ### Updates surface quietly; Pane installs them when it quits

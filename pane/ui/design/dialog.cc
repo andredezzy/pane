@@ -9,6 +9,7 @@
 #include "base/functional/bind.h"
 #include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/placement.h"
 #include "pane/ui/design/squircle.h"
@@ -151,6 +152,8 @@ DialogCard::DialogCard(const Look& look, std::unique_ptr<views::View> content)
   layer()->SetOpacity(0);
   SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
   fill_ = AddChildView(std::make_unique<Fill>(look_));
+  // Its text's ground, the card's fill under it (ground.h).
+  SetGround(*fill_, look_.fill);
   content_ = fill_->AddChildView(std::move(content));
 }
 

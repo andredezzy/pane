@@ -10,7 +10,7 @@ import {
 } from "../lib/chrome-extensions";
 import { extensionId, workerPage } from "../lib/extensions";
 import { launchPane } from "../lib/pane";
-import { PRIMARY } from "../lib/platform";
+import { chromeShortcutText, OTHER_MODIFIER, PRIMARY } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
@@ -30,7 +30,8 @@ const SECOND_NAME = "Pane second commands probe";
 type Command = { name: string; tabId: number | null };
 
 // One command as Chrome's shortcuts page lists it: its description, and its
-// key as the page writes it on the Mac ("⇧⌘Y"; empty when none).
+// key as the page writes it ("⇧⌘Y" on the Mac, "Ctrl+Shift+Y" on Windows;
+// empty when none).
 type Listed = {
 	extension: string;
 	commands: { description: string; shortcut: string }[];
@@ -176,14 +177,20 @@ const extensionShortcuts: Scenario = async (context) => {
 	expect(
 		JSON.stringify(commandsOf(listed, NAME)) ===
 			JSON.stringify([
-				{ description: "Activate the extension", shortcut: "⇧⌘U" },
-				{ description: "Run the probe's command", shortcut: "⇧⌘Y" },
+				{
+					description: "Activate the extension",
+					shortcut: chromeShortcutText([PRIMARY, "shift"], "u"),
+				},
+				{
+					description: "Run the probe's command",
+					shortcut: chromeShortcutText([PRIMARY, "shift"], "y"),
+				},
 			]) &&
 			JSON.stringify(commandsOf(listed, SECOND_NAME)) ===
 				JSON.stringify([
 					{
 						description: "Run the second probe's command",
-						shortcut: "⌥⇧K",
+						shortcut: chromeShortcutText(["option", "shift"], "k"),
 					},
 				]),
 		`the shortcuts page lists ${JSON.stringify(listed)}`,
@@ -237,12 +244,18 @@ const extensionShortcuts: Scenario = async (context) => {
 		await Bun.sleep(300);
 	};
 
-	// ⌃⇧Y for the probe's command: the new key runs it, the old one nothing.
+	// ⌃⇧Y (Alt+Shift+Y on Windows) for the probe's command: the new key runs
+	// it, the old one nothing.
 	await record(NAME, "Run the probe's command");
-	await typeKey(page, "y", ["control", "shift"]);
-	await waitShortcut(NAME, "Run the probe's command", "⌃⇧Y");
+	await typeKey(page, "y", [OTHER_MODIFIER, "shift"]);
 
-	await onPage("y", ["control", "shift"]);
+	await waitShortcut(
+		NAME,
+		"Run the probe's command",
+		chromeShortcutText([OTHER_MODIFIER, "shift"], "y"),
+	);
+
+	await onPage("y", [OTHER_MODIFIER, "shift"]);
 	await commands(4);
 	await onPage("y", [PRIMARY, "shift"]);
 	await noMore(worker, 4, "⌘⇧Y, no longer the probe's key, still ran");
@@ -253,7 +266,13 @@ const extensionShortcuts: Scenario = async (context) => {
 	const secondBefore = (await kept(secondWorker)).length;
 	await record(NAME, "Run the probe's command");
 	await typeKey(page, "k", ["option", "shift"]);
-	await waitShortcut(NAME, "Run the probe's command", "⌥⇧K");
+
+	await waitShortcut(
+		NAME,
+		"Run the probe's command",
+		chromeShortcutText(["option", "shift"], "k"),
+	);
+
 	await waitShortcut(SECOND_NAME, "Run the second probe's command", "");
 
 	await noMore(
@@ -329,7 +348,12 @@ const extensionShortcuts: Scenario = async (context) => {
 	};
 
 	await refused("Activate the extension", "_execute_action", "");
-	await refused("Run the probe's command", "probe-command", "⌥⇧K");
+
+	await refused(
+		"Run the probe's command",
+		"probe-command",
+		chromeShortcutText(["option", "shift"], "k"),
+	);
 
 	const tabsWhileTyped =
 		(await app.state()).profiles.find((each) => each.id === profile)?.tabs

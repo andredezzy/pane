@@ -12,6 +12,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/view_ids.h"
@@ -280,14 +281,25 @@ class Numpad::DigitKey : public views::Button {
   }
 
  private:
-  // The number lights with the ring.
+  // The number lights with the ring, and its ground follows the press's
+  // fill over the panel's (ground.h).
   void Changed() {
     if (label_) {
       if (const ui::ColorProvider* colors = GetColorProvider()) {
+        const SkColor foreground = colors->GetColor(kPaneColorForeground);
         label_->SetEnabledColor(ForegroundAt(
-            colors->GetColor(kPaneColorForeground),
+            foreground,
             kDigitAlpha +
                 (1 - kDigitAlpha) * (highlight_ ? highlight_->hover() : 0)));
+        if (parent()) {
+          SetGround(*this,
+                    OverGround(ForegroundAt(
+                                   foreground,
+                                   kPressAlpha *
+                                       (highlight_ ? highlight_->press() : 0)),
+                               1, GroundOf(*parent())));
+          RefreshLabelGrounds(*this);
+        }
       }
     }
     SchedulePaint();

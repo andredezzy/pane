@@ -8,6 +8,7 @@
 
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/ground.h"
 #include "pane/ui/design/icon_button.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
@@ -15,10 +16,13 @@
 #include "pane/ui/extensions/extension_actions_view.h"
 #include "pane/ui/toolbar/address_field.h"
 #include "pane/ui/view_ids.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/color/color_provider.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/focus/focus_manager.h"
@@ -46,9 +50,13 @@ constexpr IconButton::Glyph kReload{Icon::kRotateCw, 17, 2.1f};
 constexpr IconButton::Glyph kStop{Icon::kX, 17, 2.1f};
 
 // The chip: 28 points, its name 12 in on each side (11 inside its 1-point
-// border, as CSS's px-[11px]).
+// border, as CSS's px-[11px]); under a contrast theme its color an 8-point
+// square 11 in, the name 6 after it (Paper 11.10).
 constexpr int kChipHeight = 28;
 constexpr int kChipInset = 12;
+constexpr int kForcedInset = 11;
+constexpr int kForcedSquare = 8;
+constexpr int kForcedGap = 6;
 
 }  // namespace
 
@@ -72,7 +80,8 @@ class ToolbarView::ProfileChip : public views::View {
     }
     color_ = color;
     label_->SetText(name);
-    label_->SetEnabledColor(color);
+    label_->SetEnabledColor(SkColorGetA(ForcedEdge()) ? ForcedEdge() : color);
+    UpdateGround();
     PreferredSizeChanged();
     SchedulePaint();
   }
@@ -80,19 +89,38 @@ class ToolbarView::ProfileChip : public views::View {
   // views::View:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override {
-    return gfx::Size(label_->GetPreferredSize().width() + 2 * kChipInset,
-                     kChipHeight);
+    return gfx::Size(
+        label_->GetPreferredSize().width() + NameStart() + kChipInset,
+        kChipHeight);
   }
 
   void Layout(PassKey) override {
     const int line = text::kButtonSmall.line_height;
-    label_->SetBounds(kChipInset, (height() - line) / 2,
-                      std::max(width() - 2 * kChipInset, 0), line);
+    label_->SetBounds(NameStart(), (height() - line) / 2,
+                      std::max(width() - NameStart() - kChipInset, 0), line);
   }
 
   void OnPaint(gfx::Canvas* canvas) override {
     const gfx::RectF bounds(GetLocalBounds());
     const ControlShape shape = ControlShape::Capsule();
+    if (const SkColor edge = ForcedEdge(); SkColorGetA(edge)) {
+      // Under a contrast theme (Paper 11.10): its color an 8-point square
+      // before the name, the name and its edge the theme's text.
+      cc::PaintFlags flags;
+      flags.setAntiAlias(true);
+      flags.setColor(color_);
+      canvas->DrawPath(
+          SquirclePath(
+              gfx::RectF(kForcedInset, (height() - kForcedSquare) / 2.0f,
+                         kForcedSquare, kForcedSquare),
+              radius::kXs / 2),
+          flags);
+      flags.setStyle(cc::PaintFlags::kStroke_Style);
+      flags.setStrokeWidth(1);
+      flags.setColor(edge);
+      canvas->DrawPath(shape.StrokePathIn(bounds, 1), flags);
+      return;
+    }
     cc::PaintFlags fill;
     fill.setAntiAlias(true);
     fill.setColor(SkColorSetA(color_, AlphaOf(0.08f)));
@@ -105,7 +133,42 @@ class ToolbarView::ProfileChip : public views::View {
     canvas->DrawPath(shape.StrokePathIn(bounds, 1), border);
   }
 
+  void OnThemeChanged() override {
+    views::View::OnThemeChanged();
+    label_->SetEnabledColor(SkColorGetA(ForcedEdge()) ? ForcedEdge() : color_);
+    UpdateGround();
+    PreferredSizeChanged();
+    SchedulePaint();
+  }
+
+  // Its name's ground: the chip's fill over the toolbar's, or the toolbar's
+  // alone under a contrast theme, which fills nothing (ground.h).
+  void UpdateGround() {
+    if (!parent()) {
+      return;
+    }
+    const SkColor under = GroundOf(*parent());
+    SetGround(*this,
+              SkColorGetA(ForcedEdge())
+                  ? under
+                  : OverGround(SkColorSetA(color_, AlphaOf(0.08f)), 1, under));
+    RefreshLabelGrounds(*this);
+  }
+
  private:
+  // The edge a contrast theme draws (kPaneColorForcedEdge), clear without
+  // one.
+  SkColor ForcedEdge() const {
+    const ui::ColorProvider* colors = GetColorProvider();
+    return colors ? colors->GetColor(kPaneColorForcedEdge)
+                  : SK_ColorTRANSPARENT;
+  }
+
+  int NameStart() const {
+    return SkColorGetA(ForcedEdge()) ? kForcedInset + kForcedSquare + kForcedGap
+                                     : kChipInset;
+  }
+
   raw_ptr<views::Label> label_ = nullptr;
   SkColor color_ = SK_ColorTRANSPARENT;
 };
@@ -127,6 +190,8 @@ ToolbarView::Shows::~Shows() = default;
 ToolbarView::ToolbarView(Callbacks callbacks, model::ToolbarProgress* progress)
     : callbacks_(std::move(callbacks)) {
   SetID(kViewIdToolbar);
+  // Its text's ground, the panel's card under it (ground.h).
+  SetGround(*this, kPaneColorCard);
   back_ = AddChildView(std::make_unique<IconButton>(
       callbacks_.back, kButtonSize, kBack, u"Back"));
   back_->SetID(kViewIdBack);
@@ -196,6 +261,11 @@ void ToolbarView::SetShows(const Shows& shows) {
   }
 }
 
+void ToolbarView::SetEndReserve(int width) {
+  end_reserve_ = width;
+  InvalidateLayout();
+}
+
 void ToolbarView::FocusAddress() {
   address_->RequestFocus();
   address_->SelectAll(false);
@@ -230,8 +300,11 @@ void ToolbarView::Layout(PassKey) {
   }
   const int address_x = reload_->bounds().right() + kSpacing;
 
-  // From the trailing edge: the chip, then X1's actions, each 4 apart.
-  int right = width() - kTrailing;
+  // From the trailing edge: the chip, then X1's actions, each 4 apart; 4
+  // before the room kept at the end, where Windows' caption buttons sit
+  // (Paper 11.1's B), flush with the panel's edge.
+  int right = end_reserve_ > 0 ? width() - end_reserve_ - kSpacing
+                               : width() - kTrailing;
   if (chip_->GetVisible()) {
     const int chip_width = chip_->GetPreferredSize().width();
     chip_->SetBounds(right - chip_width, (kRowHeight - kChipHeight) / 2,
@@ -247,6 +320,19 @@ void ToolbarView::Layout(PassKey) {
   }
   address_->SetBounds(address_x, (kRowHeight - AddressField::kHeight) / 2,
                       std::max(right - address_x, 0), AddressField::kHeight);
+}
+
+// Under a contrast theme, an edge where the page's own ground told it apart
+// from the row above it, the point between them (Paper 11.10); none
+// otherwise.
+void ToolbarView::OnPaint(gfx::Canvas* canvas) {
+  views::View::OnPaint(canvas);
+  const ui::ColorProvider* colors = GetColorProvider();
+  const SkColor edge =
+      colors ? colors->GetColor(kPaneColorForcedEdge) : SK_ColorTRANSPARENT;
+  if (SkColorGetA(edge) != SK_AlphaTRANSPARENT) {
+    canvas->FillRect(gfx::Rect(0, height() - 1, width(), 1), edge);
+  }
 }
 
 // Return loads what the address holds (the Swift's onSubmit); Esc gives the

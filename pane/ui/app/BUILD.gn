@@ -33,11 +33,13 @@ source_set("commands") {
     frameworks = [ "AppKit.framework" ]
   }
 
+  # Windows' menu bar is one menu, Views' own at its anchor (Paper 11.5).
   if (is_win) {
     sources += [
       "commands_win.cc",
       "menu_bar_win.cc",
     ]
+    deps += [ "//pane/ui/design" ]
   }
 }
 

@@ -14,6 +14,8 @@
 #include "base/memory/weak_ptr.h"
 #include "pane/ui/sidebar/sidebar_content.h"
 #include "pane/ui/sidebar/vertical_reorder.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/view.h"
 
 namespace views {
@@ -72,6 +74,11 @@ class SidebarView : public views::View {
     base::RepeatingCallback<void(int from, int to)> move_profile;
     base::RepeatingCallback<void(const std::string& profile_id, int, int)>
         move_tab;
+    // The header's title opened the app's menu (Windows' "Pane ⌄", Paper
+    // 11.5): its bounds on the screen, what opened it.
+    base::RepeatingCallback<void(const gfx::Rect& on_screen,
+                                 ui::mojom::MenuSourceType source)>
+        open_app_menu;
   };
 
   explicit SidebarView(Callbacks callbacks);
@@ -98,6 +105,11 @@ class SidebarView : public views::View {
   // Asks before deleting the profile (the system's alert, a sheet on the
   // window), and deletes it on Delete.
   void AskToDelete(const std::string& profile_id);
+
+  // The app's menu the header's title opened shows, or has gone (Windows').
+  void SetAppMenuShowing(bool showing);
+  // Opens it as a key does (Windows' Alt and F10): whether it opened.
+  bool OpenAppMenuFromKeys();
 
   // views::View:
   void Layout(PassKey) override;
@@ -134,7 +146,7 @@ class SidebarView : public views::View {
   Callbacks callbacks_;
   SidebarContent content_;
   raw_ptr<views::View> header_ = nullptr;
-  raw_ptr<views::Label> title_ = nullptr;
+  raw_ptr<views::View> title_ = nullptr;
   raw_ptr<IconButton> collapse_all_ = nullptr;
   raw_ptr<FadingScrollView> list_ = nullptr;
   // The list's contents: the rows, and a drag's copy over them.
