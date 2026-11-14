@@ -41,9 +41,12 @@ class PinGuard : public base::RefCountedThreadSafe<PinGuard> {
     // The key is gone, or the chip was cleared: what it guarded is lost, as
     // with a forgotten PIN.
     kGone,
-    // No TPM 2.0, or the provider refused: a seal goes without, the PIN's
-    // PBKDF2 stretch alone.
-    kUnavailable,
+    // No TPM 2.0 on this computer: a seal that never had the chip goes
+    // without, the PIN's PBKDF2 stretch alone.
+    kNoChip,
+    // The chip is there and refused, for a reason other than a lockout: a
+    // seal goes without it no more than in a lockout.
+    kRefused,
   };
 
   // This system's guard for the data in `data_directory`: the TPM's on
@@ -54,7 +57,7 @@ class PinGuard : public base::RefCountedThreadSafe<PinGuard> {
   PinGuard& operator=(const PinGuard&) = delete;
 
   // A new key the chip holds, `pin` its own, and a share of 32 random bytes
-  // sealed under it. kLockedOut or kUnavailable when it makes none.
+  // sealed under it. kLockedOut, kNoChip, or kRefused when it makes none.
   virtual base::expected<Guarded, Refusal> Guard(std::string_view pin) = 0;
 
   // The share `kept` holds, which the chip gives back only with `pin`.

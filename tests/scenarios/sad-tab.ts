@@ -1,5 +1,5 @@
 import { tabOf } from "../lib/pane";
-import { poll } from "../lib/poll";
+import { poll, pollValue } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -83,7 +83,12 @@ const sadTab: Scenario = async (context) => {
 			(state) => state.focus === "pane.sadTab",
 		);
 
-		const frames = await app.frames("pane.sadTab");
+		// Laid out at its next frame, after the keys have gone to it.
+		const frames = await pollValue(
+			() => app.frames("pane.sadTab"),
+			(each) => (each["pane.sadTab.reload"]?.[2] ?? 0) > 0,
+			5_000,
+		);
 
 		expect(
 			(frames["pane.sadTab.reload"]?.[2] ?? 0) > 0,

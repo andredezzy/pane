@@ -24,6 +24,7 @@
 #include "pane/ui/interaction_log.h"
 #include "pane/ui/page/devtools.h"
 #include "pane/ui/page/exclusive_access_hint.h"
+#include "pane/ui/page/page_web_view.h"
 #include "pane/ui/panels/app_icon_picker.h"
 #include "pane/ui/panels/settings_view.h"
 #include "pane/ui/view_ids.h"
@@ -336,12 +337,12 @@ RootView::RootView(Callbacks callbacks,
   toolbar_->layer()->SetFillsBoundsOpaquely(false);
 
   // DevTools docked to the page, under it in its card (ADR 0024).
-  devtools_ = AddChildView(std::make_unique<views::WebView>(nullptr));
+  devtools_ = AddChildView(std::make_unique<PageWebView>(nullptr));
   devtools_->SetID(kViewIdDevTools);
   devtools_->GetViewAccessibility().SetName(u"Developer tools");
   devtools_->SetVisible(false);
   // The page in its card, and what shows there with no tab selected.
-  page_ = AddChildView(std::make_unique<views::WebView>(nullptr));
+  page_ = AddChildView(std::make_unique<PageWebView>(nullptr));
   page_->SetID(kViewIdContent);
   page_->GetViewAccessibility().SetName(u"Web content");
   empty_ = AddChildView(std::make_unique<EmptyStateView>());

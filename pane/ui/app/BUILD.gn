@@ -26,13 +26,40 @@ source_set("commands") {
   deps = [ "//ui/events" ]
 
   if (is_mac) {
-    sources += [ "menu_bar_mac.mm" ]
+    sources += [
+      "commands_mac.cc",
+      "menu_bar_mac.mm",
+    ]
     frameworks = [ "AppKit.framework" ]
   }
 
   if (is_win) {
-    sources += [ "menu_bar_win.cc" ]
+    sources += [
+      "commands_win.cc",
+      "menu_bar_win.cc",
+    ]
   }
+}
+
+# The web pages and files a launch of Pane names, as another app hands them
+# (ADR 0109). A target of its own so its tests run in pane_unittests.
+source_set("handed_pages") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "handed_pages.cc",
+    "handed_pages.h",
+  ]
+
+  public_deps = [ "//url" ]
+
+  deps = [
+    "//base",
+    "//components/url_formatter",
+  ]
 }
 
 # When Pane locks by itself (docs/plans/views-migration.md, L2; ADR 0116):
@@ -71,16 +98,20 @@ source_set("unit_tests") {
 
   sources = [
     "commands_unittest.cc",
+    "handed_pages_unittest.cc",
     "lock_triggers_unittest.cc",
   ]
 
   deps = [
     ":commands",
+    ":handed_pages",
     ":lock_triggers",
     "//base",
     "//base/test:test_support",
+    "//net",
     "//testing/gtest",
     "//ui/base",
     "//ui/events",
+    "//url",
   ]
 }

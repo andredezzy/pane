@@ -43,8 +43,24 @@ namespace {
 // user's windows works (ADR 0012), and a press takes no capture of the
 // user's real pointer: Views captures only while a real button is down.
 
-// The keys scenarios type, by Windows' virtual key codes on the US layout.
+// The keys scenarios type, by Windows' virtual key codes on the US layout:
+// a character's, or the arrows and function keys Windows' shortcuts take.
 std::optional<ui::KeyboardCode> KeyCodeOf(const std::string& key) {
+  if (key == "left") {
+    return ui::VKEY_LEFT;
+  }
+  if (key == "right") {
+    return ui::VKEY_RIGHT;
+  }
+  if (key == "f4") {
+    return ui::VKEY_F4;
+  }
+  if (key == "f11") {
+    return ui::VKEY_F11;
+  }
+  if (key == "f12") {
+    return ui::VKEY_F12;
+  }
   if (key.size() != 1) {
     return std::nullopt;
   }

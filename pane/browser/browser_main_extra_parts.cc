@@ -20,6 +20,7 @@
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
 #include "pane/browser/ui/install_hooks.h"
+#include "pane/ui/app/app_events.h"
 #include "pane/ui/app/ui_app.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 
@@ -101,6 +102,12 @@ void BrowserMainExtraParts::PostBrowserStart() {
   // lets its profiles go as quitting starts (UiApp::Start).
   app_terminating_subscription_ = browser_shutdown::AddAppTerminatingCallback(
       base::BindOnce(&ChromeDevToolsManagerDelegate::AllowBrowserToClose));
+}
+
+// Chrome's start is over, Chrome's own handlers given, and the main loop runs
+// next: another launch of Pane comes to Pane's window from now on.
+void BrowserMainExtraParts::PreMainMessageLoopRun() {
+  AppEvents::ChromeStarted();
 }
 
 void BrowserMainExtraParts::PostMainMessageLoopRun() {

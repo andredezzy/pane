@@ -27,8 +27,11 @@ const IMAGE_DESCRIPTIONS = "Get Image Descriptions from Google";
 // is a new object, so only the count tells them apart. It shows one of the
 // `expected` titles, and every item has its title: Windows' spellchecker
 // answers after the menu is built, Chrome holding untitled places for its
-// suggestions until then (SpellingMenuObserver), where the Mac's are in the
-// menu as it is made.
+// suggestions until then (SpellingMenuObserver), the first of them "Loading
+// suggestion", its dots animated, once the menu shows on screen, where the
+// Mac's are in the menu as it is made.
+const LOADING_SUGGESTION = /^Loading suggestion/i;
+
 function menusOf(app: PaneApp, send: Send) {
 	return async (point: Point, ...expected: string[]) => {
 		const before = (await app.state()).contextMenusShown;
@@ -41,7 +44,9 @@ function menusOf(app: PaneApp, send: Send) {
 				(current.contextMenu ?? []).some((item) =>
 					expected.some((title) => sameTitle(title, item.title)),
 				) &&
-				(current.contextMenu ?? []).every((item) => item.title !== ""),
+				(current.contextMenu ?? []).every(
+					(item) => item.title !== "" && !LOADING_SUGGESTION.test(item.title),
+				),
 		);
 
 		return (state.contextMenu ?? []).map((item) => item.title);
@@ -348,6 +353,13 @@ async function screenReaderMenus(context: ScenarioContext, url: string) {
 		!linkMenu.some((title) => sameTitle(title, IMAGE_DESCRIPTIONS)),
 		`link menu with a screen reader ${linkMenu}`,
 	);
+
+	// In front the menu shows, and a right-click while it does opens none, as
+	// a user's would close it first: Esc closes it.
+	if (context.foreground) {
+		await app.send("key", { key: "\u001b" });
+		await app.waitFor("the menu gone", (state) => state.contextMenu === null);
+	}
 
 	const plainMenu = await menuAt(
 		await page.evaluate<Point>("centerOf('plain')"),

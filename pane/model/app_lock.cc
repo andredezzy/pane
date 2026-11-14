@@ -2,6 +2,7 @@
 
 #include "pane/model/app_lock.h"
 
+#include <algorithm>
 #include <string_view>
 #include <utility>
 
@@ -45,7 +46,7 @@ base::expected<std::optional<Key>, AppLock::Opened::Kind> ReleasedShare(
     return std::nullopt;
   }
   if (!guard) {
-    return base::unexpected(AppLock::Opened::Kind::kGuardGone);
+    return base::unexpected(AppLock::Opened::Kind::kGuardUnavailable);
   }
   base::expected<Key, PinGuard::Refusal> released =
       guard->Unseal(*sealed.guard, *pin);
@@ -58,8 +59,10 @@ base::expected<std::optional<Key>, AppLock::Opened::Kind> ReleasedShare(
     case PinGuard::Refusal::kLockedOut:
       return base::unexpected(AppLock::Opened::Kind::kLockedOut);
     case PinGuard::Refusal::kGone:
-    case PinGuard::Refusal::kUnavailable:
       return base::unexpected(AppLock::Opened::Kind::kGuardGone);
+    case PinGuard::Refusal::kNoChip:
+    case PinGuard::Refusal::kRefused:
+      return base::unexpected(AppLock::Opened::Kind::kGuardUnavailable);
   }
 }
 
@@ -228,13 +231,25 @@ AppLock::AppLock(const base::FilePath& data_directory,
       secret_(launch_secret ? std::move(launch_secret->secret) : std::nullopt) {
   CHECK(delegate_);
   if (loaded.unreadable || loaded.key_lost) {
-    entry_ = PinEntry::Unreadable(kKeyUnreadable);
+    entry_ =
+        PinEntry::Unreadable(PinEntry::UnreadableReason::kKey, kKeyUnreadable);
   } else if (state_.pin) {
     entry_ = PinEntry(PinEntry::Mode::kUnlock, state_.pin->length);
   }
 }
 
 AppLock::~AppLock() = default;
+
+std::optional<int> AppLock::AttemptsTowardWipe() const {
+  if (!WrongPinsWipe()) {
+    return std::nullopt;
+  }
+  return state_.failed_attempts;
+}
+
+bool AppLock::WrongPinsWipe() const {
+  return !state_.key || !state_.key->guard;
+}
 
 void AppLock::AddObserver(Observer* observer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -285,7 +300,8 @@ void AppLock::LockNow() {
 void AppLock::VolumeWontOpen() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   is_locked_ = true;
-  entry_ = PinEntry::Unreadable(kDataWontOpen);
+  entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kDataWontOpen,
+                                kDataWontOpen);
   Changed();
 }
 
@@ -407,25 +423,39 @@ void AppLock::PostOpen(std::optional<std::string> pin, bool unlocking) {
 void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   switch (opened.kind) {
+    // The system's store gave no secret: on the Mac the Keychain (07.7), on
+    // Windows DPAPI, which shows 07.7's words until Paper's 07.7.1.
     case Opened::Kind::kNoSecret:
       is_locked_ = true;
-      entry_ = PinEntry::Unreadable(kKeychainDenied);
+      entry_ = PinEntry::Unreadable(system_.no_secret, kKeychainDenied);
       Changed();
       return;
 
     case Opened::Kind::kOtherSecret:
       is_locked_ = true;
-      entry_ = PinEntry::Unreadable(kKeyUnreadable);
+      entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kKey,
+                                    kKeyUnreadable);
       Changed();
       return;
 
-    // The TPM's key gone, the chip cleared, or none for a seal that took one:
-    // the data behind the PIN is lost, as with a forgotten PIN, and the lock
-    // shows an unreadable key (Paper 07.6, in the Mac's words; Windows' are
-    // W5's).
+    // The TPM's key gone or the chip cleared: the data behind the PIN is
+    // lost, as with a forgotten PIN. The lock shows an unreadable key (Paper
+    // 07.6, in the Mac's words until Paper's 07.6.1).
     case Opened::Kind::kGuardGone:
       is_locked_ = true;
-      entry_ = PinEntry::Unreadable(kKeyUnreadable);
+      entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kGuardGone,
+                                    kKeyUnreadable);
+      Changed();
+      return;
+
+    // No chip now for a seal that took one, the TPM turned off in the
+    // firmware say, or its provider refusing: nothing is lost, and the PIN
+    // opens the data once the chip is back. 07.6's words until Paper's
+    // 07.6.2.
+    case Opened::Kind::kGuardUnavailable:
+      is_locked_ = true;
+      entry_ = PinEntry::Unreadable(
+          PinEntry::UnreadableReason::kGuardUnavailable, kKeyUnreadable);
       Changed();
       return;
 
@@ -442,12 +472,22 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
       // checked is too, and shut the lock for good on a wrong PIN there.
       if (!with_pin) {
         is_locked_ = true;
-        entry_ = PinEntry::Unreadable(kKeyUnreadable);
+        entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kKey,
+                                      kKeyUnreadable);
         Changed();
         return;
       }
       if (unlocking) {
-        ++state_.failed_attempts;
+        // A seal the chip guards never wipes (the user's call, ADR 0113): the
+        // chip's lockout and Windows' own bound the guesses, and the count,
+        // saved on the disk, never ages as Windows' window does, so a wrong
+        // PIN Windows lets through once its window frees a slot would be the
+        // lock's fifth. It counts up to the last before a wipe and stays
+        // there. A seal without the chip keeps the fifth wrong PIN's wipe.
+        state_.failed_attempts =
+            WrongPinsWipe() ? state_.failed_attempts + 1
+                            : std::min(state_.failed_attempts + 1,
+                                       SecurityState::kMaxAttempts - 1);
         // The last attempt and the key go in one save: with the key gone,
         // nothing left opens the volume or the sealed files, wherever their
         // blocks are (ADR 0113), and a wipe is due (IsWipeDue). The answer,
@@ -528,39 +568,48 @@ void AppLock::Reseal(std::optional<std::string> pin) {
   if (pin) {
     length = static_cast<int>(pin->size());
   }
+  // The seal this one replaces had the chip: the new one has it too, or
+  // none is made.
+  const bool had_chip = state_.key && state_.key->guard;
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, kKeyTraits,
       base::BindOnce(
           [](const Key& key, const std::vector<uint8_t>& secret,
              const std::optional<std::string>& pin,
-             const scoped_refptr<PinGuard>& guard) -> std::optional<SealedKey> {
+             const scoped_refptr<PinGuard>& guard,
+             bool had_chip) -> std::optional<SealedKey> {
             // With a PIN, the guard takes part when there is one, and a new
-            // key the chip holds has the new PIN for its own. Without a chip,
-            // or with the provider refusing, the PIN's stretch alone; but not
-            // in a lockout, which four wrong PINs bring about: the earlier
-            // seal stays.
+            // key the chip holds has the new PIN for its own. The PIN's
+            // stretch alone only on a computer with no TPM 2.0, for a seal
+            // that never had the chip: a chip that refuses, in a lockout
+            // (which four wrong PINs bring about) or for any other reason,
+            // and a seal that had it, keep the earlier seal, and the dots
+            // shake. Else a refusal any process of the user's could bring
+            // about would leave the PIN to offline guesses.
             std::optional<Guarded> guarded;
             if (pin && guard) {
               base::expected<Guarded, PinGuard::Refusal> made =
                   guard->Guard(*pin);
               if (made.has_value()) {
                 guarded = std::move(*made);
-              } else if (made.error() == PinGuard::Refusal::kLockedOut) {
+              } else if (had_chip ||
+                         made.error() != PinGuard::Refusal::kNoChip) {
+                LOG(ERROR) << "The TPM made no key: the earlier seal stays";
                 return std::nullopt;
               } else {
-                LOG(ERROR) << "The PIN is sealed without the TPM";
+                LOG(WARNING) << "No TPM 2.0: the PIN's stretch alone";
               }
             }
             return SealDataKey(key, secret, ViewOf(pin), guarded);
           },
-          *key, *secret_, std::move(pin), system_.guard),
+          *key, *secret_, std::move(pin), system_.guard, had_chip),
       base::BindOnce(&AppLock::Resealed, weak_factory_.GetWeakPtr(), length));
 }
 
 void AppLock::Resealed(std::optional<int> length,
                        std::optional<SealedKey> sealed) {
-  // The lockout made no key: nothing changes, and the dots shake (its words
-  // are W5's).
+  // The chip made no key: nothing changes, and the dots shake (the lockout's
+  // words are W5's).
   if (!sealed) {
     Verified(false);
     return;

@@ -32,6 +32,7 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   void PreProfileInit() override;
   void PostProfileInit(Profile* profile, bool is_initial_profile) override;
   void PostBrowserStart() override;
+  void PreMainMessageLoopRun() override;
   void PostMainMessageLoopRun() override;
 
   // ProfileManagerObserver:

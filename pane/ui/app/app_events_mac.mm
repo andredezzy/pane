@@ -6,9 +6,7 @@
 
 #include <utility>
 
-#include "base/values.h"
 #include "net/base/apple/url_conversions.h"
-#include "pane/browser/engine_trace.h"
 #include "pane/common/host.h"
 
 namespace pane {
@@ -17,37 +15,30 @@ namespace {
 
 class AppEventsMac : public AppEvents {
  public:
-  AppEventsMac(base::RepeatingClosure reopen, OpenURLs open_urls) {
+  AppEventsMac(base::RepeatingClosure reopen, OpenURLs open_urls)
+      : AppEvents(std::move(reopen), std::move(open_urls)) {
     NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
-    reopen_ = [center addObserverForName:@PANE_SHOULD_REOPEN_NOTIFICATION
-                                  object:nil
-                                   queue:nil
-                              usingBlock:^(NSNotification*) {
-                                reopen.Run();
-                              }];
-    open_urls_ = [center
-        addObserverForName:@PANE_OPEN_URLS_NOTIFICATION
-                    object:nil
-                     queue:nil
-                usingBlock:^(NSNotification* notification) {
-                  NSArray<NSURL*>* urls =
-                      notification.userInfo[@PANE_OPEN_URLS_KEY];
-                  PANE_TRACE("callback",
-                             "PaneBrowserApplicationDelegate.openURLs",
-                             base::DictValue().Set(
-                                 "count", static_cast<int>(urls.count)));
-                  // Web pages and files: nothing else reaches the engine.
-                  std::vector<GURL> pages;
-                  for (NSURL* url in urls) {
-                    const GURL page = net::GURLWithNSURL(url);
-                    if (page.SchemeIsHTTPOrHTTPS() || page.SchemeIsFile()) {
-                      pages.push_back(page);
-                    }
-                  }
-                  if (!pages.empty()) {
-                    open_urls.Run(std::move(pages));
-                  }
-                }];
+    // The block outlives no AppEventsMac: the observers go with it.
+    AppEventsMac* events = this;
+    reopen_observer_ =
+        [center addObserverForName:@PANE_SHOULD_REOPEN_NOTIFICATION
+                            object:nil
+                             queue:nil
+                        usingBlock:^(NSNotification*) {
+                          events->Reopen();
+                        }];
+    open_urls_observer_ =
+        [center addObserverForName:@PANE_OPEN_URLS_NOTIFICATION
+                            object:nil
+                             queue:nil
+                        usingBlock:^(NSNotification* notification) {
+                          std::vector<GURL> urls;
+                          for (NSURL* url in notification
+                                   .userInfo[@PANE_OPEN_URLS_KEY]) {
+                            urls.push_back(net::GURLWithNSURL(url));
+                          }
+                          events->OpenURLsHanded(std::move(urls));
+                        }];
     // A process started from the app in front is made active as it finishes
     // launching (AppKit does, on this Mac, for the published Swift app as
     // much as this one), and kept the front for the whole run. A scenario's
@@ -89,21 +80,25 @@ class AppEventsMac : public AppEvents {
   }
 
   ~AppEventsMac() override {
-    [NSNotificationCenter.defaultCenter removeObserver:reopen_];
-    [NSNotificationCenter.defaultCenter removeObserver:open_urls_];
+    [NSNotificationCenter.defaultCenter removeObserver:reopen_observer_];
+    [NSNotificationCenter.defaultCenter removeObserver:open_urls_observer_];
     [NSNotificationCenter.defaultCenter removeObserver:became_active_];
     [NSWorkspace.sharedWorkspace.notificationCenter
         removeObserver:deactivated_];
   }
 
  private:
-  id __strong reopen_;
-  id __strong open_urls_;
+  id __strong reopen_observer_;
+  id __strong open_urls_observer_;
   id __strong became_active_;
   id __strong deactivated_;
 };
 
 }  // namespace
+
+bool ClosingTheWindowQuits() {
+  return false;
+}
 
 // static
 std::unique_ptr<AppEvents> AppEvents::Listen(base::RepeatingClosure reopen,

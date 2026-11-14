@@ -255,9 +255,25 @@ base::DictValue DescribeCookie(const net::CanonicalCookie& cookie) {
 }
 
 // The key a scenario names ("\x1b" for Esc, "\r" for Return, "\t" for Tab,
-// " ", "control", "shift", a letter, a digit, or the punctuation of Pane's
-// shortcuts), as Views codes it.
+// " ", "control", "shift", a letter, a digit, the punctuation of Pane's
+// shortcuts, or the arrows and function keys Windows' shortcuts take:
+// "left", "right", "f4", "f11", "f12"), as Views codes it.
 std::optional<ui::KeyboardCode> KeyCodeOf(std::string_view key) {
+  if (key == "left") {
+    return ui::VKEY_LEFT;
+  }
+  if (key == "right") {
+    return ui::VKEY_RIGHT;
+  }
+  if (key == "f4") {
+    return ui::VKEY_F4;
+  }
+  if (key == "f11") {
+    return ui::VKEY_F11;
+  }
+  if (key == "f12") {
+    return ui::VKEY_F12;
+  }
   if (key == "\x1b") {
     return ui::VKEY_ESCAPE;
   }

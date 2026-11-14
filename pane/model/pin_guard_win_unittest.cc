@@ -35,7 +35,7 @@ class PinGuardWinTest : public testing::Test {
   std::optional<Guarded> Guard(std::string_view pin) {
     base::expected<Guarded, PinGuard::Refusal> guarded = guard_->Guard(pin);
     if (!guarded.has_value()) {
-      EXPECT_EQ(guarded.error(), PinGuard::Refusal::kUnavailable);
+      EXPECT_EQ(guarded.error(), PinGuard::Refusal::kNoChip);
       return std::nullopt;
     }
     return std::move(*guarded);

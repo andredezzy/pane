@@ -190,12 +190,20 @@ void Window::Open() {
   }
 
   // The one command table (commands.h): its keys are the window's
-  // FocusManager's accelerators, as the menu bar's items show them. The
-  // switcher's Esc and Ctrl's release come ahead of the focused view.
+  // FocusManager's accelerators, as the menu bar's items show them. Quit's
+  // come first, past an overlay that takes every key (Quit Pane?, the PIN
+  // screen), whose view holds the focus and would keep them: there it quits
+  // (ADR 0019, ADR 0053), as the menu bar's Quit does on the Mac, and on
+  // Windows, which has no menu bar, only this. The switcher's Esc and Ctrl's
+  // release come ahead of the focused view.
   views::FocusManager* focus = widget->GetFocusManager();
   for (const ui::Accelerator& accelerator : WindowAccelerators()) {
-    focus->RegisterAccelerator(accelerator,
-                               ui::AcceleratorManager::kNormalPriority, this);
+    focus->RegisterAccelerator(
+        accelerator,
+        CommandForAccelerator(accelerator) == Command::kQuit
+            ? ui::AcceleratorManager::kHighPriority
+            : ui::AcceleratorManager::kNormalPriority,
+        this);
   }
   switcher_keys_ = std::make_unique<SwitcherKeys>(this);
   widget->GetRootView()->AddPreTargetHandler(switcher_keys_.get());
@@ -560,9 +568,13 @@ gfx::Rect Window::PageBounds() const {
   return root_ ? root_->PageBounds() : gfx::Rect();
 }
 
+// While an overlay takes every key (Quit Pane?, the PIN screen), none of the
+// window's commands runs from its key but Quit, which the overlay's own
+// keys leave to the window.
 bool Window::AcceleratorPressed(const ui::Accelerator& accelerator) {
   const std::optional<Command> command = CommandForAccelerator(accelerator);
-  if (!command || IsPlatformCommand(*command) ||
+  if (!command || IsPlatformCommand(*command) || !root_ ||
+      (root_->TakesEveryKey() && *command != Command::kQuit) ||
       !controller_->IsCommandEnabled(*command)) {
     return false;
   }
@@ -570,11 +582,9 @@ bool Window::AcceleratorPressed(const ui::Accelerator& accelerator) {
   return true;
 }
 
-// While an overlay takes every key (Quit Pane?), none of the window's
-// commands runs from its key.
 bool Window::CanHandleAccelerators() const {
   views::Widget* widget = this->widget();
-  return widget && widget->IsActive() && root_ && !root_->TakesEveryKey();
+  return widget && widget->IsActive() && root_;
 }
 
 bool Window::SwitcherEscape(bool pressed, int key_code) {

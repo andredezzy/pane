@@ -192,6 +192,8 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
   launched.lock_system.secret = base::BindRepeating(
       &model::EngineSecret, EngineDirectory(data_directory));
   launched.lock_system.guard = guard;
+  launched.lock_system.no_secret =
+      model::PinEntry::UnreadableReason::kDpapiRefused;
   launched.lock_system.wipe = base::BindRepeating(
       [](const base::FilePath& data_directory,
          scoped_refptr<model::PinGuard> guard) {

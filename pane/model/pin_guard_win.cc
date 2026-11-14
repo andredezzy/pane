@@ -20,6 +20,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/win/hardware_check.h"
 #include "crypto/hash.h"
 #include "crypto/random.h"
 #include "crypto/scoped_cng_types.h"
@@ -73,6 +74,15 @@ PinGuard::Refusal RefusalOf(SECURITY_STATUS status) {
   }
 }
 
+// Why the chip made or opened nothing when it gave no lockout: no TPM 2.0 on
+// this computer (the system's TPM Base Services see none, as Chromium's own
+// hardware check asks them), or the chip refused.
+PinGuard::Refusal NoKey() {
+  return base::win::EvaluateWin11HardwareRequirements().tpm
+             ? PinGuard::Refusal::kRefused
+             : PinGuard::Refusal::kNoChip;
+}
+
 // The PIN as the provider takes it: UTF-16 with its terminating null.
 std::wstring WidePin(std::string_view pin) {
   return base::UTF8ToWide(pin);
@@ -102,7 +112,7 @@ class TpmGuard : public PinGuard {
   base::expected<Guarded, Refusal> Guard(std::string_view pin) override {
     crypto::ScopedNCryptProvider provider = Provider();
     if (!provider.is_valid()) {
-      return base::unexpected(Refusal::kUnavailable);
+      return base::unexpected(NoKey());
     }
     const std::string name = base::StrCat(
         {prefix_, base::HexEncodeLower(crypto::RandBytesAsArray<8>())});
@@ -115,7 +125,7 @@ class TpmGuard : public PinGuard {
         /*dwFlags=*/0);
     if (FAILED(status)) {
       LOG(ERROR) << "The TPM made no key: " << std::hex << status;
-      return base::unexpected(Refusal::kUnavailable);
+      return base::unexpected(NoKey());
     }
     // The PIN is the key's own, set before the chip makes it, silently: no
     // Windows UI asks for it, then or at a use.
@@ -132,7 +142,7 @@ class TpmGuard : public PinGuard {
       // A lockout refuses the provider's own authorization too: the chip is
       // there, and makes keys again once it is over.
       return base::unexpected(IsLockout(status) ? Refusal::kLockedOut
-                                                : Refusal::kUnavailable);
+                                                : NoKey());
     }
 
     Guarded guarded;
@@ -153,7 +163,7 @@ class TpmGuard : public PinGuard {
     if (FAILED(status)) {
       LOG(ERROR) << "The TPM's key sealed no share: " << std::hex << status;
       NCryptDeleteKey(key.release(), 0);
-      return base::unexpected(Refusal::kUnavailable);
+      return base::unexpected(Refusal::kRefused);
     }
     sealed.resize(size);
     guarded.kept = {.key = name, .share = base::Base64Encode(sealed)};
@@ -169,7 +179,7 @@ class TpmGuard : public PinGuard {
     }
     crypto::ScopedNCryptProvider provider = Provider();
     if (!provider.is_valid()) {
-      return base::unexpected(Refusal::kUnavailable);
+      return base::unexpected(NoKey());
     }
     const std::wstring name = base::UTF8ToWide(kept.key);
     crypto::ScopedNCryptKey key;

@@ -12,6 +12,7 @@
 #include <map>
 #include <set>
 
+#include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
@@ -38,6 +39,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/ui/window_host.h"
+#include "pane/ui/app/commands.h"
 #include "pane/ui/page/find_in_page.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
@@ -383,6 +385,10 @@ bool HostedBrowserWindow::IsMinimized() const {
 }
 
 bool HostedBrowserWindow::IsFullscreen() const {
+  // Telling Chrome's controller the page's fullscreen is over (ExitFullscreen).
+  if (left_tab_fullscreen_) {
+    return false;
+  }
   if (tab_fullscreen_ ||
       (host_ && host_->widget() && host_->widget()->IsFullscreen())) {
     return true;
@@ -669,9 +675,37 @@ void HostedBrowserWindow::EnterFullscreen(
   }
 }
 
+// Chrome's fullscreen controller lets the tab go itself on the Mac, where a
+// window reports its change at once (FullscreenController::
+// ExitFullscreenModeInternal); elsewhere it waits for the window to say it
+// has left (WindowFullscreenStateChanged), as BrowserView and
+// WebUIBrowserWindow say once their widget has. Pane's window follows the page
+// out once the controller lets it go (ReportFullscreenTab), so on Windows Esc
+// left the page in its fullscreen, the controller holding it and taking every
+// Esc after: once this turn is over, the window says it has left the page's
+// fullscreen, whatever it shows for the user's own full screen.
 void HostedBrowserWindow::ExitFullscreen() {
   tab_fullscreen_ = false;
+  base::WeakPtr<HostedBrowserWindow> self = weak_factory_.GetWeakPtr();
   ReportFullscreenTab();
+  if (!self) {
+    return;
+  }
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<HostedBrowserWindow> window) {
+            ExclusiveAccessManager* manager =
+                window ? window->GetExclusiveAccessManager() : nullptr;
+            // Entered again meanwhile, or let go already (the Mac).
+            if (!manager || window->tab_fullscreen_ ||
+                !manager->fullscreen_controller()->IsTabFullscreen()) {
+              return;
+            }
+            base::AutoReset<bool> left(&window->left_tab_fullscreen_, true);
+            manager->fullscreen_controller()->WindowFullscreenStateChanged();
+          },
+          weak_factory_.GetWeakPtr()));
 }
 
 void HostedBrowserWindow::PostWindowFullscreenStateChanged() {
@@ -721,15 +755,17 @@ ui::AcceleratorProvider* HostedBrowserWindow::GetAcceleratorProvider() {
   return this;
 }
 
+// Full Screen's key, as the command table gives it on this system (⌃⌘F on
+// the Mac, F11 on Windows), which Chrome's own menus show beside Exit Full
+// Screen.
 bool HostedBrowserWindow::GetAcceleratorForCommandId(
     int command_id,
     ui::Accelerator* accelerator) const {
   if (command_id != IDC_FULLSCREEN) {
     return false;
   }
-  *accelerator =
-      ui::Accelerator(ui::VKEY_F, ui::EF_CONTROL_DOWN | ui::EF_COMMAND_DOWN);
-  return true;
+  *accelerator = ShownAcceleratorOf(Command::kFullScreen);
+  return accelerator->key_code() != ui::VKEY_UNKNOWN;
 }
 
 void HostedBrowserWindow::ReportFullscreenTab() {

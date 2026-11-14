@@ -32,7 +32,9 @@ namespace pane::model {
 // starts locked behind the PIN screen, and locks while open (ADR 0116); the
 // screen also sets, changes, and removes the PIN from Settings. The fifth
 // wrong PIN in a row at the lock erases everything (the panic wipe) and starts
-// Pane fresh; the fifth in Settings only locks Pane (ADR 0042). The PIN opens
+// Pane fresh, unless a chip guards the seal, where the chip's and Windows' own
+// lockouts bound the guesses and nothing is wiped (ADR 0113); the fifth in
+// Settings only locks Pane (ADR 0042). The PIN opens
 // the data key (ADR 0113), sealed in security.json and in its copy beside the
 // volume, which the vault then opens the data with: without a PIN, the key
 // opens at launch. On Windows a key the TPM holds guards the PIN in the seal
@@ -62,6 +64,10 @@ class AppLock {
         matches_hash;
     // What guards the PIN in the seal: the TPM's on Windows; null on the Mac.
     scoped_refptr<PinGuard> guard;
+    // Why the lock says no key reads when `secret` gives none: the
+    // Keychain's refusal on the Mac, DPAPI's on Windows.
+    PinEntry::UnreadableReason no_secret =
+        PinEntry::UnreadableReason::kKeychainDenied;
     // The panic wipe, once the key is gone from disk: this instance ends,
     // and the one it starts erases (PanicWipeAtLaunch). Never returns.
     base::RepeatingClosure wipe;
@@ -128,9 +134,12 @@ class AppLock {
       // The PIN's guard took no PIN, the right one included: the chip's
       // lockout. Nothing counts.
       kLockedOut,
-      // The PIN's guard is gone: its key deleted, the chip cleared, or no
-      // chip for a seal that took one. What it guarded is lost.
+      // The PIN's guard lost its key: deleted, or the chip cleared. What it
+      // guarded is lost.
       kGuardGone,
+      // The PIN's guard has no chip now for a seal that took one, or its
+      // provider refuses: what it guards opens once the chip is back.
+      kGuardUnavailable,
     };
 
     Opened();
@@ -174,6 +183,12 @@ class AppLock {
   void RemoveObserver(Observer* observer);
 
   const SecurityState& state() const { return state_; }
+  // The wrong PINs at the lock in a row that count toward the panic wipe,
+  // which the PIN screen shows with the attempts left (ADR 0042); none on a
+  // seal the TPM guards, which never wipes, where Windows' own count, which
+  // ages and takes Settings' tries too, isn't Pane's to read (ADR 0113,
+  // Paper 07.1.1).
+  std::optional<int> AttemptsTowardWipe() const;
   // The PIN screen covers the window, and only the PIN opens it.
   bool is_locked() const { return is_locked_; }
   // The PIN screen, while it shows. It takes every key, so nothing reaches a
@@ -226,6 +241,9 @@ class AppLock {
   void SaveThen(base::OnceClosure then);
   void Wipe();
   void Changed();
+  // Whether wrong PINs at the lock lead to the panic wipe: on every seal but
+  // one the TPM guards, whatever the system (ADR 0113).
+  bool WrongPinsWipe() const;
 
   const base::FilePath data_directory_;
   const raw_ref<DataVault> vault_;

@@ -46,15 +46,35 @@ export function noWindowsSide(
 
 // The modifier of Pane's shortcuts, by the channel's name for it: Command on
 // the Mac, Control on Windows, where Pane's command table gives its keys
-// Ctrl (W4).
+// Ctrl (pane/ui/app/commands.cc).
 export const PRIMARY = bySystem({
 	mac: "command",
 	windows: "control",
 } as const);
 
-// Whether Pane's command table answers PRIMARY's shortcuts: the Mac's; on
-// Windows the table's own modifier is still the Windows key, its Ctrl W4's.
-export const COMMAND_KEYS = bySystem({ mac: true, windows: false });
+// A key as the channel takes it.
+export type Shortcut = { key: string; modifiers: string[] };
+
+// Pane's keys that differ by more than PRIMARY, as the command table gives
+// each system its own (Chrome's own Windows keys there): Back and Forward,
+// Developer Tools' second key, Chrome's (⌥⌘I on the Mac, F12 on Windows), and
+// Full Screen (⌃⌘F, F11).
+export const KEYS = bySystem<
+	Record<"back" | "forward" | "devToolsAgain" | "fullScreen", Shortcut>
+>({
+	mac: {
+		back: { key: "[", modifiers: ["command"] },
+		forward: { key: "]", modifiers: ["command"] },
+		devToolsAgain: { key: "i", modifiers: ["command", "option"] },
+		fullScreen: { key: "f", modifiers: ["command", "control"] },
+	},
+	windows: {
+		back: { key: "left", modifiers: ["option"] },
+		forward: { key: "right", modifiers: ["option"] },
+		devToolsAgain: { key: "f12", modifiers: [] },
+		fullScreen: { key: "f11", modifiers: [] },
+	},
+});
 
 // A scenario's own word that it doesn't run on Windows (`export const
 // notOnWindows`), which the runner reads; without it, a scenario runs on both.

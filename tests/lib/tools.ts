@@ -558,8 +558,9 @@ export const crashDumpsUnder = bySystem({
 // `since` (ms): on the Mac under the home's Application Support, a test
 // copy's home its own, so all of it; on Windows, where chrome_elf would start
 // it before any code of Pane's, reading the user's own local application
-// data from the shell, in Chromium's user data folder there, which any
-// Chromium of the user's shares, so what is newer.
+// data from the shell, in the user data folder its install mode names there
+// (`%LOCALAPPDATA%\Pane\User Data`, patch 0001), which the user's own Pane
+// shares, so what is newer.
 export const crashpadKept = bySystem({
 	mac: (home: string, _since: number): string[] => {
 		const folder = join(
@@ -575,7 +576,7 @@ export const crashpadKept = bySystem({
 	windows: (_home: string, since: number): string[] => {
 		const folder = join(
 			process.env.LOCALAPPDATA ?? "",
-			"Chromium",
+			"Pane",
 			"User Data",
 			"Crashpad",
 		);

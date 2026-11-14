@@ -20,11 +20,12 @@ PinEntry& PinEntry::operator=(const PinEntry&) = default;
 PinEntry::~PinEntry() = default;
 
 // static
-PinEntry PinEntry::Unreadable(std::string message) {
+PinEntry PinEntry::Unreadable(UnreadableReason reason, std::string message) {
   PinEntry entry(Mode::kUnlock, kMinimumPinLength);
   entry.error_ = std::move(message);
   entry.busy_ = true;
   entry.is_unreadable_ = true;
+  entry.unreadable_reason_ = reason;
   return entry;
 }
 

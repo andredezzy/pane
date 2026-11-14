@@ -193,7 +193,9 @@ class LockScreenView::PinContent : public views::View {
 
   PinDots* dots() { return dots_; }
 
-  void Set(const model::PinEntry& entry, int failed_attempts, bool animate) {
+  void Set(const model::PinEntry& entry,
+           std::optional<int> attempts_toward_wipe,
+           bool animate) {
     const std::optional<std::string_view> title = entry.Title();
     title_->SetVisible(title.has_value());
     if (title) {
@@ -219,6 +221,9 @@ class LockScreenView::PinContent : public views::View {
     error_->SetText(entry.error() ? base::UTF8ToUTF16(*entry.error())
                                   : std::u16string());
 
+    // The attempts left before the panic wipe, from the first wrong PIN; none
+    // where wrong PINs wipe nothing, on a seal the TPM guards (Paper 07.1.1).
+    const int failed_attempts = attempts_toward_wipe.value_or(0);
     const int remaining =
         std::max(0, model::SecurityState::kMaxAttempts - failed_attempts);
     attempts_->SetVisible(entry.mode() == model::PinEntry::Mode::kUnlock &&
@@ -433,7 +438,7 @@ void LockScreenView::SetShows(const Shows& shows, bool animate) {
   // is from its first frame.
   const bool moves = animate && was_showing && widget && widget->IsVisible();
   if (shows_.entry) {
-    pin_->Set(*shows_.entry, shows_.failed_attempts, moves);
+    pin_->Set(*shows_.entry, shows_.attempts_toward_wipe, moves);
   }
   if (shows_.move_share) {
     move_->Set(*shows_.move_share, moves);

@@ -101,3 +101,4 @@ chrome/browser/ui/views/frame/browser_window_factory.cc	0003-pane-hosted-browser
 components/services/quarantine/quarantine_mac.mm	0008-pane-private.patch
 components/services/quarantine/quarantine_win.cc	0008-pane-private.patch
 chrome/browser/devtools/devtools_ui_controller.h	0004-pane-ui-hooks.patch
+chrome/install_static/chromium_install_modes.h	0001-pane-framework.patch

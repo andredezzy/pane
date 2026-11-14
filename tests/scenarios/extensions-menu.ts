@@ -11,6 +11,7 @@ import {
 	launchPane,
 	type PaneApp,
 } from "../lib/pane";
+import { pollValue } from "../lib/poll";
 import { waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
@@ -138,7 +139,12 @@ const extensionsMenu: Scenario = async (context) => {
 		30_000,
 	);
 
-	const toolbar = await app.frames("pane.extension");
+	// The toolbar lays it out at its next frame, after the state says pinned.
+	const toolbar = await pollValue(
+		() => app.frames("pane.extension"),
+		(frames) => frames[`pane.extension.${id}`]?.[2] === 32,
+		5_000,
+	);
 
 	expect(
 		(toolbar[`pane.extension.${id}`]?.[2] ?? 0) === 32,

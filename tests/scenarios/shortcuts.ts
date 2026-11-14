@@ -1,5 +1,5 @@
 import { tabOf } from "../lib/pane";
-import { PRIMARY } from "../lib/platform";
+import { KEYS, PRIMARY } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -26,6 +26,9 @@ const shortcuts: Scenario = async (context) => {
 
 	const press = (key: string, ...modifiers: string[]) =>
 		app.send("key", { key, modifiers } satisfies Key);
+
+	// A key of the table's that differs on Windows by more than its modifier.
+	const pressKey = (shortcut: Key) => app.send("key", shortcut);
 
 	// A key the window takes, not the menu bar.
 	const type = (key: string, ...modifiers: string[]) =>
@@ -161,7 +164,7 @@ const shortcuts: Scenario = async (context) => {
 
 	await app.waitFor("⌘L", (state) => state.focus === ADDRESS);
 
-	// ⌘[ and ⌘] walk the history.
+	// ⌘[ and ⌘] walk the history (Alt+Left and Alt+Right on Windows).
 	await app.send("navigate", { input: b });
 
 	await app.waitFor(
@@ -169,21 +172,21 @@ const shortcuts: Scenario = async (context) => {
 		(state) => tabOf(state, tabA)?.url === b && !tabOf(state, tabA)?.loading,
 	);
 
-	await press("[", PRIMARY);
+	await pressKey(KEYS.back);
 
 	await app.waitFor(
 		"⌘[",
 		(state) => tabOf(state, tabA)?.url === a && !tabOf(state, tabA)?.loading,
 	);
 
-	await press("]", PRIMARY);
+	await pressKey(KEYS.forward);
 
 	await app.waitFor(
 		"⌘]",
 		(state) => tabOf(state, tabA)?.url === b && !tabOf(state, tabA)?.loading,
 	);
 
-	await press("[", PRIMARY);
+	await pressKey(KEYS.back);
 
 	await app.waitFor(
 		"⌘[ again",

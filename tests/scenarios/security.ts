@@ -6,7 +6,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join, sep } from "node:path";
-import { HANDED_URLS_OPEN, handURLs } from "../lib/browser";
+import { handURLs } from "../lib/browser";
 import { pinGuardKeys } from "../lib/engine-key";
 import {
 	type AppState,
@@ -20,7 +20,7 @@ import {
 	setPinBeforeLaunch,
 	volumeShut,
 } from "../lib/pane";
-import { COMMAND_KEYS, PRIMARY } from "../lib/platform";
+import { PRIMARY } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import {
 	childrenOf,
@@ -39,10 +39,12 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // Check for Updates…. A wrong PIN counts, the right one unlocks, and the URLs
 // open then. Then the PIN is changed, removed, and set up again through the PIN
 // screen, and Back leaves it. On a relaunch, five wrong PINs erase the data
-// directory and Pane starts again, fresh. Then ⌘Q quits from the PIN screen
-// with Caps Lock on. Last, a security.json that no longer decodes never opens
-// the lock: the PIN left in it still unlocks, and with none left the lock stays
-// shut. Each check runs in a throwaway data directory.
+// directory and Pane starts again, fresh, unless the TPM guards the seal: then
+// no attempts left show, the fifth erases nothing, and the right PIN still
+// opens. Then ⌘Q quits from the PIN screen with Caps Lock on. Last, a
+// security.json that no longer decodes never opens the lock: the PIN left in
+// it still unlocks, and with none left the lock stays shut. Each check runs in
+// a throwaway data directory.
 //
 // Wrong PINs in Settings erase nothing (ADR 0042): they count in memory, and the
 // fifth only locks Pane. A last attempt on disk with the key still there, which
@@ -57,9 +59,11 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // A quit detaches the volume, and so does its watchdog when Pane is killed.
 //
 // On Windows (U5) the PIN is set up through its screen before the launch, no
-// Pane there having kept a hash; a key the TPM holds guards it, and the wipe
-// deletes that key too. Windows has no volume, no watchdog, and no earlier
-// app's data, and a home for the menu bar's commands is W5's.
+// Pane there having kept a hash; a key the TPM holds guards it, and a seal it
+// guards never wipes, Windows' lockout making the guesses wait (ADR 0113): the
+// wipe's deleting the chip's keys is `pane_unittests`'. Windows has no volume,
+// no watchdog, and no earlier app's data, and a home for the menu bar's
+// commands is W5's.
 
 type Saved = {
 	state: {
@@ -69,6 +73,8 @@ type Saved = {
 			box: string;
 			pin?: { salt: string; rounds: number } | null;
 			secret: string;
+			// The TPM's share, on a seal the chip guards (Windows).
+			tpm?: { key: string } | null;
 		};
 	};
 };
@@ -377,12 +383,6 @@ const security: Scenario = async (context) => {
 	);
 
 	// The URLs open once the lock is open, the handed one last.
-	if (!HANDED_URLS_OPEN) {
-		context.defer(
-			"the handed URL opened once the lock opened: Windows' second launch hands it to nothing yet (W4)",
-		);
-	}
-
 	await app.waitFor("the launch and handed URLs opened", (state) =>
 		state.profiles.some((entry) => {
 			const urls = entry.tabs.map((item) => item.url);
@@ -390,9 +390,8 @@ const security: Scenario = async (context) => {
 
 			return (
 				urls.indexOf(launchURL) >= 0 &&
-				(!HANDED_URLS_OPEN ||
-					(urls.indexOf(handedURL) > urls.indexOf(launchURL) &&
-						handedTab?.loaded === true))
+				urls.indexOf(handedURL) > urls.indexOf(launchURL) &&
+				handedTab?.loaded === true
 			);
 		}),
 	);
@@ -548,6 +547,177 @@ const security: Scenario = async (context) => {
 	// Past the dots' fade.
 	await relaunched.render("security-last-attempt.png", 500);
 
+	// Which seal it is, the seal says, not the system: a seal the TPM guards
+	// never wipes, Windows' lockout making the guesses wait (ADR 0113); any
+	// other seal, the Mac's among them, is erased at the fifth (ADR 0042).
+	const guarded = !!saved(dataDir)?.state.key?.tpm;
+
+	// The attempts left, and the last one's warning, show under the dots
+	// only where wrong PINs wipe: none on a guarded seal (Paper 07.1.1).
+	const attempts = "pane.lockScreen.attempts";
+	const attemptsShown = attempts in (await relaunched.frames(attempts));
+
+	expect(
+		attemptsShown === !guarded,
+		`the attempts left ${attemptsShown ? "shown" : "hidden"} on a seal ${guarded ? "the TPM guards" : "without the TPM"}`,
+	);
+
+	await (guarded
+		? fifthKeeps(relaunched, dataDir, profile)
+		: fifthWipes(context, relaunched, dataDir, profile));
+
+	// ⌘Q at the PIN screen with Caps Lock on.
+	const capsDir = context.tempDir("pane-security-caps-");
+	await setPinBeforeLaunch(context, capsDir, "1234");
+
+	const caps = await launchPane(context, { dataDir: capsDir });
+
+	if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
+		await caps.send("key", { key: "q", modifiers: [PRIMARY, "capsLock"] });
+
+		expect(
+			await waitForExit(caps.browser.pid),
+			"⌘Q with Caps Lock did not quit at the PIN screen",
+		);
+	}
+
+	await caps.browser.close();
+
+	// A quit detaches the volume; so does the watchdog when Pane is killed.
+	// Windows has neither (U5).
+	if (DATA_IN_A_VOLUME) {
+		await volumeAndWatchdog(context);
+	}
+
+	// A damaged security.json: cut short, its PIN still in it, then garbage.
+	const damaged = async (
+		name: string,
+		prepare: (directory: string) => Promise<void>,
+		keys: string,
+	) => {
+		const directory = context.tempDir("pane-security-damaged-");
+		await prepare(directory);
+
+		const damagedApp = await launchPane(context, { dataDir: directory });
+		const atLaunch = await damagedApp.state();
+
+		await damagedApp.render(`security-damaged-${name}.png`, 0);
+
+		await damagedApp.send("pinKeys", { keys });
+		await Bun.sleep(1_500);
+		const afterKeys = await damagedApp.state();
+
+		const result = {
+			lockedAtLaunch: atLaunch.security.locked,
+			error: screen(atLaunch)?.error ?? null,
+			lockedAfterKeys: afterKeys.security.locked,
+			keptAside: existsSync(join(directory, "security.json.damaged")),
+		};
+
+		await damagedApp.browser.close();
+
+		return result;
+	};
+
+	const truncated = await damaged(
+		"truncated",
+		(directory) => cutShortSecurity(context, directory),
+		"1234",
+	);
+
+	const garbage = await damaged(
+		"garbage",
+		async (directory) =>
+			writeFileSync(join(directory, "security.json"), '\u0000\u0000{"state":'),
+		"1234",
+	);
+
+	expect(
+		truncated.lockedAtLaunch &&
+			!truncated.lockedAfterKeys &&
+			truncated.keptAside,
+		`a damaged security.json with its PIN: ${JSON.stringify(truncated)}`,
+	);
+
+	expect(
+		garbage.lockedAtLaunch &&
+			garbage.lockedAfterKeys &&
+			!!garbage.error &&
+			garbage.keptAside,
+		`a damaged security.json without a PIN: ${JSON.stringify(garbage)}`,
+	);
+};
+
+// The fifth wrong PIN on a seal the TPM guards (ADR 0113): the count stays at
+// the last before a wipe, the data, the key, and the TPM's keys stay, and the
+// right PIN still opens. Pane quits after.
+async function fifthKeeps(app: PaneApp, dataDir: string, profile: string) {
+	const profileDir = join(dataDir, "Engine", profile);
+	const keyBefore = saved(dataDir)?.state.key?.box;
+	const guardBefore = await pinGuardKeys(dataDir);
+
+	// Three of its keys, then the last: the count can't say the check is done,
+	// as it stays, so the screen's own reset after the check says it.
+	await type(
+		app,
+		"111",
+		"the fifth wrong PIN's first keys",
+		(state) => screen(state)?.entered === 3,
+	);
+
+	const kept = await type(
+		app,
+		"1",
+		"the fifth wrong PIN",
+		(state) => screen(state)?.entered === 0 && !screen(state)?.busy,
+	);
+
+	const guardAfter = await pinGuardKeys(dataDir);
+
+	const after = {
+		running: isRunning(app.browser.pid),
+		locked: kept.security.locked,
+		failedAttempts: kept.security.failedAttempts,
+		keyKept: !!keyBefore && saved(dataDir)?.state.key?.box === keyBefore,
+		profile: lexists(profileDir),
+		guard: [guardBefore.length, guardAfter.length],
+	};
+
+	expect(
+		after.running &&
+			after.locked &&
+			after.failedAttempts === 4 &&
+			after.keyKept &&
+			after.profile &&
+			guardBefore.length > 0 &&
+			guardAfter.length === guardBefore.length,
+		`the fifth wrong PIN on a seal the TPM guards: ${JSON.stringify(after)}`,
+	);
+
+	const opened = await type(
+		app,
+		"2468",
+		"the right PIN after the fifth wrong one",
+		(state) => !state.security.locked,
+	);
+
+	expect(
+		opened.security.failedAttempts === 0 &&
+			opened.profiles.some((entry) => entry.id === profile),
+		`the right PIN after the fifth wrong one: ${JSON.stringify(opened.security)}`,
+	);
+
+	await app.quit();
+}
+
+// The fifth wrong PIN on any other seal (ADR 0042): Pane erases its data,
+// the key, and the TPM's keys an earlier seal left, then starts again, fresh.
+async function fifthWipes(
+	context: ScenarioContext,
+	relaunched: PaneApp,
+	dataDir: string,
+	profile: string,
+) {
 	const profileDir = join(dataDir, "Engine", profile);
 
 	// The Electron app's data this Pane migrated from, as migration.json
@@ -675,92 +845,7 @@ const security: Scenario = async (context) => {
 	);
 
 	await relaunched.quit();
-
-	// ⌘Q at the PIN screen with Caps Lock on.
-	const capsDir = context.tempDir("pane-security-caps-");
-	await setPinBeforeLaunch(context, capsDir, "1234");
-
-	const caps = await launchPane(context, { dataDir: capsDir });
-
-	if (!COMMAND_KEYS) {
-		context.defer(
-			"⌘Q with Caps Lock on at the PIN screen: Ctrl in Windows' command table is W4's",
-		);
-	} else if (await bringToFront(context, caps, "⌘Q with Caps Lock on")) {
-		await caps.send("key", { key: "q", modifiers: [PRIMARY, "capsLock"] });
-
-		expect(
-			await waitForExit(caps.browser.pid),
-			"⌘Q with Caps Lock did not quit at the PIN screen",
-		);
-	}
-
-	await caps.browser.close();
-
-	// A quit detaches the volume; so does the watchdog when Pane is killed.
-	// Windows has neither (U5).
-	if (DATA_IN_A_VOLUME) {
-		await volumeAndWatchdog(context);
-	}
-
-	// A damaged security.json: cut short, its PIN still in it, then garbage.
-	const damaged = async (
-		name: string,
-		prepare: (directory: string) => Promise<void>,
-		keys: string,
-	) => {
-		const directory = context.tempDir("pane-security-damaged-");
-		await prepare(directory);
-
-		const damagedApp = await launchPane(context, { dataDir: directory });
-		const atLaunch = await damagedApp.state();
-
-		await damagedApp.render(`security-damaged-${name}.png`, 0);
-
-		await damagedApp.send("pinKeys", { keys });
-		await Bun.sleep(1_500);
-		const afterKeys = await damagedApp.state();
-
-		const result = {
-			lockedAtLaunch: atLaunch.security.locked,
-			error: screen(atLaunch)?.error ?? null,
-			lockedAfterKeys: afterKeys.security.locked,
-			keptAside: existsSync(join(directory, "security.json.damaged")),
-		};
-
-		await damagedApp.browser.close();
-
-		return result;
-	};
-
-	const truncated = await damaged(
-		"truncated",
-		(directory) => cutShortSecurity(context, directory),
-		"1234",
-	);
-
-	const garbage = await damaged(
-		"garbage",
-		async (directory) =>
-			writeFileSync(join(directory, "security.json"), '\u0000\u0000{"state":'),
-		"1234",
-	);
-
-	expect(
-		truncated.lockedAtLaunch &&
-			!truncated.lockedAfterKeys &&
-			truncated.keptAside,
-		`a damaged security.json with its PIN: ${JSON.stringify(truncated)}`,
-	);
-
-	expect(
-		garbage.lockedAtLaunch &&
-			garbage.lockedAfterKeys &&
-			!!garbage.error &&
-			garbage.keptAside,
-		`a damaged security.json without a PIN: ${JSON.stringify(garbage)}`,
-	);
-};
+}
 
 // A quit detaches the volume; so does the watchdog when Pane is killed (ADR
 // 0113): the Mac's.

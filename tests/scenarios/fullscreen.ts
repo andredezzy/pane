@@ -1,4 +1,11 @@
-import { type AppState, launchPane, trafficLightsInPlace } from "../lib/pane";
+import {
+	type AppState,
+	HAS_MENU_BAR,
+	launchPane,
+	PLACES_WINDOW_CONTROLS,
+	trafficLightsInPlace,
+} from "../lib/pane";
+import { KEYS } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { WindowWatcher } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
@@ -84,9 +91,16 @@ const fullscreen: Scenario = async (context) => {
 	};
 
 	// View › Enter or Exit Full Screen, as the user's click: the item's
-	// title follows the window's state when the menu opens. False when the
-	// menu bar has neither item, as the Views build's until H7's menu bar.
+	// title follows the window's state when the menu opens. Where there is no
+	// menu bar (Windows' home for its commands is W5's), its key, F11 there.
+	// False when the menu bar has neither item.
 	const toggleFromMenu = async () => {
+		if (!HAS_MENU_BAR) {
+			await app.send("key", KEYS.fullScreen);
+
+			return true;
+		}
+
 		let missing = 0;
 
 		for (const title of ["Exit Full Screen", "Enter Full Screen"]) {
@@ -112,8 +126,18 @@ const fullscreen: Scenario = async (context) => {
 		throw new Error("View › Enter or Exit Full Screen did not run");
 	};
 
+	if (!PLACES_WINDOW_CONTROLS) {
+		context.defer(
+			"the window's controls through full screen: Windows' caption buttons are the system frame's until Paper draws Pane's (W5)",
+		);
+	}
+
 	const lightsInPlace = (state: AppState, when: string) => {
 		const lights = state.window.trafficLightFrames;
+
+		if (!PLACES_WINDOW_CONTROLS) {
+			return lights;
+		}
 
 		expect(
 			trafficLightsInPlace(lights),

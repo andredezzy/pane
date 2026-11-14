@@ -136,6 +136,8 @@ source_set("pane") {
     "ui/page/find_in_page.h",
     "ui/page/page_context_menu.cc",
     "ui/page/page_context_menu.h",
+    "ui/page/page_web_view.cc",
+    "ui/page/page_web_view.h",
     "ui/panels/app_icon_images.cc",
     "ui/panels/app_icon_images.h",
     "ui/panels/app_icon_picker.cc",
@@ -272,6 +274,7 @@ source_set("pane") {
     "//chrome/browser:after_startup_task_utils",
     "//chrome/browser:chrome_browser_main",
     "//chrome/browser:chrome_content_browser_client",
+    "//chrome/browser:chrome_process_singleton",
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/devtools",
@@ -345,6 +348,7 @@ source_set("pane") {
     "//pane/encryption:handover",
     "//pane/model",
     "//pane/ui/app:commands",
+    "//pane/ui/app:handed_pages",
     "//pane/ui/app:lock_triggers",
     "//pane/ui/design",
     "//pane/ui/tabs:favicons",
@@ -389,6 +393,8 @@ source_set("pane") {
 
   if (is_win) {
     deps += [
+      ":app_icons",
+      "//chrome/browser:shell_integration",
       "//chrome/browser/ui/views/renderer_context_menu",
       "//components/keep_alive_registry",
       "//ui/aura",
@@ -396,23 +402,33 @@ source_set("pane") {
   }
 }
 
-# The ten skies of Pane's icon (ADR 0089), as the Dock shows each, which the
-# framework carries in its Resources (base::DIR_ASSETS): packaging/icon/
-# make-icons.swift makes them.
+# The ten skies of Pane's icon (ADR 0089), as the Dock shows each, where the
+# app reads them (base::DIR_ASSETS): the framework's Resources on the Mac,
+# beside chrome.dll on Windows, where they are the taskbar's too.
+# packaging/icon/make-icons.swift makes them.
+pane_app_icons = [
+  "ui/panels/app_icons/AppIconAfterglow.png",
+  "ui/panels/app_icons/AppIconClouds.png",
+  "ui/panels/app_icons/AppIconDay.png",
+  "ui/panels/app_icons/AppIconDusk.png",
+  "ui/panels/app_icons/AppIconFuchsia.png",
+  "ui/panels/app_icons/AppIconMoonrise.png",
+  "ui/panels/app_icons/AppIconMorning.png",
+  "ui/panels/app_icons/AppIconNight.png",
+  "ui/panels/app_icons/AppIconSunset.png",
+  "ui/panels/app_icons/AppIconTwilight.png",
+]
+
 if (is_mac) {
   bundle_data("app_icons") {
-    sources = [
-      "ui/panels/app_icons/AppIconAfterglow.png",
-      "ui/panels/app_icons/AppIconClouds.png",
-      "ui/panels/app_icons/AppIconDay.png",
-      "ui/panels/app_icons/AppIconDusk.png",
-      "ui/panels/app_icons/AppIconFuchsia.png",
-      "ui/panels/app_icons/AppIconMoonrise.png",
-      "ui/panels/app_icons/AppIconMorning.png",
-      "ui/panels/app_icons/AppIconNight.png",
-      "ui/panels/app_icons/AppIconSunset.png",
-      "ui/panels/app_icons/AppIconTwilight.png",
-    ]
+    sources = pane_app_icons
     outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
+  }
+}
+
+if (is_win) {
+  copy("app_icons") {
+    sources = pane_app_icons
+    outputs = [ "$root_out_dir/{{source_file_part}}" ]
   }
 }

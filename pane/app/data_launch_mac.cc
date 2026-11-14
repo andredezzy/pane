@@ -362,6 +362,8 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
         return model::VerifyPinHash(pin, hash);
       });
   launched.lock_system.guard = model::PinGuard::ForData(data_directory);
+  launched.lock_system.no_secret =
+      model::PinEntry::UnreadableReason::kKeychainDenied;
   // What it erases is read as it wipes: the Electron app's record, say.
   launched.lock_system.wipe = base::BindRepeating(
       [](const base::FilePath& data_directory,

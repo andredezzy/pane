@@ -32,9 +32,10 @@ void KeepProcess(bool keep) {
 // keep-alive of Pane's own holds it, as Chrome's AppController holds one on
 // the Mac, under that origin, until a quit starts closing every Browser
 // (chrome::AttemptUserExit), and again if a page's beforeunload cancels it.
-// Whether closing the last window quits, as Windows' apps do, is W4's
-// (docs/plans/views-migration.md, ADR 0053). Chrome warns before no quit on
-// Windows: "Warn Before Quitting" is the Mac's pref alone.
+// Closing Pane's window quits it, as Windows' apps quit once their last
+// window closes (ClosingTheWindowQuits, UiApp::WindowClosed; ADR 0053).
+// Chrome warns before no quit on Windows: "Warn Before Quitting" is the Mac's
+// pref alone.
 //
 // A scenario's launch, with remote debugging and no startup window, holds
 // DevTools' keep-alive too, which Chrome lets go only at DevTools'

@@ -13,6 +13,7 @@
 #include "content/public/browser/web_contents.h"
 #include "pane/browser/ui/window_host.h"
 #include "pane/ui/app/app_events.h"
+#include "pane/ui/page/page_web_view.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/widget/widget.h"
@@ -29,7 +30,7 @@ class DevToolsWindowView : public WindowHost::Delegate,
                            public views::WidgetObserver {
  public:
   DevToolsWindowView() {
-    auto web_view = std::make_unique<views::WebView>(nullptr);
+    auto web_view = std::make_unique<PageWebView>(nullptr);
     web_view_ = web_view.get();
     host_ = std::make_unique<WindowHost>(
         this, gfx::Rect(kSize), std::move(web_view), kDevToolsWindowName);

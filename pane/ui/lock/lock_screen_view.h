@@ -66,8 +66,10 @@ class LockScreenView : public views::View {
 
     // The PIN screen, while it shows.
     std::optional<model::PinEntry> entry;
-    // Wrong PINs at the lock in a row, on disk.
-    int failed_attempts = 0;
+    // Wrong PINs at the lock in a row that count toward the panic wipe, on
+    // disk: the attempts left show under the dots. None on a seal the TPM
+    // guards, which never wipes: no attempts show there (Paper 07.1.1).
+    std::optional<int> attempts_toward_wipe;
     // How far the data's one-time move has come, while it moves.
     std::optional<double> move_share;
     // The update on offer, at the lock.

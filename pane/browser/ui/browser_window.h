@@ -332,6 +332,9 @@ class HostedBrowserWindow : public BrowserWindow,
   std::optional<ui::ScopedUnownedUserData<autofill::AutofillBubbleHandler>>
       autofill_bubble_handler_registration_;
   bool tab_fullscreen_ = false;
+  // The window is telling Chrome's controller it has left the page's
+  // fullscreen (ExitFullscreen).
+  bool left_tab_fullscreen_ = false;
   void ReportFullscreenTab();
   void PostWindowFullscreenStateChanged();
   base::WeakPtr<content::WebContents> fullscreen_tab_;

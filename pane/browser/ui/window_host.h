@@ -49,6 +49,10 @@ class Widget;
 class WidgetDelegate;
 }  // namespace views
 
+namespace gfx {
+class ImageSkia;
+}  // namespace gfx
+
 namespace pane {
 
 class HostedBrowserWindow;
@@ -143,6 +147,12 @@ class WindowHost : public TabStripModelObserver,
   ~WindowHost() override;
 
   static const std::vector<WindowHost*>& All();
+
+  // The icon the system shows for Pane's windows, which Windows shows on the
+  // taskbar, in Alt+Tab, and in the title bar (DockIcon): every window's from
+  // now on, those open and those opened later. The Mac shows the app's icon
+  // in the Dock, none for a window.
+  static void SetIcon(const gfx::ImageSkia& icon);
 
   views::Widget* widget() const { return widget_.get(); }
   Delegate& delegate() const { return *delegate_; }

@@ -69,14 +69,24 @@ enum class Command {
   kExtensions,
 };
 
-// An item of a menu: a command, its title, and the key that runs it (none
-// for VKEY_UNKNOWN); a separator has no command.
+// The systems the table gives its keys for: the Mac's, which ⌘ leads, and
+// Windows', which Ctrl leads where the Mac takes ⌘, Chrome's own Windows key
+// standing where Ctrl alone would collide or Windows has its own (F11 for
+// Full Screen, Alt+Left for Back, F12 for Developer Tools, Alt+F4 for Quit).
+enum class KeySystem { kMac, kWindows };
+
+// The system Pane runs on (commands_mac.cc, commands_win.cc).
+KeySystem ThisKeySystem();
+
+// An item of a menu: a command, its title, and the key that runs it on the
+// system the menus are for (none for VKEY_UNKNOWN); a separator has no
+// command.
 struct MenuItem {
   std::optional<Command> command;
   std::u16string title;
   ui::Accelerator accelerator;
   // Shown nowhere, its key alone: ⌘= for Zoom In, beside ⌘+, as AppKit
-  // matches a key as typed (ADR 0019).
+  // matches a key as typed (ADR 0019); Windows' own keys beside Ctrl's.
   bool hidden = false;
 };
 
@@ -91,8 +101,11 @@ struct Menu {
 };
 
 // The menu bar, in its order: Pane, File, Edit, View, Navigate, Tab, and
-// Window.
+// Window, with this system's keys.
 const std::vector<Menu>& MenuBarMenus();
+// The same menus with `system`'s keys: one table, a column of keys for each
+// system (ADR 0019). A key a system has none of leaves its hidden item out.
+std::vector<Menu> MenusWithKeysOf(KeySystem system);
 
 // The platform's own items, which the menu bar alone shows and the
 // platform runs and enables (AppKit's actions, through the responder chain on
@@ -117,6 +130,11 @@ std::optional<Command> CommandForAccelerator(
 // The keys the window registers with its FocusManager: the table's, but the
 // platform's own.
 std::vector<ui::Accelerator> WindowAccelerators();
+
+// The key a command's item shows, on this system; empty (VKEY_UNKNOWN) for
+// none: what Chrome's own menus show beside the command (Exit Full Screen in
+// the page's menu).
+ui::Accelerator ShownAcceleratorOf(Command command);
 
 // ⌘1 to ⌘9's tab: 1 to 9; 0 for any other command.
 int TabNumberOf(Command command);

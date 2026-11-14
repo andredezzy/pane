@@ -207,10 +207,12 @@ TEST(PinEntryTest, Remove) {
 
 // An unreadable lock says why and takes no keys.
 TEST(PinEntryTest, Unreadable) {
-  PinEntry entry = PinEntry::Unreadable("Can't read the PIN");
+  PinEntry entry = PinEntry::Unreadable(PinEntry::UnreadableReason::kKey,
+                                        "Can't read the PIN");
 
   EXPECT_TRUE(entry.mode() == PinEntry::Mode::kUnlock && !entry.dismissable());
   EXPECT_EQ(entry.error(), "Can't read the PIN");
+  EXPECT_EQ(entry.unreadable_reason(), PinEntry::UnreadableReason::kKey);
   EXPECT_EQ(entry.Digit('1'), Act(Kind::kNone));
   EXPECT_TRUE(entry.entered().empty());
 }

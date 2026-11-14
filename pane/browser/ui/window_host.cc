@@ -35,6 +35,8 @@
 #include "pane/browser/ui/web_contents_delegate.h"
 #include "pane/ui/page/devtools_window.h"
 #include "ui/base/hit_test.h"
+#include "ui/base/models/image_model.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/client_view.h"
@@ -50,6 +52,12 @@ BrowserWindow* g_window_of_next_browser = nullptr;
 std::vector<WindowHost*>& Hosts() {
   static base::NoDestructor<std::vector<WindowHost*>> hosts;
   return *hosts;
+}
+
+// The windows' icon (SetIcon), none until DockIcon has one.
+ui::ImageModel& Icon() {
+  static base::NoDestructor<ui::ImageModel> icon;
+  return *icon;
 }
 
 // The widget's close button asks Pane (and the close sequence) first.
@@ -105,6 +113,18 @@ const std::vector<WindowHost*>& WindowHost::All() {
   return Hosts();
 }
 
+// static
+void WindowHost::SetIcon(const gfx::ImageSkia& icon) {
+  Icon() = ui::ImageModel::FromImageSkia(icon);
+  for (WindowHost* host : Hosts()) {
+    host->widget_delegate_->SetIcon(Icon());
+    host->widget_delegate_->SetAppIcon(Icon());
+    if (host->widget_) {
+      host->widget_->UpdateWindowIcon();
+    }
+  }
+}
+
 content::KeyboardEventProcessingResult
 WindowHost::Delegate::PreHandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
@@ -153,6 +173,10 @@ WindowHost::WindowHost(Delegate* delegate,
   widget_delegate_->SetCanMinimize(true);
   widget_delegate_->SetCanFullscreen(true);
   widget_delegate_->SetTitle(u"Pane");
+  if (!Icon().IsEmpty()) {
+    widget_delegate_->SetIcon(Icon());
+    widget_delegate_->SetAppIcon(Icon());
+  }
   widget_delegate_->SetContentsView(std::move(contents));
   widget_delegate_->SetClientViewFactory(base::BindOnce(
       [](base::WeakPtr<WindowHost> host, views::Widget* widget,

@@ -18,9 +18,14 @@ void StandInPinGuard::Clear() {
   keys_.clear();
 }
 
-void StandInPinGuard::SetUnavailable(bool unavailable) {
+void StandInPinGuard::SetNoChip(bool no_chip) {
   base::AutoLock lock(lock_);
-  unavailable_ = unavailable;
+  no_chip_ = no_chip;
+}
+
+void StandInPinGuard::SetGuardRefusal(std::optional<Refusal> refusal) {
+  base::AutoLock lock(lock_);
+  guard_refusal_ = refusal;
 }
 
 int StandInPinGuard::wrong_pins() const {
@@ -45,11 +50,14 @@ void StandInPinGuard::SetOnForget(base::RepeatingClosure on_forget) {
 base::expected<Guarded, PinGuard::Refusal> StandInPinGuard::Guard(
     std::string_view pin) {
   base::AutoLock lock(lock_);
-  if (unavailable_) {
-    return base::unexpected(Refusal::kUnavailable);
+  if (no_chip_) {
+    return base::unexpected(Refusal::kNoChip);
   }
   if (wrong_pins_ >= kLockoutAt) {
     return base::unexpected(Refusal::kLockedOut);
+  }
+  if (guard_refusal_) {
+    return base::unexpected(*guard_refusal_);
   }
   Guarded guarded;
   guarded.share = crypto::RandBytesAsArray<kKeySize>();
@@ -66,8 +74,8 @@ base::expected<Key, PinGuard::Refusal> StandInPinGuard::Unseal(
     const GuardedShare& kept,
     std::string_view pin) {
   base::AutoLock lock(lock_);
-  if (unavailable_) {
-    return base::unexpected(Refusal::kUnavailable);
+  if (no_chip_) {
+    return base::unexpected(Refusal::kNoChip);
   }
   const auto held = keys_.find(kept.key);
   if (held == keys_.end()) {

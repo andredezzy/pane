@@ -186,10 +186,11 @@ class AppData {
   CloseData() = 0;
 
   // What the PIN screen shows (L1): its entry while it shows, the wrong
-  // PINs at the lock in a row, on disk, and how far the data's one-time move
-  // has come while it moves (Paper 07.5).
+  // PINs at the lock in a row that count toward the panic wipe, none on a
+  // seal the TPM guards (AppLock::AttemptsTowardWipe), and how far the
+  // data's one-time move has come while it moves (Paper 07.5).
   virtual const std::optional<model::PinEntry>& PinScreen() const = 0;
-  virtual int FailedAttempts() const = 0;
+  virtual std::optional<int> AttemptsTowardWipe() const = 0;
   virtual std::optional<double> DataMoveShare() const = 0;
 
   // The PIN screen: Settings' Set up, Change, and Remove PIN, and its keys,

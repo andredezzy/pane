@@ -18,6 +18,100 @@ index 06bfcf5a90..81e19e1752 100644
        "//third_party/cld_3/src/src:cld_3",
      ]
  
+diff --git a/chrome/install_static/chromium_install_modes.h b/chrome/install_static/chromium_install_modes.h
+index a6d969df56..a6b4b57c25 100644
+--- a/chrome/install_static/chromium_install_modes.h
++++ b/chrome/install_static/chromium_install_modes.h
+@@ -21,7 +21,9 @@ inline constexpr wchar_t kCompanyPathName[] = L"";
+ 
+ // The brand-specific product name to be included as a component of the install
+ // and user data directory paths.
+-inline constexpr wchar_t kProductPathName[] = L"Chromium";
++// Pane: its own, so no folder, registry key, or ID of an installed
++// Chromium's is Pane's on Windows (Pane's ADR 0114).
++inline constexpr wchar_t kProductPathName[] = L"Pane";
+ 
+ // The brand-specific safe browsing client name.
+ inline constexpr char kSafeBrowsingName[] = "chromium";
+@@ -54,28 +56,30 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
+         .logo_suffix = L"",  // No logo suffix for the primary install mode.
+         .app_guid =
+             L"",  // Empty app_guid since no integration with Google Update.
+-        .base_app_name = L"Chromium",              // A distinct base_app_name.
+-        .base_app_id = L"Chromium",                // A distinct base_app_id.
+-        .browser_prog_id_prefix = L"ChromiumHTM",  // Browser ProgID prefix.
++        // Pane: its own names, GUIDs, and CLSIDs (ADR 0114); the interfaces'
++        // IIDs stay, as the elevation and tracing services' IDL has them.
++        .base_app_name = L"Pane",              // A distinct base_app_name.
++        .base_app_id = L"Pane",                // A distinct base_app_id.
++        .browser_prog_id_prefix = L"PaneHTM",  // Browser ProgID prefix.
+         .browser_prog_id_description =
+-            L"Chromium HTML Document",  // Browser ProgID description.
+-        .direct_launch_url_scheme = "chromium",
+-        .pdf_prog_id_prefix = L"ChromiumPDF",  // PDF ProgID prefix.
++            L"Pane HTML Document",  // Browser ProgID description.
++        .direct_launch_url_scheme = "pane",
++        .pdf_prog_id_prefix = L"PanePDF",  // PDF ProgID prefix.
+         .pdf_prog_id_description =
+-            L"Chromium PDF Document",  // PDF ProgID description.
++            L"Pane PDF Document",  // PDF ProgID description.
+         .active_setup_guid =
+-            L"{7D2B3E1D-D096-4594-9D8F-A6667F12E0AC}",  // Active Setup
++            L"{0629D6AE-CA8C-4705-87DD-B86D62C116F6}",  // Active Setup
+                                                         // GUID.
+-        .toast_activator_clsid = {0x635EFA6F,
+-                                  0x08D6,
+-                                  0x4EC9,
+-                                  {0xBD, 0x14, 0x8A, 0x0F, 0xDE, 0x97, 0x51,
+-                                   0x59}},  // Toast Activator CLSID.
+-        .elevator_clsid = {0xD133B120,
+-                           0x6DB4,
+-                           0x4D6B,
+-                           {0x8B, 0xFE, 0x83, 0xBF, 0x8C, 0xA1, 0xB1,
+-                            0xB0}},  // Elevator CLSID.
++        .toast_activator_clsid = {0x643681EE,
++                                  0xCBD6,
++                                  0x4AA1,
++                                  {0xBF, 0xCF, 0x83, 0x7F, 0xC0, 0xA1, 0x72,
++                                   0xE0}},  // Toast Activator CLSID.
++        .elevator_clsid = {0x7179CCAB,
++                           0x7C22,
++                           0x4059,
++                           {0x85, 0xA1, 0xAD, 0x7A, 0xBE, 0xBF, 0x85,
++                            0x12}},  // Elevator CLSID.
+         .elevator_iid = {0xbb19a0e5,
+                          0xc6,
+                          0x4966,
+@@ -83,11 +87,11 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
+                           0x3a}},  // IElevator IID and TypeLib
+         // {BB19A0E5-00C6-4966-94B2-5AFEC6FED93A}.
+         .old_elevator_iids = {},
+-        .tracing_service_clsid = {0x83f69367,
+-                                  0x442d,
+-                                  0x447f,
+-                                  {0x8b, 0xcc, 0x0e, 0x3f, 0x97, 0xbe, 0x9c,
+-                                   0xf2}},  // SystemTraceSession CLSID.
++        .tracing_service_clsid = {0x95CD19FF,
++                                  0x03B5,
++                                  0x46A2,
++                                  {0xB3, 0x5F, 0x6C, 0xF5, 0x08, 0x5F, 0x1A,
++                                   0x99}},  // SystemTraceSession CLSID.
+         .tracing_service_iid = {0xe0b03e2d,
+                                 0x7682,
+                                 0x4d83,
+@@ -109,9 +113,9 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
+         .pdf_doc_icon_resource_index =
+             icon_resources::kPDFDocIndex,  // PDF doc icon resource index.
+         .sandbox_sid_prefix =
+-            L"S-1-15-2-3251537155-1984446955-2931258699-841473695-"
+-            L"1938553385-"
+-            L"924012148-",  // App container sid prefix for sandbox.
++            L"S-1-15-2-2010674909-2422228669-2402346491-2316400616-"
++            L"798920971-"
++            L"3395789859-",  // App container sid prefix for sandbox.
+     },
+ });
+ 
 diff --git a/components/os_crypt/common/keychain_password_mac.mm b/components/os_crypt/common/keychain_password_mac.mm
 index 212b930952..7612479c08 100644
 --- a/components/os_crypt/common/keychain_password_mac.mm

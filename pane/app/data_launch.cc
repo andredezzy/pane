@@ -222,7 +222,9 @@ class PaneData : public AppData,
     return lock_.entry();
   }
 
-  int FailedAttempts() const override { return lock_.state().failed_attempts; }
+  std::optional<int> AttemptsTowardWipe() const override {
+    return lock_.AttemptsTowardWipe();
+  }
 
   std::optional<double> DataMoveShare() const override {
     return vault_.share();

@@ -27,6 +27,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/printing/print_view_manager_common.h"
 #include "chrome/browser/profiles/profile.h"
@@ -1876,7 +1877,7 @@ RootView::Shows UiApp::Shows() {
 LockScreenView::Shows UiApp::LockShows() const {
   LockScreenView::Shows lock;
   lock.entry = data_->PinScreen();
-  lock.failed_attempts = data_->FailedAttempts();
+  lock.attempts_toward_wipe = data_->AttemptsTowardWipe();
   lock.move_share = data_->DataMoveShare();
   // At the lock, while its key can be read, the update on offer shows
   // beside its status (Paper 07.1).
@@ -1896,6 +1897,11 @@ void UiApp::WindowClosed() {
   quit_confirming_ = false;
   // A dialog shown goes back in line, for the window opened again.
   dialogs_->Update();
+  // On Windows the window's close, its pages having agreed, quits, unless a
+  // quit closed it.
+  if (ClosingTheWindowQuits() && !browser_shutdown::IsTryingToQuit()) {
+    QuitNow();
+  }
 }
 
 // What the address field loads (the Swift's navigate): the selected page goes

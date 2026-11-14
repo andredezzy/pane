@@ -2,6 +2,7 @@
 
 #include "pane/model/app_lock.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -98,9 +99,13 @@ class AppLockGuardTest : public testing::Test {
     AppLock::System system;
     system.secret = base::BindLambdaForTesting(
         [&](bool makes_one) -> std::optional<std::vector<uint8_t>> {
+          if (no_secret_) {
+            return std::nullopt;
+          }
           return base::ToVector(Bytes(secret_));
         });
     system.guard = guard_;
+    system.no_secret = PinEntry::UnreadableReason::kDpapiRefused;
     lock_ = std::make_unique<AppLock>(
         data_,
         AppLock::Load(data_,
@@ -167,6 +172,8 @@ class AppLockGuardTest : public testing::Test {
   base::ScopedTempDir directory_;
   base::FilePath data_;
   std::string secret_{kSecret};
+  // DPAPI gives no secret.
+  bool no_secret_ = false;
   scoped_refptr<StandInPinGuard> guard_;
   VaultDelegate vault_delegate_;
   LockDelegate lock_delegate_;
@@ -291,13 +298,60 @@ TEST_F(AppLockGuardTest, AKeyGoneIsAnUnreadableKey) {
 
   Type("1234");
   ASSERT_TRUE(Unreadable());
+  EXPECT_EQ(lock_->entry()->unreadable_reason(),
+            PinEntry::UnreadableReason::kGuardGone);
+  EXPECT_EQ(lock_->entry()->error(), AppLock::kKeyUnreadable);
   EXPECT_EQ(Saved()->failed_attempts, 0);
 }
 
-// No TPM 2.0, or the provider refusing: the PIN seals with its stretch alone,
-// security.json names no chip's key, and the PIN opens it with no chip.
+// No chip now for a seal that took one (the TPM off in the firmware): a state
+// of its own, apart from a key gone, though its words are 07.6's until
+// Paper's 07.6.2. It counts nothing, loses nothing, and the PIN opens the
+// data once the chip is back.
+TEST_F(AppLockGuardTest, NoChipIsApartFromAKeyGone) {
+  const Key key = SaveGuardedKey("1234");
+  guard_->SetNoChip(true);
+  Launch();
+
+  Type("1234");
+  ASSERT_TRUE(Unreadable());
+  EXPECT_EQ(lock_->entry()->unreadable_reason(),
+            PinEntry::UnreadableReason::kGuardUnavailable);
+  EXPECT_EQ(lock_->entry()->error(), AppLock::kKeyUnreadable);
+  EXPECT_EQ(Saved()->failed_attempts, 0);
+  EXPECT_EQ(guard_->keys().size(), 1u);
+
+  lock_->RemoveObserver(&shakes_);
+  lock_.reset();
+  vault_.reset();
+  guard_->SetNoChip(false);
+  AppLock& again = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !again.is_locked(); }));
+  EXPECT_EQ(vault_->data_key(), key);
+}
+
+// The system's store giving no secret says which store: on Windows DPAPI, a
+// state of its own, though its words are the Keychain's 07.7 until Paper's
+// 07.7.1.
+TEST_F(AppLockGuardTest, NoSecretNamesItsStore) {
+  SaveGuardedKey("1234");
+  no_secret_ = true;
+  Launch();
+
+  Type("1234");
+  ASSERT_TRUE(Unreadable());
+  EXPECT_EQ(lock_->entry()->unreadable_reason(),
+            PinEntry::UnreadableReason::kDpapiRefused);
+  EXPECT_EQ(lock_->entry()->error(), AppLock::kKeychainDenied);
+  EXPECT_EQ(Saved()->failed_attempts, 0);
+}
+
+// No TPM 2.0, for a seal that never had the chip: the PIN seals with its
+// stretch alone, security.json names no chip's key, and the PIN opens it with
+// no chip.
 TEST_F(AppLockGuardTest, WithoutAChipTheStretchAlone) {
-  guard_->SetUnavailable(true);
+  guard_->SetNoChip(true);
   AppLock& lock = Launch();
   ASSERT_TRUE(WaitFor([&] { return vault_->is_attached(); }));
   const Key key = *vault_->data_key();
@@ -347,11 +401,129 @@ TEST_F(AppLockGuardTest, ALockoutKeepsTheEarlierSeal) {
   EXPECT_TRUE(lock.entry());
 }
 
-// The fifth wrong PIN at the lock deletes the chip's keys before the save
-// that takes the data key: a copy of security.json made earlier opens nothing
-// after.
-TEST_F(AppLockGuardTest, TheFifthWrongPinForgetsTheChipsKeyFirst) {
+// A chip that refuses to make a key, for a reason other than a lockout or
+// its absence, seals nothing either: setting the PIN keeps the earlier seal,
+// with no PIN, and the dots shake; the PIN's stretch alone is for a computer
+// with no TPM 2.0.
+TEST_F(AppLockGuardTest, AChipThatRefusesSealsNothing) {
+  AppLock& lock = Launch();
+  ASSERT_TRUE(WaitFor([&] { return vault_->is_attached(); }));
+  guard_->SetGuardRefusal(PinGuard::Refusal::kRefused);
+  const std::optional<SecurityState> before = Saved();
+
+  lock.Show(PinEntry::Mode::kSetup);
+  Type("1234");
+  lock.ContinueWithPin();
+  Type("1234");
+  Shook(1);
+  EXPECT_EQ(Saved(), before);
+  EXPECT_FALSE(lock.state().pin);
+  EXPECT_TRUE(lock.entry());
+  EXPECT_TRUE(guard_->keys().empty());
+}
+
+// A seal that had the chip keeps it: when the chip makes no key for a new
+// PIN, refusing it or gone since the old PIN opened, the earlier seal stays,
+// the old PIN still opens, and the dots shake. Before, a refusal sealed the
+// new PIN with its stretch alone, saying nothing.
+class AppLockGuardChangeTest
+    : public AppLockGuardTest,
+      public testing::WithParamInterface<PinGuard::Refusal> {};
+
+TEST_P(AppLockGuardChangeTest, ASealThatHadTheChipKeepsIt) {
+  const Key key = SaveGuardedKey("1234");
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  const std::optional<SecurityState> before = Saved();
+  ASSERT_TRUE(before->key->guard);
+
+  lock.Show(PinEntry::Mode::kChange);
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] {
+    return lock.entry() && lock.entry()->step() == PinEntry::Step::kEnter;
+  }));
+  guard_->SetGuardRefusal(GetParam());
+  Type("5678");
+  lock.ContinueWithPin();
+  Type("5678");
+  Shook(1);
+  EXPECT_EQ(Saved(), before);
+  EXPECT_EQ(guard_->keys(), std::vector<std::string>{before->key->guard->key});
+  const base::expected<Key, PinGuard::Refusal> share =
+      guard_->Unseal(*before->key->guard, "1234");
+  ASSERT_TRUE(share.has_value());
+  EXPECT_EQ(OpenDataKey(*before->key, Bytes(kSecret), "1234", *share), key);
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         AppLockGuardChangeTest,
+                         testing::Values(PinGuard::Refusal::kRefused,
+                                         PinGuard::Refusal::kNoChip));
+
+// A seal the chip guards never wipes (the user's call, ADR 0113): wrong PINs
+// count up to the last before a wipe and stay there, however many Windows
+// lets through once its lockout's window frees a slot; the key stays on the
+// disk, and the right PIN opens it.
+TEST_F(AppLockGuardTest, AGuardedSealNeverWipes) {
+  const Key key = SaveGuardedKey("1234");
+  AppLock& lock = Launch();
+
+  for (int attempt = 1; attempt <= SecurityState::kMaxAttempts + 2; ++attempt) {
+    ASSERT_TRUE(Ready());
+    Type("1111");
+    Shook(attempt);
+    EXPECT_EQ(lock.state().failed_attempts,
+              std::min(attempt, SecurityState::kMaxAttempts - 1));
+  }
+  EXPECT_EQ(wipes_, 0);
+  EXPECT_FALSE(IsWipeDue(data_));
+  EXPECT_TRUE(Saved()->key);
+  EXPECT_EQ(Saved()->failed_attempts, SecurityState::kMaxAttempts - 1);
+  EXPECT_EQ(guard_->keys().size(), 1u);
+
+  ASSERT_TRUE(Ready());
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  EXPECT_EQ(vault_->data_key(), key);
+}
+
+// The PIN screen shows the attempts left only where wrong PINs wipe (Paper
+// 07.1.1): on a seal the chip guards none count toward a wipe, its own count
+// kept for its cap alone.
+TEST_F(AppLockGuardTest, AGuardedSealCountsNoAttempts) {
   SaveGuardedKey("1234");
+  AppLock& lock = Launch();
+  EXPECT_EQ(lock.AttemptsTowardWipe(), std::nullopt);
+  ASSERT_TRUE(Ready());
+  Type("1111");
+  Shook(1);
+  EXPECT_EQ(lock.state().failed_attempts, 1);
+  EXPECT_EQ(lock.AttemptsTowardWipe(), std::nullopt);
+}
+
+// On a seal without the chip each wrong PIN counts toward the wipe, and the
+// screen shows the attempts left, as on the Mac.
+TEST_F(AppLockGuardTest, ASealWithoutTheChipCountsAttempts) {
+  Save(SecurityState(
+      Pin{.length = 4}, 0,
+      SealDataKey(MakeDataKey(), Bytes(kSecret), "1234", std::nullopt)));
+  AppLock& lock = Launch();
+  EXPECT_EQ(lock.AttemptsTowardWipe(), 0);
+  ASSERT_TRUE(Ready());
+  Type("1111");
+  Shook(1);
+  EXPECT_EQ(lock.AttemptsTowardWipe(), 1);
+}
+
+// A seal without the chip keeps the fifth wrong PIN's wipe, and the chip's
+// keys an earlier seal left go before the save that takes the data key: a
+// copy of security.json made earlier opens nothing after.
+TEST_F(AppLockGuardTest, TheFifthWrongPinForgetsTheChipsKeysFirst) {
+  const Key key = MakeDataKey();
+  Save(SecurityState(Pin{.length = 4}, 0,
+                     SealDataKey(key, Bytes(kSecret), "1234", std::nullopt)));
+  ASSERT_TRUE(guard_->Guard("0000").has_value());
   std::optional<bool> key_on_disk_when_forgotten;
   guard_->SetOnForget(base::BindLambdaForTesting([&] {
     const std::optional<SecurityState> now = Saved();

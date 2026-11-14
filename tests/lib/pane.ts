@@ -128,6 +128,11 @@ export const VOLUME_WATCHDOGS = bySystem({ mac: 1, windows: 0 });
 // for its commands is W5's, drawn in Paper first.
 export const HAS_MENU_BAR = bySystem({ mac: true, windows: false });
 
+// Whether Pane places the window's own controls: the Mac's traffic lights,
+// at (12, 12); on Windows the caption buttons are the system frame's until
+// Paper draws Pane's (W5), and none is reported.
+export const PLACES_WINDOW_CONTROLS = bySystem({ mac: true, windows: false });
+
 // Whether a profile's data is shut away behind the lock: on the Mac the
 // volume locked and mounted nowhere, the profile's link leading nowhere (ADR
 // 0113); Windows has no volume, every file encrypted alone (ADR 0121, U5).
@@ -613,7 +618,9 @@ export class PaneApp {
 
 			if (matching[0]) {
 				// The target shows a pending URL before the page commits; wait
-				// for the page itself to be there.
+				// for the page itself to be there, parsed, so its own scripts
+				// have run (the tab's state can say loaded before its load
+				// starts).
 				const page = await openPage(
 					this.browser.cdp,
 					"about:blank",
@@ -622,7 +629,9 @@ export class PaneApp {
 
 				while (Date.now() < deadline) {
 					const href = await page
-						.evaluate<string>("location.href")
+						.evaluate<string>(
+							'document.readyState === "loading" ? "" : location.href',
+						)
 						.catch(() => "");
 
 					if (href === url) {
