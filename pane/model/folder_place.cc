@@ -9,6 +9,7 @@
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
 #include "pane/model/data_lock.h"
+#include "pane/model/engine_folder.h"
 #include "pane/model/profile.h"
 #include "pane/model/profile_deletions.h"
 
@@ -120,8 +121,7 @@ bool FolderPlace::BringUpToDate(const ProfileWork& work) {
   if (work.opening && !work.saves_history &&
       IsProfileFolderName(work.profile_id)) {
     const base::FilePath folder =
-        data_directory_.Append(FILE_PATH_LITERAL("Engine"))
-            .AppendASCII(work.profile_id);
+        EngineFolder(data_directory_).AppendASCII(work.profile_id);
     for (const base::FilePath::CharType* item :
          {FILE_PATH_LITERAL("shared_proto_db"), FILE_PATH_LITERAL("Cache"),
           FILE_PATH_LITERAL("Code Cache")}) {
@@ -133,17 +133,16 @@ bool FolderPlace::BringUpToDate(const ProfileWork& work) {
 
 void FolderPlace::ProfileCameUp(const std::string& profile_id) {}
 
-// The profile's folder, Engine/<id>, its caches in it, and everything under
-// it, tried again while the engine still holds a file of it open. One still
-// held past that stays named in deletions.json, for the next open's purge. An
-// id that isn't one folder's name is no profile's.
+// The profile's folder in the engine's (EngineFolder), its caches in it, and
+// everything under it, tried again while the engine still holds a file of it
+// open. One still held past that stays named in deletions.json, for the next
+// open's purge. An id that isn't one folder's name is no profile's.
 bool FolderPlace::Remove(const std::string& profile_id) {
   if (!IsProfileFolderName(profile_id)) {
     return false;
   }
   const base::FilePath folder =
-      data_directory_.Append(FILE_PATH_LITERAL("Engine"))
-          .AppendASCII(profile_id);
+      EngineFolder(data_directory_).AppendASCII(profile_id);
   for (base::TimeDelta wait : kRemoveWaits) {
     base::PlatformThread::Sleep(wait);
     if (base::DeletePathRecursively(folder)) {

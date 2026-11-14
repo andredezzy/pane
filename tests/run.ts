@@ -3,7 +3,7 @@
 // report.json into the output directory.
 //
 // Usage: bun tests/run.ts --binary <path> --out <dir>
-//        [--timeout <seconds per scenario, 600>] <scenario>...
+//        [--timeout <seconds per scenario, 600>] [--user-launch] <scenario>...
 // A scenario is a name in scenarios/, or the path of a .ts file of its form
 // (benchmarks/, rigs/), which reports under its base name. A scenario runs on
 // the Mac and Windows unless it says otherwise (lib/platform.ts's
@@ -31,6 +31,10 @@ export type ScenarioContext = {
 	// the Mac's, which a scenario can't change on a Mac in use: renders of
 	// either one, the Lock's included. Undefined leaves the Mac's.
 	appearance: "light" | "dark" | undefined;
+	// Pane's launches go as the user's does (--user-launch): no
+	// --user-data-dir on the command line, the engine's folder the one Pane
+	// takes by itself, on Windows chrome_elf's (lib/pane.ts).
+	userLaunch: boolean;
 	launch: (options?: LaunchOptions) => Promise<Browser>;
 	// A new directory in $TMPDIR for the scenario alone. It is removed when
 	// the scenario ends, pass or fail, after every process still using it
@@ -63,6 +67,7 @@ const { values, positionals } = parseArgs({
 		timeout: { type: "string", default: "600" },
 		foreground: { type: "boolean", default: false },
 		appearance: { type: "string" },
+		"user-launch": { type: "boolean", default: false },
 	},
 });
 
@@ -78,7 +83,7 @@ if (
 		values.appearance !== "dark")
 ) {
 	console.error(
-		"usage: run.ts --binary <path> --out <dir> [--timeout <seconds>] [--foreground] [--appearance light|dark] <scenario>...",
+		"usage: run.ts --binary <path> --out <dir> [--timeout <seconds>] [--foreground] [--appearance light|dark] [--user-launch] <scenario>...",
 	);
 
 	process.exit(2);
@@ -136,6 +141,7 @@ for (const given of positionals) {
 		out,
 		foreground: values.foreground,
 		appearance: values.appearance as ScenarioContext["appearance"],
+		userLaunch: values["user-launch"],
 		launch: async (options) => {
 			if (ended) {
 				throw new Error("the scenario has ended");
@@ -272,6 +278,7 @@ await forgetBundle(binary);
 
 const report = {
 	binary,
+	...(values["user-launch"] && { userLaunch: true }),
 	finishedAt: new Date().toISOString(),
 	passed: results.every((r) => r.ok),
 	// Every check ran: nothing was deferred for a locked screen, or for the

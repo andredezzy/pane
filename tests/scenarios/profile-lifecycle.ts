@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { dataOpen, launchPane, profileFolder, tabOf } from "../lib/pane";
+import { ENGINE_FOLDER } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { targets as targetsOf } from "../lib/targets";
@@ -80,7 +81,7 @@ const profileLifecycle: Scenario = async (context) => {
 
 	// Delete: the profile, its tabs, its pages, and (by the next launch) its
 	// engine data directory are gone.
-	const profileDir = join(dataDir, "Engine", gone);
+	const profileDir = join(dataDir, ENGINE_FOLDER, gone);
 
 	expect(
 		existsSync(profileDir),
@@ -120,7 +121,7 @@ const profileLifecycle: Scenario = async (context) => {
 	// beside any the file names already: on Windows a deleted profile's folder
 	// goes only once the engine has closed its files, and a quit before then
 	// leaves it named for the next open (ADR 0121).
-	const orphanDir = join(dataDir, "Engine", "orphan");
+	const orphanDir = join(dataDir, ENGINE_FOLDER, "orphan");
 	mkdirSync(join(orphanDir, "Network"), { recursive: true });
 	const deletionsFile = join(dataDir, "deletions.json");
 

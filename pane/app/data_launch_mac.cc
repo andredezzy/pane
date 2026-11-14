@@ -32,6 +32,7 @@
 #include "pane/model/app_lock.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/data_lock.h"
+#include "pane/model/engine_folder.h"
 #include "pane/model/local_state.h"
 #include "pane/model/mac/bundle_identifier.h"
 #include "pane/model/mac/data_volume.h"
@@ -62,10 +63,6 @@ base::FilePath UserDirectory(int key) {
   base::FilePath path;
   base::PathService::Get(key, &path);
   return path;
-}
-
-base::FilePath EngineDirectory(const base::FilePath& data_directory) {
-  return data_directory.Append("Engine");
 }
 
 // For the log: how many, never what, since each names a path.
@@ -296,7 +293,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
   // Chromium opens the profile it used last at startup, before the PIN:
   // never one of Pane's, whose data is in the volume the data key opens (ADR
   // 0113).
-  if (!model::StartOnDefaultProfile(EngineDirectory(data_directory))) {
+  if (!model::StartOnDefaultProfile(model::EngineFolder(data_directory))) {
     LOG(ERROR) << "Could not point Local State at the Default profile";
   }
 

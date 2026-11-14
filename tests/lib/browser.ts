@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import { Cdp } from "./cdp";
-import { bySystem } from "./platform";
+import { bySystem, ENGINE_FOLDER } from "./platform";
 import { detachImagesIn, swiftTool } from "./tools";
 
 // The variable that names the app's home, and the environment that gives it
@@ -80,7 +80,7 @@ export const handURLs = bySystem({
 			[
 				app.binary,
 				"--use-mock-keychain",
-				`--user-data-dir=${join(app.dataDir, "Engine")}`,
+				`--user-data-dir=${join(app.dataDir, ENGINE_FOLDER)}`,
 				...urls,
 			],
 			{
@@ -111,6 +111,9 @@ export type LaunchOptions = {
 	// Chromium's user data folder, where DevToolsActivePort is written: a
 	// throwaway one unless a launch names it (launchPane's is in its data).
 	userDataDir?: string;
+	// Not on the command line, as the user's launch has none: the app takes
+	// `userDataDir` by itself (--user-launch, lib/pane.ts).
+	withoutUserDataDir?: boolean;
 	// Another copy than the run's binary: a scenario that replaces the app's
 	// bundle (update-install) runs one of its own.
 	binary?: string;
@@ -178,8 +181,11 @@ export async function launch(
 ): Promise<Browser> {
 	const throwaway = options.userDataDir === undefined;
 
-	const userDataDir =
-		options.userDataDir ?? mkdtempSync(join(tmpdir(), "pane-profile-"));
+	if (options.withoutUserDataDir && throwaway) {
+		throw new Error(
+			"a launch without --user-data-dir names the folder the app takes",
+		);
+	}
 
 	// The Pane app keeps its own data (PANE_DATA_DIR) and migrates the
 	// Electron app's on a first launch: unless a scenario names them, both
@@ -205,6 +211,16 @@ export async function launch(
 			? null
 			: mkdtempSync(join(tmpdir(), "pane-data-"));
 
+	// Chromium's user data folder: the launch's own, or the engine folder of
+	// the data the launch makes itself, the one folder Pane's engine takes for
+	// it (pane/app/data_launch_win.cc); a folder of its own where a launch
+	// names data and no folder.
+	const userDataDir =
+		options.userDataDir ??
+		(appDataDir
+			? join(appDataDir, ENGINE_FOLDER)
+			: mkdtempSync(join(tmpdir(), "pane-profile-")));
+
 	// A home of its own too, unless a scenario names one: under the real
 	// home the app would share the user's Pane's caches, HTTP storage, and
 	// Downloads, and Chromium's Crashpad database (homeEnvironment).
@@ -215,7 +231,9 @@ export async function launch(
 	// A data volume still attached inside (ADR 0113), as one a killed app's
 	// watchdog has yet to detach, goes first: removing its mount point fails.
 	const removeDirs = async () => {
-		if (throwaway) {
+		// One in the launch's own data goes with it, once a volume in it has
+		// detached.
+		if (throwaway && !appDataDir) {
 			rmSync(userDataDir, { recursive: true, force: true });
 		}
 
@@ -241,7 +259,7 @@ export async function launch(
 		// "Safe Storage" item would prompt for the password on every launch
 		// of a freshly signed build).
 		"--use-mock-keychain",
-		`--user-data-dir=${userDataDir}`,
+		...(options.withoutUserDataDir ? [] : [`--user-data-dir=${userDataDir}`]),
 		...(options.args ?? []),
 	];
 

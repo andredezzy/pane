@@ -1,5 +1,6 @@
 // A profile's files as Pane's engine reads them (ADR 0121), for a scenario that
-// checks what they hold: only the mock keychain's key opens this way. The chunked
+// checks what they hold: the mock keychain's key opens this way, and in the
+// test VM the user's own (lib/engine-key.ts's userSecret). The chunked
 // format (the caches) stays closed: it takes AES-GCM-SIV, and its entries' names
 // are keyed.
 import { createCipheriv, createDecipheriv, hkdfSync } from "node:crypto";
@@ -20,8 +21,9 @@ export function profileKeys(
 	dataDir: string,
 	profile: string,
 	pin: string | null = null,
+	secret?: Buffer,
 ): ProfileKeys {
-	const key = engineKey(dataDir, profile, pin);
+	const key = engineKey(dataDir, profile, pin, secret);
 	const none = Buffer.alloc(0);
 
 	return {

@@ -6,7 +6,7 @@
 import { createHash } from "node:crypto";
 import { type Dirent, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { bySystem } from "./platform";
+import { bySystem, ENGINE_FOLDER } from "./platform";
 
 export type Planted = {
 	// Exact strings the session planted, each random: found in no file.
@@ -49,8 +49,9 @@ const SQLITE = Buffer.from("SQLite format 3\0", "latin1");
 const LEVELDB_FOOTER = Buffer.from("57fb808b247547db", "hex");
 const SIMPLE_CACHE = Buffer.from("305c72a71b6dfbfc", "hex");
 
-// ADR 0121's allow-list, relative to the data root (Engine's own files) and,
-// for a profile, to its folder.
+// ADR 0121's allow-list, relative to the data root (the engine folder's own
+// files: Engine on the Mac, User Data on Windows) and, for a profile, to its
+// folder.
 const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 	[
 		/^(settings|security|Data\.security|migration|profiles|deletions)\.json$/,
@@ -63,12 +64,19 @@ const DATA_ROOT_ALLOWED: [RegExp, string][] = [
 	],
 	[/^Data\.sparsebundle\//, "the volume's image"],
 	[
-		/^Engine\/(Local State|Last Version|Last Browser|Variations|ChromeFeatureState)$/,
+		new RegExp(
+			`^${ENGINE_FOLDER}/(Local State|Last Version|Last Browser|Variations|ChromeFeatureState)$`,
+		),
 		"the engine's root, before the PIN",
 	],
-	[/^Engine\/DevToolsActivePort$/, "the scenario's own port"],
 	[
-		/^Engine\/(GraphiteDawnCache|GPUPersistentCache|GrShaderCache|ShaderCache|Safe Browsing|component_crx_cache|extensions_crx_cache|Webstore Downloads|NativeMessagingHosts|Default)\//,
+		new RegExp(`^${ENGINE_FOLDER}/DevToolsActivePort$`),
+		"the scenario's own port",
+	],
+	[
+		new RegExp(
+			`^${ENGINE_FOLDER}/(GraphiteDawnCache|GPUPersistentCache|GrShaderCache|ShaderCache|Safe Browsing|component_crx_cache|extensions_crx_cache|Webstore Downloads|NativeMessagingHosts|Default)/`,
+		),
 		"the engine's root, before the PIN",
 	],
 	[/^automation\//, "the scenario's channel"],
@@ -372,7 +380,7 @@ function namedBy(
 // there; on Windows in the engine's folder by its id, its caches inside it.
 const PROFILE_FILE = bySystem({
 	mac: /^Engine\/Volume\/[^/]+\/(?:Profile|Cache)\/(.*)$/,
-	windows: /^Engine\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/(.*)$/i,
+	windows: /^User Data\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/(.*)$/i,
 });
 
 function* walk(root: string): Generator<{ path: string; entry: Dirent }> {

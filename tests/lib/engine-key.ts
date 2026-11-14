@@ -2,7 +2,8 @@
 // the sealed data key under the mock keychain's secret: for a scenario to look
 // for the key where it must not be. Only the mock keychain's key opens this way,
 // and on Windows, with a PIN, only with the share the computer's TPM gives back
-// for that PIN (pane/model/pin_guard.h, U5).
+// for that PIN (pane/model/pin_guard.h, U5); in the test VM, the user's own
+// secret too (userSecret), for its check of the user's launch.
 import {
 	createDecipheriv,
 	createHash,
@@ -139,7 +140,43 @@ export const pinGuardKeys = bySystem({
 	},
 });
 
-function dataKey(dataDir: string, pin: string | null): Buffer {
+// The secret the user's own launch seals the data key under on Windows:
+// os_crypt's key in the engine folder's Local State under DPAPI ("DPAPI" and
+// the blob, in base64; pane/model/engine_secret.h), which any process of the
+// user's opens, as this does. The Mac's is the Keychain's.
+export const userSecret = bySystem({
+	mac: (_engineFolder: string): Buffer => {
+		throw new Error(
+			"the Mac's secret is the Keychain's, which this never reads",
+		);
+	},
+	windows: (engineFolder: string): Buffer => {
+		const sealed = Buffer.from(
+			(
+				JSON.parse(readFileSync(join(engineFolder, "Local State"), "utf8")) as {
+					os_crypt: { encrypted_key: string };
+				}
+			).os_crypt.encrypted_key,
+			"base64",
+		);
+
+		return Buffer.from(
+			powershellSync(
+				`Add-Type -AssemblyName System.Security
+$blob = [Convert]::FromBase64String($env:PANE_BLOB)
+[Convert]::ToBase64String([Security.Cryptography.ProtectedData]::Unprotect($blob, $null, 'CurrentUser'))`,
+				{ PANE_BLOB: sealed.subarray("DPAPI".length).toString("base64") },
+			).trim(),
+			"base64",
+		);
+	},
+});
+
+function dataKey(
+	dataDir: string,
+	pin: string | null,
+	secret: Buffer = MOCK_SECRET,
+): Buffer {
 	const sealed = (
 		JSON.parse(readFileSync(join(dataDir, "security.json"), "utf8")) as {
 			state: { key: Sealed };
@@ -162,12 +199,12 @@ function dataKey(dataDir: string, pin: string | null): Buffer {
 		pin && sealed.tpm
 			? hkdfSync(
 					"sha256",
-					Buffer.concat([MOCK_SECRET, unsealShare(sealed.tpm, pin)]),
+					Buffer.concat([secret, unsealShare(sealed.tpm, pin)]),
 					salt,
 					"Pane data key, its PIN guarded",
 					32,
 				)
-			: hkdfSync("sha256", MOCK_SECRET, salt, "Pane data key", 32),
+			: hkdfSync("sha256", secret, salt, "Pane data key", 32),
 	);
 
 	const box = Buffer.from(sealed.box, "base64");
@@ -190,11 +227,12 @@ export function engineKey(
 	dataDir: string,
 	profile: string,
 	pin: string | null,
+	secret?: Buffer,
 ): Buffer {
 	return Buffer.from(
 		hkdfSync(
 			"sha256",
-			dataKey(dataDir, pin),
+			dataKey(dataDir, pin, secret),
 			Buffer.from(profile),
 			"Pane engine files",
 			32,

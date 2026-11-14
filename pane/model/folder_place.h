@@ -15,8 +15,8 @@ namespace pane::model {
 
 class DataLock;
 
-// Every profile's engine data in the engine's own folder, a profile's at
-// Engine/<id>, with no volume around it: Windows' (U5), where one needs
+// Every profile's engine data in the engine's own folder (EngineFolder), a
+// profile's by its id, with no volume around it: Windows' (U5), where one needs
 // elevation, and every file a profile writes is encrypted under its Engine
 // key instead (ADR 0121). No Pane ran on Windows before, so there is nothing
 // to move in, convert, or repair. Opening it takes the data's lock, held from

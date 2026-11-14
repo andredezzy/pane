@@ -19,7 +19,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
-import { bySystem, noWindowsSide, powershell } from "./platform";
+import { bySystem, ENGINE_FOLDER, noWindowsSide, powershell } from "./platform";
 
 const BINARIES = join(tmpdir(), "pane-tests");
 
@@ -555,14 +555,19 @@ export const crashDumpsUnder = bySystem({
 });
 
 // What Chromium's crash handler, Crashpad, keeps in its database since
-// `since` (ms): on the Mac under the home's Application Support, a test
-// copy's home its own, so all of it; on Windows, where chrome_elf would start
-// it before any code of Pane's, reading the user's own local application
-// data from the shell, in the user data folder its install mode names there
+// `since` (ms), where it would keep it: Pane starts none (patch 0008). On the
+// Mac under the home's Application Support, a test copy's home its own, so
+// all of it. On Windows, where chrome_elf would start it before any code of
+// Pane's, in the user data folder chrome_elf names, the launch's engine
+// folder (ENGINE_FOLDER, pane/app/data_launch_win.cc), a test copy's its
+// own, so all of it; and in the install mode's default there
 // (`%LOCALAPPDATA%\Pane\User Data`, patch 0001), which the user's own Pane
-// shares, so what is newer.
+// shares, what is newer, were a launch ever to reach it.
 export const crashpadKept = bySystem({
-	mac: (home: string, _since: number): string[] => {
+	mac: (
+		{ home }: { home: string; dataDir: string },
+		_since: number,
+	): string[] => {
 		const folder = join(
 			home,
 			"Library",
@@ -573,18 +578,17 @@ export const crashpadKept = bySystem({
 
 		return existsSync(folder) ? readdirSync(folder) : [];
 	},
-	windows: (_home: string, since: number): string[] => {
-		const folder = join(
-			process.env.LOCALAPPDATA ?? "",
-			"Pane",
-			"User Data",
-			"Crashpad",
-		);
-
-		return [...filesUnder(folder)].filter(
-			(path) => statSync(path).mtimeMs >= since,
-		);
-	},
+	windows: (
+		{ dataDir }: { home: string; dataDir: string },
+		since: number,
+	): string[] => [
+		...filesUnder(join(dataDir, ENGINE_FOLDER, "Crashpad")),
+		...[
+			...filesUnder(
+				join(process.env.LOCALAPPDATA ?? "", "Pane", ENGINE_FOLDER, "Crashpad"),
+			),
+		].filter((path) => statSync(path).mtimeMs >= since),
+	],
 });
 
 // Whether the data folder is the user's alone: on the Mac by its mode, 0700,

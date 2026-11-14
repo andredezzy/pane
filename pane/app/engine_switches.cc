@@ -28,7 +28,7 @@ void AddToSwitchList(base::CommandLine& command_line,
 }  // namespace
 
 void SetEngineSwitches(base::CommandLine& command_line,
-                       const base::FilePath& data_directory) {
+                       const base::FilePath& engine_folder) {
   if (!command_line.HasSwitch("use-mock-keychain")) {
     base::CommandLine kept(command_line.GetProgram());
     if (command_line.HasSwitch("pane-wipe-after")) {
@@ -126,10 +126,13 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // so the text shapes and draws the same.
   AddToSwitchList(command_line, "enable-features", "HarfBuzzZeroCopyFontTable");
 
-  // An explicit --user-data-dir (scenarios use throwaway ones) wins.
+  // Chromium reads its user data dir from here on the Mac, and its children
+  // on every OS. On Windows chrome_elf has named it already, from the command
+  // line the process started with, and the launch went on only where that is
+  // `engine_folder` (data_launch_win.cc). A scenario's own wins, its data's
+  // engine folder too.
   if (!command_line.HasSwitch("user-data-dir")) {
-    command_line.AppendSwitchPath(
-        "user-data-dir", data_directory.Append(FILE_PATH_LITERAL("Engine")));
+    command_line.AppendSwitchPath("user-data-dir", engine_folder);
   }
 }
 

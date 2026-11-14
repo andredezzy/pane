@@ -396,6 +396,7 @@ source_set("pane") {
       ":app_icons",
       "//chrome/browser:shell_integration",
       "//chrome/browser/ui/views/renderer_context_menu",
+      "//chrome/chrome_elf:chrome_elf_main_include",
       "//components/keep_alive_registry",
       "//ui/aura",
     ]

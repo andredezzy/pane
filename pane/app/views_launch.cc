@@ -12,6 +12,7 @@
 #include "pane/app/engine_switches.h"
 #include "pane/app/test_copy.h"
 #include "pane/browser/ui/install_hooks.h"
+#include "pane/model/engine_folder.h"
 
 namespace pane {
 
@@ -56,7 +57,7 @@ std::optional<int> StartViewsLaunch(base::CommandLine& command_line) {
                       /*test_copy=*/kind == LaunchKind::kTestCopy)) {
     return exit_code;
   }
-  SetEngineSwitches(command_line, data);
+  SetEngineSwitches(command_line, model::EngineFolder(data));
   g_views_launch = true;
   // Before the first Browser exists: Pane's windows host Chrome's Browsers.
   InstallBrowserHooks();

@@ -11,12 +11,12 @@ import {
 	watch,
 	writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { ScenarioContext } from "../run";
 import { type Browser, homeEnvironment } from "./browser";
 import { openPage, type Page } from "./cdp";
 import { isScreenLocked } from "./computer-use";
-import { bySystem } from "./platform";
+import { bySystem, ENGINE_FOLDER } from "./platform";
 import { pidsMatching, sampleProcess } from "./processes";
 import { targets } from "./targets";
 import { imagesAttachedIn, mountedAt } from "./tools";
@@ -161,7 +161,7 @@ export const volumeShut = bySystem({
 export function profileFolder(dataDir: string, id: string): string {
 	return bySystem({
 		mac: join(dataDir, "Engine", "Volume", id),
-		windows: join(dataDir, "Engine", id),
+		windows: join(dataDir, ENGINE_FOLDER, id),
 	});
 }
 
@@ -750,11 +750,33 @@ export type PaneLaunch = {
 	cwd?: string;
 };
 
+// What a launch without --user-data-dir (--user-launch) needs for Pane to
+// take its data's engine folder by itself, as the user's does: nothing on the
+// Mac, where Pane names it on the engine's command line; on Windows the
+// LOCALAPPDATA chrome_elf names it under, %LOCALAPPDATA%\Pane\User Data
+// (pane/app/data_launch_win.cc), so the data is a folder named Pane.
+const userLaunchEnvironment = bySystem({
+	mac: (_dataDir: string): Record<string, string> => ({}),
+	windows: (dataDir: string): Record<string, string> => {
+		if (basename(dataDir) !== "Pane") {
+			throw new Error(
+				`a user launch's data is a folder named Pane, as %LOCALAPPDATA%\\Pane is: not ${basename(dataDir)}`,
+			);
+		}
+
+		return { LOCALAPPDATA: dirname(dataDir) };
+	},
+});
+
 export async function launchPane(
 	context: ScenarioContext,
 	options: PaneLaunch = {},
 ): Promise<PaneApp> {
-	const dataDir = options.dataDir ?? context.tempDir("pane-data-");
+	const dataDir =
+		options.dataDir ??
+		(context.userLaunch
+			? join(context.tempDir("pane-data-"), "Pane")
+			: context.tempDir("pane-data-"));
 
 	const own =
 		options.derivedDataRoot || options.emptyData
@@ -780,7 +802,8 @@ export async function launchPane(
 
 	const browser = await context.launch({
 		binary: options.binary,
-		userDataDir: join(dataDir, "Engine"),
+		userDataDir: join(dataDir, ENGINE_FOLDER),
+		withoutUserDataDir: context.userLaunch,
 		derivedDataRoot: options.derivedDataRoot,
 		cwd: options.cwd,
 		args: [
@@ -789,6 +812,7 @@ export async function launchPane(
 		],
 		env: {
 			...homeEnvironment(home),
+			...(context.userLaunch && userLaunchEnvironment(dataDir)),
 			...(!options.derivedDataRoot && { PANE_DATA_DIR: dataDir }),
 			PANE_AUTOMATION_DIR: automationDir,
 			// Only then does the app take the front from the app in use.

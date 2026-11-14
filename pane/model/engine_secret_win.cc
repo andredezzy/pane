@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/base64.h"
 #include "base/check.h"
@@ -24,6 +25,7 @@
 #include "crypto/random.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/test_hooks.h"
+#include "third_party/boringssl/src/include/openssl/base64.h"
 
 namespace pane::model {
 
@@ -102,6 +104,20 @@ std::optional<std::vector<uint8_t>> Read(const base::DictValue& state,
   return secret;
 }
 
+// Base64 as base::Base64Encode writes it, without the feature it reads
+// (kSimdutfBase64Encode): the key is made before the engine has a FeatureList,
+// at BasicStartupComplete, where content makes reading any feature fail at
+// once (RunContentProcess). The user's first launch, which makes it, crashed
+// there; a test copy, on the mock keychain's secret, never makes one.
+std::string EncodeBase64(base::span<const uint8_t> bytes) {
+  size_t size = 0;
+  CHECK(EVP_EncodedLength(&size, bytes.size()));
+  std::vector<uint8_t> encoded(size);
+  const size_t written =
+      EVP_EncodeBlock(encoded.data(), bytes.data(), bytes.size());
+  return std::string(encoded.begin(), encoded.begin() + written);
+}
+
 }  // namespace
 
 std::optional<std::vector<uint8_t>> EngineSecret(
@@ -150,7 +166,7 @@ std::optional<std::vector<uint8_t>> EngineSecret(
   std::vector<uint8_t> blob(kDpapiPrefix.begin(), kDpapiPrefix.end());
   blob.insert(blob.end(), sealed->begin(), sealed->end());
   base::DictValue* os_crypt = state.EnsureDict("os_crypt");
-  os_crypt->Set(kEncryptedKeyPref, base::Base64Encode(blob));
+  os_crypt->Set(kEncryptedKeyPref, EncodeBase64(blob));
   os_crypt->Set(kAuditEnabledPref, true);
   if (!WriteJsonFile(file, base::Value(std::move(state)))) {
     LOG(ERROR) << "Could not write the engine's key into Local State";

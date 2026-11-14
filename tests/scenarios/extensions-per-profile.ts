@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { DARK_READER } from "../lib/extensions";
 import type { AppState, ExtensionState } from "../lib/pane";
+import { ENGINE_FOLDER } from "../lib/platform";
 import { waitForSheet } from "../lib/surfaces";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
@@ -45,7 +46,7 @@ const extensionsPerProfile: Scenario = async (context) => {
 	};
 
 	const extensionDirectory = (profile: string) =>
-		join(app.dataDir, "Engine", profile, "Extensions", DARK_READER);
+		join(app.dataDir, ENGINE_FOLDER, profile, "Extensions", DARK_READER);
 
 	// Installed in the first profile.
 	await install(first);

@@ -38,7 +38,8 @@ base::CommandLine Launch(const std::vector<std::string>& switches) {
                                      name.substr(equals + 1));
     }
   }
-  SetEngineSwitches(command_line, base::FilePath(FILE_PATH_LITERAL("/data")));
+  SetEngineSwitches(command_line,
+                    base::FilePath(FILE_PATH_LITERAL("/data/Engine")));
   return command_line;
 }
 
@@ -85,6 +86,19 @@ TEST(EngineSwitchesTest, ScenarioKeepsItsFeatures) {
   EXPECT_TRUE(std::ranges::contains(enabled, "HarfBuzzZeroCopyFontTable"));
   EXPECT_TRUE(std::ranges::contains(Features(command_line, "disable-features"),
                                     "HarfBuzzZeroCopyFontTable"));
+}
+
+// The engine keeps its data in the data's engine folder: the user's launch
+// drops a folder it was handed, and a scenario's keeps its own.
+TEST(EngineSwitchesTest, TheEngineFolderIsTheData) {
+  EXPECT_EQ(Launch({}).GetSwitchValuePath("user-data-dir"),
+            base::FilePath(FILE_PATH_LITERAL("/data/Engine")));
+  EXPECT_EQ(
+      Launch({"user-data-dir=/elsewhere"}).GetSwitchValuePath("user-data-dir"),
+      base::FilePath(FILE_PATH_LITERAL("/data/Engine")));
+  EXPECT_EQ(Launch({"use-mock-keychain", "user-data-dir=/scenario/Engine"})
+                .GetSwitchValuePath("user-data-dir"),
+            base::FilePath(FILE_PATH_LITERAL("/scenario/Engine")));
 }
 
 // The user's launch keeps none of Chrome's switches it was handed, only

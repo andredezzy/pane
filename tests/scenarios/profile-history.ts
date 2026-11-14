@@ -3,6 +3,7 @@ import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { extensionId } from "../lib/extensions";
 import { launchPane, type PaneApp, tabOf } from "../lib/pane";
+import { ENGINE_FOLDER } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { isRunning } from "../lib/processes";
 import { plainContent, profileKeys } from "../lib/profile-files";
@@ -55,7 +56,7 @@ const historyScenario: Scenario = async (context) => {
 	// One table of a copy of an engine database: the engine holds it locked
 	// while it runs, and a copy with its journal reads as the engine left it.
 	const rows = (profile: string, file: string, query: string): unknown[] => {
-		const source = join(dataDir, "Engine", profile, file);
+		const source = join(dataDir, ENGINE_FOLDER, profile, file);
 
 		if (!existsSync(source)) {
 			return [];
@@ -130,7 +131,7 @@ const historyScenario: Scenario = async (context) => {
 
 	// Every file of the profile that names the visit's host, its site data aside.
 	const namedBy = async (profile: string, query: string) => {
-		const root = join(dataDir, "Engine", profile);
+		const root = join(dataDir, ENGINE_FOLDER, profile);
 
 		if (!existsSync(root)) {
 			return [];

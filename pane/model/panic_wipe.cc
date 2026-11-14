@@ -16,6 +16,7 @@
 #include "base/strings/string_util.h"
 #include "base/uuid.h"
 #include "crypto/random.h"
+#include "pane/model/engine_folder.h"
 
 namespace pane::model {
 
@@ -109,13 +110,13 @@ std::vector<base::FilePath> WipeTargets(
     const base::FilePath& data_directory,
     const std::optional<base::FilePath>& cache_directory,
     const std::optional<ElectronData>& electron) {
-  std::vector<base::FilePath> targets;
-  for (std::string_view name : {"Engine", "Data.sparsebundle", "profiles.json",
+  std::vector<base::FilePath> targets = {EngineFolder(data_directory)};
+  for (std::string_view name : {"Data.sparsebundle", "profiles.json",
                                 "settings.json", "deletions.json"}) {
     targets.push_back(data_directory.AppendASCII(name));
   }
   if (cache_directory) {
-    targets.push_back(cache_directory->AppendASCII("Engine"));
+    targets.push_back(EngineFolder(*cache_directory));
   }
   if (electron) {
     targets.push_back(electron->directory);
@@ -168,8 +169,7 @@ std::vector<WipeFailure> StageEngineTraces(
     const base::FilePath& data_directory) {
   std::vector<base::FilePath> traces;
   for (std::string_view trace : kEngineTraces) {
-    const base::FilePath path =
-        data_directory.AppendASCII("Engine").AppendASCII(trace);
+    const base::FilePath path = EngineFolder(data_directory).AppendASCII(trace);
     if (base::PathExists(path)) {
       traces.push_back(path);
     }

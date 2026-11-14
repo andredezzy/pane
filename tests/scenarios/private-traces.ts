@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { EARLIER_APPS, launchPane, tabOf } from "../lib/pane";
+import { ENGINE_FOLDER } from "../lib/platform";
 import {
 	crashDumpsUnder,
 	crashpadKept,
@@ -19,8 +20,9 @@ import { expect, type Scenario } from "../run";
 
 // What Pane leaves outside the encrypted volume (ADR 0113), and on Windows,
 // which has none, outside its files' encryption (U5), names no page. A
-// renderer's crash leaves no minidump: Chromium's Crashpad kept one, with the
-// page's address (url-chunk), under its default user data dir. A download
+// renderer's crash leaves no minidump, and Crashpad's database nothing:
+// Chromium's Crashpad kept one, with the page's address (url-chunk), under
+// its default user data dir, which Pane starts no handler for. A download
 // keeps its system's mark and no address: Chromium wrote the page and the
 // file's URLs into kMDItemWhereFroms, which Spotlight indexes, and into the
 // Mark of the Web on Windows (lib/tools.ts). After a quit, Local State names
@@ -41,7 +43,10 @@ const histogramFiles = (engine: string) =>
 		);
 
 const privateTraces: Scenario = async (context) => {
-	const dataDir = context.tempDir("pane-traces-");
+	// Named as the user's is, so it runs as the user's launch too
+	// (--user-launch).
+	const dataDir = join(context.tempDir("pane-traces-"), "Pane");
+	mkdirSync(dataDir);
 	// Windows reads no mode but its read-only flag: its ACL is the profile's.
 	chmodSync(dataDir, 0o755);
 
@@ -49,8 +54,7 @@ const privateTraces: Scenario = async (context) => {
 	// had (an earlier app's: the Mac's alone). Their histograms are not
 	// seeded: Chrome, finding some, empties the folder, its own file too (the
 	// volume's tests erase them).
-	const engine = join(dataDir, "Engine");
-	mkdirSync(dataDir, { recursive: true });
+	const engine = join(dataDir, ENGINE_FOLDER);
 
 	if (EARLIER_APPS) {
 		writeFileSync(
@@ -121,7 +125,7 @@ const privateTraces: Scenario = async (context) => {
 	const dumps = await crashDumpsUnder([home, dataDir]);
 
 	const localState = JSON.parse(
-		readFileSync(join(dataDir, "Engine", "Local State"), "utf8"),
+		readFileSync(join(engine, "Local State"), "utf8"),
 	) as {
 		profile?: {
 			last_used?: string;
@@ -135,7 +139,7 @@ const privateTraces: Scenario = async (context) => {
 	const traces = {
 		download: origin.kept,
 		dumps,
-		crashpad: crashpadKept(home, launched),
+		crashpad: crashpadKept({ home, dataDir }, launched),
 		lastUsed: localState.profile?.last_used,
 		timesOfUse: Object.values(localState.profile?.info_cache ?? {}).filter(
 			(entry) => entry.active_time !== undefined,
@@ -162,6 +166,11 @@ const privateTraces: Scenario = async (context) => {
 	);
 
 	expect(dumps.length === 0, `minidumps: ${JSON.stringify(dumps)}`);
+
+	expect(
+		traces.crashpad.length === 0,
+		`Crashpad's database: ${JSON.stringify(traces.crashpad)}`,
+	);
 
 	expect(
 		traces.lastUsed === "Default" &&

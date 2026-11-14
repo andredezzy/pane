@@ -17,6 +17,7 @@
 #include "pane/model/data_key.h"
 #include "pane/model/data_lock.h"
 #include "pane/model/data_vault.h"
+#include "pane/model/engine_folder.h"
 #include "pane/model/profile_deletions.h"
 #include "pane/model/test_waits.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -52,7 +53,7 @@ class FolderPlaceTest : public testing::Test {
   void SetUp() override {
     ASSERT_TRUE(directory_.CreateUniqueTempDir());
     data_ = directory_.GetPath().AppendASCII("data");
-    ASSERT_TRUE(base::CreateDirectory(data_.AppendASCII("Engine")));
+    ASSERT_TRUE(base::CreateDirectory(EngineFolder(data_)));
   }
 
   void TearDown() override { task_environment_.RunUntilIdle(); }
@@ -71,7 +72,7 @@ class FolderPlaceTest : public testing::Test {
   }
 
   base::FilePath Folder(std::string_view id) const {
-    return data_.AppendASCII("Engine").AppendASCII(id);
+    return EngineFolder(data_).AppendASCII(id);
   }
 
   void MakeFolder(std::string_view id) {

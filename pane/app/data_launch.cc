@@ -30,6 +30,7 @@
 #include "pane/encryption/engine_keys.h"
 #include "pane/model/app_lock.h"
 #include "pane/model/data_vault.h"
+#include "pane/model/engine_folder.h"
 #include "pane/model/local_state.h"
 #include "pane/model/model_store.h"
 #include "pane/model/pin_entry.h"
@@ -42,10 +43,6 @@ namespace {
 
 using model::AppLock;
 using model::DataVault;
-
-base::FilePath EngineDirectory(const base::FilePath& data_directory) {
-  return data_directory.Append(FILE_PATH_LITERAL("Engine"));
-}
 
 std::string PhaseName(const DataVault& vault) {
   switch (vault.phase()) {
@@ -144,7 +141,7 @@ class PaneData : public AppData,
       // doesn't hold (ADR 0121). The vault's markers in a profile's folder
       // are then the profile's, as on a data directory with no link.
       encryption::AddRoots(
-          encryption::RootsOf(EngineDirectory(data_directory_)));
+          encryption::RootsOf(model::EngineFolder(data_directory_)));
     }
   }
   PaneData(const PaneData&) = delete;
@@ -421,7 +418,7 @@ void DataDidStop() {
   // Chromium wrote it as it quit: the profile used last, and when each was
   // (LocalState).
   if (!data_directory.empty() &&
-      !model::StartOnDefaultProfile(EngineDirectory(data_directory))) {
+      !model::StartOnDefaultProfile(model::EngineFolder(data_directory))) {
     LOG(ERROR) << "Could not point Local State at the Default profile";
   }
 }

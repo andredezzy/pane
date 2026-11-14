@@ -32,6 +32,7 @@ source_set("model") {
     "data_vault.h",
     "engine_fingerprint.cc",
     "engine_fingerprint.h",
+    "engine_folder.h",
     "extension_text.cc",
     "extension_text.h",
     "folder_place.cc",
@@ -91,11 +92,13 @@ source_set("model") {
   ]
 
   # Each system's own files: the platform Pane runs on, the data's lock, the
-  # wipe's files and processes, and the PIN's guard; on Windows, os_crypt's
-  # DPAPI key, the secret the data key is sealed under there (U5).
+  # engine's folder, the wipe's files and processes, and the PIN's guard; on
+  # Windows, os_crypt's DPAPI key, the secret the data key is sealed under
+  # there (U5).
   if (is_mac) {
     sources += [
       "data_lock_mac.cc",
+      "engine_folder_mac.cc",
       "host_platform_mac.cc",
       "panic_wipe_mac.cc",
       "panic_wipe_run_mac.cc",
@@ -105,6 +108,7 @@ source_set("model") {
   if (is_win) {
     sources += [
       "data_lock_win.cc",
+      "engine_folder_win.cc",
       "engine_secret.h",
       "engine_secret_win.cc",
       "host_platform_win.cc",
@@ -175,9 +179,11 @@ source_set("unit_tests") {
     "updates_unittest.cc",
   ]
 
-  # Windows' own: os_crypt's key under DPAPI, and the TPM's guard.
+  # Windows' own: the engine's folder chrome_elf names, os_crypt's key under
+  # DPAPI, and the TPM's guard.
   if (is_win) {
     sources += [
+      "engine_folder_win_unittest.cc",
       "engine_secret_win_unittest.cc",
       "pin_guard_win_unittest.cc",
     ]
@@ -196,9 +202,11 @@ source_set("unit_tests") {
     "//testing/gtest",
   ]
 
-  # Chromium's own reading of os_crypt's key, which Pane's must be.
+  # Chromium's own reading of os_crypt's key, and chrome_elf's of the user
+  # data dir, which Pane's must be.
   if (is_win) {
     deps += [
+      "//chrome/install_static:install_static_util",
       "//components/os_crypt/async/browser",
       "//components/prefs",
       "//components/prefs:test_support",

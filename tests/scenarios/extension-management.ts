@@ -12,6 +12,7 @@ import {
 import { DARK_READER, installById } from "../lib/extensions";
 import type { AppState, ExtensionState } from "../lib/pane";
 import { launchPane } from "../lib/pane";
+import { ENGINE_FOLDER } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
@@ -76,7 +77,7 @@ const extensionManagement: Scenario = async (context) => {
 
 	const extensionDirectory = join(
 		app.dataDir,
-		"Engine",
+		ENGINE_FOLDER,
 		profile,
 		"Extensions",
 		DARK_READER,

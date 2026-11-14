@@ -6,7 +6,8 @@
 				"tests/ab.ts",
 				"tests/scenarios/*.ts",
 				"tests/benchmarks/*.ts",
-				"tests/rigs/*.ts"
+				"tests/rigs/*.ts",
+				"tests/vm/*.ts"
 			],
 			"ignoreDependencies": ["electron"]
 		}

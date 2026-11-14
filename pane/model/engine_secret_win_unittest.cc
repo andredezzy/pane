@@ -6,6 +6,7 @@
 
 #include <dpapi.h>
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -58,6 +60,32 @@ std::vector<uint8_t> Unprotected(const std::string& encoded) {
   // SAFETY: DPAPI gives `cbData` bytes at `pbData`.
   return base::ToVector(UNSAFE_BUFFERS(
       base::span(static_cast<const uint8_t*>(owned.get()), output.cbData)));
+}
+
+// The user's first launch makes it at BasicStartupComplete, before the engine
+// has a FeatureList, where content makes reading any feature fail at once
+// (RunContentProcess): making it, and finding it again, read none.
+TEST(EngineSecretTest, MadeBeforeTheEngineHasFeatures) {
+  base::ScopedTempDir directory;
+  ASSERT_TRUE(directory.CreateUniqueTempDir());
+
+  std::unique_ptr<base::FeatureList> features =
+      base::FeatureList::ClearInstanceForTesting();
+  const std::optional<std::vector<uint8_t>> made =
+      EngineSecret(directory.GetPath(), /*makes_one=*/true);
+  const std::optional<std::vector<uint8_t>> found =
+      EngineSecret(directory.GetPath(), /*makes_one=*/false);
+  const base::Feature* read_too_early =
+      base::FeatureList::GetEarlyAccessedFeatureForTesting();
+  base::FeatureList::ResetEarlyFeatureAccessTrackerForTesting();
+  base::FeatureList::RestoreInstanceForTesting(std::move(features));
+
+  ASSERT_TRUE(made);
+  EXPECT_EQ(found, made);
+  EXPECT_EQ(read_too_early, nullptr) << read_too_early->name;
+  EXPECT_EQ(Unprotected(*LocalState(directory.GetPath())
+                             .FindStringByDottedPath("os_crypt.encrypted_key")),
+            *made);
 }
 
 // None there: made as Chromium makes it, in Local State, which Chromium then

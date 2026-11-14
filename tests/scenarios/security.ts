@@ -20,7 +20,7 @@ import {
 	setPinBeforeLaunch,
 	volumeShut,
 } from "../lib/pane";
-import { PRIMARY } from "../lib/platform";
+import { ENGINE_FOLDER, PRIMARY } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import {
 	childrenOf,
@@ -210,7 +210,7 @@ async function settingsAttempts(context: ScenarioContext) {
 	);
 
 	expect(
-		lexists(join(dataDir, "Engine", profile)),
+		lexists(join(dataDir, ENGINE_FOLDER, profile)),
 		"five attempts on disk, with the key, erased the data",
 	);
 
@@ -652,7 +652,7 @@ const security: Scenario = async (context) => {
 // the last before a wipe, the data, the key, and the TPM's keys stay, and the
 // right PIN still opens. Pane quits after.
 async function fifthKeeps(app: PaneApp, dataDir: string, profile: string) {
-	const profileDir = join(dataDir, "Engine", profile);
+	const profileDir = join(dataDir, ENGINE_FOLDER, profile);
 	const keyBefore = saved(dataDir)?.state.key?.box;
 	const guardBefore = await pinGuardKeys(dataDir);
 
@@ -718,7 +718,7 @@ async function fifthWipes(
 	dataDir: string,
 	profile: string,
 ) {
-	const profileDir = join(dataDir, "Engine", profile);
+	const profileDir = join(dataDir, ENGINE_FOLDER, profile);
 
 	// The Electron app's data this Pane migrated from, as migration.json
 	// names it, with a neighbor the wipe must leave.

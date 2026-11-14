@@ -44,6 +44,13 @@ export function noWindowsSide(
 	);
 }
 
+// The engine's folder in Pane's data folder, Chromium's user data dir, which
+// holds its Local State, its Default profile, and each profile's folder by
+// its id (pane/model/engine_folder.h): Engine on the Mac; on Windows User
+// Data, the folder chrome_elf names for a launch with no --user-data-dir, as
+// the user's is, and which a launch's must be.
+export const ENGINE_FOLDER = bySystem({ mac: "Engine", windows: "User Data" });
+
 // The modifier of Pane's shortcuts, by the channel's name for it: Command on
 // the Mac, Control on Windows, where Pane's command table gives its keys
 // Ctrl (pane/ui/app/commands.cc).

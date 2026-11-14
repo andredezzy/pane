@@ -10,6 +10,7 @@ import type { ScenarioContext } from "../run";
 import { appOf, homeEnvironment } from "./browser";
 import { Cdp, openPage, type Page } from "./cdp";
 import { PaneApp } from "./pane";
+import { ENGINE_FOLDER } from "./platform";
 import { footprintsOf, processTable, waitForExit } from "./processes";
 import type { FrameInterval } from "./signposts";
 import { targets } from "./targets";
@@ -414,7 +415,7 @@ export async function launchApp(
 	const args = [
 		`--remote-debugging-port=${port}`,
 		...SHARED_ARGS,
-		`--user-data-dir=${join(dataDir, "Engine")}`,
+		`--user-data-dir=${join(dataDir, ENGINE_FOLDER)}`,
 		options.url,
 	];
 

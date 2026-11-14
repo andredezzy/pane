@@ -4,10 +4,13 @@
 
 #include <windows.h>
 
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/base_paths.h"
 #include "base/check.h"
@@ -18,11 +21,14 @@
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
+#include "base/strings/string_util.h"
 #include "base/values.h"
+#include "chrome/chrome_elf/chrome_elf_main.h"
 #include "chrome/common/chrome_paths.h"
 #include "pane/app/test_copy.h"
 #include "pane/model/app_lock.h"
 #include "pane/model/data_lock.h"
+#include "pane/model/engine_folder.h"
 #include "pane/model/engine_secret.h"
 #include "pane/model/folder_place.h"
 #include "pane/model/local_state.h"
@@ -36,15 +42,76 @@ namespace pane {
 
 // Pane's data on Windows (U5): its folder in the user's local application
 // data, kept out of the index; the data key sealed under os_crypt's DPAPI key
-// and, with a PIN, a key the TPM holds; every profile at Engine\<id>, each
-// file encrypted under its Engine key (ADR 0121), with no volume around them,
-// which would need elevation. No Pane ran on Windows before, so there is no
-// earlier data to bring over.
+// and, with a PIN, a key the TPM holds; the engine's folder in it, User Data,
+// and every profile in that by its id, each file encrypted under its Engine
+// key (ADR 0121), with no volume around them, which would need elevation. No
+// Pane ran on Windows before, so there is no earlier data to bring over.
+//
+// The engine's folder is the very one chrome_elf names. On Windows Chromium
+// takes its user data dir from chrome_elf alone (ChromeMainDelegate's
+// InitializeUserDataDir), which reads --user-data-dir from the command line
+// the process started with, never from base::CommandLine, where
+// SetEngineSwitches writes; else a policy's folder; else the install mode's,
+// %LOCALAPPDATA%\Pane\User Data (patch 0001). A launch without the switch, as
+// a shortcut, the taskbar, or another app's link starts the user's Pane and
+// as the panic wipe's relaunch keeps it, gets that default: the engine folder
+// of the data folder, %LOCALAPPDATA%\Pane (model::EngineFolder). A test copy
+// names its own with the switch. Any other is refused before anything is
+// written: an engine folder elsewhere took Chrome's whole user data, its
+// Default profile and Local State in the clear, while Pane's stayed empty.
 
 namespace {
 
-base::FilePath EngineDirectory(const base::FilePath& data_directory) {
-  return data_directory.Append(FILE_PATH_LITERAL("Engine"));
+// Where `path` leads: the deepest part of it that exists, as NTFS resolves it
+// (long names for 8.3 ones, junctions followed, the case on disk), then the
+// rest as given. The path as given where nothing of it resolves.
+base::FilePath WhereItLeads(const base::FilePath& path) {
+  std::vector<base::FilePath::StringType> rest;
+  base::FilePath existing = path.StripTrailingSeparators();
+  while (!base::PathExists(existing)) {
+    const base::FilePath parent = existing.DirName();
+    if (parent == existing) {
+      return path;
+    }
+    rest.push_back(existing.BaseName().value());
+    existing = parent;
+  }
+  base::FilePath resolved;
+  if (!base::NormalizeFilePath(existing, &resolved)) {
+    return path;
+  }
+  for (auto name = rest.rbegin(); name != rest.rend(); ++name) {
+    resolved = resolved.Append(*name);
+  }
+  return resolved;
+}
+
+// Whether two absolute paths name one folder: as given or by where they lead,
+// their names compared as NTFS compares them, without case, ASCII's
+// (engine_keys_win.cc's SameComponent).
+bool SameFolder(const base::FilePath& a, const base::FilePath& b) {
+  const auto same = [](const base::FilePath& x, const base::FilePath& y) {
+    return base::EqualsCaseInsensitiveASCII(
+        x.NormalizePathSeparators().StripTrailingSeparators().value(),
+        y.NormalizePathSeparators().StripTrailingSeparators().value());
+  };
+  return same(a, b) || same(WhereItLeads(a), WhereItLeads(b));
+}
+
+// Whether Chromium keeps its user data in `engine_folder` on this launch, by
+// chrome_elf's own answer, which ChromeMainDelegate reads a moment later. A
+// folder the command line named that chrome_elf couldn't use sends it to its
+// default, which Chrome then reports: no launch Pane can be sure of either.
+bool ChromiumKeepsItsDataIn(const base::FilePath& engine_folder) {
+  std::array<wchar_t, MAX_PATH> named = {};
+  std::array<wchar_t, MAX_PATH> unusable = {};
+  if (!GetUserDataDirectoryThunk(named.data(), named.size(), unusable.data(),
+                                 unusable.size()) ||
+      unusable[0] != L'\0') {
+    return false;
+  }
+  return SameFolder(base::FilePath(std::wstring_view(named.data())),
+                    engine_folder);
 }
 
 // Windows Search, and any indexer that honors it, skips the data: the folder
@@ -143,6 +210,13 @@ base::FilePath DefaultDataDirectory() {
 std::optional<int> PrepareData(const base::FilePath& data_directory,
                                const base::CommandLine& command_line,
                                bool test_copy) {
+  // The engine keeps its data in this data's engine folder, or nowhere.
+  if (!ChromiumKeepsItsDataIn(model::EngineFolder(data_directory))) {
+    LOG(ERROR) << "Pane refused a launch whose engine would keep its data "
+                  "outside the data folder's engine folder";
+    return 1;
+  }
+
   // The data is the user's alone: %LOCALAPPDATA% is, and what is made in it
   // takes its ACL.
   if (!base::CreateDirectory(data_directory)) {
@@ -150,6 +224,12 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
     return 1;
   }
   KeepOutOfTheIndex(data_directory);
+  // chrome_elf makes a folder the command line names as it reads it, a test
+  // copy's engine folder, before the data folder was marked: what the engine
+  // makes in it takes the attribute from it.
+  if (base::DirectoryExists(model::EngineFolder(data_directory))) {
+    KeepOutOfTheIndex(model::EngineFolder(data_directory));
+  }
   TakeTestCopyHome();
 
   // The panic wipe's data goes before anything reads the data directory: the
@@ -161,7 +241,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
 
   // Chromium opens the profile it used last at startup, before the PIN:
   // never one of Pane's.
-  if (!model::StartOnDefaultProfile(EngineDirectory(data_directory))) {
+  if (!model::StartOnDefaultProfile(model::EngineFolder(data_directory))) {
     LOG(ERROR) << "Could not point Local State at the Default profile";
   }
 
@@ -178,7 +258,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
       data_directory, /*holds_data=*/HoldsSealedProfiles(data_directory));
   model::AppLock::LaunchSecret secret;
   if (data_lock && !loaded.unreadable && !loaded.key_lost) {
-    secret.secret = model::EngineSecret(EngineDirectory(data_directory),
+    secret.secret = model::EngineSecret(model::EngineFolder(data_directory),
                                         /*makes_one=*/!loaded.state.key);
   }
 
@@ -190,7 +270,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
   launched.loaded = std::move(loaded);
   launched.secret = std::move(secret);
   launched.lock_system.secret = base::BindRepeating(
-      &model::EngineSecret, EngineDirectory(data_directory));
+      &model::EngineSecret, model::EngineFolder(data_directory));
   launched.lock_system.guard = guard;
   launched.lock_system.no_secret =
       model::PinEntry::UnreadableReason::kDpapiRefused;
