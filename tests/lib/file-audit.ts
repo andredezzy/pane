@@ -179,34 +179,81 @@ function entropyOf(bytes: Uint8Array): number {
 	return entropy;
 }
 
-const textShare = (bytes: Uint8Array) => {
-	let text = 0;
+// The bytes text is made of: printable ASCII, tab, and the line ends. Random
+// bytes, as ciphertext is, are one of them 98 times in 256.
+const isText = (byte: number) =>
+	(byte >= 0x20 && byte < 0x7f) || byte === 9 || byte === 10 || byte === 13;
 
-	for (const byte of bytes) {
-		if (
-			(byte >= 0x20 && byte < 0x7f) ||
-			byte === 9 ||
-			byte === 10 ||
-			byte === 13
-		) {
-			text++;
+const TEXT_IN_RANDOM = 98 / 256;
+
+// The chance that `length` random bytes hold `count` or more of text's: a
+// binomial tail, summed down from all of them.
+function chanceOfText(length: number, count: number): number {
+	const ratio = Math.log((1 - TEXT_IN_RANDOM) / TEXT_IN_RANDOM);
+	let logTerm = length * Math.log(TEXT_IN_RANDOM);
+	let chance = 0;
+
+	for (let text = length; text >= count; text--) {
+		chance += Math.exp(logTerm);
+		// The term for one fewer.
+		logTerm += Math.log(text / (length - text + 1)) + ratio;
+	}
+
+	return chance;
+}
+
+// Text: over 3 in 4 of its bytes text's, a share random bytes of its length
+// reach less than once in a million. Short ciphertext reaches 3 in 4 often: 13
+// of the 16 bytes past a LevelDB CURRENT's header do once in 1,751 files, which
+// failed files-migration twice (2026-11-14). All 16 do once in 4.7 million.
+function readsAsText(content: Buffer): boolean {
+	if (content.length < 16) {
+		return false;
+	}
+
+	let count = 0;
+
+	for (const byte of content) {
+		if (isText(byte)) {
+			count++;
 		}
 	}
 
-	return bytes.length > 0 ? text / bytes.length : 0;
-};
+	return (
+		count > 0.75 * content.length && chanceOfText(content.length, count) < 1e-6
+	);
+}
 
-// Pane's formats (pane/encryption), and the chunked format's header, whose first
-// byte is its length.
-const ENCRYPTED_MAGICS = ["Pane SQLite v1\n", "PANESF1\n", "PANEWF1\n"].map(
-	(magic) => Buffer.from(magic, "latin1"),
-);
+// Pane's formats (pane/encryption), each by its magic, with how much of a
+// file's start is the format's own: a stream's header (its magic, a random file
+// id, and a check), a whole file's magic, a database's clear start of page 1.
+const FORMATS = [
+	{ magic: "PANESF1\n", start: 32 },
+	{ magic: "PANEWF1\n", start: 8 },
+	{ magic: "Pane SQLite v1\n", start: 24 },
+].map(({ magic, start }) => ({ magic: Buffer.from(magic, "latin1"), start }));
 
+// The chunked format's header: its first byte is its length, then a random salt
+// and nonce.
 const CHUNKED_HEADER_SIZE = 40;
 
-// The stream format's (pane/encryption/stream_cipher.h).
-const STREAM_MAGIC = Buffer.from("PANESF1\n", "latin1");
-const STREAM_HEADER_SIZE = 32;
+const isChunked = (bytes: Buffer) =>
+	bytes.length >= CHUNKED_HEADER_SIZE && bytes[0] === CHUNKED_HEADER_SIZE;
+
+const formatOf = (bytes: Buffer) =>
+	FORMATS.find(({ magic }) => bytes.subarray(0, magic.length).equals(magic));
+
+// What follows a format's own start, where its content begins; all of a file in
+// no format of Pane's.
+function contentOf(bytes: Buffer): Buffer {
+	const format = formatOf(bytes);
+
+	if (format) {
+		return bytes.subarray(format.start);
+	}
+
+	return isChunked(bytes) ? bytes.subarray(CHUNKED_HEADER_SIZE) : bytes;
+}
 
 // SQLite's own for a WAL and a rollback journal: their headers stay clear, and
 // the pages after them are Pane's format, as `plainMarkers` checks past 4 KiB.
@@ -216,13 +263,11 @@ const SQLITE_LOG_MAGICS = ["377f0682", "377f0683", "d9d505f920a163d7"].map(
 
 function hasEncryptedFormat(bytes: Buffer): boolean {
 	return (
-		ENCRYPTED_MAGICS.some((magic) =>
-			bytes.subarray(0, magic.length).equals(magic),
-		) ||
+		formatOf(bytes) !== undefined ||
 		SQLITE_LOG_MAGICS.some((magic) =>
 			bytes.subarray(0, magic.length).equals(magic),
 		) ||
-		(bytes.length >= CHUNKED_HEADER_SIZE && bytes[0] === CHUNKED_HEADER_SIZE)
+		isChunked(bytes)
 	);
 }
 
@@ -245,7 +290,7 @@ function pastJournalHeader(name: string, bytes: Buffer): Buffer {
 
 // Why this content reads as plain, if it does: a store's own header, JSON,
 // HTML, a URL, or, past 4 KiB, too little entropy for ciphertext.
-function plainMarkers(name: string, bytes: Buffer): string[] {
+export function plainMarkers(name: string, bytes: Buffer): string[] {
 	const found: string[] = [];
 
 	if (bytes.length === 0) {
@@ -284,17 +329,9 @@ function plainMarkers(name: string, bytes: Buffer): string[] {
 		found.push("low entropy");
 	}
 
-	// Past a stream's header, whose random bytes alone read as text about once
-	// in 800 empty logs.
-	const content = bytes.subarray(0, STREAM_MAGIC.length).equals(STREAM_MAGIC)
-		? bytes.subarray(STREAM_HEADER_SIZE)
-		: bytes;
-
-	if (
-		bytes.length <= 4096 &&
-		content.length >= 16 &&
-		textShare(content) > 0.75
-	) {
+	// Its content alone: a stream's header, random bytes, read as text about
+	// once in 800 empty logs, and a whole file's magic is 8 bytes of text.
+	if (bytes.length <= 4096 && readsAsText(contentOf(bytes))) {
 		found.push("text");
 	}
 
