@@ -366,6 +366,7 @@ source_set("pane") {
     "//pane/app:test_copy",
     "//pane/browser:background_work",
     "//pane/browser:proto_databases",
+    "//pane/browser:system_proxy",
     "//pane/encryption:handover",
     "//pane/model",
     "//pane/ui/app:commands",

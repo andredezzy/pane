@@ -11,7 +11,10 @@ import { expect, type Scenario } from "../run";
 // them. Each request a net log holds names its source (traffic annotation).
 // Nor does it connect anywhere else: no host is looked up, preconnected, or
 // reached but the fixtures' (Chrome's preconnect to its search engine opens
-// connections that no request shows).
+// connections that no request shows). Nor does it detect a proxy, by DHCP or
+// by DNS (`wpad`), as Windows' "Automatically detect settings", which it ships
+// with, would ask (ADR 0040): Pane follows the system's proxy settings
+// without their auto-detection.
 
 type NetLog = {
 	constants: { logEventTypes: Record<string, number> };
@@ -62,6 +65,23 @@ const quiet: Scenario = async (context) => {
 
 		requests.set(event.source.id, request);
 	}
+
+	// Proxy auto-detection, or any PAC script: a quiet session has none.
+	const detection = [
+		...new Set(
+			log.events
+				.map((event) => types[event.type])
+				.filter(
+					(type): type is string =>
+						type !== undefined && /^(PAC_FILE_DECIDER|WPAD_)/.test(type),
+				),
+		),
+	];
+
+	expect(
+		detection.length === 0,
+		`it looked for a proxy of its own: ${detection.join(", ")}`,
+	);
 
 	const local = context.fixtures.origin;
 

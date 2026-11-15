@@ -8,9 +8,11 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "pane/model/app_settings.h"
+#include "pane/model/last_version.h"
 #include "pane/model/local_state.h"
 #include "pane/model/persisted_file.h"
 #include "pane/model/profile.h"
@@ -388,6 +390,37 @@ TEST(LocalStateTest, StartsOnDefault) {
 
   // Once it does, nothing more is written.
   EXPECT_EQ(StartingOnDefaultProfile(*changed), std::nullopt);
+}
+
+// Chromium's downgrade processing finds the engine's own version: no upgrade
+// to snapshot, no downgrade to move the user data aside for (ADR 0122).
+TEST(LastVersionTest, NamesTheEnginesOwnVersion) {
+  base::ScopedTempDir engine;
+  ASSERT_TRUE(engine.CreateUniqueTempDir());
+  const base::FilePath file =
+      engine.GetPath().Append(FILE_PATH_LITERAL("Last Version"));
+
+  // A first run's: none, and none is made.
+  EXPECT_TRUE(KeepEngineVersion(engine.GetPath(), "158.0.8127.18"));
+  EXPECT_FALSE(base::PathExists(file));
+
+  // An older milestone's, and a newer one's: the engine's own.
+  for (const char* last : {"157.0.8103.39", "159.0.8200.1\n"}) {
+    ASSERT_TRUE(base::WriteFile(file, last));
+    EXPECT_TRUE(KeepEngineVersion(engine.GetPath(), "158.0.8127.18"));
+    std::string written;
+    ASSERT_TRUE(base::ReadFileToString(file, &written));
+    EXPECT_EQ(written, "158.0.8127.18") << last;
+  }
+
+  // Its own, as Chromium writes it: left as it is.
+  ASSERT_TRUE(base::WriteFile(file, "158.0.8127.18"));
+  ASSERT_TRUE(
+      base::TouchFile(file, base::Time::UnixEpoch(), base::Time::UnixEpoch()));
+  EXPECT_TRUE(KeepEngineVersion(engine.GetPath(), "158.0.8127.18"));
+  base::File::Info info;
+  ASSERT_TRUE(base::GetFileInfo(file, &info));
+  EXPECT_EQ(info.last_modified, base::Time::UnixEpoch());
 }
 
 // Not in PaneKit: an id names one folder, the rule the volume, the

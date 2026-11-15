@@ -3,6 +3,8 @@
 #ifndef PANE_BROWSER_BROWSER_MAIN_EXTRA_PARTS_H_
 #define PANE_BROWSER_BROWSER_MAIN_EXTRA_PARTS_H_
 
+#include <memory>
+
 #include "base/callback_list.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
@@ -11,6 +13,8 @@
 
 namespace pane {
 
+class SystemProxy;
+
 // Starts Pane's data and UI once the browser has started, and lets the data go
 // once its message loop has ended. The process lives until Pane quits
 // (StartPlatform): on the Mac, Chrome's AppController keeps the browser
@@ -18,8 +22,9 @@ namespace pane {
 // on Windows, a keep-alive of Pane's own does the same. Also builds
 // Pane's own services of each profile before the first one
 // (BuildProfileServices), brings up, for each profile as it is added, the
-// services Chrome starts through parts Pane does not run (sync), and hands the
-// certificate verifier the CRLSet the bundle carries.
+// services Chrome starts through parts Pane does not run (sync), hands the
+// certificate verifier the CRLSet the bundle carries, and keeps the browser's
+// own proxy as the system's settings say, without their auto-detection.
 class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
                               public ProfileManagerObserver {
  public:
@@ -29,6 +34,8 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   ~BrowserMainExtraParts() override;
 
   // ChromeBrowserMainExtraParts:
+  void PreCreateThreads() override;
+  void PostCreateThreads() override;
   void PreProfileInit() override;
   void PostProfileInit(Profile* profile, bool is_initial_profile) override;
   void PostBrowserStart() override;
@@ -45,6 +52,7 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   // Chrome's.
   static void StartPlatform();
 
+  std::unique_ptr<SystemProxy> system_proxy_;
   base::ScopedObservation<ProfileManager, ProfileManagerObserver>
       profile_manager_observation_{this};
   base::CallbackListSubscription app_terminating_subscription_;

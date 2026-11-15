@@ -57,6 +57,7 @@
 #include "pane/browser/browser_context.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
+#include "pane/browser/system_proxy.h"
 #include "pane/model/address_input.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/model_store.h"
@@ -465,7 +466,20 @@ UiApp::UiApp()
                                     weak_factory_.GetWeakPtr()));
   updater_observation_.Observe(updater_.get());
   settings_update_ = SettingsUpdateOf(*updater_);
-  updater_->Schedule();
+  // Its first check goes out once the system's proxy settings are read, which
+  // the browser's own network context takes (ADR 0040): until then it holds
+  // the last launch's.
+  if (SystemProxy* system_proxy = SystemProxy::Get()) {
+    system_proxy->WhenRead(base::BindOnce(
+        [](base::WeakPtr<UiApp> app) {
+          if (app && app->updater_) {
+            app->updater_->Schedule();
+          }
+        },
+        weak_factory_.GetWeakPtr()));
+  } else {
+    updater_->Schedule();
+  }
   events_ = AppEvents::Listen(
       base::BindRepeating(&UiApp::ShowWindow, weak_factory_.GetWeakPtr()),
       base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()));

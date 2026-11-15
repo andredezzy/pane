@@ -36,6 +36,29 @@ source_set("proto_databases") {
   ]
 }
 
+# Pane follows the system's proxy settings without their auto-detection
+# (ADR 0040).
+source_set("system_proxy") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "system_proxy.cc",
+    "system_proxy.h",
+  ]
+
+  deps = [
+    "//base",
+    "//components/prefs",
+    "//components/proxy_config",
+    "//mojo/public/cpp/bindings",
+    "//net",
+    "//services/network/public/mojom",
+  ]
+}
+
 source_set("unit_tests") {
   testonly = true
   visibility = [ "//pane/encryption:pane_unittests" ]
@@ -43,17 +66,27 @@ source_set("unit_tests") {
   sources = [
     "background_work_unittest.cc",
     "proto_databases_unittest.cc",
+    "system_proxy_unittest.cc",
   ]
 
   deps = [
     ":background_work",
     ":proto_databases",
+    ":system_proxy",
     "//base",
     "//base/test:test_support",
     "//components/leveldb_proto",
     "//components/leveldb_proto/testing/proto",
+    "//components/prefs:test_support",
+    "//components/proxy_config",
+    "//mojo/core/embedder",
+    "//mojo/public/cpp/bindings",
+    "//net",
+    "//net/traffic_annotation:test_support",
     "//pane/encryption:core",
+    "//services/network/public/mojom",
     "//testing/gtest",
     "//third_party/leveldatabase",
+    "//url",
   ]
 }

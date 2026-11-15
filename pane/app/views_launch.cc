@@ -8,11 +8,13 @@
 #include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
+#include "base/version_info/version_info.h"
 #include "pane/app/data_launch.h"
 #include "pane/app/engine_switches.h"
 #include "pane/app/test_copy.h"
 #include "pane/browser/ui/install_hooks.h"
 #include "pane/model/engine_folder.h"
+#include "pane/model/last_version.h"
 
 namespace pane {
 
@@ -56,6 +58,13 @@ std::optional<int> StartViewsLaunch(base::CommandLine& command_line) {
           PrepareData(data, command_line,
                       /*test_copy=*/kind == LaunchKind::kTestCopy)) {
     return exit_code;
+  }
+  // Chromium's downgrade processing finds neither an upgrade nor a downgrade
+  // of the engine, which would snapshot its user data or move it aside (ADR
+  // 0122).
+  if (!model::KeepEngineVersion(model::EngineFolder(data),
+                                version_info::GetVersionNumber())) {
+    LOG(ERROR) << "Could not write the engine's Last Version";
   }
   SetEngineSwitches(command_line, model::EngineFolder(data));
   g_views_launch = true;

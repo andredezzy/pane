@@ -8,17 +8,22 @@
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/path_service.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/devtools/chrome_devtools_manager_delegate.h"
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
+#include "chrome/common/chrome_paths.h"
 #include "content/public/browser/network_service_instance.h"
+#include "net/proxy_resolution/proxy_config_service.h"
 #include "pane/app/data_launch.h"
 #include "pane/browser/bundled_crl_set.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
+#include "pane/browser/system_proxy.h"
 #include "pane/browser/ui/install_hooks.h"
 #include "pane/ui/app/app_events.h"
 #include "pane/ui/app/ui_app.h"
@@ -60,13 +65,46 @@ void LoadBundledCRLSet() {
       }));
 }
 
+// Spellcheck's Hunspell dictionaries, which Chrome downloads for a language
+// the system's spellchecker lacks (Windows'), go in the user data dir, Pane's
+// data, which the panic wipe takes, where Chromium puts one on Windows when it
+// can't write beside chrome.exe (SaveDictionaryData) and keeps them on every
+// other system. Beside chrome.exe (chrome_paths.cc, DIR_APP_DICTIONARIES) is
+// the app's own folder: one an update replaces, which would download each
+// again, and one the wipe leaves, with the languages' names. Spellcheck alone
+// reads the path, and makes nothing in it until it saves a dictionary.
+void KeepDictionariesInUserData() {
+  base::FilePath user_data;
+  if (base::PathService::Get(chrome::DIR_USER_DATA, &user_data)) {
+    base::PathService::OverrideAndCreateIfNeeded(chrome::DIR_APP_DICTIONARIES,
+                                                 user_data,
+                                                 /*is_absolute=*/true,
+                                                 /*create=*/false);
+  }
+}
+
 }  // namespace
 
 BrowserMainExtraParts::BrowserMainExtraParts() = default;
 
 BrowserMainExtraParts::~BrowserMainExtraParts() = default;
 
+// Before the browser's network contexts exist (ADR 0040).
+void BrowserMainExtraParts::PreCreateThreads() {
+  SystemProxy::HoldLocalState(*g_browser_process->local_state());
+}
+
+// Chromium's own reading of the system's proxy settings, as Chrome makes it
+// for its network contexts, on the UI thread.
+void BrowserMainExtraParts::PostCreateThreads() {
+  system_proxy_ = std::make_unique<SystemProxy>(
+      *g_browser_process->local_state(),
+      net::ProxyConfigService::CreateSystemProxyConfigService(
+          base::SingleThreadTaskRunner::GetCurrentDefault()));
+}
+
 void BrowserMainExtraParts::PreProfileInit() {
+  KeepDictionariesInUserData();
   LoadBundledCRLSet();
   BuildProfileServices();
 }
@@ -112,6 +150,7 @@ void BrowserMainExtraParts::PreMainMessageLoopRun() {
 
 void BrowserMainExtraParts::PostMainMessageLoopRun() {
   DataWillStop();
+  system_proxy_.reset();
 }
 
 }  // namespace pane

@@ -14,6 +14,7 @@
 #include "pane/browser/browser_main_extra_parts.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/fingerprints.h"
+#include "pane/browser/system_proxy.h"
 #include "pane/encryption/handover.h"
 #include "pane/ui/dialogs/sign_in.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -58,6 +59,10 @@ void ContentBrowserClient::ConfigureNetworkContextParams(
 
   // The profile's own User-Agent, for a profile with a fingerprint.
   network_context_params->user_agent = GetUserAgentForBrowserContext(context);
+
+  // The system's proxy settings without their auto-detection, where the
+  // profile has no proxy of its own (ADR 0040).
+  DropAutoDetection(*network_context_params);
 
   // Each time: a network service that restarts gets its keys back this way.
   network_context_params->pane_engine_keys = encryption::KeysForOtherProcess();

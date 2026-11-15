@@ -38,6 +38,8 @@ source_set("model") {
     "folder_place.cc",
     "folder_place.h",
     "host_platform.h",
+    "last_version.cc",
+    "last_version.h",
     "local_state.cc",
     "local_state.h",
     "model_store.cc",
