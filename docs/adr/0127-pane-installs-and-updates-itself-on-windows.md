@@ -17,6 +17,8 @@ Pane on Windows is installed and updated by Pane's own code, as on the Mac (ADR 
 - **E,** a swap that failed at restart says so in one quiet line above the pill, for that launch only (11.12.14's A).
 - **F,** a page and a PDF take Pane's own document icons (11.12.2's A), placed by its placement 1: the window centred in the page under its fold, the PDF's raised over a tag at the page's foot, a bar with no letters below 48.
 - The rest approved as drawn: Pane.ico (11.12.1), Installed apps (11.12.4), Default apps (11.12.5), the install window and its states (11.12.6 to 11.12.8), the uninstall dialog's states (11.12.10), and the update's words on Windows (11.12.11 to 11.12.13), the shortcut's tooltip "Every profile, its own internet." with them.
+- **After W7's second part** (asked with the renders beside 11.12.8): the four error lines no board drew, in 11.12.8's window, approved as written (adding Pane to Windows failed, Pane didn't open, the uninstall failed, Pane isn't where Windows says), and the uninstall dialog with no data box when there is no data to delete.
+- **Signing:** the first Windows alpha goes out unsigned, and the choice of a certificate comes before a stable Windows release (U6). Unsigned, SmartScreen asks "Windows protected your PC" and the tester presses Run anyway, and where Smart App Control enforces, an installer no trusted certificate signs is blocked with no way past it (Microsoft's Smart App Control overview). Weighed: SignPath Foundation's free signing for open source projects (its name as the publisher), Certum's open source developer certificate (a person's name), and an OV certificate in Rounded Corners' name (a registered company).
 
 ## The package (W7's first part, 2026-11-15)
 
