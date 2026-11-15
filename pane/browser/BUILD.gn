@@ -19,6 +19,29 @@ source_set("background_work") {
   deps = [ "//base" ]
 }
 
+# The CRLSet the package carries (ADR 0040): the bundle's resource on the
+# Mac, the crl-set file beside chrome.dll on Windows. A target of its own so
+# Windows' place is tested in pane_unittests.
+source_set("bundled_crl_set") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [ "bundled_crl_set.h" ]
+
+  if (is_mac) {
+    sources += [ "bundled_crl_set_mac.cc" ]
+    frameworks = [ "CoreFoundation.framework" ]
+  }
+
+  if (is_win) {
+    sources += [ "bundled_crl_set_win.cc" ]
+  }
+
+  deps = [ "//base" ]
+}
+
 source_set("proto_databases") {
   visibility = [
     ":unit_tests",
@@ -69,8 +92,14 @@ source_set("unit_tests") {
     "system_proxy_unittest.cc",
   ]
 
+  # The CRLSet's place beside chrome.dll.
+  if (is_win) {
+    sources += [ "bundled_crl_set_win_unittest.cc" ]
+  }
+
   deps = [
     ":background_work",
+    ":bundled_crl_set",
     ":proto_databases",
     ":system_proxy",
     "//base",

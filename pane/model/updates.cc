@@ -46,7 +46,8 @@ const GURL& ReleasesURL() {
 base::expected<std::optional<AvailableUpdate>, UpdateCheckError>
 AvailableUpdateIn(std::string_view release_json,
                   std::string_view current_version,
-                  const GURL& releases_url) {
+                  const GURL& releases_url,
+                  std::string_view asset_suffix) {
   const std::optional<base::Value> release =
       base::JSONReader::Read(release_json, base::JSON_PARSE_RFC);
   ValueReader reader(release ? &*release : nullptr);
@@ -57,7 +58,7 @@ AvailableUpdateIn(std::string_view release_json,
     return base::unexpected(UpdateCheckError::kNotARelease);
   }
 
-  std::optional<Asset> dmg;
+  std::optional<Asset> file;
   for (const base::Value& value : *list) {
     ValueReader asset(&value);
     Asset read{.name = asset.String("name"),
@@ -66,8 +67,8 @@ AvailableUpdateIn(std::string_view release_json,
     if (!asset.ok()) {
       return base::unexpected(UpdateCheckError::kNotARelease);
     }
-    if (!dmg && read.name.ends_with(kDmgSuffix)) {
-      dmg = std::move(read);
+    if (!file && read.name.ends_with(asset_suffix)) {
+      file = std::move(read);
     }
   }
 
@@ -75,11 +76,11 @@ AvailableUpdateIn(std::string_view release_json,
   if (version.starts_with('v') || version.starts_with('V')) {
     version.remove_prefix(1);
   }
-  if (!dmg) {
+  if (!file) {
     return std::nullopt;
   }
-  const GURL dmg_url(dmg->download_url);
-  if (!IsTrustedDownload(dmg_url, releases_url)) {
+  const GURL file_url(file->download_url);
+  if (!IsTrustedDownload(file_url, releases_url, asset_suffix)) {
     return std::nullopt;
   }
   const base::expected<bool, InvalidVersion> newer =
@@ -92,8 +93,8 @@ AvailableUpdateIn(std::string_view release_json,
   }
   return AvailableUpdate{
       .version = std::string(version),
-      .dmg_url = dmg_url,
-      .sha256 = dmg->digest ? Sha256FromDigest(*dmg->digest) : std::nullopt};
+      .file_url = file_url,
+      .sha256 = file->digest ? Sha256FromDigest(*file->digest) : std::nullopt};
 }
 
 std::optional<std::string> Sha256FromDigest(std::string_view digest) {
@@ -107,14 +108,16 @@ std::optional<std::string> Sha256FromDigest(std::string_view digest) {
   return hex.size() == 64 && is_hex ? std::make_optional(hex) : std::nullopt;
 }
 
-bool IsTrustedDownload(const GURL& url, const GURL& releases_url) {
+bool IsTrustedDownload(const GURL& url,
+                       const GURL& releases_url,
+                       std::string_view asset_suffix) {
   if (!url.is_valid()) {
     return false;
   }
   const std::string_view path = url.path();
   const std::string name =
       base::UnescapeBinaryURLComponent(path.substr(path.rfind('/') + 1));
-  if (!name.ends_with(kDmgSuffix) || name.starts_with('.') ||
+  if (!name.ends_with(asset_suffix) || name.starts_with('.') ||
       name.find('/') != std::string::npos) {
     return false;
   }

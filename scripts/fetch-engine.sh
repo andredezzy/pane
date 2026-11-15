@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # Fetches the prebuilt engine made from this checkout's engine sources and
-# prints its directory, a stand-in for the engine's out/Release: the app then
+# prints its directory, a stand-in for the engine's out dir: the app then
 # builds and packages without a Chromium checkout (Ardia's prebuilt-engines.tsv
-# model). prebuilt-engines.tsv names the engine key (engine-key.sh) of the
-# engine-<key:12> GitHub release carrying PaneCore-<chromium>-<key:12>.zip, and
-# its SHA-256.
+# model). prebuilt-engines.tsv names, for the engine key (engine-key.sh) and a
+# platform, the SHA-256 of its archive in the engine-<key:12> GitHub release:
+# the Mac's (mac-arm64, the default) PaneCore-<chromium>-<key:12>.zip, the
+# engine's bundle, and Windows' (windows-x64)
+# PaneCore-<chromium>-<key:12>-windows-x64.zip, the engine's files that
+# package-win.sh lays out (windows-engine-files.sh).
 # Usage: PANE_ENGINE_OUT="$(fetch-engine.sh)" package.sh
+#        PANE_WIN_ENGINE_OUT="$(fetch-engine.sh windows-x64)" package-win.sh
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ASSETS="https://github.com/andredezzy/pane/releases/download"
+PLATFORM="${1:-mac-arm64}"
 # Out of Spotlight (.noindex): it would register each engine's bundle with
 # LaunchServices, which opens the newest copy of Pane's identifier for a link,
 # and an engine carries Chromium's version, newer than any Pane's.
@@ -20,16 +25,22 @@ die() {
 	exit 1
 }
 
+case "$PLATFORM" in
+mac-arm64) suffix="" ;;
+windows-x64) suffix="-windows-x64" ;;
+*) die "no platform $PLATFORM: mac-arm64 or windows-x64" ;;
+esac
+
 key="$("$ROOT_DIR/scripts/engine-key.sh")"
 version="$(tr -d '[:space:]' < "$ROOT_DIR/chromium/CHROMIUM_VERSION")"
-entry="$(awk -v key="$key" '$1 == key { print; exit }' "$ROOT_DIR/chromium/prebuilt-engines.tsv")"
+entry="$(awk -v key="$key" -v platform="$PLATFORM" '$1 == key && $2 == platform { print; exit }' "$ROOT_DIR/chromium/prebuilt-engines.tsv")"
 
-[ -n "$entry" ] || die "no prebuilt engine for this checkout's engine sources ($key): build the engine (docs/building.md), then publish it as engine-${key:0:12} with scripts/publish-engine.sh (chromium/UPGRADING.md, step 6)"
-read -r _ sha256 <<< "$entry"
+[ -n "$entry" ] || die "no prebuilt $PLATFORM engine for this checkout's engine sources ($key): build the engine (docs/building.md), then publish it as engine-${key:0:12} with scripts/publish-engine.sh $PLATFORM (chromium/UPGRADING.md, step 6)"
+read -r _ _ sha256 <<< "$entry"
 release="engine-${key:0:12}"
 
-name="PaneCore-$version-${key:0:12}.zip"
-dest="$STORE/${key:0:12}"
+name="PaneCore-$version-${key:0:12}$suffix.zip"
+dest="$STORE/${key:0:12}$suffix"
 
 if [ ! -f "$dest/.complete" ]; then
 	work="$(mktemp -d)"
@@ -40,13 +51,23 @@ if [ ! -f "$dest/.complete" ]; then
 	echo "$sha256  $work/$name" | shasum -a 256 -c --quiet || die "$name does not match its SHA-256 in prebuilt-engines.tsv"
 
 	ditto -x -k "$work/$name" "$work/engine"
-	[ -f "$work/engine/Pane Framework.framework/Versions/Current/Pane Framework" ] || die "$name holds no Pane Framework.framework"
-	[ -x "$work/engine/pane-volume-watch" ] || die "$name holds no pane-volume-watch"
+
+	case "$PLATFORM" in
+	mac-arm64)
+		[ -f "$work/engine/Pane Framework.framework/Versions/Current/Pane Framework" ] || die "$name holds no Pane Framework.framework"
+		[ -x "$work/engine/pane-volume-watch" ] || die "$name holds no pane-volume-watch"
+		;;
+	windows-x64)
+		"$ROOT_DIR/scripts/windows-engine-files.sh" "$work/engine" > /dev/null || die "$name lacks a file packaging/windows/pane.release names"
+		;;
+	esac
+
 	touch "$work/engine/.complete"
 
-	# Only the engine in use is kept: each is ~300 MB.
-	rm -rf "$STORE"
+	# Only this key's engines are kept: each is ~300 MB.
 	mkdir -p "$STORE"
+	find "$STORE" -mindepth 1 -maxdepth 1 ! -name "${key:0:12}*" -exec rm -rf {} +
+	rm -rf "$dest"
 	mv "$work/engine" "$dest"
 fi
 

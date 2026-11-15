@@ -21,6 +21,10 @@ namespace {
 constexpr std::string_view kGitHubDownloads =
     "https://github.com/andredezzy/pane/releases/download";
 
+// The Mac's file, which the rules below are checked with on either system;
+// each system's own is updates_{mac,win}_unittest.cc's.
+constexpr std::string_view kMacDmg = "-arm64.dmg";
+
 std::string Release(std::string_view tag,
                     const std::vector<std::string>& assets,
                     std::string_view downloads = kGitHubDownloads,
@@ -40,8 +44,10 @@ std::string Release(std::string_view tag,
 
 std::optional<AvailableUpdate> Available(
     const std::string& release,
-    const GURL& releases_url = ReleasesURL()) {
-  return AvailableUpdateIn(release, "0.2.4", releases_url).value();
+    const GURL& releases_url = ReleasesURL(),
+    std::string_view asset_suffix = kMacDmg) {
+  return AvailableUpdateIn(release, "0.2.4", releases_url, asset_suffix)
+      .value();
 }
 
 // A newer release with the arm64 dmg is the available update.
@@ -52,7 +58,7 @@ TEST(UpdatesTest, Newer) {
 
   ASSERT_TRUE(update);
   EXPECT_EQ(update->version, "0.3.0");
-  EXPECT_EQ(update->dmg_url.ExtractFileName(), "Pane-0.3.0-arm64.dmg");
+  EXPECT_EQ(update->file_url.ExtractFileName(), "Pane-0.3.0-arm64.dmg");
 }
 
 // The same or an older release is none.
@@ -85,10 +91,12 @@ TEST(UpdatesTest, UntrustedDownloads) {
 
   EXPECT_FALSE(IsTrustedDownload(
       GURL("https://github.com/andredezzy/pane/releases/download/v1/"
-           "-arm64.dmg/..")));
+           "-arm64.dmg/.."),
+      ReleasesURL(), kMacDmg));
   EXPECT_FALSE(IsTrustedDownload(
       GURL("https://github.com/andredezzy/pane/releases/download/v1/"
-           ".hidden-arm64.dmg")));
+           ".hidden-arm64.dmg"),
+      ReleasesURL(), kMacDmg));
 }
 
 // A stand-in release server serves its downloads from its own host.
@@ -135,6 +143,46 @@ TEST(UpdatesTest, BareTag) {
             "1.0.0");
 }
 
+// A release carries the Mac's dmg and Windows' installer, and each system
+// takes its own file, whichever comes first, and may download no other.
+TEST(UpdatesTest, EachSystemTakesItsOwnFile) {
+  constexpr std::string_view kWindowsInstaller = "-x64.exe";
+  for (const std::vector<std::string>& assets :
+       std::vector<std::vector<std::string>>{
+           {"Pane-0.21.0-arm64.dmg", "Pane-0.21.0-x64.exe"},
+           {"Pane-0.21.0-x64.exe", "Pane-0.21.0-arm64.dmg"},
+       }) {
+    const std::string release = Release("v0.21.0", assets);
+    const std::optional<AvailableUpdate> mac =
+        Available(release, ReleasesURL(), kMacDmg);
+    const std::optional<AvailableUpdate> windows =
+        Available(release, ReleasesURL(), kWindowsInstaller);
+
+    ASSERT_TRUE(mac);
+    ASSERT_TRUE(windows);
+    EXPECT_EQ(mac->file_url.ExtractFileName(), "Pane-0.21.0-arm64.dmg");
+    EXPECT_EQ(windows->file_url.ExtractFileName(), "Pane-0.21.0-x64.exe");
+    EXPECT_EQ(mac->version, "0.21.0");
+    EXPECT_EQ(windows->version, "0.21.0");
+  }
+
+  // Neither downloads the other's.
+  EXPECT_FALSE(IsTrustedDownload(
+      GURL("https://github.com/andredezzy/pane/releases/download/v0.21.0/"
+           "Pane-0.21.0-x64.exe"),
+      ReleasesURL(), kMacDmg));
+  EXPECT_FALSE(IsTrustedDownload(
+      GURL("https://github.com/andredezzy/pane/releases/download/v0.21.0/"
+           "Pane-0.21.0-arm64.dmg"),
+      ReleasesURL(), kWindowsInstaller));
+
+  // A release with the Mac's file alone, as every one before Windows' first,
+  // offers Windows nothing.
+  EXPECT_EQ(Available(Release("v0.21.0", {"Pane-0.21.0-arm64.dmg"}),
+                      ReleasesURL(), kWindowsInstaller),
+            std::nullopt);
+}
+
 // JSON that is not a release, or a version that does not parse, fails the
 // check.
 TEST(UpdatesTest, Failures) {
@@ -144,7 +192,8 @@ TEST(UpdatesTest, Failures) {
   EXPECT_EQ(not_a_release.error(), UpdateCheckError::kNotARelease);
 
   const auto invalid_version =
-      AvailableUpdateIn(Release("vnext", {"Pane-next-arm64.dmg"}), "0.2.4");
+      AvailableUpdateIn(Release("vnext", {"Pane-next-arm64.dmg"}), "0.2.4",
+                        ReleasesURL(), kMacDmg);
   ASSERT_FALSE(invalid_version.has_value());
   EXPECT_EQ(invalid_version.error(), UpdateCheckError::kInvalidVersion);
 }

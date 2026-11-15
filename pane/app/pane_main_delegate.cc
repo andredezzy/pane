@@ -6,6 +6,8 @@
 
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/logging.h"
+#include "base/logging/logging_settings.h"
 #include "chrome/common/profiler/main_thread_stack_sampling_profiler.h"
 #include "content/public/common/content_switches.h"
 #include "pane/app/data_launch.h"
@@ -24,6 +26,16 @@ PaneMainDelegate::~PaneMainDelegate() = default;
 // copied the engine's own command line, --pane-hosted in it, would otherwise
 // start the engine with no data and no window.
 std::optional<int> PaneMainDelegate::BasicStartupComplete() {
+  // What a process logs before Chrome sets its logging up (InitChromeLogging,
+  // which on Windows waits for the sandbox), Pane's launch included, goes to
+  // the system's log and stderr, the Mac's default: Windows' own is a
+  // debug.log beside chrome.exe, in the app's folder, which an install keeps
+  // to the package's files (W7).
+  logging::LoggingSettings early_logging;
+  early_logging.logging_dest =
+      logging::LOG_TO_SYSTEM_DEBUG_LOG | logging::LOG_TO_STDERR;
+  logging::InitLogging(early_logging);
+
   base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
   if (!command_line.HasSwitch(switches::kProcessType)) {
     if (std::optional<int> exit_code = StartViewsLaunch(command_line)) {

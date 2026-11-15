@@ -1,0 +1,62 @@
+# What Pane's app folder holds on Windows, the folder an install puts at
+# %LOCALAPPDATA%\Programs\Pane\Application and an update swaps whole (W7,
+# Pane's own install): one path per line, relative to the folder, a glob
+# naming a set. scripts/package-win.sh lays the folder out from it, nothing
+# else, and fails on a line that names nothing.
+#
+# [engine], from the engine's build (out/Win, or its archive), each at its
+# path there: what Chromium's installer packs
+# (chrome/installer/mini_installer/chrome.release: its [GENERAL], [HIDPI],
+# [SNAPSHOTBLOB], and [DXC]) that Pane's build has, laid out flat, since
+# chrome.exe loads the chrome.dll beside it where no version folder is
+# (chrome/app/main_dll_loader_win.cc); without Chromium's Start tiles' logos
+# (Logo.png, SmallLogo.png). Then Pane's own files beside chrome.dll
+# (base::DIR_ASSETS, pane/BUILD.gn's app_icons).
+#
+# [package], written by package-win.sh: Pane's version and Chrome's CRLSet.
+
+[engine]
+chrome.exe
+chrome_proxy.exe
+# chrome.exe's assembly, named for Chromium's version.
+*.*.*.*.manifest
+chrome.dll
+chrome_100_percent.pak
+chrome_200_percent.pak
+chrome_elf.dll
+chrome_pwa_launcher.exe
+chrome_wer.dll
+d3dcompiler_47.dll
+dxcompiler.dll
+eventlog_provider.dll
+icudtl.dat
+libEGL.dll
+libGLESv2.dll
+notification_helper.exe
+resources.pak
+# V8's start, which a build from the Mac has in place of
+# v8_context_snapshot.bin.
+snapshot_blob.bin
+vk_swiftshader.dll
+vk_swiftshader_icd.json
+vulkan-1.dll
+locales/*.pak
+IwaKeyDistribution/iwa-key-distribution.pb
+IwaKeyDistribution/manifest.json
+MEIPreload/manifest.json
+MEIPreload/preloaded_data.pb
+# The App icon's skies, which the window, the taskbar, and Settings show
+# (ADR 0089).
+AppIcon*.png
+# The icon files Windows reads from the folder (Paper 11.12): the app's,
+# which chrome.exe carries too, one per sky, and the documents'.
+Pane.ico
+AppIcon-*.ico
+PaneHTM.ico
+PanePDF.ico
+
+[package]
+# Pane's version, from packaging/VERSION (pane/app/version_win.cc, ADR 0044).
+pane-version
+# Chrome's CRLSet (scripts/fetch-crlset.sh, ADR 0040).
+crl-set

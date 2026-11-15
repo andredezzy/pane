@@ -17,21 +17,26 @@ namespace pane::model {
 
 // The update check (ADR 0002, and the Electron app's updater.ts, whose
 // contract every Electron Pane still reads): the repo's latest GitHub
-// Release, newer than the running app and carrying the arm64 dmg, is the one
-// available update. Installing stays the user's: Pane downloads the dmg and
-// opens it.
+// Release, newer than the running app and carrying this system's file, is the
+// one available update: the Mac's arm64 dmg, Windows' x64 installer.
 struct AvailableUpdate {
   friend bool operator==(const AvailableUpdate&,
                          const AvailableUpdate&) = default;
 
   std::string version;
-  GURL dmg_url;
-  // The dmg's SHA-256 in lowercase hex, as the release gives it.
+  // This system's file in the release.
+  GURL file_url;
+  // The file's SHA-256 in lowercase hex, as the release gives it.
   std::optional<std::string> sha256;
 };
 
 inline constexpr char kUpdaterUserAgent[] = "Pane-Updater";
-inline constexpr std::string_view kDmgSuffix = "-arm64.dmg";
+
+// How the name of the release's file this system updates from ends: the
+// Mac's "-arm64.dmg", the name every published Pane looks for, and Windows'
+// "-x64.exe" (updates_mac.cc, updates_win.cc). A release carries both, and
+// each system takes its own and leaves the other's.
+extern const char kUpdateAssetSuffix[];
 
 // A completed check runs again six hours later, as Chrome's and Brave's check
 // within hours, so a security release reaches Pane soon; a failed one sooner.
@@ -61,24 +66,26 @@ enum class UpdateCheckError {
 };
 
 // The update in GitHub's latest-release JSON (fetched from `releases_url`),
-// or nullopt when it is not newer than `current_version`, or has no dmg Pane
-// may download. An error for JSON that is not a release, or a version that
-// does not parse.
+// or nullopt when it is not newer than `current_version`, or has no file
+// whose name ends in `asset_suffix` that Pane may download. An error for JSON
+// that is not a release, or a version that does not parse.
 base::expected<std::optional<AvailableUpdate>, UpdateCheckError>
 AvailableUpdateIn(std::string_view release_json,
                   std::string_view current_version,
-                  const GURL& releases_url = ReleasesURL());
+                  const GURL& releases_url = ReleasesURL(),
+                  std::string_view asset_suffix = kUpdateAssetSuffix);
 
 // The hex of an asset's digest, which GitHub gives as "sha256:<hex>", or
 // nullopt for another algorithm, or for anything but 64 hex digits.
 std::optional<std::string> Sha256FromDigest(std::string_view digest);
 
-// Whether Pane may download and open the dmg at `url`: over https, from the
-// repo's releases on github.com, under a plain file name ending in the dmg's
-// suffix. A stand-in release server (PANE_UPDATE_URL, the scenarios') serves
-// its downloads from its own host.
+// Whether Pane may download and open the file at `url`: over https, from the
+// repo's releases on github.com, under a plain file name ending in
+// `asset_suffix`. A stand-in release server (PANE_UPDATE_URL, the
+// scenarios') serves its downloads from its own host.
 bool IsTrustedDownload(const GURL& url,
-                       const GURL& releases_url = ReleasesURL());
+                       const GURL& releases_url = ReleasesURL(),
+                       std::string_view asset_suffix = kUpdateAssetSuffix);
 
 // A few coarse buckets rather than a live countdown (format-eta.ts): "~3min"
 // can only step to "~2min".

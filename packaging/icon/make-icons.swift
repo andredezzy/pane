@@ -4,6 +4,8 @@
 // Default icon style, System Settings › Appearance), then bun run lint, which
 // formats the JSON it writes, then swift packaging/dmg/make-volume-icon.swift, whose
 // volume icon is AppIconDay.
+//        swift packaging/icon/make-icons.swift windows   (Windows' icons alone,
+// from the AppIcon PNGs as they are: no Xcode, and the Mac's icons untouched)
 //
 // Every icon has the one frame, Day's, whitened: each render gives only its
 // glass. Day's frame keeps its shading and its colour neutral, and is close to
@@ -23,6 +25,11 @@
 //   bundle's icon to the pixel: the same 824-pixel body on a 1024 canvas, the
 //   same shadow, the same tone, 512 points at 2×.
 // - .github/assets/logo.png and logo-dark.png: the README's, Day's and Night's.
+// - Windows' icons, beside the PNGs, each drawn down from them (Paper 11.12):
+//   Pane.ico, the app's (Day), which chrome.exe carries and the shortcuts,
+//   Installed apps, and Default apps name; AppIcon-<Sky>.ico, one per sky, for
+//   the shortcuts that follow the App icon setting; and PaneHTM.ico and
+//   PanePDF.ico, the documents' (makeWindowsIcons, at the end).
 import AppKit
 import ImageIO
 import UniformTypeIdentifiers
@@ -71,6 +78,13 @@ func pixels(_ image: CGImage) -> [UInt8] {
 			.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
 	}
 	return pixels
+}
+
+// Windows' icons alone: the macOS drawing below needs Xcode and the Default
+// icon style, and would make the Mac's PNGs again.
+if CommandLine.arguments.dropFirst().first == "windows" {
+	makeWindowsIcons()
+	exit(0)
 }
 
 // The window frame's box in a render: where each middle row and column first
@@ -361,4 +375,341 @@ for variant in variants {
 	}
 
 	print("\(variant): ok")
+}
+
+makeWindowsIcons()
+
+// MARK: Windows' icons (Paper 11.12.1, 11.12.16's D, 11.12.2's F)
+
+// Skia's Lanczos3 (skia::ImageOperations::RESIZE_BEST), with which Views
+// draws the window's own icon down to each size Windows asks for (IconUtil),
+// so a file's icon is the image the window shows: each output pixel weighs the
+// source within 3 of its own pixels, the lobes widened by the scale, the
+// weights summing to one; premultiplied channels clamped, and the alpha kept
+// at or over each colour.
+func lanczos3(_ x: Double) -> Double {
+	if x <= -3 || x >= 3 {
+		return 0
+	}
+
+	if abs(x) < 1e-7 {
+		return 1
+	}
+
+	let xpi = x * Double.pi
+	return sin(xpi) / xpi * sin(xpi / 3) / (xpi / 3)
+}
+
+// For each output pixel along a side, the first source pixel it reads and
+// the weights from there.
+func lanczosFilters(_ source: Int, _ size: Int) -> [(first: Int, weights: [Double])] {
+	let scale = Double(size) / Double(source), clamped = min(1, scale)
+	let support = 3 / clamped
+
+	return (0 ..< size).map { index in
+		let centre = (Double(index) + 0.5) / scale
+		let first = max(0, Int((centre - support).rounded(.down)))
+		let last = min(source - 1, Int((centre + support).rounded(.up)))
+		let weights = (first ... last).map { lanczos3((Double($0) + 0.5 - centre) * clamped) }
+		let sum = weights.reduce(0, +)
+		return (first, weights.map { $0 / sum })
+	}
+}
+
+// `image` drawn down to `size` by side, from its premultiplied pixels when
+// they are at hand.
+func drawnDown(_ image: CGImage, to size: Int, pixels known: [UInt8]? = nil) -> CGImage {
+	let source = known ?? pixels(image), w = image.width, h = image.height
+	let across = lanczosFilters(w, size), down = lanczosFilters(h, size)
+	var rows = [Double](repeating: 0, count: size * h * 4)
+
+	source.withUnsafeBufferPointer { source in
+		rows.withUnsafeMutableBufferPointer { rows in
+			for y in 0 ..< h {
+				for (x, filter) in across.enumerated() {
+					var sum = (0.0, 0.0, 0.0, 0.0)
+					for (k, weight) in filter.weights.enumerated() {
+						let i = (y * w + filter.first + k) * 4
+						sum.0 += weight * Double(source[i])
+						sum.1 += weight * Double(source[i + 1])
+						sum.2 += weight * Double(source[i + 2])
+						sum.3 += weight * Double(source[i + 3])
+					}
+					let o = (y * size + x) * 4
+					rows[o] = min(255, max(0, sum.0))
+					rows[o + 1] = min(255, max(0, sum.1))
+					rows[o + 2] = min(255, max(0, sum.2))
+					rows[o + 3] = min(255, max(0, sum.3))
+				}
+			}
+		}
+	}
+
+	var out = [UInt8](repeating: 0, count: size * size * 4)
+	for x in 0 ..< size {
+		for (y, filter) in down.enumerated() {
+			var sum = (0.0, 0.0, 0.0, 0.0)
+			for (k, weight) in filter.weights.enumerated() {
+				let i = ((filter.first + k) * size + x) * 4
+				sum.0 += weight * rows[i]
+				sum.1 += weight * rows[i + 1]
+				sum.2 += weight * rows[i + 2]
+				sum.3 += weight * rows[i + 3]
+			}
+			let byte = { (value: Double) in UInt8(min(255, max(0, value.rounded()))) }
+			let o = (y * size + x) * 4
+			out[o] = byte(sum.0)
+			out[o + 1] = byte(sum.1)
+			out[o + 2] = byte(sum.2)
+			out[o + 3] = max(byte(sum.3), out[o], out[o + 1], out[o + 2])
+		}
+	}
+
+	return out.withUnsafeMutableBytes { buffer in
+		CGContext(data: buffer.baseAddress, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4, space: srgb,
+		          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!.makeImage()!
+	}
+}
+
+func littleEndian<T: FixedWidthInteger>(_ value: T) -> Data {
+	withUnsafeBytes(of: value.littleEndian) { Data($0) }
+}
+
+// One size's image in a .ico: below 256 a 32-bit bitmap, its rows bottom-up,
+// its colours unpremultiplied, then the AND mask, set where the image is
+// wholly clear; the 256 a PNG, as Windows' own icons and Chromium's IconUtil
+// keep it.
+func icoImage(_ image: CGImage) -> Data {
+	if image.width == 256 {
+		let png = NSMutableData()
+		let destination = CGImageDestinationCreateWithData(png, UTType.png.identifier as CFString, 1, nil)!
+		CGImageDestinationAddImage(destination, image, nil)
+
+		if !CGImageDestinationFinalize(destination) {
+			fatalError("cannot make the 256's PNG")
+		}
+
+		return png as Data
+	}
+
+	let size = image.width, rgba = pixels(image)
+	let maskRow = ((size + 31) / 32) * 4
+	var data = Data()
+	data += littleEndian(UInt32(40))
+	data += littleEndian(Int32(size))
+	// The height counts the colours and the mask.
+	data += littleEndian(Int32(size * 2))
+	data += littleEndian(UInt16(1))
+	data += littleEndian(UInt16(32))
+	data += littleEndian(UInt32(0))
+	data += littleEndian(UInt32(size * size * 4 + maskRow * size))
+	data += Data(count: 16)
+
+	for y in (0 ..< size).reversed() {
+		for x in 0 ..< size {
+			let i = (y * size + x) * 4, alpha = rgba[i + 3]
+			let straight = { (c: UInt8) in alpha == 0 ? UInt8(0) : UInt8(min(255, (Double(c) * 255 / Double(alpha)).rounded())) }
+			data += [straight(rgba[i + 2]), straight(rgba[i + 1]), straight(rgba[i]), alpha]
+		}
+	}
+
+	for y in (0 ..< size).reversed() {
+		var row = [UInt8](repeating: 0, count: maskRow)
+		for x in 0 ..< size where rgba[(y * size + x) * 4 + 3] == 0 {
+			row[x / 8] |= 0x80 >> UInt8(x % 8)
+		}
+		data += row
+	}
+
+	return data
+}
+
+// A .ico of one image per size, smallest first: its directory, then each
+// image (Microsoft's ICONDIR and ICONDIRENTRY, Chromium's IconUtil's layout).
+func writeIco(_ images: [CGImage], _ url: URL) {
+	let parts = images.map(icoImage)
+	var data = Data()
+	data += littleEndian(UInt16(0))
+	data += littleEndian(UInt16(1))
+	data += littleEndian(UInt16(images.count))
+	var offset = 6 + 16 * images.count
+
+	for (image, part) in zip(images, parts) {
+		// 256 is written 0.
+		data += [UInt8(image.width % 256), UInt8(image.height % 256), 0, 0]
+		data += littleEndian(UInt16(1))
+		data += littleEndian(UInt16(32))
+		data += littleEndian(UInt32(part.count))
+		data += littleEndian(UInt32(offset))
+		offset += part.count
+	}
+
+	for part in parts {
+		data += part
+	}
+
+	try! data.write(to: url)
+}
+
+func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
+	CGColor(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
+}
+
+// A document's icon at `size` (Paper 11.12.2, F, placement 1, the user's
+// call): a portrait page with its fold, the window centred under the fold,
+// and on the PDF's the window raised over a "PDF" tag at the page's foot, a
+// bar with no letters below 48. The board's geometry, as fractions of the
+// side: the page 0.15 to 0.85 across and 0.03 to 0.97 down, its fold 0.22,
+// edged in #B8BEC6 (1 pixel, 2 at 256), white to #EEF0F3, with #DDE1E6 under
+// the fold; from 32 up its shadow, the page again 1 pixel lower (0.012 of the
+// side past 64) at 10% black; the window 0.58 of the side, its middle 0.59
+// down, or the PDF's 0.52 at 0.49 over the tag, 0.27 and 0.76 to its corner,
+// 0.46 by 0.14, #2B2D31, corners 0.03 of the side (0.5 pixel below 32), its
+// letters white, bold, 0.62 of its height, 0.03 em apart. The window and the
+// tag fall on whole pixels as the board places them, and from 16 to 48 the
+// page's edge and fold do too, a shadow keeping the bottom row. The letters
+// are the board's Inter Bold (fonts/Inter-Bold.ttf, under the SIL Open Font
+// License beside it), which no Mac carries, so it is registered for this run.
+func documentIcon(pdf: Bool, size: Int, window: CGImage, windowPixels: [UInt8]) -> CGImage {
+	let side = CGFloat(size)
+	let shadow: CGFloat? = size >= 32 ? max(1, 0.012 * side) : nil
+	let line: CGFloat = size <= 96 ? 1 : (side / 128).rounded()
+	var left = 0.15 * side, right = 0.85 * side, top = 0.03 * side, bottom = 0.97 * side
+	var fold = 0.22 * side
+
+	// The edge's middle half a pixel in from a whole one, so its pixel is
+	// whole: the side's fractions outward to the nearest such line, the fold
+	// whole.
+	if size <= 48 {
+		left = left.rounded(.down) + 0.5
+		right = right.rounded(.up) - 0.5
+		top = top.rounded(.down) + 0.5
+		bottom = bottom.rounded(.up) - 0.5
+		fold = fold.rounded()
+
+		if shadow != nil {
+			bottom = min(bottom, side - 1.5)
+		}
+	}
+
+	let canvas = context(size)
+	canvas.translateBy(x: 0, y: side)
+	canvas.scaleBy(x: 1, y: -1)
+	canvas.interpolationQuality = .none
+
+	func page(lower: CGFloat = 0) -> CGPath {
+		let path = CGMutablePath()
+		path.move(to: CGPoint(x: left, y: top + lower))
+		path.addLine(to: CGPoint(x: right - fold, y: top + lower))
+		path.addLine(to: CGPoint(x: right, y: top + fold + lower))
+		path.addLine(to: CGPoint(x: right, y: bottom + lower))
+		path.addLine(to: CGPoint(x: left, y: bottom + lower))
+		path.closeSubpath()
+		return path
+	}
+
+	if let shadow {
+		canvas.addPath(page(lower: shadow))
+		canvas.setFillColor(color(0x000000, 0.1))
+		canvas.fillPath()
+	}
+
+	canvas.saveGState()
+	canvas.addPath(page())
+	canvas.clip()
+	let gradient = CGGradient(colorsSpace: srgb, colors: [color(0xFFFFFF), color(0xEEF0F3)] as CFArray, locations: [0, 1])!
+	canvas.drawLinearGradient(gradient, start: CGPoint(x: 0, y: top), end: CGPoint(x: 0, y: bottom), options: [])
+	canvas.restoreGState()
+
+	canvas.setStrokeColor(color(0xB8BEC6))
+	canvas.setLineWidth(line)
+	canvas.setLineJoin(.round)
+	canvas.addPath(page())
+	canvas.strokePath()
+
+	let flap = CGMutablePath()
+	flap.move(to: CGPoint(x: right - fold, y: top))
+	flap.addLine(to: CGPoint(x: right - fold, y: top + fold))
+	flap.addLine(to: CGPoint(x: right, y: top + fold))
+	flap.closeSubpath()
+	canvas.addPath(flap)
+	canvas.setFillColor(color(0xDDE1E6))
+	canvas.fillPath()
+	canvas.addPath(flap)
+	canvas.strokePath()
+
+	// The window, its own pixels at whole ones (the board rounds half to even).
+	let glyph = ((pdf ? 0.52 : 0.58) * side).rounded(.toNearestOrEven)
+	let x = (side / 2 - glyph / 2).rounded(.toNearestOrEven)
+	let y = ((pdf ? 0.49 : 0.59) * side - glyph / 2).rounded(.toNearestOrEven)
+	canvas.saveGState()
+	canvas.translateBy(x: x, y: y + glyph)
+	canvas.scaleBy(x: 1, y: -1)
+	canvas.draw(drawnDown(window, to: Int(glyph), pixels: windowPixels), in: CGRect(x: 0, y: 0, width: glyph, height: glyph))
+	canvas.restoreGState()
+
+	if pdf {
+		var tag = CGRect(x: 0.27 * side, y: 0.76 * side, width: 0.46 * side, height: 0.14 * side)
+
+		if size <= 48 {
+			tag = CGRect(x: tag.minX.rounded(.toNearestOrEven), y: tag.minY.rounded(.toNearestOrEven),
+			             width: max(2, tag.width.rounded(.toNearestOrEven)), height: max(2, tag.height.rounded(.toNearestOrEven)))
+		}
+
+		let corner = size >= 32 ? max(1, 0.03 * side) : 0.5
+		canvas.addPath(CGPath(roundedRect: tag, cornerWidth: corner, cornerHeight: corner, transform: nil))
+		canvas.setFillColor(color(0x2B2D31))
+		canvas.fillPath()
+
+		if size >= 48 {
+			// The board's line box: as tall as the font, its middle the tag's,
+			// the baseline where the font's ascent and descent put it.
+			let font = NSFont(name: "Inter-Bold", size: 0.62 * tag.height)!
+			let text = NSAttributedString(string: "PDF", attributes: [
+				.font: font, .foregroundColor: NSColor.white, .kern: 0.03 * font.pointSize,
+			])
+			let line = CTLineCreateWithAttributedString(text)
+			let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+			let leading = (font.pointSize - (font.ascender - font.descender)) / 2
+			let baseline = tag.midY - font.pointSize / 2 + leading + font.ascender
+			canvas.saveGState()
+			canvas.translateBy(x: tag.midX - width / 2, y: baseline)
+			canvas.scaleBy(x: 1, y: -1)
+			canvas.textPosition = .zero
+			CTLineDraw(line, canvas)
+			canvas.restoreGState()
+		}
+	}
+
+	return canvas.makeImage()!
+}
+
+// The sizes each .ico holds: Windows takes the size a place asks for, 16 to
+// 32 in lists and on the taskbar, 48 to 256 on the desktop and in Explorer,
+// and draws the next larger one down where it is missing (Paper 11.12.1).
+func makeWindowsIcons() {
+	// The PDF tag's letters (documentIcon).
+	let inter = repo.appendingPathComponent("packaging/icon/fonts/Inter-Bold.ttf")
+	guard CTFontManagerRegisterFontsForURL(inter as CFURL, .process, nil) else {
+		fatalError("could not register \(inter.path)")
+	}
+	let sizes = [16, 20, 24, 32, 40, 48, 64, 96, 256]
+
+	for variant in variants {
+		let window = load(skies.appendingPathComponent("AppIcon\(variant.capitalized).png"))
+		let windowPixels = pixels(window)
+		let images = sizes.map { drawnDown(window, to: $0, pixels: windowPixels) }
+		writeIco(images, skies.appendingPathComponent("AppIcon-\(variant.capitalized).ico"))
+
+		// The app's own is Day, the sky the Mac's bundle carries.
+		if variant == "day" {
+			writeIco(images, skies.appendingPathComponent("Pane.ico"))
+			for (pdf, name) in [(false, "PaneHTM.ico"), (true, "PanePDF.ico")] {
+				let documents = sizes.map { documentIcon(pdf: pdf, size: $0, window: window, windowPixels: windowPixels) }
+				writeIco(documents, skies.appendingPathComponent(name))
+			}
+		}
+
+		print("\(variant).ico: ok")
+	}
 }

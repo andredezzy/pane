@@ -6,6 +6,7 @@ import {
 	type PaneApp,
 	QUIT_WORD,
 	UPDATE_FILE_MARKED,
+	updateFileName,
 } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { isQuarantined } from "../lib/tools";
@@ -13,17 +14,18 @@ import { expect, type Scenario } from "../run";
 
 // The update check against a stand-in for GitHub's latest release (ADR 0002,
 // DESIGN.md: Updates). Offered 99.0.0, Pane shows the sidebar pill, which a
-// check keeps up; its click downloads the arm64 dmg into the downloads folder
-// (a throwaway one here, left unopened), with progress. A dmg that matches
-// the release's SHA-256 leaves quarantine (ADR 0002); one that differs is
-// deleted, and the update offered again. Once downloaded it stays downloaded,
+// check keeps up; its click downloads this system's file (the arm64 dmg, or
+// Windows' x64 installer) into the downloads folder (a throwaway one here,
+// left unopened), with progress. A file that matches the release's SHA-256
+// leaves quarantine (ADR 0002); one that differs is deleted, and the update
+// offered again. Once downloaded it stays downloaded,
 // dismissing hides the pill, and one Pane can't install itself quits for the
 // user to, from Settings' Quit and install. Offered nothing newer, Settings
 // says Pane is up to date. Nothing reaches GitHub. The update's controls are
 // pressed as a user presses them, so what they do shows a moment after.
 
 const VERSION = "99.0.0";
-const DMG = `Pane-${VERSION}-arm64.dmg`;
+const UPDATE_FILE = updateFileName(VERSION);
 
 // The update's state every 25 ms for `ms`: a blink shows between samples.
 async function sample(app: PaneApp, ms: number) {
@@ -117,17 +119,21 @@ const updates: Scenario = async (context) => {
 	);
 
 	const files = readdirSync(downloads);
-	const dmg = join(downloads, DMG);
+	const file = join(downloads, UPDATE_FILE);
 
 	expect(
-		existsSync(dmg) && statSync(dmg).size === 4 * 1024 * 1024,
+		existsSync(file) && statSync(file).size === 4 * 1024 * 1024,
 		`downloaded ${JSON.stringify(files)}`,
 	);
 
 	// It matched the release's SHA-256: out of the quarantine Pane puts on
 	// what it writes (LSFileQuarantineEnabled), so the app copied from it
 	// opens without Gatekeeper's refusal.
-	expect(!(await isQuarantined(dmg)), "the verified dmg is still quarantined");
+	expect(
+		!(await isQuarantined(file)),
+		"the verified file is still quarantined",
+	);
+
 	expect(downloaded.update.pill, "the pill went away while it still has news");
 
 	// A check once downloaded leaves it downloaded.
@@ -213,7 +219,7 @@ const updates: Scenario = async (context) => {
 
 	if (UPDATE_FILE_MARKED) {
 		const unverifiedQuarantined = await isQuarantined(
-			join(unverifiedDownloads, DMG),
+			join(unverifiedDownloads, UPDATE_FILE),
 		);
 
 		expect(unverifiedQuarantined, "a dmg without a digest left quarantine");

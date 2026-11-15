@@ -1,7 +1,10 @@
-# The prebuilt engine of the engine sources at this commit: its engine key
-# (scripts/engine-key.sh: the git trees of CHROMIUM_VERSION, args, patches,
-# and //pane) and the SHA-256 of PaneCore-<chromium>-<key:12>.zip, an asset of the
-# engine-<key:12> prerelease, which the update check, reading the latest release,
-# never sees. scripts/publish-engine.sh publishes it and overwrites the
-# line. A tag reads its own tree's, and every key shipped stays a prerelease.
-2d5d831b9527967615dff24e615d3aecf92f18ff	0bff797145b7901a3b693aa34feb2ddfeb5d0d53fedb9fe8808c119be955f847
+# The prebuilt engines of the engine sources at this commit, a line for each
+# platform: the engine key (scripts/engine-key.sh: the git trees of
+# CHROMIUM_VERSION, args, patches, and //pane), the platform, and the SHA-256
+# of its archive, an asset of the engine-<key:12> prerelease, which the update
+# check, reading the latest release, never sees: the Mac's (mac-arm64)
+# PaneCore-<chromium>-<key:12>.zip, and Windows' (windows-x64)
+# PaneCore-<chromium>-<key:12>-windows-x64.zip. scripts/publish-engine.sh
+# <platform> publishes one and overwrites its line. A tag reads its own tree's,
+# and every key shipped stays a prerelease.
+2d5d831b9527967615dff24e615d3aecf92f18ff	mac-arm64	0bff797145b7901a3b693aa34feb2ddfeb5d0d53fedb9fe8808c119be955f847

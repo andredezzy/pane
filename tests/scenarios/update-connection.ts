@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
-import { launchPane } from "../lib/pane";
+import { launchPane, updateFileName } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
 // A download's connections (ADR 0002), against a stand-in release. One that
@@ -18,7 +18,7 @@ import { expect, type Scenario } from "../run";
 // Content-Length, as GitHub does, where Bun.serve drops it.
 
 const VERSION = "99.0.0";
-const DMG = `Pane-${VERSION}-arm64.dmg`;
+const UPDATE_FILE = updateFileName(VERSION);
 const MB = 1024 * 1024;
 const VALIDATORS = { "Accept-Ranges": "bytes", ETag: '"pane-stand-in"' };
 
@@ -157,8 +157,8 @@ async function serve(kind: Kind) {
 					published_at: "2026-11-04T00:00:00Z",
 					assets: [
 						{
-							name: DMG,
-							browser_download_url: `http://127.0.0.1:${port}/download/${DMG}`,
+							name: UPDATE_FILE,
+							browser_download_url: `http://127.0.0.1:${port}/download/${UPDATE_FILE}`,
 							digest: `sha256:${sha256}`,
 						},
 					],
@@ -268,7 +268,7 @@ const updateConnection: Scenario = async (context) => {
 			);
 
 			const wentBack = bar.some((value, at) => value < (bar[at - 1] ?? 0));
-			const file = readFileSync(join(downloads, DMG));
+			const file = readFileSync(join(downloads, UPDATE_FILE));
 
 			const whole =
 				createHash("sha256").update(file).digest("hex") === sha256 &&

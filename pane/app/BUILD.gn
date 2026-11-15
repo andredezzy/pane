@@ -36,6 +36,32 @@ source_set("engine_switches") {
   deps = [ "//base" ]
 }
 
+# Pane's own version, as the package carries it: the bundle's PaneVersion on
+# the Mac, the pane-version file beside chrome.dll on Windows (ADR 0044). A
+# target of its own so Windows' reading is tested in pane_unittests.
+source_set("version") {
+  visibility = [
+    ":unit_tests",
+    "//pane",
+  ]
+
+  sources = [
+    "version.cc",
+    "version.h",
+  ]
+
+  if (is_mac) {
+    sources += [ "version_mac.cc" ]
+    frameworks = [ "CoreFoundation.framework" ]
+  }
+
+  if (is_win) {
+    sources += [ "version_win.cc" ]
+  }
+
+  deps = [ "//base" ]
+}
+
 source_set("unit_tests") {
   testonly = true
   visibility = [ "//pane/encryption:pane_unittests" ]
@@ -50,9 +76,15 @@ source_set("unit_tests") {
     sources += [ "test_copy_mac_unittest.cc" ]
   }
 
+  # The version the package writes beside chrome.dll.
+  if (is_win) {
+    sources += [ "version_win_unittest.cc" ]
+  }
+
   deps = [
     ":engine_switches",
     ":test_copy",
+    ":version",
     "//base",
     "//base/test:test_support",
     "//components/network_session_configurator/browser",

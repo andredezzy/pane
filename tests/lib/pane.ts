@@ -714,6 +714,14 @@ export const QUIT_WORD = bySystem({ mac: "Quit", windows: "Exit" });
 // the Web are W7's.
 export const UPDATE_FILE_MARKED = bySystem({ mac: true, windows: false });
 
+// The release's file each system updates from, by version
+// (pane/model/updates_{mac,win}.cc): the Mac's arm64 dmg, Windows' x64
+// installer. A release carries both, as the stand-in does.
+export const updateFileName = bySystem({
+	mac: (version: string) => `Pane-${version}-arm64.dmg`,
+	windows: (version: string) => `Pane-${version}-x64.exe`,
+});
+
 // The window's top edge, inside what it shows, that resizes it: none on the
 // Mac, where AppKit's is outside; Chrome's 5 points on Windows, where the
 // system's frame keeps no top border (pane/ui/window/frame_win.cc).

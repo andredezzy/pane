@@ -2,14 +2,27 @@
 
 #include "pane/browser/bundled_crl_set.h"
 
+#include "base/base_paths.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/path_service.h"
 
 namespace pane {
 
-// Windows' package carries no CRLSet yet: it comes with its installer, W7
-// (docs/plans/views-migration.md).
+// The crl-set file beside chrome.dll (base::DIR_ASSETS), which
+// scripts/package-win.sh fetches into the package as package.sh puts the
+// Mac's in the bundle. A build not packaged, out/Win's or a test copy's from
+// it, has none.
 std::optional<base::FilePath> BundledCRLSet() {
-  return std::nullopt;
+  base::FilePath assets;
+  if (!base::PathService::Get(base::DIR_ASSETS, &assets)) {
+    return std::nullopt;
+  }
+  base::FilePath crl_set = assets.Append(FILE_PATH_LITERAL("crl-set"));
+  if (!base::PathExists(crl_set)) {
+    return std::nullopt;
+  }
+  return crl_set;
 }
 
 }  // namespace pane

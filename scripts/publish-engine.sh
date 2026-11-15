@@ -1,36 +1,78 @@
 #!/usr/bin/env bash
-# Publishes the engine this checkout's sources name, for the release workflow
-# to fetch (fetch-engine.sh): its archive as the engine-<key> GitHub
-# prerelease, then its line in prebuilt-engines.tsv, which the caller
-# commits. CI never builds Chromium (release.yml), so an engine change is built
-# here first (build.sh) and published with this. The archive is the engine's
-# bundle, stripped, with its framework at its top for the linker and the
-# volume's watchdog beside it, which package.sh puts in the app; its SHA-256,
-# and PaneCore's dSYM beside it, made when missing and only from the engine
-# build.sh built from these sources; the upload is checked against its SHA-256.
-# A run for an engine already published changes nothing.
-# Usage: publish-engine.sh   (gh, signed in with write access to the repo)
+# Publishes the engine this checkout's sources name, for one platform, for
+# the release workflow to fetch (fetch-engine.sh): its archive on the
+# engine-<key> GitHub prerelease, then its line in prebuilt-engines.tsv,
+# which the caller commits. CI never builds Chromium (release.yml), so an
+# engine change is built here first (build.sh) and published with this, once
+# for each platform. The Mac's archive (mac-arm64, the default) is the
+# engine's bundle, stripped, with its framework at its top for the linker and
+# the volume's watchdog beside it, which package.sh puts in the app, and
+# PaneCore's dSYM beside it; Windows' (windows-x64) is the engine's files
+# that package-win.sh lays out (windows-engine-files.sh). Each made when
+# missing and only from the engine build.sh built from these sources; the
+# upload is checked against its SHA-256. A run for an engine already
+# published changes nothing.
+# Usage: publish-engine.sh [mac-arm64|windows-x64]   (gh, signed in with write
+# access to the repo)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RELEASE="$ROOT_DIR/packaging/release"
 TSV="$ROOT_DIR/chromium/prebuilt-engines.tsv"
-
-ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
+PLATFORM="${1:-mac-arm64}"
 
 die() {
 	echo "error: $*" >&2
 	exit 1
 }
 
-# Archives the engine in out/Release, and refuses any other: one built before
-# the last change to these sources, or from a checkout whose patches or //pane
-# were not these, has another key in pane-engine.key, or none.
-archive_engine() {
-	local built_key built stage symbols dsym_stage
+case "$PLATFORM" in
+mac-arm64)
+	ENGINE_OUT="${PANE_ENGINE_OUT:-$HOME/chromium/src/out/Release}"
+	suffix=""
+	;;
+windows-x64)
+	ENGINE_OUT="${PANE_WIN_ENGINE_OUT:-$HOME/chromium/src/out/Win}"
+	suffix="-windows-x64"
+	;;
+*) die "no platform $PLATFORM: mac-arm64 or windows-x64" ;;
+esac
+
+# Refuses an engine other than the one build.sh built from these sources:
+# one built before the last change to them, or from a checkout whose patches
+# or //pane were not these, has another key in pane-engine.key, or none.
+check_built_key() {
+	local built_key
 	built_key="$(cat "$ENGINE_OUT/pane-engine.key" 2>/dev/null || true)"
 	[ -n "$built_key" ] || die "$ENGINE_OUT records no engine key: build it with build.sh before archiving it"
 	[ "$built_key" = "$key" ] || die "the engine in $ENGINE_OUT was built from other sources (key $built_key) than this checkout's ($key): build it again"
+}
+
+# Archives Windows' engine in out/Win: the files package-win.sh lays out, at
+# their paths there.
+archive_windows_engine() {
+	local stage
+	check_built_key
+	[ -f "$ENGINE_OUT/$version.manifest" ] || die "the engine in $ENGINE_OUT is not $version: it has no $version.manifest"
+
+	stage="$(mktemp -d)"
+	"$ROOT_DIR/scripts/windows-engine-files.sh" "$ENGINE_OUT" | while IFS= read -r relative; do
+		mkdir -p "$stage/$(dirname "$relative")"
+		cp -p "$ENGINE_OUT/$relative" "$stage/$relative"
+	done
+
+	mkdir -p "$RELEASE"
+	rm -f "$archive"
+	ditto -c -k --norsrc --noextattr --noacl "$stage" "$archive"
+	rm -rf "$stage"
+	echo "$(shasum -a 256 "$archive" | awk '{ print $1 }')  $name" > "$archive.sha256"
+	echo "archived $archive"
+}
+
+# Archives the Mac's engine in out/Release.
+archive_engine() {
+	local built stage symbols dsym_stage
+	check_built_key
 
 	built="$(plutil -extract CFBundleShortVersionString raw "$ENGINE_OUT/Pane.app/Contents/Info.plist")"
 	[ "$built" = "$version" ] || die "the engine in $ENGINE_OUT is $built, not $version"
@@ -67,11 +109,11 @@ key="$("$ROOT_DIR/scripts/engine-key.sh")"
 short="${key:0:12}"
 version="$(tr -d '[:space:]' < "$ROOT_DIR/chromium/CHROMIUM_VERSION")"
 tag="engine-$short"
-name="PaneCore-$version-$short.zip"
+name="PaneCore-$version-$short$suffix.zip"
 archive="$RELEASE/$name"
 
-if [ "$(grep -v '^#' "$TSV" | cut -f1)" = "$key" ]; then
-	echo "$tag is published: prebuilt-engines.tsv names it"
+if awk -v key="$key" -v platform="$PLATFORM" '$1 == key && $2 == platform { found = 1 } END { exit !found }' "$TSV"; then
+	echo "$tag's $PLATFORM engine is published: prebuilt-engines.tsv names it"
 	exit 0
 fi
 
@@ -83,7 +125,12 @@ git -C "$ROOT_DIR" branch -r --contains "$commit" | grep -q . ||
 
 if [ ! -f "$archive" ] || [ ! -f "$archive.sha256" ]; then
 	echo "== archive"
-	archive_engine >&2
+
+	if [ "$PLATFORM" = windows-x64 ]; then
+		archive_windows_engine >&2
+	else
+		archive_engine >&2
+	fi
 fi
 
 (cd "$RELEASE" && shasum -a 256 -c --quiet "$name.sha256") || die "$name does not match its SHA-256"
@@ -91,6 +138,12 @@ sha256="$(cut -d' ' -f1 < "$archive.sha256")"
 
 if gh release view "$tag" >/dev/null 2>&1; then
 	echo "== $tag is on GitHub"
+
+	# A platform's archive joins its key's prerelease.
+	if ! gh release view "$tag" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
+		echo "== upload $name"
+		gh release upload "$tag" "$archive"
+	fi
 else
 	echo "== publish $tag"
 	# A prerelease, never the latest: the app's update check reads the latest
@@ -115,9 +168,14 @@ if [ -f "$symbols" ] && ! gh release view "$tag" --json assets --jq '.assets[].n
 	gh release upload "$tag" "$symbols"
 fi
 
+# This platform's line, beside the other platforms' of the same key; a line
+# of another key names an engine these sources no longer build.
 {
 	grep '^#' "$TSV"
-	printf '%s\t%s\n' "$key" "$sha256"
+	{
+		awk -v key="$key" -v platform="$PLATFORM" '!/^#/ && $1 == key && $2 != platform' "$TSV"
+		printf '%s\t%s\t%s\n' "$key" "$PLATFORM" "$sha256"
+	} | sort -t "$(printf '\t')" -k2,2
 } > "$TSV.new"
 mv "$TSV.new" "$TSV"
-echo "published $tag; prebuilt-engines.tsv names it: commit it"
+echo "published $tag's $PLATFORM engine; prebuilt-engines.tsv names it: commit it"

@@ -12,8 +12,9 @@ class FilePath;
 namespace pane {
 
 // The CRLSet the app carries (ADR 0111): package.sh puts the current one in
-// the bundle's resources as the app is built. Nullopt for a build that carries
-// none, as out/Release's doesn't.
+// the bundle's resources as the app is built, and package-win.sh beside
+// chrome.dll. Nullopt for a build that carries none, as out/Release's and
+// out/Win's don't.
 std::optional<base::FilePath> BundledCRLSet();
 
 }  // namespace pane

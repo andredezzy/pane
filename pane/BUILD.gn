@@ -13,8 +13,6 @@ source_set("pane") {
     "app/data_launch.h",
     "app/pane_main_delegate.cc",
     "app/pane_main_delegate.h",
-    "app/version.cc",
-    "app/version.h",
     "app/views_launch.cc",
     "app/views_launch.h",
     "automation/automation.cc",
@@ -28,7 +26,6 @@ source_set("pane") {
     "browser/browser_context.h",
     "browser/browser_main_extra_parts.cc",
     "browser/browser_main_extra_parts.h",
-    "browser/bundled_crl_set.h",
     "browser/caches_in_memory.cc",
     "browser/caches_in_memory.h",
     "browser/content_browser_client.cc",
@@ -223,7 +220,6 @@ source_set("pane") {
     sources += [
       "app/app_defaults_mac.mm",
       "app/data_launch_mac.cc",
-      "app/version_mac.cc",
       "automation/file_panels_mac.cc",
       "automation/input_mac.cc",
       "automation/native_input_mac.h",
@@ -231,7 +227,6 @@ source_set("pane") {
       "automation/system_mac.mm",
       "automation/windows_mac.mm",
       "browser/browser_main_extra_parts_mac.cc",
-      "browser/bundled_crl_set_mac.cc",
       "browser/ui/window_host_mac.mm",
       "ui/app/app_events_mac.mm",
       "ui/app/dock_icon_mac.mm",
@@ -255,13 +250,11 @@ source_set("pane") {
   if (is_win) {
     sources += [
       "app/data_launch_win.cc",
-      "app/version_win.cc",
       "automation/file_panels_win.cc",
       "automation/input_win.cc",
       "automation/system_win.cc",
       "automation/windows_win.cc",
       "browser/browser_main_extra_parts_win.cc",
-      "browser/bundled_crl_set_win.cc",
       "browser/ui/window_host_win.cc",
       "ui/app/app_events_win.cc",
       "ui/app/dock_icon_win.cc",
@@ -364,7 +357,9 @@ source_set("pane") {
     "//net",
     "//pane/app:engine_switches",
     "//pane/app:test_copy",
+    "//pane/app:version",
     "//pane/browser:background_work",
+    "//pane/browser:bundled_crl_set",
     "//pane/browser:proto_databases",
     "//pane/browser:system_proxy",
     "//pane/encryption:handover",
@@ -451,9 +446,29 @@ if (is_mac) {
   }
 }
 
+# On Windows, beside them, the icon files Windows reads from the app's folder
+# (Paper 11.12): Pane.ico, the app's, which the shortcuts, Installed apps,
+# and Default apps name (chrome.exe carries it too, patch 0001); one per sky,
+# for the shortcuts that follow the App icon setting; and the documents',
+# which Pane's ProgIDs name. make-icons.swift makes them from the skies'
+# images.
 if (is_win) {
   copy("app_icons") {
-    sources = pane_app_icons
+    sources = pane_app_icons + [
+                "ui/panels/app_icons/AppIcon-Afterglow.ico",
+                "ui/panels/app_icons/AppIcon-Clouds.ico",
+                "ui/panels/app_icons/AppIcon-Day.ico",
+                "ui/panels/app_icons/AppIcon-Dusk.ico",
+                "ui/panels/app_icons/AppIcon-Fuchsia.ico",
+                "ui/panels/app_icons/AppIcon-Moonrise.ico",
+                "ui/panels/app_icons/AppIcon-Morning.ico",
+                "ui/panels/app_icons/AppIcon-Night.ico",
+                "ui/panels/app_icons/AppIcon-Sunset.ico",
+                "ui/panels/app_icons/AppIcon-Twilight.ico",
+                "ui/panels/app_icons/Pane.ico",
+                "ui/panels/app_icons/PaneHTM.ico",
+                "ui/panels/app_icons/PanePDF.ico",
+              ]
     outputs = [ "$root_out_dir/{{source_file_part}}" ]
   }
 }

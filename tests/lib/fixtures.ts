@@ -72,8 +72,10 @@ async function route(
 	// A stand-in for GitHub's latest release (every launch checks it):
 	// `?tag=v99.0.0` offers that version, else 0.0.0, which no build is
 	// behind: a build that isn't packaged carries no version and reads
-	// 0.0.0. Each dmg carries its SHA-256 as GitHub gives it;
-	// `?digest=wrong` gives another, and `?digest=none` none.
+	// 0.0.0. It carries each system's file, as a release does, the Mac's
+	// dmg and Windows' installer, and an x64 dmg neither takes. Each
+	// carries its SHA-256 as GitHub gives it; `?digest=wrong` gives
+	// another, and `?digest=none` none.
 	if (pathname === "/releases/latest") {
 		const { searchParams } = new URL(request.url);
 		const tag = searchParams.get("tag") ?? "v0.0.0";
@@ -84,17 +86,19 @@ async function route(
 		return Response.json({
 			tag_name: tag,
 			published_at: "2026-10-26T12:00:00Z",
-			assets: [`Pane-${version}-x64.dmg`, `Pane-${version}-arm64.dmg`].map(
-				(name) => ({
-					name,
-					browser_download_url: `${downloads}/releases/download/${tag}/${name}`,
-					...(digest === "none"
-						? {}
-						: {
-								digest: `sha256:${digest === "wrong" ? "0".repeat(64) : DOWNLOAD_SHA256}`,
-							}),
-				}),
-			),
+			assets: [
+				`Pane-${version}-x64.dmg`,
+				`Pane-${version}-arm64.dmg`,
+				`Pane-${version}-x64.exe`,
+			].map((name) => ({
+				name,
+				browser_download_url: `${downloads}/releases/download/${tag}/${name}`,
+				...(digest === "none"
+					? {}
+					: {
+							digest: `sha256:${digest === "wrong" ? "0".repeat(64) : DOWNLOAD_SHA256}`,
+						}),
+			})),
 		});
 	}
 

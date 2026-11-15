@@ -394,7 +394,7 @@ void Updater::StartDownload(model::AvailableUpdate update) {
   // and a window with no page painted completes it only at a 3-minute
   // failsafe.
   std::unique_ptr<network::ResourceRequest> request =
-      RequestFor(update.dmg_url);
+      RequestFor(update.file_url);
   request->priority = net::LOW;
   download_ = std::make_unique<DmgDownload>(
       *request, loader_factory_,
@@ -443,7 +443,7 @@ void Updater::Downloaded(model::AvailableUpdate update,
   // (model::IsTrustedDownload), and never a path.
   const base::FilePath destination = config_.downloads.Append(
       base::FilePath::FromUTF8Unsafe(
-          base::UnescapeBinaryURLComponent(update.dmg_url.ExtractFileName()))
+          base::UnescapeBinaryURLComponent(update.file_url.ExtractFileName()))
           .BaseName());
   // The digest reads the whole dmg: off the UI thread.
   base::ThreadPool::PostTaskAndReplyWithResult(

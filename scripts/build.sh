@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Builds targets in ~/chromium/src/out/Release using args/release.gn.
+# Builds targets in ~/chromium/src/out/Release using args/release.gn, or,
+# with PANE_BUILD_PLATFORM=windows-x64, in out/Win using args/win.gn: the
+# Windows engine, cross-built on the Mac (docs/building.md).
 # Usage: build.sh [targets...=chrome]
 #
 # Runs at most PANE_BUILD_JOBS compile jobs (default: a third of the cores)
@@ -8,18 +10,34 @@
 # while it was in use (docs/adr/0007-chromium-checkout.md), so the system keeps
 # room for its user. An idle Mac can take more: PANE_BUILD_JOBS=12.
 #
-# A build of `chrome` (the engine's bundle) records the engine key of its
-# sources in out/Release/pane-engine.key (engine-key.sh), which
-# publish-engine.sh checks before it archives the engine, and builds the
-# volume's watchdog, pane-volume-watch, which the bundle carries beside its
-# loader (package.sh).
+# A build of `chrome` (the engine) records the engine key of its sources in
+# the out dir's pane-engine.key (engine-key.sh), which publish-engine.sh
+# checks before it archives the engine; on the Mac it builds the volume's
+# watchdog too, pane-volume-watch, which the bundle carries beside its loader
+# (package.sh).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHROMIUM_ROOT="${CHROMIUM_ROOT:-$HOME/chromium}"
 TARGETS=("${@:-chrome}")
 JOBS="${PANE_BUILD_JOBS:-$(( $(sysctl -n hw.ncpu) / 3 ))}"
-OUT_DIR="out/Release"
+PLATFORM="${PANE_BUILD_PLATFORM:-mac-arm64}"
+
+case "$PLATFORM" in
+mac-arm64)
+	OUT_DIR="out/Release"
+	ARGS="$ROOT_DIR/chromium/args/release.gn"
+	;;
+windows-x64)
+	OUT_DIR="out/Win"
+	ARGS="$ROOT_DIR/chromium/args/win.gn"
+	;;
+*)
+	echo "error: no platform $PLATFORM: mac-arm64 or windows-x64" >&2
+	exit 1
+	;;
+esac
+
 KEY_FILE="$OUT_DIR/pane-engine.key"
 
 export PATH="$CHROMIUM_ROOT/depot_tools:$PATH"
@@ -54,7 +72,10 @@ records_key=false
 case " ${TARGETS[*]} " in
 *" chrome "*)
 	records_key=true
-	TARGETS+=(pane-volume-watch)
+
+	if [ "$PLATFORM" = mac-arm64 ]; then
+		TARGETS+=(pane-volume-watch)
+	fi
 	;;
 esac
 
@@ -64,8 +85,8 @@ if $records_key; then
 fi
 
 # Rewriting an unchanged args.gn would force gn to regenerate every ninja file.
-if ! cmp -s "$ROOT_DIR/chromium/args/release.gn" "$OUT_DIR/args.gn"; then
-	cp "$ROOT_DIR/chromium/args/release.gn" "$OUT_DIR/args.gn"
+if ! cmp -s "$ARGS" "$OUT_DIR/args.gn"; then
+	cp "$ARGS" "$OUT_DIR/args.gn"
 	gn gen "$OUT_DIR"
 fi
 

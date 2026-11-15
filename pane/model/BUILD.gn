@@ -94,9 +94,10 @@ source_set("model") {
   ]
 
   # Each system's own files: the platform Pane runs on, the data's lock, the
-  # engine's folder, the wipe's files and processes, and the PIN's guard; on
-  # Windows, os_crypt's DPAPI key, the secret the data key is sealed under
-  # there (U5), and Chromium's preference MACs in the registry.
+  # engine's folder, the wipe's files and processes, the PIN's guard, and the
+  # release's file each system updates from; on Windows, os_crypt's DPAPI
+  # key, the secret the data key is sealed under there (U5), and Chromium's
+  # preference MACs in the registry.
   if (is_mac) {
     sources += [
       "data_lock_mac.cc",
@@ -105,6 +106,7 @@ source_set("model") {
       "panic_wipe_mac.cc",
       "panic_wipe_run_mac.cc",
       "pin_guard_mac.cc",
+      "updates_mac.cc",
     ]
   }
   if (is_win) {
@@ -119,6 +121,7 @@ source_set("model") {
       "pin_guard_win.cc",
       "preference_macs.h",
       "preference_macs_win.cc",
+      "updates_win.cc",
     ]
     libs = [
       "crypt32.lib",
@@ -183,14 +186,21 @@ source_set("unit_tests") {
     "updates_unittest.cc",
   ]
 
+  # The release's file the Mac updates from.
+  if (is_mac) {
+    sources += [ "updates_mac_unittest.cc" ]
+  }
+
   # Windows' own: the engine's folder chrome_elf names, os_crypt's key under
-  # DPAPI, the TPM's guard, and the preference MACs in the registry.
+  # DPAPI, the TPM's guard, the preference MACs in the registry, and the
+  # release's file Windows updates from.
   if (is_win) {
     sources += [
       "engine_folder_win_unittest.cc",
       "engine_secret_win_unittest.cc",
       "pin_guard_win_unittest.cc",
       "preference_macs_win_unittest.cc",
+      "updates_win_unittest.cc",
     ]
   }
 

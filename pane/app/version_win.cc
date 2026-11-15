@@ -2,12 +2,43 @@
 
 #include "pane/app/version.h"
 
+#include <string>
+
+#include "base/base_paths.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/path_service.h"
+#include "base/strings/string_util.h"
+
 namespace pane {
 
-// Windows' package carries no version of Pane's yet: it comes with its
-// installer, W7 (docs/plans/views-migration.md).
+namespace {
+
+// More than a version's few bytes is not one of Pane's.
+constexpr size_t kMaxVersionFile = 64;
+
+}  // namespace
+
+// The pane-version file beside chrome.dll (base::DIR_ASSETS), which
+// scripts/package-win.sh writes from packaging/VERSION as package.sh writes
+// the Mac's PaneVersion (ADR 0044). A build not packaged, out/Win's or a
+// test copy's from it, has none.
 std::optional<std::string> BundledPaneVersion() {
-  return std::nullopt;
+  base::FilePath assets;
+  if (!base::PathService::Get(base::DIR_ASSETS, &assets)) {
+    return std::nullopt;
+  }
+  std::string version;
+  if (!base::ReadFileToStringWithMaxSize(
+          assets.Append(FILE_PATH_LITERAL("pane-version")), &version,
+          kMaxVersionFile)) {
+    return std::nullopt;
+  }
+  version = std::string(base::TrimWhitespaceASCII(version, base::TRIM_ALL));
+  if (version.empty()) {
+    return std::nullopt;
+  }
+  return version;
 }
 
 }  // namespace pane
