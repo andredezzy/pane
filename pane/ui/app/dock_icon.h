@@ -50,6 +50,11 @@ class DockIcon : public ui::NativeThemeObserver {
   void Loaded(model::AppIcon sky, gfx::ImageSkia image);
   // The platform's half: the image the Dock shows for the app.
   static void SetImage(const gfx::ImageSkia& image);
+  // And what shows the app's icon while it doesn't run: on Windows its Start
+  // entry, its desktop shortcut, and its taskbar pins, which follow the
+  // setting (Paper 11.12.16, call D); on the Mac nothing, the bundle's own
+  // icon being Day.
+  static void FollowInShortcuts(model::AppIcon sky);
 
   const raw_ref<AppIconImages> images_;
   const base::RepeatingClosure shown_changed_;

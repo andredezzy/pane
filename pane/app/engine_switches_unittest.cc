@@ -101,6 +101,19 @@ TEST(EngineSwitchesTest, TheEngineFolderIsTheData) {
             base::FilePath(FILE_PATH_LITERAL("/scenario/Engine")));
 }
 
+// The user's launch keeps Pane's own switches: the panic wipe's run's, and
+// the event an installer waits for, which Pane sets as its first window
+// paints (ADR 0127).
+TEST(EngineSwitchesTest, UsersLaunchKeepsPanesOwnSwitches) {
+  const base::CommandLine command_line =
+      Launch({"pane-wipe-after=1234", "pane-installed=Local\\Pane installer 1A",
+              "remote-debugging-port=9222"});
+  EXPECT_EQ(command_line.GetSwitchValueASCII("pane-wipe-after"), "1234");
+  EXPECT_EQ(command_line.GetSwitchValueASCII("pane-installed"),
+            "Local\\Pane installer 1A");
+  EXPECT_FALSE(command_line.HasSwitch("remote-debugging-port"));
+}
+
 // The user's launch keeps none of Chrome's switches it was handed, only
 // Pane's own.
 TEST(EngineSwitchesTest, UsersLaunchTakesPanesFeaturesAlone) {

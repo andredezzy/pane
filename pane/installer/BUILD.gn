@@ -1,0 +1,118 @@
+# Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+# Pane's installer on Windows (ADR 0127): pane_setup.exe, one program the
+# same for every version, which scripts/package-win.sh makes into
+# Pane-<version>-x64.exe by appending the app folder's payload, and which the
+# app folder keeps as the helper Pane's uninstall runs from outside it. Its
+# window is drawn with Windows' own Direct2D and DirectWrite in its own small
+# process: the payload isn't unpacked yet, so Pane's Views aren't there.
+
+import("//chrome/process_version_rc_template.gni")
+
+assert(is_win, "Pane's installer is Windows' alone")
+
+# What the installer decides apart from its window, for its tests.
+source_set("lib") {
+  visibility = [ ":*" ]
+
+  sources = [
+    "files.cc",
+    "files.h",
+    "payload.cc",
+    "payload.h",
+    "running_pane.cc",
+    "running_pane.h",
+    "switches.h",
+    "unpack.cc",
+    "unpack.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/installer/util:metainstaller_utils",
+    "//third_party/lzma_sdk/google:seven_zip_reader",
+  ]
+
+  libs = [
+    "bcrypt.lib",
+    "psapi.lib",
+  ]
+}
+
+# The switches, for chrome.exe's side (pane/app/install_switches_win.cc).
+source_set("switches") {
+  visibility = [
+    "//pane",
+    "//pane/app:*",
+  ]
+  sources = [ "switches.h" ]
+}
+
+process_version_rc_template("version") {
+  template_file = "pane_setup_exe_version.rc.version"
+  output = "$target_gen_dir/pane_setup_exe_version.rc"
+}
+
+executable("pane_setup") {
+  sources = [
+    "flow.cc",
+    "flow.h",
+    "look.cc",
+    "look.h",
+    "pane_setup.rc",
+    "resources.h",
+    "screen.h",
+    "setup_main.cc",
+    "uia_element.cc",
+    "uia_element.h",
+    "window.cc",
+    "window.h",
+  ]
+
+  # A window of its own, no console.
+  configs -= [ "//build/config/win:console" ]
+  configs += [ "//build/config/win:windowed" ]
+
+  deps = [
+    ":lib",
+    ":version",
+    "//base",
+    "//build/win:default_exe_manifest",
+  ]
+
+  libs = [
+    "comctl32.lib",
+    "d2d1.lib",
+    "dwmapi.lib",
+    "dwrite.lib",
+    "ole32.lib",
+    "oleaut32.lib",
+    "uiautomationcore.lib",
+    "uuid.lib",
+    "windowscodecs.lib",
+  ]
+
+  # The window's own icon and skies, from //pane's icons.
+  inputs = [
+    "//pane/ui/panels/app_icons/AppIcon-Day.ico",
+    "//pane/ui/panels/app_icons/AppIcon-Night.ico",
+    "//pane/ui/panels/app_icons/Pane.ico",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  visibility = [ "//pane/encryption:pane_unittests" ]
+
+  sources = [
+    "files_unittest.cc",
+    "payload_unittest.cc",
+  ]
+
+  deps = [
+    ":lib",
+    "//base",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
+}

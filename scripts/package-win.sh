@@ -9,8 +9,11 @@
 # a CRLSet, as dist.sh does. Then it compresses the folder's contents as
 # Chromium's installer archive does (chrome/tools/build/win/
 # create_installer_archive.py: 7-Zip's LZMA with BCJ2, its dictionaries and
-# streams) into the payload Pane's installer carries:
-# packaging/release/Pane-<version>-x64-app.7z.
+# streams), each file apart, into the payload Pane's installer carries,
+# packaging/release/Pane-<version>-x64-app.7z, and appends it to the
+# installer, pane_setup.exe, with a trailer naming it (pane/installer/
+# payload.h): packaging/release/Pane-<version>-x64.exe, what a release
+# publishes (ADR 0127).
 # Usage: package-win.sh   (PANE_WIN_ENGINE_OUT names the engine's folder,
 # ~/chromium/src/out/Win by default; PANE_WIN_APP_OUT lays the app's folder out
 # elsewhere than packaging/build/windows/Application; PANE_7ZA names 7-Zip,
@@ -26,6 +29,7 @@ SEVEN_ZIP="${PANE_7ZA:-$CHROMIUM_ROOT/src/third_party/lzma_sdk/bin/host_platform
 RELEASE_LIST="$APP_DIR/windows/pane.release"
 VERSION="$(tr -d '[:space:]' < "$APP_DIR/VERSION")"
 ARCHIVE="$APP_DIR/release/Pane-$VERSION-x64-app.7z"
+INSTALLER="$APP_DIR/release/Pane-$VERSION-x64.exe"
 
 die() {
 	echo "error: $*" >&2
@@ -91,10 +95,14 @@ echo "== compress $ARCHIVE"
 mkdir -p "$(dirname "$ARCHIVE")"
 rm -f "$ARCHIVE"
 # The folder's contents at the archive's root, so it unpacks into whichever
-# folder an install or an update names.
+# folder an install or an update names. Each file apart (-ms=off): the
+# installer then unpacks each straight into its own file, with no temporary
+# copy of the whole folder beside it, and its bar follows the bytes as they
+# go; 141 MB where one block was 136, unpacked a tenth slower by 7-Zip
+# (p5-w7b-notes.md).
 (
 	cd "$APP"
-	"$SEVEN_ZIP" a -t7z \
+	"$SEVEN_ZIP" a -t7z -ms=off \
 		-m0=BCJ2 -m1=LZMA:d27:fb128 -m2=LZMA:d22:fb128:mf=bt2 -m3=LZMA:d22:fb128:mf=bt2 \
 		-mb0:1 -mb0s1:2 -mb0s2:3 \
 		"$ARCHIVE" ./* > /dev/null
@@ -102,3 +110,31 @@ rm -f "$ARCHIVE"
 
 shasum -a 256 "$ARCHIVE"
 echo "packaged $ARCHIVE"
+
+echo "== make $INSTALLER"
+# Pane's installer, the same program for every version, with the payload
+# after it and the trailer that names it: the archive's place and size, the
+# folder's unpacked size, the archive's SHA-256, and the version
+# (pane/installer/payload.h's layout, which payload_unittest.cc checks).
+rm -f "$INSTALLER" "$INSTALLER.partial"
+cp "$APP/pane_setup.exe" "$INSTALLER.partial"
+program="$(stat -f %z "$INSTALLER.partial")"
+cat "$ARCHIVE" >> "$INSTALLER.partial"
+unpacked="$(find "$APP" -type f -exec stat -f %z {} + | awk '{ total += $1 } END { print total }')"
+python3 -I - "$INSTALLER.partial" "$program" "$(stat -f %z "$ARCHIVE")" "$unpacked" \
+	"$(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)" "$VERSION" <<'PY'
+import struct, sys
+path, program, size, unpacked, digest, version = sys.argv[1:]
+encoded = version.encode("ascii")
+if not 0 < len(encoded) < 32:
+    sys.exit("error: a version of 1 to 31 characters")
+trailer = (struct.pack("<QQQ", int(program), int(size), int(unpacked))
+           + bytes.fromhex(digest) + encoded.ljust(32, b"\0")
+           + b"PanePayload/v1.0")
+assert len(trailer) == 104
+with open(path, "ab") as installer:
+    installer.write(trailer)
+PY
+mv "$INSTALLER.partial" "$INSTALLER"
+shasum -a 256 "$INSTALLER"
+echo "packaged $INSTALLER"

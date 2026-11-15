@@ -134,5 +134,6 @@ test("pane_unittests") {
   }
   if (is_win) {
     sources += [ "engine_keys_win_unittest.cc" ]
+    deps += [ "//pane/installer:unit_tests" ]
   }
 }

@@ -10,6 +10,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "chrome/browser/chrome_process_singleton.h"
@@ -32,8 +33,12 @@ bool MayTakeFront() {
              std::optional<std::string>("1");
 }
 
-AppEvents::AppEvents(base::RepeatingClosure reopen, OpenURLs open_urls)
-    : reopen_(std::move(reopen)), open_urls_(std::move(open_urls)) {
+AppEvents::AppEvents(base::RepeatingClosure reopen,
+                     OpenURLs open_urls,
+                     base::RepeatingClosure ask_to_exit)
+    : reopen_(std::move(reopen)),
+      open_urls_(std::move(open_urls)),
+      ask_to_exit_(std::move(ask_to_exit)) {
   g_events = this;
   HearOtherLaunches();
 }
@@ -84,6 +89,12 @@ bool AppEvents::OtherLaunch(base::WeakPtr<AppEvents> events,
   if (!events) {
     return false;
   }
+  if (command_line.HasSwitch(kAskToExitSwitch)) {
+    // After the singleton's message, on the UI thread, as the pages go.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&AppEvents::AskedToExit, std::move(events)));
+    return true;
+  }
   // Out of the singleton's message, as Chrome's own goes on (on Windows it
   // is a SendMessage's handler, where no call may leave the process), and
   // off the UI thread, since a relative file's path is looked for on the
@@ -93,6 +104,10 @@ bool AppEvents::OtherLaunch(base::WeakPtr<AppEvents> events,
       base::BindOnce(&HandedPages, std::move(command_line), directory),
       base::BindOnce(&AppEvents::OpenLaunch, std::move(events)));
   return true;
+}
+
+void AppEvents::AskedToExit() {
+  ask_to_exit_.Run();
 }
 
 void AppEvents::OpenLaunch(std::vector<GURL> pages) {

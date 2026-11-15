@@ -3,9 +3,11 @@
 # (chromium/args/win.gn), with no full Windows build: every source of every
 # //pane target the Windows engine links (//chrome:chrome_dll's deps under
 # //pane, as gn's graph has them: the UI, the model, the channel, encryption,
-# and Windows' own platform files), and the unit tests beside them (each
-# //pane/...:unit_tests, and pane_unittests' own, encryption's), so code that
-# builds only on the Mac shows before Windows' turn comes (ADR 0124).
+# and Windows' own platform files), Pane's installer (//pane/installer, which
+# the engine's build carries beside chrome.exe), and the unit tests beside
+# them (each //pane/...:unit_tests, and pane_unittests' own, encryption's), so
+# code that builds only on the Mac shows before Windows' turn comes (ADR
+# 0124).
 # Each object compiles alone (`autoninja -C out/Win ../../<file>^`). A gate
 # before each push of an engine change, beside `gn check out/Win '//pane/*'`
 # (AGENTS.md); the link itself is a full Windows build's
@@ -46,7 +48,8 @@ import json, sys
 targets = [line.strip() for line in open(sys.argv[1]) if line.strip()]
 described = json.load(open(sys.argv[2]))
 targets += [target for target in described
-            if target.endswith(":unit_tests") or target.endswith(":pane_unittests")]
+            if target.endswith(":unit_tests") or target.endswith(":pane_unittests")
+            or target.startswith("//pane/installer:")]
 files = []
 for target in targets:
     for source in described.get(target, {}).get("sources", []):

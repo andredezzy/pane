@@ -222,11 +222,12 @@ std::vector<StagedWipe> StagedWipes(
 std::vector<WipeFailure> EraseStagedWipes(
     const base::FilePath& data_directory,
     const std::optional<base::FilePath>& cache_directory,
-    const std::optional<ElectronData>& electron) {
+    const std::optional<ElectronData>& electron,
+    const ErasedBytes& erased) {
   std::vector<WipeFailure> failures;
   for (const StagedWipe& staged :
        StagedWipes(data_directory, cache_directory, electron)) {
-    std::ranges::move(EraseForWipe(staged.path, staged.passes),
+    std::ranges::move(EraseForWipe(staged.path, staged.passes, erased),
                       std::back_inserter(failures));
   }
 
@@ -240,7 +241,9 @@ std::vector<WipeFailure> EraseStagedWipes(
   return failures;
 }
 
-std::vector<WipeFailure> EraseForWipe(const base::FilePath& path, int passes) {
+std::vector<WipeFailure> EraseForWipe(const base::FilePath& path,
+                                      int passes,
+                                      const ErasedBytes& erased) {
   if (path.FinalExtension() == FILE_PATH_LITERAL(".sparsebundle")) {
     passes = 0;
   }
@@ -264,7 +267,7 @@ std::vector<WipeFailure> EraseForWipe(const base::FilePath& path, int passes) {
         base::FileEnumerator::ErrorPolicy::STOP_ENUMERATION);
     for (base::FilePath entry = entries.Next(); !entry.empty();
          entry = entries.Next()) {
-      std::ranges::move(EraseForWipe(entry, passes),
+      std::ranges::move(EraseForWipe(entry, passes, erased),
                         std::back_inserter(failures));
     }
     if (entries.GetError() != base::File::FILE_OK) {
@@ -272,7 +275,11 @@ std::vector<WipeFailure> EraseForWipe(const base::FilePath& path, int passes) {
           Failure(path, base::File::ErrorToString(entries.GetError())));
     }
   } else if (*kind == wipe_files::Kind::kFile) {
+    const std::optional<int64_t> size = base::GetFileSize(path);
     std::ranges::move(Overwrite(path, passes), std::back_inserter(failures));
+    if (erased) {
+      erased.Run(size.value_or(0));
+    }
   }
 
   if (base::expected<void, std::string> removed = wipe_files::Remove(path);

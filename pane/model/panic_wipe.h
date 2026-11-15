@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/types/expected.h"
 
 namespace base {
@@ -94,20 +95,27 @@ std::vector<StagedWipe> StagedWipes(
     const std::optional<base::FilePath>& cache_directory,
     const std::optional<ElectronData>& electron = std::nullopt);
 
+// Hears each file's size once it is erased: how far an erase has gone, for
+// the uninstall's bar (ADR 0127).
+using ErasedBytes = base::RepeatingCallback<void(int64_t)>;
+
 // Erases everything staged, then the staging folders once empty: a wipe
 // staged meanwhile keeps its own.
 std::vector<WipeFailure> EraseStagedWipes(
     const base::FilePath& data_directory,
     const std::optional<base::FilePath>& cache_directory,
-    const std::optional<ElectronData>& electron = std::nullopt);
+    const std::optional<ElectronData>& electron = std::nullopt,
+    const ErasedBytes& erased = ErasedBytes());
 
 // Overwrites and deletes `path` and everything under it. A symbolic link goes,
 // never what it points to: Chromium links its SingletonSocket into the
 // temporary directory, and each profile's folder is a link into the volume.
 // The volume's image goes without passes: the data key, gone first, was its
 // only way in.
-std::vector<WipeFailure> EraseForWipe(const base::FilePath& path,
-                                      int passes = 3);
+std::vector<WipeFailure> EraseForWipe(
+    const base::FilePath& path,
+    int passes = 3,
+    const ErasedBytes& erased = ErasedBytes());
 
 // What the wipe asks of each system's files: the Mac's (panic_wipe_mac.cc)
 // as Foundation's FileManager did it, Windows' (panic_wipe_win.cc).

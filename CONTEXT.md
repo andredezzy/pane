@@ -13,8 +13,12 @@ The app-wide appearance preference — `system`, `light`, or `dark`. One coheren
 _Avoid_: appearance, color mode, dark mode (as a feature name)
 
 **App icon**:
-The window Pane shows in the Dock, with the sky the user picks — Day, Clouds, Morning, Dusk, Fuchsia, Sunset, Twilight, Afterglow, Night, or Moonrise — or `automatic`, which shows Day while Pane's appearance is light and Night while it is dark: the Theme decides, and under `system` the Mac. The bundle's own icon is Day, and Night under the Mac's dark icon style.
+The window Pane shows in the Dock, with the sky the user picks — Day, Clouds, Morning, Dusk, Fuchsia, Sunset, Twilight, Afterglow, Night, or Moonrise — or `automatic`, which shows Day while Pane's appearance is light and Night while it is dark: the Theme decides, and under `system` the Mac. The bundle's own icon is Day, and Night under the Mac's dark icon style. On Windows the taskbar shows it too, and Start's and the desktop's shortcuts and Pane's taskbar pins follow it.
 _Avoid_: logo (the brand mark in docs and Paper), theme (the appearance itself)
+
+**Uninstall**:
+Taking Pane off a Windows PC, from Installed apps: the app, its shortcuts, and its place in Default apps go. Its data stays, for a reinstall to find behind its PIN, unless the user ticks Also delete Pane's data, which erases it as the panic wipe does.
+_Avoid_: remove (removing deletes a profile), wipe (the panic wipe at the lock; the uninstall only erases the same way), reset
 
 **Sleep (tab)**:
 An inactive tab whose page has been released to reclaim memory. The tab stays in the sidebar (title, favicon, shown dimmed) and comes back by re-navigating when activated. Happens automatically after inactivity, never to a tab that is audible, recently interacted with, has DevTools open, or belongs to a Keep-loaded profile.

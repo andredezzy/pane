@@ -1,0 +1,9 @@
+// Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+#include "pane/installer/resources.h"
+
+// The program's icon (Explorer, the taskbar, Alt+Tab, Task Manager), and the
+// App icon's skies its window shows (Paper 11.12.6), from //pane's icons.
+IDI_PANE      ICON    "..\\ui\\panels\\app_icons\\Pane.ico"
+IDR_SKY_DAY   RCDATA  "..\\ui\\panels\\app_icons\\AppIcon-Day.ico"
+IDR_SKY_NIGHT RCDATA  "..\\ui\\panels\\app_icons\\AppIcon-Night.ico"

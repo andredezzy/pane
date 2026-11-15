@@ -42,6 +42,7 @@ source_set("engine_switches") {
 source_set("version") {
   visibility = [
     ":unit_tests",
+    ":windows_integration",
     "//pane",
   ]
 
@@ -62,6 +63,32 @@ source_set("version") {
   deps = [ "//base" ]
 }
 
+# Pane on Windows' own surfaces (ADR 0127): the registration, the uninstall's
+# unregistration and erase, Pane's words through Chromium's installer seam,
+# and the shortcuts following the App icon. A target of its own so its tests
+# run in pane_unittests.
+if (is_win) {
+  source_set("windows_integration") {
+    visibility = [
+      ":unit_tests",
+      "//pane",
+    ]
+
+    sources = [
+      "windows_integration.h",
+      "windows_integration_win.cc",
+    ]
+
+    deps = [
+      ":version",
+      "//base",
+      "//chrome/install_static:install_static_util",
+      "//chrome/installer/util:with_no_strings",
+      "//pane/model",
+    ]
+  }
+}
+
 source_set("unit_tests") {
   testonly = true
   visibility = [ "//pane/encryption:pane_unittests" ]
@@ -76,9 +103,13 @@ source_set("unit_tests") {
     sources += [ "test_copy_mac_unittest.cc" ]
   }
 
-  # The version the package writes beside chrome.dll.
+  # The version the package writes beside chrome.dll, and Windows' own
+  # surfaces.
   if (is_win) {
-    sources += [ "version_win_unittest.cc" ]
+    sources += [
+      "version_win_unittest.cc",
+      "windows_integration_win_unittest.cc",
+    ]
   }
 
   deps = [
@@ -91,4 +122,14 @@ source_set("unit_tests") {
     "//net",
     "//testing/gtest",
   ]
+
+  if (is_win) {
+    deps += [
+      ":windows_integration",
+      "//chrome/install_static:install_static_util",
+      "//chrome/install_static/test:test_support",
+      "//chrome/installer/util:with_no_strings",
+      "//pane/model",
+    ]
+  }
 }

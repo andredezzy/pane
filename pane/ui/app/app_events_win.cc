@@ -15,8 +15,12 @@ namespace {
 // singleton hands it over (AppEvents), with no event of the system's own.
 class AppEventsWin : public AppEvents {
  public:
-  AppEventsWin(base::RepeatingClosure reopen, OpenURLs open_urls)
-      : AppEvents(std::move(reopen), std::move(open_urls)) {}
+  AppEventsWin(base::RepeatingClosure reopen,
+               OpenURLs open_urls,
+               base::RepeatingClosure ask_to_exit)
+      : AppEvents(std::move(reopen),
+                  std::move(open_urls),
+                  std::move(ask_to_exit)) {}
 };
 
 }  // namespace
@@ -26,10 +30,12 @@ bool ClosingTheWindowQuits() {
 }
 
 // static
-std::unique_ptr<AppEvents> AppEvents::Listen(base::RepeatingClosure reopen,
-                                             OpenURLs open_urls) {
-  return std::make_unique<AppEventsWin>(std::move(reopen),
-                                        std::move(open_urls));
+std::unique_ptr<AppEvents> AppEvents::Listen(
+    base::RepeatingClosure reopen,
+    OpenURLs open_urls,
+    base::RepeatingClosure ask_to_exit) {
+  return std::make_unique<AppEventsWin>(std::move(reopen), std::move(open_urls),
+                                        std::move(ask_to_exit));
 }
 
 }  // namespace pane

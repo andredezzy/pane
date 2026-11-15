@@ -11,6 +11,7 @@ source_set("pane") {
     "app/app_defaults.h",
     "app/data_launch.cc",
     "app/data_launch.h",
+    "app/install_switches.h",
     "app/pane_main_delegate.cc",
     "app/pane_main_delegate.h",
     "app/views_launch.cc",
@@ -220,6 +221,7 @@ source_set("pane") {
     sources += [
       "app/app_defaults_mac.mm",
       "app/data_launch_mac.cc",
+      "app/install_switches_mac.cc",
       "automation/file_panels_mac.cc",
       "automation/input_mac.cc",
       "automation/native_input_mac.h",
@@ -250,6 +252,7 @@ source_set("pane") {
   if (is_win) {
     sources += [
       "app/data_launch_win.cc",
+      "app/install_switches_win.cc",
       "automation/file_panels_win.cc",
       "automation/input_win.cc",
       "automation/system_win.cc",
@@ -411,14 +414,26 @@ source_set("pane") {
   if (is_win) {
     deps += [
       ":app_icons",
+      "//chrome/app:branded_strings",
       "//chrome/browser:shell_integration",
       "//chrome/browser/ui/views/frame:windows_icon_painter",
       "//chrome/browser/ui/views/renderer_context_menu",
       "//chrome/chrome_elf:chrome_elf_main_include",
       "//chrome/install_static:install_static_util",
       "//components/keep_alive_registry",
+      "//pane/app:windows_integration",
+      "//pane/installer:switches",
       "//ui/aura",
     ]
+  }
+}
+
+# Pane's installer, which the Windows engine carries beside chrome.exe as the
+# uninstall's helper and package-win.sh makes Pane-<version>-x64.exe of
+# (pane/installer/BUILD.gn; ADR 0127).
+if (is_win) {
+  group("installer") {
+    deps = [ "//pane/installer:pane_setup" ]
   }
 }
 

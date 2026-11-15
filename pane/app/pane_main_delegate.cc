@@ -11,6 +11,7 @@
 #include "chrome/common/profiler/main_thread_stack_sampling_profiler.h"
 #include "content/public/common/content_switches.h"
 #include "pane/app/data_launch.h"
+#include "pane/app/install_switches.h"
 #include "pane/app/views_launch.h"
 #include "pane/browser/content_browser_client.h"
 
@@ -38,6 +39,11 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
 
   base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
   if (!command_line.HasSwitch(switches::kProcessType)) {
+    // Pane's install, its registration, and its uninstall, which open no
+    // data and start no engine (ADR 0127).
+    if (std::optional<int> exit_code = RunInstallSwitch(command_line)) {
+      return exit_code;
+    }
     if (std::optional<int> exit_code = StartViewsLaunch(command_line)) {
       return exit_code;
     }

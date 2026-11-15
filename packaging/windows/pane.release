@@ -10,21 +10,25 @@
 # [SNAPSHOTBLOB], and [DXC]) that Pane's build has, laid out flat, since
 # chrome.exe loads the chrome.dll beside it where no version folder is
 # (chrome/app/main_dll_loader_win.cc); without Chromium's Start tiles' logos
-# (Logo.png, SmallLogo.png). Then Pane's own files beside chrome.dll
-# (base::DIR_ASSETS, pane/BUILD.gn's app_icons).
+# (Logo.png, SmallLogo.png), and without the two launchers of web apps Pane
+# never installs (W7b, ADR 0127): chrome_proxy.exe, which only web apps'
+# shortcuts and Chrome's Omnibox Everywhere (off) start
+# (chrome/browser/shortcuts/platform_util_win.cc), and
+# chrome_pwa_launcher.exe, copied for an installed web app's file handlers
+# alone (chrome/browser/web_applications/chrome_pwa_launcher). Then Pane's own
+# files beside chrome.dll (base::DIR_ASSETS, pane/BUILD.gn's app_icons), and
+# Pane's installer, the uninstall's helper (pane/installer).
 #
 # [package], written by package-win.sh: Pane's version and Chrome's CRLSet.
 
 [engine]
 chrome.exe
-chrome_proxy.exe
 # chrome.exe's assembly, named for Chromium's version.
 *.*.*.*.manifest
 chrome.dll
 chrome_100_percent.pak
 chrome_200_percent.pak
 chrome_elf.dll
-chrome_pwa_launcher.exe
 chrome_wer.dll
 d3dcompiler_47.dll
 dxcompiler.dll
@@ -54,6 +58,9 @@ Pane.ico
 AppIcon-*.ico
 PaneHTM.ico
 PanePDF.ico
+# Pane's installer: the helper Pane's uninstall copies out of the folder and
+# runs (Paper 11.12.9), and what package-win.sh appends the payload to.
+pane_setup.exe
 
 [package]
 # Pane's version, from packaging/VERSION (pane/app/version_win.cc, ADR 0044).

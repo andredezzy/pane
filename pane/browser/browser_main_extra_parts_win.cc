@@ -9,8 +9,11 @@
 #include "base/no_destructor.h"
 #include "chrome/browser/devtools/chrome_devtools_manager_delegate.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/grit/branded_strings.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
+#include "pane/app/windows_integration.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace pane {
 
@@ -26,6 +29,21 @@ void KeepProcess(bool keep) {
 }
 
 }  // namespace
+
+// Chromium's words where they reach Windows, through the seams Chromium
+// keeps: the installer's strings (installer::SetTranslationDelegate, which
+// Chrome sets for its own in PreCreateMainMessageLoop, before this), so a
+// toast finds Pane's Start entry by its name ("Pane.lnk", where Chromium's
+// looks for "Chromium.lnk") and the shortcuts and Default apps say Pane; and
+// a toast's settings item (ResourceBundle's override, which Chrome's
+// variations use for theirs).
+// static
+void BrowserMainExtraParts::UsePanesWords() {
+  windows::UsePanesWords();
+  ui::ResourceBundle::GetSharedInstance().OverrideLocaleStringResource(
+      IDS_WIN_NOTIFICATION_SETTINGS_CONTEXT_MENU_ITEM_NAME,
+      u"Go to Pane notification settings");
+}
 
 // Chrome on Windows keeps its browser process while a Browser of its own or a
 // keep-alive holds it, and Pane may have no profile open, so no Browser: a

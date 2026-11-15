@@ -17,6 +17,10 @@ class FilePath;
 
 namespace pane {
 
+// What another launch carries to ask Pane to exit (pane/installer/
+// running_pane.cc sends it).
+inline constexpr char kAskToExitSwitch[] = "pane-exit";
+
 // Whether Pane may take the front from the app in use: always, but for a
 // scenario's copy, which takes it only when the runner allows it (run.ts
 // --foreground, PANE_AUTOMATION_FOREGROUND), so whoever works on the Mac keeps
@@ -44,12 +48,18 @@ bool ClosingTheWindowQuits();
 // as the Dock's reopen does. Chrome's own startup would take it otherwise,
 // which opens nothing for Pane (--no-startup-window: Pane's windows are
 // Pane's).
+//
+// A launch handed over with kAskToExitSwitch alone asks Pane to exit as
+// Alt+F4 or ⌘Q does, Quit Pane? or Exit Pane? first (ADR 0053): Pane's
+// installer and its uninstall ask so where Pane is open (Paper 11.12.7,
+// 11.12.10).
 class AppEvents {
  public:
   using OpenURLs = base::RepeatingCallback<void(std::vector<GURL>)>;
 
   static std::unique_ptr<AppEvents> Listen(base::RepeatingClosure reopen,
-                                           OpenURLs open_urls);
+                                           OpenURLs open_urls,
+                                           base::RepeatingClosure ask_to_exit);
 
   // Chrome's start has ended (ChromeBrowserMainParts::PostBrowserStart), and
   // gave the process singleton Chrome's own callback, which replaces the one
@@ -63,7 +73,9 @@ class AppEvents {
   virtual ~AppEvents();
 
  protected:
-  AppEvents(base::RepeatingClosure reopen, OpenURLs open_urls);
+  AppEvents(base::RepeatingClosure reopen,
+            OpenURLs open_urls,
+            base::RepeatingClosure ask_to_exit);
 
   void Reopen();
   void OpenURLsHanded(std::vector<GURL> urls);
@@ -75,9 +87,11 @@ class AppEvents {
                           base::CommandLine command_line,
                           const base::FilePath& directory);
   void OpenLaunch(std::vector<GURL> pages);
+  void AskedToExit();
 
   const base::RepeatingClosure reopen_;
   const OpenURLs open_urls_;
+  const base::RepeatingClosure ask_to_exit_;
   base::WeakPtrFactory<AppEvents> weak_factory_{this};
 };
 

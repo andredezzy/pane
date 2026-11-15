@@ -52,6 +52,7 @@
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/url_constants.h"
+#include "pane/app/install_switches.h"
 #include "pane/app/version.h"
 #include "pane/automation/automation.h"
 #include "pane/browser/browser_context.h"
@@ -448,6 +449,9 @@ UiApp::UiApp()
   extensions_ = std::make_unique<ExtensionsUi>(*this);
   window_->Open();
   window_->Show(/*activate=*/true);
+  // An installer waiting for Pane's first window closes in that frame (ADR
+  // 0127).
+  AfterFrame(window_->compositor(), base::BindOnce(&FirstWindowPainted));
   // The update check at launch, then every six hours (ADR 0002): the pill
   // shows what it finds, behind the Lock too.
   Updater::Config updates = Updater::Config::FromEnvironment();
@@ -482,7 +486,8 @@ UiApp::UiApp()
   }
   events_ = AppEvents::Listen(
       base::BindRepeating(&UiApp::ShowWindow, weak_factory_.GetWeakPtr()),
-      base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()));
+      base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()),
+      base::BindRepeating(&UiApp::AskToExit, weak_factory_.GetWeakPtr()));
 
   // The channel, in a scenario's run alone (ADR 0115).
   if (std::optional<std::string> directory =
@@ -2032,6 +2037,11 @@ void UiApp::ConfirmQuit() {
   quit_confirming_ = true;
   LogInteraction(Interaction::kOpenQuitDialog, window_->compositor());
   root->ShowQuitDialog(true);
+}
+
+void UiApp::AskToExit() {
+  ShowWindow();
+  ConfirmQuit();
 }
 
 void UiApp::CancelQuit() {

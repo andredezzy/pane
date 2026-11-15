@@ -14,7 +14,9 @@
 # the out dir's pane-engine.key (engine-key.sh), which publish-engine.sh
 # checks before it archives the engine; on the Mac it builds the volume's
 # watchdog too, pane-volume-watch, which the bundle carries beside its loader
-# (package.sh).
+# (package.sh), and on Windows Pane's installer, pane_setup.exe, which the app
+# folder carries as the uninstall's helper and package-win.sh makes
+# Pane-<version>-x64.exe of (ADR 0127).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -75,6 +77,8 @@ case " ${TARGETS[*]} " in
 
 	if [ "$PLATFORM" = mac-arm64 ]; then
 		TARGETS+=(pane-volume-watch)
+	else
+		TARGETS+=(pane/installer:pane_setup)
 	fi
 	;;
 esac

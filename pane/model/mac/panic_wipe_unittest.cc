@@ -43,6 +43,30 @@ void SaveRecord(const base::FilePath& data, std::string source) {
               MigrationRecord(std::move(source), "2026-10-28", {}).ToValue()));
 }
 
+// Each file erased is heard with its size, for the uninstall's bar on
+// Windows (ADR 0127), its folders and links with none.
+TEST(PanicWipeTest, HearsEachFileErased) {
+  base::ScopedTempDir directory;
+  ASSERT_TRUE(directory.CreateUniqueTempDir());
+  const base::FilePath data = directory.GetPath().Append("data");
+  ASSERT_TRUE(base::CreateDirectory(data.Append("Engine").Append("a")));
+  ASSERT_TRUE(base::WriteFile(data.Append("security.json"), "12345"));
+  ASSERT_TRUE(base::WriteFile(data.Append("Engine").Append("a").Append("b"),
+                              std::string(3000, 'x')));
+  ASSERT_TRUE(
+      base::WriteFile(data.Append("Engine").Append("a").Append("empty"), ""));
+  std::vector<int64_t> heard;
+  const std::vector<WipeFailure> failures = EraseForWipe(
+      data, 1,
+      base::BindRepeating([](std::vector<int64_t>* heard,
+                             int64_t bytes) { heard->push_back(bytes); },
+                          base::Unretained(&heard)));
+  EXPECT_TRUE(failures.empty());
+  EXPECT_FALSE(base::PathExists(data));
+  std::ranges::sort(heard);
+  EXPECT_EQ(heard, (std::vector<int64_t>{0, 5, 3000}));
+}
+
 // Erases the data and caches, and nothing beside them.
 TEST(PanicWipeTest, Erases) {
   base::ScopedTempDir directory;

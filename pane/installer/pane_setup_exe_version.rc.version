@@ -1,0 +1,42 @@
+// Copyright 2026 Pane. Licensed under GPL-3.0-only.
+
+// Pane's installer's version resource, from pane/BRANDING (ADR 0009): what
+// Explorer's properties, SmartScreen, and Task Manager name it, "Pane
+// Installer" by Rounded Corners. Its version is the engine's, Chromium's, as
+// chrome.exe's is (ADR 0127): the installer is built with the engine, and
+// Pane's own version is the payload's.
+
+1 VERSIONINFO
+ FILEVERSION @MAJOR@,@MINOR@,@BUILD@,@PATCH@
+ PRODUCTVERSION @MAJOR@,@MINOR@,@BUILD@,@PATCH@
+ FILEFLAGSMASK 0x17L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "@COMPANY_FULLNAME@"
+            VALUE "FileDescription", "@PRODUCT_INSTALLER_FULLNAME@"
+            VALUE "FileVersion", "@MAJOR@.@MINOR@.@BUILD@.@PATCH@"
+            VALUE "InternalName", "pane_setup"
+            VALUE "LegalCopyright", "@COPYRIGHT@"
+            VALUE "OriginalFilename", "pane_setup.exe"
+            VALUE "ProductName", "@PRODUCT_FULLNAME@"
+            VALUE "ProductVersion", "@MAJOR@.@MINOR@.@BUILD@.@PATCH@"
+            VALUE "CompanyShortName", "@COMPANY_SHORTNAME@"
+            VALUE "ProductShortName", "@PRODUCT_SHORTNAME@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

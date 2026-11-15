@@ -10,6 +10,9 @@
 namespace pane {
 
 // static
+void DockIcon::FollowInShortcuts(model::AppIcon sky) {}
+
+// static
 void DockIcon::SetImage(const gfx::ImageSkia& image) {
   NSApp.applicationIconImage = gfx::NSImageFromImageSkia(image);
 }

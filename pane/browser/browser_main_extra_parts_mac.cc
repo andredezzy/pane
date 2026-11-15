@@ -8,6 +8,9 @@
 
 namespace pane {
 
+// static
+void BrowserMainExtraParts::UsePanesWords() {}
+
 // Chrome's AppController keeps the process alive without windows. ⌘Q quits
 // at once, as it did in the Electron app: Chrome asks to hold it (the "Warn
 // Before Quitting" pref, on by default), in a panel of its own.

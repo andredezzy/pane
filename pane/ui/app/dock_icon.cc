@@ -47,6 +47,9 @@ void DockIcon::Loaded(model::AppIcon sky, gfx::ImageSkia image) {
     return;
   }
   SetImage(image);
+  if (shown_ != sky) {
+    FollowInShortcuts(sky);
+  }
   shown_ = sky;
   if (shown_changed_) {
     shown_changed_.Run();

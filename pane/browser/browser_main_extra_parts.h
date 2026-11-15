@@ -51,6 +51,10 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   // quits, with or without a window, and quits at once, with no warning of
   // Chrome's.
   static void StartPlatform();
+  // Pane's name where Chromium's own words reach the system, before anything
+  // shows them: on Windows the shortcut a toast looks for, and its settings
+  // item (ADR 0127); nothing on the Mac, whose bundle names Pane.
+  static void UsePanesWords();
 
   std::unique_ptr<SystemProxy> system_proxy_;
   base::ScopedObservation<ProfileManager, ProfileManagerObserver>

@@ -175,6 +175,10 @@ class UiApp : public AppData::Client,
   // ⌘Q (ADR 0053): Quit Pane? over the window, or, from it (⌘Q again), at
   // the PIN screen, or with no window to ask in, quitting at once.
   void ConfirmQuit();
+  // Another launch asks Pane to exit, as Pane's installer and uninstall do
+  // where it is open (ADR 0127): the window in front, and ⌘Q's or Alt+F4's
+  // question.
+  void AskToExit();
   // ⌘F: find in page's bar over the selected tab's page, its field taking
   // the keys (ADR 0067), timed to its first frame.
   void ShowFind();

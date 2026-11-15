@@ -91,6 +91,7 @@ BrowserMainExtraParts::~BrowserMainExtraParts() = default;
 
 // Before the browser's network contexts exist (ADR 0040).
 void BrowserMainExtraParts::PreCreateThreads() {
+  UsePanesWords();
   SystemProxy::HoldLocalState(*g_browser_process->local_state());
 }
 

@@ -13,6 +13,13 @@ namespace pane {
 
 namespace {
 
+// Pane's own switches, which every launch keeps: the panic wipe's run's
+// (model::kWipeAfterSwitch), and on Windows the first launch's after an
+// install, the event its installer waits for (installer::kInstalledSwitch,
+// set as the first window paints).
+constexpr std::string_view kPanesOwnSwitches[] = {"pane-wipe-after",
+                                                  "pane-installed"};
+
 // Adds `value` to a comma-separated switch (--disable-features=…), keeping
 // whatever the command line already lists there.
 void AddToSwitchList(base::CommandLine& command_line,
@@ -31,10 +38,10 @@ void SetEngineSwitches(base::CommandLine& command_line,
                        const base::FilePath& engine_folder) {
   if (!command_line.HasSwitch("use-mock-keychain")) {
     base::CommandLine kept(command_line.GetProgram());
-    if (command_line.HasSwitch("pane-wipe-after")) {
-      kept.AppendSwitchNative(
-          "pane-wipe-after",
-          command_line.GetSwitchValueNative("pane-wipe-after"));
+    for (std::string_view name : kPanesOwnSwitches) {
+      if (command_line.HasSwitch(name)) {
+        kept.AppendSwitchNative(name, command_line.GetSwitchValueNative(name));
+      }
     }
     for (const base::CommandLine::StringType& arg : command_line.GetArgs()) {
       kept.AppendArgNative(arg);
