@@ -946,10 +946,16 @@ base::expected<void, VolumeError> DataVolume::Prepare(
 
   if (!saves_history) {
     // The caches are in Cache, or beside the profile's own files where the
-    // data root is not under the home's Application Support.
+    // data root is not under the home's Application Support. The loading
+    // predictor's database names the hosts the profile went to while it kept
+    // its history, and learns none since (ADR 0119): a clear whose deletion
+    // the profile's close cut short, or that came before the predictor
+    // watched History, left them in it.
     for (std::string_view item :
          {"Profile/shared_proto_db", "Profile/Cache", "Profile/Code Cache",
-          "Cache/Cache", "Cache/Code Cache"}) {
+          "Profile/Network Action Predictor",
+          "Profile/Network Action Predictor-journal", "Cache/Cache",
+          "Cache/Code Cache"}) {
       base::DeletePathRecursively(folder.Append(item));
     }
   }

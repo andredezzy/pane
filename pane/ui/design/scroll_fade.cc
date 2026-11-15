@@ -77,7 +77,9 @@ END_METADATA
 
 FadingScrollView::FadingScrollView(ui::ColorVariant behind,
                                    bool fades_top,
-                                   bool fades_bottom) {
+                                   bool fades_bottom,
+                                   int fade)
+    : fade_(fade) {
   scroll_view_ = AddChildView(LayeredScrollView());
   scroll_view_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kDisabled);
@@ -140,11 +142,11 @@ void FadingScrollView::UpdateFades() {
   // Where the list's own viewport is, in this view.
   const gfx::Rect viewport = scroll_view_->GetContentsBounds();
   if (top_) {
-    const int height = std::clamp(scrolled, 0, kFade);
+    const int height = std::clamp(scrolled, 0, fade_);
     top_->SetBounds(viewport.x(), viewport.y(), viewport.width(), height);
   }
   if (bottom_) {
-    const int height = std::clamp(below, 0, kFade);
+    const int height = std::clamp(below, 0, fade_);
     bottom_->SetBounds(viewport.x(), viewport.bottom() - height,
                        viewport.width(), height);
   }

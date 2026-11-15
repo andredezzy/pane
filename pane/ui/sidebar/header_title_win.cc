@@ -77,7 +77,10 @@ class HeaderMenuButton : public views::Button {
         this, look_.shape, look_.disabled_opacity,
         base::BindRepeating(&HeaderMenuButton::SchedulePaint,
                             base::Unretained(this)));
-    SetBackground(std::make_unique<ControlBackground>(look_, highlight_.get()));
+    auto background =
+        std::make_unique<ControlBackground>(look_, highlight_.get());
+    background_ = background.get();
+    SetBackground(std::move(background));
     title_ = AddChildView(MakeLabel(u"Pane", kTitle, look_.tint.value()));
     title_->SetCanProcessEventsWithinSubtree(false);
     GetViewAccessibility().SetRole(ax::mojom::Role::kPopUpButton);
@@ -87,6 +90,8 @@ class HeaderMenuButton : public views::Button {
 
   void SetMenuShowing(bool showing) {
     highlight_->SetHeld(showing);
+    held_ = showing;
+    UpdateHeldLook();
     if (showing) {
       GetViewAccessibility().SetIsExpanded();
     } else {
@@ -117,10 +122,38 @@ class HeaderMenuButton : public views::Button {
     PaintIcon(*canvas, Icon::kChevronDown,
               gfx::RectF(title_->bounds().right() + kGap,
                          (height() - kChevron) / 2.0f, kChevron, kChevron),
-              /*stroke_width=*/2, colors->GetColor(kPaneColorMutedForeground));
+              /*stroke_width=*/2, held_look_.tint->ResolveToSkColor(colors));
+  }
+
+  void OnThemeChanged() override {
+    views::Button::OnThemeChanged();
+    UpdateHeldLook();
   }
 
  private:
+  // Held while its menu shows under a contrast theme, it takes the theme's
+  // Highlight under HighlightText, as Views' menus mark their row under the
+  // pointer (Paper 11.10.4); else its look, the accent held as under the
+  // pointer.
+  void UpdateHeldLook() {
+    const ui::ColorProvider* colors = GetColorProvider();
+    const bool contrast =
+        colors && SkColorGetA(colors->GetColor(kPaneColorForcedEdge));
+    ControlLook look = look_;
+    if (contrast && held_) {
+      look.fill = kPaneColorForcedHighlight;
+      look.border.reset();
+      look.tint = ui::kColorNativeHighlightText;
+      look.lit_tint = ui::kColorNativeHighlightText;
+    }
+    held_look_ = look;
+    background_->SetLook(look);
+    if (colors) {
+      title_->SetEnabledColor(look.tint->ResolveToSkColor(colors));
+    }
+    SchedulePaint();
+  }
+
   void Pressed(const ui::Event& event) {
     Open(event.IsKeyEvent() ? ui::mojom::MenuSourceType::kKeyboard
                             : ui::mojom::MenuSourceType::kMouse);
@@ -133,9 +166,13 @@ class HeaderMenuButton : public views::Button {
   }
 
   const ControlLook look_ = MenuButtonLook();
+  // The look it paints in now, held or not.
+  ControlLook held_look_ = MenuButtonLook();
+  bool held_ = false;
   base::RepeatingCallback<void(const gfx::Rect&, ui::mojom::MenuSourceType)>
       open_menu_;
   std::unique_ptr<ControlHighlight> highlight_;
+  raw_ptr<ControlBackground> background_ = nullptr;
   raw_ptr<views::Label> title_ = nullptr;
 };
 

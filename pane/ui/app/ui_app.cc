@@ -658,9 +658,13 @@ void UiApp::LockNow() {
   }
   data_->LockScreen();
   profiles_ready_ = false;
-  // Nothing of the window's stays over the PIN screen.
+  // Nothing of the window's stays over the PIN screen: an alert asking is
+  // answered no, as Cancel does.
   CancelSwitcher();
   CancelQuit();
+  if (RootView* root = window_->root()) {
+    root->DismissDialogs();
+  }
   extensions_->Lock();
 
   std::vector<std::string> profile_ids;
@@ -2033,10 +2037,6 @@ void UiApp::QuitNow() {
 // MARK: The command table (commands.h)
 
 bool UiApp::IsCommandEnabled(Command command) {
-  // Where Pane runs the platform's own (platform_commands.h).
-  if (IsPlatformCommand(command) && !PlatformCommandEnabled(command)) {
-    return false;
-  }
   switch (command) {
     // Behind the Lock too, as the Swift's menu let them.
     case Command::kQuit:

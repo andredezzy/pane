@@ -74,7 +74,7 @@ python3 -I - "$OUT/Contents/Resources" "$PANE_VERSION" <<'PY'
 import pathlib, re, sys
 resources, version = pathlib.Path(sys.argv[1]), sys.argv[2]
 fixed = {
-    "NSHumanReadableCopyright": "Copyright 2026 Pane. Built on Chromium, copyright The Chromium Authors.",
+    "NSHumanReadableCopyright": "Copyright 2026 Rounded Corners. Built on Chromium, copyright The Chromium Authors.",
     "CFBundleGetInfoString": f"Pane {version}, built on Chromium.",
 }
 for strings in resources.glob("*.lproj/InfoPlist.strings"):

@@ -115,8 +115,9 @@ bool FolderPlace::HasEarlierData(const std::vector<std::string>& ids) const {
 // opens it (OpenProfile), under the profile's key. A profile that saves no
 // history opens without what it cached on disk while it did, as on the Mac
 // (DataVolume::Prepare): a download it was running when it was turned off
-// kept them until now. What the engine still holds open stays until the next
-// open.
+// kept them until now; and without the loading predictor's database, which
+// names the hosts it went to while it kept its history and learns none since
+// (ADR 0119). What the engine still holds open stays until the next open.
 bool FolderPlace::BringUpToDate(const ProfileWork& work) {
   if (work.locked->data.IsSet()) {
     return false;
@@ -127,7 +128,9 @@ bool FolderPlace::BringUpToDate(const ProfileWork& work) {
         EngineFolder(data_directory_).AppendASCII(work.profile_id);
     for (const base::FilePath::CharType* item :
          {FILE_PATH_LITERAL("shared_proto_db"), FILE_PATH_LITERAL("Cache"),
-          FILE_PATH_LITERAL("Code Cache")}) {
+          FILE_PATH_LITERAL("Code Cache"),
+          FILE_PATH_LITERAL("Network Action Predictor"),
+          FILE_PATH_LITERAL("Network Action Predictor-journal")}) {
       base::DeletePathRecursively(folder.Append(item));
     }
   }

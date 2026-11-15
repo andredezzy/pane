@@ -92,12 +92,14 @@ source_set("design") {
 
   # A menu's template icon, which only the Mac's menus tint, the Mac's
   # selected-text colors, the system's checkbox, AppKit's own cell, a menu at
-  # its anchor, Chromium's own runner's pieces, and the Mac's words.
+  # its anchor, Chromium's own runner's pieces, the Mac's focus ring, and the
+  # Mac's words.
   if (is_mac) {
     sources += [
       "anchored_menu_mac.h",
       "anchored_menu_mac.mm",
       "checkbox_mac.mm",
+      "focus_ring_mac.cc",
       "menu_icon_mac.mm",
       "palette_mac.mm",
       "scroll_mac.cc",
@@ -114,11 +116,12 @@ source_set("design") {
 
   # A menu at its anchor, Views' own, the system's checkbox, the native
   # theme's, a menu's icon in the menu's icon color, the system's highlight,
-  # and Windows' words.
+  # Windows' focus ring, and Windows' words.
   if (is_win) {
     sources += [
       "anchored_menu_win.cc",
       "checkbox_win.cc",
+      "focus_ring_win.cc",
       "menu_icon_win.cc",
       "palette_win.cc",
       "scroll_win.cc",
@@ -138,6 +141,7 @@ source_set("unit_tests") {
     "anchored_menu_unittest.cc",
     "controls_unittest.cc",
     "dialog_unittest.cc",
+    "focus_ring_unittest.cc",
     "icons_unittest.cc",
     "motion_unittest.cc",
     "palette_unittest.cc",
@@ -171,5 +175,10 @@ source_set("unit_tests") {
   if (is_mac) {
     sources += [ "anchored_menu_mac_unittest.mm" ]
     frameworks = [ "AppKit.framework" ]
+  }
+
+  # A contrast theme's colors, which Windows alone brings.
+  if (is_win) {
+    sources += [ "palette_win_unittest.cc" ]
   }
 }

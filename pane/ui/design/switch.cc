@@ -84,7 +84,10 @@ class Switch::Thumb : public views::View {
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     flags.setColor(colors->GetColor(kPaneColorWindowBackground));
-    flags.setLooper(ThumbShadow());
+    // No shadow under a contrast theme (Paper 11.10).
+    if (!SkColorGetA(colors->GetColor(kPaneColorForcedEdge))) {
+      flags.setLooper(ThumbShadow());
+    }
     canvas->DrawPath(ControlShape::Circle().PathIn(thumb), flags);
   }
 
@@ -184,9 +187,24 @@ void Switch::PaintButtonContents(gfx::Canvas* canvas) {
   const SkPath track_path = capsule.PathIn(track);
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
-  flags.setColor(Mix(colors->GetColor(kPaneColorBorder),
-                     colors->GetColor(kPaneColorPrimary), position));
-  canvas->DrawPath(track_path, flags);
+  // Under a contrast theme, off is an edge around the window's color and on
+  // the theme's Highlight, the thumb in the window's color either way (Paper
+  // 11.10.3): the border's color, its edge's there, is no track's fill.
+  const SkColor forced = colors->GetColor(kPaneColorForcedEdge);
+  if (SkColorGetA(forced)) {
+    flags.setColor(Mix(SkColorSetA(colors->GetColor(kPaneColorPrimary), 0),
+                       colors->GetColor(kPaneColorPrimary), position));
+    canvas->DrawPath(track_path, flags);
+    flags.setStyle(cc::PaintFlags::kStroke_Style);
+    flags.setStrokeWidth(1);
+    flags.setColor(Mix(forced, SkColorSetA(forced, 0), position));
+    canvas->DrawPath(capsule.StrokePathIn(track, 1), flags);
+    flags.setStyle(cc::PaintFlags::kFill_Style);
+  } else {
+    flags.setColor(Mix(colors->GetColor(kPaneColorBorder),
+                       colors->GetColor(kPaneColorPrimary), position));
+    canvas->DrawPath(track_path, flags);
+  }
   // A press over the track, as over a button's fill: the card's 10% over the
   // primary, the foreground's 6% over the border's color.
   if (highlight_.press() > 0) {

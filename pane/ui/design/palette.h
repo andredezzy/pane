@@ -3,6 +3,8 @@
 #ifndef PANE_UI_DESIGN_PALETTE_H_
 #define PANE_UI_DESIGN_PALETTE_H_
 
+#include <optional>
+
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "pane/model/profile.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -180,6 +182,18 @@ enum PaneColorIds : ui::ColorId {
   // What a sleeping tab's row shows in, in its place of a dimmed one, under
   // a contrast theme alone (Paper 11.10: its GrayText); clear otherwise.
   kPaneColorForcedGrayText,
+  // The theme's Highlight, under a contrast theme alone: a fill in it tells
+  // its control apart by itself, and takes no edge (Paper 11.10.2 to
+  // 11.10.5: a selected row, a default button, Create); clear otherwise.
+  kPaneColorForcedHighlight,
+  // The ring of a control the keys reach where the system draws it in the
+  // text's color (Windows, Paper 11.17 B; ControlFocusRingStyle): the
+  // foreground, and Highlight under a contrast theme.
+  kPaneColorKeyboardRing,
+  // Selected text where the system draws it in a color of its own over its
+  // highlight (Windows' HighlightText, Paper 11.18.1;
+  // SystemSelectedTextColor); unused where a field keeps its own.
+  kPaneColorTextSelectionForeground,
 
   kPaneColorsEnd,
 };
@@ -195,6 +209,12 @@ SkColor ProfileColorOf(model::ProfileColor color);
 // The platform's selected-text fill in its light or dark appearance, while
 // the window has the keys or doesn't.
 SkColor SystemTextSelection(bool dark, bool key_window);
+
+// The color the platform draws selected text in over that fill, where it
+// has one of its own: Windows' HighlightText, white by default, as its own
+// fields draw it (Paper 11.18.1: 4.5:1 where the field's own text was 3.9:1).
+// None on the Mac, where a field keeps its own color, as an NSTextField's.
+std::optional<SkColor> SystemSelectedTextColor();
 
 // Pane's colors for a provider of `key`'s appearance: added once at startup,
 // after Chrome's mixers (AddPaneColorMixer).

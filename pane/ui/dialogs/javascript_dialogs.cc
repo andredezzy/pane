@@ -94,11 +94,13 @@ void JavaScriptDialogs::RunJavaScriptDialog(
     case content::JAVASCRIPT_DIALOG_TYPE_CONFIRM:
       type = "confirm";
       content.buttons = {u"OK", u"Cancel"};
+      content.escape_button = 1;
       break;
     case content::JAVASCRIPT_DIALOG_TYPE_PROMPT:
       type = "prompt";
       content.fields = {{.text = default_prompt_text}};
       content.buttons = {u"OK", u"Cancel"};
+      content.escape_button = 1;
       break;
   }
   Ask(web_contents, type, std::move(content),
@@ -131,6 +133,7 @@ void JavaScriptDialogs::RunBeforeUnloadDialog(
   content.title = is_reload ? u"Reload site?" : u"Leave site?";
   content.message = {u"Changes you made may not be saved."};
   content.buttons = {is_reload ? u"Reload" : u"Leave", u"Cancel"};
+  content.escape_button = 1;
   Ask(web_contents, "beforeunload", std::move(content),
       base::BindOnce(
           [](DialogClosedCallback callback, std::optional<size_t> button,
@@ -180,6 +183,7 @@ void JavaScriptDialogs::RunFormResubmissionDialog(
       u"This page needs data you entered earlier. Sending it again repeats "
       u"any action the page performed."};
   content.buttons = {u"Continue", u"Cancel"};
+  content.escape_button = 1;
   Ask(web_contents, "formResubmission", std::move(content),
       base::BindOnce(
           [](base::WeakPtr<content::WebContents> contents,

@@ -161,6 +161,10 @@ void AddPaneColors(ui::ColorProvider* provider,
   mixer[kPaneColorRowSelectedForeground] = {kPaneColorAccentForeground};
   mixer[kPaneColorForcedEdge] = {SK_ColorTRANSPARENT};
   mixer[kPaneColorForcedGrayText] = {SK_ColorTRANSPARENT};
+  mixer[kPaneColorForcedHighlight] = {SK_ColorTRANSPARENT};
+  mixer[kPaneColorKeyboardRing] = {kPaneColorForeground};
+  mixer[kPaneColorTextSelectionForeground] = {
+      SystemSelectedTextColor().value_or(SK_ColorTRANSPARENT)};
   if (key.forced_colors != ui::ColorProviderKey::ForcedColors::kNone) {
     AddForcedColors(mixer);
   }

@@ -117,12 +117,14 @@ ControlLook ButtonLook(ButtonVariant variant, float radius) {
       look.lit_fill_opacity = 0.9;
       look.press = kPaneColorPressOnStrong;
       look.tint = kPaneColorPrimaryForeground;
+      look.strong_fill = true;
       break;
     case ButtonVariant::kDestructive:
       look.fill = kPaneColorDestructive;
       look.lit_fill_opacity = 0.9;
       look.press = kPaneColorPressOnStrong;
       look.tint = kPaneColorDestructiveForeground;
+      look.strong_fill = true;
       break;
     case ButtonVariant::kOutline:
       // No fill but its hover's (ADR 0063): the border over whatever it sits
@@ -336,9 +338,10 @@ void PaintControl(gfx::Canvas& canvas,
   const SkPath path = look.shape.PathIn(bounds);
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
+  const SkColor fill =
+      look.fill ? look.fill->ResolveToSkColor(&colors) : SK_ColorTRANSPARENT;
   if (look.fill) {
-    flags.setColor(Faded(look.fill->ResolveToSkColor(&colors),
-                         1 - (1 - look.lit_fill_opacity) * hover));
+    flags.setColor(Faded(fill, 1 - (1 - look.lit_fill_opacity) * hover));
     canvas.DrawPath(path, flags);
   }
   if (look.hover_fill && hover > 0) {
@@ -356,9 +359,13 @@ void PaintControl(gfx::Canvas& canvas,
     canvas.DrawPath(look.shape.StrokePathIn(bounds, 1), flags);
   }
   // Under a contrast theme, the edge where a fill told the control apart:
-  // its fill at rest, or its hover or press (Paper 11.10). Clear otherwise.
+  // its fill at rest, or its hover or press (Paper 11.10); none on a fill in
+  // the theme's Highlight, which tells it apart itself (11.10.2 to 11.10.5).
+  // Clear otherwise.
   const SkColor forced = colors.GetColor(kPaneColorForcedEdge);
-  if (SkColorGetA(forced) != SK_AlphaTRANSPARENT &&
+  const bool highlighted =
+      look.fill && fill == colors.GetColor(kPaneColorForcedHighlight);
+  if (SkColorGetA(forced) != SK_AlphaTRANSPARENT && !highlighted &&
       (look.fill || (look.hover_fill && hover > 0) || press > 0)) {
     flags.setColor(forced);
     flags.setStyle(cc::PaintFlags::kStroke_Style);

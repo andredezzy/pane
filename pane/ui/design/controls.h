@@ -93,6 +93,9 @@ struct ControlLook {
   // The whole control's opacity while disabled: a button's, a field's, and a
   // switch's 50%; an icon button's 40%, Aside's gray.
   float disabled_opacity = 0.5f;
+  // A strong fill (the primary's, the destructive's), which the system's
+  // focus ring may stand off (FocusRing::SetOnFill).
+  bool strong_fill = false;
 };
 
 // packages/ui's Button variants, as the Swift drew them; a page's dialog's,

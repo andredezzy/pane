@@ -32,6 +32,7 @@ bool AskToOpenExternalApp(const GURL& url,
           ? base::StrCat({HostOf(origin), u" wants to open this application."})
           : std::u16string(u"A website wants to open this application.")};
   content.buttons = {base::StrCat({u"Open ", program_name}), u"Cancel"};
+  content.escape_button = 1;
   dialogs->Ask(
       web_contents, PageDialogs::Kind::kExternalProtocol, std::move(content),
       base::BindOnce(

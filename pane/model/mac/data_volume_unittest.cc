@@ -350,8 +350,8 @@ TEST_F(DataVolumeTest, PurgesDeletions) {
   EXPECT_FALSE(base::PathExists(data.Append("deletions.json")));
 }
 
-// A profile that saves no history opens without its earlier downloads' log or
-// caches.
+// A profile that saves no history opens without its earlier downloads' log,
+// caches, or loading predictor's database (ADR 0119).
 TEST_F(DataVolumeTest, DownloadCache) {
   const base::FilePath data = Root().Append("data");
   const DataVolume volume(data, std::nullopt);
@@ -369,6 +369,11 @@ TEST_F(DataVolumeTest, DownloadCache) {
 
   for (const base::FilePath& item : written) {
     ASSERT_TRUE(base::CreateDirectory(item));
+  }
+  for (std::string_view item : {"Profile/Network Action Predictor",
+                                "Profile/Network Action Predictor-journal"}) {
+    written.push_back(folder.Append(item));
+    ASSERT_TRUE(base::WriteFile(written.back(), "sealed"));
   }
   ASSERT_TRUE(base::CreateDirectory(kept));
 

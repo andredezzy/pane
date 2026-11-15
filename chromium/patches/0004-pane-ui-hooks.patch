@@ -60,3 +60,39 @@ index b0d95981d6..dc4cbbc6eb 100644
    // Windowing system takes ownership.
    new ExternalProtocolDialog(web_contents, url, program_name, initiating_origin,
                               std::move(initiator_document));
+diff --git a/ui/views/controls/menu/menu_scroll_view_container.cc b/ui/views/controls/menu/menu_scroll_view_container.cc
+index 618177724d..068cc42651 100644
+--- a/ui/views/controls/menu/menu_scroll_view_container.cc
++++ b/ui/views/controls/menu/menu_scroll_view_container.cc
+@@ -31,6 +31,7 @@
+ #include "ui/gfx/canvas.h"
+ #include "ui/gfx/color_palette.h"
+ #include "ui/gfx/geometry/rounded_corners_f.h"
++#include "ui/native_theme/native_theme.h"
+ #include "ui/views/accessibility/view_accessibility.h"
+ #include "ui/views/background.h"
+ #include "ui/views/border.h"
+@@ -788,7 +789,13 @@ void MenuScrollViewContainer::CreateBubbleBorder() {
+       content_view_->GetMenuItem()->GetParentMenuItem()
+           ? menu_config.bubble_submenu_shadow_elevation
+           : menu_config.bubble_menu_shadow_elevation);
+-  bubble_border->set_draw_border_stroke(menu_config.use_outer_border);
++  // Pane: a contrast theme's menus take an edge, in its WindowText (Paper
++  // 11.10.4), where Windows 11's draw none; Pane's colors give the stroke that
++  // color (pane/ui/design/palette_win.cc). No theme forces colors elsewhere.
++  const bool draw_stroke = menu_config.use_outer_border ||
++                           GetNativeTheme()->forced_colors() !=
++                               ui::ColorProviderKey::ForcedColors::kNone;
++  bubble_border->set_draw_border_stroke(draw_stroke);
+ 
+   const int border_radius = GetCornerRadius();
+   if (use_ash_system_ui_layout_ || border_radius) {
+@@ -805,7 +812,7 @@ void MenuScrollViewContainer::CreateBubbleBorder() {
+   // The border stroke is expected to appear inside the "border size" region,
+   // but BubbleBorder outsets it.
+   const gfx::Insets border_thickness(
+-      menu_config.use_outer_border ? BubbleBorder::kBorderThicknessDip : 0);
++      draw_stroke ? BubbleBorder::kBorderThicknessDip : 0);
+   outside_border_insets_ = bubble_border->GetInsets() - border_thickness;
+   additional_insets_ =
+       gfx::Insets::VH(

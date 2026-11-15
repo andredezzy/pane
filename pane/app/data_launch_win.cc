@@ -105,20 +105,59 @@ bool SameFolder(const base::FilePath& a, const base::FilePath& b) {
   return same(a, b) || same(WhereItLeads(a), WhereItLeads(b));
 }
 
-// Whether Chromium keeps its user data in `engine_folder` on this launch, by
-// chrome_elf's own answer, which ChromeMainDelegate reads a moment later. A
-// folder the command line named that chrome_elf couldn't use sends it to its
-// default, which Chrome then reports: no launch Pane can be sure of either.
-bool ChromiumKeepsItsDataIn(const base::FilePath& engine_folder) {
+// Where Chromium keeps its user data on this launch, by chrome_elf's own
+// answer, which ChromeMainDelegate reads a moment later: the folder it named,
+// and the one the command line or a policy gave it that it couldn't use, which
+// sends it to its default and which Chrome then reports.
+struct ChromiumsFolder {
+  base::FilePath named;
+  base::FilePath unusable;
+
+  // What Pane was given: the folder chrome_elf couldn't use, else the one it
+  // named; none where chrome_elf answered nothing.
+  base::FilePath Given() const { return unusable.empty() ? named : unusable; }
+};
+
+std::optional<ChromiumsFolder> ChromiumsUserDataFolder() {
   std::array<wchar_t, MAX_PATH> named = {};
   std::array<wchar_t, MAX_PATH> unusable = {};
   if (!GetUserDataDirectoryThunk(named.data(), named.size(), unusable.data(),
-                                 unusable.size()) ||
-      unusable[0] != L'\0') {
-    return false;
+                                 unusable.size())) {
+    return std::nullopt;
   }
-  return SameFolder(base::FilePath(std::wstring_view(named.data())),
-                    engine_folder);
+  return ChromiumsFolder{base::FilePath(std::wstring_view(named.data())),
+                         base::FilePath(std::wstring_view(unusable.data()))};
+}
+
+// Whether Chromium keeps its user data in `engine_folder` on this launch: a
+// folder chrome_elf couldn't use is no launch Pane can be sure of either.
+bool KeepsItsDataIn(const std::optional<ChromiumsFolder>& folder,
+                    const base::FilePath& engine_folder) {
+  return folder && folder->unusable.empty() &&
+         SameFolder(folder->named, engine_folder);
+}
+
+// The refusal says why, and names the folder Pane was given, so the setting
+// can be found (Paper 11.16): in Windows' own MessageBox, since nothing of
+// Pane's can show this early, before any resource bundle, message loop, or
+// widget, where Chrome falls back to it too (message_box_dialog.cc). Its OK,
+// Enter, Esc, or Close end the launch. A scenario's run hears none of it, as
+// none of the Mac's launch alerts (PANE_AUTOMATION_DIR), so no test copy
+// waits on it; the log keeps its line either way.
+void SayWhyRefused(const std::optional<ChromiumsFolder>& folder) {
+  if (model::TestHook("PANE_AUTOMATION_DIR")) {
+    return;
+  }
+  std::wstring text =
+      L"Pane can\u2019t open with the data folder it was given.\n\n"
+      L"A policy, or the shortcut or program that started Pane, points it to "
+      L"another folder for its data, and Pane keeps your data only in its "
+      L"own. Remove that setting, then open Pane again.";
+  if (folder && !folder->Given().empty()) {
+    text += L"\n\nThe folder it was given: " + folder->Given().value();
+  }
+  ::MessageBoxW(nullptr, text.c_str(), L"Pane",
+                MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
 }
 
 // Windows Search, and any indexer that honors it, skips the data: the folder
@@ -299,9 +338,11 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
                                const base::CommandLine& command_line,
                                bool test_copy) {
   // The engine keeps its data in this data's engine folder, or nowhere.
-  if (!ChromiumKeepsItsDataIn(model::EngineFolder(data_directory))) {
+  const std::optional<ChromiumsFolder> folder = ChromiumsUserDataFolder();
+  if (!KeepsItsDataIn(folder, model::EngineFolder(data_directory))) {
     LOG(ERROR) << "Pane refused a launch whose engine would keep its data "
                   "outside the data folder's engine folder";
+    SayWhyRefused(folder);
     return 1;
   }
 

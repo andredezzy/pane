@@ -102,6 +102,16 @@ std::string_view ViewIdName(int id) {
       return "pane.quit.confirm";
     case kViewIdQuitCancel:
       return "pane.quit.cancel";
+    case kViewIdAlert:
+      return "pane.alert";
+    case kViewIdAlertCancel:
+      return "pane.alert.cancel";
+    case kViewIdAlertAction:
+      return "pane.alert.action";
+    case kViewIdAbout:
+      return "pane.about";
+    case kViewIdAboutOk:
+      return "pane.about.ok";
     case kViewIdDialog:
       return "pane.dialog";
     case kViewIdDialogField:

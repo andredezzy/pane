@@ -33,8 +33,13 @@ class FadingScrollView : public views::View, public views::ViewObserver {
   // How far an edge fades, at most (ADR 0061).
   static constexpr int kFade = 40;
 
-  // `behind`: what the list sits on, the overlays' color.
-  FadingScrollView(ui::ColorVariant behind, bool fades_top, bool fades_bottom);
+  // `behind`: what the list sits on, the overlays' color; `fade`, how far an
+  // edge fades at most (a page's dialog's message, 24 on Windows, Paper
+  // 11.18.1).
+  FadingScrollView(ui::ColorVariant behind,
+                   bool fades_top,
+                   bool fades_bottom,
+                   int fade = kFade);
   FadingScrollView(const FadingScrollView&) = delete;
   FadingScrollView& operator=(const FadingScrollView&) = delete;
   ~FadingScrollView() override;
@@ -60,6 +65,7 @@ class FadingScrollView : public views::View, public views::ViewObserver {
   // under way, which keeps its own.
   void RefreshHover();
 
+  const int fade_;
   raw_ptr<views::ScrollView> scroll_view_ = nullptr;
   raw_ptr<Fade> top_ = nullptr;
   raw_ptr<Fade> bottom_ = nullptr;

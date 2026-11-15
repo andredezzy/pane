@@ -59,8 +59,10 @@
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/menu_button.h"
+#include "pane/ui/dialogs/about_dialog.h"
 #include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/page_dialog.h"
+#include "pane/ui/dialogs/system_alert_dialog.h"
 #include "pane/ui/extensions/action_menu.h"
 #include "pane/ui/extensions/action_popup.h"
 #include "pane/ui/extensions/extension_actions_view.h"
@@ -134,6 +136,38 @@ void ClickMiddle(views::Widget* widget, const views::View* view) {
                                        view->GetLocalBounds())
           .CenterPoint();
   PostClick(widget, middle.x(), middle.y(), 1);
+}
+
+// The alert the window asks with, { title, message, buttons } from left to
+// right: Pane's own where it draws the system's (Windows, Paper 11.13 A),
+// else the system's sheet (the Mac's).
+base::Value AlertOf(views::Widget* widget, RootView* root) {
+  SystemAlertDialog* alert = root ? root->alert() : nullptr;
+  if (!alert) {
+    return SheetAlert(widget);
+  }
+  return base::Value(base::DictValue()
+                         .Set("title", alert->alert().title)
+                         .Set("message", alert->alert().message)
+                         .Set("buttons", base::ListValue()
+                                             .Append(alert->alert().cancel)
+                                             .Append(alert->alert().action)));
+}
+
+// About Pane while it shows where Pane draws it (Windows, Paper 11.15 A): its
+// lines, and whether its icon shows.
+base::Value AboutOf(RootView* root) {
+  AboutDialog* about = root ? root->about() : nullptr;
+  if (!about) {
+    return base::Value();
+  }
+  base::ListValue lines;
+  for (const std::u16string& line : about->Lines()) {
+    lines.Append(line);
+  }
+  return base::Value(base::DictValue()
+                         .Set("lines", std::move(lines))
+                         .Set("icon", about->has_icon()));
 }
 
 // The item of `menu` titled `title`, in either case: Chromium title-cases
@@ -501,37 +535,39 @@ Automation::~Automation() = default;
 
 void Automation::Run(std::string name, base::DictValue command) {
   const std::string* command_name = command.FindString("command");
-  Dispatch(command_name ? *command_name : std::string(), command,
-           base::BindOnce(
-               [](base::WeakPtr<Automation> automation, std::string name,
-                  base::Value result, std::string error) {
-                 if (!automation || !automation->app_) {
-                   return;
-                 }
-                 base::DictValue reply;
-                 reply.Set("ok", error.empty());
-                 if (error.empty()) {
-                   reply.Set("result", std::move(result));
-                 } else {
-                   reply.Set("error", error);
-                 }
-                 base::DictValue state = automation->app_->Snapshot();
-                 automation->AddProfileReads(state);
-                 state.Set("nativeWindows",
-                           NativeWindows(automation->app_->window()->widget()));
-                 state.Set("alert",
-                           SheetAlert(automation->app_->window()->widget()));
-                 // A file panel shows as the window's sheet, over any dialog;
-                 // the system's print panel runs app-modal.
-                 if (base::Value panel = FilePanelShown(); !panel.is_none()) {
-                   state.Set("sheet", std::move(panel));
-                 }
-                 state.Set("modal", ModalPanel());
-                 reply.Set("state", std::move(state));
-                 automation->files_.AsyncCall(&Files::Write)
-                     .WithArgs(name, base::WriteJson(reply).value_or("{}"));
-               },
-               weak_factory_.GetWeakPtr(), std::move(name)));
+  Dispatch(
+      command_name ? *command_name : std::string(), command,
+      base::BindOnce(
+          [](base::WeakPtr<Automation> automation, std::string name,
+             base::Value result, std::string error) {
+            if (!automation || !automation->app_) {
+              return;
+            }
+            base::DictValue reply;
+            reply.Set("ok", error.empty());
+            if (error.empty()) {
+              reply.Set("result", std::move(result));
+            } else {
+              reply.Set("error", error);
+            }
+            base::DictValue state = automation->app_->Snapshot();
+            automation->AddProfileReads(state);
+            state.Set("nativeWindows",
+                      NativeWindows(automation->app_->window()->widget()));
+            state.Set("alert", AlertOf(automation->app_->window()->widget(),
+                                       automation->app_->window()->root()));
+            state.Set("about", AboutOf(automation->app_->window()->root()));
+            // A file panel shows as the window's sheet, over any dialog;
+            // the system's print panel runs app-modal.
+            if (base::Value panel = FilePanelShown(); !panel.is_none()) {
+              state.Set("sheet", std::move(panel));
+            }
+            state.Set("modal", ModalPanel());
+            reply.Set("state", std::move(state));
+            automation->files_.AsyncCall(&Files::Write)
+                .WithArgs(name, base::WriteJson(reply).value_or("{}"));
+          },
+          weak_factory_.GetWeakPtr(), std::move(name)));
 }
 
 void Automation::AddProfileReads(base::DictValue& state) const {
@@ -1711,6 +1747,21 @@ void Automation::Dispatch(const std::string& name,
         frames.Set(card_name, RectList(card));
       }
     }
+    // Pane's own alert and About Pane, where Pane draws them (Windows): their
+    // content as "pane.alert" and "pane.about", and their buttons.
+    if (SystemAlertDialog* alert = window->root()->alert()) {
+      named.emplace_back(std::string(ViewIdName(kViewIdAlert)), alert);
+      named.emplace_back(std::string(ViewIdName(kViewIdAlertCancel)),
+                         alert->cancel_button());
+      named.emplace_back(std::string(ViewIdName(kViewIdAlertAction)),
+                         alert->action_button());
+    }
+    if (AboutDialog* about = window->root()->about()) {
+      named.emplace_back(std::string(ViewIdName(kViewIdAbout)), about);
+      if (const views::View* ok = about->GetViewByID(kViewIdAboutOk)) {
+        named.emplace_back(std::string(ViewIdName(kViewIdAboutOk)), ok);
+      }
+    }
     // A page's dialog: its card's content as "pane.dialog", its fields, and
     // its buttons.
     if (PageDialog* dialog = window->root()->page_dialog()) {
@@ -2197,6 +2248,20 @@ void Automation::Dispatch(const std::string& name,
   // does.
   if (name == "clickModalButton") {
     const std::string* title = command.FindString("title");
+    // Pane's own alert, where Pane draws the system's (Windows).
+    if (SystemAlertDialog* alert =
+            window->root() ? window->root()->alert() : nullptr;
+        alert && title) {
+      for (views::View* button :
+           {alert->cancel_button(), alert->action_button()}) {
+        if (base::UTF16ToUTF8(button->GetViewAccessibility().GetCachedName()) ==
+            *title) {
+          ClickMiddle(widget, button);
+          std::move(reply).Run(base::Value(), std::string());
+          return;
+        }
+      }
+    }
     if (!title || !PressSheetButton(widget, *title)) {
       std::move(reply).Run(base::Value(),
                            "no button " + (title ? *title : std::string()) +
@@ -2429,6 +2494,33 @@ void Automation::Dispatch(const std::string& name,
     if (ProfileSheet* sheet = root->profile_sheet()) {
       for (auto& entry : sheet->NamedViews()) {
         named.push_back(std::move(entry));
+      }
+    }
+    // Pane's own alert and About Pane, where Pane draws them: their dialogs,
+    // as a screen reader meets them, and their buttons.
+    for (const int id : {kViewIdAlert, kViewIdAbout}) {
+      const views::View* content =
+          id == kViewIdAlert ? static_cast<views::View*>(root->alert())
+                             : root->about();
+      if (!content) {
+        continue;
+      }
+      for (const views::View* view = content; view; view = view->parent()) {
+        if (view->GetID() == id) {
+          named.emplace_back(std::string(ViewIdName(id)), view);
+          break;
+        }
+      }
+    }
+    if (SystemAlertDialog* alert = root->alert()) {
+      named.emplace_back(std::string(ViewIdName(kViewIdAlertCancel)),
+                         alert->cancel_button());
+      named.emplace_back(std::string(ViewIdName(kViewIdAlertAction)),
+                         alert->action_button());
+    }
+    if (AboutDialog* about = root->about()) {
+      if (const views::View* ok = about->GetViewByID(kViewIdAboutOk)) {
+        named.emplace_back(std::string(ViewIdName(kViewIdAboutOk)), ok);
       }
     }
     base::DictValue controls;

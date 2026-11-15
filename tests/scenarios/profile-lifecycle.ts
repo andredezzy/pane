@@ -1,7 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { dataOpen, launchPane, profileFolder, tabOf } from "../lib/pane";
-import { ENGINE_FOLDER } from "../lib/platform";
+import {
+	bringToFront,
+	dataOpen,
+	launchPane,
+	profileFolder,
+	tabOf,
+} from "../lib/pane";
+import { bySystem, ENGINE_FOLDER } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { targets as targetsOf } from "../lib/targets";
@@ -10,7 +16,8 @@ import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
 // A first launch shows the empty state; collapsing a profile unloads its
-// pages but keeps its tabs; deleting a profile removes it and its data. A
+// pages but keeps its tabs; deleting a profile, once its alert's Delete is
+// chosen (Cancel keeps it), removes it and its data. A
 // delete the engine never confirmed (a quit, a crash) is finished at the
 // next launch. A profile whose page asks before it closes (beforeunload) is
 // deleted without asking. A profile whose engine context will not open (an
@@ -20,6 +27,10 @@ import { expect, type Scenario } from "../run";
 // Windows a deleted profile's preference MACs leave the registry with its
 // folder, and a test copy keeps them under a key of its own, never the
 // user's.
+// Windows' system alert is Pane's own dialog (Paper 11.13 A); the Mac's is
+// AppKit's sheet.
+const PANES_OWN_ALERT = bySystem({ mac: false, windows: true });
+
 const profileLifecycle: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-lifecycle-");
 
@@ -92,7 +103,91 @@ const profileLifecycle: Scenario = async (context) => {
 		"the profile has no engine directory to delete",
 	);
 
-	await app.send("deleteProfile", { profile: gone });
+	// Delete profile asks first, as the system asks: the Mac's alert sheet,
+	// and on Windows Pane's own dialog over the window, as Exit Pane? is
+	// (Paper 11.13 A), which a screen reader hears as a modal dialog named by
+	// its title. Cancel keeps the profile; Delete deletes it.
+	const askToDelete = async () => {
+		await app.send("rowMenu", { profile: gone, choose: "Delete profile" });
+
+		return (
+			await app.waitFor(
+				"the delete alert",
+				(state) => (state.alert?.buttons.length ?? 0) > 0,
+			)
+		).alert;
+	};
+
+	const asked = await askToDelete();
+
+	expect(
+		asked?.title === "Delete “Gone”?" &&
+			asked.message === "This action cannot be undone." &&
+			JSON.stringify(asked.buttons) === JSON.stringify(["Cancel", "Delete"]),
+		`the delete alert: ${JSON.stringify(asked)}`,
+	);
+
+	if (PANES_OWN_ALERT) {
+		const read = (
+			await app.send<
+				Record<string, { role: string; name: string; modal: boolean }>
+			>("accessibility", { prefix: "pane.alert" })
+		).result;
+
+		expect(
+			read["pane.alert"]?.role === "dialog" &&
+				read["pane.alert"].name === "Delete “Gone”?" &&
+				read["pane.alert"].modal &&
+				read["pane.alert.cancel"]?.name === "Cancel" &&
+				read["pane.alert.action"]?.name === "Delete",
+			`the alert as a screen reader hears it: ${JSON.stringify(read)}`,
+		);
+
+		await app.render("delete-alert.png", 300);
+	}
+
+	// Its keys, where the window takes them: Tab goes round Cancel and Delete
+	// alone, and Esc keeps the profile, as Cancel does.
+	if (
+		PANES_OWN_ALERT &&
+		(await bringToFront(context, app, "the alert's keys"))
+	) {
+		const focus: string[] = [];
+
+		for (let step = 0; step < 3; step++) {
+			await app.send("key", { key: "\t" });
+			await Bun.sleep(300);
+			focus.push((await app.state()).focus);
+		}
+
+		expect(
+			JSON.stringify(focus) ===
+				JSON.stringify([
+					"pane.alert.cancel",
+					"pane.alert.action",
+					"pane.alert.cancel",
+				]),
+			`Tab in the alert went to ${JSON.stringify(focus)}`,
+		);
+
+		await app.send("key", { key: "\u001b" });
+	} else {
+		await app.send("clickModalButton", { title: "Cancel" });
+	}
+
+	const kept = await app.waitFor(
+		"the alert gone, the profile kept",
+		(state) =>
+			!state.alert && state.profiles.some((profile) => profile.id === gone),
+	);
+
+	expect(
+		kept.profiles.some((profile) => profile.id === gone),
+		"Cancel deleted the profile",
+	);
+
+	await askToDelete();
+	await app.send("clickModalButton", { title: "Delete" });
 
 	const deleted = await app.waitFor(
 		"Gone deleted",

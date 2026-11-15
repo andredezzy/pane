@@ -98,7 +98,10 @@ class TextButton : public views::Button {
 // under the pointer, its key muted on the secondary chip (Quit Pane?'s Esc);
 // the destructive one's, filled, its key white on a faint white chip (⌘Q);
 // the primary's, filled, its key faint on a faint chip (the App icon
-// picker's Done, ↩). The title keeps its color under the pointer.
+// picker's Done, ↩). The title keeps its color under the pointer. With no
+// key, no chip shows, and the title is 14 in at either end (Paper 11.13 A's
+// Delete, 04.23.1's Exit Page). Laid out wider than it asks, its title is
+// centred, its chip still at the end (04.20.1's stacked buttons).
 class KeyedButton : public views::Button {
   METADATA_HEADER(KeyedButton, views::Button)
 
@@ -120,7 +123,7 @@ class KeyedButton : public views::Button {
   void PaintButtonContents(gfx::Canvas* canvas) override;
 
  private:
-  // The chip, around the key's label.
+  // The chip, around the key's label, while it has one.
   gfx::RectF ChipBounds() const;
 
   const Role role_;

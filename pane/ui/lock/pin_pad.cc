@@ -45,6 +45,13 @@ SkColor ForegroundAt(SkColor foreground, double alpha) {
           std::clamp(alpha, 0.0, 1.0) * SkColorGetA(foreground) + 0.5));
 }
 
+// Under a contrast theme the pad takes the theme's text color whole, as every
+// color takes one of its roles (Paper 11.10.1): no share of it, a grey no
+// theme has; a press shows nothing of its own, as a control's clears.
+bool UnderContrast(const ui::ColorProvider& colors) {
+  return SkColorGetA(colors.GetColor(kPaneColorForcedEdge)) != 0;
+}
+
 // A dot's ring: 1.5 points just inside its edge, the foreground at 25%.
 constexpr float kDotRing = 1.5f;
 constexpr double kDotRingAlpha = 0.25;
@@ -214,7 +221,9 @@ void PinDots::OnPaint(gfx::Canvas* canvas) {
     if (fill < 1) {
       flags.setStyle(cc::PaintFlags::kStroke_Style);
       flags.setStrokeWidth(kDotRing);
-      flags.setColor(ForegroundAt(foreground, kDotRingAlpha * (1 - fill)));
+      flags.setColor(ForegroundAt(
+          foreground,
+          (UnderContrast(*colors) ? 1 : kDotRingAlpha) * (1 - fill)));
       canvas->DrawCircle(center, (kSize - kDotRing) / 2.0f, flags);
     }
   }
@@ -267,7 +276,8 @@ class Numpad::DigitKey : public views::Button {
     const ControlShape circle = ControlShape::Circle();
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
-    if (highlight_->press() > 0) {
+    const bool contrast = UnderContrast(*colors);
+    if (highlight_->press() > 0 && !contrast) {
       flags.setColor(
           ForegroundAt(foreground, kPressAlpha * highlight_->press()));
       canvas->DrawPath(circle.PathIn(bounds), flags);
@@ -275,8 +285,9 @@ class Numpad::DigitKey : public views::Button {
     flags.setStyle(cc::PaintFlags::kStroke_Style);
     flags.setStrokeWidth(1);
     flags.setColor(ForegroundAt(
-        foreground,
-        kRingAlpha + (kRingLitAlpha - kRingAlpha) * highlight_->hover()));
+        foreground, contrast ? 1
+                             : kRingAlpha + (kRingLitAlpha - kRingAlpha) *
+                                                highlight_->hover()));
     canvas->DrawPath(circle.StrokePathIn(bounds, 1), flags);
   }
 
@@ -287,17 +298,21 @@ class Numpad::DigitKey : public views::Button {
     if (label_) {
       if (const ui::ColorProvider* colors = GetColorProvider()) {
         const SkColor foreground = colors->GetColor(kPaneColorForeground);
+        const bool contrast = UnderContrast(*colors);
         label_->SetEnabledColor(ForegroundAt(
             foreground,
-            kDigitAlpha +
-                (1 - kDigitAlpha) * (highlight_ ? highlight_->hover() : 0)));
+            contrast
+                ? 1
+                : kDigitAlpha + (1 - kDigitAlpha) *
+                                    (highlight_ ? highlight_->hover() : 0)));
         if (parent()) {
-          SetGround(*this,
-                    OverGround(ForegroundAt(
-                                   foreground,
-                                   kPressAlpha *
-                                       (highlight_ ? highlight_->press() : 0)),
-                               1, GroundOf(*parent())));
+          SetGround(
+              *this,
+              OverGround(ForegroundAt(foreground,
+                                      contrast || !highlight_
+                                          ? 0
+                                          : kPressAlpha * highlight_->press()),
+                         1, GroundOf(*parent())));
           RefreshLabelGrounds(*this);
         }
       }
@@ -343,7 +358,8 @@ class Numpad::DeleteKey : public views::Button {
     flags.setStrokeWidth(kGlyphStroke);
     flags.setStrokeCap(cc::PaintFlags::kRound_Cap);
     flags.setStrokeJoin(cc::PaintFlags::kRound_Join);
-    flags.setColor(ForegroundAt(colors->GetColor(kPaneColorForeground), alpha));
+    flags.setColor(ForegroundAt(colors->GetColor(kPaneColorForeground),
+                                UnderContrast(*colors) ? 1 : alpha));
     canvas->DrawPath(DeleteGlyph().makeOffset((width() - kGlyphWidth) / 2,
                                               (height() - kGlyphHeight) / 2),
                      flags);

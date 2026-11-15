@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "pane/model/app_settings.h"
+#include "pane/ui/dialogs/system_alert.h"
 #include "pane/ui/extensions/extensions_menu_view.h"
 #include "pane/ui/lock/lock_screen_view.h"
 #include "pane/ui/page/find_bar_view.h"
@@ -35,8 +36,14 @@ class EventHandler;
 class KeyEvent;
 }  // namespace ui
 
+namespace gfx {
+class ImageSkia;
+}  // namespace gfx
+
 namespace views {
+class Button;
 class WebView;
+class Widget;
 }  // namespace views
 
 namespace pane {
@@ -45,6 +52,7 @@ namespace model {
 class ToolbarProgress;
 }
 
+class AboutDialog;
 class AppIconImages;
 class AppIconPicker;
 class DialogCard;
@@ -60,6 +68,7 @@ class PageDialog;
 class PanelFrame;
 class ProfileSheetOverlay;
 class SadTabView;
+class SystemAlertDialog;
 class WindowControls;
 
 // Everything a Pane window draws (Paper's main window, the Swift's RootView),
@@ -132,6 +141,10 @@ class RootView : public views::View {
     // The PIN screen over everything, or the data's move on its panel.
     LockScreenView::Shows lock;
   };
+
+  // The root of `widget`, a window of Pane's: its delegate's contents (the
+  // widget's own contents are Views' frame around it); null for another.
+  static RootView* Of(views::Widget* widget);
 
   // `progress` and `images`, the app's, outlive the view.
   RootView(Callbacks callbacks,
@@ -215,8 +228,29 @@ class RootView : public views::View {
   // Shown, and not on its way out.
   bool quit_dialog_showing() const;
   // An overlay takes every key, the window's commands' included but the menu
-  // bar's Quit: Quit Pane?, and the PIN screen.
+  // bar's Quit: Quit Pane?, the system's alert and About Pane where Pane
+  // draws them, and the PIN screen.
   bool TakesEveryKey() const;
+
+  // The system's alert where Pane draws it (Windows, system_alert.h; Paper
+  // 11.13 A), over the window as Quit Pane? is: it fades in as its card
+  // grows and takes the keys, Tab moving between Cancel and the action, Esc
+  // and a click outside it cancelling; `done` hears whether the action was
+  // chosen, once, as it starts to go, and the keys go back to what had them.
+  // One asked while another asks answers that one no, as a Lock does.
+  void ShowAlert(const SystemAlert& alert,
+                 base::OnceCallback<void(bool chosen)> done);
+  // About Pane where Pane draws it (Windows, Paper 11.15 A), over the window:
+  // `icon`, the sky the taskbar shows, and the app's `version`; its OK,
+  // Enter, Esc, or a click outside close it. Made at its first showing, and
+  // kept.
+  void ShowAbout(const gfx::ImageSkia& icon, const std::u16string& version);
+  void HideAbout();
+  // While they show, not on their way out.
+  SystemAlertDialog* alert();
+  AboutDialog* about();
+  // A Lock: the alert answers no, and About goes.
+  void DismissDialogs();
 
   // F6, Shift+F6, or Alt+Shift+T moving the keys between the window's
   // groups (focus_groups.h): true when they moved, on Windows.
@@ -338,12 +372,21 @@ class RootView : public views::View {
   void PlaceWindowControls();
   void LayOutWindowControls();
   void PrepareAppIconPicker();
+  // The alert's answer, as it goes.
+  void AnswerAlert(bool chosen);
+  // A dialog made for one asking has gone: it leaves the window once the
+  // animation that hid it is through.
+  void DialogGone(ModalDialog* dialog);
+  // What has the keys, inside `view`: a button of it.
+  views::Button* FocusedButtonIn(views::View* view);
   // Places the page's dialogs, the one showing and those on their way out.
   void PlacePageDialogs();
   // The one showing has come in, unless another took its place.
   void PageDialogEntered(DialogCard* card);
   // One gone: its card leaves the window.
   void PageDialogLeft(DialogCard* card);
+  // The page's dim fades in, or out, with a page's dialog's card.
+  void DimPage(bool dimmed);
   // The extensions menus under the puzzle, where the toolbar puts it.
   void PlaceExtensionsMenu();
   // An extension's prompt, the removal's under its anchor.
@@ -383,6 +426,14 @@ class RootView : public views::View {
   // Quit Pane?'s dialog, and what had the keys before it showed.
   raw_ptr<ModalDialog> quit_dialog_ = nullptr;
   views::ViewTracker focus_before_quit_;
+  // The system's alert that asks, its answer, and what had the keys before.
+  raw_ptr<ModalDialog> alert_dialog_ = nullptr;
+  base::OnceCallback<void(bool)> alert_done_;
+  views::ViewTracker focus_before_alert_;
+  // About Pane, once made, its content, and what had the keys before.
+  raw_ptr<ModalDialog> about_dialog_ = nullptr;
+  raw_ptr<AboutDialog> about_content_ = nullptr;
+  views::ViewTracker focus_before_about_;
   // A page's dialog showing, whether it is on its way in, those on their
   // way out, what took presses meant for the page under it, and what had
   // the keys before the first showed.
@@ -390,6 +441,9 @@ class RootView : public views::View {
   bool page_dialog_entering_ = false;
   std::vector<raw_ptr<DialogCard>> page_dialogs_leaving_;
   raw_ptr<views::View> page_shield_ = nullptr;
+  // Where the system dims the page under its dialog (Windows, Paper 11.18):
+  // the modal scrim over the page alone, fading with the card.
+  raw_ptr<views::View> page_dim_ = nullptr;
   views::ViewTracker focus_before_page_dialog_;
   // Find in page's bar on its card, the shield under it, and what it shows.
   raw_ptr<views::View> find_shield_ = nullptr;

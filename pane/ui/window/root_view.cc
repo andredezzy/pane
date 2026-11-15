@@ -19,8 +19,10 @@
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/tab_order.h"
 #include "pane/ui/design/theme.h"
+#include "pane/ui/dialogs/about_dialog.h"
 #include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/page_dialog.h"
+#include "pane/ui/dialogs/system_alert_dialog.h"
 #include "pane/ui/extensions/extension_actions_view.h"
 #include "pane/ui/extensions/extensions_ui.h"
 #include "pane/ui/interaction_log.h"
@@ -51,10 +53,14 @@
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
+#include "ui/views/controls/button/button.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/style/platform_style.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_delegate.h"
 
 namespace pane {
 
@@ -316,6 +322,14 @@ RootView::Shows::Shows(const Shows&) = default;
 RootView::Shows& RootView::Shows::operator=(const Shows&) = default;
 RootView::Shows::~Shows() = default;
 
+// static
+RootView* RootView::Of(views::Widget* widget) {
+  views::WidgetDelegate* delegate =
+      widget ? widget->widget_delegate() : nullptr;
+  return delegate ? views::AsViewClass<RootView>(delegate->GetContentsView())
+                  : nullptr;
+}
+
 RootView::RootView(Callbacks callbacks,
                    model::ToolbarProgress* progress,
                    AppIconImages* images)
@@ -380,6 +394,17 @@ RootView::RootView(Callbacks callbacks,
   // edge.
   page_shield_ = AddChildView(std::make_unique<PageShield>());
   page_shield_->SetVisible(false);
+  // The page's dim, where the system draws one: a color the compositor
+  // draws, over the page alone.
+  if (ThisPageDialogStyle().dims_page) {
+    page_dim_ = AddChildView(std::make_unique<views::View>());
+    page_dim_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
+    page_dim_->layer()->SetFillsBoundsOpaquely(false);
+    page_dim_->layer()->SetOpacity(0);
+    page_dim_->SetCanProcessEventsWithinSubtree(false);
+    page_dim_->GetViewAccessibility().SetIsIgnored(true);
+    page_dim_->SetVisible(false);
+  }
   page_dialog_keys_ = std::make_unique<PageDialogKeys>(this);
   AddPreTargetHandler(page_dialog_keys_.get());
   resize_ = AddChildView(
@@ -798,7 +823,132 @@ bool RootView::quit_dialog_showing() const {
 }
 
 bool RootView::TakesEveryKey() const {
-  return quit_dialog_->takes_every_key() || lock_->takes_every_key();
+  return quit_dialog_->takes_every_key() ||
+         (alert_dialog_ && alert_dialog_->takes_every_key()) ||
+         (about_dialog_ && about_dialog_->takes_every_key()) ||
+         lock_->takes_every_key();
+}
+
+void RootView::ShowAlert(const SystemAlert& alert,
+                         base::OnceCallback<void(bool)> done) {
+  AnswerAlert(false);
+  views::FocusManager* focus = GetFocusManager();
+  focus_before_alert_.SetView(focus ? focus->GetFocusedView() : nullptr);
+  // Esc, Cancel, and a click outside it cancel; Return presses no button of
+  // its own, the action never being the default.
+  ModalDialog::Callbacks callbacks;
+  callbacks.dismiss = base::BindRepeating(&RootView::AnswerAlert,
+                                          weak_factory_.GetWeakPtr(), false);
+  auto content = std::make_unique<SystemAlertDialog>(
+      alert, callbacks.dismiss,
+      base::BindRepeating(&RootView::AnswerAlert, weak_factory_.GetWeakPtr(),
+                          true));
+  alert_dialog_ = AddChildView(std::make_unique<ModalDialog>(
+      SystemAlertDialog::kWidth, std::move(content), std::move(callbacks),
+      ModalDialog::Keys::kDialog));
+  alert_dialog_->SetID(kViewIdAlert);
+  // Read as a modal dialog named by its title, as Quit Pane? is.
+  alert_dialog_->GetViewAccessibility().SetName(alert.title);
+  alert_done_ = std::move(done);
+  // Over whatever came after it, under the PIN screen.
+  RaiseTopOverlays();
+  alert_dialog_->SetBoundsRect(GetLocalBounds());
+  alert_dialog_->AnimateIn();
+}
+
+void RootView::AnswerAlert(bool chosen) {
+  if (!alert_dialog_) {
+    return;
+  }
+  ModalDialog* dialog = std::exchange(alert_dialog_, nullptr);
+  dialog->AnimateOut(base::BindOnce(&RootView::DialogGone,
+                                    weak_factory_.GetWeakPtr(), dialog));
+  views::View* before = focus_before_alert_.view();
+  focus_before_alert_.SetView(nullptr);
+  ReturnKeys(before);
+  UpdateScreenReaderLayers();
+  if (alert_done_) {
+    std::move(alert_done_).Run(chosen);
+  }
+}
+
+void RootView::DialogGone(ModalDialog* dialog) {
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<RootView> root, ModalDialog* dialog) {
+                       if (!root) {
+                         return;
+                       }
+                       for (views::View* child : root->children()) {
+                         if (child == dialog) {
+                           root->RemoveChildViewT(dialog);
+                           return;
+                         }
+                       }
+                     },
+                     weak_factory_.GetWeakPtr(), dialog));
+}
+
+void RootView::ShowAbout(const gfx::ImageSkia& icon,
+                         const std::u16string& version) {
+  if (!about_dialog_) {
+    ModalDialog::Callbacks callbacks;
+    callbacks.dismiss =
+        base::BindRepeating(&RootView::HideAbout, weak_factory_.GetWeakPtr());
+    callbacks.accept = callbacks.dismiss;
+    auto content = std::make_unique<AboutDialog>(version, callbacks.dismiss);
+    about_content_ = content.get();
+    about_dialog_ = AddChildView(std::make_unique<ModalDialog>(
+        AboutDialog::kWidth, std::move(content), std::move(callbacks),
+        ModalDialog::Keys::kDialog));
+    about_dialog_->SetID(kViewIdAbout);
+    about_dialog_->GetViewAccessibility().SetName(u"About Pane");
+  }
+  about_content_->SetIcon(icon);
+  if (about_dialog_->showing()) {
+    return;
+  }
+  views::FocusManager* focus = GetFocusManager();
+  focus_before_about_.SetView(focus ? focus->GetFocusedView() : nullptr);
+  // Over whatever came after it, under the PIN screen.
+  ReorderChildView(about_dialog_, children().size());
+  RaiseTopOverlays();
+  about_dialog_->SetBoundsRect(GetLocalBounds());
+  about_dialog_->AnimateIn();
+}
+
+void RootView::HideAbout() {
+  if (!about_dialog_ || !about_dialog_->showing()) {
+    return;
+  }
+  about_dialog_->AnimateOut();
+  views::View* before = focus_before_about_.view();
+  focus_before_about_.SetView(nullptr);
+  ReturnKeys(before);
+}
+
+SystemAlertDialog* RootView::alert() {
+  return alert_dialog_ && alert_dialog_->showing()
+             ? static_cast<SystemAlertDialog*>(alert_dialog_->content())
+             : nullptr;
+}
+
+AboutDialog* RootView::about() {
+  return about_dialog_ && about_dialog_->showing() ? about_content_.get()
+                                                   : nullptr;
+}
+
+void RootView::DismissDialogs() {
+  AnswerAlert(false);
+  HideAbout();
+}
+
+views::Button* RootView::FocusedButtonIn(views::View* view) {
+  views::FocusManager* focus = GetFocusManager();
+  views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+  return focused && view->Contains(focused)
+             ? views::AsViewClass<views::Button>(focused)
+             : nullptr;
 }
 
 void RootView::ShowPageDialog(std::unique_ptr<PageDialog> dialog) {
@@ -807,10 +957,11 @@ void RootView::ShowPageDialog(std::unique_ptr<PageDialog> dialog) {
   // Under the extensions menu, the switcher, and what shows over the whole
   // window after them.
   page_dialog_ =
-      AddChildViewAt(std::make_unique<DialogCard>(PageDialog::AlertCardLook(),
+      AddChildViewAt(std::make_unique<DialogCard>(ThisPageDialogStyle().card,
                                                   std::move(dialog)),
                      GetIndexOf(extensions_shield_).value());
   page_shield_->SetVisible(true);
+  DimPage(true);
   PlacePageDialogs();
   page_dialog_->Settle(false);
   page_dialog_entering_ = true;
@@ -839,6 +990,7 @@ void RootView::HidePageDialog() {
   card->SetCanProcessEventsWithinSubtree(false);
   page_dialogs_leaving_.push_back(card);
   page_shield_->SetVisible(false);
+  DimPage(false);
   // It fades as it shrinks, then leaves the window.
   card->Move(false, base::BindOnce(&RootView::PageDialogLeft,
                                    weak_factory_.GetWeakPtr(), card));
@@ -873,7 +1025,8 @@ bool RootView::OverlayKey(const ui::KeyEvent& event) {
   // the whole window, and the PIN screen.
   if (switcher_->GetVisible() || quit_dialog_->showing() ||
       (app_icon_dialog_ && app_icon_dialog_->showing()) ||
-      lock_->takes_every_key()) {
+      (alert_dialog_ && alert_dialog_->showing()) ||
+      (about_dialog_ && about_dialog_->showing()) || lock_->takes_every_key()) {
     return false;
   }
   // An extension's prompt, over the menu and a page's dialog: Return
@@ -891,12 +1044,46 @@ bool RootView::OverlayKey(const ui::KeyEvent& event) {
   if (!dialog) {
     return false;
   }
+  // Where the system's buttons take Return, the one with the ring presses as
+  // it (Windows; Views' PlatformStyle).
+  if (code == ui::VKEY_RETURN &&
+      views::PlatformStyle::kReturnClicksFocusedControl &&
+      FocusedButtonIn(dialog)) {
+    return false;
+  }
   dialog->PressKey(code == ui::VKEY_ESCAPE);
   return true;
 }
 
+void RootView::DimPage(bool dimmed) {
+  if (!page_dim_) {
+    return;
+  }
+  if (dimmed) {
+    page_dim_->SetVisible(true);
+  }
+  // On the card's curve, from where it stands; gone, it hides, unless
+  // another dialog came meanwhile.
+  CompositorMotion::Start(
+      page_dim_->layer(), motion::Panel(), {.opacity = dimmed ? 1.0f : 0.0f},
+      base::BindOnce(
+          [](base::WeakPtr<RootView> root) {
+            if (root && root->page_dim_ && !root->page_dialog_) {
+              root->page_dim_->SetVisible(false);
+            }
+          },
+          weak_factory_.GetWeakPtr()));
+}
+
 void RootView::PlacePageDialogs() {
+  const PageDialogStyle& style = ThisPageDialogStyle();
   const int line = std::round(height() * 3 / 8.0);
+  // The page's middle, where the system centres its dialog on the page it
+  // dims (Windows, Paper 11.18); else the window's.
+  const float middle =
+      style.centred_on_page
+          ? page_->bounds().x() + page_->bounds().width() / 2.0f
+          : width() / 2.0f;
   std::vector<DialogCard*> cards(page_dialogs_leaving_.begin(),
                                  page_dialogs_leaving_.end());
   if (page_dialog_) {
@@ -905,12 +1092,14 @@ void RootView::PlacePageDialogs() {
   for (DialogCard* card : cards) {
     auto* dialog = static_cast<PageDialog*>(card->content());
     dialog->SetMostHeight(height() - line - kPageDialogMargin -
-                          PageDialog::AlertCardLook().padding.height());
-    const gfx::SizeF size = card->SizeFor(PageDialog::kWidth);
+                          style.card.padding.height());
+    const gfx::SizeF size = card->SizeFor(style.width);
+    // The fill's top on the line, a ring outside it above it (Paper 04.15.1).
+    const float ring = style.card.edge_outside ? style.card.edge_width : 0;
     const float top = std::max<float>(
-        kPageDialogTop,
-        std::min<float>(line, height() - size.height() - kPageDialogMargin));
-    const bool moved = card->Place(gfx::RectF((width() - size.width()) / 2, top,
+        kPageDialogTop, std::min<float>(line - ring, height() - size.height() -
+                                                         kPageDialogMargin));
+    const bool moved = card->Place(gfx::RectF(middle - size.width() / 2, top,
                                               size.width(), size.height()));
     // The window changed under the one showing: there at once, or on to
     // the new place if it is on its way in.
@@ -1162,7 +1351,8 @@ void RootView::UpdateScreenReaderLayers() {
   UpdateAccessibleLayers(*this, [this](const views::View& child) {
     return &child == lock_.get() || &child == quit_dialog_.get() ||
            &child == app_icon_dialog_.get() || &child == profile_sheet_.get() ||
-           &child == extension_prompt_.get() || &child == page_dialog_.get();
+           &child == extension_prompt_.get() || &child == page_dialog_.get() ||
+           &child == alert_dialog_.get() || &child == about_dialog_.get();
   });
 }
 
@@ -1312,6 +1502,11 @@ SkPath RootView::PanelPath() const {
 
 void RootView::OnThemeChanged() {
   views::View::OnThemeChanged();
+  // The page's dim in the modal scrim's color, black in both, darker on dark.
+  if (page_dim_) {
+    page_dim_->layer()->AsSolidColor()->SetColor(SkColor4f::FromColor(
+        GetColorProvider()->GetColor(kPaneColorModalScrim)));
+  }
   // Every view in the theme's colors, those on layers of their own too; a
   // contrast theme's colors come in more than one change, its switch before
   // its colors, and each one paints again.
@@ -1374,6 +1569,14 @@ void RootView::Layout(PassKey) {
   // Where the page is, under the toolbar.
   sad_tab_->SetBoundsRect(page_->bounds());
   page_shield_->SetBoundsRect(page_->bounds());
+  if (page_dim_) {
+    page_dim_->SetBoundsRect(page_->bounds());
+    // The page's own corners, as its layer rounds them (RoundPage).
+    if (const gfx::RoundedCornersF corners = PageCorners();
+        page_dim_->layer()->rounded_corner_radii() != corners) {
+      page_dim_->layer()->SetRoundedCornerRadius(corners);
+    }
+  }
   switcher_->SetBoundsRect(GetLocalBounds());
   PlacePageDialogs();
   // The find bar 64 down the window and 24 in from its right.
@@ -1398,6 +1601,12 @@ void RootView::Layout(PassKey) {
     app_icon_dialog_->SetBoundsRect(GetLocalBounds());
   }
   quit_dialog_->SetBoundsRect(GetLocalBounds());
+  for (views::View* child : children()) {
+    if (views::IsViewClass<ModalDialog>(child) && child != quit_dialog_ &&
+        child != app_icon_dialog_) {
+      child->SetBoundsRect(GetLocalBounds());
+    }
+  }
   lock_->SetBoundsRect(GetLocalBounds());
   LayOutWindowControls();
 }

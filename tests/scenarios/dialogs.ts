@@ -1,4 +1,6 @@
-import { launchPane, pressWindowKey, tabOf } from "../lib/pane";
+import { bringToFront, launchPane, pressWindowKey, tabOf } from "../lib/pane";
+import { bySystem } from "../lib/platform";
+import { pollValue } from "../lib/poll";
 import {
 	answerSheet,
 	pageResult,
@@ -13,6 +15,10 @@ import { expect, type Scenario } from "../run";
 // button clicked, or Return's or Esc's; prompt() returns what was typed, or
 // null; beforeunload asks before its tab closes; and reloading what was
 // posted asks first.
+// A page's dialog on Windows is the card of Pane's own questions (Paper
+// 04.15.1 to 04.23.1, 11.18); the Mac's, its alert sheet.
+const PANES_OWN_DIALOG = bySystem({ mac: false, windows: true });
+
 const dialogs: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
@@ -87,6 +93,74 @@ const dialogs: Scenario = async (context) => {
 
 	expect(accepted.value === true, `OK gave ${accepted.value}`);
 	expect(refused.value === false, `Cancel gave ${refused.value}`);
+
+	// On Windows the card of Pane's own questions over the page's dim, 480
+	// wide, centred on the page it dims, not the window (Paper 11.18); its
+	// buttons keyed, the default with Enter, Cancel with Esc; Tab goes round
+	// them alone, and Enter presses the one with the ring.
+	if (PANES_OWN_DIALOG) {
+		await confirm.page.evaluate("runConfirm()");
+		await waitForSheet(app, "javaScript");
+
+		// Measured once it has come: it grows into place as it shows.
+		const frames = await pollValue(
+			async () =>
+				(
+					await app.send<Record<string, number[]>>("frames", {
+						prefix: "pane.dialog",
+					})
+				).result,
+			(measured) => measured["pane.dialog"]?.[2] === 432,
+			2_000,
+		);
+
+		const { page } = (await app.send<{ page: number[] }>("modalHost")).result;
+		const [x = 0, , width = 0] = frames["pane.dialog"] ?? [];
+		const [pageX = 0, , pageWidth = 0] = page;
+
+		expect(
+			width === 432 && Math.abs(x + width / 2 - (pageX + pageWidth / 2)) <= 1,
+			`the dialog's content at ${frames["pane.dialog"]}, the page at ${page}`,
+		);
+
+		await app.render("dialog-confirm.png", 300);
+		await answerSheet(app, "Cancel");
+		await confirm.result<{ value: boolean }>();
+
+		if (await bringToFront(context, app, "a dialog's buttons by the keys")) {
+			// Cancel, the first Tab's, then OK; each pressed by Enter.
+			const pressedAfter = async (tabs: number) => {
+				await confirm.page.evaluate("runConfirm()");
+				await waitForSheet(app, "javaScript");
+
+				for (let step = 0; step < tabs; step++) {
+					await app.send("key", { key: "\t" });
+					await Bun.sleep(200);
+				}
+
+				const focus = (await app.state()).focus;
+				await app.send("key", { key: "\r" });
+
+				return {
+					focus,
+					value: (await confirm.result<{ value: boolean }>()).value,
+				};
+			};
+
+			const onCancel = await pressedAfter(1);
+			const onOk = await pressedAfter(2);
+			const wrapped = await pressedAfter(3);
+
+			expect(
+				onCancel.focus === "pane.dialog.button" &&
+					onCancel.value === false &&
+					onOk.value === true &&
+					wrapped.focus === "pane.dialog.button" &&
+					wrapped.value === false,
+				`Tab and Enter in the dialog: ${JSON.stringify({ onCancel, onOk, wrapped })}`,
+			);
+		}
+	}
 
 	// prompt()
 	const prompt = await openDialogs("prompt");

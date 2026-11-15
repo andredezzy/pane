@@ -9,6 +9,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
@@ -18,6 +19,8 @@
 #include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/geometry/vector2d_f.h"
+#include "ui/views/focus/focus_manager.h"
+#include "ui/views/focus/focus_search.h"
 #include "ui/views/view.h"
 #include "ui/views/view_targeter_delegate.h"
 
@@ -138,6 +141,49 @@ class DialogCard : public views::View, public views::ViewTargeterDelegate {
   gfx::Vector2dF shift_;
 };
 
+// Keeps the keys' traversal inside `root`, a dialog over the window: Tab
+// and Shift+Tab go round its controls, the last on to the first, as a
+// dialog's own window keeps them, rather than on to the window's controls
+// under it (Views' pane traversal, as Chrome's AccessiblePaneView keeps a
+// toolbar's). Its view answers it as its pane's (GetPaneFocusTraversable).
+class FocusTrap : public views::FocusTraversable {
+ public:
+  explicit FocusTrap(views::View* root);
+  FocusTrap(const FocusTrap&) = delete;
+  FocusTrap& operator=(const FocusTrap&) = delete;
+  ~FocusTrap() override;
+
+  // views::FocusTraversable:
+  views::FocusSearch* GetFocusSearch() override;
+  views::FocusTraversable* GetFocusTraversableParent() override;
+  views::View* GetFocusTraversableParentView() override;
+
+ private:
+  views::FocusSearch search_;
+};
+
+// A dialog's icon tile (Quit Pane?'s, Windows' system alert's; Paper 04.5,
+// 11.13 A): 40 points, rounded 18, the icon's 22 in its middle, stroked
+// 1.75 in the foreground; under a contrast theme, its edge where its fill
+// told it apart (11.10). Assistive technologies skip it, as the Swift's did.
+class DialogTile : public views::View {
+  METADATA_HEADER(DialogTile, views::View)
+
+ public:
+  static constexpr int kSize = 40;
+
+  explicit DialogTile(Icon icon);
+  DialogTile(const DialogTile&) = delete;
+  DialogTile& operator=(const DialogTile&) = delete;
+  ~DialogTile() override;
+
+  // views::View:
+  void OnPaint(gfx::Canvas* canvas) override;
+
+ private:
+  const Icon icon_;
+};
+
 // A dialog over the window, as Quit Pane? and the App icon picker are drawn
 // (Paper 03.5, 04.5, 06.2): the modal scrim over the whole window, black at
 // 14%, 45% on dark, and the dialog's card in its middle (DialogCard), `width`
@@ -164,8 +210,12 @@ class ModalDialog : public views::View {
   // having the keys' focus to move in (the App icon picker's, as the Swift's
   // KeyRouting let them); or every key, none reaching what is under it or the
   // window's commands (Quit Pane?'s, as the PIN screen's): only the menu
-  // bar's Quit goes on, which the window lets through (TakesEveryKey).
-  enum class Keys { kEscapeAndReturn, kEvery };
+  // bar's Quit goes on, which the window lets through (TakesEveryKey); or a
+  // dialog's own keys (Windows' system alert's and About Pane's, Paper 11.13
+  // A, 11.15 A): every key as Quit Pane?'s, but Tab, which moves round its
+  // controls (MoveFocus), and Space and Enter, which press the one with the
+  // ring where the system's buttons take them.
+  enum class Keys { kEscapeAndReturn, kEvery, kDialog };
 
   ModalDialog(int width,
               std::unique_ptr<views::View> content,
@@ -175,18 +225,39 @@ class ModalDialog : public views::View {
   ModalDialog& operator=(const ModalDialog&) = delete;
   ~ModalDialog() override;
 
+  // Its card's look: its content 24 in, rounded 29, on a 1-point ring
+  // outside it and its shadow, 0 24px 64px (a page's dialog on Windows takes
+  // it too, Paper 04.15.1).
+  static DialogCard::Look CardLook();
+
   views::View* content() { return card_->content(); }
   // The card, ring included, in this view.
   gfx::Rect CardBounds() const { return card_->CardBounds(); }
   // Shows, fading in as the card grows to its size, and takes the keys. It
   // is made hidden, ahead of its first showing, and kept.
   void AnimateIn();
-  // Fades out as the card shrinks, taking no events on the way, then hides.
-  void AnimateOut();
+  // Fades out as the card shrinks, taking no events on the way, then hides;
+  // `gone` once it has, unless it comes in again meanwhile, or at once if it
+  // wasn't showing.
+  void AnimateOut(base::OnceClosure gone = base::OnceClosure());
   // Shown and not on its way out.
   bool showing() const;
   // Shown, and taking every key.
-  bool takes_every_key() const { return keys_ == Keys::kEvery && showing(); }
+  bool takes_every_key() const {
+    return (keys_ == Keys::kEvery || keys_ == Keys::kDialog) && showing();
+  }
+  // Shown, and moving the keys round its own controls by Tab.
+  bool moves_focus_within() const {
+    return keys_ == Keys::kDialog && showing();
+  }
+  // The next of its content's controls, or the one before, round them; the
+  // first, or the last, while none of them has the keys.
+  void MoveFocus(bool reverse);
+
+  // views::View: with its own keys, Tab from a control of its goes round
+  // them, as a dialog's window keeps it (Views' pane traversal), rather than
+  // on to the window's controls under it.
+  views::FocusTraversable* GetPaneFocusTraversable() override;
 
   // views::View:
   void Layout(PassKey) override;
@@ -217,6 +288,10 @@ class ModalDialog : public views::View {
   // Where it is heading, and whether it is on its way.
   bool shown_ = false;
   bool moving_ = false;
+  // What waits for it to have gone.
+  base::OnceClosure gone_;
+  // Its content's controls, which Tab goes round with its own keys.
+  std::unique_ptr<FocusTrap> focus_trap_;
   base::WeakPtrFactory<ModalDialog> weak_factory_{this};
 };
 

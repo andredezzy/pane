@@ -25,8 +25,10 @@ struct SystemAlert {
 // Asks before something that can't be undone as the system asks (Paper 03.1's
 // "drawn by macOS"; the Swift's SwiftUI alert): on the Mac an alert sheet on
 // `parent`'s window, the action's button marked destructive, Cancel taking
-// Esc. `done` says whether the action was chosen; it runs once the sheet has
-// gone.
+// Esc, `done` running once the sheet has gone; on Windows Pane's own dialog
+// over the window, as Exit Pane? is drawn (Paper 11.13 A; RootView's
+// ShowAlert), `done` running as it starts to go. `done` says whether the
+// action was chosen.
 void ShowSystemAlert(views::Widget* parent,
                      const SystemAlert& alert,
                      base::OnceCallback<void(bool chosen)> done);

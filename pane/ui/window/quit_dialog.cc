@@ -4,19 +4,12 @@
 
 #include <utility>
 
-#include "cc/paint/paint_flags.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/icons.h"
-#include "pane/ui/design/palette.h"
-#include "pane/ui/design/squircle.h"
 #include "pane/ui/design/system_words.h"
 #include "pane/ui/design/text_button.h"
 #include "pane/ui/view_ids.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
-#include "ui/color/color_provider.h"
-#include "ui/gfx/canvas.h"
-#include "ui/gfx/geometry/rect_f.h"
-#include "ui/views/accessibility/view_accessibility.h"
 
 namespace pane {
 
@@ -28,58 +21,14 @@ constexpr int kContentWidth = QuitDialog::kWidth - 2 * 24;
 constexpr int kSpacing = 16;
 constexpr int kButtonsTop = 8;
 constexpr int kButtonSpacing = 8;
-// The tile: 40 points, rounded 18; its icon 22, stroked 1.75.
-constexpr int kTileSize = 40;
-constexpr float kTileRadius = 18;
-constexpr int kIconSize = 22;
-constexpr float kIconStroke = 1.75f;
+// The tile's side.
+constexpr int kTileSize = DialogTile::kSize;
 
 }  // namespace
 
-// The icon's tile, which assistive technologies skip, as the Swift's did.
-class QuitDialog::Tile : public views::View {
-  METADATA_HEADER(Tile, views::View)
-
- public:
-  Tile() { GetViewAccessibility().SetIsIgnored(true); }
-
-  // views::View:
-  void OnPaint(gfx::Canvas* canvas) override {
-    const ui::ColorProvider* colors = GetColorProvider();
-    if (!colors) {
-      return;
-    }
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setColor(colors->GetColor(kPaneColorIconTile));
-    canvas->DrawPath(SquirclePath(gfx::RectF(GetLocalBounds()), kTileRadius),
-                     flags);
-    // Under a contrast theme, its edge where its fill told it apart (Paper
-    // 11.10).
-    if (const SkColor edge = colors->GetColor(kPaneColorForcedEdge);
-        SkColorGetA(edge)) {
-      cc::PaintFlags stroke;
-      stroke.setAntiAlias(true);
-      stroke.setStyle(cc::PaintFlags::kStroke_Style);
-      stroke.setStrokeWidth(1);
-      stroke.setColor(edge);
-      canvas->DrawPath(
-          SquircleStrokePath(gfx::RectF(GetLocalBounds()), kTileRadius, 1),
-          stroke);
-    }
-    const float inset = (kTileSize - kIconSize) / 2.0f;
-    PaintIcon(*canvas, Icon::kCircleDashedX,
-              gfx::RectF(inset, inset, kIconSize, kIconSize), kIconStroke,
-              colors->GetColor(kPaneColorForeground));
-  }
-};
-
-BEGIN_METADATA(QuitDialog, Tile)
-END_METADATA
-
 QuitDialog::QuitDialog(base::RepeatingClosure cancel,
                        base::RepeatingClosure quit) {
-  tile_ = AddChildView(std::make_unique<Tile>());
+  tile_ = AddChildView(std::make_unique<DialogTile>(Icon::kCircleDashedX));
   // Quit Pane? on the Mac, Exit Pane? on Windows, its key each system's
   // (Paper 11.6, 11.7).
   heading_ = AddChildView(std::make_unique<DialogHeading>(

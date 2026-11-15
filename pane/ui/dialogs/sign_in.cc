@@ -58,6 +58,7 @@ class SignIn : public LoginHandler {
     content.fields = {{.placeholder = u"Username"},
                       {.placeholder = u"Password", .secure = true}};
     content.buttons = {u"Sign In", u"Cancel"};
+    content.escape_button = 1;
     TraceDialog("callback", "PaneWebContentsDelegate.authenticate",
                 web_contents(),
                 base::DictValue()

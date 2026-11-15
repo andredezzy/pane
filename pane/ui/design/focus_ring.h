@@ -7,15 +7,33 @@
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "pane/ui/design/controls.h"
+#include "ui/color/color_id.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
 
 namespace pane {
 
+// How the system draws the ring of a control the keys reach
+// (focus_ring_{mac,win}.cc): its width, just outside the control's edge, its
+// color, and how far off the edge of a strong fill it stands.
+struct FocusRingStyle {
+  float width;
+  ui::ColorId color;
+  float off_fill;
+};
+
+// The Mac's ring, the Swift's: 1 point in the ring's grey. Windows' (Paper
+// 11.17 B): 2 points in the text's color, as Windows 11 draws its own focus,
+// 1 point off a strong fill, the card between, where a ring in the fill's own
+// color would vanish (11.18); Highlight under a contrast theme.
+FocusRingStyle ControlFocusRingStyle();
+
 // The ring around a control while it has the keyboard, as the Swift's field
-// draws one: a 1-point line just outside its edge, on its shape grown by the
-// point (a field's 12 around its 11, ADR 0057), in the ring's color; outside
-// the border, not as it (ADR 0058). views::FocusRing draws only rectangles
+// draws one: a line just outside its edge, on its shape grown by the line
+// (a field's 12 around its 11, ADR 0057); outside the border, not as it (ADR
+// 0058). A field's is the Mac's 1 point in the ring's color on every system,
+// its caret showing where the keys are (Paper 11.17); a control's, the
+// system's (ControlFocusRingStyle). views::FocusRing draws only rectangles
 // and rounded ones in 158 (focus_ring.cc, IsPathUsable and
 // GetRingRoundRect), so this takes its place, as it works: a child of the
 // control that layout leaves alone, on a layer of its own to draw past the
@@ -32,8 +50,14 @@ class FocusRing : public views::View, public views::ViewObserver {
   // track, rather than its row.
   using Around = base::RepeatingCallback<gfx::Rect(const views::View* control)>;
 
+  // What the ring is on: a control the keys reach (a button, a row, a
+  // swatch), or a field.
+  enum class Kind { kControl, kField };
+
   // Adds the ring to `control`, whose own shape is `shape`.
-  static FocusRing* Install(views::View* control, ControlShape shape);
+  static FocusRing* Install(views::View* control,
+                            ControlShape shape,
+                            Kind kind = Kind::kControl);
 
   FocusRing(const FocusRing&) = delete;
   FocusRing& operator=(const FocusRing&) = delete;
@@ -41,6 +65,9 @@ class FocusRing : public views::View, public views::ViewObserver {
 
   void SetShowsWhen(ShowsWhen shows_when);
   void SetAround(Around around);
+  // The control has a strong fill (a dialog's default or destructive
+  // button): the ring stands off it as the system has it.
+  void SetOnFill(bool on_fill);
   // Shows while a view inside the control has the keys, the control having
   // none of its own (a field of parts: the profile sheet's proxy address),
   // which tells it of each change (Refresh).
@@ -58,16 +85,17 @@ class FocusRing : public views::View, public views::ViewObserver {
   void OnViewAddedToWidget(views::View* view) override;
 
  private:
-  // The ring's width, outside the control's edge.
-  static constexpr float kWidth = 1;
+  FocusRing(views::View* control, ControlShape shape, Kind kind);
 
-  FocusRing(views::View* control, ControlShape shape);
-
-  // Around what it goes, `kWidth` larger all round.
+  // How far out from the control's edge the line starts.
+  float Gap() const;
+  // Around what it goes, as much larger all round as the gap and the line.
   void UpdateBounds();
 
   raw_ptr<views::View> control_;
   const ControlShape shape_;
+  const FocusRingStyle style_;
+  bool on_fill_ = false;
   ShowsWhen shows_when_;
   Around around_;
   bool within_ = false;

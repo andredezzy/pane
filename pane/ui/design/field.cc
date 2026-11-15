@@ -51,9 +51,13 @@ void SelectionFollowsWindow::OnWidgetActivationChanged(views::Widget* widget,
                                                        bool active) {
   field_->SetSelectionBackgroundColorId(
       active ? kPaneColorTextSelection : kPaneColorTextSelectionInactive);
-  // The selected text keeps the field's own color, as an NSTextField's does,
-  // where Chromium's takes its own (kColorTextfieldSelectionForeground).
-  field_->SetSelectionTextColorId(field_->text_color_id());
+  // The selected text in the system's own color over its highlight where it
+  // has one (Windows' HighlightText, Paper 11.18.1); else the field's own
+  // color, as an NSTextField's, where Chromium's takes its own
+  // (kColorTextfieldSelectionForeground).
+  field_->SetSelectionTextColorId(SystemSelectedTextColor()
+                                      ? kPaneColorTextSelectionForeground
+                                      : field_->text_color_id());
 }
 
 void SelectionFollowsWindow::OnWidgetDestroying(views::Widget* widget) {
@@ -81,7 +85,8 @@ Field::Field(ui::ColorVariant fill, const TextStyle& style)
   SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(0, kTextInset)));
   views::FocusRing::Remove(this);
   views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::OFF);
-  ring_ = FocusRing::Install(this, ControlShape::Squircle(kRadius));
+  ring_ = FocusRing::Install(this, ControlShape::Squircle(kRadius),
+                             FocusRing::Kind::kField);
   ring_->SetShowsWhen(base::BindRepeating([](const views::View* field) {
     return !static_cast<const Field*>(field)->has_problem();
   }));

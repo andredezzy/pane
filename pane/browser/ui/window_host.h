@@ -153,6 +153,9 @@ class WindowHost : public TabStripModelObserver,
   // now on, those open and those opened later. The Mac shows the app's icon
   // in the Dock, none for a window.
   static void SetIcon(const gfx::ImageSkia& icon);
+  // That icon, as last set (About Pane shows it, Paper 11.15 A); empty until
+  // then.
+  static gfx::ImageSkia GetIcon();
 
   views::Widget* widget() const { return widget_.get(); }
   Delegate& delegate() const { return *delegate_; }

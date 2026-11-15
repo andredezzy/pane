@@ -10,6 +10,7 @@
 namespace pane {
 
 class DialogHeading;
+class DialogTile;
 class KeyedButton;
 
 // What ⌘Q asks first (ADR 0053; Paper 04.5 Quit Pane, and Quit confirmation
@@ -35,9 +36,7 @@ class QuitDialog : public views::View {
   void Layout(PassKey) override;
 
  private:
-  class Tile;
-
-  raw_ptr<Tile> tile_ = nullptr;
+  raw_ptr<DialogTile> tile_ = nullptr;
   raw_ptr<DialogHeading> heading_ = nullptr;
   raw_ptr<KeyedButton> cancel_ = nullptr;
   raw_ptr<KeyedButton> quit_ = nullptr;

@@ -5,11 +5,13 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
 #include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
 #include "pane/ui/design/ground.h"
+#include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/placement.h"
 #include "pane/ui/design/squircle.h"
@@ -30,6 +32,7 @@
 #include "ui/gfx/geometry/transform.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/widget/widget.h"
 
@@ -48,6 +51,11 @@ constexpr gfx::Vector2dF kShadowOffset(0, 24);
 constexpr float kShadowSigma = 32;
 // How small the card starts, and goes.
 constexpr float kScale = 0.97f;
+
+// DialogTile's: rounded 18; its icon 22, stroked 1.75.
+constexpr float kTileRadius = 18;
+constexpr int kTileIcon = 22;
+constexpr float kTileIconStroke = 1.75f;
 
 }  // namespace
 
@@ -267,6 +275,58 @@ bool DialogCard::DoesIntersectRect(const views::View* target,
 BEGIN_METADATA(DialogCard)
 END_METADATA
 
+FocusTrap::FocusTrap(views::View* root)
+    : search_(root, /*cycle=*/true, /*accessibility_mode=*/false) {}
+
+FocusTrap::~FocusTrap() = default;
+
+views::FocusSearch* FocusTrap::GetFocusSearch() {
+  return &search_;
+}
+
+views::FocusTraversable* FocusTrap::GetFocusTraversableParent() {
+  return nullptr;
+}
+
+views::View* FocusTrap::GetFocusTraversableParentView() {
+  return nullptr;
+}
+
+DialogTile::DialogTile(Icon icon) : icon_(icon) {
+  GetViewAccessibility().SetIsIgnored(true);
+}
+
+DialogTile::~DialogTile() = default;
+
+void DialogTile::OnPaint(gfx::Canvas* canvas) {
+  const ui::ColorProvider* colors = GetColorProvider();
+  if (!colors) {
+    return;
+  }
+  cc::PaintFlags flags;
+  flags.setAntiAlias(true);
+  flags.setColor(colors->GetColor(kPaneColorIconTile));
+  canvas->DrawPath(SquirclePath(gfx::RectF(GetLocalBounds()), kTileRadius),
+                   flags);
+  if (const SkColor edge = colors->GetColor(kPaneColorForcedEdge);
+      SkColorGetA(edge)) {
+    cc::PaintFlags stroke;
+    stroke.setAntiAlias(true);
+    stroke.setStyle(cc::PaintFlags::kStroke_Style);
+    stroke.setStrokeWidth(1);
+    stroke.setColor(edge);
+    canvas->DrawPath(
+        SquircleStrokePath(gfx::RectF(GetLocalBounds()), kTileRadius, 1),
+        stroke);
+  }
+  const float inset = (kSize - kTileIcon) / 2.0f;
+  PaintIcon(*canvas, icon_, gfx::RectF(inset, inset, kTileIcon, kTileIcon),
+            kTileIconStroke, colors->GetColor(kPaneColorForeground));
+}
+
+BEGIN_METADATA(DialogTile)
+END_METADATA
+
 ModalDialog::Callbacks::Callbacks() = default;
 ModalDialog::Callbacks::Callbacks(Callbacks&&) = default;
 ModalDialog::Callbacks& ModalDialog::Callbacks::operator=(Callbacks&&) =
@@ -297,9 +357,24 @@ ModalDialog::ModalDialog(int width,
   scrim_->layer()->SetFillsBoundsOpaquely(false);
   scrim_->layer()->SetOpacity(0);
   scrim_->SetCanProcessEventsWithinSubtree(false);
-  // The card: its content 24 in, rounded 29, on a 1-point ring outside it
-  // and its shadow, 0 24px 64px, a Gaussian of 32 (surfaceBackground's blur
-  // over 2, as the content panel's).
+  card_ = AddChildView(
+      std::make_unique<DialogCard>(CardLook(), std::move(content)));
+  if (keys_ == Keys::kDialog) {
+    focus_trap_ = std::make_unique<FocusTrap>(card_->content());
+  }
+}
+
+views::FocusTraversable* ModalDialog::GetPaneFocusTraversable() {
+  return focus_trap_ && showing() ? focus_trap_.get() : nullptr;
+}
+
+ModalDialog::~ModalDialog() = default;
+
+// static
+DialogCard::Look ModalDialog::CardLook() {
+  // Its content 24 in, rounded 29, on a 1-point ring outside it and its
+  // shadow, 0 24px 64px, a Gaussian of 32 (surfaceBackground's blur over 2,
+  // as the content panel's).
   DialogCard::Look look;
   look.fill = kPaneColorCard;
   look.edge = kPaneColorBorder;
@@ -307,10 +382,37 @@ ModalDialog::ModalDialog(int width,
   look.shadow = kPaneColorDialogShadow;
   look.shadow_offset = kShadowOffset;
   look.shadow_sigma = kShadowSigma;
-  card_ = AddChildView(std::make_unique<DialogCard>(look, std::move(content)));
+  return look;
 }
 
-ModalDialog::~ModalDialog() = default;
+void ModalDialog::MoveFocus(bool reverse) {
+  std::vector<views::View*> stops;
+  const auto gather = [&](auto& self, views::View* view) -> void {
+    for (views::View* child : view->children()) {
+      if (!child->GetVisible()) {
+        continue;
+      }
+      if (child->IsFocusable()) {
+        stops.push_back(child);
+      }
+      self(self, child);
+    }
+  };
+  gather(gather, content());
+  if (stops.empty()) {
+    return;
+  }
+  const views::FocusManager* focus = GetFocusManager();
+  const views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+  const auto at = std::ranges::find(stops, focused);
+  size_t next = reverse ? stops.size() - 1 : 0;
+  if (at != stops.end()) {
+    const size_t index = at - stops.begin();
+    next = reverse ? (index + stops.size() - 1) % stops.size()
+                   : (index + 1) % stops.size();
+  }
+  stops[next]->RequestFocus();
+}
 
 bool ModalDialog::Place() {
   scrim_->SetBoundsRect(GetLocalBounds());
@@ -350,6 +452,9 @@ void ModalDialog::Moved() {
   moving_ = false;
   if (closing_ && !shown_) {
     SetVisible(false);
+    if (gone_) {
+      std::move(gone_).Run();
+    }
   }
 }
 
@@ -359,6 +464,7 @@ bool ModalDialog::showing() const {
 
 void ModalDialog::AnimateIn() {
   closing_ = false;
+  gone_.Reset();
   SetVisible(true);
   SetCanProcessEventsWithinSubtree(true);
   ResetAccelerators();
@@ -374,10 +480,14 @@ void ModalDialog::AnimateIn() {
   Move(true);
 }
 
-void ModalDialog::AnimateOut() {
+void ModalDialog::AnimateOut(base::OnceClosure gone) {
   if (!showing()) {
+    if (gone) {
+      std::move(gone).Run();
+    }
     return;
   }
+  gone_ = std::move(gone);
   closing_ = true;
   SetCanProcessEventsWithinSubtree(false);
   ResetAccelerators();
@@ -420,11 +530,14 @@ bool ModalDialog::OnKeyPressed(const ui::KeyEvent& event) {
     return false;
   }
   // Esc, whatever modifier is down, as the Swift's KeyRouting matched it;
-  // Return, or the keypad's Enter. Any other key stops here.
+  // Return, or the keypad's Enter; Tab round its own controls. Any other key
+  // stops here.
   if (event.key_code() == ui::VKEY_ESCAPE) {
     AcceleratorPressed(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
   } else if (event.key_code() == ui::VKEY_RETURN) {
     AcceleratorPressed(ui::Accelerator(ui::VKEY_RETURN, ui::EF_NONE));
+  } else if (event.key_code() == ui::VKEY_TAB && moves_focus_within()) {
+    MoveFocus(event.IsShiftDown());
   }
   return true;
 }

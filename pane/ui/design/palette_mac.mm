@@ -11,6 +11,11 @@ namespace pane {
 // No contrast theme forces the Mac's colors: it has none of Windows'.
 void AddForcedColors(ui::ColorMixer& mixer) {}
 
+// A field's selected text keeps the field's own color, as an NSTextField's.
+std::optional<SkColor> SystemSelectedTextColor() {
+  return std::nullopt;
+}
+
 SkColor SystemTextSelection(bool dark, bool key_window) {
   __block SkColor color = SK_ColorTRANSPARENT;
   NSAppearance* appearance = [NSAppearance

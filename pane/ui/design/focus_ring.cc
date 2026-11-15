@@ -2,6 +2,7 @@
 
 #include "pane/ui/design/focus_ring.h"
 
+#include <cmath>
 #include <memory>
 #include <utility>
 
@@ -19,15 +20,26 @@
 
 namespace pane {
 
+namespace {
+
+// A field's, on every system: 1 point in the ring's color, as the Swift's.
+constexpr FocusRingStyle kFieldStyle{1, kPaneColorRing, 0};
+
+}  // namespace
+
 // static
-FocusRing* FocusRing::Install(views::View* control, ControlShape shape) {
-  auto ring = base::WrapUnique(new FocusRing(control, shape));
+FocusRing* FocusRing::Install(views::View* control,
+                              ControlShape shape,
+                              Kind kind) {
+  auto ring = base::WrapUnique(new FocusRing(control, shape, kind));
   ring->SetProperty(views::kViewIgnoredByLayoutKey, true);
   return control->AddChildView(std::move(ring));
 }
 
-FocusRing::FocusRing(views::View* control, ControlShape shape)
-    : control_(control), shape_(shape) {
+FocusRing::FocusRing(views::View* control, ControlShape shape, Kind kind)
+    : control_(control),
+      shape_(shape),
+      style_(kind == Kind::kField ? kFieldStyle : ControlFocusRingStyle()) {
   SetCanProcessEventsWithinSubtree(false);
   GetViewAccessibility().SetIsIgnored(true);
   SetVisible(false);
@@ -46,10 +58,23 @@ void FocusRing::SetAround(Around around) {
   UpdateBounds();
 }
 
+void FocusRing::SetOnFill(bool on_fill) {
+  if (on_fill_ == on_fill) {
+    return;
+  }
+  on_fill_ = on_fill;
+  UpdateBounds();
+  SchedulePaint();
+}
+
+float FocusRing::Gap() const {
+  return on_fill_ ? style_.off_fill : 0;
+}
+
 void FocusRing::UpdateBounds() {
   gfx::Rect bounds =
       around_ ? around_.Run(control_) : control_->GetLocalBounds();
-  bounds.Outset(kWidth);
+  bounds.Outset(std::ceil(Gap() + style_.width));
   SetBoundsRect(bounds);
 }
 
@@ -89,10 +114,15 @@ void FocusRing::OnPaint(gfx::Canvas* canvas) {
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
   flags.setStyle(cc::PaintFlags::kStroke_Style);
-  flags.setStrokeWidth(kWidth);
-  flags.setColor(colors->GetColor(kPaneColorRing));
+  flags.setStrokeWidth(style_.width);
+  flags.setColor(colors->GetColor(style_.color));
+  // The line `width` wide, `Gap()` off the control's edge, on its shape grown
+  // by both (DESIGN.md › Shape: a ring takes the shape's radius grown by its
+  // offset).
+  gfx::RectF outer(GetLocalBounds());
+  outer.Inset(std::ceil(Gap() + style_.width) - Gap() - style_.width);
   canvas->DrawPath(
-      shape_.Outset(kWidth).StrokePathIn(gfx::RectF(GetLocalBounds()), kWidth),
+      shape_.Outset(Gap() + style_.width).StrokePathIn(outer, style_.width),
       flags);
 }
 

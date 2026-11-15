@@ -193,6 +193,15 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
        SK_ColorTRANSPARENT},
       {"forcedGrayText", kPaneColorForcedGrayText, SK_ColorTRANSPARENT,
        SK_ColorTRANSPARENT},
+      {"forcedHighlight", kPaneColorForcedHighlight, SK_ColorTRANSPARENT,
+       SK_ColorTRANSPARENT},
+      // Windows' keyboard ring, the text's color (Paper 11.17 B); and the
+      // text the system draws over its highlight, where it has its own color.
+      {"keyboardRing", kPaneColorKeyboardRing, Swift(0x18181B),
+       Swift(0xFAFAFA)},
+      {"textSelectionForeground", kPaneColorTextSelectionForeground,
+       SystemSelectedTextColor().value_or(SK_ColorTRANSPARENT),
+       SystemSelectedTextColor().value_or(SK_ColorTRANSPARENT)},
   };
   // Every id of Pane's is checked.
   EXPECT_EQ(std::size(pairs),

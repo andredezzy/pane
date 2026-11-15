@@ -2,7 +2,11 @@
 
 #include "pane/ui/app/platform_commands.h"
 
+#include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/web_contents.h"
+#include "pane/app/version.h"
+#include "pane/browser/ui/window_host.h"
+#include "pane/ui/window/root_view.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/controls/textfield/textfield.h"
@@ -104,6 +108,14 @@ void RunPlatformCommand(views::Widget* widget, Command command) {
     case Command::kMinimize:
       widget->Minimize();
       return;
+    // Pane's own dialog over the window (Paper 11.15 A): the sky the taskbar
+    // shows, the version, and the copyright.
+    case Command::kAbout:
+      if (RootView* root = RootView::Of(widget)) {
+        root->ShowAbout(WindowHost::GetIcon(),
+                        base::UTF8ToUTF16(PaneVersion()));
+      }
+      return;
     // Maximize, Windows' word for the Mac's Zoom (Paper 11.5.1), restores a
     // maximized window as its caption button does.
     case Command::kZoom:
@@ -116,10 +128,6 @@ void RunPlatformCommand(views::Widget* widget, Command command) {
     default:
       return;
   }
-}
-
-bool PlatformCommandEnabled(Command command) {
-  return command != Command::kAbout;
 }
 
 }  // namespace pane

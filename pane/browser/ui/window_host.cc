@@ -36,6 +36,7 @@
 #include "pane/ui/page/devtools_window.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/models/image_model.h"
+#include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -114,6 +115,11 @@ const std::vector<WindowHost*>& WindowHost::All() {
 }
 
 // static
+// static
+gfx::ImageSkia WindowHost::GetIcon() {
+  return Icon().IsImage() ? Icon().GetImage().AsImageSkia() : gfx::ImageSkia();
+}
+
 void WindowHost::SetIcon(const gfx::ImageSkia& icon) {
   Icon() = ui::ImageModel::FromImageSkia(icon);
   for (WindowHost* host : Hosts()) {

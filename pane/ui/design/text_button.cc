@@ -8,6 +8,7 @@
 
 #include "base/functional/bind.h"
 #include "cc/paint/paint_flags.h"
+#include "pane/ui/design/focus_ring.h"
 #include "pane/ui/design/ground.h"
 #include "pane/ui/design/squircle.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -36,6 +37,7 @@ TextButton::TextButton(PressedCallback pressed,
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&TextButton::Tint, base::Unretained(this)));
+  highlight_->ring()->SetOnFill(look_.strong_fill);
   SetBackground(std::make_unique<ControlBackground>(look_, highlight_.get()));
   // Its tint comes from the look, as lit as the hover is.
   title_ = AddChildView(MakeLabel(title, size_.text, kPaneColorForeground));
@@ -147,11 +149,17 @@ KeyedButton::KeyedButton(PressedCallback pressed,
   highlight_ = std::make_unique<ControlHighlight>(
       this, look_.shape, look_.disabled_opacity,
       base::BindRepeating(&views::View::SchedulePaint, base::Unretained(this)));
+  highlight_->ring()->SetOnFill(look_.strong_fill);
   SetBackground(std::make_unique<ControlBackground>(look_, highlight_.get()));
   const KeyedColors colors = KeyedColorsOf(role);
   // The title keeps its color under the pointer, as KeyedLabel's set its own.
   title_ = AddChildView(MakeLabel(title, text::kButton, colors.title));
   title_->SetCanProcessEventsWithinSubtree(false);
+  GetViewAccessibility().SetName(title);
+  // No key presses a button that shows none (Paper 11.13 A's Delete).
+  if (key.empty()) {
+    return;
+  }
   key_ = AddChildView(MakeLabel(key, kKeyText, colors.key));
   key_->SetCanProcessEventsWithinSubtree(false);
   // On its rounded chip, whose corners a ground under its text would square:
@@ -159,15 +167,18 @@ KeyedButton::KeyedButton(PressedCallback pressed,
   SetGround(*key_, SK_ColorTRANSPARENT);
   // The key is the chip's, which assistive technologies don't read.
   key_->GetViewAccessibility().SetIsIgnored(true);
-  GetViewAccessibility().SetName(title);
 }
 
 KeyedButton::~KeyedButton() = default;
 
 gfx::Size KeyedButton::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
-  return gfx::Size(kKeyedLeading + title_->GetPreferredSize().width() +
-                       kKeyedSpacing + kChipPadding +
+  const int title = title_->GetPreferredSize().width();
+  // With no key, its title 14 in at either end.
+  if (!key_) {
+    return gfx::Size(kKeyedLeading + title + kKeyedLeading, kKeyedHeight);
+  }
+  return gfx::Size(kKeyedLeading + title + kKeyedSpacing + kChipPadding +
                        key_->GetPreferredSize().width() + kChipPadding +
                        kKeyedTrailing,
                    kKeyedHeight);
@@ -180,18 +191,33 @@ gfx::RectF KeyedButton::ChipBounds() const {
 }
 
 void KeyedButton::Layout(PassKey) {
+  // Wider than it asks, as a dialog's stacked buttons stand (Paper 04.20.1),
+  // its title centred, its key's chip still 8 from the end.
+  const int title = title_->GetPreferredSize().width();
+  if (width() > GetPreferredSize().width()) {
+    title_->SetBounds((width() - title) / 2, 0, title, height());
+  }
+  if (!key_) {
+    if (width() <= GetPreferredSize().width()) {
+      title_->SetBounds(kKeyedLeading, 0,
+                        std::max(width() - 2 * kKeyedLeading, 0), height());
+    }
+    return;
+  }
   const gfx::RectF chip = ChipBounds();
-  title_->SetBounds(
-      kKeyedLeading, 0,
-      std::max(static_cast<int>(chip.x()) - kKeyedSpacing - kKeyedLeading, 0),
-      height());
+  if (width() <= GetPreferredSize().width()) {
+    title_->SetBounds(
+        kKeyedLeading, 0,
+        std::max(static_cast<int>(chip.x()) - kKeyedSpacing - kKeyedLeading, 0),
+        height());
+  }
   key_->SetBounds(chip.x() + kChipPadding, chip.y(),
                   chip.width() - 2 * kChipPadding, kChipHeight);
 }
 
 void KeyedButton::PaintButtonContents(gfx::Canvas* canvas) {
   const ui::ColorProvider* colors = GetColorProvider();
-  if (!colors) {
+  if (!colors || !key_) {
     return;
   }
   cc::PaintFlags flags;

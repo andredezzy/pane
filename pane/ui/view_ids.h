@@ -92,6 +92,13 @@ enum ViewId : int {
   kViewIdQuit,
   kViewIdQuitConfirm,
   kViewIdQuitCancel,
+  // The system's alert where Pane draws it (Windows, Paper 11.13 A), its
+  // Cancel, and its action; About Pane (11.15 A) and its OK.
+  kViewIdAlert,
+  kViewIdAlertCancel,
+  kViewIdAlertAction,
+  kViewIdAbout,
+  kViewIdAboutOk,
   // A page's dialog over the window (ADR 0021), as the Swift named its
   // surface, and its fields and buttons, which the channel names by their
   // places ("pane.dialog.field.0", "pane.dialog.button.1": the default

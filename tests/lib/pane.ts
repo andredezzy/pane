@@ -343,6 +343,9 @@ export type AppState = {
 	// The alert the window shows as a sheet (the Views build's): its title,
 	// its message, and its buttons from left to right.
 	alert?: { title: string; message: string; buttons: string[] } | null;
+	// About Pane while it shows where Pane draws it (Windows, Paper 11.15 A):
+	// its lines, top to bottom, and whether its icon shows.
+	about?: { lines: string[]; icon: boolean } | null;
 	pageFullscreen: boolean;
 	// The toolbar as drawn (the Views build's): each control by its view's
 	// name, whether it takes presses, shows, and what it reads as; and

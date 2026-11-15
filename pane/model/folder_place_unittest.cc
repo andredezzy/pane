@@ -203,7 +203,8 @@ TEST_F(FolderPlaceTest, RemovesOnceTheEngineLetsGo) {
 }
 
 // A profile that saves no history opens without what it cached on disk while
-// it did, as on the Mac; one that saves it keeps its caches.
+// it did, and without the loading predictor's database, as on the Mac; one
+// that saves it keeps both (ADR 0119).
 TEST_F(FolderPlaceTest, OpensWithoutTheCachesOfAProfileThatSavesNoHistory) {
   MakeFolder(kProfile);
   const base::FilePath::CharType* const kCaches[] = {
@@ -213,6 +214,12 @@ TEST_F(FolderPlaceTest, OpensWithoutTheCachesOfAProfileThatSavesNoHistory) {
     ASSERT_TRUE(base::CreateDirectory(Folder(kProfile).Append(item)));
     ASSERT_TRUE(base::WriteFile(
         Folder(kProfile).Append(item).AppendASCII("entry"), "sealed"));
+  }
+  const base::FilePath::CharType* const kPredictor[] = {
+      FILE_PATH_LITERAL("Network Action Predictor"),
+      FILE_PATH_LITERAL("Network Action Predictor-journal")};
+  for (const base::FilePath::CharType* item : kPredictor) {
+    ASSERT_TRUE(base::WriteFile(Folder(kProfile).Append(item), "sealed"));
   }
   std::unique_ptr<DataVault> vault = MakeVault(DataLock::Take(data_));
   Open(*vault);
@@ -226,6 +233,9 @@ TEST_F(FolderPlaceTest, OpensWithoutTheCachesOfAProfileThatSavesNoHistory) {
   for (const base::FilePath::CharType* item : kCaches) {
     EXPECT_TRUE(base::PathExists(Folder(kProfile).Append(item)));
   }
+  for (const base::FilePath::CharType* item : kPredictor) {
+    EXPECT_TRUE(base::PathExists(Folder(kProfile).Append(item)));
+  }
 
   std::optional<bool> cleared;
   vault->Prepare(
@@ -234,6 +244,9 @@ TEST_F(FolderPlaceTest, OpensWithoutTheCachesOfAProfileThatSavesNoHistory) {
   ASSERT_TRUE(WaitFor([&] { return cleared.has_value(); }));
   EXPECT_EQ(cleared, true);
   for (const base::FilePath::CharType* item : kCaches) {
+    EXPECT_FALSE(base::PathExists(Folder(kProfile).Append(item)));
+  }
+  for (const base::FilePath::CharType* item : kPredictor) {
     EXPECT_FALSE(base::PathExists(Folder(kProfile).Append(item)));
   }
   EXPECT_TRUE(base::PathExists(

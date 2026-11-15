@@ -595,6 +595,14 @@ class ProfileSheet::Swatch : public views::Button,
     }
     flags.setColor(ProfileColorOf(color_));
     canvas->DrawPath(SquirclePath(swatch, radius::kMd), flags);
+    // Its color stays under a contrast theme, edged (Paper 11.10.3).
+    if (const SkColor edge = colors->GetColor(kPaneColorForcedEdge);
+        SkColorGetA(edge)) {
+      flags.setStyle(cc::PaintFlags::kStroke_Style);
+      flags.setStrokeWidth(1);
+      flags.setColor(edge);
+      canvas->DrawPath(SquircleStrokePath(swatch, radius::kMd, 1), flags);
+    }
   }
 
   // views::ViewTargeterDelegate:
@@ -829,7 +837,9 @@ class ProfileSheet::AddressField : public views::View,
     port_->SetID(kViewIdProfileProxyPort);
     port_->SetPlaceholderText(u"Port");
     port_->GetViewAccessibility().SetName(u"Proxy port");
-    ring_ = FocusRing::Install(this, ControlShape::Squircle(radius::kMd));
+    // A field's ring, which its parts share.
+    ring_ = FocusRing::Install(this, ControlShape::Squircle(radius::kMd),
+                               FocusRing::Kind::kField);
     ring_->SetFocusWithin(true);
     ring_->SetShowsWhen(base::BindRepeating([](const views::View* view) {
       return static_cast<const AddressField*>(view)->ringed_ == Part::kNone;

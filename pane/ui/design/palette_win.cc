@@ -11,6 +11,7 @@
 #include "ui/color/color_id.h"
 #include "ui/color/color_mixer.h"
 #include "ui/color/color_recipe.h"
+#include "ui/color/color_transform.h"
 
 namespace pane {
 
@@ -18,6 +19,11 @@ namespace pane {
 // whether the window has the keys or not.
 SkColor SystemTextSelection(bool dark, bool key_window) {
   return skia::COLORREFToSkColor(GetSysColor(COLOR_HIGHLIGHT));
+}
+
+// And draws the text under it in HighlightText, white by default.
+std::optional<SkColor> SystemSelectedTextColor() {
+  return skia::COLORREFToSkColor(GetSysColor(COLOR_HIGHLIGHTTEXT));
 }
 
 // Windows' contrast themes (Paper 11.10, chosen): while one is on, each of
@@ -67,16 +73,19 @@ void AddForcedColors(ui::ColorMixer& mixer) {
        ui::kColorNativeWindowText);
   // A sleeping tab: GrayText, in its place of a dimmed row.
   mixer[kPaneColorForcedGrayText] = {ui::kColorNativeGrayText};
+  // What a fill in Highlight is filled with, which needs no edge.
+  mixer[kPaneColorForcedHighlight] = {ui::kColorNativeHighlight};
   // Pane's own buttons: ButtonFace under ButtonText.
   take({kPaneColorSecondary, kPaneColorAlertButton}, ui::kColorNativeBtnFace);
   // The strong ones, and the selection: Highlight under HighlightText.
   take({kPaneColorPrimary, kPaneColorAlertDefaultButton, kPaneColorRowSelected,
         kPaneColorTextSelection, kPaneColorTextSelectionInactive,
-        kPaneColorRing},
+        kPaneColorRing, kPaneColorKeyboardRing},
        ui::kColorNativeHighlight);
   take({kPaneColorPrimaryForeground, kPaneColorDestructiveForeground,
         kPaneColorAlertDefaultText, kPaneColorRowSelectedForeground,
-        kPaneColorPrimaryKey, kPaneColorDestructiveKey},
+        kPaneColorPrimaryKey, kPaneColorDestructiveKey,
+        kPaneColorTextSelectionForeground},
        ui::kColorNativeHighlightText);
   // Exit Pane?'s Exit, as its other strong buttons, and the lock's lines:
   // no red.
@@ -93,6 +102,16 @@ void AddForcedColors(ui::ColorMixer& mixer) {
          kPaneColorInstallDialogShadow, kPaneColorPanelShadow,
          kPaneColorPopoverShadow, kPaneColorAlertShadow,
          kPaneColorFindBarShadow});
+  // Views' menus (11.10.4): the edge a contrast theme strokes them with
+  // (menu_scroll_view_container.cc's hunk, patch 0004) in WindowText, where
+  // Chromium's own colors give it ButtonFace, the menu's fill. Their shadows
+  // take the Window's color, so none shows on the theme's ground: a menu's
+  // shadow keeps the base's color at an alpha of its own, so no color clears
+  // it. That base, clear, also gives BubbleBorder's cached paint, which it
+  // keys by the base alone, a key no appearance shares: a menu after a switch
+  // never takes another theme's edge.
+  mixer[ui::kColorBubbleBorder] = {ui::kColorNativeWindowText};
+  mixer[ui::kColorShadowBase] = ui::SetAlpha(ui::kColorNativeWindow, 0);
 }
 
 }  // namespace pane

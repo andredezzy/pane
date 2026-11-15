@@ -1,10 +1,14 @@
 import { launchPane, tabOf } from "../lib/pane";
+import { bySystem } from "../lib/platform";
 import { answerSheet, WindowWatcher, waitForSheet } from "../lib/surfaces";
 import { expect, type Scenario } from "../run";
 
 // A server asking for credentials (HTTP Basic) gets the app's dialog: Cancel
 // shows the server's refusal, the right credentials sign in. Its two fields
-// take the dialog's whole width, 222 points (ADR 0021).
+// take the dialog's whole width: 222 points in the Mac's alert sheet (ADR
+// 0021), 432 in Windows' card, 480 wide (Paper 04.21.1).
+const FIELD_WIDTH = bySystem({ mac: 222, windows: 432 });
+
 const httpAuth: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const watcher = new WindowWatcher(app).start();
@@ -35,7 +39,7 @@ const httpAuth: Scenario = async (context) => {
 	await app.render("http-auth-sheet.png");
 
 	expect(
-		fields.length === 2 && fields.every((width) => width === 222),
+		fields.length === 2 && fields.every((width) => width === FIELD_WIDTH),
 		`the dialog's fields are ${JSON.stringify(fields)} wide`,
 	);
 
