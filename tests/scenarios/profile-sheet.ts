@@ -39,7 +39,7 @@ type Saved = {
 	} | null;
 };
 
-// What VoiceOver reads of a control of the sheet.
+// What a screen reader reads of a control of the sheet.
 type Read = {
 	role: string;
 	name: string;
@@ -49,6 +49,34 @@ type Read = {
 	selected: boolean;
 	modal: boolean;
 };
+
+// A choice chosen, and a profile's row, as each system's screen reader is
+// given them (ADR 0071, pane/ui/design/screen_reader.h): on the Mac a button
+// selected, the row named by its profile, its tabs and expansion its value;
+// on Windows a radio button checked, the row a tree item named with its
+// tabs, its expansion a state of its own (screen-reader reads it).
+const SCREEN_READER = bySystem({
+	mac: {
+		chosen: (read?: Read) => read?.selected === true,
+		row: (
+			read: Read | undefined,
+			name: string,
+			tabs: string,
+			expanded: boolean,
+		) =>
+			read?.name === name &&
+			read.value === `${tabs}, ${expanded ? "expanded" : "collapsed"}`,
+	},
+	windows: {
+		chosen: (read?: Read) => read?.checked === true,
+		row: (
+			read: Read | undefined,
+			name: string,
+			tabs: string,
+			_expanded: boolean,
+		) => read?.name === `${name}, ${tabs}`,
+	},
+});
 
 const CREDENTIALS = { username: "pane", password: "proxy-secret" };
 
@@ -269,7 +297,7 @@ const profileSheet: Scenario = async (context) => {
 			await app.send("theme", { theme: "system" });
 		};
 
-		// VoiceOver's names: the open profile's row reads its tabs and state.
+		// A screen reader's names: the open profile's row reads its tabs and state.
 		const plainRow = (await read())[`pane.profile.${plain}`];
 
 		// New profile: spoofing on, the computer's platform, by default.
@@ -284,8 +312,7 @@ const profileSheet: Scenario = async (context) => {
 		const names = await read();
 
 		const named = {
-			plainRow:
-				plainRow?.name === "Plain" && plainRow?.value === "1 tab, expanded",
+			plainRow: SCREEN_READER.row(plainRow, "Plain", "1 tab", true),
 			sheet:
 				names["pane.profileSheet"]?.role === "dialog" &&
 				names["pane.profileSheet"]?.name === "New profile" &&
@@ -298,11 +325,13 @@ const profileSheet: Scenario = async (context) => {
 			platform:
 				names[`pane.profile.platform.${PLATFORMS.own.card}`]?.name ===
 					PLATFORMS.own.title &&
-				names[`pane.profile.platform.${PLATFORMS.own.card}`]?.selected === true,
+				SCREEN_READER.chosen(
+					names[`pane.profile.platform.${PLATFORMS.own.card}`],
+				),
 			timeZone: names["pane.profile.timeZone"]?.name === "Time zone",
 			color:
 				names["pane.profile.color.blue"]?.name === "Blue" &&
-				names["pane.profile.color.blue"]?.selected === true,
+				SCREEN_READER.chosen(names["pane.profile.color.blue"]),
 			noGroup: !Object.values(names).some((each) => each.name === "Group"),
 		};
 
@@ -363,8 +392,9 @@ const profileSheet: Scenario = async (context) => {
 
 		expect(
 			crossOS["pane.profile.warning"] !== undefined &&
-				crossOS[`pane.profile.platform.${PLATFORMS.other.card}`]?.selected ===
-					true &&
+				SCREEN_READER.chosen(
+					crossOS[`pane.profile.platform.${PLATFORMS.other.card}`],
+				) &&
 				crossOS["pane.profile.history"]?.checked === false,
 			`another platform: ${JSON.stringify({ warning: crossOS["pane.profile.warning"], other: crossOS[`pane.profile.platform.${PLATFORMS.other.card}`], history: crossOS["pane.profile.history"] })}`,
 		);

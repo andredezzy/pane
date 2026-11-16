@@ -14,6 +14,7 @@
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/ground.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/view_ids.h"
 #include "third_party/skia/include/core/SkMatrix.h"
@@ -131,7 +132,7 @@ PinDots::PinDots()
   SetCanProcessEventsWithinSubtree(false);
   // One element, read as how many digits it holds of how many, under the
   // PIN screen's panel, which holds the keys.
-  GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
+  screen_reader::SetIndicator(GetViewAccessibility());
   ExposeToScreenReaders(*this);
 }
 

@@ -13,9 +13,11 @@
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/extensions/extension_icon.h"
 #include "pane/ui/extensions/extensions_ui.h"
 #include "pane/ui/view_ids.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
@@ -95,7 +97,7 @@ class ExtensionActionsView::ActionButton : public views::Button,
                                                       : extension.action_title);
     SetTooltipText(name);
     GetViewAccessibility().SetName(name);
-    GetViewAccessibility().SetIsSelected(popup);
+    screen_reader::SetOpens(GetViewAccessibility(), /*menu=*/false, popup);
     layer()->SetOpacity(extension.action_enabled ? 1 : kHiddenActionOpacity);
     SetHeld(popup || menu);
     SchedulePaint();
@@ -120,6 +122,12 @@ class ExtensionActionsView::ActionButton : public views::Button,
     PaintBadge(*canvas, *colors, base::UTF8ToUTF16(extension_.badge_text),
                extension_.badge_background, extension_.badge_text_color,
                bounds);
+  }
+
+  // Collapse closes its popup, by a press: screen_reader::PressToExpand.
+  bool HandleAccessibleAction(const ui::AXActionData& action_data) override {
+    return screen_reader::PressToExpand(*this, action_data) ||
+           views::Button::HandleAccessibleAction(action_data);
   }
 
   // views::ContextMenuController:
@@ -261,7 +269,8 @@ void ExtensionActionsView::SetShows(const Shows& shows) {
     menu_open_ = shows.menu_open;
     puzzle_->SetLook(PuzzleLook(menu_open_));
     puzzle_->SetHeld(menu_open_);
-    puzzle_->GetViewAccessibility().SetIsSelected(menu_open_);
+    screen_reader::SetOpens(puzzle_->GetViewAccessibility(), /*menu=*/true,
+                            menu_open_);
   }
   if (!same) {
     InvalidateLayout();

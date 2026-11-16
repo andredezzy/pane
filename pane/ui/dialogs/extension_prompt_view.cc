@@ -275,9 +275,6 @@ ExtensionPromptView::ExtensionPromptView(
     : kind_(prompt.kind) {
   const bool install = kind_ == ExtensionPrompt::Kind::kInstall;
   SetID(install ? kViewIdExtensionInstall : kViewIdExtensionPopup);
-  GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);
-  GetViewAccessibility().SetName(prompt.title);
-  GetViewAccessibility().SetIsModal(true);
 
   icons_ = AddChildView(std::make_unique<Icons>(
       install ? app_icon : gfx::ImageSkia(), prompt.icon));
@@ -472,10 +469,15 @@ ExtensionPromptOverlay::ExtensionPromptOverlay(
     const gfx::ImageSkia& app_icon,
     base::RepeatingCallback<void(bool accepted)> answer)
     : answer_(std::move(answer)) {
-  // It holds the keys while it shows, and reads as nothing of its own: the
-  // prompt is the dialog.
+  // It holds the keys while it shows, and is the dialog a screen reader
+  // meets, by the prompt's title: Chromium leaves out a view that can't take
+  // the focus under one that can (ViewAccessibility::UpdateIgnoredState), so
+  // the prompt inside it, the dialog until W8c, was never read, nor its
+  // title, and Narrator called the overlay holding the keys a "region".
   SetFocusBehavior(FocusBehavior::ALWAYS);
-  GetViewAccessibility().SetIsIgnored(true);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);
+  GetViewAccessibility().SetName(prompt.title);
+  GetViewAccessibility().SetIsModal(true);
   if (prompt.kind == ExtensionPrompt::Kind::kInstall) {
     scrim_ = AddChildView(std::make_unique<views::View>());
     scrim_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);

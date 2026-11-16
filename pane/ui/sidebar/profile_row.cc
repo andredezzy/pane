@@ -17,9 +17,12 @@
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/menu_icon.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/view_ids.h"
+#include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
@@ -79,6 +82,19 @@ std::u16string AccessibleValue(const SidebarProfile& profile) {
     base::StrAppend(&value, {u", proxy ", StatusName(*profile.proxy)});
   }
   return value;
+}
+
+// The same but its expansion, where a screen reader hears that apart and
+// reads it after the name (screen_reader::SetProfileRow): "3 tabs, proxy
+// connected".
+std::u16string AccessibleSummary(const SidebarProfile& profile) {
+  std::u16string summary =
+      base::StrCat({base::NumberToString16(profile.tab_count),
+                    profile.tab_count == 1 ? u" tab" : u" tabs"});
+  if (profile.proxy) {
+    base::StrAppend(&summary, {u", proxy ", StatusName(*profile.proxy)});
+  }
+  return summary;
 }
 
 // A sidebar row's, with its text its own; while its page shows, no fill, and
@@ -216,9 +232,9 @@ void ProfileRow::Update(const SidebarProfile& profile) {
   if (shows_count) {
     count_->SetText(base::NumberToString16(profile.tab_count));
   }
-  GetViewAccessibility().SetName(profile.name);
-  GetViewAccessibility().SetValue(AccessibleValue(profile));
-  GetViewAccessibility().SetIsSelected(profile.shown);
+  screen_reader::SetProfileRow(
+      GetViewAccessibility(), profile.name, AccessibleValue(profile),
+      AccessibleSummary(profile), profile.expanded, profile.shown);
 
   if (morphs) {
     SetLook(LookOf(profile));
@@ -290,6 +306,18 @@ SkColor ProfileRow::GroundOver(SkColor under) const {
       SkColorSetA(profile_.color,
                   static_cast<U8CPU>(std::lround(255 * kTint * Shown()))),
       1, under);
+}
+
+bool ProfileRow::HandleAccessibleAction(const ui::AXActionData& action_data) {
+  if (action_data.action == ax::mojom::Action::kExpand ||
+      action_data.action == ax::mojom::Action::kCollapse) {
+    if (profile_.expanded !=
+        (action_data.action == ax::mojom::Action::kExpand)) {
+      actions_.toggle.Run();
+    }
+    return true;
+  }
+  return RowButton::HandleAccessibleAction(action_data);
 }
 
 void ProfileRow::LookChanged() {

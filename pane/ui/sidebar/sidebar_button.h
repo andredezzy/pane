@@ -3,6 +3,7 @@
 #ifndef PANE_UI_SIDEBAR_SIDEBAR_BUTTON_H_
 #define PANE_UI_SIDEBAR_SIDEBAR_BUTTON_H_
 
+#include <optional>
 #include <string>
 
 #include "base/memory/raw_ptr.h"
@@ -39,11 +40,19 @@ class SidebarButton : public RowButton {
   SidebarButton& operator=(const SidebarButton&) = delete;
   ~SidebarButton() override;
 
+  // Whether the page it opens shows (Settings), as a screen reader hears it
+  // (screen_reader::SetShowing).
+  void SetShowing(bool showing);
+
   // views::Button:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
   void Layout(PassKey) override;
   void PaintButtonContents(gfx::Canvas* canvas) override;
+
+ protected:
+  // views::Button: the page's showing, again after Views' own checked state.
+  void UpdateAccessibleCheckedState() override;
 
  private:
   // RowButton:
@@ -51,6 +60,8 @@ class SidebarButton : public RowButton {
 
   const Mark mark_;
   raw_ptr<views::Label> title_ = nullptr;
+  // Whether its page shows, once told: New opens none.
+  std::optional<bool> showing_;
 };
 
 }  // namespace pane

@@ -129,6 +129,26 @@ public static class PaneDesktop {
 		return found;
 	}
 
+	// How much detail a region of a PNG has, as the Mac's image-detail tool
+	// reads it: its luminance's mean and standard deviation (sRGB's weights),
+	// every second pixel, the region in fractions of the image.
+	public static string Detail(string file, double x0, double y0, double x1, double y1) {
+		using (var bitmap = new Bitmap(file)) {
+			double sum = 0, squares = 0, count = 0;
+			for (int y = (int)(y0 * bitmap.Height); y < (int)(y1 * bitmap.Height); y += 2) {
+				for (int x = (int)(x0 * bitmap.Width); x < (int)(x1 * bitmap.Width); x += 2) {
+					Color c = bitmap.GetPixel(x, y);
+					double l = (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0;
+					sum += l; squares += l * l; count += 1;
+				}
+			}
+			double mean = sum / Math.Max(count, 1);
+			double deviation = Math.Sqrt(Math.Max(squares / Math.Max(count, 1) - mean * mean, 0));
+			return string.Format(System.Globalization.CultureInfo.InvariantCulture,
+				@"{{""mean"":{0},""deviation"":{1},""samples"":{2}}}", mean, deviation, count);
+		}
+	}
+
 	public static uint ForegroundPid() {
 		uint pid = 0;
 		GetWindowThreadProcessId(GetForegroundWindow(), out pid);

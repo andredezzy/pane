@@ -53,11 +53,17 @@ class Switch : public views::Button {
   // views::Button:
   void PaintButtonContents(gfx::Canvas* canvas) override;
 
+ protected:
+  // views::Button: on or off, whatever the button's own state. Views' sets a
+  // button checked while pressed and nothing otherwise, at every change of
+  // its state, which read the switch off to a screen reader once the pointer
+  // left it (W8c: the profile sheet's Proxy read off while on).
+  void UpdateAccessibleCheckedState() override;
+
  private:
   class Thumb;
 
   void Pressed();
-  void UpdateAccessibility();
   gfx::RectF TrackBounds() const;
   // Where the thumb is now, in the switch's own coordinates.
   gfx::RectF ThumbBounds() const;

@@ -3,9 +3,10 @@
 // control, a key, the front. A menu bar item is chosen through accessibility
 // instead (invokeMenu), with no menu shown. What a check reads of a window
 // comes from the runner's own tools, which need no driver: the window list
-// and the accessibility tree (windows.ts), and the capture (tools.ts).
-// Windows' tree is UI Automation's, which W8 checks with Narrator (ADR 0071),
-// so there the UI is never driven (canDriveUI) and a call throws.
+// and the accessibility tree (windows.ts), and the capture (tools.ts). On
+// Windows the tree is UI Automation's, read and pressed as Narrator reads and
+// presses it (uia.ts, ADR 0071): no driver there drives the UI with real
+// input (canDriveUI), and what a check reads needs no driver (canReadUI).
 //
 // One server per runner (`aside mcp --computer-use`, which keeps a task on
 // Aside's list), allowed Pane's identifier alone, its repl driven over stdio.
@@ -16,8 +17,9 @@
 // then open another Pane. Before every action the windows Aside holds are
 // proved the copy's (AGENTS.md); the state Aside prints is never written out.
 import type { Subprocess } from "bun";
-import { bySystem, noWindowsSide } from "./platform";
+import { bySystem } from "./platform";
 import { swiftTool } from "./tools";
+import { uiaPress, uiaWindows } from "./uia";
 import { ownedWindowIds, windowsOf } from "./windows";
 
 const PANE = "xyz.roundedcorners.pane";
@@ -50,6 +52,11 @@ export const canDriveUI = bySystem({
 	mac: async () => Bun.which("aside") !== null && !(await isScreenLocked()),
 	windows: async () => false,
 });
+
+// Whether checks can read and capture what the screen shows: the screen
+// unlocked, on the Mac with the runner's own tools, on Windows through UI
+// Automation, neither driving anything.
+export const canReadUI = async () => !(await isScreenLocked());
 
 // The app's largest window. A sheet is a window of its own, and the windows
 // come in no fixed order; only the main window holds the sheet's controls.
@@ -271,11 +278,12 @@ async function drive(
 				}
 			}
 		},
+		// Aside's driver is the Mac's: on Windows a check presses through UI
+		// Automation, as Narrator's user does (pressControl, invokeMenu,
+		// lib/uia.ts), and drives nothing else (canDriveUI).
 		windows: async (): Promise<Done> => {
-			throw noWindowsSide(
-				`computer use's ${title}`,
-				"W8",
-				"Windows' tree is UI Automation's, checked with Narrator (ADR 0071)",
+			throw new Error(
+				`computer use's ${title}: Aside's driver is the Mac's; Windows presses through UI Automation (pressControl, invokeMenu)`,
 			);
 		},
 	})();
@@ -344,14 +352,61 @@ export const invokeMenu = bySystem({
 			);
 		}
 	},
-	windows: async (_pid: number, path: string[]): Promise<void> => {
-		throw noWindowsSide(
-			`the menu bar's ${path.join(" › ")}`,
-			"W8",
-			"Windows' menus are Views' own, under the sidebar's \"Pane ⌄\", and its UI is driven through UI Automation, checked with Narrator (ADR 0071)",
-		);
+	// The menu bar's commands are under the sidebar's "Pane ⌄" there (ADR
+	// 0126): its button pressed through UI Automation, as Narrator's user
+	// presses it, then each item of the path in the menu that shows, the Mac's
+	// app menu ("Pane") being the menu itself, and Quit its Exit (ADR 0126).
+	windows: async (pid: number, path: string[]): Promise<void> => {
+		const main = await mainWindowOf(pid);
+		const opened = await uiaPress(main, "Pane");
+
+		if (opened !== "invoked" && opened !== "expanded") {
+			throw new Error(`"Pane ⌄": ${opened}`);
+		}
+
+		const items = path[0] === "Pane" ? path.slice(1) : path;
+		for (const item of items.map((title) => title.replace(/^Quit\b/, "Exit"))) {
+			const pressed = await pressInMenus(pid, item);
+
+			if (pressed !== "invoked" && pressed !== "expanded") {
+				throw new Error(`${path.join(" › ")}: ${item}: ${pressed}`);
+			}
+		}
 	},
 });
+
+// Presses the control named `title` in the copy's windows: through Aside on
+// the Mac (clickButton), through UI Automation on Windows, as Narrator's user
+// presses it (uia.ts), with no driver.
+export const pressControl = bySystem({
+	mac: (pid: number, title: string): Promise<void> =>
+		clickButton(pid, "any", title),
+	windows: async (pid: number, title: string): Promise<void> => {
+		const pressed = await uiaPress(await mainWindowOf(pid), title);
+
+		if (pressed !== "invoked" && pressed !== "expanded") {
+			throw new Error(`no control "${title}" to press: ${pressed}`);
+		}
+	},
+});
+
+// Presses `item` in whichever of the app's menus shows it, as it opens: a
+// menu's window comes a moment after the press that opens it.
+async function pressInMenus(pid: number, item: string): Promise<string> {
+	let last = "no menu";
+	for (const until = Date.now() + 5_000; Date.now() < until; ) {
+		for (const menu of (await uiaWindows(pid)).filter((each) => each.tool)) {
+			last = await uiaPress(menu.id, item);
+
+			if (last === "invoked" || last === "expanded") {
+				return last;
+			}
+		}
+		await Bun.sleep(150);
+	}
+
+	return last;
+}
 
 // A key or a chord, as X names its keys: `Escape`, `Return`, `Down`, `space`,
 // `Super_L+t` (⌘T), `Shift_L+Tab`. The names a step writes in lower case

@@ -334,7 +334,9 @@ export type AppState = {
 	contextMenu: MenuItemState[] | null;
 	// How many menus the page has shown: a new one counts up.
 	contextMenusShown: number;
-	modal: { title: string; buttons: string[] } | null;
+	// The system's print panel: its title and buttons (the Mac's), and on
+	// Windows its window's number, where UI Automation reads Windows 11's.
+	modal: { title: string; buttons: string[]; number?: number } | null;
 	nativeWindows: {
 		role: string;
 		class: string;

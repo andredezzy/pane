@@ -1,6 +1,7 @@
 import { bySystem, noWindowsSide } from "./platform";
 import { pollValue } from "./poll";
 import { swiftTool, windowsDesktop } from "./tools";
+import { type UiaElement, uiaTree, uiaWindows } from "./uia";
 
 export type WindowList = {
 	count: number;
@@ -77,6 +78,10 @@ export const trayIconsOf = bySystem({
 		) as number[],
 });
 
+// An element as a screen reader reaches it: on the Mac its AX role and
+// subrole, title, description, and value; on Windows UI Automation's control
+// type, localized type, name, full description, and value (Value's, else
+// RangeValue's), with the states Narrator says (uia.ts).
 export type AccessibleElement = {
 	depth: number;
 	role: string;
@@ -84,27 +89,39 @@ export type AccessibleElement = {
 	title: string;
 	description: string;
 	value: string;
-};
+} & Partial<
+	Pick<
+		UiaElement,
+		| "toggle"
+		| "selected"
+		| "expanded"
+		| "headingLevel"
+		| "position"
+		| "level"
+		| "dialog"
+		| "rect"
+	>
+>;
 
 // What a screen reader reaches of the process's windows, element by element
-// in VoiceOver's order. It reads only; a locked screen hides every window.
-// Windows' is UI Automation's, which W8 checks with Narrator (ADR 0071).
-export async function accessibilityTree(
-	pid: number,
-): Promise<AccessibleElement[]> {
-	const binary = await bySystem({
-		mac: () => swiftTool("ax-tree"),
-		windows: async (): Promise<string> => {
-			throw noWindowsSide(
-				"the accessibility tree",
-				"W8",
-				"Windows' is UI Automation's, checked with Narrator (ADR 0071)",
-			);
-		},
-	})();
+// in its order: VoiceOver's on the Mac (the AX tree); on Windows UI
+// Automation's control view, Narrator's (ADR 0071), each visible window of
+// the process in turn, its menus among them. It reads only; a locked screen
+// hides every window.
+export const accessibilityTree = bySystem({
+	mac: async (pid: number): Promise<AccessibleElement[]> =>
+		JSON.parse(
+			await Bun.$`${await swiftTool("ax-tree")} ${String(pid)}`.text(),
+		),
+	windows: async (pid: number): Promise<AccessibleElement[]> => {
+		const elements: AccessibleElement[] = [];
+		for (const window of await uiaWindows(pid)) {
+			elements.push(...(await uiaTree(window.id)));
+		}
 
-	return JSON.parse(await Bun.$`${binary} ${String(pid)}`.text());
-}
+		return elements;
+	},
+});
 
 // An element as one line: its role, the name a screen reader reads (its
 // title, else its description) in quotes, and its value: `AXButton "New
@@ -132,28 +149,70 @@ export type MenuWindow = {
 	screen: { frame: Bounds; visible: Bounds };
 };
 
-// The process's open menus, the system's (NSMenu), on screen: their windows'
-// bounds, in points from the main display's top left, as the window list
-// writes them. Windows' menus are Views' own (MenuHost), each where its
-// trigger's AnchoredMenu put it: a check of the front, as the Mac's.
-export async function menusOf(pid: number): Promise<MenuWindow[]> {
-	const binary = await bySystem({
-		mac: () => swiftTool("windows"),
-		windows: async (): Promise<string> => {
-			throw noWindowsSide(
-				"the system's menus on screen",
-				"W8",
-				"Windows' menus are Views' own windows, read with the rest of its UI through UI Automation (ADR 0071)",
-			);
-		},
-	})();
+// Views' menu shadow on Windows, around the menu as it is drawn: the window
+// holds it, the menu's frame inset by its key shadow's blur, 24, and moved
+// down by its offset, 12 (MenuConfig's bubble_menu_shadow_elevation, 12;
+// gfx::ShadowValue::MakeMdShadowValues). Views places that frame, not the
+// window, at a menu's anchor (MenuController::CalculateBubbleMenuBounds).
+const MENU_SHADOW = { left: 24, top: 12, right: 24, bottom: 36 };
 
-	return (
-		JSON.parse(await Bun.$`${binary} --menus ${String(pid)}`.text()) as {
-			windows: MenuWindow[];
-		}
-	).windows;
-}
+// The process's open menus, on screen: each menu's bounds as it is drawn, in
+// points from the main display's top left, and its screen's. The Mac's are
+// the system's (NSMenu), their windows' frames as the window list writes
+// them; Windows' are Views' own (MenuHost), each where its trigger's
+// AnchoredMenu put it, its window less its shadow.
+export const menusOf = bySystem({
+	mac: async (pid: number): Promise<MenuWindow[]> =>
+		(
+			JSON.parse(
+				await Bun.$`${await swiftTool("windows")} --menus ${String(pid)}`.text(),
+			) as { windows: MenuWindow[] }
+		).windows,
+	// Views' menus, each a tool window of Chromium's widget class (MenuHost),
+	// in DIPs, as Windows' screen leaves them room (uia.ts).
+	windows: async (pid: number): Promise<MenuWindow[]> =>
+		(await uiaWindows(pid))
+			.filter(
+				(window) =>
+					window.tool &&
+					window.class.startsWith("Chrome_WidgetWin") &&
+					window.bounds.Height > 24,
+			)
+			.map(({ bounds, screen }) => ({
+				bounds: {
+					X: bounds.X + MENU_SHADOW.left,
+					Y: bounds.Y + MENU_SHADOW.top,
+					Width: bounds.Width - MENU_SHADOW.left - MENU_SHADOW.right,
+					Height: bounds.Height - MENU_SHADOW.top - MENU_SHADOW.bottom,
+				},
+				screen,
+			})),
+});
+
+// Where the window's content starts on the screen, in points: what a view's
+// frame (the channel's `frames`) is measured from. On the Mac the window's
+// own frame; on Windows its client area, inside the frame's resizing edges.
+export const contentOrigin = bySystem({
+	mac: async (pid: number): Promise<{ x: number; y: number }> => {
+		const [window] = (await windowsOf(pid)).windows.sort(
+			(a, b) =>
+				(b.bounds.Width ?? 0) * (b.bounds.Height ?? 0) -
+				(a.bounds.Width ?? 0) * (a.bounds.Height ?? 0),
+		);
+
+		return { x: window?.bounds.X ?? 0, y: window?.bounds.Y ?? 0 };
+	},
+	windows: async (pid: number): Promise<{ x: number; y: number }> => {
+		const [window] = (await uiaWindows(pid))
+			.filter((each) => !each.tool)
+			.sort(
+				(a, b) =>
+					b.bounds.Width * b.bounds.Height - a.bounds.Width * a.bounds.Height,
+			);
+
+		return { x: window?.client.X ?? 0, y: window?.client.Y ?? 0 };
+	},
+});
 
 // The windows once their count reaches `expected`, or the last list seen
 // after `timeoutMs`: a window can be on screen briefly while another opens.
@@ -171,24 +230,29 @@ export async function settledWindowsOf(
 }
 
 // How much detail a region of a PNG has (fractions of its size): the
-// luminance's standard deviation, 0 for a flat color. Windows reaches it
-// only behind the UI driven (canDriveUI), which is W8's there.
-export async function imageDetail(
-	file: string,
-	region: [number, number, number, number],
-): Promise<{ mean: number; deviation: number }> {
-	const binary = await bySystem({
-		mac: () => swiftTool("image-detail"),
-		windows: async (): Promise<string> => {
-			throw noWindowsSide(
-				"an image's detail",
-				"W8",
-				"only a check of the UI driven reads it",
-			);
-		},
-	})();
-
-	return JSON.parse(
-		await Bun.$`${binary} ${file} ${region.map(String)}`.text(),
-	);
-}
+// luminance's standard deviation, 0 for a flat color.
+export const imageDetail = bySystem({
+	mac: async (
+		file: string,
+		region: [number, number, number, number],
+	): Promise<{ mean: number; deviation: number }> =>
+		JSON.parse(
+			await Bun.$`${await swiftTool("image-detail")} ${file} ${region.map(String)}`.text(),
+		),
+	windows: async (
+		file: string,
+		region: [number, number, number, number],
+	): Promise<{ mean: number; deviation: number }> =>
+		JSON.parse(
+			await windowsDesktop(
+				"[Console]::Write([PaneDesktop]::Detail($env:PANE_FILE, [double]$env:PANE_X0, [double]$env:PANE_Y0, [double]$env:PANE_X1, [double]$env:PANE_Y1))",
+				{
+					PANE_FILE: file,
+					PANE_X0: String(region[0]),
+					PANE_Y0: String(region[1]),
+					PANE_X1: String(region[2]),
+					PANE_Y1: String(region[3]),
+				},
+			),
+		),
+});

@@ -76,9 +76,13 @@ class Checkbox : public views::Button {
   void PaintButtonContents(gfx::Canvas* canvas) override;
   void StateChanged(ButtonState old_state) override;
 
+ protected:
+  // views::Button: checked or not, whatever the button's own state, as
+  // Views' own checkbox does (Switch's note).
+  void UpdateAccessibleCheckedState() override;
+
  private:
   void Pressed();
-  void UpdateAccessibility();
 
   bool checked_ = false;
   raw_ptr<views::Label> label_ = nullptr;

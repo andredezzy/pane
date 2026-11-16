@@ -28,7 +28,8 @@ class Canvas;
 
 namespace ui {
 class ColorProvider;
-}
+struct AXActionData;
+}  // namespace ui
 
 namespace pane {
 
@@ -118,6 +119,9 @@ class ProfileRow : public RowButton,
       const views::SizeBounds& available_size) const override;
   void Layout(PassKey) override;
   void PaintButtonContents(gfx::Canvas* canvas) override;
+  // Expanding or collapsing it, as a screen reader asks a tree's item to
+  // (Windows' UI Automation, screen_reader::SetProfileRow), is its press's.
+  bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
 
   // views::ContextMenuController:
   void ShowContextMenuForViewImpl(

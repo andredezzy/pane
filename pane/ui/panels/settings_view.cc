@@ -18,6 +18,7 @@
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/scroll.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
@@ -405,7 +406,7 @@ class SettingsView::Contents : public views::View {
     title_ = AddChildView(
         MakeLabel(u"Settings", kPageTitle, kPaneColorAccentForeground));
     title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    title_->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+    screen_reader::SetHeading(title_->GetViewAccessibility(), 1);
     ExposeToScreenReaders(*title_);
   }
 
@@ -414,7 +415,7 @@ class SettingsView::Contents : public views::View {
         AddChildView(MakeLabel(title, kGroupLabel, kPaneColorMutedForeground));
     label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     // Each section's label heads it, as the Swift's Form's sections were.
-    label->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+    screen_reader::SetHeading(label->GetViewAccessibility(), 2);
     ExposeToScreenReaders(*label);
     Card* card = AddChildView(std::make_unique<Card>());
     groups_.push_back({label, card});

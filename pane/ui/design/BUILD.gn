@@ -45,6 +45,8 @@ source_set("design") {
     "palette.h",
     "placement.cc",
     "placement.h",
+    "screen_reader.cc",
+    "screen_reader.h",
     "scroll.cc",
     "scroll.h",
     "scroll_fade.cc",
@@ -92,8 +94,8 @@ source_set("design") {
 
   # A menu's template icon, which only the Mac's menus tint, the Mac's
   # selected-text colors, the system's checkbox, AppKit's own cell, a menu at
-  # its anchor, Chromium's own runner's pieces, the Mac's focus ring, and the
-  # Mac's words.
+  # its anchor, Chromium's own runner's pieces, the Mac's focus ring, the
+  # Mac's words, and what VoiceOver reads.
   if (is_mac) {
     sources += [
       "anchored_menu_mac.h",
@@ -102,6 +104,7 @@ source_set("design") {
       "focus_ring_mac.cc",
       "menu_icon_mac.mm",
       "palette_mac.mm",
+      "screen_reader_mac.cc",
       "scroll_mac.cc",
       "system_words_mac.cc",
       "tab_order_mac.cc",
@@ -116,7 +119,7 @@ source_set("design") {
 
   # A menu at its anchor, Views' own, the system's checkbox, the native
   # theme's, a menu's icon in the menu's icon color, the system's highlight,
-  # Windows' focus ring, and Windows' words.
+  # Windows' focus ring, Windows' words, and what Narrator reads.
   if (is_win) {
     sources += [
       "anchored_menu_win.cc",
@@ -124,6 +127,7 @@ source_set("design") {
       "focus_ring_win.cc",
       "menu_icon_win.cc",
       "palette_win.cc",
+      "screen_reader_win.cc",
       "scroll_win.cc",
       "system_words_win.cc",
       "tab_order_win.cc",

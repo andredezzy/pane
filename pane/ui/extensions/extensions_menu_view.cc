@@ -13,6 +13,7 @@
 #include "pane/ui/design/icon_button.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/extensions/extension_icon.h"
@@ -262,7 +263,7 @@ std::unique_ptr<views::Label> Heading(const std::u16string& text) {
       MakeLabel(text, text::kSidebar, kPaneColorMutedForeground);
   heading->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   heading->SetElideBehavior(gfx::ELIDE_TAIL);
-  heading->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+  screen_reader::SetHeading(heading->GetViewAccessibility(), 2);
   return heading;
 }
 

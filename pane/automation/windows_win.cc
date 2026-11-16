@@ -233,7 +233,8 @@ bool PressSheetButton(views::Widget* main, std::string_view title) {
   }
   // Windows 11's print dialog: its buttons are XAML's, which no window
   // message presses, so Cancel is its close button's, which cancels it as
-  // Cancel does; the others wait on UI Automation.
+  // Cancel does; the runner presses the others through UI Automation, by the
+  // panel's number (ModalPanel).
   if (const HWND frame = ShellDialog(); frame && title == "Cancel") {
     ::PostMessage(frame, WM_CLOSE, 0, 0);
     return true;
@@ -243,7 +244,8 @@ bool PressSheetButton(views::Widget* main, std::string_view title) {
 
 // The print dialog, app-modal: a dialog of the system's whose owner it
 // disables, while no open or save dialog is asked for; on Windows 11 the
-// shell's, its buttons, XAML's, listed by no window.
+// shell's, its buttons, XAML's, listed by no window, read by the runner
+// through UI Automation from its number.
 base::Value ModalPanel() {
   if (!FilePanelShown().is_none()) {
     return base::Value();
@@ -257,14 +259,21 @@ base::Value ModalPanel() {
     for (const auto& [button, text] : ButtonsOf(hwnd)) {
       titles.Append(text);
     }
-    return base::Value(base::DictValue()
-                           .Set("title", TextOf(hwnd))
-                           .Set("buttons", std::move(titles)));
+    return base::Value(
+        base::DictValue()
+            .Set("title", TextOf(hwnd))
+            .Set("buttons", std::move(titles))
+            .Set("number", static_cast<int>(reinterpret_cast<intptr_t>(hwnd))));
   }
+  // Windows 11's: its buttons are XAML's, which the runner reads and presses
+  // through UI Automation, its frame's number its window there.
   if (const HWND frame = ShellDialog()) {
-    return base::Value(base::DictValue()
-                           .Set("title", TextOf(frame))
-                           .Set("buttons", base::ListValue()));
+    return base::Value(
+        base::DictValue()
+            .Set("title", TextOf(frame))
+            .Set("buttons", base::ListValue())
+            .Set("number",
+                 static_cast<int>(reinterpret_cast<intptr_t>(frame))));
   }
   return base::Value();
 }

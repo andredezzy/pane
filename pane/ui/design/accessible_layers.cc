@@ -19,12 +19,14 @@ constexpr int kLeftOut = 1 << 2;
 
 DEFINE_UI_CLASS_PROPERTY_KEY(int, kAccessibleLayerKey, 0)
 
-void LeaveOut(views::View& child, bool out) {
-  const int was = child.GetProperty(kAccessibleLayerKey);
+}  // namespace
+
+void LeaveOutOfAccessibility(views::View& view, bool out) {
+  const int was = view.GetProperty(kAccessibleLayerKey);
   if (out == ((was & kLeftOut) != 0)) {
     return;
   }
-  views::ViewAccessibility& accessibility = child.GetViewAccessibility();
+  views::ViewAccessibility& accessibility = view.GetViewAccessibility();
   if (out) {
     int made = kLeftOut;
     // Its own flag, not the platform's leaf, which an empty view is too.
@@ -36,7 +38,7 @@ void LeaveOut(views::View& child, bool out) {
       accessibility.SetIsIgnored(true);
       made |= kMadeIgnored;
     }
-    child.SetProperty(kAccessibleLayerKey, made);
+    view.SetProperty(kAccessibleLayerKey, made);
     return;
   }
   if (was & kMadeIgnored) {
@@ -45,10 +47,8 @@ void LeaveOut(views::View& child, bool out) {
   if (was & kMadeLeaf) {
     accessibility.SetIsLeaf(false);
   }
-  child.ClearProperty(kAccessibleLayerKey);
+  view.ClearProperty(kAccessibleLayerKey);
 }
-
-}  // namespace
 
 void UpdateAccessibleLayers(
     views::View& parent,
@@ -64,7 +64,7 @@ void UpdateAccessibleLayers(
   }
   for (size_t index = 0; index < children.size(); ++index) {
     views::View& child = *children[index];
-    LeaveOut(child, !child.GetVisible() || index < floor);
+    LeaveOutOfAccessibility(child, !child.GetVisible() || index < floor);
   }
 }
 

@@ -34,7 +34,8 @@ base::Value SheetAlert(views::Widget* main);
 bool PressSheetButton(views::Widget* main, std::string_view title);
 
 // The app-modal panel showing (the system's print panel), as the Swift's
-// snapshot read it: { title, buttons }; none without one.
+// snapshot read it: { title, buttons }, and on Windows its window's number,
+// where UI Automation reads Windows 11's buttons; none without one.
 base::Value ModalPanel();
 
 // The window resigns key as AppKit tells it when the app in use takes the

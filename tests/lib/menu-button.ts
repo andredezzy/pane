@@ -1,8 +1,31 @@
 import { expect, type ScenarioContext } from "../run";
-import { canDriveUI, pressKey } from "./computer-use";
+import { canDriveUI, canReadUI, pressKey } from "./computer-use";
 import type { PaneApp } from "./pane";
+import { bySystem } from "./platform";
 import { pollValue } from "./poll";
-import { type MenuWindow, menusOf, windowsOf } from "./windows";
+import { contentOrigin, type MenuWindow, menusOf } from "./windows";
+
+// How a check drives a picker's menu once it shows: on the Mac Aside's real
+// keys to the copy's process, the menu being the system's; on Windows the
+// channel's keys to the window's own dispatch, which Views' menu takes (its
+// controller watches the process's events), read through UI Automation
+// (ADR 0071). Either needs Pane in front: a menu shown behind would show
+// over the user's apps.
+const MENU_KEYS = bySystem({
+	mac: {
+		can: async () => await canDriveUI(),
+		press: (app: PaneApp, key: "escape" | "down" | "return") =>
+			pressKey(app.browser.pid, key),
+	},
+	windows: {
+		can: async () => await canReadUI(),
+		press: async (app: PaneApp, key: "escape" | "down" | "return") => {
+			await app.send("key", {
+				key: { escape: "\x1b", down: "down", return: "\r" }[key],
+			});
+		},
+	},
+});
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -13,9 +36,6 @@ export type MenuPlacement = {
 	click: { x: number; y: number };
 	menu: Box;
 };
-
-const area = (bounds: Record<string, number>) =>
-	(bounds.Width ?? 0) * (bounds.Height ?? 0);
 
 // A picker's menu (a MenuButton; `name` its view's, "pane.profile.timeZone"),
 // opened in front as a hand opens it: a click at the trigger's middle, its
@@ -36,9 +56,9 @@ export async function checkMenuUnderTrigger(
 	name: string,
 	choice?: { downs: number; chosen: string },
 ): Promise<MenuPlacement | undefined> {
-	if (!context.foreground || !(await canDriveUI())) {
+	if (!context.foreground || !(await MENU_KEYS.can())) {
 		context.defer(
-			`${name}'s menu under its trigger, by a click and by keys: it needs Pane in front (run.ts --foreground) and Aside Computer Use`,
+			`${name}'s menu under its trigger, by a click and by keys: it needs Pane in front (run.ts --foreground), and on the Mac Aside Computer Use`,
 		);
 
 		return undefined;
@@ -59,15 +79,12 @@ export async function checkMenuUnderTrigger(
 
 	expect(width > 0 && height > 0, `${name} doesn't show`);
 
-	const [window] = (await windowsOf(pid)).windows.sort(
-		(a, b) => area(b.bounds) - area(a.bounds),
-	);
-
-	expect(window, "the copy has no window on screen");
+	// Where the window's content starts, the views' frames counted from it.
+	const origin = await contentOrigin(pid);
 
 	const trigger = {
-		x: (window.bounds.X ?? 0) + x,
-		y: (window.bounds.Y ?? 0) + y,
+		x: origin.x + x,
+		y: origin.y + y,
 		width,
 		height,
 	};
@@ -105,7 +122,7 @@ export async function checkMenuUnderTrigger(
 		expect(menus.length === 0, `${by} left ${name}'s menu open`);
 	};
 
-	const key = (key: string) => pressKey(pid, key);
+	const key = (key: "escape" | "down" | "return") => MENU_KEYS.press(app, key);
 
 	const before = await shown();
 	const { bounds, screen } = await open();

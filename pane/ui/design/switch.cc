@@ -130,7 +130,7 @@ Switch::Switch(Toggled toggled,
   thumb_ = AddChildView(std::make_unique<Thumb>(this));
   GetViewAccessibility().SetRole(ax::mojom::Role::kSwitch);
   GetViewAccessibility().SetName(name);
-  UpdateAccessibility();
+  UpdateAccessibleCheckedState();
 }
 
 Switch::~Switch() = default;
@@ -141,7 +141,7 @@ void Switch::SetOn(bool on) {
   }
   on_ = on;
   position_.MoveTo(on ? 1 : 0, motion::Toggle(), /*compositor=*/nullptr);
-  UpdateAccessibility();
+  UpdateAccessibleCheckedState();
 }
 
 gfx::Size Switch::CalculatePreferredSize(
@@ -229,11 +229,11 @@ void Switch::Pressed() {
   // The user's toggle crosses over, as withAnimation(Motion.toggle) did.
   position_.MoveTo(on_ ? 1 : 0, motion::Toggle(),
                    GetWidget() ? GetWidget()->GetCompositor() : nullptr);
-  UpdateAccessibility();
+  UpdateAccessibleCheckedState();
   toggled_.Run(on_);
 }
 
-void Switch::UpdateAccessibility() {
+void Switch::UpdateAccessibleCheckedState() {
   GetViewAccessibility().SetCheckedState(on_ ? ax::mojom::CheckedState::kTrue
                                              : ax::mojom::CheckedState::kFalse);
 }

@@ -16,6 +16,7 @@
 #include "pane/browser/proxy_test.h"
 #include "pane/model/host_platform.h"
 #include "pane/model/profile_form.h"
+#include "pane/ui/design/accessible_layers.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/field.h"
 #include "pane/ui/design/focus_ring.h"
@@ -25,6 +26,7 @@
 #include "pane/ui/design/menu_button.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/placement.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/scroll.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/switch.h"
@@ -371,6 +373,10 @@ class ProfileSheet::Reveal : public views::View {
       : share_(0, base::BindRepeating(&Reveal::Moved, base::Unretained(this))) {
     content_ = AddChildView(std::move(content));
     SetVisible(false);
+    // Out of what a screen reader reaches while hidden, its content with it:
+    // Views still gave UI Automation the proxy's four fields, hidden in it,
+    // and Narrator read them with the proxy off (W8c).
+    LeaveOutOfAccessibility(*this, true);
   }
 
   // At once without `compositor`, or less motion asked for.
@@ -379,6 +385,7 @@ class ProfileSheet::Reveal : public views::View {
       return;
     }
     SetVisible(true);
+    LeaveOutOfAccessibility(*this, false);
     share_.MoveTo(shown ? 1 : 0, motion::Toggle(), compositor);
     // At once, it settled in the call.
     if (!share_.is_moving()) {
@@ -419,6 +426,7 @@ class ProfileSheet::Reveal : public views::View {
     if (!moving) {
       DestroyLayer();
       SetVisible(share > 0);
+      LeaveOutOfAccessibility(*this, share == 0);
     }
     PreferredSizeChanged();
   }
@@ -549,6 +557,11 @@ class ProfileSheet::Swatch : public views::Button,
     // room.
     SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
     GetViewAccessibility().SetName(ColorTitle(color));
+    screen_reader::SetChoice(
+        GetViewAccessibility(),
+        static_cast<int>(std::ranges::find(kColors, color) - kColors.begin()) +
+            1,
+        static_cast<int>(kColors.size()));
     FocusRing::Install(this, ControlShape::Squircle(radius::kMd))
         ->SetAround(base::BindRepeating([](const views::View* view) {
           return gfx::Rect(kSwatchRing, kSwatchRing, kSwatch, kSwatch);
@@ -562,7 +575,7 @@ class ProfileSheet::Swatch : public views::Button,
       return;
     }
     chosen_ = chosen;
-    GetViewAccessibility().SetIsSelected(chosen);
+    screen_reader::SetChosen(GetViewAccessibility(), chosen);
     SchedulePaint();
   }
 
@@ -570,6 +583,11 @@ class ProfileSheet::Swatch : public views::Button,
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override {
     return gfx::Size(kSwatch + 2 * kSwatchRing, kSwatch + 2 * kSwatchRing);
+  }
+
+  void UpdateAccessibleCheckedState() override {
+    views::Button::UpdateAccessibleCheckedState();
+    screen_reader::KeepChosen(GetViewAccessibility(), chosen_);
   }
 
   void PaintButtonContents(gfx::Canvas* canvas) override {
@@ -643,6 +661,12 @@ class ProfileSheet::PlatformTile : public views::Button {
     name_->SetHorizontalAlignment(gfx::ALIGN_CENTER);
     name_->SetCanProcessEventsWithinSubtree(false);
     GetViewAccessibility().SetName(base::UTF8ToUTF16(model::TitleOf(platform)));
+    screen_reader::SetChoice(
+        GetViewAccessibility(),
+        static_cast<int>(std::ranges::find(kPlatforms, platform) -
+                         kPlatforms.begin()) +
+            1,
+        static_cast<int>(kPlatforms.size()));
     // Its name's ground follows its fill as PaintButtonContents draws it
     // (ground.h).
     UpdateGroundLook();
@@ -658,7 +682,7 @@ class ProfileSheet::PlatformTile : public views::Button {
     chosen_ = chosen;
     name_->SetEnabledColor(chosen ? kPaneColorForeground
                                   : kPaneColorMutedLifted);
-    GetViewAccessibility().SetIsSelected(chosen);
+    screen_reader::SetChosen(GetViewAccessibility(), chosen);
     UpdateGroundLook();
     highlight_.UpdateGround();
     // At once: a selection never animates.
@@ -683,6 +707,11 @@ class ProfileSheet::PlatformTile : public views::Button {
   }
 
   // views::Button:
+  void UpdateAccessibleCheckedState() override {
+    views::Button::UpdateAccessibleCheckedState();
+    screen_reader::KeepChosen(GetViewAccessibility(), chosen_);
+  }
+
   void Layout(PassKey) override {
     // The logo's box and the name's line, 4 apart, in the tile's middle.
     const int content = kLogoBox + kLogoSpacing + kTileName.line_height;
@@ -763,7 +792,7 @@ class ProfileSheet::TileRow : public views::View {
  public:
   TileRow() {
     SetID(kViewIdProfilePlatform);
-    GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
+    screen_reader::SetChoices(GetViewAccessibility());
     GetViewAccessibility().SetName(u"Platform");
   }
 
@@ -1220,7 +1249,7 @@ class SwatchRow : public views::View {
  public:
   SwatchRow() {
     SetID(kViewIdProfileColor);
-    GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
+    screen_reader::SetChoices(GetViewAccessibility());
     GetViewAccessibility().SetName(u"Color");
   }
 
@@ -1389,7 +1418,7 @@ ProfileSheet::ProfileSheet(Callbacks callbacks)
   // The header: the title, and the close X, muted until hovered.
   title_ =
       AddChildView(Text(u"New profile", kTitle, kPaneColorAccentForeground));
-  title_->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+  screen_reader::SetHeading(title_->GetViewAccessibility(), 1);
   ControlLook close_look = IconButtonLook(ControlShape::Squircle(radius::kSm));
   close_look.hover_fill.reset();
   close_look.lit_tint = kPaneColorForeground;

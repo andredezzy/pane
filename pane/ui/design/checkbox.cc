@@ -44,7 +44,7 @@ Checkbox::Checkbox(const std::u16string& label,
       }));
   GetViewAccessibility().SetRole(ax::mojom::Role::kCheckBox);
   GetViewAccessibility().SetName(label);
-  UpdateAccessibility();
+  UpdateAccessibleCheckedState();
 }
 
 Checkbox::~Checkbox() = default;
@@ -92,11 +92,11 @@ void Checkbox::StateChanged(ButtonState old_state) {
 
 void Checkbox::Pressed() {
   checked_ = !checked_;
-  UpdateAccessibility();
+  UpdateAccessibleCheckedState();
   SchedulePaint();
 }
 
-void Checkbox::UpdateAccessibility() {
+void Checkbox::UpdateAccessibleCheckedState() {
   GetViewAccessibility().SetCheckedState(checked_
                                              ? ax::mojom::CheckedState::kTrue
                                              : ax::mojom::CheckedState::kFalse);

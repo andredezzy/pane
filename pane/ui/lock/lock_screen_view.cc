@@ -11,10 +11,13 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/memory/weak_ptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "pane/model/security.h"
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/ground.h"
@@ -58,6 +61,8 @@ constexpr int kSpacing = 28;
 constexpr int kMoveSpacing = 14;
 // The update on offer, 24 from the panel's bottom.
 constexpr int kUpdateBottom = 24;
+// How near a wrong PIN's shake a line said for it is (PinContent::Shook).
+constexpr base::TimeDelta kSaidWith = base::Milliseconds(300);
 // The dots and the numpad while no key can be read (Paper 07.6).
 constexpr float kUnreadableOpacity = 0.4f;
 
@@ -248,8 +253,32 @@ class LockScreenView::PinContent : public views::View {
     failed_attempts_ = failed_attempts;
     if (!said.empty()) {
       GetViewAccessibility().AnnounceAlert(base::JoinString(said, u". "));
+      said_at_ = base::TimeTicks::Now();
     }
+    verifying_ = entry.step() == model::PinEntry::Step::kVerify;
     InvalidateLayout();
+  }
+
+  // The dots shake: a PIN the current one isn't is said, where no line said
+  // it, once the lines the same answer brings have shown. Its shake alone told
+  // a screen reader nothing at Windows' Lock, where a seal the TPM guards
+  // counts no attempts toward a wipe (07.1.1), and in Settings' Change and
+  // Remove PIN on both systems (W8c); at the Mac's Lock "4 attempts
+  // remaining" says it already.
+  void Shook() {
+    if (!verifying_) {
+      return;
+    }
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<PinContent> content, base::TimeTicks shook) {
+              if (content && content->said_at_ < shook) {
+                content->GetViewAccessibility().AnnounceAlert(u"Wrong PIN");
+              }
+            },
+            weak_factory_.GetWeakPtr(), base::TimeTicks::Now() - kSaidWith),
+        kSaidWith);
   }
 
   // As tall as what it shows, at `width`.
@@ -314,6 +343,11 @@ class LockScreenView::PinContent : public views::View {
   raw_ptr<views::Label> attempts_ = nullptr;
   // The failed attempts last shown, so each new one is said once.
   int failed_attempts_ = 0;
+  // When a line was last said, and whether the entry asks for the current
+  // PIN (Shook).
+  base::TimeTicks said_at_;
+  bool verifying_ = false;
+  base::WeakPtrFactory<PinContent> weak_factory_{this};
 };
 
 BEGIN_METADATA(LockScreenView, PinContent)
@@ -529,6 +563,7 @@ void LockScreenView::Slid(bool shown) {
 void LockScreenView::Shake() {
   if (showing() && shows_.entry) {
     pin_->dots()->Shake();
+    pin_->Shook();
   }
 }
 

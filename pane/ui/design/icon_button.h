@@ -52,6 +52,9 @@ class IconButton : public views::Button {
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
   void PaintButtonContents(gfx::Canvas* canvas) override;
+  // Expand and Collapse press one that opens something (the extensions'
+  // puzzle): screen_reader::PressToExpand.
+  bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
 
  private:
   const int size_;

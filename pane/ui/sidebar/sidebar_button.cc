@@ -8,6 +8,7 @@
 
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/text.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/canvas.h"
@@ -59,6 +60,21 @@ SidebarButton::SidebarButton(PressedCallback pressed,
 }
 
 SidebarButton::~SidebarButton() = default;
+
+void SidebarButton::SetShowing(bool showing) {
+  if (showing_ == showing) {
+    return;
+  }
+  showing_ = showing;
+  screen_reader::SetShowing(GetViewAccessibility(), showing);
+}
+
+void SidebarButton::UpdateAccessibleCheckedState() {
+  RowButton::UpdateAccessibleCheckedState();
+  if (showing_) {
+    screen_reader::KeepShowing(GetViewAccessibility(), *showing_);
+  }
+}
 
 gfx::Size SidebarButton::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {

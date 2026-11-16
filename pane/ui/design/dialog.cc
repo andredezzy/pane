@@ -14,6 +14,7 @@
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/placement.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -64,7 +65,7 @@ DialogHeading::DialogHeading(const std::u16string& title,
                              ui::ColorVariant message_color) {
   title_ = AddChildView(MakeLabel(title, kTitle, kPaneColorForeground));
   title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  title_->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+  screen_reader::SetHeading(title_->GetViewAccessibility(), 1);
   message_ =
       AddChildView(MakeLabel(message, kMessage, std::move(message_color)));
   message_->SetHorizontalAlignment(gfx::ALIGN_LEFT);

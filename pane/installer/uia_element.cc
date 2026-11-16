@@ -29,7 +29,10 @@ void Flag(bool on, VARIANT* value) {
 // Says `text` at once, over what was being said of the same screen: Windows
 // 10 1709's UiaRaiseNotificationEvent, looked up as Chromium's
 // BrowserAccessibilityManagerWin looks it up.
-void Say(IRawElementProviderSimple* element, const std::wstring& text) {
+void Say(IRawElementProviderSimple* element,
+         const std::wstring& text,
+         NotificationProcessing processing =
+             NotificationProcessing_ImportantMostRecent) {
   using RaiseNotification =
       HRESULT(WINAPI*)(IRawElementProviderSimple*, NotificationKind,
                        NotificationProcessing, BSTR, BSTR);
@@ -41,8 +44,8 @@ void Say(IRawElementProviderSimple* element, const std::wstring& text) {
   }
   base::win::ScopedBstr said(text);
   base::win::ScopedBstr activity(L"Pane installer screen");
-  raise(element, NotificationKind_Other,
-        NotificationProcessing_ImportantMostRecent, said.Get(), activity.Get());
+  raise(element, NotificationKind_Other, processing, said.Get(),
+        activity.Get());
 }
 
 }  // namespace
@@ -61,6 +64,14 @@ void UiaElement::Set(const std::wstring& name,
     Say(this, description_.empty()
                   ? name_
                   : base::StrCat({name_, L". ", description_}));
+  }
+}
+
+void UiaElement::SayDescription() {
+  if (kind_ == Kind::kDialog && hwnd_ && !description_.empty() &&
+      ::UiaClientsAreListening()) {
+    // After what is being said of the focus, not over it.
+    Say(this, description_, NotificationProcessing_All);
   }
 }
 
@@ -124,6 +135,8 @@ IFACEMETHODIMP UiaElement::GetPropertyValue(PROPERTYID property,
       value->lVal = kind_ == Kind::kDialog ? UIA_WindowControlTypeId
                                            : UIA_CheckBoxControlTypeId;
       return S_OK;
+    case UIA_LocalizedControlTypePropertyId:
+      return kind_ == Kind::kDialog ? Text(L"dialog", value) : S_OK;
     case UIA_IsDialogPropertyId:
       if (kind_ == Kind::kDialog) {
         Flag(true, value);

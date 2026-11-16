@@ -5,6 +5,8 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "pane/ui/design/screen_reader.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
@@ -62,6 +64,11 @@ void IconButton::SetHeld(bool held) {
 gfx::Size IconButton::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
   return gfx::Size(size_, size_);
+}
+
+bool IconButton::HandleAccessibleAction(const ui::AXActionData& action_data) {
+  return screen_reader::PressToExpand(*this, action_data) ||
+         views::Button::HandleAccessibleAction(action_data);
 }
 
 void IconButton::PaintButtonContents(gfx::Canvas* canvas) {

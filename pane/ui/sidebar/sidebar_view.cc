@@ -16,6 +16,7 @@
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/scroll_fade.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/dialogs/system_alert.h"
@@ -154,6 +155,7 @@ SidebarView::SidebarView(Callbacks callbacks)
   list_->scroll_view()->SetUseContentsPreferredSize(true);
   auto rows = std::make_unique<RowList>();
   rows_ = rows.get();
+  screen_reader::SetSidebarList(rows_->GetViewAccessibility());
   rows_->SetPaintToLayer();
   rows_->layer()->SetFillsBoundsOpaquely(false);
   auto contents = std::make_unique<ListContents>(rows_);
@@ -213,7 +215,7 @@ void SidebarView::SetContent(const SidebarContent& content) {
   SetRows(content);
   SetUpdate(content.update);
   settings_->SetSelected(content.settings_shown);
-  settings_->GetViewAccessibility().SetIsSelected(content.settings_shown);
+  settings_->SetShowing(content.settings_shown);
 
   // A newly selected tab, wherever it was chosen, comes into view; at once
   // the first time.
@@ -346,15 +348,25 @@ void SidebarView::SetRows(const SidebarContent& content) {
     rows_->RowsChanged();
   }
 
-  // Each row hears its own value; one that didn't change does nothing.
+  // Each row hears its own value; one that didn't change does nothing. Each
+  // also hears its place, where a screen reader reads it (a profile among
+  // the profiles, a tab among its profile's tabs).
   size_t index = 0;
-  for (const SidebarProfile& profile : content.profiles) {
-    static_cast<ProfileRow*>(rows_->children()[index++])->Update(profile);
+  const int profiles = static_cast<int>(content.profiles.size());
+  for (int place = 0; place < profiles; ++place) {
+    const SidebarProfile& profile = content.profiles[place];
+    views::View* header = rows_->children()[index++];
+    static_cast<ProfileRow*>(header)->Update(profile);
+    screen_reader::SetPlace(header->GetViewAccessibility(), place + 1,
+                            profiles);
     if (!profile.expanded) {
       continue;
     }
-    for (const SidebarTab& tab : profile.tabs) {
-      static_cast<TabRow*>(rows_->children()[index++])->Update(tab);
+    const int tabs = static_cast<int>(profile.tabs.size());
+    for (int tab = 0; tab < tabs; ++tab) {
+      views::View* row = rows_->children()[index++];
+      static_cast<TabRow*>(row)->Update(profile.tabs[tab]);
+      screen_reader::SetPlace(row->GetViewAccessibility(), tab + 1, tabs);
     }
     ++index;
   }

@@ -28,6 +28,13 @@ void UpdateAccessibleLayers(
     views::View& parent,
     base::FunctionRef<bool(const views::View&)> is_modal);
 
+// Leaves `view` out of what a screen reader reaches, its subtree with it, as
+// a layer under a modal one is (a leaf, and ignored), or brings it back as it
+// was. For a view that hides views showing in it, which Views can still give
+// a screen reader: the profile sheet's proxy fields, hidden in their Reveal,
+// were read with the proxy off, their frames empty (W8c).
+void LeaveOutOfAccessibility(views::View& view, bool out);
+
 }  // namespace pane
 
 #endif  // PANE_UI_DESIGN_ACCESSIBLE_LAYERS_H_

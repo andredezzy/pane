@@ -127,6 +127,10 @@ constexpr UINT kFrameMilliseconds = 10;
 constexpr wchar_t kWindowClass[] = L"PaneInstallerWindow";
 constexpr UINT kTaskMessage = WM_APP + 1;
 constexpr UINT_PTR kFrameTimer = 1;
+// The first screen's message, said a moment after a screen reader first
+// reaches the window (UiaElement::SayDescription).
+constexpr UINT_PTR kDescriptionTimer = 2;
+constexpr UINT kDescriptionMilliseconds = 400;
 constexpr int kProgressId = 900;
 constexpr int kBoxId = 901;
 
@@ -1617,6 +1621,13 @@ class InstallWindow::Impl {
           Tick();
           return 0;
         }
+        if (wparam == kDescriptionTimer) {
+          ::KillTimer(hwnd_, kDescriptionTimer);
+          if (window_element_ && ::GetForegroundWindow() == hwnd_) {
+            window_element_->SayDescription();
+          }
+          return 0;
+        }
         break;
       case WM_MOUSEMOVE: {
         if (!tracking_) {
@@ -1668,6 +1679,15 @@ class InstallWindow::Impl {
         // stays Windows' own.
         if (static_cast<LONG>(lparam) == static_cast<LONG>(UiaRootObjectId) &&
             window_element_) {
+          // The first screen's message, said once, after the name a screen
+          // reader says as it comes: an event raised before any client has
+          // reached the window goes nowhere, so the first activation's went
+          // unsaid (W8c).
+          if (!description_said_) {
+            description_said_ = true;
+            ::SetTimer(hwnd_, kDescriptionTimer, kDescriptionMilliseconds,
+                       nullptr);
+          }
           return window_element_->Answer(wparam, lparam);
         }
         break;
@@ -1681,6 +1701,7 @@ class InstallWindow::Impl {
           window_element_->Detach();
         }
         ::KillTimer(hwnd_, kFrameTimer);
+        ::KillTimer(hwnd_, kDescriptionTimer);
         timer_ = false;
         hwnd_ = nullptr;
         ::PostQuitMessage(0);
@@ -1788,6 +1809,9 @@ class InstallWindow::Impl {
   std::u16string bar_right_;
   ComPtr<UiaElement> window_element_;
   ComPtr<UiaElement> box_element_;
+  // Whether the first screen's message is said, or about to be
+  // (kDescriptionTimer).
+  bool description_said_ = false;
 };
 
 InstallWindow::InstallWindow(Delegate* delegate, std::wstring title)

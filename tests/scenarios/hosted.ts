@@ -1,5 +1,11 @@
 import { join } from "node:path";
-import { canDriveUI, invokeMenu, mainWindowOf } from "../lib/computer-use";
+import {
+	canReadUI,
+	invokeMenu,
+	mainWindowOf,
+	pressControl,
+} from "../lib/computer-use";
+import { bySystem } from "../lib/platform";
 import { childrenOf, isRunning, waitForExit } from "../lib/processes";
 import { waitForTarget } from "../lib/targets";
 import { captureWindow } from "../lib/tools";
@@ -13,6 +19,36 @@ import {
 import { expect, type Scenario } from "../run";
 
 const TITLE = "Pane hosted";
+
+// The app's own controls, by what a screen reader reads (ADR 0071): VoiceOver's
+// AX roles on the Mac; on Windows UI Automation's control types, Narrator's,
+// the sidebar's edge a slider there, valued at its width.
+const READ = bySystem({
+	mac: {
+		sidebar: [
+			'AXButton "New tab"',
+			'AXButton "Settings"',
+			'AXSplitter "Sidebar width"',
+		],
+		address: (url: string) => `AXTextField "Address" = "${url}"`,
+	},
+	windows: {
+		sidebar: [
+			'Button "New tab"',
+			'Button "Settings"',
+			'Slider "Sidebar width"',
+		],
+		address: (url: string) => `Edit "Address" = "${url}"`,
+	},
+});
+
+// Quit Pane? answered as Quit's own second press does (ADR 0053): its menu
+// item again on the Mac, its Exit button on Windows, where the dialog covers
+// "Pane ⌄" to a screen reader as it does the eye.
+const confirmQuit = bySystem({
+	mac: (pid: number) => invokeMenu(pid, ["Pane", "Quit Pane"]),
+	windows: (pid: number) => pressControl(pid, "Exit"),
+});
 
 // Pane's UI runs in the engine it hosts, with Chrome's own UI off (ADR 0010).
 // One window of Pane's own, the page it was launched with reported as a
@@ -45,7 +81,7 @@ const hosted: Scenario = async (context) => {
 		"trace lacks the window told of its tab (didInsertTab)",
 	);
 
-	if (!(await canDriveUI())) {
+	if (!(await canReadUI())) {
 		context.defer("the page drawn in the window");
 		context.defer("Quit Pane stopping every helper");
 
@@ -63,21 +99,17 @@ const hosted: Scenario = async (context) => {
 		.map(describeElement)
 		.join("\n");
 
-	// The app's own controls, by the names VoiceOver reads (ADR 0071): the
-	// sidebar's, and the address field showing the page. Views publishes no
-	// identifier of Pane's names (each view's id goes out as its DOM
+	// The app's own controls, by the names a screen reader reads (ADR 0071):
+	// the sidebar's, and the address field showing the page. Views publishes
+	// no identifier of Pane's names (each view's id goes out as its DOM
 	// identifier, `view_<n>`); the Swift's identifiers were SwiftUI's.
 	expect(
-		[
-			'AXButton "New tab"',
-			'AXButton "Settings"',
-			'AXSplitter "Sidebar width"',
-		].every((control) => tree.includes(control)),
+		READ.sidebar.every((control) => tree.includes(control)),
 		`accessibility tree lacks the sidebar:\n${tree}`,
 	);
 
 	expect(
-		tree.includes(`AXTextField "Address" = "${url}"`),
+		tree.includes(READ.address(url)),
 		`the address field does not show the page:\n${tree}`,
 	);
 
@@ -93,11 +125,12 @@ const hosted: Scenario = async (context) => {
 	);
 
 	const helpersBefore = await childrenOf(browser.pid);
-	// Quit Pane, the menu item ⌘Q runs, chosen through accessibility. It
-	// asks first (Quit Pane?); choosing it again quits, as ⌘Q again does.
+	// Quit Pane, the menu item ⌘Q runs (Windows' Exit Pane, under "Pane ⌄"),
+	// chosen through accessibility. It asks first (Quit Pane?); choosing it
+	// again quits, as ⌘Q again does, and on Windows its Exit.
 	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
 	await app.waitFor("Quit Pane?", (current) => current.quitConfirmation);
-	await invokeMenu(browser.pid, ["Pane", "Quit Pane"]);
+	await confirmQuit(browser.pid);
 
 	const exited = await waitForExit(browser.pid, 5_000);
 

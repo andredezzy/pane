@@ -113,6 +113,8 @@ class MenuButton : public views::Button, public ui::SimpleMenuModel::Delegate {
   void Layout(PassKey) override;
   void PaintButtonContents(gfx::Canvas* canvas) override;
   void OnThemeChanged() override;
+  // Expand opens its menu, as a press does: screen_reader::PressToExpand.
+  bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
 
   // ui::SimpleMenuModel::Delegate:
   bool IsCommandIdChecked(int command_id) const override;

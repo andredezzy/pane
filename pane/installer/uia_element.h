@@ -16,11 +16,13 @@ namespace pane::installer {
 // What a screen reader reads of the install window (Paper 11.12.8, 11.12.10):
 // UI Automation's element for one of its windows, which Narrator, NVDA, and
 // JAWS read once a window has a provider of its own. The window reads as a
-// dialog named by the screen's title, its message the description; the box
-// as a check box named by its label, its size and line the description. The
-// window's own text stays "Pane Installer", what the taskbar and Alt+Tab
-// show; the buttons and the bar are Windows' own controls, which UI
-// Automation reads as it reads any.
+// dialog named by the screen's title, "dialog" as Pane's own dialogs say it
+// (Windows says "window" of a window), its message the description, said a
+// moment after a screen reader first reaches the window and at each new
+// screen; the box as a check box named by its label, its size and line the
+// description. The window's own text stays "Pane Installer", what the
+// taskbar and Alt+Tab show; the buttons and the bar are Windows' own
+// controls, which UI Automation reads as it reads any.
 class UiaElement
     : public Microsoft::WRL::RuntimeClass<
           Microsoft::WRL::RuntimeClassFlags<Microsoft::WRL::ClassicCom>,
@@ -36,6 +38,13 @@ class UiaElement
   // What it reads as. A dialog given a new name says it at once, with its
   // description, as its new screen shows.
   void Set(const std::wstring& name, const std::wstring& description);
+
+  // Says a dialog's description, after what is being said: Narrator says a
+  // dialog's name and kind as it takes the focus, and never its full
+  // description, so the uninstall dialog's message went unsaid (W8c:
+  // "Uninstall Pane? window", three times, and nothing of "Pane leaves this
+  // PC"). The window says it once a screen reader has reached it.
+  void SayDescription();
 
   // Its window is going: nothing is read of it from now on.
   void Detach();

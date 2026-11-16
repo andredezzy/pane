@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "pane/model/app_settings.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/sidebar/resize_cursor.h"
 #include "pane/ui/view_ids.h"
 #include "ui/accessibility/ax_action_data.h"
@@ -24,7 +25,7 @@ ResizeHandle::Callbacks::~Callbacks() = default;
 ResizeHandle::ResizeHandle(Callbacks callbacks)
     : views::ResizeArea(this), callbacks_(std::move(callbacks)) {
   SetID(kViewIdSidebarResize);
-  GetViewAccessibility().SetRole(ax::mojom::Role::kSplitter);
+  screen_reader::SetSplitter(GetViewAccessibility());
   GetViewAccessibility().SetName(u"Sidebar width");
   GetViewAccessibility().SetMinValueForRange(model::kSidebarMinWidth);
   GetViewAccessibility().SetMaxValueForRange(model::kSidebarMaxWidth);

@@ -59,7 +59,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0067](0067-find-bar.md) The find bar takes Aside's design
 - [0068](0068-saves-off-the-main-thread.md) Saves run off the main thread and write only what changed
 - [0070](0070-one-source-per-design-concern.md) The view layer has one source per concern
-- [0071](0071-voiceover-labels.md) VoiceOver names Pane's controls, reads their text, and stays in the modal layer on top
+- [0071](0071-voiceover-labels.md) VoiceOver and Narrator name Pane's controls, read their text, and stay in the modal layer on top
 - [0072](0072-favicons.md) Favicons decode once, off the main thread, into a bounded cache
 - [0073](0073-views-redraw-what-changed.md) Pane's views redraw only what changed, never mask the page, and paint on layers no bigger than what they draw
 - [0075](0075-tracing-cost.md) Tracing costs one branch when off

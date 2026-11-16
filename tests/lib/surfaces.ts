@@ -7,6 +7,7 @@ import { expect } from "../run";
 import type { AppState, PaneApp } from "./pane";
 import { bySystem } from "./platform";
 import { poll } from "./poll";
+import { uiaPress, uiaTree } from "./uia";
 
 export async function waitForSheet(
 	app: PaneApp,
@@ -32,10 +33,47 @@ export async function answerSheet(
 	await app.send("clickSheetButton", { title: button, texts });
 }
 
-// The system's print panel, app-modal, by its own button (performClick).
-export async function answerModal(app: PaneApp, button: string): Promise<void> {
-	await app.send("clickModalButton", { title: button });
-}
+// The system's print panel, app-modal, by its own button: the Mac's by
+// performClick, through the channel; Windows 11's, the shell's, whose buttons
+// are XAML's, which no window message presses, through UI Automation, as
+// Narrator's user presses them (ADR 0071).
+export const answerModal = bySystem({
+	mac: async (app: PaneApp, button: string): Promise<void> => {
+		await app.send("clickModalButton", { title: button });
+	},
+	windows: async (app: PaneApp, button: string): Promise<void> => {
+		const { modal } = await app.state();
+
+		if (!modal?.number) {
+			// An older dialog of Windows', in Pane's own process.
+			await app.send("clickModalButton", { title: button });
+
+			return;
+		}
+
+		const pressed = await uiaPress(modal.number, button);
+
+		expect(pressed === "invoked", `the print dialog's ${button}: ${pressed}`);
+	},
+});
+
+// The print panel's buttons, by their titles: the Mac's as the channel lists
+// them, Windows 11's as UI Automation reads them.
+export const modalButtons = bySystem({
+	mac: async (app: PaneApp): Promise<string[]> =>
+		(await app.state()).modal?.buttons ?? [],
+	windows: async (app: PaneApp): Promise<string[]> => {
+		const { modal } = await app.state();
+
+		if (!modal?.number) {
+			return modal?.buttons ?? [];
+		}
+
+		return (await uiaTree(modal.number))
+			.filter((element) => element.role === "Button")
+			.map((element) => element.title);
+	},
+});
 
 type NativeWindow = AppState["nativeWindows"][number];
 

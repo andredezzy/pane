@@ -11,8 +11,10 @@
 #include "base/task/sequenced_task_runner.h"
 #include "pane/ui/design/anchored_menu.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/menu_source_utils.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -124,7 +126,7 @@ MenuButton::MenuButton(std::u16string label,
   title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   title_->SetCanProcessEventsWithinSubtree(false);
   BuildMenu({});
-  GetViewAccessibility().SetRole(ax::mojom::Role::kPopUpButton);
+  screen_reader::SetPicker(GetViewAccessibility());
   GetViewAccessibility().SetName(std::move(label));
   GetViewAccessibility().SetHasPopup(ax::mojom::HasPopup::kMenu);
 }
@@ -286,6 +288,11 @@ void MenuButton::ExecuteCommand(int command_id, int event_flags) {
             }
           },
           weak_factory_.GetWeakPtr(), static_cast<size_t>(command_id)));
+}
+
+bool MenuButton::HandleAccessibleAction(const ui::AXActionData& action_data) {
+  return screen_reader::PressToExpand(*this, action_data) ||
+         views::Button::HandleAccessibleAction(action_data);
 }
 
 void MenuButton::OnMenuWillShow(ui::SimpleMenuModel* source) {

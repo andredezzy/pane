@@ -17,6 +17,7 @@
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
 #include "pane/ui/design/squircle.h"
+#include "pane/ui/design/system_words.h"
 #include "pane/ui/design/tab_order.h"
 #include "pane/ui/design/theme.h"
 #include "pane/ui/dialogs/about_dialog.h"
@@ -450,6 +451,10 @@ RootView::RootView(Callbacks callbacks,
       std::make_unique<QuitDialog>(callbacks_.cancel_quit, callbacks_.quit),
       std::move(quit), ModalDialog::Keys::kEvery));
   quit_dialog_->SetID(kViewIdQuit);
+  // Read as a modal dialog named by its title, as Delete profile's alert and
+  // About Pane are: unnamed, Narrator said "dialog" alone (W8c).
+  quit_dialog_->GetViewAccessibility().SetName(
+      std::u16string(Words().quit_question));
   // The PIN screen, over everything else but the hint; made now, so a Lock
   // makes nothing.
   lock_ = AddChildView(
@@ -758,6 +763,8 @@ void RootView::PrepareAppIconPicker() {
   app_icon_dialog_ = AddChildView(std::make_unique<ModalDialog>(
       AppIconPicker::kWidth, std::move(picker), std::move(dialog)));
   app_icon_dialog_->SetID(kViewIdAppIconPicker);
+  // Named by its title, as Quit Pane? is.
+  app_icon_dialog_->GetViewAccessibility().SetName(AppIconPicker::kTitle);
   app_icon_dialog_->SetBoundsRect(GetLocalBounds());
   RaiseTopOverlays();
 }

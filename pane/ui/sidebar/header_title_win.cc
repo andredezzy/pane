@@ -11,8 +11,10 @@
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/text.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -100,6 +102,12 @@ class HeaderMenuButton : public views::Button {
   }
 
   void OpenFromKeys() { Open(ui::mojom::MenuSourceType::kKeyboard); }
+
+  // Expand opens its menu, as a press does: screen_reader::PressToExpand.
+  bool HandleAccessibleAction(const ui::AXActionData& action_data) override {
+    return screen_reader::PressToExpand(*this, action_data) ||
+           views::Button::HandleAccessibleAction(action_data);
+  }
 
   // views::View:
   gfx::Size CalculatePreferredSize(

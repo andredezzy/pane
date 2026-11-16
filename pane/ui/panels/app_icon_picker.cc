@@ -13,6 +13,7 @@
 #include "pane/ui/design/controls.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/squircle.h"
 #include "pane/ui/design/system_words.h"
 #include "pane/ui/design/text.h"
@@ -158,7 +159,7 @@ class AppIconPicker::Tile : public views::Button {
     name_color_set_ = true;
     name_->SetEnabledColor(selected ? kPaneColorForeground
                                     : kPaneColorMutedForeground);
-    GetViewAccessibility().SetIsSelected(selected);
+    screen_reader::SetChosen(GetViewAccessibility(), selected);
     SchedulePaint();
   }
 
@@ -168,6 +169,11 @@ class AppIconPicker::Tile : public views::Button {
   }
 
   // views::Button:
+  void UpdateAccessibleCheckedState() override {
+    views::Button::UpdateAccessibleCheckedState();
+    screen_reader::KeepChosen(GetViewAccessibility(), selected_);
+  }
+
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override {
     return gfx::Size(kTileWidth, kTileHeight);
@@ -225,11 +231,16 @@ AppIconPicker::AppIconPicker(
     base::RepeatingClosure done)
     : images_(images) {
   heading_ = AddChildView(std::make_unique<DialogHeading>(
-      u"App icon",
+      kTitle,
       u"Automatic follows the theme: Day when light, Night when dark."));
-  for (const model::AppIcon icon : AllAppIcons()) {
+  const std::vector<model::AppIcon>& icons = AllAppIcons();
+  for (size_t index = 0; index < icons.size(); ++index) {
+    const model::AppIcon icon = icons[index];
     tiles_[icon] = AddChildView(
         std::make_unique<Tile>(icon, base::BindRepeating(choose, icon)));
+    screen_reader::SetChoice(tiles_[icon]->GetViewAccessibility(),
+                             static_cast<int>(index) + 1,
+                             static_cast<int>(icons.size()));
   }
   // The system's word for the key (Words), Return's arrow on the Mac in its
   // text form (VS15): without it, the emoji font's color glyph.

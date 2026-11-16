@@ -13,6 +13,7 @@
 #include "pane/ui/design/focus_ring.h"
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/tabs/tab_favicon.h"
 #include "pane/ui/view_ids.h"
@@ -105,7 +106,7 @@ void TabRow::Update(const SidebarTab& tab) {
     title_->SetText(title);
   }
   GetViewAccessibility().SetName(tab.title.empty() ? u"Loading" : tab.title);
-  GetViewAccessibility().SetIsSelected(tab.selected);
+  screen_reader::SetTabRow(GetViewAccessibility(), tab.selected);
   // A selection shows at once; the dimming of a tab whose page went too.
   SetSelected(tab.selected);
   SetDimmed(!tab.loaded && !tab.selected);

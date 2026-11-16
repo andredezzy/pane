@@ -32,6 +32,8 @@ class AppIconPicker : public views::View, public AppIconImages::Observer {
  public:
   // The dialog's width, its content 24 in.
   static constexpr int kWidth = 480;
+  // Its heading, and the dialog's name to a screen reader.
+  static constexpr char16_t kTitle[] = u"App icon";
 
   AppIconPicker(AppIconImages& images,
                 model::AppIcon selection,
