@@ -32,6 +32,8 @@ What was rejected:
 - **Ending Chrome's startup at the unlock**, or at launch: Chrome holds that work back so that the first page loads first; at a lock the pages are gone.
 - **A longer cap**: the pool emptied within 400 ms at every lock measured; past 5 s the volume would stay mounted behind the PIN screen for work that isn't the lock's.
 
+**Nothing of a page runs behind the Lock, on Windows too** (W8, 2026-11-16, an installed Pane in the test VM, through its own Lock Pane, Ctrl+Shift+L, with a page holding 300 MB of its own): the page's renderer was gone 1 s after the Lock, the last small renderer by 15 s, and at 15 and 30 s no renderer ran, the browser, the GPU process, the network service, and the storage service alone; the PIN brought the page back.
+
 How it is checked:
 
 - **What locks it by itself**: `lock-while-open` posts the displays' sleep and the session's resign to Pane alone; the screen's lock and the sleep reach every app, the user's own Pane among them, so `pane_unittests`' `LockTriggersTest` covers those, the time without use in front and behind, and the page's sound or picture-in-picture as use. The real events were tried once with the user at the Mac (2026-11-12), on a package's test copy behind a PIN: the screen's lock (⌃⌘Q), the displays' sleep (`pmset displaysleepnow`), the Mac's sleep from the Apple menu, and the lid closing each locked it and detached its volume, and its PIN opened it again; another user's session went untried, the Mac having one account, so the scenario's posted event stands for it.

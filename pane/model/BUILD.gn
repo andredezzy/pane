@@ -119,6 +119,7 @@ source_set("model") {
       "panic_wipe_run_win.cc",
       "panic_wipe_win.cc",
       "pin_guard_win.cc",
+      "pin_guard_win.h",
       "preference_macs.h",
       "preference_macs_win.cc",
       "updates_win.cc",

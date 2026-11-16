@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/model/pin_guard.h"
+#include "pane/model/pin_guard_win.h"
 
 #include <windows.h>
 
@@ -58,29 +58,16 @@ bool IsLockout(SECURITY_STATUS status) {
          status == TPM_E_PCP_AUTHENTICATION_IGNORED;
 }
 
-// What a status the provider returned means for the PIN. Probed: a wrong PIN
-// is NTE_PERM, counted by the chip and by Windows; a lockout refuses the
-// right PIN too; a deleted key is NTE_BAD_KEYSET.
-PinGuard::Refusal RefusalOf(SECURITY_STATUS status) {
-  if (IsLockout(status)) {
-    return PinGuard::Refusal::kLockedOut;
-  }
-  switch (status) {
-    case NTE_PERM:
-    case TPM_E_PCP_AUTHENTICATION_FAILED:
-      return PinGuard::Refusal::kWrongPin;
-    default:
-      return PinGuard::Refusal::kGone;
-  }
+// Whether this computer has a TPM 2.0: the system's TPM Base Services see
+// one, as Chromium's own hardware check asks them.
+bool HasChip() {
+  return base::win::EvaluateWin11HardwareRequirements().tpm;
 }
 
 // Why the chip made or opened nothing when it gave no lockout: no TPM 2.0 on
-// this computer (the system's TPM Base Services see none, as Chromium's own
-// hardware check asks them), or the chip refused.
+// this computer, or the chip refused.
 PinGuard::Refusal NoKey() {
-  return base::win::EvaluateWin11HardwareRequirements().tpm
-             ? PinGuard::Refusal::kRefused
-             : PinGuard::Refusal::kNoChip;
+  return HasChip() ? PinGuard::Refusal::kRefused : PinGuard::Refusal::kNoChip;
 }
 
 // The PIN as the provider takes it: UTF-16 with its terminating null.
@@ -187,13 +174,14 @@ class TpmGuard : public PinGuard {
         provider.get(), crypto::ScopedNCryptKey::Receiver(key).get(),
         name.c_str(), /*dwLegacyKeySpec=*/0, NCRYPT_SILENT_FLAG);
     if (FAILED(status)) {
-      // NTE_BAD_KEYSET: deleted, as the wipe deletes it, or never here.
+      // NTE_BAD_KEYSET: deleted, as the wipe deletes it, never here, or the
+      // chip cleared since.
       LOG(ERROR) << "The TPM's key would not open: " << std::hex << status;
-      return base::unexpected(Refusal::kGone);
+      return base::unexpected(RefusalAtOpen(status, HasChip()));
     }
     if (FAILED(status = SetPin(key.get(), WidePin(pin)))) {
       LOG(ERROR) << "The TPM's key took no PIN: " << std::hex << status;
-      return base::unexpected(Refusal::kGone);
+      return base::unexpected(NoKey());
     }
 
     BCRYPT_OAEP_PADDING_INFO padding = Oaep();
@@ -204,8 +192,8 @@ class TpmGuard : public PinGuard {
                            share.data(), static_cast<DWORD>(share.size()),
                            &size, NCRYPT_PAD_OAEP_FLAG | NCRYPT_SILENT_FLAG);
     if (FAILED(status)) {
-      const Refusal refusal = RefusalOf(status);
-      if (refusal == Refusal::kGone) {
+      const Refusal refusal = RefusalAtDecrypt(status, HasChip());
+      if (refusal != Refusal::kWrongPin) {
         LOG(ERROR) << "The TPM gave no share: " << std::hex << status;
       }
       return base::unexpected(refusal);
@@ -274,6 +262,39 @@ class TpmGuard : public PinGuard {
 };
 
 }  // namespace
+
+PinGuard::Refusal RefusalAtOpen(long status, bool has_chip) {
+  if (IsLockout(status)) {
+    return PinGuard::Refusal::kLockedOut;
+  }
+  switch (status) {
+    case NTE_BAD_KEYSET:
+    case NTE_NOT_FOUND:
+      return PinGuard::Refusal::kGone;
+    default:
+      return has_chip ? PinGuard::Refusal::kRefused
+                      : PinGuard::Refusal::kNoChip;
+  }
+}
+
+// Until W8 every status here but a wrong PIN and a lockout read as the key
+// gone: a passing error showed 07.6.1, "nothing can bring it back", for data
+// the next launch opens.
+PinGuard::Refusal RefusalAtDecrypt(long status, bool has_chip) {
+  if (IsLockout(status)) {
+    return PinGuard::Refusal::kLockedOut;
+  }
+  switch (status) {
+    case NTE_PERM:
+    case TPM_E_PCP_AUTHENTICATION_FAILED:
+      return PinGuard::Refusal::kWrongPin;
+    case TPM_20_E_INTEGRITY:
+      return PinGuard::Refusal::kGone;
+    default:
+      return has_chip ? PinGuard::Refusal::kRefused
+                      : PinGuard::Refusal::kNoChip;
+  }
+}
 
 // static
 scoped_refptr<PinGuard> PinGuard::ForData(

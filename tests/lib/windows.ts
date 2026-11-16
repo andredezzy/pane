@@ -59,6 +59,24 @@ export const ownedWindowIds = bySystem({
 });
 
 // An element of a window's accessibility tree, as a screen reader reaches it.
+// The icons Chrome's tray holds in the system's notification area for the
+// app's process, by id: Windows' alone (status_tray_win.cc), where an
+// extension that asks the "background" permission put Chrome's background
+// mode's (W8). Chrome makes no status item on the Mac (background_mode_manager.cc,
+// CreateStatusTrayIcon).
+export const trayIconsOf = bySystem({
+	mac: async (_pid: number): Promise<number[]> => [],
+	windows: async (pid: number): Promise<number[]> =>
+		JSON.parse(
+			(
+				await windowsDesktop(
+					"[Console]::Write((ConvertTo-Json -Compress -InputObject @([PaneDesktop]::TrayIconsOf([uint32]$env:PANE_PID))))",
+					{ PANE_PID: String(pid) },
+				)
+			).trim() || "[]",
+		) as number[],
+});
+
 export type AccessibleElement = {
 	depth: number;
 	role: string;

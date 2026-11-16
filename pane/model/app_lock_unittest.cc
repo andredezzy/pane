@@ -261,6 +261,100 @@ TEST_F(AppLockGuardTest, ThePinIsSealedWithTheChipsKey) {
   EXPECT_EQ(OpenDataKey(*Saved()->key, Bytes(kSecret), std::nullopt), key);
 }
 
+// A new seal that didn't reach the disk keeps the earlier key (W8): the seal
+// there still names it, and the earlier PIN opens it at the next launch.
+// Before, the chip's earlier key went all the same, a failed save leaving
+// the disk naming a key gone, and every profile with it.
+TEST_F(AppLockGuardTest, AnUnsavedSealKeepsTheEarlierKey) {
+  const Key key = SaveGuardedKey("1234");
+  const std::string first = Saved()->key->guard->key;
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+
+  // Neither file can be replaced: a folder stands at each name, as a file
+  // another program holds stands on Windows.
+  const std::vector<std::string> names = {"security.json",
+                                          "Data.security.json"};
+  std::vector<std::string> kept_bytes;
+  for (const std::string& name : names) {
+    const base::FilePath path = data_.AppendASCII(name);
+    std::string bytes;
+    ASSERT_TRUE(base::ReadFileToString(path, &bytes));
+    kept_bytes.push_back(std::move(bytes));
+    ASSERT_TRUE(base::DeleteFile(path));
+    ASSERT_TRUE(base::CreateDirectory(path));
+    ASSERT_TRUE(base::WriteFile(path.AppendASCII("held"), "held"));
+  }
+  lock.Show(PinEntry::Mode::kChange);
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] {
+    return lock.entry() && lock.entry()->step() == PinEntry::Step::kEnter;
+  }));
+  Type("5678");
+  lock.ContinueWithPin();
+  Type("5678");
+  ASSERT_TRUE(WaitFor([&] { return !lock.entry(); }));
+  task_environment_.RunUntilIdle();
+  const std::vector<std::string> both = guard_->keys();
+  ASSERT_EQ(both.size(), 2u);
+  EXPECT_TRUE(std::ranges::contains(both, first));
+
+  // The disk as the failed saves left it: the earlier seal, which the
+  // earlier PIN still opens.
+  lock_->RemoveObserver(&shakes_);
+  lock_.reset();
+  vault_.reset();
+  for (size_t i = 0; i < names.size(); ++i) {
+    const base::FilePath path = data_.AppendASCII(names[i]);
+    ASSERT_TRUE(base::DeletePathRecursively(path));
+    ASSERT_TRUE(base::WriteFile(path, kept_bytes[i]));
+  }
+  AppLock& again = Launch();
+  ASSERT_TRUE(again.is_locked());
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !again.is_locked(); }));
+  EXPECT_EQ(vault_->data_key(), key);
+}
+
+// The earlier key goes once a save of the new seal lands, a later one when
+// the reseal's own failed: here the save of Settings' next check of the PIN.
+TEST_F(AppLockGuardTest, TheEarlierKeyGoesOnceTheNewSealIsSaved) {
+  SaveGuardedKey("1234");
+  const std::string first = Saved()->key->guard->key;
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+
+  const base::FilePath held = data_.AppendASCII("security.json");
+  ASSERT_TRUE(base::DeleteFile(held));
+  ASSERT_TRUE(base::CreateDirectory(held));
+  ASSERT_TRUE(base::WriteFile(held.AppendASCII("held"), "held"));
+  lock.Show(PinEntry::Mode::kChange);
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] {
+    return lock.entry() && lock.entry()->step() == PinEntry::Step::kEnter;
+  }));
+  Type("5678");
+  lock.ContinueWithPin();
+  Type("5678");
+  ASSERT_TRUE(WaitFor([&] { return !lock.entry(); }));
+  task_environment_.RunUntilIdle();
+  // One file written of two: the earlier key stays.
+  ASSERT_EQ(guard_->keys().size(), 2u);
+
+  ASSERT_TRUE(base::DeletePathRecursively(held));
+  lock.Show(PinEntry::Mode::kChange);
+  Type("5678");
+  ASSERT_TRUE(WaitFor([&] {
+    const std::optional<SecurityState> saved = Saved();
+    return saved && saved->key && saved->key->guard &&
+           saved->key->guard->key != first && guard_->keys().size() == 1;
+  }));
+  EXPECT_EQ(guard_->keys(), std::vector<std::string>{Saved()->key->guard->key});
+  lock.Dismiss();
+}
+
 // A wrong PIN is the chip's refusal: it counts at the lock, and in the chip;
 // the right one opens.
 TEST_F(AppLockGuardTest, AWrongPinIsTheChipsRefusal) {

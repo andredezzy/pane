@@ -114,6 +114,16 @@ TEST(EngineSwitchesTest, UsersLaunchKeepsPanesOwnSwitches) {
   EXPECT_FALSE(command_line.HasSwitch("remote-debugging-port"));
 }
 
+// Every launch skips Chrome's check of a profile's folder on a network share,
+// whose bubble is Chrome's own UI at a BrowserView's app menu (W8): the user's
+// and a scenario's alike.
+TEST(EngineSwitchesTest, NoNetworkProfileBubble) {
+  for (const base::CommandLine& command_line :
+       {Launch({}), Launch({"use-mock-keychain"})}) {
+    EXPECT_TRUE(command_line.HasSwitch("no-network-profile-warning"));
+  }
+}
+
 // The user's launch keeps none of Chrome's switches it was handed, only
 // Pane's own.
 TEST(EngineSwitchesTest, UsersLaunchTakesPanesFeaturesAlone) {

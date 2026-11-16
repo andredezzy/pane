@@ -2,10 +2,16 @@
 
 #include "pane/model/pin_guard.h"
 
+#include <windows.h>
+
+#include <ncrypt.h>
+#include <winerror.h>
+
 #include <optional>
 
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
+#include "pane/model/pin_guard_win.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace pane::model {
@@ -101,6 +107,35 @@ TEST_F(PinGuardWinTest, DISABLED_AWrongPinIsRefused) {
   EXPECT_EQ(guard_->Unseal(guarded->kept, "1111").error(),
             PinGuard::Refusal::kWrongPin);
   EXPECT_EQ(guard_->Unseal(guarded->kept, "1234"), guarded->share);
+}
+
+// What each of the provider's answers means (W8), as the test VM gave them:
+// only a key lost reads as gone, a deleted key's and a cleared chip's
+// NTE_BAD_KEYSET at the open and a damaged key file's TPM_20_E_INTEGRITY at
+// the decrypt; anything else is the chip refusing for now, which loses
+// nothing (07.6.2), or no chip. Until W8 every other answer read as gone.
+TEST(PinGuardRefusalsTest, OnlyAKeyLostReadsAsGone) {
+  using Refusal = PinGuard::Refusal;
+  EXPECT_EQ(RefusalAtOpen(NTE_BAD_KEYSET, true), Refusal::kGone);
+  EXPECT_EQ(RefusalAtOpen(NTE_NOT_FOUND, true), Refusal::kGone);
+  EXPECT_EQ(RefusalAtOpen(NTE_AUTHENTICATION_IGNORED, true),
+            Refusal::kLockedOut);
+  EXPECT_EQ(RefusalAtOpen(TPM_E_PCP_AUTHENTICATION_IGNORED, true),
+            Refusal::kLockedOut);
+  EXPECT_EQ(RefusalAtOpen(NTE_DEVICE_NOT_READY, true), Refusal::kRefused);
+  EXPECT_EQ(RefusalAtOpen(TPM_E_PCP_DEVICE_NOT_READY, true), Refusal::kRefused);
+  EXPECT_EQ(RefusalAtOpen(NTE_DEVICE_NOT_READY, false), Refusal::kNoChip);
+
+  EXPECT_EQ(RefusalAtDecrypt(NTE_PERM, true), Refusal::kWrongPin);
+  EXPECT_EQ(RefusalAtDecrypt(TPM_E_PCP_AUTHENTICATION_FAILED, true),
+            Refusal::kWrongPin);
+  EXPECT_EQ(RefusalAtDecrypt(NTE_AUTHENTICATION_IGNORED, true),
+            Refusal::kLockedOut);
+  EXPECT_EQ(RefusalAtDecrypt(TPM_20_E_INTEGRITY, true), Refusal::kGone);
+  EXPECT_EQ(RefusalAtDecrypt(NTE_INTERNAL_ERROR, true), Refusal::kRefused);
+  EXPECT_EQ(RefusalAtDecrypt(TPM_E_PCP_DEVICE_NOT_READY, true),
+            Refusal::kRefused);
+  EXPECT_EQ(RefusalAtDecrypt(NTE_INTERNAL_ERROR, false), Refusal::kNoChip);
 }
 
 }  // namespace

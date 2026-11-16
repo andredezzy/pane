@@ -55,6 +55,12 @@ void SetEngineSwitches(base::CommandLine& command_line,
   }
   command_line.AppendSwitch("no-startup-window");
   command_line.AppendSwitch("no-first-run");
+  // Chrome checks each profile's folder on Windows, and where it lies on a
+  // network share (a %LOCALAPPDATA% redirected to one) shows a bubble of its
+  // own at the app menu of a BrowserView, which Pane's windows have none of:
+  // Chrome's UI, outside Pane's window, with nothing to point at
+  // (network_profile_bubble.cc). Chromium's own switch skips the check.
+  command_line.AppendSwitch("no-network-profile-warning");
   // Printing goes straight to the system print panel, not Chrome's preview.
   command_line.AppendSwitch("disable-print-preview");
   // From 158, a data directory other than Chrome's default, as Pane's is, can't

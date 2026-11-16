@@ -17,6 +17,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
 #include "net/proxy_resolution/proxy_config_service.h"
 #include "pane/app/data_launch.h"
@@ -83,16 +85,30 @@ void KeepDictionariesInUserData() {
   }
 }
 
+// Chrome's background mode stays off: on Windows, a profile with an extension
+// that asks the "background" permission put Chrome's own icon in the
+// notification area, whose menu opens Chrome's task manager, About, and a
+// window per profile, all Chrome's UI outside Pane's window (ADR 0010), and
+// kept the engine running for Chrome's background apps. Pane's process lives
+// until Pane quits, background apps or not (StartPlatform). Written before
+// the background mode's manager reads it, at every launch; the Mac makes no
+// icon of it, and takes the same pref.
+void KeepBackgroundModeOff(PrefService& local_state) {
+  local_state.SetBoolean(prefs::kBackgroundModeEnabled, false);
+}
+
 }  // namespace
 
 BrowserMainExtraParts::BrowserMainExtraParts() = default;
 
 BrowserMainExtraParts::~BrowserMainExtraParts() = default;
 
-// Before the browser's network contexts exist (ADR 0040).
+// Before the browser's network contexts exist (ADR 0040), and before the
+// background mode's manager does.
 void BrowserMainExtraParts::PreCreateThreads() {
   UsePanesWords();
   SystemProxy::HoldLocalState(*g_browser_process->local_state());
+  KeepBackgroundModeOff(*g_browser_process->local_state());
 }
 
 // Chromium's own reading of the system's proxy settings, as Chrome makes it

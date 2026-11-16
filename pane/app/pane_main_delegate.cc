@@ -9,6 +9,7 @@
 #include "base/logging.h"
 #include "base/logging/logging_settings.h"
 #include "base/process/process.h"
+#include "chrome/browser/profiles/profile_shortcut_manager.h"
 #include "chrome/common/profiler/main_thread_stack_sampling_profiler.h"
 #include "content/public/common/content_switches.h"
 #include "pane/app/data_launch.h"
@@ -40,6 +41,17 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
 
   base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
   if (!command_line.HasSwitch(switches::kProcessType)) {
+    // Chrome's profile shortcuts stay off. On Windows they run where the user
+    // data folder is Chromium's default, as Pane's install makes it, and once
+    // Pane's first profile appeared they turned the desktop's Pane.lnk the
+    // install made into a shortcut of Chrome's own for the Default profile,
+    // "Your Chromium - Chromium", badged, and wrote a Google Profile.ico into
+    // each profile's folder (ProfileShortcutManagerWin, W8): Pane's shortcuts
+    // are its own (ADR 0127). Chromium keeps one switch for it, the one its
+    // unit tests take, which only flips the check the profile manager asks as
+    // it is made: so here, before Chrome's browser process exists. Nothing on
+    // the Mac, where Chrome makes none.
+    ProfileShortcutManager::DisableForUnitTests();
     // Pane's install, its registration, and its uninstall, which open no
     // data and start no engine (ADR 0127).
     if (std::optional<int> exit_code = RunInstallSwitch(command_line)) {

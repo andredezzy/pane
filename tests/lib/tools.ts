@@ -50,7 +50,10 @@ public static class PaneDesktop {
 	[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
 	[DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
 	[DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
+	[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string className, string title);
+	[DllImport("shell32.dll")] public static extern int Shell_NotifyIconGetRect(ref NOTIFYICONIDENTIFIER id, out RECT rect);
 	public struct RECT { public int Left, Top, Right, Bottom; }
+	public struct NOTIFYICONIDENTIFIER { public int cbSize; public IntPtr hWnd; public uint uID; public Guid guidItem; }
 	public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
 
 	// The visible top-level windows of a normal layer (no tool window: menus,
@@ -100,6 +103,30 @@ public static class PaneDesktop {
 			bitmap.Save(file, ImageFormat.Png);
 		}
 		return true;
+	}
+
+	// The icons the shell holds in the notification area for a process's
+	// Chrome_StatusTrayWindow, Chrome's tray (status_tray_win.cc), by id:
+	// Shell_NotifyIconGetRect answers only for an icon it holds.
+	public static List<uint> TrayIconsOf(uint pid) {
+		var found = new List<uint>();
+		IntPtr hwnd = IntPtr.Zero;
+		while ((hwnd = FindWindowEx(IntPtr.Zero, hwnd, "Chrome_StatusTrayWindow", null)) != IntPtr.Zero) {
+			uint owner;
+			GetWindowThreadProcessId(hwnd, out owner);
+			if (owner != pid) {
+				continue;
+			}
+			for (uint id = 1; id <= 16; id++) {
+				var icon = new NOTIFYICONIDENTIFIER { hWnd = hwnd, uID = id };
+				icon.cbSize = Marshal.SizeOf(icon);
+				RECT rect;
+				if (Shell_NotifyIconGetRect(ref icon, out rect) == 0) {
+					found.Add(id);
+				}
+			}
+		}
+		return found;
 	}
 
 	public static uint ForegroundPid() {

@@ -477,6 +477,30 @@ const userLaunch: Scenario = async (context) => {
 			"an Engine folder beside the engine's",
 		);
 
+		// Chrome's profile shortcuts stay off (W8): its manager runs where the
+		// engine's folder is Chromium's default, as here, and made a Google
+		// Profile.ico in each profile's folder and turned the desktop's Pane
+		// shortcut into one of its own for the Default profile.
+		const profileIcons = ["Default", ...profiles].filter((name) =>
+			existsSync(join(engine, name, "Google Profile.ico")),
+		);
+
+		const profileShortcuts = (
+			await powershell(
+				"$shell = New-Object -ComObject WScript.Shell; Get-ChildItem ([Environment]::GetFolderPath('Desktop')) -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object { $s = $shell.CreateShortcut($_.FullName); if ($s.TargetPath -ieq $env:PANE_BINARY) { \"$($_.Name) $($s.Arguments)\" } }",
+				{ PANE_BINARY: context.binary },
+			)
+		)
+			.split(/\r?\n/)
+			.filter((line) => /--profile-directory/.test(line));
+
+		found.profileShortcuts = { profileIcons, profileShortcuts };
+
+		expect(
+			profileIcons.length === 0 && profileShortcuts.length === 0,
+			`Chrome's profile shortcuts: icons in ${JSON.stringify(profileIcons)}, desktop shortcuts ${JSON.stringify(profileShortcuts)}`,
+		);
+
 		const profile = profiles[0] ?? "";
 
 		// The controls: two files planted plain where the search reads.

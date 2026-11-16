@@ -270,6 +270,11 @@ class AppLock {
   void SecretFound(std::optional<std::vector<uint8_t>> secret);
   void Save();
   void SaveThen(base::OnceClosure then);
+  // A save landed, `written` when both files were: the guard's keys a reseal
+  // left go then, once the seal that replaced them is the one on the disk.
+  void Saved(base::OnceClosure then,
+             std::optional<std::string> saved_guard,
+             bool written);
   void Wipe();
   void Changed();
   // Whether wrong PINs at the lock lead to the panic wipe: on every seal but
@@ -306,6 +311,14 @@ class AppLock {
   bool finding_secret_ = false;
   std::optional<WaitingOpen> waiting_open_;
   base::RepeatingClosure wipe_for_testing_;
+  // The guard's keys a reseal leaves, which go once a save of the seal that
+  // replaced them lands, both files written: until then the seal on the disk
+  // may still name one of them, and the next launch would need it. `kept`,
+  // the new seal's key; none once the PIN is removed.
+  struct ForgetOnceSaved {
+    std::optional<std::string> kept;
+  };
+  std::optional<ForgetOnceSaved> forget_once_saved_;
 
   base::ObserverList<Observer> observers_;
 

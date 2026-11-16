@@ -1,0 +1,8 @@
+{
+	"manifest_version": 3,
+	"name": "Pane background permission probe",
+	"version": "1.0",
+	"description": "Asks the background permission, which puts Chrome in its background mode where Pane leaves it on.",
+	"background": { "service_worker": "worker.js" },
+	"permissions": ["background"]
+}

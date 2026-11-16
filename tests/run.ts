@@ -14,6 +14,7 @@ import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, type LaunchOptions, launch } from "./lib/browser";
 import { isScreenLocked } from "./lib/computer-use";
+import { forgetTestCopiesTpmKeys } from "./lib/engine-key";
 import { type Fixtures, serveFixtures } from "./lib/fixtures";
 import { keptOffThisSystem, type NotOnWindows } from "./lib/platform";
 import { killUsing } from "./lib/processes";
@@ -109,7 +110,7 @@ const results: Record<string, unknown>[] = [];
 
 // Quits what the scenario launched, stops whatever still uses its
 // directories (an app that started itself again), and removes them, and what
-// its test copies kept in Windows' registry.
+// its test copies kept in Windows' registry and in its TPM's key store.
 async function tearDown(browsers: Browser[], tempDirs: string[]) {
 	await Promise.all(browsers.map((browser) => browser.close()));
 
@@ -120,6 +121,7 @@ async function tearDown(browsers: Browser[], tempDirs: string[]) {
 	}
 
 	await forgetTestCopiesMacs();
+	await forgetTestCopiesTpmKeys(tempDirs);
 }
 
 // Removed, tried again for ten seconds where a file is still held: on Windows

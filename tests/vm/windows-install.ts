@@ -22,7 +22,13 @@
 // to a window proven in front first, never to the Mac's. Run in the console's
 // session: bun tests/run.ts --binary <folder>\Pane-<version>-x64.exe --out
 // <dir> --timeout 1800 tests/vm/windows-install.ts
-import { copyFileSync, existsSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	readdirSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { bySystem, powershell } from "../lib/platform";
 import { expect, type Scenario } from "../run";
@@ -900,6 +906,50 @@ const windowsInstall: Scenario = async (context) => {
 
 		await powershell(
 			"Get-Process SystemSettings -ErrorAction SilentlyContinue | Stop-Process -Force",
+		);
+
+		// 3b. Pane's first profile, made by a page handed to the running Pane
+		// as another app hands one: Pane's own shortcuts stay as the install
+		// made them. Chrome's profile shortcuts (ProfileShortcutManagerWin),
+		// which run where the engine's folder is Chromium's default, as the
+		// install's is, turned the desktop's Pane.lnk into "Your Chromium -
+		// Chromium" for the Default profile once a second profile appeared (W8).
+		const page = join(context.tempDir("w8-page"), "w8-page.html");
+		writeFileSync(page, "<!doctype html><title>W8 page</title>");
+		Bun.spawn([chrome, page], { cwd: profile });
+
+		found.firstProfile = await until(
+			"Pane's first profile",
+			async () => {
+				const engine = join(data, "User Data");
+
+				return existsSync(engine)
+					? readdirSync(engine).find((name) =>
+							/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(name),
+						)
+					: undefined;
+			},
+			60_000,
+			500,
+		);
+
+		await Bun.sleep(5_000);
+
+		const profileShortcuts = (
+			await powershell(
+				"$shell = New-Object -ComObject WScript.Shell; Get-ChildItem ([Environment]::GetFolderPath('Desktop')) -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object { $s = $shell.CreateShortcut($_.FullName); if ($s.TargetPath -ieq $env:PANE_CHROME) { \"$($_.Name)|$($s.Arguments)\" } }",
+				{ PANE_CHROME: chrome },
+			)
+		)
+			.split(/\r?\n/)
+			.filter(Boolean);
+
+		found.desktopAfterAProfile = profileShortcuts;
+		record();
+
+		expect(
+			profileShortcuts.length === 1 && profileShortcuts[0] === "Pane.lnk|",
+			`the desktop's shortcuts to Pane once it has a profile: ${JSON.stringify(profileShortcuts)}`,
 		);
 
 		// 4. A reinstall over the open Pane: "Pane is open", Exit Pane asking

@@ -133,14 +133,25 @@ AppLock::Opened OpenKey(std::optional<std::string> pin,
   return opened;
 }
 
-// security.json, and its copy beside the volume.
-void WriteSecurityFiles(const base::FilePath& data_directory,
+// security.json, and its copy beside the volume: whether both were written.
+bool WriteSecurityFiles(const base::FilePath& data_directory,
                         base::Value state) {
+  bool written = true;
   for (const char* name : {kSecurityName, kCopyName}) {
     if (!PersistedFile(data_directory, name).Save(state.Clone())) {
       LOG(ERROR) << "Could not save " << name << ".json";
+      written = false;
     }
   }
+  return written;
+}
+
+// The name of the guard's key a state's seal takes, if it takes one.
+std::optional<std::string> GuardKeyOf(const SecurityState& state) {
+  if (!state.key || !state.key->guard) {
+    return std::nullopt;
+  }
+  return state.key->guard->key;
 }
 
 }  // namespace
@@ -506,6 +517,7 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
                                           weak_factory_.GetWeakPtr(), false));
         if (state_.failed_attempts >= SecurityState::kMaxAttempts) {
           state_.key.reset();
+          forget_once_saved_.reset();
           ForgetGuardThen(std::nullopt, std::move(answer));
           return;
         }
@@ -638,10 +650,14 @@ void AppLock::Resealed(std::optional<int> length,
     kept = sealed->guard->key;
   }
   state_ = SecurityState(std::move(pin), 0, std::move(*sealed));
-  // The guard's earlier keys go once the new seal is on the disk: a quit
-  // before leaves the earlier seal, which they still open.
-  SaveThen(base::BindOnce(&AppLock::ForgetGuardThen, weak_factory_.GetWeakPtr(),
-                          std::move(kept), base::DoNothing()));
+  // The guard's earlier keys go once the new seal is on the disk, both files
+  // written (Saved): a quit before leaves the earlier seal, which they still
+  // open, and so does a save that failed (a file another program holds, a
+  // full disk), which the next save that lands makes good. Deleted at once,
+  // as they were, a failed save left the disk naming a key gone, and every
+  // profile with it.
+  forget_once_saved_ = ForgetOnceSaved{.kept = std::move(kept)};
+  Save();
   entry_.reset();
   Changed();
 }
@@ -670,10 +686,26 @@ void AppLock::Save() {
 }
 
 void AppLock::SaveThen(base::OnceClosure then) {
-  files_->PostTaskAndReply(
+  files_->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(&WriteSecurityFiles, data_directory_, state_.ToValue()),
-      std::move(then));
+      base::BindOnce(&AppLock::Saved, weak_factory_.GetWeakPtr(),
+                     std::move(then), GuardKeyOf(state_)));
+}
+
+void AppLock::Saved(base::OnceClosure then,
+                    std::optional<std::string> saved_guard,
+                    bool written) {
+  // Only a save of the seal that replaced them: one posted before a later
+  // reseal carries an earlier seal, whose key must stay until the later one
+  // lands.
+  if (written && forget_once_saved_ &&
+      forget_once_saved_->kept == saved_guard) {
+    ForgetOnceSaved forget = *std::exchange(forget_once_saved_, std::nullopt);
+    ForgetGuardThen(std::move(forget.kept), std::move(then));
+    return;
+  }
+  std::move(then).Run();
 }
 
 // Only after the last attempt at the lock: the count lives on disk, where

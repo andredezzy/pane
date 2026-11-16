@@ -89,9 +89,12 @@ const unsealShare = bySystem({
 		),
 });
 
-// This user's keys in the Microsoft Platform Crypto Provider, by name.
-const TPM_KEYS = `Add-Type -TypeDefinition @'
+// This user's keys in the Microsoft Platform Crypto Provider: their names, and
+// the deletion of those whose names start with one of the prefixes given, one
+// a line.
+const TPM_KEYS_TYPE = `Add-Type -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 public static class PaneTpmKeys {
@@ -99,28 +102,62 @@ public static class PaneTpmKeys {
   static extern int NCryptOpenStorageProvider(out IntPtr provider, string name, int flags);
   [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
   static extern int NCryptEnumKeys(IntPtr provider, string scope, out IntPtr keyName, ref IntPtr state, int flags);
+  [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+  static extern int NCryptOpenKey(IntPtr provider, out IntPtr key, string name, int legacySpec, int flags);
+  [DllImport("ncrypt.dll")]
+  static extern int NCryptDeleteKey(IntPtr key, int flags);
   [DllImport("ncrypt.dll")]
   static extern int NCryptFreeBuffer(IntPtr buffer);
   [DllImport("ncrypt.dll")]
   static extern int NCryptFreeObject(IntPtr handle);
 
-  public static string Names() {
-    IntPtr provider;
-    if (NCryptOpenStorageProvider(out provider, "Microsoft Platform Crypto Provider", 0) != 0) return "";
+  static List<string> List(IntPtr provider) {
+    var names = new List<string>();
     IntPtr state = IntPtr.Zero;
     IntPtr item;
-    var names = new System.Text.StringBuilder();
     while (NCryptEnumKeys(provider, null, out item, ref state, 0x40) == 0) {
-      names.AppendLine(Marshal.PtrToStringUni(Marshal.ReadIntPtr(item)));
+      names.Add(Marshal.PtrToStringUni(Marshal.ReadIntPtr(item)));
       NCryptFreeBuffer(item);
     }
     if (state != IntPtr.Zero) NCryptFreeBuffer(state);
+    return names;
+  }
+
+  public static string Names() {
+    IntPtr provider;
+    if (NCryptOpenStorageProvider(out provider, "Microsoft Platform Crypto Provider", 0) != 0) return "";
+    string names = string.Join("\\n", List(provider));
     NCryptFreeObject(provider);
-    return names.ToString();
+    return names;
+  }
+
+  public static int Forget(string prefixes) {
+    string[] wanted = prefixes.Split(new[] { '\\n' }, StringSplitOptions.RemoveEmptyEntries);
+    IntPtr provider;
+    if (NCryptOpenStorageProvider(out provider, "Microsoft Platform Crypto Provider", 0) != 0) return 0;
+    int deleted = 0;
+    foreach (string name in List(provider)) {
+      if (!Array.Exists(wanted, prefix => name.StartsWith(prefix, StringComparison.Ordinal))) continue;
+      IntPtr key;
+      if (NCryptOpenKey(provider, out key, name, 0, 0x40) == 0 && NCryptDeleteKey(key, 0) == 0) deleted++;
+    }
+    NCryptFreeObject(provider);
+    return deleted;
   }
 }
-'@
+'@`;
+
+const TPM_KEYS = `${TPM_KEYS_TYPE}
 [PaneTpmKeys]::Names()`;
+
+// The start of the name of every key the TPM holds for the PIN of the data in
+// `dataDir`, as pin_guard_win.cc names them ("Pane data key <8 bytes of the
+// folder's SHA-256> <8 random bytes>").
+const keyPrefix = (dataDir: string) =>
+	`Pane data key ${createHash("sha256")
+		.update(dataDir.toLowerCase())
+		.digest("hex")
+		.slice(0, 16)} `;
 
 // The keys the TPM holds for the PIN of the data in `dataDir`, by name, as
 // pin_guard_win.cc names them ("Pane data key <8 bytes of the folder's
@@ -128,15 +165,39 @@ public static class PaneTpmKeys {
 // whose Keychain guards its secret (ADR 0113).
 export const pinGuardKeys = bySystem({
 	mac: async (_dataDir: string): Promise<string[]> => [],
-	windows: async (dataDir: string): Promise<string[]> => {
-		const folder = createHash("sha256")
-			.update(dataDir.toLowerCase())
-			.digest("hex")
-			.slice(0, 16);
-
-		return (await powershell(TPM_KEYS))
+	windows: async (dataDir: string): Promise<string[]> =>
+		(await powershell(TPM_KEYS))
 			.split(/\r?\n/)
-			.filter((name) => name.startsWith(`Pane data key ${folder} `));
+			.filter((name) => name.startsWith(keyPrefix(dataDir))),
+});
+
+// Forgets the keys the TPM holds for the PIN of each test copy's data in
+// `dirs`, and of a user launch's Pane folder in it (lib/pane.ts), as the
+// runner removes them: a key outlives its folder in the user's Platform
+// Crypto Provider, where each test copy whose PIN went through the chip left
+// one (W8: 203 in the test VM from earlier rounds). Returns how many went.
+// None on the Mac.
+export const forgetTestCopiesTpmKeys = bySystem({
+	mac: async (_dirs: string[]): Promise<number> => 0,
+	windows: async (dirs: string[]): Promise<number> => {
+		if (dirs.length === 0) {
+			return 0;
+		}
+
+		const prefixes = dirs
+			.flatMap((dir) => [dir, join(dir, "Pane")])
+			.map(keyPrefix)
+			.join("\n");
+
+		return Number(
+			(
+				await powershell(
+					`${TPM_KEYS_TYPE}
+[PaneTpmKeys]::Forget($env:PANE_TPM_PREFIXES)`,
+					{ PANE_TPM_PREFIXES: prefixes },
+				)
+			).trim() || "0",
+		);
 	},
 });
 
