@@ -1,5 +1,5 @@
 import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { frameTimes } from "../lib/benchmark";
 import type { Page } from "../lib/cdp";
 import {
@@ -13,6 +13,7 @@ import {
 	SHORTCUTS_PAGE,
 	SIDEBAR,
 } from "../lib/chrome-extensions";
+import { isScreenLocked } from "../lib/computer-use";
 import {
 	DARK_READER,
 	extensionId,
@@ -24,7 +25,7 @@ import { signpostFrameIntervals } from "../lib/signposts";
 import { waitForSheet } from "../lib/surfaces";
 import { captureWindow, swiftTool } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // Extensions, X3 to X5 (docs/plans/views-migration.md, Phase 3), on the
 // Views build, in the background:
@@ -67,8 +68,22 @@ async function park(app: PaneApp) {
 }
 
 // The test's own window, as the screen shows it, at the display's scale:
-// only the main window of the app this run launched, by its number.
-async function capture(state: AppState, file: string) {
+// only the main window of the app this run launched, by its number. A locked
+// screen shows no window to capture: the capture defers, as the other rigs'
+// do (W8c's run failed on it).
+async function capture(
+	context: ScenarioContext,
+	state: AppState,
+	file: string,
+) {
+	if (await isScreenLocked()) {
+		context.defer(
+			`${basename(file)}: the window's capture needs the screen unlocked`,
+		);
+
+		return;
+	}
+
 	const main = state.nativeWindows.find((window) => window.role === "main");
 
 	expect(
@@ -271,7 +286,13 @@ const viewsExtensionPages: Scenario = async (context) => {
 
 	if (typeof settings !== "string") {
 		await Bun.sleep(700);
-		await capture(settings, join(context.out, "page-site-settings.png"));
+
+		await capture(
+			context,
+			settings,
+			join(context.out, "page-site-settings.png"),
+		);
+
 		await app.send("closeTab", { tab: settings.activeTabID });
 	}
 
@@ -402,10 +423,10 @@ const viewsExtensionPages: Scenario = async (context) => {
 	await Bun.sleep(1_500);
 	const asking = await app.state();
 	result.chromeRemove = { windows: asking.nativeWindows, sheet: asking.sheet };
-	await capture(asking, join(context.out, "page-remove.png"));
+	await capture(context, asking, join(context.out, "page-remove.png"));
 
 	for (const [index, window] of asking.nativeWindows.entries()) {
-		if (window.role !== "main" && window.number) {
+		if (window.role !== "main" && window.number && !(await isScreenLocked())) {
 			await captureWindow(
 				window.number,
 				join(context.out, `page-remove-window-${index}.png`),

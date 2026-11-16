@@ -1,4 +1,9 @@
-import { launchPane, type PaneApp, pressWindowKey } from "../lib/pane";
+import {
+	launchPane,
+	type PaneApp,
+	pressWindowKey,
+	RETURN_PRESSES_THE_RING,
+} from "../lib/pane";
 import { KEYS } from "../lib/platform";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario, type ScenarioContext } from "../run";
@@ -51,6 +56,27 @@ const quit: Scenario = async (context) => {
 		"Quit Pane? gone, the page focused again",
 		(state) => !state.quitConfirmation && state.focus === "pane.content",
 	);
+
+	// Where Return presses the button with the ring (Windows, ADR 0126), Tab
+	// gives Cancel the ring, and Return then cancels: Enter on a focused
+	// Cancel exited (W8c).
+	if (RETURN_PRESSES_THE_RING) {
+		await app.send("key", KEYS.quit);
+		await app.waitFor("Exit Pane? for its ring", (s) => s.quitConfirmation);
+		await pressWindowKey(context, app, "\t");
+
+		await app.waitFor(
+			"Cancel with the ring",
+			(state) => state.focus === "pane.quit.cancel",
+		);
+
+		await pressWindowKey(context, app, "\r");
+
+		await app.waitFor(
+			"Exit Pane? cancelled by Return on its Cancel",
+			(state) => !state.quitConfirmation,
+		);
+	}
 
 	await app.send("key", KEYS.quit);
 	await app.waitFor("Quit Pane? again", (state) => state.quitConfirmation);

@@ -55,6 +55,38 @@ export const appResource = bySystem({
 // its process, and its data.
 type RunningApp = { binary: string; pid: number; dataDir: string };
 
+// A site's notification, shown through its service worker with a tag
+// (notification.html), by what the system's center hands back of it: the
+// profile it is of (its folder's name, Pane's profile id), the site's
+// origin, and its tag.
+export type SiteNotification = {
+	profileId: string;
+	origin: string;
+	tag: string;
+};
+
+// Chrome's id of a persistent notification shown with a tag
+// (content's NotificationIdGenerator): "p#<origin>/#1<tag>".
+function persistentNotificationId(notification: SiteNotification) {
+	return `p#${notification.origin}/#1${notification.tag}`;
+}
+
+// What a toast hands chrome.exe when it is clicked on Windows
+// (--notification-launch-id, notification_launch_id.cc's NORMAL form):
+// 0|type|profile|app user model id|incognito|origin|id, a persistent one's
+// type 0. The app user model id goes unread on its way back.
+export function toastLaunchId(notification: SiteNotification) {
+	return [
+		0,
+		0,
+		notification.profileId,
+		"Pane",
+		0,
+		`${notification.origin}/`,
+		persistentNotificationId(notification),
+	].join("|");
+}
+
 // URLs handed to the running app as another app hands them, a link clicked
 // in Mail with Pane the default browser: on the Mac through Launch Services,
 // Apple Events to the copy running as `pid` from its bundle, without
@@ -103,6 +135,74 @@ export const handURLs = bySystem({
 
 		return null;
 	},
+});
+
+// A site's notification clicked in the system's own center, as the system
+// hands the click to Pane (ADR 0109): on the Mac to the running browser, as
+// macOS's center hands a banner's (the channel's clickNotification, `send`;
+// no click on the screen); on Windows as notification_helper.exe hands a
+// toast's, a launch of chrome.exe with its launch id, which the running
+// copy's process singleton takes, as it takes a link. What went wrong, or
+// nothing.
+export const clickNotification = bySystem({
+	mac: async (
+		send: (name: string, args: Record<string, unknown>) => Promise<unknown>,
+		_app: RunningApp,
+		notification: SiteNotification,
+	) => {
+		await send("clickNotification", {
+			profileId: notification.profileId,
+			id: persistentNotificationId(notification),
+			origin: `${notification.origin}/`,
+			persistent: true,
+		});
+
+		return null;
+	},
+	windows: async (
+		_send: (name: string, args: Record<string, unknown>) => Promise<unknown>,
+		app: RunningApp,
+		notification: SiteNotification,
+	) => {
+		const second = Bun.spawn(
+			[
+				app.binary,
+				"--use-mock-keychain",
+				`--user-data-dir=${join(app.dataDir, ENGINE_FOLDER)}`,
+				`--notification-launch-id=${toastLaunchId(notification)}`,
+			],
+			{
+				env: { ...process.env, PANE_DATA_DIR: app.dataDir },
+				stdout: "ignore",
+				stderr: "ignore",
+			},
+		);
+
+		const exited = await Promise.race([
+			second.exited.then(() => true),
+			Bun.sleep(30_000).then(() => false),
+		]);
+
+		if (!exited) {
+			second.kill("SIGKILL");
+
+			return "the toast's launch never handed its click to the running copy";
+		}
+
+		return null;
+	},
+});
+
+// Whether the system's center keeps a site's notification once its profile
+// has closed, behind the lock or once Pane has quit, for a click to reach Pane
+// then: Windows' Action Center keeps a toast (Chrome's bridge closes none as
+// a profile goes, NotificationPlatformBridgeWin::DisplayServiceShutDown); on
+// the Mac Chrome takes a profile's notifications from macOS's center as the
+// profile shuts down, and every one as it quits
+// (NotificationPlatformBridgeMac), so none is left to click.
+export const NOTIFICATIONS_OUTLIVE_THEIR_PROFILE = bySystem({
+	mac: false,
+	windows: true,
 });
 
 export type LaunchOptions = {

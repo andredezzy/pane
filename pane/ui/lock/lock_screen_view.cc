@@ -25,7 +25,9 @@
 #include "pane/ui/design/icons.h"
 #include "pane/ui/design/motion.h"
 #include "pane/ui/design/palette.h"
+#include "pane/ui/design/pin_field.h"
 #include "pane/ui/design/placement.h"
+#include "pane/ui/design/screen_reader.h"
 #include "pane/ui/design/text.h"
 #include "pane/ui/design/text_button.h"
 #include "pane/ui/design/update_status.h"
@@ -63,8 +65,13 @@ constexpr int kMoveSpacing = 14;
 constexpr int kUpdateBottom = 24;
 // How near a wrong PIN's shake a line said for it is (PinContent::Shook).
 constexpr base::TimeDelta kSaidWith = base::Milliseconds(300);
+// How long after a new step shows it is said.
+constexpr base::TimeDelta kStepSaidAfter = base::Milliseconds(500);
 // The dots and the numpad while no key can be read (Paper 07.6).
 constexpr float kUnreadableOpacity = 0.4f;
+// What a screen reader calls the PIN screen where it shows no title: the
+// Lock.
+constexpr char16_t kLockedName[] = u"Pane is locked";
 
 // Every line here: 13 points, light, on a 20-point line (lineBox(20); the
 // error's lineSpacing).
@@ -121,36 +128,9 @@ class LockScreenView::Panel : public views::View {
   bool SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) override {
     return screen_->takes_every_key();
   }
-
-  // It takes every key but Quit (the Swift's KeyRouting.pinScreen): Esc goes
-  // back, Return continues, Delete takes a digit back, and what a key types
-  // without ⌘, ⌃, or ⌥ is a digit, or nothing.
   bool OnKeyPressed(const ui::KeyEvent& event) override {
-    if (!screen_->takes_every_key()) {
-      return false;
-    }
-    switch (event.key_code()) {
-      case ui::VKEY_ESCAPE:
-        screen_->callbacks_.back.Run();
-        return true;
-      case ui::VKEY_RETURN:
-        screen_->callbacks_.continue_with_pin.Run();
-        return true;
-      case ui::VKEY_BACK:
-        screen_->callbacks_.backspace.Run();
-        return true;
-      default:
-        break;
-    }
-    if (!(event.flags() &
-          (ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN))) {
-      if (const char16_t character = event.GetCharacter()) {
-        screen_->callbacks_.digit.Run(character);
-      }
-    }
-    return true;
+    return screen_->PinKey(event);
   }
-
   bool OnKeyReleased(const ui::KeyEvent& event) override {
     return screen_->takes_every_key();
   }
@@ -169,10 +149,16 @@ class LockScreenView::PinContent : public views::View {
   METADATA_HEADER(PinContent, views::View)
 
  public:
-  explicit PinContent(Callbacks& callbacks) {
+  PinContent(Callbacks& callbacks, LockScreenView* screen) {
     SetPaintToLayer();
     layer()->SetFillsBoundsOpaquely(false);
     title_ = AddChildView(Message(std::u16string(), kPaneColorPinTitle));
+    // Over the dots, laid out with them (Layout), after the title in a
+    // screen reader's order: the screen owns it, through this view.
+    field_ = AddChildView(std::make_unique<PinField>(
+        base::BindRepeating(&LockScreenView::PinKey, base::Unretained(screen)),
+        base::BindRepeating(&LockScreenView::takes_every_key,
+                            base::Unretained(screen))));
     dots_ = AddChildView(std::make_unique<PinDots>());
     numpad_ = AddChildView(
         std::make_unique<Numpad>(callbacks.digit, callbacks.backspace));
@@ -198,16 +184,47 @@ class LockScreenView::PinContent : public views::View {
   }
 
   PinDots* dots() { return dots_; }
+  PinField* field() { return field_; }
+  // The step's title, where one shows.
+  std::optional<std::u16string> title() const {
+    return title_->GetVisible()
+               ? std::optional<std::u16string>(title_->GetText())
+               : std::nullopt;
+  }
 
   void Set(const model::PinEntry& entry,
            std::optional<int> attempts_toward_wipe,
            bool animate) {
     const std::optional<std::string_view> title = entry.Title();
+    // A new step of the same screen (Enter new PIN, then Confirm PIN) is said
+    // as it shows, its title being all that changes: the keys stay where they
+    // were, and Narrator said nothing of it (W8c).
+    const std::u16string title_before = title_->GetVisible()
+                                            ? std::u16string(title_->GetText())
+                                            : std::u16string();
     title_->SetVisible(title.has_value());
     if (title) {
       title_->SetText(base::UTF8ToUTF16(*title));
+      if (animate && !title_before.empty() &&
+          title_before != title_->GetText()) {
+        // Past the last digit's echo and the field's emptying, which Narrator
+        // spoke over a step said with them (W8d).
+        base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(
+                [](base::WeakPtr<PinContent> content, std::u16string step) {
+                  if (content && content->title_->GetVisible() &&
+                      content->title_->GetText() == step) {
+                    content->GetViewAccessibility().AnnouncePolitely(step);
+                  }
+                },
+                weak_factory_.GetWeakPtr(), std::u16string(title_->GetText())),
+            kStepSaidAfter);
+      }
     }
     dots_->Set(entry.Dots(), static_cast<int>(entry.entered().size()), animate);
+    screen_reader::SetPinCount(field_->GetViewAccessibility(),
+                               dots_->GetViewAccessibility(), dots_->Count());
     const float opacity = entry.is_unreadable() ? kUnreadableOpacity : 1;
     dots_->layer()->SetOpacity(opacity);
     numpad_->layer()->SetOpacity(opacity);
@@ -286,7 +303,7 @@ class LockScreenView::PinContent : public views::View {
     int height = 0;
     bool first = true;
     for (const views::View* child : children()) {
-      if (!child->GetVisible()) {
+      if (!child->GetVisible() || child == field_) {
         continue;
       }
       height += (first ? 0 : kSpacing) + HeightOf(child, width);
@@ -311,7 +328,7 @@ class LockScreenView::PinContent : public views::View {
   void Layout(PassKey) override {
     int y = 0;
     for (views::View* child : children()) {
-      if (!child->GetVisible()) {
+      if (!child->GetVisible() || child == field_) {
         continue;
       }
       const int height = HeightOf(child, width());
@@ -324,6 +341,11 @@ class LockScreenView::PinContent : public views::View {
       child->SetBounds((width() - child_width) / 2, y, child_width, height);
       y += height + kSpacing;
     }
+    // The field over the dots' row, where a screen reader's highlight shows
+    // it.
+    const int row = std::max(dots_->GetPreferredSize().width(), 1);
+    field_->SetBounds(dots_->x() + (dots_->width() - row) / 2, dots_->y(), row,
+                      dots_->height());
   }
 
  private:
@@ -335,6 +357,7 @@ class LockScreenView::PinContent : public views::View {
   }
 
   raw_ptr<views::Label> title_ = nullptr;
+  raw_ptr<PinField> field_ = nullptr;
   raw_ptr<PinDots> dots_ = nullptr;
   raw_ptr<Numpad> numpad_ = nullptr;
   raw_ptr<views::Label> hint_ = nullptr;
@@ -439,7 +462,7 @@ LockScreenView::LockScreenView(Callbacks callbacks)
   back->SetPaintToLayer();
   back->layer()->SetFillsBoundsOpaquely(false);
   back_ = panel_->AddChildView(std::move(back));
-  pin_ = panel_->AddChildView(std::make_unique<PinContent>(callbacks_));
+  pin_ = panel_->AddChildView(std::make_unique<PinContent>(callbacks_, this));
   move_ = panel_->AddChildView(std::make_unique<MoveContent>());
   move_->SetVisible(false);
   update_ = panel_->AddChildView(
@@ -476,7 +499,14 @@ void LockScreenView::SetShows(const Shows& shows, bool animate) {
   const bool moves = animate && was_showing && widget && widget->IsVisible();
   if (shows_.entry) {
     pin_->Set(*shows_.entry, shows_.attempts_toward_wipe, moves);
+    pin_->field()->SetDigits(static_cast<int>(shows_.entry->entered().size()));
   }
+  // Named by its step's title where one shows (ADR 0071), and at the Lock,
+  // which shows none, by what it is: unnamed, Narrator said "dialog" alone
+  // (W8c).
+  panel_->GetViewAccessibility().SetName(
+      shows_.entry ? pin_->title().value_or(std::u16string(kLockedName))
+                   : std::u16string(kLockedName));
   if (shows_.move_share) {
     move_->Set(*shows_.move_share, moves);
   }
@@ -568,7 +598,40 @@ void LockScreenView::Shake() {
 }
 
 void LockScreenView::TakeFocus() {
-  panel_->RequestFocus();
+  if (shows_.entry && pin_->GetVisible()) {
+    pin_->field()->RequestFocus();
+  } else {
+    panel_->RequestFocus();
+  }
+}
+
+// Every key but Quit (the Swift's KeyRouting.pinScreen): Esc goes back,
+// Return continues, Delete takes a digit back, and what a key types without
+// ⌘, ⌃, or ⌥ is a digit, or nothing.
+bool LockScreenView::PinKey(const ui::KeyEvent& event) {
+  if (!takes_every_key()) {
+    return false;
+  }
+  switch (event.key_code()) {
+    case ui::VKEY_ESCAPE:
+      callbacks_.back.Run();
+      return true;
+    case ui::VKEY_RETURN:
+      callbacks_.continue_with_pin.Run();
+      return true;
+    case ui::VKEY_BACK:
+      callbacks_.backspace.Run();
+      return true;
+    default:
+      break;
+  }
+  if (!(event.flags() &
+        (ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN))) {
+    if (const char16_t character = event.GetCharacter()) {
+      callbacks_.digit.Run(character);
+    }
+  }
+  return true;
 }
 
 bool LockScreenView::IsDragArea(const gfx::Point& point) {

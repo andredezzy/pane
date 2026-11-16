@@ -568,10 +568,11 @@ DWORD Unregister(const base::FilePath& chrome_exe,
     failed = failed ? failed : error;
   }
 
-  // Chromium's own key: all of it with the data, or all but the data's
-  // preference MACs.
+  // Chromium's own key: all of it with the data, or where there is no data
+  // to keep, or all but the data's preference MACs (an uninstall with no data
+  // kept them for nothing, W8d).
   const std::wstring own = install_static::GetRegistryPath();
-  if (erase) {
+  if (erase || !base::DirectoryExists(data_folder)) {
     if (const DWORD error = DeleteTree(own)) {
       failed = failed ? failed : error;
     }

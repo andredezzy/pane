@@ -15,6 +15,10 @@
 #include "pane/ui/lock/lock_update_status.h"
 #include "ui/views/view.h"
 
+namespace ui {
+class KeyEvent;
+}
+
 namespace pane {
 
 class PanelFrame;
@@ -94,7 +98,8 @@ class LockScreenView : public views::View {
   bool takes_every_key() const;
   // A wrong PIN: the dots shake.
   void Shake();
-  // The panel takes the keys.
+  // The panel takes the keys: while a PIN shows, its field, which a screen
+  // reader reads as a protected one.
   void TakeFocus();
   // Whether a press at `point`, in this view, moves the window: anywhere on
   // the panel and around it but its controls.
@@ -111,6 +116,9 @@ class LockScreenView : public views::View {
   class Panel;
   class PinContent;
   class MoveContent;
+
+  // A key while a PIN shows, from the panel or its field: whether it took it.
+  bool PinKey(const ui::KeyEvent& event);
 
   // The panel, at rest shown or gone.
   void Settle(bool shown);

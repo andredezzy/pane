@@ -165,9 +165,13 @@ class ExtensionPromptOverlay : public views::View {
   void OnThemeChanged() override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
   bool OnKeyPressed(const ui::KeyEvent& event) override;
+  // Tab goes round its own controls, as a dialog's window keeps it, rather
+  // than on to the window's controls under it (ADR 0126).
+  views::FocusTraversable* GetPaneFocusTraversable() override;
 
  private:
   base::RepeatingCallback<void(bool)> answer_;
+  std::unique_ptr<FocusTrap> focus_trap_;
   std::optional<gfx::Rect> anchor_;
   // The scrim, a color the compositor draws (adding only).
   raw_ptr<views::View> scrim_ = nullptr;

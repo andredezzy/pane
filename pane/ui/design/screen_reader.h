@@ -103,6 +103,15 @@ void SetHeading(views::ViewAccessibility& heading, int level);
 // no text of its own (W8c: "Unable to move Narrator cursor" at the dots).
 void SetIndicator(views::ViewAccessibility& indicator);
 
+// The PIN's field and its dots, the count typed ("2 of 4 digits"): on the
+// Mac the dots read on their own, as VoiceOver has read them; on Windows the
+// field described by the count and the dots left out, since Narrator,
+// entering the PIN's dialog, read on past the field to the dots and stayed
+// there, speaking each digit typed rather than "Hidden" (W8d).
+void SetPinCount(views::ViewAccessibility& field,
+                 views::ViewAccessibility& dots,
+                 const std::u16string& count);
+
 // The sidebar's edge, valued at the width (ADR 0071): a splitter on the Mac;
 // a slider on Windows, since Narrator reads no thumb's value, and UI
 // Automation makes a focusable splitter a thumb ("Sidebar width, slider at

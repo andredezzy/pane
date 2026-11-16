@@ -41,6 +41,9 @@ class PinDots : public views::View {
   void Set(int count, int filled, bool animate);
   // A wrong PIN.
   void Shake();
+  // How many digits it holds, of how many, as a screen reader reads it ("2
+  // of 4 digits").
+  std::u16string Count() const;
 
   int count() const { return static_cast<int>(dots_.size()); }
 

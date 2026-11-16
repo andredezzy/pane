@@ -387,9 +387,9 @@ class UiApp::Page : public content::WebContentsObserver,
 };
 
 // static
-void UiApp::Start() {
+void UiApp::Start(base::CommandLine launch_toast) {
   CHECK(!g_app);
-  g_app = new UiApp();
+  g_app = new UiApp(std::move(launch_toast));
   // What changed is written as quitting starts, and the profiles let go while
   // the message loop still runs, as Chrome's windows do when they close: they
   // then unload with their processes. The write is waited for before the
@@ -410,7 +410,7 @@ UiApp* UiApp::Get() {
   return g_app;
 }
 
-UiApp::UiApp()
+UiApp::UiApp(base::CommandLine launch_toast)
     : data_(*AppData::Get()),
       network_(data_->store().model()),
       contexts_(*data_, data_->store().model(), network_, *this),
@@ -490,7 +490,9 @@ UiApp::UiApp()
   events_ = AppEvents::Listen(
       base::BindRepeating(&UiApp::ShowWindow, weak_factory_.GetWeakPtr()),
       base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()),
-      base::BindRepeating(&UiApp::AskToExit, weak_factory_.GetWeakPtr()));
+      base::BindRepeating(&UiApp::AskToExit, weak_factory_.GetWeakPtr()),
+      base::BindRepeating(&UiApp::NotificationClicked,
+                          weak_factory_.GetWeakPtr()));
 
   // The channel, in a scenario's run alone (ADR 0115).
   if (std::optional<std::string> directory =
@@ -516,6 +518,12 @@ UiApp::UiApp()
     }
   }
   OpenLaunchURLs(std::move(urls));
+  // A toast this launch was started for (on Windows, a site's notification
+  // clicked while Pane was closed): its window opens as any launch's.
+  if (std::optional<NotificationClick> click =
+          NotificationClickOf(launch_toast)) {
+    HandNotificationToSite(std::move(*click));
+  }
 }
 
 UiApp::~UiApp() {
@@ -596,6 +604,9 @@ void UiApp::AccessDidOpen() {
   }
   if (!launch_urls_.empty()) {
     OpenLaunchURLs(std::exchange(launch_urls_, {}));
+  }
+  for (NotificationClick& click : std::exchange(held_notifications_, {})) {
+    HandNotificationToSite(std::move(click));
   }
   if (const std::optional<std::string>& active = model().active_tab_id()) {
     if (content::WebContents* page = PageOf(*active)) {
@@ -1252,6 +1263,42 @@ void UiApp::ShowWindow() {
 void UiApp::OpenHandedURLs(std::vector<GURL> urls) {
   ShowWindow();
   OpenLaunchURLs(std::move(urls));
+}
+
+void UiApp::NotificationClicked(std::optional<NotificationClick> click) {
+  if (!click || click->operation != NotificationOperation::kClose) {
+    ShowWindow();
+  }
+  if (click) {
+    HandNotificationToSite(std::move(*click));
+  }
+}
+
+void UiApp::HandNotificationToSite(NotificationClick click) {
+  if (!InteractionAllowed()) {
+    held_notifications_.push_back(std::move(click));
+    return;
+  }
+  // A profile deleted since: its site has nothing to hear it in.
+  if (!model().FindProfile(click.profile_id)) {
+    return;
+  }
+  const std::string profile_id = click.profile_id;
+  contexts_.With(profile_id,
+                 base::BindOnce(
+                     [](base::WeakPtr<UiApp> app, NotificationClick click,
+                        Profile* profile) {
+                       if (!app) {
+                         return;
+                       }
+                       if (profile) {
+                         ForwardNotificationClick(profile, click);
+                       } else if (!app->InteractionAllowed()) {
+                         // A lock came first: it waits for the next opening.
+                         app->held_notifications_.push_back(std::move(click));
+                       }
+                     },
+                     weak_factory_.GetWeakPtr(), std::move(click)));
 }
 
 // A click on a profile's header: it opens, or collapsing unloads it (its

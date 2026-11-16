@@ -278,6 +278,26 @@ TEST_F(WindowsIntegrationTest, UnregistersErasingTheData) {
   EXPECT_EQ(last, total);
 }
 
+// With no data to keep, as where its user deleted the folder: Chromium's key
+// goes whole, its preference MACs with it, which named nothing (W8d).
+TEST_F(WindowsIntegrationTest, UnregistersWithNoDataLeavingNoMacs) {
+  ASSERT_EQ(Register(chrome_exe_, data_, /*first_install=*/true),
+            static_cast<DWORD>(ERROR_SUCCESS));
+  ASSERT_FALSE(base::PathExists(data_));
+  const std::wstring own = install_static::GetRegistryPath();
+  base::win::RegKey macs;
+  ASSERT_EQ(macs.Create(HKEY_CURRENT_USER, (own + L"\\PreferenceMACs").c_str(),
+                        KEY_SET_VALUE),
+            ERROR_SUCCESS);
+  ASSERT_EQ(macs.WriteValue(L"mac", L"orphaned"), ERROR_SUCCESS);
+  macs.Close();
+  ASSERT_EQ(Unregister(chrome_exe_, data_, /*erase=*/false, EraseProgress()),
+            static_cast<DWORD>(ERROR_SUCCESS));
+  EXPECT_FALSE(KeyExists(own));
+  EXPECT_FALSE(KeyExists(install_static::GetUninstallRegistryPath()));
+  EXPECT_FALSE(base::PathExists(data_));
+}
+
 // A step that fails leaves Installed apps' entry, so the uninstall runs
 // again from there, the app folder untouched (pane/installer/removal.h); once
 // everything else has gone, the entry goes last.

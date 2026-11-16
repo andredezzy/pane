@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "base/functional/callback.h"
+#include "pane/model/app_settings.h"
 #include "ui/views/controls/resize_area.h"
 #include "ui/views/controls/resize_area_delegate.h"
 
@@ -17,7 +18,9 @@ namespace pane {
 // pointer leads, DESIGN.md › Motion), and is saved as it ends; a double-click
 // returns to 260. The column cursor shows over it, pointing the one way left
 // at either limit. Accessibility sees a splitter valued at the width, which
-// steps by 10.
+// steps by a tenth of its range, 20 points, as Views' sliders step: an
+// assistive app's increment, and the arrows while it has the keys, which it
+// takes in accessibility mode alone.
 class ResizeHandle : public views::ResizeArea,
                      public views::ResizeAreaDelegate {
   METADATA_HEADER(ResizeHandle, views::ResizeArea)
@@ -53,13 +56,23 @@ class ResizeHandle : public views::ResizeArea,
   bool OnMousePressed(const ui::MouseEvent& event) override;
   void OnMouseCaptureLost() override;
   bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
+  bool SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) override;
+  bool OnKeyPressed(const ui::KeyEvent& event) override;
 
   // views::ResizeAreaDelegate:
   void OnResize(int resize_amount, bool done_resizing) override;
 
  private:
+  // A tenth of the range, as Views' sliders step (Slider's
+  // keyboard_increment_).
+  static constexpr double kStep =
+      (model::kSidebarMaxWidth - model::kSidebarMinWidth) / 10.0;
+
   // Steps by `delta` points and saves, as an assistive app's increment does.
   void Step(double delta);
+  // The step an arrow takes, or none for another key: Right and Up widen,
+  // Left and Down narrow, as a slider's.
+  static std::optional<double> ArrowStep(const ui::KeyEvent& event);
 
   Callbacks callbacks_;
   double width_ = 0;

@@ -77,7 +77,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0096](0096-extension-menu-items-show-where-chrome-shows-them.md) Extensions' own menu items and site access show where Chrome shows them, and Chrome's reload prompt after a change is declined without a dialog
 - [0098](0098-extension-shortcuts-work-as-in-chrome.md) Extensions' keyboard shortcuts work as in Chrome, and are changed on Chrome's own shortcuts page
 - [0099](0099-wordmark-is-funnel-display-medium.md) Pane's wordmark is set in Funnel Display Medium
-- [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over open in Pane's window, and their sign-ins stay in macOS's sheet
+- [0109](0109-urls-other-apps-hand-over-open-in-panes-window.md) URLs other apps hand over, and a site's notification clicked, open in Pane's window, and their sign-ins stay in macOS's sheet
 - [0112](0112-chromiums-applescript-dictionary-stays.md) Chromium's AppleScript dictionary stays
 - [0113](0113-profile-data-encrypted-under-a-key-the-pin-releases.md) Every profile's data is encrypted on disk, under a key the PIN releases
 - [0114](0114-pane-identifier-is-xyz-roundedcorners-pane.md) Pane's identifier is xyz.roundedcorners.pane

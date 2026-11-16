@@ -446,10 +446,18 @@ RootView::RootView(Callbacks callbacks,
   ModalDialog::Callbacks quit;
   quit.dismiss = callbacks_.cancel_quit;
   quit.accept = callbacks_.quit;
+  // Every key on the Mac, Return accepting from anywhere, as macOS's default
+  // button takes it; where the system's buttons take Return (Windows; Views'
+  // PlatformStyle), a dialog's own keys, as Delete profile's alert has them:
+  // Tab round Cancel and Exit, and Space or Enter pressing the one with the
+  // ring (ADR 0126). With every key, Enter on a focused Cancel exited (W8c).
   quit_dialog_ = AddChildView(std::make_unique<ModalDialog>(
       QuitDialog::kWidth,
       std::make_unique<QuitDialog>(callbacks_.cancel_quit, callbacks_.quit),
-      std::move(quit), ModalDialog::Keys::kEvery));
+      std::move(quit),
+      views::PlatformStyle::kReturnClicksFocusedControl
+          ? ModalDialog::Keys::kDialog
+          : ModalDialog::Keys::kEvery));
   quit_dialog_->SetID(kViewIdQuit);
   // Read as a modal dialog named by its title, as Delete profile's alert and
   // About Pane are: unnamed, Narrator said "dialog" alone (W8c).
@@ -551,6 +559,13 @@ void RootView::ShowLock(const LockScreenView::Shows& shows) {
       FocusSettings();
     } else {
       FocusPage();
+    }
+    // With nothing to take them, no page showing yet, they leave the PIN's
+    // field as it goes, as a launch with no PIN gives no view the keys: they
+    // stayed in it, hidden, where a screen reader still read it (W8d).
+    views::FocusManager* focus = GetFocusManager();
+    if (focus && lock_->Contains(focus->GetFocusedView())) {
+      focus->ClearFocus();
     }
   }
 }
@@ -1037,8 +1052,16 @@ bool RootView::OverlayKey(const ui::KeyEvent& event) {
     return false;
   }
   // An extension's prompt, over the menu and a page's dialog: Return
-  // accepts, Esc cancels.
+  // accepts, Esc cancels; where the system's buttons take Return, the one
+  // with the ring presses as it (Windows; Views' PlatformStyle), as a page's
+  // dialog's does (ADR 0126): Enter on a focused Cancel added the extension
+  // (W8c).
   if (extension_prompt_) {
+    if (code == ui::VKEY_RETURN &&
+        views::PlatformStyle::kReturnClicksFocusedControl &&
+        FocusedButtonIn(extension_prompt_)) {
+      return false;
+    }
     callbacks_.extensions->AnswerPrompt(code == ui::VKEY_RETURN);
     return true;
   }
@@ -1267,8 +1290,13 @@ void RootView::ShowExtensionsMenu(const ExtensionsMenuView::Shows& shows) {
   if (more) {
     more_menu_->SetExtension(*more);
   }
-  if (!extensions_card_->GetVisible()) {
+  const bool opening = !extensions_card_->GetVisible();
+  if (opening) {
     AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
+    // Said as it opens: the keys stay where they were, and Narrator said
+    // nothing of it (W8c).
+    extensions_menu_->GetViewAccessibility().AnnouncePolitely(
+        u"Extensions menu");
   }
   extensions_shield_->SetVisible(true);
   extensions_card_->SetVisible(true);

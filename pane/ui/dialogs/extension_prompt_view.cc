@@ -490,9 +490,14 @@ ExtensionPromptOverlay::ExtensionPromptOverlay(
       ExtensionPromptView::CardLook(prompt.kind), std::move(view)));
   // There at once, as the Swift's showed it.
   card_->Settle(true);
+  focus_trap_ = std::make_unique<FocusTrap>(this);
 }
 
 ExtensionPromptOverlay::~ExtensionPromptOverlay() = default;
+
+views::FocusTraversable* ExtensionPromptOverlay::GetPaneFocusTraversable() {
+  return focus_trap_.get();
+}
 
 void ExtensionPromptOverlay::SetAnchor(const std::optional<gfx::Rect>& anchor) {
   if (anchor_ != anchor) {

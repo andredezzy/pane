@@ -786,10 +786,15 @@ void UninstallFlow::ShowStep(Step step) {
       break;
     case Step::kDone:
       screen.title = u"Pane is uninstalled";
-      screen.message =
-          erase_ ? u"Pane and its data are gone from this PC."
-                 : u"Your data stays in %LOCALAPPDATA%\\Pane, for when Pane is "
-                   u"installed again.";
+      // Where there was no data, nothing stays to say so of (W8c found the
+      // line where the data had been cleared before).
+      if (erase_) {
+        screen.message = u"Pane and its data are gone from this PC.";
+      } else if (has_data_) {
+        screen.message =
+            u"Your data stays in %LOCALAPPDATA%\\Pane, for when Pane is "
+            u"installed again.";
+      }
       screen.buttons = {Primary(kClose, u"Close")};
       screen.enter = kClose;
       screen.escape = kClose;

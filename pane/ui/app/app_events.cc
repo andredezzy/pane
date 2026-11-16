@@ -35,10 +35,12 @@ bool MayTakeFront() {
 
 AppEvents::AppEvents(base::RepeatingClosure reopen,
                      OpenURLs open_urls,
-                     base::RepeatingClosure ask_to_exit)
+                     base::RepeatingClosure ask_to_exit,
+                     NotificationClicked notification_clicked)
     : reopen_(std::move(reopen)),
       open_urls_(std::move(open_urls)),
-      ask_to_exit_(std::move(ask_to_exit)) {
+      ask_to_exit_(std::move(ask_to_exit)),
+      notification_clicked_(std::move(notification_clicked)) {
   g_events = this;
   HearOtherLaunches();
 }
@@ -95,6 +97,15 @@ bool AppEvents::OtherLaunch(base::WeakPtr<AppEvents> events,
         FROM_HERE, base::BindOnce(&AppEvents::AskedToExit, std::move(events)));
     return true;
   }
+  // A toast's activation, which names no page: the same way, as Chrome's own
+  // startup takes it ahead of a launch's pages (ProcessCmdLineImpl).
+  if (CarriesNotificationClick(command_line)) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&AppEvents::NotificationLaunch, std::move(events),
+                       NotificationClickOf(command_line)));
+    return true;
+  }
   // Out of the singleton's message, as Chrome's own goes on (on Windows it
   // is a SendMessage's handler, where no call may leave the process), and
   // off the UI thread, since a relative file's path is looked for on the
@@ -108,6 +119,12 @@ bool AppEvents::OtherLaunch(base::WeakPtr<AppEvents> events,
 
 void AppEvents::AskedToExit() {
   ask_to_exit_.Run();
+}
+
+void AppEvents::NotificationLaunch(std::optional<NotificationClick> click) {
+  PANE_TRACE("callback", "PaneBrowserApplicationDelegate.notificationClicked",
+             base::DictValue().Set("names", click.has_value()));
+  notification_clicked_.Run(std::move(click));
 }
 
 void AppEvents::OpenLaunch(std::vector<GURL> pages) {

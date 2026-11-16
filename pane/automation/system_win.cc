@@ -47,6 +47,13 @@ bool PostSystemEvent(const std::string& event) {
   return false;
 }
 
+bool ClickSystemNotification(const std::string& profile_id,
+                             const std::string& id,
+                             const std::string& origin,
+                             bool persistent) {
+  return false;
+}
+
 // AppleScript is the Mac's (ADR 0112).
 base::expected<std::optional<std::string>, std::string> RunAppleScript(
     const std::string& source) {

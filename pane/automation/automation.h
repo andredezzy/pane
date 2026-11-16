@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/files/file_path.h"
@@ -68,6 +69,8 @@ class Automation {
   base::SequenceBound<Files> files_;
   // Chrome's prompt askToAddExtension made, until the next.
   std::unique_ptr<ExtensionInstallPrompt> asked_to_add_;
+  // How the prompt it showed was answered, once it was.
+  std::optional<std::string> prompt_answer_;
   std::map<std::string, int64_t> cache_sizes_;
   std::map<std::string, base::ListValue> cookies_;
   // The thread pool's BEST_EFFORT work held (holdBackgroundWork), until the

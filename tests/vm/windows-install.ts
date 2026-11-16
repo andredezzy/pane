@@ -8,9 +8,10 @@
 // App icon's sky reaching the shortcuts, at a change and at launch; a PIN set
 // up in Settings; the uninstall from Installed apps keeping the data, which a
 // reinstall finds behind its PIN; an installer older than the Pane
-// installed, refused; and the uninstall erasing the data, after which nothing
+// installed, refused; the uninstall erasing the data, after which nothing
 // of Pane's is left in %LOCALAPPDATA%, %APPDATA%, %TEMP%, HKCU, Start, the
-// taskbar, or the desktop. What a screen reader reads of the install window
+// taskbar, or the desktop; and an uninstall with no data, which says nothing
+// of data and leaves nothing either. What a screen reader reads of the install window
 // is read through UI Automation's own client, as Narrator reads it, and
 // every press goes through it too; Windows' screens and Pane's windows are
 // captured into the run's folder.
@@ -1131,6 +1132,14 @@ const windowsInstall: Scenario = async (context) => {
 		);
 
 		await shot(context.out, "uninstall-done-kept", kept.window.hwnd);
+
+		expect(
+			String(found.uninstallKept).includes(
+				"description='Your data stays in %LOCALAPPDATA%\\Pane",
+			),
+			`the uninstall keeping the data says where it stays: ${found.uninstallKept}`,
+		);
+
 		await press(kept.pid, "Close");
 
 		await powershell(
@@ -1248,10 +1257,80 @@ const windowsInstall: Scenario = async (context) => {
 		);
 
 		await shot(context.out, "uninstall-done-erased", erase.window.hwnd);
+
+		expect(
+			String(found.uninstallErased).includes(
+				"description='Pane and its data are gone from this PC.'",
+			),
+			`the uninstall erasing the data says so: ${found.uninstallErased}`,
+		);
+
 		await press(erase.pid, "Close");
 
 		found.afterErase = await until(
 			"nothing of Pane's left",
+			async () => {
+				const left = await leftovers();
+
+				return left.length === 0 ? left : null;
+			},
+			30_000,
+			500,
+		);
+
+		// 11. An uninstall with no data (W8d): Pane installed again, its data
+		// deleted once it has exited, as its user may delete the folder, then
+		// the uninstall from its entry: no data box, a last screen that says
+		// nothing of data (it said the data stayed), and nothing of Pane's
+		// left, the data's preference MACs neither.
+		const fourth = await install(context.binary, "no-data");
+
+		await until(
+			"the install for the uninstall with no data",
+			async () => (await windowsOf(fourth.pid)).length === 0,
+			180_000,
+			250,
+		);
+
+		const fresh = await paneWindow("Pane, opened by its install");
+		await Bun.sleep(2_000);
+		await exitPane(fresh.pid);
+		rmSync(data, { recursive: true, force: true });
+
+		await powershell(
+			"$exe, $rest = $env:COMMAND -split '\" ', 2; Start-Process -FilePath $exe.Trim('\"') -ArgumentList $rest",
+			{ COMMAND: String((await registry(uninstallKey))?.UninstallString) },
+		);
+
+		const bare = await uninstallDialog();
+		await Bun.sleep(1_000);
+		found.uninstallNoData = await heard(bare.pid, 2);
+		await shot(context.out, "uninstall-no-data", bare.window.hwnd);
+
+		expect(
+			!String(found.uninstallNoData).includes("Also delete"),
+			`with no data, the uninstall offers no data to delete: ${found.uninstallNoData}`,
+		);
+
+		await press(bare.pid, "Uninstall");
+
+		found.uninstallDoneNoData = await screenOf(
+			bare.pid,
+			"Pane is uninstalled",
+			120_000,
+		);
+
+		await shot(context.out, "uninstall-done-no-data", bare.window.hwnd);
+
+		expect(
+			!/description=|data/i.test(String(found.uninstallDoneNoData)),
+			`with no data, the last screen says nothing of data: ${found.uninstallDoneNoData}`,
+		);
+
+		await press(bare.pid, "Close");
+
+		found.afterNoData = await until(
+			"nothing of Pane's left after the uninstall with no data",
 			async () => {
 				const left = await leftovers();
 

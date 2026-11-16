@@ -1,5 +1,10 @@
 import { isScreenLocked } from "../lib/computer-use";
-import { launchPane, type PaneApp, sameTitle } from "../lib/pane";
+import {
+	launchPane,
+	type PaneApp,
+	pressWindowKey,
+	sameTitle,
+} from "../lib/pane";
 import {
 	clearClipboard,
 	clipboardText,
@@ -148,14 +153,32 @@ const contextMenu: Scenario = async (context) => {
 	);
 
 	await page.send("Input.insertText", { text: " " });
-	await Bun.sleep(2_000);
+	await Bun.sleep(1_000);
 
 	const locked = await isScreenLocked();
 
-	const editMenu = await menuAt(
-		await page.evaluate<Point>("misspelledPoint()"),
-		...(locked ? ["Select All", "Add to Dictionary"] : ["Add to Dictionary"]),
-	);
+	// The word is flagged once the system's spellchecker answers, in its own
+	// time: Windows' answered past 2 s in the test VM now and then (W8c, 1
+	// run of 5 alone), so on an unlocked screen the menu is asked again
+	// until it has the word's items, 20 s at most; one without them goes by
+	// Esc first in front, where it shows.
+	const misspelled = await page.evaluate<Point>("misspelledPoint()");
+	const flaggedBy = Date.now() + 20_000;
+	let editMenu = await menuAt(misspelled, "Add to Dictionary", "Select All");
+
+	while (
+		!locked &&
+		!editMenu.some((title) => sameTitle(title, "Add to Dictionary")) &&
+		Date.now() < flaggedBy
+	) {
+		if (context.foreground) {
+			await pressWindowKey(context, app, "\x1b");
+			await app.waitFor("the menu gone", (state) => state.contextMenu === null);
+		}
+
+		await Bun.sleep(500);
+		editMenu = await menuAt(misspelled, "Add to Dictionary", "Select All");
+	}
 
 	if (editMenu.some((title) => sameTitle(title, "Add to Dictionary"))) {
 		const suggestion = editMenu[0];

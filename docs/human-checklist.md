@@ -2,7 +2,7 @@
 
 What only a person can do or verify: each item says why it needs one, and the steps. An item leaves this file when it is done; what it found goes in its ADR.
 
-- **VoiceOver through a window, by ear.** Every view is new in 0.20.0, drawn with Views (ADR 0124). VoiceOver's AppleScript walked them on 2026-11-12, and what it read matched the Swift app's names, with the fixes ADR 0071 records, but how it sounds, and when, is for a person to hear. Once: turn VoiceOver on, and walk a window from the sidebar to a page, then the Lock, the profile sheet, and a page's dialog.
+- **VoiceOver through a window, by ear.** Every view is new in 0.20.0, drawn with Views (ADR 0124). VoiceOver's AppleScript walked them on 2026-11-12, and what it read matched the Swift app's names, with the fixes ADR 0071 records, but how it sounds, and when, is for a person to hear. Once: turn VoiceOver on, and walk a window from the sidebar to a page, then the Lock, the profile sheet, and a page's dialog. At the Lock, type a PIN: VoiceOver should say no digit (the keys go to a secure field named PIN since W8d, which the AX tree has, unheard), and in Settings' Set up PIN, "Confirm PIN" once as the step changes, not twice (Pane announces it on both systems; W8d heard Narrator alone).
 
 - **Mail: look for a stray draft.** A scenario opened Mail at 07:08 on 2026-10-26 with an unsent compose window to `pane-scenario@example.invalid` (a `mailto:` link, which Chrome opens without asking); Mail was quit two minutes later and nothing was sent. If Mail autosaved that window, an empty draft to that address may be in Drafts: delete it. Details in ADR 0012.
 

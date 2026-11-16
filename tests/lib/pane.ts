@@ -281,6 +281,9 @@ export type AppState = {
 	hostWebGL: { vendor: string; renderer: string } | null;
 	update: UpdateState;
 	security: SecurityState;
+	// The profiles the engine holds, by their folders' names, whatever opened
+	// them: Pane's own, or one Chrome opened by itself (notification-click).
+	engineProfiles: string[];
 	profiles: ProfileState[];
 	activeTabID: string | null;
 	activeProfileID: string | null;
@@ -713,6 +716,11 @@ export function tabOf(state: AppState, tabID: string): TabState | undefined {
 // The system's word for the app's going (Paper 11.7): Quit on the Mac, Exit
 // on Windows, as in "Quit and install" where Pane can't install itself.
 export const QUIT_WORD = bySystem({ mac: "Quit", windows: "Exit" });
+
+// Whether Return presses the button a dialog's ring is on, as Windows' own
+// dialogs press it (ADR 0126), Space too; on the Mac Return takes the
+// default button wherever the keys are, as macOS's dialogs do.
+export const RETURN_PRESSES_THE_RING = bySystem({ mac: false, windows: true });
 
 // The release's file each system updates from, by version
 // (pane/model/updates_{mac,win}.cc): the Mac's arm64 dmg, Windows' x64

@@ -62,6 +62,12 @@ void SetIndicator(views::ViewAccessibility& indicator) {
   indicator.SetRole(ax::mojom::Role::kGroup);
 }
 
+void SetPinCount(views::ViewAccessibility& field,
+                 views::ViewAccessibility& dots,
+                 const std::u16string& count) {
+  dots.SetName(count);
+}
+
 void SetSplitter(views::ViewAccessibility& edge) {
   edge.SetRole(ax::mojom::Role::kSplitter);
 }

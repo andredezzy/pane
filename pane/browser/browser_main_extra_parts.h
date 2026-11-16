@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "base/callback_list.h"
+#include "base/command_line.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -56,6 +57,8 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   // item (ADR 0127); nothing on the Mac, whose bundle names Pane.
   static void UsePanesWords();
 
+  // The toast's activation the launch carried, for Pane's UI as it starts.
+  base::CommandLine launch_toast_{base::CommandLine::NO_PROGRAM};
   std::unique_ptr<SystemProxy> system_proxy_;
   base::ScopedObservation<ProfileManager, ProfileManagerObserver>
       profile_manager_observation_{this};

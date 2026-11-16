@@ -17,10 +17,12 @@ class AppEventsMac : public AppEvents {
  public:
   AppEventsMac(base::RepeatingClosure reopen,
                OpenURLs open_urls,
-               base::RepeatingClosure ask_to_exit)
+               base::RepeatingClosure ask_to_exit,
+               NotificationClicked notification_clicked)
       : AppEvents(std::move(reopen),
                   std::move(open_urls),
-                  std::move(ask_to_exit)) {
+                  std::move(ask_to_exit),
+                  std::move(notification_clicked)) {
     NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
     // The block outlives no AppEventsMac: the observers go with it.
     AppEventsMac* events = this;
@@ -108,9 +110,11 @@ bool ClosingTheWindowQuits() {
 std::unique_ptr<AppEvents> AppEvents::Listen(
     base::RepeatingClosure reopen,
     OpenURLs open_urls,
-    base::RepeatingClosure ask_to_exit) {
+    base::RepeatingClosure ask_to_exit,
+    NotificationClicked notification_clicked) {
   return std::make_unique<AppEventsMac>(std::move(reopen), std::move(open_urls),
-                                        std::move(ask_to_exit));
+                                        std::move(ask_to_exit),
+                                        std::move(notification_clicked));
 }
 
 }  // namespace pane

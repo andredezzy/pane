@@ -12,7 +12,9 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/events/event.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/focus/focus_manager.h"
 
 namespace pane {
 
@@ -47,6 +49,10 @@ void ResizeHandle::SetWidth(double width) {
   }
   width_ = width;
   GetViewAccessibility().SetValueForRange(width);
+  // Said as it changes while a screen reader is on it, as Views' sliders say
+  // theirs (Slider::SetValueInternal): Narrator said the arrows' new widths
+  // nothing (W8d).
+  NotifyAccessibilityEventDeprecated(ax::mojom::Event::kValueChanged, true);
 }
 
 ui::Cursor ResizeHandle::GetCursor(const ui::MouseEvent& event) {
@@ -77,13 +83,56 @@ void ResizeHandle::OnMouseCaptureLost() {
 bool ResizeHandle::HandleAccessibleAction(const ui::AXActionData& action_data) {
   switch (action_data.action) {
     case ax::mojom::Action::kIncrement:
-      Step(10);
+      Step(kStep);
       return true;
     case ax::mojom::Action::kDecrement:
-      Step(-10);
+      Step(-kStep);
       return true;
+    // A screen reader's focus, which moves the keys here so the arrows
+    // resize: Views gives a view that takes the focus in accessibility mode
+    // alone none where the keyboard has no such mode, as on Windows, where
+    // Narrator's cursor met the edge and the keys stayed where they were.
+    case ax::mojom::Action::kFocus:
+      if (views::FocusManager* focus = GetFocusManager()) {
+        focus->SetFocusedView(this);
+        return true;
+      }
+      return false;
     default:
       return views::ResizeArea::HandleAccessibleAction(action_data);
+  }
+}
+
+// The arrows come here before the window's own keys move along a group of
+// controls (FocusGroups): while it has the keys, they resize, as a slider's.
+bool ResizeHandle::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
+  return ArrowStep(event).has_value();
+}
+
+bool ResizeHandle::OnKeyPressed(const ui::KeyEvent& event) {
+  const std::optional<double> step = ArrowStep(event);
+  if (!step) {
+    return views::ResizeArea::OnKeyPressed(event);
+  }
+  Step(*step);
+  return true;
+}
+
+// static
+std::optional<double> ResizeHandle::ArrowStep(const ui::KeyEvent& event) {
+  if (event.flags() & (ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN |
+                       ui::EF_ALT_DOWN | ui::EF_COMMAND_DOWN)) {
+    return std::nullopt;
+  }
+  switch (event.key_code()) {
+    case ui::VKEY_RIGHT:
+    case ui::VKEY_UP:
+      return kStep;
+    case ui::VKEY_LEFT:
+    case ui::VKEY_DOWN:
+      return -kStep;
+    default:
+      return std::nullopt;
   }
 }
 

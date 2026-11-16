@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/function_ref.h"
 #include "base/memory/raw_ref.h"
@@ -27,6 +28,7 @@
 #include "pane/ui/app/commands.h"
 #include "pane/ui/app/lock_triggers.h"
 #include "pane/ui/app/menu_bar.h"
+#include "pane/ui/app/notification_click.h"
 #include "pane/ui/app/sleep_controller.h"
 #include "pane/ui/dialogs/page_dialogs.h"
 #include "pane/ui/extensions/extensions_ui.h"
@@ -80,8 +82,10 @@ class UiApp : public AppData::Client,
               public Updater::Observer,
               public LockTriggers::Delegate {
  public:
-  // Starts it, once the browser has started and the data opened (OpenData).
-  static void Start();
+  // Starts it, once the browser has started and the data opened (OpenData),
+  // with the toast's activation the launch carried, if any
+  // (TakeNotificationSwitches).
+  static void Start(base::CommandLine launch_toast);
   static UiApp* Get();
 
   UiApp(const UiApp&) = delete;
@@ -161,6 +165,12 @@ class UiApp : public AppData::Client,
   void ShowWindow();
   // What another app handed Pane opens, its window shown again (ADR 0109).
   void OpenHandedURLs(std::vector<GURL> urls);
+  // A site's notification, clicked in the system's center (on Windows a
+  // toast, which another launch hands over, ADR 0109): the window shows
+  // again, in front, as Chrome's comes up for it, and the site hears the
+  // click (HandNotificationToSite); a close shows nothing. One that names no
+  // notification, the app's own title in that center, shows the window alone.
+  void NotificationClicked(std::optional<NotificationClick> click);
   // ⌘T: a new tab of the profile shown, at the start page, its address
   // field taking the keys.
   void NewTab();
@@ -341,7 +351,13 @@ class UiApp : public AppData::Client,
   // A tab's page, as the model hears of it.
   class Page;
 
-  UiApp();
+  explicit UiApp(base::CommandLine launch_toast);
+
+  // The site hears `click` once the lock is open: the toast's profile opens,
+  // as any of its pages would (ProfileContexts::With), and Chrome's handler
+  // takes it from there (ForwardNotificationClick). Behind the lock, or before
+  // the data opens, nothing of the profile loads: it waits (AccessDidOpen).
+  void HandNotificationToSite(NotificationClick click);
 
   // A tab whose page loads behind the selected one, after `anchor` or last.
   std::string OpenTabBehind(const std::string& profile_id,
@@ -464,6 +480,9 @@ class UiApp : public AppData::Client,
   // The URLs Pane was started with or handed, while they wait behind the
   // lock.
   std::vector<GURL> launch_urls_;
+  // The notifications clicked while Pane was locked, or before its data
+  // opened, which their sites hear once it opens.
+  std::vector<NotificationClick> held_notifications_;
   // When each tab's renderer last died, to tell a crash loop from a crash.
   model::CrashLoop crashes_;
   // The tabs that show the sad tab's place until they reload: a page that

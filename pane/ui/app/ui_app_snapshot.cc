@@ -15,8 +15,10 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "components/download/public/common/download_item.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
@@ -47,6 +49,19 @@
 namespace pane {
 
 namespace {
+
+// The profiles the engine holds, by their folders' names, whatever opened
+// them: Pane's own (ProfileContexts), or one Chrome opened by itself, as its
+// handler of a site's notification would (notification-click).
+base::ListValue EngineProfiles() {
+  base::ListValue names;
+  if (ProfileManager* manager = g_browser_process->profile_manager()) {
+    for (Profile* loaded : manager->GetLoadedProfiles()) {
+      names.Append(loaded->GetBaseName().AsUTF8Unsafe());
+    }
+  }
+  return names;
+}
 
 // The window's controls, as the Swift app's snapshot gave them: x, y, width,
 // height from the window's top left.
@@ -456,6 +471,7 @@ base::DictValue UiApp::Snapshot() const {
       .Set("focus", root ? root->focus() : std::string("none"))
       .Set("pageFullscreen", window_->page_fullscreen())
       .Set("window", WindowState(widget))
+      .Set("engineProfiles", EngineProfiles())
       .Set("security", data_->State());
 }
 

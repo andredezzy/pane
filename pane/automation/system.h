@@ -36,6 +36,18 @@ bool PostSystemEvent(const std::string& event);
 base::expected<std::optional<std::string>, std::string> RunAppleScript(
     const std::string& source);
 
+// A site's notification clicked in macOS's notification center, handed to
+// the browser as the center hands it (ProcessMacNotificationResponse, which
+// NotificationDispatcherMojo calls for a banner's click), with no click on
+// the user's screen: `profile_id` the profile's folder's name, `id` Chrome's
+// notification id, `origin` the site's, `persistent` a service worker's. False
+// on Windows, where a toast's click comes as another launch, as the runner
+// hands it (notification-click).
+bool ClickSystemNotification(const std::string& profile_id,
+                             const std::string& id,
+                             const std::string& origin,
+                             bool persistent);
+
 }  // namespace pane
 
 #endif  // PANE_AUTOMATION_SYSTEM_H_

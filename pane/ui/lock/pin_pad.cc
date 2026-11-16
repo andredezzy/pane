@@ -169,12 +169,14 @@ void PinDots::Set(int count, int filled, bool animate) {
     }
   }
   if (count != before || filled != filled_) {
-    GetViewAccessibility().SetName(
-        base::StrCat({base::NumberToString16(filled), u" of ",
-                      base::NumberToString16(count), u" digits"}));
     SchedulePaint();
   }
   filled_ = filled;
+}
+
+std::u16string PinDots::Count() const {
+  return base::StrCat({base::NumberToString16(filled_), u" of ",
+                       base::NumberToString16(count()), u" digits"});
 }
 
 void PinDots::Shake() {

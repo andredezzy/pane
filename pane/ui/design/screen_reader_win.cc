@@ -102,6 +102,13 @@ void SetIndicator(views::ViewAccessibility& indicator) {
   indicator.SetRole(ax::mojom::Role::kImage);
 }
 
+void SetPinCount(views::ViewAccessibility& field,
+                 views::ViewAccessibility& dots,
+                 const std::u16string& count) {
+  field.SetDescription(count);
+  dots.SetIsIgnored(true);
+}
+
 void SetSplitter(views::ViewAccessibility& edge) {
   edge.SetRole(ax::mojom::Role::kSlider);
 }

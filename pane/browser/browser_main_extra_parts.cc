@@ -4,7 +4,9 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
+#include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -22,6 +24,7 @@
 #include "content/public/browser/network_service_instance.h"
 #include "net/proxy_resolution/proxy_config_service.h"
 #include "pane/app/data_launch.h"
+#include "pane/app/engine_switches.h"
 #include "pane/browser/bundled_crl_set.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profiles.h"
@@ -121,6 +124,11 @@ void BrowserMainExtraParts::PostCreateThreads() {
 }
 
 void BrowserMainExtraParts::PreProfileInit() {
+  // A toast's activation this launch carries, out of the command line before
+  // Chrome's startup reads it to open the toast's profile, which waits for
+  // Pane's lock and keys: Pane's UI hands it to the site (ADR 0109).
+  launch_toast_ =
+      TakeNotificationSwitches(*base::CommandLine::ForCurrentProcess());
   KeepDictionariesInUserData();
   LoadBundledCRLSet();
   BuildProfileServices();
@@ -149,7 +157,7 @@ void BrowserMainExtraParts::PostBrowserStart() {
   InstallUIHooks();
   // The data opens with the thread pool, before Pane's UI.
   OpenData();
-  UiApp::Start();
+  UiApp::Start(std::move(launch_toast_));
   StartPlatform();
   // Quitting outranks a remote debugging client: Chrome started without a
   // window stays up for one until it closes the browser itself, but Pane's

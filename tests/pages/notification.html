@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Notification</title>
+	</head>
+	<body>
+		<h1 id="title">Notification</h1>
+		<p id="clicked"></p>
+		<script>
+			// A site that shows a notification through its service worker and
+			// records its click (notification-sw.js): the worker opens this page
+			// again with ?clicked=<tag>, or focuses the page a notification names,
+			// and keeps each click in the site's own storage.
+			window.ready = navigator.serviceWorker
+				.register("notification-sw.js")
+				.then(() => navigator.serviceWorker.ready)
+				.then(() => true);
+
+			// The permission, as the page asks it: the prompt's answer.
+			async function ask() {
+				window.result = await Notification.requestPermission();
+			}
+
+			// A notification tagged `tag`, which opens this page again when
+			// clicked, or focuses the open page whose address has `focus`. Not
+			// read back: getNotifications() deletes what the system's center
+			// doesn't list yet (PlatformNotificationContextImpl), which a test
+			// copy's banner on the Mac never is.
+			async function show(tag, focus) {
+				const registration = await navigator.serviceWorker.ready;
+				await registration.showNotification("Pane test", {
+					body: `A notification (${tag})`,
+					tag,
+					silent: true,
+					data: { focus },
+				});
+				return true;
+			}
+
+			// The clicks the worker heard, by their tags, in order.
+			async function clicks() {
+				const cache = await caches.open("notification-clicks");
+				const keys = await cache.keys();
+				const heard = [];
+				for (const key of keys) {
+					heard.push(await (await cache.match(key)).json());
+				}
+				return heard.sort((a, b) => a.at - b.at).map((click) => click.tag);
+			}
+
+			const clicked = new URLSearchParams(location.search).get("clicked");
+			if (clicked) {
+				document.getElementById("clicked").textContent = clicked;
+			}
+		</script>
+	</body>
+</html>

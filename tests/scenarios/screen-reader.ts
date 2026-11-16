@@ -1,7 +1,13 @@
 import { join } from "node:path";
 import { canReadUI } from "../lib/computer-use";
 import { extensionId } from "../lib/extensions";
-import { type AppState, launchPane, QUIT_WORD } from "../lib/pane";
+import {
+	type AppState,
+	launchPane,
+	pressWindowKey,
+	QUIT_WORD,
+	RETURN_PRESSES_THE_RING,
+} from "../lib/pane";
 import { bySystem } from "../lib/platform";
 import { pollValue } from "../lib/poll";
 import { waitForSheet } from "../lib/surfaces";
@@ -37,7 +43,7 @@ const tabsOf = (count: number) => `${count} ${count === 1 ? "tab" : "tabs"}`;
 // right (pane/ui/design/screen_reader.h): the sidebar a tree, a profile's
 // row named with its tabs, a picker a combo box valued at its option, a
 // choice a radio button at its place, the Settings button a toggle, a
-// heading at its level, the PIN's dots an image, and the sidebar's edge a
+// heading at its level, the PIN's count the PIN field's description, and the sidebar's edge a
 // slider. Neither reads a state the other's tree lacks:
 // the Mac's tool reads no selection, which VoiceOver takes from AXSelected.
 const READS = bySystem({
@@ -91,6 +97,10 @@ const READS = bySystem({
 			(name: string): Read =>
 			(element) =>
 				element.role === "AXGroup" && nameOf(element) === name,
+		pin: (): Read => (element) =>
+			element.role === "AXTextField" &&
+			element.subrole === "AXSecureTextField" &&
+			nameOf(element) === "PIN",
 	},
 	windows: {
 		row:
@@ -152,7 +162,13 @@ const READS = bySystem({
 		indicator:
 			(name: string): Read =>
 			(element) =>
-				element.role === "Image" && element.title === name,
+				element.role === "Edit" &&
+				element.title === "PIN" &&
+				element.description === name,
+		pin: (): Read => (element) =>
+			element.role === "Edit" &&
+			element.title === "PIN" &&
+			element.protected === true,
 	},
 });
 
@@ -266,6 +282,29 @@ const screenReader: Scenario = async (context) => {
 		READS.splitter(Math.round(rest.sidebarWidth)),
 	);
 
+	// The edge resized by its keys once a screen reader has focused it, a
+	// tenth of its range a step, as Views' sliders step: Right and Up wider,
+	// Left and Down narrower (W8c: no key moved it on Windows).
+	const edgeWidth = Math.round(rest.sidebarWidth);
+	await app.send("screenReaderFocus", { name: "pane.sidebar.resize" });
+
+	for (const [key, change] of [
+		["right", 20],
+		["up", 20],
+		["left", -20],
+		["down", -20],
+	] as [string, number][]) {
+		const before = Math.round((await app.state()).sidebarWidth);
+		await app.send("dispatchKey", { key });
+
+		await app.waitFor(
+			`the edge's ${key} key`,
+			(state: AppState) => Math.round(state.sidebarWidth) === before + change,
+		);
+	}
+
+	await expectRead("the sidebar's edge, back", READS.splitter(edgeWidth));
+
 	await expectRead("Settings, its page hidden", READS.settings(false));
 
 	// Settings: the button on, its headings, and the Theme picker's choice.
@@ -352,10 +391,40 @@ const screenReader: Scenario = async (context) => {
 	const asked = await waitForSheet(app, "extensionInstall");
 
 	await expectRead("the extension's prompt", READS.dialog(asked.title ?? ""));
-	await app.send("dispatchKey", { key: "\u001b" });
+
+	// Where Return presses the button with the ring (Windows, ADR 0126), the
+	// prompt's Cancel takes the keys and Return presses it: Enter on a focused
+	// Cancel added the extension (W8c). In front Tab gives it the ring, by the
+	// window's own traversal; behind, a screen reader's focus does, as the
+	// channel's keys reach the window past its traversal (W8d: a Tab handed
+	// so moved nothing, and Return accepted). Elsewhere Esc cancels it.
+	if (RETURN_PRESSES_THE_RING) {
+		if (context.foreground) {
+			await pressWindowKey(context, app, "\t");
+		} else {
+			await app.send("screenReaderFocus", {
+				name: "pane.extensionPopup.cancel",
+			});
+		}
+
+		await app.waitFor(
+			"the prompt's Cancel with the keys",
+			(state) => state.focus === "pane.extensionPopup.cancel",
+		);
+
+		await pressWindowKey(context, app, "\r");
+	} else {
+		await app.send("dispatchKey", { key: "\u001b" });
+	}
+
 	await app.waitFor("the prompt gone", (state) => state.sheet === null);
 
-	// The PIN's dots, as Set up PIN shows them, read as text.
+	const answer = (await app.send<string | null>("promptAnswer")).result;
+	expect(answer === "cancelled", `the prompt was answered ${answer}`);
+
+	// The PIN's dots, as Set up PIN shows them, read as text; the screen a
+	// dialog named by its step's title, the keys in a protected field, so a
+	// screen reader never says a digit typed (W8c: Narrator said "9 9 9 9").
 	await app.send("showPinScreen", { mode: "setup" });
 
 	await app.waitFor(
@@ -364,14 +433,33 @@ const screenReader: Scenario = async (context) => {
 	);
 
 	await expectRead("the empty dots", READS.indicator("0 of 4 digits"));
+	await expectRead("Set up PIN's dialog", READS.dialog("Enter new PIN"));
+	await expectRead("the PIN's field", READS.pin());
 	await app.send("pinKeys", { keys: "12" });
 	await expectRead("two dots", READS.indicator("2 of 4 digits"));
-	await app.send("pinKeys", { keys: "^" });
+	await app.send("pinKeys", { keys: "34>" });
 
 	await app.waitFor(
-		"Set up PIN gone",
-		(state) => state.security.screen === null,
+		"the PIN asked again",
+		(state) => state.security.screen?.step === "confirm",
 	);
+
+	await expectRead("the next step's dialog", READS.dialog("Confirm PIN"));
+	await app.send("pinKeys", { keys: "1234" });
+
+	await app.waitFor(
+		"the PIN set up",
+		(state) => state.security.screen === null && state.security.pinLength === 4,
+	);
+
+	// The Lock, which shows no title: its dialog by what it is, the keys in
+	// the protected field.
+	await app.send("lockNow");
+	await app.waitFor("locked", (state) => state.security.locked);
+	await expectRead("the Lock's dialog", READS.dialog("Pane is locked"));
+	await expectRead("the Lock's PIN field", READS.pin());
+	await app.send("pinKeys", { keys: "1234" });
+	await app.waitFor("unlocked", (state) => !state.security.locked, 60_000);
 };
 
 export default screenReader;

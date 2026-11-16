@@ -99,6 +99,7 @@ export type AccessibleElement = {
 		| "position"
 		| "level"
 		| "dialog"
+		| "protected"
 		| "rect"
 	>
 >;

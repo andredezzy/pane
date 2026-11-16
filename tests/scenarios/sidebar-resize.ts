@@ -88,6 +88,33 @@ const sidebarResize: Scenario = async (context) => {
 
 	await first.waitFor("260 again", (state) => state.sidebarWidth === 260);
 
+	// By its keys, once a screen reader has focused it: a tenth of its range
+	// a step, as Views' sliders step, Right and Up wider, Left and Down
+	// narrower, held at its limits (W8c: no key moved it on Windows).
+	await first.send("screenReaderFocus", { name: "pane.sidebar.resize" });
+
+	for (const [key, width] of [
+		["right", 280],
+		["up", 300],
+		["left", 280],
+		["down", 260],
+		["down", 240],
+		["down", 220],
+		["down", 200],
+		["down", 200],
+		["right", 220],
+	] as [string, number][]) {
+		await first.send("dispatchKey", { key });
+
+		await first.waitFor(
+			`${width} by the ${key} key`,
+			(state) => state.sidebarWidth === width,
+		);
+	}
+
+	await first.send("clickWindow", { x: 218, y, clicks: 2 });
+	await first.waitFor("260 again", (state) => state.sidebarWidth === 260);
+
 	// Kept across launches.
 	const kept = await drag(258, 298);
 

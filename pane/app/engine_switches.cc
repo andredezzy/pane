@@ -13,12 +13,21 @@ namespace pane {
 
 namespace {
 
+// A toast's activation on Windows (chrome_switches.h's kNotificationLaunchId
+// and kNotificationInlineReply), which notification_helper.exe starts
+// chrome.exe with.
+constexpr std::string_view kNotificationSwitches[] = {
+    "notification-launch-id", "notification-inline-reply"};
+
 // Pane's own switches, which every launch keeps: the panic wipe's run's
 // (model::kWipeAfterSwitch), and on Windows the first launch's after an
 // install, the event its installer waits for (installer::kInstalledSwitch,
-// set as the first window paints).
-constexpr std::string_view kPanesOwnSwitches[] = {"pane-wipe-after",
-                                                  "pane-installed"};
+// set as the first window paints); and a toast's activation, which another
+// launch hands the running Pane through the process singleton, as it hands a
+// running Chrome (TakeNotificationSwitches).
+constexpr std::string_view kPanesOwnSwitches[] = {
+    "pane-wipe-after", "pane-installed", kNotificationSwitches[0],
+    kNotificationSwitches[1]};
 
 // Adds `value` to a comma-separated switch (--disable-features=…), keeping
 // whatever the command line already lists there.
@@ -147,6 +156,17 @@ void SetEngineSwitches(base::CommandLine& command_line,
   if (!command_line.HasSwitch("user-data-dir")) {
     command_line.AppendSwitchPath("user-data-dir", engine_folder);
   }
+}
+
+base::CommandLine TakeNotificationSwitches(base::CommandLine& command_line) {
+  base::CommandLine taken(base::CommandLine::NO_PROGRAM);
+  for (std::string_view name : kNotificationSwitches) {
+    if (command_line.HasSwitch(name)) {
+      taken.AppendSwitchNative(name, command_line.GetSwitchValueNative(name));
+      command_line.RemoveSwitch(name);
+    }
+  }
+  return taken;
 }
 
 }  // namespace pane

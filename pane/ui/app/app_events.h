@@ -4,10 +4,12 @@
 #define PANE_UI_APP_APP_EVENTS_H_
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "pane/ui/app/notification_click.h"
 #include "url/gurl.h"
 
 namespace base {
@@ -53,13 +55,22 @@ bool ClosingTheWindowQuits();
 // Alt+F4 or ⌘Q does, Quit Pane? or Exit Pane? first (ADR 0053): Pane's
 // installer and its uninstall ask so where Pane is open (Paper 11.12.7,
 // 11.12.10).
+//
+// A launch that carries a toast's activation (on Windows, a site's
+// notification clicked in the system's center, which notification_helper.exe
+// hands over as a launch) hands it to `notification_clicked`: the
+// notification it names, or none, for the app's own title in that center.
 class AppEvents {
  public:
   using OpenURLs = base::RepeatingCallback<void(std::vector<GURL>)>;
+  using NotificationClicked =
+      base::RepeatingCallback<void(std::optional<NotificationClick>)>;
 
-  static std::unique_ptr<AppEvents> Listen(base::RepeatingClosure reopen,
-                                           OpenURLs open_urls,
-                                           base::RepeatingClosure ask_to_exit);
+  static std::unique_ptr<AppEvents> Listen(
+      base::RepeatingClosure reopen,
+      OpenURLs open_urls,
+      base::RepeatingClosure ask_to_exit,
+      NotificationClicked notification_clicked);
 
   // Chrome's start has ended (ChromeBrowserMainParts::PostBrowserStart), and
   // gave the process singleton Chrome's own callback, which replaces the one
@@ -75,7 +86,8 @@ class AppEvents {
  protected:
   AppEvents(base::RepeatingClosure reopen,
             OpenURLs open_urls,
-            base::RepeatingClosure ask_to_exit);
+            base::RepeatingClosure ask_to_exit,
+            NotificationClicked notification_clicked);
 
   void Reopen();
   void OpenURLsHanded(std::vector<GURL> urls);
@@ -88,10 +100,12 @@ class AppEvents {
                           const base::FilePath& directory);
   void OpenLaunch(std::vector<GURL> pages);
   void AskedToExit();
+  void NotificationLaunch(std::optional<NotificationClick> click);
 
   const base::RepeatingClosure reopen_;
   const OpenURLs open_urls_;
   const base::RepeatingClosure ask_to_exit_;
+  const NotificationClicked notification_clicked_;
   base::WeakPtrFactory<AppEvents> weak_factory_{this};
 };
 

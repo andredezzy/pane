@@ -135,5 +135,34 @@ TEST(EngineSwitchesTest, UsersLaunchTakesPanesFeaturesAlone) {
   EXPECT_TRUE(std::ranges::contains(enabled, "DisableTabDiscarding"));
 }
 
+// A toast's activation (Windows' notification_helper.exe starts Pane with
+// it) survives the user's launch, so the process singleton hands it to a
+// running Pane, and comes out of the browser's own command line whole, before
+// Chrome's startup would open the toast's profile from it (ADR 0109).
+TEST(EngineSwitchesTest, KeepsAToastsActivationForPanesUiAlone) {
+  constexpr char kLaunchId[] = "0|0|Default|0|https://example.com/|p#1";
+  for (base::CommandLine command_line :
+       {Launch({std::string("notification-launch-id=") + kLaunchId,
+                "notification-inline-reply=Hi", "enable-logging"}),
+        Launch({std::string("notification-launch-id=") + kLaunchId,
+                "notification-inline-reply=Hi", "use-mock-keychain"})}) {
+    EXPECT_FALSE(command_line.HasSwitch("enable-logging"));
+    EXPECT_EQ(command_line.GetSwitchValueASCII("notification-launch-id"),
+              kLaunchId);
+
+    const base::CommandLine taken = TakeNotificationSwitches(command_line);
+    EXPECT_FALSE(command_line.HasSwitch("notification-launch-id"));
+    EXPECT_FALSE(command_line.HasSwitch("notification-inline-reply"));
+    EXPECT_EQ(taken.GetSwitchValueASCII("notification-launch-id"), kLaunchId);
+    EXPECT_EQ(taken.GetSwitchValueASCII("notification-inline-reply"), "Hi");
+    EXPECT_EQ(taken.GetSwitches().size(), 2u);
+  }
+
+  // A launch that carries none gives none, and loses nothing.
+  base::CommandLine plain = Launch({"pane-installed=event"});
+  EXPECT_TRUE(TakeNotificationSwitches(plain).GetSwitches().empty());
+  EXPECT_TRUE(plain.HasSwitch("pane-installed"));
+}
+
 }  // namespace
 }  // namespace pane

@@ -35,6 +35,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/disable_reason.h"
+#include "extensions/browser/extension_install_prompt_client.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/install_prompt_data.h"
@@ -648,6 +649,56 @@ void Automation::Dispatch(const std::string& name,
       return;
     }
     app_->AddressEntered(base::UTF8ToUTF16(*input));
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A screen reader's focus on a control of the window, by its name
+  // ("pane.sidebar.resize"), as Views takes it from VoiceOver or Narrator: the
+  // keys then go to it.
+  if (name == "screenReaderFocus") {
+    const std::string* control = command.FindString("name");
+    views::View* view = nullptr;
+    if (control && widget) {
+      for (int id = kViewIdSidebar; id <= kViewIdWindowClose && !view; ++id) {
+        if (ViewIdName(id) == *control) {
+          view = widget->GetRootView()->GetViewByID(id);
+        }
+      }
+    }
+    ui::AXActionData focus;
+    focus.action = ax::mojom::Action::kFocus;
+    if (!view || !view->HandleAccessibleAction(focus)) {
+      std::move(reply).Run(base::Value(),
+                           "screenReaderFocus: no control by that name takes "
+                           "a screen reader's focus");
+      return;
+    }
+    std::move(reply).Run(base::Value(), std::string());
+    return;
+  }
+
+  // A site's notification clicked in macOS's notification center, handed to
+  // the browser as the center hands it, with no click on the screen
+  // (notification-click). Windows' toasts come as another launch, which the
+  // runner hands as notification_helper.exe does.
+  if (name == "clickNotification") {
+    const std::string* profile_id = command.FindString("profileId");
+    const std::string* id = command.FindString("id");
+    const std::string* origin = command.FindString("origin");
+    if (!profile_id || !id || !origin) {
+      std::move(reply).Run(base::Value(),
+                           "clickNotification needs profileId, id, and origin");
+      return;
+    }
+    if (!ClickSystemNotification(
+            *profile_id, *id, *origin,
+            command.FindBool("persistent").value_or(true))) {
+      std::move(reply).Run(base::Value(),
+                           "clickNotification: a toast's click comes as "
+                           "another launch here");
+      return;
+    }
     std::move(reply).Run(base::Value(), std::string());
     return;
   }
@@ -2199,14 +2250,40 @@ void Automation::Dispatch(const std::string& name,
                   window ? window->GetNativeWindow() : gfx::NativeWindow(),
                   std::make_unique<extensions::InstallPromptData>(
                       extensions::InstallPromptData::INSTALL_PROMPT));
+              self->prompt_answer_.reset();
+              // Its answer, for promptAnswer.
               self->asked_to_add_->ShowDialog(
-                  base::DoNothing(), extension, /*icon=*/nullptr,
+                  base::BindOnce(
+                      [](base::WeakPtr<Automation> self,
+                         ExtensionInstallPrompt::DoneCallbackPayload payload) {
+                        if (!self) {
+                          return;
+                        }
+                        using Result =
+                            extensions::ExtensionInstallPromptClient::Result;
+                        self->prompt_answer_ =
+                            payload.result == Result::USER_CANCELED
+                                ? "cancelled"
+                            : payload.result == Result::ABORTED ? "aborted"
+                                                                : "accepted";
+                      },
+                      self),
+                  extension, /*icon=*/nullptr,
                   ExtensionInstallPrompt::GetDefaultShowDialogCallback());
               std::move(reply).Run(base::Value(), std::string());
             },
             weak_factory_.GetWeakPtr(), *id,
             widget ? widget->GetWeakPtr() : base::WeakPtr<views::Widget>(),
             std::move(reply)));
+    return;
+  }
+
+  // How the prompt askToAddExtension showed was answered: "accepted",
+  // "cancelled", or "aborted"; null while it asks, or before any.
+  if (name == "promptAnswer") {
+    std::move(reply).Run(
+        prompt_answer_ ? base::Value(*prompt_answer_) : base::Value(),
+        std::string());
     return;
   }
 

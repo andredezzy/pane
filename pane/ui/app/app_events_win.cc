@@ -17,10 +17,12 @@ class AppEventsWin : public AppEvents {
  public:
   AppEventsWin(base::RepeatingClosure reopen,
                OpenURLs open_urls,
-               base::RepeatingClosure ask_to_exit)
+               base::RepeatingClosure ask_to_exit,
+               NotificationClicked notification_clicked)
       : AppEvents(std::move(reopen),
                   std::move(open_urls),
-                  std::move(ask_to_exit)) {}
+                  std::move(ask_to_exit),
+                  std::move(notification_clicked)) {}
 };
 
 }  // namespace
@@ -33,9 +35,11 @@ bool ClosingTheWindowQuits() {
 std::unique_ptr<AppEvents> AppEvents::Listen(
     base::RepeatingClosure reopen,
     OpenURLs open_urls,
-    base::RepeatingClosure ask_to_exit) {
+    base::RepeatingClosure ask_to_exit,
+    NotificationClicked notification_clicked) {
   return std::make_unique<AppEventsWin>(std::move(reopen), std::move(open_urls),
-                                        std::move(ask_to_exit));
+                                        std::move(ask_to_exit),
+                                        std::move(notification_clicked));
 }
 
 }  // namespace pane

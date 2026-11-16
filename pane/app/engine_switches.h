@@ -3,8 +3,9 @@
 #ifndef PANE_APP_ENGINE_SWITCHES_H_
 #define PANE_APP_ENGINE_SWITCHES_H_
 
+#include "base/command_line.h"
+
 namespace base {
-class CommandLine;
 class FilePath;
 }  // namespace base
 
@@ -21,6 +22,17 @@ namespace pane {
 // scenario's command line names it.
 void SetEngineSwitches(base::CommandLine& command_line,
                        const base::FilePath& engine_folder);
+
+// A toast's activation on Windows (--notification-launch-id and its reply),
+// which every launch keeps, so another launch hands it to the running Pane
+// through the process singleton, as notification_helper.exe hands a running
+// Chrome its toast. Chrome's startup reads it too, and opens the toast's
+// profile at once, before Pane's lock and keys (CreateInitialProfile,
+// GetStartupProfilePath): so the browser's own launch takes it out of its
+// command line first (BrowserMainExtraParts::PreProfileInit), for Pane's UI,
+// which hands it to the site once the profile is open (ADR 0109). Returns
+// what it took, on a command line of its own.
+base::CommandLine TakeNotificationSwitches(base::CommandLine& command_line);
 
 }  // namespace pane
 
