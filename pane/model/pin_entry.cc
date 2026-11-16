@@ -29,6 +29,20 @@ PinEntry PinEntry::Unreadable(UnreadableReason reason, std::string message) {
   return entry;
 }
 
+std::string_view PinEntry::KeepTitle() const {
+  switch (mode_) {
+    case Mode::kSetup:
+      return "Cancel";
+    case Mode::kChange:
+      return "Keep earlier PIN";
+    case Mode::kRemove:
+      return "Keep PIN";
+    // No seal is made at the lock.
+    case Mode::kUnlock:
+      return {};
+  }
+}
+
 std::optional<std::string_view> PinEntry::Title() const {
   if (mode_ == Mode::kUnlock) {
     return std::nullopt;
@@ -150,6 +164,24 @@ PinEntry::Action PinEntry::Refused(std::string why) {
 void PinEntry::Shook() {
   entered_.clear();
   busy_ = false;
+}
+
+void PinEntry::Unsaved() {
+  ++unsaved_;
+  busy_ = true;
+  switch (mode_) {
+    case Mode::kSetup:
+      error_ = kSetupNotSaved;
+      return;
+    case Mode::kChange:
+      error_ = kChangeNotSaved;
+      return;
+    case Mode::kRemove:
+      error_ = kRemoveNotSaved;
+      return;
+    case Mode::kUnlock:
+      return;
+  }
 }
 
 }  // namespace pane::model

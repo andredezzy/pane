@@ -182,9 +182,11 @@ enum ViewId : int {
   // The PIN screen over the window (ADR 0042), by the Swift's names: its
   // panel ("pane.lockScreen"), its dots, the numpad's digits, which the
   // channel names by their digit ("pane.lockScreen.digit.4"), Delete, the
-  // back arrow, Continue, the attempts left, the data's move (Paper 07.5),
-  // and the update on offer beside its status, with its action: Download,
-  // Restart, or Quit and install.
+  // back arrow, Continue, the attempts left, the two buttons that answer a
+  // PIN the disk didn't save (Paper 07.12: Keep earlier PIN, Keep PIN, or
+  // Cancel, and Try again), the data's move (Paper 07.5), and the update on
+  // offer beside its status, with its action: Download, Restart, or Quit and
+  // install.
   kViewIdLockScreen,
   kViewIdLockScreenDots,
   kViewIdLockScreenDigit,
@@ -192,6 +194,8 @@ enum ViewId : int {
   kViewIdLockScreenBack,
   kViewIdLockScreenContinue,
   kViewIdLockScreenAttempts,
+  kViewIdLockScreenKeep,
+  kViewIdLockScreenTryAgain,
   kViewIdLockScreenMove,
   kViewIdLockScreenUpdate,
   kViewIdLockScreenDownloadUpdate,

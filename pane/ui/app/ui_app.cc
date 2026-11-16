@@ -620,14 +620,21 @@ void UiApp::AccessDidOpen() {
 
 // A PIN set or removed: Settings' Security rows follow. The PIN screen shows
 // what changed, and the digit that completed a PIN is answered: the Lock
-// sinking once it opens; a check that ended otherwise (Change's current PIN
-// right) answers in the screen's own change.
+// sinking once it opens; Settings' new seal once it is made and written, the
+// screen sinking or saying the disk didn't save it (Paper 07.12); a check
+// that ended otherwise (Change's current PIN right) answers in the screen's
+// own change.
 void UiApp::SecurityChanged() {
   const bool locked = data_->IsLocked();
   if (pin_answer_) {
     const std::optional<model::PinEntry>& entry = data_->PinScreen();
     if (std::exchange(was_locked_, locked) && !locked) {
       EndInteractionAtNextFrame(Interaction::kUnlock, pin_answer_->unlock,
+                                window_->compositor());
+      pin_answer_.reset();
+    } else if (!locked && pin_answer_->save &&
+               (!entry || entry->is_unsaved())) {
+      EndInteractionAtNextFrame(Interaction::kSavePin, *pin_answer_->save,
                                 window_->compositor());
       pin_answer_.reset();
     } else if (!entry || !entry->busy()) {
@@ -686,10 +693,15 @@ void UiApp::LockNow() {
   // handled.
   FrameHold hold(window_->compositor());
   LogInteraction(Interaction::kLock, window_->compositor());
+  data_->LockScreen();
+  // The lock waits for a new PIN on its way to the disk, and asks again once
+  // the write has answered (LockRequested): nothing closes meanwhile.
+  if (!data_->IsLocked()) {
+    return;
+  }
   if (model().active_tab_id()) {
     resume_tab_id_ = model().active_tab_id();
   }
-  data_->LockScreen();
   profiles_ready_ = false;
   // Nothing of the window's stays over the PIN screen: an alert asking is
   // answered no, as Cancel does.
@@ -1439,12 +1451,16 @@ void UiApp::PinDigit(char16_t digit) {
   }
   FrameHold hold(window_->compositor());
   LogInteraction(Interaction::kPinDigit, window_->compositor());
-  // The digit that completes the PIN asked for: its answer is timed too.
+  // The digit that completes the PIN asked for: its answer is timed too, in
+  // Settings to the new seal's write as well.
   if (entry->step() != model::PinEntry::Step::kEnter &&
       entry->entered().size() + 1 == static_cast<size_t>(entry->Dots())) {
     pin_answer_ =
         PinAnswer{.wrong = BeginInteractionInterval(Interaction::kWrongPin),
                   .unlock = BeginInteractionInterval(Interaction::kUnlock)};
+    if (entry->mode() != model::PinEntry::Mode::kUnlock) {
+      pin_answer_->save = BeginInteractionInterval(Interaction::kSavePin);
+    }
   }
   data_->PinDigit(digit);
 }
@@ -1456,6 +1472,13 @@ void UiApp::PinBackspace() {
 
 void UiApp::ContinueWithPin() {
   FrameHold hold(window_->compositor());
+  // Try again, where the disk didn't save a new seal (Paper 07.12): timed to
+  // its answer as the digit that made the seal was.
+  if (const std::optional<model::PinEntry>& entry = data_->PinScreen();
+      entry && entry->is_unsaved()) {
+    pin_answer_ =
+        PinAnswer{.save = BeginInteractionInterval(Interaction::kSavePin)};
+  }
   data_->ContinueWithPin();
 }
 

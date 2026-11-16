@@ -3,29 +3,16 @@
 #include "pane/model/app_lock.h"
 
 #include <algorithm>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "base/containers/span.h"
-#include "base/containers/to_vector.h"
-#include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/files/scoped_temp_dir.h"
-#include "base/run_loop.h"
-#include "base/test/bind.h"
-#include "base/test/task_environment.h"
-#include "base/threading/platform_thread.h"
 #include "base/time/time.h"
-#include "base/time/time_override.h"
+#include "pane/model/app_lock_guard_test.h"
 #include "pane/model/data_key.h"
-#include "pane/model/data_lock.h"
-#include "pane/model/data_vault.h"
-#include "pane/model/folder_place.h"
 #include "pane/model/panic_wipe_run.h"
-#include "pane/model/persisted_file.h"
 #include "pane/model/pin_entry.h"
 #include "pane/model/security.h"
 #include "pane/model/stand_in_pin_guard.h"
@@ -35,178 +22,11 @@
 namespace pane::model {
 namespace {
 
-// The lock with the PIN's guard (U5), on every system, with a TPM in memory
-// (StandInPinGuard) and the engine's secret given in: what the guard adds to
-// the seal, and what each of the chip's answers does. The Mac's own rules,
-// on its volume and Keychain, are mac/app_lock_unittest.cc's.
-
-constexpr std::string_view kSecret = "c2VjcmV0c2VjcmV0c2VjcmV0";
+constexpr std::string_view kSecret = kGuardTestSecret;
 
 base::span<const uint8_t> Bytes(std::string_view text) {
-  return base::as_byte_span(text);
+  return GuardTestBytes(text);
 }
-
-class VaultDelegate : public DataVault::Delegate {
- public:
-  void DataKeyDidOpen(base::OnceClosure loaded) override {
-    std::move(loaded).Run();
-  }
-  std::vector<std::string> ProfileIds() override { return {}; }
-  void AccessDidOpen() override {}
-  void VolumeWontOpen() override {}
-  void QuitToCloseVolume() override {}
-  void VolumeDidDetachAtLock() override {}
-};
-
-class LockDelegate : public AppLock::Delegate {
- public:
-  void DidUnlock() override { ++unlocks; }
-  void DidExhaustSettingsAttempts() override { ++exhausted; }
-
-  int unlocks = 0;
-  int exhausted = 0;
-};
-
-class Shakes : public AppLock::Observer {
- public:
-  void OnPinShake() override { ++count; }
-
-  int count = 0;
-};
-
-class AppLockGuardTest : public testing::Test {
- protected:
-  void SetUp() override {
-    ASSERT_TRUE(directory_.CreateUniqueTempDir());
-    data_ = directory_.GetPath().AppendASCII("data");
-    ASSERT_TRUE(base::CreateDirectory(data_));
-    guard_ = base::MakeRefCounted<StandInPinGuard>();
-  }
-
-  void TearDown() override {
-    task_environment_.RunUntilIdle();
-    if (lock_) {
-      lock_->RemoveObserver(&shakes_);
-    }
-    lock_.reset();
-    vault_.reset();
-  }
-
-  // The vault and the lock, as Windows' launch makes them: the engine's
-  // folder, the secret given in (`secret_`), and the TPM in memory.
-  AppLock& Launch() {
-    vault_ = std::make_unique<DataVault>(
-        data_, base::MakeRefCounted<FolderPlace>(data_, DataLock::Take(data_)),
-        &vault_delegate_);
-    AppLock::System system;
-    system.secret = base::BindLambdaForTesting(
-        [&](bool makes_one) -> std::optional<std::vector<uint8_t>> {
-          if (no_secret_) {
-            return std::nullopt;
-          }
-          return base::ToVector(Bytes(secret_));
-        });
-    system.guard = guard_;
-    system.no_secret = PinEntry::UnreadableReason::kDpapiRefused;
-    system.words = words_;
-    lock_ = std::make_unique<AppLock>(
-        data_,
-        AppLock::Load(data_,
-                      base::PathExists(data_.AppendASCII("profiles.json"))),
-        *vault_, system, &lock_delegate_);
-    lock_->SetWipeForTesting(base::BindLambdaForTesting([&] { ++wipes_; }));
-    lock_->AddObserver(&shakes_);
-    lock_->Start();
-    return *lock_;
-  }
-
-  void Save(const SecurityState& state) {
-    for (std::string_view name : {"security", "Data.security"}) {
-      ASSERT_TRUE(PersistedFile(data_, name).Save(state.ToValue()));
-    }
-  }
-
-  // The file as saved. A save replaces it, which isn't atomic on Windows
-  // (ReplaceFileW moves the old file aside first): a read that meets one
-  // finds no file, or one it can't open, and tries again, for up to 5 s of
-  // real time, with the test's own sequence left as it is.
-  std::optional<SecurityState> Saved(std::string_view name = "security") const {
-    const base::TimeTicks end =
-        base::subtle::TimeTicksNowIgnoringOverride() + base::Seconds(5);
-    do {
-      const base::expected<std::optional<base::Value>, FileError> state =
-          PersistedFile(data_, name).Load();
-      if (state.has_value() && *state) {
-        return SecurityState::FromValue(**state);
-      }
-      base::PlatformThread::Sleep(base::Milliseconds(1));
-    } while (base::subtle::TimeTicksNowIgnoringOverride() < end);
-    return std::nullopt;
-  }
-
-  // A key sealed under kSecret with `pin`, the stand-in TPM guarding it, in
-  // both files.
-  Key SaveGuardedKey(std::string_view pin) {
-    const Key key = MakeDataKey();
-    const base::expected<Guarded, PinGuard::Refusal> guarded =
-        guard_->Guard(pin);
-    EXPECT_TRUE(guarded.has_value());
-    Save(SecurityState(Pin{.length = static_cast<int>(pin.size())}, 0,
-                       SealDataKey(key, Bytes(kSecret), pin, *guarded)));
-    return key;
-  }
-
-  void Type(std::string_view digits) {
-    for (char digit : digits) {
-      lock_->Digit(digit);
-    }
-  }
-
-  [[nodiscard]] bool Ready() {
-    return WaitFor([&] { return lock_->entry() && !lock_->entry()->busy(); });
-  }
-
-  void Shook(int count) {
-    ASSERT_TRUE(WaitFor([&] { return shakes_.count == count; }));
-    task_environment_.AdvanceClock(base::Milliseconds(600));
-    base::RunLoop().RunUntilIdle();
-  }
-
-  [[nodiscard]] bool Unreadable() {
-    return WaitFor([&] {
-      return lock_->is_locked() && lock_->entry() &&
-             lock_->entry()->is_unreadable();
-    });
-  }
-
-  base::test::TaskEnvironment task_environment_{
-      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  base::ScopedTempDir directory_;
-  base::FilePath data_;
-  std::string secret_{kSecret};
-  // DPAPI gives no secret.
-  bool no_secret_ = false;
-  // The launch's words for each state, as Windows' gives its own
-  // (data_launch_win.cc): each its own here, so a test reads which shows.
-  AppLock::System::Words words_ = [] {
-    AppLock::System::Words words;
-    words.key_unreadable = "key unreadable";
-    words.no_secret = "no secret";
-    words.data_wont_open = "data won't open";
-    words.guard_gone = "guard gone";
-    words.guard_unavailable = "guard unavailable";
-    words.locked_out = "locked out";
-    words.pin_not_saved = "pin not saved";
-    return words;
-  }();
-  scoped_refptr<StandInPinGuard> guard_;
-  VaultDelegate vault_delegate_;
-  LockDelegate lock_delegate_;
-  Shakes shakes_;
-  int wipes_ = 0;
-  std::unique_ptr<DataVault> vault_;
-  std::unique_ptr<AppLock> lock_;
-};
 
 // Setting the PIN seals the key with a key the TPM holds, the PIN its own:
 // security.json names it, the secret and the PIN alone open nothing, and a
@@ -221,9 +41,11 @@ TEST_F(AppLockGuardTest, ThePinIsSealedWithTheChipsKey) {
   Type("1234");
   lock.ContinueWithPin();
   Type("1234");
+  // The screen sinks once the seal is on the disk (Paper 07.12).
   ASSERT_TRUE(WaitFor([&] {
     const std::optional<SecurityState> saved = Saved();
-    return saved && saved->pin && saved->key && saved->key->guard;
+    return !lock.entry() && saved && saved->pin && saved->key &&
+           saved->key->guard;
   }));
   std::optional<SecurityState> saved = Saved();
   ASSERT_EQ(guard_->keys(), std::vector<std::string>{saved->key->guard->key});
@@ -245,7 +67,7 @@ TEST_F(AppLockGuardTest, ThePinIsSealedWithTheChipsKey) {
   Type("5678");
   ASSERT_TRUE(WaitFor([&] {
     const std::optional<SecurityState> now = Saved();
-    return now && now->key && now->key->guard &&
+    return !lock.entry() && now && now->key && now->key->guard &&
            now->key->guard->key != first && guard_->keys().size() == 1;
   }));
   saved = Saved();
@@ -264,7 +86,8 @@ TEST_F(AppLockGuardTest, ThePinIsSealedWithTheChipsKey) {
 // A new seal that didn't reach the disk keeps the earlier key (W8): the seal
 // there still names it, and the earlier PIN opens it at the next launch.
 // Before, the chip's earlier key went all the same, a failed save leaving
-// the disk naming a key gone, and every profile with it.
+// the disk naming a key gone, and every profile with it. Since W8e the screen
+// says it (Paper 07.12), and Pane ends here without an answer.
 TEST_F(AppLockGuardTest, AnUnsavedSealKeepsTheEarlierKey) {
   const Key key = SaveGuardedKey("1234");
   const std::string first = Saved()->key->guard->key;
@@ -272,29 +95,11 @@ TEST_F(AppLockGuardTest, AnUnsavedSealKeepsTheEarlierKey) {
   Type("1234");
   ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
 
-  // Neither file can be replaced: a folder stands at each name, as a file
-  // another program holds stands on Windows.
-  const std::vector<std::string> names = {"security.json",
-                                          "Data.security.json"};
-  std::vector<std::string> kept_bytes;
-  for (const std::string& name : names) {
-    const base::FilePath path = data_.AppendASCII(name);
-    std::string bytes;
-    ASSERT_TRUE(base::ReadFileToString(path, &bytes));
-    kept_bytes.push_back(std::move(bytes));
-    ASSERT_TRUE(base::DeleteFile(path));
-    ASSERT_TRUE(base::CreateDirectory(path));
-    ASSERT_TRUE(base::WriteFile(path.AppendASCII("held"), "held"));
-  }
-  lock.Show(PinEntry::Mode::kChange);
-  Type("1234");
-  ASSERT_TRUE(WaitFor([&] {
-    return lock.entry() && lock.entry()->step() == PinEntry::Step::kEnter;
-  }));
-  Type("5678");
-  lock.ContinueWithPin();
-  Type("5678");
-  ASSERT_TRUE(WaitFor([&] { return !lock.entry(); }));
+  // Neither file can be replaced.
+  const std::string security = Hold("security.json");
+  const std::string copy = Hold("Data.security.json");
+  ChangePin("1234", "5678");
+  ASSERT_TRUE(Unsaved());
   task_environment_.RunUntilIdle();
   const std::vector<std::string> both = guard_->keys();
   ASSERT_EQ(both.size(), 2u);
@@ -302,14 +107,9 @@ TEST_F(AppLockGuardTest, AnUnsavedSealKeepsTheEarlierKey) {
 
   // The disk as the failed saves left it: the earlier seal, which the
   // earlier PIN still opens.
-  lock_->RemoveObserver(&shakes_);
-  lock_.reset();
-  vault_.reset();
-  for (size_t i = 0; i < names.size(); ++i) {
-    const base::FilePath path = data_.AppendASCII(names[i]);
-    ASSERT_TRUE(base::DeletePathRecursively(path));
-    ASSERT_TRUE(base::WriteFile(path, kept_bytes[i]));
-  }
+  Quit();
+  Unhold("security.json", security);
+  Unhold("Data.security.json", copy);
   AppLock& again = Launch();
   ASSERT_TRUE(again.is_locked());
   Type("1234");
@@ -317,8 +117,10 @@ TEST_F(AppLockGuardTest, AnUnsavedSealKeepsTheEarlierKey) {
   EXPECT_EQ(vault_->data_key(), key);
 }
 
-// The earlier key goes once a save of the new seal lands, a later one when
-// the reseal's own failed: here the save of Settings' next check of the PIN.
+// The earlier key goes once a save of the new seal lands in both files, a
+// later one when the reseal's own wrote security.json alone: here the save of
+// Settings' next check of the PIN. Only the copy refusing shows nothing
+// (Paper 07.12): the next launch reads security.json, which took the seal.
 TEST_F(AppLockGuardTest, TheEarlierKeyGoesOnceTheNewSealIsSaved) {
   SaveGuardedKey("1234");
   const std::string first = Saved()->key->guard->key;
@@ -326,33 +128,352 @@ TEST_F(AppLockGuardTest, TheEarlierKeyGoesOnceTheNewSealIsSaved) {
   Type("1234");
   ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
 
-  const base::FilePath held = data_.AppendASCII("security.json");
-  ASSERT_TRUE(base::DeleteFile(held));
-  ASSERT_TRUE(base::CreateDirectory(held));
-  ASSERT_TRUE(base::WriteFile(held.AppendASCII("held"), "held"));
-  lock.Show(PinEntry::Mode::kChange);
-  Type("1234");
-  ASSERT_TRUE(WaitFor([&] {
-    return lock.entry() && lock.entry()->step() == PinEntry::Step::kEnter;
-  }));
-  Type("5678");
-  lock.ContinueWithPin();
-  Type("5678");
+  Hold("Data.security.json");
+  ChangePin("1234", "5678");
   ASSERT_TRUE(WaitFor([&] { return !lock.entry(); }));
   task_environment_.RunUntilIdle();
+  EXPECT_EQ(shakes_.count, 0);
+  EXPECT_EQ(lock.state().pin->length, 4);
+  EXPECT_NE(Saved()->key->guard->key, first);
   // One file written of two: the earlier key stays.
   ASSERT_EQ(guard_->keys().size(), 2u);
 
-  ASSERT_TRUE(base::DeletePathRecursively(held));
+  Release("Data.security.json");
   lock.Show(PinEntry::Mode::kChange);
   Type("5678");
   ASSERT_TRUE(WaitFor([&] {
-    const std::optional<SecurityState> saved = Saved();
+    const std::optional<SecurityState> saved = Saved("Data.security");
     return saved && saved->key && saved->key->guard &&
            saved->key->guard->key != first && guard_->keys().size() == 1;
   }));
   EXPECT_EQ(guard_->keys(), std::vector<std::string>{Saved()->key->guard->key});
   lock.Dismiss();
+}
+
+// Each flow of Settings' reseal, the disk refusing it.
+struct UnsavedFlow {
+  PinEntry::Mode mode;
+  // Whether a PIN is set before it.
+  bool had_pin;
+  std::string_view lines;
+  std::string_view keep;
+};
+
+class AppLockUnsavedTest : public AppLockGuardTest,
+                           public testing::WithParamInterface<UnsavedFlow> {
+ protected:
+  // Pane open, with the PIN 1234 where the flow needs one.
+  AppLock& Open() {
+    if (GetParam().had_pin) {
+      SaveGuardedKey("1234");
+    }
+    AppLock& lock = Launch();
+    if (GetParam().had_pin) {
+      Type("1234");
+    }
+    EXPECT_TRUE(WaitFor(
+        [&] { return !lock.is_locked() && vault_->data_key().has_value(); }));
+    return lock;
+  }
+
+  // Set up 5678, change 1234 to 5678, or remove 1234.
+  void RunFlow() {
+    switch (GetParam().mode) {
+      case PinEntry::Mode::kSetup:
+        lock_->Show(PinEntry::Mode::kSetup);
+        Type("5678");
+        lock_->ContinueWithPin();
+        Type("5678");
+        return;
+      case PinEntry::Mode::kChange:
+        ChangePin("1234", "5678");
+        return;
+      case PinEntry::Mode::kRemove:
+        lock_->Show(PinEntry::Mode::kRemove);
+        Type("1234");
+        return;
+      case PinEntry::Mode::kUnlock:
+        return;
+    }
+  }
+};
+
+// The disk refusing the new seal is said at once, in the PIN screen, before
+// it sinks (Paper 07.12): the flow's lines, the button that keeps the disk's
+// seal, the dots as typed, the pad taking no digit, and nothing shaking. The
+// seal the disk holds stays in force, a lock opening with it as the next
+// launch does. Before, the screen sank as if saved, the new seal in force
+// until Pane ended, and the next launch opened with the disk's, saying
+// nothing.
+TEST_P(AppLockUnsavedTest, TheDiskRefusingANewSealSaysSo) {
+  AppLock& lock = Open();
+  const SecurityState before = lock.state();
+  const std::string security = Hold("security.json");
+  const std::string copy = Hold("Data.security.json");
+
+  RunFlow();
+  ASSERT_TRUE(Unsaved());
+  ASSERT_TRUE(lock.entry());
+  EXPECT_EQ(lock.entry()->mode(), GetParam().mode);
+  EXPECT_EQ(lock.entry()->error(), std::string(GetParam().lines));
+  EXPECT_EQ(lock.entry()->KeepTitle(), GetParam().keep);
+  EXPECT_EQ(lock.entry()->entered().size(), 4u);
+  EXPECT_TRUE(lock.entry()->busy());
+  EXPECT_FALSE(lock.is_locked());
+  EXPECT_EQ(shakes_.count, 0);
+  EXPECT_EQ(lock.state(), before);
+  Type("9");
+  lock.Backspace();
+  EXPECT_EQ(lock.entry()->entered().size(), 4u);
+  EXPECT_TRUE(lock.entry()->is_unsaved());
+
+  // Esc keeps the disk's seal: the screen sinks, the seal in force as it
+  // was.
+  lock.Dismiss();
+  EXPECT_FALSE(lock.entry());
+  EXPECT_EQ(lock.state(), before);
+  task_environment_.RunUntilIdle();
+
+  // The next launch opens with what the disk held, as the lines said.
+  Quit();
+  Unhold("security.json", security);
+  Unhold("Data.security.json", copy);
+  AppLock& again = Launch();
+  if (GetParam().had_pin) {
+    ASSERT_TRUE(again.is_locked());
+    Type("1234");
+  }
+  EXPECT_TRUE(WaitFor([&] { return !again.is_locked(); }));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    AppLockUnsavedTest,
+    testing::Values(UnsavedFlow{PinEntry::Mode::kSetup, false,
+                                PinEntry::kSetupNotSaved, "Cancel"},
+                    UnsavedFlow{PinEntry::Mode::kChange, true,
+                                PinEntry::kChangeNotSaved, "Keep earlier PIN"},
+                    UnsavedFlow{PinEntry::Mode::kRemove, true,
+                                PinEntry::kRemoveNotSaved, "Keep PIN"}));
+
+// Try again writes the seal the new PIN made again, the chip not asked: while
+// the disk still refuses, the lines stay, said again, nothing shaking; once
+// security.json takes it, the screen sinks, the new PIN in force, and the
+// earlier key goes once both files hold the new seal.
+TEST_F(AppLockGuardTest, TryAgainWritesTheSameSeal) {
+  SaveGuardedKey("1234");
+  const std::string first = Saved()->key->guard->key;
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  const std::string security = Hold("security.json");
+
+  ChangePin("1234", "5678");
+  ASSERT_TRUE(Unsaved(1));
+  const std::vector<std::string> keys = guard_->keys();
+  ASSERT_EQ(keys.size(), 2u);
+  // The copy took it; security.json, which the next launch reads, didn't.
+  EXPECT_NE(Saved("Data.security")->key->guard->key, first);
+
+  lock.TryAgain();
+  ASSERT_TRUE(Unsaved(2));
+  EXPECT_EQ(shakes_.count, 0);
+  EXPECT_EQ(guard_->keys(), keys);
+  EXPECT_EQ(lock.entry()->error(), std::string(PinEntry::kChangeNotSaved));
+
+  // Return tries again too.
+  Unhold("security.json", security);
+  lock.ContinueWithPin();
+  ASSERT_TRUE(WaitFor([&] { return !lock.entry(); }));
+  EXPECT_EQ(lock.state().pin->length, 4);
+  ASSERT_TRUE(WaitFor([&] { return guard_->keys().size() == 1; }));
+  const std::string second = guard_->keys().front();
+  EXPECT_NE(second, first);
+  EXPECT_EQ(Saved()->key->guard->key, second);
+  EXPECT_EQ(Saved("Data.security")->key->guard->key, second);
+  EXPECT_EQ(shakes_.count, 0);
+
+  // The next launch opens with the new PIN.
+  Quit();
+  AppLock& again = Launch();
+  Type("5678");
+  EXPECT_TRUE(WaitFor([&] { return !again.is_locked(); }));
+}
+
+// Keep earlier PIN puts back the seal the disk holds and writes it again; the
+// key the chip made for the new PIN goes only once both files hold the
+// earlier seal: kept while security.json is still refused, forgotten at the
+// next save that lands.
+TEST_F(AppLockGuardTest, KeepEarlierPinForgetsTheNewKeyOnceBothHoldTheSeal) {
+  SaveGuardedKey("1234");
+  const std::string first = Saved()->key->guard->key;
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  const std::string security = Hold("security.json");
+
+  ChangePin("1234", "5678");
+  ASSERT_TRUE(Unsaved());
+  ASSERT_EQ(guard_->keys().size(), 2u);
+
+  lock.KeepSaved();
+  EXPECT_FALSE(lock.entry());
+  EXPECT_EQ(lock.state().key->guard->key, first);
+  task_environment_.RunUntilIdle();
+  // Written again, the copy back to the earlier seal; security.json still
+  // refused, so the new key stays.
+  EXPECT_EQ(Saved("Data.security")->key->guard->key, first);
+  EXPECT_EQ(guard_->keys().size(), 2u);
+
+  // Settings' next check of the PIN saves, both files this time.
+  Unhold("security.json", security);
+  lock.Show(PinEntry::Mode::kChange);
+  Type("1234");
+  ASSERT_TRUE(WaitFor(
+      [&] { return guard_->keys() == std::vector<std::string>{first}; }));
+  EXPECT_EQ(Saved()->key->guard->key, first);
+  lock.Dismiss();
+}
+
+// A lock while the disk's refusal shows answers it as Esc does, as a lock
+// answers any question as Cancel: the seal the disk holds stays, and the
+// lock asks for the earlier PIN, which opens it, as the lines said.
+TEST_F(AppLockGuardTest, ALockKeepsTheDisksSeal) {
+  SaveGuardedKey("1234");
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  Hold("security.json");
+  Hold("Data.security.json");
+
+  lock.Show(PinEntry::Mode::kChange);
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] {
+    return lock.entry() && lock.entry()->step() == PinEntry::Step::kEnter;
+  }));
+  Type("567890");
+  lock.ContinueWithPin();
+  Type("567890");
+  ASSERT_TRUE(Unsaved());
+
+  lock.LockNow();
+  ASSERT_TRUE(lock.is_locked());
+  ASSERT_TRUE(lock.entry());
+  EXPECT_EQ(lock.entry()->mode(), PinEntry::Mode::kUnlock);
+  EXPECT_EQ(lock.entry()->Dots(), 4);
+  vault_->Lock().Run(/*every_closed=*/true);
+  Type("1234");
+  EXPECT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+}
+
+// A lock that comes while a new seal is on its way to the disk waits for it,
+// and is asked for again once it lands: the lock then opens with the seal in
+// force, here the new PIN.
+TEST_F(AppLockGuardTest, ALockWaitsForTheNewSealsWrite) {
+  SaveGuardedKey("1234");
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+
+  ChangePin("1234", "567890");
+  ASSERT_TRUE(lock.entry() && lock.entry()->busy());
+  lock.LockNow();
+  EXPECT_FALSE(lock.is_locked());
+  ASSERT_TRUE(WaitFor([&] { return lock.is_locked(); }));
+  EXPECT_EQ(lock_delegate_.asked_to_lock, 1);
+  ASSERT_TRUE(lock.entry());
+  EXPECT_EQ(lock.entry()->mode(), PinEntry::Mode::kUnlock);
+  EXPECT_EQ(lock.entry()->Dots(), 6);
+  Type("567890");
+  EXPECT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+}
+
+// The chip's key gone while Settings checks the PIN (Paper 07.13 B, the
+// user's call: Pane's goal is to be as secure as possible): Pane locks at
+// once, as Lock Pane locks it, the data key leaving memory, and the lock
+// shows 07.6.1's lines for good, counting nothing. Before, those lines showed
+// over the open profiles until Exit, the key still in memory.
+class AppLockGuardGoneTest
+    : public AppLockGuardTest,
+      public testing::WithParamInterface<PinEntry::Mode> {};
+
+TEST_P(AppLockGuardGoneTest, AKeyGoneInSettingsLocksPane) {
+  SaveGuardedKey("1234");
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+  ASSERT_TRUE(vault_->data_key());
+
+  guard_->SetUnsealRefusal(PinGuard::Refusal::kGone);
+  lock.Show(GetParam());
+  Type("1234");
+  ASSERT_TRUE(Unreadable());
+  EXPECT_EQ(lock_delegate_.asked_to_lock, 1);
+  EXPECT_EQ(lock.entry()->mode(), PinEntry::Mode::kUnlock);
+  EXPECT_EQ(lock.entry()->unreadable_reason(),
+            PinEntry::UnreadableReason::kGuardGone);
+  EXPECT_EQ(lock.entry()->error(), words_.guard_gone);
+  EXPECT_FALSE(lock.entry()->dismissable());
+  EXPECT_FALSE(vault_->data_key());
+  EXPECT_EQ(shakes_.count, 0);
+  EXPECT_EQ(Saved()->failed_attempts, 0);
+  EXPECT_EQ(guard_->wrong_pins(), 0);
+
+  // For good: no PIN opens it, and nothing counts.
+  Type("1234");
+  RunFor(base::Milliseconds(100));
+  EXPECT_TRUE(lock.is_locked());
+  EXPECT_EQ(lock.entry()->error(), words_.guard_gone);
+  EXPECT_EQ(Saved()->failed_attempts, 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         AppLockGuardGoneTest,
+                         testing::Values(PinEntry::Mode::kChange,
+                                         PinEntry::Mode::kRemove));
+
+// The chip refusing while Settings checks the PIN (Paper 07.13 A): Pane
+// stays open, in Settings, the dots shaking under the refusal's lines,
+// nothing counted toward Settings' five or the chip's, the pad live for the
+// next try, which opens once the chip answers. Before, the window turned to
+// 07.6.2's lines over the open profiles until Exit.
+TEST_F(AppLockGuardTest, AChipRefusingInSettingsShakesAndStays) {
+  SaveGuardedKey("1234");
+  AppLock& lock = Launch();
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] { return !lock.is_locked(); }));
+
+  guard_->SetUnsealRefusal(PinGuard::Refusal::kRefused);
+  lock.Show(PinEntry::Mode::kChange);
+  for (int attempt = 1; attempt <= SecurityState::kMaxAttempts + 1; ++attempt) {
+    ASSERT_TRUE(Ready());
+    Type("1234");
+    Shook(attempt);
+    EXPECT_FALSE(lock.is_locked());
+    ASSERT_TRUE(lock.entry());
+    EXPECT_FALSE(lock.entry()->is_unreadable());
+    EXPECT_EQ(lock.entry()->mode(), PinEntry::Mode::kChange);
+    EXPECT_EQ(lock.entry()->step(), PinEntry::Step::kVerify);
+    EXPECT_EQ(lock.entry()->error(), words_.guard_refused);
+    EXPECT_TRUE(lock.entry()->entered().empty());
+  }
+  EXPECT_EQ(lock_delegate_.asked_to_lock, 0);
+  EXPECT_TRUE(vault_->data_key());
+  EXPECT_EQ(Saved()->failed_attempts, 0);
+  EXPECT_EQ(guard_->wrong_pins(), 0);
+
+  // The next try, the chip answering: Enter new PIN.
+  guard_->SetUnsealRefusal(std::nullopt);
+  ASSERT_TRUE(Ready());
+  Type("1234");
+  ASSERT_TRUE(WaitFor([&] {
+    return lock.entry() && lock.entry()->step() == PinEntry::Step::kEnter;
+  }));
+
+  // Back returns to Settings, Pane open.
+  lock.Dismiss();
+  EXPECT_FALSE(lock.entry());
+  EXPECT_FALSE(lock.is_locked());
 }
 
 // A wrong PIN is the chip's refusal: it counts at the lock, and in the chip;

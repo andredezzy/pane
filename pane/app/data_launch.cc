@@ -326,7 +326,7 @@ class PaneData : public AppData,
   // AppLock::Delegate:
   void DidUnlock() override { AccessDidOpen(); }
 
-  void DidExhaustSettingsAttempts() override {
+  void DidAskToLock() override {
     if (client_) {
       client_->LockRequested();
     }

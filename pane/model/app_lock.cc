@@ -133,19 +133,6 @@ AppLock::Opened OpenKey(std::optional<std::string> pin,
   return opened;
 }
 
-// security.json, and its copy beside the volume: whether both were written.
-bool WriteSecurityFiles(const base::FilePath& data_directory,
-                        base::Value state) {
-  bool written = true;
-  for (const char* name : {kSecurityName, kCopyName}) {
-    if (!PersistedFile(data_directory, name).Save(state.Clone())) {
-      LOG(ERROR) << "Could not save " << name << ".json";
-      written = false;
-    }
-  }
-  return written;
-}
-
 // The name of the guard's key a state's seal takes, if it takes one.
 std::optional<std::string> GuardKeyOf(const SecurityState& state) {
   if (!state.key || !state.key->guard) {
@@ -171,6 +158,23 @@ AppLock::Opened::Opened() = default;
 AppLock::Opened::Opened(const Opened&) = default;
 AppLock::Opened& AppLock::Opened::operator=(const Opened&) = default;
 AppLock::Opened::~Opened() = default;
+
+// static
+AppLock::WrittenFiles AppLock::WriteSecurityFiles(
+    const base::FilePath& data_directory,
+    base::Value state) {
+  const auto write = [&](const char* name) {
+    if (PersistedFile(data_directory, name).Save(state.Clone())) {
+      return true;
+    }
+    LOG(ERROR) << "Could not save " << name << ".json";
+    return false;
+  };
+  WrittenFiles written;
+  written.security = write(kSecurityName);
+  written.copy = write(kCopyName);
+  return written;
+}
 
 // static
 AppLock::Loaded AppLock::Load(const base::FilePath& data_directory,
@@ -306,11 +310,28 @@ void AppLock::SecretFound(std::optional<std::vector<uint8_t>> secret) {
 
 void AppLock::LockNow() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (resealing_) {
+    // Which seal a lock opens with is the one in force once the reseal has
+    // ended: it waits for that, a moment.
+    if (resealing_->waiting) {
+      lock_asked_ = true;
+      return;
+    }
+    // The disk refused the new seal, and its choice shows (Paper 07.12): a
+    // lock takes it as Esc does, as a lock answers a question that shows as
+    // Cancel does, so its lines stay true: the earlier PIN opens Pane.
+    KeepSaved();
+  }
   if (!state_.pin || is_locked_) {
     return;
   }
   is_locked_ = true;
-  entry_ = PinEntry(PinEntry::Mode::kUnlock, state_.pin->length);
+  // The chip lost its key while Settings checked the PIN: nothing will open
+  // this seal again, and the lock says so (Paper 07.13 B, 07.4.1).
+  entry_ = guard_lost_
+               ? PinEntry::Unreadable(PinEntry::UnreadableReason::kGuardGone,
+                                      system_.words.guard_gone)
+               : PinEntry(PinEntry::Mode::kUnlock, state_.pin->length);
   Changed();
 }
 
@@ -324,7 +345,7 @@ void AppLock::VolumeWontOpen() {
 
 void AppLock::Show(PinEntry::Mode mode) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (is_locked_ || mode == PinEntry::Mode::kUnlock) {
+  if (is_locked_ || resealing_ || mode == PinEntry::Mode::kUnlock) {
     return;
   }
   entry_ = PinEntry(mode, state_.pin ? state_.pin->length : 0);
@@ -334,6 +355,12 @@ void AppLock::Show(PinEntry::Mode mode) {
 void AppLock::Dismiss() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!entry_ || !entry_->dismissable()) {
+    return;
+  }
+  // The screen waits for a reseal before it sinks (Paper 07.12), and once
+  // the disk has refused it, going back keeps the disk's seal.
+  if (resealing_) {
+    KeepSaved();
     return;
   }
   entry_.reset();
@@ -360,10 +387,39 @@ void AppLock::Backspace() {
 
 void AppLock::ContinueWithPin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Return tries again where the disk refused a new seal (Paper 07.12).
+  if (resealing_) {
+    TryAgain();
+    return;
+  }
   if (entry_) {
     entry_->ContinueWithPin();
     Changed();
   }
+}
+
+void AppLock::TryAgain() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!resealing_ || resealing_->waiting || !resealing_->made) {
+    return;
+  }
+  SaveResealed();
+}
+
+void AppLock::KeepSaved() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!resealing_ || resealing_->waiting) {
+    return;
+  }
+  resealing_.reset();
+  // The seal the disk holds stays in force, and is written again, so its
+  // copy, which may have taken the new seal, holds it too. Only once both
+  // files hold it does the key the chip made for the new PIN go: until then
+  // a file may still name it.
+  forget_once_saved_ = ForgetOnceSaved{.kept = GuardKeyOf(state_)};
+  Save();
+  entry_.reset();
+  Changed();
 }
 
 void AppLock::SetWipeForTesting(base::RepeatingClosure wipe) {
@@ -458,6 +514,20 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
     // The TPM's key gone or the chip cleared: the data behind the PIN is
     // lost, as with a forgotten PIN (Paper 07.6.1).
     case Opened::Kind::kGuardGone:
+      // In Settings' Change or Remove PIN, Pane is open: it locks at once, as
+      // Lock Pane locks it, every profile closing and the data key leaving
+      // memory, so the lines are true (Paper 07.13 B, the user's call: "O
+      // objetivo do pane é ser o máximo seguro possível"). Pane holds the key
+      // there, and a new PIN could have kept the data, but only by setting it
+      // without the current one checked, which nobody can check now. Until
+      // W8e the lines showed over the open profiles until Exit.
+      if (!unlocking) {
+        guard_lost_ = true;
+        delegate_->DidAskToLock();
+        if (is_locked_) {
+          return;
+        }
+      }
       is_locked_ = true;
       entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kGuardGone,
                                     system_.words.guard_gone);
@@ -468,6 +538,14 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
     // firmware say, or its provider refusing: nothing is lost, and the PIN
     // opens the data once the chip is back (Paper 07.6.2).
     case Opened::Kind::kGuardUnavailable:
+      // In Settings, Pane stays open: the chip's errors there pass, so the
+      // dots shake under the refusal's lines, nothing counts, and the next
+      // try may open (Paper 07.13 A, 07.4.2). Until W8e the window turned to
+      // 07.6.2's lines over the open profiles until Exit.
+      if (!unlocking) {
+        Refused(system_.words.guard_refused);
+        return;
+      }
       is_locked_ = true;
       entry_ =
           PinEntry::Unreadable(PinEntry::UnreadableReason::kGuardUnavailable,
@@ -528,7 +606,7 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
       Verified(false);
       if (settings_attempts_ >= SecurityState::kMaxAttempts) {
         settings_attempts_ = 0;
-        delegate_->DidExhaustSettingsAttempts();
+        delegate_->DidAskToLock();
       }
       return;
 
@@ -591,6 +669,9 @@ void AppLock::Reseal(std::optional<std::string> pin) {
     LOG(ERROR) << "No open data key to seal again";
     return;
   }
+  // The screen waits, from here until the new seal is in force or the disk's
+  // is kept (Paper 07.12).
+  resealing_ = Resealing();
   std::optional<int> length;
   if (pin) {
     length = static_cast<int>(pin->size());
@@ -638,28 +719,75 @@ void AppLock::Resealed(std::optional<int> length,
   // The chip made no key: nothing changes, the dots shake, and the screen
   // says the new PIN wasn't saved (Paper 07.3.1).
   if (!sealed) {
+    resealing_.reset();
     Refused(system_.words.pin_not_saved);
+    LockIfAsked();
+    return;
+  }
+  if (!resealing_) {
     return;
   }
   std::optional<Pin> pin;
   if (length) {
     pin = Pin{.length = *length};
   }
-  std::optional<std::string> kept;
-  if (sealed->guard) {
-    kept = sealed->guard->key;
-  }
-  state_ = SecurityState(std::move(pin), 0, std::move(*sealed));
+  resealing_->made = SecurityState(std::move(pin), 0, std::move(*sealed));
   // The guard's earlier keys go once the new seal is on the disk, both files
   // written (Saved): a quit before leaves the earlier seal, which they still
   // open, and so does a save that failed (a file another program holds, a
   // full disk), which the next save that lands makes good. Deleted at once,
   // as they were, a failed save left the disk naming a key gone, and every
   // profile with it.
-  forget_once_saved_ = ForgetOnceSaved{.kept = std::move(kept)};
-  Save();
-  entry_.reset();
+  forget_once_saved_ = ForgetOnceSaved{.kept = GuardKeyOf(*resealing_->made)};
+  SaveResealed();
+}
+
+void AppLock::SaveResealed() {
+  resealing_->waiting = true;
+  files_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&AppLock::WriteSecurityFiles, data_directory_,
+                     resealing_->made->ToValue()),
+      base::BindOnce(&AppLock::ResealSaved, weak_factory_.GetWeakPtr(),
+                     GuardKeyOf(*resealing_->made)));
+}
+
+void AppLock::ResealSaved(std::optional<std::string> saved_guard,
+                          WrittenFiles written) {
+  if (!resealing_) {
+    return;
+  }
+  resealing_->waiting = false;
+  if (written.security) {
+    // In force: the next launch reads security.json first, its copy only for
+    // a key it lacks (Load), so a copy that refused it changes nothing the
+    // next launch opens with, and nothing shows; the copy takes it at the
+    // next save that lands. The screen sinks only now, once the write did.
+    state_ = std::move(*resealing_->made);
+    resealing_.reset();
+    entry_.reset();
+  } else if (entry_) {
+    // The disk kept the earlier seal, which the next launch would open with:
+    // the screen says so at once, in its flow's words, with Try again and a
+    // way to keep the disk's seal (Paper 07.12). Before, the screen sank as if
+    // saved, the new seal in force until Pane ended, and the next launch
+    // asked for the earlier PIN, or none, saying nothing.
+    entry_->Unsaved();
+  } else {
+    // No screen left to ask on: the disk's seal stays.
+    KeepSaved();
+  }
   Changed();
+  // A lock that waited comes now, with the seal in force, before the chip
+  // forgets the keys a reseal left, which can take a moment of its own.
+  LockIfAsked();
+  Saved(base::DoNothing(), std::move(saved_guard), written);
+}
+
+void AppLock::LockIfAsked() {
+  if (std::exchange(lock_asked_, false)) {
+    delegate_->DidAskToLock();
+  }
 }
 
 // The guard's keys of this data's, but `kept`, deleted off this sequence,
@@ -688,18 +816,19 @@ void AppLock::Save() {
 void AppLock::SaveThen(base::OnceClosure then) {
   files_->PostTaskAndReplyWithResult(
       FROM_HERE,
-      base::BindOnce(&WriteSecurityFiles, data_directory_, state_.ToValue()),
+      base::BindOnce(&AppLock::WriteSecurityFiles, data_directory_,
+                     state_.ToValue()),
       base::BindOnce(&AppLock::Saved, weak_factory_.GetWeakPtr(),
                      std::move(then), GuardKeyOf(state_)));
 }
 
 void AppLock::Saved(base::OnceClosure then,
                     std::optional<std::string> saved_guard,
-                    bool written) {
+                    WrittenFiles written) {
   // Only a save of the seal that replaced them: one posted before a later
   // reseal carries an earlier seal, whose key must stay until the later one
   // lands.
-  if (written && forget_once_saved_ &&
+  if (written.both() && forget_once_saved_ &&
       forget_once_saved_->kept == saved_guard) {
     ForgetOnceSaved forget = *std::exchange(forget_once_saved_, std::nullopt);
     ForgetGuardThen(std::move(forget.kept), std::move(then));

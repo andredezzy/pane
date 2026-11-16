@@ -74,10 +74,10 @@ class VaultDelegate : public DataVault::Delegate {
 class LockDelegate : public AppLock::Delegate {
  public:
   void DidUnlock() override { ++unlocks; }
-  void DidExhaustSettingsAttempts() override { ++exhausted; }
+  void DidAskToLock() override { ++asked_to_lock; }
 
   int unlocks = 0;
-  int exhausted = 0;
+  int asked_to_lock = 0;
 };
 
 class Shakes : public AppLock::Observer {
@@ -636,7 +636,7 @@ TEST_F(AppLockTest, TheFifthWrongPinInSettingsLocks) {
     Type("1111");
     Shook(attempt);
   }
-  EXPECT_EQ(lock_delegate_.exhausted, 1);
+  EXPECT_EQ(lock_delegate_.asked_to_lock, 1);
   EXPECT_EQ(Saved()->failed_attempts, 0);
   EXPECT_TRUE(Saved()->key);
   EXPECT_EQ(wipes_, 0);
@@ -667,7 +667,7 @@ TEST_F(AppLockTest, ADismissedSheetsWrongPinCountsAndLocksNothing) {
     Type("1111");
     Shook(attempt);
   }
-  EXPECT_EQ(lock_delegate_.exhausted, 1);
+  EXPECT_EQ(lock_delegate_.asked_to_lock, 1);
 }
 
 // A key sealed with a PIN that security.json no longer names: no PIN opens

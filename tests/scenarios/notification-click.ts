@@ -30,8 +30,13 @@ import { expect, type Scenario } from "../run";
 // the PIN, and Pane's callback read pages alone, so the click showed the
 // window and nothing more (W8b). On the Mac, macOS's center hands the click
 // to the browser itself, as the channel hands it here, with no click on the
-// screen; Chrome takes a profile's notifications from the center as the
-// profile closes, at a lock and at quit, so none is left to click then.
+// screen, and Chrome's handler hands it to Pane (patch 0004) as Windows'
+// launch does: behind the lock it waits for the PIN, where Chrome's handler
+// loaded the profile outside Pane's lock, and the profile never came back
+// after the PIN (W8d). Chrome takes a profile's notifications from macOS's
+// center as the profile closes, at a lock and at quit, so a click behind the
+// lock is one that lands as the lock comes, and none is left once Pane has
+// quit.
 const notificationClick: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-notification-");
 	await setPinBeforeLaunch(context, dataDir, "1234");
@@ -72,17 +77,13 @@ const notificationClick: Scenario = async (context) => {
 	});
 
 	// Each shown while the profile is open, as a site shows them while its
-	// pages run: those clicked behind the lock and while Pane is closed where
-	// the system's center keeps them then (Windows).
+	// pages run: the one clicked while Pane is closed where the system's
+	// center keeps it then (Windows).
 	for (const [tag, focus] of [
 		["running", null],
 		["focus", "notification.html?page"],
-		...(NOTIFICATIONS_OUTLIVE_THEIR_PROFILE
-			? [
-					["locked", null],
-					["closed", null],
-				]
-			: []),
+		["locked", null],
+		...(NOTIFICATIONS_OUTLIVE_THEIR_PROFILE ? [["closed", null]] : []),
 	] as [string, string | null][]) {
 		// Shown once Chrome has it, as showNotification resolves: what the
 		// system's center lists of it (getNotifications) is the center's own,
@@ -136,9 +137,8 @@ const notificationClick: Scenario = async (context) => {
 	);
 
 	// Locked: the PIN shows, the profile stays closed, and the site hears the
-	// click once the PIN is in, where the center keeps the notification behind
-	// the lock (Windows); on the Mac none is left to click, and the profile
-	// opens again with the PIN.
+	// click once the PIN is in, on both systems (on the Mac a click that
+	// lands as the lock comes).
 	await app.send("lockNow");
 
 	await app.waitFor(
@@ -148,20 +148,6 @@ const notificationClick: Scenario = async (context) => {
 	);
 
 	await poll("the data closed", () => dataClosed(app), 30_000);
-
-	if (!NOTIFICATIONS_OUTLIVE_THEIR_PROFILE) {
-		await unlock(app);
-
-		await app.waitFor(
-			"the tab that showed back, its profile open",
-			(state) =>
-				state.engineProfiles.includes(profileId) &&
-				state.activeTabID === pageTab,
-			30_000,
-		);
-
-		return;
-	}
 
 	await click("locked");
 	await Bun.sleep(3_000);
@@ -189,6 +175,10 @@ const notificationClick: Scenario = async (context) => {
 		(state) => clicked(state, profileId, "locked")?.id === state.activeTabID,
 		60_000,
 	);
+
+	if (!NOTIFICATIONS_OUTLIVE_THEIR_PROFILE) {
+		return;
+	}
 
 	// Closed: the toast starts Pane, locked, with the profile closed until the
 	// PIN is in, and the site then hears the click.

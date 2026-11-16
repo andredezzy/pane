@@ -20,6 +20,7 @@
 #include "base/time/time.h"
 #include "pane/model/security.h"
 #include "pane/ui/design/controls.h"
+#include "pane/ui/design/dialog.h"
 #include "pane/ui/design/ground.h"
 #include "pane/ui/design/icon_button.h"
 #include "pane/ui/design/icons.h"
@@ -44,6 +45,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
@@ -61,6 +63,12 @@ constexpr int kBackSize = 20;
 // numpad's width.
 constexpr int kSpacing = 28;
 constexpr int kMoveSpacing = 14;
+// A PIN the disk didn't save (Paper 07.12): its two buttons under its lines
+// as one group, their titles 14 under the lines and 24 apart, each on
+// Continue's look on a 24-point capsule 8 in, so its ring has room. The
+// capsule reaches 2 past its title's line above and below.
+constexpr int kChoiceSpacing = 14;
+constexpr int kChoiceGap = 8;
 // The update on offer, 24 from the panel's bottom.
 constexpr int kUpdateBottom = 24;
 // How near a wrong PIN's shake a line said for it is (PinContent::Shook).
@@ -88,6 +96,8 @@ ControlLook ContinueLook() {
   return look;
 }
 constexpr ButtonSize kContinueSize{20, 0, 0, kMessage};
+constexpr ButtonSize kChoiceSize{24, 8, 8, kMessage};
+constexpr int kChoiceOverhang = (kChoiceSize.height - kMessage.line_height) / 2;
 
 // The back arrow: 30%, 60% under the pointer, the press's fill under it, no
 // hover fill (the Swift's .icon(size: 20, tint:, hoverTint:, fill: nil)).
@@ -142,6 +152,71 @@ class LockScreenView::Panel : public views::View {
 BEGIN_METADATA(LockScreenView, Panel)
 END_METADATA
 
+// What answers a PIN the disk didn't save (Paper 07.12): the button that
+// keeps the disk's seal, and Try again on the right, as Pane's dialogs place
+// the default. Tab goes round the two where buttons take it (Windows, and a
+// Mac with full keyboard access), the ring moving between them, and stays in
+// them, as a dialog's window keeps it.
+class LockScreenView::Choice : public views::View {
+  METADATA_HEADER(Choice, views::View)
+
+ public:
+  explicit Choice(Callbacks& callbacks) {
+    keep_ = AddChildView(std::make_unique<TextButton>(
+        callbacks.back, std::u16string(), ContinueLook(), kChoiceSize));
+    keep_->SetID(kViewIdLockScreenKeep);
+    try_again_ = AddChildView(
+        std::make_unique<TextButton>(callbacks.continue_with_pin, u"Try again",
+                                     ContinueLook(), kChoiceSize));
+    try_again_->SetID(kViewIdLockScreenTryAgain);
+    focus_trap_ = std::make_unique<FocusTrap>(this);
+  }
+
+  TextButton* keep() { return keep_; }
+  TextButton* try_again() { return try_again_; }
+
+  void SetKeepTitle(std::u16string_view title) {
+    keep_->SetTitle(std::u16string(title));
+    PreferredSizeChanged();
+  }
+
+  // Gives the first, or the last, of the two the keys, where the keys reach
+  // a button: whether one took them.
+  bool TakeKeys(bool reverse) {
+    TextButton* button = reverse ? try_again_.get() : keep_.get();
+    if (!button->IsFocusable()) {
+      return false;
+    }
+    button->RequestFocus();
+    return true;
+  }
+
+  // views::View:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
+    return gfx::Size(keep_->GetPreferredSize().width() + kChoiceGap +
+                         try_again_->GetPreferredSize().width(),
+                     kChoiceSize.height);
+  }
+  void Layout(PassKey) override {
+    const int keep = keep_->GetPreferredSize().width();
+    keep_->SetBounds(0, 0, keep, height());
+    try_again_->SetBounds(keep + kChoiceGap, 0,
+                          try_again_->GetPreferredSize().width(), height());
+  }
+  views::FocusTraversable* GetPaneFocusTraversable() override {
+    return GetVisible() ? focus_trap_.get() : nullptr;
+  }
+
+ private:
+  raw_ptr<TextButton> keep_ = nullptr;
+  raw_ptr<TextButton> try_again_ = nullptr;
+  std::unique_ptr<FocusTrap> focus_trap_;
+};
+
+BEGIN_METADATA(LockScreenView, Choice)
+END_METADATA
+
 // The PIN's column (the Swift's pin(_:) and hints(_:)): the step's title, the
 // dots, the numpad, then Enter at least 4 digits or Continue, the error, and
 // the attempts left, 28 apart, each in the column's middle.
@@ -172,6 +247,8 @@ class LockScreenView::PinContent : public views::View {
     continue_->SetID(kViewIdLockScreenContinue);
     error_ = AddChildView(Message(std::u16string(), kPaneColorDestructive));
     error_->SetMultiLine(true);
+    choice_ = AddChildView(std::make_unique<Choice>(callbacks));
+    choice_->SetVisible(false);
     attempts_ = AddChildView(Message(std::u16string(), kPaneColorPinQuiet));
     attempts_->SetID(kViewIdLockScreenAttempts);
     // The panel holds the keys, so its text is read only exposed: the step's
@@ -185,6 +262,11 @@ class LockScreenView::PinContent : public views::View {
 
   PinDots* dots() { return dots_; }
   PinField* field() { return field_; }
+  Choice* choice() { return choice_; }
+  // How far past the column's last line of text the capsules of a PIN the
+  // disk didn't save reach: the column centres on its text, as the board's
+  // does (07.11), their rings reaching past it.
+  int Overhang() const { return choice_->GetVisible() ? kChoiceOverhang : 0; }
   // The step's title, where one shows.
   std::optional<std::u16string> title() const {
     return title_->GetVisible()
@@ -225,7 +307,10 @@ class LockScreenView::PinContent : public views::View {
     dots_->Set(entry.Dots(), static_cast<int>(entry.entered().size()), animate);
     screen_reader::SetPinCount(field_->GetViewAccessibility(),
                                dots_->GetViewAccessibility(), dots_->Count());
-    const float opacity = entry.is_unreadable() ? kUnreadableOpacity : 1;
+    // At 40% while they take no digit: no key to check a PIN against (07.6),
+    // or a choice left where the disk didn't save one (07.12).
+    const float opacity =
+        entry.is_unreadable() || entry.is_unsaved() ? kUnreadableOpacity : 1;
     dots_->layer()->SetOpacity(opacity);
     numpad_->layer()->SetOpacity(opacity);
 
@@ -243,6 +328,13 @@ class LockScreenView::PinContent : public views::View {
     error_->SetVisible(entry.error().has_value());
     error_->SetText(entry.error() ? base::UTF8ToUTF16(*entry.error())
                                   : std::u16string());
+    // The disk didn't save the new seal (Paper 07.12): the button that keeps
+    // its seal, in the flow's words, and Try again.
+    const bool unsaved = entry.is_unsaved();
+    if (unsaved) {
+      choice_->SetKeepTitle(base::UTF8ToUTF16(entry.KeepTitle()));
+    }
+    choice_->SetVisible(unsaved);
 
     // The attempts left before the panic wipe, from the first wrong PIN; none
     // where wrong PINs wipe nothing, on a seal the TPM guards (Paper 07.1.1).
@@ -259,11 +351,15 @@ class LockScreenView::PinContent : public views::View {
                                               : kPaneColorPinQuiet);
 
     // A wrong PIN is said as it shows, which the dots' shake alone tells the
-    // eye: a new error, and the attempts left once one more has failed.
+    // eye: a new error, and the attempts left once one more has failed. A
+    // PIN the disk didn't save is said each time a write of it fails, Try
+    // again's included, whose failure changes nothing on screen (07.12).
     std::vector<std::u16string_view> said;
-    if (error_->GetVisible() && error_->GetText() != error_before) {
+    if (error_->GetVisible() && (error_->GetText() != error_before ||
+                                 entry.unsaved_writes() > unsaved_writes_)) {
       said.push_back(error_->GetText());
     }
+    unsaved_writes_ = entry.unsaved_writes();
     if (attempts_->GetVisible() && failed_attempts > failed_attempts_) {
       said.push_back(attempts_->GetText());
     }
@@ -298,7 +394,7 @@ class LockScreenView::PinContent : public views::View {
         kSaidWith);
   }
 
-  // As tall as what it shows, at `width`.
+  // As tall as what it shows, at `width`, the choice's capsules whole.
   int HeightFor(int width) const {
     int height = 0;
     bool first = true;
@@ -306,7 +402,7 @@ class LockScreenView::PinContent : public views::View {
       if (!child->GetVisible() || child == field_) {
         continue;
       }
-      height += (first ? 0 : kSpacing) + HeightOf(child, width);
+      height += (first ? 0 : SpacingBefore(child)) + HeightOf(child, width);
       first = false;
     }
     return height;
@@ -318,6 +414,8 @@ class LockScreenView::PinContent : public views::View {
     for (const views::View* view :
          {static_cast<const views::View*>(dots_.get()),
           static_cast<const views::View*>(continue_.get()),
+          static_cast<const views::View*>(choice_->keep()),
+          static_cast<const views::View*>(choice_->try_again()),
           static_cast<const views::View*>(attempts_.get())}) {
       named.emplace_back(std::string(ViewIdName(view->GetID())), view);
     }
@@ -327,10 +425,13 @@ class LockScreenView::PinContent : public views::View {
   // views::View:
   void Layout(PassKey) override {
     int y = 0;
+    bool first = true;
     for (views::View* child : children()) {
       if (!child->GetVisible() || child == field_) {
         continue;
       }
+      y += first ? 0 : SpacingBefore(child);
+      first = false;
       const int height = HeightOf(child, width());
       // The dots' row is the column's width, so it centers itself to the
       // fraction of a point, and shakes within it.
@@ -339,7 +440,7 @@ class LockScreenView::PinContent : public views::View {
               ? width()
               : std::min(child->GetPreferredSize().width(), width());
       child->SetBounds((width() - child_width) / 2, y, child_width, height);
-      y += height + kSpacing;
+      y += height;
     }
     // The field over the dots' row, where a screen reader's highlight shows
     // it.
@@ -356,6 +457,12 @@ class LockScreenView::PinContent : public views::View {
     return child->GetPreferredSize().height();
   }
 
+  // 28 apart, but the choice's buttons, which go with the lines over them:
+  // their titles 14 under, their capsules reaching 2 past the titles' line.
+  int SpacingBefore(const views::View* child) const {
+    return child == choice_ ? kChoiceSpacing - kChoiceOverhang : kSpacing;
+  }
+
   raw_ptr<views::Label> title_ = nullptr;
   raw_ptr<PinField> field_ = nullptr;
   raw_ptr<PinDots> dots_ = nullptr;
@@ -363,9 +470,12 @@ class LockScreenView::PinContent : public views::View {
   raw_ptr<views::Label> hint_ = nullptr;
   raw_ptr<TextButton> continue_ = nullptr;
   raw_ptr<views::Label> error_ = nullptr;
+  raw_ptr<Choice> choice_ = nullptr;
   raw_ptr<views::Label> attempts_ = nullptr;
   // The failed attempts last shown, so each new one is said once.
   int failed_attempts_ = 0;
+  // The failed writes of a new seal last shown (07.12), so each is said.
+  int unsaved_writes_ = 0;
   // When a line was last said, and whether the entry asks for the current
   // PIN (Shook).
   base::TimeTicks said_at_;
@@ -498,8 +608,16 @@ void LockScreenView::SetShows(const Shows& shows, bool animate) {
   // is from its first frame.
   const bool moves = animate && was_showing && widget && widget->IsVisible();
   if (shows_.entry) {
+    // A choice whose button had the keys goes (a lock took its question):
+    // they go back to the PIN's field.
+    const views::FocusManager* focus = GetFocusManager();
+    const bool choice_had_keys =
+        focus && pin_->choice()->Contains(focus->GetFocusedView());
     pin_->Set(*shows_.entry, shows_.attempts_toward_wipe, moves);
     pin_->field()->SetDigits(static_cast<int>(shows_.entry->entered().size()));
+    if (choice_had_keys && !pin_->choice()->GetVisible()) {
+      pin_->field()->RequestFocus();
+    }
   }
   // Named by its step's title where one shows (ADR 0071), and at the Lock,
   // which shows none, by what it is: unnamed, Narrator said "dialog" alone
@@ -622,6 +740,14 @@ bool LockScreenView::PinKey(const ui::KeyEvent& event) {
     case ui::VKEY_BACK:
       callbacks_.backspace.Run();
       return true;
+    case ui::VKEY_TAB:
+      // From the PIN's field to the two buttons of a PIN the disk didn't
+      // save, where the keys reach buttons (Paper 07.12); round them from
+      // there (Choice). Nothing else here takes Tab.
+      if (shows_.entry && shows_.entry->is_unsaved()) {
+        pin_->choice()->TakeKeys(event.IsShiftDown());
+      }
+      return true;
     default:
       break;
   }
@@ -680,10 +806,13 @@ void LockScreenView::Layout(PassKey) {
                    kBackSize, kBackSize);
   const int column = std::max(panel.width() - 2 * kSide, 0);
   const int pin_height = pin_->HeightFor(column);
-  PlaceOnPixels(*pin_,
-                gfx::RectF(kSide, (panel.height() - pin_height) / 2.0f, column,
-                           pin_height),
-                scale);
+  // Centred on its text, as Paper's column centres it (07.11): the capsules
+  // of a PIN the disk didn't save reach past it.
+  PlaceOnPixels(
+      *pin_,
+      gfx::RectF(kSide, (panel.height() - pin_height + pin_->Overhang()) / 2.0f,
+                 column, pin_height),
+      scale);
   PlaceOnPixels(
       *move_,
       gfx::RectF(kSide, (panel.height() - MoveContent::kHeight) / 2.0f, column,

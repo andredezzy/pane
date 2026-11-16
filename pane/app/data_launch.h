@@ -120,7 +120,10 @@ class AppData {
     // them goes on (the Swift's accessDidOpen).
     virtual void AccessDidOpen() = 0;
 
-    // The fifth wrong PIN in Settings: Pane locks.
+    // Pane locks, as at Lock Pane (UiApp's LockNow): at the fifth wrong PIN
+    // in Settings, at the chip's key gone while Settings checked the PIN
+    // (Paper 07.13 B), and for a lock that waited for a new seal's write
+    // (AppLock::LockNow).
     virtual void LockRequested() = 0;
 
     // The lock changed: a PIN set, changed, or removed (Settings' rows
@@ -176,7 +179,10 @@ class AppData {
   // The engine marked it: its folder in the volume goes, then its record.
   virtual void RemoveDeleted(const std::string& profile_id) = 0;
 
-  // Pane locks while open (ADR 0116): the PIN screen, at once.
+  // Pane locks while open (ADR 0116): the PIN screen, at once, unless a new
+  // seal is on its way to the disk, which the lock waits for and asks again
+  // after (LockRequested), or no PIN is in force once the disk's refusal of a
+  // new one is answered (AppLock::LockNow): IsLocked() says which.
   virtual void LockScreen() = 0;
   // Then, once what changed is written and the profiles have left the model,
   // the data closes, the key leaving memory; the volume detaches once the

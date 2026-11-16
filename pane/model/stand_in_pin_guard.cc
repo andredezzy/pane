@@ -28,6 +28,11 @@ void StandInPinGuard::SetGuardRefusal(std::optional<Refusal> refusal) {
   guard_refusal_ = refusal;
 }
 
+void StandInPinGuard::SetUnsealRefusal(std::optional<Refusal> refusal) {
+  base::AutoLock lock(lock_);
+  unseal_refusal_ = refusal;
+}
+
 int StandInPinGuard::wrong_pins() const {
   base::AutoLock lock(lock_);
   return wrong_pins_;
@@ -76,6 +81,9 @@ base::expected<Key, PinGuard::Refusal> StandInPinGuard::Unseal(
   base::AutoLock lock(lock_);
   if (no_chip_) {
     return base::unexpected(Refusal::kNoChip);
+  }
+  if (unseal_refusal_) {
+    return base::unexpected(*unseal_refusal_);
   }
   const auto held = keys_.find(kept.key);
   if (held == keys_.end()) {

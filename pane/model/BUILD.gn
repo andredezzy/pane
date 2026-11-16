@@ -169,6 +169,8 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "app_lock_guard_test.cc",
+    "app_lock_guard_test.h",
     "app_lock_unittest.cc",
     "browser_model_unittest.cc",
     "client_hints_unittest.cc",
@@ -192,11 +194,13 @@ source_set("unit_tests") {
     sources += [ "updates_mac_unittest.cc" ]
   }
 
-  # Windows' own: the engine's folder chrome_elf names, os_crypt's key under
-  # DPAPI, the TPM's guard, the preference MACs in the registry, and the
-  # release's file Windows updates from.
+  # Windows' own: the lock's answer to each of the chip's codes in Settings,
+  # the engine's folder chrome_elf names, os_crypt's key under DPAPI, the
+  # TPM's guard, the preference MACs in the registry, and the release's file
+  # Windows updates from.
   if (is_win) {
     sources += [
+      "app_lock_win_unittest.cc",
       "engine_folder_win_unittest.cc",
       "engine_secret_win_unittest.cc",
       "pin_guard_win_unittest.cc",

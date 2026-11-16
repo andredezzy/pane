@@ -473,8 +473,10 @@ async function unreadable(context: Parameters<Scenario>[0], log: Log) {
 }
 
 // From each input to the frame on screen: a digit to its dot, the digit that
-// completes a wrong PIN to its shake, the right one to the Lock sinking, and
-// Lock Pane to the screen's first frame rising.
+// completes a wrong PIN to its shake, the right one to the Lock sinking, Lock
+// Pane to the screen's first frame rising, and in Settings' Change PIN the
+// digit that confirms the new PIN to the screen's first frame sinking, once
+// its seal is made and written (Save PIN, Paper 07.12).
 async function timing(context: Parameters<Scenario>[0], log: Log) {
 	const rounds = 8;
 
@@ -524,6 +526,41 @@ async function timing(context: Parameters<Scenario>[0], log: Log) {
 
 				await Bun.sleep(800);
 			}
+
+			let pin = "1234";
+
+			for (let round = 0; round < rounds; round++) {
+				const next = pin === "1234" ? "5678" : "1234";
+				await app.send("showPinScreen", { mode: "change" });
+
+				await keys(
+					app,
+					pin,
+					"Enter new PIN",
+					(s) => screen(s)?.step === "enter",
+				);
+
+				await keys(
+					app,
+					`${next}>`,
+					"Confirm PIN",
+					(s) => screen(s)?.step === "confirm",
+				);
+
+				for (const digit of next) {
+					await app.send("pinKeys", { keys: digit });
+					await Bun.sleep(120);
+				}
+
+				await app.waitFor(
+					"the new PIN saved, the screen gone",
+					(s) => !screen(s) && !s.security.locked,
+					30_000,
+				);
+
+				pin = next;
+				await Bun.sleep(800);
+			}
 		} finally {
 			await app.browser.close();
 		}
@@ -534,7 +571,7 @@ async function timing(context: Parameters<Scenario>[0], log: Log) {
 	log.timing = Object.fromEntries(
 		Object.entries(intervals)
 			.filter(([name]) =>
-				["PIN digit", "Wrong PIN", "Unlock", "Lock"].includes(name),
+				["PIN digit", "Wrong PIN", "Unlock", "Lock", "Save PIN"].includes(name),
 			)
 			.map(([name, values]) => [name, stats(values)]),
 	);

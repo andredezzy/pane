@@ -217,6 +217,50 @@ TEST(PinEntryTest, Unreadable) {
   EXPECT_TRUE(entry.entered().empty());
 }
 
+// A new seal the disk didn't save (Paper 07.12): each flow says it in its own
+// words, with its own way to keep the disk's seal, the digits as typed, and
+// no key changing them; each failed write counts, Try again's included.
+TEST(PinEntryTest, Unsaved) {
+  PinEntry setup(PinEntry::Mode::kSetup, 0);
+  Type(setup, "5678");
+  setup.ContinueWithPin();
+  Type(setup, "567");
+  EXPECT_EQ(setup.Digit('8'), Act(Kind::kSetPin, "5678"));
+  setup.Unsaved();
+  EXPECT_TRUE(setup.is_unsaved() && setup.busy());
+  EXPECT_EQ(setup.error(), PinEntry::kSetupNotSaved);
+  EXPECT_EQ(setup.KeepTitle(), "Cancel");
+  EXPECT_EQ(setup.Digit('1'), Act(Kind::kNone));
+  setup.Backspace();
+  setup.ContinueWithPin();
+  EXPECT_EQ(setup.entered(), "5678");
+  EXPECT_EQ(setup.step(), PinEntry::Step::kConfirm);
+  EXPECT_EQ(setup.unsaved_writes(), 1);
+  setup.Unsaved();
+  EXPECT_EQ(setup.unsaved_writes(), 2);
+
+  PinEntry change(PinEntry::Mode::kChange, 4);
+  Type(change, "1234");
+  EXPECT_EQ(change.Verified(true, 5), Act(Kind::kNone));
+  Type(change, "5678");
+  change.ContinueWithPin();
+  Type(change, "567");
+  EXPECT_EQ(change.Digit('8'), Act(Kind::kSetPin, "5678"));
+  change.Unsaved();
+  EXPECT_EQ(change.error(), PinEntry::kChangeNotSaved);
+  EXPECT_EQ(change.KeepTitle(), "Keep earlier PIN");
+
+  PinEntry remove(PinEntry::Mode::kRemove, 4);
+  Type(remove, "1234");
+  EXPECT_EQ(remove.Verified(true, 5), Act(Kind::kRemovePin, "1234"));
+  remove.Unsaved();
+  EXPECT_EQ(remove.error(), PinEntry::kRemoveNotSaved);
+  EXPECT_EQ(remove.KeepTitle(), "Keep PIN");
+  EXPECT_EQ(remove.Title(), "Enter current PIN");
+  EXPECT_EQ(remove.entered(), "1234");
+  EXPECT_FALSE(PinEntry(PinEntry::Mode::kChange, 4).is_unsaved());
+}
+
 // Backspace and non-digits.
 TEST(PinEntryTest, Editing) {
   PinEntry entry(PinEntry::Mode::kSetup, 0);

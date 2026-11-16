@@ -119,6 +119,9 @@ uint64_t BeginInteractionInterval(Interaction interaction) {
     case Interaction::kLock:
       os_signpost_interval_begin(log, id, "Lock");
       break;
+    case Interaction::kSavePin:
+      os_signpost_interval_begin(log, id, "Save PIN");
+      break;
     case Interaction::kShowUpdate:
       os_signpost_interval_begin(log, id, "Show update");
       break;
@@ -290,6 +293,11 @@ void EndInteractionInterval(Interaction interaction,
     case Interaction::kLock:
       os_signpost_interval_end(log, interval, "Lock", PANE_INTERVAL_END_FORMAT,
                                late_us, committed_us, presented_us);
+      break;
+    case Interaction::kSavePin:
+      os_signpost_interval_end(log, interval, "Save PIN",
+                               PANE_INTERVAL_END_FORMAT, late_us, committed_us,
+                               presented_us);
       break;
     case Interaction::kShowUpdate:
       os_signpost_interval_end(log, interval, "Show update",

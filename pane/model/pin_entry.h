@@ -80,6 +80,18 @@ class PinEntry {
   // The lock with no PIN to check against: it says why, and takes no keys.
   static PinEntry Unreadable(UnreadableReason reason, std::string message);
 
+  // The lines a new seal security.json didn't take shows in each flow (Paper
+  // 07.12): what failed, then what still opens Pane.
+  static constexpr char kSetupNotSaved[] =
+      "Pane couldn’t save the PIN.\n"
+      "Pane still opens without one.";
+  static constexpr char kChangeNotSaved[] =
+      "Pane couldn’t save the new PIN.\n"
+      "Your earlier PIN still opens Pane.";
+  static constexpr char kRemoveNotSaved[] =
+      "Pane couldn’t remove the PIN.\n"
+      "Pane still asks for it when it opens.";
+
   Mode mode() const { return mode_; }
   Step step() const { return step_; }
   const std::string& entered() const { return entered_; }
@@ -94,6 +106,16 @@ class PinEntry {
     return unreadable_reason_;
   }
   bool dismissable() const { return mode_ != Mode::kUnlock; }
+  // The new seal didn't reach security.json (Paper 07.12): the lines say so,
+  // and two buttons keep the seal the disk holds or write the new one again.
+  // The dots, filled, and the numpad show at 40%, taking no digit.
+  bool is_unsaved() const { return unsaved_ > 0; }
+  // How many writes of the new seal failed while the screen showed it: each
+  // one's lines are said, Try again's own failing as much as the first.
+  int unsaved_writes() const { return unsaved_; }
+  // The button beside Try again that keeps the disk's seal: Cancel in Set up,
+  // Keep earlier PIN in Change, Keep PIN in Remove.
+  std::string_view KeepTitle() const;
 
   // None on the lock.
   std::optional<std::string_view> Title() const;
@@ -113,6 +135,10 @@ class PinEntry {
   Action Refused(std::string why);
   // The dots stopped shaking: start over.
   void Shook();
+  // The new PIN's seal, or the seal without one, didn't reach security.json
+  // (Paper 07.12): the lines of the flow show, the digits stay as typed, and
+  // the screen takes none until the app keeps a seal.
+  void Unsaved();
 
  private:
   // The digits that submit the step, none while entering a new PIN.
@@ -127,6 +153,8 @@ class PinEntry {
   bool busy_ = false;
   bool is_unreadable_ = false;
   std::optional<UnreadableReason> unreadable_reason_;
+  // The writes of the new seal that failed while it showed (is_unsaved).
+  int unsaved_ = 0;
 };
 
 }  // namespace pane::model

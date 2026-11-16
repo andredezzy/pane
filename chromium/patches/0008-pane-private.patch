@@ -74,6 +74,28 @@ index 33a3b3844a..f477d1d48d 100644
      base::FilePath metrics_dir;
      if (base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
  #if BUILDFLAG(IS_ANDROID)
+diff --git a/chrome/notification_helper/notification_helper_crash_reporter_client.cc b/chrome/notification_helper/notification_helper_crash_reporter_client.cc
+index 86604e9427..87b4933a7e 100644
+--- a/chrome/notification_helper/notification_helper_crash_reporter_client.cc
++++ b/chrome/notification_helper/notification_helper_crash_reporter_client.cc
+@@ -39,12 +39,11 @@ void NotificationHelperCrashReporterClient::
+ 
+   crash_reporter::SetCrashReporterClient(instance);
+ 
+-  std::wstring user_data_dir;
+-  install_static::GetUserDataDirectory(&user_data_dir, nullptr);
+-
+-  crash_reporter::InitializeCrashpadWithEmbeddedHandler(
+-      true, "notification-helper", install_static::WideToUTF8(user_data_dir),
+-      exe_path);
++  // Pane: no crash handler here either, as in chrome_elf's processes
++  // (chrome_crash_reporter_client_win.cc): at each toast's click it started
++  // chrome.exe as the handler, its database at the engine's root, and a crash
++  // in the helper's moment would have left a dump of its command line there,
++  // the toast's site and profile in it, outside the profiles' encryption.
+ }
+ 
+ bool NotificationHelperCrashReporterClient::GetAlternativeCrashDumpLocation(
 diff --git a/components/services/quarantine/quarantine_mac.mm b/components/services/quarantine/quarantine_mac.mm
 index a393f9185c..59f7799194 100644
 --- a/components/services/quarantine/quarantine_mac.mm

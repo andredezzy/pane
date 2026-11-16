@@ -59,7 +59,10 @@ bool ClosingTheWindowQuits();
 // A launch that carries a toast's activation (on Windows, a site's
 // notification clicked in the system's center, which notification_helper.exe
 // hands over as a launch) hands it to `notification_clicked`: the
-// notification it names, or none, for the app's own title in that center.
+// notification it names, or none, for the app's own title in that center. On
+// the Mac, macOS's center hands its clicks to Chrome's handler in the
+// browser, which hands each to `notification_clicked` the same way (patch
+// 0004, notification_center_mac.h), where it loaded the profile itself.
 class AppEvents {
  public:
   using OpenURLs = base::RepeatingCallback<void(std::vector<GURL>)>;
@@ -91,6 +94,9 @@ class AppEvents {
 
   void Reopen();
   void OpenURLsHanded(std::vector<GURL> urls);
+  // A site's notification clicked, or closed, in the system's center, or
+  // none named (the app's own title there).
+  void NotificationLaunch(std::optional<NotificationClick> click);
 
  private:
   // Pane's callback for the process singleton.
@@ -100,7 +106,6 @@ class AppEvents {
                           const base::FilePath& directory);
   void OpenLaunch(std::vector<GURL> pages);
   void AskedToExit();
-  void NotificationLaunch(std::optional<NotificationClick> click);
 
   const base::RepeatingClosure reopen_;
   const OpenURLs open_urls_;

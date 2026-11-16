@@ -285,7 +285,8 @@ model::WipeExtras WindowsWipeExtras(scoped_refptr<model::PinGuard> guard) {
 // The PIN screen's lines in Windows' words (Paper 11.7: Exit, and this PC),
 // the chip's own states as 07.10 chose them: its lockout (07.1.1), a new PIN
 // it wouldn't take (07.3.1), its key gone (07.6.1), the chip off (07.6.2),
-// and DPAPI's refusal (07.7.1).
+// and DPAPI's refusal (07.7.1); and the chip refusing the current PIN in
+// Settings (07.13 A, 07.4.2).
 model::AppLock::System::Words WindowsLockWords() {
   model::AppLock::System::Words words;
   words.key_unreadable =
@@ -310,6 +311,9 @@ model::AppLock::System::Words WindowsLockWords() {
   words.pin_not_saved =
       "Pane couldn’t save the new PIN.\n"
       "This PC’s security chip refused it. Try again later.";
+  words.guard_refused =
+      "Pane can’t check your PIN right now.\n"
+      "This PC’s security chip had an error. Try again later.";
   return words;
 }
 

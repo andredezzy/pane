@@ -6,12 +6,21 @@
 
 #include <utility>
 
+#include "chrome/services/mac_notifications/public/mojom/mac_notifications.mojom.h"
 #include "net/base/apple/url_conversions.h"
 #include "pane/common/host.h"
+#include "pane/ui/app/notification_center_mac.h"
 
 namespace pane {
 
 namespace {
+
+class AppEventsMac;
+
+// The one that listens: Pane's UI has one.
+AppEventsMac* g_mac_events = nullptr;
+
+void HandToPane(mac_notifications::mojom::NotificationActionInfoPtr info);
 
 class AppEventsMac : public AppEvents {
  public:
@@ -23,6 +32,11 @@ class AppEventsMac : public AppEvents {
                   std::move(open_urls),
                   std::move(ask_to_exit),
                   std::move(notification_clicked)) {
+    g_mac_events = this;
+    // Set for good: Chrome's own handler, which loads the profile outside
+    // Pane's lock, never runs once Pane's UI has started, the clicks after it
+    // has gone (a quit) going nowhere.
+    g_pane_notification_response = &HandToPane;
     NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
     // The block outlives no AppEventsMac: the observers go with it.
     AppEventsMac* events = this;
@@ -85,7 +99,21 @@ class AppEventsMac : public AppEvents {
     }
   }
 
+  // A site's notification, clicked or closed in macOS's center: to Pane's
+  // UI, which opens its profile through Pane's lock (UiApp's
+  // NotificationClicked), as Windows' toasts come.
+  void NotificationResponse(
+      mac_notifications::mojom::NotificationActionInfoPtr info) {
+    std::optional<NotificationClick> click = NotificationClickOf(*info);
+    if (click) {
+      NotificationLaunch(std::move(click));
+    }
+  }
+
   ~AppEventsMac() override {
+    if (g_mac_events == this) {
+      g_mac_events = nullptr;
+    }
     [NSNotificationCenter.defaultCenter removeObserver:reopen_observer_];
     [NSNotificationCenter.defaultCenter removeObserver:open_urls_observer_];
     [NSNotificationCenter.defaultCenter removeObserver:became_active_];
@@ -99,6 +127,12 @@ class AppEventsMac : public AppEvents {
   id __strong became_active_;
   id __strong deactivated_;
 };
+
+void HandToPane(mac_notifications::mojom::NotificationActionInfoPtr info) {
+  if (g_mac_events && info) {
+    g_mac_events->NotificationResponse(std::move(info));
+  }
+}
 
 }  // namespace
 

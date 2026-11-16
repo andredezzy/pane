@@ -546,10 +546,13 @@ class UiApp : public AppData::Client,
   // What locks Pane by itself.
   std::unique_ptr<LockTriggers> lock_triggers_;
   // The intervals of the digit that completed a PIN, until it is answered:
-  // as a wrong PIN, or as the Lock opening.
+  // as a wrong PIN, or as the Lock opening; in Settings, also as a new seal
+  // written, or one the disk didn't save (Paper 07.12), which Try again's
+  // press is timed to as well.
   struct PinAnswer {
     uint64_t wrong = 0;
     uint64_t unlock = 0;
+    std::optional<uint64_t> save;
   };
   std::optional<PinAnswer> pin_answer_;
   // Pane was locked when the lock last changed.

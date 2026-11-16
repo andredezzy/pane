@@ -20,8 +20,8 @@ namespace pane::model {
 // logic: keys by name, each with its PIN and its share; wrong PINs counted,
 // and at the 31st the chip's lockout, as Windows sets it, which refuses every
 // PIN, the right one too; and on the test's word a chip cleared (every key
-// gone), none at all, or one that refuses to make keys. Thread-safe: the lock
-// calls it off its sequence.
+// gone), none at all, one that refuses to make keys, or one that gives no
+// share back. Thread-safe: the lock calls it off its sequence.
 class StandInPinGuard : public PinGuard {
  public:
   static constexpr int kLockoutAt = 31;
@@ -35,6 +35,11 @@ class StandInPinGuard : public PinGuard {
   // From now, the chip makes no key, refusing with `refusal` (none: it makes
   // them again), while it still opens those it holds.
   void SetGuardRefusal(std::optional<Refusal> refusal);
+  // From now, the chip gives no share back, the right PIN's included,
+  // refusing with `refusal` (none: it gives them again) and counting
+  // nothing: its key gone (kGone) as Windows' provider says it of a key
+  // deleted or damaged, or the chip refusing for now (kRefused).
+  void SetUnsealRefusal(std::optional<Refusal> refusal);
 
   // The wrong PINs counted so far.
   int wrong_pins() const;
@@ -63,6 +68,7 @@ class StandInPinGuard : public PinGuard {
   int wrong_pins_ GUARDED_BY(lock_) = 0;
   bool no_chip_ GUARDED_BY(lock_) = false;
   std::optional<Refusal> guard_refusal_ GUARDED_BY(lock_);
+  std::optional<Refusal> unseal_refusal_ GUARDED_BY(lock_);
   int made_ GUARDED_BY(lock_) = 0;
   base::RepeatingClosure on_forget_ GUARDED_BY(lock_);
 };

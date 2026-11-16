@@ -91,11 +91,13 @@ class AppLock {
       // The PIN's guard lost its key (07.6.1), or has no chip now (07.6.2).
       std::string guard_gone = kKeyUnreadable;
       std::string guard_unavailable = kKeyUnreadable;
-      // The guard's lockout refuses every PIN (07.1.1), and a new PIN the
-      // guard wouldn't take (07.3.1): shown with the shake, until the next
-      // digit; none, the shake alone.
+      // The guard's lockout refuses every PIN (07.1.1), a new PIN the guard
+      // wouldn't take (07.3.1), and the chip refusing the current PIN in
+      // Settings' Change and Remove PIN (07.4.2): shown with the shake, until
+      // the next digit; none, the shake alone.
       std::string locked_out;
       std::string pin_not_saved;
+      std::string guard_refused;
     };
     Words words;
   };
@@ -137,8 +139,13 @@ class AppLock {
     // The right PIN opened the lock: what waited behind it goes on.
     virtual void DidUnlock() = 0;
 
-    // The fifth wrong PIN in Settings: Pane locks.
-    virtual void DidExhaustSettingsAttempts() = 0;
+    // Pane is to lock, as Lock Pane locks it: every profile closes behind
+    // the PIN screen, and the data key leaves memory (LockNow, which the app
+    // calls). At the fifth wrong PIN in Settings; at the chip's key gone while
+    // Settings checked the PIN, where the screen then shows its loss (Paper
+    // 07.13 B, 07.4.1); and for a lock asked for while a new seal was on its
+    // way to the disk, once it has landed or not.
+    virtual void DidAskToLock() = 0;
   };
 
   class Observer : public base::CheckedObserver {
@@ -231,7 +238,12 @@ class AppLock {
 
   // Pane locks while open (ADR 0116, Paper 07.9): the PIN screen shows at
   // once, as at launch; the caller closes every profile's data behind it (the
-  // vault's Lock). Only a PIN locks.
+  // vault's Lock). Only a PIN locks. Where the chip lost its key while
+  // Settings checked the PIN, the screen shows that loss, for good (07.13 B,
+  // 07.4.1). While a new seal is on its way to the disk, the lock waits for
+  // it, and is asked for again once it lands (DidAskToLock); while the disk's
+  // refusal of one shows (07.12), the lock keeps the seal the disk holds, as
+  // Esc does there, and then locks if that seal has a PIN.
   void LockNow();
 
   // The volume would not open once the key had (DataVault): nothing of the
@@ -242,18 +254,42 @@ class AppLock {
   // Settings' Set up, Change, and Remove PIN.
   void Show(PinEntry::Mode mode);
 
-  // The back arrow, or Escape; never while locked.
+  // The back arrow, or Escape; never while locked. Where the disk refused a
+  // new seal (Paper 07.12), it keeps the seal the disk holds (KeepSaved).
   void Dismiss();
 
   void Digit(char16_t digit);
   void Backspace();
+  // Return, or Continue. Where the disk refused a new seal (Paper 07.12), it
+  // writes it again (TryAgain).
   void ContinueWithPin();
+
+  // The disk refused a new seal (Paper 07.12): Try again writes the same seal
+  // again, both files, the chip not asked; once security.json takes it, the
+  // screen sinks, and if it fails again its lines stay, nothing shaking.
+  void TryAgain();
+  // Keep earlier PIN, Keep PIN, or Cancel: the seal the disk holds stays in
+  // force, written again; a key the chip made for the new PIN goes only once
+  // both files hold it (W8's rule the other way round), and the screen sinks.
+  void KeepSaved();
 
   // What the fifth wrong PIN at the lock does once the key is gone from
   // disk, in place of the system's wipe, which never returns.
   void SetWipeForTesting(base::RepeatingClosure wipe);
 
  private:
+  // Which of security.json and its copy a save wrote.
+  struct WrittenFiles {
+    bool security = false;
+    bool copy = false;
+
+    bool both() const { return security && copy; }
+  };
+
+  // security.json, then its copy beside the volume. Blocks on the disk.
+  static WrittenFiles WriteSecurityFiles(const base::FilePath& data_directory,
+                                         base::Value state);
+
   void Perform(PinEntry::Action action);
   void Verify(const std::string& pin);
   void PostOpen(std::optional<std::string> pin, bool unlocking);
@@ -266,15 +302,24 @@ class AppLock {
   void Shook();
   void Reseal(std::optional<std::string> pin);
   void Resealed(std::optional<int> length, std::optional<SealedKey> sealed);
+  // Writes the reseal's new seal, both files; ResealSaved answers.
+  void SaveResealed();
+  // The new seal's write landed or not: in force once security.json holds
+  // it, which the next launch reads first, the screen sinking; else the
+  // screen says so (Paper 07.12).
+  void ResealSaved(std::optional<std::string> saved_guard,
+                   WrittenFiles written);
+  // A lock asked for while a reseal waited is asked for again, once it ended.
+  void LockIfAsked();
   void ForgetGuardThen(std::optional<std::string> kept, base::OnceClosure then);
   void SecretFound(std::optional<std::vector<uint8_t>> secret);
   void Save();
   void SaveThen(base::OnceClosure then);
-  // A save landed, `written` when both files were: the guard's keys a reseal
-  // left go then, once the seal that replaced them is the one on the disk.
+  // A save landed: the guard's keys a reseal left go then, once both files
+  // were written with the seal that replaced them.
   void Saved(base::OnceClosure then,
              std::optional<std::string> saved_guard,
-             bool written);
+             WrittenFiles written);
   void Wipe();
   void Changed();
   // Whether wrong PINs at the lock lead to the panic wipe: on every seal but
@@ -319,6 +364,22 @@ class AppLock {
     std::optional<std::string> kept;
   };
   std::optional<ForgetOnceSaved> forget_once_saved_;
+  // Settings' reseal, from the digit that asked for it until its seal is in
+  // force or the seal the disk holds is kept (Paper 07.12). Until then
+  // `state_` is the seal the disk holds, which a lock opens with, as the
+  // next launch does.
+  struct Resealing {
+    // The new seal, once made.
+    std::optional<SecurityState> made;
+    // Its seal or its write under way: the screen waits, and takes no key.
+    bool waiting = true;
+  };
+  std::optional<Resealing> resealing_;
+  // A lock asked for while the reseal waited: asked for again once it ends.
+  bool lock_asked_ = false;
+  // The chip lost its key while Settings checked the PIN: Pane locks, the
+  // screen showing that loss for good (Paper 07.13 B).
+  bool guard_lost_ = false;
 
   base::ObserverList<Observer> observers_;
 

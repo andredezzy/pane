@@ -722,6 +722,11 @@ export const QUIT_WORD = bySystem({ mac: "Quit", windows: "Exit" });
 // default button wherever the keys are, as macOS's dialogs do.
 export const RETURN_PRESSES_THE_RING = bySystem({ mac: false, windows: true });
 
+// Whether Tab gives a button the keys: on Windows a dialog's buttons take it,
+// as Windows' own do; on the Mac a button takes it only with full keyboard
+// access on, Views' rule there and macOS's own, which a run's Mac has off.
+export const BUTTONS_TAKE_TAB = bySystem({ mac: false, windows: true });
+
 // The release's file each system updates from, by version
 // (pane/model/updates_{mac,win}.cc): the Mac's arm64 dmg, Windows' x64
 // installer. A release carries both, as the stand-in does.

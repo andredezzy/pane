@@ -32,7 +32,9 @@ class PanelFrame;
 // left; or, while it runs, the data's one-time move into its volume (Paper
 // 07.5, ADR 0113), the two crossfading; at its bottom, while locked, the
 // update on offer (DESIGN.md › Updates). The dots and the numpad show at 40%
-// while no key can be read (07.6 to 07.8).
+// while no key can be read (07.6 to 07.8), and while a new PIN the disk
+// didn't save leaves a choice under its lines (07.12): keep the disk's seal,
+// or Try again.
 //
 // It rises from below the window as it comes (Motion.lockIn) and sinks back
 // as it goes (Motion.lockOut), on the compositor's own animation, over the
@@ -114,6 +116,7 @@ class LockScreenView : public views::View {
 
  private:
   class Panel;
+  class Choice;
   class PinContent;
   class MoveContent;
 

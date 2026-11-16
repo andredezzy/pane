@@ -234,6 +234,10 @@ std::string_view ViewIdName(int id) {
       return "pane.lockScreen.continue";
     case kViewIdLockScreenAttempts:
       return "pane.lockScreen.attempts";
+    case kViewIdLockScreenKeep:
+      return "pane.lockScreen.keep";
+    case kViewIdLockScreenTryAgain:
+      return "pane.lockScreen.tryAgain";
     case kViewIdLockScreenMove:
       return "pane.lockScreen.move";
     case kViewIdLockScreenUpdate:

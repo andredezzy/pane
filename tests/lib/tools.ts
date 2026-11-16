@@ -876,3 +876,57 @@ function holdsAny(file: string, needles: Buffer[]): boolean {
 		closeSync(descriptor);
 	}
 }
+
+// Holds `file` so no process can replace it, as Pane writes it (an atomic
+// replace: a temporary file renamed over it), until the returned release
+// runs: on the Mac by Finder's Locked flag (`chflags uchg`), which refuses
+// the rename, where a read-only mode would not, the folder being writable; on
+// Windows as another program holds it open, reading and sharing reads alone,
+// which refuses ReplaceFileW and MoveFileEx (a backup, an antivirus scan;
+// W8b). On a test copy's own data alone.
+export const holdFile = bySystem({
+	mac: async (file: string): Promise<() => Promise<void>> => {
+		await Bun.$`/usr/bin/chflags uchg ${file}`.quiet();
+
+		return async () => {
+			await Bun.$`/usr/bin/chflags nouchg ${file}`.quiet();
+		};
+	},
+	windows: async (file: string): Promise<() => Promise<void>> => {
+		const holder = Bun.spawn(
+			[
+				"powershell.exe",
+				"-NoProfile",
+				"-NonInteractive",
+				"-EncodedCommand",
+				Buffer.from(
+					`$held = [System.IO.File]::Open($env:PANE_HELD_FILE, 'Open', 'Read', 'Read')
+[Console]::Out.WriteLine('held')
+[Console]::Out.Flush()
+while ($true) { Start-Sleep -Seconds 1 }`,
+					"utf16le",
+				).toString("base64"),
+			],
+			{
+				env: { ...process.env, PANE_HELD_FILE: file },
+				stdin: "ignore",
+				stdout: "pipe",
+				stderr: "ignore",
+			},
+		);
+
+		const reader = holder.stdout.getReader();
+		const { value } = await reader.read();
+
+		if (!value || !new TextDecoder().decode(value).includes("held")) {
+			holder.kill();
+
+			throw new Error(`could not hold ${file}`);
+		}
+
+		return async () => {
+			holder.kill();
+			await holder.exited;
+		};
+	},
+});
