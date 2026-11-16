@@ -2,9 +2,10 @@
 
 // Pane's installer, Pane-<version>-x64.exe, and the helper its app folder
 // keeps, pane_setup.exe (ADR 0127): the same program, which installs the
-// payload package-win.sh appended to it, or, started by chrome.exe
+// payload package-win.sh appended to it; or, started by chrome.exe
 // --pane-uninstall from a copy outside the app folder, shows Pane's
-// uninstall dialog.
+// uninstall dialog; or, copied out of an update's staged folder by the
+// exiting Pane, swaps the update in (swap.h).
 
 #include <objbase.h>
 
@@ -20,8 +21,11 @@
 #include "base/logging/logging_settings.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
+#include "pane/installer/files.h"
 #include "pane/installer/flow.h"
 #include "pane/installer/payload.h"
+#include "pane/installer/running_pane.h"
+#include "pane/installer/swap.h"
 #include "pane/installer/switches.h"
 
 int WINAPI wWinMain(HINSTANCE instance,
@@ -40,6 +44,23 @@ int WINAPI wWinMain(HINSTANCE instance,
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   const base::CommandLine& switches = *base::CommandLine::ForCurrentProcess();
+  // An update's last step, copied out of its staged folder (swap.h): no
+  // window, and its copy goes as it exits.
+  if (switches.HasSwitch(pane::installer::kSwapSwitch)) {
+    const std::optional<pane::installer::SwapRequest> request =
+        pane::installer::SwapRequestFrom(switches);
+    const pane::installer::SwapOutcome outcome =
+        request ? pane::installer::RunSwap(*request)
+                : pane::installer::SwapOutcome::kRefused;
+    // A scenario's copy, laid out in the temporary folder and read on its
+    // channel, hears what the helper did and when (tests/scenarios/
+    // update-install.ts); the user's installed Pane never is one.
+    if (request) {
+      pane::installer::NoteSwapForScenario(*request);
+    }
+    pane::installer::DeleteOwnCopyAfterExit(pane::installer::kUpdateCopyPrefix);
+    return static_cast<int>(outcome);
+  }
   if (switches.HasSwitch(pane::installer::kUninstallDialogSwitch)) {
     uint64_t after = 0;
     base::StringToUint64(
@@ -48,6 +69,18 @@ int WINAPI wWinMain(HINSTANCE instance,
         switches.GetSwitchValuePath(pane::installer::kAppSwitch),
         static_cast<base::ProcessId>(after));
     return flow.Run();
+  }
+
+  // Exit and install (Paper 11.12.11): opened by the Pane that is exiting,
+  // the installer shows nothing until it has gone.
+  if (switches.HasSwitch(pane::installer::kAfterSwitch)) {
+    uint64_t pane = 0;
+    if (base::StringToUint64(
+            switches.GetSwitchValueASCII(pane::installer::kAfterSwitch),
+            &pane)) {
+      pane::installer::WaitForExitingPane(static_cast<base::ProcessId>(pane),
+                                          pane::installer::AppFolder());
+    }
   }
 
   base::FilePath installer;

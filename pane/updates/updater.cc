@@ -88,11 +88,12 @@ std::optional<std::string> Sha256Of(const base::FilePath& path) {
   return base::HexEncodeLower(digest);
 }
 
-// The downloaded dmg, checked and saved: given the release's SHA-256, it
+// The downloaded file, checked and saved: given the release's SHA-256, it
 // must match, and leaves quarantine; one that differs is deleted. Without a
 // digest it stays quarantined, and Gatekeeper asks before the app inside
-// first opens. It goes into the downloads folder under its name, or with
-// " (1)" and so on when that's taken, as Chrome names a download. Blocks.
+// first opens, or SmartScreen before Windows' installer runs. It goes into
+// the downloads folder under its name, or with " (1)" and so on when that's
+// taken, as Chrome names a download. Blocks.
 std::optional<base::FilePath> CheckAndSave(base::FilePath downloaded,
                                            base::FilePath destination,
                                            std::optional<std::string> sha256) {
@@ -103,6 +104,9 @@ std::optional<base::FilePath> CheckAndSave(base::FilePath downloaded,
       base::DeleteFile(downloaded);
       return std::nullopt;
     }
+  } else {
+    // Marked before it reaches the downloads folder.
+    Quarantine(downloaded);
   }
   if (!base::CreateDirectory(destination.DirName())) {
     base::DeleteFile(downloaded);
@@ -166,14 +170,17 @@ Updater::Updater(std::string current_version,
       install_runner_(base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})) {
-  // What an earlier install left beside the app, off the launch's path.
+  // What an earlier install left beside the app, off the launch's path, and
+  // what the last exit left staged to install at the next (Windows').
   if (installer_) {
-    install_runner_->PostTask(FROM_HERE,
-                              base::BindOnce(
-                                  [](const UpdateInstaller& installer) {
-                                    installer.RemoveLeftovers();
-                                  },
-                                  *installer_));
+    install_runner_->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        base::BindOnce(
+            [](const UpdateInstaller& installer, const std::string& running) {
+              return installer.RemoveLeftovers(running);
+            },
+            *installer_, current_version_),
+        base::BindOnce(&Updater::KeptFromLastExit, weak_factory_.GetWeakPtr()));
   }
 }
 
@@ -298,6 +305,33 @@ void Updater::Settle(base::OnceCallback<void(bool)> done,
   }
 }
 
+// Staged by an earlier run, and not installed at its exit: the next exit
+// installs it, and Restart to update offers it at once, before the check
+// has answered, with E's line where the last swap failed (Paper 11.12.14). A
+// check that answered first with a newer release replaces it, as any does.
+void Updater::KeptFromLastExit(std::optional<UpdateInstaller::Kept> kept) {
+  if (!kept || staged() || status_ == Status::kDownloading) {
+    return;
+  }
+  staged_ = kept->staged;
+  downloaded_version_ = kept->version;
+  downloaded_file_ = kept->file;
+  install_failed_ = kept->not_installed;
+  if (available_ &&
+      model::ReplacesStagedUpdate(available_->version, kept->version)) {
+    Unstage();
+    Notify();
+    return;
+  }
+  if (!available_) {
+    available_ = model::AvailableUpdate{.version = kept->version};
+  }
+  if (available_->version == kept->version) {
+    status_ = Status::kDownloaded;
+  }
+  Notify();
+}
+
 void Updater::Offer(std::optional<model::AvailableUpdate> update) {
   // Restart to update, once pressed, quits into what it named.
   if (status_ == Status::kDownloading || relaunches_) {
@@ -321,29 +355,31 @@ void Updater::Offer(std::optional<model::AvailableUpdate> update) {
 }
 
 // On the installer's sequence, after the staging that made them and before
-// the next; the dmg first, since a quit doesn't wait: a copy it leaves, the
-// next launch removes (RemoveLeftovers).
+// the next, so a quit meanwhile leaves what the next launch removes
+// (RemoveLeftovers); E's line goes with them, nothing being left to try.
 void Updater::Unstage() {
   install_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(
-          [](const base::FilePath& staged, const base::FilePath& dmg) {
-            base::DeleteFile(dmg);
-            base::DeletePathRecursively(staged);
-          },
-          std::exchange(staged_, base::FilePath()),
+          [](const UpdateInstaller& installer, const base::FilePath& staged,
+             const base::FilePath& file) { installer.Unstage(staged, file); },
+          *installer_, std::exchange(staged_, base::FilePath()),
           std::exchange(downloaded_file_, base::FilePath())));
   downloaded_version_.reset();
+  install_failed_ = false;
 }
 
 void Updater::DismissPill() {
   dismissed_version_ = available_
                            ? std::optional<std::string>(available_->version)
                            : std::nullopt;
+  install_failed_ = false;
   Notify();
 }
 
 void Updater::DownloadUpdate() {
+  // E's line goes once the pill is clicked (Paper 11.12.14).
+  install_failed_ = false;
   // Restart to update: quits, and the quit swaps the staged Pane in and
   // opens it.
   if (status_ == Status::kDownloaded && staged()) {
@@ -446,18 +482,20 @@ void Updater::Downloaded(model::AvailableUpdate update,
           base::UnescapeBinaryURLComponent(update.file_url.ExtractFileName()))
           .BaseName());
   // The digest reads the whole dmg: off the UI thread.
+  const bool verified = update.sha256.has_value();
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
       base::BindOnce(&CheckAndSave, std::move(*file), destination,
                      update.sha256),
       base::BindOnce(&Updater::Verified, weak_factory_.GetWeakPtr(),
-                     update.version));
+                     update.version, verified));
 }
 
 // Saved and checked: its Pane is staged beside this one while the pill holds
 // its full bar; without an installer the dmg opens for the user to drag, and
 // the pill offers Quit and install. Refused: offered again.
 void Updater::Verified(std::string version,
+                       bool verified,
                        std::optional<base::FilePath> file) {
   if (!file) {
     download_progress_.reset();
@@ -480,10 +518,9 @@ void Updater::Verified(std::string version,
       FROM_HERE,
       base::BindOnce(
           [](const UpdateInstaller& installer, const base::FilePath& dmg,
-             const std::string& version) {
-            return installer.Stage(dmg, version);
-          },
-          *installer_, *file, std::move(version)),
+             const std::string& version,
+             bool verified) { return installer.Stage(dmg, version, verified); },
+          *installer_, *file, std::move(version), verified),
       base::BindOnce(&Updater::Staged, weak_factory_.GetWeakPtr(), *file));
 }
 

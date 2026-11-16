@@ -15,6 +15,7 @@
 #include "base/files/file_util.h"
 #include "base/process/process.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/win/scoped_handle.h"
 #include "pane/installer/files.h"
@@ -130,8 +131,9 @@ bool WaitForExit(const std::vector<base::ProcessId>& processes,
                  base::TimeDelta timeout) {
   const base::TimeTicks deadline = base::TimeTicks::Now() + timeout;
   for (base::ProcessId pid : processes) {
-    const base::Process process =
-        base::Process::OpenWithAccess(pid, SYNCHRONIZE);
+    // Its exit code too, which base::Process reads once it has waited.
+    const base::Process process = base::Process::OpenWithAccess(
+        pid, SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION);
     if (!process.IsValid()) {
       continue;
     }
@@ -142,6 +144,17 @@ bool WaitForExit(const std::vector<base::ProcessId>& processes,
     }
   }
   return true;
+}
+
+void WaitForExitingPane(base::ProcessId pid, const base::FilePath& folder) {
+  // Only a chrome.exe: an id another process took since is waited for not.
+  if (base::EqualsCaseInsensitiveASCII(ExecutableOf(pid).BaseName().value(),
+                                       L"chrome.exe")) {
+    base::Process::OpenWithAccess(
+        pid, SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION)
+        .WaitForExitWithTimeout(base::Minutes(2), nullptr);
+  }
+  WaitForExit(ProcessesFrom(folder), base::Seconds(10));
 }
 
 }  // namespace pane::installer

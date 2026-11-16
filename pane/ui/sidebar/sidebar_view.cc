@@ -31,6 +31,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/point_f.h"
+#include "ui/gfx/geometry/transform.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/label.h"
@@ -54,6 +55,12 @@ constexpr int kCollapseAllSize = 28;
 // Settings, 6 apart.
 constexpr int kFooterInset = 8;
 constexpr int kFooterSpacing = 6;
+// E's line (Paper 11.12.14): 11 on 15, 8 in from the pill's sides, 4 above
+// the footer's 6 to the pill, rising 4 as it comes in, as the pill does.
+constexpr TextStyle kNoticeText{11, weight::kRegular, 15};
+constexpr int kNoticeInset = 8;
+constexpr int kNoticeBottom = 4;
+constexpr float kNoticeRise = 4;
 constexpr int kRuleHeight = 1;
 constexpr int kFooterHeight = RowButton::kHeight + kFooterSpacing +
                               kRuleHeight + kFooterSpacing +
@@ -169,6 +176,16 @@ SidebarView::SidebarView(Callbacks callbacks)
   footer_ = AddChildView(std::make_unique<views::View>());
   footer_->SetPaintToLayer();
   footer_->layer()->SetFillsBoundsOpaquely(false);
+  notice_ = footer_->AddChildView(
+      MakeLabel(std::u16string(), kNoticeText, kPaneColorMutedForeground));
+  notice_->SetMultiLine(true);
+  notice_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  notice_->SetPaintToLayer();
+  notice_->layer()->SetFillsBoundsOpaquely(false);
+  notice_->layer()->SetOpacity(0);
+  notice_->SetVisible(false);
+  notice_shown_ = std::make_unique<ValueMotion>(
+      0, base::BindRepeating(&SidebarView::NoticeStep, base::Unretained(this)));
   pill_ = footer_->AddChildView(std::make_unique<UpdatePill>(
       callbacks_.update, callbacks_.dismiss_update));
   pill_->SetVisible(false);
@@ -219,6 +236,7 @@ void SidebarView::SetContent(const SidebarContent& content) {
 }
 
 void SidebarView::SetUpdate(const std::optional<SidebarUpdate>& update) {
+  SetNotice(update ? update->notice : std::u16string());
   if (update) {
     pill_->Set(*update);
     if (!pill_->shown()) {
@@ -238,8 +256,47 @@ void SidebarView::SetUpdate(const std::optional<SidebarUpdate>& update) {
   }
 }
 
+void SidebarView::SetNotice(const std::u16string& notice) {
+  ui::Compositor* compositor =
+      GetWidget() ? GetWidget()->GetCompositor() : nullptr;
+  if (notice.empty()) {
+    if (notice_->GetVisible()) {
+      notice_shown_->MoveTo(0, motion::Fade(), compositor);
+    }
+    return;
+  }
+  if (notice_->GetText() != notice) {
+    notice_->SetText(notice);
+    InvalidateLayout();
+  }
+  if (!notice_->GetVisible()) {
+    notice_->SetVisible(true);
+    InvalidateLayout();
+  }
+  notice_shown_->MoveTo(1, motion::Fade(), compositor);
+}
+
+void SidebarView::NoticeStep(double share) {
+  notice_->layer()->SetOpacity(share);
+  notice_->layer()->SetTransform(
+      gfx::Transform::MakeTranslation(0, (1 - share) * kNoticeRise));
+  if (share <= 0 && notice_shown_->target() <= 0 && notice_->GetVisible()) {
+    notice_->SetVisible(false);
+    InvalidateLayout();
+  }
+}
+
+int SidebarView::NoticeHeight() const {
+  if (!notice_->GetVisible()) {
+    return 0;
+  }
+  const int width =
+      std::max(this->width() - 2 * kFooterInset - 2 * kNoticeInset, 1);
+  return notice_->GetHeightForWidth(width) + kNoticeBottom + kFooterSpacing;
+}
+
 int SidebarView::FooterHeight() const {
-  return kFooterHeight +
+  return kFooterHeight + NoticeHeight() +
          (pill_->GetVisible() ? UpdatePill::kHeight + kFooterSpacing : 0);
 }
 
@@ -466,6 +523,9 @@ SidebarView::NamedViews() const {
       {"pane.sidebar.new", new_},
       {"pane.sidebar.settings", settings_},
   };
+  if (notice_->GetVisible()) {
+    named.emplace_back("pane.sidebar.updateNotice", notice_);
+  }
   if (pill_->GetVisible()) {
     named.emplace_back("pane.sidebar.updatePill", pill_);
     named.emplace_back("pane.sidebar.update", pill_->button());
@@ -573,6 +633,12 @@ void SidebarView::Layout(PassKey) {
                      width(), footer_height);
   const int row_width = std::max(width() - 2 * kFooterInset, 0);
   int top = 0;
+  if (notice_->GetVisible()) {
+    const int notice_width = std::max(row_width - 2 * kNoticeInset, 1);
+    notice_->SetBounds(kFooterInset + kNoticeInset, top, notice_width,
+                       notice_->GetHeightForWidth(notice_width));
+    top = notice_->bounds().bottom() + kNoticeBottom + kFooterSpacing;
+  }
   if (pill_->GetVisible()) {
     pill_->SetBounds(kFooterInset, top, row_width, UpdatePill::kHeight);
     top = pill_->bounds().bottom() + kFooterSpacing;

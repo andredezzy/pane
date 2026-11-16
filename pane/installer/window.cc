@@ -18,6 +18,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -39,6 +40,33 @@
 namespace pane::installer {
 
 namespace {
+
+// A path drawn on one line, %LOCALAPPDATA%\Programs\Pane whole: line
+// breaking allows a break inside one, before a backslash or a percent sign
+// (UAX #14's prefix and postfix classes), so each word that holds a backslash
+// takes a word joiner between its characters. Drawn alone: UI Automation reads
+// the words as they are.
+std::wstring KeepPathsWhole(std::wstring_view text) {
+  std::wstring kept;
+  size_t start = 0;
+  while (start <= text.size()) {
+    const size_t space = std::min(text.find(L' ', start), text.size());
+    const std::wstring_view word = text.substr(start, space - start);
+    const bool path = word.find(L'\\') != std::wstring_view::npos;
+    for (size_t i = 0; i < word.size(); ++i) {
+      // Never inside a surrogate pair.
+      if (path && i > 0 && !(word[i] >= 0xDC00 && word[i] <= 0xDFFF)) {
+        kept += L'\u2060';
+      }
+      kept += word[i];
+    }
+    if (space < text.size()) {
+      kept += L' ';
+    }
+    start = space + 1;
+  }
+  return kept;
+}
 
 template <typename T>
 using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -97,8 +125,6 @@ constexpr base::TimeDelta kHover = base::Milliseconds(150);
 constexpr UINT kFrameMilliseconds = 10;
 
 constexpr wchar_t kWindowClass[] = L"PaneInstallerWindow";
-// What Taskbar and Alt+Tab name it: BRANDING's PRODUCT_INSTALLER_FULLNAME.
-constexpr wchar_t kWindowTitle[] = L"Pane Installer";
 constexpr UINT kTaskMessage = WM_APP + 1;
 constexpr UINT_PTR kFrameTimer = 1;
 constexpr int kProgressId = 900;
@@ -277,7 +303,7 @@ class Fonts {
                                    const std::u16string& text,
                                    float width) const {
     const StyleSpec& spec = SpecOf(style);
-    const std::wstring wide = base::UTF16ToWide(text);
+    const std::wstring wide = KeepPathsWhole(base::UTF16ToWide(text));
     ComPtr<IDWriteTextLayout> layout;
     Graphics::Get().dwrite->CreateTextLayout(
         wide.c_str(), static_cast<UINT32>(wide.size()),
@@ -688,7 +714,8 @@ struct Control {
 
 class InstallWindow::Impl {
  public:
-  explicit Impl(Delegate* delegate) : delegate_(delegate) {}
+  Impl(Delegate* delegate, std::wstring title)
+      : delegate_(delegate), title_(std::move(title)) {}
 
   ~Impl() {
     if (hwnd_) {
@@ -778,7 +805,7 @@ class InstallWindow::Impl {
     appearance_ = CurrentAppearance();
     palette_ = std::make_unique<Palette>(appearance_);
     // Made hidden, sized for the first screen, then shown at once.
-    hwnd_ = ::CreateWindowExW(0, kWindowClass, kWindowTitle,
+    hwnd_ = ::CreateWindowExW(0, kWindowClass, title_.c_str(),
                               WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU |
                                   WS_MINIMIZEBOX | WS_CLIPCHILDREN,
                               CW_USEDEFAULT, CW_USEDEFAULT, 100, 100, nullptr,
@@ -1736,6 +1763,8 @@ class InstallWindow::Impl {
   }
 
   const raw_ptr<Delegate> delegate_;
+  // What Taskbar and Alt+Tab name it.
+  const std::wstring title_;
   HWND hwnd_ = nullptr;
   Screen screen_;
   Placed placed_;
@@ -1761,8 +1790,8 @@ class InstallWindow::Impl {
   ComPtr<UiaElement> box_element_;
 };
 
-InstallWindow::InstallWindow(Delegate* delegate)
-    : impl_(std::make_unique<Impl>(delegate)) {}
+InstallWindow::InstallWindow(Delegate* delegate, std::wstring title)
+    : impl_(std::make_unique<Impl>(delegate, std::move(title))) {}
 
 InstallWindow::~InstallWindow() = default;
 

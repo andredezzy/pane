@@ -78,6 +78,9 @@ struct SidebarUpdate {
   double progress = 0;
   // Downloaded: the text waits for the bar to go.
   bool downloaded = false;
+  // A quiet line above the pill, where the last exit's swap failed (Paper
+  // 11.12.14, the user's call E); empty for none.
+  std::u16string notice;
 };
 
 struct SidebarContent {

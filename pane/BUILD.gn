@@ -422,6 +422,7 @@ source_set("pane") {
       "//chrome/install_static:install_static_util",
       "//components/keep_alive_registry",
       "//pane/app:windows_integration",
+      "//pane/installer:lib",
       "//pane/installer:switches",
       "//ui/aura",
     ]

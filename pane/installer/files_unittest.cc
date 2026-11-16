@@ -72,4 +72,33 @@ TEST(FilesTest, FolderSizeCountsEveryFile) {
   EXPECT_EQ(FolderSize(temp.GetPath()), 8u);
 }
 
+// A launch removes only what CopyHelperOut made: the prefix and 8 hex
+// digits, the helper alone inside; never a folder of another's that shares
+// the prefix's start (a scenario's pane-update-install-…).
+TEST(FilesTest, KnowsTheHelpersCopies) {
+  base::ScopedTempDir temp;
+  ASSERT_TRUE(temp.CreateUniqueTempDir());
+  const auto folder = [&](const wchar_t* name, const wchar_t* file) {
+    const base::FilePath path = temp.GetPath().Append(name);
+    EXPECT_TRUE(base::CreateDirectory(path));
+    if (file) {
+      EXPECT_TRUE(base::WriteFile(path.Append(file), "x"));
+    }
+    return path;
+  };
+  constexpr wchar_t kPrefix[] = L"pane-update-helper-";
+  EXPECT_TRUE(IsHelperCopy(
+      folder(L"pane-update-helper-0a1B2c3D", L"pane_setup.exe"), kPrefix));
+  EXPECT_TRUE(
+      IsHelperCopy(folder(L"pane-update-helper-00000000", nullptr), kPrefix));
+  EXPECT_FALSE(IsHelperCopy(
+      folder(L"pane-update-install-AbC123", L"Pane-98.0.0-x64.exe"), kPrefix));
+  EXPECT_FALSE(IsHelperCopy(
+      folder(L"pane-update-helper-0a1b2c3", L"pane_setup.exe"), kPrefix));
+  EXPECT_FALSE(IsHelperCopy(
+      folder(L"pane-update-helper-0a1b2c3x", L"pane_setup.exe"), kPrefix));
+  EXPECT_FALSE(IsHelperCopy(
+      folder(L"pane-update-helper-12345678", L"notes.txt"), kPrefix));
+}
+
 }  // namespace pane::installer

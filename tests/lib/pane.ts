@@ -253,6 +253,9 @@ type UpdateState = {
 	checked: boolean;
 	// The downloaded update, staged beside the app to install at quit (ADR 0092).
 	installsItself: boolean;
+	// The last exit's swap failed and rolled back: the line above the pill and
+	// Settings' row say so (Paper 11.12.14, E; Windows').
+	installFailed: boolean;
 };
 
 // An item of a page's right-click menu; a submenu lists its own. The Views
@@ -708,11 +711,6 @@ export function tabOf(state: AppState, tabID: string): TabState | undefined {
 // The system's word for the app's going (Paper 11.7): Quit on the Mac, Exit
 // on Windows, as in "Quit and install" where Pane can't install itself.
 export const QUIT_WORD = bySystem({ mac: "Quit", windows: "Exit" });
-
-// Whether an update's downloaded file keeps the system's mark until it checks
-// out: the Mac's quarantine (ADR 0002); Windows' installer and its Mark of
-// the Web are W7's.
-export const UPDATE_FILE_MARKED = bySystem({ mac: true, windows: false });
 
 // The release's file each system updates from, by version
 // (pane/model/updates_{mac,win}.cc): the Mac's arm64 dmg, Windows' x64

@@ -16,7 +16,6 @@
 #include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
-#include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -25,6 +24,7 @@
 #include "base/win/scoped_com_initializer.h"
 #include "pane/app/data_launch.h"
 #include "pane/app/windows_integration.h"
+#include "pane/installer/files.h"
 #include "pane/installer/switches.h"
 
 namespace pane {
@@ -48,17 +48,14 @@ int StartUninstallDialog() {
     return Failed(ERROR_PATH_NOT_FOUND);
   }
   const base::FilePath app = exe.DirName();
-  const base::FilePath folder = temp.Append(base::StrCat(
-      {L"pane-uninstall-",
-       base::ASCIIToWide(base::HexEncode(base::RandBytesAsVector(4)))}));
-  const base::FilePath helper = folder.Append(installer::kHelperName);
-  if (!base::CreateDirectory(folder) ||
-      !base::CopyFile(app.Append(installer::kHelperName), helper)) {
+  const std::optional<base::FilePath> helper = installer::CopyHelperOut(
+      app.Append(installer::kHelperName), installer::kUninstallCopyPrefix);
+  if (!helper) {
     const DWORD error = ::GetLastError();
     LOG(ERROR) << "Could not copy the uninstall's helper: " << error;
     return Failed(error ? error : ERROR_FILE_NOT_FOUND);
   }
-  base::CommandLine command(helper);
+  base::CommandLine command(*helper);
   command.AppendSwitch(installer::kUninstallDialogSwitch);
   command.AppendSwitchPath(installer::kAppSwitch, app);
   command.AppendSwitchASCII(installer::kAfterSwitch,
@@ -116,11 +113,18 @@ std::optional<int> RunInstallSwitch(const base::CommandLine& command_line) {
   if (uninstalls) {
     return StartUninstallDialog();
   }
+  // Only the install's own chrome.exe registers Pane or takes it off, never
+  // one in another folder (out/Win, a user's copy), whose registrations
+  // would name it, or whose unregister would take the install's own away.
+  base::FilePath chrome_exe;
+  if (!base::PathService::Get(base::FILE_EXE, &chrome_exe) ||
+      !installer::IsInstalledAppFolder(chrome_exe.DirName())) {
+    LOG(ERROR) << "Not the install's chrome.exe: " << chrome_exe;
+    return Failed(ERROR_PATH_NOT_FOUND);
+  }
   // Shortcuts and pins go through the shell's COM objects.
   base::win::ScopedCOMInitializer com;
   windows::UsePanesWords();
-  base::FilePath chrome_exe;
-  base::PathService::Get(base::FILE_EXE, &chrome_exe);
   const base::FilePath data = DefaultDataDirectory();
   if (registers) {
     const DWORD error = windows::Register(

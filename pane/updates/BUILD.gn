@@ -1,8 +1,9 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# The platform's part of an update's file: opening the dmg, now or once Pane
-# has exited, and its quarantine (ADR 0002, ADR 0092). A target of its own so
-# its tests run in pane_unittests, apart from the engine.
+# The platform's part of an update's file: opening the Mac's dmg or Windows'
+# installer, now or once Pane has exited, and its quarantine or Mark of the
+# Web (ADR 0002, ADR 0092, ADR 0127). A target of its own so its tests run in
+# pane_unittests, apart from the engine.
 
 source_set("update_files") {
   visibility = [
@@ -11,18 +12,24 @@ source_set("update_files") {
   ]
 
   sources = [ "update_files.h" ]
+  deps = [ "//base" ]
 
   if (is_mac) {
     sources += [ "update_files_mac.cc" ]
     frameworks = [ "CoreServices.framework" ]
   }
 
-  # A stand-in until W7 (docs/plans/views-migration.md).
+  # The Mark of the Web a download takes, Chromium's own (patch 0008's
+  # address-free mark), and the installer's switch to wait for Pane.
   if (is_win) {
     sources += [ "update_files_win.cc" ]
+    deps += [
+      "//components/services/quarantine",
+      "//pane/installer:switches",
+      "//url",
+    ]
+    libs = [ "shell32.lib" ]
   }
-
-  deps = [ "//base" ]
 }
 
 source_set("unit_tests") {
@@ -31,6 +38,11 @@ source_set("unit_tests") {
 
   if (is_mac) {
     sources = [ "update_files_mac_unittest.cc" ]
+  }
+
+  # The Mark of the Web, kept by an unverified installer alone.
+  if (is_win) {
+    sources = [ "update_files_win_unittest.cc" ]
   }
 
   deps = [

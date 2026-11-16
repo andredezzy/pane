@@ -1,8 +1,9 @@
 import { join } from "node:path";
 import type { PaneApp } from "../lib/pane";
-import { setUpPin } from "../lib/pane";
+import { QUIT_WORD, setUpPin } from "../lib/pane";
+import { pollValue } from "../lib/poll";
 import { serveSlowRelease } from "../lib/slow-release";
-import { launchCopy, standInDmg } from "../lib/update-copies";
+import { launchCopy, standInRelease } from "../lib/update-copies";
 import { expect, type Scenario } from "../run";
 
 // The update's states as the pill, Settings' update row, and the Lock show
@@ -11,9 +12,11 @@ import { expect, type Scenario } from "../run";
 // (docs/plans/views-migration.md, K1): offered; a download refused, its digest
 // another, which offers it again; downloading; ready, staged beside the app
 // (Restart to update); and installed by hand, where Pane can't replace itself
-// (Quit and install). Whole windows in the run's appearance at the screen's
-// scale, Settings scrolled to its end, the Lock's action under the pointer.
-// Each copy runs in a folder of its own, since staging writes beside it.
+// (Quit and install; on Windows Exit and install, Paper 11.12.11 to 11.12.13).
+// Whole windows in the run's appearance at the screen's scale, Settings
+// scrolled to its end, the Lock's action under the pointer. Each copy runs in
+// a folder of its own, since staging writes beside it. On Windows it runs in
+// front (--foreground): behind, the Lock stays drawn after its unlock.
 
 // Where the Lock's update status is in the 1280 × 800 window, for a build
 // whose channel names no frames (the Swift's): the Views build's.
@@ -23,8 +26,16 @@ const PIN = "1234";
 
 const updateStates: Scenario = async (context) => {
 	const work = context.tempDir("pane-update-states-");
+
 	// 6 MB, served at 640 KB/s: ten seconds of download to render.
-	const dmg = await standInDmg(work, "99.0.0", "99.0.0", 6 * 1024 * 1024);
+	const dmg = await standInRelease(
+		context.binary,
+		work,
+		"99.0.0",
+		"99.0.0",
+		6 * 1024 * 1024,
+	);
+
 	let digest = dmg.sha256;
 	const server = await serveSlowRelease(dmg, () => digest);
 	const releases = server.releases;
@@ -126,7 +137,7 @@ const updateStates: Scenario = async (context) => {
 		await lockAndRender(app, "lock-ready", render, 600, hovered);
 		await app.browser.close();
 
-		// A Pane that can't replace itself: Quit and install.
+		// A Pane that can't replace itself: Quit and install, or Exit and install.
 		const byHand = await launchCopy(context, releases, undefined, {
 			PANE_UPDATE_INSTALL: "0",
 		});
@@ -147,7 +158,7 @@ const updateStates: Scenario = async (context) => {
 
 		expect(
 			!downloaded.update.installsItself &&
-				downloaded.update.label === "Quit and install",
+				downloaded.update.label === `${QUIT_WORD} and install`,
 			`by hand: ${JSON.stringify(downloaded.update)}`,
 		);
 
@@ -219,6 +230,23 @@ async function lockAndRender(
 	hovered[name] = at;
 	await app.send("pinKeys", { keys: PIN });
 	await app.waitFor("unlocked", (state) => !state.security.locked, 15_000);
+
+	// Gone from the window too, before a page is rendered: behind, on Windows,
+	// the Lock stays drawn after the unlock until Pane comes to the front, and
+	// the renders after it were the Lock's (W7c, in the test VM).
+	const lockShows = await pollValue(
+		async () =>
+			"pane.lockScreen.update" in
+			(await app.frames("pane.lockScreen").catch(() => ({}))),
+		(shows) => !shows,
+		5_000,
+		100,
+	);
+
+	expect(
+		!lockShows,
+		"the Lock still shows after the unlock: on Windows, run the rig in front (--foreground)",
+	);
 }
 
 export default updateStates;

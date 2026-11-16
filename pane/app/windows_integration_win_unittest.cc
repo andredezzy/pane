@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/base_paths.h"
+#include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -275,6 +276,31 @@ TEST_F(WindowsIntegrationTest, UnregistersErasingTheData) {
   EXPECT_FALSE(KeyExists(install_static::GetRegistryPath()));
   EXPECT_EQ(total, 4096u + 2u);
   EXPECT_EQ(last, total);
+}
+
+// A step that fails leaves Installed apps' entry, so the uninstall runs
+// again from there, the app folder untouched (pane/installer/removal.h); once
+// everything else has gone, the entry goes last.
+TEST_F(WindowsIntegrationTest, KeepsTheEntryWhileAStepFails) {
+  ASSERT_EQ(Register(chrome_exe_, data_, /*first_install=*/true),
+            static_cast<DWORD>(ERROR_SUCCESS));
+  ASSERT_TRUE(base::CreateDirectory(data_.Append(L"User Data")));
+  const base::FilePath kept = data_.Append(L"User Data\\Local State");
+  ASSERT_TRUE(base::WriteFile(kept, "{}"));
+  // Held by another program, which doesn't share its deletion.
+  base::File held(kept, base::File::FLAG_OPEN | base::File::FLAG_READ);
+  ASSERT_TRUE(held.IsValid());
+  EXPECT_NE(Unregister(chrome_exe_, data_, /*erase=*/true, EraseProgress()),
+            static_cast<DWORD>(ERROR_SUCCESS));
+  EXPECT_TRUE(KeyExists(install_static::GetUninstallRegistryPath()));
+  EXPECT_FALSE(base::PathExists(Shortcut(base::DIR_START_MENU)));
+  EXPECT_FALSE(KeyExists(L"Software\\Classes\\PaneHTM"));
+
+  held.Close();
+  EXPECT_EQ(Unregister(chrome_exe_, data_, /*erase=*/true, EraseProgress()),
+            static_cast<DWORD>(ERROR_SUCCESS));
+  EXPECT_FALSE(KeyExists(install_static::GetUninstallRegistryPath()));
+  EXPECT_FALSE(base::PathExists(data_));
 }
 
 // A Pane on the data: nothing changes.

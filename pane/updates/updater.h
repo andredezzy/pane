@@ -102,6 +102,10 @@ class Updater {
   std::optional<base::Time> last_checked_at() const { return last_checked_at_; }
   // The new version waits beside the app, to install at quit.
   bool staged() const { return !staged_.empty(); }
+  // The last exit's swap failed and rolled back, the staged version kept for
+  // the next: the line above the pill and Settings' row say so, for this
+  // launch, until the pill is clicked or dismissed (Paper 11.12.14, E).
+  bool install_failed() const { return install_failed_ && staged(); }
   // The status line the pill and the Lock show.
   std::u16string Label() const;
   // The pill shows while an update is on offer and not dismissed.
@@ -137,6 +141,8 @@ class Updater {
               bool completed,
               std::optional<model::AvailableUpdate> update);
   void Scheduled(bool completed);
+  // What the last exit left staged, offered again (Windows').
+  void KeptFromLastExit(std::optional<UpdateInstaller::Kept> kept);
   // What a completed check found: a download under way runs on, and so does
   // a quit for Restart to update; the version already downloaded stays
   // downloaded, unless a newer one replaces what was staged.
@@ -151,7 +157,9 @@ class Updater {
   void ProgressSettled();
   void Downloaded(model::AvailableUpdate update,
                   std::optional<base::FilePath> file);
-  void Verified(std::string version, std::optional<base::FilePath> file);
+  void Verified(std::string version,
+                bool verified,
+                std::optional<base::FilePath> file);
   // The checked dmg's Pane, copied beside this one or not.
   void Staged(base::FilePath file, std::optional<base::FilePath> staged);
   // The downloaded dmg is still where it was saved: open it and quit.
@@ -201,6 +209,8 @@ class Updater {
   base::FilePath staged_;
   // Restart to update: the quit opens the new Pane too.
   bool relaunches_ = false;
+  // The last exit's swap failed (install_failed()).
+  bool install_failed_ = false;
 
   base::ObserverList<Observer> observers_;
   base::WeakPtrFactory<Updater> weak_factory_{this};

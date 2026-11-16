@@ -116,10 +116,36 @@ async function tearDown(browsers: Browser[], tempDirs: string[]) {
 	for (const directory of tempDirs) {
 		await detachImagesIn(directory);
 		await killUsing(directory);
-		rmSync(directory, { recursive: true, force: true });
+		await removeDirectory(directory);
 	}
 
 	await forgetTestCopiesMacs();
+}
+
+// Removed, tried again for ten seconds where a file is still held: on Windows
+// one stays held a moment after the process that held it has ended, and an
+// antivirus reads what a copy of the app has just written (EPERM, EBUSY).
+async function removeDirectory(directory: string) {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			rmSync(directory, { recursive: true, force: true });
+
+			return;
+		} catch (error) {
+			const code = (error as NodeJS.ErrnoException).code;
+
+			if (attempt >= 50 || (code !== "EPERM" && code !== "EBUSY")) {
+				throw error;
+			}
+
+			// What started from it since the first stop, as a helper's copy may.
+			if (attempt === 10) {
+				await killUsing(directory);
+			}
+
+			await Bun.sleep(200);
+		}
+	}
 }
 
 // Caps Lock on draws macOS's indicator by every focused field, which the

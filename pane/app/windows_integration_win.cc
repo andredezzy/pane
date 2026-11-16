@@ -562,13 +562,10 @@ DWORD Unregister(const base::FilePath& chrome_exe,
   }
   ::SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 
-  // Installed apps' entry and the toast activator.
-  for (const std::wstring& key :
-       {install_static::GetUninstallRegistryPath(),
-        InstallUtil::GetToastActivatorRegistryPath()}) {
-    if (const DWORD error = DeleteTree(key)) {
-      failed = failed ? failed : error;
-    }
+  // The toast activator.
+  if (const DWORD error =
+          DeleteTree(InstallUtil::GetToastActivatorRegistryPath())) {
+    failed = failed ? failed : error;
   }
 
   // Chromium's own key: all of it with the data, or all but the data's
@@ -580,6 +577,13 @@ DWORD Unregister(const base::FilePath& chrome_exe,
     }
   } else if (!EmptyKeyBut(own, L"PreferenceMACs")) {
     failed = failed ? failed : static_cast<DWORD>(ERROR_REGISTRY_IO_FAILED);
+  }
+
+  // Installed apps' entry last, and only once everything else has gone: an
+  // uninstall that failed stays there, to be run again, its app folder
+  // untouched (pane/installer/removal.h).
+  if (!failed) {
+    failed = DeleteTree(install_static::GetUninstallRegistryPath());
   }
   return failed;
 }

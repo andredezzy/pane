@@ -77,7 +77,9 @@ inline constexpr DWORD kDataInUse = ERROR_LOCK_VIOLATION;
 // panic wipe's way (ADR 0042, 0113): the TPM's keys and the data key go
 // first, so nothing left on disk reads, then every file of %LOCALAPPDATA%\Pane
 // is overwritten and deleted, the preference MACs with them. kDataInUse
-// where a Pane holds the data, before anything is changed.
+// where a Pane holds the data, before anything is changed. The uninstall
+// entry goes last, and only where everything else went: a step that failed
+// leaves it, so Installed apps can run the uninstall again.
 DWORD Unregister(const base::FilePath& chrome_exe,
                  const base::FilePath& data_folder,
                  bool erase,

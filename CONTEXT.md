@@ -5,7 +5,7 @@ Multi-profile desktop browser with per-profile proxies, fingerprint spoofing, an
 ## Language
 
 **Update check**:
-Comparing the running app's version against the repo's latest GitHub Release. Yields at most one available update — the newest release — never a list of missed versions. Downloading it is a user action; installing happens at quit, Pane swapping the new version in for itself (Restart to update quits on purpose), and falls back to the user dragging it from the dmg where Pane cannot.
+Comparing the running app's version against the repo's latest GitHub Release. Yields at most one available update — the newest release — never a list of missed versions. Downloading it is a user action; installing happens at quit, Pane swapping the new version in for itself (Restart to update quits on purpose), and falls back to the user dragging it from the dmg where Pane cannot, or on Windows to its installer, which opens once Pane has exited (Exit and install).
 _Avoid_: auto-update (implies an install while Pane runs; Pane installs only when the user quits or restarts)
 
 **Theme**:

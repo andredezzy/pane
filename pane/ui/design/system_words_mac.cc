@@ -10,6 +10,9 @@ const SystemWords& Words() {
       .quit_question = u"Quit Pane?",
       .quit_key = u"⌘Q",
       .return_key = u"↩︎",
+      .installs_by_hand = u"It installs by hand.",
+      // Never shown: the Mac's swap runs before Pane quits.
+      .update_not_installed = u"",
   };
   return kWords;
 }

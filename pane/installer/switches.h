@@ -33,6 +33,9 @@ inline constexpr char kUninstallSwitch[] = "pane-uninstall";
 // once the process kAfterSwitch names has exited.
 inline constexpr char kUninstallDialogSwitch[] = "pane-uninstall-dialog";
 inline constexpr char kAppSwitch[] = "pane-app";
+// The installer takes it too, opened by Exit and install (Paper 11.12.11):
+// it shows nothing until the Pane that opened it has gone, its browser and
+// what ran from its folder, then installs as it always does.
 inline constexpr char kAfterSwitch[] = "pane-after";
 
 // chrome.exe, the first launch after an install: the named event it sets
@@ -48,6 +51,25 @@ inline constexpr int kSwitchPaneOpen = 3;
 
 // The helper's name in the app folder.
 inline constexpr wchar_t kHelperName[] = L"pane_setup.exe";
+
+// The folders in the temporary folder the helper's copies run from
+// (CopyHelperOut), each the prefix and 8 hex digits: the uninstall's, and an
+// update's.
+inline constexpr wchar_t kUninstallCopyPrefix[] = L"pane-uninstall-";
+inline constexpr wchar_t kUpdateCopyPrefix[] = L"pane-update-helper-";
+
+// The helper, copied out of a staged update's folder by the exiting Pane
+// (pane/installer/swap.h; ADR 0127): swaps the version kStagedSwitch names in
+// for the app folder kAppSwitch names, once the process kAfterSwitch names
+// has exited, then removes the installer kDownloadSwitch names. With
+// kRelaunchSwitch it opens the new Pane, in front with kFrontSwitch, with the
+// arguments after the switches' end ("--"). These are the contract between
+// one version's Pane and the next version's helper: kept as they are.
+inline constexpr char kSwapSwitch[] = "pane-swap";
+inline constexpr char kStagedSwitch[] = "pane-staged";
+inline constexpr char kDownloadSwitch[] = "pane-download";
+inline constexpr char kRelaunchSwitch[] = "pane-relaunch";
+inline constexpr char kFrontSwitch[] = "pane-front";
 
 }  // namespace pane::installer
 

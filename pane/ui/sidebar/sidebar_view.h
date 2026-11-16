@@ -123,6 +123,13 @@ class SidebarView : public views::View {
   // the footer makes room for it as it comes and gives it back once it has
   // gone.
   void SetUpdate(const std::optional<SidebarUpdate>& update);
+  // E's line above the pill (Paper 11.12.14): it comes and goes as the pill
+  // does, and the footer gives its room back once it has gone.
+  void SetNotice(const std::u16string& notice);
+  void NoticeStep(double share);
+  // The line's height at the footer's width, with the room under it; 0 while
+  // it doesn't show.
+  int NoticeHeight() const;
   int FooterHeight() const;
   std::unique_ptr<views::View> MakeRow(const std::string& key,
                                        const SidebarProfile& profile,
@@ -154,6 +161,8 @@ class SidebarView : public views::View {
   raw_ptr<RowList> rows_ = nullptr;
   std::unique_ptr<VerticalReorder> reorder_;
   raw_ptr<views::View> footer_ = nullptr;
+  raw_ptr<views::Label> notice_ = nullptr;
+  std::unique_ptr<ValueMotion> notice_shown_;
   raw_ptr<UpdatePill> pill_ = nullptr;
   raw_ptr<SidebarButton> new_ = nullptr;
   raw_ptr<views::View> rule_ = nullptr;

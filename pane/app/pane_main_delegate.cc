@@ -8,6 +8,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/logging/logging_settings.h"
+#include "base/process/process.h"
 #include "chrome/common/profiler/main_thread_stack_sampling_profiler.h"
 #include "content/public/common/content_switches.h"
 #include "pane/app/data_launch.h"
@@ -42,6 +43,13 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
     // Pane's install, its registration, and its uninstall, which open no
     // data and start no engine (ADR 0127).
     if (std::optional<int> exit_code = RunInstallSwitch(command_line)) {
+      // ContentMain ends the process for a code of 0 or more alone
+      // (content_main.cc): a failure's, an HRESULT the installer shows, is
+      // negative, and went on to start the engine, which ended on a check
+      // and hid the code (W7c). The process ends here with it.
+      if (*exit_code < 0) {
+        base::Process::TerminateCurrentProcessImmediately(*exit_code);
+      }
       return exit_code;
     }
     if (std::optional<int> exit_code = StartViewsLaunch(command_line)) {

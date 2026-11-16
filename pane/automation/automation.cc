@@ -684,6 +684,10 @@ void Automation::Dispatch(const std::string& name,
       std::move(reply).Run(base::Value(), std::string());
       return;
     }
+    // Where the control is once laid out, as the user sees it: a pill the
+    // update just brought has its place only after the next layout, and its
+    // middle measured before was another view's (Windows' runs found it).
+    widget->LayoutRootViewIfNecessary();
     RootView* root = window->root();
     const bool locked = root->lock_screen()->showing();
     std::vector<int> ids;

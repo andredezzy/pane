@@ -190,6 +190,9 @@ base::DictValue UpdateState(const Updater& updater) {
       .Set("label", base::UTF16ToUTF8(updater.Label()))
       // Staged beside the app, to install at quit (ADR 0092).
       .Set("installsItself", updater.staged())
+      // The last exit's swap failed: the line above the pill says so (Paper
+      // 11.12.14, E).
+      .Set("installFailed", updater.install_failed())
       .Set("checked", updater.checked());
 }
 

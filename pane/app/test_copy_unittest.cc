@@ -20,9 +20,13 @@ base::FilePath DataUnder(const base::FilePath& home) {
 class LaunchKindTest : public testing::Test {
  protected:
   void SetUp() override {
-    ASSERT_TRUE(temporary_.CreateUniqueTempDir());
     base::FilePath folder;
     ASSERT_TRUE(base::GetTempDir(&folder));
+    // Under the temporary folder a launch reads: run as an administrator, as
+    // the test VM's SSH runs it, Windows' ScopedTempDir makes its folder in
+    // %SystemRoot%\SystemTemp instead (CreateNewTempDirectory's secure
+    // folder), which no test copy is in.
+    ASSERT_TRUE(temporary_.CreateUniqueTempDirUnderPath(folder));
     temporary_folder_ = base::MakeAbsoluteFilePath(folder);
     ASSERT_FALSE(temporary_folder_.empty());
     // Beside the temporary folder, as the system's cache folder is, and

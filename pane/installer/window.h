@@ -36,7 +36,8 @@ class InstallWindow {
     virtual double BarAt(std::u16string& right) = 0;
   };
 
-  explicit InstallWindow(Delegate* delegate);
+  // `title` is what Taskbar and Alt+Tab name it.
+  InstallWindow(Delegate* delegate, std::wstring title);
   InstallWindow(const InstallWindow&) = delete;
   InstallWindow& operator=(const InstallWindow&) = delete;
   ~InstallWindow();

@@ -42,13 +42,15 @@ struct UnpackResult {
 // installer::UnPackArchiveBuffer runs (seven_zip::SevenZipReader over the
 // archive mapped in memory, installer::UnbufferedFileWriter for each file),
 // with a delegate of Pane's in place of lzma_util.cc's, the same steps for
-// each file, which counts what it reads and writes and stops at the next file
-// once `cancel` is set: UnPackArchive tells nothing as it goes and can't be
-// stopped. Blocks.
+// each file, which counts what it reads and writes into `progress`, where
+// one is given, and stops at the next file once `cancel` is set:
+// UnPackArchive tells nothing as it goes and can't be stopped. An update
+// staged while Pane runs counts nothing (Paper 11.12.11: the pill holds its
+// full bar). Blocks.
 UnpackResult Unpack(const base::FilePath& installer,
                     const Payload& payload,
                     const base::FilePath& folder,
-                    UnpackProgress& progress,
+                    UnpackProgress* progress,
                     const std::atomic<bool>& cancel);
 
 // Whether the payload's bytes in `installer` hash to its SHA-256, read

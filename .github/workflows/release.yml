@@ -6,9 +6,12 @@ name: Release
 # packaged from the engine archive its engine sources name
 # (chromium/prebuilt-engines.tsv), which a developer's Mac built and
 # scripts/publish-engine.sh uploaded as the engine-<key> prerelease
-# (chromium/UPGRADING.md): CI builds no Chromium (ADR 0049). The engine's
-# unit tests (pane_unittests) and the scenarios run on that Mac before each
-# push and tag (AGENTS.md).
+# (chromium/UPGRADING.md): CI builds no Chromium (ADR 0049). Where the file
+# names a Windows engine for the same key too, the release carries Windows'
+# installer, Pane-<version>-x64.exe, beside the dmg, packaged from it the same
+# way (ADR 0127); until one is published, the dmg alone, as every release so
+# far. The engine's unit tests (pane_unittests) and the scenarios run on that
+# Mac before each push and tag (AGENTS.md).
 
 on:
   push:
@@ -20,8 +23,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-# id-token and attestations: the dmg's build provenance (SLSA), which
-# `gh attestation verify <dmg> --repo andredezzy/pane` checks.
+# id-token and attestations: the dmg's build provenance (SLSA), and Windows'
+# installer's where there is one, which `gh attestation verify <file> --repo
+# andredezzy/pane` checks.
 permissions:
   contents: write
   id-token: write
@@ -96,6 +100,77 @@ jobs:
         with:
           subject-path: packaging/release/Pane-*-arm64.dmg
 
+      # Windows' installer, only where prebuilt-engines.tsv names a
+      # windows-x64 engine for this commit's engine key, which is published
+      # only with the user's OK (ADR 0127): without one, the steps below up to
+      # the publish are skipped, and the release is the dmg alone, as before.
+      - name: Is there a Windows engine?
+        id: windows
+        run: |
+          key="$(scripts/engine-key.sh)"
+          if awk -v key="$key" '$1 == key && $2 == "windows-x64" { found = 1 } END { exit !found }' chromium/prebuilt-engines.tsv; then
+            echo "engine=true" >> "$GITHUB_OUTPUT"
+            echo "A Windows engine for ${key:0:12}: the release carries Windows' installer too."
+          else
+            echo "engine=false" >> "$GITHUB_OUTPUT"
+            echo "No Windows engine for ${key:0:12}: the release carries the dmg alone."
+          fi
+
+      # package-win.sh's 7-Zip, the one Chromium's checkout pins (its DEPS:
+      # infra/3pp/tools/7z, version:3@26.03), from Chromium's package store,
+      # checked against its SHA-256 before it runs.
+      - name: Fetch 7-Zip
+        if: steps.windows.outputs.engine == 'true'
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/7z.zip" "https://chrome-infra-packages.appspot.com/dl/infra/3pp/tools/7z/mac-arm64/+/version:3@26.03"
+          echo "4c8218f788ce9b75675a8e375d4c400ebdc09dda9c1bb78e3c412a498668acd8  $RUNNER_TEMP/7z.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/7z.zip" -d "$RUNNER_TEMP/7z"
+          echo "PANE_7ZA=$RUNNER_TEMP/7z/7za" >> "$GITHUB_ENV"
+
+      # The Windows engine archive, into a variable first, as the Mac's.
+      - name: Fetch the Windows engine archive
+        if: steps.windows.outputs.engine == 'true'
+        run: |
+          engine="$(scripts/fetch-engine.sh windows-x64)"
+          echo "PANE_WIN_ENGINE_OUT=$engine" >> "$GITHUB_ENV"
+
+      # Unsigned for now: the first Windows alpha goes out unsigned, and a
+      # certificate is chosen before a stable Windows release (ADR 0127, U6).
+      - name: Build Windows' installer
+        if: steps.windows.outputs.engine == 'true'
+        run: scripts/package-win.sh
+
+      - name: Keep Windows' installer
+        if: steps.windows.outputs.engine == 'true' && github.ref_type != 'tag'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-installer
+          path: packaging/release/Pane-*-x64.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Attest Windows' installer's provenance
+        if: steps.windows.outputs.engine == 'true' && github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: packaging/release/Pane-*-x64.exe
+
+      # What the release carries: the dmg, and Windows' installer where there
+      # is one, each of which fail_on_unmatched_files then requires.
+      - name: The release's files
+        id: files
+        env:
+          WINDOWS_ENGINE: ${{ steps.windows.outputs.engine }}
+        run: |
+          {
+            echo "list<<EOF"
+            echo "packaging/release/Pane-*-arm64.dmg"
+            if [ "$WINDOWS_ENGINE" = true ]; then
+              echo "packaging/release/Pane-*-x64.exe"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       # The notes open with the Chromium the release is built on.
       - name: Chromium version
         id: chromium
@@ -110,8 +185,7 @@ jobs:
           draft: false
           body: "Built on Chromium ${{ steps.chromium.outputs.version }}."
           generate_release_notes: true
-          files: |
-            packaging/release/Pane-*-arm64.dmg
+          files: ${{ steps.files.outputs.list }}
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -16,6 +16,7 @@
 #include "base/threading/thread.h"
 #include "base/version.h"
 #include "pane/installer/payload.h"
+#include "pane/installer/removal.h"
 #include "pane/installer/screen.h"
 #include "pane/installer/unpack.h"
 #include "pane/installer/window.h"
@@ -126,8 +127,15 @@ class UninstallFlow : public InstallWindow::Delegate {
 
   void ShowStep(Step step);
   void Start();
+  // removal.h's RemovePane on the worker: refused, as everything that
+  // deletes or unregisters refuses, unless the folder is the install's own.
   void Remove();
-  void Removed(DWORD error);
+  void Removed(RemovalResult result);
+  // chrome.exe's unregister, the erase's progress read as it goes.
+  std::optional<int> Unregister(const base::FilePath& app);
+  // The failure for a folder that isn't the install's own: Close alone.
+  void NotInstalledHere();
+  void Fail(std::u16string message, bool retry);
   void WatchUntilGone();
   // Starts what deletes this copy once it has exited.
   void DeleteOwnCopy();
@@ -144,6 +152,10 @@ class UninstallFlow : public InstallWindow::Delegate {
   std::atomic<uint64_t> removed_{0};
   std::atomic<uint64_t> app_size_{0};
   bool has_data_ = false;
+  // The registrations are gone: a Try again removes what files are left.
+  bool unregistered_ = false;
+  // Whether the failure shown has a Try again, which its words then say.
+  bool retry_ = false;
   std::u16string failure_message_;
   int exit_code_ = 1;
 };

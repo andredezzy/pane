@@ -286,17 +286,29 @@ export const sampleProcess = bySystem({
 });
 
 // A process holding `file` open, as another app would, until it is killed: a
-// file of the volume kept busy (ADR 0113).
+// file of the volume kept busy (ADR 0113); on Windows a file of the app folder
+// that a swap can't move (ADR 0127), open to read and shared for reading
+// alone, as many programs and an antivirus open one, so it can be neither
+// renamed nor deleted.
 export const holdOpen = bySystem({
 	mac: (file: string): Subprocess =>
 		Bun.spawn(["/usr/bin/tail", "-f", file], { stdout: "ignore" }),
-	windows: (_file: string): Subprocess => {
-		throw noWindowsSide(
-			"a file of the volume held open",
-			"U5",
-			"Windows has no volume",
-		);
-	},
+	windows: (file: string): Subprocess =>
+		Bun.spawn(
+			[
+				"powershell.exe",
+				"-NoProfile",
+				"-NonInteractive",
+				"-Command",
+				"$held = [IO.File]::Open($env:PANE_HELD, 'Open', 'Read', 'Read'); Start-Sleep -Seconds 600",
+			],
+			{
+				env: { ...process.env, PANE_HELD: file },
+				stdin: "ignore",
+				stdout: "ignore",
+				stderr: "ignore",
+			},
+		),
 });
 
 export type ProcessRow = {

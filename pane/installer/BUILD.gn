@@ -11,25 +11,38 @@ import("//chrome/process_version_rc_template.gni")
 
 assert(is_win, "Pane's installer is Windows' alone")
 
-# What the installer decides apart from its window, for its tests.
+# What the installer decides apart from its window, for its tests; and what
+# Pane's chrome.exe shares with it: the helper's copy for the uninstall, and
+# an update's staging into the folder beside the app (update_folder.h), whose
+# swap the helper makes (swap.h).
 source_set("lib") {
-  visibility = [ ":*" ]
+  visibility = [
+    ":*",
+    "//pane",
+  ]
 
   sources = [
     "files.cc",
     "files.h",
     "payload.cc",
     "payload.h",
+    "removal.cc",
+    "removal.h",
     "running_pane.cc",
     "running_pane.h",
+    "swap.cc",
+    "swap.h",
     "switches.h",
     "unpack.cc",
     "unpack.h",
+    "update_folder.cc",
+    "update_folder.h",
   ]
 
   deps = [
     "//base",
     "//chrome/installer/util:metainstaller_utils",
+    "//chrome/installer/util:work_item",
     "//third_party/lzma_sdk/google:seven_zip_reader",
   ]
 
@@ -44,6 +57,7 @@ source_set("switches") {
   visibility = [
     "//pane",
     "//pane/app:*",
+    "//pane/updates:*",
   ]
   sources = [ "switches.h" ]
 }
@@ -107,12 +121,16 @@ source_set("unit_tests") {
   sources = [
     "files_unittest.cc",
     "payload_unittest.cc",
+    "removal_unittest.cc",
+    "swap_unittest.cc",
+    "update_folder_unittest.cc",
   ]
 
   deps = [
     ":lib",
     "//base",
     "//base/test:test_support",
+    "//chrome/installer/util:work_item",
     "//testing/gtest",
   ]
 }

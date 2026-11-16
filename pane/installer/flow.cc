@@ -37,6 +37,7 @@
 #include "pane/installer/files.h"
 #include "pane/installer/running_pane.h"
 #include "pane/installer/switches.h"
+#include "pane/installer/update_folder.h"
 
 namespace pane::installer {
 
@@ -166,27 +167,6 @@ DWORD Rename(const base::FilePath& from, const base::FilePath& to) {
   return error;
 }
 
-// Programs\Pane and Programs, where nothing else is in them: what a first
-// install stopped or failed, or an uninstall, would otherwise leave
-// (RemoveDirectory takes an empty folder alone).
-void RemoveEmptyFolders() {
-  ::RemoveDirectoryW(InstallFolder().value().c_str());
-  ::RemoveDirectoryW(ProgramsFolder().value().c_str());
-}
-
-// A folder removed, files and all, retried while something lets go of one
-// (Windows Defender reads a new file, a helper exits).
-bool RemoveFolder(const base::FilePath& folder) {
-  for (int attempt = 0; attempt < 20; ++attempt) {
-    if (!base::PathExists(folder) || base::DeletePathRecursively(folder)) {
-      return true;
-    }
-    ::Sleep(100);
-  }
-  Note(base::StrCat({"could not remove ", folder.AsUTF8Unsafe()}));
-  return false;
-}
-
 }  // namespace
 
 void Note(const std::string& line) {
@@ -233,7 +213,9 @@ InstallFlow::InstallFlow(base::FilePath installer,
     : installer_(std::move(installer)),
       payload_(std::move(payload)),
       version_(payload_ ? base::Version(payload_->version) : base::Version()),
-      window_(this),
+      // What Taskbar and Alt+Tab name it: BRANDING's
+      // PRODUCT_INSTALLER_FULLNAME.
+      window_(this, L"Pane Installer"),
       worker_("PaneInstall") {
   worker_.StartWithOptions(base::Thread::Options());
 }
@@ -489,7 +471,7 @@ void InstallFlow::Copy() {
                      installer_, *payload_, &intact, &hashed));
   const base::TimeTicks start = base::TimeTicks::Now();
   UnpackResult result =
-      Unpack(installer_, *payload_, staging, progress_, cancel_);
+      Unpack(installer_, *payload_, staging, &progress_, cancel_);
   Note(base::StringPrintf("unpacked in %lld ms: outcome %d, error %lu",
                           (base::TimeTicks::Now() - start).InMilliseconds(),
                           static_cast<int>(result.outcome), result.error));
@@ -709,7 +691,8 @@ void InstallFlow::Opened(bool painted, DWORD error) {
 UninstallFlow::UninstallFlow(base::FilePath app_folder, base::ProcessId after)
     : app_folder_(std::move(app_folder)),
       after_(after),
-      window_(this),
+      // The name 11.12.9 draws in the taskbar.
+      window_(this, L"Uninstall Pane"),
       worker_("PaneUninstall") {
   worker_.StartWithOptions(base::Thread::Options());
 }
@@ -731,13 +714,9 @@ void UninstallFlow::Start() {
   }
   Note("uninstalling " + app_folder_.AsUTF8Unsafe());
   // Only Pane's own folder: never one a command line names elsewhere.
-  if (!IsInFolder(app_folder_, AppFolder()) ||
-      !IsInFolder(AppFolder(), app_folder_) ||
+  if (!IsInstalledAppFolder(app_folder_) ||
       !base::PathExists(ChromeIn(app_folder_))) {
-    failure_message_ =
-        base::StrCat({u"Pane isn’t installed where Windows says (",
-                      CodeText(ERROR_PATH_NOT_FOUND), u")."});
-    ShowStep(Step::kFailed);
+    NotInstalledHere();
     return;
   }
   has_data_ = base::DirectoryExists(DataFolder());
@@ -818,7 +797,8 @@ void UninstallFlow::ShowStep(Step step) {
     case Step::kFailed:
       screen.title = u"Pane couldn’t be uninstalled";
       screen.message = failure_message_;
-      if (base::PathExists(ChromeIn(app_folder_))) {
+      // Try again where its words offer it, and only there.
+      if (retry_) {
         TwoButtons(screen, kClose, u"Close", kTryAgain, u"Try again");
       } else {
         screen.buttons = {Primary(kClose, u"Close")};
@@ -828,6 +808,19 @@ void UninstallFlow::ShowStep(Step step) {
       break;
   }
   window_.Show(screen);
+}
+
+void UninstallFlow::NotInstalledHere() {
+  failure_message_ = base::StrCat({u"Pane isn’t installed where Windows says (",
+                                   CodeText(ERROR_PATH_NOT_FOUND), u")."});
+  retry_ = false;
+  ShowStep(Step::kFailed);
+}
+
+void UninstallFlow::Fail(std::u16string message, bool retry) {
+  failure_message_ = std::move(message);
+  retry_ = retry;
+  ShowStep(Step::kFailed);
 }
 
 void UninstallFlow::OnBoxToggled(bool ticked) {
@@ -849,6 +842,14 @@ void UninstallFlow::OnButton(int id) {
     case kUninstall:
     case kUninstallAndDelete:
     case kTryAgain:
+      if (id == kTryAgain ? step_ != Step::kFailed || !retry_
+                          : step_ != Step::kAsking) {
+        return;
+      }
+      if (!IsInstalledAppFolder(app_folder_)) {
+        NotInstalledHere();
+        return;
+      }
       if (!ProcessesFrom(app_folder_).empty()) {
         ShowStep(Step::kOpen);
         WatchUntilGone();
@@ -857,6 +858,9 @@ void UninstallFlow::OnButton(int id) {
       Remove();
       return;
     case kExitPane:
+      if (step_ != Step::kOpen || !IsInstalledAppFolder(app_folder_)) {
+        return;
+      }
       worker_.task_runner()->PostTask(
           FROM_HERE, base::BindOnce(
                          [](const base::FilePath& app) {
@@ -922,6 +926,12 @@ void UninstallFlow::WatchUntilGone() {
 }
 
 void UninstallFlow::Remove() {
+  // Checked again here, as RemovePane checks again before each step: never
+  // trusting that Start or a button did.
+  if (!IsInstalledAppFolder(app_folder_)) {
+    NotInstalledHere();
+    return;
+  }
   erased_ = 0;
   removed_ = 0;
   ShowStep(Step::kRemoving);
@@ -931,167 +941,134 @@ void UninstallFlow::Remove() {
           [](UninstallFlow* flow) {
             const base::FilePath app = flow->app_folder_;
             flow->app_size_ = FolderSize(app);
-            // chrome.exe's erase says how far it has gone, a line at a
-            // time: "<erased> <total>".
-            HANDLE read = nullptr;
-            HANDLE write = nullptr;
-            SECURITY_ATTRIBUTES inherit = {.nLength = sizeof(inherit),
-                                           .bInheritHandle = TRUE};
-            ::CreatePipe(&read, &write, &inherit, 0);
-            base::win::ScopedHandle read_end(read);
-            base::win::ScopedHandle write_end(write);
-            ::SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
-            base::LaunchOptions options;
-            options.handles_to_inherit.push_back(write);
-            base::Thread reader("PaneProgress");
-            reader.Start();
-            reader.task_runner()->PostTask(
-                FROM_HERE,
-                base::BindOnce(
-                    [](HANDLE pipe, UninstallFlow* flow) {
-                      std::string pending;
-                      std::array<char, 256> buffer;
-                      DWORD count = 0;
-                      while (::ReadFile(pipe, buffer.data(), buffer.size(),
-                                        &count, nullptr) &&
-                             count) {
-                        pending.append(buffer.data(), count);
-                        size_t end;
-                        while ((end = pending.find('\n')) !=
-                               std::string::npos) {
-                          const std::vector<std::string> parts =
-                              base::SplitString(pending.substr(0, end), " ",
-                                                base::TRIM_WHITESPACE,
-                                                base::SPLIT_WANT_NONEMPTY);
-                          uint64_t erased = 0;
-                          uint64_t total = 0;
-                          if (parts.size() == 2 &&
-                              base::StringToUint64(parts[0], &erased) &&
-                              base::StringToUint64(parts[1], &total)) {
-                            flow->erased_ = erased;
-                            if (total) {
-                              flow->data_size_ = total;
-                            }
-                          }
-                          pending.erase(0, end + 1);
-                        }
-                      }
-                    },
-                    read_end.get(), base::Unretained(flow)));
-            const std::optional<int> code = RunChrome(
-                app,
-                {base::StrCat(
-                     {kUnregisterSwitch, "=",
-                      flow->erase_ ? kUnregisterErase : kUnregisterKeep}),
-                 base::StrCat({kProgressSwitch, "=",
-                               base::NumberToString(
-                                   reinterpret_cast<uintptr_t>(write))})},
-                base::TimeDelta::Max(), options);
-            write_end.Close();
-            reader.Stop();
-            if (code == kSwitchPaneOpen) {
-              flow->window_.Post(base::BindOnce(
-                  [](UninstallFlow* flow) {
-                    flow->ShowStep(Step::kOpen);
-                    flow->WatchUntilGone();
-                  },
-                  flow));
-              return;
-            }
-            if (code != kSwitchDone) {
-              flow->window_.Post(base::BindOnce(
-                  &UninstallFlow::Removed, base::Unretained(flow),
-                  code ? static_cast<DWORD>(*code)
-                       : static_cast<DWORD>(ERROR_GEN_FAILURE)));
-              return;
-            }
-            // Now the app: its files, counted as they go, then the folders
-            // Pane made, where nothing else is in them.
-            base::FileEnumerator files(app, /*recursive=*/true,
-                                       base::FileEnumerator::FILES);
-            for (base::FilePath file = files.Next(); !file.empty();
-                 file = files.Next()) {
-              const uint64_t size = files.GetInfo().GetSize();
-              if (base::DeleteFile(file)) {
-                flow->removed_ += size;
-              }
-            }
-            if (!RemoveFolder(app)) {
-              flow->window_.Post(base::BindOnce(
-                  &UninstallFlow::Removed, base::Unretained(flow),
-                  static_cast<DWORD>(ERROR_SHARING_VIOLATION)));
-              return;
-            }
-            RemoveEmptyFolders();
-            flow->window_.Post(
-                base::BindOnce(&UninstallFlow::Removed, base::Unretained(flow),
-                               static_cast<DWORD>(ERROR_SUCCESS)));
+            const RemovalResult result =
+                RemovePane(app, flow->unregistered_,
+                           base::BindOnce(&UninstallFlow::Unregister,
+                                          base::Unretained(flow)),
+                           base::BindRepeating(
+                               [](UninstallFlow* flow, uint64_t size) {
+                                 flow->removed_ += size;
+                               },
+                               base::Unretained(flow)));
+            flow->window_.Post(base::BindOnce(&UninstallFlow::Removed,
+                                              base::Unretained(flow), result));
           },
           base::Unretained(this)));
 }
 
-void UninstallFlow::Removed(DWORD error) {
-  if (error) {
-    failure_message_ =
-        base::StrCat({u"Something went wrong while removing it (",
-                      CodeText(error), u"). Try again."});
-    base::FilePath temp;
-    if (base::GetTempDir(&temp)) {
-      WriteNotes(temp.Append(L"Pane uninstall.log"));
-    }
+std::optional<int> UninstallFlow::Unregister(const base::FilePath& app) {
+  // chrome.exe's erase says how far it has gone, a line at a time:
+  // "<erased> <total>".
+  HANDLE read = nullptr;
+  HANDLE write = nullptr;
+  SECURITY_ATTRIBUTES inherit = {.nLength = sizeof(inherit),
+                                 .bInheritHandle = TRUE};
+  ::CreatePipe(&read, &write, &inherit, 0);
+  base::win::ScopedHandle read_end(read);
+  base::win::ScopedHandle write_end(write);
+  ::SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
+  base::LaunchOptions options;
+  options.handles_to_inherit.push_back(write);
+  base::Thread reader("PaneProgress");
+  reader.Start();
+  reader.task_runner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](HANDLE pipe, UninstallFlow* flow) {
+            std::string pending;
+            std::array<char, 256> buffer;
+            DWORD count = 0;
+            while (::ReadFile(pipe, buffer.data(), buffer.size(), &count,
+                              nullptr) &&
+                   count) {
+              pending.append(buffer.data(), count);
+              size_t end;
+              while ((end = pending.find('\n')) != std::string::npos) {
+                const std::vector<std::string> parts = base::SplitString(
+                    pending.substr(0, end), " ", base::TRIM_WHITESPACE,
+                    base::SPLIT_WANT_NONEMPTY);
+                uint64_t erased = 0;
+                uint64_t total = 0;
+                if (parts.size() == 2 &&
+                    base::StringToUint64(parts[0], &erased) &&
+                    base::StringToUint64(parts[1], &total)) {
+                  flow->erased_ = erased;
+                  if (total) {
+                    flow->data_size_ = total;
+                  }
+                }
+                pending.erase(0, end + 1);
+              }
+            }
+          },
+          read_end.get(), base::Unretained(this)));
+  const std::optional<int> code = RunChrome(
+      app,
+      {base::StrCat({kUnregisterSwitch, "=",
+                     erase_ ? kUnregisterErase : kUnregisterKeep}),
+       base::StrCat(
+           {kProgressSwitch, "=",
+            base::NumberToString(reinterpret_cast<uintptr_t>(write))})},
+      base::TimeDelta::Max(), options);
+  write_end.Close();
+  reader.Stop();
+  return code;
+}
+
+void UninstallFlow::Removed(RemovalResult result) {
+  unregistered_ = result.unregistered;
+  if (result.outcome == RemovalOutcome::kPaneOpen) {
+    ShowStep(Step::kOpen);
+    WatchUntilGone();
+    return;
+  }
+  if (result.outcome == RemovalOutcome::kRemoved) {
+    exit_code_ = 0;
     if (close_when_done_) {
       DeleteOwnCopy();
       window_.Close();
       return;
     }
-    ShowStep(Step::kFailed);
+    ShowStep(Step::kDone);
     return;
   }
-  exit_code_ = 0;
+  base::FilePath temp;
+  if (base::GetTempDir(&temp)) {
+    WriteNotes(temp.Append(L"Pane uninstall.log"));
+  }
+  // Closed while it erased (11.12.10): the window comes back to say what
+  // stayed, rather than close on it.
   if (close_when_done_) {
-    DeleteOwnCopy();
-    window_.Close();
-    return;
+    close_when_done_ = false;
+    ::ShowWindow(window_.hwnd(), SW_SHOW);
   }
-  ShowStep(Step::kDone);
+  switch (result.outcome) {
+    case RemovalOutcome::kRefused:
+      NotInstalledHere();
+      return;
+    case RemovalOutcome::kNotUnregistered:
+      // Nothing of the app removed, and Installed apps keeps its entry.
+      Fail(base::StrCat({u"Something went wrong while removing it (",
+                         CodeText(result.error), u"). Try again."}),
+           /*retry=*/true);
+      return;
+    case RemovalOutcome::kFilesLeft:
+      // Its entry and shortcuts gone: Try again removes what is left, and
+      // the words say where it is for after Close.
+      Fail(base::StrCat({u"Some of Pane’s files are still in "
+                         u"%LOCALAPPDATA%\\Programs\\Pane (",
+                         CodeText(result.error),
+                         u"). Try again, or delete that folder."}),
+           /*retry=*/true);
+      return;
+    case RemovalOutcome::kRemoved:
+    case RemovalOutcome::kPaneOpen:
+      return;
+  }
 }
 
 void UninstallFlow::DeleteOwnCopy() {
-  // This copy's folder, which chrome.exe --pane-uninstall made in the
-  // temporary folder: a program can't delete its own file while it runs,
-  // so Windows' command shell does it once this one has exited, as
-  // Squirrel's uninstall deletes its own (the board: "The helper deletes its
-  // own copy as it exits").
-  base::FilePath exe;
-  base::FilePath temp;
-  if (!base::PathService::Get(base::FILE_EXE, &exe) ||
-      !base::GetTempDir(&temp)) {
-    return;
-  }
-  base::FilePath folder = exe.DirName();
-  base::NormalizeFilePath(folder, &folder);
-  base::NormalizeFilePath(temp, &temp);
-  if (!IsInFolder(folder, temp) || folder == temp ||
-      !base::StartsWith(folder.BaseName().value(), L"pane-uninstall-",
-                        base::CompareCase::INSENSITIVE_ASCII)) {
-    return;
-  }
-  base::FilePath shell;
-  if (!base::PathService::Get(base::DIR_SYSTEM, &shell)) {
-    return;
-  }
-  const std::wstring quoted = base::StrCat({L"\"", folder.value(), L"\""});
-  // Up to 30 tries a second apart, until the folder is gone.
-  const std::wstring command =
-      base::StrCat({L"\"", shell.Append(L"cmd.exe").value(),
-                    L"\" /d /q /c \"for /l %i in (1,1,30) do (rd /s /q ",
-                    quoted, L" 2>nul & if not exist ", quoted,
-                    L" (exit) else (ping -n 2 127.0.0.1 >nul))\""});
-  base::LaunchOptions options;
-  options.start_hidden = true;
-  options.feedback_cursor_off = true;
-  options.current_directory = temp;
-  base::LaunchProcess(command, options);
+  DeleteOwnCopyAfterExit(kUninstallCopyPrefix);
 }
 
 }  // namespace pane::installer

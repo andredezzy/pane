@@ -165,9 +165,11 @@ std::optional<UpdateInstaller> UpdateInstaller::ForRunningApp() {
   return UpdateInstaller(path, base::SysCFStringRefToUTF8(identifier));
 }
 
-std::optional<base::FilePath> UpdateInstaller::Stage(
-    const base::FilePath& dmg,
-    const std::string& version) const {
+// The dmg's Pane stages verified or not: its signature is checked on the
+// copy, and a dmg without a digest stays quarantined (ADR 0002).
+std::optional<base::FilePath> UpdateInstaller::Stage(const base::FilePath& dmg,
+                                                     const std::string& version,
+                                                     bool verified) const {
   base::FilePath temporary;
   if (!base::GetTempDir(&temporary)) {
     return std::nullopt;
@@ -204,7 +206,7 @@ std::optional<base::FilePath> UpdateInstaller::Stage(
   }
 
   const base::FilePath staged =
-      bundle_.DirName().Append(model::StagedUpdateName(version));
+      app_.DirName().Append(model::StagedUpdateName(version));
   base::DeletePathRecursively(staged);
   if (!Run({"/usr/bin/ditto", app.value(), staged.value()})) {
     base::DeletePathRecursively(staged);
@@ -231,8 +233,8 @@ std::optional<base::FilePath> UpdateInstaller::Stage(
 bool UpdateInstaller::Install(const base::FilePath& staged,
                               const base::FilePath& dmg,
                               const std::optional<Relaunch>& relaunch) const {
-  if (renamex_np(bundle_.value().c_str(), staged.value().c_str(),
-                 RENAME_SWAP) != 0) {
+  if (renamex_np(app_.value().c_str(), staged.value().c_str(), RENAME_SWAP) !=
+      0) {
     PLOG(ERROR) << "The update's swap failed";
     return false;
   }
@@ -255,7 +257,7 @@ bool UpdateInstaller::Install(const base::FilePath& staged,
                                    dmg.value(),
                                    relaunch ? "1" : "0"};
   if (relaunch) {
-    const std::vector<std::string> open = OpenArguments(bundle_, *relaunch);
+    const std::vector<std::string> open = OpenArguments(app_, *relaunch);
     argv.insert(argv.end(), open.begin(), open.end());
   }
   // Apart from Pane's process group, as the volume's watchdog is: a terminal
@@ -269,9 +271,12 @@ bool UpdateInstaller::Install(const base::FilePath& staged,
   return true;
 }
 
-void UpdateInstaller::RemoveLeftovers() const {
+// Nothing kept: a quit swaps the staged copy in before Pane exits, so what
+// is still staged at a launch is a leftover.
+std::optional<UpdateInstaller::Kept> UpdateInstaller::RemoveLeftovers(
+    std::string_view running_version) const {
   base::FileEnumerator beside(
-      bundle_.DirName(), /*recursive=*/false,
+      app_.DirName(), /*recursive=*/false,
       base::FileEnumerator::FILES | base::FileEnumerator::DIRECTORIES);
   for (base::FilePath path = beside.Next(); !path.empty();
        path = beside.Next()) {
@@ -282,7 +287,7 @@ void UpdateInstaller::RemoveLeftovers() const {
 
   base::FilePath temporary;
   if (!base::GetTempDir(&temporary)) {
-    return;
+    return std::nullopt;
   }
   const auto running = [](int32_t pid) {
     return kill(pid, 0) == 0 || errno == EPERM;
@@ -295,6 +300,15 @@ void UpdateInstaller::RemoveLeftovers() const {
       Unmount(path, /*quietly=*/true);
     }
   }
+  return std::nullopt;
+}
+
+// The dmg first: a quit doesn't wait, and a copy it leaves, the next launch
+// removes.
+void UpdateInstaller::Unstage(const base::FilePath& staged,
+                              const base::FilePath& dmg) const {
+  base::DeleteFile(dmg);
+  base::DeletePathRecursively(staged);
 }
 
 }  // namespace pane

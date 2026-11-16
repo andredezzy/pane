@@ -84,6 +84,8 @@ Availability is announced, never enforced: a quiet pill in the sidebar footer an
 
 Downloading fetches the dmg; once it checks out, Pane stages the new version beside itself and the pill and Settings offer Restart to update. Any quit installs it, until a check finds a newer version, which replaces it: the pill offers that one, and nothing installs until it is staged in turn. Restart to update quits on purpose and opens the new version. Where Pane can't replace itself (translocated, a folder its user can't write, a copy of another identifier, a step that fails), the dmg opens, and the pill, Settings, and the lock screen offer Quit and install: the click quits Pane, the installer comes forward once Pane has gone, and the user drags Pane to /Applications (ADR 0092, Paper 06.3.1).
 
+On Windows the word is Exit, and the file Pane's installer: staged beside the app folder, it is swapped in by a helper once every process of Pane's has gone, so any exit installs it but a sign-out's. Where Pane can't replace itself (run from another folder, a file it may not stage, a step that fails), the pill, Settings, and the Lock offer Exit and install, and the installer opens once Pane has gone. A swap that fails leaves Pane as it was and says so on the next launch alone, in one quiet line above the pill (ADR 0127, Paper 11.12.11 to 11.12.14).
+
 Implementation notes:
 
 - The pill, the Settings section, and the lock screen all read the one `Updater` (`pane/updates/updater.h`) — never introduce a second source of truth for update state.

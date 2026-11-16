@@ -1,33 +1,52 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { launchPane, type PaneApp } from "../lib/pane";
-import type { NotOnWindows } from "../lib/platform";
+import {
+	closeSync,
+	existsSync,
+	mkdirSync,
+	openSync,
+	readdirSync,
+	readFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import { dataOpen, launchPane, type PaneApp, QUIT_WORD } from "../lib/pane";
 import { pollValue } from "../lib/poll";
-import { isRunning, pidsMatching, waitForExit } from "../lib/processes";
+import {
+	holdOpen,
+	isRunning,
+	pidsMatching,
+	waitForExit,
+} from "../lib/processes";
 import { swiftTool } from "../lib/tools";
 import {
+	executableOf,
 	launchCopy,
+	updateLeftovers as leftovers,
+	type RestartTimeline,
+	reopenedFrom,
+	STAND_IN_IS_PANE,
 	type StandInDmg,
-	standInDmg,
+	SWAP_AFTER_EXIT,
+	stagedVersion,
+	standInRelease,
 	bundleVersion as version,
+	watchRestart,
 } from "../lib/update-copies";
 import { expect, type Scenario } from "../run";
 
-// Where it runs (lib/platform.ts).
-export const notOnWindows: NotOnWindows = {
-	needsDesign:
-		"Pane installing its update from a dmg (ADR 0092); Windows' install and update, Chromium's installer or a launcher of Pane's own, are W7's",
-};
-
-// Pane installing its own update (ADR 0092), against a stand-in release whose
-// dmg holds a stand-in Pane: a tiny app with Pane's identifier and the offered
-// version, which writes `reopened` into the data folder when it opens. Each
-// run's Pane is a copy in a folder of its own, since the update replaces it.
-// A dmg whose Pane is another version stays the user's to install; one that
-// checks out is staged beside the app, swapped in at quit, and opened again
-// by Restart to update, its old bundle and its dmg removed. A newer release
-// replaces what is staged: the copy and its dmg go, a quit while the newer
-// one downloads installs nothing, and the newer one, staged in turn, installs.
+// Pane installing its own update (ADR 0092; on Windows ADR 0127), against a
+// stand-in release: on the Mac a dmg holding a stand-in Pane, a tiny app with
+// Pane's identifier and the offered version, which writes `reopened` into the
+// data folder when it opens; on Windows Pane's own installer, its payload the
+// run's app folder at the offered version. Each run's Pane is a copy in a
+// folder of its own, since the update replaces it. A file whose Pane is
+// another version stays the user's to install; one that checks out is staged
+// beside the app, swapped in at quit (on Windows by the helper, once Pane has
+// exited), and opened again by Restart to update, the old app and the file
+// removed. A newer release replaces what is staged: the copy and its file go,
+// a quit while the newer one downloads installs nothing, and the newer one,
+// staged in turn, installs. Where the swap runs once Pane has exited
+// (Windows'), a file of the app held open fails it: it rolls back, Pane opens
+// as it was and says so above the pill (Paper 11.12.14, E), and the next
+// exit installs it.
 //
 // PANE_UPDATE_DMG names a real dmg instead, as scripts/dist.sh builds it: the
 // run's Pane installs it the same way (installRelease below).
@@ -40,12 +59,15 @@ const updateInstall: Scenario = async (context) => {
 
 	const work = context.tempDir("pane-update-install-");
 
+	const standIn = (holds: string, offered: string) =>
+		standInRelease(context.binary, work, holds, offered);
+
 	const dmgs = {
 		// Offered as 98.0.0, holding a Pane that says 97.0.0.
-		mismatched: await standInDmg(work, "97.0.0", "98.0.0"),
-		good: await standInDmg(work, "99.0.0", "99.0.0"),
+		mismatched: await standIn("97.0.0", "98.0.0"),
+		good: await standIn("99.0.0", "99.0.0"),
 		// Offered once 99.0.0 is staged.
-		newer: await standInDmg(work, "100.0.0", "100.0.0"),
+		newer: await standIn("100.0.0", "100.0.0"),
 	};
 
 	let offer = dmgs.mismatched;
@@ -98,18 +120,18 @@ const updateInstall: Scenario = async (context) => {
 
 		expect(
 			!mismatched.update.installsItself,
-			"a dmg holding another version was staged",
+			"a file holding another version was staged",
 		);
 
-		// Pane can't install it itself: it says how (Paper 06.3.1).
+		// Pane can't install it itself: it says how (Paper 06.3.1, 11.12.11).
 		expect(
-			mismatched.update.label === "Quit and install",
+			mismatched.update.label === `${QUIT_WORD} and install`,
 			`the pill says ${mismatched.update.label}`,
 		);
 
 		expect(
 			leftovers(restart.bundle).length === 0,
-			`a mismatched dmg left ${leftovers(restart.bundle).join(", ")}`,
+			`a mismatched file left ${leftovers(restart.bundle).join(", ")}`,
 		);
 
 		offer = dmgs.good;
@@ -123,29 +145,77 @@ const updateInstall: Scenario = async (context) => {
 
 		await download(restart.app);
 		const staged = await restart.app.state();
-		expect(staged.update.installsItself, "the matching dmg was not staged");
+		expect(staged.update.installsItself, "the matching file was not staged");
+
+		// A real Pane opens again (Windows'): a profile and its tab go before
+		// the restart, and come back after it.
+		const kept = STAND_IN_IS_PANE
+			? await keepAProfile(context, restart.app)
+			: undefined;
 
 		const pid = restart.app.browser.pid;
+
+		const watched = STAND_IN_IS_PANE
+			? await watchRestart(
+					pid,
+					restart.bundle,
+					"99.0.0",
+					join(context.tempDir("pane-restart-"), "ready"),
+				)
+			: undefined;
+
+		const pressed = Date.now();
 		await restart.app.send("restartToUpdate").catch(() => undefined);
 		await exited(pid);
 
 		const reopenedFile = join(restart.app.dataDir, "reopened");
+		let timing: Record<string, unknown> | undefined;
 
-		const reopened = await pollValue(
-			() =>
-				existsSync(reopenedFile) ? readFileSync(reopenedFile, "utf8") : "",
-			(text) => text !== "",
-			15_000,
-		);
+		if (kept && watched) {
+			const opened = await restart.app.waitFor(
+				"the new Pane with the profiles open",
+				dataOpen,
+				60_000,
+			);
+
+			expect(
+				opened.profiles.some(
+					(each) =>
+						each.id === kept.profile &&
+						each.tabs.some((tab) => tab.url === kept.page),
+				),
+				`the profile or its tab is gone: ${JSON.stringify(opened.profiles)}`,
+			);
+
+			expect(
+				!opened.update.pill && !opened.update.installsItself,
+				`the new Pane still offers an update: ${JSON.stringify(opened.update)}`,
+			);
+
+			timing = {
+				...since(pressed, await watched.seen),
+				helper: swapNotes(restart.app),
+			};
+		} else {
+			const reopened = await pollValue(
+				() =>
+					existsSync(reopenedFile) ? readFileSync(reopenedFile, "utf8") : "",
+				(text) => text !== "",
+				15_000,
+			);
+
+			expect(
+				reopened === "99.0.0",
+				"the new Pane did not open on the same data",
+			);
+		}
 
 		expect(
 			version(restart.bundle) === "99.0.0",
-			`the bundle is ${version(restart.bundle)} after Restart to update`,
+			`the app is ${version(restart.bundle)} after Restart to update`,
 		);
 
-		expect(reopened === "99.0.0", "the new Pane did not open on the same data");
-
-		// The installed one's dmg goes after the bundle's swap.
+		// The installed one's file goes after the swap.
 		await settle(
 			() =>
 				leftovers(restart.bundle).length === 0 &&
@@ -154,19 +224,23 @@ const updateInstall: Scenario = async (context) => {
 
 		expect(
 			leftovers(restart.bundle).length === 0,
-			`left beside the app: ${leftovers(restart.bundle).join(", ")}`,
+			`left beside the app: ${leftovers(restart.bundle).join(", ")}; the helper: ${swapNotes(restart.app)}`,
 		);
 
-		// The installed one's dmg goes; the mismatched one stays the user's.
+		// The installed one's file goes; the mismatched one stays the user's.
 		expect(
 			!existsSync(join(restart.downloads, dmgs.good.name)),
-			"the installed update's dmg stayed in Downloads",
+			"the installed update's file stayed in Downloads",
 		);
 
 		expect(
 			existsSync(join(restart.downloads, dmgs.mismatched.name)),
-			"the dmg left to the user was removed",
+			"the file left to the user was removed",
 		);
+
+		if (kept) {
+			await quitReopened(restart.app, restart.bundle);
+		}
 
 		// A plain quit installs too, and opens nothing.
 		const quit = await launchCopy(context, `${origin}/releases/latest`);
@@ -180,15 +254,16 @@ const updateInstall: Scenario = async (context) => {
 		const quitPid = quit.app.browser.pid;
 		await quit.app.send("quit").catch(() => undefined);
 		await exited(quitPid);
+		await settle(() => version(quit.bundle) === "99.0.0");
 		await Bun.sleep(1_500);
 
 		expect(
 			version(quit.bundle) === "99.0.0",
-			`the bundle is ${version(quit.bundle)} after a quit`,
+			`the app is ${version(quit.bundle)} after a quit`,
 		);
 
 		expect(
-			!existsSync(join(quit.app.dataDir, "reopened")),
+			!(await reopenedFrom(quit.bundle, quit.app.dataDir)),
 			"a plain quit opened the new Pane",
 		);
 
@@ -196,12 +271,20 @@ const updateInstall: Scenario = async (context) => {
 
 		expect(
 			leftovers(quit.bundle).length === 0,
-			`left beside the app: ${leftovers(quit.bundle).join(", ")}`,
+			`left beside the app: ${leftovers(quit.bundle).join(", ")}; the helper: ${swapNotes(quit.app)}`,
 		);
+
+		// Where the swap runs once Pane has exited, a file of the app held open
+		// fails it: it rolls back, and the Pane the restart opens is the old
+		// one, saying so above the pill and in Settings (Paper 11.12.14, E),
+		// still offering Restart to update; the next exit installs it.
+		const failed = SWAP_AFTER_EXIT
+			? await failedSwap(context, `${origin}/releases/latest`)
+			: undefined;
 
 		// One Pane can't install itself: Quit and install shows the installer
 		// (opened here by no one, PANE_UPDATE_OPEN=0) and quits, the copy as
-		// it was, for the user to drag the new one in.
+		// it was, for the user to install the new one.
 		offer = dmgs.mismatched;
 		const byHand = await launchCopy(context, `${origin}/releases/latest`);
 		const before = version(byHand.bundle);
@@ -209,27 +292,22 @@ const updateInstall: Scenario = async (context) => {
 		const byHandPid = byHand.app.browser.pid;
 		await byHand.app.send("downloadUpdate").catch(() => undefined);
 		await exited(byHandPid);
+		await Bun.sleep(1_500);
+		const byHandOpened = await reopenedFrom(byHand.bundle, byHand.app.dataDir);
 
 		expect(
-			version(byHand.bundle) === before &&
-				!existsSync(join(byHand.app.dataDir, "reopened")),
-			`Quit and install left ${version(byHand.bundle)}, reopened: ${existsSync(join(byHand.app.dataDir, "reopened"))}`,
+			version(byHand.bundle) === before && !byHandOpened,
+			`${QUIT_WORD} and install left ${version(byHand.bundle)}, reopened: ${byHandOpened}`,
 		);
 
 		// A newer release replaces what is staged: staged 99.0.0, then offered
-		// 100.0.0, the staged copy and its dmg go, and 100.0.0 is offered as any
-		// update is. A quit while it downloads installs nothing. Opened again,
-		// the copy stages 100.0.0 in turn, which a check offering it again
-		// keeps, and a quit installs it.
+		// 100.0.0, the staged copy and its file go, and 100.0.0 is offered as
+		// any update is. A quit while it downloads installs nothing. Opened
+		// again, the copy stages 100.0.0 in turn, which a check offering it
+		// again keeps, and a quit installs it.
 		offer = dmgs.good;
 		const newer = await launchCopy(context, `${origin}/releases/latest`);
 		const own = version(newer.bundle);
-
-		const stagedAs = (name: string) => {
-			const copy = join(dirname(newer.bundle), name);
-
-			return existsSync(copy) ? version(copy) : "";
-		};
 
 		const inDownloads = (dmg: StandInDmg) =>
 			existsSync(join(newer.downloads, dmg.name));
@@ -238,7 +316,7 @@ const updateInstall: Scenario = async (context) => {
 
 		expect(
 			(await newer.app.state()).update.installsItself &&
-				stagedAs(".Pane-99.0.0.app") === "99.0.0" &&
+				stagedVersion(newer.bundle, "99.0.0") === "99.0.0" &&
 				inDownloads(dmgs.good),
 			`99.0.0 was not staged: beside ${leftovers(newer.bundle).join(", ")}`,
 		);
@@ -292,8 +370,8 @@ const updateInstall: Scenario = async (context) => {
 
 		expect(
 			version(newer.bundle) === own &&
-				!existsSync(join(newer.app.dataDir, "reopened")),
-			`a quit mid-download left the bundle at ${version(newer.bundle)}`,
+				!(await reopenedFrom(newer.bundle, newer.app.dataDir)),
+			`a quit mid-download left the app at ${version(newer.bundle)}`,
 		);
 
 		expect(
@@ -303,27 +381,29 @@ const updateInstall: Scenario = async (context) => {
 		);
 
 		const again = await launchPane(context, {
-			binary: join(newer.bundle, "Contents", "MacOS", "Pane"),
+			binary: executableOf(newer.bundle),
 			dataDir: newer.app.dataDir,
 			env: {
 				PANE_UPDATE_URL: `${origin}/releases/latest`,
 				PANE_UPDATE_DOWNLOADS: newer.downloads,
 				PANE_UPDATE_OPEN: "0",
+				...(SWAP_AFTER_EXIT && { PANE_UPDATE_INSTALL: "1" }),
 			},
 		});
 
 		await download(again);
 		await again.send("checkUpdates");
 		await Bun.sleep(1_200);
-		const kept = (await again.state()).update;
+		const keptStaged = (await again.state()).update;
 
 		expect(
-			kept.status === "downloaded" &&
-				kept.installsItself &&
-				kept.label === "Restart to update" &&
-				stagedAs(".Pane-100.0.0.app") === "100.0.0" &&
-				leftovers(newer.bundle).length === 1,
-			`100.0.0 staged: ${JSON.stringify(kept)}, beside ${leftovers(newer.bundle).join(", ")}`,
+			keptStaged.status === "downloaded" &&
+				keptStaged.installsItself &&
+				keptStaged.label === "Restart to update" &&
+				stagedVersion(newer.bundle, "100.0.0") === "100.0.0" &&
+				leftovers(newer.bundle).filter((name) => !name.endsWith(".download"))
+					.length === 1,
+			`100.0.0 staged: ${JSON.stringify(keptStaged)}, beside ${leftovers(newer.bundle).join(", ")}`,
 		);
 
 		const againPid = again.browser.pid;
@@ -336,20 +416,27 @@ const updateInstall: Scenario = async (context) => {
 
 		expect(
 			version(newer.bundle) === "100.0.0" &&
-				!existsSync(join(newer.app.dataDir, "reopened")),
-			`the quit left the bundle at ${version(newer.bundle)}`,
+				!(await reopenedFrom(newer.bundle, newer.app.dataDir)),
+			`the quit left the app at ${version(newer.bundle)}`,
 		);
 
 		expect(
 			leftovers(newer.bundle).length === 0 && !inDownloads(dmgs.newer),
 			`left after the install: ${[...leftovers(newer.bundle), ...readdirSync(newer.downloads)].join(", ")}`,
 		);
+
+		return timing || failed
+			? { restart: timing, failedSwap: failed }
+			: undefined;
 	} finally {
 		server.stop(true);
 	}
 };
 
-async function download(app: PaneApp, timeoutMs = 30_000) {
+// Downloaded, and staged where it is: on Windows a stand-in holds the whole
+// app folder, 472 MB, which the VM's download, digest, and unpack take a
+// while over.
+async function download(app: PaneApp, timeoutMs = 180_000) {
 	await app.waitFor(
 		"an update on offer",
 		(state) => state.update.status === "available",
@@ -365,17 +452,150 @@ async function download(app: PaneApp, timeoutMs = 30_000) {
 	);
 }
 
-function leftovers(bundle: string): string[] {
-	return readdirSync(dirname(bundle)).filter((name) =>
-		name.startsWith(".Pane-"),
-	);
-}
+// What Windows' helper noted of its run, each step and when, for a copy in
+// the temporary folder (pane/installer/swap.h's NoteSwapForScenario); none on
+// the Mac.
+const swapNotes = (app: PaneApp) => {
+	const file = join(app.automationDir, "swap-notes.txt");
+
+	return existsSync(file) ? readFileSync(file, "utf8").trim() : "";
+};
 
 const exited = async (pid: number) =>
 	expect(await waitForExit(pid, 30_000), `Pane (${pid}) did not quit`);
 
-// The shell removes the old bundle once Pane has exited: a moment after.
-const settle = (done: () => boolean) => pollValue(done, (gone) => gone, 5_000);
+// The shell, or Windows' helper, removes the old app once Pane has exited: a
+// moment after.
+const settle = (done: () => boolean) => pollValue(done, (gone) => gone, 15_000);
+
+// A profile and its tab in `app`, as a Restart to update must bring back.
+async function keepAProfile(context: Parameters<Scenario>[0], app: PaneApp) {
+	const profile = await app.createProfile("Kept");
+	const page = context.fixtures.url("smoke.html?kept");
+	await app.send("openTab", { profile, url: page });
+
+	await app.waitFor(
+		"the kept tab",
+		(state) =>
+			state.profiles.some(
+				(each) =>
+					each.id === profile && each.tabs.some((tab) => tab.url === page),
+			),
+		15_000,
+	);
+
+	return { profile, page };
+}
+
+// The moments of a restart in ms after its press.
+function since(pressed: number, seen: RestartTimeline) {
+	const after = (at: number | null) => (at === null ? null : at - pressed);
+
+	return {
+		windowGoneMs: after(seen.windowGone),
+		quitMs: after(seen.quit),
+		swappedMs: after(seen.swapped),
+		startedMs: after(seen.started),
+		firstWindowMs: after(seen.window),
+		pointerMs: seen.pointer.map(([from, to]) => [from - pressed, to - pressed]),
+	};
+}
+
+// The Pane the swap opened, quit on the channel, and gone with what ran from
+// its folder.
+async function quitReopened(app: PaneApp, bundle: string) {
+	await app.send("quit").catch(() => undefined);
+
+	await pollValue(
+		() => reopenedFrom(bundle, app.dataDir),
+		(running) => !running,
+		30_000,
+		250,
+	);
+}
+
+// Windows' failed swap (11.12.14, E): a copy stages 99.0.0, a file of its app
+// is held open by another process without FILE_SHARE_DELETE, and Restart to
+// update fails and rolls back, opening the old Pane, which says so above the
+// pill and in Settings and still offers Restart to update. Once the file is
+// let go, the next exit installs it, and nothing is left behind.
+async function failedSwap(context: Parameters<Scenario>[0], releases: string) {
+	const copy = await launchCopy(context, releases);
+	const own = version(copy.bundle);
+	await download(copy.app);
+
+	expect(
+		(await copy.app.state()).update.installsItself,
+		"the held copy did not stage the update",
+	);
+
+	const heldFile = join(copy.bundle, "PanePDF.ico");
+	const holder = holdOpen(heldFile);
+
+	try {
+		// Held once it can no longer be opened to write.
+		await pollValue(
+			() => {
+				try {
+					closeSync(openSync(heldFile, "r+"));
+
+					return false;
+				} catch {
+					return true;
+				}
+			},
+			(held) => held,
+			30_000,
+			100,
+		);
+
+		const pid = copy.app.browser.pid;
+		await copy.app.send("restartToUpdate").catch(() => undefined);
+		await exited(pid);
+
+		const back = await copy.app.waitFor(
+			"the old Pane opened again, saying the update didn't install",
+			(state) =>
+				dataOpen(state) && state.update.installFailed && state.update.pill,
+			60_000,
+		);
+
+		expect(
+			version(copy.bundle) === own &&
+				back.update.label === "Restart to update" &&
+				back.update.installsItself &&
+				stagedVersion(copy.bundle, "99.0.0") === "99.0.0",
+			`after the failed swap: the app at ${version(copy.bundle)}, ${JSON.stringify(back.update)}, beside ${leftovers(copy.bundle).join(", ")}`,
+		);
+
+		await copy.app.render("update-not-installed.png");
+		await copy.app.send("showPage", { page: "settings" });
+		await copy.app.waitFor("Settings", (state) => state.page === "settings");
+		await copy.app.render("update-not-installed-settings.png");
+	} finally {
+		holder.kill();
+		await holder.exited;
+	}
+
+	// The next exit installs it, and opens nothing.
+	await copy.app.send("quit").catch(() => undefined);
+	await settle(() => version(copy.bundle) === "99.0.0");
+	await settle(() => leftovers(copy.bundle).length === 0);
+
+	expect(
+		version(copy.bundle) === "99.0.0" &&
+			!(await reopenedFrom(copy.bundle, copy.app.dataDir)),
+		`the next exit left the app at ${version(copy.bundle)}`,
+	);
+
+	expect(
+		leftovers(copy.bundle).length === 0 &&
+			readdirSync(copy.downloads).length === 0,
+		`left after the next exit: ${[...leftovers(copy.bundle), ...readdirSync(copy.downloads)].join(", ")}`,
+	);
+
+	return { installedAtTheNextExit: true };
+}
 
 // A real release's dmg (scripts/dist.sh's), installed by the run's Pane, as a
 // published Pane installs the next release (ADR 0092, ADR 0122;

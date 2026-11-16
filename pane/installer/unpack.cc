@@ -16,6 +16,7 @@
 #include "base/files/file_util.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/logging.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/raw_span.h"
 #include "base/synchronization/waitable_event.h"
@@ -41,7 +42,7 @@ bool IsBlock(DWORD error) {
 class Delegate : public seven_zip::Delegate {
  public:
   Delegate(const base::FilePath& folder,
-           UnpackProgress& progress,
+           UnpackProgress* progress,
            const std::atomic<bool>& cancel)
       : folder_(folder), progress_(progress), cancel_(cancel) {}
 
@@ -135,7 +136,9 @@ class Delegate : public seven_zip::Delegate {
           Fail(entry.file_path, error);
           return false;
         });
-    progress_->written += entry.file_size;
+    if (progress_) {
+      progress_->written += entry.file_size;
+    }
     return !cancel_->load();
   }
 
@@ -164,7 +167,7 @@ class Delegate : public seven_zip::Delegate {
   }
 
   const base::FilePath folder_;
-  const raw_ref<UnpackProgress> progress_;
+  const raw_ptr<UnpackProgress> progress_;
   const raw_ref<const std::atomic<bool>> cancel_;
   std::set<base::FilePath> folders_;
   std::optional<::installer::UnbufferedFileWriter> current_;
@@ -236,7 +239,7 @@ class ReadWatch : public base::PlatformThread::Delegate {
 UnpackResult Unpack(const base::FilePath& installer,
                     const Payload& payload,
                     const base::FilePath& folder,
-                    UnpackProgress& progress,
+                    UnpackProgress* progress,
                     const std::atomic<bool>& cancel) {
   // The archive, mapped from the installer as UnPackArchiveBuffer takes one.
   base::MemoryMappedFile mapped;
@@ -250,17 +253,22 @@ UnpackResult Unpack(const base::FilePath& installer,
     return {.outcome = UnpackResult::Outcome::kFailed,
             .error = ::GetLastError() ? ::GetLastError() : ERROR_READ_FAULT};
   }
-  ReadWatch watch(mapped.bytes(), progress.read);
-  watch.Start();
+  std::optional<ReadWatch> watch;
+  if (progress) {
+    watch.emplace(mapped.bytes(), progress->read);
+    watch->Start();
+  }
   Delegate delegate(folder, progress, cancel);
   if (std::unique_ptr<seven_zip::SevenZipReader> reader =
           seven_zip::SevenZipReader::Create(mapped.bytes(), delegate)) {
     reader->Extract();
   }
-  watch.Stop();
+  if (watch) {
+    watch->Stop();
+  }
   UnpackResult result = delegate.Result();
-  if (result.outcome == UnpackResult::Outcome::kDone) {
-    progress.read = payload.size;
+  if (progress && result.outcome == UnpackResult::Outcome::kDone) {
+    progress->read = payload.size;
   }
   return result;
 }

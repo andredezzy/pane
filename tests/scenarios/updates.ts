@@ -5,7 +5,6 @@ import {
 	launchPane,
 	type PaneApp,
 	QUIT_WORD,
-	UPDATE_FILE_MARKED,
 	updateFileName,
 } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
@@ -17,8 +16,9 @@ import { expect, type Scenario } from "../run";
 // check keeps up; its click downloads this system's file (the arm64 dmg, or
 // Windows' x64 installer) into the downloads folder (a throwaway one here,
 // left unopened), with progress. A file that matches the release's SHA-256
-// leaves quarantine (ADR 0002); one that differs is deleted, and the update
-// offered again. Once downloaded it stays downloaded,
+// leaves quarantine, or carries no Mark of the Web on Windows (ADR 0002, ADR
+// 0127); one that differs is deleted, and the update offered again; one
+// without a digest keeps it. Once downloaded it stays downloaded,
 // dismissing hides the pill, and one Pane can't install itself quits for the
 // user to, from Settings' Quit and install. Offered nothing newer, Settings
 // says Pane is up to date. Nothing reaches GitHub. The update's controls are
@@ -128,7 +128,8 @@ const updates: Scenario = async (context) => {
 
 	// It matched the release's SHA-256: out of the quarantine Pane puts on
 	// what it writes (LSFileQuarantineEnabled), so the app copied from it
-	// opens without Gatekeeper's refusal.
+	// opens without Gatekeeper's refusal; on Windows with no Mark of the Web,
+	// so its installer runs with no question from SmartScreen.
 	expect(
 		!(await isQuarantined(file)),
 		"the verified file is still quarantined",
@@ -205,7 +206,9 @@ const updates: Scenario = async (context) => {
 	await mismatch.browser.close();
 
 	// A release without a digest still downloads, and its dmg stays
-	// quarantined: Gatekeeper asks before the app inside first opens.
+	// quarantined: Gatekeeper asks before the app inside first opens. Windows'
+	// installer keeps the Mark of the Web a download takes (ZoneId=3, no
+	// address): SmartScreen asks before it runs, and Pane doesn't stage it.
 	const unverifiedDownloads = context.tempDir("pane-updates-");
 	const unverified = await offerFor("&digest=none", unverifiedDownloads);
 	await offerOf(unverified);
@@ -217,17 +220,14 @@ const updates: Scenario = async (context) => {
 		30_000,
 	);
 
-	if (UPDATE_FILE_MARKED) {
-		const unverifiedQuarantined = await isQuarantined(
-			join(unverifiedDownloads, UPDATE_FILE),
-		);
+	const unverifiedQuarantined = await isQuarantined(
+		join(unverifiedDownloads, UPDATE_FILE),
+	);
 
-		expect(unverifiedQuarantined, "a dmg without a digest left quarantine");
-	} else {
-		context.defer(
-			"the unverified download's mark: Windows' installer and its Mark of the Web are W7's",
-		);
-	}
+	expect(
+		unverifiedQuarantined,
+		"a file without a digest left quarantine, or its Mark of the Web",
+	);
 
 	await unverified.browser.close();
 

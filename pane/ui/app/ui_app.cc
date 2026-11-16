@@ -148,15 +148,18 @@ SettingsUpdate SettingsUpdateOf(const Updater& updater) {
     update.downloads = true;
     switch (updater.status()) {
       case Updater::Status::kDownloaded:
-        // Staged, it restarts into the update (ADR 0092); otherwise it shows
-        // the installer and quits, for the user to drag Pane in (Paper
-        // 06.3.1).
+        // Staged, it restarts into the update (ADR 0092), and says so where
+        // the last exit's swap failed (Paper 11.12.14, E); otherwise it
+        // shows the installer and quits, for the user to drag Pane in (Paper
+        // 06.3.1), or opens Windows' installer once Pane has exited (11.12.12).
         update.status =
-            updater.staged()
+            updater.install_failed()
+                ? std::u16string(Words().update_not_installed)
+            : updater.staged()
                 ? base::StrCat({u"Version ", version,
                                 u" is ready. Pane restarts into it."})
-                : base::StrCat({u"Version ", version,
-                                u" is downloaded. It installs by hand."});
+                : base::StrCat({u"Version ", version, u" is downloaded. ",
+                                Words().installs_by_hand});
         update.button = updater.Label();
         break;
       case Updater::Status::kDownloading: {
@@ -1833,6 +1836,9 @@ SidebarContent UiApp::Sidebar() {
         .downloading = updater_->status() == Updater::Status::kDownloading,
         .progress = updater_->download_progress().value_or(0),
         .downloaded = updater_->status() == Updater::Status::kDownloaded,
+        .notice = updater_->install_failed()
+                      ? std::u16string(Words().update_not_installed)
+                      : std::u16string(),
     };
   }
   for (const model::BrowserProfile& profile : model.profiles()) {

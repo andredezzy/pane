@@ -40,6 +40,13 @@ void EndProcesses(const std::vector<base::ProcessId>& processes);
 bool WaitForExit(const std::vector<base::ProcessId>& processes,
                  base::TimeDelta timeout);
 
+// Until the Pane that opened the installer has gone, as Exit and install
+// asks (Paper 11.12.11): its browser, `pid`, where that is a chrome.exe,
+// for 2 minutes at most, then what ran from `folder`, its renderers and
+// helpers, for 10 seconds at most. A Pane still there after is one the
+// installer finds open, and says so.
+void WaitForExitingPane(base::ProcessId pid, const base::FilePath& folder);
+
 }  // namespace pane::installer
 
 #endif  // PANE_INSTALLER_RUNNING_PANE_H_

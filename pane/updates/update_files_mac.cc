@@ -55,4 +55,8 @@ bool ReleaseFromQuarantine(const base::FilePath& file) {
   return base::mac::RemoveQuarantineAttribute(file);
 }
 
+// Quarantined already: Pane quarantines every file it writes
+// (LSFileQuarantineEnabled).
+void Quarantine(const base::FilePath& file) {}
+
 }  // namespace pane

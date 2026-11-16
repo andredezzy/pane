@@ -3,10 +3,13 @@
 #ifndef PANE_INSTALLER_FILES_H_
 #define PANE_INSTALLER_FILES_H_
 
+#include <windows.h>
+
 #include <stdint.h>
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/files/file_path.h"
 #include "base/version.h"
@@ -50,6 +53,41 @@ uint64_t FolderSize(const base::FilePath& folder);
 // `path` with every name compared as NTFS compares them: whether `inner` is
 // `folder` or under it.
 bool IsInFolder(const base::FilePath& inner, const base::FilePath& folder);
+
+// Whether `folder` is the install's own app folder, AppFolder(), compared as
+// NTFS compares names: the one folder an uninstall removes, and whose
+// chrome.exe alone registers or unregisters Pane. Another folder that holds
+// a chrome.exe (out/Win, a user's copy) never is, nor a path that names it
+// another way (`..`, a short name).
+bool IsInstalledAppFolder(const base::FilePath& folder);
+
+// A folder removed, files and all, tried again for 2 s while something lets
+// go of one (Windows Defender reads a new file, a helper exits): whether it
+// has gone, and where it hasn't, the last error in `error`.
+bool RemoveFolder(const base::FilePath& folder, DWORD* error = nullptr);
+
+// Programs\Pane and Programs, where nothing else is in them: what a first
+// install stopped or failed, or an uninstall, would otherwise leave
+// (RemoveDirectory takes an empty folder alone).
+void RemoveEmptyFolders();
+
+// The helper, copied into a folder of its own in the temporary folder,
+// `prefix` and 8 hex digits, so the folder it came from can be removed (the
+// uninstall's app folder) or renamed (an update's staged folder) while it
+// runs: the copy, or nothing.
+std::optional<base::FilePath> CopyHelperOut(const base::FilePath& helper,
+                                            std::wstring_view prefix);
+
+// Starts what deletes this program's own copy once it has exited, where it
+// runs from a folder CopyHelperOut made with `prefix`: a program can't
+// delete its own file while it runs, so Windows' command shell does it, as
+// Squirrel's uninstall deletes its own.
+void DeleteOwnCopyAfterExit(std::wstring_view prefix);
+
+// Whether `folder` is one CopyHelperOut made with `prefix`, and nothing
+// else's: its name the prefix and 8 hex digits, and nothing in it but the
+// helper's copy.
+bool IsHelperCopy(const base::FilePath& folder, std::wstring_view prefix);
 
 }  // namespace pane::installer
 
