@@ -345,6 +345,14 @@ class RootView : public views::View {
   // A screen reader reaches the layers that show, and none under the PIN
   // screen, a sheet, or a dialog that shows (UpdateAccessibleLayers).
   void UpdateScreenReaderLayers();
+  // The PIN screen, a sheet, or a dialog: a layer that takes the window from
+  // what is under it.
+  bool IsModalLayer(const views::View& child) const;
+  // A layer over the window, modal or a card (find, the extensions menu and
+  // its more menu): one that hides with the keys inside it gives them back.
+  // The window's places (the toolbar, the page, Settings) don't: what shows
+  // in their place takes the keys itself (UiApp::ShowPage).
+  bool IsOverlay(const views::View& child) const;
   // The content panel's shape, where the window draws its card.
   SkPath PanelPath() const;
   // The page's corners, and docked DevTools', as their layers round them.

@@ -124,4 +124,32 @@ TEST_F(AccessibleLayersTest, WhatWasIgnoredBeforeStaysSo) {
   EXPECT_TRUE(Reached(*under));
 }
 
+// The profile sheet sliding out, still drawn: gone to a screen reader with
+// its controls as it starts to go, and what is under it back at once, so
+// VoiceOver's cursor, and the keys it moves, can't stay in it (W9b).
+TEST_F(AccessibleLayersTest, ALayerOnItsWayOutIsGoneAlready) {
+  views::View window;
+  views::View* page = AddLayer(window, u"Web content");
+  views::View* name = AddLayer(window, u"Name");
+  views::View* sheet = name->parent();
+  bool sheet_shows = true;
+  const auto is_modal = [&](const views::View& child) {
+    return &child == sheet;
+  };
+  const auto shows = [&](const views::View& child) {
+    return &child == sheet ? sheet_shows : child.GetVisible();
+  };
+
+  UpdateAccessibleLayers(window, is_modal, shows);
+  EXPECT_FALSE(Reached(*page));
+  EXPECT_TRUE(Reached(*name));
+
+  // Closing: still visible to Views, gone to a screen reader.
+  sheet_shows = false;
+  ASSERT_TRUE(sheet->GetVisible());
+  UpdateAccessibleLayers(window, is_modal, shows);
+  EXPECT_TRUE(Reached(*page));
+  EXPECT_FALSE(Reached(*name));
+}
+
 }  // namespace pane

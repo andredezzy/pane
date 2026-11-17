@@ -28,6 +28,16 @@ void UpdateAccessibleLayers(
     views::View& parent,
     base::FunctionRef<bool(const views::View&)> is_modal);
 
+// The same, with `shows` saying which children show, where a layer still
+// drawn as it goes counts as gone: the profile sheet sliding out, a dialog
+// fading, the PIN screen sinking. While one goes, a screen reader had it
+// alone: VoiceOver kept its cursor there and moved the keys back into it, so
+// they stayed in the sheet once it hid (W9b).
+void UpdateAccessibleLayers(
+    views::View& parent,
+    base::FunctionRef<bool(const views::View&)> is_modal,
+    base::FunctionRef<bool(const views::View&)> shows);
+
 // Leaves `view` out of what a screen reader reaches, its subtree with it, as
 // a layer under a modal one is (a leaf, and ignored), or brings it back as it
 // was. For a view that hides views showing in it, which Views can still give

@@ -53,18 +53,27 @@ void LeaveOutOfAccessibility(views::View& view, bool out) {
 void UpdateAccessibleLayers(
     views::View& parent,
     base::FunctionRef<bool(const views::View&)> is_modal) {
+  UpdateAccessibleLayers(parent, is_modal, [](const views::View& child) {
+    return child.GetVisible();
+  });
+}
+
+void UpdateAccessibleLayers(
+    views::View& parent,
+    base::FunctionRef<bool(const views::View&)> is_modal,
+    base::FunctionRef<bool(const views::View&)> shows) {
   const views::View::Views& children = parent.children();
   size_t floor = 0;
   for (size_t index = children.size(); index-- > 0;) {
     const views::View& child = *children[index];
-    if (child.GetVisible() && is_modal(child)) {
+    if (shows(child) && is_modal(child)) {
       floor = index;
       break;
     }
   }
   for (size_t index = 0; index < children.size(); ++index) {
     views::View& child = *children[index];
-    LeaveOutOfAccessibility(child, !child.GetVisible() || index < floor);
+    LeaveOutOfAccessibility(child, !shows(child) || index < floor);
   }
 }
 

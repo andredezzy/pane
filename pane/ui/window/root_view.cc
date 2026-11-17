@@ -550,6 +550,8 @@ void RootView::ShowLock(const LockScreenView::Shows& shows) {
     RaiseTopOverlays();
     lock_->TakeFocus();
   } else if (took_keys && !takes_keys) {
+    // Gone to a screen reader as it starts to sink.
+    UpdateScreenReaderLayers();
     // The keys go back to what had them, else to the page, or Settings.
     views::View* before = focus_before_lock_.view();
     focus_before_lock_.SetView(nullptr);
@@ -796,6 +798,7 @@ void RootView::ShowAppIconPicker(bool show) {
     // again.
     if (app_icon_dialog_ && app_icon_dialog_->showing()) {
       app_icon_dialog_->AnimateOut();
+      UpdateScreenReaderLayers();
       if (!lock_->takes_every_key()) {
         FocusSettings();
       }
@@ -822,6 +825,7 @@ void RootView::ShowQuitDialog(bool show) {
     // It fades as it goes, taking nothing meanwhile; the keys go back to
     // what had them, or to the page.
     quit_dialog_->AnimateOut();
+    UpdateScreenReaderLayers();
     views::View* before = focus_before_quit_.view();
     focus_before_quit_.SetView(nullptr);
     ReturnKeys(before);
@@ -944,6 +948,7 @@ void RootView::HideAbout() {
     return;
   }
   about_dialog_->AnimateOut();
+  UpdateScreenReaderLayers();
   views::View* before = focus_before_about_.view();
   focus_before_about_.SetView(nullptr);
   ReturnKeys(before);
@@ -1191,6 +1196,9 @@ void RootView::HideProfileSheet() {
     return;
   }
   profile_sheet_->AnimateOut();
+  // Gone to a screen reader as it starts to slide, so its cursor and the
+  // keys leave with it (W9b).
+  UpdateScreenReaderLayers();
   views::View* before = focus_before_sheet_.view();
   focus_before_sheet_.SetView(nullptr);
   ReturnKeys(before);
@@ -1325,6 +1333,19 @@ bool RootView::AcceleratorPressed(const ui::Accelerator& accelerator) {
 void RootView::ChildVisibilityChanged(views::View* child) {
   views::View::ChildVisibilityChanged(child);
   UpdateScreenReaderLayers();
+  // An overlay that hides with the keys in it gives them back: Views moves
+  // them off a hidden view only when it holds them itself (View::SetVisible),
+  // not a control inside it. Each layer hands them back as it begins to go,
+  // but a screen reader's cursor could put them back while it went
+  // (VoiceOver moves the keys with it), and they stayed in the hidden sheet
+  // (W9b).
+  if (!child->GetVisible() && IsOverlay(*child)) {
+    views::FocusManager* focus = GetFocusManager();
+    views::View* focused = focus ? focus->GetFocusedView() : nullptr;
+    if (focused && child->Contains(focused)) {
+      ReturnKeys(nullptr);
+    }
+  }
 }
 
 void RootView::ViewHierarchyChanged(
@@ -1382,13 +1403,36 @@ bool RootView::FocusContent() {
   return place && focus && place->Contains(focus->GetFocusedView());
 }
 
+bool RootView::IsModalLayer(const views::View& child) const {
+  return &child == lock_.get() || &child == quit_dialog_.get() ||
+         &child == app_icon_dialog_.get() || &child == profile_sheet_.get() ||
+         &child == extension_prompt_.get() || &child == page_dialog_.get() ||
+         &child == alert_dialog_.get() || &child == about_dialog_.get();
+}
+
+bool RootView::IsOverlay(const views::View& child) const {
+  return IsModalLayer(child) || &child == find_card_.get() ||
+         &child == extensions_card_.get() || &child == more_card_.get();
+}
+
 void RootView::UpdateScreenReaderLayers() {
-  UpdateAccessibleLayers(*this, [this](const views::View& child) {
-    return &child == lock_.get() || &child == quit_dialog_.get() ||
-           &child == app_icon_dialog_.get() || &child == profile_sheet_.get() ||
-           &child == extension_prompt_.get() || &child == page_dialog_.get() ||
-           &child == alert_dialog_.get() || &child == about_dialog_.get();
-  });
+  UpdateAccessibleLayers(
+      *this, [this](const views::View& child) { return IsModalLayer(child); },
+      // A layer on its way out is gone to a screen reader already, its
+      // controls with it, and what is under it is back.
+      [](const views::View& child) {
+        if (const auto* dialog = views::AsViewClass<ModalDialog>(&child)) {
+          return dialog->showing();
+        }
+        if (const auto* sheet =
+                views::AsViewClass<ProfileSheetOverlay>(&child)) {
+          return sheet->showing();
+        }
+        if (const auto* lock = views::AsViewClass<LockScreenView>(&child)) {
+          return lock->showing();
+        }
+        return child.GetVisible();
+      });
 }
 
 ExtensionsMenuView* RootView::extensions_menu() {
