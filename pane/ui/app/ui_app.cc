@@ -278,6 +278,15 @@ class UiApp::Page : public content::WebContentsObserver,
   // each after its state changed, and the frame tree's start and stop cover
   // the rest.
   void DidStartLoading() override { ReportLoading(0); }
+  // A load begun before this observed the page: Chrome's Navigate starts a
+  // tab's load before it puts the tab in the strip (a restore at the unlock
+  // or a launch, a woken tab), so its start came first, and nothing showed
+  // until a response did (W9c). It shows from the start, as any load does.
+  void ReportLoadUnderWay() {
+    if (web_contents()->IsLoading()) {
+      ReportLoading(web_contents()->GetLoadProgress());
+    }
+  }
   void DidStopLoading() override {
     ReportLoading(1);
     // A new document's load ended: the icon it brought, or none. The last
@@ -1186,7 +1195,9 @@ void UiApp::AdoptOpeningTab(content::WebContents* contents) {
 void UiApp::AddPage(const std::string& tab_id, content::WebContents* contents) {
   auto page = std::make_unique<Page>(this, tab_id, contents);
   const gfx::Image favicon = page->Favicon();
+  Page* const added = page.get();
   pages_[tab_id] = std::move(page);
+  added->ReportLoadUnderWay();
   // A page of its own again, its profile open: its row brightens.
   crashed_tab_ids_.erase(tab_id);
   if (!favicon.IsEmpty()) {

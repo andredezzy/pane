@@ -249,6 +249,16 @@ const engineKeys: Scenario = async (context) => {
 		60_000,
 	);
 
+	// Its load shows from its start, as any load's does: the row's and the
+	// toolbar's loading and the bar, while the server holds the response.
+	// Chrome's Navigate starts a restored tab's load before Pane observes the
+	// page, which missed its start and showed nothing until a response (W9c).
+	await app.waitFor(
+		"the restored page's load showing",
+		(state) => tabOf(state, tab)?.loading === true && state.progressBar.started,
+		2_000,
+	);
+
 	// Its request at the server, which holds it 6 s.
 	await Bun.sleep(1_500);
 	process.kill(await pidOf("network.mojom.NetworkService"), "SIGKILL");
