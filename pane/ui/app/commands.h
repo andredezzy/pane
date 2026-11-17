@@ -118,8 +118,10 @@ bool IsPlatformCommand(Command command);
 // Chrome reserves (`kReservedCommandIds`, ADR 0019), so no page can keep a
 // user in it: Quit, New Tab, Close Tab, Reopen Closed Tab, and the
 // switcher's Ctrl-Tab. While the page fills the screen, only Quit and Full
-// Screen, as Chrome's page fullscreen keeps them. Every other key goes to the
-// page first, then to the window's table.
+// Screen, as Chrome's page fullscreen keeps them. And Lock Pane, page
+// fullscreen or not, so no page can keep Pane open (the user's call,
+// 2026-11-17). Every other key goes to the page first, then to the window's
+// table.
 bool IsAppFirst(Command command, bool page_fullscreen);
 
 // The command a key runs, of the window's or the platform's; none for a key

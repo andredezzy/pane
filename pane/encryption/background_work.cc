@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/browser/background_work.h"
+#include "pane/encryption/background_work.h"
 
 #include <utility>
 
@@ -11,7 +11,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 
-namespace pane {
+namespace pane::encryption {
 
 namespace {
 
@@ -49,4 +49,4 @@ void WaitForBackgroundWork(base::TimeDelta cap,
       base::BindPostTask(here, base::BindOnce(&Wait::Answer, wait, true)));
 }
 
-}  // namespace pane
+}  // namespace pane::encryption

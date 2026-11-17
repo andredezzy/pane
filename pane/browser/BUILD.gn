@@ -1,23 +1,8 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# What Chrome's stores hold of a profile, let go of as the profile goes, and
-# the background work Chrome left for the thread pool, run first, which a
-# lock's detach waits for (ADR 0116). Targets of their own so their tests run
-# in pane_unittests, apart from the engine.
-
-source_set("background_work") {
-  visibility = [
-    ":unit_tests",
-    "//pane",
-  ]
-
-  sources = [
-    "background_work.cc",
-    "background_work.h",
-  ]
-
-  deps = [ "//base" ]
-}
+# What Chrome's stores hold of a profile, let go of as the profile goes (ADR
+# 0116). Targets of their own so their tests run in pane_unittests, apart from
+# the engine.
 
 # The CRLSet the package carries (ADR 0040): the bundle's resource on the
 # Mac, the crl-set file beside chrome.dll on Windows. A target of its own so
@@ -87,7 +72,6 @@ source_set("unit_tests") {
   visibility = [ "//pane/encryption:pane_unittests" ]
 
   sources = [
-    "background_work_unittest.cc",
     "proto_databases_unittest.cc",
     "system_proxy_unittest.cc",
   ]
@@ -98,7 +82,6 @@ source_set("unit_tests") {
   }
 
   deps = [
-    ":background_work",
     ":bundled_crl_set",
     ":proto_databases",
     ":system_proxy",

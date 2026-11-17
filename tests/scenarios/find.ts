@@ -2,7 +2,8 @@ import { launchPane } from "../lib/pane";
 import { PRIMARY } from "../lib/platform";
 import { expect, type Scenario } from "../run";
 
-// Find in page through the app: counts, stepping forward and back, closing.
+// Find in page through the app: counts, stepping forward and back, closing,
+// and Find Next opening a closed bar on the last search.
 const find: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Find");
@@ -46,6 +47,34 @@ const find: Scenario = async (context) => {
 	expect(
 		!closed.find.visible && closed.find.text === "",
 		"the find bar stayed open",
+	);
+
+	// ⌘G and ⇧⌘G with the bar closed open it on the last search and find it,
+	// as Chrome's do (W9a: they opened nothing); ⌘F still opens it empty
+	// (ADR 0067).
+	await app.send("find", { text: "needle" });
+	await app.waitFor("5 matches again", (state) => state.find.matches === 5);
+
+	for (const modifiers of [[PRIMARY], [PRIMARY, "shift"]]) {
+		await app.send("closeFind");
+		await app.send("key", { key: "g", modifiers });
+
+		await app.waitFor(
+			`${modifiers.length > 1 ? "⇧⌘G" : "⌘G"} on the closed bar`,
+			(state) =>
+				state.find.visible &&
+				state.find.text === "needle" &&
+				state.find.matches === 5 &&
+				state.find.activeMatch > 0,
+		);
+	}
+
+	await app.send("closeFind");
+	await app.send("key", { key: "f", modifiers: [PRIMARY] });
+
+	await app.waitFor(
+		"⌘F opening it empty",
+		(state) => state.find.visible && state.find.text === "",
 	);
 };
 

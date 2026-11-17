@@ -17,6 +17,7 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "pane/app/data_launch.h"
 #include "pane/browser/profile_contexts.h"
@@ -57,6 +58,7 @@ class AppEvents;
 class AppIconImages;
 class Automation;
 class DockIcon;
+class FindInPage;
 
 namespace model {
 struct AppSettings;
@@ -351,7 +353,18 @@ class UiApp : public AppData::Client,
   // A tab's page, as the model hears of it.
   class Page;
 
+  class NetworkServiceWatch;
+
   explicit UiApp(base::CommandLine launch_toast);
+
+  // The shown tab's find bar, made the first time, to open: none off the
+  // browser page, behind the lock, or with no page.
+  FindInPage* FindToOpen();
+
+  // The network service's process crashed (NetworkServiceWatch).
+  void NetworkServiceCrashed();
+  // Each page whose first load the crash aborted loads again.
+  void LoadWhatTheCrashAborted();
 
   // The site hears `click` once the lock is open: the toast's profile opens,
   // as any of its pages would (ProfileContexts::With), and Chrome's handler
@@ -404,6 +417,13 @@ class UiApp : public AppData::Client,
   void PageTitleChanged(const std::string& tab_id);
   // Its favicon came: drawn at once, saved with the tab once encoded.
   void PageFaviconChanged(const std::string& tab_id, const gfx::Image& image);
+  // A new document's load ended and the page sent no icon: its entry's, or
+  // none, the row drawing the globe.
+  void PageIconAtLoadEnd(const std::string& tab_id,
+                         const gfx::Image& entry_icon);
+  // Its first load from its tab's saved address ended with no document,
+  // aborted: loaded again if the network service's crash did it.
+  void PageFirstLoadAborted(const std::string& tab_id, const GURL& url);
   // It went somewhere: its history changed.
   void PageNavigated(const std::string& tab_id);
   // A new document started or stopped loading in its main frame, or went on.
@@ -530,6 +550,16 @@ class UiApp : public AppData::Client,
   SettingsUpdate settings_update_;
   // Pane's icon in the Dock.
   std::unique_ptr<DockIcon> dock_icon_;
+  // The network service's crashes, and when the last came.
+  std::unique_ptr<NetworkServiceWatch> network_service_watch_;
+  base::TimeTicks network_crashed_at_;
+  // The pages whose first load from their tab's address was aborted, and
+  // when: the crash heard within 2 s loads each again.
+  struct AbortedLoad {
+    GURL url;
+    base::TimeTicks at;
+  };
+  std::map<std::string, AbortedLoad> aborted_first_loads_;
   // The menu bar, from the command table.
   std::unique_ptr<MenuBar> menu_bar_;
   // Quit Pane? shows.

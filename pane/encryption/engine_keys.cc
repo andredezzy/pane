@@ -36,6 +36,9 @@ struct Registry {
   std::vector<RegisteredProfile> profiles;
   std::map<std::string, Key> engine_keys;
   std::map<std::string, ProfileKeys> keys;
+  // Each RegisterKey, counted: a drop that waits drops nothing an unlock
+  // registered meanwhile.
+  uint64_t registrations = 0;
 };
 
 Registry& GetRegistry() {
@@ -204,6 +207,7 @@ void RegisterKey(const std::string& id,
   base::AutoLock lock(registry.lock);
   base::span(registry.engine_keys[id]).copy_from(key);
   registry.keys[id] = DeriveProfileKeys(key);
+  ++registry.registrations;
 
   if (!std::ranges::contains(registry.profiles, id, &RegisteredProfile::id)) {
     registry.profiles.push_back(
@@ -217,9 +221,10 @@ std::vector<std::pair<std::string, Key>> RegisteredKeys() {
   return {registry.engine_keys.begin(), registry.engine_keys.end()};
 }
 
-size_t DropKeys() {
-  Registry& registry = GetRegistry();
-  base::AutoLock lock(registry.lock);
+namespace {
+
+// DropKeys' work, under the registry's lock.
+size_t DropKeysLocked(Registry& registry) {
   const size_t held = registry.keys.size();
 
   for (auto& [id, key] : registry.engine_keys) {
@@ -235,10 +240,34 @@ size_t DropKeys() {
   return held;
 }
 
+}  // namespace
+
+size_t DropKeys() {
+  Registry& registry = GetRegistry();
+  base::AutoLock lock(registry.lock);
+  return DropKeysLocked(registry);
+}
+
 size_t KeyCount() {
   Registry& registry = GetRegistry();
   base::AutoLock lock(registry.lock);
   return registry.keys.size();
+}
+
+uint64_t Registrations() {
+  Registry& registry = GetRegistry();
+  base::AutoLock lock(registry.lock);
+  return registry.registrations;
+}
+
+bool DropKeysUnlessRegisteredSince(uint64_t registrations) {
+  Registry& registry = GetRegistry();
+  base::AutoLock lock(registry.lock);
+  if (registry.registrations != registrations) {
+    return false;
+  }
+  DropKeysLocked(registry);
+  return true;
 }
 
 std::optional<ProfileKeys> KeysFor(const base::FilePath& path) {

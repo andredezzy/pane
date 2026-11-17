@@ -1,6 +1,6 @@
 // Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-#include "pane/browser/background_work.h"
+#include "pane/encryption/background_work.h"
 
 #include <atomic>
 #include <memory>
@@ -19,7 +19,7 @@
 #include "pane/encryption/engine_keys.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace pane {
+namespace pane::encryption {
 namespace {
 
 constexpr char kProfile[] = "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f02";
@@ -39,25 +39,25 @@ class BackgroundWorkTest : public testing::Test {
     ASSERT_TRUE(data_.CreateUniqueTempDir());
     const base::FilePath engine = data_.GetPath().AppendASCII("Engine");
     file_ = engine.AppendASCII(kProfile).AppendASCII("DIPS");
-    encryption::ResetForTesting();
-    encryption::AddRoots({engine});
-    encryption::Key key;
+    ResetForTesting();
+    AddRoots({engine});
+    Key key;
     key.fill(7);
-    encryption::RegisterKey(kProfile, key);
+    RegisterKey(kProfile, key);
   }
 
-  void TearDown() override { encryption::ResetForTesting(); }
+  void TearDown() override { ResetForTesting(); }
 
   // A task of the profile's, as the bounce-tracking database's open or the
   // bookmarks' ordering written: with its key it reaches the file; without,
   // the encryption ends the process (ADR 0121), which here it only tells.
   static void ReachTheProfilesFile(const base::FilePath& file,
                                    std::atomic<int>* reached) {
-    if (encryption::KeyCount() == 0) {
+    if (KeyCount() == 0) {
       *reached = kWithoutItsKey;
       return;
     }
-    *reached = encryption::KeysFor(file) ? kWithItsKey : kWithoutItsKey;
+    *reached = KeysFor(file) ? kWithItsKey : kWithoutItsKey;
   }
 
   static void PostProfileWork(const base::FilePath& file,
@@ -81,7 +81,7 @@ TEST_F(BackgroundWorkTest, HeldWorkOutlivesTheKeysOfALockThatDoesNotWait) {
   {
     base::ScopedBestEffortExecutionFence busy;
     PostProfileWork(file_, &reached);
-    encryption::DropKeys();
+    DropKeys();
   }
   environment_.RunUntilIdle();
 
@@ -100,21 +100,21 @@ TEST_F(BackgroundWorkTest, WaitingLetsHeldWorkReachItsFileWithItsKey) {
   WaitForBackgroundWork(base::Seconds(30),
                         base::BindLambdaForTesting([&](bool work_ran) {
                           ran = work_ran;
-                          encryption::DropKeys();
+                          DropKeys();
                           waited.Quit();
                         }));
   base::RunLoop().RunUntilIdle();
   // Still held: the lock still waits, the keys still there.
   EXPECT_FALSE(ran);
   EXPECT_EQ(reached, kNotYet);
-  EXPECT_EQ(encryption::KeyCount(), 1u);
+  EXPECT_EQ(KeyCount(), 1u);
 
   busy.reset();
   waited.Run();
 
   EXPECT_EQ(ran, true);
   EXPECT_EQ(reached, kWithItsKey);
-  EXPECT_EQ(encryption::KeyCount(), 0u);
+  EXPECT_EQ(KeyCount(), 0u);
 }
 
 // What that work posts in turn is waited for too: a marker posted after it
@@ -178,4 +178,4 @@ TEST_F(BackgroundWorkTest, AnIdlePoolAnswersAtOnce) {
 }
 
 }  // namespace
-}  // namespace pane
+}  // namespace pane::encryption

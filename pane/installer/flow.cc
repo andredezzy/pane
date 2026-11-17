@@ -751,8 +751,8 @@ void UninstallFlow::ShowStep(Step step) {
         screen.box = Screen::Box{
             erase_, u"Also delete Pane’s data",
             data_size_ ? SizeText(data_size_) : u"",
-            erase_ ? u"Erased for good once you press Uninstall: nothing can "
-                     u"bring it back."
+            erase_ ? u"Erased for good once you press Uninstall and delete: "
+                     u"nothing can bring it back."
                    : u"Your profiles, sign-ins, tabs, extensions, and PIN. "
                      u"Kept, a reinstall finds them."};
       }

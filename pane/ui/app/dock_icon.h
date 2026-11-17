@@ -41,7 +41,7 @@ class DockIcon : public ui::NativeThemeObserver {
   // The sky the Dock shows, once its image is there.
   std::optional<model::AppIcon> shown() const { return shown_; }
 
-  // ui::NativeThemeObserver:
+  // ui::NativeThemeObserver: the scheme read on the next turn.
   void OnNativeThemeUpdated(ui::NativeTheme* observed_theme) override;
 
  private:
@@ -62,6 +62,8 @@ class DockIcon : public ui::NativeThemeObserver {
   // The sky asked for last, and the one the Dock shows.
   std::optional<model::AppIcon> wanted_;
   std::optional<model::AppIcon> shown_;
+  // A read of the theme posted for the next turn.
+  bool apply_posted_ = false;
   base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver>
       theme_observation_{this};
   base::WeakPtrFactory<DockIcon> weak_factory_{this};

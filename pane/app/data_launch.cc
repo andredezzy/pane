@@ -292,11 +292,15 @@ class PaneData : public AppData,
 
   void QuitToCloseVolume() override { chrome::AttemptExit(); }
 
-  // No process has a profile's file open: each forgets its keys (ADR 0121).
+  // No process has a profile's file open: each forgets its keys (ADR 0121),
+  // the services once their own thread pools have run (ADR 0116). An unlock
+  // that came while they waited registered keys they keep: their count is
+  // that unlock's then, no key kept through the lock.
   void VolumeDidDetachAtLock() override {
     DropEngineKeys(
         base::BindOnce([](size_t browser, uint32_t network, uint32_t storage) {
-          if (browser + network + storage > 0) {
+          const AppData* data = AppData::Get();
+          if (data && data->IsLocked() && browser + network + storage > 0) {
             LOG(ERROR) << "A process kept its keys through a lock: " << browser
                        << ", " << network << ", " << storage;
           }

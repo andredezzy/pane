@@ -15,12 +15,12 @@
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "pane/app/data_launch.h"
-#include "pane/browser/background_work.h"
 #include "pane/browser/browser_context.h"
 #include "pane/browser/caches_in_memory.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profile_network.h"
 #include "pane/browser/profiles.h"
+#include "pane/encryption/background_work.h"
 #include "pane/model/browser_model.h"
 #include "pane/model/data_key.h"
 #include "pane/model/profile.h"
@@ -65,7 +65,7 @@ void LetBackgroundWorkRun(base::OnceCallback<void(bool)> closed,
               AfterStartupTaskUtils::SetBrowserStartupIsCompleteForTesting(
                   StartupIsCompleteReason::kVisiblePagesHidden);
             }
-            WaitForBackgroundWork(
+            encryption::WaitForBackgroundWork(
                 kBackgroundWorkCap,
                 base::BindOnce(
                     [](base::TimeTicks started,

@@ -74,6 +74,11 @@ class FindInPage : public FindBar {
   // unselects the page (StopFinding's kClear), which the Swift's ⌘F left
   // as it was.
   void Open();
+  // ⌘G or ⇧⌘G with the bar closed, as Chrome's FindBarController::Show
+  // (find_next): the bar opens on the tab's last search, else the profile's
+  // (FindTabHelper::GetInitialSearchText, the text Chrome prepopulates), and
+  // finds it forward or back; with none, it opens empty, as ⌘F opens it.
+  void OpenOnLastSearch(bool forward);
   // From the bar: the field's text, as typed (a search from the first
   // match; emptied, the matches go and the page's selection stays, as the
   // Swift's stopFinding); the next match or the previous one (Return, a

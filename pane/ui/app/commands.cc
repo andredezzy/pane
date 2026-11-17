@@ -323,6 +323,11 @@ bool IsPlatformCommand(Command command) {
 }
 
 bool IsAppFirst(Command command, bool page_fullscreen) {
+  // Lock Pane's key too, Chrome having none: a page that kept it (Docs' and
+  // Sheets' align left is Ctrl+Shift+L on Windows) left Pane open.
+  if (command == Command::kLock) {
+    return true;
+  }
   if (page_fullscreen) {
     return command == Command::kQuit || command == Command::kFullScreen;
   }

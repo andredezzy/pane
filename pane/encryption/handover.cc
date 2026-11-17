@@ -8,14 +8,26 @@
 #include "base/check_op.h"
 #include "base/containers/span.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/memory/writable_shared_memory_region.h"
+#include "base/time/time.h"
+#include "pane/encryption/background_work.h"
 #include "pane/encryption/engine_keys.h"
 #include "pane/encryption/sqlite_vfs.h"
 #include "pane/encryption/whole_file.h"
 #include "third_party/boringssl/src/include/openssl/mem.h"
 
 namespace pane::encryption {
+
+namespace {
+
+// How long a service's drop lets its thread pool run first: the browser's
+// lock waits as long for its own (ProfileContexts' kBackgroundWorkCap).
+constexpr base::TimeDelta kDropWaitCap = base::Seconds(5);
+
+}  // namespace
 
 mojom::EngineKeysPtr KeysForOtherProcess() {
   std::vector<base::FilePath> roots = Roots();
@@ -56,6 +68,24 @@ void ReceiveKeys(mojom::EngineKeysPtr keys) {
     RegisterKey(entry->id, bytes.first<kKeySize>());
     OPENSSL_cleanse(bytes.data(), bytes.size());
   }
+}
+
+void DropKeysOnceBackgroundWorkRan(base::OnceCallback<void(uint32_t)> done) {
+  DropKeysOnceBackgroundWorkRan(kDropWaitCap, std::move(done));
+}
+
+void DropKeysOnceBackgroundWorkRan(base::TimeDelta cap,
+                                   base::OnceCallback<void(uint32_t)> done) {
+  // Read as the lock asks: a key registered after it is an unlock's.
+  const uint64_t registrations = Registrations();
+  WaitForBackgroundWork(
+      cap, base::BindOnce(
+               [](uint64_t registrations,
+                  base::OnceCallback<void(uint32_t)> done, bool ran) {
+                 DropKeysUnlessRegisteredSince(registrations);
+                 std::move(done).Run(static_cast<uint32_t>(KeyCount()));
+               },
+               registrations, std::move(done)));
 }
 
 void InstallHooks() {

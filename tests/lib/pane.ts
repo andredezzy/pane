@@ -169,7 +169,10 @@ export type TabState = {
 	id: string;
 	url: string;
 	title: string;
+	// The icon saved with the tab.
 	hasFavicon: boolean;
+	// What its row draws while it shows one: an icon, or the globe (false).
+	rowFavicon: boolean | null;
 	loaded: boolean;
 	loading: boolean;
 	canGoBack: boolean;

@@ -48,9 +48,9 @@
 #include "pane/automation/input.h"
 #include "pane/automation/system.h"
 #include "pane/automation/windows.h"
-#include "pane/browser/background_work.h"
 #include "pane/browser/engine_trace.h"
 #include "pane/browser/profile_cache.h"
+#include "pane/encryption/background_work.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/model_store.h"
 #include "pane/model/pin_entry.h"
@@ -1501,7 +1501,7 @@ void Automation::Dispatch(const std::string& name,
   // Replies once the thread pool has run all it holds, as the Lock waits for
   // it before its detach: { ran }, false past { ms } (30 s by default).
   if (name == "waitForBackgroundWork") {
-    WaitForBackgroundWork(
+    encryption::WaitForBackgroundWork(
         base::Milliseconds(command.FindInt("ms").value_or(30'000)),
         base::BindOnce(
             [](Reply reply, bool ran) {

@@ -35,25 +35,11 @@ import {
 import { join, relative, sep } from "node:path";
 import { userSecret } from "../lib/engine-key";
 import { audit, type Planted } from "../lib/file-audit";
-import { bySystem, ENGINE_FOLDER, powershell } from "../lib/platform";
+import { ENGINE_FOLDER, powershell } from "../lib/platform";
 import { processTable, waitForExit } from "../lib/processes";
 import { plainContent, profileKeys } from "../lib/profile-files";
-import { preferenceMacs } from "../lib/tools";
+import { inTheTestVM, preferenceMacs } from "../lib/tools";
 import { expect, type Scenario } from "../run";
-
-// The test VM, by its disk's serial (scripts/start.sh in the VM's folder:
-// serial=PANEVM) and its machine's maker: never a computer someone works on,
-// and never the Mac.
-const inTheTestVM = bySystem({
-	mac: async (): Promise<boolean> => false,
-	windows: async (): Promise<boolean> => {
-		const found = await powershell(
-			"$disks = (Get-CimInstance Win32_DiskDrive).SerialNumber -join ','; $maker = (Get-CimInstance Win32_ComputerSystem).Manufacturer; \"$disks|$maker\"",
-		);
-
-		return /PANEVM/.test(found) && /QEMU/i.test(found);
-	},
-});
 
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 

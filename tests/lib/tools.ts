@@ -310,6 +310,36 @@ export const systemIsDark = bySystem({
 	},
 });
 
+// The test VM, by its disk's serial (scripts/start.sh in the VM's folder:
+// serial=PANEVM) and its machine's maker: never a computer someone works on,
+// and never the Mac. What changes the computer itself runs there alone.
+export const inTheTestVM = bySystem({
+	mac: async (): Promise<boolean> => false,
+	windows: async (): Promise<boolean> => {
+		const found = await powershell(
+			"$disks = (Get-CimInstance Win32_DiskDrive).SerialNumber -join ','; $maker = (Get-CimInstance Win32_ComputerSystem).Manufacturer; \"$disks|$maker\"",
+		);
+
+		return /PANEVM/.test(found) && /QEMU/i.test(found);
+	},
+});
+
+// Windows' dark or light, for apps and its own shell, as Settings'
+// Personalization sets them, broadcast as it broadcasts the change: in the
+// test VM alone (inTheTestVM). The Mac's appearance is its user's, which
+// nothing of the runner's changes.
+export const setSystemDark = bySystem({
+	mac: async (_dark: boolean): Promise<void> => {
+		throw new Error("the Mac's appearance is its user's: no scenario sets it");
+	},
+	windows: async (dark: boolean): Promise<void> => {
+		await powershell(
+			String.raw`$k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'; Set-ItemProperty $k AppsUseLightTheme ([int]$env:LIGHT); Set-ItemProperty $k SystemUsesLightTheme ([int]$env:LIGHT); Add-Type -Namespace PaneTheme -Name Broadcast -MemberDefinition '[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, string l, uint f, uint t, out UIntPtr r);'; $r = [UIntPtr]::Zero; [PaneTheme.Broadcast]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, 'ImmersiveColorSet', 2, 5000, [ref]$r) | Out-Null`,
+			{ LIGHT: dark ? "0" : "1" },
+		);
+	},
+});
+
 type AttachedImage = {
 	"image-path"?: string;
 	"system-entities"?: {
@@ -640,6 +670,25 @@ export const crashpadKept = bySystem({
 			),
 		].filter((path) => statSync(path).mtimeMs >= since),
 	],
+});
+
+// Chromium's crash reports' folder, where it would make it as anything asks
+// for it (chrome_paths.cc's DIR_CRASH_DUMPS), a profile's deletion among
+// them: under the default user data dir, on the Mac in the home's Application
+// Support, on Windows in its AppData's, a test copy's home its own; and in
+// the launch's engine folder, where Pane names it and never makes it (ADR
+// 0115). Those of them that exist.
+export const crashFolders = bySystem({
+	mac: ({ home, dataDir }: { home: string; dataDir: string }): string[] =>
+		[
+			join(home, "Library", "Application Support", "Chromium", "Crashpad"),
+			join(dataDir, ENGINE_FOLDER, "Crashpad"),
+		].filter((folder) => existsSync(folder)),
+	windows: ({ home, dataDir }: { home: string; dataDir: string }): string[] =>
+		[
+			join(home, "AppData", "Local", "Pane", "User Data", "Crashpad"),
+			join(dataDir, ENGINE_FOLDER, "Crashpad"),
+		].filter((folder) => existsSync(folder)),
 });
 
 // Chromium's MACs of each profile's tracked preferences, which on Windows it

@@ -185,6 +185,14 @@ void Favicons::Update(
                      update, std::move(encoded)));
 }
 
+void Favicons::Remove(const std::string& tab_id) {
+  if (const auto found = entries_.Peek(tab_id); found != entries_.end()) {
+    entries_.Erase(found);
+  }
+  decoding_.erase(tab_id);
+  updates_.erase(tab_id);
+}
+
 void Favicons::Clear() {
   weak_factory_.InvalidateWeakPtrs();
   entries_.Clear();

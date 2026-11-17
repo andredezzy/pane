@@ -46,12 +46,17 @@
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_details.h"
+#include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/reload_type.h"
+#include "content/public/browser/service_process_info.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/url_constants.h"
+#include "net/base/net_errors.h"
 #include "pane/app/install_switches.h"
 #include "pane/app/version.h"
 #include "pane/automation/automation.h"
@@ -251,6 +256,7 @@ class UiApp::Page : public content::WebContentsObserver,
                         bool icon_url_changed,
                         const gfx::Image& image) override {
     if (notification_icon_type == NON_TOUCH_16_DIP && !image.IsEmpty()) {
+      icon_came_ = true;
       app_->PageFaviconChanged(tab_id_, image);
     }
   }
@@ -272,9 +278,37 @@ class UiApp::Page : public content::WebContentsObserver,
   // each after its state changed, and the frame tree's start and stop cover
   // the rest.
   void DidStartLoading() override { ReportLoading(0); }
-  void DidStopLoading() override { ReportLoading(1); }
+  void DidStopLoading() override {
+    ReportLoading(1);
+    // A new document's load ended: the icon it brought, or none. The last
+    // page's stays only while the load runs, so nothing flickers.
+    if (std::exchange(document_changed_, false) && !icon_came_) {
+      app_->PageIconAtLoadEnd(tab_id_, Favicon());
+    }
+  }
   void LoadProgressChanged(double progress) override {
     ReportLoading(progress);
+  }
+
+  // Pane opened it from its tab's saved address (OpenPage: an unlock's
+  // restore, a woken tab): its first load, until a document commits.
+  void LoadsSavedAddress() { first_load_ = true; }
+
+  // A first load lost without a document, aborted as the network service's
+  // crash aborts what it was loading: the app loads it again once the
+  // service is back, when it was the crash (NetworkServiceCrashed).
+  void DidFinishNavigation(content::NavigationHandle* handle) override {
+    if (!handle->IsInPrimaryMainFrame() || handle->IsSameDocument()) {
+      return;
+    }
+    if (handle->HasCommitted()) {
+      first_load_ = false;
+      return;
+    }
+    if (first_load_ && handle->GetNetErrorCode() == net::ERR_ABORTED &&
+        !handle->IsDownload()) {
+      app_->PageFirstLoadAborted(tab_id_, handle->GetURL());
+    }
   }
 
   // Back's and Forward's states follow the page's history, and the tab's
@@ -296,6 +330,9 @@ class UiApp::Page : public content::WebContentsObserver,
   void NavigationEntriesDeleted() override { app_->PageNavigated(tab_id_); }
 
   void PrimaryPageChanged(content::Page& page) override {
+    // A new document, which hasn't sent its icon yet.
+    document_changed_ = true;
+    icon_came_ = false;
     app_->PageURLChanged(tab_id_);
     app_->PageCameBack(tab_id_);
   }
@@ -335,6 +372,7 @@ class UiApp::Page : public content::WebContentsObserver,
     Observe(new_contents);
     loading_.reset();
     discarded_ = true;
+    document_changed_ = false;
   }
 
   // The empty page is in the tab strip, with its tab helpers.
@@ -381,9 +419,38 @@ class UiApp::Page : public content::WebContentsObserver,
   std::optional<double> loading_;
   // Chrome's empty page, in a discarded one's place, not yet loaded.
   bool discarded_ = false;
+  // A new document committed in the load under way, and whether its icon
+  // came: at the load's end, one that brought none draws the globe.
+  bool document_changed_ = false;
+  bool icon_came_ = false;
+  // Loading its tab's saved address, no document of its own yet.
+  bool first_load_ = false;
   base::ScopedObservation<favicon::FaviconDriver,
                           favicon::FaviconDriverObserver>
       favicon_observation_{this};
+};
+
+// The network service's crashes, as content hears of its process: a page
+// whose first load one aborted loads again (PageFirstLoadAborted).
+class UiApp::NetworkServiceWatch
+    : public content::NetworkServiceProcessObserver {
+ public:
+  explicit NetworkServiceWatch(UiApp* app) : app_(app) {
+    content::AddNetworkServiceProcessObserver(this);
+  }
+  NetworkServiceWatch(const NetworkServiceWatch&) = delete;
+  NetworkServiceWatch& operator=(const NetworkServiceWatch&) = delete;
+  ~NetworkServiceWatch() override {
+    content::RemoveNetworkServiceProcessObserver(this);
+  }
+
+  // content::NetworkServiceProcessObserver:
+  void OnServiceCrashed(const content::ServiceProcessInfo& info) override {
+    app_->NetworkServiceCrashed();
+  }
+
+ private:
+  const raw_ptr<UiApp> app_;
 };
 
 // static
@@ -434,6 +501,7 @@ UiApp::UiApp(base::CommandLine launch_toast)
                        base::Unretained(this)));
   dock_icon_->Show(model().settings().app_icon);
   app_icons_->Load({model().settings().app_icon});
+  network_service_watch_ = std::make_unique<NetworkServiceWatch>(this);
   // A scenario's copy shares the user's preferences, so its window neither
   // reads nor saves the user's frame: 1280 × 800 at every launch (B0).
   window_ = std::make_unique<Window>(
@@ -1034,8 +1102,78 @@ void UiApp::OpenPage(const std::string& tab_id,
   if (contents && !PageOf(tab_id)) {
     AddPage(tab_id, contents);
   }
+  if (const auto page = pages_.find(tab_id);
+      contents && page != pages_.end() &&
+      page->second->web_contents() == contents) {
+    page->second->LoadsSavedAddress();
+  }
   if (contents && model().active_tab_id() == tab_id) {
     Show(contents);
+  }
+}
+
+namespace {
+
+// How far apart the network service's crash and a load it aborted are heard:
+// each comes on its own pipe's disconnection, and either may come first.
+constexpr base::TimeDelta kCrashAndAbortApart = base::Seconds(2);
+
+}  // namespace
+
+void UiApp::PageFirstLoadAborted(const std::string& tab_id, const GURL& url) {
+  aborted_first_loads_[tab_id] = {url, base::TimeTicks::Now()};
+  LoadWhatTheCrashAborted();
+}
+
+void UiApp::NetworkServiceCrashed() {
+  network_crashed_at_ = base::TimeTicks::Now();
+  PANE_TRACE("callback", "PaneBrowserApplication.networkServiceCrashed");
+  LoadWhatTheCrashAborted();
+}
+
+// A page Pane opened from its tab's saved address whose first load the
+// network service's crash aborted had no document and no load to wait for:
+// it stayed blank, as the tab the unlock restored did on Windows while its
+// error reporting held the dead service (W9a). It loads its address again, a
+// turn on, which starts the service anew: blank while the service is gone,
+// the page loading by itself once it is back. A load aborted otherwise (a
+// Stop, a newer load) stays as it is, and so does a page with a document,
+// whose load the crash cut short: it keeps that document, as in Chrome.
+void UiApp::LoadWhatTheCrashAborted() {
+  const base::TimeTicks now = base::TimeTicks::Now();
+  const bool crashed = !network_crashed_at_.is_null() &&
+                       now - network_crashed_at_ <= kCrashAndAbortApart;
+  for (auto aborted = aborted_first_loads_.begin();
+       aborted != aborted_first_loads_.end();) {
+    const auto& [tab_id, load] = *aborted;
+    if (now - load.at > kCrashAndAbortApart) {
+      aborted = aborted_first_loads_.erase(aborted);
+      continue;
+    }
+    if (!crashed) {
+      ++aborted;
+      continue;
+    }
+    PANE_TRACE("call", "PaneWebContents.loadAfterNetworkServiceCrash");
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<UiApp> app, std::string tab_id, GURL url) {
+              content::WebContents* page = app ? app->PageOf(tab_id) : nullptr;
+              if (!page || !app->InteractionAllowed() || page->IsLoading()) {
+                return;
+              }
+              const content::NavigationEntry* entry =
+                  page->GetController().GetLastCommittedEntry();
+              if (entry && !entry->IsInitialEntry()) {
+                return;
+              }
+              page->GetController().LoadURL(url, content::Referrer(),
+                                            ui::PAGE_TRANSITION_TYPED,
+                                            std::string());
+            },
+            weak_factory_.GetWeakPtr(), tab_id, load.url));
+    aborted = aborted_first_loads_.erase(aborted);
   }
 }
 
@@ -1659,6 +1797,23 @@ void UiApp::PageFaviconChanged(const std::string& tab_id,
   window_->Refresh();
 }
 
+// A new document's load ended and its page sent no icon: the one its entry
+// holds (a page back from the back-forward cache), else none. With none,
+// the row draws the globe Pane draws for a tab with none, as Chrome's tab
+// shows its default icon, and the tab saves none, where the last page's
+// icon stayed and came back after a relaunch (W9a, W9b; the user's call,
+// 2026-11-17). An icon that comes after the load ends draws then.
+void UiApp::PageIconAtLoadEnd(const std::string& tab_id,
+                              const gfx::Image& entry_icon) {
+  if (!entry_icon.IsEmpty()) {
+    PageFaviconChanged(tab_id, entry_icon);
+    return;
+  }
+  favicons_.Remove(tab_id);
+  model().UpdateTab(tab_id, [](model::Tab& tab) { tab.favicon.clear(); });
+  window_->Refresh();
+}
+
 void UiApp::PageNavigated(const std::string& tab_id) {
   if (content::WebContents* contents = PageOf(tab_id);
       contents && window_->selected() == contents) {
@@ -2250,32 +2405,44 @@ void UiApp::RunCommand(Command command) {
 // MARK: Find in page (ADR 0067)
 
 void UiApp::ShowFind() {
+  if (FindInPage* find = FindToOpen()) {
+    find->Open();
+  }
+}
+
+// The shown tab's find bar, made the first time, to open: none off the
+// browser page, behind the lock, or with no page.
+FindInPage* UiApp::FindToOpen() {
   content::WebContents* page = window_->selected();
   if (!InteractionAllowed() || !page ||
       model().page() != model::BrowserModel::Page::kBrowser) {
-    return;
+    return nullptr;
   }
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(page);
   FindBarController* controller = FindBarController::From(browser);
   if (!controller) {
-    return;
+    return nullptr;
   }
   LogInteraction(Interaction::kShowFindBar, window_->compositor());
   // Made the first time, for the tab the Browser shows: the window's bar.
   controller->find_bar();
-  if (FindInPage* find = FindInPage::From(browser)) {
-    find->Open();
-  }
+  return FindInPage::From(browser);
 }
 
-// ⌘G and ⇧⌘G, as Chrome's FindBarController::Show(find_next): the bar
-// shows, its field taking the keys, and what it holds is found forward or
-// back. The bar opens empty (ADR 0067), so a closed bar's only opens.
+// ⌘G and ⇧⌘G, F3 and Shift+F3 on Windows, as Chrome's
+// FindBarController::Show(find_next): the bar shows, its field taking the
+// keys, and what it holds is found forward or back. A closed bar opens on
+// the last search, as Chrome's does, where ⌘F opens it empty (ADR 0067).
 void UiApp::FindNext(bool forward) {
-  FindInPage* find = InteractionAllowed() ? window_->ShownFind() : nullptr;
-  if (!find) {
-    ShowFind();
+  if (!InteractionAllowed()) {
+    return;
+  }
+  FindInPage* find = window_->ShownFind();
+  if (!find || !find->IsFindBarVisible()) {
+    if (FindInPage* closed = FindToOpen()) {
+      closed->OpenOnLastSearch(forward);
+    }
     return;
   }
   find->SetFocusAndSelection();

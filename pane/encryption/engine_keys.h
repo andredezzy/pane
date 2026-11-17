@@ -80,6 +80,16 @@ std::vector<std::pair<std::string, Key>> RegisteredKeys();
 size_t DropKeys();
 size_t KeyCount();
 
+// How many times RegisterKey has run in this process: a drop that waits reads
+// it as the lock asks (DropKeysUnlessRegisteredSince).
+uint64_t Registrations();
+
+// DropKeys, unless RegisterKey ran since `registrations` was read: then an
+// unlock registered its profiles' keys while the drop waited, and every key
+// stays, since its profiles open with them. Whether it dropped. The check and
+// the drop are one step under the registry's lock.
+bool DropKeysUnlessRegisteredSince(uint64_t registrations);
+
 // The keys of `path`, in any form a root has, or nullopt for what stays plain:
 // anything that is not a profile's file, and its extensions' public code.
 // Crashes for a protected path with no key, and for a path that names a

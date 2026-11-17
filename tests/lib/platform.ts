@@ -101,22 +101,25 @@ export const OTHER_MODIFIER = bySystem({
 // Pane's keys that differ by more than PRIMARY, as the command table gives
 // each system its own (Chrome's own Windows keys there): Back and Forward,
 // Developer Tools' second key, Chrome's (⌥⌘I on the Mac, F12 on Windows),
-// and Quit's, ⌘Q, and on Windows Exit's Alt+F4 alone, Ctrl+Q running
-// nothing there (`kCtrlQExitsOnWindows`).
+// Quit's, ⌘Q, and on Windows Exit's Alt+F4 alone, Ctrl+Q running nothing
+// there (`kCtrlQExitsOnWindows`), and Lock Pane's, ⌃⌘L, Ctrl+Shift+L on
+// Windows.
 export const KEYS = bySystem<
-	Record<"back" | "forward" | "devToolsAgain" | "quit", Shortcut>
+	Record<"back" | "forward" | "devToolsAgain" | "quit" | "lock", Shortcut>
 >({
 	mac: {
 		back: { key: "[", modifiers: ["command"] },
 		forward: { key: "]", modifiers: ["command"] },
 		devToolsAgain: { key: "i", modifiers: ["command", "option"] },
 		quit: { key: "q", modifiers: ["command"] },
+		lock: { key: "l", modifiers: ["control", "command"] },
 	},
 	windows: {
 		back: { key: "left", modifiers: ["option"] },
 		forward: { key: "right", modifiers: ["option"] },
 		devToolsAgain: { key: "f12", modifiers: [] },
 		quit: { key: "f4", modifiers: ["option"] },
+		lock: { key: "l", modifiers: ["control", "shift"] },
 	},
 });
 

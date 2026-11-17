@@ -416,7 +416,7 @@ TEST(CommandsTest, WindowKeysLeaveThePlatformsOwn) {
 // Ahead of the page, what Chrome reserves (ADR 0019): ⌘Q, ⌘T, ⌘W, ⇧⌘T,
 // and the switcher's Ctrl-Tab, Ctrl where Windows has it; ⌘L, ⌘F, and ⌘1 go
 // to the page first. While the page fills the screen, only Quit and Full
-// Screen.
+// Screen. Lock Pane in both (the user's call, 2026-11-17).
 TEST(CommandsTest, AppFirstAsChromeReserves) {
   const auto app_first = [](bool page_fullscreen) {
     std::vector<Command> commands;
@@ -431,12 +431,31 @@ TEST(CommandsTest, AppFirstAsChromeReserves) {
     }
     return commands;
   };
-  EXPECT_EQ(app_first(false),
-            (std::vector<Command>{Command::kQuit, Command::kNewTab,
-                                  Command::kCloseTab, Command::kReopenClosedTab,
-                                  Command::kNextTab, Command::kPreviousTab}));
+  EXPECT_EQ(
+      app_first(false),
+      (std::vector<Command>{Command::kLock, Command::kQuit, Command::kNewTab,
+                            Command::kCloseTab, Command::kReopenClosedTab,
+                            Command::kNextTab, Command::kPreviousTab}));
   EXPECT_EQ(app_first(true),
-            (std::vector<Command>{Command::kQuit, Command::kFullScreen}));
+            (std::vector<Command>{Command::kLock, Command::kQuit,
+                                  Command::kFullScreen}));
+}
+
+// Lock Pane's key, ⌃⌘L on the Mac and Ctrl+Shift+L on Windows, goes ahead of
+// the page, which never hears it: a page that kept it (Docs' and Sheets'
+// align left on Windows) left Pane open (W9a, W9b; the user's call,
+// 2026-11-17).
+TEST(CommandsTest, LockGoesAheadOfThePage) {
+  const ui::Accelerator lock =
+      ThisKeySystem() == KeySystem::kMac
+          ? ui::Accelerator(ui::VKEY_L,
+                            ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)
+          : ui::Accelerator(ui::VKEY_L,
+                            ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN);
+  const std::optional<Command> command = CommandForAccelerator(lock);
+  ASSERT_EQ(command, Command::kLock);
+  EXPECT_TRUE(IsAppFirst(*command, /*page_fullscreen=*/false));
+  EXPECT_TRUE(IsAppFirst(*command, /*page_fullscreen=*/true));
 }
 
 // Ported from PaneKit's KeyRoutingTests (newTab): ⌘T is New Tab, ahead of the

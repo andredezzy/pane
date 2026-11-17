@@ -32,6 +32,8 @@
 #include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/extensions/action_popup.h"
 #include "pane/ui/extensions/installed_extensions.h"
+#include "pane/ui/sidebar/sidebar_view.h"
+#include "pane/ui/sidebar/tab_row.h"
 #include "pane/ui/toolbar/address_field.h"
 #include "pane/ui/toolbar/toolbar_view.h"
 #include "pane/ui/window/frame.h"
@@ -262,17 +264,23 @@ base::DictValue FindState(RootView* root) {
 
 base::DictValue UiApp::Snapshot() const {
   const model::BrowserModel& model = this->model();
+  RootView* const shown_root = window_->root();
+  SidebarView* const sidebar = shown_root ? shown_root->sidebar() : nullptr;
   base::ListValue profiles;
   for (const model::BrowserProfile& profile : model.profiles()) {
     base::ListValue tabs;
     for (const model::Tab& tab : profile.tabs) {
       content::WebContents* page = PageOf(tab.id);
+      // What the tab's row draws, while it shows one: an icon, or the globe.
+      const TabRow* row = sidebar ? sidebar->FindTabRow(tab.id) : nullptr;
       tabs.Append(
           base::DictValue()
               .Set("id", tab.id)
               .Set("url", tab.url)
               .Set("title", tab.title)
               .Set("hasFavicon", !tab.favicon.empty())
+              .Set("rowFavicon", row ? base::Value(!row->tab().favicon.isNull())
+                                     : base::Value())
               .Set("loaded", page != nullptr)
               .Set("loading", LoadingOf(tab.id).has_value())
               .Set("canGoBack", page && page->GetController().CanGoBack())

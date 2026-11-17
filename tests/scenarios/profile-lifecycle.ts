@@ -11,7 +11,7 @@ import { bySystem, ENGINE_FOLDER } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { targets as targetsOf } from "../lib/targets";
-import { preferenceMacs } from "../lib/tools";
+import { crashFolders, preferenceMacs } from "../lib/tools";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
@@ -26,7 +26,7 @@ import { expect, type Scenario } from "../run";
 // folder is going leaves its record, and the next launch finishes it. On
 // Windows a deleted profile's preference MACs leave the registry with its
 // folder, and a test copy keeps them under a key of its own, never the
-// user's.
+// user's. No delete makes Chromium's crash folder (ADR 0115).
 // Windows' system alert is Pane's own dialog (Paper 11.13 A); the Mac's is
 // AppKit's sheet.
 const PANES_OWN_ALERT = bySystem({ mac: false, windows: true });
@@ -194,6 +194,21 @@ const profileLifecycle: Scenario = async (context) => {
 		(state) =>
 			!state.profiles.some((profile) => profile.id === gone) &&
 			state.pendingProfileDeletions === 0,
+	);
+
+	// The deletion clears Chromium's crash list with the profile's history,
+	// which made Chromium's crash folder, empty, outside Pane's data (W9a):
+	// Pane keeps none (ADR 0115).
+	await Bun.sleep(1_000);
+
+	const crashFoldersMade = crashFolders({
+		home: join(dataDir, "home"),
+		dataDir,
+	});
+
+	expect(
+		crashFoldersMade.length === 0,
+		`Delete profile made Chromium's crash folder: ${JSON.stringify(crashFoldersMade)}`,
 	);
 
 	expect(

@@ -88,6 +88,26 @@ void KeepDictionariesInUserData() {
   }
 }
 
+// Chromium makes its crash reports' folder as anything asks where it is
+// (chrome_paths.cc's DIR_CRASH_DUMPS, create_dir), and a profile's deletion
+// asks, as it clears the crash list with the profile's history
+// (ChromeBrowsingDataRemoverDelegate, CreateCrashUploadList()->Clear()): an
+// empty Crashpad folder appeared in Windows' engine folder at Delete profile
+// (W9a), and in Application Support's Chromium folder on the Mac, outside
+// Pane's data. Pane keeps no crash reports (ADR 0115), so the folder is named
+// in the user data dir, Pane's data, and never made: the clear finds no log
+// there and no database, and does nothing. Before any profile is deleted,
+// those a quit left marked included.
+void KeepNoCrashFolder() {
+  base::FilePath user_data;
+  if (base::PathService::Get(chrome::DIR_USER_DATA, &user_data)) {
+    base::PathService::OverrideAndCreateIfNeeded(
+        chrome::DIR_CRASH_DUMPS,
+        user_data.Append(FILE_PATH_LITERAL("Crashpad")),
+        /*is_absolute=*/true, /*create=*/false);
+  }
+}
+
 // Chrome's background mode stays off: on Windows, a profile with an extension
 // that asks the "background" permission put Chrome's own icon in the
 // notification area, whose menu opens Chrome's task manager, About, and a
@@ -106,9 +126,10 @@ BrowserMainExtraParts::BrowserMainExtraParts() = default;
 
 BrowserMainExtraParts::~BrowserMainExtraParts() = default;
 
-// Before the browser's network contexts exist (ADR 0040), and before the
-// background mode's manager does.
+// Before the browser's network contexts exist (ADR 0040), before the
+// background mode's manager does, and before any profile's deletion.
 void BrowserMainExtraParts::PreCreateThreads() {
+  KeepNoCrashFolder();
   UsePanesWords();
   SystemProxy::HoldLocalState(*g_browser_process->local_state());
   KeepBackgroundModeOff(*g_browser_process->local_state());

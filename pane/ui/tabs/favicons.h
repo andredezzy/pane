@@ -84,6 +84,11 @@ class Favicons {
               const gfx::Image& image,
               base::OnceCallback<void(const std::string& data_url)> encoded);
 
+  // The tab's page has no icon of its own: the placeholder from now on, its
+  // last image gone, and a decode or encode still under way for it lands
+  // nowhere.
+  void Remove(const std::string& tab_id);
+
   // Pane locked (ADR 0116): what the profiles' pages showed leaves memory with
   // them, decodes and encodes under way with it.
   void Clear();

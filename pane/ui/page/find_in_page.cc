@@ -50,6 +50,23 @@ void FindInPage::Open() {
   Show(/*animate=*/true, /*focus=*/true);
 }
 
+void FindInPage::OpenOnLastSearch(bool forward) {
+  content::WebContents* contents = page();
+  if (!contents) {
+    return;
+  }
+  const std::u16string last =
+      find_in_page::FindTabHelper::FromWebContents(contents)
+          ->GetInitialSearchText();
+  Open();
+  if (last.empty()) {
+    return;
+  }
+  state_.text = last;
+  Changed();
+  Step(forward);
+}
+
 // As Chrome's FindBarView::Find, but for the system's find text, which the
 // Swift's bar never wrote (OnUserChangedFindText).
 void FindInPage::Find(const std::u16string& text) {

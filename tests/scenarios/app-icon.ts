@@ -1,9 +1,61 @@
-import { bringToFront, launchPane } from "../lib/pane";
-import { expect, type Scenario } from "../run";
+import { bringToFront, launchPane, type PaneApp } from "../lib/pane";
+import { bySystem } from "../lib/platform";
+import { inTheTestVM, setSystemDark, systemIsDark } from "../lib/tools";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The App icon setting (ADR 0089): the Dock shows the sky it names, whatever
 // the theme, and automatic shows Day under the light theme and Night under the
-// dark one.
+// dark one. On Windows, with Pane's theme on System, Automatic follows
+// Windows' own dark and light: once it stayed Night for minutes after Windows
+// went light (W9a, in windows-install), so three rounds of each, in the test
+// VM alone, whose Windows no one uses; the Mac's appearance is its user's,
+// which no scenario changes.
+const followsTheSystem = bySystem({
+	mac: async (_context: ScenarioContext, _app: PaneApp): Promise<void> => {},
+	windows: async (context: ScenarioContext, app: PaneApp): Promise<void> => {
+		if (!(await inTheTestVM())) {
+			context.defer(
+				"Automatic following Windows' dark and light: the test VM alone changes Windows' theme",
+			);
+
+			return;
+		}
+
+		// The run's appearance stands in for Windows' own, which then
+		// reaches Pane no more.
+		if (context.appearance) {
+			context.defer(
+				"Automatic following Windows' dark and light: --appearance stands in for Windows' own",
+			);
+
+			return;
+		}
+
+		const dark = await systemIsDark();
+		await app.send("theme", { theme: "system" });
+		await app.send("appIcon", { appIcon: "automatic" });
+
+		try {
+			for (let round = 1; round <= 3; round++) {
+				for (const [windowsDark, sky] of [
+					[true, "night"],
+					[false, "day"],
+				] as const) {
+					await setSystemDark(windowsDark);
+
+					await app.waitFor(
+						`Windows ${windowsDark ? "dark" : "light"}, round ${round}: ${sky}`,
+						(state) => state.dockIcon === sky,
+						15_000,
+					);
+				}
+			}
+		} finally {
+			await setSystemDark(dark);
+		}
+	},
+});
+
 const appIcon: Scenario = async (context) => {
 	const app = await launchPane(context);
 
@@ -33,6 +85,8 @@ const appIcon: Scenario = async (context) => {
 			`${step.theme} theme, ${step.appIcon}: the Dock shows ${state.dockIcon}`,
 		);
 	}
+
+	await followsTheSystem(context, app);
 
 	// Settings' row (the chosen icon) and the picker it opens, in each theme:
 	// the window's app UI drawn into a PNG, which a locked screen allows. The

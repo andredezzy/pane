@@ -5,6 +5,8 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/location.h"
+#include "base/task/sequenced_task_runner.h"
 #include "pane/ui/panels/app_icon_images.h"
 #include "ui/gfx/image/image_skia.h"
 
@@ -23,8 +25,25 @@ void DockIcon::Show(model::AppIcon setting) {
   Apply();
 }
 
+// Read on the turn after the notification, once every observer of the
+// theme's change has run and what it changed has settled: on Windows the
+// Automatic sky once stayed Night for minutes after Windows went light, the
+// window light (W9a, windows-install in the test VM), where a read at the
+// notification found the sky it already wanted and did nothing. Several
+// notifications in a turn read once.
 void DockIcon::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
-  Apply();
+  if (std::exchange(apply_posted_, true)) {
+    return;
+  }
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<DockIcon> icon) {
+                       if (icon) {
+                         icon->apply_posted_ = false;
+                         icon->Apply();
+                       }
+                     },
+                     weak_factory_.GetWeakPtr()));
 }
 
 void DockIcon::Apply() {
@@ -43,7 +62,14 @@ void DockIcon::Apply() {
 
 void DockIcon::Loaded(model::AppIcon sky, gfx::ImageSkia image) {
   // Another sky was asked for meanwhile.
-  if (sky != wanted_ || image.isNull()) {
+  if (sky != wanted_) {
+    return;
+  }
+  // Its image wouldn't read: the sky shown stays, and the next change asks
+  // again, where the sky stayed wanted, and every change after found it
+  // wanted already.
+  if (image.isNull()) {
+    wanted_ = shown_;
     return;
   }
   SetImage(image);

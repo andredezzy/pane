@@ -32,6 +32,25 @@ source_set("core") {
   }
 }
 
+# What every process waits for before it drops its keys at a lock: the work
+# its thread pool still holds (ADR 0116), the browser's before its detach, the
+# network service's and the Storage Service's before their own drops
+# (handover's DropKeysOnceBackgroundWorkRan). //base alone, so the services
+# can depend on it.
+source_set("background_work") {
+  visibility = [
+    ":*",
+    "//pane",
+  ]
+
+  sources = [
+    "background_work.cc",
+    "background_work.h",
+  ]
+
+  deps = [ "//base" ]
+}
+
 source_set("handover") {
   sources = [
     "handover.cc",
@@ -44,6 +63,7 @@ source_set("handover") {
   ]
 
   deps = [
+    ":background_work",
     ":sqlite",
     "//base",
   ]
@@ -88,7 +108,9 @@ test("pane_unittests") {
   testonly = true
 
   sources = [
+    "background_work_unittest.cc",
     "engine_keys_unittest.cc",
+    "handover_unittest.cc",
     "leveldb_env_unittest.cc",
     "sqlite_vfs_unittest.cc",
     "stream_cipher_unittest.cc",
@@ -96,7 +118,9 @@ test("pane_unittests") {
   ]
 
   deps = [
+    ":background_work",
     ":core",
+    ":handover",
     ":sqlite",
     "//base",
     "//base/test:run_all_unittests",

@@ -168,5 +168,38 @@ TEST(FaviconsTest, OnlyTheLatestOfThePagesFaviconsIsSaved) {
   EXPECT_EQ(Middle(DecodeFaviconDataURL(saved[0])), SK_ColorBLUE);
 }
 
+// A page whose new document ends its load with no icon of its own: the row
+// draws the placeholder at once, the last page's image gone, and the encode
+// of that image for the save, still under way, saves nothing (the stale
+// icon of W9a and W9b, the user's call of 2026-11-17).
+TEST(FaviconsTest, ARemovedIconDrawsThePlaceholderAndSavesNothing) {
+  base::test::TaskEnvironment environment;
+  Favicons favicons;
+  std::vector<std::string> saved;
+  favicons.Update(
+      "tab",
+      gfx::Image(
+          gfx::ImageSkia::CreateFromBitmap(Filled(16, 16, SK_ColorGREEN), 1)),
+      base::BindOnce(
+          [](std::vector<std::string>* saved, const std::string& data_url) {
+            saved->push_back(data_url);
+          },
+          &saved));
+  ASSERT_FALSE(favicons.Image("tab", std::string()).isNull());
+
+  favicons.Remove("tab");
+  EXPECT_TRUE(favicons.Image("tab", std::string()).isNull());
+  environment.RunUntilIdle();
+  EXPECT_TRUE(saved.empty());
+  EXPECT_TRUE(favicons.Image("tab", std::string()).isNull());
+
+  // A saved icon decoding as the page says it has none lands nowhere either.
+  const std::string red = FaviconDataURL(Filled(32, 32, SK_ColorRED));
+  EXPECT_TRUE(favicons.Image("tab", red).isNull());
+  favicons.Remove("tab");
+  environment.RunUntilIdle();
+  EXPECT_TRUE(favicons.Image("tab", std::string()).isNull());
+}
+
 }  // namespace
 }  // namespace pane

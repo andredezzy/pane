@@ -31,21 +31,9 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { bySystem, powershell } from "../lib/platform";
+import { powershell } from "../lib/platform";
+import { inTheTestVM, setSystemDark } from "../lib/tools";
 import { expect, type Scenario } from "../run";
-
-// The test VM, by its disk's serial (scripts/start.sh in the VM's folder:
-// serial=PANEVM) and its machine's maker.
-const inTheTestVM = bySystem({
-	mac: async (): Promise<boolean> => false,
-	windows: async (): Promise<boolean> => {
-		const found = await powershell(
-			"$disks = (Get-CimInstance Win32_DiskDrive).SerialNumber -join ','; $maker = (Get-CimInstance Win32_ComputerSystem).Manufacturer; \"$disks|$maker\"",
-		);
-
-		return /PANEVM/.test(found) && /QEMU/i.test(found);
-	},
-});
 
 // The toast activator's CLSID, the install mode's (chrome/install_static).
 const TOAST_ACTIVATOR = "{643681EE-CBD6-4AA1-BFCF-837FC0A172E0}";
@@ -501,14 +489,6 @@ async function shortcut(path: string) {
 		appId: string;
 		toast: string;
 	};
-}
-
-// Windows' light or dark, as Settings' Personalization sets it.
-async function windowsTheme(light: boolean) {
-	await powershell(
-		String.raw`$k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'; Set-ItemProperty $k AppsUseLightTheme ([int]$env:LIGHT); Set-ItemProperty $k SystemUsesLightTheme ([int]$env:LIGHT); Add-Type -Namespace W7bTheme -Name Broadcast -MemberDefinition '[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, string l, uint f, uint t, out UIntPtr r);'; $r = [UIntPtr]::Zero; [W7bTheme.Broadcast]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, 'ImmersiveColorSet', 2, 5000, [ref]$r) | Out-Null`,
-		{ LIGHT: light ? "1" : "0" },
-	);
 }
 
 // Everything of Pane's an uninstall must leave nowhere, by place.
@@ -992,7 +972,7 @@ const windowsInstall: Scenario = async (context) => {
 		// 5. The App icon's sky reaching the shortcuts: Automatic follows
 		// Windows' dark while Pane runs, and a setting made while Pane was
 		// closed reaches them at its next launch, a pin with them.
-		await windowsTheme(false);
+		await setSystemDark(true);
 
 		found.darkChange = await until(
 			"Start's shortcut naming Night once Windows turned dark",
@@ -1005,7 +985,7 @@ const windowsInstall: Scenario = async (context) => {
 			500,
 		);
 
-		await windowsTheme(true);
+		await setSystemDark(false);
 
 		await until(
 			"Start's shortcut naming Day again",
@@ -1238,6 +1218,17 @@ const windowsInstall: Scenario = async (context) => {
 		await Bun.sleep(800);
 		found.uninstallTicked = await heard(erase.pid, 2);
 		await shot(context.out, "uninstall-ticked", erase.window.hwnd);
+
+		// The ticked line names the button that erases (11.12.9 B, the user's
+		// call of 2026-11-17), which it called Uninstall.
+		expect(
+			String(found.uninstallTicked).includes(
+				"Erased for good once you press Uninstall and delete: nothing can bring it back.",
+			) &&
+				String(found.uninstallTicked).includes("'Uninstall and delete' button"),
+			`the ticked uninstall: ${found.uninstallTicked}`,
+		);
+
 		found.uninstallErase = await press(erase.pid, "Uninstall and delete");
 
 		for (let frame = 0; frame < 12; frame++) {
@@ -1358,7 +1349,7 @@ const windowsInstall: Scenario = async (context) => {
 			}
 		}
 
-		await windowsTheme(true).catch(() => {});
+		await setSystemDark(false).catch(() => {});
 	}
 
 	return found;

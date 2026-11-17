@@ -12,7 +12,10 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // order: one Esc closed the menu hidden under the panel. In Views the
 // overlay on top holds the keys. ⌘Q is posted through AppKit's queue, which
 // the menu bar takes without the front; Esc is the window's key: posted with
-// the front, through Views' own dispatch without it.
+// the front, through Views' own dispatch without it. And Lock Pane's key
+// goes ahead of the page (ADR 0019, the user's call of 2026-11-17): a page
+// that keeps ⌃⌘L, Ctrl+Shift+L on Windows, as Docs' and Sheets' align left
+// keeps it there, locks Pane all the same, by a real key in front.
 
 type Showing = { quit: boolean; menu: boolean };
 
@@ -58,7 +61,7 @@ const keyPrecedence: Scenario = async (context) => {
 	const app = await launchPane(context);
 	const profile = await app.createProfile("Keys");
 	const url = context.fixtures.url("smoke.html?keys");
-	await app.openPage(profile, url);
+	const { tab, page } = await app.openPage(profile, url);
 
 	// Quit Pane? over the App icon picker: ⌘Q can only come second, as the
 	// picker's scrim takes a click and Quit Pane? every key.
@@ -112,7 +115,7 @@ const keyPrecedence: Scenario = async (context) => {
 
 	if (!context.foreground) {
 		context.defer(
-			"Quit Pane? over the extensions menu: it needs Pane in front (run.ts --foreground)",
+			"Quit Pane? over the extensions menu, and Lock Pane's key past a page that keeps it: they need Pane in front (run.ts --foreground)",
 		);
 
 		return;
@@ -149,6 +152,61 @@ const keyPrecedence: Scenario = async (context) => {
 		!pressed.extensionsMenu,
 		"the press under Quit Pane? opened the extensions menu",
 	);
+
+	// Lock Pane's key past a page that keeps it, once a PIN lets Pane lock.
+	await app.send("showPinScreen", { mode: "setup" });
+
+	await app.waitFor(
+		"Set up PIN",
+		(state) => state.security.screen?.mode === "setup",
+	);
+
+	await app.send("pinKeys", { keys: "1234>" });
+
+	await app.waitFor(
+		"the PIN asked again",
+		(state) => state.security.screen?.step === "confirm",
+	);
+
+	await app.send("pinKeys", { keys: "1234" });
+
+	await app.waitFor(
+		"the PIN set up",
+		(state) => state.security.screen === null && state.security.pinLength === 4,
+	);
+
+	await app.send("select", { tab });
+
+	await app.waitFor(
+		"the page with the keys",
+		(state) => state.focus === "pane.content",
+		10_000,
+	);
+
+	// The page keeps the key, as an editor that takes it does.
+	await page.evaluate(`addEventListener("keydown", (event) => {
+		if (event.code === "KeyL" && event.ctrlKey && (event.metaKey || event.shiftKey)) {
+			event.preventDefault();
+		}
+	}, true)`);
+
+	await app.send("key", KEYS.lock);
+	await app.send("releaseModifiers");
+
+	const locked = await app
+		.waitFor(
+			"Pane locked past the page",
+			(state) => state.security.locked,
+			5_000,
+		)
+		.then(
+			() => true,
+			() => false,
+		);
+
+	expect(locked, "a page that keeps Lock Pane's key kept Pane open");
+	await app.send("pinKeys", { keys: "1234" });
+	await app.waitFor("unlocked", (state) => !state.security.locked, 60_000);
 };
 
 export default keyPrecedence;

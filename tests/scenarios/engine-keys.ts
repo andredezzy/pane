@@ -14,7 +14,9 @@ import { expect, type Scenario } from "../run";
 // A profile's engine key (ADR 0121) reaches the network service and the Storage
 // Service, a restart of either gets it back and loses nothing, it is on no
 // command line, in no environment, and in no file, and every process's registry
-// is empty once a lock has closed the data; the PIN brings it all back. On
+// is empty once a lock has closed the data; the PIN brings it all back, and the
+// tab it brings back loads again by itself when the network service's crash
+// cuts its first load short. On
 // Windows the PIN's seal takes the TPM's share too (U5), which the key's
 // derivation here asks the chip for, with the PIN.
 
@@ -205,6 +207,56 @@ const engineKeys: Scenario = async (context) => {
 		unlockedBack.cookie.includes("kept=cookie-value") &&
 			unlockedBack.storage === "storage-value-2",
 		`after the lock: ${JSON.stringify(unlockedBack)}`,
+	);
+
+	// The tab the unlock brings back, its first load lost as the network
+	// service crashed (W9a: Windows' error reporting held the dead service
+	// past the PIN, and the tab stayed blank, its load never tried again):
+	// it loads by itself once the service is back. Its response held 6 s, and
+	// never kept by the HTTP cache (no-store), as the restore would otherwise
+	// load it from there at once; the service killed meanwhile.
+	const slowURL = `http://keys.localhost:${port}/headers?format=html&delay=6000`;
+	await app.send("navigate", { input: slowURL });
+
+	await app.waitFor(
+		"the slow page",
+		(state) =>
+			tabOf(state, tab)?.url === slowURL &&
+			tabOf(state, tab)?.loading === false,
+		30_000,
+	);
+
+	await app.send("lockNow");
+
+	await poll(
+		"the keys dropped at the second lock",
+		async () =>
+			trace().filter(
+				(line) => line.name === "PaneBrowserApplication.engineKeysDropped",
+			).length >= 2,
+		30_000,
+		200,
+	);
+
+	await app.send("pinKeys", { keys: "1234" });
+
+	await app.waitFor(
+		"the tab's page back, its first load under way",
+		(state) =>
+			!state.security.locked &&
+			tabOf(state, tab)?.url === slowURL &&
+			tabOf(state, tab)?.loaded === true,
+		60_000,
+	);
+
+	// Its request at the server, which holds it 6 s.
+	await Bun.sleep(1_500);
+	process.kill(await pidOf("network.mojom.NetworkService"), "SIGKILL");
+	page = await app.page(tab, slowURL);
+
+	expect(
+		await page.evaluate<boolean>('typeof window.headers === "object"'),
+		"the tab the unlock brought back stayed blank after the network service's crash",
 	);
 
 	await app.quit();
