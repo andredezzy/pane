@@ -7,4 +7,5 @@
 # PaneCore-<chromium>-<key:12>-windows-x64.zip. scripts/publish-engine.sh
 # <platform> publishes one and overwrites its line. A tag reads its own tree's,
 # and every key shipped stays a prerelease.
-2d5d831b9527967615dff24e615d3aecf92f18ff	mac-arm64	0bff797145b7901a3b693aa34feb2ddfeb5d0d53fedb9fe8808c119be955f847
+02b01ad9b02da30d5e819f424abc895aada816a0	mac-arm64	d9a5ec9d61b313531b5b797119abf9fc8535618210d568cb090635a2b4fe8787
+02b01ad9b02da30d5e819f424abc895aada816a0	windows-x64	71849670f5e361bc68bf277db15f4bdb94eab65a402cbea87ac638f3be360507

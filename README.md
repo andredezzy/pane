@@ -22,7 +22,7 @@
 
 </div>
 
-Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser where every profile is a fully isolated identity with its own session, proxy, fingerprint, and Chrome extensions. It is its own build of Chromium, and its interface is part of it, drawn in C++ with Views, Chromium's own toolkit, as Chrome's own is: one code path for every window, sheet, and dialog, which already builds and starts on Windows, where Pane isn't released yet.
+Pane is an Arc-inspired desktop browser for macOS, and in alpha for Windows — a sidebar-first browser where every profile is a fully isolated identity with its own session, proxy, fingerprint, and Chrome extensions. It is its own build of Chromium, and its interface is part of it, drawn in C++ with Views, Chromium's own toolkit, as Chrome's own is: one code path for every window, sheet, and dialog, on the Mac and on Windows alike.
 
 ## Features
 
@@ -38,11 +38,21 @@ Pane is an Arc-inspired desktop browser for macOS — a sidebar-first browser wh
 
 ## Install
 
+### macOS
+
 Pane needs macOS 14 or later on Apple Silicon.
 
 1. Download `Pane-<version>-arm64.dmg` from the [latest release](https://github.com/andredezzy/pane/releases/latest).
 2. Open it and drag Pane to Applications.
 3. Open Pane. It is not notarized yet, so macOS stops it the first time, saying it could not verify Pane. Close that dialog, then choose Open Anyway in System Settings › Privacy & Security.
+
+### Windows (alpha)
+
+Pane for Windows is an alpha, for Windows 11 on x64; Windows on Arm runs it through Windows' own emulation. Its installer isn't signed yet.
+
+1. Download `Pane-<version>-x64.exe` from the [latest release](https://github.com/andredezzy/pane/releases/latest).
+2. Open it. Windows doesn't know its publisher yet, so SmartScreen says "Windows protected your PC": choose More info, then Run anyway. Where Smart App Control is on, Windows blocks an unsigned installer with no way past it.
+3. Pane installs for your account alone, with no administrator's prompt, adds itself to Start and the desktop, and opens. It uninstalls from Settings › Apps › Installed apps, keeping your data unless you tick its box.
 
 Updates need none of this: Pane installs them itself.
 
