@@ -32,7 +32,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { powershell } from "../lib/platform";
-import { inTheTestVM, setSystemDark } from "../lib/tools";
+import { holdMapped, inTheTestVM, setSystemDark } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // The toast activator's CLSID, the install mode's (chrome/install_static).
@@ -998,6 +998,43 @@ const windowsInstall: Scenario = async (context) => {
 			500,
 		);
 
+		// The same change while another program holds Start's shortcut
+		// mapped, as Windows' shell maps it while it reads it for Pane's
+		// taskbar button: the rewrite it refuses meanwhile
+		// (ERROR_USER_MAPPED_FILE) is tried again, where it once stayed on
+		// Night until Windows' next change, the taskbar's button with it (W9a,
+		// W9d; W10a).
+		await setSystemDark(true);
+
+		await until(
+			"Start's shortcut naming Night, before it is held",
+			async () => {
+				const link = await shortcut(startLink);
+
+				return link && /AppIcon-Night\.ico/i.test(link.icon);
+			},
+			30_000,
+			500,
+		);
+
+		const release = await holdMapped(startLink);
+		await setSystemDark(false);
+		await Bun.sleep(1_500);
+		await release();
+
+		found.dayOnceLetGo = await until(
+			"Start's shortcut naming Day once let go",
+			async () => {
+				const link = await shortcut(startLink);
+
+				return link && /AppIcon-Day\.ico/i.test(link.icon) ? link : null;
+			},
+			30_000,
+			500,
+		);
+
+		await Bun.sleep(1_000);
+		await shot(context.out, "pane-day-once-let-go");
 		await exitPane(reopened.pid);
 		// settings.json as Pane keeps it: {"state":{"settings":{…}},"version":0}.
 		const settingsFile = join(data, "settings.json");

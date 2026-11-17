@@ -358,7 +358,10 @@ TEST_F(WindowsIntegrationTest, ShortcutsFollowTheAppIcon) {
       pins.Append(L"Other.lnk"), other,
       base::win::ShortcutOperation::kCreateAlways));
 
-  EXPECT_EQ(PointShortcutsAt(chrome_exe_, model::AppIcon::kSunset), 3);
+  PointedShortcuts pointed =
+      PointShortcutsAt(chrome_exe_, model::AppIcon::kSunset);
+  EXPECT_EQ(pointed.rewritten, 3);
+  EXPECT_EQ(pointed.failed, 0);
   for (const base::FilePath& shortcut :
        {Shortcut(base::DIR_START_MENU), Shortcut(base::DIR_USER_DESKTOP),
         pins.Append(L"Pane.lnk")}) {
@@ -373,7 +376,43 @@ TEST_F(WindowsIntegrationTest, ShortcutsFollowTheAppIcon) {
       &found));
   EXPECT_EQ(found.icon, other_exe);
   // Already pointing there: nothing written.
-  EXPECT_EQ(PointShortcutsAt(chrome_exe_, model::AppIcon::kSunset), 0);
+  pointed = PointShortcutsAt(chrome_exe_, model::AppIcon::kSunset);
+  EXPECT_EQ(pointed.rewritten, 0);
+  EXPECT_EQ(pointed.failed, 0);
+}
+
+// A shortcut another program holds mapped, as Windows' shell maps Start's
+// while it reads it for the taskbar's button, can't be rewritten
+// (ERROR_USER_MAPPED_FILE): that one counts as failed, the others are
+// rewritten, and once it is let go the next pointing rewrites it (W10a).
+TEST_F(WindowsIntegrationTest, AShortcutHeldMappedIsReportedAndRewrittenLater) {
+  ASSERT_EQ(Register(chrome_exe_, data_, /*first_install=*/true),
+            static_cast<DWORD>(ERROR_SUCCESS));
+  const base::FilePath start = Shortcut(base::DIR_START_MENU);
+  base::File file(start, base::File::FLAG_OPEN | base::File::FLAG_READ |
+                             base::File::FLAG_WIN_SHARE_DELETE);
+  ASSERT_TRUE(file.IsValid());
+  HANDLE mapping = ::CreateFileMappingW(file.GetPlatformFile(), nullptr,
+                                        PAGE_READONLY, 0, 0, nullptr);
+  ASSERT_TRUE(mapping);
+  const void* view = ::MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+  ASSERT_TRUE(view);
+
+  PointedShortcuts pointed =
+      PointShortcutsAt(chrome_exe_, model::AppIcon::kSunset);
+  EXPECT_EQ(pointed.rewritten, 1);  // The desktop's.
+  EXPECT_EQ(pointed.failed, 1);     // Start's, held.
+
+  ::UnmapViewOfFile(view);
+  ::CloseHandle(mapping);
+  file.Close();
+  pointed = PointShortcutsAt(chrome_exe_, model::AppIcon::kSunset);
+  EXPECT_EQ(pointed.rewritten, 1);
+  EXPECT_EQ(pointed.failed, 0);
+  base::win::ShortcutProperties found;
+  ASSERT_TRUE(base::win::ResolveShortcutProperties(
+      start, base::win::ShortcutProperties::PROPERTIES_ICON, &found));
+  EXPECT_EQ(found.icon, app_.Append(L"AppIcon-Sunset.ico"));
 }
 
 // The uninstall takes Pane's pins, a pin's file the taskbar doesn't list

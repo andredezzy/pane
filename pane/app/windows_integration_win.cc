@@ -589,36 +589,42 @@ DWORD Unregister(const base::FilePath& chrome_exe,
   return failed;
 }
 
-int PointShortcutsAt(const base::FilePath& chrome_exe, model::AppIcon sky) {
+PointedShortcuts PointShortcutsAt(const base::FilePath& chrome_exe,
+                                  model::AppIcon sky) {
+  PointedShortcuts pointed;
   const base::FilePath icon = SkyIcon(chrome_exe.DirName(), sky);
   if (!base::PathExists(icon)) {
-    return 0;
+    return pointed;
   }
-  int rewritten = 0;
   for (const base::FilePath& shortcut : ShortcutsOf(chrome_exe)) {
+    if (!base::PathExists(shortcut)) {
+      continue;
+    }
     base::win::ShortcutProperties found;
-    if (!base::PathExists(shortcut) ||
-        !base::win::ResolveShortcutProperties(
+    if (!base::win::ResolveShortcutProperties(
             shortcut,
             base::win::ShortcutProperties::PROPERTIES_TARGET |
                 base::win::ShortcutProperties::PROPERTIES_ICON,
-            &found) ||
-        !SamePath(found.target, chrome_exe)) {
+            &found)) {
+      ++pointed.failed;
       continue;
     }
-    if (SamePath(found.icon, icon) && found.icon_index == 0) {
+    if (!SamePath(found.target, chrome_exe) ||
+        (SamePath(found.icon, icon) && found.icon_index == 0)) {
       continue;
     }
     base::win::ShortcutProperties update;
     update.set_icon(icon, 0);
-    if (base::win::CreateOrUpdateShortcutLink(
+    if (!base::win::CreateOrUpdateShortcutLink(
             shortcut, update, base::win::ShortcutOperation::kUpdateExisting)) {
-      ::SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT,
-                       shortcut.value().c_str(), nullptr);
-      ++rewritten;
+      ++pointed.failed;
+      continue;
     }
+    ::SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT,
+                     shortcut.value().c_str(), nullptr);
+    ++pointed.rewritten;
   }
-  return rewritten;
+  return pointed;
 }
 
 }  // namespace pane::windows

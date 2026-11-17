@@ -179,9 +179,11 @@ void KeepOutOfTheIndex(const base::FilePath& folder) {
 
 // A test copy's home: the user's folders, which Chromium reads from the
 // shell on Windows and no variable moves (Downloads, Documents, the Desktop,
-// AppData), under the folder PANE_HOME_DIR names in the temporary folder, as
-// a home of its own gives them on the Mac (HOME and CFFIXED_USER_HOME), so
-// a scenario's downloads and saves are never the user's. Its data and its
+// AppData, Start's), under the folder PANE_HOME_DIR names in the temporary
+// folder, as a home of its own gives them on the Mac (HOME and
+// CFFIXED_USER_HOME), so a scenario's downloads, saves, and shortcuts are
+// never the user's: Start's, the desktop's, and the taskbar pins' (under
+// AppData) are the ones the App icon follows (DockIcon). Its data and its
 // engine's stay where the launch names them.
 void TakeTestCopyHome() {
   const std::optional<std::string> named = model::TestHook("PANE_HOME_DIR");
@@ -200,6 +202,9 @@ void TakeTestCopyHome() {
       {base::DIR_USER_DESKTOP, FILE_PATH_LITERAL("Desktop")},
       {base::DIR_ROAMING_APP_DATA, FILE_PATH_LITERAL("AppData\\Roaming")},
       {base::DIR_LOCAL_APP_DATA, FILE_PATH_LITERAL("AppData\\Local")},
+      {base::DIR_START_MENU,
+       FILE_PATH_LITERAL("AppData\\Roaming\\Microsoft\\Windows\\Start "
+                         "Menu\\Programs")},
       {chrome::DIR_USER_DOCUMENTS, FILE_PATH_LITERAL("Documents")},
       {chrome::DIR_USER_MUSIC, FILE_PATH_LITERAL("Music")},
       {chrome::DIR_USER_PICTURES, FILE_PATH_LITERAL("Pictures")},

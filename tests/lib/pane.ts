@@ -459,6 +459,11 @@ export class PaneApp {
 		private readonly out: string,
 	) {}
 
+	// The home it was given (homeEnvironment), beside its automation folder.
+	get home(): string {
+		return join(dirname(this.automationDir), "home");
+	}
+
 	async send<T = unknown>(
 		command: string,
 		args: Record<string, unknown> = {},

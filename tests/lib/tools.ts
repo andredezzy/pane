@@ -18,7 +18,7 @@ import {
 	statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import { bySystem, ENGINE_FOLDER, noWindowsSide, powershell } from "./platform";
 
@@ -337,6 +337,115 @@ export const setSystemDark = bySystem({
 			String.raw`$k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'; Set-ItemProperty $k AppsUseLightTheme ([int]$env:LIGHT); Set-ItemProperty $k SystemUsesLightTheme ([int]$env:LIGHT); Add-Type -Namespace PaneTheme -Name Broadcast -MemberDefinition '[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, string l, uint f, uint t, out UIntPtr r);'; $r = [UIntPtr]::Zero; [PaneTheme.Broadcast]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, 'ImmersiveColorSet', 2, 5000, [ref]$r) | Out-Null`,
 			{ LIGHT: dark ? "0" : "1" },
 		);
+	},
+});
+
+// Pane's Start shortcut in a test copy's home, to `binary`, naming Day's
+// .ico beside it, as an install makes the user's: Start's folder there is
+// the copy's own (pane/app/data_launch_win.cc), so the App icon follows in it
+// (DockIcon). Its path. The Mac has no shortcut to follow: its Dock alone.
+export const makeStartShortcut = bySystem({
+	mac: async (_home: string, _binary: string): Promise<string> => {
+		throw new Error(
+			"the Mac has no Start shortcut: the Dock shows the App icon",
+		);
+	},
+	windows: async (home: string, binary: string): Promise<string> => {
+		const folder = join(
+			home,
+			"AppData",
+			"Roaming",
+			"Microsoft",
+			"Windows",
+			"Start Menu",
+			"Programs",
+		);
+
+		mkdirSync(folder, { recursive: true });
+		const link = join(folder, "Pane.lnk");
+
+		await powershell(
+			"$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LINK); $s.TargetPath = $env:TARGET; $s.IconLocation = $env:ICON; $s.Save()",
+			{
+				LINK: link,
+				TARGET: binary,
+				ICON: `${join(dirname(binary), "AppIcon-Day.ico")},0`,
+			},
+		);
+
+		return link;
+	},
+});
+
+// The icon file a shortcut names, as Windows reads it (WScript.Shell's
+// IconLocation, its index left out): AppIcon-Night.ico.
+export const shortcutIcon = bySystem({
+	mac: async (_link: string): Promise<string> => {
+		throw new Error("the Mac has no shortcut files to read");
+	},
+	windows: async (link: string): Promise<string> =>
+		basename(
+			(
+				await powershell(
+					"(New-Object -ComObject WScript.Shell).CreateShortcut($env:LINK).IconLocation",
+					{ LINK: link },
+				)
+			)
+				.trim()
+				.replace(/,-?\d+$/, ""),
+		),
+});
+
+// Holds `file` mapped into another process, as Windows' shell maps Start's
+// shortcut while it reads it for Pane's taskbar button (W10a): reads go on,
+// and an overwrite fails meanwhile (ERROR_USER_MAPPED_FILE), until the
+// returned release runs. The view alone stays, its file's handle closed, as
+// the shell's does. On a test copy's own files alone.
+export const holdMapped = bySystem({
+	mac: async (_file: string): Promise<() => Promise<void>> => {
+		throw new Error("the Mac has no shortcut a shell holds mapped");
+	},
+	windows: async (file: string): Promise<() => Promise<void>> => {
+		const holder = Bun.spawn(
+			[
+				"powershell.exe",
+				"-NoProfile",
+				"-NonInteractive",
+				"-EncodedCommand",
+				Buffer.from(
+					`Add-Type -Namespace PaneHeld -Name Mapping -MemberDefinition '[DllImport("kernel32.dll", SetLastError = true)] public static extern IntPtr CreateFileMappingW(Microsoft.Win32.SafeHandles.SafeFileHandle file, IntPtr attributes, uint protect, uint high, uint low, IntPtr name); [DllImport("kernel32.dll", SetLastError = true)] public static extern IntPtr MapViewOfFile(IntPtr mapping, uint access, uint high, uint low, UIntPtr bytes);'
+$file = [System.IO.File]::Open($env:PANE_HELD_FILE, 'Open', 'Read', 'ReadWrite, Delete')
+$mapping = [PaneHeld.Mapping]::CreateFileMappingW($file.SafeFileHandle, [IntPtr]::Zero, 2, 0, 0, [IntPtr]::Zero)
+$view = [PaneHeld.Mapping]::MapViewOfFile($mapping, 4, 0, 0, [UIntPtr]::Zero)
+$file.Close()
+if ($view -eq [IntPtr]::Zero) { exit 1 }
+[Console]::Out.WriteLine('held')
+[Console]::Out.Flush()
+while ($true) { Start-Sleep -Seconds 1 }`,
+					"utf16le",
+				).toString("base64"),
+			],
+			{
+				env: { ...process.env, PANE_HELD_FILE: file },
+				stdin: "ignore",
+				stdout: "pipe",
+				stderr: "ignore",
+			},
+		);
+
+		const reader = holder.stdout.getReader();
+		const { value } = await reader.read();
+
+		if (!value || !new TextDecoder().decode(value).includes("held")) {
+			holder.kill();
+
+			throw new Error(`could not hold ${file} mapped`);
+		}
+
+		return async () => {
+			holder.kill();
+			await holder.exited;
+		};
 	},
 });
 

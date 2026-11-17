@@ -1,15 +1,22 @@
 import { bringToFront, launchPane, type PaneApp } from "../lib/pane";
 import { bySystem } from "../lib/platform";
-import { inTheTestVM, setSystemDark, systemIsDark } from "../lib/tools";
+import { pollValue } from "../lib/poll";
+import {
+	holdMapped,
+	inTheTestVM,
+	makeStartShortcut,
+	setSystemDark,
+	shortcutIcon,
+	systemIsDark,
+} from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // The App icon setting (ADR 0089): the Dock shows the sky it names, whatever
 // the theme, and automatic shows Day under the light theme and Night under the
 // dark one. On Windows, with Pane's theme on System, Automatic follows
-// Windows' own dark and light: once it stayed Night for minutes after Windows
-// went light (W9a, in windows-install), so three rounds of each, in the test
-// VM alone, whose Windows no one uses; the Mac's appearance is its user's,
-// which no scenario changes.
+// Windows' own dark and light, three rounds of each, and Start's shortcut
+// follows with it, eight more: in the test VM alone, whose Windows no one
+// uses; the Mac's appearance is its user's, which no scenario changes.
 const followsTheSystem = bySystem({
 	mac: async (_context: ScenarioContext, _app: PaneApp): Promise<void> => {},
 	windows: async (context: ScenarioContext, app: PaneApp): Promise<void> => {
@@ -47,6 +54,53 @@ const followsTheSystem = bySystem({
 						`Windows ${windowsDark ? "dark" : "light"}, round ${round}: ${sky}`,
 						(state) => state.dockIcon === sky,
 						15_000,
+					);
+				}
+			}
+
+			// Start's shortcut, made in the copy's own home as the install makes
+			// the user's, names the sky of Windows' last change, read right after
+			// each of eight changes each way; every second light change finds it
+			// held mapped 1.5 s, as Windows' shell maps it while it reads it for
+			// Pane's taskbar button. A rewrite refused meanwhile
+			// (ERROR_USER_MAPPED_FILE) is tried again, where it once stayed on
+			// Night until Windows' next change, the taskbar's button with it
+			// (W9a, W9d; W10a).
+			const link = await makeStartShortcut(app.home, context.binary);
+
+			for (let round = 1; round <= 8; round++) {
+				for (const [windowsDark, sky] of [
+					[true, "night"],
+					[false, "day"],
+				] as const) {
+					const release =
+						!windowsDark && round % 2 === 0
+							? await holdMapped(link)
+							: undefined;
+
+					await setSystemDark(windowsDark);
+
+					await app.waitFor(
+						`Windows ${windowsDark ? "dark" : "light"}, shortcut round ${round}: ${sky}`,
+						(state) => state.dockIcon === sky,
+						15_000,
+					);
+
+					if (release) {
+						await Bun.sleep(1_500);
+						await release();
+					}
+
+					const icon = await pollValue(
+						() => shortcutIcon(link),
+						(named) => named.toLowerCase() === `appicon-${sky}.ico`,
+						15_000,
+						250,
+					);
+
+					expect(
+						icon.toLowerCase() === `appicon-${sky}.ico`,
+						`Windows ${windowsDark ? "dark" : "light"}, shortcut round ${round}${release ? ", held mapped 1.5 s" : ""}: Start's shortcut names ${icon}, not ${sky}'s`,
 					);
 				}
 			}

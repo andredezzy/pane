@@ -85,12 +85,21 @@ DWORD Unregister(const base::FilePath& chrome_exe,
                  bool erase,
                  const EraseProgress& progress);
 
+// What PointShortcutsAt did: the shortcuts it rewrote, and those it found
+// and couldn't read or rewrite. Another program may hold one: Windows' shell
+// maps Start's shortcut while it reads it for Pane's taskbar button, and an
+// overwrite meanwhile fails with ERROR_USER_MAPPED_FILE (W10a).
+struct PointedShortcuts {
+  int rewritten = 0;
+  int failed = 0;
+};
+
 // Points Pane's shortcuts at `sky`'s icon (call D, 11.12.16): Start's and
 // the desktop's, and each taskbar pin whose target is `chrome_exe`, never
 // one that names another app; Windows told of each it rewrote
-// (SHChangeNotify). Each already naming it is left as it is. How many it
-// rewrote.
-int PointShortcutsAt(const base::FilePath& chrome_exe, model::AppIcon sky);
+// (SHChangeNotify). Each already naming it is left as it is.
+PointedShortcuts PointShortcutsAt(const base::FilePath& chrome_exe,
+                                  model::AppIcon sky);
 
 }  // namespace pane::windows
 
