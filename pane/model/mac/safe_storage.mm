@@ -20,6 +20,7 @@
 #include "components/os_crypt/common/keychain_password_mac.h"
 #include "components/os_crypt/common/os_crypt_switches.h"
 #include "crypto/apple/keychain_v2.h"
+#include "crypto/apple/scoped_keychain_user_interaction_allowed.h"
 #include "pane/model/test_hooks.h"
 
 namespace pane::model {
@@ -210,8 +211,16 @@ OSStatus SafeStorage::AdoptKey(std::string_view service,
   return keychain_->ItemAdd(base::apple::NSToCFPtrCast(adopted), nullptr);
 }
 
+// Never a prompt, for the panic wipe deletes the Electron app's key with it
+// (wipe_sources.cc): one would wait mid-wipe for a password nobody types. An
+// LAContext's interactionNotAllowed keeps it off a data protection
+// keychain's item, and SecKeychainSetUserInteractionAllowed, Chromium's
+// scope, off the login Keychain's, a file-based keychain where the former
+// doesn't hold (FB16959400, scoped_keychain_user_interaction_allowed.cc):
+// where it would have asked, the delete fails, and the wipe goes on.
 OSStatus SafeStorage::DeleteKey(std::string_view service,
                                 std::string_view account) const {
+  crypto::apple::ScopedKeychainUserInteractionAllowed no_prompt(false);
   LAContext* context = [[LAContext alloc] init];
   context.interactionNotAllowed = YES;
 

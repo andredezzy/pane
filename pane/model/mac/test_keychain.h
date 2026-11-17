@@ -47,6 +47,10 @@ class TestKeychain {
   // How many times an item's secret was read.
   int reads() const;
 
+  // Whether Keychain Services could have shown a prompt as the last delete
+  // ran (SecKeychainGetUserInteractionAllowed); none before a delete.
+  std::optional<bool> prompt_allowed_at_delete() const;
+
   // Every read from now waits for `gate`, as a Keychain that asks the user
   // first does; null answers at once again. The gate outlives the reads.
   void HoldReadsUntil(base::WaitableEvent* gate);

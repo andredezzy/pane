@@ -56,6 +56,11 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
     return reads_;
   }
 
+  std::optional<bool> prompt_allowed_at_delete() const {
+    base::AutoLock lock(lock_);
+    return prompt_allowed_at_delete_;
+  }
+
   void HoldReadsUntil(base::WaitableEvent* gate) {
     base::AutoLock lock(lock_);
     gate_ = gate;
@@ -106,6 +111,15 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
 
   OSStatus ItemDelete(CFDictionaryRef query) override {
     base::AutoLock lock(lock_);
+    // Whether the login Keychain could have asked: Keychain Services' own
+    // switch, which every process has (SecKeychainGetUserInteractionAllowed).
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    Boolean allowed = true;
+    if (SecKeychainGetUserInteractionAllowed(&allowed) == errSecSuccess) {
+      prompt_allowed_at_delete_ = allowed;
+    }
+#pragma clang diagnostic pop
     if (failure_ != errSecSuccess) {
       return failure_;
     }
@@ -179,6 +193,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
       GUARDED_BY(lock_);
   OSStatus failure_ GUARDED_BY(lock_) = errSecSuccess;
   int reads_ GUARDED_BY(lock_) = 0;
+  std::optional<bool> prompt_allowed_at_delete_ GUARDED_BY(lock_);
   raw_ptr<base::WaitableEvent> gate_ GUARDED_BY(lock_) = nullptr;
 };
 
@@ -221,6 +236,10 @@ void TestKeychain::HoldReadsUntil(base::WaitableEvent* gate) {
 
 int TestKeychain::reads() const {
   return fake_->reads();
+}
+
+std::optional<bool> TestKeychain::prompt_allowed_at_delete() const {
+  return fake_->prompt_allowed_at_delete();
 }
 
 }  // namespace pane::model

@@ -114,6 +114,25 @@ TEST(SafeStorageTest, DeletesAnItem) {
             errSecItemNotFound);
 }
 
+// A delete never asks, for the panic wipe deletes the Electron app's key in
+// the login Keychain, a file-based one, where an LAContext doesn't keep a
+// prompt off (FB16959400): Keychain Services' own switch is off while it
+// runs, and back as it was after.
+TEST(SafeStorageTest, DeletesWithoutAPrompt) {
+  TestKeychain keychain;
+  const SafeStorage storage = keychain.safe_storage();
+  keychain.SetItem("@pane/veil Safe Storage", "@pane/veil", "electron");
+  EXPECT_EQ(storage.DeleteKey("@pane/veil Safe Storage", "@pane/veil"),
+            errSecSuccess);
+  EXPECT_EQ(keychain.prompt_allowed_at_delete(), false);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  Boolean allowed = false;
+  ASSERT_EQ(SecKeychainGetUserInteractionAllowed(&allowed), errSecSuccess);
+#pragma clang diagnostic pop
+  EXPECT_TRUE(allowed);
+}
+
 // The mock Keychain gives every scenario the secret its data is sealed under
 // (tests/lib/engine-key.ts), makes nothing, and holds nothing else.
 TEST(SafeStorageTest, TheMockKeychain) {
