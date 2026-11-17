@@ -477,6 +477,9 @@ class UiApp : public AppData::Client,
   std::optional<std::string> focuses_address_;
   // The tab that showed when Pane locked, shown again once it opens.
   std::optional<std::string> resume_tab_id_;
+  // The profile a page closed from in this turn: the page its tab strip then
+  // makes active isn't shown for it (TabRemoved).
+  std::optional<std::string> removed_from_profile_;
   // The URLs Pane was started with or handed, while they wait behind the
   // lock.
   std::vector<GURL> launch_urls_;

@@ -94,6 +94,31 @@ const focusGroups: Scenario = async (context) => {
 		`the keys between groups: ${JSON.stringify(steps)}`,
 	);
 
+	// The sidebar's edge, which a screen reader's cursor gives the keys
+	// (Narrator's moves them), is the sidebar's: F6 goes on to the page and
+	// Shift+F6 back to the toolbar, where both went nowhere (W9a).
+	const edge = async (key: string, modifiers: string[] = []) => {
+		await app.send("screenReaderFocus", { name: "pane.sidebar.resize" });
+
+		await app.waitFor(
+			"the sidebar's edge focused",
+			(state) => state.focus === "pane.sidebar.resize",
+		);
+
+		return press(key, modifiers);
+	};
+
+	const fromEdge = await edge("f6");
+	const backFromEdge = await edge("f6", ["shift"]);
+
+	expect(
+		fromEdge === "pane.content" && backFromEdge === "pane.toolbar.back",
+		`F6 from the sidebar's edge: ${fromEdge}, Shift+F6: ${backFromEdge}`,
+	);
+
+	// Esc gives the toolbar's keys back to the page, for the address below.
+	await press("\u001b");
+
 	// From the address, Shift+Tab: a field or the page takes the keys, never
 	// a button of the toolbar's or the sidebar's.
 	await press("f6");

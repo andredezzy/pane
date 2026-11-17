@@ -90,8 +90,12 @@ std::string WindowsKeyOf(const ui::Accelerator& accelerator) {
       return key + "Left";
     case ui::VKEY_RIGHT:
       return key + "Right";
+    case ui::VKEY_F3:
+      return key + "F3";
     case ui::VKEY_F4:
       return key + "F4";
+    case ui::VKEY_F5:
+      return key + "F5";
     case ui::VKEY_F11:
       return key + "F11";
     case ui::VKEY_F12:
@@ -214,22 +218,36 @@ TEST(CommandsTest, WindowsTakesCtrlAndItsOwnKeys) {
            {"About Pane", "Check for Updates…", "-", "Settings… Ctrl+,",
             "Lock Pane Ctrl+Shift+L", "-", "Exit Pane Alt+F4"}},
           {"File",
-           {"New Tab Ctrl+T", "Close Tab Ctrl+W",
+           {"New Tab Ctrl+T", "Close Tab Ctrl+W", "Close Tab Ctrl+F4 (hidden)",
             "Reopen Closed Tab Ctrl+Shift+T", "-", "Print… Ctrl+P"}},
           {"Edit",
            {"Undo Ctrl+Z", "Redo Ctrl+Y", "-", "Cut Ctrl+X", "Copy Ctrl+C",
             "Paste Ctrl+V", "Select All Ctrl+A"}},
           {"View",
-           {"Find in Page Ctrl+F", "Find Next Ctrl+G",
-            "Find Previous Ctrl+Shift+G", "-", "Reload Ctrl+R", "-",
-            "Actual Size Ctrl+0", "Zoom In Ctrl+=", "Zoom In Ctrl++ (hidden)",
-            "Zoom In Ctrl+Num+ (hidden)", "Zoom Out Ctrl+-",
-            "Zoom Out Ctrl+Shift+- (hidden)", "Zoom Out Ctrl+Num- (hidden)",
-            "-", "Enter Full Screen F11", "-", "Developer Tools Ctrl+Shift+I",
+           {"Find in Page Ctrl+F",
+            "Find Next Ctrl+G",
+            "Find Previous Ctrl+Shift+G",
+            "Find Next F3 (hidden)",
+            "Find Previous Shift+F3 (hidden)",
+            "-",
+            "Reload Ctrl+R",
+            "Reload F5 (hidden)",
+            "-",
+            "Actual Size Ctrl+0",
+            "Zoom In Ctrl+=",
+            "Zoom In Ctrl++ (hidden)",
+            "Zoom In Ctrl+Num+ (hidden)",
+            "Zoom Out Ctrl+-",
+            "Zoom Out Ctrl+Shift+- (hidden)",
+            "Zoom Out Ctrl+Num- (hidden)",
+            "-",
+            "Enter Full Screen F11",
+            "-",
+            "Developer Tools Ctrl+Shift+I",
             "Developer Tools F12 (hidden)"}},
           {"Navigate",
            {"Back Alt+Left", "Forward Alt+Right", "-",
-            "Focus Address Bar Ctrl+L"}},
+            "Focus Address Bar Ctrl+L", "Focus Address Bar Alt+D (hidden)"}},
           {"Tab",
            {"Next Tab (Recent) Ctrl+Tab",
             "Previous Tab (Recent) Ctrl+Shift+Tab", "-", "Tab 1 Ctrl+1",
@@ -278,6 +296,41 @@ TEST(CommandsTest, ZoomKeys) {
   EXPECT_EQ(commands_of(KeySystem::kMac, ui::Accelerator(ui::VKEY_OEM_PLUS,
                                                          ui::EF_COMMAND_DOWN)),
             zoom_in);
+}
+
+// Windows' own keys for commands Pane has, as Chrome's Windows table gives
+// them, beside the Ctrl keys the menu shows: F5 reloads, F3 and Shift+F3
+// find the next and the previous, Ctrl+F4 closes the tab, Alt+D takes the
+// address. None of them on the Mac.
+TEST(CommandsTest, WindowsKeysOfItsOwn) {
+  const auto commands_of = [](KeySystem system, const ui::Accelerator& key) {
+    std::vector<Command> commands;
+    for (const Menu& menu : MenusWithKeysOf(system)) {
+      for (const MenuItem& item : menu.items) {
+        if (item.command && item.accelerator == key) {
+          commands.push_back(*item.command);
+        }
+      }
+    }
+    return commands;
+  };
+  const std::vector<std::pair<ui::Accelerator, Command>> keys = {
+      {ui::Accelerator(ui::VKEY_F5, ui::EF_NONE), Command::kReload},
+      {ui::Accelerator(ui::VKEY_F3, ui::EF_NONE), Command::kFindNext},
+      {ui::Accelerator(ui::VKEY_F3, ui::EF_SHIFT_DOWN), Command::kFindPrevious},
+      {ui::Accelerator(ui::VKEY_F4, ui::EF_CONTROL_DOWN), Command::kCloseTab},
+      {ui::Accelerator(ui::VKEY_D, ui::EF_ALT_DOWN), Command::kFocusAddress},
+  };
+  for (const auto& [key, command] : keys) {
+    EXPECT_EQ(commands_of(KeySystem::kWindows, key),
+              std::vector<Command>{command})
+        << base::UTF16ToUTF8(key.GetShortcutText());
+    EXPECT_TRUE(commands_of(KeySystem::kMac, key).empty())
+        << base::UTF16ToUTF8(key.GetShortcutText());
+  }
+  // Ctrl+F4 closes the tab ahead of the page, as Ctrl+W does (Chrome
+  // reserves the command, whatever its key).
+  EXPECT_TRUE(IsAppFirst(Command::kCloseTab, /*page_fullscreen=*/false));
 }
 
 // A key runs one command, on each system: no two items hold the same one.
@@ -355,9 +408,9 @@ TEST(CommandsTest, WindowKeysLeaveThePlatformsOwn) {
   }
   // On the Mac, 32 of the menu bar's 41 keys: Hide, Hide Others, the Edit
   // menu's six, and Minimize left out. On Windows, the same 32 but Quit's,
-  // Alt+F4, and the zooms' Ctrl+Shift+- and numpad keys, of 41: the Edit
-  // menu's six left out.
-  EXPECT_EQ(keys.size(), mac ? 32u : 35u);
+  // Alt+F4, the zooms' Ctrl+Shift+- and numpad keys, and Windows' own F3,
+  // Shift+F3, F5, Ctrl+F4, and Alt+D, of 46: the Edit menu's six left out.
+  EXPECT_EQ(keys.size(), mac ? 32u : 40u);
 }
 
 // Ahead of the page, what Chrome reserves (ADR 0019): ⌘Q, ⌘T, ⌘W, ⇧⌘T,
@@ -446,6 +499,9 @@ TEST(CommandsTest, MenuBarModelsFromTheTable) {
                       ui::Accelerator(ui::VKEY_I,
                                       ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN)})
                 : (std::vector<ui::Accelerator>{
+                      ui::Accelerator(ui::VKEY_F3, ui::EF_NONE),
+                      ui::Accelerator(ui::VKEY_F3, ui::EF_SHIFT_DOWN),
+                      ui::Accelerator(ui::VKEY_F5, ui::EF_NONE),
                       ui::Accelerator(ui::VKEY_OEM_PLUS,
                                       ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN),
                       ui::Accelerator(ui::VKEY_ADD, ui::EF_CONTROL_DOWN),

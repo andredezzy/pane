@@ -458,10 +458,13 @@ void Window::FollowPage() {
 }
 
 // The window leaving the front closes the extensions menu, as the Swift's
-// closed when its window resigned key.
+// closed when its window resigned key, and the tab switcher, choosing
+// nothing: Ctrl's release, which chooses its tab, then goes to what took the
+// front (Windows' Start takes Ctrl+Esc), and the switcher would stay up.
 void Window::OnWidgetActivationChanged(views::Widget* widget, bool active) {
   if (!active) {
     controller_->Extensions().CloseMenu();
+    controller_->CancelSwitcher();
   }
 }
 

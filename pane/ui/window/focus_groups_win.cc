@@ -10,6 +10,7 @@
 #include "base/memory/raw_ref.h"
 #include "base/notreached.h"
 #include "pane/ui/design/tab_order.h"
+#include "pane/ui/sidebar/resize_handle.h"
 #include "pane/ui/sidebar/sidebar_view.h"
 #include "pane/ui/toolbar/address_field.h"
 #include "pane/ui/toolbar/toolbar_view.h"
@@ -20,6 +21,7 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/view.h"
 #include "ui/views/view_tracker.h"
+#include "ui/views/view_utils.h"
 
 namespace pane {
 
@@ -155,7 +157,11 @@ class FocusGroupsWin : public FocusGroups,
     if (focused && toolbar->Contains(focused)) {
       return Group::kToolbar;
     }
-    if (focused && root_->sidebar()->Contains(focused)) {
+    // The sidebar's edge, beside the sidebar's view, is the sidebar's: a
+    // screen reader's cursor gives it the keys (Narrator's moves them), and F6
+    // from it went nowhere.
+    if (focused && (root_->sidebar()->Contains(focused) ||
+                    views::IsViewClass<ResizeHandle>(focused))) {
       return Group::kSidebar;
     }
     if (!focused || focused == &*root_ || root_->InContent(focused)) {

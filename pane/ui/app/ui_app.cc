@@ -2418,6 +2418,21 @@ void UiApp::TabRemoved(content::WebContents* contents) {
   const bool was_active = model().active_tab_id() == tab_id;
   const std::optional<std::string> profile_id = model().ProfileIdOfTab(tab_id);
   model().RemoveTab(tab_id);
+  // A page leaving its Browser's tab strip as the strip's active one has
+  // Chrome make the next page active there, which the strip tells as any
+  // change of its active page (ActiveTabChanged, its selection already
+  // posted): Chrome's bookkeeping, not a request to show it, so a profile
+  // not shown stays so. The app's own choice follows a tab that showed
+  // (SelectAfterClosing). Kept for this turn alone.
+  removed_from_profile_ = profile_id;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<UiApp> app) {
+                       if (app) {
+                         app->removed_from_profile_.reset();
+                       }
+                     },
+                     weak_factory_.GetWeakPtr()));
   if (was_active) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&UiApp::SelectAfterClosing,
@@ -2447,6 +2462,12 @@ void UiApp::ActiveTabChanged(content::WebContents* contents) {
             if (!app || app->model().active_tab_id() != previous ||
                 (previous && !app->model().FindTab(*previous)) ||
                 !app->PageOf(tab_id)) {
+              return;
+            }
+            // The strip's own choice once its active page left (TabRemoved).
+            if (app->removed_from_profile_ &&
+                app->model().ProfileIdOfTab(tab_id) ==
+                    app->removed_from_profile_) {
               return;
             }
             app->Select(tab_id);

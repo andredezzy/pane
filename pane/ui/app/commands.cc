@@ -107,10 +107,11 @@ Menu MenuOf(std::u16string title, std::vector<MenuItem> items) {
 // as Chrome's accelerator table gives them there: F11 for Full Screen,
 // Alt+Left and Alt+Right for Back and Forward, F12 beside Ctrl+Shift+I,
 // Ctrl+Y for Redo, Ctrl+= for Zoom In with Ctrl++ and the numpad's keys
-// beside the zooms, and Alt+F4 alone for Exit Pane (kCtrlQExitsOnWindows,
-// ADR 0053); none for what is the Mac's alone
-// (Minimize's key), and no Hide, Hide Others, or Show All there (Paper
-// 11.5.1). Lock Pane is Ctrl+Shift+L there.
+// beside the zooms, F5 for Reload, F3 and Shift+F3 for Find Next and
+// Previous, Ctrl+F4 for Close Tab, Alt+D for the address, and Alt+F4 alone
+// for Exit Pane (kCtrlQExitsOnWindows, ADR 0053); none for what is the
+// Mac's alone (Minimize's key), and no Hide, Hide Others, or Show All there
+// (Paper 11.5.1). Lock Pane is Ctrl+Shift+L there.
 std::vector<Menu> MakeMenus(KeySystem system) {
   const Builder b(system);
   const bool windows = system == KeySystem::kWindows;
@@ -159,16 +160,18 @@ std::vector<Menu> MakeMenus(KeySystem system) {
     };
   }
   menus.push_back(MenuOf(u"Pane", std::move(app)));
-  menus.push_back(
-      MenuOf(u"File",
-             {
-                 b.Item(Command::kNewTab, u"New Tab", Primary(ui::VKEY_T)),
-                 b.Item(Command::kCloseTab, u"Close Tab", Primary(ui::VKEY_W)),
-                 b.Item(Command::kReopenClosedTab, u"Reopen Closed Tab",
-                        Primary(ui::VKEY_T, kShift)),
-                 Separator(),
-                 b.Item(Command::kPrint, u"Print…", Primary(ui::VKEY_P)),
-             }));
+  std::vector<MenuItem> file = {
+      b.Item(Command::kNewTab, u"New Tab", Primary(ui::VKEY_T)),
+      b.Item(Command::kCloseTab, u"Close Tab", Primary(ui::VKEY_W)),
+  };
+  // Windows' own key for closing what a window holds, Chrome's there too.
+  b.AddHidden(file, Command::kCloseTab, u"Close Tab",
+              WindowsOnly(ui::VKEY_F4, kControl));
+  file.push_back(b.Item(Command::kReopenClosedTab, u"Reopen Closed Tab",
+                        Primary(ui::VKEY_T, kShift)));
+  file.push_back(Separator());
+  file.push_back(b.Item(Command::kPrint, u"Print…", Primary(ui::VKEY_P)));
+  menus.push_back(MenuOf(u"File", std::move(file)));
   menus.push_back(MenuOf(
       u"Edit",
       {
@@ -187,16 +190,26 @@ std::vector<Menu> MakeMenus(KeySystem system) {
       b.Item(Command::kFindNext, u"Find Next", Primary(ui::VKEY_G)),
       b.Item(Command::kFindPrevious, u"Find Previous",
              Primary(ui::VKEY_G, kShift)),
-      Separator(),
-      b.Item(Command::kReload, u"Reload", Primary(ui::VKEY_R)),
-      Separator(),
-      b.Item(Command::kActualSize, u"Actual Size", Primary(ui::VKEY_0)),
-      // ⌘+ on the Mac, which the keyboard types with Shift; Ctrl+= on
-      // Windows, what people type there, as Chrome shows it.
+  };
+  // Windows' F3 and Shift+F3 beside Ctrl+G's, as Chrome's Windows table.
+  b.AddHidden(view, Command::kFindNext, u"Find Next",
+              WindowsOnly(ui::VKEY_F3, ui::EF_NONE));
+  b.AddHidden(view, Command::kFindPrevious, u"Find Previous",
+              WindowsOnly(ui::VKEY_F3, kShift));
+  view.push_back(Separator());
+  view.push_back(b.Item(Command::kReload, u"Reload", Primary(ui::VKEY_R)));
+  // F5, the key every Windows browser reloads with, Chrome's among them.
+  b.AddHidden(view, Command::kReload, u"Reload",
+              WindowsOnly(ui::VKEY_F5, ui::EF_NONE));
+  view.push_back(Separator());
+  view.push_back(
+      b.Item(Command::kActualSize, u"Actual Size", Primary(ui::VKEY_0)));
+  // ⌘+ on the Mac, which the keyboard types with Shift; Ctrl+= on Windows,
+  // what people type there, as Chrome shows it.
+  view.push_back(
       b.Item(Command::kZoomIn, u"Zoom In",
              Each(ui::Accelerator(ui::VKEY_OEM_PLUS, kCommand | kShift),
-                  ui::Accelerator(ui::VKEY_OEM_PLUS, kControl))),
-  };
+                  ui::Accelerator(ui::VKEY_OEM_PLUS, kControl))));
   // The other's beside it, ⌘= and Ctrl++, and on Windows the numpad's +, as
   // Chrome's Windows table takes each.
   b.AddHidden(view, Command::kZoomIn, u"Zoom In",
@@ -225,18 +238,20 @@ std::vector<Menu> MakeMenus(KeySystem system) {
               Each(ui::Accelerator(ui::VKEY_I, kCommand | kOption),
                    ui::Accelerator(ui::VKEY_F12, ui::EF_NONE)));
   menus.push_back(MenuOf(u"View", std::move(view)));
-  menus.push_back(MenuOf(
-      u"Navigate", {
-                       b.Item(Command::kBack, u"Back",
-                              Each(ui::Accelerator(ui::VKEY_OEM_4, kCommand),
-                                   ui::Accelerator(ui::VKEY_LEFT, kOption))),
-                       b.Item(Command::kForward, u"Forward",
-                              Each(ui::Accelerator(ui::VKEY_OEM_6, kCommand),
-                                   ui::Accelerator(ui::VKEY_RIGHT, kOption))),
-                       Separator(),
-                       b.Item(Command::kFocusAddress, u"Focus Address Bar",
-                              Primary(ui::VKEY_L)),
-                   }));
+  std::vector<MenuItem> navigate = {
+      b.Item(Command::kBack, u"Back",
+             Each(ui::Accelerator(ui::VKEY_OEM_4, kCommand),
+                  ui::Accelerator(ui::VKEY_LEFT, kOption))),
+      b.Item(Command::kForward, u"Forward",
+             Each(ui::Accelerator(ui::VKEY_OEM_6, kCommand),
+                  ui::Accelerator(ui::VKEY_RIGHT, kOption))),
+      Separator(),
+      b.Item(Command::kFocusAddress, u"Focus Address Bar", Primary(ui::VKEY_L)),
+  };
+  // Alt+D beside Ctrl+L, as Chrome and Edge take it on Windows.
+  b.AddHidden(navigate, Command::kFocusAddress, u"Focus Address Bar",
+              WindowsOnly(ui::VKEY_D, kOption));
+  menus.push_back(MenuOf(u"Navigate", std::move(navigate)));
   std::vector<MenuItem> tabs = {
       b.Item(Command::kNextTab, u"Next Tab (Recent)",
              Both(ui::VKEY_TAB, kControl)),
