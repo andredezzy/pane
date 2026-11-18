@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/strings/sys_string_conversions.h"
+#include "pane/automation/channel_pointer.h"
 #include "pane/automation/input.h"
 #include "ui/views/widget/widget.h"
 
@@ -68,6 +69,11 @@ void FlagsChanged(views::Widget* widget, CGEventFlags flags, uint16_t code) {
 }  // namespace native_input
 
 void PostClick(views::Widget* widget, int x, int y, int clicks) {
+  // The pointer gets there before it presses, as a hand's does and Windows'
+  // click does (input_win.cc): Views then knows what it is over, and sends
+  // that its exit when the pointer leaves, where a control a click left
+  // hovered stayed so (ADR 0128).
+  PostMove(widget, x, y);
   NSWindow* window = WindowOf(widget);
   const NSPoint location = NSMakePoint(x, NSHeight(window.frame) - y);
   for (int count = 1; count <= std::max(clicks, 1); ++count) {
@@ -89,6 +95,7 @@ void PostClick(views::Widget* widget, int x, int y, int clicks) {
 }
 
 void PostMove(views::Widget* widget, int x, int y) {
+  ChannelPointer::MovedTo(widget, x, y);
   NSWindow* window = WindowOf(widget);
   const NSPoint location = NSMakePoint(x, NSHeight(window.frame) - y);
   NSEvent* event =
@@ -115,6 +122,7 @@ void PostMove(views::Widget* widget, int x, int y) {
 }
 
 void PostScroll(views::Widget* widget, int x, int y, double dy) {
+  ChannelPointer::MovedTo(widget, x, y);
   NSWindow* window = WindowOf(widget);
   const NSPoint on_screen =
       [window convertPointToScreen:NSMakePoint(x, NSHeight(window.frame) - y)];

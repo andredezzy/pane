@@ -1,5 +1,11 @@
 import { join } from "node:path";
-import { type AppState, launchPane, type PaneApp, tabOf } from "../lib/pane";
+import {
+	type AppState,
+	launchPane,
+	type PaneApp,
+	SCROLL_BAR_GONE_MS,
+	tabOf,
+} from "../lib/pane";
 import { bySystem } from "../lib/platform";
 import { poll, pollValue } from "../lib/poll";
 import { startHttpProxy } from "../lib/proxies";
@@ -687,7 +693,8 @@ const profileSheet: Scenario = async (context) => {
 			dy: -12,
 		});
 
-		await Bun.sleep(300);
+		// Past the overlay scroll bar the scroll showed.
+		await Bun.sleep(SCROLL_BAR_GONE_MS);
 
 		const window = (await app.state()).nativeWindows.find(
 			(each) => each.role === "main",

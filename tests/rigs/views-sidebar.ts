@@ -277,6 +277,9 @@ const viewsSidebar: Scenario = async (context) => {
 	await app.send("clickWindow", middle(frames["pane.sidebar.settings"]));
 	await app.waitFor("Settings", (shown) => shown.page === "settings");
 	const onSettings = (await app.hitTest(panel.x, panel.y)).target;
+	// The pointer off the row it pressed, which a profile's row slides under
+	// as Settings shows (ADR 0128): onto the sidebar's header.
+	await app.send("hoverWindow", { x: 140, y: 30 });
 	await app.render("sidebar-settings.png", 800);
 	await app.send("clickWindow", middle(frames["pane.sidebar.settings"]));
 	await app.waitFor("the browser again", (shown) => shown.page === "browser");

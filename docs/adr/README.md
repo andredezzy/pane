@@ -92,6 +92,7 @@ One record per subject, numbered in the order the subjects were first decided: t
 - [0125](0125-pane-shapes-its-text-over-its-fonts-own-tables.md) Pane's views shape their text over their fonts' own tables
 - [0126](0126-pane-on-windows-looks-as-paper-page-11-draws-it.md) Pane on Windows looks as Paper's page 11 draws it: its own caption buttons in the panel's corner, the menu bar's commands under "Pane ⌄", and Windows' words
 - [0127](0127-pane-installs-and-updates-itself-on-windows.md) On Windows Pane installs and updates itself: one folder in %LOCALAPPDATA%\Programs\Pane\Application, staged beside it and swapped whole once Pane has exited, with no launcher at launch
+- [0128](0128-two-runs-of-one-build-render-the-same.md) Two runs of one build render the same, byte for byte: a test copy's pointer, clock, carets, ports, loads, downloads, and loops are pinned
 
 ## Merged records
 

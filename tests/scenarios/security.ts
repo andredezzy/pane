@@ -549,7 +549,8 @@ const security: Scenario = async (context) => {
 		);
 	}
 
-	// Past the dots' fade.
+	// Past the dots' fade, the pointer off the key it last pressed (ADR 0128).
+	await relaunched.send("hoverWindow", { x: 140, y: 30 });
 	await relaunched.render("security-last-attempt.png", 500);
 
 	// Which seal it is, the seal says, not the system: a seal the TPM guards

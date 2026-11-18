@@ -1,6 +1,7 @@
 import { frameTimes } from "../lib/benchmark";
 import { launchPane, type PaneApp, pressWindowKey, tabOf } from "../lib/pane";
 import { poll } from "../lib/poll";
+import { SCENARIO_PORTS, serveFrom } from "../lib/ports";
 import { signpostFrameIntervals } from "../lib/signposts";
 import { pageResult, waitForSheet } from "../lib/surfaces";
 import { clickAt } from "../lib/traced";
@@ -419,15 +420,17 @@ const viewsDialogs: Scenario = async (context) => {
 	result.timings = timings;
 
 	// The proxy's sign-in, from a launch of its own behind a proxy that asks.
-	const proxy = Bun.serve({
-		hostname: "127.0.0.1",
-		port: 0,
-		fetch: () =>
-			new Response("Proxy sign in required", {
-				status: 407,
-				headers: { "Proxy-Authenticate": 'Basic realm="Pane proxy"' },
-			}),
-	});
+	const proxy = serveFrom(SCENARIO_PORTS, (port) =>
+		Bun.serve({
+			hostname: "127.0.0.1",
+			port,
+			fetch: () =>
+				new Response("Proxy sign in required", {
+					status: 407,
+					headers: { "Proxy-Authenticate": 'Basic realm="Pane proxy"' },
+				}),
+		}),
+	);
 
 	try {
 		const proxied = await launchPane(context, {

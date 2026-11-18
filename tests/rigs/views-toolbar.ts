@@ -193,22 +193,31 @@ async function pill(
 		await app.render("pill-dismiss-hover.png", 600);
 		await away(app);
 
-		// The pill's click, a real one.
-		await app.click("pane.sidebar.update");
+		// The pill's click, a real one: 4 MB in 16 chunks, 250 ms apart, held
+		// at the fourth.
+		const release = context.fixtures.holdNextDownload(4);
 
-		// 4 MB in 16 chunks, 250 ms apart.
-		await app.waitFor(
-			"the download under way",
-			(state) =>
-				state.update.status === "downloading" &&
-				(state.update.progress ?? 0) >= 0.25,
-			15_000,
-		);
+		try {
+			await app.click("pane.sidebar.update");
 
-		await app.render("pill-downloading.png", 0);
-		await app.send("hoverWindow", await app.middleOf("pane.sidebar.update"));
-		await app.render("pill-downloading-hover.png", 400);
-		await away(app);
+			await app.waitFor(
+				"the download under way",
+				(state) =>
+					state.update.status === "downloading" &&
+					(state.update.progress ?? 0) >= 0.25,
+				15_000,
+			);
+
+			// The pointer off the pill it clicked, past the bar's move to the
+			// held share (Motion.progress, 0.2 s).
+			await away(app);
+			await app.render("pill-downloading.png", 400);
+			await app.send("hoverWindow", await app.middleOf("pane.sidebar.update"));
+			await app.render("pill-downloading-hover.png", 400);
+			await away(app);
+		} finally {
+			release();
+		}
 
 		const done = await app.waitFor(
 			"the download done",

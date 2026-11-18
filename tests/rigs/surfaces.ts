@@ -5,6 +5,7 @@ import {
 	bringToFront,
 	launchPane,
 	type PaneApp,
+	SCROLL_BAR_GONE_MS,
 	setUpPin,
 	tabOf,
 } from "../lib/pane";
@@ -28,9 +29,9 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // dialog, the sad tab, Quit Pane?; Chrome's extensions page is
 // views-extension-pages'), Settings and the
 // Lock, and an update on offer. Nothing takes the front: what needs it is
-// deferred unless the run allows it (--foreground). Text holding the fixtures' port,
-// and Settings' "checked at" time, differ from run to run, and the real
-// pointer over the window can add a hover.
+// deferred unless the run allows it (--foreground). Two runs of one build
+// render the same, byte for byte (ADR 0128): the fixtures' ports, Settings'
+// "checked at" time, and the pointer are pinned.
 
 // What no render here shows, and why; the report lists it.
 const SKIPPED = {
@@ -58,12 +59,19 @@ const SKIPPED = {
 
 const PROXY_CREDENTIALS = { username: "pane", password: "proxy-secret" };
 
+// Where the pointer rests for every render, each of a state at rest: the
+// sidebar's header, between its title and its button, where nothing answers
+// a hover. The channel's pointer stays where its last click left it, as a
+// hand's does (ADR 0128), and a control it left under it showed hovered.
+const AT_REST = { x: 140, y: 30 };
+
 // The renders made, in order, for the report.
 class Renders {
 	readonly files: string[] = [];
 
 	async take(app: PaneApp, name: string, settleMs = 400): Promise<void> {
 		const file = `surfaces-${name}.png`;
+		await app.send("hoverWindow", AT_REST);
 		await app.render(file, settleMs);
 		this.files.push(file);
 	}
@@ -582,9 +590,10 @@ async function sidebarOverflow({ context, app, renders }: Family) {
 		);
 	}
 
-	await renders.take(app, "sidebar-overflow-end", 600);
+	// Each once the overlay scroll bar the scroll showed is gone.
+	await renders.take(app, "sidebar-overflow-end", SCROLL_BAR_GONE_MS);
 	await app.send("scrollWindow", { x: 130, y: 400, dy: 160 });
-	await renders.take(app, "sidebar-overflow-middle", 600);
+	await renders.take(app, "sidebar-overflow-middle", SCROLL_BAR_GONE_MS);
 	await app.send("unloadProfile", { profile: reading });
 }
 
@@ -757,6 +766,7 @@ async function settings({ app, renders }: Family) {
 
 async function scrollSettingsToEnd(app: PaneApp) {
 	await app.send("scrollWindow", { x: 700, y: 400, dy: -2_000 });
+	await Bun.sleep(SCROLL_BAR_GONE_MS);
 }
 
 // The PIN screen from Settings: setting one up (empty, typed, long enough to
@@ -957,18 +967,26 @@ async function updates(context: ScenarioContext, renders: Renders) {
 	await app.send("showPage", { page: "settings" });
 	await app.waitFor("Settings", (state) => state.page === "settings");
 	await scrollSettingsToEnd(app);
-	await app.send("downloadUpdate");
 
-	// 4 MB in 16 chunks, 250 ms apart.
-	await app.waitFor(
-		"the download under way",
-		(state) =>
-			state.update.status === "downloading" &&
-			(state.update.progress ?? 0) >= 0.25,
-		15_000,
-	);
+	// 4 MB in 16 chunks, 250 ms apart, held at the fourth.
+	const release = context.fixtures.holdNextDownload(4);
 
-	await renders.take(app, "updates-downloading", 0);
+	try {
+		await app.send("downloadUpdate");
+
+		await app.waitFor(
+			"the download under way",
+			(state) =>
+				state.update.status === "downloading" &&
+				(state.update.progress ?? 0) >= 0.25,
+			15_000,
+		);
+
+		// Past the bar's move to the held share (Motion.progress, 0.2 s).
+		await renders.take(app, "updates-downloading", 400);
+	} finally {
+		release();
+	}
 
 	await app.waitFor(
 		"the download done",

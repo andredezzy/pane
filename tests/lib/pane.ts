@@ -743,6 +743,13 @@ export const updateFileName = bySystem({
 	windows: (version: string) => `Pane-${version}-x64.exe`,
 });
 
+// How long after a scroll the overlay scroll bar it showed is gone: half a
+// second, then a quarter's fade, on the Mac (Views' CocoaScrollBar); a
+// second, then 0.2 s, on Windows (pane/ui/design/scroll_win.cc). A render
+// after a scroll waits this long, so no run catches the bar mid-fade
+// (ADR 0128).
+export const SCROLL_BAR_GONE_MS = bySystem({ mac: 1_000, windows: 1_500 });
+
 // The window's top edge, inside what it shows, that resizes it: none on the
 // Mac, where AppKit's is outside; Chrome's 5 points on Windows, where the
 // system's frame keeps no top border (pane/ui/window/frame_win.cc).
@@ -811,6 +818,10 @@ export type PaneLaunch = {
 	// Where the process starts, as a terminal's folder would be.
 	cwd?: string;
 };
+
+// The moment every time of day a test copy shows stands for
+// (PANE_SHOWN_TIME, seconds since 1970): 09:41 on this computer's clock.
+const SHOWN_TIME = String(new Date(2026, 0, 1, 9, 41).getTime() / 1000);
 
 // What a launch without --user-data-dir (--user-launch) needs for Pane to
 // take its data's engine folder by itself, as the user's does: nothing on the
@@ -892,6 +903,9 @@ export async function launchPane(
 			// A new tab opens the fixtures' page, not Google's: nothing leaves
 			// this Mac but what a scenario opens itself.
 			PANE_NEW_TAB_URL: context.fixtures.url("smoke.html?new-tab"),
+			// Every time of day Pane shows, one moment, so two runs' renders
+			// match (ADR 0128).
+			PANE_SHOWN_TIME: SHOWN_TIME,
 			...options.env,
 		},
 	});

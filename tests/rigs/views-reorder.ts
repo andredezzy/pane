@@ -18,6 +18,12 @@ import { expect, type Scenario } from "../run";
 
 type Step = { ms: number };
 
+// Long enough after a drag's last move for its rows to have come to rest: the
+// slide's spring settles 0.37 s on from rest and later from a move under way
+// (pane/ui/design/motion.h, Settled), and a render at 0.5 s caught its last
+// fraction of a pixel, a different one in each run (ADR 0128).
+const SLIDE_SETTLED_MS = 1_000;
+
 // The median, the 90th percentile, and the largest of `times`.
 function spread(times: number[]) {
 	const sorted = [...times].sort((a, b) => a - b);
@@ -138,7 +144,7 @@ const viewsReorder: Scenario = async (context) => {
 	await app.render("reorder-tab-before.png", 500);
 	await app.send("pointerWindow", { phase: "down", x: 100, y });
 	await moves(100, path, 40, surfacesSteps);
-	await app.render("reorder-tab-dragging.png", 500);
+	await app.render("reorder-tab-dragging.png", SLIDE_SETTLED_MS);
 	log.tabDragging = await app.frames();
 	await moves(100, [...path].reverse().concat(y), 40, surfacesSteps);
 	await app.send("pointerWindow", { phase: "up", x: 100, y });
@@ -198,7 +204,7 @@ const viewsReorder: Scenario = async (context) => {
 		surfacesSteps,
 	);
 
-	await app.render("reorder-profile-dragging.png", 500);
+	await app.render("reorder-profile-dragging.png", SLIDE_SETTLED_MS);
 	log.profileDragging = await app.frames();
 	await app.send("pointerWindow", { phase: "up", x: 100, y: header + 70 });
 
@@ -235,7 +241,9 @@ const viewsReorder: Scenario = async (context) => {
 			state.profiles.find((each) => each.id === proxied)?.expanded === true,
 	);
 
-	await Bun.sleep(500);
+	// Read at rest: a row read mid-slide gave a press a fraction of a point
+	// off, and the drag's copy with it, another in each run (ADR 0128).
+	await Bun.sleep(SLIDE_SETTLED_MS);
 	const frames = await app.frames("pane.");
 
 	const middle = (name: string) => {
@@ -287,7 +295,9 @@ const viewsReorder: Scenario = async (context) => {
 	log.surfacesSteps = spread(surfacesSteps);
 
 	// An open profile dragged: its whole section, header, tabs, and New tab,
-	// stands at 40% where it would drop, below the copy of its header.
+	// stands at 40% where it would drop, below the copy of its header. Once
+	// the rows the timed drags let go have slid back.
+	await Bun.sleep(SLIDE_SETTLED_MS);
 	const workHeader = middle(`pane.profile.${work}`);
 	await app.send("pointerWindow", { phase: "down", x: 100, y: workHeader });
 
@@ -298,7 +308,7 @@ const viewsReorder: Scenario = async (context) => {
 		surfacesSteps,
 	);
 
-	await app.render("reorder-profile-open-dragging.png", 500);
+	await app.render("reorder-profile-open-dragging.png", SLIDE_SETTLED_MS);
 	log.profileOpenDragging = await app.frames();
 
 	await app.send("pointerWindow", {

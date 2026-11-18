@@ -26,6 +26,9 @@ namespace {
 // The dot at half, at the bottom of its breath.
 constexpr double kPulseLow = 0.5;
 
+// Whether the dots hold at full (HoldStill).
+bool g_still = false;
+
 }  // namespace
 
 UpdateDot::UpdateDot()
@@ -40,6 +43,11 @@ UpdateDot::UpdateDot()
 }
 
 UpdateDot::~UpdateDot() = default;
+
+// static
+void UpdateDot::HoldStill() {
+  g_still = true;
+}
 
 void UpdateDot::SetPulsing(bool pulsing) {
   if (pulsing != pulsing_) {
@@ -59,7 +67,8 @@ void UpdateDot::AddedToWidget() {
 
 bool UpdateDot::Pulses() {
   const views::Widget* widget = GetWidget();
-  return pulsing_ && widget && widget->GetCompositor() && !motion::IsReduced();
+  return pulsing_ && widget && widget->GetCompositor() &&
+         !motion::IsReduced() && !g_still;
 }
 
 void UpdateDot::UpdatePulse() {

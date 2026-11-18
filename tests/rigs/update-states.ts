@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { PaneApp } from "../lib/pane";
-import { QUIT_WORD, setUpPin } from "../lib/pane";
+import { QUIT_WORD, SCROLL_BAR_GONE_MS, setUpPin } from "../lib/pane";
 import { pollValue } from "../lib/poll";
 import { serveSlowRelease } from "../lib/slow-release";
 import { launchCopy, standInRelease } from "../lib/update-copies";
@@ -48,7 +48,15 @@ const updateStates: Scenario = async (context) => {
 	// names no frames gives none).
 	const regions: Record<string, Record<string, number[]>> = {};
 
+	// Each at rest with the pointer off the pill and the row (where
+	// showUpdateRow leaves it), but the hovers, which the pointer is for: a
+	// pill that moves under where a click left the pointer shows hovered
+	// (ADR 0128).
 	const render = async (app: PaneApp, name: string, delay = 600) => {
+		if (!name.endsWith("-hover")) {
+			await app.send("hoverWindow", OFF_THE_PILL);
+		}
+
 		await app.render(`${name}.png`, delay);
 		rendered.push(name);
 
@@ -106,19 +114,26 @@ const updateStates: Scenario = async (context) => {
 		await app.send("checkUpdates");
 		await settledCheck(app);
 
-		// Downloading, in Settings and at the Lock.
-		await app.send("downloadUpdate");
+		// Downloading, in Settings and at the Lock, held at a quarter.
+		const release = server.hold(0.25);
 
-		await app.waitFor(
-			"the download under way",
-			(state) =>
-				state.update.status === "downloading" &&
-				(state.update.progress ?? 0) >= 0.2,
-			15_000,
-		);
+		try {
+			await app.send("downloadUpdate");
 
-		await render(app, "updates-downloading", 100);
-		await lockAndRender(app, "lock-downloading", render, 100, hovered);
+			await app.waitFor(
+				"the download under way",
+				(state) =>
+					state.update.status === "downloading" &&
+					(state.update.progress ?? 0) >= 0.25,
+				15_000,
+			);
+
+			// Past the bar's move to the held share (Motion.progress, 0.2 s).
+			await render(app, "updates-downloading", 400);
+			await lockAndRender(app, "lock-downloading", render, 100, hovered);
+		} finally {
+			release();
+		}
 
 		// Ready: staged beside the app.
 		const ready = await app.waitFor(
@@ -177,12 +192,17 @@ const updateStates: Scenario = async (context) => {
 // Settings, at its end, where the update row is, the pointer over the page
 // and off the pill. Scrolled once it has laid out: the Swift's took no scroll
 // before.
+// Where the pointer rests: over Settings' header, off the pill, the update
+// row, and the Lock's controls.
+const OFF_THE_PILL = { x: 860, y: 120 };
+
 async function showUpdateRow(app: PaneApp) {
 	await app.send("showPage", { page: "settings" });
 	await app.waitFor("Settings", (state) => state.page === "settings");
 	await Bun.sleep(500);
 	await app.send("scrollWindow", { x: 700, y: 400, dy: -2_000 });
-	await app.send("hoverWindow", { x: 860, y: 120 });
+	await app.send("hoverWindow", OFF_THE_PILL);
+	await Bun.sleep(SCROLL_BAR_GONE_MS);
 }
 
 // A check that has answered, with the update still on offer.
@@ -223,7 +243,7 @@ async function lockAndRender(
 
 	// At rest, then with its action under the pointer, which the Swift's
 	// channel can't show (its move reaches no SwiftUI hover).
-	await app.send("hoverWindow", { x: 860, y: 120 });
+	await app.send("hoverWindow", OFF_THE_PILL);
 	await render(app, name, delay);
 	await app.send("hoverWindow", at);
 	await render(app, `${name}-hover`, 600);

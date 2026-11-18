@@ -189,8 +189,9 @@ SettingsUpdate SettingsUpdateOf(const Updater& updater) {
     return update;
   }
   if (const std::optional<base::Time> checked = updater.last_checked_at()) {
-    update.status = base::StrCat(
-        {u"Pane is up to date \u00B7 checked at ", TimeOfDay(*checked)});
+    update.status =
+        base::StrCat({u"Pane is up to date \u00B7 checked at ",
+                      TimeOfDay(model::TestShownTime().value_or(*checked))});
     update.up_to_date = true;
   } else {
     update.status = SettingsUpdate::kChecksOnItsOwn;

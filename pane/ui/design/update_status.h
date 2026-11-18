@@ -36,6 +36,12 @@ class UpdateDot : public views::View {
 
   void SetPulsing(bool pulsing);
 
+  // Every dot from now on holds at full, as under the system's Reduce
+  // motion: a scenario's channel holds them, so a render of a download shows
+  // the dot the same in every run, where each caught its breath at another
+  // point (ADR 0128).
+  static void HoldStill();
+
   // views::View:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { canDriveUI, mainWindowOf } from "../lib/computer-use";
-import { launchPane } from "../lib/pane";
+import { launchPane, SCROLL_BAR_GONE_MS } from "../lib/pane";
 import { captureWindow } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
@@ -18,12 +18,14 @@ const sidebarResize: Scenario = async (context) => {
 	const { tab } = await first.openPage(profile, url);
 
 	// The list fades at its edges as it scrolls (ADR 0061): enough tabs to
-	// scroll, drawn at the top and scrolled.
+	// scroll, drawn at the top and scrolled, each loaded and titled before the
+	// next opens. Opened one after another at once, some were never shown, so
+	// never loaded, and which said Loading… changed from run to run (ADR 0128).
 	for (let index = 0; index < 24; index++) {
-		await first.send("openTab", {
+		await first.loadTab(
 			profile,
-			url: context.fixtures.url(`light.html?tab=${index}`),
-		});
+			context.fixtures.url(`light.html?tab=${index}`),
+		);
 	}
 
 	await first.send("select", { tab });
@@ -40,7 +42,9 @@ const sidebarResize: Scenario = async (context) => {
 
 	await shot("list-top.png");
 	await first.send("scrollWindow", { x: 130, y: 400, dy: -120 });
-	await Bun.sleep(300);
+	// Past the overlay scroll bar's fade, which starts half a second after a
+	// scroll and takes a quarter more (Views' CocoaScrollBar).
+	await Bun.sleep(SCROLL_BAR_GONE_MS);
 	await shot("list-scrolled.png");
 
 	const initial = (await first.state()).sidebarWidth;

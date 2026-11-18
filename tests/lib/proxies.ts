@@ -4,6 +4,7 @@
 // go to the fixture server, so a page can only be reached through a proxy;
 // other hosts are connected for real. And a server that never answers.
 import * as net from "node:net";
+import { listenFrom, SCENARIO_PORTS } from "./ports";
 
 type ProxyLogEntry = {
 	proxy: "http" | "socks5";
@@ -27,11 +28,7 @@ function resolve(host: string, port: number, fixturePort: number) {
 }
 
 function listen(server: net.Server, host: string): Promise<number> {
-	return new Promise((done) => {
-		server.listen(0, host, () => {
-			done((server.address() as net.AddressInfo).port);
-		});
-	});
+	return listenFrom(server, host, SCENARIO_PORTS);
 }
 
 // A server that takes a connection and never answers: a proxy whose test

@@ -80,9 +80,21 @@ const webStoreLabels: Scenario = async (context) => {
 			width: number;
 			height: number;
 		}>(
-			`(() => {
+			// Scrolled to, once the store's fonts are in (ten seconds at most:
+			// the live store's can keep loading) and two frames drawn (a second
+			// at most, as a page under the lock draws none): before, its text
+			// wasn't drawn yet, and the button was narrower (ADR 0128).
+			`(async () => {
 				const button = document.querySelector('[jsaction*="(wQO0od)"] button, [jsaction*="(ajZLRd)"] button');
 				button.scrollIntoView({ block: "center" });
+				await Promise.race([
+					document.fonts.ready,
+					new Promise((late) => setTimeout(late, 10000)),
+				]);
+				await Promise.race([
+					new Promise((drawn) => requestAnimationFrame(() => requestAnimationFrame(drawn))),
+					new Promise((late) => setTimeout(late, 1000)),
+				]);
 				const { x, y, width, height } = button.getBoundingClientRect();
 				return { x: x + scrollX, y: y + scrollY, width, height };
 			})()`,

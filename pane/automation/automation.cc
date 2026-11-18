@@ -44,6 +44,7 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_constants.h"
 #include "pane/app/data_launch.h"
+#include "pane/automation/channel_pointer.h"
 #include "pane/automation/file_panels.h"
 #include "pane/automation/input.h"
 #include "pane/automation/system.h"
@@ -60,6 +61,7 @@
 #include "pane/ui/app/ui_app.h"
 #include "pane/ui/design/dialog.h"
 #include "pane/ui/design/menu_button.h"
+#include "pane/ui/design/update_status.h"
 #include "pane/ui/dialogs/about_dialog.h"
 #include "pane/ui/dialogs/extension_prompt_view.h"
 #include "pane/ui/dialogs/page_dialog.h"
@@ -219,6 +221,7 @@ base::ListValue MenuItems(const ui::SimpleMenuModel& menu) {
 double Pointer(views::Widget* widget,
                ui::EventType type,
                const gfx::PointF& at) {
+  ChannelPointer::MovedTo(widget, std::lround(at.x()), std::lround(at.y()));
   views::View* root = widget->GetRootView();
   if (type == ui::EventType::kMousePressed) {
     ui::MouseEvent move(ui::EventType::kMouseMoved, at, at,
@@ -524,6 +527,8 @@ Automation::Automation(const base::FilePath& directory, UiApp* app)
     : app_(app) {
   // The system's file panels, as a scenario sees and answers them.
   WatchFilePanels();
+  // A download's dot at full, not breathing (ADR 0128).
+  UpdateDot::HoldStill();
   files_ = base::SequenceBound<Files>(
       base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_BLOCKING}),

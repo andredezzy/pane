@@ -18,6 +18,8 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
+#include "pane/automation/channel_pointer.h"
+#include "pane/automation/steady_caret.h"
 #include "pane/model/pin_entry.h"
 
 class ExtensionInstallPrompt;
@@ -66,6 +68,10 @@ class Automation {
                      Reply reply);
 
   raw_ptr<UiApp> app_;
+  // Where the views find the pointer while the channel runs: its own.
+  ChannelPointer pointer_;
+  // Its fields' and pages' carets, shown without blinking.
+  SteadyCaret caret_;
   base::SequenceBound<Files> files_;
   // Chrome's prompt askToAddExtension made, until the next.
   std::unique_ptr<ExtensionInstallPrompt> asked_to_add_;

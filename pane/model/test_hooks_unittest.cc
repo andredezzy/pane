@@ -20,6 +20,7 @@ class TestHooksTest : public testing::Test {
   void TearDown() override {
     base::Environment::Create()->UnSetVar(kHook);
     base::Environment::Create()->UnSetVar("PANE_TIME_SCALE");
+    base::Environment::Create()->UnSetVar("PANE_SHOWN_TIME");
   }
 
   void SetVar(base::cstring_view name, const std::string& value) {
@@ -33,8 +34,10 @@ class TestHooksTest : public testing::Test {
 TEST_F(TestHooksTest, NothingOffTheMockKeychain) {
   SetVar(kHook, "on");
   SetVar("PANE_TIME_SCALE", "60");
+  SetVar("PANE_SHOWN_TIME", "1767260460");
   EXPECT_EQ(TestHook(kHook), std::nullopt);
   EXPECT_EQ(TestTimeScale(), 1);
+  EXPECT_EQ(TestShownTime(), std::nullopt);
 }
 
 TEST_F(TestHooksTest, AScenariosRunReadsThem) {
@@ -56,6 +59,16 @@ TEST_F(TestHooksTest, TimeScale) {
   EXPECT_EQ(TestTimeScale(), 1);
   SetVar("PANE_TIME_SCALE", "fast");
   EXPECT_EQ(TestTimeScale(), 1);
+}
+
+// A whole number of seconds since 1970, or nothing shown in its place.
+TEST_F(TestHooksTest, ShownTime) {
+  command_line_.GetProcessCommandLine()->AppendSwitch("use-mock-keychain");
+  EXPECT_EQ(TestShownTime(), std::nullopt);
+  SetVar("PANE_SHOWN_TIME", "1767260460");
+  EXPECT_EQ(TestShownTime(), base::Time::FromSecondsSinceUnixEpoch(1767260460));
+  SetVar("PANE_SHOWN_TIME", "09:41");
+  EXPECT_EQ(TestShownTime(), std::nullopt);
 }
 
 }  // namespace

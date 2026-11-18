@@ -1,12 +1,17 @@
 import { createHash } from "node:crypto";
 import * as net from "node:net";
 import { join, normalize } from "node:path";
+import { FIXTURES_PORT, serveFrom } from "./ports";
 
 const PAGES_DIR = join(import.meta.dir, "..", "pages");
 
 export type Fixtures = {
 	origin: string;
 	url: (path: string) => string;
+	// The next stand-in download stops after `chunks` of its 16 until the
+	// function returned lets it go, so what shows its progress shows the same
+	// share in every run (ADR 0128).
+	holdNextDownload: (chunks: number) => () => void;
 	stop: () => void;
 };
 
@@ -238,6 +243,31 @@ let downloadsOrigin: Promise<string> | null = null;
 const DOWNLOAD_CHUNK = Buffer.alloc(256 * 1024, 0x50);
 const DOWNLOAD_CHUNKS = 16;
 
+// Where the next download stops, and what lets it go on (holdNextDownload).
+type Hold = { chunks: number; released: Promise<void> };
+
+let nextHold: Hold | null = null;
+
+function holdNextDownload(chunks: number): () => void {
+	let release = () => {};
+
+	const released = new Promise<void>((done) => {
+		release = done;
+	});
+
+	const hold = { chunks, released };
+
+	nextHold = hold;
+
+	return () => {
+		if (nextHold === hold) {
+			nextHold = null;
+		}
+
+		release();
+	};
+}
+
 const DOWNLOAD_SHA256 = createHash("sha256")
 	.update(Buffer.concat(Array(DOWNLOAD_CHUNKS).fill(DOWNLOAD_CHUNK)))
 	.digest("hex");
@@ -251,6 +281,10 @@ function slowDownloads(): Promise<string> {
 			socket.on("error", () => socket.destroy());
 
 			socket.once("data", async () => {
+				const hold = nextHold;
+
+				nextHold = null;
+
 				socket.write(
 					`HTTP/1.1 200 OK\r\nContent-Type: application/x-apple-diskimage\r\nContent-Length: ${size}\r\nConnection: close\r\n\r\n`,
 				);
@@ -260,6 +294,10 @@ function slowDownloads(): Promise<string> {
 					index < DOWNLOAD_CHUNKS && !socket.destroyed;
 					index++
 				) {
+					if (hold && index === hold.chunks) {
+						await hold.released;
+					}
+
 					socket.write(chunk);
 					await Bun.sleep(250);
 				}
@@ -280,9 +318,21 @@ function slowDownloads(): Promise<string> {
 
 // Serves tests/pages on 127.0.0.1 so every behavior check runs offline.
 export function serveFixtures(): Fixtures {
-	const server = Bun.serve({
+	const server = serveFrom(FIXTURES_PORT, (port) => serve(port));
+	const origin = `http://127.0.0.1:${server.port}`;
+
+	return {
+		origin,
+		url: (path) => `${origin}/${path.replace(/^\//, "")}`,
+		holdNextDownload,
+		stop: () => server.stop(true),
+	};
+}
+
+function serve(port: number) {
+	return Bun.serve({
 		hostname: "127.0.0.1",
-		port: 0,
+		port,
 		// `?delay=<ms>` holds the response back (a slow load to stop);
 		// `?download=1` serves the file as an attachment.
 		async fetch(request) {
@@ -319,12 +369,4 @@ export function serveFixtures(): Fixtures {
 				: new Response(file);
 		},
 	});
-
-	const origin = `http://127.0.0.1:${server.port}`;
-
-	return {
-		origin,
-		url: (path) => `${origin}/${path.replace(/^\//, "")}`,
-		stop: () => server.stop(true),
-	};
 }

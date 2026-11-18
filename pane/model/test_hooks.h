@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "base/strings/cstring_view.h"
+#include "base/time/time.h"
 
 namespace pane::model {
 
@@ -29,6 +30,12 @@ std::optional<std::string> TestHook(base::cstring_view name);
 // PANE_TIME_SCALE: how many times faster the clocks of Sleep and the Lock's
 // time without use run, at least 1. 60 makes a minute pass every second.
 double TestTimeScale();
+
+// PANE_SHOWN_TIME: the moment Pane shows wherever it shows a time of day (the
+// update check's "checked at"), in seconds since 1970, so two runs' renders
+// show the same; nullopt unset, unreadable, or elsewhere. What Pane keeps and
+// counts with stays the clock's.
+std::optional<base::Time> TestShownTime();
 
 }  // namespace pane::model
 

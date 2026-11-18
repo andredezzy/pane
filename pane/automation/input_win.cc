@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
 #include "base/task/sequenced_task_runner.h"
+#include "pane/automation/channel_pointer.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/events/event.h"
@@ -315,6 +316,7 @@ bool PostKey(views::Widget* widget,
 }
 
 void PostClick(views::Widget* widget, int x, int y, int clicks) {
+  ChannelPointer::MovedTo(widget, x, y);
   Post(base::BindOnce(
       [](base::WeakPtr<views::Widget> widget, int x, int y, int clicks) {
         if (!widget || widget->IsClosed()) {
@@ -341,12 +343,14 @@ void PostClick(views::Widget* widget, int x, int y, int clicks) {
 }
 
 void PostMove(views::Widget* widget, int x, int y) {
+  ChannelPointer::MovedTo(widget, x, y);
   if (widget && !widget->IsClosed()) {
     Move(widget, x, y);
   }
 }
 
 void PostScroll(views::Widget* widget, int x, int y, double dy) {
+  ChannelPointer::MovedTo(widget, x, y);
   if (!widget || widget->IsClosed()) {
     return;
   }

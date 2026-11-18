@@ -3,6 +3,7 @@
 #include "pane/model/test_hooks.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 
 #include "base/command_line.h"
@@ -30,6 +31,15 @@ double TestTimeScale() {
     return 1;
   }
   return std::max(scale, 1.0);
+}
+
+std::optional<base::Time> TestShownTime() {
+  int64_t seconds = 0;
+  const std::optional<std::string> value = TestHook("PANE_SHOWN_TIME");
+  if (!value || !base::StringToInt64(*value, &seconds)) {
+    return std::nullopt;
+  }
+  return base::Time::FromSecondsSinceUnixEpoch(static_cast<double>(seconds));
 }
 
 }  // namespace pane::model

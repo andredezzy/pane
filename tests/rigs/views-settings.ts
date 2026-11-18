@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { stats } from "../lib/benchmark";
 import { checkMenuUnderTrigger, type MenuPlacement } from "../lib/menu-button";
-import { launchPane, type PaneApp, setUpPin } from "../lib/pane";
+import {
+	launchPane,
+	type PaneApp,
+	SCROLL_BAR_GONE_MS,
+	setUpPin,
+} from "../lib/pane";
 import { silentServer } from "../lib/proxies";
 import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
@@ -55,12 +60,15 @@ type MenuItem = {
 // The pointer off every control: over the sidebar's list below its rows.
 const away = (app: PaneApp) => app.send("hoverWindow", { x: 130, y: 600 });
 
+// Each left until the overlay scroll bar the scroll showed is gone.
 async function scrollToEnd(app: PaneApp) {
 	await app.send("scrollWindow", { x: 700, y: 400, dy: -2_000 });
+	await Bun.sleep(SCROLL_BAR_GONE_MS);
 }
 
 async function scrollToTop(app: PaneApp) {
 	await app.send("scrollWindow", { x: 700, y: 400, dy: 2_000 });
+	await Bun.sleep(SCROLL_BAR_GONE_MS);
 }
 
 async function menu(
@@ -263,7 +271,8 @@ async function settings(
 			expect(checked === choice, `${name}: ${checked} after ${choice}`);
 		}
 
-		await app.render("settings-menus-chosen.png", 400);
+		// Once the scroll bar a menu's scroll into view showed is gone.
+		await app.render("settings-menus-chosen.png", SCROLL_BAR_GONE_MS);
 
 		// Saved as the model saves a change: settings.json, plain, as it's read
 		// before the Lock.
@@ -388,19 +397,26 @@ async function updates(
 		await app.waitFor("Settings", (state) => state.page === "settings");
 		await scrollToEnd(app);
 
-		// Settings' Download update, pressed.
-		await app.press("pane.settings.downloadUpdate");
+		// Settings' Download update, pressed: 4 MB in 16 chunks, 250 ms
+		// apart, held at the fourth.
+		const release = context.fixtures.holdNextDownload(4);
 
-		// 4 MB in 16 chunks, 250 ms apart.
-		await app.waitFor(
-			"the download under way",
-			(state) =>
-				state.update.status === "downloading" &&
-				(state.update.progress ?? 0) >= 0.25,
-			15_000,
-		);
+		try {
+			await app.press("pane.settings.downloadUpdate");
 
-		await app.render("surfaces-updates-downloading.png", 0);
+			await app.waitFor(
+				"the download under way",
+				(state) =>
+					state.update.status === "downloading" &&
+					(state.update.progress ?? 0) >= 0.25,
+				15_000,
+			);
+
+			// Past the bar's move to the held share (Motion.progress, 0.2 s).
+			await app.render("surfaces-updates-downloading.png", 400);
+		} finally {
+			release();
+		}
 
 		const done = await app.waitFor(
 			"the download done",
