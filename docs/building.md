@@ -114,6 +114,8 @@ The rig: Aside Computer Use for presses, keys, menus, and the front (`tests/lib/
 6. **Speed as felt:** recordings of the same page loads on the last release and the candidate, timed frame by frame.
 7. **Open items in `docs/human-checklist.md`** an agent may do.
 
+**Timing a motion from a recording:** keep every frame that changed at all, and read each frame's progress against a settled frame from before the change. A spring's last frames move less than a pixel, so a recorder that skips small changes ends early, and calibrating on its last frame scales the whole curve: that read the profile morph 10% fast once, while a trace of Chromium's frames put every one at its spring. A Chromium window's captured times are the window server's samples, about every 9 ms on a 120 Hz display and up to a frame behind its presentation, not the display's.
+
 ## App
 
 ```bash
