@@ -101,6 +101,7 @@ The rig: Aside Computer Use for presses, keys, menus, and the front (`tests/lib/
 - **Background first.** Whatever accessibility does on a window not in front runs at any time.
 - **The front, only when allowed:** the user has said so in the session, or the Mac has been idle at least 10 minutes with its screen unlocked (`HIDIdleTime` from `ioreg -c IOHIDSystem`, `CGSSessionScreenIsLocked`). Say first what will run, for how long, and that any key or click stops it. Check again before each step, stop at the first sign of the user, and put back the app that was in front.
 - **Before every key, prove the target:** the frontmost app's pid is the test copy's, immediately before each key. Nothing of the user's gets keys, and only windows proven to be the test's get captured. `tests/rigs/` has the guard.
+- **A click's outcome, unrecorded.** While a window is captured (ScreenCaptureKit, `screencapture -v`), macOS marks it as shared, and about half the real presses on it are lost, on the Swift app's window as on this one's: judge what a click did on a run that records nothing, and record motion in a run of its own.
 - **If neither comes within a working day,** ask once.
 
 **The checklist:**
