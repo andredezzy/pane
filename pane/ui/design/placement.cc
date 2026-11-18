@@ -6,6 +6,7 @@
 
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
+#include "ui/events/event.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/views/view.h"
@@ -31,6 +32,16 @@ void PlaceOnPixels(views::View& view, const gfx::RectF& bounds, float scale) {
     view.layer()->SetFillsBoundsOpaquely(false);
   }
   view.SetTransform(shift);
+}
+
+gfx::PointF PointIn(const views::View& view, const ui::LocatedEvent& event) {
+  const views::View* root = &view;
+  while (root->parent()) {
+    root = root->parent();
+  }
+  return views::View::ConvertRectToTarget(
+             root, &view, gfx::RectF(event.root_location_f(), gfx::SizeF()))
+      .origin();
 }
 
 float ScaleOf(const views::Widget* widget) {

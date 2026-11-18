@@ -12,6 +12,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "pane/model/reorder.h"
 #include "pane/ui/design/motion.h"
+#include "pane/ui/design/placement.h"
 #include "pane/ui/sidebar/drag_copy.h"
 #include "pane/ui/sidebar/row_button.h"
 #include "pane/ui/sidebar/row_list.h"
@@ -138,12 +139,12 @@ views::View* VerticalReorder::RowOf(ui::EventTarget* target) const {
 }
 
 gfx::PointF VerticalReorder::PointOf(const ui::MouseEvent& event) const {
-  // From the view the event went to, as it stands now (a row that slid
-  // included), to the list's coordinates.
-  return views::View::ConvertRectToTarget(
-             static_cast<views::View*>(event.target()), rows_,
-             gfx::RectF(event.location_f(), gfx::SizeF()))
-      .origin();
+  // From the event's place in the window, not in the view it went to: a
+  // drag's moves go to the pressed row, which slides on its layer to where it
+  // would drop, a fraction of a point off its place while it moves, and
+  // Views carries an event into it on whole points, so the copy came up to a
+  // point short, by the slide's moment at each move (ADR 0128).
+  return PointIn(*rows_, event);
 }
 
 void VerticalReorder::Begin() {

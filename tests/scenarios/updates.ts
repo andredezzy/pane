@@ -73,7 +73,9 @@ const updates: Scenario = async (context) => {
 		`offered ${offered.update.available}`,
 	);
 
-	await app.render("update-pill.png", 0);
+	// Once the pill has come in (Motion.fade, 0.3 s): at once, a run in the
+	// test VM caught it half faded (ADR 0128).
+	await app.render("update-pill.png", 600);
 
 	// A check while the update is on offer (the app menu's) leaves the pill
 	// up: it blinked for the check's 0.8 s.

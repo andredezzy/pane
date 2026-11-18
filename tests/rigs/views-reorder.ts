@@ -20,8 +20,7 @@ type Step = { ms: number };
 
 // Long enough after a drag's last move for its rows to have come to rest: the
 // slide's spring settles 0.37 s on from rest and later from a move under way
-// (pane/ui/design/motion.h, Settled), and a render at 0.5 s caught its last
-// fraction of a pixel, a different one in each run (ADR 0128).
+// (pane/ui/design/motion.h, Settled).
 const SLIDE_SETTLED_MS = 1_000;
 
 // The median, the 90th percentile, and the largest of `times`.
@@ -229,9 +228,18 @@ const viewsReorder: Scenario = async (context) => {
 
 	// A drag step's time, over 120 moves 16 ms apart, with Work and Proxied
 	// open (11 rows): Proxied's header up to the list's top, down past its
-	// end, and back; then Docs among Work's tabs.
+	// end, and back; then Docs among Work's tabs. Each tab's page made before
+	// the next is chosen: Work, unloaded, opens first, and a tab left before
+	// its page came stays asleep, dimmed, as it did in one run in four
+	// (UiApp::Select).
 	for (const tab of [home, through]) {
 		await app.send("select", { tab });
+
+		await app.waitFor(
+			"the tab's page",
+			(state) => tabOf(state, tab)?.loaded === true,
+			15_000,
+		);
 	}
 
 	await app.waitFor(
@@ -241,8 +249,8 @@ const viewsReorder: Scenario = async (context) => {
 			state.profiles.find((each) => each.id === proxied)?.expanded === true,
 	);
 
-	// Read at rest: a row read mid-slide gave a press a fraction of a point
-	// off, and the drag's copy with it, another in each run (ADR 0128).
+	// Read at rest: a row's frame is its place, which a row sliding there
+	// doesn't show yet, so a press at it mid-slide could land on another.
 	await Bun.sleep(SLIDE_SETTLED_MS);
 	const frames = await app.frames("pane.");
 

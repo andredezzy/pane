@@ -135,7 +135,8 @@ class VerticalReorder : public ui::EventHandler {
 
   // The list's row an event's target is, or is in.
   views::View* RowOf(ui::EventTarget* target) const;
-  // Where an event is, in the list's coordinates.
+  // Where an event is, in the list's coordinates, to the fraction of a
+  // point.
   gfx::PointF PointOf(const ui::MouseEvent& event) const;
 
   void Begin();
