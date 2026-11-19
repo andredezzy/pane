@@ -13,7 +13,9 @@ void BrowserMainExtraParts::UsePanesWords() {}
 
 // Chrome's AppController keeps the process alive without windows. ⌘Q quits
 // at once, as it did in the Electron app: Chrome asks to hold it (the "Warn
-// Before Quitting" pref, on by default), in a panel of its own.
+// Before Quitting" pref, on by default), in a panel of its own. Chrome's own
+// bridge takes every notification out of macOS's center at quit
+// (~NotificationPlatformBridgeMac), which Windows' half does for its center.
 // static
 void BrowserMainExtraParts::StartPlatform() {
   g_browser_process->local_state()->SetBoolean(prefs::kConfirmToQuitEnabled,

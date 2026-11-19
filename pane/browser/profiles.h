@@ -24,8 +24,9 @@ class FilePath;
 namespace pane {
 
 // Pane's own services of each profile, made with it: what Chrome holds of its
-// stores goes with it, which a lock's detach waits for (ADR 0116). Before the
-// first profile, as Chrome builds its own.
+// stores goes with it, which a lock's detach waits for (ADR 0116), and what it
+// showed of notifications leaves the center that holds them (ADR 0109).
+// Before the first profile, as Chrome builds its own.
 void BuildProfileServices();
 
 // The roots a profile's files live under, in each form a path reaches them,
@@ -64,10 +65,10 @@ void ApplyFingerprintLanguages(Profile* profile);
 std::optional<model::Fingerprint::WebGL> HostWebGL();
 
 // A profile closes in the engine for a lock (ADR 0116): its downloads under
-// way stop as at a quit, `keep_alive` goes, every page closes without
-// beforeunload, and its Browsers close, which Pane's otherwise keep open
-// without tabs; Chrome then destroys it, which closes its databases. `done`
-// says whether that came within 10 s.
+// way stop as at a quit, its notifications leave every center (ADR 0109),
+// `keep_alive` goes, every page closes without beforeunload, and its Browsers
+// close, which Pane's otherwise keep open without tabs; Chrome then destroys
+// it, which closes its databases. `done` says whether that came within 10 s.
 void CloseProfile(Profile* profile,
                   std::unique_ptr<ScopedProfileKeepAlive> keep_alive,
                   base::OnceCallback<void(bool closed)> done);

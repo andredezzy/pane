@@ -7,8 +7,10 @@
 #include "base/callback_list.h"
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/devtools/chrome_devtools_manager_delegate.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/grit/branded_strings.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -61,6 +63,15 @@ void BrowserMainExtraParts::UsePanesWords() {
 // Pane's Quit ends a scenario's process as it ends a user's, who never has
 // remote debugging (ADR 0115). On the Mac, AppKit's quit ends the process
 // whatever holds it.
+//
+// At Exit every toast of Pane's leaves Windows' center, a crash's left there
+// included, as Chrome's Mac bridge takes every notification out of macOS's
+// center at quit (~NotificationPlatformBridgeMac; ADR 0109): Windows' bridge
+// leaves them, and a site's words stayed readable there with Pane closed.
+// Once quitting can't be cancelled any more, the main loop still running,
+// off the UI thread, and before the thread pool ends, which waits for it. A
+// profile's own leave at each Lock through Chrome's own close (profiles.cc),
+// whose bookkeeping a running Pane keeps; at Exit it goes with the process.
 // static
 void BrowserMainExtraParts::StartPlatform() {
   KeepProcess(true);
@@ -72,6 +83,14 @@ void BrowserMainExtraParts::StartPlatform() {
               ChromeDevToolsManagerDelegate::AllowBrowserToClose();
             }
           })));
+  static base::NoDestructor<base::CallbackListSubscription> exiting(
+      browser_shutdown::AddAppTerminatingCallback(base::BindOnce([] {
+        base::ThreadPool::PostTask(
+            FROM_HERE,
+            {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+             base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+            base::BindOnce(base::IgnoreResult(&windows::ClearToasts)));
+      })));
 }
 
 }  // namespace pane

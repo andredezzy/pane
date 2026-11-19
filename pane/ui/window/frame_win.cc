@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/shell_integration_win.h"
+#include "pane/app/windows_integration.h"
 #include "pane/ui/view_ids.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
@@ -225,6 +226,22 @@ class TreeHost : public views::DesktopWindowTreeHostWin {
 
   std::unique_ptr<views::FrameView> CreateFrameView() override {
     return std::make_unique<FrameView>(GetWidget());
+  }
+
+  // A sign-out, a restart, or a shutdown ends Pane with the session: Windows
+  // ends the process once its windows have heard WM_ENDSESSION, and none of
+  // Exit's steps run, so every toast of Pane's leaves Windows' center here as
+  // at Exit, where Windows keeps them through the session's end (W10g; ADR
+  // 0109). Ten milliseconds or so, before the system goes on.
+  bool PreHandleMSG(UINT message,
+                    WPARAM w_param,
+                    LPARAM l_param,
+                    LRESULT* result) override {
+    if (message == WM_ENDSESSION && w_param) {
+      windows::ClearToasts();
+    }
+    return views::DesktopWindowTreeHostWin::PreHandleMSG(message, w_param,
+                                                         l_param, result);
   }
 
   // `size` is what the window shows, 1280 by 800 as on the Mac (Paper

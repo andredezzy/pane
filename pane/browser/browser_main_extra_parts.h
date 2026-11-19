@@ -50,7 +50,8 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
  private:
   // The platform's part of PostBrowserStart: Pane's process lives until it
   // quits, with or without a window, and quits at once, with no warning of
-  // Chrome's.
+  // Chrome's; and every notification of Pane's leaves the system's center at
+  // Exit (Chrome's own bridge on the Mac, Pane on Windows).
   static void StartPlatform();
   // Pane's name where Chromium's own words reach the system, before anything
   // shows them: on Windows the shortcut a toast looks for, and its settings

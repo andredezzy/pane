@@ -364,6 +364,54 @@ export const startShortcut = bySystem({
 		),
 });
 
+// The AppUserModelID a shortcut names (its System.AppUserModel.ID), as the
+// shell reads it: a test copy's own Start shortcut names the install's, under
+// which Chrome shows the copy's toasts (NotificationPlatformBridgeWin).
+export const shortcutAppId = bySystem({
+	mac: async (_link: string): Promise<string> => {
+		throw new Error("the Mac has no shortcut files to read");
+	},
+	windows: async (link: string): Promise<string> =>
+		(
+			await powershell(
+				"$folder = (New-Object -ComObject Shell.Application).NameSpace([IO.Path]::GetDirectoryName($env:LINK)); $folder.ParseName([IO.Path]::GetFileName($env:LINK)).ExtendedProperty('System.AppUserModel.ID')",
+				{ LINK: link },
+			)
+		).trim(),
+});
+
+// A toast in Windows' notification center, by the launch id Chrome gave it
+// (notification_launch_id.cc's NORMAL form: 0|type|profile|app user model
+// id|incognito|origin|id): the profile it is of, Pane's profile id, and the
+// notification's id, a site's persistent one "p#<origin>/#1<tag>".
+export type CenterToast = { profileId: string; id: string };
+
+// What Windows' notification center holds under the AppUserModelID `appId`
+// (shortcutAppId), read from its history as the shell lists it: a site's
+// toasts, each by its launch id. A profile's leave as it closes, every one of
+// Pane's at Exit, and only a crash leaves one there (ADR 0109). macOS's
+// center lists no test copy's banner (W8d).
+export const centerToasts = bySystem({
+	mac: async (_appId: string): Promise<CenterToast[]> => {
+		throw new Error("macOS's center lists no test copy's notification");
+	},
+	windows: async (appId: string): Promise<CenterToast[]> =>
+		(
+			await powershell(
+				"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; foreach ($toast in [Windows.UI.Notifications.ToastNotificationManager]::History.GetHistory($env:APP_ID)) { $toast.Content.DocumentElement.GetAttribute('launch') }",
+				{ APP_ID: appId },
+			)
+		)
+			.split(/\r?\n/)
+			.map((line) => line.trim().split("|"))
+			// The id last, which may hold the delimiter itself.
+			.filter((fields) => fields[0] === "0" && fields.length >= 7)
+			.map((fields) => ({
+				profileId: fields[2],
+				id: fields.slice(6).join("|"),
+			})),
+});
+
 // The icon file a shortcut names, as Windows reads it (WScript.Shell's
 // IconLocation, its index left out): AppIcon-Night.ico.
 export const shortcutIcon = bySystem({

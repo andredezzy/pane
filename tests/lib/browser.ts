@@ -67,7 +67,7 @@ export type SiteNotification = {
 
 // Chrome's id of a persistent notification shown with a tag
 // (content's NotificationIdGenerator): "p#<origin>/#1<tag>".
-function persistentNotificationId(notification: SiteNotification) {
+export function persistentNotificationId(notification: SiteNotification) {
 	return `p#${notification.origin}/#1${notification.tag}`;
 }
 
@@ -193,14 +193,23 @@ export const clickNotification = bySystem({
 	},
 });
 
-// Whether the system's center keeps a site's notification once its profile
-// has closed, behind the lock or once Pane has quit, for a click to reach Pane
-// then: Windows' Action Center keeps a toast (Chrome's bridge closes none as
-// a profile goes, NotificationPlatformBridgeWin::DisplayServiceShutDown); on
-// the Mac Chrome takes a profile's notifications from macOS's center as the
-// profile shuts down, and every one as it quits
-// (NotificationPlatformBridgeMac), so none is left to click.
-export const NOTIFICATIONS_OUTLIVE_THEIR_PROFILE = bySystem({
+// Whether a click on a site's notification is a launch the runner hands, as
+// the system hands it, which starts a closed Pane: on Windows
+// notification_helper.exe starts chrome.exe with the toast's launch id
+// (clickNotification); macOS's center hands a click to the running browser.
+// No notification is left to click once Pane has quit, on either system (the
+// user's call, 2026-11-18; ADR 0109): with Pane closed, only one a crash left
+// in the center.
+export const TOAST_CLICKS_ARE_LAUNCHES = bySystem({
+	mac: false,
+	windows: true,
+});
+
+// Whether the runner reads what the system's center holds of a test copy's
+// notifications: Windows' center lists them, under the AppUserModelID of the
+// copy's own Start shortcut (centerToasts, lib/tools.ts); macOS's center never
+// lists a test copy's banner (W8d).
+export const CENTER_LISTS_A_COPYS_NOTIFICATIONS = bySystem({
 	mac: false,
 	windows: true,
 });

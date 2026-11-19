@@ -5,6 +5,8 @@
 #include <windows.h>
 
 #include <shlobj.h>
+#include <windows.ui.notifications.h>
+#include <wrl/client.h>
 
 #include <algorithm>
 #include <array>
@@ -27,7 +29,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "base/win/core_winrt_util.h"
 #include "base/win/registry.h"
+#include "base/win/scoped_hstring.h"
 #include "base/win/shortcut.h"
 #include "chrome/install_static/install_util.h"
 #include "chrome/installer/util/install_util.h"
@@ -592,6 +596,34 @@ DWORD Unregister(const base::FilePath& chrome_exe,
     failed = DeleteTree(install_static::GetUninstallRegistryPath());
   }
   return failed;
+}
+
+bool ClearToasts() {
+  namespace notifications = ABI::Windows::UI::Notifications;
+  Microsoft::WRL::ComPtr<notifications::IToastNotificationManagerStatics>
+      manager;
+  Microsoft::WRL::ComPtr<notifications::IToastNotificationManagerStatics2>
+      manager2;
+  Microsoft::WRL::ComPtr<notifications::IToastNotificationHistory> history;
+  HRESULT result = base::win::GetActivationFactory<
+      notifications::IToastNotificationManagerStatics,
+      RuntimeClass_Windows_UI_Notifications_ToastNotificationManager>(&manager);
+  if (SUCCEEDED(result)) {
+    result = manager.As(&manager2);
+  }
+  if (SUCCEEDED(result)) {
+    result = manager2->get_History(&history);
+  }
+  if (SUCCEEDED(result)) {
+    result =
+        history->ClearWithId(base::win::ScopedHString::Create(AppId()).get());
+  }
+  if (FAILED(result)) {
+    LOG(ERROR) << "Windows' notification center kept Pane's toasts: 0x"
+               << std::hex << result;
+    return false;
+  }
+  return true;
 }
 
 PointedShortcuts PointShortcutsAt(const base::FilePath& chrome_exe,

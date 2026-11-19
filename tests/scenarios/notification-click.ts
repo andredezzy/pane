@@ -1,8 +1,10 @@
 import { existsSync, rmSync } from "node:fs";
 import {
+	CENTER_LISTS_A_COPYS_NOTIFICATIONS,
 	clickNotification,
-	NOTIFICATIONS_OUTLIVE_THEIR_PROFILE,
+	persistentNotificationId,
 	type SiteNotification,
+	TOAST_CLICKS_ARE_LAUNCHES,
 	TOASTS_NEED_A_START_SHORTCUT,
 	toastLaunchId,
 } from "../lib/browser";
@@ -17,7 +19,12 @@ import {
 import { poll } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { answerSheet, waitForSheet } from "../lib/surfaces";
-import { startShortcut } from "../lib/tools";
+import {
+	type CenterToast,
+	centerToasts,
+	shortcutAppId,
+	startShortcut,
+} from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // A site's notification, clicked in the system's own center, reaches the site
@@ -36,13 +43,20 @@ import { expect, type Scenario } from "../run";
 // screen, and Chrome's handler hands it to Pane (patch 0004) as Windows'
 // launch does: behind the lock it waits for the PIN, where Chrome's handler
 // loaded the profile outside Pane's lock, and the profile never came back
-// after the PIN (W8d). Chrome takes a profile's notifications from macOS's
-// center as the profile closes, at a lock and at quit, so a click behind the
-// lock is one that lands as the lock comes, and none is left once Pane has
-// quit. On Windows a toast is Windows' only while Start holds Pane's
-// shortcut, which a test copy's first launch makes in its own home: with it
-// deleted, the notification shows in Chrome's own center, and the Lock still
-// closes the profile and leaves Pane running, the popup gone (W10f).
+// after the PIN (W8d). A profile's notifications leave the system's center
+// as the profile closes, at every Lock, and every one of Pane's at Exit, on
+// both systems (the user's call, 2026-11-18): Chrome's bridge takes them from
+// macOS's center, and Pane from Windows', whose bridge took none, so a site's
+// words stayed there with Pane locked or closed (W10g). The runner reads
+// Windows' center: the profile's toasts there before the Lock, a
+// requireInteraction one among them, none after it, none of Pane's after
+// Exit. So a click behind the lock is one that lands as the lock comes, on
+// both systems, and with Pane closed only a notification a crash left can be
+// clicked, which on Windows starts Pane locked. A toast is Windows' only
+// while Start holds Pane's shortcut, which a test copy's first launch makes
+// in its own home: with it deleted, the notification shows in Chrome's own
+// center, and the Lock still closes the profile and leaves Pane running, the
+// popup gone (W10f).
 const notificationClick: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-notification-");
 	await setPinBeforeLaunch(context, dataDir, "1234");
@@ -83,20 +97,38 @@ const notificationClick: Scenario = async (context) => {
 	});
 
 	// Each shown while the profile is open, as a site shows them while its
-	// pages run: the one clicked while Pane is closed where the system's
-	// center keeps it then (Windows).
-	for (const [tag, focus] of [
-		["running", null],
-		["focus", "notification.html?page"],
-		["locked", null],
-		...(NOTIFICATIONS_OUTLIVE_THEIR_PROFILE ? [["closed", null]] : []),
-	] as [string, string | null][]) {
+	// pages run, one that stays until its user acts on it where the runner
+	// reads the center (Windows).
+	const shownTags = [
+		"running",
+		"focus",
+		"locked",
+		...(CENTER_LISTS_A_COPYS_NOTIFICATIONS ? ["staying"] : []),
+	];
+
+	for (const [tag, focus, stays] of [
+		["running", null, false],
+		["focus", "notification.html?page", false],
+		["locked", null, false],
+		...(CENTER_LISTS_A_COPYS_NOTIFICATIONS ? [["staying", null, true]] : []),
+	] as [string, string | null, boolean][]) {
 		// Shown once Chrome has it, as showNotification resolves: what the
 		// system's center lists of it (getNotifications) is the center's own,
 		// and a test copy's banner on the Mac never listed there (W8d).
 		await page.evaluate(
-			`show(${JSON.stringify(tag)}, ${JSON.stringify(focus ?? undefined)})`,
+			`show(${JSON.stringify(tag)}, ${JSON.stringify(focus ?? undefined)}, ${stays})`,
 		);
+	}
+
+	// The AppUserModelID Windows' center keeps the copy's toasts under, its
+	// own Start shortcut's, read before the last part deletes that shortcut.
+	const appId = CENTER_LISTS_A_COPYS_NOTIFICATIONS
+		? await shortcutAppId(startShortcut(app.home))
+		: "";
+
+	if (CENTER_LISTS_A_COPYS_NOTIFICATIONS) {
+		expect(appId !== "", "the copy's Start shortcut names no AppUserModelID");
+		await inCenter(appId, shownTags.map(notification));
 	}
 
 	const click = async (tag: string) => {
@@ -153,6 +185,12 @@ const notificationClick: Scenario = async (context) => {
 		30_000,
 	);
 
+	// The profile's notifications out of Windows' center with it, the one
+	// that stays included: nothing of the site's left there behind the PIN.
+	if (CENTER_LISTS_A_COPYS_NOTIFICATIONS) {
+		await outOfCenter(appId, "the Lock", profileId);
+	}
+
 	await poll("the data closed", () => dataClosed(app), 30_000);
 
 	await click("locked");
@@ -182,18 +220,33 @@ const notificationClick: Scenario = async (context) => {
 		60_000,
 	);
 
-	if (!NOTIFICATIONS_OUTLIVE_THEIR_PROFILE) {
+	if (!TOAST_CLICKS_ARE_LAUNCHES) {
 		return;
 	}
 
-	// Closed: the toast starts Pane, locked, with the profile closed until the
-	// PIN is in, and the site then hears the click.
-	await app.quit();
-	expect(await waitForExit(app.browser.pid, 30_000), "Pane didn't end at Quit");
+	// A crash: the profile never closes, so its notification stays in
+	// Windows' center, where a click starts Pane locked, the profile closed
+	// until the PIN is in, and the site then hears the click.
+	await showAgain(app, profileId, pageUrl, "crashed");
+	await inCenter(appId, [notification("crashed")]);
+	const crashed = app.browser.pid;
+	process.kill(crashed, "SIGKILL");
+	expect(await waitForExit(crashed, 30_000), "Pane didn't end at its kill");
+	// Its other processes end after it, before the next launch on its data.
+	await Bun.sleep(1_500);
+
+	expect(
+		(await centerToasts(appId)).some(
+			(toast) => toast.id === persistentNotificationId(notification("crashed")),
+		),
+		"the crash took its notification out of Windows' center",
+	);
 
 	app = await launchPane(context, {
 		dataDir,
-		args: [`--notification-launch-id=${toastLaunchId(notification("closed"))}`],
+		args: [
+			`--notification-launch-id=${toastLaunchId(notification("crashed"))}`,
+		],
 	});
 
 	const launched = await app.state();
@@ -207,14 +260,83 @@ const notificationClick: Scenario = async (context) => {
 
 	await app.waitFor(
 		"the page the toast's launch opened, once the PIN was in",
-		(state) => clicked(state, profileId, "closed")?.id === state.activeTabID,
+		(state) => clicked(state, profileId, "crashed")?.id === state.activeTabID,
 		60_000,
 	);
 
+	// Exit: every toast of Pane's leaves Windows' center, the crash's too.
+	await showAgain(app, profileId, pageUrl, "exit");
+	await inCenter(appId, [notification("exit"), notification("crashed")]);
+	await app.quit();
+	expect(await waitForExit(app.browser.pid, 30_000), "Pane didn't end at Quit");
+	await outOfCenter(appId, "Exit");
+
 	if (TOASTS_NEED_A_START_SHORTCUT) {
+		app = await launchPane(context, { dataDir });
+		await unlock(app);
 		await lockWithChromesCenter(app, profileId, pageUrl);
 	}
 };
+
+// The site's page opened in a new tab of the profile, at an address of its
+// own, which shows the notification tagged `tag`.
+async function showAgain(
+	app: PaneApp,
+	profileId: string,
+	pageUrl: string,
+	tag: string,
+) {
+	const { page } = await app.openPage(
+		profileId,
+		pageUrl.replace("?page", `?shows=${tag}`),
+	);
+
+	await page.evaluate("window.ready");
+	await page.evaluate(`show(${JSON.stringify(tag)})`);
+}
+
+// What Windows' center holds under `appId` lists each of `notifications`, as
+// it shows.
+async function inCenter(appId: string, notifications: SiteNotification[]) {
+	const ids = notifications.map(persistentNotificationId);
+	let listed: CenterToast[] = [];
+
+	await poll(
+		"the notifications in Windows' center",
+		async () => {
+			listed = await centerToasts(appId);
+
+			return ids.every((id) => listed.some((toast) => toast.id === id));
+		},
+		15_000,
+	).catch(() => {
+		throw new Error(
+			`Windows' center lists ${JSON.stringify(listed)}, not each of ${JSON.stringify(ids)}`,
+		);
+	});
+}
+
+// Windows' center holds nothing under `appId` of `profileId`'s, or with none
+// named, of Pane's at all, soon after `moment`.
+async function outOfCenter(appId: string, moment: string, profileId?: string) {
+	let left: CenterToast[] = [];
+
+	await poll(
+		`nothing of the site's in Windows' center after ${moment}`,
+		async () => {
+			left = (await centerToasts(appId)).filter(
+				(toast) => profileId === undefined || toast.profileId === profileId,
+			);
+
+			return left.length === 0;
+		},
+		10_000,
+	).catch(() => {
+		throw new Error(
+			`Windows' center still lists after ${moment}: ${JSON.stringify(left)}`,
+		);
+	});
+}
 
 // Start's shortcut deleted, as a person may delete theirs: Chrome shows the
 // site's notification in its own center, a popup window of Pane's process at

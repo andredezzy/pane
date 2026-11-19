@@ -2,6 +2,7 @@
 
 #include "pane/browser/profiles.h"
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,6 +30,10 @@
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/notifications/notification_common.h"
+#include "chrome/browser/notifications/notification_display_service.h"
+#include "chrome/browser/notifications/notification_display_service_factory.h"
+#include "chrome/browser/notifications/notification_handler.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/notifications/profile_notification.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -77,6 +82,7 @@
 #include "services/network/enterprise/encryption/pane_cache_hook.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "ui/message_center/message_center.h"
+#include "ui/message_center/public/cpp/notification.h"
 
 namespace pane {
 
@@ -270,14 +276,12 @@ void CloseEveryPage(Profile* profile) {
 // profile showing one never closed, and its popup stayed on the screen beside
 // the PIN. Chrome shows a site's notifications there where the system's
 // center can't take them: on Windows with no Start shortcut naming Pane's
-// toast activator, which a person may have deleted (W10f). The system's own
-// center holds no profile and keeps its notifications as it does at a
-// profile's close (ADR 0109): they are left alone. Closed so, by no one, a
-// site hears no notificationclose, as at Chrome's quit. With Chrome's center
-// empty, as on the Mac and with Windows' toasts, nothing is asked: Chrome
-// makes its center's manager at the first ask, and with it a blocker that
-// polls each second while the system's screen is locked, as it is at a Lock
-// the screen's lock brought.
+// toast activator, which a person may have deleted (W10f). Closed so, by no
+// one, a site hears no notificationclose, as at Chrome's quit. With Chrome's
+// center empty, as on the Mac and with Windows' toasts, nothing is asked:
+// Chrome makes its center's manager at the first ask, and with it a blocker
+// that polls each second while the system's screen is locked, as it is at a
+// Lock the screen's lock brought.
 void CloseNotificationsInChromesCenter(Profile* profile) {
   const message_center::MessageCenter* shown =
       message_center::MessageCenter::Get();
@@ -295,6 +299,122 @@ void CloseNotificationsInChromesCenter(Profile* profile) {
   }
 }
 
+// What a profile showed leaves the center that holds it as the profile
+// closes, at every Lock and at Exit, so nothing of a site's shows there while
+// Pane is locked or closed (the user's call, 2026-11-18; ADR 0109). Chrome's
+// Mac bridge closes a profile's notifications in macOS's center as the
+// profile shuts down (NotificationPlatformBridgeMac::DisplayServiceShutDown);
+// Windows' closes none (its DisplayServiceShutDown is empty), and Windows'
+// center kept a site's words through the Lock and after Exit, readable
+// without the PIN. Made with every profile, this hears each notification the
+// profile shows from Chrome's display service and closes each through it, as
+// a site's close does: whatever center holds it, Windows', macOS's, or
+// Chrome's own, with Chrome's own close, whose bookkeeping it keeps. Windows'
+// bridge checks every 10 minutes that the toasts it showed are still in
+// Windows' center and reports each one gone as closed by its user, loading
+// its profile through Chrome's profile manager, outside Pane's lock, to tell
+// the site: a toast taken out of the center behind its back (its history's
+// own removal) would have had it load a locked profile. On the Mac the close
+// comes a moment before the bridge's own, which then finds nothing. Closed
+// by no one, the site hears no notificationclose, as at Chrome's quit.
+class ProfileNotifications : public KeyedService,
+                             public NotificationDisplayService::Observer {
+ public:
+  explicit ProfileNotifications(Profile* profile)
+      : service_(NotificationDisplayServiceFactory::GetForProfile(profile)) {
+    if (service_) {
+      observation_.Observe(service_);
+    }
+  }
+
+  // Each notification the profile showed and Chrome hasn't heard closed.
+  void CloseAll() {
+    if (!service_) {
+      return;
+    }
+    // Chrome's center's close reports back (OnNotificationClosed), which
+    // changes what is shown.
+    for (const auto& [id, type] : std::exchange(shown_, {})) {
+      service_->Close(type, id);
+    }
+  }
+
+  // KeyedService: the profile's last moment, its display service still
+  // there (DependsOn): what showed as it closed, a deletion, and Exit.
+  void Shutdown() override {
+    CloseAll();
+    observation_.Reset();
+    service_ = nullptr;
+  }
+
+  // NotificationDisplayService::Observer:
+  void OnNotificationDisplayed(
+      const message_center::Notification& notification,
+      const NotificationCommon::Metadata* const metadata) override {
+    // A site's names its type; any other the system's center takes goes to
+    // the same bridge (NotificationPlatformBridge::CanHandleType), and what
+    // Chrome's center alone shows goes with CloseNotificationsInChromesCenter.
+    shown_[notification.id()] =
+        metadata ? metadata->type : NotificationHandler::Type::WEB_PERSISTENT;
+  }
+  void OnNotificationClosed(const std::string& notification_id) override {
+    shown_.erase(notification_id);
+  }
+  void OnNotificationDisplayServiceDestroyed(
+      NotificationDisplayService* service) override {
+    observation_.Reset();
+    service_ = nullptr;
+  }
+
+ private:
+  raw_ptr<NotificationDisplayService> service_;
+  std::map<std::string, NotificationHandler::Type> shown_;
+  base::ScopedObservation<NotificationDisplayService,
+                          NotificationDisplayService::Observer>
+      observation_{this};
+};
+
+class ProfileNotificationsFactory : public ProfileKeyedServiceFactory {
+ public:
+  static ProfileNotificationsFactory* GetInstance() {
+    static base::NoDestructor<ProfileNotificationsFactory> instance;
+    return instance.get();
+  }
+
+  static ProfileNotifications* GetForProfile(Profile* profile) {
+    return static_cast<ProfileNotifications*>(
+        GetInstance()->GetServiceForBrowserContext(profile, /*create=*/false));
+  }
+
+ private:
+  friend base::NoDestructor<ProfileNotificationsFactory>;
+
+  ProfileNotificationsFactory()
+      : ProfileKeyedServiceFactory("PaneProfileNotifications") {
+    DependsOn(NotificationDisplayServiceFactory::GetInstance());
+  }
+  ~ProfileNotificationsFactory() override = default;
+
+  std::unique_ptr<KeyedService> BuildServiceInstanceForBrowserContext(
+      content::BrowserContext* context) const override {
+    return std::make_unique<ProfileNotifications>(
+        Profile::FromBrowserContext(context));
+  }
+
+  // Before the profile's first notification.
+  bool ServiceIsCreatedWithBrowserContext() const override { return true; }
+};
+
+// The profile's notifications leave every center as it closes, before its
+// hold goes: Chrome's own center's hold it.
+void CloseNotifications(Profile* profile) {
+  CloseNotificationsInChromesCenter(profile);
+  if (ProfileNotifications* notifications =
+          ProfileNotificationsFactory::GetForProfile(profile)) {
+    notifications->CloseAll();
+  }
+}
+
 // Runs `done` with true once Chrome has destroyed `profile` and closed its
 // files; with false past `timeout`, or when the profile manager goes first.
 void WaitForProfileDestruction(Profile* profile,
@@ -307,6 +427,7 @@ void WaitForProfileDestruction(Profile* profile,
 
 void BuildProfileServices() {
   ProfileStoresFactory::GetInstance();
+  ProfileNotificationsFactory::GetInstance();
 }
 
 void RegisterEngineKey(const base::FilePath& user_data_dir,
@@ -487,7 +608,7 @@ void CloseProfile(Profile* profile,
   // partial file removed.
   DownloadCoreServiceFactory::GetForBrowserContext(profile)->CancelDownloads(
       DownloadCoreService::CancelDownloadsTrigger::kShutdown);
-  CloseNotificationsInChromesCenter(profile);
+  CloseNotifications(profile);
   keep_alive.reset();
   CloseEveryPage(profile);
   chrome::CloseAllBrowsersWithProfile(profile);
