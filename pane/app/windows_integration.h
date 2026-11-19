@@ -72,16 +72,20 @@ DWORD Register(const base::FilePath& chrome_exe,
 bool MakeStartShortcut(const base::FilePath& chrome_exe,
                        const base::FilePath& data_folder);
 
-// Takes every toast of Pane's out of Windows' notification center: those of
-// its AppUserModelID, under which Chrome shows a site's
+// Pane's AppUserModelID, which its window, shortcuts, ProgIDs, and toasts
+// carry. It reads the command line, which Chrome's start changes on the UI
+// thread (its flags' switches): read it there, and hand it to another.
+std::wstring AppUserModelId();
+
+// Takes every toast of `app_id`, Pane's AppUserModelID, out of Windows'
+// notification center: those Chrome shows a site's under
 // (NotificationPlatformBridgeWin), an earlier Pane's that crashed included.
 // As Pane starts, before any profile, at Exit, and as Windows ends the
-// session with Pane open, as Chrome's Mac bridge takes every notification out
-// of macOS's center at quit (ADR 0109).
-// Blocks, about 10 ms (35 at a launch in the test VM, its first use of
-// Windows' notifications there); on a thread COM is initialized on. False if
-// Windows' center refused.
-bool ClearToasts();
+// session with Pane open (ADR 0109).
+// Blocks, about 10 ms (18.5 to 49.5 at a launch in the test VM, its first use
+// of Windows' notifications there); on a thread COM is initialized on, the
+// browser's thread pool's among them. False if Windows' center refused.
+bool ClearToasts(const std::wstring& app_id);
 
 // How an erase is going: the data's bytes erased, of all of them.
 using EraseProgress = base::RepeatingCallback<void(uint64_t, uint64_t)>;

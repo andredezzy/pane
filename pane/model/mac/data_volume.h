@@ -217,8 +217,14 @@ class DataVolume {
   // Whether an earlier Pane's plain folder is still in the profile's place.
   bool HasPlainFolder(std::string_view profile_id) const;
 
-  // Whether Engine holds any profile's plain folder: a profile's is named by
-  // its id, a UUID, where the engine's own are not (Default, and the rest).
+  // Every profile's id, sorted, as Engine names its place: a profile's is
+  // named by its id, a UUID, where the engine's own are not (Default, and the
+  // rest). Its link into the volume stays while the volume is detached, so
+  // they read the same before the key opens; an earlier Pane's plain folder
+  // counts too.
+  std::vector<std::string> ProfileIds() const;
+
+  // Whether Engine holds any profile's plain folder.
   bool HasPlainProfiles() const;
 
   // The profile's links, its plain folders if an earlier Pane left any, and

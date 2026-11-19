@@ -126,6 +126,12 @@ BrowserMainExtraParts::BrowserMainExtraParts() = default;
 
 BrowserMainExtraParts::~BrowserMainExtraParts() = default;
 
+// The earliest of the browser's start, in the process that holds Pane's data
+// alone: a second launch hands its command line over and exits before it.
+void BrowserMainExtraParts::PreEarlyInitialization() {
+  StartClearingLeftoverNotifications();
+}
+
 // Before the browser's network contexts exist (ADR 0040), before the
 // background mode's manager does, and before any profile's deletion.
 void BrowserMainExtraParts::PreCreateThreads() {

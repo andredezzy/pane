@@ -3,10 +3,12 @@
 #include "pane/browser/browser_main_extra_parts.h"
 
 #include <memory>
+#include <string>
 
 #include "base/callback_list.h"
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/task/thread_pool.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/values.h"
@@ -31,6 +33,18 @@ void KeepProcess(bool keep) {
       keep ? std::make_unique<ScopedKeepAlive>(KeepAliveOrigin::APP_CONTROLLER,
                                                KeepAliveRestartOption::DISABLED)
            : nullptr;
+}
+
+// The launch's clear of a crash's toasts, as the thread pool ran it.
+struct LaunchClear {
+  base::WaitableEvent done;
+  bool cleared = false;
+  base::TimeDelta took;
+};
+
+LaunchClear& TheLaunchClear() {
+  static base::NoDestructor<LaunchClear> clear;
+  return *clear;
 }
 
 }  // namespace
@@ -61,16 +75,36 @@ void BrowserMainExtraParts::UsePanesWords() {
 // Pane's lock: this Chromium's starts knowing none, and one that read Pane's
 // at its start finds none left. A crash's toast clicked starts Pane with the
 // click, which Windows takes out of the center and Pane holds for the PIN.
-// On the UI thread, where COM is Chrome's (ScopedOleInitializer), so it is
-// done before the profile loads; the PIN screen's first frame waits for it.
+// The clear starts as the browser's start does, on the thread pool, whose
+// threads are COM's (the browser's is COM_MTA), and the initial profile's
+// load waits for it if it isn't done (ClearLeftoverNotifications): the 18.5
+// to 49.5 ms it took on the UI thread in the test VM (W10h) go beside
+// Chrome's start, not before the PIN screen's first frame.
+// static
+void BrowserMainExtraParts::StartClearingLeftoverNotifications() {
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
+      base::BindOnce(
+          [](const std::wstring& app_id) {
+            LaunchClear& clear = TheLaunchClear();
+            const base::ElapsedTimer clearing;
+            clear.cleared = windows::ClearToasts(app_id);
+            clear.took = clearing.Elapsed();
+            clear.done.Signal();
+          },
+          windows::AppUserModelId()));
+}
+
 // static
 void BrowserMainExtraParts::ClearLeftoverNotifications() {
-  const base::ElapsedTimer clearing;
-  const bool cleared = windows::ClearToasts();
+  LaunchClear& clear = TheLaunchClear();
+  const base::ElapsedTimer waiting;
+  clear.done.Wait();
   PANE_TRACE("engine", "PaneEngine.leftoverNotificationsCleared",
              base::DictValue()
-                 .Set("cleared", cleared)
-                 .Set("ms", clearing.Elapsed().InMillisecondsF()));
+                 .Set("cleared", clear.cleared)
+                 .Set("ms", clear.took.InMillisecondsF())
+                 .Set("waitedMs", waiting.Elapsed().InMillisecondsF()));
 }
 
 // Chrome on Windows keeps its browser process while a Browser of its own or a
@@ -90,11 +124,11 @@ void BrowserMainExtraParts::ClearLeftoverNotifications() {
 // remote debugging (ADR 0115). On the Mac, AppKit's quit ends the process
 // whatever holds it.
 //
-// At Exit every toast of Pane's leaves Windows' center, as Chrome's Mac
-// bridge takes every notification out of macOS's center at quit
-// (~NotificationPlatformBridgeMac; ADR 0109): Windows' bridge leaves them,
-// and a site's words stayed readable there with Pane closed (a crash's go as
-// Pane next starts, ClearLeftoverNotifications).
+// At Exit every toast of Pane's leaves Windows' center (ADR 0109): Windows'
+// bridge leaves them, and a site's words stayed readable there with Pane
+// closed (a crash's go as Pane next starts, ClearLeftoverNotifications). On
+// the Mac each profile's close takes its own out of macOS's centers, by its
+// id (NotificationPlatformBridgeMac::DisplayServiceShutDown).
 // Once quitting can't be cancelled any more, the main loop still running,
 // off the UI thread, and before the thread pool ends, which waits for it. A
 // profile's own leave at each Lock through Chrome's own close (profiles.cc),
@@ -116,7 +150,8 @@ void BrowserMainExtraParts::StartPlatform() {
             FROM_HERE,
             {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
              base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
-            base::BindOnce(base::IgnoreResult(&windows::ClearToasts)));
+            base::BindOnce(base::IgnoreResult(&windows::ClearToasts),
+                           windows::AppUserModelId()));
       })));
 }
 

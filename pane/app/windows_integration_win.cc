@@ -598,7 +598,11 @@ DWORD Unregister(const base::FilePath& chrome_exe,
   return failed;
 }
 
-bool ClearToasts() {
+std::wstring AppUserModelId() {
+  return AppId();
+}
+
+bool ClearToasts(const std::wstring& app_id) {
   namespace notifications = ABI::Windows::UI::Notifications;
   Microsoft::WRL::ComPtr<notifications::IToastNotificationManagerStatics>
       manager;
@@ -616,7 +620,7 @@ bool ClearToasts() {
   }
   if (SUCCEEDED(result)) {
     result =
-        history->ClearWithId(base::win::ScopedHString::Create(AppId()).get());
+        history->ClearWithId(base::win::ScopedHString::Create(app_id).get());
   }
   if (FAILED(result)) {
     LOG(ERROR) << "Windows' notification center kept Pane's toasts: 0x"

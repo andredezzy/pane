@@ -23,6 +23,38 @@ index aecb3609bf..a2dd257b96 100644
  
    // Returns true if the browser window can dock a DevTools panel.
    bool CanDockDevtools() const;
+diff --git a/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc b/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc
+index 967672e97b..375eeb7301 100644
+--- a/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc
++++ b/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc
+@@ -27,6 +27,10 @@
+ #include "third_party/blink/public/common/notifications/notification_constants.h"
+ #include "ui/message_center/public/cpp/notification.h"
+ #include "ui/message_center/public/cpp/notification_types.h"
++#include "pane/ui/app/notification_center_mac.h"  // nogncheck
++
++// Pane: see pane/ui/app/notification_center_mac.h.
++std::vector<std::string> (*g_pane_notification_profile_ids)() = nullptr;
+ 
+ namespace {
+ 
+@@ -87,6 +91,16 @@ NotificationPlatformBridge::Create() {
+   auto alert_dispatcher = std::make_unique<NotificationDispatcherMojo>(
+       std::make_unique<MacNotificationProviderFactory>(
+           mac_notifications::NotificationStyle::kAlert));
++  // Pane: what an earlier process of this data's profiles left in either
++  // center, a crash's, goes as each service starts, before any profile opens.
++  if (g_pane_notification_profile_ids) {
++    for (const std::string& profile_id : g_pane_notification_profile_ids()) {
++      banner_dispatcher->CloseNotificationsWithProfileId(profile_id,
++                                                         /*incognito=*/false);
++      alert_dispatcher->CloseNotificationsWithProfileId(profile_id,
++                                                        /*incognito=*/false);
++    }
++  }
+   auto create_dispatcher_for_web_app =
+       base::BindRepeating([](const webapps::AppId& web_app_id)
+                               -> std::unique_ptr<NotificationDispatcherMac> {
 diff --git a/chrome/browser/notifications/mac/notification_utils.cc b/chrome/browser/notifications/mac/notification_utils.cc
 index 07c43ac19f..f46cfc20f8 100644
 --- a/chrome/browser/notifications/mac/notification_utils.cc

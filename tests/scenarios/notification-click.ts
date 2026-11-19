@@ -8,6 +8,7 @@ import {
 	TOASTS_NEED_A_START_SHORTCUT,
 	toastLaunchId,
 } from "../lib/browser";
+import type { Page } from "../lib/cdp";
 import {
 	type AppState,
 	dataClosed,
@@ -25,7 +26,7 @@ import {
 	shortcutAppId,
 	startShortcut,
 } from "../lib/tools";
-import { expect, type Scenario } from "../run";
+import { expect, type Scenario, type ScenarioContext } from "../run";
 
 // A site's notification, clicked in the system's own center, reaches the site
 // (the user's call, 2026-11-16; ADR 0109): its service worker hears
@@ -53,7 +54,9 @@ import { expect, type Scenario } from "../run";
 // Exit. So a click behind the lock is one that lands as the lock comes, on
 // both systems, and with Pane closed only a notification a crash left can be
 // clicked, which on Windows starts Pane locked; nothing of Pane's is in
-// Windows' center once that launch has started (W10h). A toast is Windows' only
+// Windows' center once that launch has started (W10h), and on the Mac the
+// next launch takes the crash's out of macOS's center before the PIN, by its
+// profile's id (W10i). A toast is Windows' only
 // while Start holds Pane's shortcut, which a test copy's first launch makes
 // in its own home: with it deleted, the notification shows in Chrome's own
 // center, and the Lock still closes the profile and leaves Pane running, the
@@ -223,6 +226,8 @@ const notificationClick: Scenario = async (context) => {
 	);
 
 	if (!TOAST_CLICKS_ARE_LAUNCHES) {
+		await crashOnTheMac(context, app, dataDir, profileId, pageUrl);
+
 		return;
 	}
 
@@ -285,6 +290,87 @@ const notificationClick: Scenario = async (context) => {
 		await lockWithChromesCenter(app, profileId, pageUrl);
 	}
 };
+
+// A crash on the Mac: the profile never closes, so its banner stays in
+// macOS's center, as the copy's own site reads it (getNotifications(), which
+// Chrome's services filter by the copy's profile id, a random UUID: never
+// another copy's), seconds after its show (W10h). As the next launch makes
+// Chrome's bridge, at the Default profile's load, the bridge closes this
+// data's profiles' notifications by their ids (patch 0004; the user's call,
+// 2026-11-19), with no profile loaded and before the PIN: after it, the site
+// finds none (W10i). A read drops from the profile's database what the center
+// doesn't list yet, so each banner is read once, 10 s after its show, and one
+// the center was slower with (once in four reads in W10i) is followed by
+// another, under a tag of its own.
+async function crashOnTheMac(
+	context: ScenarioContext,
+	app: PaneApp,
+	dataDir: string,
+	profileId: string,
+	pageUrl: string,
+) {
+	const { page } = await app.openPage(
+		profileId,
+		pageUrl.replace("?page", "?shows=crashed"),
+	);
+
+	await page.evaluate("window.ready");
+	let shown: string[] = [];
+
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		const tag = `crashed-${attempt}`;
+		await page.evaluate(`show(${JSON.stringify(tag)}, undefined, false)`);
+		await Bun.sleep(10_000);
+		shown = await siteLists(page);
+
+		if (shown.includes(tag)) {
+			break;
+		}
+	}
+
+	const crashes = shown.filter((tag) => tag.startsWith("crashed-"));
+
+	expect(
+		crashes.length > 0,
+		`macOS's center listed none of three banners before the kill: ${JSON.stringify(shown)}`,
+	);
+
+	const crashed = app.browser.pid;
+	process.kill(crashed, "SIGKILL");
+	expect(await waitForExit(crashed, 30_000), "Pane didn't end at its kill");
+	await Bun.sleep(1_500);
+	const relaunched = await launchPane(context, { dataDir });
+	const launched = await relaunched.state();
+
+	expect(
+		launched.security.locked && !launched.engineProfiles.includes(profileId),
+		`the launch after the crash: ${JSON.stringify({ locked: launched.security.locked, engineProfiles: launched.engineProfiles })}`,
+	);
+
+	await unlock(relaunched);
+
+	const { page: again } = await relaunched.openPage(
+		profileId,
+		pageUrl.replace("?page", "?after=crash"),
+	);
+
+	await again.evaluate("window.ready");
+	const left = await siteLists(again);
+
+	expect(
+		!left.some((tag) => crashes.includes(tag)),
+		`macOS's center still lists the crash's banners after the launch that followed it: ${JSON.stringify(left)}`,
+	);
+
+	await relaunched.quit();
+}
+
+// The tags of the site's notifications the system's center lists.
+function siteLists(page: Page) {
+	return page.evaluate<string[]>(
+		"(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => n.tag))()",
+	);
+}
 
 // The site's page opened in a new tab of the profile, at an address of its
 // own, which shows the notification tagged `tag`, one that stays with

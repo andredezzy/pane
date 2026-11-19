@@ -35,6 +35,7 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   ~BrowserMainExtraParts() override;
 
   // ChromeBrowserMainExtraParts:
+  void PreEarlyInitialization() override;
   void PreCreateThreads() override;
   void PostCreateThreads() override;
   void PreProfileInit() override;
@@ -51,7 +52,7 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   // The platform's part of PostBrowserStart: Pane's process lives until it
   // quits, with or without a window, and quits at once, with no warning of
   // Chrome's; and every notification of Pane's leaves the system's center at
-  // Exit (Chrome's own bridge on the Mac, Pane on Windows).
+  // Exit (each profile's close on the Mac, Pane's clear on Windows).
   static void StartPlatform();
   // Pane's name where Chromium's own words reach the system, before anything
   // shows them: on Windows the shortcut a toast looks for, and its settings
@@ -59,9 +60,11 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   static void UsePanesWords();
   // What an earlier process of Pane's left in the system's center, a crash's
   // notifications, goes before any profile opens and before Chrome's bridge
-  // to that center is made (ADR 0109): on Windows every toast of Pane's;
-  // nothing yet on the Mac, where Chrome's bridge closes them at that
-  // profile's next close or the next quit.
+  // to that center is made (ADR 0109): on Windows every toast of Pane's, in a
+  // clear the browser's start starts and the initial profile's load waits
+  // for; on the Mac this data's profiles' in both of macOS's centers, by
+  // their ids, which Chrome's bridge closes as it is made (patch 0004).
+  static void StartClearingLeftoverNotifications();
   static void ClearLeftoverNotifications();
 
   // The toast's activation the launch carried, for Pane's UI as it starts.

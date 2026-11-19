@@ -10,7 +10,11 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/process/process.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
+#include "base/values.h"
+#include "pane/browser/engine_trace.h"
 #include "pane/ui/after_frame.h"
 #include "pane/ui/design/accessible_layers.h"
 #include "pane/ui/design/dialog.h"
@@ -527,12 +531,19 @@ void RootView::ReturnKeys(views::View* before) {
 
 void RootView::ShowLock(const LockScreenView::Shows& shows) {
   // What the window shows before its first frame is out is there in it, the
-  // PIN screen at launch included; after, the screen rises and sinks.
+  // PIN screen at launch included; after, the screen rises and sinks. The
+  // scenarios time a launch to that frame from the process's start.
   if (!first_frame_requested_ && GetWidget() && GetWidget()->GetCompositor()) {
     first_frame_requested_ = true;
     AfterFrame(GetWidget()->GetCompositor(),
                base::BindOnce(
                    [](base::WeakPtr<RootView> root) {
+                     PANE_TRACE("engine", "PaneWindow.firstFrame",
+                                base::DictValue().Set(
+                                    "sinceStartMs",
+                                    (base::Time::Now() -
+                                     base::Process::Current().CreationTime())
+                                        .InMillisecondsF()));
                      if (root) {
                        root->first_frame_out_ = true;
                      }

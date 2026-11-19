@@ -238,7 +238,7 @@ class TreeHost : public views::DesktopWindowTreeHostWin {
                     LPARAM l_param,
                     LRESULT* result) override {
     if (message == WM_ENDSESSION && w_param) {
-      windows::ClearToasts();
+      windows::ClearToasts(windows::AppUserModelId());
     }
     return views::DesktopWindowTreeHostWin::PreHandleMSG(message, w_param,
                                                          l_param, result);

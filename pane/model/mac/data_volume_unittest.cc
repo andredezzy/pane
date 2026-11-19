@@ -237,6 +237,29 @@ TEST_F(DataVolumeTest, SafetyCopyFromAnEarlierPane) {
   EXPECT_EQ(volume.SafetyCopyWillOpen("p"), Step::kRestore);
 }
 
+// The profiles' ids, by their places in Engine, with the volume detached:
+// a link that leads nowhere until the volume mounts, and an earlier Pane's
+// plain folder, never the engine's own folders and files.
+TEST_F(DataVolumeTest, ProfileIds) {
+  const DataVolume volume(Root(), std::nullopt);
+  EXPECT_TRUE(volume.ProfileIds().empty());
+
+  const base::FilePath engine = Root().Append("Engine");
+  const std::string linked = "0b6c2c4e-6a2b-4d43-9a57-9f3f2e3f6a10";
+  const std::string plain = "5D0E8C6A-1F2B-4C3D-8E9F-0A1B2C3D4E5F";
+  ASSERT_TRUE(base::CreateDirectory(engine.Append("Default")));
+  ASSERT_TRUE(base::CreateDirectory(engine.Append("Volume")));
+  ASSERT_TRUE(base::WriteFile(engine.Append("Local State"), "{}"));
+  ASSERT_TRUE(base::WriteFile(engine.Append("p"), ""));
+  ASSERT_TRUE(base::CreateSymbolicLink(
+      engine.Append("Volume").Append(linked).Append("Profile"),
+      engine.Append(linked)));
+  ASSERT_TRUE(base::CreateDirectory(engine.Append(plain)));
+
+  EXPECT_EQ(volume.ProfileIds(), (std::vector<std::string>{linked, plain}));
+  EXPECT_TRUE(volume.HasPlainProfiles());
+}
+
 // A profile has a folder only once it has been prepared.
 TEST_F(DataVolumeTest, HasFolder) {
   const DataVolume volume(Root(), std::nullopt);

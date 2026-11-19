@@ -1123,7 +1123,8 @@ bool DataVolume::HasPlainFolder(std::string_view profile_id) const {
   return IsPlainFolder(EngineFolder(profile_id));
 }
 
-bool DataVolume::HasPlainProfiles() const {
+std::vector<std::string> DataVolume::ProfileIds() const {
+  std::vector<std::string> ids;
   base::FileEnumerator entries(data_directory_.Append("Engine"),
                                /*recursive=*/false,
                                base::FileEnumerator::FILES |
@@ -1131,13 +1132,19 @@ bool DataVolume::HasPlainProfiles() const {
                                    base::FileEnumerator::SHOW_SYM_LINKS);
   for (base::FilePath entry = entries.Next(); !entry.empty();
        entry = entries.Next()) {
-    const std::string name = entry.BaseName().value();
-    if (base::Uuid::ParseCaseInsensitive(name).is_valid() &&
-        HasPlainFolder(name)) {
-      return true;
+    std::string name = entry.BaseName().value();
+    if (base::Uuid::ParseCaseInsensitive(name).is_valid()) {
+      ids.push_back(std::move(name));
     }
   }
-  return false;
+  std::ranges::sort(ids);
+  return ids;
+}
+
+bool DataVolume::HasPlainProfiles() const {
+  return std::ranges::any_of(ProfileIds(), [this](const std::string& id) {
+    return HasPlainFolder(id);
+  });
 }
 
 base::expected<void, VolumeError> DataVolume::Remove(

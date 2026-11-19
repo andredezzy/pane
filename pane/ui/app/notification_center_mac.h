@@ -16,11 +16,22 @@
 // (W8d). Unset, Chrome's handler goes on.
 
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "chrome/services/mac_notifications/public/mojom/mac_notifications.mojom-forward.h"
 
 extern void (*g_pane_notification_response)(
     mac_notifications::mojom::NotificationActionInfoPtr info);
+
+// The profiles whose notifications Chrome's bridge closes as it is made, in
+// both of macOS's centers, banners' and alerts', by their ids: the hook patch
+// 0004 defines in Chrome's notification_platform_bridge_mac.cc, which
+// includes this header too. Set before the initial profile's load, which
+// makes the bridge (BrowserMainExtraParts::ClearLeftoverNotifications), it
+// names this data's profiles, so a crash's notifications go before the PIN,
+// and never another copy's. Unset, the bridge closes none.
+extern std::vector<std::string> (*g_pane_notification_profile_ids)();
 
 namespace pane {
 
