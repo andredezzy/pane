@@ -8,6 +8,8 @@
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
 #include "base/task/thread_pool.h"
+#include "base/timer/elapsed_timer.h"
+#include "base/values.h"
 #include "chrome/browser/devtools/chrome_devtools_manager_delegate.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/termination_notification.h"
@@ -15,6 +17,7 @@
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "pane/app/windows_integration.h"
+#include "pane/browser/engine_trace.h"
 #include "ui/base/resource/resource_bundle.h"
 
 namespace pane {
@@ -47,6 +50,29 @@ void BrowserMainExtraParts::UsePanesWords() {
       u"Go to Pane notification settings");
 }
 
+// A crash closes nothing, so its toasts stayed in Windows' center, a site's
+// words readable there without the PIN, until the next Exit (the user's
+// call, 2026-11-18; ADR 0109). As this process starts, no toast of Pane's
+// there is its own: each goes, before any profile can show one and before
+// Chrome's bridge is made, at the initial profile's load. The bridge takes
+// into its 10-minute check, as it starts, each toast it finds of an
+// AppUserModelID it already knows, and reports each one gone as closed by
+// its user, loading the profile through Chrome's profile manager, outside
+// Pane's lock: this Chromium's starts knowing none, and one that read Pane's
+// at its start finds none left. A crash's toast clicked starts Pane with the
+// click, which Windows takes out of the center and Pane holds for the PIN.
+// On the UI thread, where COM is Chrome's (ScopedOleInitializer), so it is
+// done before the profile loads; the PIN screen's first frame waits for it.
+// static
+void BrowserMainExtraParts::ClearLeftoverNotifications() {
+  const base::ElapsedTimer clearing;
+  const bool cleared = windows::ClearToasts();
+  PANE_TRACE("engine", "PaneEngine.leftoverNotificationsCleared",
+             base::DictValue()
+                 .Set("cleared", cleared)
+                 .Set("ms", clearing.Elapsed().InMillisecondsF()));
+}
+
 // Chrome on Windows keeps its browser process while a Browser of its own or a
 // keep-alive holds it, and Pane may have no profile open, so no Browser: a
 // keep-alive of Pane's own holds it, as Chrome's AppController holds one on
@@ -64,10 +90,11 @@ void BrowserMainExtraParts::UsePanesWords() {
 // remote debugging (ADR 0115). On the Mac, AppKit's quit ends the process
 // whatever holds it.
 //
-// At Exit every toast of Pane's leaves Windows' center, a crash's left there
-// included, as Chrome's Mac bridge takes every notification out of macOS's
-// center at quit (~NotificationPlatformBridgeMac; ADR 0109): Windows' bridge
-// leaves them, and a site's words stayed readable there with Pane closed.
+// At Exit every toast of Pane's leaves Windows' center, as Chrome's Mac
+// bridge takes every notification out of macOS's center at quit
+// (~NotificationPlatformBridgeMac; ADR 0109): Windows' bridge leaves them,
+// and a site's words stayed readable there with Pane closed (a crash's go as
+// Pane next starts, ClearLeftoverNotifications).
 // Once quitting can't be cancelled any more, the main loop still running,
 // off the UI thread, and before the thread pool ends, which waits for it. A
 // profile's own leave at each Lock through Chrome's own close (profiles.cc),

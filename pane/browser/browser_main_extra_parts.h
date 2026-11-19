@@ -57,6 +57,12 @@ class BrowserMainExtraParts : public ChromeBrowserMainExtraParts,
   // shows them: on Windows the shortcut a toast looks for, and its settings
   // item (ADR 0127); nothing on the Mac, whose bundle names Pane.
   static void UsePanesWords();
+  // What an earlier process of Pane's left in the system's center, a crash's
+  // notifications, goes before any profile opens and before Chrome's bridge
+  // to that center is made (ADR 0109): on Windows every toast of Pane's;
+  // nothing yet on the Mac, where Chrome's bridge closes them at that
+  // profile's next close or the next quit.
+  static void ClearLeftoverNotifications();
 
   // The toast's activation the launch carried, for Pane's UI as it starts.
   base::CommandLine launch_toast_{base::CommandLine::NO_PROGRAM};

@@ -75,10 +75,12 @@ bool MakeStartShortcut(const base::FilePath& chrome_exe,
 // Takes every toast of Pane's out of Windows' notification center: those of
 // its AppUserModelID, under which Chrome shows a site's
 // (NotificationPlatformBridgeWin), an earlier Pane's that crashed included.
-// At Exit, and as Windows ends the session with Pane open, as Chrome's Mac
-// bridge takes every notification out of macOS's center at quit (ADR 0109).
-// Blocks, about 10 ms; on a thread COM is initialized on. False if Windows'
-// center refused.
+// As Pane starts, before any profile, at Exit, and as Windows ends the
+// session with Pane open, as Chrome's Mac bridge takes every notification out
+// of macOS's center at quit (ADR 0109).
+// Blocks, about 10 ms (35 at a launch in the test VM, its first use of
+// Windows' notifications there); on a thread COM is initialized on. False if
+// Windows' center refused.
 bool ClearToasts();
 
 // How an erase is going: the data's bytes erased, of all of them.

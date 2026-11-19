@@ -11,6 +11,15 @@ namespace pane {
 // static
 void BrowserMainExtraParts::UsePanesWords() {}
 
+// Nothing yet: Chrome's bridge takes a crash's notifications out of macOS's
+// center at that profile's next close, by its id, or at the next quit
+// (NotificationPlatformBridgeMac). Before the PIN no profile of the crash's
+// is loaded, every close of the bridge's takes one, and an alert is the
+// alerts helper's, in a center of its own that only a process of the
+// helper's bundle reaches (ADR 0109).
+// static
+void BrowserMainExtraParts::ClearLeftoverNotifications() {}
+
 // Chrome's AppController keeps the process alive without windows. ⌘Q quits
 // at once, as it did in the Electron app: Chrome asks to hold it (the "Warn
 // Before Quitting" pref, on by default), in a panel of its own. Chrome's own

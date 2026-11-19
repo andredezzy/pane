@@ -150,6 +150,10 @@ void BrowserMainExtraParts::PreProfileInit() {
   // Pane's lock and keys: Pane's UI hands it to the site (ADR 0109).
   launch_toast_ =
       TakeNotificationSwitches(*base::CommandLine::ForCurrentProcess());
+  // Before the initial profile, whose display service makes Chrome's bridge:
+  // in this process alone, the one that holds Pane's data (a second launch
+  // hands its command line over and exits before the browser starts).
+  ClearLeftoverNotifications();
   KeepDictionariesInUserData();
   LoadBundledCRLSet();
   BuildProfileServices();

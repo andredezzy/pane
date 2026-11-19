@@ -389,11 +389,14 @@ export type CenterToast = { profileId: string; id: string };
 // What Windows' notification center holds under the AppUserModelID `appId`
 // (shortcutAppId), read from its history as the shell lists it: a site's
 // toasts, each by its launch id. A profile's leave as it closes, every one of
-// Pane's at Exit, and only a crash leaves one there (ADR 0109). macOS's
-// center lists no test copy's banner (W8d).
+// Pane's at Exit, and a crash's as Pane next starts (ADR 0109). macOS's
+// center keeps a test copy's in its bundle's list, the user's Pane's with
+// them (ADR 0012): the runner reads none of it.
 export const centerToasts = bySystem({
 	mac: async (_appId: string): Promise<CenterToast[]> => {
-		throw new Error("macOS's center lists no test copy's notification");
+		throw new Error(
+			"macOS's center is the bundle's, the user's Pane's with it: the runner reads none of it",
+		);
 	},
 	windows: async (appId: string): Promise<CenterToast[]> =>
 		(

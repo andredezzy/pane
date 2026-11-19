@@ -207,8 +207,10 @@ export const TOAST_CLICKS_ARE_LAUNCHES = bySystem({
 
 // Whether the runner reads what the system's center holds of a test copy's
 // notifications: Windows' center lists them, under the AppUserModelID of the
-// copy's own Start shortcut (centerToasts, lib/tools.ts); macOS's center never
-// lists a test copy's banner (W8d).
+// copy's own Start shortcut (centerToasts, lib/tools.ts); macOS's keeps them
+// in its bundle's list, the user's Pane's with them (ADR 0012), which the
+// runner never reads, and a copy there shows none that stays on the screen
+// of the user at the Mac.
 export const CENTER_LISTS_A_COPYS_NOTIFICATIONS = bySystem({
 	mac: false,
 	windows: true,

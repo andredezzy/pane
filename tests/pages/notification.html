@@ -27,8 +27,8 @@
 			// with `stays`, stays on the screen until its user acts on it
 			// (requireInteraction). Not read back: getNotifications() deletes
 			// what the system's center doesn't list yet
-			// (PlatformNotificationContextImpl), which a test copy's banner on
-			// the Mac never is.
+			// (PlatformNotificationContextImpl), which macOS's center does for
+			// a test copy's banner only seconds after its show (W10h).
 			async function show(tag, focus, stays) {
 				const registration = await navigator.serviceWorker.ready;
 				await registration.showNotification("Pane test", {

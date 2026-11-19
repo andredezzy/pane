@@ -52,7 +52,8 @@ import { expect, type Scenario } from "../run";
 // requireInteraction one among them, none after it, none of Pane's after
 // Exit. So a click behind the lock is one that lands as the lock comes, on
 // both systems, and with Pane closed only a notification a crash left can be
-// clicked, which on Windows starts Pane locked. A toast is Windows' only
+// clicked, which on Windows starts Pane locked; nothing of Pane's is in
+// Windows' center once that launch has started (W10h). A toast is Windows' only
 // while Start holds Pane's shortcut, which a test copy's first launch makes
 // in its own home: with it deleted, the notification shows in Chrome's own
 // center, and the Lock still closes the profile and leaves Pane running, the
@@ -114,7 +115,8 @@ const notificationClick: Scenario = async (context) => {
 	] as [string, string | null, boolean][]) {
 		// Shown once Chrome has it, as showNotification resolves: what the
 		// system's center lists of it (getNotifications) is the center's own,
-		// and a test copy's banner on the Mac never listed there (W8d).
+		// which lists a test copy's banner on the Mac only seconds after its
+		// show (W10h; W8d read it at once and found none).
 		await page.evaluate(
 			`show(${JSON.stringify(tag)}, ${JSON.stringify(focus ?? undefined)}, ${stays})`,
 		);
@@ -224,23 +226,23 @@ const notificationClick: Scenario = async (context) => {
 		return;
 	}
 
-	// A crash: the profile never closes, so its notification stays in
-	// Windows' center, where a click starts Pane locked, the profile closed
-	// until the PIN is in, and the site then hears the click.
+	// A crash: the profile never closes, so its notifications stay in
+	// Windows' center, a plain one and one that stays until its user acts on
+	// it, and a click on one starts Pane. Nothing of Pane's is left there
+	// once that launch has started, before any profile and before the PIN
+	// (the user's call, 2026-11-18): the click, which Windows takes out of
+	// the center as it starts Pane, is held for the PIN, the profile closed
+	// until then, and the site then hears it.
 	await showAgain(app, profileId, pageUrl, "crashed");
-	await inCenter(appId, [notification("crashed")]);
+	await showAgain(app, profileId, pageUrl, "crashed-staying", true);
+	const leftovers = [notification("crashed"), notification("crashed-staying")];
+	await inCenter(appId, leftovers);
 	const crashed = app.browser.pid;
 	process.kill(crashed, "SIGKILL");
 	expect(await waitForExit(crashed, 30_000), "Pane didn't end at its kill");
 	// Its other processes end after it, before the next launch on its data.
 	await Bun.sleep(1_500);
-
-	expect(
-		(await centerToasts(appId)).some(
-			(toast) => toast.id === persistentNotificationId(notification("crashed")),
-		),
-		"the crash took its notification out of Windows' center",
-	);
+	await inCenter(appId, leftovers);
 
 	app = await launchPane(context, {
 		dataDir,
@@ -250,6 +252,12 @@ const notificationClick: Scenario = async (context) => {
 	});
 
 	const launched = await app.state();
+	const leftAtLaunch = await centerToasts(appId);
+
+	expect(
+		leftAtLaunch.length === 0,
+		`Windows' center still lists after the launch that followed the crash: ${JSON.stringify(leftAtLaunch)}`,
+	);
 
 	expect(
 		launched.security.locked && !launched.engineProfiles.includes(profileId),
@@ -264,9 +272,9 @@ const notificationClick: Scenario = async (context) => {
 		60_000,
 	);
 
-	// Exit: every toast of Pane's leaves Windows' center, the crash's too.
+	// Exit: every toast of Pane's leaves Windows' center.
 	await showAgain(app, profileId, pageUrl, "exit");
-	await inCenter(appId, [notification("exit"), notification("crashed")]);
+	await inCenter(appId, [notification("exit")]);
 	await app.quit();
 	expect(await waitForExit(app.browser.pid, 30_000), "Pane didn't end at Quit");
 	await outOfCenter(appId, "Exit");
@@ -279,12 +287,14 @@ const notificationClick: Scenario = async (context) => {
 };
 
 // The site's page opened in a new tab of the profile, at an address of its
-// own, which shows the notification tagged `tag`.
+// own, which shows the notification tagged `tag`, one that stays with
+// `stays`.
 async function showAgain(
 	app: PaneApp,
 	profileId: string,
 	pageUrl: string,
 	tag: string,
+	stays = false,
 ) {
 	const { page } = await app.openPage(
 		profileId,
@@ -292,7 +302,7 @@ async function showAgain(
 	);
 
 	await page.evaluate("window.ready");
-	await page.evaluate(`show(${JSON.stringify(tag)})`);
+	await page.evaluate(`show(${JSON.stringify(tag)}, undefined, ${stays})`);
 }
 
 // What Windows' center holds under `appId` lists each of `notifications`, as
