@@ -37,7 +37,7 @@ What was rejected:
 - **Ending Chrome's startup at the unlock**, or at launch: Chrome holds that work back so that the first page loads first; at a lock the pages are gone.
 - **A longer cap**: the pool emptied within 400 ms at every lock measured; past 5 s the volume would stay mounted behind the PIN screen for work that isn't the lock's.
 - **The unlock waiting for each service's drop to answer before its profiles open**, in place of the registry's count: as safe, but a PIN typed quickly would wait for another process's pool, up to its 5 s, and the order would rest on the vault's sequence and the browser's, where the count rests on the registry alone, which a unit test holds.
-- **The services' wait in a Chromium file of its own**: a 99th file in the patches' count (ADR 0004), where both services already link `//pane/encryption:handover`.
+- **The services' wait in a Chromium file of its own**: one more Chromium file in the patches' count, then 98 (ADR 0004), where both services already link `//pane/encryption:handover`.
 - **Loading again every tab, or every failed load, after a network service's crash**: a page with a document keeps it, as in Chrome, and a load the user stopped stays stopped; only a first load with nothing to show was lost for good.
 
 **Nothing of a page runs behind the Lock, on Windows too** (W8, 2026-11-16, an installed Pane in the test VM, through its own Lock Pane, Ctrl+Shift+L, with a page holding 300 MB of its own): the page's renderer was gone 1 s after the Lock, the last small renderer by 15 s, and at 15 and 30 s no renderer ran, the browser, the GPU process, the network service, and the storage service alone; the PIN brought the page back.

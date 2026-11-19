@@ -9,7 +9,7 @@ Comparing the running app's version against the repo's latest GitHub Release. Yi
 _Avoid_: auto-update (implies an install while Pane runs; Pane installs only when the user quits or restarts)
 
 **Theme**:
-The app-wide appearance preference — `system`, `light`, or `dark`. One coherent knob: Pane's chrome, native menus, and what websites in profile tabs observe via `prefers-color-scheme` all follow it, matching desktop Chrome's appearance setting. `system` follows macOS.
+The app-wide appearance preference — `system`, `light`, or `dark`. One coherent knob: Pane's chrome, native menus, and what websites in profile tabs observe via `prefers-color-scheme` all follow it, matching desktop Chrome's appearance setting. `system` follows the system's own, macOS's or Windows'.
 _Avoid_: appearance, color mode, dark mode (as a feature name)
 
 **App icon**:
@@ -41,11 +41,11 @@ A per-profile choice, on by default, of whether a profile keeps a record of wher
 _Avoid_: incognito, private (those keep no cookies either), clear browsing data (Chrome's wider dialog, which this uses part of)
 
 **Lock**:
-Pane shut behind its PIN: no profile or page open, and the encrypted volume shut. With a PIN set, it comes at launch, on Lock Pane, when the Mac sleeps or locks, and after a time without use. The fifth wrong PIN at the lock wipes everything; the fifth in Settings locks Pane and erases nothing.
+Pane shut behind its PIN: no profile or page open, and the encrypted volume shut. With a PIN set, it comes at launch, on Lock Pane, when the computer sleeps or locks, and after a time without use. The fifth wrong PIN at the lock wipes everything, but not where a PC's security chip guards the PIN: Windows' own lockout bounds the guesses there, and nothing wipes; the fifth in Settings locks Pane and erases nothing.
 _Avoid_: sign out (the profiles stay signed in), pause, sleep (a tab's)
 
 **Data key**:
-The key behind everything of Pane's on disk: it opens the encrypted volume, seals `profiles.json`, and each profile's Engine key derives from it. It is kept only sealed, under the Keychain's secret and, when set, the PIN, so the PIN releases it rather than being it. The panic wipe destroys it first.
+The key behind everything of Pane's on disk: it opens the encrypted volume on the Mac, seals `profiles.json`, and each profile's Engine key derives from it. It is kept only sealed, under the Keychain's secret (on Windows, the one DPAPI keeps) and, when set, the PIN (on Windows, guarded by the PC's security chip), so the PIN releases it rather than being it. The panic wipe destroys it first.
 _Avoid_: PIN (what releases it), master password
 
 **Engine key**:

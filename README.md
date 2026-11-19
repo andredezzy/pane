@@ -10,7 +10,7 @@
 <p><em>Every profile, its own internet.</em></p>
 
 <p align="center">
-  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-000000?style=flat&colorA=000000&colorB=000000" />
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20alpha-000000?style=flat&colorA=000000&colorB=000000" />
   <img alt="C++" src="https://img.shields.io/badge/C%2B%2B-23-000000?style=flat&colorA=000000&colorB=000000" />
   <img alt="Chromium" src="https://img.shields.io/badge/Chromium-158-000000?style=flat&colorA=000000&colorB=000000" />
 </p>
@@ -31,7 +31,7 @@ Pane is an Arc-inspired desktop browser for macOS, and in alpha for Windows — 
 - **Browser fingerprinting** — configurable user agent and Client Hints, platform, WebGL, canvas noise, audio noise, screen, timezone, and locale per profile, applied inside the engine
 - **Chrome extensions** — install from the Chrome Web Store per profile, with Chrome's own extension system and updates
 - **Encrypted on disk** — every profile's tabs, cookies, site data, and caches, in a volume under a key the optional PIN releases, and every file a profile writes again under a key only Pane's processes hold
-- **PIN lock with data wipe** — Pane locks at launch, on command, when the Mac sleeps or locks, and after a time without use; five consecutive failures at the lock relaunch Pane fresh, with the key gone and the data erased
+- **PIN lock with data wipe** — Pane locks at launch, on command, when the computer sleeps or locks, and after a time without use; five consecutive failures at the lock relaunch Pane fresh, with the key gone and the data erased
 - **Save history, per profile** — turned off, a profile keeps no record of its pages, their icons, or its downloads, and what it kept is cleared; it stays signed in
 - **Memory that stays small** — idle tabs sleep, hidden profiles unload, and their caches are trimmed
 - **Updates that install themselves** — Pane checks for a new release, downloads it when you say, and swaps it in as it quits
@@ -49,6 +49,8 @@ Pane needs macOS 14 or later on Apple Silicon.
 ### Windows (alpha)
 
 Pane for Windows is an alpha, for Windows 11 on x64; Windows on Arm runs it through Windows' own emulation. Its installer isn't signed yet.
+
+Its promise for your data rests on the PIN. Windows gives an app no encrypted volume without an administrator, so every file a profile writes is encrypted under a key only Pane's processes hold, and no file's name names a site, but the files' sizes and times, and the code of installed extensions, show on disk. Without a PIN, any program running as you can open that key, since Windows releases it to you without asking; with one, the PC's security chip guards it, and wrong PINs meet Windows' own lockout, which waits rather than wipes. While Pane is unlocked, a program running as you can read its memory.
 
 1. Download `Pane-<version>-x64.exe` from the [latest release](https://github.com/andredezzy/pane/releases/latest).
 2. Open it. Windows doesn't know its publisher yet, so SmartScreen says "Windows protected your PC": choose More info, then Run anyway. Where Smart App Control is on, Windows blocks an unsigned installer with no way past it.
@@ -74,7 +76,7 @@ export PANE_ENGINE_OUT="$(scripts/fetch-engine.sh)"   # or build the engine: doc
 scripts/package.sh                                    # → packaging/build/Pane.app
 ```
 
-`docs/building.md` covers the rest: the repository's layout, the engine's build and unit tests, the scenarios, and the dmg. `AGENTS.md` has the checks a commit passes and how a release is cut, and Chromium upgrades follow `chromium/UPGRADING.md`.
+`docs/building.md` covers the rest: the repository's layout, the engine's build and unit tests, the scenarios, the dmg, and Windows' installer. `AGENTS.md` has the checks a commit passes and how a release is cut, and Chromium upgrades follow `chromium/UPGRADING.md`.
 
 ## Security
 
@@ -82,4 +84,4 @@ Report vulnerabilities to contact@andredezzy.com.
 
 [GPL-3.0](LICENSE) © [André Victor](https://github.com/andredezzy)
 
-Pane is built on [Chromium](https://www.chromium.org/) (BSD-3-Clause and its components' licenses). Third-party origins and licenses are in `NOTICE` and `third_party/`; the packaged app carries them in `Contents/Resources/Licenses`.
+Pane is built on [Chromium](https://www.chromium.org/) (BSD-3-Clause and its components' licenses). Third-party origins and licenses are in `NOTICE` and `third_party/`; the Mac's packaged app carries them in `Contents/Resources/Licenses`.
