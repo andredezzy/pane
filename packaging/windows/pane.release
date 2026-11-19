@@ -19,7 +19,8 @@
 # files beside chrome.dll (base::DIR_ASSETS, pane/BUILD.gn's app_icons), and
 # Pane's installer, the uninstall's helper (pane/installer).
 #
-# [package], written by package-win.sh: Pane's version and Chrome's CRLSet.
+# [package], written by package-win.sh: Pane's version, Chrome's CRLSet, and
+# the licenses.
 
 [engine]
 chrome.exe
@@ -67,3 +68,8 @@ pane_setup.exe
 pane-version
 # Chrome's CRLSet (scripts/fetch-crlset.sh, ADR 0040).
 crl-set
+# The licenses that go with every copy (ADR 0087): Pane's, NOTICE, and each
+# project's Pane takes code from, as the Mac's Contents/Resources/Licenses.
+Licenses/LICENSE
+Licenses/NOTICE
+Licenses/third_party

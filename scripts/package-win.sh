@@ -4,7 +4,8 @@
 # as packaging/windows/pane.release lists it: the engine's files from its
 # build (out/Win, or an unpacked engine archive), Pane's version beside
 # chrome.dll (pane-version, from packaging/VERSION, as package.sh writes the
-# Mac's PaneVersion, ADR 0044), and Chrome's CRLSet (fetch-crlset.sh, kept a
+# Mac's PaneVersion, ADR 0044), the licenses (Licenses, as the Mac's app
+# carries them, ADR 0087), and Chrome's CRLSet (fetch-crlset.sh, kept a
 # day in packaging/build as package.sh keeps it). It refuses a package without
 # a CRLSet, as dist.sh does. Then it compresses the folder's contents as
 # Chromium's installer archive does (chrome/tools/build/win/
@@ -76,9 +77,16 @@ fi
 [ -f "$CRLSET" ] || die "no CRLSet to package (fetch-crlset.sh)"
 cp "$CRLSET" "$APP/crl-set"
 
+# The licenses that go with every copy, as the Mac's app carries them
+# (package.sh, ADR 0087): Pane's own (GPL-3.0), NOTICE, and the license of
+# each project Pane takes code from (third_party).
+mkdir -p "$APP/Licenses"
+cp "$ROOT_DIR/LICENSE" "$ROOT_DIR/NOTICE" "$APP/Licenses/"
+cp -R "$ROOT_DIR/third_party" "$APP/Licenses/third_party"
+
 # What pane.release's [package] names, this script writes.
 while IFS= read -r file; do
-	[ -f "$APP/$file" ] || die "pane.release's [package] names $file, which package-win.sh does not write"
+	[ -e "$APP/$file" ] || die "pane.release's [package] names $file, which package-win.sh does not write"
 done < <(awk '/^\[/ { section = $0; next } section == "[package]" && !/^#/ && NF { print $1 }' "$RELEASE_LIST")
 
 # Flat: chrome.exe loads the chrome.dll beside it only where no version
