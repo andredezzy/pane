@@ -26,7 +26,7 @@
 | 7 | The Edit menu's Select All | ✓ | n/a | `invoke_menu` |
 | 7 | **The Edit menu's Cut, Copy, and Paste** | not driven | not driven | they use the clipboard, which holds the user's: `docs/human-checklist.md` |
 
-Also by pointer: a window's live resize from its corner, 1512 × 883 to 1251 × 711, sidebar and page following (E7). Its edge can't be dragged out past the window from a cua-driver desktop point: the point then lies over another app, and cua-driver refuses it.
+Also by pointer: a window's live resize from its corner, 1512 × 883 to 1251 × 711, sidebar and page following (the app's view in a `NativeViewHost` since commit `18ba113`). Its edge can't be dragged out past the window from a cua-driver desktop point: the point then lies over another app, and cua-driver refuses it.
 
 ## What changed, by pixel
 

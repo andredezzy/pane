@@ -1,12 +1,12 @@
 # PaneKit's tests in pane_unittests
 
-PaneKit, the Swift app's package for its model, rules, and data, held 287 tests in 28 files when it was deleted at the cutover to Views (ADR 0124; `docs/plans/views-migration.md`, K3). Each is listed here with the `pane_unittests` case that proves the same thing, with the same inputs and the same expectations, and the ones that can't have one, with why and what checks the behavior instead. The Swift tests are in git at `dce3d0f` (`app/PaneKit/Tests/PaneKitTests/`).
+PaneKit, the Swift app's package for its model, rules, and data, held 287 tests in 28 files when it was deleted at the cutover to Views (ADR 0124; 2026-11-11, commit `52fb30b`). Each is listed here with the `pane_unittests` case that proves the same thing, with the same inputs and the same expectations, and the ones that can't have one, with why and what checks the behavior instead. The Swift tests are in git at `dce3d0f` (`app/PaneKit/Tests/PaneKitTests/`).
 
 - **twin:** the C++ case or cases check every input and expectation of the Swift test, with the same values; plumbing may differ (temporary paths, a clock's API, ids that are objects), and a C++ case may check more.
 - **twin, but:** as a twin, with a part the note names that the Views build no longer has, and why.
 - **none:** no `pane_unittests` case can prove it, since the code it tested is gone from Pane's C++: the note says what replaced it and what checks it.
 
-In all: 257 twins, 6 twins but for a part, and 24 with none, of 287 (three twins went with what they tested after the cutover: below). KeyRouting's overlays, which no scenario stacked at the cutover, are pressed as the app stacks them since K2a (`views-extensions`, `views-dialogs`, `views-lock`). Six cases were added or widened at the cutover where a twin had left an input or an expectation out: `FillsDefaults`, `PurgesDeletions` (new), `HostGPUClaim`, `SwiftVectorsTest.Vectors` and `CppWrites`, and `NewTabKey` (new).
+In all: 257 twins, 6 twins but for a part, and 24 with none, of 287 (three twins went with what they tested after the cutover: below). KeyRouting's overlays, which no scenario stacked at the cutover, are pressed as the app stacks them since commit `09244ae` (`views-extensions`, `views-dialogs`, `views-lock`). Six cases were added or widened at the cutover where a twin had left an input or an expectation out: `FillsDefaults`, `PurgesDeletions` (new), `HostGPUClaim`, `SwiftVectorsTest.Vectors` and `CppWrites`, and `NewTabKey` (new).
 
 ## AddressInputTests.swift
 
@@ -222,7 +222,7 @@ In all: 257 twins, 6 twins but for a part, and 24 with none, of 287 (three twins
 |---|---|---|---|
 | `newForm`: a new profile's form: spoofing on the host's platform, no proxy | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.NewForm | twin | same six checks; Swift compares with the constant ProfileDraft.hostPlatform (.macOS), C++ with HostPlatform() (kMacOS on the Mac) |
 | `untouchedEdit`: saving an edit untouched leaves the profile as it was | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.UntouchedEdit | twin | same profile (windows preset, socks5 proxy.example:1080 user/"p:ss"), same failure if the fingerprint is regenerated, same saved == original |
-| `fillsForm`: an existing profile fills the form | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.FillsForm; `pane/model/profile_draft_unittest.cc` ProfileDraftTest.GroupKept | twin, but | all but the group: the sheet has no Group field (the user's answer, N1), and GroupKept proves a saved group stays as it is |
+| `fillsForm`: an existing profile fills the form | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.FillsForm; `pane/model/profile_draft_unittest.cc` ProfileDraftTest.GroupKept | twin, but | all but the group: the sheet has no Group field (the user's answer, 2026-11-11, commit `db6b675`), and GroupKept proves a saved group stays as it is |
 | `timeZone`: the time zone goes from the profile to the form and back, and survives another platform | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.TimeZone | twin | same steps: Asia/Tokyo kept across macOS->windows, emptied to "", spoofing off -> no fingerprint and an empty zone |
 | `newTimeZone`: a new profile claims no time zone: it follows the computer | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.NewTimeZone | twin | Platform.allCases is windows, macOS, linux: the C++ loops over the same three |
 | `clearOwed`: turning history off owes a clear, kept until it is done; back on owes none | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.ClearOwed | twin | same sequence; the Swift savesHistory setter is BrowserProfile::SetSavesHistory in C++ |
@@ -237,7 +237,7 @@ In all: 257 twins, 6 twins but for a part, and 24 with none, of 287 (three twins
 | `proxyFields`: the proxy trims its host and leaves empty credentials out | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.ProxyFields | twin | same |
 | `paste`: a pasted proxy fills its fields; one it leaves out keeps what was typed | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.Paste | twin | same three pastes ("proxy.example:3128", "host:8080:user:p:ss", "host:70000") and the same field checks |
 | `newFingerprint`: a new profile gets a generated fingerprint while spoofing, none without | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.NewFingerprint | twin | same |
-| `editedFingerprint`: changing the platform regenerates the fingerprint; a group of spaces is none | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.EditedFingerprint; `pane/model/profile_draft_unittest.cc` ProfileDraftTest.GroupKept | twin, but | the fingerprint's regeneration; the group of spaces saving none went with the Group field (N1): GroupKept proves an edit leaves a saved group as it is |
+| `editedFingerprint`: changing the platform regenerates the fingerprint; a group of spaces is none | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.EditedFingerprint; `pane/model/profile_draft_unittest.cc` ProfileDraftTest.GroupKept | twin, but | the fingerprint's regeneration; the group of spaces saving none went with the Group field (2026-11-11, commit `db6b675`): GroupKept proves an edit leaves a saved group as it is |
 | `remaining`: each ring stays until its field can save | `pane/model/profile_draft_unittest.cc` ProfileDraftTest.Remaining | twin | same steps and values ("http:", "example.com", "70000", "700") |
 
 ## ProfileFormTests.swift

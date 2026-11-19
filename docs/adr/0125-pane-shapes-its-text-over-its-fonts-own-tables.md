@@ -17,4 +17,4 @@ The HarfBuzz faces that shape the text of Pane's views read each font table wher
 
 ## How it's checked
 
-`EngineSwitchesTest` (`pane/app/engine_switches_unittest.cc`, `pane_unittests`): every launch, the user's and a scenario's, turns the feature on, beside `UiGpuRasterization` off. The memory budget, rerun by `tests/ab.ts` against the last Swift release; the browser process's allocator by footprint's categories and its live heap by Chromium's sampling heap profiler, from a test copy (the probe kept with the evidence, `evidence/views-migration/mem-1tab-probe`).
+`EngineSwitchesTest` (`pane/app/engine_switches_unittest.cc`, `pane_unittests`): every launch, the user's and a scenario's, turns the feature on, beside `UiGpuRasterization` off. The memory budget, rerun by `tests/ab.ts` against the last Swift release; the browser process's allocator by footprint's categories and its live heap by Chromium's sampling heap profiler, from a test copy (a probe not in the repo, which `docs/benchmarks/views-vs-swift.md` describes; commit `f2972ad`).

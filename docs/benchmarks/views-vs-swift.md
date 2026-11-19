@@ -1,6 +1,8 @@
 # The Views build against the last Swift release
 
-The candidate for the first Views release (`docs/plans/views-migration.md`, Phase 4, K2b): `main` at `1f2ea43` with K2b's fixes, a stripped package (`PANE_STRIP=1 scripts/package.sh`, as `dist.sh` makes one, ad hoc, hardened), against the published 0.19.2, the last Swift release, as its dmg shipped it. Measured by Phase 1's budgets, the same way the gate and the shell's end were (`tests/ab.ts`, the two builds taking turns at each benchmark, round after round, the order flipping each round), on an M5 Pro on 2026-11-11, the Mac in use, and on battery from 18:38 on. Then the rest of what "Done when" asks of the Mac. Medians. Raw data: [views-vs-swift.json](views-vs-swift.json). The Views build is the subject throughout and 0.19.2 its baseline.
+Measured on an M5 Pro on 2026-11-11; the numbers are in [views-vs-swift.json](views-vs-swift.json), and the probes' dumps, heaps, and renders stayed on that Mac, out of the repo: Rerunning, at the end, says how to measure again.
+
+The candidate for the first Views release (2026-11-11, commit `eb35b47`): `main` at `1f2ea43` with that commit's fixes, a stripped package (`PANE_STRIP=1 scripts/package.sh`, as `dist.sh` makes one, ad hoc, hardened), against the published 0.19.2, the last Swift release, as its dmg shipped it. Measured by the budgets the prototype's gate set, the same way the gate and the shell's end were (`tests/ab.ts`, the two builds taking turns at each benchmark, round after round, the order flipping each round), on an M5 Pro on 2026-11-11, the Mac in use, and on battery from 18:38 on. Then the rest the first Views release was held to on the Mac, in the sections below. Medians. Raw data: [views-vs-swift.json](views-vs-swift.json). The Views build is the subject throughout and 0.19.2 its baseline.
 
 The Mac slept with its lid closed from 18:38 to 19:34, in the middle of the second round: the rounds or runs that sleep cut are left out, and the benchmarks they took from ran another round after it, so every row has three rounds or more.
 
@@ -39,12 +41,12 @@ Memory at one tab was over its budget. It was taken back after (Memory at one ta
 | Scroll, frames dropped of 480 | 0 | 0 | the same | ≤ 0.19.2's |
 | Warm load, GitHub | 613.8 ms | 619.0 ms | −0.8% | ≤ +3% |
 
-- **The GPU process holds 5.6 MB more at one tab:** the UI's tiles, 4.4 MB of IOSurfaces the browser rasters into on the CPU and the GPU process owns (ADR 0123), and the rest within its runs' swing; 0.19.2's AppKit kept the same pixels in the browser process, 8.2 MB of backing stores. The browser process holds less by more: at one tab the total is 3.3 MB under 0.19.2's (Memory at one tab), where K2b's candidate read 2.5% over, its allocator holding 7.8 MB of copied font tables that the font's own now replace (ADR 0125).
+- **The GPU process holds 5.6 MB more at one tab:** the UI's tiles, 4.4 MB of IOSurfaces the browser rasters into on the CPU and the GPU process owns (ADR 0123), and the rest within its runs' swing; 0.19.2's AppKit kept the same pixels in the browser process, 8.2 MB of backing stores. The browser process holds less by more: at one tab the total is 3.3 MB under 0.19.2's (Memory at one tab), where the candidate read 2.5% over before ADR 0125, its allocator holding 7.8 MB of copied font tables that the font's own now replace (ADR 0125).
 - **`smoke.html`'s warm load** is 0.2 ms later, within the rounds' own swing (0.19.2 5.6 to 5.9 ms, Views 5.9 to 6.4); `find.html` and `nav-a.html` load 34 to 36% sooner on the same rounds.
 
 ## Summary
 
-Phase 1's budgets, each row the median of the build's rounds, three or more: launch and pages from the three rounds of every benchmark; unlock from six, three more alone after the first set's round 1 ran as the Mac's load rose to 14; scroll and a frame's way to the screen from three, the round the Mac's sleep cut run again; memory from three rounds of the final tree, ADR 0125's change in it, from 22:35 on AC power (K2b's candidate: 146.9 against 143.3 MB at one tab, +2.5%, and 337.5 against 337.7 at ten).
+The budgets, each row the median of the build's rounds, three or more: launch and pages from the three rounds of every benchmark; unlock from six, three more alone after the first set's round 1 ran as the Mac's load rose to 14; scroll and a frame's way to the screen from three, the round the Mac's sleep cut run again; memory from three rounds of the final tree, ADR 0125's change in it, from 22:35 on AC power (the candidate before ADR 0125: 146.9 against 143.3 MB at one tab, +2.5%, and 337.5 against 337.7 at ten).
 
 | Measure | 0.19.2 | Views | Change | Budget | |
 |---|---:|---:|---:|---:|---|
@@ -68,11 +70,11 @@ Phase 1's budgets, each row the median of the build's rounds, three or more: lau
 | A painted frame reaching the screen, median | 19.0 ms | 18.9 ms | -0.1 ms | ≤ +1 ms | ✓ |
 | … p90 | 20.4 ms | 19.9 ms | -0.4 ms |  |  |
 
-The browser process's row counts the volume's watchdog with it, as the benchmark classes every process without a type. One UI edit to a running window, the gate's last row (≤ 30 s), read 34.0 s on battery (`sidebar_button.cc` touched, `chrome` rebuilt at 6 jobs), where B3 read 22.6 s on AC power; on AC power, after the memory rows, it read 24.5 and 24.1 s, twice the same way, the Mac's load at 5.3: within the gate's 30 s.
+The browser process's row counts the volume's watchdog with it, as the benchmark classes every process without a type. One UI edit to a running window, the gate's last row (≤ 30 s), read 34.0 s on battery (`sidebar_button.cc` touched, `chrome` rebuilt at 6 jobs), where the first reading of the edit loop, on 2026-11-08, read 22.6 s on AC power; on AC power, after the memory rows, it read 24.5 and 24.1 s, twice the same way, the Mac's load at 5.3: within the gate's 30 s.
 
 ## Memory at one tab
 
-K2b's candidate read 146.9 MB at one tab against 0.19.2's 143.3, +2.5% against a budget of +1%. Where it went was read from test copies at one tab after the benchmark's 30 s idle, through the runner, in the background (`evidence/views-migration/mem-1tab-probe`): each process's footprint and footprint's categories, vmmap's summary, a detailed memory-infra dump of every process, and the browser's live heap with each sample's stack (Chromium's sampling heap profiler, a sample every 8 KB from launch, read by `Memory.getBrowserSamplingProfile` and symbolized against the unstripped framework); on `out/Release` and the published 0.19.2, taking turns, on battery.
+The candidate read 146.9 MB at one tab against 0.19.2's 143.3, +2.5% against a budget of +1%. Where it went was read from test copies at one tab after the benchmark's 30 s idle, through the runner, in the background (Rerunning has the probe's commands): each process's footprint and footprint's categories, vmmap's summary, a detailed memory-infra dump of every process, and the browser's live heap with each sample's stack (Chromium's sampling heap profiler, a sample every 8 KB from launch, read by `Memory.getBrowserSamplingProfile` and symbolized against the unstripped framework); on `out/Release` and the published 0.19.2, taking turns, on battery.
 
 **The browser process.** Its allocator (PartitionAlloc, footprint's App-Specific Tag 14) held 46.0 MB against 0.19.2's 38.0, and CoreGraphics' images 0.5 against 8.2, AppKit's backing stores, which the Views build keeps as tiles in the GPU process. Of the 32.1 MB its live heap held, 7.8 MB were copies of one font's tables: gfx gives each typeface a HarfBuzz face of its own and copies every table the face reads into the heap (`GetFontTable`, `ui/gfx/harfbuzz_font_skia.cc`), and the system font's sizes and weights the UI draws make many typefaces of it, so at launch eleven held a copy each of SF's GPOS (408 KB) and GDEF (270 KB). Nothing else of Pane's own reaches a megabyte. The live heap at one tab, each sample by the first frame from its allocation outward:
 
@@ -103,7 +105,7 @@ By the surface whose code is on a sample's stack, the surfaces made at launch ho
 | Launch to the first window, cold, three rounds | 391.4, 455.5, 409.9 ms | 390.2, 449.1, 419.4 ms |
 | … warm | 397.9, 440.4, 445.6 ms | 393.4, 408.2, 432.9 ms |
 
-It changes no pixel. `surfaces`' 49 renders on the final tree, light and dark, against K2b's of the same tree with the tables copied: 33 in light and 35 in dark the same byte for byte, and the rest apart only where two runs of one build are, as K2b's two light runs were: the update row's clock, the fixtures' port in the address and in a sign-in dialog, the overlay scroll bar's fade, a spinner and a progress bar (each difference's pixels mapped and read). A paired run with the feature off on the same build, through `with-args`, stopped before its first step twice, so the tables' side is K2b's.
+It changes no pixel. `surfaces`' 49 renders on the final tree, light and dark, against the candidate's of the same tree with the tables copied: 33 in light and 35 in dark the same byte for byte, and the rest apart only where two runs of one build are, as the candidate's two light runs were: the update row's clock, the fixtures' port in the address and in a sign-in dialog, the overlay scroll bar's fade, a spinner and a progress bar (each difference's pixels mapped and read). A paired run with the feature off on the same build, through `with-args`, stopped before its first step twice, so the tables' side is the candidate's.
 
 **Left for the user.** What `//pane` could take back beyond it costs a first showing: the surfaces it makes at launch, so their first frame makes nothing (ADR 0123), made at their first showing instead. One was measured whole, the profile sheet made at its first showing against the same build as it is, taking turns (two rounds of the probe, six launches each for its first showing): the footprint at one tab 0.1 to 0.2 MB lighter (140.3 against 140.3 MB, the browser process 55.1 against 55.3), within the runs' own swing, and its first showing 5.3 ms later to its commit (4.3 → 9.6 ms) and 6.6 to the screen (19.0 → 25.6). Its objects take 0.89 MB of the sampled heap, but they fill slot spans the allocator holds anyway, so the footprint got back about a fifth of that. For the others, what each allocates (its share of the sampled heap, more than the footprint would get back) and the least its first showing would gain (its layout and text at launch, from a startup trace of three launches, `View::LayoutImmediately` by class, with its making on top, which no trace times):
 
@@ -166,7 +168,7 @@ Every scenario in `tests/scenarios`, 81, ran on the final tree's build through t
 
 ## No user's data at risk
 
-Each row of ADR 0122's table, on a package of the final tree, with a PIN and without, the earlier builds the published ones (`evidence/views-migration/apps.noindex/published/`):
+Each row of ADR 0122's table, on a package of the final tree, with a PIN and without, the earlier builds the published ones:
 
 | Coming from | Without a PIN | With a PIN |
 |---|---|---|
@@ -177,11 +179,11 @@ Each row of ADR 0122's table, on a package of the final tree, with a PIN and wit
 | 0.18.0 and 0.18.1 | `files-migration` with `PANE_REPAIR_FROM` (0.18.0): what it left put right | the same, the session behind a PIN, each Pane unlocking first |
 | 0.18.2 and later | the swap pass: a session this Pane wrote, from a new folder, read whole by 0.19.1 and by 0.19.2 | the swap pass: 0.19.1's and 0.19.2's sessions behind a PIN read here, this Pane's values added, and read back by each |
 
-The swap pass is C1's: 0.19.1, then the Views build, then 0.19.1 again reading back what Views wrote, cookies, local storage, and IndexedDB, and the same with 0.19.2. C1's vectors run in `pane_unittests` (`SwiftVectorsTest`). The published Swift release updating itself to the first Views release, for real, waits for its publishing (K4).
+The swap pass is the one that proved the data's formats in the port (2026-11-09, commits `4d419e2` and `94040f0`): 0.19.1, then the Views build, then 0.19.1 again reading back what Views wrote, cookies, local storage, and IndexedDB, and the same with 0.19.2. Its vectors run in `pane_unittests` (`SwiftVectorsTest`). The published Swift release updating itself to the first Views release, for real, waited for its publishing (0.20.0, 2026-11-12).
 
 ## It looks the same
 
-Every board of the Pane file in Paper, 218, against the Views build's render of its state, light and dark, at 2×, and against the Swift release's render where B2 made one: [views-vs-swift-boards.md](views-vs-swift-boards.md), a row per board. Each surface sits, sizes, and colors as its board in both themes. Against the Swift's renders, the window differs on 0.13 to 0.29% of its pixels on every Lock and PIN state, the empty state, and the update pill; 0.4 to 2.3% on the toolbar, find, the switcher, the dialogs, Settings, the App icon picker, and the extensions menus; 2 to 7% on the profile sheet (its own region 3.2 to 3.7%), and 12 to 18% where Group left it (the user's answer, N1). Nearly all of it is ADR 0060's text. In dark, the dialogs' and Quit Pane?'s shadows fall where the Swift's renders show the page's area white, and the Swift's dialog card let 4% of that white through (`#343436`), where the Views card and Paper's are `#2B2B2D`.
+Every board of the Pane file in Paper, 218, against the Views build's render of its state, light and dark, at 2×, and against the Swift release's render where commit `e9acb94` made one: [views-vs-swift-boards.md](views-vs-swift-boards.md), a row per board. Each surface sits, sizes, and colors as its board in both themes. Against the Swift's renders, the window differs on 0.13 to 0.29% of its pixels on every Lock and PIN state, the empty state, and the update pill; 0.4 to 2.3% on the toolbar, find, the switcher, the dialogs, Settings, the App icon picker, and the extensions menus; 2 to 7% on the profile sheet (its own region 3.2 to 3.7%), and 12 to 18% where Group left it (the user's answer, 2026-11-11). Nearly all of it is ADR 0060's text. In dark, the dialogs' and Quit Pane?'s shadows fall where the Swift's renders show the page's area white, and the Swift's dialog card let 4% of that white through (`#343436`), where the Views card and Paper's are `#2B2B2D`.
 
 Out of date in Paper, for the user: 04.14 and 04.14.1, the page's menu in the Electron order (ADR 0058's note), and the 33 boards of 09, the extensions pages D3 replaced.
 
@@ -202,14 +204,14 @@ Read and left, each for a reason: the fingerprint's fields in `pane/model/engine
 
 ## The measures
 
-By the plan's table's commands, on the final tree (`main` at `1f2ea43` with K2b's changes):
+Counted on the final tree (`main` at `1f2ea43` with the changes of commit `eb35b47`), against 0.19.1's:
 
 | Measure | At 0.19.1 (`8bee4e5`) | Now | Target at the Mac's cutover | |
 |---|---:|---:|---:|---|
 | Swift in the product | 22,924 | 0 | 0 | ✓ |
-| Objective-C++ (`.mm`) | 7,929 | 1,855 (18 files) | ≤ 800 | missed (K2a: what stays calls an Objective-C class or header) |
+| Objective-C++ (`.mm`) | 7,929 | 1,855 (18 files) | ≤ 800 | missed (2026-11-11: what stays calls an Objective-C class or header) |
 | Product lines: `pane/`'s `.cc`, `.mm`, `.h`, and C | 41,578 | 85,487 | ≤ 37,000 (estimate) | missed: 14,225 of them `pane/`'s unit tests and their helpers, 3,707 the scenarios' channel, which the 0.19.1 column never counted, and Views is wordier than SwiftUI |
-| Chromium files the patches edit | 93 | 90 | ≤ 89 | missed by 1 (reading mode's hunk, K3) |
+| Chromium files the patches edit | 93 | 90 | ≤ 89 | missed by 1 (reading mode's hunk, 2026-11-11) |
 | Lines changed in those files | 1,034 | 994 | ≤ 990 | missed by 4 |
 | Files the patches add | 9 | 9 | ≤ 9 | ✓ |
 | Build systems | gn, xcodebuild, SwiftPM | gn | gn | ✓ |
@@ -241,7 +243,7 @@ bun tests/ab.ts --base <0.19.2>/Contents/MacOS/Pane --candidate <dir>/Pane.app/C
 	--out <out> --rounds 3 launch unlock pages memory scroll frame-latency
 ```
 
-The keys in the background, on either build, through its own channel (`evidence/views-migration/cmdt-probe/ab-key-timing.ts`, kept with the evidence), three runs each, taking turns; and with Pane in front, as the gate measured them, on an idle Mac or with its user's word (`CI=true` is what makes `run.ts` take the front for `ab.ts`'s runs; `run.ts:134`):
+The keys in the background, on either build, through its own channel (`ab-key-timing.ts`, a probe not in the repo), three runs each, taking turns; and with Pane in front, as the gate measured them, on an idle Mac or with its user's word (`CI=true` is what makes `run.ts` take the front for `ab.ts`'s runs; `run.ts:134`):
 
 ```bash
 CI=true bun tests/ab.ts --base <0.19.2> --candidate <Views> --out <out> --rounds 5 interaction-timing
@@ -249,11 +251,11 @@ CI=true bun tests/ab.ts --base <0.19.2> --candidate <Views> --out <out> --rounds
 
 The renders, light and dark, from the rigs (`tests/rigs/surfaces.ts` and `views-*.ts`, `--appearance light|dark`), and the boards from Paper's local MCP (`export`, 2×, read only).
 
-Where the memory goes at one tab, from a test copy through the runner (`evidence/views-migration/mem-1tab-probe/probe.ts`, kept with the evidence): footprint by process and its categories, vmmap, a detailed memory-infra dump of every process, and with `PROBE_HEAP` the browser's live heap with its stacks, from Chromium's sampling heap profiler started at launch; each surface's first showing after a launch (`first-showings.ts`); a feature turned off on the same build for an A/B (`PROBE_ARGS`):
+Where the memory goes at one tab, from a test copy through the runner (`probe.ts`, a probe not in the repo, with `first-showings.ts` beside it): footprint by process and its categories, vmmap, a detailed memory-infra dump of every process, and with `PROBE_HEAP` the browser's live heap with its stacks, from Chromium's sampling heap profiler started at launch; each surface's first showing after a launch (`first-showings.ts`); a feature turned off on the same build for an A/B (`PROBE_ARGS`):
 
 ```bash
 PROBE_LABEL=views PROBE_HEAP=1 PROBE_ARGS="--enable-features=HeapProfilerReporting:stable-probability/1/browser-sampling-rate-bytes/8192" \
-	bun tests/run.ts --binary <Views build> --out <dir> evidence/views-migration/mem-1tab-probe/probe.ts
+	bun tests/run.ts --binary <Views build> --out <dir> <probe.ts>
 PROBE_ARGS="--disable-features=HarfBuzzZeroCopyFontTable" PROBE_LAUNCHES=3 \
-	bun tests/run.ts --binary <Views build> --out <dir> evidence/views-migration/mem-1tab-probe/first-showings.ts
+	bun tests/run.ts --binary <Views build> --out <dir> <first-showings.ts>
 ```
