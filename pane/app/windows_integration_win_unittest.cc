@@ -174,6 +174,37 @@ TEST_F(WindowsIntegrationTest, DefaultAppsEntriesArePanes) {
       L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe"));
 }
 
+// Start's shortcut alone, as Register makes it, in a Start folder not there
+// yet, as a test copy's home has none at its first launch: what Chrome reads
+// to show its toasts through Windows (W10f). Nothing else is registered: no
+// desktop shortcut, toast activator, or uninstall entry.
+TEST_F(WindowsIntegrationTest, MakesStartsShortcutAsTheInstallDoes) {
+  base::FilePath start_menu;
+  ASSERT_TRUE(base::PathService::Get(base::DIR_START_MENU, &start_menu));
+  ASSERT_TRUE(base::DeletePathRecursively(start_menu));
+  EXPECT_FALSE(InstallUtil::IsStartMenuShortcutWithActivatorGuidInstalled());
+
+  ASSERT_TRUE(MakeStartShortcut(chrome_exe_, data_));
+
+  base::win::ShortcutProperties found;
+  ASSERT_TRUE(base::win::ResolveShortcutProperties(
+      Shortcut(base::DIR_START_MENU),
+      base::win::ShortcutProperties::PROPERTIES_ALL, &found));
+  EXPECT_TRUE(base::FilePath::CompareEqualIgnoreCase(found.target.value(),
+                                                     chrome_exe_.value()));
+  EXPECT_TRUE(base::FilePath::CompareEqualIgnoreCase(
+      found.icon.value(), SkyIcon(app_, ShortcutSky(data_)).value()));
+  EXPECT_EQ(found.description, L"Every profile, its own internet.");
+  EXPECT_EQ(found.app_id,
+            ShellUtil::GetBrowserModelId(InstallUtil::IsPerUserInstall()));
+  EXPECT_EQ(found.toast_activator_clsid,
+            install_static::GetToastActivatorClsid());
+  EXPECT_TRUE(InstallUtil::IsStartMenuShortcutWithActivatorGuidInstalled());
+  EXPECT_FALSE(base::PathExists(Shortcut(base::DIR_USER_DESKTOP)));
+  EXPECT_FALSE(KeyExists(InstallUtil::GetToastActivatorRegistryPath()));
+  EXPECT_FALSE(KeyExists(install_static::GetUninstallRegistryPath()));
+}
+
 // Start's shortcut, the desktop's at a first install, Default apps, the
 // uninstall entry, the toast activator; a repair puts Start's back and never
 // the desktop's (11.12.3's A); the uninstall takes them all and keeps the

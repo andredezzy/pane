@@ -1,5 +1,10 @@
 import { join } from "node:path";
-import { type AppState, launchPane, tabOf } from "../lib/pane";
+import {
+	type AppState,
+	launchPane,
+	SCROLL_BAR_GONE_MS,
+	tabOf,
+} from "../lib/pane";
 import { captureWindow } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
@@ -254,7 +259,13 @@ const viewsSidebar: Scenario = async (context) => {
 		"the edge dragged out and back is not at 260",
 	);
 
-	await app.render("sidebar-overflow-end.png", 900);
+	// The pointer off the list, over the page, and the list's overlay scroll
+	// bar gone (ADR 0128): the drag let go at the sidebar's edge, where the
+	// bar and the edge's handle meet, and on Windows, once the system's own
+	// move after the drag no longer reached the copy (W10f), the bar was
+	// hovered, fading, or gone by the run's timing.
+	await app.send("hoverWindow", { x: 700, y: 400 });
+	await app.render("sidebar-overflow-end.png", SCROLL_BAR_GONE_MS);
 	frames = await app.frames();
 	log.overflowEnd = frames;
 	await app.send("scrollWindow", { x: 130, y: 400, dy: 160 });

@@ -1,7 +1,9 @@
+import { existsSync, rmSync } from "node:fs";
 import {
 	clickNotification,
 	NOTIFICATIONS_OUTLIVE_THEIR_PROFILE,
 	type SiteNotification,
+	TOASTS_NEED_A_START_SHORTCUT,
 	toastLaunchId,
 } from "../lib/browser";
 import {
@@ -15,6 +17,7 @@ import {
 import { poll } from "../lib/poll";
 import { waitForExit } from "../lib/processes";
 import { answerSheet, waitForSheet } from "../lib/surfaces";
+import { startShortcut } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
 // A site's notification, clicked in the system's own center, reaches the site
@@ -36,7 +39,10 @@ import { expect, type Scenario } from "../run";
 // after the PIN (W8d). Chrome takes a profile's notifications from macOS's
 // center as the profile closes, at a lock and at quit, so a click behind the
 // lock is one that lands as the lock comes, and none is left once Pane has
-// quit.
+// quit. On Windows a toast is Windows' only while Start holds Pane's
+// shortcut, which a test copy's first launch makes in its own home: with it
+// deleted, the notification shows in Chrome's own center, and the Lock still
+// closes the profile and leaves Pane running, the popup gone (W10f).
 const notificationClick: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-notification-");
 	await setPinBeforeLaunch(context, dataDir, "1234");
@@ -204,7 +210,88 @@ const notificationClick: Scenario = async (context) => {
 		(state) => clicked(state, profileId, "closed")?.id === state.activeTabID,
 		60_000,
 	);
+
+	if (TOASTS_NEED_A_START_SHORTCUT) {
+		await lockWithChromesCenter(app, profileId, pageUrl);
+	}
 };
+
+// Start's shortcut deleted, as a person may delete theirs: Chrome shows the
+// site's notification in its own center, a popup window of Pane's process at
+// the screen's corner, and each one there held its profile open, so the Lock
+// that came while one showed found the profile open and quit Pane, the popup
+// beside the PIN until then (W10f). The Lock takes it from Chrome's center:
+// Pane stays, locked, the profile closed and the data with it, and nothing of
+// the notification shows. The copy's own shortcut, which its first launch
+// made as the install makes the user's (pane/app/data_launch_win.cc), is the
+// one deleted: the user's Start menu is never read or written.
+async function lockWithChromesCenter(
+	app: PaneApp,
+	profileId: string,
+	pageUrl: string,
+) {
+	const link = startShortcut(app.home);
+	expect(existsSync(link), `the copy's first launch made no Start shortcut`);
+	rmSync(link);
+
+	// The profile opens again behind the PIN, and asks Windows' center anew
+	// whether it takes the toasts: without the shortcut, no.
+	await app.send("lockNow");
+
+	await app.waitFor(
+		"locked, the profiles gone",
+		(state) => state.security.locked && state.profiles.length === 0,
+		30_000,
+	);
+
+	await unlock(app);
+	const { page } = await app.openPage(profileId, pageUrl);
+	await page.evaluate("window.ready");
+	const before = (await app.state()).nativeWindows.map((each) => each.number);
+	await page.evaluate(`show("center")`);
+
+	const shown = await app.waitFor(
+		"the notification's popup in Chrome's own center",
+		(state) =>
+			state.nativeWindows.some(
+				(each) => each.role !== "main" && !before.includes(each.number),
+			),
+		15_000,
+	);
+
+	const popups = shown.nativeWindows.filter(
+		(each) => each.role !== "main" && !before.includes(each.number),
+	);
+
+	await app.send("lockNow");
+
+	await app.waitFor(
+		"locked with the popup showing, the profiles gone",
+		(state) => state.security.locked && state.profiles.length === 0,
+		30_000,
+	);
+
+	await poll("the data closed", () => dataClosed(app), 30_000);
+
+	// Past the Lock's 10 s for a profile to close, after which one still open
+	// makes Pane quit (ADR 0116).
+	await Bun.sleep(12_000);
+	const behind = await app.state();
+
+	const left = behind.nativeWindows.filter((each) =>
+		popups.some((popup) => popup.number === each.number),
+	);
+
+	expect(
+		behind.security.locked &&
+			!behind.engineProfiles.includes(profileId) &&
+			(await dataClosed(app)) &&
+			left.length === 0,
+		`the Lock with Chrome's own popup showing: ${JSON.stringify({ locked: behind.security.locked, engineProfiles: behind.engineProfiles, popups, left })}`,
+	);
+
+	await unlock(app);
+}
 
 async function unlock(app: PaneApp) {
 	await app.send("pinKeys", { keys: "1234" });

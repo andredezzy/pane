@@ -482,21 +482,26 @@ DWORD Register(const base::FilePath& chrome_exe,
     LOG(ERROR) << "Could not write the uninstall entry: " << error;
     return error;
   }
-  const ShellUtil::ShortcutProperties properties =
-      ShortcutProperties(chrome_exe, ShortcutSky(data_folder));
   // Start's always, a reinstall's repair too; the desktop's at a first
   // install alone, so one the user deleted never comes back (11.12.3).
-  if (!ShellUtil::CreateOrUpdateShortcut(
-          ShellUtil::SHORTCUT_LOCATION_START_MENU_ROOT, properties,
-          ShellUtil::SHELL_SHORTCUT_CREATE_ALWAYS)) {
+  if (!MakeStartShortcut(chrome_exe, data_folder)) {
     LOG(ERROR) << "Could not make Start's shortcut";
     return ERROR_CANNOT_MAKE;
   }
   ShellUtil::CreateOrUpdateShortcut(
-      ShellUtil::SHORTCUT_LOCATION_DESKTOP, properties,
+      ShellUtil::SHORTCUT_LOCATION_DESKTOP,
+      ShortcutProperties(chrome_exe, ShortcutSky(data_folder)),
       first_install ? ShellUtil::SHELL_SHORTCUT_CREATE_ALWAYS
                     : ShellUtil::SHELL_SHORTCUT_REPLACE_EXISTING);
   return ERROR_SUCCESS;
+}
+
+bool MakeStartShortcut(const base::FilePath& chrome_exe,
+                       const base::FilePath& data_folder) {
+  return ShellUtil::CreateOrUpdateShortcut(
+      ShellUtil::SHORTCUT_LOCATION_START_MENU_ROOT,
+      ShortcutProperties(chrome_exe, ShortcutSky(data_folder)),
+      ShellUtil::SHELL_SHORTCUT_CREATE_ALWAYS);
 }
 
 DWORD Unregister(const base::FilePath& chrome_exe,

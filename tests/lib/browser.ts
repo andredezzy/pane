@@ -205,6 +205,16 @@ export const NOTIFICATIONS_OUTLIVE_THEIR_PROFILE = bySystem({
 	windows: true,
 });
 
+// Whether the system's center takes a site's notifications only while Start
+// holds Pane's shortcut: Chrome's toasts are Windows' while Start's Pane.lnk
+// names Pane's toast activator (NotificationPlatformBridgeWin), and without
+// it, deleted, Chrome shows them in its own center, a popup of Pane's own
+// process at the screen's corner. macOS's center needs no shortcut.
+export const TOASTS_NEED_A_START_SHORTCUT = bySystem({
+	mac: false,
+	windows: true,
+});
+
 export type LaunchOptions = {
 	args?: string[];
 	env?: Record<string, string>;

@@ -2,6 +2,7 @@
 
 #include "pane/browser/profiles.h"
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -28,6 +29,8 @@
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/notifications/notification_ui_manager.h"
+#include "chrome/browser/notifications/profile_notification.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -73,6 +76,7 @@
 #include "pane/model/profile.h"
 #include "services/network/enterprise/encryption/pane_cache_hook.h"
 #include "services/network/public/mojom/network_service.mojom.h"
+#include "ui/message_center/message_center.h"
 
 namespace pane {
 
@@ -258,6 +262,36 @@ void CloseEveryPage(Profile* profile) {
     while (browser && model && !model->empty()) {
       model->DetachAndDeleteWebContentsAt(model->count() - 1);
     }
+  }
+}
+
+// The profile's notifications in Chrome's own center go, its popups with
+// them: each holds its profile open (ProfileNotification's keep-alive), so a
+// profile showing one never closed, and its popup stayed on the screen beside
+// the PIN. Chrome shows a site's notifications there where the system's
+// center can't take them: on Windows with no Start shortcut naming Pane's
+// toast activator, which a person may have deleted (W10f). The system's own
+// center holds no profile and keeps its notifications as it does at a
+// profile's close (ADR 0109): they are left alone. Closed so, by no one, a
+// site hears no notificationclose, as at Chrome's quit. With Chrome's center
+// empty, as on the Mac and with Windows' toasts, nothing is asked: Chrome
+// makes its center's manager at the first ask, and with it a blocker that
+// polls each second while the system's screen is locked, as it is at a Lock
+// the screen's lock brought.
+void CloseNotificationsInChromesCenter(Profile* profile) {
+  const message_center::MessageCenter* shown =
+      message_center::MessageCenter::Get();
+  if (!shown || shown->NotificationCount() == 0) {
+    return;
+  }
+  NotificationUIManager* center = g_browser_process->notification_ui_manager();
+  if (!center) {
+    return;
+  }
+  const ProfileNotification::ProfileID id =
+      ProfileNotification::GetProfileID(profile);
+  for (const std::string& notification : center->GetAllIdsByProfile(id)) {
+    center->CancelById(notification, id);
   }
 }
 
@@ -453,6 +487,7 @@ void CloseProfile(Profile* profile,
   // partial file removed.
   DownloadCoreServiceFactory::GetForBrowserContext(profile)->CancelDownloads(
       DownloadCoreService::CancelDownloadsTrigger::kShutdown);
+  CloseNotificationsInChromesCenter(profile);
   keep_alive.reset();
   CloseEveryPage(profile);
   chrome::CloseAllBrowsersWithProfile(profile);

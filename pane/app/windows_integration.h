@@ -64,6 +64,14 @@ DWORD Register(const base::FilePath& chrome_exe,
                const base::FilePath& data_folder,
                bool first_install);
 
+// Start's shortcut to `chrome_exe`, in the folder base::DIR_START_MENU names,
+// made as Register makes it: Pane's name, its AppUserModelID, the toast
+// activator, and the sky `data_folder`'s settings give. Windows' toasts are
+// Chrome's only while it is there (NotificationPlatformBridgeWin reads it as
+// a profile opens). False if it couldn't be made.
+bool MakeStartShortcut(const base::FilePath& chrome_exe,
+                       const base::FilePath& data_folder);
+
 // How an erase is going: the data's bytes erased, of all of them.
 using EraseProgress = base::RepeatingCallback<void(uint64_t, uint64_t)>;
 

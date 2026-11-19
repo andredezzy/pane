@@ -18,7 +18,7 @@ import {
 	statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, join } from "node:path";
 import type { Subprocess } from "bun";
 import { bySystem, ENGINE_FOLDER, noWindowsSide, powershell } from "./platform";
 
@@ -340,18 +340,19 @@ export const setSystemDark = bySystem({
 	},
 });
 
-// Pane's Start shortcut in a test copy's home, to `binary`, naming Day's
-// .ico beside it, as an install makes the user's: Start's folder there is
-// the copy's own (pane/app/data_launch_win.cc), so the App icon follows in it
-// (DockIcon). Its path. The Mac has no shortcut to follow: its Dock alone.
-export const makeStartShortcut = bySystem({
-	mac: async (_home: string, _binary: string): Promise<string> => {
+// Pane's Start shortcut in a test copy's home, as the copy's first launch
+// made it, the install's way (pane/app/data_launch_win.cc): Start's folder
+// there is the copy's own, so its toasts are Windows' and the App icon
+// follows in it (DockIcon). Its path. The Mac has no shortcut to follow: its
+// Dock alone.
+export const startShortcut = bySystem({
+	mac: (_home: string): string => {
 		throw new Error(
 			"the Mac has no Start shortcut: the Dock shows the App icon",
 		);
 	},
-	windows: async (home: string, binary: string): Promise<string> => {
-		const folder = join(
+	windows: (home: string): string =>
+		join(
 			home,
 			"AppData",
 			"Roaming",
@@ -359,22 +360,8 @@ export const makeStartShortcut = bySystem({
 			"Windows",
 			"Start Menu",
 			"Programs",
-		);
-
-		mkdirSync(folder, { recursive: true });
-		const link = join(folder, "Pane.lnk");
-
-		await powershell(
-			"$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LINK); $s.TargetPath = $env:TARGET; $s.IconLocation = $env:ICON; $s.Save()",
-			{
-				LINK: link,
-				TARGET: binary,
-				ICON: `${join(dirname(binary), "AppIcon-Day.ico")},0`,
-			},
-		);
-
-		return link;
-	},
+			"Pane.lnk",
+		),
 });
 
 // The icon file a shortcut names, as Windows reads it (WScript.Shell's

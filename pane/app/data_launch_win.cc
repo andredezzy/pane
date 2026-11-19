@@ -26,12 +26,14 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "base/win/scoped_com_initializer.h"
 #include "chrome/browser/prefs/profile_pref_store_manager.h"
 #include "chrome/chrome_elf/chrome_elf_main.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/install_static/install_util.h"
 #include "crypto/sha2.h"
 #include "pane/app/test_copy.h"
+#include "pane/app/windows_integration.h"
 #include "pane/model/app_lock.h"
 #include "pane/model/data_lock.h"
 #include "pane/model/engine_folder.h"
@@ -185,7 +187,16 @@ void KeepOutOfTheIndex(const base::FilePath& folder) {
 // never the user's: Start's, the desktop's, and the taskbar pins' (under
 // AppData) are the ones the App icon follows (DockIcon). Its data and its
 // engine's stay where the launch names them.
-void TakeTestCopyHome() {
+//
+// Its Start folder holds Pane.lnk from the home's first launch, which stands
+// for the install: made as the install makes the user's (MakeStartShortcut),
+// so the copy's toasts are Windows' as an installed Pane's are. Chrome takes
+// them only while that shortcut is there, and without it showed the site's
+// notification in its own center, which held the profile open through the
+// Lock (W10e). Made at that launch alone: a scenario that deletes it finds
+// it gone at the next launch, as a person who deleted theirs does until they
+// install again. It goes with the home.
+void TakeTestCopyHome(const base::FilePath& data_directory) {
   const std::optional<std::string> named = model::TestHook("PANE_HOME_DIR");
   if (!named) {
     return;
@@ -198,24 +209,44 @@ void TakeTestCopyHome() {
   if (!base::PathService::Override(base::DIR_HOME, home)) {
     LOG(ERROR) << "Could not give a test copy its home";
   }
-  const std::pair<int, const base::FilePath::CharType*> folders[] = {
-      {base::DIR_USER_DESKTOP, FILE_PATH_LITERAL("Desktop")},
-      {base::DIR_ROAMING_APP_DATA, FILE_PATH_LITERAL("AppData\\Roaming")},
-      {base::DIR_LOCAL_APP_DATA, FILE_PATH_LITERAL("AppData\\Local")},
-      {base::DIR_START_MENU,
-       FILE_PATH_LITERAL("AppData\\Roaming\\Microsoft\\Windows\\Start "
-                         "Menu\\Programs")},
-      {chrome::DIR_USER_DOCUMENTS, FILE_PATH_LITERAL("Documents")},
-      {chrome::DIR_USER_MUSIC, FILE_PATH_LITERAL("Music")},
-      {chrome::DIR_USER_PICTURES, FILE_PATH_LITERAL("Pictures")},
-      {chrome::DIR_USER_VIDEOS, FILE_PATH_LITERAL("Videos")},
-      {chrome::DIR_DEFAULT_DOWNLOADS, FILE_PATH_LITERAL("Downloads")},
-      {chrome::DIR_DEFAULT_DOWNLOADS_SAFE, FILE_PATH_LITERAL("Downloads")},
+  const base::FilePath start = home.Append(FILE_PATH_LITERAL(
+      "AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs"));
+  // Read before the overrides, which make each folder they name.
+  const bool first_launch = !base::DirectoryExists(start);
+  const std::pair<int, base::FilePath> folders[] = {
+      {base::DIR_USER_DESKTOP, home.Append(FILE_PATH_LITERAL("Desktop"))},
+      {base::DIR_ROAMING_APP_DATA,
+       home.Append(FILE_PATH_LITERAL("AppData\\Roaming"))},
+      {base::DIR_LOCAL_APP_DATA,
+       home.Append(FILE_PATH_LITERAL("AppData\\Local"))},
+      {base::DIR_START_MENU, start},
+      {chrome::DIR_USER_DOCUMENTS, home.Append(FILE_PATH_LITERAL("Documents"))},
+      {chrome::DIR_USER_MUSIC, home.Append(FILE_PATH_LITERAL("Music"))},
+      {chrome::DIR_USER_PICTURES, home.Append(FILE_PATH_LITERAL("Pictures"))},
+      {chrome::DIR_USER_VIDEOS, home.Append(FILE_PATH_LITERAL("Videos"))},
+      {chrome::DIR_DEFAULT_DOWNLOADS,
+       home.Append(FILE_PATH_LITERAL("Downloads"))},
+      {chrome::DIR_DEFAULT_DOWNLOADS_SAFE,
+       home.Append(FILE_PATH_LITERAL("Downloads"))},
   };
   for (const auto& [key, folder] : folders) {
-    if (!base::PathService::Override(key, home.Append(folder))) {
+    if (!base::PathService::Override(key, folder)) {
       LOG(ERROR) << "Could not give a test copy's home folder " << key;
     }
+  }
+  base::FilePath given;
+  base::FilePath chrome_exe;
+  if (!first_launch || !base::PathService::Get(base::DIR_START_MENU, &given) ||
+      !InTemporaryFolder(given) ||
+      !base::PathService::Get(base::FILE_EXE, &chrome_exe)) {
+    return;
+  }
+  // The shell's objects make it, as the register switch's do.
+  base::win::ScopedCOMInitializer com;
+  windows::UsePanesWords();
+  if (!com.Succeeded() ||
+      !windows::MakeStartShortcut(chrome_exe, data_directory)) {
+    LOG(ERROR) << "Could not make a test copy's Start shortcut";
   }
 }
 
@@ -368,7 +399,7 @@ std::optional<int> PrepareData(const base::FilePath& data_directory,
   if (base::DirectoryExists(model::EngineFolder(data_directory))) {
     KeepOutOfTheIndex(model::EngineFolder(data_directory));
   }
-  TakeTestCopyHome();
+  TakeTestCopyHome(data_directory);
   // Before the wipe's at launch, which forgets them, and the first profile.
   NamePreferenceMacsKey(data_directory, test_copy);
 

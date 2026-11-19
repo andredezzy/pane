@@ -1,5 +1,5 @@
 import { checkMenuUnderTrigger } from "../lib/menu-button";
-import { launchPane } from "../lib/pane";
+import { launchPane, SCROLL_BAR_GONE_MS } from "../lib/pane";
 import { poll, pollValue } from "../lib/poll";
 import { silentServer, startSocks5Proxy } from "../lib/proxies";
 import { expect, type Scenario } from "../run";
@@ -86,10 +86,15 @@ const viewsProfileSheet: Scenario = async (context) => {
 			await Bun.sleep(400);
 		};
 
-		// The pointer on the sheet's title, where nothing answers a hover.
+		// The pointer on the sheet's title, where nothing answers a hover, and
+		// the overlay scroll bar a reveal's scroll showed gone (ADR 0128): on
+		// Windows a render 0.8 s after a press caught its fade's end in one run
+		// of two, once the system's own pointer no longer reached the copy
+		// (W10f).
 		const render = async (name: string) => {
 			const sheet = await frame("pane.profileSheet");
 			await app.send("hoverWindow", { x: sheet.x + 32, y: sheet.y + 28 });
+			await Bun.sleep(SCROLL_BAR_GONE_MS);
 
 			for (const theme of ["light", "dark"]) {
 				await app.send("theme", { theme });

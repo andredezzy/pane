@@ -1,12 +1,13 @@
+import { existsSync } from "node:fs";
 import { bringToFront, launchPane, type PaneApp } from "../lib/pane";
 import { bySystem } from "../lib/platform";
 import { pollValue } from "../lib/poll";
 import {
 	holdMapped,
 	inTheTestVM,
-	makeStartShortcut,
 	setSystemDark,
 	shortcutIcon,
+	startShortcut,
 	systemIsDark,
 } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
@@ -58,15 +59,16 @@ const followsTheSystem = bySystem({
 				}
 			}
 
-			// Start's shortcut, made in the copy's own home as the install makes
-			// the user's, names the sky of Windows' last change, read right after
-			// each of eight changes each way; every second light change finds it
-			// held mapped 1.5 s, as Windows' shell maps it while it reads it for
-			// Pane's taskbar button. A rewrite refused meanwhile
-			// (ERROR_USER_MAPPED_FILE) is tried again, where it once stayed on
-			// Night until Windows' next change, the taskbar's button with it
-			// (W9a, W9d; W10a).
-			const link = await makeStartShortcut(app.home, context.binary);
+			// Start's shortcut, which the copy's first launch made in its own
+			// home as the install makes the user's, names the sky of Windows'
+			// last change, read right after each of eight changes each way;
+			// every second light change finds it held mapped 1.5 s, as Windows'
+			// shell maps it while it reads it for Pane's taskbar button. A
+			// rewrite refused meanwhile (ERROR_USER_MAPPED_FILE) is tried again,
+			// where it once stayed on Night until Windows' next change, the
+			// taskbar's button with it (W9a, W9d; W10a).
+			const link = startShortcut(app.home);
+			expect(existsSync(link), `no Start shortcut in the copy's home: ${link}`);
 
 			for (let round = 1; round <= 8; round++) {
 				for (const [windowsDark, sky] of [
